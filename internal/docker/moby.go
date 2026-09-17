@@ -127,8 +127,9 @@ func summaryToContainer(c container.Summary) Container {
 		}
 		ports = append(ports, PortMapping{HostIP: ip, HostPort: int(p.PublicPort), ContainerPort: int(p.PrivatePort), Protocol: p.Type})
 	}
+	// Docker reports "none" for containers without a healthcheck; treat that as no health.
 	health := ""
-	if c.Health != nil {
+	if c.Health != nil && c.Health.Status != "none" {
 		health = string(c.Health.Status)
 	}
 	return Container{
