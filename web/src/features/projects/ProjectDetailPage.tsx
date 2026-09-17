@@ -1,6 +1,6 @@
 import { clsx } from "clsx";
 import { Trash2, Save, ExternalLink } from "lucide-react";
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ApiError } from "@/api/client";
 import { useProject, useProjectPlan, useProjectStats, usePublicHost, useRuntimes, useUpdateProject } from "@/api/hooks";
@@ -11,7 +11,8 @@ import { DeleteProjectDialog, ProjectActionButtons, useActionError } from "./Pro
 import { DatabaseTab } from "./DatabaseTab";
 import { EnvEditor } from "./EnvEditor";
 import { LogsTab } from "./LogsTab";
-import { TerminalTab } from "./TerminalTab";
+// xterm.js is only needed on this tab; keep it out of the main bundle.
+const TerminalTab = lazy(() => import("./TerminalTab").then((m) => ({ default: m.TerminalTab })));
 import { PhpConfigForm } from "./PhpConfigForm";
 
 const tabs = ["Overview", "Terminal", "Logs", "PHP", "Database", "Environment", "Advanced"] as const;
@@ -102,7 +103,11 @@ export function ProjectDetailPage() {
       </div>
 
       {tab === "Overview" && <OverviewTab project={p} />}
-      {tab === "Terminal" && <TerminalTab project={p} />}
+      {tab === "Terminal" && (
+        <Suspense fallback={<Spinner label="Loading terminal…" />}>
+          <TerminalTab project={p} />
+        </Suspense>
+      )}
       {tab === "Logs" && <LogsTab project={p} />}
       {tab === "PHP" && <PhpTab project={p} />}
       {tab === "Database" && <DatabaseTab project={p} />}
