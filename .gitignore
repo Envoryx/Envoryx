@@ -1,0 +1,13 @@
+/bin/
+/dist/
+*.db
+*.db-wal
+*.db-shm
+.env
+web/node_modules/
+web/dist/*
+!web/dist/.gitkeep
+coverage.out
+/.local/
+web/*.tsbuildinfo
+.idea/

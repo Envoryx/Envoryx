@@ -1,0 +1,180 @@
+// Package db opens the Staqio SQLite database and applies embedded migrations.
+package db
+
+import (
+	"context"
+	"database/sql"
+	"embed"
+	"errors"
+	"fmt"
+	"io/fs"
+	"log/slog"
+	"os"
+	"path/filepath"
+	"sort"
+	"strconv"
+	"strings"
+	"time"
+
+	_ "modernc.org/sqlite" // SQLite driver
+)
+
+//go:embed migrations/*.sql
+var migrationFS embed.FS
+
+// Open opens (and creates if necessary) the SQLite database at path and applies all
+// pending migrations. Use ":memory:" for an in-memory database (tests).
+func Open(ctx context.Context, path string, log *slog.Logger) (*sql.DB, error) {
+	dsn := path
+	if path != ":memory:" {
+		if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
+			return nil, fmt.Errorf("create database directory: %w", err)
+		}
+		dsn = "file:" + path + "?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_pragma=foreign_keys(ON)&_pragma=synchronous(NORMAL)"
+	} else {
+		dsn = "file::memory:?_pragma=foreign_keys(ON)"
+	}
+
+	sqlDB, err := sql.Open("sqlite", dsn)
+	if err != nil {
+		return nil, fmt.Errorf("open sqlite: %w", err)
+	}
+	// SQLite handles a single writer; keeping one connection avoids "database is locked"
+	// surprises and makes the in-memory variant behave like a single database.
+	sqlDB.SetMaxOpenConns(1)
+	sqlDB.SetConnMaxLifetime(0)
+
+	if err := sqlDB.PingContext(ctx); err != nil {
+		_ = sqlDB.Close()
+		return nil, fmt.Errorf("ping sqlite: %w", err)
+	}
+	if path != ":memory:" {
+		if err := os.Chmod(path, 0o600); err != nil && !errors.Is(err, os.ErrNotExist) {
+			log.Warn("could not restrict database file permissions", "path", path, "err", err)
+		}
+	}
+	if err := Migrate(ctx, sqlDB, log); err != nil {
+		_ = sqlDB.Close()
+		return nil, err
+	}
+	return sqlDB, nil
+}
+
+type migration struct {
+	version int
+	name    string
+	sql     string
+}
+
+func loadMigrations() ([]migration, error) {
+	entries, err := fs.ReadDir(migrationFS, "migrations")
+	if err != nil {
+		return nil, fmt.Errorf("read migrations: %w", err)
+	}
+	var out []migration
+	for _, e := range entries {
+		name := e.Name()
+		if !strings.HasSuffix(name, ".sql") {
+			continue
+		}
+		idx := strings.Index(name, "_")
+		if idx <= 0 {
+			return nil, fmt.Errorf("migration %q: name must be <version>_<name>.sql", name)
+		}
+		v, err := strconv.Atoi(name[:idx])
+		if err != nil {
+			return nil, fmt.Errorf("migration %q: invalid version: %w", name, err)
+		}
+		body, err := fs.ReadFile(migrationFS, "migrations/"+name)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, migration{version: v, name: name, sql: string(body)})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].version < out[j].version })
+	for i := 1; i < len(out); i++ {
+		if out[i].version == out[i-1].version {
+			return nil, fmt.Errorf("duplicate migration version %d", out[i].version)
+		}
+	}
+	return out, nil
+}
+
+// Migrate applies all migrations that have not been applied yet. Each migration runs in
+// its own transaction. A database that is newer than the binary is refused.
+func Migrate(ctx context.Context, sqlDB *sql.DB, log *slog.Logger) error {
+	if _, err := sqlDB.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS schema_migrations (
+		version INTEGER PRIMARY KEY,
+		applied_at TEXT NOT NULL
+	)`); err != nil {
+		return fmt.Errorf("create schema_migrations: %w", err)
+	}
+
+	migrations, err := loadMigrations()
+	if err != nil {
+		return err
+	}
+
+	applied := map[int]bool{}
+	maxApplied := 0
+	rows, err := sqlDB.QueryContext(ctx, `SELECT version FROM schema_migrations`)
+	if err != nil {
+		return fmt.Errorf("read schema_migrations: %w", err)
+	}
+	for rows.Next() {
+		var v int
+		if err := rows.Scan(&v); err != nil {
+			_ = rows.Close()
+			return err
+		}
+		applied[v] = true
+		if v > maxApplied {
+			maxApplied = v
+		}
+	}
+	_ = rows.Close()
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	latest := 0
+	if len(migrations) > 0 {
+		latest = migrations[len(migrations)-1].version
+	}
+	if maxApplied > latest {
+		return fmt.Errorf("database schema version %d is newer than this Staqio build supports (%d); refusing to start", maxApplied, latest)
+	}
+
+	for _, m := range migrations {
+		if applied[m.version] {
+			continue
+		}
+		log.Info("applying migration", "version", m.version, "name", m.name)
+		tx, err := sqlDB.BeginTx(ctx, nil)
+		if err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, m.sql); err != nil {
+			_ = tx.Rollback()
+			return fmt.Errorf("migration %s failed: %w", m.name, err)
+		}
+		if _, err := tx.ExecContext(ctx, `INSERT INTO schema_migrations(version, applied_at) VALUES (?, ?)`,
+			m.version, time.Now().UTC().Format(time.RFC3339Nano)); err != nil {
+			_ = tx.Rollback()
+			return fmt.Errorf("record migration %s: %w", m.name, err)
+		}
+		if err := tx.Commit(); err != nil {
+			return fmt.Errorf("commit migration %s: %w", m.name, err)
+		}
+	}
+	return nil
+}
+
+// SchemaVersion returns the highest applied migration version.
+func SchemaVersion(ctx context.Context, sqlDB *sql.DB) (int, error) {
+	var v sql.NullInt64
+	if err := sqlDB.QueryRowContext(ctx, `SELECT MAX(version) FROM schema_migrations`).Scan(&v); err != nil {
+		return 0, err
+	}
+	return int(v.Int64), nil
+}

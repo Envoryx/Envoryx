@@ -1,0 +1,180 @@
+package project
+
+import (
+	"context"
+	"fmt"
+	"log/slog"
+	"time"
+
+	"github.com/seramos/staqio/internal/docker"
+	"github.com/seramos/staqio/internal/store"
+)
+
+// deriveStatus computes the observed state of a project from the managed container list.
+func deriveStatus(p store.Project, containers []docker.Container) Status {
+	st := Status{Services: []ServiceStatus{}, Warnings: []string{}}
+	byKind := map[string]docker.Container{}
+	for _, c := range containers {
+		if c.ProjectID() == p.ID {
+			byKind[c.Service()] = c
+		}
+	}
+	enabled, running, existing := 0, 0, 0
+	for _, svc := range p.Services {
+		if !svc.Enabled {
+			continue
+		}
+		enabled++
+		ss := ServiceStatus{
+			Kind: svc.Kind, Variant: svc.Variant, Version: svc.Version, Image: svc.Image,
+			ContainerName: ContainerName(p.Slug, svc.Kind), State: "missing", Ports: []docker.PortMapping{},
+		}
+		if c, ok := byKind[string(svc.Kind)]; ok {
+			existing++
+			ss.Exists = true
+			ss.ContainerID = c.ID
+			ss.State = c.State
+			ss.Status = c.Status
+			ss.Ports = c.Ports
+			if c.State == "running" {
+				running++
+				ss.Running = true
+			}
+			if c.Image != svc.Image {
+				st.Warnings = append(st.Warnings, fmt.Sprintf("%s container uses image %s but %s is configured; restart to apply", svc.Kind, c.Image, svc.Image))
+			}
+		}
+		st.Services = append(st.Services, ss)
+	}
+	for kind := range byKind {
+		if p.Service(store.ServiceKind(kind)) == nil {
+			st.Warnings = append(st.Warnings, fmt.Sprintf("container for removed service %q still exists", kind))
+		}
+	}
+
+	switch {
+	case p.Lifecycle == store.LifecycleCreating:
+		st.State = StateCreating
+	case p.Lifecycle == store.LifecycleDeleting:
+		st.State = StateDeleting
+	case p.Lifecycle == store.LifecycleFailed:
+		st.State = StateError
+	case enabled == 0:
+		st.State = StateStopped
+	case running == enabled:
+		st.State = StateRunning
+	case running > 0:
+		st.State = StatePartial
+	case existing == 0:
+		st.State = StateMissing
+	default:
+		st.State = StateStopped
+	}
+	if p.LastError != "" {
+		st.Warnings = append(st.Warnings, p.LastError)
+	}
+	if p.DesiredState == store.DesiredRunning && st.State != StateRunning && p.Lifecycle == store.LifecycleReady {
+		st.Warnings = append(st.Warnings, "project should be running but is "+string(st.State))
+	}
+	return st
+}
+
+// Reconcile compares the database with Docker, records inconsistencies and orphaned
+// resources, and repairs interrupted lifecycles. It never removes anything.
+func (m *Manager) Reconcile(ctx context.Context) ReconcileReport {
+	report := ReconcileReport{At: time.Now().UTC(), Orphans: []Orphan{}, Issues: []ReconcileIssue{}, States: map[string]Status{}}
+	projects, err := m.store.Projects.List(ctx)
+	if err != nil {
+		report.Error = err.Error()
+		m.setReport(report)
+		return report
+	}
+	report.Projects = len(projects)
+	known := map[string]store.Project{}
+	for _, p := range projects {
+		known[p.ID] = p
+	}
+
+	containers, err := m.engine.ListContainers(ctx, true, "")
+	if err != nil {
+		report.Error = "docker: " + err.Error()
+		m.setReport(report)
+		return report
+	}
+	networks, _ := m.engine.ListNetworks(ctx, true)
+	volumes, _ := m.engine.ListVolumes(ctx, true)
+
+	for _, p := range projects {
+		// A restart in the middle of create/delete leaves a transitional lifecycle behind.
+		if p.Lifecycle == store.LifecycleCreating || p.Lifecycle == store.LifecycleDeleting {
+			msg := fmt.Sprintf("%s was interrupted by a Staqio restart; review the project and retry or delete it", p.Lifecycle)
+			if err := m.store.Projects.UpdateState(ctx, p.ID, p.DesiredState, store.LifecycleFailed, msg); err == nil {
+				p.Lifecycle = store.LifecycleFailed
+				p.LastError = msg
+			}
+			report.Issues = append(report.Issues, ReconcileIssue{ProjectID: p.ID, ProjectName: p.Name, Severity: "error", Message: msg})
+		}
+		st := deriveStatus(p, containers)
+		report.States[p.ID] = st
+		if p.DesiredState == store.DesiredRunning && st.State != StateRunning && p.Lifecycle == store.LifecycleReady {
+			report.Issues = append(report.Issues, ReconcileIssue{ProjectID: p.ID, ProjectName: p.Name, Severity: "warning",
+				Message: fmt.Sprintf("expected running but observed %s", st.State)})
+		}
+		if st.State == StateMissing && p.Lifecycle == store.LifecycleReady {
+			report.Issues = append(report.Issues, ReconcileIssue{ProjectID: p.ID, ProjectName: p.Name, Severity: "error",
+				Message: "no containers exist for this project; start it to recreate them"})
+		}
+	}
+
+	for _, c := range containers {
+		if _, ok := known[c.ProjectID()]; !ok {
+			report.Orphans = append(report.Orphans, Orphan{Type: "container", ID: c.ID, Name: c.Name, ProjectID: c.ProjectID(), ProjectName: c.Labels[docker.LabelProjectName], State: c.State, Created: c.Created})
+		}
+	}
+	for _, n := range networks {
+		if _, ok := known[n.Labels[docker.LabelProjectID]]; !ok {
+			report.Orphans = append(report.Orphans, Orphan{Type: "network", ID: n.ID, Name: n.Name, ProjectID: n.Labels[docker.LabelProjectID], ProjectName: n.Labels[docker.LabelProjectName]})
+		}
+	}
+	for _, v := range volumes {
+		if _, ok := known[v.Labels[docker.LabelProjectID]]; !ok {
+			report.Orphans = append(report.Orphans, Orphan{Type: "volume", ID: v.Name, Name: v.Name, ProjectID: v.Labels[docker.LabelProjectID], ProjectName: v.Labels[docker.LabelProjectName]})
+		}
+	}
+	for _, issue := range report.Issues {
+		m.log.Warn("reconcile issue", "project", issue.ProjectName, "severity", issue.Severity, "msg", issue.Message)
+	}
+	if len(report.Orphans) > 0 {
+		m.log.Warn("reconcile found orphaned Staqio resources", "count", len(report.Orphans))
+	}
+	m.setReport(report)
+	return report
+}
+
+func (m *Manager) setReport(r ReconcileReport) {
+	m.reportMu.Lock()
+	m.report = r
+	m.reportMu.Unlock()
+}
+
+// LastReport returns the most recent reconciliation report.
+func (m *Manager) LastReport() ReconcileReport {
+	m.reportMu.RLock()
+	defer m.reportMu.RUnlock()
+	return m.report
+}
+
+// RunReconciler reconciles immediately and then periodically until ctx is cancelled.
+func (m *Manager) RunReconciler(ctx context.Context, interval time.Duration, log *slog.Logger) {
+	m.Reconcile(ctx)
+	t := time.NewTicker(interval)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			m.Reconcile(ctx)
+		}
+	}
+}

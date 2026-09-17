@@ -1,0 +1,87 @@
+# Staqio
+
+**Docker-native development environments for Unraid and Linux servers.**
+
+Staqio runs as a single container on your Docker host and manages complete
+development stacks – web server, PHP runtime, database, cache – as isolated,
+per-project Docker environments. Everything is controlled from a modern web UI;
+no `docker-compose.yml` editing required.
+
+```
+Open Staqio → Create project → PHP 8.4 + Caddy → Create → project is running
+```
+
+## Status
+
+Staqio is under active development. The current milestone (Phase 1 + 2) delivers:
+
+- single-container deployment with embedded web UI (Go + React)
+- local admin account, secure sessions, audit log
+- Docker engine integration that only ever touches resources labelled `staqio.managed=true`
+- project wizard: name, directory, document root, PHP version + php.ini settings,
+  Caddy web server, environment variables, plan preview
+- per-project Docker network, PHP-FPM container and Caddy container
+- project files bind-mounted from `/projects/<name>` on the host
+- projects reachable at `http://<host>:<port>` (port auto-assigned)
+- start / stop / restart / edit / delete with confirmation
+- desired-state reconciliation on startup and periodically; orphan detection
+- diagnostics view of all Docker resources (foreign containers read-only)
+
+Databases (MariaDB/MySQL/PostgreSQL), Redis, Node.js, terminal, logs, Git,
+backups, domains/HTTPS and MCP follow in later phases – see
+[ARCHITECTURE.md](ARCHITECTURE.md) §13.
+
+## Quick start
+
+```yaml
+services:
+  staqio:
+    image: ghcr.io/seramos/staqio:latest
+    container_name: staqio
+    ports:
+      - "8787:8787"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /mnt/user/appdata/staqio:/config
+      - /mnt/user/development:/projects
+    environment:
+      PUID: 99
+      PGID: 100
+    restart: unless-stopped
+```
+
+Open `http://<server>:8787`, create the admin account, click **New project**.
+
+**Unraid:** copy [`deploy/unraid/staqio.xml`](deploy/unraid/staqio.xml) to
+`/boot/config/plugins/dockerMan/templates-user/` and add the container from the
+template – everything is pre-filled.
+
+Details, environment variables and Unraid notes: [DEPLOYMENT.md](DEPLOYMENT.md).
+
+## How it works
+
+```
+Browser ──▶ Staqio (Go API + React UI) ──▶ Docker Engine
+                                             ├── staqio-<project>      (network)
+                                             ├── staqio-<project>-web  (Caddy, :port → 80)
+                                             └── staqio-<project>-php  (PHP-FPM)
+```
+
+- Staqio stores the *desired state* of each project in SQLite (`/config/staqio.db`).
+- The Docker engine holds the *actual state*. Staqio reconciles both, never trusting
+  the database alone – restarting or updating Staqio never loses projects.
+- Every resource Staqio creates carries `staqio.managed=true` and
+  `staqio.project.id=<uuid>`. Staqio refuses to modify anything else.
+
+## Documentation
+
+| Document | Content |
+|----------|---------|
+| [ARCHITECTURE.md](ARCHITECTURE.md) | design, data model, lifecycle, phases |
+| [SECURITY.md](SECURITY.md) | threat model, Docker socket, hardening |
+| [DEPLOYMENT.md](DEPLOYMENT.md) | Docker / Unraid deployment, configuration |
+| [DEVELOPMENT.md](DEVELOPMENT.md) | building, running and testing locally |
+
+## License
+
+MIT – see [LICENSE](LICENSE).

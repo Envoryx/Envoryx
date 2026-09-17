@@ -1,0 +1,242 @@
+package api
+
+import (
+	"context"
+	"net/http"
+	"sort"
+	"strconv"
+	"time"
+
+	"github.com/seramos/staqio/internal/db"
+	"github.com/seramos/staqio/internal/docker"
+	"github.com/seramos/staqio/internal/project"
+	"github.com/seramos/staqio/internal/runtime"
+)
+
+func (a *API) health(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+	defer cancel()
+	dockerOK := false
+	if _, err := a.d.Engine.Ping(ctx); err == nil {
+		dockerOK = true
+	}
+	dbOK := a.d.Store.DB().PingContext(ctx) == nil
+	status := http.StatusOK
+	state := "ok"
+	if !dbOK {
+		status, state = http.StatusServiceUnavailable, "degraded"
+	}
+	writeJSON(w, status, map[string]any{
+		"status":   state,
+		"version":  a.d.Version,
+		"docker":   dockerOK,
+		"database": dbOK,
+		"uptime":   int(time.Since(a.d.StartedAt).Seconds()),
+	})
+}
+
+type dockerInfoDTO struct {
+	Connected     bool   `json:"connected"`
+	Error         string `json:"error,omitempty"`
+	APIVersion    string `json:"apiVersion,omitempty"`
+	ServerVersion string `json:"serverVersion,omitempty"`
+	OS            string `json:"os,omitempty"`
+	Architecture  string `json:"architecture,omitempty"`
+	Containers    int    `json:"containers"`
+	Running       int    `json:"running"`
+	NCPU          int    `json:"ncpu"`
+	MemTotal      int64  `json:"memTotal"`
+}
+
+func (a *API) dockerInfo(ctx context.Context) dockerInfoDTO {
+	info, err := a.d.Engine.Ping(ctx)
+	if err != nil {
+		return dockerInfoDTO{Connected: false, Error: err.Error()}
+	}
+	return dockerInfoDTO{
+		Connected: true, APIVersion: info.APIVersion, ServerVersion: info.ServerVersion, OS: info.OS,
+		Architecture: info.Architecture, Containers: info.Containers, Running: info.Running, NCPU: info.NCPU, MemTotal: info.MemTotal,
+	}
+}
+
+func (a *API) dashboard(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	views, err := a.d.Projects.List(ctx)
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	running, stopped, attention := 0, 0, 0
+	projects := make([]projectDTO, 0, len(views))
+	for _, v := range views {
+		switch v.Status.State {
+		case project.StateRunning:
+			running++
+		case project.StateStopped, project.StateMissing:
+			stopped++
+		default:
+			attention++
+		}
+		projects = append(projects, toProject(v))
+	}
+	sort.Slice(projects, func(i, j int) bool { return projects[i].UpdatedAt.After(projects[j].UpdatedAt) })
+	if len(projects) > 6 {
+		projects = projects[:6]
+	}
+
+	var statsOut any
+	if s, err := a.d.Stats.Summary(ctx); err == nil {
+		statsOut = s
+	}
+	report := a.d.Projects.LastReport()
+	writeJSON(w, http.StatusOK, map[string]any{
+		"projects": map[string]int{"total": len(views), "running": running, "stopped": stopped, "attention": attention},
+		"docker":   a.dockerInfo(ctx),
+		"stats":    statsOut,
+		"recent":   projects,
+		"issues":   report.Issues,
+		"orphans":  len(report.Orphans),
+		"hostPath": a.d.HostPath.Status(),
+		"version":  a.d.Version,
+	})
+}
+
+func (a *API) runtimes(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]any{
+		"runtimes":      a.d.Catalog.All(),
+		"phpExtensions": runtime.PHPExtensions(),
+		"phpDefaults":   runtime.DefaultPHPConfig(),
+	})
+}
+
+type containerDTO struct {
+	ID          string            `json:"id"`
+	Name        string            `json:"name"`
+	Image       string            `json:"image"`
+	State       string            `json:"state"`
+	Status      string            `json:"status"`
+	Created     time.Time         `json:"created"`
+	Managed     bool              `json:"managed"`
+	ProjectID   string            `json:"projectId,omitempty"`
+	ProjectName string            `json:"projectName,omitempty"`
+	Service     string            `json:"service,omitempty"`
+	Ports       []portDTO         `json:"ports"`
+	Labels      map[string]string `json:"labels,omitempty"`
+}
+
+func toContainerDTO(c docker.Container) containerDTO {
+	dto := containerDTO{
+		ID: c.ID, Name: c.Name, Image: c.Image, State: c.State, Status: c.Status, Created: c.Created, Managed: c.Managed,
+		Ports: toPorts(c.Ports),
+	}
+	if c.Managed {
+		dto.ProjectID = c.ProjectID()
+		dto.ProjectName = c.Labels[docker.LabelProjectName]
+		dto.Service = c.Service()
+		dto.Labels = c.Labels
+	}
+	return dto
+}
+
+// dockerOverview lists managed resources in full and foreign containers read-only with
+// minimal information (name, image, state) for diagnostics.
+func (a *API) dockerOverview(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	info := a.dockerInfo(ctx)
+	out := map[string]any{
+		"info":       info,
+		"containers": []containerDTO{},
+		"foreign":    []containerDTO{},
+		"networks":   []docker.Network{},
+		"volumes":    []docker.Volume{},
+		"orphans":    a.d.Projects.LastReport().Orphans,
+		"hostPath":   a.d.HostPath.Status(),
+	}
+	if !info.Connected {
+		writeJSON(w, http.StatusOK, out)
+		return
+	}
+	containers, err := a.d.Engine.ListContainers(ctx, false, "")
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	managed, foreign := []containerDTO{}, []containerDTO{}
+	for _, c := range containers {
+		dto := toContainerDTO(c)
+		if c.Managed {
+			managed = append(managed, dto)
+		} else {
+			foreign = append(foreign, dto)
+		}
+	}
+	networks, err := a.d.Engine.ListNetworks(ctx, true)
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	volumes, err := a.d.Engine.ListVolumes(ctx, true)
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	if networks == nil {
+		networks = []docker.Network{}
+	}
+	if volumes == nil {
+		volumes = []docker.Volume{}
+	}
+	out["containers"], out["foreign"], out["networks"], out["volumes"] = managed, foreign, networks, volumes
+	writeJSON(w, http.StatusOK, out)
+}
+
+func (a *API) settings(w http.ResponseWriter, r *http.Request) {
+	c := a.d.Config
+	schema, _ := db.SchemaVersion(r.Context(), a.d.Store.DB())
+	writeJSON(w, http.StatusOK, map[string]any{
+		"version":       a.d.Version,
+		"schemaVersion": schema,
+		"configDir":     c.ConfigDir,
+		"projectsDir":   c.ProjectsDir,
+		"hostPath":      a.d.HostPath.Status(),
+		"portRange":     map[string]int{"start": c.PortRangeStart, "end": c.PortRangeEnd},
+		"puid":          c.PUID,
+		"pgid":          c.PGID,
+		"dockerHost":    c.DockerHost,
+		"session":       map[string]string{"idleTimeout": c.SessionIdleTimeout.String(), "absoluteTimeout": c.SessionAbsoluteTimeout.String()},
+		"secureCookies": c.SecureCookies,
+	})
+}
+
+func (a *API) auditLog(w http.ResponseWriter, r *http.Request) {
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	entries, err := a.d.Store.Audit.Recent(r.Context(), limit)
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	type entryDTO struct {
+		ID         string    `json:"id"`
+		CreatedAt  time.Time `json:"createdAt"`
+		Username   string    `json:"username"`
+		Action     string    `json:"action"`
+		TargetType string    `json:"targetType"`
+		TargetID   string    `json:"targetId"`
+		Details    any       `json:"details"`
+		IP         string    `json:"ip"`
+	}
+	out := make([]entryDTO, 0, len(entries))
+	for _, e := range entries {
+		out = append(out, entryDTO{ID: e.ID, CreatedAt: e.CreatedAt, Username: e.Username, Action: e.Action, TargetType: e.TargetType, TargetID: e.TargetID, Details: e.Details, IP: e.IP})
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"entries": out})
+}
+
+func (a *API) reconcileReport(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]any{"report": a.d.Projects.LastReport()})
+}
+
+func (a *API) reconcileNow(w http.ResponseWriter, r *http.Request) {
+	report := a.d.Projects.Reconcile(r.Context())
+	writeJSON(w, http.StatusOK, map[string]any{"report": report})
+}
