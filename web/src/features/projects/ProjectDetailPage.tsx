@@ -13,9 +13,10 @@ import { EnvEditor } from "./EnvEditor";
 import { LogsTab } from "./LogsTab";
 // xterm.js is only needed on this tab; keep it out of the main bundle.
 const TerminalTab = lazy(() => import("./TerminalTab").then((m) => ({ default: m.TerminalTab })));
+const ActionsTab = lazy(() => import("./ActionsTab").then((m) => ({ default: m.ActionsTab })));
 import { PhpConfigForm } from "./PhpConfigForm";
 
-const tabs = ["Overview", "Terminal", "Logs", "PHP", "Database", "Environment", "Advanced"] as const;
+const tabs = ["Overview", "Actions", "Terminal", "Logs", "PHP", "Database", "Environment", "Advanced"] as const;
 type Tab = (typeof tabs)[number];
 
 export function ProjectDetailPage() {
@@ -103,6 +104,11 @@ export function ProjectDetailPage() {
       </div>
 
       {tab === "Overview" && <OverviewTab project={p} />}
+      {tab === "Actions" && (
+        <Suspense fallback={<Spinner label="Loading actions…" />}>
+          <ActionsTab project={p} />
+        </Suspense>
+      )}
       {tab === "Terminal" && (
         <Suspense fallback={<Spinner label="Loading terminal…" />}>
           <TerminalTab project={p} />

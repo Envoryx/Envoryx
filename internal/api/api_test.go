@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -33,10 +34,11 @@ import (
 type dockerExecResult = docker.ExecResult
 
 type testApp struct {
-	t      *testing.T
-	srv    *httptest.Server
-	engine *dockertest.Fake
-	cookie *http.Cookie
+	t       *testing.T
+	srv     *httptest.Server
+	engine  *dockertest.Fake
+	cookie  *http.Cookie
+	projDir string
 }
 
 func newApp(t *testing.T) *testApp {
@@ -65,7 +67,7 @@ func newApp(t *testing.T) *testApp {
 	handler := serverHandler(s)
 	srv := httptest.NewServer(handler)
 	t.Cleanup(srv.Close)
-	return &testApp{t: t, srv: srv, engine: engine}
+	return &testApp{t: t, srv: srv, engine: engine, projDir: projDir}
 }
 
 // serverHandler extracts the http.Handler from the server for httptest.
@@ -564,6 +566,88 @@ func TestTerminalWebSocket(t *testing.T) {
 	}
 	if got := a.engine.LastTerminal().Resizes(); len(got) != 1 || got[0] != "80x24" {
 		t.Fatalf("resize: %v", got)
+	}
+}
+
+func TestProjectActions(t *testing.T) {
+	a := newApp(t)
+	a.setupAndLogin()
+	r := a.do(http.MethodPost, "/api/v1/projects", map[string]any{"name": "Act", "start": true, "php": map[string]any{"version": "8.4"}}, true)
+	if r.status != http.StatusCreated {
+		t.Fatalf("create: %d %s", r.status, r.raw)
+	}
+	id := r.body["project"].(map[string]any)["id"].(string)
+	path := r.body["project"].(map[string]any)["path"].(string)
+
+	r = a.do(http.MethodGet, "/api/v1/projects/"+id+"/actions", nil, false)
+	if r.status != http.StatusOK {
+		t.Fatalf("list: %d %s", r.status, r.raw)
+	}
+	avail := map[string]bool{}
+	for _, x := range r.body["actions"].([]any) {
+		act := x.(map[string]any)
+		avail[act["id"].(string)] = act["available"].(bool)
+	}
+	if !avail["php:version"] || avail["composer:install"] || avail["artisan:migrate"] || avail["npm:install"] {
+		t.Fatalf("availability without project files: %v", avail)
+	}
+	// Add composer.json → composer actions become available.
+	if err := os.WriteFile(filepath.Join(a.projDir, path, "composer.json"), []byte("{}"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	r = a.do(http.MethodGet, "/api/v1/projects/"+id+"/actions", nil, false)
+	for _, x := range r.body["actions"].([]any) {
+		act := x.(map[string]any)
+		if act["id"] == "composer:install" && act["available"] != true {
+			t.Fatalf("composer:install should be available: %v", act)
+		}
+	}
+
+	base := "ws" + strings.TrimPrefix(a.srv.URL, "http") + "/api/v1/projects/" + id + "/actions/"
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	hdr := http.Header{"Cookie": {auth.CookieName + "=" + a.cookie.Value}}
+	if _, res, err := websocket.Dial(ctx, base+"artisan:migrate/ws", &websocket.DialOptions{HTTPHeader: hdr}); err == nil || res == nil || res.StatusCode != http.StatusConflict {
+		t.Fatalf("unavailable action must be 409, got %v", err)
+	}
+	if _, res, err := websocket.Dial(ctx, base+"rm:-rf/ws", &websocket.DialOptions{HTTPHeader: hdr}); err == nil || res == nil || res.StatusCode != http.StatusNotFound {
+		t.Fatalf("unknown action must be 404, got %v", err)
+	}
+	conn, _, err := websocket.Dial(ctx, base+"composer:install/ws", &websocket.DialOptions{HTTPHeader: hdr})
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	defer conn.CloseNow()
+	recs := a.engine.Terminals()
+	if len(recs) != 1 || strings.Join(recs[0].Opts.Cmd, " ") != "composer install --no-interaction --prefer-dist" || recs[0].Opts.User != "1000:1000" {
+		t.Fatalf("exec options: %+v", recs)
+	}
+	a.engine.LastTerminal().Finish("Installing dependencies\r\n", 0)
+	var sawStart, sawOutput, sawExit bool
+	for !sawExit {
+		typ, data, err := conn.Read(ctx)
+		if err != nil {
+			t.Fatalf("read: %v", err)
+		}
+		switch typ {
+		case websocket.MessageBinary:
+			sawOutput = sawOutput || strings.Contains(string(data), "Installing")
+		case websocket.MessageText:
+			var m map[string]any
+			_ = json.Unmarshal(data, &m)
+			switch m["type"] {
+			case "start":
+				sawStart = true
+			case "exit":
+				sawExit = true
+				if m["code"].(float64) != 0 {
+					t.Fatalf("exit code: %v", m)
+				}
+			}
+		}
+	}
+	if !sawStart || !sawOutput {
+		t.Fatalf("start=%v output=%v", sawStart, sawOutput)
 	}
 }
 

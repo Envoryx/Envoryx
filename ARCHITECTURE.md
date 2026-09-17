@@ -520,8 +520,10 @@ run on the same volume with `MARIADB_AUTO_UPGRADE`.
   terminal over WebSocket – session cookie validated before the upgrade,
   same-origin enforced, containers resolved from `project + service kind`
   server-side; terminal shells in php/node run as PUID:PGID with `HOME=/tmp`
-  and tool caches under `/tmp`. Still open: project actions (composer/npm via
-  exec with argv arrays), Git, Node container.
+  and tool caches under `/tmp`. Project actions are a closed
+  catalogue of argv commands (`actions.go`) gated by required files in the
+  project directory; output streams over the same WebSocket mechanism and
+  Ctrl+C is delivered on cancel/disconnect. Still open: Git, Node container.
 - **Phase 6 Services**: Redis, PostgreSQL, MySQL, Node.
 - **Phase 7 Backups**, **Phase 8 HTTPS/DNS**, **Phase 9 MCP** (reuses the
   same manager and validation layer).

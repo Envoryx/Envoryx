@@ -482,10 +482,11 @@ type TerminalRecord struct {
 
 // FakeTerminal echoes input back as output and records resizes.
 type FakeTerminal struct {
-	pr      *io.PipeReader
-	pw      *io.PipeWriter
-	mu      sync.Mutex
-	resizes []string
+	pr       *io.PipeReader
+	pw       *io.PipeWriter
+	mu       sync.Mutex
+	resizes  []string
+	exitCode int
 }
 
 func (t *FakeTerminal) Output() io.Reader { return t.pr }
@@ -497,6 +498,24 @@ func (t *FakeTerminal) Resize(_ context.Context, cols, rows uint) error {
 	return nil
 }
 func (t *FakeTerminal) Close() error { return t.pw.Close() }
+
+// ExitCode returns the configured exit code (default 0).
+func (t *FakeTerminal) ExitCode(context.Context) (int, error) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.exitCode, nil
+}
+
+// Finish writes final output, sets the exit code and closes the output stream.
+func (t *FakeTerminal) Finish(output string, code int) {
+	t.mu.Lock()
+	t.exitCode = code
+	t.mu.Unlock()
+	if output != "" {
+		_, _ = t.pw.Write([]byte(output))
+	}
+	_ = t.pw.Close()
+}
 
 // Resizes returns the recorded resize calls.
 func (t *FakeTerminal) Resizes() []string {

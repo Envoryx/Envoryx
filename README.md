@@ -32,6 +32,9 @@ Staqio is under active development. The current milestone (Phase 1 + 2) delivers
 - live logs per container over WebSocket: pause, search, stderr filter, download
 - browser terminal (xterm.js) into any project container; application
   containers run the shell as the project owner (PUID/PGID)
+- project actions: composer install/update, artisan migrate/seed/cache,
+  Symfony console, npm/pnpm/yarn – a fixed catalogue of argv commands with
+  live output, shown only when the project has the matching files
 - desired-state reconciliation on startup and periodically; orphan detection
 - diagnostics view of all Docker resources (foreign containers read-only)
 

@@ -172,6 +172,8 @@ type Terminal interface {
 	Input() io.Writer
 	// Resize changes the pseudo terminal size.
 	Resize(ctx context.Context, cols, rows uint) error
+	// ExitCode returns the exit code once the process has finished (-1 while running).
+	ExitCode(ctx context.Context) (int, error)
 	// Close terminates the session.
 	Close() error
 }

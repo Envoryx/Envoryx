@@ -531,6 +531,16 @@ func (t *mobyTerminal) Resize(ctx context.Context, cols, rows uint) error {
 	_, err := t.cli.ExecResize(ctx, t.execID, client.ExecResizeOptions{Height: rows, Width: cols})
 	return wrap(err)
 }
+func (t *mobyTerminal) ExitCode(ctx context.Context) (int, error) {
+	insp, err := t.cli.ExecInspect(ctx, t.execID, client.ExecInspectOptions{})
+	if err != nil {
+		return -1, wrap(err)
+	}
+	if insp.Running {
+		return -1, nil
+	}
+	return insp.ExitCode, nil
+}
 func (t *mobyTerminal) Close() error {
 	t.hijack.Close()
 	return nil

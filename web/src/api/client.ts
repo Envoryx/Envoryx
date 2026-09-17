@@ -4,6 +4,7 @@ import type {
   Dashboard,
   DatabaseCredentials,
   DatabaseInfo,
+  ActionInfo,
   DockerOverview,
   LogLine,
   Preview,
@@ -124,6 +125,7 @@ export const api = {
       request<{ project: Project }>(`/projects/${encodeURIComponent(id)}/restart`, { method: "POST" }),
     plan: (id: string) => request<{ plan: Preview }>(`/projects/${encodeURIComponent(id)}/plan`),
     stats: (id: string) => request<{ stats: Usage; sampledAt: string }>(`/projects/${encodeURIComponent(id)}/stats`),
+    actions: (id: string) => request<{ actions: ActionInfo[] }>(`/projects/${encodeURIComponent(id)}/actions`),
     logs: (id: string, kind: string, tail = 500) =>
       request<{ lines: LogLine[] }>(`/projects/${encodeURIComponent(id)}/services/${encodeURIComponent(kind)}/logs?tail=${tail}`),
   },

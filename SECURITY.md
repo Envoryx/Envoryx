@@ -95,7 +95,10 @@ routes address `project + service kind` and resolve the container server-side.
 - All JSON bodies are limited to 1 MiB and reject unknown fields.
 - UUIDs are validated before touching the database.
 - No shell commands are built from strings anywhere. Container commands are
-  argv arrays. Project actions (Phase 5) run inside project containers only.
+  argv arrays. Project actions come from a closed catalogue
+  (`internal/project/actions.go`): the browser sends only the action id, the
+  argv is fixed server-side, execution happens inside the project container as
+  the project owner, and the project lock is held for the duration.
 
 ## Destructive operations
 

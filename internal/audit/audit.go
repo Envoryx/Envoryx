@@ -34,6 +34,7 @@ const (
 	ActionDBDropped           = "database.dropped"
 
 	ActionTerminalOpened = "terminal.opened"
+	ActionRun            = "action.run"
 )
 
 type ipKey struct{}

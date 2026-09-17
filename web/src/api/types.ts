@@ -300,6 +300,19 @@ export interface Settings {
   secureCookies: boolean;
 }
 
+export interface ActionInfo {
+  id: string;
+  group: string;
+  label: string;
+  description: string;
+  service: string;
+  cmd: string[];
+  requires: string[] | null;
+  destructive: boolean;
+  available: boolean;
+  reason?: string;
+}
+
 export interface LogLine {
   time: string;
   stream: "stdout" | "stderr";

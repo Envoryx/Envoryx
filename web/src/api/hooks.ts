@@ -126,6 +126,14 @@ export function useUpdateProject(id: string) {
   });
 }
 
+export function useProjectActions(id: string) {
+  return useQuery({
+    queryKey: ["projects", id, "actions"],
+    queryFn: async () => (await api.projects.actions(id)).actions,
+    refetchInterval: LIVE_INTERVAL,
+  });
+}
+
 export function useDatabaseInfo(id: string, enabled: boolean) {
   return useQuery({
     queryKey: keys.database(id),
