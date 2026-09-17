@@ -3,7 +3,7 @@ import { Trash2, Save, ExternalLink } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ApiError } from "@/api/client";
-import { useProject, useProjectPlan, useProjectStats, useRuntimes, useUpdateProject } from "@/api/hooks";
+import { useProject, useProjectPlan, useProjectStats, usePublicHost, useRuntimes, useUpdateProject } from "@/api/hooks";
 import type { EnvVar, PHPConfig, Project } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Code, ErrorState, Field, Input, PageHeader, Select, Spinner, StatusDot } from "@/components/ui";
 import { containerStateTone, formatBytes, formatDateTime, formatPercent, projectUrl, serviceLabel, stateMeta } from "@/lib/format";
@@ -17,6 +17,7 @@ type Tab = (typeof tabs)[number];
 export function ProjectDetailPage() {
   const { id = "" } = useParams();
   const q = useProject(id);
+  const publicHost = usePublicHost();
   const [tab, setTab] = useState<Tab>("Overview");
   const [deleting, setDeleting] = useState(false);
   const { error, capture, setError } = useActionError();
@@ -28,7 +29,7 @@ export function ProjectDetailPage() {
   }
   const p = q.data;
   const meta = stateMeta[p.status.state];
-  const url = projectUrl(p.httpPort);
+  const url = projectUrl(p.httpPort, publicHost);
 
   return (
     <div>

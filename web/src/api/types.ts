@@ -204,6 +204,7 @@ export interface Dashboard {
   orphans: number;
   hostPath: HostPathStatus;
   version: string;
+  publicHost: string;
 }
 
 export interface ContainerSummary {
@@ -241,6 +242,7 @@ export interface DockerOverview {
 }
 
 export interface Settings {
+  publicHost: string;
   version: string;
   schemaVersion: number;
   configDir: string;

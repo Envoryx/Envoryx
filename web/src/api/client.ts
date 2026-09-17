@@ -102,6 +102,7 @@ export const api = {
   runtimes: () => request<RuntimesResponse>("/runtimes"),
   docker: () => request<DockerOverview>("/docker"),
   settings: () => request<Settings>("/settings"),
+  updateSettings: (body: { publicHost?: string }) => request<Settings>("/settings", { method: "PATCH", body }),
   audit: (limit = 100) => request<{ entries: AuditEntry[] }>(`/audit?limit=${limit}`),
   reconcile: () => request<{ report: unknown }>("/system/reconcile", { method: "POST" }),
 

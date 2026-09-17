@@ -34,6 +34,23 @@ export function useSettings() {
   return useQuery({ queryKey: keys.settings, queryFn: api.settings });
 }
 
+/** Host used for project links; falls back to the browser address bar while loading. */
+export function usePublicHost(): string {
+  const q = useQuery({ queryKey: keys.settings, queryFn: api.settings, staleTime: 60 * 1000 });
+  return q.data?.publicHost ?? "";
+}
+
+export function useUpdateSettings() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { publicHost?: string }) => api.updateSettings(body),
+    onSuccess: (data) => {
+      qc.setQueryData(keys.settings, data);
+      void qc.invalidateQueries({ queryKey: keys.dashboard });
+    },
+  });
+}
+
 export function useAudit(limit = 100) {
   return useQuery({ queryKey: [...keys.audit, limit], queryFn: () => api.audit(limit) });
 }

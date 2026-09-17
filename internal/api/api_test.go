@@ -369,6 +369,31 @@ func TestDockerUnavailableIsReported(t *testing.T) {
 	}
 }
 
+func TestPublicHostSetting(t *testing.T) {
+	a := newApp(t)
+	a.setupAndLogin()
+	r := a.do(http.MethodGet, "/api/v1/settings", nil, false)
+	if r.status != http.StatusOK || r.body["publicHost"] != "" {
+		t.Fatalf("default public host must be empty: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodPatch, "/api/v1/settings", map[string]any{"publicHost": "http://nas:8787"}, true)
+	if r.status != http.StatusUnprocessableEntity {
+		t.Fatalf("scheme/port must be rejected: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodPatch, "/api/v1/settings", map[string]any{"publicHost": "192.168.1.10"}, true)
+	if r.status != http.StatusOK || r.body["publicHost"] != "192.168.1.10" {
+		t.Fatalf("set public host: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodGet, "/api/v1/dashboard", nil, false)
+	if r.body["publicHost"] != "192.168.1.10" {
+		t.Fatalf("dashboard must expose public host: %s", r.raw)
+	}
+	r = a.do(http.MethodPatch, "/api/v1/settings", map[string]any{"publicHost": ""}, true)
+	if r.status != http.StatusOK || r.body["publicHost"] != "" {
+		t.Fatalf("clearing must work: %d %s", r.status, r.raw)
+	}
+}
+
 func TestRuntimesEndpoint(t *testing.T) {
 	a := newApp(t)
 	a.setupAndLogin()

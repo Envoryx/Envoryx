@@ -1,7 +1,7 @@
-import { KeyRound } from "lucide-react";
-import { useState, type FormEvent } from "react";
+import { KeyRound, Save } from "lucide-react";
+import { useEffect, useState, type FormEvent } from "react";
 import { api, ApiError } from "@/api/client";
-import { useAudit, useSettings } from "@/api/hooks";
+import { useAudit, useSettings, useUpdateSettings } from "@/api/hooks";
 import { Alert, Button, Card, CardHeader, Code, ErrorState, Field, Input, PageHeader, Spinner } from "@/components/ui";
 import { formatDateTime } from "@/lib/format";
 
@@ -57,6 +57,43 @@ function PasswordForm() {
   );
 }
 
+function PublicHostForm({ current }: { current: string }) {
+  const update = useUpdateSettings();
+  const [host, setHost] = useState(current);
+  const [msg, setMsg] = useState<{ tone: "green" | "red"; text: string } | null>(null);
+  useEffect(() => setHost(current), [current]);
+
+  function submit(e: FormEvent) {
+    e.preventDefault();
+    setMsg(null);
+    update.mutate(
+      { publicHost: host.trim() },
+      {
+        onSuccess: () => setMsg({ tone: "green", text: "Saved. Project links now use this host." }),
+        onError: (err) => setMsg({ tone: "red", text: err instanceof ApiError ? err.message : "Saving failed" }),
+      },
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader
+        title="Project links"
+        description="Project ports are published on the Docker host. If Staqio itself is reached under a different address (own container IP, reverse proxy), set the host that browsers should use for project links."
+      />
+      <form onSubmit={submit} className="space-y-4 p-5">
+        {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
+        <Field label="Host for project links" htmlFor="public-host" hint={`Leave empty to use the browser address bar (currently ${window.location.hostname}). Host name or IP only, no port.`}>
+          <Input id="public-host" value={host} onChange={(e) => setHost(e.target.value)} placeholder="192.168.1.10" spellCheck={false} />
+        </Field>
+        <Button type="submit" variant="primary" loading={update.isPending} disabled={host.trim() === current} icon={<Save className="size-4" />}>
+          Save
+        </Button>
+      </form>
+    </Card>
+  );
+}
+
 export function SettingsPage() {
   const s = useSettings();
   const audit = useAudit(50);
@@ -89,6 +126,8 @@ export function SettingsPage() {
           </p>
         </Card>
       )}
+
+      {s.data && <PublicHostForm current={s.data.publicHost} />}
 
       <PasswordForm />
 

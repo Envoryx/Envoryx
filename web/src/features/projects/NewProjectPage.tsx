@@ -3,9 +3,10 @@ import { ArrowLeft, ArrowRight, Check, Rocket } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, ApiError } from "@/api/client";
-import { useCreateProject, useRuntimes } from "@/api/hooks";
+import { useCreateProject, usePublicHost, useRuntimes } from "@/api/hooks";
 import type { CreateProjectRequest, EnvVar, PHPConfig, Preview } from "@/api/types";
 import { Alert, Button, Card, Checkbox, Code, ErrorState, Field, Input, PageHeader, Select, Spinner } from "@/components/ui";
+import { projectUrl } from "@/lib/format";
 import { EnvEditor } from "./EnvEditor";
 import { PhpConfigForm } from "./PhpConfigForm";
 
@@ -36,6 +37,7 @@ interface Form {
 export function NewProjectPage() {
   const runtimes = useRuntimes();
   const create = useCreateProject();
+  const publicHost = usePublicHost();
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<Form | null>(null);
@@ -273,9 +275,7 @@ export function NewProjectPage() {
                       {preview.path} <span className="text-subtle">(host: {preview.hostPath})</span>
                     </dd>
                     <dt className="text-muted">URL</dt>
-                    <dd className="font-mono text-xs">
-                      http://{window.location.hostname}:{preview.httpPort}
-                    </dd>
+                    <dd className="font-mono text-xs">{projectUrl(preview.httpPort, publicHost)}</dd>
                     <dt className="text-muted">Network</dt>
                     <dd className="font-mono text-xs">{preview.network}</dd>
                   </dl>

@@ -51,6 +51,7 @@ docker build -t ghcr.io/seramos/staqio:dev --build-arg VERSION=dev .
 | `DOCKER_HOST` | unix socket | Docker endpoint; set to a socket proxy URL if used |
 | `PUID` / `PGID` | `99` / `100` | uid/gid project containers run as and project dirs are owned by |
 | `STAQIO_PORT_RANGE_START` / `_END` | `20000` / `20999` | Host ports assigned to project web servers |
+| `STAQIO_PUBLIC_HOST` | browser address | Host/IP used for project links (see below); also editable in Settings |
 | `STAQIO_ADMIN_USER` / `STAQIO_ADMIN_PASSWORD` | – | Create the first admin non-interactively |
 | `STAQIO_SESSION_IDLE_TIMEOUT` | `12h` | Sliding session expiry |
 | `STAQIO_SESSION_ABSOLUTE_TIMEOUT` | `168h` | Hard session expiry |
@@ -76,6 +77,15 @@ STAQIO_CONFIG_HOST_PATH=/mnt/user/appdata/staqio
 
 On Unraid always use `/mnt/user/...` (or `/mnt/cache/...`) paths – the same
 ones you used in the volume mappings.
+
+## Project links and the Staqio container's own IP
+
+Project web servers publish their ports on the **Docker host** (the Unraid
+IP). Staqio builds project links from the address in your browser's address
+bar. If you reach Staqio under a different address – the container has its
+own IP on `br0`/macvlan, or you use a reverse proxy – set the host to use for
+project links in **Settings → Project links** (or `STAQIO_PUBLIC_HOST`),
+typically the Unraid IP.
 
 ## Unraid
 

@@ -2,7 +2,7 @@ import { ExternalLink, Play, RotateCw, Square, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ApiError } from "@/api/client";
-import { useDeleteProject, useProjectAction, type ProjectAction } from "@/api/hooks";
+import { useDeleteProject, useProjectAction, usePublicHost, type ProjectAction } from "@/api/hooks";
 import type { Project } from "@/api/types";
 import { Button, Checkbox, Dialog, Field, Input, Alert } from "@/components/ui";
 import { projectUrl } from "@/lib/format";
@@ -24,13 +24,14 @@ export function ProjectActionButtons({
   onError?: (err: unknown) => void;
 }) {
   const action = useProjectAction();
+  const publicHost = usePublicHost();
   const state = project.status.state;
   const busy = action.isPending && action.variables?.id === project.id;
   const transitional = state === "creating" || state === "deleting";
   const run = (a: ProjectAction) =>
     action.mutate({ id: project.id, action: a }, { onError: (err) => onError?.(err) });
   const running = state === "running";
-  const url = projectUrl(project.httpPort);
+  const url = projectUrl(project.httpPort, publicHost);
   const pending = (a: ProjectAction) => busy && action.variables?.action === a;
 
   return (

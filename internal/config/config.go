@@ -4,8 +4,10 @@ package config
 import (
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -57,6 +59,11 @@ type Config struct {
 	LogLevel  string
 	LogFormat string
 
+	// PublicHost is the host name or IP the browser should use for project links (ports are
+	// published on the Docker host, which may differ from the address Staqio is reached at,
+	// e.g. when the Staqio container has its own macvlan IP). Empty = browser address bar.
+	PublicHost string
+
 	// DevMode relaxes a few things for local development (e.g. text logs, CORS for the Vite dev server).
 	DevMode bool
 	// DevOrigin is the allowed browser origin in dev mode (Vite dev server).
@@ -79,6 +86,7 @@ func Load() (Config, error) {
 		PortRangeEnd:           envInt("STAQIO_PORT_RANGE_END", 20999),
 		PUID:                   envInt("PUID", 1000),
 		PGID:                   envInt("PGID", 1000),
+		PublicHost:             env("STAQIO_PUBLIC_HOST", ""),
 		AdminUser:              env("STAQIO_ADMIN_USER", ""),
 		AdminPassword:          env("STAQIO_ADMIN_PASSWORD", ""),
 		LogLevel:               strings.ToLower(env("STAQIO_LOG_LEVEL", "info")),
@@ -127,11 +135,30 @@ func (c Config) validate() error {
 	default:
 		errs = append(errs, fmt.Errorf("invalid STAQIO_LOG_FORMAT %q", c.LogFormat))
 	}
+	if c.PublicHost != "" && !validHost(c.PublicHost) {
+		errs = append(errs, fmt.Errorf("STAQIO_PUBLIC_HOST %q must be a host name or IP without scheme or port", c.PublicHost))
+	}
 	if (c.AdminUser == "") != (c.AdminPassword == "") {
 		errs = append(errs, errors.New("STAQIO_ADMIN_USER and STAQIO_ADMIN_PASSWORD must be set together"))
 	}
 	return errors.Join(errs...)
 }
+
+var hostRe = regexp.MustCompile(`^([A-Za-z0-9]([A-Za-z0-9-]{0,62}[A-Za-z0-9])?)(\.[A-Za-z0-9]([A-Za-z0-9-]{0,62}[A-Za-z0-9])?)*$`)
+
+// validHost accepts a DNS host name, an IPv4 or a bracket-free IPv6 address.
+func validHost(h string) bool {
+	if len(h) > 253 {
+		return false
+	}
+	if net.ParseIP(h) != nil {
+		return true
+	}
+	return hostRe.MatchString(h)
+}
+
+// ValidHost is exported for the settings API.
+func ValidHost(h string) bool { return validHost(h) }
 
 func env(key, def string) string {
 	if v, ok := os.LookupEnv(key); ok && strings.TrimSpace(v) != "" {

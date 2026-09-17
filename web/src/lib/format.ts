@@ -63,11 +63,16 @@ export function containerStateTone(state: string): Tone {
   }
 }
 
-/** Builds the URL a project is reachable at from the browser's point of view. */
-export function projectUrl(port: number): string {
+/**
+ * Builds the URL a project is reachable at. Project ports are published on the Docker host,
+ * which is not necessarily the address Staqio itself is reached at (macvlan IP, reverse
+ * proxy), so an explicitly configured host wins over the browser's address bar.
+ */
+export function projectUrl(port: number, publicHost?: string): string {
   if (!port) return "";
-  const host = window.location.hostname;
-  return `http://${host}:${port}`;
+  const host = publicHost?.trim() || window.location.hostname;
+  const h = host.includes(":") && !host.startsWith("[") ? `[${host}]` : host;
+  return `http://${h}:${port}`;
 }
 
 export function serviceLabel(kind: string, version?: string, variant?: string): string {

@@ -2,15 +2,20 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
+	"github.com/seramos/staqio/internal/audit"
+	"github.com/seramos/staqio/internal/config"
 	"github.com/seramos/staqio/internal/db"
 	"github.com/seramos/staqio/internal/docker"
 	"github.com/seramos/staqio/internal/project"
 	"github.com/seramos/staqio/internal/runtime"
+	"github.com/seramos/staqio/internal/validate"
 )
 
 func (a *API) health(w http.ResponseWriter, r *http.Request) {
@@ -90,14 +95,15 @@ func (a *API) dashboard(w http.ResponseWriter, r *http.Request) {
 	}
 	report := a.d.Projects.LastReport()
 	writeJSON(w, http.StatusOK, map[string]any{
-		"projects": map[string]int{"total": len(views), "running": running, "stopped": stopped, "attention": attention},
-		"docker":   a.dockerInfo(ctx),
-		"stats":    statsOut,
-		"recent":   projects,
-		"issues":   report.Issues,
-		"orphans":  len(report.Orphans),
-		"hostPath": a.d.HostPath.Status(),
-		"version":  a.d.Version,
+		"projects":   map[string]int{"total": len(views), "running": running, "stopped": stopped, "attention": attention},
+		"docker":     a.dockerInfo(ctx),
+		"stats":      statsOut,
+		"recent":     projects,
+		"issues":     report.Issues,
+		"orphans":    len(report.Orphans),
+		"hostPath":   a.d.HostPath.Status(),
+		"version":    a.d.Version,
+		"publicHost": a.publicHost(ctx),
 	})
 }
 
@@ -190,10 +196,52 @@ func (a *API) dockerOverview(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, out)
 }
 
+// SettingPublicHost is the settings-table key for the project link host.
+const SettingPublicHost = "public_host"
+
+// publicHost returns the configured host for project links: the stored setting wins, then
+// the environment, then "" (browser address bar).
+func (a *API) publicHost(ctx context.Context) string {
+	if v, err := a.d.Store.Settings.Get(ctx, SettingPublicHost); err == nil {
+		return v
+	}
+	return a.d.Config.PublicHost
+}
+
+type updateSettingsRequest struct {
+	PublicHost *string `json:"publicHost"`
+}
+
+func (a *API) updateSettings(w http.ResponseWriter, r *http.Request) {
+	var req updateSettingsRequest
+	if err := decodeJSON(w, r, &req); err != nil {
+		writeError(w, r, err)
+		return
+	}
+	changes := map[string]any{}
+	if req.PublicHost != nil {
+		host := strings.TrimSpace(*req.PublicHost)
+		if host != "" && !config.ValidHost(host) {
+			writeError(w, r, fmt.Errorf("%w: host must be a host name or IP address without scheme or port", validate.ErrInvalid))
+			return
+		}
+		if err := a.d.Store.Settings.Set(r.Context(), SettingPublicHost, host); err != nil {
+			writeError(w, r, err)
+			return
+		}
+		changes["publicHost"] = host
+	}
+	if len(changes) > 0 {
+		a.d.Audit.Log(r.Context(), audit.ActionSettingsChanged, "settings", "", changes)
+	}
+	a.settings(w, r)
+}
+
 func (a *API) settings(w http.ResponseWriter, r *http.Request) {
 	c := a.d.Config
 	schema, _ := db.SchemaVersion(r.Context(), a.d.Store.DB())
 	writeJSON(w, http.StatusOK, map[string]any{
+		"publicHost":    a.publicHost(r.Context()),
 		"version":       a.d.Version,
 		"schemaVersion": schema,
 		"configDir":     c.ConfigDir,
