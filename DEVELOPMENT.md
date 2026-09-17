@@ -80,7 +80,7 @@ validation errors.
 Edit `internal/runtime/catalog.go`. The frontend reads the catalogue from
 `/api/v1/runtimes`; nothing else changes. For PHP also add the version to the
 matrix in `.github/workflows/php-images.yml` so `ghcr.io/seramos/staqio-php:<v>`
-gets built.
+gets built (pre-release versions map to upstream's `-rc` tag via `base`).
 
 ## PHP extensions
 

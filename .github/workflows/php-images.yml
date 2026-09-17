@@ -21,7 +21,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        php: ["8.4", "8.3", "8.2", "8.1", "8.0", "7.4"]
+        include:
+          - { php: "8.6", base: "8.6-rc" } # preview: upstream publishes RC/beta under the -rc tag
+          - { php: "8.5", base: "8.5" }
+          - { php: "8.4", base: "8.4" }
+          - { php: "8.3", base: "8.3" }
+          - { php: "8.2", base: "8.2" }
+          - { php: "8.1", base: "8.1" }
+          - { php: "8.0", base: "8.0" }
+          - { php: "7.4", base: "7.4" }
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
@@ -36,7 +44,9 @@ jobs:
           context: images/php
           platforms: linux/amd64
           push: true
-          build-args: PHP_VERSION=${{ matrix.php }}
+          build-args: |
+            PHP_VERSION=${{ matrix.php }}
+            BASE_TAG=${{ matrix.base }}
           tags: ghcr.io/seramos/staqio-php:${{ matrix.php }}
           cache-from: type=gha,scope=php-${{ matrix.php }}
           cache-to: type=gha,mode=max,scope=php-${{ matrix.php }}

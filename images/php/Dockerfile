@@ -6,8 +6,10 @@
 # extension in the UI never requires a rebuild.
 #
 # Build: docker build --build-arg PHP_VERSION=8.4 -t ghcr.io/seramos/staqio-php:8.4 images/php
+# Pre-release versions use a different upstream tag, e.g. --build-arg BASE_TAG=8.6-rc.
 ARG PHP_VERSION=8.4
-FROM php:${PHP_VERSION}-fpm
+ARG BASE_TAG=${PHP_VERSION}
+FROM php:${BASE_TAG}-fpm
 
 ARG PHP_VERSION
 LABEL org.opencontainers.image.title="Staqio PHP ${PHP_VERSION}" \

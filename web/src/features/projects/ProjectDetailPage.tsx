@@ -242,7 +242,7 @@ function PhpTab({ project: p }: { project: Project }) {
               {php?.versions.map((v) => (
                 <option key={v.version} value={v.version}>
                   {v.label}
-                  {v.eol ? " (end of life)" : ""}
+                  {v.eol ? " (end of life)" : v.preview ? " (preview)" : ""}
                 </option>
               ))}
             </Select>

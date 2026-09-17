@@ -17,7 +17,9 @@ type Version struct {
 	Image   string `json:"image"`
 	Label   string `json:"label"`
 	EOL     bool   `json:"eol,omitempty"`
-	Default bool   `json:"default,omitempty"`
+	// Preview marks pre-release versions (RC/beta) that are not meant for production use.
+	Preview bool `json:"preview,omitempty"`
+	Default bool `json:"default,omitempty"`
 }
 
 // Runtime describes a runtime family (php, node …) or a service family (caddy, mariadb …).
@@ -47,7 +49,9 @@ func Default() *Catalog {
 		Key: "php", Name: "PHP", Kind: "runtime", Available: true,
 		Description: "PHP-FPM worker with Composer, one container per project",
 		Versions: []Version{
-			{Version: "8.4", Image: phpImage + ":8.4", Label: "PHP 8.4", Default: true},
+			{Version: "8.6", Image: phpImage + ":8.6", Label: "PHP 8.6", Preview: true},
+			{Version: "8.5", Image: phpImage + ":8.5", Label: "PHP 8.5", Default: true},
+			{Version: "8.4", Image: phpImage + ":8.4", Label: "PHP 8.4"},
 			{Version: "8.3", Image: phpImage + ":8.3", Label: "PHP 8.3"},
 			{Version: "8.2", Image: phpImage + ":8.2", Label: "PHP 8.2"},
 			{Version: "8.1", Image: phpImage + ":8.1", Label: "PHP 8.1", EOL: true},

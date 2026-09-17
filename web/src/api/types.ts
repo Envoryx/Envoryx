@@ -87,6 +87,7 @@ export interface RuntimeVersion {
   image: string;
   label: string;
   eol?: boolean;
+  preview?: boolean;
   default?: boolean;
 }
 

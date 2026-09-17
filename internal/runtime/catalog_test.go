@@ -11,7 +11,7 @@ import (
 func TestResolve(t *testing.T) {
 	c := Default()
 	v, err := c.Resolve("php", "")
-	if err != nil || v.Version != "8.4" || !strings.HasPrefix(v.Image, phpImage+":") {
+	if err != nil || v.Version != "8.5" || !strings.HasPrefix(v.Image, phpImage+":") {
 		t.Fatalf("default php: %+v %v", v, err)
 	}
 	if _, err := c.Resolve("php", "5.6"); !errors.Is(err, validate.ErrInvalid) {
