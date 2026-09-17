@@ -86,4 +86,11 @@ Browser ──▶ Staqio (Go API + React UI) ──▶ Docker Engine
 
 ## License
 
-MIT – see [LICENSE](LICENSE).
+Staqio is free software under the **GNU Affero General Public License v3.0**
+(AGPL-3.0) – see [LICENSE](LICENSE). You may use it freely, also commercially.
+If you modify and distribute it, or offer a modified version as a network
+service, you must publish your changes under the same license.
+
+Copyright (c) 2026 Stefan Mertens
+
+The projects you run *inside* Staqio are not affected by this license.

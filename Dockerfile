@@ -22,7 +22,8 @@ RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags "-s -w -X main.version=
 FROM alpine:3.21
 LABEL org.opencontainers.image.title="Staqio" \
       org.opencontainers.image.description="Docker-native development environments for Unraid and Linux" \
-      org.opencontainers.image.source="https://github.com/seramos/staqio"
+      org.opencontainers.image.source="https://github.com/seramos/staqio" \
+      org.opencontainers.image.licenses="AGPL-3.0-only"
 
 RUN apk add --no-cache ca-certificates tzdata \
  && mkdir -p /config /projects

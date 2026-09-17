@@ -1,3 +1,7 @@
+// Staqio - Docker-native development environments for Unraid and Linux.
+// Copyright (c) 2026 Stefan Mertens
+// SPDX-License-Identifier: AGPL-3.0-only
+//
 // Command staqio runs the Staqio server.
 //
 // Usage:
