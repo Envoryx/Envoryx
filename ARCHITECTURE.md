@@ -80,7 +80,7 @@ Go API (single binary, single container)
 │   └── dist/                 build output (embedded into the Go binary)
 ├── deploy/                   docker-compose.yml, Unraid template + icon
 ├── .github/workflows/        CI (tests) and image build → ghcr.io/seramos/staqio
-├── images/                   Dockerfiles for Staqio runtime images (Phase 3+, not yet present)
+├── images/php/               Staqio PHP runtime image (all extensions compiled in, toggled per project)
 ├── Dockerfile                multi-stage build (web → go → alpine)
 ├── Makefile
 ├── ARCHITECTURE.md  SECURITY.md  DEVELOPMENT.md  DEPLOYMENT.md  README.md
@@ -335,9 +335,13 @@ A PHP project consists of two containers from the start:
 - `web` – Caddy, serves static files from `/var/www/html/<docroot>` and passes
   PHP to `php:9000` via FastCGI. Publishes the project's HTTP port on the
   host (auto-allocated from a configurable range, default 20000–20999).
-- `php` – `php:<version>-fpm` (official image in Phase 2, Staqio image with
-  extensions from Phase 3). Project files mounted at `/var/www/html` (same
-  path in both containers so `SCRIPT_FILENAME` resolves).
+- `php` – `ghcr.io/seramos/staqio-php:<version>` (`images/php/Dockerfile`:
+  official php-fpm plus all toggleable extensions compiled in but disabled;
+  the generated `zz-staqio.ini` enables the selected ones). Project files
+  mounted at `/var/www/html` (same path in both containers so
+  `SCRIPT_FILENAME` resolves). The catalogue owns the version→image mapping;
+  stored images are refreshed from it on load, so a new runtime image is
+  applied on the next restart.
 
 Why a per-project web container instead of one central proxy speaking FastCGI:
 FastCGI details stay inside the project; the future central reverse proxy
@@ -490,8 +494,8 @@ API, wizard, project list + detail pages, lifecycle tests.
 
 ### Later phases (prepared, not implemented)
 - **Phase 3 Database**: `database` service kind, named volumes, generated
-  credentials, env injection (`DB_HOST=database` …), Staqio PHP images with
-  `pdo_mysql` etc. (`images/php/Dockerfile`).
+  credentials, env injection (`DB_HOST=database` …). The PHP images with
+  `pdo_mysql` etc. already exist (`images/php/Dockerfile`).
 - **Phase 4 Webserver/Domains**: central reverse proxy routing by `Host` to
   `staqio-<slug>-web`. Recommendation: embed the proxy in the Go binary
   (`httputil.ReverseProxy`, joins project networks) instead of a separate

@@ -199,7 +199,7 @@ func (m *Manager) transition(ctx context.Context, id, action string, op func(con
 	}
 	defer unlock()
 
-	proj, err := m.store.Projects.Get(ctx, id)
+	proj, err := m.loadProject(ctx, id)
 	if err != nil {
 		return View{}, err
 	}
@@ -394,7 +394,7 @@ func (m *Manager) Update(ctx context.Context, id string, req UpdateRequest) (Vie
 		changes["env"] = len(env)
 	}
 
-	proj, err = m.store.Projects.Get(ctx, id)
+	proj, err = m.loadProject(ctx, id)
 	if err != nil {
 		return View{}, err
 	}

@@ -438,7 +438,7 @@ func TestUpdateChangesVersionAndRecreates(t *testing.T) {
 		t.Fatalf("update: %+v", view)
 	}
 	php, _ := e.engine.Container("staqio-upgr-php")
-	if php.Spec.Image != "php:8.3-fpm" {
+	if php.Spec.Image != "ghcr.io/seramos/staqio-php:8.3" {
 		t.Fatalf("container must be recreated with new image, got %s", php.Spec.Image)
 	}
 	ini, _ := os.ReadFile(filepath.Join(e.cfgDir, "projects", id, "php/zz-staqio.ini"))
@@ -476,6 +476,44 @@ func TestUpdateEnvOnStoppedProjectKeepsContainers(t *testing.T) {
 	php, ok := e.engine.Container("staqio-sleepy-php")
 	if !ok || php.State == "running" || !strings.Contains(strings.Join(php.Spec.Env, ","), "APP_DEBUG=true") {
 		t.Fatalf("container must be recreated but not started: %+v", php)
+	}
+}
+
+func TestCatalogueImageChangePropagatesOnRestart(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	view, err := e.m.Create(ctx, phpRequest("Legacy", true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Simulate a project created by an older Staqio that used the official image.
+	if err := e.store.Projects.UpdateServiceConfig(ctx, view.Project.ID, store.ServicePHP, "8.4", "php:8.4-fpm", nil); err != nil {
+		t.Fatal(err)
+	}
+	e.engine.AddImage("php:8.4-fpm")
+	view, _ = e.m.Get(ctx, view.Project.ID)
+	if view.Project.Service(store.ServicePHP).Image != "ghcr.io/seramos/staqio-php:8.4" {
+		t.Fatalf("catalogue image must win over the stored image, got %s", view.Project.Service(store.ServicePHP).Image)
+	}
+	php, _ := e.engine.Container("staqio-legacy-php")
+	if err := e.engine.RemoveContainer(ctx, php.ID); err != nil {
+		t.Fatal(err)
+	}
+	e.engine.AddManagedContainer(docker.ContainerSpec{Name: "staqio-legacy-php", Image: "php:8.4-fpm", Labels: php.Spec.Labels, Network: "staqio-legacy"}, "running")
+	view, _ = e.m.Get(ctx, view.Project.ID)
+	if len(view.Status.Warnings) == 0 || !strings.Contains(view.Status.Warnings[0], "restart to apply") {
+		t.Fatalf("expected outdated-image warning, got %v", view.Status.Warnings)
+	}
+	view, err = e.m.Restart(ctx, view.Project.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	php, _ = e.engine.Container("staqio-legacy-php")
+	if php.Spec.Image != "ghcr.io/seramos/staqio-php:8.4" || php.State != "running" {
+		t.Fatalf("restart must recreate with the catalogue image: %+v", php)
+	}
+	if len(view.Status.Warnings) != 0 {
+		t.Fatalf("no warnings expected after upgrade, got %v", view.Status.Warnings)
 	}
 }
 

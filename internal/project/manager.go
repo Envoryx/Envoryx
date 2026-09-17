@@ -250,9 +250,52 @@ func (m *Manager) allocatePort(ctx context.Context) (int, error) {
 // Queries
 // ---------------------------------------------------------------------------
 
+// resolveImages refreshes the image reference of every service from the catalogue. The
+// catalogue owns the version→image mapping, so a Staqio update that ships a new runtime
+// image propagates to existing projects on their next start/restart. Unknown versions keep
+// the stored image.
+func (m *Manager) resolveImages(p *store.Project) {
+	for i := range p.Services {
+		svc := &p.Services[i]
+		key := ""
+		switch svc.Kind {
+		case store.ServicePHP:
+			key = "php"
+		case store.ServiceWeb:
+			key = svc.Variant
+		}
+		if key == "" {
+			continue
+		}
+		if v, err := m.catalog.Resolve(key, svc.Version); err == nil && v.Image != "" {
+			svc.Image = v.Image
+		}
+	}
+}
+
+func (m *Manager) loadProject(ctx context.Context, id string) (store.Project, error) {
+	p, err := m.store.Projects.Get(ctx, id)
+	if err != nil {
+		return store.Project{}, err
+	}
+	m.resolveImages(&p)
+	return p, nil
+}
+
+func (m *Manager) loadProjects(ctx context.Context) ([]store.Project, error) {
+	projects, err := m.store.Projects.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for i := range projects {
+		m.resolveImages(&projects[i])
+	}
+	return projects, nil
+}
+
 // List returns all projects with derived status.
 func (m *Manager) List(ctx context.Context) ([]View, error) {
-	projects, err := m.store.Projects.List(ctx)
+	projects, err := m.loadProjects(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -273,7 +316,7 @@ func (m *Manager) Get(ctx context.Context, id string) (View, error) {
 	if err := validate.UUID(id); err != nil {
 		return View{}, ErrNotFound
 	}
-	p, err := m.store.Projects.Get(ctx, id)
+	p, err := m.loadProject(ctx, id)
 	if err != nil {
 		return View{}, err
 	}
@@ -290,7 +333,7 @@ func (m *Manager) PlanFor(ctx context.Context, id string) (Preview, error) {
 	if err := validate.UUID(id); err != nil {
 		return Preview{}, ErrNotFound
 	}
-	p, err := m.store.Projects.Get(ctx, id)
+	p, err := m.loadProject(ctx, id)
 	if err != nil {
 		return Preview{}, err
 	}

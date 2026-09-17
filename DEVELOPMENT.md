@@ -78,7 +78,18 @@ validation errors.
 ## Adding a runtime version
 
 Edit `internal/runtime/catalog.go`. The frontend reads the catalogue from
-`/api/v1/runtimes`; nothing else changes.
+`/api/v1/runtimes`; nothing else changes. For PHP also add the version to the
+matrix in `.github/workflows/php-images.yml` so `ghcr.io/seramos/staqio-php:<v>`
+gets built.
+
+## PHP extensions
+
+`images/php/Dockerfile` compiles every toggleable extension
+(`STAQIO_PHP_EXTENSIONS`) and removes the auto-generated `docker-php-ext-*.ini`
+files, so nothing is enabled by default. Staqio's generated
+`zz-staqio.ini` adds `extension=…` lines for the extensions selected in the
+UI. To add one: extend `STAQIO_PHP_EXTENSIONS`, add it to
+`runtime.PHPExtensions()` with `Available: true`, rebuild the images.
 
 ## Adding a service kind (later phases)
 

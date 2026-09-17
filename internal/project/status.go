@@ -83,7 +83,7 @@ func deriveStatus(p store.Project, containers []docker.Container) Status {
 // resources, and repairs interrupted lifecycles. It never removes anything.
 func (m *Manager) Reconcile(ctx context.Context) ReconcileReport {
 	report := ReconcileReport{At: time.Now().UTC(), Orphans: []Orphan{}, Issues: []ReconcileIssue{}, States: map[string]Status{}}
-	projects, err := m.store.Projects.List(ctx)
+	projects, err := m.loadProjects(ctx)
 	if err != nil {
 		report.Error = err.Error()
 		m.setReport(report)

@@ -18,9 +18,11 @@ Staqio is under active development. The current milestone (Phase 1 + 2) delivers
 - single-container deployment with embedded web UI (Go + React)
 - local admin account, secure sessions, audit log
 - Docker engine integration that only ever touches resources labelled `staqio.managed=true`
-- project wizard: name, directory, document root, PHP version + php.ini settings,
-  Caddy web server, environment variables, plan preview
-- per-project Docker network, PHP-FPM container and Caddy container
+- project wizard: name, directory, document root, PHP version, php.ini settings
+  and extensions (pdo_mysql, mysqli, pdo_pgsql, gd, intl, zip, bcmath, opcache,
+  imagick), Caddy web server, environment variables, plan preview
+- per-project Docker network, PHP-FPM container (Staqio image with Composer)
+  and Caddy container
 - project files bind-mounted from `/projects/<name>` on the host
 - projects reachable at `http://<host>:<port>` (port auto-assigned)
 - start / stop / restart / edit / delete with confirmation

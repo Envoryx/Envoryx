@@ -1,0 +1,72 @@
+package runtime
+
+import (
+	"errors"
+	"strings"
+	"testing"
+
+	"github.com/seramos/staqio/internal/validate"
+)
+
+func TestResolve(t *testing.T) {
+	c := Default()
+	v, err := c.Resolve("php", "")
+	if err != nil || v.Version != "8.4" || !strings.HasPrefix(v.Image, phpImage+":") {
+		t.Fatalf("default php: %+v %v", v, err)
+	}
+	if _, err := c.Resolve("php", "5.6"); !errors.Is(err, validate.ErrInvalid) {
+		t.Fatalf("unknown version must be invalid, got %v", err)
+	}
+	if _, err := c.Resolve("mariadb", ""); !errors.Is(err, validate.ErrInvalid) {
+		t.Fatalf("unavailable runtime must be invalid, got %v", err)
+	}
+	if _, err := c.Resolve("nope", ""); !errors.Is(err, validate.ErrInvalid) {
+		t.Fatalf("unknown runtime must be invalid, got %v", err)
+	}
+}
+
+func TestPHPConfigNormalizeAndINI(t *testing.T) {
+	cfg := PHPConfig{DisplayErrors: true, Extensions: []string{"PDO_MYSQL", "mbstring", "gd", "gd", "opcache"}}
+	if err := cfg.Normalize(); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(cfg.Extensions, ",") != "gd,opcache,pdo_mysql" {
+		t.Fatalf("extensions not normalised: %v", cfg.Extensions)
+	}
+	ini := cfg.INI()
+	for _, want := range []string{"memory_limit = 256M", "extension=gd", "extension=pdo_mysql", "zend_extension=opcache", "display_errors = On"} {
+		if !strings.Contains(ini, want) {
+			t.Errorf("ini missing %q:\n%s", want, ini)
+		}
+	}
+	if strings.Contains(ini, "extension=mbstring") {
+		t.Error("built-in extensions must not be listed")
+	}
+
+	bad := []PHPConfig{
+		{MemoryLimit: "lots"},
+		{ErrorReporting: "E_ALL; system('x')"},
+		{MaxExecutionTime: -1},
+		{Extensions: []string{"evil"}},
+	}
+	for i, b := range bad {
+		if err := b.Normalize(); !errors.Is(err, validate.ErrInvalid) {
+			t.Errorf("case %d: expected invalid, got %v", i, err)
+		}
+	}
+	def := DefaultPHPConfig()
+	if err := def.Normalize(); err != nil {
+		t.Fatalf("defaults must be valid: %v", err)
+	}
+	for _, e := range def.Extensions {
+		found := false
+		for _, known := range PHPExtensions() {
+			if known.Name == e && known.Available {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("default extension %q is not available", e)
+		}
+	}
+}

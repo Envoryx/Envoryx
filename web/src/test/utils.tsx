@@ -60,14 +60,14 @@ export function makeProject(overrides: Partial<Project> = {}): Project {
     createdAt: "2026-09-17T10:00:00Z",
     updatedAt: "2026-09-17T10:00:00Z",
     services: [
-      { kind: "php", variant: "php", version: "8.4", image: "php:8.4-fpm", enabled: true, config: {} },
+      { kind: "php", variant: "php", version: "8.4", image: "ghcr.io/seramos/staqio-php:8.4", enabled: true, config: {} },
       { kind: "web", variant: "caddy", version: "2", image: "caddy:2-alpine", enabled: true, config: {} },
     ],
     env: [],
     status: {
       state: "running",
       services: [
-        { kind: "php", variant: "php", version: "8.4", image: "php:8.4-fpm", containerName: "staqio-shimly-api-php", exists: true, running: true, state: "running", ports: [] },
+        { kind: "php", variant: "php", version: "8.4", image: "ghcr.io/seramos/staqio-php:8.4", containerName: "staqio-shimly-api-php", exists: true, running: true, state: "running", ports: [] },
         { kind: "web", variant: "caddy", version: "2", image: "caddy:2-alpine", containerName: "staqio-shimly-api-web", exists: true, running: true, state: "running", ports: [{ hostIp: "", hostPort: 20000, containerPort: 80, protocol: "tcp" }] },
       ],
       warnings: [],
@@ -78,7 +78,7 @@ export function makeProject(overrides: Partial<Project> = {}): Project {
 
 export const runtimesFixture: RuntimesResponse = {
   runtimes: [
-    { key: "php", name: "PHP", kind: "runtime", available: true, description: "", versions: [{ version: "8.4", image: "php:8.4-fpm", label: "PHP 8.4", default: true }, { version: "8.3", image: "php:8.3-fpm", label: "PHP 8.3" }] },
+    { key: "php", name: "PHP", kind: "runtime", available: true, description: "", versions: [{ version: "8.4", image: "ghcr.io/seramos/staqio-php:8.4", label: "PHP 8.4", default: true }, { version: "8.3", image: "ghcr.io/seramos/staqio-php:8.3", label: "PHP 8.3" }] },
     { key: "caddy", name: "Caddy", kind: "webserver", available: true, description: "", versions: [{ version: "2", image: "caddy:2-alpine", label: "Caddy 2", default: true }] },
     { key: "mariadb", name: "MariaDB", kind: "database", available: false, description: "", versions: [{ version: "11", image: "mariadb:11", label: "MariaDB 11", default: true }] },
     { key: "redis", name: "Redis", kind: "service", available: false, description: "", versions: [{ version: "8", image: "redis:8", label: "Redis 8", default: true }] },

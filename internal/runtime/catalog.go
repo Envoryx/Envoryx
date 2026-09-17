@@ -36,19 +36,23 @@ type Catalog struct {
 	order    []string
 }
 
+// phpImage is the Staqio PHP runtime image (images/php/Dockerfile): the official php-fpm
+// image plus all toggleable extensions compiled in but disabled by default.
+const phpImage = "ghcr.io/seramos/staqio-php"
+
 // Default returns the built-in catalogue.
 func Default() *Catalog {
 	c := &Catalog{runtimes: map[string]Runtime{}}
 	c.add(Runtime{
 		Key: "php", Name: "PHP", Kind: "runtime", Available: true,
-		Description: "PHP-FPM worker, one container per project",
+		Description: "PHP-FPM worker with Composer, one container per project",
 		Versions: []Version{
-			{Version: "8.4", Image: "php:8.4-fpm", Label: "PHP 8.4", Default: true},
-			{Version: "8.3", Image: "php:8.3-fpm", Label: "PHP 8.3"},
-			{Version: "8.2", Image: "php:8.2-fpm", Label: "PHP 8.2"},
-			{Version: "8.1", Image: "php:8.1-fpm", Label: "PHP 8.1", EOL: true},
-			{Version: "8.0", Image: "php:8.0-fpm", Label: "PHP 8.0", EOL: true},
-			{Version: "7.4", Image: "php:7.4-fpm", Label: "PHP 7.4", EOL: true},
+			{Version: "8.4", Image: phpImage + ":8.4", Label: "PHP 8.4", Default: true},
+			{Version: "8.3", Image: phpImage + ":8.3", Label: "PHP 8.3"},
+			{Version: "8.2", Image: phpImage + ":8.2", Label: "PHP 8.2"},
+			{Version: "8.1", Image: phpImage + ":8.1", Label: "PHP 8.1", EOL: true},
+			{Version: "8.0", Image: phpImage + ":8.0", Label: "PHP 8.0", EOL: true},
+			{Version: "7.4", Image: phpImage + ":7.4", Label: "PHP 7.4", EOL: true},
 		},
 	})
 	c.add(Runtime{
@@ -155,25 +159,26 @@ type PHPExtension struct {
 	Description string `json:"description"`
 	// BuiltIn extensions are compiled into the official image and always on.
 	BuiltIn bool `json:"builtIn"`
-	// Available is false until Staqio ships its own PHP images with the extension compiled in.
+	// Available is false for extensions the Staqio PHP image does not ship (yet).
 	Available bool `json:"available"`
 }
 
-// PHPExtensions lists the extensions Staqio knows about.
+// PHPExtensions lists the extensions Staqio knows about. Toggleable ones must be compiled
+// into images/php/Dockerfile (STAQIO_PHP_EXTENSIONS).
 func PHPExtensions() []PHPExtension {
 	return []PHPExtension{
 		{Name: "mbstring", Description: "Multibyte strings", BuiltIn: true, Available: true},
 		{Name: "curl", Description: "cURL", BuiltIn: true, Available: true},
-		{Name: "opcache", Description: "Opcode cache", Available: true},
 		{Name: "pdo_sqlite", Description: "PDO SQLite", BuiltIn: true, Available: true},
-		{Name: "mysqli", Description: "MySQL improved", Available: false},
-		{Name: "pdo_mysql", Description: "PDO MySQL/MariaDB", Available: false},
-		{Name: "pdo_pgsql", Description: "PDO PostgreSQL", Available: false},
-		{Name: "gd", Description: "Image processing", Available: false},
-		{Name: "intl", Description: "Internationalisation", Available: false},
-		{Name: "zip", Description: "ZIP archives", Available: false},
-		{Name: "bcmath", Description: "Arbitrary precision math", Available: false},
-		{Name: "imagick", Description: "ImageMagick", Available: false},
+		{Name: "opcache", Description: "Opcode cache", Available: true},
+		{Name: "pdo_mysql", Description: "PDO MySQL/MariaDB", Available: true},
+		{Name: "mysqli", Description: "MySQL improved", Available: true},
+		{Name: "pdo_pgsql", Description: "PDO PostgreSQL", Available: true},
+		{Name: "gd", Description: "Image processing", Available: true},
+		{Name: "intl", Description: "Internationalisation", Available: true},
+		{Name: "zip", Description: "ZIP archives", Available: true},
+		{Name: "bcmath", Description: "Arbitrary precision math", Available: true},
+		{Name: "imagick", Description: "ImageMagick", Available: true},
 	}
 }
 
@@ -197,7 +202,7 @@ func DefaultPHPConfig() PHPConfig {
 		MaxExecutionTime:  120,
 		DisplayErrors:     true,
 		ErrorReporting:    "E_ALL",
-		Extensions:        []string{"opcache"},
+		Extensions:        []string{"bcmath", "gd", "intl", "opcache", "pdo_mysql", "zip"},
 	}
 }
 
