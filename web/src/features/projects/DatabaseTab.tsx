@@ -1,30 +1,27 @@
-import { Check, Copy, Database, Eye, EyeOff, KeyRound, Plus, Trash2 } from "lucide-react";
+import { Check, Copy, Database, Eye, EyeOff, KeyRound, Plus, Trash2, X } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { api, ApiError } from "@/api/client";
 import { useDatabaseInfo, useDatabaseList, useDatabaseMutations, usePublicHost, useRuntimes, useUpdateProject } from "@/api/hooks";
 import type { DatabaseCredentials, Project } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Checkbox, Code, Dialog, ErrorState, Field, Input, Select, Spinner, StatusDot } from "@/components/ui";
+import { copyText } from "@/lib/clipboard";
 import { containerStateTone } from "@/lib/format";
 
 function CopyButton({ value, label }: { value: string; label: string }) {
-  const [done, setDone] = useState(false);
+  const [state, setState] = useState<"idle" | "done" | "failed">("idle");
   return (
     <Button
       variant="ghost"
       size="sm"
       aria-label={`Copy ${label}`}
-      title={`Copy ${label}`}
+      title={state === "failed" ? "Copying failed – select the value and copy it manually" : `Copy ${label}`}
       onClick={async () => {
-        try {
-          await navigator.clipboard.writeText(value);
-          setDone(true);
-          setTimeout(() => setDone(false), 1500);
-        } catch {
-          /* clipboard unavailable (http origin) – value stays visible for manual copy */
-        }
+        const ok = await copyText(value);
+        setState(ok ? "done" : "failed");
+        setTimeout(() => setState("idle"), 2000);
       }}
     >
-      {done ? <Check className="size-4 text-emerald-500" /> : <Copy className="size-4" />}
+      {state === "done" ? <Check className="size-4 text-emerald-500" /> : state === "failed" ? <X className="size-4 text-red-500" /> : <Copy className="size-4" />}
     </Button>
   );
 }
@@ -35,7 +32,7 @@ function Row({ label, value, secret = false, mono = true }: { label: string; val
   return (
     <div className="flex items-center justify-between gap-3 py-1.5">
       <dt className="w-36 shrink-0 text-sm text-muted">{label}</dt>
-      <dd className={`min-w-0 flex-1 truncate text-sm ${mono ? "font-mono text-xs" : ""}`} title={secret && !show ? undefined : value}>
+      <dd className={`min-w-0 flex-1 truncate text-sm select-all ${mono ? "font-mono text-xs" : ""}`} title={secret && !show ? undefined : value}>
         {display}
       </dd>
       <div className="flex shrink-0 items-center">
