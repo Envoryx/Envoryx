@@ -11,7 +11,9 @@ import (
 )
 
 // deriveStatus computes the observed state of a project from the managed container list.
-func deriveStatus(p store.Project, containers []docker.Container) Status {
+// imageIDs (optional) maps image references to their current local id so containers built
+// from an older build of the same tag can be flagged.
+func deriveStatus(p store.Project, containers []docker.Container, imageIDs map[string]string) Status {
 	st := Status{Services: []ServiceStatus{}, Warnings: []string{}}
 	byKind := map[string]docker.Container{}
 	for _, c := range containers {
@@ -42,6 +44,8 @@ func deriveStatus(p store.Project, containers []docker.Container) Status {
 			}
 			if c.Image != svc.Image {
 				st.Warnings = append(st.Warnings, fmt.Sprintf("%s container uses image %s but %s is configured; restart to apply", svc.Kind, c.Image, svc.Image))
+			} else if localID, ok := imageIDs[svc.Image]; ok && c.ImageID != "" && localID != c.ImageID {
+				st.Warnings = append(st.Warnings, fmt.Sprintf("a newer %s image was pulled; restart to apply", svc.Kind))
 			}
 		}
 		st.Services = append(st.Services, ss)
@@ -114,7 +118,7 @@ func (m *Manager) Reconcile(ctx context.Context) ReconcileReport {
 			}
 			report.Issues = append(report.Issues, ReconcileIssue{ProjectID: p.ID, ProjectName: p.Name, Severity: "error", Message: msg})
 		}
-		st := deriveStatus(p, containers)
+		st := deriveStatus(p, containers, m.localImageIDs(ctx, projects))
 		report.States[p.ID] = st
 		if p.DesiredState == store.DesiredRunning && st.State != StateRunning && p.Lifecycle == store.LifecycleReady {
 			report.Issues = append(report.Issues, ReconcileIssue{ProjectID: p.ID, ProjectName: p.Name, Severity: "warning",
@@ -149,6 +153,32 @@ func (m *Manager) Reconcile(ctx context.Context) ReconcileReport {
 	}
 	m.setReport(report)
 	return report
+}
+
+// localImageIDs looks up the local ids of all images used by the given projects.
+func (m *Manager) localImageIDs(ctx context.Context, projects []store.Project) map[string]string {
+	ids := map[string]string{}
+	for _, p := range projects {
+		for _, svc := range p.Services {
+			if !svc.Enabled || svc.Image == "" {
+				continue
+			}
+			if _, done := ids[svc.Image]; done {
+				continue
+			}
+			if id, err := m.engine.ImageID(ctx, svc.Image); err == nil {
+				ids[svc.Image] = id
+			} else {
+				ids[svc.Image] = ""
+			}
+		}
+	}
+	for k, v := range ids {
+		if v == "" {
+			delete(ids, k)
+		}
+	}
+	return ids
 }
 
 func (m *Manager) setReport(r ReconcileReport) {

@@ -44,7 +44,7 @@ export function ProjectActionButtons({
           Start
         </Button>
       )}
-      <Button size={size} onClick={() => run("restart")} loading={pending("restart")} disabled={busy || transitional} icon={<RotateCw className="size-3.5" />} title="Restart">
+      <Button size={size} onClick={() => run("restart")} loading={pending("restart")} disabled={busy || transitional} icon={<RotateCw className="size-3.5" />} title="Restart – also pulls updated runtime images">
         Restart
       </Button>
       {url && (

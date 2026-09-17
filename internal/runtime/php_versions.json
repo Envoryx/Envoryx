@@ -1,0 +1,14 @@
+{
+  "image": "ghcr.io/seramos/staqio-php",
+  "default": "8.5",
+  "versions": [
+    { "version": "8.6", "base": "8.6-rc", "preview": true },
+    { "version": "8.5", "base": "8.5" },
+    { "version": "8.4", "base": "8.4" },
+    { "version": "8.3", "base": "8.3" },
+    { "version": "8.2", "base": "8.2" },
+    { "version": "8.1", "base": "8.1", "eol": true },
+    { "version": "8.0", "base": "8.0", "eol": true },
+    { "version": "7.4", "base": "7.4", "eol": true }
+  ]
+}

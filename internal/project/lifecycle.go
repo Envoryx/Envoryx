@@ -179,9 +179,17 @@ func (m *Manager) Stop(ctx context.Context, id string) (View, error) {
 	}, store.DesiredStopped)
 }
 
-// Restart stops and starts the project, re-applying generated configuration.
+// Restart stops and starts the project, re-applying generated configuration. It also pulls
+// the runtime images so rebuilt upstream images (PHP patch releases) are picked up;
+// containers whose image changed are recreated.
 func (m *Manager) Restart(ctx context.Context, id string) (View, error) {
 	return m.transition(ctx, id, audit.ActionProjectRestarted, func(ctx context.Context, proj store.Project, plan Plan) error {
+		for _, img := range plan.Images {
+			if err := m.engine.PullImage(ctx, img, m.pullProgress(proj.Slug)); err != nil {
+				// A registry hiccup must not prevent a restart with the local image.
+				m.log.Warn("image refresh failed, using local image", "image", img, "err", err)
+			}
+		}
 		if err := m.stopPlan(ctx, proj, plan); err != nil {
 			return err
 		}
@@ -262,13 +270,22 @@ func (m *Manager) ensurePlan(ctx context.Context, proj store.Project, plan Plan,
 	}
 	for _, c := range plan.Containers {
 		cur, ok := byKind[string(c.Kind)]
-		if ok && cur.Image != c.Spec.Image {
-			// Runtime version changed: recreate the container from the new plan.
-			m.log.Info("recreating container with new image", "container", cur.Name, "from", cur.Image, "to", c.Spec.Image)
-			if err := m.engine.RemoveContainer(ctx, cur.ID); err != nil {
-				return fmt.Errorf("remove outdated container %s: %w", cur.Name, err)
+		if ok {
+			if err := m.engine.EnsureImage(ctx, c.Spec.Image, m.pullProgress(proj.Slug)); err != nil {
+				return fmt.Errorf("pull image %s: %w", c.Spec.Image, err)
 			}
-			ok = false
+			localID, err := m.engine.ImageID(ctx, c.Spec.Image)
+			if err != nil {
+				return fmt.Errorf("inspect image %s: %w", c.Spec.Image, err)
+			}
+			if cur.Image != c.Spec.Image || (cur.ImageID != "" && cur.ImageID != localID) {
+				// Runtime version changed or the image tag was rebuilt upstream: recreate.
+				m.log.Info("recreating container with updated image", "container", cur.Name, "from", cur.Image, "to", c.Spec.Image)
+				if err := m.engine.RemoveContainer(ctx, cur.ID); err != nil {
+					return fmt.Errorf("remove outdated container %s: %w", cur.Name, err)
+				}
+				ok = false
+			}
 		}
 		id := cur.ID
 		if !ok {

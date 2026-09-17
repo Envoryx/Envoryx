@@ -300,9 +300,13 @@ func (m *Manager) List(ctx context.Context) ([]View, error) {
 		return nil, err
 	}
 	containers, dockerErr := m.engine.ListContainers(ctx, true, "")
+	var imageIDs map[string]string
+	if dockerErr == nil {
+		imageIDs = m.localImageIDs(ctx, projects)
+	}
 	views := make([]View, 0, len(projects))
 	for _, p := range projects {
-		st := deriveStatus(p, containers)
+		st := deriveStatus(p, containers, imageIDs)
 		if dockerErr != nil {
 			st.Warnings = append(st.Warnings, "Docker engine unavailable: "+dockerErr.Error())
 		}
@@ -321,7 +325,11 @@ func (m *Manager) Get(ctx context.Context, id string) (View, error) {
 		return View{}, err
 	}
 	containers, dockerErr := m.engine.ListContainers(ctx, true, id)
-	st := deriveStatus(p, containers)
+	var imageIDs map[string]string
+	if dockerErr == nil {
+		imageIDs = m.localImageIDs(ctx, []store.Project{p})
+	}
+	st := deriveStatus(p, containers, imageIDs)
 	if dockerErr != nil {
 		st.Warnings = append(st.Warnings, "Docker engine unavailable: "+dockerErr.Error())
 	}

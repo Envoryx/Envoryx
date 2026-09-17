@@ -11,8 +11,21 @@ import (
 func TestResolve(t *testing.T) {
 	c := Default()
 	v, err := c.Resolve("php", "")
-	if err != nil || v.Version != "8.5" || !strings.HasPrefix(v.Image, phpImage+":") {
+	if err != nil || v.Version != "8.5" || !strings.HasPrefix(v.Image, "ghcr.io/seramos/staqio-php:") {
 		t.Fatalf("default php: %+v %v", v, err)
+	}
+	if v.EOL || v.Preview {
+		t.Fatal("the default version must be neither EOL nor preview")
+	}
+	php, _ := c.Get("php")
+	defaults := 0
+	for _, ver := range php.Versions {
+		if ver.Default {
+			defaults++
+		}
+	}
+	if defaults != 1 {
+		t.Fatalf("exactly one default version expected, got %d", defaults)
 	}
 	if _, err := c.Resolve("php", "5.6"); !errors.Is(err, validate.ErrInvalid) {
 		t.Fatalf("unknown version must be invalid, got %v", err)

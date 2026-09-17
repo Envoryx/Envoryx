@@ -155,6 +155,19 @@ never touches projects. Database migrations run automatically and are forward
 only; a database newer than the binary is refused with a clear error, so keep a
 copy of `/config/staqio.db` before downgrading.
 
+## Keeping PHP up to date
+
+- **Patch releases** (e.g. 8.5.3 → 8.5.4): the `staqio-php` images are rebuilt
+  weekly from the official `php` images. A project **Restart** pulls the tag
+  again and recreates the container only if the image actually changed. Until
+  then the project keeps running on the previous build – nothing changes
+  behind your back.
+- **New minor versions** (e.g. 8.6): a weekly workflow compares
+  `internal/runtime/php_versions.json` with endoflife.date and Docker Hub and
+  opens a pull request when a version appears, becomes stable or reaches EOL.
+  Merging it builds the images and the next Staqio image shows the version in
+  the wizard. Pre-release versions are marked *preview*.
+
 ## Backups of Staqio itself
 
 Back up `/config` (SQLite database + generated project configuration) and

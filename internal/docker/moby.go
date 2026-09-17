@@ -129,6 +129,7 @@ func summaryToContainer(c container.Summary) Container {
 		ID:      c.ID,
 		Name:    name,
 		Image:   c.Image,
+		ImageID: c.ImageID,
 		State:   string(c.State),
 		Status:  c.Status,
 		Created: time.Unix(c.Created, 0).UTC(),
@@ -177,6 +178,7 @@ func (e *MobyEngine) InspectContainer(ctx context.Context, idOrName string) (Con
 		Image: c.Config.Image,
 	}
 	d.Container.Image = c.Config.Image
+	d.Container.ImageID = c.Image
 	if t, err := time.Parse(time.RFC3339Nano, c.Created); err == nil {
 		d.Created = t
 	}
@@ -543,6 +545,15 @@ func (e *MobyEngine) ImageExists(ctx context.Context, ref string) (bool, error) 
 	return false, wrap(err)
 }
 
+// ImageID implements Engine.
+func (e *MobyEngine) ImageID(ctx context.Context, ref string) (string, error) {
+	res, err := e.cli.ImageInspect(ctx, ref)
+	if err != nil {
+		return "", wrap(err)
+	}
+	return res.ID, nil
+}
+
 // EnsureImage implements Engine.
 func (e *MobyEngine) EnsureImage(ctx context.Context, ref string, progress PullProgress) error {
 	exists, err := e.ImageExists(ctx, ref)
@@ -552,6 +563,11 @@ func (e *MobyEngine) EnsureImage(ctx context.Context, ref string, progress PullP
 	if exists {
 		return nil
 	}
+	return e.PullImage(ctx, ref, progress)
+}
+
+// PullImage implements Engine.
+func (e *MobyEngine) PullImage(ctx context.Context, ref string, progress PullProgress) error {
 	if progress != nil {
 		progress("pulling " + ref)
 	}

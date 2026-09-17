@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "images/php/**"
+      - "internal/runtime/php_versions.json"
       - ".github/workflows/php-images.yml"
   schedule:
     # Weekly rebuild picks up upstream PHP patch releases.
@@ -16,20 +17,21 @@ permissions:
   packages: write
 
 jobs:
+  matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.read.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: read
+        run: echo "matrix=$(jq -c '{include: [.versions[] | {php: .version, base: .base}]}' internal/runtime/php_versions.json)" >> "$GITHUB_OUTPUT"
+
   build:
+    needs: matrix
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - { php: "8.6", base: "8.6-rc" } # preview: upstream publishes RC/beta under the -rc tag
-          - { php: "8.5", base: "8.5" }
-          - { php: "8.4", base: "8.4" }
-          - { php: "8.3", base: "8.3" }
-          - { php: "8.2", base: "8.2" }
-          - { php: "8.1", base: "8.1" }
-          - { php: "8.0", base: "8.0" }
-          - { php: "7.4", base: "7.4" }
+      matrix: ${{ fromJson(needs.matrix.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3

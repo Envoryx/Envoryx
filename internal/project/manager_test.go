@@ -517,6 +517,48 @@ func TestCatalogueImageChangePropagatesOnRestart(t *testing.T) {
 	}
 }
 
+func TestRestartPullsRebuiltImage(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	view, err := e.m.Create(ctx, phpRequest("Fresh", true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	img := view.Project.Service(store.ServicePHP).Image
+	before, _ := e.engine.Container("staqio-fresh-php")
+
+	// Upstream rebuilt the same tag (PHP patch release).
+	e.engine.Remote[img] = img + "@v2"
+	view, _ = e.m.Get(ctx, view.Project.ID)
+	if len(view.Status.Warnings) != 0 {
+		t.Fatalf("no warning expected before the image was pulled: %v", view.Status.Warnings)
+	}
+	// A plain start must not recreate anything (image exists locally).
+	if _, err := e.m.Start(ctx, view.Project.ID); err != nil {
+		t.Fatal(err)
+	}
+	after, _ := e.engine.Container("staqio-fresh-php")
+	if after.ID != before.ID {
+		t.Fatal("start must not recreate a container whose local image is unchanged")
+	}
+
+	view, err = e.m.Restart(ctx, view.Project.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	after, _ = e.engine.Container("staqio-fresh-php")
+	if after.ID == before.ID || after.ImageID != img+"@v2" || after.State != "running" {
+		t.Fatalf("restart must pull and recreate with the rebuilt image: %+v", after)
+	}
+	if len(view.Status.Warnings) != 0 {
+		t.Fatalf("unexpected warnings: %v", view.Status.Warnings)
+	}
+	web, _ := e.engine.Container("staqio-fresh-web")
+	if web.ImageID != "caddy:2-alpine@v1" {
+		t.Fatalf("unchanged images must keep their container: %+v", web)
+	}
+}
+
 func TestPreviewShowsPlanWithoutSideEffects(t *testing.T) {
 	e := newEnv(t)
 	pv, err := e.m.Preview(context.Background(), phpRequest("Preview Me", true))

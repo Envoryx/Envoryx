@@ -15,6 +15,7 @@ import (
 // FakeContainer is the internal state of a simulated container.
 type FakeContainer struct {
 	ID      string
+	ImageID string
 	Spec    docker.ContainerSpec
 	State   string
 	Created time.Time
@@ -31,7 +32,9 @@ type Fake struct {
 	containers map[string]*FakeContainer
 	networks   map[string]docker.Network
 	volumes    map[string]docker.Volume
-	images     map[string]bool
+	images     map[string]string // ref -> image id
+	// Remote maps image refs to the id a pull would deliver. Unset refs pull as "<ref>@v1".
+	Remote map[string]string
 
 	// Unavailable makes every call fail with docker.ErrUnavailable.
 	Unavailable bool
@@ -54,7 +57,8 @@ func New() *Fake {
 		containers: map[string]*FakeContainer{},
 		networks:   map[string]docker.Network{},
 		volumes:    map[string]docker.Volume{},
-		images:     map[string]bool{},
+		images:     map[string]string{},
+		Remote:     map[string]string{},
 		FailCreate: map[string]error{},
 		FailStart:  map[string]error{},
 		FailPull:   map[string]error{},
@@ -90,7 +94,7 @@ func (f *Fake) AddManagedContainer(spec docker.ContainerSpec, state string) stri
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	id := f.nextID("c")
-	f.containers[id] = &FakeContainer{ID: id, Spec: spec, State: state, Created: time.Now().UTC()}
+	f.containers[id] = &FakeContainer{ID: id, ImageID: f.images[spec.Image], Spec: spec, State: state, Created: time.Now().UTC()}
 	return id
 }
 
@@ -105,7 +109,14 @@ func (f *Fake) AddNetwork(name string, labels map[string]string) {
 func (f *Fake) AddImage(ref string) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.images[ref] = true
+	f.images[ref] = ref + "@v1"
+}
+
+func (f *Fake) remoteID(ref string) string {
+	if id, ok := f.Remote[ref]; ok {
+		return id
+	}
+	return ref + "@v1"
 }
 
 // SetState changes a container's state (simulates a crash or external stop).
@@ -208,6 +219,7 @@ func toContainer(c *FakeContainer) docker.Container {
 		ID:      c.ID,
 		Name:    c.Spec.Name,
 		Image:   c.Spec.Image,
+		ImageID: c.ImageID,
 		State:   c.State,
 		Status:  c.State,
 		Created: c.Created,
@@ -318,11 +330,12 @@ func (f *Fake) CreateContainer(_ context.Context, spec docker.ContainerSpec) (st
 			return "", fmt.Errorf("network %s: %w", spec.Network, docker.ErrNotFound)
 		}
 	}
-	if !f.images[spec.Image] {
+	imageID, ok := f.images[spec.Image]
+	if !ok {
 		return "", fmt.Errorf("image %s: %w", spec.Image, docker.ErrNotFound)
 	}
 	id := f.nextID("c")
-	f.containers[id] = &FakeContainer{ID: id, Spec: spec, State: "created", Created: time.Now().UTC()}
+	f.containers[id] = &FakeContainer{ID: id, ImageID: imageID, Spec: spec, State: "created", Created: time.Now().UTC()}
 	f.record("create:" + spec.Name)
 	return id, nil
 }
@@ -536,7 +549,22 @@ func (f *Fake) ImageExists(_ context.Context, ref string) (bool, error) {
 	if err := f.check(); err != nil {
 		return false, err
 	}
-	return f.images[ref], nil
+	_, ok := f.images[ref]
+	return ok, nil
+}
+
+// ImageID implements docker.Engine.
+func (f *Fake) ImageID(_ context.Context, ref string) (string, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if err := f.check(); err != nil {
+		return "", err
+	}
+	id, ok := f.images[ref]
+	if !ok {
+		return "", docker.ErrNotFound
+	}
+	return id, nil
 }
 
 // EnsureImage implements docker.Engine.
@@ -546,13 +574,24 @@ func (f *Fake) EnsureImage(ctx context.Context, ref string, progress docker.Pull
 		f.mu.Unlock()
 		return err
 	}
-	if err := f.FailPull[ref]; err != nil {
+	if _, ok := f.images[ref]; ok {
+		f.mu.Unlock()
+		return nil
+	}
+	f.mu.Unlock()
+	return f.PullImage(ctx, ref, progress)
+}
+
+// PullImage implements docker.Engine.
+func (f *Fake) PullImage(ctx context.Context, ref string, progress docker.PullProgress) error {
+	f.mu.Lock()
+	if err := f.check(); err != nil {
 		f.mu.Unlock()
 		return err
 	}
-	if f.images[ref] {
+	if err := f.FailPull[ref]; err != nil {
 		f.mu.Unlock()
-		return nil
+		return err
 	}
 	delay := f.PullDelay
 	f.mu.Unlock()
@@ -567,7 +606,7 @@ func (f *Fake) EnsureImage(ctx context.Context, ref string, progress docker.Pull
 		progress("pulling " + ref)
 	}
 	f.mu.Lock()
-	f.images[ref] = true
+	f.images[ref] = f.remoteID(ref)
 	f.record("pull:" + ref)
 	f.mu.Unlock()
 	return nil

@@ -3,6 +3,8 @@
 package runtime
 
 import (
+	_ "embed"
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"sort"
@@ -38,26 +40,52 @@ type Catalog struct {
 	order    []string
 }
 
-// phpImage is the Staqio PHP runtime image (images/php/Dockerfile): the official php-fpm
-// image plus all toggleable extensions compiled in but disabled by default.
-const phpImage = "ghcr.io/seramos/staqio-php"
+//go:embed php_versions.json
+var phpVersionsJSON []byte
+
+// phpVersionFile is the single source of truth for supported PHP versions. The image build
+// workflow (.github/workflows/php-images.yml) reads the same file for its matrix and the
+// php-versions workflow updates it automatically when upstream publishes new releases.
+type phpVersionFile struct {
+	Image    string `json:"image"`
+	Default  string `json:"default"`
+	Versions []struct {
+		Version string `json:"version"`
+		Base    string `json:"base"`
+		Preview bool   `json:"preview"`
+		EOL     bool   `json:"eol"`
+	} `json:"versions"`
+}
+
+func loadPHPVersions() (image string, versions []Version) {
+	var f phpVersionFile
+	if err := json.Unmarshal(phpVersionsJSON, &f); err != nil {
+		panic(fmt.Sprintf("php_versions.json is invalid: %v", err))
+	}
+	for _, v := range f.Versions {
+		versions = append(versions, Version{
+			Version: v.Version,
+			Image:   f.Image + ":" + v.Version,
+			Label:   "PHP " + v.Version,
+			EOL:     v.EOL,
+			Preview: v.Preview,
+			Default: v.Version == f.Default,
+		})
+	}
+	if len(versions) == 0 {
+		panic("php_versions.json defines no versions")
+	}
+	return f.Image, versions
+}
 
 // Default returns the built-in catalogue.
 func Default() *Catalog {
 	c := &Catalog{runtimes: map[string]Runtime{}}
+	_, phpVersions := loadPHPVersions()
 	c.add(Runtime{
 		Key: "php", Name: "PHP", Kind: "runtime", Available: true,
 		Description: "PHP-FPM worker with Composer, one container per project",
-		Versions: []Version{
-			{Version: "8.6", Image: phpImage + ":8.6", Label: "PHP 8.6", Preview: true},
-			{Version: "8.5", Image: phpImage + ":8.5", Label: "PHP 8.5", Default: true},
-			{Version: "8.4", Image: phpImage + ":8.4", Label: "PHP 8.4"},
-			{Version: "8.3", Image: phpImage + ":8.3", Label: "PHP 8.3"},
-			{Version: "8.2", Image: phpImage + ":8.2", Label: "PHP 8.2"},
-			{Version: "8.1", Image: phpImage + ":8.1", Label: "PHP 8.1", EOL: true},
-			{Version: "8.0", Image: phpImage + ":8.0", Label: "PHP 8.0", EOL: true},
-			{Version: "7.4", Image: phpImage + ":7.4", Label: "PHP 7.4", EOL: true},
-		},
+		Versions:    phpVersions,
 	})
 	c.add(Runtime{
 		Key: "caddy", Name: "Caddy", Kind: "webserver", Available: true,

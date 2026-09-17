@@ -77,10 +77,17 @@ validation errors.
 
 ## Adding a runtime version
 
-Edit `internal/runtime/catalog.go`. The frontend reads the catalogue from
-`/api/v1/runtimes`; nothing else changes. For PHP also add the version to the
-matrix in `.github/workflows/php-images.yml` so `ghcr.io/seramos/staqio-php:<v>`
-gets built (pre-release versions map to upstream's `-rc` tag via `base`).
+PHP versions live in `internal/runtime/php_versions.json` – the single source
+of truth for the catalogue (embedded into the binary) and the image build
+matrix (`.github/workflows/php-images.yml` reads it with `jq`). Normally you
+never edit it by hand: `.github/workflows/php-versions.yml` runs
+`scripts/check-php-versions.py` weekly and opens a PR when upstream changes.
+`base` is the upstream tag (`8.6-rc` for pre-releases), `preview`/`eol` drive
+the labels in the UI, `default` is the newest stable version.
+
+Other runtimes (Caddy, later databases) are still defined in
+`internal/runtime/catalog.go`. The frontend reads everything from
+`/api/v1/runtimes`.
 
 ## PHP extensions
 

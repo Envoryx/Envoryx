@@ -44,6 +44,7 @@ type Container struct {
 	ID      string
 	Name    string
 	Image   string
+	ImageID string // content-addressable id of the image the container was created from
 	State   string // created, running, paused, restarting, removing, exited, dead
 	Status  string
 	Created time.Time
@@ -195,8 +196,12 @@ type Engine interface {
 
 	// EnsureImage pulls an image if it is not present locally.
 	EnsureImage(ctx context.Context, ref string, progress PullProgress) error
+	// PullImage always pulls the tag so a rebuilt upstream image replaces the local one.
+	PullImage(ctx context.Context, ref string, progress PullProgress) error
 	// ImageExists reports whether the image is available locally.
 	ImageExists(ctx context.Context, ref string) (bool, error)
+	// ImageID returns the local id of an image reference (ErrNotFound if absent).
+	ImageID(ctx context.Context, ref string) (string, error)
 }
 
 // ManagedLabels builds the standard label set for a project resource.
