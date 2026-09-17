@@ -81,6 +81,7 @@ export const runtimesFixture: RuntimesResponse = {
   runtimes: [
     { key: "php", name: "PHP", kind: "runtime", available: true, description: "", versions: [{ version: "8.4", image: "ghcr.io/seramos/staqio-php:8.4", label: "PHP 8.4", default: true }, { version: "8.3", image: "ghcr.io/seramos/staqio-php:8.3", label: "PHP 8.3" }] },
     { key: "caddy", name: "Caddy", kind: "webserver", available: true, description: "", versions: [{ version: "2", image: "caddy:2-alpine", label: "Caddy 2", default: true }] },
+    { key: "node", name: "Node.js", kind: "runtime", available: true, description: "", versions: [{ version: "24", image: "ghcr.io/seramos/staqio-node:24", label: "Node 24 LTS", default: true }, { version: "22", image: "ghcr.io/seramos/staqio-node:22", label: "Node 22 LTS" }] },
     { key: "mariadb", name: "MariaDB", kind: "database", available: true, description: "", versions: [{ version: "11", image: "mariadb:11", label: "MariaDB 11", default: true }, { version: "10.11", image: "mariadb:10.11", label: "MariaDB 10.11" }] },
     { key: "redis", name: "Redis", kind: "service", available: false, description: "", versions: [{ version: "8", image: "redis:8", label: "Redis 8", default: true }] },
   ],

@@ -32,6 +32,8 @@ Staqio is under active development. The current milestone (Phase 1 + 2) delivers
 - live logs per container over WebSocket: pause, search, stderr filter, download
 - browser terminal (xterm.js) into any project container; application
   containers run the shell as the project owner (PUID/PGID)
+- Node.js toolchain container per project (npm, pnpm, yarn via corepack),
+  version selectable, addable later
 - Git: clone in the wizard (HTTPS with access token or SSH with a Staqio
   deploy key), pull, branch switch, status – all inside short-lived containers
   as the project owner; the deploy key is never mounted into app containers

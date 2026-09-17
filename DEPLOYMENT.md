@@ -178,6 +178,8 @@ copy of `/config/staqio.db` before downgrading.
   Merging it builds the images and the next Staqio image shows the version in
   the wizard. Pre-release versions are marked *preview*.
 
+Node.js images (`staqio-node:*`) follow the same scheme with `node_versions.json`.
+
 ## Git deploy key
 
 For SSH repositories Staqio generates an Ed25519 key pair on first use under

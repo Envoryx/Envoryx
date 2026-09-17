@@ -181,6 +181,28 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 			plan.Containers = append(plan.Containers, ContainerPlan{Kind: store.ServiceWeb, Order: 20, Spec: spec})
 			images[svc.Image] = true
 
+		case store.ServiceNode:
+			plan.Containers = append(plan.Containers, ContainerPlan{
+				Kind:  store.ServiceNode,
+				Order: 15,
+				Spec: docker.ContainerSpec{
+					Name:   ContainerName(proj.Slug, store.ServiceNode),
+					Image:  svc.Image,
+					Labels: labels,
+					// Tooling container: idles until actions or the terminal run commands.
+					Cmd:           []string{"sleep", "infinity"},
+					Env:           append(append([]string{}, env...), "HOME=/tmp", "npm_config_cache=/tmp/npm", "NODE_ENV=development"),
+					User:          fmt.Sprintf("%d:%d", p.paths.PUID, p.paths.PGID),
+					WorkingDir:    appMountTarget,
+					Network:       plan.NetworkName,
+					NetworkAlias:  []string{"node"},
+					Mounts:        []docker.MountSpec{{Type: "bind", Source: appHost, Target: appMountTarget}},
+					RestartPolicy: "unless-stopped",
+					StopTimeout:   5,
+				},
+			})
+			images[svc.Image] = true
+
 		case store.ServiceDatabase:
 			if svc.Variant != "mariadb" {
 				return Plan{}, fmt.Errorf("database variant %q is not supported yet", svc.Variant)

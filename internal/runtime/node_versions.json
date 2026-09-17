@@ -1,0 +1,33 @@
+{
+  "image": "ghcr.io/seramos/staqio-node",
+  "default": "24",
+  "versions": [
+    {
+      "version": "26",
+      "base": "26-bookworm-slim",
+      "label": "Node 26 (current)"
+    },
+    {
+      "version": "24",
+      "base": "24-bookworm-slim",
+      "label": "Node 24 LTS"
+    },
+    {
+      "version": "22",
+      "base": "22-bookworm-slim",
+      "label": "Node 22 LTS"
+    },
+    {
+      "version": "20",
+      "base": "20-bookworm-slim",
+      "label": "Node 20 LTS",
+      "eol": true
+    },
+    {
+      "version": "18",
+      "base": "18-bookworm-slim",
+      "label": "Node 18 LTS",
+      "eol": true
+    }
+  ]
+}

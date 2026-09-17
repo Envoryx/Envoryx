@@ -525,8 +525,10 @@ run on the same volume with `MARIADB_AUTO_UPGRADE`.
   project directory; output streams over the same WebSocket mechanism and
   Ctrl+C is delivered on cancel/disconnect. Git runs in a transient
   container from the project's PHP image (`RunOneShot`) with the deploy key
-  mounted only there; tokens travel via `GIT_CONFIG_*` env. Still open: Node
-  container.
-- **Phase 6 Services**: Redis, PostgreSQL, MySQL, Node.
+  mounted only there; tokens travel via `GIT_CONFIG_*` env. The Node service is an idle
+  tooling container (`sleep infinity`, runs as PUID:PGID) from
+  `ghcr.io/seramos/staqio-node:<v>`; a dev-server mode with published port is
+  a later addition.
+- **Phase 6 Services**: Redis, PostgreSQL, MySQL, Mailpit.
 - **Phase 7 Backups**, **Phase 8 HTTPS/DNS**, **Phase 9 MCP** (reuses the
   same manager and validation layer).

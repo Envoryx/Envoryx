@@ -148,6 +148,15 @@ type phpRequestDTO struct {
 	Config  runtime.PHPConfig `json:"config"`
 }
 
+type nodeRequestDTO struct {
+	Version string `json:"version"`
+}
+
+type nodeUpdateDTO struct {
+	Enabled bool   `json:"enabled"`
+	Version string `json:"version"`
+}
+
 type databaseRequestDTO struct {
 	Type       string `json:"type"`
 	Version    string `json:"version"`
@@ -167,6 +176,7 @@ type createProjectRequest struct {
 	Path     string              `json:"path"`
 	Docroot  string              `json:"docroot"`
 	PHP      *phpRequestDTO      `json:"php"`
+	Node     *nodeRequestDTO     `json:"node"`
 	Database *databaseRequestDTO `json:"database"`
 	Git      *gitRequestDTO      `json:"git"`
 	Web      *struct {
@@ -182,6 +192,9 @@ func (r createProjectRequest) toDomain() project.CreateRequest {
 	req := project.CreateRequest{Name: r.Name, Path: r.Path, Docroot: r.Docroot, CreateStarter: r.CreateStarter, Start: r.Start}
 	if r.PHP != nil {
 		req.PHP = &project.PHPRequest{Version: r.PHP.Version, Config: r.PHP.Config}
+	}
+	if r.Node != nil {
+		req.Node = &project.NodeRequest{Version: r.Node.Version}
 	}
 	if r.Database != nil {
 		req.Database = &project.DatabaseRequest{Type: r.Database.Type, Version: r.Database.Version, ExposePort: r.Database.ExposePort}
@@ -204,6 +217,7 @@ type updateProjectRequest struct {
 	Name     *string            `json:"name"`
 	Docroot  *string            `json:"docroot"`
 	PHP      *phpRequestDTO     `json:"php"`
+	Node     *nodeUpdateDTO     `json:"node"`
 	Database *databaseUpdateDTO `json:"database"`
 	Env      *[]envDTO          `json:"env"`
 }
@@ -274,6 +288,9 @@ func (a *API) updateProject(w http.ResponseWriter, r *http.Request) {
 	upd := project.UpdateRequest{Name: req.Name, Docroot: req.Docroot}
 	if req.PHP != nil {
 		upd.PHP = &project.PHPRequest{Version: req.PHP.Version, Config: req.PHP.Config}
+	}
+	if req.Node != nil {
+		upd.Node = &project.NodeUpdate{Enabled: req.Node.Enabled, Version: req.Node.Version}
 	}
 	if req.Database != nil {
 		upd.Database = &project.DatabaseUpdate{Enabled: req.Database.Enabled, Type: req.Database.Type, Version: req.Database.Version, ExposePort: req.Database.ExposePort, RemoveData: req.Database.RemoveData}

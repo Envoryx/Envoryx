@@ -26,6 +26,7 @@ type CreateRequest struct {
 	Path     string // relative to projects root; empty = slug
 	Docroot  string // relative to the project directory
 	PHP      *PHPRequest
+	Node     *NodeRequest
 	Database *DatabaseRequest
 	Web      WebRequest
 	Git      *GitRequest
@@ -40,6 +41,17 @@ type CreateRequest struct {
 type PHPRequest struct {
 	Version string
 	Config  runtime.PHPConfig
+}
+
+// NodeRequest selects the Node.js toolchain container.
+type NodeRequest struct {
+	Version string
+}
+
+// NodeUpdate adds, changes or removes the Node.js service.
+type NodeUpdate struct {
+	Enabled bool
+	Version string
 }
 
 // DatabaseRequest selects a database service.
@@ -78,6 +90,7 @@ type UpdateRequest struct {
 	Name     *string
 	Docroot  *string
 	PHP      *PHPRequest
+	Node     *NodeUpdate
 	Database *DatabaseUpdate
 	Env      *[]EnvVarRequest
 }

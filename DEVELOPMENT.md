@@ -77,11 +77,13 @@ validation errors.
 
 ## Adding a runtime version
 
-PHP versions live in `internal/runtime/php_versions.json` – the single source
-of truth for the catalogue (embedded into the binary) and the image build
-matrix (`.github/workflows/php-images.yml` reads it with `jq`). Normally you
-never edit it by hand: `.github/workflows/php-versions.yml` runs
-`scripts/check-php-versions.py` weekly and opens a PR when upstream changes.
+PHP and Node versions live in `internal/runtime/php_versions.json` and
+`node_versions.json` – the single source of truth for the catalogue (embedded
+into the binary) and the image build matrices (`php-images.yml`,
+`node-images.yml` read them with `jq`). Normally you never edit them by hand:
+`.github/workflows/runtime-versions.yml` runs `scripts/check-versions.py php|node`
+weekly and opens a PR when upstream changes (Node: newest LTS becomes the
+default, EOL "current" releases are dropped).
 `base` is the upstream tag (`8.6-rc` for pre-releases), `preview`/`eol` drive
 the labels in the UI, `default` is the newest stable version.
 

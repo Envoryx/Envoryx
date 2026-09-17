@@ -146,6 +146,15 @@ func (m *Manager) buildProject(req CreateRequest) (store.Project, error) {
 		})
 	}
 
+	if req.Node != nil {
+		v, err := m.catalog.Resolve("node", req.Node.Version)
+		if err != nil {
+			return store.Project{}, err
+		}
+		proj.Services = append(proj.Services, store.ProjectService{
+			Kind: store.ServiceNode, Variant: "node", Version: v.Version, Image: v.Image, Enabled: true, Position: 15,
+		})
+	}
 	if req.Git != nil {
 		g, err := buildGitConfig(*req.Git, store.GitConfig{})
 		if err != nil {
@@ -358,6 +367,8 @@ func (m *Manager) resolveImages(p *store.Project) {
 		switch svc.Kind {
 		case store.ServicePHP:
 			key = "php"
+		case store.ServiceNode:
+			key = "node"
 		case store.ServiceWeb, store.ServiceDatabase:
 			key = svc.Variant
 		}

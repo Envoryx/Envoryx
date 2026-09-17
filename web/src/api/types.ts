@@ -161,6 +161,7 @@ export interface CreateProjectRequest {
   path?: string;
   docroot?: string;
   php?: { version: string; config: PHPConfig } | null;
+  node?: { version: string } | null;
   database?: DatabaseRequest | null;
   git?: GitRequest | null;
   web?: { type: string; version: string };
@@ -173,6 +174,7 @@ export interface UpdateProjectRequest {
   name?: string;
   docroot?: string;
   php?: { version: string; config: PHPConfig };
+  node?: { enabled: boolean; version?: string };
   database?: DatabaseUpdate;
   env?: EnvVar[];
 }

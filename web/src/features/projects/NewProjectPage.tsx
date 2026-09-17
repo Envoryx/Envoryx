@@ -28,6 +28,8 @@ interface Form {
   phpEnabled: boolean;
   phpVersion: string;
   phpConfig: PHPConfig;
+  nodeEnabled: boolean;
+  nodeVersion: string;
   webVersion: string;
   dbType: string; // "" = none
   dbVersion: string;
@@ -55,6 +57,7 @@ export function NewProjectPage() {
   useEffect(() => {
     if (runtimes.data && !form) {
       const php = runtimes.data.runtimes.find((r) => r.key === "php");
+      const node = runtimes.data.runtimes.find((r) => r.key === "node");
       const caddy = runtimes.data.runtimes.find((r) => r.key === "caddy");
       setForm({
         name: "",
@@ -64,6 +67,8 @@ export function NewProjectPage() {
         phpEnabled: true,
         phpVersion: php?.versions.find((v) => v.default)?.version ?? php?.versions[0]?.version ?? "",
         phpConfig: runtimes.data.phpDefaults,
+        nodeEnabled: false,
+        nodeVersion: node?.versions.find((v) => v.default)?.version ?? node?.versions[0]?.version ?? "",
         webVersion: caddy?.versions.find((v) => v.default)?.version ?? "",
         dbType: "",
         dbVersion: "",
@@ -91,6 +96,7 @@ export function NewProjectPage() {
       start: form.start,
     };
     if (form.phpEnabled) req.php = { version: form.phpVersion, config: form.phpConfig };
+    if (form.nodeEnabled) req.node = { version: form.nodeVersion };
     if (form.dbType) req.database = { type: form.dbType, version: form.dbVersion, exposePort: form.dbExpose };
     if (form.gitUrl.trim()) {
       const git: NonNullable<CreateProjectRequest["git"]> = { url: form.gitUrl.trim(), branch: form.gitBranch.trim(), username: form.gitUsername.trim() };
@@ -124,6 +130,7 @@ export function NewProjectPage() {
 
   const rt = runtimes.data;
   const php = rt.runtimes.find((r) => r.key === "php");
+  const node = rt.runtimes.find((r) => r.key === "node");
   const caddy = rt.runtimes.find((r) => r.key === "caddy");
   const databases = rt.runtimes.filter((r) => r.kind === "database");
   const services = rt.runtimes.filter((r) => r.kind === "service");
@@ -227,9 +234,24 @@ export function NewProjectPage() {
                   <PhpConfigForm value={form.phpConfig} onChange={(c) => set({ phpConfig: c })} extensions={rt.phpExtensions} />
                 </>
               )}
-              <div className="rounded-md border border-dashed border-default p-4 text-sm text-muted">
-                Node.js containers and package managers (npm, pnpm, yarn, Composer) arrive in Phase 5.
-              </div>
+              {node && (
+                <div className="space-y-4 rounded-md border border-default p-4">
+                  <Checkbox label="Enable Node.js" description="Toolchain container with npm, pnpm and yarn for asset builds. Runs idle; commands run via Actions or the terminal." checked={form.nodeEnabled} onChange={(e) => set({ nodeEnabled: e.target.checked })} />
+                  {form.nodeEnabled && (
+                    <Field label="Node.js version" htmlFor="node-version">
+                      <Select id="node-version" value={form.nodeVersion} onChange={(e) => set({ nodeVersion: e.target.value })}>
+                        {node.versions.map((v) => (
+                          <option key={v.version} value={v.version}>
+                            {v.label}
+                            {v.eol ? " (end of life)" : v.preview ? " (preview)" : ""}
+                          </option>
+                        ))}
+                      </Select>
+                    </Field>
+                  )}
+                </div>
+              )}
+              <p className="text-xs text-subtle">Composer ships with the PHP image.</p>
             </div>
           )}
 

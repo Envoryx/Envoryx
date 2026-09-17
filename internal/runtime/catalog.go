@@ -43,39 +43,54 @@ type Catalog struct {
 //go:embed php_versions.json
 var phpVersionsJSON []byte
 
+//go:embed node_versions.json
+var nodeVersionsJSON []byte
+
 // phpVersionFile is the single source of truth for supported PHP versions. The image build
 // workflow (.github/workflows/php-images.yml) reads the same file for its matrix and the
 // php-versions workflow updates it automatically when upstream publishes new releases.
-type phpVersionFile struct {
+type versionFile struct {
 	Image    string `json:"image"`
 	Default  string `json:"default"`
 	Versions []struct {
 		Version string `json:"version"`
 		Base    string `json:"base"`
+		Label   string `json:"label"`
 		Preview bool   `json:"preview"`
 		EOL     bool   `json:"eol"`
 	} `json:"versions"`
 }
 
-func loadPHPVersions() (image string, versions []Version) {
-	var f phpVersionFile
-	if err := json.Unmarshal(phpVersionsJSON, &f); err != nil {
-		panic(fmt.Sprintf("php_versions.json is invalid: %v", err))
+func loadVersions(name string, raw []byte, labelPrefix string) (image string, versions []Version) {
+	var f versionFile
+	if err := json.Unmarshal(raw, &f); err != nil {
+		panic(fmt.Sprintf("%s is invalid: %v", name, err))
 	}
 	for _, v := range f.Versions {
+		label := v.Label
+		if label == "" {
+			label = labelPrefix + " " + v.Version
+		}
 		versions = append(versions, Version{
 			Version: v.Version,
 			Image:   f.Image + ":" + v.Version,
-			Label:   "PHP " + v.Version,
+			Label:   label,
 			EOL:     v.EOL,
 			Preview: v.Preview,
 			Default: v.Version == f.Default,
 		})
 	}
 	if len(versions) == 0 {
-		panic("php_versions.json defines no versions")
+		panic(name + " defines no versions")
 	}
 	return f.Image, versions
+}
+
+func loadPHPVersions() (string, []Version) {
+	return loadVersions("php_versions.json", phpVersionsJSON, "PHP")
+}
+func loadNodeVersions() (string, []Version) {
+	return loadVersions("node_versions.json", nodeVersionsJSON, "Node")
 }
 
 // Default returns the built-in catalogue.
@@ -94,13 +109,11 @@ func Default() *Catalog {
 			{Version: "2", Image: "caddy:2-alpine", Label: "Caddy 2", Default: true},
 		},
 	})
+	_, nodeVersions := loadNodeVersions()
 	c.add(Runtime{
-		Key: "node", Name: "Node.js", Kind: "runtime", Available: false,
-		Description: "Node.js toolchain container (Phase 5)",
-		Versions: []Version{
-			{Version: "22", Image: "node:22-alpine", Label: "Node 22", Default: true},
-			{Version: "20", Image: "node:20-alpine", Label: "Node 20"},
-		},
+		Key: "node", Name: "Node.js", Kind: "runtime", Available: true,
+		Description: "Node.js toolchain container with npm, pnpm and yarn (corepack)",
+		Versions:    nodeVersions,
 	})
 	c.add(Runtime{
 		Key: "mariadb", Name: "MariaDB", Kind: "database", Available: true,

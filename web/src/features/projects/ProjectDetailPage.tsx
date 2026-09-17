@@ -5,7 +5,7 @@ import { Link, useParams } from "react-router-dom";
 import { ApiError } from "@/api/client";
 import { useProject, useProjectPlan, useProjectStats, usePublicHost, useRuntimes, useUpdateProject } from "@/api/hooks";
 import type { EnvVar, PHPConfig, Project } from "@/api/types";
-import { Alert, Badge, Button, Card, CardHeader, Code, ErrorState, Field, Input, PageHeader, Select, Spinner, StatusDot } from "@/components/ui";
+import { Alert, Badge, Button, Card, CardHeader, Checkbox, Code, ErrorState, Field, Input, PageHeader, Select, Spinner, StatusDot } from "@/components/ui";
 import { containerStateTone, formatBytes, formatDateTime, formatPercent, projectUrl, serviceLabel, stateMeta } from "@/lib/format";
 import { DeleteProjectDialog, ProjectActionButtons, useActionError } from "./ProjectActions";
 import { DatabaseTab } from "./DatabaseTab";
@@ -17,7 +17,7 @@ const TerminalTab = lazy(() => import("./TerminalTab").then((m) => ({ default: m
 const ActionsTab = lazy(() => import("./ActionsTab").then((m) => ({ default: m.ActionsTab })));
 import { PhpConfigForm } from "./PhpConfigForm";
 
-const tabs = ["Overview", "Git", "Actions", "Terminal", "Logs", "PHP", "Database", "Environment", "Advanced"] as const;
+const tabs = ["Overview", "Git", "Actions", "Terminal", "Logs", "Runtime", "Database", "Environment", "Advanced"] as const;
 type Tab = (typeof tabs)[number];
 
 export function ProjectDetailPage() {
@@ -117,7 +117,12 @@ export function ProjectDetailPage() {
         </Suspense>
       )}
       {tab === "Logs" && <LogsTab project={p} />}
-      {tab === "PHP" && <PhpTab project={p} />}
+      {tab === "Runtime" && (
+        <div className="space-y-6">
+          <PhpTab project={p} />
+          <NodeCard project={p} />
+        </div>
+      )}
       {tab === "Database" && <DatabaseTab project={p} />}
       {tab === "Environment" && <EnvTab project={p} />}
       {tab === "Advanced" && <AdvancedTab project={p} />}
@@ -270,6 +275,65 @@ function PhpTab({ project: p }: { project: Project }) {
           </Field>
         </div>
         <PhpConfigForm value={config} onChange={setConfig} extensions={runtimes.data?.phpExtensions ?? []} />
+      </div>
+    </Card>
+  );
+}
+
+function NodeCard({ project: p }: { project: Project }) {
+  const runtimes = useRuntimes();
+  const update = useUpdateProject(p.id);
+  const { msg, setMsg } = useSaveFeedback();
+  const svc = p.services.find((s) => s.kind === "node" && s.enabled);
+  const node = runtimes.data?.runtimes.find((r) => r.key === "node");
+  const [enabled, setEnabled] = useState(!!svc);
+  const [version, setVersion] = useState(svc?.version ?? "");
+  useEffect(() => {
+    setEnabled(!!svc);
+    setVersion(svc?.version ?? node?.versions.find((v) => v.default)?.version ?? "");
+  }, [svc, node]);
+  const dirty = enabled !== !!svc || (enabled && version !== (svc?.version ?? ""));
+
+  return (
+    <Card>
+      <CardHeader
+        title="Node.js"
+        description="Toolchain container for asset builds (npm, pnpm, yarn). Removing it only removes the container; node_modules stays in the project directory."
+        actions={
+          <Button
+            variant="primary"
+            icon={<Save className="size-4" />}
+            loading={update.isPending}
+            disabled={!dirty}
+            onClick={() =>
+              update.mutate(
+                { node: enabled ? { enabled: true, version } : { enabled: false } },
+                {
+                  onSuccess: () => setMsg({ tone: "green", text: enabled ? "Node.js container updated." : "Node.js container removed." }),
+                  onError: (err) => setMsg({ tone: "red", text: err instanceof ApiError ? err.message : "Saving failed" }),
+                },
+              )
+            }
+          >
+            Save
+          </Button>
+        }
+      />
+      <div className="space-y-4 p-5">
+        {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
+        <Checkbox label="Enable Node.js" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
+        {enabled && node && (
+          <Field label="Node.js version" htmlFor="node-version">
+            <Select id="node-version" value={version} onChange={(e) => setVersion(e.target.value)}>
+              {node.versions.map((v) => (
+                <option key={v.version} value={v.version}>
+                  {v.label}
+                  {v.eol ? " (end of life)" : v.preview ? " (preview)" : ""}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        )}
       </div>
     </Card>
   );

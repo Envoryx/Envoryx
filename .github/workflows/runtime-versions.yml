@@ -1,0 +1,39 @@
+name: Runtime version check
+
+on:
+  schedule:
+    # Weekly, before the image rebuild (php-images.yml runs Mondays 04:00).
+    - cron: "0 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compare with upstream releases
+        id: check
+        run: |
+          changed=false
+          for p in php node; do
+            python3 scripts/check-versions.py "$p" | tee /tmp/out-$p.txt
+            grep -q '^changed=true' /tmp/out-$p.txt && changed=true
+          done
+          echo "changed=$changed" >> "$GITHUB_OUTPUT"
+      - name: Open pull request
+        if: steps.check.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          branch: chore/php-versions
+          title: "Update runtime versions"
+          commit-message: "Update PHP/Node versions from upstream releases"
+          body: |
+            Automated update of `internal/runtime/*_versions.json` based on
+            endoflife.date and the image tags on Docker Hub.
+
+            Merging triggers the runtime image workflows for the new matrix.
+          labels: dependencies

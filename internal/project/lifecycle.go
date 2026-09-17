@@ -440,6 +440,11 @@ func (m *Manager) Update(ctx context.Context, id string, req UpdateRequest) (Vie
 		changes["env"] = len(env)
 	}
 	recreateApp := req.Env != nil
+	if req.Node != nil {
+		if err := m.applyNodeUpdate(ctx, proj, *req.Node, changes); err != nil {
+			return View{}, err
+		}
+	}
 	if req.Database != nil {
 		r, err := m.applyDatabaseUpdate(ctx, proj, *req.Database, changes)
 		if err != nil {
@@ -495,6 +500,51 @@ func (m *Manager) Update(ctx context.Context, id string, req UpdateRequest) (Vie
 	}
 	m.audit.Log(ctx, audit.ActionProjectUpdated, "project", id, map[string]any{"name": proj.Name, "changes": changes})
 	return m.Get(ctx, id)
+}
+
+// applyNodeUpdate adds, changes or removes the Node.js service. Callers hold the lock.
+func (m *Manager) applyNodeUpdate(ctx context.Context, p store.Project, upd NodeUpdate, changes map[string]any) error {
+	svc := p.Service(store.ServiceNode)
+	switch {
+	case !upd.Enabled && svc == nil:
+		return nil
+	case !upd.Enabled:
+		containers, err := m.engine.ListContainers(ctx, true, p.ID)
+		if err != nil {
+			return err
+		}
+		for _, c := range containers {
+			if c.Service() == string(store.ServiceNode) {
+				if err := m.engine.RemoveContainer(ctx, c.ID); err != nil {
+					return fmt.Errorf("remove node container: %w", err)
+				}
+			}
+		}
+		if err := m.store.Projects.DeleteService(ctx, p.ID, store.ServiceNode); err != nil {
+			return err
+		}
+		changes["node"] = "removed"
+		return nil
+	default:
+		v, err := m.catalog.Resolve("node", upd.Version)
+		if err != nil {
+			return err
+		}
+		if svc == nil {
+			if err := m.store.Projects.AddService(ctx, store.ProjectService{ProjectID: p.ID, Kind: store.ServiceNode, Variant: "node", Version: v.Version, Image: v.Image, Enabled: true, Position: 15}); err != nil {
+				return err
+			}
+			changes["node"] = v.Version
+			return nil
+		}
+		if svc.Version != v.Version {
+			if err := m.store.Projects.UpdateServiceConfig(ctx, p.ID, store.ServiceNode, v.Version, v.Image, svc.Config); err != nil {
+				return err
+			}
+			changes["node"] = v.Version
+		}
+		return nil
+	}
 }
 
 // Delete removes all Docker resources and the database record. Project files are only

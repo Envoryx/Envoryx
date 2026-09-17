@@ -52,6 +52,8 @@ describe("NewProjectPage wizard", () => {
     expect(version).toHaveValue("8.4");
     await user.selectOptions(version, "8.3");
     expect(screen.getByLabelText(/gd/)).toBeDisabled();
+    await user.click(screen.getByLabelText(/Enable Node\.js/));
+    expect(screen.getByLabelText("Node.js version")).toHaveValue("24");
     await cont();
 
     expect(await screen.findByLabelText("Web server")).toHaveValue("caddy");
@@ -71,7 +73,7 @@ describe("NewProjectPage wizard", () => {
     expect(screen.getByText("staqio-shimly-api-web")).toBeInTheDocument();
     expect(screen.getByText(/will be pulled/)).toBeInTheDocument();
     const preview = api.calls.find((c) => c.url.endsWith("/projects/preview"))?.body as Record<string, unknown>;
-    expect(preview).toMatchObject({ name: "Shimly API", path: "shimly-api", docroot: "public", php: { version: "8.3" }, database: { type: "mariadb", version: "11", exposePort: true }, env: [{ key: "APP_ENV", value: "local" }] });
+    expect(preview).toMatchObject({ name: "Shimly API", path: "shimly-api", docroot: "public", php: { version: "8.3" }, node: { version: "24" }, database: { type: "mariadb", version: "11", exposePort: true }, env: [{ key: "APP_ENV", value: "local" }] });
 
     await user.click(screen.getByRole("button", { name: "Create project" }));
     await waitFor(() => expect(screen.getByRole("heading", { name: "Detail" })).toBeInTheDocument());
