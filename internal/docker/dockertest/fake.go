@@ -753,6 +753,57 @@ func (f *Fake) ImageID(_ context.Context, ref string) (string, error) {
 	return id, nil
 }
 
+// ListImages implements docker.Engine.
+func (f *Fake) ListImages(_ context.Context) ([]docker.Image, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if err := f.check(); err != nil {
+		return nil, err
+	}
+	byID := map[string]*docker.Image{}
+	for ref, id := range f.images {
+		img, ok := byID[id]
+		if !ok {
+			img = &docker.Image{ID: id, Size: 100 << 20}
+			byID[id] = img
+		}
+		img.Tags = append(img.Tags, ref)
+	}
+	out := make([]docker.Image, 0, len(byID))
+	for _, img := range byID {
+		sort.Strings(img.Tags)
+		out = append(out, *img)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
+	return out, nil
+}
+
+// RemoveImage implements docker.Engine.
+func (f *Fake) RemoveImage(_ context.Context, id string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if err := f.check(); err != nil {
+		return err
+	}
+	for _, c := range f.containers {
+		if c.ImageID == id {
+			return fmt.Errorf("conflict: image %s is being used by container %s", id, c.Spec.Name)
+		}
+	}
+	removed := false
+	for ref, iid := range f.images {
+		if iid == id {
+			delete(f.images, ref)
+			removed = true
+		}
+	}
+	if !removed {
+		return docker.ErrNotFound
+	}
+	f.record("image-remove:" + id)
+	return nil
+}
+
 // EnsureImage implements docker.Engine.
 func (f *Fake) EnsureImage(ctx context.Context, ref string, progress docker.PullProgress) error {
 	f.mu.Lock()

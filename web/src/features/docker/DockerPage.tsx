@@ -1,6 +1,7 @@
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Trash2 } from "lucide-react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
-import { useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/client";
 import { keys, useDockerOverview } from "@/api/hooks";
 import type { ContainerSummary } from "@/api/types";
@@ -54,6 +55,71 @@ function ContainerTable({ rows, managed }: { rows: ContainerSummary[]; managed: 
         </tbody>
       </table>
     </div>
+  );
+}
+
+function UnusedImagesCard() {
+  const qc = useQueryClient();
+  const images = useQuery({ queryKey: ["docker", "unused-images"], queryFn: async () => (await api.unusedImages()).images, refetchInterval: 15000 });
+  const prune = useMutation({
+    mutationFn: async () => (await api.pruneImages()).result,
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["docker", "unused-images"] }),
+  });
+  const [confirm, setConfirm] = useState(false);
+  const total = (images.data ?? []).reduce((n, i) => n + i.size, 0);
+
+  return (
+    <Card>
+      <CardHeader
+        title="Unused runtime images"
+        description="Images Staqio pulled (PHP, Node, MariaDB, Caddy) that no container uses any more, e.g. after a version change. Images from other sources are never touched."
+        actions={
+          images.data && images.data.length > 0 && !confirm ? (
+            <Button size="sm" onClick={() => setConfirm(true)} icon={<Trash2 className="size-3.5" />}>
+              Remove all ({formatBytes(total)})
+            </Button>
+          ) : undefined
+        }
+      />
+      <div className="p-5">
+        {images.isPending ? (
+          <Spinner />
+        ) : images.isError ? (
+          <Alert tone="red">{images.error.message}</Alert>
+        ) : images.data.length === 0 ? (
+          <p className="text-sm text-muted">No unused runtime images.</p>
+        ) : (
+          <ul className="divide-y divide-[var(--border)] rounded-md border border-default">
+            {images.data.map((img) => (
+              <li key={img.id} className="flex items-center justify-between px-3 py-2 text-xs">
+                <span className="font-mono text-fg">{img.tags.join(", ")}</span>
+                <span className="text-subtle">{formatBytes(img.size)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+        {confirm && (
+          <Alert tone="amber" title="Remove these images?">
+            They are downloaded again automatically if a project needs them later.
+            <div className="mt-2 flex gap-2">
+              <Button size="sm" variant="danger" loading={prune.isPending} onClick={() => prune.mutate(undefined, { onSettled: () => setConfirm(false) })}>
+                Remove
+              </Button>
+              <Button size="sm" onClick={() => setConfirm(false)}>
+                Cancel
+              </Button>
+            </div>
+          </Alert>
+        )}
+        {prune.data && (
+          <p className="mt-3 text-xs text-muted">
+            Removed {prune.data.removed.length} image{prune.data.removed.length === 1 ? "" : "s"}, {formatBytes(prune.data.reclaimedBytes)} reclaimed.
+            {prune.data.errors.length > 0 && <span className="text-red-500"> {prune.data.errors.join("; ")}</span>}
+          </p>
+        )}
+        {prune.isError && <Alert tone="red">{prune.error.message}</Alert>}
+      </div>
+    </Card>
   );
 }
 
@@ -175,6 +241,7 @@ export function DockerPage() {
             </ul>
           </Card>
         </div>
+        <UnusedImagesCard />
         <Card>
           <CardHeader
             title="Other containers on this host"

@@ -289,6 +289,18 @@ export interface DockerOverview {
   hostPath: HostPathStatus;
 }
 
+export interface UnusedImage {
+  id: string;
+  tags: string[];
+  size: number;
+}
+
+export interface PruneResult {
+  removed: UnusedImage[];
+  reclaimedBytes: number;
+  errors: string[];
+}
+
 export interface Settings {
   publicHost: string;
   version: string;

@@ -237,6 +237,24 @@ func (a *API) updateSettings(w http.ResponseWriter, r *http.Request) {
 	a.settings(w, r)
 }
 
+func (a *API) unusedImages(w http.ResponseWriter, r *http.Request) {
+	images, err := a.d.Projects.UnusedImages(r.Context())
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"images": images})
+}
+
+func (a *API) pruneImages(w http.ResponseWriter, r *http.Request) {
+	res, err := a.d.Projects.PruneImages(r.Context())
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"result": res})
+}
+
 func (a *API) settings(w http.ResponseWriter, r *http.Request) {
 	c := a.d.Config
 	schema, _ := db.SchemaVersion(r.Context(), a.d.Store.DB())

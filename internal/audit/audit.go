@@ -27,6 +27,7 @@ const (
 	ActionProjectFailed    = "project.failed"
 
 	ActionSettingsChanged = "settings.changed"
+	ActionImagesPruned    = "docker.images_pruned"
 
 	ActionDBCredentialsViewed = "database.credentials_viewed"
 	ActionDBPasswordRotated   = "database.password_rotated"

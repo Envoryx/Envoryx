@@ -806,6 +806,31 @@ func (e *MobyEngine) ImageID(ctx context.Context, ref string) (string, error) {
 	return res.ID, nil
 }
 
+// ListImages implements Engine.
+func (e *MobyEngine) ListImages(ctx context.Context) ([]Image, error) {
+	res, err := e.cli.ImageList(ctx, client.ImageListOptions{})
+	if err != nil {
+		return nil, wrap(err)
+	}
+	out := make([]Image, 0, len(res.Items))
+	for _, img := range res.Items {
+		tags := make([]string, 0, len(img.RepoTags))
+		for _, t := range img.RepoTags {
+			if t != "<none>:<none>" {
+				tags = append(tags, t)
+			}
+		}
+		out = append(out, Image{ID: img.ID, Tags: tags, Size: img.Size, Created: time.Unix(img.Created, 0).UTC()})
+	}
+	return out, nil
+}
+
+// RemoveImage implements Engine. No force: Docker refuses images used by containers.
+func (e *MobyEngine) RemoveImage(ctx context.Context, id string) error {
+	_, err := e.cli.ImageRemove(ctx, id, client.ImageRemoveOptions{PruneChildren: true})
+	return wrap(err)
+}
+
 // EnsureImage implements Engine.
 func (e *MobyEngine) EnsureImage(ctx context.Context, ref string, progress PullProgress) error {
 	exists, err := e.ImageExists(ctx, ref)

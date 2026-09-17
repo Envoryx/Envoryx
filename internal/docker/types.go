@@ -185,6 +185,14 @@ type ExecResult struct {
 	Stderr   string
 }
 
+// Image summarises a local image.
+type Image struct {
+	ID      string
+	Tags    []string
+	Size    int64
+	Created time.Time
+}
+
 // Stats is a single resource usage sample.
 type Stats struct {
 	ContainerID string
@@ -273,6 +281,10 @@ type Engine interface {
 	ImageExists(ctx context.Context, ref string) (bool, error)
 	// ImageID returns the local id of an image reference (ErrNotFound if absent).
 	ImageID(ctx context.Context, ref string) (string, error)
+	// ListImages lists local images.
+	ListImages(ctx context.Context) ([]Image, error)
+	// RemoveImage deletes an image by id. It fails when a container still uses it.
+	RemoveImage(ctx context.Context, id string) error
 }
 
 // ManagedLabels builds the standard label set for a project resource.
