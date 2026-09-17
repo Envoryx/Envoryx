@@ -11,13 +11,13 @@ import (
 // Projects is the repository for projects, their services and environment variables.
 type Projects struct{ db *sql.DB }
 
-const projectColumns = `id, name, slug, path, docroot, desired_state, http_port, lifecycle, last_error, created_at, updated_at`
+const projectColumns = `id, name, slug, path, docroot, desired_state, http_port, lifecycle, last_error, git_url, git_branch, git_username, git_token, created_at, updated_at`
 
 func scanProject(row interface{ Scan(...any) error }) (Project, error) {
 	var p Project
 	var port sql.NullInt64
 	var created, updated, desired, lifecycle string
-	if err := row.Scan(&p.ID, &p.Name, &p.Slug, &p.Path, &p.Docroot, &desired, &port, &lifecycle, &p.LastError, &created, &updated); err != nil {
+	if err := row.Scan(&p.ID, &p.Name, &p.Slug, &p.Path, &p.Docroot, &desired, &port, &lifecycle, &p.LastError, &p.Git.URL, &p.Git.Branch, &p.Git.Username, &p.Git.Token, &created, &updated); err != nil {
 		return Project{}, err
 	}
 	p.DesiredState = DesiredState(desired)
@@ -51,8 +51,9 @@ func (r *Projects) Create(ctx context.Context, p *Project) error {
 	if p.HTTPPort > 0 {
 		port = p.HTTPPort
 	}
-	_, err = tx.ExecContext(ctx, `INSERT INTO projects (`+projectColumns+`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+	_, err = tx.ExecContext(ctx, `INSERT INTO projects (`+projectColumns+`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		p.ID, p.Name, p.Slug, p.Path, p.Docroot, string(p.DesiredState), port, string(p.Lifecycle), p.LastError,
+		p.Git.URL, p.Git.Branch, p.Git.Username, p.Git.Token,
 		formatTime(p.CreatedAt), formatTime(p.UpdatedAt))
 	if err != nil {
 		if isUniqueViolation(err) {
@@ -228,6 +229,20 @@ func (r *Projects) UpdateSettings(ctx context.Context, id, name, docroot string)
 			return fmt.Errorf("project name already in use: %w", ErrConflict)
 		}
 		return fmt.Errorf("update project: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// UpdateGit replaces the repository binding of a project.
+func (r *Projects) UpdateGit(ctx context.Context, id string, g GitConfig) error {
+	res, err := r.db.ExecContext(ctx,
+		`UPDATE projects SET git_url = ?, git_branch = ?, git_username = ?, git_token = ?, updated_at = ? WHERE id = ?`,
+		g.URL, g.Branch, g.Username, g.Token, formatTime(now()), id)
+	if err != nil {
+		return fmt.Errorf("update git config: %w", err)
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
 		return ErrNotFound

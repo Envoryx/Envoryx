@@ -246,7 +246,7 @@ func setCORS(w http.ResponseWriter, origin string) {
 	h.Set("Access-Control-Allow-Origin", origin)
 	h.Set("Access-Control-Allow-Credentials", "true")
 	h.Set("Access-Control-Allow-Headers", "Content-Type, X-Requested-With")
-	h.Set("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS")
+	h.Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
 	h.Add("Vary", "Origin")
 }
 

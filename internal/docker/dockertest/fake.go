@@ -49,6 +49,11 @@ type Fake struct {
 	// PullDelay makes EnsureImage honour context cancellation after this delay.
 	PullDelay time.Duration
 
+	// OneShotHandler simulates transient containers (RunOneShot). nil = exit 0, no output.
+	OneShotHandler func(spec docker.ContainerSpec) (docker.ExecResult, error)
+	// OneShots records every RunOneShot spec.
+	OneShots []docker.ContainerSpec
+
 	// ExecHandler simulates commands run inside containers. It receives the container name
 	// and the argv; nil means every command succeeds with empty output.
 	ExecHandler func(container string, cmd []string, env []string) (docker.ExecResult, error)
@@ -522,6 +527,27 @@ func (t *FakeTerminal) Resizes() []string {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	return append([]string(nil), t.resizes...)
+}
+
+// RunOneShot implements docker.Engine.
+func (f *Fake) RunOneShot(_ context.Context, spec docker.ContainerSpec) (docker.ExecResult, error) {
+	f.mu.Lock()
+	if err := f.check(); err != nil {
+		f.mu.Unlock()
+		return docker.ExecResult{}, err
+	}
+	if !docker.IsManaged(spec.Labels) {
+		f.mu.Unlock()
+		return docker.ExecResult{}, docker.ErrNotManaged
+	}
+	f.OneShots = append(f.OneShots, spec)
+	f.record("oneshot:" + spec.Name)
+	handler := f.OneShotHandler
+	f.mu.Unlock()
+	if handler != nil {
+		return handler(spec)
+	}
+	return docker.ExecResult{}, nil
 }
 
 // OpenTerminal implements docker.Engine.

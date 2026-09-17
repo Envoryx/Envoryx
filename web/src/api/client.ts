@@ -6,6 +6,9 @@ import type {
   DatabaseInfo,
   ActionInfo,
   DockerOverview,
+  GitRequest,
+  GitResult,
+  GitStatus,
   LogLine,
   Preview,
   Project,
@@ -39,7 +42,7 @@ export function setUnauthorizedHandler(handler: UnauthorizedHandler | null): voi
 }
 
 interface RequestOptions {
-  method?: "GET" | "POST" | "PATCH" | "DELETE";
+  method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   body?: unknown;
   signal?: AbortSignal;
   /** Skip the unauthorized handler (used by the login page itself). */
@@ -128,6 +131,17 @@ export const api = {
     actions: (id: string) => request<{ actions: ActionInfo[] }>(`/projects/${encodeURIComponent(id)}/actions`),
     logs: (id: string, kind: string, tail = 500) =>
       request<{ lines: LogLine[] }>(`/projects/${encodeURIComponent(id)}/services/${encodeURIComponent(kind)}/logs?tail=${tail}`),
+  },
+
+  git: {
+    status: (id: string) => request<{ git: GitStatus }>(`/projects/${encodeURIComponent(id)}/git`),
+    set: (id: string, body: GitRequest) => request<{ git: GitStatus }>(`/projects/${encodeURIComponent(id)}/git`, { method: "PUT", body }),
+    clone: (id: string) => request<{ result: GitResult }>(`/projects/${encodeURIComponent(id)}/git/clone`, { method: "POST" }),
+    pull: (id: string) => request<{ result: GitResult }>(`/projects/${encodeURIComponent(id)}/git/pull`, { method: "POST" }),
+    checkout: (id: string, branch: string) =>
+      request<{ result: GitResult }>(`/projects/${encodeURIComponent(id)}/git/checkout`, { method: "POST", body: { branch } }),
+    deployKey: () => request<{ publicKey: string }>("/settings/deploy-key"),
+    regenerateDeployKey: () => request<{ publicKey: string }>("/settings/deploy-key/regenerate", { method: "POST" }),
   },
 
   database: {

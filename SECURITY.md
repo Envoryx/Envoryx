@@ -118,6 +118,16 @@ routes address `project + service kind` and resolve the container server-side.
   IP and timestamp, but details exclude secrets.
 - Project environment variables marked as secret are masked in the UI. They are
   stored in SQLite under `/config` (file mode 0600); protect that directory.
+- Git access tokens are stored in SQLite (write-only via the API, `hasToken`
+  is the only thing returned) and passed to git through `GIT_CONFIG_*`
+  environment variables inside a transient container – never in the URL, on
+  a command line or in logs; command output is redacted before it is shown.
+  Repository URLs are restricted to https/http/ssh/scp-like forms (no
+  `file://`, `ext::`, local paths, embedded passwords or option-like values),
+  branch names to `[A-Za-z0-9._/-]` and passed after `--`.
+- The SSH deploy key (`/config/ssh/id_ed25519`, mode 0600, owned by
+  PUID:PGID) is mounted only into the short-lived git container, never into
+  the long-running PHP container, so application code cannot read it.
 - Database credentials are generated (24 chars, `crypto/rand`) and stored in
   the SQLite database. They are excluded from project responses; the explicit
   credentials endpoint is audit-logged. Inside the database container they are

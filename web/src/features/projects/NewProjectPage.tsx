@@ -32,6 +32,10 @@ interface Form {
   dbType: string; // "" = none
   dbVersion: string;
   dbExpose: boolean;
+  gitUrl: string;
+  gitBranch: string;
+  gitUsername: string;
+  gitToken: string;
   env: EnvVar[];
   createStarter: boolean;
   start: boolean;
@@ -64,6 +68,10 @@ export function NewProjectPage() {
         dbType: "",
         dbVersion: "",
         dbExpose: false,
+        gitUrl: "",
+        gitBranch: "",
+        gitUsername: "",
+        gitToken: "",
         env: [],
         createStarter: true,
         start: true,
@@ -84,6 +92,12 @@ export function NewProjectPage() {
     };
     if (form.phpEnabled) req.php = { version: form.phpVersion, config: form.phpConfig };
     if (form.dbType) req.database = { type: form.dbType, version: form.dbVersion, exposePort: form.dbExpose };
+    if (form.gitUrl.trim()) {
+      const git: NonNullable<CreateProjectRequest["git"]> = { url: form.gitUrl.trim(), branch: form.gitBranch.trim(), username: form.gitUsername.trim() };
+      if (form.gitToken) git.token = form.gitToken;
+      req.git = git;
+      req.createStarter = false;
+    }
     return req;
   }, [form]);
 
@@ -167,8 +181,30 @@ export function NewProjectPage() {
               <Field label="Document root" htmlFor="docroot" hint='Subfolder served by the web server, e.g. "public" for Laravel/Symfony. Leave empty for the project root.'>
                 <Input id="docroot" value={form.docroot} onChange={(e) => set({ docroot: e.target.value })} placeholder="public" spellCheck={false} />
               </Field>
-              <div className="rounded-md border border-dashed border-default p-4 text-sm text-muted">
-                Git repository cloning arrives in a later phase. Place your code in the project directory or let Staqio create a starter page.
+              <div className="space-y-4 rounded-md border border-default p-4">
+                <p className="text-sm font-medium text-fg">Git repository (optional)</p>
+                <Field label="Repository URL" htmlFor="git-url" hint="Cloned into the empty project directory. https://…, git@host:path.git or ssh://…">
+                  <Input id="git-url" value={form.gitUrl} onChange={(e) => set({ gitUrl: e.target.value })} placeholder="https://github.com/you/project.git" spellCheck={false} />
+                </Field>
+                {form.gitUrl.trim() && (
+                  <div className="grid gap-4 sm:grid-cols-3">
+                    <Field label="Branch" htmlFor="git-branch" hint="Empty = default branch">
+                      <Input id="git-branch" value={form.gitBranch} onChange={(e) => set({ gitBranch: e.target.value })} placeholder="main" spellCheck={false} />
+                    </Field>
+                    {!(form.gitUrl.startsWith("git@") || form.gitUrl.startsWith("ssh://")) ? (
+                      <>
+                        <Field label="Username (optional)" htmlFor="git-user">
+                          <Input id="git-user" value={form.gitUsername} onChange={(e) => set({ gitUsername: e.target.value })} placeholder="x-access-token" autoComplete="off" />
+                        </Field>
+                        <Field label="Access token" htmlFor="git-token" hint="Only for private repositories">
+                          <Input id="git-token" type="password" value={form.gitToken} onChange={(e) => set({ gitToken: e.target.value })} autoComplete="new-password" />
+                        </Field>
+                      </>
+                    ) : (
+                      <p className="self-end pb-2 text-xs text-muted sm:col-span-2">SSH uses the Staqio deploy key (Settings → Deploy key); add it to the repository first.</p>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -351,7 +387,13 @@ export function NewProjectPage() {
                     </p>
                   )}
                   <div className="space-y-3 border-t border-default pt-4">
-                    <Checkbox label="Create starter index.php" description="Only if the document root is empty." checked={form.createStarter} onChange={(e) => set({ createStarter: e.target.checked })} />
+                    {form.gitUrl.trim() ? (
+                      <p className="text-sm text-muted">
+                        Repository <Code>{form.gitUrl.trim()}</Code> will be cloned into the project directory.
+                      </p>
+                    ) : (
+                      <Checkbox label="Create starter index.php" description="Only if the document root is empty." checked={form.createStarter} onChange={(e) => set({ createStarter: e.target.checked })} />
+                    )}
                     <Checkbox label="Start project after creation" checked={form.start} onChange={(e) => set({ start: e.target.checked })} />
                   </div>
                   {submitError && (

@@ -28,6 +28,7 @@ type CreateRequest struct {
 	PHP      *PHPRequest
 	Database *DatabaseRequest
 	Web      WebRequest
+	Git      *GitRequest
 	Env      []EnvVarRequest
 	// CreateStarter writes a starter index.php when the document root is empty.
 	CreateStarter bool

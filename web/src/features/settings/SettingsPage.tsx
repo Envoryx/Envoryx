@@ -1,7 +1,8 @@
-import { KeyRound, Save } from "lucide-react";
+import { KeyRound, RefreshCw, Save } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 import { api, ApiError } from "@/api/client";
-import { useAudit, useSettings, useUpdateSettings } from "@/api/hooks";
+import { useAudit, useDeployKey, useSettings, useUpdateSettings } from "@/api/hooks";
+import { useQueryClient } from "@tanstack/react-query";
 import { Alert, Button, Card, CardHeader, Code, ErrorState, Field, Input, PageHeader, Spinner } from "@/components/ui";
 import { formatDateTime } from "@/lib/format";
 
@@ -94,6 +95,36 @@ function PublicHostForm({ current }: { current: string }) {
   );
 }
 
+function DeployKeyCard() {
+  const key = useDeployKey();
+  const qc = useQueryClient();
+  const [busy, setBusy] = useState(false);
+  const [confirm, setConfirm] = useState(false);
+  return (
+    <Card>
+      <CardHeader title="Git deploy key" description="Public key used for SSH clones. Register it as a read-only deploy key in your repositories." />
+      <div className="space-y-3 p-5">
+        {key.isPending ? <Spinner /> : key.isError ? <Alert tone="red">{key.error.message}</Alert> : <code className="block select-all break-all rounded-md bg-muted p-3 font-mono text-[11px]">{key.data}</code>}
+        {confirm ? (
+          <Alert tone="amber" title="Regenerate the key?">
+            All repositories using the current key lose access until the new key is registered.
+            <div className="mt-2 flex gap-2">
+              <Button size="sm" variant="danger" loading={busy} onClick={async () => { setBusy(true); try { await api.git.regenerateDeployKey(); await qc.invalidateQueries({ queryKey: ["deploy-key"] }); } finally { setBusy(false); setConfirm(false); } }}>
+                Regenerate
+              </Button>
+              <Button size="sm" onClick={() => setConfirm(false)}>Cancel</Button>
+            </div>
+          </Alert>
+        ) : (
+          <Button size="sm" onClick={() => setConfirm(true)} icon={<RefreshCw className="size-3.5" />}>
+            Regenerate key
+          </Button>
+        )}
+      </div>
+    </Card>
+  );
+}
+
 export function SettingsPage() {
   const s = useSettings();
   const audit = useAudit(50);
@@ -128,6 +159,8 @@ export function SettingsPage() {
       )}
 
       {s.data && <PublicHostForm current={s.data.publicHost} />}
+
+      <DeployKeyCard />
 
       <PasswordForm />
 

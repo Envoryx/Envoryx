@@ -81,6 +81,7 @@ export interface Project {
   services: ProjectService[];
   env: EnvVar[];
   status: ProjectStatus;
+  git: { url: string; branch: string; username: string; hasToken: boolean };
 }
 
 export interface RuntimeVersion {
@@ -161,6 +162,7 @@ export interface CreateProjectRequest {
   docroot?: string;
   php?: { version: string; config: PHPConfig } | null;
   database?: DatabaseRequest | null;
+  git?: GitRequest | null;
   web?: { type: string; version: string };
   env?: EnvVar[];
   createStarter?: boolean;
@@ -298,6 +300,37 @@ export interface Settings {
   dockerHost: string;
   session: { idleTimeout: string; absoluteTimeout: string };
   secureCookies: boolean;
+}
+
+export interface GitStatus {
+  configured: boolean;
+  url?: string;
+  branch?: string;
+  hasToken: boolean;
+  isRepo: boolean;
+  currentBranch?: string;
+  commit?: string;
+  shortHash?: string;
+  subject?: string;
+  author?: string;
+  date?: string;
+  dirty: number;
+  remote?: string;
+  error?: string;
+}
+
+export interface GitResult {
+  output: string;
+  exitCode: number;
+  status: GitStatus;
+}
+
+export interface GitRequest {
+  url: string;
+  branch?: string;
+  username?: string;
+  /** omit to keep the stored token, "" to clear it */
+  token?: string;
 }
 
 export interface ActionInfo {

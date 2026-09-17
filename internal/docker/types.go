@@ -242,6 +242,9 @@ type Engine interface {
 	// Exec runs a command (argv form, never a shell string) inside a managed container and
 	// waits for it to finish. env entries are KEY=VALUE.
 	Exec(ctx context.Context, id string, cmd []string, env []string) (ExecResult, error)
+	// RunOneShot creates a transient container from spec, runs it to completion, collects
+	// its output and removes it. The spec must carry managed labels.
+	RunOneShot(ctx context.Context, spec ContainerSpec) (ExecResult, error)
 	// OpenTerminal starts an interactive shell (PTY) inside a managed container.
 	OpenTerminal(ctx context.Context, id string, opts TerminalOptions) (Terminal, error)
 	// StreamLogs emits log lines of a managed container until the stream ends (Follow=false)

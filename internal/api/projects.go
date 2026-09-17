@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/seramos/staqio/internal/docker"
@@ -72,6 +73,14 @@ type projectDTO struct {
 	Services     []serviceDTO `json:"services"`
 	Env          []envDTO     `json:"env"`
 	Status       statusDTO    `json:"status"`
+	Git          gitDTO       `json:"git"`
+}
+
+type gitDTO struct {
+	URL      string `json:"url"`
+	Branch   string `json:"branch"`
+	Username string `json:"username"`
+	HasToken bool   `json:"hasToken"`
 }
 
 func toPorts(in []docker.PortMapping) []portDTO {
@@ -121,6 +130,7 @@ func toProject(v project.View) projectDTO {
 		DesiredState: string(p.DesiredState), Lifecycle: string(p.Lifecycle), LastError: p.LastError,
 		HTTPPort: p.HTTPPort, CreatedAt: p.CreatedAt, UpdatedAt: p.UpdatedAt,
 		Services: []serviceDTO{}, Env: []envDTO{}, Status: toStatus(v.Status),
+		Git: gitDTO{URL: p.Git.URL, Branch: p.Git.Branch, Username: p.Git.Username, HasToken: p.Git.Token != ""},
 	}
 	for _, s := range p.Services {
 		dto.Services = append(dto.Services, serviceDTO{Kind: string(s.Kind), Variant: s.Variant, Version: s.Version, Image: s.Image, Enabled: s.Enabled, Config: redactedConfig(s)})
@@ -158,6 +168,7 @@ type createProjectRequest struct {
 	Docroot  string              `json:"docroot"`
 	PHP      *phpRequestDTO      `json:"php"`
 	Database *databaseRequestDTO `json:"database"`
+	Git      *gitRequestDTO      `json:"git"`
 	Web      *struct {
 		Type    string `json:"type"`
 		Version string `json:"version"`
@@ -174,6 +185,11 @@ func (r createProjectRequest) toDomain() project.CreateRequest {
 	}
 	if r.Database != nil {
 		req.Database = &project.DatabaseRequest{Type: r.Database.Type, Version: r.Database.Version, ExposePort: r.Database.ExposePort}
+	}
+	if r.Git != nil && strings.TrimSpace(r.Git.URL) != "" {
+		g := r.Git.toDomain()
+		g.KeepToken = false
+		req.Git = &g
 	}
 	if r.Web != nil {
 		req.Web = project.WebRequest{Type: r.Web.Type, Version: r.Web.Version}

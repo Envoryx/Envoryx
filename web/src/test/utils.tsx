@@ -64,6 +64,7 @@ export function makeProject(overrides: Partial<Project> = {}): Project {
       { kind: "web", variant: "caddy", version: "2", image: "caddy:2-alpine", enabled: true, config: {} },
     ],
     env: [],
+    git: { url: "", branch: "", username: "", hasToken: false },
     status: {
       state: "running",
       services: [

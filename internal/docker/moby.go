@@ -490,6 +490,44 @@ func (e *MobyEngine) Exec(ctx context.Context, id string, cmd []string, env []st
 	return ExecResult{ExitCode: insp.ExitCode, Stdout: stdout.String(), Stderr: stderr.String()}, nil
 }
 
+// RunOneShot implements Engine.
+func (e *MobyEngine) RunOneShot(ctx context.Context, spec ContainerSpec) (ExecResult, error) {
+	spec.RestartPolicy = "no"
+	id, err := e.CreateContainer(ctx, spec)
+	if err != nil {
+		return ExecResult{}, err
+	}
+	// Always clean up, even when the request context is cancelled mid-way.
+	defer func() {
+		rctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
+		defer cancel()
+		_ = e.RemoveContainer(rctx, id)
+	}()
+	wait := e.cli.ContainerWait(ctx, id, client.ContainerWaitOptions{})
+	if _, err := e.cli.ContainerStart(ctx, id, client.ContainerStartOptions{}); err != nil {
+		return ExecResult{}, wrap(err)
+	}
+	var code int64
+	select {
+	case res := <-wait.Result:
+		code = res.StatusCode
+	case err := <-wait.Error:
+		return ExecResult{}, wrap(err)
+	case <-ctx.Done():
+		return ExecResult{}, ctx.Err()
+	}
+	rc, err := e.cli.ContainerLogs(ctx, id, client.ContainerLogsOptions{ShowStdout: true, ShowStderr: true})
+	if err != nil {
+		return ExecResult{}, wrap(err)
+	}
+	defer rc.Close()
+	var stdout, stderr bytes.Buffer
+	if _, err := stdcopy.StdCopy(&limitedWriter{w: &stdout}, &limitedWriter{w: &stderr}, rc); err != nil && !errors.Is(err, io.EOF) {
+		return ExecResult{}, fmt.Errorf("read output: %w", err)
+	}
+	return ExecResult{ExitCode: int(code), Stdout: stdout.String(), Stderr: stderr.String()}, nil
+}
+
 // OpenTerminal implements Engine.
 func (e *MobyEngine) OpenTerminal(ctx context.Context, id string, opts TerminalOptions) (Terminal, error) {
 	if len(opts.Cmd) == 0 {

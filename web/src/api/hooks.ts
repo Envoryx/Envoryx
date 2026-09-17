@@ -126,6 +126,14 @@ export function useUpdateProject(id: string) {
   });
 }
 
+export function useGitStatus(id: string, enabled = true) {
+  return useQuery({ queryKey: ["projects", id, "git"], queryFn: async () => (await api.git.status(id)).git, enabled, retry: false });
+}
+
+export function useDeployKey() {
+  return useQuery({ queryKey: ["deploy-key"], queryFn: async () => (await api.git.deployKey()).publicKey, staleTime: 60 * 60 * 1000 });
+}
+
 export function useProjectActions(id: string) {
   return useQuery({
     queryKey: ["projects", id, "actions"],

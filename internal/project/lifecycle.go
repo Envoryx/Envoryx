@@ -113,8 +113,14 @@ func (m *Manager) Create(ctx context.Context, req CreateRequest) (View, error) {
 		return View{}, fmt.Errorf("%s: %w", step, cause)
 	}
 
-	if err := m.ensureProjectDir(planner, proj, req.CreateStarter); err != nil {
+	// A repository is cloned into the empty directory; the starter page would collide.
+	if err := m.ensureProjectDir(planner, proj, req.CreateStarter && proj.Git.URL == ""); err != nil {
 		return fail("prepare project directory", err)
+	}
+	if proj.Git.URL != "" {
+		if _, err := m.clone(ctx, proj); err != nil {
+			return fail("clone repository", err)
+		}
 	}
 	if err := writePlanFiles(plan); err != nil {
 		return fail("write configuration", err)

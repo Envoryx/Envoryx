@@ -67,11 +67,21 @@ type Project struct {
 	HTTPPort     int // 0 = none allocated
 	Lifecycle    Lifecycle
 	LastError    string
+	Git          GitConfig
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 
 	Services []ProjectService
 	Env      []EnvVar
+}
+
+// GitConfig is the optional repository binding of a project. Token is a secret and must
+// never be part of API responses or logs.
+type GitConfig struct {
+	URL      string
+	Branch   string
+	Username string
+	Token    string
 }
 
 // Service returns the service of the given kind, or nil.

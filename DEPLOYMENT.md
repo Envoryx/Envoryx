@@ -178,6 +178,14 @@ copy of `/config/staqio.db` before downgrading.
   Merging it builds the images and the next Staqio image shows the version in
   the wizard. Pre-release versions are marked *preview*.
 
+## Git deploy key
+
+For SSH repositories Staqio generates an Ed25519 key pair on first use under
+`/config/ssh/`. Copy the public key from **Settings → Git deploy key** (or the
+project's Git tab) into your repository as a read-only deploy key. Private
+HTTPS repositories use an access token per project instead (GitHub:
+fine-grained PAT with *Contents: read*; GitLab: username `oauth2` + token).
+
 ## Backups of Staqio itself
 
 Back up `/config` (SQLite database + generated project configuration) and

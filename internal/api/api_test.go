@@ -32,6 +32,7 @@ import (
 )
 
 type dockerExecResult = docker.ExecResult
+type dockerSpec = docker.ContainerSpec
 
 type testApp struct {
 	t       *testing.T
@@ -648,6 +649,55 @@ func TestProjectActions(t *testing.T) {
 	}
 	if !sawStart || !sawOutput {
 		t.Fatalf("start=%v output=%v", sawStart, sawOutput)
+	}
+}
+
+func TestGitEndpointsNeverExposeToken(t *testing.T) {
+	a := newApp(t)
+	a.setupAndLogin()
+	a.engine.OneShotHandler = func(spec dockerSpec) (dockerExecResult, error) {
+		if spec.Cmd[3] == "clone" {
+			_ = os.MkdirAll(filepath.Join(a.projDir, "repo", ".git"), 0o755)
+		}
+		return dockerExecResult{Stdout: "ok\n"}, nil
+	}
+	create := map[string]any{"name": "Repo", "start": true, "php": map[string]any{"version": "8.4"},
+		"git": map[string]any{"url": "https://github.com/seramos/example.git", "branch": "main", "token": "ghp_TOPSECRET"}}
+	r := a.do(http.MethodPost, "/api/v1/projects", create, true)
+	if r.status != http.StatusCreated {
+		t.Fatalf("create: %d %s", r.status, r.raw)
+	}
+	if bytes.Contains(r.raw, []byte("ghp_TOPSECRET")) {
+		t.Fatalf("token leaked: %s", r.raw)
+	}
+	id := r.body["project"].(map[string]any)["id"].(string)
+	git := r.body["project"].(map[string]any)["git"].(map[string]any)
+	if git["url"] != "https://github.com/seramos/example.git" || git["hasToken"] != true {
+		t.Fatalf("git dto: %v", git)
+	}
+	r = a.do(http.MethodGet, "/api/v1/projects/"+id+"/git", nil, false)
+	if r.status != http.StatusOK || bytes.Contains(r.raw, []byte("ghp_TOPSECRET")) || r.body["git"].(map[string]any)["isRepo"] != true {
+		t.Fatalf("status: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodPost, "/api/v1/projects/"+id+"/git/pull", nil, true)
+	if r.status != http.StatusOK {
+		t.Fatalf("pull: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodPost, "/api/v1/projects/"+id+"/git/checkout", map[string]any{"branch": "--evil"}, true)
+	if r.status != http.StatusUnprocessableEntity {
+		t.Fatalf("checkout injection: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodPut, "/api/v1/projects/"+id+"/git", map[string]any{"url": "https://github.com/seramos/example.git", "branch": "dev"}, true)
+	if r.status != http.StatusOK || r.body["git"].(map[string]any)["hasToken"] != true {
+		t.Fatalf("token must be kept when omitted: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodGet, "/api/v1/settings/deploy-key", nil, false)
+	if r.status != http.StatusOK || !strings.HasPrefix(r.body["publicKey"].(string), "ssh-ed25519 ") {
+		t.Fatalf("deploy key: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodGet, "/api/v1/audit", nil, false)
+	if bytes.Contains(r.raw, []byte("ghp_TOPSECRET")) {
+		t.Fatal("token in audit log")
 	}
 }
 

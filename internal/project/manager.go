@@ -146,6 +146,13 @@ func (m *Manager) buildProject(req CreateRequest) (store.Project, error) {
 		})
 	}
 
+	if req.Git != nil {
+		g, err := buildGitConfig(*req.Git, store.GitConfig{})
+		if err != nil {
+			return store.Project{}, err
+		}
+		proj.Git = g
+	}
 	if req.Database != nil {
 		svc, err := m.buildDatabaseService(slug, req.Database.Type, req.Database.Version)
 		if err != nil {
@@ -530,14 +537,21 @@ func (m *Manager) ensureProjectDir(planner *Planner, proj store.Project, starter
 		if err != nil {
 			return err
 		}
-		if err := os.MkdirAll(docroot, 0o755); err != nil {
-			return fmt.Errorf("create document root: %w", err)
+		// A repository brings its own document root; creating it would make the directory
+		// non-empty and block the clone.
+		if proj.Git.URL == "" {
+			if err := os.MkdirAll(docroot, 0o755); err != nil {
+				return fmt.Errorf("create document root: %w", err)
+			}
 		}
 	}
 	chownTree(dir, planner.paths.PUID, planner.paths.PGID)
 	if starter {
 		entries, err := os.ReadDir(docroot)
 		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				return nil
+			}
 			return err
 		}
 		if len(entries) == 0 {

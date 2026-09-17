@@ -41,7 +41,7 @@ RUN set -eux; \
     for ext in ${STAQIO_PHP_EXTENSIONS}; do rm -f "/usr/local/etc/php/conf.d/docker-php-ext-${ext}.ini"; done; \
     # Tools used by project actions (Phase 5).
     apt-get update; \
-    apt-get install -y --no-install-recommends git unzip; \
+    apt-get install -y --no-install-recommends git unzip openssh-client; \
     rm -rf /var/lib/apt/lists/*; \
     php -m
 

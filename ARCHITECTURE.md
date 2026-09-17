@@ -523,7 +523,10 @@ run on the same volume with `MARIADB_AUTO_UPGRADE`.
   and tool caches under `/tmp`. Project actions are a closed
   catalogue of argv commands (`actions.go`) gated by required files in the
   project directory; output streams over the same WebSocket mechanism and
-  Ctrl+C is delivered on cancel/disconnect. Still open: Git, Node container.
+  Ctrl+C is delivered on cancel/disconnect. Git runs in a transient
+  container from the project's PHP image (`RunOneShot`) with the deploy key
+  mounted only there; tokens travel via `GIT_CONFIG_*` env. Still open: Node
+  container.
 - **Phase 6 Services**: Redis, PostgreSQL, MySQL, Node.
 - **Phase 7 Backups**, **Phase 8 HTTPS/DNS**, **Phase 9 MCP** (reuses the
   same manager and validation layer).

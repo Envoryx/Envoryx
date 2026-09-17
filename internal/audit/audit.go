@@ -35,6 +35,11 @@ const (
 
 	ActionTerminalOpened = "terminal.opened"
 	ActionRun            = "action.run"
+
+	ActionDeployKeyGenerated = "git.deploy_key_generated"
+	ActionGitClone           = "git.clone"
+	ActionGitPull            = "git.pull"
+	ActionGitCheckout        = "git.checkout"
 )
 
 type ipKey struct{}
