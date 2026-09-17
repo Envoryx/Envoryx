@@ -11,9 +11,10 @@ import { DeleteProjectDialog, ProjectActionButtons, useActionError } from "./Pro
 import { DatabaseTab } from "./DatabaseTab";
 import { EnvEditor } from "./EnvEditor";
 import { LogsTab } from "./LogsTab";
+import { TerminalTab } from "./TerminalTab";
 import { PhpConfigForm } from "./PhpConfigForm";
 
-const tabs = ["Overview", "Logs", "PHP", "Database", "Environment", "Advanced"] as const;
+const tabs = ["Overview", "Terminal", "Logs", "PHP", "Database", "Environment", "Advanced"] as const;
 type Tab = (typeof tabs)[number];
 
 export function ProjectDetailPage() {
@@ -101,6 +102,7 @@ export function ProjectDetailPage() {
       </div>
 
       {tab === "Overview" && <OverviewTab project={p} />}
+      {tab === "Terminal" && <TerminalTab project={p} />}
       {tab === "Logs" && <LogsTab project={p} />}
       {tab === "PHP" && <PhpTab project={p} />}
       {tab === "Database" && <DatabaseTab project={p} />}

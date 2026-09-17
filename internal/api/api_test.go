@@ -515,6 +515,58 @@ func TestServiceLogsRESTAndWebSocket(t *testing.T) {
 	}
 }
 
+func TestTerminalWebSocket(t *testing.T) {
+	a := newApp(t)
+	a.setupAndLogin()
+	r := a.do(http.MethodPost, "/api/v1/projects", map[string]any{"name": "Term", "start": true, "php": map[string]any{"version": "8.4"}}, true)
+	if r.status != http.StatusCreated {
+		t.Fatalf("create: %d %s", r.status, r.raw)
+	}
+	id := r.body["project"].(map[string]any)["id"].(string)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	base := "ws" + strings.TrimPrefix(a.srv.URL, "http") + "/api/v1/projects/" + id + "/services/"
+
+	if _, res, err := websocket.Dial(ctx, base+"php/terminal/ws", nil); err == nil || res == nil || res.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("unauthenticated terminal must be rejected with 401, got %v", err)
+	}
+	hdr := http.Header{"Cookie": {auth.CookieName + "=" + a.cookie.Value}}
+	if _, res, err := websocket.Dial(ctx, base+"database/terminal/ws", &websocket.DialOptions{HTTPHeader: hdr}); err == nil || res == nil || res.StatusCode != http.StatusNotFound {
+		t.Fatalf("terminal for a service the project lacks must be 404, got %v", err)
+	}
+
+	conn, _, err := websocket.Dial(ctx, base+"php/terminal/ws?cols=100&rows=30", &websocket.DialOptions{HTTPHeader: hdr})
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	defer conn.CloseNow()
+	if len(a.engine.Terminals()) != 1 {
+		t.Fatalf("expected one terminal session, got %d", len(a.engine.Terminals()))
+	}
+	rec := a.engine.Terminals()[0]
+	if rec.Container != "staqio-term-php" || rec.Opts.User != "1000:1000" || rec.Opts.WorkingDir != "/var/www/html" || rec.Opts.Cols != 100 || rec.Opts.Rows != 30 {
+		t.Fatalf("terminal options: %+v", rec)
+	}
+	// Keystrokes reach the container and output comes back (the fake echoes input).
+	if err := conn.Write(ctx, websocket.MessageBinary, []byte("ls\r")); err != nil {
+		t.Fatal(err)
+	}
+	typ, data, err := conn.Read(ctx)
+	if err != nil || typ != websocket.MessageBinary || string(data) != "ls\r" {
+		t.Fatalf("echo: %v %v %q", err, typ, data)
+	}
+	if err := conn.Write(ctx, websocket.MessageText, []byte(`{"type":"resize","cols":80,"rows":24}`)); err != nil {
+		t.Fatal(err)
+	}
+	deadline := time.Now().Add(2 * time.Second)
+	for len(a.engine.LastTerminal().Resizes()) == 0 && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+	}
+	if got := a.engine.LastTerminal().Resizes(); len(got) != 1 || got[0] != "80x24" {
+		t.Fatalf("resize: %v", got)
+	}
+}
+
 func TestPublicHostSetting(t *testing.T) {
 	a := newApp(t)
 	a.setupAndLogin()

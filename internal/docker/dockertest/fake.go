@@ -4,6 +4,7 @@ package dockertest
 import (
 	"context"
 	"fmt"
+	"io"
 	"sort"
 	"strconv"
 	"strings"
@@ -54,7 +55,9 @@ type Fake struct {
 	// Execs records every exec call as "name: argv...".
 	Execs []string
 	// Logs maps container names to their log lines returned by StreamLogs.
-	Logs map[string][]docker.LogLine
+	Logs         map[string][]docker.LogLine
+	terminals    []TerminalRecord
+	lastTerminal *FakeTerminal
 
 	// Calls records every mutating operation in order (e.g. "create:name", "start:name").
 	Calls []string
@@ -469,6 +472,72 @@ func (f *Fake) Exec(_ context.Context, id string, cmd []string, env []string) (d
 		return handler(name, cmd, env)
 	}
 	return docker.ExecResult{ExitCode: 0}, nil
+}
+
+// Terminals records terminal sessions opened through the fake (container name + options).
+type TerminalRecord struct {
+	Container string
+	Opts      docker.TerminalOptions
+}
+
+// FakeTerminal echoes input back as output and records resizes.
+type FakeTerminal struct {
+	pr      *io.PipeReader
+	pw      *io.PipeWriter
+	mu      sync.Mutex
+	resizes []string
+}
+
+func (t *FakeTerminal) Output() io.Reader { return t.pr }
+func (t *FakeTerminal) Input() io.Writer  { return t.pw }
+func (t *FakeTerminal) Resize(_ context.Context, cols, rows uint) error {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.resizes = append(t.resizes, fmt.Sprintf("%dx%d", cols, rows))
+	return nil
+}
+func (t *FakeTerminal) Close() error { return t.pw.Close() }
+
+// Resizes returns the recorded resize calls.
+func (t *FakeTerminal) Resizes() []string {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return append([]string(nil), t.resizes...)
+}
+
+// OpenTerminal implements docker.Engine.
+func (f *Fake) OpenTerminal(_ context.Context, id string, opts docker.TerminalOptions) (docker.Terminal, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if err := f.check(); err != nil {
+		return nil, err
+	}
+	c, err := f.guard(id)
+	if err != nil {
+		return nil, err
+	}
+	if c.State != "running" {
+		return nil, fmt.Errorf("container %s is not running", c.Spec.Name)
+	}
+	f.terminals = append(f.terminals, TerminalRecord{Container: c.Spec.Name, Opts: opts})
+	pr, pw := io.Pipe()
+	t := &FakeTerminal{pr: pr, pw: pw}
+	f.lastTerminal = t
+	return t, nil
+}
+
+// Terminals returns the opened terminal sessions.
+func (f *Fake) Terminals() []TerminalRecord {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]TerminalRecord(nil), f.terminals...)
+}
+
+// LastTerminal returns the most recently opened terminal (nil if none).
+func (f *Fake) LastTerminal() *FakeTerminal {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.lastTerminal
 }
 
 // StreamLogs implements docker.Engine. With Follow it blocks until ctx is cancelled after

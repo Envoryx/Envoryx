@@ -30,6 +30,8 @@ Staqio is under active development. The current milestone (Phase 1 + 2) delivers
 - projects reachable at `http://<host>:<port>` (port auto-assigned)
 - start / stop / restart / edit / delete with confirmation
 - live logs per container over WebSocket: pause, search, stderr filter, download
+- browser terminal (xterm.js) into any project container; application
+  containers run the shell as the project owner (PUID/PGID)
 - desired-state reconciliation on startup and periodically; orphan detection
 - diagnostics view of all Docker resources (foreign containers read-only)
 

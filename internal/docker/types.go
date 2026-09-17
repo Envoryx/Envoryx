@@ -6,6 +6,7 @@ package docker
 import (
 	"context"
 	"errors"
+	"io"
 	"time"
 )
 
@@ -154,6 +155,27 @@ type ContainerSpec struct {
 	Healthcheck   *HealthSpec
 }
 
+// TerminalOptions configure an interactive exec session.
+type TerminalOptions struct {
+	Cmd        []string
+	Env        []string
+	User       string
+	WorkingDir string
+	Cols, Rows uint
+}
+
+// Terminal is an interactive exec session with a pseudo terminal.
+type Terminal interface {
+	// Output delivers raw terminal output.
+	Output() io.Reader
+	// Input receives keystrokes.
+	Input() io.Writer
+	// Resize changes the pseudo terminal size.
+	Resize(ctx context.Context, cols, rows uint) error
+	// Close terminates the session.
+	Close() error
+}
+
 // ExecResult is the outcome of a non-interactive command run inside a container.
 type ExecResult struct {
 	ExitCode int
@@ -218,6 +240,8 @@ type Engine interface {
 	// Exec runs a command (argv form, never a shell string) inside a managed container and
 	// waits for it to finish. env entries are KEY=VALUE.
 	Exec(ctx context.Context, id string, cmd []string, env []string) (ExecResult, error)
+	// OpenTerminal starts an interactive shell (PTY) inside a managed container.
+	OpenTerminal(ctx context.Context, id string, opts TerminalOptions) (Terminal, error)
 	// StreamLogs emits log lines of a managed container until the stream ends (Follow=false)
 	// or ctx is cancelled. emit is called from a single goroutine.
 	StreamLogs(ctx context.Context, id string, opts LogOptions, emit func(LogLine)) error

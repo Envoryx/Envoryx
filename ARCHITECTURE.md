@@ -516,8 +516,12 @@ run on the same volume with `MARIADB_AUTO_UPGRADE`.
   (`httputil.ReverseProxy`, joins project networks) instead of a separate
   Caddy container – one fewer moving part, no config reloads. Decision
   deferred to Phase 4.
-- **Phase 5 DX**: terminal (exec over WebSocket), log streaming, project
-  actions (composer/npm via exec with argv arrays), Git.
+- **Phase 5 DX** (logs and terminal implemented): log streaming and PTY
+  terminal over WebSocket – session cookie validated before the upgrade,
+  same-origin enforced, containers resolved from `project + service kind`
+  server-side; terminal shells in php/node run as PUID:PGID with `HOME=/tmp`
+  and tool caches under `/tmp`. Still open: project actions (composer/npm via
+  exec with argv arrays), Git, Node container.
 - **Phase 6 Services**: Redis, PostgreSQL, MySQL, Node.
 - **Phase 7 Backups**, **Phase 8 HTTPS/DNS**, **Phase 9 MCP** (reuses the
   same manager and validation layer).

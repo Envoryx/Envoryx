@@ -32,6 +32,8 @@ const (
 	ActionDBPasswordRotated   = "database.password_rotated"
 	ActionDBCreated           = "database.created"
 	ActionDBDropped           = "database.dropped"
+
+	ActionTerminalOpened = "terminal.opened"
 )
 
 type ipKey struct{}

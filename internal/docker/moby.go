@@ -490,6 +490,52 @@ func (e *MobyEngine) Exec(ctx context.Context, id string, cmd []string, env []st
 	return ExecResult{ExitCode: insp.ExitCode, Stdout: stdout.String(), Stderr: stderr.String()}, nil
 }
 
+// OpenTerminal implements Engine.
+func (e *MobyEngine) OpenTerminal(ctx context.Context, id string, opts TerminalOptions) (Terminal, error) {
+	if len(opts.Cmd) == 0 {
+		return nil, errors.New("terminal: empty command")
+	}
+	if _, err := e.guardContainer(ctx, id); err != nil {
+		return nil, err
+	}
+	created, err := e.cli.ExecCreate(ctx, id, client.ExecCreateOptions{
+		Cmd:          opts.Cmd,
+		Env:          opts.Env,
+		User:         opts.User,
+		WorkingDir:   opts.WorkingDir,
+		TTY:          true,
+		AttachStdin:  true,
+		AttachStdout: true,
+		AttachStderr: true,
+		ConsoleSize:  client.ConsoleSize{Height: opts.Rows, Width: opts.Cols},
+	})
+	if err != nil {
+		return nil, wrap(err)
+	}
+	attach, err := e.cli.ExecAttach(ctx, created.ID, client.ExecAttachOptions{TTY: true, ConsoleSize: client.ConsoleSize{Height: opts.Rows, Width: opts.Cols}})
+	if err != nil {
+		return nil, wrap(err)
+	}
+	return &mobyTerminal{cli: e.cli, execID: created.ID, hijack: attach.HijackedResponse}, nil
+}
+
+type mobyTerminal struct {
+	cli    *client.Client
+	execID string
+	hijack client.HijackedResponse
+}
+
+func (t *mobyTerminal) Output() io.Reader { return t.hijack.Reader }
+func (t *mobyTerminal) Input() io.Writer  { return t.hijack.Conn }
+func (t *mobyTerminal) Resize(ctx context.Context, cols, rows uint) error {
+	_, err := t.cli.ExecResize(ctx, t.execID, client.ExecResizeOptions{Height: rows, Width: cols})
+	return wrap(err)
+}
+func (t *mobyTerminal) Close() error {
+	t.hijack.Close()
+	return nil
+}
+
 // StreamLogs implements Engine.
 func (e *MobyEngine) StreamLogs(ctx context.Context, id string, opts LogOptions, emit func(LogLine)) error {
 	c, err := e.guardContainer(ctx, id)
