@@ -24,7 +24,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - id: read
-        run: echo "matrix=$(jq -c '{include: [.versions[] | {php: .version, base: .base}]}' internal/runtime/php_versions.json)" >> "$GITHUB_OUTPUT"
+        run: |
+          matrix=$(jq -c '{include: [.versions[] | {php: .version, base: .base}]}' internal/runtime/php_versions.json)
+          echo "matrix=${matrix}" >> "$GITHUB_OUTPUT"
 
   build:
     needs: matrix
