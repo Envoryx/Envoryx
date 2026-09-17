@@ -31,6 +31,9 @@ type Deps struct {
 	Log      *slog.Logger
 	// StartedAt is used for uptime reporting.
 	StartedAt time.Time
+	// AllowedOriginHosts are extra origins (host[:port]) permitted for WebSocket upgrades,
+	// e.g. the Vite dev server. Same-origin is always allowed.
+	AllowedOriginHosts []string
 }
 
 // API holds handlers.
@@ -40,6 +43,9 @@ type API struct {
 
 // New creates the API.
 func New(d Deps) *API { return &API{d: d} }
+
+// SetAllowedOriginHosts configures extra WebSocket origins (dev server).
+func (a *API) SetAllowedOriginHosts(hosts []string) { a.d.AllowedOriginHosts = hosts }
 
 // Mount registers all routes on mux. protect wraps handlers that require a session.
 func (a *API) Mount(mux *http.ServeMux, protect func(http.Handler) http.Handler) {
@@ -77,6 +83,8 @@ func (a *API) Mount(mux *http.ServeMux, protect func(http.Handler) http.Handler)
 	p("GET /api/v1/projects/{id}/services", a.projectServices)
 	p("GET /api/v1/projects/{id}/plan", a.projectPlan)
 	p("GET /api/v1/projects/{id}/stats", a.projectStats)
+	p("GET /api/v1/projects/{id}/services/{kind}/logs", a.serviceLogs)
+	p("GET /api/v1/projects/{id}/services/{kind}/logs/ws", a.serviceLogsWS)
 	p("GET /api/v1/projects/{id}/database", a.databaseInfo)
 	p("GET /api/v1/projects/{id}/database/credentials", a.databaseCredentials)
 	p("POST /api/v1/projects/{id}/database/rotate", a.databaseRotate)

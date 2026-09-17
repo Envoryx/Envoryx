@@ -490,6 +490,96 @@ func (e *MobyEngine) Exec(ctx context.Context, id string, cmd []string, env []st
 	return ExecResult{ExitCode: insp.ExitCode, Stdout: stdout.String(), Stderr: stderr.String()}, nil
 }
 
+// StreamLogs implements Engine.
+func (e *MobyEngine) StreamLogs(ctx context.Context, id string, opts LogOptions, emit func(LogLine)) error {
+	c, err := e.guardContainer(ctx, id)
+	if err != nil {
+		return err
+	}
+	lo := client.ContainerLogsOptions{ShowStdout: true, ShowStderr: true, Follow: opts.Follow, Timestamps: true, Tail: opts.Tail}
+	if lo.Tail == "" {
+		lo.Tail = "all"
+	}
+	if !opts.Since.IsZero() {
+		lo.Since = opts.Since.UTC().Format(time.RFC3339Nano)
+	}
+	rc, err := e.cli.ContainerLogs(ctx, c.ID, lo)
+	if err != nil {
+		return wrap(err)
+	}
+	defer rc.Close()
+	// Close the stream when ctx ends so a blocked read returns.
+	done := make(chan struct{})
+	defer close(done)
+	go func() {
+		select {
+		case <-ctx.Done():
+			_ = rc.Close()
+		case <-done:
+		}
+	}()
+
+	stdout := &lineWriter{stream: "stdout", emit: emit}
+	stderr := &lineWriter{stream: "stderr", emit: emit}
+	if c.Config != nil && c.Config.Tty {
+		// TTY containers produce a raw stream without multiplexing headers.
+		_, err = io.Copy(stdout, rc)
+	} else {
+		_, err = stdcopy.StdCopy(stdout, stderr, rc)
+	}
+	stdout.flush()
+	stderr.flush()
+	if err != nil && ctx.Err() == nil && !errors.Is(err, io.EOF) {
+		return fmt.Errorf("read logs: %w", err)
+	}
+	return nil
+}
+
+// lineWriter splits a byte stream into lines, parses Docker's timestamp prefix and emits
+// LogLines. Partial lines are buffered until the next write or flush.
+type lineWriter struct {
+	stream string
+	emit   func(LogLine)
+	buf    []byte
+}
+
+const maxLogLine = 64 << 10
+
+func (w *lineWriter) Write(p []byte) (int, error) {
+	w.buf = append(w.buf, p...)
+	for {
+		i := bytes.IndexByte(w.buf, '\n')
+		if i < 0 {
+			if len(w.buf) > maxLogLine {
+				w.emitLine(w.buf)
+				w.buf = nil
+			}
+			return len(p), nil
+		}
+		w.emitLine(w.buf[:i])
+		w.buf = w.buf[i+1:]
+	}
+}
+
+func (w *lineWriter) flush() {
+	if len(w.buf) > 0 {
+		w.emitLine(w.buf)
+		w.buf = nil
+	}
+}
+
+func (w *lineWriter) emitLine(raw []byte) {
+	line := strings.TrimRight(string(raw), "\r")
+	ts := time.Time{}
+	if i := strings.IndexByte(line, ' '); i > 0 {
+		if t, err := time.Parse(time.RFC3339Nano, line[:i]); err == nil {
+			ts = t
+			line = line[i+1:]
+		}
+	}
+	w.emit(LogLine{Time: ts, Stream: w.stream, Text: line})
+}
+
 // limitedWriter caps captured exec output so a runaway command cannot exhaust memory.
 type limitedWriter struct {
 	w *bytes.Buffer

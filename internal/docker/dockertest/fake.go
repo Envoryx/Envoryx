@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -52,6 +53,8 @@ type Fake struct {
 	ExecHandler func(container string, cmd []string, env []string) (docker.ExecResult, error)
 	// Execs records every exec call as "name: argv...".
 	Execs []string
+	// Logs maps container names to their log lines returned by StreamLogs.
+	Logs map[string][]docker.LogLine
 
 	// Calls records every mutating operation in order (e.g. "create:name", "start:name").
 	Calls []string
@@ -68,6 +71,7 @@ func New() *Fake {
 		FailCreate: map[string]error{},
 		FailStart:  map[string]error{},
 		FailPull:   map[string]error{},
+		Logs:       map[string][]docker.LogLine{},
 	}
 }
 
@@ -465,6 +469,35 @@ func (f *Fake) Exec(_ context.Context, id string, cmd []string, env []string) (d
 		return handler(name, cmd, env)
 	}
 	return docker.ExecResult{ExitCode: 0}, nil
+}
+
+// StreamLogs implements docker.Engine. With Follow it blocks until ctx is cancelled after
+// emitting the configured lines (simulating a live stream with no further output).
+func (f *Fake) StreamLogs(ctx context.Context, id string, opts docker.LogOptions, emit func(docker.LogLine)) error {
+	f.mu.Lock()
+	if err := f.check(); err != nil {
+		f.mu.Unlock()
+		return err
+	}
+	c, err := f.guard(id)
+	if err != nil {
+		f.mu.Unlock()
+		return err
+	}
+	lines := append([]docker.LogLine(nil), f.Logs[c.Spec.Name]...)
+	f.mu.Unlock()
+	if opts.Tail != "" && opts.Tail != "all" {
+		if n, err := strconv.Atoi(opts.Tail); err == nil && n < len(lines) {
+			lines = lines[len(lines)-n:]
+		}
+	}
+	for _, l := range lines {
+		emit(l)
+	}
+	if opts.Follow {
+		<-ctx.Done()
+	}
+	return nil
 }
 
 // ListNetworks implements docker.Engine.

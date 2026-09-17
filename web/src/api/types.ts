@@ -300,6 +300,12 @@ export interface Settings {
   secureCookies: boolean;
 }
 
+export interface LogLine {
+  time: string;
+  stream: "stdout" | "stderr";
+  text: string;
+}
+
 export interface AuditEntry {
   id: string;
   createdAt: string;

@@ -10,9 +10,10 @@ import { containerStateTone, formatBytes, formatDateTime, formatPercent, project
 import { DeleteProjectDialog, ProjectActionButtons, useActionError } from "./ProjectActions";
 import { DatabaseTab } from "./DatabaseTab";
 import { EnvEditor } from "./EnvEditor";
+import { LogsTab } from "./LogsTab";
 import { PhpConfigForm } from "./PhpConfigForm";
 
-const tabs = ["Overview", "PHP", "Database", "Environment", "Advanced"] as const;
+const tabs = ["Overview", "Logs", "PHP", "Database", "Environment", "Advanced"] as const;
 type Tab = (typeof tabs)[number];
 
 export function ProjectDetailPage() {
@@ -100,6 +101,7 @@ export function ProjectDetailPage() {
       </div>
 
       {tab === "Overview" && <OverviewTab project={p} />}
+      {tab === "Logs" && <LogsTab project={p} />}
       {tab === "PHP" && <PhpTab project={p} />}
       {tab === "Database" && <DatabaseTab project={p} />}
       {tab === "Environment" && <EnvTab project={p} />}

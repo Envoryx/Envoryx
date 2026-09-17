@@ -5,6 +5,7 @@ import type {
   DatabaseCredentials,
   DatabaseInfo,
   DockerOverview,
+  LogLine,
   Preview,
   Project,
   RuntimesResponse,
@@ -123,6 +124,8 @@ export const api = {
       request<{ project: Project }>(`/projects/${encodeURIComponent(id)}/restart`, { method: "POST" }),
     plan: (id: string) => request<{ plan: Preview }>(`/projects/${encodeURIComponent(id)}/plan`),
     stats: (id: string) => request<{ stats: Usage; sampledAt: string }>(`/projects/${encodeURIComponent(id)}/stats`),
+    logs: (id: string, kind: string, tail = 500) =>
+      request<{ lines: LogLine[] }>(`/projects/${encodeURIComponent(id)}/services/${encodeURIComponent(kind)}/logs?tail=${tail}`),
   },
 
   database: {

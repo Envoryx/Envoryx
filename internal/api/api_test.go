@@ -9,8 +9,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/coder/websocket"
 
 	"github.com/seramos/staqio/internal/api"
 	"github.com/seramos/staqio/internal/audit"
@@ -440,6 +443,75 @@ func TestDatabaseEndpointsRedactSecrets(t *testing.T) {
 	r = a.do(http.MethodGet, "/api/v1/audit", nil, false)
 	if !bytes.Contains(r.raw, []byte("database.credentials_viewed")) || bytes.Contains(r.raw, []byte(pw)) {
 		t.Fatalf("audit: %s", r.raw)
+	}
+}
+
+func TestServiceLogsRESTAndWebSocket(t *testing.T) {
+	a := newApp(t)
+	a.setupAndLogin()
+	r := a.do(http.MethodPost, "/api/v1/projects", map[string]any{"name": "Logs", "start": true, "php": map[string]any{"version": "8.4"}}, true)
+	if r.status != http.StatusCreated {
+		t.Fatalf("create: %d %s", r.status, r.raw)
+	}
+	id := r.body["project"].(map[string]any)["id"].(string)
+	a.engine.Logs["staqio-logs-php"] = []docker.LogLine{
+		{Time: time.Now(), Stream: "stderr", Text: "NOTICE: fpm is running"},
+		{Time: time.Now(), Stream: "stderr", Text: "NOTICE: ready to handle connections"},
+	}
+
+	r = a.do(http.MethodGet, "/api/v1/projects/"+id+"/services/php/logs?tail=1", nil, false)
+	if r.status != http.StatusOK || len(r.body["lines"].([]any)) != 1 {
+		t.Fatalf("tail: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodGet, "/api/v1/projects/"+id+"/services/redis/logs", nil, false)
+	if r.status != http.StatusNotFound {
+		t.Fatalf("unknown service must be 404: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodGet, "/api/v1/projects/"+id+"/services/php/logs/ws", nil, false)
+	if r.status != http.StatusUpgradeRequired && r.status != http.StatusBadRequest {
+		t.Fatalf("plain GET on ws endpoint: %d %s", r.status, r.raw)
+	}
+
+	wsURL := "ws" + strings.TrimPrefix(a.srv.URL, "http") + "/api/v1/projects/" + id + "/services/php/logs/ws?tail=5"
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// Without a session the upgrade must be refused.
+	if _, res, err := websocket.Dial(ctx, wsURL, nil); err == nil || res == nil || res.StatusCode != http.StatusUnauthorized {
+		status := 0
+		if res != nil {
+			status = res.StatusCode
+		}
+		t.Fatalf("unauthenticated websocket must be rejected with 401, got err=%v status=%d", err, status)
+	}
+	// Cross-origin upgrades must be refused even with a valid session.
+	hdr := http.Header{"Cookie": {auth.CookieName + "=" + a.cookie.Value}, "Origin": {"https://evil.example"}}
+	if _, res, err := websocket.Dial(ctx, wsURL, &websocket.DialOptions{HTTPHeader: hdr}); err == nil || res == nil || res.StatusCode != http.StatusForbidden {
+		t.Fatalf("cross-origin websocket must be rejected with 403, got %v", err)
+	}
+
+	hdr = http.Header{"Cookie": {auth.CookieName + "=" + a.cookie.Value}}
+	conn, _, err := websocket.Dial(ctx, wsURL, &websocket.DialOptions{HTTPHeader: hdr})
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	defer conn.CloseNow()
+	var texts []string
+	for len(texts) < 2 {
+		_, msg, err := conn.Read(ctx)
+		if err != nil {
+			t.Fatalf("read: %v", err)
+		}
+		var m map[string]any
+		if err := json.Unmarshal(msg, &m); err != nil {
+			t.Fatal(err)
+		}
+		if m["type"] == "line" {
+			texts = append(texts, m["text"].(string))
+		}
+	}
+	if texts[0] != "NOTICE: fpm is running" || texts[1] != "NOTICE: ready to handle connections" {
+		t.Fatalf("lines: %v", texts)
 	}
 }
 

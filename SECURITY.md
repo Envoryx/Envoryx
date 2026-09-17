@@ -72,8 +72,11 @@ State-changing API requests must:
 Together with `SameSite=Lax` cookies this blocks CSRF from other origins. CORS
 headers are only emitted for the configured dev origin.
 
-WebSockets (Phase 5) will validate the same session cookie at upgrade and apply
-the same origin check.
+WebSockets (log streaming, terminal) go through the same session middleware:
+the cookie is validated before the upgrade, and the upgrade itself is refused
+for any `Origin` other than the request host (plus the dev-server origin in
+`STAQIO_DEV` mode). Container IDs are never taken from the client; WebSocket
+routes address `project + service kind` and resolve the container server-side.
 
 ## Input validation
 

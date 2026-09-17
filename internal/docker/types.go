@@ -170,6 +170,23 @@ type Stats struct {
 	SampledAt   time.Time
 }
 
+// LogLine is one line of container output.
+type LogLine struct {
+	Time   time.Time `json:"time"`
+	Stream string    `json:"stream"` // stdout | stderr
+	Text   string    `json:"text"`
+}
+
+// LogOptions control log streaming.
+type LogOptions struct {
+	// Tail limits the initial history ("" or "all" = everything).
+	Tail string
+	// Follow keeps streaming until ctx is cancelled.
+	Follow bool
+	// Since only returns lines newer than this time (zero = no limit).
+	Since time.Time
+}
+
 // PullProgress receives human readable image pull progress lines.
 type PullProgress func(msg string)
 
@@ -201,6 +218,9 @@ type Engine interface {
 	// Exec runs a command (argv form, never a shell string) inside a managed container and
 	// waits for it to finish. env entries are KEY=VALUE.
 	Exec(ctx context.Context, id string, cmd []string, env []string) (ExecResult, error)
+	// StreamLogs emits log lines of a managed container until the stream ends (Follow=false)
+	// or ctx is cancelled. emit is called from a single goroutine.
+	StreamLogs(ctx context.Context, id string, opts LogOptions, emit func(LogLine)) error
 
 	// ListNetworks lists networks; managedOnly restricts to Staqio networks.
 	ListNetworks(ctx context.Context, managedOnly bool) ([]Network, error)

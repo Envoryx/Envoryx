@@ -18,6 +18,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -198,6 +199,9 @@ func serve() error {
 	var origins []string
 	if cfg.DevMode {
 		origins = append(origins, cfg.DevOrigin)
+		if u, err := url.Parse(cfg.DevOrigin); err == nil {
+			a.SetAllowedOriginHosts([]string{u.Host})
+		}
 	}
 	srv := server.New(server.Options{Addr: cfg.ListenAddr, AllowedOrigins: origins, Log: log}, a, sessions, dist)
 	if err := srv.ListenAndServe(ctx); err != nil {
