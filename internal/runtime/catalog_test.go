@@ -30,7 +30,7 @@ func TestResolve(t *testing.T) {
 	if _, err := c.Resolve("php", "5.6"); !errors.Is(err, validate.ErrInvalid) {
 		t.Fatalf("unknown version must be invalid, got %v", err)
 	}
-	if _, err := c.Resolve("mariadb", ""); !errors.Is(err, validate.ErrInvalid) {
+	if _, err := c.Resolve("redis", ""); !errors.Is(err, validate.ErrInvalid) {
 		t.Fatalf("unavailable runtime must be invalid, got %v", err)
 	}
 	if _, err := c.Resolve("nope", ""); !errors.Is(err, validate.ErrInvalid) {
