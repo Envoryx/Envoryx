@@ -46,11 +46,16 @@ func TestPHPConfigNormalizeAndINI(t *testing.T) {
 	if strings.Join(cfg.Extensions, ",") != "gd,opcache,pdo_mysql" {
 		t.Fatalf("extensions not normalised: %v", cfg.Extensions)
 	}
-	ini := cfg.INI()
+	ini := cfg.INI("8.4")
 	for _, want := range []string{"memory_limit = 256M", "extension=gd", "extension=pdo_mysql", "zend_extension=opcache", "display_errors = On"} {
 		if !strings.Contains(ini, want) {
 			t.Errorf("ini missing %q:\n%s", want, ini)
 		}
+	}
+	// OPcache is compiled in from PHP 8.5 on; loading it as zend_extension fails there.
+	ini85 := cfg.INI("8.5")
+	if strings.Contains(ini85, "zend_extension=opcache") || !strings.Contains(ini85, "opcache.enable=1") {
+		t.Errorf("8.5 ini must configure but not load opcache:\n%s", ini85)
 	}
 	if strings.Contains(ini, "extension=mbstring") {
 		t.Error("built-in extensions must not be listed")

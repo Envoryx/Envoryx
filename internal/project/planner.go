@@ -129,7 +129,7 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 				return Plan{}, err
 			}
 			plan.Files = append(plan.Files,
-				FilePlan{Path: filepath.Join(plan.ConfigDir, "php", "zz-staqio.ini"), Content: cfg.INI(), Mode: 0o644},
+				FilePlan{Path: filepath.Join(plan.ConfigDir, "php", "zz-staqio.ini"), Content: cfg.INI(svc.Version), Mode: 0o644},
 				FilePlan{Path: filepath.Join(plan.ConfigDir, "php", "zz-staqio.conf"), Content: runtime.FPMPool(p.paths.PUID, p.paths.PGID), Mode: 0o644},
 			)
 			plan.Containers = append(plan.Containers, ContainerPlan{
