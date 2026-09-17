@@ -11,6 +11,7 @@ function ProjectRow({ project, usage }: { project: Project; usage?: { cpuPercent
   const meta = stateMeta[project.status.state];
   const php = project.services.find((s) => s.kind === "php");
   const web = project.services.find((s) => s.kind === "web");
+  const db = project.services.find((s) => s.kind === "database");
   const publicHost = usePublicHost();
   const url = projectUrl(project.httpPort, publicHost);
   const { error, capture } = useActionError();
@@ -29,6 +30,7 @@ function ProjectRow({ project, usage }: { project: Project; usage?: { cpuPercent
         </div>
         <div className="flex flex-wrap gap-1.5">
           {php ? <Badge tone="blue">{serviceLabel("php", php.version)}</Badge> : <Badge>No PHP</Badge>}
+          {db && <Badge tone="amber">{serviceLabel("database", db.version, db.variant)}</Badge>}
           {web && <Badge>{serviceLabel("web", web.version, web.variant)}</Badge>}
         </div>
         <div className="hidden w-40 text-xs text-muted md:block">

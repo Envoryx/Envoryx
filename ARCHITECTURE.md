@@ -492,10 +492,25 @@ runtime catalogue (PHP versions, Caddy), hostpath detection, planner,
 manager (create/start/stop/restart/delete with rollback), reconciler, project
 API, wizard, project list + detail pages, lifecycle tests.
 
+### Phase 3 – Database (implemented for MariaDB)
+`database` service kind with a labelled named volume
+(`staqio-<slug>-database`), healthcheck, start order database → php → web.
+
+Credentials: generated with `crypto/rand` from a shell/URL-safe alphabet,
+stored in `project_services.config` (SQLite under `/config`, mode 0600).
+They are never part of the normal project payload, logs or audit details; the
+explicit `GET /projects/{id}/database/credentials` call is audit-logged.
+`DB_*` and `DATABASE_URL` are injected into application containers, user
+variables override them, `MARIADB_*`/`MYSQL_*` are reserved.
+
+Management operations run `mariadb` inside the database container via Docker
+exec with argv arrays; the root password travels in `MYSQL_PWD`, identifiers
+are validated (`^[a-z][a-z0-9_]*$`), the primary database cannot be dropped.
+Rotating the password recreates the application containers. Removing the
+service requires `removeData: true`; version downgrades are refused, upgrades
+run on the same volume with `MARIADB_AUTO_UPGRADE`.
+
 ### Later phases (prepared, not implemented)
-- **Phase 3 Database**: `database` service kind, named volumes, generated
-  credentials, env injection (`DB_HOST=database` …). The PHP images with
-  `pdo_mysql` etc. already exist (`images/php/Dockerfile`).
 - **Phase 4 Webserver/Domains**: central reverse proxy routing by `Host` to
   `staqio-<slug>-web`. Recommendation: embed the proxy in the Go binary
   (`httputil.ReverseProxy`, joins project networks) instead of a separate

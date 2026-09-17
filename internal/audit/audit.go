@@ -27,6 +27,11 @@ const (
 	ActionProjectFailed    = "project.failed"
 
 	ActionSettingsChanged = "settings.changed"
+
+	ActionDBCredentialsViewed = "database.credentials_viewed"
+	ActionDBPasswordRotated   = "database.password_rotated"
+	ActionDBCreated           = "database.created"
+	ActionDBDropped           = "database.dropped"
 )
 
 type ipKey struct{}

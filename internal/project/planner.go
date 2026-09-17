@@ -6,6 +6,7 @@ import (
 	"path"
 	"path/filepath"
 	"sort"
+	"time"
 
 	"github.com/seramos/staqio/internal/docker"
 	"github.com/seramos/staqio/internal/runtime"
@@ -111,7 +112,10 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 	}
 	appHost := p.projectHostDir(proj)
 	cfgHost := p.configHostDir(proj.ID)
-	env := envStrings(proj)
+	env, err := envStrings(proj)
+	if err != nil {
+		return Plan{}, err
+	}
 	images := map[string]bool{}
 
 	for _, svc := range proj.Services {
@@ -177,6 +181,51 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 			plan.Containers = append(plan.Containers, ContainerPlan{Kind: store.ServiceWeb, Order: 20, Spec: spec})
 			images[svc.Image] = true
 
+		case store.ServiceDatabase:
+			if svc.Variant != "mariadb" {
+				return Plan{}, fmt.Errorf("database variant %q is not supported yet", svc.Variant)
+			}
+			var cfg runtime.DatabaseConfig
+			if err := json.Unmarshal(svc.Config, &cfg); err != nil {
+				return Plan{}, fmt.Errorf("database config: %w", err)
+			}
+			if cfg.RootPassword == "" || cfg.Password == "" || cfg.Database == "" || cfg.Username == "" {
+				return Plan{}, fmt.Errorf("database config for %s is incomplete", proj.Slug)
+			}
+			volume := VolumeName(proj.Slug, store.ServiceDatabase)
+			plan.Volumes = append(plan.Volumes, volume)
+			spec := docker.ContainerSpec{
+				Name:   ContainerName(proj.Slug, store.ServiceDatabase),
+				Image:  svc.Image,
+				Labels: labels,
+				Env: []string{
+					"MARIADB_ROOT_PASSWORD=" + cfg.RootPassword,
+					"MARIADB_DATABASE=" + cfg.Database,
+					"MARIADB_USER=" + cfg.Username,
+					"MARIADB_PASSWORD=" + cfg.Password,
+					// Upgrades the data directory automatically when the major version changes.
+					"MARIADB_AUTO_UPGRADE=1",
+				},
+				Cmd:           []string{"--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"},
+				Network:       plan.NetworkName,
+				NetworkAlias:  []string{"database", "mariadb"},
+				Mounts:        []docker.MountSpec{{Type: "volume", Source: volume, Target: "/var/lib/mysql"}},
+				RestartPolicy: "unless-stopped",
+				StopTimeout:   30,
+				Healthcheck: &docker.HealthSpec{
+					Test:        []string{"healthcheck.sh", "--connect", "--innodb_initialized"},
+					Interval:    10 * time.Second,
+					Timeout:     5 * time.Second,
+					StartPeriod: 30 * time.Second,
+					Retries:     5,
+				},
+			}
+			if cfg.HostPort > 0 {
+				spec.Ports = []docker.PortSpec{{HostIP: p.paths.PublishInterface, HostPort: cfg.HostPort, ContainerPort: 3306, Protocol: "tcp"}}
+			}
+			plan.Containers = append(plan.Containers, ContainerPlan{Kind: store.ServiceDatabase, Order: 5, Spec: spec})
+			images[svc.Image] = true
+
 		default:
 			return Plan{}, fmt.Errorf("service kind %q is not supported yet", svc.Kind)
 		}
@@ -232,11 +281,39 @@ func (p *Planner) Preview(proj store.Project, plan Plan) Preview {
 	return pv
 }
 
-func envStrings(proj store.Project) []string {
-	out := make([]string, 0, len(proj.Env)+2)
-	out = append(out, "STAQIO_PROJECT="+proj.Slug)
-	for _, e := range proj.Env {
-		out = append(out, e.Key+"="+e.Value)
+// VolumeName returns the volume name for a project service.
+func VolumeName(slug string, kind store.ServiceKind) string {
+	return fmt.Sprintf("staqio-%s-%s", slug, kind)
+}
+
+// envStrings builds the environment for application containers: Staqio defaults, then
+// database connection variables, then the user's variables (which override everything).
+func envStrings(proj store.Project) ([]string, error) {
+	vars := map[string]string{"STAQIO_PROJECT": proj.Slug}
+	var order []string
+	set := func(k, v string) {
+		if _, ok := vars[k]; !ok {
+			order = append(order, k)
+		}
+		vars[k] = v
 	}
-	return out
+	order = append(order, "STAQIO_PROJECT")
+	if db := proj.Service(store.ServiceDatabase); db != nil && db.Enabled {
+		var cfg runtime.DatabaseConfig
+		if err := json.Unmarshal(db.Config, &cfg); err != nil {
+			return nil, fmt.Errorf("database config: %w", err)
+		}
+		dbEnv := runtime.DatabaseEnv(cfg, db.Variant)
+		for _, k := range []string{"DB_CONNECTION", "DB_HOST", "DB_PORT", "DB_DATABASE", "DB_USERNAME", "DB_PASSWORD", "DATABASE_URL"} {
+			set(k, dbEnv[k])
+		}
+	}
+	for _, e := range proj.Env {
+		set(e.Key, e.Value)
+	}
+	out := make([]string, 0, len(order))
+	for _, k := range order {
+		out = append(out, k+"="+vars[k])
+	}
+	return out, nil
 }

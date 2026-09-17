@@ -51,6 +51,8 @@ type Container struct {
 	Labels  map[string]string
 	Ports   []PortMapping
 	Managed bool
+	// Health is "healthy", "unhealthy", "starting" or "" when the image defines no check.
+	Health string
 }
 
 // ProjectID returns the project label of a container.
@@ -122,6 +124,15 @@ type PortSpec struct {
 	Protocol      string // "tcp"
 }
 
+// HealthSpec configures a container health check (exec form, no shell).
+type HealthSpec struct {
+	Test        []string
+	Interval    time.Duration
+	Timeout     time.Duration
+	StartPeriod time.Duration
+	Retries     int
+}
+
 // ContainerSpec is the closed set of parameters Staqio uses to create containers.
 // Privileged mode, capability additions, host networking, device access and arbitrary
 // binds are intentionally not representable.
@@ -140,6 +151,14 @@ type ContainerSpec struct {
 	RestartPolicy string // "unless-stopped" | "no"
 	StopTimeout   int    // seconds
 	ExtraHosts    []string
+	Healthcheck   *HealthSpec
+}
+
+// ExecResult is the outcome of a non-interactive command run inside a container.
+type ExecResult struct {
+	ExitCode int
+	Stdout   string
+	Stderr   string
 }
 
 // Stats is a single resource usage sample.
@@ -179,6 +198,9 @@ type Engine interface {
 	RemoveContainer(ctx context.Context, id string) error
 	// ContainerStats returns one usage sample of a managed container.
 	ContainerStats(ctx context.Context, id string) (Stats, error)
+	// Exec runs a command (argv form, never a shell string) inside a managed container and
+	// waits for it to finish. env entries are KEY=VALUE.
+	Exec(ctx context.Context, id string, cmd []string, env []string) (ExecResult, error)
 
 	// ListNetworks lists networks; managedOnly restricts to Staqio networks.
 	ListNetworks(ctx context.Context, managedOnly bool) ([]Network, error)

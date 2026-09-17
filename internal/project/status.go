@@ -37,6 +37,7 @@ func deriveStatus(p store.Project, containers []docker.Container, imageIDs map[s
 			ss.ContainerID = c.ID
 			ss.State = c.State
 			ss.Status = c.Status
+			ss.Health = c.Health
 			ss.Ports = c.Ports
 			if c.State == "running" {
 				running++

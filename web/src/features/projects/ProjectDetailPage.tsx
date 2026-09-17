@@ -8,10 +8,11 @@ import type { EnvVar, PHPConfig, Project } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Code, ErrorState, Field, Input, PageHeader, Select, Spinner, StatusDot } from "@/components/ui";
 import { containerStateTone, formatBytes, formatDateTime, formatPercent, projectUrl, serviceLabel, stateMeta } from "@/lib/format";
 import { DeleteProjectDialog, ProjectActionButtons, useActionError } from "./ProjectActions";
+import { DatabaseTab } from "./DatabaseTab";
 import { EnvEditor } from "./EnvEditor";
 import { PhpConfigForm } from "./PhpConfigForm";
 
-const tabs = ["Overview", "PHP", "Environment", "Advanced"] as const;
+const tabs = ["Overview", "PHP", "Database", "Environment", "Advanced"] as const;
 type Tab = (typeof tabs)[number];
 
 export function ProjectDetailPage() {
@@ -100,6 +101,7 @@ export function ProjectDetailPage() {
 
       {tab === "Overview" && <OverviewTab project={p} />}
       {tab === "PHP" && <PhpTab project={p} />}
+      {tab === "Database" && <DatabaseTab project={p} />}
       {tab === "Environment" && <EnvTab project={p} />}
       {tab === "Advanced" && <AdvancedTab project={p} />}
 
@@ -125,6 +127,7 @@ function OverviewTab({ project: p }: { project: Project }) {
                 </div>
               </div>
               <Badge tone={containerStateTone(s.state)}>{s.exists ? s.state : "missing"}</Badge>
+              {s.health && <Badge tone={s.health === "healthy" ? "green" : s.health === "starting" ? "blue" : "red"}>{s.health}</Badge>}
               <span className="font-mono text-xs text-muted">{s.image}</span>
               {s.ports.map((port) => (
                 <span key={port.hostPort} className="font-mono text-xs text-muted">

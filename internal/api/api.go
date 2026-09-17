@@ -77,6 +77,13 @@ func (a *API) Mount(mux *http.ServeMux, protect func(http.Handler) http.Handler)
 	p("GET /api/v1/projects/{id}/services", a.projectServices)
 	p("GET /api/v1/projects/{id}/plan", a.projectPlan)
 	p("GET /api/v1/projects/{id}/stats", a.projectStats)
+	p("GET /api/v1/projects/{id}/database", a.databaseInfo)
+	p("GET /api/v1/projects/{id}/database/credentials", a.databaseCredentials)
+	p("POST /api/v1/projects/{id}/database/rotate", a.databaseRotate)
+	p("POST /api/v1/projects/{id}/database/expose", a.databaseExpose)
+	p("GET /api/v1/projects/{id}/database/databases", a.databaseList)
+	p("POST /api/v1/projects/{id}/database/databases", a.databaseCreate)
+	p("DELETE /api/v1/projects/{id}/database/databases/{name}", a.databaseDrop)
 
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, newError(http.StatusNotFound, "not_found", "unknown API route"))

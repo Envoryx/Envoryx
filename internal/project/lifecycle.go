@@ -75,6 +75,12 @@ func (m *Manager) Create(ctx context.Context, req CreateRequest) (View, error) {
 		return View{}, err
 	}
 	proj.HTTPPort = port
+	if req.Database != nil && req.Database.ExposePort {
+		if err := m.assignDatabasePort(ctx, &proj, port); err != nil {
+			m.createMu.Unlock()
+			return View{}, err
+		}
+	}
 	if err := m.store.Projects.Create(ctx, &proj); err != nil {
 		m.createMu.Unlock()
 		return View{}, err
@@ -260,6 +266,23 @@ func (m *Manager) ensurePlan(ctx context.Context, proj store.Project, plan Plan,
 			return fmt.Errorf("create network: %w", err)
 		}
 	}
+	if len(plan.Volumes) > 0 {
+		volumes, err := m.engine.ListVolumes(ctx, true)
+		if err != nil {
+			return err
+		}
+		have := map[string]bool{}
+		for _, v := range volumes {
+			have[v.Name] = true
+		}
+		for _, v := range plan.Volumes {
+			if !have[v] {
+				if err := m.engine.CreateVolume(ctx, v, plan.Labels); err != nil {
+					return fmt.Errorf("create volume %s: %w", v, err)
+				}
+			}
+		}
+	}
 	existing, err := m.engine.ListContainers(ctx, true, proj.ID)
 	if err != nil {
 		return err
@@ -410,6 +433,14 @@ func (m *Manager) Update(ctx context.Context, id string, req UpdateRequest) (Vie
 		}
 		changes["env"] = len(env)
 	}
+	recreateApp := req.Env != nil
+	if req.Database != nil {
+		r, err := m.applyDatabaseUpdate(ctx, proj, *req.Database, changes)
+		if err != nil {
+			return View{}, err
+		}
+		recreateApp = recreateApp || r
+	}
 
 	proj, err = m.loadProject(ctx, id)
 	if err != nil {
@@ -430,14 +461,18 @@ func (m *Manager) Update(ctx context.Context, id string, req UpdateRequest) (Vie
 		return View{}, err
 	}
 	running := proj.DesiredState == store.DesiredRunning
-	// Env changes are baked into the container: remove all containers so they are
-	// recreated from the new plan (started again only if the project should be running).
-	if req.Env != nil {
+	// Env changes (user variables, database credentials) are baked into the application
+	// containers: remove them so they are recreated from the new plan (started again only
+	// if the project should be running). The database container keeps running.
+	if recreateApp {
 		existing, err := m.engine.ListContainers(ctx, true, proj.ID)
 		if err != nil {
 			return View{}, err
 		}
 		for _, c := range existing {
+			if c.Service() == string(store.ServiceDatabase) {
+				continue
+			}
 			if err := m.engine.RemoveContainer(ctx, c.ID); err != nil {
 				return View{}, fmt.Errorf("recreate container %s: %w", c.Name, err)
 			}

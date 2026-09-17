@@ -9,6 +9,7 @@ import (
 	"github.com/seramos/staqio/internal/docker"
 	"github.com/seramos/staqio/internal/project"
 	"github.com/seramos/staqio/internal/runtime"
+	"github.com/seramos/staqio/internal/store"
 )
 
 // ---- DTOs -----------------------------------------------------------------
@@ -39,6 +40,7 @@ type serviceStatusDTO struct {
 	Running       bool      `json:"running"`
 	State         string    `json:"state"`
 	Status        string    `json:"status,omitempty"`
+	Health        string    `json:"health,omitempty"`
 	Ports         []portDTO `json:"ports"`
 }
 
@@ -88,10 +90,28 @@ func toStatus(st project.Status) statusDTO {
 	for _, s := range st.Services {
 		out.Services = append(out.Services, serviceStatusDTO{
 			Kind: string(s.Kind), Variant: s.Variant, Version: s.Version, Image: s.Image, ContainerName: s.ContainerName,
-			ContainerID: s.ContainerID, Exists: s.Exists, Running: s.Running, State: s.State, Status: s.Status, Ports: toPorts(s.Ports),
+			ContainerID: s.ContainerID, Exists: s.Exists, Running: s.Running, State: s.State, Status: s.Status, Health: s.Health, Ports: toPorts(s.Ports),
 		})
 	}
 	return out
+}
+
+// redactedConfig returns a service configuration safe for API responses: database
+// credentials are stripped, everything else is passed through.
+func redactedConfig(s store.ProjectService) json.RawMessage {
+	if s.Kind == store.ServiceDatabase {
+		var cfg runtime.DatabaseConfig
+		if err := json.Unmarshal(s.Config, &cfg); err == nil {
+			if b, err := json.Marshal(cfg.Redacted()); err == nil {
+				return b
+			}
+		}
+		return json.RawMessage("{}")
+	}
+	if len(s.Config) == 0 {
+		return json.RawMessage("{}")
+	}
+	return s.Config
 }
 
 func toProject(v project.View) projectDTO {
@@ -103,11 +123,7 @@ func toProject(v project.View) projectDTO {
 		Services: []serviceDTO{}, Env: []envDTO{}, Status: toStatus(v.Status),
 	}
 	for _, s := range p.Services {
-		cfg := s.Config
-		if len(cfg) == 0 {
-			cfg = json.RawMessage("{}")
-		}
-		dto.Services = append(dto.Services, serviceDTO{Kind: string(s.Kind), Variant: s.Variant, Version: s.Version, Image: s.Image, Enabled: s.Enabled, Config: cfg})
+		dto.Services = append(dto.Services, serviceDTO{Kind: string(s.Kind), Variant: s.Variant, Version: s.Version, Image: s.Image, Enabled: s.Enabled, Config: redactedConfig(s)})
 	}
 	for _, e := range p.Env {
 		dto.Env = append(dto.Env, envDTO{Key: e.Key, Value: e.Value, IsSecret: e.IsSecret})
@@ -122,12 +138,27 @@ type phpRequestDTO struct {
 	Config  runtime.PHPConfig `json:"config"`
 }
 
+type databaseRequestDTO struct {
+	Type       string `json:"type"`
+	Version    string `json:"version"`
+	ExposePort bool   `json:"exposePort"`
+}
+
+type databaseUpdateDTO struct {
+	Enabled    bool   `json:"enabled"`
+	Type       string `json:"type"`
+	Version    string `json:"version"`
+	ExposePort bool   `json:"exposePort"`
+	RemoveData bool   `json:"removeData"`
+}
+
 type createProjectRequest struct {
-	Name    string         `json:"name"`
-	Path    string         `json:"path"`
-	Docroot string         `json:"docroot"`
-	PHP     *phpRequestDTO `json:"php"`
-	Web     *struct {
+	Name     string              `json:"name"`
+	Path     string              `json:"path"`
+	Docroot  string              `json:"docroot"`
+	PHP      *phpRequestDTO      `json:"php"`
+	Database *databaseRequestDTO `json:"database"`
+	Web      *struct {
 		Type    string `json:"type"`
 		Version string `json:"version"`
 	} `json:"web"`
@@ -141,6 +172,9 @@ func (r createProjectRequest) toDomain() project.CreateRequest {
 	if r.PHP != nil {
 		req.PHP = &project.PHPRequest{Version: r.PHP.Version, Config: r.PHP.Config}
 	}
+	if r.Database != nil {
+		req.Database = &project.DatabaseRequest{Type: r.Database.Type, Version: r.Database.Version, ExposePort: r.Database.ExposePort}
+	}
 	if r.Web != nil {
 		req.Web = project.WebRequest{Type: r.Web.Type, Version: r.Web.Version}
 	}
@@ -151,10 +185,11 @@ func (r createProjectRequest) toDomain() project.CreateRequest {
 }
 
 type updateProjectRequest struct {
-	Name    *string        `json:"name"`
-	Docroot *string        `json:"docroot"`
-	PHP     *phpRequestDTO `json:"php"`
-	Env     *[]envDTO      `json:"env"`
+	Name     *string            `json:"name"`
+	Docroot  *string            `json:"docroot"`
+	PHP      *phpRequestDTO     `json:"php"`
+	Database *databaseUpdateDTO `json:"database"`
+	Env      *[]envDTO          `json:"env"`
 }
 
 type deleteProjectRequest struct {
@@ -223,6 +258,9 @@ func (a *API) updateProject(w http.ResponseWriter, r *http.Request) {
 	upd := project.UpdateRequest{Name: req.Name, Docroot: req.Docroot}
 	if req.PHP != nil {
 		upd.PHP = &project.PHPRequest{Version: req.PHP.Version, Config: req.PHP.Config}
+	}
+	if req.Database != nil {
+		upd.Database = &project.DatabaseUpdate{Enabled: req.Database.Enabled, Type: req.Database.Type, Version: req.Database.Version, ExposePort: req.Database.ExposePort, RemoveData: req.Database.RemoveData}
 	}
 	if req.Env != nil {
 		env := make([]project.EnvVarRequest, 0, len(*req.Env))

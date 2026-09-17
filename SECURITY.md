@@ -112,8 +112,12 @@ the same origin check.
   IP and timestamp, but details exclude secrets.
 - Project environment variables marked as secret are masked in the UI. They are
   stored in SQLite under `/config` (file mode 0600); protect that directory.
-- Database credentials (Phase 3) and CA keys (Phase 8) will live under
-  `/config` with restrictive permissions.
+- Database credentials are generated (24 chars, `crypto/rand`) and stored in
+  the SQLite database. They are excluded from project responses; the explicit
+  credentials endpoint is audit-logged. Inside the database container they are
+  passed via environment (`MYSQL_PWD`), never on a command line, and stripped
+  from error messages before they reach logs or the UI.
+- CA keys (Phase 8) will live under `/config` with restrictive permissions.
 
 ## HTTP hardening
 

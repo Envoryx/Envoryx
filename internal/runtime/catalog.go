@@ -103,11 +103,13 @@ func Default() *Catalog {
 		},
 	})
 	c.add(Runtime{
-		Key: "mariadb", Name: "MariaDB", Kind: "database", Available: false,
-		Description: "MariaDB server with persistent volume (Phase 3)",
+		Key: "mariadb", Name: "MariaDB", Kind: "database", Available: true,
+		Description: "MariaDB server with persistent volume and generated credentials",
 		Versions: []Version{
-			{Version: "11", Image: "mariadb:11", Label: "MariaDB 11", Default: true},
-			{Version: "10.11", Image: "mariadb:10.11", Label: "MariaDB 10.11"},
+			{Version: "11", Image: "mariadb:11", Label: "MariaDB 11 (rolling)", Default: true},
+			{Version: "11.4", Image: "mariadb:11.4", Label: "MariaDB 11.4 LTS"},
+			{Version: "10.11", Image: "mariadb:10.11", Label: "MariaDB 10.11 LTS"},
+			{Version: "10.6", Image: "mariadb:10.6", Label: "MariaDB 10.6 LTS"},
 		},
 	})
 	c.add(Runtime{

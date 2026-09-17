@@ -252,6 +252,34 @@ func (r *Projects) UpdateServiceConfig(ctx context.Context, projectID string, ki
 	return nil
 }
 
+// AddService adds a service to an existing project.
+func (r *Projects) AddService(ctx context.Context, s ProjectService) error {
+	if s.ID == "" {
+		s.ID = NewID()
+	}
+	if len(s.Config) == 0 {
+		s.Config = json.RawMessage("{}")
+	}
+	if err := insertService(ctx, r.db, s); err != nil {
+		return err
+	}
+	_, err := r.db.ExecContext(ctx, `UPDATE projects SET updated_at = ? WHERE id = ?`, formatTime(now()), s.ProjectID)
+	return err
+}
+
+// DeleteService removes a service of a project.
+func (r *Projects) DeleteService(ctx context.Context, projectID string, kind ServiceKind) error {
+	res, err := r.db.ExecContext(ctx, `DELETE FROM project_services WHERE project_id = ? AND kind = ?`, projectID, string(kind))
+	if err != nil {
+		return fmt.Errorf("delete service: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrNotFound
+	}
+	_, err = r.db.ExecContext(ctx, `UPDATE projects SET updated_at = ? WHERE id = ?`, formatTime(now()), projectID)
+	return err
+}
+
 // ReplaceEnv replaces all env vars of a project atomically.
 func (r *Projects) ReplaceEnv(ctx context.Context, projectID string, env []EnvVar) error {
 	tx, err := r.db.BeginTx(ctx, nil)

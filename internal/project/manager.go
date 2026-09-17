@@ -146,6 +146,14 @@ func (m *Manager) buildProject(req CreateRequest) (store.Project, error) {
 		})
 	}
 
+	if req.Database != nil {
+		svc, err := m.buildDatabaseService(slug, req.Database.Type, req.Database.Version)
+		if err != nil {
+			return store.Project{}, err
+		}
+		proj.Services = append(proj.Services, svc)
+	}
+
 	env, err := buildEnv(req.Env)
 	if err != nil {
 		return store.Project{}, err
@@ -155,6 +163,29 @@ func (m *Manager) buildProject(req CreateRequest) (store.Project, error) {
 	return proj, nil
 }
 
+// buildDatabaseService validates the database selection and generates credentials.
+func (m *Manager) buildDatabaseService(slug, dbType, version string) (store.ProjectService, error) {
+	if dbType == "" {
+		dbType = "mariadb"
+	}
+	if dbType != "mariadb" {
+		return store.ProjectService{}, fmt.Errorf("%w: database type %q is not supported yet", validate.ErrInvalid, dbType)
+	}
+	v, err := m.catalog.Resolve(dbType, version)
+	if err != nil {
+		return store.ProjectService{}, err
+	}
+	cfg, err := runtime.NewDatabaseConfig(slug)
+	if err != nil {
+		return store.ProjectService{}, err
+	}
+	raw, err := json.Marshal(cfg)
+	if err != nil {
+		return store.ProjectService{}, err
+	}
+	return store.ProjectService{Kind: store.ServiceDatabase, Variant: dbType, Version: v.Version, Image: v.Image, Enabled: true, Config: raw, Position: 5}, nil
+}
+
 func buildEnv(in []EnvVarRequest) ([]store.EnvVar, error) {
 	seen := map[string]bool{}
 	var out []store.EnvVar
@@ -162,6 +193,9 @@ func buildEnv(in []EnvVarRequest) ([]store.EnvVar, error) {
 		key := strings.TrimSpace(e.Key)
 		if err := validate.EnvKey(key); err != nil {
 			return nil, err
+		}
+		if strings.HasPrefix(key, "MARIADB_") || strings.HasPrefix(key, "MYSQL_") {
+			return nil, fmt.Errorf("%w: %s is reserved for the database container", validate.ErrInvalid, key)
 		}
 		if err := validate.EnvValue(e.Value); err != nil {
 			return nil, err
@@ -193,6 +227,11 @@ func (m *Manager) Preview(ctx context.Context, req CreateRequest) (Preview, erro
 		return Preview{}, err
 	}
 	proj.HTTPPort = port
+	if req.Database != nil && req.Database.ExposePort {
+		if err := m.assignDatabasePort(ctx, &proj, port); err != nil {
+			return Preview{}, err
+		}
+	}
 	plan, err := planner.Plan(proj)
 	if err != nil {
 		return Preview{}, err
@@ -220,23 +259,13 @@ func (m *Manager) Preview(ctx context.Context, req CreateRequest) (Preview, erro
 
 // allocatePort finds a free host port in the configured range. Ports already recorded in
 // the database or published by any container on the host are skipped.
-func (m *Manager) allocatePort(ctx context.Context) (int, error) {
+func (m *Manager) allocatePort(ctx context.Context, exclude ...int) (int, error) {
 	used := map[int]bool{}
-	dbPorts, err := m.store.Projects.UsedPorts(ctx)
-	if err != nil {
-		return 0, err
-	}
-	for _, p := range dbPorts {
+	for _, p := range exclude {
 		used[p] = true
 	}
-	containers, err := m.engine.ListContainers(ctx, false, "")
-	if err != nil && !errors.Is(err, docker.ErrUnavailable) {
+	if err := m.collectUsedPorts(ctx, used); err != nil {
 		return 0, err
-	}
-	for _, c := range containers {
-		for _, p := range c.Ports {
-			used[p.HostPort] = true
-		}
 	}
 	for port := m.cfg.PortRangeStart; port <= m.cfg.PortRangeEnd; port++ {
 		if !used[port] {
@@ -244,6 +273,67 @@ func (m *Manager) allocatePort(ctx context.Context) (int, error) {
 		}
 	}
 	return 0, fmt.Errorf("%w: no free port in range %d-%d", ErrConflict, m.cfg.PortRangeStart, m.cfg.PortRangeEnd)
+}
+
+// collectUsedPorts records ports allocated in the database (web + database services) and
+// ports published by any container on the host.
+func (m *Manager) collectUsedPorts(ctx context.Context, used map[int]bool) error {
+	dbPorts, err := m.store.Projects.UsedPorts(ctx)
+	if err != nil {
+		return err
+	}
+	for _, p := range dbPorts {
+		used[p] = true
+	}
+	projects, err := m.store.Projects.List(ctx)
+	if err != nil {
+		return err
+	}
+	for _, p := range projects {
+		if db := p.Service(store.ServiceDatabase); db != nil {
+			var cfg runtime.DatabaseConfig
+			if json.Unmarshal(db.Config, &cfg) == nil && cfg.HostPort > 0 {
+				used[cfg.HostPort] = true
+			}
+		}
+	}
+	containers, err := m.engine.ListContainers(ctx, false, "")
+	if err != nil && !errors.Is(err, docker.ErrUnavailable) {
+		return err
+	}
+	for _, c := range containers {
+		for _, p := range c.Ports {
+			used[p.HostPort] = true
+		}
+	}
+	return nil
+}
+
+// assignDatabasePort allocates a host port for the database service (excluding the ports
+// already chosen for this project) and stores it in the service config.
+func (m *Manager) assignDatabasePort(ctx context.Context, proj *store.Project, exclude ...int) error {
+	db := proj.Service(store.ServiceDatabase)
+	if db == nil {
+		return nil
+	}
+	var cfg runtime.DatabaseConfig
+	if err := json.Unmarshal(db.Config, &cfg); err != nil {
+		return err
+	}
+	if cfg.HostPort > 0 {
+		return nil
+	}
+	port, err := m.allocatePort(ctx, exclude...)
+	if err != nil {
+		return err
+	}
+	cfg.HostPort = port
+	raw, err := json.Marshal(cfg)
+	if err != nil {
+		return err
+	}
+	db.Config = raw
+	return nil
 }
 
 // ---------------------------------------------------------------------------
@@ -261,7 +351,7 @@ func (m *Manager) resolveImages(p *store.Project) {
 		switch svc.Kind {
 		case store.ServicePHP:
 			key = "php"
-		case store.ServiceWeb:
+		case store.ServiceWeb, store.ServiceDatabase:
 			key = svc.Variant
 		}
 		if key == "" {

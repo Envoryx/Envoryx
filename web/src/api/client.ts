@@ -2,6 +2,8 @@ import type {
   AuditEntry,
   CreateProjectRequest,
   Dashboard,
+  DatabaseCredentials,
+  DatabaseInfo,
   DockerOverview,
   Preview,
   Project,
@@ -121,5 +123,19 @@ export const api = {
       request<{ project: Project }>(`/projects/${encodeURIComponent(id)}/restart`, { method: "POST" }),
     plan: (id: string) => request<{ plan: Preview }>(`/projects/${encodeURIComponent(id)}/plan`),
     stats: (id: string) => request<{ stats: Usage; sampledAt: string }>(`/projects/${encodeURIComponent(id)}/stats`),
+  },
+
+  database: {
+    info: (id: string) => request<{ database: DatabaseInfo }>(`/projects/${encodeURIComponent(id)}/database`),
+    credentials: (id: string) =>
+      request<{ credentials: DatabaseCredentials }>(`/projects/${encodeURIComponent(id)}/database/credentials`),
+    rotate: (id: string) => request<{ project: Project }>(`/projects/${encodeURIComponent(id)}/database/rotate`, { method: "POST" }),
+    expose: (id: string, exposed: boolean) =>
+      request<{ project: Project }>(`/projects/${encodeURIComponent(id)}/database/expose`, { method: "POST", body: { exposed } }),
+    list: (id: string) => request<{ databases: string[] }>(`/projects/${encodeURIComponent(id)}/database/databases`),
+    create: (id: string, name: string) =>
+      request<void>(`/projects/${encodeURIComponent(id)}/database/databases`, { method: "POST", body: { name } }),
+    drop: (id: string, name: string) =>
+      request<void>(`/projects/${encodeURIComponent(id)}/database/databases/${encodeURIComponent(name)}`, { method: "DELETE", body: { confirm: name } }),
   },
 };

@@ -1,6 +1,7 @@
 package docker
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -13,6 +14,7 @@ import (
 	"time"
 
 	cerrdefs "github.com/containerd/errdefs"
+	"github.com/moby/moby/api/pkg/stdcopy"
 	"github.com/moby/moby/api/types/container"
 	"github.com/moby/moby/api/types/mount"
 	"github.com/moby/moby/api/types/network"
@@ -125,6 +127,10 @@ func summaryToContainer(c container.Summary) Container {
 		}
 		ports = append(ports, PortMapping{HostIP: ip, HostPort: int(p.PublicPort), ContainerPort: int(p.PrivatePort), Protocol: p.Type})
 	}
+	health := ""
+	if c.Health != nil {
+		health = string(c.Health.Status)
+	}
 	return Container{
 		ID:      c.ID,
 		Name:    name,
@@ -136,6 +142,7 @@ func summaryToContainer(c container.Summary) Container {
 		Labels:  c.Labels,
 		Ports:   ports,
 		Managed: IsManaged(c.Labels),
+		Health:  health,
 	}
 }
 
@@ -263,6 +270,15 @@ func (e *MobyEngine) CreateContainer(ctx context.Context, spec ContainerSpec) (s
 	if spec.StopTimeout > 0 {
 		t := spec.StopTimeout
 		cfg.StopTimeout = &t
+	}
+	if spec.Healthcheck != nil && len(spec.Healthcheck.Test) > 0 {
+		cfg.Healthcheck = &container.HealthConfig{
+			Test:        append([]string{"CMD"}, spec.Healthcheck.Test...),
+			Interval:    spec.Healthcheck.Interval,
+			Timeout:     spec.Healthcheck.Timeout,
+			StartPeriod: spec.Healthcheck.StartPeriod,
+			Retries:     spec.Healthcheck.Retries,
+		}
 	}
 
 	host := &container.HostConfig{
@@ -438,6 +454,57 @@ func memoryUsage(s container.StatsResponse) int64 {
 		usage -= v
 	}
 	return int64(usage)
+}
+
+// Exec implements Engine.
+func (e *MobyEngine) Exec(ctx context.Context, id string, cmd []string, env []string) (ExecResult, error) {
+	if len(cmd) == 0 {
+		return ExecResult{}, errors.New("exec: empty command")
+	}
+	if _, err := e.guardContainer(ctx, id); err != nil {
+		return ExecResult{}, err
+	}
+	created, err := e.cli.ExecCreate(ctx, id, client.ExecCreateOptions{
+		Cmd:          cmd,
+		Env:          env,
+		AttachStdout: true,
+		AttachStderr: true,
+	})
+	if err != nil {
+		return ExecResult{}, wrap(err)
+	}
+	attach, err := e.cli.ExecAttach(ctx, created.ID, client.ExecAttachOptions{})
+	if err != nil {
+		return ExecResult{}, wrap(err)
+	}
+	defer attach.Close()
+	var stdout, stderr bytes.Buffer
+	if _, err := stdcopy.StdCopy(&limitedWriter{w: &stdout}, &limitedWriter{w: &stderr}, attach.Reader); err != nil && !errors.Is(err, io.EOF) {
+		return ExecResult{}, fmt.Errorf("exec output: %w", err)
+	}
+	insp, err := e.cli.ExecInspect(ctx, created.ID, client.ExecInspectOptions{})
+	if err != nil {
+		return ExecResult{}, wrap(err)
+	}
+	return ExecResult{ExitCode: insp.ExitCode, Stdout: stdout.String(), Stderr: stderr.String()}, nil
+}
+
+// limitedWriter caps captured exec output so a runaway command cannot exhaust memory.
+type limitedWriter struct {
+	w *bytes.Buffer
+}
+
+const execOutputLimit = 4 << 20
+
+func (l *limitedWriter) Write(p []byte) (int, error) {
+	if l.w.Len() < execOutputLimit {
+		remaining := execOutputLimit - l.w.Len()
+		if len(p) > remaining {
+			p = p[:remaining]
+		}
+		l.w.Write(p)
+	}
+	return len(p), nil
 }
 
 // ListNetworks implements Engine.

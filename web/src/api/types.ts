@@ -31,6 +31,7 @@ export interface ServiceStatus {
   running: boolean;
   state: string;
   status?: string;
+  health?: string;
   ports: PortMapping[];
 }
 
@@ -113,11 +114,53 @@ export interface RuntimesResponse {
   phpDefaults: PHPConfig;
 }
 
+export interface DatabaseRequest {
+  type: string;
+  version: string;
+  exposePort: boolean;
+}
+
+export interface DatabaseUpdate {
+  enabled: boolean;
+  type?: string;
+  version?: string;
+  exposePort?: boolean;
+  removeData?: boolean;
+}
+
+export interface DatabaseInfo {
+  type: string;
+  version: string;
+  image: string;
+  host: string;
+  port: number;
+  database: string;
+  username: string;
+  hostPort: number;
+  injectedEnv: string[];
+  state: string;
+  health?: string;
+  volumeName: string;
+  volumeExists: boolean;
+}
+
+export interface DatabaseCredentials {
+  host: string;
+  port: number;
+  database: string;
+  username: string;
+  password: string;
+  rootPassword: string;
+  hostPort: number;
+  url: string;
+}
+
 export interface CreateProjectRequest {
   name: string;
   path?: string;
   docroot?: string;
   php?: { version: string; config: PHPConfig } | null;
+  database?: DatabaseRequest | null;
   web?: { type: string; version: string };
   env?: EnvVar[];
   createStarter?: boolean;
@@ -128,6 +171,7 @@ export interface UpdateProjectRequest {
   name?: string;
   docroot?: string;
   php?: { version: string; config: PHPConfig };
+  database?: DatabaseUpdate;
   env?: EnvVar[];
 }
 

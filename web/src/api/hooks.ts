@@ -14,6 +14,8 @@ export const keys = {
   project: (id: string) => ["projects", id] as const,
   projectPlan: (id: string) => ["projects", id, "plan"] as const,
   projectStats: (id: string) => ["projects", id, "stats"] as const,
+  database: (id: string) => ["projects", id, "database"] as const,
+  databases: (id: string) => ["projects", id, "database", "list"] as const,
 };
 
 const LIVE_INTERVAL = 5000;
@@ -122,6 +124,39 @@ export function useUpdateProject(id: string) {
     mutationFn: async (body: UpdateProjectRequest) => (await api.projects.update(id, body)).project,
     onSuccess: (project) => invalidate(project),
   });
+}
+
+export function useDatabaseInfo(id: string, enabled: boolean) {
+  return useQuery({
+    queryKey: keys.database(id),
+    queryFn: async () => (await api.database.info(id)).database,
+    refetchInterval: LIVE_INTERVAL,
+    enabled,
+  });
+}
+
+export function useDatabaseList(id: string, enabled: boolean) {
+  return useQuery({
+    queryKey: keys.databases(id),
+    queryFn: async () => (await api.database.list(id)).databases,
+    enabled,
+    retry: false,
+  });
+}
+
+export function useDatabaseMutations(id: string) {
+  const qc = useQueryClient();
+  const invalidate = useProjectInvalidation();
+  const refresh = (project?: Project) => {
+    invalidate(project);
+    void qc.invalidateQueries({ queryKey: keys.database(id) });
+    void qc.invalidateQueries({ queryKey: keys.databases(id) });
+  };
+  const rotate = useMutation({ mutationFn: async () => (await api.database.rotate(id)).project, onSuccess: refresh });
+  const expose = useMutation({ mutationFn: async (exposed: boolean) => (await api.database.expose(id, exposed)).project, onSuccess: refresh });
+  const create = useMutation({ mutationFn: (name: string) => api.database.create(id, name), onSuccess: () => refresh() });
+  const drop = useMutation({ mutationFn: (name: string) => api.database.drop(id, name), onSuccess: () => refresh() });
+  return { rotate, expose, create, drop };
 }
 
 export function useDeleteProject() {

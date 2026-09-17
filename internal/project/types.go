@@ -22,12 +22,13 @@ var (
 
 // CreateRequest is the validated intent to create a project.
 type CreateRequest struct {
-	Name    string
-	Path    string // relative to projects root; empty = slug
-	Docroot string // relative to the project directory
-	PHP     *PHPRequest
-	Web     WebRequest
-	Env     []EnvVarRequest
+	Name     string
+	Path     string // relative to projects root; empty = slug
+	Docroot  string // relative to the project directory
+	PHP      *PHPRequest
+	Database *DatabaseRequest
+	Web      WebRequest
+	Env      []EnvVarRequest
 	// CreateStarter writes a starter index.php when the document root is empty.
 	CreateStarter bool
 	// Start starts the project right after creation.
@@ -38,6 +39,24 @@ type CreateRequest struct {
 type PHPRequest struct {
 	Version string
 	Config  runtime.PHPConfig
+}
+
+// DatabaseRequest selects a database service.
+type DatabaseRequest struct {
+	Type       string // "mariadb"
+	Version    string
+	ExposePort bool // publish the database on a host port for external clients
+}
+
+// DatabaseUpdate changes the database service of an existing project.
+type DatabaseUpdate struct {
+	// Enabled adds (true) or removes (false) the database service.
+	Enabled    bool
+	Type       string
+	Version    string
+	ExposePort bool
+	// RemoveData must be true to remove a database together with its volume.
+	RemoveData bool
 }
 
 // WebRequest selects the web server.
@@ -55,10 +74,40 @@ type EnvVarRequest struct {
 
 // UpdateRequest changes editable project settings. Nil pointers leave fields untouched.
 type UpdateRequest struct {
-	Name    *string
-	Docroot *string
-	PHP     *PHPRequest
-	Env     *[]EnvVarRequest
+	Name     *string
+	Docroot  *string
+	PHP      *PHPRequest
+	Database *DatabaseUpdate
+	Env      *[]EnvVarRequest
+}
+
+// DatabaseInfo describes the database service without secrets.
+type DatabaseInfo struct {
+	Type         string   `json:"type"`
+	Version      string   `json:"version"`
+	Image        string   `json:"image"`
+	Host         string   `json:"host"` // internal DNS name
+	Port         int      `json:"port"`
+	Database     string   `json:"database"`
+	Username     string   `json:"username"`
+	HostPort     int      `json:"hostPort"` // 0 = not published
+	InjectedEnv  []string `json:"injectedEnv"`
+	State        string   `json:"state"`
+	Health       string   `json:"health,omitempty"`
+	VolumeName   string   `json:"volumeName"`
+	VolumeExists bool     `json:"volumeExists"`
+}
+
+// DatabaseCredentials are returned only by the explicit credentials endpoint.
+type DatabaseCredentials struct {
+	Host         string `json:"host"`
+	Port         int    `json:"port"`
+	Database     string `json:"database"`
+	Username     string `json:"username"`
+	Password     string `json:"password"`
+	RootPassword string `json:"rootPassword"`
+	HostPort     int    `json:"hostPort"`
+	URL          string `json:"url"`
 }
 
 // DeleteOptions control project deletion.
@@ -94,6 +143,7 @@ type ServiceStatus struct {
 	Running       bool              `json:"running"`
 	State         string            `json:"state"`
 	Status        string            `json:"status,omitempty"`
+	Health        string            `json:"health,omitempty"`
 	Ports         []docker.PortMapping
 }
 

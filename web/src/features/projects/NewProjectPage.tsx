@@ -29,6 +29,9 @@ interface Form {
   phpVersion: string;
   phpConfig: PHPConfig;
   webVersion: string;
+  dbType: string; // "" = none
+  dbVersion: string;
+  dbExpose: boolean;
   env: EnvVar[];
   createStarter: boolean;
   start: boolean;
@@ -58,6 +61,9 @@ export function NewProjectPage() {
         phpVersion: php?.versions.find((v) => v.default)?.version ?? php?.versions[0]?.version ?? "",
         phpConfig: runtimes.data.phpDefaults,
         webVersion: caddy?.versions.find((v) => v.default)?.version ?? "",
+        dbType: "",
+        dbVersion: "",
+        dbExpose: false,
         env: [],
         createStarter: true,
         start: true,
@@ -77,6 +83,7 @@ export function NewProjectPage() {
       start: form.start,
     };
     if (form.phpEnabled) req.php = { version: form.phpVersion, config: form.phpConfig };
+    if (form.dbType) req.database = { type: form.dbType, version: form.dbVersion, exposePort: form.dbExpose };
     return req;
   }, [form]);
 
@@ -216,17 +223,54 @@ export function NewProjectPage() {
             <div className="space-y-6">
               <div>
                 <p className="mb-2 text-sm font-medium text-fg">Database</p>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <label className="flex items-center gap-2.5 rounded-md border border-accent-500 bg-accent-500/5 px-3 py-2 text-sm">
-                    <input type="radio" checked readOnly className="accent-accent-600" /> None
+                <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Database">
+                  <label className={clsx("flex items-center gap-2.5 rounded-md border px-3 py-2 text-sm cursor-pointer", form.dbType === "" ? "border-accent-500 bg-accent-500/5" : "border-default hover:bg-muted")}>
+                    <input type="radio" name="db" className="accent-accent-600" checked={form.dbType === ""} onChange={() => set({ dbType: "", dbVersion: "" })} /> None
                   </label>
                   {databases.map((d) => (
-                    <label key={d.key} className="flex items-center gap-2.5 rounded-md border border-default px-3 py-2 text-sm opacity-60" title={d.description}>
-                      <input type="radio" disabled className="accent-accent-600" /> {d.name} <span className="text-xs text-subtle">soon</span>
+                    <label
+                      key={d.key}
+                      className={clsx("flex items-center gap-2.5 rounded-md border px-3 py-2 text-sm", !d.available ? "border-default opacity-60" : form.dbType === d.key ? "border-accent-500 bg-accent-500/5 cursor-pointer" : "border-default hover:bg-muted cursor-pointer")}
+                      title={d.description}
+                    >
+                      <input
+                        type="radio"
+                        name="db"
+                        className="accent-accent-600"
+                        disabled={!d.available}
+                        checked={form.dbType === d.key}
+                        onChange={() => set({ dbType: d.key, dbVersion: d.versions.find((v) => v.default)?.version ?? d.versions[0]?.version ?? "" })}
+                      />
+                      {d.name}
+                      {!d.available && <span className="text-xs text-subtle">soon</span>}
                     </label>
                   ))}
                 </div>
               </div>
+              {form.dbType && (
+                <div className="space-y-4 rounded-md border border-default p-4">
+                  <Field label="Version" htmlFor="db-version" hint="Upgrades between versions run on the same data volume; downgrades are not possible.">
+                    <Select id="db-version" value={form.dbVersion} onChange={(e) => set({ dbVersion: e.target.value })}>
+                      {databases
+                        .find((d) => d.key === form.dbType)
+                        ?.versions.map((v) => (
+                          <option key={v.version} value={v.version}>
+                            {v.label}
+                          </option>
+                        ))}
+                    </Select>
+                  </Field>
+                  <Checkbox
+                    label="Publish database port on the host"
+                    description="Lets you connect from your workstation with TablePlus, DBeaver, etc. The port is assigned automatically."
+                    checked={form.dbExpose}
+                    onChange={(e) => set({ dbExpose: e.target.checked })}
+                  />
+                  <p className="text-sm text-muted">
+                    Staqio generates secure credentials and injects <Code>DB_HOST</Code>, <Code>DB_DATABASE</Code>, <Code>DB_USERNAME</Code>, <Code>DB_PASSWORD</Code> and <Code>DATABASE_URL</Code> into the PHP container. Data lives in a persistent Docker volume.
+                  </p>
+                </div>
+              )}
               <div>
                 <p className="mb-2 text-sm font-medium text-fg">Additional services</p>
                 <div className="grid gap-2 sm:grid-cols-2">
@@ -237,7 +281,6 @@ export function NewProjectPage() {
                   ))}
                 </div>
               </div>
-              <p className="text-sm text-muted">Databases and caches with persistent volumes are part of the next phases. The architecture already reserves the internal DNS names <Code>database</Code> and <Code>redis</Code>.</p>
             </div>
           )}
 

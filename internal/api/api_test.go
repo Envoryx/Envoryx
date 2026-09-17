@@ -17,6 +17,7 @@ import (
 	"github.com/seramos/staqio/internal/auth"
 	"github.com/seramos/staqio/internal/config"
 	"github.com/seramos/staqio/internal/db"
+	"github.com/seramos/staqio/internal/docker"
 	"github.com/seramos/staqio/internal/docker/dockertest"
 	"github.com/seramos/staqio/internal/hostpath"
 	"github.com/seramos/staqio/internal/project"
@@ -25,6 +26,8 @@ import (
 	"github.com/seramos/staqio/internal/stats"
 	"github.com/seramos/staqio/internal/store"
 )
+
+type dockerExecResult = docker.ExecResult
 
 type testApp struct {
 	t      *testing.T
@@ -366,6 +369,77 @@ func TestDockerUnavailableIsReported(t *testing.T) {
 	r = a.do(http.MethodGet, "/api/v1/projects", nil, false)
 	if r.status != http.StatusOK {
 		t.Fatalf("list must still work with docker down: %d %s", r.status, r.raw)
+	}
+}
+
+func TestDatabaseEndpointsRedactSecrets(t *testing.T) {
+	a := newApp(t)
+	a.setupAndLogin()
+	a.engine.ExecHandler = func(_ string, cmd []string, _ []string) (dockerExecResult, error) {
+		if cmd[len(cmd)-1] == "SHOW DATABASES" {
+			return dockerExecResult{Stdout: "shop\nmysql\n"}, nil
+		}
+		return dockerExecResult{}, nil
+	}
+	create := map[string]any{"name": "Shop", "start": true, "php": map[string]any{"version": "8.4"}, "database": map[string]any{"type": "mariadb", "version": "11", "exposePort": true}}
+	r := a.do(http.MethodPost, "/api/v1/projects", create, true)
+	if r.status != http.StatusCreated {
+		t.Fatalf("create: %d %s", r.status, r.raw)
+	}
+	id := r.body["project"].(map[string]any)["id"].(string)
+	// Project payload must not contain any password.
+	if bytes.Contains(r.raw, []byte("assword")) {
+		t.Fatalf("project response leaks credentials: %s", r.raw)
+	}
+	r = a.do(http.MethodGet, "/api/v1/projects/"+id+"/database", nil, false)
+	if r.status != http.StatusOK || bytes.Contains(r.raw, []byte("assword")) {
+		t.Fatalf("database info: %d %s", r.status, r.raw)
+	}
+	info := r.body["database"].(map[string]any)
+	if info["database"] != "shop" || info["hostPort"].(float64) != 20001 || info["state"] != "running" {
+		t.Fatalf("database info content: %v", info)
+	}
+	r = a.do(http.MethodGet, "/api/v1/projects/"+id+"/database/credentials", nil, false)
+	if r.status != http.StatusOK {
+		t.Fatalf("credentials: %d %s", r.status, r.raw)
+	}
+	creds := r.body["credentials"].(map[string]any)
+	pw, _ := creds["password"].(string)
+	if len(pw) != 24 || creds["url"] == "" {
+		t.Fatalf("credentials content: %v", creds)
+	}
+	r = a.do(http.MethodGet, "/api/v1/projects/"+id+"/database/databases", nil, false)
+	if r.status != http.StatusOK || len(r.body["databases"].([]any)) != 1 {
+		t.Fatalf("list databases: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodPost, "/api/v1/projects/"+id+"/database/databases", map[string]any{"name": "Bad Name"}, true)
+	if r.status != http.StatusUnprocessableEntity {
+		t.Fatalf("invalid db name: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodPost, "/api/v1/projects/"+id+"/database/databases", map[string]any{"name": "reports"}, true)
+	if r.status != http.StatusCreated {
+		t.Fatalf("create db: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodDelete, "/api/v1/projects/"+id+"/database/databases/reports", map[string]any{"confirm": "reports"}, true)
+	if r.status != http.StatusNoContent {
+		t.Fatalf("drop db: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodPost, "/api/v1/projects/"+id+"/database/rotate", nil, true)
+	if r.status != http.StatusOK || bytes.Contains(r.raw, []byte("assword")) {
+		t.Fatalf("rotate: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodPost, "/api/v1/projects/"+id+"/database/expose", map[string]any{"exposed": false}, true)
+	if r.status != http.StatusOK {
+		t.Fatalf("unexpose: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodGet, "/api/v1/projects/"+id+"/database", nil, false)
+	if r.body["database"].(map[string]any)["hostPort"].(float64) != 0 {
+		t.Fatalf("port should be unpublished: %s", r.raw)
+	}
+	// Audit log must mention the access without the secret.
+	r = a.do(http.MethodGet, "/api/v1/audit", nil, false)
+	if !bytes.Contains(r.raw, []byte("database.credentials_viewed")) || bytes.Contains(r.raw, []byte(pw)) {
+		t.Fatalf("audit: %s", r.raw)
 	}
 }
 

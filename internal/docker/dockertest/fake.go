@@ -47,6 +47,12 @@ type Fake struct {
 	// PullDelay makes EnsureImage honour context cancellation after this delay.
 	PullDelay time.Duration
 
+	// ExecHandler simulates commands run inside containers. It receives the container name
+	// and the argv; nil means every command succeeds with empty output.
+	ExecHandler func(container string, cmd []string, env []string) (docker.ExecResult, error)
+	// Execs records every exec call as "name: argv...".
+	Execs []string
+
 	// Calls records every mutating operation in order (e.g. "create:name", "start:name").
 	Calls []string
 }
@@ -330,6 +336,13 @@ func (f *Fake) CreateContainer(_ context.Context, spec docker.ContainerSpec) (st
 			return "", fmt.Errorf("network %s: %w", spec.Network, docker.ErrNotFound)
 		}
 	}
+	for _, m := range spec.Mounts {
+		if m.Type == "volume" {
+			if _, ok := f.volumes[m.Source]; !ok {
+				return "", fmt.Errorf("volume %s: %w", m.Source, docker.ErrNotFound)
+			}
+		}
+	}
 	imageID, ok := f.images[spec.Image]
 	if !ok {
 		return "", fmt.Errorf("image %s: %w", spec.Image, docker.ErrNotFound)
@@ -426,6 +439,32 @@ func (f *Fake) ContainerStats(_ context.Context, id string) (docker.Stats, error
 		return docker.Stats{ContainerID: c.ID, SampledAt: time.Now().UTC()}, nil
 	}
 	return docker.Stats{ContainerID: c.ID, CPUPercent: 1.5, MemoryBytes: 32 << 20, MemoryLimit: 8 << 30, SampledAt: time.Now().UTC()}, nil
+}
+
+// Exec implements docker.Engine.
+func (f *Fake) Exec(_ context.Context, id string, cmd []string, env []string) (docker.ExecResult, error) {
+	f.mu.Lock()
+	if err := f.check(); err != nil {
+		f.mu.Unlock()
+		return docker.ExecResult{}, err
+	}
+	c, err := f.guard(id)
+	if err != nil {
+		f.mu.Unlock()
+		return docker.ExecResult{}, err
+	}
+	if c.State != "running" {
+		f.mu.Unlock()
+		return docker.ExecResult{}, fmt.Errorf("container %s is not running", c.Spec.Name)
+	}
+	name := c.Spec.Name
+	f.Execs = append(f.Execs, name+": "+strings.Join(cmd, " "))
+	handler := f.ExecHandler
+	f.mu.Unlock()
+	if handler != nil {
+		return handler(name, cmd, env)
+	}
+	return docker.ExecResult{ExitCode: 0}, nil
 }
 
 // ListNetworks implements docker.Engine.

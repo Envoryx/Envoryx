@@ -23,15 +23,17 @@ Staqio is under active development. The current milestone (Phase 1 + 2) delivers
   imagick), Caddy web server, environment variables, plan preview
 - per-project Docker network, PHP-FPM container (Staqio image with Composer)
   and Caddy container
+- MariaDB per project: persistent volume, generated credentials, connection
+  variables injected into PHP, optional host port for desktop clients,
+  password rotation, create/drop databases, in-place version upgrades
 - project files bind-mounted from `/projects/<name>` on the host
 - projects reachable at `http://<host>:<port>` (port auto-assigned)
 - start / stop / restart / edit / delete with confirmation
 - desired-state reconciliation on startup and periodically; orphan detection
 - diagnostics view of all Docker resources (foreign containers read-only)
 
-Databases (MariaDB/MySQL/PostgreSQL), Redis, Node.js, terminal, logs, Git,
-backups, domains/HTTPS and MCP follow in later phases – see
-[ARCHITECTURE.md](ARCHITECTURE.md) §13.
+MySQL/PostgreSQL, Redis, Node.js, terminal, logs, Git, backups, domains/HTTPS
+and MCP follow in later phases – see [ARCHITECTURE.md](ARCHITECTURE.md) §13.
 
 ## Quick start
 
