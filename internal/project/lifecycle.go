@@ -75,11 +75,9 @@ func (m *Manager) Create(ctx context.Context, req CreateRequest) (View, error) {
 		return View{}, err
 	}
 	proj.HTTPPort = port
-	if req.Database != nil && req.Database.ExposePort {
-		if err := m.assignDatabasePort(ctx, &proj, port); err != nil {
-			m.createMu.Unlock()
-			return View{}, err
-		}
+	if err := m.assignServicePorts(ctx, &proj, req); err != nil {
+		m.createMu.Unlock()
+		return View{}, err
 	}
 	if err := m.store.Projects.Create(ctx, &proj); err != nil {
 		m.createMu.Unlock()
@@ -452,6 +450,20 @@ func (m *Manager) Update(ctx context.Context, id string, req UpdateRequest) (Vie
 		}
 		recreateApp = recreateApp || r
 	}
+	if req.Redis != nil {
+		r, err := m.applyExtraUpdate(ctx, proj, store.ServiceRedis, *req.Redis, changes)
+		if err != nil {
+			return View{}, err
+		}
+		recreateApp = recreateApp || r
+	}
+	if req.Mailpit != nil {
+		r, err := m.applyExtraUpdate(ctx, proj, store.ServiceMailpit, *req.Mailpit, changes)
+		if err != nil {
+			return View{}, err
+		}
+		recreateApp = recreateApp || r
+	}
 
 	proj, err = m.loadProject(ctx, id)
 	if err != nil {
@@ -481,8 +493,9 @@ func (m *Manager) Update(ctx context.Context, id string, req UpdateRequest) (Vie
 			return View{}, err
 		}
 		for _, c := range existing {
-			if c.Service() == string(store.ServiceDatabase) {
-				continue
+			switch c.Service() {
+			case string(store.ServiceDatabase), string(store.ServiceRedis), string(store.ServiceMailpit):
+				continue // stateful/independent services keep running
 			}
 			if err := m.engine.RemoveContainer(ctx, c.ID); err != nil {
 				return View{}, fmt.Errorf("recreate container %s: %w", c.Name, err)

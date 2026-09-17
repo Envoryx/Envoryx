@@ -157,6 +157,18 @@ type nodeUpdateDTO struct {
 	Version string `json:"version"`
 }
 
+type extraRequestDTO struct {
+	Version    string `json:"version"`
+	ExposePort bool   `json:"exposePort"`
+}
+
+type extraUpdateDTO struct {
+	Enabled    bool   `json:"enabled"`
+	Version    string `json:"version"`
+	ExposePort bool   `json:"exposePort"`
+	RemoveData bool   `json:"removeData"`
+}
+
 type databaseRequestDTO struct {
 	Type       string `json:"type"`
 	Version    string `json:"version"`
@@ -178,6 +190,8 @@ type createProjectRequest struct {
 	PHP      *phpRequestDTO      `json:"php"`
 	Node     *nodeRequestDTO     `json:"node"`
 	Database *databaseRequestDTO `json:"database"`
+	Redis    *extraRequestDTO    `json:"redis"`
+	Mailpit  *extraRequestDTO    `json:"mailpit"`
 	Git      *gitRequestDTO      `json:"git"`
 	Web      *struct {
 		Type    string `json:"type"`
@@ -199,6 +213,12 @@ func (r createProjectRequest) toDomain() project.CreateRequest {
 	if r.Database != nil {
 		req.Database = &project.DatabaseRequest{Type: r.Database.Type, Version: r.Database.Version, ExposePort: r.Database.ExposePort}
 	}
+	if r.Redis != nil {
+		req.Redis = &project.ExtraRequest{Version: r.Redis.Version, ExposePort: r.Redis.ExposePort}
+	}
+	if r.Mailpit != nil {
+		req.Mailpit = &project.ExtraRequest{Version: r.Mailpit.Version}
+	}
 	if r.Git != nil && strings.TrimSpace(r.Git.URL) != "" {
 		g := r.Git.toDomain()
 		g.KeepToken = false
@@ -219,6 +239,8 @@ type updateProjectRequest struct {
 	PHP      *phpRequestDTO     `json:"php"`
 	Node     *nodeUpdateDTO     `json:"node"`
 	Database *databaseUpdateDTO `json:"database"`
+	Redis    *extraUpdateDTO    `json:"redis"`
+	Mailpit  *extraUpdateDTO    `json:"mailpit"`
 	Env      *[]envDTO          `json:"env"`
 }
 
@@ -291,6 +313,12 @@ func (a *API) updateProject(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Node != nil {
 		upd.Node = &project.NodeUpdate{Enabled: req.Node.Enabled, Version: req.Node.Version}
+	}
+	if req.Redis != nil {
+		upd.Redis = &project.ExtraUpdate{Enabled: req.Redis.Enabled, Version: req.Redis.Version, ExposePort: req.Redis.ExposePort, RemoveData: req.Redis.RemoveData}
+	}
+	if req.Mailpit != nil {
+		upd.Mailpit = &project.ExtraUpdate{Enabled: req.Mailpit.Enabled, Version: req.Mailpit.Version}
 	}
 	if req.Database != nil {
 		upd.Database = &project.DatabaseUpdate{Enabled: req.Database.Enabled, Type: req.Database.Type, Version: req.Database.Version, ExposePort: req.Database.ExposePort, RemoveData: req.Database.RemoveData}

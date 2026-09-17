@@ -28,6 +28,8 @@ type CreateRequest struct {
 	PHP      *PHPRequest
 	Node     *NodeRequest
 	Database *DatabaseRequest
+	Redis    *ExtraRequest
+	Mailpit  *ExtraRequest
 	Web      WebRequest
 	Git      *GitRequest
 	Env      []EnvVarRequest
@@ -52,6 +54,21 @@ type NodeRequest struct {
 type NodeUpdate struct {
 	Enabled bool
 	Version string
+}
+
+// ExtraRequest selects an auxiliary service (Redis, Mailpit).
+type ExtraRequest struct {
+	Version    string
+	ExposePort bool
+}
+
+// ExtraUpdate adds, changes or removes an auxiliary service.
+type ExtraUpdate struct {
+	Enabled    bool
+	Version    string
+	ExposePort bool
+	// RemoveData must be true to remove a service that owns a volume (Redis).
+	RemoveData bool
 }
 
 // DatabaseRequest selects a database service.
@@ -92,7 +109,25 @@ type UpdateRequest struct {
 	PHP      *PHPRequest
 	Node     *NodeUpdate
 	Database *DatabaseUpdate
+	Redis    *ExtraUpdate
+	Mailpit  *ExtraUpdate
 	Env      *[]EnvVarRequest
+}
+
+// ExtraServiceInfo describes an auxiliary service for the UI.
+type ExtraServiceInfo struct {
+	Kind        store.ServiceKind `json:"kind"`
+	Version     string            `json:"version"`
+	Image       string            `json:"image"`
+	Host        string            `json:"host"`
+	Port        int               `json:"port"`
+	HostPort    int               `json:"hostPort"`
+	InjectedEnv []string          `json:"injectedEnv"`
+	State       string            `json:"state"`
+	Health      string            `json:"health,omitempty"`
+	VolumeName  string            `json:"volumeName,omitempty"`
+	// WebUI is the host-side URL of a web interface (Mailpit inbox), empty otherwise.
+	WebUIPort int `json:"webUiPort,omitempty"`
 }
 
 // DatabaseInfo describes the database service without secrets.

@@ -204,38 +204,32 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 			images[svc.Image] = true
 
 		case store.ServiceDatabase:
-			if svc.Variant != "mariadb" {
-				return Plan{}, fmt.Errorf("database variant %q is not supported yet", svc.Variant)
+			dialect, ok := runtime.DialectFor(svc.Variant)
+			if !ok {
+				return Plan{}, fmt.Errorf("database variant %q is not supported", svc.Variant)
 			}
 			var cfg runtime.DatabaseConfig
 			if err := json.Unmarshal(svc.Config, &cfg); err != nil {
 				return Plan{}, fmt.Errorf("database config: %w", err)
 			}
-			if cfg.RootPassword == "" || cfg.Password == "" || cfg.Database == "" || cfg.Username == "" {
+			if cfg.Password == "" || cfg.Database == "" || cfg.Username == "" || (dialect.HasRoot && cfg.RootPassword == "") {
 				return Plan{}, fmt.Errorf("database config for %s is incomplete", proj.Slug)
 			}
 			volume := VolumeName(proj.Slug, store.ServiceDatabase)
 			plan.Volumes = append(plan.Volumes, volume)
 			spec := docker.ContainerSpec{
-				Name:   ContainerName(proj.Slug, store.ServiceDatabase),
-				Image:  svc.Image,
-				Labels: labels,
-				Env: []string{
-					"MARIADB_ROOT_PASSWORD=" + cfg.RootPassword,
-					"MARIADB_DATABASE=" + cfg.Database,
-					"MARIADB_USER=" + cfg.Username,
-					"MARIADB_PASSWORD=" + cfg.Password,
-					// Upgrades the data directory automatically when the major version changes.
-					"MARIADB_AUTO_UPGRADE=1",
-				},
-				Cmd:           []string{"--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"},
+				Name:          ContainerName(proj.Slug, store.ServiceDatabase),
+				Image:         svc.Image,
+				Labels:        labels,
+				Env:           dialect.ContainerEnv(cfg),
+				Cmd:           dialect.Cmd,
 				Network:       plan.NetworkName,
-				NetworkAlias:  []string{"database", "mariadb"},
-				Mounts:        []docker.MountSpec{{Type: "volume", Source: volume, Target: "/var/lib/mysql"}},
+				NetworkAlias:  []string{"database", svc.Variant},
+				Mounts:        []docker.MountSpec{{Type: "volume", Source: volume, Target: dialect.DataDir}},
 				RestartPolicy: "unless-stopped",
 				StopTimeout:   30,
 				Healthcheck: &docker.HealthSpec{
-					Test:        []string{"healthcheck.sh", "--connect", "--innodb_initialized"},
+					Test:        dialect.Health,
 					Interval:    10 * time.Second,
 					Timeout:     5 * time.Second,
 					StartPeriod: 30 * time.Second,
@@ -243,9 +237,55 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 				},
 			}
 			if cfg.HostPort > 0 {
-				spec.Ports = []docker.PortSpec{{HostIP: p.paths.PublishInterface, HostPort: cfg.HostPort, ContainerPort: 3306, Protocol: "tcp"}}
+				spec.Ports = []docker.PortSpec{{HostIP: p.paths.PublishInterface, HostPort: cfg.HostPort, ContainerPort: dialect.Port, Protocol: "tcp"}}
 			}
 			plan.Containers = append(plan.Containers, ContainerPlan{Kind: store.ServiceDatabase, Order: 5, Spec: spec})
+			images[svc.Image] = true
+
+		case store.ServiceRedis:
+			var cfg runtime.ServiceConfig
+			if err := json.Unmarshal(svc.Config, &cfg); err != nil {
+				return Plan{}, fmt.Errorf("redis config: %w", err)
+			}
+			volume := VolumeName(proj.Slug, store.ServiceRedis)
+			plan.Volumes = append(plan.Volumes, volume)
+			spec := docker.ContainerSpec{
+				Name:          ContainerName(proj.Slug, store.ServiceRedis),
+				Image:         svc.Image,
+				Labels:        labels,
+				Cmd:           []string{"redis-server", "--appendonly", "yes", "--save", "60", "1"},
+				Network:       plan.NetworkName,
+				NetworkAlias:  []string{"redis"},
+				Mounts:        []docker.MountSpec{{Type: "volume", Source: volume, Target: "/data"}},
+				RestartPolicy: "unless-stopped",
+				StopTimeout:   10,
+				Healthcheck:   &docker.HealthSpec{Test: []string{"redis-cli", "ping"}, Interval: 10 * time.Second, Timeout: 3 * time.Second, StartPeriod: 5 * time.Second, Retries: 3},
+			}
+			if cfg.HostPort > 0 {
+				spec.Ports = []docker.PortSpec{{HostIP: p.paths.PublishInterface, HostPort: cfg.HostPort, ContainerPort: 6379, Protocol: "tcp"}}
+			}
+			plan.Containers = append(plan.Containers, ContainerPlan{Kind: store.ServiceRedis, Order: 6, Spec: spec})
+			images[svc.Image] = true
+
+		case store.ServiceMailpit:
+			var cfg runtime.ServiceConfig
+			if err := json.Unmarshal(svc.Config, &cfg); err != nil {
+				return Plan{}, fmt.Errorf("mailpit config: %w", err)
+			}
+			spec := docker.ContainerSpec{
+				Name:          ContainerName(proj.Slug, store.ServiceMailpit),
+				Image:         svc.Image,
+				Labels:        labels,
+				Env:           []string{"MP_SMTP_AUTH_ACCEPT_ANY=1", "MP_SMTP_AUTH_ALLOW_INSECURE=1"},
+				Network:       plan.NetworkName,
+				NetworkAlias:  []string{"mailpit", "mail"},
+				RestartPolicy: "unless-stopped",
+				StopTimeout:   5,
+			}
+			if cfg.HostPort > 0 {
+				spec.Ports = []docker.PortSpec{{HostIP: p.paths.PublishInterface, HostPort: cfg.HostPort, ContainerPort: 8025, Protocol: "tcp"}}
+			}
+			plan.Containers = append(plan.Containers, ContainerPlan{Kind: store.ServiceMailpit, Order: 7, Spec: spec})
 			images[svc.Image] = true
 
 		default:
@@ -328,6 +368,18 @@ func envStrings(proj store.Project) ([]string, error) {
 		dbEnv := runtime.DatabaseEnv(cfg, db.Variant)
 		for _, k := range []string{"DB_CONNECTION", "DB_HOST", "DB_PORT", "DB_DATABASE", "DB_USERNAME", "DB_PASSWORD", "DATABASE_URL"} {
 			set(k, dbEnv[k])
+		}
+	}
+	if r := proj.Service(store.ServiceRedis); r != nil && r.Enabled {
+		env := runtime.RedisEnv()
+		for _, k := range []string{"REDIS_HOST", "REDIS_PORT", "REDIS_URL"} {
+			set(k, env[k])
+		}
+	}
+	if mp := proj.Service(store.ServiceMailpit); mp != nil && mp.Enabled {
+		env := runtime.MailpitEnv()
+		for _, k := range []string{"MAIL_MAILER", "MAIL_HOST", "MAIL_PORT", "MAIL_ENCRYPTION", "MAILER_DSN"} {
+			set(k, env[k])
 		}
 	}
 	for _, e := range proj.Env {

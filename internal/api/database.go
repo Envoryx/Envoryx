@@ -4,6 +4,15 @@ import (
 	"net/http"
 )
 
+func (a *API) extraServices(w http.ResponseWriter, r *http.Request) {
+	extras, err := a.d.Projects.ExtraServices(r.Context(), r.PathValue("id"))
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"services": extras})
+}
+
 func (a *API) databaseInfo(w http.ResponseWriter, r *http.Request) {
 	info, err := a.d.Projects.DatabaseInfo(r.Context(), r.PathValue("id"))
 	if err != nil {

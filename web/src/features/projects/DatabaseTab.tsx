@@ -183,7 +183,7 @@ export function DatabaseTab({ project }: { project: Project }) {
             {creds ? (
               <>
                 <Row label="Password" value={creds.password} secret />
-                <Row label="Root password" value={creds.rootPassword} secret />
+                {creds.rootPassword && <Row label="Root password" value={creds.rootPassword} secret />}
                 <Row label="DATABASE_URL" value={creds.url} secret />
               </>
             ) : (
@@ -246,7 +246,7 @@ export function DatabaseTab({ project }: { project: Project }) {
             <CardHeader title="Server" />
             <div className="space-y-4 p-5">
               <div className="flex items-end gap-2">
-                <Field label={`${d.type === "mariadb" ? "MariaDB" : d.type} version`} htmlFor="db-version" hint="Upgrades keep the data volume; downgrades are refused.">
+                <Field label={`${({ mariadb: "MariaDB", mysql: "MySQL", postgresql: "PostgreSQL" } as Record<string, string>)[d.type] ?? d.type} version`} htmlFor="db-version" hint={d.type === "postgresql" ? "PostgreSQL cannot upgrade an existing data directory in place." : "Upgrades keep the data volume; downgrades are refused."}>
                   <Select id="db-version" value={currentVersion} onChange={(e) => setVersion(e.target.value)}>
                     {versions.map((v) => (
                       <option key={v.version} value={v.version}>

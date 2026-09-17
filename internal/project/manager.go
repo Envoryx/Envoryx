@@ -146,6 +146,20 @@ func (m *Manager) buildProject(req CreateRequest) (store.Project, error) {
 		})
 	}
 
+	if req.Redis != nil {
+		svc, err := m.buildExtraService(store.ServiceRedis, req.Redis.Version)
+		if err != nil {
+			return store.Project{}, err
+		}
+		proj.Services = append(proj.Services, svc)
+	}
+	if req.Mailpit != nil {
+		svc, err := m.buildExtraService(store.ServiceMailpit, req.Mailpit.Version)
+		if err != nil {
+			return store.Project{}, err
+		}
+		proj.Services = append(proj.Services, svc)
+	}
 	if req.Node != nil {
 		v, err := m.catalog.Resolve("node", req.Node.Version)
 		if err != nil {
@@ -184,8 +198,8 @@ func (m *Manager) buildDatabaseService(slug, dbType, version string) (store.Proj
 	if dbType == "" {
 		dbType = "mariadb"
 	}
-	if dbType != "mariadb" {
-		return store.ProjectService{}, fmt.Errorf("%w: database type %q is not supported yet", validate.ErrInvalid, dbType)
+	if _, ok := runtime.DialectFor(dbType); !ok {
+		return store.ProjectService{}, fmt.Errorf("%w: database type %q is not supported", validate.ErrInvalid, dbType)
 	}
 	v, err := m.catalog.Resolve(dbType, version)
 	if err != nil {
@@ -202,6 +216,19 @@ func (m *Manager) buildDatabaseService(slug, dbType, version string) (store.Proj
 	return store.ProjectService{Kind: store.ServiceDatabase, Variant: dbType, Version: v.Version, Image: v.Image, Enabled: true, Config: raw, Position: 5}, nil
 }
 
+// buildExtraService validates an auxiliary service selection.
+func (m *Manager) buildExtraService(kind store.ServiceKind, version string) (store.ProjectService, error) {
+	v, err := m.catalog.Resolve(string(kind), version)
+	if err != nil {
+		return store.ProjectService{}, err
+	}
+	position := 6
+	if kind == store.ServiceMailpit {
+		position = 7
+	}
+	return store.ProjectService{Kind: kind, Variant: string(kind), Version: v.Version, Image: v.Image, Enabled: true, Config: json.RawMessage(`{"hostPort":0}`), Position: position}, nil
+}
+
 func buildEnv(in []EnvVarRequest) ([]store.EnvVar, error) {
 	seen := map[string]bool{}
 	var out []store.EnvVar
@@ -210,7 +237,7 @@ func buildEnv(in []EnvVarRequest) ([]store.EnvVar, error) {
 		if err := validate.EnvKey(key); err != nil {
 			return nil, err
 		}
-		if strings.HasPrefix(key, "MARIADB_") || strings.HasPrefix(key, "MYSQL_") {
+		if strings.HasPrefix(key, "MARIADB_") || strings.HasPrefix(key, "MYSQL_") || strings.HasPrefix(key, "POSTGRES_") {
 			return nil, fmt.Errorf("%w: %s is reserved for the database container", validate.ErrInvalid, key)
 		}
 		if err := validate.EnvValue(e.Value); err != nil {
@@ -243,10 +270,8 @@ func (m *Manager) Preview(ctx context.Context, req CreateRequest) (Preview, erro
 		return Preview{}, err
 	}
 	proj.HTTPPort = port
-	if req.Database != nil && req.Database.ExposePort {
-		if err := m.assignDatabasePort(ctx, &proj, port); err != nil {
-			return Preview{}, err
-		}
+	if err := m.assignServicePorts(ctx, &proj, req); err != nil {
+		return Preview{}, err
 	}
 	plan, err := planner.Plan(proj)
 	if err != nil {
@@ -312,6 +337,14 @@ func (m *Manager) collectUsedPorts(ctx context.Context, used map[int]bool) error
 				used[cfg.HostPort] = true
 			}
 		}
+		for _, kind := range []store.ServiceKind{store.ServiceRedis, store.ServiceMailpit} {
+			if svc := p.Service(kind); svc != nil {
+				var cfg runtime.ServiceConfig
+				if json.Unmarshal(svc.Config, &cfg) == nil && cfg.HostPort > 0 {
+					used[cfg.HostPort] = true
+				}
+			}
+		}
 	}
 	containers, err := m.engine.ListContainers(ctx, false, "")
 	if err != nil && !errors.Is(err, docker.ErrUnavailable) {
@@ -325,30 +358,68 @@ func (m *Manager) collectUsedPorts(ctx context.Context, used map[int]bool) error
 	return nil
 }
 
-// assignDatabasePort allocates a host port for the database service (excluding the ports
-// already chosen for this project) and stores it in the service config.
-func (m *Manager) assignDatabasePort(ctx context.Context, proj *store.Project, exclude ...int) error {
-	db := proj.Service(store.ServiceDatabase)
-	if db == nil {
+// assignServicePorts allocates host ports for services the request wants published
+// (database, Redis) and always for Mailpit's web inbox. Ports already chosen for this
+// project are excluded so the allocations do not collide with each other.
+func (m *Manager) assignServicePorts(ctx context.Context, proj *store.Project, req CreateRequest) error {
+	taken := []int{proj.HTTPPort}
+	assign := func(kind store.ServiceKind) error {
+		svc := proj.Service(kind)
+		if svc == nil {
+			return nil
+		}
+		port, err := m.allocatePort(ctx, taken...)
+		if err != nil {
+			return err
+		}
+		taken = append(taken, port)
+		return setHostPort(svc, port)
+	}
+	if req.Database != nil && req.Database.ExposePort {
+		if err := assign(store.ServiceDatabase); err != nil {
+			return err
+		}
+	}
+	if req.Redis != nil && req.Redis.ExposePort {
+		if err := assign(store.ServiceRedis); err != nil {
+			return err
+		}
+	}
+	if req.Mailpit != nil {
+		if err := assign(store.ServiceMailpit); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// setHostPort stores a host port in a service config (database or auxiliary service).
+func setHostPort(svc *store.ProjectService, port int) error {
+	if svc.Kind == store.ServiceDatabase {
+		var cfg runtime.DatabaseConfig
+		if err := json.Unmarshal(svc.Config, &cfg); err != nil {
+			return err
+		}
+		cfg.HostPort = port
+		raw, err := json.Marshal(cfg)
+		if err != nil {
+			return err
+		}
+		svc.Config = raw
 		return nil
 	}
-	var cfg runtime.DatabaseConfig
-	if err := json.Unmarshal(db.Config, &cfg); err != nil {
-		return err
-	}
-	if cfg.HostPort > 0 {
-		return nil
-	}
-	port, err := m.allocatePort(ctx, exclude...)
-	if err != nil {
-		return err
+	var cfg runtime.ServiceConfig
+	if len(svc.Config) > 0 {
+		if err := json.Unmarshal(svc.Config, &cfg); err != nil {
+			return err
+		}
 	}
 	cfg.HostPort = port
 	raw, err := json.Marshal(cfg)
 	if err != nil {
 		return err
 	}
-	db.Config = raw
+	svc.Config = raw
 	return nil
 }
 
@@ -369,6 +440,8 @@ func (m *Manager) resolveImages(p *store.Project) {
 			key = "php"
 		case store.ServiceNode:
 			key = "node"
+		case store.ServiceRedis, store.ServiceMailpit:
+			key = string(svc.Kind)
 		case store.ServiceWeb, store.ServiceDatabase:
 			key = svc.Variant
 		}

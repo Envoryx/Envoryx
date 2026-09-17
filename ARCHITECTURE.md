@@ -492,7 +492,7 @@ runtime catalogue (PHP versions, Caddy), hostpath detection, planner,
 manager (create/start/stop/restart/delete with rollback), reconciler, project
 API, wizard, project list + detail pages, lifecycle tests.
 
-### Phase 3 – Database (implemented for MariaDB)
+### Phase 3 + 6 – Databases and services (MariaDB, MySQL, PostgreSQL, Redis, Mailpit)
 `database` service kind with a labelled named volume
 (`staqio-<slug>-database`), healthcheck, start order database → php → web.
 
@@ -503,12 +503,20 @@ explicit `GET /projects/{id}/database/credentials` call is audit-logged.
 `DB_*` and `DATABASE_URL` are injected into application containers, user
 variables override them, `MARIADB_*`/`MYSQL_*` are reserved.
 
-Management operations run `mariadb` inside the database container via Docker
-exec with argv arrays; the root password travels in `MYSQL_PWD`, identifiers
-are validated (`^[a-z][a-z0-9_]*$`), the primary database cannot be dropped.
-Rotating the password recreates the application containers. Removing the
-service requires `removeData: true`; version downgrades are refused, upgrades
-run on the same volume with `MARIADB_AUTO_UPGRADE`.
+Database flavours are described by a `runtime.Dialect` (container env, data
+directory, healthcheck, client argv + password env, admin statements,
+in-place-upgrade capability). Management operations run the flavour's client
+inside the container via Docker exec with argv arrays; passwords travel in
+`MYSQL_PWD`/`PGPASSWORD`, identifiers are validated (`^[a-z][a-z0-9_]*$`), the
+primary database cannot be dropped. Rotating the password recreates the
+application containers. Removing the service requires `removeData: true`;
+downgrades are refused, MariaDB/MySQL upgrade in place, PostgreSQL major
+changes are refused (dump/restore required).
+
+Redis (volume `staqio-<slug>-redis`, `REDIS_*` injected) and Mailpit (web
+inbox on an allocated host port, `MAIL_*`/`MAILER_DSN` injected) are
+auxiliary services with a small `{hostPort}` config; env changes recreate the
+application containers while stateful services keep running.
 
 ### Later phases (prepared, not implemented)
 - **Phase 4 Webserver/Domains**: central reverse proxy routing by `Host` to
@@ -529,6 +537,5 @@ run on the same volume with `MARIADB_AUTO_UPGRADE`.
   tooling container (`sleep infinity`, runs as PUID:PGID) from
   `ghcr.io/seramos/staqio-node:<v>`; a dev-server mode with published port is
   a later addition.
-- **Phase 6 Services**: Redis, PostgreSQL, MySQL, Mailpit.
 - **Phase 7 Backups**, **Phase 8 HTTPS/DNS**, **Phase 9 MCP** (reuses the
   same manager and validation layer).

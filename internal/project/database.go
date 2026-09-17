@@ -29,6 +29,14 @@ func databaseConfig(p store.Project) (*store.ProjectService, runtime.DatabaseCon
 	return svc, cfg, nil
 }
 
+func dialectOf(svc *store.ProjectService) (runtime.Dialect, error) {
+	d, ok := runtime.DialectFor(svc.Variant)
+	if !ok {
+		return runtime.Dialect{}, fmt.Errorf("database variant %q is not supported", svc.Variant)
+	}
+	return d, nil
+}
+
 func (m *Manager) saveDatabaseConfig(ctx context.Context, p store.Project, svc *store.ProjectService, cfg runtime.DatabaseConfig) error {
 	raw, err := json.Marshal(cfg)
 	if err != nil {
@@ -47,8 +55,12 @@ func (m *Manager) DatabaseInfo(ctx context.Context, id string) (DatabaseInfo, er
 	if err != nil {
 		return DatabaseInfo{}, err
 	}
+	dialect, err := dialectOf(svc)
+	if err != nil {
+		return DatabaseInfo{}, err
+	}
 	info := DatabaseInfo{
-		Type: svc.Variant, Version: svc.Version, Image: svc.Image, Host: "database", Port: 3306,
+		Type: svc.Variant, Version: svc.Version, Image: svc.Image, Host: "database", Port: dialect.Port,
 		Database: cfg.Database, Username: cfg.Username, HostPort: cfg.HostPort,
 		VolumeName: VolumeName(view.Project.Slug, store.ServiceDatabase), State: "missing",
 	}
@@ -85,18 +97,30 @@ func (m *Manager) DatabaseCredentials(ctx context.Context, id string) (DatabaseC
 	if err != nil {
 		return DatabaseCredentials{}, err
 	}
+	dialect, err := dialectOf(svc)
+	if err != nil {
+		return DatabaseCredentials{}, err
+	}
 	m.audit.Log(ctx, audit.ActionDBCredentialsViewed, "project", id, map[string]any{"name": p.Name})
-	return DatabaseCredentials{
-		Host: "database", Port: 3306, Database: cfg.Database, Username: cfg.Username,
-		Password: cfg.Password, RootPassword: cfg.RootPassword, HostPort: cfg.HostPort,
+	creds := DatabaseCredentials{
+		Host: "database", Port: dialect.Port, Database: cfg.Database, Username: cfg.Username,
+		Password: cfg.Password, HostPort: cfg.HostPort,
 		URL: runtime.DatabaseEnv(cfg, svc.Variant)["DATABASE_URL"],
-	}, nil
+	}
+	if dialect.HasRoot {
+		creds.RootPassword = cfg.RootPassword
+	}
+	return creds, nil
 }
 
-// runSQL executes a statement as root inside the database container. The password is
-// passed through the environment, never on the command line. Statements are built only
-// from validated identifiers and generated passwords.
-func (m *Manager) runSQL(ctx context.Context, p store.Project, cfg runtime.DatabaseConfig, sql string) (string, error) {
+// runSQL executes a statement as the administrator inside the database container. The
+// password is passed through the environment, never on the command line. Statements are
+// built only from validated identifiers and generated passwords.
+func (m *Manager) runSQL(ctx context.Context, p store.Project, svc *store.ProjectService, cfg runtime.DatabaseConfig, sql string) (string, error) {
+	dialect, err := dialectOf(svc)
+	if err != nil {
+		return "", err
+	}
 	containers, err := m.engine.ListContainers(ctx, true, p.ID)
 	if err != nil {
 		return "", err
@@ -110,7 +134,8 @@ func (m *Manager) runSQL(ctx context.Context, p store.Project, cfg runtime.Datab
 	if db == nil || db.State != "running" {
 		return "", fmt.Errorf("%w: the database container is not running", ErrConflict)
 	}
-	res, err := m.engine.Exec(ctx, db.ID, []string{"mariadb", "-uroot", "-N", "-B", "-e", sql}, []string{"MYSQL_PWD=" + cfg.RootPassword})
+	argv, env := dialect.Client(cfg, sql)
+	res, err := m.engine.Exec(ctx, db.ID, argv, env)
 	if err != nil {
 		return "", err
 	}
@@ -146,11 +171,15 @@ func (m *Manager) ListDatabases(ctx context.Context, id string) ([]string, error
 	if err != nil {
 		return nil, err
 	}
-	_, cfg, err := databaseConfig(p)
+	svc, cfg, err := databaseConfig(p)
 	if err != nil {
 		return nil, err
 	}
-	out, err := m.runSQL(ctx, p, cfg, "SHOW DATABASES")
+	dialect, err := dialectOf(svc)
+	if err != nil {
+		return nil, err
+	}
+	out, err := m.runSQL(ctx, p, svc, cfg, dialect.ListDatabases)
 	if err != nil {
 		return nil, err
 	}
@@ -183,12 +212,15 @@ func (m *Manager) CreateDatabase(ctx context.Context, id, name string) error {
 	if err != nil {
 		return err
 	}
-	_, cfg, err := databaseConfig(p)
+	svc, cfg, err := databaseConfig(p)
 	if err != nil {
 		return err
 	}
-	stmt := fmt.Sprintf("CREATE DATABASE `%s` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci; GRANT ALL PRIVILEGES ON `%s`.* TO '%s'@'%%'; FLUSH PRIVILEGES;", name, name, cfg.Username)
-	if _, err := m.runSQL(ctx, p, cfg, stmt); err != nil {
+	dialect, err := dialectOf(svc)
+	if err != nil {
+		return err
+	}
+	if _, err := m.runSQL(ctx, p, svc, cfg, dialect.CreateDatabase(name, cfg.Username)); err != nil {
 		return err
 	}
 	m.audit.Log(ctx, audit.ActionDBCreated, "project", id, map[string]any{"name": p.Name, "database": name})
@@ -215,14 +247,18 @@ func (m *Manager) DropDatabase(ctx context.Context, id, name, confirm string) er
 	if err != nil {
 		return err
 	}
-	_, cfg, err := databaseConfig(p)
+	svc, cfg, err := databaseConfig(p)
+	if err != nil {
+		return err
+	}
+	dialect, err := dialectOf(svc)
 	if err != nil {
 		return err
 	}
 	if name == cfg.Database {
 		return fmt.Errorf("%w: %q is the project's primary database; remove the database service instead", validate.ErrInvalid, name)
 	}
-	if _, err := m.runSQL(ctx, p, cfg, fmt.Sprintf("DROP DATABASE `%s`", name)); err != nil {
+	if _, err := m.runSQL(ctx, p, svc, cfg, dialect.DropDatabase(name)); err != nil {
 		return err
 	}
 	m.audit.Log(ctx, audit.ActionDBDropped, "project", id, map[string]any{"name": p.Name, "database": name})
@@ -248,12 +284,15 @@ func (m *Manager) RotateDatabasePassword(ctx context.Context, id string) (View, 
 	if err != nil {
 		return View{}, err
 	}
+	dialect, err := dialectOf(svc)
+	if err != nil {
+		return View{}, err
+	}
 	next, err := runtime.GeneratePassword(runtime.PasswordLength)
 	if err != nil {
 		return View{}, err
 	}
-	stmt := fmt.Sprintf("ALTER USER '%s'@'%%' IDENTIFIED BY '%s'; FLUSH PRIVILEGES;", cfg.Username, next)
-	if _, err := m.runSQL(ctx, p, cfg, stmt); err != nil {
+	if _, err := m.runSQL(ctx, p, svc, cfg, dialect.AlterPassword(cfg.Username, next)); err != nil {
 		return View{}, err
 	}
 	cfg.Password = next
@@ -420,7 +459,10 @@ func (m *Manager) applyDatabaseUpdate(ctx context.Context, p store.Project, upd 
 			return false, err
 		}
 		if runtime.CompareVersions(v.Version, svc.Version) < 0 {
-			return false, fmt.Errorf("%w: downgrading MariaDB from %s to %s is not supported by the data format", validate.ErrInvalid, svc.Version, v.Version)
+			return false, fmt.Errorf("%w: downgrading %s from %s to %s is not supported by the data format", validate.ErrInvalid, svc.Variant, svc.Version, v.Version)
+		}
+		if d, _ := runtime.DialectFor(svc.Variant); !d.MajorUpgradeInPlace && v.Version != svc.Version {
+			return false, fmt.Errorf("%w: %s cannot upgrade an existing data directory from %s to %s in place; export, remove and re-add the database", validate.ErrInvalid, svc.Variant, svc.Version, v.Version)
 		}
 		var cfg runtime.DatabaseConfig
 		if err := json.Unmarshal(svc.Config, &cfg); err != nil {

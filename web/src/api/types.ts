@@ -156,6 +156,32 @@ export interface DatabaseCredentials {
   url: string;
 }
 
+export interface ExtraRequest {
+  version?: string;
+  exposePort?: boolean;
+}
+
+export interface ExtraUpdate {
+  enabled: boolean;
+  version?: string;
+  exposePort?: boolean;
+  removeData?: boolean;
+}
+
+export interface ExtraServiceInfo {
+  kind: string;
+  version: string;
+  image: string;
+  host: string;
+  port: number;
+  hostPort: number;
+  injectedEnv: string[];
+  state: string;
+  health?: string;
+  volumeName?: string;
+  webUiPort?: number;
+}
+
 export interface CreateProjectRequest {
   name: string;
   path?: string;
@@ -163,6 +189,8 @@ export interface CreateProjectRequest {
   php?: { version: string; config: PHPConfig } | null;
   node?: { version: string } | null;
   database?: DatabaseRequest | null;
+  redis?: ExtraRequest | null;
+  mailpit?: ExtraRequest | null;
   git?: GitRequest | null;
   web?: { type: string; version: string };
   env?: EnvVar[];
@@ -176,6 +204,8 @@ export interface UpdateProjectRequest {
   php?: { version: string; config: PHPConfig };
   node?: { enabled: boolean; version?: string };
   database?: DatabaseUpdate;
+  redis?: ExtraUpdate;
+  mailpit?: ExtraUpdate;
   env?: EnvVar[];
 }
 

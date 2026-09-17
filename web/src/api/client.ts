@@ -6,6 +6,7 @@ import type {
   DatabaseInfo,
   ActionInfo,
   DockerOverview,
+  ExtraServiceInfo,
   GitRequest,
   GitResult,
   GitStatus,
@@ -133,6 +134,7 @@ export const api = {
     plan: (id: string) => request<{ plan: Preview }>(`/projects/${encodeURIComponent(id)}/plan`),
     stats: (id: string) => request<{ stats: Usage; sampledAt: string }>(`/projects/${encodeURIComponent(id)}/stats`),
     actions: (id: string) => request<{ actions: ActionInfo[] }>(`/projects/${encodeURIComponent(id)}/actions`),
+    extras: (id: string) => request<{ services: ExtraServiceInfo[] }>(`/projects/${encodeURIComponent(id)}/extras`),
     logs: (id: string, kind: string, tail = 500) =>
       request<{ lines: LogLine[] }>(`/projects/${encodeURIComponent(id)}/services/${encodeURIComponent(kind)}/logs?tail=${tail}`),
   },

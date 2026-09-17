@@ -17,7 +17,7 @@ import (
 
 func serviceKind(r *http.Request) (store.ServiceKind, error) {
 	switch k := store.ServiceKind(r.PathValue("kind")); k {
-	case store.ServicePHP, store.ServiceWeb, store.ServiceDatabase, store.ServiceNode, store.ServiceRedis:
+	case store.ServicePHP, store.ServiceWeb, store.ServiceDatabase, store.ServiceNode, store.ServiceRedis, store.ServiceMailpit:
 		return k, nil
 	default:
 		return "", newError(http.StatusNotFound, "not_found", "unknown service")

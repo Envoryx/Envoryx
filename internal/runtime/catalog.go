@@ -126,26 +126,36 @@ func Default() *Catalog {
 		},
 	})
 	c.add(Runtime{
-		Key: "mysql", Name: "MySQL", Kind: "database", Available: false,
-		Description: "MySQL server (Phase 6)",
+		Key: "mysql", Name: "MySQL", Kind: "database", Available: true,
+		Description: "MySQL server with persistent volume and generated credentials",
 		Versions: []Version{
-			{Version: "8.4", Image: "mysql:8.4", Label: "MySQL 8.4", Default: true},
+			{Version: "9", Image: "mysql:9", Label: "MySQL 9 (innovation)"},
+			{Version: "8.4", Image: "mysql:8.4", Label: "MySQL 8.4 LTS", Default: true},
+			{Version: "8.0", Image: "mysql:8.0", Label: "MySQL 8.0"},
 		},
 	})
 	c.add(Runtime{
-		Key: "postgresql", Name: "PostgreSQL", Kind: "database", Available: false,
-		Description: "PostgreSQL server (Phase 6)",
+		Key: "postgresql", Name: "PostgreSQL", Kind: "database", Available: true,
+		Description: "PostgreSQL server with persistent volume and generated credentials",
 		Versions: []Version{
-			{Version: "17", Image: "postgres:17-alpine", Label: "PostgreSQL 17", Default: true},
+			{Version: "18", Image: "postgres:18-alpine", Label: "PostgreSQL 18", Default: true},
+			{Version: "17", Image: "postgres:17-alpine", Label: "PostgreSQL 17"},
 			{Version: "16", Image: "postgres:16-alpine", Label: "PostgreSQL 16"},
 		},
 	})
 	c.add(Runtime{
-		Key: "redis", Name: "Redis", Kind: "service", Available: false,
-		Description: "Redis cache (Phase 6)",
+		Key: "redis", Name: "Redis", Kind: "service", Available: true,
+		Description: "Redis cache/queue with persistent volume (REDIS_URL injected)",
 		Versions: []Version{
 			{Version: "8", Image: "redis:8-alpine", Label: "Redis 8", Default: true},
 			{Version: "7", Image: "redis:7-alpine", Label: "Redis 7"},
+		},
+	})
+	c.add(Runtime{
+		Key: "mailpit", Name: "Mailpit", Kind: "service", Available: true,
+		Description: "Catches outgoing mail (SMTP) with a web inbox (MAIL_* / MAILER_DSN injected)",
+		Versions: []Version{
+			{Version: "1.31", Image: "axllent/mailpit:v1.31", Label: "Mailpit 1.31", Default: true},
 		},
 	})
 	return c

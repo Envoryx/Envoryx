@@ -83,7 +83,8 @@ export const runtimesFixture: RuntimesResponse = {
     { key: "caddy", name: "Caddy", kind: "webserver", available: true, description: "", versions: [{ version: "2", image: "caddy:2-alpine", label: "Caddy 2", default: true }] },
     { key: "node", name: "Node.js", kind: "runtime", available: true, description: "", versions: [{ version: "24", image: "ghcr.io/seramos/staqio-node:24", label: "Node 24 LTS", default: true }, { version: "22", image: "ghcr.io/seramos/staqio-node:22", label: "Node 22 LTS" }] },
     { key: "mariadb", name: "MariaDB", kind: "database", available: true, description: "", versions: [{ version: "11", image: "mariadb:11", label: "MariaDB 11", default: true }, { version: "10.11", image: "mariadb:10.11", label: "MariaDB 10.11" }] },
-    { key: "redis", name: "Redis", kind: "service", available: false, description: "", versions: [{ version: "8", image: "redis:8", label: "Redis 8", default: true }] },
+    { key: "redis", name: "Redis", kind: "service", available: true, description: "", versions: [{ version: "8", image: "redis:8", label: "Redis 8", default: true }] },
+    { key: "mailpit", name: "Mailpit", kind: "service", available: true, description: "", versions: [{ version: "1.31", image: "axllent/mailpit:v1.31", label: "Mailpit 1.31", default: true }] },
   ],
   phpExtensions: [
     { name: "mbstring", description: "Multibyte", builtIn: true, available: true },

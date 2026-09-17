@@ -126,6 +126,10 @@ export function useUpdateProject(id: string) {
   });
 }
 
+export function useExtraServices(id: string) {
+  return useQuery({ queryKey: ["projects", id, "extras"], queryFn: async () => (await api.projects.extras(id)).services, refetchInterval: LIVE_INTERVAL });
+}
+
 export function useGitStatus(id: string, enabled = true) {
   return useQuery({ queryKey: ["projects", id, "git"], queryFn: async () => (await api.git.status(id)).git, enabled, retry: false });
 }

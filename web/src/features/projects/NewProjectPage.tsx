@@ -34,6 +34,10 @@ interface Form {
   dbType: string; // "" = none
   dbVersion: string;
   dbExpose: boolean;
+  redis: boolean;
+  redisVersion: string;
+  redisExpose: boolean;
+  mailpit: boolean;
   gitUrl: string;
   gitBranch: string;
   gitUsername: string;
@@ -73,6 +77,10 @@ export function NewProjectPage() {
         dbType: "",
         dbVersion: "",
         dbExpose: false,
+        redis: false,
+        redisVersion: runtimes.data.runtimes.find((r) => r.key === "redis")?.versions.find((v) => v.default)?.version ?? "",
+        redisExpose: false,
+        mailpit: false,
         gitUrl: "",
         gitBranch: "",
         gitUsername: "",
@@ -98,6 +106,8 @@ export function NewProjectPage() {
     if (form.phpEnabled) req.php = { version: form.phpVersion, config: form.phpConfig };
     if (form.nodeEnabled) req.node = { version: form.nodeVersion };
     if (form.dbType) req.database = { type: form.dbType, version: form.dbVersion, exposePort: form.dbExpose };
+    if (form.redis) req.redis = { version: form.redisVersion, exposePort: form.redisExpose };
+    if (form.mailpit) req.mailpit = {};
     if (form.gitUrl.trim()) {
       const git: NonNullable<CreateProjectRequest["git"]> = { url: form.gitUrl.trim(), branch: form.gitBranch.trim(), username: form.gitUsername.trim() };
       if (form.gitToken) git.token = form.gitToken;
@@ -329,14 +339,31 @@ export function NewProjectPage() {
                   </p>
                 </div>
               )}
-              <div>
-                <p className="mb-2 text-sm font-medium text-fg">Additional services</p>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {services.map((s) => (
-                    <label key={s.key} className="flex items-center gap-2.5 rounded-md border border-default px-3 py-2 text-sm opacity-60" title={s.description}>
-                      <input type="checkbox" disabled className="accent-accent-600" /> {s.name} <span className="text-xs text-subtle">soon</span>
-                    </label>
-                  ))}
+              <div className="space-y-3">
+                <p className="text-sm font-medium text-fg">Additional services</p>
+                <div className="rounded-md border border-default p-4 space-y-3">
+                  <Checkbox label="Redis" description="Cache and queue backend with a persistent volume. Injects REDIS_HOST, REDIS_PORT and REDIS_URL." checked={form.redis} onChange={(e) => set({ redis: e.target.checked })} />
+                  {form.redis && (
+                    <div className="grid gap-4 pl-7 sm:grid-cols-2">
+                      <Field label="Redis version" htmlFor="redis-version">
+                        <Select id="redis-version" value={form.redisVersion} onChange={(e) => set({ redisVersion: e.target.value })}>
+                          {services
+                            .find((s) => s.key === "redis")
+                            ?.versions.map((v) => (
+                              <option key={v.version} value={v.version}>
+                                {v.label}
+                              </option>
+                            ))}
+                        </Select>
+                      </Field>
+                      <div className="self-end pb-1">
+                        <Checkbox label="Publish port on the host" description="For RedisInsight etc." checked={form.redisExpose} onChange={(e) => set({ redisExpose: e.target.checked })} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div className="rounded-md border border-default p-4">
+                  <Checkbox label="Mailpit" description="Catches all outgoing mail and shows it in a web inbox (published on its own port). Injects MAIL_* and MAILER_DSN." checked={form.mailpit} onChange={(e) => set({ mailpit: e.target.checked })} />
                 </div>
               </div>
             </div>

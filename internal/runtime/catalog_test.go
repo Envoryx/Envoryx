@@ -30,8 +30,15 @@ func TestResolve(t *testing.T) {
 	if _, err := c.Resolve("php", "5.6"); !errors.Is(err, validate.ErrInvalid) {
 		t.Fatalf("unknown version must be invalid, got %v", err)
 	}
-	if _, err := c.Resolve("redis", ""); !errors.Is(err, validate.ErrInvalid) {
-		t.Fatalf("unavailable runtime must be invalid, got %v", err)
+	for _, key := range []string{"mariadb", "mysql", "postgresql", "redis", "mailpit", "node", "caddy"} {
+		if _, err := c.Resolve(key, ""); err != nil {
+			t.Errorf("%s must be available: %v", key, err)
+		}
+	}
+	for _, key := range []string{"mariadb", "mysql", "postgresql"} {
+		if _, ok := DialectFor(key); !ok {
+			t.Errorf("dialect for %s missing", key)
+		}
 	}
 	if _, err := c.Resolve("nope", ""); !errors.Is(err, validate.ErrInvalid) {
 		t.Fatalf("unknown runtime must be invalid, got %v", err)
