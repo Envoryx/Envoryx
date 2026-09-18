@@ -777,6 +777,31 @@ func TestBackupEndpoints(t *testing.T) {
 	}
 }
 
+func TestBackupScheduleEndpoint(t *testing.T) {
+	a := newApp(t)
+	a.setupAndLogin()
+	r := a.do(http.MethodPost, "/api/v1/projects", map[string]any{"name": "Sched", "php": map[string]any{"version": "8.4"}}, true)
+	if r.status != http.StatusCreated {
+		t.Fatalf("create: %d %s", r.status, r.raw)
+	}
+	id := r.body["project"].(map[string]any)["id"].(string)
+	if sch := r.body["project"].(map[string]any)["backupSchedule"].(map[string]any); sch["schedule"] != "" || sch["keep"].(float64) != 7 {
+		t.Fatalf("default schedule: %v", sch)
+	}
+	r = a.do(http.MethodPut, "/api/v1/projects/"+id+"/backups/schedule", map[string]any{"schedule": "weekly", "hour": 25, "keep": 4}, true)
+	if r.status != http.StatusUnprocessableEntity {
+		t.Fatalf("invalid hour: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodPut, "/api/v1/projects/"+id+"/backups/schedule", map[string]any{"schedule": "weekly", "hour": 2, "weekday": 6, "keep": 4, "includeDependencies": true}, true)
+	if r.status != http.StatusOK || r.body["schedule"].(map[string]any)["weekday"].(float64) != 6 {
+		t.Fatalf("set: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodGet, "/api/v1/projects/"+id, nil, false)
+	if sch := r.body["project"].(map[string]any)["backupSchedule"].(map[string]any); sch["schedule"] != "weekly" || sch["includeDependencies"] != true {
+		t.Fatalf("stored schedule: %v", sch)
+	}
+}
+
 func TestPublicHostSetting(t *testing.T) {
 	a := newApp(t)
 	a.setupAndLogin()

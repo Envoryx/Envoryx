@@ -76,7 +76,8 @@ type projectDTO struct {
 	Git          gitDTO       `json:"git"`
 	Hostnames    []string     `json:"hostnames"`
 	// DevHostname is set when the Node dev server is enabled (routed by the proxy).
-	DevHostname string `json:"devHostname,omitempty"`
+	DevHostname    string            `json:"devHostname,omitempty"`
+	BackupSchedule backupScheduleDTO `json:"backupSchedule"`
 }
 
 type gitDTO struct {
@@ -274,6 +275,7 @@ func (a *API) withHostnames(r *http.Request, dto projectDTO, p store.Project) pr
 			dto.Hostnames = append(dto.Hostnames, h.Hostname)
 		}
 	}
+	dto.BackupSchedule = toSchedule(p.Backup)
 	if svc := p.Service(store.ServiceNode); svc != nil && svc.Enabled && len(svc.Config) > 0 {
 		var cfg runtime.NodeConfig
 		if json.Unmarshal(svc.Config, &cfg) == nil && cfg.DevServer {

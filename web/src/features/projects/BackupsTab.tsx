@@ -1,10 +1,10 @@
-import { Archive, Download, RotateCcw, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { Archive, CalendarClock, Download, RotateCcw, Trash2 } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "@/api/client";
 import { keys } from "@/api/hooks";
-import type { BackupInfo, Project } from "@/api/types";
-import { Alert, Badge, Button, Card, CardHeader, Checkbox, Code, Dialog, ErrorState, Field, Input, Spinner } from "@/components/ui";
+import type { BackupInfo, BackupSchedule, Project } from "@/api/types";
+import { Alert, Badge, Button, Card, CardHeader, Checkbox, Code, Dialog, ErrorState, Field, Input, Select, Spinner } from "@/components/ui";
 import { formatBytes, formatDateTime } from "@/lib/format";
 
 export function BackupsTab({ project }: { project: Project }) {
@@ -74,6 +74,7 @@ export function BackupsTab({ project }: { project: Project }) {
   return (
     <div className="space-y-6">
       {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
+      <ScheduleCard project={project} onSaved={refresh} />
       <Card>
         <CardHeader
           title={
@@ -119,6 +120,7 @@ export function BackupsTab({ project }: { project: Project }) {
                 <div className="min-w-[14rem] flex-1">
                   <p className="text-sm font-medium text-fg">
                     {formatDateTime(b.createdAt)}
+                    {b.meta.source === "scheduled" && <Badge tone="blue" className="ml-2">scheduled</Badge>}
                     {b.meta.note && <span className="ml-2 font-normal text-muted">– {b.meta.note}</span>}
                   </p>
                   <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-subtle">
@@ -200,5 +202,80 @@ export function BackupsTab({ project }: { project: Project }) {
         }
       />
     </div>
+  );
+}
+
+const weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+function ScheduleCard({ project, onSaved }: { project: Project; onSaved: () => void }) {
+  const current = project.backupSchedule;
+  const [form, setForm] = useState<Omit<BackupSchedule, "lastRun">>({ schedule: current.schedule, hour: current.hour, weekday: current.weekday, keep: current.keep, includeDependencies: current.includeDependencies });
+  const [msg, setMsg] = useState<{ tone: "green" | "red"; text: string } | null>(null);
+  useEffect(() => {
+    setForm({ schedule: current.schedule, hour: current.hour, weekday: current.weekday, keep: current.keep, includeDependencies: current.includeDependencies });
+  }, [current.schedule, current.hour, current.weekday, current.keep, current.includeDependencies]);
+  const save = useMutation({
+    mutationFn: () => api.backups.setSchedule(project.id, form),
+    onSuccess: () => {
+      setMsg({ tone: "green", text: form.schedule ? "Schedule saved." : "Scheduled backups disabled." });
+      onSaved();
+    },
+    onError: (err) => setMsg({ tone: "red", text: err instanceof ApiError ? err.message : "Saving failed" }),
+  });
+  const set = (patch: Partial<typeof form>) => setForm((f) => ({ ...f, ...patch }));
+  const dirty = JSON.stringify(form) !== JSON.stringify({ schedule: current.schedule, hour: current.hour, weekday: current.weekday, keep: current.keep, includeDependencies: current.includeDependencies });
+
+  return (
+    <Card>
+      <CardHeader
+        title={
+          <span className="flex items-center gap-2">
+            <CalendarClock className="size-4 text-accent-500" aria-hidden /> Scheduled backups
+          </span>
+        }
+        description={current.lastRun ? `Last automatic backup ${formatDateTime(current.lastRun)}.` : "Automatic database + file backups; the oldest scheduled backups are removed beyond the keep count. Manual backups are never touched."}
+        actions={
+          <Button variant="primary" size="sm" loading={save.isPending} disabled={!dirty || (!!form.schedule && form.keep < 1)} onClick={() => { setMsg(null); save.mutate(); }}>
+            Save
+          </Button>
+        }
+      />
+      <div className="space-y-4 p-5">
+        {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
+        <div className="grid gap-4 sm:grid-cols-4">
+          <Field label="Frequency" htmlFor="sched-freq">
+            <Select id="sched-freq" value={form.schedule} onChange={(e) => set({ schedule: e.target.value as BackupSchedule["schedule"] })}>
+              <option value="">Off</option>
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+            </Select>
+          </Field>
+          {form.schedule === "weekly" && (
+            <Field label="Weekday" htmlFor="sched-day">
+              <Select id="sched-day" value={form.weekday} onChange={(e) => set({ weekday: Number(e.target.value) })}>
+                {weekdays.map((d, i) => (
+                  <option key={d} value={i}>{d}</option>
+                ))}
+              </Select>
+            </Field>
+          )}
+          {form.schedule && (
+            <>
+              <Field label="Time" htmlFor="sched-hour" hint="Server local time">
+                <Select id="sched-hour" value={form.hour} onChange={(e) => set({ hour: Number(e.target.value) })}>
+                  {Array.from({ length: 24 }, (_, h) => (
+                    <option key={h} value={h}>{String(h).padStart(2, "0")}:00</option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Keep" htmlFor="sched-keep" hint="Number of scheduled backups">
+                <Input id="sched-keep" type="number" min={1} max={365} value={form.keep} onChange={(e) => set({ keep: Number(e.target.value) })} />
+              </Field>
+            </>
+          )}
+        </div>
+        {form.schedule && <Checkbox label="Include vendor/ and node_modules/" description="Larger archives; usually not needed since dependencies can be reinstalled." checked={form.includeDependencies} onChange={(e) => set({ includeDependencies: e.target.checked })} />}
+      </div>
+    </Card>
   );
 }

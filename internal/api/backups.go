@@ -3,8 +3,10 @@ package api
 import (
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/seramos/staqio/internal/project"
+	"github.com/seramos/staqio/internal/store"
 )
 
 func (a *API) listBackups(w http.ResponseWriter, r *http.Request) {
@@ -82,4 +84,36 @@ func (a *API) downloadBackup(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(http.StatusOK)
 	_, _ = io.Copy(w, rc)
+}
+
+type backupScheduleDTO struct {
+	Schedule            string     `json:"schedule"`
+	Hour                int        `json:"hour"`
+	Weekday             int        `json:"weekday"`
+	Keep                int        `json:"keep"`
+	IncludeDependencies bool       `json:"includeDependencies"`
+	LastRun             *time.Time `json:"lastRun,omitempty"`
+}
+
+func toSchedule(b store.BackupSchedule) backupScheduleDTO {
+	dto := backupScheduleDTO{Schedule: b.Schedule, Hour: b.Hour, Weekday: b.Weekday, Keep: b.Keep, IncludeDependencies: b.IncludeDependencies}
+	if !b.LastRun.IsZero() {
+		lr := b.LastRun
+		dto.LastRun = &lr
+	}
+	return dto
+}
+
+func (a *API) setBackupSchedule(w http.ResponseWriter, r *http.Request) {
+	var req backupScheduleDTO
+	if err := decodeJSON(w, r, &req); err != nil {
+		writeError(w, r, err)
+		return
+	}
+	b, err := a.d.Projects.SetBackupSchedule(r.Context(), r.PathValue("id"), store.BackupSchedule{Schedule: req.Schedule, Hour: req.Hour, Weekday: req.Weekday, Keep: req.Keep, IncludeDependencies: req.IncludeDependencies})
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"schedule": toSchedule(b)})
 }

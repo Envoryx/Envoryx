@@ -186,6 +186,7 @@ func serve() error {
 
 	// 5. Reconcile desired vs. actual state, then keep doing so in the background.
 	go manager.RunReconciler(ctx, 30*time.Second, log)
+	go manager.RunBackupScheduler(ctx, time.Minute, log)
 	go func() {
 		t := time.NewTicker(time.Hour)
 		defer t.Stop()

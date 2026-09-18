@@ -41,6 +41,8 @@ type BackupOptions struct {
 	// IncludeDependencies keeps vendor/ and node_modules/ in the file archive.
 	IncludeDependencies bool
 	Note                string
+	// Source marks who created the backup ("manual" default, "scheduled").
+	Source string
 }
 
 // RestoreOptions select what to restore. Confirm must equal the project slug.
@@ -61,6 +63,7 @@ type BackupMeta struct {
 	Slug        string    `json:"slug"`
 	CreatedAt   time.Time `json:"createdAt"`
 	Note        string    `json:"note,omitempty"`
+	Source      string    `json:"source,omitempty"`
 	Database    *struct {
 		Type    string `json:"type"`
 		Version string `json:"version"`
@@ -227,7 +230,7 @@ func (m *Manager) createBackup(ctx context.Context, id string, opts BackupOption
 		return BackupInfo{}, fmt.Errorf("%s: %w", step, cause)
 	}
 
-	meta := BackupMeta{Format: backupFormat, Staqio: paths.StaqioVersion, ProjectID: p.ID, ProjectName: p.Name, Slug: p.Slug, CreatedAt: time.Now().UTC(), Note: strings.TrimSpace(opts.Note), Runtimes: map[string]string{}}
+	meta := BackupMeta{Format: backupFormat, Staqio: paths.StaqioVersion, ProjectID: p.ID, ProjectName: p.Name, Slug: p.Slug, CreatedAt: time.Now().UTC(), Note: strings.TrimSpace(opts.Note), Source: opts.Source, Runtimes: map[string]string{}}
 	for _, s := range p.Services {
 		if s.Enabled {
 			meta.Runtimes[string(s.Kind)] = s.Variant + " " + s.Version

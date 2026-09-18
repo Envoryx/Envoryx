@@ -601,6 +601,11 @@ expiry in a background loop; config/token under `/config/ca/acme.json`
   tar-slip protection (entries and symlink targets must stay inside the
   project directory; never writes through an existing symlink). Records live
   in the `backups` table; a download streams the directory as one tar.
+  Schedules (migration 0004: `backup_schedule/hour/weekday/keep/include_deps/
+  last_run` on projects) are driven by a one-minute ticker: a project is due
+  when the last run precedes the most recent slot; the run is recorded before
+  the backup so failures wait for the next slot; retention deletes the oldest
+  backups with `meta.source == "scheduled"` beyond `keep`.
 - **Phase 9 MCP** (implemented, `internal/mcpserver`): an embedded MCP server
   (official `modelcontextprotocol/go-sdk`, streamable HTTP, stateless, JSON
   responses) mounted at `/mcp` outside the cookie/CSRF scheme. It only

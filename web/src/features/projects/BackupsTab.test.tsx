@@ -12,6 +12,25 @@ const backup = {
 describe("BackupsTab", () => {
   afterEach(() => vi.unstubAllGlobals());
 
+  it("saves a weekly backup schedule", async () => {
+    const api = mockApi({
+      ...authedRoutes,
+      [`GET /projects/${id}/backups`]: () => ({ body: { backups: [] } }),
+      [`PUT /projects/${id}/backups/schedule`]: (_u, init) => ({ body: { schedule: JSON.parse(init.body as string) } }),
+    });
+    renderApp(<BackupsTab project={makeProject()} />);
+    const user = userEvent.setup();
+    await user.selectOptions(await screen.findByLabelText("Frequency"), "weekly");
+    await user.selectOptions(screen.getByLabelText("Weekday"), "6");
+    await user.selectOptions(screen.getByLabelText("Time"), "2");
+    await user.clear(screen.getByLabelText("Keep"));
+    await user.type(screen.getByLabelText("Keep"), "4");
+    await user.click(screen.getAllByRole("button", { name: "Save" })[0]!);
+    await waitFor(() => expect(api.calls.some((c) => c.method === "PUT")).toBe(true));
+    expect(api.calls.find((c) => c.method === "PUT")!.body).toEqual({ schedule: "weekly", hour: 2, weekday: 6, keep: 4, includeDependencies: false });
+    expect(await screen.findByText("Schedule saved.")).toBeInTheDocument();
+  });
+
   it("creates a backup and requires typed confirmation to restore", async () => {
     const api = mockApi({
       ...authedRoutes,

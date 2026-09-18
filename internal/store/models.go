@@ -69,11 +69,28 @@ type Project struct {
 	Lifecycle    Lifecycle
 	LastError    string
 	Git          GitConfig
+	Backup       BackupSchedule
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 
 	Services []ProjectService
 	Env      []EnvVar
+}
+
+// BackupSchedule configures automatic backups of a project.
+type BackupSchedule struct {
+	// Schedule is "" (off), "daily" or "weekly".
+	Schedule string
+	// Hour of day (local time) the backup runs at.
+	Hour int
+	// Weekday for weekly schedules (0 = Sunday).
+	Weekday int
+	// Keep is how many scheduled backups are retained (older ones are deleted).
+	Keep int
+	// IncludeDependencies keeps vendor/ and node_modules/ in the file archive.
+	IncludeDependencies bool
+	// LastRun is when the schedule last produced a backup (zero = never).
+	LastRun time.Time
 }
 
 // GitConfig is the optional repository binding of a project. Token is a secret and must

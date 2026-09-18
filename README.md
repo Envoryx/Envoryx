@@ -57,7 +57,8 @@ Staqio is under active development. The current milestone (Phase 1 + 2) delivers
 
 - backups per project: database dump + project files (optionally without
   vendor/node_modules) + configuration under `/config/backups/<project>/`,
-  restore with typed confirmation, download as a single archive
+  restore with typed confirmation, download as a single archive; daily/weekly
+  schedules with retention per project
 
 - notifications (ntfy, Discord, Slack, Telegram, e-mail, generic webhook) for
   unhealthy projects (and their recovery), failed project creation, failed

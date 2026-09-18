@@ -89,6 +89,7 @@ export interface Project {
   hostnames: string[];
   /** Set when the Node dev server is enabled (routed by the proxy). */
   devHostname?: string;
+  backupSchedule: BackupSchedule;
 }
 
 export interface RuntimeVersion {
@@ -537,9 +538,19 @@ export interface BackupMeta {
   slug: string;
   createdAt: string;
   note?: string;
+  source?: string;
   database?: { type: string; version: string; name: string; bytes: number };
   files?: { bytes: number; entries: number; includeDependencies: boolean };
   runtimes: Record<string, string>;
+}
+
+export interface BackupSchedule {
+  schedule: "" | "daily" | "weekly";
+  hour: number;
+  weekday: number;
+  keep: number;
+  includeDependencies: boolean;
+  lastRun?: string;
 }
 
 export interface BackupInfo {

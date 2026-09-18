@@ -6,19 +6,26 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 )
 
 // Projects is the repository for projects, their services and environment variables.
 type Projects struct{ db *sql.DB }
 
-const projectColumns = `id, name, slug, path, docroot, desired_state, http_port, lifecycle, last_error, git_url, git_branch, git_username, git_token, created_at, updated_at`
+const projectColumns = `id, name, slug, path, docroot, desired_state, http_port, lifecycle, last_error, git_url, git_branch, git_username, git_token, backup_schedule, backup_hour, backup_weekday, backup_keep, backup_include_deps, backup_last_run, created_at, updated_at`
 
 func scanProject(row interface{ Scan(...any) error }) (Project, error) {
 	var p Project
 	var port sql.NullInt64
-	var created, updated, desired, lifecycle string
-	if err := row.Scan(&p.ID, &p.Name, &p.Slug, &p.Path, &p.Docroot, &desired, &port, &lifecycle, &p.LastError, &p.Git.URL, &p.Git.Branch, &p.Git.Username, &p.Git.Token, &created, &updated); err != nil {
+	var created, updated, desired, lifecycle, lastRun string
+	var includeDeps int
+	if err := row.Scan(&p.ID, &p.Name, &p.Slug, &p.Path, &p.Docroot, &desired, &port, &lifecycle, &p.LastError, &p.Git.URL, &p.Git.Branch, &p.Git.Username, &p.Git.Token,
+		&p.Backup.Schedule, &p.Backup.Hour, &p.Backup.Weekday, &p.Backup.Keep, &includeDeps, &lastRun, &created, &updated); err != nil {
 		return Project{}, err
+	}
+	p.Backup.IncludeDependencies = includeDeps == 1
+	if lastRun != "" {
+		p.Backup.LastRun = parseTime(lastRun)
 	}
 	p.DesiredState = DesiredState(desired)
 	p.Lifecycle = Lifecycle(lifecycle)
@@ -51,9 +58,16 @@ func (r *Projects) Create(ctx context.Context, p *Project) error {
 	if p.HTTPPort > 0 {
 		port = p.HTTPPort
 	}
-	_, err = tx.ExecContext(ctx, `INSERT INTO projects (`+projectColumns+`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+	if p.Backup.Keep == 0 {
+		p.Backup.Keep = 7
+	}
+	if p.Backup.Hour == 0 && p.Backup.Schedule == "" {
+		p.Backup.Hour = 3
+	}
+	_, err = tx.ExecContext(ctx, `INSERT INTO projects (`+projectColumns+`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		p.ID, p.Name, p.Slug, p.Path, p.Docroot, string(p.DesiredState), port, string(p.Lifecycle), p.LastError,
 		p.Git.URL, p.Git.Branch, p.Git.Username, p.Git.Token,
+		p.Backup.Schedule, p.Backup.Hour, p.Backup.Weekday, p.Backup.Keep, boolInt(p.Backup.IncludeDependencies), "",
 		formatTime(p.CreatedAt), formatTime(p.UpdatedAt))
 	if err != nil {
 		if isUniqueViolation(err) {
@@ -232,6 +246,28 @@ func (r *Projects) UpdateSettings(ctx context.Context, id, name, docroot string)
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
 		return ErrNotFound
+	}
+	return nil
+}
+
+// UpdateBackupSchedule stores the schedule (LastRun untouched).
+func (r *Projects) UpdateBackupSchedule(ctx context.Context, id string, b BackupSchedule) error {
+	res, err := r.db.ExecContext(ctx,
+		`UPDATE projects SET backup_schedule = ?, backup_hour = ?, backup_weekday = ?, backup_keep = ?, backup_include_deps = ?, updated_at = ? WHERE id = ?`,
+		b.Schedule, b.Hour, b.Weekday, b.Keep, boolInt(b.IncludeDependencies), formatTime(now()), id)
+	if err != nil {
+		return fmt.Errorf("update backup schedule: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// SetBackupLastRun records when the schedule last ran.
+func (r *Projects) SetBackupLastRun(ctx context.Context, id string, at time.Time) error {
+	if _, err := r.db.ExecContext(ctx, `UPDATE projects SET backup_last_run = ? WHERE id = ?`, formatTime(at), id); err != nil {
+		return fmt.Errorf("set backup last run: %w", err)
 	}
 	return nil
 }

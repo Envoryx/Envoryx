@@ -303,6 +303,11 @@ are plain directories – include `/config` in your regular Unraid backup
 (e.g. Appdata Backup plugin) to get them off the machine, or use the
 per-backup download.
 
+**Scheduled backups**: Backups tab → *Scheduled backups*: daily or weekly at
+a given hour (server local time – set `TZ` on the container for your zone),
+keep the last N scheduled backups (manual ones are never deleted), optionally
+including `vendor/`/`node_modules/`. Failures raise a notification.
+
 For Staqio itself back up `/config` (SQLite database, generated configuration,
 deploy key, backups) and `/projects`.
 

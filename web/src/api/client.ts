@@ -9,6 +9,7 @@ import type {
   ActionInfo,
   APIToken,
   BackupInfo,
+  BackupSchedule,
   DockerOverview,
   DomainEntry,
   ExtraServiceInfo,
@@ -183,6 +184,8 @@ export const api = {
       request<void>(`/projects/${encodeURIComponent(id)}/backups/${encodeURIComponent(backupId)}`, { method: "DELETE" }),
     restore: (id: string, backupId: string, body: { database: boolean; files: boolean; wipeFiles: boolean; confirm: string }) =>
       request<{ backup: BackupInfo }>(`/projects/${encodeURIComponent(id)}/backups/${encodeURIComponent(backupId)}/restore`, { method: "POST", body }),
+    setSchedule: (id: string, body: Omit<BackupSchedule, "lastRun">) =>
+      request<{ schedule: BackupSchedule }>(`/projects/${encodeURIComponent(id)}/backups/schedule`, { method: "PUT", body }),
   },
 
   git: {
