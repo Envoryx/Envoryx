@@ -51,6 +51,7 @@ export interface PHPConfig {
   errorReporting: string;
   extensions: string[];
   xdebug?: boolean;
+  xdebugMode?: "always" | "trigger";
   xdebugIdeKey?: string;
   xdebugClientHost?: string;
 }

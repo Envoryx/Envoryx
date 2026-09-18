@@ -107,7 +107,13 @@ export function PhpConfigForm({
         />
         {value.xdebug && (
           <>
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-3">
+              <Field label="Mode" htmlFor="php-xmode" hint={value.xdebugMode === "trigger" ? "Only requests with the XDEBUG_TRIGGER cookie/parameter (browser extension) are debugged – no slowdown otherwise." : "Every request connects to the IDE; noticeably slower."}>
+                <Select id="php-xmode" value={value.xdebugMode ?? "always"} onChange={(e) => set("xdebugMode", e.target.value as "always" | "trigger")}>
+                  <option value="always">Always</option>
+                  <option value="trigger">Trigger (browser extension)</option>
+                </Select>
+              </Field>
               <Field label="IDE key" htmlFor="php-idekey" hint="PHPSTORM (default) or e.g. VSCODE">
                 <Input id="php-idekey" value={value.xdebugIdeKey ?? "PHPSTORM"} onChange={(e) => set("xdebugIdeKey", e.target.value)} spellCheck={false} />
               </Field>
@@ -124,7 +130,8 @@ export function PhpConfigForm({
                 <li>
                   <span className="font-medium text-fg">VS Code</span> (PHP Debug extension), <Code>.vscode/launch.json</Code>: <Code>{`{"type":"php","request":"launch","name":"Staqio","port":9003,"pathMappings":{"/var/www/html":"\${workspaceFolder}"}}`}</Code>
                 </li>
-                <li>Firewall: port 9003 must be reachable on your machine. Xdebug connects back for every request while enabled.</li>
+                <li>Firewall: port 9003 must be reachable on your machine.</li>
+                <li>Trigger mode: install “Xdebug helper” (Chrome/Firefox) or JetBrains’ browser extension and switch it to “Debug” on the project tab; CLI: <Code>XDEBUG_TRIGGER=1 php artisan …</Code>.</li>
               </ul>
             </details>
           </>

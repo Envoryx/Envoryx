@@ -260,6 +260,9 @@ type PHPConfig struct {
 	Extensions        []string `json:"extensions"`
 	// Xdebug enables step debugging (zend_extension, mode debug+develop, port 9003).
 	Xdebug bool `json:"xdebug"`
+	// XdebugMode is "always" (every request) or "trigger" (only with the XDEBUG_TRIGGER
+	// cookie/parameter set by the IDE browser extension); default always.
+	XdebugMode string `json:"xdebugMode,omitempty"`
 	// XdebugIDEKey is sent to the IDE (default PHPSTORM).
 	XdebugIDEKey string `json:"xdebugIdeKey,omitempty"`
 	// XdebugClientHost overrides the debugger host for this project; empty = discovered
@@ -322,6 +325,14 @@ func (c *PHPConfig) Normalize() error {
 	c.XdebugIDEKey = strings.TrimSpace(c.XdebugIDEKey)
 	if c.XdebugIDEKey == "" {
 		c.XdebugIDEKey = "PHPSTORM"
+	}
+	c.XdebugMode = strings.ToLower(strings.TrimSpace(c.XdebugMode))
+	switch c.XdebugMode {
+	case "":
+		c.XdebugMode = "always"
+	case "always", "trigger":
+	default:
+		return fmt.Errorf("%w: Xdebug mode must be always or trigger", validate.ErrInvalid)
 	}
 	if !ideKeyRe.MatchString(c.XdebugIDEKey) {
 		return fmt.Errorf("%w: invalid Xdebug IDE key", validate.ErrInvalid)
@@ -414,8 +425,12 @@ func (c PHPConfig) INIWith(phpVersion string, opts INIOptions) string {
 		if host == "" {
 			host = "host.docker.internal"
 		}
+		start := "yes"
+		if c.XdebugMode == "trigger" {
+			start = "trigger"
+		}
 		b.WriteString("zend_extension=xdebug\n")
-		b.WriteString("xdebug.mode=debug,develop\nxdebug.start_with_request=yes\nxdebug.client_port=9003\n")
+		fmt.Fprintf(&b, "xdebug.mode=debug,develop\nxdebug.start_with_request=%s\nxdebug.client_port=9003\n", start)
 		// Behind Staqio's proxy the browser address arrives in X-Forwarded-For.
 		b.WriteString("xdebug.discover_client_host=1\nxdebug.client_discovery_header=HTTP_X_FORWARDED_FOR\n")
 		fmt.Fprintf(&b, "xdebug.client_host=%s\n", host)

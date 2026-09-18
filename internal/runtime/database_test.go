@@ -45,6 +45,10 @@ func TestXdebugINI(t *testing.T) {
 			t.Fatalf("ini missing %q:\n%s", want, ini)
 		}
 	}
+	cfg.XdebugMode = "trigger"
+	if ini := cfg.INI("8.4"); !strings.Contains(ini, "xdebug.start_with_request=trigger") {
+		t.Fatalf("trigger mode: %s", ini)
+	}
 	cfg.XdebugClientHost = "dev.lan"
 	if !strings.Contains(cfg.INIWith("8.4", INIOptions{XdebugClientHost: "192.168.1.20"}), "xdebug.client_host=dev.lan") {
 		t.Fatal("project override must win")
