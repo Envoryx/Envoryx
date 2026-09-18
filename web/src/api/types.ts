@@ -84,6 +84,8 @@ export interface Project {
   git: { url: string; branch: string; username: string; hasToken: boolean };
   /** Default hostname (slug.base) followed by extra domains. */
   hostnames: string[];
+  /** Set when the Node dev server is enabled (routed by the proxy). */
+  devHostname?: string;
 }
 
 export interface RuntimeVersion {
@@ -184,12 +186,38 @@ export interface ExtraServiceInfo {
   webUiPort?: number;
 }
 
+/** Node.js service with optional dev-server mode (script runs as the container's main process). */
+export interface NodeRequest {
+  version: string;
+  devServer?: boolean;
+  packageManager?: string;
+  script?: string;
+  port?: number;
+  preset?: string;
+}
+
+/** Stored Node service config (from project.services[kind=node].config). */
+export interface NodeConfig {
+  devServer?: boolean;
+  packageManager?: string;
+  script?: string;
+  port?: number;
+  preset?: string;
+  hostPort?: number;
+}
+
+export const nodePresets: Record<string, string> = {
+  vite: "Vite (Laravel, Vue, React, Svelte…)",
+  next: "Next.js",
+  generic: "Other (HOST/PORT env only)",
+};
+
 export interface CreateProjectRequest {
   name: string;
   path?: string;
   docroot?: string;
   php?: { version: string; config: PHPConfig } | null;
-  node?: { version: string } | null;
+  node?: NodeRequest | null;
   database?: DatabaseRequest | null;
   redis?: ExtraRequest | null;
   mailpit?: ExtraRequest | null;
@@ -204,7 +232,7 @@ export interface UpdateProjectRequest {
   name?: string;
   docroot?: string;
   php?: { version: string; config: PHPConfig };
-  node?: { enabled: boolean; version?: string };
+  node?: ({ enabled: true } & NodeRequest) | { enabled: false };
   database?: DatabaseUpdate;
   redis?: ExtraUpdate;
   mailpit?: ExtraUpdate;

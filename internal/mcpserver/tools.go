@@ -203,6 +203,7 @@ type createProjectIn struct {
 	Redis         bool              `json:"redis,omitempty" jsonschema:"Add a Redis service."`
 	Mailpit       bool              `json:"mailpit,omitempty" jsonschema:"Add Mailpit (SMTP catcher with web inbox)."`
 	NodeVersion   string            `json:"nodeVersion,omitempty" jsonschema:"Add a Node.js toolchain container with this major version (e.g. 24)."`
+	NodeDevServer bool              `json:"nodeDevServer,omitempty" jsonschema:"Run the package.json dev script as a dev server (Vite preset; reachable at <slug>-dev.<base domain>). Requires nodeVersion."`
 	Docroot       string            `json:"docroot,omitempty" jsonschema:"Document root relative to the project directory, e.g. public. Default: project root (public/ for Laravel/Symfony)."`
 	GitURL        string            `json:"gitUrl,omitempty" jsonschema:"Repository to clone into the new project (https://… or git@…)."`
 	GitBranch     string            `json:"gitBranch,omitempty" jsonschema:"Branch to check out."`
@@ -232,7 +233,7 @@ func (s *Server) createProject(ctx context.Context, _ *mcp.CallToolRequest, in c
 		req.Mailpit = &project.ExtraRequest{}
 	}
 	if v := strings.TrimSpace(in.NodeVersion); v != "" {
-		req.Node = &project.NodeRequest{Version: v}
+		req.Node = &project.NodeRequest{Version: v, Config: runtime.NodeConfig{DevServer: in.NodeDevServer}}
 	}
 	if u := strings.TrimSpace(in.GitURL); u != "" {
 		req.Git = &project.GitRequest{URL: u, Branch: strings.TrimSpace(in.GitBranch)}

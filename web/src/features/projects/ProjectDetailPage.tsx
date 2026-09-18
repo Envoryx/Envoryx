@@ -3,8 +3,9 @@ import { Trash2, Save, ExternalLink } from "lucide-react";
 import { lazy, Suspense, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ApiError } from "@/api/client";
-import { useProject, useProjectLinks, useProjectPlan, useProjectStats, useRuntimes, useUpdateProject } from "@/api/hooks";
-import type { EnvVar, PHPConfig, Project } from "@/api/types";
+import { useDevServerLink, useProject, useProjectLinks, useProjectPlan, useProjectStats, useRuntimes, useUpdateProject } from "@/api/hooks";
+import type { EnvVar, NodeConfig, PHPConfig, Project } from "@/api/types";
+import { NodeDevServerFields, devServerRequest, type DevServerForm } from "./NodeDevServerFields";
 import { Alert, Badge, Button, Card, CardHeader, Checkbox, Code, ErrorState, Field, Input, PageHeader, Select, Spinner, StatusDot } from "@/components/ui";
 import { containerStateTone, formatBytes, formatDateTime, formatPercent, serviceLabel, stateMeta } from "@/lib/format";
 import { DeleteProjectDialog, ProjectActionButtons, useActionError } from "./ProjectActions";
@@ -27,6 +28,7 @@ export function ProjectDetailPage() {
   const { id = "" } = useParams();
   const q = useProject(id);
   const links = useProjectLinks();
+  const devLink = useDevServerLink();
   const [tab, setTab] = useState<Tab>("Overview");
   const [deleting, setDeleting] = useState(false);
   const { error, capture, setError } = useActionError();
@@ -39,6 +41,7 @@ export function ProjectDetailPage() {
   const p = q.data;
   const meta = stateMeta[p.status.state];
   const { url } = links(p);
+  const devUrl = devLink(p);
 
   return (
     <div>
@@ -60,6 +63,14 @@ export function ProjectDetailPage() {
               </a>
             ) : (
               "no port"
+            )}
+            {devUrl && (
+              <>
+                {" · dev: "}
+                <a href={devUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 hover:underline">
+                  {devUrl} <ExternalLink className="size-3" />
+                </a>
+              </>
             )}
           </span>
         }
@@ -289,22 +300,36 @@ function PhpTab({ project: p }: { project: Project }) {
 function NodeCard({ project: p }: { project: Project }) {
   const runtimes = useRuntimes();
   const update = useUpdateProject(p.id);
+  const devLink = useDevServerLink();
   const { msg, setMsg } = useSaveFeedback();
   const svc = p.services.find((s) => s.kind === "node" && s.enabled);
   const node = runtimes.data?.runtimes.find((r) => r.key === "node");
+  const stored = (svc?.config ?? {}) as NodeConfig;
+  const fromStored = (): DevServerForm => ({
+    devServer: !!stored.devServer,
+    packageManager: stored.packageManager ?? "npm",
+    script: stored.script ?? "dev",
+    port: String(stored.port ?? 5173),
+    preset: stored.preset ?? "vite",
+  });
   const [enabled, setEnabled] = useState(!!svc);
   const [version, setVersion] = useState(svc?.version ?? "");
+  const [dev, setDev] = useState<DevServerForm>(fromStored);
   useEffect(() => {
     setEnabled(!!svc);
     setVersion(svc?.version ?? node?.versions.find((v) => v.default)?.version ?? "");
+    setDev(fromStored());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [svc, node]);
-  const dirty = enabled !== !!svc || (enabled && version !== (svc?.version ?? ""));
+  const dirty = enabled !== !!svc || (enabled && (version !== (svc?.version ?? "") || JSON.stringify(dev) !== JSON.stringify(fromStored())));
+  const url = devLink(p);
+  const nodeStatus = p.status.services.find((s) => s.kind === "node");
 
   return (
     <Card>
       <CardHeader
         title="Node.js"
-        description="Toolchain container for asset builds (npm, pnpm, yarn). Removing it only removes the container; node_modules stays in the project directory."
+        description="Toolchain container for asset builds (npm, pnpm, yarn), optionally running your dev server. Removing it only removes the container; node_modules stays in the project directory."
         actions={
           <Button
             variant="primary"
@@ -313,7 +338,7 @@ function NodeCard({ project: p }: { project: Project }) {
             disabled={!dirty}
             onClick={() =>
               update.mutate(
-                { node: enabled ? { enabled: true, version } : { enabled: false } },
+                { node: enabled ? { enabled: true, version, ...devServerRequest(dev) } : { enabled: false } },
                 {
                   onSuccess: () => setMsg({ tone: "green", text: enabled ? "Node.js container updated." : "Node.js container removed." }),
                   onError: (err) => setMsg({ tone: "red", text: err instanceof ApiError ? err.message : "Saving failed" }),
@@ -327,6 +352,24 @@ function NodeCard({ project: p }: { project: Project }) {
       />
       <div className="space-y-4 p-5">
         {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
+        {stored.devServer && (
+          <div className="flex flex-wrap items-center gap-3 rounded-md border border-default px-3 py-2 text-sm">
+            <span className="text-muted">Dev server</span>
+            {nodeStatus && (
+              <span className="inline-flex items-center gap-1.5 text-xs">
+                <StatusDot tone={containerStateTone(nodeStatus.state)} /> {nodeStatus.state}
+              </span>
+            )}
+            {url ? (
+              <a href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-mono text-xs text-accent-600 hover:underline dark:text-accent-300">
+                {url} <ExternalLink className="size-3" />
+              </a>
+            ) : (
+              <span className="text-xs text-subtle">no port</span>
+            )}
+            {stored.hostPort ? <span className="font-mono text-xs text-subtle">host port {stored.hostPort}</span> : null}
+          </div>
+        )}
         <Checkbox label="Enable Node.js" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
         {enabled && node && (
           <Field label="Node.js version" htmlFor="node-version">
@@ -340,6 +383,7 @@ function NodeCard({ project: p }: { project: Project }) {
             </Select>
           </Field>
         )}
+        {enabled && <NodeDevServerFields value={dev} onChange={setDev} />}
       </div>
     </Card>
   );

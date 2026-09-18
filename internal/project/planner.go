@@ -34,6 +34,8 @@ type Paths struct {
 	// SelfContainerID is Staqio's own container id ("" when running on bare metal). The
 	// embedded proxy joins project networks through it.
 	SelfContainerID string
+	// BaseDomain is the proxy base domain (for dev-server host allow-lists).
+	BaseDomain string
 }
 
 // FilePlan is a generated configuration file.
@@ -185,25 +187,40 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 			images[svc.Image] = true
 
 		case store.ServiceNode:
-			plan.Containers = append(plan.Containers, ContainerPlan{
-				Kind:  store.ServiceNode,
-				Order: 15,
-				Spec: docker.ContainerSpec{
-					Name:   ContainerName(proj.Slug, store.ServiceNode),
-					Image:  svc.Image,
-					Labels: labels,
-					// Tooling container: idles until actions or the terminal run commands.
-					Cmd:           []string{"sleep", "infinity"},
-					Env:           append(append([]string{}, env...), "HOME=/tmp", "npm_config_cache=/tmp/npm", "NODE_ENV=development"),
-					User:          fmt.Sprintf("%d:%d", p.paths.PUID, p.paths.PGID),
-					WorkingDir:    appMountTarget,
-					Network:       plan.NetworkName,
-					NetworkAlias:  []string{"node"},
-					Mounts:        []docker.MountSpec{{Type: "bind", Source: appHost, Target: appMountTarget}},
-					RestartPolicy: "unless-stopped",
-					StopTimeout:   5,
-				},
-			})
+			var ncfg runtime.NodeConfig
+			if len(svc.Config) > 0 {
+				if err := json.Unmarshal(svc.Config, &ncfg); err != nil {
+					return Plan{}, fmt.Errorf("node config: %w", err)
+				}
+			}
+			if err := ncfg.Normalize(); err != nil {
+				return Plan{}, err
+			}
+			spec := docker.ContainerSpec{
+				Name:   ContainerName(proj.Slug, store.ServiceNode),
+				Image:  svc.Image,
+				Labels: labels,
+				// Tooling container: idles until actions or the terminal run commands.
+				Cmd:           []string{"sleep", "infinity"},
+				Env:           append(append([]string{}, env...), "HOME=/tmp", "npm_config_cache=/tmp/npm", "NODE_ENV=development"),
+				User:          fmt.Sprintf("%d:%d", p.paths.PUID, p.paths.PGID),
+				WorkingDir:    appMountTarget,
+				Network:       plan.NetworkName,
+				NetworkAlias:  []string{"node"},
+				Mounts:        []docker.MountSpec{{Type: "bind", Source: appHost, Target: appMountTarget}},
+				RestartPolicy: "unless-stopped",
+				StopTimeout:   5,
+			}
+			if ncfg.DevServer {
+				// Dev-server mode: the script is the main process; the proxy routes
+				// <slug>-dev.<base> to it and the host port publishes it directly.
+				spec.Cmd = ncfg.Command()
+				spec.Env = append(spec.Env, ncfg.Env(DevHostname(proj.Slug, p.paths.BaseDomain))...)
+				if ncfg.HostPort > 0 {
+					spec.Ports = []docker.PortSpec{{HostIP: p.paths.PublishInterface, HostPort: ncfg.HostPort, ContainerPort: ncfg.Port, Protocol: "tcp"}}
+				}
+			}
+			plan.Containers = append(plan.Containers, ContainerPlan{Kind: store.ServiceNode, Order: 15, Spec: spec})
 			images[svc.Image] = true
 
 		case store.ServiceDatabase:

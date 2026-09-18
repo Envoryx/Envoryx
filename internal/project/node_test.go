@@ -2,83 +2,87 @@ package project
 
 import (
 	"context"
-	"errors"
+	"encoding/json"
 	"strings"
 	"testing"
 
+	"github.com/seramos/staqio/internal/runtime"
 	"github.com/seramos/staqio/internal/store"
-	"github.com/seramos/staqio/internal/validate"
 )
 
-func TestNodeServiceLifecycle(t *testing.T) {
+func TestNodeDevServer(t *testing.T) {
 	e := newEnv(t)
+	e.selfID = "staqio-self"
+	e.engine.AddForeignContainer("staqio-self", "ghcr.io/seramos/staqio", "running")
 	ctx := context.Background()
-	req := phpRequest("Front", true)
-	req.Node = &NodeRequest{Version: "22"}
-	view, err := e.m.Create(ctx, req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	node, ok := e.engine.Container("staqio-front-node")
-	if !ok || node.State != "running" || node.Spec.Image != "ghcr.io/seramos/staqio-node:22" {
-		t.Fatalf("node container: %+v", node)
-	}
-	if node.Spec.User != "1000:1000" || node.Spec.WorkingDir != "/var/www/html" || strings.Join(node.Spec.Cmd, " ") != "sleep infinity" {
-		t.Fatalf("node spec: %+v", node.Spec)
-	}
-	if node.Spec.Mounts[0].Source != "/host/development/front" || node.Spec.Mounts[0].ReadOnly {
-		t.Fatalf("node must mount the project rw: %+v", node.Spec.Mounts)
-	}
-	env := strings.Join(node.Spec.Env, "\n")
-	if !strings.Contains(env, "APP_ENV=local") || !strings.Contains(env, "HOME=/tmp") {
-		t.Fatalf("node env: %v", node.Spec.Env)
-	}
-	calls := strings.Join(e.engine.Calls, " ")
-	if strings.Index(calls, "start:staqio-front-php") > strings.Index(calls, "start:staqio-front-node") || strings.Index(calls, "start:staqio-front-node") > strings.Index(calls, "start:staqio-front-web") {
-		t.Fatalf("start order php → node → web expected: %s", calls)
-	}
-	if len(view.Status.Services) != 3 {
-		t.Fatalf("services: %+v", view.Status.Services)
-	}
 
-	// Actions for node become available once package.json exists.
-	infos, err := e.m.ListActions(ctx, view.Project.ID)
+	req := phpRequest("Shop", true)
+	req.Node = &NodeRequest{Version: "24", Config: runtime.NodeConfig{DevServer: true, Preset: "vite", Script: "dev"}}
+	v, err := e.m.Create(ctx, req)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, i := range infos {
-		if i.ID == "npm:install" && (i.Available || !strings.Contains(i.Reason, "package.json")) {
-			t.Fatalf("npm:install availability: %+v", i)
+	c, ok := e.engine.Container("staqio-shop-node")
+	if !ok {
+		t.Fatal("node container missing")
+	}
+	if got := strings.Join(c.Spec.Cmd, " "); got != "npm run dev -- --host 0.0.0.0 --port 5173 --strictPort" {
+		t.Fatalf("dev server command: %s", got)
+	}
+	if len(c.Spec.Ports) != 1 || c.Spec.Ports[0].ContainerPort != 5173 || c.Spec.Ports[0].HostPort != 20001 {
+		t.Fatalf("dev server port: %+v", c.Spec.Ports)
+	}
+	var sawAllowed bool
+	for _, kv := range c.Spec.Env {
+		if kv == "__VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS=shop-dev.test" {
+			sawAllowed = true
 		}
 	}
-
-	// Version change recreates the container; removal deletes it.
-	view, err = e.m.Update(ctx, view.Project.ID, UpdateRequest{Node: &NodeUpdate{Enabled: true, Version: "24"}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	node, _ = e.engine.Container("staqio-front-node")
-	if node.Spec.Image != "ghcr.io/seramos/staqio-node:24" || node.State != "running" {
-		t.Fatalf("after version change: %+v", node)
-	}
-	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{Node: &NodeUpdate{Enabled: true, Version: "9"}}); !errors.Is(err, validate.ErrInvalid) {
-		t.Fatalf("unknown version must be rejected, got %v", err)
-	}
-	view, err = e.m.Update(ctx, view.Project.ID, UpdateRequest{Node: &NodeUpdate{Enabled: false}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, ok := e.engine.Container("staqio-front-node"); ok || view.Project.Service(store.ServiceNode) != nil || len(view.Status.Services) != 2 {
-		t.Fatalf("node must be removed: %+v", view.Status)
+	if !sawAllowed {
+		t.Fatalf("vite allowed host env missing: %v", c.Spec.Env)
 	}
 
-	// Add later.
-	view, err = e.m.Update(ctx, view.Project.ID, UpdateRequest{Node: &NodeUpdate{Enabled: true}})
+	table, err := e.m.RouteTable(ctx, ProxyOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	node, ok = e.engine.Container("staqio-front-node")
-	if !ok || node.State != "running" || node.Spec.Image != "ghcr.io/seramos/staqio-node:24" {
-		t.Fatalf("node added later must use the default version and run: %+v", node)
+	dev, ok := table.Routes["shop-dev.test"]
+	if !ok || dev.Dial != "staqio-shop-node:5173" || !dev.Running {
+		t.Fatalf("dev route: %+v", dev)
+	}
+
+	// Switching the dev server off recreates the idle tooling container and frees the port.
+	if _, err := e.m.Update(ctx, v.Project.ID, UpdateRequest{Node: &NodeUpdate{Enabled: true, Version: "24"}}); err != nil {
+		t.Fatal(err)
+	}
+	c, _ = e.engine.Container("staqio-shop-node")
+	if strings.Join(c.Spec.Cmd, " ") != "sleep infinity" || len(c.Spec.Ports) != 0 {
+		t.Fatalf("after disabling: cmd=%v ports=%v", c.Spec.Cmd, c.Spec.Ports)
+	}
+	table, _ = e.m.RouteTable(ctx, ProxyOptions{})
+	if _, ok := table.Routes["shop-dev.test"]; ok {
+		t.Fatal("dev route must disappear")
+	}
+
+	// Enabling again with a different preset allocates a port and uses the preset's flags.
+	if _, err := e.m.Update(ctx, v.Project.ID, UpdateRequest{Node: &NodeUpdate{Enabled: true, Version: "24", Config: runtime.NodeConfig{DevServer: true, Preset: "next", Port: 3000, PackageManager: "pnpm"}}}); err != nil {
+		t.Fatal(err)
+	}
+	c, _ = e.engine.Container("staqio-shop-node")
+	if got := strings.Join(c.Spec.Cmd, " "); got != "pnpm run dev -- -H 0.0.0.0 -p 3000" {
+		t.Fatalf("next command: %s", got)
+	}
+	proj, _ := e.m.loadProject(ctx, v.Project.ID)
+	var cfg runtime.NodeConfig
+	_ = json.Unmarshal(proj.Service(store.ServiceNode).Config, &cfg)
+	if cfg.HostPort == 0 || c.Spec.Ports[0].HostPort != cfg.HostPort || c.Spec.Ports[0].ContainerPort != 3000 {
+		t.Fatalf("port after re-enable: %+v cfg=%+v", c.Spec.Ports, cfg)
+	}
+
+	// Invalid input is rejected before anything changes.
+	for _, bad := range []runtime.NodeConfig{{DevServer: true, Script: "dev; rm -rf /"}, {DevServer: true, PackageManager: "bun"}, {DevServer: true, Port: 80}, {DevServer: true, Preset: "angular"}} {
+		if _, err := e.m.Update(ctx, v.Project.ID, UpdateRequest{Node: &NodeUpdate{Enabled: true, Version: "24", Config: bad}}); err == nil {
+			t.Fatalf("config %+v must be rejected", bad)
+		}
 	}
 }

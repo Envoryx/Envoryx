@@ -61,6 +61,7 @@ func (m *Manager) planner() (*Planner, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrNotConfigured, err)
 	}
+	p.BaseDomain = m.BaseDomain(context.Background())
 	return NewPlanner(p, m.catalog), nil
 }
 
@@ -165,8 +166,16 @@ func (m *Manager) buildProject(req CreateRequest) (store.Project, error) {
 		if err != nil {
 			return store.Project{}, err
 		}
+		cfg := req.Node.Config
+		if err := cfg.Normalize(); err != nil {
+			return store.Project{}, err
+		}
+		raw, err := json.Marshal(cfg)
+		if err != nil {
+			return store.Project{}, err
+		}
 		proj.Services = append(proj.Services, store.ProjectService{
-			Kind: store.ServiceNode, Variant: "node", Version: v.Version, Image: v.Image, Enabled: true, Position: 15,
+			Kind: store.ServiceNode, Variant: "node", Version: v.Version, Image: v.Image, Enabled: true, Position: 15, Config: raw,
 		})
 	}
 	if req.Git != nil {
@@ -337,9 +346,9 @@ func (m *Manager) collectUsedPorts(ctx context.Context, used map[int]bool) error
 				used[cfg.HostPort] = true
 			}
 		}
-		for _, kind := range []store.ServiceKind{store.ServiceRedis, store.ServiceMailpit} {
+		for _, kind := range []store.ServiceKind{store.ServiceRedis, store.ServiceMailpit, store.ServiceNode} {
 			if svc := p.Service(kind); svc != nil {
-				var cfg runtime.ServiceConfig
+				var cfg runtime.ServiceConfig // NodeConfig shares the hostPort field name
 				if json.Unmarshal(svc.Config, &cfg) == nil && cfg.HostPort > 0 {
 					used[cfg.HostPort] = true
 				}
@@ -390,11 +399,31 @@ func (m *Manager) assignServicePorts(ctx context.Context, proj *store.Project, r
 			return err
 		}
 	}
+	if req.Node != nil && req.Node.Config.DevServer {
+		if err := assign(store.ServiceNode); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
 // setHostPort stores a host port in a service config (database or auxiliary service).
 func setHostPort(svc *store.ProjectService, port int) error {
+	if svc.Kind == store.ServiceNode {
+		var cfg runtime.NodeConfig
+		if len(svc.Config) > 0 {
+			if err := json.Unmarshal(svc.Config, &cfg); err != nil {
+				return err
+			}
+		}
+		cfg.HostPort = port
+		raw, err := json.Marshal(cfg)
+		if err != nil {
+			return err
+		}
+		svc.Config = raw
+		return nil
+	}
 	if svc.Kind == store.ServiceDatabase {
 		var cfg runtime.DatabaseConfig
 		if err := json.Unmarshal(svc.Config, &cfg); err != nil {

@@ -242,6 +242,18 @@ The proxy keeps the original `Host`, sets `X-Forwarded-For/-Proto/-Host` and
 supports WebSockets. Projects can therefore generate correct absolute URLs
 (`APP_URL=https://shop.test`).
 
+### Node dev servers
+
+Enable "Run a dev server" on the Node.js service (wizard or Runtime tab):
+the script (default `dev`) runs as the container's main process and is
+reachable at `https://<project>-dev.<base>` through the proxy (HMR
+WebSockets included) and on a direct host port. Presets pass host/port to
+Vite (`--host 0.0.0.0 --port`) or Next.js (`-H -p`); "Other" only sets
+`HOST`/`PORT`. Run `npm install` via Actions first – a crashing script is
+restarted by Docker until it works. For Laravel + Vite set
+`VITE_DEV_SERVER_URL`/`APP_URL` accordingly, or let Vite's `server.hmr`
+config point at the dev host name.
+
 ### Bare metal
 
 Outside Docker the proxy dials the project's published port

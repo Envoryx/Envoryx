@@ -556,8 +556,14 @@ expiry in a background loop; config/token under `/config/ca/acme.json`
   container from the project's PHP image (`RunOneShot`) with the deploy key
   mounted only there; tokens travel via `GIT_CONFIG_*` env. The Node service is an idle
   tooling container (`sleep infinity`, runs as PUID:PGID) from
-  `ghcr.io/seramos/staqio-node:<v>`; a dev-server mode with published port is
-  a later addition.
+  `ghcr.io/seramos/staqio-node:<v>`. Dev-server mode (`runtime.NodeConfig`,
+  stored in the service config): the package.json script becomes the
+  container's main process (argv from a closed preset list – Vite/Next flags
+  or HOST/PORT env only – script names validated), a host port is allocated
+  like for other services and the proxy routes `<slug>-dev.<base>` to
+  `staqio-<slug>-node:<port>` (WebSocket/HMR passes through; Vite's host
+  allow-list is set via `__VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS`). Config
+  changes remove the node container so `ensurePlan` recreates it.
 - **Phase 7 Backups** (implemented): `/config/backups/<slug>/<timestamp-id>/`
   with `backup.json` (metadata + full project export incl. credentials),
   `database.sql.gz` (dump streamed from the database container via exec,

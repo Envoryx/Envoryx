@@ -45,15 +45,17 @@ type PHPRequest struct {
 	Config  runtime.PHPConfig
 }
 
-// NodeRequest selects the Node.js toolchain container.
+// NodeRequest selects the Node.js toolchain container and optional dev server.
 type NodeRequest struct {
 	Version string
+	Config  runtime.NodeConfig
 }
 
 // NodeUpdate adds, changes or removes the Node.js service.
 type NodeUpdate struct {
 	Enabled bool
 	Version string
+	Config  runtime.NodeConfig
 }
 
 // ExtraRequest selects an auxiliary service (Redis, Mailpit).

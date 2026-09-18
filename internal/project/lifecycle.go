@@ -11,6 +11,7 @@ import (
 
 	"github.com/seramos/staqio/internal/audit"
 	"github.com/seramos/staqio/internal/docker"
+	"github.com/seramos/staqio/internal/runtime"
 	"github.com/seramos/staqio/internal/store"
 	"github.com/seramos/staqio/internal/validate"
 )
@@ -550,18 +551,57 @@ func (m *Manager) applyNodeUpdate(ctx context.Context, p store.Project, upd Node
 		if err != nil {
 			return err
 		}
+		cfg := upd.Config
+		if err := cfg.Normalize(); err != nil {
+			return err
+		}
+		var old runtime.NodeConfig
+		if svc != nil && len(svc.Config) > 0 {
+			_ = json.Unmarshal(svc.Config, &old)
+		}
+		// Keep the published port across edits; allocate one when the dev server is enabled.
+		cfg.HostPort = 0
+		if cfg.DevServer {
+			cfg.HostPort = old.HostPort
+			if cfg.HostPort == 0 {
+				port, err := m.allocatePort(ctx)
+				if err != nil {
+					return err
+				}
+				cfg.HostPort = port
+			}
+		}
+		raw, err := json.Marshal(cfg)
+		if err != nil {
+			return err
+		}
 		if svc == nil {
-			if err := m.store.Projects.AddService(ctx, store.ProjectService{ProjectID: p.ID, Kind: store.ServiceNode, Variant: "node", Version: v.Version, Image: v.Image, Enabled: true, Position: 15}); err != nil {
+			if err := m.store.Projects.AddService(ctx, store.ProjectService{ProjectID: p.ID, Kind: store.ServiceNode, Variant: "node", Version: v.Version, Image: v.Image, Enabled: true, Position: 15, Config: raw}); err != nil {
 				return err
 			}
 			changes["node"] = v.Version
 			return nil
 		}
-		if svc.Version != v.Version {
-			if err := m.store.Projects.UpdateServiceConfig(ctx, p.ID, store.ServiceNode, v.Version, v.Image, svc.Config); err != nil {
+		if svc.Version != v.Version || string(svc.Config) != string(raw) {
+			if err := m.store.Projects.UpdateServiceConfig(ctx, p.ID, store.ServiceNode, v.Version, v.Image, raw); err != nil {
 				return err
 			}
 			changes["node"] = v.Version
+			if string(svc.Config) != string(raw) {
+				changes["nodeDevServer"] = cfg.DevServer
+				// Command/ports are baked into the container: remove it so ensurePlan recreates it.
+				containers, err := m.engine.ListContainers(ctx, true, p.ID)
+				if err != nil {
+					return err
+				}
+				for _, c := range containers {
+					if c.Service() == string(store.ServiceNode) {
+						if err := m.engine.RemoveContainer(ctx, c.ID); err != nil {
+							return fmt.Errorf("recreate node container: %w", err)
+						}
+					}
+				}
+			}
 		}
 		return nil
 	}

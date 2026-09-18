@@ -75,6 +75,8 @@ type projectDTO struct {
 	Status       statusDTO    `json:"status"`
 	Git          gitDTO       `json:"git"`
 	Hostnames    []string     `json:"hostnames"`
+	// DevHostname is set when the Node dev server is enabled (routed by the proxy).
+	DevHostname string `json:"devHostname,omitempty"`
 }
 
 type gitDTO struct {
@@ -151,11 +153,21 @@ type phpRequestDTO struct {
 
 type nodeRequestDTO struct {
 	Version string `json:"version"`
+	// Dev-server options (see runtime.NodeConfig).
+	DevServer      bool   `json:"devServer"`
+	PackageManager string `json:"packageManager"`
+	Script         string `json:"script"`
+	Port           int    `json:"port"`
+	Preset         string `json:"preset"`
+}
+
+func (n nodeRequestDTO) config() runtime.NodeConfig {
+	return runtime.NodeConfig{DevServer: n.DevServer, PackageManager: n.PackageManager, Script: n.Script, Port: n.Port, Preset: n.Preset}
 }
 
 type nodeUpdateDTO struct {
-	Enabled bool   `json:"enabled"`
-	Version string `json:"version"`
+	Enabled bool `json:"enabled"`
+	nodeRequestDTO
 }
 
 type extraRequestDTO struct {
@@ -209,7 +221,7 @@ func (r createProjectRequest) toDomain() project.CreateRequest {
 		req.PHP = &project.PHPRequest{Version: r.PHP.Version, Config: r.PHP.Config}
 	}
 	if r.Node != nil {
-		req.Node = &project.NodeRequest{Version: r.Node.Version}
+		req.Node = &project.NodeRequest{Version: r.Node.Version, Config: r.Node.config()}
 	}
 	if r.Database != nil {
 		req.Database = &project.DatabaseRequest{Type: r.Database.Type, Version: r.Database.Version, ExposePort: r.Database.ExposePort}
@@ -259,6 +271,12 @@ func (a *API) withHostnames(r *http.Request, dto projectDTO, p store.Project) pr
 	if err == nil {
 		for _, h := range hosts {
 			dto.Hostnames = append(dto.Hostnames, h.Hostname)
+		}
+	}
+	if svc := p.Service(store.ServiceNode); svc != nil && svc.Enabled && len(svc.Config) > 0 {
+		var cfg runtime.NodeConfig
+		if json.Unmarshal(svc.Config, &cfg) == nil && cfg.DevServer {
+			dto.DevHostname = project.DevHostname(p.Slug, a.d.Projects.BaseDomain(r.Context()))
 		}
 	}
 	return dto
@@ -330,7 +348,7 @@ func (a *API) updateProject(w http.ResponseWriter, r *http.Request) {
 		upd.PHP = &project.PHPRequest{Version: req.PHP.Version, Config: req.PHP.Config}
 	}
 	if req.Node != nil {
-		upd.Node = &project.NodeUpdate{Enabled: req.Node.Enabled, Version: req.Node.Version}
+		upd.Node = &project.NodeUpdate{Enabled: req.Node.Enabled, Version: req.Node.Version, Config: req.Node.config()}
 	}
 	if req.Redis != nil {
 		upd.Redis = &project.ExtraUpdate{Enabled: req.Redis.Enabled, Version: req.Redis.Version, ExposePort: req.Redis.ExposePort, RemoveData: req.Redis.RemoveData}

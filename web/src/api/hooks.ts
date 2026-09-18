@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./client";
-import type { CreateProjectRequest, Project, UpdateProjectRequest, UpdateSettingsRequest } from "./types";
+import type { CreateProjectRequest, NodeConfig, Project, UpdateProjectRequest, UpdateSettingsRequest } from "./types";
 import { projectUrl } from "@/lib/format";
 
 export const keys = {
@@ -75,6 +75,23 @@ export function useProjectLinks(): (project: Pick<Project, "httpPort" | "hostnam
       return { url: `http://${host}${proxy.httpPort === 80 ? "" : `:${proxy.httpPort}`}`, direct };
     }
     return { url: direct, direct };
+  };
+}
+
+/** URL of a project's Node dev server through the proxy, or its direct port. */
+export function useDevServerLink(): (project: Pick<Project, "devHostname" | "services">) => string {
+  const q = useQuery({ queryKey: keys.settings, queryFn: api.settings, staleTime: 60 * 1000 });
+  const publicHost = q.data?.publicHost ?? "";
+  const proxy = q.data?.proxy;
+  return (project) => {
+    const svc = project.services.find((s) => s.kind === "node" && s.enabled);
+    const cfg = (svc?.config ?? {}) as NodeConfig;
+    if (!cfg.devServer) return "";
+    if (proxy?.enabled && project.devHostname) {
+      if (proxy.tls && proxy.httpsPort > 0) return `https://${project.devHostname}${proxy.httpsPort === 443 ? "" : `:${proxy.httpsPort}`}`;
+      if (proxy.httpPort > 0) return `http://${project.devHostname}${proxy.httpPort === 80 ? "" : `:${proxy.httpPort}`}`;
+    }
+    return cfg.hostPort ? projectUrl(cfg.hostPort, publicHost) : "";
   };
 }
 

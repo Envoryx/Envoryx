@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, ApiError } from "@/api/client";
 import { useCreateProject, useProjectLinks, useRuntimes, useSettings } from "@/api/hooks";
+import { NodeDevServerFields, defaultDevServerForm, devServerRequest, type DevServerForm } from "./NodeDevServerFields";
 import type { CreateProjectRequest, EnvVar, PHPConfig, Preview } from "@/api/types";
 import { Alert, Button, Card, Checkbox, Code, ErrorState, Field, Input, PageHeader, Select, Spinner } from "@/components/ui";
 import { EnvEditor } from "./EnvEditor";
@@ -29,6 +30,7 @@ interface Form {
   phpConfig: PHPConfig;
   nodeEnabled: boolean;
   nodeVersion: string;
+  nodeDev: DevServerForm;
   webVersion: string;
   dbType: string; // "" = none
   dbVersion: string;
@@ -72,6 +74,7 @@ export function NewProjectPage() {
         phpVersion: php?.versions.find((v) => v.default)?.version ?? php?.versions[0]?.version ?? "",
         phpConfig: runtimes.data.phpDefaults,
         nodeEnabled: false,
+        nodeDev: defaultDevServerForm,
         nodeVersion: node?.versions.find((v) => v.default)?.version ?? node?.versions[0]?.version ?? "",
         webVersion: caddy?.versions.find((v) => v.default)?.version ?? "",
         dbType: "",
@@ -104,7 +107,7 @@ export function NewProjectPage() {
       start: form.start,
     };
     if (form.phpEnabled) req.php = { version: form.phpVersion, config: form.phpConfig };
-    if (form.nodeEnabled) req.node = { version: form.nodeVersion };
+    if (form.nodeEnabled) req.node = { version: form.nodeVersion, ...devServerRequest(form.nodeDev) };
     if (form.dbType) req.database = { type: form.dbType, version: form.dbVersion, exposePort: form.dbExpose };
     if (form.redis) req.redis = { version: form.redisVersion, exposePort: form.redisExpose };
     if (form.mailpit) req.mailpit = {};
@@ -259,6 +262,7 @@ export function NewProjectPage() {
                       </Select>
                     </Field>
                   )}
+                  {form.nodeEnabled && <NodeDevServerFields value={form.nodeDev} onChange={(nodeDev) => set({ nodeDev })} idPrefix="wizard-node" />}
                 </div>
               )}
               <p className="text-xs text-subtle">Composer ships with the PHP image.</p>

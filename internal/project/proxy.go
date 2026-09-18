@@ -2,6 +2,7 @@ package project
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net"
 	"strconv"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/seramos/staqio/internal/audit"
 	"github.com/seramos/staqio/internal/proxy"
+	"github.com/seramos/staqio/internal/runtime"
 	"github.com/seramos/staqio/internal/store"
 	"github.com/seramos/staqio/internal/validate"
 )
@@ -63,6 +65,23 @@ func DefaultHostname(slug, base string) string { return slug + "." + base }
 
 // UIHostname is the host name of Staqio's UI under the base domain.
 func UIHostname(base string) string { return UIHostLabel + "." + base }
+
+// DevHostname is the host name of a project's Node dev server (kept one label deep so a
+// wildcard certificate for the base domain covers it).
+func DevHostname(slug, base string) string { return slug + "-dev." + base }
+
+// nodeDevConfig returns the dev-server configuration of a project's Node service, if any.
+func nodeDevConfig(p store.Project) (runtime.NodeConfig, bool) {
+	svc := p.Service(store.ServiceNode)
+	if svc == nil || !svc.Enabled || len(svc.Config) == 0 {
+		return runtime.NodeConfig{}, false
+	}
+	var cfg runtime.NodeConfig
+	if err := json.Unmarshal(svc.Config, &cfg); err != nil || !cfg.DevServer {
+		return runtime.NodeConfig{}, false
+	}
+	return cfg, true
+}
 
 // ProjectHostnames returns the default host name followed by the extra domains.
 func (m *Manager) ProjectHostnames(ctx context.Context, p store.Project) ([]string, error) {
@@ -163,10 +182,16 @@ func (m *Manager) RouteTable(ctx context.Context, opts ProxyOptions) (proxy.Tabl
 	if err != nil {
 		return t, err
 	}
-	webRunning := map[string]bool{}
+	webRunning, nodeRunning := map[string]bool{}, map[string]bool{}
 	for _, c := range containers {
-		if c.Service() == string(store.ServiceWeb) && c.State == "running" {
+		if c.State != "running" {
+			continue
+		}
+		switch c.Service() {
+		case string(store.ServiceWeb):
 			webRunning[c.ProjectID()] = true
+		case string(store.ServiceNode):
+			nodeRunning[c.ProjectID()] = true
 		}
 	}
 	paths, _ := m.paths()
@@ -175,6 +200,9 @@ func (m *Manager) RouteTable(ctx context.Context, opts ProxyOptions) (proxy.Tabl
 		byProject[p.ID] = p
 		target := proxy.Target{ProjectID: p.ID, ProjectName: p.Name, Slug: p.Slug, Running: webRunning[p.ID], Dial: m.dialFor(paths.SelfContainerID, p)}
 		t.Routes[DefaultHostname(p.Slug, base)] = target
+		if cfg, ok := nodeDevConfig(p); ok {
+			t.Routes[DevHostname(p.Slug, base)] = proxy.Target{ProjectID: p.ID, ProjectName: p.Name + " (dev server)", Slug: p.Slug, Running: nodeRunning[p.ID], Dial: m.dialForDev(paths.SelfContainerID, p, cfg)}
+		}
 	}
 	for _, d := range domains {
 		if p, ok := byProject[d.ProjectID]; ok {
@@ -195,6 +223,17 @@ func (m *Manager) dialFor(selfID string, p store.Project) string {
 		return net.JoinHostPort("127.0.0.1", strconv.Itoa(p.HTTPPort))
 	}
 	return ContainerName(p.Slug, store.ServiceWeb) + ":80"
+}
+
+// dialForDev returns the upstream address of a project's Node dev server.
+func (m *Manager) dialForDev(selfID string, p store.Project, cfg runtime.NodeConfig) string {
+	if selfID == "" {
+		if cfg.HostPort == 0 {
+			return ""
+		}
+		return net.JoinHostPort("127.0.0.1", strconv.Itoa(cfg.HostPort))
+	}
+	return net.JoinHostPort(ContainerName(p.Slug, store.ServiceNode), strconv.Itoa(cfg.Port))
 }
 
 // attachProxy connects Staqio's own container to a project network so the embedded proxy
