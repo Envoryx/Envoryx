@@ -395,7 +395,18 @@ func (s *Server) run(ctx context.Context, ch ssh.Channel, st *session, mu *sync.
 	}
 	env := append(append([]string{}, target.Env...), st.env...)
 	s.d.Audit.Log(ctx, "ssh.exec", "project", target.Project.ID, map[string]any{"name": target.Project.Name, "type": kind, "pty": st.pty, "command": truncate(strings.Join(cmd[2:], " "), 200)})
-	s.d.Log.Info("ssh exec", "project", target.Project.Slug, "type", kind, "pty", st.pty, "command", truncate(strings.Join(cmd[2:], " "), 160))
+	s.d.Log.Info("ssh exec", "project", target.Project.Slug, "type", kind, "pty", st.pty, "command", truncate(strings.Join(cmd[2:], " "), 400))
+	// At debug level the first bytes of output and the exit code are logged, which is
+	// what IDE clients hide when a remote command fails.
+	var out io.Writer = ch
+	var tap *outputTap
+	if kind == "exec" && s.d.Log.Enabled(ctx, slog.LevelDebug) {
+		tap = &outputTap{limit: 1024}
+		out = io.MultiWriter(ch, tap)
+		defer func() {
+			s.d.Log.Debug("ssh exec done", "project", target.Project.Slug, "command", truncate(strings.Join(cmd[2:], " "), 120), "exit", tap.code, "output", tap.String())
+		}()
+	}
 	if st.pty {
 		term, err := s.d.Engine.OpenTerminal(ctx, target.ContainerID, docker.TerminalOptions{Cmd: cmd, Env: env, User: target.User, WorkingDir: target.WorkingDir, Cols: st.cols, Rows: st.rows})
 		if err != nil {
@@ -407,19 +418,75 @@ func (s *Server) run(ctx context.Context, ch ssh.Channel, st *session, mu *sync.
 		mu.Unlock()
 		defer term.Close()
 		go func() { _, _ = io.Copy(term.Input(), ch) }()
-		_, _ = io.Copy(ch, term.Output())
+		_, _ = io.Copy(out, term.Output())
 		code, err := term.ExitCode(ctx)
 		if err != nil {
 			return 1
 		}
+		tap.setCode(code)
 		return code
 	}
-	code, err := s.d.Engine.ExecStream(ctx, target.ContainerID, docker.ExecStreamOptions{Cmd: cmd, Env: env, User: target.User, WorkingDir: target.WorkingDir, Stdin: ch, Stdout: ch, Stderr: ch.Stderr()})
+	code, err := s.d.Engine.ExecStream(ctx, target.ContainerID, docker.ExecStreamOptions{Cmd: cmd, Env: env, User: target.User, WorkingDir: target.WorkingDir, Stdin: ch, Stdout: out, Stderr: ch.Stderr()})
 	if err != nil {
 		fmt.Fprintf(ch.Stderr(), "Staqio: %v\r\n", err)
 		return 1
 	}
+	tap.setCode(code)
 	return code
+}
+
+// outputTap keeps the first bytes of a command's output for debug logging.
+type outputTap struct {
+	mu    sync.Mutex
+	buf   []byte
+	limit int
+	code  int
+}
+
+func (t *outputTap) Write(p []byte) (int, error) {
+	t.mu.Lock()
+	if room := t.limit - len(t.buf); room > 0 {
+		t.buf = append(t.buf, p[:min(room, len(p))]...)
+	}
+	t.mu.Unlock()
+	return len(p), nil
+}
+
+func (t *outputTap) setCode(code int) {
+	if t != nil {
+		t.mu.Lock()
+		t.code = code
+		t.mu.Unlock()
+	}
+}
+
+func (t *outputTap) String() string {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return strings.ToValidUTF8(string(t.buf), "?")
+}
+
+// countingReader / countingWriter measure tunnel traffic for the forward log.
+type countingReader struct {
+	r io.Reader
+	n int64
+}
+
+func (c *countingReader) Read(p []byte) (int, error) {
+	n, err := c.r.Read(p)
+	c.n += int64(n)
+	return n, err
+}
+
+type countingWriter struct {
+	w io.Writer
+	n int64
+}
+
+func (c *countingWriter) Write(p []byte) (int, error) {
+	n, err := c.w.Write(p)
+	c.n += int64(n)
+	return n, err
 }
 
 func (s *Server) serveSFTP(ctx context.Context, ch ssh.Channel, target project.ExecTarget) {
@@ -604,17 +671,21 @@ func parseListenAddress(procNet string, port int) string {
 func (s *Server) relayExec(ctx context.Context, target project.ExecTarget, addr string, channel ssh.Channel) {
 	defer channel.Close()
 	var stderr strings.Builder
+	in, out := &countingReader{r: channel}, &countingWriter{w: channel}
+	started := time.Now()
 	code, err := s.d.Engine.ExecStream(ctx, target.ContainerID, docker.ExecStreamOptions{
 		Cmd:    []string{"socat", "-t", "5", "STDIO", addr + ",connect-timeout=5"},
 		User:   target.User,
-		Stdin:  channel,
-		Stdout: channel,
+		Stdin:  in,
+		Stdout: out,
 		Stderr: &stderr,
 	})
 	_ = channel.CloseWrite()
 	if err != nil || code != 0 {
-		s.d.Log.Warn("ssh forward failed", "project", target.Project.Slug, "container", target.ContainerName, "addr", addr, "exit", code, "err", err, "stderr", strings.TrimSpace(stderr.String()))
+		s.d.Log.Warn("ssh forward failed", "project", target.Project.Slug, "container", target.ContainerName, "addr", addr, "exit", code, "err", err, "stderr", strings.TrimSpace(stderr.String()), "in", in.n, "out", out.n, "after", time.Since(started).Round(time.Millisecond))
+		return
 	}
+	s.d.Log.Info("ssh forward closed", "project", target.Project.Slug, "addr", addr, "in", in.n, "out", out.n, "after", time.Since(started).Round(time.Millisecond))
 }
 
 func parseForward(b []byte) (host string, port uint32, ok bool) {
