@@ -16,6 +16,9 @@ RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends git openssh-client ca-certificates; \
     rm -rf /var/lib/apt/lists/*; \
+    # Node 25+ no longer bundles corepack and old images ship a corepack that cannot verify
+    # current registry signatures: always install the latest one.
+    npm install -g corepack@latest; \
     corepack enable; \
     # Pre-activate current pnpm and yarn so they work offline and for any uid.
     COREPACK_HOME=/usr/local/lib/corepack corepack prepare pnpm@latest --activate; \

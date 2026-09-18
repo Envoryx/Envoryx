@@ -72,6 +72,8 @@ jobs:
   # Combine the per-arch images into one multi-arch tag per version.
   merge:
     needs: [matrix, build]
+    # Merge every version whose builds succeeded even if another version failed.
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -91,6 +93,8 @@ jobs:
       - name: Create manifest
         run: |
           refs=""
-          for f in /tmp/digests/*; do refs="$refs ${IMAGE}@$(cat "$f")"; done
+          count=0
+          for f in /tmp/digests/*; do [ -f "$f" ] || continue; refs="$refs ${IMAGE}@$(cat "$f")"; count=$((count+1)); done
+          if [ "$count" -lt 2 ]; then echo "not all architectures built for ${{ matrix.version.version }}; keeping the previous tag"; exit 1; fi
           docker buildx imagetools create -t "${IMAGE}:${{ matrix.version.version }}" $refs
           docker buildx imagetools inspect "${IMAGE}:${{ matrix.version.version }}"
