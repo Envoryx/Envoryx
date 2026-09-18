@@ -645,6 +645,16 @@ func parseListenAddress(procNet string, port int) string {
 					ip[w*4+b] = raw[w*4+3-b]
 				}
 			}
+			if v4 := ip.To4(); v4 != nil {
+				// IPv4-mapped (::ffff:127.0.0.1): a dual-stack socket bound to an IPv4
+				// address, which is how the JetBrains backend binds 127.0.0.1. Reach it
+				// over IPv4; [::1] would be refused.
+				if v4.IsUnspecified() || v4.IsLoopback() {
+					return "TCP4:127.0.0.1:" + strconv.Itoa(port)
+				}
+				best = "TCP4:" + v4.String() + ":" + strconv.Itoa(port)
+				continue
+			}
 			if ip.IsUnspecified() || ip.IsLoopback() {
 				if best == "" {
 					// A dual-stack wildcard also answers on 127.0.0.1; keep looking for an
