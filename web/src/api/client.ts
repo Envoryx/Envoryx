@@ -16,6 +16,8 @@ import type {
   GitResult,
   GitStatus,
   LogLine,
+  NotifyConfig,
+  NotifyInfo,
   Preview,
   Project,
   ProxyInfo,
@@ -123,6 +125,11 @@ export const api = {
   pruneImages: () => request<{ result: PruneResult }>("/docker/images/prune", { method: "POST" }),
   settings: () => request<Settings>("/settings"),
   updateSettings: (body: UpdateSettingsRequest) => request<Settings>("/settings", { method: "PATCH", body }),
+  notifications: {
+    get: () => request<NotifyInfo>("/settings/notifications"),
+    set: (body: NotifyConfig) => request<NotifyInfo>("/settings/notifications", { method: "PUT", body }),
+    test: (body: NotifyConfig) => request<void>("/settings/notifications/test", { method: "POST", body }),
+  },
   tokens: {
     list: () => request<{ tokens: APIToken[]; mcpUrl: string }>("/tokens"),
     create: (name: string) => request<{ token: APIToken; secret: string; mcpUrl: string }>("/tokens", { method: "POST", body: { name } }),

@@ -518,6 +518,16 @@ inbox on an allocated host port, `MAIL_*`/`MAILER_DSN` injected) are
 auxiliary services with a small `{hostPort}` config; env changes recreate the
 application containers while stateful services keep running.
 
+### Notifications
+`internal/notify` is a small `Sender` (`Notify(ctx, Event)`, `Clear(key)`)
+with providers webhook/ntfy/Discord/Slack/Telegram/SMTP, per-kind cooldowns
+and asynchronous best-effort delivery. Sources: the reconciler (first issue
+per project → `project.unhealthy`, recovery → info event and cooldown
+reset), `Create` rollbacks (`project.failed`), `CreateBackup` errors
+(`backup.failed`), the ACME manager (`acme.failed`/`acme.renewed`) and
+startup. Config with secrets in `/config/notify.json` (0600); the API never
+returns secrets and keeps stored ones when a request leaves them empty.
+
 ### Templates
 `project.Templates()` is a closed list (Laravel, Symfony, WordPress). A
 template is a sequence of argv steps run in transient containers from the

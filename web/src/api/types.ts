@@ -447,6 +447,28 @@ export interface APIToken {
   lastUsedAt: string | null;
 }
 
+export interface NotifyConfig {
+  enabled: boolean;
+  provider: string;
+  url?: string;
+  token?: string;
+  chatId?: string;
+  smtpHost?: string;
+  smtpPort?: number;
+  smtpUser?: string;
+  smtpPassword?: string;
+  smtpSecurity?: string;
+  from?: string;
+  to?: string;
+  kinds: string[] | null;
+}
+
+export interface NotifyInfo {
+  status: { config: NotifyConfig; hasToken: boolean; hasSmtpPassword: boolean; lastSent?: string; lastError?: string };
+  providers: Record<string, string>;
+  kinds: { kind: string; description: string; default: boolean }[];
+}
+
 export interface UpdateSettingsRequest {
   publicHost?: string;
   baseDomain?: string;

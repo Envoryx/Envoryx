@@ -59,6 +59,9 @@ Staqio is under active development. The current milestone (Phase 1 + 2) delivers
   vendor/node_modules) + configuration under `/config/backups/<project>/`,
   restore with typed confirmation, download as a single archive
 
+- notifications (ntfy, Discord, Slack, Telegram, e-mail, generic webhook) for
+  unhealthy projects (and their recovery), failed project creation, failed
+  backups and certificate renewals – throttled, secrets never returned
 - MCP server for AI assistants (Claude Code, Cursor, …): create, start, stop
   and inspect projects, read logs, run actions, create databases and backups
   – authenticated with personal API tokens, same validation and audit trail

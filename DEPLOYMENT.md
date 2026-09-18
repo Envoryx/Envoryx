@@ -306,6 +306,17 @@ per-backup download.
 For Staqio itself back up `/config` (SQLite database, generated configuration,
 deploy key, backups) and `/projects`.
 
+## Notifications
+
+Settings → **Notifications**: pick a channel (ntfy, Discord or Slack
+webhook, Telegram bot, e-mail via SMTP, or a generic JSON webhook), choose
+the events and send a test. Events: a project that should be running is
+stopped/broken (and when it recovers), project creation failed, backup
+failed, Let's Encrypt renewal failed/succeeded, Staqio started. Repeats are
+throttled (unhealthy project once per 6 h, failed renewal once per day).
+Secrets live in `/config/notify.json` (0600). SMTP authentication requires
+STARTTLS or TLS.
+
 ## AI assistants (MCP)
 
 Staqio ships an MCP server at `/mcp` (streamable HTTP). Create a token under

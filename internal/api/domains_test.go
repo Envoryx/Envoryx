@@ -1,6 +1,9 @@
 package api_test
 
 import (
+	"net/http/httptest"
+	"sync/atomic"
+
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -174,5 +177,37 @@ func TestACMEEndpoints(t *testing.T) {
 	r = a.do(http.MethodDelete, "/api/v1/settings/tls/acme", nil, true)
 	if r.status != http.StatusOK || r.body["status"].(map[string]any)["configured"] != false {
 		t.Fatalf("clear: %d %s", r.status, r.raw)
+	}
+}
+
+func TestNotificationEndpoints(t *testing.T) {
+	a := newApp(t)
+	a.setupAndLogin()
+	var hits int32
+	hook := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { atomic.AddInt32(&hits, 1) }))
+	defer hook.Close()
+
+	r := a.do(http.MethodGet, "/api/v1/settings/notifications", nil, false)
+	if r.status != http.StatusOK || r.body["status"].(map[string]any)["config"].(map[string]any)["enabled"] != false || len(r.body["kinds"].([]any)) == 0 {
+		t.Fatalf("status: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodPut, "/api/v1/settings/notifications", map[string]any{"enabled": true, "provider": "ntfy", "url": "nope"}, true)
+	if r.status != http.StatusUnprocessableEntity {
+		t.Fatalf("invalid url: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodPut, "/api/v1/settings/notifications", map[string]any{"enabled": true, "provider": "ntfy", "url": hook.URL + "/staqio", "token": "secret-token", "kinds": []string{"acme.failed"}}, true)
+	if r.status != http.StatusOK {
+		t.Fatalf("set: %d %s", r.status, r.raw)
+	}
+	if strings.Contains(string(r.raw), "secret-token") || r.body["status"].(map[string]any)["hasToken"] != true {
+		t.Fatalf("token must be hidden but reported: %s", r.raw)
+	}
+	r = a.do(http.MethodPost, "/api/v1/settings/notifications/test", map[string]any{"provider": "webhook", "url": hook.URL + "/hook"}, true)
+	if r.status != http.StatusNoContent || atomic.LoadInt32(&hits) != 1 {
+		t.Fatalf("test delivery: %d %s hits=%d", r.status, r.raw, hits)
+	}
+	r = a.do(http.MethodPost, "/api/v1/settings/notifications/test", map[string]any{"provider": "webhook", "url": "http://127.0.0.1:1/"}, true)
+	if r.status != http.StatusBadGateway {
+		t.Fatalf("unreachable target: %d %s", r.status, r.raw)
 	}
 }

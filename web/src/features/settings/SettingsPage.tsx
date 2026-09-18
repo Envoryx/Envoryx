@@ -7,6 +7,7 @@ import { Alert, Button, Card, CardHeader, Code, ErrorState, Field, Input, PageHe
 import { formatDateTime } from "@/lib/format";
 import { DomainsCard } from "./DomainsCard";
 import { TokensCard } from "./TokensCard";
+import { NotificationsCard } from "./NotificationsCard";
 
 function PasswordForm() {
   const [current, setCurrent] = useState("");
@@ -163,6 +164,8 @@ export function SettingsPage() {
       <DomainsCard />
 
       {s.data && <PublicHostForm current={s.data.publicHost} />}
+
+      <NotificationsCard />
 
       <TokensCard />
 

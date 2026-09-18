@@ -16,6 +16,7 @@ import (
 
 	"github.com/seramos/staqio/internal/audit"
 	"github.com/seramos/staqio/internal/docker"
+	"github.com/seramos/staqio/internal/notify"
 	"github.com/seramos/staqio/internal/runtime"
 	"github.com/seramos/staqio/internal/store"
 	"github.com/seramos/staqio/internal/validate"
@@ -47,6 +48,19 @@ type Manager struct {
 
 	reportMu sync.RWMutex
 	report   ReconcileReport
+
+	notifier  notify.Sender
+	unhealthy map[string]bool // project ids reported as unhealthy (for recovery events)
+}
+
+// SetNotifier installs the notification sink (nil = none).
+func (m *Manager) SetNotifier(n notify.Sender) { m.notifier = n }
+
+// notify delivers an event when a notifier is installed.
+func (m *Manager) notify(ctx context.Context, e notify.Event) {
+	if m.notifier != nil {
+		m.notifier.Notify(ctx, e)
+	}
 }
 
 // NewManager creates a manager.

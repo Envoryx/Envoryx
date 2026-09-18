@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/seramos/staqio/internal/docker"
+	"github.com/seramos/staqio/internal/notify"
 	"github.com/seramos/staqio/internal/store"
 )
 
@@ -131,6 +132,8 @@ func (m *Manager) Reconcile(ctx context.Context) ReconcileReport {
 		}
 	}
 
+	m.notifyHealth(ctx, projects, report.Issues)
+
 	for _, c := range containers {
 		if _, ok := known[c.ProjectID()]; !ok {
 			report.Orphans = append(report.Orphans, Orphan{Type: "container", ID: c.ID, Name: c.Name, ProjectID: c.ProjectID(), ProjectName: c.Labels[docker.LabelProjectName], State: c.State, Created: c.Created})
@@ -194,6 +197,52 @@ func (m *Manager) LastReport() ReconcileReport {
 	m.reportMu.RLock()
 	defer m.reportMu.RUnlock()
 	return m.report
+}
+
+// notifyHealth sends one event when a project becomes unhealthy and one when it recovers.
+func (m *Manager) notifyHealth(ctx context.Context, projects []store.Project, issues []ReconcileIssue) {
+	if m.notifier == nil {
+		return
+	}
+	m.reportMu.Lock()
+	if m.unhealthy == nil {
+		m.unhealthy = map[string]bool{}
+	}
+	current := map[string]ReconcileIssue{}
+	for _, is := range issues {
+		if _, dup := current[is.ProjectID]; !dup {
+			current[is.ProjectID] = is
+		}
+	}
+	var events []notify.Event
+	for id, is := range current {
+		if !m.unhealthy[id] {
+			m.unhealthy[id] = true
+			level := notify.Warning
+			if is.Severity == "error" {
+				level = notify.Error
+			}
+			events = append(events, notify.Event{Kind: "project.unhealthy", Level: level, Project: is.ProjectName, Title: is.ProjectName + " needs attention", Message: is.Message, Key: "project.unhealthy|" + id})
+		}
+	}
+	for id := range m.unhealthy {
+		if _, still := current[id]; still {
+			continue
+		}
+		delete(m.unhealthy, id)
+		name := id
+		for _, p := range projects {
+			if p.ID == id {
+				name = p.Name
+			}
+		}
+		m.notifier.Clear("project.unhealthy|" + id)
+		events = append(events, notify.Event{Kind: "project.unhealthy", Level: notify.Info, Project: name, Title: name + " recovered", Message: "The project is running again.", Key: "project.recovered|" + id})
+	}
+	m.reportMu.Unlock()
+	for _, e := range events {
+		m.notifier.Notify(ctx, e)
+	}
 }
 
 // RunReconciler reconciles immediately and then periodically until ctx is cancelled.

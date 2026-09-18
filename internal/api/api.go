@@ -2,6 +2,7 @@ package api
 
 import (
 	"github.com/seramos/staqio/internal/acme"
+	"github.com/seramos/staqio/internal/notify"
 	"log/slog"
 	"net/http"
 	"time"
@@ -32,6 +33,7 @@ type Deps struct {
 	HostPath *hostpath.Resolver
 	Certs    *tlsca.Store
 	ACME     *acme.Manager
+	Notify   *notify.Service
 	Proxy    *ProxyInfo
 	// MCP is the MCP endpoint handler (nil = disabled); mounted at /mcp by the server.
 	MCP http.Handler
@@ -95,6 +97,9 @@ func (a *API) Mount(mux *http.ServeMux, protect func(http.Handler) http.Handler)
 	p("POST /api/v1/tokens", a.createToken)
 	p("DELETE /api/v1/tokens/{id}", a.deleteToken)
 	p("GET /api/v1/settings/tls", a.tlsInfo)
+	p("GET /api/v1/settings/notifications", a.notificationStatus)
+	p("PUT /api/v1/settings/notifications", a.setNotifications)
+	p("POST /api/v1/settings/notifications/test", a.testNotifications)
 	p("GET /api/v1/settings/tls/acme", a.acmeStatus)
 	p("PUT /api/v1/settings/tls/acme", a.setACME)
 	p("DELETE /api/v1/settings/tls/acme", a.clearACME)

@@ -11,6 +11,7 @@ import (
 
 	"github.com/seramos/staqio/internal/audit"
 	"github.com/seramos/staqio/internal/docker"
+	"github.com/seramos/staqio/internal/notify"
 	"github.com/seramos/staqio/internal/runtime"
 	"github.com/seramos/staqio/internal/store"
 	"github.com/seramos/staqio/internal/validate"
@@ -107,6 +108,7 @@ func (m *Manager) Create(ctx context.Context, req CreateRequest) (View, error) {
 			rbErr = errors.Join(rbErr, delErr)
 		}
 		m.audit.Log(ctx, audit.ActionProjectFailed, "project", proj.ID, map[string]any{"name": proj.Name, "step": step, "error": cause.Error()})
+		m.notify(ctx, notify.Event{Kind: "project.failed", Level: notify.Error, Project: proj.Name, Title: fmt.Sprintf("Creating %s failed", proj.Name), Message: fmt.Sprintf("Step %q failed: %v. The project was rolled back.", step, cause)})
 		if rbErr != nil {
 			return View{}, fmt.Errorf("%s: %w (rollback incomplete: %v)", step, cause, rbErr)
 		}

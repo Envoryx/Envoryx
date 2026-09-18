@@ -25,6 +25,7 @@ import (
 
 	"golang.org/x/crypto/acme"
 
+	"github.com/seramos/staqio/internal/notify"
 	"github.com/seramos/staqio/internal/tlsca"
 	"github.com/seramos/staqio/internal/validate"
 )
@@ -79,6 +80,8 @@ type Manager struct {
 	lastError   string
 	wake        chan struct{}
 
+	notifier notify.Sender
+
 	// Test hooks.
 	directoryURL string
 	httpClient   *http.Client
@@ -105,6 +108,9 @@ func New(dir string, certs *tlsca.Store, log *slog.Logger) (*Manager, error) {
 	}
 	return m, nil
 }
+
+// SetNotifier installs the notification sink.
+func (m *Manager) SetNotifier(n notify.Sender) { m.notifier = n }
 
 // Status returns the current state.
 func (m *Manager) Status() Status {
@@ -285,7 +291,17 @@ func (m *Manager) Issue(ctx context.Context) (err error) {
 			ok := m.now()
 			m.lastSuccess = &ok
 		}
+		n := m.notifier
 		m.mu.Unlock()
+		if n == nil {
+			return
+		}
+		if err != nil {
+			n.Notify(ctx, notify.Event{Kind: "acme.failed", Level: notify.Error, Title: "Certificate for *." + cfg.Domain + " not renewed", Message: err.Error() + "\nStaqio retries automatically; the current certificate stays valid until it expires."})
+		} else {
+			n.Clear("acme.failed|")
+			n.Notify(ctx, notify.Event{Kind: "acme.renewed", Level: notify.Info, Title: "Certificate for *." + cfg.Domain + " issued", Message: "The Let's Encrypt certificate was obtained/renewed successfully."})
+		}
 	}()
 
 	ctx, cancel := context.WithTimeout(ctx, issueTimeout)

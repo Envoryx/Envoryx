@@ -35,6 +35,7 @@ import (
 	"github.com/seramos/staqio/internal/docker"
 	"github.com/seramos/staqio/internal/hostpath"
 	"github.com/seramos/staqio/internal/mcpserver"
+	"github.com/seramos/staqio/internal/notify"
 	"github.com/seramos/staqio/internal/project"
 	"github.com/seramos/staqio/internal/proxy"
 	"github.com/seramos/staqio/internal/runtime"
@@ -176,6 +177,12 @@ func serve() error {
 		PortRangeStart: cfg.PortRangeStart, PortRangeEnd: cfg.PortRangeEnd, StopTimeout: 10 * time.Second,
 	}, log)
 	collector := stats.New(engine, 5*time.Second, log)
+	notifier, err := notify.New(cfg.ConfigDir, log)
+	if err != nil {
+		log.Warn("notifications unavailable", "err", err)
+	} else {
+		manager.SetNotifier(notifier)
+	}
 
 	// 5. Reconcile desired vs. actual state, then keep doing so in the background.
 	go manager.RunReconciler(ctx, 30*time.Second, log)
@@ -206,6 +213,9 @@ func serve() error {
 		if err != nil {
 			log.Warn("Let's Encrypt integration unavailable", "err", err)
 		} else {
+			if notifier != nil {
+				acmeMgr.SetNotifier(notifier)
+			}
 			go acmeMgr.Run(ctx)
 		}
 	}
@@ -230,7 +240,7 @@ func serve() error {
 	mcpSrv := mcpserver.New(mcpserver.Deps{Projects: manager, Catalog: catalog, Auth: sessions, Links: mcpLinks, Version: version, Log: log})
 	a := api.New(api.Deps{
 		Config: cfg, Version: version, Store: st, Auth: sessions, Audit: auditLog, Engine: engine,
-		Projects: manager, Catalog: catalog, Stats: collector, HostPath: resolver, Certs: certs, ACME: acmeMgr, Proxy: proxyInfo,
+		Projects: manager, Catalog: catalog, Stats: collector, HostPath: resolver, Certs: certs, ACME: acmeMgr, Notify: notifier, Proxy: proxyInfo,
 		MCP: mcpSrv.Handler(), Log: log, StartedAt: time.Now(),
 	})
 	var origins []string
@@ -272,6 +282,9 @@ func serve() error {
 		}()
 	}
 
+	if notifier != nil {
+		notifier.Notify(ctx, notify.Event{Kind: "staqio.started", Level: notify.Info, Title: "Staqio started", Message: "Version " + version + " is up."})
+	}
 	if err := srv.ListenAndServe(ctx); err != nil {
 		return fmt.Errorf("http server: %w", err)
 	}

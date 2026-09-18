@@ -16,6 +16,7 @@ import (
 
 	"github.com/seramos/staqio/internal/audit"
 	"github.com/seramos/staqio/internal/docker"
+	"github.com/seramos/staqio/internal/notify"
 	"github.com/seramos/staqio/internal/runtime"
 	"github.com/seramos/staqio/internal/store"
 	"github.com/seramos/staqio/internal/validate"
@@ -178,6 +179,18 @@ func (m *Manager) ListBackups(ctx context.Context, id string) ([]BackupInfo, err
 // CreateBackup dumps the database and/or archives the project files. The project lock is
 // held so no lifecycle operation interferes.
 func (m *Manager) CreateBackup(ctx context.Context, id string, opts BackupOptions) (BackupInfo, error) {
+	info, err := m.createBackup(ctx, id, opts)
+	if err != nil && !errors.Is(err, validate.ErrInvalid) && !errors.Is(err, ErrNotFound) && !errors.Is(err, ErrBusy) {
+		name := id
+		if p, perr := m.store.Projects.Get(ctx, id); perr == nil {
+			name = p.Name
+		}
+		m.notify(ctx, notify.Event{Kind: "backup.failed", Level: notify.Error, Project: name, Title: "Backup of " + name + " failed", Message: err.Error()})
+	}
+	return info, err
+}
+
+func (m *Manager) createBackup(ctx context.Context, id string, opts BackupOptions) (BackupInfo, error) {
 	if err := validate.UUID(id); err != nil {
 		return BackupInfo{}, ErrNotFound
 	}
