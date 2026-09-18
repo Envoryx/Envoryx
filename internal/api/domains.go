@@ -86,18 +86,19 @@ func (a *API) invalidateProxy() {
 }
 
 type proxyDTO struct {
-	Enabled   bool `json:"enabled"`
-	HTTPPort  int  `json:"httpPort"`
-	HTTPSPort int  `json:"httpsPort"`
-	InDocker  bool `json:"inDocker"`
-	TLS       bool `json:"tls"`
+	Enabled   bool   `json:"enabled"`
+	HTTPPort  int    `json:"httpPort"`
+	HTTPSPort int    `json:"httpsPort"`
+	InDocker  bool   `json:"inDocker"`
+	TLS       bool   `json:"tls"`
+	Address   string `json:"address,omitempty"`
 }
 
 func (a *API) proxyDTO() proxyDTO {
 	if a.d.Proxy == nil {
 		return proxyDTO{}
 	}
-	return proxyDTO{Enabled: a.d.Proxy.Enabled, HTTPPort: a.d.Proxy.HTTPPort, HTTPSPort: a.d.Proxy.HTTPSPort, InDocker: a.d.Proxy.InDocker, TLS: a.d.Certs != nil && a.d.Proxy.HTTPSPort > 0}
+	return proxyDTO{Enabled: a.d.Proxy.Enabled, HTTPPort: a.d.Proxy.HTTPPort, HTTPSPort: a.d.Proxy.HTTPSPort, InDocker: a.d.Proxy.InDocker, TLS: a.d.Certs != nil && a.d.Proxy.HTTPSPort > 0, Address: a.d.Proxy.Address}
 }
 
 func (a *API) tlsInfo(w http.ResponseWriter, r *http.Request) {

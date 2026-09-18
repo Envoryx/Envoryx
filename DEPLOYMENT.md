@@ -166,6 +166,12 @@ ones – Staqio reads its own port bindings and adjusts links accordingly).
 When neither port is published, Settings → *Domains & HTTPS* shows a warning
 and project links keep using the direct port.
 
+**Own IP (Unraid `br0`, macvlan/ipvlan) or host networking:** there is no
+port mapping – the proxy is reachable directly on the container's address
+(`http(s)://<staqio-ip>`). Staqio detects this and shows the address in the
+settings. Your DNS entries for `*.test` must then point at the **Staqio IP**,
+not at the Unraid IP (which is where the direct project ports live).
+
 ### Names
 
 - Base domain, default `test` (Settings → Domains & HTTPS). Every project is

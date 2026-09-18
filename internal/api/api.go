@@ -47,8 +47,11 @@ type ProxyInfo struct {
 	Enabled   bool
 	HTTPPort  int
 	HTTPSPort int
-	// Attached is false on bare metal (proxy dials published ports instead).
+	// InDocker is false on bare metal (proxy dials published ports instead).
 	InDocker bool
+	// Address is the container's own IP when it is reachable directly (macvlan/ipvlan)
+	// instead of through published host ports; DNS entries must point at it.
+	Address string
 	// Invalidate refreshes the routing table after changes.
 	Invalidate func()
 }

@@ -41,6 +41,17 @@ describe("DomainsCard", () => {
     expect(api.calls.find((c) => c.method === "PUT")!.body).toEqual({ certificate: "CERT", key: "KEY" });
   });
 
+  it("tells macvlan users to point DNS at the container address", async () => {
+    const direct = { ...proxy, address: "192.168.1.50" };
+    mockApi({
+      ...authedRoutes,
+      "GET /settings/tls": () => ({ body: { ...tls, proxy: direct } }),
+      "GET /settings": () => ({ body: { ...settings, proxy: direct } }),
+    });
+    renderApp(<DomainsCard />);
+    expect(await screen.findByText("Staqio has its own IP address: 192.168.1.50")).toBeInTheDocument();
+  });
+
   it("explains missing port mappings", async () => {
     const unpublished = { ...proxy, httpPort: 0, httpsPort: 0 };
     mockApi({

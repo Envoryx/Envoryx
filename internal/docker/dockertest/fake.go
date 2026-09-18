@@ -39,6 +39,8 @@ type Fake struct {
 	images     map[string]string // ref -> image id
 	// Remote maps image refs to the id a pull would deliver. Unset refs pull as "<ref>@v1".
 	Remote map[string]string
+	// Access is returned by NetworkAccess for any container (zero value = bridge).
+	Access docker.NetworkAccess
 
 	// Unavailable makes every call fail with docker.ErrUnavailable.
 	Unavailable bool
@@ -785,6 +787,16 @@ func (f *Fake) ContainerNetworks(_ context.Context, containerID string) ([]strin
 		out = append(out, c.Spec.Network)
 	}
 	return out, nil
+}
+
+// NetworkAccess implements docker.Engine.
+func (f *Fake) NetworkAccess(_ context.Context, containerID string) (docker.NetworkAccess, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if _, ok := f.find(containerID); !ok {
+		return docker.NetworkAccess{}, docker.ErrNotFound
+	}
+	return f.Access, nil
 }
 
 // PortBindings implements docker.Engine.

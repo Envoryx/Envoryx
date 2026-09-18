@@ -313,7 +313,20 @@ func detectProxy(ctx context.Context, cfg config.Config, engine docker.Engine, r
 		}
 	}
 	if info.HTTPPort == 0 && info.HTTPSPort == 0 {
-		log.Warn("proxy ports are not published; map host ports to the container's proxy ports to use domains", "http", cfg.ProxyHTTP, "https", cfg.ProxyHTTPS)
+		// No published ports: with host networking or an own IP (macvlan/ipvlan, Unraid
+		// "br0") the listeners are reachable directly.
+		access, err := engine.NetworkAccess(ctx, selfID)
+		if err != nil {
+			log.Warn("could not inspect the Staqio container's network", "err", err)
+		} else if access.Direct {
+			info.HTTPPort, info.HTTPSPort = httpPort, httpsPort
+			if len(access.IPs) > 0 {
+				info.Address = access.IPs[0]
+			}
+			log.Info("proxy reachable directly on the container's own address", "mode", access.Mode, "ips", access.IPs)
+		} else {
+			log.Warn("proxy ports are not published; map host ports to the container's proxy ports to use domains", "http", cfg.ProxyHTTP, "https", cfg.ProxyHTTPS)
+		}
 	}
 	return info
 }

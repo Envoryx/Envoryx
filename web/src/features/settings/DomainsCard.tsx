@@ -29,6 +29,11 @@ function ProxyStatus({ tls }: { tls: TLSInfo }) {
         <span className="text-muted">HTTPS</span>
         <Badge tone={p.httpsPort && p.tls ? "green" : "gray"}>{p.httpsPort && p.tls ? `host port ${p.httpsPort}` : "not published"}</Badge>
       </div>
+      {p.address && (
+        <Alert tone="blue" title={`Staqio has its own IP address: ${p.address}`}>
+          The proxy is reachable directly on that address (no port mapping needed). Point your DNS entries for the base domain at <Code>{p.address}</Code> – not at the Docker host.
+        </Alert>
+      )}
       {missing && p.inDocker && (
         <Alert tone="amber" title="Map the proxy ports">
           The Staqio container listens on 80 and 443, but neither port is published on the host. Add port mappings <Code>80:80</Code> and <Code>443:443</Code> (or any free host ports) to the container, then restart it. Project links keep using the direct port until then.

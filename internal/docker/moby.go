@@ -9,6 +9,7 @@ import (
 	"io"
 	"log/slog"
 	"net/netip"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -860,6 +861,40 @@ func (e *MobyEngine) PortBindings(ctx context.Context, containerID string) ([]Po
 			}
 		}
 	}
+	return out, nil
+}
+
+// NetworkAccess implements Engine.
+func (e *MobyEngine) NetworkAccess(ctx context.Context, containerID string) (NetworkAccess, error) {
+	c, err := e.inspectRaw(ctx, containerID)
+	if err != nil {
+		return NetworkAccess{}, err
+	}
+	out := NetworkAccess{}
+	if c.HostConfig != nil {
+		out.Mode = string(c.HostConfig.NetworkMode)
+	}
+	if out.Mode == "host" {
+		out.Direct = true
+		return out, nil
+	}
+	if c.NetworkSettings == nil {
+		return out, nil
+	}
+	for name, ep := range c.NetworkSettings.Networks {
+		res, err := e.cli.NetworkInspect(ctx, name, client.NetworkInspectOptions{})
+		if err != nil {
+			continue
+		}
+		switch res.Network.Driver {
+		case "macvlan", "ipvlan":
+			out.Direct = true
+			if ep != nil && ep.IPAddress.IsValid() {
+				out.IPs = append(out.IPs, ep.IPAddress.String())
+			}
+		}
+	}
+	sort.Strings(out.IPs)
 	return out, nil
 }
 

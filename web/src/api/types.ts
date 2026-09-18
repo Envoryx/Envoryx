@@ -296,6 +296,8 @@ export interface ProxyInfo {
   httpsPort: number;
   inDocker: boolean;
   tls: boolean;
+  /** Set when the container has its own IP (macvlan/ipvlan) instead of published ports. */
+  address?: string;
 }
 
 export interface DomainEntry {

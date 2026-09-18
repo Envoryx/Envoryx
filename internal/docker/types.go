@@ -100,6 +100,17 @@ type Network struct {
 	Managed bool
 }
 
+// NetworkAccess describes the reachability of a container's ports.
+type NetworkAccess struct {
+	// Mode is the container's network mode (bridge, host, <network name> …).
+	Mode string
+	// Direct is true when container ports are reachable without port publishing:
+	// host networking, or an own IP on a macvlan/ipvlan network.
+	Direct bool
+	// IPs are the container's addresses on directly reachable networks.
+	IPs []string
+}
+
 // Volume summarises a Docker volume.
 type Volume struct {
 	Name    string
@@ -288,6 +299,10 @@ type Engine interface {
 	// SelfPortBindings returns the host ports published for the given container ports of
 	// any container (used to discover how Staqio's own proxy ports are mapped).
 	PortBindings(ctx context.Context, containerID string) ([]PortMapping, error)
+	// NetworkAccess describes how a container's listeners are reachable from the LAN:
+	// through published ports, or directly because it uses host networking or has its
+	// own IP on a macvlan/ipvlan network.
+	NetworkAccess(ctx context.Context, containerID string) (NetworkAccess, error)
 
 	// ListVolumes lists volumes; managedOnly restricts to Staqio volumes.
 	ListVolumes(ctx context.Context, managedOnly bool) ([]Volume, error)
