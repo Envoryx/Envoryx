@@ -538,7 +538,12 @@ TLS (`internal/tlsca`): an ECDSA P-256 CA under `/config/ca` (`ca.key`
 (`certs/<host>.pem`, 397 days), `GetCertificate` restricted to names in the
 routing table. An operator-supplied certificate (`custom.crt/key`) wins for
 the names it covers. `force_https` (settings) redirects HTTP → HTTPS except
-for bare IPs.
+for bare IPs. `internal/acme` optionally obtains a public wildcard
+certificate through Let's Encrypt (dns-01 via a `DNSProvider` interface,
+Cloudflare implemented; `golang.org/x/crypto/acme`, no extra dependency),
+stores it as the tlsca custom certificate and renews it 30 days before
+expiry in a background loop; config/token under `/config/ca/acme.json`
+(0600).
 
 - **Phase 5 DX** (logs and terminal implemented): log streaming and PTY
   terminal over WebSocket – session cookie validated before the upgrade,

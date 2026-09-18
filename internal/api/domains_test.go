@@ -133,3 +133,46 @@ func selfSigned(t *testing.T, name string) (string, string) {
 	return string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})),
 		string(pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: keyDER}))
 }
+
+func TestACMEEndpoints(t *testing.T) {
+	a := newApp(t)
+	a.setupAndLogin()
+	r := a.do(http.MethodGet, "/api/v1/settings/tls/acme", nil, false)
+	if r.status != http.StatusOK || r.body["available"] != true || r.body["status"].(map[string]any)["configured"] != false {
+		t.Fatalf("status: %d %s", r.status, r.raw)
+	}
+	if r.body["providers"].(map[string]any)["cloudflare"] != "Cloudflare" {
+		t.Fatalf("providers: %s", r.raw)
+	}
+	r = a.do(http.MethodPost, "/api/v1/settings/tls/acme/issue", nil, true)
+	if r.status != http.StatusConflict {
+		t.Fatalf("issue without config: %d", r.status)
+	}
+	r = a.do(http.MethodPut, "/api/v1/settings/tls/acme", map[string]any{"provider": "cloudflare", "domain": "dev.example.com", "email": "nope"}, true)
+	if r.status != http.StatusUnprocessableEntity {
+		t.Fatalf("invalid email: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodPut, "/api/v1/settings/tls/acme", map[string]any{"provider": "cloudflare", "domain": "Dev.Example.com", "email": "me@example.com", "token": "cf-token", "useAsBaseDomain": true}, true)
+	if r.status != http.StatusOK {
+		t.Fatalf("set: %d %s", r.status, r.raw)
+	}
+	st := r.body["status"].(map[string]any)
+	if st["configured"] != true || st["domain"] != "dev.example.com" || st["provider"] != "cloudflare" {
+		t.Fatalf("status after set: %v", st)
+	}
+	if strings.Contains(string(r.raw), "cf-token") {
+		t.Fatal("token must never be returned")
+	}
+	r = a.do(http.MethodGet, "/api/v1/settings", nil, false)
+	if r.body["baseDomain"] != "dev.example.com" {
+		t.Fatalf("base domain must follow: %s", r.raw)
+	}
+	r = a.do(http.MethodPost, "/api/v1/settings/tls/acme/issue", nil, true)
+	if r.status != http.StatusAccepted {
+		t.Fatalf("issue: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodDelete, "/api/v1/settings/tls/acme", nil, true)
+	if r.status != http.StatusOK || r.body["status"].(map[string]any)["configured"] != false {
+		t.Fatalf("clear: %d %s", r.status, r.raw)
+	}
+}

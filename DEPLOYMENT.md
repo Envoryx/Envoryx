@@ -205,9 +205,36 @@ trusted on the client:
 
 **Force HTTPS** redirects `http://` requests for known names to HTTPS.
 
-**Own certificate**: if you own a domain, upload a wildcard certificate (e.g.
-`*.dev.example.com` from Let's Encrypt via DNS challenge) with its key in
-the same settings card. It is used for every name it covers; other names keep
+### Let's Encrypt instead of the local CA (no installation on clients)
+
+If you own a domain, Staqio can obtain and renew a **public wildcard
+certificate** itself, so every browser trusts project URLs without any
+CA installation. It uses the ACME dns-01 challenge: Staqio creates a
+temporary `_acme-challenge` TXT record through your DNS provider's API,
+Let's Encrypt verifies it, done. Nothing needs to be reachable from the
+internet and the domain never has to point at your server publicly.
+
+1. Cloudflare (currently the supported provider): *My Profile → API Tokens →
+   Create Token → template "Edit zone DNS"*, restricted to the zone. The
+   token needs *Zone:Read* and *Zone:DNS:Edit*.
+2. Settings → Domains & HTTPS → **Let's Encrypt**: provider, domain
+   (e.g. `dev.example.com` – the wildcard `*.dev.example.com` is added),
+   contact e-mail, token, "Use as base domain" → Enable.
+3. In your **local** DNS (AdGuard/Pi-hole/…) rewrite `*.dev.example.com` →
+   Staqio's address. Do not create a public record for it.
+
+Staqio requests the certificate in the background (1–2 minutes, status is
+shown in the card), stores it under `/config/ca/custom.*` and renews it 30
+days before expiry. The local CA stays as fallback for other names (`.test`).
+The staging checkbox uses Let's Encrypt's staging environment to test the
+setup without rate limits (certificates from staging are not trusted).
+
+Note: Let's Encrypt publishes every issued certificate in public
+certificate-transparency logs, so the existence of `*.dev.example.com` is
+visible there – nothing else.
+
+**Own certificate**: alternatively upload any wildcard certificate with its
+key in the same card. It is used for every name it covers; other names keep
 using the local CA. Certificate and key are stored under `/config/ca/custom.*`
 with owner-only permissions and are never returned by the API.
 

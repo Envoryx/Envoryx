@@ -5,6 +5,7 @@ import { authedRoutes, mockApi, renderApp } from "@/test/utils";
 
 const proxy = { enabled: true, httpPort: 80, httpsPort: 443, inDocker: true, tls: true };
 const settings = { publicHost: "", baseDomain: "test", forceHttps: false, proxy };
+const acme = { available: true, providers: { cloudflare: "Cloudflare" }, status: { configured: false, issuing: false } };
 const tls = { enabled: true, ca: { caSubject: "Staqio Local CA", caFingerprint: "AA:BB", caNotAfter: "2036-01-01T00:00:00Z", custom: null }, proxy, baseDomain: "test", forceHttps: false };
 
 describe("DomainsCard", () => {
@@ -13,6 +14,7 @@ describe("DomainsCard", () => {
   it("saves base domain and force-HTTPS, offers the CA download and installs a custom certificate", async () => {
     const api = mockApi({
       ...authedRoutes,
+      "GET /settings/tls/acme": () => ({ body: acme }),
       "GET /settings/tls/custom": () => ({ body: tls }),
       "GET /settings/tls": () => ({ body: tls }),
       "GET /settings": () => ({ body: settings }),
@@ -45,6 +47,7 @@ describe("DomainsCard", () => {
     const direct = { ...proxy, address: "192.168.1.50" };
     mockApi({
       ...authedRoutes,
+      "GET /settings/tls/acme": () => ({ body: acme }),
       "GET /settings/tls": () => ({ body: { ...tls, proxy: direct } }),
       "GET /settings": () => ({ body: { ...settings, proxy: direct } }),
     });
@@ -56,6 +59,7 @@ describe("DomainsCard", () => {
     const unpublished = { ...proxy, httpPort: 0, httpsPort: 0 };
     mockApi({
       ...authedRoutes,
+      "GET /settings/tls/acme": () => ({ body: acme }),
       "GET /settings/tls": () => ({ body: { ...tls, proxy: unpublished } }),
       "GET /settings": () => ({ body: { ...settings, proxy: unpublished } }),
     });

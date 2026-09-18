@@ -315,6 +315,35 @@ export interface CustomCertInfo {
   expired: boolean;
 }
 
+export interface ACMEStatus {
+  configured: boolean;
+  provider?: string;
+  domain?: string;
+  email?: string;
+  staging?: boolean;
+  issuing: boolean;
+  lastAttempt?: string;
+  lastSuccess?: string;
+  lastError?: string;
+  notAfter?: string;
+  names?: string[];
+}
+
+export interface ACMEInfo {
+  available: boolean;
+  providers: Record<string, string>;
+  status?: ACMEStatus;
+}
+
+export interface ACMERequest {
+  provider: string;
+  domain: string;
+  email: string;
+  token: string;
+  staging: boolean;
+  useAsBaseDomain: boolean;
+}
+
 export interface TLSInfo {
   enabled: boolean;
   ca?: { caSubject: string; caFingerprint: string; caNotAfter: string; custom?: CustomCertInfo | null };

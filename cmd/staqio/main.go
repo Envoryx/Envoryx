@@ -26,6 +26,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/seramos/staqio/internal/acme"
 	"github.com/seramos/staqio/internal/api"
 	"github.com/seramos/staqio/internal/audit"
 	"github.com/seramos/staqio/internal/auth"
@@ -199,6 +200,15 @@ func serve() error {
 			log.Warn("local certificate authority unavailable; HTTPS for projects is disabled", "err", err)
 		}
 	}
+	var acmeMgr *acme.Manager
+	if certs != nil {
+		acmeMgr, err = acme.New(filepath.Join(cfg.ConfigDir, "ca"), certs, log)
+		if err != nil {
+			log.Warn("Let's Encrypt integration unavailable", "err", err)
+		} else {
+			go acmeMgr.Run(ctx)
+		}
+	}
 	proxyInfo := detectProxy(ctx, cfg, engine, resolver, certs != nil, log)
 
 	// 7. HTTP + MCP.
@@ -220,7 +230,7 @@ func serve() error {
 	mcpSrv := mcpserver.New(mcpserver.Deps{Projects: manager, Catalog: catalog, Auth: sessions, Links: mcpLinks, Version: version, Log: log})
 	a := api.New(api.Deps{
 		Config: cfg, Version: version, Store: st, Auth: sessions, Audit: auditLog, Engine: engine,
-		Projects: manager, Catalog: catalog, Stats: collector, HostPath: resolver, Certs: certs, Proxy: proxyInfo,
+		Projects: manager, Catalog: catalog, Stats: collector, HostPath: resolver, Certs: certs, ACME: acmeMgr, Proxy: proxyInfo,
 		MCP: mcpSrv.Handler(), Log: log, StartedAt: time.Now(),
 	})
 	var origins []string

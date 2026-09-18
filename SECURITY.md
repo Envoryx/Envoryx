@@ -184,6 +184,11 @@ dump whose flavour matches the project's database.
 - Leaf certificates are valid for 397 days and re-issued automatically.
 - Uploaded custom certificates are validated (PEM, matching key) and stored
   with mode 0600; the key is never returned by the API.
+- Let's Encrypt integration: the DNS provider API token is stored in
+  `/config/ca/acme.json` (0600) and never returned by the API; scope it to
+  the one zone (Cloudflare "Edit zone DNS" template). The ACME account key
+  lives next to it. Only dns-01 is used – no inbound connectivity is required
+  and none is opened. Challenge TXT records are removed after each attempt.
 - TLS certificates are only issued for names in the routing table, IPs and
   the configured public host; SNI for other names is rejected.
 

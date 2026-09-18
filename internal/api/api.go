@@ -1,6 +1,7 @@
 package api
 
 import (
+	"github.com/seramos/staqio/internal/acme"
 	"log/slog"
 	"net/http"
 	"time"
@@ -30,6 +31,7 @@ type Deps struct {
 	Stats    *stats.Collector
 	HostPath *hostpath.Resolver
 	Certs    *tlsca.Store
+	ACME     *acme.Manager
 	Proxy    *ProxyInfo
 	// MCP is the MCP endpoint handler (nil = disabled); mounted at /mcp by the server.
 	MCP http.Handler
@@ -93,6 +95,10 @@ func (a *API) Mount(mux *http.ServeMux, protect func(http.Handler) http.Handler)
 	p("POST /api/v1/tokens", a.createToken)
 	p("DELETE /api/v1/tokens/{id}", a.deleteToken)
 	p("GET /api/v1/settings/tls", a.tlsInfo)
+	p("GET /api/v1/settings/tls/acme", a.acmeStatus)
+	p("PUT /api/v1/settings/tls/acme", a.setACME)
+	p("DELETE /api/v1/settings/tls/acme", a.clearACME)
+	p("POST /api/v1/settings/tls/acme/issue", a.issueACME)
 	p("GET /api/v1/settings/tls/ca.crt", a.downloadCA)
 	p("PUT /api/v1/settings/tls/custom", a.setCustomCert)
 	p("DELETE /api/v1/settings/tls/custom", a.clearCustomCert)

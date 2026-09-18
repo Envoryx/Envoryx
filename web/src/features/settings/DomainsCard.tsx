@@ -6,6 +6,7 @@ import { useSettings, useTLSInfo, useUpdateSettings } from "@/api/hooks";
 import type { TLSInfo } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Checkbox, Code, Field, Input, Spinner } from "@/components/ui";
 import { formatDateTime } from "@/lib/format";
+import { AcmeForm } from "./AcmeForm";
 
 type Msg = { tone: "green" | "red"; text: string } | null;
 
@@ -209,6 +210,12 @@ export function DomainsCard() {
                   ))}
                 </ul>
               </details>
+            </div>
+            <div className="border-t border-default pt-5">
+              <h3 className="text-sm font-semibold">Let&apos;s Encrypt (public certificate, no CA installation)</h3>
+              <div className="mt-3">
+                <AcmeForm baseDomain={settings.data.baseDomain} />
+              </div>
             </div>
             <div className="border-t border-default pt-5">
               <h3 className="text-sm font-semibold">Custom certificate</h3>

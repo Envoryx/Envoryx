@@ -34,7 +34,9 @@ Staqio is under active development. The current milestone (Phase 1 + 2) delivers
 - projects reachable at `http://<host>:<port>` (port auto-assigned) and,
   through the embedded reverse proxy, as `https://<project>.test` plus any
   additional domains; certificates from a local CA (download once, trust on
-  your devices) or your own wildcard certificate
+  your devices), or a Let's Encrypt wildcard for your own domain obtained
+  and renewed automatically via DNS challenge (Cloudflare) – nothing to
+  install anywhere
 - start / stop / restart / edit / delete with confirmation
 - live logs per container over WebSocket: pause, search, stderr filter, download
 - browser terminal (xterm.js) into any project container; application
