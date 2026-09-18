@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./client";
-import type { CreateProjectRequest, Project, UpdateProjectRequest } from "./types";
+import type { CreateProjectRequest, Project, UpdateProjectRequest, UpdateSettingsRequest } from "./types";
+import { projectUrl } from "@/lib/format";
 
 export const keys = {
   me: ["me"] as const,
@@ -45,12 +46,44 @@ export function usePublicHost(): string {
 export function useUpdateSettings() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (body: { publicHost?: string }) => api.updateSettings(body),
+    mutationFn: (body: UpdateSettingsRequest) => api.updateSettings(body),
     onSuccess: (data) => {
       qc.setQueryData(keys.settings, data);
       void qc.invalidateQueries({ queryKey: keys.dashboard });
+      void qc.invalidateQueries({ queryKey: keys.projects });
+      void qc.invalidateQueries({ queryKey: ["tls"] });
     },
   });
+}
+
+/**
+ * Returns a function building the URL a project should be opened at: the proxy domain
+ * (HTTPS when available) when the proxy ports are published, otherwise the direct port.
+ */
+export function useProjectLinks(): (project: Pick<Project, "httpPort" | "hostnames">) => { url: string; direct: string } {
+  const q = useQuery({ queryKey: keys.settings, queryFn: api.settings, staleTime: 60 * 1000 });
+  const publicHost = q.data?.publicHost ?? "";
+  const proxy = q.data?.proxy;
+  return (project) => {
+    const direct = projectUrl(project.httpPort, publicHost);
+    const host = project.hostnames?.[0];
+    if (!proxy?.enabled || !host) return { url: direct, direct };
+    if (proxy.tls && proxy.httpsPort > 0) {
+      return { url: `https://${host}${proxy.httpsPort === 443 ? "" : `:${proxy.httpsPort}`}`, direct };
+    }
+    if (proxy.httpPort > 0) {
+      return { url: `http://${host}${proxy.httpPort === 80 ? "" : `:${proxy.httpPort}`}`, direct };
+    }
+    return { url: direct, direct };
+  };
+}
+
+export function useTLSInfo() {
+  return useQuery({ queryKey: ["tls"], queryFn: api.tls.info });
+}
+
+export function useProjectDomains(id: string) {
+  return useQuery({ queryKey: [...keys.project(id), "domains"], queryFn: () => api.projects.domains.list(id) });
 }
 
 export function useAudit(limit = 100) {

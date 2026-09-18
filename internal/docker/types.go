@@ -278,6 +278,16 @@ type Engine interface {
 	CreateNetwork(ctx context.Context, name string, labels map[string]string) (string, error)
 	// RemoveNetwork removes a managed network.
 	RemoveNetwork(ctx context.Context, idOrName string) error
+	// ConnectNetwork attaches a container to a managed network (used to attach Staqio's own
+	// container so the embedded proxy can reach project web servers).
+	ConnectNetwork(ctx context.Context, network, containerID string) error
+	// DisconnectNetwork detaches a container from a managed network.
+	DisconnectNetwork(ctx context.Context, network, containerID string) error
+	// ContainerNetworks lists the network names a container is attached to.
+	ContainerNetworks(ctx context.Context, containerID string) ([]string, error)
+	// SelfPortBindings returns the host ports published for the given container ports of
+	// any container (used to discover how Staqio's own proxy ports are mapped).
+	PortBindings(ctx context.Context, containerID string) ([]PortMapping, error)
 
 	// ListVolumes lists volumes; managedOnly restricts to Staqio volumes.
 	ListVolumes(ctx context.Context, managedOnly bool) ([]Volume, error)

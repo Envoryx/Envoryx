@@ -164,6 +164,13 @@ func lookup(m map[string]string, p string) (string, bool) {
 	return filepath.Join(m[best], rel), true
 }
 
+// SelfContainerID returns the id of the Staqio container ("" on bare metal / unknown).
+func (r *Resolver) SelfContainerID() string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.selfID
+}
+
 // Status describes the resolver state for diagnostics.
 type Status struct {
 	SelfContainerID string            `json:"selfContainerId"`

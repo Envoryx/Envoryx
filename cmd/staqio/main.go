@@ -34,10 +34,12 @@ import (
 	"github.com/seramos/staqio/internal/docker"
 	"github.com/seramos/staqio/internal/hostpath"
 	"github.com/seramos/staqio/internal/project"
+	"github.com/seramos/staqio/internal/proxy"
 	"github.com/seramos/staqio/internal/runtime"
 	"github.com/seramos/staqio/internal/server"
 	"github.com/seramos/staqio/internal/stats"
 	"github.com/seramos/staqio/internal/store"
+	"github.com/seramos/staqio/internal/tlsca"
 	"github.com/seramos/staqio/web"
 )
 
@@ -165,6 +167,7 @@ func serve() error {
 			ConfigDir: cfg.ConfigDir, ConfigHostDir: configHost,
 			ProjectsDir: cfg.ProjectsDir, ProjectsHostDir: projectsHost,
 			PUID: cfg.PUID, PGID: cfg.PGID, StaqioVersion: version,
+			SelfContainerID: resolver.SelfContainerID(),
 		}, nil
 	}
 	manager := project.NewManager(st, engine, catalog, paths, auditLog, project.Config{
@@ -187,14 +190,25 @@ func serve() error {
 		}
 	}()
 
-	// 6. HTTP.
+	// 6. Local CA for the embedded proxy.
+	var certs *tlsca.Store
+	if cfg.ProxyHTTPS != "" {
+		certs, err = tlsca.Open(filepath.Join(cfg.ConfigDir, "ca"))
+		if err != nil {
+			log.Warn("local certificate authority unavailable; HTTPS for projects is disabled", "err", err)
+		}
+	}
+	proxyInfo := detectProxy(ctx, cfg, engine, resolver, certs != nil, log)
+
+	// 7. HTTP.
 	dist, err := web.Dist()
 	if err != nil {
 		log.Warn("embedded frontend unavailable", "err", err)
 	}
 	a := api.New(api.Deps{
 		Config: cfg, Version: version, Store: st, Auth: sessions, Audit: auditLog, Engine: engine,
-		Projects: manager, Catalog: catalog, Stats: collector, HostPath: resolver, Log: log, StartedAt: time.Now(),
+		Projects: manager, Catalog: catalog, Stats: collector, HostPath: resolver, Certs: certs, Proxy: proxyInfo,
+		Log: log, StartedAt: time.Now(),
 	})
 	var origins []string
 	if cfg.DevMode {
@@ -204,11 +218,97 @@ func serve() error {
 		}
 	}
 	srv := server.New(server.Options{Addr: cfg.ListenAddr, AllowedOrigins: origins, Log: log}, a, sessions, dist)
+
+	// 8. Embedded reverse proxy (host-name routing + HTTPS for projects and the UI).
+	if proxyInfo.Enabled {
+		publicHost := func(ctx context.Context) string {
+			if v, err := st.Settings.Get(ctx, api.SettingPublicHost); err == nil {
+				return v
+			}
+			return cfg.PublicHost
+		}
+		source := func(ctx context.Context) (proxy.Table, error) {
+			base := manager.BaseDomain(ctx)
+			staqioURL := "http://" + project.UIHostname(base)
+			if certs != nil && proxyInfo.HTTPSPort > 0 {
+				staqioURL = "https://" + project.UIHostname(base)
+				if proxyInfo.HTTPSPort != 443 {
+					staqioURL += fmt.Sprintf(":%d", proxyInfo.HTTPSPort)
+				}
+			} else if proxyInfo.HTTPPort > 0 && proxyInfo.HTTPPort != 80 {
+				staqioURL += fmt.Sprintf(":%d", proxyInfo.HTTPPort)
+			}
+			return manager.RouteTable(ctx, project.ProxyOptions{HTTPSPort: proxyInfo.HTTPSPort, StaqioURL: staqioURL, ExtraUIHosts: []string{publicHost(ctx)}})
+		}
+		router := proxy.NewRouter(source, 2*time.Second, log)
+		proxyInfo.Invalidate = router.Invalidate
+		handler := proxy.NewHandler(router, srv.Handler(), certs != nil, log)
+		httpsAddr := ""
+		if certs != nil {
+			httpsAddr = cfg.ProxyHTTPS
+		}
+		ps := proxy.NewServer(handler, router, certs, cfg.ProxyHTTP, httpsAddr, nil, log)
+		go func() {
+			if err := ps.Run(ctx); err != nil {
+				log.Warn("embedded proxy disabled", "err", err)
+			}
+		}()
+	}
+
 	if err := srv.ListenAndServe(ctx); err != nil {
 		return fmt.Errorf("http server: %w", err)
 	}
 	log.Info("Staqio stopped")
 	return nil
+}
+
+// detectProxy figures out how the proxy's listeners are reachable from the host: inside
+// Docker from the published port bindings of Staqio's own container, on bare metal from
+// the configured listen addresses.
+func detectProxy(ctx context.Context, cfg config.Config, engine docker.Engine, resolver *hostpath.Resolver, tlsEnabled bool, log *slog.Logger) *api.ProxyInfo {
+	info := &api.ProxyInfo{Enabled: cfg.ProxyHTTP != "" || (cfg.ProxyHTTPS != "" && tlsEnabled)}
+	if !info.Enabled {
+		return info
+	}
+	portOf := func(addr string) int {
+		_, port, err := net.SplitHostPort(addr)
+		if err != nil {
+			return 0
+		}
+		var n int
+		fmt.Sscanf(port, "%d", &n)
+		return n
+	}
+	httpPort, httpsPort := portOf(cfg.ProxyHTTP), 0
+	if tlsEnabled {
+		httpsPort = portOf(cfg.ProxyHTTPS)
+	}
+	selfID := resolver.SelfContainerID()
+	if selfID == "" {
+		info.HTTPPort, info.HTTPSPort = httpPort, httpsPort
+		return info
+	}
+	info.InDocker = true
+	bindings, err := engine.PortBindings(ctx, selfID)
+	if err != nil {
+		log.Warn("could not read port bindings of the Staqio container", "err", err)
+		return info
+	}
+	for _, b := range bindings {
+		if b.Protocol != "" && b.Protocol != "tcp" {
+			continue
+		}
+		switch {
+		case b.ContainerPort == httpPort && httpPort != 0:
+			info.HTTPPort = b.HostPort
+		case b.ContainerPort == httpsPort && httpsPort != 0:
+			info.HTTPSPort = b.HostPort
+		}
+	}
+	if info.HTTPPort == 0 && info.HTTPSPort == 0 {
+		log.Warn("proxy ports are not published; map host ports to the container's proxy ports to use domains", "http", cfg.ProxyHTTP, "https", cfg.ProxyHTTPS)
+	}
+	return info
 }
 
 func logHostPaths(log *slog.Logger, r *hostpath.Resolver, cfg config.Config) {

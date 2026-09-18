@@ -74,6 +74,7 @@ type projectDTO struct {
 	Env          []envDTO     `json:"env"`
 	Status       statusDTO    `json:"status"`
 	Git          gitDTO       `json:"git"`
+	Hostnames    []string     `json:"hostnames"`
 }
 
 type gitDTO struct {
@@ -251,6 +252,22 @@ type deleteProjectRequest struct {
 
 // ---- Handlers ---------------------------------------------------------------
 
+// withHostnames fills the derived + extra host names of a project DTO.
+func (a *API) withHostnames(r *http.Request, dto projectDTO, p store.Project) projectDTO {
+	hosts, err := a.projectHosts(r, p)
+	dto.Hostnames = []string{}
+	if err == nil {
+		for _, h := range hosts {
+			dto.Hostnames = append(dto.Hostnames, h.Hostname)
+		}
+	}
+	return dto
+}
+
+func (a *API) project(r *http.Request, v project.View) projectDTO {
+	return a.withHostnames(r, toProject(v), v.Project)
+}
+
 func (a *API) listProjects(w http.ResponseWriter, r *http.Request) {
 	views, err := a.d.Projects.List(r.Context())
 	if err != nil {
@@ -259,7 +276,7 @@ func (a *API) listProjects(w http.ResponseWriter, r *http.Request) {
 	}
 	out := make([]projectDTO, 0, len(views))
 	for _, v := range views {
-		out = append(out, toProject(v))
+		out = append(out, a.project(r, v))
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"projects": out})
 }
@@ -275,7 +292,8 @@ func (a *API) createProject(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusCreated, map[string]any{"project": toProject(view)})
+	a.invalidateProxy()
+	writeJSON(w, http.StatusCreated, map[string]any{"project": a.project(r, view)})
 }
 
 func (a *API) previewProject(w http.ResponseWriter, r *http.Request) {
@@ -298,7 +316,7 @@ func (a *API) getProject(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"project": toProject(view)})
+	writeJSON(w, http.StatusOK, map[string]any{"project": a.project(r, view)})
 }
 
 func (a *API) updateProject(w http.ResponseWriter, r *http.Request) {
@@ -335,7 +353,8 @@ func (a *API) updateProject(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"project": toProject(view)})
+	a.invalidateProxy()
+	writeJSON(w, http.StatusOK, map[string]any{"project": a.project(r, view)})
 }
 
 func (a *API) deleteProject(w http.ResponseWriter, r *http.Request) {
@@ -348,6 +367,7 @@ func (a *API) deleteProject(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
+	a.invalidateProxy()
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -369,7 +389,8 @@ func (a *API) transition(w http.ResponseWriter, r *http.Request, op func(ctx con
 		writeError(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"project": toProject(view)})
+	a.invalidateProxy()
+	writeJSON(w, http.StatusOK, map[string]any{"project": a.project(r, view)})
 }
 
 func (a *API) projectServices(w http.ResponseWriter, r *http.Request) {

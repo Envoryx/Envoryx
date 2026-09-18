@@ -3,14 +3,15 @@ import { Trash2, Save, ExternalLink } from "lucide-react";
 import { lazy, Suspense, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ApiError } from "@/api/client";
-import { useProject, useProjectPlan, useProjectStats, usePublicHost, useRuntimes, useUpdateProject } from "@/api/hooks";
+import { useProject, useProjectLinks, useProjectPlan, useProjectStats, useRuntimes, useUpdateProject } from "@/api/hooks";
 import type { EnvVar, PHPConfig, Project } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Checkbox, Code, ErrorState, Field, Input, PageHeader, Select, Spinner, StatusDot } from "@/components/ui";
-import { containerStateTone, formatBytes, formatDateTime, formatPercent, projectUrl, serviceLabel, stateMeta } from "@/lib/format";
+import { containerStateTone, formatBytes, formatDateTime, formatPercent, serviceLabel, stateMeta } from "@/lib/format";
 import { DeleteProjectDialog, ProjectActionButtons, useActionError } from "./ProjectActions";
 import { DatabaseTab } from "./DatabaseTab";
 import { EnvEditor } from "./EnvEditor";
 import { GitTab } from "./GitTab";
+import { DomainsTab } from "./DomainsTab";
 import { ServicesTab } from "./ServicesTab";
 import { BackupsTab } from "./BackupsTab";
 import { LogsTab } from "./LogsTab";
@@ -19,13 +20,13 @@ const TerminalTab = lazy(() => import("./TerminalTab").then((m) => ({ default: m
 const ActionsTab = lazy(() => import("./ActionsTab").then((m) => ({ default: m.ActionsTab })));
 import { PhpConfigForm } from "./PhpConfigForm";
 
-const tabs = ["Overview", "Git", "Actions", "Terminal", "Logs", "Runtime", "Database", "Services", "Backups", "Environment", "Advanced"] as const;
+const tabs = ["Overview", "Domains", "Git", "Actions", "Terminal", "Logs", "Runtime", "Database", "Services", "Backups", "Environment", "Advanced"] as const;
 type Tab = (typeof tabs)[number];
 
 export function ProjectDetailPage() {
   const { id = "" } = useParams();
   const q = useProject(id);
-  const publicHost = usePublicHost();
+  const links = useProjectLinks();
   const [tab, setTab] = useState<Tab>("Overview");
   const [deleting, setDeleting] = useState(false);
   const { error, capture, setError } = useActionError();
@@ -37,7 +38,7 @@ export function ProjectDetailPage() {
   }
   const p = q.data;
   const meta = stateMeta[p.status.state];
-  const url = projectUrl(p.httpPort, publicHost);
+  const { url } = links(p);
 
   return (
     <div>
@@ -107,6 +108,7 @@ export function ProjectDetailPage() {
       </div>
 
       {tab === "Overview" && <OverviewTab project={p} />}
+      {tab === "Domains" && <DomainsTab project={p} />}
       {tab === "Git" && <GitTab project={p} />}
       {tab === "Actions" && (
         <Suspense fallback={<Spinner label="Loading actions…" />}>

@@ -8,6 +8,10 @@ services:
     container_name: staqio
     ports:
       - "8787:8787"
+      # Embedded reverse proxy: projects by domain (http://shop.test) and HTTPS
+      # via the local CA. Use other host ports if 80/443 are taken.
+      - "80:80"
+      - "443:443"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /mnt/user/appdata/staqio:/config
@@ -25,6 +29,9 @@ services:
       # Optional: bootstrap the admin account non-interactively.
       # STAQIO_ADMIN_USER: admin
       # STAQIO_ADMIN_PASSWORD: change-me-please
+      # Optional: change or disable (empty) the proxy listeners inside the container.
+      # STAQIO_PROXY_HTTP: ":80"
+      # STAQIO_PROXY_HTTPS: ":443"
       # Optional: use a Docker socket proxy instead of the raw socket (see SECURITY.md).
       # DOCKER_HOST: tcp://docker-socket-proxy:2375
     restart: unless-stopped

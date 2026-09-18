@@ -518,12 +518,28 @@ inbox on an allocated host port, `MAIL_*`/`MAILER_DSN` injected) are
 auxiliary services with a small `{hostPort}` config; env changes recreate the
 application containers while stateful services keep running.
 
-### Later phases (prepared, not implemented)
-- **Phase 4 Webserver/Domains**: central reverse proxy routing by `Host` to
-  `staqio-<slug>-web`. Recommendation: embed the proxy in the Go binary
-  (`httputil.ReverseProxy`, joins project networks) instead of a separate
-  Caddy container – one fewer moving part, no config reloads. Decision
-  deferred to Phase 4.
+### Phase 4 + 8 – Domains, embedded proxy, HTTPS (implemented)
+The proxy lives in the Staqio binary (`internal/proxy`): two listeners
+(`STAQIO_PROXY_HTTP` `:80`, `STAQIO_PROXY_HTTPS` `:443`) in front of an
+`httputil.ReverseProxy` per upstream. A `Router` caches a routing `Table`
+(2 s TTL, invalidated by the API after changes) built by
+`Manager.RouteTable`: `<slug>.<base>` for every project, extra names from the
+`domains` table, `staqio.<base>` plus the public host for the UI. Unknown
+names → 404 page, stopped project → 503 page, IPs/empty host → UI. Upstreams
+are `staqio-<slug>-web:80`; to reach them the Staqio container is connected to
+every project network (`ConnectNetwork` on create/ensure/reconcile,
+disconnect before the network is removed). On bare metal the upstream is
+`127.0.0.1:<httpPort>`. Host-side ports are discovered from the container's
+own port bindings (`PortBindings(selfID)`), so non-standard mappings work and
+the UI can warn when nothing is published.
+
+TLS (`internal/tlsca`): an ECDSA P-256 CA under `/config/ca` (`ca.key`
+0600), leaf certificates issued lazily per SNI name and cached on disk
+(`certs/<host>.pem`, 397 days), `GetCertificate` restricted to names in the
+routing table. An operator-supplied certificate (`custom.crt/key`) wins for
+the names it covers. `force_https` (settings) redirects HTTP → HTTPS except
+for bare IPs.
+
 - **Phase 5 DX** (logs and terminal implemented): log streaming and PTY
   terminal over WebSocket – session cookie validated before the upgrade,
   same-origin enforced, containers resolved from `project + service kind`
@@ -547,5 +563,4 @@ application containers while stateful services keep running.
   tar-slip protection (entries and symlink targets must stay inside the
   project directory; never writes through an existing symlink). Records live
   in the `backups` table; a download streams the directory as one tar.
-- **Phase 8 HTTPS/DNS**, **Phase 9 MCP** (reuses the same manager and
-  validation layer).
+- **Phase 9 MCP** (reuses the same manager and validation layer).

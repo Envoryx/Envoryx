@@ -82,6 +82,8 @@ export interface Project {
   env: EnvVar[];
   status: ProjectStatus;
   git: { url: string; branch: string; username: string; hasToken: boolean };
+  /** Default hostname (slug.base) followed by extra domains. */
+  hostnames: string[];
 }
 
 export interface RuntimeVersion {
@@ -283,6 +285,40 @@ export interface Dashboard {
   hostPath: HostPathStatus;
   version: string;
   publicHost: string;
+  baseDomain: string;
+  proxy: ProxyInfo;
+}
+
+/** How the embedded reverse proxy is reachable from the host. */
+export interface ProxyInfo {
+  enabled: boolean;
+  httpPort: number;
+  httpsPort: number;
+  inDocker: boolean;
+  tls: boolean;
+}
+
+export interface DomainEntry {
+  id?: string;
+  hostname: string;
+  default: boolean;
+  createdAt?: string;
+}
+
+export interface CustomCertInfo {
+  subject: string;
+  dnsNames: string[];
+  notAfter: string;
+  issuer: string;
+  expired: boolean;
+}
+
+export interface TLSInfo {
+  enabled: boolean;
+  ca?: { caSubject: string; caFingerprint: string; caNotAfter: string; custom?: CustomCertInfo | null };
+  proxy: ProxyInfo;
+  baseDomain?: string;
+  forceHttps?: boolean;
 }
 
 export interface ContainerSummary {
@@ -331,8 +367,17 @@ export interface PruneResult {
   errors: string[];
 }
 
+export interface UpdateSettingsRequest {
+  publicHost?: string;
+  baseDomain?: string;
+  forceHttps?: boolean;
+}
+
 export interface Settings {
   publicHost: string;
+  baseDomain: string;
+  forceHttps: boolean;
+  proxy: ProxyInfo;
   version: string;
   schemaVersion: number;
   configDir: string;

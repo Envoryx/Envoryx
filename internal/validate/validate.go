@@ -152,6 +152,22 @@ func EnvValue(v string) error {
 	return nil
 }
 
+var hostnameRe = regexp.MustCompile(`^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$`)
+
+// Hostname validates a fully qualified, lower-case DNS host name (no wildcard, no port).
+func Hostname(h string) error {
+	h = strings.TrimSuffix(strings.ToLower(strings.TrimSpace(h)), ".")
+	if len(h) == 0 || len(h) > 253 || !hostnameRe.MatchString(h) {
+		return fmt.Errorf("%w: invalid host name %q", ErrInvalid, h)
+	}
+	return nil
+}
+
+// NormalizeHostname lower-cases and trims a host name.
+func NormalizeHostname(h string) string {
+	return strings.TrimSuffix(strings.ToLower(strings.TrimSpace(h)), ".")
+}
+
 // UUID validates a lower-case UUID.
 func UUID(s string) error {
 	if !uuidRe.MatchString(s) {

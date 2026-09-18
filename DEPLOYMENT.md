@@ -20,6 +20,8 @@ services:
     container_name: staqio
     ports:
       - "8787:8787"
+      - "80:80"     # proxy: projects by domain (optional, any free host port)
+      - "443:443"   # proxy: HTTPS via local CA (optional)
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /mnt/user/appdata/staqio:/config
@@ -38,7 +40,9 @@ regular server.
 
 Start with `docker compose up -d`, open `http://<host>:8787` and create the
 admin account. Project web servers are published on ports from the configured
-range, e.g. `http://<host>:20000`.
+range, e.g. `http://<host>:20000`, and – with the proxy ports mapped and DNS
+set up (see [Domains and HTTPS](#domains-and-https)) – as
+`https://<project>.test`.
 
 ### Building locally
 
@@ -59,6 +63,8 @@ docker build -t ghcr.io/seramos/staqio:dev --build-arg VERSION=dev .
 | `PUID` / `PGID` | `99` / `100` | uid/gid project containers run as and project dirs are owned by |
 | `STAQIO_PORT_RANGE_START` / `_END` | `20000` / `20999` | Host ports assigned to project web servers |
 | `STAQIO_PUBLIC_HOST` | browser address | Host/IP used for project links (see below); also editable in Settings |
+| `STAQIO_PROXY_HTTP` | `:80` | Listen address of the embedded proxy inside the container; empty disables it |
+| `STAQIO_PROXY_HTTPS` | `:443` | HTTPS listener of the proxy (local CA); empty disables HTTPS |
 | `STAQIO_ADMIN_USER` / `STAQIO_ADMIN_PASSWORD` | – | Create the first admin non-interactively |
 | `STAQIO_SESSION_IDLE_TIMEOUT` | `12h` | Sliding session expiry |
 | `STAQIO_SESSION_ABSOLUTE_TIMEOUT` | `168h` | Hard session expiry |
@@ -124,6 +130,7 @@ No publication in Community Applications is required for either way.
 | Repository | `ghcr.io/seramos/staqio:latest` |
 | Network type | bridge |
 | Port | `8787` → `8787` |
+| Port | `80` → `80` and `443` → `443` (proxy; optional, other host ports work) |
 | Path `/config` | `/mnt/user/appdata/staqio` |
 | Path `/projects` | `/mnt/user/development` (create the share first) |
 | Path `/var/run/docker.sock` | `/var/run/docker.sock` |
@@ -150,16 +157,64 @@ Files created by PHP inside a project are owned by `PUID:PGID` (Unraid default
 `nobody:users` = `99:100`), so they are editable via SMB shares. Directories
 created by Staqio itself are chowned to the same ids.
 
-## Domains and DNS (preview of Phase 4)
+## Domains and HTTPS
 
-Currently projects are reached via `http://<host>:<port>`. Phase 4 adds a
-central reverse proxy on ports 80/443 that routes by hostname
-(`shimly-api.test`). Because Staqio runs on a remote server, `.test` names must
-resolve to the server on every client machine. Options:
+Staqio contains a reverse proxy that routes requests by host name to the
+project's web server and serves the Staqio UI itself. It listens on ports 80
+and 443 **inside** the container; map them to host ports (80/443 or any free
+ones – Staqio reads its own port bindings and adjusts links accordingly).
+When neither port is published, Settings → *Domains & HTTPS* shows a warning
+and project links keep using the direct port.
 
-- **Router / Pi-hole / AdGuard DNS rewrite**: `*.test → <server-ip>` (recommended)
-- **dnsmasq** on the server: `address=/.test/<server-ip>`
-- **hosts file** per client: `<server-ip> shimly-api.test shop.test`
+### Names
+
+- Base domain, default `test` (Settings → Domains & HTTPS). Every project is
+  `<slug>.<base>` (`shop.test`), the UI is `staqio.<base>`.
+- Additional names per project in its **Domains** tab (`shop.local`,
+  `api.shop.test`, …). Each name must be unique across projects.
+- The names must resolve to the Staqio host on every client. Because Staqio
+  runs on a server, use one of:
+  - **Pi-hole / AdGuard Home**: DNS rewrite `*.test → <server-ip>`
+    (AdGuard: *Filters → DNS rewrites*, domain `*.test`; Pi-hole ≥ 6:
+    *Local DNS → DNS Records*, or `dnsmasq` line below in `/etc/dnsmasq.d/`)
+  - **dnsmasq** (router, server): `address=/.test/<server-ip>`
+  - **hosts file** per client (`/etc/hosts`, `C:\Windows\System32\drivers\etc\hosts`):
+    `<server-ip> shop.test staqio.test`
+  - macOS: `/etc/resolver/test` with `nameserver <dns-ip>` if you run your
+    own DNS only for that zone.
+- `.test` is reserved for exactly this purpose (RFC 6761) and never resolves
+  on the public internet. `.local` collides with mDNS on macOS/Linux – prefer
+  `.test` or an owned domain (`dev.example.com`).
+
+### HTTPS
+
+On first start Staqio creates a local certificate authority under
+`/config/ca/` (`ca.key` 0600, `ca.crt`). The proxy issues a certificate per
+host name on demand, so `https://shop.test` works as soon as the CA is
+trusted on the client:
+
+1. Settings → Domains & HTTPS → **Download staqio-ca.crt**.
+2. Install it as a trusted root (instructions per OS are shown next to the
+   button; Firefox has its own store).
+
+**Force HTTPS** redirects `http://` requests for known names to HTTPS.
+
+**Own certificate**: if you own a domain, upload a wildcard certificate (e.g.
+`*.dev.example.com` from Let's Encrypt via DNS challenge) with its key in
+the same settings card. It is used for every name it covers; other names keep
+using the local CA. Certificate and key are stored under `/config/ca/custom.*`
+with owner-only permissions and are never returned by the API.
+
+The proxy keeps the original `Host`, sets `X-Forwarded-For/-Proto/-Host` and
+supports WebSockets. Projects can therefore generate correct absolute URLs
+(`APP_URL=https://shop.test`).
+
+### Bare metal
+
+Outside Docker the proxy dials the project's published port
+(`127.0.0.1:<port>`) instead of joining the project network. Binding 80/443
+needs `setcap cap_net_bind_service=+ep ./staqio` or other addresses
+(`STAQIO_PROXY_HTTP=:8080`).
 
 ## Updating
 

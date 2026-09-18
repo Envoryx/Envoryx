@@ -29,6 +29,7 @@ import (
 	"github.com/seramos/staqio/internal/server"
 	"github.com/seramos/staqio/internal/stats"
 	"github.com/seramos/staqio/internal/store"
+	"github.com/seramos/staqio/internal/tlsca"
 )
 
 type dockerExecResult = docker.ExecResult
@@ -62,8 +63,14 @@ func newApp(t *testing.T) *testApp {
 		return project.Paths{ConfigDir: cfgDir, ConfigHostDir: "/host/config", ProjectsDir: projDir, ProjectsHostDir: "/host/projects", PUID: 1000, PGID: 1000}, nil
 	}
 	manager := project.NewManager(st, engine, runtime.Default(), paths, auditLog, project.Config{PortRangeStart: 20000, PortRangeEnd: 20010}, log)
+	certs, err := tlsca.Open(filepath.Join(cfgDir, "ca"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	invalidations := 0
+	proxyInfo := &api.ProxyInfo{Enabled: true, HTTPPort: 80, HTTPSPort: 443, InDocker: true, Invalidate: func() { invalidations++ }}
 	a := api.New(api.Deps{Config: cfg, Version: "test", Store: st, Auth: sessions, Audit: auditLog, Engine: engine, Projects: manager,
-		Catalog: runtime.Default(), Stats: stats.New(engine, time.Second, log), HostPath: resolver, Log: log, StartedAt: time.Now()})
+		Catalog: runtime.Default(), Stats: stats.New(engine, time.Second, log), HostPath: resolver, Certs: certs, Proxy: proxyInfo, Log: log, StartedAt: time.Now()})
 	s := server.New(server.Options{Addr: ":0", Log: log}, a, sessions, nil)
 	handler := serverHandler(s)
 	srv := httptest.NewServer(handler)

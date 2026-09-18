@@ -104,6 +104,8 @@ func (a *API) dashboard(w http.ResponseWriter, r *http.Request) {
 		"hostPath":   a.d.HostPath.Status(),
 		"version":    a.d.Version,
 		"publicHost": a.publicHost(ctx),
+		"baseDomain": a.d.Projects.BaseDomain(ctx),
+		"proxy":      a.proxyDTO(),
 	})
 }
 
@@ -210,6 +212,8 @@ func (a *API) publicHost(ctx context.Context) string {
 
 type updateSettingsRequest struct {
 	PublicHost *string `json:"publicHost"`
+	BaseDomain *string `json:"baseDomain"`
+	ForceHTTPS *bool   `json:"forceHttps"`
 }
 
 func (a *API) updateSettings(w http.ResponseWriter, r *http.Request) {
@@ -230,6 +234,20 @@ func (a *API) updateSettings(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		changes["publicHost"] = host
+	}
+	if req.BaseDomain != nil {
+		if err := a.d.Projects.SetBaseDomain(r.Context(), *req.BaseDomain); err != nil {
+			writeError(w, r, err)
+			return
+		}
+		a.invalidateProxy()
+	}
+	if req.ForceHTTPS != nil {
+		if err := a.d.Projects.SetForceHTTPS(r.Context(), *req.ForceHTTPS); err != nil {
+			writeError(w, r, err)
+			return
+		}
+		a.invalidateProxy()
 	}
 	if len(changes) > 0 {
 		a.d.Audit.Log(r.Context(), audit.ActionSettingsChanged, "settings", "", changes)
@@ -260,6 +278,9 @@ func (a *API) settings(w http.ResponseWriter, r *http.Request) {
 	schema, _ := db.SchemaVersion(r.Context(), a.d.Store.DB())
 	writeJSON(w, http.StatusOK, map[string]any{
 		"publicHost":    a.publicHost(r.Context()),
+		"baseDomain":    a.d.Projects.BaseDomain(r.Context()),
+		"forceHttps":    a.d.Projects.ForceHTTPS(r.Context()),
+		"proxy":         a.proxyDTO(),
 		"version":       a.d.Version,
 		"schemaVersion": schema,
 		"configDir":     c.ConfigDir,

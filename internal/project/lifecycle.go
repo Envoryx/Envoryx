@@ -39,6 +39,7 @@ func (m *Manager) rollback(ctx context.Context, j journal) error {
 		}
 	}
 	if j.network != "" {
+		_ = m.detachProxy(ctx, j.network)
 		if err := m.engine.RemoveNetwork(ctx, j.network); err != nil {
 			errs = append(errs, fmt.Errorf("remove network %s: %w", j.network, err))
 		}
@@ -132,6 +133,9 @@ func (m *Manager) Create(ctx context.Context, req CreateRequest) (View, error) {
 		return fail("create network", err)
 	}
 	j.network = plan.NetworkName
+	if err := m.attachProxy(ctx, plan.NetworkName); err != nil {
+		return fail("attach proxy", err)
+	}
 	for _, v := range plan.Volumes {
 		if err := m.engine.CreateVolume(ctx, v, plan.Labels); err != nil {
 			return fail("create volume "+v, err)
@@ -269,6 +273,9 @@ func (m *Manager) ensurePlan(ctx context.Context, proj store.Project, plan Plan,
 		if _, err := m.engine.CreateNetwork(ctx, plan.NetworkName, plan.Labels); err != nil {
 			return fmt.Errorf("create network: %w", err)
 		}
+	}
+	if err := m.attachProxy(ctx, plan.NetworkName); err != nil {
+		m.log.Warn("proxy attach failed", "network", plan.NetworkName, "err", err)
 	}
 	if len(plan.Volumes) > 0 {
 		volumes, err := m.engine.ListVolumes(ctx, true)
@@ -617,6 +624,9 @@ func (m *Manager) Delete(ctx context.Context, id string, opts DeleteOptions) err
 	for _, n := range networks {
 		if n.Labels[docker.LabelProjectID] != id {
 			continue
+		}
+		if err := m.detachProxy(ctx, n.Name); err != nil {
+			return fail("detach proxy from "+n.Name, err)
 		}
 		if err := m.engine.RemoveNetwork(ctx, n.ID); err != nil {
 			return fail("remove network "+n.Name, err)

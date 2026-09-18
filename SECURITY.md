@@ -144,6 +144,30 @@ confirmed with the project identifier, only ever write inside the project
 directory (path traversal and symlink escapes are rejected) and only import a
 dump whose flavour matches the project's database.
 
+## Reverse proxy and local CA
+
+- The embedded proxy only routes host names that belong to a project or to
+  Staqio itself; unknown names get a static 404 page, stopped projects a 503.
+  It never proxies to arbitrary upstreams – targets are container names
+  derived from the project slug (or `127.0.0.1:<port>` on bare metal).
+- Staqio's own container is attached to every project network so the proxy
+  can reach the web containers. Consequently project containers can reach
+  Staqio's listeners (UI port, proxy) by IP on that network – the same
+  exposure as any LAN client: the API requires an authenticated session and
+  the CSRF checks, the proxy only routes known names. Application code you
+  run in a project is trusted to the same degree as code on your workstation.
+- The local CA key (`/config/ca/ca.key`, mode 0600) can sign certificates
+  for **any** name. Anyone with that file can impersonate websites on
+  clients that trust the CA. Keep `/config` private, and only install the
+  CA on machines you control. The CA is scoped for a development network;
+  it is not constrained by name. Delete `/config/ca/` to generate a new CA
+  (re-install it on clients afterwards).
+- Leaf certificates are valid for 397 days and re-issued automatically.
+- Uploaded custom certificates are validated (PEM, matching key) and stored
+  with mode 0600; the key is never returned by the API.
+- TLS certificates are only issued for names in the routing table, IPs and
+  the configured public host; SNI for other names is rejected.
+
 ## HTTP hardening
 
 - `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,

@@ -24,6 +24,8 @@ type FakeContainer struct {
 	// Foreign marks containers that were not created through the fake (simulated
 	// third-party containers on the host).
 	Foreign bool
+	// Extra networks the container was attached to via ConnectNetwork.
+	Attached []string
 }
 
 // Fake is an in-memory Engine with failure injection.
@@ -709,12 +711,108 @@ func (f *Fake) RemoveNetwork(_ context.Context, idOrName string) error {
 					return fmt.Errorf("network %s has active endpoints", name)
 				}
 			}
+			if att := f.attachedTo(name); len(att) > 0 {
+				return fmt.Errorf("network %s has active endpoints: %v", name, att)
+			}
 			delete(f.networks, name)
 			f.record("network-remove:" + name)
 			return nil
 		}
 	}
 	return nil
+}
+
+// ConnectNetwork implements docker.Engine.
+func (f *Fake) ConnectNetwork(_ context.Context, network, containerID string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if err := f.check(); err != nil {
+		return err
+	}
+	n, ok := f.networks[network]
+	if !ok {
+		return docker.ErrNotFound
+	}
+	if !n.Managed {
+		return fmt.Errorf("network %s: %w", network, docker.ErrNotManaged)
+	}
+	c, ok := f.find(containerID)
+	if !ok {
+		return docker.ErrNotFound
+	}
+	for _, a := range c.Attached {
+		if a == network {
+			return nil
+		}
+	}
+	c.Attached = append(c.Attached, network)
+	f.record("network-connect:" + network + ":" + c.Spec.Name)
+	return nil
+}
+
+// DisconnectNetwork implements docker.Engine.
+func (f *Fake) DisconnectNetwork(_ context.Context, network, containerID string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if err := f.check(); err != nil {
+		return err
+	}
+	c, ok := f.find(containerID)
+	if !ok {
+		return nil
+	}
+	var kept []string
+	for _, a := range c.Attached {
+		if a != network {
+			kept = append(kept, a)
+		}
+	}
+	c.Attached = kept
+	f.record("network-disconnect:" + network + ":" + c.Spec.Name)
+	return nil
+}
+
+// ContainerNetworks implements docker.Engine.
+func (f *Fake) ContainerNetworks(_ context.Context, containerID string) ([]string, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	c, ok := f.find(containerID)
+	if !ok {
+		return nil, docker.ErrNotFound
+	}
+	out := append([]string{}, c.Attached...)
+	if c.Spec.Network != "" {
+		out = append(out, c.Spec.Network)
+	}
+	return out, nil
+}
+
+// PortBindings implements docker.Engine.
+func (f *Fake) PortBindings(_ context.Context, containerID string) ([]docker.PortMapping, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	c, ok := f.find(containerID)
+	if !ok {
+		return nil, docker.ErrNotFound
+	}
+	var out []docker.PortMapping
+	for _, p := range c.Spec.Ports {
+		out = append(out, docker.PortMapping{HostIP: p.HostIP, HostPort: p.HostPort, ContainerPort: p.ContainerPort, Protocol: "tcp"})
+	}
+	return out, nil
+}
+
+// RemoveNetwork guard: attached (non-project) containers count as endpoints.
+func (f *Fake) attachedTo(network string) []string {
+	var names []string
+	for _, c := range f.containers {
+		for _, a := range c.Attached {
+			if a == network {
+				names = append(names, c.Spec.Name)
+			}
+		}
+	}
+	return names
 }
 
 // ListVolumes implements docker.Engine.

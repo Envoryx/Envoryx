@@ -31,7 +31,10 @@ Staqio is under active development. The current milestone (Phase 1 + 2) delivers
 - Redis (persistent volume, `REDIS_URL`) and Mailpit (SMTP catcher with web
   inbox, `MAIL_*`/`MAILER_DSN`) as optional services
 - project files bind-mounted from `/projects/<name>` on the host
-- projects reachable at `http://<host>:<port>` (port auto-assigned)
+- projects reachable at `http://<host>:<port>` (port auto-assigned) and,
+  through the embedded reverse proxy, as `https://<project>.test` plus any
+  additional domains; certificates from a local CA (download once, trust on
+  your devices) or your own wildcard certificate
 - start / stop / restart / edit / delete with confirmation
 - live logs per container over WebSocket: pause, search, stderr filter, download
 - browser terminal (xterm.js) into any project container; application
@@ -51,8 +54,7 @@ Staqio is under active development. The current milestone (Phase 1 + 2) delivers
   vendor/node_modules) + configuration under `/config/backups/<project>/`,
   restore with typed confirmation, download as a single archive
 
-Domains/HTTPS and MCP follow in later phases – see
-[ARCHITECTURE.md](ARCHITECTURE.md) §13.
+MCP follows in the next phase – see [ARCHITECTURE.md](ARCHITECTURE.md) §13.
 
 ## Quick start
 

@@ -14,6 +14,7 @@ import (
 	"github.com/seramos/staqio/internal/runtime"
 	"github.com/seramos/staqio/internal/stats"
 	"github.com/seramos/staqio/internal/store"
+	"github.com/seramos/staqio/internal/tlsca"
 )
 
 // Deps are the services the API handlers use.
@@ -28,12 +29,26 @@ type Deps struct {
 	Catalog  *runtime.Catalog
 	Stats    *stats.Collector
 	HostPath *hostpath.Resolver
+	Certs    *tlsca.Store
+	Proxy    *ProxyInfo
 	Log      *slog.Logger
 	// StartedAt is used for uptime reporting.
 	StartedAt time.Time
 	// AllowedOriginHosts are extra origins (host[:port]) permitted for WebSocket upgrades,
 	// e.g. the Vite dev server. Same-origin is always allowed.
 	AllowedOriginHosts []string
+}
+
+// ProxyInfo describes the embedded proxy for the UI. HTTPPort/HTTPSPort are the host-side
+// ports (0 = not published / unknown).
+type ProxyInfo struct {
+	Enabled   bool
+	HTTPPort  int
+	HTTPSPort int
+	// Attached is false on bare metal (proxy dials published ports instead).
+	InDocker bool
+	// Invalidate refreshes the routing table after changes.
+	Invalidate func()
 }
 
 // API holds handlers.
@@ -69,6 +84,13 @@ func (a *API) Mount(mux *http.ServeMux, protect func(http.Handler) http.Handler)
 	p("POST /api/v1/docker/images/prune", a.pruneImages)
 	p("GET /api/v1/settings", a.settings)
 	p("PATCH /api/v1/settings", a.updateSettings)
+	p("GET /api/v1/settings/tls", a.tlsInfo)
+	p("GET /api/v1/settings/tls/ca.crt", a.downloadCA)
+	p("PUT /api/v1/settings/tls/custom", a.setCustomCert)
+	p("DELETE /api/v1/settings/tls/custom", a.clearCustomCert)
+	p("GET /api/v1/projects/{id}/domains", a.listDomains)
+	p("POST /api/v1/projects/{id}/domains", a.addDomain)
+	p("DELETE /api/v1/projects/{id}/domains/{domain}", a.removeDomain)
 	p("GET /api/v1/audit", a.auditLog)
 	p("GET /api/v1/system/reconcile", a.reconcileReport)
 	p("POST /api/v1/system/reconcile", a.reconcileNow)

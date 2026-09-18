@@ -65,6 +65,7 @@ export function makeProject(overrides: Partial<Project> = {}): Project {
     ],
     env: [],
     git: { url: "", branch: "", username: "", hasToken: false },
+    hostnames: ["shimly-api.test"],
     status: {
       state: "running",
       services: [

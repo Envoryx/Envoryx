@@ -1,10 +1,10 @@
 import { Plus, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { useDashboard, useProjects, usePublicHost } from "@/api/hooks";
+import { useDashboard, useProjectLinks, useProjects } from "@/api/hooks";
 import type { Project } from "@/api/types";
 import { Alert, Badge, Button, Card, EmptyState, ErrorState, Input, LinkButton, PageHeader, Spinner, StatusDot } from "@/components/ui";
-import { formatBytes, formatPercent, projectUrl, serviceLabel, stateMeta } from "@/lib/format";
+import { formatBytes, formatPercent, serviceLabel, stateMeta } from "@/lib/format";
 import { ProjectActionButtons, useActionError } from "./ProjectActions";
 
 function ProjectRow({ project, usage }: { project: Project; usage?: { cpuPercent: number; memoryBytes: number } | undefined }) {
@@ -12,8 +12,8 @@ function ProjectRow({ project, usage }: { project: Project; usage?: { cpuPercent
   const php = project.services.find((s) => s.kind === "php");
   const web = project.services.find((s) => s.kind === "web");
   const db = project.services.find((s) => s.kind === "database");
-  const publicHost = usePublicHost();
-  const url = projectUrl(project.httpPort, publicHost);
+  const links = useProjectLinks();
+  const { url } = links(project);
   const { error, capture } = useActionError();
 
   return (

@@ -59,6 +59,11 @@ type Config struct {
 	LogLevel  string
 	LogFormat string
 
+	// ProxyHTTP / ProxyHTTPS are the listen addresses of the embedded reverse proxy inside
+	// the container (":80" / ":443"). Empty disables the respective listener.
+	ProxyHTTP  string
+	ProxyHTTPS string
+
 	// PublicHost is the host name or IP the browser should use for project links (ports are
 	// published on the Docker host, which may differ from the address Staqio is reached at,
 	// e.g. when the Staqio container has its own macvlan IP). Empty = browser address bar.
@@ -87,6 +92,8 @@ func Load() (Config, error) {
 		PUID:                   envInt("PUID", 1000),
 		PGID:                   envInt("PGID", 1000),
 		PublicHost:             env("STAQIO_PUBLIC_HOST", ""),
+		ProxyHTTP:              envAllowEmpty("STAQIO_PROXY_HTTP", ":80"),
+		ProxyHTTPS:             envAllowEmpty("STAQIO_PROXY_HTTPS", ":443"),
 		AdminUser:              env("STAQIO_ADMIN_USER", ""),
 		AdminPassword:          env("STAQIO_ADMIN_PASSWORD", ""),
 		LogLevel:               strings.ToLower(env("STAQIO_LOG_LEVEL", "info")),
@@ -159,6 +166,14 @@ func validHost(h string) bool {
 
 // ValidHost is exported for the settings API.
 func ValidHost(h string) bool { return validHost(h) }
+
+// envAllowEmpty is like env but an explicitly empty value disables the feature.
+func envAllowEmpty(key, def string) string {
+	if v, ok := os.LookupEnv(key); ok {
+		return strings.TrimSpace(v)
+	}
+	return def
+}
 
 func env(key, def string) string {
 	if v, ok := os.LookupEnv(key); ok && strings.TrimSpace(v) != "" {

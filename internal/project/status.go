@@ -146,6 +146,7 @@ func (m *Manager) Reconcile(ctx context.Context) ReconcileReport {
 			report.Orphans = append(report.Orphans, Orphan{Type: "volume", ID: v.Name, Name: v.Name, ProjectID: v.Labels[docker.LabelProjectID], ProjectName: v.Labels[docker.LabelProjectName]})
 		}
 	}
+	m.AttachProxyToAll(ctx)
 	for _, issue := range report.Issues {
 		m.log.Warn("reconcile issue", "project", issue.ProjectName, "severity", issue.Severity, "msg", issue.Message)
 	}

@@ -31,6 +31,9 @@ type Paths struct {
 	PUID, PGID       int
 	StaqioVersion    string
 	PublishInterface string // host IP to bind ports to; "" = all
+	// SelfContainerID is Staqio's own container id ("" when running on bare metal). The
+	// embedded proxy joins project networks through it.
+	SelfContainerID string
 }
 
 // FilePlan is a generated configuration file.

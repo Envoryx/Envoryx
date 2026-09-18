@@ -37,7 +37,7 @@ func (a *API) databaseRotate(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"project": toProject(view)})
+	writeJSON(w, http.StatusOK, map[string]any{"project": a.project(r, view)})
 }
 
 type databaseExposeRequest struct {
@@ -55,7 +55,7 @@ func (a *API) databaseExpose(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"project": toProject(view)})
+	writeJSON(w, http.StatusOK, map[string]any{"project": a.project(r, view)})
 }
 
 func (a *API) databaseList(w http.ResponseWriter, r *http.Request) {

@@ -26,6 +26,7 @@ type env struct {
 	cfgDir   string
 	projDir  string
 	pathsErr error
+	selfID   string
 }
 
 func newEnv(t *testing.T) *env {
@@ -45,7 +46,7 @@ func newEnv(t *testing.T) *env {
 		return Paths{
 			ConfigDir: e.cfgDir, ConfigHostDir: "/host/appdata/staqio",
 			ProjectsDir: e.projDir, ProjectsHostDir: "/host/development",
-			PUID: 1000, PGID: 1000, StaqioVersion: "test",
+			PUID: 1000, PGID: 1000, StaqioVersion: "test", SelfContainerID: e.selfID,
 		}, nil
 	}
 	e.m = NewManager(st, e.engine, runtime.Default(), paths, audit.New(st.Audit, log), Config{PortRangeStart: 20000, PortRangeEnd: 20005}, log)

@@ -7,6 +7,7 @@ import type {
   ActionInfo,
   BackupInfo,
   DockerOverview,
+  DomainEntry,
   ExtraServiceInfo,
   GitRequest,
   GitResult,
@@ -14,11 +15,14 @@ import type {
   LogLine,
   Preview,
   Project,
+  ProxyInfo,
   PruneResult,
   RuntimesResponse,
   Settings,
+  TLSInfo,
   UnusedImage,
   UpdateProjectRequest,
+  UpdateSettingsRequest,
   Usage,
   User,
 } from "./types";
@@ -115,7 +119,13 @@ export const api = {
   unusedImages: () => request<{ images: UnusedImage[] }>("/docker/images/unused"),
   pruneImages: () => request<{ result: PruneResult }>("/docker/images/prune", { method: "POST" }),
   settings: () => request<Settings>("/settings"),
-  updateSettings: (body: { publicHost?: string }) => request<Settings>("/settings", { method: "PATCH", body }),
+  updateSettings: (body: UpdateSettingsRequest) => request<Settings>("/settings", { method: "PATCH", body }),
+  tls: {
+    info: () => request<TLSInfo>("/settings/tls"),
+    caUrl: "/api/v1/settings/tls/ca.crt",
+    setCustom: (certificate: string, key: string) => request<TLSInfo>("/settings/tls/custom", { method: "PUT", body: { certificate, key } }),
+    clearCustom: () => request<TLSInfo>("/settings/tls/custom", { method: "DELETE" }),
+  },
   audit: (limit = 100) => request<{ entries: AuditEntry[] }>(`/audit?limit=${limit}`),
   reconcile: () => request<{ report: unknown }>("/system/reconcile", { method: "POST" }),
 
@@ -128,6 +138,12 @@ export const api = {
       request<{ project: Project }>(`/projects/${encodeURIComponent(id)}`, { method: "PATCH", body }),
     remove: (id: string, confirm: string, deleteFiles: boolean) =>
       request<void>(`/projects/${encodeURIComponent(id)}`, { method: "DELETE", body: { confirm, deleteFiles } }),
+    domains: {
+      list: (id: string) => request<{ domains: DomainEntry[]; proxy: ProxyInfo }>(`/projects/${encodeURIComponent(id)}/domains`),
+      add: (id: string, hostname: string) => request<{ domain: DomainEntry }>(`/projects/${encodeURIComponent(id)}/domains`, { method: "POST", body: { hostname } }),
+      remove: (id: string, domainId: string) =>
+        request<void>(`/projects/${encodeURIComponent(id)}/domains/${encodeURIComponent(domainId)}`, { method: "DELETE" }),
+    },
     start: (id: string) => request<{ project: Project }>(`/projects/${encodeURIComponent(id)}/start`, { method: "POST" }),
     stop: (id: string) => request<{ project: Project }>(`/projects/${encodeURIComponent(id)}/stop`, { method: "POST" }),
     restart: (id: string) =>

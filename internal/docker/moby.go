@@ -791,6 +791,78 @@ func (e *MobyEngine) RemoveNetwork(ctx context.Context, idOrName string) error {
 	return wrap(err)
 }
 
+// ConnectNetwork implements Engine.
+func (e *MobyEngine) ConnectNetwork(ctx context.Context, network, containerID string) error {
+	res, err := e.cli.NetworkInspect(ctx, network, client.NetworkInspectOptions{})
+	if err != nil {
+		return wrap(err)
+	}
+	if !IsManaged(res.Network.Labels) {
+		return fmt.Errorf("network %s: %w", network, ErrNotManaged)
+	}
+	_, err = e.cli.NetworkConnect(ctx, res.Network.ID, client.NetworkConnectOptions{Container: containerID})
+	if err != nil && strings.Contains(err.Error(), "already exists") {
+		return nil
+	}
+	return wrap(err)
+}
+
+// DisconnectNetwork implements Engine.
+func (e *MobyEngine) DisconnectNetwork(ctx context.Context, network, containerID string) error {
+	res, err := e.cli.NetworkInspect(ctx, network, client.NetworkInspectOptions{})
+	if err != nil {
+		if cerrdefs.IsNotFound(err) {
+			return nil
+		}
+		return wrap(err)
+	}
+	if !IsManaged(res.Network.Labels) {
+		return fmt.Errorf("network %s: %w", network, ErrNotManaged)
+	}
+	_, err = e.cli.NetworkDisconnect(ctx, res.Network.ID, client.NetworkDisconnectOptions{Container: containerID, Force: true})
+	if err != nil && (cerrdefs.IsNotFound(err) || strings.Contains(err.Error(), "is not connected")) {
+		return nil
+	}
+	return wrap(err)
+}
+
+// ContainerNetworks implements Engine.
+func (e *MobyEngine) ContainerNetworks(ctx context.Context, containerID string) ([]string, error) {
+	c, err := e.inspectRaw(ctx, containerID)
+	if err != nil {
+		return nil, err
+	}
+	var out []string
+	if c.NetworkSettings != nil {
+		for name := range c.NetworkSettings.Networks {
+			out = append(out, name)
+		}
+	}
+	return out, nil
+}
+
+// PortBindings implements Engine.
+func (e *MobyEngine) PortBindings(ctx context.Context, containerID string) ([]PortMapping, error) {
+	c, err := e.inspectRaw(ctx, containerID)
+	if err != nil {
+		return nil, err
+	}
+	var out []PortMapping
+	if c.HostConfig != nil {
+		for port, bindings := range c.HostConfig.PortBindings {
+			for _, b := range bindings {
+				hp, _ := strconv.Atoi(b.HostPort)
+				ip := ""
+				if b.HostIP.IsValid() {
+					ip = b.HostIP.String()
+				}
+				out = append(out, PortMapping{HostIP: ip, HostPort: hp, ContainerPort: int(port.Num()), Protocol: string(port.Proto())})
+			}
+		}
+	}
+	return out, nil
+}
+
 // ListVolumes implements Engine.
 func (e *MobyEngine) ListVolumes(ctx context.Context, managedOnly bool) ([]Volume, error) {
 	opts := client.VolumeListOptions{}
