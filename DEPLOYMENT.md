@@ -361,11 +361,19 @@ directory `/var/www/html`. Close the project in Gateway or use *Stop IDE
 backend* to free the memory. Small NAS boxes: leave it off.
 
 The tunnel to the backend needs `socat` in the runtime image (PHP and Node
-images since September 2026). If Gateway reports *Host unreachable* after
-installing the backend, use *Restart* on the project (a restart pulls the
-runtime images and recreates the container; plain stop/start does not) and
-check the Staqio log: `ssh forward … "via":"network"` means the container
-still runs an image without socat, `ssh forward failed` shows the socat error.
+images since September 2026). Troubleshooting:
+
+- *Host unreachable* right after installing the backend: use *Restart* on
+  the project (a restart pulls the runtime images and recreates the
+  container; plain stop/start does not). `ssh forward … "via":"network"` in
+  the Staqio log means the container still runs an image without socat.
+- Gateway hangs or shows the host as unreachable although `ssh` works:
+  set `STAQIO_LOG_LEVEL=debug` and follow `docker logs Staqio | grep '"ssh'`.
+  Every command Gateway runs is logged with exit code and the first bytes
+  of output, every tunnel with the listener it was relayed to and the
+  bytes transferred.
+- Changing the runtime (PHP version, Xdebug, …) recreates the container and
+  ends the IDE backend; close the project in Gateway first.
 
 ## Xdebug
 
