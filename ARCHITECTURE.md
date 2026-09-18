@@ -563,4 +563,18 @@ for bare IPs.
   tar-slip protection (entries and symlink targets must stay inside the
   project directory; never writes through an existing symlink). Records live
   in the `backups` table; a download streams the directory as one tar.
-- **Phase 9 MCP** (reuses the same manager and validation layer).
+- **Phase 9 MCP** (implemented, `internal/mcpserver`): an embedded MCP server
+  (official `modelcontextprotocol/go-sdk`, streamable HTTP, stateless, JSON
+  responses) mounted at `/mcp` outside the cookie/CSRF scheme. It only
+  accepts personal API tokens (`Authorization: Bearer stq_…`; migration
+  `0003_api_tokens`, SHA-256 hashes, created/revoked in Settings, audit
+  entries `token.created/revoked`; audit rows of tool calls carry
+  `user (token: name)`). Tools call the same `project.Manager` methods as the
+  REST API – validation, label guards, locks and audit apply unchanged:
+  `list_projects`, `get_project`, `list_runtimes`, `create_project`,
+  `start/stop/restart_project`, `get_logs`, `list_actions`, `run_action`
+  (runs a catalogue action to completion, returns stripped output + exit
+  code, 20 min limit), `list/create_database`, `list/create_backup`,
+  `add_domain`. Deleting projects, dropping databases and restoring backups
+  are deliberately not exposed. Manager errors become tool errors
+  (`isError`) so the assistant can react instead of the session failing.

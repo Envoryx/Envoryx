@@ -367,6 +367,14 @@ export interface PruneResult {
   errors: string[];
 }
 
+export interface APIToken {
+  id: string;
+  name: string;
+  prefix: string;
+  createdAt: string;
+  lastUsedAt: string | null;
+}
+
 export interface UpdateSettingsRequest {
   publicHost?: string;
   baseDomain?: string;

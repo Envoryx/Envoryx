@@ -261,6 +261,35 @@ per-backup download.
 For Staqio itself back up `/config` (SQLite database, generated configuration,
 deploy key, backups) and `/projects`.
 
+## AI assistants (MCP)
+
+Staqio ships an MCP server at `/mcp` (streamable HTTP). Create a token under
+**Settings → API tokens & MCP**; the page shows a ready-to-paste client
+configuration:
+
+```json
+{
+  "mcpServers": {
+    "staqio": {
+      "type": "http",
+      "url": "https://staqio.test/mcp",
+      "headers": { "Authorization": "Bearer stq_…" }
+    }
+  }
+}
+```
+
+Claude Code: `claude mcp add --transport http staqio https://staqio.test/mcp --header "Authorization: Bearer stq_…"`.
+Use `http://<host>:8787/mcp` if the proxy/HTTPS is not set up.
+
+Available tools: list/get projects, list runtimes, create project (PHP
+version + extensions, database, Redis, Mailpit, Node, git clone, env),
+start/stop/restart, get logs, list/run actions (composer, artisan, npm …),
+list/create databases, list/create backups, add domain. Deleting projects,
+dropping databases and restoring backups are intentionally not exposed –
+do those in the UI. Example prompt: *"Create a Laravel project called
+test-api with PHP 8.4, MariaDB and Redis, then run composer install."*
+
 ## Health check
 
 `GET /api/v1/health` returns `{"status":"ok","docker":true,"database":true,…}`

@@ -33,6 +33,7 @@ import (
 	"github.com/seramos/staqio/internal/db"
 	"github.com/seramos/staqio/internal/docker"
 	"github.com/seramos/staqio/internal/hostpath"
+	"github.com/seramos/staqio/internal/mcpserver"
 	"github.com/seramos/staqio/internal/project"
 	"github.com/seramos/staqio/internal/proxy"
 	"github.com/seramos/staqio/internal/runtime"
@@ -200,15 +201,27 @@ func serve() error {
 	}
 	proxyInfo := detectProxy(ctx, cfg, engine, resolver, certs != nil, log)
 
-	// 7. HTTP.
+	// 7. HTTP + MCP.
 	dist, err := web.Dist()
 	if err != nil {
 		log.Warn("embedded frontend unavailable", "err", err)
 	}
+	publicHost := func(ctx context.Context) string {
+		if v, err := st.Settings.Get(ctx, api.SettingPublicHost); err == nil {
+			return v
+		}
+		return cfg.PublicHost
+	}
+	mcpLinks := mcpserver.Links{PublicHost: publicHost}
+	if certs != nil {
+		mcpLinks.HTTPSPort = proxyInfo.HTTPSPort
+	}
+	mcpLinks.HTTPPort = proxyInfo.HTTPPort
+	mcpSrv := mcpserver.New(mcpserver.Deps{Projects: manager, Catalog: catalog, Auth: sessions, Links: mcpLinks, Version: version, Log: log})
 	a := api.New(api.Deps{
 		Config: cfg, Version: version, Store: st, Auth: sessions, Audit: auditLog, Engine: engine,
 		Projects: manager, Catalog: catalog, Stats: collector, HostPath: resolver, Certs: certs, Proxy: proxyInfo,
-		Log: log, StartedAt: time.Now(),
+		MCP: mcpSrv.Handler(), Log: log, StartedAt: time.Now(),
 	})
 	var origins []string
 	if cfg.DevMode {
@@ -217,16 +230,10 @@ func serve() error {
 			a.SetAllowedOriginHosts([]string{u.Host})
 		}
 	}
-	srv := server.New(server.Options{Addr: cfg.ListenAddr, AllowedOrigins: origins, Log: log}, a, sessions, dist)
+	srv := server.New(server.Options{Addr: cfg.ListenAddr, AllowedOrigins: origins, Log: log, MCP: mcpSrv.Handler()}, a, sessions, dist)
 
 	// 8. Embedded reverse proxy (host-name routing + HTTPS for projects and the UI).
 	if proxyInfo.Enabled {
-		publicHost := func(ctx context.Context) string {
-			if v, err := st.Settings.Get(ctx, api.SettingPublicHost); err == nil {
-				return v
-			}
-			return cfg.PublicHost
-		}
 		source := func(ctx context.Context) (proxy.Table, error) {
 			base := manager.BaseDomain(ctx)
 			staqioURL := "http://" + project.UIHostname(base)

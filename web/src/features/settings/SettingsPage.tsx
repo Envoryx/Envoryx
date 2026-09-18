@@ -6,6 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Alert, Button, Card, CardHeader, Code, ErrorState, Field, Input, PageHeader, Spinner } from "@/components/ui";
 import { formatDateTime } from "@/lib/format";
 import { DomainsCard } from "./DomainsCard";
+import { TokensCard } from "./TokensCard";
 
 function PasswordForm() {
   const [current, setCurrent] = useState("");
@@ -162,6 +163,8 @@ export function SettingsPage() {
       <DomainsCard />
 
       {s.data && <PublicHostForm current={s.data.publicHost} />}
+
+      <TokensCard />
 
       <DeployKeyCard />
 

@@ -54,7 +54,13 @@ Staqio is under active development. The current milestone (Phase 1 + 2) delivers
   vendor/node_modules) + configuration under `/config/backups/<project>/`,
   restore with typed confirmation, download as a single archive
 
-MCP follows in the next phase – see [ARCHITECTURE.md](ARCHITECTURE.md) §13.
+- MCP server for AI assistants (Claude Code, Cursor, …): create, start, stop
+  and inspect projects, read logs, run actions, create databases and backups
+  – authenticated with personal API tokens, same validation and audit trail
+  as the UI, no destructive tools
+
+All phases of the original plan are implemented – see
+[ARCHITECTURE.md](ARCHITECTURE.md) §13.
 
 ## Quick start
 

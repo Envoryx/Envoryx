@@ -5,6 +5,7 @@ import type {
   DatabaseCredentials,
   DatabaseInfo,
   ActionInfo,
+  APIToken,
   BackupInfo,
   DockerOverview,
   DomainEntry,
@@ -120,6 +121,11 @@ export const api = {
   pruneImages: () => request<{ result: PruneResult }>("/docker/images/prune", { method: "POST" }),
   settings: () => request<Settings>("/settings"),
   updateSettings: (body: UpdateSettingsRequest) => request<Settings>("/settings", { method: "PATCH", body }),
+  tokens: {
+    list: () => request<{ tokens: APIToken[]; mcpUrl: string }>("/tokens"),
+    create: (name: string) => request<{ token: APIToken; secret: string; mcpUrl: string }>("/tokens", { method: "POST", body: { name } }),
+    revoke: (id: string) => request<void>(`/tokens/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  },
   tls: {
     info: () => request<TLSInfo>("/settings/tls"),
     caUrl: "/api/v1/settings/tls/ca.crt",

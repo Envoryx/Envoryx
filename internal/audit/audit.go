@@ -72,6 +72,9 @@ func (l *Logger) Log(ctx context.Context, action, targetType, targetID string, d
 	e := store.AuditEntry{Action: action, TargetType: targetType, TargetID: targetID}
 	if p, ok := auth.PrincipalFrom(ctx); ok {
 		e.UserID, e.Username = p.UserID, p.Username
+		if p.TokenName != "" {
+			e.Username = p.Username + " (token: " + p.TokenName + ")"
+		}
 	}
 	if ip, ok := ctx.Value(ipKey{}).(string); ok {
 		e.IP = ip

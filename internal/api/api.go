@@ -31,7 +31,9 @@ type Deps struct {
 	HostPath *hostpath.Resolver
 	Certs    *tlsca.Store
 	Proxy    *ProxyInfo
-	Log      *slog.Logger
+	// MCP is the MCP endpoint handler (nil = disabled); mounted at /mcp by the server.
+	MCP http.Handler
+	Log *slog.Logger
 	// StartedAt is used for uptime reporting.
 	StartedAt time.Time
 	// AllowedOriginHosts are extra origins (host[:port]) permitted for WebSocket upgrades,
@@ -84,6 +86,9 @@ func (a *API) Mount(mux *http.ServeMux, protect func(http.Handler) http.Handler)
 	p("POST /api/v1/docker/images/prune", a.pruneImages)
 	p("GET /api/v1/settings", a.settings)
 	p("PATCH /api/v1/settings", a.updateSettings)
+	p("GET /api/v1/tokens", a.listTokens)
+	p("POST /api/v1/tokens", a.createToken)
+	p("DELETE /api/v1/tokens/{id}", a.deleteToken)
 	p("GET /api/v1/settings/tls", a.tlsInfo)
 	p("GET /api/v1/settings/tls/ca.crt", a.downloadCA)
 	p("PUT /api/v1/settings/tls/custom", a.setCustomCert)

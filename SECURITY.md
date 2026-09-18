@@ -59,6 +59,25 @@ as `tecnativa/docker-socket-proxy` and point Staqio at it
   `STAQIO_ADMIN_USER`/`STAQIO_ADMIN_PASSWORD`). Setup is refused once any user
   exists. No generated passwords are ever written to logs.
 
+## API tokens and MCP
+
+- The MCP endpoint (`/mcp`) authenticates **only** with bearer tokens
+  created in Settings. Session cookies are ignored there, so a web page can
+  never call tools with ambient credentials, and tokens cannot mint tokens.
+- Tokens are 256-bit random values with the prefix `stq_`; only their
+  SHA-256 hash is stored. The plain value is shown once. Revoking takes
+  effect immediately.
+- Tools reuse the project manager, so all validation (slugs, paths,
+  hostnames, database names, versions), the `staqio.managed` label guards and
+  per-project locks apply. `run_action` executes only entries of the closed
+  action catalogue (argv arrays, no shell). Delete/drop/restore are not
+  available via MCP by design.
+- Every tool call that changes state produces an audit entry attributed to
+  the user with the token name.
+- Treat a token like a password: it grants the same rights as your account
+  (minus the destructive operations). Prefer HTTPS (`https://staqio.<base>`)
+  for the MCP URL when clients connect over the network.
+
 ## CSRF / CORS
 
 State-changing API requests must:

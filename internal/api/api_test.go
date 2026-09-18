@@ -24,6 +24,7 @@ import (
 	"github.com/seramos/staqio/internal/docker"
 	"github.com/seramos/staqio/internal/docker/dockertest"
 	"github.com/seramos/staqio/internal/hostpath"
+	"github.com/seramos/staqio/internal/mcpserver"
 	"github.com/seramos/staqio/internal/project"
 	"github.com/seramos/staqio/internal/runtime"
 	"github.com/seramos/staqio/internal/server"
@@ -69,9 +70,10 @@ func newApp(t *testing.T) *testApp {
 	}
 	invalidations := 0
 	proxyInfo := &api.ProxyInfo{Enabled: true, HTTPPort: 80, HTTPSPort: 443, InDocker: true, Invalidate: func() { invalidations++ }}
+	mcpSrv := mcpserver.New(mcpserver.Deps{Projects: manager, Catalog: runtime.Default(), Auth: sessions, Version: "test", Log: log})
 	a := api.New(api.Deps{Config: cfg, Version: "test", Store: st, Auth: sessions, Audit: auditLog, Engine: engine, Projects: manager,
-		Catalog: runtime.Default(), Stats: stats.New(engine, time.Second, log), HostPath: resolver, Certs: certs, Proxy: proxyInfo, Log: log, StartedAt: time.Now()})
-	s := server.New(server.Options{Addr: ":0", Log: log}, a, sessions, nil)
+		Catalog: runtime.Default(), Stats: stats.New(engine, time.Second, log), HostPath: resolver, Certs: certs, Proxy: proxyInfo, MCP: mcpSrv.Handler(), Log: log, StartedAt: time.Now()})
+	s := server.New(server.Options{Addr: ":0", Log: log, MCP: mcpSrv.Handler()}, a, sessions, nil)
 	handler := serverHandler(s)
 	srv := httptest.NewServer(handler)
 	t.Cleanup(srv.Close)

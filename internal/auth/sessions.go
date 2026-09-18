@@ -34,6 +34,8 @@ type Principal struct {
 	Username  string
 	Role      string
 	SessionID string
+	// TokenName is set when the request was authenticated with an API token (MCP).
+	TokenName string
 }
 
 // Options configure the session service.

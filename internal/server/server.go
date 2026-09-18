@@ -26,6 +26,9 @@ type Options struct {
 	// (e.g. the Vite dev server). Same-origin requests are always accepted.
 	AllowedOrigins []string
 	Log            *slog.Logger
+	// MCP is mounted at /mcp when set. It authenticates with bearer tokens itself and
+	// is outside the cookie/CSRF scheme of /api/.
+	MCP http.Handler
 }
 
 // Server wraps http.Server.
@@ -41,6 +44,9 @@ func New(opts Options, a *api.API, sessions *auth.Service, dist fs.FS) *Server {
 		return sessions.Middleware(http.HandlerFunc(unauthorizedJSON))(next)
 	}
 	a.Mount(mux, protect)
+	if opts.MCP != nil {
+		mux.Handle("/mcp", opts.MCP)
+	}
 	mux.Handle("/", spaHandler(dist))
 
 	var handler http.Handler = mux
