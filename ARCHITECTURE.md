@@ -79,7 +79,7 @@ Go API (single binary, single container)
 │   │   └── lib/              utilities
 │   └── dist/                 build output (embedded into the Go binary)
 ├── deploy/                   docker-compose.yml, Unraid template + icon
-├── .github/workflows/        CI (tests) and image build → ghcr.io/seramos/staqio
+├── .github/workflows/        CI (tests) and multi-arch image builds → ghcr.io/seramos/*
 ├── images/php/               Staqio PHP runtime image (all extensions compiled in, toggled per project)
 ├── Dockerfile                multi-stage build (web → go → alpine)
 ├── Makefile

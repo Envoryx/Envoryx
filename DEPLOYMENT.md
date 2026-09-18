@@ -2,11 +2,16 @@
 
 ## Requirements
 
-- Linux host with Docker Engine ≥ 24 (API ≥ 1.43); Unraid 6.12+ / 7.x
-- x86_64 (arm64 images planned)
+- Linux host with Docker Engine ≥ 24 (API ≥ 1.43); Unraid 6.12+ / 7.x or
+  any other Linux distribution
+- x86_64 or arm64 (Raspberry Pi 4/5, Ampere/Graviton, Apple Silicon under
+  Linux); all Staqio images are multi-arch
 - A directory for Staqio's state (`/config`) and one for your projects (`/projects`)
 
-## Docker Compose
+## Docker Compose (any Linux host)
+
+Unraid is the primary target but nothing depends on it. On another Linux host
+pick two directories and your own uid/gid:
 
 ```yaml
 services:
@@ -20,14 +25,16 @@ services:
       - /mnt/user/appdata/staqio:/config
       - /mnt/user/development:/projects
     environment:
-      PUID: 99
-      PGID: 100
+      PUID: 99      # Unraid: nobody; elsewhere: your uid (`id -u`)
+      PGID: 100     # Unraid: users;  elsewhere: your gid (`id -g`)
       STAQIO_PORT_RANGE_START: 20000
       STAQIO_PORT_RANGE_END: 20999
     restart: unless-stopped
 ```
 
 `deploy/docker-compose.yml` contains a commented version of this file.
+Replace `/mnt/user/...` with e.g. `/srv/staqio` and `/home/you/dev` on a
+regular server.
 
 Start with `docker compose up -d`, open `http://<host>:8787` and create the
 admin account. Project web servers are published on ports from the configured

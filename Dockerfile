@@ -1,7 +1,8 @@
 # syntax=docker/dockerfile:1.7
 
 # ---- Frontend -------------------------------------------------------------
-FROM node:22-alpine AS web
+# Build stages run on the builder's native platform; only the final stage is per-arch.
+FROM --platform=$BUILDPLATFORM node:22-alpine AS web
 WORKDIR /src/web
 COPY web/package.json web/package-lock.json ./
 RUN npm ci --no-audit --no-fund
@@ -9,14 +10,16 @@ COPY web/ ./
 RUN npm run build
 
 # ---- Backend --------------------------------------------------------------
-FROM golang:1.27-alpine AS build
+FROM --platform=$BUILDPLATFORM golang:1.27-alpine AS build
 ARG VERSION=dev
+ARG TARGETOS
+ARG TARGETARCH
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 COPY --from=web /src/web/dist ./web/dist
-RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o /out/staqio ./cmd/staqio
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o /out/staqio ./cmd/staqio
 
 # ---- Runtime --------------------------------------------------------------
 FROM alpine:3.21

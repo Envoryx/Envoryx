@@ -2,7 +2,8 @@
 
 **Docker-native development environments for Unraid and Linux servers.**
 
-Staqio runs as a single container on your Docker host and manages complete
+Staqio runs as a single container on any Linux Docker host (x86_64 or
+arm64; Unraid is the primary target) and manages complete
 development stacks – web server, PHP runtime, database, cache – as isolated,
 per-project Docker environments. Everything is controlled from a modern web UI;
 no `docker-compose.yml` editing required.
