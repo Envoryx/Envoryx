@@ -1,4 +1,5 @@
 import { Download, Save, ShieldCheck, Trash2, Upload } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useEffect, useState, type FormEvent } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "@/api/client";
@@ -11,11 +12,12 @@ import { AcmeForm } from "./AcmeForm";
 type Msg = { tone: "green" | "red"; text: string } | null;
 
 function ProxyStatus({ tls }: { tls: TLSInfo }) {
+  const { t } = useTranslation();
   const p = tls.proxy;
   if (!p.enabled) {
     return (
-      <Alert tone="amber" title="Embedded proxy disabled">
-        Set <Code>STAQIO_PROXY_HTTP</Code> (default <Code>:80</Code>) and <Code>STAQIO_PROXY_HTTPS</Code> (default <Code>:443</Code>) to enable host-name routing.
+      <Alert tone="amber" title={t("Embedded proxy disabled")}>
+        {t("Set STAQIO_PROXY_HTTP (default :80) and STAQIO_PROXY_HTTPS (default :443) to enable host-name routing.")}
       </Alert>
     );
   }
@@ -23,26 +25,26 @@ function ProxyStatus({ tls }: { tls: TLSInfo }) {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2 text-sm">
-        <span className="text-muted">Proxy</span>
-        <Badge tone={missing ? "amber" : "green"}>{missing ? "ports not published" : "active"}</Badge>
+        <span className="text-muted">{t("Proxy")}</span>
+        <Badge tone={missing ? "amber" : "green"}>{missing ? t("ports not published") : t("active")}</Badge>
         <span className="text-muted">HTTP</span>
-        <Badge tone={p.httpPort ? "green" : "gray"}>{p.httpPort ? `host port ${p.httpPort}` : "not published"}</Badge>
+        <Badge tone={p.httpPort ? "green" : "gray"}>{p.httpPort ? t("host port {{port}}", { port: p.httpPort }) : t("not published")}</Badge>
         <span className="text-muted">HTTPS</span>
-        <Badge tone={p.httpsPort && p.tls ? "green" : "gray"}>{p.httpsPort && p.tls ? `host port ${p.httpsPort}` : "not published"}</Badge>
+        <Badge tone={p.httpsPort && p.tls ? "green" : "gray"}>{p.httpsPort && p.tls ? t("host port {{port}}", { port: p.httpsPort }) : t("not published")}</Badge>
       </div>
       {p.address && (
-        <Alert tone="blue" title={`Staqio has its own IP address: ${p.address}`}>
-          The proxy is reachable directly on that address (no port mapping needed). Point your DNS entries for the base domain at <Code>{p.address}</Code> – not at the Docker host.
+        <Alert tone="blue" title={t("Staqio has its own IP address: {{address}}", { address: p.address })}>
+          {t("The proxy is reachable directly on that address (no port mapping needed). Point your DNS entries for the base domain at")} <Code>{p.address}</Code> – {t("not at the Docker host.")}
         </Alert>
       )}
       {missing && p.inDocker && (
-        <Alert tone="amber" title="Map the proxy ports">
-          The Staqio container listens on 80 and 443, but neither port is published on the host. Add port mappings <Code>80:80</Code> and <Code>443:443</Code> (or any free host ports) to the container, then restart it. Project links keep using the direct port until then.
+        <Alert tone="amber" title={t("Map the proxy ports")}>
+          {t("The Staqio container listens on 80 and 443, but neither port is published on the host. Add port mappings 80:80 and 443:443 (or any free host ports) to the container, then restart it. Project links keep using the direct port until then.")}
         </Alert>
       )}
       {missing && !p.inDocker && (
-        <Alert tone="amber" title="Proxy ports unavailable">
-          Binding ports 80/443 on bare metal needs elevated privileges (e.g. <Code>setcap cap_net_bind_service=+ep staqio</Code>) or other listen addresses via <Code>STAQIO_PROXY_HTTP</Code>/<Code>STAQIO_PROXY_HTTPS</Code>.
+        <Alert tone="amber" title={t("Proxy ports unavailable")}>
+          {t("Binding ports 80/443 on bare metal needs elevated privileges (e.g. setcap cap_net_bind_service=+ep staqio) or other listen addresses via STAQIO_PROXY_HTTP/STAQIO_PROXY_HTTPS.")}
         </Alert>
       )}
     </div>
@@ -50,6 +52,7 @@ function ProxyStatus({ tls }: { tls: TLSInfo }) {
 }
 
 function BaseDomainForm({ baseDomain, forceHttps, tlsAvailable }: { baseDomain: string; forceHttps: boolean; tlsAvailable: boolean }) {
+  const { t } = useTranslation();
   const update = useUpdateSettings();
   const [base, setBase] = useState(baseDomain);
   const [force, setForce] = useState(forceHttps);
@@ -63,8 +66,8 @@ function BaseDomainForm({ baseDomain, forceHttps, tlsAvailable }: { baseDomain: 
     update.mutate(
       { baseDomain: base.trim(), forceHttps: force },
       {
-        onSuccess: () => setMsg({ tone: "green", text: "Saved. Project domains follow the new base domain immediately." }),
-        onError: (err) => setMsg({ tone: "red", text: err instanceof ApiError ? err.message : "Saving failed" }),
+        onSuccess: () => setMsg({ tone: "green", text: t("Saved. Project domains follow the new base domain immediately.") }),
+        onError: (err) => setMsg({ tone: "red", text: err instanceof ApiError ? err.message : t("Saving failed") }),
       },
     );
   }
@@ -72,18 +75,19 @@ function BaseDomainForm({ baseDomain, forceHttps, tlsAvailable }: { baseDomain: 
   return (
     <form onSubmit={submit} className="space-y-4">
       {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
-      <Field label="Base domain" htmlFor="base-domain" hint={`Projects are reachable at <slug>.${base.trim() || "test"}, the Staqio UI at staqio.${base.trim() || "test"}. Point *.${base.trim() || "test"} at this host in your DNS (Pi-hole, AdGuard, dnsmasq) or add entries to your hosts file.`}>
+      <Field label={t("Base domain")} htmlFor="base-domain" hint={t("Projects are reachable at <slug>.{{base}}, the Staqio UI at staqio.{{base}}. Point *.{{base}} at this host in your DNS (Pi-hole, AdGuard, dnsmasq) or add entries to your hosts file.", { base: base.trim() || "test" })}>
         <Input id="base-domain" value={base} onChange={(e) => setBase(e.target.value)} placeholder="test" spellCheck={false} autoCapitalize="none" />
       </Field>
-      <Checkbox label="Force HTTPS" description={tlsAvailable ? "Redirect plain HTTP requests for project and UI domains to HTTPS." : "Requires the HTTPS listener to be published."} checked={force} onChange={(e) => setForce(e.target.checked)} disabled={!tlsAvailable} />
+      <Checkbox label={t("Force HTTPS")} description={tlsAvailable ? t("Redirect plain HTTP requests for project and UI domains to HTTPS.") : t("Requires the HTTPS listener to be published.")} checked={force} onChange={(e) => setForce(e.target.checked)} disabled={!tlsAvailable} />
       <Button type="submit" variant="primary" loading={update.isPending} disabled={!dirty} icon={<Save className="size-4" />}>
-        Save
+        {t("Save")}
       </Button>
     </form>
   );
 }
 
 function CustomCertForm({ tls }: { tls: TLSInfo }) {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const [cert, setCert] = useState("");
   const [key, setKey] = useState("");
@@ -97,17 +101,17 @@ function CustomCertForm({ tls }: { tls: TLSInfo }) {
     mutationFn: () => api.tls.setCustom(cert, key),
     onSuccess: (data) => {
       refresh(data);
-      setMsg({ tone: "green", text: "Custom certificate installed. It is used for every name it covers." });
+      setMsg({ tone: "green", text: t("Custom certificate installed. It is used for every name it covers.") });
     },
-    onError: (err) => setMsg({ tone: "red", text: err instanceof ApiError ? err.message : "Installing the certificate failed" }),
+    onError: (err) => setMsg({ tone: "red", text: err instanceof ApiError ? err.message : t("Installing the certificate failed") }),
   });
   const clear = useMutation({
     mutationFn: () => api.tls.clearCustom(),
     onSuccess: (data) => {
       refresh(data);
-      setMsg({ tone: "green", text: "Custom certificate removed." });
+      setMsg({ tone: "green", text: t("Custom certificate removed.") });
     },
-    onError: (err) => setMsg({ tone: "red", text: err instanceof ApiError ? err.message : "Removing the certificate failed" }),
+    onError: (err) => setMsg({ tone: "red", text: err instanceof ApiError ? err.message : t("Removing the certificate failed") }),
   });
   const custom = tls.ca?.custom ?? null;
   return (
@@ -117,23 +121,23 @@ function CustomCertForm({ tls }: { tls: TLSInfo }) {
         <div className="rounded-md border border-default p-3 text-sm">
           <p className="flex items-center gap-2 font-medium">
             <ShieldCheck className="size-4 text-emerald-500" aria-hidden /> {custom.subject}
-            {custom.expired && <Badge tone="red">expired</Badge>}
+            {custom.expired && <Badge tone="red">{t("expired")}</Badge>}
           </p>
           <dl className="mt-2 grid gap-x-6 gap-y-1 text-xs sm:grid-cols-[8rem_1fr]">
-            <dt className="text-muted">Names</dt>
+            <dt className="text-muted">{t("Names")}</dt>
             <dd className="font-mono">{custom.dnsNames.join(", ")}</dd>
-            <dt className="text-muted">Issuer</dt>
+            <dt className="text-muted">{t("Issuer")}</dt>
             <dd>{custom.issuer}</dd>
-            <dt className="text-muted">Valid until</dt>
+            <dt className="text-muted">{t("Valid until")}</dt>
             <dd>{formatDateTime(custom.notAfter)}</dd>
           </dl>
           <Button size="sm" variant="ghost" className="mt-3" onClick={() => clear.mutate()} loading={clear.isPending} icon={<Trash2 className="size-3.5" />}>
-            Remove custom certificate
+            {t("Remove custom certificate")}
           </Button>
         </div>
       ) : (
         <p className="text-sm text-muted">
-          Optional: upload a certificate from your own CA or a public wildcard certificate (e.g. <Code>*.dev.example.com</Code> via Let&apos;s Encrypt DNS challenge). It is used for the names it covers; everything else keeps using the local CA.
+          {t("Optional: upload a certificate from your own CA or a public wildcard certificate (e.g. *.dev.example.com via Let's Encrypt DNS challenge). It is used for the names it covers; everything else keeps using the local CA.")}
         </p>
       )}
       <form
@@ -144,15 +148,15 @@ function CustomCertForm({ tls }: { tls: TLSInfo }) {
         }}
         className="grid gap-4 sm:grid-cols-2"
       >
-        <Field label="Certificate (PEM, full chain)" htmlFor="custom-cert">
+        <Field label={t("Certificate (PEM, full chain)")} htmlFor="custom-cert">
           <textarea id="custom-cert" value={cert} onChange={(e) => setCert(e.target.value)} rows={6} spellCheck={false} className="w-full rounded-md border border-default bg-elevated p-2 font-mono text-[11px] text-fg focus:border-accent-500 focus:outline-none" placeholder="-----BEGIN CERTIFICATE-----" />
         </Field>
-        <Field label="Private key (PEM)" htmlFor="custom-key" hint="Stored under /config/ca with owner-only permissions. Never shown again.">
+        <Field label={t("Private key (PEM)")} htmlFor="custom-key" hint={t("Stored under /config/ca with owner-only permissions. Never shown again.")}>
           <textarea id="custom-key" value={key} onChange={(e) => setKey(e.target.value)} rows={6} spellCheck={false} className="w-full rounded-md border border-default bg-elevated p-2 font-mono text-[11px] text-fg focus:border-accent-500 focus:outline-none" placeholder="-----BEGIN PRIVATE KEY-----" />
         </Field>
         <div className="sm:col-span-2">
           <Button type="submit" variant="primary" loading={set.isPending} disabled={!cert.trim() || !key.trim()} icon={<Upload className="size-4" />}>
-            Install certificate
+            {t("Install certificate")}
           </Button>
         </div>
       </form>
@@ -170,55 +174,56 @@ const trustSteps: { os: string; steps: string }[] = [
 ];
 
 export function DomainsCard() {
+  const { t } = useTranslation();
   const settings = useSettings();
   const tls = useTLSInfo();
-  if (settings.isPending || tls.isPending) return <Card><CardHeader title="Domains & HTTPS" /><Spinner /></Card>;
-  if (settings.isError || tls.isError) return <Card><CardHeader title="Domains & HTTPS" /><div className="p-5"><Alert tone="red">{(settings.error ?? tls.error)?.message}</Alert></div></Card>;
+  if (settings.isPending || tls.isPending) return <Card><CardHeader title={t("Domains & HTTPS")} /><Spinner /></Card>;
+  if (settings.isError || tls.isError) return <Card><CardHeader title={t("Domains & HTTPS")} /><div className="p-5"><Alert tone="red">{(settings.error ?? tls.error)?.message}</Alert></div></Card>;
   const info = tls.data;
   const tlsAvailable = info.enabled && info.proxy.httpsPort > 0;
   return (
     <Card>
-      <CardHeader title="Domains & HTTPS" description="The embedded reverse proxy opens every project under its own host name and issues certificates from a local certificate authority." />
+      <CardHeader title={t("Domains & HTTPS")} description={t("The embedded reverse proxy opens every project under its own host name and issues certificates from a local certificate authority.")} />
       <div className="space-y-6 p-5">
         <ProxyStatus tls={info} />
         <BaseDomainForm baseDomain={settings.data.baseDomain} forceHttps={settings.data.forceHttps} tlsAvailable={tlsAvailable} />
         {info.enabled && info.ca && (
           <>
             <div className="border-t border-default pt-5">
-              <h3 className="text-sm font-semibold">Local certificate authority</h3>
+              <h3 className="text-sm font-semibold">{t("Local certificate authority")}</h3>
               <p className="mt-1 text-sm text-muted">
-                Install the CA once on each device that should open projects over HTTPS without warnings. Only the public certificate leaves Staqio; the key stays in <Code>/config/ca</Code>.
+                {t("Install the CA once on each device that should open projects over HTTPS without warnings. Only the public certificate leaves Staqio; the key stays in /config/ca.")}
               </p>
               <dl className="mt-3 grid gap-x-6 gap-y-1 text-xs sm:grid-cols-[8rem_1fr]">
-                <dt className="text-muted">Subject</dt>
+                <dt className="text-muted">{t("Subject")}</dt>
                 <dd>{info.ca.caSubject}</dd>
                 <dt className="text-muted">SHA-256</dt>
                 <dd className="break-all font-mono">{info.ca.caFingerprint}</dd>
-                <dt className="text-muted">Valid until</dt>
+                <dt className="text-muted">{t("Valid until")}</dt>
                 <dd>{formatDateTime(info.ca.caNotAfter)}</dd>
               </dl>
               <a href={api.tls.caUrl} download="staqio-ca.crt" className="mt-3 inline-flex h-9 items-center gap-2 rounded-md bg-accent-600 px-3.5 text-sm font-medium text-white shadow-sm hover:bg-accent-500">
-                <Download className="size-4" aria-hidden /> Download staqio-ca.crt
+                <Download className="size-4" aria-hidden /> {t("Download staqio-ca.crt")}
               </a>
               <details className="mt-3 text-sm">
-                <summary className="cursor-pointer text-muted hover:text-fg">How to trust the CA</summary>
+                <summary className="cursor-pointer text-muted hover:text-fg">{t("How to trust the CA")}</summary>
                 <ul className="mt-2 space-y-1.5 text-xs text-muted">
-                  {trustSteps.map((t) => (
-                    <li key={t.os}>
-                      <span className="font-medium text-fg">{t.os}:</span> {t.steps}
+                  {trustSteps.map((step) => (
+                    <li key={step.os}>
+                      <span className="font-medium text-fg">{step.os}:</span> {t(step.steps)}
                     </li>
                   ))}
                 </ul>
               </details>
             </div>
             <div className="border-t border-default pt-5">
-              <h3 className="text-sm font-semibold">Let&apos;s Encrypt (public certificate, no CA installation)</h3>
+              <h3 className="text-sm font-semibold">{t("Let's Encrypt (public certificate, no CA installation)")}</h3>
               <div className="mt-3">
                 <AcmeForm baseDomain={settings.data.baseDomain} />
               </div>
             </div>
             <div className="border-t border-default pt-5">
-              <h3 className="text-sm font-semibold">Custom certificate</h3>
+              <h3 className="text-sm font-semibold">{t("Custom certificate")}</h3>
               <div className="mt-3">
                 <CustomCertForm tls={info} />
               </div>

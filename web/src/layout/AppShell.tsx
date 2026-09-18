@@ -1,5 +1,6 @@
 import { clsx } from "clsx";
-import { Boxes, Container, LayoutDashboard, LogOut, Moon, Settings, Sun, Monitor, Menu, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { Boxes, Container, LayoutDashboard, Languages, LogOut, Moon, Settings, Sun, Monitor, Menu, X } from "lucide-react";
 import { useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "@/features/auth/AuthContext";
@@ -7,6 +8,7 @@ import { Logo } from "./Logo";
 import { useTheme, type Theme } from "./theme";
 import { useDashboard } from "@/api/hooks";
 import { Button } from "@/components/ui";
+import { currentLanguage, languages, setLanguage } from "@/i18n";
 
 const nav = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
@@ -18,6 +20,7 @@ const nav = [
 const themeOrder: Theme[] = ["system", "light", "dark"];
 
 export function AppShell() {
+  const { t } = useTranslation();
   const auth = useAuth();
   const [theme, setTheme] = useTheme();
   const [open, setOpen] = useState(false);
@@ -31,7 +34,7 @@ export function AppShell() {
     <nav className="flex h-full flex-col" aria-label="Main">
       <div className="flex h-14 items-center justify-between px-4">
         <Logo withText />
-        <button className="rounded-md p-1 text-muted hover:bg-muted lg:hidden" onClick={() => setOpen(false)} aria-label="Close menu">
+        <button className="rounded-md p-1 text-muted hover:bg-muted lg:hidden" onClick={() => setOpen(false)} aria-label={t("Close menu")}>
           <X className="size-5" />
         </button>
       </div>
@@ -50,7 +53,7 @@ export function AppShell() {
               }
             >
               <item.icon className="size-4" aria-hidden />
-              {item.label}
+              {t(item.label)}
             </NavLink>
           </li>
         ))}
@@ -62,10 +65,11 @@ export function AppShell() {
             <p className="truncate text-xs text-subtle">{dashboard.data?.version ? `Staqio ${dashboard.data.version}` : "Staqio"}</p>
           </div>
           <div className="flex items-center gap-1">
-            <Button variant="ghost" size="sm" onClick={cycleTheme} aria-label={`Theme: ${theme}`} title={`Theme: ${theme}`}>
+            <LanguageButton />
+            <Button variant="ghost" size="sm" onClick={cycleTheme} aria-label={t("Theme: {{theme}}", { theme })} title={t("Theme: {{theme}}", { theme })}>
               <ThemeIcon className="size-4" />
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => void auth.logout()} aria-label="Sign out" title="Sign out">
+            <Button variant="ghost" size="sm" onClick={() => void auth.logout()} aria-label={t("Sign out")} title={t("Sign out")}>
               <LogOut className="size-4" />
             </Button>
           </div>
@@ -85,14 +89,14 @@ export function AppShell() {
       )}
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex h-14 items-center gap-3 border-b border-default bg-elevated px-4 lg:hidden">
-          <button className="rounded-md p-1 text-muted hover:bg-muted" onClick={() => setOpen(true)} aria-label="Open menu">
+          <button className="rounded-md p-1 text-muted hover:bg-muted" onClick={() => setOpen(true)} aria-label={t("Open menu")}>
             <Menu className="size-5" />
           </button>
           <Logo withText />
         </header>
         {dockerDown && (
           <div className="border-b border-red-500/30 bg-red-500/10 px-4 py-2 text-sm text-red-600 dark:text-red-400" role="alert">
-            Docker engine is not reachable. Project operations are unavailable until the connection is restored.
+            {t("Docker engine is not reachable. Project operations are unavailable until the connection is restored.")}
           </div>
         )}
         <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 lg:px-8">
@@ -100,5 +104,26 @@ export function AppShell() {
         </main>
       </div>
     </div>
+  );
+}
+
+/** Language selector listing every available UI language. */
+function LanguageButton() {
+  const { t } = useTranslation();
+  const current = currentLanguage();
+  return (
+    <label className="relative inline-flex items-center" title={t("Language")}>
+      <Languages className="pointer-events-none absolute left-2 size-4 text-muted" aria-hidden />
+      <select
+        aria-label={t("Language")}
+        value={current}
+        onChange={(e) => setLanguage(e.target.value)}
+        className="h-8 appearance-none rounded-md bg-transparent pl-8 pr-2 text-xs text-muted hover:bg-muted hover:text-fg focus:outline-none"
+      >
+        {Object.entries(languages).map(([code, name]) => (
+          <option key={code} value={code}>{name}</option>
+        ))}
+      </select>
+    </label>
   );
 }

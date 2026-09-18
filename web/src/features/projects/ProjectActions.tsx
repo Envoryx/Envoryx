@@ -1,4 +1,5 @@
 import { ExternalLink, Play, RotateCw, Square, Trash2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ApiError } from "@/api/client";
@@ -7,8 +8,9 @@ import type { Project } from "@/api/types";
 import { Button, Checkbox, Dialog, Field, Input, Alert } from "@/components/ui";
 
 export function useActionError() {
+  const { t } = useTranslation();
   const [error, setError] = useState<string | null>(null);
-  const capture = (err: unknown) => setError(err instanceof ApiError ? err.message : "Request failed");
+  const capture = (err: unknown) => setError(err instanceof ApiError ? err.message : t("Request failed"));
   return { error, setError, capture };
 }
 
@@ -22,6 +24,7 @@ export function ProjectActionButtons({
   size?: "sm" | "md";
   onError?: (err: unknown) => void;
 }) {
+  const { t } = useTranslation();
   const action = useProjectAction();
   const links = useProjectLinks();
   const state = project.status.state;
@@ -36,16 +39,16 @@ export function ProjectActionButtons({
   return (
     <div className="flex items-center gap-1.5">
       {running ? (
-        <Button size={size} onClick={() => run("stop")} loading={pending("stop")} disabled={busy || transitional} icon={<Square className="size-3.5" />} title="Stop">
-          Stop
+        <Button size={size} onClick={() => run("stop")} loading={pending("stop")} disabled={busy || transitional} icon={<Square className="size-3.5" />} title={t("Stop")}>
+          {t("Stop")}
         </Button>
       ) : (
-        <Button size={size} variant="primary" onClick={() => run("start")} loading={pending("start")} disabled={busy || transitional} icon={<Play className="size-3.5" />} title="Start">
-          Start
+        <Button size={size} variant="primary" onClick={() => run("start")} loading={pending("start")} disabled={busy || transitional} icon={<Play className="size-3.5" />} title={t("Start")}>
+          {t("Start")}
         </Button>
       )}
-      <Button size={size} onClick={() => run("restart")} loading={pending("restart")} disabled={busy || transitional} icon={<RotateCw className="size-3.5" />} title="Restart – also pulls updated runtime images">
-        Restart
+      <Button size={size} onClick={() => run("restart")} loading={pending("restart")} disabled={busy || transitional} icon={<RotateCw className="size-3.5" />} title={t("Restart – also pulls updated runtime images")}>
+        {t("Restart")}
       </Button>
       {url && (
         <a
@@ -54,10 +57,10 @@ export function ProjectActionButtons({
           rel="noopener noreferrer"
           className="inline-flex h-8 items-center gap-1.5 rounded-md border border-default bg-elevated px-2.5 text-xs font-medium text-fg hover:bg-muted aria-disabled:opacity-50"
           aria-disabled={!running}
-          title={running ? `Open ${url}` : "Project is not running"}
+          title={running ? t("Open {{url}}", { url }) : t("Project is not running")}
         >
           <ExternalLink className="size-3.5" aria-hidden />
-          Open
+          {t("Open")}
         </a>
       )}
     </div>
@@ -65,6 +68,7 @@ export function ProjectActionButtons({
 }
 
 export function DeleteProjectDialog({ project, open, onClose }: { project: Project; open: boolean; onClose: () => void }) {
+  const { t } = useTranslation();
   const del = useDeleteProject();
   const navigate = useNavigate();
   const [confirm, setConfirm] = useState("");
@@ -87,7 +91,7 @@ export function DeleteProjectDialog({ project, open, onClose }: { project: Proje
           close();
           navigate("/projects");
         },
-        onError: (err) => setError(err instanceof ApiError ? err.message : "Delete failed"),
+        onError: (err) => setError(err instanceof ApiError ? err.message : t("Delete failed")),
       },
     );
   };
@@ -96,27 +100,27 @@ export function DeleteProjectDialog({ project, open, onClose }: { project: Proje
     <Dialog
       open={open}
       onClose={close}
-      title={`Delete “${project.name}”?`}
-      description="This stops and removes all containers, the network and generated configuration of this project."
+      title={t("Delete “{{name}}”?", { name: project.name })}
+      description={t("This stops and removes all containers, the network and generated configuration of this project.")}
       footer={
         <>
           <Button onClick={close} disabled={del.isPending}>
-            Cancel
+            {t("Cancel")}
           </Button>
           <Button variant="danger" onClick={submit} loading={del.isPending} disabled={confirm !== project.slug} icon={<Trash2 className="size-4" />}>
-            Delete project
+            {t("Delete project")}
           </Button>
         </>
       }
     >
       <div className="space-y-4">
         {error && <Alert tone="red">{error}</Alert>}
-        <Field label={`Type ${project.slug} to confirm`} htmlFor="confirm-slug">
+        <Field label={t("Type {{slug}} to confirm", { slug: project.slug })} htmlFor="confirm-slug">
           <Input id="confirm-slug" value={confirm} onChange={(e) => setConfirm(e.target.value)} autoComplete="off" spellCheck={false} />
         </Field>
         <Checkbox
-          label="Also delete project files"
-          description={`Permanently removes /projects/${project.path}. This cannot be undone.`}
+          label={t("Also delete project files")}
+          description={t("Permanently removes /projects/{{path}}. This cannot be undone.", { path: project.path })}
           checked={deleteFiles}
           onChange={(e) => setDeleteFiles(e.target.checked)}
         />

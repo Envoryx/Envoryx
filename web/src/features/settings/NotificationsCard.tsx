@@ -1,9 +1,10 @@
 import { Save, Send } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useEffect, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "@/api/client";
 import type { NotifyConfig } from "@/api/types";
-import { Alert, Button, Card, CardHeader, Checkbox, Code, Field, Input, Select, Spinner } from "@/components/ui";
+import { Alert, Button, Card, CardHeader, Checkbox, Field, Input, Select, Spinner } from "@/components/ui";
 import { formatDateTime } from "@/lib/format";
 
 const key = ["notifications"] as const;
@@ -18,6 +19,7 @@ const hints: Record<string, string> = {
 };
 
 export function NotificationsCard() {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const q = useQuery({ queryKey: key, queryFn: api.notifications.get });
   const [form, setForm] = useState<NotifyConfig | null>(null);
@@ -34,18 +36,18 @@ export function NotificationsCard() {
     onSuccess: (data) => {
       qc.setQueryData(key, data);
       setForm((f) => (f ? { ...f, token: "", smtpPassword: "" } : f));
-      setMsg({ tone: "green", text: "Notification settings saved." });
+      setMsg({ tone: "green", text: t("Notification settings saved.") });
     },
-    onError: (err) => setMsg({ tone: "red", text: err instanceof ApiError ? err.message : "Saving failed" }),
+    onError: (err) => setMsg({ tone: "red", text: err instanceof ApiError ? err.message : t("Saving failed") }),
   });
   const test = useMutation({
     mutationFn: (cfg: NotifyConfig) => api.notifications.test(cfg),
-    onSuccess: () => setMsg({ tone: "green", text: "Test notification delivered." }),
-    onError: (err) => setMsg({ tone: "red", text: err instanceof ApiError ? err.message : "Test failed" }),
+    onSuccess: () => setMsg({ tone: "green", text: t("Test notification delivered.") }),
+    onError: (err) => setMsg({ tone: "red", text: err instanceof ApiError ? err.message : t("Test failed") }),
   });
 
-  if (q.isPending || !form) return <Card><CardHeader title="Notifications" /><Spinner /></Card>;
-  if (q.isError) return <Card><CardHeader title="Notifications" /><div className="p-5"><Alert tone="red">{q.error.message}</Alert></div></Card>;
+  if (q.isPending || !form) return <Card><CardHeader title={t("Notifications")} /><Spinner /></Card>;
+  if (q.isError) return <Card><CardHeader title={t("Notifications")} /><div className="p-5"><Alert tone="red">{q.error.message}</Alert></div></Card>;
   const set = (patch: Partial<NotifyConfig>) => setForm((f) => (f ? { ...f, ...patch } : f));
   const st = q.data.status;
   const kinds = form.kinds ?? [];
@@ -60,21 +62,21 @@ export function NotificationsCard() {
   return (
     <Card>
       <CardHeader
-        title="Notifications"
-        description="Get told when something needs you: failed certificate renewals, projects that stopped unexpectedly, failed backups."
+        title={t("Notifications")}
+        description={t("Get told when something needs you: failed certificate renewals, projects that stopped unexpectedly, failed backups.")}
         actions={
-          st.lastSent ? <span className="text-xs text-subtle">last sent {formatDateTime(st.lastSent)}</span> : null
+          st.lastSent ? <span className="text-xs text-subtle">{t("last sent {{date}}", { date: formatDateTime(st.lastSent) })}</span> : null
         }
       />
       <form onSubmit={submit} className="space-y-4 p-5">
         {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
-        {st.lastError && <Alert tone="amber" title="Last delivery failed">{st.lastError}</Alert>}
-        <Checkbox label="Enable notifications" checked={form.enabled} onChange={(e) => set({ enabled: e.target.checked })} />
+        {st.lastError && <Alert tone="amber" title={t("Last delivery failed")}>{st.lastError}</Alert>}
+        <Checkbox label={t("Enable notifications")} checked={form.enabled} onChange={(e) => set({ enabled: e.target.checked })} />
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Channel" htmlFor="notify-provider" hint={hints[form.provider]}>
+          <Field label={t("Channel")} htmlFor="notify-provider" hint={hints[form.provider] ? t(hints[form.provider]!) : undefined}>
             <Select id="notify-provider" value={form.provider} onChange={(e) => set({ provider: e.target.value })}>
               {Object.entries(q.data.providers).map(([k, v]) => (
-                <option key={k} value={k}>{v}</option>
+                <option key={k} value={k}>{t(v)}</option>
               ))}
             </Select>
           </Field>
@@ -84,67 +86,67 @@ export function NotificationsCard() {
             </Field>
           )}
           {form.provider === "ntfy" && (
-            <Field label="Access token (optional)" htmlFor="notify-token" hint={st.hasToken ? "Leave empty to keep the stored token." : undefined}>
+            <Field label={t("Access token (optional)")} htmlFor="notify-token" hint={st.hasToken ? t("Leave empty to keep the stored token.") : undefined}>
               <Input id="notify-token" type="password" autoComplete="off" value={form.token ?? ""} onChange={(e) => set({ token: e.target.value })} placeholder={st.hasToken ? "••••••••" : ""} />
             </Field>
           )}
           {form.provider === "telegram" && (
             <>
-              <Field label="Bot token" htmlFor="notify-token" hint={st.hasToken ? "Leave empty to keep the stored token." : undefined}>
+              <Field label={t("Bot token")} htmlFor="notify-token" hint={st.hasToken ? t("Leave empty to keep the stored token.") : undefined}>
                 <Input id="notify-token" type="password" autoComplete="off" value={form.token ?? ""} onChange={(e) => set({ token: e.target.value })} placeholder={st.hasToken ? "••••••••" : "123456:ABC…"} />
               </Field>
-              <Field label="Chat id" htmlFor="notify-chat">
+              <Field label={t("Chat id")} htmlFor="notify-chat">
                 <Input id="notify-chat" value={form.chatId ?? ""} onChange={(e) => set({ chatId: e.target.value })} placeholder="123456789" />
               </Field>
             </>
           )}
           {form.provider === "email" && (
             <>
-              <Field label="SMTP host" htmlFor="smtp-host">
+              <Field label={t("SMTP host")} htmlFor="smtp-host">
                 <Input id="smtp-host" value={form.smtpHost ?? ""} onChange={(e) => set({ smtpHost: e.target.value })} placeholder="smtp.example.com" spellCheck={false} />
               </Field>
               <div className="grid grid-cols-2 gap-4">
-                <Field label="Port" htmlFor="smtp-port" hint="0 = default for the security mode">
+                <Field label={t("Port")} htmlFor="smtp-port" hint={t("0 = default for the security mode")}>
                   <Input id="smtp-port" type="number" min={0} max={65535} value={form.smtpPort ?? 0} onChange={(e) => set({ smtpPort: Number(e.target.value) })} />
                 </Field>
-                <Field label="Security" htmlFor="smtp-sec">
+                <Field label={t("Security")} htmlFor="smtp-sec">
                   <Select id="smtp-sec" value={form.smtpSecurity ?? "starttls"} onChange={(e) => set({ smtpSecurity: e.target.value })}>
                     <option value="starttls">STARTTLS (587)</option>
                     <option value="tls">TLS (465)</option>
-                    <option value="none">None</option>
+                    <option value="none">{t("None")}</option>
                   </Select>
                 </Field>
               </div>
-              <Field label="Username" htmlFor="smtp-user">
+              <Field label={t("Username")} htmlFor="smtp-user">
                 <Input id="smtp-user" value={form.smtpUser ?? ""} onChange={(e) => set({ smtpUser: e.target.value })} autoComplete="off" />
               </Field>
-              <Field label="Password" htmlFor="smtp-pass" hint={st.hasSmtpPassword ? "Leave empty to keep the stored password." : undefined}>
+              <Field label={t("Password")} htmlFor="smtp-pass" hint={st.hasSmtpPassword ? t("Leave empty to keep the stored password.") : undefined}>
                 <Input id="smtp-pass" type="password" autoComplete="off" value={form.smtpPassword ?? ""} onChange={(e) => set({ smtpPassword: e.target.value })} placeholder={st.hasSmtpPassword ? "••••••••" : ""} />
               </Field>
-              <Field label="From" htmlFor="smtp-from">
+              <Field label={t("From")} htmlFor="smtp-from">
                 <Input id="smtp-from" type="email" value={form.from ?? ""} onChange={(e) => set({ from: e.target.value })} placeholder="staqio@example.com" />
               </Field>
-              <Field label="To" htmlFor="smtp-to" hint="Comma-separated for several recipients">
+              <Field label={t("To")} htmlFor="smtp-to" hint={t("Comma-separated for several recipients")}>
                 <Input id="smtp-to" value={form.to ?? ""} onChange={(e) => set({ to: e.target.value })} placeholder="you@example.com" />
               </Field>
             </>
           )}
         </div>
         <fieldset className="space-y-2">
-          <legend className="text-sm font-medium text-fg">Events</legend>
+          <legend className="text-sm font-medium text-fg">{t("Events")}</legend>
           {q.data.kinds.map((k) => (
-            <Checkbox key={k.kind} label={k.description} description={k.kind} checked={kinds.includes(k.kind)} onChange={(e) => toggleKind(k.kind, e.target.checked)} />
+            <Checkbox key={k.kind} label={t(k.description)} description={k.kind} checked={kinds.includes(k.kind)} onChange={(e) => toggleKind(k.kind, e.target.checked)} />
           ))}
         </fieldset>
         <p className="text-xs text-subtle">
-          Repeated events are throttled (unhealthy project: once per 6 h until it recovers, failed renewal: once per day). Secrets are stored in <Code>/config/notify.json</Code> and never returned.
+          {t("Repeated events are throttled (unhealthy project: once per 6 h until it recovers, failed renewal: once per day). Secrets are stored in /config/notify.json and never returned.")}
         </p>
         <div className="flex gap-2">
           <Button type="submit" variant="primary" loading={save.isPending} icon={<Save className="size-4" />}>
-            Save
+            {t("Save")}
           </Button>
           <Button type="button" onClick={() => { setMsg(null); test.mutate(form!); }} loading={test.isPending} icon={<Send className="size-4" />}>
-            Send test
+            {t("Send test")}
           </Button>
         </div>
       </form>

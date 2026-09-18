@@ -1,20 +1,22 @@
 import { Check, Copy, Database, Eye, EyeOff, KeyRound, Plus, Trash2, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useState, type FormEvent } from "react";
 import { api, ApiError } from "@/api/client";
 import { useDatabaseInfo, useDatabaseList, useDatabaseMutations, usePublicHost, useRuntimes, useUpdateProject } from "@/api/hooks";
 import type { DatabaseCredentials, Project } from "@/api/types";
-import { Alert, Badge, Button, Card, CardHeader, Checkbox, Code, Dialog, ErrorState, Field, Input, Select, Spinner, StatusDot } from "@/components/ui";
+import { Alert, Badge, Button, Card, CardHeader, Checkbox, Dialog, ErrorState, Field, Input, Select, Spinner, StatusDot } from "@/components/ui";
 import { copyText } from "@/lib/clipboard";
 import { containerStateTone } from "@/lib/format";
 
 export function CopyButton({ value, label }: { value: string; label: string }) {
+  const { t } = useTranslation();
   const [state, setState] = useState<"idle" | "done" | "failed">("idle");
   return (
     <Button
       variant="ghost"
       size="sm"
-      aria-label={`Copy ${label}`}
-      title={state === "failed" ? "Copying failed – select the value and copy it manually" : `Copy ${label}`}
+      aria-label={t("Copy {{label}}", { label })}
+      title={state === "failed" ? t("Copying failed – select the value and copy it manually") : t("Copy {{label}}", { label })}
       onClick={async () => {
         const ok = await copyText(value);
         setState(ok ? "done" : "failed");
@@ -27,6 +29,7 @@ export function CopyButton({ value, label }: { value: string; label: string }) {
 }
 
 export function CopyRow({ label, value, secret = false, mono = true }: { label: string; value: string; secret?: boolean; mono?: boolean }) {
+  const { t } = useTranslation();
   const [show, setShow] = useState(false);
   const display = secret && !show ? "•".repeat(Math.min(value.length, 24)) : value;
   return (
@@ -37,7 +40,7 @@ export function CopyRow({ label, value, secret = false, mono = true }: { label: 
       </dd>
       <div className="flex shrink-0 items-center">
         {secret && (
-          <Button variant="ghost" size="sm" onClick={() => setShow(!show)} aria-label={show ? `Hide ${label}` : `Show ${label}`}>
+          <Button variant="ghost" size="sm" onClick={() => setShow(!show)} aria-label={show ? t("Hide {{label}}", { label }) : t("Show {{label}}", { label })}>
             {show ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
           </Button>
         )}
@@ -48,6 +51,7 @@ export function CopyRow({ label, value, secret = false, mono = true }: { label: 
 }
 
 function AddDatabaseCard({ project }: { project: Project }) {
+  const { t } = useTranslation();
   const runtimes = useRuntimes();
   const update = useUpdateProject(project.id);
   const [type, setType] = useState("mariadb");
@@ -59,11 +63,11 @@ function AddDatabaseCard({ project }: { project: Project }) {
 
   return (
     <Card>
-      <CardHeader title="Database" description="This project has no database yet. Adding one creates a container with a persistent volume and injects the connection variables into PHP." />
+      <CardHeader title={t("Database")} description={t("This project has no database yet. Adding one creates a container with a persistent volume and injects the connection variables into PHP.")} />
       <div className="space-y-4 p-5">
         {error && <Alert tone="red">{error}</Alert>}
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Type" htmlFor="add-db-type">
+          <Field label={t("Type")} htmlFor="add-db-type">
             <Select id="add-db-type" value={type} onChange={(e) => { setType(e.target.value); setVersion(""); }}>
               {dbs.map((d) => (
                 <option key={d.key} value={d.key}>
@@ -72,7 +76,7 @@ function AddDatabaseCard({ project }: { project: Project }) {
               ))}
             </Select>
           </Field>
-          <Field label="Version" htmlFor="add-db-version">
+          <Field label={t("Version")} htmlFor="add-db-version">
             <Select id="add-db-version" value={version || selected?.versions.find((v) => v.default)?.version || ""} onChange={(e) => setVersion(e.target.value)}>
               {selected?.versions.map((v) => (
                 <option key={v.version} value={v.version}>
@@ -82,7 +86,7 @@ function AddDatabaseCard({ project }: { project: Project }) {
             </Select>
           </Field>
         </div>
-        <Checkbox label="Publish database port on the host" description="For external clients such as TablePlus or DBeaver." checked={expose} onChange={(e) => setExpose(e.target.checked)} />
+        <Checkbox label={t("Publish database port on the host")} description={t("For external clients such as TablePlus or DBeaver.")} checked={expose} onChange={(e) => setExpose(e.target.checked)} />
         <Button
           variant="primary"
           icon={<Plus className="size-4" />}
@@ -92,11 +96,11 @@ function AddDatabaseCard({ project }: { project: Project }) {
             setError(null);
             update.mutate(
               { database: { enabled: true, type, version: version || selected?.versions.find((v) => v.default)?.version || "", exposePort: expose } },
-              { onError: (err) => setError(err instanceof ApiError ? err.message : "Adding the database failed") },
+              { onError: (err) => setError(err instanceof ApiError ? err.message : t("Adding the database failed")) },
             );
           }}
         >
-          Add database
+          {t("Add database")}
         </Button>
       </div>
     </Card>
@@ -104,6 +108,7 @@ function AddDatabaseCard({ project }: { project: Project }) {
 }
 
 export function DatabaseTab({ project }: { project: Project }) {
+  const { t } = useTranslation();
   const hasDb = project.services.some((s) => s.kind === "database" && s.enabled);
   const info = useDatabaseInfo(project.id, hasDb);
   const publicHost = usePublicHost();
@@ -137,7 +142,7 @@ export function DatabaseTab({ project }: { project: Project }) {
     try {
       setCreds((await api.database.credentials(project.id)).credentials);
     } catch (err) {
-      setCredsError(err instanceof ApiError ? err.message : "Could not load credentials");
+      setCredsError(err instanceof ApiError ? err.message : t("Could not load credentials"));
     }
   };
 
@@ -149,7 +154,7 @@ export function DatabaseTab({ project }: { project: Project }) {
         setNewName("");
         setMsg({ tone: "green", text: `Database “${newName.trim()}” created.` });
       },
-      onError: (err) => fail(err, "Creating the database failed"),
+      onError: (err) => fail(err, t("Creating the database failed")),
     });
   };
 
@@ -163,10 +168,10 @@ export function DatabaseTab({ project }: { project: Project }) {
             title={
               <span className="flex items-center gap-2">
                 <Database className="size-4 text-accent-500" aria-hidden />
-                Connection
+                {t("Connection")}
               </span>
             }
-            description="Inside the project network. These values are injected into the PHP container."
+            description={t("Inside the project network. These values are injected into the PHP container.")}
             actions={
               <span className="inline-flex items-center gap-1.5 text-xs">
                 <StatusDot tone={containerStateTone(d.state)} />
@@ -176,77 +181,77 @@ export function DatabaseTab({ project }: { project: Project }) {
             }
           />
           <dl className="px-5 py-3">
-            <CopyRow label="Host" value={d.host} />
-            <CopyRow label="Port" value={String(d.port)} />
-            <CopyRow label="Database" value={d.database} />
-            <CopyRow label="Username" value={d.username} />
+            <CopyRow label={t("Host")} value={d.host} />
+            <CopyRow label={t("Port")} value={String(d.port)} />
+            <CopyRow label={t("Database")} value={d.database} />
+            <CopyRow label={t("Username")} value={d.username} />
             {creds ? (
               <>
-                <CopyRow label="Password" value={creds.password} secret />
-                {creds.rootPassword && <CopyRow label="Root password" value={creds.rootPassword} secret />}
+                <CopyRow label={t("Password")} value={creds.password} secret />
+                {creds.rootPassword && <CopyRow label={t("Root password")} value={creds.rootPassword} secret />}
                 <CopyRow label="DATABASE_URL" value={creds.url} secret />
               </>
             ) : (
               <div className="flex items-center justify-between gap-3 py-1.5">
-                <dt className="w-36 shrink-0 text-sm text-muted">Password</dt>
+                <dt className="w-36 shrink-0 text-sm text-muted">{t("Password")}</dt>
                 <dd className="flex-1 font-mono text-xs text-subtle">••••••••••••</dd>
                 <Button size="sm" onClick={() => void revealCredentials()} icon={<Eye className="size-3.5" />}>
-                  Reveal
+                  {t("Reveal")}
                 </Button>
               </div>
             )}
             {credsError && <p className="py-1 text-xs text-red-500">{credsError}</p>}
           </dl>
           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-default px-5 py-3">
-            <p className="text-xs text-subtle">Injected: {d.injectedEnv.map((k) => k).join(", ")}</p>
+            <p className="text-xs text-subtle">{t("Injected")}: {d.injectedEnv.map((k) => k).join(", ")}</p>
             <Button
               size="sm"
               icon={<KeyRound className="size-3.5" />}
               loading={rotate.isPending}
               disabled={!running}
-              title={running ? "Generate a new password for the project user" : "Start the project to rotate the password"}
+              title={running ? t("Generate a new password for the project user") : t("Start the project to rotate the password")}
               onClick={() => {
                 setMsg(null);
                 setCreds(null);
                 rotate.mutate(undefined, {
-                  onSuccess: () => setMsg({ tone: "green", text: "Password rotated. The PHP container was recreated with the new credentials." }),
-                  onError: (err) => fail(err, "Rotation failed"),
+                  onSuccess: () => setMsg({ tone: "green", text: t("Password rotated. The PHP container was recreated with the new credentials.") }),
+                  onError: (err) => fail(err, t("Rotation failed")),
                 });
               }}
             >
-              Rotate password
+              {t("Rotate password")}
             </Button>
           </div>
         </Card>
 
         <div className="space-y-6">
           <Card>
-            <CardHeader title="External access" description="Connect from your workstation with a database client." />
+            <CardHeader title={t("External access")} description={t("Connect from your workstation with a database client.")} />
             <div className="space-y-3 p-5">
               <Checkbox
-                label="Publish port on the host"
-                description={d.hostPort ? `Reachable at ${externalHost}:${d.hostPort}` : "A free port from the project port range is assigned automatically."}
+                label={t("Publish port on the host")}
+                description={d.hostPort ? t("Reachable at {{address}}", { address: `${externalHost}:${d.hostPort}` }) : t("A free port from the project port range is assigned automatically.")}
                 checked={d.hostPort > 0}
                 disabled={expose.isPending}
                 onChange={(e) => {
                   setMsg(null);
-                  expose.mutate(e.target.checked, { onError: (err) => fail(err, "Changing the port failed") });
+                  expose.mutate(e.target.checked, { onError: (err) => fail(err, t("Changing the port failed")) });
                 }}
               />
               {d.hostPort > 0 && (
                 <dl>
-                  <CopyRow label="Host" value={externalHost} />
-                  <CopyRow label="Port" value={String(d.hostPort)} />
+                  <CopyRow label={t("Host")} value={externalHost} />
+                  <CopyRow label={t("Port")} value={String(d.hostPort)} />
                 </dl>
               )}
             </div>
           </Card>
 
           <Card>
-            <CardHeader title="Server" />
+            <CardHeader title={t("Server")} />
             <div className="space-y-4 p-5">
               <div className="flex items-end gap-2">
-                <Field label={`${({ mariadb: "MariaDB", mysql: "MySQL", postgresql: "PostgreSQL", mongodb: "MongoDB" } as Record<string, string>)[d.type] ?? d.type} version`} htmlFor="db-version" hint={d.type === "postgresql" ? "PostgreSQL cannot upgrade an existing data directory in place." : d.type === "mongodb" ? "MongoDB upgrades one major version at a time; back up first." : "Upgrades keep the data volume; downgrades are refused."}>
+                <Field label={t("{{engine}} version", { engine: ({ mariadb: "MariaDB", mysql: "MySQL", postgresql: "PostgreSQL", mongodb: "MongoDB" } as Record<string, string>)[d.type] ?? d.type })} htmlFor="db-version" hint={d.type === "postgresql" ? t("PostgreSQL cannot upgrade an existing data directory in place.") : d.type === "mongodb" ? t("MongoDB upgrades one major version at a time; back up first.") : t("Upgrades keep the data volume; downgrades are refused.")}>
                   <Select id="db-version" value={currentVersion} onChange={(e) => setVersion(e.target.value)}>
                     {versions.map((v) => (
                       <option key={v.version} value={v.version}>
@@ -263,19 +268,19 @@ export function DatabaseTab({ project }: { project: Project }) {
                     setMsg(null);
                     update.mutate(
                       { database: { enabled: true, version: currentVersion, exposePort: d.hostPort > 0 } },
-                      { onSuccess: () => { setVersion(null); setMsg({ tone: "green", text: "Version changed. The database container was recreated." }); }, onError: (err) => fail(err, "Version change failed") },
+                      { onSuccess: () => { setVersion(null); setMsg({ tone: "green", text: t("Version changed. The database container was recreated.") }); }, onError: (err) => fail(err, t("Version change failed")) },
                     );
                   }}
                 >
-                  Apply
+                  {t("Apply")}
                 </Button>
               </div>
               <dl className="text-sm">
-                <CopyRow label="Image" value={d.image} />
-                <CopyRow label="Volume" value={d.volumeName} />
+                <CopyRow label={t("Image")} value={d.image} />
+                <CopyRow label={t("Volume")} value={d.volumeName} />
               </dl>
               <Button variant="ghost" size="sm" className="text-red-600 dark:text-red-400" icon={<Trash2 className="size-3.5" />} onClick={() => setRemoveOpen(true)}>
-                Remove database and data
+                {t("Remove database and data")}
               </Button>
             </div>
           </Card>
@@ -283,10 +288,10 @@ export function DatabaseTab({ project }: { project: Project }) {
       </div>
 
       <Card>
-        <CardHeader title="Databases" description={`Databases on this server. The project user “${d.username}” gets full access to databases created here.`} />
+        <CardHeader title={t("Databases")} description={t("Databases on this server. The project user “{{user}}” gets full access to databases created here.", { user: d.username })} />
         <div className="p-5">
           {!running ? (
-            <p className="text-sm text-muted">Start the project to manage databases.</p>
+            <p className="text-sm text-muted">{t("Start the project to manage databases.")}</p>
           ) : list.isPending ? (
             <Spinner />
           ) : list.isError ? (
@@ -297,10 +302,10 @@ export function DatabaseTab({ project }: { project: Project }) {
                 <li key={name} className="flex items-center justify-between px-3 py-2">
                   <span className="font-mono text-sm">
                     {name}
-                    {name === d.database && <Badge className="ml-2">primary</Badge>}
+                    {name === d.database && <Badge className="ml-2">{t("primary")}</Badge>}
                   </span>
                   {name !== d.database && (
-                    <Button variant="ghost" size="sm" aria-label={`Drop ${name}`} onClick={() => { setDropTarget(name); setDropConfirm(""); }}>
+                    <Button variant="ghost" size="sm" aria-label={t("Drop {{name}}", { name })} onClick={() => { setDropTarget(name); setDropConfirm(""); }}>
                       <Trash2 className="size-4" />
                     </Button>
                   )}
@@ -310,11 +315,11 @@ export function DatabaseTab({ project }: { project: Project }) {
           )}
           {running && (
             <form onSubmit={createDb} className="mt-4 flex items-end gap-2">
-              <Field label="New database" htmlFor="new-db" hint="Lower-case letters, digits and underscores.">
+              <Field label={t("New database")} htmlFor="new-db" hint={t("Lower-case letters, digits and underscores.")}>
                 <Input id="new-db" value={newName} onChange={(e) => setNewName(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""))} placeholder="reports" spellCheck={false} />
               </Field>
               <Button type="submit" variant="primary" icon={<Plus className="size-4" />} loading={create.isPending} disabled={!newName}>
-                Create
+                {t("Create")}
               </Button>
             </form>
           )}
@@ -324,11 +329,11 @@ export function DatabaseTab({ project }: { project: Project }) {
       <Dialog
         open={dropTarget !== null}
         onClose={() => setDropTarget(null)}
-        title={`Drop database “${dropTarget ?? ""}”?`}
-        description="All tables and data in this database are deleted permanently."
+        title={t("Drop database “{{name}}”?", { name: dropTarget ?? "" })}
+        description={t("All tables and data in this database are deleted permanently.")}
         footer={
           <>
-            <Button onClick={() => setDropTarget(null)}>Cancel</Button>
+            <Button onClick={() => setDropTarget(null)}>{t("Cancel")}</Button>
             <Button
               variant="danger"
               disabled={dropConfirm !== dropTarget}
@@ -336,17 +341,17 @@ export function DatabaseTab({ project }: { project: Project }) {
               onClick={() =>
                 dropTarget &&
                 drop.mutate(dropTarget, {
-                  onSuccess: () => { setDropTarget(null); setMsg({ tone: "green", text: `Database “${dropTarget}” dropped.` }); },
-                  onError: (err) => { setDropTarget(null); fail(err, "Dropping the database failed"); },
+                  onSuccess: () => { setDropTarget(null); setMsg({ tone: "green", text: t("Database “{{name}}” dropped.", { name: dropTarget }) }); },
+                  onError: (err) => { setDropTarget(null); fail(err, t("Dropping the database failed")); },
                 })
               }
             >
-              Drop database
+              {t("Drop database")}
             </Button>
           </>
         }
       >
-        <Field label={`Type ${dropTarget ?? ""} to confirm`} htmlFor="drop-confirm">
+        <Field label={t("Type {{slug}} to confirm", { slug: dropTarget ?? "" })} htmlFor="drop-confirm">
           <Input id="drop-confirm" value={dropConfirm} onChange={(e) => setDropConfirm(e.target.value)} autoComplete="off" />
         </Field>
       </Dialog>
@@ -354,15 +359,11 @@ export function DatabaseTab({ project }: { project: Project }) {
       <Dialog
         open={removeOpen}
         onClose={() => setRemoveOpen(false)}
-        title="Remove database service?"
-        description={
-          <>
-            This stops and removes the database container <Code>{`staqio-${project.slug}-database`}</Code> and deletes the volume <Code>{d.volumeName}</Code> with all data. The PHP container is recreated without database variables.
-          </>
-        }
+        title={t("Remove database service?")}
+        description={t("This stops and removes the database container {{container}} and deletes the volume {{volume}} with all data. The PHP container is recreated without database variables.", { container: `staqio-${project.slug}-database`, volume: d.volumeName })}
         footer={
           <>
-            <Button onClick={() => setRemoveOpen(false)}>Cancel</Button>
+            <Button onClick={() => setRemoveOpen(false)}>{t("Cancel")}</Button>
             <Button
               variant="danger"
               disabled={removeConfirm !== d.database}
@@ -371,16 +372,16 @@ export function DatabaseTab({ project }: { project: Project }) {
               onClick={() =>
                 update.mutate(
                   { database: { enabled: false, removeData: true } },
-                  { onSuccess: () => setRemoveOpen(false), onError: (err) => { setRemoveOpen(false); fail(err, "Removing the database failed"); } },
+                  { onSuccess: () => setRemoveOpen(false), onError: (err) => { setRemoveOpen(false); fail(err, t("Removing the database failed")); } },
                 )
               }
             >
-              Remove database and data
+              {t("Remove database and data")}
             </Button>
           </>
         }
       >
-        <Field label={`Type ${d.database} to confirm`} htmlFor="remove-confirm">
+        <Field label={t("Type {{slug}} to confirm", { slug: d.database })} htmlFor="remove-confirm">
           <Input id="remove-confirm" value={removeConfirm} onChange={(e) => setRemoveConfirm(e.target.value)} autoComplete="off" />
         </Field>
       </Dialog>

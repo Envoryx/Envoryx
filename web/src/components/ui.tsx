@@ -1,4 +1,5 @@
 import { clsx } from "clsx";
+import { useTranslation } from "react-i18next";
 import { Loader2, AlertTriangle, Inbox } from "lucide-react";
 import { forwardRef, useEffect, useRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes } from "react";
 import { Link, type LinkProps } from "react-router-dom";
@@ -216,7 +217,9 @@ export function Badge({ tone = "gray", children, className }: { tone?: Tone; chi
 
 /* ---------- States ---------- */
 
-export function Spinner({ label = "Loading…" }: { label?: string }) {
+export function Spinner({ label }: { label?: string }) {
+  const { t } = useTranslation();
+  label ??= t("Loading…");
   return (
     <div className="flex items-center gap-2 py-10 justify-center text-sm text-muted" role="status">
       <Loader2 className="size-4 animate-spin" aria-hidden />
@@ -225,7 +228,9 @@ export function Spinner({ label = "Loading…" }: { label?: string }) {
   );
 }
 
-export function ErrorState({ title = "Something went wrong", message, action }: { title?: string; message?: string | undefined; action?: ReactNode }) {
+export function ErrorState({ title, message, action }: { title?: string; message?: string | undefined; action?: ReactNode }) {
+  const { t } = useTranslation();
+  title ??= t("Something went wrong");
   return (
     <div className="flex flex-col items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/5 px-6 py-8 text-center" role="alert">
       <AlertTriangle className="size-6 text-red-500" aria-hidden />

@@ -1,4 +1,5 @@
 import { Check, Copy, Download, GitBranch, GitCommitHorizontal, KeyRound, RefreshCw, Save } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useEffect, useState, type FormEvent } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "@/api/client";
@@ -9,6 +10,7 @@ import { copyText } from "@/lib/clipboard";
 import { formatDateTime } from "@/lib/format";
 
 function DeployKeyCard() {
+  const { t } = useTranslation();
   const key = useDeployKey();
   const [copied, setCopied] = useState(false);
   return (
@@ -16,10 +18,10 @@ function DeployKeyCard() {
       <CardHeader
         title={
           <span className="flex items-center gap-2">
-            <KeyRound className="size-4 text-accent-500" aria-hidden /> Deploy key
+            <KeyRound className="size-4 text-accent-500" aria-hidden /> {t("Deploy key")}
           </span>
         }
-        description="Add this public key as a read-only deploy key to your repository (GitHub: Settings → Deploy keys) to clone via SSH."
+        description={t("Add this public key as a read-only deploy key to your repository (GitHub: Settings → Deploy keys) to clone via SSH.")}
       />
       <div className="p-5">
         {key.isPending ? (
@@ -37,7 +39,7 @@ function DeployKeyCard() {
               }}
               icon={copied ? <Check className="size-3.5 text-emerald-500" /> : <Copy className="size-3.5" />}
             >
-              Copy
+              {t("Copy")}
             </Button>
           </div>
         )}
@@ -47,6 +49,7 @@ function DeployKeyCard() {
 }
 
 export function GitTab({ project }: { project: Project }) {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const hasPhp = project.services.some((s) => s.kind === "php" && s.enabled);
   const status = useGitStatus(project.id, hasPhp);
@@ -83,10 +86,10 @@ export function GitTab({ project }: { project: Project }) {
       await api.git.set(project.id, body);
       setToken("");
       setClearToken(false);
-      setMsg({ tone: "green", text: "Repository settings saved." });
+      setMsg({ tone: "green", text: t("Repository settings saved.") });
       refresh();
     } catch (err) {
-      fail(err, "Saving failed");
+      fail(err, t("Saving failed"));
     } finally {
       setBusy(null);
     }
@@ -99,10 +102,10 @@ export function GitTab({ project }: { project: Project }) {
     try {
       const res = kind === "clone" ? await api.git.clone(project.id) : kind === "pull" ? await api.git.pull(project.id) : await api.git.checkout(project.id, checkoutRef.trim());
       setResult(res.result);
-      setMsg({ tone: "green", text: `git ${kind} finished.` });
+      setMsg({ tone: "green", text: t("git {{kind}} finished.", { kind }) });
       refresh();
     } catch (err) {
-      fail(err, `git ${kind} failed`);
+      fail(err, t("git {{kind}} failed", { kind }));
       refresh();
     } finally {
       setBusy(null);
@@ -110,7 +113,7 @@ export function GitTab({ project }: { project: Project }) {
   };
 
   if (!hasPhp) {
-    return <Alert tone="gray">Git needs a PHP service – the git client ships in the PHP image.</Alert>;
+    return <Alert tone="gray">{t("Git needs a PHP service – the git client ships in the PHP image.")}</Alert>;
   }
   const st = status.data;
   const isSSH = url.startsWith("git@") || url.startsWith("ssh://");
@@ -123,41 +126,41 @@ export function GitTab({ project }: { project: Project }) {
           <CardHeader
             title={
               <span className="flex items-center gap-2">
-                <GitBranch className="size-4 text-accent-500" aria-hidden /> Repository
+                <GitBranch className="size-4 text-accent-500" aria-hidden /> {t("Repository")}
               </span>
             }
-            description="Clone and pull run as the project owner inside a short-lived container from the project's PHP image."
+            description={t("Clone and pull run as the project owner inside a short-lived container from the project's PHP image.")}
           />
           <form onSubmit={save} className="space-y-4 p-5">
-            <Field label="Repository URL" htmlFor="git-url" hint="https://…, git@host:path.git or ssh://…">
+            <Field label={t("Repository URL")} htmlFor="git-url" hint="https://…, git@host:path.git or ssh://…">
               <Input id="git-url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://github.com/you/project.git" spellCheck={false} />
             </Field>
-            <Field label="Branch" htmlFor="git-branch" hint="Used for clone; leave empty for the default branch.">
+            <Field label={t("Branch")} htmlFor="git-branch" hint={t("Used for clone; leave empty for the default branch.")}>
               <Input id="git-branch" value={branch} onChange={(e) => setBranch(e.target.value)} placeholder="main" spellCheck={false} />
             </Field>
             {!isSSH && (
               <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="Username (optional)" htmlFor="git-user" hint="GitHub: leave empty. GitLab: oauth2.">
+                <Field label={t("Username (optional)")} htmlFor="git-user" hint={t("GitHub: leave empty. GitLab: oauth2.")}>
                   <Input id="git-user" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="x-access-token" spellCheck={false} autoComplete="off" />
                 </Field>
-                <Field label="Access token" htmlFor="git-token" hint={project.git.hasToken ? "A token is stored. Enter a new one to replace it." : "For private HTTPS repositories."}>
+                <Field label={t("Access token")} htmlFor="git-token" hint={project.git.hasToken ? t("A token is stored. Enter a new one to replace it.") : t("For private HTTPS repositories.")}>
                   <Input id="git-token" type="password" value={token} onChange={(e) => { setToken(e.target.value); setClearToken(false); }} autoComplete="new-password" placeholder={project.git.hasToken ? "••••••••" : ""} />
                 </Field>
               </div>
             )}
             {project.git.hasToken && !isSSH && (
               <label className="flex items-center gap-2 text-xs text-muted">
-                <input type="checkbox" checked={clearToken} onChange={(e) => setClearToken(e.target.checked)} className="accent-accent-600" /> Remove the stored token
+                <input type="checkbox" checked={clearToken} onChange={(e) => setClearToken(e.target.checked)} className="accent-accent-600" /> {t("Remove the stored token")}
               </label>
             )}
-            {isSSH && <p className="text-xs text-muted">SSH URLs authenticate with the Staqio deploy key shown on the right.</p>}
+            {isSSH && <p className="text-xs text-muted">{t("SSH URLs authenticate with the Staqio deploy key shown on the right.")}</p>}
             <div className="flex flex-wrap gap-2">
               <Button type="submit" variant="primary" loading={busy === "save"} icon={<Save className="size-4" />}>
-                Save
+                {t("Save")}
               </Button>
               {st && !st.isRepo && st.configured && (
                 <Button onClick={() => void run("clone")} loading={busy === "clone"} disabled={busy !== null} icon={<Download className="size-4" />}>
-                  Clone now
+                  {t("Clone now")}
                 </Button>
               )}
             </div>
@@ -170,16 +173,16 @@ export function GitTab({ project }: { project: Project }) {
         <CardHeader
           title={
             <span className="flex items-center gap-2">
-              <GitCommitHorizontal className="size-4 text-accent-500" aria-hidden /> Working copy
+              <GitCommitHorizontal className="size-4 text-accent-500" aria-hidden /> {t("Working copy")}
             </span>
           }
           actions={
             st?.isRepo ? (
               <>
                 <Button size="sm" onClick={() => void run("pull")} loading={busy === "pull"} disabled={busy !== null} icon={<RefreshCw className="size-3.5" />}>
-                  Pull
+                  {t("Pull")}
                 </Button>
-                <Button size="sm" variant="ghost" onClick={() => status.refetch()} aria-label="Refresh status">
+                <Button size="sm" variant="ghost" onClick={() => status.refetch()} aria-label={t("Refresh status")}>
                   <RefreshCw className="size-3.5" />
                 </Button>
               </>
@@ -192,24 +195,24 @@ export function GitTab({ project }: { project: Project }) {
           ) : status.isError ? (
             <Alert tone="red">{status.error.message}</Alert>
           ) : !st?.isRepo ? (
-            <p className="text-sm text-muted">{st?.configured ? "The project directory is not a git repository yet. Clone the repository into the empty project directory." : "No repository configured."}</p>
+            <p className="text-sm text-muted">{st?.configured ? t("The project directory is not a git repository yet. Clone the repository into the empty project directory.") : t("No repository configured.")}</p>
           ) : (
             <div className="space-y-4">
               {st.error && <Alert tone="red">{st.error}</Alert>}
               <dl className="grid gap-x-8 gap-y-2 text-sm sm:grid-cols-[10rem_1fr]">
-                <dt className="text-muted">Branch</dt>
+                <dt className="text-muted">{t("Branch")}</dt>
                 <dd className="flex items-center gap-2">
-                  <Code>{st.currentBranch || "detached"}</Code>
-                  {st.dirty > 0 ? <Badge tone="amber">{st.dirty} uncommitted change{st.dirty === 1 ? "" : "s"}</Badge> : <Badge tone="green">clean</Badge>}
+                  <Code>{st.currentBranch || t("detached")}</Code>
+                  {st.dirty > 0 ? <Badge tone="amber">{t("{{count}} uncommitted changes", { count: st.dirty })}</Badge> : <Badge tone="green">{t("clean")}</Badge>}
                 </dd>
-                <dt className="text-muted">Last commit</dt>
+                <dt className="text-muted">{t("Last commit")}</dt>
                 <dd>
                   <Code>{st.shortHash}</Code> {st.subject}
                   <span className="block text-xs text-subtle">
                     {st.author} · {st.date ? formatDateTime(st.date) : ""}
                   </span>
                 </dd>
-                <dt className="text-muted">Remote</dt>
+                <dt className="text-muted">{t("Remote")}</dt>
                 <dd className="font-mono text-xs">{st.remote}</dd>
               </dl>
               <form
@@ -219,17 +222,17 @@ export function GitTab({ project }: { project: Project }) {
                 }}
                 className="flex items-end gap-2"
               >
-                <Field label="Switch branch" htmlFor="git-checkout" hint="Local or remote branch name; uncommitted changes are kept if they do not conflict.">
+                <Field label={t("Switch branch")} htmlFor="git-checkout" hint={t("Local or remote branch name; uncommitted changes are kept if they do not conflict.")}>
                   <Input id="git-checkout" value={checkoutRef} onChange={(e) => setCheckoutRef(e.target.value)} placeholder="develop" spellCheck={false} />
                 </Field>
                 <Button type="submit" loading={busy === "checkout"} disabled={!checkoutRef.trim() || busy !== null}>
-                  Checkout
+                  {t("Checkout")}
                 </Button>
               </form>
             </div>
           )}
           {result && (
-            <pre className="mt-4 max-h-64 overflow-auto rounded-md bg-[#0f1115] p-3 font-mono text-[11px] leading-5 text-zinc-200">{result.output || "(no output)"}</pre>
+            <pre className="mt-4 max-h-64 overflow-auto rounded-md bg-[#0f1115] p-3 font-mono text-[11px] leading-5 text-zinc-200">{result.output || t("(no output)")}</pre>
           )}
         </div>
       </Card>

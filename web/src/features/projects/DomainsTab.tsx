@@ -1,4 +1,5 @@
 import { ExternalLink, Globe, Plus, Trash2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -15,6 +16,7 @@ export function proxyUrl(host: string, proxy: ProxyInfo): string {
 }
 
 export function DomainsTab({ project }: { project: Project }) {
+  const { t } = useTranslation();
   const q = useProjectDomains(project.id);
   const qc = useQueryClient();
   const links = useProjectLinks();
@@ -28,15 +30,15 @@ export function DomainsTab({ project }: { project: Project }) {
     mutationFn: (h: string) => api.projects.domains.add(project.id, h),
     onSuccess: (r) => {
       setHostname("");
-      setMsg({ tone: "green", text: `${r.domain.hostname} added.` });
+      setMsg({ tone: "green", text: t("{{hostname}} added.", { hostname: r.domain.hostname }) });
       invalidate();
     },
-    onError: (err) => setMsg({ tone: "red", text: err instanceof ApiError ? err.message : "Adding the domain failed" }),
+    onError: (err) => setMsg({ tone: "red", text: err instanceof ApiError ? err.message : t("Adding the domain failed") }),
   });
   const remove = useMutation({
     mutationFn: (id: string) => api.projects.domains.remove(project.id, id),
     onSuccess: invalidate,
-    onError: (err) => setMsg({ tone: "red", text: err instanceof ApiError ? err.message : "Removing the domain failed" }),
+    onError: (err) => setMsg({ tone: "red", text: err instanceof ApiError ? err.message : t("Removing the domain failed") }),
   });
 
   function submit(e: FormEvent) {
@@ -54,19 +56,19 @@ export function DomainsTab({ project }: { project: Project }) {
   return (
     <div className="space-y-6">
       {!proxy.enabled ? (
-        <Alert tone="amber" title="The embedded proxy is disabled">
-          Domains need the proxy (<Code>STAQIO_PROXY_HTTP</Code> / <Code>STAQIO_PROXY_HTTPS</Code>). The project stays reachable at <Code>{direct}</Code>.
+        <Alert tone="amber" title={t("The embedded proxy is disabled")}>
+          {t("Domains need the proxy (STAQIO_PROXY_HTTP / STAQIO_PROXY_HTTPS). The project stays reachable at")} <Code>{direct}</Code>.
         </Alert>
       ) : !published ? (
-        <Alert tone="amber" title="Proxy ports are not published">
-          Map host ports 80 and 443 to the Staqio container to open projects by domain. See <Link to="/settings" className="underline">Settings → Domains &amp; HTTPS</Link>.
+        <Alert tone="amber" title={t("Proxy ports are not published")}>
+          {t("Map host ports 80 and 443 to the Staqio container to open projects by domain.")} <Link to="/settings" className="underline">{t("Settings → Domains & HTTPS")}</Link>
         </Alert>
       ) : null}
 
       <Card>
         <CardHeader
-          title="Domains"
-          description="Every project gets slug.base-domain automatically. Additional names route to this project through the proxy; point them at the Staqio host in your DNS or hosts file."
+          title={t("Domains")}
+          description={t("Every project gets slug.base-domain automatically. Additional names route to this project through the proxy; point them at the Staqio host in your DNS or hosts file.")}
         />
         <ul className="divide-y divide-[var(--border)]">
           {domains.map((d) => {
@@ -78,7 +80,7 @@ export function DomainsTab({ project }: { project: Project }) {
                   <div className="min-w-0">
                     <p className="flex items-center gap-2 font-mono text-sm">
                       {d.hostname}
-                      {d.default && <Badge tone="blue">default</Badge>}
+                      {d.default && <Badge tone="blue">{t("default")}</Badge>}
                     </p>
                     {url && (
                       <a href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-accent-600 hover:underline dark:text-accent-300">
@@ -88,8 +90,8 @@ export function DomainsTab({ project }: { project: Project }) {
                   </div>
                 </div>
                 {!d.default && d.id && (
-                  <Button size="sm" variant="ghost" onClick={() => remove.mutate(d.id!)} loading={remove.isPending && remove.variables === d.id} icon={<Trash2 className="size-3.5" />} aria-label={`Remove ${d.hostname}`}>
-                    Remove
+                  <Button size="sm" variant="ghost" onClick={() => remove.mutate(d.id!)} loading={remove.isPending && remove.variables === d.id} icon={<Trash2 className="size-3.5" />} aria-label={t("Remove {{name}}", { name: d.hostname })}>
+                    {t("Remove")}
                   </Button>
                 )}
               </li>
@@ -98,11 +100,11 @@ export function DomainsTab({ project }: { project: Project }) {
         </ul>
         <form onSubmit={submit} className="space-y-3 border-t border-default p-5">
           {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
-          <Field label="Add domain" htmlFor="new-domain" hint="Lower-case host name, e.g. shop.local or api.shop.test. Wildcards are not supported.">
+          <Field label={t("Add domain")} htmlFor="new-domain" hint={t("Lower-case host name, e.g. shop.local or api.shop.test. Wildcards are not supported.")}>
             <div className="flex gap-2">
               <Input id="new-domain" value={hostname} onChange={(e) => setHostname(e.target.value)} placeholder="shop.local" spellCheck={false} autoCapitalize="none" />
               <Button type="submit" variant="primary" loading={add.isPending} disabled={!hostname.trim()} icon={<Plus className="size-4" />}>
-                Add
+                {t("Add")}
               </Button>
             </div>
           </Field>
@@ -110,14 +112,14 @@ export function DomainsTab({ project }: { project: Project }) {
       </Card>
 
       <Card>
-        <CardHeader title="Direct access" description="The web server port published on the Docker host. Works without DNS or the proxy." />
+        <CardHeader title={t("Direct access")} description={t("The web server port published on the Docker host. Works without DNS or the proxy.")} />
         <div className="p-5 text-sm">
           {direct ? (
             <a href={direct} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-mono text-xs text-accent-600 hover:underline dark:text-accent-300">
               {direct} <ExternalLink className="size-3" />
             </a>
           ) : (
-            <span className="text-muted">No port assigned.</span>
+            <span className="text-muted">{t("No port assigned.")}</span>
           )}
         </div>
       </Card>

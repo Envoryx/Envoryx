@@ -1,12 +1,14 @@
 import { ExternalLink, Mail, Plus, Server, Trash2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useState } from "react";
 import { ApiError } from "@/api/client";
 import { useExtraServices, usePublicHost, useRuntimes, useUpdateProject } from "@/api/hooks";
 import type { ExtraServiceInfo, Project } from "@/api/types";
-import { Alert, Badge, Button, Card, CardHeader, Checkbox, Code, Dialog, ErrorState, Field, Input, Select, Spinner, StatusDot } from "@/components/ui";
+import { Alert, Badge, Button, Card, CardHeader, Checkbox, Dialog, ErrorState, Field, Input, Select, Spinner, StatusDot } from "@/components/ui";
 import { containerStateTone } from "@/lib/format";
 
 function ServiceCard({ project, info, onMessage }: { project: Project; info: ExtraServiceInfo; onMessage: (m: { tone: "green" | "red"; text: string }) => void }) {
+  const { t } = useTranslation();
   const update = useUpdateProject(project.id);
   const publicHost = usePublicHost();
   const runtimes = useRuntimes();
@@ -38,28 +40,28 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
       />
       <div className="space-y-4 p-5">
         <dl className="grid gap-x-6 gap-y-1.5 text-sm sm:grid-cols-[9rem_1fr]">
-          <dt className="text-muted">Internal host</dt>
+          <dt className="text-muted">{t("Internal host")}</dt>
           <dd className="font-mono text-xs">
             {info.host}:{info.port}
           </dd>
-          <dt className="text-muted">Injected</dt>
+          <dt className="text-muted">{t("Injected")}</dt>
           <dd className="font-mono text-xs">{info.injectedEnv.join(", ")}</dd>
           {info.volumeName && (
             <>
-              <dt className="text-muted">Volume</dt>
+              <dt className="text-muted">{t("Volume")}</dt>
               <dd className="font-mono text-xs">{info.volumeName}</dd>
             </>
           )}
           {info.kind === "mailpit" && (
             <>
-              <dt className="text-muted">Inbox</dt>
+              <dt className="text-muted">{t("Inbox")}</dt>
               <dd>
                 {info.webUiPort ? (
                   <a href={`http://${host}:${info.webUiPort}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-mono text-xs text-accent-600 hover:underline dark:text-accent-300">
                     http://{host}:{info.webUiPort} <ExternalLink className="size-3" />
                   </a>
                 ) : (
-                  <span className="text-xs text-subtle">no port</span>
+                  <span className="text-xs text-subtle">{t("no port")}</span>
                 )}
               </dd>
             </>
@@ -68,17 +70,17 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
 
         {info.kind === "redis" && (
           <Checkbox
-            label="Publish port on the host"
-            description={info.hostPort ? `Reachable at ${host}:${info.hostPort}` : "For desktop clients like RedisInsight."}
+            label={t("Publish port on the host")}
+            description={info.hostPort ? t("Reachable at {{address}}", { address: `${host}:${info.hostPort}` }) : t("For desktop clients like RedisInsight.")}
             checked={info.hostPort > 0}
             disabled={update.isPending}
-            onChange={(e) => update.mutate({ [key]: { enabled: true, version: info.version, exposePort: e.target.checked } }, { onError: (err) => fail(err, "Changing the port failed") })}
+            onChange={(e) => update.mutate({ [key]: { enabled: true, version: info.version, exposePort: e.target.checked } }, { onError: (err) => fail(err, t("Changing the port failed")) })}
           />
         )}
 
         {versions.length > 1 && (
           <div className="flex items-end gap-2">
-            <Field label="Version" htmlFor={`${info.kind}-version`}>
+            <Field label={t("Version")} htmlFor={`${info.kind}-version`}>
               <Select id={`${info.kind}-version`} value={version} onChange={(e) => setVersion(e.target.value)}>
                 {versions.map((v) => (
                   <option key={v.version} value={v.version}>
@@ -94,29 +96,28 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
               onClick={() =>
                 update.mutate(
                   { [key]: { enabled: true, version, exposePort: info.hostPort > 0 } },
-                  { onSuccess: () => onMessage({ tone: "green", text: `${title} updated to ${version}.` }), onError: (err) => fail(err, "Version change failed") },
+                  { onSuccess: () => onMessage({ tone: "green", text: t("{{service}} updated to {{version}}.", { service: title, version }) }), onError: (err) => fail(err, t("Version change failed")) },
                 )
               }
             >
-              Apply
+              {t("Apply")}
             </Button>
           </div>
         )}
 
         <Button variant="ghost" size="sm" className="text-red-600 dark:text-red-400" icon={<Trash2 className="size-3.5" />} onClick={() => setRemoveOpen(true)}>
-          Remove {title}
-          {info.volumeName ? " and data" : ""}
+          {info.volumeName ? t("Remove {{service}} and data", { service: title }) : t("Remove {{service}}", { service: title })}
         </Button>
       </div>
 
       <Dialog
         open={removeOpen}
         onClose={() => setRemoveOpen(false)}
-        title={`Remove ${title}?`}
-        description={info.volumeName ? <>This removes the container and deletes the volume <Code>{info.volumeName}</Code> with all data. PHP is recreated without the {title} variables.</> : <>This removes the container. PHP is recreated without the {title} variables.</>}
+        title={t("Remove {{service}}?", { service: title })}
+        description={info.volumeName ? t("This removes the container and deletes the volume {{volume}} with all data. PHP is recreated without the {{service}} variables.", { volume: info.volumeName, service: title }) : t("This removes the container. PHP is recreated without the {{service}} variables.", { service: title })}
         footer={
           <>
-            <Button onClick={() => setRemoveOpen(false)}>Cancel</Button>
+            <Button onClick={() => setRemoveOpen(false)}>{t("Cancel")}</Button>
             <Button
               variant="danger"
               disabled={!!info.volumeName && confirm !== info.kind}
@@ -124,17 +125,17 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
               onClick={() =>
                 update.mutate(
                   { [key]: { enabled: false, removeData: true } },
-                  { onSuccess: () => { setRemoveOpen(false); onMessage({ tone: "green", text: `${title} removed.` }); }, onError: (err) => { setRemoveOpen(false); fail(err, "Removing failed"); } },
+                  { onSuccess: () => { setRemoveOpen(false); onMessage({ tone: "green", text: t("{{service}} removed.", { service: title }) }); }, onError: (err) => { setRemoveOpen(false); fail(err, t("Removing failed")); } },
                 )
               }
             >
-              Remove
+              {t("Remove")}
             </Button>
           </>
         }
       >
         {info.volumeName && (
-          <Field label={`Type ${info.kind} to confirm`} htmlFor="remove-extra">
+          <Field label={t("Type {{slug}} to confirm", { slug: info.kind })} htmlFor="remove-extra">
             <Input id="remove-extra" value={confirm} onChange={(e) => setConfirm(e.target.value)} autoComplete="off" />
           </Field>
         )}
@@ -144,6 +145,7 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
 }
 
 function AddServiceCard({ project, kind, onMessage }: { project: Project; kind: "redis" | "mailpit"; onMessage: (m: { tone: "green" | "red"; text: string }) => void }) {
+  const { t } = useTranslation();
   const update = useUpdateProject(project.id);
   const runtimes = useRuntimes();
   const rt = runtimes.data?.runtimes.find((r) => r.key === kind);
@@ -155,7 +157,7 @@ function AddServiceCard({ project, kind, onMessage }: { project: Project; kind: 
       <CardHeader title={title} description={rt?.description ?? ""} />
       <div className="space-y-4 p-5">
         {rt && rt.versions.length > 1 && (
-          <Field label="Version" htmlFor={`add-${kind}-version`}>
+          <Field label={t("Version")} htmlFor={`add-${kind}-version`}>
             <Select id={`add-${kind}-version`} value={version || rt.versions.find((v) => v.default)?.version || ""} onChange={(e) => setVersion(e.target.value)}>
               {rt.versions.map((v) => (
                 <option key={v.version} value={v.version}>
@@ -165,7 +167,7 @@ function AddServiceCard({ project, kind, onMessage }: { project: Project; kind: 
             </Select>
           </Field>
         )}
-        {kind === "redis" && <Checkbox label="Publish port on the host" checked={expose} onChange={(e) => setExpose(e.target.checked)} />}
+        {kind === "redis" && <Checkbox label={t("Publish port on the host")} checked={expose} onChange={(e) => setExpose(e.target.checked)} />}
         <Button
           variant="primary"
           icon={<Plus className="size-4" />}
@@ -173,11 +175,11 @@ function AddServiceCard({ project, kind, onMessage }: { project: Project; kind: 
           onClick={() =>
             update.mutate(
               { [kind]: { enabled: true, version: version || undefined, exposePort: expose } },
-              { onSuccess: () => onMessage({ tone: "green", text: `${title} added. PHP was recreated with the new variables.` }), onError: (err) => onMessage({ tone: "red", text: err instanceof ApiError ? err.message : "Adding failed" }) },
+              { onSuccess: () => onMessage({ tone: "green", text: t("{{service}} added. PHP was recreated with the new variables.", { service: title }) }), onError: (err) => onMessage({ tone: "red", text: err instanceof ApiError ? err.message : t("Adding failed") }) },
             )
           }
         >
-          Add {title}
+          {t("Add {{service}}", { service: title })}
         </Button>
       </div>
     </Card>

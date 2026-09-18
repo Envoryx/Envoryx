@@ -1,4 +1,5 @@
 import { clsx } from "clsx";
+import { useTranslation } from "react-i18next";
 import { ArrowDownToLine, Download, Eraser, Pause, Play, Search } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/api/client";
@@ -108,9 +109,10 @@ function formatTime(iso: string): string {
 }
 
 export function LogsTab({ project }: { project: Project }) {
+  const { t } = useTranslation();
   const services = [
     ...project.services.filter((s) => s.enabled).map((s) => ({ kind: s.kind, label: serviceLabel(s.kind, s.version, s.variant) })),
-    ...project.status.services.filter((s) => s.kind === "worker" && s.workerId).map((s) => ({ kind: `worker:${s.workerId}`, label: `Worker ${s.variant}` })),
+    ...project.status.services.filter((s) => s.kind === "worker" && s.workerId).map((s) => ({ kind: `worker:${s.workerId}`, label: t("Worker {{name}}", { name: s.variant }) })),
   ];
   const [kind, setKind] = useState<string | null>(services[0]?.kind ?? null);
   const [paused, setPaused] = useState(false);
@@ -158,7 +160,7 @@ export function LogsTab({ project }: { project: Project }) {
   return (
     <Card className="flex h-[70vh] min-h-[24rem] flex-col">
       <div className="flex flex-wrap items-center gap-2 border-b border-default px-3 py-2">
-        <div className="flex items-center gap-1" role="tablist" aria-label="Service">
+        <div className="flex items-center gap-1" role="tablist" aria-label={t("Service")}>
           {services.map((s) => (
             <button
               key={s.kind}
@@ -173,22 +175,22 @@ export function LogsTab({ project }: { project: Project }) {
         </div>
         <span className="ml-1 inline-flex items-center gap-1.5 text-xs text-muted">
           <span className={clsx("size-2 rounded-full", state === "live" ? "bg-emerald-500" : state === "connecting" ? "bg-amber-500 animate-pulse" : "bg-zinc-400")} aria-hidden />
-          {state === "live" ? (paused ? "paused" : "live") : state}
+          {state === "live" ? (paused ? t("paused") : t("live")) : t(state)}
         </span>
         <div className="ml-auto flex items-center gap-1.5">
           <div className="relative">
             <Search className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-subtle" aria-hidden />
-            <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search…" aria-label="Search logs" className="h-8 w-48 pl-7 text-xs" />
+            <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("Search…")} aria-label={t("Search logs")} className="h-8 w-48 pl-7 text-xs" />
           </div>
-          <Checkbox label="stderr only" checked={onlyErrors} onChange={(e) => setOnlyErrors(e.target.checked)} />
+          <Checkbox label={t("stderr only")} checked={onlyErrors} onChange={(e) => setOnlyErrors(e.target.checked)} />
           <Button size="sm" onClick={() => setPaused(!paused)} icon={paused ? <Play className="size-3.5" /> : <Pause className="size-3.5" />} aria-pressed={paused}>
-            {paused ? "Resume" : "Pause"}
+            {paused ? t("Resume") : t("Pause")}
           </Button>
           <Button size="sm" onClick={clear} icon={<Eraser className="size-3.5" />}>
-            Clear
+            {t("Clear")}
           </Button>
           <Button size="sm" onClick={() => void download()} icon={<Download className="size-3.5" />}>
-            Download
+            {t("Download")}
           </Button>
         </div>
       </div>
@@ -199,7 +201,7 @@ export function LogsTab({ project }: { project: Project }) {
       )}
       <div ref={viewport} onScroll={onScroll} className="relative flex-1 overflow-auto bg-[#0f1115] font-mono text-[12px] leading-5 text-zinc-200" aria-live="off">
         {filtered.length === 0 ? (
-          <p className="p-4 text-zinc-500">{lines.length === 0 ? "No output yet." : "No lines match the filter."}</p>
+          <p className="p-4 text-zinc-500">{lines.length === 0 ? t("No output yet.") : t("No lines match the filter.")}</p>
         ) : (
           <table className="w-full border-collapse">
             <tbody>
@@ -220,13 +222,13 @@ export function LogsTab({ project }: { project: Project }) {
             }}
             className="sticky bottom-3 left-full mr-3 inline-flex items-center gap-1 rounded-full bg-accent-600 px-3 py-1 text-xs font-medium text-white shadow"
           >
-            <ArrowDownToLine className="size-3.5" /> Follow
+            <ArrowDownToLine className="size-3.5" /> {t("Follow")}
           </button>
         )}
       </div>
       <div className="flex items-center justify-between border-t border-default px-3 py-1.5 text-[11px] text-subtle">
         <span>
-          {filtered.length === lines.length ? `${lines.length} lines` : `${filtered.length} of ${lines.length} lines`} · buffer {MAX_LINES}
+          {filtered.length === lines.length ? t("{{count}} lines", { count: lines.length }) : t("{{shown}} of {{total}} lines", { shown: filtered.length, total: lines.length })} · {t("buffer")} {MAX_LINES}
         </span>
         <Badge>{kind}</Badge>
       </div>

@@ -1,4 +1,5 @@
 import { clsx } from "clsx";
+import { useTranslation } from "react-i18next";
 import { ArrowLeft, ArrowRight, Check, Rocket } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -50,6 +51,7 @@ interface Form {
 }
 
 export function NewProjectPage() {
+  const { t } = useTranslation();
   const runtimes = useRuntimes();
   const create = useCreateProject();
   const links = useProjectLinks();
@@ -134,14 +136,14 @@ export function NewProjectPage() {
         if (!cancelled) setPreview(r.preview);
       })
       .catch((err: unknown) => {
-        if (!cancelled) setPreviewError(err instanceof ApiError ? err.message : "Preview failed");
+        if (!cancelled) setPreviewError(err instanceof ApiError ? err.message : t("Preview failed"));
       });
     return () => {
       cancelled = true;
     };
   }, [step, request]);
 
-  if (runtimes.isPending || !form) return <Spinner label="Loading runtimes…" />;
+  if (runtimes.isPending || !form) return <Spinner label={t("Loading runtimes…")} />;
   if (runtimes.isError) return <ErrorState message={runtimes.error.message} />;
 
   const rt = runtimes.data;
@@ -150,7 +152,7 @@ export function NewProjectPage() {
   const caddy = rt.runtimes.find((r) => r.key === "caddy");
   const databases = rt.runtimes.filter((r) => r.kind === "database");
   const services = rt.runtimes.filter((r) => r.kind === "service");
-  const nameError = form.name.trim().length > 0 && form.name.trim().length < 2 ? "At least 2 characters." : slugify(form.name) === "" && form.name.trim() ? "Name must contain letters or digits." : undefined;
+  const nameError = form.name.trim().length > 0 && form.name.trim().length < 2 ? t("At least 2 characters.") : slugify(form.name) === "" && form.name.trim() ? t("Name must contain letters or digits.") : undefined;
   const canContinue = step === 0 ? form.name.trim().length >= 2 && !nameError : true;
   const set = (patch: Partial<Form>) => setForm((f) => (f ? { ...f, ...patch } : f));
 
@@ -159,15 +161,15 @@ export function NewProjectPage() {
     setSubmitError(null);
     create.mutate(request, {
       onSuccess: (p) => navigate(`/projects/${p.id}`),
-      onError: (err) => setSubmitError(err instanceof ApiError ? err.message : "Creating the project failed"),
+      onError: (err) => setSubmitError(err instanceof ApiError ? err.message : t("Creating the project failed")),
     });
   };
 
   return (
     <div>
-      <PageHeader title="New project" description="Staqio creates an isolated Docker environment for your project." />
+      <PageHeader title={t("New project")} description={t("Staqio creates an isolated Docker environment for your project.")} />
       <div className="grid gap-6 lg:grid-cols-[14rem_1fr]">
-        <ol className="flex gap-2 overflow-x-auto lg:flex-col lg:gap-1" aria-label="Steps">
+        <ol className="flex gap-2 overflow-x-auto lg:flex-col lg:gap-1" aria-label={t("Steps")}>
           {steps.map((label, i) => (
             <li key={label}>
               <button
@@ -183,7 +185,7 @@ export function NewProjectPage() {
                 <span className={clsx("flex size-5 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold", i < step ? "bg-accent-600 text-white" : i === step ? "bg-accent-500/20" : "bg-muted")}>
                   {i < step ? <Check className="size-3" /> : i + 1}
                 </span>
-                {label}
+                {t(label)}
               </button>
             </li>
           ))}
@@ -192,29 +194,29 @@ export function NewProjectPage() {
         <Card className="p-6">
           {step === 0 && (
             <div className="space-y-5">
-              <Field label="Project name" htmlFor="name" error={nameError} hint={form.name ? `Identifier: ${slugify(form.name) || "—"}` : "Displayed in the UI; the identifier is derived from it."}>
+              <Field label={t("Project name")} htmlFor="name" error={nameError} hint={form.name ? t("Identifier: {{slug}}", { slug: slugify(form.name) || "—" }) : t("Displayed in the UI; the identifier is derived from it.")}>
                 <Input id="name" autoFocus value={form.name} onChange={(e) => set({ name: e.target.value, path: form.pathTouched ? form.path : "" })} placeholder="Shimly API" />
               </Field>
-              <Field label="Project directory" htmlFor="path" hint="Relative to the projects folder (/projects). Created if it does not exist.">
+              <Field label={t("Project directory")} htmlFor="path" hint={t("Relative to the projects folder (/projects). Created if it does not exist.")}>
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-subtle">/projects/</span>
                   <Input id="path" value={form.pathTouched ? form.path : slugify(form.name)} onChange={(e) => set({ path: e.target.value, pathTouched: true })} placeholder="shimly-api" spellCheck={false} />
                 </div>
               </Field>
               <fieldset className="space-y-2">
-                <legend className="text-sm font-medium text-fg">Start from</legend>
+                <legend className="text-sm font-medium text-fg">{t("Start from")}</legend>
                 <div className="grid gap-2 sm:grid-cols-2">
-                  {[{ id: "", name: "Blank", description: "Empty directory with a starter page, or clone a repository below." }, ...(rt.templates ?? [])].map((t) => (
-                    <label key={t.id} className={clsx("flex cursor-pointer gap-3 rounded-md border p-3 text-sm", form.template === t.id ? "border-accent-500 bg-accent-500/5" : "border-default hover:bg-muted")}>
+                  {[{ id: "", name: "Blank", description: "Empty directory with a starter page, or clone a repository below." }, ...(rt.templates ?? [])].map((item) => (
+                    <label key={item.id} className={clsx("flex cursor-pointer gap-3 rounded-md border p-3 text-sm", form.template === item.id ? "border-accent-500 bg-accent-500/5" : "border-default hover:bg-muted")}>
                       <input
                         type="radio"
                         name="template"
                         className="mt-0.5 accent-accent-600"
-                        checked={form.template === t.id}
+                        checked={form.template === item.id}
                         onChange={() => {
-                          const tpl = rt.templates?.find((x) => x.id === t.id);
+                          const tpl = rt.templates?.find((x) => x.id === item.id);
                           set({
-                            template: t.id,
+                            template: item.id,
                             docroot: tpl ? tpl.docroot : form.docroot,
                             phpEnabled: tpl ? true : form.phpEnabled,
                             dbType: tpl?.recommendedDatabase && !form.dbType ? tpl.recommendedDatabase : form.dbType,
@@ -224,40 +226,40 @@ export function NewProjectPage() {
                         }}
                       />
                       <span>
-                        <span className="block font-medium">{t.name}</span>
-                        <span className="block text-xs text-muted">{t.description}</span>
+                        <span className="block font-medium">{item.id ? item.name : t("Blank")}</span>
+                        <span className="block text-xs text-muted">{item.id ? item.description : t("Empty directory with a starter page, or clone a repository below.")}</span>
                       </span>
                     </label>
                   ))}
                 </div>
-                {form.template && rt.templates?.find((t) => t.id === form.template)?.requiresDatabase && !form.dbType && (
-                  <p className="text-xs text-amber-600 dark:text-amber-400">This template needs a database – it is preselected in the “Database &amp; services” step.</p>
+                {form.template && rt.templates?.find((x) => x.id === form.template)?.requiresDatabase && !form.dbType && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400">{t("This template needs a database – it is preselected in the “Database & services” step.")}</p>
                 )}
               </fieldset>
-              <Field label="Document root" htmlFor="docroot" hint='Subfolder served by the web server, e.g. "public" for Laravel/Symfony. Leave empty for the project root.'>
+              <Field label={t("Document root")} htmlFor="docroot" hint={t('Subfolder served by the web server, e.g. "public" for Laravel/Symfony. Leave empty for the project root.')}>
                 <Input id="docroot" value={form.docroot} onChange={(e) => set({ docroot: e.target.value })} placeholder="public" spellCheck={false} />
               </Field>
               <div className={clsx("space-y-4 rounded-md border border-default p-4", form.template && "opacity-50")}>
-                <p className="text-sm font-medium text-fg">Git repository (optional{form.template ? " – not with a template" : ""})</p>
-                <Field label="Repository URL" htmlFor="git-url" hint="Cloned into the empty project directory. https://…, git@host:path.git or ssh://…">
+                <p className="text-sm font-medium text-fg">{form.template ? t("Git repository (optional – not with a template)") : t("Git repository (optional)")}</p>
+                <Field label={t("Repository URL")} htmlFor="git-url" hint={t("Cloned into the empty project directory. https://…, git@host:path.git or ssh://…")}>
                   <Input id="git-url" value={form.gitUrl} onChange={(e) => set({ gitUrl: e.target.value })} placeholder="https://github.com/you/project.git" spellCheck={false} disabled={!!form.template} />
                 </Field>
                 {form.gitUrl.trim() && (
                   <div className="grid gap-4 sm:grid-cols-3">
-                    <Field label="Branch" htmlFor="git-branch" hint="Empty = default branch">
+                    <Field label={t("Branch")} htmlFor="git-branch" hint={t("Empty = default branch")}>
                       <Input id="git-branch" value={form.gitBranch} onChange={(e) => set({ gitBranch: e.target.value })} placeholder="main" spellCheck={false} />
                     </Field>
                     {!(form.gitUrl.startsWith("git@") || form.gitUrl.startsWith("ssh://")) ? (
                       <>
-                        <Field label="Username (optional)" htmlFor="git-user">
+                        <Field label={t("Username (optional)")} htmlFor="git-user">
                           <Input id="git-user" value={form.gitUsername} onChange={(e) => set({ gitUsername: e.target.value })} placeholder="x-access-token" autoComplete="off" />
                         </Field>
-                        <Field label="Access token" htmlFor="git-token" hint="Only for private repositories">
+                        <Field label={t("Access token")} htmlFor="git-token" hint={t("Only for private repositories")}>
                           <Input id="git-token" type="password" value={form.gitToken} onChange={(e) => set({ gitToken: e.target.value })} autoComplete="new-password" />
                         </Field>
                       </>
                     ) : (
-                      <p className="self-end pb-2 text-xs text-muted sm:col-span-2">SSH uses the Staqio deploy key (Settings → Deploy key); add it to the repository first.</p>
+                      <p className="self-end pb-2 text-xs text-muted sm:col-span-2">{t("SSH uses the Staqio deploy key (Settings → Deploy key); add it to the repository first.")}</p>
                     )}
                   </div>
                 )}
@@ -267,15 +269,15 @@ export function NewProjectPage() {
 
           {step === 1 && php && (
             <div className="space-y-6">
-              <Checkbox label="Enable PHP" description="Runs PHP-FPM in its own container. Disable for static sites." checked={form.phpEnabled} onChange={(e) => set({ phpEnabled: e.target.checked })} />
+              <Checkbox label={t("Enable PHP")} description={t("Runs PHP-FPM in its own container. Disable for static sites.")} checked={form.phpEnabled} onChange={(e) => set({ phpEnabled: e.target.checked })} />
               {form.phpEnabled && (
                 <>
-                  <Field label="PHP version" htmlFor="php-version">
+                  <Field label={t("PHP version")} htmlFor="php-version">
                     <Select id="php-version" value={form.phpVersion} onChange={(e) => set({ phpVersion: e.target.value })}>
                       {php.versions.map((v) => (
                         <option key={v.version} value={v.version}>
                           {v.label}
-                          {v.eol ? " (end of life)" : v.preview ? " (preview)" : ""}
+                          {v.eol ? t(" (end of life)") : v.preview ? t(" (preview)") : ""}
                         </option>
                       ))}
                     </Select>
@@ -285,14 +287,14 @@ export function NewProjectPage() {
               )}
               {node && (
                 <div className="space-y-4 rounded-md border border-default p-4">
-                  <Checkbox label="Enable Node.js" description="Toolchain container with npm, pnpm and yarn for asset builds. Runs idle; commands run via Actions or the terminal." checked={form.nodeEnabled} onChange={(e) => set({ nodeEnabled: e.target.checked })} />
+                  <Checkbox label={t("Enable Node.js")} description={t("Toolchain container with npm, pnpm and yarn for asset builds. Runs idle; commands run via Actions or the terminal.")} checked={form.nodeEnabled} onChange={(e) => set({ nodeEnabled: e.target.checked })} />
                   {form.nodeEnabled && (
-                    <Field label="Node.js version" htmlFor="node-version">
+                    <Field label={t("Node.js version")} htmlFor="node-version">
                       <Select id="node-version" value={form.nodeVersion} onChange={(e) => set({ nodeVersion: e.target.value })}>
                         {node.versions.map((v) => (
                           <option key={v.version} value={v.version}>
                             {v.label}
-                            {v.eol ? " (end of life)" : v.preview ? " (preview)" : ""}
+                            {v.eol ? t(" (end of life)") : v.preview ? t(" (preview)") : ""}
                           </option>
                         ))}
                       </Select>
@@ -301,18 +303,18 @@ export function NewProjectPage() {
                   {form.nodeEnabled && <NodeDevServerFields value={form.nodeDev} onChange={(nodeDev) => set({ nodeDev })} idPrefix="wizard-node" />}
                 </div>
               )}
-              <p className="text-xs text-subtle">Composer ships with the PHP image.</p>
+              <p className="text-xs text-subtle">{t("Composer ships with the PHP image.")}</p>
             </div>
           )}
 
           {step === 2 && caddy && (
             <div className="space-y-5">
-              <Field label="Web server" htmlFor="web">
+              <Field label={t("Web server")} htmlFor="web">
                 <Select id="web" value="caddy" disabled>
                   <option value="caddy">Caddy</option>
                 </Select>
               </Field>
-              <Field label="Version" htmlFor="web-version">
+              <Field label={t("Version")} htmlFor="web-version">
                 <Select id="web-version" value={form.webVersion} onChange={(e) => set({ webVersion: e.target.value })}>
                   {caddy.versions.map((v) => (
                     <option key={v.version} value={v.version}>
@@ -322,7 +324,7 @@ export function NewProjectPage() {
                 </Select>
               </Field>
               <p className="text-sm text-muted">
-                Caddy serves static files from the document root and forwards PHP requests to the PHP container via FastCGI. The project is published on an automatically assigned port; domain routing follows in Phase 4.
+                {t("Caddy serves static files from the document root and forwards PHP requests to the PHP container via FastCGI. The project is published on an automatically assigned port and reachable through the proxy under its domain.")}
               </p>
             </div>
           )}
@@ -330,10 +332,10 @@ export function NewProjectPage() {
           {step === 3 && (
             <div className="space-y-6">
               <div>
-                <p className="mb-2 text-sm font-medium text-fg">Database</p>
-                <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Database">
+                <p className="mb-2 text-sm font-medium text-fg">{t("Database")}</p>
+                <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label={t("Database")}>
                   <label className={clsx("flex items-center gap-2.5 rounded-md border px-3 py-2 text-sm cursor-pointer", form.dbType === "" ? "border-accent-500 bg-accent-500/5" : "border-default hover:bg-muted")}>
-                    <input type="radio" name="db" className="accent-accent-600" checked={form.dbType === ""} onChange={() => set({ dbType: "", dbVersion: "" })} /> None
+                    <input type="radio" name="db" className="accent-accent-600" checked={form.dbType === ""} onChange={() => set({ dbType: "", dbVersion: "" })} /> {t("None")}
                   </label>
                   {databases.map((d) => (
                     <label
@@ -350,14 +352,14 @@ export function NewProjectPage() {
                         onChange={() => set({ dbType: d.key, dbVersion: d.versions.find((v) => v.default)?.version ?? d.versions[0]?.version ?? "" })}
                       />
                       {d.name}
-                      {!d.available && <span className="text-xs text-subtle">soon</span>}
+                      {!d.available && <span className="text-xs text-subtle">{t("soon")}</span>}
                     </label>
                   ))}
                 </div>
               </div>
               {form.dbType && (
                 <div className="space-y-4 rounded-md border border-default p-4">
-                  <Field label="Version" htmlFor="db-version" hint="Upgrades between versions run on the same data volume; downgrades are not possible.">
+                  <Field label={t("Version")} htmlFor="db-version" hint={t("Upgrades between versions run on the same data volume; downgrades are not possible.")}>
                     <Select id="db-version" value={form.dbVersion} onChange={(e) => set({ dbVersion: e.target.value })}>
                       {databases
                         .find((d) => d.key === form.dbType)
@@ -369,23 +371,23 @@ export function NewProjectPage() {
                     </Select>
                   </Field>
                   <Checkbox
-                    label="Publish database port on the host"
-                    description="Lets you connect from your workstation with TablePlus, DBeaver, etc. The port is assigned automatically."
+                    label={t("Publish database port on the host")}
+                    description={t("Lets you connect from your workstation with TablePlus, DBeaver, etc. The port is assigned automatically.")}
                     checked={form.dbExpose}
                     onChange={(e) => set({ dbExpose: e.target.checked })}
                   />
                   <p className="text-sm text-muted">
-                    Staqio generates secure credentials and injects <Code>DB_HOST</Code>, <Code>DB_DATABASE</Code>, <Code>DB_USERNAME</Code>, <Code>DB_PASSWORD</Code> and <Code>DATABASE_URL</Code> into the PHP container. Data lives in a persistent Docker volume.
+                    {t("Staqio generates secure credentials and injects DB_HOST, DB_DATABASE, DB_USERNAME, DB_PASSWORD and DATABASE_URL into the PHP container. Data lives in a persistent Docker volume.")}
                   </p>
                 </div>
               )}
               <div className="space-y-3">
-                <p className="text-sm font-medium text-fg">Additional services</p>
+                <p className="text-sm font-medium text-fg">{t("Additional services")}</p>
                 <div className="rounded-md border border-default p-4 space-y-3">
-                  <Checkbox label="Redis" description="Cache and queue backend with a persistent volume. Injects REDIS_HOST, REDIS_PORT and REDIS_URL." checked={form.redis} onChange={(e) => set({ redis: e.target.checked })} />
+                  <Checkbox label="Redis" description={t("Cache and queue backend with a persistent volume. Injects REDIS_HOST, REDIS_PORT and REDIS_URL.")} checked={form.redis} onChange={(e) => set({ redis: e.target.checked })} />
                   {form.redis && (
                     <div className="grid gap-4 pl-7 sm:grid-cols-2">
-                      <Field label="Redis version" htmlFor="redis-version">
+                      <Field label={t("Redis version")} htmlFor="redis-version">
                         <Select id="redis-version" value={form.redisVersion} onChange={(e) => set({ redisVersion: e.target.value })}>
                           {services
                             .find((s) => s.key === "redis")
@@ -397,13 +399,13 @@ export function NewProjectPage() {
                         </Select>
                       </Field>
                       <div className="self-end pb-1">
-                        <Checkbox label="Publish port on the host" description="For RedisInsight etc." checked={form.redisExpose} onChange={(e) => set({ redisExpose: e.target.checked })} />
+                        <Checkbox label={t("Publish port on the host")} description={t("For RedisInsight etc.")} checked={form.redisExpose} onChange={(e) => set({ redisExpose: e.target.checked })} />
                       </div>
                     </div>
                   )}
                 </div>
                 <div className="rounded-md border border-default p-4">
-                  <Checkbox label="Mailpit" description="Catches all outgoing mail and shows it in a web inbox (published on its own port). Injects MAIL_* and MAILER_DSN." checked={form.mailpit} onChange={(e) => set({ mailpit: e.target.checked })} />
+                  <Checkbox label="Mailpit" description={t("Catches all outgoing mail and shows it in a web inbox (published on its own port). Injects MAIL_* and MAILER_DSN.")} checked={form.mailpit} onChange={(e) => set({ mailpit: e.target.checked })} />
                 </div>
               </div>
             </div>
@@ -411,7 +413,7 @@ export function NewProjectPage() {
 
           {step === 4 && (
             <div className="space-y-4">
-              <p className="text-sm text-muted">Variables are available to all containers of this project (e.g. PHP via <Code>getenv()</Code>). Mark secrets to mask them in the UI.</p>
+              <p className="text-sm text-muted">{t("Variables are available to all containers of this project (e.g. PHP via getenv()). Mark secrets to mask them in the UI.")}</p>
               <EnvEditor value={form.env} onChange={(env) => set({ env })} />
             </div>
           )}
@@ -419,11 +421,11 @@ export function NewProjectPage() {
           {step === 5 && (
             <div className="space-y-5">
               {previewError ? (
-                <Alert tone="red" title="Cannot create this project">
+                <Alert tone="red" title={t("Cannot create this project")}>
                   {previewError}
                 </Alert>
               ) : !preview ? (
-                <Spinner label="Calculating plan…" />
+                <Spinner label={t("Calculating plan…")} />
               ) : (
                 <>
                   {preview.warnings.length > 0 && (
@@ -436,33 +438,33 @@ export function NewProjectPage() {
                     </Alert>
                   )}
                   <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-[10rem_1fr]">
-                    <dt className="text-muted">Identifier</dt>
+                    <dt className="text-muted">{t("Identifier")}</dt>
                     <dd className="font-mono text-xs">{preview.slug}</dd>
                     {form.template && (
                       <>
-                        <dt className="text-muted">Template</dt>
+                        <dt className="text-muted">{t("Template")}</dt>
                         <dd className="text-xs">
-                          {rt.templates?.find((t) => t.id === form.template)?.name}
-                          <span className="block text-subtle">Scaffolding runs while the project is created (composer/download – this can take a few minutes).</span>
+                          {rt.templates?.find((x) => x.id === form.template)?.name}
+                          <span className="block text-subtle">{t("Scaffolding runs while the project is created (composer/download – this can take a few minutes).")}</span>
                         </dd>
                       </>
                     )}
-                    <dt className="text-muted">Files</dt>
+                    <dt className="text-muted">{t("Files")}</dt>
                     <dd className="font-mono text-xs">
-                      {preview.path} <span className="text-subtle">(host: {preview.hostPath})</span>
+                      {preview.path} <span className="text-subtle">({t("host")}: {preview.hostPath})</span>
                     </dd>
-                    <dt className="text-muted">URL</dt>
+                    <dt className="text-muted">{t("URL")}</dt>
                     <dd className="font-mono text-xs">
                       {(() => {
                         const l = links({ httpPort: preview.httpPort, hostnames: [`${preview.slug}.${settings.data?.baseDomain ?? "test"}`] });
                         return l.url === l.direct ? l.url : `${l.url} · ${l.direct}`;
                       })()}
                     </dd>
-                    <dt className="text-muted">Network</dt>
+                    <dt className="text-muted">{t("Network")}</dt>
                     <dd className="font-mono text-xs">{preview.network}</dd>
                   </dl>
                   <div>
-                    <p className="mb-2 text-sm font-medium text-fg">Containers</p>
+                    <p className="mb-2 text-sm font-medium text-fg">{t("Containers")}</p>
                     <ul className="divide-y divide-[var(--border)] rounded-md border border-default">
                       {preview.containers.map((c) => (
                         <li key={c.name} className="px-3 py-2 text-xs">
@@ -472,11 +474,11 @@ export function NewProjectPage() {
                           </div>
                           <ul className="mt-1 space-y-0.5 font-mono text-[11px] text-muted">
                             {c.ports.map((p) => (
-                              <li key={p}>port {p}</li>
+                              <li key={p}>{t("port")} {p}</li>
                             ))}
                             {c.mounts.map((m) => (
                               <li key={m} className="truncate">
-                                mount {m}
+                                {t("mount")} {m}
                               </li>
                             ))}
                           </ul>
@@ -486,21 +488,21 @@ export function NewProjectPage() {
                   </div>
                   {preview.volumes.length > 0 && (
                     <p className="text-sm text-muted">
-                      Volumes: <Code>{preview.volumes.join(", ")}</Code>
+                      {t("Volumes")}: <Code>{preview.volumes.join(", ")}</Code>
                     </p>
                   )}
                   <div className="space-y-3 border-t border-default pt-4">
                     {form.gitUrl.trim() ? (
                       <p className="text-sm text-muted">
-                        Repository <Code>{form.gitUrl.trim()}</Code> will be cloned into the project directory.
+                        {t("Repository {{url}} will be cloned into the project directory.", { url: form.gitUrl.trim() })}
                       </p>
                     ) : (
-                      <Checkbox label="Create starter index.php" description="Only if the document root is empty." checked={form.createStarter} onChange={(e) => set({ createStarter: e.target.checked })} />
+                      <Checkbox label={t("Create starter index.php")} description={t("Only if the document root is empty.")} checked={form.createStarter} onChange={(e) => set({ createStarter: e.target.checked })} />
                     )}
-                    <Checkbox label="Start project after creation" checked={form.start} onChange={(e) => set({ start: e.target.checked })} />
+                    <Checkbox label={t("Start project after creation")} checked={form.start} onChange={(e) => set({ start: e.target.checked })} />
                   </div>
                   {submitError && (
-                    <Alert tone="red" title="Creation failed">
+                    <Alert tone="red" title={t("Creation failed")}>
                       {submitError}
                     </Alert>
                   )}
@@ -511,15 +513,15 @@ export function NewProjectPage() {
 
           <div className="mt-8 flex items-center justify-between border-t border-default pt-4">
             <Button variant="ghost" onClick={() => (step === 0 ? navigate("/projects") : setStep(step - 1))} icon={<ArrowLeft className="size-4" />} disabled={create.isPending}>
-              {step === 0 ? "Cancel" : "Back"}
+              {step === 0 ? t("Cancel") : t("Back")}
             </Button>
             {step < steps.length - 1 ? (
               <Button variant="primary" onClick={() => setStep(step + 1)} disabled={!canContinue} icon={<ArrowRight className="size-4" />}>
-                Continue
+                {t("Continue")}
               </Button>
             ) : (
               <Button variant="primary" onClick={submit} loading={create.isPending} disabled={!preview || !!previewError} icon={<Rocket className="size-4" />}>
-                Create project
+                {t("Create project")}
               </Button>
             )}
           </div>

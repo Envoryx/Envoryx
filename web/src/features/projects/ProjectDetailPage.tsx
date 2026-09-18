@@ -1,4 +1,5 @@
 import { clsx } from "clsx";
+import { useTranslation } from "react-i18next";
 import { Trash2, Save, ExternalLink } from "lucide-react";
 import { lazy, Suspense, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
@@ -27,6 +28,7 @@ const tabs = ["Overview", "Domains", "Git", "Actions", "Terminal", "Logs", "Runt
 type Tab = (typeof tabs)[number];
 
 export function ProjectDetailPage() {
+  const { t } = useTranslation();
   const { id = "" } = useParams();
   const q = useProject(id);
   const links = useProjectLinks();
@@ -38,7 +40,7 @@ export function ProjectDetailPage() {
   if (q.isPending) return <Spinner />;
   if (q.isError) {
     const notFound = q.error instanceof ApiError && q.error.status === 404;
-    return <ErrorState title={notFound ? "Project not found" : "Could not load project"} message={notFound ? undefined : q.error.message} action={<Link to="/projects" className="text-sm underline">Back to projects</Link>} />;
+    return <ErrorState title={notFound ? t("Project not found") : t("Could not load project")} message={notFound ? undefined : q.error.message} action={<Link to="/projects" className="text-sm underline">{t("Back to projects")}</Link>} />;
   }
   const p = q.data;
   const meta = stateMeta[p.status.state];
@@ -52,7 +54,7 @@ export function ProjectDetailPage() {
           <span className="flex items-center gap-3">
             <StatusDot tone={meta.tone} pulse={meta.pulse ?? false} />
             {p.name}
-            <Badge tone={meta.tone}>{meta.label}</Badge>
+            <Badge tone={meta.tone}>{t(meta.label)}</Badge>
           </span>
         }
         description={
@@ -64,7 +66,7 @@ export function ProjectDetailPage() {
                 {url} <ExternalLink className="size-3" />
               </a>
             ) : (
-              "no port"
+              t("no port")
             )}
             {devUrl && (
               <>
@@ -79,7 +81,7 @@ export function ProjectDetailPage() {
         actions={
           <>
             <ProjectActionButtons project={p} size="md" onError={capture} />
-            <Button variant="ghost" onClick={() => setDeleting(true)} icon={<Trash2 className="size-4" />} aria-label="Delete project" title="Delete project" />
+            <Button variant="ghost" onClick={() => setDeleting(true)} icon={<Trash2 className="size-4" />} aria-label={t("Delete project")} title={t("Delete project")} />
           </>
         }
       />
@@ -89,7 +91,7 @@ export function ProjectDetailPage() {
           <Alert tone="red">
             {error}
             <button className="ml-2 underline" onClick={() => setError(null)}>
-              dismiss
+              {t("dismiss")}
             </button>
           </Alert>
         </div>
@@ -107,15 +109,15 @@ export function ProjectDetailPage() {
       )}
 
       <div className="mb-4 flex gap-1 border-b border-default" role="tablist">
-        {tabs.map((t) => (
+        {tabs.map((name) => (
           <button
-            key={t}
+            key={name}
             role="tab"
-            aria-selected={tab === t}
-            onClick={() => setTab(t)}
-            className={clsx("-mb-px border-b-2 px-3 py-2 text-sm font-medium", tab === t ? "border-accent-500 text-fg" : "border-transparent text-muted hover:text-fg")}
+            aria-selected={tab === name}
+            onClick={() => setTab(name)}
+            className={clsx("-mb-px border-b-2 px-3 py-2 text-sm font-medium", tab === name ? "border-accent-500 text-fg" : "border-transparent text-muted hover:text-fg")}
           >
-            {t}
+            {t(name)}
           </button>
         ))}
       </div>
@@ -124,12 +126,12 @@ export function ProjectDetailPage() {
       {tab === "Domains" && <DomainsTab project={p} />}
       {tab === "Git" && <GitTab project={p} />}
       {tab === "Actions" && (
-        <Suspense fallback={<Spinner label="Loading actions…" />}>
+        <Suspense fallback={<Spinner label={t("Loading actions…")} />}>
           <ActionsTab project={p} />
         </Suspense>
       )}
       {tab === "Terminal" && (
-        <Suspense fallback={<Spinner label="Loading terminal…" />}>
+        <Suspense fallback={<Spinner label={t("Loading terminal…")} />}>
           <TerminalTab project={p} />
         </Suspense>
       )}
@@ -154,11 +156,12 @@ export function ProjectDetailPage() {
 }
 
 function OverviewTab({ project: p }: { project: Project }) {
+  const { t } = useTranslation();
   const stats = useProjectStats(p.id, p.status.state === "running" || p.status.state === "partial");
   return (
     <div className="grid gap-6 lg:grid-cols-3">
       <Card className="lg:col-span-2">
-        <CardHeader title="Services" description="One container per service, connected through the private project network." />
+        <CardHeader title={t("Services")} description={t("One container per service, connected through the private project network.")} />
         <ul className="divide-y divide-[var(--border)]">
           {p.status.services.map((s) => (
             <li key={s.kind} className="flex flex-wrap items-center gap-x-6 gap-y-2 px-5 py-3">
@@ -169,7 +172,7 @@ function OverviewTab({ project: p }: { project: Project }) {
                   <p className="font-mono text-[11px] text-subtle">{s.containerName}</p>
                 </div>
               </div>
-              <Badge tone={containerStateTone(s.state)}>{s.exists ? s.state : "missing"}</Badge>
+              <Badge tone={containerStateTone(s.state)}>{s.exists ? s.state : t("missing")}</Badge>
               {s.health && <Badge tone={s.health === "healthy" ? "green" : s.health === "starting" ? "blue" : "red"}>{s.health}</Badge>}
               <span className="font-mono text-xs text-muted">{s.image}</span>
               {s.ports.map((port) => (
@@ -184,39 +187,39 @@ function OverviewTab({ project: p }: { project: Project }) {
       </Card>
       <div className="space-y-6">
         <Card>
-          <CardHeader title="Resources" />
+          <CardHeader title={t("Resources")} />
           <dl className="grid grid-cols-2 gap-4 px-5 py-4 text-sm">
             <div>
-              <dt className="text-xs text-subtle">CPU</dt>
+              <dt className="text-xs text-subtle">{t("CPU")}</dt>
               <dd className="text-lg font-semibold tabular-nums">{stats.data ? formatPercent(stats.data.stats.cpuPercent) : "—"}</dd>
             </div>
             <div>
-              <dt className="text-xs text-subtle">Memory</dt>
+              <dt className="text-xs text-subtle">{t("Memory")}</dt>
               <dd className="text-lg font-semibold tabular-nums">{stats.data ? formatBytes(stats.data.stats.memoryBytes) : "—"}</dd>
             </div>
           </dl>
         </Card>
         <Card>
-          <CardHeader title="Details" />
+          <CardHeader title={t("Details")} />
           <dl className="space-y-2 px-5 py-4 text-sm">
             <div className="flex justify-between gap-4">
-              <dt className="text-muted">Identifier</dt>
+              <dt className="text-muted">{t("Identifier")}</dt>
               <dd className="font-mono text-xs">{p.slug}</dd>
             </div>
             <div className="flex justify-between gap-4">
-              <dt className="text-muted">Network</dt>
+              <dt className="text-muted">{t("Network")}</dt>
               <dd className="font-mono text-xs">staqio-{p.slug}</dd>
             </div>
             <div className="flex justify-between gap-4">
-              <dt className="text-muted">Desired state</dt>
-              <dd>{p.desiredState}</dd>
+              <dt className="text-muted">{t("Desired state")}</dt>
+              <dd>{t(p.desiredState)}</dd>
             </div>
             <div className="flex justify-between gap-4">
-              <dt className="text-muted">Created</dt>
+              <dt className="text-muted">{t("Created")}</dt>
               <dd>{formatDateTime(p.createdAt)}</dd>
             </div>
             <div className="flex justify-between gap-4">
-              <dt className="text-muted">Updated</dt>
+              <dt className="text-muted">{t("Updated")}</dt>
               <dd>{formatDateTime(p.updatedAt)}</dd>
             </div>
           </dl>
@@ -237,6 +240,7 @@ function useSaveFeedback() {
 }
 
 function PhpTab({ project: p }: { project: Project }) {
+  const { t } = useTranslation();
   const runtimes = useRuntimes();
   const update = useUpdateProject(p.id);
   const { msg, setMsg } = useSaveFeedback();
@@ -250,7 +254,7 @@ function PhpTab({ project: p }: { project: Project }) {
   const hostDir = projectsHost ? `${projectsHost}/${p.path}` : undefined;
 
   if (!svc || !config) {
-    return <Alert tone="gray">This project has no PHP service.</Alert>;
+    return <Alert tone="gray">{t("This project has no PHP service.")}</Alert>;
   }
   if (runtimes.isPending) return <Spinner />;
   const php = runtimes.data?.runtimes.find((r) => r.key === "php");
@@ -261,8 +265,8 @@ function PhpTab({ project: p }: { project: Project }) {
     update.mutate(
       { name, docroot, php: { version, config } },
       {
-        onSuccess: () => setMsg({ tone: "green", text: p.status.state === "running" ? "Saved and applied. Containers were restarted." : "Saved. Changes apply on next start." }),
-        onError: (err) => setMsg({ tone: "red", text: err instanceof ApiError ? err.message : "Saving failed" }),
+        onSuccess: () => setMsg({ tone: "green", text: p.status.state === "running" ? t("Saved and applied. Containers were restarted.") : t("Saved. Changes apply on next start.") }),
+        onError: (err) => setMsg({ tone: "red", text: err instanceof ApiError ? err.message : t("Saving failed") }),
       },
     );
   };
@@ -270,29 +274,29 @@ function PhpTab({ project: p }: { project: Project }) {
   return (
     <Card>
       <CardHeader
-        title="Project & PHP settings"
-        description="Changing the PHP version recreates the PHP container; configuration changes restart it."
+        title={t("Project & PHP settings")}
+        description={t("Changing the PHP version recreates the PHP container; configuration changes restart it.")}
         actions={
           <Button variant="primary" onClick={save} loading={update.isPending} disabled={!dirty} icon={<Save className="size-4" />}>
-            Save
+            {t("Save")}
           </Button>
         }
       />
       <div className="space-y-6 p-5">
         {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
         <div className="grid gap-4 sm:grid-cols-3">
-          <Field label="Project name" htmlFor="p-name">
+          <Field label={t("Project name")} htmlFor="p-name">
             <Input id="p-name" value={name} onChange={(e) => setName(e.target.value)} />
           </Field>
-          <Field label="Document root" htmlFor="p-docroot" hint="Relative to the project directory">
-            <Input id="p-docroot" value={docroot} onChange={(e) => setDocroot(e.target.value)} placeholder="(project root)" />
+          <Field label={t("Document root")} htmlFor="p-docroot" hint={t("Relative to the project directory")}>
+            <Input id="p-docroot" value={docroot} onChange={(e) => setDocroot(e.target.value)} placeholder={t("(project root)")} />
           </Field>
-          <Field label="PHP version" htmlFor="p-version">
+          <Field label={t("PHP version")} htmlFor="p-version">
             <Select id="p-version" value={version} onChange={(e) => setVersion(e.target.value)}>
               {php?.versions.map((v) => (
                 <option key={v.version} value={v.version}>
                   {v.label}
-                  {v.eol ? " (end of life)" : v.preview ? " (preview)" : ""}
+                  {v.eol ? t(" (end of life)") : v.preview ? t(" (preview)") : ""}
                 </option>
               ))}
             </Select>
@@ -305,6 +309,7 @@ function PhpTab({ project: p }: { project: Project }) {
 }
 
 function NodeCard({ project: p }: { project: Project }) {
+  const { t } = useTranslation();
   const runtimes = useRuntimes();
   const update = useUpdateProject(p.id);
   const devLink = useDevServerLink();
@@ -335,8 +340,8 @@ function NodeCard({ project: p }: { project: Project }) {
   return (
     <Card>
       <CardHeader
-        title="Node.js"
-        description="Toolchain container for asset builds (npm, pnpm, yarn), optionally running your dev server. Removing it only removes the container; node_modules stays in the project directory."
+        title={t("Node.js")}
+        description={t("Toolchain container for asset builds (npm, pnpm, yarn), optionally running your dev server. Removing it only removes the container; node_modules stays in the project directory.")}
         actions={
           <Button
             variant="primary"
@@ -347,13 +352,13 @@ function NodeCard({ project: p }: { project: Project }) {
               update.mutate(
                 { node: enabled ? { enabled: true, version, ...devServerRequest(dev) } : { enabled: false } },
                 {
-                  onSuccess: () => setMsg({ tone: "green", text: enabled ? "Node.js container updated." : "Node.js container removed." }),
-                  onError: (err) => setMsg({ tone: "red", text: err instanceof ApiError ? err.message : "Saving failed" }),
+                  onSuccess: () => setMsg({ tone: "green", text: enabled ? t("Node.js container updated.") : t("Node.js container removed.") }),
+                  onError: (err) => setMsg({ tone: "red", text: err instanceof ApiError ? err.message : t("Saving failed") }),
                 },
               )
             }
           >
-            Save
+            {t("Save")}
           </Button>
         }
       />
@@ -361,7 +366,7 @@ function NodeCard({ project: p }: { project: Project }) {
         {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
         {stored.devServer && (
           <div className="flex flex-wrap items-center gap-3 rounded-md border border-default px-3 py-2 text-sm">
-            <span className="text-muted">Dev server</span>
+            <span className="text-muted">{t("Dev server")}</span>
             {nodeStatus && (
               <span className="inline-flex items-center gap-1.5 text-xs">
                 <StatusDot tone={containerStateTone(nodeStatus.state)} /> {nodeStatus.state}
@@ -372,19 +377,19 @@ function NodeCard({ project: p }: { project: Project }) {
                 {url} <ExternalLink className="size-3" />
               </a>
             ) : (
-              <span className="text-xs text-subtle">no port</span>
+              <span className="text-xs text-subtle">{t("no port")}</span>
             )}
-            {stored.hostPort ? <span className="font-mono text-xs text-subtle">host port {stored.hostPort}</span> : null}
+            {stored.hostPort ? <span className="font-mono text-xs text-subtle">{t("host port {{port}}", { port: stored.hostPort })}</span> : null}
           </div>
         )}
-        <Checkbox label="Enable Node.js" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
+        <Checkbox label={t("Enable Node.js")} checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
         {enabled && node && (
-          <Field label="Node.js version" htmlFor="node-version">
+          <Field label={t("Node.js version")} htmlFor="node-version">
             <Select id="node-version" value={version} onChange={(e) => setVersion(e.target.value)}>
               {node.versions.map((v) => (
                 <option key={v.version} value={v.version}>
                   {v.label}
-                  {v.eol ? " (end of life)" : v.preview ? " (preview)" : ""}
+                  {v.eol ? t(" (end of life)") : v.preview ? t(" (preview)") : ""}
                 </option>
               ))}
             </Select>
@@ -397,6 +402,7 @@ function NodeCard({ project: p }: { project: Project }) {
 }
 
 function EnvTab({ project: p }: { project: Project }) {
+  const { t } = useTranslation();
   const update = useUpdateProject(p.id);
   const { msg, setMsg } = useSaveFeedback();
   const [env, setEnv] = useState<EnvVar[]>(p.env);
@@ -407,8 +413,8 @@ function EnvTab({ project: p }: { project: Project }) {
     update.mutate(
       { env: env.filter((e) => e.key) },
       {
-        onSuccess: () => setMsg({ tone: "green", text: "Environment saved. Containers were recreated with the new variables." }),
-        onError: (err) => setMsg({ tone: "red", text: err instanceof ApiError ? err.message : "Saving failed" }),
+        onSuccess: () => setMsg({ tone: "green", text: t("Environment saved. Containers were recreated with the new variables.") }),
+        onError: (err) => setMsg({ tone: "red", text: err instanceof ApiError ? err.message : t("Saving failed") }),
       },
     );
   };
@@ -416,11 +422,11 @@ function EnvTab({ project: p }: { project: Project }) {
   return (
     <Card>
       <CardHeader
-        title="Environment variables"
-        description="Injected into every container of this project. Saving recreates the containers."
+        title={t("Environment variables")}
+        description={t("Injected into every container of this project. Saving recreates the containers.")}
         actions={
           <Button variant="primary" onClick={save} loading={update.isPending} disabled={!dirty} icon={<Save className="size-4" />}>
-            Save
+            {t("Save")}
           </Button>
         }
       />
@@ -433,20 +439,21 @@ function EnvTab({ project: p }: { project: Project }) {
 }
 
 function AdvancedTab({ project: p }: { project: Project }) {
+  const { t } = useTranslation();
   const plan = useProjectPlan(p.id);
   if (plan.isPending) return <Spinner />;
   if (plan.isError) return <ErrorState message={plan.error.message} />;
   const pl = plan.data;
   return (
     <Card>
-      <CardHeader title="Docker plan" description="What Staqio provisions for this project. Generated from the desired state; not editable by design." />
+      <CardHeader title={t("Docker plan")} description={t("What Staqio provisions for this project. Generated from the desired state; not editable by design.")} />
       <div className="space-y-5 p-5 text-sm">
         <dl className="grid gap-x-6 gap-y-2 sm:grid-cols-[10rem_1fr]">
-          <dt className="text-muted">Host path</dt>
+          <dt className="text-muted">{t("Host path")}</dt>
           <dd className="font-mono text-xs">{pl.hostPath}</dd>
-          <dt className="text-muted">Network</dt>
+          <dt className="text-muted">{t("Network")}</dt>
           <dd className="font-mono text-xs">{pl.network}</dd>
-          <dt className="text-muted">Images</dt>
+          <dt className="text-muted">{t("Images")}</dt>
           <dd className="font-mono text-xs">{pl.images.join(", ")}</dd>
         </dl>
         <ul className="divide-y divide-[var(--border)] rounded-md border border-default">
@@ -458,11 +465,11 @@ function AdvancedTab({ project: p }: { project: Project }) {
               </div>
               <ul className="mt-1 space-y-0.5 font-mono text-[11px] text-muted">
                 {c.ports.map((port) => (
-                  <li key={port}>port {port}</li>
+                  <li key={port}>{t("port")} {port}</li>
                 ))}
                 {c.mounts.map((m) => (
                   <li key={m} className="truncate">
-                    mount {m}
+                    {t("mount")} {m}
                   </li>
                 ))}
               </ul>
@@ -470,7 +477,7 @@ function AdvancedTab({ project: p }: { project: Project }) {
           ))}
         </ul>
         <p className="text-xs text-subtle">
-          All resources carry the labels <Code>staqio.managed=true</Code> and <Code>staqio.project.id={p.id}</Code>.
+          {t("All resources carry the labels")} <Code>staqio.managed=true</Code> {t("and")} <Code>staqio.project.id={p.id}</Code>.
         </p>
       </div>
     </Card>

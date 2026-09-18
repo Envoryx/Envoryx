@@ -1,4 +1,5 @@
 import { clsx } from "clsx";
+import { useTranslation } from "react-i18next";
 import { RotateCw } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Terminal } from "@xterm/xterm";
@@ -109,6 +110,7 @@ function useTerminalSession(projectId: string, kind: string, generation: number)
 }
 
 export function TerminalTab({ project }: { project: Project }) {
+  const { t } = useTranslation();
   const services = project.services.filter((s) => s.enabled);
   const [kind, setKind] = useState<string>(services[0]?.kind ?? "php");
   const [generation, setGeneration] = useState(0);
@@ -118,7 +120,7 @@ export function TerminalTab({ project }: { project: Project }) {
   return (
     <Card className="flex h-[70vh] min-h-[24rem] flex-col overflow-hidden">
       <div className="flex flex-wrap items-center gap-2 border-b border-default px-3 py-2">
-        <div className="flex items-center gap-1" role="tablist" aria-label="Container">
+        <div className="flex items-center gap-1" role="tablist" aria-label={t("Container")}>
           {services.map((s) => (
             <button
               key={s.kind}
@@ -133,14 +135,14 @@ export function TerminalTab({ project }: { project: Project }) {
         </div>
         <span className="ml-1 inline-flex items-center gap-1.5 text-xs text-muted">
           <span className={clsx("size-2 rounded-full", state === "open" ? "bg-emerald-500" : state === "connecting" ? "bg-amber-500 animate-pulse" : "bg-zinc-400")} aria-hidden />
-          {state === "open" ? "connected" : state}
+          {state === "open" ? t("connected") : t(state)}
         </span>
         <div className="ml-auto flex items-center gap-2">
           <span className="text-[11px] text-subtle">
-            {kind === "php" || kind === "node" ? "runs as the project owner in /var/www/html" : "runs as root"}
+            {kind === "php" || kind === "node" ? t("runs as the project owner in /var/www/html") : t("runs as root")}
           </span>
           <Button size="sm" onClick={() => setGeneration((g) => g + 1)} icon={<RotateCw className="size-3.5" />} disabled={!running}>
-            New session
+            {t("New session")}
           </Button>
         </div>
       </div>
@@ -150,7 +152,7 @@ export function TerminalTab({ project }: { project: Project }) {
         </p>
       )}
       {!running ? (
-        <p className="p-4 text-sm text-muted">The {serviceLabel(kind)} container is not running. Start the project to open a shell.</p>
+        <p className="p-4 text-sm text-muted">{t("The {{service}} container is not running. Start the project to open a shell.", { service: serviceLabel(kind) })}</p>
       ) : (
         <div ref={host} className="min-h-0 flex-1 overflow-hidden bg-[#0f1115] p-2" data-testid="terminal" />
       )}

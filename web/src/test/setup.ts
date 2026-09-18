@@ -1,4 +1,8 @@
 import "@testing-library/jest-dom/vitest";
+import i18n from "@/i18n";
+
+// Tests assert English texts.
+void i18n.changeLanguage("en");
 
 // jsdom lacks matchMedia and <dialog> methods used by the app.
 if (!window.matchMedia) {

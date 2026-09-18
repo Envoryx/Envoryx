@@ -1,4 +1,5 @@
 import { Archive, CalendarClock, Download, RotateCcw, Trash2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "@/api/client";
@@ -8,6 +9,7 @@ import { Alert, Badge, Button, Card, CardHeader, Checkbox, Code, Dialog, ErrorSt
 import { formatBytes, formatDateTime } from "@/lib/format";
 
 export function BackupsTab({ project }: { project: Project }) {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const hasDb = project.services.some((s) => s.kind === "database" && s.enabled);
   const backups = useQuery({ queryKey: ["projects", project.id, "backups"], queryFn: async () => (await api.backups.list(project.id)).backups });
@@ -26,10 +28,10 @@ export function BackupsTab({ project }: { project: Project }) {
     mutationFn: () => api.backups.create(project.id, { database: withDb && hasDb, files: withFiles, includeDependencies: withDeps, note }),
     onSuccess: (res) => {
       setNote("");
-      setMsg({ tone: "green", text: `Backup created (${formatBytes(res.backup.sizeBytes)}).` });
+      setMsg({ tone: "green", text: t("Backup created ({{size}}).", { size: formatBytes(res.backup.sizeBytes) }) });
       refresh();
     },
-    onError: (err) => fail(err, "Backup failed"),
+    onError: (err) => fail(err, t("Backup failed")),
   });
 
   const [restoreTarget, setRestoreTarget] = useState<BackupInfo | null>(null);
@@ -41,12 +43,12 @@ export function BackupsTab({ project }: { project: Project }) {
     mutationFn: (b: BackupInfo) => api.backups.restore(project.id, b.id, { database: rDb && !!b.meta.database && hasDb, files: rFiles && !!b.meta.files, wipeFiles: rWipe, confirm: rConfirm }),
     onSuccess: () => {
       setRestoreTarget(null);
-      setMsg({ tone: "green", text: "Backup restored." });
+      setMsg({ tone: "green", text: t("Backup restored.") });
       refresh();
     },
     onError: (err) => {
       setRestoreTarget(null);
-      fail(err, "Restore failed");
+      fail(err, t("Restore failed"));
     },
   });
 
@@ -59,7 +61,7 @@ export function BackupsTab({ project }: { project: Project }) {
     },
     onError: (err) => {
       setDeleteTarget(null);
-      fail(err, "Delete failed");
+      fail(err, t("Delete failed"));
     },
   });
 
@@ -79,40 +81,40 @@ export function BackupsTab({ project }: { project: Project }) {
         <CardHeader
           title={
             <span className="flex items-center gap-2">
-              <Archive className="size-4 text-accent-500" aria-hidden /> Create backup
+              <Archive className="size-4 text-accent-500" aria-hidden /> {t("Create backup")}
             </span>
           }
           description={
             <>
-              Stored under <Code>/config/backups/{project.slug}/</Code>. The database is dumped inside its container; files are archived by Staqio.
+              {t("Stored under")} <Code>/config/backups/{project.slug}/</Code>. {t("The database is dumped inside its container; files are archived by Staqio.")}
             </>
           }
         />
         <div className="space-y-4 p-5">
           <div className="grid gap-3 sm:grid-cols-3">
-            <Checkbox label="Database" description={hasDb ? "Logical dump of the primary database" : "Project has no database"} checked={withDb && hasDb} disabled={!hasDb} onChange={(e) => setWithDb(e.target.checked)} />
-            <Checkbox label="Project files" description="Everything in the project directory" checked={withFiles} onChange={(e) => setWithFiles(e.target.checked)} />
-            <Checkbox label="Include dependencies" description="Keep vendor/ and node_modules/ (large, reproducible)" checked={withDeps} disabled={!withFiles} onChange={(e) => setWithDeps(e.target.checked)} />
+            <Checkbox label={t("Database")} description={hasDb ? t("Logical dump of the primary database") : t("Project has no database")} checked={withDb && hasDb} disabled={!hasDb} onChange={(e) => setWithDb(e.target.checked)} />
+            <Checkbox label={t("Project files")} description={t("Everything in the project directory")} checked={withFiles} onChange={(e) => setWithFiles(e.target.checked)} />
+            <Checkbox label={t("Include dependencies")} description={t("Keep vendor/ and node_modules/ (large, reproducible)")} checked={withDeps} disabled={!withFiles} onChange={(e) => setWithDeps(e.target.checked)} />
           </div>
           <div className="flex items-end gap-2">
-            <Field label="Note (optional)" htmlFor="backup-note">
-              <Input id="backup-note" value={note} onChange={(e) => setNote(e.target.value)} placeholder="before upgrade to Laravel 13" maxLength={500} />
+            <Field label={t("Note (optional)")} htmlFor="backup-note">
+              <Input id="backup-note" value={note} onChange={(e) => setNote(e.target.value)} placeholder={t("before upgrade to Laravel 13")} maxLength={500} />
             </Field>
             <Button variant="primary" loading={create.isPending} disabled={!(withDb && hasDb) && !withFiles} onClick={() => create.mutate()} icon={<Archive className="size-4" />}>
-              Create backup
+              {t("Create backup")}
             </Button>
           </div>
         </div>
       </Card>
 
       <Card>
-        <CardHeader title="Backups" description="Newest first. Restoring overwrites the current database and/or files – Staqio asks for confirmation." />
+        <CardHeader title={t("Backups")} description={t("Newest first. Restoring overwrites the current database and/or files – Staqio asks for confirmation.")} />
         {backups.isPending ? (
           <Spinner />
         ) : backups.isError ? (
           <ErrorState message={backups.error.message} />
         ) : backups.data.length === 0 ? (
-          <p className="px-5 py-8 text-center text-sm text-muted">No backups yet.</p>
+          <p className="px-5 py-8 text-center text-sm text-muted">{t("No backups yet.")}</p>
         ) : (
           <ul className="divide-y divide-[var(--border)]">
             {backups.data.map((b) => (
@@ -120,18 +122,18 @@ export function BackupsTab({ project }: { project: Project }) {
                 <div className="min-w-[14rem] flex-1">
                   <p className="text-sm font-medium text-fg">
                     {formatDateTime(b.createdAt)}
-                    {b.meta.source === "scheduled" && <Badge tone="blue" className="ml-2">scheduled</Badge>}
+                    {b.meta.source === "scheduled" && <Badge tone="blue" className="ml-2">{t("scheduled")}</Badge>}
                     {b.meta.note && <span className="ml-2 font-normal text-muted">– {b.meta.note}</span>}
                   </p>
                   <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-subtle">
                     {b.meta.database && <Badge tone="amber">{b.meta.database.type} {b.meta.database.version} · {formatBytes(b.meta.database.bytes)}</Badge>}
                     {b.meta.files && (
                       <Badge>
-                        {b.meta.files.entries} files · {formatBytes(b.meta.files.bytes)}
-                        {b.meta.files.includeDependencies ? " · with deps" : ""}
+                        {t("{{count}} files", { count: b.meta.files.entries })} · {formatBytes(b.meta.files.bytes)}
+                        {b.meta.files.includeDependencies ? t(" · with deps") : ""}
                       </Badge>
                     )}
-                    {b.missing && <Badge tone="red">files missing</Badge>}
+                    {b.missing && <Badge tone="red">{t("files missing")}</Badge>}
                     <span className="font-mono">{b.dir}</span>
                   </p>
                 </div>
@@ -142,12 +144,12 @@ export function BackupsTab({ project }: { project: Project }) {
                     className="inline-flex h-8 items-center gap-1.5 rounded-md border border-default bg-elevated px-2.5 text-xs font-medium text-fg hover:bg-muted"
                     download
                   >
-                    <Download className="size-3.5" aria-hidden /> Download
+                    <Download className="size-3.5" aria-hidden /> {t("Download")}
                   </a>
                   <Button size="sm" onClick={() => openRestore(b)} disabled={b.missing} icon={<RotateCcw className="size-3.5" />}>
-                    Restore
+                    {t("Restore")}
                   </Button>
-                  <Button size="sm" variant="ghost" onClick={() => setDeleteTarget(b)} aria-label="Delete backup">
+                  <Button size="sm" variant="ghost" onClick={() => setDeleteTarget(b)} aria-label={t("Delete backup")}>
                     <Trash2 className="size-4" />
                   </Button>
                 </div>
@@ -160,27 +162,27 @@ export function BackupsTab({ project }: { project: Project }) {
       <Dialog
         open={restoreTarget !== null}
         onClose={() => setRestoreTarget(null)}
-        title="Restore backup?"
-        description={restoreTarget ? `From ${formatDateTime(restoreTarget.createdAt)}${restoreTarget.meta.note ? ` – ${restoreTarget.meta.note}` : ""}` : undefined}
+        title={t("Restore backup?")}
+        description={restoreTarget ? `${t("From {{date}}", { date: formatDateTime(restoreTarget.createdAt) })}${restoreTarget.meta.note ? ` – ${restoreTarget.meta.note}` : ""}` : undefined}
         footer={
           <>
-            <Button onClick={() => setRestoreTarget(null)}>Cancel</Button>
+            <Button onClick={() => setRestoreTarget(null)}>{t("Cancel")}</Button>
             <Button variant="danger" loading={restore.isPending} disabled={rConfirm !== project.slug || (!rDb && !rFiles)} onClick={() => restoreTarget && restore.mutate(restoreTarget)} icon={<RotateCcw className="size-4" />}>
-              Restore
+              {t("Restore")}
             </Button>
           </>
         }
       >
         {restoreTarget && (
           <div className="space-y-4">
-            <Alert tone="red" title="This overwrites current data">
-              {rDb && restoreTarget.meta.database && <p>The database “{restoreTarget.meta.database.name}” is replaced by the dump; changes since the backup are lost.</p>}
-              {rFiles && restoreTarget.meta.files && <p>Files in the archive overwrite the project directory{rWipe ? "; everything else in the directory is deleted first" : "; files not in the backup are kept"}.</p>}
+            <Alert tone="red" title={t("This overwrites current data")}>
+              {rDb && restoreTarget.meta.database && <p>{t("The database “{{name}}” is replaced by the dump; changes since the backup are lost.", { name: restoreTarget.meta.database.name })}</p>}
+              {rFiles && restoreTarget.meta.files && <p>{rWipe ? t("Files in the archive overwrite the project directory; everything else in the directory is deleted first.") : t("Files in the archive overwrite the project directory; files not in the backup are kept.")}</p>}
             </Alert>
-            <Checkbox label="Restore database" checked={rDb} disabled={!restoreTarget.meta.database || !hasDb} onChange={(e) => setRDb(e.target.checked)} description={!restoreTarget.meta.database ? "not in this backup" : !hasDb ? "project has no database" : undefined} />
-            <Checkbox label="Restore files" checked={rFiles} disabled={!restoreTarget.meta.files} onChange={(e) => setRFiles(e.target.checked)} description={!restoreTarget.meta.files ? "not in this backup" : undefined} />
-            {rFiles && <Checkbox label="Empty the project directory first" description="Makes the directory match the backup exactly (also removes vendor/ and node_modules/ if they were not included)." checked={rWipe} onChange={(e) => setRWipe(e.target.checked)} />}
-            <Field label={`Type ${project.slug} to confirm`} htmlFor="restore-confirm">
+            <Checkbox label={t("Restore database")} checked={rDb} disabled={!restoreTarget.meta.database || !hasDb} onChange={(e) => setRDb(e.target.checked)} description={!restoreTarget.meta.database ? t("not in this backup") : !hasDb ? t("project has no database") : undefined} />
+            <Checkbox label={t("Restore files")} checked={rFiles} disabled={!restoreTarget.meta.files} onChange={(e) => setRFiles(e.target.checked)} description={!restoreTarget.meta.files ? t("not in this backup") : undefined} />
+            {rFiles && <Checkbox label={t("Empty the project directory first")} description={t("Makes the directory match the backup exactly (also removes vendor/ and node_modules/ if they were not included).")} checked={rWipe} onChange={(e) => setRWipe(e.target.checked)} />}
+            <Field label={t("Type {{slug}} to confirm", { slug: project.slug })} htmlFor="restore-confirm">
               <Input id="restore-confirm" value={rConfirm} onChange={(e) => setRConfirm(e.target.value)} autoComplete="off" />
             </Field>
           </div>
@@ -190,13 +192,13 @@ export function BackupsTab({ project }: { project: Project }) {
       <Dialog
         open={deleteTarget !== null}
         onClose={() => setDeleteTarget(null)}
-        title="Delete backup?"
+        title={t("Delete backup?")}
         description={deleteTarget ? `${formatDateTime(deleteTarget.createdAt)} · ${formatBytes(deleteTarget.sizeBytes)}` : undefined}
         footer={
           <>
-            <Button onClick={() => setDeleteTarget(null)}>Cancel</Button>
+            <Button onClick={() => setDeleteTarget(null)}>{t("Cancel")}</Button>
             <Button variant="danger" loading={remove.isPending} onClick={() => deleteTarget && remove.mutate(deleteTarget)} icon={<Trash2 className="size-4" />}>
-              Delete
+              {t("Delete")}
             </Button>
           </>
         }
@@ -208,6 +210,7 @@ export function BackupsTab({ project }: { project: Project }) {
 const weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 function ScheduleCard({ project, onSaved }: { project: Project; onSaved: () => void }) {
+  const { t } = useTranslation();
   const current = project.backupSchedule;
   const [form, setForm] = useState<Omit<BackupSchedule, "lastRun">>({ schedule: current.schedule, hour: current.hour, weekday: current.weekday, keep: current.keep, includeDependencies: current.includeDependencies });
   const [msg, setMsg] = useState<{ tone: "green" | "red"; text: string } | null>(null);
@@ -217,10 +220,10 @@ function ScheduleCard({ project, onSaved }: { project: Project; onSaved: () => v
   const save = useMutation({
     mutationFn: () => api.backups.setSchedule(project.id, form),
     onSuccess: () => {
-      setMsg({ tone: "green", text: form.schedule ? "Schedule saved." : "Scheduled backups disabled." });
+      setMsg({ tone: "green", text: form.schedule ? t("Schedule saved.") : t("Scheduled backups disabled.") });
       onSaved();
     },
-    onError: (err) => setMsg({ tone: "red", text: err instanceof ApiError ? err.message : "Saving failed" }),
+    onError: (err) => setMsg({ tone: "red", text: err instanceof ApiError ? err.message : t("Saving failed") }),
   });
   const set = (patch: Partial<typeof form>) => setForm((f) => ({ ...f, ...patch }));
   const dirty = JSON.stringify(form) !== JSON.stringify({ schedule: current.schedule, hour: current.hour, weekday: current.weekday, keep: current.keep, includeDependencies: current.includeDependencies });
@@ -230,51 +233,51 @@ function ScheduleCard({ project, onSaved }: { project: Project; onSaved: () => v
       <CardHeader
         title={
           <span className="flex items-center gap-2">
-            <CalendarClock className="size-4 text-accent-500" aria-hidden /> Scheduled backups
+            <CalendarClock className="size-4 text-accent-500" aria-hidden /> {t("Scheduled backups")}
           </span>
         }
-        description={current.lastRun ? `Last automatic backup ${formatDateTime(current.lastRun)}.` : "Automatic database + file backups; the oldest scheduled backups are removed beyond the keep count. Manual backups are never touched."}
+        description={current.lastRun ? t("Last automatic backup {{date}}.", { date: formatDateTime(current.lastRun) }) : t("Automatic database + file backups; the oldest scheduled backups are removed beyond the keep count. Manual backups are never touched.")}
         actions={
           <Button variant="primary" size="sm" loading={save.isPending} disabled={!dirty || (!!form.schedule && form.keep < 1)} onClick={() => { setMsg(null); save.mutate(); }}>
-            Save
+            {t("Save")}
           </Button>
         }
       />
       <div className="space-y-4 p-5">
         {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
         <div className="grid gap-4 sm:grid-cols-4">
-          <Field label="Frequency" htmlFor="sched-freq">
+          <Field label={t("Frequency")} htmlFor="sched-freq">
             <Select id="sched-freq" value={form.schedule} onChange={(e) => set({ schedule: e.target.value as BackupSchedule["schedule"] })}>
-              <option value="">Off</option>
-              <option value="daily">Daily</option>
-              <option value="weekly">Weekly</option>
+              <option value="">{t("Off")}</option>
+              <option value="daily">{t("Daily")}</option>
+              <option value="weekly">{t("Weekly")}</option>
             </Select>
           </Field>
           {form.schedule === "weekly" && (
-            <Field label="Weekday" htmlFor="sched-day">
+            <Field label={t("Weekday")} htmlFor="sched-day">
               <Select id="sched-day" value={form.weekday} onChange={(e) => set({ weekday: Number(e.target.value) })}>
                 {weekdays.map((d, i) => (
-                  <option key={d} value={i}>{d}</option>
+                  <option key={d} value={i}>{t(d)}</option>
                 ))}
               </Select>
             </Field>
           )}
           {form.schedule && (
             <>
-              <Field label="Time" htmlFor="sched-hour" hint="Server local time">
+              <Field label={t("Time")} htmlFor="sched-hour" hint={t("Server local time")}>
                 <Select id="sched-hour" value={form.hour} onChange={(e) => set({ hour: Number(e.target.value) })}>
                   {Array.from({ length: 24 }, (_, h) => (
                     <option key={h} value={h}>{String(h).padStart(2, "0")}:00</option>
                   ))}
                 </Select>
               </Field>
-              <Field label="Keep" htmlFor="sched-keep" hint="Number of scheduled backups">
+              <Field label={t("Keep")} htmlFor="sched-keep" hint={t("Number of scheduled backups")}>
                 <Input id="sched-keep" type="number" min={1} max={365} value={form.keep} onChange={(e) => set({ keep: Number(e.target.value) })} />
               </Field>
             </>
           )}
         </div>
-        {form.schedule && <Checkbox label="Include vendor/ and node_modules/" description="Larger archives; usually not needed since dependencies can be reinstalled." checked={form.includeDependencies} onChange={(e) => set({ includeDependencies: e.target.checked })} />}
+        {form.schedule && <Checkbox label={t("Include vendor/ and node_modules/")} description={t("Larger archives; usually not needed since dependencies can be reinstalled.")} checked={form.includeDependencies} onChange={(e) => set({ includeDependencies: e.target.checked })} />}
       </div>
     </Card>
   );

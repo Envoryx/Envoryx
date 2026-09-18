@@ -1,4 +1,5 @@
 import { Plus, Search } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useDashboard, useProjectLinks, useProjects } from "@/api/hooks";
@@ -8,6 +9,7 @@ import { formatBytes, formatPercent, serviceLabel, stateMeta } from "@/lib/forma
 import { ProjectActionButtons, useActionError } from "./ProjectActions";
 
 function ProjectRow({ project, usage }: { project: Project; usage?: { cpuPercent: number; memoryBytes: number } | undefined }) {
+  const { t } = useTranslation();
   const meta = stateMeta[project.status.state];
   const php = project.services.find((s) => s.kind === "php");
   const web = project.services.find((s) => s.kind === "web");
@@ -25,11 +27,11 @@ function ProjectRow({ project, usage }: { project: Project; usage?: { cpuPercent
             <Link to={`/projects/${project.id}`} className="block truncate text-sm font-semibold text-fg hover:underline">
               {project.name}
             </Link>
-            <p className="truncate font-mono text-[11px] text-subtle">{url || "no port"}</p>
+            <p className="truncate font-mono text-[11px] text-subtle">{url || t("no port")}</p>
           </div>
         </div>
         <div className="flex flex-wrap gap-1.5">
-          {php ? <Badge tone="blue">{serviceLabel("php", php.version)}</Badge> : <Badge>No PHP</Badge>}
+          {php ? <Badge tone="blue">{serviceLabel("php", php.version)}</Badge> : <Badge>{t("No PHP")}</Badge>}
           {db && <Badge tone="amber">{serviceLabel("database", db.version, db.variant)}</Badge>}
           {project.services.filter((s) => s.enabled && (s.kind === "redis" || s.kind === "mailpit" || s.kind === "node")).map((s) => (
             <Badge key={s.kind}>{serviceLabel(s.kind, s.version, s.variant)}</Badge>
@@ -37,9 +39,9 @@ function ProjectRow({ project, usage }: { project: Project; usage?: { cpuPercent
           {web && <Badge>{serviceLabel("web", web.version, web.variant)}</Badge>}
         </div>
         <div className="hidden w-40 text-xs text-muted md:block">
-          <span className="font-medium text-fg">{meta.label}</span>
+          <span className="font-medium text-fg">{t(meta.label)}</span>
           <span className="block">
-            {project.status.services.filter((s) => s.running).length}/{project.status.services.length} containers
+            {t("{{running}}/{{total}} containers", { running: project.status.services.filter((s) => s.running).length, total: project.status.services.length })}
           </span>
         </div>
         <div className="hidden w-32 text-xs tabular-nums text-muted lg:block">
@@ -73,6 +75,7 @@ function ProjectRow({ project, usage }: { project: Project; usage?: { cpuPercent
 }
 
 export function ProjectsPage() {
+  const { t } = useTranslation();
   const q = useProjects();
   const dash = useDashboard();
   const [filter, setFilter] = useState("");
@@ -87,25 +90,25 @@ export function ProjectsPage() {
   return (
     <div>
       <PageHeader
-        title="Projects"
-        description="Each project runs in its own isolated set of containers."
+        title={t("Projects")}
+        description={t("Each project runs in its own isolated set of containers.")}
         actions={
           <LinkButton to="/projects/new" variant="primary" icon={<Plus className="size-4" />}>
-            New project
+            {t("New project")}
           </LinkButton>
         }
       />
       {q.isPending ? (
         <Spinner />
       ) : q.isError ? (
-        <ErrorState message={q.error.message} action={<Button onClick={() => void q.refetch()}>Retry</Button>} />
+        <ErrorState message={q.error.message} action={<Button onClick={() => void q.refetch()}>{t("Retry")}</Button>} />
       ) : q.data.length === 0 ? (
         <EmptyState
-          title="No projects yet"
-          message="Create a project to get an isolated PHP + web server environment with its own Docker network."
+          title={t("No projects yet")}
+          message={t("Create a project to get an isolated PHP + web server environment with its own Docker network.")}
           action={
             <LinkButton to="/projects/new" variant="primary" icon={<Plus className="size-4" />}>
-              Create your first project
+              {t("Create your first project")}
             </LinkButton>
           }
         />
@@ -116,8 +119,8 @@ export function ProjectsPage() {
             <Input
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
-              placeholder="Filter projects…"
-              aria-label="Filter projects"
+              placeholder={t("Filter projects…")}
+              aria-label={t("Filter projects")}
               className="h-8 border-0 bg-transparent px-1 focus:ring-0"
             />
             <span className="text-xs text-subtle">
@@ -125,7 +128,7 @@ export function ProjectsPage() {
             </span>
           </div>
           {projects.length === 0 ? (
-            <p className="px-5 py-8 text-center text-sm text-muted">No project matches “{filter}”.</p>
+            <p className="px-5 py-8 text-center text-sm text-muted">{t("No project matches “{{filter}}”.", { filter })}</p>
           ) : (
             <ul className="divide-y divide-[var(--border)]">
               {projects.map((p) => (
@@ -137,7 +140,7 @@ export function ProjectsPage() {
       )}
       {q.data && q.data.some((p) => p.status.warnings.some((w) => w.includes("Docker engine unavailable"))) && (
         <div className="mt-4">
-          <Alert tone="red">Docker is unreachable, the displayed states may be outdated.</Alert>
+          <Alert tone="red">{t("Docker is unreachable, the displayed states may be outdated.")}</Alert>
         </div>
       )}
     </div>

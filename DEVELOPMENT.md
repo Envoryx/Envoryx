@@ -100,6 +100,27 @@ files, so nothing is enabled by default. Staqio's generated
 UI. To add one: extend `STAQIO_PHP_EXTENSIONS`, add it to
 `runtime.PHPExtensions()` with `Available: true`, rebuild the images.
 
+## UI languages
+
+The frontend uses `react-i18next`. English is the source language: every
+`t("…")` call carries the English text itself as the key, so nothing has to
+be maintained for English (except the plural forms in `src/i18n/en.json`).
+Other languages are one JSON file each, English text → translation, see
+`src/i18n/de.json`. Rules:
+
+- Keep `{{placeholders}}` exactly as in the key (a test enforces this).
+- Plural keys carry `_one` / `_other` suffixes (i18next convention).
+- Interface texts that come from the backend (worker presets, notification
+  kinds, provider names) are translated on the client as well – their
+  English strings appear in the dictionary like any other key.
+
+To add a language: create `src/i18n/<code>.json`, import it in
+`src/i18n/index.ts` and add it to `languages` (display name) and
+`resources`. The language selector in the sidebar lists every entry; the
+browser language is detected on first visit and the choice is remembered
+per browser (`localStorage`). To find untranslated keys, run
+`node -e` over the sources or copy the check from `i18n.test.ts`.
+
 ## Adding a service kind (later phases)
 
 1. Add the `store.ServiceKind` constant and catalogue entry.

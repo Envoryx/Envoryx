@@ -1,0 +1,22 @@
+{
+  "{{count}} CPUs_one": "{{count}} CPU",
+  "{{count}} CPUs_other": "{{count}} CPUs",
+  "{{count}} cores_one": "{{count}} core",
+  "{{count}} cores_other": "{{count}} cores",
+  "{{count}} files_one": "{{count}} file",
+  "{{count}} files_other": "{{count}} files",
+  "{{count}} inconsistencies detected_one": "{{count}} inconsistency detected",
+  "{{count}} inconsistencies detected_other": "{{count}} inconsistencies detected",
+  "{{count}} lines_one": "{{count}} line",
+  "{{count}} lines_other": "{{count}} lines",
+  "{{count}} need attention_one": "{{count}} needs attention",
+  "{{count}} need attention_other": "{{count}} need attention",
+  "{{count}} orphaned Staqio resources_one": "{{count}} orphaned Staqio resource",
+  "{{count}} orphaned Staqio resources_other": "{{count}} orphaned Staqio resources",
+  "{{count}} running_one": "{{count}} running",
+  "{{count}} running_other": "{{count}} running",
+  "{{count}} uncommitted changes_one": "{{count}} uncommitted change",
+  "{{count}} uncommitted changes_other": "{{count}} uncommitted changes",
+  "Removed {{count}} images, {{size}} reclaimed._one": "Removed {{count}} image, {{size}} reclaimed.",
+  "Removed {{count}} images, {{size}} reclaimed._other": "Removed {{count}} images, {{size}} reclaimed."
+}
