@@ -160,10 +160,7 @@ func (m *Manager) RunAction(ctx context.Context, id, actionID string, cols, rows
 		Rows:       rows,
 		WorkingDir: appMountTarget,
 		User:       fmt.Sprintf("%d:%d", paths.PUID, paths.PGID),
-		Env: []string{
-			"TERM=xterm-256color", "COLORTERM=truecolor", "LANG=C.UTF-8", "CI=1",
-			"HOME=/tmp", "COMPOSER_HOME=/tmp/composer", "COMPOSER_NO_INTERACTION=1", "npm_config_cache=/tmp/npm",
-		},
+		Env:        append([]string{"TERM=xterm-256color", "COLORTERM=truecolor", "LANG=C.UTF-8", "CI=1"}, toolEnv...),
 	}
 	term, err = m.engine.OpenTerminal(ctx, c.ID, opts)
 	if err != nil {

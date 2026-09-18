@@ -78,6 +78,21 @@ as `tecnativa/docker-socket-proxy` and point Staqio at it
   (minus the destructive operations). Prefer HTTPS (`https://staqio.<base>`)
   for the MCP URL when clients connect over the network.
 
+## SSH server
+
+The embedded SSH server (port 2222) never gives access to the Staqio
+container or the host: every session is a `docker exec` into the selected
+project's PHP/Node container as `PUID:PGID`, with the same environment the
+terminal tab uses. Authentication is an API token (password) or a public key
+from the settings; ten failures lock an IP for five minutes. The exec
+command line is passed to `/bin/sh -lc` inside that container – this is the
+same capability the browser terminal already grants. SFTP is a virtual view
+of exactly two directories (project, persistent home) served from Staqio's
+side of the bind mounts with lexical containment; symlinks may not point
+outside. The Ed25519 host key lives in `/config/ssh/host_ed25519` (0600).
+Only the `env` requests `LANG`, `LC_*`, `TERM`, `XDEBUG_*`, `PHP_IDE_CONFIG`,
+`APP_ENV` and `CI` are forwarded. Sessions and commands are audit-logged.
+
 ## CSRF / CORS
 
 State-changing API requests must:

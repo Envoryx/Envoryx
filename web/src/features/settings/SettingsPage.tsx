@@ -103,6 +103,57 @@ function PublicHostForm({ current, xdebugHost }: { current: string; xdebugHost: 
   );
 }
 
+function SshCard({ keys, ssh }: { keys: string; ssh: { enabled: boolean; port: number; fingerprint: string } | undefined }) {
+  const update = useUpdateSettings();
+  const [text, setText] = useState(keys);
+  const [msg, setMsg] = useState<{ tone: "green" | "red"; text: string } | null>(null);
+  useEffect(() => setText(keys), [keys]);
+  return (
+    <Card>
+      <CardHeader
+        title="SSH access (IDE remote interpreter)"
+        description="Log in as <project-slug> (PHP container) or <project-slug>.node with an API token as password, or with one of the public keys below. Each session runs inside the project's container as the project owner; SFTP exposes /var/www/html and /home/staqio."
+      />
+      <div className="space-y-4 p-5">
+        {!ssh?.enabled ? (
+          <Alert tone="amber">Disabled (<Code>STAQIO_SSH</Code> is empty).</Alert>
+        ) : ssh.port === 0 ? (
+          <Alert tone="amber">Port 2222 is not published on the host – add a port mapping <Code>2222:2222</Code> to the Staqio container.</Alert>
+        ) : (
+          <dl className="grid gap-x-8 gap-y-2 text-sm sm:grid-cols-[10rem_1fr]">
+            <dt className="text-muted">Port</dt>
+            <dd className="font-mono text-xs">{ssh.port}</dd>
+            <dt className="text-muted">Host key</dt>
+            <dd className="break-all font-mono text-xs">{ssh.fingerprint}</dd>
+          </dl>
+        )}
+        {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
+        <Field label="Authorized public keys" htmlFor="ssh-keys" hint="One key per line (authorized_keys format), e.g. the content of ~/.ssh/id_ed25519.pub. Lines starting with # are comments.">
+          <textarea id="ssh-keys" value={text} onChange={(e) => setText(e.target.value)} rows={4} spellCheck={false} className="w-full rounded-md border border-default bg-elevated p-2 font-mono text-[11px] text-fg focus:border-accent-500 focus:outline-none" placeholder="ssh-ed25519 AAAA… you@laptop" />
+        </Field>
+        <Button
+          variant="primary"
+          loading={update.isPending}
+          disabled={text.trim() === keys.trim()}
+          icon={<Save className="size-4" />}
+          onClick={() => {
+            setMsg(null);
+            update.mutate(
+              { sshAuthorizedKeys: text },
+              {
+                onSuccess: () => setMsg({ tone: "green", text: "Keys saved." }),
+                onError: (err) => setMsg({ tone: "red", text: err instanceof ApiError ? err.message : "Saving failed" }),
+              },
+            );
+          }}
+        >
+          Save keys
+        </Button>
+      </div>
+    </Card>
+  );
+}
+
 function DeployKeyCard() {
   const key = useDeployKey();
   const qc = useQueryClient();
@@ -173,6 +224,8 @@ export function SettingsPage() {
       <NotificationsCard />
 
       <TokensCard />
+
+      {s.data && <SshCard keys={s.data.sshAuthorizedKeys ?? ""} ssh={s.data.ssh} />}
 
       <DeployKeyCard />
 

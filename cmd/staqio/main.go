@@ -40,6 +40,7 @@ import (
 	"github.com/seramos/staqio/internal/proxy"
 	"github.com/seramos/staqio/internal/runtime"
 	"github.com/seramos/staqio/internal/server"
+	"github.com/seramos/staqio/internal/sshd"
 	"github.com/seramos/staqio/internal/stats"
 	"github.com/seramos/staqio/internal/store"
 	"github.com/seramos/staqio/internal/tlsca"
@@ -222,6 +223,32 @@ func serve() error {
 	}
 	proxyInfo := detectProxy(ctx, cfg, engine, resolver, certs != nil, log)
 
+	// SSH for IDE remote interpreters / SFTP into project containers.
+	var sshInfo *api.SSHInfo
+	if cfg.SSHListen != "" {
+		sshSrv, err := sshd.New(sshd.Deps{Auth: sessions, Store: st, Projects: manager, Engine: engine, Audit: auditLog, HostKeyPath: filepath.Join(cfg.ConfigDir, "ssh", "host_ed25519"), Log: log})
+		if err != nil {
+			log.Warn("ssh server unavailable", "err", err)
+		} else {
+			sshInfo = &api.SSHInfo{Enabled: true, Port: portOfAddr(cfg.SSHListen), Fingerprint: sshSrv.Fingerprint()}
+			if proxyInfo.InDocker && proxyInfo.Address == "" {
+				if bindings, err := engine.PortBindings(ctx, resolver.SelfContainerID()); err == nil {
+					sshInfo.Port = 0
+					for _, b := range bindings {
+						if b.ContainerPort == portOfAddr(cfg.SSHListen) && (b.Protocol == "" || b.Protocol == "tcp") {
+							sshInfo.Port = b.HostPort
+						}
+					}
+				}
+			}
+			go func() {
+				if err := sshSrv.Run(ctx, cfg.SSHListen); err != nil {
+					log.Warn("ssh server stopped", "err", err)
+				}
+			}()
+		}
+	}
+
 	// 7. HTTP + MCP.
 	dist, err := web.Dist()
 	if err != nil {
@@ -242,7 +269,7 @@ func serve() error {
 	a := api.New(api.Deps{
 		Config: cfg, Version: version, Store: st, Auth: sessions, Audit: auditLog, Engine: engine,
 		Projects: manager, Catalog: catalog, Stats: collector, HostPath: resolver, Certs: certs, ACME: acmeMgr, Notify: notifier, Proxy: proxyInfo,
-		MCP: mcpSrv.Handler(), Log: log, StartedAt: time.Now(),
+		MCP: mcpSrv.Handler(), SSH: sshInfo, Log: log, StartedAt: time.Now(),
 	})
 	var origins []string
 	if cfg.DevMode {
@@ -291,6 +318,17 @@ func serve() error {
 	}
 	log.Info("Staqio stopped")
 	return nil
+}
+
+// portOfAddr extracts the port of a listen address ("" → 0).
+func portOfAddr(addr string) int {
+	_, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return 0
+	}
+	var n int
+	fmt.Sscanf(port, "%d", &n)
+	return n
 }
 
 // detectProxy figures out how the proxy's listeners are reachable from the host: inside

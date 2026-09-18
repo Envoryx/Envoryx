@@ -63,6 +63,9 @@ Staqio is under active development. The current milestone (Phase 1 + 2) delivers
   restore with typed confirmation, download as a single archive; daily/weekly
   schedules with retention per project
 
+- IDE integration: embedded SSH server for PhpStorm/VS Code remote
+  interpreters and SFTP into project containers (API token or public key),
+  an IDE tab with Xdebug server/path mapping, `.idea/php.xml`, JDBC URLs
 - notifications (ntfy, Discord, Slack, Telegram, e-mail, generic webhook) for
   unhealthy projects (and their recovery), failed project creation, failed
   backups and certificate renewals – throttled, secrets never returned

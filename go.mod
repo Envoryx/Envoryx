@@ -8,6 +8,7 @@ require (
 	github.com/moby/moby/api v1.56.0
 	github.com/moby/moby/client v0.6.0
 	github.com/modelcontextprotocol/go-sdk v1.8.0
+	github.com/pkg/sftp v1.13.11
 	golang.org/x/crypto v0.57.0
 	modernc.org/sqlite v1.59.0
 )
@@ -24,6 +25,7 @@ require (
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/google/jsonschema-go v0.4.3 // indirect
 	github.com/google/uuid v1.6.0 // indirect
+	github.com/kr/fs v0.1.0 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect
 	github.com/ncruces/go-strftime v1.0.0 // indirect

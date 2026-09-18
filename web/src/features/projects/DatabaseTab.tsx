@@ -7,7 +7,7 @@ import { Alert, Badge, Button, Card, CardHeader, Checkbox, Code, Dialog, ErrorSt
 import { copyText } from "@/lib/clipboard";
 import { containerStateTone } from "@/lib/format";
 
-function CopyButton({ value, label }: { value: string; label: string }) {
+export function CopyButton({ value, label }: { value: string; label: string }) {
   const [state, setState] = useState<"idle" | "done" | "failed">("idle");
   return (
     <Button
@@ -26,7 +26,7 @@ function CopyButton({ value, label }: { value: string; label: string }) {
   );
 }
 
-function Row({ label, value, secret = false, mono = true }: { label: string; value: string; secret?: boolean; mono?: boolean }) {
+export function CopyRow({ label, value, secret = false, mono = true }: { label: string; value: string; secret?: boolean; mono?: boolean }) {
   const [show, setShow] = useState(false);
   const display = secret && !show ? "•".repeat(Math.min(value.length, 24)) : value;
   return (
@@ -176,15 +176,15 @@ export function DatabaseTab({ project }: { project: Project }) {
             }
           />
           <dl className="px-5 py-3">
-            <Row label="Host" value={d.host} />
-            <Row label="Port" value={String(d.port)} />
-            <Row label="Database" value={d.database} />
-            <Row label="Username" value={d.username} />
+            <CopyRow label="Host" value={d.host} />
+            <CopyRow label="Port" value={String(d.port)} />
+            <CopyRow label="Database" value={d.database} />
+            <CopyRow label="Username" value={d.username} />
             {creds ? (
               <>
-                <Row label="Password" value={creds.password} secret />
-                {creds.rootPassword && <Row label="Root password" value={creds.rootPassword} secret />}
-                <Row label="DATABASE_URL" value={creds.url} secret />
+                <CopyRow label="Password" value={creds.password} secret />
+                {creds.rootPassword && <CopyRow label="Root password" value={creds.rootPassword} secret />}
+                <CopyRow label="DATABASE_URL" value={creds.url} secret />
               </>
             ) : (
               <div className="flex items-center justify-between gap-3 py-1.5">
@@ -235,8 +235,8 @@ export function DatabaseTab({ project }: { project: Project }) {
               />
               {d.hostPort > 0 && (
                 <dl>
-                  <Row label="Host" value={externalHost} />
-                  <Row label="Port" value={String(d.hostPort)} />
+                  <CopyRow label="Host" value={externalHost} />
+                  <CopyRow label="Port" value={String(d.hostPort)} />
                 </dl>
               )}
             </div>
@@ -271,8 +271,8 @@ export function DatabaseTab({ project }: { project: Project }) {
                 </Button>
               </div>
               <dl className="text-sm">
-                <Row label="Image" value={d.image} />
-                <Row label="Volume" value={d.volumeName} />
+                <CopyRow label="Image" value={d.image} />
+                <CopyRow label="Volume" value={d.volumeName} />
               </dl>
               <Button variant="ghost" size="sm" className="text-red-600 dark:text-red-400" icon={<Trash2 className="size-3.5" />} onClick={() => setRemoveOpen(true)}>
                 Remove database and data

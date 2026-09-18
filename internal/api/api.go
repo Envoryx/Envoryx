@@ -37,6 +37,8 @@ type Deps struct {
 	Proxy    *ProxyInfo
 	// MCP is the MCP endpoint handler (nil = disabled); mounted at /mcp by the server.
 	MCP http.Handler
+	// SSH describes the embedded SSH server (nil = disabled).
+	SSH *SSHInfo
 	Log *slog.Logger
 	// StartedAt is used for uptime reporting.
 	StartedAt time.Time
@@ -58,6 +60,14 @@ type ProxyInfo struct {
 	Address string
 	// Invalidate refreshes the routing table after changes.
 	Invalidate func()
+}
+
+// SSHInfo describes the embedded SSH server for the UI.
+type SSHInfo struct {
+	Enabled bool `json:"enabled"`
+	// Port is the host-side port (0 = not published).
+	Port        int    `json:"port"`
+	Fingerprint string `json:"fingerprint"`
 }
 
 // API holds handlers.

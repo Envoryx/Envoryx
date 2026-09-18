@@ -614,6 +614,12 @@ func (m *Manager) PlanFor(ctx context.Context, id string) (Preview, error) {
 // ---------------------------------------------------------------------------
 
 func writePlanFiles(plan Plan) error {
+	for _, d := range plan.Dirs {
+		if err := os.MkdirAll(d.Path, 0o755); err != nil {
+			return fmt.Errorf("create directory %s: %w", d.Path, err)
+		}
+		_ = os.Chown(d.Path, d.UID, d.GID)
+	}
 	for _, f := range plan.Files {
 		if err := os.MkdirAll(filepath.Dir(f.Path), 0o755); err != nil {
 			return fmt.Errorf("create config directory: %w", err)

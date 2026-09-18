@@ -478,13 +478,22 @@ export interface NotifyInfo {
 export interface UpdateSettingsRequest {
   publicHost?: string;
   xdebugClientHost?: string;
+  sshAuthorizedKeys?: string;
   baseDomain?: string;
   forceHttps?: boolean;
+}
+
+export interface SSHInfo {
+  enabled: boolean;
+  port: number;
+  fingerprint: string;
 }
 
 export interface Settings {
   publicHost: string;
   xdebugClientHost?: string;
+  sshAuthorizedKeys?: string;
+  ssh?: SSHInfo;
   baseDomain: string;
   forceHttps: boolean;
   proxy: ProxyInfo;

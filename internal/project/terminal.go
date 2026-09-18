@@ -45,7 +45,7 @@ func (m *Manager) OpenTerminal(ctx context.Context, id string, kind store.Servic
 		opts.WorkingDir = appMountTarget
 		opts.User = fmt.Sprintf("%d:%d", paths.PUID, paths.PGID)
 		// The uid usually has no passwd entry in the image; give tools writable caches.
-		opts.Env = append(opts.Env, "HOME=/tmp", "COMPOSER_HOME=/tmp/composer", "npm_config_cache=/tmp/npm", "PS1=\\w $ ")
+		opts.Env = append(append(opts.Env, toolEnv...), "PS1=\\w $ ")
 	default:
 		opts.WorkingDir = "/"
 	}

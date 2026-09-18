@@ -684,7 +684,7 @@ func (e *MobyEngine) ExecStream(ctx context.Context, id string, opts ExecStreamO
 		return -1, err
 	}
 	created, err := e.cli.ExecCreate(ctx, id, client.ExecCreateOptions{
-		Cmd: opts.Cmd, Env: opts.Env, User: opts.User,
+		Cmd: opts.Cmd, Env: opts.Env, User: opts.User, WorkingDir: opts.WorkingDir,
 		AttachStdin: opts.Stdin != nil, AttachStdout: true, AttachStderr: true,
 	})
 	if err != nil {

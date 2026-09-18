@@ -524,6 +524,21 @@ inbox on an allocated host port, `MAIL_*`/`MAILER_DSN` injected) are
 auxiliary services with a small `{hostPort}` config; env changes recreate the
 application containers while stateful services keep running.
 
+### SSH (`internal/sshd`)
+`golang.org/x/crypto/ssh` server with an Ed25519 host key. Auth resolves the
+user name through `Manager.ResolveSSHUser` (`<slug>` → PHP, `<slug>.node` →
+Node) and validates either an API token (password) or an authorized key
+from the settings. Session channels map `pty-req/shell/exec` to
+`Engine.OpenTerminal` (PTY) or `Engine.ExecStream` (pipes, now with
+`WorkingDir`) in the target container as PUID:PGID, `subsystem sftp` to a
+`pkg/sftp` request server over `projectFS`, which serves `/var/www/html`
+and `/home/staqio` from the Staqio-side directories of the same bind mounts
+and chowns created files. `/home/staqio` is a new persistent per-project
+home (`/config/projects/<id>/home`) mounted into php/node/worker containers;
+tool caches and IDE helpers live there. Container specs now carry a
+`staqio.spec` fingerprint label (command, mounts, ports, …) so `ensurePlan`
+recreates containers whose structure changed (e.g. the new home mount).
+
 ### Workers
 `project_workers` (migration 0005: name, preset, args, enabled) hold
 long-running processes. Presets are a closed catalogue in `workers.go`

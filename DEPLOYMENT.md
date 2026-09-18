@@ -65,6 +65,7 @@ docker build -t ghcr.io/seramos/staqio:dev --build-arg VERSION=dev .
 | `STAQIO_PUBLIC_HOST` | browser address | Host/IP used for project links (see below); also editable in Settings |
 | `STAQIO_PROXY_HTTP` | `:80` | Listen address of the embedded proxy inside the container; empty disables it |
 | `STAQIO_PROXY_HTTPS` | `:443` | HTTPS listener of the proxy (local CA); empty disables HTTPS |
+| `STAQIO_SSH` | `:2222` | Embedded SSH server for IDE remote interpreters; empty disables it |
 | `STAQIO_ADMIN_USER` / `STAQIO_ADMIN_PASSWORD` | – | Create the first admin non-interactively |
 | `STAQIO_SESSION_IDLE_TIMEOUT` | `12h` | Sliding session expiry |
 | `STAQIO_SESSION_ABSOLUTE_TIMEOUT` | `168h` | Hard session expiry |
@@ -131,6 +132,7 @@ No publication in Community Applications is required for either way.
 | Network type | bridge |
 | Port | `8787` → `8787` |
 | Port | `80` → `80` and `443` → `443` (proxy; optional, other host ports work) |
+| Port | `2222` → `2222` (SSH for IDEs; optional) |
 | Path `/config` | `/mnt/user/appdata/staqio` |
 | Path `/projects` | `/mnt/user/development` (create the share first) |
 | Path `/var/run/docker.sock` | `/var/run/docker.sock` |
@@ -323,6 +325,27 @@ automatically (Docker `unless-stopped`) and follows start/stop/restart of
 the project. `queue:work` stops after an hour (`--max-time`) so code changes
 are picked up on the automatic restart; use `queue:listen` for instant
 reloads. Logs are in the Logs tab; up to 10 workers per project.
+
+## IDE integration (PhpStorm, VS Code)
+
+Every project has an **IDE** tab with all values ready to copy.
+
+**Remote interpreter over SSH.** Staqio runs an SSH server on port 2222
+(publish it, or use the container's own IP on `br0`). User name = project
+slug (`shop`, or `shop.node` for the Node container), password = an API
+token from Settings → API tokens, or a public key stored under Settings →
+SSH access. Each session is a `docker exec` into the project's container as
+the project owner – there is no shell on the host. SFTP exposes
+`/var/www/html` (the project) and `/home/staqio` (a persistent home for
+tool caches and IDE helpers). PhpStorm: *Settings → PHP → CLI Interpreter →
+… → From Docker, Vagrant, VM, WSL, Remote… → SSH*; PHP path
+`/usr/local/bin/php`, helpers path `/home/staqio/.phpstorm_helpers`, path
+mapping *project folder* → `/var/www/html`. Afterwards PHPUnit/Pest,
+Composer and Artisan run inside the container from the IDE. VS Code:
+Remote-SSH works the same way (`ssh -p 2222 shop@<host>`).
+
+The project must be running for sessions to open. Commands are logged to
+the audit log (`ssh.exec`), failed logins are rate limited per IP.
 
 ## Xdebug
 

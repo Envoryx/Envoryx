@@ -16,7 +16,10 @@ const (
 	LabelProjectID   = "staqio.project.id"
 	LabelProjectName = "staqio.project.name"
 	LabelService     = "staqio.service"
-	LabelVersion     = "staqio.version"
+	// LabelSpec is a fingerprint of the structural container spec (command, mounts, ports);
+	// a mismatch tells Staqio to recreate the container.
+	LabelSpec    = "staqio.spec"
+	LabelVersion = "staqio.version"
 )
 
 // ErrNotManaged is returned when an operation targets a resource without the managed label.
@@ -191,12 +194,13 @@ type Terminal interface {
 
 // ExecStreamOptions configure a streamed exec.
 type ExecStreamOptions struct {
-	Cmd    []string
-	Env    []string
-	User   string
-	Stdin  io.Reader
-	Stdout io.Writer
-	Stderr io.Writer
+	Cmd        []string
+	Env        []string
+	User       string
+	WorkingDir string
+	Stdin      io.Reader
+	Stdout     io.Writer
+	Stderr     io.Writer
 }
 
 // ExecResult is the outcome of a non-interactive command run inside a container.

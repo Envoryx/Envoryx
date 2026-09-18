@@ -321,9 +321,11 @@ func (m *Manager) ensurePlan(ctx context.Context, proj store.Project, plan Plan,
 			if err != nil {
 				return fmt.Errorf("inspect image %s: %w", c.Spec.Image, err)
 			}
-			if cur.Image != c.Spec.Image || (cur.ImageID != "" && cur.ImageID != localID) {
-				// Runtime version changed or the image tag was rebuilt upstream: recreate.
-				m.log.Info("recreating container with updated image", "container", cur.Name, "from", cur.Image, "to", c.Spec.Image)
+			specChanged := cur.Labels[docker.LabelSpec] != c.Spec.Labels[docker.LabelSpec]
+			if cur.Image != c.Spec.Image || (cur.ImageID != "" && cur.ImageID != localID) || specChanged {
+				// Runtime version changed, the image tag was rebuilt upstream, or the
+				// container's command/mounts/ports differ from the plan: recreate.
+				m.log.Info("recreating container", "container", cur.Name, "from", cur.Image, "to", c.Spec.Image, "spec_changed", specChanged)
 				if err := m.engine.RemoveContainer(ctx, cur.ID); err != nil {
 					return fmt.Errorf("remove outdated container %s: %w", cur.Name, err)
 				}

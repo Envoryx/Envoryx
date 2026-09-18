@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"sort"
@@ -15,7 +16,10 @@ import (
 	"github.com/seramos/staqio/internal/docker"
 	"github.com/seramos/staqio/internal/project"
 	"github.com/seramos/staqio/internal/runtime"
+	"github.com/seramos/staqio/internal/sshd"
 	"github.com/seramos/staqio/internal/validate"
+
+	"golang.org/x/crypto/ssh"
 )
 
 func (a *API) health(w http.ResponseWriter, r *http.Request) {
@@ -217,6 +221,8 @@ type updateSettingsRequest struct {
 	ForceHTTPS *bool   `json:"forceHttps"`
 	// XdebugClientHost is the developer machine Xdebug connects back to.
 	XdebugClientHost *string `json:"xdebugClientHost"`
+	// SSHAuthorizedKeys replaces the public keys accepted by the SSH server.
+	SSHAuthorizedKeys *string `json:"sshAuthorizedKeys"`
 }
 
 func (a *API) updateSettings(w http.ResponseWriter, r *http.Request) {
@@ -244,6 +250,17 @@ func (a *API) updateSettings(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		a.invalidateProxy()
+	}
+	if req.SSHAuthorizedKeys != nil {
+		if err := validateAuthorizedKeys(*req.SSHAuthorizedKeys); err != nil {
+			writeError(w, r, newError(http.StatusUnprocessableEntity, "validation_failed", err.Error()))
+			return
+		}
+		if err := a.d.Store.Settings.Set(r.Context(), sshd.SettingAuthorizedKeys, strings.TrimSpace(*req.SSHAuthorizedKeys)); err != nil {
+			writeError(w, r, err)
+			return
+		}
+		changes["sshAuthorizedKeys"] = strings.Count(strings.TrimSpace(*req.SSHAuthorizedKeys), "\n") + 1
 	}
 	if req.XdebugClientHost != nil {
 		if err := a.d.Projects.SetXdebugClientHost(r.Context(), *req.XdebugClientHost); err != nil {
@@ -286,22 +303,24 @@ func (a *API) settings(w http.ResponseWriter, r *http.Request) {
 	c := a.d.Config
 	schema, _ := db.SchemaVersion(r.Context(), a.d.Store.DB())
 	writeJSON(w, http.StatusOK, map[string]any{
-		"publicHost":       a.publicHost(r.Context()),
-		"baseDomain":       a.d.Projects.BaseDomain(r.Context()),
-		"forceHttps":       a.d.Projects.ForceHTTPS(r.Context()),
-		"xdebugClientHost": a.d.Projects.XdebugClientHost(r.Context()),
-		"proxy":            a.proxyDTO(),
-		"version":          a.d.Version,
-		"schemaVersion":    schema,
-		"configDir":        c.ConfigDir,
-		"projectsDir":      c.ProjectsDir,
-		"hostPath":         a.d.HostPath.Status(),
-		"portRange":        map[string]int{"start": c.PortRangeStart, "end": c.PortRangeEnd},
-		"puid":             c.PUID,
-		"pgid":             c.PGID,
-		"dockerHost":       c.DockerHost,
-		"session":          map[string]string{"idleTimeout": c.SessionIdleTimeout.String(), "absoluteTimeout": c.SessionAbsoluteTimeout.String()},
-		"secureCookies":    c.SecureCookies,
+		"publicHost":        a.publicHost(r.Context()),
+		"baseDomain":        a.d.Projects.BaseDomain(r.Context()),
+		"forceHttps":        a.d.Projects.ForceHTTPS(r.Context()),
+		"xdebugClientHost":  a.d.Projects.XdebugClientHost(r.Context()),
+		"sshAuthorizedKeys": a.setting(r.Context(), sshd.SettingAuthorizedKeys),
+		"ssh":               a.sshDTO(),
+		"proxy":             a.proxyDTO(),
+		"version":           a.d.Version,
+		"schemaVersion":     schema,
+		"configDir":         c.ConfigDir,
+		"projectsDir":       c.ProjectsDir,
+		"hostPath":          a.d.HostPath.Status(),
+		"portRange":         map[string]int{"start": c.PortRangeStart, "end": c.PortRangeEnd},
+		"puid":              c.PUID,
+		"pgid":              c.PGID,
+		"dockerHost":        c.DockerHost,
+		"session":           map[string]string{"idleTimeout": c.SessionIdleTimeout.String(), "absoluteTimeout": c.SessionAbsoluteTimeout.String()},
+		"secureCookies":     c.SecureCookies,
 	})
 }
 
@@ -336,4 +355,33 @@ func (a *API) reconcileReport(w http.ResponseWriter, r *http.Request) {
 func (a *API) reconcileNow(w http.ResponseWriter, r *http.Request) {
 	report := a.d.Projects.Reconcile(r.Context())
 	writeJSON(w, http.StatusOK, map[string]any{"report": report})
+}
+
+func (a *API) setting(ctx context.Context, key string) string {
+	v, _ := a.d.Store.Settings.Get(ctx, key)
+	return v
+}
+
+func (a *API) sshDTO() SSHInfo {
+	if a.d.SSH == nil {
+		return SSHInfo{}
+	}
+	return *a.d.SSH
+}
+
+// validateAuthorizedKeys checks every non-empty, non-comment line parses as a public key.
+func validateAuthorizedKeys(text string) error {
+	if len(text) > 64<<10 {
+		return errors.New("too many keys")
+	}
+	for i, line := range strings.Split(text, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		if _, _, _, _, err := ssh.ParseAuthorizedKey([]byte(line)); err != nil {
+			return fmt.Errorf("line %d is not a valid public key", i+1)
+		}
+	}
+	return nil
 }

@@ -63,6 +63,8 @@ type Config struct {
 	// the container (":80" / ":443"). Empty disables the respective listener.
 	ProxyHTTP  string
 	ProxyHTTPS string
+	// SSHListen is the embedded SSH server address (":2222"); empty disables it.
+	SSHListen string
 
 	// PublicHost is the host name or IP the browser should use for project links (ports are
 	// published on the Docker host, which may differ from the address Staqio is reached at,
@@ -94,6 +96,7 @@ func Load() (Config, error) {
 		PublicHost:             env("STAQIO_PUBLIC_HOST", ""),
 		ProxyHTTP:              envAllowEmpty("STAQIO_PROXY_HTTP", ":80"),
 		ProxyHTTPS:             envAllowEmpty("STAQIO_PROXY_HTTPS", ":443"),
+		SSHListen:              envAllowEmpty("STAQIO_SSH", ":2222"),
 		AdminUser:              env("STAQIO_ADMIN_USER", ""),
 		AdminPassword:          env("STAQIO_ADMIN_PASSWORD", ""),
 		LogLevel:               strings.ToLower(env("STAQIO_LOG_LEVEL", "info")),

@@ -41,7 +41,7 @@ ENV STAQIO_LISTEN=:8787 \
     PGID=100
 
 VOLUME ["/config", "/projects"]
-EXPOSE 8787 80 443
+EXPOSE 8787 80 443 2222
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD ["staqio", "healthcheck"]

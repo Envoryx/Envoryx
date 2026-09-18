@@ -1,6 +1,8 @@
 package project
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"path"
@@ -66,6 +68,34 @@ type Plan struct {
 	Files       []FilePlan
 	Images      []string
 	ConfigDir   string // per-project config dir inside the Staqio container
+	// Dirs are directories created (owned by PUID:PGID) before containers start.
+	Dirs []DirPlan
+}
+
+// DirPlan is a directory Staqio creates for a project (e.g. the tool home).
+type DirPlan struct {
+	Path     string
+	UID, GID int
+}
+
+const (
+	// homeMountTarget is the writable home of the project user inside php/node/worker
+	// containers: tool caches (composer, npm) and IDE helpers persist there.
+	homeMountTarget = "/home/staqio"
+	homeDirName     = "home"
+)
+
+// toolEnv are the variables that point tools at the persistent home.
+var toolEnv = []string{"HOME=" + homeMountTarget, "COMPOSER_HOME=" + homeMountTarget + "/.composer", "npm_config_cache=" + homeMountTarget + "/.npm", "COMPOSER_NO_INTERACTION=1"}
+
+// HomeMount is the bind mount of the project home for application containers.
+func (p *Planner) HomeMount(proj store.Project) docker.MountSpec {
+	return docker.MountSpec{Type: "bind", Source: filepath.Join(p.configHostDir(proj.ID), homeDirName), Target: homeMountTarget}
+}
+
+// HomeDir is the project home on the Staqio side (SFTP root for /home/staqio).
+func (p *Planner) HomeDir(proj store.Project) string {
+	return filepath.Join(p.ProjectConfigDir(proj.ID), homeDirName)
 }
 
 // Planner turns a project's desired state into a Plan.
@@ -119,6 +149,7 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 	}
 	appHost := p.projectHostDir(proj)
 	cfgHost := p.configHostDir(proj.ID)
+	plan.Dirs = append(plan.Dirs, DirPlan{Path: p.HomeDir(proj), UID: p.paths.PUID, GID: p.paths.PGID})
 	env, err := envStrings(proj)
 	if err != nil {
 		return Plan{}, err
@@ -158,6 +189,7 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 						{Type: "bind", Source: appHost, Target: appMountTarget},
 						{Type: "bind", Source: filepath.Join(cfgHost, "php", "zz-staqio.ini"), Target: phpIniTarget, ReadOnly: true},
 						{Type: "bind", Source: filepath.Join(cfgHost, "php", "zz-staqio.conf"), Target: phpPoolTarget, ReadOnly: true},
+						p.HomeMount(proj),
 					},
 					RestartPolicy: "unless-stopped",
 					StopTimeout:   stopTimeoutSec,
@@ -204,12 +236,12 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 				Labels: labels,
 				// Tooling container: idles until actions or the terminal run commands.
 				Cmd:           []string{"sleep", "infinity"},
-				Env:           append(append([]string{}, env...), "HOME=/tmp", "npm_config_cache=/tmp/npm", "NODE_ENV=development"),
+				Env:           append(append(append([]string{}, env...), toolEnv...), "NODE_ENV=development"),
 				User:          fmt.Sprintf("%d:%d", p.paths.PUID, p.paths.PGID),
 				WorkingDir:    appMountTarget,
 				Network:       plan.NetworkName,
 				NetworkAlias:  []string{"node"},
-				Mounts:        []docker.MountSpec{{Type: "bind", Source: appHost, Target: appMountTarget}},
+				Mounts:        []docker.MountSpec{{Type: "bind", Source: appHost, Target: appMountTarget}, p.HomeMount(proj)},
 				RestartPolicy: "unless-stopped",
 				StopTimeout:   5,
 			}
@@ -349,6 +381,11 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 		}
 	}
 
+	// Fingerprint the structural part of every spec so ensurePlan can recreate containers
+	// whose command, mounts or ports changed (env is handled explicitly by callers).
+	for i := range plan.Containers {
+		plan.Containers[i].Spec.Labels[docker.LabelSpec] = specFingerprint(plan.Containers[i].Spec)
+	}
 	sort.SliceStable(plan.Containers, func(i, j int) bool { return plan.Containers[i].Order < plan.Containers[j].Order })
 	for img := range images {
 		plan.Images = append(plan.Images, img)
@@ -457,4 +494,13 @@ func envStrings(proj store.Project) ([]string, error) {
 		out = append(out, k+"="+vars[k])
 	}
 	return out, nil
+}
+
+// specFingerprint hashes the parts of a spec that are baked into a container and are not
+// secrets: command, working dir, user, mounts, ports, aliases and healthcheck.
+func specFingerprint(spec docker.ContainerSpec) string {
+	h := sha256.New()
+	enc := json.NewEncoder(h)
+	_ = enc.Encode(map[string]any{"cmd": spec.Cmd, "wd": spec.WorkingDir, "user": spec.User, "mounts": spec.Mounts, "ports": spec.Ports, "alias": spec.NetworkAlias, "health": spec.Healthcheck, "restart": spec.RestartPolicy})
+	return hex.EncodeToString(h.Sum(nil))[:16]
 }

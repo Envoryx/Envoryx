@@ -14,6 +14,7 @@ import { EnvEditor } from "./EnvEditor";
 import { GitTab } from "./GitTab";
 import { DomainsTab } from "./DomainsTab";
 import { WorkersTab } from "./WorkersTab";
+import { IdeTab } from "./IdeTab";
 import { ServicesTab } from "./ServicesTab";
 import { BackupsTab } from "./BackupsTab";
 import { LogsTab } from "./LogsTab";
@@ -22,7 +23,7 @@ const TerminalTab = lazy(() => import("./TerminalTab").then((m) => ({ default: m
 const ActionsTab = lazy(() => import("./ActionsTab").then((m) => ({ default: m.ActionsTab })));
 import { PhpConfigForm } from "./PhpConfigForm";
 
-const tabs = ["Overview", "Domains", "Git", "Actions", "Terminal", "Logs", "Runtime", "Workers", "Database", "Services", "Backups", "Environment", "Advanced"] as const;
+const tabs = ["Overview", "Domains", "Git", "Actions", "Terminal", "Logs", "Runtime", "Workers", "Database", "Services", "Backups", "Environment", "IDE", "Advanced"] as const;
 type Tab = (typeof tabs)[number];
 
 export function ProjectDetailPage() {
@@ -144,6 +145,7 @@ export function ProjectDetailPage() {
       {tab === "Services" && <ServicesTab project={p} />}
       {tab === "Backups" && <BackupsTab project={p} />}
       {tab === "Environment" && <EnvTab project={p} />}
+      {tab === "IDE" && <IdeTab project={p} />}
       {tab === "Advanced" && <AdvancedTab project={p} />}
 
       <DeleteProjectDialog project={p} open={deleting} onClose={() => setDeleting(false)} />
