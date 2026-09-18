@@ -31,6 +31,9 @@ import type {
   UpdateSettingsRequest,
   Usage,
   User,
+  Worker,
+  WorkerPreset,
+  WorkerRequest,
 } from "./types";
 
 export class ApiError extends Error {
@@ -158,6 +161,13 @@ export const api = {
       request<{ project: Project }>(`/projects/${encodeURIComponent(id)}`, { method: "PATCH", body }),
     remove: (id: string, confirm: string, deleteFiles: boolean) =>
       request<void>(`/projects/${encodeURIComponent(id)}`, { method: "DELETE", body: { confirm, deleteFiles } }),
+    workers: {
+      list: (id: string) => request<{ workers: Worker[]; presets: WorkerPreset[] }>(`/projects/${encodeURIComponent(id)}/workers`),
+      add: (id: string, body: WorkerRequest) => request<{ worker: Worker }>(`/projects/${encodeURIComponent(id)}/workers`, { method: "POST", body }),
+      update: (id: string, workerId: string, body: WorkerRequest) =>
+        request<{ worker: Worker }>(`/projects/${encodeURIComponent(id)}/workers/${encodeURIComponent(workerId)}`, { method: "PUT", body }),
+      remove: (id: string, workerId: string) => request<void>(`/projects/${encodeURIComponent(id)}/workers/${encodeURIComponent(workerId)}`, { method: "DELETE" }),
+    },
     domains: {
       list: (id: string) => request<{ domains: DomainEntry[]; proxy: ProxyInfo }>(`/projects/${encodeURIComponent(id)}/domains`),
       add: (id: string, hostname: string) => request<{ domain: DomainEntry }>(`/projects/${encodeURIComponent(id)}/domains`, { method: "POST", body: { hostname } }),

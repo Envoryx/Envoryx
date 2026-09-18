@@ -108,7 +108,10 @@ function formatTime(iso: string): string {
 }
 
 export function LogsTab({ project }: { project: Project }) {
-  const services = project.services.filter((s) => s.enabled);
+  const services = [
+    ...project.services.filter((s) => s.enabled).map((s) => ({ kind: s.kind, label: serviceLabel(s.kind, s.version, s.variant) })),
+    ...project.status.services.filter((s) => s.kind === "worker" && s.workerId).map((s) => ({ kind: `worker:${s.workerId}`, label: `Worker ${s.variant}` })),
+  ];
   const [kind, setKind] = useState<string | null>(services[0]?.kind ?? null);
   const [paused, setPaused] = useState(false);
   const [query, setQuery] = useState("");
@@ -164,7 +167,7 @@ export function LogsTab({ project }: { project: Project }) {
               onClick={() => setKind(s.kind)}
               className={clsx("rounded-md px-2.5 py-1.5 text-xs font-medium", kind === s.kind ? "bg-accent-500/10 text-accent-600 dark:text-accent-300" : "text-muted hover:bg-muted hover:text-fg")}
             >
-              {serviceLabel(s.kind, s.version, s.variant)}
+              {s.label}
             </button>
           ))}
         </div>

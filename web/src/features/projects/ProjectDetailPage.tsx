@@ -13,6 +13,7 @@ import { DatabaseTab } from "./DatabaseTab";
 import { EnvEditor } from "./EnvEditor";
 import { GitTab } from "./GitTab";
 import { DomainsTab } from "./DomainsTab";
+import { WorkersTab } from "./WorkersTab";
 import { ServicesTab } from "./ServicesTab";
 import { BackupsTab } from "./BackupsTab";
 import { LogsTab } from "./LogsTab";
@@ -21,7 +22,7 @@ const TerminalTab = lazy(() => import("./TerminalTab").then((m) => ({ default: m
 const ActionsTab = lazy(() => import("./ActionsTab").then((m) => ({ default: m.ActionsTab })));
 import { PhpConfigForm } from "./PhpConfigForm";
 
-const tabs = ["Overview", "Domains", "Git", "Actions", "Terminal", "Logs", "Runtime", "Database", "Services", "Backups", "Environment", "Advanced"] as const;
+const tabs = ["Overview", "Domains", "Git", "Actions", "Terminal", "Logs", "Runtime", "Workers", "Database", "Services", "Backups", "Environment", "Advanced"] as const;
 type Tab = (typeof tabs)[number];
 
 export function ProjectDetailPage() {
@@ -138,6 +139,7 @@ export function ProjectDetailPage() {
           <NodeCard project={p} />
         </div>
       )}
+      {tab === "Workers" && <WorkersTab project={p} />}
       {tab === "Database" && <DatabaseTab project={p} />}
       {tab === "Services" && <ServicesTab project={p} />}
       {tab === "Backups" && <BackupsTab project={p} />}

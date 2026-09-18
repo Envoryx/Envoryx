@@ -216,7 +216,15 @@ func (r *Projects) loadChildren(ctx context.Context, p *Project) error {
 		e.CreatedAt = parseTime(created)
 		p.Env = append(p.Env, e)
 	}
-	return rows.Err()
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	workers, err := (&Workers{db: r.db}).ListByProject(ctx, p.ID)
+	if err != nil {
+		return err
+	}
+	p.Workers = workers
+	return nil
 }
 
 // UpdateState sets desired state, lifecycle and last error.

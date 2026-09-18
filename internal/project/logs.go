@@ -3,6 +3,7 @@ package project
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/seramos/staqio/internal/docker"
 	"github.com/seramos/staqio/internal/store"
@@ -20,8 +21,15 @@ func (m *Manager) ServiceContainer(ctx context.Context, id string, kind store.Se
 	if err != nil {
 		return docker.Container{}, err
 	}
-	svc := p.Service(kind)
-	if svc == nil || !svc.Enabled {
+	if wid, ok := strings.CutPrefix(string(kind), "worker:"); ok {
+		found := false
+		for _, w := range p.Workers {
+			found = found || (w.ID == wid && w.Enabled)
+		}
+		if !found {
+			return docker.Container{}, fmt.Errorf("%w: project has no such worker", store.ErrNotFound)
+		}
+	} else if svc := p.Service(kind); svc == nil || !svc.Enabled {
 		return docker.Container{}, fmt.Errorf("%w: project has no %s service", store.ErrNotFound, kind)
 	}
 	containers, err := m.engine.ListContainers(ctx, true, p.ID)

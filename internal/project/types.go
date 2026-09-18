@@ -197,7 +197,9 @@ type ServiceStatus struct {
 	State         string            `json:"state"`
 	Status        string            `json:"status,omitempty"`
 	Health        string            `json:"health,omitempty"`
-	Ports         []docker.PortMapping
+	// WorkerID is set for worker containers (Kind "worker", Variant = worker name).
+	WorkerID string `json:"workerId,omitempty"`
+	Ports    []docker.PortMapping
 }
 
 // Status is the derived state of a project.

@@ -21,6 +21,7 @@ export interface PortMapping {
 }
 
 export interface ServiceStatus {
+  workerId?: string;
   kind: string;
   variant: string;
   version: string;
@@ -542,6 +543,33 @@ export interface BackupMeta {
   database?: { type: string; version: string; name: string; bytes: number };
   files?: { bytes: number; entries: number; includeDependencies: boolean };
   runtimes: Record<string, string>;
+}
+
+export interface Worker {
+  id: string;
+  name: string;
+  preset: string;
+  arg: string;
+  enabled: boolean;
+  command: string[];
+  createdAt: string;
+}
+
+export interface WorkerPreset {
+  id: string;
+  group: string;
+  label: string;
+  description: string;
+  argLabel?: string;
+  argHint?: string;
+  requires?: string[];
+}
+
+export interface WorkerRequest {
+  name: string;
+  preset: string;
+  arg: string;
+  enabled: boolean;
 }
 
 export interface BackupSchedule {

@@ -75,6 +75,7 @@ type Project struct {
 
 	Services []ProjectService
 	Env      []EnvVar
+	Workers  []Worker
 }
 
 // BackupSchedule configures automatic backups of a project.

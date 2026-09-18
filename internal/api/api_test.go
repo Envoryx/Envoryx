@@ -802,6 +802,56 @@ func TestBackupScheduleEndpoint(t *testing.T) {
 	}
 }
 
+func TestWorkerEndpoints(t *testing.T) {
+	a := newApp(t)
+	a.setupAndLogin()
+	r := a.do(http.MethodPost, "/api/v1/projects", map[string]any{"name": "Work", "start": true, "php": map[string]any{"version": "8.4"}}, true)
+	if r.status != http.StatusCreated {
+		t.Fatalf("create: %d %s", r.status, r.raw)
+	}
+	id := r.body["project"].(map[string]any)["id"].(string)
+	r = a.do(http.MethodGet, "/api/v1/projects/"+id+"/workers", nil, false)
+	if r.status != http.StatusOK || len(r.body["workers"].([]any)) != 0 || len(r.body["presets"].([]any)) == 0 {
+		t.Fatalf("list: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodPost, "/api/v1/projects/"+id+"/workers", map[string]any{"name": "queue", "preset": "laravel:queue", "arg": "bad arg", "enabled": true}, true)
+	if r.status != http.StatusUnprocessableEntity {
+		t.Fatalf("invalid arg: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodPost, "/api/v1/projects/"+id+"/workers", map[string]any{"name": "queue", "preset": "laravel:queue", "enabled": true}, true)
+	if r.status != http.StatusCreated {
+		t.Fatalf("add: %d %s", r.status, r.raw)
+	}
+	wk := r.body["worker"].(map[string]any)
+	wid := wk["id"].(string)
+	if cmd := wk["command"].([]any); cmd[2] != "queue:work" {
+		t.Fatalf("command: %v", cmd)
+	}
+	r = a.do(http.MethodGet, "/api/v1/projects/"+id, nil, false)
+	var sawWorker bool
+	for _, s := range r.body["project"].(map[string]any)["status"].(map[string]any)["services"].([]any) {
+		if s.(map[string]any)["kind"] == "worker" && s.(map[string]any)["running"] == true {
+			sawWorker = true
+		}
+	}
+	if !sawWorker {
+		t.Fatalf("status must list the worker: %s", r.raw)
+	}
+	a.engine.Logs["staqio-work-worker-queue"] = []docker.LogLine{{Time: time.Now(), Stream: "stdout", Text: "Processing job"}}
+	r = a.do(http.MethodGet, "/api/v1/projects/"+id+"/services/worker:"+wid+"/logs?tail=10", nil, false)
+	if r.status != http.StatusOK || !strings.Contains(string(r.raw), "Processing job") {
+		t.Fatalf("worker logs: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodPut, "/api/v1/projects/"+id+"/workers/"+wid, map[string]any{"name": "queue", "preset": "laravel:queue", "arg": "high", "enabled": false}, true)
+	if r.status != http.StatusOK || r.body["worker"].(map[string]any)["enabled"] != false {
+		t.Fatalf("update: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodDelete, "/api/v1/projects/"+id+"/workers/"+wid, nil, true)
+	if r.status != http.StatusNoContent {
+		t.Fatalf("delete: %d %s", r.status, r.raw)
+	}
+}
+
 func TestPublicHostSetting(t *testing.T) {
 	a := newApp(t)
 	a.setupAndLogin()

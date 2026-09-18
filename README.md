@@ -49,6 +49,9 @@ Staqio is under active development. The current milestone (Phase 1 + 2) delivers
 - Git: clone in the wizard (HTTPS with access token or SSH with a Staqio
   deploy key), pull, branch switch, status – all inside short-lived containers
   as the project owner; the deploy key is never mounted into app containers
+- workers per project: Laravel scheduler / queue worker / Horizon / Reverb,
+  Symfony Messenger and Scheduler, PHP scripts, composer scripts – each in its
+  own auto-restarting container from the PHP image, with logs
 - project actions: composer install/update, artisan migrate/seed/cache,
   Symfony console, npm/pnpm/yarn – a fixed catalogue of argv commands with
   live output, shown only when the project has the matching files

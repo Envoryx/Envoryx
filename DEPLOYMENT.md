@@ -311,6 +311,19 @@ including `vendor/`/`node_modules/`. Failures raise a notification.
 For Staqio itself back up `/config` (SQLite database, generated configuration,
 deploy key, backups) and `/projects`.
 
+## Workers (queues, schedulers)
+
+Workers tab: add long-running processes from a preset list – Laravel
+`schedule:work`, `queue:work`/`queue:listen` (queue names), Horizon,
+Reverb, Symfony `messenger:consume` (transports) and Scheduler, a PHP script
+or a composer script. Every worker is its own container
+(`staqio-<project>-worker-<name>`) from the project's PHP image, runs as
+`PUID:PGID` with the same environment and php.ini as the web PHP, restarts
+automatically (Docker `unless-stopped`) and follows start/stop/restart of
+the project. `queue:work` stops after an hour (`--max-time`) so code changes
+are picked up on the automatic restart; use `queue:listen` for instant
+reloads. Logs are in the Logs tab; up to 10 workers per project.
+
 ## Xdebug
 
 Runtime tab → PHP → **Xdebug**: enables step debugging for that project

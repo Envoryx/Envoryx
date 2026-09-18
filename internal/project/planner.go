@@ -315,6 +315,40 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 		}
 	}
 
+	// Workers: one container per definition from the PHP image, sharing env, ini and mounts.
+	if php := proj.Service(store.ServicePHP); php != nil && php.Enabled {
+		for _, w := range proj.Workers {
+			if !w.Enabled {
+				continue
+			}
+			cmd, err := WorkerCommand(w)
+			if err != nil {
+				return Plan{}, err
+			}
+			plan.Containers = append(plan.Containers, ContainerPlan{
+				Kind:  WorkerKind(w),
+				Order: 30,
+				Spec: docker.ContainerSpec{
+					Name:         WorkerContainerName(proj.Slug, w),
+					Image:        php.Image,
+					Labels:       docker.ManagedLabels(proj.ID, proj.Slug, string(WorkerKind(w)), p.paths.StaqioVersion),
+					Cmd:          cmd,
+					Env:          append(append([]string{}, env...), "HOME=/tmp", "COMPOSER_HOME=/tmp/composer"),
+					User:         fmt.Sprintf("%d:%d", p.paths.PUID, p.paths.PGID),
+					WorkingDir:   appMountTarget,
+					Network:      plan.NetworkName,
+					NetworkAlias: []string{"worker-" + w.Name},
+					Mounts: []docker.MountSpec{
+						{Type: "bind", Source: appHost, Target: appMountTarget},
+						{Type: "bind", Source: filepath.Join(cfgHost, "php", "zz-staqio.ini"), Target: phpIniTarget, ReadOnly: true},
+					},
+					RestartPolicy: "unless-stopped",
+					StopTimeout:   30,
+				},
+			})
+		}
+	}
+
 	sort.SliceStable(plan.Containers, func(i, j int) bool { return plan.Containers[i].Order < plan.Containers[j].Order })
 	for img := range images {
 		plan.Images = append(plan.Images, img)

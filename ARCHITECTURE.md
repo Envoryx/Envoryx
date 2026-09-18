@@ -524,6 +524,17 @@ inbox on an allocated host port, `MAIL_*`/`MAILER_DSN` injected) are
 auxiliary services with a small `{hostPort}` config; env changes recreate the
 application containers while stateful services keep running.
 
+### Workers
+`project_workers` (migration 0005: name, preset, args, enabled) hold
+long-running processes. Presets are a closed catalogue in `workers.go`
+(argv builders; the single user argument is validated per preset – queue
+names, relative script paths, composer script names). The planner emits one
+container per enabled worker from the PHP image (`Kind` and service label
+`worker:<id>`, name `staqio-<slug>-worker-<name>`, order 30, project env +
+php.ini mount, PUID:PGID, `unless-stopped`), so `ensurePlan`, start/stop,
+env recreation and delete treat them like any other container. Status lists
+them as kind `worker` with `workerId`; logs/terminal accept `worker:<id>`.
+
 ### Notifications
 `internal/notify` is a small `Sender` (`Notify(ctx, Event)`, `Clear(key)`)
 with providers webhook/ntfy/Discord/Slack/Telegram/SMTP, per-kind cooldowns

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/coder/websocket"
@@ -20,6 +21,9 @@ func serviceKind(r *http.Request) (store.ServiceKind, error) {
 	case store.ServicePHP, store.ServiceWeb, store.ServiceDatabase, store.ServiceNode, store.ServiceRedis, store.ServiceMailpit:
 		return k, nil
 	default:
+		if wid, ok := strings.CutPrefix(string(k), "worker:"); ok && validate.UUID(wid) == nil {
+			return k, nil
+		}
 		return "", newError(http.StatusNotFound, "not_found", "unknown service")
 	}
 }
