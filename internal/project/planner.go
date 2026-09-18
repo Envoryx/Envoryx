@@ -389,6 +389,17 @@ func envStrings(proj store.Project) ([]string, error) {
 		for _, k := range []string{"DB_CONNECTION", "DB_HOST", "DB_PORT", "DB_DATABASE", "DB_USERNAME", "DB_PASSWORD", "DATABASE_URL"} {
 			set(k, dbEnv[k])
 		}
+		// Flavour-specific extras (e.g. MONGODB_URI) in a stable order.
+		extra := make([]string, 0, len(dbEnv))
+		for k := range dbEnv {
+			if _, std := map[string]bool{"DB_CONNECTION": true, "DB_HOST": true, "DB_PORT": true, "DB_DATABASE": true, "DB_USERNAME": true, "DB_PASSWORD": true, "DATABASE_URL": true}[k]; !std {
+				extra = append(extra, k)
+			}
+		}
+		sort.Strings(extra)
+		for _, k := range extra {
+			set(k, dbEnv[k])
+		}
 	}
 	if r := proj.Service(store.ServiceRedis); r != nil && r.Enabled {
 		env := runtime.RedisEnv()

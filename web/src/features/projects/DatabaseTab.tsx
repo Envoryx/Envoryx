@@ -246,7 +246,7 @@ export function DatabaseTab({ project }: { project: Project }) {
             <CardHeader title="Server" />
             <div className="space-y-4 p-5">
               <div className="flex items-end gap-2">
-                <Field label={`${({ mariadb: "MariaDB", mysql: "MySQL", postgresql: "PostgreSQL" } as Record<string, string>)[d.type] ?? d.type} version`} htmlFor="db-version" hint={d.type === "postgresql" ? "PostgreSQL cannot upgrade an existing data directory in place." : "Upgrades keep the data volume; downgrades are refused."}>
+                <Field label={`${({ mariadb: "MariaDB", mysql: "MySQL", postgresql: "PostgreSQL", mongodb: "MongoDB" } as Record<string, string>)[d.type] ?? d.type} version`} htmlFor="db-version" hint={d.type === "postgresql" ? "PostgreSQL cannot upgrade an existing data directory in place." : d.type === "mongodb" ? "MongoDB upgrades one major version at a time; back up first." : "Upgrades keep the data volume; downgrades are refused."}>
                   <Select id="db-version" value={currentVersion} onChange={(e) => setVersion(e.target.value)}>
                     {versions.map((v) => (
                       <option key={v.version} value={v.version}>

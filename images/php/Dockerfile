@@ -19,7 +19,7 @@ LABEL org.opencontainers.image.title="Staqio PHP ${PHP_VERSION}" \
       staqio.runtime.version="${PHP_VERSION}"
 
 # Extensions that can be toggled per project (keep in sync with internal/runtime/catalog.go).
-ENV STAQIO_PHP_EXTENSIONS="mysqli pdo_mysql pdo_pgsql gd intl zip bcmath opcache imagick"
+ENV STAQIO_PHP_EXTENSIONS="mysqli pdo_mysql pdo_pgsql mongodb gd intl zip bcmath opcache imagick"
 
 ADD --chmod=0755 https://github.com/mlocati/docker-php-extension-installer/releases/latest/download/install-php-extensions /usr/local/bin/
 

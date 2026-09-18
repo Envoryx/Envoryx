@@ -22,11 +22,11 @@ Staqio is under active development. The current milestone (Phase 1 + 2) delivers
 - project templates: Laravel, Symfony (skeleton + webapp), WordPress – scaffolded
   in a one-shot container as the project owner, wired to the project database
 - project wizard: name, directory, document root, PHP version, php.ini settings
-  and extensions (pdo_mysql, mysqli, pdo_pgsql, gd, intl, zip, bcmath, opcache,
-  imagick), Caddy web server, environment variables, plan preview
+  and extensions (pdo_mysql, mysqli, pdo_pgsql, mongodb, gd, intl, zip, bcmath,
+  opcache, imagick), Caddy web server, environment variables, plan preview
 - per-project Docker network, PHP-FPM container (Staqio image with Composer)
   and Caddy container
-- MariaDB, MySQL or PostgreSQL per project: persistent volume, generated
+- MariaDB, MySQL, PostgreSQL or MongoDB per project: persistent volume, generated
   credentials, connection variables injected into PHP, optional host port for
   desktop clients, password rotation, create/drop databases, in-place version
   upgrades where the server supports them

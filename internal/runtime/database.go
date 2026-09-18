@@ -82,7 +82,7 @@ func DBIdentifier(slug string) string {
 var dbNameRe = regexp.MustCompile(`^[a-z][a-z0-9_]{0,62}$`)
 
 // systemDatabases are never listed, created or dropped through Staqio.
-var systemDatabases = map[string]bool{"mysql": true, "information_schema": true, "performance_schema": true, "sys": true, "postgres": true, "template0": true, "template1": true}
+var systemDatabases = map[string]bool{"mysql": true, "information_schema": true, "performance_schema": true, "sys": true, "postgres": true, "template0": true, "template1": true, "admin": true, "config": true, "local": true}
 
 // ValidateDatabaseName checks a user supplied database name.
 func ValidateDatabaseName(name string) error {
@@ -123,7 +123,23 @@ type Dialect struct {
 	Dump func(cfg DatabaseConfig) (argv []string, env []string)
 	// Restore reads a dump from stdin into the primary database.
 	Restore func(cfg DatabaseConfig) (argv []string, env []string)
+	// URL builds the connection string injected as DATABASE_URL (nil = driver://user:pw@host:port/db).
+	URL func(cfg DatabaseConfig) string
+	// ExtraEnv adds flavour-specific variables (e.g. MONGODB_URI).
+	ExtraEnv func(cfg DatabaseConfig) map[string]string
+	// DumpFormat describes the backup payload ("sql" or "archive").
+	DumpFormat string
 }
+
+// mongoURI builds a connection string authenticating against the admin database.
+func mongoURI(c DatabaseConfig, host string, db string) string {
+	u := fmt.Sprintf("mongodb://%s:%s@%s:27017/%s?authSource=admin", c.Username, c.Password, host, db)
+	return u
+}
+
+// mongoClient is the argv prefix of an administrative mongosh call. The connection string
+// travels in the environment (read by the script), not in argv.
+const mongoClientPrelude = "const conn = Mongo(process.env.STAQIO_MONGO_URI); const admin = conn.getDB('admin'); "
 
 var dialects = map[string]Dialect{
 	"mariadb": {
@@ -201,6 +217,38 @@ var dialects = map[string]Dialect{
 	},
 }
 
+func init() {
+	dialects["mongodb"] = Dialect{
+		Variant: "mongodb", Port: 27017, DataDir: "/data/db", Driver: "mongodb", HasRoot: false, DumpFormat: "archive",
+		ContainerEnv: func(c DatabaseConfig) []string {
+			return []string{"MONGO_INITDB_ROOT_USERNAME=" + c.Username, "MONGO_INITDB_ROOT_PASSWORD=" + c.Password, "MONGO_INITDB_DATABASE=" + c.Database}
+		},
+		Health: []string{"mongosh", "--quiet", "--norc", "--eval", "db.adminCommand('ping').ok ? quit(0) : quit(1)"},
+		Client: func(c DatabaseConfig, js string) ([]string, []string) {
+			return []string{"mongosh", "--quiet", "--norc", "--nodb", "--eval", mongoClientPrelude + js}, []string{"STAQIO_MONGO_URI=" + mongoURI(c, "127.0.0.1", "admin")}
+		},
+		ListDatabases: "admin.adminCommand({listDatabases: 1}).databases.forEach(d => print(d.name))",
+		// MongoDB creates databases lazily; a first collection makes it visible.
+		CreateDatabase: func(n, _ string) string { return fmt.Sprintf("conn.getDB('%s').createCollection('staqio_init')", n) },
+		DropDatabase:   func(n string) string { return fmt.Sprintf("conn.getDB('%s').dropDatabase()", n) },
+		AlterPassword:  func(u, p string) string { return fmt.Sprintf("admin.changeUserPassword('%s', '%s')", u, p) },
+		// Major versions must be upgraded one step at a time (feature compatibility version).
+		MajorUpgradeInPlace: false,
+		// The database tools only accept credentials via --uri/--password; the URI is
+		// therefore visible in the container's process list for the duration of the dump.
+		Dump: func(c DatabaseConfig) ([]string, []string) {
+			return []string{"mongodump", "--quiet", "--archive", "--db", c.Database, "--uri", mongoURI(c, "127.0.0.1", "admin")}, nil
+		},
+		Restore: func(c DatabaseConfig) ([]string, []string) {
+			return []string{"mongorestore", "--quiet", "--archive", "--drop", "--nsInclude", c.Database + ".*", "--uri", mongoURI(c, "127.0.0.1", "admin")}, nil
+		},
+		URL: func(c DatabaseConfig) string { return mongoURI(c, "database", c.Database) },
+		ExtraEnv: func(c DatabaseConfig) map[string]string {
+			return map[string]string{"MONGODB_URI": mongoURI(c, "database", c.Database), "MONGODB_DATABASE": c.Database}
+		},
+	}
+}
+
 // DialectFor returns the dialect for a database variant.
 func DialectFor(variant string) (Dialect, bool) {
 	d, ok := dialects[variant]
@@ -211,10 +259,11 @@ func DialectFor(variant string) (Dialect, bool) {
 // (Laravel naming plus a DSN for Symfony/Doctrine). Keys defined by the user win.
 func DatabaseEnv(cfg DatabaseConfig, variant string) map[string]string {
 	driver, port := "mysql", 3306
-	if d, ok := dialects[variant]; ok {
+	d, ok := dialects[variant]
+	if ok {
 		driver, port = d.Driver, d.Port
 	}
-	return map[string]string{
+	env := map[string]string{
 		"DB_CONNECTION": driver,
 		"DB_HOST":       "database",
 		"DB_PORT":       strconv.Itoa(port),
@@ -223,6 +272,15 @@ func DatabaseEnv(cfg DatabaseConfig, variant string) map[string]string {
 		"DB_PASSWORD":   cfg.Password,
 		"DATABASE_URL":  fmt.Sprintf("%s://%s:%s@database:%d/%s", driver, cfg.Username, cfg.Password, port, cfg.Database),
 	}
+	if ok && d.URL != nil {
+		env["DATABASE_URL"] = d.URL(cfg)
+	}
+	if ok && d.ExtraEnv != nil {
+		for k, v := range d.ExtraEnv(cfg) {
+			env[k] = v
+		}
+	}
+	return env
 }
 
 // ServiceConfig is the configuration of auxiliary services (Redis, Mailpit).

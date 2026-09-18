@@ -492,7 +492,7 @@ runtime catalogue (PHP versions, Caddy), hostpath detection, planner,
 manager (create/start/stop/restart/delete with rollback), reconciler, project
 API, wizard, project list + detail pages, lifecycle tests.
 
-### Phase 3 + 6 – Databases and services (MariaDB, MySQL, PostgreSQL, Redis, Mailpit)
+### Phase 3 + 6 – Databases and services (MariaDB, MySQL, PostgreSQL, MongoDB, Redis, Mailpit)
 `database` service kind with a labelled named volume
 (`staqio-<slug>-database`), healthcheck, start order database → php → web.
 
@@ -511,7 +511,13 @@ inside the container via Docker exec with argv arrays; passwords travel in
 primary database cannot be dropped. Rotating the password recreates the
 application containers. Removing the service requires `removeData: true`;
 downgrades are refused, MariaDB/MySQL upgrade in place, PostgreSQL major
-changes are refused (dump/restore required).
+changes are refused (dump/restore required). MongoDB uses the same
+`Dialect` with JavaScript instead of SQL: administrative calls run
+`mongosh --nodb --eval` and connect through a URI passed in the environment
+(never argv), the owner is the root user (like PostgreSQL), dumps are
+`mongodump --archive` streams (the tools accept credentials only via
+`--uri`), `MONGODB_URI` is injected in addition to `DATABASE_URL`, and major
+upgrades are refused (one step at a time, FCV).
 
 Redis (volume `staqio-<slug>-redis`, `REDIS_*` injected) and Mailpit (web
 inbox on an allocated host port, `MAIL_*`/`MAILER_DSN` injected) are

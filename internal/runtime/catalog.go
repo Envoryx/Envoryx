@@ -144,6 +144,14 @@ func Default() *Catalog {
 		},
 	})
 	c.add(Runtime{
+		Key: "mongodb", Name: "MongoDB", Kind: "database", Available: true,
+		Description: "MongoDB document database with persistent volume and generated credentials",
+		Versions: []Version{
+			{Version: "8", Image: "mongo:8.0", Label: "MongoDB 8.0", Default: true},
+			{Version: "7", Image: "mongo:7.0", Label: "MongoDB 7.0"},
+		},
+	})
+	c.add(Runtime{
 		Key: "redis", Name: "Redis", Kind: "service", Available: true,
 		Description: "Redis cache/queue with persistent volume (REDIS_URL injected)",
 		Versions: []Version{
@@ -229,6 +237,7 @@ func PHPExtensions() []PHPExtension {
 		{Name: "pdo_sqlite", Description: "PDO SQLite", BuiltIn: true, Available: true},
 		{Name: "opcache", Description: "Opcode cache", Available: true},
 		{Name: "pdo_mysql", Description: "PDO MySQL/MariaDB", Available: true},
+		{Name: "mongodb", Description: "MongoDB driver", Available: true},
 		{Name: "mysqli", Description: "MySQL improved", Available: true},
 		{Name: "pdo_pgsql", Description: "PDO PostgreSQL", Available: true},
 		{Name: "gd", Description: "Image processing", Available: true},

@@ -317,3 +317,65 @@ func TestRestartKeepsDatabaseVolume(t *testing.T) {
 		}
 	}
 }
+
+func TestMongoDBProject(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	var cmds [][]string
+	e.engine.ExecHandler = func(container string, cmd []string, env []string) (docker.ExecResult, error) {
+		cmds = append(cmds, cmd)
+		for _, kv := range env {
+			if strings.HasPrefix(kv, "STAQIO_MONGO_URI=mongodb://shop:") {
+				if strings.Contains(cmd[len(cmd)-1], "listDatabases") {
+					return docker.ExecResult{Stdout: "admin\nconfig\nlocal\nshop\n"}, nil
+				}
+				return docker.ExecResult{}, nil
+			}
+		}
+		return docker.ExecResult{ExitCode: 1, Stderr: "no credentials"}, nil
+	}
+	req := phpRequest("Shop", true)
+	req.Database = &DatabaseRequest{Type: "mongodb", ExposePort: true}
+	view, err := e.m.Create(ctx, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, ok := e.engine.Container("staqio-shop-database")
+	if !ok || c.Spec.Image != "mongo:8.0" || len(c.Spec.Cmd) != 0 || c.Spec.Ports[0].ContainerPort != 27017 || c.Spec.Mounts[0].Target != "/data/db" {
+		t.Fatalf("mongo container: %+v", c.Spec)
+	}
+	var hasRootUser bool
+	for _, kv := range c.Spec.Env {
+		hasRootUser = hasRootUser || strings.HasPrefix(kv, "MONGO_INITDB_ROOT_USERNAME=shop")
+	}
+	if !hasRootUser {
+		t.Fatalf("mongo env: %v", c.Spec.Env)
+	}
+	php, _ := e.engine.Container("staqio-shop-php")
+	var uri, conn string
+	for _, kv := range php.Spec.Env {
+		if strings.HasPrefix(kv, "MONGODB_URI=") {
+			uri = kv
+		}
+		if strings.HasPrefix(kv, "DB_CONNECTION=") {
+			conn = kv
+		}
+	}
+	if !strings.HasPrefix(uri, "MONGODB_URI=mongodb://shop:") || !strings.HasSuffix(uri, "@database:27017/shop?authSource=admin") || conn != "DB_CONNECTION=mongodb" {
+		t.Fatalf("injected env: %q %q", uri, conn)
+	}
+	dbs, err := e.m.ListDatabases(ctx, view.Project.ID)
+	if err != nil || strings.Join(dbs, ",") != "shop" {
+		t.Fatalf("list: %v %v", dbs, err)
+	}
+	if err := e.m.CreateDatabase(ctx, view.Project.ID, "analytics"); err != nil {
+		t.Fatal(err)
+	}
+	last := cmds[len(cmds)-1]
+	if last[0] != "mongosh" || !strings.Contains(last[len(last)-1], "getDB('analytics').createCollection") {
+		t.Fatalf("create: %v", last)
+	}
+	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{Database: &DatabaseUpdate{Enabled: true, Type: "mongodb", Version: "7"}}); err == nil {
+		t.Fatal("downgrade must be refused")
+	}
+}
