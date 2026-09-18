@@ -362,9 +362,10 @@ backend* to free the memory. Small NAS boxes: leave it off.
 
 The tunnel to the backend needs `socat` in the runtime image (PHP and Node
 images since September 2026). If Gateway reports *Host unreachable* after
-installing the backend, pull the current runtime image (Images page) – the
-project container is recreated on the next start – and check the Staqio log
-for `ssh forward failed`.
+installing the backend, use *Restart* on the project (a restart pulls the
+runtime images and recreates the container; plain stop/start does not) and
+check the Staqio log: `ssh forward … "via":"network"` means the container
+still runs an image without socat, `ssh forward failed` shows the socat error.
 
 ## Xdebug
 
