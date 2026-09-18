@@ -91,9 +91,25 @@ services:
 
 Open `http://<server>:8787`, create the admin account, click **New project**.
 
-**Unraid:** copy [`deploy/unraid/staqio.xml`](deploy/unraid/staqio.xml) to
-`/boot/config/plugins/dockerMan/templates-user/` and add the container from the
-template – everything is pre-filled.
+### Unraid
+
+Install the template once from the Unraid terminal (or via SSH) – it lands on
+the flash drive next to your other user templates:
+
+```sh
+wget -O /boot/config/plugins/dockerMan/templates-user/staqio.xml \
+  https://raw.githubusercontent.com/seramos/staqio/main/deploy/unraid/staqio.xml
+```
+
+Then go to **Docker → Add Container**, pick **Staqio** under *User
+templates* and click **Apply** – ports, `/config`, `/projects`, the Docker
+socket and `PUID`/`PGID` are pre-filled. Create the `development` share first
+if it does not exist yet. Open `http://<unraid-ip>:8787` and create the
+admin account.
+
+For domains and HTTPS (`https://shop.test`) map the proxy ports 80/443 (bridge)
+or give the container its own IP on `br0` – see
+[Domains and HTTPS](DEPLOYMENT.md#domains-and-https).
 
 Details, environment variables and Unraid notes: [DEPLOYMENT.md](DEPLOYMENT.md).
 
