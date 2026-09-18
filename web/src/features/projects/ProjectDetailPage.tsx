@@ -23,6 +23,7 @@ import { LogsTab } from "./LogsTab";
 const TerminalTab = lazy(() => import("./TerminalTab").then((m) => ({ default: m.TerminalTab })));
 const ActionsTab = lazy(() => import("./ActionsTab").then((m) => ({ default: m.ActionsTab })));
 import { PhpConfigForm } from "./PhpConfigForm";
+import { webServerHint } from "./webServers";
 
 const tabs = ["Overview", "Domains", "Git", "Actions", "Terminal", "Logs", "Runtime", "Workers", "Database", "Services", "Backups", "Environment", "IDE", "Advanced"] as const;
 type Tab = (typeof tabs)[number];
@@ -139,6 +140,7 @@ export function ProjectDetailPage() {
       {tab === "Runtime" && (
         <div className="space-y-6">
           <PhpTab project={p} />
+          <WebServerCard project={p} />
           <NodeCard project={p} />
         </div>
       )}
@@ -303,6 +305,79 @@ function PhpTab({ project: p }: { project: Project }) {
           </Field>
         </div>
         <PhpConfigForm value={config} onChange={setConfig} extensions={runtimes.data?.phpExtensions ?? []} hostname={p.hostnames[0]} projectDir={hostDir} />
+      </div>
+    </Card>
+  );
+}
+
+function WebServerCard({ project: p }: { project: Project }) {
+  const { t } = useTranslation();
+  const runtimes = useRuntimes();
+  const update = useUpdateProject(p.id);
+  const { msg, setMsg } = useSaveFeedback();
+  const svc = p.services.find((s) => s.kind === "web");
+  const [type, setType] = useState(svc?.variant ?? "caddy");
+  const [version, setVersion] = useState(svc?.version ?? "");
+
+  if (!svc) return null;
+  if (runtimes.isPending) return <Spinner />;
+  const servers = runtimes.data?.runtimes.filter((r) => r.kind === "webserver" && r.available) ?? [];
+  const selected = servers.find((r) => r.key === type);
+  const dirty = type !== svc.variant || version !== svc.version;
+
+  const save = () => {
+    setMsg(null);
+    update.mutate(
+      { web: { type, version } },
+      {
+        onSuccess: () => setMsg({ tone: "green", text: p.status.state === "running" ? t("Saved and applied. Containers were restarted.") : t("Saved. Changes apply on next start.") }),
+        onError: (err) => setMsg({ tone: "red", text: err instanceof ApiError ? err.message : t("Saving failed") }),
+      },
+    );
+  };
+
+  return (
+    <Card>
+      <CardHeader
+        title={t("Web server")}
+        description={t("Switching the web server recreates the web container; the document root and port stay the same.")}
+        actions={
+          <Button variant="primary" onClick={save} loading={update.isPending} disabled={!dirty} icon={<Save className="size-4" />}>
+            {t("Save")}
+          </Button>
+        }
+      />
+      <div className="space-y-4 p-5">
+        {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
+        <div className="grid gap-4 sm:grid-cols-3">
+          <Field label={t("Web server")} htmlFor="web-type">
+            <Select
+              id="web-type"
+              value={type}
+              onChange={(e) => {
+                const next = servers.find((r) => r.key === e.target.value);
+                setType(e.target.value);
+                setVersion(next?.versions.find((v) => v.default)?.version ?? next?.versions[0]?.version ?? "");
+              }}
+            >
+              {servers.map((r) => (
+                <option key={r.key} value={r.key}>
+                  {r.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label={t("Version")} htmlFor="web-version">
+            <Select id="web-version" value={version} onChange={(e) => setVersion(e.target.value)}>
+              {selected?.versions.map((v) => (
+                <option key={v.version} value={v.version}>
+                  {v.label}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        </div>
+        <p className="text-sm text-muted">{webServerHint(t, type)}</p>
       </div>
     </Card>
   );

@@ -20,7 +20,6 @@ const (
 	appMountTarget = "/var/www/html"
 	phpIniTarget   = "/usr/local/etc/php/conf.d/zz-staqio.ini"
 	phpPoolTarget  = "/usr/local/etc/php-fpm.d/zz-staqio.conf"
-	caddyfileTgt   = "/etc/caddy/Caddyfile"
 	stopTimeoutSec = 10
 )
 
@@ -213,8 +212,13 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 			images[svc.Image] = true
 
 		case store.ServiceWeb:
+			php := proj.Service(store.ServicePHP)
+			cfg, err := runtime.WebServerConfig(svc.Variant, proj.Docroot, php != nil && php.Enabled)
+			if err != nil {
+				return Plan{}, err
+			}
 			plan.Files = append(plan.Files,
-				FilePlan{Path: filepath.Join(plan.ConfigDir, "web", "Caddyfile"), Content: runtime.Caddyfile(proj.Docroot), Mode: 0o644},
+				FilePlan{Path: filepath.Join(plan.ConfigDir, "web", cfg.FileName), Content: cfg.Content, Mode: 0o644},
 			)
 			spec := docker.ContainerSpec{
 				Name:         ContainerName(proj.Slug, store.ServiceWeb),
@@ -224,7 +228,7 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 				NetworkAlias: []string{"web"},
 				Mounts: []docker.MountSpec{
 					{Type: "bind", Source: appHost, Target: appMountTarget, ReadOnly: true},
-					{Type: "bind", Source: filepath.Join(cfgHost, "web", "Caddyfile"), Target: caddyfileTgt, ReadOnly: true},
+					{Type: "bind", Source: filepath.Join(cfgHost, "web", cfg.FileName), Target: cfg.Target, ReadOnly: true},
 				},
 				RestartPolicy: "unless-stopped",
 				StopTimeout:   stopTimeoutSec,

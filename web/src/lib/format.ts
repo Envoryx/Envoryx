@@ -77,7 +77,8 @@ export function projectUrl(port: number, publicHost?: string): string {
 
 export function serviceLabel(kind: string, version?: string, variant?: string): string {
   const dbNames: Record<string, string> = { mariadb: "MariaDB", mysql: "MySQL", postgresql: "PostgreSQL", mongodb: "MongoDB" };
-  const name: Record<string, string> = { php: "PHP", web: variant === "caddy" ? "Caddy" : "Web", node: "Node", database: dbNames[variant ?? ""] ?? "Database", redis: "Redis", mailpit: "Mailpit" };
+  const webNames: Record<string, string> = { caddy: "Caddy", apache: "Apache", nginx: "Nginx" };
+  const name: Record<string, string> = { php: "PHP", web: webNames[variant ?? ""] ?? "Web", node: "Node", database: dbNames[variant ?? ""] ?? "Database", redis: "Redis", mailpit: "Mailpit" };
   const base = name[kind] ?? kind;
   return version ? `${base} ${version}` : base;
 }

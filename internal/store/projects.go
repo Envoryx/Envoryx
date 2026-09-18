@@ -324,6 +324,21 @@ func (r *Projects) UpdateServiceConfig(ctx context.Context, projectID string, ki
 	return nil
 }
 
+// UpdateServiceVariant switches one service to another variant (e.g. the web server from
+// Caddy to Apache), replacing version and image and clearing the variant-specific config.
+func (r *Projects) UpdateServiceVariant(ctx context.Context, projectID string, kind ServiceKind, variant, version, image string) error {
+	res, err := r.db.ExecContext(ctx,
+		`UPDATE project_services SET variant = ?, version = ?, image = ?, config = '{}' WHERE project_id = ? AND kind = ?`,
+		variant, version, image, projectID, string(kind))
+	if err != nil {
+		return fmt.Errorf("update service: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 // AddService adds a service to an existing project.
 func (r *Projects) AddService(ctx context.Context, s ProjectService) error {
 	if s.ID == "" {

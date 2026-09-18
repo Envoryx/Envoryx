@@ -157,20 +157,11 @@ func (m *Manager) buildProject(req CreateRequest) (store.Project, error) {
 		proj.DesiredState = store.DesiredRunning
 	}
 
-	webType := req.Web.Type
-	if webType == "" {
-		webType = "caddy"
-	}
-	if webType != "caddy" {
-		return store.Project{}, fmt.Errorf("%w: unsupported web server %q", validate.ErrInvalid, webType)
-	}
-	webVersion, err := m.catalog.Resolve("caddy", req.Web.Version)
+	web, err := m.buildWebService(req.Web.Type, req.Web.Version)
 	if err != nil {
 		return store.Project{}, err
 	}
-	proj.Services = append(proj.Services, store.ProjectService{
-		Kind: store.ServiceWeb, Variant: "caddy", Version: webVersion.Version, Image: webVersion.Image, Enabled: true, Position: 20,
-	})
+	proj.Services = append(proj.Services, web)
 
 	if req.PHP != nil {
 		v, err := m.catalog.Resolve("php", req.PHP.Version)
@@ -243,6 +234,21 @@ func (m *Manager) buildProject(req CreateRequest) (store.Project, error) {
 	proj.Env = env
 	sort.SliceStable(proj.Services, func(i, j int) bool { return proj.Services[i].Position < proj.Services[j].Position })
 	return proj, nil
+}
+
+// buildWebService validates the web server selection.
+func (m *Manager) buildWebService(webType, version string) (store.ProjectService, error) {
+	if webType == "" {
+		webType = runtime.DefaultWebServer
+	}
+	if !runtime.IsWebServer(webType) {
+		return store.ProjectService{}, fmt.Errorf("%w: unsupported web server %q", validate.ErrInvalid, webType)
+	}
+	v, err := m.catalog.Resolve(webType, version)
+	if err != nil {
+		return store.ProjectService{}, err
+	}
+	return store.ProjectService{Kind: store.ServiceWeb, Variant: webType, Version: v.Version, Image: v.Image, Enabled: true, Position: 20}, nil
 }
 
 // buildDatabaseService validates the database selection and generates credentials.

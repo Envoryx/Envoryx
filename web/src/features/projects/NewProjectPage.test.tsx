@@ -57,6 +57,9 @@ describe("NewProjectPage wizard", () => {
     await cont();
 
     expect(await screen.findByLabelText("Web server")).toHaveValue("caddy");
+    await user.selectOptions(screen.getByLabelText("Web server"), "apache");
+    expect(screen.getByLabelText("Version")).toHaveValue("2.4");
+    expect(screen.getByText(/honours \.htaccess/)).toBeInTheDocument();
     await cont();
     expect(await screen.findByText("Database")).toBeInTheDocument();
     await user.click(screen.getByRole("radio", { name: "MariaDB" }));
@@ -79,7 +82,7 @@ describe("NewProjectPage wizard", () => {
     await user.click(screen.getByRole("button", { name: "Create project" }));
     await waitFor(() => expect(screen.getByRole("heading", { name: "Detail" })).toBeInTheDocument());
     const create = api.calls.find((c) => c.method === "POST" && c.url.endsWith("/projects"));
-    expect(create?.body).toMatchObject({ name: "Shimly API", start: true, createStarter: true });
+    expect(create?.body).toMatchObject({ name: "Shimly API", start: true, createStarter: true, web: { type: "apache", version: "2.4" } });
   });
 
   it("selecting a template presets docroot and database and disables git", async () => {

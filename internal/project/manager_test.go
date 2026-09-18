@@ -194,7 +194,7 @@ func TestCreateRejectsInvalidInput(t *testing.T) {
 		{Name: "Version2", PHP: &PHPRequest{Version: "8.4 && rm"}},
 		{Name: "Env", Env: []EnvVarRequest{{Key: "bad key", Value: "x"}}},
 		{Name: "EnvReserved", Env: []EnvVarRequest{{Key: "STAQIO_X", Value: "x"}}},
-		{Name: "Web", Web: WebRequest{Type: "nginx"}},
+		{Name: "Web", Web: WebRequest{Type: "lighttpd"}},
 		{Name: "Ext", PHP: &PHPRequest{Version: "8.4", Config: runtime.PHPConfig{Extensions: []string{"evil"}}}},
 	}
 	for _, c := range cases {
@@ -456,6 +456,56 @@ func TestUpdateChangesVersionAndRecreates(t *testing.T) {
 	php, _ = e.engine.Container("staqio-upgr-php")
 	if !strings.Contains(strings.Join(php.Spec.Env, ","), "APP_DEBUG=true") || php.State != "running" {
 		t.Fatalf("env must be applied to recreated container: %+v", php.Spec.Env)
+	}
+}
+
+func TestWebServerVariants(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+
+	req := phpRequest("Blog", true)
+	req.Web = WebRequest{Type: "apache"}
+	view, err := e.m.Create(ctx, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := view.Project.ID
+	if svc := view.Project.Service(store.ServiceWeb); svc.Variant != "apache" || svc.Image != "httpd:2.4-alpine" {
+		t.Fatalf("web service: %+v", svc)
+	}
+	web, _ := e.engine.Container("staqio-blog-web")
+	if web.Spec.Image != "httpd:2.4-alpine" || web.Spec.Mounts[1].Target != "/usr/local/apache2/conf/httpd.conf" {
+		t.Fatalf("apache container: %+v", web.Spec)
+	}
+	httpd, _ := os.ReadFile(filepath.Join(e.cfgDir, "projects", id, "web/httpd.conf"))
+	if !strings.Contains(string(httpd), `DocumentRoot "/var/www/html/public"`) || !strings.Contains(string(httpd), "proxy:fcgi://php:9000") {
+		t.Fatalf("httpd.conf: %s", httpd)
+	}
+
+	// Switching the web server recreates the web container with the new image and config.
+	view, err = e.m.Update(ctx, id, UpdateRequest{Web: &WebRequest{Type: "nginx"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if svc := view.Project.Service(store.ServiceWeb); svc.Variant != "nginx" || svc.Version != "1" || view.Status.State != StateRunning {
+		t.Fatalf("after switch: %+v %s", svc, view.Status.State)
+	}
+	web, _ = e.engine.Container("staqio-blog-web")
+	if web.Spec.Image != "nginx:1-alpine" || web.Spec.Mounts[1].Target != "/etc/nginx/conf.d/default.conf" || web.State != "running" {
+		t.Fatalf("nginx container: %+v", web.Spec)
+	}
+	nginx, _ := os.ReadFile(filepath.Join(e.cfgDir, "projects", id, "web/default.conf"))
+	if !strings.Contains(string(nginx), "fastcgi_pass php:9000;") {
+		t.Fatalf("default.conf: %s", nginx)
+	}
+
+	if _, err := e.m.Update(ctx, id, UpdateRequest{Web: &WebRequest{Type: "lighttpd"}}); !errors.Is(err, validate.ErrInvalid) {
+		t.Fatalf("unknown web server must be invalid, got %v", err)
+	}
+	req = phpRequest("Nope", false)
+	req.Web = WebRequest{Type: "iis"}
+	if _, err := e.m.Create(ctx, req); !errors.Is(err, validate.ErrInvalid) {
+		t.Fatalf("unknown web server on create must be invalid, got %v", err)
 	}
 }
 

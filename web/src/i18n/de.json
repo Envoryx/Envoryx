@@ -68,7 +68,6 @@
   "Built into the image": "Im Image eingebaut",
   "CPU": "CPU",
   "Cache and queue backend with a persistent volume. Injects REDIS_HOST, REDIS_PORT and REDIS_URL.": "Cache- und Queue-Backend mit persistentem Volume. Injiziert REDIS_HOST, REDIS_PORT und REDIS_URL.",
-  "Caddy serves static files from the document root and forwards PHP requests to the PHP container via FastCGI. The project is published on an automatically assigned port and reachable through the proxy under its domain.": "Caddy liefert statische Dateien aus dem Document Root und reicht PHP-Anfragen per FastCGI an den PHP-Container weiter. Das Projekt wird auf einem automatisch vergebenen Port veröffentlicht und ist über den Proxy unter seiner Domain erreichbar.",
   "Calculating plan…": "Plan wird berechnet…",
   "Cancel": "Abbrechen",
   "Cannot create this project": "Dieses Projekt kann nicht erstellt werden",
@@ -264,7 +263,6 @@
   "Identifier: {{slug}}": "Bezeichner: {{slug}}",
   "Image": "Image",
   "Images": "Images",
-  "Images Staqio pulled (PHP, Node, MariaDB, Caddy) that no container uses any more, e.g. after a version change. Images from other sources are never touched.": "Von Staqio geladene Images (PHP, Node, MariaDB, Caddy), die kein Container mehr nutzt, z. B. nach einem Versionswechsel. Images aus anderen Quellen werden nie angetastet.",
   "Inbox": "Postfach",
   "Include dependencies": "Abhängigkeiten einschließen",
   "Include vendor/ and node_modules/": "vendor/ und node_modules/ einschließen",
@@ -780,5 +778,11 @@
   "{{service}} removed.": "{{service}} entfernt.",
   "{{service}} updated to {{version}}.": "{{service}} auf {{version}} aktualisiert.",
   "{{shown}} of {{total}} lines": "{{shown}} von {{total}} Zeilen",
-  "“Use path mappings”:": "„Use path mappings“:"
+  "“Use path mappings”:": "„Use path mappings“:",
+  "The web server serves static files from the document root and forwards PHP requests to the PHP container via FastCGI. The project is published on an automatically assigned port and reachable through the proxy under its domain.": "Der Webserver liefert statische Dateien aus dem Document Root und leitet PHP-Anfragen per FastCGI an den PHP-Container weiter. Das Projekt wird auf einem automatisch vergebenen Port veröffentlicht und ist über den Proxy unter seiner Domain erreichbar.",
+  "Apache honours .htaccess files (mod_rewrite, access rules) – the right choice for WordPress, TYPO3 and projects that ship one for production.": "Apache wertet .htaccess-Dateien aus (mod_rewrite, Zugriffsregeln) – die richtige Wahl für WordPress, TYPO3 und Projekte, die eine für die Produktion mitbringen.",
+  "Nginx routes unknown paths to index.php (front controller). .htaccess files are ignored, matching a typical Nginx production setup.": "Nginx leitet unbekannte Pfade an index.php weiter (Front Controller). .htaccess-Dateien werden ignoriert – wie in einem typischen Nginx-Produktiv-Setup.",
+  "Caddy needs no configuration and routes unknown paths to index.php (front controller). .htaccess files are ignored.": "Caddy braucht keine Konfiguration und leitet unbekannte Pfade an index.php weiter (Front Controller). .htaccess-Dateien werden ignoriert.",
+  "Switching the web server recreates the web container; the document root and port stay the same.": "Ein Wechsel des Webservers erstellt den Web-Container neu; Document Root und Port bleiben gleich.",
+  "Images Staqio pulled (PHP, Node, MariaDB, Caddy, Apache, Nginx) that no container uses any more, e.g. after a version change. Images from other sources are never touched.": "Von Staqio geladene Images (PHP, Node, MariaDB, Caddy, Apache, Nginx), die kein Container mehr nutzt, z. B. nach einem Versionswechsel. Images aus anderen Quellen werden nie angetastet."
 }

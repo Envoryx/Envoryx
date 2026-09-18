@@ -95,7 +95,7 @@ type DatabaseUpdate struct {
 
 // WebRequest selects the web server.
 type WebRequest struct {
-	Type    string // "caddy"
+	Type    string // "caddy" (default), "apache" or "nginx"
 	Version string
 }
 
@@ -110,6 +110,7 @@ type EnvVarRequest struct {
 type UpdateRequest struct {
 	Name     *string
 	Docroot  *string
+	Web      *WebRequest
 	PHP      *PHPRequest
 	Node     *NodeUpdate
 	Database *DatabaseUpdate

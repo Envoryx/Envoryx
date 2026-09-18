@@ -332,8 +332,12 @@ type ProjectSpec struct {
 
 A PHP project consists of two containers from the start:
 
-- `web` – Caddy, serves static files from `/var/www/html/<docroot>` and passes
-  PHP to `php:9000` via FastCGI. Publishes the project's HTTP port on the
+- `web` – Caddy (default), Apache httpd or Nginx (`internal/runtime/webserver.go`
+  renders the config per variant), serves static files from
+  `/var/www/html/<docroot>` and passes PHP to `php:9000` via FastCGI. Apache
+  runs with `AllowOverride All` so `.htaccess` files behave as on a shared host;
+  Caddy and Nginx route unknown paths to `index.php`. The variant can be
+  switched later; the web container is then recreated. Publishes the project's HTTP port on the
   host (auto-allocated from a configurable range, default 20000–20999).
 - `php` – `ghcr.io/seramos/staqio-php:<version>` (`images/php/Dockerfile`:
   official php-fpm plus all toggleable extensions compiled in but disabled;
@@ -440,7 +444,7 @@ Detailed in SECURITY.md. Summary of the enforced boundaries:
 ```
 /config/
   staqio.db                SQLite (WAL)
-  projects/<id>/           generated config per project (Caddyfile, php.ini, pool conf)
+  projects/<id>/           generated config per project (web server config, php.ini, pool conf)
   backups/<slug>/          Phase 7
   ca/                      Phase 8 (0600)
 /projects/<slug>/          user project files (bind-mounted into project containers)

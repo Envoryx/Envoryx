@@ -445,6 +445,22 @@ func (m *Manager) Update(ctx context.Context, id string, req UpdateRequest) (Vie
 			return View{}, err
 		}
 	}
+	if req.Web != nil {
+		web, err := m.buildWebService(req.Web.Type, req.Web.Version)
+		if err != nil {
+			return View{}, err
+		}
+		cur := proj.Service(store.ServiceWeb)
+		if cur == nil {
+			return View{}, fmt.Errorf("%w: project has no web service", ErrConflict)
+		}
+		if cur.Variant != web.Variant || cur.Version != web.Version {
+			if err := m.store.Projects.UpdateServiceVariant(ctx, id, store.ServiceWeb, web.Variant, web.Version, web.Image); err != nil {
+				return View{}, err
+			}
+			changes["web"] = web.Variant + " " + web.Version
+		}
+	}
 	if req.PHP != nil {
 		v, err := m.catalog.Resolve("php", req.PHP.Version)
 		if err != nil {

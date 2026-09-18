@@ -199,23 +199,25 @@ type databaseUpdateDTO struct {
 }
 
 type createProjectRequest struct {
-	Name     string              `json:"name"`
-	Path     string              `json:"path"`
-	Docroot  string              `json:"docroot"`
-	PHP      *phpRequestDTO      `json:"php"`
-	Node     *nodeRequestDTO     `json:"node"`
-	Database *databaseRequestDTO `json:"database"`
-	Redis    *extraRequestDTO    `json:"redis"`
-	Mailpit  *extraRequestDTO    `json:"mailpit"`
-	Git      *gitRequestDTO      `json:"git"`
-	Web      *struct {
-		Type    string `json:"type"`
-		Version string `json:"version"`
-	} `json:"web"`
-	Env           []envDTO `json:"env"`
-	Template      string   `json:"template"`
-	CreateStarter bool     `json:"createStarter"`
-	Start         bool     `json:"start"`
+	Name          string              `json:"name"`
+	Path          string              `json:"path"`
+	Docroot       string              `json:"docroot"`
+	PHP           *phpRequestDTO      `json:"php"`
+	Node          *nodeRequestDTO     `json:"node"`
+	Database      *databaseRequestDTO `json:"database"`
+	Redis         *extraRequestDTO    `json:"redis"`
+	Mailpit       *extraRequestDTO    `json:"mailpit"`
+	Git           *gitRequestDTO      `json:"git"`
+	Web           *webRequestDTO      `json:"web"`
+	Env           []envDTO            `json:"env"`
+	Template      string              `json:"template"`
+	CreateStarter bool                `json:"createStarter"`
+	Start         bool                `json:"start"`
+}
+
+type webRequestDTO struct {
+	Type    string `json:"type"`
+	Version string `json:"version"`
 }
 
 func (r createProjectRequest) toDomain() project.CreateRequest {
@@ -252,6 +254,7 @@ func (r createProjectRequest) toDomain() project.CreateRequest {
 type updateProjectRequest struct {
 	Name       *string            `json:"name"`
 	Docroot    *string            `json:"docroot"`
+	Web        *webRequestDTO     `json:"web"`
 	PHP        *phpRequestDTO     `json:"php"`
 	Node       *nodeUpdateDTO     `json:"node"`
 	Database   *databaseUpdateDTO `json:"database"`
@@ -350,6 +353,9 @@ func (a *API) updateProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	upd := project.UpdateRequest{Name: req.Name, Docroot: req.Docroot}
+	if req.Web != nil {
+		upd.Web = &project.WebRequest{Type: req.Web.Type, Version: req.Web.Version}
+	}
 	if req.PHP != nil {
 		upd.PHP = &project.PHPRequest{Version: req.PHP.Version, Config: req.PHP.Config}
 	}

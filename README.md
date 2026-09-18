@@ -24,9 +24,10 @@ Staqio is under active development. The current milestone (Phase 1 + 2) delivers
   in a one-shot container as the project owner, wired to the project database
 - project wizard: name, directory, document root, PHP version, php.ini settings
   and extensions (pdo_mysql, mysqli, pdo_pgsql, mongodb, gd, intl, zip, bcmath,
-  opcache, imagick), Xdebug switch with IDE setup hints, Caddy web server, environment variables, plan preview
+  opcache, imagick), Xdebug switch with IDE setup hints, web server (Caddy, Apache or Nginx), environment variables, plan preview
 - per-project Docker network, PHP-FPM container (Staqio image with Composer)
-  and Caddy container
+  and web server container: Caddy (default), Apache (with `.htaccess` support)
+  or Nginx – switchable after creation
 - MariaDB, MySQL, PostgreSQL or MongoDB per project: persistent volume, generated
   credentials, connection variables injected into PHP, optional host port for
   desktop clients, password rotation, create/drop databases, in-place version
@@ -127,7 +128,7 @@ Details, environment variables and Unraid notes: [DEPLOYMENT.md](DEPLOYMENT.md).
 ```
 Browser ──▶ Staqio (Go API + React UI) ──▶ Docker Engine
                                              ├── staqio-<project>      (network)
-                                             ├── staqio-<project>-web  (Caddy, :port → 80)
+                                             ├── staqio-<project>-web  (Caddy/Apache/Nginx, :port → 80)
                                              └── staqio-<project>-php  (PHP-FPM)
 ```
 

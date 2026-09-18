@@ -105,7 +105,7 @@ func (s *Server) registerTools() {
 	mcp.AddTool(s.mcp, readOnly("list_projects", "List projects", "List all Staqio projects with state, URLs and services."), s.listProjects)
 	mcp.AddTool(s.mcp, readOnly("get_project", "Get project", "Details and live status of one project."), s.getProject)
 	mcp.AddTool(s.mcp, readOnly("list_runtimes", "List runtimes", "Available PHP/Node versions, database engines, services and PHP extension keys for create_project."), s.listRuntimes)
-	mcp.AddTool(s.mcp, mutating("create_project", "Create project", "Create a new development environment (PHP + Caddy, optional database, Redis, Mailpit, Node, git clone). Returns the project including its URL.", false), s.createProject)
+	mcp.AddTool(s.mcp, mutating("create_project", "Create project", "Create a new development environment (PHP + web server, optional database, Redis, Mailpit, Node, git clone). Returns the project including its URL.", false), s.createProject)
 	mcp.AddTool(s.mcp, mutating("start_project", "Start project", "Start all containers of a project.", true), s.startProject)
 	mcp.AddTool(s.mcp, mutating("stop_project", "Stop project", "Stop all containers of a project (data is kept).", true), s.stopProject)
 	mcp.AddTool(s.mcp, mutating("restart_project", "Restart project", "Restart a project; also pulls updated runtime images.", true), s.restartProject)
@@ -212,6 +212,7 @@ type createProjectIn struct {
 	Name          string            `json:"name" jsonschema:"Display name, e.g. \"Shop API\". The slug and directory are derived from it."`
 	Template      string            `json:"template,omitempty" jsonschema:"Scaffold an application: laravel, symfony or wordpress (see list_runtimes for details). Cannot be combined with gitUrl."`
 	PHPVersion    string            `json:"phpVersion,omitempty" jsonschema:"PHP version such as 8.4 (default: the catalogue default). Use \"none\" for a project without PHP."`
+	WebServer     string            `json:"webServer,omitempty" jsonschema:"Web server: caddy (default), apache (mod_rewrite + .htaccess, e.g. for WordPress) or nginx."`
 	PHPExtensions []string          `json:"phpExtensions,omitempty" jsonschema:"PHP extensions to enable (keys from list_runtimes). Default: bcmath, gd, intl, opcache, pdo_mysql, zip."`
 	Database      string            `json:"database,omitempty" jsonschema:"Database engine: mariadb, mysql or postgresql. Omit for no database."`
 	DBVersion     string            `json:"databaseVersion,omitempty" jsonschema:"Database version (default: catalogue default)."`
@@ -231,6 +232,7 @@ func (s *Server) createProject(ctx context.Context, _ *mcp.CallToolRequest, in c
 	if in.Start != nil {
 		req.Start = *in.Start
 	}
+	req.Web = project.WebRequest{Type: strings.ToLower(strings.TrimSpace(in.WebServer))}
 	if !strings.EqualFold(in.PHPVersion, "none") {
 		cfg := runtime.DefaultPHPConfig()
 		if in.PHPExtensions != nil {

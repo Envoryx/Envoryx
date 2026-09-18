@@ -251,6 +251,7 @@ export interface CreateProjectRequest {
 export interface UpdateProjectRequest {
   name?: string;
   docroot?: string;
+  web?: { type: string; version: string };
   php?: { version: string; config: PHPConfig };
   node?: ({ enabled: true } & NodeRequest) | { enabled: false };
   database?: DatabaseUpdate;

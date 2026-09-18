@@ -75,7 +75,7 @@ function UnusedImagesCard() {
     <Card>
       <CardHeader
         title={t("Unused runtime images")}
-        description={t("Images Staqio pulled (PHP, Node, MariaDB, Caddy) that no container uses any more, e.g. after a version change. Images from other sources are never touched.")}
+        description={t("Images Staqio pulled (PHP, Node, MariaDB, Caddy, Apache, Nginx) that no container uses any more, e.g. after a version change. Images from other sources are never touched.")}
         actions={
           images.data && images.data.length > 0 && !confirm ? (
             <Button size="sm" onClick={() => setConfirm(true)} icon={<Trash2 className="size-3.5" />}>

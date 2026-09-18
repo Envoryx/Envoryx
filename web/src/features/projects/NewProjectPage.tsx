@@ -10,6 +10,7 @@ import type { CreateProjectRequest, EnvVar, PHPConfig, Preview } from "@/api/typ
 import { Alert, Button, Card, Checkbox, Code, ErrorState, Field, Input, PageHeader, Select, Spinner } from "@/components/ui";
 import { EnvEditor } from "./EnvEditor";
 import { PhpConfigForm } from "./PhpConfigForm";
+import { webServerHint } from "./webServers";
 
 const steps = ["General", "Runtime", "Web server", "Database & services", "Environment", "Summary"] as const;
 
@@ -32,6 +33,7 @@ interface Form {
   nodeEnabled: boolean;
   nodeVersion: string;
   nodeDev: DevServerForm;
+  webType: string;
   webVersion: string;
   dbType: string; // "" = none
   dbVersion: string;
@@ -67,7 +69,7 @@ export function NewProjectPage() {
     if (runtimes.data && !form) {
       const php = runtimes.data.runtimes.find((r) => r.key === "php");
       const node = runtimes.data.runtimes.find((r) => r.key === "node");
-      const caddy = runtimes.data.runtimes.find((r) => r.key === "caddy");
+      const web = runtimes.data.runtimes.find((r) => r.key === "caddy");
       setForm({
         name: "",
         path: "",
@@ -79,7 +81,8 @@ export function NewProjectPage() {
         nodeEnabled: false,
         nodeDev: defaultDevServerForm,
         nodeVersion: node?.versions.find((v) => v.default)?.version ?? node?.versions[0]?.version ?? "",
-        webVersion: caddy?.versions.find((v) => v.default)?.version ?? "",
+        webType: "caddy",
+        webVersion: web?.versions.find((v) => v.default)?.version ?? "",
         dbType: "",
         dbVersion: "",
         dbExpose: false,
@@ -105,7 +108,7 @@ export function NewProjectPage() {
       name: form.name.trim(),
       path: form.path.trim() || slugify(form.name),
       docroot: form.docroot.trim(),
-      web: { type: "caddy", version: form.webVersion },
+      web: { type: form.webType, version: form.webVersion },
       env: form.env.filter((e) => e.key),
       createStarter: form.createStarter,
       start: form.start,
@@ -149,7 +152,8 @@ export function NewProjectPage() {
   const rt = runtimes.data;
   const php = rt.runtimes.find((r) => r.key === "php");
   const node = rt.runtimes.find((r) => r.key === "node");
-  const caddy = rt.runtimes.find((r) => r.key === "caddy");
+  const webServers = rt.runtimes.filter((r) => r.kind === "webserver" && r.available);
+  const web = webServers.find((r) => r.key === form.webType);
   const databases = rt.runtimes.filter((r) => r.kind === "database");
   const services = rt.runtimes.filter((r) => r.kind === "service");
   const nameError = form.name.trim().length > 0 && form.name.trim().length < 2 ? t("At least 2 characters.") : slugify(form.name) === "" && form.name.trim() ? t("Name must contain letters or digits.") : undefined;
@@ -307,25 +311,35 @@ export function NewProjectPage() {
             </div>
           )}
 
-          {step === 2 && caddy && (
+          {step === 2 && web && (
             <div className="space-y-5">
               <Field label={t("Web server")} htmlFor="web">
-                <Select id="web" value="caddy" disabled>
-                  <option value="caddy">Caddy</option>
+                <Select
+                  id="web"
+                  value={form.webType}
+                  onChange={(e) => {
+                    const next = webServers.find((r) => r.key === e.target.value);
+                    set({ webType: e.target.value, webVersion: next?.versions.find((v) => v.default)?.version ?? next?.versions[0]?.version ?? "" });
+                  }}
+                >
+                  {webServers.map((r) => (
+                    <option key={r.key} value={r.key}>
+                      {r.name}
+                    </option>
+                  ))}
                 </Select>
               </Field>
               <Field label={t("Version")} htmlFor="web-version">
                 <Select id="web-version" value={form.webVersion} onChange={(e) => set({ webVersion: e.target.value })}>
-                  {caddy.versions.map((v) => (
+                  {web.versions.map((v) => (
                     <option key={v.version} value={v.version}>
                       {v.label}
                     </option>
                   ))}
                 </Select>
               </Field>
-              <p className="text-sm text-muted">
-                {t("Caddy serves static files from the document root and forwards PHP requests to the PHP container via FastCGI. The project is published on an automatically assigned port and reachable through the proxy under its domain.")}
-              </p>
+              <p className="text-sm text-muted">{webServerHint(t, form.webType)}</p>
+              <p className="text-sm text-muted">{t("The web server serves static files from the document root and forwards PHP requests to the PHP container via FastCGI. The project is published on an automatically assigned port and reachable through the proxy under its domain.")}</p>
             </div>
           )}
 
