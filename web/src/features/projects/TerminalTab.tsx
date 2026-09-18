@@ -89,7 +89,10 @@ function useTerminalSession(projectId: string, kind: string, generation: number)
     const onResize = term.onResize(({ cols, rows }) => {
       if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "resize", cols, rows }));
     });
-    const observer = new ResizeObserver(() => fit.fit());
+    const observer = new ResizeObserver(() => {
+      const dims = fit.proposeDimensions();
+      if (dims && (dims.cols !== term.cols || dims.rows !== term.rows)) fit.fit();
+    });
     observer.observe(el);
 
     return () => {
@@ -113,7 +116,7 @@ export function TerminalTab({ project }: { project: Project }) {
   const { host, state, message } = useTerminalSession(project.id, kind, generation);
 
   return (
-    <Card className="flex h-[70vh] min-h-[24rem] flex-col">
+    <Card className="flex h-[70vh] min-h-[24rem] flex-col overflow-hidden">
       <div className="flex flex-wrap items-center gap-2 border-b border-default px-3 py-2">
         <div className="flex items-center gap-1" role="tablist" aria-label="Container">
           {services.map((s) => (
@@ -149,7 +152,7 @@ export function TerminalTab({ project }: { project: Project }) {
       {!running ? (
         <p className="p-4 text-sm text-muted">The {serviceLabel(kind)} container is not running. Start the project to open a shell.</p>
       ) : (
-        <div ref={host} className="flex-1 bg-[#0f1115] p-2" data-testid="terminal" />
+        <div ref={host} className="min-h-0 flex-1 overflow-hidden bg-[#0f1115] p-2" data-testid="terminal" />
       )}
     </Card>
   );

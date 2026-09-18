@@ -42,7 +42,10 @@ function useActionRunner(projectId: string) {
     f.fit();
     term.current = t;
     fit.current = f;
-    const obs = new ResizeObserver(() => f.fit());
+    const obs = new ResizeObserver(() => {
+      const dims = f.proposeDimensions();
+      if (dims && (dims.cols !== t.cols || dims.rows !== t.rows)) f.fit();
+    });
     obs.observe(el);
     return () => {
       obs.disconnect();
@@ -157,7 +160,7 @@ export function ActionsTab({ project }: { project: Project }) {
         )}
       </Card>
 
-      <Card className="flex h-[70vh] min-h-[24rem] flex-col">
+      <Card className="flex h-[70vh] min-h-[24rem] flex-col overflow-hidden">
         <div className="flex items-center gap-2 border-b border-default px-3 py-2 text-xs">
           <TerminalIcon className="size-4 text-subtle" aria-hidden />
           {run ? (
@@ -176,7 +179,7 @@ export function ActionsTab({ project }: { project: Project }) {
             <span className="text-muted">Select an action to run it here.</span>
           )}
         </div>
-        <div ref={host} className="flex-1 bg-[#0f1115] p-2" data-testid="action-output" />
+        <div ref={host} className="min-h-0 flex-1 overflow-hidden bg-[#0f1115] p-2" data-testid="action-output" />
       </Card>
 
       <Dialog
