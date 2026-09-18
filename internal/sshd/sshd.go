@@ -257,10 +257,22 @@ func (s *Server) handleConn(ctx context.Context, nc net.Conn) {
 	}
 	_ = nc.SetDeadline(time.Time{})
 	defer sc.Close()
-	go ssh.DiscardRequests(reqs)
+	go func() {
+		// Global requests (remote forwarding, keepalives) are not supported; log them so a
+		// client that depends on one can be diagnosed.
+		for req := range reqs {
+			if req.Type != "keepalive@openssh.com" {
+				s.d.Log.Info("ssh global request not supported", "user", sc.User(), "type", req.Type)
+			}
+			if req.WantReply {
+				_ = req.Reply(false, nil)
+			}
+		}
+	}()
 
 	target, err := s.d.Projects.ResolveSSHUser(ctx, sc.User())
 	if err != nil {
+		s.d.Log.Warn("ssh user resolution failed after auth", "user", sc.User(), "err", err)
 		return
 	}
 	actx := audit.WithClientIP(auth.WithPrincipal(ctx, auth.Principal{Username: sc.Permissions.Extensions["staqio-user"], TokenName: sc.Permissions.Extensions["staqio-token"]}), remoteIP(nc.RemoteAddr()))
@@ -272,6 +284,7 @@ func (s *Server) handleConn(ctx context.Context, nc net.Conn) {
 			continue
 		}
 		if ch.ChannelType() != "session" {
+			s.d.Log.Warn("ssh channel type not supported", "user", sc.User(), "type", ch.ChannelType())
 			_ = ch.Reject(ssh.UnknownChannelType, "only sessions and port forwarding are supported")
 			continue
 		}
@@ -343,6 +356,7 @@ func (s *Server) handleSession(ctx context.Context, ch ssh.Channel, reqs <-chan 
 			sendExit(ch, 0)
 			return
 		default:
+			s.d.Log.Debug("ssh session request not supported", "type", req.Type)
 			_ = req.Reply(false, nil)
 		}
 	}
@@ -415,18 +429,22 @@ func (s *Server) handleForward(ctx context.Context, ch ssh.NewChannel, target pr
 		_ = ch.Reject(ssh.ConnectionFailed, "bad request")
 		return
 	}
+	reject := func(reason ssh.RejectionReason, msg string) {
+		s.d.Log.Warn("ssh forward rejected", "project", target.Project.Slug, "target", net.JoinHostPort(host, strconv.Itoa(int(port))), "reason", msg)
+		_ = ch.Reject(reason, msg)
+	}
 	if !target.Gateway {
-		_ = ch.Reject(ssh.Prohibited, "port forwarding is disabled for this project (enable JetBrains Gateway in the IDE tab)")
+		reject(ssh.Prohibited, "port forwarding is disabled for this project (enable JetBrains Gateway in the IDE tab)")
 		return
 	}
 	switch host {
 	case "", "localhost", "127.0.0.1", "::1":
 	default:
-		_ = ch.Reject(ssh.Prohibited, "only localhost ports of the project container can be forwarded")
+		reject(ssh.Prohibited, "only localhost ports of the project container can be forwarded")
 		return
 	}
 	if !target.Running {
-		_ = ch.Reject(ssh.ConnectionFailed, "project is not running")
+		reject(ssh.ConnectionFailed, "project is not running")
 		return
 	}
 	// The IDE backend binds to 127.0.0.1 inside the container, so the relay has to run in
@@ -438,15 +456,17 @@ func (s *Server) handleForward(ctx context.Context, ch ssh.NewChannel, target pr
 			return
 		}
 		go ssh.DiscardRequests(reqs)
+		s.d.Log.Info("ssh forward", "project", target.Project.Slug, "port", port, "via", "socat")
 		s.d.Audit.Log(ctx, "ssh.forward", "project", target.Project.ID, map[string]any{"name": target.Project.Name, "port": port})
 		s.relayExec(ctx, target, int(port), channel)
 		return
 	}
 	conn, err := s.dial(ctx, net.JoinHostPort(target.ContainerName, strconv.Itoa(int(port))))
 	if err != nil {
-		_ = ch.Reject(ssh.ConnectionFailed, "connect: "+err.Error()+" (update the runtime image for localhost forwarding)")
+		reject(ssh.ConnectionFailed, "connect: "+err.Error()+" (update the runtime image for localhost forwarding)")
 		return
 	}
+	s.d.Log.Info("ssh forward", "project", target.Project.Slug, "port", port, "via", "network")
 	channel, reqs, err := ch.Accept()
 	if err != nil {
 		_ = conn.Close()

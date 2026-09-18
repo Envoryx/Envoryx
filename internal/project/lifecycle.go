@@ -347,8 +347,29 @@ func (m *Manager) ensurePlan(ctx context.Context, proj store.Project, plan Plan,
 				return fmt.Errorf("start container %s: %w", c.Spec.Name, err)
 			}
 		}
+		if start && c.Spec.User != "" {
+			m.ensurePasswdEntry(ctx, id, c.Spec.Name, c.Spec.User)
+		}
 	}
 	return nil
+}
+
+// ensurePasswdEntry gives the project uid/gid a name inside the container. The images
+// know nothing about the host's PUID/PGID, and tools such as ssh, whoami, git and the
+// JetBrains launcher misbehave for a uid without a passwd entry. Best effort: failures
+// are logged, never fatal.
+func (m *Manager) ensurePasswdEntry(ctx context.Context, containerID, name, user string) {
+	uid, gid, ok := strings.Cut(user, ":")
+	if !ok || uid == "0" {
+		return
+	}
+	script := fmt.Sprintf(`getent group %[2]s >/dev/null || echo "staqio:x:%[2]s:" >> /etc/group; `+
+		`getent passwd %[1]s >/dev/null || echo "staqio:x:%[1]s:%[2]s:Staqio:%[3]s:/bin/sh" >> /etc/passwd`, uid, gid, homeMountTarget)
+	var stderr strings.Builder
+	code, err := m.engine.ExecStream(ctx, containerID, docker.ExecStreamOptions{Cmd: []string{"sh", "-c", script}, User: "0:0", Stderr: &stderr})
+	if err != nil || code != 0 {
+		m.log.Debug("passwd entry not created", "container", name, "exit", code, "err", err, "stderr", strings.TrimSpace(stderr.String()))
+	}
 }
 
 // stopPlan stops existing containers in reverse start order.
