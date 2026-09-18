@@ -539,8 +539,12 @@ tool caches and IDE helpers live there. Container specs now carry a
 `staqio.spec` fingerprint label (command, mounts, ports, …) so `ensurePlan`
 recreates containers whose structure changed (e.g. the new home mount).
 `direct-tcpip` channels (IDE tunnels) are accepted only for projects with
-`ide_gateway` set (migration 0006) and only to localhost ports, dialled as
-`staqio-<slug>-<kind>:<port>` over the project network; the flag also
+`ide_gateway` set (migration 0006) and only to localhost ports. The IDE
+backend binds to 127.0.0.1 inside the container, so the tunnel is relayed by
+`socat STDIO TCP:127.0.0.1:<port>` run via docker exec in the container's own
+network namespace (probed once per container id); runtime images without
+socat fall back to dialling `staqio-<slug>-<kind>:<port>` over the project
+network, which only reaches listeners on 0.0.0.0. The flag also
 mounts `/config/jetbrains` at `~/.cache/JetBrains` so Gateway backends are
 shared across projects. `StopIDEBackend` runs `pkill -f /.cache/JetBrains/`
 as the project user.

@@ -360,6 +360,12 @@ with the values from the IDE tab, choose PhpStorm/WebStorm, project
 directory `/var/www/html`. Close the project in Gateway or use *Stop IDE
 backend* to free the memory. Small NAS boxes: leave it off.
 
+The tunnel to the backend needs `socat` in the runtime image (PHP and Node
+images since September 2026). If Gateway reports *Host unreachable* after
+installing the backend, pull the current runtime image (Images page) – the
+project container is recreated on the next start – and check the Staqio log
+for `ssh forward failed`.
+
 ## Xdebug
 
 Runtime tab → PHP → **Xdebug**: enables step debugging for that project

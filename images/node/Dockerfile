@@ -14,7 +14,7 @@ LABEL org.opencontainers.image.title="Staqio Node ${NODE_VERSION}" \
 
 RUN set -eux; \
     apt-get update; \
-    apt-get install -y --no-install-recommends git openssh-client ca-certificates procps libfreetype6 fontconfig libxi6 libxrender1 libxtst6 libxext6; \
+    apt-get install -y --no-install-recommends git openssh-client ca-certificates socat procps libfreetype6 fontconfig libxi6 libxrender1 libxtst6 libxext6; \
     rm -rf /var/lib/apt/lists/*; \
     # Node 25+ no longer bundles corepack and old images ship a corepack that cannot verify
     # current registry signatures: always install the latest one.

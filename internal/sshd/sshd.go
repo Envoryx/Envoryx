@@ -53,8 +53,11 @@ type Server struct {
 	config  *ssh.ServerConfig
 	signer  ssh.Signer
 	limiter *failLimiter
-	// dial connects forwarded ports (overridden in tests).
+	// dial connects forwarded ports over the project network (fallback for runtime images
+	// without socat; overridden in tests).
 	dial func(ctx context.Context, addr string) (net.Conn, error)
+	// relayTool caches per container id whether socat is available for in-namespace relays.
+	relayTool sync.Map
 }
 
 // New loads or creates the host key and prepares the server configuration.
@@ -426,9 +429,22 @@ func (s *Server) handleForward(ctx context.Context, ch ssh.NewChannel, target pr
 		_ = ch.Reject(ssh.ConnectionFailed, "project is not running")
 		return
 	}
+	// The IDE backend binds to 127.0.0.1 inside the container, so the relay has to run in
+	// the container's network namespace. Older runtime images without socat fall back to
+	// dialing the container over the project network (reaches 0.0.0.0 listeners only).
+	if s.hasSocat(ctx, target) {
+		channel, reqs, err := ch.Accept()
+		if err != nil {
+			return
+		}
+		go ssh.DiscardRequests(reqs)
+		s.d.Audit.Log(ctx, "ssh.forward", "project", target.Project.ID, map[string]any{"name": target.Project.Name, "port": port})
+		s.relayExec(ctx, target, int(port), channel)
+		return
+	}
 	conn, err := s.dial(ctx, net.JoinHostPort(target.ContainerName, strconv.Itoa(int(port))))
 	if err != nil {
-		_ = ch.Reject(ssh.ConnectionFailed, "connect: "+err.Error())
+		_ = ch.Reject(ssh.ConnectionFailed, "connect: "+err.Error()+" (update the runtime image for localhost forwarding)")
 		return
 	}
 	channel, reqs, err := ch.Accept()
@@ -437,7 +453,7 @@ func (s *Server) handleForward(ctx context.Context, ch ssh.NewChannel, target pr
 		return
 	}
 	go ssh.DiscardRequests(reqs)
-	s.d.Audit.Log(ctx, "ssh.forward", "project", target.Project.ID, map[string]any{"name": target.Project.Name, "port": port})
+	s.d.Audit.Log(ctx, "ssh.forward", "project", target.Project.ID, map[string]any{"name": target.Project.Name, "port": port, "via": "network"})
 	done := make(chan struct{}, 2)
 	go func() {
 		_, _ = io.Copy(conn, channel)
@@ -451,6 +467,38 @@ func (s *Server) handleForward(ctx context.Context, ch ssh.NewChannel, target pr
 	<-done
 	_ = channel.Close()
 	_ = conn.Close()
+}
+
+// hasSocat reports whether the target container ships socat (cached per container id, so
+// a recreated container is probed again).
+func (s *Server) hasSocat(ctx context.Context, target project.ExecTarget) bool {
+	if v, ok := s.relayTool.Load(target.ContainerID); ok {
+		return v.(bool)
+	}
+	res, err := s.d.Engine.Exec(ctx, target.ContainerID, []string{"sh", "-c", "command -v socat"}, nil)
+	has := err == nil && res.ExitCode == 0
+	s.relayTool.Store(target.ContainerID, has)
+	return has
+}
+
+// relayExec pipes the channel through `socat` running inside the container, which
+// connects to 127.0.0.1:port in the container's own network namespace. socat half-closes
+// the socket on stdin EOF and exits once the backend closes (or after 5 s of silence in the
+// remaining direction).
+func (s *Server) relayExec(ctx context.Context, target project.ExecTarget, port int, channel ssh.Channel) {
+	defer channel.Close()
+	var stderr strings.Builder
+	code, err := s.d.Engine.ExecStream(ctx, target.ContainerID, docker.ExecStreamOptions{
+		Cmd:    []string{"socat", "-t", "5", "STDIO", fmt.Sprintf("TCP:127.0.0.1:%d,connect-timeout=5", port)},
+		User:   target.User,
+		Stdin:  channel,
+		Stdout: channel,
+		Stderr: &stderr,
+	})
+	_ = channel.CloseWrite()
+	if err != nil || code != 0 {
+		s.d.Log.Warn("ssh forward failed", "project", target.Project.Slug, "container", target.ContainerName, "port", port, "exit", code, "err", err, "stderr", strings.TrimSpace(stderr.String()))
+	}
 }
 
 func parseForward(b []byte) (host string, port uint32, ok bool) {

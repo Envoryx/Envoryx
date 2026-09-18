@@ -3,6 +3,8 @@ package sshd_test
 import (
 	"bytes"
 	"context"
+	"errors"
+	"io"
 	"log/slog"
 	"net"
 	"os"
@@ -17,6 +19,7 @@ import (
 	"github.com/seramos/staqio/internal/audit"
 	"github.com/seramos/staqio/internal/auth"
 	"github.com/seramos/staqio/internal/db"
+	"github.com/seramos/staqio/internal/docker"
 	"github.com/seramos/staqio/internal/docker/dockertest"
 	"github.com/seramos/staqio/internal/project"
 	"github.com/seramos/staqio/internal/runtime"
@@ -252,6 +255,13 @@ func TestPublicKeyAuth(t *testing.T) {
 
 func TestPortForwardingRequiresGateway(t *testing.T) {
 	e := newEnv(t)
+	// Runtime image without socat → forwarding falls back to the project network.
+	e.engine.ExecHandler = func(_ string, cmd []string, _ []string) (docker.ExecResult, error) {
+		if len(cmd) == 3 && cmd[2] == "command -v socat" {
+			return docker.ExecResult{ExitCode: 127}, nil
+		}
+		return docker.ExecResult{ExitCode: 0}, nil
+	}
 	// A local echo server stands in for the IDE backend inside the container.
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -311,5 +321,45 @@ func TestPortForwardingRequiresGateway(t *testing.T) {
 	}
 	if _, err := client2.Dial("tcp", "example.com:80"); err == nil {
 		t.Fatal("foreign hosts must be rejected")
+	}
+}
+
+// The IDE backend listens on 127.0.0.1 inside the container, so the tunnel is relayed by
+// socat running in the container (docker exec) instead of over the project network.
+func TestPortForwardingRelaysInsideContainer(t *testing.T) {
+	e := newEnv(t)
+	on := true
+	if _, err := e.manager.Update(context.Background(), e.proj.Project.ID, project.UpdateRequest{IDEGateway: &on}); err != nil {
+		t.Fatal(err)
+	}
+	var relayCmd []string
+	e.engine.StreamHandler = func(container string, cmd []string, _ []string, stdin []byte) (string, int, error) {
+		if container != "staqio-shop-php" {
+			t.Errorf("relay container: %s", container)
+		}
+		relayCmd = cmd
+		return "backend:" + string(stdin), 0, nil
+	}
+	e.srv.SetDialForTest(func(context.Context, string) (net.Conn, error) {
+		t.Error("must not dial over the network when socat is available")
+		return nil, errors.New("no")
+	})
+	client, err := e.dial(t, "shop", ssh.Password(e.token))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer client.Close()
+	conn, err := client.Dial("tcp", "127.0.0.1:5990")
+	if err != nil {
+		t.Fatalf("forward: %v", err)
+	}
+	_, _ = conn.Write([]byte("ping"))
+	_ = conn.(interface{ CloseWrite() error }).CloseWrite()
+	got, _ := io.ReadAll(conn)
+	if string(got) != "backend:ping" {
+		t.Fatalf("relayed data: %q", got)
+	}
+	if len(relayCmd) == 0 || relayCmd[0] != "socat" || relayCmd[len(relayCmd)-1] != "TCP:127.0.0.1:5990,connect-timeout=5" {
+		t.Fatalf("relay command: %v", relayCmd)
 	}
 }
