@@ -441,3 +441,38 @@ func TestSFTPShowsJetBrainsCacheWithGateway(t *testing.T) {
 		t.Fatalf("upload landed elsewhere: %v", err)
 	}
 }
+
+// IDE clients keep stdin open until they receive the exit status; a command that never
+// reads stdin (`dd if=file`) must still complete.
+func TestExecCompletesWithOpenStdin(t *testing.T) {
+	e := newEnv(t)
+	e.engine.ReadsStdin = func(cmd []string) bool { return !strings.Contains(cmd[2], "dd if=") }
+	e.engine.StreamHandler = func(_ string, cmd []string, _ []string, _ []byte) (string, int, error) {
+		return "content", 0, nil
+	}
+	client, err := e.dial(t, "shop", ssh.Password(e.token))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer client.Close()
+	sess, err := client.NewSession()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer sess.Close()
+	pr, pw := io.Pipe()
+	defer pw.Close()
+	sess.Stdin = pr
+	done := make(chan error, 1)
+	var out bytes.Buffer
+	sess.Stdout = &out
+	go func() { done <- sess.Run("dd if=/etc/xdg/JetBrains/RemoteDev/disableManualDeployment") }()
+	select {
+	case err := <-done:
+		if err != nil || out.String() != "content" {
+			t.Fatalf("run: %v %q", err, out.String())
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("exec did not complete while stdin stayed open")
+	}
+}

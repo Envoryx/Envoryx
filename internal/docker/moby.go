@@ -8,10 +8,12 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"net/netip"
 	"sort"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	cerrdefs "github.com/containerd/errdefs"
@@ -716,8 +718,16 @@ func (e *MobyEngine) ExecStream(ctx context.Context, id string, opts ExecStreamO
 	if _, err := stdcopy.StdCopy(stdout, stderr, attach.Reader); err != nil && !errors.Is(err, io.EOF) {
 		return -1, fmt.Errorf("exec output: %w", err)
 	}
-	if err := <-inErr; err != nil && !errors.Is(err, io.EOF) {
-		return -1, fmt.Errorf("exec input: %w", err)
+	// The output stream ends when the process has exited. Do not wait for the stdin
+	// copier: SSH clients often keep their side open until they see the exit status, so
+	// blocking here would deadlock (e.g. `dd if=file` never reads stdin). A copy that
+	// already finished with a real error (broken restore pipe) is still reported.
+	select {
+	case err := <-inErr:
+		if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, net.ErrClosed) && !errors.Is(err, syscall.EPIPE) {
+			return -1, fmt.Errorf("exec input: %w", err)
+		}
+	default:
 	}
 	insp, err := e.cli.ExecInspect(ctx, created.ID, client.ExecInspectOptions{})
 	if err != nil {

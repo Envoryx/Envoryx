@@ -9,8 +9,10 @@
 package docker
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"io"
 	"log/slog"
 	"os"
 	"testing"
@@ -93,6 +95,24 @@ func TestIntegrationLifecycleAndGuards(t *testing.T) {
 	st, err := e.ContainerStats(ctx, id)
 	if err != nil || st.ContainerID != id {
 		t.Fatalf("stats: %+v %v", st, err)
+	}
+	// ExecStream must return once the process exits even when the caller's stdin stays
+	// open (SSH clients keep it open until they see the exit status).
+	pr, pw := io.Pipe()
+	defer pw.Close()
+	var out bytes.Buffer
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		code, err := e.ExecStream(ctx, id, ExecStreamOptions{Cmd: []string{"sh", "-c", "echo hi; exit 3"}, Stdin: pr, Stdout: &out})
+		if err != nil || code != 3 || out.String() != "hi\n" {
+			t.Errorf("exec stream with open stdin: code=%d err=%v out=%q", code, err, out.String())
+		}
+	}()
+	select {
+	case <-done:
+	case <-time.After(15 * time.Second):
+		t.Fatal("ExecStream blocked on open stdin after the process exited")
 	}
 	if err := e.StopContainer(ctx, id, 2*time.Second); err != nil {
 		t.Fatal(err)
