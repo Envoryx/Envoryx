@@ -10,6 +10,7 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/binary"
+	"encoding/hex"
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -394,6 +395,7 @@ func (s *Server) run(ctx context.Context, ch ssh.Channel, st *session, mu *sync.
 	}
 	env := append(append([]string{}, target.Env...), st.env...)
 	s.d.Audit.Log(ctx, "ssh.exec", "project", target.Project.ID, map[string]any{"name": target.Project.Name, "type": kind, "pty": st.pty, "command": truncate(strings.Join(cmd[2:], " "), 200)})
+	s.d.Log.Info("ssh exec", "project", target.Project.Slug, "type", kind, "pty", st.pty, "command", truncate(strings.Join(cmd[2:], " "), 160))
 	if st.pty {
 		term, err := s.d.Engine.OpenTerminal(ctx, target.ContainerID, docker.TerminalOptions{Cmd: cmd, Env: env, User: target.User, WorkingDir: target.WorkingDir, Cols: st.cols, Rows: st.rows})
 		if err != nil {
@@ -467,14 +469,19 @@ func (s *Server) handleForward(ctx context.Context, ch ssh.NewChannel, target pr
 	// the container's network namespace. Older runtime images without socat fall back to
 	// dialing the container over the project network (reaches 0.0.0.0 listeners only).
 	if s.hasSocat(ctx, target) {
+		addr, err := s.listenAddress(ctx, target, int(port))
+		if err != nil {
+			reject(ssh.ConnectionFailed, err.Error())
+			return
+		}
 		channel, reqs, err := ch.Accept()
 		if err != nil {
 			return
 		}
 		go ssh.DiscardRequests(reqs)
-		s.d.Log.Info("ssh forward", "project", target.Project.Slug, "port", port, "via", "socat")
+		s.d.Log.Info("ssh forward", "project", target.Project.Slug, "port", port, "via", "socat", "listener", addr)
 		s.d.Audit.Log(ctx, "ssh.forward", "project", target.Project.ID, map[string]any{"name": target.Project.Name, "port": port})
-		s.relayExec(ctx, target, int(port), channel)
+		s.relayExec(ctx, target, addr, channel)
 		return
 	}
 	conn, err := s.dial(ctx, net.JoinHostPort(target.ContainerName, strconv.Itoa(int(port))))
@@ -517,15 +524,88 @@ func (s *Server) hasSocat(ctx context.Context, target project.ExecTarget) bool {
 	return has
 }
 
+// listenAddress finds where port is bound inside the container by reading its
+// /proc/net/tcp{,6} (a docker exec sees the container's own network namespace). The IDE
+// backend binds 127.0.0.1, Gateway's host worker may bind the container's address; a
+// port nobody listens on is reported instead of silently accepting the channel.
+func (s *Server) listenAddress(ctx context.Context, target project.ExecTarget, port int) (string, error) {
+	res, err := s.d.Engine.Exec(ctx, target.ContainerID, []string{"sh", "-c", "cat /proc/net/tcp /proc/net/tcp6 2>/dev/null"}, nil)
+	if err != nil {
+		return "", fmt.Errorf("inspect listeners: %w", err)
+	}
+	addr := parseListenAddress(res.Stdout, port)
+	if addr == "" {
+		return "", fmt.Errorf("nothing is listening on port %d inside %s", port, target.ContainerName)
+	}
+	return addr, nil
+}
+
+// parseListenAddress returns the socat address of a listening (state 0A) TCP socket on
+// port from /proc/net/tcp{,6} content, or "" when there is none. Wildcard and loopback
+// listeners map to the loopback address of their family.
+func parseListenAddress(procNet string, port int) string {
+	best := ""
+	for _, line := range strings.Split(procNet, "\n") {
+		f := strings.Fields(line)
+		if len(f) < 4 || f[3] != "0A" {
+			continue
+		}
+		hexAddr, hexPort, ok := strings.Cut(f[1], ":")
+		if !ok {
+			continue
+		}
+		p, err := strconv.ParseUint(hexPort, 16, 16)
+		if err != nil || int(p) != port {
+			continue
+		}
+		raw, err := hex.DecodeString(hexAddr)
+		if err != nil {
+			continue
+		}
+		switch len(raw) {
+		case 4:
+			// Little-endian word: 0100007F is 127.0.0.1.
+			ip := net.IPv4(raw[3], raw[2], raw[1], raw[0])
+			if ip.IsUnspecified() || ip.IsLoopback() {
+				return "TCP4:127.0.0.1:" + strconv.Itoa(port)
+			}
+			best = "TCP4:" + ip.String() + ":" + strconv.Itoa(port)
+		case 16:
+			// Four little-endian 32-bit words.
+			ip := make(net.IP, 16)
+			for w := 0; w < 4; w++ {
+				for b := 0; b < 4; b++ {
+					ip[w*4+b] = raw[w*4+3-b]
+				}
+			}
+			if ip.IsUnspecified() || ip.IsLoopback() {
+				if best == "" {
+					// A dual-stack wildcard also answers on 127.0.0.1; keep looking for an
+					// explicit IPv4 listener first.
+					best = "TCP6:[::1]:" + strconv.Itoa(port)
+					if ip.IsUnspecified() {
+						best = "TCP4:127.0.0.1:" + strconv.Itoa(port)
+					}
+				}
+				continue
+			}
+			if best == "" {
+				best = "TCP6:[" + ip.String() + "]:" + strconv.Itoa(port)
+			}
+		}
+	}
+	return best
+}
+
 // relayExec pipes the channel through `socat` running inside the container, which
-// connects to 127.0.0.1:port in the container's own network namespace. socat half-closes
-// the socket on stdin EOF and exits once the backend closes (or after 5 s of silence in the
+// connects to addr in the container's own network namespace. socat half-closes the
+// socket on stdin EOF and exits once the backend closes (or after 5 s of silence in the
 // remaining direction).
-func (s *Server) relayExec(ctx context.Context, target project.ExecTarget, port int, channel ssh.Channel) {
+func (s *Server) relayExec(ctx context.Context, target project.ExecTarget, addr string, channel ssh.Channel) {
 	defer channel.Close()
 	var stderr strings.Builder
 	code, err := s.d.Engine.ExecStream(ctx, target.ContainerID, docker.ExecStreamOptions{
-		Cmd:    []string{"socat", "-t", "5", "STDIO", fmt.Sprintf("TCP:127.0.0.1:%d,connect-timeout=5", port)},
+		Cmd:    []string{"socat", "-t", "5", "STDIO", addr + ",connect-timeout=5"},
 		User:   target.User,
 		Stdin:  channel,
 		Stdout: channel,
@@ -533,7 +613,7 @@ func (s *Server) relayExec(ctx context.Context, target project.ExecTarget, port 
 	})
 	_ = channel.CloseWrite()
 	if err != nil || code != 0 {
-		s.d.Log.Warn("ssh forward failed", "project", target.Project.Slug, "container", target.ContainerName, "port", port, "exit", code, "err", err, "stderr", strings.TrimSpace(stderr.String()))
+		s.d.Log.Warn("ssh forward failed", "project", target.Project.Slug, "container", target.ContainerName, "addr", addr, "exit", code, "err", err, "stderr", strings.TrimSpace(stderr.String()))
 	}
 }
 

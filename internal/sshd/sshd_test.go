@@ -332,6 +332,13 @@ func TestPortForwardingRelaysInsideContainer(t *testing.T) {
 	if _, err := e.manager.Update(context.Background(), e.proj.Project.ID, project.UpdateRequest{IDEGateway: &on}); err != nil {
 		t.Fatal(err)
 	}
+	// socat present; /proc/net/tcp shows the backend bound to 127.0.0.1:5990 (0x1766).
+	e.engine.ExecHandler = func(_ string, cmd []string, _ []string) (docker.ExecResult, error) {
+		if strings.Contains(cmd[2], "/proc/net/tcp") {
+			return docker.ExecResult{Stdout: "  sl  local_address rem_address   st\n   0: 0100007F:1766 00000000:0000 0A 00000000:00000000 00:00000000 00000000    99        0 1 0 0\n"}, nil
+		}
+		return docker.ExecResult{ExitCode: 0}, nil
+	}
 	var relayCmd []string
 	e.engine.StreamHandler = func(container string, cmd []string, _ []string, stdin []byte) (string, int, error) {
 		if container != "staqio-shop-php" {
@@ -359,8 +366,12 @@ func TestPortForwardingRelaysInsideContainer(t *testing.T) {
 	if string(got) != "backend:ping" {
 		t.Fatalf("relayed data: %q", got)
 	}
-	if len(relayCmd) == 0 || relayCmd[0] != "socat" || relayCmd[len(relayCmd)-1] != "TCP:127.0.0.1:5990,connect-timeout=5" {
+	if len(relayCmd) == 0 || relayCmd[0] != "socat" || relayCmd[len(relayCmd)-1] != "TCP4:127.0.0.1:5990,connect-timeout=5" {
 		t.Fatalf("relay command: %v", relayCmd)
+	}
+	// A port nobody listens on is rejected with a reason instead of a dead tunnel.
+	if _, err := client.Dial("tcp", "127.0.0.1:5991"); err == nil || !strings.Contains(err.Error(), "nothing is listening") {
+		t.Fatalf("unbound port: %v", err)
 	}
 }
 
