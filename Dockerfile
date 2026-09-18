@@ -19,24 +19,24 @@ COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 COPY --from=web /src/web/dist ./web/dist
-RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o /out/staqio ./cmd/staqio
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o /out/envoryx ./cmd/envoryx
 
 # ---- Runtime --------------------------------------------------------------
 FROM alpine:3.21
-LABEL org.opencontainers.image.title="Staqio" \
+LABEL org.opencontainers.image.title="Envoryx" \
       org.opencontainers.image.description="Docker-native development environments for Unraid and Linux" \
-      org.opencontainers.image.source="https://github.com/seramos/staqio" \
+      org.opencontainers.image.source="https://github.com/envoryx/envoryx" \
       org.opencontainers.image.licenses="AGPL-3.0-only"
 
 RUN apk add --no-cache ca-certificates tzdata \
  && mkdir -p /config /projects
 
-COPY --from=build /out/staqio /usr/local/bin/staqio
+COPY --from=build /out/envoryx /usr/local/bin/envoryx
 
-ENV STAQIO_LISTEN=:8787 \
-    STAQIO_CONFIG_DIR=/config \
-    STAQIO_PROJECTS_DIR=/projects \
-    STAQIO_LOG_FORMAT=json \
+ENV ENVORYX_LISTEN=:8787 \
+    ENVORYX_CONFIG_DIR=/config \
+    ENVORYX_PROJECTS_DIR=/projects \
+    ENVORYX_LOG_FORMAT=json \
     PUID=99 \
     PGID=100
 
@@ -44,9 +44,9 @@ VOLUME ["/config", "/projects"]
 EXPOSE 8787 80 443 2222
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD ["staqio", "healthcheck"]
+  CMD ["envoryx", "healthcheck"]
 
-# Staqio runs as root: it needs the Docker socket and adjusts ownership of project
+# Envoryx runs as root: it needs the Docker socket and adjusts ownership of project
 # directories to PUID/PGID. See SECURITY.md for the implications and the socket-proxy option.
-ENTRYPOINT ["staqio"]
+ENTRYPOINT ["envoryx"]
 CMD ["serve"]

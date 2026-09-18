@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/seramos/staqio/internal/docker"
-	"github.com/seramos/staqio/internal/project"
-	"github.com/seramos/staqio/internal/runtime"
-	"github.com/seramos/staqio/internal/store"
+	"github.com/envoryx/envoryx/internal/docker"
+	"github.com/envoryx/envoryx/internal/project"
+	"github.com/envoryx/envoryx/internal/runtime"
+	"github.com/envoryx/envoryx/internal/store"
 )
 
 // ---- DTOs -----------------------------------------------------------------

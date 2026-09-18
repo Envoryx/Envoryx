@@ -25,12 +25,12 @@ describe("NotificationsCard", () => {
     renderApp(<NotificationsCard />);
     const user = userEvent.setup();
     await user.click(await screen.findByRole("checkbox", { name: /Enable notifications/ }));
-    await user.type(screen.getByLabelText("URL"), "https://ntfy.sh/staqio-x");
+    await user.type(screen.getByLabelText("URL"), "https://ntfy.sh/envoryx-x");
     await user.type(screen.getByLabelText(/Access token/), "tk");
     await user.click(screen.getByRole("checkbox", { name: /Certificate renewed/ }));
     await user.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(api.calls.some((c) => c.method === "PUT")).toBe(true));
-    expect(api.calls.find((c) => c.method === "PUT")!.body).toMatchObject({ enabled: true, provider: "ntfy", url: "https://ntfy.sh/staqio-x", token: "tk", kinds: ["project.unhealthy", "acme.renewed"] });
+    expect(api.calls.find((c) => c.method === "PUT")!.body).toMatchObject({ enabled: true, provider: "ntfy", url: "https://ntfy.sh/envoryx-x", token: "tk", kinds: ["project.unhealthy", "acme.renewed"] });
     expect(await screen.findByText("Notification settings saved.")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Send test" }));

@@ -17,7 +17,7 @@ function ProxyStatus({ tls }: { tls: TLSInfo }) {
   if (!p.enabled) {
     return (
       <Alert tone="amber" title={t("Embedded proxy disabled")}>
-        {t("Set STAQIO_PROXY_HTTP (default :80) and STAQIO_PROXY_HTTPS (default :443) to enable host-name routing.")}
+        {t("Set ENVORYX_PROXY_HTTP (default :80) and ENVORYX_PROXY_HTTPS (default :443) to enable host-name routing.")}
       </Alert>
     );
   }
@@ -33,18 +33,18 @@ function ProxyStatus({ tls }: { tls: TLSInfo }) {
         <Badge tone={p.httpsPort && p.tls ? "green" : "gray"}>{p.httpsPort && p.tls ? t("host port {{port}}", { port: p.httpsPort }) : t("not published")}</Badge>
       </div>
       {p.address && (
-        <Alert tone="blue" title={t("Staqio has its own IP address: {{address}}", { address: p.address })}>
+        <Alert tone="blue" title={t("Envoryx has its own IP address: {{address}}", { address: p.address })}>
           {t("The proxy is reachable directly on that address (no port mapping needed). Point your DNS entries for the base domain at")} <Code>{p.address}</Code> – {t("not at the Docker host.")}
         </Alert>
       )}
       {missing && p.inDocker && (
         <Alert tone="amber" title={t("Map the proxy ports")}>
-          {t("The Staqio container listens on 80 and 443, but neither port is published on the host. Add port mappings 80:80 and 443:443 (or any free host ports) to the container, then restart it. Project links keep using the direct port until then.")}
+          {t("The Envoryx container listens on 80 and 443, but neither port is published on the host. Add port mappings 80:80 and 443:443 (or any free host ports) to the container, then restart it. Project links keep using the direct port until then.")}
         </Alert>
       )}
       {missing && !p.inDocker && (
         <Alert tone="amber" title={t("Proxy ports unavailable")}>
-          {t("Binding ports 80/443 on bare metal needs elevated privileges (e.g. setcap cap_net_bind_service=+ep staqio) or other listen addresses via STAQIO_PROXY_HTTP/STAQIO_PROXY_HTTPS.")}
+          {t("Binding ports 80/443 on bare metal needs elevated privileges (e.g. setcap cap_net_bind_service=+ep envoryx) or other listen addresses via ENVORYX_PROXY_HTTP/ENVORYX_PROXY_HTTPS.")}
         </Alert>
       )}
     </div>
@@ -75,7 +75,7 @@ function BaseDomainForm({ baseDomain, forceHttps, tlsAvailable }: { baseDomain: 
   return (
     <form onSubmit={submit} className="space-y-4">
       {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
-      <Field label={t("Base domain")} htmlFor="base-domain" hint={t("Projects are reachable at <slug>.{{base}}, the Staqio UI at staqio.{{base}}. Point *.{{base}} at this host in your DNS (Pi-hole, AdGuard, dnsmasq) or add entries to your hosts file.", { base: base.trim() || "test" })}>
+      <Field label={t("Base domain")} htmlFor="base-domain" hint={t("Projects are reachable at <slug>.{{base}}, the Envoryx UI at envoryx.{{base}}. Point *.{{base}} at this host in your DNS (Pi-hole, AdGuard, dnsmasq) or add entries to your hosts file.", { base: base.trim() || "test" })}>
         <Input id="base-domain" value={base} onChange={(e) => setBase(e.target.value)} placeholder="test" spellCheck={false} autoCapitalize="none" />
       </Field>
       <Checkbox label={t("Force HTTPS")} description={tlsAvailable ? t("Redirect plain HTTP requests for project and UI domains to HTTPS.") : t("Requires the HTTPS listener to be published.")} checked={force} onChange={(e) => setForce(e.target.checked)} disabled={!tlsAvailable} />
@@ -165,9 +165,9 @@ function CustomCertForm({ tls }: { tls: TLSInfo }) {
 }
 
 const trustSteps: { os: string; steps: string }[] = [
-  { os: "Windows", steps: "Double-click staqio-ca.crt → Install Certificate → Local Machine → “Place all certificates in the following store” → Trusted Root Certification Authorities." },
+  { os: "Windows", steps: "Double-click envoryx-ca.crt → Install Certificate → Local Machine → “Place all certificates in the following store” → Trusted Root Certification Authorities." },
   { os: "macOS", steps: "Open the file in Keychain Access (System keychain), then double-click the certificate → Trust → “Always Trust”." },
-  { os: "Linux", steps: "sudo cp staqio-ca.crt /usr/local/share/ca-certificates/ && sudo update-ca-certificates (Debian/Ubuntu) or sudo trust anchor staqio-ca.crt (Fedora/Arch)." },
+  { os: "Linux", steps: "sudo cp envoryx-ca.crt /usr/local/share/ca-certificates/ && sudo update-ca-certificates (Debian/Ubuntu) or sudo trust anchor envoryx-ca.crt (Fedora/Arch)." },
   { os: "iOS / iPadOS", steps: "Open the file, install the profile under Settings → General → VPN & Device Management, then enable it under Settings → General → About → Certificate Trust Settings." },
   { os: "Android", steps: "Settings → Security → Encryption & credentials → Install a certificate → CA certificate." },
   { os: "Firefox", steps: "Uses its own store: Settings → Privacy & Security → Certificates → View Certificates → Authorities → Import (or set security.enterprise_roots.enabled to true)." },
@@ -192,7 +192,7 @@ export function DomainsCard() {
             <div className="border-t border-default pt-5">
               <h3 className="text-sm font-semibold">{t("Local certificate authority")}</h3>
               <p className="mt-1 text-sm text-muted">
-                {t("Install the CA once on each device that should open projects over HTTPS without warnings. Only the public certificate leaves Staqio; the key stays in /config/ca.")}
+                {t("Install the CA once on each device that should open projects over HTTPS without warnings. Only the public certificate leaves Envoryx; the key stays in /config/ca.")}
               </p>
               <dl className="mt-3 grid gap-x-6 gap-y-1 text-xs sm:grid-cols-[8rem_1fr]">
                 <dt className="text-muted">{t("Subject")}</dt>
@@ -202,8 +202,8 @@ export function DomainsCard() {
                 <dt className="text-muted">{t("Valid until")}</dt>
                 <dd>{formatDateTime(info.ca.caNotAfter)}</dd>
               </dl>
-              <a href={api.tls.caUrl} download="staqio-ca.crt" className="mt-3 inline-flex h-9 items-center gap-2 rounded-md bg-accent-600 px-3.5 text-sm font-medium text-white shadow-sm hover:bg-accent-500">
-                <Download className="size-4" aria-hidden /> {t("Download staqio-ca.crt")}
+              <a href={api.tls.caUrl} download="envoryx-ca.crt" className="mt-3 inline-flex h-9 items-center gap-2 rounded-md bg-accent-600 px-3.5 text-sm font-medium text-white shadow-sm hover:bg-accent-500">
+                <Download className="size-4" aria-hidden /> {t("Download envoryx-ca.crt")}
               </a>
               <details className="mt-3 text-sm">
                 <summary className="cursor-pointer text-muted hover:text-fg">{t("How to trust the CA")}</summary>

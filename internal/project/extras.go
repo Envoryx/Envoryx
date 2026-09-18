@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/seramos/staqio/internal/runtime"
-	"github.com/seramos/staqio/internal/store"
-	"github.com/seramos/staqio/internal/validate"
+	"github.com/envoryx/envoryx/internal/runtime"
+	"github.com/envoryx/envoryx/internal/store"
+	"github.com/envoryx/envoryx/internal/validate"
 )
 
 // extraOwnsVolume reports whether an auxiliary service keeps persistent data.

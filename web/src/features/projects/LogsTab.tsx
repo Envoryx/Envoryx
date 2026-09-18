@@ -148,7 +148,7 @@ export function LogsTab({ project }: { project: Project }) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `staqio-${project.slug}-${kind}-${new Date().toISOString().replace(/[:.]/g, "-")}.log`;
+    a.download = `envoryx-${project.slug}-${kind}-${new Date().toISOString().replace(/[:.]/g, "-")}.log`;
     a.click();
     URL.revokeObjectURL(url);
   };

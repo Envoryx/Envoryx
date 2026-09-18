@@ -9,7 +9,7 @@
 ## Layout
 
 ```
-cmd/staqio          entry point (serve, healthcheck, version)
+cmd/envoryx          entry point (serve, healthcheck, version)
 internal/           Go packages – see ARCHITECTURE.md §3
 web/                React + TypeScript frontend (Vite)
 deploy/             docker-compose example
@@ -32,14 +32,14 @@ cd web && npm install && npm run dev
 
 Open http://localhost:5173. The first visit shows the setup page.
 
-When Staqio runs directly on your machine (not in a container) it detects
+When Envoryx runs directly on your machine (not in a container) it detects
 "bare metal" mode and uses the same paths for bind mounts that it sees itself,
 so projects work against your local Docker daemon out of the box.
 
 To run the production build (frontend embedded into the binary):
 
 ```
-make build && STAQIO_CONFIG_DIR=$PWD/.local/config STAQIO_PROJECTS_DIR=$PWD/.local/projects ./bin/staqio
+make build && ENVORYX_CONFIG_DIR=$PWD/.local/config ENVORYX_PROJECTS_DIR=$PWD/.local/projects ./bin/envoryx
 ```
 
 ## Tests
@@ -55,7 +55,7 @@ Backend tests use an in-memory SQLite database and a fake Docker engine
 (`internal/docker/dockertest`) that supports failure injection, foreign
 containers and state manipulation. Covered flows include: create, start, stop,
 restart, delete, rollback after a failed container create, Docker unavailable,
-invalid paths / ids, Staqio restart (new manager on existing state), container
+invalid paths / ids, Envoryx restart (new manager on existing state), container
 unexpectedly stopped, orphaned resources, unauthorized requests and CSRF.
 
 Frontend tests (Vitest + Testing Library) cover the login/setup flow, the
@@ -94,10 +94,10 @@ Other runtimes (Caddy, later databases) are still defined in
 ## PHP extensions
 
 `images/php/Dockerfile` compiles every toggleable extension
-(`STAQIO_PHP_EXTENSIONS`) and removes the auto-generated `docker-php-ext-*.ini`
-files, so nothing is enabled by default. Staqio's generated
-`zz-staqio.ini` adds `extension=…` lines for the extensions selected in the
-UI. To add one: extend `STAQIO_PHP_EXTENSIONS`, add it to
+(`ENVORYX_PHP_EXTENSIONS`) and removes the auto-generated `docker-php-ext-*.ini`
+files, so nothing is enabled by default. Envoryx's generated
+`zz-envoryx.ini` adds `extension=…` lines for the extensions selected in the
+UI. To add one: extend `ENVORYX_PHP_EXTENSIONS`, add it to
 `runtime.PHPExtensions()` with `Available: true`, rebuild the images.
 
 ## UI languages

@@ -1,4 +1,4 @@
-// Package config loads the Staqio runtime configuration from the environment.
+// Package config loads the Envoryx runtime configuration from the environment.
 package config
 
 import (
@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-// Config is the fully resolved runtime configuration of the Staqio server.
+// Config is the fully resolved runtime configuration of the Envoryx server.
 type Config struct {
 	// ListenAddr is the address the HTTP server binds to, e.g. ":8787".
 	ListenAddr string
@@ -25,7 +25,7 @@ type Config struct {
 
 	// ConfigHostPath and ProjectsHostPath are the host-side paths behind ConfigDir and
 	// ProjectsDir. They are required for bind mounts into project containers. Empty
-	// means "auto-detect from the Staqio container's own mounts".
+	// means "auto-detect from the Envoryx container's own mounts".
 	ConfigHostPath   string
 	ProjectsHostPath string
 
@@ -39,7 +39,7 @@ type Config struct {
 	SessionIdleTimeout     time.Duration
 	SessionAbsoluteTimeout time.Duration
 
-	// SecureCookies marks the session cookie as Secure. Enable when Staqio is served over HTTPS.
+	// SecureCookies marks the session cookie as Secure. Enable when Envoryx is served over HTTPS.
 	SecureCookies bool
 
 	// Port range used for project web servers published on the host.
@@ -67,8 +67,8 @@ type Config struct {
 	SSHListen string
 
 	// PublicHost is the host name or IP the browser should use for project links (ports are
-	// published on the Docker host, which may differ from the address Staqio is reached at,
-	// e.g. when the Staqio container has its own macvlan IP). Empty = browser address bar.
+	// published on the Docker host, which may differ from the address Envoryx is reached at,
+	// e.g. when the Envoryx container has its own macvlan IP). Empty = browser address bar.
 	PublicHost string
 
 	// DevMode relaxes a few things for local development (e.g. text logs, CORS for the Vite dev server).
@@ -80,31 +80,31 @@ type Config struct {
 // Load reads the configuration from the environment.
 func Load() (Config, error) {
 	c := Config{
-		ListenAddr:             env("STAQIO_LISTEN", ":8787"),
-		ConfigDir:              env("STAQIO_CONFIG_DIR", "/config"),
-		ProjectsDir:            env("STAQIO_PROJECTS_DIR", "/projects"),
-		ConfigHostPath:         env("STAQIO_CONFIG_HOST_PATH", ""),
-		ProjectsHostPath:       env("STAQIO_PROJECTS_HOST_PATH", ""),
+		ListenAddr:             env("ENVORYX_LISTEN", ":8787"),
+		ConfigDir:              env("ENVORYX_CONFIG_DIR", "/config"),
+		ProjectsDir:            env("ENVORYX_PROJECTS_DIR", "/projects"),
+		ConfigHostPath:         env("ENVORYX_CONFIG_HOST_PATH", ""),
+		ProjectsHostPath:       env("ENVORYX_PROJECTS_HOST_PATH", ""),
 		DockerHost:             env("DOCKER_HOST", ""),
-		SessionIdleTimeout:     envDuration("STAQIO_SESSION_IDLE_TIMEOUT", 12*time.Hour),
-		SessionAbsoluteTimeout: envDuration("STAQIO_SESSION_ABSOLUTE_TIMEOUT", 7*24*time.Hour),
-		SecureCookies:          envBool("STAQIO_SECURE_COOKIES", false),
-		PortRangeStart:         envInt("STAQIO_PORT_RANGE_START", 20000),
-		PortRangeEnd:           envInt("STAQIO_PORT_RANGE_END", 20999),
+		SessionIdleTimeout:     envDuration("ENVORYX_SESSION_IDLE_TIMEOUT", 12*time.Hour),
+		SessionAbsoluteTimeout: envDuration("ENVORYX_SESSION_ABSOLUTE_TIMEOUT", 7*24*time.Hour),
+		SecureCookies:          envBool("ENVORYX_SECURE_COOKIES", false),
+		PortRangeStart:         envInt("ENVORYX_PORT_RANGE_START", 20000),
+		PortRangeEnd:           envInt("ENVORYX_PORT_RANGE_END", 20999),
 		PUID:                   envInt("PUID", 1000),
 		PGID:                   envInt("PGID", 1000),
-		PublicHost:             env("STAQIO_PUBLIC_HOST", ""),
-		ProxyHTTP:              envAllowEmpty("STAQIO_PROXY_HTTP", ":80"),
-		ProxyHTTPS:             envAllowEmpty("STAQIO_PROXY_HTTPS", ":443"),
-		SSHListen:              envAllowEmpty("STAQIO_SSH", ":2222"),
-		AdminUser:              env("STAQIO_ADMIN_USER", ""),
-		AdminPassword:          env("STAQIO_ADMIN_PASSWORD", ""),
-		LogLevel:               strings.ToLower(env("STAQIO_LOG_LEVEL", "info")),
-		LogFormat:              strings.ToLower(env("STAQIO_LOG_FORMAT", "json")),
-		DevMode:                envBool("STAQIO_DEV", false),
-		DevOrigin:              env("STAQIO_DEV_ORIGIN", "http://localhost:5173"),
+		PublicHost:             env("ENVORYX_PUBLIC_HOST", ""),
+		ProxyHTTP:              envAllowEmpty("ENVORYX_PROXY_HTTP", ":80"),
+		ProxyHTTPS:             envAllowEmpty("ENVORYX_PROXY_HTTPS", ":443"),
+		SSHListen:              envAllowEmpty("ENVORYX_SSH", ":2222"),
+		AdminUser:              env("ENVORYX_ADMIN_USER", ""),
+		AdminPassword:          env("ENVORYX_ADMIN_PASSWORD", ""),
+		LogLevel:               strings.ToLower(env("ENVORYX_LOG_LEVEL", "info")),
+		LogFormat:              strings.ToLower(env("ENVORYX_LOG_FORMAT", "json")),
+		DevMode:                envBool("ENVORYX_DEV", false),
+		DevOrigin:              env("ENVORYX_DEV_ORIGIN", "http://localhost:5173"),
 	}
-	c.DatabasePath = env("STAQIO_DATABASE_PATH", filepath.Join(c.ConfigDir, "staqio.db"))
+	c.DatabasePath = env("ENVORYX_DATABASE_PATH", filepath.Join(c.ConfigDir, "envoryx.db"))
 
 	if err := c.validate(); err != nil {
 		return Config{}, err
@@ -115,16 +115,16 @@ func Load() (Config, error) {
 func (c Config) validate() error {
 	var errs []error
 	if !filepath.IsAbs(c.ConfigDir) {
-		errs = append(errs, fmt.Errorf("STAQIO_CONFIG_DIR must be absolute, got %q", c.ConfigDir))
+		errs = append(errs, fmt.Errorf("ENVORYX_CONFIG_DIR must be absolute, got %q", c.ConfigDir))
 	}
 	if !filepath.IsAbs(c.ProjectsDir) {
-		errs = append(errs, fmt.Errorf("STAQIO_PROJECTS_DIR must be absolute, got %q", c.ProjectsDir))
+		errs = append(errs, fmt.Errorf("ENVORYX_PROJECTS_DIR must be absolute, got %q", c.ProjectsDir))
 	}
 	if c.ConfigHostPath != "" && !filepath.IsAbs(c.ConfigHostPath) {
-		errs = append(errs, fmt.Errorf("STAQIO_CONFIG_HOST_PATH must be absolute, got %q", c.ConfigHostPath))
+		errs = append(errs, fmt.Errorf("ENVORYX_CONFIG_HOST_PATH must be absolute, got %q", c.ConfigHostPath))
 	}
 	if c.ProjectsHostPath != "" && !filepath.IsAbs(c.ProjectsHostPath) {
-		errs = append(errs, fmt.Errorf("STAQIO_PROJECTS_HOST_PATH must be absolute, got %q", c.ProjectsHostPath))
+		errs = append(errs, fmt.Errorf("ENVORYX_PROJECTS_HOST_PATH must be absolute, got %q", c.ProjectsHostPath))
 	}
 	if c.PortRangeStart < 1024 || c.PortRangeEnd > 65535 || c.PortRangeStart > c.PortRangeEnd {
 		errs = append(errs, fmt.Errorf("invalid port range %d-%d", c.PortRangeStart, c.PortRangeEnd))
@@ -138,18 +138,18 @@ func (c Config) validate() error {
 	switch c.LogLevel {
 	case "debug", "info", "warn", "error":
 	default:
-		errs = append(errs, fmt.Errorf("invalid STAQIO_LOG_LEVEL %q", c.LogLevel))
+		errs = append(errs, fmt.Errorf("invalid ENVORYX_LOG_LEVEL %q", c.LogLevel))
 	}
 	switch c.LogFormat {
 	case "json", "text":
 	default:
-		errs = append(errs, fmt.Errorf("invalid STAQIO_LOG_FORMAT %q", c.LogFormat))
+		errs = append(errs, fmt.Errorf("invalid ENVORYX_LOG_FORMAT %q", c.LogFormat))
 	}
 	if c.PublicHost != "" && !validHost(c.PublicHost) {
-		errs = append(errs, fmt.Errorf("STAQIO_PUBLIC_HOST %q must be a host name or IP without scheme or port", c.PublicHost))
+		errs = append(errs, fmt.Errorf("ENVORYX_PUBLIC_HOST %q must be a host name or IP without scheme or port", c.PublicHost))
 	}
 	if (c.AdminUser == "") != (c.AdminPassword == "") {
-		errs = append(errs, errors.New("STAQIO_ADMIN_USER and STAQIO_ADMIN_PASSWORD must be set together"))
+		errs = append(errs, errors.New("ENVORYX_ADMIN_USER and ENVORYX_ADMIN_PASSWORD must be set together"))
 	}
 	return errors.Join(errs...)
 }

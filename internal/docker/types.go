@@ -1,5 +1,5 @@
 // Package docker is the only package that talks to the Docker Engine. It exposes a narrow,
-// label-scoped Engine interface so that the rest of Staqio can never issue arbitrary
+// label-scoped Engine interface so that the rest of Envoryx can never issue arbitrary
 // Docker operations.
 package docker
 
@@ -10,20 +10,20 @@ import (
 	"time"
 )
 
-// Labels used to mark and identify Staqio-managed resources.
+// Labels used to mark and identify Envoryx-managed resources.
 const (
-	LabelManaged     = "staqio.managed"
-	LabelProjectID   = "staqio.project.id"
-	LabelProjectName = "staqio.project.name"
-	LabelService     = "staqio.service"
+	LabelManaged     = "envoryx.managed"
+	LabelProjectID   = "envoryx.project.id"
+	LabelProjectName = "envoryx.project.name"
+	LabelService     = "envoryx.service"
 	// LabelSpec is a fingerprint of the structural container spec (command, mounts, ports);
-	// a mismatch tells Staqio to recreate the container.
-	LabelSpec    = "staqio.spec"
-	LabelVersion = "staqio.version"
+	// a mismatch tells Envoryx to recreate the container.
+	LabelSpec    = "envoryx.spec"
+	LabelVersion = "envoryx.version"
 )
 
 // ErrNotManaged is returned when an operation targets a resource without the managed label.
-var ErrNotManaged = errors.New("resource is not managed by Staqio")
+var ErrNotManaged = errors.New("resource is not managed by Envoryx")
 
 // ErrNotFound is returned when a resource does not exist.
 var ErrNotFound = errors.New("docker resource not found")
@@ -73,7 +73,7 @@ type PortMapping struct {
 	Protocol      string
 }
 
-// ContainerDetails is the inspect view used by Staqio.
+// ContainerDetails is the inspect view used by Envoryx.
 type ContainerDetails struct {
 	Container
 	Running    bool
@@ -148,7 +148,7 @@ type HealthSpec struct {
 	Retries     int
 }
 
-// ContainerSpec is the closed set of parameters Staqio uses to create containers.
+// ContainerSpec is the closed set of parameters Envoryx uses to create containers.
 // Privileged mode, capability additions, host networking, device access and arbitrary
 // binds are intentionally not representable.
 type ContainerSpec struct {
@@ -247,18 +247,18 @@ type LogOptions struct {
 // PullProgress receives human readable image pull progress lines.
 type PullProgress func(msg string)
 
-// Engine is the label-scoped Docker abstraction used by Staqio.
+// Engine is the label-scoped Docker abstraction used by Envoryx.
 type Engine interface {
 	// Ping checks connectivity and returns engine information.
 	Ping(ctx context.Context) (Info, error)
 
-	// ListContainers lists containers. If managedOnly is true only staqio.managed=true
+	// ListContainers lists containers. If managedOnly is true only envoryx.managed=true
 	// containers are returned; projectID additionally filters by project.
 	ListContainers(ctx context.Context, managedOnly bool, projectID string) ([]Container, error)
 	// InspectContainer returns details for a managed container by ID or name.
 	InspectContainer(ctx context.Context, idOrName string) (ContainerDetails, error)
 	// InspectMounts returns the mounts of any container (read-only, used to discover the
-	// host paths behind Staqio's own /config and /projects mounts).
+	// host paths behind Envoryx's own /config and /projects mounts).
 	InspectMounts(ctx context.Context, idOrName string) ([]MountPoint, error)
 	// CreateContainer creates (but does not start) a container from a spec.
 	CreateContainer(ctx context.Context, spec ContainerSpec) (string, error)
@@ -287,13 +287,13 @@ type Engine interface {
 	// or ctx is cancelled. emit is called from a single goroutine.
 	StreamLogs(ctx context.Context, id string, opts LogOptions, emit func(LogLine)) error
 
-	// ListNetworks lists networks; managedOnly restricts to Staqio networks.
+	// ListNetworks lists networks; managedOnly restricts to Envoryx networks.
 	ListNetworks(ctx context.Context, managedOnly bool) ([]Network, error)
 	// CreateNetwork creates a bridge network with labels.
 	CreateNetwork(ctx context.Context, name string, labels map[string]string) (string, error)
 	// RemoveNetwork removes a managed network.
 	RemoveNetwork(ctx context.Context, idOrName string) error
-	// ConnectNetwork attaches a container to a managed network (used to attach Staqio's own
+	// ConnectNetwork attaches a container to a managed network (used to attach Envoryx's own
 	// container so the embedded proxy can reach project web servers).
 	ConnectNetwork(ctx context.Context, network, containerID string) error
 	// DisconnectNetwork detaches a container from a managed network.
@@ -301,14 +301,14 @@ type Engine interface {
 	// ContainerNetworks lists the network names a container is attached to.
 	ContainerNetworks(ctx context.Context, containerID string) ([]string, error)
 	// SelfPortBindings returns the host ports published for the given container ports of
-	// any container (used to discover how Staqio's own proxy ports are mapped).
+	// any container (used to discover how Envoryx's own proxy ports are mapped).
 	PortBindings(ctx context.Context, containerID string) ([]PortMapping, error)
 	// NetworkAccess describes how a container's listeners are reachable from the LAN:
 	// through published ports, or directly because it uses host networking or has its
 	// own IP on a macvlan/ipvlan network.
 	NetworkAccess(ctx context.Context, containerID string) (NetworkAccess, error)
 
-	// ListVolumes lists volumes; managedOnly restricts to Staqio volumes.
+	// ListVolumes lists volumes; managedOnly restricts to Envoryx volumes.
 	ListVolumes(ctx context.Context, managedOnly bool) ([]Volume, error)
 	// CreateVolume creates a named local volume with labels.
 	CreateVolume(ctx context.Context, name string, labels map[string]string) error

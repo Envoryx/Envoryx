@@ -65,7 +65,7 @@ export function DashboardPage() {
       {d.hostPath.error && !Object.keys(d.hostPath.overrides).length && (
         <div className="mb-6">
           <Alert tone="red" title={t("Host paths could not be detected")}>
-            {t("Staqio needs to know the host paths behind /projects and /config to mount project files into containers. Set STAQIO_PROJECTS_HOST_PATH and STAQIO_CONFIG_HOST_PATH.")} ({d.hostPath.error})
+            {t("Envoryx needs to know the host paths behind /projects and /config to mount project files into containers. Set ENVORYX_PROJECTS_HOST_PATH and ENVORYX_CONFIG_HOST_PATH.")} ({d.hostPath.error})
           </Alert>
         </div>
       )}

@@ -57,7 +57,7 @@ export function LoginPage({ mode }: { mode: "login" | "setup" }) {
         <div className="mb-8 flex flex-col items-center gap-3">
           <Logo size={40} />
           <div className="text-center">
-            <h1 className="text-lg font-semibold text-fg">{mode === "setup" ? t("Welcome to Staqio") : t("Sign in to Staqio")}</h1>
+            <h1 className="text-lg font-semibold text-fg">{mode === "setup" ? t("Welcome to Envoryx") : t("Sign in to Envoryx")}</h1>
             <p className="mt-1 text-sm text-muted">
               {mode === "setup" ? t("Create the administrator account to get started.") : t("Docker-native development environments.")}
             </p>

@@ -360,7 +360,7 @@ export function DatabaseTab({ project }: { project: Project }) {
         open={removeOpen}
         onClose={() => setRemoveOpen(false)}
         title={t("Remove database service?")}
-        description={t("This stops and removes the database container {{container}} and deletes the volume {{volume}} with all data. The PHP container is recreated without database variables.", { container: `staqio-${project.slug}-database`, volume: d.volumeName })}
+        description={t("This stops and removes the database container {{container}} and deletes the volume {{volume}} with all data. The PHP container is recreated without database variables.", { container: `envoryx-${project.slug}-database`, volume: d.volumeName })}
         footer={
           <>
             <Button onClick={() => setRemoveOpen(false)}>{t("Cancel")}</Button>

@@ -1,6 +1,6 @@
 /**
  * Copies text to the clipboard. `navigator.clipboard` only exists in secure contexts
- * (HTTPS / localhost); Staqio is usually reached over plain HTTP on a LAN IP, so a
+ * (HTTPS / localhost); Envoryx is usually reached over plain HTTP on a LAN IP, so a
  * textarea + execCommand fallback is used there. Returns whether copying succeeded.
  */
 export async function copyText(text: string): Promise<boolean> {

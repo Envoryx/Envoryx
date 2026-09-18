@@ -1,4 +1,4 @@
-module github.com/seramos/staqio
+module github.com/envoryx/envoryx
 
 go 1.27.1
 

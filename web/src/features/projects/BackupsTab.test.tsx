@@ -6,7 +6,7 @@ import { authedRoutes, makeProject, mockApi, renderApp } from "@/test/utils";
 const id = "3f0b4a9e-1a2b-4c3d-8e9f-0a1b2c3d4e5f";
 const backup = {
   id: "b1", dir: "20260918-100000-abcd1234", kind: "full", sizeBytes: 2048, createdAt: "2026-09-18T10:00:00Z", missing: false,
-  meta: { format: 1, staqio: "dev", projectId: id, projectName: "Shimly API", slug: "shimly-api", createdAt: "2026-09-18T10:00:00Z", note: "before deploy", database: { type: "mariadb", version: "11", name: "shimly_api", bytes: 1024 }, files: { bytes: 1024, entries: 12, includeDependencies: false }, runtimes: {} },
+  meta: { format: 1, envoryx: "dev", projectId: id, projectName: "Shimly API", slug: "shimly-api", createdAt: "2026-09-18T10:00:00Z", note: "before deploy", database: { type: "mariadb", version: "11", name: "shimly_api", bytes: 1024 }, files: { bytes: 1024, entries: 12, includeDependencies: false }, runtimes: {} },
 };
 
 describe("BackupsTab", () => {

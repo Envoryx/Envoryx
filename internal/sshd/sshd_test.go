@@ -16,15 +16,15 @@ import (
 	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
 
-	"github.com/seramos/staqio/internal/audit"
-	"github.com/seramos/staqio/internal/auth"
-	"github.com/seramos/staqio/internal/db"
-	"github.com/seramos/staqio/internal/docker"
-	"github.com/seramos/staqio/internal/docker/dockertest"
-	"github.com/seramos/staqio/internal/project"
-	"github.com/seramos/staqio/internal/runtime"
-	"github.com/seramos/staqio/internal/sshd"
-	"github.com/seramos/staqio/internal/store"
+	"github.com/envoryx/envoryx/internal/audit"
+	"github.com/envoryx/envoryx/internal/auth"
+	"github.com/envoryx/envoryx/internal/db"
+	"github.com/envoryx/envoryx/internal/docker"
+	"github.com/envoryx/envoryx/internal/docker/dockertest"
+	"github.com/envoryx/envoryx/internal/project"
+	"github.com/envoryx/envoryx/internal/runtime"
+	"github.com/envoryx/envoryx/internal/sshd"
+	"github.com/envoryx/envoryx/internal/store"
 )
 
 type env struct {
@@ -132,7 +132,7 @@ func TestExecAndAuth(t *testing.T) {
 	if !strings.HasPrefix(string(out), "PHP 8.4.0") || !strings.HasSuffix(string(out), "hello") {
 		t.Fatalf("output: %q", out)
 	}
-	if len(seen) != 1 || !strings.HasPrefix(seen[0], "staqio-shop-php|/bin/sh -lc php -v|") || !strings.Contains(seen[0], "HOME=/home/staqio") {
+	if len(seen) != 1 || !strings.HasPrefix(seen[0], "envoryx-shop-php|/bin/sh -lc php -v|") || !strings.Contains(seen[0], "HOME=/home/envoryx") {
 		t.Fatalf("exec: %v", seen)
 	}
 	sess.Close()
@@ -201,10 +201,10 @@ func TestSFTPMapsProjectAndHome(t *testing.T) {
 	if _, err := sc.ReadDir("/var/www/html/public"); err != nil {
 		t.Fatalf("project dir: %v", err)
 	}
-	if err := sc.MkdirAll("/home/staqio/.phpstorm_helpers"); err != nil {
+	if err := sc.MkdirAll("/home/envoryx/.phpstorm_helpers"); err != nil {
 		t.Fatal(err)
 	}
-	f, err := sc.Create("/home/staqio/.phpstorm_helpers/phpinfo.php")
+	f, err := sc.Create("/home/envoryx/.phpstorm_helpers/phpinfo.php")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -316,7 +316,7 @@ func TestPortForwardingRequiresGateway(t *testing.T) {
 	if got := string(buf[:n]); !strings.HasPrefix(got, "backend:") {
 		t.Fatalf("forwarded data: %q", got)
 	}
-	if dialed != "staqio-shop-php:5990" {
+	if dialed != "envoryx-shop-php:5990" {
 		t.Fatalf("dial target: %s", dialed)
 	}
 	if _, err := client2.Dial("tcp", "example.com:80"); err == nil {
@@ -341,7 +341,7 @@ func TestPortForwardingRelaysInsideContainer(t *testing.T) {
 	}
 	var relayCmd []string
 	e.engine.StreamHandler = func(container string, cmd []string, _ []string, stdin []byte) (string, int, error) {
-		if container != "staqio-shop-php" {
+		if container != "envoryx-shop-php" {
 			t.Errorf("relay container: %s", container)
 		}
 		relayCmd = cmd
@@ -422,17 +422,17 @@ func TestSFTPShowsJetBrainsCacheWithGateway(t *testing.T) {
 	}
 	defer sc.Close()
 	// ~/.cache does not exist in the project home yet; the mount point is still listed.
-	entries, err := sc.ReadDir("/home/staqio/.cache")
+	entries, err := sc.ReadDir("/home/envoryx/.cache")
 	if err != nil {
 		t.Fatalf("list .cache: %v", err)
 	}
 	if len(entries) != 1 || entries[0].Name() != "JetBrains" || !entries[0].IsDir() {
 		t.Fatalf(".cache listing: %v", entries)
 	}
-	if st, err := sc.Stat("/home/staqio/.cache/JetBrains/RemoteDev/dist/abc_PhpStorm/product-info.json"); err != nil || st.Size() != 2 {
+	if st, err := sc.Stat("/home/envoryx/.cache/JetBrains/RemoteDev/dist/abc_PhpStorm/product-info.json"); err != nil || st.Size() != 2 {
 		t.Fatalf("dist file: %v %v", err, st)
 	}
-	f, err := sc.Create("/home/staqio/.cache/JetBrains/RemoteDev/dist/abc_PhpStorm/uploaded")
+	f, err := sc.Create("/home/envoryx/.cache/JetBrains/RemoteDev/dist/abc_PhpStorm/uploaded")
 	if err != nil {
 		t.Fatal(err)
 	}

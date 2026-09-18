@@ -1,4 +1,4 @@
-// Package tlsca provides Staqio's local certificate authority: a self-signed CA generated
+// Package tlsca provides Envoryx's local certificate authority: a self-signed CA generated
 // once under /config/ca, leaf certificates issued on demand per hostname, and an optional
 // operator-supplied certificate (e.g. a Let's Encrypt wildcard) that takes precedence for
 // the hostnames it covers.
@@ -34,8 +34,8 @@ const (
 	caValidity   = 10 * 365 * 24 * time.Hour
 	leafValidity = 397 * 24 * time.Hour // browsers reject longer-lived leaf certificates
 	renewBefore  = 30 * 24 * time.Hour
-	caCommonName = "Staqio Local CA"
-	caOrgName    = "Staqio"
+	caCommonName = "Envoryx Local CA"
+	caOrgName    = "Envoryx"
 )
 
 // Store issues and caches certificates.

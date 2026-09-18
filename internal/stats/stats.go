@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/seramos/staqio/internal/docker"
+	"github.com/envoryx/envoryx/internal/docker"
 )
 
 // ContainerStats is one cached sample.

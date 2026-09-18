@@ -16,23 +16,23 @@ import (
 
 	"github.com/coder/websocket"
 
-	"github.com/seramos/staqio/internal/acme"
-	"github.com/seramos/staqio/internal/api"
-	"github.com/seramos/staqio/internal/audit"
-	"github.com/seramos/staqio/internal/auth"
-	"github.com/seramos/staqio/internal/config"
-	"github.com/seramos/staqio/internal/db"
-	"github.com/seramos/staqio/internal/docker"
-	"github.com/seramos/staqio/internal/docker/dockertest"
-	"github.com/seramos/staqio/internal/hostpath"
-	"github.com/seramos/staqio/internal/mcpserver"
-	"github.com/seramos/staqio/internal/notify"
-	"github.com/seramos/staqio/internal/project"
-	"github.com/seramos/staqio/internal/runtime"
-	"github.com/seramos/staqio/internal/server"
-	"github.com/seramos/staqio/internal/stats"
-	"github.com/seramos/staqio/internal/store"
-	"github.com/seramos/staqio/internal/tlsca"
+	"github.com/envoryx/envoryx/internal/acme"
+	"github.com/envoryx/envoryx/internal/api"
+	"github.com/envoryx/envoryx/internal/audit"
+	"github.com/envoryx/envoryx/internal/auth"
+	"github.com/envoryx/envoryx/internal/config"
+	"github.com/envoryx/envoryx/internal/db"
+	"github.com/envoryx/envoryx/internal/docker"
+	"github.com/envoryx/envoryx/internal/docker/dockertest"
+	"github.com/envoryx/envoryx/internal/hostpath"
+	"github.com/envoryx/envoryx/internal/mcpserver"
+	"github.com/envoryx/envoryx/internal/notify"
+	"github.com/envoryx/envoryx/internal/project"
+	"github.com/envoryx/envoryx/internal/runtime"
+	"github.com/envoryx/envoryx/internal/server"
+	"github.com/envoryx/envoryx/internal/stats"
+	"github.com/envoryx/envoryx/internal/store"
+	"github.com/envoryx/envoryx/internal/tlsca"
 )
 
 type dockerExecResult = docker.ExecResult
@@ -115,7 +115,7 @@ func (a *testApp) do(method, path string, body any, withCSRF bool) resp {
 		req.Header.Set("Content-Type", "application/json")
 	}
 	if withCSRF {
-		req.Header.Set("X-Requested-With", "Staqio")
+		req.Header.Set("X-Requested-With", "Envoryx")
 	}
 	if a.cookie != nil {
 		req.AddCookie(a.cookie)
@@ -245,7 +245,7 @@ func TestCSRFProtection(t *testing.T) {
 		t.Fatalf("missing X-Requested-With must be rejected: %d %s", r.status, r.raw)
 	}
 	req, _ := http.NewRequest(http.MethodPost, a.srv.URL+"/api/v1/projects/preview", bytes.NewReader([]byte(`{"name":"Csrf"}`)))
-	req.Header.Set("X-Requested-With", "Staqio")
+	req.Header.Set("X-Requested-With", "Envoryx")
 	req.Header.Set("Origin", "https://evil.example")
 	req.AddCookie(a.cookie)
 	res, err := http.DefaultClient.Do(req)
@@ -257,7 +257,7 @@ func TestCSRFProtection(t *testing.T) {
 		t.Fatalf("cross-origin request must be rejected: %d", res.StatusCode)
 	}
 	req, _ = http.NewRequest(http.MethodPost, a.srv.URL+"/api/v1/projects/preview", bytes.NewReader([]byte(`{"name":"Csrf"}`)))
-	req.Header.Set("X-Requested-With", "Staqio")
+	req.Header.Set("X-Requested-With", "Envoryx")
 	req.Header.Set("Sec-Fetch-Site", "cross-site")
 	req.AddCookie(a.cookie)
 	res, err = http.DefaultClient.Do(req)
@@ -285,7 +285,7 @@ func TestProjectLifecycleOverHTTP(t *testing.T) {
 		t.Fatalf("preview: %d %s", r.status, r.raw)
 	}
 	pv := r.body["preview"].(map[string]any)
-	if pv["network"] != "staqio-shimly-api" || len(pv["containers"].([]any)) != 2 {
+	if pv["network"] != "envoryx-shimly-api" || len(pv["containers"].([]any)) != 2 {
 		t.Fatalf("preview content: %v", pv)
 	}
 
@@ -476,7 +476,7 @@ func TestServiceLogsRESTAndWebSocket(t *testing.T) {
 		t.Fatalf("create: %d %s", r.status, r.raw)
 	}
 	id := r.body["project"].(map[string]any)["id"].(string)
-	a.engine.Logs["staqio-logs-php"] = []docker.LogLine{
+	a.engine.Logs["envoryx-logs-php"] = []docker.LogLine{
 		{Time: time.Now(), Stream: "stderr", Text: "NOTICE: fpm is running"},
 		{Time: time.Now(), Stream: "stderr", Text: "NOTICE: ready to handle connections"},
 	}
@@ -566,7 +566,7 @@ func TestTerminalWebSocket(t *testing.T) {
 		t.Fatalf("expected one terminal session, got %d", len(a.engine.Terminals()))
 	}
 	rec := a.engine.Terminals()[0]
-	if rec.Container != "staqio-term-php" || rec.Opts.User != "1000:1000" || rec.Opts.WorkingDir != "/var/www/html" || rec.Opts.Cols != 100 || rec.Opts.Rows != 30 {
+	if rec.Container != "envoryx-term-php" || rec.Opts.User != "1000:1000" || rec.Opts.WorkingDir != "/var/www/html" || rec.Opts.Cols != 100 || rec.Opts.Rows != 30 {
 		t.Fatalf("terminal options: %+v", rec)
 	}
 	// Keystrokes reach the container and output comes back (the fake echoes input).
@@ -837,7 +837,7 @@ func TestWorkerEndpoints(t *testing.T) {
 	if !sawWorker {
 		t.Fatalf("status must list the worker: %s", r.raw)
 	}
-	a.engine.Logs["staqio-work-worker-queue"] = []docker.LogLine{{Time: time.Now(), Stream: "stdout", Text: "Processing job"}}
+	a.engine.Logs["envoryx-work-worker-queue"] = []docker.LogLine{{Time: time.Now(), Stream: "stdout", Text: "Processing job"}}
 	r = a.do(http.MethodGet, "/api/v1/projects/"+id+"/services/worker:"+wid+"/logs?tail=10", nil, false)
 	if r.status != http.StatusOK || !strings.Contains(string(r.raw), "Processing job") {
 		t.Fatalf("worker logs: %d %s", r.status, r.raw)

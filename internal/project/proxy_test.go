@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/seramos/staqio/internal/docker"
-	"github.com/seramos/staqio/internal/store"
-	"github.com/seramos/staqio/internal/validate"
+	"github.com/envoryx/envoryx/internal/docker"
+	"github.com/envoryx/envoryx/internal/store"
+	"github.com/envoryx/envoryx/internal/validate"
 )
 
 func TestRouteTableAndDomains(t *testing.T) {
@@ -25,7 +25,7 @@ func TestRouteTableAndDomains(t *testing.T) {
 	if _, err := e.m.AddDomain(ctx, shop.Project.ID, "Shop.Example.COM"); err != nil {
 		t.Fatal(err)
 	}
-	for _, bad := range []string{"", "-x.test", "shop.test", "idle.test", "staqio.test", "a b", "*.shop.test"} {
+	for _, bad := range []string{"", "-x.test", "shop.test", "idle.test", "envoryx.test", "a b", "*.shop.test"} {
 		if _, err := e.m.AddDomain(ctx, shop.Project.ID, bad); !errors.Is(err, validate.ErrInvalid) && !errors.Is(err, store.ErrConflict) {
 			t.Errorf("%q must be rejected, got %v", bad, err)
 		}
@@ -34,11 +34,11 @@ func TestRouteTableAndDomains(t *testing.T) {
 		t.Fatalf("duplicate hostname across projects must conflict, got %v", err)
 	}
 
-	table, err := e.m.RouteTable(ctx, ProxyOptions{HTTPSPort: 8443, StaqioURL: "https://staqio.test:8443", ExtraUIHosts: []string{"192.168.1.10"}})
+	table, err := e.m.RouteTable(ctx, ProxyOptions{HTTPSPort: 8443, EnvoryxURL: "https://envoryx.test:8443", ExtraUIHosts: []string{"192.168.1.10"}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !table.UIHosts["staqio.test"] || !table.UIHosts["192.168.1.10"] || table.HTTPSPort != 8443 {
+	if !table.UIHosts["envoryx.test"] || !table.UIHosts["192.168.1.10"] || table.HTTPSPort != 8443 {
 		t.Fatalf("ui hosts: %+v", table)
 	}
 	r, ok := table.Routes["shop.test"]
@@ -71,7 +71,7 @@ func TestRouteTableAndDomains(t *testing.T) {
 func TestProxyAttachesToProjectNetworksInsideDocker(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
-	selfID := e.engine.AddManagedContainer(docker.ContainerSpec{Name: "staqio", Labels: map[string]string{"x": "y"}}, "running")
+	selfID := e.engine.AddManagedContainer(docker.ContainerSpec{Name: "envoryx", Labels: map[string]string{"x": "y"}}, "running")
 	e.selfID = selfID
 
 	view, err := e.m.Create(ctx, phpRequest("Web", true))
@@ -79,11 +79,11 @@ func TestProxyAttachesToProjectNetworksInsideDocker(t *testing.T) {
 		t.Fatal(err)
 	}
 	nets, _ := e.engine.ContainerNetworks(ctx, selfID)
-	if strings.Join(nets, ",") != "staqio-web" {
+	if strings.Join(nets, ",") != "envoryx-web" {
 		t.Fatalf("proxy must be attached to the project network: %v", nets)
 	}
 	table, _ := e.m.RouteTable(ctx, ProxyOptions{})
-	if table.Routes["web.test"].Dial != "staqio-web-web:80" {
+	if table.Routes["web.test"].Dial != "envoryx-web-web:80" {
 		t.Fatalf("in-docker dial must use the container name: %+v", table.Routes["web.test"])
 	}
 	// Delete detaches first so the network can be removed.

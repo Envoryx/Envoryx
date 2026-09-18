@@ -5,7 +5,7 @@ export function Logo({ size = 28, withText = false }: { size?: number; withText?
         <rect width="32" height="32" rx="7" fill="#6366f1" />
         <path d="M9 11h14v3H12v2h11v7H9v-3h11v-1H9z" fill="#fff" />
       </svg>
-      {withText && <span className="text-[15px] font-semibold tracking-tight text-fg">Staqio</span>}
+      {withText && <span className="text-[15px] font-semibold tracking-tight text-fg">Envoryx</span>}
     </span>
   );
 }

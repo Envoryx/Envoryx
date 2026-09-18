@@ -6,9 +6,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/seramos/staqio/internal/audit"
-	"github.com/seramos/staqio/internal/store"
-	"github.com/seramos/staqio/internal/validate"
+	"github.com/envoryx/envoryx/internal/audit"
+	"github.com/envoryx/envoryx/internal/store"
+	"github.com/envoryx/envoryx/internal/validate"
 )
 
 // ExecTarget is everything an SSH session needs to run commands inside an application
@@ -21,13 +21,13 @@ type ExecTarget struct {
 	User        string
 	Env         []string
 	WorkingDir  string
-	// ProjectDir / HomeDir are the Staqio-side directories behind /var/www/html and
-	// /home/staqio (used by the SFTP subsystem).
+	// ProjectDir / HomeDir are the Envoryx-side directories behind /var/www/html and
+	// /home/envoryx (used by the SFTP subsystem).
 	ProjectDir string
 	HomeDir    string
 	// AppMount / HomeMount are the paths inside the container.
 	AppMount, HomeMount string
-	// Mounts maps every bind mount visible to the SSH user (container path → Staqio-side
+	// Mounts maps every bind mount visible to the SSH user (container path → Envoryx-side
 	// directory), including the shared JetBrains cache when Gateway is enabled, so SFTP
 	// shows the same tree as a shell in the container.
 	Mounts map[string]string

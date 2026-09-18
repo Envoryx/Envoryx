@@ -57,18 +57,18 @@ export function DomainsTab({ project }: { project: Project }) {
     <div className="space-y-6">
       {!proxy.enabled ? (
         <Alert tone="amber" title={t("The embedded proxy is disabled")}>
-          {t("Domains need the proxy (STAQIO_PROXY_HTTP / STAQIO_PROXY_HTTPS). The project stays reachable at")} <Code>{direct}</Code>.
+          {t("Domains need the proxy (ENVORYX_PROXY_HTTP / ENVORYX_PROXY_HTTPS). The project stays reachable at")} <Code>{direct}</Code>.
         </Alert>
       ) : !published ? (
         <Alert tone="amber" title={t("Proxy ports are not published")}>
-          {t("Map host ports 80 and 443 to the Staqio container to open projects by domain.")} <Link to="/settings" className="underline">{t("Settings → Domains & HTTPS")}</Link>
+          {t("Map host ports 80 and 443 to the Envoryx container to open projects by domain.")} <Link to="/settings" className="underline">{t("Settings → Domains & HTTPS")}</Link>
         </Alert>
       ) : null}
 
       <Card>
         <CardHeader
           title={t("Domains")}
-          description={t("Every project gets slug.base-domain automatically. Additional names route to this project through the proxy; point them at the Staqio host in your DNS or hosts file.")}
+          description={t("Every project gets slug.base-domain automatically. Additional names route to this project through the proxy; point them at the Envoryx host in your DNS or hosts file.")}
         />
         <ul className="divide-y divide-[var(--border)]">
           {domains.map((d) => {

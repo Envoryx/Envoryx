@@ -11,9 +11,9 @@ import (
 
 	"github.com/coder/websocket"
 
-	"github.com/seramos/staqio/internal/docker"
-	"github.com/seramos/staqio/internal/store"
-	"github.com/seramos/staqio/internal/validate"
+	"github.com/envoryx/envoryx/internal/docker"
+	"github.com/envoryx/envoryx/internal/store"
+	"github.com/envoryx/envoryx/internal/validate"
 )
 
 func serviceKind(r *http.Request) (store.ServiceKind, error) {

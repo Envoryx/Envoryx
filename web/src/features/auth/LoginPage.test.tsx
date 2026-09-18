@@ -43,7 +43,7 @@ describe("LoginPage", () => {
     expect(login).toBeDefined();
     // The CSRF header must be sent on state-changing requests.
     const init = api.fetchMock.mock.calls.find((c) => (c[1]?.method ?? "GET") === "POST")?.[1];
-    expect((init?.headers as Record<string, string>)["X-Requested-With"]).toBe("Staqio");
+    expect((init?.headers as Record<string, string>)["X-Requested-With"]).toBe("Envoryx");
   });
 
   it("redirects to setup when no user exists", async () => {
@@ -55,7 +55,7 @@ describe("LoginPage", () => {
       </Routes>,
       { route: "/login" },
     );
-    await waitFor(() => expect(screen.getByText("Welcome to Staqio")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Welcome to Envoryx")).toBeInTheDocument());
     expect(screen.getByLabelText("Confirm password")).toBeInTheDocument();
   });
 });

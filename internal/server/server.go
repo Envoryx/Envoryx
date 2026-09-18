@@ -14,9 +14,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/seramos/staqio/internal/api"
-	"github.com/seramos/staqio/internal/audit"
-	"github.com/seramos/staqio/internal/auth"
+	"github.com/envoryx/envoryx/internal/api"
+	"github.com/envoryx/envoryx/internal/audit"
+	"github.com/envoryx/envoryx/internal/auth"
 )
 
 // Options configure the server.
@@ -238,7 +238,7 @@ func csrfMiddleware(allowedOrigins []string) func(http.Handler) http.Handler {
 					return
 				}
 			}
-			if r.Header.Get("X-Requested-With") != "Staqio" {
+			if r.Header.Get("X-Requested-With") != "Envoryx" {
 				forbidden(w, "missing X-Requested-With header")
 				return
 			}
@@ -309,5 +309,5 @@ func spaHandler(dist fs.FS) http.Handler {
 func notBuilt(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusServiceUnavailable)
-	_, _ = w.Write([]byte(`<!doctype html><title>Staqio</title><body style="font-family:system-ui;padding:2rem"><h1>Staqio</h1><p>The web frontend has not been built. Run <code>make web</code> or use the official Docker image.</p><p>The API is available under <code>/api/v1</code>.</p></body>`))
+	_, _ = w.Write([]byte(`<!doctype html><title>Envoryx</title><body style="font-family:system-ui;padding:2rem"><h1>Envoryx</h1><p>The web frontend has not been built. Run <code>make web</code> or use the official Docker image.</p><p>The API is available under <code>/api/v1</code>.</p></body>`))
 }

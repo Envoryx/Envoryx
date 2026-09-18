@@ -10,14 +10,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/seramos/staqio/internal/audit"
-	"github.com/seramos/staqio/internal/config"
-	"github.com/seramos/staqio/internal/db"
-	"github.com/seramos/staqio/internal/docker"
-	"github.com/seramos/staqio/internal/project"
-	"github.com/seramos/staqio/internal/runtime"
-	"github.com/seramos/staqio/internal/sshd"
-	"github.com/seramos/staqio/internal/validate"
+	"github.com/envoryx/envoryx/internal/audit"
+	"github.com/envoryx/envoryx/internal/config"
+	"github.com/envoryx/envoryx/internal/db"
+	"github.com/envoryx/envoryx/internal/docker"
+	"github.com/envoryx/envoryx/internal/project"
+	"github.com/envoryx/envoryx/internal/runtime"
+	"github.com/envoryx/envoryx/internal/sshd"
+	"github.com/envoryx/envoryx/internal/validate"
 
 	"golang.org/x/crypto/ssh"
 )

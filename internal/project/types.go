@@ -6,9 +6,9 @@ import (
 	"errors"
 	"time"
 
-	"github.com/seramos/staqio/internal/docker"
-	"github.com/seramos/staqio/internal/runtime"
-	"github.com/seramos/staqio/internal/store"
+	"github.com/envoryx/envoryx/internal/docker"
+	"github.com/envoryx/envoryx/internal/runtime"
+	"github.com/envoryx/envoryx/internal/store"
 )
 
 // Domain errors mapped to HTTP status codes by the API layer.
@@ -17,7 +17,7 @@ var (
 	ErrConflict      = store.ErrConflict
 	ErrBusy          = errors.New("project is busy with another operation")
 	ErrDockerDown    = docker.ErrUnavailable
-	ErrNotConfigured = errors.New("staqio is not fully configured")
+	ErrNotConfigured = errors.New("envoryx is not fully configured")
 )
 
 // CreateRequest is the validated intent to create a project.

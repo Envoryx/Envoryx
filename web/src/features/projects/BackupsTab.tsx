@@ -86,7 +86,7 @@ export function BackupsTab({ project }: { project: Project }) {
           }
           description={
             <>
-              {t("Stored under")} <Code>/config/backups/{project.slug}/</Code>. {t("The database is dumped inside its container; files are archived by Staqio.")}
+              {t("Stored under")} <Code>/config/backups/{project.slug}/</Code>. {t("The database is dumped inside its container; files are archived by Envoryx.")}
             </>
           }
         />
@@ -108,7 +108,7 @@ export function BackupsTab({ project }: { project: Project }) {
       </Card>
 
       <Card>
-        <CardHeader title={t("Backups")} description={t("Newest first. Restoring overwrites the current database and/or files – Staqio asks for confirmation.")} />
+        <CardHeader title={t("Backups")} description={t("Newest first. Restoring overwrites the current database and/or files – Envoryx asks for confirmation.")} />
         {backups.isPending ? (
           <Spinner />
         ) : backups.isError ? (

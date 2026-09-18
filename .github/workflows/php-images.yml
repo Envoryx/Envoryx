@@ -16,7 +16,7 @@ permissions:
   packages: write
 
 env:
-  IMAGE: ghcr.io/seramos/staqio-php
+  IMAGE: ghcr.io/envoryx/envoryx-php
 
 jobs:
   matrix:

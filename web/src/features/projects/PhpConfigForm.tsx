@@ -130,7 +130,7 @@ export function PhpConfigForm({
                   <span className="font-medium text-fg">PhpStorm:</span> {t("Settings → PHP → Debug: port 9003, “Listen for PHP Debug Connections” on. Settings → PHP → Servers: name/host")} <Code>{hostname ?? "<project host>"}</Code>, {t("“Use path mappings”:")} <Code>{projectDir ?? "<project folder>"}</Code> → <Code>/var/www/html</Code>.
                 </li>
                 <li>
-                  <span className="font-medium text-fg">VS Code</span> ({t("PHP Debug extension")}), <Code>.vscode/launch.json</Code>: <Code>{`{"type":"php","request":"launch","name":"Staqio","port":9003,"pathMappings":{"/var/www/html":"\${workspaceFolder}"}}`}</Code>
+                  <span className="font-medium text-fg">VS Code</span> ({t("PHP Debug extension")}), <Code>.vscode/launch.json</Code>: <Code>{`{"type":"php","request":"launch","name":"Envoryx","port":9003,"pathMappings":{"/var/www/html":"\${workspaceFolder}"}}`}</Code>
                 </li>
                 <li>{t("Firewall: port 9003 must be reachable on your machine.")}</li>
                 <li>{t("Trigger mode: install “Xdebug helper” (Chrome/Firefox) or JetBrains’ browser extension and switch it to “Debug” on the project tab; CLI:")} <Code>XDEBUG_TRIGGER=1 php artisan …</Code></li>

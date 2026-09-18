@@ -12,7 +12,7 @@ import { containerStateTone, formatBytes, formatRelative } from "@/lib/format";
 function ContainerTable({ rows, managed }: { rows: ContainerSummary[]; managed: boolean }) {
   const { t } = useTranslation();
   if (rows.length === 0) {
-    return <p className="px-5 py-6 text-sm text-muted">{managed ? t("No Staqio containers exist.") : t("No other containers on this host.")}</p>;
+    return <p className="px-5 py-6 text-sm text-muted">{managed ? t("No Envoryx containers exist.") : t("No other containers on this host.")}</p>;
   }
   return (
     <div className="overflow-x-auto">
@@ -75,7 +75,7 @@ function UnusedImagesCard() {
     <Card>
       <CardHeader
         title={t("Unused runtime images")}
-        description={t("Images Staqio pulled (PHP, Node, MariaDB, Caddy, Apache, Nginx) that no container uses any more, e.g. after a version change. Images from other sources are never touched.")}
+        description={t("Images Envoryx pulled (PHP, Node, MariaDB, Caddy, Apache, Nginx) that no container uses any more, e.g. after a version change. Images from other sources are never touched.")}
         actions={
           images.data && images.data.length > 0 && !confirm ? (
             <Button size="sm" onClick={() => setConfirm(true)} icon={<Trash2 className="size-3.5" />}>
@@ -145,7 +145,7 @@ export function DockerPage() {
     <div>
       <PageHeader
         title="Docker"
-        description={t("Diagnostics view. Staqio only manages resources labelled staqio.managed=true; everything else is shown read-only.")}
+        description={t("Diagnostics view. Envoryx only manages resources labelled envoryx.managed=true; everything else is shown read-only.")}
         actions={
           <Button onClick={() => void reconcile()} icon={<RefreshCw className="size-4" />}>
             {t("Reconcile now")}
@@ -201,8 +201,8 @@ export function DockerPage() {
 
       {d.orphans.length > 0 && (
         <div className="mt-6">
-          <Alert tone="amber" title={t("{{count}} orphaned Staqio resources", { count: d.orphans.length })}>
-            <p>{t("These carry Staqio labels but belong to no known project (e.g. after restoring an older database). They are never removed automatically.")}</p>
+          <Alert tone="amber" title={t("{{count}} orphaned Envoryx resources", { count: d.orphans.length })}>
+            <p>{t("These carry Envoryx labels but belong to no known project (e.g. after restoring an older database). They are never removed automatically.")}</p>
             <ul className="mt-2 list-disc pl-4 font-mono text-xs">
               {d.orphans.map((o) => (
                 <li key={o.type + o.id}>
@@ -216,7 +216,7 @@ export function DockerPage() {
 
       <div className="mt-6 space-y-6">
         <Card>
-          <CardHeader title={t("Staqio containers")} description={t("Managed by Staqio and mapped to projects.")} />
+          <CardHeader title={t("Envoryx containers")} description={t("Managed by Envoryx and mapped to projects.")} />
           <ContainerTable rows={d.containers} managed />
         </Card>
         <div className="grid gap-6 lg:grid-cols-2">
@@ -249,7 +249,7 @@ export function DockerPage() {
         <Card>
           <CardHeader
             title={t("Other containers on this host")}
-            description={t("Read-only. Staqio never touches containers without the staqio.managed=true label.")}
+            description={t("Read-only. Envoryx never touches containers without the envoryx.managed=true label.")}
           />
           <ContainerTable rows={d.foreign} managed={false} />
         </Card>

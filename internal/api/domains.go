@@ -5,9 +5,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/seramos/staqio/internal/project"
-	"github.com/seramos/staqio/internal/store"
-	"github.com/seramos/staqio/internal/validate"
+	"github.com/envoryx/envoryx/internal/project"
+	"github.com/envoryx/envoryx/internal/store"
+	"github.com/envoryx/envoryx/internal/validate"
 )
 
 type domainDTO struct {
@@ -115,7 +115,7 @@ func (a *API) downloadCA(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/x-x509-ca-cert")
-	w.Header().Set("Content-Disposition", `attachment; filename="staqio-ca.crt"`)
+	w.Header().Set("Content-Disposition", `attachment; filename="envoryx-ca.crt"`)
 	w.Header().Set("Cache-Control", "no-store")
 	_, _ = w.Write(a.d.Certs.CAPEM())
 }

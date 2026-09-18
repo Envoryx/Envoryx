@@ -17,7 +17,7 @@ func TestMongoDialectKeepsPasswordOutOfClientArgv(t *testing.T) {
 			t.Fatalf("password must not appear in argv: %v", argv)
 		}
 	}
-	if len(env) != 1 || !strings.HasPrefix(env[0], "STAQIO_MONGO_URI=mongodb://shop:s3cretPW@127.0.0.1:27017/admin") {
+	if len(env) != 1 || !strings.HasPrefix(env[0], "ENVORYX_MONGO_URI=mongodb://shop:s3cretPW@127.0.0.1:27017/admin") {
 		t.Fatalf("env: %v", env)
 	}
 	got := DatabaseEnv(cfg, "mongodb")

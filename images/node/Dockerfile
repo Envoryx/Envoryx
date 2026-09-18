@@ -1,16 +1,16 @@
-# Staqio Node.js runtime image: official node image plus corepack-activated pnpm and yarn,
+# Envoryx Node.js runtime image: official node image plus corepack-activated pnpm and yarn,
 # git for tooling that needs it. Runs idle (sleep) as a tooling container; commands are
-# executed through Staqio actions and the terminal.
+# executed through Envoryx actions and the terminal.
 #
-# Build: docker build --build-arg BASE_TAG=24-bookworm-slim -t ghcr.io/seramos/staqio-node:24 images/node
+# Build: docker build --build-arg BASE_TAG=24-bookworm-slim -t ghcr.io/envoryx/envoryx-node:24 images/node
 ARG BASE_TAG=24-bookworm-slim
 FROM node:${BASE_TAG}
 
 ARG NODE_VERSION
-LABEL org.opencontainers.image.title="Staqio Node ${NODE_VERSION}" \
-      org.opencontainers.image.source="https://github.com/seramos/staqio" \
-      staqio.runtime="node" \
-      staqio.runtime.version="${NODE_VERSION}"
+LABEL org.opencontainers.image.title="Envoryx Node ${NODE_VERSION}" \
+      org.opencontainers.image.source="https://github.com/envoryx/envoryx" \
+      envoryx.runtime="node" \
+      envoryx.runtime.version="${NODE_VERSION}"
 
 RUN set -eux; \
     apt-get update; \

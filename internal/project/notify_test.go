@@ -6,8 +6,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/seramos/staqio/internal/docker"
-	"github.com/seramos/staqio/internal/notify"
+	"github.com/envoryx/envoryx/internal/docker"
+	"github.com/envoryx/envoryx/internal/notify"
 )
 
 type fakeSender struct {
@@ -52,7 +52,7 @@ func TestNotificationsForHealthAndFailures(t *testing.T) {
 	if len(sender.events) != 0 {
 		t.Fatalf("healthy project must not notify: %v", sender.kinds())
 	}
-	e.engine.SetState("staqio-crashy-php", "exited")
+	e.engine.SetState("envoryx-crashy-php", "exited")
 	e.m.Reconcile(ctx)
 	e.m.Reconcile(ctx) // second run must not repeat
 	if got := sender.kinds(); len(got) != 1 || got[0] != "project.unhealthy:Crashy needs attention" {
@@ -67,7 +67,7 @@ func TestNotificationsForHealthAndFailures(t *testing.T) {
 	}
 
 	// Creation failures notify with the failing step.
-	e.engine.FailCreate = map[string]error{"staqio-broken-web": docker.ErrUnavailable}
+	e.engine.FailCreate = map[string]error{"envoryx-broken-web": docker.ErrUnavailable}
 	if _, err := e.m.Create(ctx, phpRequest("Broken", true)); err == nil {
 		t.Fatal("expected failure")
 	}

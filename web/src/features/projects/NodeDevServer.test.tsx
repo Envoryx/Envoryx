@@ -14,9 +14,9 @@ describe("Node dev server", () => {
     const project = makeProject({
       devHostname: "shimly-api-dev.test",
       services: [
-        { kind: "php", variant: "php", version: "8.4", image: "ghcr.io/seramos/staqio-php:8.4", enabled: true, config: { memoryLimit: "256M", uploadMaxFilesize: "64M", postMaxSize: "64M", maxExecutionTime: 120, displayErrors: true, errorReporting: "E_ALL", extensions: [] } },
+        { kind: "php", variant: "php", version: "8.4", image: "ghcr.io/envoryx/envoryx-php:8.4", enabled: true, config: { memoryLimit: "256M", uploadMaxFilesize: "64M", postMaxSize: "64M", maxExecutionTime: 120, displayErrors: true, errorReporting: "E_ALL", extensions: [] } },
         { kind: "web", variant: "caddy", version: "2", image: "caddy:2-alpine", enabled: true, config: {} },
-        { kind: "node", variant: "node", version: "24", image: "ghcr.io/seramos/staqio-node:24", enabled: true, config: { devServer: true, packageManager: "npm", script: "dev", port: 5173, preset: "vite", hostPort: 20001 } },
+        { kind: "node", variant: "node", version: "24", image: "ghcr.io/envoryx/envoryx-node:24", enabled: true, config: { devServer: true, packageManager: "npm", script: "dev", port: 5173, preset: "vite", hostPort: 20001 } },
       ],
     });
     const api = mockApi({

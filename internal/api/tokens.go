@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/seramos/staqio/internal/auth"
-	"github.com/seramos/staqio/internal/store"
+	"github.com/envoryx/envoryx/internal/auth"
+	"github.com/envoryx/envoryx/internal/store"
 )
 
 type tokenDTO struct {

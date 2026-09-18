@@ -6,7 +6,7 @@ import { authedRoutes, mockApi, renderApp } from "@/test/utils";
 const proxy = { enabled: true, httpPort: 80, httpsPort: 443, inDocker: true, tls: true };
 const settings = { publicHost: "", baseDomain: "test", forceHttps: false, proxy };
 const acme = { available: true, providers: { cloudflare: "Cloudflare" }, status: { configured: false, issuing: false } };
-const tls = { enabled: true, ca: { caSubject: "Staqio Local CA", caFingerprint: "AA:BB", caNotAfter: "2036-01-01T00:00:00Z", custom: null }, proxy, baseDomain: "test", forceHttps: false };
+const tls = { enabled: true, ca: { caSubject: "Envoryx Local CA", caFingerprint: "AA:BB", caNotAfter: "2036-01-01T00:00:00Z", custom: null }, proxy, baseDomain: "test", forceHttps: false };
 
 describe("DomainsCard", () => {
   afterEach(() => vi.unstubAllGlobals());
@@ -24,8 +24,8 @@ describe("DomainsCard", () => {
     renderApp(<DomainsCard />);
     const user = userEvent.setup();
 
-    expect(await screen.findByText("Staqio Local CA")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Download staqio-ca.crt/ })).toHaveAttribute("href", "/api/v1/settings/tls/ca.crt");
+    expect(await screen.findByText("Envoryx Local CA")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Download envoryx-ca.crt/ })).toHaveAttribute("href", "/api/v1/settings/tls/ca.crt");
     expect(screen.getByText("active")).toBeInTheDocument();
 
     const base = screen.getByLabelText("Base domain");
@@ -52,7 +52,7 @@ describe("DomainsCard", () => {
       "GET /settings": () => ({ body: { ...settings, proxy: direct } }),
     });
     renderApp(<DomainsCard />);
-    expect(await screen.findByText("Staqio has its own IP address: 192.168.1.50")).toBeInTheDocument();
+    expect(await screen.findByText("Envoryx has its own IP address: 192.168.1.50")).toBeInTheDocument();
   });
 
   it("explains missing port mappings", async () => {

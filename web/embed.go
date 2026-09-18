@@ -1,4 +1,4 @@
-// Package web embeds the built frontend (web/dist) into the Staqio binary.
+// Package web embeds the built frontend (web/dist) into the Envoryx binary.
 package web
 
 import (

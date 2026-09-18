@@ -171,7 +171,7 @@ export function NewProjectPage() {
 
   return (
     <div>
-      <PageHeader title={t("New project")} description={t("Staqio creates an isolated Docker environment for your project.")} />
+      <PageHeader title={t("New project")} description={t("Envoryx creates an isolated Docker environment for your project.")} />
       <div className="grid gap-6 lg:grid-cols-[14rem_1fr]">
         <ol className="flex gap-2 overflow-x-auto lg:flex-col lg:gap-1" aria-label={t("Steps")}>
           {steps.map((label, i) => (
@@ -263,7 +263,7 @@ export function NewProjectPage() {
                         </Field>
                       </>
                     ) : (
-                      <p className="self-end pb-2 text-xs text-muted sm:col-span-2">{t("SSH uses the Staqio deploy key (Settings → Deploy key); add it to the repository first.")}</p>
+                      <p className="self-end pb-2 text-xs text-muted sm:col-span-2">{t("SSH uses the Envoryx deploy key (Settings → Deploy key); add it to the repository first.")}</p>
                     )}
                   </div>
                 )}
@@ -391,7 +391,7 @@ export function NewProjectPage() {
                     onChange={(e) => set({ dbExpose: e.target.checked })}
                   />
                   <p className="text-sm text-muted">
-                    {t("Staqio generates secure credentials and injects DB_HOST, DB_DATABASE, DB_USERNAME, DB_PASSWORD and DATABASE_URL into the PHP container. Data lives in a persistent Docker volume.")}
+                    {t("Envoryx generates secure credentials and injects DB_HOST, DB_DATABASE, DB_USERNAME, DB_PASSWORD and DATABASE_URL into the PHP container. Data lives in a persistent Docker volume.")}
                   </p>
                 </div>
               )}

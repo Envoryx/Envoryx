@@ -6,11 +6,11 @@ import (
 	"encoding/json"
 	"log/slog"
 
-	"github.com/seramos/staqio/internal/auth"
-	"github.com/seramos/staqio/internal/store"
+	"github.com/envoryx/envoryx/internal/auth"
+	"github.com/envoryx/envoryx/internal/store"
 )
 
-// Actions recorded by Staqio.
+// Actions recorded by Envoryx.
 const (
 	ActionLogin          = "auth.login"
 	ActionLoginFailed    = "auth.login_failed"

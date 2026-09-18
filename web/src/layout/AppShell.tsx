@@ -62,7 +62,7 @@ export function AppShell() {
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
             <p className="truncate text-sm font-medium text-fg">{auth.user?.username}</p>
-            <p className="truncate text-xs text-subtle">{dashboard.data?.version ? `Staqio ${dashboard.data.version}` : "Staqio"}</p>
+            <p className="truncate text-xs text-subtle">{dashboard.data?.version ? `Envoryx ${dashboard.data.version}` : "Envoryx"}</p>
           </div>
           <div className="flex items-center gap-1">
             <LanguageButton />

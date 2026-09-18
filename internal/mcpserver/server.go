@@ -1,4 +1,4 @@
-// Package mcpserver exposes Staqio to AI assistants through the Model Context Protocol.
+// Package mcpserver exposes Envoryx to AI assistants through the Model Context Protocol.
 //
 // Every tool goes through the same project manager as the REST API and the UI, so the
 // same validation, label guards, locks and audit logging apply. Destructive operations
@@ -16,11 +16,11 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"github.com/seramos/staqio/internal/auth"
-	"github.com/seramos/staqio/internal/project"
-	"github.com/seramos/staqio/internal/runtime"
-	"github.com/seramos/staqio/internal/store"
-	"github.com/seramos/staqio/internal/validate"
+	"github.com/envoryx/envoryx/internal/auth"
+	"github.com/envoryx/envoryx/internal/project"
+	"github.com/envoryx/envoryx/internal/runtime"
+	"github.com/envoryx/envoryx/internal/store"
+	"github.com/envoryx/envoryx/internal/validate"
 )
 
 // Links describes how projects are reachable so tools can return URLs.
@@ -50,10 +50,10 @@ type Server struct {
 // New builds the server and registers all tools.
 func New(d Deps) *Server {
 	s := &Server{d: d}
-	s.mcp = mcp.NewServer(&mcp.Implementation{Name: "staqio", Title: "Staqio", Version: d.Version, WebsiteURL: "https://github.com/seramos/staqio"}, &mcp.ServerOptions{
-		Instructions: "Staqio manages Docker-based development environments (PHP, web server, database, Redis, Mailpit, Node). " +
+	s.mcp = mcp.NewServer(&mcp.Implementation{Name: "envoryx", Title: "Envoryx", Version: d.Version, WebsiteURL: "https://github.com/envoryx/envoryx"}, &mcp.ServerOptions{
+		Instructions: "Envoryx manages Docker-based development environments (PHP, web server, database, Redis, Mailpit, Node). " +
 			"Projects are identified by id, slug or name. Use list_runtimes to see available versions before creating projects. " +
-			"Deleting projects, dropping databases and restoring backups are not available here; ask the user to do that in the Staqio UI.",
+			"Deleting projects, dropping databases and restoring backups are not available here; ask the user to do that in the Envoryx UI.",
 		Logger: d.Log,
 	})
 	s.registerTools()
@@ -88,7 +88,7 @@ func (s *Server) Handler() http.Handler {
 }
 
 func unauthorized(w http.ResponseWriter, msg string) {
-	w.Header().Set("WWW-Authenticate", `Bearer realm="staqio"`)
+	w.Header().Set("WWW-Authenticate", `Bearer realm="envoryx"`)
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(http.StatusUnauthorized)

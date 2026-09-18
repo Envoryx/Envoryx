@@ -65,7 +65,7 @@ export function containerStateTone(state: string): Tone {
 
 /**
  * Builds the URL a project is reachable at. Project ports are published on the Docker host,
- * which is not necessarily the address Staqio itself is reached at (macvlan IP, reverse
+ * which is not necessarily the address Envoryx itself is reached at (macvlan IP, reverse
  * proxy), so an explicitly configured host wins over the browser's address bar.
  */
 export function projectUrl(port: number, publicHost?: string): string {

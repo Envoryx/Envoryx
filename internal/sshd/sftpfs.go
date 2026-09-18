@@ -13,16 +13,16 @@ import (
 
 	"github.com/pkg/sftp"
 
-	"github.com/seramos/staqio/internal/project"
+	"github.com/envoryx/envoryx/internal/project"
 )
 
 // projectFS exposes the container's bind mounts over SFTP, using the container's paths:
-// /var/www/html (the project directory), /home/staqio (the persistent tool home) and,
+// /var/www/html (the project directory), /home/envoryx (the persistent tool home) and,
 // with Gateway enabled, the shared JetBrains cache below it. Everything is served from
-// the Staqio side of the same bind mounts; created files are chowned to the project
+// the Envoryx side of the same bind mounts; created files are chowned to the project
 // owner so the containers can use them.
 type projectFS struct {
-	roots map[string]string // container path prefix → Staqio-side directory
+	roots map[string]string // container path prefix → Envoryx-side directory
 	// prefixes are the root paths, longest first, so nested mounts win.
 	prefixes []string
 	uid      int
@@ -49,7 +49,7 @@ func newProjectFS(t project.ExecTarget) *projectFS {
 
 var errOutside = sftp.ErrSSHFxPermissionDenied
 
-// resolve maps a container path to a Staqio-side path. It returns ok=false for the
+// resolve maps a container path to a Envoryx-side path. It returns ok=false for the
 // virtual directories above the roots ("/", "/var", "/var/www", "/home").
 func (f *projectFS) resolve(p string) (local string, ok bool, err error) {
 	clean := path.Clean("/" + p)
@@ -87,7 +87,7 @@ var virtualDirs = map[string][]string{
 	"/":        {"home", "var"},
 	"/var":     {"www"},
 	"/var/www": {"html"},
-	"/home":    {"staqio"},
+	"/home":    {"envoryx"},
 }
 
 type virtualInfo struct {
@@ -237,8 +237,8 @@ func (f *projectFS) Filelist(r *sftp.Request) (sftp.ListerAt, error) {
 				seen[info.Name()] = true
 			}
 		}
-		// Nested mounts (e.g. /home/staqio/.cache/JetBrains) are not files of the parent
-		// directory on the Staqio side; show them the way the container sees them.
+		// Nested mounts (e.g. /home/envoryx/.cache/JetBrains) are not files of the parent
+		// directory on the Envoryx side; show them the way the container sees them.
 		for _, m := range mounts {
 			if !seen[m] {
 				infos = append(infos, virtualInfo{name: m, dir: true})

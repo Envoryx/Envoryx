@@ -1,6 +1,6 @@
-# Staqio – Architecture
+# Envoryx – Architecture
 
-Staqio is a Docker-native development environment manager for Unraid and Linux
+Envoryx is a Docker-native development environment manager for Unraid and Linux
 Docker hosts. It runs as a single container, talks to the Docker Engine API and
 creates isolated, per-project stacks (PHP, web server, database, cache, Node …).
 
@@ -11,7 +11,7 @@ This document describes the architecture that Phase 1 (Foundation) and Phase 2
 Browser
    │  HTTPS/HTTP + WebSocket
    ▼
-Staqio Frontend (React, embedded in the binary)
+Envoryx Frontend (React, embedded in the binary)
    │  /api/v1/*
    ▼
 Go API (single binary, single container)
@@ -36,17 +36,17 @@ Go API (single binary, single container)
 ## 1. Guiding principles
 
 1. **Desired state → reconciliation → actual state.** SQLite stores what the
-   user wants. Docker holds what actually exists. Staqio compares both and never
+   user wants. Docker holds what actually exists. Envoryx compares both and never
    trusts the database alone for runtime status.
-2. **Label-scoped authority.** Staqio only ever mutates Docker resources that
-   carry `staqio.managed=true`. Foreign containers are visible read-only in the
+2. **Label-scoped authority.** Envoryx only ever mutates Docker resources that
+   carry `envoryx.managed=true`. Foreign containers are visible read-only in the
    diagnostics view and are never touched.
 3. **No user-controlled Docker parameters.** The browser sends *intent*
    (`php: 8.4`, `database: mariadb 11`). The backend translates intent into
    container specs from a fixed catalogue. Mounts, capabilities, privileges,
    networks and images are decided server-side.
 4. **Everything persistent lives in `/config` and `/projects`.** Replacing the
-   Staqio image never destroys data.
+   Envoryx image never destroys data.
 5. **One binary, one container.** No microservices. The frontend is embedded.
 
 ---
@@ -55,7 +55,7 @@ Go API (single binary, single container)
 
 ```
 .
-├── cmd/staqio/               main package (serve, healthcheck)
+├── cmd/envoryx/               main package (serve, healthcheck)
 ├── internal/
 │   ├── api/                  HTTP handlers (v1), request/response DTOs, errors
 │   ├── auth/                 password hashing, sessions, auth middleware
@@ -79,8 +79,8 @@ Go API (single binary, single container)
 │   │   └── lib/              utilities
 │   └── dist/                 build output (embedded into the Go binary)
 ├── deploy/                   docker-compose.yml, Unraid template + icon
-├── .github/workflows/        CI (tests) and multi-arch image builds → ghcr.io/seramos/*
-├── images/php/               Staqio PHP runtime image (all extensions compiled in, toggled per project)
+├── .github/workflows/        CI (tests) and multi-arch image builds → ghcr.io/envoryx/*
+├── images/php/               Envoryx PHP runtime image (all extensions compiled in, toggled per project)
 ├── Dockerfile                multi-stage build (web → go → alpine)
 ├── Makefile
 ├── ARCHITECTURE.md  SECURITY.md  DEVELOPMENT.md  DEPLOYMENT.md  README.md
@@ -105,7 +105,7 @@ Go API (single binary, single container)
 
 ### 3.2 Package responsibilities
 
-- **config** – reads environment (`STAQIO_*`), validates, provides defaults.
+- **config** – reads environment (`ENVORYX_*`), validates, provides defaults.
 - **db** – opens SQLite (WAL, foreign keys on, busy timeout), applies embedded
   SQL migrations in order, records them in `schema_migrations`.
 - **store** – one repository type per aggregate (`Users`, `Sessions`,
@@ -118,14 +118,14 @@ Go API (single binary, single container)
 - **docker** – the *only* package that imports the moby client. Exposes a
   narrow `Engine` interface (create/start/stop/remove/list/inspect for
   containers, networks, volumes; image pull; stats; ping/info). All list
-  operations used for management are filtered by `staqio.managed=true`.
+  operations used for management are filtered by `envoryx.managed=true`.
   Every mutating call verifies the label on the target first ("guard").
   A `fake` implementation lives in `docker/dockertest` for unit tests.
 - **runtime** – the catalogue of supported runtimes and services. Versions are
   data, not code paths: `runtime.Catalog().PHP()` returns versions with image
   references, default extensions and the config generator. The frontend fetches
   `/api/v1/runtimes` and never hard-codes versions.
-- **project** – the heart of Staqio:
+- **project** – the heart of Envoryx:
   - `Planner` turns a `ProjectSpec` (desired state) into a `ResourcePlan`
     (network, volumes, containers with full Docker specs, config files).
     The plan is what the wizard summary shows before creating.
@@ -225,22 +225,22 @@ Notes:
 
 ### 6.1 Labels
 
-Every resource Staqio creates gets:
+Every resource Envoryx creates gets:
 
 ```
-staqio.managed=true
-staqio.project.id=<uuid>
-staqio.project.name=<slug>
-staqio.service=<kind>          (containers, volumes)
-staqio.version=<staqio version>
+envoryx.managed=true
+envoryx.project.id=<uuid>
+envoryx.project.name=<slug>
+envoryx.service=<kind>          (containers, volumes)
+envoryx.version=<envoryx version>
 ```
 
 ### 6.2 Names
 
 ```
-network    staqio-<slug>
-container  staqio-<slug>-<service>      e.g. staqio-shimly-api-php
-volume     staqio-<slug>-<service>      e.g. staqio-shimly-api-mariadb
+network    envoryx-<slug>
+container  envoryx-<slug>-<service>      e.g. envoryx-shimly-api-php
+volume     envoryx-<slug>-<service>      e.g. envoryx-shimly-api-mariadb
 ```
 
 Slugs match `^[a-z0-9]([a-z0-9-]{0,38}[a-z0-9])?$` – lower-case DNS-safe.
@@ -273,38 +273,38 @@ labels, env, mounts, network + aliases, port bindings, restart policy,
 user). The Docker implementation adds hardening (no privileged, drop
 `CAP_NET_RAW`, `no-new-privileges`, restart policy `unless-stopped`).
 
-"Guarded" means: inspect target, verify `staqio.managed=true` label and, when a
-project ID is supplied, `staqio.project.id` – otherwise return
+"Guarded" means: inspect target, verify `envoryx.managed=true` label and, when a
+project ID is supplied, `envoryx.project.id` – otherwise return
 `ErrNotManaged` and do nothing.
 
 ### 6.4 Socket proxy readiness
 
 The client honours `DOCKER_HOST`. Pointing it to a socket proxy
 (`tcp://socket-proxy:2375`) works without code changes. The set of API
-endpoints Staqio needs is documented in SECURITY.md for proxy allow-lists.
+endpoints Envoryx needs is documented in SECURITY.md for proxy allow-lists.
 
 ---
 
 ## 7. Bind mounts and host paths (critical)
 
-Staqio sees project files at `/projects/<slug>` **inside its own container**.
+Envoryx sees project files at `/projects/<slug>` **inside its own container**.
 The Docker daemon, however, resolves bind-mount sources on the **host**. A
 project container therefore needs `/mnt/user/development/<slug>` – the host
 path – not `/projects/<slug>`.
 
 Solution (`internal/hostpath`):
 
-1. If `STAQIO_PROJECTS_HOST_PATH` / `STAQIO_CONFIG_HOST_PATH` are set, use them.
-2. Otherwise auto-detect: find Staqio's own container (hostname = container ID
+1. If `ENVORYX_PROJECTS_HOST_PATH` / `ENVORYX_CONFIG_HOST_PATH` are set, use them.
+2. Otherwise auto-detect: find Envoryx's own container (hostname = container ID
    prefix, confirmed via `/proc/self/mountinfo` or container inspect by
    hostname), inspect its mounts and read the `Source` of the mount whose
    `Destination` is `/projects` resp. `/config`.
-3. If Staqio is not running inside a container at all (local development with
+3. If Envoryx is not running inside a container at all (local development with
    `go run`, or a bare-metal install), container paths and host paths are
    identical and the resolver switches to identity mapping.
 4. If detection fails inside a container (e.g. Docker was not reachable at
    startup), it is retried lazily on the next project operation. Until it
-   succeeds Staqio runs in a degraded mode: the UI shows a clear configuration
+   succeeds Envoryx runs in a degraded mode: the UI shows a clear configuration
    error and project creation is disabled.
 
 The same mechanism is used for per-project generated config files
@@ -339,9 +339,9 @@ A PHP project consists of two containers from the start:
   Caddy and Nginx route unknown paths to `index.php`. The variant can be
   switched later; the web container is then recreated. Publishes the project's HTTP port on the
   host (auto-allocated from a configurable range, default 20000–20999).
-- `php` – `ghcr.io/seramos/staqio-php:<version>` (`images/php/Dockerfile`:
+- `php` – `ghcr.io/envoryx/envoryx-php:<version>` (`images/php/Dockerfile`:
   official php-fpm plus all toggleable extensions compiled in but disabled;
-  the generated `zz-staqio.ini` enables the selected ones). Project files
+  the generated `zz-envoryx.ini` enables the selected ones). Project files
   mounted at `/var/www/html` (same path in both containers so
   `SCRIPT_FILENAME` resolves). The catalogue owns the version→image mapping;
   stored images are refreshed from it on load, so a new runtime image is
@@ -349,7 +349,7 @@ A PHP project consists of two containers from the start:
 
 Why a per-project web container instead of one central proxy speaking FastCGI:
 FastCGI details stay inside the project; the future central reverse proxy
-(Phase 4) just forwards HTTP by `Host` header to `staqio-<slug>-web`. Projects
+(Phase 4) just forwards HTTP by `Host` header to `envoryx-<slug>-web`. Projects
 also remain reachable via `http://<host>:<port>` without any DNS setup, which
 is the robust default for a remote Unraid server.
 
@@ -407,8 +407,8 @@ creating / deleting   transitional
 
 On startup and every 30 s:
 
-1. List all `staqio.managed=true` containers/networks/volumes.
-2. Group by `staqio.project.id`.
+1. List all `envoryx.managed=true` containers/networks/volumes.
+2. Group by `envoryx.project.id`.
 3. For each DB project compute status (§8.6).
 4. Resources whose project ID is unknown are reported as **orphans**
    (visible in the Docker view, never auto-deleted).
@@ -443,7 +443,7 @@ Detailed in SECURITY.md. Summary of the enforced boundaries:
 
 ```
 /config/
-  staqio.db                SQLite (WAL)
+  envoryx.db                SQLite (WAL)
   projects/<id>/           generated config per project (web server config, php.ini, pool conf)
   backups/<slug>/          Phase 7
   ca/                      Phase 8 (0600)
@@ -498,7 +498,7 @@ API, wizard, project list + detail pages, lifecycle tests.
 
 ### Phase 3 + 6 – Databases and services (MariaDB, MySQL, PostgreSQL, MongoDB, Redis, Mailpit)
 `database` service kind with a labelled named volume
-(`staqio-<slug>-database`), healthcheck, start order database → php → web.
+(`envoryx-<slug>-database`), healthcheck, start order database → php → web.
 
 Credentials: generated with `crypto/rand` from a shell/URL-safe alphabet,
 stored in `project_services.config` (SQLite under `/config`, mode 0600).
@@ -523,7 +523,7 @@ changes are refused (dump/restore required). MongoDB uses the same
 `--uri`), `MONGODB_URI` is injected in addition to `DATABASE_URL`, and major
 upgrades are refused (one step at a time, FCV).
 
-Redis (volume `staqio-<slug>-redis`, `REDIS_*` injected) and Mailpit (web
+Redis (volume `envoryx-<slug>-redis`, `REDIS_*` injected) and Mailpit (web
 inbox on an allocated host port, `MAIL_*`/`MAILER_DSN` injected) are
 auxiliary services with a small `{hostPort}` config; env changes recreate the
 application containers while stateful services keep running.
@@ -536,18 +536,18 @@ from the settings. Session channels map `pty-req/shell/exec` to
 `Engine.OpenTerminal` (PTY) or `Engine.ExecStream` (pipes, now with
 `WorkingDir`) in the target container as PUID:PGID, `subsystem sftp` to a
 `pkg/sftp` request server over `projectFS`, which serves `/var/www/html`
-and `/home/staqio` from the Staqio-side directories of the same bind mounts
-and chowns created files. `/home/staqio` is a new persistent per-project
+and `/home/envoryx` from the Envoryx-side directories of the same bind mounts
+and chowns created files. `/home/envoryx` is a new persistent per-project
 home (`/config/projects/<id>/home`) mounted into php/node/worker containers;
 tool caches and IDE helpers live there. Container specs now carry a
-`staqio.spec` fingerprint label (command, mounts, ports, …) so `ensurePlan`
+`envoryx.spec` fingerprint label (command, mounts, ports, …) so `ensurePlan`
 recreates containers whose structure changed (e.g. the new home mount).
 `direct-tcpip` channels (IDE tunnels) are accepted only for projects with
 `ide_gateway` set (migration 0006) and only to localhost ports. The IDE
 backend binds to 127.0.0.1 inside the container, so the tunnel is relayed by
 `socat STDIO TCP:127.0.0.1:<port>` run via docker exec in the container's own
 network namespace (probed once per container id); runtime images without
-socat fall back to dialling `staqio-<slug>-<kind>:<port>` over the project
+socat fall back to dialling `envoryx-<slug>-<kind>:<port>` over the project
 network, which only reaches listeners on 0.0.0.0. The flag also
 mounts `/config/jetbrains` at `~/.cache/JetBrains` so Gateway backends are
 shared across projects. `StopIDEBackend` runs `pkill -f /.cache/JetBrains/`
@@ -559,7 +559,7 @@ long-running processes. Presets are a closed catalogue in `workers.go`
 (argv builders; the single user argument is validated per preset – queue
 names, relative script paths, composer script names). The planner emits one
 container per enabled worker from the PHP image (`Kind` and service label
-`worker:<id>`, name `staqio-<slug>-worker-<name>`, order 30, project env +
+`worker:<id>`, name `envoryx-<slug>-worker-<name>`, order 30, project env +
 php.ini mount, PUID:PGID, `unless-stopped`), so `ensurePlan`, start/stop,
 env recreation and delete treat them like any other container. Status lists
 them as kind `worker` with `workerId`; logs/terminal accept `worker:<id>`.
@@ -578,22 +578,22 @@ returns secrets and keeps stored ones when a request leaves them empty.
 `project.Templates()` is a closed list (Laravel, Symfony, WordPress). A
 template is a sequence of argv steps run in transient containers from the
 project's PHP image as PUID:PGID with the project directory mounted
-(`RunOneShot`, label `staqio.service=template`, default bridge network for
-composer downloads) plus files Staqio writes afterwards (WordPress
+(`RunOneShot`, label `envoryx.service=template`, default bridge network for
+composer downloads) plus files Envoryx writes afterwards (WordPress
 `wp-config.php` reading the injected `DB_*` variables, random salts). The
 directory must be empty (like a clone); templates set the document root and
 add required PHP extensions (`mysqli` for WordPress) and may require a
 database. A failing step rolls the whole creation back.
 
 ### Phase 4 + 8 – Domains, embedded proxy, HTTPS (implemented)
-The proxy lives in the Staqio binary (`internal/proxy`): two listeners
-(`STAQIO_PROXY_HTTP` `:80`, `STAQIO_PROXY_HTTPS` `:443`) in front of an
+The proxy lives in the Envoryx binary (`internal/proxy`): two listeners
+(`ENVORYX_PROXY_HTTP` `:80`, `ENVORYX_PROXY_HTTPS` `:443`) in front of an
 `httputil.ReverseProxy` per upstream. A `Router` caches a routing `Table`
 (2 s TTL, invalidated by the API after changes) built by
 `Manager.RouteTable`: `<slug>.<base>` for every project, extra names from the
-`domains` table, `staqio.<base>` plus the public host for the UI. Unknown
+`domains` table, `envoryx.<base>` plus the public host for the UI. Unknown
 names → 404 page, stopped project → 503 page, IPs/empty host → UI. Upstreams
-are `staqio-<slug>-web:80`; to reach them the Staqio container is connected to
+are `envoryx-<slug>-web:80`; to reach them the Envoryx container is connected to
 every project network (`ConnectNetwork` on create/ensure/reconcile,
 disconnect before the network is removed). On bare metal the upstream is
 `127.0.0.1:<httpPort>`. Host-side ports are discovered from the container's
@@ -623,18 +623,18 @@ expiry in a background loop; config/token under `/config/ca/acme.json`
   container from the project's PHP image (`RunOneShot`) with the deploy key
   mounted only there; tokens travel via `GIT_CONFIG_*` env. The Node service is an idle
   tooling container (`sleep infinity`, runs as PUID:PGID) from
-  `ghcr.io/seramos/staqio-node:<v>`. Dev-server mode (`runtime.NodeConfig`,
+  `ghcr.io/envoryx/envoryx-node:<v>`. Dev-server mode (`runtime.NodeConfig`,
   stored in the service config): the package.json script becomes the
   container's main process (argv from a closed preset list – Vite/Next flags
   or HOST/PORT env only – script names validated), a host port is allocated
   like for other services and the proxy routes `<slug>-dev.<base>` to
-  `staqio-<slug>-node:<port>` (WebSocket/HMR passes through; Vite's host
+  `envoryx-<slug>-node:<port>` (WebSocket/HMR passes through; Vite's host
   allow-list is set via `__VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS`). Config
   changes remove the node container so `ensurePlan` recreates it.
 - **Phase 7 Backups** (implemented): `/config/backups/<slug>/<timestamp-id>/`
   with `backup.json` (metadata + full project export incl. credentials),
   `database.sql.gz` (dump streamed from the database container via exec,
-  password in env) and `files.tar.gz` (written by Staqio, `vendor/` and
+  password in env) and `files.tar.gz` (written by Envoryx, `vendor/` and
   `node_modules/` skipped unless requested). Restore requires the slug as
   confirmation, verifies the dump flavour matches the project's database,
   pipes the dump back through the flavour's client, and extracts files with

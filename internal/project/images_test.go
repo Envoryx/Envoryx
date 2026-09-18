@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/seramos/staqio/internal/runtime"
+	"github.com/envoryx/envoryx/internal/runtime"
 )
 
 func TestUnusedImagesOnlyTouchCatalogueImages(t *testing.T) {
@@ -28,7 +28,7 @@ func TestUnusedImagesOnlyTouchCatalogueImages(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(unused) != 1 || unused[0].Tags[0] != "ghcr.io/seramos/staqio-php:8.4" {
+	if len(unused) != 1 || unused[0].Tags[0] != "ghcr.io/envoryx/envoryx-php:8.4" {
 		t.Fatalf("unused: %+v", unused)
 	}
 	res, err := e.m.PruneImages(ctx)
@@ -38,11 +38,11 @@ func TestUnusedImagesOnlyTouchCatalogueImages(t *testing.T) {
 	if ok, _ := e.engine.ImageExists(ctx, "traefik:latest"); !ok {
 		t.Fatal("foreign image must survive")
 	}
-	if ok, _ := e.engine.ImageExists(ctx, "ghcr.io/seramos/staqio-php:8.3"); !ok {
+	if ok, _ := e.engine.ImageExists(ctx, "ghcr.io/envoryx/envoryx-php:8.3"); !ok {
 		t.Fatal("image in use must survive")
 	}
 	for _, c := range e.engine.Calls {
-		if strings.HasPrefix(c, "image-remove:") && !strings.Contains(c, "staqio-php:8.4") {
+		if strings.HasPrefix(c, "image-remove:") && !strings.Contains(c, "envoryx-php:8.4") {
 			t.Fatalf("unexpected removal: %s", c)
 		}
 	}

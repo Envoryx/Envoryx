@@ -13,7 +13,7 @@ export default defineConfig({
     port: 5173,
     proxy: {
       "/api": {
-        target: process.env.STAQIO_API ?? "http://localhost:8787",
+        target: process.env.ENVORYX_API ?? "http://localhost:8787",
         changeOrigin: false,
       },
     },

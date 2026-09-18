@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/seramos/staqio/internal/store"
-	"github.com/seramos/staqio/internal/validate"
+	"github.com/envoryx/envoryx/internal/store"
+	"github.com/envoryx/envoryx/internal/validate"
 )
 
 func TestWorkersRunAsExtraContainers(t *testing.T) {
@@ -34,14 +34,14 @@ func TestWorkersRunAsExtraContainers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	c, ok := e.engine.Container("staqio-shop-worker-queue")
+	c, ok := e.engine.Container("envoryx-shop-worker-queue")
 	if !ok {
 		t.Fatal("worker container missing")
 	}
 	if got := strings.Join(c.Spec.Cmd, " "); got != "php artisan queue:work --tries=3 --sleep=3 --max-time=3600 --queue=default,emails" {
 		t.Fatalf("cmd: %s", got)
 	}
-	if c.State != "running" || c.Spec.User != "1000:1000" || c.Spec.Labels["staqio.service"] != "worker:"+q.ID || c.Spec.Image != "ghcr.io/seramos/staqio-php:8.4" {
+	if c.State != "running" || c.Spec.User != "1000:1000" || c.Spec.Labels["envoryx.service"] != "worker:"+q.ID || c.Spec.Image != "ghcr.io/envoryx/envoryx-php:8.4" {
 		t.Fatalf("worker container: state=%s %+v", c.State, c.Spec)
 	}
 	v, _ := e.m.Get(ctx, id)
@@ -62,14 +62,14 @@ func TestWorkersRunAsExtraContainers(t *testing.T) {
 	if _, err := e.m.UpdateWorker(ctx, id, q.ID, WorkerRequest{Name: "queue", Preset: "laravel:queue", Arg: "high", Enabled: true}); err != nil {
 		t.Fatal(err)
 	}
-	c, _ = e.engine.Container("staqio-shop-worker-queue")
+	c, _ = e.engine.Container("envoryx-shop-worker-queue")
 	if !strings.Contains(strings.Join(c.Spec.Cmd, " "), "--queue=high") {
 		t.Fatalf("cmd after update: %v", c.Spec.Cmd)
 	}
 	if _, err := e.m.UpdateWorker(ctx, id, q.ID, WorkerRequest{Name: "queue", Preset: "laravel:queue", Arg: "high", Enabled: false}); err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := e.engine.Container("staqio-shop-worker-queue"); ok {
+	if _, ok := e.engine.Container("envoryx-shop-worker-queue"); ok {
 		t.Fatal("disabled worker container must be removed")
 	}
 	v, _ = e.m.Get(ctx, id)
@@ -84,14 +84,14 @@ func TestWorkersRunAsExtraContainers(t *testing.T) {
 	if _, err := e.m.Stop(ctx, id); err != nil {
 		t.Fatal(err)
 	}
-	c, _ = e.engine.Container("staqio-shop-worker-queue")
+	c, _ = e.engine.Container("envoryx-shop-worker-queue")
 	if c.State == "running" {
 		t.Fatal("stop must stop workers")
 	}
 	if err := e.m.RemoveWorker(ctx, id, q.ID); err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := e.engine.Container("staqio-shop-worker-queue"); ok {
+	if _, ok := e.engine.Container("envoryx-shop-worker-queue"); ok {
 		t.Fatal("removed worker container must be gone")
 	}
 	if _, err := e.m.ServiceContainer(ctx, id, WorkerKind(q)); !errors.Is(err, store.ErrNotFound) {

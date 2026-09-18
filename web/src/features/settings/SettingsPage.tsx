@@ -88,7 +88,7 @@ function PublicHostForm({ current, xdebugHost }: { current: string; xdebugHost: 
     <Card>
       <CardHeader
         title={t("Project links & developer machine")}
-        description={t("Project ports are published on the Docker host. If Staqio itself is reached under a different address (own container IP, reverse proxy), set the host that browsers should use for project links.")}
+        description={t("Project ports are published on the Docker host. If Envoryx itself is reached under a different address (own container IP, reverse proxy), set the host that browsers should use for project links.")}
       />
       <form onSubmit={submit} className="space-y-4 p-5">
         {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
@@ -116,13 +116,13 @@ function SshCard({ keys, ssh }: { keys: string; ssh: { enabled: boolean; port: n
     <Card>
       <CardHeader
         title={t("SSH access (IDE remote interpreter)")}
-        description={t("Log in as <project-slug> (PHP container) or <project-slug>.node with an API token as password, or with one of the public keys below. Each session runs inside the project's container as the project owner; SFTP exposes /var/www/html and /home/staqio.")}
+        description={t("Log in as <project-slug> (PHP container) or <project-slug>.node with an API token as password, or with one of the public keys below. Each session runs inside the project's container as the project owner; SFTP exposes /var/www/html and /home/envoryx.")}
       />
       <div className="space-y-4 p-5">
         {!ssh?.enabled ? (
-          <Alert tone="amber">{t("Disabled (STAQIO_SSH is empty).")}</Alert>
+          <Alert tone="amber">{t("Disabled (ENVORYX_SSH is empty).")}</Alert>
         ) : ssh.port === 0 ? (
-          <Alert tone="amber">{t("The SSH port 2222 is not published on the host – add a port mapping 2222:2222 to the Staqio container.")}</Alert>
+          <Alert tone="amber">{t("The SSH port 2222 is not published on the host – add a port mapping 2222:2222 to the Envoryx container.")}</Alert>
         ) : (
           <dl className="grid gap-x-8 gap-y-2 text-sm sm:grid-cols-[10rem_1fr]">
             <dt className="text-muted">{t("Port")}</dt>
@@ -196,7 +196,7 @@ export function SettingsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title={t("Settings")} description={t("Runtime configuration is provided through environment variables of the Staqio container.")} />
+      <PageHeader title={t("Settings")} description={t("Runtime configuration is provided through environment variables of the Envoryx container.")} />
       {s.isPending ? (
         <Spinner />
       ) : s.isError ? (
@@ -218,7 +218,7 @@ export function SettingsPage() {
             <Row label={t("Secure cookies")} value={s.data.secureCookies ? t("on") : t("off (enable when served over HTTPS)")} />
           </dl>
           <p className="border-t border-default px-5 py-3 text-xs text-subtle">
-            {t("Change these via STAQIO_* environment variables; see DEPLOYMENT.md.")}
+            {t("Change these via ENVORYX_* environment variables; see DEPLOYMENT.md.")}
           </p>
         </Card>
       )}

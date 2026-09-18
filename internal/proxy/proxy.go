@@ -1,5 +1,5 @@
 // Package proxy is the embedded reverse proxy that routes browser requests by host name to
-// project web servers (and to Staqio's own UI), with TLS from the local CA.
+// project web servers (and to Envoryx's own UI), with TLS from the local CA.
 package proxy
 
 import (
@@ -16,7 +16,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/seramos/staqio/internal/tlsca"
+	"github.com/envoryx/envoryx/internal/tlsca"
 )
 
 // Target is where a host name is routed to.
@@ -24,7 +24,7 @@ type Target struct {
 	ProjectID   string
 	ProjectName string
 	Slug        string
-	// Dial is the upstream address (host:port) reachable from the Staqio process.
+	// Dial is the upstream address (host:port) reachable from the Envoryx process.
 	Dial string
 	// Running is false when the project's web container is not up.
 	Running bool
@@ -34,14 +34,14 @@ type Target struct {
 type Table struct {
 	// Routes maps lower-case host names to project targets.
 	Routes map[string]Target
-	// UIHosts are host names served by Staqio's own UI (e.g. staqio.test, the public host).
+	// UIHosts are host names served by Envoryx's own UI (e.g. envoryx.test, the public host).
 	UIHosts map[string]bool
 	// ForceHTTPS redirects plain HTTP requests for known hosts to HTTPS.
 	ForceHTTPS bool
 	// HTTPSPort is the host-side HTTPS port used in redirects (0 = 443).
 	HTTPSPort int
-	// StaqioURL is where the UI can be reached (for links on error pages).
-	StaqioURL string
+	// EnvoryxURL is where the UI can be reached (for links on error pages).
+	EnvoryxURL string
 }
 
 // Source produces the current routing table.
@@ -104,7 +104,7 @@ func (r *Router) Table(ctx context.Context) Table {
 	return t
 }
 
-// Handler serves proxied requests. ui handles requests for Staqio's own host names.
+// Handler serves proxied requests. ui handles requests for Envoryx's own host names.
 type Handler struct {
 	router *Router
 	ui     http.Handler
@@ -139,7 +139,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	host := hostOf(r)
 	table := h.router.Table(r.Context())
 
-	// Staqio's own UI: its host names, bare IPs and empty hosts.
+	// Envoryx's own UI: its host names, bare IPs and empty hosts.
 	if host == "" || table.UIHosts[host] || net.ParseIP(host) != nil {
 		if h.tls && table.ForceHTTPS && r.TLS == nil && net.ParseIP(host) == nil {
 			redirectHTTPS(w, r, table.HTTPSPort)
@@ -150,7 +150,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	target, ok := table.Routes[host]
 	if !ok {
-		h.errorPage(w, http.StatusNotFound, "Unknown host", fmt.Sprintf("No Staqio project is configured for <strong>%s</strong>.", html.EscapeString(host)), table.StaqioURL)
+		h.errorPage(w, http.StatusNotFound, "Unknown host", fmt.Sprintf("No Envoryx project is configured for <strong>%s</strong>.", html.EscapeString(host)), table.EnvoryxURL)
 		return
 	}
 	if h.tls && table.ForceHTTPS && r.TLS == nil {
@@ -159,7 +159,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if !target.Running || target.Dial == "" {
 		h.errorPage(w, http.StatusServiceUnavailable, target.ProjectName+" is stopped",
-			fmt.Sprintf("The project <strong>%s</strong> is not running. Start it in Staqio.", html.EscapeString(target.ProjectName)), table.StaqioURL)
+			fmt.Sprintf("The project <strong>%s</strong> is not running. Start it in Envoryx.", html.EscapeString(target.ProjectName)), table.EnvoryxURL)
 		return
 	}
 	h.proxyFor(target.Dial).ServeHTTP(w, r)
@@ -213,19 +213,19 @@ func (h *Handler) proxyFor(dial string) *httputil.ReverseProxy {
 	return p
 }
 
-func (h *Handler) errorPage(w http.ResponseWriter, status int, title, message, staqioURL string) {
+func (h *Handler) errorPage(w http.ResponseWriter, status int, title, message, envoryxURL string) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(status)
 	link := ""
-	if staqioURL != "" {
-		link = fmt.Sprintf(`<p><a href="%s">Open Staqio</a></p>`, html.EscapeString(staqioURL))
+	if envoryxURL != "" {
+		link = fmt.Sprintf(`<p><a href="%s">Open Envoryx</a></p>`, html.EscapeString(envoryxURL))
 	}
-	fmt.Fprintf(w, `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>%s · Staqio</title>
+	fmt.Fprintf(w, `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>%s · Envoryx</title>
 <style>body{font-family:system-ui,sans-serif;background:#0f1115;color:#e6e8ee;margin:0;display:grid;place-items:center;min-height:100vh}
 main{max-width:34rem;padding:2rem}h1{font-weight:600;margin:0 0 .5rem}p{color:#9aa1ae}a{color:#a5b4fc}strong{color:#e6e8ee}
 .code{font-family:ui-monospace,monospace;color:#6b7280;font-size:.85rem}</style></head>
-<body><main><p class="code">%d · Staqio proxy</p><h1>%s</h1><p>%s</p>%s</main></body></html>`,
+<body><main><p class="code">%d · Envoryx proxy</p><h1>%s</h1><p>%s</p>%s</main></body></html>`,
 		html.EscapeString(title), status, html.EscapeString(title), message, link)
 }
 

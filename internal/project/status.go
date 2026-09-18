@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/seramos/staqio/internal/docker"
-	"github.com/seramos/staqio/internal/notify"
-	"github.com/seramos/staqio/internal/store"
+	"github.com/envoryx/envoryx/internal/docker"
+	"github.com/envoryx/envoryx/internal/notify"
+	"github.com/envoryx/envoryx/internal/store"
 )
 
 // deriveStatus computes the observed state of a project from the managed container list.
@@ -140,7 +140,7 @@ func (m *Manager) Reconcile(ctx context.Context) ReconcileReport {
 	for _, p := range projects {
 		// A restart in the middle of create/delete leaves a transitional lifecycle behind.
 		if p.Lifecycle == store.LifecycleCreating || p.Lifecycle == store.LifecycleDeleting {
-			msg := fmt.Sprintf("%s was interrupted by a Staqio restart; review the project and retry or delete it", p.Lifecycle)
+			msg := fmt.Sprintf("%s was interrupted by a Envoryx restart; review the project and retry or delete it", p.Lifecycle)
 			if err := m.store.Projects.UpdateState(ctx, p.ID, p.DesiredState, store.LifecycleFailed, msg); err == nil {
 				p.Lifecycle = store.LifecycleFailed
 				p.LastError = msg
@@ -181,7 +181,7 @@ func (m *Manager) Reconcile(ctx context.Context) ReconcileReport {
 		m.log.Warn("reconcile issue", "project", issue.ProjectName, "severity", issue.Severity, "msg", issue.Message)
 	}
 	if len(report.Orphans) > 0 {
-		m.log.Warn("reconcile found orphaned Staqio resources", "count", len(report.Orphans))
+		m.log.Warn("reconcile found orphaned Envoryx resources", "count", len(report.Orphans))
 	}
 	m.setReport(report)
 	return report

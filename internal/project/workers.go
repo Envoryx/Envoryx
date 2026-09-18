@@ -6,9 +6,9 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/seramos/staqio/internal/audit"
-	"github.com/seramos/staqio/internal/store"
-	"github.com/seramos/staqio/internal/validate"
+	"github.com/envoryx/envoryx/internal/audit"
+	"github.com/envoryx/envoryx/internal/store"
+	"github.com/envoryx/envoryx/internal/validate"
 )
 
 // WorkerPreset is a closed catalogue entry describing a long-running command.
@@ -155,7 +155,7 @@ func WorkerKind(w store.Worker) store.ServiceKind { return store.ServiceKind("wo
 
 // WorkerContainerName is the container name of a worker.
 func WorkerContainerName(slug string, w store.Worker) string {
-	return "staqio-" + slug + "-worker-" + w.Name
+	return "envoryx-" + slug + "-worker-" + w.Name
 }
 
 // WorkerRequest is the API-facing worker definition.

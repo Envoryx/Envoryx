@@ -16,7 +16,7 @@ const resources: Record<string, { translation: Record<string, string> }> = {
   de: { translation: de },
 };
 
-const STORAGE_KEY = "staqio.lang";
+const STORAGE_KEY = "envoryx.lang";
 
 export function detectLanguage(): Language {
   try {

@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/seramos/staqio/internal/project"
-	"github.com/seramos/staqio/internal/store"
+	"github.com/envoryx/envoryx/internal/project"
+	"github.com/envoryx/envoryx/internal/store"
 )
 
 type workerDTO struct {

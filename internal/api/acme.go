@@ -3,8 +3,8 @@ package api
 import (
 	"net/http"
 
-	"github.com/seramos/staqio/internal/acme"
-	"github.com/seramos/staqio/internal/store"
+	"github.com/envoryx/envoryx/internal/acme"
+	"github.com/envoryx/envoryx/internal/store"
 )
 
 func (a *API) acmeStatus(w http.ResponseWriter, r *http.Request) {

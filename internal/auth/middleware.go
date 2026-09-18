@@ -49,7 +49,7 @@ func (s *Service) Middleware(unauthorized http.Handler) func(http.Handler) http.
 }
 
 // ClientIP returns the remote IP of a request. Proxy headers are intentionally ignored
-// unless Staqio is explicitly told it runs behind a trusted proxy (future setting).
+// unless Envoryx is explicitly told it runs behind a trusted proxy (future setting).
 func ClientIP(r *http.Request) string {
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {

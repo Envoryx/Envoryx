@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/seramos/staqio/internal/db"
-	"github.com/seramos/staqio/internal/store"
+	"github.com/envoryx/envoryx/internal/db"
+	"github.com/envoryx/envoryx/internal/store"
 )
 
 func testService(t *testing.T) (*Service, *store.Store) {

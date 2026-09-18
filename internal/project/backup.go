@@ -14,12 +14,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/seramos/staqio/internal/audit"
-	"github.com/seramos/staqio/internal/docker"
-	"github.com/seramos/staqio/internal/notify"
-	"github.com/seramos/staqio/internal/runtime"
-	"github.com/seramos/staqio/internal/store"
-	"github.com/seramos/staqio/internal/validate"
+	"github.com/envoryx/envoryx/internal/audit"
+	"github.com/envoryx/envoryx/internal/docker"
+	"github.com/envoryx/envoryx/internal/notify"
+	"github.com/envoryx/envoryx/internal/runtime"
+	"github.com/envoryx/envoryx/internal/store"
+	"github.com/envoryx/envoryx/internal/validate"
 )
 
 // Backup layout under /config/backups/<slug>/<dir>/:
@@ -57,7 +57,7 @@ type RestoreOptions struct {
 // BackupMeta is written to backup.json and returned by the API (without the export).
 type BackupMeta struct {
 	Format      int       `json:"format"`
-	Staqio      string    `json:"staqio"`
+	Envoryx     string    `json:"envoryx"`
 	ProjectID   string    `json:"projectId"`
 	ProjectName string    `json:"projectName"`
 	Slug        string    `json:"slug"`
@@ -230,7 +230,7 @@ func (m *Manager) createBackup(ctx context.Context, id string, opts BackupOption
 		return BackupInfo{}, fmt.Errorf("%s: %w", step, cause)
 	}
 
-	meta := BackupMeta{Format: backupFormat, Staqio: paths.StaqioVersion, ProjectID: p.ID, ProjectName: p.Name, Slug: p.Slug, CreatedAt: time.Now().UTC(), Note: strings.TrimSpace(opts.Note), Source: opts.Source, Runtimes: map[string]string{}}
+	meta := BackupMeta{Format: backupFormat, Envoryx: paths.EnvoryxVersion, ProjectID: p.ID, ProjectName: p.Name, Slug: p.Slug, CreatedAt: time.Now().UTC(), Note: strings.TrimSpace(opts.Note), Source: opts.Source, Runtimes: map[string]string{}}
 	for _, s := range p.Services {
 		if s.Enabled {
 			meta.Runtimes[string(s.Kind)] = s.Variant + " " + s.Version

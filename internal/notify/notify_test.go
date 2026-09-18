@@ -77,13 +77,13 @@ func TestProvidersAndDeduplication(t *testing.T) {
 	if err := s.SetConfig(Config{Enabled: true, Provider: "ntfy", URL: "not a url"}); err == nil {
 		t.Fatal("bad URL must be rejected")
 	}
-	if err := s.SetConfig(Config{Enabled: true, Provider: "ntfy", URL: srv.URL + "/staqio", Token: "tk-1", Kinds: []string{"acme.failed", "project.unhealthy"}}); err != nil {
+	if err := s.SetConfig(Config{Enabled: true, Provider: "ntfy", URL: srv.URL + "/envoryx", Token: "tk-1", Kinds: []string{"acme.failed", "project.unhealthy"}}); err != nil {
 		t.Fatal(err)
 	}
 	s.Notify(context.Background(), Event{Kind: "acme.failed", Level: Error, Title: "Renewal failed", Message: "cloudflare: token rejected"})
 	waitFor(t, func() bool { return count() == 1 })
 	r := got.at(0)
-	if r.path != "/staqio" || r.headers.Get("Title") != "Renewal failed" || r.headers.Get("Priority") != "5" || r.headers.Get("Authorization") != "Bearer tk-1" || r.body != "cloudflare: token rejected" {
+	if r.path != "/envoryx" || r.headers.Get("Title") != "Renewal failed" || r.headers.Get("Priority") != "5" || r.headers.Get("Authorization") != "Bearer tk-1" || r.body != "cloudflare: token rejected" {
 		t.Fatalf("ntfy request: %+v", r)
 	}
 	// Same key within the cooldown is suppressed; an unselected kind is ignored.
@@ -105,7 +105,7 @@ func TestProvidersAndDeduplication(t *testing.T) {
 	waitFor(t, func() bool { return count() == 4 })
 
 	// Token is kept when re-saving without one and never returned.
-	if err := s.SetConfig(Config{Enabled: true, Provider: "ntfy", URL: srv.URL + "/staqio"}); err != nil {
+	if err := s.SetConfig(Config{Enabled: true, Provider: "ntfy", URL: srv.URL + "/envoryx"}); err != nil {
 		t.Fatal(err)
 	}
 	if st := s.Status(); !st.HasToken || st.Config.Token != "" {
@@ -114,7 +114,7 @@ func TestProvidersAndDeduplication(t *testing.T) {
 
 	// Webhook, Discord, Slack, Telegram payloads.
 	for _, tc := range []struct{ provider, want string }{
-		{"webhook", `"kind":"test"`}, {"discord", `"content":"**Staqio test notification**`}, {"slack", `"text":"*Staqio test notification*`},
+		{"webhook", `"kind":"test"`}, {"discord", `"content":"**Envoryx test notification**`}, {"slack", `"text":"*Envoryx test notification*`},
 	} {
 		if err := s.Test(context.Background(), Config{Provider: tc.provider, URL: srv.URL + "/" + tc.provider}); err != nil {
 			t.Fatalf("%s: %v", tc.provider, err)
@@ -204,11 +204,11 @@ func TestEmailDelivery(t *testing.T) {
 		t.Fatal(err)
 	}
 	s.smtpDial = func(ctx context.Context, addr string) (net.Conn, error) { return net.Dial("tcp", ln.Addr().String()) }
-	cfg := Config{Provider: "email", SMTPHost: "localhost", SMTPPort: 25, SMTPSecurity: "none", SMTPUser: "u", SMTPPassword: "p", From: "staqio@example.com", To: "me@example.com"}
+	cfg := Config{Provider: "email", SMTPHost: "localhost", SMTPPort: 25, SMTPSecurity: "none", SMTPUser: "u", SMTPPassword: "p", From: "envoryx@example.com", To: "me@example.com"}
 	if err := s.Test(context.Background(), cfg); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(*mail, "Subject: [Staqio] Staqio test notification") || !strings.Contains(*mail, "Notifications are working.") {
+	if !strings.Contains(*mail, "Subject: [Envoryx] Envoryx test notification") || !strings.Contains(*mail, "Notifications are working.") {
 		t.Fatalf("mail: %q", *mail)
 	}
 	if err := s.SetConfig(Config{Enabled: true, Provider: "email", From: "a@b"}); err == nil {

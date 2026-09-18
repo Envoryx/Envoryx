@@ -34,7 +34,7 @@ HUB = f"https://hub.docker.com/v2/repositories/library/{PRODUCT['hub']}/tags/"
 
 
 def get(url: str):
-    req = urllib.request.Request(url, headers={"User-Agent": "staqio-version-check"})
+    req = urllib.request.Request(url, headers={"User-Agent": "envoryx-version-check"})
     with urllib.request.urlopen(req, timeout=30) as r:
         return r.status, r.read()
 

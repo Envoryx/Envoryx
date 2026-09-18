@@ -64,7 +64,7 @@ var Kinds = []struct {
 	{"acme.failed", "Let's Encrypt certificate could not be issued or renewed", true},
 	{"acme.renewed", "Let's Encrypt certificate issued or renewed", false},
 	{"backup.failed", "A backup could not be created", true},
-	{"staqio.started", "Staqio started", false},
+	{"envoryx.started", "Envoryx started", false},
 }
 
 // Providers lists the supported delivery channels.
@@ -326,7 +326,7 @@ func (s *Service) Test(ctx context.Context, cfg Config) error {
 	s.mu.Lock()
 	at := s.now()
 	s.mu.Unlock()
-	return s.deliver(ctx, cfg, Event{Kind: "test", Level: Info, Title: "Staqio test notification", Message: "Notifications are working."}, at)
+	return s.deliver(ctx, cfg, Event{Kind: "test", Level: Info, Title: "Envoryx test notification", Message: "Notifications are working."}, at)
 }
 
 func (s *Service) deliver(ctx context.Context, cfg Config, e Event, at time.Time) error {
@@ -392,7 +392,7 @@ func (s *Service) post(ctx context.Context, u string, h http.Header, contentType
 		req.Header[k] = v
 	}
 	req.Header.Set("Content-Type", contentType)
-	req.Header.Set("User-Agent", "Staqio")
+	req.Header.Set("User-Agent", "Envoryx")
 	res, err := s.http.Do(req)
 	if err != nil {
 		return err
@@ -462,7 +462,7 @@ func (s *Service) sendMail(ctx context.Context, cfg Config, e Event, at time.Tim
 	if err != nil {
 		return err
 	}
-	subject := "[Staqio] " + e.Title
+	subject := "[Envoryx] " + e.Title
 	body := e.Message
 	if e.Project != "" {
 		body = "Project: " + e.Project + "\n\n" + body

@@ -14,12 +14,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/seramos/staqio/internal/audit"
-	"github.com/seramos/staqio/internal/docker"
-	"github.com/seramos/staqio/internal/notify"
-	"github.com/seramos/staqio/internal/runtime"
-	"github.com/seramos/staqio/internal/store"
-	"github.com/seramos/staqio/internal/validate"
+	"github.com/envoryx/envoryx/internal/audit"
+	"github.com/envoryx/envoryx/internal/docker"
+	"github.com/envoryx/envoryx/internal/notify"
+	"github.com/envoryx/envoryx/internal/runtime"
+	"github.com/envoryx/envoryx/internal/store"
+	"github.com/envoryx/envoryx/internal/validate"
 )
 
 // Config configures the manager.
@@ -301,8 +301,8 @@ func buildEnv(in []EnvVarRequest) ([]store.EnvVar, error) {
 		if err := validate.EnvValue(e.Value); err != nil {
 			return nil, err
 		}
-		if strings.HasPrefix(key, "STAQIO_") {
-			return nil, fmt.Errorf("%w: environment variables starting with STAQIO_ are reserved", validate.ErrInvalid)
+		if strings.HasPrefix(key, "ENVORYX_") {
+			return nil, fmt.Errorf("%w: environment variables starting with ENVORYX_ are reserved", validate.ErrInvalid)
 		}
 		if seen[key] {
 			return nil, fmt.Errorf("%w: duplicate environment variable %s", validate.ErrInvalid, key)
@@ -506,7 +506,7 @@ func setHostPort(svc *store.ProjectService, port int) error {
 // ---------------------------------------------------------------------------
 
 // resolveImages refreshes the image reference of every service from the catalogue. The
-// catalogue owns the version→image mapping, so a Staqio update that ships a new runtime
+// catalogue owns the version→image mapping, so a Envoryx update that ships a new runtime
 // image propagates to existing projects on their next start/restart. Unknown versions keep
 // the stored image.
 func (m *Manager) resolveImages(p *store.Project) {
@@ -647,15 +647,15 @@ func writePlanFiles(plan Plan) error {
 
 const starterIndexPHP = `<?php
 /**
- * Staqio starter page. Replace this file with your application.
+ * Envoryx starter page. Replace this file with your application.
  */
-$project = getenv('STAQIO_PROJECT') ?: 'project';
+$project = getenv('ENVORYX_PROJECT') ?: 'project';
 ?>
 <!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title><?= htmlspecialchars($project) ?> · Staqio</title>
+<title><?= htmlspecialchars($project) ?> · Envoryx</title>
 <style>
   body{font-family:system-ui,sans-serif;background:#0f1115;color:#e6e8ee;margin:0;display:grid;place-items:center;min-height:100vh}
   main{max-width:36rem;padding:2rem}
@@ -668,7 +668,7 @@ $project = getenv('STAQIO_PROJECT') ?: 'project';
 <main>
   <p class="ok">● Running</p>
   <h1><?= htmlspecialchars($project) ?></h1>
-  <p>Your Staqio project is served by PHP <?= PHP_VERSION ?> (<?= php_sapi_name() ?>).</p>
+  <p>Your Envoryx project is served by PHP <?= PHP_VERSION ?> (<?= php_sapi_name() ?>).</p>
   <p>Document root: <code><?= htmlspecialchars($_SERVER['DOCUMENT_ROOT'] ?? '') ?></code></p>
   <p>Replace <code>index.php</code> to get started.</p>
 </main>
@@ -737,8 +737,8 @@ func (m *Manager) ensureProjectDir(planner *Planner, proj store.Project, starter
 	return nil
 }
 
-// chownTree changes ownership of dir and its direct children created by Staqio. Errors are
-// ignored: on hosts where Staqio does not run as root the files already belong to the user.
+// chownTree changes ownership of dir and its direct children created by Envoryx. Errors are
+// ignored: on hosts where Envoryx does not run as root the files already belong to the user.
 func chownTree(dir string, uid, gid int) {
 	if os.Geteuid() != 0 {
 		return

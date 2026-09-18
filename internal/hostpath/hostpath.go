@@ -1,6 +1,6 @@
-// Package hostpath resolves the host-side paths behind Staqio's own bind mounts.
+// Package hostpath resolves the host-side paths behind Envoryx's own bind mounts.
 //
-// Staqio sees project files at /projects inside its container, but the Docker daemon
+// Envoryx sees project files at /projects inside its container, but the Docker daemon
 // resolves bind-mount sources on the host. Project containers therefore need the host
 // path (e.g. /mnt/user/development), which is discovered here.
 package hostpath
@@ -17,7 +17,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/seramos/staqio/internal/docker"
+	"github.com/envoryx/envoryx/internal/docker"
 )
 
 // ErrUnresolved is returned when no host path is known for a container path.
@@ -33,7 +33,7 @@ type Resolver struct {
 	inspect     func(ctx context.Context, idOrName string) ([]docker.MountPoint, error)
 	selfIDs     func() []string
 	inContainer func() bool
-	// bareMetal is set when Staqio runs directly on the Docker host: container paths and
+	// bareMetal is set when Envoryx runs directly on the Docker host: container paths and
 	// host paths are then identical.
 	bareMetal   bool
 	lastAttempt time.Time
@@ -59,7 +59,7 @@ func New(engine docker.Engine, overrides map[string]string) *Resolver {
 	return r
 }
 
-// Detect inspects Staqio's own container and records the host paths of its bind mounts.
+// Detect inspects Envoryx's own container and records the host paths of its bind mounts.
 // It is safe to call repeatedly; failures are remembered and reported via Status.
 func (r *Resolver) Detect(ctx context.Context) error {
 	if r.inspect == nil {
@@ -89,7 +89,7 @@ func (r *Resolver) Detect(ctx context.Context) error {
 	}
 	if !r.inContainer() {
 		// Running directly on the host (e.g. `go run` during development): the paths
-		// Staqio sees are the paths the Docker daemon sees.
+		// Envoryx sees are the paths the Docker daemon sees.
 		r.mu.Lock()
 		r.bareMetal = true
 		r.detectErr = nil
@@ -141,7 +141,7 @@ func (r *Resolver) Resolve(containerPath string) (string, error) {
 	if r.detectErr != nil {
 		return "", fmt.Errorf("%w for %s: %v", ErrUnresolved, containerPath, r.detectErr)
 	}
-	return "", fmt.Errorf("%w for %s: no matching bind mount on the Staqio container", ErrUnresolved, containerPath)
+	return "", fmt.Errorf("%w for %s: no matching bind mount on the Envoryx container", ErrUnresolved, containerPath)
 }
 
 // lookup finds the longest mount point that is a prefix of p and rewrites it.
@@ -164,7 +164,7 @@ func lookup(m map[string]string, p string) (string, bool) {
 	return filepath.Join(m[best], rel), true
 }
 
-// SelfContainerID returns the id of the Staqio container ("" on bare metal / unknown).
+// SelfContainerID returns the id of the Envoryx container ("" on bare metal / unknown).
 func (r *Resolver) SelfContainerID() string {
 	r.mu.RLock()
 	defer r.mu.RUnlock()

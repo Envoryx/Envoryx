@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/seramos/staqio/internal/docker"
+	"github.com/envoryx/envoryx/internal/docker"
 )
 
 // FakeContainer is the internal state of a simulated container.
@@ -103,7 +103,7 @@ func (f *Fake) nextID(prefix string) string {
 
 func (f *Fake) record(s string) { f.Calls = append(f.Calls, s) }
 
-// AddForeignContainer simulates a container Staqio did not create.
+// AddForeignContainer simulates a container Envoryx did not create.
 func (f *Fake) AddForeignContainer(name, image, state string) string {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -118,7 +118,7 @@ func (f *Fake) AddForeignContainer(name, image, state string) string {
 	return id
 }
 
-// AddManagedContainer simulates a Staqio container that already exists (e.g. after a restart).
+// AddManagedContainer simulates a Envoryx container that already exists (e.g. after a restart).
 func (f *Fake) AddManagedContainer(spec docker.ContainerSpec, state string) string {
 	f.mu.Lock()
 	defer f.mu.Unlock()

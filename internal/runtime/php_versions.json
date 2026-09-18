@@ -1,5 +1,5 @@
 {
-  "image": "ghcr.io/seramos/staqio-php",
+  "image": "ghcr.io/envoryx/envoryx-php",
   "default": "8.5",
   "versions": [
     { "version": "8.6", "base": "8.6-rc", "preview": true },

@@ -18,10 +18,10 @@ import (
 
 	"golang.org/x/crypto/ssh"
 
-	"github.com/seramos/staqio/internal/audit"
-	"github.com/seramos/staqio/internal/docker"
-	"github.com/seramos/staqio/internal/store"
-	"github.com/seramos/staqio/internal/validate"
+	"github.com/envoryx/envoryx/internal/audit"
+	"github.com/envoryx/envoryx/internal/docker"
+	"github.com/envoryx/envoryx/internal/store"
+	"github.com/envoryx/envoryx/internal/validate"
 )
 
 // GitRequest binds a repository to a project. Token is write-only.
@@ -180,7 +180,7 @@ func (m *Manager) RegenerateDeployKey(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("generate key: %w", err)
 	}
-	pemBlock, err := ssh.MarshalPrivateKey(priv, "staqio deploy key")
+	pemBlock, err := ssh.MarshalPrivateKey(priv, "envoryx deploy key")
 	if err != nil {
 		return "", fmt.Errorf("encode key: %w", err)
 	}
@@ -188,7 +188,7 @@ func (m *Manager) RegenerateDeployKey(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	pubLine := strings.TrimSpace(string(ssh.MarshalAuthorizedKey(sshPub))) + " staqio-deploy-key"
+	pubLine := strings.TrimSpace(string(ssh.MarshalAuthorizedKey(sshPub))) + " envoryx-deploy-key"
 	privPath := filepath.Join(dir, "id_ed25519")
 	if err := os.WriteFile(privPath, pem.EncodeToMemory(pemBlock), 0o600); err != nil {
 		return "", fmt.Errorf("write private key: %w", err)
@@ -211,7 +211,7 @@ func (m *Manager) RegenerateDeployKey(ctx context.Context) (string, error) {
 
 // ---- running git ----------------------------------------------------------------------
 
-const sshMountTarget = "/tmp/staqio-ssh"
+const sshMountTarget = "/tmp/envoryx-ssh"
 
 // gitEnv builds the environment for git: credentials via GIT_CONFIG_* (never on the
 // command line), the deploy key via GIT_SSH_COMMAND.
@@ -260,9 +260,9 @@ func (m *Manager) runGit(ctx context.Context, proj store.Project, args ...string
 		return docker.ExecResult{}, err
 	}
 	spec := docker.ContainerSpec{
-		Name:       fmt.Sprintf("staqio-%s-git-%d", proj.Slug, time.Now().UnixNano()%1_000_000),
+		Name:       fmt.Sprintf("envoryx-%s-git-%d", proj.Slug, time.Now().UnixNano()%1_000_000),
 		Image:      php.Image,
-		Labels:     docker.ManagedLabels(proj.ID, proj.Slug, "git", paths.StaqioVersion),
+		Labels:     docker.ManagedLabels(proj.ID, proj.Slug, "git", paths.EnvoryxVersion),
 		Env:        gitEnv(proj.Git),
 		Cmd:        append([]string{"git", "-C", appMountTarget}, args...),
 		WorkingDir: appMountTarget,

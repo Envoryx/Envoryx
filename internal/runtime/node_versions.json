@@ -1,5 +1,5 @@
 {
-  "image": "ghcr.io/seramos/staqio-node",
+  "image": "ghcr.io/envoryx/envoryx-node",
   "default": "24",
   "versions": [
     {

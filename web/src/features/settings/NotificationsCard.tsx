@@ -10,8 +10,8 @@ import { formatDateTime } from "@/lib/format";
 const key = ["notifications"] as const;
 
 const hints: Record<string, string> = {
-  webhook: "Staqio POSTs JSON {kind, level, title, message, project, time} to the URL.",
-  ntfy: "Topic URL such as https://ntfy.sh/staqio-abc123 or your own ntfy server. Token only for protected topics.",
+  webhook: "Envoryx POSTs JSON {kind, level, title, message, project, time} to the URL.",
+  ntfy: "Topic URL such as https://ntfy.sh/envoryx-abc123 or your own ntfy server. Token only for protected topics.",
   discord: "Server settings → Integrations → Webhooks → New webhook → copy URL.",
   slack: "Slack app → Incoming Webhooks → Add new webhook → copy URL.",
   telegram: "Create a bot with @BotFather (token), start a chat with it, read your chat id via @userinfobot.",
@@ -124,7 +124,7 @@ export function NotificationsCard() {
                 <Input id="smtp-pass" type="password" autoComplete="off" value={form.smtpPassword ?? ""} onChange={(e) => set({ smtpPassword: e.target.value })} placeholder={st.hasSmtpPassword ? "••••••••" : ""} />
               </Field>
               <Field label={t("From")} htmlFor="smtp-from">
-                <Input id="smtp-from" type="email" value={form.from ?? ""} onChange={(e) => set({ from: e.target.value })} placeholder="staqio@example.com" />
+                <Input id="smtp-from" type="email" value={form.from ?? ""} onChange={(e) => set({ from: e.target.value })} placeholder="envoryx@example.com" />
               </Field>
               <Field label={t("To")} htmlFor="smtp-to" hint={t("Comma-separated for several recipients")}>
                 <Input id="smtp-to" value={form.to ?? ""} onChange={(e) => set({ to: e.target.value })} placeholder="you@example.com" />

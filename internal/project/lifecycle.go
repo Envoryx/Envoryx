@@ -9,12 +9,12 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/seramos/staqio/internal/audit"
-	"github.com/seramos/staqio/internal/docker"
-	"github.com/seramos/staqio/internal/notify"
-	"github.com/seramos/staqio/internal/runtime"
-	"github.com/seramos/staqio/internal/store"
-	"github.com/seramos/staqio/internal/validate"
+	"github.com/envoryx/envoryx/internal/audit"
+	"github.com/envoryx/envoryx/internal/docker"
+	"github.com/envoryx/envoryx/internal/notify"
+	"github.com/envoryx/envoryx/internal/runtime"
+	"github.com/envoryx/envoryx/internal/store"
+	"github.com/envoryx/envoryx/internal/validate"
 )
 
 // journal records created Docker resources so a failed operation can be rolled back.
@@ -363,8 +363,8 @@ func (m *Manager) ensurePasswdEntry(ctx context.Context, containerID, name, user
 	if !ok || uid == "0" {
 		return
 	}
-	script := fmt.Sprintf(`getent group %[2]s >/dev/null || echo "staqio:x:%[2]s:" >> /etc/group; `+
-		`getent passwd %[1]s >/dev/null || echo "staqio:x:%[1]s:%[2]s:Staqio:%[3]s:/bin/sh" >> /etc/passwd`, uid, gid, homeMountTarget)
+	script := fmt.Sprintf(`getent group %[2]s >/dev/null || echo "envoryx:x:%[2]s:" >> /etc/group; `+
+		`getent passwd %[1]s >/dev/null || echo "envoryx:x:%[1]s:%[2]s:Envoryx:%[3]s:/bin/sh" >> /etc/passwd`, uid, gid, homeMountTarget)
 	var stderr strings.Builder
 	code, err := m.engine.ExecStream(ctx, containerID, docker.ExecStreamOptions{Cmd: []string{"sh", "-c", script}, User: "0:0", Stderr: &stderr})
 	if err != nil || code != 0 {

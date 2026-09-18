@@ -3,8 +3,8 @@ package api
 import (
 	"net/http"
 
-	"github.com/seramos/staqio/internal/notify"
-	"github.com/seramos/staqio/internal/store"
+	"github.com/envoryx/envoryx/internal/notify"
+	"github.com/envoryx/envoryx/internal/store"
 )
 
 func (a *API) notificationStatus(w http.ResponseWriter, r *http.Request) {

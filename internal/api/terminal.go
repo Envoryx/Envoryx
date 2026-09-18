@@ -11,8 +11,8 @@ import (
 
 	"github.com/coder/websocket"
 
-	"github.com/seramos/staqio/internal/store"
-	"github.com/seramos/staqio/internal/validate"
+	"github.com/envoryx/envoryx/internal/store"
+	"github.com/envoryx/envoryx/internal/validate"
 )
 
 func sizeParam(r *http.Request, key string, def uint) uint {

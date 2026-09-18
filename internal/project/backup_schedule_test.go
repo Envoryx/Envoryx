@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/seramos/staqio/internal/store"
+	"github.com/envoryx/envoryx/internal/store"
 )
 
 func TestBackupDue(t *testing.T) {

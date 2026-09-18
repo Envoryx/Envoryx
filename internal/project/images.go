@@ -7,8 +7,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/seramos/staqio/internal/audit"
-	"github.com/seramos/staqio/internal/docker"
+	"github.com/envoryx/envoryx/internal/audit"
+	"github.com/envoryx/envoryx/internal/docker"
 )
 
 // UnusedImage is a catalogue image that no container references any more.
@@ -25,7 +25,7 @@ type PruneResult struct {
 	Errors         []string      `json:"errors"`
 }
 
-// catalogueRepos returns the image repositories Staqio itself pulls (without tags).
+// catalogueRepos returns the image repositories Envoryx itself pulls (without tags).
 func (m *Manager) catalogueRepos() map[string]bool {
 	repos := map[string]bool{}
 	for _, r := range m.catalog.All() {
@@ -48,9 +48,9 @@ func imageRepo(ref string) string {
 	return ref
 }
 
-// UnusedImages lists local images that come from the Staqio catalogue and are not used by
-// any container on the host (Staqio's or anyone else's). Images from other sources are
-// never reported, so nothing foreign can be removed through Staqio.
+// UnusedImages lists local images that come from the Envoryx catalogue and are not used by
+// any container on the host (Envoryx's or anyone else's). Images from other sources are
+// never reported, so nothing foreign can be removed through Envoryx.
 func (m *Manager) UnusedImages(ctx context.Context) ([]UnusedImage, error) {
 	images, err := m.engine.ListImages(ctx)
 	if err != nil {

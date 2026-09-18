@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/seramos/staqio/internal/audit"
-	"github.com/seramos/staqio/internal/auth"
-	"github.com/seramos/staqio/internal/validate"
+	"github.com/envoryx/envoryx/internal/audit"
+	"github.com/envoryx/envoryx/internal/auth"
+	"github.com/envoryx/envoryx/internal/validate"
 )
 
 type userDTO struct {

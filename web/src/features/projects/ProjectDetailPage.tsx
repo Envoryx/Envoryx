@@ -210,7 +210,7 @@ function OverviewTab({ project: p }: { project: Project }) {
             </div>
             <div className="flex justify-between gap-4">
               <dt className="text-muted">{t("Network")}</dt>
-              <dd className="font-mono text-xs">staqio-{p.slug}</dd>
+              <dd className="font-mono text-xs">envoryx-{p.slug}</dd>
             </div>
             <div className="flex justify-between gap-4">
               <dt className="text-muted">{t("Desired state")}</dt>
@@ -521,7 +521,7 @@ function AdvancedTab({ project: p }: { project: Project }) {
   const pl = plan.data;
   return (
     <Card>
-      <CardHeader title={t("Docker plan")} description={t("What Staqio provisions for this project. Generated from the desired state; not editable by design.")} />
+      <CardHeader title={t("Docker plan")} description={t("What Envoryx provisions for this project. Generated from the desired state; not editable by design.")} />
       <div className="space-y-5 p-5 text-sm">
         <dl className="grid gap-x-6 gap-y-2 sm:grid-cols-[10rem_1fr]">
           <dt className="text-muted">{t("Host path")}</dt>
@@ -552,7 +552,7 @@ function AdvancedTab({ project: p }: { project: Project }) {
           ))}
         </ul>
         <p className="text-xs text-subtle">
-          {t("All resources carry the labels")} <Code>staqio.managed=true</Code> {t("and")} <Code>staqio.project.id={p.id}</Code>.
+          {t("All resources carry the labels")} <Code>envoryx.managed=true</Code> {t("and")} <Code>envoryx.project.id={p.id}</Code>.
         </p>
       </div>
     </Card>

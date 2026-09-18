@@ -22,7 +22,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/seramos/staqio/internal/tlsca"
+	"github.com/envoryx/envoryx/internal/tlsca"
 )
 
 // fakeCloudflare implements enough of the Cloudflare v4 API for the provider.

@@ -27,7 +27,7 @@ describe("WorkersTab", () => {
       [`DELETE /projects/${id}/workers/w1`]: () => ({ status: 204 }),
     });
     const project = makeProject();
-    project.status.services.push({ kind: "worker", variant: "cron", version: "laravel:schedule", image: "x", containerName: "staqio-shimly-api-worker-cron", exists: true, running: true, state: "running", ports: [], workerId: "w1" });
+    project.status.services.push({ kind: "worker", variant: "cron", version: "laravel:schedule", image: "x", containerName: "envoryx-shimly-api-worker-cron", exists: true, running: true, state: "running", ports: [], workerId: "w1" });
     renderApp(<WorkersTab project={project} />);
     const user = userEvent.setup();
 

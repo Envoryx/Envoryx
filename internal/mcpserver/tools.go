@@ -10,11 +10,11 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"github.com/seramos/staqio/internal/docker"
-	"github.com/seramos/staqio/internal/project"
-	"github.com/seramos/staqio/internal/runtime"
-	"github.com/seramos/staqio/internal/store"
-	"github.com/seramos/staqio/internal/validate"
+	"github.com/envoryx/envoryx/internal/docker"
+	"github.com/envoryx/envoryx/internal/project"
+	"github.com/envoryx/envoryx/internal/runtime"
+	"github.com/envoryx/envoryx/internal/store"
+	"github.com/envoryx/envoryx/internal/validate"
 )
 
 // ---- Shared output types -----------------------------------------------------------
@@ -61,7 +61,7 @@ func (s *Server) projectOut(ctx context.Context, v project.View) projectOut {
 			host = s.d.Links.PublicHost(ctx)
 		}
 		if host == "" {
-			host = "<staqio-host>"
+			host = "<envoryx-host>"
 		}
 		out.DirectURL = fmt.Sprintf("http://%s:%d", host, v.HTTPPort)
 	}
@@ -102,7 +102,7 @@ func mutating(name, title, desc string, idempotent bool) *mcp.Tool {
 }
 
 func (s *Server) registerTools() {
-	mcp.AddTool(s.mcp, readOnly("list_projects", "List projects", "List all Staqio projects with state, URLs and services."), s.listProjects)
+	mcp.AddTool(s.mcp, readOnly("list_projects", "List projects", "List all Envoryx projects with state, URLs and services."), s.listProjects)
 	mcp.AddTool(s.mcp, readOnly("get_project", "Get project", "Details and live status of one project."), s.getProject)
 	mcp.AddTool(s.mcp, readOnly("list_runtimes", "List runtimes", "Available PHP/Node versions, database engines, services and PHP extension keys for create_project."), s.listRuntimes)
 	mcp.AddTool(s.mcp, mutating("create_project", "Create project", "Create a new development environment (PHP + web server, optional database, Redis, Mailpit, Node, git clone). Returns the project including its URL.", false), s.createProject)

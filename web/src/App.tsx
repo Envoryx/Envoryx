@@ -13,7 +13,7 @@ import { Spinner } from "./components/ui";
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const auth = useAuth();
   const location = useLocation();
-  if (auth.loading) return <Spinner label="Starting Staqio…" />;
+  if (auth.loading) return <Spinner label="Starting Envoryx…" />;
   if (auth.needsSetup) return <Navigate to="/setup" replace />;
   if (!auth.user) return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   return <>{children}</>;

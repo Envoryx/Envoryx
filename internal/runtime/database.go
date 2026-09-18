@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/seramos/staqio/internal/validate"
+	"github.com/envoryx/envoryx/internal/validate"
 )
 
 // DatabaseConfig is the per-project database configuration stored in
@@ -81,7 +81,7 @@ func DBIdentifier(slug string) string {
 
 var dbNameRe = regexp.MustCompile(`^[a-z][a-z0-9_]{0,62}$`)
 
-// systemDatabases are never listed, created or dropped through Staqio.
+// systemDatabases are never listed, created or dropped through Envoryx.
 var systemDatabases = map[string]bool{"mysql": true, "information_schema": true, "performance_schema": true, "sys": true, "postgres": true, "template0": true, "template1": true, "admin": true, "config": true, "local": true}
 
 // ValidateDatabaseName checks a user supplied database name.
@@ -98,7 +98,7 @@ func ValidateDatabaseName(name string) error {
 // IsSystemDatabase reports whether a name belongs to the server itself.
 func IsSystemDatabase(name string) bool { return systemDatabases[name] }
 
-// Dialect describes how Staqio talks to a database flavour: container environment, data
+// Dialect describes how Envoryx talks to a database flavour: container environment, data
 // directory, health check and the administrative statements used by the UI. Statements
 // only ever receive validated identifiers and generated passwords.
 type Dialect struct {
@@ -139,7 +139,7 @@ func mongoURI(c DatabaseConfig, host string, db string) string {
 
 // mongoClient is the argv prefix of an administrative mongosh call. The connection string
 // travels in the environment (read by the script), not in argv.
-const mongoClientPrelude = "const conn = Mongo(process.env.STAQIO_MONGO_URI); const admin = conn.getDB('admin'); "
+const mongoClientPrelude = "const conn = Mongo(process.env.ENVORYX_MONGO_URI); const admin = conn.getDB('admin'); "
 
 var dialects = map[string]Dialect{
 	"mariadb": {
@@ -225,11 +225,11 @@ func init() {
 		},
 		Health: []string{"mongosh", "--quiet", "--norc", "--eval", "db.adminCommand('ping').ok ? quit(0) : quit(1)"},
 		Client: func(c DatabaseConfig, js string) ([]string, []string) {
-			return []string{"mongosh", "--quiet", "--norc", "--nodb", "--eval", mongoClientPrelude + js}, []string{"STAQIO_MONGO_URI=" + mongoURI(c, "127.0.0.1", "admin")}
+			return []string{"mongosh", "--quiet", "--norc", "--nodb", "--eval", mongoClientPrelude + js}, []string{"ENVORYX_MONGO_URI=" + mongoURI(c, "127.0.0.1", "admin")}
 		},
 		ListDatabases: "admin.adminCommand({listDatabases: 1}).databases.forEach(d => print(d.name))",
 		// MongoDB creates databases lazily; a first collection makes it visible.
-		CreateDatabase: func(n, _ string) string { return fmt.Sprintf("conn.getDB('%s').createCollection('staqio_init')", n) },
+		CreateDatabase: func(n, _ string) string { return fmt.Sprintf("conn.getDB('%s').createCollection('envoryx_init')", n) },
 		DropDatabase:   func(n string) string { return fmt.Sprintf("conn.getDB('%s').dropDatabase()", n) },
 		AlterPassword:  func(u, p string) string { return fmt.Sprintf("admin.changeUserPassword('%s', '%s')", u, p) },
 		// Major versions must be upgraded one step at a time (feature compatibility version).

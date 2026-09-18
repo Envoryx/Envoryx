@@ -153,7 +153,7 @@ export function GitTab({ project }: { project: Project }) {
                 <input type="checkbox" checked={clearToken} onChange={(e) => setClearToken(e.target.checked)} className="accent-accent-600" /> {t("Remove the stored token")}
               </label>
             )}
-            {isSSH && <p className="text-xs text-muted">{t("SSH URLs authenticate with the Staqio deploy key shown on the right.")}</p>}
+            {isSSH && <p className="text-xs text-muted">{t("SSH URLs authenticate with the Envoryx deploy key shown on the right.")}</p>}
             <div className="flex flex-wrap gap-2">
               <Button type="submit" variant="primary" loading={busy === "save"} icon={<Save className="size-4" />}>
                 {t("Save")}

@@ -1,6 +1,6 @@
 // Package acme obtains and renews a public wildcard certificate for the project base
 // domain through Let's Encrypt (dns-01 challenge), so browsers trust project URLs without
-// installing Staqio's local CA. The certificate is handed to the tlsca store as its
+// installing Envoryx's local CA. The certificate is handed to the tlsca store as its
 // "custom" certificate.
 package acme
 
@@ -25,9 +25,9 @@ import (
 
 	"golang.org/x/crypto/acme"
 
-	"github.com/seramos/staqio/internal/notify"
-	"github.com/seramos/staqio/internal/tlsca"
-	"github.com/seramos/staqio/internal/validate"
+	"github.com/envoryx/envoryx/internal/notify"
+	"github.com/envoryx/envoryx/internal/tlsca"
+	"github.com/envoryx/envoryx/internal/validate"
 )
 
 const (
@@ -297,7 +297,7 @@ func (m *Manager) Issue(ctx context.Context) (err error) {
 			return
 		}
 		if err != nil {
-			n.Notify(ctx, notify.Event{Kind: "acme.failed", Level: notify.Error, Title: "Certificate for *." + cfg.Domain + " not renewed", Message: err.Error() + "\nStaqio retries automatically; the current certificate stays valid until it expires."})
+			n.Notify(ctx, notify.Event{Kind: "acme.failed", Level: notify.Error, Title: "Certificate for *." + cfg.Domain + " not renewed", Message: err.Error() + "\nEnvoryx retries automatically; the current certificate stays valid until it expires."})
 		} else {
 			n.Clear("acme.failed|")
 			n.Notify(ctx, notify.Event{Kind: "acme.renewed", Level: notify.Info, Title: "Certificate for *." + cfg.Domain + " issued", Message: "The Let's Encrypt certificate was obtained/renewed successfully."})
@@ -321,7 +321,7 @@ func (m *Manager) Issue(ctx context.Context) (err error) {
 			dir = stagingURL
 		}
 	}
-	client := &acme.Client{Key: accountKey, DirectoryURL: dir, HTTPClient: m.httpClient, UserAgent: "Staqio"}
+	client := &acme.Client{Key: accountKey, DirectoryURL: dir, HTTPClient: m.httpClient, UserAgent: "Envoryx"}
 	if _, err := client.Register(ctx, &acme.Account{Contact: []string{"mailto:" + cfg.Email}}, acme.AcceptTOS); err != nil && !errors.Is(err, acme.ErrAccountAlreadyExists) {
 		return fmt.Errorf("acme register: %w", err)
 	}

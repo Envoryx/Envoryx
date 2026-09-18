@@ -1,22 +1,22 @@
 package api
 
 import (
-	"github.com/seramos/staqio/internal/acme"
-	"github.com/seramos/staqio/internal/notify"
+	"github.com/envoryx/envoryx/internal/acme"
+	"github.com/envoryx/envoryx/internal/notify"
 	"log/slog"
 	"net/http"
 	"time"
 
-	"github.com/seramos/staqio/internal/audit"
-	"github.com/seramos/staqio/internal/auth"
-	"github.com/seramos/staqio/internal/config"
-	"github.com/seramos/staqio/internal/docker"
-	"github.com/seramos/staqio/internal/hostpath"
-	"github.com/seramos/staqio/internal/project"
-	"github.com/seramos/staqio/internal/runtime"
-	"github.com/seramos/staqio/internal/stats"
-	"github.com/seramos/staqio/internal/store"
-	"github.com/seramos/staqio/internal/tlsca"
+	"github.com/envoryx/envoryx/internal/audit"
+	"github.com/envoryx/envoryx/internal/auth"
+	"github.com/envoryx/envoryx/internal/config"
+	"github.com/envoryx/envoryx/internal/docker"
+	"github.com/envoryx/envoryx/internal/hostpath"
+	"github.com/envoryx/envoryx/internal/project"
+	"github.com/envoryx/envoryx/internal/runtime"
+	"github.com/envoryx/envoryx/internal/stats"
+	"github.com/envoryx/envoryx/internal/store"
+	"github.com/envoryx/envoryx/internal/tlsca"
 )
 
 // Deps are the services the API handlers use.

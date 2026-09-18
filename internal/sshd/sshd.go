@@ -1,8 +1,8 @@
-// Package sshd is Staqio's embedded SSH server. It lets IDEs (PhpStorm remote interpreter,
+// Package sshd is Envoryx's embedded SSH server. It lets IDEs (PhpStorm remote interpreter,
 // VS Code, plain ssh) run commands inside a project's application container and
 // transfer files via SFTP – without exposing the Docker socket or a real shell on the
 // host. The user name selects the project ("<slug>" = PHP, "<slug>.node" = Node), the
-// password is a Staqio API token, or a public key from the settings is used.
+// password is a Envoryx API token, or a public key from the settings is used.
 package sshd
 
 import (
@@ -26,11 +26,11 @@ import (
 	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
 
-	"github.com/seramos/staqio/internal/audit"
-	"github.com/seramos/staqio/internal/auth"
-	"github.com/seramos/staqio/internal/docker"
-	"github.com/seramos/staqio/internal/project"
-	"github.com/seramos/staqio/internal/store"
+	"github.com/envoryx/envoryx/internal/audit"
+	"github.com/envoryx/envoryx/internal/auth"
+	"github.com/envoryx/envoryx/internal/docker"
+	"github.com/envoryx/envoryx/internal/project"
+	"github.com/envoryx/envoryx/internal/store"
 )
 
 // SettingAuthorizedKeys holds the operator's SSH public keys (authorized_keys format).
@@ -79,7 +79,7 @@ func New(d Deps) (*Server, error) {
 		PublicKeyCallback: func(conn ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, error) {
 			return s.publicKeyAuth(conn, key)
 		},
-		ServerVersion: "SSH-2.0-Staqio",
+		ServerVersion: "SSH-2.0-Envoryx",
 	}
 	s.config.AddHostKey(signer)
 	return s, nil
@@ -100,7 +100,7 @@ func loadOrCreateHostKey(path string) (ssh.Signer, error) {
 	if err != nil {
 		return nil, err
 	}
-	block, err := ssh.MarshalPrivateKey(priv, "staqio host key")
+	block, err := ssh.MarshalPrivateKey(priv, "envoryx host key")
 	if err != nil {
 		return nil, err
 	}
@@ -141,7 +141,7 @@ func (s *Server) passwordAuth(conn ssh.ConnMetadata, password []byte) (*ssh.Perm
 		return nil, errors.New("unknown project")
 	}
 	s.limiter.reset(ip)
-	return &ssh.Permissions{Extensions: map[string]string{"staqio-user": p.Username, "staqio-token": p.TokenName}}, nil
+	return &ssh.Permissions{Extensions: map[string]string{"envoryx-user": p.Username, "envoryx-token": p.TokenName}}, nil
 }
 
 func (s *Server) publicKeyAuth(conn ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, error) {
@@ -169,7 +169,7 @@ func (s *Server) publicKeyAuth(conn ssh.ConnMetadata, key ssh.PublicKey) (*ssh.P
 				return nil, errors.New("unknown project")
 			}
 			s.limiter.reset(ip)
-			return &ssh.Permissions{Extensions: map[string]string{"staqio-user": "ssh-key", "staqio-token": comment}}, nil
+			return &ssh.Permissions{Extensions: map[string]string{"envoryx-user": "ssh-key", "envoryx-token": comment}}, nil
 		}
 	}
 	// Not a failed attempt in the brute-force sense: clients routinely offer every key in
@@ -292,7 +292,7 @@ func (s *Server) handleConn(ctx context.Context, nc net.Conn) {
 		s.d.Log.Warn("ssh user resolution failed after auth", "user", sc.User(), "err", err)
 		return
 	}
-	actx := audit.WithClientIP(auth.WithPrincipal(ctx, auth.Principal{Username: sc.Permissions.Extensions["staqio-user"], TokenName: sc.Permissions.Extensions["staqio-token"]}), remoteIP(nc.RemoteAddr()))
+	actx := audit.WithClientIP(auth.WithPrincipal(ctx, auth.Principal{Username: sc.Permissions.Extensions["envoryx-user"], TokenName: sc.Permissions.Extensions["envoryx-token"]}), remoteIP(nc.RemoteAddr()))
 	s.d.Audit.Log(actx, "ssh.login", "project", target.Project.ID, map[string]any{"name": target.Project.Name, "service": string(target.Kind)})
 
 	for ch := range chans {
@@ -390,7 +390,7 @@ func allowedEnv(k string) bool {
 // run executes a command in the target container, wiring the SSH channel to it.
 func (s *Server) run(ctx context.Context, ch ssh.Channel, st *session, mu *sync.Mutex, target project.ExecTarget, cmd []string, kind string) int {
 	if target.ContainerID == "" || !target.Running {
-		fmt.Fprintf(ch.Stderr(), "Staqio: project %s is not running – start it in the Staqio UI first.\r\n", target.Project.Name)
+		fmt.Fprintf(ch.Stderr(), "Envoryx: project %s is not running – start it in the Envoryx UI first.\r\n", target.Project.Name)
 		return 1
 	}
 	env := append(append([]string{}, target.Env...), st.env...)
@@ -410,7 +410,7 @@ func (s *Server) run(ctx context.Context, ch ssh.Channel, st *session, mu *sync.
 	if st.pty {
 		term, err := s.d.Engine.OpenTerminal(ctx, target.ContainerID, docker.TerminalOptions{Cmd: cmd, Env: env, User: target.User, WorkingDir: target.WorkingDir, Cols: st.cols, Rows: st.rows})
 		if err != nil {
-			fmt.Fprintf(ch.Stderr(), "Staqio: %v\r\n", err)
+			fmt.Fprintf(ch.Stderr(), "Envoryx: %v\r\n", err)
 			return 1
 		}
 		mu.Lock()
@@ -428,7 +428,7 @@ func (s *Server) run(ctx context.Context, ch ssh.Channel, st *session, mu *sync.
 	}
 	code, err := s.d.Engine.ExecStream(ctx, target.ContainerID, docker.ExecStreamOptions{Cmd: cmd, Env: env, User: target.User, WorkingDir: target.WorkingDir, Stdin: ch, Stdout: out, Stderr: ch.Stderr()})
 	if err != nil {
-		fmt.Fprintf(ch.Stderr(), "Staqio: %v\r\n", err)
+		fmt.Fprintf(ch.Stderr(), "Envoryx: %v\r\n", err)
 		return 1
 	}
 	tap.setCode(code)
@@ -507,7 +507,7 @@ func sendExit(ch ssh.Channel, code int) {
 
 // handleForward serves a direct-tcpip channel (ssh -L / IDE tunnels). Forwarding is only
 // allowed for projects with JetBrains Gateway enabled and only to "localhost" ports of
-// the target container, which Staqio reaches over the project network.
+// the target container, which Envoryx reaches over the project network.
 func (s *Server) handleForward(ctx context.Context, ch ssh.NewChannel, target project.ExecTarget) {
 	host, port, ok := parseForward(ch.ExtraData())
 	if !ok {

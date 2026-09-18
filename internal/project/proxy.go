@@ -8,11 +8,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/seramos/staqio/internal/audit"
-	"github.com/seramos/staqio/internal/proxy"
-	"github.com/seramos/staqio/internal/runtime"
-	"github.com/seramos/staqio/internal/store"
-	"github.com/seramos/staqio/internal/validate"
+	"github.com/envoryx/envoryx/internal/audit"
+	"github.com/envoryx/envoryx/internal/proxy"
+	"github.com/envoryx/envoryx/internal/runtime"
+	"github.com/envoryx/envoryx/internal/store"
+	"github.com/envoryx/envoryx/internal/validate"
 )
 
 // Settings keys for the proxy.
@@ -20,8 +20,8 @@ const (
 	SettingBaseDomain = "base_domain"
 	SettingForceHTTPS = "force_https"
 	DefaultBaseDomain = "test"
-	// UIHostLabel is the host label of Staqio's own UI under the base domain (staqio.test).
-	UIHostLabel = "staqio"
+	// UIHostLabel is the host label of Envoryx's own UI under the base domain (envoryx.test).
+	UIHostLabel = "envoryx"
 )
 
 // BaseDomain returns the configured base domain.
@@ -90,7 +90,7 @@ func (m *Manager) SetForceHTTPS(ctx context.Context, on bool) error {
 // DefaultHostname is the derived host name of a project.
 func DefaultHostname(slug, base string) string { return slug + "." + base }
 
-// UIHostname is the host name of Staqio's UI under the base domain.
+// UIHostname is the host name of Envoryx's UI under the base domain.
 func UIHostname(base string) string { return UIHostLabel + "." + base }
 
 // DevHostname is the host name of a project's Node dev server (kept one label deep so a
@@ -125,7 +125,7 @@ func (m *Manager) ProjectHostnames(ctx context.Context, p store.Project) ([]stri
 }
 
 // AddDomain attaches an extra host name to a project. Names derived for other projects
-// or reserved for Staqio are refused.
+// or reserved for Envoryx are refused.
 func (m *Manager) AddDomain(ctx context.Context, id, hostname string) (store.Domain, error) {
 	if err := validate.UUID(id); err != nil {
 		return store.Domain{}, ErrNotFound
@@ -140,7 +140,7 @@ func (m *Manager) AddDomain(ctx context.Context, id, hostname string) (store.Dom
 	}
 	base := m.BaseDomain(ctx)
 	if hostname == UIHostname(base) {
-		return store.Domain{}, fmt.Errorf("%w: %s is reserved for Staqio", validate.ErrInvalid, hostname)
+		return store.Domain{}, fmt.Errorf("%w: %s is reserved for Envoryx", validate.ErrInvalid, hostname)
 	}
 	projects, err := m.store.Projects.List(ctx)
 	if err != nil {
@@ -181,15 +181,15 @@ func (m *Manager) RemoveDomain(ctx context.Context, id, domainID string) error {
 type ProxyOptions struct {
 	// HTTPSPort is the host-side HTTPS port (0 = 443 / unknown).
 	HTTPSPort int
-	// StaqioURL links back to the UI on error pages.
-	StaqioURL string
+	// EnvoryxURL links back to the UI on error pages.
+	EnvoryxURL string
 	// ExtraUIHosts are additional names served by the UI (public host).
 	ExtraUIHosts []string
 }
 
 // RouteTable builds the proxy routing table from projects, domains and Docker state.
 func (m *Manager) RouteTable(ctx context.Context, opts ProxyOptions) (proxy.Table, error) {
-	t := proxy.Table{Routes: map[string]proxy.Target{}, UIHosts: map[string]bool{}, ForceHTTPS: m.ForceHTTPS(ctx), HTTPSPort: opts.HTTPSPort, StaqioURL: opts.StaqioURL}
+	t := proxy.Table{Routes: map[string]proxy.Target{}, UIHosts: map[string]bool{}, ForceHTTPS: m.ForceHTTPS(ctx), HTTPSPort: opts.HTTPSPort, EnvoryxURL: opts.EnvoryxURL}
 	base := m.BaseDomain(ctx)
 	t.UIHosts[UIHostname(base)] = true
 	for _, h := range opts.ExtraUIHosts {
@@ -263,7 +263,7 @@ func (m *Manager) dialForDev(selfID string, p store.Project, cfg runtime.NodeCon
 	return net.JoinHostPort(ContainerName(p.Slug, store.ServiceNode), strconv.Itoa(cfg.Port))
 }
 
-// attachProxy connects Staqio's own container to a project network so the embedded proxy
+// attachProxy connects Envoryx's own container to a project network so the embedded proxy
 // can reach the web container by name. No-op on bare metal.
 func (m *Manager) attachProxy(ctx context.Context, network string) error {
 	paths, err := m.paths()
@@ -285,7 +285,7 @@ func (m *Manager) attachProxy(ctx context.Context, network string) error {
 	return nil
 }
 
-// detachProxy disconnects Staqio's container from a project network (before removal).
+// detachProxy disconnects Envoryx's container from a project network (before removal).
 func (m *Manager) detachProxy(ctx context.Context, network string) error {
 	paths, err := m.paths()
 	if err != nil || paths.SelfContainerID == "" {

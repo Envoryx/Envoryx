@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/seramos/staqio/internal/audit"
-	"github.com/seramos/staqio/internal/docker"
-	"github.com/seramos/staqio/internal/store"
+	"github.com/envoryx/envoryx/internal/audit"
+	"github.com/envoryx/envoryx/internal/docker"
+	"github.com/envoryx/envoryx/internal/store"
 )
 
 // shellCmd starts bash when the image has it and falls back to sh. The argument is a

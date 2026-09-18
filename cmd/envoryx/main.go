@@ -1,15 +1,15 @@
-// Staqio - Docker-native development environments for Unraid and Linux.
+// Envoryx - Docker-native development environments for Unraid and Linux.
 // Copyright (c) 2026 Stefan Mertens
 // SPDX-License-Identifier: AGPL-3.0-only
 //
-// Command staqio runs the Staqio server.
+// Command envoryx runs the Envoryx server.
 //
 // Usage:
 //
-//	staqio             run the server (default)
-//	staqio serve       run the server
-//	staqio healthcheck probe the local server (used by the Docker HEALTHCHECK)
-//	staqio version     print the version
+//	envoryx             run the server (default)
+//	envoryx serve       run the server
+//	envoryx healthcheck probe the local server (used by the Docker HEALTHCHECK)
+//	envoryx version     print the version
 package main
 
 import (
@@ -26,25 +26,25 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/seramos/staqio/internal/acme"
-	"github.com/seramos/staqio/internal/api"
-	"github.com/seramos/staqio/internal/audit"
-	"github.com/seramos/staqio/internal/auth"
-	"github.com/seramos/staqio/internal/config"
-	"github.com/seramos/staqio/internal/db"
-	"github.com/seramos/staqio/internal/docker"
-	"github.com/seramos/staqio/internal/hostpath"
-	"github.com/seramos/staqio/internal/mcpserver"
-	"github.com/seramos/staqio/internal/notify"
-	"github.com/seramos/staqio/internal/project"
-	"github.com/seramos/staqio/internal/proxy"
-	"github.com/seramos/staqio/internal/runtime"
-	"github.com/seramos/staqio/internal/server"
-	"github.com/seramos/staqio/internal/sshd"
-	"github.com/seramos/staqio/internal/stats"
-	"github.com/seramos/staqio/internal/store"
-	"github.com/seramos/staqio/internal/tlsca"
-	"github.com/seramos/staqio/web"
+	"github.com/envoryx/envoryx/internal/acme"
+	"github.com/envoryx/envoryx/internal/api"
+	"github.com/envoryx/envoryx/internal/audit"
+	"github.com/envoryx/envoryx/internal/auth"
+	"github.com/envoryx/envoryx/internal/config"
+	"github.com/envoryx/envoryx/internal/db"
+	"github.com/envoryx/envoryx/internal/docker"
+	"github.com/envoryx/envoryx/internal/hostpath"
+	"github.com/envoryx/envoryx/internal/mcpserver"
+	"github.com/envoryx/envoryx/internal/notify"
+	"github.com/envoryx/envoryx/internal/project"
+	"github.com/envoryx/envoryx/internal/proxy"
+	"github.com/envoryx/envoryx/internal/runtime"
+	"github.com/envoryx/envoryx/internal/server"
+	"github.com/envoryx/envoryx/internal/sshd"
+	"github.com/envoryx/envoryx/internal/stats"
+	"github.com/envoryx/envoryx/internal/store"
+	"github.com/envoryx/envoryx/internal/tlsca"
+	"github.com/envoryx/envoryx/web"
 )
 
 // version is set at build time via -ldflags "-X main.version=...".
@@ -58,13 +58,13 @@ func main() {
 	switch cmd {
 	case "serve":
 		if err := serve(); err != nil {
-			fmt.Fprintln(os.Stderr, "staqio:", err)
+			fmt.Fprintln(os.Stderr, "envoryx:", err)
 			os.Exit(1)
 		}
 	case "healthcheck":
 		os.Exit(healthcheck())
 	case "version":
-		fmt.Println("Staqio", version)
+		fmt.Println("Envoryx", version)
 	default:
 		fmt.Fprintf(os.Stderr, "unknown command %q\n", cmd)
 		os.Exit(2)
@@ -97,7 +97,7 @@ func serve() error {
 	}
 	log := newLogger(cfg)
 	slog.SetDefault(log)
-	log.Info("starting Staqio", "version", version, "config_dir", cfg.ConfigDir, "projects_dir", cfg.ProjectsDir)
+	log.Info("starting Envoryx", "version", version, "config_dir", cfg.ConfigDir, "projects_dir", cfg.ProjectsDir)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -128,7 +128,7 @@ func serve() error {
 	info, pingErr := engine.Ping(pingCtx)
 	cancel()
 	if pingErr != nil {
-		log.Warn("docker engine not reachable at startup; Staqio keeps running and retries on demand", "err", pingErr)
+		log.Warn("docker engine not reachable at startup; Envoryx keeps running and retries on demand", "err", pingErr)
 	} else {
 		log.Info("docker engine connected", "api", info.APIVersion, "server", info.ServerVersion, "os", info.OS)
 	}
@@ -140,7 +140,7 @@ func serve() error {
 	})
 	if err := resolver.Detect(ctx); err != nil {
 		if cfg.ConfigHostPath == "" || cfg.ProjectsHostPath == "" {
-			log.Warn("could not auto-detect host paths; set STAQIO_PROJECTS_HOST_PATH and STAQIO_CONFIG_HOST_PATH", "err", err)
+			log.Warn("could not auto-detect host paths; set ENVORYX_PROJECTS_HOST_PATH and ENVORYX_CONFIG_HOST_PATH", "err", err)
 		}
 	}
 	logHostPaths(log, resolver, cfg)
@@ -170,7 +170,7 @@ func serve() error {
 		return project.Paths{
 			ConfigDir: cfg.ConfigDir, ConfigHostDir: configHost,
 			ProjectsDir: cfg.ProjectsDir, ProjectsHostDir: projectsHost,
-			PUID: cfg.PUID, PGID: cfg.PGID, StaqioVersion: version,
+			PUID: cfg.PUID, PGID: cfg.PGID, EnvoryxVersion: version,
 			SelfContainerID: resolver.SelfContainerID(),
 		}, nil
 	}
@@ -284,16 +284,16 @@ func serve() error {
 	if proxyInfo.Enabled {
 		source := func(ctx context.Context) (proxy.Table, error) {
 			base := manager.BaseDomain(ctx)
-			staqioURL := "http://" + project.UIHostname(base)
+			envoryxURL := "http://" + project.UIHostname(base)
 			if certs != nil && proxyInfo.HTTPSPort > 0 {
-				staqioURL = "https://" + project.UIHostname(base)
+				envoryxURL = "https://" + project.UIHostname(base)
 				if proxyInfo.HTTPSPort != 443 {
-					staqioURL += fmt.Sprintf(":%d", proxyInfo.HTTPSPort)
+					envoryxURL += fmt.Sprintf(":%d", proxyInfo.HTTPSPort)
 				}
 			} else if proxyInfo.HTTPPort > 0 && proxyInfo.HTTPPort != 80 {
-				staqioURL += fmt.Sprintf(":%d", proxyInfo.HTTPPort)
+				envoryxURL += fmt.Sprintf(":%d", proxyInfo.HTTPPort)
 			}
-			return manager.RouteTable(ctx, project.ProxyOptions{HTTPSPort: proxyInfo.HTTPSPort, StaqioURL: staqioURL, ExtraUIHosts: []string{publicHost(ctx)}})
+			return manager.RouteTable(ctx, project.ProxyOptions{HTTPSPort: proxyInfo.HTTPSPort, EnvoryxURL: envoryxURL, ExtraUIHosts: []string{publicHost(ctx)}})
 		}
 		router := proxy.NewRouter(source, 2*time.Second, log)
 		proxyInfo.Invalidate = router.Invalidate
@@ -311,12 +311,12 @@ func serve() error {
 	}
 
 	if notifier != nil {
-		notifier.Notify(ctx, notify.Event{Kind: "staqio.started", Level: notify.Info, Title: "Staqio started", Message: "Version " + version + " is up."})
+		notifier.Notify(ctx, notify.Event{Kind: "envoryx.started", Level: notify.Info, Title: "Envoryx started", Message: "Version " + version + " is up."})
 	}
 	if err := srv.ListenAndServe(ctx); err != nil {
 		return fmt.Errorf("http server: %w", err)
 	}
-	log.Info("Staqio stopped")
+	log.Info("Envoryx stopped")
 	return nil
 }
 
@@ -332,7 +332,7 @@ func portOfAddr(addr string) int {
 }
 
 // detectProxy figures out how the proxy's listeners are reachable from the host: inside
-// Docker from the published port bindings of Staqio's own container, on bare metal from
+// Docker from the published port bindings of Envoryx's own container, on bare metal from
 // the configured listen addresses.
 func detectProxy(ctx context.Context, cfg config.Config, engine docker.Engine, resolver *hostpath.Resolver, tlsEnabled bool, log *slog.Logger) *api.ProxyInfo {
 	info := &api.ProxyInfo{Enabled: cfg.ProxyHTTP != "" || (cfg.ProxyHTTPS != "" && tlsEnabled)}
@@ -360,7 +360,7 @@ func detectProxy(ctx context.Context, cfg config.Config, engine docker.Engine, r
 	info.InDocker = true
 	bindings, err := engine.PortBindings(ctx, selfID)
 	if err != nil {
-		log.Warn("could not read port bindings of the Staqio container", "err", err)
+		log.Warn("could not read port bindings of the Envoryx container", "err", err)
 		return info
 	}
 	for _, b := range bindings {
@@ -379,7 +379,7 @@ func detectProxy(ctx context.Context, cfg config.Config, engine docker.Engine, r
 		// "br0") the listeners are reachable directly.
 		access, err := engine.NetworkAccess(ctx, selfID)
 		if err != nil {
-			log.Warn("could not inspect the Staqio container's network", "err", err)
+			log.Warn("could not inspect the Envoryx container's network", "err", err)
 		} else if access.Direct {
 			info.HTTPPort, info.HTTPSPort = httpPort, httpsPort
 			if len(access.IPs) > 0 {
@@ -429,7 +429,7 @@ func bootstrapAdmin(ctx context.Context, cfg config.Config, sessions *auth.Servi
 // healthcheck probes the local HTTP server. It is used by the container HEALTHCHECK so
 // the image needs no curl/wget.
 func healthcheck() int {
-	addr := os.Getenv("STAQIO_LISTEN")
+	addr := os.Getenv("ENVORYX_LISTEN")
 	if addr == "" {
 		addr = ":8787"
 	}

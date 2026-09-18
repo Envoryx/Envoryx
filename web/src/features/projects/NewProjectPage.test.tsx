@@ -18,14 +18,14 @@ describe("NewProjectPage wizard", () => {
             path: "/projects/shimly-api",
             hostPath: "/mnt/user/development/shimly-api",
             httpPort: 20000,
-            network: "staqio-shimly-api",
+            network: "envoryx-shimly-api",
             containers: [
-              { service: "php", name: "staqio-shimly-api-php", image: "ghcr.io/seramos/staqio-php:8.4", ports: [], mounts: ["/mnt/user/development/shimly-api → /var/www/html"] },
-              { service: "web", name: "staqio-shimly-api-web", image: "caddy:2-alpine", ports: ["20000 → 80/tcp"], mounts: [] },
+              { service: "php", name: "envoryx-shimly-api-php", image: "ghcr.io/envoryx/envoryx-php:8.4", ports: [], mounts: ["/mnt/user/development/shimly-api → /var/www/html"] },
+              { service: "web", name: "envoryx-shimly-api-web", image: "caddy:2-alpine", ports: ["20000 → 80/tcp"], mounts: [] },
             ],
             volumes: [],
-            images: ["ghcr.io/seramos/staqio-php:8.4", "caddy:2-alpine"],
-            warnings: ["image ghcr.io/seramos/staqio-php:8.4 will be pulled on first start"],
+            images: ["ghcr.io/envoryx/envoryx-php:8.4", "caddy:2-alpine"],
+            warnings: ["image ghcr.io/envoryx/envoryx-php:8.4 will be pulled on first start"],
           },
         },
       }),
@@ -73,8 +73,8 @@ describe("NewProjectPage wizard", () => {
     await user.type(screen.getByLabelText("Variable value"), "local");
     await cont();
 
-    expect(await screen.findByText("staqio-shimly-api-php")).toBeInTheDocument();
-    expect(screen.getByText("staqio-shimly-api-web")).toBeInTheDocument();
+    expect(await screen.findByText("envoryx-shimly-api-php")).toBeInTheDocument();
+    expect(screen.getByText("envoryx-shimly-api-web")).toBeInTheDocument();
     expect(screen.getByText(/will be pulled/)).toBeInTheDocument();
     const preview = api.calls.find((c) => c.url.endsWith("/projects/preview"))?.body as Record<string, unknown>;
     expect(preview).toMatchObject({ name: "Shimly API", path: "shimly-api", docroot: "public", php: { version: "8.3" }, node: { version: "24" }, database: { type: "mariadb", version: "11", exposePort: true }, mailpit: {}, env: [{ key: "APP_ENV", value: "local" }] });

@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/seramos/staqio/internal/docker"
-	"github.com/seramos/staqio/internal/runtime"
-	"github.com/seramos/staqio/internal/validate"
+	"github.com/envoryx/envoryx/internal/docker"
+	"github.com/envoryx/envoryx/internal/runtime"
+	"github.com/envoryx/envoryx/internal/validate"
 )
 
 func TestTemplatesScaffoldThroughOneShotContainers(t *testing.T) {
@@ -21,7 +21,7 @@ func TestTemplatesScaffoldThroughOneShotContainers(t *testing.T) {
 		runs = append(runs, spec)
 		if spec.Cmd[0] == "composer" {
 			// Simulate create-project output.
-			dir := filepath.Join(e.projDir, strings.TrimPrefix(spec.Name, "staqio-")[:strings.Index(strings.TrimPrefix(spec.Name, "staqio-"), "-template")])
+			dir := filepath.Join(e.projDir, strings.TrimPrefix(spec.Name, "envoryx-")[:strings.Index(strings.TrimPrefix(spec.Name, "envoryx-"), "-template")])
 			_ = os.MkdirAll(filepath.Join(dir, "public"), 0o755)
 			_ = os.WriteFile(filepath.Join(dir, "composer.json"), []byte("{}"), 0o644)
 		}
@@ -37,7 +37,7 @@ func TestTemplatesScaffoldThroughOneShotContainers(t *testing.T) {
 	if v.Project.Docroot != "public" {
 		t.Fatalf("docroot: %q", v.Project.Docroot)
 	}
-	if len(runs) != 1 || strings.Join(runs[0].Cmd, " ") != "composer create-project laravel/laravel . --no-interaction --prefer-dist" || runs[0].User != "1000:1000" || runs[0].Labels["staqio.service"] != "template" {
+	if len(runs) != 1 || strings.Join(runs[0].Cmd, " ") != "composer create-project laravel/laravel . --no-interaction --prefer-dist" || runs[0].User != "1000:1000" || runs[0].Labels["envoryx.service"] != "template" {
 		t.Fatalf("laravel step: %+v", runs)
 	}
 	if _, err := os.Stat(filepath.Join(e.projDir, "shop", "public", "index.php")); err == nil {

@@ -1,4 +1,4 @@
-// Package store contains the SQLite repositories for Staqio's persistent state.
+// Package store contains the SQLite repositories for Envoryx's persistent state.
 package store
 
 import (
@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-// User is a Staqio login account.
+// User is a Envoryx login account.
 type User struct {
 	ID           string
 	Username     string

@@ -9,12 +9,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/seramos/staqio/internal/docker"
-	"github.com/seramos/staqio/internal/validate"
+	"github.com/envoryx/envoryx/internal/docker"
+	"github.com/envoryx/envoryx/internal/validate"
 )
 
 func TestValidateGitURL(t *testing.T) {
-	ok := []string{"https://github.com/seramos/staqio.git", "http://gitea.lan/org/repo", "git@github.com:seramos/staqio.git", "ssh://git@gitlab.com/group/repo.git"}
+	ok := []string{"https://github.com/envoryx/envoryx.git", "http://gitea.lan/org/repo", "git@github.com:envoryx/envoryx.git", "ssh://git@gitlab.com/group/repo.git"}
 	for _, u := range ok {
 		if _, err := ValidateGitURL(u); err != nil {
 			t.Errorf("%s: %v", u, err)
@@ -81,14 +81,14 @@ func TestCreateWithGitClonesInTransientContainer(t *testing.T) {
 	if !strings.Contains(envs, "GIT_CONFIG_KEY_1=http.extraHeader") || !strings.Contains(envs, want) || !strings.Contains(envs, "GIT_CONFIG_COUNT=2") {
 		t.Fatalf("git env: %s", envs)
 	}
-	if clone.User != "1000:1000" || clone.Mounts[0].Source != "/host/development/cloned" || clone.Mounts[1].Source != "/host/appdata/staqio/ssh" || clone.Mounts[1].Target != "/tmp/staqio-ssh" {
+	if clone.User != "1000:1000" || clone.Mounts[0].Source != "/host/development/cloned" || clone.Mounts[1].Source != "/host/appdata/envoryx/ssh" || clone.Mounts[1].Target != "/tmp/envoryx-ssh" {
 		t.Fatalf("clone container spec: %+v", clone)
 	}
 	if clone.Labels[docker.LabelService] != "git" || clone.Labels[docker.LabelProjectID] != view.Project.ID {
 		t.Fatalf("labels: %v", clone.Labels)
 	}
 	// The long-running php container must NOT get the deploy key.
-	php, _ := e.engine.Container("staqio-cloned-php")
+	php, _ := e.engine.Container("envoryx-cloned-php")
 	for _, m := range php.Spec.Mounts {
 		if strings.Contains(m.Source, "/ssh") {
 			t.Fatal("deploy key must not be mounted into the php container")
@@ -176,7 +176,7 @@ func TestPullAndCheckoutAndSSH(t *testing.T) {
 		t.Fatalf("pull cmd: %s", cmds[0])
 	}
 	env := strings.Join(envs[0], "\n")
-	if !strings.Contains(env, "GIT_SSH_COMMAND=ssh -i /tmp/staqio-ssh/id_ed25519") || strings.Contains(env, "http.extraHeader") {
+	if !strings.Contains(env, "GIT_SSH_COMMAND=ssh -i /tmp/envoryx-ssh/id_ed25519") || strings.Contains(env, "http.extraHeader") {
 		t.Fatalf("ssh env: %s", env)
 	}
 	if _, err := e.m.Checkout(ctx, id, "release/2.0"); err != nil {

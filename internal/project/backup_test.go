@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/seramos/staqio/internal/validate"
+	"github.com/envoryx/envoryx/internal/validate"
 )
 
 func TestBackupAndRestore(t *testing.T) {

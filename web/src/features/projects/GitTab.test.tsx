@@ -11,7 +11,7 @@ describe("GitTab", () => {
   it("saves repository settings without sending an empty token and pulls", async () => {
     const api = mockApi({
       ...authedRoutes,
-      "GET /settings/deploy-key": () => ({ body: { publicKey: "ssh-ed25519 AAAA staqio-deploy-key" } }),
+      "GET /settings/deploy-key": () => ({ body: { publicKey: "ssh-ed25519 AAAA envoryx-deploy-key" } }),
       [`GET /projects/${id}/git`]: () => ({
         body: { git: { configured: true, url: "https://github.com/x/y.git", branch: "main", hasToken: true, isRepo: true, currentBranch: "main", shortHash: "abc123d", subject: "Init", author: "Stefan", date: "2026-09-18T10:00:00Z", dirty: 0, remote: "https://github.com/x/y.git" } },
       }),
@@ -24,7 +24,7 @@ describe("GitTab", () => {
 
     expect(await screen.findByText("abc123d")).toBeInTheDocument();
     expect(screen.getByText("clean")).toBeInTheDocument();
-    expect(screen.getByText("ssh-ed25519 AAAA staqio-deploy-key")).toBeInTheDocument();
+    expect(screen.getByText("ssh-ed25519 AAAA envoryx-deploy-key")).toBeInTheDocument();
 
     await user.clear(screen.getByLabelText("Branch"));
     await user.type(screen.getByLabelText("Branch"), "develop");

@@ -14,15 +14,15 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"github.com/seramos/staqio/internal/audit"
-	"github.com/seramos/staqio/internal/auth"
-	"github.com/seramos/staqio/internal/db"
-	"github.com/seramos/staqio/internal/docker"
-	"github.com/seramos/staqio/internal/docker/dockertest"
-	"github.com/seramos/staqio/internal/mcpserver"
-	"github.com/seramos/staqio/internal/project"
-	"github.com/seramos/staqio/internal/runtime"
-	"github.com/seramos/staqio/internal/store"
+	"github.com/envoryx/envoryx/internal/audit"
+	"github.com/envoryx/envoryx/internal/auth"
+	"github.com/envoryx/envoryx/internal/db"
+	"github.com/envoryx/envoryx/internal/docker"
+	"github.com/envoryx/envoryx/internal/docker/dockertest"
+	"github.com/envoryx/envoryx/internal/mcpserver"
+	"github.com/envoryx/envoryx/internal/project"
+	"github.com/envoryx/envoryx/internal/runtime"
+	"github.com/envoryx/envoryx/internal/store"
 )
 
 type env struct {
@@ -174,7 +174,7 @@ func TestToolsCoverTheProjectLifecycle(t *testing.T) {
 		t.Fatalf("start: %s", st.State)
 	}
 
-	e.engine.Logs["staqio-test-api-php"] = []docker.LogLine{{Time: time.Now(), Stream: "stderr", Text: "NOTICE: ready to handle connections"}}
+	e.engine.Logs["envoryx-test-api-php"] = []docker.LogLine{{Time: time.Now(), Stream: "stderr", Text: "NOTICE: ready to handle connections"}}
 	var logs struct {
 		Service string
 		Lines   []struct{ Text string }
@@ -325,7 +325,7 @@ func TestHTTPEndpointRequiresBearerToken(t *testing.T) {
 			ServerInfo struct{ Name string } `json:"serverInfo"`
 		}
 	}
-	if err := json.NewDecoder(res.Body).Decode(&body); err != nil || body.Result.ServerInfo.Name != "staqio" {
+	if err := json.NewDecoder(res.Body).Decode(&body); err != nil || body.Result.ServerInfo.Name != "envoryx" {
 		t.Fatalf("initialize result: %v %+v", err, body)
 	}
 

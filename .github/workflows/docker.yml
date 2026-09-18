@@ -30,7 +30,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/seramos/staqio
+          images: ghcr.io/envoryx/envoryx
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=ref,event=branch

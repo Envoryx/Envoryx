@@ -1,11 +1,11 @@
 services:
-  staqio:
-    image: ghcr.io/seramos/staqio:latest
+  envoryx:
+    image: ghcr.io/envoryx/envoryx:latest
     # build:
     #   context: ..
     #   args:
     #     VERSION: dev
-    container_name: staqio
+    container_name: envoryx
     ports:
       - "8787:8787"
       # Embedded reverse proxy: projects by domain (http://shop.test) and HTTPS
@@ -16,25 +16,25 @@ services:
       - "2222:2222"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - /mnt/user/appdata/staqio:/config
+      - /mnt/user/appdata/envoryx:/config
       - /mnt/user/development:/projects
     environment:
       # Owner of files created inside project containers (Unraid default: nobody:users).
       PUID: 99
       PGID: 100
       # Host port range published for project web servers.
-      STAQIO_PORT_RANGE_START: 20000
-      STAQIO_PORT_RANGE_END: 20999
+      ENVORYX_PORT_RANGE_START: 20000
+      ENVORYX_PORT_RANGE_END: 20999
       # Optional: set explicitly if auto-detection of host paths fails.
-      # STAQIO_PROJECTS_HOST_PATH: /mnt/user/development
-      # STAQIO_CONFIG_HOST_PATH: /mnt/user/appdata/staqio
+      # ENVORYX_PROJECTS_HOST_PATH: /mnt/user/development
+      # ENVORYX_CONFIG_HOST_PATH: /mnt/user/appdata/envoryx
       # Optional: bootstrap the admin account non-interactively.
-      # STAQIO_ADMIN_USER: admin
-      # STAQIO_ADMIN_PASSWORD: change-me-please
+      # ENVORYX_ADMIN_USER: admin
+      # ENVORYX_ADMIN_PASSWORD: change-me-please
       # Optional: change or disable (empty) the proxy listeners inside the container.
-      # STAQIO_PROXY_HTTP: ":80"
-      # STAQIO_PROXY_HTTPS: ":443"
-      # STAQIO_SSH: ":2222"
+      # ENVORYX_PROXY_HTTP: ":80"
+      # ENVORYX_PROXY_HTTPS: ":443"
+      # ENVORYX_SSH: ":2222"
       # Optional: use a Docker socket proxy instead of the raw socket (see SECURITY.md).
       # DOCKER_HOST: tcp://docker-socket-proxy:2375
     restart: unless-stopped

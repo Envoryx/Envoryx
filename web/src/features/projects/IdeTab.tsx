@@ -38,7 +38,7 @@ export function IdeTab({ project: p }: { project: Project }) {
 <project version="4">
   <component name="PhpProjectServersManager">
     <servers>
-      <server host="${hostname}" id="staqio-${p.slug}" name="${hostname}" use_path_mappings="true">
+      <server host="${hostname}" id="envoryx-${p.slug}" name="${hostname}" use_path_mappings="true">
         <path_mappings>
           <mapping local-root="$PROJECT_DIR$" remote-root="/var/www/html" />
         </path_mappings>
@@ -68,9 +68,9 @@ export function IdeTab({ project: p }: { project: Project }) {
         />
         <div className="p-5">
           {!ssh?.enabled ? (
-            <Alert tone="amber">{t("The SSH server is disabled (STAQIO_SSH is empty).")}</Alert>
+            <Alert tone="amber">{t("The SSH server is disabled (ENVORYX_SSH is empty).")}</Alert>
           ) : ssh.port === 0 ? (
-            <Alert tone="amber">{t("The SSH port 2222 is not published on the host – add a port mapping 2222:2222 to the Staqio container.")}</Alert>
+            <Alert tone="amber">{t("The SSH port 2222 is not published on the host – add a port mapping 2222:2222 to the Envoryx container.")}</Alert>
           ) : (
             <dl>
               <CopyRow label={t("Host")} value={sshHost} />
@@ -80,13 +80,13 @@ export function IdeTab({ project: p }: { project: Project }) {
               <CopyRow label={t("Password")} value={t("<API token from Settings → API tokens>")} mono={false} />
               <CopyRow label={t("PHP path")} value="/usr/local/bin/php" />
               <CopyRow label={t("Project path")} value="/var/www/html" />
-              <CopyRow label={t("Helpers path")} value="/home/staqio/.phpstorm_helpers" />
+              <CopyRow label={t("Helpers path")} value="/home/envoryx/.phpstorm_helpers" />
               <CopyRow label={t("Host key")} value={ssh.fingerprint} />
               <CopyRow label="ssh" value={`ssh -p ${ssh.port} ${p.slug}@${sshHost}`} />
             </dl>
           )}
           <p className="mt-3 text-xs text-subtle">
-            {t("Authentication: an")} <Link to="/settings" className="underline">{t("API token")}</Link> {t("as password, or your public key under Settings → SSH access. Sessions run as the project owner inside")} <Code>staqio-{p.slug}-php</Code>; {t("the project must be running.")}
+            {t("Authentication: an")} <Link to="/settings" className="underline">{t("API token")}</Link> {t("as password, or your public key under Settings → SSH access. Sessions run as the project owner inside")} <Code>envoryx-{p.slug}-php</Code>; {t("the project must be running.")}
           </p>
         </div>
       </Card>
@@ -117,7 +117,7 @@ export function IdeTab({ project: p }: { project: Project }) {
               <ol className="list-decimal space-y-1 pl-5 text-sm text-muted">
                 <li>Gateway → <span className="text-fg">SSH → New connection</span>: {t("host")} <Code>{sshHost}</Code>, {t("port")} <Code>{ssh.port}</Code>, {t("user")} <Code>{p.slug}</Code>, {t("password = API token (or key).")}</li>
                 <li>{t("IDE: PhpStorm (or WebStorm with user")} <Code>{p.slug}.node</Code>); {t("project directory")} <Code>/var/www/html</Code>.</li>
-                <li>{t("Gateway installs the backend into")} <Code>/home/staqio/.cache/JetBrains</Code> {t("(shared cache) and opens the thin client.")}</li>
+                <li>{t("Gateway installs the backend into")} <Code>/home/envoryx/.cache/JetBrains</Code> {t("(shared cache) and opens the thin client.")}</li>
               </ol>
               <p className="text-xs text-subtle">{t("Close the project in Gateway when you are done, or stop the backend here to free memory on the server.")}</p>
               <Button size="sm" onClick={() => { setGwMsg(null); stopBackend.mutate(); }} loading={stopBackend.isPending}>

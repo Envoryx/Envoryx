@@ -13,11 +13,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/seramos/staqio/internal/store"
+	"github.com/envoryx/envoryx/internal/store"
 )
 
 // CookieName is the session cookie.
-const CookieName = "staqio_session"
+const CookieName = "envoryx_session"
 
 // ErrInvalidCredentials is returned for unknown users or wrong passwords.
 var ErrInvalidCredentials = errors.New("invalid credentials")
@@ -245,7 +245,7 @@ func truncate(s string, n int) string {
 
 // dummyHash is used to equalise timing for unknown usernames.
 var dummyHash = func() string {
-	h, err := HashPassword("staqio-dummy-password-for-timing")
+	h, err := HashPassword("envoryx-dummy-password-for-timing")
 	if err != nil {
 		panic(err)
 	}

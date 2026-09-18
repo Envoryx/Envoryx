@@ -6,14 +6,14 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/seramos/staqio/internal/runtime"
-	"github.com/seramos/staqio/internal/store"
+	"github.com/envoryx/envoryx/internal/runtime"
+	"github.com/envoryx/envoryx/internal/store"
 )
 
 func TestNodeDevServer(t *testing.T) {
 	e := newEnv(t)
-	e.selfID = "staqio-self"
-	e.engine.AddForeignContainer("staqio-self", "ghcr.io/seramos/staqio", "running")
+	e.selfID = "envoryx-self"
+	e.engine.AddForeignContainer("envoryx-self", "ghcr.io/envoryx/envoryx", "running")
 	ctx := context.Background()
 
 	req := phpRequest("Shop", true)
@@ -22,7 +22,7 @@ func TestNodeDevServer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	c, ok := e.engine.Container("staqio-shop-node")
+	c, ok := e.engine.Container("envoryx-shop-node")
 	if !ok {
 		t.Fatal("node container missing")
 	}
@@ -47,7 +47,7 @@ func TestNodeDevServer(t *testing.T) {
 		t.Fatal(err)
 	}
 	dev, ok := table.Routes["shop-dev.test"]
-	if !ok || dev.Dial != "staqio-shop-node:5173" || !dev.Running {
+	if !ok || dev.Dial != "envoryx-shop-node:5173" || !dev.Running {
 		t.Fatalf("dev route: %+v", dev)
 	}
 
@@ -55,7 +55,7 @@ func TestNodeDevServer(t *testing.T) {
 	if _, err := e.m.Update(ctx, v.Project.ID, UpdateRequest{Node: &NodeUpdate{Enabled: true, Version: "24"}}); err != nil {
 		t.Fatal(err)
 	}
-	c, _ = e.engine.Container("staqio-shop-node")
+	c, _ = e.engine.Container("envoryx-shop-node")
 	if strings.Join(c.Spec.Cmd, " ") != "sleep infinity" || len(c.Spec.Ports) != 0 {
 		t.Fatalf("after disabling: cmd=%v ports=%v", c.Spec.Cmd, c.Spec.Ports)
 	}
@@ -68,7 +68,7 @@ func TestNodeDevServer(t *testing.T) {
 	if _, err := e.m.Update(ctx, v.Project.ID, UpdateRequest{Node: &NodeUpdate{Enabled: true, Version: "24", Config: runtime.NodeConfig{DevServer: true, Preset: "next", Port: 3000, PackageManager: "pnpm"}}}); err != nil {
 		t.Fatal(err)
 	}
-	c, _ = e.engine.Container("staqio-shop-node")
+	c, _ = e.engine.Container("envoryx-shop-node")
 	if got := strings.Join(c.Spec.Cmd, " "); got != "pnpm run dev -- -H 0.0.0.0 -p 3000" {
 		t.Fatalf("next command: %s", got)
 	}

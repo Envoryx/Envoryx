@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/seramos/staqio/internal/docker"
-	"github.com/seramos/staqio/internal/store"
-	"github.com/seramos/staqio/internal/validate"
+	"github.com/envoryx/envoryx/internal/docker"
+	"github.com/envoryx/envoryx/internal/store"
+	"github.com/envoryx/envoryx/internal/validate"
 )
 
 // ServiceContainer resolves the container of a project service. The browser never

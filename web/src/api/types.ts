@@ -546,7 +546,7 @@ export interface GitRequest {
 
 export interface BackupMeta {
   format: number;
-  staqio: string;
+  envoryx: string;
   projectId: string;
   projectName: string;
   slug: string;

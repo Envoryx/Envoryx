@@ -10,11 +10,11 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/seramos/staqio/internal/auth"
-	"github.com/seramos/staqio/internal/docker"
-	"github.com/seramos/staqio/internal/project"
-	"github.com/seramos/staqio/internal/store"
-	"github.com/seramos/staqio/internal/validate"
+	"github.com/envoryx/envoryx/internal/auth"
+	"github.com/envoryx/envoryx/internal/docker"
+	"github.com/envoryx/envoryx/internal/project"
+	"github.com/envoryx/envoryx/internal/store"
+	"github.com/envoryx/envoryx/internal/validate"
 )
 
 // ErrorBody is the uniform error envelope.
@@ -72,7 +72,7 @@ func writeError(w http.ResponseWriter, r *http.Request, err error) {
 	case errors.Is(err, project.ErrBusy):
 		ae = newError(http.StatusConflict, "busy", err.Error())
 	case errors.Is(err, docker.ErrNotManaged):
-		ae = newError(http.StatusForbidden, "not_managed", "the resource is not managed by Staqio")
+		ae = newError(http.StatusForbidden, "not_managed", "the resource is not managed by Envoryx")
 	case errors.Is(err, docker.ErrUnavailable):
 		ae = newError(http.StatusServiceUnavailable, "docker_unavailable", "the Docker engine is not reachable")
 	case errors.Is(err, project.ErrNotConfigured):

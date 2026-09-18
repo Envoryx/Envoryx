@@ -10,29 +10,29 @@ import (
 	"sort"
 	"time"
 
-	"github.com/seramos/staqio/internal/docker"
-	"github.com/seramos/staqio/internal/runtime"
-	"github.com/seramos/staqio/internal/store"
+	"github.com/envoryx/envoryx/internal/docker"
+	"github.com/envoryx/envoryx/internal/runtime"
+	"github.com/envoryx/envoryx/internal/store"
 )
 
 // Container mount targets shared by all project containers.
 const (
 	appMountTarget = "/var/www/html"
-	phpIniTarget   = "/usr/local/etc/php/conf.d/zz-staqio.ini"
-	phpPoolTarget  = "/usr/local/etc/php-fpm.d/zz-staqio.conf"
+	phpIniTarget   = "/usr/local/etc/php/conf.d/zz-envoryx.ini"
+	phpPoolTarget  = "/usr/local/etc/php-fpm.d/zz-envoryx.conf"
 	stopTimeoutSec = 10
 )
 
-// Paths tells the planner where things live inside the Staqio container and on the host.
+// Paths tells the planner where things live inside the Envoryx container and on the host.
 type Paths struct {
 	ConfigDir        string // e.g. /config
-	ConfigHostDir    string // e.g. /mnt/user/appdata/staqio
+	ConfigHostDir    string // e.g. /mnt/user/appdata/envoryx
 	ProjectsDir      string // e.g. /projects
 	ProjectsHostDir  string // e.g. /mnt/user/development
 	PUID, PGID       int
-	StaqioVersion    string
+	EnvoryxVersion   string
 	PublishInterface string // host IP to bind ports to; "" = all
-	// SelfContainerID is Staqio's own container id ("" when running on bare metal). The
+	// SelfContainerID is Envoryx's own container id ("" when running on bare metal). The
 	// embedded proxy joins project networks through it.
 	SelfContainerID string
 	// BaseDomain is the proxy base domain (for dev-server host allow-lists).
@@ -43,7 +43,7 @@ type Paths struct {
 
 // FilePlan is a generated configuration file.
 type FilePlan struct {
-	Path    string // absolute path inside the Staqio container
+	Path    string // absolute path inside the Envoryx container
 	Content string
 	Mode    uint32
 }
@@ -66,12 +66,12 @@ type Plan struct {
 	Containers  []ContainerPlan
 	Files       []FilePlan
 	Images      []string
-	ConfigDir   string // per-project config dir inside the Staqio container
+	ConfigDir   string // per-project config dir inside the Envoryx container
 	// Dirs are directories created (owned by PUID:PGID) before containers start.
 	Dirs []DirPlan
 }
 
-// DirPlan is a directory Staqio creates for a project (e.g. the tool home).
+// DirPlan is a directory Envoryx creates for a project (e.g. the tool home).
 type DirPlan struct {
 	Path     string
 	UID, GID int
@@ -80,7 +80,7 @@ type DirPlan struct {
 const (
 	// homeMountTarget is the writable home of the project user inside php/node/worker
 	// containers: tool caches (composer, npm) and IDE helpers persist there.
-	homeMountTarget = "/home/staqio"
+	homeMountTarget = "/home/envoryx"
 	homeDirName     = "home"
 )
 
@@ -104,7 +104,7 @@ func (p *Planner) HomeMount(proj store.Project) docker.MountSpec {
 	return docker.MountSpec{Type: "bind", Source: filepath.Join(p.configHostDir(proj.ID), homeDirName), Target: homeMountTarget}
 }
 
-// HomeDir is the project home on the Staqio side (SFTP root for /home/staqio).
+// HomeDir is the project home on the Envoryx side (SFTP root for /home/envoryx).
 func (p *Planner) HomeDir(proj store.Project) string {
 	return filepath.Join(p.ProjectConfigDir(proj.ID), homeDirName)
 }
@@ -121,19 +121,19 @@ func NewPlanner(paths Paths, catalog *runtime.Catalog) *Planner {
 }
 
 // NetworkName returns the project network name.
-func NetworkName(slug string) string { return "staqio-" + slug }
+func NetworkName(slug string) string { return "envoryx-" + slug }
 
 // ContainerName returns the container name for a project service.
 func ContainerName(slug string, kind store.ServiceKind) string {
-	return fmt.Sprintf("staqio-%s-%s", slug, kind)
+	return fmt.Sprintf("envoryx-%s-%s", slug, kind)
 }
 
-// ProjectConfigDir returns the per-project config directory inside the Staqio container.
+// ProjectConfigDir returns the per-project config directory inside the Envoryx container.
 func (p *Planner) ProjectConfigDir(projectID string) string {
 	return filepath.Join(p.paths.ConfigDir, "projects", projectID)
 }
 
-// ProjectDir returns the project directory inside the Staqio container.
+// ProjectDir returns the project directory inside the Envoryx container.
 func (p *Planner) ProjectDir(proj store.Project) string {
 	return filepath.Join(p.paths.ProjectsDir, filepath.FromSlash(proj.Path))
 }
@@ -155,7 +155,7 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 		ProjectID:   proj.ID,
 		Slug:        proj.Slug,
 		NetworkName: NetworkName(proj.Slug),
-		Labels:      docker.ManagedLabels(proj.ID, proj.Slug, "", p.paths.StaqioVersion),
+		Labels:      docker.ManagedLabels(proj.ID, proj.Slug, "", p.paths.EnvoryxVersion),
 		ConfigDir:   p.ProjectConfigDir(proj.ID),
 	}
 	appHost := p.projectHostDir(proj)
@@ -174,7 +174,7 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 		if !svc.Enabled {
 			continue
 		}
-		labels := docker.ManagedLabels(proj.ID, proj.Slug, string(svc.Kind), p.paths.StaqioVersion)
+		labels := docker.ManagedLabels(proj.ID, proj.Slug, string(svc.Kind), p.paths.EnvoryxVersion)
 		switch svc.Kind {
 		case store.ServicePHP:
 			var cfg runtime.PHPConfig
@@ -185,8 +185,8 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 				return Plan{}, err
 			}
 			plan.Files = append(plan.Files,
-				FilePlan{Path: filepath.Join(plan.ConfigDir, "php", "zz-staqio.ini"), Content: cfg.INIWith(svc.Version, runtime.INIOptions{XdebugClientHost: p.paths.XdebugClientHost}), Mode: 0o644},
-				FilePlan{Path: filepath.Join(plan.ConfigDir, "php", "zz-staqio.conf"), Content: runtime.FPMPool(p.paths.PUID, p.paths.PGID), Mode: 0o644},
+				FilePlan{Path: filepath.Join(plan.ConfigDir, "php", "zz-envoryx.ini"), Content: cfg.INIWith(svc.Version, runtime.INIOptions{XdebugClientHost: p.paths.XdebugClientHost}), Mode: 0o644},
+				FilePlan{Path: filepath.Join(plan.ConfigDir, "php", "zz-envoryx.conf"), Content: runtime.FPMPool(p.paths.PUID, p.paths.PGID), Mode: 0o644},
 			)
 			plan.Containers = append(plan.Containers, ContainerPlan{
 				Kind:  store.ServicePHP,
@@ -201,8 +201,8 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 					NetworkAlias: []string{"php"},
 					Mounts: append([]docker.MountSpec{
 						{Type: "bind", Source: appHost, Target: appMountTarget},
-						{Type: "bind", Source: filepath.Join(cfgHost, "php", "zz-staqio.ini"), Target: phpIniTarget, ReadOnly: true},
-						{Type: "bind", Source: filepath.Join(cfgHost, "php", "zz-staqio.conf"), Target: phpPoolTarget, ReadOnly: true},
+						{Type: "bind", Source: filepath.Join(cfgHost, "php", "zz-envoryx.ini"), Target: phpIniTarget, ReadOnly: true},
+						{Type: "bind", Source: filepath.Join(cfgHost, "php", "zz-envoryx.conf"), Target: phpPoolTarget, ReadOnly: true},
 						p.HomeMount(proj),
 					}, p.gatewayMounts(proj)...),
 					RestartPolicy: "unless-stopped",
@@ -382,7 +382,7 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 				Spec: docker.ContainerSpec{
 					Name:         WorkerContainerName(proj.Slug, w),
 					Image:        php.Image,
-					Labels:       docker.ManagedLabels(proj.ID, proj.Slug, string(WorkerKind(w)), p.paths.StaqioVersion),
+					Labels:       docker.ManagedLabels(proj.ID, proj.Slug, string(WorkerKind(w)), p.paths.EnvoryxVersion),
 					Cmd:          cmd,
 					Env:          append(append([]string{}, env...), "HOME=/tmp", "COMPOSER_HOME=/tmp/composer"),
 					User:         fmt.Sprintf("%d:%d", p.paths.PUID, p.paths.PGID),
@@ -391,7 +391,7 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 					NetworkAlias: []string{"worker-" + w.Name},
 					Mounts: []docker.MountSpec{
 						{Type: "bind", Source: appHost, Target: appMountTarget},
-						{Type: "bind", Source: filepath.Join(cfgHost, "php", "zz-staqio.ini"), Target: phpIniTarget, ReadOnly: true},
+						{Type: "bind", Source: filepath.Join(cfgHost, "php", "zz-envoryx.ini"), Target: phpIniTarget, ReadOnly: true},
 					},
 					RestartPolicy: "unless-stopped",
 					StopTimeout:   30,
@@ -457,13 +457,13 @@ func (p *Planner) Preview(proj store.Project, plan Plan) Preview {
 
 // VolumeName returns the volume name for a project service.
 func VolumeName(slug string, kind store.ServiceKind) string {
-	return fmt.Sprintf("staqio-%s-%s", slug, kind)
+	return fmt.Sprintf("envoryx-%s-%s", slug, kind)
 }
 
-// envStrings builds the environment for application containers: Staqio defaults, then
+// envStrings builds the environment for application containers: Envoryx defaults, then
 // database connection variables, then the user's variables (which override everything).
 func envStrings(proj store.Project) ([]string, error) {
-	vars := map[string]string{"STAQIO_PROJECT": proj.Slug}
+	vars := map[string]string{"ENVORYX_PROJECT": proj.Slug}
 	var order []string
 	set := func(k, v string) {
 		if _, ok := vars[k]; !ok {
@@ -471,7 +471,7 @@ func envStrings(proj store.Project) ([]string, error) {
 		}
 		vars[k] = v
 	}
-	order = append(order, "STAQIO_PROJECT")
+	order = append(order, "ENVORYX_PROJECT")
 	if db := proj.Service(store.ServiceDatabase); db != nil && db.Enabled {
 		var cfg runtime.DatabaseConfig
 		if err := json.Unmarshal(db.Config, &cfg); err != nil {

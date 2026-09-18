@@ -5,13 +5,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/seramos/staqio/internal/validate"
+	"github.com/envoryx/envoryx/internal/validate"
 )
 
 func TestResolve(t *testing.T) {
 	c := Default()
 	v, err := c.Resolve("php", "")
-	if err != nil || v.Version != "8.5" || !strings.HasPrefix(v.Image, "ghcr.io/seramos/staqio-php:") {
+	if err != nil || v.Version != "8.5" || !strings.HasPrefix(v.Image, "ghcr.io/envoryx/envoryx-php:") {
 		t.Fatalf("default php: %+v %v", v, err)
 	}
 	if v.EOL || v.Preview {

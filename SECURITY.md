@@ -2,9 +2,9 @@
 
 ## The Docker socket
 
-Staqio is mounted with `/var/run/docker.sock`. **Access to the Docker socket is
+Envoryx is mounted with `/var/run/docker.sock`. **Access to the Docker socket is
 equivalent to root on the host**: anyone who can talk to it can start privileged
-containers, mount `/` and read or modify any file. Staqio therefore treats the
+containers, mount `/` and read or modify any file. Envoryx therefore treats the
 socket as its most sensitive capability:
 
 - Only `internal/docker` talks to the engine. It exposes a narrow, closed API
@@ -16,7 +16,7 @@ socket as its most sensitive capability:
   `no-new-privileges`, drops `NET_RAW`, and disables restart loops for
   transient containers.
 - Every mutating call (start, stop, remove, …) first inspects the target and
-  verifies the `staqio.managed=true` label. Unlabelled resources yield
+  verifies the `envoryx.managed=true` label. Unlabelled resources yield
   `ErrNotManaged` (HTTP 403) and remain untouched. This is covered by unit tests
   (fake engine) and integration tests (`go test -tags integration`).
 - Foreign containers appear read-only in the diagnostics view with name, image,
@@ -26,9 +26,9 @@ socket as its most sensitive capability:
 
 ### Socket proxy
 
-Staqio honours `DOCKER_HOST`. To reduce the blast radius run a socket proxy such
-as `tecnativa/docker-socket-proxy` and point Staqio at it
-(`DOCKER_HOST=tcp://docker-socket-proxy:2375`). Staqio needs these endpoints:
+Envoryx honours `DOCKER_HOST`. To reduce the blast radius run a socket proxy such
+as `tecnativa/docker-socket-proxy` and point Envoryx at it
+(`DOCKER_HOST=tcp://docker-socket-proxy:2375`). Envoryx needs these endpoints:
 
 | Endpoint group | Used for |
 |----------------|----------|
@@ -50,13 +50,13 @@ as `tecnativa/docker-socket-proxy` and point Staqio at it
   wrong passwords to blunt user enumeration by timing.
 - Sessions are opaque 256-bit random tokens. Only the SHA-256 hash is stored.
   Idle timeout 12 h (sliding) and absolute timeout 7 days by default.
-- Cookie: `HttpOnly`, `SameSite=Lax`, `Secure` when `STAQIO_SECURE_COOKIES=true`.
-  Enable this when Staqio is served through an HTTPS reverse proxy.
+- Cookie: `HttpOnly`, `SameSite=Lax`, `Secure` when `ENVORYX_SECURE_COOKIES=true`.
+  Enable this when Envoryx is served through an HTTPS reverse proxy.
 - Login attempts are rate-limited per IP **and** per username with exponential
   back-off after 5 failures.
 - Changing the password revokes all other sessions.
 - The first admin is created through a one-time setup page (or from
-  `STAQIO_ADMIN_USER`/`STAQIO_ADMIN_PASSWORD`). Setup is refused once any user
+  `ENVORYX_ADMIN_USER`/`ENVORYX_ADMIN_PASSWORD`). Setup is refused once any user
   exists. No generated passwords are ever written to logs.
 
 ## API tokens and MCP
@@ -68,26 +68,26 @@ as `tecnativa/docker-socket-proxy` and point Staqio at it
   SHA-256 hash is stored. The plain value is shown once. Revoking takes
   effect immediately.
 - Tools reuse the project manager, so all validation (slugs, paths,
-  hostnames, database names, versions), the `staqio.managed` label guards and
+  hostnames, database names, versions), the `envoryx.managed` label guards and
   per-project locks apply. `run_action` executes only entries of the closed
   action catalogue (argv arrays, no shell). Delete/drop/restore are not
   available via MCP by design.
 - Every tool call that changes state produces an audit entry attributed to
   the user with the token name.
 - Treat a token like a password: it grants the same rights as your account
-  (minus the destructive operations). Prefer HTTPS (`https://staqio.<base>`)
+  (minus the destructive operations). Prefer HTTPS (`https://envoryx.<base>`)
   for the MCP URL when clients connect over the network.
 
 ## SSH server
 
-The embedded SSH server (port 2222) never gives access to the Staqio
+The embedded SSH server (port 2222) never gives access to the Envoryx
 container or the host: every session is a `docker exec` into the selected
 project's PHP/Node container as `PUID:PGID`, with the same environment the
 terminal tab uses. Authentication is an API token (password) or a public key
 from the settings; ten failures lock an IP for five minutes. The exec
 command line is passed to `/bin/sh -lc` inside that container – this is the
 same capability the browser terminal already grants. SFTP is a virtual view
-of exactly two directories (project, persistent home) served from Staqio's
+of exactly two directories (project, persistent home) served from Envoryx's
 side of the bind mounts with lexical containment; symlinks may not point
 outside. The Ed25519 host key lives in `/config/ssh/host_ed25519` (0600).
 Only the `env` requests `LANG`, `LC_*`, `TERM`, `XDEBUG_*`, `PHP_IDE_CONFIG`,
@@ -97,10 +97,10 @@ Only the `env` requests `LANG`, `LC_*`, `TERM`, `XDEBUG_*`, `PHP_IDE_CONFIG`,
 
 State-changing API requests must:
 
-1. carry the custom header `X-Requested-With: Staqio` (cannot be set cross-site
+1. carry the custom header `X-Requested-With: Envoryx` (cannot be set cross-site
    without a CORS preflight, which is denied),
 2. have no `Origin` header, or one matching the request host (or the explicit
-   dev-server origin in `STAQIO_DEV` mode),
+   dev-server origin in `ENVORYX_DEV` mode),
 3. not carry a `Sec-Fetch-Site` of `cross-site`/`same-site`.
 
 Together with `SameSite=Lax` cookies this blocks CSRF from other origins. CORS
@@ -109,7 +109,7 @@ headers are only emitted for the configured dev origin.
 WebSockets (log streaming, terminal) go through the same session middleware:
 the cookie is validated before the upgrade, and the upgrade itself is refused
 for any `Origin` other than the request host (plus the dev-server origin in
-`STAQIO_DEV` mode). Container IDs are never taken from the client; WebSocket
+`ENVORYX_DEV` mode). Container IDs are never taken from the client; WebSocket
 routes address `project + service kind` and resolve the container server-side.
 
 ## Input validation
@@ -125,7 +125,7 @@ routes address `project + service kind` and resolve the container server-side.
 - PHP settings: size values match `^[0-9]{1,6}[KMG]?$` (or `-1`),
   `error_reporting` a constrained expression, extensions from the known list.
 - Environment variable names match `^[A-Z_][A-Z0-9_]*$`, values may not contain
-  line breaks or NUL; `STAQIO_*` is reserved.
+  line breaks or NUL; `ENVORYX_*` is reserved.
 - All JSON bodies are limited to 1 MiB and reject unknown fields.
 - UUIDs are validated before touching the database.
 - No shell commands are built from strings anywhere. Container commands are
@@ -141,7 +141,7 @@ routes address `project + service kind` and resolve the container server-side.
 - Rollback after a failed create removes only resources recorded in the operation
   journal (all label-guarded) – never project files.
 - Reconciliation never deletes anything; orphaned resources are reported.
-- Interrupted create/delete operations (Staqio restart) are marked `failed` and
+- Interrupted create/delete operations (Envoryx restart) are marked `failed` and
   surfaced in the UI instead of being auto-repaired.
 
 ## Secrets and logging
@@ -181,12 +181,12 @@ dump whose flavour matches the project's database.
 ## Reverse proxy and local CA
 
 - The embedded proxy only routes host names that belong to a project or to
-  Staqio itself; unknown names get a static 404 page, stopped projects a 503.
+  Envoryx itself; unknown names get a static 404 page, stopped projects a 503.
   It never proxies to arbitrary upstreams – targets are container names
   derived from the project slug (or `127.0.0.1:<port>` on bare metal).
-- Staqio's own container is attached to every project network so the proxy
+- Envoryx's own container is attached to every project network so the proxy
   can reach the web containers. Consequently project containers can reach
-  Staqio's listeners (UI port, proxy) by IP on that network – the same
+  Envoryx's listeners (UI port, proxy) by IP on that network – the same
   exposure as any LAN client: the API requires an authenticated session and
   the CSRF checks, the proxy only routes known names. Application code you
   run in a project is trusted to the same degree as code on your workstation.
@@ -217,10 +217,10 @@ dump whose flavour matches the project's database.
 
 ## Running as root
 
-The Staqio container runs as root because it needs the Docker socket and it
+The Envoryx container runs as root because it needs the Docker socket and it
 `chown`s newly created project directories to `PUID:PGID` so your editor user
 owns the files. Project containers run their workers as `PUID:PGID` (PHP-FPM
-pool `user`/`group`). If your socket is group-accessible you can run Staqio as
+pool `user`/`group`). If your socket is group-accessible you can run Envoryx as
 that group instead; directory ownership adjustments are then skipped.
 
 ## Reporting

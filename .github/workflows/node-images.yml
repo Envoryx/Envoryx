@@ -16,7 +16,7 @@ permissions:
   packages: write
 
 env:
-  IMAGE: ghcr.io/seramos/staqio-node
+  IMAGE: ghcr.io/envoryx/envoryx-node
 
 jobs:
   matrix:

@@ -5,7 +5,7 @@
 //	go test -tags integration ./internal/docker/
 //
 // They create and remove small alpine containers, one network and one volume, all
-// labelled staqio.managed=true with the project id "staqio-integration-test".
+// labelled envoryx.managed=true with the project id "envoryx-integration-test".
 package docker
 
 import (
@@ -22,7 +22,7 @@ import (
 	"github.com/moby/moby/client"
 )
 
-const testProject = "staqio-integration-test"
+const testProject = "envoryx-integration-test"
 
 func integrationEngine(t *testing.T) *MobyEngine {
 	t.Helper()
@@ -44,9 +44,9 @@ func TestIntegrationLifecycleAndGuards(t *testing.T) {
 	e := integrationEngine(t)
 	ctx := context.Background()
 	labels := ManagedLabels(testProject, "integration", "php", "test")
-	netName := "staqio-integration-test-net"
-	volName := "staqio-integration-test-vol"
-	ctName := "staqio-integration-test-php"
+	netName := "envoryx-integration-test-net"
+	volName := "envoryx-integration-test-vol"
+	ctName := "envoryx-integration-test-php"
 
 	// Clean up leftovers from previous runs.
 	_ = e.RemoveContainer(ctx, ctName)
@@ -145,7 +145,7 @@ func TestIntegrationForeignContainersAreUntouchable(t *testing.T) {
 	if err := e.EnsureImage(ctx, "alpine:3.20", nil); err != nil {
 		t.Fatal(err)
 	}
-	name := "staqio-integration-foreign"
+	name := "envoryx-integration-foreign"
 	_, _ = raw.ContainerRemove(ctx, name, client.ContainerRemoveOptions{Force: true})
 	res, err := raw.ContainerCreate(ctx, client.ContainerCreateOptions{
 		Name:   name,

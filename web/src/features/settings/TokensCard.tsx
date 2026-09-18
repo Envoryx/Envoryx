@@ -10,7 +10,7 @@ import { formatDateTime } from "@/lib/format";
 const key = ["tokens"] as const;
 
 function mcpConfig(url: string, secret: string): string {
-  return JSON.stringify({ mcpServers: { staqio: { type: "http", url, headers: { Authorization: `Bearer ${secret}` } } } }, null, 2);
+  return JSON.stringify({ mcpServers: { envoryx: { type: "http", url, headers: { Authorization: `Bearer ${secret}` } } } }, null, 2);
 }
 
 export function TokensCard() {
@@ -53,7 +53,7 @@ export function TokensCard() {
     <Card>
       <CardHeader
         title={t("API tokens & MCP")}
-        description={t("AI assistants (Claude Code, Cursor, …) can manage projects through Staqio's MCP server. Tokens act with your account; destructive operations are not exposed.")}
+        description={t("AI assistants (Claude Code, Cursor, …) can manage projects through Envoryx's MCP server. Tokens act with your account; destructive operations are not exposed.")}
       />
       <div className="space-y-4 p-5">
         {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
@@ -74,7 +74,7 @@ export function TokensCard() {
                 </Button>
               </div>
               <p className="text-xs text-muted">
-                Claude Code: <Code>claude mcp add --transport http staqio {created.url} --header "Authorization: Bearer …"</Code>
+                Claude Code: <Code>claude mcp add --transport http envoryx {created.url} --header "Authorization: Bearer …"</Code>
               </p>
             </div>
           </Alert>

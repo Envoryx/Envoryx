@@ -31,7 +31,7 @@ describe("DatabaseTab", () => {
       "GET /projects/3f0b4a9e-1a2b-4c3d-8e9f-0a1b2c3d4e5f/database/databases": () => ({ body: { databases: ["reports", "shimly_api"] } }),
       "POST /projects/3f0b4a9e-1a2b-4c3d-8e9f-0a1b2c3d4e5f/database/databases": () => ({ status: 201 }),
       "GET /projects/3f0b4a9e-1a2b-4c3d-8e9f-0a1b2c3d4e5f/database": () => ({
-        body: { database: { type: "mariadb", version: "11", image: "mariadb:11", host: "database", port: 3306, database: "shimly_api", username: "shimly_api", hostPort: 0, injectedEnv: ["DB_HOST", "DB_PASSWORD"], state: "running", health: "healthy", volumeName: "staqio-shimly-api-database", volumeExists: true } },
+        body: { database: { type: "mariadb", version: "11", image: "mariadb:11", host: "database", port: 3306, database: "shimly_api", username: "shimly_api", hostPort: 0, injectedEnv: ["DB_HOST", "DB_PASSWORD"], state: "running", health: "healthy", volumeName: "envoryx-shimly-api-database", volumeExists: true } },
       }),
     });
     renderApp(<DatabaseTab project={withDb()} />);

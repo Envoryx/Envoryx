@@ -9,13 +9,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/seramos/staqio/internal/audit"
-	"github.com/seramos/staqio/internal/db"
-	"github.com/seramos/staqio/internal/docker"
-	"github.com/seramos/staqio/internal/docker/dockertest"
-	"github.com/seramos/staqio/internal/runtime"
-	"github.com/seramos/staqio/internal/store"
-	"github.com/seramos/staqio/internal/validate"
+	"github.com/envoryx/envoryx/internal/audit"
+	"github.com/envoryx/envoryx/internal/db"
+	"github.com/envoryx/envoryx/internal/docker"
+	"github.com/envoryx/envoryx/internal/docker/dockertest"
+	"github.com/envoryx/envoryx/internal/runtime"
+	"github.com/envoryx/envoryx/internal/store"
+	"github.com/envoryx/envoryx/internal/validate"
 )
 
 type env struct {
@@ -44,9 +44,9 @@ func newEnv(t *testing.T) *env {
 			return Paths{}, e.pathsErr
 		}
 		return Paths{
-			ConfigDir: e.cfgDir, ConfigHostDir: "/host/appdata/staqio",
+			ConfigDir: e.cfgDir, ConfigHostDir: "/host/appdata/envoryx",
 			ProjectsDir: e.projDir, ProjectsHostDir: "/host/development",
-			PUID: 1000, PGID: 1000, StaqioVersion: "test", SelfContainerID: e.selfID,
+			PUID: 1000, PGID: 1000, EnvoryxVersion: "test", SelfContainerID: e.selfID,
 		}, nil
 	}
 	e.m = NewManager(st, e.engine, runtime.Default(), paths, audit.New(st.Audit, log), Config{PortRangeStart: 20000, PortRangeEnd: 20005}, log)
@@ -82,14 +82,14 @@ func TestCreateProjectProvisionsResources(t *testing.T) {
 	if len(view.Status.Services) != 2 || !view.Status.Services[0].Running || view.Status.Services[0].Kind != store.ServicePHP {
 		t.Fatalf("service status: %+v", view.Status.Services)
 	}
-	if got := e.engine.NetworkNames(); len(got) != 1 || got[0] != "staqio-shimly-api" {
+	if got := e.engine.NetworkNames(); len(got) != 1 || got[0] != "envoryx-shimly-api" {
 		t.Fatalf("network: %v", got)
 	}
-	if got := e.engine.ContainerNames(); strings.Join(got, ",") != "staqio-shimly-api-php,staqio-shimly-api-web" {
+	if got := e.engine.ContainerNames(); strings.Join(got, ",") != "envoryx-shimly-api-php,envoryx-shimly-api-web" {
 		t.Fatalf("containers: %v", got)
 	}
 
-	php, _ := e.engine.Container("staqio-shimly-api-php")
+	php, _ := e.engine.Container("envoryx-shimly-api-php")
 	if php.State != "running" || php.Spec.Labels[docker.LabelManaged] != "true" || php.Spec.Labels[docker.LabelProjectID] != p.ID || php.Spec.Labels[docker.LabelService] != "php" {
 		t.Fatalf("php container labels/state: %+v", php)
 	}
@@ -99,7 +99,7 @@ func TestCreateProjectProvisionsResources(t *testing.T) {
 	if !strings.Contains(strings.Join(php.Spec.Env, "\n"), "APP_ENV=local") {
 		t.Fatalf("env not injected: %v", php.Spec.Env)
 	}
-	web, _ := e.engine.Container("staqio-shimly-api-web")
+	web, _ := e.engine.Container("envoryx-shimly-api-web")
 	if len(web.Spec.Ports) != 1 || web.Spec.Ports[0].HostPort != 20000 || web.Spec.Ports[0].ContainerPort != 80 {
 		t.Fatalf("web ports: %+v", web.Spec.Ports)
 	}
@@ -108,7 +108,7 @@ func TestCreateProjectProvisionsResources(t *testing.T) {
 	}
 
 	// Generated files.
-	for _, f := range []string{"php/zz-staqio.ini", "php/zz-staqio.conf", "web/Caddyfile"} {
+	for _, f := range []string{"php/zz-envoryx.ini", "php/zz-envoryx.conf", "web/Caddyfile"} {
 		if _, err := os.Stat(filepath.Join(e.cfgDir, "projects", p.ID, f)); err != nil {
 			t.Errorf("config file %s missing: %v", f, err)
 		}
@@ -123,7 +123,7 @@ func TestCreateProjectProvisionsResources(t *testing.T) {
 
 	// Start order: php before web.
 	calls := strings.Join(e.engine.Calls, " ")
-	if strings.Index(calls, "start:staqio-shimly-api-php") > strings.Index(calls, "start:staqio-shimly-api-web") {
+	if strings.Index(calls, "start:envoryx-shimly-api-php") > strings.Index(calls, "start:envoryx-shimly-api-web") {
 		t.Fatalf("php must start before web: %s", calls)
 	}
 	entries, _ := e.store.Audit.Recent(ctx, 10)
@@ -136,7 +136,7 @@ func TestCreateRollsBackOnContainerFailure(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 	e.engine.AddForeignContainer("plex", "plexinc/pms-docker", "running")
-	e.engine.FailCreate["staqio-broken-web"] = errors.New("simulated docker failure")
+	e.engine.FailCreate["envoryx-broken-web"] = errors.New("simulated docker failure")
 
 	_, err := e.m.Create(ctx, phpRequest("Broken", true))
 	if err == nil || !strings.Contains(err.Error(), "simulated docker failure") {
@@ -193,7 +193,7 @@ func TestCreateRejectsInvalidInput(t *testing.T) {
 		{Name: "Version", PHP: &PHPRequest{Version: "5.6"}},
 		{Name: "Version2", PHP: &PHPRequest{Version: "8.4 && rm"}},
 		{Name: "Env", Env: []EnvVarRequest{{Key: "bad key", Value: "x"}}},
-		{Name: "EnvReserved", Env: []EnvVarRequest{{Key: "STAQIO_X", Value: "x"}}},
+		{Name: "EnvReserved", Env: []EnvVarRequest{{Key: "ENVORYX_X", Value: "x"}}},
 		{Name: "Web", Web: WebRequest{Type: "lighttpd"}},
 		{Name: "Ext", PHP: &PHPRequest{Version: "8.4", Config: runtime.PHPConfig{Extensions: []string{"evil"}}}},
 	}
@@ -266,7 +266,7 @@ func TestStartFailureRecordsError(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	e.engine.FailStart["staqio-site-web"] = errors.New("port already allocated")
+	e.engine.FailStart["envoryx-site-web"] = errors.New("port already allocated")
 	if _, err := e.m.Start(ctx, view.Project.ID); err == nil {
 		t.Fatal("expected start failure")
 	}
@@ -283,7 +283,7 @@ func TestContainerUnexpectedlyStopped(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	e.engine.SetState("staqio-crashy-php", "exited")
+	e.engine.SetState("envoryx-crashy-php", "exited")
 	view, _ = e.m.Get(ctx, view.Project.ID)
 	if view.Status.State != StatePartial {
 		t.Fatalf("expected partial, got %s", view.Status.State)
@@ -307,12 +307,12 @@ func TestContainerUnexpectedlyStopped(t *testing.T) {
 		t.Fatal(err)
 	}
 	calls := strings.Join(e.engine.Calls[before:], " ")
-	if strings.Contains(calls, "create:") || !strings.Contains(calls, "start:staqio-crashy-php") {
+	if strings.Contains(calls, "create:") || !strings.Contains(calls, "start:envoryx-crashy-php") {
 		t.Fatalf("unexpected calls during heal: %s", calls)
 	}
 }
 
-func TestStaqioRestartRecognisesExistingContainers(t *testing.T) {
+func TestEnvoryxRestartRecognisesExistingContainers(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 	view, err := e.m.Create(ctx, phpRequest("Persist", true))
@@ -321,10 +321,10 @@ func TestStaqioRestartRecognisesExistingContainers(t *testing.T) {
 	}
 	id := view.Project.ID
 
-	// Simulate a Staqio restart: new manager on the same DB and same Docker state.
+	// Simulate a Envoryx restart: new manager on the same DB and same Docker state.
 	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn}))
 	paths := func() (Paths, error) {
-		return Paths{ConfigDir: e.cfgDir, ConfigHostDir: "/host/appdata/staqio", ProjectsDir: e.projDir, ProjectsHostDir: "/host/development", PUID: 1000, PGID: 1000}, nil
+		return Paths{ConfigDir: e.cfgDir, ConfigHostDir: "/host/appdata/envoryx", ProjectsDir: e.projDir, ProjectsHostDir: "/host/development", PUID: 1000, PGID: 1000}, nil
 	}
 	m2 := NewManager(e.store, e.engine, runtime.Default(), paths, audit.New(e.store.Audit, log), Config{PortRangeStart: 20000, PortRangeEnd: 20005}, log)
 	report := m2.Reconcile(ctx)
@@ -351,11 +351,11 @@ func TestReconcileInterruptedLifecycleAndOrphans(t *testing.T) {
 	if err := e.store.Projects.Create(ctx, stuck); err != nil {
 		t.Fatal(err)
 	}
-	e.engine.AddNetwork("staqio-ghost", docker.ManagedLabels("ghost-id", "ghost", "", "test"))
+	e.engine.AddNetwork("envoryx-ghost", docker.ManagedLabels("ghost-id", "ghost", "", "test"))
 	e.engine.AddForeignContainer("nextcloud", "nextcloud", "running")
 
 	report := e.m.Reconcile(ctx)
-	if len(report.Orphans) != 1 || report.Orphans[0].Name != "staqio-ghost" {
+	if len(report.Orphans) != 1 || report.Orphans[0].Name != "envoryx-ghost" {
 		t.Fatalf("orphans: %+v", report.Orphans)
 	}
 	p, _ := e.store.Projects.Get(ctx, stuck.ID)
@@ -394,10 +394,10 @@ func TestDeleteRemovesOnlyOwnResources(t *testing.T) {
 	if err := e.m.Delete(ctx, a.Project.ID, DeleteOptions{Confirm: "alpha"}); err != nil {
 		t.Fatal(err)
 	}
-	if got := strings.Join(e.engine.ContainerNames(), ","); got != "plex,staqio-beta-php,staqio-beta-web" {
+	if got := strings.Join(e.engine.ContainerNames(), ","); got != "envoryx-beta-php,envoryx-beta-web,plex" {
 		t.Fatalf("containers after delete: %s", got)
 	}
-	if got := strings.Join(e.engine.NetworkNames(), ","); got != "bridge,staqio-beta" {
+	if got := strings.Join(e.engine.NetworkNames(), ","); got != "bridge,envoryx-beta" {
 		t.Fatalf("networks after delete: %s", got)
 	}
 	if _, err := os.Stat(filepath.Join(e.cfgDir, "projects", a.Project.ID)); !errors.Is(err, os.ErrNotExist) {
@@ -438,11 +438,11 @@ func TestUpdateChangesVersionAndRecreates(t *testing.T) {
 	if view.Project.Service(store.ServicePHP).Version != "8.3" || view.Status.State != StateRunning {
 		t.Fatalf("update: %+v", view)
 	}
-	php, _ := e.engine.Container("staqio-upgr-php")
-	if php.Spec.Image != "ghcr.io/seramos/staqio-php:8.3" {
+	php, _ := e.engine.Container("envoryx-upgr-php")
+	if php.Spec.Image != "ghcr.io/envoryx/envoryx-php:8.3" {
 		t.Fatalf("container must be recreated with new image, got %s", php.Spec.Image)
 	}
-	ini, _ := os.ReadFile(filepath.Join(e.cfgDir, "projects", id, "php/zz-staqio.ini"))
+	ini, _ := os.ReadFile(filepath.Join(e.cfgDir, "projects", id, "php/zz-envoryx.ini"))
 	if !strings.Contains(string(ini), "memory_limit = 512M") {
 		t.Fatalf("ini not regenerated: %s", ini)
 	}
@@ -453,7 +453,7 @@ func TestUpdateChangesVersionAndRecreates(t *testing.T) {
 	if err != nil || view.Project.Name != "Renamed" || len(view.Project.Env) != 1 {
 		t.Fatalf("rename/env update: %v %+v", err, view.Project)
 	}
-	php, _ = e.engine.Container("staqio-upgr-php")
+	php, _ = e.engine.Container("envoryx-upgr-php")
 	if !strings.Contains(strings.Join(php.Spec.Env, ","), "APP_DEBUG=true") || php.State != "running" {
 		t.Fatalf("env must be applied to recreated container: %+v", php.Spec.Env)
 	}
@@ -473,7 +473,7 @@ func TestWebServerVariants(t *testing.T) {
 	if svc := view.Project.Service(store.ServiceWeb); svc.Variant != "apache" || svc.Image != "httpd:2.4-alpine" {
 		t.Fatalf("web service: %+v", svc)
 	}
-	web, _ := e.engine.Container("staqio-blog-web")
+	web, _ := e.engine.Container("envoryx-blog-web")
 	if web.Spec.Image != "httpd:2.4-alpine" || web.Spec.Mounts[1].Target != "/usr/local/apache2/conf/httpd.conf" {
 		t.Fatalf("apache container: %+v", web.Spec)
 	}
@@ -490,7 +490,7 @@ func TestWebServerVariants(t *testing.T) {
 	if svc := view.Project.Service(store.ServiceWeb); svc.Variant != "nginx" || svc.Version != "1" || view.Status.State != StateRunning {
 		t.Fatalf("after switch: %+v %s", svc, view.Status.State)
 	}
-	web, _ = e.engine.Container("staqio-blog-web")
+	web, _ = e.engine.Container("envoryx-blog-web")
 	if web.Spec.Image != "nginx:1-alpine" || web.Spec.Mounts[1].Target != "/etc/nginx/conf.d/default.conf" || web.State != "running" {
 		t.Fatalf("nginx container: %+v", web.Spec)
 	}
@@ -524,7 +524,7 @@ func TestUpdateEnvOnStoppedProjectKeepsContainers(t *testing.T) {
 	if view.Status.State != StateStopped {
 		t.Fatalf("stopped project must stay stopped (not missing) after env update, got %s", view.Status.State)
 	}
-	php, ok := e.engine.Container("staqio-sleepy-php")
+	php, ok := e.engine.Container("envoryx-sleepy-php")
 	if !ok || php.State == "running" || !strings.Contains(strings.Join(php.Spec.Env, ","), "APP_DEBUG=true") {
 		t.Fatalf("container must be recreated but not started: %+v", php)
 	}
@@ -537,20 +537,20 @@ func TestCatalogueImageChangePropagatesOnRestart(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Simulate a project created by an older Staqio that used the official image.
+	// Simulate a project created by an older Envoryx that used the official image.
 	if err := e.store.Projects.UpdateServiceConfig(ctx, view.Project.ID, store.ServicePHP, "8.4", "php:8.4-fpm", nil); err != nil {
 		t.Fatal(err)
 	}
 	e.engine.AddImage("php:8.4-fpm")
 	view, _ = e.m.Get(ctx, view.Project.ID)
-	if view.Project.Service(store.ServicePHP).Image != "ghcr.io/seramos/staqio-php:8.4" {
+	if view.Project.Service(store.ServicePHP).Image != "ghcr.io/envoryx/envoryx-php:8.4" {
 		t.Fatalf("catalogue image must win over the stored image, got %s", view.Project.Service(store.ServicePHP).Image)
 	}
-	php, _ := e.engine.Container("staqio-legacy-php")
+	php, _ := e.engine.Container("envoryx-legacy-php")
 	if err := e.engine.RemoveContainer(ctx, php.ID); err != nil {
 		t.Fatal(err)
 	}
-	e.engine.AddManagedContainer(docker.ContainerSpec{Name: "staqio-legacy-php", Image: "php:8.4-fpm", Labels: php.Spec.Labels, Network: "staqio-legacy"}, "running")
+	e.engine.AddManagedContainer(docker.ContainerSpec{Name: "envoryx-legacy-php", Image: "php:8.4-fpm", Labels: php.Spec.Labels, Network: "envoryx-legacy"}, "running")
 	view, _ = e.m.Get(ctx, view.Project.ID)
 	if len(view.Status.Warnings) == 0 || !strings.Contains(view.Status.Warnings[0], "restart to apply") {
 		t.Fatalf("expected outdated-image warning, got %v", view.Status.Warnings)
@@ -559,8 +559,8 @@ func TestCatalogueImageChangePropagatesOnRestart(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	php, _ = e.engine.Container("staqio-legacy-php")
-	if php.Spec.Image != "ghcr.io/seramos/staqio-php:8.4" || php.State != "running" {
+	php, _ = e.engine.Container("envoryx-legacy-php")
+	if php.Spec.Image != "ghcr.io/envoryx/envoryx-php:8.4" || php.State != "running" {
 		t.Fatalf("restart must recreate with the catalogue image: %+v", php)
 	}
 	if len(view.Status.Warnings) != 0 {
@@ -576,7 +576,7 @@ func TestRestartPullsRebuiltImage(t *testing.T) {
 		t.Fatal(err)
 	}
 	img := view.Project.Service(store.ServicePHP).Image
-	before, _ := e.engine.Container("staqio-fresh-php")
+	before, _ := e.engine.Container("envoryx-fresh-php")
 
 	// Upstream rebuilt the same tag (PHP patch release).
 	e.engine.Remote[img] = img + "@v2"
@@ -588,7 +588,7 @@ func TestRestartPullsRebuiltImage(t *testing.T) {
 	if _, err := e.m.Start(ctx, view.Project.ID); err != nil {
 		t.Fatal(err)
 	}
-	after, _ := e.engine.Container("staqio-fresh-php")
+	after, _ := e.engine.Container("envoryx-fresh-php")
 	if after.ID != before.ID {
 		t.Fatal("start must not recreate a container whose local image is unchanged")
 	}
@@ -597,14 +597,14 @@ func TestRestartPullsRebuiltImage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	after, _ = e.engine.Container("staqio-fresh-php")
+	after, _ = e.engine.Container("envoryx-fresh-php")
 	if after.ID == before.ID || after.ImageID != img+"@v2" || after.State != "running" {
 		t.Fatalf("restart must pull and recreate with the rebuilt image: %+v", after)
 	}
 	if len(view.Status.Warnings) != 0 {
 		t.Fatalf("unexpected warnings: %v", view.Status.Warnings)
 	}
-	web, _ := e.engine.Container("staqio-fresh-web")
+	web, _ := e.engine.Container("envoryx-fresh-web")
 	if web.ImageID != "caddy:2-alpine@v1" {
 		t.Fatalf("unchanged images must keep their container: %+v", web)
 	}
@@ -616,7 +616,7 @@ func TestPreviewShowsPlanWithoutSideEffects(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if pv.Slug != "preview-me" || pv.Network != "staqio-preview-me" || len(pv.Containers) != 2 || pv.HTTPPort != 20000 {
+	if pv.Slug != "preview-me" || pv.Network != "envoryx-preview-me" || len(pv.Containers) != 2 || pv.HTTPPort != 20000 {
 		t.Fatalf("preview: %+v", pv)
 	}
 	if len(e.engine.Calls) != 0 {

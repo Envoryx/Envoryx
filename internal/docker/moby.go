@@ -159,7 +159,7 @@ func (e *MobyEngine) inspectRaw(ctx context.Context, idOrName string) (container
 	return res.Container, nil
 }
 
-// guardContainer ensures the target is managed by Staqio and returns its details.
+// guardContainer ensures the target is managed by Envoryx and returns its details.
 func (e *MobyEngine) guardContainer(ctx context.Context, idOrName string) (container.InspectResponse, error) {
 	c, err := e.inspectRaw(ctx, idOrName)
 	if err != nil {

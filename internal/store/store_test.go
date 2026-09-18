@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/seramos/staqio/internal/db"
-	"github.com/seramos/staqio/internal/store"
+	"github.com/envoryx/envoryx/internal/db"
+	"github.com/envoryx/envoryx/internal/store"
 )
 
 func newStore(t *testing.T) *store.Store {
@@ -24,7 +24,7 @@ func newStore(t *testing.T) *store.Store {
 }
 
 func TestMigrationsAreIdempotentOnDisk(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "staqio.db")
+	path := filepath.Join(t.TempDir(), "envoryx.db")
 	log := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	for i := 0; i < 2; i++ {
 		sqlDB, err := db.Open(context.Background(), path, log)

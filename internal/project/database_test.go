@@ -7,10 +7,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/seramos/staqio/internal/docker"
-	"github.com/seramos/staqio/internal/runtime"
-	"github.com/seramos/staqio/internal/store"
-	"github.com/seramos/staqio/internal/validate"
+	"github.com/envoryx/envoryx/internal/docker"
+	"github.com/envoryx/envoryx/internal/runtime"
+	"github.com/envoryx/envoryx/internal/store"
+	"github.com/envoryx/envoryx/internal/validate"
 )
 
 func dbRequest(name string, expose bool) CreateRequest {
@@ -41,11 +41,11 @@ func TestCreateProjectWithDatabase(t *testing.T) {
 	if cfg.HostPort != 20001 || p.HTTPPort != 20000 {
 		t.Fatalf("ports: web %d db %d", p.HTTPPort, cfg.HostPort)
 	}
-	if got := strings.Join(e.engine.VolumeNames(), ","); got != "staqio-shop-database" {
+	if got := strings.Join(e.engine.VolumeNames(), ","); got != "envoryx-shop-database" {
 		t.Fatalf("volumes: %s", got)
 	}
-	db, _ := e.engine.Container("staqio-shop-database")
-	if db.State != "running" || db.Spec.Mounts[0].Type != "volume" || db.Spec.Mounts[0].Source != "staqio-shop-database" || db.Spec.Mounts[0].Target != "/var/lib/mysql" {
+	db, _ := e.engine.Container("envoryx-shop-database")
+	if db.State != "running" || db.Spec.Mounts[0].Type != "volume" || db.Spec.Mounts[0].Source != "envoryx-shop-database" || db.Spec.Mounts[0].Target != "/var/lib/mysql" {
 		t.Fatalf("database container: %+v", db)
 	}
 	if db.Spec.Healthcheck == nil || db.Spec.Ports[0].HostPort != 20001 || db.Spec.Ports[0].ContainerPort != 3306 {
@@ -58,12 +58,12 @@ func TestCreateProjectWithDatabase(t *testing.T) {
 
 	// Start order: database before php before web.
 	calls := strings.Join(e.engine.Calls, " ")
-	if strings.Index(calls, "start:staqio-shop-database") > strings.Index(calls, "start:staqio-shop-php") {
+	if strings.Index(calls, "start:envoryx-shop-database") > strings.Index(calls, "start:envoryx-shop-php") {
 		t.Fatalf("database must start before php: %s", calls)
 	}
 
 	// PHP receives connection variables; user variables win.
-	php, _ := e.engine.Container("staqio-shop-php")
+	php, _ := e.engine.Container("envoryx-shop-php")
 	phpEnv := strings.Join(php.Spec.Env, "\n")
 	for _, want := range []string{"DB_HOST=database", "DB_PORT=3306", "DB_DATABASE=shop", "DB_USERNAME=shop", "DB_PASSWORD=" + cfg.Password, "DATABASE_URL=mysql://shop:" + cfg.Password + "@database:3306/shop", "APP_ENV=local"} {
 		if !strings.Contains(phpEnv, want) {
@@ -95,7 +95,7 @@ func TestUserEnvOverridesDatabaseDefaults(t *testing.T) {
 	if _, err := e.m.Create(context.Background(), req); err != nil {
 		t.Fatal(err)
 	}
-	php, _ := e.engine.Container("staqio-custom-php")
+	php, _ := e.engine.Container("envoryx-custom-php")
 	count := 0
 	for _, kv := range php.Spec.Env {
 		if strings.HasPrefix(kv, "DB_DATABASE=") {
@@ -179,7 +179,7 @@ func TestDatabaseOperationsViaExec(t *testing.T) {
 	}
 
 	// Rotation: new password on the server, stored, php recreated with it.
-	phpBefore, _ := e.engine.Container("staqio-shop-php")
+	phpBefore, _ := e.engine.Container("envoryx-shop-php")
 	view, err = e.m.RotateDatabasePassword(ctx, id)
 	if err != nil {
 		t.Fatal(err)
@@ -191,11 +191,11 @@ func TestDatabaseOperationsViaExec(t *testing.T) {
 	if !strings.Contains(statements[len(statements)-1], "ALTER USER 'shop'@'%' IDENTIFIED BY '"+after.Password+"'") {
 		t.Fatalf("alter statement: %s", statements[len(statements)-1])
 	}
-	phpAfter, _ := e.engine.Container("staqio-shop-php")
+	phpAfter, _ := e.engine.Container("envoryx-shop-php")
 	if phpAfter.ID == phpBefore.ID || !strings.Contains(strings.Join(phpAfter.Spec.Env, ","), "DB_PASSWORD="+after.Password) || phpAfter.State != "running" {
 		t.Fatalf("php must be recreated with the new password: %+v", phpAfter.Spec.Env)
 	}
-	dbc, _ := e.engine.Container("staqio-shop-database")
+	dbc, _ := e.engine.Container("envoryx-shop-database")
 	if dbc.State != "running" {
 		t.Fatal("database container must keep running during rotation")
 	}
@@ -240,10 +240,10 @@ func TestAddChangeAndRemoveDatabase(t *testing.T) {
 	if view.Project.Service(store.ServiceDatabase) == nil || view.Status.State != StateRunning || len(view.Status.Services) != 3 {
 		t.Fatalf("add database: %+v", view.Status)
 	}
-	if got := strings.Join(e.engine.VolumeNames(), ","); got != "staqio-grow-database" {
+	if got := strings.Join(e.engine.VolumeNames(), ","); got != "envoryx-grow-database" {
 		t.Fatalf("volume missing: %s", got)
 	}
-	php, _ := e.engine.Container("staqio-grow-php")
+	php, _ := e.engine.Container("envoryx-grow-php")
 	if !strings.Contains(strings.Join(php.Spec.Env, ","), "DB_HOST=database") {
 		t.Fatal("php must be recreated with database env")
 	}
@@ -256,11 +256,11 @@ func TestAddChangeAndRemoveDatabase(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	db, _ := e.engine.Container("staqio-grow-database")
+	db, _ := e.engine.Container("envoryx-grow-database")
 	if db.Spec.Image != "mariadb:11" || len(db.Spec.Ports) != 1 || db.State != "running" {
 		t.Fatalf("upgrade + expose: %+v", db.Spec)
 	}
-	if got := strings.Join(e.engine.VolumeNames(), ","); got != "staqio-grow-database" {
+	if got := strings.Join(e.engine.VolumeNames(), ","); got != "envoryx-grow-database" {
 		t.Fatalf("volume must survive upgrades: %s", got)
 	}
 
@@ -275,10 +275,10 @@ func TestAddChangeAndRemoveDatabase(t *testing.T) {
 	if view.Project.Service(store.ServiceDatabase) != nil || len(e.engine.VolumeNames()) != 0 || len(view.Status.Services) != 2 {
 		t.Fatalf("remove database: %+v volumes=%v", view.Status, e.engine.VolumeNames())
 	}
-	if _, ok := e.engine.Container("staqio-grow-database"); ok {
+	if _, ok := e.engine.Container("envoryx-grow-database"); ok {
 		t.Fatal("database container must be removed")
 	}
-	php, _ = e.engine.Container("staqio-grow-php")
+	php, _ = e.engine.Container("envoryx-grow-php")
 	if strings.Contains(strings.Join(php.Spec.Env, ","), "DB_HOST=") {
 		t.Fatal("php env must no longer contain database variables")
 	}
@@ -325,7 +325,7 @@ func TestMongoDBProject(t *testing.T) {
 	e.engine.ExecHandler = func(container string, cmd []string, env []string) (docker.ExecResult, error) {
 		cmds = append(cmds, cmd)
 		for _, kv := range env {
-			if strings.HasPrefix(kv, "STAQIO_MONGO_URI=mongodb://shop:") {
+			if strings.HasPrefix(kv, "ENVORYX_MONGO_URI=mongodb://shop:") {
 				if strings.Contains(cmd[len(cmd)-1], "listDatabases") {
 					return docker.ExecResult{Stdout: "admin\nconfig\nlocal\nshop\n"}, nil
 				}
@@ -340,7 +340,7 @@ func TestMongoDBProject(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	c, ok := e.engine.Container("staqio-shop-database")
+	c, ok := e.engine.Container("envoryx-shop-database")
 	if !ok || c.Spec.Image != "mongo:8.0" || len(c.Spec.Cmd) != 0 || c.Spec.Ports[0].ContainerPort != 27017 || c.Spec.Mounts[0].Target != "/data/db" {
 		t.Fatalf("mongo container: %+v", c.Spec)
 	}
@@ -351,7 +351,7 @@ func TestMongoDBProject(t *testing.T) {
 	if !hasRootUser {
 		t.Fatalf("mongo env: %v", c.Spec.Env)
 	}
-	php, _ := e.engine.Container("staqio-shop-php")
+	php, _ := e.engine.Container("envoryx-shop-php")
 	var uri, conn string
 	for _, kv := range php.Spec.Env {
 		if strings.HasPrefix(kv, "MONGODB_URI=") {

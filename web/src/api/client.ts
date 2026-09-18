@@ -70,7 +70,7 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
   const headers: Record<string, string> = {
     Accept: "application/json",
     // CSRF defence in depth: the backend requires this header on state-changing requests.
-    "X-Requested-With": "Staqio",
+    "X-Requested-With": "Envoryx",
   };
   if (opts.body !== undefined) {
     headers["Content-Type"] = "application/json";

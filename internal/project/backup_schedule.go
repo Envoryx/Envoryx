@@ -7,9 +7,9 @@ import (
 	"sort"
 	"time"
 
-	"github.com/seramos/staqio/internal/audit"
-	"github.com/seramos/staqio/internal/store"
-	"github.com/seramos/staqio/internal/validate"
+	"github.com/envoryx/envoryx/internal/audit"
+	"github.com/envoryx/envoryx/internal/store"
+	"github.com/envoryx/envoryx/internal/validate"
 )
 
 // SetBackupSchedule validates and stores a project's backup schedule.

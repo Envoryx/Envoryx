@@ -60,7 +60,7 @@ export function makeProject(overrides: Partial<Project> = {}): Project {
     createdAt: "2026-09-17T10:00:00Z",
     updatedAt: "2026-09-17T10:00:00Z",
     services: [
-      { kind: "php", variant: "php", version: "8.4", image: "ghcr.io/seramos/staqio-php:8.4", enabled: true, config: {} },
+      { kind: "php", variant: "php", version: "8.4", image: "ghcr.io/envoryx/envoryx-php:8.4", enabled: true, config: {} },
       { kind: "web", variant: "caddy", version: "2", image: "caddy:2-alpine", enabled: true, config: {} },
     ],
     env: [],
@@ -70,8 +70,8 @@ export function makeProject(overrides: Partial<Project> = {}): Project {
     status: {
       state: "running",
       services: [
-        { kind: "php", variant: "php", version: "8.4", image: "ghcr.io/seramos/staqio-php:8.4", containerName: "staqio-shimly-api-php", exists: true, running: true, state: "running", ports: [] },
-        { kind: "web", variant: "caddy", version: "2", image: "caddy:2-alpine", containerName: "staqio-shimly-api-web", exists: true, running: true, state: "running", ports: [{ hostIp: "", hostPort: 20000, containerPort: 80, protocol: "tcp" }] },
+        { kind: "php", variant: "php", version: "8.4", image: "ghcr.io/envoryx/envoryx-php:8.4", containerName: "envoryx-shimly-api-php", exists: true, running: true, state: "running", ports: [] },
+        { kind: "web", variant: "caddy", version: "2", image: "caddy:2-alpine", containerName: "envoryx-shimly-api-web", exists: true, running: true, state: "running", ports: [{ hostIp: "", hostPort: 20000, containerPort: 80, protocol: "tcp" }] },
       ],
       warnings: [],
     },
@@ -85,11 +85,11 @@ export const runtimesFixture: RuntimesResponse = {
     { id: "wordpress", name: "WordPress", description: "Latest WordPress", docroot: "", requiresDatabase: true, recommendedDatabase: "mariadb", phpExtensions: ["mysqli"] },
   ],
   runtimes: [
-    { key: "php", name: "PHP", kind: "runtime", available: true, description: "", versions: [{ version: "8.4", image: "ghcr.io/seramos/staqio-php:8.4", label: "PHP 8.4", default: true }, { version: "8.3", image: "ghcr.io/seramos/staqio-php:8.3", label: "PHP 8.3" }] },
+    { key: "php", name: "PHP", kind: "runtime", available: true, description: "", versions: [{ version: "8.4", image: "ghcr.io/envoryx/envoryx-php:8.4", label: "PHP 8.4", default: true }, { version: "8.3", image: "ghcr.io/envoryx/envoryx-php:8.3", label: "PHP 8.3" }] },
     { key: "caddy", name: "Caddy", kind: "webserver", available: true, description: "", versions: [{ version: "2", image: "caddy:2-alpine", label: "Caddy 2", default: true }] },
     { key: "apache", name: "Apache", kind: "webserver", available: true, description: "", versions: [{ version: "2.4", image: "httpd:2.4-alpine", label: "Apache 2.4", default: true }] },
     { key: "nginx", name: "Nginx", kind: "webserver", available: true, description: "", versions: [{ version: "1", image: "nginx:1-alpine", label: "Nginx 1", default: true }] },
-    { key: "node", name: "Node.js", kind: "runtime", available: true, description: "", versions: [{ version: "24", image: "ghcr.io/seramos/staqio-node:24", label: "Node 24 LTS", default: true }, { version: "22", image: "ghcr.io/seramos/staqio-node:22", label: "Node 22 LTS" }] },
+    { key: "node", name: "Node.js", kind: "runtime", available: true, description: "", versions: [{ version: "24", image: "ghcr.io/envoryx/envoryx-node:24", label: "Node 24 LTS", default: true }, { version: "22", image: "ghcr.io/envoryx/envoryx-node:22", label: "Node 22 LTS" }] },
     { key: "mariadb", name: "MariaDB", kind: "database", available: true, description: "", versions: [{ version: "11", image: "mariadb:11", label: "MariaDB 11", default: true }, { version: "10.11", image: "mariadb:10.11", label: "MariaDB 10.11" }] },
     { key: "redis", name: "Redis", kind: "service", available: true, description: "", versions: [{ version: "8", image: "redis:8", label: "Redis 8", default: true }] },
     { key: "mailpit", name: "Mailpit", kind: "service", available: true, description: "", versions: [{ version: "1.31", image: "axllent/mailpit:v1.31", label: "Mailpit 1.31", default: true }] },

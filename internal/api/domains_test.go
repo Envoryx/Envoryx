@@ -38,7 +38,7 @@ func TestDomainsAndProxySettings(t *testing.T) {
 		t.Fatalf("add domain: %d %s", r.status, r.raw)
 	}
 	domainID := r.body["domain"].(map[string]any)["id"].(string)
-	for _, bad := range []string{"", "staqio.test", "shop.test", "*.shop.local", "shop.local", "has space.test"} {
+	for _, bad := range []string{"", "envoryx.test", "shop.test", "*.shop.local", "shop.local", "has space.test"} {
 		r = a.do(http.MethodPost, "/api/v1/projects/"+id+"/domains", map[string]any{"hostname": bad}, true)
 		if r.status < 400 {
 			t.Fatalf("hostname %q must be rejected: %d %s", bad, r.status, r.raw)
@@ -195,7 +195,7 @@ func TestNotificationEndpoints(t *testing.T) {
 	if r.status != http.StatusUnprocessableEntity {
 		t.Fatalf("invalid url: %d %s", r.status, r.raw)
 	}
-	r = a.do(http.MethodPut, "/api/v1/settings/notifications", map[string]any{"enabled": true, "provider": "ntfy", "url": hook.URL + "/staqio", "token": "secret-token", "kinds": []string{"acme.failed"}}, true)
+	r = a.do(http.MethodPut, "/api/v1/settings/notifications", map[string]any{"enabled": true, "provider": "ntfy", "url": hook.URL + "/envoryx", "token": "secret-token", "kinds": []string{"acme.failed"}}, true)
 	if r.status != http.StatusOK {
 		t.Fatalf("set: %d %s", r.status, r.raw)
 	}

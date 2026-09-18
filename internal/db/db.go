@@ -1,4 +1,4 @@
-// Package db opens the Staqio SQLite database and applies embedded migrations.
+// Package db opens the Envoryx SQLite database and applies embedded migrations.
 package db
 
 import (
@@ -142,7 +142,7 @@ func Migrate(ctx context.Context, sqlDB *sql.DB, log *slog.Logger) error {
 		latest = migrations[len(migrations)-1].version
 	}
 	if maxApplied > latest {
-		return fmt.Errorf("database schema version %d is newer than this Staqio build supports (%d); refusing to start", maxApplied, latest)
+		return fmt.Errorf("database schema version %d is newer than this Envoryx build supports (%d); refusing to start", maxApplied, latest)
 	}
 
 	for _, m := range migrations {

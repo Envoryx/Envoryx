@@ -27,13 +27,13 @@ func TestRoutingByHost(t *testing.T) {
 				"shop.test":    {ProjectName: "Shop", Slug: "shop", Dial: dial, Running: true},
 				"stopped.test": {ProjectName: "Stopped", Slug: "stopped", Dial: dial, Running: false},
 			},
-			UIHosts:   map[string]bool{"staqio.test": true},
-			StaqioURL: "http://staqio.test",
+			UIHosts:    map[string]bool{"envoryx.test": true},
+			EnvoryxURL: "http://envoryx.test",
 		}, nil
 	}
 	log := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	router := NewRouter(source, time.Second, log)
-	ui := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { _, _ = io.WriteString(w, "staqio ui") })
+	ui := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { _, _ = io.WriteString(w, "envoryx ui") })
 	h := NewHandler(router, ui, false, log)
 	srv := httptest.NewServer(h)
 	defer srv.Close()
@@ -70,12 +70,12 @@ func TestRoutingByHost(t *testing.T) {
 	if strings.Contains(rec.Body.String(), "<script>") {
 		t.Fatalf("host must be escaped: %q", rec.Body.String())
 	}
-	res, body = get("staqio.test", "/projects")
-	if res.StatusCode != 200 || body != "staqio ui" {
+	res, body = get("envoryx.test", "/projects")
+	if res.StatusCode != 200 || body != "envoryx ui" {
 		t.Fatalf("ui host: %d %q", res.StatusCode, body)
 	}
 	res, body = get("192.168.1.10", "/")
-	if body != "staqio ui" {
+	if body != "envoryx ui" {
 		t.Fatalf("bare ip must reach the ui: %q", body)
 	}
 }
@@ -84,7 +84,7 @@ func template(s string) string { return strings.NewReplacer("<", "&lt;", ">", "&
 
 func TestForceHTTPSRedirect(t *testing.T) {
 	source := func(context.Context) (Table, error) {
-		return Table{Routes: map[string]Target{"shop.test": {Running: true, Dial: "127.0.0.1:1"}}, UIHosts: map[string]bool{"staqio.test": true}, ForceHTTPS: true, HTTPSPort: 8443}, nil
+		return Table{Routes: map[string]Target{"shop.test": {Running: true, Dial: "127.0.0.1:1"}}, UIHosts: map[string]bool{"envoryx.test": true}, ForceHTTPS: true, HTTPSPort: 8443}, nil
 	}
 	log := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	h := NewHandler(NewRouter(source, time.Second, log), http.NotFoundHandler(), true, log)

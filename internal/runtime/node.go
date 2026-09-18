@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/seramos/staqio/internal/validate"
+	"github.com/envoryx/envoryx/internal/validate"
 )
 
 // NodeConfig configures the Node.js service. Without DevServer the container idles as a
@@ -22,7 +22,7 @@ type NodeConfig struct {
 	Port int `json:"port,omitempty"`
 	// Preset selects how host/port are passed: "vite", "next" or "generic" (env only).
 	Preset string `json:"preset,omitempty"`
-	// HostPort publishes the dev server on the Docker host (assigned by Staqio).
+	// HostPort publishes the dev server on the Docker host (assigned by Envoryx).
 	HostPort int `json:"hostPort,omitempty"`
 }
 

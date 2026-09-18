@@ -10,10 +10,10 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/seramos/staqio/internal/store"
+	"github.com/envoryx/envoryx/internal/store"
 )
 
-// TokenPrefix marks Staqio API tokens so they are recognisable in configs and logs.
+// TokenPrefix marks Envoryx API tokens so they are recognisable in configs and logs.
 const TokenPrefix = "stq_"
 
 // ErrInvalidTokenName is returned for unusable token names.

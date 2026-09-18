@@ -3,7 +3,7 @@ package api
 import (
 	"net/http"
 
-	"github.com/seramos/staqio/internal/project"
+	"github.com/envoryx/envoryx/internal/project"
 )
 
 func (a *API) gitStatus(w http.ResponseWriter, r *http.Request) {
