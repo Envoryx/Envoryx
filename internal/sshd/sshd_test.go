@@ -92,9 +92,9 @@ func newEnv(t *testing.T) *env {
 	return &env{manager: manager, srv: srv, engine: engine, auth: sessions, st: st, token: token, projDir: projDir, cfgDir: cfgDir, proj: view, addr: ln.Addr().String()}
 }
 
-func (e *env) dial(t *testing.T, user string, authMethod ssh.AuthMethod) (*ssh.Client, error) {
+func (e *env) dial(t *testing.T, user string, authMethods ...ssh.AuthMethod) (*ssh.Client, error) {
 	t.Helper()
-	return ssh.Dial("tcp", e.addr, &ssh.ClientConfig{User: user, Auth: []ssh.AuthMethod{authMethod}, HostKeyCallback: ssh.InsecureIgnoreHostKey(), Timeout: 5 * time.Second})
+	return ssh.Dial("tcp", e.addr, &ssh.ClientConfig{User: user, Auth: authMethods, HostKeyCallback: ssh.InsecureIgnoreHostKey(), Timeout: 5 * time.Second})
 }
 
 func TestExecAndAuth(t *testing.T) {
@@ -361,5 +361,26 @@ func TestPortForwardingRelaysInsideContainer(t *testing.T) {
 	}
 	if len(relayCmd) == 0 || relayCmd[0] != "socat" || relayCmd[len(relayCmd)-1] != "TCP:127.0.0.1:5990,connect-timeout=5" {
 		t.Fatalf("relay command: %v", relayCmd)
+	}
+}
+
+// IDE clients offer every agent key before the password; those probes must neither hit
+// MaxAuthTries nor lock the address out.
+func TestAgentKeyProbesDoNotLockOut(t *testing.T) {
+	e := newEnv(t)
+	var signers []ssh.Signer
+	for range 7 {
+		s, err := ssh.NewSignerFromKey(mustKey(t))
+		if err != nil {
+			t.Fatal(err)
+		}
+		signers = append(signers, s)
+	}
+	for range 3 {
+		client, err := e.dial(t, "shop", ssh.PublicKeys(signers...), ssh.Password(e.token))
+		if err != nil {
+			t.Fatalf("keys then password: %v", err)
+		}
+		client.Close()
 	}
 }

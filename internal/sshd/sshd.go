@@ -71,7 +71,9 @@ func New(d Deps) (*Server, error) {
 		return (&net.Dialer{Timeout: 5 * time.Second}).DialContext(ctx, "tcp", addr)
 	}
 	s.config = &ssh.ServerConfig{
-		MaxAuthTries:     4,
+		// Clients offer every agent key before falling back to the password; each rejected
+		// key is one try, so allow a full agent (OpenSSH's default is 6).
+		MaxAuthTries:     10,
 		PasswordCallback: s.passwordAuth,
 		PublicKeyCallback: func(conn ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, error) {
 			return s.publicKeyAuth(conn, key)
@@ -128,11 +130,13 @@ func (s *Server) passwordAuth(conn ssh.ConnMetadata, password []byte) (*ssh.Perm
 	defer cancel()
 	p, err := s.d.Auth.ValidateAPIToken(ctx, string(password))
 	if err != nil {
-		s.limiter.fail(ip)
+		s.fail(ip)
+		s.d.Log.Info("ssh password rejected", "user", conn.User(), "remote", ip)
 		return nil, errors.New("invalid token")
 	}
 	if _, err := s.d.Projects.ResolveSSHUser(ctx, conn.User()); err != nil {
-		s.limiter.fail(ip)
+		s.fail(ip)
+		s.d.Log.Info("ssh unknown project", "user", conn.User(), "remote", ip, "err", err)
 		return nil, errors.New("unknown project")
 	}
 	s.limiter.reset(ip)
@@ -159,15 +163,24 @@ func (s *Server) publicKeyAuth(conn ssh.ConnMetadata, key ssh.PublicKey) (*ssh.P
 		}
 		if string(pk.Marshal()) == string(want) {
 			if _, err := s.d.Projects.ResolveSSHUser(ctx, conn.User()); err != nil {
-				s.limiter.fail(ip)
+				s.fail(ip)
+				s.d.Log.Info("ssh unknown project", "user", conn.User(), "remote", ip, "err", err)
 				return nil, errors.New("unknown project")
 			}
 			s.limiter.reset(ip)
 			return &ssh.Permissions{Extensions: map[string]string{"staqio-user": "ssh-key", "staqio-token": comment}}, nil
 		}
 	}
-	s.limiter.fail(ip)
+	// Not a failed attempt in the brute-force sense: clients routinely offer every key in
+	// their agent before trying the password, and keys cannot be guessed.
 	return nil, errors.New("unknown key")
+}
+
+// fail counts an authentication failure and logs when the address gets locked out.
+func (s *Server) fail(ip string) {
+	if s.limiter.fail(ip) {
+		s.d.Log.Warn("ssh lockout: too many failed attempts", "remote", ip, "minutes", 5)
+	}
 }
 
 func remoteIP(a net.Addr) string {
@@ -200,16 +213,19 @@ func (l *failLimiter) allow(ip string) bool {
 	return e.until.IsZero() || time.Now().After(e.until)
 }
 
-func (l *failLimiter) fail(ip string) {
+// fail records a failure and reports whether it started a lockout.
+func (l *failLimiter) fail(ip string) bool {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	e := l.fails[ip]
 	e.n++
-	if e.n >= 10 {
+	locked := e.n >= 10
+	if locked {
 		e.until = time.Now().Add(5 * time.Minute)
 		e.n = 0
 	}
 	l.fails[ip] = e
+	return locked
 }
 
 func (l *failLimiter) reset(ip string) {
