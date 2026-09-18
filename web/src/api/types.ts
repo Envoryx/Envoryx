@@ -377,6 +377,29 @@ export interface GitRequest {
   token?: string;
 }
 
+export interface BackupMeta {
+  format: number;
+  staqio: string;
+  projectId: string;
+  projectName: string;
+  slug: string;
+  createdAt: string;
+  note?: string;
+  database?: { type: string; version: string; name: string; bytes: number };
+  files?: { bytes: number; entries: number; includeDependencies: boolean };
+  runtimes: Record<string, string>;
+}
+
+export interface BackupInfo {
+  id: string;
+  dir: string;
+  kind: string;
+  sizeBytes: number;
+  createdAt: string;
+  meta: BackupMeta;
+  missing: boolean;
+}
+
 export interface ActionInfo {
   id: string;
   group: string;

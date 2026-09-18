@@ -701,6 +701,63 @@ func TestGitEndpointsNeverExposeToken(t *testing.T) {
 	}
 }
 
+func TestBackupEndpoints(t *testing.T) {
+	a := newApp(t)
+	a.setupAndLogin()
+	a.engine.StreamHandler = func(_ string, cmd []string, _ []string, _ []byte) (string, int, error) {
+		if cmd[0] == "mariadb-dump" {
+			return "-- dump\n", 0, nil
+		}
+		return "", 0, nil
+	}
+	create := map[string]any{"name": "Bak", "start": true, "php": map[string]any{"version": "8.4"}, "database": map[string]any{"type": "mariadb"}}
+	r := a.do(http.MethodPost, "/api/v1/projects", create, true)
+	if r.status != http.StatusCreated {
+		t.Fatalf("create: %d %s", r.status, r.raw)
+	}
+	id := r.body["project"].(map[string]any)["id"].(string)
+
+	r = a.do(http.MethodPost, "/api/v1/projects/"+id+"/backups", map[string]any{"database": true, "files": true, "note": "test"}, true)
+	if r.status != http.StatusCreated {
+		t.Fatalf("backup: %d %s", r.status, r.raw)
+	}
+	bid := r.body["backup"].(map[string]any)["id"].(string)
+	if bytes.Contains(r.raw, []byte("assword")) {
+		t.Fatalf("backup response leaks credentials: %s", r.raw)
+	}
+	r = a.do(http.MethodGet, "/api/v1/projects/"+id+"/backups", nil, false)
+	if r.status != http.StatusOK || len(r.body["backups"].([]any)) != 1 {
+		t.Fatalf("list: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodPost, "/api/v1/projects/"+id+"/backups/"+bid+"/restore", map[string]any{"database": true, "confirm": "nope"}, true)
+	if r.status != http.StatusUnprocessableEntity {
+		t.Fatalf("restore without confirmation: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodPost, "/api/v1/projects/"+id+"/backups/"+bid+"/restore", map[string]any{"database": true, "files": true, "confirm": "bak"}, true)
+	if r.status != http.StatusOK {
+		t.Fatalf("restore: %d %s", r.status, r.raw)
+	}
+	req, _ := http.NewRequest(http.MethodGet, a.srv.URL+"/api/v1/projects/"+id+"/backups/"+bid+"/download", nil)
+	req.AddCookie(a.cookie)
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ := io.ReadAll(res.Body)
+	res.Body.Close()
+	if res.StatusCode != http.StatusOK || res.Header.Get("Content-Type") != "application/x-tar" || len(body) == 0 {
+		t.Fatalf("download: %d %s", res.StatusCode, res.Header.Get("Content-Type"))
+	}
+	r = a.do(http.MethodDelete, "/api/v1/projects/"+id+"/backups/"+bid, nil, true)
+	if r.status != http.StatusNoContent {
+		t.Fatalf("delete: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodDelete, "/api/v1/projects/"+id+"/backups/"+bid, nil, true)
+	if r.status != http.StatusNotFound {
+		t.Fatalf("delete twice: %d", r.status)
+	}
+}
+
 func TestPublicHostSetting(t *testing.T) {
 	a := newApp(t)
 	a.setupAndLogin()

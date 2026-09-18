@@ -46,7 +46,11 @@ Staqio is under active development. The current milestone (Phase 1 + 2) delivers
 - desired-state reconciliation on startup and periodically; orphan detection
 - diagnostics view of all Docker resources (foreign containers read-only)
 
-Backups, domains/HTTPS and MCP follow in later phases – see
+- backups per project: database dump + project files (optionally without
+  vendor/node_modules) + configuration under `/config/backups/<project>/`,
+  restore with typed confirmation, download as a single archive
+
+Domains/HTTPS and MCP follow in later phases – see
 [ARCHITECTURE.md](ARCHITECTURE.md) §13.
 
 ## Quick start

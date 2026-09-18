@@ -178,6 +178,16 @@ type Terminal interface {
 	Close() error
 }
 
+// ExecStreamOptions configure a streamed exec.
+type ExecStreamOptions struct {
+	Cmd    []string
+	Env    []string
+	User   string
+	Stdin  io.Reader
+	Stdout io.Writer
+	Stderr io.Writer
+}
+
 // ExecResult is the outcome of a non-interactive command run inside a container.
 type ExecResult struct {
 	ExitCode int
@@ -250,6 +260,9 @@ type Engine interface {
 	// Exec runs a command (argv form, never a shell string) inside a managed container and
 	// waits for it to finish. env entries are KEY=VALUE.
 	Exec(ctx context.Context, id string, cmd []string, env []string) (ExecResult, error)
+	// ExecStream runs a command with streamed stdin/stdout/stderr (for dumps and restores)
+	// and returns its exit code. stdin may be nil.
+	ExecStream(ctx context.Context, id string, opts ExecStreamOptions) (int, error)
 	// RunOneShot creates a transient container from spec, runs it to completion, collects
 	// its output and removes it. The spec must carry managed labels.
 	RunOneShot(ctx context.Context, spec ContainerSpec) (ExecResult, error)

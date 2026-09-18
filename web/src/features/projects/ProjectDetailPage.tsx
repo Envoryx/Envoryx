@@ -12,13 +12,14 @@ import { DatabaseTab } from "./DatabaseTab";
 import { EnvEditor } from "./EnvEditor";
 import { GitTab } from "./GitTab";
 import { ServicesTab } from "./ServicesTab";
+import { BackupsTab } from "./BackupsTab";
 import { LogsTab } from "./LogsTab";
 // xterm.js is only needed on this tab; keep it out of the main bundle.
 const TerminalTab = lazy(() => import("./TerminalTab").then((m) => ({ default: m.TerminalTab })));
 const ActionsTab = lazy(() => import("./ActionsTab").then((m) => ({ default: m.ActionsTab })));
 import { PhpConfigForm } from "./PhpConfigForm";
 
-const tabs = ["Overview", "Git", "Actions", "Terminal", "Logs", "Runtime", "Database", "Services", "Environment", "Advanced"] as const;
+const tabs = ["Overview", "Git", "Actions", "Terminal", "Logs", "Runtime", "Database", "Services", "Backups", "Environment", "Advanced"] as const;
 type Tab = (typeof tabs)[number];
 
 export function ProjectDetailPage() {
@@ -126,6 +127,7 @@ export function ProjectDetailPage() {
       )}
       {tab === "Database" && <DatabaseTab project={p} />}
       {tab === "Services" && <ServicesTab project={p} />}
+      {tab === "Backups" && <BackupsTab project={p} />}
       {tab === "Environment" && <EnvTab project={p} />}
       {tab === "Advanced" && <AdvancedTab project={p} />}
 

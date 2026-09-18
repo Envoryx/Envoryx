@@ -119,6 +119,10 @@ type Dialect struct {
 	// MajorUpgradeInPlace reports whether the server upgrades an existing data directory
 	// across major versions on its own.
 	MajorUpgradeInPlace bool
+	// Dump writes a logical backup of the primary database to stdout.
+	Dump func(cfg DatabaseConfig) (argv []string, env []string)
+	// Restore reads a dump from stdin into the primary database.
+	Restore func(cfg DatabaseConfig) (argv []string, env []string)
 }
 
 var dialects = map[string]Dialect{
@@ -141,6 +145,12 @@ var dialects = map[string]Dialect{
 			return fmt.Sprintf("ALTER USER '%s'@'%%' IDENTIFIED BY '%s'; FLUSH PRIVILEGES;", u, p)
 		},
 		MajorUpgradeInPlace: true,
+		Dump: func(c DatabaseConfig) ([]string, []string) {
+			return []string{"mariadb-dump", "-uroot", "--single-transaction", "--quick", "--routines", "--triggers", "--events", "--default-character-set=utf8mb4", "--", c.Database}, []string{"MYSQL_PWD=" + c.RootPassword}
+		},
+		Restore: func(c DatabaseConfig) ([]string, []string) {
+			return []string{"mariadb", "-uroot", "--", c.Database}, []string{"MYSQL_PWD=" + c.RootPassword}
+		},
 	},
 	"mysql": {
 		Variant: "mysql", Port: 3306, DataDir: "/var/lib/mysql", Driver: "mysql", HasRoot: true,
@@ -161,6 +171,12 @@ var dialects = map[string]Dialect{
 			return fmt.Sprintf("ALTER USER '%s'@'%%' IDENTIFIED BY '%s'; FLUSH PRIVILEGES;", u, p)
 		},
 		MajorUpgradeInPlace: true,
+		Dump: func(c DatabaseConfig) ([]string, []string) {
+			return []string{"mysqldump", "-uroot", "--single-transaction", "--quick", "--routines", "--triggers", "--events", "--default-character-set=utf8mb4", "--", c.Database}, []string{"MYSQL_PWD=" + c.RootPassword}
+		},
+		Restore: func(c DatabaseConfig) ([]string, []string) {
+			return []string{"mysql", "-uroot", "--", c.Database}, []string{"MYSQL_PWD=" + c.RootPassword}
+		},
 	},
 	"postgresql": {
 		Variant: "postgresql", Port: 5432, DataDir: "/var/lib/postgresql/data", Driver: "pgsql", HasRoot: false,
@@ -176,6 +192,12 @@ var dialects = map[string]Dialect{
 		DropDatabase:        func(n string) string { return fmt.Sprintf(`DROP DATABASE "%s"`, n) },
 		AlterPassword:       func(u, p string) string { return fmt.Sprintf(`ALTER USER "%s" WITH PASSWORD '%s'`, u, p) },
 		MajorUpgradeInPlace: false,
+		Dump: func(c DatabaseConfig) ([]string, []string) {
+			return []string{"pg_dump", "-U", c.Username, "--clean", "--if-exists", "--no-owner", "--no-privileges", "--", c.Database}, []string{"PGPASSWORD=" + c.Password}
+		},
+		Restore: func(c DatabaseConfig) ([]string, []string) {
+			return []string{"psql", "-U", c.Username, "-v", "ON_ERROR_STOP=1", "-q", "-d", c.Database}, []string{"PGPASSWORD=" + c.Password}
+		},
 	},
 }
 

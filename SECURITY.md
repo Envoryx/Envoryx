@@ -135,6 +135,15 @@ routes address `project + service kind` and resolve the container server-side.
   from error messages before they reach logs or the UI.
 - CA keys (Phase 8) will live under `/config` with restrictive permissions.
 
+## Backups
+
+Backups contain the full project export including database credentials and
+git tokens (needed to rebuild a project) and live under `/config/backups`
+with mode 0600/0700. Treat downloaded archives accordingly. Restores are
+confirmed with the project identifier, only ever write inside the project
+directory (path traversal and symlink escapes are rejected) and only import a
+dump whose flavour matches the project's database.
+
 ## HTTP hardening
 
 - `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,

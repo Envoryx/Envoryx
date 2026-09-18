@@ -29,6 +29,10 @@ const (
 	ActionSettingsChanged = "settings.changed"
 	ActionImagesPruned    = "docker.images_pruned"
 
+	ActionBackupCreated  = "backup.created"
+	ActionBackupRestored = "backup.restored"
+	ActionBackupDeleted  = "backup.deleted"
+
 	ActionDBCredentialsViewed = "database.credentials_viewed"
 	ActionDBPasswordRotated   = "database.password_rotated"
 	ActionDBCreated           = "database.created"

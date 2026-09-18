@@ -24,6 +24,7 @@ type Store struct {
 	Projects *Projects
 	Settings *Settings
 	Audit    *Audit
+	Backups  *Backups
 }
 
 // New creates the repositories.
@@ -35,6 +36,7 @@ func New(db *sql.DB) *Store {
 		Projects: &Projects{db: db},
 		Settings: &Settings{db: db},
 		Audit:    &Audit{db: db},
+		Backups:  &Backups{db: db},
 	}
 }
 

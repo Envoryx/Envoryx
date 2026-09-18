@@ -5,6 +5,7 @@ import type {
   DatabaseCredentials,
   DatabaseInfo,
   ActionInfo,
+  BackupInfo,
   DockerOverview,
   ExtraServiceInfo,
   GitRequest,
@@ -137,6 +138,16 @@ export const api = {
     extras: (id: string) => request<{ services: ExtraServiceInfo[] }>(`/projects/${encodeURIComponent(id)}/extras`),
     logs: (id: string, kind: string, tail = 500) =>
       request<{ lines: LogLine[] }>(`/projects/${encodeURIComponent(id)}/services/${encodeURIComponent(kind)}/logs?tail=${tail}`),
+  },
+
+  backups: {
+    list: (id: string) => request<{ backups: BackupInfo[] }>(`/projects/${encodeURIComponent(id)}/backups`),
+    create: (id: string, body: { database: boolean; files: boolean; includeDependencies: boolean; note: string }) =>
+      request<{ backup: BackupInfo }>(`/projects/${encodeURIComponent(id)}/backups`, { method: "POST", body }),
+    remove: (id: string, backupId: string) =>
+      request<void>(`/projects/${encodeURIComponent(id)}/backups/${encodeURIComponent(backupId)}`, { method: "DELETE" }),
+    restore: (id: string, backupId: string, body: { database: boolean; files: boolean; wipeFiles: boolean; confirm: string }) =>
+      request<{ backup: BackupInfo }>(`/projects/${encodeURIComponent(id)}/backups/${encodeURIComponent(backupId)}/restore`, { method: "POST", body }),
   },
 
   git: {

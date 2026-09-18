@@ -188,10 +188,16 @@ project's Git tab) into your repository as a read-only deploy key. Private
 HTTPS repositories use an access token per project instead (GitHub:
 fine-grained PAT with *Contents: read*; GitLab: username `oauth2` + token).
 
-## Backups of Staqio itself
+## Backups
 
-Back up `/config` (SQLite database + generated project configuration) and
-`/projects`. Project backups from within Staqio arrive in Phase 7.
+Project backups (database dump, files, configuration) are created from the
+project's **Backups** tab and stored under `/config/backups/<project>/`. They
+are plain directories – include `/config` in your regular Unraid backup
+(e.g. Appdata Backup plugin) to get them off the machine, or use the
+per-backup download.
+
+For Staqio itself back up `/config` (SQLite database, generated configuration,
+deploy key, backups) and `/projects`.
 
 ## Health check
 

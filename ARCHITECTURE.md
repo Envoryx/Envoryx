@@ -537,5 +537,15 @@ application containers while stateful services keep running.
   tooling container (`sleep infinity`, runs as PUID:PGID) from
   `ghcr.io/seramos/staqio-node:<v>`; a dev-server mode with published port is
   a later addition.
-- **Phase 7 Backups**, **Phase 8 HTTPS/DNS**, **Phase 9 MCP** (reuses the
-  same manager and validation layer).
+- **Phase 7 Backups** (implemented): `/config/backups/<slug>/<timestamp-id>/`
+  with `backup.json` (metadata + full project export incl. credentials),
+  `database.sql.gz` (dump streamed from the database container via exec,
+  password in env) and `files.tar.gz` (written by Staqio, `vendor/` and
+  `node_modules/` skipped unless requested). Restore requires the slug as
+  confirmation, verifies the dump flavour matches the project's database,
+  pipes the dump back through the flavour's client, and extracts files with
+  tar-slip protection (entries and symlink targets must stay inside the
+  project directory; never writes through an existing symlink). Records live
+  in the `backups` table; a download streams the directory as one tar.
+- **Phase 8 HTTPS/DNS**, **Phase 9 MCP** (reuses the same manager and
+  validation layer).

@@ -674,6 +674,57 @@ func (w *lineWriter) emitLine(raw []byte) {
 	w.emit(LogLine{Time: ts, Stream: w.stream, Text: line})
 }
 
+// ExecStream implements Engine.
+func (e *MobyEngine) ExecStream(ctx context.Context, id string, opts ExecStreamOptions) (int, error) {
+	if len(opts.Cmd) == 0 {
+		return -1, errors.New("exec: empty command")
+	}
+	if _, err := e.guardContainer(ctx, id); err != nil {
+		return -1, err
+	}
+	created, err := e.cli.ExecCreate(ctx, id, client.ExecCreateOptions{
+		Cmd: opts.Cmd, Env: opts.Env, User: opts.User,
+		AttachStdin: opts.Stdin != nil, AttachStdout: true, AttachStderr: true,
+	})
+	if err != nil {
+		return -1, wrap(err)
+	}
+	attach, err := e.cli.ExecAttach(ctx, created.ID, client.ExecAttachOptions{})
+	if err != nil {
+		return -1, wrap(err)
+	}
+	defer attach.Close()
+
+	inErr := make(chan error, 1)
+	if opts.Stdin != nil {
+		go func() {
+			_, err := io.Copy(attach.Conn, opts.Stdin)
+			_ = attach.CloseWrite()
+			inErr <- err
+		}()
+	} else {
+		inErr <- nil
+	}
+	stdout, stderr := opts.Stdout, opts.Stderr
+	if stdout == nil {
+		stdout = io.Discard
+	}
+	if stderr == nil {
+		stderr = io.Discard
+	}
+	if _, err := stdcopy.StdCopy(stdout, stderr, attach.Reader); err != nil && !errors.Is(err, io.EOF) {
+		return -1, fmt.Errorf("exec output: %w", err)
+	}
+	if err := <-inErr; err != nil && !errors.Is(err, io.EOF) {
+		return -1, fmt.Errorf("exec input: %w", err)
+	}
+	insp, err := e.cli.ExecInspect(ctx, created.ID, client.ExecInspectOptions{})
+	if err != nil {
+		return -1, wrap(err)
+	}
+	return insp.ExitCode, nil
+}
+
 // limitedWriter caps captured exec output so a runaway command cannot exhaust memory.
 type limitedWriter struct {
 	w *bytes.Buffer

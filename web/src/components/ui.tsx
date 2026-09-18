@@ -131,7 +131,7 @@ export function Checkbox({
   label,
   description,
   ...rest
-}: InputHTMLAttributes<HTMLInputElement> & { label: string; description?: string }) {
+}: InputHTMLAttributes<HTMLInputElement> & { label: string; description?: string | undefined }) {
   return (
     <label className="flex items-start gap-3 cursor-pointer">
       <input type="checkbox" className="mt-0.5 size-4 rounded border-default accent-accent-600" {...rest} />

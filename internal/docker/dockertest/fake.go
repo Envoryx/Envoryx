@@ -54,6 +54,10 @@ type Fake struct {
 	// OneShots records every RunOneShot spec.
 	OneShots []docker.ContainerSpec
 
+	// StreamHandler simulates streamed execs: it receives the container name, argv and the
+	// full stdin and returns stdout content plus exit code. nil = exit 0, empty output.
+	StreamHandler func(container string, cmd []string, env []string, stdin []byte) (stdout string, code int, err error)
+
 	// ExecHandler simulates commands run inside containers. It receives the container name
 	// and the argv; nil means every command succeeds with empty output.
 	ExecHandler func(container string, cmd []string, env []string) (docker.ExecResult, error)
@@ -583,6 +587,43 @@ func (f *Fake) LastTerminal() *FakeTerminal {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return f.lastTerminal
+}
+
+// ExecStream implements docker.Engine.
+func (f *Fake) ExecStream(_ context.Context, id string, opts docker.ExecStreamOptions) (int, error) {
+	f.mu.Lock()
+	if err := f.check(); err != nil {
+		f.mu.Unlock()
+		return -1, err
+	}
+	c, err := f.guard(id)
+	if err != nil {
+		f.mu.Unlock()
+		return -1, err
+	}
+	if c.State != "running" {
+		f.mu.Unlock()
+		return -1, fmt.Errorf("container %s is not running", c.Spec.Name)
+	}
+	name := c.Spec.Name
+	f.Execs = append(f.Execs, name+": "+strings.Join(opts.Cmd, " "))
+	handler := f.StreamHandler
+	f.mu.Unlock()
+	var in []byte
+	if opts.Stdin != nil {
+		in, _ = io.ReadAll(opts.Stdin)
+	}
+	if handler == nil {
+		return 0, nil
+	}
+	out, code, err := handler(name, opts.Cmd, opts.Env, in)
+	if err != nil {
+		return -1, err
+	}
+	if opts.Stdout != nil {
+		_, _ = io.WriteString(opts.Stdout, out)
+	}
+	return code, nil
 }
 
 // StreamLogs implements docker.Engine. With Follow it blocks until ctx is cancelled after
