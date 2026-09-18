@@ -5,6 +5,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"syscall"
@@ -15,14 +16,17 @@ import (
 	"github.com/seramos/staqio/internal/project"
 )
 
-// projectFS exposes exactly two trees over SFTP, using the container's paths:
-// /var/www/html (the project directory) and /home/staqio (the persistent tool home).
-// Everything is served from the Staqio side of the same bind mounts; created files are
-// chowned to the project owner so the containers can use them.
+// projectFS exposes the container's bind mounts over SFTP, using the container's paths:
+// /var/www/html (the project directory), /home/staqio (the persistent tool home) and,
+// with Gateway enabled, the shared JetBrains cache below it. Everything is served from
+// the Staqio side of the same bind mounts; created files are chowned to the project
+// owner so the containers can use them.
 type projectFS struct {
 	roots map[string]string // container path prefix → Staqio-side directory
-	uid   int
-	gid   int
+	// prefixes are the root paths, longest first, so nested mounts win.
+	prefixes []string
+	uid      int
+	gid      int
 }
 
 func newProjectFS(t project.ExecTarget) *projectFS {
@@ -31,7 +35,16 @@ func newProjectFS(t project.ExecTarget) *projectFS {
 		uid, _ = strconv.Atoi(parts[0])
 		gid, _ = strconv.Atoi(parts[1])
 	}
-	return &projectFS{roots: map[string]string{t.AppMount: t.ProjectDir, t.HomeMount: t.HomeDir}, uid: uid, gid: gid}
+	roots := map[string]string{t.AppMount: t.ProjectDir, t.HomeMount: t.HomeDir}
+	for k, v := range t.Mounts {
+		roots[k] = v
+	}
+	prefixes := make([]string, 0, len(roots))
+	for k := range roots {
+		prefixes = append(prefixes, k)
+	}
+	sort.Slice(prefixes, func(i, j int) bool { return len(prefixes[i]) > len(prefixes[j]) })
+	return &projectFS{roots: roots, prefixes: prefixes, uid: uid, gid: gid}
 }
 
 var errOutside = sftp.ErrSSHFxPermissionDenied
@@ -40,7 +53,8 @@ var errOutside = sftp.ErrSSHFxPermissionDenied
 // virtual directories above the roots ("/", "/var", "/var/www", "/home").
 func (f *projectFS) resolve(p string) (local string, ok bool, err error) {
 	clean := path.Clean("/" + p)
-	for prefix, root := range f.roots {
+	for _, prefix := range f.prefixes {
+		root := f.roots[prefix]
 		if clean == prefix {
 			return root, true, nil
 		}
@@ -55,6 +69,17 @@ func (f *projectFS) resolve(p string) (local string, ok bool, err error) {
 		}
 	}
 	return "", false, nil
+}
+
+// mountsBelow returns the names of mount points that are direct children of dir.
+func (f *projectFS) mountsBelow(dir string) []string {
+	var names []string
+	for _, prefix := range f.prefixes {
+		if path.Dir(prefix) == dir && prefix != dir {
+			names = append(names, path.Base(prefix))
+		}
+	}
+	return names
 }
 
 // virtualDirs are the directories between "/" and the roots.
@@ -200,13 +225,23 @@ func (f *projectFS) Filelist(r *sftp.Request) (sftp.ListerAt, error) {
 			return listerAt(infos), nil
 		}
 		entries, err := os.ReadDir(local)
-		if err != nil {
+		mounts := f.mountsBelow(clean)
+		if err != nil && !(len(mounts) > 0 && os.IsNotExist(err)) {
 			return nil, err
 		}
-		infos := make([]os.FileInfo, 0, len(entries))
+		infos := make([]os.FileInfo, 0, len(entries)+len(mounts))
+		seen := map[string]bool{}
 		for _, e := range entries {
 			if info, err := e.Info(); err == nil {
 				infos = append(infos, info)
+				seen[info.Name()] = true
+			}
+		}
+		// Nested mounts (e.g. /home/staqio/.cache/JetBrains) are not files of the parent
+		// directory on the Staqio side; show them the way the container sees them.
+		for _, m := range mounts {
+			if !seen[m] {
+				infos = append(infos, virtualInfo{name: m, dir: true})
 			}
 		}
 		return listerAt(infos), nil

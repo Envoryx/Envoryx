@@ -395,3 +395,49 @@ func TestAgentKeyProbesDoNotLockOut(t *testing.T) {
 		client.Close()
 	}
 }
+
+// With Gateway enabled the shared IDE cache (/config/jetbrains, bind-mounted at
+// ~/.cache/JetBrains) is part of the SFTP tree, exactly where the container sees it.
+func TestSFTPShowsJetBrainsCacheWithGateway(t *testing.T) {
+	e := newEnv(t)
+	on := true
+	if _, err := e.manager.Update(context.Background(), e.proj.Project.ID, project.UpdateRequest{IDEGateway: &on}); err != nil {
+		t.Fatal(err)
+	}
+	dist := filepath.Join(e.cfgDir, "jetbrains", "RemoteDev", "dist", "abc_PhpStorm")
+	if err := os.MkdirAll(dist, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dist, "product-info.json"), []byte("{}"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	client, err := e.dial(t, "shop", ssh.Password(e.token))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer client.Close()
+	sc, err := sftp.NewClient(client)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer sc.Close()
+	// ~/.cache does not exist in the project home yet; the mount point is still listed.
+	entries, err := sc.ReadDir("/home/staqio/.cache")
+	if err != nil {
+		t.Fatalf("list .cache: %v", err)
+	}
+	if len(entries) != 1 || entries[0].Name() != "JetBrains" || !entries[0].IsDir() {
+		t.Fatalf(".cache listing: %v", entries)
+	}
+	if st, err := sc.Stat("/home/staqio/.cache/JetBrains/RemoteDev/dist/abc_PhpStorm/product-info.json"); err != nil || st.Size() != 2 {
+		t.Fatalf("dist file: %v %v", err, st)
+	}
+	f, err := sc.Create("/home/staqio/.cache/JetBrains/RemoteDev/dist/abc_PhpStorm/uploaded")
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.Close()
+	if _, err := os.Stat(filepath.Join(dist, "uploaded")); err != nil {
+		t.Fatalf("upload landed elsewhere: %v", err)
+	}
+}

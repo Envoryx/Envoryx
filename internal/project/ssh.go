@@ -3,6 +3,7 @@ package project
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/seramos/staqio/internal/audit"
@@ -26,6 +27,10 @@ type ExecTarget struct {
 	HomeDir    string
 	// AppMount / HomeMount are the paths inside the container.
 	AppMount, HomeMount string
+	// Mounts maps every bind mount visible to the SSH user (container path → Staqio-side
+	// directory), including the shared JetBrains cache when Gateway is enabled, so SFTP
+	// shows the same tree as a shell in the container.
+	Mounts map[string]string
 	// ContainerName resolves on the project network (used for SSH port forwarding).
 	ContainerName string
 	// Gateway is true when port forwarding into the container is allowed.
@@ -97,6 +102,10 @@ func (m *Manager) ResolveSSHUser(ctx context.Context, user string) (ExecTarget, 
 			WorkingDir: appMountTarget, ProjectDir: planner.ProjectDir(p), HomeDir: planner.HomeDir(p),
 			AppMount: appMountTarget, HomeMount: homeMountTarget,
 			ContainerName: ContainerName(p.Slug, kind), Gateway: p.IDEGateway,
+		}
+		t.Mounts = map[string]string{t.AppMount: t.ProjectDir, t.HomeMount: t.HomeDir}
+		if p.IDEGateway {
+			t.Mounts[homeMountTarget+"/.cache/JetBrains"] = filepath.Join(paths.ConfigDir, jetbrainsCacheDir)
 		}
 		containers, err := m.engine.ListContainers(ctx, true, p.ID)
 		if err != nil {
