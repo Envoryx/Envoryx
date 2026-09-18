@@ -215,6 +215,8 @@ type updateSettingsRequest struct {
 	PublicHost *string `json:"publicHost"`
 	BaseDomain *string `json:"baseDomain"`
 	ForceHTTPS *bool   `json:"forceHttps"`
+	// XdebugClientHost is the developer machine Xdebug connects back to.
+	XdebugClientHost *string `json:"xdebugClientHost"`
 }
 
 func (a *API) updateSettings(w http.ResponseWriter, r *http.Request) {
@@ -242,6 +244,12 @@ func (a *API) updateSettings(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		a.invalidateProxy()
+	}
+	if req.XdebugClientHost != nil {
+		if err := a.d.Projects.SetXdebugClientHost(r.Context(), *req.XdebugClientHost); err != nil {
+			writeError(w, r, err)
+			return
+		}
 	}
 	if req.ForceHTTPS != nil {
 		if err := a.d.Projects.SetForceHTTPS(r.Context(), *req.ForceHTTPS); err != nil {
@@ -278,21 +286,22 @@ func (a *API) settings(w http.ResponseWriter, r *http.Request) {
 	c := a.d.Config
 	schema, _ := db.SchemaVersion(r.Context(), a.d.Store.DB())
 	writeJSON(w, http.StatusOK, map[string]any{
-		"publicHost":    a.publicHost(r.Context()),
-		"baseDomain":    a.d.Projects.BaseDomain(r.Context()),
-		"forceHttps":    a.d.Projects.ForceHTTPS(r.Context()),
-		"proxy":         a.proxyDTO(),
-		"version":       a.d.Version,
-		"schemaVersion": schema,
-		"configDir":     c.ConfigDir,
-		"projectsDir":   c.ProjectsDir,
-		"hostPath":      a.d.HostPath.Status(),
-		"portRange":     map[string]int{"start": c.PortRangeStart, "end": c.PortRangeEnd},
-		"puid":          c.PUID,
-		"pgid":          c.PGID,
-		"dockerHost":    c.DockerHost,
-		"session":       map[string]string{"idleTimeout": c.SessionIdleTimeout.String(), "absoluteTimeout": c.SessionAbsoluteTimeout.String()},
-		"secureCookies": c.SecureCookies,
+		"publicHost":       a.publicHost(r.Context()),
+		"baseDomain":       a.d.Projects.BaseDomain(r.Context()),
+		"forceHttps":       a.d.Projects.ForceHTTPS(r.Context()),
+		"xdebugClientHost": a.d.Projects.XdebugClientHost(r.Context()),
+		"proxy":            a.proxyDTO(),
+		"version":          a.d.Version,
+		"schemaVersion":    schema,
+		"configDir":        c.ConfigDir,
+		"projectsDir":      c.ProjectsDir,
+		"hostPath":         a.d.HostPath.Status(),
+		"portRange":        map[string]int{"start": c.PortRangeStart, "end": c.PortRangeEnd},
+		"puid":             c.PUID,
+		"pgid":             c.PGID,
+		"dockerHost":       c.DockerHost,
+		"session":          map[string]string{"idleTimeout": c.SessionIdleTimeout.String(), "absoluteTimeout": c.SessionAbsoluteTimeout.String()},
+		"secureCookies":    c.SecureCookies,
 	})
 }
 

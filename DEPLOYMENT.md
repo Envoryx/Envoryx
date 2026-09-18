@@ -306,6 +306,16 @@ per-backup download.
 For Staqio itself back up `/config` (SQLite database, generated configuration,
 deploy key, backups) and `/projects`.
 
+## Xdebug
+
+Runtime tab → PHP → **Xdebug**: enables step debugging for that project
+(port 9003, mode `debug,develop`, `start_with_request=yes`). Xdebug connects
+back to the machine that made the request – behind Staqio's proxy that
+address comes from `X-Forwarded-For` – and falls back to the *developer
+machine* set in Settings → Project links (or a per-project override). Map
+`/var/www/html` to your project folder in the IDE; the tab shows the exact
+PhpStorm/VS Code settings. Turn it off when you are done: it slows PHP down.
+
 ## Notifications
 
 Settings → **Notifications**: pick a channel (ntfy, Discord or Slack

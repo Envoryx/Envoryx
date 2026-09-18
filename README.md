@@ -23,7 +23,7 @@ Staqio is under active development. The current milestone (Phase 1 + 2) delivers
   in a one-shot container as the project owner, wired to the project database
 - project wizard: name, directory, document root, PHP version, php.ini settings
   and extensions (pdo_mysql, mysqli, pdo_pgsql, mongodb, gd, intl, zip, bcmath,
-  opcache, imagick), Caddy web server, environment variables, plan preview
+  opcache, imagick), Xdebug switch with IDE setup hints, Caddy web server, environment variables, plan preview
 - per-project Docker network, PHP-FPM container (Staqio image with Composer)
   and Caddy container
 - MariaDB, MySQL, PostgreSQL or MongoDB per project: persistent volume, generated

@@ -36,6 +36,8 @@ type Paths struct {
 	SelfContainerID string
 	// BaseDomain is the proxy base domain (for dev-server host allow-lists).
 	BaseDomain string
+	// XdebugClientHost is the global fallback debugger host (developer machine).
+	XdebugClientHost string
 }
 
 // FilePlan is a generated configuration file.
@@ -138,7 +140,7 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 				return Plan{}, err
 			}
 			plan.Files = append(plan.Files,
-				FilePlan{Path: filepath.Join(plan.ConfigDir, "php", "zz-staqio.ini"), Content: cfg.INI(svc.Version), Mode: 0o644},
+				FilePlan{Path: filepath.Join(plan.ConfigDir, "php", "zz-staqio.ini"), Content: cfg.INIWith(svc.Version, runtime.INIOptions{XdebugClientHost: p.paths.XdebugClientHost}), Mode: 0o644},
 				FilePlan{Path: filepath.Join(plan.ConfigDir, "php", "zz-staqio.conf"), Content: runtime.FPMPool(p.paths.PUID, p.paths.PGID), Mode: 0o644},
 			)
 			plan.Containers = append(plan.Containers, ContainerPlan{

@@ -61,17 +61,19 @@ function PasswordForm() {
   );
 }
 
-function PublicHostForm({ current }: { current: string }) {
+function PublicHostForm({ current, xdebugHost }: { current: string; xdebugHost: string }) {
   const update = useUpdateSettings();
   const [host, setHost] = useState(current);
+  const [xhost, setXhost] = useState(xdebugHost);
   const [msg, setMsg] = useState<{ tone: "green" | "red"; text: string } | null>(null);
   useEffect(() => setHost(current), [current]);
+  useEffect(() => setXhost(xdebugHost), [xdebugHost]);
 
   function submit(e: FormEvent) {
     e.preventDefault();
     setMsg(null);
     update.mutate(
-      { publicHost: host.trim() },
+      { publicHost: host.trim(), xdebugClientHost: xhost.trim() },
       {
         onSuccess: () => setMsg({ tone: "green", text: "Saved. Project links now use this host." }),
         onError: (err) => setMsg({ tone: "red", text: err instanceof ApiError ? err.message : "Saving failed" }),
@@ -82,7 +84,7 @@ function PublicHostForm({ current }: { current: string }) {
   return (
     <Card>
       <CardHeader
-        title="Project links"
+        title="Project links & developer machine"
         description="Project ports are published on the Docker host. If Staqio itself is reached under a different address (own container IP, reverse proxy), set the host that browsers should use for project links."
       />
       <form onSubmit={submit} className="space-y-4 p-5">
@@ -90,7 +92,10 @@ function PublicHostForm({ current }: { current: string }) {
         <Field label="Host for project links" htmlFor="public-host" hint={`Leave empty to use the browser address bar (currently ${window.location.hostname}). Host name or IP only, no port.`}>
           <Input id="public-host" value={host} onChange={(e) => setHost(e.target.value)} placeholder="192.168.1.10" spellCheck={false} />
         </Field>
-        <Button type="submit" variant="primary" loading={update.isPending} disabled={host.trim() === current} icon={<Save className="size-4" />}>
+        <Field label="Developer machine for Xdebug" htmlFor="xdebug-host" hint="Fallback IP/host Xdebug connects back to when the request does not reveal it. Projects can override it.">
+          <Input id="xdebug-host" value={xhost} onChange={(e) => setXhost(e.target.value)} placeholder="192.168.1.20" spellCheck={false} />
+        </Field>
+        <Button type="submit" variant="primary" loading={update.isPending} disabled={host.trim() === current && xhost.trim() === xdebugHost} icon={<Save className="size-4" />}>
           Save
         </Button>
       </form>
@@ -163,7 +168,7 @@ export function SettingsPage() {
 
       <DomainsCard />
 
-      {s.data && <PublicHostForm current={s.data.publicHost} />}
+      {s.data && <PublicHostForm current={s.data.publicHost} xdebugHost={s.data.xdebugClientHost ?? ""} />}
 
       <NotificationsCard />
 

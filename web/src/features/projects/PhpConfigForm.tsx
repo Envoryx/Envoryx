@@ -1,5 +1,5 @@
 import type { PHPConfig, PHPExtension } from "@/api/types";
-import { Checkbox, Field, Input, Select } from "@/components/ui";
+import { Checkbox, Code, Field, Input, Select } from "@/components/ui";
 
 const sizeOptions = ["64M", "128M", "256M", "512M", "1G", "2G", "-1"];
 
@@ -7,10 +7,16 @@ export function PhpConfigForm({
   value,
   onChange,
   extensions,
+  projectDir,
+  hostname,
 }: {
   value: PHPConfig;
   onChange: (next: PHPConfig) => void;
   extensions: PHPExtension[];
+  /** Host path of the project (for the IDE path-mapping hint). */
+  projectDir?: string | undefined;
+  /** Project host name (PhpStorm server name). */
+  hostname?: string | undefined;
 }) {
   const set = <K extends keyof PHPConfig>(key: K, v: PHPConfig[K]) => onChange({ ...value, [key]: v });
   const toggleExt = (name: string, on: boolean) => {
@@ -90,6 +96,39 @@ export function PhpConfigForm({
             );
           })}
         </div>
+      </div>
+
+      <div className="space-y-3 rounded-md border border-default p-4">
+        <Checkbox
+          label="Xdebug (step debugging)"
+          description="Breakpoints in PhpStorm / VS Code. Slows PHP down noticeably – enable only while debugging. Applies to the PHP container after saving."
+          checked={!!value.xdebug}
+          onChange={(e) => set("xdebug", e.target.checked)}
+        />
+        {value.xdebug && (
+          <>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="IDE key" htmlFor="php-idekey" hint="PHPSTORM (default) or e.g. VSCODE">
+                <Input id="php-idekey" value={value.xdebugIdeKey ?? "PHPSTORM"} onChange={(e) => set("xdebugIdeKey", e.target.value)} spellCheck={false} />
+              </Field>
+              <Field label="Debugger host (optional)" htmlFor="php-xhost" hint="Your machine's IP. Empty = detected from the request (X-Forwarded-For) or the global setting.">
+                <Input id="php-xhost" value={value.xdebugClientHost ?? ""} onChange={(e) => set("xdebugClientHost", e.target.value)} placeholder="192.168.1.20" spellCheck={false} />
+              </Field>
+            </div>
+            <details className="text-xs text-muted">
+              <summary className="cursor-pointer hover:text-fg">IDE setup</summary>
+              <ul className="mt-2 list-disc space-y-1 pl-4">
+                <li>
+                  <span className="font-medium text-fg">PhpStorm:</span> Settings → PHP → Debug: port <Code>9003</Code>, “Listen for PHP Debug Connections” on. Settings → PHP → Servers: name <Code>{hostname ?? "<project host>"}</Code>, host <Code>{hostname ?? "<project host>"}</Code>, “Use path mappings”: <Code>{projectDir ?? "<project folder>"}</Code> → <Code>/var/www/html</Code>.
+                </li>
+                <li>
+                  <span className="font-medium text-fg">VS Code</span> (PHP Debug extension), <Code>.vscode/launch.json</Code>: <Code>{`{"type":"php","request":"launch","name":"Staqio","port":9003,"pathMappings":{"/var/www/html":"\${workspaceFolder}"}}`}</Code>
+                </li>
+                <li>Firewall: port 9003 must be reachable on your machine. Xdebug connects back for every request while enabled.</li>
+              </ul>
+            </details>
+          </>
+        )}
       </div>
     </div>
   );

@@ -3,7 +3,7 @@ import { Trash2, Save, ExternalLink } from "lucide-react";
 import { lazy, Suspense, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ApiError } from "@/api/client";
-import { useDevServerLink, useProject, useProjectLinks, useProjectPlan, useProjectStats, useRuntimes, useUpdateProject } from "@/api/hooks";
+import { useDevServerLink, useProject, useProjectLinks, useProjectPlan, useProjectStats, useRuntimes, useSettings, useUpdateProject } from "@/api/hooks";
 import type { EnvVar, NodeConfig, PHPConfig, Project } from "@/api/types";
 import { NodeDevServerFields, devServerRequest, type DevServerForm } from "./NodeDevServerFields";
 import { Alert, Badge, Button, Card, CardHeader, Checkbox, Code, ErrorState, Field, Input, PageHeader, Select, Spinner, StatusDot } from "@/components/ui";
@@ -241,6 +241,9 @@ function PhpTab({ project: p }: { project: Project }) {
   const [config, setConfig] = useState<PHPConfig | null>((svc?.config as unknown as PHPConfig) ?? null);
   const [name, setName] = useState(p.name);
   const [docroot, setDocroot] = useState(p.docroot);
+  const settings = useSettings();
+  const projectsHost = settings.data?.hostPath ? (settings.data.hostPath.overrides[settings.data.projectsDir] ?? settings.data.hostPath.detected[settings.data.projectsDir]) : undefined;
+  const hostDir = projectsHost ? `${projectsHost}/${p.path}` : undefined;
 
   if (!svc || !config) {
     return <Alert tone="gray">This project has no PHP service.</Alert>;
@@ -291,7 +294,7 @@ function PhpTab({ project: p }: { project: Project }) {
             </Select>
           </Field>
         </div>
-        <PhpConfigForm value={config} onChange={setConfig} extensions={runtimes.data?.phpExtensions ?? []} />
+        <PhpConfigForm value={config} onChange={setConfig} extensions={runtimes.data?.phpExtensions ?? []} hostname={p.hostnames[0]} projectDir={hostDir} />
       </div>
     </Card>
   );

@@ -49,6 +49,9 @@ export interface PHPConfig {
   displayErrors: boolean;
   errorReporting: string;
   extensions: string[];
+  xdebug?: boolean;
+  xdebugIdeKey?: string;
+  xdebugClientHost?: string;
 }
 
 export interface ProjectService {
@@ -471,12 +474,14 @@ export interface NotifyInfo {
 
 export interface UpdateSettingsRequest {
   publicHost?: string;
+  xdebugClientHost?: string;
   baseDomain?: string;
   forceHttps?: boolean;
 }
 
 export interface Settings {
   publicHost: string;
+  xdebugClientHost?: string;
   baseDomain: string;
   forceHttps: boolean;
   proxy: ProxyInfo;

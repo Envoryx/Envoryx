@@ -77,6 +77,7 @@ func (m *Manager) planner() (*Planner, error) {
 		return nil, fmt.Errorf("%w: %v", ErrNotConfigured, err)
 	}
 	p.BaseDomain = m.BaseDomain(context.Background())
+	p.XdebugClientHost = m.XdebugClientHost(context.Background())
 	return NewPlanner(p, m.catalog), nil
 }
 

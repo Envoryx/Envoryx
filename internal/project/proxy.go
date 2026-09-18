@@ -32,6 +32,33 @@ func (m *Manager) BaseDomain(ctx context.Context) string {
 	return DefaultBaseDomain
 }
 
+// SettingXdebugClientHost is the settings key of the developer machine used by Xdebug.
+const SettingXdebugClientHost = "xdebug_client_host"
+
+// XdebugClientHost returns the global fallback host for Xdebug connections.
+func (m *Manager) XdebugClientHost(ctx context.Context) string {
+	v, err := m.store.Settings.Get(ctx, SettingXdebugClientHost)
+	if err != nil {
+		return ""
+	}
+	return v
+}
+
+// SetXdebugClientHost stores the developer machine host/IP ("" clears it).
+func (m *Manager) SetXdebugClientHost(ctx context.Context, host string) error {
+	host = strings.TrimSpace(host)
+	if host != "" {
+		if err := validate.Hostname(host); err != nil && net.ParseIP(host) == nil {
+			return fmt.Errorf("%w: host name or IP expected", validate.ErrInvalid)
+		}
+	}
+	if err := m.store.Settings.Set(ctx, SettingXdebugClientHost, host); err != nil {
+		return err
+	}
+	m.audit.Log(ctx, audit.ActionSettingsChanged, "settings", "", map[string]any{"xdebugClientHost": host})
+	return nil
+}
+
 // ForceHTTPS reports whether plain HTTP is redirected to HTTPS.
 func (m *Manager) ForceHTTPS(ctx context.Context) bool {
 	v, err := m.store.Settings.Get(ctx, SettingForceHTTPS)
