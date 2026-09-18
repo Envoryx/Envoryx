@@ -78,6 +78,7 @@ type projectDTO struct {
 	// DevHostname is set when the Node dev server is enabled (routed by the proxy).
 	DevHostname    string            `json:"devHostname,omitempty"`
 	BackupSchedule backupScheduleDTO `json:"backupSchedule"`
+	IDEGateway     bool              `json:"ideGateway"`
 }
 
 type gitDTO struct {
@@ -249,14 +250,15 @@ func (r createProjectRequest) toDomain() project.CreateRequest {
 }
 
 type updateProjectRequest struct {
-	Name     *string            `json:"name"`
-	Docroot  *string            `json:"docroot"`
-	PHP      *phpRequestDTO     `json:"php"`
-	Node     *nodeUpdateDTO     `json:"node"`
-	Database *databaseUpdateDTO `json:"database"`
-	Redis    *extraUpdateDTO    `json:"redis"`
-	Mailpit  *extraUpdateDTO    `json:"mailpit"`
-	Env      *[]envDTO          `json:"env"`
+	Name       *string            `json:"name"`
+	Docroot    *string            `json:"docroot"`
+	PHP        *phpRequestDTO     `json:"php"`
+	Node       *nodeUpdateDTO     `json:"node"`
+	Database   *databaseUpdateDTO `json:"database"`
+	Redis      *extraUpdateDTO    `json:"redis"`
+	Mailpit    *extraUpdateDTO    `json:"mailpit"`
+	Env        *[]envDTO          `json:"env"`
+	IDEGateway *bool              `json:"ideGateway"`
 }
 
 type deleteProjectRequest struct {
@@ -276,6 +278,7 @@ func (a *API) withHostnames(r *http.Request, dto projectDTO, p store.Project) pr
 		}
 	}
 	dto.BackupSchedule = toSchedule(p.Backup)
+	dto.IDEGateway = p.IDEGateway
 	if svc := p.Service(store.ServiceNode); svc != nil && svc.Enabled && len(svc.Config) > 0 {
 		var cfg runtime.NodeConfig
 		if json.Unmarshal(svc.Config, &cfg) == nil && cfg.DevServer {
@@ -350,6 +353,7 @@ func (a *API) updateProject(w http.ResponseWriter, r *http.Request) {
 	if req.PHP != nil {
 		upd.PHP = &project.PHPRequest{Version: req.PHP.Version, Config: req.PHP.Config}
 	}
+	upd.IDEGateway = req.IDEGateway
 	if req.Node != nil {
 		upd.Node = &project.NodeUpdate{Enabled: req.Node.Enabled, Version: req.Node.Version, Config: req.Node.config()}
 	}

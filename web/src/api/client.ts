@@ -161,6 +161,7 @@ export const api = {
       request<{ project: Project }>(`/projects/${encodeURIComponent(id)}`, { method: "PATCH", body }),
     remove: (id: string, confirm: string, deleteFiles: boolean) =>
       request<void>(`/projects/${encodeURIComponent(id)}`, { method: "DELETE", body: { confirm, deleteFiles } }),
+    stopIDEBackend: (id: string) => request<{ stopped: number }>(`/projects/${encodeURIComponent(id)}/ide/stop-backend`, { method: "POST" }),
     workers: {
       list: (id: string) => request<{ workers: Worker[]; presets: WorkerPreset[] }>(`/projects/${encodeURIComponent(id)}/workers`),
       add: (id: string, body: WorkerRequest) => request<{ worker: Worker }>(`/projects/${encodeURIComponent(id)}/workers`, { method: "POST", body }),

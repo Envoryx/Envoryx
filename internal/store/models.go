@@ -70,8 +70,11 @@ type Project struct {
 	LastError    string
 	Git          GitConfig
 	Backup       BackupSchedule
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	// IDEGateway allows JetBrains Gateway sessions: SSH port forwarding into the
+	// application containers and a shared IDE backend cache mount.
+	IDEGateway bool
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
 
 	Services []ProjectService
 	Env      []EnvVar

@@ -25,6 +25,7 @@ import (
 )
 
 type env struct {
+	manager *project.Manager
 	srv     *sshd.Server
 	engine  *dockertest.Fake
 	auth    *auth.Service
@@ -85,7 +86,7 @@ func newEnv(t *testing.T) *env {
 		}
 	}()
 	t.Cleanup(func() { _ = ln.Close() })
-	return &env{srv: srv, engine: engine, auth: sessions, st: st, token: token, projDir: projDir, cfgDir: cfgDir, proj: view, addr: ln.Addr().String()}
+	return &env{manager: manager, srv: srv, engine: engine, auth: sessions, st: st, token: token, projDir: projDir, cfgDir: cfgDir, proj: view, addr: ln.Addr().String()}
 }
 
 func (e *env) dial(t *testing.T, user string, authMethod ssh.AuthMethod) (*ssh.Client, error) {
@@ -246,5 +247,69 @@ func TestPublicKeyAuth(t *testing.T) {
 	// Node service missing → user "shop.node" is rejected.
 	if _, err := e.dial(t, "shop.node", ssh.PublicKeys(signer)); err == nil {
 		t.Fatal("missing node service must reject")
+	}
+}
+
+func TestPortForwardingRequiresGateway(t *testing.T) {
+	e := newEnv(t)
+	// A local echo server stands in for the IDE backend inside the container.
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ln.Close()
+	go func() {
+		for {
+			c, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			go func() {
+				_, _ = c.Write([]byte("backend:"))
+				buf := make([]byte, 16)
+				n, _ := c.Read(buf)
+				_, _ = c.Write(buf[:n])
+				c.Close()
+			}()
+		}
+	}()
+	var dialed string
+	e.srv.SetDialForTest(func(ctx context.Context, addr string) (net.Conn, error) {
+		dialed = addr
+		return net.Dial("tcp", ln.Addr().String())
+	})
+	client, err := e.dial(t, "shop", ssh.Password(e.token))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer client.Close()
+	if _, err := client.Dial("tcp", "localhost:5990"); err == nil || !strings.Contains(err.Error(), "Gateway") {
+		t.Fatalf("forwarding must be rejected while gateway is off: %v", err)
+	}
+	on := true
+	if _, err := e.manager.Update(context.Background(), e.proj.Project.ID, project.UpdateRequest{IDEGateway: &on}); err != nil {
+		t.Fatal(err)
+	}
+	// New target state is read per connection.
+	client2, err := e.dial(t, "shop", ssh.Password(e.token))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer client2.Close()
+	conn, err := client2.Dial("tcp", "localhost:5990")
+	if err != nil {
+		t.Fatalf("forward: %v", err)
+	}
+	_, _ = conn.Write([]byte("ping"))
+	buf := make([]byte, 32)
+	n, _ := conn.Read(buf)
+	if got := string(buf[:n]); !strings.HasPrefix(got, "backend:") {
+		t.Fatalf("forwarded data: %q", got)
+	}
+	if dialed != "staqio-shop-php:5990" {
+		t.Fatalf("dial target: %s", dialed)
+	}
+	if _, err := client2.Dial("tcp", "example.com:80"); err == nil {
+		t.Fatal("foreign hosts must be rejected")
 	}
 }

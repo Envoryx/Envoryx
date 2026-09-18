@@ -347,6 +347,19 @@ Remote-SSH works the same way (`ssh -p 2222 shop@<host>`).
 The project must be running for sessions to open. Commands are logged to
 the audit log (`ssh.exec`), failed logins are rate limited per IP.
 
+### JetBrains Gateway (optional)
+
+Gateway runs the complete IDE backend on the server and connects a thin
+client. In Staqio this is opt-in per project (IDE tab → *Allow JetBrains
+Gateway*): it enables SSH port forwarding into the container and mounts a
+shared backend cache (`/config/jetbrains`, ~1.5 GB per IDE version,
+downloaded once). The backend runs as the project owner inside the PHP
+(or Node, user `<slug>.node`) container and needs 2–4 GB RAM plus CPU while
+indexing – nothing runs until you connect. Gateway → *SSH → New connection*
+with the values from the IDE tab, choose PhpStorm/WebStorm, project
+directory `/var/www/html`. Close the project in Gateway or use *Stop IDE
+backend* to free the memory. Small NAS boxes: leave it off.
+
 ## Xdebug
 
 Runtime tab → PHP → **Xdebug**: enables step debugging for that project

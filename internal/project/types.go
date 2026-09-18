@@ -116,6 +116,8 @@ type UpdateRequest struct {
 	Redis    *ExtraUpdate
 	Mailpit  *ExtraUpdate
 	Env      *[]EnvVarRequest
+	// IDEGateway toggles JetBrains Gateway support (port forwarding + shared IDE cache).
+	IDEGateway *bool
 }
 
 // ExtraServiceInfo describes an auxiliary service for the UI.

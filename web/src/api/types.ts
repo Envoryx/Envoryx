@@ -92,6 +92,7 @@ export interface Project {
   /** Set when the Node dev server is enabled (routed by the proxy). */
   devHostname?: string;
   backupSchedule: BackupSchedule;
+  ideGateway?: boolean;
 }
 
 export interface RuntimeVersion {
@@ -256,6 +257,7 @@ export interface UpdateProjectRequest {
   redis?: ExtraUpdate;
   mailpit?: ExtraUpdate;
   env?: EnvVar[];
+  ideGateway?: boolean;
 }
 
 export interface PreviewContainer {

@@ -456,6 +456,12 @@ func (m *Manager) Update(ctx context.Context, id string, req UpdateRequest) (Vie
 		changes["env"] = len(env)
 	}
 	recreateApp := req.Env != nil
+	if req.IDEGateway != nil && *req.IDEGateway != proj.IDEGateway {
+		if err := m.store.Projects.SetIDEGateway(ctx, id, *req.IDEGateway); err != nil {
+			return View{}, err
+		}
+		changes["ideGateway"] = *req.IDEGateway
+	}
 	if req.Node != nil {
 		if err := m.applyNodeUpdate(ctx, proj, *req.Node, changes); err != nil {
 			return View{}, err

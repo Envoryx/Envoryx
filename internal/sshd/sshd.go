@@ -17,6 +17,7 @@ import (
 	"log/slog"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -52,6 +53,8 @@ type Server struct {
 	config  *ssh.ServerConfig
 	signer  ssh.Signer
 	limiter *failLimiter
+	// dial connects forwarded ports (overridden in tests).
+	dial func(ctx context.Context, addr string) (net.Conn, error)
 }
 
 // New loads or creates the host key and prepares the server configuration.
@@ -61,6 +64,9 @@ func New(d Deps) (*Server, error) {
 		return nil, err
 	}
 	s := &Server{d: d, signer: signer, limiter: newFailLimiter()}
+	s.dial = func(ctx context.Context, addr string) (net.Conn, error) {
+		return (&net.Dialer{Timeout: 5 * time.Second}).DialContext(ctx, "tcp", addr)
+	}
 	s.config = &ssh.ServerConfig{
 		MaxAuthTries:     4,
 		PasswordCallback: s.passwordAuth,
@@ -258,8 +264,12 @@ func (s *Server) handleConn(ctx context.Context, nc net.Conn) {
 	s.d.Audit.Log(actx, "ssh.login", "project", target.Project.ID, map[string]any{"name": target.Project.Name, "service": string(target.Kind)})
 
 	for ch := range chans {
+		if ch.ChannelType() == "direct-tcpip" {
+			go s.handleForward(actx, ch, target)
+			continue
+		}
 		if ch.ChannelType() != "session" {
-			_ = ch.Reject(ssh.UnknownChannelType, "only sessions are supported")
+			_ = ch.Reject(ssh.UnknownChannelType, "only sessions and port forwarding are supported")
 			continue
 		}
 		channel, requests, err := ch.Accept()
@@ -391,6 +401,69 @@ func sendExit(ch ssh.Channel, code int) {
 	buf := make([]byte, 4)
 	binary.BigEndian.PutUint32(buf, uint32(code))
 	_, _ = ch.SendRequest("exit-status", false, buf)
+}
+
+// handleForward serves a direct-tcpip channel (ssh -L / IDE tunnels). Forwarding is only
+// allowed for projects with JetBrains Gateway enabled and only to "localhost" ports of
+// the target container, which Staqio reaches over the project network.
+func (s *Server) handleForward(ctx context.Context, ch ssh.NewChannel, target project.ExecTarget) {
+	host, port, ok := parseForward(ch.ExtraData())
+	if !ok {
+		_ = ch.Reject(ssh.ConnectionFailed, "bad request")
+		return
+	}
+	if !target.Gateway {
+		_ = ch.Reject(ssh.Prohibited, "port forwarding is disabled for this project (enable JetBrains Gateway in the IDE tab)")
+		return
+	}
+	switch host {
+	case "", "localhost", "127.0.0.1", "::1":
+	default:
+		_ = ch.Reject(ssh.Prohibited, "only localhost ports of the project container can be forwarded")
+		return
+	}
+	if !target.Running {
+		_ = ch.Reject(ssh.ConnectionFailed, "project is not running")
+		return
+	}
+	conn, err := s.dial(ctx, net.JoinHostPort(target.ContainerName, strconv.Itoa(int(port))))
+	if err != nil {
+		_ = ch.Reject(ssh.ConnectionFailed, "connect: "+err.Error())
+		return
+	}
+	channel, reqs, err := ch.Accept()
+	if err != nil {
+		_ = conn.Close()
+		return
+	}
+	go ssh.DiscardRequests(reqs)
+	s.d.Audit.Log(ctx, "ssh.forward", "project", target.Project.ID, map[string]any{"name": target.Project.Name, "port": port})
+	done := make(chan struct{}, 2)
+	go func() {
+		_, _ = io.Copy(conn, channel)
+		if tc, ok := conn.(*net.TCPConn); ok {
+			_ = tc.CloseWrite()
+		}
+		done <- struct{}{}
+	}()
+	go func() { _, _ = io.Copy(channel, conn); _ = channel.CloseWrite(); done <- struct{}{} }()
+	<-done
+	<-done
+	_ = channel.Close()
+	_ = conn.Close()
+}
+
+func parseForward(b []byte) (host string, port uint32, ok bool) {
+	host = parseString(b)
+	off := 4 + len(host)
+	if len(b) < off+4 {
+		return "", 0, false
+	}
+	port = binary.BigEndian.Uint32(b[off:])
+	if port == 0 || port > 65535 {
+		return "", 0, false
+	}
+	return host, port, true
 }
 
 // ---- Payload parsing --------------------------------------------------------------------

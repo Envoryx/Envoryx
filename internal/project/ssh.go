@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/seramos/staqio/internal/audit"
 	"github.com/seramos/staqio/internal/store"
 	"github.com/seramos/staqio/internal/validate"
 )
@@ -25,6 +26,42 @@ type ExecTarget struct {
 	HomeDir    string
 	// AppMount / HomeMount are the paths inside the container.
 	AppMount, HomeMount string
+	// ContainerName resolves on the project network (used for SSH port forwarding).
+	ContainerName string
+	// Gateway is true when port forwarding into the container is allowed.
+	Gateway bool
+}
+
+// StopIDEBackend kills JetBrains IDE backend processes (started by Gateway) in the
+// project's application containers. It runs pkill as the project owner, so only the
+// project's own processes are affected.
+func (m *Manager) StopIDEBackend(ctx context.Context, id string) (int, error) {
+	if err := validate.UUID(id); err != nil {
+		return 0, ErrNotFound
+	}
+	p, err := m.loadProject(ctx, id)
+	if err != nil {
+		return 0, err
+	}
+	containers, err := m.engine.ListContainers(ctx, true, p.ID)
+	if err != nil {
+		return 0, err
+	}
+	stopped := 0
+	for _, c := range containers {
+		if c.State != "running" || (c.Service() != string(store.ServicePHP) && c.Service() != string(store.ServiceNode)) {
+			continue
+		}
+		res, err := m.engine.Exec(ctx, c.ID, []string{"pkill", "-f", "/.cache/JetBrains/"}, []string{"HOME=" + homeMountTarget})
+		if err != nil {
+			return stopped, err
+		}
+		if res.ExitCode == 0 {
+			stopped++
+		}
+	}
+	m.audit.Log(ctx, audit.ActionProjectUpdated, "project", id, map[string]any{"name": p.Name, "changes": map[string]any{"ideBackendStopped": stopped}})
+	return stopped, nil
 }
 
 // ResolveSSHUser maps an SSH user name to a project and application container:
@@ -59,6 +96,7 @@ func (m *Manager) ResolveSSHUser(ctx context.Context, user string) (ExecTarget, 
 			Env:        append([]string{"LANG=C.UTF-8", "TERM=xterm-256color"}, toolEnv...),
 			WorkingDir: appMountTarget, ProjectDir: planner.ProjectDir(p), HomeDir: planner.HomeDir(p),
 			AppMount: appMountTarget, HomeMount: homeMountTarget,
+			ContainerName: ContainerName(p.Slug, kind), Gateway: p.IDEGateway,
 		}
 		containers, err := m.engine.ListContainers(ctx, true, p.ID)
 		if err != nil {

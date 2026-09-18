@@ -1,8 +1,11 @@
-import { Bug, Database, KeyRound, Mail, TerminalSquare } from "lucide-react";
+import { Bug, Database, KeyRound, Mail, MonitorSmartphone, TerminalSquare } from "lucide-react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
-import { useDatabaseInfo, useExtraServices, useSettings } from "@/api/hooks";
+import { useMutation } from "@tanstack/react-query";
+import { api, ApiError } from "@/api/client";
+import { useDatabaseInfo, useExtraServices, useSettings, useUpdateProject } from "@/api/hooks";
 import type { PHPConfig, Project } from "@/api/types";
-import { Alert, Card, CardHeader, Code } from "@/components/ui";
+import { Alert, Button, Card, CardHeader, Checkbox, Code } from "@/components/ui";
 import { CopyButton, CopyRow } from "./DatabaseTab";
 
 /** Everything an IDE needs, ready to copy: Xdebug server, SSH interpreter, database, mail. */
@@ -21,6 +24,13 @@ export function IdeTab({ project: p }: { project: Project }) {
   const ssh = s?.ssh;
   const sshHost = s?.proxy?.address || host;
   const mailpit = extras.data?.find((e) => e.kind === "mailpit");
+  const update = useUpdateProject(p.id);
+  const [gwMsg, setGwMsg] = useState<{ tone: "green" | "red"; text: string } | null>(null);
+  const stopBackend = useMutation({
+    mutationFn: () => api.projects.stopIDEBackend(p.id),
+    onSuccess: (r) => setGwMsg({ tone: "green", text: r.stopped > 0 ? "IDE backend stopped." : "No IDE backend was running." }),
+    onError: (err) => setGwMsg({ tone: "red", text: err instanceof ApiError ? err.message : "Request failed" }),
+  });
 
   const phpXml = `<?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
@@ -76,6 +86,43 @@ export function IdeTab({ project: p }: { project: Project }) {
           <p className="mt-3 text-xs text-subtle">
             Authentication: an <Link to="/settings" className="underline">API token</Link> as password, or your public key under Settings → SSH access. Sessions run as the project owner inside <Code>staqio-{p.slug}-php</Code>; the project must be running.
           </p>
+        </div>
+      </Card>
+
+      <Card>
+        <CardHeader
+          title={
+            <span className="flex items-center gap-2">
+              <MonitorSmartphone className="size-4 text-accent-500" aria-hidden /> JetBrains Gateway (optional)
+            </span>
+          }
+          description="Run the full PhpStorm/WebStorm backend inside the project container and work with the thin client. Needs a capable server: 2–4 GB RAM and CPU per open project. Nothing runs until you connect."
+        />
+        <div className="space-y-3 p-5">
+          {gwMsg && <Alert tone={gwMsg.tone}>{gwMsg.text}</Alert>}
+          <Checkbox
+            label="Allow JetBrains Gateway for this project"
+            description="Enables SSH port forwarding into the container and mounts a shared IDE backend cache (/config/jetbrains, downloaded once for all projects). Recreates the PHP/Node container."
+            checked={!!p.ideGateway}
+            disabled={update.isPending}
+            onChange={(e) => {
+              setGwMsg(null);
+              update.mutate({ ideGateway: e.target.checked }, { onError: (err) => setGwMsg({ tone: "red", text: err instanceof ApiError ? err.message : "Saving failed" }) });
+            }}
+          />
+          {p.ideGateway && ssh?.enabled && ssh.port > 0 && (
+            <>
+              <ol className="list-decimal space-y-1 pl-5 text-sm text-muted">
+                <li>Gateway → <span className="text-fg">SSH → New connection</span>: host <Code>{sshHost}</Code>, port <Code>{ssh.port}</Code>, user <Code>{p.slug}</Code>, password = API token (or key).</li>
+                <li>IDE: PhpStorm (or WebStorm with user <Code>{p.slug}.node</Code>); project directory <Code>/var/www/html</Code>.</li>
+                <li>Gateway installs the backend into <Code>/home/staqio/.cache/JetBrains</Code> (shared cache) and opens the thin client.</li>
+              </ol>
+              <p className="text-xs text-subtle">Close the project in Gateway when you are done, or stop the backend here to free memory on the server.</p>
+              <Button size="sm" onClick={() => { setGwMsg(null); stopBackend.mutate(); }} loading={stopBackend.isPending}>
+                Stop IDE backend
+              </Button>
+            </>
+          )}
         </div>
       </Card>
 

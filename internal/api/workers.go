@@ -84,3 +84,12 @@ func (a *API) removeWorker(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
+
+func (a *API) stopIDEBackend(w http.ResponseWriter, r *http.Request) {
+	n, err := a.d.Projects.StopIDEBackend(r.Context(), r.PathValue("id"))
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"stopped": n})
+}

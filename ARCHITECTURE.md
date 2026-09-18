@@ -538,6 +538,12 @@ home (`/config/projects/<id>/home`) mounted into php/node/worker containers;
 tool caches and IDE helpers live there. Container specs now carry a
 `staqio.spec` fingerprint label (command, mounts, ports, …) so `ensurePlan`
 recreates containers whose structure changed (e.g. the new home mount).
+`direct-tcpip` channels (IDE tunnels) are accepted only for projects with
+`ide_gateway` set (migration 0006) and only to localhost ports, dialled as
+`staqio-<slug>-<kind>:<port>` over the project network; the flag also
+mounts `/config/jetbrains` at `~/.cache/JetBrains` so Gateway backends are
+shared across projects. `StopIDEBackend` runs `pkill -f /.cache/JetBrains/`
+as the project user.
 
 ### Workers
 `project_workers` (migration 0005: name, preset, args, enabled) hold

@@ -41,7 +41,8 @@ RUN set -eux; \
     for ext in ${STAQIO_PHP_EXTENSIONS}; do rm -f "/usr/local/etc/php/conf.d/docker-php-ext-${ext}.ini"; done; \
     # Tools used by project actions (Phase 5).
     apt-get update; \
-    apt-get install -y --no-install-recommends git unzip openssh-client; \
+    # git/unzip/ssh for actions; procps + X libs let JetBrains Gateway run its IDE backend here.
+    apt-get install -y --no-install-recommends git unzip openssh-client procps libfreetype6 fontconfig libxi6 libxrender1 libxtst6 libxext6; \
     rm -rf /var/lib/apt/lists/*; \
     php -m
 

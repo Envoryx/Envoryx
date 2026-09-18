@@ -88,6 +88,18 @@ const (
 // toolEnv are the variables that point tools at the persistent home.
 var toolEnv = []string{"HOME=" + homeMountTarget, "COMPOSER_HOME=" + homeMountTarget + "/.composer", "npm_config_cache=" + homeMountTarget + "/.npm", "COMPOSER_NO_INTERACTION=1"}
 
+// jetbrainsCacheDir is the shared, host-wide cache for JetBrains Gateway IDE backends
+// (~1.5 GB per IDE version) so it is downloaded once for all projects.
+const jetbrainsCacheDir = "jetbrains"
+
+// gatewayMounts returns the extra mounts for JetBrains Gateway sessions.
+func (p *Planner) gatewayMounts(proj store.Project) []docker.MountSpec {
+	if !proj.IDEGateway {
+		return nil
+	}
+	return []docker.MountSpec{{Type: "bind", Source: filepath.Join(p.paths.ConfigHostDir, jetbrainsCacheDir), Target: homeMountTarget + "/.cache/JetBrains"}}
+}
+
 // HomeMount is the bind mount of the project home for application containers.
 func (p *Planner) HomeMount(proj store.Project) docker.MountSpec {
 	return docker.MountSpec{Type: "bind", Source: filepath.Join(p.configHostDir(proj.ID), homeDirName), Target: homeMountTarget}
@@ -150,6 +162,9 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 	appHost := p.projectHostDir(proj)
 	cfgHost := p.configHostDir(proj.ID)
 	plan.Dirs = append(plan.Dirs, DirPlan{Path: p.HomeDir(proj), UID: p.paths.PUID, GID: p.paths.PGID})
+	if proj.IDEGateway {
+		plan.Dirs = append(plan.Dirs, DirPlan{Path: filepath.Join(p.paths.ConfigDir, jetbrainsCacheDir), UID: p.paths.PUID, GID: p.paths.PGID})
+	}
 	env, err := envStrings(proj)
 	if err != nil {
 		return Plan{}, err
@@ -185,12 +200,12 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 					WorkingDir:   appMountTarget,
 					Network:      plan.NetworkName,
 					NetworkAlias: []string{"php"},
-					Mounts: []docker.MountSpec{
+					Mounts: append([]docker.MountSpec{
 						{Type: "bind", Source: appHost, Target: appMountTarget},
 						{Type: "bind", Source: filepath.Join(cfgHost, "php", "zz-staqio.ini"), Target: phpIniTarget, ReadOnly: true},
 						{Type: "bind", Source: filepath.Join(cfgHost, "php", "zz-staqio.conf"), Target: phpPoolTarget, ReadOnly: true},
 						p.HomeMount(proj),
-					},
+					}, p.gatewayMounts(proj)...),
 					RestartPolicy: "unless-stopped",
 					StopTimeout:   stopTimeoutSec,
 				},
@@ -241,7 +256,7 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 				WorkingDir:    appMountTarget,
 				Network:       plan.NetworkName,
 				NetworkAlias:  []string{"node"},
-				Mounts:        []docker.MountSpec{{Type: "bind", Source: appHost, Target: appMountTarget}, p.HomeMount(proj)},
+				Mounts:        append([]docker.MountSpec{{Type: "bind", Source: appHost, Target: appMountTarget}, p.HomeMount(proj)}, p.gatewayMounts(proj)...),
 				RestartPolicy: "unless-stopped",
 				StopTimeout:   5,
 			}
