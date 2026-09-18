@@ -146,6 +146,7 @@ Browser ──▶ Envoryx (Go API + React UI) ──▶ Docker Engine
 | [SECURITY.md](SECURITY.md) | threat model, Docker socket, hardening |
 | [DEPLOYMENT.md](DEPLOYMENT.md) | Docker / Unraid deployment, configuration |
 | [DEVELOPMENT.md](DEVELOPMENT.md) | building, running and testing locally |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | how to contribute, Contributor License Agreement |
 
 ## License
 
@@ -157,3 +158,7 @@ service, you must publish your changes under the same license.
 Copyright (c) 2026 Stefan Mertens
 
 The projects you run *inside* Envoryx are not affected by this license.
+
+Contributions require a one-time signature of the
+[Contributor License Agreement](CLA.md) – see
+[CONTRIBUTING.md](CONTRIBUTING.md).
