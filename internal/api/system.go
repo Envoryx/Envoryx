@@ -112,6 +112,7 @@ func (a *API) dashboard(w http.ResponseWriter, r *http.Request) {
 func (a *API) runtimes(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"runtimes":      a.d.Catalog.All(),
+		"templates":     project.Templates(),
 		"phpExtensions": runtime.PHPExtensions(),
 		"phpDefaults":   runtime.DefaultPHPConfig(),
 	})

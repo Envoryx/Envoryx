@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -95,6 +96,33 @@ func (m *Manager) buildProject(req CreateRequest) (store.Project, error) {
 	relPath, err := validate.RelativePath(relPath, 3)
 	if err != nil {
 		return store.Project{}, err
+	}
+	// Templates bring their own document root and PHP extensions.
+	if req.Template != "" {
+		tpl, ok := TemplateByID(req.Template)
+		if !ok {
+			return store.Project{}, fmt.Errorf("%w: unknown template %q", validate.ErrInvalid, req.Template)
+		}
+		if req.PHP == nil {
+			return store.Project{}, fmt.Errorf("%w: template %s needs PHP", validate.ErrInvalid, tpl.ID)
+		}
+		if tpl.RequiresDatabase && req.Database == nil {
+			return store.Project{}, fmt.Errorf("%w: template %s needs a database", validate.ErrInvalid, tpl.ID)
+		}
+		if req.Git != nil && req.Git.URL != "" {
+			return store.Project{}, fmt.Errorf("%w: choose either a template or a repository", validate.ErrInvalid)
+		}
+		if strings.TrimSpace(req.Docroot) == "" {
+			req.Docroot = tpl.Docroot
+		}
+		if req.PHP.Config.Extensions == nil {
+			req.PHP.Config.Extensions = runtime.DefaultPHPConfig().Extensions
+		}
+		for _, ext := range tpl.PHPExtensions {
+			if !slices.Contains(req.PHP.Config.Extensions, ext) {
+				req.PHP.Config.Extensions = append(req.PHP.Config.Extensions, ext)
+			}
+		}
 	}
 	docroot, err := validate.OptionalRelativePath(req.Docroot, 4)
 	if err != nil {
@@ -623,7 +651,11 @@ $project = getenv('STAQIO_PROJECT') ?: 'project';
 
 // ensureProjectDir creates the project directory (and document root) if missing and
 // optionally writes a starter page when the document root is empty.
-func (m *Manager) ensureProjectDir(planner *Planner, proj store.Project, starter bool) error {
+//
+// scaffold is true when a repository clone or template fills the directory afterwards:
+// the document root is then not pre-created (it must stay empty) and no starter page is
+// written.
+func (m *Manager) ensureProjectDir(planner *Planner, proj store.Project, starter, scaffold bool) error {
 	root := planner.paths.ProjectsDir
 	dir, err := validate.ResolveUnder(root, proj.Path)
 	if err != nil {
@@ -650,9 +682,9 @@ func (m *Manager) ensureProjectDir(planner *Planner, proj store.Project, starter
 		if err != nil {
 			return err
 		}
-		// A repository brings its own document root; creating it would make the directory
-		// non-empty and block the clone.
-		if proj.Git.URL == "" {
+		// A repository/template brings its own document root; creating it would make the
+		// directory non-empty and block the clone.
+		if !scaffold {
 			if err := os.MkdirAll(docroot, 0o755); err != nil {
 				return fmt.Errorf("create document root: %w", err)
 			}

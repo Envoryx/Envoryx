@@ -518,6 +518,17 @@ inbox on an allocated host port, `MAIL_*`/`MAILER_DSN` injected) are
 auxiliary services with a small `{hostPort}` config; env changes recreate the
 application containers while stateful services keep running.
 
+### Templates
+`project.Templates()` is a closed list (Laravel, Symfony, WordPress). A
+template is a sequence of argv steps run in transient containers from the
+project's PHP image as PUID:PGID with the project directory mounted
+(`RunOneShot`, label `staqio.service=template`, default bridge network for
+composer downloads) plus files Staqio writes afterwards (WordPress
+`wp-config.php` reading the injected `DB_*` variables, random salts). The
+directory must be empty (like a clone); templates set the document root and
+add required PHP extensions (`mysqli` for WordPress) and may require a
+database. A failing step rolls the whole creation back.
+
 ### Phase 4 + 8 – Domains, embedded proxy, HTTPS (implemented)
 The proxy lives in the Staqio binary (`internal/proxy`): two listeners
 (`STAQIO_PROXY_HTTP` `:80`, `STAQIO_PROXY_HTTPS` `:443`) in front of an

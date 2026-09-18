@@ -158,13 +158,27 @@ type runtimeOut struct {
 	Description string   `json:"description,omitempty"`
 }
 
+type templateOut struct {
+	ID                  string `json:"id"`
+	Name                string `json:"name"`
+	Description         string `json:"description"`
+	Docroot             string `json:"docroot,omitempty"`
+	RequiresDatabase    bool   `json:"requiresDatabase"`
+	RecommendedDatabase string `json:"recommendedDatabase,omitempty"`
+	Notes               string `json:"notes,omitempty"`
+}
+
 type listRuntimesOut struct {
-	Runtimes      []runtimeOut `json:"runtimes"`
-	PHPExtensions []string     `json:"phpExtensions"`
+	Runtimes      []runtimeOut  `json:"runtimes"`
+	PHPExtensions []string      `json:"phpExtensions"`
+	Templates     []templateOut `json:"templates"`
 }
 
 func (s *Server) listRuntimes(_ context.Context, _ *mcp.CallToolRequest, _ listProjectsIn) (*mcp.CallToolResult, listRuntimesOut, error) {
-	out := listRuntimesOut{Runtimes: []runtimeOut{}, PHPExtensions: []string{}}
+	out := listRuntimesOut{Runtimes: []runtimeOut{}, PHPExtensions: []string{}, Templates: []templateOut{}}
+	for _, t := range project.Templates() {
+		out.Templates = append(out.Templates, templateOut{ID: t.ID, Name: t.Name, Description: t.Description, Docroot: t.Docroot, RequiresDatabase: t.RequiresDatabase, RecommendedDatabase: t.RecommendedDatabase, Notes: t.Notes})
+	}
 	for _, r := range s.d.Catalog.All() {
 		if !r.Available {
 			continue
@@ -196,6 +210,7 @@ func (s *Server) listRuntimes(_ context.Context, _ *mcp.CallToolRequest, _ listP
 
 type createProjectIn struct {
 	Name          string            `json:"name" jsonschema:"Display name, e.g. \"Shop API\". The slug and directory are derived from it."`
+	Template      string            `json:"template,omitempty" jsonschema:"Scaffold an application: laravel, symfony or wordpress (see list_runtimes for details). Cannot be combined with gitUrl."`
 	PHPVersion    string            `json:"phpVersion,omitempty" jsonschema:"PHP version such as 8.4 (default: the catalogue default). Use \"none\" for a project without PHP."`
 	PHPExtensions []string          `json:"phpExtensions,omitempty" jsonschema:"PHP extensions to enable (keys from list_runtimes). Default: bcmath, gd, intl, opcache, pdo_mysql, zip."`
 	Database      string            `json:"database,omitempty" jsonschema:"Database engine: mariadb, mysql or postgresql. Omit for no database."`
@@ -212,7 +227,7 @@ type createProjectIn struct {
 }
 
 func (s *Server) createProject(ctx context.Context, _ *mcp.CallToolRequest, in createProjectIn) (*mcp.CallToolResult, projectOut, error) {
-	req := project.CreateRequest{Name: strings.TrimSpace(in.Name), Docroot: strings.TrimSpace(in.Docroot), CreateStarter: true, Start: true}
+	req := project.CreateRequest{Name: strings.TrimSpace(in.Name), Docroot: strings.TrimSpace(in.Docroot), Template: strings.ToLower(strings.TrimSpace(in.Template)), CreateStarter: true, Start: true}
 	if in.Start != nil {
 		req.Start = *in.Start
 	}

@@ -113,10 +113,22 @@ export interface PHPExtension {
   available: boolean;
 }
 
+export interface ProjectTemplate {
+  id: string;
+  name: string;
+  description: string;
+  docroot: string;
+  requiresDatabase: boolean;
+  recommendedDatabase?: string;
+  phpExtensions?: string[];
+  notes?: string;
+}
+
 export interface RuntimesResponse {
   runtimes: Runtime[];
   phpExtensions: PHPExtension[];
   phpDefaults: PHPConfig;
+  templates?: ProjectTemplate[];
 }
 
 export interface DatabaseRequest {
@@ -224,6 +236,7 @@ export interface CreateProjectRequest {
   git?: GitRequest | null;
   web?: { type: string; version: string };
   env?: EnvVar[];
+  template?: string;
   createStarter?: boolean;
   start?: boolean;
 }

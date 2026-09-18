@@ -19,6 +19,8 @@ Staqio is under active development. The current milestone (Phase 1 + 2) delivers
 - single-container deployment with embedded web UI (Go + React)
 - local admin account, secure sessions, audit log
 - Docker engine integration that only ever touches resources labelled `staqio.managed=true`
+- project templates: Laravel, Symfony (skeleton + webapp), WordPress – scaffolded
+  in a one-shot container as the project owner, wired to the project database
 - project wizard: name, directory, document root, PHP version, php.ini settings
   and extensions (pdo_mysql, mysqli, pdo_pgsql, gd, intl, zip, bcmath, opcache,
   imagick), Caddy web server, environment variables, plan preview

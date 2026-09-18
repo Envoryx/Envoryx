@@ -82,6 +82,27 @@ describe("NewProjectPage wizard", () => {
     expect(create?.body).toMatchObject({ name: "Shimly API", start: true, createStarter: true });
   });
 
+  it("selecting a template presets docroot and database and disables git", async () => {
+    let previewBody: Record<string, unknown> | undefined;
+    mockApi({
+      ...authedRoutes,
+      "GET /runtimes": () => ({ body: runtimesFixture }),
+      "POST /projects/preview": (_u, init) => {
+        previewBody = JSON.parse(init.body as string);
+        return { body: { preview: { slug: "blog", path: "/projects/blog", hostPath: "/x", httpPort: 20000, network: "n", containers: [], volumes: [], images: [], warnings: [] } } };
+      },
+    });
+    renderApp(<NewProjectPage />, { route: "/projects/new" });
+    const user = userEvent.setup();
+    await user.type(await screen.findByLabelText("Project name"), "Blog");
+    await user.click(screen.getByRole("radio", { name: /WordPress/ }));
+    expect(screen.getByLabelText("Document root")).toHaveValue("");
+    expect(screen.getByLabelText("Repository URL")).toBeDisabled();
+    for (let i = 0; i < 5; i++) await user.click(screen.getByRole("button", { name: "Continue" }));
+    await screen.findByText(/Scaffolding runs while the project is created/);
+    expect(previewBody).toMatchObject({ template: "wordpress", docroot: "", database: { type: "mariadb" } });
+  });
+
   it("shows validation errors from the preview", async () => {
     mockApi({
       ...authedRoutes,

@@ -33,6 +33,8 @@ type CreateRequest struct {
 	Web      WebRequest
 	Git      *GitRequest
 	Env      []EnvVarRequest
+	// Template scaffolds an application into the new directory (see Templates()).
+	Template string
 	// CreateStarter writes a starter index.php when the document root is empty.
 	CreateStarter bool
 	// Start starts the project right after creation.

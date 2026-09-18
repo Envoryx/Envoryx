@@ -79,6 +79,10 @@ export function makeProject(overrides: Partial<Project> = {}): Project {
 }
 
 export const runtimesFixture: RuntimesResponse = {
+  templates: [
+    { id: "laravel", name: "Laravel", description: "composer create-project laravel/laravel", docroot: "public", requiresDatabase: false, recommendedDatabase: "mariadb" },
+    { id: "wordpress", name: "WordPress", description: "Latest WordPress", docroot: "", requiresDatabase: true, recommendedDatabase: "mariadb", phpExtensions: ["mysqli"] },
+  ],
   runtimes: [
     { key: "php", name: "PHP", kind: "runtime", available: true, description: "", versions: [{ version: "8.4", image: "ghcr.io/seramos/staqio-php:8.4", label: "PHP 8.4", default: true }, { version: "8.3", image: "ghcr.io/seramos/staqio-php:8.3", label: "PHP 8.3" }] },
     { key: "caddy", name: "Caddy", kind: "webserver", available: true, description: "", versions: [{ version: "2", image: "caddy:2-alpine", label: "Caddy 2", default: true }] },

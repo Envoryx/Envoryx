@@ -39,6 +39,7 @@ interface Form {
   redisVersion: string;
   redisExpose: boolean;
   mailpit: boolean;
+  template: string; // "" = blank
   gitUrl: string;
   gitBranch: string;
   gitUsername: string;
@@ -84,6 +85,7 @@ export function NewProjectPage() {
         redisVersion: runtimes.data.runtimes.find((r) => r.key === "redis")?.versions.find((v) => v.default)?.version ?? "",
         redisExpose: false,
         mailpit: false,
+        template: "",
         gitUrl: "",
         gitBranch: "",
         gitUsername: "",
@@ -111,7 +113,8 @@ export function NewProjectPage() {
     if (form.dbType) req.database = { type: form.dbType, version: form.dbVersion, exposePort: form.dbExpose };
     if (form.redis) req.redis = { version: form.redisVersion, exposePort: form.redisExpose };
     if (form.mailpit) req.mailpit = {};
-    if (form.gitUrl.trim()) {
+    if (form.template) req.template = form.template;
+    if (form.gitUrl.trim() && !form.template) {
       const git: NonNullable<CreateProjectRequest["git"]> = { url: form.gitUrl.trim(), branch: form.gitBranch.trim(), username: form.gitUsername.trim() };
       if (form.gitToken) git.token = form.gitToken;
       req.git = git;
@@ -198,13 +201,46 @@ export function NewProjectPage() {
                   <Input id="path" value={form.pathTouched ? form.path : slugify(form.name)} onChange={(e) => set({ path: e.target.value, pathTouched: true })} placeholder="shimly-api" spellCheck={false} />
                 </div>
               </Field>
+              <fieldset className="space-y-2">
+                <legend className="text-sm font-medium text-fg">Start from</legend>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {[{ id: "", name: "Blank", description: "Empty directory with a starter page, or clone a repository below." }, ...(rt.templates ?? [])].map((t) => (
+                    <label key={t.id} className={clsx("flex cursor-pointer gap-3 rounded-md border p-3 text-sm", form.template === t.id ? "border-accent-500 bg-accent-500/5" : "border-default hover:bg-muted")}>
+                      <input
+                        type="radio"
+                        name="template"
+                        className="mt-0.5 accent-accent-600"
+                        checked={form.template === t.id}
+                        onChange={() => {
+                          const tpl = rt.templates?.find((x) => x.id === t.id);
+                          set({
+                            template: t.id,
+                            docroot: tpl ? tpl.docroot : form.docroot,
+                            phpEnabled: tpl ? true : form.phpEnabled,
+                            dbType: tpl?.recommendedDatabase && !form.dbType ? tpl.recommendedDatabase : form.dbType,
+                            dbVersion: tpl?.recommendedDatabase && !form.dbType ? (rt.runtimes.find((r) => r.key === tpl.recommendedDatabase)?.versions.find((v) => v.default)?.version ?? "") : form.dbVersion,
+                            gitUrl: tpl ? "" : form.gitUrl,
+                          });
+                        }}
+                      />
+                      <span>
+                        <span className="block font-medium">{t.name}</span>
+                        <span className="block text-xs text-muted">{t.description}</span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+                {form.template && rt.templates?.find((t) => t.id === form.template)?.requiresDatabase && !form.dbType && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400">This template needs a database – it is preselected in the “Database &amp; services” step.</p>
+                )}
+              </fieldset>
               <Field label="Document root" htmlFor="docroot" hint='Subfolder served by the web server, e.g. "public" for Laravel/Symfony. Leave empty for the project root.'>
                 <Input id="docroot" value={form.docroot} onChange={(e) => set({ docroot: e.target.value })} placeholder="public" spellCheck={false} />
               </Field>
-              <div className="space-y-4 rounded-md border border-default p-4">
-                <p className="text-sm font-medium text-fg">Git repository (optional)</p>
+              <div className={clsx("space-y-4 rounded-md border border-default p-4", form.template && "opacity-50")}>
+                <p className="text-sm font-medium text-fg">Git repository (optional{form.template ? " – not with a template" : ""})</p>
                 <Field label="Repository URL" htmlFor="git-url" hint="Cloned into the empty project directory. https://…, git@host:path.git or ssh://…">
-                  <Input id="git-url" value={form.gitUrl} onChange={(e) => set({ gitUrl: e.target.value })} placeholder="https://github.com/you/project.git" spellCheck={false} />
+                  <Input id="git-url" value={form.gitUrl} onChange={(e) => set({ gitUrl: e.target.value })} placeholder="https://github.com/you/project.git" spellCheck={false} disabled={!!form.template} />
                 </Field>
                 {form.gitUrl.trim() && (
                   <div className="grid gap-4 sm:grid-cols-3">
@@ -402,6 +438,15 @@ export function NewProjectPage() {
                   <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-[10rem_1fr]">
                     <dt className="text-muted">Identifier</dt>
                     <dd className="font-mono text-xs">{preview.slug}</dd>
+                    {form.template && (
+                      <>
+                        <dt className="text-muted">Template</dt>
+                        <dd className="text-xs">
+                          {rt.templates?.find((t) => t.id === form.template)?.name}
+                          <span className="block text-subtle">Scaffolding runs while the project is created (composer/download – this can take a few minutes).</span>
+                        </dd>
+                      </>
+                    )}
                     <dt className="text-muted">Files</dt>
                     <dd className="font-mono text-xs">
                       {preview.path} <span className="text-subtle">(host: {preview.hostPath})</span>

@@ -211,12 +211,13 @@ type createProjectRequest struct {
 		Version string `json:"version"`
 	} `json:"web"`
 	Env           []envDTO `json:"env"`
+	Template      string   `json:"template"`
 	CreateStarter bool     `json:"createStarter"`
 	Start         bool     `json:"start"`
 }
 
 func (r createProjectRequest) toDomain() project.CreateRequest {
-	req := project.CreateRequest{Name: r.Name, Path: r.Path, Docroot: r.Docroot, CreateStarter: r.CreateStarter, Start: r.Start}
+	req := project.CreateRequest{Name: r.Name, Path: r.Path, Docroot: r.Docroot, Template: strings.TrimSpace(r.Template), CreateStarter: r.CreateStarter, Start: r.Start}
 	if r.PHP != nil {
 		req.PHP = &project.PHPRequest{Version: r.PHP.Version, Config: r.PHP.Config}
 	}

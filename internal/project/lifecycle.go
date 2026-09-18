@@ -113,13 +113,19 @@ func (m *Manager) Create(ctx context.Context, req CreateRequest) (View, error) {
 		return View{}, fmt.Errorf("%s: %w", step, cause)
 	}
 
-	// A repository is cloned into the empty directory; the starter page would collide.
-	if err := m.ensureProjectDir(planner, proj, req.CreateStarter && proj.Git.URL == ""); err != nil {
+	// A repository or template fills the empty directory; the starter page would collide.
+	scaffold := proj.Git.URL != "" || req.Template != ""
+	if err := m.ensureProjectDir(planner, proj, req.CreateStarter && !scaffold, scaffold); err != nil {
 		return fail("prepare project directory", err)
 	}
 	if proj.Git.URL != "" {
 		if _, err := m.clone(ctx, proj); err != nil {
 			return fail("clone repository", err)
+		}
+	} else if req.Template != "" {
+		tpl, _ := TemplateByID(req.Template)
+		if err := m.applyTemplate(ctx, proj, tpl); err != nil {
+			return fail("apply template "+tpl.ID, err)
 		}
 	}
 	if err := writePlanFiles(plan); err != nil {
@@ -485,7 +491,7 @@ func (m *Manager) Update(ctx context.Context, id string, req UpdateRequest) (Vie
 	if err != nil {
 		return View{}, err
 	}
-	if err := m.ensureProjectDir(planner, proj, false); err != nil {
+	if err := m.ensureProjectDir(planner, proj, false, false); err != nil {
 		return View{}, err
 	}
 	if err := writePlanFiles(plan); err != nil {
