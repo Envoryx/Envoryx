@@ -377,7 +377,11 @@ Gateway*): it enables SSH port forwarding into the container and mounts a
 shared backend cache (`/config/jetbrains`, ~1.5 GB per IDE version,
 downloaded once). The backend runs as the project owner inside the PHP
 (or Node, user `<slug>.node`) container and needs 2–4 GB RAM plus CPU while
-indexing – nothing runs until you connect. Gateway → *SSH → New connection*
+indexing – nothing runs until you connect. Envoryx ships no JetBrains
+software: Gateway itself is free, the IDE backend is uploaded by your
+Gateway client and licensed through it – whoever connects needs a valid
+subscription for that IDE (PhpStorm, WebStorm or All Products Pack), the
+server needs nothing. Gateway → *SSH → New connection*
 with the values from the IDE tab, choose PhpStorm/WebStorm, project
 directory `/var/www/html`. Close the project in Gateway or use *Stop IDE
 backend* to free the memory. Small NAS boxes: leave it off.
