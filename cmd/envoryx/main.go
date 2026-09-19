@@ -37,6 +37,7 @@ import (
 	"github.com/envoryx/envoryx/internal/auth"
 	"github.com/envoryx/envoryx/internal/config"
 	"github.com/envoryx/envoryx/internal/db"
+	"github.com/envoryx/envoryx/internal/disk"
 	"github.com/envoryx/envoryx/internal/docker"
 	"github.com/envoryx/envoryx/internal/hostpath"
 	"github.com/envoryx/envoryx/internal/instance"
@@ -255,6 +256,9 @@ func serve() error {
 	background := func(name string, fn func(context.Context)) { go supervise(ctx, log, notifier, name, fn) }
 	background("reconciler", func(ctx context.Context) { manager.RunReconciler(ctx, 30*time.Second, log) })
 	background("backup scheduler", func(ctx context.Context) { manager.RunBackupScheduler(ctx, time.Minute, log) })
+	background("disk space monitor", func(ctx context.Context) {
+		disk.Monitor(ctx, 5*time.Minute, notifier, log, cfg.ConfigDir, cfg.ProjectsDir, cfg.BackupsDir)
+	})
 	background("session purge", func(ctx context.Context) {
 		t := time.NewTicker(time.Hour)
 		defer t.Stop()

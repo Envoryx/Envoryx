@@ -491,6 +491,10 @@ of its restart policy.
   A refused start (corrupt database, network filesystem, newer schema) is
   notified synchronously before the process exits – notification settings are
   a file, so this works without the database.
+- `internal/disk` guards space: backups check `Require(dir, need)` before
+  writing, a monitor task notifies `storage.low` once per disk until it
+  recovers, the dashboard shows usage. In-place database upgrades take a
+  dump first (`createBackupLocked`) and are refused when that fails.
 - SQLite runs with WAL and `synchronous=FULL`: committed transactions survive
   power loss, not just process crashes. At Envoryx's write volume the extra
   fsync is not measurable.

@@ -263,6 +263,24 @@ func TestAddChangeAndRemoveDatabase(t *testing.T) {
 	if got := strings.Join(e.engine.VolumeNames(), ","); got != "envoryx-grow-database" {
 		t.Fatalf("volume must survive upgrades: %s", got)
 	}
+	// The upgrade took a database dump first.
+	backups, err := e.m.ListBackups(ctx, id)
+	if err != nil || len(backups) != 1 || backups[0].Meta.Source != "upgrade" || backups[0].Kind != "database" || !strings.Contains(backups[0].Meta.Note, "10.11 → 11") {
+		t.Fatalf("upgrade backup: %+v, %v", backups, err)
+	}
+	// Without a running database container no dump is possible – then no upgrade either.
+	if _, err := e.m.Stop(ctx, id); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.m.Update(ctx, id, UpdateRequest{Database: &DatabaseUpdate{Enabled: true, Version: "11.4", ExposePort: true}}); !errors.Is(err, ErrConflict) || !strings.Contains(err.Error(), "upgrade refused") {
+		t.Fatalf("upgrade of a stopped database must be refused, got %v", err)
+	}
+	if view, _ := e.m.Get(ctx, id); view.Project.Service(store.ServiceDatabase).Version != "11" {
+		t.Fatal("refused upgrade must not change the recorded version")
+	}
+	if _, err := e.m.Start(ctx, id); err != nil {
+		t.Fatal(err)
+	}
 
 	// Remove without confirmation refused; with confirmation removes container + volume.
 	if _, err := e.m.Update(ctx, id, UpdateRequest{Database: &DatabaseUpdate{Enabled: false}}); !errors.Is(err, validate.ErrInvalid) {

@@ -13,6 +13,7 @@ import (
 	"github.com/envoryx/envoryx/internal/audit"
 	"github.com/envoryx/envoryx/internal/config"
 	"github.com/envoryx/envoryx/internal/db"
+	"github.com/envoryx/envoryx/internal/disk"
 	"github.com/envoryx/envoryx/internal/docker"
 	"github.com/envoryx/envoryx/internal/project"
 	"github.com/envoryx/envoryx/internal/runtime"
@@ -112,6 +113,7 @@ func (a *API) dashboard(w http.ResponseWriter, r *http.Request) {
 		"issues":     report.Issues,
 		"orphans":    len(report.Orphans),
 		"hostPath":   a.d.HostPath.Status(),
+		"storage":    disk.Check(a.d.Config.ConfigDir, a.d.Config.ProjectsDir, a.d.Config.BackupsDir),
 		"version":    a.d.Version,
 		"publicHost": a.publicHost(ctx),
 		"baseDomain": a.d.Projects.BaseDomain(ctx),

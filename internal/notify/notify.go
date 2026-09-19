@@ -66,6 +66,7 @@ var Kinds = []struct {
 	{"backup.failed", "A backup could not be created", true},
 	{"envoryx.started", "Envoryx started", false},
 	{"envoryx.failed", "Envoryx could not start, or a background task crashed and was restarted", true},
+	{"storage.low", "Free disk space under /config, /projects or /backups is running out (and when it recovers)", true},
 }
 
 // Providers lists the supported delivery channels.
@@ -160,6 +161,7 @@ var cooldown = map[string]time.Duration{
 	"project.unhealthy": 6 * time.Hour,
 	"acme.failed":       24 * time.Hour,
 	"backup.failed":     time.Hour,
+	"storage.low":       24 * time.Hour,
 }
 
 // New loads the configuration from dir.

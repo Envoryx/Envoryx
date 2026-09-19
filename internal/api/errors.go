@@ -11,6 +11,7 @@ import (
 	"net/http"
 
 	"github.com/envoryx/envoryx/internal/auth"
+	"github.com/envoryx/envoryx/internal/disk"
 	"github.com/envoryx/envoryx/internal/docker"
 	"github.com/envoryx/envoryx/internal/instance"
 	"github.com/envoryx/envoryx/internal/project"
@@ -74,6 +75,8 @@ func writeError(w http.ResponseWriter, r *http.Request, err error) {
 		ae = newError(http.StatusConflict, "busy", err.Error())
 	case errors.Is(err, docker.ErrNotManaged):
 		ae = newError(http.StatusForbidden, "not_managed", "the resource is not managed by Envoryx")
+	case errors.Is(err, disk.ErrInsufficient):
+		ae = newError(http.StatusInsufficientStorage, "insufficient_storage", err.Error())
 	case errors.Is(err, docker.ErrUnavailable):
 		ae = newError(http.StatusServiceUnavailable, "docker_unavailable", "the Docker engine is not reachable")
 	case errors.Is(err, project.ErrNotConfigured):

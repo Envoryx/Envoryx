@@ -325,6 +325,14 @@ export interface HostPathStatus {
   error?: string;
 }
 
+/** Free space on one of the filesystems Envoryx writes to. */
+export interface StorageUsage {
+  path: string;
+  totalBytes: number;
+  freeBytes: number;
+  low: boolean;
+}
+
 export interface Dashboard {
   projects: { total: number; running: number; stopped: number; attention: number };
   docker: DockerInfo;
@@ -333,6 +341,7 @@ export interface Dashboard {
   issues: ReconcileIssue[];
   orphans: number;
   hostPath: HostPathStatus;
+  storage: StorageUsage[] | null;
   version: string;
   publicHost: string;
   baseDomain: string;

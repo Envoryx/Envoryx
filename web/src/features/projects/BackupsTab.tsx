@@ -123,6 +123,7 @@ export function BackupsTab({ project }: { project: Project }) {
                   <p className="text-sm font-medium text-fg">
                     {formatDateTime(b.createdAt)}
                     {b.meta.source === "scheduled" && <Badge tone="blue" className="ml-2">{t("scheduled")}</Badge>}
+                    {b.meta.source === "upgrade" && <Badge tone="amber" className="ml-2">{t("before upgrade")}</Badge>}
                     {b.meta.note && <span className="ml-2 font-normal text-muted">– {b.meta.note}</span>}
                   </p>
                   <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-subtle">

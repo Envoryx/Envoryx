@@ -168,6 +168,33 @@ export function DashboardPage() {
           </dl>
         </Card>
       </div>
+
+      {d.storage && d.storage.length > 0 && (
+        <Card className="mt-6">
+          <CardHeader title={t("Disk space")} description={t("Free space on the filesystems behind /config, /projects and /backups. A backup is refused when it would fill the disk.")} />
+          <ul className="divide-y divide-[var(--border)]">
+            {d.storage.map((s) => {
+              const used = s.totalBytes > 0 ? Math.min(100, Math.round(((s.totalBytes - s.freeBytes) / s.totalBytes) * 100)) : 0;
+              return (
+                <li key={s.path} className="px-5 py-3 text-sm">
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="flex items-center gap-2 font-mono text-xs">
+                      <StatusDot tone={s.low ? "red" : "green"} />
+                      {s.path}
+                    </span>
+                    <span className={s.low ? "font-medium text-red-500" : "text-muted"}>
+                      {t("{{free}} free of {{total}}", { free: formatBytes(s.freeBytes), total: formatBytes(s.totalBytes) })}
+                    </span>
+                  </div>
+                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuenow={used} aria-valuemin={0} aria-valuemax={100} aria-label={s.path}>
+                    <div className={s.low ? "h-full bg-red-500" : "h-full bg-accent-500"} style={{ width: `${used}%` }} />
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </Card>
+      )}
     </div>
   );
 }

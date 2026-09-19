@@ -251,7 +251,7 @@ export function DatabaseTab({ project }: { project: Project }) {
             <CardHeader title={t("Server")} />
             <div className="space-y-4 p-5">
               <div className="flex items-end gap-2">
-                <Field label={t("{{engine}} version", { engine: ({ mariadb: "MariaDB", mysql: "MySQL", postgresql: "PostgreSQL", mongodb: "MongoDB" } as Record<string, string>)[d.type] ?? d.type })} htmlFor="db-version" hint={d.type === "postgresql" ? t("PostgreSQL cannot upgrade an existing data directory in place.") : d.type === "mongodb" ? t("MongoDB upgrades one major version at a time; back up first.") : t("Upgrades keep the data volume; downgrades are refused.")}>
+                <Field label={t("{{engine}} version", { engine: ({ mariadb: "MariaDB", mysql: "MySQL", postgresql: "PostgreSQL", mongodb: "MongoDB" } as Record<string, string>)[d.type] ?? d.type })} htmlFor="db-version" hint={d.type === "postgresql" ? t("PostgreSQL cannot upgrade an existing data directory in place.") : d.type === "mongodb" ? t("MongoDB upgrades one major version at a time; a database backup is taken automatically first.") : t("Upgrades keep the data volume and take a database backup first; downgrades are refused.")}>
                   <Select id="db-version" value={currentVersion} onChange={(e) => setVersion(e.target.value)}>
                     {versions.map((v) => (
                       <option key={v.version} value={v.version}>

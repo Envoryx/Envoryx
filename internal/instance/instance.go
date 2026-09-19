@@ -36,6 +36,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/envoryx/envoryx/internal/disk"
 	"github.com/envoryx/envoryx/internal/validate"
 )
 
@@ -119,6 +120,15 @@ func (s *Store) Create(ctx context.Context, sqlDB *sql.DB, kind, note string) (I
 	}
 	if err := os.MkdirAll(s.Dir, 0o700); err != nil {
 		return Info{}, fmt.Errorf("create instance backup directory: %w", err)
+	}
+	// The database copy is written uncompressed next to the archive first, so twice its
+	// size must be free; the config files are small in comparison.
+	var dbSize uint64
+	if st, err := os.Stat(s.DBPath); err == nil {
+		dbSize = uint64(st.Size())
+	}
+	if err := disk.Require(s.Dir, 2*dbSize); err != nil {
+		return Info{}, err
 	}
 	id := newID(kind)
 	target := filepath.Join(s.Dir, id+".tar.gz")

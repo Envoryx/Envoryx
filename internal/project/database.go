@@ -480,7 +480,14 @@ func (m *Manager) applyDatabaseUpdate(ctx context.Context, p store.Project, upd 
 			changes["databaseHostPort"] = 0
 		}
 		if v.Version != svc.Version {
+			// The server rewrites its data directory on the first start with the new
+			// version and cannot go back, so a dump is taken first – no dump, no upgrade.
+			b, err := m.createBackupLocked(ctx, p, BackupOptions{Database: true, Note: fmt.Sprintf("before upgrading %s %s → %s", svc.Variant, svc.Version, v.Version), Source: "upgrade"})
+			if err != nil {
+				return false, fmt.Errorf("upgrade refused: the database must be backed up first and that failed (%w); start the project and try again", err)
+			}
 			changes["databaseVersion"] = v.Version
+			changes["databaseBackup"] = b.ID
 		}
 		raw, err := json.Marshal(cfg)
 		if err != nil {

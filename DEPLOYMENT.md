@@ -99,6 +99,11 @@ docker build -t ghcr.io/envoryx/envoryx:dev --build-arg VERSION=dev .
   name) as the host path for `/config`, or enable *Exclusive access* for the
   `appdata` share (Unraid ≥ 6.12, share on a single pool) – then `/mnt/user`
   bypasses FUSE and the warning disappears.
+- Free space on `/config`, `/projects` and `/backups` is shown on the
+  dashboard and checked every five minutes; below 2 GiB or 5 % a
+  `storage.low` notification goes out (once, and again when it recovers). A
+  project or instance backup is refused when it would not leave at least
+  512 MiB free – a full appdata disk takes the database down with it.
 - The database file is integrity-checked at every start (`PRAGMA
   integrity_check`). A damaged file is refused with the name of the newest
   instance backup to restore instead of being migrated or served.
@@ -338,7 +343,10 @@ fine-grained PAT with *Contents: read*; GitLab: username `oauth2` + token).
 
 Project backups (database dump, files, configuration) are created from the
 project's **Backups** tab and stored as plain directories, one per backup,
-under `<backups dir>/<project>/`.
+under `<backups dir>/<project>/`. Changing a database's version takes a
+database backup automatically first (source *upgrade*); if no dump can be
+taken – the project is stopped – the upgrade is refused, because the server
+rewrites its data directory on the first start and cannot go back.
 
 By default the backups directory is `/config/backups`, i.e. on the appdata
 share. Backups are large and rarely read, so you may want them on the array

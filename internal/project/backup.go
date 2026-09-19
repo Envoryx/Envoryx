@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/envoryx/envoryx/internal/audit"
+	"github.com/envoryx/envoryx/internal/disk"
 	"github.com/envoryx/envoryx/internal/docker"
 	"github.com/envoryx/envoryx/internal/notify"
 	"github.com/envoryx/envoryx/internal/runtime"
@@ -41,7 +42,7 @@ type BackupOptions struct {
 	// IncludeDependencies keeps vendor/ and node_modules/ in the file archive.
 	IncludeDependencies bool
 	Note                string
-	// Source marks who created the backup ("manual" default, "scheduled").
+	// Source marks who created the backup ("manual" default, "scheduled", "upgrade").
 	Source string
 }
 
@@ -212,12 +213,30 @@ func (m *Manager) createBackup(ctx context.Context, id string, opts BackupOption
 	if err != nil {
 		return BackupInfo{}, err
 	}
+	return m.createBackupLocked(ctx, p, opts)
+}
+
+// createBackupLocked does the work of createBackup for callers that already hold the
+// project lock (e.g. a database upgrade that must back up first).
+func (m *Manager) createBackupLocked(ctx context.Context, p store.Project, opts BackupOptions) (BackupInfo, error) {
 	paths, err := m.paths()
 	if err != nil {
 		return BackupInfo{}, fmt.Errorf("%w: %v", ErrNotConfigured, err)
 	}
 	root, err := m.backupRoot(p.Slug)
 	if err != nil {
+		return BackupInfo{}, err
+	}
+	// A backup that fills the disk is worse than none: files are stored compressed, so
+	// their raw size is a safe upper bound; the dump is covered by the reserve.
+	var need uint64
+	if opts.Files {
+		need = uint64(dirSizeSkipping(NewPlanner(paths, m.catalog).ProjectDir(p), !opts.IncludeDependencies))
+	}
+	if err := os.MkdirAll(root, 0o700); err != nil {
+		return BackupInfo{}, fmt.Errorf("create backup directory: %w", err)
+	}
+	if err := disk.Require(root, need); err != nil {
 		return BackupInfo{}, err
 	}
 	dirName := time.Now().UTC().Format("20060102-150405") + "-" + store.NewID()[:8]
@@ -432,13 +451,24 @@ func archiveDir(root, target string, skipDeps bool) (int64, int, error) {
 	return info.Size(), entries, nil
 }
 
-func dirSize(dir string) int64 {
+func dirSize(dir string) int64 { return dirSizeSkipping(dir, false) }
+
+// dirSizeSkipping sums file sizes, optionally leaving out vendor/ and node_modules/ like
+// the file archive does; it is the space estimate before a backup starts.
+func dirSizeSkipping(dir string, skipDeps bool) int64 {
 	var n int64
 	_ = filepath.WalkDir(dir, func(_ string, d fs.DirEntry, err error) error {
-		if err == nil && !d.IsDir() {
-			if info, err := d.Info(); err == nil {
-				n += info.Size()
+		if err != nil {
+			return nil
+		}
+		if d.IsDir() {
+			if skipDeps && dependencyDirs[d.Name()] {
+				return filepath.SkipDir
 			}
+			return nil
+		}
+		if info, err := d.Info(); err == nil {
+			n += info.Size()
 		}
 		return nil
 	})
