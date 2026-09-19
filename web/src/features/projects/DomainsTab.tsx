@@ -61,7 +61,7 @@ export function DomainsTab({ project }: { project: Project }) {
         </Alert>
       ) : !published ? (
         <Alert tone="amber" title={t("Proxy ports are not published")}>
-          {t("Map host ports 80 and 443 to the Envoryx container to open projects by domain.")} <Link to="/settings" className="underline">{t("Settings → Domains & HTTPS")}</Link>
+          {t("Map host ports 80 and 443 to the Envoryx container to open projects by domain.")} <Link to="/settings?tab=domains" className="underline">{t("Settings → Domains & HTTPS")}</Link>
         </Alert>
       ) : null}
 

@@ -28,7 +28,7 @@ export function PublicHostNotice({ className }: { className?: string }) {
             </Button>
           )}
           {suggestion?.ip && suggestion.hostname && <span className="text-xs text-muted">{t("({{hostname}} as reported by Docker)", { hostname: suggestion.hostname })}</span>}
-          <Link to="/settings" className="text-sm underline">
+          <Link to="/settings?tab=general" className="text-sm underline">
             {t("Set it in Settings")}
           </Link>
         </div>

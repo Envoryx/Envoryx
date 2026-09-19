@@ -1017,3 +1017,74 @@ func TestSettingsAdvisePublicHostWhenEnvoryxHasOwnIP(t *testing.T) {
 		t.Fatalf("configured public host must clear the advice: %v %v", r.body["publicHostNeeded"], r.body["publicHostSuggestion"])
 	}
 }
+
+// The diagnostics endpoint runs every check, groups them and turns the missing public
+// host into a warning with a one-click action.
+func TestDiagnostics(t *testing.T) {
+	a := newApp(t)
+	a.setupAndLogin()
+	r := a.do(http.MethodGet, "/api/v1/system/diagnostics", nil, false)
+	if r.status != http.StatusOK {
+		t.Fatalf("diagnostics: %d %s", r.status, r.raw)
+	}
+	checks := r.body["checks"].([]any)
+	byID := map[string]map[string]any{}
+	for _, c := range checks {
+		m := c.(map[string]any)
+		byID[m["id"].(string)] = m
+	}
+	for _, id := range []string{"docker.engine", "storage.config", "storage.hostpaths", "storage.disk", "storage.backups", "storage.database", "network.publicHost", "network.proxy", "network.dns", "network.ssh", "security.tls", "maintenance.update", "maintenance.reconcile", "maintenance.notifications"} {
+		if byID[id] == nil {
+			t.Fatalf("check %s missing: %v", id, r.raw)
+		}
+	}
+	for _, id := range []string{"docker.engine", "storage.database", "storage.backups", "network.publicHost"} {
+		if byID[id]["status"] != "ok" {
+			t.Fatalf("%s should be ok: %v", id, byID[id])
+		}
+	}
+	if byID["docker.engine"]["detail"].(string) == "" || !strings.Contains(byID["docker.engine"]["detail"].(string), "fakehost") {
+		t.Fatalf("docker detail: %v", byID["docker.engine"]["detail"])
+	}
+	summary := r.body["summary"].(map[string]any)
+	if summary["error"].(float64) != 0 {
+		t.Fatalf("no errors expected on a healthy test instance: %v", summary)
+	}
+
+	// Envoryx on its own IP without a public host: warning with the fix attached.
+	a.proxy.Address = "192.168.1.5"
+	r = a.do(http.MethodGet, "/api/v1/system/diagnostics", nil, false)
+	for _, c := range r.body["checks"].([]any) {
+		m := c.(map[string]any)
+		if m["id"] == "network.publicHost" {
+			action, _ := m["action"].(map[string]any)
+			if m["status"] != "warning" || action["kind"] != "setPublicHost" || action["value"] != "fakehost" {
+				t.Fatalf("public host check: %v", m)
+			}
+		}
+	}
+	// Docker down: the engine check errors, the rest still answers.
+	a.engine.SetUnavailable(true)
+	r = a.do(http.MethodGet, "/api/v1/system/diagnostics", nil, false)
+	if r.status != http.StatusOK {
+		t.Fatalf("diagnostics with docker down: %d", r.status)
+	}
+	for _, c := range r.body["checks"].([]any) {
+		if m := c.(map[string]any); m["id"] == "docker.engine" && m["status"] != "error" {
+			t.Fatalf("engine check with docker down: %v", m)
+		}
+	}
+	a.engine.SetUnavailable(false)
+	// Read-scoped tokens may not see it (it reveals paths and internal addresses).
+	tok := a.do(http.MethodPost, "/api/v1/tokens", map[string]any{"name": "monitor", "scope": "read"}, true)
+	req, _ := http.NewRequest(http.MethodGet, a.srv.URL+"/api/v1/system/diagnostics", nil)
+	req.Header.Set("Authorization", "Bearer "+tok.body["secret"].(string))
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res.Body.Close()
+	if res.StatusCode != http.StatusForbidden {
+		t.Fatalf("read token on diagnostics: %d", res.StatusCode)
+	}
+}

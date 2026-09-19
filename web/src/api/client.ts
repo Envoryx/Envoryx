@@ -40,6 +40,7 @@ import type {
   DBToolStatus,
   TokenScope,
   StorageInfo,
+  Diagnostics,
 } from "./types";
 
 export class ApiError extends Error {
@@ -184,6 +185,7 @@ export const api = {
   },
   audit: (limit = 100) => request<{ entries: AuditEntry[] }>(`/audit?limit=${limit}`),
   reconcile: () => request<{ report: unknown }>("/system/reconcile", { method: "POST" }),
+  diagnostics: () => request<Diagnostics>("/system/diagnostics"),
 
   projects: {
     list: () => request<{ projects: Project[] }>("/projects"),

@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { PublicHostNotice } from "@/components/PublicHostNotice";
+import { DiagnosticsBanner } from "@/components/DiagnosticsBanner";
 import { useTranslation } from "react-i18next";
 import { Plus, ArrowRight } from "lucide-react";
 import { useDashboard } from "@/api/hooks";
@@ -63,7 +63,7 @@ export function DashboardPage() {
         }
       />
 
-      <PublicHostNotice className="mb-6" />
+      <DiagnosticsBanner />
       {d.update?.available && (
         <div className="mb-6">
           <Alert tone="blue" title={t("Envoryx {{version}} is available", { version: d.update.latest })}>

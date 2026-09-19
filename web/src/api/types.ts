@@ -753,3 +753,21 @@ export interface AuditEntry {
   details: Record<string, unknown> | null;
   ip: string;
 }
+
+/** One diagnostics check; title and hint are stable strings the UI translates. */
+export interface DiagnosticCheck {
+  id: string;
+  category: "runtime" | "network" | "security" | "maintenance";
+  status: "ok" | "info" | "warning" | "error";
+  title: string;
+  detail?: string;
+  hint?: string;
+  action?: { kind: "setPublicHost" | "settingsTab" | "link"; value: string; label?: string };
+  docs?: string;
+}
+
+export interface Diagnostics {
+  checks: DiagnosticCheck[];
+  summary: { ok: number; info: number; warning: number; error: number };
+  at: string;
+}

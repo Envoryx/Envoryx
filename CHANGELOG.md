@@ -11,6 +11,14 @@ release). `:main` follows the development branch.
 ## [Unreleased]
 
 ### Added
+- Settings are organised in tabs (Diagnostics, General, Domains & HTTPS,
+  Access, Notifications, Backups, Tools, Audit log). The new **Diagnostics**
+  tab runs 14 set-up checks – Docker, storage, host paths, disk space, backup
+  directory, database integrity, host for project links, proxy ports, wildcard
+  DNS, SSH, HTTPS, version, project/Docker consistency, notifications – and
+  lists each finding with a fix; some fix themselves at the click of a button.
+  The dashboard shows a banner while something needs attention.
+  (`GET /api/v1/system/diagnostics`)
 - Project backups include the object storage bucket: every object as a plain
   file in `storage.tar.gz` (content type kept as an extended attribute),
   restorable with or without emptying the bucket first. Scheduled backups and

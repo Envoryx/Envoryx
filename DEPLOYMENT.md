@@ -129,6 +129,18 @@ ENVORYX_CONFIG_HOST_PATH=/mnt/user/appdata/envoryx
 On Unraid always use `/mnt/user/...` (or `/mnt/cache/...`) paths – the same
 ones you used in the volume mappings.
 
+## Diagnostics
+
+**Settings → Diagnostics** runs a set-up check and lists every finding with
+what it looked at, what it found and how to fix it: Docker engine, where
+`/config` lives, host paths, disk space, backup directory, database integrity,
+host for project links, proxy ports, wildcard DNS (as resolved from inside
+Envoryx), SSH, HTTPS, version, project/Docker consistency and notifications.
+Findings with a button are fixed in place (for example setting the Docker host
+for project links); the others link to the setting or to this guide. The
+dashboard shows a banner while warnings or errors exist. The same data is
+available as `GET /api/v1/system/diagnostics` (admin scope).
+
 ## Project links and the Envoryx container's own IP
 
 Project web servers – and Mailpit, database ports, the object storage API and

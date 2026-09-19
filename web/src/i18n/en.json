@@ -18,5 +18,13 @@
   "{{count}} uncommitted changes_one": "{{count}} uncommitted change",
   "{{count}} uncommitted changes_other": "{{count}} uncommitted changes",
   "Removed {{count}} images, {{size}} reclaimed._one": "Removed {{count}} image, {{size}} reclaimed.",
-  "Removed {{count}} images, {{size}} reclaimed._other": "Removed {{count}} images, {{size}} reclaimed."
+  "Removed {{count}} images, {{size}} reclaimed._other": "Removed {{count}} images, {{size}} reclaimed.",
+  "{{count}} warnings_one": "{{count}} warning",
+  "{{count}} warnings_other": "{{count}} warnings",
+  "{{count}} errors_one": "{{count}} error",
+  "{{count}} errors_other": "{{count}} errors",
+  "{{count}} checks_one": "{{count}} check",
+  "{{count}} checks_other": "{{count}} checks",
+  "{{count}} notes_one": "{{count}} note",
+  "{{count}} notes_other": "{{count}} notes"
 }

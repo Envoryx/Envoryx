@@ -190,6 +190,7 @@ func (a *API) Mount(mux *http.ServeMux, protect func(http.Handler) http.Handler)
 	adm("POST /api/v1/instance/backups/{id}/restore", a.restoreInstanceBackup)
 	adm("DELETE /api/v1/instance/restore", a.cancelInstanceRestore)
 	adm("GET /api/v1/system/reconcile", a.reconcileReport)
+	adm("GET /api/v1/system/diagnostics", a.diagnostics)
 	adm("POST /api/v1/system/reconcile", a.reconcileNow)
 
 	rd("GET /api/v1/projects", a.listProjects)

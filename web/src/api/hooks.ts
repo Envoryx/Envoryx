@@ -43,6 +43,11 @@ export function usePublicHost(): string {
   return q.data?.publicHost ?? "";
 }
 
+/** Set-up checks with fixes; refreshed every minute while the page is open. */
+export function useDiagnostics() {
+  return useQuery({ queryKey: ["diagnostics"], queryFn: api.diagnostics, refetchInterval: 60 * 1000, staleTime: 20 * 1000 });
+}
+
 export function useUpdateSettings() {
   const qc = useQueryClient();
   return useMutation({
@@ -52,6 +57,7 @@ export function useUpdateSettings() {
       void qc.invalidateQueries({ queryKey: keys.dashboard });
       void qc.invalidateQueries({ queryKey: keys.projects });
       void qc.invalidateQueries({ queryKey: ["tls"] });
+      void qc.invalidateQueries({ queryKey: ["diagnostics"] });
     },
   });
 }

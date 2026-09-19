@@ -86,7 +86,7 @@ export function IdeTab({ project: p }: { project: Project }) {
             </dl>
           )}
           <p className="mt-3 text-xs text-subtle">
-            {t("Authentication: an")} <Link to="/settings" className="underline">{t("API token")}</Link> {t("as password, or your public key under Settings → SSH access. Sessions run as the project owner inside")} <Code>envoryx-{p.slug}-php</Code>; {t("the project must be running.")}
+            {t("Authentication: an")} <Link to="/settings?tab=access" className="underline">{t("API token")}</Link> {t("as password, or your public key under Settings → SSH access. Sessions run as the project owner inside")} <Code>envoryx-{p.slug}-php</Code>; {t("the project must be running.")}
           </p>
         </div>
       </Card>
