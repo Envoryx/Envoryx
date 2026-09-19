@@ -178,6 +178,11 @@ func (m *Manager) create(ctx context.Context, req CreateRequest) (View, error) {
 				return fail("start container", err)
 			}
 		}
+		if _, cfg, err := storageConfig(proj); err == nil {
+			if err := m.provisionBucket(ctx, proj, cfg); err != nil {
+				return fail("initialise", err)
+			}
+		}
 	}
 	if err := m.store.Projects.UpdateState(ctx, proj.ID, proj.DesiredState, store.LifecycleReady, ""); err != nil {
 		return fail("finalise project", err)
@@ -392,6 +397,13 @@ func (m *Manager) ensurePlan(ctx context.Context, proj store.Project, plan Plan,
 			m.ensurePasswdEntry(ctx, id, c.Spec.Name, c.Spec.User)
 		}
 	}
+	if start {
+		if _, cfg, err := storageConfig(proj); err == nil {
+			if err := m.provisionBucket(ctx, proj, cfg); err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }
 
@@ -575,6 +587,13 @@ func (m *Manager) update(ctx context.Context, id string, req UpdateRequest) (Vie
 		}
 		recreateApp = recreateApp || r
 	}
+	if req.Storage != nil {
+		r, err := m.applyStorageUpdate(ctx, proj, *req.Storage, changes)
+		if err != nil {
+			return View{}, err
+		}
+		recreateApp = recreateApp || r
+	}
 
 	proj, err = m.loadProject(ctx, id)
 	if err != nil {
@@ -605,7 +624,7 @@ func (m *Manager) update(ctx context.Context, id string, req UpdateRequest) (Vie
 		}
 		for _, c := range existing {
 			switch c.Service() {
-			case string(store.ServiceDatabase), string(store.ServiceRedis), string(store.ServiceMailpit):
+			case string(store.ServiceDatabase), string(store.ServiceRedis), string(store.ServiceMailpit), string(store.ServiceStorage):
 				continue // stateful/independent services keep running
 			}
 			if err := m.engine.RemoveContainer(ctx, c.ID); err != nil {

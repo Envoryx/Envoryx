@@ -30,6 +30,7 @@ import (
 	"github.com/envoryx/envoryx/internal/notify"
 	"github.com/envoryx/envoryx/internal/project"
 	"github.com/envoryx/envoryx/internal/runtime"
+	"github.com/envoryx/envoryx/internal/s3"
 	"github.com/envoryx/envoryx/internal/server"
 	"github.com/envoryx/envoryx/internal/stats"
 	"github.com/envoryx/envoryx/internal/store"
@@ -70,6 +71,7 @@ func newApp(t *testing.T) *testApp {
 		return project.Paths{ConfigDir: cfgDir, ConfigHostDir: "/host/config", ProjectsDir: projDir, ProjectsHostDir: "/host/projects", PUID: 1000, PGID: 1000}, nil
 	}
 	manager := project.NewManager(st, engine, runtime.Default(), paths, auditLog, project.Config{PortRangeStart: 20000, PortRangeEnd: 20010}, log)
+	manager.SetProvisioner(s3.Noop{})
 	certs, err := tlsca.Open(filepath.Join(cfgDir, "ca"))
 	if err != nil {
 		t.Fatal(err)
@@ -931,5 +933,57 @@ func TestRuntimesEndpoint(t *testing.T) {
 	runtimes := r.body["runtimes"].([]any)
 	if len(runtimes) < 2 || runtimes[0].(map[string]any)["key"] != "php" {
 		t.Fatalf("runtimes content: %v", runtimes)
+	}
+}
+
+func TestObjectStorageEndpoints(t *testing.T) {
+	a := newApp(t)
+	a.setupAndLogin()
+	create := map[string]any{"name": "Shop", "createStarter": true, "start": true, "php": map[string]any{"version": "8.4"}, "storage": map[string]any{}}
+	r := a.do(http.MethodPost, "/api/v1/projects", create, true)
+	if r.status != http.StatusCreated {
+		t.Fatalf("create: %d %s", r.status, r.raw)
+	}
+	id := r.body["project"].(map[string]any)["id"].(string)
+
+	r = a.do(http.MethodGet, "/api/v1/projects/"+id+"/storage", nil, false)
+	if r.status != http.StatusOK {
+		t.Fatalf("info: %d %s", r.status, r.raw)
+	}
+	info := r.body["storage"].(map[string]any)
+	if info["bucket"] != "shop" || info["publicRead"] != true || info["hostname"] != "shop-s3.test" || info["secretKey"] != nil || info["consolePath"] != "/rustfs/console/" {
+		t.Fatalf("info: %v", info)
+	}
+	r = a.do(http.MethodGet, "/api/v1/projects/"+id+"/storage/credentials", nil, false)
+	creds := r.body["storage"].(map[string]any)
+	if r.status != http.StatusOK || creds["accessKey"] == nil || creds["secretKey"] == nil {
+		t.Fatalf("credentials: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodPut, "/api/v1/projects/"+id+"/storage/public", map[string]any{"publicRead": false}, true)
+	if r.status != http.StatusOK || r.body["storage"].(map[string]any)["publicRead"] != false {
+		t.Fatalf("public off: %d %s", r.status, r.raw)
+	}
+	// Logs of the storage container are readable like any other service's.
+	r = a.do(http.MethodGet, "/api/v1/projects/"+id+"/services/storage/logs?tail=5", nil, false)
+	if r.status != http.StatusOK {
+		t.Fatalf("logs: %d %s", r.status, r.raw)
+	}
+	// Removing needs confirmation, then the info endpoint reports 404.
+	r = a.do(http.MethodPatch, "/api/v1/projects/"+id, map[string]any{"storage": map[string]any{"enabled": false}}, true)
+	if r.status != http.StatusUnprocessableEntity {
+		t.Fatalf("remove without confirmation: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodPatch, "/api/v1/projects/"+id, map[string]any{"storage": map[string]any{"enabled": false, "removeData": true}}, true)
+	if r.status != http.StatusOK {
+		t.Fatalf("remove: %d %s", r.status, r.raw)
+	}
+	if r = a.do(http.MethodGet, "/api/v1/projects/"+id+"/storage", nil, false); r.status != http.StatusNotFound {
+		t.Fatalf("info after removal: %d", r.status)
+	}
+	// Projects without storage: a project with none gets 404, not 500.
+	r = a.do(http.MethodPost, "/api/v1/projects", map[string]any{"name": "Plain", "createStarter": true, "php": map[string]any{"version": "8.4"}}, true)
+	plain := r.body["project"].(map[string]any)["id"].(string)
+	if r = a.do(http.MethodGet, "/api/v1/projects/"+plain+"/storage", nil, false); r.status != http.StatusNotFound {
+		t.Fatalf("plain project storage: %d", r.status)
 	}
 }

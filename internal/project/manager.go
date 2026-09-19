@@ -18,6 +18,7 @@ import (
 	"github.com/envoryx/envoryx/internal/docker"
 	"github.com/envoryx/envoryx/internal/notify"
 	"github.com/envoryx/envoryx/internal/runtime"
+	"github.com/envoryx/envoryx/internal/s3"
 	"github.com/envoryx/envoryx/internal/store"
 	"github.com/envoryx/envoryx/internal/validate"
 )
@@ -52,7 +53,21 @@ type Manager struct {
 
 	notifier  notify.Sender
 	unhealthy map[string]bool // project ids reported as unhealthy (for recovery events)
+
+	// provisioner creates project buckets; nil = the real S3 client. Tests inject a fake.
+	provisioner s3.Provisioner
+	// links tells the planner how the LAN reaches the proxy (public host, ports).
+	links func(ctx context.Context) (publicHost string, httpPort, httpsPort int)
 }
+
+// SetLinks installs the function that reports the public host and the proxy's host-side
+// ports, which become part of the URLs injected into projects.
+func (m *Manager) SetLinks(f func(ctx context.Context) (publicHost string, httpPort, httpsPort int)) {
+	m.links = f
+}
+
+// SetProvisioner replaces the object-storage provisioner (tests).
+func (m *Manager) SetProvisioner(p s3.Provisioner) { m.provisioner = p }
 
 // SetNotifier installs the notification sink (nil = none).
 func (m *Manager) SetNotifier(n notify.Sender) { m.notifier = n }
@@ -79,6 +94,9 @@ func (m *Manager) planner() (*Planner, error) {
 	}
 	p.BaseDomain = m.BaseDomain(context.Background())
 	p.XdebugClientHost = m.XdebugClientHost(context.Background())
+	if m.links != nil {
+		p.PublicHost, p.ProxyHTTPPort, p.ProxyHTTPSPort = m.links(context.Background())
+	}
 	return NewPlanner(p, m.catalog), nil
 }
 
@@ -196,6 +214,13 @@ func (m *Manager) buildProject(req CreateRequest) (store.Project, error) {
 		}
 		proj.Services = append(proj.Services, svc)
 	}
+	if req.Storage != nil {
+		svc, err := m.buildStorageService(proj.Slug, req.Storage.Version, req.Storage.PublicRead)
+		if err != nil {
+			return store.Project{}, err
+		}
+		proj.Services = append(proj.Services, svc)
+	}
 	if req.Node != nil {
 		v, err := m.catalog.Resolve("node", req.Node.Version)
 		if err != nil {
@@ -288,6 +313,24 @@ func (m *Manager) buildExtraService(kind store.ServiceKind, version string) (sto
 	return store.ProjectService{Kind: kind, Variant: string(kind), Version: v.Version, Image: v.Image, Enabled: true, Config: json.RawMessage(`{"hostPort":0}`), Position: position}, nil
 }
 
+// buildStorageService validates the object storage selection and generates its
+// credentials and bucket name.
+func (m *Manager) buildStorageService(slug, version string, publicRead *bool) (store.ProjectService, error) {
+	v, err := m.catalog.Resolve("rustfs", version)
+	if err != nil {
+		return store.ProjectService{}, err
+	}
+	cfg := runtime.NewStorageConfig(runtime.StorageBucketName(slug))
+	if publicRead != nil {
+		cfg.PublicRead = *publicRead
+	}
+	raw, err := json.Marshal(cfg)
+	if err != nil {
+		return store.ProjectService{}, err
+	}
+	return store.ProjectService{Kind: store.ServiceStorage, Variant: "rustfs", Version: v.Version, Image: v.Image, Enabled: true, Config: raw, Position: 8}, nil
+}
+
 func buildEnv(in []EnvVarRequest) ([]store.EnvVar, error) {
 	seen := map[string]bool{}
 	var out []store.EnvVar
@@ -298,6 +341,9 @@ func buildEnv(in []EnvVarRequest) ([]store.EnvVar, error) {
 		}
 		if strings.HasPrefix(key, "MARIADB_") || strings.HasPrefix(key, "MYSQL_") || strings.HasPrefix(key, "POSTGRES_") {
 			return nil, fmt.Errorf("%w: %s is reserved for the database container", validate.ErrInvalid, key)
+		}
+		if strings.HasPrefix(key, "RUSTFS_") {
+			return nil, fmt.Errorf("%w: %s is reserved for the object storage container", validate.ErrInvalid, key)
 		}
 		if err := validate.EnvValue(e.Value); err != nil {
 			return nil, err
@@ -404,6 +450,17 @@ func (m *Manager) collectUsedPorts(ctx context.Context, used map[int]bool) error
 				}
 			}
 		}
+		if svc := p.Service(store.ServiceStorage); svc != nil {
+			var cfg runtime.StorageConfig
+			if json.Unmarshal(svc.Config, &cfg) == nil {
+				if cfg.HostPort > 0 {
+					used[cfg.HostPort] = true
+				}
+				if cfg.ConsolePort > 0 {
+					used[cfg.ConsolePort] = true
+				}
+			}
+		}
 	}
 	containers, err := m.engine.ListContainers(ctx, false, "")
 	if err != nil && !errors.Is(err, docker.ErrUnavailable) {
@@ -446,6 +503,13 @@ func (m *Manager) assignServicePorts(ctx context.Context, proj *store.Project, r
 	}
 	if req.Mailpit != nil {
 		if err := assign(store.ServiceMailpit); err != nil {
+			return err
+		}
+	}
+	if req.Storage != nil {
+		// The S3 API and the console are always published: local tools and the browser
+		// (presigned URLs) need to reach them; the console is a web UI like Mailpit's.
+		if err := m.assignStoragePorts(ctx, proj, &taken); err != nil {
 			return err
 		}
 	}
@@ -521,7 +585,7 @@ func (m *Manager) resolveImages(p *store.Project) {
 			key = "node"
 		case store.ServiceRedis, store.ServiceMailpit:
 			key = string(svc.Kind)
-		case store.ServiceWeb, store.ServiceDatabase:
+		case store.ServiceWeb, store.ServiceDatabase, store.ServiceStorage:
 			key = svc.Variant
 		}
 		if key == "" {

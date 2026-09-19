@@ -48,7 +48,7 @@ make build && ENVORYX_CONFIG_DIR=$PWD/.local/config ENVORYX_PROJECTS_DIR=$PWD/.l
 make test              # go vet + go test -race + tsc + vitest
 make test-go
 make test-web
-make test-integration  # needs a Docker daemon; creates/removes small alpine containers
+make test-integration  # needs a Docker daemon; creates/removes small alpine and RustFS containers
 ```
 
 Backend tests use an in-memory SQLite database and a fake Docker engine

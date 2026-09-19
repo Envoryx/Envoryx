@@ -181,6 +181,13 @@ func Default() *Catalog {
 			{Version: "1.31", Image: "axllent/mailpit:v1.31", Label: "Mailpit 1.31", Default: true},
 		},
 	})
+	c.add(Runtime{
+		Key: "rustfs", Name: "Object storage (S3)", Kind: "storage", Available: true,
+		Description: "S3-compatible object storage with a bucket per project and a web console (S3_* / AWS_* injected)",
+		Versions: []Version{
+			{Version: "1.0", Image: "rustfs/rustfs:1.0.0", Label: "RustFS 1.0", Default: true},
+		},
+	})
 	return c
 }
 

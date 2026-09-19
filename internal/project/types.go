@@ -30,6 +30,7 @@ type CreateRequest struct {
 	Database *DatabaseRequest
 	Redis    *ExtraRequest
 	Mailpit  *ExtraRequest
+	Storage  *StorageRequest
 	Web      WebRequest
 	Git      *GitRequest
 	Env      []EnvVarRequest
@@ -64,6 +65,22 @@ type NodeUpdate struct {
 type ExtraRequest struct {
 	Version    string
 	ExposePort bool
+}
+
+// StorageRequest adds S3-compatible object storage. PublicRead (default true) lets anyone
+// read the bucket's objects, as public-read ACLs do on providers that honour them.
+type StorageRequest struct {
+	Version    string
+	PublicRead *bool
+}
+
+// StorageUpdate adds, changes or removes the object storage.
+type StorageUpdate struct {
+	Enabled    bool
+	Version    string
+	PublicRead *bool
+	// RemoveData confirms deleting the bucket volume when disabling.
+	RemoveData bool
 }
 
 // ExtraUpdate adds, changes or removes an auxiliary service.
@@ -116,6 +133,7 @@ type UpdateRequest struct {
 	Database *DatabaseUpdate
 	Redis    *ExtraUpdate
 	Mailpit  *ExtraUpdate
+	Storage  *StorageUpdate
 	Env      *[]EnvVarRequest
 	// IDEGateway toggles JetBrains Gateway support (port forwarding + shared IDE cache).
 	IDEGateway *bool
@@ -135,6 +153,31 @@ type ExtraServiceInfo struct {
 	VolumeName  string            `json:"volumeName,omitempty"`
 	// WebUI is the host-side URL of a web interface (Mailpit inbox), empty otherwise.
 	WebUIPort int `json:"webUiPort,omitempty"`
+}
+
+// StorageInfo describes the object storage service. Credentials are included only when
+// requested (see Manager.StorageInfo).
+type StorageInfo struct {
+	Version string `json:"version"`
+	Image   string `json:"image"`
+	// Endpoint is the S3 URL as seen from application containers; PublicURL the
+	// browser-reachable bucket URL through the embedded proxy; HostEndpoint the
+	// published S3 port on the host (empty when not published).
+	Endpoint    string   `json:"endpoint"`
+	PublicURL   string   `json:"publicUrl"`
+	HostPort    int      `json:"hostPort"`
+	ConsolePort int      `json:"consolePort"`
+	ConsolePath string   `json:"consolePath"`
+	Region      string   `json:"region"`
+	Bucket      string   `json:"bucket"`
+	PublicRead  bool     `json:"publicRead"`
+	AccessKey   string   `json:"accessKey,omitempty"`
+	SecretKey   string   `json:"secretKey,omitempty"`
+	InjectedEnv []string `json:"injectedEnv"`
+	State       string   `json:"state"`
+	Health      string   `json:"health,omitempty"`
+	VolumeName  string   `json:"volumeName"`
+	Hostname    string   `json:"hostname"`
 }
 
 // DatabaseInfo describes the database service without secrets.

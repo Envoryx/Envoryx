@@ -486,6 +486,51 @@ new projects are picked up without a restart. Switching the browser off
 removes the container, its network and the credentials file. The container
 is not touched by *unused image* pruning while enabled.
 
+## Object storage (S3)
+
+Projects can get S3-compatible object storage (the **Services** tab, or
+*Object storage* in the wizard). Envoryx runs one RustFS container per project
+with a persistent volume, generates an access/secret key pair, creates a bucket
+named after the project at start-up and injects two sets of variables into the
+application containers:
+
+| Generic            | Laravel / AWS SDK            | Value                                   |
+|--------------------|------------------------------|-----------------------------------------|
+| `S3_ENDPOINT`      | `AWS_ENDPOINT`               | `http://s3:9000` (inside the project)   |
+| `S3_REGION`        | `AWS_DEFAULT_REGION`         | `us-east-1`                             |
+| `S3_BUCKET`        | `AWS_BUCKET`                 | the project slug                        |
+| `S3_ACCESS_KEY`    | `AWS_ACCESS_KEY_ID`          | generated                               |
+| `S3_SECRET_KEY`    | `AWS_SECRET_ACCESS_KEY`      | generated                               |
+| `S3_USE_PATH_STYLE`| `AWS_USE_PATH_STYLE_ENDPOINT`| `true`                                  |
+| `S3_PUBLIC_URL`    | `AWS_URL`                    | `https://<project>-s3.<base>/<bucket>`  |
+| `S3_PUBLIC_ENDPOINT` | –                          | `https://<project>-s3.<base>`           |
+
+A Laravel `s3` disk works without further configuration
+(`FILESYSTEM_DISK=s3`); code written for any S3-compatible provider runs
+unchanged once it reads endpoint, keys and bucket from these variables and
+uses path-style addressing.
+
+**Reaching the storage from the browser.** The embedded proxy serves the S3
+API as `<project>-s3.<base domain>` (covered by the same wildcard DNS and
+certificate as the project), so `Storage::url()` links, public assets and
+direct uploads work in the browser. Presigned URLs meant for a browser must
+be signed against that public endpoint (`S3_PUBLIC_ENDPOINT`) – the signature
+covers the host name, a URL signed for `s3:9000` is useless outside the
+project network. The S3 API and the web console are also published on host
+ports (shown in the Services tab) for local tools such as `aws s3 --endpoint-url`.
+
+**Public read.** Real providers honour `public-read` ACLs; RustFS accepts but
+ignores them. Envoryx therefore puts a bucket policy on the bucket that lets
+anyone read every object, switched on by default so `Storage::url()` behaves
+as it would in production. Turn *Anyone may read objects* off in the Services
+tab to test that nothing relies on it; then only presigned URLs and
+authenticated requests work.
+
+The console (RustFS's own UI) opens from the Services tab; sign in with the
+project's access keys. Removing the object storage deletes the bucket volume
+and needs the bucket name as confirmation. Bucket contents are not yet part of
+project backups.
+
 ## Workers (queues, schedulers)
 
 Workers tab: add long-running processes from a preset list – Laravel
@@ -599,7 +644,7 @@ Claude Code: `claude mcp add --transport http envoryx https://envoryx.test/mcp -
 Use `http://<host>:8787/mcp` if the proxy/HTTPS is not set up.
 
 Available tools: list/get projects, list runtimes, create project (PHP
-version + extensions, database, Redis, Mailpit, Node, git clone, env),
+version + extensions, database, Redis, Mailpit, object storage, Node, git clone, env),
 start/stop/restart, get logs, list/run actions (composer, artisan, npm …),
 list/create databases, list/create backups, add domain. Deleting projects,
 dropping databases and restoring backups are intentionally not exposed –

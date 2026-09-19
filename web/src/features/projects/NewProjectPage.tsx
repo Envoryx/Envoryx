@@ -42,6 +42,7 @@ interface Form {
   redisVersion: string;
   redisExpose: boolean;
   mailpit: boolean;
+  storage: boolean;
   template: string; // "" = blank
   gitUrl: string;
   gitBranch: string;
@@ -90,6 +91,7 @@ export function NewProjectPage() {
         redisVersion: runtimes.data.runtimes.find((r) => r.key === "redis")?.versions.find((v) => v.default)?.version ?? "",
         redisExpose: false,
         mailpit: false,
+        storage: false,
         template: "",
         gitUrl: "",
         gitBranch: "",
@@ -118,6 +120,7 @@ export function NewProjectPage() {
     if (form.dbType) req.database = { type: form.dbType, version: form.dbVersion, exposePort: form.dbExpose };
     if (form.redis) req.redis = { version: form.redisVersion, exposePort: form.redisExpose };
     if (form.mailpit) req.mailpit = {};
+    if (form.storage) req.storage = {};
     if (form.template) req.template = form.template;
     if (form.gitUrl.trim() && !form.template) {
       const git: NonNullable<CreateProjectRequest["git"]> = { url: form.gitUrl.trim(), branch: form.gitBranch.trim(), username: form.gitUsername.trim() };
@@ -420,6 +423,9 @@ export function NewProjectPage() {
                 </div>
                 <div className="rounded-md border border-default p-4">
                   <Checkbox label="Mailpit" description={t("Catches all outgoing mail and shows it in a web inbox (published on its own port). Injects MAIL_* and MAILER_DSN.")} checked={form.mailpit} onChange={(e) => set({ mailpit: e.target.checked })} />
+                </div>
+                <div className="rounded-md border border-default p-4">
+                  <Checkbox label={t("Object storage (S3)")} description={t("S3-compatible object storage with a bucket for this project and a web console. Injects S3_* and the AWS_* variables Laravel and the AWS SDKs read.")} checked={form.storage} onChange={(e) => set({ storage: e.target.checked })} />
                 </div>
               </div>
             </div>

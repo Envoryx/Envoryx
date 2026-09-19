@@ -11,6 +11,13 @@ release). `:main` follows the development branch.
 ## [Unreleased]
 
 ### Added
+- S3-compatible object storage as an optional project service: one RustFS
+  container per project with a persistent volume, generated access keys, a
+  bucket named after the project created at start-up, `S3_*` and Laravel/AWS
+  SDK `AWS_*` variables injected, the S3 API served by the embedded proxy as
+  `<project>-s3.<base domain>` for presigned URLs and public assets, a web
+  console, and a switch for anonymous reads (bucket policy standing in for
+  public-read ACLs). Wizard, Services tab and MCP `create_project` know it.
 - API tokens have scopes: `read` (look, no secrets), `operate` (work with
   existing projects – start/stop, actions, backups, databases, git, SSH) and
   `admin` (everything a browser session may do). A token can also be limited

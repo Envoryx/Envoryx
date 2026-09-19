@@ -55,6 +55,7 @@ const (
 	ServiceDatabase ServiceKind = "database"
 	ServiceRedis    ServiceKind = "redis"
 	ServiceMailpit  ServiceKind = "mailpit"
+	ServiceStorage  ServiceKind = "storage"
 )
 
 // Project is the persisted desired state of a development project.

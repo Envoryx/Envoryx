@@ -33,7 +33,7 @@ function ProjectRow({ project, usage }: { project: Project; usage?: { cpuPercent
         <div className="flex flex-wrap gap-1.5">
           {php ? <Badge tone="blue">{serviceLabel("php", php.version)}</Badge> : <Badge>{t("No PHP")}</Badge>}
           {db && <Badge tone="amber">{serviceLabel("database", db.version, db.variant)}</Badge>}
-          {project.services.filter((s) => s.enabled && (s.kind === "redis" || s.kind === "mailpit" || s.kind === "node")).map((s) => (
+          {project.services.filter((s) => s.enabled && (s.kind === "redis" || s.kind === "mailpit" || s.kind === "storage" || s.kind === "node")).map((s) => (
             <Badge key={s.kind}>{serviceLabel(s.kind, s.version, s.variant)}</Badge>
           ))}
           {web && <Badge>{serviceLabel("web", web.version, web.variant)}</Badge>}

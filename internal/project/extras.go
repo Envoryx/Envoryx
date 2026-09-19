@@ -12,7 +12,9 @@ import (
 )
 
 // extraOwnsVolume reports whether an auxiliary service keeps persistent data.
-func extraOwnsVolume(kind store.ServiceKind) bool { return kind == store.ServiceRedis }
+func extraOwnsVolume(kind store.ServiceKind) bool {
+	return kind == store.ServiceRedis || kind == store.ServiceStorage
+}
 
 // ExtraServices describes the auxiliary services of a project for the UI.
 func (m *Manager) ExtraServices(ctx context.Context, id string) ([]ExtraServiceInfo, error) {

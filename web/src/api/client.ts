@@ -39,6 +39,7 @@ import type {
   DBToolLink,
   DBToolStatus,
   TokenScope,
+  StorageInfo,
 } from "./types";
 
 export class ApiError extends Error {
@@ -259,6 +260,12 @@ export const api = {
     status: () => request<DBToolStatus>("/dbtool"),
     set: (enabled: boolean) => request<DBToolStatus>("/dbtool", { method: "PUT", body: { enabled } }),
     open: (id: string) => request<DBToolLink>(`/projects/${encodeURIComponent(id)}/dbtool`, { method: "POST" }),
+  },
+  storage: {
+    info: (id: string) => request<{ storage: StorageInfo }>(`/projects/${encodeURIComponent(id)}/storage`),
+    credentials: (id: string) => request<{ storage: StorageInfo }>(`/projects/${encodeURIComponent(id)}/storage/credentials`),
+    setPublic: (id: string, publicRead: boolean) =>
+      request<{ storage: StorageInfo }>(`/projects/${encodeURIComponent(id)}/storage/public`, { method: "PUT", body: { publicRead } }),
   },
   database: {
     info: (id: string) => request<{ database: DatabaseInfo }>(`/projects/${encodeURIComponent(id)}/database`),

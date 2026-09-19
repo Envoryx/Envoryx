@@ -219,6 +219,7 @@ type createProjectIn struct {
 	DBVersion     string            `json:"databaseVersion,omitempty" jsonschema:"Database version (default: catalogue default)."`
 	Redis         bool              `json:"redis,omitempty" jsonschema:"Add a Redis service."`
 	Mailpit       bool              `json:"mailpit,omitempty" jsonschema:"Add Mailpit (SMTP catcher with web inbox)."`
+	Storage       bool              `json:"storage,omitempty" jsonschema:"Add S3-compatible object storage with a bucket per project (S3_* and AWS_* variables injected)."`
 	NodeVersion   string            `json:"nodeVersion,omitempty" jsonschema:"Add a Node.js toolchain container with this major version (e.g. 24)."`
 	NodeDevServer bool              `json:"nodeDevServer,omitempty" jsonschema:"Run the package.json dev script as a dev server (Vite preset; reachable at <slug>-dev.<base domain>). Requires nodeVersion."`
 	Docroot       string            `json:"docroot,omitempty" jsonschema:"Document root relative to the project directory, e.g. public. Default: project root (public/ for Laravel/Symfony)."`
@@ -249,6 +250,9 @@ func (s *Server) createProject(ctx context.Context, _ *mcp.CallToolRequest, in c
 	}
 	if in.Mailpit {
 		req.Mailpit = &project.ExtraRequest{}
+	}
+	if in.Storage {
+		req.Storage = &project.StorageRequest{}
 	}
 	if v := strings.TrimSpace(in.NodeVersion); v != "" {
 		req.Node = &project.NodeRequest{Version: v, Config: runtime.NodeConfig{DevServer: in.NodeDevServer}}
@@ -307,7 +311,7 @@ func (s *Server) restartProject(ctx context.Context, _ *mcp.CallToolRequest, in 
 
 type getLogsIn struct {
 	Project string `json:"project" jsonschema:"Project id, slug or name"`
-	Service string `json:"service,omitempty" jsonschema:"Container: web, php, node, database, redis or mailpit (default php)"`
+	Service string `json:"service,omitempty" jsonschema:"Container: web, php, node, database, redis, mailpit or storage (default php)"`
 	Tail    int    `json:"tail,omitempty" jsonschema:"Number of lines (default 200, max 2000)"`
 }
 
@@ -333,7 +337,7 @@ func (s *Server) getLogs(ctx context.Context, _ *mcp.CallToolRequest, in getLogs
 		kind = store.ServicePHP
 	}
 	switch kind {
-	case store.ServiceWeb, store.ServicePHP, store.ServiceNode, store.ServiceDatabase, store.ServiceRedis, store.ServiceMailpit:
+	case store.ServiceWeb, store.ServicePHP, store.ServiceNode, store.ServiceDatabase, store.ServiceRedis, store.ServiceMailpit, store.ServiceStorage:
 	default:
 		r, _ := toolErr(fmt.Errorf("%w: unknown service %q", validate.ErrInvalid, in.Service))
 		return r, getLogsOut{}, nil

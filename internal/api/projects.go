@@ -218,6 +218,7 @@ type createProjectRequest struct {
 	Database      *databaseRequestDTO `json:"database"`
 	Redis         *extraRequestDTO    `json:"redis"`
 	Mailpit       *extraRequestDTO    `json:"mailpit"`
+	Storage       *storageRequestDTO  `json:"storage"`
 	Git           *gitRequestDTO      `json:"git"`
 	Web           *webRequestDTO      `json:"web"`
 	Env           []envDTO            `json:"env"`
@@ -229,6 +230,18 @@ type createProjectRequest struct {
 type webRequestDTO struct {
 	Type    string `json:"type"`
 	Version string `json:"version"`
+}
+
+type storageRequestDTO struct {
+	Version    string `json:"version"`
+	PublicRead *bool  `json:"publicRead"`
+}
+
+type storageUpdateDTO struct {
+	Enabled    bool   `json:"enabled"`
+	Version    string `json:"version"`
+	PublicRead *bool  `json:"publicRead"`
+	RemoveData bool   `json:"removeData"`
 }
 
 func (r createProjectRequest) toDomain() project.CreateRequest {
@@ -247,6 +260,9 @@ func (r createProjectRequest) toDomain() project.CreateRequest {
 	}
 	if r.Mailpit != nil {
 		req.Mailpit = &project.ExtraRequest{Version: r.Mailpit.Version}
+	}
+	if r.Storage != nil {
+		req.Storage = &project.StorageRequest{Version: r.Storage.Version, PublicRead: r.Storage.PublicRead}
 	}
 	if r.Git != nil && strings.TrimSpace(r.Git.URL) != "" {
 		g := r.Git.toDomain()
@@ -271,6 +287,7 @@ type updateProjectRequest struct {
 	Database   *databaseUpdateDTO `json:"database"`
 	Redis      *extraUpdateDTO    `json:"redis"`
 	Mailpit    *extraUpdateDTO    `json:"mailpit"`
+	Storage    *storageUpdateDTO  `json:"storage"`
 	Env        *[]envDTO          `json:"env"`
 	IDEGateway *bool              `json:"ideGateway"`
 }
@@ -380,6 +397,9 @@ func (a *API) updateProject(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Redis != nil {
 		upd.Redis = &project.ExtraUpdate{Enabled: req.Redis.Enabled, Version: req.Redis.Version, ExposePort: req.Redis.ExposePort, RemoveData: req.Redis.RemoveData}
+	}
+	if req.Storage != nil {
+		upd.Storage = &project.StorageUpdate{Enabled: req.Storage.Enabled, Version: req.Storage.Version, PublicRead: req.Storage.PublicRead, RemoveData: req.Storage.RemoveData}
 	}
 	if req.Mailpit != nil {
 		upd.Mailpit = &project.ExtraUpdate{Enabled: req.Mailpit.Enabled, Version: req.Mailpit.Version}

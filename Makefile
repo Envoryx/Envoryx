@@ -33,7 +33,7 @@ test-web:
 
 ## Integration tests against a real Docker engine
 test-integration:
-	$(GO) test -tags integration -count=1 ./internal/docker/
+	$(GO) test -tags integration -count=1 ./internal/docker/ ./internal/s3/
 
 lint:
 	gofmt -l . && $(GO) vet ./...

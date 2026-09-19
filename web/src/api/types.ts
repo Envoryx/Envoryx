@@ -263,6 +263,7 @@ export interface CreateProjectRequest {
   database?: DatabaseRequest | null;
   redis?: ExtraRequest | null;
   mailpit?: ExtraRequest | null;
+  storage?: StorageRequest | null;
   git?: GitRequest | null;
   web?: { type: string; version: string };
   env?: EnvVar[];
@@ -280,8 +281,42 @@ export interface UpdateProjectRequest {
   database?: DatabaseUpdate;
   redis?: ExtraUpdate;
   mailpit?: ExtraUpdate;
+  storage?: StorageUpdate;
   env?: EnvVar[];
   ideGateway?: boolean;
+}
+
+export interface StorageRequest {
+  version?: string;
+  publicRead?: boolean;
+}
+
+export interface StorageUpdate {
+  enabled: boolean;
+  version?: string;
+  publicRead?: boolean;
+  removeData?: boolean;
+}
+
+/** S3-compatible object storage of a project; keys only on the credentials endpoint. */
+export interface StorageInfo {
+  version: string;
+  image: string;
+  endpoint: string;
+  publicUrl: string;
+  hostPort: number;
+  consolePort: number;
+  consolePath: string;
+  region: string;
+  bucket: string;
+  publicRead: boolean;
+  accessKey?: string;
+  secretKey?: string;
+  injectedEnv: string[];
+  state: string;
+  health?: string;
+  volumeName: string;
+  hostname: string;
 }
 
 export interface PreviewContainer {

@@ -22,6 +22,7 @@ import (
 	"github.com/envoryx/envoryx/internal/mcpserver"
 	"github.com/envoryx/envoryx/internal/project"
 	"github.com/envoryx/envoryx/internal/runtime"
+	"github.com/envoryx/envoryx/internal/s3"
 	"github.com/envoryx/envoryx/internal/store"
 )
 
@@ -51,6 +52,7 @@ func newEnv(t *testing.T) *env {
 	}
 	sessions := auth.NewService(st, auth.Options{IdleTimeout: time.Hour, AbsoluteTimeout: time.Hour}, log)
 	manager := project.NewManager(st, engine, runtime.Default(), paths, audit.New(st.Audit, log), project.Config{PortRangeStart: 20000, PortRangeEnd: 20010}, log)
+	manager.SetProvisioner(s3.Noop{})
 	srv := mcpserver.New(mcpserver.Deps{Projects: manager, Catalog: runtime.Default(), Auth: sessions, Version: "test", Log: log,
 		Links: mcpserver.Links{PublicHost: func(context.Context) string { return "nas.lan" }, HTTPPort: 80, HTTPSPort: 443}})
 

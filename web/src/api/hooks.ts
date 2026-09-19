@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api } from "./client";
+import { api, ApiError } from "./client";
 import type { CreateProjectRequest, NodeConfig, Project, UpdateProjectRequest, UpdateSettingsRequest } from "./types";
 import { projectUrl } from "@/lib/format";
 
@@ -187,6 +187,22 @@ export function useUpdateProject(id: string) {
 
 export function useExtraServices(id: string) {
   return useQuery({ queryKey: ["projects", id, "extras"], queryFn: async () => (await api.projects.extras(id)).services, refetchInterval: LIVE_INTERVAL });
+}
+
+/** The project's object storage; null when it has none (404). */
+export function useStorage(id: string) {
+  return useQuery({
+    queryKey: ["projects", id, "storage"],
+    queryFn: async () => {
+      try {
+        return (await api.storage.info(id)).storage;
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 404) return null;
+        throw err;
+      }
+    },
+    refetchInterval: LIVE_INTERVAL,
+  });
 }
 
 export function useGitStatus(id: string, enabled = true) {

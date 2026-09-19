@@ -153,6 +153,9 @@ func (m *Manager) AddDomain(ctx context.Context, id, hostname string) (store.Dom
 			}
 			return store.Domain{}, fmt.Errorf("%w: %s is the default host name of project %q", store.ErrConflict, hostname, other.Name)
 		}
+		if DevHostname(other.Slug, base) == hostname || StorageHostname(other.Slug, base) == hostname {
+			return store.Domain{}, fmt.Errorf("%w: %s is reserved for a service of project %q", store.ErrConflict, hostname, other.Name)
+		}
 	}
 	d, err := m.store.Domains.Add(ctx, p.ID, hostname)
 	if err != nil {
@@ -209,7 +212,7 @@ func (m *Manager) RouteTable(ctx context.Context, opts ProxyOptions) (proxy.Tabl
 	if err != nil {
 		return t, err
 	}
-	webRunning, nodeRunning := map[string]bool{}, map[string]bool{}
+	webRunning, nodeRunning, storageRunning := map[string]bool{}, map[string]bool{}, map[string]bool{}
 	for _, c := range containers {
 		if c.State != "running" {
 			continue
@@ -219,6 +222,8 @@ func (m *Manager) RouteTable(ctx context.Context, opts ProxyOptions) (proxy.Tabl
 			webRunning[c.ProjectID()] = true
 		case string(store.ServiceNode):
 			nodeRunning[c.ProjectID()] = true
+		case string(store.ServiceStorage):
+			storageRunning[c.ProjectID()] = true
 		}
 	}
 	paths, _ := m.paths()
@@ -229,6 +234,9 @@ func (m *Manager) RouteTable(ctx context.Context, opts ProxyOptions) (proxy.Tabl
 		t.Routes[DefaultHostname(p.Slug, base)] = target
 		if cfg, ok := nodeDevConfig(p); ok {
 			t.Routes[DevHostname(p.Slug, base)] = proxy.Target{ProjectID: p.ID, ProjectName: p.Name + " (dev server)", Slug: p.Slug, Running: nodeRunning[p.ID], Dial: m.dialForDev(paths.SelfContainerID, p, cfg)}
+		}
+		if _, cfg, err := storageConfig(p); err == nil {
+			t.Routes[StorageHostname(p.Slug, base)] = proxy.Target{ProjectID: p.ID, ProjectName: p.Name + " (object storage)", Slug: p.Slug, Running: storageRunning[p.ID], Dial: m.storageDial(paths.SelfContainerID, p, cfg)}
 		}
 	}
 	for _, d := range domains {

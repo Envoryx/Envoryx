@@ -348,6 +348,9 @@ func serve() error {
 		mcpLinks.HTTPSPort = proxyInfo.HTTPSPort
 	}
 	mcpLinks.HTTPPort = proxyInfo.HTTPPort
+	manager.SetLinks(func(ctx context.Context) (string, int, int) {
+		return publicHost(ctx), mcpLinks.HTTPPort, mcpLinks.HTTPSPort
+	})
 	mcpSrv := mcpserver.New(mcpserver.Deps{Projects: manager, Catalog: catalog, Auth: sessions, Links: mcpLinks, Version: version, Log: log})
 	updates := update.Disabled(version)
 	if cfg.UpdateCheck {

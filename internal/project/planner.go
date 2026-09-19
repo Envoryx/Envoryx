@@ -40,6 +40,11 @@ type Paths struct {
 	BaseDomain string
 	// XdebugClientHost is the global fallback debugger host (developer machine).
 	XdebugClientHost string
+	// PublicHost and the proxy's host-side ports let the planner build URLs that a
+	// browser on the LAN can reach (object storage public URL). Zero = unknown.
+	PublicHost     string
+	ProxyHTTPPort  int
+	ProxyHTTPSPort int
 }
 
 // FilePlan is a generated configuration file.
@@ -173,7 +178,7 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 	if proj.IDEGateway {
 		plan.Dirs = append(plan.Dirs, DirPlan{Path: filepath.Join(p.paths.ConfigDir, jetbrainsCacheDir), UID: p.paths.PUID, GID: p.paths.PGID})
 	}
-	env, err := envStrings(proj)
+	env, err := p.envStrings(proj)
 	if err != nil {
 		return Plan{}, err
 	}
@@ -370,6 +375,35 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 			plan.Containers = append(plan.Containers, ContainerPlan{Kind: store.ServiceMailpit, Order: 7, Spec: spec})
 			images[svc.Image] = true
 
+		case store.ServiceStorage:
+			var cfg runtime.StorageConfig
+			if err := json.Unmarshal(svc.Config, &cfg); err != nil {
+				return Plan{}, fmt.Errorf("storage config: %w", err)
+			}
+			volume := VolumeName(proj.Slug, store.ServiceStorage)
+			plan.Volumes = append(plan.Volumes, volume)
+			spec := docker.ContainerSpec{
+				Name:          ContainerName(proj.Slug, store.ServiceStorage),
+				Image:         svc.Image,
+				Labels:        labels,
+				Env:           cfg.ContainerEnv(),
+				Network:       plan.NetworkName,
+				NetworkAlias:  []string{"s3", "storage"},
+				Mounts:        []docker.MountSpec{{Type: "volume", Source: volume, Target: "/data"}},
+				RestartPolicy: "unless-stopped",
+				StopTimeout:   10,
+				// Any HTTP answer means the API is up (an unsigned request gets 403).
+				Healthcheck: &docker.HealthSpec{Test: []string{"curl", "-s", "-o", "/dev/null", "http://127.0.0.1:9000/"}, Interval: 10 * time.Second, Timeout: 3 * time.Second, StartPeriod: 10 * time.Second, Retries: 3},
+			}
+			if cfg.HostPort > 0 {
+				spec.Ports = append(spec.Ports, docker.PortSpec{HostIP: p.paths.PublishInterface, HostPort: cfg.HostPort, ContainerPort: runtime.StoragePort, Protocol: "tcp"})
+			}
+			if cfg.ConsolePort > 0 {
+				spec.Ports = append(spec.Ports, docker.PortSpec{HostIP: p.paths.PublishInterface, HostPort: cfg.ConsolePort, ContainerPort: runtime.StorageConsolePort, Protocol: "tcp"})
+			}
+			plan.Containers = append(plan.Containers, ContainerPlan{Kind: store.ServiceStorage, Order: 8, Spec: spec})
+			images[svc.Image] = true
+
 		default:
 			return Plan{}, fmt.Errorf("service kind %q is not supported yet", svc.Kind)
 		}
@@ -471,7 +505,7 @@ func VolumeName(slug string, kind store.ServiceKind) string {
 
 // envStrings builds the environment for application containers: Envoryx defaults, then
 // database connection variables, then the user's variables (which override everything).
-func envStrings(proj store.Project) ([]string, error) {
+func (p *Planner) envStrings(proj store.Project) ([]string, error) {
 	vars := map[string]string{"ENVORYX_PROJECT": proj.Slug}
 	var order []string
 	set := func(k, v string) {
@@ -511,6 +545,16 @@ func envStrings(proj store.Project) ([]string, error) {
 	if mp := proj.Service(store.ServiceMailpit); mp != nil && mp.Enabled {
 		env := runtime.MailpitEnv()
 		for _, k := range []string{"MAIL_MAILER", "MAIL_HOST", "MAIL_PORT", "MAIL_ENCRYPTION", "MAILER_DSN"} {
+			set(k, env[k])
+		}
+	}
+	if st := proj.Service(store.ServiceStorage); st != nil && st.Enabled {
+		var cfg runtime.StorageConfig
+		if err := json.Unmarshal(st.Config, &cfg); err != nil {
+			return nil, fmt.Errorf("storage config: %w", err)
+		}
+		env := runtime.StorageEnv(cfg, p.storagePublicURL(proj.Slug, cfg))
+		for _, k := range runtime.StorageEnvKeys {
 			set(k, env[k])
 		}
 	}

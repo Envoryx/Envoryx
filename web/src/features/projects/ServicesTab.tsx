@@ -2,10 +2,11 @@ import { ExternalLink, Mail, Plus, Server, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useState } from "react";
 import { ApiError } from "@/api/client";
-import { useExtraServices, usePublicHost, useRuntimes, useUpdateProject } from "@/api/hooks";
+import { useExtraServices, usePublicHost, useRuntimes, useStorage, useUpdateProject } from "@/api/hooks";
 import type { ExtraServiceInfo, Project } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Checkbox, Dialog, ErrorState, Field, Input, Select, Spinner, StatusDot } from "@/components/ui";
 import { containerStateTone } from "@/lib/format";
+import { AddStorageCard, StorageCard } from "./StorageCard";
 
 function ServiceCard({ project, info, onMessage }: { project: Project; info: ExtraServiceInfo; onMessage: (m: { tone: "green" | "red"; text: string }) => void }) {
   const { t } = useTranslation();
@@ -188,19 +189,22 @@ function AddServiceCard({ project, kind, onMessage }: { project: Project; kind: 
 
 export function ServicesTab({ project }: { project: Project }) {
   const extras = useExtraServices(project.id);
+  const storage = useStorage(project.id);
   const [msg, setMsg] = useState<{ tone: "green" | "red"; text: string } | null>(null);
-  if (extras.isPending) return <Spinner />;
+  if (extras.isPending || storage.isPending) return <Spinner />;
   if (extras.isError) return <ErrorState message={extras.error.message} />;
   const has = (k: string) => extras.data.some((s) => s.kind === k);
   return (
     <div className="space-y-6">
       {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
       <div className="grid gap-6 lg:grid-cols-2">
+        {storage.data && <StorageCard project={project} onMessage={setMsg} />}
         {extras.data.map((s) => (
           <ServiceCard key={s.kind} project={project} info={s} onMessage={setMsg} />
         ))}
         {!has("redis") && <AddServiceCard project={project} kind="redis" onMessage={setMsg} />}
         {!has("mailpit") && <AddServiceCard project={project} kind="mailpit" onMessage={setMsg} />}
+        {!storage.data && <AddStorageCard project={project} onMessage={setMsg} />}
       </div>
     </div>
   );
