@@ -215,3 +215,33 @@ func TestEmailDelivery(t *testing.T) {
 		t.Fatal("incomplete smtp config must be rejected")
 	}
 }
+
+func TestNotifySyncWaitsForDelivery(t *testing.T) {
+	s, got, srv := newService(t)
+	ctx := context.Background()
+	// envoryx.failed is on by default: a failed start must reach the operator without
+	// any opt-in beyond configuring a channel.
+	if err := s.SetConfig(Config{Enabled: true, Provider: "webhook", URL: srv.URL + "/hook"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.NotifySync(ctx, Event{Kind: "envoryx.failed", Level: Error, Title: "Envoryx failed to start", Message: "database: corrupt"}); err != nil {
+		t.Fatal(err)
+	}
+	if got.count() != 1 || !strings.Contains(got.last().body, "corrupt") {
+		t.Fatalf("delivery not awaited: %d received", got.count())
+	}
+	if err := s.SetConfig(Config{Enabled: true, Provider: "webhook", URL: srv.URL + "/fail"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.NotifySync(ctx, Event{Kind: "envoryx.failed", Level: Error, Title: "x", Message: "y"}); err == nil {
+		t.Fatal("delivery failure not reported")
+	}
+	// Disabled kinds are filtered before any request goes out.
+	if err := s.SetConfig(Config{Enabled: true, Provider: "webhook", URL: srv.URL + "/hook", Kinds: []string{"acme.failed"}}); err != nil {
+		t.Fatal(err)
+	}
+	n := got.count()
+	if err := s.NotifySync(ctx, Event{Kind: "envoryx.failed", Level: Error, Title: "x", Message: "y"}); err != nil || got.count() != n {
+		t.Fatalf("filtered event was sent (%v)", err)
+	}
+}

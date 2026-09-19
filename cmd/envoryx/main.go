@@ -17,6 +17,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 	"net/http"
@@ -24,6 +25,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"sync/atomic"
 	"syscall"
@@ -79,6 +81,7 @@ func main() {
 		}
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "envoryx:", err)
+			notifyStartFailure(err)
 			os.Exit(1)
 		}
 	case "healthcheck":
@@ -168,12 +171,11 @@ func serve() error {
 		return nil
 	}})
 	if err != nil {
-		if errors.Is(err, db.ErrCorrupt) {
-			hint := "no instance backup found"
-			if list, lerr := backups.List(); lerr == nil && len(list) > 0 {
-				hint = fmt.Sprintf("the newest instance backup is %s in %s", list[0].ID, backups.Dir)
-			}
-			return fmt.Errorf("database: %w – restore an instance backup (%s; see DEPLOYMENT.md, Instance backups)", err, hint)
+		switch {
+		case errors.Is(err, db.ErrCorrupt):
+			return fmt.Errorf("database: %w – restore an instance backup (%s; see DEPLOYMENT.md, Instance backups)", err, newestBackupHint(backups, ""))
+		case errors.Is(err, db.ErrNewerSchema):
+			return fmt.Errorf("database: %w – either run the newer Envoryx image again, or restore the instance backup taken before its migration (%s; see DEPLOYMENT.md, Updating)", err, newestBackupHint(backups, instance.KindPreMigrate))
 		}
 		return fmt.Errorf("database: %w", err)
 	}
@@ -250,9 +252,10 @@ func serve() error {
 	}
 
 	// 5. Reconcile desired vs. actual state, then keep doing so in the background.
-	go manager.RunReconciler(ctx, 30*time.Second, log)
-	go manager.RunBackupScheduler(ctx, time.Minute, log)
-	go func() {
+	background := func(name string, fn func(context.Context)) { go supervise(ctx, log, notifier, name, fn) }
+	background("reconciler", func(ctx context.Context) { manager.RunReconciler(ctx, 30*time.Second, log) })
+	background("backup scheduler", func(ctx context.Context) { manager.RunBackupScheduler(ctx, time.Minute, log) })
+	background("session purge", func(ctx context.Context) {
 		t := time.NewTicker(time.Hour)
 		defer t.Stop()
 		for {
@@ -263,7 +266,7 @@ func serve() error {
 			case <-t.C:
 			}
 		}
-	}()
+	})
 
 	// 6. Local CA for the embedded proxy.
 	var certs *tlsca.Store
@@ -282,7 +285,7 @@ func serve() error {
 			if notifier != nil {
 				acmeMgr.SetNotifier(notifier)
 			}
-			go acmeMgr.Run(ctx)
+			background("certificate renewal", acmeMgr.Run)
 		}
 	}
 	proxyInfo := detectProxy(ctx, cfg, engine, resolver, certs != nil, log)
@@ -305,11 +308,11 @@ func serve() error {
 					}
 				}
 			}
-			go func() {
+			background("ssh server", func(ctx context.Context) {
 				if err := sshSrv.Run(ctx, cfg.SSHListen); err != nil {
 					log.Warn("ssh server stopped", "err", err)
 				}
-			}()
+			})
 		}
 	}
 
@@ -368,11 +371,11 @@ func serve() error {
 			httpsAddr = cfg.ProxyHTTPS
 		}
 		ps := proxy.NewServer(handler, router, certs, cfg.ProxyHTTP, httpsAddr, nil, log)
-		go func() {
+		background("proxy", func(ctx context.Context) {
 			if err := ps.Run(ctx); err != nil {
 				log.Warn("embedded proxy disabled", "err", err)
 			}
-		}()
+		})
 	}
 
 	if notifier != nil {
@@ -387,6 +390,74 @@ func serve() error {
 	}
 	log.Info("Envoryx stopped")
 	return nil
+}
+
+// supervise runs a background task and keeps it alive: a panic is logged with its stack,
+// reported through notifications and the task is started again with backoff. A task
+// that returns on its own (context done, listener failed) is left alone.
+func supervise(ctx context.Context, log *slog.Logger, notifier *notify.Service, name string, fn func(context.Context)) {
+	backoff := time.Second
+	for {
+		if runGuarded(ctx, log, notifier, name, fn) {
+			return
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(backoff):
+		}
+		if backoff < time.Minute {
+			backoff *= 2
+		}
+	}
+}
+
+// runGuarded reports true when fn returned normally, false when it panicked.
+func runGuarded(ctx context.Context, log *slog.Logger, notifier *notify.Service, name string, fn func(context.Context)) (ok bool) {
+	defer func() {
+		if rec := recover(); rec != nil {
+			ok = false
+			log.Error("background task crashed; restarting it", "task", name, "panic", rec, "stack", string(debug.Stack()))
+			if notifier != nil {
+				notifier.Notify(ctx, notify.Event{Kind: "envoryx.failed", Level: notify.Error, Title: "Envoryx: " + name + " crashed",
+					Message: fmt.Sprintf("%v\nThe task was restarted automatically; see the container log for the stack trace.", rec)})
+			}
+		}
+	}()
+	fn(ctx)
+	return true
+}
+
+// notifyStartFailure tells the operator that Envoryx refused to start. It needs no
+// database: notification settings live in a file in the config directory.
+func notifyStartFailure(cause error) {
+	cfg, err := config.Load()
+	if err != nil {
+		return
+	}
+	notifier, err := notify.New(cfg.ConfigDir, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	if err != nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	if err := notifier.NotifySync(ctx, notify.Event{Kind: "envoryx.failed", Level: notify.Error, Title: "Envoryx failed to start", Message: cause.Error()}); err != nil {
+		fmt.Fprintln(os.Stderr, "envoryx: start-failure notification not delivered:", err)
+	}
+}
+
+// newestBackupHint names the newest instance backup (of a kind, "" = any) for error messages.
+func newestBackupHint(backups *instance.Store, kind string) string {
+	list, err := backups.List()
+	if err != nil {
+		return "no instance backup found"
+	}
+	for _, b := range list {
+		if kind == "" || b.Kind == kind {
+			return fmt.Sprintf("the newest %s backup is %s in %s", b.Kind, b.ID, backups.Dir)
+		}
+	}
+	return "no instance backup found"
 }
 
 // uniqueDirs drops duplicates, keeping order.

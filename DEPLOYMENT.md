@@ -307,8 +307,9 @@ only; a database newer than the binary is refused with a clear error.
 Before the first migration of a new version Envoryx writes an **instance
 backup** (`pre-migrate-…`) to `<backups dir>/_instance/`. To go back to the
 previous version: pull the old image, then restore that backup from *Settings →
-Instance backups* (or, if the old version does not start because the schema is
-newer, see [Instance backups](#instance-backups) for the manual way).
+Instance backups*. If the old version refuses to start because the schema is
+newer, its error message names the pre-migrate backup to restore by hand (see
+[Instance backups](#instance-backups)).
 
 ## Keeping PHP up to date
 
@@ -473,8 +474,12 @@ Settings → **Notifications**: pick a channel (ntfy, Discord or Slack
 webhook, Telegram bot, e-mail via SMTP, or a generic JSON webhook), choose
 the events and send a test. Events: a project that should be running is
 stopped/broken (and when it recovers), project creation failed, backup
-failed, Let's Encrypt renewal failed/succeeded, Envoryx started. Repeats are
-throttled (unhealthy project once per 6 h, failed renewal once per day).
+failed, Let's Encrypt renewal failed/succeeded, Envoryx started, Envoryx
+failed (refused to start – corrupt database, network filesystem, failed
+migration – or a background task crashed and was restarted). Repeats are
+throttled (unhealthy project once per 6 h, failed renewal once per day). The
+failed-start notification is sent before the process exits and needs no
+database, only the channel configured in `/config/notify.json`.
 Secrets live in `/config/notify.json` (0600). SMTP authentication requires
 STARTTLS or TLS.
 
@@ -512,3 +517,10 @@ test-api with PHP 8.4, MariaDB and Redis, then run composer install."*
 `GET /api/v1/health` returns `{"status":"ok","docker":true,"database":true,…}`
 without authentication. The image ships a `HEALTHCHECK` that calls
 `envoryx healthcheck`.
+
+The check is a *liveness* check: it fails (503, `"status":"unavailable"`)
+only when the database is unusable. An unreachable Docker engine is reported
+as `"docker":false` with `"status":"degraded"` but still answers 200 –
+Envoryx keeps running and retries the engine on demand, and restarting the
+Envoryx container would not fix a Docker problem. Tools that restart
+unhealthy containers (autoheal) therefore do not loop on it.

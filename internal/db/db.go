@@ -39,6 +39,9 @@ func Open(ctx context.Context, path string, log *slog.Logger) (*sql.DB, error) {
 // ErrCorrupt is returned when the database file fails SQLite's integrity check.
 var ErrCorrupt = errors.New("database integrity check failed")
 
+// ErrNewerSchema is returned when the database was migrated by a newer Envoryx.
+var ErrNewerSchema = errors.New("database schema is newer than this Envoryx build")
+
 // OpenWith is Open with options. A file database is integrity-checked before anything
 // touches it; a damaged file is refused (ErrCorrupt) rather than migrated or served.
 func OpenWith(ctx context.Context, path string, log *slog.Logger, opts Options) (*sql.DB, error) {
@@ -67,7 +70,7 @@ func OpenRaw(ctx context.Context, path string, log *slog.Logger) (*sql.DB, error
 		if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 			return nil, fmt.Errorf("create database directory: %w", err)
 		}
-		dsn = "file:" + path + "?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_pragma=foreign_keys(ON)&_pragma=synchronous(NORMAL)"
+		dsn = "file:" + path + "?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_pragma=foreign_keys(ON)&_pragma=synchronous(FULL)"
 	} else {
 		dsn = "file::memory:?_pragma=foreign_keys(ON)"
 	}
@@ -215,7 +218,7 @@ func migrate(ctx context.Context, sqlDB *sql.DB, log *slog.Logger, before func(c
 		latest = migrations[len(migrations)-1].version
 	}
 	if maxApplied > latest {
-		return fmt.Errorf("database schema version %d is newer than this Envoryx build supports (%d); refusing to start", maxApplied, latest)
+		return fmt.Errorf("%w: schema version %d, this build supports %d; refusing to start", ErrNewerSchema, maxApplied, latest)
 	}
 
 	if before != nil && maxApplied < latest && len(applied) > 0 {

@@ -484,6 +484,16 @@ of its restart policy.
   `last_error`) rather than hidden.
 - The reconciler is the safety net: whatever state a crash leaves behind is
   detected and displayed; no automatic destructive action is taken.
+- Background tasks (reconciler, backup scheduler, session purge, certificate
+  renewal, SSH, proxy) run under `supervise` in `main`: a panic is logged with
+  its stack, reported as an `envoryx.failed` notification and the task is
+  restarted with backoff. HTTP handlers have their own `recover` middleware.
+  A refused start (corrupt database, network filesystem, newer schema) is
+  notified synchronously before the process exits – notification settings are
+  a file, so this works without the database.
+- SQLite runs with WAL and `synchronous=FULL`: committed transactions survive
+  power loss, not just process crashes. At Envoryx's write volume the extra
+  fsync is not measurable.
 
 ---
 

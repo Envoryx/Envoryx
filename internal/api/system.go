@@ -30,10 +30,16 @@ func (a *API) health(w http.ResponseWriter, r *http.Request) {
 		dockerOK = true
 	}
 	dbOK := a.d.Store.DB().PingContext(ctx) == nil
+	// Liveness: only a broken database makes the container unhealthy. Docker being
+	// unreachable is reported (docker=false, "degraded") but is not a reason to restart
+	// Envoryx – it keeps serving and retries the engine on demand.
 	status := http.StatusOK
 	state := "ok"
+	if !dockerOK {
+		state = "degraded"
+	}
 	if !dbOK {
-		status, state = http.StatusServiceUnavailable, "degraded"
+		status, state = http.StatusServiceUnavailable, "unavailable"
 	}
 	writeJSON(w, status, map[string]any{
 		"status":   state,

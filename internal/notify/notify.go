@@ -65,6 +65,7 @@ var Kinds = []struct {
 	{"acme.renewed", "Let's Encrypt certificate issued or renewed", false},
 	{"backup.failed", "A backup could not be created", true},
 	{"envoryx.started", "Envoryx started", false},
+	{"envoryx.failed", "Envoryx could not start, or a background task crashed and was restarted", true},
 }
 
 // Providers lists the supported delivery channels.
@@ -265,11 +266,35 @@ func validateConfig(c Config) error {
 
 // Notify delivers an event asynchronously when enabled and not de-duplicated.
 func (s *Service) Notify(ctx context.Context, e Event) {
+	cfg, at, ok := s.admit(e)
+	if !ok {
+		return
+	}
+	go func() {
+		ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
+		defer cancel()
+		s.send(ctx, cfg, e, at)
+	}()
+}
+
+// NotifySync is Notify for callers that are about to exit (a failed start): it waits for
+// the delivery and reports whether it succeeded.
+func (s *Service) NotifySync(ctx context.Context, e Event) error {
+	cfg, at, ok := s.admit(e)
+	if !ok {
+		return nil
+	}
+	return s.send(ctx, cfg, e, at)
+}
+
+// admit applies the enabled/kind/cooldown filters and returns the configuration snapshot
+// to deliver with.
+func (s *Service) admit(e Event) (Config, time.Time, bool) {
 	s.mu.Lock()
+	defer s.mu.Unlock()
 	cfg := s.cfg
 	if !cfg.Enabled || !cfg.enabledKind(e.Kind) {
-		s.mu.Unlock()
-		return
+		return Config{}, time.Time{}, false
 	}
 	key := e.Key
 	if key == "" {
@@ -277,28 +302,26 @@ func (s *Service) Notify(ctx context.Context, e Event) {
 	}
 	if cd := cooldown[e.Kind]; cd > 0 {
 		if last, ok := s.recent[key]; ok && s.now().Sub(last) < cd {
-			s.mu.Unlock()
-			return
+			return Config{}, time.Time{}, false
 		}
 		s.recent[key] = s.now()
 	}
-	at := s.now()
-	s.mu.Unlock()
-	go func() {
-		ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
-		defer cancel()
-		if err := s.deliver(ctx, cfg, e, at); err != nil {
-			s.log.Warn("notification delivery failed", "kind", e.Kind, "err", err)
-			s.mu.Lock()
-			s.lastError = err.Error()
-			s.mu.Unlock()
-			return
-		}
+	return cfg, s.now(), true
+}
+
+func (s *Service) send(ctx context.Context, cfg Config, e Event, at time.Time) error {
+	if err := s.deliver(ctx, cfg, e, at); err != nil {
+		s.log.Warn("notification delivery failed", "kind", e.Kind, "err", err)
 		s.mu.Lock()
-		ts := s.now()
-		s.lastSent, s.lastError = &ts, ""
+		s.lastError = err.Error()
 		s.mu.Unlock()
-	}()
+		return err
+	}
+	s.mu.Lock()
+	ts := s.now()
+	s.lastSent, s.lastError = &ts, ""
+	s.mu.Unlock()
+	return nil
 }
 
 // Clear implements Sender.
