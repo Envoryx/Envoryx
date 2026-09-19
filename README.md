@@ -112,14 +112,17 @@ Install the template once from the Unraid terminal (or via SSH) – it lands on
 the flash drive next to your other user templates:
 
 ```sh
-wget -O /boot/config/plugins/dockerMan/templates-user/envoryx.xml \
+wget -O /boot/config/plugins/dockerMan/templates-user/my-Envoryx.xml \
   https://raw.githubusercontent.com/envoryx/envoryx/main/deploy/unraid/envoryx.xml
 ```
 
 Then go to **Docker → Add Container**, pick **Envoryx** under *User
 templates* and click **Apply** – ports, `/config`, `/projects`, the Docker
 socket and `PUID`/`PGID` are pre-filled. Create the `development` share first
-if it does not exist yet. Open `http://<unraid-ip>:8787` and create the
+if it does not exist yet. Keep the file name `my-Envoryx.xml` and download it
+only once – Unraid stores your container settings in it, and a second copy
+under another name would make *Edit*/*Update* fall back to the defaults (see
+[DEPLOYMENT.md](DEPLOYMENT.md)). Open `http://<unraid-ip>:8787` and create the
 admin account.
 
 For domains and HTTPS (`https://shop.test`) map the proxy ports 80/443 (bridge)

@@ -144,21 +144,34 @@ Copy the template to your flash drive so it appears under
 **Docker → Add Container → Select a template → User templates**:
 
 ```
-wget -O /boot/config/plugins/dockerMan/templates-user/envoryx.xml \
+wget -O /boot/config/plugins/dockerMan/templates-user/my-Envoryx.xml \
   https://raw.githubusercontent.com/envoryx/envoryx/main/deploy/unraid/envoryx.xml
 ```
 
 Then *Add Container → Envoryx → Apply*. Ports, paths, socket, PUID/PGID are
 pre-filled; create the `development` share first if it does not exist.
 
-Run that `wget` **once**. Unraid stores every change you make on the
-container page (network type such as `br0`, the backups share, ports) in
-that same file – downloading the template again overwrites them with the
-repository defaults, and the next *Apply* recreates the container with
-`bridge` and no backups mount. Updates need no new template: *Docker → Check
-for Updates → Apply* pulls the new image and keeps your settings. If a
-release changes the template (new variable or path), add the change on the
-container's edit page by hand.
+The file name matters. Unraid writes your container settings (network type
+such as `br0`, the backups share, ports) to `my-<ContainerName>.xml` on
+*Apply*, but *Edit* and *Update* open the **first** file in `templates-user`
+(alphabetically) whose `<Name>` matches the container. A second copy of the
+template under another name – say `envoryx.xml` – sorts before `my-Envoryx.xml`
+and wins, so every edit and every update starts from the repository defaults
+and your settings look "reset". Keep exactly one file with `<Name>Envoryx</Name>`
+in that directory:
+
+```
+ls /boot/config/plugins/dockerMan/templates-user/ | grep -i envoryx
+```
+
+If it lists anything besides `my-Envoryx.xml`, delete the extra file, open
+the container's edit page once, check the values and *Apply*.
+
+Run the `wget` **once**. Downloading it again overwrites your settings with
+the defaults. Updates need no new template: *Docker → Check for Updates →
+Apply* pulls the new image and keeps your settings. If a release changes the
+template (new variable or path), add the change on the container's edit page
+by hand.
 
 Alternatively add `https://github.com/envoryx/envoryx` under
 **Docker → Add Container → Template repositories** – Unraid then reads
