@@ -318,7 +318,7 @@ func (m *Manager) ensureDBTool(ctx context.Context) error {
 				{Type: "bind", Source: hostDir, Target: "/envoryx", ReadOnly: true},
 			},
 			Network: DBToolNetwork, NetworkAlias: []string{DBToolContainer}, RestartPolicy: "unless-stopped", StopTimeout: 5,
-			User:    fmt.Sprintf("%d:%d", paths.PUID, paths.PGID),
+			User: fmt.Sprintf("%d:%d", paths.PUID, paths.PGID),
 		}
 		if paths.SelfContainerID == "" {
 			// Bare metal: no shared network, so publish on the loopback interface.
