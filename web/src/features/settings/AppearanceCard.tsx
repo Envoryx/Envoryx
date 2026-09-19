@@ -5,9 +5,15 @@ import { Card, CardHeader } from "@/components/ui";
 import { LogoMark } from "@/layout/Logo";
 import { accents, useAccent, type Accent } from "@/layout/theme";
 
-const accentLabel: Record<Accent, string> = { mint: "Mint", ocean: "Ocean", violet: "Violet", amber: "Amber", rose: "Rose" };
+const accentLabel: Record<Accent, string> = {
+  mint: "Mint", teal: "Teal", lime: "Lime", ocean: "Ocean", indigo: "Indigo", violet: "Violet",
+  fuchsia: "Fuchsia", rose: "Rose", orange: "Orange", amber: "Amber", slate: "Graphite",
+};
 // Swatch colours: the 500 tone of each palette (see index.css).
-const swatch: Record<Accent, string> = { mint: "#10c98f", ocean: "#0ea5e9", violet: "#8b5cf6", amber: "#f59e0b", rose: "#f43f5e" };
+const swatch: Record<Accent, string> = {
+  mint: "#10c98f", teal: "#14b8a6", lime: "#84cc16", ocean: "#0ea5e9", indigo: "#6366f1", violet: "#8b5cf6",
+  fuchsia: "#d946ef", rose: "#f43f5e", orange: "#f97316", amber: "#f59e0b", slate: "#64748b",
+};
 
 /** Per-browser accent colour. The logo, buttons and highlights follow it; mint is the brand default. */
 export function AppearanceCard() {
