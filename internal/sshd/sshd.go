@@ -135,10 +135,18 @@ func (s *Server) passwordAuth(conn ssh.ConnMetadata, password []byte) (*ssh.Perm
 		s.d.Log.Info("ssh password rejected", "user", conn.User(), "remote", ip)
 		return nil, errors.New("invalid token")
 	}
-	if _, err := s.d.Projects.ResolveSSHUser(ctx, conn.User()); err != nil {
+	target, err := s.d.Projects.ResolveSSHUser(ctx, conn.User())
+	if err != nil {
 		s.fail(ip)
 		s.d.Log.Info("ssh unknown project", "user", conn.User(), "remote", ip, "err", err)
 		return nil, errors.New("unknown project")
+	}
+	// A shell in the container is "operate"; a token confined to other projects must not
+	// even learn that this one exists.
+	if err := p.Require(auth.ScopeOperate, target.Project.ID); err != nil {
+		s.fail(ip)
+		s.d.Log.Info("ssh token not permitted", "user", conn.User(), "token", p.TokenName, "remote", ip, "err", err)
+		return nil, errors.New("token not permitted for this project")
 	}
 	s.limiter.reset(ip)
 	return &ssh.Permissions{Extensions: map[string]string{"envoryx-user": p.Username, "envoryx-token": p.TokenName}}, nil

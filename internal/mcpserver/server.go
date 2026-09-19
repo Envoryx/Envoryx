@@ -45,19 +45,48 @@ type Deps struct {
 type Server struct {
 	d   Deps
 	mcp *mcp.Server
+	// scopes is the token scope each tool needs, filled during registration.
+	scopes map[string]auth.Scope
 }
 
 // New builds the server and registers all tools.
 func New(d Deps) *Server {
-	s := &Server{d: d}
+	s := &Server{d: d, scopes: map[string]auth.Scope{}}
 	s.mcp = mcp.NewServer(&mcp.Implementation{Name: "envoryx", Title: "Envoryx", Version: d.Version, WebsiteURL: "https://github.com/envoryx/envoryx"}, &mcp.ServerOptions{
 		Instructions: "Envoryx manages Docker-based development environments (PHP, web server, database, Redis, Mailpit, Node). " +
 			"Projects are identified by id, slug or name. Use list_runtimes to see available versions before creating projects. " +
-			"Deleting projects, dropping databases and restoring backups are not available here; ask the user to do that in the Envoryx UI.",
+			"Deleting projects, dropping databases and restoring backups are not available here; ask the user to do that in the Envoryx UI. " +
+			"Tools may be refused because of the token's scope (read < operate < admin) or its project restriction; the refusal names what is needed – ask the user for a token with that scope rather than retrying.",
 		Logger: d.Log,
 	})
 	s.registerTools()
+	s.mcp.AddReceivingMiddleware(s.enforceScope)
 	return s
+}
+
+// enforceScope refuses tool calls the token's scope does not cover. The refusal is a tool
+// result, not a protocol error, so the model learns what the token may do. Listing tools
+// stays unrestricted: the client sees the full catalogue and gets told on use.
+func (s *Server) enforceScope(next mcp.MethodHandler) mcp.MethodHandler {
+	return func(ctx context.Context, method string, req mcp.Request) (mcp.Result, error) {
+		if call, ok := req.(*mcp.CallToolRequest); ok && method == "tools/call" {
+			p, _ := auth.PrincipalFrom(ctx)
+			need, known := s.scopes[call.Params.Name]
+			if !known {
+				need = auth.ScopeAdmin
+			}
+			if err := p.Require(need, ""); err != nil {
+				return toolErr(err)
+			}
+		}
+		return next(ctx, method, req)
+	}
+}
+
+// tool records the scope a tool needs and returns it for registration.
+func (s *Server) tool(need auth.Scope, t *mcp.Tool) *mcp.Tool {
+	s.scopes[t.Name] = need
+	return t
 }
 
 // Handler returns the HTTP handler: bearer-token authentication in front of the
@@ -98,16 +127,23 @@ func unauthorized(w http.ResponseWriter, msg string) {
 // MCP exposes the underlying server (used by in-memory tests).
 func (s *Server) MCP() *mcp.Server { return s.mcp }
 
-// resolve finds a project by id, slug or name.
+// resolve finds a project by id, slug or name. A token confined to particular projects
+// sees the others as non-existent.
 func (s *Server) resolve(ctx context.Context, ref string) (project.View, error) {
 	ref = strings.TrimSpace(ref)
 	if ref == "" {
 		return project.View{}, fmt.Errorf("%w: project is required", validate.ErrInvalid)
 	}
+	p, _ := auth.PrincipalFrom(ctx)
+	notFound := fmt.Errorf("%w: no project matches %q", store.ErrNotFound, ref)
 	if validate.UUID(ref) == nil {
-		return s.d.Projects.Get(ctx, ref)
+		v, err := s.d.Projects.Get(ctx, ref)
+		if err == nil && !p.CanAccessProject(v.Project.ID) {
+			return project.View{}, notFound
+		}
+		return v, err
 	}
-	views, err := s.d.Projects.List(ctx)
+	views, err := s.visibleProjects(ctx)
 	if err != nil {
 		return project.View{}, err
 	}
@@ -117,5 +153,24 @@ func (s *Server) resolve(ctx context.Context, ref string) (project.View, error) 
 			return v, nil
 		}
 	}
-	return project.View{}, fmt.Errorf("%w: no project matches %q", store.ErrNotFound, ref)
+	return project.View{}, notFound
+}
+
+// visibleProjects lists the projects the calling token may see.
+func (s *Server) visibleProjects(ctx context.Context) ([]project.View, error) {
+	views, err := s.d.Projects.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	p, _ := auth.PrincipalFrom(ctx)
+	if !p.Restricted() {
+		return views, nil
+	}
+	out := views[:0]
+	for _, v := range views {
+		if p.CanAccessProject(v.Project.ID) {
+			out = append(out, v)
+		}
+	}
+	return out, nil
 }

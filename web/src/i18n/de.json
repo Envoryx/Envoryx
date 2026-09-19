@@ -19,7 +19,6 @@
   "A restore of {{id}} is scheduled": "Eine Wiederherstellung von {{id}} ist vorgemerkt",
   "A snapshot of Envoryx itself: database (accounts, projects, tokens, settings), local CA, SSH keys, notification settings and generated project configuration. Project files and Docker volumes are covered by project backups. One is taken automatically before every schema upgrade.": "Ein Abbild von Envoryx selbst: Datenbank (Konten, Projekte, Tokens, Einstellungen), lokale CA, SSH-Schlüssel, Benachrichtigungen und die erzeugte Projektkonfiguration. Projektdateien und Docker-Volumes decken die Projekt-Backups ab. Vor jedem Schema-Upgrade wird automatisch eines angelegt.",
   "A token is stored. Enter a new one to replace it.": "Ein Token ist gespeichert. Neuen eingeben, um ihn zu ersetzen.",
-  "Tokens act with your account and authenticate AI assistants (Claude Code, Cursor, …) on the MCP server, SSH/SFTP logins and scripts calling the REST API with an Authorization: Bearer header. The MCP tools expose no destructive operations; a token can never change the password or manage tokens.": "Tokens handeln mit deinem Konto und authentifizieren KI-Assistenten (Claude Code, Cursor, …) am MCP-Server, SSH/SFTP-Logins und Skripte, die die REST-API mit einem Authorization: Bearer-Header aufrufen. Die MCP-Tools enthalten keine destruktiven Operationen; ein Token kann nie das Passwort ändern oder Tokens verwalten.",
   "API token": "API-Token",
   "API tokens & MCP": "API-Tokens & MCP",
   "Access token": "Zugriffstoken",
@@ -849,5 +848,17 @@
   "development build": "Entwicklungsbuild",
   "{{latest}} available": "{{latest}} verfügbar",
   "up to date": "aktuell",
-  "update check failed": "Update-Prüfung fehlgeschlagen"
+  "update check failed": "Update-Prüfung fehlgeschlagen",
+  "Admin": "Admin",
+  "Operate": "Bedienen",
+  "Read": "Lesen",
+  "Scope": "Berechtigung",
+  "only": "nur",
+  "No projects yet.": "Noch keine Projekte.",
+  "Limit to particular projects": "Auf bestimmte Projekte beschränken",
+  "The token then sees and touches only these projects and cannot create new ones.": "Der Token sieht und bedient dann nur diese Projekte und kann keine neuen anlegen.",
+  "Status, logs, statistics and listings. No secrets, no changes.": "Status, Logs, Statistiken und Listen. Keine Geheimnisse, keine Änderungen.",
+  "Also start, stop and restart, run actions, create backups and databases, git, domains, SSH/SFTP and the terminal.": "Zusätzlich Starten, Stoppen und Neustarten, Aktionen ausführen, Backups und Datenbanken anlegen, Git, Domains, SSH/SFTP und das Terminal.",
+  "Everything the browser can do: create and delete projects, settings, TLS, instance backups, image clean-up, restores.": "Alles, was der Browser kann: Projekte anlegen und löschen, Einstellungen, TLS, Instanz-Backups, Image-Bereinigung, Wiederherstellungen.",
+  "Tokens authenticate AI assistants (Claude Code, Cursor, …) on the MCP server, SSH/SFTP logins and scripts calling the REST API with an Authorization: Bearer header. Each token has a scope – read, operate or admin – and can be confined to particular projects. A token can never change the password or manage tokens.": "Tokens authentifizieren KI-Assistenten (Claude Code, Cursor, …) am MCP-Server, SSH/SFTP-Logins und Skripte, die die REST-API mit einem Authorization: Bearer-Header aufrufen. Jeder Token hat eine Berechtigung – Lesen, Bedienen oder Admin – und kann auf bestimmte Projekte beschränkt werden. Ein Token kann niemals das Passwort ändern oder Tokens verwalten."
 }

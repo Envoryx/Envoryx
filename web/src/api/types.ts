@@ -495,10 +495,16 @@ export interface PruneResult {
   errors: string[];
 }
 
+export type TokenScope = "read" | "operate" | "admin";
+
 export interface APIToken {
   id: string;
   name: string;
   prefix: string;
+  /** Access level; every level includes the ones below it. */
+  scope: TokenScope;
+  /** Project ids the token is confined to; empty = all projects. */
+  projects: string[];
   createdAt: string;
   lastUsedAt: string | null;
 }

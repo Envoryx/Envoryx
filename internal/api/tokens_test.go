@@ -1,6 +1,7 @@
 package api_test
 
 import (
+	"io"
 	"net/http"
 	"strings"
 	"testing"
@@ -18,9 +19,12 @@ func TestAPITokensAndMCPEndpoint(t *testing.T) {
 	if r.status != http.StatusUnprocessableEntity {
 		t.Fatalf("empty name: %d %s", r.status, r.raw)
 	}
-	r = a.do(http.MethodPost, "/api/v1/tokens", map[string]any{"name": "Claude Code"}, true)
+	r = a.do(http.MethodPost, "/api/v1/tokens", map[string]any{"name": "Claude Code", "scope": "admin"}, true)
 	if r.status != http.StatusCreated {
 		t.Fatalf("create: %d %s", r.status, r.raw)
+	}
+	if got := r.body["token"].(map[string]any)["scope"]; got != "admin" {
+		t.Fatalf("scope in response = %v", got)
 	}
 	secret := r.body["secret"].(string)
 	id := r.body["token"].(map[string]any)["id"].(string)
@@ -121,5 +125,120 @@ func TestAPITokensAndMCPEndpoint(t *testing.T) {
 	r = a.do(http.MethodGet, "/api/v1/audit?limit=10", nil, false)
 	if !strings.Contains(string(r.raw), "token.created") || !strings.Contains(string(r.raw), "token.revoked") {
 		t.Fatalf("audit must record token changes: %s", r.raw)
+	}
+}
+
+func TestTokenScopesAndProjectRestriction(t *testing.T) {
+	a := newApp(t)
+	a.setupAndLogin()
+	// Two projects; the confined token may only touch the first.
+	r := a.do(http.MethodPost, "/api/v1/projects", map[string]any{"name": "Shop", "createStarter": true, "start": true, "php": map[string]any{"version": "8.4"}, "database": map[string]any{"type": "mariadb", "version": "11.4"}}, true)
+	if r.status != http.StatusCreated {
+		t.Fatalf("create shop: %d %s", r.status, r.raw)
+	}
+	shop := r.body["project"].(map[string]any)["id"].(string)
+	r = a.do(http.MethodPost, "/api/v1/projects", map[string]any{"name": "Blog", "createStarter": true, "start": true, "php": map[string]any{"version": "8.4"}}, true)
+	if r.status != http.StatusCreated {
+		t.Fatalf("create blog: %d %s", r.status, r.raw)
+	}
+	blog := r.body["project"].(map[string]any)["id"].(string)
+
+	mint := func(name, scope string, projects ...string) string {
+		t.Helper()
+		body := map[string]any{"name": name, "scope": scope}
+		if projects != nil {
+			body["projects"] = projects
+		}
+		r := a.do(http.MethodPost, "/api/v1/tokens", body, true)
+		if r.status != http.StatusCreated {
+			t.Fatalf("mint %s: %d %s", name, r.status, r.raw)
+		}
+		return r.body["secret"].(string)
+	}
+	call := func(secret, method, path, body string) (int, string) {
+		t.Helper()
+		req, _ := http.NewRequest(method, a.srv.URL+path, strings.NewReader(body))
+		if body != "" {
+			req.Header.Set("Content-Type", "application/json")
+		}
+		req.Header.Set("Authorization", "Bearer "+secret)
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer res.Body.Close()
+		raw, _ := io.ReadAll(res.Body)
+		return res.StatusCode, string(raw)
+	}
+	expect := func(secret, method, path, body string, want int) {
+		t.Helper()
+		if got, raw := call(secret, method, path, body); got != want {
+			t.Fatalf("%s %s with this token: %d, want %d (%s)", method, path, got, want, raw)
+		}
+	}
+
+	// Validation: unknown scope, unknown project; the default scope is operate.
+	r = a.do(http.MethodPost, "/api/v1/tokens", map[string]any{"name": "x", "scope": "root"}, true)
+	if r.status != http.StatusUnprocessableEntity {
+		t.Fatalf("unknown scope: %d", r.status)
+	}
+	r = a.do(http.MethodPost, "/api/v1/tokens", map[string]any{"name": "x", "projects": []string{"00000000-0000-0000-0000-000000000000"}}, true)
+	if r.status != http.StatusUnprocessableEntity {
+		t.Fatalf("unknown project: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodPost, "/api/v1/tokens", map[string]any{"name": "default"}, true)
+	if r.status != http.StatusCreated || r.body["token"].(map[string]any)["scope"] != "operate" {
+		t.Fatalf("default scope: %d %s", r.status, r.raw)
+	}
+
+	// read: looks, never touches, sees no secrets.
+	rd := mint("monitor", "read")
+	expect(rd, http.MethodGet, "/api/v1/projects", "", http.StatusOK)
+	expect(rd, http.MethodGet, "/api/v1/projects/"+shop+"/services", "", http.StatusOK)
+	expect(rd, http.MethodGet, "/api/v1/projects/"+shop+"/backups", "", http.StatusOK)
+	expect(rd, http.MethodGet, "/api/v1/projects/"+shop+"/database/credentials", "", http.StatusForbidden)
+	expect(rd, http.MethodPost, "/api/v1/projects/"+shop+"/restart", "", http.StatusForbidden)
+	expect(rd, http.MethodGet, "/api/v1/settings", "", http.StatusForbidden)
+	expect(rd, http.MethodGet, "/api/v1/dashboard", "", http.StatusForbidden)
+	if _, raw := call(rd, http.MethodPost, "/api/v1/projects/"+shop+"/restart", ""); !strings.Contains(raw, "read scope") || !strings.Contains(raw, "needs operate") {
+		t.Fatalf("forbidden message must explain: %s", raw)
+	}
+	if _, raw := call(rd, http.MethodGet, "/api/v1/auth/me", ""); !strings.Contains(raw, `"scope":"read"`) {
+		t.Fatalf("me must show the token scope: %s", raw)
+	}
+
+	// operate: works with existing projects, cannot create/delete or change settings.
+	op := mint("assistant", "operate")
+	expect(op, http.MethodPost, "/api/v1/projects/"+shop+"/restart", "", http.StatusOK)
+	expect(op, http.MethodGet, "/api/v1/projects/"+shop+"/database/credentials", "", http.StatusOK)
+	expect(op, http.MethodPost, "/api/v1/projects/"+shop+"/database/databases", `{"name":"extra"}`, http.StatusCreated)
+	expect(op, http.MethodDelete, "/api/v1/projects/"+shop+"/database/databases/extra", "", http.StatusForbidden)
+	expect(op, http.MethodPost, "/api/v1/projects", `{"name":"Nope"}`, http.StatusForbidden)
+	expect(op, http.MethodDelete, "/api/v1/projects/"+blog, `{"confirm":"blog"}`, http.StatusForbidden)
+	expect(op, http.MethodPatch, "/api/v1/settings", `{"xdebugClientHost":"10.0.0.7"}`, http.StatusForbidden)
+	expect(op, http.MethodPost, "/api/v1/docker/images/prune", "", http.StatusForbidden)
+
+	// operate, confined to shop: blog is invisible, instance-wide routes are closed.
+	confined := mint("shop only", "operate", shop)
+	expect(confined, http.MethodGet, "/api/v1/projects/"+shop, "", http.StatusOK)
+	expect(confined, http.MethodPost, "/api/v1/projects/"+shop+"/restart", "", http.StatusOK)
+	expect(confined, http.MethodGet, "/api/v1/projects/"+blog, "", http.StatusForbidden)
+	expect(confined, http.MethodPost, "/api/v1/projects/"+blog+"/restart", "", http.StatusForbidden)
+	expect(confined, http.MethodGet, "/api/v1/runtimes", "", http.StatusOK)
+	expect(confined, http.MethodGet, "/api/v1/docker", "", http.StatusForbidden)
+	expect(confined, http.MethodPost, "/api/v1/projects/preview", `{"name":"x"}`, http.StatusForbidden)
+	if _, raw := call(confined, http.MethodGet, "/api/v1/projects", ""); !strings.Contains(raw, shop) || strings.Contains(raw, blog) {
+		t.Fatalf("project list must be filtered to the token's projects: %s", raw)
+	}
+	// Admin scope does not lift a project restriction.
+	confinedAdmin := mint("shop admin", "admin", shop)
+	expect(confinedAdmin, http.MethodPost, "/api/v1/projects", `{"name":"Nope"}`, http.StatusForbidden)
+	expect(confinedAdmin, http.MethodPatch, "/api/v1/projects/"+blog, `{"name":"Renamed"}`, http.StatusForbidden)
+	expect(confinedAdmin, http.MethodGet, "/api/v1/projects/"+shop+"/plan", "", http.StatusOK)
+
+	// Tokens carry scope and projects in the listing; audit records them.
+	r = a.do(http.MethodGet, "/api/v1/tokens", nil, false)
+	if !strings.Contains(string(r.raw), `"scope":"read"`) || !strings.Contains(string(r.raw), `"projects":["`+shop+`"]`) {
+		t.Fatalf("listing: %s", r.raw)
 	}
 }

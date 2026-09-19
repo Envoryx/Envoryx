@@ -37,6 +37,10 @@ type Principal struct {
 	// TokenName is set when the request was authenticated with an API token (REST
 	// bearer, MCP or SSH) instead of a browser session.
 	TokenName string
+	// Scope and Projects are the token's access level and project restriction (empty
+	// Projects = all). Both are meaningless for sessions, which may do everything.
+	Scope    Scope
+	Projects []string
 }
 
 // Options configure the session service.

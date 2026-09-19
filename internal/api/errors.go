@@ -9,6 +9,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/envoryx/envoryx/internal/auth"
 	"github.com/envoryx/envoryx/internal/disk"
@@ -65,8 +66,10 @@ func writeError(w http.ResponseWriter, r *http.Request, err error) {
 	case errors.As(err, &ae):
 	case errors.Is(err, context.Canceled):
 		ae = newError(499, "client_closed", "request cancelled")
-	case errors.Is(err, validate.ErrInvalid), errors.Is(err, auth.ErrWeakPassword):
+	case errors.Is(err, validate.ErrInvalid), errors.Is(err, auth.ErrWeakPassword), errors.Is(err, auth.ErrInvalidScope):
 		ae = newError(http.StatusUnprocessableEntity, "validation_failed", err.Error())
+	case errors.Is(err, auth.ErrForbidden):
+		ae = newError(http.StatusForbidden, "forbidden", strings.TrimPrefix(err.Error(), auth.ErrForbidden.Error()+": "))
 	case errors.Is(err, store.ErrNotFound), errors.Is(err, docker.ErrNotFound), errors.Is(err, instance.ErrNotFound):
 		ae = newError(http.StatusNotFound, "not_found", "the requested resource does not exist")
 	case errors.Is(err, store.ErrConflict), errors.Is(err, instance.ErrPending):

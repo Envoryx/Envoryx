@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -11,11 +12,15 @@ import (
 // APIToken is a long-lived bearer credential for MCP and automation clients. Only the
 // hash of the secret is stored.
 type APIToken struct {
-	ID         string
-	UserID     string
-	Name       string
-	TokenHash  string
-	Prefix     string
+	ID        string
+	UserID    string
+	Name      string
+	TokenHash string
+	Prefix    string
+	// Scope is the access level: "read", "operate" or "admin" (see package auth).
+	Scope string
+	// ProjectIDs confines the token to these projects; empty means all projects.
+	ProjectIDs []string
 	CreatedAt  time.Time
 	LastUsedAt *time.Time
 }
@@ -23,12 +28,16 @@ type APIToken struct {
 // APITokens is the repository for API tokens.
 type APITokens struct{ db *sql.DB }
 
-const tokenColumns = `id, user_id, name, token_hash, prefix, created_at, last_used_at`
+const tokenColumns = `id, user_id, name, token_hash, prefix, scope, project_ids, created_at, last_used_at`
 
 // Create stores a token.
 func (r *APITokens) Create(ctx context.Context, t APIToken) error {
-	_, err := r.db.ExecContext(ctx, `INSERT INTO api_tokens (`+tokenColumns+`) VALUES (?, ?, ?, ?, ?, ?, NULL)`,
-		t.ID, t.UserID, t.Name, t.TokenHash, t.Prefix, formatTime(t.CreatedAt))
+	projects, err := json.Marshal(nonNil(t.ProjectIDs))
+	if err != nil {
+		return fmt.Errorf("encode project ids: %w", err)
+	}
+	_, err = r.db.ExecContext(ctx, `INSERT INTO api_tokens (`+tokenColumns+`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
+		t.ID, t.UserID, t.Name, t.TokenHash, t.Prefix, t.Scope, string(projects), formatTime(t.CreatedAt))
 	if err != nil {
 		if isUniqueViolation(err) {
 			return fmt.Errorf("token already exists: %w", ErrConflict)
@@ -49,22 +58,40 @@ func (r *APITokens) Get(ctx context.Context, id string) (APIToken, error) {
 }
 
 func (r *APITokens) one(ctx context.Context, query string, arg any) (APIToken, error) {
-	var t APIToken
-	var created string
-	var used sql.NullString
-	err := r.db.QueryRowContext(ctx, query, arg).Scan(&t.ID, &t.UserID, &t.Name, &t.TokenHash, &t.Prefix, &created, &used)
+	t, err := scanToken(r.db.QueryRowContext(ctx, query, arg))
 	if errors.Is(err, sql.ErrNoRows) {
 		return APIToken{}, ErrNotFound
 	}
 	if err != nil {
 		return APIToken{}, fmt.Errorf("select api token: %w", err)
 	}
+	return t, nil
+}
+
+func scanToken(row interface{ Scan(...any) error }) (APIToken, error) {
+	var t APIToken
+	var created, projects string
+	var used sql.NullString
+	if err := row.Scan(&t.ID, &t.UserID, &t.Name, &t.TokenHash, &t.Prefix, &t.Scope, &projects, &created, &used); err != nil {
+		return APIToken{}, err
+	}
+	if err := json.Unmarshal([]byte(projects), &t.ProjectIDs); err != nil {
+		return APIToken{}, fmt.Errorf("decode project ids: %w", err)
+	}
+	t.ProjectIDs = nonNil(t.ProjectIDs)
 	t.CreatedAt = parseTime(created)
 	if used.Valid {
 		u := parseTime(used.String)
 		t.LastUsedAt = &u
 	}
 	return t, nil
+}
+
+func nonNil(s []string) []string {
+	if s == nil {
+		return []string{}
+	}
+	return s
 }
 
 // List returns all tokens, newest first.
@@ -76,16 +103,9 @@ func (r *APITokens) List(ctx context.Context) ([]APIToken, error) {
 	defer rows.Close()
 	out := []APIToken{}
 	for rows.Next() {
-		var t APIToken
-		var created string
-		var used sql.NullString
-		if err := rows.Scan(&t.ID, &t.UserID, &t.Name, &t.TokenHash, &t.Prefix, &created, &used); err != nil {
+		t, err := scanToken(rows)
+		if err != nil {
 			return nil, fmt.Errorf("scan api token: %w", err)
-		}
-		t.CreatedAt = parseTime(created)
-		if used.Valid {
-			u := parseTime(used.String)
-			t.LastUsedAt = &u
 		}
 		out = append(out, t)
 	}

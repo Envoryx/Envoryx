@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -173,9 +174,12 @@ func TestMiddleware(t *testing.T) {
 
 	// A bearer API token authenticates without a cookie and is marked as such.
 	p, _ := svc.Validate(ctx, token)
-	secret, _, err := svc.CreateAPIToken(ctx, p, "cli")
+	secret, _, err := svc.CreateAPIToken(ctx, p, TokenSpec{Name: "cli", Scope: ScopeOperate, Projects: []string{"p2", "p1", "p2"}})
 	if err != nil {
 		t.Fatal(err)
+	}
+	if _, _, err := svc.CreateAPIToken(ctx, p, TokenSpec{Name: "bad", Scope: "root"}); !errors.Is(err, ErrInvalidScope) {
+		t.Fatalf("unknown scope = %v", err)
 	}
 	var seen Principal
 	hb := svc.Middleware(unauth)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -188,6 +192,22 @@ func TestMiddleware(t *testing.T) {
 	hb.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK || seen.Username != "admin" || seen.TokenName != "cli" || seen.SessionID != "" {
 		t.Fatalf("bearer: %d %+v", rec.Code, seen)
+	}
+	if seen.Scope != ScopeOperate || strings.Join(seen.Projects, ",") != "p1,p2" {
+		t.Fatalf("scope/projects on the principal: %+v", seen)
+	}
+	// Sessions may do everything; tokens are held to their scope and projects.
+	if !p.Allows(ScopeAdmin) || p.Restricted() {
+		t.Fatalf("session principal must be unrestricted: %+v", p)
+	}
+	if !seen.Allows(ScopeRead) || !seen.Allows(ScopeOperate) || seen.Allows(ScopeAdmin) {
+		t.Fatalf("operate token allows: read=%v operate=%v admin=%v", seen.Allows(ScopeRead), seen.Allows(ScopeOperate), seen.Allows(ScopeAdmin))
+	}
+	if !seen.CanAccessProject("p1") || seen.CanAccessProject("p3") || seen.Require(ScopeRead, "p3") == nil || seen.Require(ScopeAdmin, "p1") == nil || seen.Require(ScopeOperate, "p2") != nil {
+		t.Fatalf("project restriction not enforced: %+v", seen)
+	}
+	if (Principal{TokenName: "legacy"}).Allows(ScopeRead) {
+		t.Fatal("a token without a scope must cover nothing")
 	}
 
 	// An invalid bearer token is rejected even when a valid cookie is present.

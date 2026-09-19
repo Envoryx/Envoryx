@@ -38,6 +38,7 @@ import type {
   InstanceBackupsResponse,
   DBToolLink,
   DBToolStatus,
+  TokenScope,
 } from "./types";
 
 export class ApiError extends Error {
@@ -167,7 +168,7 @@ export const api = {
   },
   tokens: {
     list: () => request<{ tokens: APIToken[]; mcpUrl: string }>("/tokens"),
-    create: (name: string) => request<{ token: APIToken; secret: string; mcpUrl: string }>("/tokens", { method: "POST", body: { name } }),
+    create: (body: { name: string; scope: TokenScope; projects: string[] }) => request<{ token: APIToken; secret: string; mcpUrl: string }>("/tokens", { method: "POST", body }),
     revoke: (id: string) => request<void>(`/tokens/${encodeURIComponent(id)}`, { method: "DELETE" }),
   },
   tls: {

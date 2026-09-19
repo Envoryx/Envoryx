@@ -10,6 +10,15 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Added
+- API tokens have scopes: `read` (look, no secrets), `operate` (work with
+  existing projects – start/stop, actions, backups, databases, git, SSH) and
+  `admin` (everything a browser session may do). A token can also be limited
+  to particular projects; it then sees and touches only those and cannot
+  create new ones. Scopes apply to the REST API, the MCP server and SSH/SFTP
+  alike; refusals say which scope the operation needs. New tokens default to
+  `operate`; tokens issued before this release keep full access.
+
 ### Fixed
 - Deleting a project whose network is still used by a container Envoryx did
   not create (for example one attached through Unraid's network dropdown) is

@@ -309,7 +309,7 @@ func TestHTTPEndpointRequiresBearerToken(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	token, rec, err := e.auth.CreateAPIToken(context.Background(), auth.Principal{UserID: user.ID, Username: user.Username, Role: user.Role}, "Claude")
+	token, rec, err := e.auth.CreateAPIToken(context.Background(), auth.Principal{UserID: user.ID, Username: user.Username, Role: user.Role}, auth.TokenSpec{Name: "Claude", Scope: auth.ScopeAdmin})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -334,5 +334,99 @@ func TestHTTPEndpointRequiresBearerToken(t *testing.T) {
 	}
 	if res := post(token); res.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("revoked token: %d", res.StatusCode)
+	}
+}
+
+// bearerRoundTripper adds the token to every request of an MCP HTTP client.
+type bearerRoundTripper struct{ token string }
+
+func (b bearerRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
+	r = r.Clone(r.Context())
+	r.Header.Set("Authorization", "Bearer "+b.token)
+	return http.DefaultTransport.RoundTrip(r)
+}
+
+// Tokens carry their scope and project restriction into MCP: a read token may look but
+// not act, a confined token sees only its projects and cannot create new ones.
+func TestTokenScopesOnMCP(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	ts := httptest.NewServer(e.srv.Handler())
+	defer ts.Close()
+	user, err := e.auth.CreateInitialAdmin(ctx, "admin", "supersecret123")
+	if err != nil {
+		t.Fatal(err)
+	}
+	admin := auth.Principal{UserID: user.ID, Username: user.Username, Role: user.Role}
+
+	var shop, blog struct{ ID, Slug string }
+	if res := e.call("create_project", map[string]any{"name": "Shop", "phpVersion": "8.4"}, &shop); res.IsError {
+		t.Fatal(text(res))
+	}
+	if res := e.call("create_project", map[string]any{"name": "Blog", "phpVersion": "8.4"}, &blog); res.IsError {
+		t.Fatal(text(res))
+	}
+
+	connect := func(scope auth.Scope, projects ...string) *mcp.ClientSession {
+		t.Helper()
+		token, _, err := e.auth.CreateAPIToken(ctx, admin, auth.TokenSpec{Name: string(scope), Scope: scope, Projects: projects})
+		if err != nil {
+			t.Fatal(err)
+		}
+		tr := &mcp.StreamableClientTransport{Endpoint: ts.URL, HTTPClient: &http.Client{Transport: bearerRoundTripper{token}}, DisableStandaloneSSE: true}
+		session, err := mcp.NewClient(&mcp.Implementation{Name: "t", Version: "0"}, nil).Connect(ctx, tr, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = session.Close() })
+		return session
+	}
+	call := func(s *mcp.ClientSession, name string, args map[string]any) *mcp.CallToolResult {
+		t.Helper()
+		res, err := s.CallTool(ctx, &mcp.CallToolParams{Name: name, Arguments: args})
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		return res
+	}
+
+	rd := connect(auth.ScopeRead)
+	if res := call(rd, "list_projects", nil); res.IsError {
+		t.Fatalf("read token must list: %s", text(res))
+	}
+	if res := call(rd, "get_logs", map[string]any{"project": "shop", "service": "php"}); res.IsError {
+		t.Fatalf("read token must read logs: %s", text(res))
+	}
+	res := call(rd, "restart_project", map[string]any{"project": "shop"})
+	if !res.IsError || !strings.Contains(text(res), "read scope") || !strings.Contains(text(res), "needs operate") {
+		t.Fatalf("read token restarting: error=%v %q", res.IsError, text(res))
+	}
+	if res := call(rd, "create_project", map[string]any{"name": "Nope", "phpVersion": "8.4"}); !res.IsError || !strings.Contains(text(res), "needs admin") {
+		t.Fatalf("read token creating: error=%v %q", res.IsError, text(res))
+	}
+
+	op := connect(auth.ScopeOperate)
+	if res := call(op, "restart_project", map[string]any{"project": "shop"}); res.IsError {
+		t.Fatalf("operate token must restart: %s", text(res))
+	}
+	if res := call(op, "create_project", map[string]any{"name": "Nope", "phpVersion": "8.4"}); !res.IsError || !strings.Contains(text(res), "needs admin") {
+		t.Fatalf("operate token creating: error=%v %q", res.IsError, text(res))
+	}
+
+	confined := connect(auth.ScopeAdmin, shop.ID)
+	res = call(confined, "list_projects", nil)
+	if res.IsError || !strings.Contains(text(res), shop.ID) || strings.Contains(text(res), blog.ID) {
+		t.Fatalf("confined list: %s", text(res))
+	}
+	if res := call(confined, "restart_project", map[string]any{"project": "shop"}); res.IsError {
+		t.Fatalf("confined token on its project: %s", text(res))
+	}
+	for _, ref := range []string{"blog", "Blog", blog.ID} {
+		if res := call(confined, "get_project", map[string]any{"project": ref}); !res.IsError || !strings.Contains(text(res), "no project matches") {
+			t.Fatalf("confined token must not see %q: error=%v %q", ref, res.IsError, text(res))
+		}
+	}
+	if res := call(confined, "create_project", map[string]any{"name": "Nope", "phpVersion": "8.4"}); !res.IsError || !strings.Contains(text(res), "limited to particular projects") {
+		t.Fatalf("confined token creating: error=%v %q", res.IsError, text(res))
 	}
 }

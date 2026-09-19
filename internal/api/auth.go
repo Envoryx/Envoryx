@@ -110,7 +110,15 @@ func (a *API) logout(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) me(w http.ResponseWriter, r *http.Request) {
 	p, _ := auth.PrincipalFrom(r.Context())
-	writeJSON(w, http.StatusOK, map[string]any{"user": userDTO{ID: p.UserID, Username: p.Username, Role: p.Role}})
+	out := map[string]any{"user": userDTO{ID: p.UserID, Username: p.Username, Role: p.Role}}
+	if p.TokenName != "" {
+		projects := p.Projects
+		if projects == nil {
+			projects = []string{}
+		}
+		out["token"] = map[string]any{"name": p.TokenName, "scope": p.Scope, "projects": projects}
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 type passwordRequest struct {

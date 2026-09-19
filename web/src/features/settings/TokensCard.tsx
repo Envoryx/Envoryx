@@ -3,11 +3,15 @@ import { useTranslation } from "react-i18next";
 import { useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "@/api/client";
-import { Alert, Button, Card, CardHeader, Code, Field, Input, Spinner } from "@/components/ui";
+import { useProjects } from "@/api/hooks";
+import type { TokenScope } from "@/api/types";
+import { Alert, Badge, Button, Card, CardHeader, Checkbox, Code, Field, Input, Spinner, type Tone } from "@/components/ui";
 import { copyText } from "@/lib/clipboard";
 import { formatDateTime } from "@/lib/format";
 
 const key = ["tokens"] as const;
+
+const scopeTone: Record<TokenScope, Tone> = { read: "gray", operate: "blue", admin: "amber" };
 
 function mcpConfig(url: string, secret: string): string {
   return JSON.stringify({ mcpServers: { envoryx: { type: "http", url, headers: { Authorization: `Bearer ${secret}` } } } }, null, 2);
@@ -17,16 +21,22 @@ export function TokensCard() {
   const { t } = useTranslation();
   const qc = useQueryClient();
   const q = useQuery({ queryKey: key, queryFn: api.tokens.list });
+  const projects = useProjects();
   const [name, setName] = useState("");
+  const [scope, setScope] = useState<TokenScope>("operate");
+  const [confine, setConfine] = useState(false);
+  const [selected, setSelected] = useState<string[]>([]);
   const [created, setCreated] = useState<{ secret: string; url: string; name: string } | null>(null);
   const [msg, setMsg] = useState<{ tone: "green" | "red"; text: string } | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
 
   const create = useMutation({
-    mutationFn: (n: string) => api.tokens.create(n),
+    mutationFn: (body: { name: string; scope: TokenScope; projects: string[] }) => api.tokens.create(body),
     onSuccess: (r) => {
       setCreated({ secret: r.secret, url: r.mcpUrl, name: r.token.name });
       setName("");
+      setConfine(false);
+      setSelected([]);
       void qc.invalidateQueries({ queryKey: key });
     },
     onError: (err) => setMsg({ tone: "red", text: err instanceof ApiError ? err.message : t("Creating the token failed") }),
@@ -46,14 +56,22 @@ export function TokensCard() {
     e.preventDefault();
     setMsg(null);
     setCreated(null);
-    create.mutate(name.trim());
+    create.mutate({ name: name.trim(), scope, projects: confine ? selected : [] });
   }
+
+  const scopes: { value: TokenScope; label: string; description: string }[] = [
+    { value: "read", label: t("Read"), description: t("Status, logs, statistics and listings. No secrets, no changes.") },
+    { value: "operate", label: t("Operate"), description: t("Also start, stop and restart, run actions, create backups and databases, git, domains, SSH/SFTP and the terminal.") },
+    { value: "admin", label: t("Admin"), description: t("Everything the browser can do: create and delete projects, settings, TLS, instance backups, image clean-up, restores.") },
+  ];
+  const projectName = (id: string) => projects.data?.find((p) => p.id === id)?.name ?? id.slice(0, 8);
+  const scopeLabel = (s: TokenScope) => scopes.find((x) => x.value === s)?.label ?? s;
 
   return (
     <Card>
       <CardHeader
         title={t("API tokens & MCP")}
-        description={t("Tokens act with your account and authenticate AI assistants (Claude Code, Cursor, …) on the MCP server, SSH/SFTP logins and scripts calling the REST API with an Authorization: Bearer header. The MCP tools expose no destructive operations; a token can never change the password or manage tokens.")}
+        description={t("Tokens authenticate AI assistants (Claude Code, Cursor, …) on the MCP server, SSH/SFTP logins and scripts calling the REST API with an Authorization: Bearer header. Each token has a scope – read, operate or admin – and can be confined to particular projects. A token can never change the password or manage tokens.")}
       />
       <div className="space-y-4 p-5">
         {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
@@ -92,7 +110,15 @@ export function TokensCard() {
                 <div className="flex items-center gap-3">
                   <Bot className="size-4 text-accent-500" aria-hidden />
                   <div>
-                    <p className="font-medium">{tok.name}</p>
+                    <p className="flex flex-wrap items-center gap-2 font-medium">
+                      {tok.name}
+                      <Badge tone={scopeTone[tok.scope] ?? "gray"}>{scopeLabel(tok.scope)}</Badge>
+                      {tok.projects.length > 0 && (
+                        <Badge tone="gray" className="font-normal">
+                          {t("only")} {tok.projects.map(projectName).join(", ")}
+                        </Badge>
+                      )}
+                    </p>
                     <p className="font-mono text-[11px] text-subtle">
                       {tok.prefix}… · {t("created {{date}}", { date: formatDateTime(tok.createdAt) })} · {tok.lastUsedAt ? t("last used {{date}}", { date: formatDateTime(tok.lastUsedAt) }) : t("never used")}
                     </p>
@@ -105,13 +131,41 @@ export function TokensCard() {
             ))}
           </ul>
         )}
-        <form onSubmit={submit} className="flex items-end gap-2">
-          <div className="flex-1">
-            <Field label={t("New token")} htmlFor="token-name" hint={t("A name that tells you which client uses it.")}>
-              <Input id="token-name" value={name} onChange={(e) => setName(e.target.value)} placeholder={t("Claude Code on my laptop")} maxLength={64} />
-            </Field>
+        <form onSubmit={submit} className="space-y-4 rounded-md border border-default p-4">
+          <Field label={t("New token")} htmlFor="token-name" hint={t("A name that tells you which client uses it.")}>
+            <Input id="token-name" value={name} onChange={(e) => setName(e.target.value)} placeholder={t("Claude Code on my laptop")} maxLength={64} />
+          </Field>
+          <fieldset>
+            <legend className="mb-2 text-sm font-medium">{t("Scope")}</legend>
+            <div className="grid gap-2 sm:grid-cols-3">
+              {scopes.map((s) => (
+                <label key={s.value} className={`flex cursor-pointer flex-col gap-1 rounded-md border p-3 text-sm ${scope === s.value ? "border-accent-500 bg-accent-500/5" : "border-default"}`}>
+                  <span className="flex items-center gap-2 font-medium">
+                    <input type="radio" name="token-scope" value={s.value} checked={scope === s.value} onChange={() => setScope(s.value)} className="accent-[var(--color-accent-500)]" />
+                    {s.label}
+                  </span>
+                  <span className="text-xs text-muted">{s.description}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+          <div className="space-y-2">
+            <Checkbox label={t("Limit to particular projects")} description={t("The token then sees and touches only these projects and cannot create new ones.")} checked={confine} onChange={(e) => setConfine(e.target.checked)} />
+            {confine && (
+              <div className="ml-7 grid gap-1 sm:grid-cols-2">
+                {(projects.data ?? []).map((p) => (
+                  <Checkbox
+                    key={p.id}
+                    label={p.name}
+                    checked={selected.includes(p.id)}
+                    onChange={(e) => setSelected((cur) => (e.target.checked ? [...cur, p.id] : cur.filter((id) => id !== p.id)))}
+                  />
+                ))}
+                {projects.data?.length === 0 && <p className="text-xs text-muted">{t("No projects yet.")}</p>}
+              </div>
+            )}
           </div>
-          <Button type="submit" variant="primary" className="mb-6" loading={create.isPending} disabled={!name.trim()} icon={<Plus className="size-4" />}>
+          <Button type="submit" variant="primary" loading={create.isPending} disabled={!name.trim() || (confine && selected.length === 0)} icon={<Plus className="size-4" />}>
             {t("Create token")}
           </Button>
         </form>

@@ -10,6 +10,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/envoryx/envoryx/internal/auth"
 	"github.com/envoryx/envoryx/internal/docker"
 	"github.com/envoryx/envoryx/internal/project"
 	"github.com/envoryx/envoryx/internal/runtime"
@@ -102,21 +103,21 @@ func mutating(name, title, desc string, idempotent bool) *mcp.Tool {
 }
 
 func (s *Server) registerTools() {
-	mcp.AddTool(s.mcp, readOnly("list_projects", "List projects", "List all Envoryx projects with state, URLs and services."), s.listProjects)
-	mcp.AddTool(s.mcp, readOnly("get_project", "Get project", "Details and live status of one project."), s.getProject)
-	mcp.AddTool(s.mcp, readOnly("list_runtimes", "List runtimes", "Available PHP/Node versions, database engines, services and PHP extension keys for create_project."), s.listRuntimes)
-	mcp.AddTool(s.mcp, mutating("create_project", "Create project", "Create a new development environment (PHP + web server, optional database, Redis, Mailpit, Node, git clone). Returns the project including its URL.", false), s.createProject)
-	mcp.AddTool(s.mcp, mutating("start_project", "Start project", "Start all containers of a project.", true), s.startProject)
-	mcp.AddTool(s.mcp, mutating("stop_project", "Stop project", "Stop all containers of a project (data is kept).", true), s.stopProject)
-	mcp.AddTool(s.mcp, mutating("restart_project", "Restart project", "Restart a project; also pulls updated runtime images.", true), s.restartProject)
-	mcp.AddTool(s.mcp, readOnly("get_logs", "Get logs", "Recent log lines of one project container (web, php, node, database, redis, mailpit)."), s.getLogs)
-	mcp.AddTool(s.mcp, readOnly("list_actions", "List actions", "Runnable project actions (composer, artisan, npm …) and whether they are currently available."), s.listActions)
-	mcp.AddTool(s.mcp, mutating("run_action", "Run action", "Run one action from list_actions inside the project (e.g. composer:install) and return its output. Waits for completion (up to 20 minutes).", false), s.runAction)
-	mcp.AddTool(s.mcp, readOnly("list_databases", "List databases", "Databases on the project's database server."), s.listDatabases)
-	mcp.AddTool(s.mcp, mutating("create_database", "Create database", "Create an additional database on the project's database server (same credentials).", true), s.createDatabase)
-	mcp.AddTool(s.mcp, readOnly("list_backups", "List backups", "Backups of a project."), s.listBackups)
-	mcp.AddTool(s.mcp, mutating("create_backup", "Create backup", "Create a backup (database dump + files + configuration) of a project.", false), s.createBackup)
-	mcp.AddTool(s.mcp, mutating("add_domain", "Add domain", "Add an extra host name routed to the project by the embedded proxy.", true), s.addDomain)
+	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("list_projects", "List projects", "List all Envoryx projects with state, URLs and services.")), s.listProjects)
+	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("get_project", "Get project", "Details and live status of one project.")), s.getProject)
+	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("list_runtimes", "List runtimes", "Available PHP/Node versions, database engines, services and PHP extension keys for create_project.")), s.listRuntimes)
+	mcp.AddTool(s.mcp, s.tool(auth.ScopeAdmin, mutating("create_project", "Create project", "Create a new development environment (PHP + web server, optional database, Redis, Mailpit, Node, git clone). Returns the project including its URL.", false)), s.createProject)
+	mcp.AddTool(s.mcp, s.tool(auth.ScopeOperate, mutating("start_project", "Start project", "Start all containers of a project.", true)), s.startProject)
+	mcp.AddTool(s.mcp, s.tool(auth.ScopeOperate, mutating("stop_project", "Stop project", "Stop all containers of a project (data is kept).", true)), s.stopProject)
+	mcp.AddTool(s.mcp, s.tool(auth.ScopeOperate, mutating("restart_project", "Restart project", "Restart a project; also pulls updated runtime images.", true)), s.restartProject)
+	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("get_logs", "Get logs", "Recent log lines of one project container (web, php, node, database, redis, mailpit).")), s.getLogs)
+	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("list_actions", "List actions", "Runnable project actions (composer, artisan, npm …) and whether they are currently available.")), s.listActions)
+	mcp.AddTool(s.mcp, s.tool(auth.ScopeOperate, mutating("run_action", "Run action", "Run one action from list_actions inside the project (e.g. composer:install) and return its output. Waits for completion (up to 20 minutes).", false)), s.runAction)
+	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("list_databases", "List databases", "Databases on the project's database server.")), s.listDatabases)
+	mcp.AddTool(s.mcp, s.tool(auth.ScopeOperate, mutating("create_database", "Create database", "Create an additional database on the project's database server (same credentials).", true)), s.createDatabase)
+	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("list_backups", "List backups", "Backups of a project.")), s.listBackups)
+	mcp.AddTool(s.mcp, s.tool(auth.ScopeOperate, mutating("create_backup", "Create backup", "Create a backup (database dump + files + configuration) of a project.", false)), s.createBackup)
+	mcp.AddTool(s.mcp, s.tool(auth.ScopeOperate, mutating("add_domain", "Add domain", "Add an extra host name routed to the project by the embedded proxy.", true)), s.addDomain)
 }
 
 // ---- Projects ---------------------------------------------------------------------
@@ -128,7 +129,7 @@ type listProjectsOut struct {
 }
 
 func (s *Server) listProjects(ctx context.Context, _ *mcp.CallToolRequest, _ listProjectsIn) (*mcp.CallToolResult, listProjectsOut, error) {
-	views, err := s.d.Projects.List(ctx)
+	views, err := s.visibleProjects(ctx)
 	if err != nil {
 		r, _ := toolErr(err)
 		return r, listProjectsOut{}, nil
@@ -263,6 +264,10 @@ func (s *Server) createProject(ctx context.Context, _ *mcp.CallToolRequest, in c
 	sort.Strings(keys)
 	for _, k := range keys {
 		req.Env = append(req.Env, project.EnvVarRequest{Key: k, Value: in.Env[k]})
+	}
+	if p, _ := auth.PrincipalFrom(ctx); p.Restricted() {
+		r, _ := toolErr(fmt.Errorf("%w: this token is limited to particular projects and cannot create new ones", auth.ErrForbidden))
+		return r, projectOut{}, nil
 	}
 	v, err := s.d.Projects.Create(ctx, req)
 	if err != nil {

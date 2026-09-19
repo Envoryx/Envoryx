@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/envoryx/envoryx/internal/auth"
 	"net/http"
 	"strings"
 	"time"
@@ -311,8 +312,12 @@ func (a *API) listProjects(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
+	p, _ := auth.PrincipalFrom(r.Context())
 	out := make([]projectDTO, 0, len(views))
 	for _, v := range views {
+		if p.TokenName != "" && !p.CanAccessProject(v.Project.ID) {
+			continue
+		}
 		out = append(out, a.project(r, v))
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"projects": out})

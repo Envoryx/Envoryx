@@ -617,10 +617,32 @@ curl -H "Authorization: Bearer stq_…" https://envoryx.test/api/v1/projects
 curl -H "Authorization: Bearer stq_…" -X POST https://envoryx.test/api/v1/projects/<id>/restart
 ```
 
-A token acts with the full rights of your account except that it cannot change
-the password or create/revoke tokens – those need a browser session. Audit
-entries record `user (token: name)`. A request that presents an invalid or
-revoked token is rejected even if a valid session cookie is also sent.
+### Token scopes
+
+Every token has a scope, chosen when it is created; each level includes the
+ones below it:
+
+| Scope     | Allows                                                                                                                                                              |
+|-----------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `read`    | Looking: project list and details, status, logs, statistics, backups list, runtimes. No secrets (no database credentials, no deploy key), no changes.               |
+| `operate` | Working with existing projects: start/stop/restart, image rollback, actions (composer, artisan …), creating backups and databases, git, domains, SSH/SFTP, terminal, database browser. Default for new tokens. |
+| `admin`   | Everything a browser session may do: creating and deleting projects, settings, TLS, notifications, instance backups, image clean-up, restores, dropping databases.  |
+
+A token can additionally be **limited to particular projects**. It then sees
+only those in listings, every other project answers `403` (REST) or "no project
+matches" (MCP), instance-wide endpoints (dashboard, settings, Docker overview)
+are closed, and it cannot create projects – regardless of its scope. Use this
+for an assistant that should work on one project only.
+
+Refusals carry the reason (`this token has read scope, the operation needs
+operate`) so scripts and assistants can tell what kind of token they need.
+`GET /api/v1/auth/me` shows the calling token's name, scope and projects.
+
+No token can change the password or create/revoke tokens – those need a
+browser session. Audit entries record `user (token: name)`. A request that
+presents an invalid or revoked token is rejected even if a valid session
+cookie is also sent. Tokens created before scopes existed keep full access
+(`admin`, all projects).
 
 ## Health check
 

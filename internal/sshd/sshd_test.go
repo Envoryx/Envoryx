@@ -61,7 +61,7 @@ func newEnv(t *testing.T) *env {
 	if err != nil {
 		t.Fatal(err)
 	}
-	token, _, err := sessions.CreateAPIToken(context.Background(), auth.Principal{UserID: user.ID, Username: user.Username, Role: user.Role}, "phpstorm")
+	token, _, err := sessions.CreateAPIToken(context.Background(), auth.Principal{UserID: user.ID, Username: user.Username, Role: user.Role}, auth.TokenSpec{Name: "phpstorm", Scope: auth.ScopeOperate})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -113,6 +113,32 @@ func TestExecAndAuth(t *testing.T) {
 	}
 	if _, err := e.dial(t, "nope", ssh.Password(e.token)); err == nil {
 		t.Fatal("unknown project must be rejected")
+	}
+	// Scope and project restriction apply to SSH as well.
+	u, _ := e.st.Users.ByUsername(context.Background(), "admin")
+	admin := auth.Principal{UserID: u.ID, Username: u.Username, Role: u.Role}
+	readToken, _, err := e.auth.CreateAPIToken(context.Background(), admin, auth.TokenSpec{Name: "monitor", Scope: auth.ScopeRead})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.dial(t, "shop", ssh.Password(readToken)); err == nil {
+		t.Fatal("a read token must not open a shell")
+	}
+	otherToken, _, err := e.auth.CreateAPIToken(context.Background(), admin, auth.TokenSpec{Name: "other", Scope: auth.ScopeAdmin, Projects: []string{"00000000-0000-0000-0000-000000000000"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.dial(t, "shop", ssh.Password(otherToken)); err == nil {
+		t.Fatal("a token confined to another project must be rejected")
+	}
+	confinedToken, _, err := e.auth.CreateAPIToken(context.Background(), admin, auth.TokenSpec{Name: "shop", Scope: auth.ScopeOperate, Projects: []string{e.proj.Project.ID}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c, err := e.dial(t, "shop", ssh.Password(confinedToken)); err != nil {
+		t.Fatalf("a token confined to this project must log in: %v", err)
+	} else {
+		c.Close()
 	}
 	client, err := e.dial(t, "shop", ssh.Password(e.token))
 	if err != nil {

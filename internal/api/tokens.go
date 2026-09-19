@@ -10,15 +10,23 @@ import (
 )
 
 type tokenDTO struct {
-	ID         string     `json:"id"`
-	Name       string     `json:"name"`
-	Prefix     string     `json:"prefix"`
+	ID     string `json:"id"`
+	Name   string `json:"name"`
+	Prefix string `json:"prefix"`
+	// Scope is read, operate or admin; Projects lists the ids the token is confined to
+	// (empty = all projects).
+	Scope      string     `json:"scope"`
+	Projects   []string   `json:"projects"`
 	CreatedAt  time.Time  `json:"createdAt"`
 	LastUsedAt *time.Time `json:"lastUsedAt"`
 }
 
 func toToken(t store.APIToken) tokenDTO {
-	return tokenDTO{ID: t.ID, Name: t.Name, Prefix: t.Prefix, CreatedAt: t.CreatedAt, LastUsedAt: t.LastUsedAt}
+	projects := t.ProjectIDs
+	if projects == nil {
+		projects = []string{}
+	}
+	return tokenDTO{ID: t.ID, Name: t.Name, Prefix: t.Prefix, Scope: t.Scope, Projects: projects, CreatedAt: t.CreatedAt, LastUsedAt: t.LastUsedAt}
 }
 
 func (a *API) listTokens(w http.ResponseWriter, r *http.Request) {
@@ -36,6 +44,10 @@ func (a *API) listTokens(w http.ResponseWriter, r *http.Request) {
 
 type createTokenRequest struct {
 	Name string `json:"name"`
+	// Scope defaults to operate – enough for assistants and scripts that work with
+	// existing projects; admin must be chosen deliberately.
+	Scope    string   `json:"scope"`
+	Projects []string `json:"projects"`
 }
 
 // errTokenManagesTokens keeps a leaked API token from minting or revoking tokens; only a
@@ -53,7 +65,26 @@ func (a *API) createToken(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, errTokenManagesTokens)
 		return
 	}
-	token, t, err := a.d.Auth.CreateAPIToken(r.Context(), p, req.Name)
+	if req.Scope == "" {
+		req.Scope = string(auth.ScopeOperate)
+	}
+	if len(req.Projects) > 100 {
+		writeError(w, r, newError(http.StatusUnprocessableEntity, "validation_failed", "too many projects"))
+		return
+	}
+	// Only existing projects can be named; a deleted one would otherwise linger as a
+	// meaningless restriction.
+	for _, id := range req.Projects {
+		if _, err := a.d.Projects.Get(r.Context(), id); err != nil {
+			if errors.Is(err, store.ErrNotFound) {
+				writeError(w, r, newError(http.StatusUnprocessableEntity, "validation_failed", "unknown project "+id))
+				return
+			}
+			writeError(w, r, err)
+			return
+		}
+	}
+	token, t, err := a.d.Auth.CreateAPIToken(r.Context(), p, auth.TokenSpec{Name: req.Name, Scope: auth.Scope(req.Scope), Projects: req.Projects})
 	if err != nil {
 		if errors.Is(err, auth.ErrInvalidTokenName) {
 			writeError(w, r, newError(http.StatusUnprocessableEntity, "validation_failed", err.Error()))
@@ -62,7 +93,7 @@ func (a *API) createToken(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
-	a.d.Audit.Log(r.Context(), "token.created", "token", t.ID, map[string]any{"name": t.Name})
+	a.d.Audit.Log(r.Context(), "token.created", "token", t.ID, map[string]any{"name": t.Name, "scope": t.Scope, "projects": t.ProjectIDs})
 	// The plain token is returned exactly once.
 	writeJSON(w, http.StatusCreated, map[string]any{"token": toToken(t), "secret": token, "mcpUrl": a.mcpURL(r)})
 }
