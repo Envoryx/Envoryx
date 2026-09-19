@@ -279,3 +279,39 @@ func TestBeforeMigrateHookTakesBackup(t *testing.T) {
 	}
 	_ = fresh.Close()
 }
+
+// A kill -9 during an instance backup leaves a partial archive and the database copy
+// behind; neither is listed as a backup and both are removed at the next start.
+func TestSweepRemovesInterruptedBackup(t *testing.T) {
+	s, sqlDB := newStore(t)
+	ctx := context.Background()
+	good, err := s.Create(ctx, sqlDB, KindManual, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	partial := filepath.Join(s.Dir, "manual-20260919-120000-dead.tar.gz"+partialSuffix)
+	dbCopy := filepath.Join(s.Dir, ".manual-20260919-120000-dead.db")
+	for _, f := range []string{partial, dbCopy} {
+		if err := os.WriteFile(f, []byte("truncated"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	list, err := s.List()
+	if err != nil || len(list) != 1 || list[0].ID != good.ID {
+		t.Fatalf("partial archive must not be listed: %+v %v", list, err)
+	}
+	if n := s.Sweep(); n != 2 {
+		t.Fatalf("swept %d, want 2", n)
+	}
+	for _, f := range []string{partial, dbCopy} {
+		if _, err := os.Stat(f); !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("%s still there: %v", f, err)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(s.Dir, good.ID+".tar.gz")); err != nil {
+		t.Fatalf("complete backup must survive the sweep: %v", err)
+	}
+	if n := s.Sweep(); n != 0 {
+		t.Fatalf("second sweep removed %d", n)
+	}
+}

@@ -156,10 +156,17 @@ func (s *Store) Create(ctx context.Context, sqlDB *sql.DB, kind, note string) (I
 	}
 
 	meta := Meta{Format: format, Envoryx: s.Version, Schema: schema, CreatedAt: time.Now().UTC(), Kind: kind, Note: note}
-	entries, err := s.writeArchive(target, tmpDB, &meta)
+	// The archive grows under a name List ignores and is renamed once complete, so a
+	// crash mid-way never leaves a plausible-looking but truncated backup behind.
+	partial := target + partialSuffix
+	entries, err := s.writeArchive(partial, tmpDB, &meta)
 	if err != nil {
-		_ = os.Remove(target)
+		_ = os.Remove(partial)
 		return Info{}, err
+	}
+	if err := os.Rename(partial, target); err != nil {
+		_ = os.Remove(partial)
+		return Info{}, fmt.Errorf("finish archive: %w", err)
 	}
 	meta.Entries = entries
 	st, err := os.Stat(target)
@@ -297,6 +304,34 @@ func (s *Store) skip(path, rel string, isDir bool) bool {
 func within(path, root string) bool {
 	rel, err := filepath.Rel(root, path)
 	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
+}
+
+// partialSuffix marks an archive that is still being written.
+const partialSuffix = ".partial"
+
+// Sweep removes what an interrupted backup left behind (a partial archive, a database
+// copy) and reports how many. It runs at start-up, when no backup can be in progress.
+func (s *Store) Sweep() int {
+	entries, err := os.ReadDir(s.Dir)
+	if err != nil {
+		return 0
+	}
+	n := 0
+	for _, e := range entries {
+		name := e.Name()
+		leftover := strings.HasSuffix(name, ".tar.gz"+partialSuffix) ||
+			(strings.HasPrefix(name, ".") && strings.HasSuffix(name, ".db"))
+		if !leftover || e.IsDir() {
+			continue
+		}
+		if err := os.Remove(filepath.Join(s.Dir, name)); err != nil {
+			s.Log.Warn("interrupted instance backup not removed", "file", name, "err", err)
+			continue
+		}
+		s.Log.Warn("removed remains of an interrupted instance backup", "file", name)
+		n++
+	}
+	return n
 }
 
 // List returns all backups, newest first.

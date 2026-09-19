@@ -11,6 +11,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -178,6 +179,76 @@ func (m *Manager) ListBackups(ctx context.Context, id string) ([]BackupInfo, err
 		out = append(out, info)
 	}
 	return out, nil
+}
+
+// backupDirPattern matches the directory names createBackupLocked generates.
+var backupDirPattern = regexp.MustCompile(`^\d{8}-\d{6}-[0-9a-f]{8}$`)
+
+// SweepBackups tidies up after backups that a crash or kill interrupted. A directory
+// without backup.json never completed (the metadata is written last) and is removed;
+// one that completed but was not recorded – the process died between writing and
+// recording – is adopted so it shows up and can be restored. Directories that belong to
+// another installation (different project id) or do not look like Envoryx's are left
+// alone. It runs at start-up, before the scheduler, when no backup can be in progress.
+func (m *Manager) SweepBackups(ctx context.Context) {
+	paths, err := m.paths()
+	if err != nil {
+		return
+	}
+	projects, err := m.store.Projects.List(ctx)
+	if err != nil {
+		return
+	}
+	for _, p := range projects {
+		root := filepath.Join(paths.BackupsRoot(), p.Slug)
+		entries, err := os.ReadDir(root)
+		if err != nil {
+			continue
+		}
+		recorded := map[string]bool{}
+		if rows, err := m.store.Backups.ListByProject(ctx, p.ID); err == nil {
+			for _, b := range rows {
+				recorded[b.Filename] = true
+			}
+		}
+		for _, e := range entries {
+			name := e.Name()
+			if !e.IsDir() || !backupDirPattern.MatchString(name) || recorded[name] {
+				continue
+			}
+			dir := filepath.Join(root, name)
+			raw, err := os.ReadFile(filepath.Join(dir, backupMetaFile))
+			if errors.Is(err, os.ErrNotExist) {
+				if err := os.RemoveAll(dir); err != nil {
+					m.log.Warn("interrupted backup not removed", "project", p.Slug, "dir", name, "err", err)
+					continue
+				}
+				m.log.Warn("removed an interrupted backup", "project", p.Slug, "dir", name)
+				continue
+			}
+			if err != nil {
+				continue
+			}
+			var bf backupFile
+			if err := json.Unmarshal(raw, &bf); err != nil || bf.ProjectID != p.ID {
+				continue
+			}
+			kind := "full"
+			switch {
+			case bf.Database != nil && bf.Files == nil:
+				kind = "database"
+			case bf.Database == nil && bf.Files != nil:
+				kind = "files"
+			}
+			metaJSON, _ := json.Marshal(bf.BackupMeta)
+			rec := &store.Backup{ProjectID: p.ID, Filename: name, SizeBytes: dirSize(dir), Kind: kind, Metadata: metaJSON, CreatedAt: bf.CreatedAt}
+			if err := m.store.Backups.Create(ctx, rec); err != nil {
+				m.log.Warn("unrecorded backup not adopted", "project", p.Slug, "dir", name, "err", err)
+				continue
+			}
+			m.log.Warn("adopted a backup that was not recorded", "project", p.Slug, "dir", name)
+		}
+	}
 }
 
 // CreateBackup dumps the database and/or archives the project files. The project lock is

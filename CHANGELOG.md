@@ -20,6 +20,12 @@ release). `:main` follows the development branch.
   `docker image prune` – Unraid's "remove unused images", clean-up plugins –
   no longer deletes it. Existing rollback targets are tagged at the next start;
   the tag moves on when a newer image supersedes it and goes with the project.
+- A backup interrupted by a crash or `kill -9` no longer lingers: at start-up
+  Envoryx removes project backup directories that never got their metadata
+  and adopts complete ones whose database record was not written yet, so
+  they show up and can be restored. Instance backups are written under a
+  temporary name and renamed when complete, so a truncated archive can never
+  be mistaken for a good one; leftovers are removed at start-up as well.
 
 ## [0.1.0] – 2026-09-19
 

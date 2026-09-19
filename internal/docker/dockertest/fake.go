@@ -144,6 +144,14 @@ func (f *Fake) AddImage(ref string) {
 	f.images[ref] = ref + "@v1"
 }
 
+// SetUnavailable flips Docker availability while operations may be running (the daemon
+// dies mid-start), safely with respect to the fake's own locking.
+func (f *Fake) SetUnavailable(down bool) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.Unavailable = down
+}
+
 // Dangle removes a tag but keeps its image as dangling – the state an older Envoryx (no
 // rollback tags yet) or a re-pull leaves behind.
 func (f *Fake) Dangle(ref string) {

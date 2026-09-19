@@ -261,7 +261,10 @@ func serve() error {
 		manager.SetNotifier(notifier)
 	}
 
-	// 5. Reconcile desired vs. actual state, then keep doing so in the background.
+	// 5. Clear the remains of backups a crash interrupted, then reconcile desired vs.
+	// actual state and keep doing so in the background.
+	backups.Sweep()
+	manager.SweepBackups(ctx)
 	background := func(name string, fn func(context.Context)) { go supervise(ctx, log, notifier, name, fn) }
 	background("reconciler", func(ctx context.Context) { manager.RunReconciler(ctx, 30*time.Second, log) })
 	background("backup scheduler", func(ctx context.Context) { manager.RunBackupScheduler(ctx, time.Minute, log) })
