@@ -151,6 +151,15 @@ wget -O /boot/config/plugins/dockerMan/templates-user/envoryx.xml \
 Then *Add Container → Envoryx → Apply*. Ports, paths, socket, PUID/PGID are
 pre-filled; create the `development` share first if it does not exist.
 
+Run that `wget` **once**. Unraid stores every change you make on the
+container page (network type such as `br0`, the backups share, ports) in
+that same file – downloading the template again overwrites them with the
+repository defaults, and the next *Apply* recreates the container with
+`bridge` and no backups mount. Updates need no new template: *Docker → Check
+for Updates → Apply* pulls the new image and keeps your settings. If a
+release changes the template (new variable or path), add the change on the
+container's edit page by hand.
+
 Alternatively add `https://github.com/envoryx/envoryx` under
 **Docker → Add Container → Template repositories** – Unraid then reads
 `deploy/unraid/envoryx.xml` directly from the repository and picks up updates.
