@@ -17,17 +17,28 @@ jobs:
   upgrade:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        # "release" resolves to the latest GitHub release. The second entry is a main
+        # build on schema 6 (the commit before migration 0007), so the migration and the
+        # downgrade-refusal paths run on every change even while no release needs them.
+        from: ["release", "ghcr.io/envoryx/envoryx:sha-a384214"]
     steps:
       - uses: actions/checkout@v4
 
-      - name: Latest release
+      - name: Resolve old image
         id: release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          tag=$(gh api "repos/${{ github.repository }}/releases/latest" --jq .tag_name)
-          echo "image=ghcr.io/envoryx/envoryx:${tag#v}" >> "$GITHUB_OUTPUT"
-          echo "Upgrading from $tag"
+          from="${{ matrix.from }}"
+          if [ "$from" = release ]; then
+            tag=$(gh api "repos/${{ github.repository }}/releases/latest" --jq .tag_name)
+            from="ghcr.io/envoryx/envoryx:${tag#v}"
+          fi
+          echo "image=$from" >> "$GITHUB_OUTPUT"
+          echo "Upgrading from $from"
 
       - uses: docker/setup-buildx-action@v3
 
