@@ -174,7 +174,9 @@ Go modules, the web frontend, GitHub Actions and the base images of the
 application `Dockerfile`. Minor and patch updates arrive grouped per
 ecosystem (one PR each); major updates and security fixes come as separate
 PRs. CI, including the upgrade test, runs on every one of them – merge when
-green, read the release notes first for majors.
+green, read the release notes first for majors. Node majors in the
+`Dockerfile` are ignored on purpose: only even (LTS) lines are used, and a
+move to the next one is done by hand in `Dockerfile` and `ci.yml` together.
 
 The PHP and Node **runtime images** are not covered by Dependabot: their
 base tags follow `internal/runtime/*_versions.json`, which the
