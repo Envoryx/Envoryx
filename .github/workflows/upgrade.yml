@@ -1,0 +1,57 @@
+name: Upgrade test
+
+# Starts the latest published release with sample data, then this commit's image on the
+# same /config and /projects: schema migration, pre-migrate backup, projects still found,
+# API token still valid, downgrade refused. See scripts/upgrade-test.sh.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  upgrade:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        # "release" resolves to the latest GitHub release. The second entry is a main
+        # build on schema 6 (the commit before migration 0007), so the migration and the
+        # downgrade-refusal paths run on every change even while no release needs them.
+        from: ["release", "ghcr.io/envoryx/envoryx:sha-a384214"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve old image
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          from="${{ matrix.from }}"
+          if [ "$from" = release ]; then
+            tag=$(gh api "repos/${{ github.repository }}/releases/latest" --jq .tag_name)
+            from="ghcr.io/envoryx/envoryx:${tag#v}"
+          fi
+          echo "image=$from" >> "$GITHUB_OUTPUT"
+          echo "Upgrading from $from"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build candidate image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: envoryx:candidate
+          build-args: |
+            VERSION=ci-${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run upgrade test
+        run: scripts/upgrade-test.sh "${{ steps.release.outputs.image }}" envoryx:candidate
