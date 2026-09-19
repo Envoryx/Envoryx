@@ -964,5 +964,14 @@
   "The comparison between the database and Docker failed; usually the engine was unreachable. It runs again every 30 seconds.": "Der Abgleich zwischen Datenbank und Docker ist fehlgeschlagen; meist war die Engine nicht erreichbar. Er läuft alle 30 Sekunden erneut.",
   "Open the affected projects; orphaned resources are listed on the Docker page and can be removed there.": "Die betroffenen Projekte öffnen; verwaiste Ressourcen sind auf der Docker-Seite gelistet und können dort entfernt werden.",
   "Configure ntfy, Telegram, Discord, Slack, e-mail or a webhook under Settings → Notifications.": "ntfy, Telegram, Discord, Slack, E-Mail oder einen Webhook unter Einstellungen → Benachrichtigungen einrichten.",
-  "Send a test notification to see the current error.": "Eine Test-Benachrichtigung senden, um den aktuellen Fehler zu sehen."
+  "Send a test notification to see the current error.": "Eine Test-Benachrichtigung senden, um den aktuellen Fehler zu sehen.",
+  "Wildcard DNS as seen by Envoryx": "Wildcard-DNS aus Sicht von Envoryx",
+  "If project domains do not open on your devices either: point every name under the base domain at the proxy – a DNS rewrite for the wildcard domain in AdGuard Home or Pi-hole, a wildcard record in your router or DNS server, or hosts-file entries per project.": "Falls Projekt-Domains auch auf deinen Geräten nicht öffnen: alle Namen unter der Basis-Domain auf den Proxy zeigen lassen – ein DNS-Rewrite für die Wildcard-Domain in AdGuard Home oder Pi-hole, ein Wildcard-Eintrag im Router oder DNS-Server, oder hosts-Einträge pro Projekt.",
+  "Project domains from this browser": "Projekt-Domains aus diesem Browser",
+  "Contacting {{url}} …": "Kontaktiere {{url}} …",
+  "Wildcard DNS and the proxy work from this device{{tls}}.": "Wildcard-DNS und Proxy funktionieren von diesem Gerät{{tls}}.",
+  ", and the CA is trusted": ", und der CA wird vertraut",
+  "{{url}} could not be reached from this browser.": "{{url}} war aus diesem Browser nicht erreichbar.",
+  "Either this device's DNS does not resolve names under the base domain, or this browser does not trust the Envoryx CA yet. Install the CA (Domains & HTTPS) and add a wildcard DNS rewrite on the DNS server your devices use (AdGuard Home, Pi-hole, router).": "Entweder löst der DNS dieses Geräts keine Namen unter der Basis-Domain auf, oder dieser Browser vertraut der Envoryx-CA noch nicht. CA installieren (Domains & HTTPS) und einen Wildcard-DNS-Rewrite auf dem DNS-Server deiner Geräte anlegen (AdGuard Home, Pi-hole, Router).",
+  "This device's DNS does not resolve names under the base domain. Add a wildcard DNS rewrite on the DNS server your devices use (AdGuard Home, Pi-hole, router), or hosts-file entries per project.": "Der DNS dieses Geräts löst keine Namen unter der Basis-Domain auf. Einen Wildcard-DNS-Rewrite auf dem DNS-Server deiner Geräte anlegen (AdGuard Home, Pi-hole, Router) oder hosts-Einträge pro Projekt."
 }

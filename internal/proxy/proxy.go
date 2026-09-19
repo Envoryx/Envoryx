@@ -42,6 +42,9 @@ type Table struct {
 	HTTPSPort int
 	// EnvoryxURL is where the UI can be reached (for links on error pages).
 	EnvoryxURL string
+	// ProbeHost answers the diagnostics probe: a browser that can fetch it has working
+	// wildcard DNS and reaches the proxy (and, over HTTPS, trusts the CA).
+	ProbeHost string
 }
 
 // Source produces the current routing table.
@@ -146,6 +149,13 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		h.ui.ServeHTTP(w, r)
+		return
+	}
+	if table.ProbeHost != "" && host == table.ProbeHost {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Cache-Control", "no-store")
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprintf(w, `{"envoryx":"probe","host":%q,"tls":%v}`, host, r.TLS != nil)
 		return
 	}
 	target, ok := table.Routes[host]
@@ -253,7 +263,7 @@ func (s *Server) allowHost(host string) bool {
 		return true
 	}
 	t := s.router.Table(context.Background())
-	if t.UIHosts[host] {
+	if t.UIHosts[host] || (t.ProbeHost != "" && host == t.ProbeHost) {
 		return true
 	}
 	if _, ok := t.Routes[host]; ok {

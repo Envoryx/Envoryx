@@ -2,8 +2,9 @@ import { AlertTriangle, CheckCircle2, ExternalLink, Info, RefreshCw, XCircle } f
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { Link, useNavigate } from "react-router-dom";
-import { useDiagnostics, useUpdateSettings } from "@/api/hooks";
-import type { DiagnosticCheck } from "@/api/types";
+import { useEffect, useState } from "react";
+import { useDiagnostics, useSettings, useUpdateSettings } from "@/api/hooks";
+import type { DiagnosticCheck, Settings } from "@/api/types";
 import { Button, Card, CardHeader, ErrorState, Spinner } from "@/components/ui";
 import { formatDateTime } from "@/lib/format";
 
@@ -36,6 +37,85 @@ export function diagnosticsSummary(t: TFunction, s: { warning: number; error: nu
   if (s.error > 0) parts.push(t("{{count}} errors", { count: s.error }));
   if (s.warning > 0) parts.push(t("{{count}} warnings", { count: s.warning }));
   return parts.join(", ");
+}
+
+/** The probe URL the browser fetches: same scheme as the UI (no mixed content), proxy ports. */
+export function probeUrl(s: Settings): string | null {
+  if (!s.proxy?.enabled || !s.baseDomain) return null;
+  const https = window.location.protocol === "https:";
+  if (https && !s.proxy.tls) return null;
+  const port = https ? s.proxy.httpsPort : s.proxy.httpPort;
+  const direct = !!s.proxy.address;
+  const suffix = direct || !port || port === (https ? 443 : 80) ? "" : `:${port}`;
+  return `${https ? "https" : "http"}://envoryx-diagnostics-probe.${s.baseDomain}${suffix}/`;
+}
+
+type ProbeState = { status: "checking" | "ok" | "warning" | "skipped"; detail?: string };
+
+/** Fetches the proxy probe from this browser: proves wildcard DNS + proxy reachability (+ CA trust over HTTPS). */
+function useBrowserProbe(settings: Settings | undefined, runId: number): ProbeState {
+  const [state, setState] = useState<ProbeState>({ status: "checking" });
+  useEffect(() => {
+    if (!settings) return;
+    const url = probeUrl(settings);
+    if (!url) {
+      setState({ status: "skipped" });
+      return;
+    }
+    let cancelled = false;
+    setState({ status: "checking" });
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 5000);
+    fetch(url, { signal: ctrl.signal, cache: "no-store", mode: "cors" })
+      .then(async (res) => {
+        const body = (await res.json().catch(() => null)) as { envoryx?: string } | null;
+        if (cancelled) return;
+        setState(body?.envoryx === "probe" ? { status: "ok", detail: url } : { status: "warning", detail: url });
+      })
+      .catch(() => !cancelled && setState({ status: "warning", detail: url }))
+      .finally(() => clearTimeout(timer));
+    return () => {
+      cancelled = true;
+      ctrl.abort();
+    };
+  }, [settings, runId]);
+  return state;
+}
+
+function BrowserProbeRow({ probe, onSwitchTab }: { probe: ProbeState; onSwitchTab: (tab: string) => void }) {
+  const { t } = useTranslation();
+  const https = window.location.protocol === "https:";
+  if (probe.status === "skipped") return null;
+  const status: DiagnosticCheck["status"] = probe.status === "checking" ? "info" : probe.status;
+  return (
+    <li className="flex gap-3 px-5 py-3">
+      {probe.status === "checking" ? <RefreshCw className="size-5 shrink-0 animate-spin text-muted" aria-label="checking" /> : <StatusIcon status={status} />}
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium">{t("Project domains from this browser")}</p>
+        {probe.status === "checking" && <p className="mt-0.5 text-xs text-muted">{t("Contacting {{url}} …", { url: probe.detail ?? "" })}</p>}
+        {probe.status === "ok" && <p className="mt-0.5 break-words text-xs text-muted">{t("Wildcard DNS and the proxy work from this device{{tls}}.", { tls: https ? t(", and the CA is trusted") : "" })}</p>}
+        {probe.status === "warning" && (
+          <>
+            <p className="mt-0.5 break-words text-xs text-muted">{t("{{url}} could not be reached from this browser.", { url: probe.detail ?? "" })}</p>
+            <p className="mt-1 text-xs text-fg">
+              {https
+                ? t("Either this device's DNS does not resolve names under the base domain, or this browser does not trust the Envoryx CA yet. Install the CA (Domains & HTTPS) and add a wildcard DNS rewrite on the DNS server your devices use (AdGuard Home, Pi-hole, router).")
+                : t("This device's DNS does not resolve names under the base domain. Add a wildcard DNS rewrite on the DNS server your devices use (AdGuard Home, Pi-hole, router), or hosts-file entries per project.")}
+            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-3">
+              <Button size="sm" variant="primary" onClick={() => onSwitchTab("domains")}>
+                {t("Domains & HTTPS")}
+              </Button>
+              <a href={`${DOCS}#names`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-accent-600 hover:underline dark:text-accent-300">
+                <ExternalLink className="size-3" aria-hidden />
+                {t("Documentation")}
+              </a>
+            </div>
+          </>
+        )}
+      </div>
+    </li>
+  );
 }
 
 function CheckRow({ check, onAction, busy }: { check: DiagnosticCheck; onAction: (c: DiagnosticCheck) => void; busy: boolean }) {
@@ -71,8 +151,11 @@ function CheckRow({ check, onAction, busy }: { check: DiagnosticCheck; onAction:
 export function DiagnosticsTab({ onSwitchTab }: { onSwitchTab: (tab: string) => void }) {
   const { t } = useTranslation();
   const q = useDiagnostics();
+  const settings = useSettings();
   const update = useUpdateSettings();
   const navigate = useNavigate();
+  const [probeRun, setProbeRun] = useState(0);
+  const probe = useBrowserProbe(settings.data, probeRun);
 
   const act = (c: DiagnosticCheck) => {
     if (!c.action) return;
@@ -93,7 +176,9 @@ export function DiagnosticsTab({ onSwitchTab }: { onSwitchTab: (tab: string) => 
   if (q.isError) return <ErrorState message={q.error.message} />;
   const d = q.data;
   const groups = (["runtime", "network", "security", "maintenance"] as const).map((cat) => ({ cat, checks: d.checks.filter((c) => c.category === cat) })).filter((g) => g.checks.length > 0);
-  const allGood = d.summary.error === 0 && d.summary.warning === 0;
+  // The browser probe counts like a server-side warning.
+  const summary = { ...d.summary, warning: d.summary.warning + (probe.status === "warning" ? 1 : 0) };
+  const allGood = summary.error === 0 && summary.warning === 0;
 
   return (
     <div className="space-y-6">
@@ -102,14 +187,21 @@ export function DiagnosticsTab({ onSwitchTab }: { onSwitchTab: (tab: string) => 
           <div className="flex items-center gap-3">
             {allGood ? <CheckCircle2 className="size-8 text-emerald-600 dark:text-emerald-400" aria-hidden /> : <AlertTriangle className="size-8 text-amber-600 dark:text-amber-400" aria-hidden />}
             <div>
-              <p className="text-base font-semibold">{diagnosticsSummary(t, d.summary)}</p>
+              <p className="text-base font-semibold">{diagnosticsSummary(t, summary)}</p>
               <p className="text-xs text-muted">
                 {t("{{count}} checks", { count: d.checks.length })} · {t("checked {{date}}", { date: formatDateTime(d.at) })}
                 {d.summary.info > 0 && <> · {t("{{count}} notes", { count: d.summary.info })}</>}
               </p>
             </div>
           </div>
-          <Button onClick={() => void q.refetch()} loading={q.isFetching} icon={<RefreshCw className="size-4" />}>
+          <Button
+            onClick={() => {
+              setProbeRun((n) => n + 1);
+              void q.refetch();
+            }}
+            loading={q.isFetching}
+            icon={<RefreshCw className="size-4" />}
+          >
             {t("Check again")}
           </Button>
         </div>
@@ -123,6 +215,7 @@ export function DiagnosticsTab({ onSwitchTab }: { onSwitchTab: (tab: string) => 
         <Card key={g.cat}>
           <CardHeader title={t(categoryTitle[g.cat])} />
           <ul className="divide-y divide-[var(--border)]">
+            {g.cat === "network" && <BrowserProbeRow probe={probe} onSwitchTab={onSwitchTab} />}
             {g.checks.map((c) => (
               <CheckRow key={c.id} check={c} onAction={act} busy={update.isPending} />
             ))}

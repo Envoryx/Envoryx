@@ -14,6 +14,7 @@ import (
 
 	"github.com/envoryx/envoryx/internal/config"
 	"github.com/envoryx/envoryx/internal/disk"
+	"github.com/envoryx/envoryx/internal/project"
 )
 
 // Diagnostics answer "is everything set up right?" in one place: every check names what
@@ -280,23 +281,26 @@ func (a *API) checkProxyPorts(context.Context) []Check {
 	return []Check{c}
 }
 
-// checkDNS resolves a name under the base domain the way Envoryx's own resolver does –
-// usually the LAN's DNS – and compares it with where the proxy actually is.
+// checkDNS resolves a name under the base domain the way Envoryx's own resolver does and
+// compares it with where the proxy is. Devices often use a different DNS server (an ad
+// blocker with the wildcard rewrite while the container asks the router), so a failure
+// here is only a note; the browser check in the diagnostics tab has the final say.
 func (a *API) checkDNS(ctx context.Context) []Check {
-	c := Check{ID: "network.dns", Category: catNetwork, Title: "Wildcard DNS for project domains", Docs: "names"}
+	c := Check{ID: "network.dns", Category: catNetwork, Title: "Wildcard DNS as seen by Envoryx", Docs: "names"}
 	if a.d.Proxy == nil || !a.d.Proxy.Enabled {
 		c.Status, c.Detail = checkInfo, "Not needed while the proxy is disabled."
 		return []Check{c}
 	}
 	base := a.d.Projects.BaseDomain(ctx)
-	name := "envoryx-diagnostics-probe." + base
+	name := project.ProbeHostname(base)
 	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
 	addrs, err := net.DefaultResolver.LookupHost(ctx, name)
+	resolver := systemResolvers()
 	if err != nil {
-		c.Status = checkWarning
-		c.Detail = fmt.Sprintf("*.%s does not resolve (checked %s from inside Envoryx).", base, name)
-		c.Hint = "Point every name under the base domain at the Docker host / the proxy: a DNS rewrite for the wildcard domain in AdGuard Home or Pi-hole, a wildcard record in your router or DNS server, or hosts-file entries per project. Devices must use that DNS server."
+		c.Status = checkInfo
+		c.Detail = fmt.Sprintf("*.%s does not resolve from inside the Envoryx container (its DNS: %s). Your devices may use a different DNS server – the check from this browser above is what counts.", base, resolver)
+		c.Hint = "If project domains do not open on your devices either: point every name under the base domain at the proxy – a DNS rewrite for the wildcard domain in AdGuard Home or Pi-hole, a wildcard record in your router or DNS server, or hosts-file entries per project."
 		return []Check{c}
 	}
 	expected := a.d.Proxy.Address
@@ -306,17 +310,36 @@ func (a *API) checkDNS(ctx context.Context) []Check {
 	if expected != "" {
 		for _, addr := range addrs {
 			if addr == expected {
-				c.Status, c.Detail = checkOK, fmt.Sprintf("*.%s → %s", base, addr)
+				c.Status, c.Detail = checkOK, fmt.Sprintf("*.%s → %s (DNS: %s)", base, addr, resolver)
 				return []Check{c}
 			}
 		}
 		c.Status = checkWarning
-		c.Detail = fmt.Sprintf("*.%s resolves to %s, but the proxy is at %s.", base, strings.Join(addrs, ", "), expected)
+		c.Detail = fmt.Sprintf("*.%s resolves to %s, but the proxy is at %s (DNS: %s).", base, strings.Join(addrs, ", "), expected, resolver)
 		c.Hint = "Update the wildcard DNS entry so project domains reach the proxy."
 		return []Check{c}
 	}
-	c.Status, c.Detail = checkOK, fmt.Sprintf("*.%s → %s", base, strings.Join(addrs, ", "))
+	c.Status, c.Detail = checkOK, fmt.Sprintf("*.%s → %s (DNS: %s)", base, strings.Join(addrs, ", "), resolver)
 	return []Check{c}
+}
+
+// systemResolvers lists the nameservers of /etc/resolv.conf for the DNS check's detail.
+func systemResolvers() string {
+	raw, err := os.ReadFile("/etc/resolv.conf")
+	if err != nil {
+		return "unknown"
+	}
+	var out []string
+	for _, line := range strings.Split(string(raw), "\n") {
+		f := strings.Fields(line)
+		if len(f) >= 2 && f[0] == "nameserver" {
+			out = append(out, f[1])
+		}
+	}
+	if len(out) == 0 {
+		return "unknown"
+	}
+	return strings.Join(out, ", ")
 }
 
 func (a *API) checkSSH(context.Context) []Check {

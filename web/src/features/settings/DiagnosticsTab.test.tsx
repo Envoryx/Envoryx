@@ -17,8 +17,10 @@ describe("Settings diagnostics", () => {
         : { id: "network.publicHost", category: "network", status: "warning", title: "Host for project links", detail: "Envoryx has its own IP", hint: "Set the Docker host's address under Settings → General → Host for project links.", action: { kind: "setPublicHost", value: "192.168.1.24" }, docs: "project-links" },
       { id: "maintenance.notifications", category: "maintenance", status: "info", title: "Notifications", detail: "No channel configured.", hint: "Configure a channel.", action: { kind: "settingsTab", value: "notifications", label: "Configure" } },
     ];
+    let probeReachable = true;
     const api = mockApi({
       ...authedRoutes,
+      "GET http://envoryx-diagnostics-probe.test/": () => (probeReachable ? { body: { envoryx: "probe", host: "envoryx-diagnostics-probe.test", tls: false } } : { status: 404, body: {} }),
       // Routes match by prefix: the more specific one first.
       "GET /settings/notifications": () => ({ body: { status: { config: { enabled: false, provider: "ntfy", events: [] }, hasToken: false, hasSmtpPassword: false }, providers: { ntfy: "ntfy" }, kinds: [] } }),
       "GET /settings": () => ({ body: { ...settings, publicHost } }),
@@ -47,6 +49,17 @@ describe("Settings diagnostics", () => {
     await waitFor(() => expect(api.calls.some((c) => c.method === "PATCH" && c.url.endsWith("/settings"))).toBe(true));
     await waitFor(() => expect(screen.getByText("Everything looks good")).toBeInTheDocument());
     expect(screen.getByRole("tab", { name: /Diagnostics/ })).toHaveTextContent("✓");
+
+    // The browser probe is part of the network group and passed.
+    expect(screen.getByText("Project domains from this browser")).toBeInTheDocument();
+    expect(await screen.findByText(/Wildcard DNS and the proxy work from this device/)).toBeInTheDocument();
+
+    // When the probe fails, the summary counts it and explains the DNS side.
+    probeReachable = false;
+    await user.click(screen.getByRole("button", { name: "Check again" }));
+    expect(await screen.findByText(/could not be reached from this browser/)).toBeInTheDocument();
+    expect(screen.getByText("1 warning")).toBeInTheDocument();
+    expect(screen.getByText(/This device's DNS does not resolve names under the base domain/)).toBeInTheDocument();
 
     // An action of kind settingsTab switches the tab.
     await user.click(screen.getByRole("button", { name: "Configure" }));

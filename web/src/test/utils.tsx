@@ -17,7 +17,8 @@ export function mockApi(routes: Record<string, Handler>) {
     calls.push({ method, url, body });
     const key = Object.keys(routes).find((k) => {
       const [m, p] = k.split(" ");
-      return m === method && url.startsWith(`/api/v1${p}`);
+      // API routes are relative to /api/v1; absolute keys match other origins (probes).
+      return m === method && (p!.startsWith("http") ? url.startsWith(p!) : url.startsWith(`/api/v1${p}`));
     });
     if (!key) {
       return new Response(JSON.stringify({ error: { code: "not_found", message: `no mock for ${method} ${url}` } }), { status: 404 });

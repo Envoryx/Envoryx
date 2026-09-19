@@ -93,6 +93,10 @@ func DefaultHostname(slug, base string) string { return slug + "." + base }
 // UIHostname is the host name of Envoryx's UI under the base domain.
 func UIHostname(base string) string { return UIHostLabel + "." + base }
 
+// ProbeHostname is the name the diagnostics use to test wildcard DNS and the proxy from a
+// browser; the proxy answers it with a small JSON document.
+func ProbeHostname(base string) string { return "envoryx-diagnostics-probe." + base }
+
 // DevHostname is the host name of a project's Node dev server (kept one label deep so a
 // wildcard certificate for the base domain covers it).
 func DevHostname(slug, base string) string { return slug + "-dev." + base }
@@ -195,6 +199,7 @@ func (m *Manager) RouteTable(ctx context.Context, opts ProxyOptions) (proxy.Tabl
 	t := proxy.Table{Routes: map[string]proxy.Target{}, UIHosts: map[string]bool{}, ForceHTTPS: m.ForceHTTPS(ctx), HTTPSPort: opts.HTTPSPort, EnvoryxURL: opts.EnvoryxURL}
 	base := m.BaseDomain(ctx)
 	t.UIHosts[UIHostname(base)] = true
+	t.ProbeHost = ProbeHostname(base)
 	for _, h := range opts.ExtraUIHosts {
 		if h = validate.NormalizeHostname(h); h != "" {
 			t.UIHosts[h] = true

@@ -134,8 +134,13 @@ ones you used in the volume mappings.
 **Settings → Diagnostics** runs a set-up check and lists every finding with
 what it looked at, what it found and how to fix it: Docker engine, where
 `/config` lives, host paths, disk space, backup directory, database integrity,
-host for project links, proxy ports, wildcard DNS (as resolved from inside
-Envoryx), SSH, HTTPS, version, project/Docker consistency and notifications.
+host for project links, proxy ports, wildcard DNS, SSH, HTTPS, version,
+project/Docker consistency and notifications. Wildcard DNS is checked twice:
+from your browser (the check that matters – it fetches
+`envoryx-diagnostics-probe.<base domain>` through the proxy, which also proves
+the CA is trusted over HTTPS) and from inside the Envoryx container, whose DNS
+server is often a different one (the router instead of your ad blocker); that
+second result is only a note.
 Findings with a button are fixed in place (for example setting the Docker host
 for project links); the others link to the setting or to this guide. The
 dashboard shows a banner while warnings or errors exist. The same data is
