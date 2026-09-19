@@ -287,7 +287,7 @@ func TestProjectLifecycleOverHTTP(t *testing.T) {
 	a.engine.AddForeignContainer("plex", "plexinc/pms-docker", "running")
 
 	create := map[string]any{
-		"name": "Shimly API", "docroot": "public", "createStarter": true, "start": true,
+		"name": "Acme Shop", "docroot": "public", "createStarter": true, "start": true,
 		"php": map[string]any{"version": "8.4", "config": runtime.DefaultPHPConfig()},
 		"env": []map[string]any{{"key": "APP_ENV", "value": "local", "isSecret": false}},
 	}
@@ -296,7 +296,7 @@ func TestProjectLifecycleOverHTTP(t *testing.T) {
 		t.Fatalf("preview: %d %s", r.status, r.raw)
 	}
 	pv := r.body["preview"].(map[string]any)
-	if pv["network"] != "envoryx-shimly-api" || len(pv["containers"].([]any)) != 2 {
+	if pv["network"] != "envoryx-acme-shop" || len(pv["containers"].([]any)) != 2 {
 		t.Fatalf("preview content: %v", pv)
 	}
 
@@ -413,7 +413,7 @@ func TestProjectLifecycleOverHTTP(t *testing.T) {
 	if r.status != http.StatusUnprocessableEntity {
 		t.Fatalf("delete without confirmation: %d %s", r.status, r.raw)
 	}
-	r = a.do(http.MethodDelete, "/api/v1/projects/"+id, map[string]any{"confirm": "shimly-api"}, true)
+	r = a.do(http.MethodDelete, "/api/v1/projects/"+id, map[string]any{"confirm": "acme-shop"}, true)
 	if r.status != http.StatusNoContent {
 		t.Fatalf("delete: %d %s", r.status, r.raw)
 	}

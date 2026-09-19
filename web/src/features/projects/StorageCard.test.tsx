@@ -5,9 +5,9 @@ import { authedRoutes, makeProject, mockApi, renderApp, runtimesFixture } from "
 
 const P = "/projects/3f0b4a9e-1a2b-4c3d-8e9f-0a1b2c3d4e5f";
 const info = {
-  version: "1.0", image: "rustfs/rustfs:1.0.0", endpoint: "http://s3:9000", publicUrl: "https://shimly-api-s3.test/shimly-api", hostPort: 20003, consolePort: 20004,
-  consolePath: "/rustfs/console/", region: "us-east-1", bucket: "shimly-api", publicRead: true, injectedEnv: ["AWS_BUCKET", "S3_ENDPOINT"], state: "running", health: "healthy",
-  volumeName: "envoryx-shimly-api-storage", hostname: "shimly-api-s3.test",
+  version: "1.0", image: "rustfs/rustfs:1.0.0", endpoint: "http://s3:9000", publicUrl: "https://acme-shop-s3.test/acme-shop", hostPort: 20003, consolePort: 20004,
+  consolePath: "/rustfs/console/", region: "us-east-1", bucket: "acme-shop", publicRead: true, injectedEnv: ["AWS_BUCKET", "S3_ENDPOINT"], state: "running", health: "healthy",
+  volumeName: "envoryx-acme-shop-storage", hostname: "acme-shop-s3.test",
 };
 
 describe("StorageCard", () => {
@@ -42,7 +42,7 @@ describe("StorageCard", () => {
     renderApp(<ServicesTab project={makeProject()} />);
     const user = userEvent.setup();
 
-    expect(await screen.findByText("shimly-api", { selector: "dd" })).toBeInTheDocument();
+    expect(await screen.findByText("acme-shop", { selector: "dd" })).toBeInTheDocument();
     expect(screen.getByText("http://s3:9000", { selector: "dd" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Open console/ })).toHaveAttribute("href", "http://192.168.1.10:20004/rustfs/console/");
     expect(api.calls.some((c) => c.url.endsWith("/storage/credentials"))).toBe(false);

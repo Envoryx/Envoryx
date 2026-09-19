@@ -51,9 +51,9 @@ export const authedRoutes = {
 export function makeProject(overrides: Partial<Project> = {}): Project {
   return {
     id: "3f0b4a9e-1a2b-4c3d-8e9f-0a1b2c3d4e5f",
-    name: "Shimly API",
-    slug: "shimly-api",
-    path: "shimly-api",
+    name: "Acme Shop",
+    slug: "acme-shop",
+    path: "acme-shop",
     docroot: "public",
     desiredState: "running",
     lifecycle: "ready",
@@ -66,13 +66,13 @@ export function makeProject(overrides: Partial<Project> = {}): Project {
     ],
     env: [],
     git: { url: "", branch: "", username: "", hasToken: false },
-    hostnames: ["shimly-api.test"],
+    hostnames: ["acme-shop.test"],
     backupSchedule: { schedule: "", hour: 3, weekday: 0, keep: 7, includeDependencies: false },
     status: {
       state: "running",
       services: [
-        { kind: "php", variant: "php", version: "8.4", image: "ghcr.io/envoryx/envoryx-php:8.4", containerName: "envoryx-shimly-api-php", exists: true, running: true, state: "running", ports: [], imagePrevious: false, imagePinned: false },
-        { kind: "web", variant: "caddy", version: "2", image: "caddy:2-alpine", containerName: "envoryx-shimly-api-web", exists: true, running: true, state: "running", ports: [{ hostIp: "", hostPort: 20000, containerPort: 80, protocol: "tcp" }], imagePrevious: false, imagePinned: false },
+        { kind: "php", variant: "php", version: "8.4", image: "ghcr.io/envoryx/envoryx-php:8.4", containerName: "envoryx-acme-shop-php", exists: true, running: true, state: "running", ports: [], imagePrevious: false, imagePinned: false },
+        { kind: "web", variant: "caddy", version: "2", image: "caddy:2-alpine", containerName: "envoryx-acme-shop-web", exists: true, running: true, state: "running", ports: [{ hostIp: "", hostPort: 20000, containerPort: 80, protocol: "tcp" }], imagePrevious: false, imagePinned: false },
       ],
       warnings: [],
     },

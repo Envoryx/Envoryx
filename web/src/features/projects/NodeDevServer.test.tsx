@@ -12,7 +12,7 @@ describe("Node dev server", () => {
 
   it("shows the dev server link and saves dev-server options", async () => {
     const project = makeProject({
-      devHostname: "shimly-api-dev.test",
+      devHostname: "acme-shop-dev.test",
       services: [
         { kind: "php", variant: "php", version: "8.4", image: "ghcr.io/envoryx/envoryx-php:8.4", enabled: true, config: { memoryLimit: "256M", uploadMaxFilesize: "64M", postMaxSize: "64M", maxExecutionTime: 120, displayErrors: true, errorReporting: "E_ALL", extensions: [] } },
         { kind: "web", variant: "caddy", version: "2", image: "caddy:2-alpine", enabled: true, config: {} },
@@ -35,7 +35,7 @@ describe("Node dev server", () => {
       { route: `/projects/${id}` },
     );
     const user = userEvent.setup();
-    expect((await screen.findAllByRole("link", { name: /https:\/\/shimly-api-dev\.test/ }))[0]).toHaveAttribute("href", "https://shimly-api-dev.test");
+    expect((await screen.findAllByRole("link", { name: /https:\/\/acme-shop-dev\.test/ }))[0]).toHaveAttribute("href", "https://acme-shop-dev.test");
 
     await user.click(screen.getByRole("tab", { name: "Runtime" }));
     const preset = await screen.findByLabelText("Framework preset");

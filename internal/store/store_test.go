@@ -73,7 +73,7 @@ func TestProjectsCRUD(t *testing.T) {
 	st := newStore(t)
 	ctx := context.Background()
 	p := &store.Project{
-		Name: "Shimly API", Slug: "shimly-api", Path: "shimly-api", Docroot: "public", HTTPPort: 20000,
+		Name: "Acme Shop", Slug: "acme-shop", Path: "acme-shop", Docroot: "public", HTTPPort: 20000,
 		Services: []store.ProjectService{
 			{Kind: store.ServicePHP, Variant: "php", Version: "8.4", Image: "php:8.4-fpm", Enabled: true, Config: json.RawMessage(`{"memoryLimit":"256M"}`), Position: 10},
 			{Kind: store.ServiceWeb, Variant: "caddy", Version: "2", Image: "caddy:2-alpine", Enabled: true, Position: 20},
@@ -87,7 +87,7 @@ func TestProjectsCRUD(t *testing.T) {
 		t.Fatalf("unexpected project after create: %+v", p)
 	}
 
-	dup := &store.Project{Name: "shimly api", Slug: "other", Path: "other"}
+	dup := &store.Project{Name: "acme shop", Slug: "other", Path: "other"}
 	if err := st.Projects.Create(ctx, dup); !errors.Is(err, store.ErrConflict) {
 		t.Fatalf("expected name conflict, got %v", err)
 	}

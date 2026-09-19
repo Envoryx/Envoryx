@@ -202,12 +202,12 @@ export function NewProjectPage() {
           {step === 0 && (
             <div className="space-y-5">
               <Field label={t("Project name")} htmlFor="name" error={nameError} hint={form.name ? t("Identifier: {{slug}}", { slug: slugify(form.name) || "—" }) : t("Displayed in the UI; the identifier is derived from it.")}>
-                <Input id="name" autoFocus value={form.name} onChange={(e) => set({ name: e.target.value, path: form.pathTouched ? form.path : "" })} placeholder="Shimly API" />
+                <Input id="name" autoFocus value={form.name} onChange={(e) => set({ name: e.target.value, path: form.pathTouched ? form.path : "" })} placeholder="Acme Shop" />
               </Field>
               <Field label={t("Project directory")} htmlFor="path" hint={t("Relative to the projects folder (/projects). Created if it does not exist.")}>
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-subtle">/projects/</span>
-                  <Input id="path" value={form.pathTouched ? form.path : slugify(form.name)} onChange={(e) => set({ path: e.target.value, pathTouched: true })} placeholder="shimly-api" spellCheck={false} />
+                  <Input id="path" value={form.pathTouched ? form.path : slugify(form.name)} onChange={(e) => set({ path: e.target.value, pathTouched: true })} placeholder="acme-shop" spellCheck={false} />
                 </div>
               </Field>
               <fieldset className="space-y-2">

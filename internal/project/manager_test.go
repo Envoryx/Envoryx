@@ -70,12 +70,12 @@ func TestCreateProjectProvisionsResources(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 
-	view, err := e.m.Create(ctx, phpRequest("Shimly API", true))
+	view, err := e.m.Create(ctx, phpRequest("Acme Shop", true))
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
 	p := view.Project
-	if p.Slug != "shimly-api" || p.Path != "shimly-api" || p.HTTPPort != 20000 || p.Lifecycle != store.LifecycleReady {
+	if p.Slug != "acme-shop" || p.Path != "acme-shop" || p.HTTPPort != 20000 || p.Lifecycle != store.LifecycleReady {
 		t.Fatalf("unexpected project: %+v", p)
 	}
 	if view.Status.State != StateRunning {
@@ -84,24 +84,24 @@ func TestCreateProjectProvisionsResources(t *testing.T) {
 	if len(view.Status.Services) != 2 || !view.Status.Services[0].Running || view.Status.Services[0].Kind != store.ServicePHP {
 		t.Fatalf("service status: %+v", view.Status.Services)
 	}
-	if got := e.engine.NetworkNames(); len(got) != 1 || got[0] != "envoryx-shimly-api" {
+	if got := e.engine.NetworkNames(); len(got) != 1 || got[0] != "envoryx-acme-shop" {
 		t.Fatalf("network: %v", got)
 	}
-	if got := e.engine.ContainerNames(); strings.Join(got, ",") != "envoryx-shimly-api-php,envoryx-shimly-api-web" {
+	if got := e.engine.ContainerNames(); strings.Join(got, ",") != "envoryx-acme-shop-php,envoryx-acme-shop-web" {
 		t.Fatalf("containers: %v", got)
 	}
 
-	php, _ := e.engine.Container("envoryx-shimly-api-php")
+	php, _ := e.engine.Container("envoryx-acme-shop-php")
 	if php.State != "running" || php.Spec.Labels[docker.LabelManaged] != "true" || php.Spec.Labels[docker.LabelProjectID] != p.ID || php.Spec.Labels[docker.LabelService] != "php" {
 		t.Fatalf("php container labels/state: %+v", php)
 	}
-	if php.Spec.Mounts[0].Source != "/host/development/shimly-api" || php.Spec.Mounts[0].Target != "/var/www/html" {
+	if php.Spec.Mounts[0].Source != "/host/development/acme-shop" || php.Spec.Mounts[0].Target != "/var/www/html" {
 		t.Fatalf("php bind mount must use host path: %+v", php.Spec.Mounts)
 	}
 	if !strings.Contains(strings.Join(php.Spec.Env, "\n"), "APP_ENV=local") {
 		t.Fatalf("env not injected: %v", php.Spec.Env)
 	}
-	web, _ := e.engine.Container("envoryx-shimly-api-web")
+	web, _ := e.engine.Container("envoryx-acme-shop-web")
 	if len(web.Spec.Ports) != 1 || web.Spec.Ports[0].HostPort != 20000 || web.Spec.Ports[0].ContainerPort != 80 {
 		t.Fatalf("web ports: %+v", web.Spec.Ports)
 	}
@@ -119,13 +119,13 @@ func TestCreateProjectProvisionsResources(t *testing.T) {
 	if !strings.Contains(string(caddy), "root * /var/www/html/public") || !strings.Contains(string(caddy), "php_fastcgi php:9000") {
 		t.Fatalf("caddyfile: %s", caddy)
 	}
-	if _, err := os.Stat(filepath.Join(e.projDir, "shimly-api", "public", "index.php")); err != nil {
+	if _, err := os.Stat(filepath.Join(e.projDir, "acme-shop", "public", "index.php")); err != nil {
 		t.Fatalf("starter index.php missing: %v", err)
 	}
 
 	// Start order: php before web.
 	calls := strings.Join(e.engine.Calls, " ")
-	if strings.Index(calls, "start:envoryx-shimly-api-php") > strings.Index(calls, "start:envoryx-shimly-api-web") {
+	if strings.Index(calls, "start:envoryx-acme-shop-php") > strings.Index(calls, "start:envoryx-acme-shop-web") {
 		t.Fatalf("php must start before web: %s", calls)
 	}
 	entries, _ := e.store.Audit.Recent(ctx, 10)

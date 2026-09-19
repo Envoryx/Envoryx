@@ -11,7 +11,7 @@ describe("DomainsTab", () => {
   afterEach(() => vi.unstubAllGlobals());
 
   it("lists domains with proxy URLs, adds and removes extra names", async () => {
-    let domains = [{ hostname: "shimly-api.test", default: true }, { id: "d1", hostname: "shop.local", default: false, createdAt: "2026-09-18T10:00:00Z" }];
+    let domains = [{ hostname: "acme-shop.test", default: true }, { id: "d1", hostname: "shop.local", default: false, createdAt: "2026-09-18T10:00:00Z" }];
     const api = mockApi({
       ...authedRoutes,
       "GET /settings": () => ({ body: settings }),
@@ -25,10 +25,10 @@ describe("DomainsTab", () => {
         return { status: 204 };
       },
     });
-    renderApp(<DomainsTab project={makeProject({ hostnames: ["shimly-api.test", "shop.local"] })} />);
+    renderApp(<DomainsTab project={makeProject({ hostnames: ["acme-shop.test", "shop.local"] })} />);
     const user = userEvent.setup();
 
-    expect(await screen.findByText("shimly-api.test")).toBeInTheDocument();
+    expect(await screen.findByText("acme-shop.test")).toBeInTheDocument();
     expect(screen.getByText("default")).toBeInTheDocument();
     // Non-standard HTTPS port shows up in links.
     expect(screen.getByRole("link", { name: /https:\/\/shop\.local:8443/ })).toHaveAttribute("href", "https://shop.local:8443");
@@ -49,7 +49,7 @@ describe("DomainsTab", () => {
     mockApi({
       ...authedRoutes,
       "GET /settings": () => ({ body: { ...settings, proxy: unpublished } }),
-      [`GET /projects/${id}/domains`]: () => ({ body: { domains: [{ hostname: "shimly-api.test", default: true }], proxy: unpublished } }),
+      [`GET /projects/${id}/domains`]: () => ({ body: { domains: [{ hostname: "acme-shop.test", default: true }], proxy: unpublished } }),
     });
     renderApp(<DomainsTab project={makeProject()} />);
     expect(await screen.findByText("Proxy ports are not published")).toBeInTheDocument();

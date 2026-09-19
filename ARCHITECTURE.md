@@ -210,7 +210,7 @@ schema_migrations(version PRIMARY KEY, applied_at)
 
 Notes:
 
-- `projects.path` is stored **relative** to the projects root (`shimly-api`),
+- `projects.path` is stored **relative** to the projects root (`acme-shop`),
   never absolute. The absolute container path and host path are derived.
 - `desired_state` is `running` or `stopped`. Runtime status is *derived* from
   Docker and never persisted as truth.
@@ -242,8 +242,8 @@ envoryx.version=<envoryx version>
 
 ```
 network    envoryx-<slug>
-container  envoryx-<slug>-<service>      e.g. envoryx-shimly-api-php
-volume     envoryx-<slug>-<service>      e.g. envoryx-shimly-api-mariadb
+container  envoryx-<slug>-<service>      e.g. envoryx-acme-shop-php
+volume     envoryx-<slug>-<service>      e.g. envoryx-acme-shop-mariadb
 ```
 
 Slugs match `^[a-z0-9]([a-z0-9-]{0,38}[a-z0-9])?$` – lower-case DNS-safe.

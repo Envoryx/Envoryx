@@ -14,22 +14,22 @@ describe("AcmeForm", () => {
       ...authedRoutes,
       "GET /settings/tls/acme": () => ({ body: { available: true, providers, status } }),
       "PUT /settings/tls/acme": () => {
-        status = { configured: true, provider: "cloudflare", domain: "dev.koze25.de", email: "me@koze25.de", issuing: false, notAfter: "2026-12-17T10:00:00Z", names: ["dev.koze25.de", "*.dev.koze25.de"] };
+        status = { configured: true, provider: "cloudflare", domain: "dev.example.com", email: "me@example.com", issuing: false, notAfter: "2026-12-17T10:00:00Z", names: ["dev.example.com", "*.dev.example.com"] };
         return { body: { available: true, providers, status } };
       },
       "POST /settings/tls/acme/issue": () => ({ status: 202 }),
     });
-    renderApp(<AcmeForm baseDomain="dev.koze25.de" />);
+    renderApp(<AcmeForm baseDomain="dev.example.com" />);
     const user = userEvent.setup();
 
     const button = await screen.findByRole("button", { name: "Enable Let's Encrypt" });
     expect(button).toBeDisabled();
-    await user.type(screen.getByLabelText("Domain"), "dev.koze25.de");
-    await user.type(screen.getByLabelText("E-mail"), "me@koze25.de");
+    await user.type(screen.getByLabelText("Domain"), "dev.example.com");
+    await user.type(screen.getByLabelText("E-mail"), "me@example.com");
     await user.type(screen.getByLabelText("API token"), "cf-secret");
     await user.click(button);
     await waitFor(() => expect(api.calls.some((c) => c.method === "PUT")).toBe(true));
-    expect(api.calls.find((c) => c.method === "PUT")!.body).toEqual({ provider: "cloudflare", domain: "dev.koze25.de", email: "me@koze25.de", token: "cf-secret", staging: false, useAsBaseDomain: true });
+    expect(api.calls.find((c) => c.method === "PUT")!.body).toEqual({ provider: "cloudflare", domain: "dev.example.com", email: "me@example.com", token: "cf-secret", staging: false, useAsBaseDomain: true });
 
     expect(await screen.findByText("active")).toBeInTheDocument();
     expect(screen.getByText(/renewed automatically/)).toBeInTheDocument();
@@ -40,7 +40,7 @@ describe("AcmeForm", () => {
   it("shows the last error", async () => {
     mockApi({
       ...authedRoutes,
-      "GET /settings/tls/acme": () => ({ body: { available: true, providers, status: { configured: true, provider: "cloudflare", domain: "dev.koze25.de", email: "x@y.de", issuing: false, lastError: "cloudflare: token rejected" } } }),
+      "GET /settings/tls/acme": () => ({ body: { available: true, providers, status: { configured: true, provider: "cloudflare", domain: "dev.example.com", email: "x@y.de", issuing: false, lastError: "cloudflare: token rejected" } } }),
     });
     renderApp(<AcmeForm baseDomain="test" />);
     expect(await screen.findByText("cloudflare: token rejected")).toBeInTheDocument();

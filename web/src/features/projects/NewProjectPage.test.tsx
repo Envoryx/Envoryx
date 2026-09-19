@@ -14,14 +14,14 @@ describe("NewProjectPage wizard", () => {
       "POST /projects/preview": () => ({
         body: {
           preview: {
-            slug: "shimly-api",
-            path: "/projects/shimly-api",
-            hostPath: "/mnt/user/development/shimly-api",
+            slug: "acme-shop",
+            path: "/projects/acme-shop",
+            hostPath: "/mnt/user/development/acme-shop",
             httpPort: 20000,
-            network: "envoryx-shimly-api",
+            network: "envoryx-acme-shop",
             containers: [
-              { service: "php", name: "envoryx-shimly-api-php", image: "ghcr.io/envoryx/envoryx-php:8.4", ports: [], mounts: ["/mnt/user/development/shimly-api → /var/www/html"] },
-              { service: "web", name: "envoryx-shimly-api-web", image: "caddy:2-alpine", ports: ["20000 → 80/tcp"], mounts: [] },
+              { service: "php", name: "envoryx-acme-shop-php", image: "ghcr.io/envoryx/envoryx-php:8.4", ports: [], mounts: ["/mnt/user/development/acme-shop → /var/www/html"] },
+              { service: "web", name: "envoryx-acme-shop-web", image: "caddy:2-alpine", ports: ["20000 → 80/tcp"], mounts: [] },
             ],
             volumes: [],
             images: ["ghcr.io/envoryx/envoryx-php:8.4", "caddy:2-alpine"],
@@ -43,8 +43,8 @@ describe("NewProjectPage wizard", () => {
     const cont = async () => user.click(screen.getByRole("button", { name: "Continue" }));
     expect(await screen.findByLabelText("Project name")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
-    await user.type(screen.getByLabelText("Project name"), "Shimly API");
-    expect(screen.getByText("Identifier: shimly-api")).toBeInTheDocument();
+    await user.type(screen.getByLabelText("Project name"), "Acme Shop");
+    expect(screen.getByText("Identifier: acme-shop")).toBeInTheDocument();
     await cont();
 
     // Runtime step: versions come from the API, not the UI.
@@ -73,16 +73,16 @@ describe("NewProjectPage wizard", () => {
     await user.type(screen.getByLabelText("Variable value"), "local");
     await cont();
 
-    expect(await screen.findByText("envoryx-shimly-api-php")).toBeInTheDocument();
-    expect(screen.getByText("envoryx-shimly-api-web")).toBeInTheDocument();
+    expect(await screen.findByText("envoryx-acme-shop-php")).toBeInTheDocument();
+    expect(screen.getByText("envoryx-acme-shop-web")).toBeInTheDocument();
     expect(screen.getByText(/will be pulled/)).toBeInTheDocument();
     const preview = api.calls.find((c) => c.url.endsWith("/projects/preview"))?.body as Record<string, unknown>;
-    expect(preview).toMatchObject({ name: "Shimly API", path: "shimly-api", docroot: "public", php: { version: "8.3" }, node: { version: "24" }, database: { type: "mariadb", version: "11", exposePort: true }, mailpit: {}, env: [{ key: "APP_ENV", value: "local" }] });
+    expect(preview).toMatchObject({ name: "Acme Shop", path: "acme-shop", docroot: "public", php: { version: "8.3" }, node: { version: "24" }, database: { type: "mariadb", version: "11", exposePort: true }, mailpit: {}, env: [{ key: "APP_ENV", value: "local" }] });
 
     await user.click(screen.getByRole("button", { name: "Create project" }));
     await waitFor(() => expect(screen.getByRole("heading", { name: "Detail" })).toBeInTheDocument());
     const create = api.calls.find((c) => c.method === "POST" && c.url.endsWith("/projects"));
-    expect(create?.body).toMatchObject({ name: "Shimly API", start: true, createStarter: true, web: { type: "apache", version: "2.4" } });
+    expect(create?.body).toMatchObject({ name: "Acme Shop", start: true, createStarter: true, web: { type: "apache", version: "2.4" } });
   });
 
   it("selecting a template presets docroot and database and disables git", async () => {

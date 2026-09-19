@@ -6,7 +6,7 @@ import (
 )
 
 func TestSlug(t *testing.T) {
-	ok := []string{"a", "shimly-api", "abc123", "a-b-c", "x1234567890123456789012345678901234567890"[:40]}
+	ok := []string{"a", "acme-shop", "abc123", "a-b-c", "x1234567890123456789012345678901234567890"[:40]}
 	for _, s := range ok {
 		if err := Slug(s); err != nil {
 			t.Errorf("Slug(%q) unexpected error: %v", s, err)
@@ -22,7 +22,7 @@ func TestSlug(t *testing.T) {
 
 func TestSlugify(t *testing.T) {
 	cases := map[string]string{
-		"Shimly API":      "shimly-api",
+		"Acme Shop":      "acme-shop",
 		"  My_Project.v2": "my-project-v2",
 		"Ünïcode Name":    "ncode-name",
 		"---":             "",
@@ -37,7 +37,7 @@ func TestSlugify(t *testing.T) {
 
 func TestRelativePath(t *testing.T) {
 	good := map[string]string{
-		"shimly-api":       "shimly-api",
+		"acme-shop":       "acme-shop",
 		"clients/acme/web": "clients/acme/web",
 		"./shop":           "shop",
 		"shop/":            "shop",
@@ -99,7 +99,7 @@ func TestUUIDAndVersion(t *testing.T) {
 }
 
 func TestProjectNameAndUsername(t *testing.T) {
-	if err := ProjectName("Shimly API"); err != nil {
+	if err := ProjectName("Acme Shop"); err != nil {
 		t.Fatal(err)
 	}
 	for _, n := range []string{"a", " lead", "trail ", "ctrl\x01char", string(make([]byte, 65))} {

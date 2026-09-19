@@ -28,7 +28,7 @@ describe("ProjectsPage", () => {
       },
     });
     renderApp(<ProjectsPage />);
-    const row = (await screen.findByText("Shimly API")).closest("li")!;
+    const row = (await screen.findByText("Acme Shop")).closest("li")!;
     expect(within(row).getByText("PHP 8.4")).toBeInTheDocument();
     expect(within(row).getByText("Running")).toBeInTheDocument();
     expect(within(row).getByRole("link", { name: /Open/ })).toHaveAttribute("href", "http://localhost:20000");

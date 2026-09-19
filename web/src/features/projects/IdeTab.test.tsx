@@ -12,19 +12,19 @@ describe("IdeTab", () => {
       ...authedRoutes,
       "GET /settings": () => ({
         body: {
-          publicHost: "192.168.178.5", baseDomain: "test", forceHttps: false, proxy: { enabled: true, httpPort: 80, httpsPort: 443, inDocker: true, tls: true, address: "192.168.178.5" },
+          publicHost: "192.168.1.10", baseDomain: "test", forceHttps: false, proxy: { enabled: true, httpPort: 80, httpsPort: 443, inDocker: true, tls: true, address: "192.168.1.10" },
           ssh: { enabled: true, port: 2222, fingerprint: "SHA256:abc" }, projectsDir: "/projects", hostPath: { overrides: {}, detected: { "/projects": "/mnt/user/development" }, bareMetal: false },
         },
       }),
-      [`GET /projects/${id}/database`]: () => ({ body: { database: { type: "mariadb", version: "11", host: "database", port: 3306, database: "shimly_api", username: "shimly_api", hostPort: 20003, injectedEnv: [], state: "running", volumeName: "v", volumeExists: true } } }),
+      [`GET /projects/${id}/database`]: () => ({ body: { database: { type: "mariadb", version: "11", host: "database", port: 3306, database: "acme_shop", username: "acme_shop", hostPort: 20003, injectedEnv: [], state: "running", volumeName: "v", volumeExists: true } } }),
       [`GET /projects/${id}/services/extra`]: () => ({ body: { services: [] } }),
       [`GET /projects/${id}/extras`]: () => ({ body: { services: [] } }),
     });
     const project = makeProject({ services: [...makeProject().services, { kind: "database", variant: "mariadb", version: "11", image: "mariadb:11", enabled: true, config: {} }] });
     renderApp(<IdeTab project={project} />);
-    expect(await screen.findByText("ssh -p 2222 shimly-api@192.168.178.5")).toBeInTheDocument();
-    expect(screen.getByText("/mnt/user/development/shimly-api → /var/www/html")).toBeInTheDocument();
-    expect(await screen.findByText("jdbc:mariadb://192.168.178.5:20003/shimly_api")).toBeInTheDocument();
+    expect(await screen.findByText("ssh -p 2222 acme-shop@192.168.1.10")).toBeInTheDocument();
+    expect(screen.getByText("/mnt/user/development/acme-shop → /var/www/html")).toBeInTheDocument();
+    expect(await screen.findByText("jdbc:mariadb://192.168.1.10:20003/acme_shop")).toBeInTheDocument();
     expect(screen.getByText(/PhpProjectServersManager/)).toBeInTheDocument();
   });
 });
