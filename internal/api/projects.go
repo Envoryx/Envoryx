@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"github.com/envoryx/envoryx/internal/project"
 	"github.com/envoryx/envoryx/internal/runtime"
 	"github.com/envoryx/envoryx/internal/store"
+	"github.com/envoryx/envoryx/internal/validate"
 )
 
 // ---- DTOs -----------------------------------------------------------------
@@ -43,6 +45,13 @@ type serviceStatusDTO struct {
 	Status        string    `json:"status,omitempty"`
 	Health        string    `json:"health,omitempty"`
 	Ports         []portDTO `json:"ports"`
+	// WorkerID is set for worker containers.
+	WorkerID string `json:"workerId,omitempty"`
+	// Image history: when the containers were last recreated from a rebuilt image, whether
+	// the previous one is still available (rollback), and whether it is pinned right now.
+	ImageChangedAt *time.Time `json:"imageChangedAt,omitempty"`
+	ImagePrevious  bool       `json:"imagePrevious"`
+	ImagePinned    bool       `json:"imagePinned"`
 }
 
 type portDTO struct {
@@ -105,6 +114,7 @@ func toStatus(st project.Status) statusDTO {
 		out.Services = append(out.Services, serviceStatusDTO{
 			Kind: string(s.Kind), Variant: s.Variant, Version: s.Version, Image: s.Image, ContainerName: s.ContainerName,
 			ContainerID: s.ContainerID, Exists: s.Exists, Running: s.Running, State: s.State, Status: s.Status, Health: s.Health, Ports: toPorts(s.Ports),
+			WorkerID: s.WorkerID, ImageChangedAt: s.ImageChangedAt, ImagePrevious: s.ImagePrevious, ImagePinned: s.ImagePinned,
 		})
 	}
 	return out
@@ -400,6 +410,30 @@ func (a *API) deleteProject(w http.ResponseWriter, r *http.Request) {
 	}
 	a.invalidateProxy()
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// useImage rolls a project back to the previous image of one reference or returns it to
+// the current one: POST /projects/{id}/images {"image": "<ref>", "use": "previous"|"latest"}.
+func (a *API) useImage(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Image string `json:"image"`
+		Use   string `json:"use"`
+	}
+	if err := decodeJSON(w, r, &req); err != nil {
+		writeError(w, r, err)
+		return
+	}
+	if req.Image == "" || len(req.Image) > 256 {
+		writeError(w, r, fmt.Errorf("%w: image reference required", validate.ErrInvalid))
+		return
+	}
+	view, err := a.d.Projects.UseImage(r.Context(), r.PathValue("id"), req.Image, project.ImageChoice(req.Use))
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	a.invalidateProxy()
+	writeJSON(w, http.StatusOK, map[string]any{"project": a.project(r, view)})
 }
 
 func (a *API) startProject(w http.ResponseWriter, r *http.Request) {

@@ -387,6 +387,17 @@ Project files in `/projects` are **never** deleted by rollback.
 
 All operations hold the per-project lock; concurrent requests return `409`.
 
+**Image history and rollback** (`project_images`, migration 0007): when
+`startPlan` recreates a container because the same tag now resolves to a
+different local image id, it records `{image, current_id, previous_id,
+changed_at}` for the project. `UseImage(id, ref, previous|latest)` sets the
+`pinned` flag and recreates the containers; while pinned the plan's
+`Spec.Image` is replaced by `previous_id` (Docker accepts ids wherever a tag
+goes), so restarts keep the rollback and the status suppresses the "newer
+image pulled" hint. `UnusedImages` treats every `previous_id` (and the
+`current_id` of pinned records) as in use so a prune cannot take the rollback
+target away. Workers share the PHP image and follow its record.
+
 **Detached execution** (`internal/project/ops.go`): create, start, stop,
 restart, update, delete, project backup and restore run through
 `Manager.run`, which derives the operation context from

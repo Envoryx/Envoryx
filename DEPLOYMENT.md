@@ -369,6 +369,15 @@ newer, its error message names the pre-migrate backup to restore by hand (see
   again and recreates the container only if the image actually changed. Until
   then the project keeps running on the previous build – nothing changes
   behind your back.
+- **Rolling back**: when a restart replaced containers with a rebuilt image,
+  the project's *Overview* shows *image updated <date>* next to the service
+  with a **Roll back** button. It recreates the containers from the image
+  they ran before (the same for MariaDB, Caddy, … – every image tag Envoryx
+  pulls). The previous image is kept out of *Docker → unused images* for as
+  long as a project can roll back to it. A rolled-back project stays on that
+  image through further restarts (a *previous image* badge marks it) until you
+  choose **Use current image**. Rolling back is a per-tag safety net, not a
+  version change: for another PHP version use the Runtime tab.
 - **New minor versions** (e.g. 8.6): a weekly workflow compares
   `internal/runtime/php_versions.json` with endoflife.date and Docker Hub and
   opens a pull request when a version appears, becomes stable or reaches EOL.

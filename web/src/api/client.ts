@@ -208,6 +208,8 @@ export const api = {
     stop: (id: string) => request<{ project: Project }>(`/projects/${encodeURIComponent(id)}/stop`, { method: "POST" }),
     restart: (id: string) =>
       request<{ project: Project }>(`/projects/${encodeURIComponent(id)}/restart`, { method: "POST" }),
+    useImage: (id: string, image: string, use: "previous" | "latest") =>
+      request<{ project: Project }>(`/projects/${encodeURIComponent(id)}/images`, { method: "POST", body: { image, use } }),
     plan: (id: string) => request<{ plan: Preview }>(`/projects/${encodeURIComponent(id)}/plan`),
     stats: (id: string) => request<{ stats: Usage; sampledAt: string }>(`/projects/${encodeURIComponent(id)}/stats`),
     actions: (id: string) => request<{ actions: ActionInfo[] }>(`/projects/${encodeURIComponent(id)}/actions`),

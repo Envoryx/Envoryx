@@ -822,5 +822,12 @@
   "Nginx routes unknown paths to index.php (front controller). .htaccess files are ignored, matching a typical Nginx production setup.": "Nginx leitet unbekannte Pfade an index.php weiter (Front Controller). .htaccess-Dateien werden ignoriert – wie in einem typischen Nginx-Produktiv-Setup.",
   "Caddy needs no configuration and routes unknown paths to index.php (front controller). .htaccess files are ignored.": "Caddy braucht keine Konfiguration und leitet unbekannte Pfade an index.php weiter (Front Controller). .htaccess-Dateien werden ignoriert.",
   "Switching the web server recreates the web container; the document root and port stay the same.": "Ein Wechsel des Webservers erstellt den Web-Container neu; Document Root und Port bleiben gleich.",
-  "Images Envoryx pulled (PHP, Node, MariaDB, Caddy, Apache, Nginx) that no container uses any more, e.g. after a version change. Images from other sources are never touched.": "Von Envoryx geladene Images (PHP, Node, MariaDB, Caddy, Apache, Nginx), die kein Container mehr nutzt, z. B. nach einem Versionswechsel. Images aus anderen Quellen werden nie angetastet."
+  "Images Envoryx pulled (PHP, Node, MariaDB, Caddy, Apache, Nginx) that no container uses any more, e.g. after a version change. Images from other sources are never touched.": "Von Envoryx geladene Images (PHP, Node, MariaDB, Caddy, Apache, Nginx), die kein Container mehr nutzt, z. B. nach einem Versionswechsel. Images aus anderen Quellen werden nie angetastet.",
+  "Rolled back to the previous image.": "Auf das vorherige Image zurückgesetzt.",
+  "Back on the current image.": "Wieder auf dem aktuellen Image.",
+  "Changing the image failed": "Image-Wechsel fehlgeschlagen",
+  "previous image": "vorheriges Image",
+  "Use current image": "Aktuelles Image verwenden",
+  "image updated {{date}}": "Image aktualisiert {{date}}",
+  "Roll back": "Zurücksetzen"
 }

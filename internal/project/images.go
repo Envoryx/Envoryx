@@ -9,6 +9,8 @@ import (
 
 	"github.com/envoryx/envoryx/internal/audit"
 	"github.com/envoryx/envoryx/internal/docker"
+	"github.com/envoryx/envoryx/internal/store"
+	"github.com/envoryx/envoryx/internal/validate"
 )
 
 // UnusedImage is a catalogue image that no container references any more.
@@ -65,6 +67,19 @@ func (m *Manager) UnusedImages(ctx context.Context) ([]UnusedImage, error) {
 		inUse[c.ImageID] = true
 		inUse[c.Image] = true
 	}
+	// Images a project can still roll back to (or return to from a rollback) are kept.
+	history, err := m.store.Images.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for _, h := range history {
+		if h.PreviousID != "" {
+			inUse[h.PreviousID] = true
+		}
+		if h.Pinned {
+			inUse[h.CurrentID] = true
+		}
+	}
 	repos := m.catalogueRepos()
 	var out []UnusedImage
 	for _, img := range images {
@@ -113,4 +128,139 @@ func (m *Manager) PruneImages(ctx context.Context) (PruneResult, error) {
 	}
 	m.audit.Log(ctx, audit.ActionImagesPruned, "docker", "", map[string]any{"removed": len(res.Removed), "reclaimedBytes": res.ReclaimedBytes, "errors": len(res.Errors)})
 	return res, nil
+}
+
+// recordImageChange remembers the image id a container ran before it was recreated
+// from a newer local image of the same reference, so the project can be rolled back to
+// it. Only the same-reference case counts: a version change is a different image, and a
+// container that ran the pinned previous id is just returning to the tag.
+func (m *Manager) recordImageChange(ctx context.Context, proj *store.Project, image string, cur docker.Container, newID string) {
+	old := proj.ImageRecord(image)
+	rec := store.ProjectImage{ProjectID: proj.ID, Image: image, CurrentID: newID}
+	switch {
+	case cur.ImageID == "" || cur.ImageID == newID:
+		return
+	case old != nil && cur.ImageID == old.PreviousID:
+		// Returning from a rollback: the rollback target stays, the current id moves
+		// on if an even newer image was pulled meanwhile.
+		if old.CurrentID == newID {
+			return
+		}
+		rec.PreviousID = old.PreviousID
+	case cur.Image == image || cur.Image == cur.ImageID:
+		// The tag was rebuilt upstream (Docker then lists the container's image as its
+		// id, since the tag no longer resolves to it): what ran until now becomes the
+		// rollback target.
+		rec.PreviousID = cur.ImageID
+	default:
+		// A different reference: version change, not an update of the same image.
+		return
+	}
+	if err := m.store.Images.Upsert(context.WithoutCancel(ctx), rec); err != nil {
+		m.log.Warn("image history not recorded", "project", proj.Slug, "image", image, "err", err)
+		return
+	}
+	// Keep the loaded project in step so a later container in the same plan (workers
+	// share the PHP image) sees the record.
+	replaced := false
+	for i := range proj.Images {
+		if proj.Images[i].Image == image {
+			proj.Images[i] = rec
+			replaced = true
+		}
+	}
+	if !replaced {
+		proj.Images = append(proj.Images, rec)
+	}
+	m.log.Info("image updated", "project", proj.Slug, "image", image, "from", cur.ImageID, "to", newID)
+}
+
+// ImageChoice selects which image a project's containers should run for one reference.
+type ImageChoice string
+
+const (
+	// ImagePrevious rolls back to the image id the containers ran before the last update.
+	ImagePrevious ImageChoice = "previous"
+	// ImageLatest returns to the current local image of the reference.
+	ImageLatest ImageChoice = "latest"
+)
+
+// UseImage pins a project's containers to the previous image of ref (rollback) or lifts
+// the pin again. Running projects are restarted so the change takes effect; stopped ones
+// pick it up at the next start.
+func (m *Manager) UseImage(ctx context.Context, id, ref string, choice ImageChoice) (View, error) {
+	if err := validate.UUID(id); err != nil {
+		return View{}, ErrNotFound
+	}
+	if choice != ImagePrevious && choice != ImageLatest {
+		return View{}, fmt.Errorf("%w: image choice must be %q or %q", validate.ErrInvalid, ImagePrevious, ImageLatest)
+	}
+	var view View
+	err := m.run(ctx, limitProvision, func(ctx context.Context) (err error) {
+		view, err = m.useImage(ctx, id, ref, choice)
+		return err
+	})
+	return view, err
+}
+
+func (m *Manager) useImage(ctx context.Context, id, ref string, choice ImageChoice) (View, error) {
+	unlock, err := m.lock(id)
+	if err != nil {
+		return View{}, err
+	}
+	defer unlock()
+	proj, err := m.loadProject(ctx, id)
+	if err != nil {
+		return View{}, err
+	}
+	rec := proj.ImageRecord(ref)
+	if rec == nil || rec.PreviousID == "" {
+		return View{}, fmt.Errorf("%w: no previous image is known for %s", validate.ErrInvalid, ref)
+	}
+	pin := choice == ImagePrevious
+	if pin {
+		exists, err := m.engine.ImageExists(ctx, rec.PreviousID)
+		if err != nil {
+			return View{}, err
+		}
+		if !exists {
+			return View{}, fmt.Errorf("%w: the previous image %s is no longer on this host", validate.ErrInvalid, shortID(rec.PreviousID))
+		}
+	}
+	if err := m.store.Images.SetPinned(ctx, id, ref, pin); err != nil {
+		return View{}, err
+	}
+	rec.Pinned = pin
+	action := audit.ActionImageRolledBack
+	if !pin {
+		action = audit.ActionImageLatest
+	}
+	m.audit.Log(ctx, action, "project", id, map[string]any{"name": proj.Name, "image": ref, "previous": rec.PreviousID, "current": rec.CurrentID})
+	if proj.DesiredState == store.DesiredRunning && proj.Lifecycle == store.LifecycleReady {
+		planner, err := m.planner()
+		if err != nil {
+			return View{}, err
+		}
+		plan, err := planner.Plan(proj)
+		if err != nil {
+			return View{}, err
+		}
+		if err := m.stopPlan(ctx, proj, plan); err != nil {
+			return View{}, err
+		}
+		if err := m.startPlan(ctx, proj, plan); err != nil {
+			err = opError(ctx, err)
+			_ = m.store.Projects.UpdateState(context.WithoutCancel(ctx), id, proj.DesiredState, proj.Lifecycle, err.Error())
+			return View{}, err
+		}
+	}
+	return m.Get(context.WithoutCancel(ctx), id)
+}
+
+func shortID(id string) string {
+	id = strings.TrimPrefix(id, "sha256:")
+	if len(id) > 12 {
+		return id[:12]
+	}
+	return id
 }

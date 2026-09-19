@@ -225,6 +225,11 @@ func (r *Projects) loadChildren(ctx context.Context, p *Project) error {
 		return err
 	}
 	p.Workers = workers
+	images, err := (&ProjectImages{db: r.db}).ListByProject(ctx, p.ID)
+	if err != nil {
+		return err
+	}
+	p.Images = images
 	return nil
 }
 

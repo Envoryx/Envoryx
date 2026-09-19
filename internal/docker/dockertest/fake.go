@@ -37,6 +37,7 @@ type Fake struct {
 	networks   map[string]docker.Network
 	volumes    map[string]docker.Volume
 	images     map[string]string // ref -> image id
+	dangling   map[string]bool   // image ids that lost their tag to a re-pull but still exist
 	// Remote maps image refs to the id a pull would deliver. Unset refs pull as "<ref>@v1".
 	Remote map[string]string
 	// Access is returned by NetworkAccess for any container (zero value = bridge).
@@ -86,6 +87,7 @@ func New() *Fake {
 		networks:   map[string]docker.Network{},
 		volumes:    map[string]docker.Volume{},
 		images:     map[string]string{},
+		dangling:   map[string]bool{},
 		Remote:     map[string]string{},
 		FailCreate: map[string]error{},
 		FailStart:  map[string]error{},
@@ -139,6 +141,22 @@ func (f *Fake) AddImage(ref string) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.images[ref] = ref + "@v1"
+}
+
+// resolveImage returns the id for a tag or a bare image id (Docker accepts both).
+func (f *Fake) resolveImage(refOrID string) (string, bool) {
+	if id, ok := f.images[refOrID]; ok {
+		return id, true
+	}
+	for _, id := range f.images {
+		if id == refOrID {
+			return id, true
+		}
+	}
+	if f.dangling[refOrID] {
+		return refOrID, true
+	}
+	return "", false
 }
 
 func (f *Fake) remoteID(ref string) string {
@@ -239,15 +257,22 @@ func (f *Fake) guard(idOrName string) (*FakeContainer, error) {
 	return c, nil
 }
 
-func toContainer(c *FakeContainer) docker.Container {
+// toContainer builds the listing view. Like Docker's ContainerList (daemon/list.go,
+// refreshImage), Image is the reference given at creation unless that reference no longer
+// resolves to the container's image id – then it is the id itself.
+func (f *Fake) toContainer(c *FakeContainer) docker.Container {
 	ports := make([]docker.PortMapping, 0, len(c.Spec.Ports))
 	for _, p := range c.Spec.Ports {
 		ports = append(ports, docker.PortMapping{HostIP: p.HostIP, HostPort: p.HostPort, ContainerPort: p.ContainerPort, Protocol: "tcp"})
 	}
+	image := c.Spec.Image
+	if id, ok := f.resolveImage(image); !ok || id != c.ImageID {
+		image = c.ImageID
+	}
 	return docker.Container{
 		ID:      c.ID,
 		Name:    c.Spec.Name,
-		Image:   c.Spec.Image,
+		Image:   image,
 		ImageID: c.ImageID,
 		State:   c.State,
 		Status:  c.State,
@@ -290,7 +315,7 @@ func (f *Fake) ListContainers(_ context.Context, managedOnly bool, projectID str
 		if projectID != "" && c.Spec.Labels[docker.LabelProjectID] != projectID {
 			continue
 		}
-		out = append(out, toContainer(c))
+		out = append(out, f.toContainer(c))
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
 	return out, nil
@@ -307,7 +332,7 @@ func (f *Fake) InspectContainer(_ context.Context, idOrName string) (docker.Cont
 	if err != nil {
 		return docker.ContainerDetails{}, err
 	}
-	d := docker.ContainerDetails{Container: toContainer(c), Running: c.State == "running", Env: c.Spec.Env, Image: c.Spec.Image}
+	d := docker.ContainerDetails{Container: f.toContainer(c), Running: c.State == "running", Env: c.Spec.Env, Image: c.Spec.Image}
 	for _, m := range c.Spec.Mounts {
 		d.Mounts = append(d.Mounts, docker.MountPoint{Type: m.Type, Source: m.Source, Destination: m.Target, ReadOnly: m.ReadOnly})
 	}
@@ -366,7 +391,7 @@ func (f *Fake) CreateContainer(_ context.Context, spec docker.ContainerSpec) (st
 			}
 		}
 	}
-	imageID, ok := f.images[spec.Image]
+	imageID, ok := f.resolveImage(spec.Image)
 	if !ok {
 		return "", fmt.Errorf("image %s: %w", spec.Image, docker.ErrNotFound)
 	}
@@ -889,7 +914,7 @@ func (f *Fake) ImageExists(_ context.Context, ref string) (bool, error) {
 	if err := f.check(); err != nil {
 		return false, err
 	}
-	_, ok := f.images[ref]
+	_, ok := f.resolveImage(ref)
 	return ok, nil
 }
 
@@ -900,7 +925,7 @@ func (f *Fake) ImageID(_ context.Context, ref string) (string, error) {
 	if err := f.check(); err != nil {
 		return "", err
 	}
-	id, ok := f.images[ref]
+	id, ok := f.resolveImage(ref)
 	if !ok {
 		return "", docker.ErrNotFound
 	}
@@ -922,6 +947,9 @@ func (f *Fake) ListImages(_ context.Context) ([]docker.Image, error) {
 			byID[id] = img
 		}
 		img.Tags = append(img.Tags, ref)
+	}
+	for id := range f.dangling {
+		byID[id] = &docker.Image{ID: id, Size: 100 << 20, Tags: []string{}}
 	}
 	out := make([]docker.Image, 0, len(byID))
 	for _, img := range byID {
@@ -951,6 +979,10 @@ func (f *Fake) RemoveImage(_ context.Context, id string) error {
 			removed = true
 		}
 	}
+	if f.dangling[id] {
+		delete(f.dangling, id)
+		removed = true
+	}
 	if !removed {
 		return docker.ErrNotFound
 	}
@@ -965,7 +997,7 @@ func (f *Fake) EnsureImage(ctx context.Context, ref string, progress docker.Pull
 		f.mu.Unlock()
 		return err
 	}
-	if _, ok := f.images[ref]; ok {
+	if _, ok := f.resolveImage(ref); ok {
 		f.mu.Unlock()
 		return nil
 	}
@@ -997,6 +1029,18 @@ func (f *Fake) PullImage(ctx context.Context, ref string, progress docker.PullPr
 		progress("pulling " + ref)
 	}
 	f.mu.Lock()
+	// Like Docker: the previous id of a re-pulled tag stays on disk without a tag.
+	if old, ok := f.images[ref]; ok && old != f.remoteID(ref) {
+		stillTagged := false
+		for r, id := range f.images {
+			if r != ref && id == old {
+				stillTagged = true
+			}
+		}
+		if !stillTagged {
+			f.dangling[old] = true
+		}
+	}
 	f.images[ref] = f.remoteID(ref)
 	f.record("pull:" + ref)
 	f.mu.Unlock()

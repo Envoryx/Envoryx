@@ -34,6 +34,12 @@ export interface ServiceStatus {
   status?: string;
   health?: string;
   ports: PortMapping[];
+  /** Set when the containers were last recreated from a rebuilt image of the same tag. */
+  imageChangedAt?: string;
+  /** The image before that is still known: a rollback is possible. */
+  imagePrevious: boolean;
+  /** The containers run the previous image on purpose (rolled back). */
+  imagePinned: boolean;
 }
 
 export interface ProjectStatus {

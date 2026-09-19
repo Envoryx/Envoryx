@@ -203,6 +203,12 @@ type ServiceStatus struct {
 	// WorkerID is set for worker containers (Kind "worker", Variant = worker name).
 	WorkerID string `json:"workerId,omitempty"`
 	Ports    []docker.PortMapping
+	// ImageChangedAt is when the containers were last recreated from a rebuilt image of
+	// the same reference; ImagePrevious reports that the image before that is still known
+	// (rollback possible), ImagePinned that the containers run it on purpose.
+	ImageChangedAt *time.Time `json:"imageChangedAt,omitempty"`
+	ImagePrevious  bool       `json:"imagePrevious"`
+	ImagePinned    bool       `json:"imagePinned"`
 }
 
 // Status is the derived state of a project.

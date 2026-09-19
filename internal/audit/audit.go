@@ -27,6 +27,8 @@ const (
 	ActionProjectFailed    = "project.failed"
 
 	ActionSettingsChanged = "settings.changed"
+	ActionImageRolledBack = "project.image_rolled_back"
+	ActionImageLatest     = "project.image_latest"
 	ActionImagesPruned    = "docker.images_pruned"
 
 	ActionBackupCreated  = "backup.created"

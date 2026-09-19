@@ -160,6 +160,15 @@ export function useProjectAction() {
   });
 }
 
+export function useImageChoice(id: string) {
+  const invalidate = useProjectInvalidation();
+  return useMutation({
+    mutationFn: async ({ image, use }: { image: string; use: "previous" | "latest" }) => (await api.projects.useImage(id, image, use)).project,
+    onSuccess: (project) => invalidate(project),
+    onError: () => invalidate(),
+  });
+}
+
 export function useCreateProject() {
   const invalidate = useProjectInvalidation();
   return useMutation({

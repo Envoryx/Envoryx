@@ -28,6 +28,7 @@ type Store struct {
 	Domains  *Domains
 	Tokens   *APITokens
 	Workers  *Workers
+	Images   *ProjectImages
 }
 
 // New creates the repositories.
@@ -43,6 +44,7 @@ func New(db *sql.DB) *Store {
 		Domains:  &Domains{db: db},
 		Tokens:   &APITokens{db: db},
 		Workers:  &Workers{db: db},
+		Images:   &ProjectImages{db: db},
 	}
 }
 

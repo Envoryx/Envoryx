@@ -335,6 +335,42 @@ func TestProjectLifecycleOverHTTP(t *testing.T) {
 	if r.status != http.StatusOK {
 		t.Fatalf("restart: %d %s", r.status, r.raw)
 	}
+
+	// Image rollback: nothing to roll back to until the tag was rebuilt and restarted.
+	phpImage := "ghcr.io/envoryx/envoryx-php:8.4"
+	r = a.do(http.MethodPost, "/api/v1/projects/"+id+"/images", map[string]any{"image": phpImage, "use": "previous"}, true)
+	if r.status != http.StatusUnprocessableEntity {
+		t.Fatalf("rollback without history: %d %s", r.status, r.raw)
+	}
+	a.engine.Remote[phpImage] = phpImage + "@v2"
+	r = a.do(http.MethodPost, "/api/v1/projects/"+id+"/restart", nil, true)
+	if r.status != http.StatusOK {
+		t.Fatalf("restart after rebuild: %d %s", r.status, r.raw)
+	}
+	phpStatus := func() map[string]any {
+		for _, s := range r.body["project"].(map[string]any)["status"].(map[string]any)["services"].([]any) {
+			if s.(map[string]any)["kind"] == "php" {
+				return s.(map[string]any)
+			}
+		}
+		t.Fatalf("no php service in %s", r.raw)
+		return nil
+	}
+	if s := phpStatus(); s["imagePrevious"] != true || s["imagePinned"] != false || s["imageChangedAt"] == nil {
+		t.Fatalf("history after rebuild: %v", s)
+	}
+	r = a.do(http.MethodPost, "/api/v1/projects/"+id+"/images", map[string]any{"image": phpImage, "use": "previous"}, true)
+	if r.status != http.StatusOK || phpStatus()["imagePinned"] != true {
+		t.Fatalf("rollback: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodPost, "/api/v1/projects/"+id+"/images", map[string]any{"image": phpImage, "use": "sideways"}, true)
+	if r.status != http.StatusUnprocessableEntity {
+		t.Fatalf("bad choice: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodPost, "/api/v1/projects/"+id+"/images", map[string]any{"image": phpImage, "use": "latest"}, true)
+	if r.status != http.StatusOK || phpStatus()["imagePinned"] != false {
+		t.Fatalf("latest: %d %s", r.status, r.raw)
+	}
 	r = a.do(http.MethodGet, "/api/v1/projects/"+id+"/services", nil, false)
 	if r.status != http.StatusOK || len(r.body["services"].([]any)) != 2 {
 		t.Fatalf("services: %d %s", r.status, r.raw)

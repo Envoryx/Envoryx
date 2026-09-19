@@ -79,6 +79,18 @@ type Project struct {
 	Services []ProjectService
 	Env      []EnvVar
 	Workers  []Worker
+	// Images is the image history (rollback state) per image reference.
+	Images []ProjectImage
+}
+
+// ImageRecord returns the history entry for an image reference, if any.
+func (p Project) ImageRecord(image string) *ProjectImage {
+	for i := range p.Images {
+		if p.Images[i].Image == image {
+			return &p.Images[i]
+		}
+	}
+	return nil
 }
 
 // BackupSchedule configures automatic backups of a project.

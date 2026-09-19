@@ -2,10 +2,13 @@ package project
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 
 	"github.com/envoryx/envoryx/internal/runtime"
+	"github.com/envoryx/envoryx/internal/store"
+	"github.com/envoryx/envoryx/internal/validate"
 )
 
 func TestUnusedImagesOnlyTouchCatalogueImages(t *testing.T) {
@@ -49,5 +52,107 @@ func TestUnusedImagesOnlyTouchCatalogueImages(t *testing.T) {
 	again, _ := e.m.UnusedImages(ctx)
 	if len(again) != 0 {
 		t.Fatalf("nothing should be left: %+v", again)
+	}
+}
+
+// After an upstream rebuild of the same tag the previous image stays known, is protected
+// from pruning and the project can be rolled back to it – and forward again.
+func TestImageRollback(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	view, err := e.m.Create(ctx, phpRequest("Roll", true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := view.Project.ID
+	img := view.Project.Service(store.ServicePHP).Image
+	php := func() ServiceStatus {
+		v, err := e.m.Get(ctx, id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, s := range v.Status.Services {
+			if s.Kind == store.ServicePHP {
+				return s
+			}
+		}
+		t.Fatal("no php status")
+		return ServiceStatus{}
+	}
+	if s := php(); s.ImagePrevious || s.ImagePinned {
+		t.Fatalf("fresh project must have no history: %+v", s)
+	}
+	if _, err := e.m.UseImage(ctx, id, img, ImagePrevious); !errors.Is(err, validate.ErrInvalid) {
+		t.Fatalf("rollback without history = %v", err)
+	}
+
+	// Upstream rebuilt the tag; Restart pulls and recreates.
+	e.engine.Remote[img] = img + "@v2"
+	if _, err := e.m.Restart(ctx, id); err != nil {
+		t.Fatal(err)
+	}
+	s := php()
+	if !s.ImagePrevious || s.ImagePinned || s.ImageChangedAt == nil {
+		t.Fatalf("history after rebuild: %+v", s)
+	}
+	c, _ := e.engine.Container("envoryx-roll-php")
+	if c.ImageID != img+"@v2" {
+		t.Fatalf("container image = %s", c.ImageID)
+	}
+	// The old image is untagged now but must not be offered for pruning.
+	unused, err := e.m.UnusedImages(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, u := range unused {
+		if u.ID == img+"@v1" {
+			t.Fatal("previous image must be protected from pruning")
+		}
+	}
+
+	// Roll back: containers run the previous id, no misleading warnings.
+	view, err = e.m.UseImage(ctx, id, img, ImagePrevious)
+	if err != nil {
+		t.Fatalf("rollback: %v", err)
+	}
+	c, _ = e.engine.Container("envoryx-roll-php")
+	if c.ImageID != img+"@v1" || c.State != "running" {
+		t.Fatalf("after rollback: %+v", c)
+	}
+	if len(view.Status.Warnings) != 0 {
+		t.Fatalf("warnings after rollback: %v", view.Status.Warnings)
+	}
+	if s := php(); !s.ImagePinned || !s.ImagePrevious {
+		t.Fatalf("status after rollback: %+v", s)
+	}
+	// A plain restart keeps the pin (the tag is pulled but not applied).
+	if _, err := e.m.Restart(ctx, id); err != nil {
+		t.Fatal(err)
+	}
+	if c, _ = e.engine.Container("envoryx-roll-php"); c.ImageID != img+"@v1" {
+		t.Fatalf("restart must keep the rollback: %+v", c)
+	}
+	// Pinned: the current image is protected too.
+	unused, _ = e.m.UnusedImages(ctx)
+	for _, u := range unused {
+		if u.ID == img+"@v2" {
+			t.Fatal("current image must be protected while rolled back")
+		}
+	}
+
+	// Forward again.
+	if _, err := e.m.UseImage(ctx, id, img, ImageLatest); err != nil {
+		t.Fatalf("latest: %v", err)
+	}
+	c, _ = e.engine.Container("envoryx-roll-php")
+	if c.ImageID != img+"@v2" || c.State != "running" {
+		t.Fatalf("after returning to latest: %+v", c)
+	}
+	s = php()
+	if s.ImagePinned || !s.ImagePrevious {
+		t.Fatalf("status after latest: %+v", s)
+	}
+	if _, err := e.m.UseImage(ctx, id, img, "sideways"); !errors.Is(err, validate.ErrInvalid) {
+		t.Fatalf("bad choice = %v", err)
 	}
 }

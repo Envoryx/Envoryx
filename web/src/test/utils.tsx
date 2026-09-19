@@ -70,8 +70,8 @@ export function makeProject(overrides: Partial<Project> = {}): Project {
     status: {
       state: "running",
       services: [
-        { kind: "php", variant: "php", version: "8.4", image: "ghcr.io/envoryx/envoryx-php:8.4", containerName: "envoryx-shimly-api-php", exists: true, running: true, state: "running", ports: [] },
-        { kind: "web", variant: "caddy", version: "2", image: "caddy:2-alpine", containerName: "envoryx-shimly-api-web", exists: true, running: true, state: "running", ports: [{ hostIp: "", hostPort: 20000, containerPort: 80, protocol: "tcp" }] },
+        { kind: "php", variant: "php", version: "8.4", image: "ghcr.io/envoryx/envoryx-php:8.4", containerName: "envoryx-shimly-api-php", exists: true, running: true, state: "running", ports: [], imagePrevious: false, imagePinned: false },
+        { kind: "web", variant: "caddy", version: "2", image: "caddy:2-alpine", containerName: "envoryx-shimly-api-web", exists: true, running: true, state: "running", ports: [{ hostIp: "", hostPort: 20000, containerPort: 80, protocol: "tcp" }], imagePrevious: false, imagePinned: false },
       ],
       warnings: [],
     },

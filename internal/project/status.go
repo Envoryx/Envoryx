@@ -45,11 +45,28 @@ func deriveStatus(p store.Project, containers []docker.Container, imageIDs map[s
 				running++
 				ss.Running = true
 			}
-			if c.Image != svc.Image {
+			rec := p.ImageRecord(svc.Image)
+			switch {
+			case rec != nil && rec.Pinned && rec.PreviousID != "":
+				// Rolled back on purpose: the container runs the previous id.
+				if c.ImageID != "" && c.ImageID != rec.PreviousID {
+					st.Warnings = append(st.Warnings, fmt.Sprintf("%s is rolled back to the previous image but the container runs another one; restart to apply", svc.Kind))
+				}
+			case c.Image != svc.Image && c.Image != c.ImageID:
 				st.Warnings = append(st.Warnings, fmt.Sprintf("%s container uses image %s but %s is configured; restart to apply", svc.Kind, c.Image, svc.Image))
-			} else if localID, ok := imageIDs[svc.Image]; ok && c.ImageID != "" && localID != c.ImageID {
-				st.Warnings = append(st.Warnings, fmt.Sprintf("a newer %s image was pulled; restart to apply", svc.Kind))
+			default:
+				// Docker lists the container's image as its id once the tag moved on.
+				localID, ok := imageIDs[svc.Image]
+				if c.Image == c.ImageID || (ok && c.ImageID != "" && localID != c.ImageID) {
+					st.Warnings = append(st.Warnings, fmt.Sprintf("a newer %s image was pulled; restart to apply", svc.Kind))
+				}
 			}
+		}
+		if rec := p.ImageRecord(svc.Image); rec != nil && rec.PreviousID != "" {
+			t := rec.ChangedAt
+			ss.ImageChangedAt = &t
+			ss.ImagePrevious = true
+			ss.ImagePinned = rec.Pinned
 		}
 		st.Services = append(st.Services, ss)
 	}

@@ -341,6 +341,12 @@ func (m *Manager) ensurePlan(ctx context.Context, proj store.Project, plan Plan,
 		byKind[c.Service()] = c
 	}
 	for _, c := range plan.Containers {
+		// A rollback pins the containers of an image reference to the previous image id;
+		// Docker accepts the id wherever a tag goes.
+		tag := c.Spec.Image
+		if rec := proj.ImageRecord(tag); rec != nil && rec.Pinned && rec.PreviousID != "" {
+			c.Spec.Image = rec.PreviousID
+		}
 		cur, ok := byKind[string(c.Kind)]
 		if ok {
 			if err := m.engine.EnsureImage(ctx, c.Spec.Image, m.pullProgress(proj.Slug)); err != nil {
@@ -357,6 +363,9 @@ func (m *Manager) ensurePlan(ctx context.Context, proj store.Project, plan Plan,
 				m.log.Info("recreating container", "container", cur.Name, "from", cur.Image, "to", c.Spec.Image, "spec_changed", specChanged)
 				if err := m.engine.RemoveContainer(ctx, cur.ID); err != nil {
 					return fmt.Errorf("remove outdated container %s: %w", cur.Name, err)
+				}
+				if c.Spec.Image == tag {
+					m.recordImageChange(ctx, &proj, tag, cur, localID)
 				}
 				ok = false
 			}

@@ -1,10 +1,10 @@
 import { clsx } from "clsx";
 import { useTranslation } from "react-i18next";
-import { Trash2, Save, ExternalLink } from "lucide-react";
+import { Trash2, Save, ExternalLink, Undo2, RotateCw } from "lucide-react";
 import { lazy, Suspense, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ApiError } from "@/api/client";
-import { useDevServerLink, useProject, useProjectLinks, useProjectPlan, useProjectStats, useRuntimes, useSettings, useUpdateProject } from "@/api/hooks";
+import { useDevServerLink, useImageChoice, useProject, useProjectLinks, useProjectPlan, useProjectStats, useRuntimes, useSettings, useUpdateProject } from "@/api/hooks";
 import type { EnvVar, NodeConfig, PHPConfig, Project } from "@/api/types";
 import { NodeDevServerFields, devServerRequest, type DevServerForm } from "./NodeDevServerFields";
 import { Alert, Badge, Button, Card, CardHeader, Checkbox, Code, ErrorState, Field, Input, PageHeader, Select, Spinner, StatusDot } from "@/components/ui";
@@ -160,13 +160,30 @@ export function ProjectDetailPage() {
 function OverviewTab({ project: p }: { project: Project }) {
   const { t } = useTranslation();
   const stats = useProjectStats(p.id, p.status.state === "running" || p.status.state === "partial");
+  const imageChoice = useImageChoice(p.id);
+  const [imageMsg, setImageMsg] = useState<{ tone: "green" | "red"; text: string } | null>(null);
+  const chooseImage = (image: string, use: "previous" | "latest") => {
+    setImageMsg(null);
+    imageChoice.mutate(
+      { image, use },
+      {
+        onSuccess: () => setImageMsg({ tone: "green", text: use === "previous" ? t("Rolled back to the previous image.") : t("Back on the current image.") }),
+        onError: (err) => setImageMsg({ tone: "red", text: err instanceof ApiError ? err.message : t("Changing the image failed") }),
+      },
+    );
+  };
   return (
     <div className="grid gap-6 lg:grid-cols-3">
       <Card className="lg:col-span-2">
         <CardHeader title={t("Services")} description={t("One container per service, connected through the private project network.")} />
+        {imageMsg && (
+          <div className="px-5 pt-4">
+            <Alert tone={imageMsg.tone}>{imageMsg.text}</Alert>
+          </div>
+        )}
         <ul className="divide-y divide-[var(--border)]">
           {p.status.services.map((s) => (
-            <li key={s.kind} className="flex flex-wrap items-center gap-x-6 gap-y-2 px-5 py-3">
+            <li key={s.kind === "worker" ? `worker-${s.workerId}` : s.kind} className="flex flex-wrap items-center gap-x-6 gap-y-2 px-5 py-3">
               <div className="flex min-w-[10rem] items-center gap-2.5">
                 <StatusDot tone={containerStateTone(s.state)} />
                 <div>
@@ -182,6 +199,23 @@ function OverviewTab({ project: p }: { project: Project }) {
                   :{port.hostPort} → {port.containerPort}
                 </span>
               ))}
+              {s.imagePinned ? (
+                <span className="inline-flex items-center gap-2 text-xs">
+                  <Badge tone="amber">{t("previous image")}</Badge>
+                  <Button size="sm" variant="ghost" icon={<RotateCw className="size-3.5" />} loading={imageChoice.isPending} onClick={() => chooseImage(s.image, "latest")}>
+                    {t("Use current image")}
+                  </Button>
+                </span>
+              ) : (
+                s.imagePrevious && (
+                  <span className="inline-flex items-center gap-2 text-xs text-muted">
+                    {s.imageChangedAt && t("image updated {{date}}", { date: formatDateTime(s.imageChangedAt) })}
+                    <Button size="sm" variant="ghost" icon={<Undo2 className="size-3.5" />} loading={imageChoice.isPending} onClick={() => chooseImage(s.image, "previous")}>
+                      {t("Roll back")}
+                    </Button>
+                  </span>
+                )
+              )}
               {s.containerId && <span className="ml-auto font-mono text-[11px] text-subtle">{s.containerId.slice(0, 12)}</span>}
             </li>
           ))}
