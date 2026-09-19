@@ -20,6 +20,9 @@ const (
 	// a mismatch tells Envoryx to recreate the container.
 	LabelSpec    = "envoryx.spec"
 	LabelVersion = "envoryx.version"
+	// LabelSystem marks instance-wide helper resources that belong to no project (the
+	// database browser); they are managed but never orphans.
+	LabelSystem = "envoryx.system"
 )
 
 // ErrNotManaged is returned when an operation targets a resource without the managed label.

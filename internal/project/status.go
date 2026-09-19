@@ -185,11 +185,17 @@ func (m *Manager) Reconcile(ctx context.Context) ReconcileReport {
 	m.notifyHealth(ctx, projects, report.Issues)
 
 	for _, c := range containers {
+		if c.Labels[docker.LabelSystem] != "" {
+			continue // instance-wide helpers (database browser) belong to no project
+		}
 		if _, ok := known[c.ProjectID()]; !ok {
 			report.Orphans = append(report.Orphans, Orphan{Type: "container", ID: c.ID, Name: c.Name, ProjectID: c.ProjectID(), ProjectName: c.Labels[docker.LabelProjectName], State: c.State, Created: c.Created})
 		}
 	}
 	for _, n := range networks {
+		if n.Labels[docker.LabelSystem] != "" {
+			continue
+		}
 		if _, ok := known[n.Labels[docker.LabelProjectID]]; !ok {
 			report.Orphans = append(report.Orphans, Orphan{Type: "network", ID: n.ID, Name: n.Name, ProjectID: n.Labels[docker.LabelProjectID], ProjectName: n.Labels[docker.LabelProjectName]})
 		}

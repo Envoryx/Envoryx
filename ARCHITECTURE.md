@@ -387,6 +387,22 @@ Project files in `/projects` are **never** deleted by rollback.
 
 All operations hold the per-project lock; concurrent requests return `409`.
 
+**Database browser** (`internal/project/dbtool.go`): one Adminer container
+(`envoryx-dbtool`, label `envoryx.system=dbtool`, so the reconciler never
+reports it as an orphan) on its own managed network, which Envoryx's container
+also joins. `OpenDBTool` starts it on demand, rewrites
+`/config/dbtool/connections.json` from every project's database config
+(atomic rename, mounted as a directory), connects the container to the
+project network and returns `/dbtool/?server=…&username=…&db=…`. A plugin
+mounted into `plugins-enabled/` submits Adminer's login form with the password
+from that file (`loginForm` hook) – the browser never sees the credentials.
+The API serves `/dbtool/` through a session-protected reverse proxy that
+strips the prefix (Adminer's links are relative) and prefixes absolute
+`Location` headers; the UI's CSP is not applied there because Adminer sends
+its own nonce-based policy. Project deletion detaches the tool before removing
+the network; disabling removes container, network and file. On bare metal the
+container publishes on 127.0.0.1 instead of a shared network.
+
 **Image history and rollback** (`project_images`, migration 0007): when
 `startPlan` recreates a container because the same tag now resolves to a
 different local image id, it records `{image, current_id, previous_id,

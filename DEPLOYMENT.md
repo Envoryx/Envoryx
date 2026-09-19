@@ -458,6 +458,27 @@ again.
 Still include `/config`, `/projects` and the backups directory in your regular
 off-machine backup (e.g. the Unraid Appdata Backup plugin or an rsync job).
 
+## Database browser (Adminer)
+
+*Settings → Database browser* switches on an in-browser database tool for
+projects with MariaDB, MySQL or PostgreSQL (MongoDB is not supported by the
+Adminer image; use the published port with Compass). Nothing runs until the
+first click on **Open database** in a project's Database tab: Envoryx then
+pulls `adminer:5`, starts one shared container `envoryx-dbtool` on its own
+network, joins it to the project's network and opens Adminer in a new tab,
+already logged in as the project user (the root user is available too by
+changing the user name in the URL).
+
+How it stays private: Adminer is served under the Envoryx UI at `/dbtool/`,
+so the normal Envoryx session is required and no extra port, host name or
+certificate is involved. The credentials are written to
+`/config/dbtool/connections.json` (mode 0640, owned by `PUID`, mounted
+read-only into the container, which runs as `PUID:PGID`; never sent to the
+browser) and refreshed on every open, so rotated passwords and
+new projects are picked up without a restart. Switching the browser off
+removes the container, its network and the credentials file. The container
+is not touched by *unused image* pruning while enabled.
+
 ## Workers (queues, schedulers)
 
 Workers tab: add long-running processes from a preset list – Laravel

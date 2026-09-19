@@ -36,6 +36,8 @@ import type {
   WorkerRequest,
   InstanceBackup,
   InstanceBackupsResponse,
+  DBToolLink,
+  DBToolStatus,
 } from "./types";
 
 export class ApiError extends Error {
@@ -252,6 +254,11 @@ export const api = {
     regenerateDeployKey: () => request<{ publicKey: string }>("/settings/deploy-key/regenerate", { method: "POST" }),
   },
 
+  dbtool: {
+    status: () => request<DBToolStatus>("/dbtool"),
+    set: (enabled: boolean) => request<DBToolStatus>("/dbtool", { method: "PUT", body: { enabled } }),
+    open: (id: string) => request<DBToolLink>(`/projects/${encodeURIComponent(id)}/dbtool`, { method: "POST" }),
+  },
   database: {
     info: (id: string) => request<{ database: DatabaseInfo }>(`/projects/${encodeURIComponent(id)}/database`),
     credentials: (id: string) =>

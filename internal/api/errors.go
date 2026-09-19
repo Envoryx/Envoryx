@@ -73,6 +73,8 @@ func writeError(w http.ResponseWriter, r *http.Request, err error) {
 		ae = newError(http.StatusConflict, "conflict", err.Error())
 	case errors.Is(err, project.ErrBusy):
 		ae = newError(http.StatusConflict, "busy", err.Error())
+	case errors.Is(err, project.ErrDBToolDisabled):
+		ae = newError(http.StatusConflict, "dbtool_disabled", err.Error())
 	case errors.Is(err, project.ErrShuttingDown):
 		ae = newError(http.StatusServiceUnavailable, "shutting_down", err.Error())
 	case errors.Is(err, project.ErrInterrupted):

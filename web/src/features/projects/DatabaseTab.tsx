@@ -1,8 +1,8 @@
-import { Check, Copy, Database, Eye, EyeOff, KeyRound, Plus, Trash2, X } from "lucide-react";
+import { Check, Copy, Database, Eye, EyeOff, ExternalLink, KeyRound, Plus, Trash2, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useState, type FormEvent } from "react";
 import { api, ApiError } from "@/api/client";
-import { useDatabaseInfo, useDatabaseList, useDatabaseMutations, usePublicHost, useRuntimes, useUpdateProject } from "@/api/hooks";
+import { useDatabaseInfo, useDatabaseList, useDatabaseMutations, useDBTool, useOpenDBTool, usePublicHost, useRuntimes, useUpdateProject } from "@/api/hooks";
 import type { DatabaseCredentials, Project } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Checkbox, Dialog, ErrorState, Field, Input, Select, Spinner, StatusDot } from "@/components/ui";
 import { copyText } from "@/lib/clipboard";
@@ -115,6 +115,8 @@ export function DatabaseTab({ project }: { project: Project }) {
   const runtimes = useRuntimes();
   const update = useUpdateProject(project.id);
   const { rotate, expose, create, drop } = useDatabaseMutations(project.id);
+  const dbTool = useDBTool();
+  const openTool = useOpenDBTool(project.id);
   const running = info.data?.state === "running";
   const list = useDatabaseList(project.id, hasDb && running);
 
@@ -228,6 +230,36 @@ export function DatabaseTab({ project }: { project: Project }) {
           <Card>
             <CardHeader title={t("External access")} description={t("Connect from your workstation with a database client.")} />
             <div className="space-y-3 p-5">
+              {dbTool.data?.supported.includes(d.type) && (
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-default px-3 py-2">
+                  <div>
+                    <p className="text-sm font-medium">{t("Open in the browser")}</p>
+                    <p className="text-xs text-muted">
+                      {dbTool.data.enabled ? t("Adminer, logged in as the project user. Opens in a new tab.") : t("Enable the database browser in Settings first.")}
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    icon={<ExternalLink className="size-3.5" />}
+                    disabled={!dbTool.data.enabled || !running}
+                    loading={openTool.isPending}
+                    title={!running ? t("Start the project first") : undefined}
+                    onClick={() => {
+                      setMsg(null);
+                      openTool.mutate(undefined, {
+                        onSuccess: (link) => {
+                          if (!window.open(link.url, "_blank", "noopener")) {
+                            setMsg({ tone: "red", text: t("The browser blocked the new tab; allow pop-ups for Envoryx.") });
+                          }
+                        },
+                        onError: (err) => fail(err, t("Opening the database browser failed")),
+                      });
+                    }}
+                  >
+                    {t("Open database")}
+                  </Button>
+                </div>
+              )}
               <Checkbox
                 label={t("Publish port on the host")}
                 description={d.hostPort ? t("Reachable at {{address}}", { address: `${externalHost}:${d.hostPort}` }) : t("A free port from the project port range is assigned automatically.")}

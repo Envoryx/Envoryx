@@ -158,6 +158,23 @@ export interface DatabaseUpdate {
   removeData?: boolean;
 }
 
+/** The shared in-browser database tool (Adminer). */
+export interface DBToolStatus {
+  enabled: boolean;
+  running: boolean;
+  containerId?: string;
+  image: string;
+  /** Database types the tool can open. */
+  supported: string[];
+}
+
+export interface DBToolLink {
+  url: string;
+  server: string;
+  username: string;
+  database: string;
+}
+
 export interface DatabaseInfo {
   type: string;
   version: string;

@@ -773,6 +773,9 @@ func (m *Manager) delete(ctx context.Context, id string, opts DeleteOptions) err
 		if err := m.detachProxy(ctx, n.Name); err != nil {
 			return fail("detach proxy from "+n.Name, err)
 		}
+		if err := m.detachDBTool(ctx, n.Name); err != nil {
+			return fail("detach database browser from "+n.Name, err)
+		}
 		if err := m.engine.RemoveNetwork(ctx, n.ID); err != nil {
 			return fail("remove network "+n.Name, err)
 		}

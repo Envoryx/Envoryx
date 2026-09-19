@@ -829,5 +829,18 @@
   "previous image": "vorheriges Image",
   "Use current image": "Aktuelles Image verwenden",
   "image updated {{date}}": "Image aktualisiert {{date}}",
-  "Roll back": "Zurücksetzen"
+  "Roll back": "Zurücksetzen",
+  "Database browser": "Datenbank-Browser",
+  "Open project databases in the browser with Adminer: one small container shared by all projects, started on first use, logged in automatically and reachable only through your Envoryx session.": "Projekt-Datenbanken im Browser mit Adminer öffnen: ein kleiner Container für alle Projekte, gestartet bei der ersten Nutzung, automatisch angemeldet und nur über deine Envoryx-Sitzung erreichbar.",
+  "starts on first use": "startet bei erster Nutzung",
+  "off": "aus",
+  "Enable the database browser": "Datenbank-Browser aktivieren",
+  "MariaDB, MySQL and PostgreSQL. Turning it off removes the container. Image: {{image}}.": "MariaDB, MySQL und PostgreSQL. Beim Ausschalten wird der Container entfernt. Image: {{image}}.",
+  "Open in the browser": "Im Browser öffnen",
+  "Adminer, logged in as the project user. Opens in a new tab.": "Adminer, angemeldet als Projektbenutzer. Öffnet sich in einem neuen Tab.",
+  "Enable the database browser in Settings first.": "Aktiviere zuerst den Datenbank-Browser in den Einstellungen.",
+  "Start the project first": "Starte zuerst das Projekt",
+  "The browser blocked the new tab; allow pop-ups for Envoryx.": "Der Browser hat den neuen Tab blockiert; erlaube Pop-ups für Envoryx.",
+  "Opening the database browser failed": "Öffnen des Datenbank-Browsers fehlgeschlagen",
+  "Open database": "Datenbank öffnen"
 }

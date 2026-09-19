@@ -16,6 +16,10 @@ export default defineConfig({
         target: process.env.ENVORYX_API ?? "http://localhost:8787",
         changeOrigin: false,
       },
+      "/dbtool": {
+        target: process.env.ENVORYX_API ?? "http://localhost:8787",
+        changeOrigin: false,
+      },
     },
   },
   build: {

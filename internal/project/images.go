@@ -29,7 +29,7 @@ type PruneResult struct {
 
 // catalogueRepos returns the image repositories Envoryx itself pulls (without tags).
 func (m *Manager) catalogueRepos() map[string]bool {
-	repos := map[string]bool{}
+	repos := map[string]bool{imageRepo(DBToolImage): true}
 	for _, r := range m.catalog.All() {
 		for _, v := range r.Versions {
 			repos[imageRepo(v.Image)] = true

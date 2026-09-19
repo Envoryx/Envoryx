@@ -8,6 +8,7 @@ import { Alert, Button, Card, CardHeader, ErrorState, Field, Input, PageHeader, 
 import { formatDateTime } from "@/lib/format";
 import { DomainsCard } from "./DomainsCard";
 import { TokensCard } from "./TokensCard";
+import { DBToolCard } from "./DBToolCard";
 import { NotificationsCard } from "./NotificationsCard";
 import { InstanceBackupsCard } from "./InstanceBackupsCard";
 
@@ -240,6 +241,8 @@ export function SettingsPage() {
       <NotificationsCard />
 
       <TokensCard />
+
+      <DBToolCard />
 
       {s.data && <SshCard keys={s.data.sshAuthorizedKeys ?? ""} ssh={s.data.ssh} />}
 

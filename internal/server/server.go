@@ -17,6 +17,7 @@ import (
 	"github.com/envoryx/envoryx/internal/api"
 	"github.com/envoryx/envoryx/internal/audit"
 	"github.com/envoryx/envoryx/internal/auth"
+	"github.com/envoryx/envoryx/internal/project"
 )
 
 // Options configure the server.
@@ -191,7 +192,9 @@ func securityHeaders(next http.Handler) http.Handler {
 		h.Set("X-Frame-Options", "DENY")
 		h.Set("Referrer-Policy", "same-origin")
 		h.Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
-		if !strings.HasPrefix(r.URL.Path, "/api/") {
+		// The proxied database browser sends its own (nonce-based) policy; two policies
+		// would both apply and block its scripts.
+		if !strings.HasPrefix(r.URL.Path, "/api/") && !strings.HasPrefix(r.URL.Path, project.DBToolPathPrefix+"/") {
 			h.Set("Content-Security-Policy", "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; connect-src 'self' ws: wss:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'")
 		}
 		next.ServeHTTP(w, r)

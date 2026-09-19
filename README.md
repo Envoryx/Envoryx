@@ -70,6 +70,9 @@ Envoryx is under active development. The current milestone (Phase 1 + 2) deliver
   restorable (or importable on another host) from the settings with an in-place
   restart
 
+- database browser: optional Adminer container shared by all projects,
+  started on first use, opened from the Database tab already logged in,
+  served under the Envoryx UI so the session protects it
 - IDE integration: embedded SSH server for PhpStorm/VS Code remote
   interpreters and SFTP into project containers (API token or public key),
   an IDE tab with Xdebug server/path mapping, `.idea/php.xml`, JDBC URLs;

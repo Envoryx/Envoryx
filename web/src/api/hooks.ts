@@ -205,6 +205,26 @@ export function useProjectActions(id: string) {
   });
 }
 
+export function useDBTool() {
+  return useQuery({ queryKey: ["dbtool"], queryFn: () => api.dbtool.status(), refetchInterval: LIVE_INTERVAL });
+}
+
+export function useSetDBTool() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (enabled: boolean) => api.dbtool.set(enabled),
+    onSuccess: (status) => qc.setQueryData(["dbtool"], status),
+  });
+}
+
+export function useOpenDBTool(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.dbtool.open(id),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["dbtool"] }),
+  });
+}
+
 export function useDatabaseInfo(id: string, enabled: boolean) {
   return useQuery({
     queryKey: keys.database(id),
