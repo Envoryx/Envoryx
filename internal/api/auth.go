@@ -125,6 +125,10 @@ func (a *API) changePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p, _ := auth.PrincipalFrom(r.Context())
+	if p.TokenName != "" {
+		writeError(w, r, newError(http.StatusForbidden, "forbidden", "API tokens cannot change the password; sign in with a browser session"))
+		return
+	}
 	if err := a.d.Auth.ChangePassword(r.Context(), p, req.CurrentPassword, req.NewPassword); err != nil {
 		writeError(w, r, err)
 		return

@@ -70,12 +70,12 @@ func (s *Server) Handler() http.Handler {
 		Logger:       s.d.Log,
 	})
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		raw := strings.TrimSpace(r.Header.Get("Authorization"))
-		if !strings.HasPrefix(strings.ToLower(raw), "bearer ") {
+		bearer := auth.BearerToken(r)
+		if bearer == "" {
 			unauthorized(w, "missing bearer token")
 			return
 		}
-		p, err := s.d.Auth.ValidateAPIToken(r.Context(), raw[len("bearer "):])
+		p, err := s.d.Auth.ValidateAPIToken(r.Context(), bearer)
 		if err != nil {
 			if !errors.Is(err, auth.ErrUnauthenticated) {
 				s.d.Log.Error("api token validation failed", "err", err)

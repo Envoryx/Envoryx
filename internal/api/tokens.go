@@ -38,6 +38,10 @@ type createTokenRequest struct {
 	Name string `json:"name"`
 }
 
+// errTokenManagesTokens keeps a leaked API token from minting or revoking tokens; only a
+// browser session may do that.
+var errTokenManagesTokens = newError(http.StatusForbidden, "forbidden", "API tokens cannot manage tokens; sign in with a browser session")
+
 func (a *API) createToken(w http.ResponseWriter, r *http.Request) {
 	var req createTokenRequest
 	if err := decodeJSON(w, r, &req); err != nil {
@@ -46,7 +50,7 @@ func (a *API) createToken(w http.ResponseWriter, r *http.Request) {
 	}
 	p, _ := auth.PrincipalFrom(r.Context())
 	if p.TokenName != "" {
-		writeError(w, r, newError(http.StatusForbidden, "forbidden", "tokens cannot create tokens"))
+		writeError(w, r, errTokenManagesTokens)
 		return
 	}
 	token, t, err := a.d.Auth.CreateAPIToken(r.Context(), p, req.Name)
@@ -64,6 +68,10 @@ func (a *API) createToken(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) deleteToken(w http.ResponseWriter, r *http.Request) {
+	if p, _ := auth.PrincipalFrom(r.Context()); p.TokenName != "" {
+		writeError(w, r, errTokenManagesTokens)
+		return
+	}
 	id := r.PathValue("id")
 	if err := a.d.Auth.RevokeAPIToken(r.Context(), id); err != nil {
 		writeError(w, r, err)

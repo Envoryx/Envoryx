@@ -53,7 +53,7 @@ export function TokensCard() {
     <Card>
       <CardHeader
         title={t("API tokens & MCP")}
-        description={t("AI assistants (Claude Code, Cursor, …) can manage projects through Envoryx's MCP server. Tokens act with your account; destructive operations are not exposed.")}
+        description={t("Tokens act with your account and authenticate AI assistants (Claude Code, Cursor, …) on the MCP server, SSH/SFTP logins and scripts calling the REST API with an Authorization: Bearer header. The MCP tools expose no destructive operations; a token can never change the password or manage tokens.")}
       />
       <div className="space-y-4 p-5">
         {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}

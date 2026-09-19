@@ -529,6 +529,22 @@ dropping databases and restoring backups are intentionally not exposed –
 do those in the UI. Example prompt: *"Create a Laravel project called
 test-api with PHP 8.4, MariaDB and Redis, then run composer install."*
 
+### Scripting the REST API
+
+The same tokens authenticate the REST API (`/api/v1/...`) for scripts, CI
+jobs or a future CLI – send them as `Authorization: Bearer stq_…`. Bearer
+requests need neither a session cookie nor the browser CSRF headers:
+
+```sh
+curl -H "Authorization: Bearer stq_…" https://envoryx.test/api/v1/projects
+curl -H "Authorization: Bearer stq_…" -X POST https://envoryx.test/api/v1/projects/<id>/restart
+```
+
+A token acts with the full rights of your account except that it cannot change
+the password or create/revoke tokens – those need a browser session. Audit
+entries record `user (token: name)`. A request that presents an invalid or
+revoked token is rejected even if a valid session cookie is also sent.
+
 ## Health check
 
 `GET /api/v1/health` returns `{"status":"ok","docker":true,"database":true,…}`

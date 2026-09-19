@@ -170,4 +170,33 @@ func TestMiddleware(t *testing.T) {
 	if !c.HttpOnly || c.SameSite != http.SameSiteLaxMode {
 		t.Fatalf("cookie must be HttpOnly + SameSite=Lax: %+v", c)
 	}
+
+	// A bearer API token authenticates without a cookie and is marked as such.
+	p, _ := svc.Validate(ctx, token)
+	secret, _, err := svc.CreateAPIToken(ctx, p, "cli")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var seen Principal
+	hb := svc.Middleware(unauth)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seen, _ = PrincipalFrom(r.Context())
+		w.WriteHeader(http.StatusOK)
+	}))
+	req = httptest.NewRequest(http.MethodGet, "/", nil)
+	req.Header.Set("Authorization", "Bearer "+secret)
+	rec = httptest.NewRecorder()
+	hb.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK || seen.Username != "admin" || seen.TokenName != "cli" || seen.SessionID != "" {
+		t.Fatalf("bearer: %d %+v", rec.Code, seen)
+	}
+
+	// An invalid bearer token is rejected even when a valid cookie is present.
+	req = httptest.NewRequest(http.MethodGet, "/", nil)
+	req.Header.Set("Authorization", "Bearer stq_definitelynotatoken0000000000")
+	req.AddCookie(&http.Cookie{Name: CookieName, Value: token})
+	rec = httptest.NewRecorder()
+	hb.ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("invalid bearer must not fall back to the cookie: %d", rec.Code)
+	}
 }

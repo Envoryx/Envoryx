@@ -684,7 +684,13 @@ expiry in a background loop; config/token under `/config/ca/acme.json`
   accepts personal API tokens (`Authorization: Bearer stq_…`; migration
   `0003_api_tokens`, SHA-256 hashes, created/revoked in Settings, audit
   entries `token.created/revoked`; audit rows of tool calls carry
-  `user (token: name)`). Tools call the same `project.Manager` methods as the
+  `user (token: name)`). The same tokens are accepted by the REST API and
+  the SSH server: `auth.Middleware` prefers a bearer header over the session
+  cookie and never falls back to the cookie when the bearer is invalid;
+  `csrfMiddleware` skips the origin/`X-Requested-With` checks for bearer
+  requests because `Authorization` is not CORS-safelisted (a browser cannot
+  send it cross-site without a preflight, which only allowed origins get).
+  Password changes and token create/revoke refuse token principals. Tools call the same `project.Manager` methods as the
   REST API – validation, label guards, locks and audit apply unchanged:
   `list_projects`, `get_project`, `list_runtimes`, `create_project`,
   `start/stop/restart_project`, `get_logs`, `list_actions`, `run_action`

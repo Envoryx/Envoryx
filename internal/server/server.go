@@ -195,6 +195,12 @@ func securityHeaders(next http.Handler) http.Handler {
 //   - the custom X-Requested-With header must be present (cannot be set cross-site without CORS),
 //   - if the browser sends Origin / Sec-Fetch-Site they must indicate same-origin (or an
 //     explicitly allowed origin such as the dev server).
+//
+// Requests carrying a bearer API token skip these checks: the Authorization header is not
+// a CORS-safelisted header, so a browser cannot attach it cross-site without a preflight,
+// and preflights are only granted to the allowed origins. Those requests are
+// authenticated by the token alone (the auth middleware ignores the cookie when a bearer
+// token is present), so there is no ambient credential a third party could ride on.
 func csrfMiddleware(allowedOrigins []string) func(http.Handler) http.Handler {
 	allowed := map[string]bool{}
 	for _, o := range allowedOrigins {
@@ -225,6 +231,10 @@ func csrfMiddleware(allowedOrigins []string) func(http.Handler) http.Handler {
 
 			switch r.Method {
 			case http.MethodGet, http.MethodHead:
+				next.ServeHTTP(w, r)
+				return
+			}
+			if auth.BearerToken(r) != "" {
 				next.ServeHTTP(w, r)
 				return
 			}

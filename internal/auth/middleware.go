@@ -30,16 +30,40 @@ func TokenFromRequest(r *http.Request) string {
 	return c.Value
 }
 
-// Middleware validates the session cookie and injects the principal. Requests without a
-// valid session are rejected with the supplied unauthorized handler.
+// BearerToken returns the API token carried in the Authorization header, or "" when the
+// request has no bearer credential. The token is not validated here.
+func BearerToken(r *http.Request) string {
+	raw := strings.TrimSpace(r.Header.Get("Authorization"))
+	if len(raw) < 7 || !strings.EqualFold(raw[:7], "bearer ") {
+		return ""
+	}
+	return strings.TrimSpace(raw[7:])
+}
+
+// Middleware authenticates the request and injects the principal. A bearer API token in
+// the Authorization header wins over the session cookie; a request that presents a bearer
+// token that does not validate is rejected without falling back to the cookie, so a stray
+// or revoked token never silently continues as the browser session. Requests without a
+// valid credential are rejected with the supplied unauthorized handler.
 func (s *Service) Middleware(unauthorized http.Handler) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			p, err := s.Validate(r.Context(), TokenFromRequest(r))
-			if err != nil {
-				if !errors.Is(err, ErrUnauthenticated) {
+			var (
+				p   Principal
+				err error
+			)
+			if bearer := BearerToken(r); bearer != "" {
+				p, err = s.ValidateAPIToken(r.Context(), bearer)
+				if err != nil && !errors.Is(err, ErrUnauthenticated) {
+					s.log.Error("api token validation failed", "err", err)
+				}
+			} else {
+				p, err = s.Validate(r.Context(), TokenFromRequest(r))
+				if err != nil && !errors.Is(err, ErrUnauthenticated) {
 					s.log.Error("session validation failed", "err", err)
 				}
+			}
+			if err != nil {
 				unauthorized.ServeHTTP(w, r)
 				return
 			}
