@@ -12,6 +12,7 @@ export function BackupsTab({ project }: { project: Project }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
   const hasDb = project.services.some((s) => s.kind === "database" && s.enabled);
+  const hasStorage = project.services.some((s) => s.kind === "storage" && s.enabled);
   const backups = useQuery({ queryKey: ["projects", project.id, "backups"], queryFn: async () => (await api.backups.list(project.id)).backups });
   const refresh = () => {
     void qc.invalidateQueries({ queryKey: ["projects", project.id, "backups"] });
@@ -22,10 +23,11 @@ export function BackupsTab({ project }: { project: Project }) {
 
   const [withDb, setWithDb] = useState(hasDb);
   const [withFiles, setWithFiles] = useState(true);
+  const [withStorage, setWithStorage] = useState(true);
   const [withDeps, setWithDeps] = useState(false);
   const [note, setNote] = useState("");
   const create = useMutation({
-    mutationFn: () => api.backups.create(project.id, { database: withDb && hasDb, files: withFiles, includeDependencies: withDeps, note }),
+    mutationFn: () => api.backups.create(project.id, { database: withDb && hasDb, files: withFiles, storage: withStorage && hasStorage, includeDependencies: withDeps, note }),
     onSuccess: (res) => {
       setNote("");
       setMsg({ tone: "green", text: t("Backup created ({{size}}).", { size: formatBytes(res.backup.sizeBytes) }) });
@@ -37,10 +39,13 @@ export function BackupsTab({ project }: { project: Project }) {
   const [restoreTarget, setRestoreTarget] = useState<BackupInfo | null>(null);
   const [rDb, setRDb] = useState(true);
   const [rFiles, setRFiles] = useState(true);
+  const [rStorage, setRStorage] = useState(true);
+  const [rWipeStorage, setRWipeStorage] = useState(false);
   const [rWipe, setRWipe] = useState(false);
   const [rConfirm, setRConfirm] = useState("");
   const restore = useMutation({
-    mutationFn: (b: BackupInfo) => api.backups.restore(project.id, b.id, { database: rDb && !!b.meta.database && hasDb, files: rFiles && !!b.meta.files, wipeFiles: rWipe, confirm: rConfirm }),
+    mutationFn: (b: BackupInfo) =>
+      api.backups.restore(project.id, b.id, { database: rDb && !!b.meta.database && hasDb, files: rFiles && !!b.meta.files, storage: rStorage && !!b.meta.storage && hasStorage, wipeFiles: rWipe, wipeStorage: rWipeStorage, confirm: rConfirm }),
     onSuccess: () => {
       setRestoreTarget(null);
       setMsg({ tone: "green", text: t("Backup restored.") });
@@ -68,6 +73,8 @@ export function BackupsTab({ project }: { project: Project }) {
   const openRestore = (b: BackupInfo) => {
     setRDb(!!b.meta.database && hasDb);
     setRFiles(!!b.meta.files);
+    setRStorage(!!b.meta.storage && hasStorage);
+    setRWipeStorage(false);
     setRWipe(false);
     setRConfirm("");
     setRestoreTarget(b);
@@ -86,7 +93,7 @@ export function BackupsTab({ project }: { project: Project }) {
           }
           description={
             <>
-              {t("Stored under")} <Code>/config/backups/{project.slug}/</Code>. {t("The database is dumped inside its container; files are archived by Envoryx.")}
+              {t("Stored under")} <Code>/config/backups/{project.slug}/</Code>. {t("The database is dumped inside its container; files and bucket objects are archived by Envoryx.")}
             </>
           }
         />
@@ -94,13 +101,14 @@ export function BackupsTab({ project }: { project: Project }) {
           <div className="grid gap-3 sm:grid-cols-3">
             <Checkbox label={t("Database")} description={hasDb ? t("Logical dump of the primary database") : t("Project has no database")} checked={withDb && hasDb} disabled={!hasDb} onChange={(e) => setWithDb(e.target.checked)} />
             <Checkbox label={t("Project files")} description={t("Everything in the project directory")} checked={withFiles} onChange={(e) => setWithFiles(e.target.checked)} />
+            {hasStorage && <Checkbox label={t("Object storage")} description={t("Every object of the bucket, as plain files in an archive")} checked={withStorage} onChange={(e) => setWithStorage(e.target.checked)} />}
             <Checkbox label={t("Include dependencies")} description={t("Keep vendor/ and node_modules/ (large, reproducible)")} checked={withDeps} disabled={!withFiles} onChange={(e) => setWithDeps(e.target.checked)} />
           </div>
           <div className="flex items-end gap-2">
             <Field label={t("Note (optional)")} htmlFor="backup-note">
               <Input id="backup-note" value={note} onChange={(e) => setNote(e.target.value)} placeholder={t("before upgrade to Laravel 13")} maxLength={500} />
             </Field>
-            <Button variant="primary" loading={create.isPending} disabled={!(withDb && hasDb) && !withFiles} onClick={() => create.mutate()} icon={<Archive className="size-4" />}>
+            <Button variant="primary" loading={create.isPending} disabled={!(withDb && hasDb) && !withFiles && !(withStorage && hasStorage)} onClick={() => create.mutate()} icon={<Archive className="size-4" />}>
               {t("Create backup")}
             </Button>
           </div>
@@ -132,6 +140,11 @@ export function BackupsTab({ project }: { project: Project }) {
                       <Badge>
                         {t("{{count}} files", { count: b.meta.files.entries })} · {formatBytes(b.meta.files.bytes)}
                         {b.meta.files.includeDependencies ? t(" · with deps") : ""}
+                      </Badge>
+                    )}
+                    {b.meta.storage && (
+                      <Badge tone="blue">
+                        {t("{{count}} objects", { count: b.meta.storage.objects })} · {formatBytes(b.meta.storage.bytes)}
                       </Badge>
                     )}
                     {b.missing && <Badge tone="red">{t("files missing")}</Badge>}
@@ -168,7 +181,7 @@ export function BackupsTab({ project }: { project: Project }) {
         footer={
           <>
             <Button onClick={() => setRestoreTarget(null)}>{t("Cancel")}</Button>
-            <Button variant="danger" loading={restore.isPending} disabled={rConfirm !== project.slug || (!rDb && !rFiles)} onClick={() => restoreTarget && restore.mutate(restoreTarget)} icon={<RotateCcw className="size-4" />}>
+            <Button variant="danger" loading={restore.isPending} disabled={rConfirm !== project.slug || (!rDb && !rFiles && !rStorage)} onClick={() => restoreTarget && restore.mutate(restoreTarget)} icon={<RotateCcw className="size-4" />}>
               {t("Restore")}
             </Button>
           </>
@@ -179,10 +192,13 @@ export function BackupsTab({ project }: { project: Project }) {
             <Alert tone="red" title={t("This overwrites current data")}>
               {rDb && restoreTarget.meta.database && <p>{t("The database “{{name}}” is replaced by the dump; changes since the backup are lost.", { name: restoreTarget.meta.database.name })}</p>}
               {rFiles && restoreTarget.meta.files && <p>{rWipe ? t("Files in the archive overwrite the project directory; everything else in the directory is deleted first.") : t("Files in the archive overwrite the project directory; files not in the backup are kept.")}</p>}
+              {rStorage && restoreTarget.meta.storage && <p>{rWipeStorage ? t("Objects in the archive are uploaded into the bucket; everything else in the bucket is deleted first.") : t("Objects in the archive are uploaded into the bucket; objects not in the backup are kept.")}</p>}
             </Alert>
             <Checkbox label={t("Restore database")} checked={rDb} disabled={!restoreTarget.meta.database || !hasDb} onChange={(e) => setRDb(e.target.checked)} description={!restoreTarget.meta.database ? t("not in this backup") : !hasDb ? t("project has no database") : undefined} />
             <Checkbox label={t("Restore files")} checked={rFiles} disabled={!restoreTarget.meta.files} onChange={(e) => setRFiles(e.target.checked)} description={!restoreTarget.meta.files ? t("not in this backup") : undefined} />
             {rFiles && <Checkbox label={t("Empty the project directory first")} description={t("Makes the directory match the backup exactly (also removes vendor/ and node_modules/ if they were not included).")} checked={rWipe} onChange={(e) => setRWipe(e.target.checked)} />}
+            <Checkbox label={t("Restore object storage")} checked={rStorage} disabled={!restoreTarget.meta.storage || !hasStorage} onChange={(e) => setRStorage(e.target.checked)} description={!restoreTarget.meta.storage ? t("not in this backup") : !hasStorage ? t("project has no object storage") : undefined} />
+            {rStorage && <Checkbox label={t("Empty the bucket first")} description={t("Makes the bucket match the backup exactly.")} checked={rWipeStorage} onChange={(e) => setRWipeStorage(e.target.checked)} />}
             <Field label={t("Type {{slug}} to confirm", { slug: project.slug })} htmlFor="restore-confirm">
               <Input id="restore-confirm" value={rConfirm} onChange={(e) => setRConfirm(e.target.value)} autoComplete="off" />
             </Field>
@@ -237,7 +253,7 @@ function ScheduleCard({ project, onSaved }: { project: Project; onSaved: () => v
             <CalendarClock className="size-4 text-accent-500" aria-hidden /> {t("Scheduled backups")}
           </span>
         }
-        description={current.lastRun ? t("Last automatic backup {{date}}.", { date: formatDateTime(current.lastRun) }) : t("Automatic database + file backups; the oldest scheduled backups are removed beyond the keep count. Manual backups are never touched.")}
+        description={current.lastRun ? t("Last automatic backup {{date}}.", { date: formatDateTime(current.lastRun) }) : t("Automatic database, file and object storage backups; the oldest scheduled backups are removed beyond the keep count. Manual backups are never touched.")}
         actions={
           <Button variant="primary" size="sm" loading={save.isPending} disabled={!dirty || (!!form.schedule && form.keep < 1)} onClick={() => { setMsg(null); save.mutate(); }}>
             {t("Save")}

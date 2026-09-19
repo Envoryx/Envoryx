@@ -92,7 +92,7 @@ func (m *Manager) runScheduledBackups(ctx context.Context, now time.Time, log *s
 			log.Warn("backup scheduler: record run", "project", p.Slug, "err", err)
 			continue
 		}
-		info, err := m.CreateBackup(ctx, p.ID, BackupOptions{Database: true, Files: true, IncludeDependencies: p.Backup.IncludeDependencies, Note: "scheduled " + p.Backup.Schedule, Source: "scheduled"})
+		info, err := m.CreateBackup(ctx, p.ID, BackupOptions{Database: true, Files: true, Storage: true, IncludeDependencies: p.Backup.IncludeDependencies, Note: "scheduled " + p.Backup.Schedule, Source: "scheduled"})
 		if err != nil {
 			log.Warn("scheduled backup failed", "project", p.Slug, "err", err)
 			continue

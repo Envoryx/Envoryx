@@ -528,8 +528,15 @@ authenticated requests work.
 
 The console (RustFS's own UI) opens from the Services tab; sign in with the
 project's access keys. Removing the object storage deletes the bucket volume
-and needs the bucket name as confirmation. Bucket contents are not yet part of
-project backups.
+and needs the bucket name as confirmation.
+
+**Backups.** Project backups can include the bucket (on by default for manual
+and scheduled backups when the project has object storage): every object is
+stored as a plain file in `storage.tar.gz`, named by its key, with the content
+type kept as an `user.mime_type` extended attribute – readable with any tar,
+independent of the server's on-disk format. Restoring uploads the objects
+again, optionally emptying the bucket first; the storage container must be
+running for both.
 
 ## Workers (queues, schedulers)
 

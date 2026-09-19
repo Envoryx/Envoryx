@@ -63,6 +63,43 @@ func TestProvisionAgainstRustFS(t *testing.T) {
 	if code := anon(); code != http.StatusForbidden {
 		t.Fatalf("anonymous read after removing the policy = %d", code)
 	}
+	// Objects round-trip: streamed put (unsigned payload), listing across pages, get with
+	// content type, batch delete.
+	var keys []string
+	for i := 0; i < 1203; i++ {
+		k := fmt.Sprintf("many/obj-%04d.txt", i)
+		keys = append(keys, k)
+		if err := c.PutObject(ctx, "shop", k, strings.NewReader("x"), 1, "text/plain"); err != nil {
+			t.Fatalf("put %s: %v", k, err)
+		}
+	}
+	big := strings.Repeat("0123456789", 700000) // 7 MB
+	if err := c.PutObject(ctx, "shop", "img/big.bin", strings.NewReader(big), int64(len(big)), "application/octet-stream"); err != nil {
+		t.Fatalf("put big: %v", err)
+	}
+	list, err := c.ListObjects(ctx, "shop")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(list) != 1203+2 { // + hello.txt + big.bin
+		t.Fatalf("listed %d objects", len(list))
+	}
+	body, ctype, err := c.GetObject(ctx, "shop", "img/big.bin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, _ := io.ReadAll(body)
+	body.Close()
+	if string(got) != big || ctype != "application/octet-stream" {
+		t.Fatalf("get big: %d bytes, type %q", len(got), ctype)
+	}
+	if err := c.DeleteObjects(ctx, "shop", append(keys, "img/big.bin")); err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+	if list, _ := c.ListObjects(ctx, "shop"); len(list) != 1 {
+		t.Fatalf("after delete: %d objects left", len(list))
+	}
+
 	// Wrong credentials are refused, not retried forever.
 	short, cancel2 := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel2()

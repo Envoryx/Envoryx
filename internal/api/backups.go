@@ -21,6 +21,7 @@ func (a *API) listBackups(w http.ResponseWriter, r *http.Request) {
 type createBackupRequest struct {
 	Database            bool   `json:"database"`
 	Files               bool   `json:"files"`
+	Storage             bool   `json:"storage"`
 	IncludeDependencies bool   `json:"includeDependencies"`
 	Note                string `json:"note"`
 }
@@ -32,7 +33,7 @@ func (a *API) createBackup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	info, err := a.d.Projects.CreateBackup(r.Context(), r.PathValue("id"), project.BackupOptions{
-		Database: req.Database, Files: req.Files, IncludeDependencies: req.IncludeDependencies, Note: req.Note,
+		Database: req.Database, Files: req.Files, Storage: req.Storage, IncludeDependencies: req.IncludeDependencies, Note: req.Note,
 	})
 	if err != nil {
 		writeError(w, r, err)
@@ -50,10 +51,12 @@ func (a *API) deleteBackup(w http.ResponseWriter, r *http.Request) {
 }
 
 type restoreBackupRequest struct {
-	Database  bool   `json:"database"`
-	Files     bool   `json:"files"`
-	WipeFiles bool   `json:"wipeFiles"`
-	Confirm   string `json:"confirm"`
+	Database    bool   `json:"database"`
+	Files       bool   `json:"files"`
+	Storage     bool   `json:"storage"`
+	WipeFiles   bool   `json:"wipeFiles"`
+	WipeStorage bool   `json:"wipeStorage"`
+	Confirm     string `json:"confirm"`
 }
 
 func (a *API) restoreBackup(w http.ResponseWriter, r *http.Request) {
@@ -62,9 +65,7 @@ func (a *API) restoreBackup(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
-	info, err := a.d.Projects.RestoreBackup(r.Context(), r.PathValue("id"), r.PathValue("backup"), project.RestoreOptions{
-		Database: req.Database, Files: req.Files, WipeFiles: req.WipeFiles, Confirm: req.Confirm,
-	})
+	info, err := a.d.Projects.RestoreBackup(r.Context(), r.PathValue("id"), r.PathValue("backup"), project.RestoreOptions{Database: req.Database, Files: req.Files, Storage: req.Storage, WipeFiles: req.WipeFiles, WipeStorage: req.WipeStorage, Confirm: req.Confirm})
 	if err != nil {
 		writeError(w, r, err)
 		return

@@ -1,13 +1,17 @@
-// Package s3 is the minimal S3 client Envoryx needs to provision a project's object
-// storage: create the default bucket and set its access policy. Requests are signed with
-// AWS Signature Version 4; no SDK, since three calls do not justify one.
+// Package s3 is the minimal S3 client Envoryx needs for a project's object storage:
+// provisioning the bucket and its access policy, and moving objects in and out for
+// backups. Requests are signed with AWS Signature Version 4; no SDK, since a handful of
+// calls do not justify one.
 package s3
 
 import (
 	"context"
 	"crypto/hmac"
+	"crypto/md5"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
+	"encoding/xml"
 	"errors"
 	"fmt"
 	"io"
@@ -182,19 +186,24 @@ func (c *Client) do(ctx context.Context, method, path, query string, body []byte
 
 // Sign adds the SigV4 Authorization header (and the x-amz-* headers it covers) to req.
 func (c *Client) Sign(req *http.Request, body []byte) error {
+	if len(body) > 0 {
+		req.ContentLength = int64(len(body))
+	}
+	return c.signWithHash(req, sha256Hex(body))
+}
+
+// signWithHash signs with a given payload hash (a real SHA-256 or UNSIGNED-PAYLOAD for
+// streamed bodies).
+func (c *Client) signWithHash(req *http.Request, payloadHash string) error {
 	now := time.Now().UTC()
 	if c.now != nil {
 		now = c.now().UTC()
 	}
 	amzDate := now.Format("20060102T150405Z")
 	date := now.Format("20060102")
-	payloadHash := sha256Hex(body)
 	req.Header.Set("Host", req.URL.Host)
 	req.Header.Set("X-Amz-Date", amzDate)
 	req.Header.Set("X-Amz-Content-Sha256", payloadHash)
-	if len(body) > 0 {
-		req.ContentLength = int64(len(body))
-	}
 
 	// Canonical request: signed headers are host and every x-amz-* header we set.
 	var names []string
@@ -307,3 +316,155 @@ type Noop struct{}
 
 // EnsureBucket implements Provisioner.
 func (Noop) EnsureBucket(context.Context, string, string, string, string, bool) error { return nil }
+
+// Object is one entry of a bucket listing.
+type Object struct {
+	Key  string
+	Size int64
+}
+
+type listBucketResult struct {
+	IsTruncated           bool   `xml:"IsTruncated"`
+	NextContinuationToken string `xml:"NextContinuationToken"`
+	Contents              []struct {
+		Key  string `xml:"Key"`
+		Size int64  `xml:"Size"`
+	} `xml:"Contents"`
+}
+
+// ListObjects returns every object of the bucket (ListObjectsV2, all pages).
+func (c *Client) ListObjects(ctx context.Context, bucket string) ([]Object, error) {
+	var out []Object
+	token := ""
+	for {
+		q := "list-type=2&max-keys=1000"
+		if token != "" {
+			q += "&continuation-token=" + url.QueryEscape(token)
+		}
+		res, err := c.do(ctx, http.MethodGet, "/"+bucket, q, nil)
+		if err != nil {
+			return nil, err
+		}
+		var page listBucketResult
+		err = xml.NewDecoder(res.Body).Decode(&page)
+		res.Body.Close()
+		if err != nil {
+			return nil, fmt.Errorf("s3: decode listing: %w", err)
+		}
+		for _, o := range page.Contents {
+			out = append(out, Object{Key: o.Key, Size: o.Size})
+		}
+		if !page.IsTruncated || page.NextContinuationToken == "" {
+			return out, nil
+		}
+		token = page.NextContinuationToken
+	}
+}
+
+// GetObject streams an object; the caller closes the body. The content type is the
+// stored one ("" when the server sent none).
+func (c *Client) GetObject(ctx context.Context, bucket, key string) (io.ReadCloser, string, error) {
+	res, err := c.do(ctx, http.MethodGet, "/"+bucket+"/"+key, "", nil)
+	if err != nil {
+		return nil, "", err
+	}
+	return res.Body, res.Header.Get("Content-Type"), nil
+}
+
+// PutObject uploads an object of known size from a stream. The payload is not hashed
+// (UNSIGNED-PAYLOAD), so the stream is read once; over the project network that is fine.
+func (c *Client) PutObject(ctx context.Context, bucket, key string, body io.Reader, size int64, contentType string) error {
+	u, err := url.Parse(strings.TrimRight(c.Endpoint, "/") + "/" + bucket + "/" + key)
+	if err != nil {
+		return err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut, u.String(), body)
+	if err != nil {
+		return err
+	}
+	req.ContentLength = size
+	if contentType != "" {
+		req.Header.Set("Content-Type", contentType)
+	}
+	if err := c.signWithHash(req, "UNSIGNED-PAYLOAD"); err != nil {
+		return err
+	}
+	hc := c.HTTP
+	if hc == nil {
+		hc = &http.Client{Timeout: 10 * time.Minute}
+	}
+	res, err := hc.Do(req)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+	if res.StatusCode < 200 || res.StatusCode > 299 {
+		b, _ := io.ReadAll(io.LimitReader(res.Body, 4096))
+		return &Error{Status: res.StatusCode, Body: string(b)}
+	}
+	return nil
+}
+
+// DeleteObjects removes the given keys (batches of 1000, the API's limit).
+func (c *Client) DeleteObjects(ctx context.Context, bucket string, keys []string) error {
+	for len(keys) > 0 {
+		n := min(len(keys), 1000)
+		var b strings.Builder
+		b.WriteString(`<Delete xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Quiet>true</Quiet>`)
+		for _, k := range keys[:n] {
+			b.WriteString("<Object><Key>")
+			xml.EscapeText(&b, []byte(k))
+			b.WriteString("</Key></Object>")
+		}
+		b.WriteString("</Delete>")
+		body := []byte(b.String())
+		u, err := url.Parse(strings.TrimRight(c.Endpoint, "/") + "/" + bucket)
+		if err != nil {
+			return err
+		}
+		u.RawQuery = "delete="
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, u.String(), strings.NewReader(b.String()))
+		if err != nil {
+			return err
+		}
+		// The multi-object delete requires a Content-MD5.
+		sum := md5.Sum(body)
+		req.Header.Set("Content-MD5", base64.StdEncoding.EncodeToString(sum[:]))
+		req.Header.Set("Content-Type", "application/xml")
+		if err := c.Sign(req, body); err != nil {
+			return err
+		}
+		hc := c.HTTP
+		if hc == nil {
+			hc = &http.Client{Timeout: 5 * time.Minute}
+		}
+		res, err := hc.Do(req)
+		if err != nil {
+			return err
+		}
+		errBody, _ := io.ReadAll(io.LimitReader(res.Body, 8192))
+		res.Body.Close()
+		if res.StatusCode < 200 || res.StatusCode > 299 {
+			return &Error{Status: res.StatusCode, Body: string(errBody)}
+		}
+		if strings.Contains(string(errBody), "<Error>") {
+			return fmt.Errorf("s3: some objects were not deleted: %s", strings.TrimSpace(string(errBody)))
+		}
+		keys = keys[n:]
+	}
+	return nil
+}
+
+// ObjectStore is what backups need from a bucket: listing, streaming reads and writes,
+// batch deletes. *Client implements it; tests use an in-memory stand-in.
+type ObjectStore interface {
+	ListObjects(ctx context.Context, bucket string) ([]Object, error)
+	GetObject(ctx context.Context, bucket, key string) (io.ReadCloser, string, error)
+	PutObject(ctx context.Context, bucket, key string, body io.Reader, size int64, contentType string) error
+	DeleteObjects(ctx context.Context, bucket string, keys []string) error
+}
+
+// NewClient returns a client for one endpoint and credential pair.
+func NewClient(endpoint, accessKey, secretKey string) *Client {
+	return &Client{Endpoint: endpoint, Region: "us-east-1", AccessKey: accessKey, SecretKey: secretKey}
+}

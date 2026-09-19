@@ -235,11 +235,11 @@ export const api = {
 
   backups: {
     list: (id: string) => request<{ backups: BackupInfo[] }>(`/projects/${encodeURIComponent(id)}/backups`),
-    create: (id: string, body: { database: boolean; files: boolean; includeDependencies: boolean; note: string }) =>
+    create: (id: string, body: { database: boolean; files: boolean; storage: boolean; includeDependencies: boolean; note: string }) =>
       request<{ backup: BackupInfo }>(`/projects/${encodeURIComponent(id)}/backups`, { method: "POST", body }),
     remove: (id: string, backupId: string) =>
       request<void>(`/projects/${encodeURIComponent(id)}/backups/${encodeURIComponent(backupId)}`, { method: "DELETE" }),
-    restore: (id: string, backupId: string, body: { database: boolean; files: boolean; wipeFiles: boolean; confirm: string }) =>
+    restore: (id: string, backupId: string, body: { database: boolean; files: boolean; storage: boolean; wipeFiles: boolean; wipeStorage: boolean; confirm: string }) =>
       request<{ backup: BackupInfo }>(`/projects/${encodeURIComponent(id)}/backups/${encodeURIComponent(backupId)}/restore`, { method: "POST", body }),
     setSchedule: (id: string, body: Omit<BackupSchedule, "lastRun">) =>
       request<{ schedule: BackupSchedule }>(`/projects/${encodeURIComponent(id)}/backups/schedule`, { method: "PUT", body }),

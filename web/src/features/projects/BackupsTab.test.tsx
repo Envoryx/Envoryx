@@ -45,7 +45,7 @@ describe("BackupsTab", () => {
     expect(await screen.findByText(/before deploy/)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Create backup" }));
     await waitFor(() => expect(api.calls.some((c) => c.method === "POST" && c.url.endsWith("/backups"))).toBe(true));
-    expect(api.calls.find((c) => c.method === "POST" && c.url.endsWith("/backups"))!.body).toEqual({ database: true, files: true, includeDependencies: false, note: "" });
+    expect(api.calls.find((c) => c.method === "POST" && c.url.endsWith("/backups"))!.body).toEqual({ database: true, files: true, storage: false, includeDependencies: false, note: "" });
 
     await user.click(screen.getByRole("button", { name: "Restore" }));
     expect(await screen.findByText(/This overwrites current data/)).toBeInTheDocument();
@@ -55,6 +55,6 @@ describe("BackupsTab", () => {
     await waitFor(() => expect(dialogButton()).not.toBeDisabled());
     await user.click(dialogButton());
     await waitFor(() => expect(api.calls.some((c) => c.url.endsWith("/restore"))).toBe(true));
-    expect(api.calls.find((c) => c.url.endsWith("/restore"))!.body).toEqual({ database: true, files: true, wipeFiles: false, confirm: "shimly-api" });
+    expect(api.calls.find((c) => c.url.endsWith("/restore"))!.body).toEqual({ database: true, files: true, storage: false, wipeFiles: false, wipeStorage: false, confirm: "shimly-api" });
   });
 });

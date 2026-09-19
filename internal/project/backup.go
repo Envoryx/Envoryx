@@ -29,6 +29,7 @@ import (
 //	backup.json      metadata + project export (services, env, credentials)
 //	database.sql.gz  logical dump of the primary database (optional)
 //	files.tar.gz     project directory (optional)
+//	storage.tar.gz   objects of the project's bucket (optional)
 const (
 	backupMetaFile  = "backup.json"
 	backupDBFile    = "database.sql.gz"
@@ -40,6 +41,9 @@ const (
 type BackupOptions struct {
 	Database bool
 	Files    bool
+	// Storage includes the object storage bucket (ignored when the project has none,
+	// unless it is the only thing requested).
+	Storage bool
 	// IncludeDependencies keeps vendor/ and node_modules/ in the file archive.
 	IncludeDependencies bool
 	Note                string
@@ -51,9 +55,12 @@ type BackupOptions struct {
 type RestoreOptions struct {
 	Database bool
 	Files    bool
-	// WipeFiles empties the project directory before extracting.
-	WipeFiles bool
-	Confirm   string
+	Storage  bool
+	// WipeFiles empties the project directory before extracting; WipeStorage empties the
+	// bucket before uploading.
+	WipeFiles   bool
+	WipeStorage bool
+	Confirm     string
 }
 
 // BackupMeta is written to backup.json and returned by the API (without the export).
@@ -77,6 +84,11 @@ type BackupMeta struct {
 		Entries             int   `json:"entries"`
 		IncludeDependencies bool  `json:"includeDependencies"`
 	} `json:"files,omitempty"`
+	Storage *struct {
+		Bucket  string `json:"bucket"`
+		Objects int    `json:"objects"`
+		Bytes   int64  `json:"bytes"`
+	} `json:"storage,omitempty"`
 	Runtimes map[string]string `json:"runtimes"`
 }
 
@@ -273,8 +285,8 @@ func (m *Manager) createBackup(ctx context.Context, id string, opts BackupOption
 	if err := validate.UUID(id); err != nil {
 		return BackupInfo{}, ErrNotFound
 	}
-	if !opts.Database && !opts.Files {
-		return BackupInfo{}, fmt.Errorf("%w: select at least the database or the files", validate.ErrInvalid)
+	if !opts.Database && !opts.Files && !opts.Storage {
+		return BackupInfo{}, fmt.Errorf("%w: select at least the database, the files or the object storage", validate.ErrInvalid)
 	}
 	if len(opts.Note) > 500 {
 		return BackupInfo{}, fmt.Errorf("%w: note too long", validate.ErrInvalid)
@@ -330,23 +342,26 @@ func (m *Manager) createBackupLocked(ctx context.Context, p store.Project, opts 
 			meta.Runtimes[string(s.Kind)] = s.Variant + " " + s.Version
 		}
 	}
-	kind := "full"
-	if opts.Database != opts.Files {
-		if opts.Database {
-			kind = "database"
-		} else {
-			kind = "files"
+	// Storage is included when the project has some; requested on its own for a project
+	// without, that is an error like a database dump without a database.
+	hasStorage := p.Service(store.ServiceStorage) != nil && p.Service(store.ServiceStorage).Enabled
+	if opts.Storage && !hasStorage {
+		if !opts.Database && !opts.Files {
+			return fail("storage", fmt.Errorf("%w: the project has no object storage", validate.ErrInvalid))
 		}
+		opts.Storage = false
 	}
+	kind := backupKind(opts)
 
 	if opts.Database {
 		svc, cfg, err := databaseConfig(p)
 		if err != nil {
 			if errors.Is(err, ErrNoDatabase) {
-				if !opts.Files {
+				if !opts.Files && !opts.Storage {
 					return fail("database", fmt.Errorf("%w: the project has no database", validate.ErrInvalid))
 				}
-				kind = "files"
+				opts.Database = false
+				kind = backupKind(opts)
 			} else {
 				return fail("database", err)
 			}
@@ -374,6 +389,18 @@ func (m *Manager) createBackupLocked(ctx context.Context, p store.Project, opts 
 			IncludeDependencies bool  `json:"includeDependencies"`
 		}{Bytes: n, Entries: entries, IncludeDependencies: opts.IncludeDependencies}
 	}
+	if opts.Storage {
+		objects, n, err := m.dumpStorage(ctx, p, filepath.Join(dir, backupStorageFile))
+		if err != nil {
+			return fail("object storage", err)
+		}
+		_, scfg, _ := storageConfig(p)
+		meta.Storage = &struct {
+			Bucket  string `json:"bucket"`
+			Objects int    `json:"objects"`
+			Bytes   int64  `json:"bytes"`
+		}{Bucket: scfg.Bucket, Objects: objects, Bytes: n}
+	}
 
 	content, err := json.MarshalIndent(backupFile{BackupMeta: meta, Export: exportProject(p)}, "", "  ")
 	if err != nil {
@@ -390,6 +417,24 @@ func (m *Manager) createBackupLocked(ctx context.Context, p store.Project, opts 
 	}
 	m.audit.Log(ctx, audit.ActionBackupCreated, "project", p.ID, map[string]any{"name": p.Name, "backup": rec.ID, "kind": kind, "bytes": size})
 	return BackupInfo{ID: rec.ID, Dir: dirName, Kind: kind, SizeBytes: size, CreatedAt: rec.CreatedAt, Meta: meta}, nil
+}
+
+// backupKind names a backup by its parts: one part → that name, several → "full".
+func backupKind(opts BackupOptions) string {
+	var parts []string
+	if opts.Database {
+		parts = append(parts, "database")
+	}
+	if opts.Files {
+		parts = append(parts, "files")
+	}
+	if opts.Storage {
+		parts = append(parts, "storage")
+	}
+	if len(parts) == 1 {
+		return parts[0]
+	}
+	return "full"
 }
 
 // dumpDatabase streams a logical dump through gzip into target and returns its size.
@@ -666,8 +711,8 @@ func (m *Manager) RestoreBackup(ctx context.Context, id, backupID string, opts R
 	if err := validate.UUID(backupID); err != nil {
 		return BackupInfo{}, ErrNotFound
 	}
-	if !opts.Database && !opts.Files {
-		return BackupInfo{}, fmt.Errorf("%w: select the database and/or the files to restore", validate.ErrInvalid)
+	if !opts.Database && !opts.Files && !opts.Storage {
+		return BackupInfo{}, fmt.Errorf("%w: select the database, the files and/or the object storage to restore", validate.ErrInvalid)
 	}
 	var info BackupInfo
 	err := m.run(ctx, limitBackup, func(ctx context.Context) (err error) {
@@ -737,6 +782,16 @@ func (m *Manager) restoreBackup(ctx context.Context, id, backupID string, opts R
 		}
 		restored["files"] = true
 		restored["wiped"] = opts.WipeFiles
+	}
+	if opts.Storage {
+		if meta.Storage == nil {
+			return BackupInfo{}, fmt.Errorf("%w: this backup contains no object storage", validate.ErrInvalid)
+		}
+		if err := m.restoreStorage(ctx, p, filepath.Join(dir, backupStorageFile), opts.WipeStorage); err != nil {
+			return BackupInfo{}, fmt.Errorf("restore object storage: %w", err)
+		}
+		restored["storage"] = true
+		restored["storageWiped"] = opts.WipeStorage
 	}
 	m.audit.Log(ctx, audit.ActionBackupRestored, "project", id, restored)
 	return BackupInfo{ID: b.ID, Dir: b.Filename, Kind: b.Kind, SizeBytes: b.SizeBytes, CreatedAt: b.CreatedAt, Meta: meta}, nil

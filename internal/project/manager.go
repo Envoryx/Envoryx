@@ -56,6 +56,8 @@ type Manager struct {
 
 	// provisioner creates project buckets; nil = the real S3 client. Tests inject a fake.
 	provisioner s3.Provisioner
+	// objectStore builds the client backups use; nil = the real S3 client.
+	objectStore func(endpoint, accessKey, secretKey string) s3.ObjectStore
 	// links tells the planner how the LAN reaches the proxy (public host, ports).
 	links func(ctx context.Context) (publicHost string, httpPort, httpsPort int)
 }
@@ -68,6 +70,11 @@ func (m *Manager) SetLinks(f func(ctx context.Context) (publicHost string, httpP
 
 // SetProvisioner replaces the object-storage provisioner (tests).
 func (m *Manager) SetProvisioner(p s3.Provisioner) { m.provisioner = p }
+
+// SetObjectStoreFactory replaces the object store backups talk to (tests).
+func (m *Manager) SetObjectStoreFactory(f func(endpoint, accessKey, secretKey string) s3.ObjectStore) {
+	m.objectStore = f
+}
 
 // SetNotifier installs the notification sink (nil = none).
 func (m *Manager) SetNotifier(n notify.Sender) { m.notifier = n }

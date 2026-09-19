@@ -646,6 +646,7 @@ export interface BackupMeta {
   source?: string;
   database?: { type: string; version: string; name: string; bytes: number };
   files?: { bytes: number; entries: number; includeDependencies: boolean };
+  storage?: { bucket: string; objects: number; bytes: number };
   runtimes: Record<string, string>;
 }
 

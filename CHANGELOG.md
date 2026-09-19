@@ -10,6 +10,12 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Added
+- Project backups include the object storage bucket: every object as a plain
+  file in `storage.tar.gz` (content type kept as an extended attribute),
+  restorable with or without emptying the bucket first. Scheduled backups and
+  the MCP `create_backup` tool include it automatically.
+
 ## [0.2.0] – 2026-09-19
 
 ### Added

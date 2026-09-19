@@ -116,7 +116,7 @@ func (s *Server) registerTools() {
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("list_databases", "List databases", "Databases on the project's database server.")), s.listDatabases)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeOperate, mutating("create_database", "Create database", "Create an additional database on the project's database server (same credentials).", true)), s.createDatabase)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("list_backups", "List backups", "Backups of a project.")), s.listBackups)
-	mcp.AddTool(s.mcp, s.tool(auth.ScopeOperate, mutating("create_backup", "Create backup", "Create a backup (database dump + files + configuration) of a project.", false)), s.createBackup)
+	mcp.AddTool(s.mcp, s.tool(auth.ScopeOperate, mutating("create_backup", "Create backup", "Create a backup (database dump + files + object storage + configuration) of a project.", false)), s.createBackup)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeOperate, mutating("add_domain", "Add domain", "Add an extra host name routed to the project by the embedded proxy.", true)), s.addDomain)
 }
 
@@ -572,7 +572,7 @@ func (s *Server) createBackup(ctx context.Context, _ *mcp.CallToolRequest, in cr
 		r, _ := toolErr(err)
 		return r, backupOut{}, nil
 	}
-	b, err := s.d.Projects.CreateBackup(ctx, v.Project.ID, project.BackupOptions{Database: true, Files: true, IncludeDependencies: in.IncludeDependencies, Note: strings.TrimSpace(in.Note)})
+	b, err := s.d.Projects.CreateBackup(ctx, v.Project.ID, project.BackupOptions{Database: true, Files: true, Storage: true, IncludeDependencies: in.IncludeDependencies, Note: strings.TrimSpace(in.Note)})
 	if err != nil {
 		r, _ := toolErr(err)
 		return r, backupOut{}, nil

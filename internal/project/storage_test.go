@@ -1,14 +1,23 @@
 package project
 
 import (
+	"archive/tar"
+	"bytes"
+	"compress/gzip"
 	"context"
 	"errors"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"testing"
 
 	"github.com/envoryx/envoryx/internal/runtime"
+	"github.com/envoryx/envoryx/internal/s3"
 	"github.com/envoryx/envoryx/internal/store"
 	"github.com/envoryx/envoryx/internal/validate"
 )
@@ -220,3 +229,178 @@ func TestStorageBucketNameAndReservedEnv(t *testing.T) {
 }
 
 func itoa(n int) string { return strconv.Itoa(n) }
+
+// memStore is an in-memory ObjectStore keyed by bucket/key.
+type memStore struct {
+	mu      sync.Mutex
+	objects map[string]memObject
+	puts    int
+}
+
+type memObject struct {
+	data  []byte
+	ctype string
+}
+
+func newMemStore() *memStore { return &memStore{objects: map[string]memObject{}} }
+
+func (s *memStore) ListObjects(_ context.Context, bucket string) ([]s3.Object, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var out []s3.Object
+	for k, o := range s.objects {
+		if b, key, _ := strings.Cut(k, "/"); b == bucket {
+			out = append(out, s3.Object{Key: key, Size: int64(len(o.data))})
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Key < out[j].Key })
+	return out, nil
+}
+
+func (s *memStore) GetObject(_ context.Context, bucket, key string) (io.ReadCloser, string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	o, ok := s.objects[bucket+"/"+key]
+	if !ok {
+		return nil, "", &s3.Error{Status: 404, Body: "NoSuchKey"}
+	}
+	return io.NopCloser(bytes.NewReader(o.data)), o.ctype, nil
+}
+
+func (s *memStore) PutObject(_ context.Context, bucket, key string, body io.Reader, size int64, ctype string) error {
+	data, err := io.ReadAll(body)
+	if err != nil {
+		return err
+	}
+	if int64(len(data)) != size {
+		return fmt.Errorf("size mismatch: %d vs %d", len(data), size)
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.objects[bucket+"/"+key] = memObject{data: data, ctype: ctype}
+	s.puts++
+	return nil
+}
+
+func (s *memStore) DeleteObjects(_ context.Context, bucket string, keys []string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, k := range keys {
+		delete(s.objects, bucket+"/"+k)
+	}
+	return nil
+}
+
+func (s *memStore) get(bucket, key string) (string, string, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	o, ok := s.objects[bucket+"/"+key]
+	return string(o.data), o.ctype, ok
+}
+
+func TestBackupIncludesObjectStorage(t *testing.T) {
+	e := newEnv(t)
+	e.m.SetProvisioner(&fakeProvisioner{})
+	mem := newMemStore()
+	e.m.SetObjectStoreFactory(func(string, string, string) s3.ObjectStore { return mem })
+	ctx := context.Background()
+	req := phpRequest("Shop", true)
+	req.Storage = &StorageRequest{}
+	view, err := e.m.Create(ctx, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := view.Project.ID
+	_ = os.WriteFile(filepath.Join(e.projDir, "shop", "public", "index.php"), []byte("v1"), 0o644)
+	big := bytes.Repeat([]byte("0123456789"), 300000) // 3 MB, crosses buffer boundaries
+	_ = mem.PutObject(ctx, "shop", "img/logo.png", bytes.NewReader([]byte("PNG")), 3, "image/png")
+	_ = mem.PutObject(ctx, "shop", "docs/a b/report.pdf", bytes.NewReader([]byte("%PDF")), 4, "application/pdf")
+	_ = mem.PutObject(ctx, "shop", "big.bin", bytes.NewReader(big), int64(len(big)), "")
+
+	// Files + storage: kind is "full", metadata counts the objects, the archive lists
+	// them as plain files with their content types.
+	info, err := e.m.CreateBackup(ctx, id, BackupOptions{Files: true, Storage: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Kind != "full" || info.Meta.Storage == nil || info.Meta.Storage.Objects != 3 || info.Meta.Storage.Bucket != "shop" || info.Meta.Storage.Bytes != int64(3+4+len(big)) {
+		t.Fatalf("backup info: kind=%s storage=%+v", info.Kind, info.Meta.Storage)
+	}
+	archive := filepath.Join(e.cfgDir, "backups", "shop", info.Dir, backupStorageFile)
+	f, err := os.Open(archive)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gz, _ := gzip.NewReader(f)
+	tr := tar.NewReader(gz)
+	types := map[string]string{}
+	for {
+		hdr, err := tr.Next()
+		if err != nil {
+			break
+		}
+		types[hdr.Name] = hdr.PAXRecords[paxContentType]
+	}
+	f.Close()
+	if types["img/logo.png"] != "image/png" || types["docs/a b/report.pdf"] != "application/pdf" || len(types) != 3 {
+		t.Fatalf("archive entries: %v", types)
+	}
+
+	// Storage alone is its own kind; a project without storage refuses it but a mixed
+	// request just drops it.
+	if only, err := e.m.CreateBackup(ctx, id, BackupOptions{Storage: true}); err != nil || only.Kind != "storage" {
+		t.Fatalf("storage-only backup: %+v %v", only, err)
+	}
+	plain, err := e.m.Create(ctx, phpRequest("Plain", true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.m.CreateBackup(ctx, plain.Project.ID, BackupOptions{Storage: true}); !errors.Is(err, validate.ErrInvalid) {
+		t.Fatalf("storage backup without storage = %v", err)
+	}
+	if b, err := e.m.CreateBackup(ctx, plain.Project.ID, BackupOptions{Files: true, Storage: true}); err != nil || b.Kind != "files" || b.Meta.Storage != nil {
+		t.Fatalf("mixed request on a project without storage: %+v %v", b, err)
+	}
+
+	// Restore without wipe overwrites/adds; with wipe the extra object disappears.
+	_ = mem.PutObject(ctx, "shop", "img/logo.png", bytes.NewReader([]byte("CHANGED")), 7, "image/png")
+	_ = mem.PutObject(ctx, "shop", "extra.txt", bytes.NewReader([]byte("x")), 1, "text/plain")
+	if _, err := e.m.RestoreBackup(ctx, id, info.ID, RestoreOptions{Storage: true, Confirm: "shop"}); err != nil {
+		t.Fatal(err)
+	}
+	if data, ctype, _ := mem.get("shop", "img/logo.png"); data != "PNG" || ctype != "image/png" {
+		t.Fatalf("restored logo: %q %q", data, ctype)
+	}
+	if data, _, _ := mem.get("shop", "big.bin"); !bytes.Equal([]byte(data), big) {
+		t.Fatal("restored big object differs")
+	}
+	if _, ctype, _ := mem.get("shop", "docs/a b/report.pdf"); ctype != "application/pdf" {
+		t.Fatalf("content type lost: %q", ctype)
+	}
+	if _, _, ok := mem.get("shop", "extra.txt"); !ok {
+		t.Fatal("restore without wipe must keep other objects")
+	}
+	if _, err := e.m.RestoreBackup(ctx, id, info.ID, RestoreOptions{Storage: true, WipeStorage: true, Confirm: "shop"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, ok := mem.get("shop", "extra.txt"); ok {
+		t.Fatal("wipe must remove objects that are not in the backup")
+	}
+	// A backup without storage cannot restore it; a stopped storage container refuses.
+	filesOnly, _ := e.m.CreateBackup(ctx, id, BackupOptions{Files: true})
+	if _, err := e.m.RestoreBackup(ctx, id, filesOnly.ID, RestoreOptions{Storage: true, Confirm: "shop"}); !errors.Is(err, validate.ErrInvalid) {
+		t.Fatalf("restore storage from files-only backup = %v", err)
+	}
+	e.engine.SetState("envoryx-shop-storage", "exited")
+	if _, err := e.m.CreateBackup(ctx, id, BackupOptions{Storage: true}); !errors.Is(err, ErrConflict) {
+		t.Fatalf("backup with stopped storage = %v", err)
+	}
+}
+
+func TestValidObjectKey(t *testing.T) {
+	for k, want := range map[string]bool{"a/b.txt": true, "with space/x": true, "": false, "/abs": false, "a/../b": false, "..": false, "ok/..x": true} {
+		if got := validObjectKey(k); got != want {
+			t.Errorf("validObjectKey(%q) = %v", k, got)
+		}
+	}
+}
