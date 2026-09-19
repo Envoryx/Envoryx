@@ -148,6 +148,19 @@ per browser (`localStorage`). To find untranslated keys, run
    missing). Running instances see the new version through the daily update
    check.
 
+Every push to `main` and every pull request also runs the **upgrade test**
+(`.github/workflows/upgrade.yml`, `scripts/upgrade-test.sh`): the latest
+published release is started with a sample project, then the candidate image
+takes over the same `/config` and `/projects`. It checks the schema
+migration, the automatic pre-migrate backup, that the project, its
+containers, files, settings, audit log and API token survive, and – when the
+schema moved – that the old release refuses to start on the new database.
+The script runs on any Docker host (`jq` required):
+
+```sh
+scripts/upgrade-test.sh ghcr.io/envoryx/envoryx:0.1.0 ghcr.io/envoryx/envoryx:main
+```
+
 Version rules while below 1.0: a **minor** release may change behaviour or
 require a migration (Envoryx takes a pre-migrate instance backup itself), a
 **patch** release only fixes. Schema migrations are forward-only, so a
