@@ -36,11 +36,21 @@ func Open(ctx context.Context, path string, log *slog.Logger) (*sql.DB, error) {
 	return OpenWith(ctx, path, log, Options{})
 }
 
-// OpenWith is Open with options.
+// ErrCorrupt is returned when the database file fails SQLite's integrity check.
+var ErrCorrupt = errors.New("database integrity check failed")
+
+// OpenWith is Open with options. A file database is integrity-checked before anything
+// touches it; a damaged file is refused (ErrCorrupt) rather than migrated or served.
 func OpenWith(ctx context.Context, path string, log *slog.Logger, opts Options) (*sql.DB, error) {
 	sqlDB, err := OpenRaw(ctx, path, log)
 	if err != nil {
 		return nil, err
+	}
+	if path != ":memory:" {
+		if err := Check(ctx, sqlDB); err != nil {
+			_ = sqlDB.Close()
+			return nil, err
+		}
 	}
 	if err := migrate(ctx, sqlDB, log, opts.BeforeMigrate); err != nil {
 		_ = sqlDB.Close()
@@ -121,6 +131,33 @@ func loadMigrations() ([]migration, error) {
 		}
 	}
 	return out, nil
+}
+
+// Check runs SQLite's full integrity check. It reads the whole file, which for the
+// kilobytes-to-megabytes Envoryx keeps takes milliseconds.
+func Check(ctx context.Context, sqlDB *sql.DB) error {
+	rows, err := sqlDB.QueryContext(ctx, `PRAGMA integrity_check`)
+	if err != nil {
+		return fmt.Errorf("%w: %v", ErrCorrupt, err)
+	}
+	defer rows.Close()
+	var problems []string
+	for rows.Next() {
+		var line string
+		if err := rows.Scan(&line); err != nil {
+			return fmt.Errorf("%w: %v", ErrCorrupt, err)
+		}
+		if line != "ok" {
+			problems = append(problems, line)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("%w: %v", ErrCorrupt, err)
+	}
+	if len(problems) > 0 {
+		return fmt.Errorf("%w: %s", ErrCorrupt, strings.Join(problems, "; "))
+	}
+	return nil
 }
 
 // LatestVersion returns the schema version this binary migrates to.

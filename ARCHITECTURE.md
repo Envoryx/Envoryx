@@ -458,6 +458,11 @@ Migrations are forward-only SQL files embedded in the binary and applied in
 a transaction each; the version table prevents re-application. Downgrading
 the image below the schema version is refused with a clear error.
 
+Startup refuses a database that fails `PRAGMA integrity_check` (`db.ErrCorrupt`,
+the error names the newest instance backup) and a config directory on a
+network filesystem (`config.ValidateStorage`; FUSE only warns, the warning is
+shown in Settings).
+
 `internal/instance` backs up the instance itself (database via `VACUUM INTO`,
 `ca/`, `ssh/`, `notify.json`, `projects/<id>/` without `home/` caches) into a
 single tarball under `<backups>/_instance/`. One is written automatically

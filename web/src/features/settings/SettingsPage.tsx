@@ -205,6 +205,15 @@ export function SettingsPage() {
       ) : (
         <Card>
           <CardHeader title={t("Instance")} />
+          {s.data.warnings.length > 0 && (
+            <div className="space-y-2 px-5 pt-5">
+              {s.data.warnings.map((w) => (
+                <Alert key={w} tone="amber" title={t("Storage warning")}>
+                  {w}
+                </Alert>
+              ))}
+            </div>
+          )}
           <dl className="grid gap-x-8 gap-y-3 p-5 text-sm sm:grid-cols-2">
             <Row label={t("Version")} value={s.data.version} />
             <Row label={t("Schema version")} value={String(s.data.schemaVersion)} />

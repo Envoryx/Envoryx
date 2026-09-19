@@ -44,6 +44,8 @@ type Deps struct {
 	DB *sql.DB
 	// Restart asks the server to shut down and start again (e.g. to apply a restore).
 	Restart func()
+	// Warnings are startup findings worth showing in the UI (storage checks).
+	Warnings []string
 	// MCP is the MCP endpoint handler (nil = disabled); mounted at /mcp by the server.
 	MCP http.Handler
 	// SSH describes the embedded SSH server (nil = disabled).

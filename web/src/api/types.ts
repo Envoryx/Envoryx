@@ -494,6 +494,8 @@ export interface SSHInfo {
 
 export interface Settings {
   publicHost: string;
+  /** Startup findings (e.g. config directory on FUSE/network storage). */
+  warnings: string[];
   xdebugClientHost?: string;
   sshAuthorizedKeys?: string;
   ssh?: SSHInfo;

@@ -137,6 +137,17 @@ func serve() error {
 		}
 	}
 	warnStrandedBackups(cfg, log)
+	var warnings []string
+	for _, dir := range uniqueDirs(cfg.ConfigDir, filepath.Dir(cfg.DatabasePath)) {
+		w, err := config.ValidateStorage(dir, cfg.AllowNetworkFS)
+		if err != nil {
+			return fmt.Errorf("storage: %w", err)
+		}
+		if w != "" {
+			log.Warn("storage check", "dir", dir, "warning", w)
+			warnings = append(warnings, w)
+		}
+	}
 
 	// 1. Database. A scheduled instance restore replaces it first; a schema upgrade is
 	// preceded by an automatic instance backup so the previous state can be brought back.
@@ -157,6 +168,13 @@ func serve() error {
 		return nil
 	}})
 	if err != nil {
+		if errors.Is(err, db.ErrCorrupt) {
+			hint := "no instance backup found"
+			if list, lerr := backups.List(); lerr == nil && len(list) > 0 {
+				hint = fmt.Sprintf("the newest instance backup is %s in %s", list[0].ID, backups.Dir)
+			}
+			return fmt.Errorf("database: %w – restore an instance backup (%s; see DEPLOYMENT.md, Instance backups)", err, hint)
+		}
 		return fmt.Errorf("database: %w", err)
 	}
 	defer sqlDB.Close()
@@ -316,7 +334,7 @@ func serve() error {
 		Config: cfg, Version: version, Store: st, Auth: sessions, Audit: auditLog, Engine: engine,
 		Projects: manager, Catalog: catalog, Stats: collector, HostPath: resolver, Certs: certs, ACME: acmeMgr, Notify: notifier, Proxy: proxyInfo,
 		MCP: mcpSrv.Handler(), SSH: sshInfo, Log: log, StartedAt: time.Now(),
-		Instance: backups, DB: sqlDB, Restart: requestRestart,
+		Instance: backups, DB: sqlDB, Restart: requestRestart, Warnings: warnings,
 	})
 	var origins []string
 	if cfg.DevMode {
@@ -369,6 +387,19 @@ func serve() error {
 	}
 	log.Info("Envoryx stopped")
 	return nil
+}
+
+// uniqueDirs drops duplicates, keeping order.
+func uniqueDirs(dirs ...string) []string {
+	var out []string
+	seen := map[string]bool{}
+	for _, d := range dirs {
+		if !seen[d] {
+			seen[d] = true
+			out = append(out, d)
+		}
+	}
+	return out
 }
 
 // portOfAddr extracts the port of a listen address ("" → 0).

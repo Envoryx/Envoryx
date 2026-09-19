@@ -321,6 +321,7 @@ func (a *API) settings(w http.ResponseWriter, r *http.Request) {
 		"dockerHost":        c.DockerHost,
 		"session":           map[string]string{"idleTimeout": c.SessionIdleTimeout.String(), "absoluteTimeout": c.SessionAbsoluteTimeout.String()},
 		"secureCookies":     c.SecureCookies,
+		"warnings":          append([]string{}, a.d.Warnings...),
 	})
 }
 

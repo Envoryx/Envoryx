@@ -76,6 +76,8 @@ type Config struct {
 
 	// DevMode relaxes a few things for local development (e.g. text logs, CORS for the Vite dev server).
 	DevMode bool
+	// AllowNetworkFS lets Envoryx start with /config on NFS/SMB (not recommended).
+	AllowNetworkFS bool
 	// DevOrigin is the allowed browser origin in dev mode (Vite dev server).
 	DevOrigin string
 }
@@ -105,6 +107,7 @@ func Load() (Config, error) {
 		LogLevel:               strings.ToLower(env("ENVORYX_LOG_LEVEL", "info")),
 		LogFormat:              strings.ToLower(env("ENVORYX_LOG_FORMAT", "json")),
 		DevMode:                envBool("ENVORYX_DEV", false),
+		AllowNetworkFS:         envBool("ENVORYX_ALLOW_NETWORK_FS", false),
 		DevOrigin:              env("ENVORYX_DEV_ORIGIN", "http://localhost:5173"),
 	}
 	c.DatabasePath = env("ENVORYX_DATABASE_PATH", filepath.Join(c.ConfigDir, "envoryx.db"))

@@ -64,7 +64,8 @@ docker build -t ghcr.io/envoryx/envoryx:dev --build-arg VERSION=dev .
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `ENVORYX_LISTEN` | `:8787` | Listen address |
-| `ENVORYX_CONFIG_DIR` | `/config` | Persistent state (SQLite, generated configs, caches) |
+| `ENVORYX_CONFIG_DIR` | `/config` | Persistent state (SQLite, generated configs, caches). Must be on a local filesystem, see [Where to put /config](#where-to-put-config) |
+| `ENVORYX_ALLOW_NETWORK_FS` | `false` | Start even if `/config` is on NFS/SMB. Not recommended: SQLite corrupts silently without reliable file locks |
 | `ENVORYX_PROJECTS_DIR` | `/projects` | Root of all project directories |
 | `ENVORYX_BACKUPS_DIR` | `/backups` if that directory exists, else `/config/backups` | Where project backups are stored (see [Backups](#backups)) |
 | `ENVORYX_PROJECTS_HOST_PATH` | auto | Host path behind `/projects` (see below) |
@@ -82,6 +83,25 @@ docker build -t ghcr.io/envoryx/envoryx:dev --build-arg VERSION=dev .
 | `ENVORYX_SECURE_COOKIES` | `false` | Mark cookies `Secure` (enable behind HTTPS) |
 | `ENVORYX_LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` |
 | `ENVORYX_LOG_FORMAT` | `json` | `json` or `text` |
+
+## Where to put /config
+
+`/config` holds the SQLite database. SQLite needs a filesystem with working
+`fsync` and POSIX locks, so at startup Envoryx checks what `/config` is on:
+
+- **Network filesystem (NFS, SMB/CIFS, 9p, Ceph)**: Envoryx refuses to start.
+  Locks are unreliable there and the database corrupts silently – the classic
+  "SQLite is unreliable" story is almost always this. Use a local directory;
+  `ENVORYX_ALLOW_NETWORK_FS=true` overrides the check at your own risk.
+- **FUSE** (Unraid's `/mnt/user/...` user shares): Envoryx starts and shows a
+  warning in *Settings*. It works in practice, but the pool path is the safer
+  choice for a database: use `/mnt/cache/appdata/envoryx` (or your pool's
+  name) as the host path for `/config`, or enable *Exclusive access* for the
+  `appdata` share (Unraid ≥ 6.12, share on a single pool) – then `/mnt/user`
+  bypasses FUSE and the warning disappears.
+- The database file is integrity-checked at every start (`PRAGMA
+  integrity_check`). A damaged file is refused with the name of the newest
+  instance backup to restore instead of being migrated or served.
 
 ## Host paths (important)
 
@@ -143,7 +163,7 @@ No publication in Community Applications is required for either way.
 | Port | `8787` → `8787` |
 | Port | `80` → `80` and `443` → `443` (proxy; optional, other host ports work) |
 | Port | `2222` → `2222` (SSH for IDEs; optional) |
-| Path `/config` | `/mnt/user/appdata/envoryx` |
+| Path `/config` | `/mnt/cache/appdata/envoryx` (pool path; `/mnt/user/appdata/envoryx` works with a warning, see [Where to put /config](#where-to-put-config)) |
 | Path `/projects` | `/mnt/user/development` (create the share first) |
 | Path `/backups` | optional, e.g. `/mnt/user/backups/envoryx` – keeps backups off the cache/appdata share |
 | Path `/var/run/docker.sock` | `/var/run/docker.sock` |
