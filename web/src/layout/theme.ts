@@ -40,7 +40,7 @@ export function useTheme(): [Theme, (t: Theme) => void] {
   return [theme, setTheme];
 }
 
-export const accents = ["mint", "teal", "lime", "ocean", "indigo", "violet", "fuchsia", "rose", "orange", "amber", "slate"] as const;
+export const accents = ["mint", "lime", "ocean", "indigo", "violet", "fuchsia", "rose", "orange", "amber", "slate"] as const;
 export type Accent = (typeof accents)[number];
 const ACCENT_KEY = "envoryx.accent";
 

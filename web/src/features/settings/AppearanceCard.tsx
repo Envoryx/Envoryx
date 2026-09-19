@@ -6,12 +6,12 @@ import { LogoMark } from "@/layout/Logo";
 import { accents, useAccent, type Accent } from "@/layout/theme";
 
 const accentLabel: Record<Accent, string> = {
-  mint: "Mint", teal: "Teal", lime: "Lime", ocean: "Ocean", indigo: "Indigo", violet: "Violet",
+  mint: "Mint", lime: "Lime", ocean: "Ocean", indigo: "Indigo", violet: "Violet",
   fuchsia: "Fuchsia", rose: "Rose", orange: "Orange", amber: "Amber", slate: "Graphite",
 };
 // Swatch colours: the 500 tone of each palette (see index.css).
 const swatch: Record<Accent, string> = {
-  mint: "#10c98f", teal: "#14b8a6", lime: "#84cc16", ocean: "#0ea5e9", indigo: "#6366f1", violet: "#8b5cf6",
+  mint: "#10c98f", lime: "#84cc16", ocean: "#0ea5e9", indigo: "#6366f1", violet: "#8b5cf6",
   fuchsia: "#d946ef", rose: "#f43f5e", orange: "#f97316", amber: "#f59e0b", slate: "#64748b",
 };
 
