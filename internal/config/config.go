@@ -42,6 +42,11 @@ type Config struct {
 	SessionIdleTimeout     time.Duration
 	SessionAbsoluteTimeout time.Duration
 
+	// ShutdownGrace is how long running project operations (image pulls, backups) may
+	// finish after SIGTERM before they are abandoned. Keep it below the container's stop
+	// timeout (Docker default 10 s; Unraid: Settings → Docker → stop timeout).
+	ShutdownGrace time.Duration
+
 	// SecureCookies marks the session cookie as Secure. Enable when Envoryx is served over HTTPS.
 	SecureCookies bool
 
@@ -93,6 +98,7 @@ func Load() (Config, error) {
 		DockerHost:             env("DOCKER_HOST", ""),
 		SessionIdleTimeout:     envDuration("ENVORYX_SESSION_IDLE_TIMEOUT", 12*time.Hour),
 		SessionAbsoluteTimeout: envDuration("ENVORYX_SESSION_ABSOLUTE_TIMEOUT", 7*24*time.Hour),
+		ShutdownGrace:          envDuration("ENVORYX_SHUTDOWN_GRACE", 8*time.Second),
 		SecureCookies:          envBool("ENVORYX_SECURE_COOKIES", false),
 		PortRangeStart:         envInt("ENVORYX_PORT_RANGE_START", 20000),
 		PortRangeEnd:           envInt("ENVORYX_PORT_RANGE_END", 20999),

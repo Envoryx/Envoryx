@@ -40,4 +40,8 @@ services:
       # ENVORYX_SSH: ":2222"
       # Optional: use a Docker socket proxy instead of the raw socket (see SECURITY.md).
       # DOCKER_HOST: tcp://docker-socket-proxy:2375
+      # Running project operations (image pulls, backups) may finish for this long after
+      # a stop signal; keep it below stop_grace_period.
+      ENVORYX_SHUTDOWN_GRACE: 80s
+    stop_grace_period: 90s
     restart: unless-stopped

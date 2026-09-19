@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/envoryx/envoryx/internal/audit"
 	"github.com/envoryx/envoryx/internal/docker"
@@ -55,8 +56,18 @@ func (m *Manager) rollback(ctx context.Context, j journal) error {
 }
 
 // Create validates, persists and provisions a new project. On any provisioning failure all
-// created Docker resources are removed and the database record is deleted.
+// created Docker resources are removed and the database record is deleted. The work runs
+// detached from ctx's cancellation (see Manager.run).
 func (m *Manager) Create(ctx context.Context, req CreateRequest) (View, error) {
+	var view View
+	err := m.run(ctx, limitProvision, func(ctx context.Context) (err error) {
+		view, err = m.create(ctx, req)
+		return err
+	})
+	return view, err
+}
+
+func (m *Manager) create(ctx context.Context, req CreateRequest) (View, error) {
 	proj, err := m.buildProject(req)
 	if err != nil {
 		return View{}, err
@@ -102,6 +113,7 @@ func (m *Manager) Create(ctx context.Context, req CreateRequest) (View, error) {
 
 	j := journal{configDir: plan.ConfigDir}
 	fail := func(step string, cause error) (View, error) {
+		cause = opError(ctx, cause)
 		m.log.Error("project creation failed, rolling back", "project", proj.Slug, "step", step, "err", cause)
 		rbErr := m.rollback(ctx, j)
 		if delErr := m.store.Projects.Delete(context.WithoutCancel(ctx), proj.ID); delErr != nil {
@@ -190,14 +202,14 @@ func (m *Manager) pullProgress(slug string) docker.PullProgress {
 
 // Start brings all project containers up, recreating missing ones from the plan.
 func (m *Manager) Start(ctx context.Context, id string) (View, error) {
-	return m.transition(ctx, id, audit.ActionProjectStarted, func(ctx context.Context, proj store.Project, plan Plan) error {
+	return m.transition(ctx, id, limitProvision, audit.ActionProjectStarted, func(ctx context.Context, proj store.Project, plan Plan) error {
 		return m.startPlan(ctx, proj, plan)
 	}, store.DesiredRunning)
 }
 
 // Stop stops all project containers.
 func (m *Manager) Stop(ctx context.Context, id string) (View, error) {
-	return m.transition(ctx, id, audit.ActionProjectStopped, func(ctx context.Context, proj store.Project, plan Plan) error {
+	return m.transition(ctx, id, limitStop, audit.ActionProjectStopped, func(ctx context.Context, proj store.Project, plan Plan) error {
 		return m.stopPlan(ctx, proj, plan)
 	}, store.DesiredStopped)
 }
@@ -206,7 +218,7 @@ func (m *Manager) Stop(ctx context.Context, id string) (View, error) {
 // the runtime images so rebuilt upstream images (PHP patch releases) are picked up;
 // containers whose image changed are recreated.
 func (m *Manager) Restart(ctx context.Context, id string) (View, error) {
-	return m.transition(ctx, id, audit.ActionProjectRestarted, func(ctx context.Context, proj store.Project, plan Plan) error {
+	return m.transition(ctx, id, limitProvision, audit.ActionProjectRestarted, func(ctx context.Context, proj store.Project, plan Plan) error {
 		for _, img := range plan.Images {
 			if err := m.engine.PullImage(ctx, img, m.pullProgress(proj.Slug)); err != nil {
 				// A registry hiccup must not prevent a restart with the local image.
@@ -220,10 +232,22 @@ func (m *Manager) Restart(ctx context.Context, id string) (View, error) {
 	}, store.DesiredRunning)
 }
 
-func (m *Manager) transition(ctx context.Context, id, action string, op func(context.Context, store.Project, Plan) error, desired store.DesiredState) (View, error) {
+// transition runs a lifecycle step under the project lock, detached from the caller's
+// cancellation, and records the outcome: the desired state on success, the error on
+// failure (a shutdown or time limit is stored as its readable cause).
+func (m *Manager) transition(ctx context.Context, id string, limit time.Duration, action string, op func(context.Context, store.Project, Plan) error, desired store.DesiredState) (View, error) {
 	if err := validate.UUID(id); err != nil {
 		return View{}, ErrNotFound
 	}
+	var view View
+	err := m.run(ctx, limit, func(ctx context.Context) (err error) {
+		view, err = m.transitionLocked(ctx, id, action, op, desired)
+		return err
+	})
+	return view, err
+}
+
+func (m *Manager) transitionLocked(ctx context.Context, id, action string, op func(context.Context, store.Project, Plan) error, desired store.DesiredState) (View, error) {
 	unlock, err := m.lock(id)
 	if err != nil {
 		return View{}, err
@@ -246,9 +270,12 @@ func (m *Manager) transition(ctx context.Context, id, action string, op func(con
 		return View{}, err
 	}
 	if err := op(ctx, proj, plan); err != nil {
+		err = opError(ctx, err)
 		_ = m.store.Projects.UpdateState(context.WithoutCancel(ctx), id, proj.DesiredState, proj.Lifecycle, err.Error())
 		return View{}, err
 	}
+	// The Docker side is done; record it even if the operation was cancelled meanwhile.
+	ctx = context.WithoutCancel(ctx)
 	if err := m.store.Projects.UpdateState(ctx, id, desired, store.LifecycleReady, ""); err != nil {
 		return View{}, err
 	}
@@ -409,6 +436,15 @@ func (m *Manager) Update(ctx context.Context, id string, req UpdateRequest) (Vie
 	if err := validate.UUID(id); err != nil {
 		return View{}, ErrNotFound
 	}
+	var view View
+	err := m.run(ctx, limitProvision, func(ctx context.Context) (err error) {
+		view, err = m.update(ctx, id, req)
+		return err
+	})
+	return view, err
+}
+
+func (m *Manager) update(ctx context.Context, id string, req UpdateRequest) (View, error) {
 	unlock, err := m.lock(id)
 	if err != nil {
 		return View{}, err
@@ -666,6 +702,10 @@ func (m *Manager) Delete(ctx context.Context, id string, opts DeleteOptions) err
 	if err := validate.UUID(id); err != nil {
 		return ErrNotFound
 	}
+	return m.run(ctx, limitDelete, func(ctx context.Context) error { return m.delete(ctx, id, opts) })
+}
+
+func (m *Manager) delete(ctx context.Context, id string, opts DeleteOptions) error {
 	unlock, err := m.lock(id)
 	if err != nil {
 		return err
@@ -683,6 +723,7 @@ func (m *Manager) Delete(ctx context.Context, id string, opts DeleteOptions) err
 		return err
 	}
 	fail := func(step string, cause error) error {
+		cause = opError(ctx, cause)
 		msg := fmt.Sprintf("%s: %v", step, cause)
 		_ = m.store.Projects.UpdateState(context.WithoutCancel(ctx), id, proj.DesiredState, store.LifecycleFailed, msg)
 		m.audit.Log(ctx, audit.ActionProjectFailed, "project", id, map[string]any{"name": proj.Name, "step": step, "error": cause.Error()})

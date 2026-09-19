@@ -81,6 +81,7 @@ docker build -t ghcr.io/envoryx/envoryx:dev --build-arg VERSION=dev .
 | `ENVORYX_SESSION_IDLE_TIMEOUT` | `12h` | Sliding session expiry |
 | `ENVORYX_SESSION_ABSOLUTE_TIMEOUT` | `168h` | Hard session expiry |
 | `ENVORYX_SECURE_COOKIES` | `false` | Mark cookies `Secure` (enable behind HTTPS) |
+| `ENVORYX_SHUTDOWN_GRACE` | `8s` | How long running project operations may finish after a stop signal, see [Stopping and restarting](#stopping-and-restarting) |
 | `ENVORYX_LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` |
 | `ENVORYX_LOG_FORMAT` | `json` | `json` or `text` |
 
@@ -320,6 +321,29 @@ Outside Docker the proxy dials the project's published port
 (`127.0.0.1:<port>`) instead of joining the project network. Binding 80/443
 needs `setcap cap_net_bind_service=+ep ./envoryx` or other addresses
 (`ENVORYX_PROXY_HTTP=:8080`).
+
+## Stopping and restarting
+
+Project operations – creating, starting, restarting, updating, deleting a
+project, project backups and restores – run to completion on the server even
+when the browser tab that started them is closed, the page is reloaded or the
+connection drops. The UI simply shows the result on the next load.
+
+When Envoryx itself is stopped (`docker stop`, an Unraid update, an instance
+restore) it refuses new project operations, gives the running ones
+`ENVORYX_SHUTDOWN_GRACE` (default 8 s) to finish and then abandons what is
+left. An abandoned operation is recorded on the project as *interrupted by an
+Envoryx restart*; the project keeps its previous state and the action can be
+run again after the restart (a start or restart picks up where it left off, a
+creation is rolled back). Backups in flight are discarded and retried at the
+next scheduled run.
+
+The grace period must stay below the container's stop timeout, otherwise
+Docker kills the process first: Docker's default is 10 s; the compose file
+sets `stop_grace_period: 90s` with `ENVORYX_SHUTDOWN_GRACE: 80s` so an image
+pull can usually finish. On Unraid the stop timeout is global (*Settings →
+Docker → Docker stop timeout*, default 10 s) – raise it and the template's
+*Shutdown grace* together if you want the same behaviour.
 
 ## Updating
 

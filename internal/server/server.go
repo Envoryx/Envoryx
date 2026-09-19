@@ -29,12 +29,16 @@ type Options struct {
 	// MCP is mounted at /mcp when set. It authenticates with bearer tokens itself and
 	// is outside the cookie/CSRF scheme of /api/.
 	MCP http.Handler
+	// BeforeShutdown runs when the context ends, before the listener closes: it drains
+	// the long-running project operations that handlers are waiting on.
+	BeforeShutdown func()
 }
 
 // Server wraps http.Server.
 type Server struct {
-	http *http.Server
-	log  *slog.Logger
+	http           *http.Server
+	log            *slog.Logger
+	beforeShutdown func()
 }
 
 // New builds the handler chain. dist is the embedded frontend (may be nil).
@@ -66,7 +70,8 @@ func New(opts Options, a *api.API, sessions *auth.Service, dist fs.FS) *Server {
 			IdleTimeout:       120 * time.Second,
 			MaxHeaderBytes:    64 << 10,
 		},
-		log: opts.Log,
+		log:            opts.Log,
+		beforeShutdown: opts.BeforeShutdown,
 	}
 }
 
@@ -88,6 +93,9 @@ func (s *Server) ListenAndServe(ctx context.Context) error {
 	case err := <-errCh:
 		return err
 	case <-ctx.Done():
+		if s.beforeShutdown != nil {
+			s.beforeShutdown()
+		}
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cancel()
 		return s.http.Shutdown(shutdownCtx)

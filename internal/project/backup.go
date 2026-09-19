@@ -183,7 +183,11 @@ func (m *Manager) ListBackups(ctx context.Context, id string) ([]BackupInfo, err
 // CreateBackup dumps the database and/or archives the project files. The project lock is
 // held so no lifecycle operation interferes.
 func (m *Manager) CreateBackup(ctx context.Context, id string, opts BackupOptions) (BackupInfo, error) {
-	info, err := m.createBackup(ctx, id, opts)
+	var info BackupInfo
+	err := m.run(ctx, limitBackup, func(ctx context.Context) (err error) {
+		info, err = m.createBackup(ctx, id, opts)
+		return err
+	})
 	if err != nil && !errors.Is(err, validate.ErrInvalid) && !errors.Is(err, ErrNotFound) && !errors.Is(err, ErrBusy) {
 		name := id
 		if p, perr := m.store.Projects.Get(ctx, id); perr == nil {
@@ -594,6 +598,15 @@ func (m *Manager) RestoreBackup(ctx context.Context, id, backupID string, opts R
 	if !opts.Database && !opts.Files {
 		return BackupInfo{}, fmt.Errorf("%w: select the database and/or the files to restore", validate.ErrInvalid)
 	}
+	var info BackupInfo
+	err := m.run(ctx, limitBackup, func(ctx context.Context) (err error) {
+		info, err = m.restoreBackup(ctx, id, backupID, opts)
+		return err
+	})
+	return info, err
+}
+
+func (m *Manager) restoreBackup(ctx context.Context, id, backupID string, opts RestoreOptions) (BackupInfo, error) {
 	unlock, err := m.lock(id)
 	if err != nil {
 		return BackupInfo{}, err

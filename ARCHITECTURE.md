@@ -387,6 +387,21 @@ Project files in `/projects` are **never** deleted by rollback.
 
 All operations hold the per-project lock; concurrent requests return `409`.
 
+**Detached execution** (`internal/project/ops.go`): create, start, stop,
+restart, update, delete, project backup and restore run through
+`Manager.run`, which derives the operation context from
+`context.WithoutCancel(request ctx)` – the caller's values (principal, IP)
+carry over, its cancellation does not, so a closed tab or a dropped
+connection never aborts a pull and rolls a project back. Each operation has
+an upper bound (`limitProvision` 30 min, `limitStop`, `limitDelete`,
+`limitBackup`). At shutdown `Manager.Shutdown(grace)` refuses new operations
+(`ErrShuttingDown` → 503), waits `ENVORYX_SHUTDOWN_GRACE` for running ones
+and then cancels the shared root context with `ErrInterrupted` as cause;
+`opError` turns the resulting `context.Canceled` into that cause so the
+project's `last_error` reads "interrupted by an Envoryx restart" instead of
+"context canceled". The HTTP server calls it from `BeforeShutdown` before
+closing the listener, so handlers waiting on an operation return first.
+
 ### 8.5 Delete
 
 `DELETE /projects/{id}` requires `{"confirm": "<slug>"}` in the body. It

@@ -358,7 +358,16 @@ func serve() error {
 			a.SetAllowedOriginHosts([]string{u.Host})
 		}
 	}
-	srv := server.New(server.Options{Addr: cfg.ListenAddr, AllowedOrigins: origins, Log: log, MCP: mcpSrv.Handler()}, a, sessions, dist)
+	// On SIGTERM (Docker stop, Unraid update) or a requested restart, running project
+	// operations get cfg.ShutdownGrace to finish before they are abandoned; new ones are
+	// refused meanwhile. Whatever is cut off is recorded on the project as interrupted.
+	drain := func() {
+		log.Info("draining project operations", "grace", cfg.ShutdownGrace)
+		if !manager.Shutdown(cfg.ShutdownGrace) {
+			log.Warn("project operations still running after the grace period were interrupted; affected projects carry the note in their status")
+		}
+	}
+	srv := server.New(server.Options{Addr: cfg.ListenAddr, AllowedOrigins: origins, Log: log, MCP: mcpSrv.Handler(), BeforeShutdown: drain}, a, sessions, dist)
 
 	// 8. Embedded reverse proxy (host-name routing + HTTPS for projects and the UI).
 	if proxyInfo.Enabled {

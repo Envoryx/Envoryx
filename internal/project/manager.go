@@ -45,6 +45,7 @@ type Manager struct {
 
 	locks    sync.Map // project id -> *sync.Mutex
 	createMu sync.Mutex
+	ops      *ops // running lifecycle operations, drained at Shutdown
 
 	reportMu sync.RWMutex
 	report   ReconcileReport
@@ -68,7 +69,7 @@ func NewManager(st *store.Store, engine docker.Engine, catalog *runtime.Catalog,
 	if cfg.StopTimeout == 0 {
 		cfg.StopTimeout = 10 * time.Second
 	}
-	return &Manager{store: st, engine: engine, catalog: catalog, paths: paths, audit: auditLog, log: log, cfg: cfg}
+	return &Manager{store: st, engine: engine, catalog: catalog, paths: paths, audit: auditLog, log: log, cfg: cfg, ops: newOps()}
 }
 
 func (m *Manager) planner() (*Planner, error) {
