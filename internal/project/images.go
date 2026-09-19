@@ -27,6 +27,86 @@ type PruneResult struct {
 	Errors         []string      `json:"errors"`
 }
 
+// rollbackRepoPrefix starts the repository of every rollback tag Envoryx creates.
+const rollbackRepoPrefix = "envoryx-rollback/"
+
+// rollbackRef is the tag Envoryx keeps on a project's rollback target so that it is not a
+// dangling image: `docker image prune` (Unraid's "remove unused images", clean-up plugins)
+// deletes untagged images, and the containerd image store drops them outright when a
+// tag moves on. One tag per project and image reference, e.g.
+// envoryx-rollback/shop:ghcr.io-envoryx-envoryx-php-8.4.
+func rollbackRef(slug, image string) string {
+	var b strings.Builder
+	for _, r := range strings.ToLower(image) {
+		switch {
+		case r >= 'a' && r <= 'z', r >= '0' && r <= '9', r == '.', r == '_', r == '-':
+			b.WriteRune(r)
+		default:
+			b.WriteByte('-')
+		}
+	}
+	tag := strings.Trim(b.String(), ".-_")
+	if len(tag) > 120 {
+		tag = tag[:120]
+	}
+	if tag == "" {
+		tag = "image"
+	}
+	return rollbackRepoPrefix + slug + ":" + tag
+}
+
+func isRollbackRef(ref string) bool {
+	return strings.HasPrefix(ref, rollbackRepoPrefix)
+}
+
+// protectRollbackTarget tags the rollback target of one history record; a target that
+// has already vanished is only logged, the rollback itself then fails with a clear error.
+func (m *Manager) protectRollbackTarget(ctx context.Context, slug string, rec store.ProjectImage) {
+	if rec.PreviousID == "" {
+		return
+	}
+	ref := rollbackRef(slug, rec.Image)
+	if cur, err := m.engine.ImageID(ctx, ref); err == nil && cur == rec.PreviousID {
+		return
+	}
+	if err := m.engine.TagImage(ctx, rec.PreviousID, ref); err != nil {
+		m.log.Warn("rollback image not protected", "project", slug, "image", rec.Image, "previous", shortID(rec.PreviousID), "err", err)
+	}
+}
+
+// releaseRollbackTarget drops the rollback tag of one history record. Docker deletes the
+// image if nothing else references it, otherwise it just loses the tag.
+func (m *Manager) releaseRollbackTarget(ctx context.Context, slug, image string) {
+	if err := m.engine.UntagImage(ctx, rollbackRef(slug, image)); err != nil {
+		m.log.Warn("rollback tag not removed", "project", slug, "image", image, "err", err)
+	}
+}
+
+// ProtectRollbackTargets makes sure every known rollback target carries its tag. Run at
+// start-up it also upgrades installations whose history predates the tags.
+func (m *Manager) ProtectRollbackTargets(ctx context.Context) {
+	history, err := m.store.Images.List(ctx)
+	if err != nil {
+		return
+	}
+	if len(history) == 0 {
+		return
+	}
+	projects, err := m.loadProjects(ctx)
+	if err != nil {
+		return
+	}
+	slugs := map[string]string{}
+	for _, p := range projects {
+		slugs[p.ID] = p.Slug
+	}
+	for _, rec := range history {
+		if slug, ok := slugs[rec.ProjectID]; ok {
+			m.protectRollbackTarget(ctx, slug, rec)
+		}
+	}
+}
+
 // catalogueRepos returns the image repositories Envoryx itself pulls (without tags).
 func (m *Manager) catalogueRepos() map[string]bool {
 	repos := map[string]bool{imageRepo(DBToolImage): true}
@@ -88,7 +168,7 @@ func (m *Manager) UnusedImages(ctx context.Context) ([]UnusedImage, error) {
 		}
 		ours, used := false, false
 		for _, t := range img.Tags {
-			if repos[imageRepo(t)] {
+			if repos[imageRepo(t)] || isRollbackRef(t) {
 				ours = true
 			}
 			if inUse[t] {
@@ -160,6 +240,12 @@ func (m *Manager) recordImageChange(ctx context.Context, proj *store.Project, im
 		m.log.Warn("image history not recorded", "project", proj.Slug, "image", image, "err", err)
 		return
 	}
+	// The tag moves to the new rollback target; a superseded one is released first so
+	// Docker can drop it when nothing else uses it.
+	if old != nil && old.PreviousID != "" && old.PreviousID != rec.PreviousID {
+		m.releaseRollbackTarget(ctx, proj.Slug, image)
+	}
+	m.protectRollbackTarget(ctx, proj.Slug, rec)
 	// Keep the loaded project in step so a later container in the same plan (workers
 	// share the PHP image) sees the record.
 	replaced := false

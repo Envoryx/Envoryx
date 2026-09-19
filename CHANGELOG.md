@@ -15,6 +15,11 @@ release). `:main` follows the development branch.
   not create (for example one attached through Unraid's network dropdown) is
   now refused up front, naming that container, instead of removing the
   project's containers and volumes first and then leaving it in `failed`.
+- The image a project can roll back to is kept under a tag
+  (`envoryx-rollback/<project>:<image>`) instead of lying around untagged, so
+  `docker image prune` – Unraid's "remove unused images", clean-up plugins –
+  no longer deletes it. Existing rollback targets are tagged at the next start;
+  the tag moves on when a newer image supersedes it and goes with the project.
 
 ## [0.1.0] – 2026-09-19
 

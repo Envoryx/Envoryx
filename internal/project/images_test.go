@@ -99,7 +99,12 @@ func TestImageRollback(t *testing.T) {
 	if c.ImageID != img+"@v2" {
 		t.Fatalf("container image = %s", c.ImageID)
 	}
-	// The old image is untagged now but must not be offered for pruning.
+	// The old image carries the rollback tag now, so `docker image prune` cannot take it,
+	// and it must not be offered for pruning either.
+	rollTag := rollbackRef("roll", img)
+	if got, err := e.engine.ImageID(ctx, rollTag); err != nil || got != img+"@v1" {
+		t.Fatalf("rollback tag %s -> %q, %v; want %s", rollTag, got, err, img+"@v1")
+	}
 	unused, err := e.m.UnusedImages(ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -154,5 +159,89 @@ func TestImageRollback(t *testing.T) {
 	}
 	if _, err := e.m.UseImage(ctx, id, img, "sideways"); !errors.Is(err, validate.ErrInvalid) {
 		t.Fatalf("bad choice = %v", err)
+	}
+
+	// A second rebuild supersedes the rollback target: the tag moves to v2, v1 is
+	// released and – unreferenced – gone.
+	e.engine.Remote[img] = img + "@v3"
+	if _, err := e.m.Restart(ctx, id); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := e.engine.ImageID(ctx, rollTag); got != img+"@v2" {
+		t.Fatalf("rollback tag after second rebuild = %q, want v2", got)
+	}
+	if ok, _ := e.engine.ImageExists(ctx, img+"@v1"); ok {
+		t.Fatal("superseded rollback target should have been released")
+	}
+
+	// Deleting the project releases the tag too.
+	if err := e.m.Delete(ctx, id, DeleteOptions{Confirm: "roll", DeleteFiles: true}); err != nil {
+		t.Fatal(err)
+	}
+	if ok, _ := e.engine.ImageExists(ctx, rollTag); ok {
+		t.Fatal("rollback tag must go with the project")
+	}
+}
+
+func TestRollbackRef(t *testing.T) {
+	cases := map[string]string{
+		"mariadb:11.4":                    "envoryx-rollback/shop:mariadb-11.4",
+		"ghcr.io/envoryx/envoryx-php:8.4": "envoryx-rollback/shop:ghcr.io-envoryx-envoryx-php-8.4",
+		"Caddy:2-Alpine":                  "envoryx-rollback/shop:caddy-2-alpine",
+		"img@sha256:abc":                  "envoryx-rollback/shop:img-sha256-abc",
+	}
+	for in, want := range cases {
+		if got := rollbackRef("shop", in); got != want {
+			t.Errorf("rollbackRef(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+// A history row whose tag was lost (older installation, manual `docker rmi`) is tagged
+// again on reconcile; a stale rollback tag nobody's history refers to becomes prunable.
+func TestRollbackTagsReconciled(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	view, err := e.m.Create(ctx, phpRequest("Roll", true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	img := view.Project.Service(store.ServicePHP).Image
+	e.engine.Remote[img] = img + "@v2"
+	if _, err := e.m.Restart(ctx, view.Project.ID); err != nil {
+		t.Fatal(err)
+	}
+	rollTag := rollbackRef("roll", img)
+	e.engine.Dangle(rollTag)
+	if ok, _ := e.engine.ImageExists(ctx, rollTag); ok {
+		t.Fatal("tag should be gone")
+	}
+	e.m.Reconcile(ctx)
+	if got, _ := e.engine.ImageID(ctx, rollTag); got != img+"@v1" {
+		t.Fatalf("tag not restored by reconcile: %q", got)
+	}
+
+	e.engine.AddImage("ghcr.io/envoryx/envoryx-php:7.4")
+	if err := e.engine.TagImage(ctx, "ghcr.io/envoryx/envoryx-php:7.4", "envoryx-rollback/gone:ghcr.io-envoryx-envoryx-php-7.4"); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.engine.UntagImage(ctx, "ghcr.io/envoryx/envoryx-php:7.4"); err != nil {
+		t.Fatal(err)
+	}
+	unused, err := e.m.UnusedImages(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, u := range unused {
+		if u.ID == "ghcr.io/envoryx/envoryx-php:7.4@v1" {
+			found = true
+		}
+		if u.ID == img+"@v1" {
+			t.Fatal("live rollback target offered for pruning")
+		}
+	}
+	if !found {
+		t.Fatalf("stale rollback tag not offered for pruning: %+v", unused)
 	}
 }

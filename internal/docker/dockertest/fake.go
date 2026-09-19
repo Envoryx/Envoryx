@@ -144,6 +144,19 @@ func (f *Fake) AddImage(ref string) {
 	f.images[ref] = ref + "@v1"
 }
 
+// Dangle removes a tag but keeps its image as dangling – the state an older Envoryx (no
+// rollback tags yet) or a re-pull leaves behind.
+func (f *Fake) Dangle(ref string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	id, ok := f.images[ref]
+	if !ok {
+		return
+	}
+	delete(f.images, ref)
+	f.dropIfUnreferenced(id, true)
+}
+
 // resolveImage returns the id for a tag or a bare image id (Docker accepts both).
 func (f *Fake) resolveImage(refOrID string) (string, bool) {
 	if id, ok := f.images[refOrID]; ok {
@@ -1022,6 +1035,64 @@ func (f *Fake) EnsureImage(ctx context.Context, ref string, progress docker.Pull
 	}
 	f.mu.Unlock()
 	return f.PullImage(ctx, ref, progress)
+}
+
+// TagImage implements docker.Engine.
+func (f *Fake) TagImage(_ context.Context, image, ref string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if err := f.check(); err != nil {
+		return err
+	}
+	id, ok := f.resolveImage(image)
+	if !ok {
+		return docker.ErrNotFound
+	}
+	if old, ok := f.images[ref]; ok && old != id {
+		f.images[ref] = id
+		f.dropIfUnreferenced(old, true)
+	}
+	f.images[ref] = id
+	delete(f.dangling, id)
+	f.record("tag:" + ref)
+	return nil
+}
+
+// UntagImage implements docker.Engine.
+func (f *Fake) UntagImage(_ context.Context, ref string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if err := f.check(); err != nil {
+		return err
+	}
+	id, ok := f.images[ref]
+	if !ok {
+		return nil
+	}
+	delete(f.images, ref)
+	f.dropIfUnreferenced(id, false)
+	f.record("untag:" + ref)
+	return nil
+}
+
+// dropIfUnreferenced mirrors Docker after an image lost a tag: still tagged elsewhere →
+// nothing; used by a container (or keep) → stays as a dangling image; otherwise gone.
+func (f *Fake) dropIfUnreferenced(id string, keep bool) {
+	for _, iid := range f.images {
+		if iid == id {
+			return
+		}
+	}
+	for _, c := range f.containers {
+		if c.ImageID == id {
+			keep = true
+		}
+	}
+	if keep {
+		f.dangling[id] = true
+	} else {
+		delete(f.dangling, id)
+	}
 }
 
 // PullImage implements docker.Engine.

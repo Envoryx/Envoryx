@@ -153,6 +153,7 @@ func (m *Manager) Reconcile(ctx context.Context) ReconcileReport {
 	}
 	networks, _ := m.engine.ListNetworks(ctx, true)
 	volumes, _ := m.engine.ListVolumes(ctx, true)
+	m.ProtectRollbackTargets(ctx)
 
 	for _, p := range projects {
 		// A restart in the middle of create/delete leaves a transitional lifecycle behind.

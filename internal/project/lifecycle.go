@@ -361,11 +361,14 @@ func (m *Manager) ensurePlan(ctx context.Context, proj store.Project, plan Plan,
 				// Runtime version changed, the image tag was rebuilt upstream, or the
 				// container's command/mounts/ports differ from the plan: recreate.
 				m.log.Info("recreating container", "container", cur.Name, "from", cur.Image, "to", c.Spec.Image, "spec_changed", specChanged)
-				if err := m.engine.RemoveContainer(ctx, cur.ID); err != nil {
-					return fmt.Errorf("remove outdated container %s: %w", cur.Name, err)
-				}
+				// Record (and tag) the rollback target while the old container still
+				// references its image: the containerd image store garbage-collects an
+				// untagged image the moment its last container is gone.
 				if c.Spec.Image == tag {
 					m.recordImageChange(ctx, &proj, tag, cur, localID)
+				}
+				if err := m.engine.RemoveContainer(ctx, cur.ID); err != nil {
+					return fmt.Errorf("remove outdated container %s: %w", cur.Name, err)
 				}
 				ok = false
 			}
@@ -801,6 +804,11 @@ func (m *Manager) delete(ctx context.Context, id string, opts DeleteOptions) err
 		return fail("remove project files", err)
 	}
 
+	if history, err := m.store.Images.ListByProject(ctx, id); err == nil {
+		for _, rec := range history {
+			m.releaseRollbackTarget(ctx, proj.Slug, rec.Image)
+		}
+	}
 	if err := m.store.Projects.Delete(ctx, id); err != nil {
 		return fail("delete record", err)
 	}

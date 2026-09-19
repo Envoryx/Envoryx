@@ -339,6 +339,12 @@ type Engine interface {
 	ListImages(ctx context.Context) ([]Image, error)
 	// RemoveImage deletes an image by id. It fails when a container still uses it.
 	RemoveImage(ctx context.Context, id string) error
+	// TagImage gives the image (id or reference) an additional tag, moving the tag if it
+	// already points elsewhere.
+	TagImage(ctx context.Context, image, ref string) error
+	// UntagImage removes one tag. The image itself is deleted only when nothing else
+	// (another tag or a container) references it; a missing tag is not an error.
+	UntagImage(ctx context.Context, ref string) error
 }
 
 // ManagedLabels builds the standard label set for a project resource.

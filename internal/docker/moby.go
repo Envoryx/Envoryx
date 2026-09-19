@@ -1016,6 +1016,22 @@ func (e *MobyEngine) RemoveImage(ctx context.Context, id string) error {
 	return wrap(err)
 }
 
+// TagImage implements Engine.
+func (e *MobyEngine) TagImage(ctx context.Context, image, ref string) error {
+	_, err := e.cli.ImageTag(ctx, client.ImageTagOptions{Source: image, Target: ref})
+	return wrap(err)
+}
+
+// UntagImage implements Engine. Force on a tag reference only removes that tag: Docker
+// keeps the image (as dangling) while a container uses it and deletes it otherwise.
+func (e *MobyEngine) UntagImage(ctx context.Context, ref string) error {
+	_, err := e.cli.ImageRemove(ctx, ref, client.ImageRemoveOptions{Force: true})
+	if err != nil && cerrdefs.IsNotFound(err) {
+		return nil
+	}
+	return wrap(err)
+}
+
 // EnsureImage implements Engine.
 func (e *MobyEngine) EnsureImage(ctx context.Context, ref string, progress PullProgress) error {
 	exists, err := e.ImageExists(ctx, ref)
