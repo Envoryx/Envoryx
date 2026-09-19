@@ -10,6 +10,8 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.2.0] – 2026-09-19
+
 ### Added
 - S3-compatible object storage as an optional project service: one RustFS
   container per project with a persistent volume, generated access keys, a
@@ -92,5 +94,6 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/envoryx/envoryx/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/envoryx/envoryx/releases/tag/v0.1.0
