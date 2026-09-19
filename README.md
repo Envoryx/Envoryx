@@ -86,7 +86,9 @@ Envoryx is under active development. The current milestone (Phase 1 + 2) deliver
   as the UI, no destructive tools
 
 All phases of the original plan are implemented – see
-[ARCHITECTURE.md](ARCHITECTURE.md) §13.
+[ARCHITECTURE.md](ARCHITECTURE.md) §13. Releases are listed in
+[CHANGELOG.md](CHANGELOG.md); `:latest` is the newest release, `:main` the
+development branch.
 
 ## Quick start
 

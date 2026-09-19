@@ -81,6 +81,7 @@ docker build -t ghcr.io/envoryx/envoryx:dev --build-arg VERSION=dev .
 | `ENVORYX_SESSION_IDLE_TIMEOUT` | `12h` | Sliding session expiry |
 | `ENVORYX_SESSION_ABSOLUTE_TIMEOUT` | `168h` | Hard session expiry |
 | `ENVORYX_SECURE_COOKIES` | `false` | Mark cookies `Secure` (enable behind HTTPS) |
+| `ENVORYX_UPDATE_CHECK` | `true` | Ask GitHub once a day for a newer release and show a hint in the UI (one anonymous request; `false` disables it) |
 | `ENVORYX_SHUTDOWN_GRACE` | `8s` | How long running project operations may finish after a stop signal, see [Stopping and restarting](#stopping-and-restarting) |
 | `ENVORYX_LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` |
 | `ENVORYX_LOG_FORMAT` | `json` | `json` or `text` |
@@ -350,6 +351,12 @@ Docker → Docker stop timeout*, default 10 s) – raise it and the template's
 ```
 docker compose pull && docker compose up -d
 ```
+
+Image tags: `:latest` is the newest release, `:<version>` (e.g. `0.1.0`) a
+fixed release, `:main` the development branch (every push, may break). What
+changed is in [CHANGELOG.md](CHANGELOG.md) and on the GitHub releases page.
+Envoryx checks GitHub once a day for a newer release and shows it on the
+dashboard and in Settings (`ENVORYX_UPDATE_CHECK=false` turns that off).
 
 Envoryx's state lives in `/config`, `/projects` and `/backups` only. Replacing the image
 never touches projects. Database migrations run automatically and are forward

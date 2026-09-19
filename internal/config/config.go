@@ -42,6 +42,10 @@ type Config struct {
 	SessionIdleTimeout     time.Duration
 	SessionAbsoluteTimeout time.Duration
 
+	// UpdateCheck lets Envoryx ask GitHub once a day whether a newer release exists (one
+	// anonymous GET; the UI then shows a hint). ENVORYX_UPDATE_CHECK=false switches it off.
+	UpdateCheck bool
+
 	// ShutdownGrace is how long running project operations (image pulls, backups) may
 	// finish after SIGTERM before they are abandoned. Keep it below the container's stop
 	// timeout (Docker default 10 s; Unraid: Settings → Docker → stop timeout).
@@ -99,6 +103,7 @@ func Load() (Config, error) {
 		SessionIdleTimeout:     envDuration("ENVORYX_SESSION_IDLE_TIMEOUT", 12*time.Hour),
 		SessionAbsoluteTimeout: envDuration("ENVORYX_SESSION_ABSOLUTE_TIMEOUT", 7*24*time.Hour),
 		ShutdownGrace:          envDuration("ENVORYX_SHUTDOWN_GRACE", 8*time.Second),
+		UpdateCheck:            envBool("ENVORYX_UPDATE_CHECK", true),
 		SecureCookies:          envBool("ENVORYX_SECURE_COOKIES", false),
 		PortRangeStart:         envInt("ENVORYX_PORT_RANGE_START", 20000),
 		PortRangeEnd:           envInt("ENVORYX_PORT_RANGE_END", 20999),

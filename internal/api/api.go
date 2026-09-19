@@ -20,6 +20,7 @@ import (
 	"github.com/envoryx/envoryx/internal/stats"
 	"github.com/envoryx/envoryx/internal/store"
 	"github.com/envoryx/envoryx/internal/tlsca"
+	"github.com/envoryx/envoryx/internal/update"
 )
 
 // Deps are the services the API handlers use.
@@ -37,7 +38,9 @@ type Deps struct {
 	Certs    *tlsca.Store
 	ACME     *acme.Manager
 	Notify   *notify.Service
-	Proxy    *ProxyInfo
+	// Updates reports whether a newer release exists (never nil).
+	Updates *update.Checker
+	Proxy   *ProxyInfo
 	// Instance manages backups of the instance itself (nil = disabled).
 	Instance *instance.Store
 	// DB is the live database, used for instance backups.

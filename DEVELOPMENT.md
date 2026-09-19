@@ -128,3 +128,28 @@ per browser (`localStorage`). To find untranslated keys, run
 3. Extend `buildProject` / `UpdateRequest` validation.
 4. Add planner + lifecycle tests with the fake engine.
 5. Expose it in the wizard step "Database & services".
+
+## Releasing
+
+1. Move the entries under `## [Unreleased]` in `CHANGELOG.md` into a new
+   `## [x.y.z] – YYYY-MM-DD` section and add the compare/tag links at the
+   bottom. Keep the wording user-facing (what changed for someone running
+   Envoryx, not which files moved).
+2. Commit, then tag and push:
+
+   ```sh
+   git tag -a vx.y.z -m "Envoryx x.y.z"
+   git push origin main vx.y.z
+   ```
+
+3. The `Docker image` workflow builds `ghcr.io/envoryx/envoryx:x.y.z`,
+   `:x.y` and `:latest`; the `Release` workflow creates the GitHub release
+   with the changelog section as notes (it fails when the section is
+   missing). Running instances see the new version through the daily update
+   check.
+
+Version rules while below 1.0: a **minor** release may change behaviour or
+require a migration (Envoryx takes a pre-migrate instance backup itself), a
+**patch** release only fixes. Schema migrations are forward-only, so a
+release that adds one cannot be downgraded without restoring that backup –
+say so in the changelog entry.

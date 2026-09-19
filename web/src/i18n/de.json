@@ -842,5 +842,12 @@
   "Start the project first": "Starte zuerst das Projekt",
   "The browser blocked the new tab; allow pop-ups for Envoryx.": "Der Browser hat den neuen Tab blockiert; erlaube Pop-ups für Envoryx.",
   "Opening the database browser failed": "Öffnen des Datenbank-Browsers fehlgeschlagen",
-  "Open database": "Datenbank öffnen"
+  "Open database": "Datenbank öffnen",
+  "Envoryx {{version}} is available": "Envoryx {{version}} ist verfügbar",
+  "You are running {{current}}. Update the container to get the new version.": "Du verwendest {{current}}. Aktualisiere den Container, um die neue Version zu erhalten.",
+  "Release notes": "Release-Notes",
+  "development build": "Entwicklungsbuild",
+  "{{latest}} available": "{{latest}} verfügbar",
+  "up to date": "aktuell",
+  "update check failed": "Update-Prüfung fehlgeschlagen"
 }

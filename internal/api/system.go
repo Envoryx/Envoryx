@@ -115,6 +115,7 @@ func (a *API) dashboard(w http.ResponseWriter, r *http.Request) {
 		"hostPath":   a.d.HostPath.Status(),
 		"storage":    disk.Check(a.d.Config.ConfigDir, a.d.Config.ProjectsDir, a.d.Config.BackupsDir),
 		"version":    a.d.Version,
+		"update":     a.d.Updates.Status(),
 		"publicHost": a.publicHost(ctx),
 		"baseDomain": a.d.Projects.BaseDomain(ctx),
 		"proxy":      a.proxyDTO(),
@@ -329,6 +330,7 @@ func (a *API) settings(w http.ResponseWriter, r *http.Request) {
 		"dockerHost":        c.DockerHost,
 		"session":           map[string]string{"idleTimeout": c.SessionIdleTimeout.String(), "absoluteTimeout": c.SessionAbsoluteTimeout.String()},
 		"secureCookies":     c.SecureCookies,
+		"update":            a.d.Updates.Status(),
 		"warnings":          append([]string{}, a.d.Warnings...),
 	})
 }

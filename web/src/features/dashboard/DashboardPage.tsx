@@ -62,6 +62,19 @@ export function DashboardPage() {
         }
       />
 
+      {d.update?.available && (
+        <div className="mb-6">
+          <Alert tone="blue" title={t("Envoryx {{version}} is available", { version: d.update.latest })}>
+            {t("You are running {{current}}. Update the container to get the new version.", { current: d.update.current })}{" "}
+            {d.update.url && (
+              <a href={d.update.url} target="_blank" rel="noopener noreferrer" className="underline">
+                {t("Release notes")}
+              </a>
+            )}
+          </Alert>
+        </div>
+      )}
+
       {d.hostPath.error && !Object.keys(d.hostPath.overrides).length && (
         <div className="mb-6">
           <Alert tone="red" title={t("Host paths could not be detected")}>

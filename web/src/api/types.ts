@@ -366,9 +366,24 @@ export interface Dashboard {
   hostPath: HostPathStatus;
   storage: StorageUsage[] | null;
   version: string;
+  update?: UpdateStatus;
   publicHost: string;
   baseDomain: string;
   proxy: ProxyInfo;
+}
+
+/** Result of the daily release check against GitHub. */
+export interface UpdateStatus {
+  current: string;
+  enabled: boolean;
+  /** False for development builds (main-<sha>, dev), which never report updates. */
+  release: boolean;
+  latest?: string;
+  available: boolean;
+  url?: string;
+  publishedAt?: string;
+  checkedAt?: string;
+  error?: string;
 }
 
 /** How the embedded reverse proxy is reachable from the host. */
@@ -535,6 +550,7 @@ export interface Settings {
   forceHttps: boolean;
   proxy: ProxyInfo;
   version: string;
+  update?: UpdateStatus;
   schemaVersion: number;
   configDir: string;
   projectsDir: string;

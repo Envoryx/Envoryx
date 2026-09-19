@@ -2,6 +2,8 @@ import { KeyRound, RefreshCw, Save } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useEffect, useState, type FormEvent } from "react";
 import { api, ApiError } from "@/api/client";
+import type { TFunction } from "i18next";
+import type { UpdateStatus } from "@/api/types";
 import { useAudit, useDeployKey, useSettings, useUpdateSettings } from "@/api/hooks";
 import { useQueryClient } from "@tanstack/react-query";
 import { Alert, Button, Card, CardHeader, ErrorState, Field, Input, PageHeader, Spinner } from "@/components/ui";
@@ -191,6 +193,15 @@ function DeployKeyCard() {
   );
 }
 
+function updateLabel(t: TFunction, version: string, u?: UpdateStatus): string {
+  if (!u || !u.enabled) return version;
+  if (!u.release) return `${version} · ${t("development build")}`;
+  if (u.available && u.latest) return `${version} · ${t("{{latest}} available", { latest: u.latest })}`;
+  if (u.latest) return `${version} · ${t("up to date")}`;
+  if (u.error) return `${version} · ${t("update check failed")}`;
+  return version;
+}
+
 export function SettingsPage() {
   const { t } = useTranslation();
   const s = useSettings();
@@ -216,7 +227,7 @@ export function SettingsPage() {
             </div>
           )}
           <dl className="grid gap-x-8 gap-y-3 p-5 text-sm sm:grid-cols-2">
-            <Row label={t("Version")} value={s.data.version} />
+            <Row label={t("Version")} value={updateLabel(t, s.data.version, s.data.update)} />
             <Row label={t("Schema version")} value={String(s.data.schemaVersion)} />
             <Row label={t("Config directory")} value={s.data.configDir} mono />
             <Row label={t("Projects directory")} value={s.data.projectsDir} mono />

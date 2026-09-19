@@ -51,6 +51,7 @@ import (
 	"github.com/envoryx/envoryx/internal/stats"
 	"github.com/envoryx/envoryx/internal/store"
 	"github.com/envoryx/envoryx/internal/tlsca"
+	"github.com/envoryx/envoryx/internal/update"
 	"github.com/envoryx/envoryx/web"
 )
 
@@ -345,10 +346,14 @@ func serve() error {
 	}
 	mcpLinks.HTTPPort = proxyInfo.HTTPPort
 	mcpSrv := mcpserver.New(mcpserver.Deps{Projects: manager, Catalog: catalog, Auth: sessions, Links: mcpLinks, Version: version, Log: log})
+	updates := update.Disabled(version)
+	if cfg.UpdateCheck {
+		updates = update.New(version, "", log)
+	}
 	a := api.New(api.Deps{
 		Config: cfg, Version: version, Store: st, Auth: sessions, Audit: auditLog, Engine: engine,
 		Projects: manager, Catalog: catalog, Stats: collector, HostPath: resolver, Certs: certs, ACME: acmeMgr, Notify: notifier, Proxy: proxyInfo,
-		MCP: mcpSrv.Handler(), SSH: sshInfo, Log: log, StartedAt: time.Now(),
+		MCP: mcpSrv.Handler(), SSH: sshInfo, Log: log, StartedAt: time.Now(), Updates: updates,
 		Instance: backups, DB: sqlDB, Restart: requestRestart, Warnings: warnings,
 	})
 	var origins []string
@@ -402,6 +407,7 @@ func serve() error {
 	if notifier != nil {
 		notifier.Notify(ctx, notify.Event{Kind: "envoryx.started", Level: notify.Info, Title: "Envoryx started", Message: "Version " + version + " is up."})
 	}
+	background("update check", updates.Run)
 	if err := srv.ListenAndServe(ctx); err != nil {
 		return fmt.Errorf("http server: %w", err)
 	}
