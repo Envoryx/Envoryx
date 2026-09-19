@@ -17,7 +17,7 @@ export function Logo({ size = 18, withText = false }: { size?: number; withText?
       <LogoMark size={size} />
       {withText && (
         <span className="text-[15px] font-semibold tracking-tight">
-          Envory<span className="text-accent-600 dark:text-accent-400">x</span>
+          <span className="text-accent-600 dark:text-accent-400">Env</span>oryx
         </span>
       )}
     </span>
