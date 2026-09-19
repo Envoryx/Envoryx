@@ -19,14 +19,16 @@ import (
 )
 
 type env struct {
-	t        *testing.T
-	m        *Manager
-	engine   *dockertest.Fake
-	store    *store.Store
-	cfgDir   string
-	projDir  string
-	pathsErr error
-	selfID   string
+	t       *testing.T
+	m       *Manager
+	engine  *dockertest.Fake
+	store   *store.Store
+	cfgDir  string
+	projDir string
+	// backupsDir overrides the backup location; "" = <cfgDir>/backups.
+	backupsDir string
+	pathsErr   error
+	selfID     string
 }
 
 func newEnv(t *testing.T) *env {
@@ -45,7 +47,7 @@ func newEnv(t *testing.T) *env {
 		}
 		return Paths{
 			ConfigDir: e.cfgDir, ConfigHostDir: "/host/appdata/envoryx",
-			ProjectsDir: e.projDir, ProjectsHostDir: "/host/development",
+			ProjectsDir: e.projDir, ProjectsHostDir: "/host/development", BackupsDir: e.backupsDir,
 			PUID: 1000, PGID: 1000, EnvoryxVersion: "test", SelfContainerID: e.selfID,
 		}, nil
 	}

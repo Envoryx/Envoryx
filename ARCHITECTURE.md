@@ -631,7 +631,8 @@ expiry in a background loop; config/token under `/config/ca/acme.json`
   `envoryx-<slug>-node:<port>` (WebSocket/HMR passes through; Vite's host
   allow-list is set via `__VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS`). Config
   changes remove the node container so `ensurePlan` recreates it.
-- **Phase 7 Backups** (implemented): `/config/backups/<slug>/<timestamp-id>/`
+- **Phase 7 Backups** (implemented): `<backups dir>/<slug>/<timestamp-id>/`
+  (`/backups` when mounted, else `/config/backups`; `ENVORYX_BACKUPS_DIR`)
   with `backup.json` (metadata + full project export incl. credentials),
   `database.sql.gz` (dump streamed from the database container via exec,
   password in env) and `files.tar.gz` (written by Envoryx, `vendor/` and

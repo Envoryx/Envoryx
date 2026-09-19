@@ -212,3 +212,29 @@ func contains(list []string, s string) bool {
 	}
 	return false
 }
+
+func TestBackupsInSeparateDirectory(t *testing.T) {
+	e := newEnv(t)
+	e.backupsDir = t.TempDir()
+	ctx := context.Background()
+	view, err := e.m.Create(ctx, phpRequest("Shop", true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = os.WriteFile(filepath.Join(e.projDir, "shop", "public", "index.php"), []byte("v1"), 0o644)
+
+	info, err := e.m.CreateBackup(ctx, view.Project.ID, BackupOptions{Files: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(e.backupsDir, "shop", info.Dir, "files.tar.gz")); err != nil {
+		t.Fatalf("backup must be written to the configured backups directory: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(e.cfgDir, "backups")); !os.IsNotExist(err) {
+		t.Fatalf("nothing must be written under <config>/backups, stat err=%v", err)
+	}
+	list, err := e.m.ListBackups(ctx, view.Project.ID)
+	if err != nil || len(list) != 1 || list[0].Missing {
+		t.Fatalf("backup must be listed from the configured directory: %+v err=%v", list, err)
+	}
+}

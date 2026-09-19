@@ -172,7 +172,8 @@ routes address `project + service kind` and resolve the container server-side.
 ## Backups
 
 Backups contain the full project export including database credentials and
-git tokens (needed to rebuild a project) and live under `/config/backups`
+git tokens (needed to rebuild a project) and live in the backups directory
+(`/config/backups` or the `/backups` mount)
 with mode 0600/0700. Treat downloaded archives accordingly. Restores are
 confirmed with the project identifier, only ever write inside the project
 directory (path traversal and symlink escapes are rejected) and only import a

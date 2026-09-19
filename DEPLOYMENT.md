@@ -6,7 +6,7 @@
 > installation: the image, config directory (`/mnt/user/appdata/envoryx`),
 > `ENVORYX_*` variables, Docker labels, container/volume names and the
 > `envoryx.test` base domain all changed. Install Envoryx fresh and recreate
-> projects (project files on disk are untouched; use Staqio backups to restore
+> projects (project files on disk are untouched; use the Staqio backups to restore
 > databases).
 
 
@@ -14,7 +14,8 @@
   any other Linux distribution
 - x86_64 or arm64 (Raspberry Pi 4/5, Ampere/Graviton, Apple Silicon under
   Linux); all Envoryx images are multi-arch
-- A directory for Envoryx's state (`/config`) and one for your projects (`/projects`)
+- A directory for Envoryx's state (`/config`) and one for your projects (`/projects`);
+  optionally a third one for backups (`/backups`, see [Backups](#backups))
 
 ## Docker Compose (any Linux host)
 
@@ -63,8 +64,9 @@ docker build -t ghcr.io/envoryx/envoryx:dev --build-arg VERSION=dev .
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `ENVORYX_LISTEN` | `:8787` | Listen address |
-| `ENVORYX_CONFIG_DIR` | `/config` | Persistent state (SQLite, generated configs, backups) |
+| `ENVORYX_CONFIG_DIR` | `/config` | Persistent state (SQLite, generated configs, caches) |
 | `ENVORYX_PROJECTS_DIR` | `/projects` | Root of all project directories |
+| `ENVORYX_BACKUPS_DIR` | `/backups` if that directory exists, else `/config/backups` | Where project backups are stored (see [Backups](#backups)) |
 | `ENVORYX_PROJECTS_HOST_PATH` | auto | Host path behind `/projects` (see below) |
 | `ENVORYX_CONFIG_HOST_PATH` | auto | Host path behind `/config` |
 | `DOCKER_HOST` | unix socket | Docker endpoint; set to a socket proxy URL if used |
@@ -143,6 +145,7 @@ No publication in Community Applications is required for either way.
 | Port | `2222` → `2222` (SSH for IDEs; optional) |
 | Path `/config` | `/mnt/user/appdata/envoryx` |
 | Path `/projects` | `/mnt/user/development` (create the share first) |
+| Path `/backups` | optional, e.g. `/mnt/user/backups/envoryx` – keeps backups off the cache/appdata share |
 | Path `/var/run/docker.sock` | `/var/run/docker.sock` |
 | Variable `PUID` | `99` |
 | Variable `PGID` | `100` |
@@ -277,7 +280,7 @@ needs `setcap cap_net_bind_service=+ep ./envoryx` or other addresses
 docker compose pull && docker compose up -d
 ```
 
-Envoryx's state lives in `/config` and `/projects` only. Replacing the image
+Envoryx's state lives in `/config`, `/projects` and `/backups` only. Replacing the image
 never touches projects. Database migrations run automatically and are forward
 only; a database newer than the binary is refused with a clear error, so keep a
 copy of `/config/envoryx.db` before downgrading.
@@ -308,10 +311,21 @@ fine-grained PAT with *Contents: read*; GitLab: username `oauth2` + token).
 ## Backups
 
 Project backups (database dump, files, configuration) are created from the
-project's **Backups** tab and stored under `/config/backups/<project>/`. They
-are plain directories – include `/config` in your regular Unraid backup
-(e.g. Appdata Backup plugin) to get them off the machine, or use the
-per-backup download.
+project's **Backups** tab and stored as plain directories, one per backup,
+under `<backups dir>/<project>/`.
+
+By default the backups directory is `/config/backups`, i.e. on the appdata
+share. Backups are large and rarely read, so you may want them on the array
+instead of the cache SSD: mount a host directory at `/backups` (Unraid: add
+the optional *Backups* path in the template, e.g. `/mnt/user/backups/envoryx`;
+Compose: uncomment the `/backups` volume) and Envoryx uses it automatically.
+`ENVORYX_BACKUPS_DIR` overrides the location explicitly. To move existing
+backups, stop Envoryx, move the contents of `/config/backups/` into the new
+directory and start again – a warning is logged at startup while backups are
+left behind in the old location.
+
+Include the backups directory in your regular off-machine backup (e.g. the
+Unraid Appdata Backup plugin or an rsync job), or use the per-backup download.
 
 **Scheduled backups**: Backups tab → *Scheduled backups*: daily or weekly at
 a given hour (server local time – set `TZ` on the container for your zone),
@@ -319,7 +333,7 @@ keep the last N scheduled backups (manual ones are never deleted), optionally
 including `vendor/`/`node_modules/`. Failures raise a notification.
 
 For Envoryx itself back up `/config` (SQLite database, generated configuration,
-deploy key, backups) and `/projects`.
+deploy key), `/projects` and the backups directory.
 
 ## Workers (queues, schedulers)
 

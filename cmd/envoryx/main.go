@@ -97,16 +97,17 @@ func serve() error {
 	}
 	log := newLogger(cfg)
 	slog.SetDefault(log)
-	log.Info("starting Envoryx", "version", version, "config_dir", cfg.ConfigDir, "projects_dir", cfg.ProjectsDir)
+	log.Info("starting Envoryx", "version", version, "config_dir", cfg.ConfigDir, "projects_dir", cfg.ProjectsDir, "backups_dir", cfg.BackupsDir)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	for _, dir := range []string{cfg.ConfigDir, cfg.ProjectsDir, filepath.Join(cfg.ConfigDir, "projects")} {
+	for _, dir := range []string{cfg.ConfigDir, cfg.ProjectsDir, filepath.Join(cfg.ConfigDir, "projects"), cfg.BackupsDir} {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return fmt.Errorf("create directory %s: %w", dir, err)
 		}
 	}
+	warnStrandedBackups(cfg, log)
 
 	// 1. Database.
 	sqlDB, err := db.Open(ctx, cfg.DatabasePath, log)
@@ -169,7 +170,7 @@ func serve() error {
 		}
 		return project.Paths{
 			ConfigDir: cfg.ConfigDir, ConfigHostDir: configHost,
-			ProjectsDir: cfg.ProjectsDir, ProjectsHostDir: projectsHost,
+			ProjectsDir: cfg.ProjectsDir, ProjectsHostDir: projectsHost, BackupsDir: cfg.BackupsDir,
 			PUID: cfg.PUID, PGID: cfg.PGID, EnvoryxVersion: version,
 			SelfContainerID: resolver.SelfContainerID(),
 		}, nil
@@ -452,4 +453,19 @@ func healthcheck() int {
 		return 1
 	}
 	return 0
+}
+
+// warnStrandedBackups points out backups that were left in the old default location
+// after the backups directory was moved; they are invisible to Envoryx until moved.
+func warnStrandedBackups(cfg config.Config, log *slog.Logger) {
+	old := filepath.Join(cfg.ConfigDir, "backups")
+	if old == cfg.BackupsDir {
+		return
+	}
+	entries, err := os.ReadDir(old)
+	if err != nil || len(entries) == 0 {
+		return
+	}
+	log.Warn("backups directory moved but the old location is not empty; move its contents to the new directory to make those backups visible",
+		"old", old, "new", cfg.BackupsDir)
 }

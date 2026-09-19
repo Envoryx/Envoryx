@@ -133,7 +133,7 @@ func (m *Manager) backupRoot(slug string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("%w: %v", ErrNotConfigured, err)
 	}
-	return filepath.Join(p.ConfigDir, "backups", slug), nil
+	return filepath.Join(p.BackupsRoot(), slug), nil
 }
 
 func exportProject(p store.Project) projectExport {

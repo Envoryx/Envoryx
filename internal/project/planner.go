@@ -29,6 +29,7 @@ type Paths struct {
 	ConfigHostDir    string // e.g. /mnt/user/appdata/envoryx
 	ProjectsDir      string // e.g. /projects
 	ProjectsHostDir  string // e.g. /mnt/user/development
+	BackupsDir       string // e.g. /backups; "" = <ConfigDir>/backups
 	PUID, PGID       int
 	EnvoryxVersion   string
 	PublishInterface string // host IP to bind ports to; "" = all
@@ -90,6 +91,14 @@ var toolEnv = []string{"HOME=" + homeMountTarget, "COMPOSER_HOME=" + homeMountTa
 // jetbrainsCacheDir is the shared, host-wide cache for JetBrains Gateway IDE backends
 // (~1.5 GB per IDE version) so it is downloaded once for all projects.
 const jetbrainsCacheDir = "jetbrains"
+
+// BackupsRoot is the directory that holds one sub-directory of backups per project.
+func (p Paths) BackupsRoot() string {
+	if p.BackupsDir != "" {
+		return p.BackupsDir
+	}
+	return filepath.Join(p.ConfigDir, "backups")
+}
 
 // gatewayMounts returns the extra mounts for JetBrains Gateway sessions.
 func (p *Planner) gatewayMounts(proj store.Project) []docker.MountSpec {

@@ -18,6 +18,9 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - /mnt/user/appdata/envoryx:/config
       - /mnt/user/development:/projects
+      # Optional: keep project backups off the appdata/cache share. Picked up
+      # automatically when mounted; otherwise backups live in /config/backups.
+      # - /mnt/user/backups/envoryx:/backups
     environment:
       # Owner of files created inside project containers (Unraid default: nobody:users).
       PUID: 99

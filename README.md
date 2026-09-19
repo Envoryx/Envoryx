@@ -61,7 +61,8 @@ Envoryx is under active development. The current milestone (Phase 1 + 2) deliver
 - diagnostics view of all Docker resources (foreign containers read-only)
 
 - backups per project: database dump + project files (optionally without
-  vendor/node_modules) + configuration under `/config/backups/<project>/`,
+  vendor/node_modules) + configuration, stored under `/config/backups` or an
+  optional separate `/backups` mount (e.g. on the Unraid array),
   restore with typed confirmation, download as a single archive; daily/weekly
   schedules with retention per project
 

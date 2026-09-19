@@ -22,6 +22,9 @@ type Config struct {
 	ConfigDir string
 	// ProjectsDir is the directory that contains all project directories (default /projects).
 	ProjectsDir string
+	// BackupsDir is where project backups are stored. Defaults to /backups when that
+	// directory exists (i.e. was mounted), otherwise to <ConfigDir>/backups.
+	BackupsDir string
 
 	// ConfigHostPath and ProjectsHostPath are the host-side paths behind ConfigDir and
 	// ProjectsDir. They are required for bind mounts into project containers. Empty
@@ -105,6 +108,7 @@ func Load() (Config, error) {
 		DevOrigin:              env("ENVORYX_DEV_ORIGIN", "http://localhost:5173"),
 	}
 	c.DatabasePath = env("ENVORYX_DATABASE_PATH", filepath.Join(c.ConfigDir, "envoryx.db"))
+	c.BackupsDir = env("ENVORYX_BACKUPS_DIR", defaultBackupsDir(c.ConfigDir))
 
 	if err := c.validate(); err != nil {
 		return Config{}, err
@@ -119,6 +123,9 @@ func (c Config) validate() error {
 	}
 	if !filepath.IsAbs(c.ProjectsDir) {
 		errs = append(errs, fmt.Errorf("ENVORYX_PROJECTS_DIR must be absolute, got %q", c.ProjectsDir))
+	}
+	if !filepath.IsAbs(c.BackupsDir) {
+		errs = append(errs, fmt.Errorf("ENVORYX_BACKUPS_DIR must be absolute, got %q", c.BackupsDir))
 	}
 	if c.ConfigHostPath != "" && !filepath.IsAbs(c.ConfigHostPath) {
 		errs = append(errs, fmt.Errorf("ENVORYX_CONFIG_HOST_PATH must be absolute, got %q", c.ConfigHostPath))
@@ -218,4 +225,15 @@ func envDuration(key string, def time.Duration) time.Duration {
 		return def
 	}
 	return d
+}
+
+// mountedBackupsDir is picked up automatically when it exists, so that on Unraid adding
+// the optional "/backups" path mapping is enough to move backups off the appdata share.
+const mountedBackupsDir = "/backups"
+
+func defaultBackupsDir(configDir string) string {
+	if st, err := os.Stat(mountedBackupsDir); err == nil && st.IsDir() {
+		return mountedBackupsDir
+	}
+	return filepath.Join(configDir, "backups")
 }
