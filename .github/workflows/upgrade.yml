@@ -25,7 +25,7 @@ jobs:
         # downgrade-refusal paths run on every change even while no release needs them.
         from: ["release", "ghcr.io/envoryx/envoryx:sha-a384214"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Resolve old image
         id: release
@@ -40,10 +40,10 @@ jobs:
           echo "image=$from" >> "$GITHUB_OUTPUT"
           echo "Upgrading from $from"
 
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v4
 
       - name: Build candidate image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           load: true
