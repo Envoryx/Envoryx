@@ -139,13 +139,19 @@ func (m *Manager) Reconcile(ctx context.Context) ReconcileReport {
 
 	for _, p := range projects {
 		// A restart in the middle of create/delete leaves a transitional lifecycle behind.
+		// While the operation is still running it holds the project lock – a create that
+		// takes a minute to pull images must not be declared interrupted by the periodic
+		// reconcile that happens to run meanwhile.
 		if p.Lifecycle == store.LifecycleCreating || p.Lifecycle == store.LifecycleDeleting {
-			msg := fmt.Sprintf("%s was interrupted by a Envoryx restart; review the project and retry or delete it", p.Lifecycle)
-			if err := m.store.Projects.UpdateState(ctx, p.ID, p.DesiredState, store.LifecycleFailed, msg); err == nil {
-				p.Lifecycle = store.LifecycleFailed
-				p.LastError = msg
+			if unlock, err := m.lock(p.ID); err == nil {
+				msg := fmt.Sprintf("%s was interrupted by an Envoryx restart; review the project and retry or delete it", p.Lifecycle)
+				if err := m.store.Projects.UpdateState(ctx, p.ID, p.DesiredState, store.LifecycleFailed, msg); err == nil {
+					p.Lifecycle = store.LifecycleFailed
+					p.LastError = msg
+				}
+				unlock()
+				report.Issues = append(report.Issues, ReconcileIssue{ProjectID: p.ID, ProjectName: p.Name, Severity: "error", Message: msg})
 			}
-			report.Issues = append(report.Issues, ReconcileIssue{ProjectID: p.ID, ProjectName: p.Name, Severity: "error", Message: msg})
 		}
 		st := deriveStatus(p, containers, m.localImageIDs(ctx, projects))
 		report.States[p.ID] = st

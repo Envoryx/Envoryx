@@ -116,3 +116,32 @@ func TestShutdownWaitsForRunningOperations(t *testing.T) {
 		t.Fatalf("operation must complete unharmed: %v", err)
 	}
 }
+
+// The periodic reconcile must not declare a project "interrupted" while its creation
+// is still running and holds the lock.
+func TestReconcileLeavesRunningCreateAlone(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	e.engine.PullDelay = 300 * time.Millisecond
+
+	result := make(chan error, 1)
+	go func() {
+		_, err := e.m.Create(ctx, phpRequest("Slow", true))
+		result <- err
+	}()
+	time.Sleep(80 * time.Millisecond) // the row exists, images are still "pulling"
+
+	report := e.m.Reconcile(ctx)
+	for _, is := range report.Issues {
+		if strings.Contains(is.Message, "interrupted") {
+			t.Fatalf("reconcile flagged the running create: %+v", is)
+		}
+	}
+	if err := <-result; err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	projects, _ := e.store.Projects.List(ctx)
+	if len(projects) != 1 || projects[0].Lifecycle != store.LifecycleReady || projects[0].LastError != "" {
+		t.Fatalf("project after create: %+v", projects)
+	}
+}

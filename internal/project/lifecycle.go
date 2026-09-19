@@ -80,6 +80,14 @@ func (m *Manager) create(ctx context.Context, req CreateRequest) (View, error) {
 		return View{}, err
 	}
 
+	// The project lock is taken before the row exists so the reconciler never sees an
+	// unlocked project in "creating".
+	unlock, err := m.lock(proj.ID)
+	if err != nil {
+		return View{}, err
+	}
+	defer unlock()
+
 	// Port allocation and insert happen under one lock so two concurrent creates cannot
 	// pick the same port.
 	m.createMu.Lock()
@@ -98,12 +106,6 @@ func (m *Manager) create(ctx context.Context, req CreateRequest) (View, error) {
 		return View{}, err
 	}
 	m.createMu.Unlock()
-
-	unlock, err := m.lock(proj.ID)
-	if err != nil {
-		return View{}, err
-	}
-	defer unlock()
 
 	plan, err := planner.Plan(proj)
 	if err != nil {
