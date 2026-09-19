@@ -104,8 +104,14 @@ wait_health
 cookies="$WORK/cookies"
 curl -sf -m 10 -c "$cookies" -H "X-Requested-With: Envoryx" -H "Content-Type: application/json" \
 	--data "{\"username\":\"admin\",\"password\":\"$PASSWORD\"}" "$BASE/auth/login" >/dev/null || fail "login on $OLD"
-TOKEN=$(curl -sf -m 10 -b "$cookies" -H "X-Requested-With: Envoryx" -H "Content-Type: application/json" \
-	--data '{"name":"upgrade-test"}' "$BASE/tokens" | jq -r .secret)
+# The token must be allowed everything after the upgrade: releases since 0.2.0 have
+# token scopes (default operate), older ones reject the unknown field – try both.
+TOKEN=$(curl -s -m 10 -b "$cookies" -H "X-Requested-With: Envoryx" -H "Content-Type: application/json" \
+	--data '{"name":"upgrade-test","scope":"admin"}' "$BASE/tokens" | jq -r '.secret // empty')
+if [ -z "$TOKEN" ]; then
+	TOKEN=$(curl -sf -m 10 -b "$cookies" -H "X-Requested-With: Envoryx" -H "Content-Type: application/json" \
+		--data '{"name":"upgrade-test"}' "$BASE/tokens" | jq -r .secret)
+fi
 [ -n "$TOKEN" ] && [ "$TOKEN" != null ] || fail "no API token from $OLD"
 
 old_settings=$(api GET /settings)
