@@ -96,6 +96,13 @@ func TestIntegrationLifecycleAndGuards(t *testing.T) {
 	if err != nil || st.ContainerID != id {
 		t.Fatalf("stats: %+v %v", st, err)
 	}
+	eps, err := e.NetworkEndpoints(ctx, netName)
+	if err != nil || len(eps) != 1 || eps[0].ContainerID != id || eps[0].Name != ctName {
+		t.Fatalf("network endpoints: %+v %v", eps, err)
+	}
+	if err := e.RemoveNetwork(ctx, netName); err == nil {
+		t.Fatal("removing a network with an active endpoint must fail")
+	}
 	// ExecStream must return once the process exits even when the caller's stdin stays
 	// open (SSH clients keep it open until they see the exit status).
 	pr, pw := io.Pipe()
@@ -129,6 +136,9 @@ func TestIntegrationLifecycleAndGuards(t *testing.T) {
 	}
 	if err := e.RemoveNetwork(ctx, netName); err != nil {
 		t.Fatal(err)
+	}
+	if eps, err := e.NetworkEndpoints(ctx, netName); err != nil || len(eps) != 0 {
+		t.Fatalf("endpoints of a removed network: %+v %v", eps, err)
 	}
 }
 

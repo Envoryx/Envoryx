@@ -423,6 +423,45 @@ func TestDeleteRemovesOnlyOwnResources(t *testing.T) {
 	}
 }
 
+func TestDeleteRefusesWhileForeignContainerUsesNetwork(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	view, err := e.m.Create(ctx, phpRequest("Alpha", true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := view.Project.ID
+	guest := e.engine.AddForeignContainer("plex", "plexinc/pms-docker", "running")
+	if err := e.engine.ConnectNetwork(ctx, "envoryx-alpha", guest); err != nil {
+		t.Fatal(err)
+	}
+
+	err = e.m.Delete(ctx, id, DeleteOptions{Confirm: "alpha"})
+	if !errors.Is(err, ErrConflict) {
+		t.Fatalf("expected conflict, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "plex") || !strings.Contains(err.Error(), "envoryx-alpha") {
+		t.Fatalf("error must name the container and network: %v", err)
+	}
+	// Nothing was touched: containers, network and record are still there.
+	if got := strings.Join(e.engine.ContainerNames(), ","); got != "envoryx-alpha-php,envoryx-alpha-web,plex" {
+		t.Fatalf("containers after refused delete: %s", got)
+	}
+	if got, err := e.m.Get(ctx, id); err != nil || got.Status.State != StateRunning {
+		t.Fatalf("project must stay running, got %v / %v", got.Status.State, err)
+	}
+
+	if err := e.engine.DisconnectNetwork(ctx, "envoryx-alpha", guest); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.m.Delete(ctx, id, DeleteOptions{Confirm: "alpha"}); err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(e.engine.NetworkNames(), ","); got != "" {
+		t.Fatalf("networks after delete: %s", got)
+	}
+}
+
 func TestUpdateChangesVersionAndRecreates(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()

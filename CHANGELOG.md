@@ -10,6 +10,12 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Fixed
+- Deleting a project whose network is still used by a container Envoryx did
+  not create (for example one attached through Unraid's network dropdown) is
+  now refused up front, naming that container, instead of removing the
+  project's containers and volumes first and then leaving it in `failed`.
+
 ## [0.1.0] – 2026-09-19
 
 First tagged release. Everything below is new.

@@ -837,6 +837,23 @@ func (e *MobyEngine) DisconnectNetwork(ctx context.Context, network, containerID
 	return wrap(err)
 }
 
+// NetworkEndpoints implements Engine.
+func (e *MobyEngine) NetworkEndpoints(ctx context.Context, network string) ([]Endpoint, error) {
+	res, err := e.cli.NetworkInspect(ctx, network, client.NetworkInspectOptions{})
+	if err != nil {
+		if cerrdefs.IsNotFound(err) {
+			return nil, nil
+		}
+		return nil, wrap(err)
+	}
+	out := make([]Endpoint, 0, len(res.Network.Containers))
+	for id, ep := range res.Network.Containers {
+		out = append(out, Endpoint{ContainerID: id, Name: ep.Name})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
+	return out, nil
+}
+
 // ContainerNetworks implements Engine.
 func (e *MobyEngine) ContainerNetworks(ctx context.Context, containerID string) ([]string, error) {
 	c, err := e.inspectRaw(ctx, containerID)

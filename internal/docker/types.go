@@ -106,6 +106,12 @@ type Network struct {
 	Managed bool
 }
 
+// Endpoint is a container attached to a network.
+type Endpoint struct {
+	ContainerID string
+	Name        string
+}
+
 // NetworkAccess describes the reachability of a container's ports.
 type NetworkAccess struct {
 	// Mode is the container's network mode (bridge, host, <network name> …).
@@ -303,6 +309,9 @@ type Engine interface {
 	DisconnectNetwork(ctx context.Context, network, containerID string) error
 	// ContainerNetworks lists the network names a container is attached to.
 	ContainerNetworks(ctx context.Context, containerID string) ([]string, error)
+	// NetworkEndpoints lists the containers currently attached to a network – the ones
+	// that would make its removal fail. A missing network yields no endpoints.
+	NetworkEndpoints(ctx context.Context, network string) ([]Endpoint, error)
 	// SelfPortBindings returns the host ports published for the given container ports of
 	// any container (used to discover how Envoryx's own proxy ports are mapped).
 	PortBindings(ctx context.Context, containerID string) ([]PortMapping, error)

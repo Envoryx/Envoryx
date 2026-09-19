@@ -730,6 +730,12 @@ func (m *Manager) delete(ctx context.Context, id string, opts DeleteOptions) err
 	if opts.Confirm != proj.Slug {
 		return fmt.Errorf("%w: confirmation must equal the project identifier %q", validate.ErrInvalid, proj.Slug)
 	}
+	// Refuse before touching anything: a foreign container on a project network (e.g.
+	// attached through Unraid's network dropdown) would make the network removal fail
+	// after the project's own containers and volumes are already gone.
+	if err := m.checkForeignEndpoints(ctx, id); err != nil {
+		return err
+	}
 	if err := m.store.Projects.UpdateState(ctx, id, proj.DesiredState, store.LifecycleDeleting, ""); err != nil {
 		return err
 	}
@@ -800,6 +806,65 @@ func (m *Manager) delete(ctx context.Context, id string, opts DeleteOptions) err
 	}
 	m.audit.Log(ctx, audit.ActionProjectDeleted, "project", id, map[string]any{"name": proj.Name, "slug": proj.Slug, "deletedFiles": opts.DeleteFiles})
 	return nil
+}
+
+// checkForeignEndpoints returns ErrConflict naming every container on the project's
+// networks that Envoryx did not put there (project containers, its own proxy and the
+// database browser are expected and detached during delete).
+func (m *Manager) checkForeignEndpoints(ctx context.Context, id string) error {
+	networks, err := m.engine.ListNetworks(ctx, true)
+	if err != nil {
+		return err
+	}
+	own := map[string]bool{}
+	containers, err := m.engine.ListContainers(ctx, true, id)
+	if err != nil {
+		return err
+	}
+	for _, c := range containers {
+		own[c.ID] = true
+	}
+	if paths, err := m.paths(); err == nil && paths.SelfContainerID != "" {
+		own[paths.SelfContainerID] = true
+	}
+	if c, err := m.findDBTool(ctx); err == nil && c != nil {
+		own[c.ID] = true
+	}
+	isOwn := func(containerID string) bool {
+		for o := range own {
+			if strings.HasPrefix(containerID, o) || strings.HasPrefix(o, containerID) {
+				return true
+			}
+		}
+		return false
+	}
+	for _, n := range networks {
+		if n.Labels[docker.LabelProjectID] != id {
+			continue
+		}
+		endpoints, err := m.engine.NetworkEndpoints(ctx, n.Name)
+		if err != nil {
+			return fmt.Errorf("inspect network %s: %w", n.Name, err)
+		}
+		var foreign []string
+		for _, ep := range endpoints {
+			if !isOwn(ep.ContainerID) {
+				foreign = append(foreign, ep.Name)
+			}
+		}
+		if len(foreign) > 0 {
+			return fmt.Errorf("%w: network %s is still used by %s – disconnect or remove %s first",
+				ErrConflict, n.Name, strings.Join(foreign, ", "), plural(len(foreign), "that container", "these containers"))
+		}
+	}
+	return nil
+}
+
+func plural(n int, one, many string) string {
+	if n == 1 {
+		return one
+	}
+	return many
 }
 
 // removeProjectFiles deletes the project directory after verifying it resolves inside the

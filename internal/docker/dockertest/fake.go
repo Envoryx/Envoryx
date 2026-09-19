@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -800,6 +801,24 @@ func (f *Fake) DisconnectNetwork(_ context.Context, network, containerID string)
 	c.Attached = kept
 	f.record("network-disconnect:" + network + ":" + c.Spec.Name)
 	return nil
+}
+
+// NetworkEndpoints implements docker.Engine. Like RemoveNetwork it counts every attached
+// container, running or not.
+func (f *Fake) NetworkEndpoints(_ context.Context, network string) ([]docker.Endpoint, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if err := f.check(); err != nil {
+		return nil, err
+	}
+	var out []docker.Endpoint
+	for _, c := range f.containers {
+		if c.Spec.Network == network || slices.Contains(c.Attached, network) {
+			out = append(out, docker.Endpoint{ContainerID: c.ID, Name: c.Spec.Name})
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
+	return out, nil
 }
 
 // ContainerNetworks implements docker.Engine.
