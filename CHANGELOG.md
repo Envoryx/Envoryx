@@ -10,7 +10,14 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.3.0] – 2026-09-20
+
 ### Added
+- Envoryx has its logo: the `<E>` mark and wordmark replace the placeholder
+  icon in the sidebar, on the sign-in page, as favicon and as the Unraid
+  template icon. Mint is the default accent colour; **Settings → General →
+  Appearance** offers ocean, violet, amber and rose – buttons, highlights and
+  the logo follow. The choice is stored per browser, like the theme.
 - Settings are organised in tabs (Diagnostics, General, Domains & HTTPS,
   Access, Notifications, Backups, Tools, Audit log). The new **Diagnostics**
   tab runs 14 set-up checks – Docker, storage, host paths, disk space, backup
@@ -25,6 +32,9 @@ release). `:main` follows the development branch.
   the MCP `create_backup` tool include it automatically.
 
 ### Fixed
+- The chosen theme was ignored on the sign-in and set-up pages (always light)
+  and the app briefly flashed light on every load: the script applying the
+  stored theme was blocked by Envoryx's own Content Security Policy.
 - When Envoryx runs with an IP of its own (Unraid `br0`, macvlan) and no host
   for project links is configured, links to published ports – project URLs,
   Mailpit, the object storage console, database ports – silently pointed at
@@ -116,6 +126,7 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/envoryx/envoryx/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/envoryx/envoryx/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/envoryx/envoryx/releases/tag/v0.1.0
