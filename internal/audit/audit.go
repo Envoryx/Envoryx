@@ -33,6 +33,11 @@ const (
 	ActionBackupRestored = "backup.restored"
 	ActionBackupDeleted  = "backup.deleted"
 
+	ActionInstanceBackupCreated  = "instance.backup_created"
+	ActionInstanceBackupUploaded = "instance.backup_uploaded"
+	ActionInstanceBackupDeleted  = "instance.backup_deleted"
+	ActionInstanceRestore        = "instance.restore_scheduled"
+
 	ActionDBCredentialsViewed = "database.credentials_viewed"
 	ActionDBPasswordRotated   = "database.password_rotated"
 	ActionDBCreated           = "database.created"

@@ -282,8 +282,13 @@ docker compose pull && docker compose up -d
 
 Envoryx's state lives in `/config`, `/projects` and `/backups` only. Replacing the image
 never touches projects. Database migrations run automatically and are forward
-only; a database newer than the binary is refused with a clear error, so keep a
-copy of `/config/envoryx.db` before downgrading.
+only; a database newer than the binary is refused with a clear error.
+
+Before the first migration of a new version Envoryx writes an **instance
+backup** (`pre-migrate-…`) to `<backups dir>/_instance/`. To go back to the
+previous version: pull the old image, then restore that backup from *Settings →
+Instance backups* (or, if the old version does not start because the schema is
+newer, see [Instance backups](#instance-backups) for the manual way).
 
 ## Keeping PHP up to date
 
@@ -332,8 +337,39 @@ a given hour (server local time – set `TZ` on the container for your zone),
 keep the last N scheduled backups (manual ones are never deleted), optionally
 including `vendor/`/`node_modules/`. Failures raise a notification.
 
-For Envoryx itself back up `/config` (SQLite database, generated configuration,
-deploy key), `/projects` and the backups directory.
+### Instance backups
+
+*Settings → Instance backups* snapshots Envoryx itself: the SQLite database
+(accounts, sessions, API tokens, projects and their service settings, domains,
+workers, settings), the local CA, the SSH host key and deploy keys,
+notification settings and the generated per-project configuration. Project
+files and Docker volumes are **not** included – that is what project backups
+are for. A backup is a single `envoryx-<id>.tar.gz` under
+`<backups dir>/_instance/` (`instance.json` with version/schema, `envoryx.db`
+as a consistent `VACUUM INTO` copy, `config/…`).
+
+- **Create** a backup any time (e.g. before an update); **download** it and
+  **import** it on another host to move an installation.
+- **Automatic**: before every schema migration (`pre-migrate-…`) and before
+  every restore (`pre-restore-…`). The last 5 of each kind are kept; manual and
+  imported ones stay until deleted.
+- **Restore** needs the confirmation word `restore`. Envoryx records the
+  request, restarts in place (the process replaces itself, so no restart policy
+  is needed) and applies the backup before opening the database: current
+  state → `pre-restore` backup, then database and config are replaced.
+  Containers and project files are untouched; projects that were created after
+  the backup appear as orphans in *Docker* and can be removed there. All
+  sessions end; sign in again with the credentials from the backup.
+- A backup from a **newer** Envoryx (higher schema version) is refused; an
+  older one is migrated forward on start (with its own `pre-migrate` backup).
+
+Manual restore without the UI (e.g. Envoryx does not start): stop the
+container, unpack the archive – `envoryx.db` to `/config/envoryx.db` (delete
+`envoryx.db-wal`/`-shm` if present), `config/*` over `/config/` – and start
+again.
+
+Still include `/config`, `/projects` and the backups directory in your regular
+off-machine backup (e.g. the Unraid Appdata Backup plugin or an rsync job).
 
 ## Workers (queues, schedulers)
 

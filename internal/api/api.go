@@ -1,17 +1,20 @@
 package api
 
 import (
-	"github.com/envoryx/envoryx/internal/acme"
-	"github.com/envoryx/envoryx/internal/notify"
+	"database/sql"
 	"log/slog"
 	"net/http"
 	"time"
+
+	"github.com/envoryx/envoryx/internal/acme"
+	"github.com/envoryx/envoryx/internal/notify"
 
 	"github.com/envoryx/envoryx/internal/audit"
 	"github.com/envoryx/envoryx/internal/auth"
 	"github.com/envoryx/envoryx/internal/config"
 	"github.com/envoryx/envoryx/internal/docker"
 	"github.com/envoryx/envoryx/internal/hostpath"
+	"github.com/envoryx/envoryx/internal/instance"
 	"github.com/envoryx/envoryx/internal/project"
 	"github.com/envoryx/envoryx/internal/runtime"
 	"github.com/envoryx/envoryx/internal/stats"
@@ -35,6 +38,12 @@ type Deps struct {
 	ACME     *acme.Manager
 	Notify   *notify.Service
 	Proxy    *ProxyInfo
+	// Instance manages backups of the instance itself (nil = disabled).
+	Instance *instance.Store
+	// DB is the live database, used for instance backups.
+	DB *sql.DB
+	// Restart asks the server to shut down and start again (e.g. to apply a restore).
+	Restart func()
 	// MCP is the MCP endpoint handler (nil = disabled); mounted at /mcp by the server.
 	MCP http.Handler
 	// SSH describes the embedded SSH server (nil = disabled).
@@ -126,6 +135,13 @@ func (a *API) Mount(mux *http.ServeMux, protect func(http.Handler) http.Handler)
 	p("POST /api/v1/projects/{id}/domains", a.addDomain)
 	p("DELETE /api/v1/projects/{id}/domains/{domain}", a.removeDomain)
 	p("GET /api/v1/audit", a.auditLog)
+	p("GET /api/v1/instance/backups", a.listInstanceBackups)
+	p("POST /api/v1/instance/backups", a.createInstanceBackup)
+	p("POST /api/v1/instance/backups/upload", a.uploadInstanceBackup)
+	p("DELETE /api/v1/instance/backups/{id}", a.deleteInstanceBackup)
+	p("GET /api/v1/instance/backups/{id}/download", a.downloadInstanceBackup)
+	p("POST /api/v1/instance/backups/{id}/restore", a.restoreInstanceBackup)
+	p("DELETE /api/v1/instance/restore", a.cancelInstanceRestore)
 	p("GET /api/v1/system/reconcile", a.reconcileReport)
 	p("POST /api/v1/system/reconcile", a.reconcileNow)
 

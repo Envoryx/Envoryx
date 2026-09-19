@@ -22,9 +22,36 @@ import (
 //go:embed migrations/*.sql
 var migrationFS embed.FS
 
+// Options tune Open.
+type Options struct {
+	// BeforeMigrate runs once, before the first pending migration, when the database is
+	// behind the binary. from is the applied schema version, to the target version. An
+	// error aborts the start without touching the schema.
+	BeforeMigrate func(ctx context.Context, sqlDB *sql.DB, from, to int) error
+}
+
 // Open opens (and creates if necessary) the SQLite database at path and applies all
 // pending migrations. Use ":memory:" for an in-memory database (tests).
 func Open(ctx context.Context, path string, log *slog.Logger) (*sql.DB, error) {
+	return OpenWith(ctx, path, log, Options{})
+}
+
+// OpenWith is Open with options.
+func OpenWith(ctx context.Context, path string, log *slog.Logger, opts Options) (*sql.DB, error) {
+	sqlDB, err := OpenRaw(ctx, path, log)
+	if err != nil {
+		return nil, err
+	}
+	if err := migrate(ctx, sqlDB, log, opts.BeforeMigrate); err != nil {
+		_ = sqlDB.Close()
+		return nil, err
+	}
+	return sqlDB, nil
+}
+
+// OpenRaw opens the database without applying migrations. It is used before a restore
+// and for snapshots taken ahead of migrations; everything else goes through Open.
+func OpenRaw(ctx context.Context, path string, log *slog.Logger) (*sql.DB, error) {
 	dsn := path
 	if path != ":memory:" {
 		if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
@@ -52,10 +79,6 @@ func Open(ctx context.Context, path string, log *slog.Logger) (*sql.DB, error) {
 		if err := os.Chmod(path, 0o600); err != nil && !errors.Is(err, os.ErrNotExist) {
 			log.Warn("could not restrict database file permissions", "path", path, "err", err)
 		}
-	}
-	if err := Migrate(ctx, sqlDB, log); err != nil {
-		_ = sqlDB.Close()
-		return nil, err
 	}
 	return sqlDB, nil
 }
@@ -100,9 +123,22 @@ func loadMigrations() ([]migration, error) {
 	return out, nil
 }
 
+// LatestVersion returns the schema version this binary migrates to.
+func LatestVersion() int {
+	migrations, err := loadMigrations()
+	if err != nil || len(migrations) == 0 {
+		return 0
+	}
+	return migrations[len(migrations)-1].version
+}
+
 // Migrate applies all migrations that have not been applied yet. Each migration runs in
 // its own transaction. A database that is newer than the binary is refused.
 func Migrate(ctx context.Context, sqlDB *sql.DB, log *slog.Logger) error {
+	return migrate(ctx, sqlDB, log, nil)
+}
+
+func migrate(ctx context.Context, sqlDB *sql.DB, log *slog.Logger, before func(context.Context, *sql.DB, int, int) error) error {
 	if _, err := sqlDB.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS schema_migrations (
 		version INTEGER PRIMARY KEY,
 		applied_at TEXT NOT NULL
@@ -143,6 +179,13 @@ func Migrate(ctx context.Context, sqlDB *sql.DB, log *slog.Logger) error {
 	}
 	if maxApplied > latest {
 		return fmt.Errorf("database schema version %d is newer than this Envoryx build supports (%d); refusing to start", maxApplied, latest)
+	}
+
+	if before != nil && maxApplied < latest && len(applied) > 0 {
+		// Only an existing database is worth a snapshot; a fresh one has nothing to lose.
+		if err := before(ctx, sqlDB, maxApplied, latest); err != nil {
+			return fmt.Errorf("before migration: %w", err)
+		}
 	}
 
 	for _, m := range migrations {

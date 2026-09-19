@@ -25,6 +25,7 @@ import (
 	"github.com/envoryx/envoryx/internal/docker"
 	"github.com/envoryx/envoryx/internal/docker/dockertest"
 	"github.com/envoryx/envoryx/internal/hostpath"
+	"github.com/envoryx/envoryx/internal/instance"
 	"github.com/envoryx/envoryx/internal/mcpserver"
 	"github.com/envoryx/envoryx/internal/notify"
 	"github.com/envoryx/envoryx/internal/project"
@@ -39,11 +40,13 @@ type dockerExecResult = docker.ExecResult
 type dockerSpec = docker.ContainerSpec
 
 type testApp struct {
-	t       *testing.T
-	srv     *httptest.Server
-	engine  *dockertest.Fake
-	cookie  *http.Cookie
-	projDir string
+	t        *testing.T
+	srv      *httptest.Server
+	engine   *dockertest.Fake
+	cookie   *http.Cookie
+	projDir  string
+	cfgDir   string
+	restarts int
 }
 
 func newApp(t *testing.T) *testApp {
@@ -81,13 +84,17 @@ func newApp(t *testing.T) *testApp {
 	invalidations := 0
 	proxyInfo := &api.ProxyInfo{Enabled: true, HTTPPort: 80, HTTPSPort: 443, InDocker: true, Invalidate: func() { invalidations++ }}
 	mcpSrv := mcpserver.New(mcpserver.Deps{Projects: manager, Catalog: runtime.Default(), Auth: sessions, Version: "test", Log: log})
+	app := &testApp{t: t, engine: engine, projDir: projDir, cfgDir: cfgDir}
+	backups := &instance.Store{ConfigDir: cfgDir, DBPath: filepath.Join(cfgDir, "envoryx.db"), Dir: filepath.Join(t.TempDir(), "_instance"), Version: "test", LatestSchema: db.LatestVersion(), Log: log}
 	a := api.New(api.Deps{Config: cfg, Version: "test", Store: st, Auth: sessions, Audit: auditLog, Engine: engine, Projects: manager,
-		Catalog: runtime.Default(), Stats: stats.New(engine, time.Second, log), HostPath: resolver, Certs: certs, ACME: acmeMgr, Notify: notifier, Proxy: proxyInfo, MCP: mcpSrv.Handler(), Log: log, StartedAt: time.Now()})
+		Catalog: runtime.Default(), Stats: stats.New(engine, time.Second, log), HostPath: resolver, Certs: certs, ACME: acmeMgr, Notify: notifier, Proxy: proxyInfo, MCP: mcpSrv.Handler(), Log: log, StartedAt: time.Now(),
+		Instance: backups, DB: sqlDB, Restart: func() { app.restarts++ }})
 	s := server.New(server.Options{Addr: ":0", Log: log, MCP: mcpSrv.Handler()}, a, sessions, nil)
 	handler := serverHandler(s)
 	srv := httptest.NewServer(handler)
 	t.Cleanup(srv.Close)
-	return &testApp{t: t, srv: srv, engine: engine, projDir: projDir}
+	app.srv = srv
+	return app
 }
 
 // serverHandler extracts the http.Handler from the server for httptest.

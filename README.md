@@ -65,6 +65,10 @@ Envoryx is under active development. The current milestone (Phase 1 + 2) deliver
   optional separate `/backups` mount (e.g. on the Unraid array),
   restore with typed confirmation, download as a single archive; daily/weekly
   schedules with retention per project
+- instance backups: Envoryx's own database, CA, SSH keys and configuration as
+  one downloadable archive – taken automatically before every schema upgrade,
+  restorable (or importable on another host) from the settings with an in-place
+  restart
 
 - IDE integration: embedded SSH server for PhpStorm/VS Code remote
   interpreters and SFTP into project containers (API token or public key),

@@ -9,6 +9,7 @@ import { formatDateTime } from "@/lib/format";
 import { DomainsCard } from "./DomainsCard";
 import { TokensCard } from "./TokensCard";
 import { NotificationsCard } from "./NotificationsCard";
+import { InstanceBackupsCard } from "./InstanceBackupsCard";
 
 function PasswordForm() {
   const { t } = useTranslation();
@@ -234,6 +235,8 @@ export function SettingsPage() {
       {s.data && <SshCard keys={s.data.sshAuthorizedKeys ?? ""} ssh={s.data.ssh} />}
 
       <DeployKeyCard />
+
+      <InstanceBackupsCard />
 
       <PasswordForm />
 

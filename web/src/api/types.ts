@@ -604,6 +604,31 @@ export interface BackupInfo {
   missing: boolean;
 }
 
+export interface InstanceBackupMeta {
+  format: number;
+  envoryx: string;
+  schema: number;
+  createdAt: string;
+  kind: string;
+  note?: string;
+  entries: number;
+}
+
+export interface InstanceBackup {
+  id: string;
+  kind: "manual" | "upload" | "pre-migrate" | "pre-restore" | string;
+  sizeBytes: number;
+  createdAt: string;
+  meta: InstanceBackupMeta;
+}
+
+export interface InstanceBackupsResponse {
+  backups: InstanceBackup[];
+  pendingRestore: { id: string; requestedAt: string } | null;
+  dir: string;
+  canRestart: boolean;
+}
+
 export interface ActionInfo {
   id: string;
   group: string;

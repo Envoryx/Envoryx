@@ -34,6 +34,8 @@ import type {
   Worker,
   WorkerPreset,
   WorkerRequest,
+  InstanceBackup,
+  InstanceBackupsResponse,
 } from "./types";
 
 export class ApiError extends Error {
@@ -103,6 +105,33 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
       onUnauthorized?.();
     }
     throw new ApiError(res.status, err?.code ?? "http_error", err?.message ?? `Request failed (${res.status})`, err?.details);
+  }
+  return payload as T;
+}
+
+/** Multipart upload; the JSON error envelope is handled like any other request. */
+async function upload<T>(path: string, field: string, file: File): Promise<T> {
+  const form = new FormData();
+  form.append(field, file, file.name);
+  const res = await fetch(`/api/v1${path}`, {
+    method: "POST",
+    headers: { Accept: "application/json", "X-Requested-With": "Envoryx" },
+    credentials: "same-origin",
+    body: form,
+  });
+  let payload: unknown = null;
+  const text = await res.text();
+  if (text) {
+    try {
+      payload = JSON.parse(text);
+    } catch {
+      payload = null;
+    }
+  }
+  if (!res.ok) {
+    const err = (payload as { error?: { code?: string; message?: string; details?: unknown } } | null)?.error;
+    if (res.status === 401) onUnauthorized?.();
+    throw new ApiError(res.status, err?.code ?? "http_error", err?.message ?? `Upload failed (${res.status})`, err?.details);
   }
   return payload as T;
 }
@@ -185,6 +214,17 @@ export const api = {
     extras: (id: string) => request<{ services: ExtraServiceInfo[] }>(`/projects/${encodeURIComponent(id)}/extras`),
     logs: (id: string, kind: string, tail = 500) =>
       request<{ lines: LogLine[] }>(`/projects/${encodeURIComponent(id)}/services/${encodeURIComponent(kind)}/logs?tail=${tail}`),
+  },
+
+  instanceBackups: {
+    list: () => request<InstanceBackupsResponse>("/instance/backups"),
+    create: (note: string) => request<{ backup: InstanceBackup }>("/instance/backups", { method: "POST", body: { note } }),
+    upload: (file: File) => upload<{ backup: InstanceBackup }>("/instance/backups/upload", "file", file),
+    remove: (id: string) => request<void>(`/instance/backups/${encodeURIComponent(id)}`, { method: "DELETE" }),
+    restore: (id: string, confirm: string) =>
+      request<{ scheduled: string; restarting: boolean }>(`/instance/backups/${encodeURIComponent(id)}/restore`, { method: "POST", body: { confirm } }),
+    cancelRestore: () => request<void>("/instance/restore", { method: "DELETE" }),
+    downloadUrl: (id: string) => `/api/v1/instance/backups/${encodeURIComponent(id)}/download`,
   },
 
   backups: {

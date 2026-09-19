@@ -64,6 +64,7 @@ Go API (single binary, single container)
 │   ├── db/                   SQLite open + embedded migrations
 │   ├── docker/               Docker Engine abstraction (interface + moby impl + fake)
 │   ├── hostpath/             host-path detection for bind mounts (see §7)
+│   ├── instance/             backups of the instance itself (db + config), restore on start
 │   ├── project/              project manager: planning, lifecycle, reconciler
 │   ├── runtime/              runtime catalogue (versions → images, config)
 │   ├── server/               router, middleware, static file serving
@@ -135,6 +136,8 @@ Go API (single binary, single container)
     periodically, updating derived status and flagging inconsistencies.
 - **hostpath** – resolves the *host* path behind `/projects` and `/config`
   (see §7). Bind mounts for project containers must use host paths.
+- **instance** – backups of Envoryx itself (see §10): create/list/import/
+  delete, automatic pre-migrate/pre-restore snapshots, restore at next start.
 - **stats** – one-shot container stats with a short cache, aggregated per
   project and for the dashboard.
 - **api** – thin handlers: decode → validate → call manager/store → encode.
@@ -454,6 +457,15 @@ Docker volumes             database / cache data (named, labelled)
 Migrations are forward-only SQL files embedded in the binary and applied in
 a transaction each; the version table prevents re-application. Downgrading
 the image below the schema version is refused with a clear error.
+
+`internal/instance` backs up the instance itself (database via `VACUUM INTO`,
+`ca/`, `ssh/`, `notify.json`, `projects/<id>/` without `home/` caches) into a
+single tarball under `<backups>/_instance/`. One is written automatically
+before the first pending migration (`db.Options.BeforeMigrate`) and before a
+restore. A restore is only recorded (`/config/.restore-pending`) and applied at
+the next start before the database is opened; the API asks `main` to restart,
+which re-execs the binary in place so the container keeps running regardless
+of its restart policy.
 
 ---
 

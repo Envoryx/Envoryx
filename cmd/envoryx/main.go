@@ -14,6 +14,8 @@ package main
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
@@ -23,6 +25,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -34,6 +37,7 @@ import (
 	"github.com/envoryx/envoryx/internal/db"
 	"github.com/envoryx/envoryx/internal/docker"
 	"github.com/envoryx/envoryx/internal/hostpath"
+	"github.com/envoryx/envoryx/internal/instance"
 	"github.com/envoryx/envoryx/internal/mcpserver"
 	"github.com/envoryx/envoryx/internal/notify"
 	"github.com/envoryx/envoryx/internal/project"
@@ -50,6 +54,9 @@ import (
 // version is set at build time via -ldflags "-X main.version=...".
 var version = "dev"
 
+// errRestart is returned by serve when the process should start over (instance restore).
+var errRestart = errors.New("restart requested")
+
 func main() {
 	cmd := "serve"
 	if len(os.Args) > 1 {
@@ -57,7 +64,20 @@ func main() {
 	}
 	switch cmd {
 	case "serve":
-		if err := serve(); err != nil {
+		err := serve()
+		if errors.Is(err, errRestart) {
+			// Replace the process instead of exiting: the container keeps running whatever
+			// its restart policy, and the new process starts with a clean state.
+			exe, lookErr := os.Executable()
+			if lookErr == nil {
+				err = syscall.Exec(exe, os.Args, os.Environ())
+			} else {
+				err = lookErr
+			}
+			fmt.Fprintln(os.Stderr, "envoryx: restart failed:", err)
+			os.Exit(3)
+		}
+		if err != nil {
 			fmt.Fprintln(os.Stderr, "envoryx:", err)
 			os.Exit(1)
 		}
@@ -101,6 +121,15 @@ func serve() error {
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	ctx, shutdown := context.WithCancel(ctx)
+	defer shutdown()
+	var restart atomic.Bool
+	requestRestart := func() {
+		if restart.CompareAndSwap(false, true) {
+			log.Info("restart requested")
+			shutdown()
+		}
+	}
 
 	for _, dir := range []string{cfg.ConfigDir, cfg.ProjectsDir, filepath.Join(cfg.ConfigDir, "projects"), cfg.BackupsDir} {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -109,8 +138,24 @@ func serve() error {
 	}
 	warnStrandedBackups(cfg, log)
 
-	// 1. Database.
-	sqlDB, err := db.Open(ctx, cfg.DatabasePath, log)
+	// 1. Database. A scheduled instance restore replaces it first; a schema upgrade is
+	// preceded by an automatic instance backup so the previous state can be brought back.
+	backups := &instance.Store{ConfigDir: cfg.ConfigDir, DBPath: cfg.DatabasePath, Dir: filepath.Join(cfg.BackupsDir, "_instance"),
+		Version: version, LatestSchema: db.LatestVersion(), Log: log}
+	openRaw := func(ctx context.Context, path string) (*sql.DB, error) { return db.OpenRaw(ctx, path, log) }
+	if restored, err := backups.ApplyPendingRestore(ctx, openRaw); err != nil {
+		return fmt.Errorf("instance restore: %w", err)
+	} else if restored != "" {
+		log.Info("instance backup restored", "id", restored)
+	}
+	sqlDB, err := db.OpenWith(ctx, cfg.DatabasePath, log, db.Options{BeforeMigrate: func(ctx context.Context, raw *sql.DB, from, to int) error {
+		b, err := backups.Create(ctx, raw, instance.KindPreMigrate, fmt.Sprintf("before schema %d → %d (Envoryx %s)", from, to, version))
+		if err != nil {
+			return err
+		}
+		log.Info("instance backup written before schema upgrade", "id", b.ID, "from", from, "to", to)
+		return nil
+	}})
 	if err != nil {
 		return fmt.Errorf("database: %w", err)
 	}
@@ -271,6 +316,7 @@ func serve() error {
 		Config: cfg, Version: version, Store: st, Auth: sessions, Audit: auditLog, Engine: engine,
 		Projects: manager, Catalog: catalog, Stats: collector, HostPath: resolver, Certs: certs, ACME: acmeMgr, Notify: notifier, Proxy: proxyInfo,
 		MCP: mcpSrv.Handler(), SSH: sshInfo, Log: log, StartedAt: time.Now(),
+		Instance: backups, DB: sqlDB, Restart: requestRestart,
 	})
 	var origins []string
 	if cfg.DevMode {
@@ -316,6 +362,10 @@ func serve() error {
 	}
 	if err := srv.ListenAndServe(ctx); err != nil {
 		return fmt.Errorf("http server: %w", err)
+	}
+	if restart.Load() {
+		log.Info("Envoryx restarting")
+		return errRestart
 	}
 	log.Info("Envoryx stopped")
 	return nil
