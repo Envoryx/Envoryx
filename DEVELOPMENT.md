@@ -166,3 +166,17 @@ require a migration (Envoryx takes a pre-migrate instance backup itself), a
 **patch** release only fixes. Schema migrations are forward-only, so a
 release that adds one cannot be downgraded without restoring that backup –
 say so in the changelog entry.
+
+## Dependency updates
+
+Dependabot (`.github/dependabot.yml`) opens pull requests every Monday for
+Go modules, the web frontend, GitHub Actions and the base images of the
+application `Dockerfile`. Minor and patch updates arrive grouped per
+ecosystem (one PR each); major updates and security fixes come as separate
+PRs. CI, including the upgrade test, runs on every one of them – merge when
+green, read the release notes first for majors.
+
+The PHP and Node **runtime images** are not covered by Dependabot: their
+base tags follow `internal/runtime/*_versions.json`, which the
+`Runtime version check` workflow updates from upstream releases (see
+"Adding a runtime version").
