@@ -39,3 +39,42 @@ export function useTheme(): [Theme, (t: Theme) => void] {
 
   return [theme, setTheme];
 }
+
+export const accents = ["mint", "ocean", "violet", "amber", "rose"] as const;
+export type Accent = (typeof accents)[number];
+const ACCENT_KEY = "envoryx.accent";
+
+function isAccent(v: unknown): v is Accent {
+  return accents.includes(v as Accent);
+}
+
+function applyAccent(accent: Accent) {
+  if (accent === "mint") document.documentElement.removeAttribute("data-accent");
+  else document.documentElement.dataset.accent = accent;
+}
+
+/** Accent colour of the UI and logo; mint is the brand default. Stored per browser like the theme. */
+export function useAccent(): [Accent, (a: Accent) => void] {
+  const [accent, setAccentState] = useState<Accent>(() => {
+    try {
+      const v = localStorage.getItem(ACCENT_KEY);
+      return isAccent(v) ? v : "mint";
+    } catch {
+      return "mint";
+    }
+  });
+
+  useEffect(() => applyAccent(accent), [accent]);
+
+  const setAccent = useCallback((a: Accent) => {
+    setAccentState(a);
+    try {
+      if (a === "mint") localStorage.removeItem(ACCENT_KEY);
+      else localStorage.setItem(ACCENT_KEY, a);
+    } catch {
+      /* storage unavailable */
+    }
+  }, []);
+
+  return [accent, setAccent];
+}

@@ -973,5 +973,13 @@
   ", and the CA is trusted": ", und der CA wird vertraut",
   "{{url}} could not be reached from this browser.": "{{url}} war aus diesem Browser nicht erreichbar.",
   "Either this device's DNS does not resolve names under the base domain, or this browser does not trust the Envoryx CA yet. Install the CA (Domains & HTTPS) and add a wildcard DNS rewrite on the DNS server your devices use (AdGuard Home, Pi-hole, router).": "Entweder löst der DNS dieses Geräts keine Namen unter der Basis-Domain auf, oder dieser Browser vertraut der Envoryx-CA noch nicht. CA installieren (Domains & HTTPS) und einen Wildcard-DNS-Rewrite auf dem DNS-Server deiner Geräte anlegen (AdGuard Home, Pi-hole, Router).",
-  "This device's DNS does not resolve names under the base domain. Add a wildcard DNS rewrite on the DNS server your devices use (AdGuard Home, Pi-hole, router), or hosts-file entries per project.": "Der DNS dieses Geräts löst keine Namen unter der Basis-Domain auf. Einen Wildcard-DNS-Rewrite auf dem DNS-Server deiner Geräte anlegen (AdGuard Home, Pi-hole, Router) oder hosts-Einträge pro Projekt."
+  "This device's DNS does not resolve names under the base domain. Add a wildcard DNS rewrite on the DNS server your devices use (AdGuard Home, Pi-hole, router), or hosts-file entries per project.": "Der DNS dieses Geräts löst keine Namen unter der Basis-Domain auf. Einen Wildcard-DNS-Rewrite auf dem DNS-Server deiner Geräte anlegen (AdGuard Home, Pi-hole, Router) oder hosts-Einträge pro Projekt.",
+  "Appearance": "Erscheinungsbild",
+  "The accent colour is stored in this browser; the logo, buttons and highlights follow it.": "Die Akzentfarbe wird in diesem Browser gespeichert; Logo, Buttons und Hervorhebungen folgen ihr.",
+  "Accent colour": "Akzentfarbe",
+  "Mint": "Mint",
+  "Ocean": "Ozean",
+  "Violet": "Violett",
+  "Amber": "Amber",
+  "Rose": "Rosé"
 }

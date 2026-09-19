@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { ApiError } from "@/api/client";
 import { Button, Field, Input, Alert } from "@/components/ui";
-import { Logo } from "@/layout/Logo";
+import { LogoFull } from "@/layout/Logo";
 import { useAuth } from "./AuthContext";
 
 export function LoginPage({ mode }: { mode: "login" | "setup" }) {
@@ -55,7 +55,7 @@ export function LoginPage({ mode }: { mode: "login" | "setup" }) {
     <div className="flex min-h-full items-center justify-center bg-app px-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center gap-3">
-          <Logo size={40} />
+          <LogoFull className="w-64" />
           <div className="text-center">
             <h1 className="text-lg font-semibold text-fg">{mode === "setup" ? t("Welcome to Envoryx") : t("Sign in to Envoryx")}</h1>
             <p className="mt-1 text-sm text-muted">

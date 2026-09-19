@@ -17,6 +17,7 @@ import { DBToolCard } from "./DBToolCard";
 import { NotificationsCard } from "./NotificationsCard";
 import { InstanceBackupsCard } from "./InstanceBackupsCard";
 import { DiagnosticsTab } from "./DiagnosticsTab";
+import { AppearanceCard } from "./AppearanceCard";
 
 function PasswordForm() {
   const { t } = useTranslation();
@@ -326,6 +327,7 @@ export function SettingsPage() {
       {tab === "diagnostics" && <DiagnosticsTab onSwitchTab={(next) => isTab(next) && setTab(next)} />}
       {tab === "general" && (
         <>
+          <AppearanceCard />
           <InstanceCard />
           {s.data && <PublicHostForm current={s.data.publicHost} xdebugHost={s.data.xdebugClientHost ?? ""} />}
           <PasswordForm />

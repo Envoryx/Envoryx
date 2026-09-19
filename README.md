@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/assets/envoryx-logo.png" alt="Envoryx – build deeper" width="480">
+</p>
+
 # Envoryx
 
 **Docker-native development environments for Unraid and Linux servers.**

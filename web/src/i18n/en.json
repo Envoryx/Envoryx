@@ -26,5 +26,13 @@
   "{{count}} checks_one": "{{count}} check",
   "{{count}} checks_other": "{{count}} checks",
   "{{count}} notes_one": "{{count}} note",
-  "{{count}} notes_other": "{{count}} notes"
+  "{{count}} notes_other": "{{count}} notes",
+  "Appearance": "Appearance",
+  "The accent colour is stored in this browser; the logo, buttons and highlights follow it.": "The accent colour is stored in this browser; the logo, buttons and highlights follow it.",
+  "Accent colour": "Accent colour",
+  "Mint": "Mint",
+  "Ocean": "Ocean",
+  "Violet": "Violet",
+  "Amber": "Amber",
+  "Rose": "Rose"
 }
