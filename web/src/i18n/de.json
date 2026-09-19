@@ -901,5 +901,10 @@
   "The database is dumped inside its container; files and bucket objects are archived by Envoryx.": "Die Datenbank wird in ihrem Container gedumpt; Dateien und Bucket-Objekte archiviert Envoryx.",
   "project has no object storage": "Projekt hat keinen Object Storage",
   "{{count}} objects_one": "{{count}} Objekt",
-  "{{count}} objects_other": "{{count}} Objekte"
+  "{{count}} objects_other": "{{count}} Objekte",
+  "Project links need a host": "Projekt-Links brauchen einen Host",
+  "Envoryx runs with its own IP ({{address}}), but projects publish their ports on the Docker host. Links to published ports – project URLs, Mailpit, the object storage console, database ports – point at the wrong address until the Docker host is set.": "Envoryx läuft mit eigener IP ({{address}}), Projekte veröffentlichen ihre Ports aber auf dem Docker-Host. Links auf veröffentlichte Ports – Projekt-URLs, Mailpit, die Object-Storage-Konsole, Datenbank-Ports – zeigen auf die falsche Adresse, bis der Docker-Host gesetzt ist.",
+  "Use {{host}}": "{{host}} verwenden",
+  "({{hostname}} as reported by Docker)": "({{hostname}} laut Docker)",
+  "Set it in Settings": "In den Einstellungen setzen"
 }

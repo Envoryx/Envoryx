@@ -6,6 +6,7 @@ import { useDatabaseInfo, useDatabaseList, useDatabaseMutations, useDBTool, useO
 import type { DatabaseCredentials, Project } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Checkbox, Dialog, ErrorState, Field, Input, Select, Spinner, StatusDot } from "@/components/ui";
 import { copyText } from "@/lib/clipboard";
+import { PublicHostNotice } from "@/components/PublicHostNotice";
 import { containerStateTone } from "@/lib/format";
 
 export function CopyButton({ value, label }: { value: string; label: string }) {
@@ -162,6 +163,7 @@ export function DatabaseTab({ project }: { project: Project }) {
 
   return (
     <div className="space-y-6">
+      <PublicHostNotice />
       {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
 
       <div className="grid gap-6 lg:grid-cols-2">

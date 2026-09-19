@@ -582,6 +582,9 @@ export interface SSHInfo {
 
 export interface Settings {
   publicHost: string;
+  /** Envoryx has its own IP and no public host is set: links to published ports break. */
+  publicHostNeeded?: boolean;
+  publicHostSuggestion?: { hostname?: string; ip?: string } | null;
   /** Startup findings (e.g. config directory on FUSE/network storage). */
   warnings: string[];
   xdebugClientHost?: string;

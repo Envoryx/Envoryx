@@ -131,12 +131,18 @@ ones you used in the volume mappings.
 
 ## Project links and the Envoryx container's own IP
 
-Project web servers publish their ports on the **Docker host** (the Unraid
-IP). Envoryx builds project links from the address in your browser's address
-bar. If you reach Envoryx under a different address – the container has its
-own IP on `br0`/macvlan, or you use a reverse proxy – set the host to use for
-project links in **Settings → Project links** (or `ENVORYX_PUBLIC_HOST`),
-typically the Unraid IP.
+Project web servers – and Mailpit, database ports, the object storage API and
+console – publish their ports on the **Docker host** (the Unraid IP). Envoryx
+builds links to them from the address in your browser's address bar. If you
+reach Envoryx under a different address – the container has its own IP on
+`br0`/macvlan, or you use a reverse proxy – set the host to use for project
+links in **Settings → Project links** (or `ENVORYX_PUBLIC_HOST`), typically
+the Unraid IP.
+
+When Envoryx detects that it has an IP of its own and no host is set, the
+dashboard, the project tabs with such links and the settings show a notice
+with the Docker host as Docker reports it (name, and its IP when the LAN
+resolves the name) and a one-click button to use it.
 
 ## Unraid
 

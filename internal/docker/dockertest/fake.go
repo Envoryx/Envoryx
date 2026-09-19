@@ -318,7 +318,7 @@ func (f *Fake) Ping(context.Context) (docker.Info, error) {
 			running++
 		}
 	}
-	return docker.Info{APIVersion: "1.56", ServerVersion: "fake", OS: "linux", Architecture: "x86_64", Containers: len(f.containers), Running: running, NCPU: 4, MemTotal: 8 << 30}, nil
+	return docker.Info{APIVersion: "1.56", ServerVersion: "fake", Hostname: "fakehost", OS: "linux", Architecture: "x86_64", Containers: len(f.containers), Running: running, NCPU: 4, MemTotal: 8 << 30}, nil
 }
 
 // ListContainers implements docker.Engine.

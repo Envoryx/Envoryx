@@ -16,6 +16,14 @@ release). `:main` follows the development branch.
   restorable with or without emptying the bucket first. Scheduled backups and
   the MCP `create_backup` tool include it automatically.
 
+### Fixed
+- When Envoryx runs with an IP of its own (Unraid `br0`, macvlan) and no host
+  for project links is configured, links to published ports – project URLs,
+  Mailpit, the object storage console, database ports – silently pointed at
+  Envoryx's address, where nothing listens. The dashboard, the affected
+  project tabs and the settings now say so and offer the Docker host that
+  Docker reports as a one-click fix.
+
 ## [0.2.0] – 2026-09-19
 
 ### Added

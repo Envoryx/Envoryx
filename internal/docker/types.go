@@ -38,12 +38,14 @@ var ErrUnavailable = errors.New("docker engine unavailable")
 type Info struct {
 	APIVersion    string
 	ServerVersion string
-	OS            string
-	Architecture  string
-	Containers    int
-	Running       int
-	NCPU          int
-	MemTotal      int64
+	// Hostname is the daemon's host name (docker info "Name"), e.g. the Unraid server.
+	Hostname     string
+	OS           string
+	Architecture string
+	Containers   int
+	Running      int
+	NCPU         int
+	MemTotal     int64
 }
 
 // Container is a summary of a container as listed by the engine.

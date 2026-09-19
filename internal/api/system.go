@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"sort"
 	"strconv"
@@ -212,6 +213,39 @@ func (a *API) dockerOverview(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, out)
 }
 
+// publicHostAdvice reports whether project links are broken without a configured public
+// host – Envoryx has an IP of its own (macvlan/ipvlan, Unraid "br0"), so the address in the
+// browser is not the Docker host that publishes project ports – and suggests the Docker
+// host: its name from the daemon and, when the LAN resolves it, its IP. On plain bridge
+// networking or bare metal nothing is needed and nothing is suggested.
+func (a *API) publicHostAdvice(ctx context.Context) (bool, map[string]string) {
+	if a.d.Proxy == nil || !a.d.Proxy.InDocker || a.d.Proxy.Address == "" || a.publicHost(ctx) != "" {
+		return false, nil
+	}
+	suggestion := map[string]string{}
+	pingCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	if info, err := a.d.Engine.Ping(pingCtx); err == nil && info.Hostname != "" {
+		suggestion["hostname"] = info.Hostname
+		lookupCtx, cancel := context.WithTimeout(ctx, 1500*time.Millisecond)
+		defer cancel()
+		if addrs, err := net.DefaultResolver.LookupHost(lookupCtx, info.Hostname); err == nil {
+			for _, addr := range addrs {
+				ip := net.ParseIP(addr)
+				// The first LAN IPv4 that is not Envoryx's own address.
+				if ip != nil && ip.To4() != nil && !ip.IsLoopback() && addr != a.d.Proxy.Address {
+					suggestion["ip"] = addr
+					break
+				}
+			}
+		}
+	}
+	if len(suggestion) == 0 {
+		return true, nil
+	}
+	return true, suggestion
+}
+
 // SettingPublicHost is the settings-table key for the project link host.
 const SettingPublicHost = "public_host"
 
@@ -311,27 +345,30 @@ func (a *API) pruneImages(w http.ResponseWriter, r *http.Request) {
 func (a *API) settings(w http.ResponseWriter, r *http.Request) {
 	c := a.d.Config
 	schema, _ := db.SchemaVersion(r.Context(), a.d.Store.DB())
+	needed, suggestion := a.publicHostAdvice(r.Context())
 	writeJSON(w, http.StatusOK, map[string]any{
-		"publicHost":        a.publicHost(r.Context()),
-		"baseDomain":        a.d.Projects.BaseDomain(r.Context()),
-		"forceHttps":        a.d.Projects.ForceHTTPS(r.Context()),
-		"xdebugClientHost":  a.d.Projects.XdebugClientHost(r.Context()),
-		"sshAuthorizedKeys": a.setting(r.Context(), sshd.SettingAuthorizedKeys),
-		"ssh":               a.sshDTO(),
-		"proxy":             a.proxyDTO(),
-		"version":           a.d.Version,
-		"schemaVersion":     schema,
-		"configDir":         c.ConfigDir,
-		"projectsDir":       c.ProjectsDir,
-		"hostPath":          a.d.HostPath.Status(),
-		"portRange":         map[string]int{"start": c.PortRangeStart, "end": c.PortRangeEnd},
-		"puid":              c.PUID,
-		"pgid":              c.PGID,
-		"dockerHost":        c.DockerHost,
-		"session":           map[string]string{"idleTimeout": c.SessionIdleTimeout.String(), "absoluteTimeout": c.SessionAbsoluteTimeout.String()},
-		"secureCookies":     c.SecureCookies,
-		"update":            a.d.Updates.Status(),
-		"warnings":          append([]string{}, a.d.Warnings...),
+		"publicHost":           a.publicHost(r.Context()),
+		"publicHostNeeded":     needed,
+		"publicHostSuggestion": suggestion,
+		"baseDomain":           a.d.Projects.BaseDomain(r.Context()),
+		"forceHttps":           a.d.Projects.ForceHTTPS(r.Context()),
+		"xdebugClientHost":     a.d.Projects.XdebugClientHost(r.Context()),
+		"sshAuthorizedKeys":    a.setting(r.Context(), sshd.SettingAuthorizedKeys),
+		"ssh":                  a.sshDTO(),
+		"proxy":                a.proxyDTO(),
+		"version":              a.d.Version,
+		"schemaVersion":        schema,
+		"configDir":            c.ConfigDir,
+		"projectsDir":          c.ProjectsDir,
+		"hostPath":             a.d.HostPath.Status(),
+		"portRange":            map[string]int{"start": c.PortRangeStart, "end": c.PortRangeEnd},
+		"puid":                 c.PUID,
+		"pgid":                 c.PGID,
+		"dockerHost":           c.DockerHost,
+		"session":              map[string]string{"idleTimeout": c.SessionIdleTimeout.String(), "absoluteTimeout": c.SessionAbsoluteTimeout.String()},
+		"secureCookies":        c.SecureCookies,
+		"update":               a.d.Updates.Status(),
+		"warnings":             append([]string{}, a.d.Warnings...),
 	})
 }
 

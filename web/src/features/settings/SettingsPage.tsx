@@ -8,6 +8,7 @@ import { useAudit, useDeployKey, useSettings, useUpdateSettings } from "@/api/ho
 import { useQueryClient } from "@tanstack/react-query";
 import { Alert, Button, Card, CardHeader, ErrorState, Field, Input, PageHeader, Spinner } from "@/components/ui";
 import { formatDateTime } from "@/lib/format";
+import { PublicHostNotice } from "@/components/PublicHostNotice";
 import { DomainsCard } from "./DomainsCard";
 import { TokensCard } from "./TokensCard";
 import { DBToolCard } from "./DBToolCard";
@@ -95,6 +96,7 @@ function PublicHostForm({ current, xdebugHost }: { current: string; xdebugHost: 
         description={t("Project ports are published on the Docker host. If Envoryx itself is reached under a different address (own container IP, reverse proxy), set the host that browsers should use for project links.")}
       />
       <form onSubmit={submit} className="space-y-4 p-5">
+        <PublicHostNotice />
         {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
         <Field label={t("Host for project links")} htmlFor="public-host" hint={t("Leave empty to use the browser address bar (currently {{host}}). Host name or IP only, no port.", { host: window.location.hostname })}>
           <Input id="public-host" value={host} onChange={(e) => setHost(e.target.value)} placeholder="192.168.1.10" spellCheck={false} />

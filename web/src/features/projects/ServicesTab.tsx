@@ -7,6 +7,7 @@ import type { ExtraServiceInfo, Project } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Checkbox, Dialog, ErrorState, Field, Input, Select, Spinner, StatusDot } from "@/components/ui";
 import { containerStateTone } from "@/lib/format";
 import { AddStorageCard, StorageCard } from "./StorageCard";
+import { PublicHostNotice } from "@/components/PublicHostNotice";
 
 function ServiceCard({ project, info, onMessage }: { project: Project; info: ExtraServiceInfo; onMessage: (m: { tone: "green" | "red"; text: string }) => void }) {
   const { t } = useTranslation();
@@ -196,6 +197,7 @@ export function ServicesTab({ project }: { project: Project }) {
   const has = (k: string) => extras.data.some((s) => s.kind === k);
   return (
     <div className="space-y-6">
+      <PublicHostNotice />
       {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
       <div className="grid gap-6 lg:grid-cols-2">
         {storage.data && <StorageCard project={project} onMessage={setMsg} />}

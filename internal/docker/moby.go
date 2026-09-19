@@ -79,6 +79,7 @@ func (e *MobyEngine) Ping(ctx context.Context) (Info, error) {
 	return Info{
 		APIVersion:    ping.APIVersion,
 		ServerVersion: info.Info.ServerVersion,
+		Hostname:      info.Info.Name,
 		OS:            info.Info.OperatingSystem,
 		Architecture:  info.Info.Architecture,
 		Containers:    info.Info.Containers,

@@ -45,6 +45,7 @@ type testApp struct {
 	t        *testing.T
 	srv      *httptest.Server
 	engine   *dockertest.Fake
+	proxy    *api.ProxyInfo
 	cookie   *http.Cookie
 	projDir  string
 	cfgDir   string
@@ -87,7 +88,7 @@ func newApp(t *testing.T) *testApp {
 	invalidations := 0
 	proxyInfo := &api.ProxyInfo{Enabled: true, HTTPPort: 80, HTTPSPort: 443, InDocker: true, Invalidate: func() { invalidations++ }}
 	mcpSrv := mcpserver.New(mcpserver.Deps{Projects: manager, Catalog: runtime.Default(), Auth: sessions, Version: "test", Log: log})
-	app := &testApp{t: t, engine: engine, projDir: projDir, cfgDir: cfgDir}
+	app := &testApp{t: t, engine: engine, proxy: proxyInfo, projDir: projDir, cfgDir: cfgDir}
 	backups := &instance.Store{ConfigDir: cfgDir, DBPath: filepath.Join(cfgDir, "envoryx.db"), Dir: filepath.Join(t.TempDir(), "_instance"), Version: "test", LatestSchema: db.LatestVersion(), Log: log}
 	a := api.New(api.Deps{Config: cfg, Version: "test", Store: st, Auth: sessions, Audit: auditLog, Engine: engine, Projects: manager, Updates: update.Disabled("test"),
 		Catalog: runtime.Default(), Stats: stats.New(engine, time.Second, log), HostPath: resolver, Certs: certs, ACME: acmeMgr, Notify: notifier, Proxy: proxyInfo, MCP: mcpSrv.Handler(), Log: log, StartedAt: time.Now(),
@@ -985,5 +986,34 @@ func TestObjectStorageEndpoints(t *testing.T) {
 	plain := r.body["project"].(map[string]any)["id"].(string)
 	if r = a.do(http.MethodGet, "/api/v1/projects/"+plain+"/storage", nil, false); r.status != http.StatusNotFound {
 		t.Fatalf("plain project storage: %d", r.status)
+	}
+}
+
+// Envoryx with an IP of its own (Unraid br0) cannot serve published project ports under
+// the browser's address: the settings then flag the missing public host and suggest the
+// Docker host. Plain bridge networking needs nothing.
+func TestSettingsAdvisePublicHostWhenEnvoryxHasOwnIP(t *testing.T) {
+	a := newApp(t)
+	a.setupAndLogin()
+	r := a.do(http.MethodGet, "/api/v1/settings", nil, false)
+	if r.status != http.StatusOK || r.body["publicHostNeeded"] != false {
+		t.Fatalf("bridge networking must not need a public host: %d %v", r.status, r.body["publicHostNeeded"])
+	}
+	a.proxy.Address = "192.168.1.5"
+	r = a.do(http.MethodGet, "/api/v1/settings", nil, false)
+	if r.body["publicHostNeeded"] != true {
+		t.Fatalf("own IP without public host must be flagged: %v", r.body["publicHostNeeded"])
+	}
+	suggestion, _ := r.body["publicHostSuggestion"].(map[string]any)
+	if suggestion["hostname"] != "fakehost" {
+		t.Fatalf("suggestion must carry the daemon's host name: %v", r.body["publicHostSuggestion"])
+	}
+	r = a.do(http.MethodPatch, "/api/v1/settings", map[string]any{"publicHost": "192.168.1.10"}, true)
+	if r.status != http.StatusOK {
+		t.Fatalf("set public host: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodGet, "/api/v1/settings", nil, false)
+	if r.body["publicHostNeeded"] != false || r.body["publicHostSuggestion"] != nil {
+		t.Fatalf("configured public host must clear the advice: %v %v", r.body["publicHostNeeded"], r.body["publicHostSuggestion"])
 	}
 }
