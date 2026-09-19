@@ -11,8 +11,6 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    // The logo is imported from docs/assets so README and UI share one file.
-    fs: { allow: [".", ".."] },
     proxy: {
       "/api": {
         target: process.env.ENVORYX_API ?? "http://localhost:8787",

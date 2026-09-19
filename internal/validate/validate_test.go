@@ -22,7 +22,7 @@ func TestSlug(t *testing.T) {
 
 func TestSlugify(t *testing.T) {
 	cases := map[string]string{
-		"Acme Shop":      "acme-shop",
+		"Acme Shop":       "acme-shop",
 		"  My_Project.v2": "my-project-v2",
 		"Ünïcode Name":    "ncode-name",
 		"---":             "",
@@ -37,7 +37,7 @@ func TestSlugify(t *testing.T) {
 
 func TestRelativePath(t *testing.T) {
 	good := map[string]string{
-		"acme-shop":       "acme-shop",
+		"acme-shop":        "acme-shop",
 		"clients/acme/web": "clients/acme/web",
 		"./shop":           "shop",
 		"shop/":            "shop",

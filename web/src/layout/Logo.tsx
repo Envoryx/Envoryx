@@ -1,4 +1,4 @@
-import logoSvg from "../../../docs/assets/envoryx-logo.svg?raw";
+import logoSvg from "./envoryx-logo.svg?raw";
 
 /** The <E> mark (2:1). `size` is its height. Chevrons carry the accent, the bars the foreground; both follow the theme tokens. */
 export function LogoMark({ size = 20, className = "" }: { size?: number; className?: string }) {
@@ -24,7 +24,7 @@ export function Logo({ size = 18, withText = false }: { size?: number; withText?
   );
 }
 
-/** Mark, wordmark and tagline – the full logo from docs/assets, inlined so it picks up the accent and theme. */
+/** Mark, wordmark and tagline – the full logo (envoryx-logo.svg), inlined so it picks up the accent and theme. */
 export function LogoFull({ className = "" }: { className?: string }) {
   return <span className={`inline-block [&>svg]:h-auto [&>svg]:w-full ${className}`} role="img" aria-label="Envoryx – build deeper" dangerouslySetInnerHTML={{ __html: logoSvg }} />;
 }
