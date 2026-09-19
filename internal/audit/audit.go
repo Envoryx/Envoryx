@@ -37,6 +37,10 @@ const (
 	ActionInstanceBackupUploaded = "instance.backup_uploaded"
 	ActionInstanceBackupDeleted  = "instance.backup_deleted"
 	ActionInstanceRestore        = "instance.restore_scheduled"
+	// ActionInstanceRestored is written after a restart applied a scheduled restore. The
+	// restore_scheduled entry lives in the database that the restore replaced, so this is
+	// the only trace that survives in the restored database.
+	ActionInstanceRestored = "instance.restored"
 
 	ActionDBCredentialsViewed = "database.credentials_viewed"
 	ActionDBPasswordRotated   = "database.password_rotated"
@@ -70,16 +74,22 @@ func New(st *store.Audit, log *slog.Logger) *Logger {
 	return &Logger{store: st, log: log}
 }
 
+// Actor is the user name an audit row shows for a principal: the account, suffixed with
+// the API token's name when the request was not a browser session.
+func Actor(p auth.Principal) string {
+	if p.TokenName != "" {
+		return p.Username + " (token: " + p.TokenName + ")"
+	}
+	return p.Username
+}
+
 // Log records an action performed by the principal in ctx (if any). details is
 // marshalled to JSON; pass nil for none. Failures to write the audit log are logged but
 // do not fail the business operation.
 func (l *Logger) Log(ctx context.Context, action, targetType, targetID string, details any) {
 	e := store.AuditEntry{Action: action, TargetType: targetType, TargetID: targetID}
 	if p, ok := auth.PrincipalFrom(ctx); ok {
-		e.UserID, e.Username = p.UserID, p.Username
-		if p.TokenName != "" {
-			e.Username = p.Username + " (token: " + p.TokenName + ")"
-		}
+		e.UserID, e.Username = p.UserID, Actor(p)
 	}
 	if ip, ok := ctx.Value(ipKey{}).(string); ok {
 		e.IP = ip

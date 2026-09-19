@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/envoryx/envoryx/internal/audit"
+	"github.com/envoryx/envoryx/internal/auth"
 	"github.com/envoryx/envoryx/internal/instance"
 	"github.com/envoryx/envoryx/internal/validate"
 )
@@ -159,7 +160,8 @@ func (a *API) restoreInstanceBackup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id := r.PathValue("id")
-	if err := s.ScheduleRestore(id); err != nil {
+	p, _ := auth.PrincipalFrom(r.Context())
+	if err := s.ScheduleRestore(id, audit.Actor(p)); err != nil {
 		writeError(w, r, err)
 		return
 	}

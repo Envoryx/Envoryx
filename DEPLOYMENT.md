@@ -410,7 +410,10 @@ as a consistent `VACUUM INTO` copy, `config/…`).
   state → `pre-restore` backup, then database and config are replaced.
   Containers and project files are untouched; projects that were created after
   the backup appear as orphans in *Docker* and can be removed there. All
-  sessions end; sign in again with the credentials from the backup.
+  sessions end; sign in again with the credentials from the backup. The
+  restored database starts with an `instance.restored` audit entry naming the
+  backup, the `pre-restore` safety copy and who requested it – the audit rows
+  written after the backup was taken are gone with the old database.
 - A backup from a **newer** Envoryx (higher schema version) is refused; an
   older one is migrated forward on start (with its own `pre-migrate` backup).
 

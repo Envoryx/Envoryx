@@ -158,10 +158,12 @@ func serve() error {
 	backups := &instance.Store{ConfigDir: cfg.ConfigDir, DBPath: cfg.DatabasePath, Dir: filepath.Join(cfg.BackupsDir, "_instance"),
 		Version: version, LatestSchema: db.LatestVersion(), Log: log}
 	openRaw := func(ctx context.Context, path string) (*sql.DB, error) { return db.OpenRaw(ctx, path, log) }
-	if restored, err := backups.ApplyPendingRestore(ctx, openRaw); err != nil {
+	restored, err := backups.ApplyPendingRestore(ctx, openRaw)
+	if err != nil {
 		return fmt.Errorf("instance restore: %w", err)
-	} else if restored != "" {
-		log.Info("instance backup restored", "id", restored)
+	}
+	if restored != nil {
+		log.Info("instance backup restored", "id", restored.ID, "preRestore", restored.PreRestoreID, "requestedBy", restored.RequestedBy)
 	}
 	sqlDB, err := db.OpenWith(ctx, cfg.DatabasePath, log, db.Options{BeforeMigrate: func(ctx context.Context, raw *sql.DB, from, to int) error {
 		b, err := backups.Create(ctx, raw, instance.KindPreMigrate, fmt.Sprintf("before schema %d → %d (Envoryx %s)", from, to, version))
@@ -214,6 +216,12 @@ func serve() error {
 
 	// 4. Services.
 	auditLog := audit.New(st.Audit, log)
+	if restored != nil {
+		// The restore_scheduled entry went into the database that was just replaced;
+		// record the outcome in the restored one so the audit trail explains the jump.
+		auditLog.LogAs(ctx, restored.RequestedBy, audit.ActionInstanceRestored, "instance", restored.ID,
+			map[string]any{"preRestore": restored.PreRestoreID, "requestedAt": restored.RequestedAt})
+	}
 	sessions := auth.NewService(st, auth.Options{
 		IdleTimeout:     cfg.SessionIdleTimeout,
 		AbsoluteTimeout: cfg.SessionAbsoluteTimeout,

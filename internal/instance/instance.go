@@ -94,6 +94,17 @@ type Info struct {
 type Pending struct {
 	ID          string    `json:"id"`
 	RequestedAt time.Time `json:"requestedAt"`
+	// RequestedBy is the audit actor who scheduled the restore, kept in the marker so the
+	// restored database can record who did it.
+	RequestedBy string `json:"requestedBy,omitempty"`
+}
+
+// Applied reports a restore that ApplyPendingRestore carried out.
+type Applied struct {
+	Pending
+	// PreRestoreID is the safety backup of the state that was replaced ("" when there
+	// was no database yet).
+	PreRestoreID string
 }
 
 // Store manages the instance backups in Dir.
@@ -493,7 +504,7 @@ func (s *Store) PendingRestore() (*Pending, error) {
 
 // ScheduleRestore records that id is to be restored at the next start. The caller is
 // expected to restart the server afterwards.
-func (s *Store) ScheduleRestore(id string) error {
+func (s *Store) ScheduleRestore(id, requestedBy string) error {
 	info, err := s.Get(id)
 	if err != nil {
 		return err
@@ -506,7 +517,7 @@ func (s *Store) ScheduleRestore(id string) error {
 	} else if p != nil {
 		return ErrPending
 	}
-	raw, _ := json.Marshal(Pending{ID: id, RequestedAt: time.Now().UTC()})
+	raw, _ := json.Marshal(Pending{ID: id, RequestedAt: time.Now().UTC(), RequestedBy: requestedBy})
 	return os.WriteFile(s.markerPath(), raw, 0o600)
 }
 
@@ -522,22 +533,22 @@ func (s *Store) CancelRestore() error {
 // ApplyPendingRestore performs a scheduled restore. It must run before the database is
 // opened. The current state is saved as a pre-restore backup first; if the restore
 // itself fails, that backup is the way back and its ID is part of the error.
-// It returns the restored backup's ID, or "" when nothing was scheduled.
-func (s *Store) ApplyPendingRestore(ctx context.Context, openDB func(context.Context, string) (*sql.DB, error)) (string, error) {
+// It returns what was restored, or nil when nothing was scheduled.
+func (s *Store) ApplyPendingRestore(ctx context.Context, openDB func(context.Context, string) (*sql.DB, error)) (*Applied, error) {
 	p, err := s.PendingRestore()
 	if err != nil || p == nil {
-		return "", err
+		return nil, err
 	}
 	// The marker is consumed whatever happens; a failed restore must not loop.
 	if err := s.CancelRestore(); err != nil {
-		return "", err
+		return nil, err
 	}
 	info, err := s.Get(p.ID)
 	if err != nil {
-		return "", fmt.Errorf("scheduled restore of %s: %w", p.ID, err)
+		return nil, fmt.Errorf("scheduled restore of %s: %w", p.ID, err)
 	}
 	if info.Meta.Schema > s.LatestSchema {
-		return "", fmt.Errorf("scheduled restore of %s: backup schema %d is newer than this build (%d)", p.ID, info.Meta.Schema, s.LatestSchema)
+		return nil, fmt.Errorf("scheduled restore of %s: backup schema %d is newer than this build (%d)", p.ID, info.Meta.Schema, s.LatestSchema)
 	}
 	s.Log.Info("restoring instance backup", "id", p.ID, "created", info.CreatedAt, "envoryx", info.Meta.Envoryx)
 
@@ -545,12 +556,12 @@ func (s *Store) ApplyPendingRestore(ctx context.Context, openDB func(context.Con
 	if _, err := os.Stat(s.DBPath); err == nil {
 		sqlDB, err := openDB(ctx, s.DBPath)
 		if err != nil {
-			return "", fmt.Errorf("open database for pre-restore backup: %w", err)
+			return nil, fmt.Errorf("open database for pre-restore backup: %w", err)
 		}
 		pre, err := s.Create(ctx, sqlDB, KindPreRestore, "before restoring "+p.ID)
 		_ = sqlDB.Close()
 		if err != nil {
-			return "", fmt.Errorf("pre-restore backup: %w", err)
+			return nil, fmt.Errorf("pre-restore backup: %w", err)
 		}
 		safety = pre.ID
 		s.Log.Info("pre-restore backup written", "id", safety)
@@ -558,11 +569,11 @@ func (s *Store) ApplyPendingRestore(ctx context.Context, openDB func(context.Con
 
 	if err := s.extract(p.ID); err != nil {
 		if safety != "" {
-			return "", fmt.Errorf("restore %s failed (the previous state is in backup %s): %w", p.ID, safety, err)
+			return nil, fmt.Errorf("restore %s failed (the previous state is in backup %s): %w", p.ID, safety, err)
 		}
-		return "", fmt.Errorf("restore %s failed: %w", p.ID, err)
+		return nil, fmt.Errorf("restore %s failed: %w", p.ID, err)
 	}
-	return p.ID, nil
+	return &Applied{Pending: *p, PreRestoreID: safety}, nil
 }
 
 // extract replaces the database and the archived parts of the config directory with the

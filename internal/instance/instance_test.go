@@ -91,17 +91,17 @@ func TestCreateListRestoreRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := s.ScheduleRestore(info.ID); err != nil {
+	if err := s.ScheduleRestore(info.ID, "admin (token: cli)"); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.ScheduleRestore(info.ID); !errors.Is(err, ErrPending) {
+	if err := s.ScheduleRestore(info.ID, "admin"); !errors.Is(err, ErrPending) {
 		t.Fatalf("second schedule = %v", err)
 	}
 	if err := s.Delete(info.ID); !errors.Is(err, ErrPending) {
 		t.Fatalf("delete scheduled = %v", err)
 	}
 	p, err := s.PendingRestore()
-	if err != nil || p == nil || p.ID != info.ID {
+	if err != nil || p == nil || p.ID != info.ID || p.RequestedBy != "admin (token: cli)" {
 		t.Fatalf("pending = %+v, %v", p, err)
 	}
 	_ = sqlDB.Close()
@@ -109,15 +109,15 @@ func TestCreateListRestoreRoundTrip(t *testing.T) {
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	open := func(ctx context.Context, path string) (*sql.DB, error) { return db.OpenRaw(ctx, path, log) }
 	restored, err := s.ApplyPendingRestore(ctx, open)
-	if err != nil || restored != info.ID {
-		t.Fatalf("apply = %q, %v", restored, err)
+	if err != nil || restored == nil || restored.ID != info.ID || restored.RequestedBy != "admin (token: cli)" || !strings.HasPrefix(restored.PreRestoreID, "pre-restore-") {
+		t.Fatalf("apply = %+v, %v", restored, err)
 	}
 	if p, _ := s.PendingRestore(); p != nil {
 		t.Fatal("marker not consumed")
 	}
 	// Second call is a no-op.
-	if id, err := s.ApplyPendingRestore(ctx, open); err != nil || id != "" {
-		t.Fatalf("apply again = %q, %v", id, err)
+	if again, err := s.ApplyPendingRestore(ctx, open); err != nil || again != nil {
+		t.Fatalf("apply again = %+v, %v", again, err)
 	}
 
 	sqlDB2, err := db.Open(ctx, s.DBPath, log)
@@ -198,7 +198,7 @@ func TestImportValidatesArchives(t *testing.T) {
 	if _, err := s.Import(bytes.NewReader(raw)); !errors.Is(err, validate.ErrInvalid) {
 		t.Fatalf("newer import = %v", err)
 	}
-	if err := s.ScheduleRestore(info.ID); !errors.Is(err, validate.ErrInvalid) {
+	if err := s.ScheduleRestore(info.ID, "admin"); !errors.Is(err, validate.ErrInvalid) {
 		t.Fatalf("newer restore = %v", err)
 	}
 	if entries, _ := os.ReadDir(s.Dir); len(entries) != 2 {
