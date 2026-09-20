@@ -10,4 +10,6 @@ web/dist/*
 coverage.out
 /.local/
 web/*.tsbuildinfo
+web/test-results/
+web/playwright-report/
 .idea/

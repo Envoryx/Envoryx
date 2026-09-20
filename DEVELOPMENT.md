@@ -62,6 +62,31 @@ Frontend tests (Vitest + Testing Library) cover the login/setup flow, the
 project list with actions and the complete wizard including preview and
 validation errors.
 
+### Browser end-to-end tests
+
+`web/e2e` holds Playwright specs that drive the built binary in a real
+browser against a real Docker engine – the path a new user takes: first-run
+setup, sign-in, the wizard, a running project answering on its port, live
+logs, stop and delete. They run in CI on every push (`e2e` job) and locally
+with:
+
+```
+make build                                   # the binary embeds the frontend
+cd web && npx playwright install chromium    # once
+make test-e2e
+```
+
+`e2e/global-setup.ts` starts `bin/envoryx` on 127.0.0.1:18790 with throw-away
+`/config` and `/projects` directories (project ports 25000–25099, no
+proxy/SSH listeners) and removes everything at the end, including Docker
+resources the test project may have left behind. Override with
+`ENVORYX_E2E_PORT`, `ENVORYX_E2E_PORT_RANGE_START`, `ENVORYX_E2E_BIN`;
+`ENVORYX_E2E_KEEP=1` keeps the data directory. The server log lands in
+`web/test-results/envoryx.log`, traces and screenshots of failed specs next
+to it (`npx playwright show-trace …`). The specs are serial and build on each
+other – add new flows as further `test()` blocks in order, or as a new spec
+file that creates its own project.
+
 ## Conventions
 
 - Go: `gofmt`, `go vet`, errors wrapped with `%w`, sentinel errors in the

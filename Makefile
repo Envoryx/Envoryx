@@ -3,7 +3,7 @@ GO      ?= go
 NPM     ?= npm
 IMAGE   ?= ghcr.io/envoryx/envoryx
 
-.PHONY: all build web backend run test test-go test-web test-integration lint docker clean
+.PHONY: all build web backend run test test-go test-web test-integration test-e2e lint docker clean
 
 all: build
 
@@ -34,6 +34,11 @@ test-web:
 ## Integration tests against a real Docker engine
 test-integration:
 	$(GO) test -tags integration -count=1 ./internal/docker/ ./internal/s3/
+
+## Browser tests against ./bin/envoryx and a real Docker engine (needs `make build` and
+## `cd web && npx playwright install chromium` once)
+test-e2e:
+	cd web && $(NPM) run test:e2e
 
 lint:
 	gofmt -l . && $(GO) vet ./...
