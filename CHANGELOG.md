@@ -10,6 +10,8 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.4.0] – 2026-09-20
+
 ### Added
 - Rescue commands for a lost login: `envoryx admin reset-password`,
   `logout-all`, `revoke-tokens`, `reset` and `users`, run from the container
@@ -150,7 +152,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/envoryx/envoryx/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/envoryx/envoryx/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/envoryx/envoryx/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/envoryx/envoryx/releases/tag/v0.1.0
