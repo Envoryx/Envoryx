@@ -131,3 +131,13 @@ func (r *APITokens) Delete(ctx context.Context, id string) error {
 	}
 	return nil
 }
+
+// DeleteAll revokes every API token (rescue CLI).
+func (r *APITokens) DeleteAll(ctx context.Context) (int64, error) {
+	res, err := r.db.ExecContext(ctx, `DELETE FROM api_tokens`)
+	if err != nil {
+		return 0, fmt.Errorf("delete api tokens: %w", err)
+	}
+	n, _ := res.RowsAffected()
+	return n, nil
+}

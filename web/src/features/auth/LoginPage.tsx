@@ -6,6 +6,9 @@ import { LogoFull } from "@/layout/Logo";
 import { useAuth } from "./AuthContext";
 import { errorText } from "@/lib/errors";
 
+// The rescue commands (envoryx admin …) live in the container shell; the page can only point there.
+const LOST_ACCESS_DOCS = "https://github.com/envoryx/envoryx/blob/main/DEPLOYMENT.md#lost-access";
+
 export function LoginPage({ mode }: { mode: "login" | "setup" }) {
   const { t } = useTranslation();
   const auth = useAuth();
@@ -89,6 +92,13 @@ export function LoginPage({ mode }: { mode: "login" | "setup" }) {
           <Button type="submit" variant="primary" className="w-full" loading={busy}>
             {mode === "setup" ? t("Create account") : t("Sign in")}
           </Button>
+          {mode === "login" && (
+            <p className="text-center text-xs text-fg-muted">
+              <a href={LOST_ACCESS_DOCS} target="_blank" rel="noreferrer" className="underline hover:text-fg">
+                {t("Forgot the password?")}
+              </a>
+            </p>
+          )}
         </form>
       </div>
     </div>

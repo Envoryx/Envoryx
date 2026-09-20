@@ -89,3 +89,32 @@ func (r *Users) UpdatePassword(ctx context.Context, id, passwordHash string) err
 	}
 	return nil
 }
+
+// List returns every account, oldest first.
+func (r *Users) List(ctx context.Context) ([]User, error) {
+	rows, err := r.db.QueryContext(ctx, `SELECT `+userColumns+` FROM users ORDER BY created_at, username`)
+	if err != nil {
+		return nil, fmt.Errorf("select users: %w", err)
+	}
+	defer rows.Close()
+	var out []User
+	for rows.Next() {
+		u, err := scanUser(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, u)
+	}
+	return out, rows.Err()
+}
+
+// DeleteAll removes every account; sessions and API tokens go with them (ON DELETE
+// CASCADE). Afterwards the setup page is shown again. Used by the rescue CLI only.
+func (r *Users) DeleteAll(ctx context.Context) (int64, error) {
+	res, err := r.db.ExecContext(ctx, `DELETE FROM users`)
+	if err != nil {
+		return 0, fmt.Errorf("delete users: %w", err)
+	}
+	n, _ := res.RowsAffected()
+	return n, nil
+}

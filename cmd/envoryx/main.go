@@ -9,6 +9,8 @@
 //	envoryx             run the server (default)
 //	envoryx serve       run the server
 //	envoryx healthcheck probe the local server (used by the Docker HEALTHCHECK)
+//	envoryx admin …     rescue commands: list accounts, reset a password, end sessions,
+//	                    revoke API tokens, reset all accounts (see admin.go)
 //	envoryx version     print the version
 package main
 
@@ -88,10 +90,12 @@ func main() {
 		}
 	case "healthcheck":
 		os.Exit(healthcheck())
+	case "admin":
+		os.Exit(adminCommand(os.Args[2:]))
 	case "version":
 		fmt.Println("Envoryx", version)
 	default:
-		fmt.Fprintf(os.Stderr, "unknown command %q\n", cmd)
+		fmt.Fprintf(os.Stderr, "unknown command %q (serve, healthcheck, admin, version)\n", cmd)
 		os.Exit(2)
 	}
 }

@@ -719,6 +719,31 @@ presents an invalid or revoked token is rejected even if a valid session
 cookie is also sent. Tokens created before scopes existed keep full access
 (`admin`, all projects).
 
+## Lost access
+
+The credentials for the web interface can be reset from a shell inside the
+running container; nothing else is touched and no restart is needed:
+
+```sh
+docker exec -it envoryx envoryx admin users            # which accounts exist
+docker exec -it envoryx envoryx admin reset-password   # new password, printed once
+docker exec -it envoryx envoryx admin reset-password --user stefan --password 'my new password'
+docker exec -it envoryx envoryx admin logout-all       # end every browser session
+docker exec -it envoryx envoryx admin revoke-tokens    # delete every API token (MCP, SSH/SFTP, scripts)
+docker exec -it envoryx envoryx admin reset --yes      # remove all accounts → the setup page returns
+```
+
+`reset-password` picks the only account when there is just one and ends its
+sessions; `reset` deletes accounts, sessions and API tokens but leaves
+projects, settings and backups alone – open the web interface afterwards and
+create the administrator account again. Every command is written to the audit
+log with the user `cli`. On Unraid the container's console (*Docker →
+Envoryx → Console*) is the same shell.
+
+Note that failed sign-in attempts are rate-limited per address for up to
+15 minutes; if you tried a few wrong passwords just before the reset, wait a
+moment.
+
 ## Health check
 
 `GET /api/v1/health` returns `{"status":"ok","docker":true,"database":true,…}`

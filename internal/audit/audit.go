@@ -17,6 +17,11 @@ const (
 	ActionLogout         = "auth.logout"
 	ActionSetup          = "auth.setup"
 	ActionPasswordChange = "auth.password_changed"
+	// Rescue CLI (envoryx admin …), run from a shell inside the container.
+	ActionPasswordReset   = "auth.password_reset"
+	ActionSessionsRevoked = "auth.sessions_revoked"
+	ActionTokensRevoked   = "auth.tokens_revoked"
+	ActionAccountsReset   = "auth.accounts_reset"
 
 	ActionProjectCreated   = "project.created"
 	ActionProjectUpdated   = "project.updated"

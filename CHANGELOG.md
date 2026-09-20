@@ -11,6 +11,11 @@ release). `:main` follows the development branch.
 ## [Unreleased]
 
 ### Added
+- Rescue commands for a lost login: `envoryx admin reset-password`,
+  `logout-all`, `revoke-tokens`, `reset` and `users`, run from the container
+  shell (`docker exec -it envoryx envoryx admin …`). They act on the live
+  database, need no restart and land in the audit log as `cli`. The sign-in
+  page links to the instructions.
 - The interface speaks eight more languages: French, Spanish, Italian, Dutch,
   Polish, Portuguese (Brazil), Russian and Ukrainian. Pick one in the sidebar;
   the browser language is used on first visit.

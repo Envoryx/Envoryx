@@ -65,6 +65,16 @@ func (r *Sessions) DeleteByUser(ctx context.Context, userID string) error {
 	return nil
 }
 
+// DeleteAll ends every browser session (rescue CLI).
+func (r *Sessions) DeleteAll(ctx context.Context) (int64, error) {
+	res, err := r.db.ExecContext(ctx, `DELETE FROM sessions`)
+	if err != nil {
+		return 0, fmt.Errorf("delete sessions: %w", err)
+	}
+	n, _ := res.RowsAffected()
+	return n, nil
+}
+
 // DeleteExpired purges sessions whose expiry is in the past.
 func (r *Sessions) DeleteExpired(ctx context.Context, ref time.Time) (int64, error) {
 	res, err := r.db.ExecContext(ctx, `DELETE FROM sessions WHERE expires_at < ?`, formatTime(ref))
