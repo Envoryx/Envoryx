@@ -1270,5 +1270,8 @@
   "expected running but observed {{state}}": "Oczekiwano stanu uruchomionego, zaobserwowano: {{state}}",
   "{{lifecycle}} was interrupted by an Envoryx restart; review the project and retry or delete it": "{{lifecycle}} zostało przerwane przez restart Envoryx; sprawdź projekt i spróbuj ponownie lub usuń go",
   "Main navigation": "Nawigacja główna",
-  "Forgot the password?": "Nie pamiętasz hasła?"
+  "Forgot the password?": "Nie pamiętasz hasła?",
+  "Source code": "Kod źródłowy",
+  "License": "Licencja",
+  "About Envoryx": "O Envoryx"
 }

@@ -1,5 +1,5 @@
 import type { TFunction } from "i18next";
-import type { ProjectState } from "@/api/types";
+import type { ProjectState, UpdateStatus } from "@/api/types";
 import type { Tone } from "@/components/ui";
 import i18n from "@/i18n";
 
@@ -84,4 +84,14 @@ export function serviceLabel(kind: string, version?: string, variant?: string): 
   const name: Record<string, string> = { php: "PHP", web: webNames[variant ?? ""] ?? i18n.t("Web server"), node: "Node", database: dbNames[variant ?? ""] ?? i18n.t("Database"), redis: "Redis", mailpit: "Mailpit", storage: i18n.t("Object storage") };
   const base = name[kind] ?? kind;
   return version ? `${base} ${version}` : base;
+}
+
+/** "0.4.0 · up to date" – the version with the outcome of the update check. */
+export function formatVersion(t: TFunction, version: string, u?: UpdateStatus): string {
+  if (!u || !u.enabled) return version;
+  if (!u.release) return `${version} · ${t("development build")}`;
+  if (u.available && u.latest) return `${version} · ${t("{{latest}} available", { latest: u.latest })}`;
+  if (u.latest) return `${version} · ${t("up to date")}`;
+  if (u.error) return `${version} · ${t("update check failed")}`;
+  return version;
 }

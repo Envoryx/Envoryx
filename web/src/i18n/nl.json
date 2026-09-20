@@ -1234,5 +1234,8 @@
   "expected running but observed {{state}}": "Zou moeten draaien, maar waargenomen: {{state}}",
   "{{lifecycle}} was interrupted by an Envoryx restart; review the project and retry or delete it": "{{lifecycle}} is onderbroken door een Envoryx-herstart; controleer het project en probeer opnieuw of verwijder het",
   "Main navigation": "Hoofdnavigatie",
-  "Forgot the password?": "Wachtwoord vergeten?"
+  "Forgot the password?": "Wachtwoord vergeten?",
+  "Source code": "Broncode",
+  "License": "Licentie",
+  "About Envoryx": "Over Envoryx"
 }

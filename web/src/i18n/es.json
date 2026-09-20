@@ -1234,5 +1234,8 @@
   "expected running but observed {{state}}": "Debería estar en ejecución, pero el estado observado es {{state}}",
   "{{lifecycle}} was interrupted by an Envoryx restart; review the project and retry or delete it": "{{lifecycle}} fue interrumpido por un reinicio de Envoryx; revisa el proyecto y reintenta o elimínalo",
   "Main navigation": "Navegación principal",
-  "Forgot the password?": "¿Has olvidado la contraseña?"
+  "Forgot the password?": "¿Has olvidado la contraseña?",
+  "Source code": "Código fuente",
+  "License": "Licencia",
+  "About Envoryx": "Acerca de Envoryx"
 }

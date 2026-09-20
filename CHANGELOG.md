@@ -10,6 +10,11 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Added
+- The logo leads to "The spatial foundry", a short ASCII film about the
+  build factory, with the version, update status and links to the
+  documentation, release notes, source and licence below it.
+
 ## [0.4.0] – 2026-09-20
 
 ### Added

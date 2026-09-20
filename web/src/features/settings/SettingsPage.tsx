@@ -2,14 +2,12 @@ import { KeyRound, RefreshCw, Save } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useEffect, useState, type FormEvent } from "react";
 import { api } from "@/api/client";
-import type { TFunction } from "i18next";
-import type { UpdateStatus } from "@/api/types";
 import { useAudit, useDeployKey, useDiagnostics, useSettings, useUpdateSettings } from "@/api/hooks";
 import { useSearchParams } from "react-router-dom";
 import { clsx } from "clsx";
 import { useQueryClient } from "@tanstack/react-query";
 import { Alert, Badge, Button, Card, CardHeader, ErrorState, Field, Input, PageHeader, Spinner } from "@/components/ui";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTime, formatVersion } from "@/lib/format";
 import { PublicHostNotice } from "@/components/PublicHostNotice";
 import { DomainsCard } from "./DomainsCard";
 import { TokensCard } from "./TokensCard";
@@ -200,15 +198,6 @@ function DeployKeyCard() {
   );
 }
 
-function updateLabel(t: TFunction, version: string, u?: UpdateStatus): string {
-  if (!u || !u.enabled) return version;
-  if (!u.release) return `${version} · ${t("development build")}`;
-  if (u.available && u.latest) return `${version} · ${t("{{latest}} available", { latest: u.latest })}`;
-  if (u.latest) return `${version} · ${t("up to date")}`;
-  if (u.error) return `${version} · ${t("update check failed")}`;
-  return version;
-}
-
 const tabs = ["diagnostics", "general", "domains", "access", "notifications", "backups", "tools", "audit"] as const;
 type Tab = (typeof tabs)[number];
 const tabLabel: Record<Tab, string> = {
@@ -235,7 +224,7 @@ function InstanceCard() {
     <Card>
       <CardHeader title={t("Instance")} description={t("Runtime configuration is provided through environment variables of the Envoryx container.")} />
       <dl className="grid gap-x-8 gap-y-3 p-5 text-sm sm:grid-cols-2">
-        <Row label={t("Version")} value={updateLabel(t, s.data.version, s.data.update)} />
+        <Row label={t("Version")} value={formatVersion(t, s.data.version, s.data.update)} />
         <Row label={t("Schema version")} value={String(s.data.schemaVersion)} />
         <Row label={t("Config directory")} value={s.data.configDir} mono />
         <Row label={t("Projects directory")} value={s.data.projectsDir} mono />

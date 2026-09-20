@@ -1,0 +1,83 @@
+/* "The spatial foundry" – the ASCII short film. Always dark, monospace, mint on near-black,
+   independent of the app theme. Everything is scoped under .foundry. */
+.foundry {
+  --bg: #080c0d;
+  --mint: #27f2bf;
+  --white: #f0f1f2;
+  --muted: #85918f;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  color: var(--white);
+}
+.foundry button { font: inherit; color: inherit; cursor: pointer; border: 0; background: none; }
+.foundry button:hover { color: var(--mint); }
+.foundry .mint { color: var(--mint); }
+
+.foundry .movie {
+  border-radius: 12px;
+  position: relative;
+  /* Page padding plus the about row below the film. */
+  height: calc(100dvh - 6rem);
+  min-height: 420px;
+  overflow: hidden;
+  border: 1px solid #34483e;
+  box-shadow: 0 18px 70px #0005;
+  background: var(--bg);
+  isolation: isolate;
+}
+.foundry .movie:fullscreen { width: 100vw; height: 100dvh; border: 0; border-radius: 0; }
+.foundry .movie::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(transparent 0px, transparent 3px, #00000012 4px);
+  opacity: 0.3;
+  z-index: 2;
+}
+.foundry canvas { display: block; width: 100%; height: 100%; position: absolute; inset: 0; }
+
+.foundry .scene-header { position: absolute; top: 25px; left: 28px; right: 28px; display: flex; justify-content: space-between; gap: 20px; pointer-events: none; z-index: 3; }
+.foundry .eyebrow { color: var(--mint); font-size: 10px; letter-spacing: 2px; margin-bottom: 10px; }
+.foundry .scene-name { font-size: clamp(18px, 2vw, 29px); font-weight: 400; letter-spacing: -1px; margin: 0; }
+.foundry .scene-note { font-size: 10px; color: var(--muted); line-height: 1.7; text-align: right; }
+.foundry .scene-bottom { position: absolute; left: 28px; right: 28px; bottom: 20px; z-index: 3; display: flex; align-items: center; justify-content: space-between; font-size: 10px; letter-spacing: 1px; color: #92aaa2; }
+.foundry .signal { display: inline-block; width: 5px; height: 5px; background: var(--mint); margin-right: 8px; border-radius: 50%; }
+.foundry .fs { font-size: 15px; padding: 8px; margin: -8px; pointer-events: auto; }
+
+.foundry .transport { padding-top: 21px; display: grid; grid-template-columns: auto 1fr auto; gap: 24px; align-items: center; }
+.foundry .play { border: 1px solid #34463f; min-width: 100px; padding: 10px 14px; font-size: 11px; }
+.foundry .controls { display: flex; align-items: center; gap: 17px; }
+.foundry .replay { font-size: 21px; padding: 5px; }
+.foundry .timeline { display: flex; gap: 5px; }
+.foundry .chapter { flex: 1; text-align: left; padding: 10px 0; min-width: 0; }
+.foundry .chapter .track { display: block; background: #25302c; height: 2px; position: relative; overflow: hidden; }
+.foundry .chapter .fill { display: block; width: 100%; height: 100%; background: var(--mint); transform: scaleX(0); transform-origin: left; }
+.foundry .chapter .label { display: block; color: #73867e; font-size: 9px; padding-top: 10px; letter-spacing: 0.6px; white-space: nowrap; }
+.foundry .chapter[aria-current="step"] .label { color: var(--white); }
+.foundry .time { font-size: 11px; color: #95a79f; white-space: nowrap; }
+.foundry .reduced { display: none; color: var(--mint); font-size: 10px; margin-top: 12px; }
+.foundry .reduced.visible { display: block; }
+
+@media (max-width: 1023px) {
+  /* Below lg the app shows its own top bar (h-14) above the page. */
+  .foundry .movie { height: calc(100dvh - 3.5rem - 6rem); }
+}
+@media (max-width: 700px) {
+  .foundry .scene-header { left: 17px; right: 17px; top: 22px; }
+  .foundry .scene-note { display: none; }
+  .foundry .scene-bottom { left: 17px; right: 17px; font-size: 8px; }
+  .foundry .scene-name { font-size: 21px; }
+  .foundry .transport { gap: 12px; grid-template-columns: 1fr auto; padding-top: 16px; }
+  .foundry .controls { grid-column: 1; }
+  .foundry .timeline { grid-column: 1 / -1; grid-row: 2; }
+  .foundry .chapter .label { font-size: 8px; letter-spacing: 0; }
+  .foundry .time { grid-column: 2; grid-row: 1; }
+  .foundry .play { padding: 10px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .foundry .movie::after { display: none; }
+}
+
+/* Just the picture: chapter captions, transport and status line stay hidden.
+   Remove this rule to get the full player back. */
+.foundry .scene-header, .foundry .scene-bottom, .foundry .transport, .foundry .reduced { display: none; }

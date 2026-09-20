@@ -2,7 +2,7 @@ import { clsx } from "clsx";
 import { useTranslation } from "react-i18next";
 import { Boxes, Container, LayoutDashboard, Languages, LogOut, Moon, Settings, Sun, Monitor, Menu, X } from "lucide-react";
 import { useState } from "react";
-import { NavLink, Outlet } from "react-router-dom";
+import { Link, NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "@/features/auth/AuthContext";
 import { Logo } from "./Logo";
 import { useTheme, type Theme } from "./theme";
@@ -31,10 +31,17 @@ export function AppShell() {
   const ThemeIcon = theme === "dark" ? Moon : theme === "light" ? Sun : Monitor;
   const cycleTheme = () => setTheme(themeOrder[(themeOrder.indexOf(theme) + 1) % themeOrder.length] ?? "system");
 
+  // The logo leads to the ASCII short film, like a home page.
+  const brand = (
+    <Link to="/foundry" className="rounded-md" aria-label="Envoryx" title="Envoryx – The spatial foundry" onClick={() => setOpen(false)}>
+      <Logo withText />
+    </Link>
+  );
+
   const sidebar = (
     <nav className="flex h-full flex-col" aria-label={t("Main navigation")}>
       <div className="flex h-14 items-center justify-between px-4">
-        <Logo withText />
+        {brand}
         <button className="rounded-md p-1 text-muted hover:bg-muted lg:hidden" onClick={() => setOpen(false)} aria-label={t("Close menu")}>
           <X className="size-5" />
         </button>
@@ -93,7 +100,7 @@ export function AppShell() {
           <button className="rounded-md p-1 text-muted hover:bg-muted" onClick={() => setOpen(true)} aria-label={t("Open menu")}>
             <Menu className="size-5" />
           </button>
-          <Logo withText />
+          {brand}
         </header>
         {dockerDown && (
           <div className="border-b border-red-500/30 bg-red-500/10 px-4 py-2 text-sm text-red-600 dark:text-red-400" role="alert">

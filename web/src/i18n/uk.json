@@ -1270,5 +1270,8 @@
   "expected running but observed {{state}}": "Очікувалося «працює», фактично: {{state}}",
   "{{lifecycle}} was interrupted by an Envoryx restart; review the project and retry or delete it": "{{lifecycle}} було перервано перезапуском Envoryx; перевірте проєкт і повторіть спробу або видаліть його",
   "Main navigation": "Основна навігація",
-  "Forgot the password?": "Забули пароль?"
+  "Forgot the password?": "Забули пароль?",
+  "Source code": "Вихідний код",
+  "License": "Ліцензія",
+  "About Envoryx": "Про Envoryx"
 }

@@ -9,6 +9,7 @@ import { NewProjectPage } from "./features/projects/NewProjectPage";
 import { ProjectDetailPage } from "./features/projects/ProjectDetailPage";
 import { DockerPage } from "./features/docker/DockerPage";
 import { SettingsPage } from "./features/settings/SettingsPage";
+import { FoundryPage } from "./features/foundry/FoundryPage";
 import { Spinner } from "./components/ui";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -39,6 +40,7 @@ export function App() {
         <Route path="/projects/:id" element={<ProjectDetailPage />} />
         <Route path="/docker" element={<DockerPage />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/foundry" element={<FoundryPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
