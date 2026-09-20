@@ -267,7 +267,7 @@ func (m *Manager) SweepBackups(ctx context.Context) {
 // held so no lifecycle operation interferes.
 func (m *Manager) CreateBackup(ctx context.Context, id string, opts BackupOptions) (BackupInfo, error) {
 	var info BackupInfo
-	err := m.run(ctx, limitBackup, func(ctx context.Context) (err error) {
+	err := m.run(ctx, limitBackup, Operation{Action: "backup", ProjectID: id}, func(ctx context.Context) (err error) {
 		info, err = m.createBackup(ctx, id, opts)
 		return err
 	})
@@ -366,6 +366,7 @@ func (m *Manager) createBackupLocked(ctx context.Context, p store.Project, opts 
 				return fail("database", err)
 			}
 		} else {
+			step(ctx, "Dumping the database {{name}}", "name", cfg.Database)
 			n, err := m.dumpDatabase(ctx, p, svc, cfg, filepath.Join(dir, backupDBFile))
 			if err != nil {
 				return fail("database dump", err)
@@ -379,6 +380,7 @@ func (m *Manager) createBackupLocked(ctx context.Context, p store.Project, opts 
 		}
 	}
 	if opts.Files {
+		step(ctx, "Archiving the project files")
 		n, entries, err := archiveDir(NewPlanner(paths, m.catalog).ProjectDir(p), filepath.Join(dir, backupFilesFile), !opts.IncludeDependencies)
 		if err != nil {
 			return fail("archive files", err)
@@ -390,6 +392,7 @@ func (m *Manager) createBackupLocked(ctx context.Context, p store.Project, opts 
 		}{Bytes: n, Entries: entries, IncludeDependencies: opts.IncludeDependencies}
 	}
 	if opts.Storage {
+		step(ctx, "Exporting the object storage bucket")
 		objects, n, err := m.dumpStorage(ctx, p, filepath.Join(dir, backupStorageFile))
 		if err != nil {
 			return fail("object storage", err)
@@ -715,7 +718,7 @@ func (m *Manager) RestoreBackup(ctx context.Context, id, backupID string, opts R
 		return BackupInfo{}, fmt.Errorf("%w: select the database, the files and/or the object storage to restore", validate.ErrInvalid)
 	}
 	var info BackupInfo
-	err := m.run(ctx, limitBackup, func(ctx context.Context) (err error) {
+	err := m.run(ctx, limitBackup, Operation{Action: "restore", ProjectID: id}, func(ctx context.Context) (err error) {
 		info, err = m.restoreBackup(ctx, id, backupID, opts)
 		return err
 	})
@@ -762,6 +765,7 @@ func (m *Manager) restoreBackup(ctx context.Context, id, backupID string, opts R
 		if meta.Database.Type != svc.Variant {
 			return BackupInfo{}, fmt.Errorf("%w: the dump is for %s but the project uses %s", validate.ErrInvalid, meta.Database.Type, svc.Variant)
 		}
+		step(ctx, "Restoring the database")
 		if err := m.restoreDatabase(ctx, p, svc, cfg, filepath.Join(dir, backupDBFile)); err != nil {
 			return BackupInfo{}, fmt.Errorf("restore database: %w", err)
 		}
@@ -777,6 +781,7 @@ func (m *Manager) restoreBackup(ctx context.Context, id, backupID string, opts R
 				return BackupInfo{}, fmt.Errorf("wipe project directory: %w", err)
 			}
 		}
+		step(ctx, "Restoring the project files")
 		if err := extractArchive(filepath.Join(dir, backupFilesFile), target, paths.PUID, paths.PGID); err != nil {
 			return BackupInfo{}, fmt.Errorf("restore files: %w", err)
 		}
@@ -787,6 +792,7 @@ func (m *Manager) restoreBackup(ctx context.Context, id, backupID string, opts R
 		if meta.Storage == nil {
 			return BackupInfo{}, fmt.Errorf("%w: this backup contains no object storage", validate.ErrInvalid)
 		}
+		step(ctx, "Restoring the object storage bucket")
 		if err := m.restoreStorage(ctx, p, filepath.Join(dir, backupStorageFile), opts.WipeStorage); err != nil {
 			return BackupInfo{}, fmt.Errorf("restore object storage: %w", err)
 		}

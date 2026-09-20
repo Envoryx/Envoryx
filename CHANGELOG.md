@@ -19,6 +19,17 @@ release). `:main` follows the development branch.
 - The interface speaks eight more languages: French, Spanish, Italian, Dutch,
   Polish, Portuguese (Brazil), Russian and Ukrainian. Pick one in the sidebar;
   the browser language is used on first visit.
+- Envoryx now shows what it is doing. Long actions – creating, starting,
+  restarting, applying settings, deleting, backups and restores – report their
+  current step (image pull with download progress, container recreation,
+  template scaffolding …) in a panel at the bottom right, in the project list
+  and on the project page; the outcome appears there as well. The wizard shows
+  the same steps while a project is being created, and enabling JetBrains
+  Gateway explains that the container is recreated instead of pausing silently.
+  Actions started in another tab or by another user are visible too, and their
+  buttons stay disabled until they finish. (`GET /api/v1/operations`,
+  `status.operation` on projects)
+
 ### Fixed
 - Signing in after being sent to the sign-in page (session expired, direct
   link) now returns to the page you wanted instead of the dashboard.

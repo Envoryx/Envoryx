@@ -46,7 +46,8 @@ type Manager struct {
 
 	locks    sync.Map // project id -> *sync.Mutex
 	createMu sync.Mutex
-	ops      *ops // running lifecycle operations, drained at Shutdown
+	ops      *ops      // running lifecycle operations, drained at Shutdown
+	progress *progress // what those operations are doing, for the UI
 
 	reportMu sync.RWMutex
 	report   ReconcileReport
@@ -91,7 +92,7 @@ func NewManager(st *store.Store, engine docker.Engine, catalog *runtime.Catalog,
 	if cfg.StopTimeout == 0 {
 		cfg.StopTimeout = 10 * time.Second
 	}
-	return &Manager{store: st, engine: engine, catalog: catalog, paths: paths, audit: auditLog, log: log, cfg: cfg, ops: newOps()}
+	return &Manager{store: st, engine: engine, catalog: catalog, paths: paths, audit: auditLog, log: log, cfg: cfg, ops: newOps(), progress: newProgress()}
 }
 
 func (m *Manager) planner() (*Planner, error) {
@@ -641,6 +642,7 @@ func (m *Manager) List(ctx context.Context) ([]View, error) {
 		if dockerErr != nil {
 			st.Warnings = append(st.Warnings, "Docker engine unavailable: "+dockerErr.Error())
 		}
+		st.Operation = m.progress.active(p.ID)
 		views = append(views, View{Project: p, Status: st, HTTPPort: p.HTTPPort})
 	}
 	return views, nil
@@ -664,8 +666,12 @@ func (m *Manager) Get(ctx context.Context, id string) (View, error) {
 	if dockerErr != nil {
 		st.Warnings = append(st.Warnings, "Docker engine unavailable: "+dockerErr.Error())
 	}
+	st.Operation = m.progress.active(p.ID)
 	return View{Project: p, Status: st, HTTPPort: p.HTTPPort}, nil
 }
+
+// Operations lists the running and recently finished project operations.
+func (m *Manager) Operations() []Operation { return m.progress.list() }
 
 // PlanFor returns the current plan of a project (for the "advanced" detail view).
 func (m *Manager) PlanFor(ctx context.Context, id string) (Preview, error) {

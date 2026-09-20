@@ -259,6 +259,8 @@ type Status struct {
 	State    State           `json:"state"`
 	Services []ServiceStatus `json:"services"`
 	Warnings []string        `json:"warnings"`
+	// Operation is the lifecycle action currently running on the project, if any.
+	Operation *Operation `json:"operation,omitempty"`
 }
 
 // View is a project together with its derived status.

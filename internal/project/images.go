@@ -281,12 +281,9 @@ func (m *Manager) UseImage(ctx context.Context, id, ref string, choice ImageChoi
 	if choice != ImagePrevious && choice != ImageLatest {
 		return View{}, fmt.Errorf("%w: image choice must be %q or %q", validate.ErrInvalid, ImagePrevious, ImageLatest)
 	}
-	var view View
-	err := m.run(ctx, limitProvision, func(ctx context.Context) (err error) {
-		view, err = m.useImage(ctx, id, ref, choice)
-		return err
+	return m.runView(ctx, limitProvision, Operation{Action: "image", ProjectID: id}, func(ctx context.Context) (View, error) {
+		return m.useImage(ctx, id, ref, choice)
 	})
-	return view, err
 }
 
 func (m *Manager) useImage(ctx context.Context, id, ref string, choice ImageChoice) (View, error) {

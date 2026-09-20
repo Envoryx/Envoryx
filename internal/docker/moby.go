@@ -1048,14 +1048,16 @@ func (e *MobyEngine) EnsureImage(ctx context.Context, ref string, progress PullP
 // PullImage implements Engine.
 func (e *MobyEngine) PullImage(ctx context.Context, ref string, progress PullProgress) error {
 	if progress != nil {
-		progress("pulling " + ref)
+		progress("contacting the registry")
 	}
 	resp, err := e.cli.ImagePull(ctx, ref, client.ImagePullOptions{})
 	if err != nil {
 		return wrap(err)
 	}
 	defer resp.Close()
+	sum := pullSummary{layers: map[string]*layerProgress{}}
 	last := ""
+	lastAt := time.Time{}
 	for msg, err := range resp.JSONMessages(ctx) {
 		if err != nil {
 			return fmt.Errorf("pull %s: %w", ref, err)
@@ -1063,10 +1065,93 @@ func (e *MobyEngine) PullImage(ctx context.Context, ref string, progress PullPro
 		if msg.Error != nil {
 			return fmt.Errorf("pull %s: %s", ref, msg.Error.Message)
 		}
-		if progress != nil && msg.Status != "" && msg.Status != last {
-			last = msg.Status
-			progress(msg.Status)
+		if progress == nil {
+			continue
+		}
+		var cur int64
+		var total int64
+		if msg.Progress != nil {
+			cur, total = msg.Progress.Current, msg.Progress.Total
+		}
+		text := sum.observe(msg.ID, msg.Status, cur, total)
+		// Docker reports every few kilobytes; a step text twice a second is plenty.
+		throttled := strings.HasPrefix(text, "downloading") || strings.HasPrefix(text, "extracting")
+		if text != "" && text != last && (!throttled || time.Since(lastAt) > 500*time.Millisecond) {
+			last, lastAt = text, time.Now()
+			progress(text)
 		}
 	}
 	return nil
+}
+
+// pullSummary condenses Docker's per-layer pull messages into one line: overall
+// download percentage while layers download, then the extraction phase.
+type pullSummary struct {
+	layers map[string]*layerProgress
+}
+
+type layerProgress struct {
+	current, total int64
+	phase          int // 0 downloading, 1 extracting, 2 done
+}
+
+func (s *pullSummary) observe(id, status string, current, total int64) string {
+	if id == "" {
+		// Image-level lines: "Pulling from …", "Digest: …", "Status: Downloaded newer image …".
+		switch {
+		case strings.HasPrefix(status, "Status:"):
+			return strings.TrimSpace(strings.TrimPrefix(status, "Status:"))
+		case strings.HasPrefix(status, "Digest:"):
+			return ""
+		}
+		return status
+	}
+	l := s.layers[id]
+	if l == nil {
+		l = &layerProgress{}
+		s.layers[id] = l
+	}
+	switch status {
+	case "Pulling fs layer", "Waiting":
+		// Docker announces every layer before the first byte arrives, so the totals below
+		// stay honest instead of jumping as layers start.
+		l.phase = 0
+	case "Downloading":
+		l.current, l.total, l.phase = current, total, 0
+	case "Download complete", "Extracting":
+		l.current, l.phase = l.total, 1
+	case "Pull complete", "Already exists":
+		l.current, l.phase = l.total, 2
+	default:
+		return ""
+	}
+	var cur, tot int64
+	counts := [3]int{}
+	unknown := 0
+	for _, x := range s.layers {
+		cur += x.current
+		tot += x.total
+		counts[x.phase]++
+		if x.phase == 0 && x.total == 0 {
+			unknown++
+		}
+	}
+	switch {
+	case counts[0] > 0 && unknown > 0:
+		// Some layer sizes are still unknown: a percentage would be misleading.
+		return fmt.Sprintf("downloading (%s so far, %d of %d layers done)", formatBytes(cur), counts[2], len(s.layers))
+	case counts[0] > 0:
+		return fmt.Sprintf("downloading %d%% (%s of %s)", cur*100/tot, formatBytes(cur), formatBytes(tot))
+	case counts[1] > 0:
+		return fmt.Sprintf("extracting (%d of %d layers done)", counts[2], len(s.layers))
+	}
+	return ""
+}
+
+func formatBytes(n int64) string {
+	const mb = 1 << 20
+	if n >= 1<<30 {
+		return fmt.Sprintf("%.1f GB", float64(n)/float64(1<<30))
+	}
+	return fmt.Sprintf("%d MB", (n+mb/2)/mb)
 }

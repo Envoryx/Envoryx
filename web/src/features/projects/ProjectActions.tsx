@@ -29,7 +29,8 @@ export function ProjectActionButtons({
   const links = useProjectLinks();
   const state = project.status.state;
   const busy = action.isPending && action.variables?.id === project.id;
-  const transitional = state === "creating" || state === "deleting";
+  // Another tab or user may be operating on the project: the server reports it.
+  const transitional = state === "creating" || state === "deleting" || !!project.status.operation;
   const run = (a: ProjectAction) =>
     action.mutate({ id: project.id, action: a }, { onError: (err) => onError?.(err) });
   const running = state === "running";

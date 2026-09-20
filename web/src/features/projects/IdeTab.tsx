@@ -3,11 +3,13 @@ import { useTranslation } from "react-i18next";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
-import { api, ApiError } from "@/api/client";
+import { api } from "@/api/client";
 import { useDatabaseInfo, useExtraServices, useSettings, useUpdateProject } from "@/api/hooks";
-import type { PHPConfig, Project } from "@/api/types";
+import { OperationHint } from "@/components/OperationsTray";
+import type { Operation, PHPConfig, Project } from "@/api/types";
 import { Alert, Button, Card, CardHeader, Checkbox, Code } from "@/components/ui";
 import { CopyButton, CopyRow } from "./DatabaseTab";
+import { errorText } from "@/lib/errors";
 
 /** Everything an IDE needs, ready to copy: Xdebug server, SSH interpreter, database, mail. */
 export function IdeTab({ project: p }: { project: Project }) {
@@ -31,7 +33,7 @@ export function IdeTab({ project: p }: { project: Project }) {
   const stopBackend = useMutation({
     mutationFn: () => api.projects.stopIDEBackend(p.id),
     onSuccess: (r) => setGwMsg({ tone: "green", text: r.stopped > 0 ? t("IDE backend stopped.") : t("No IDE backend was running.") }),
-    onError: (err) => setGwMsg({ tone: "red", text: err instanceof ApiError ? err.message : t("Request failed") }),
+    onError: (err) => setGwMsg({ tone: "red", text: errorText(err, t, t("Request failed")) }),
   });
 
   const phpXml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -109,9 +111,17 @@ export function IdeTab({ project: p }: { project: Project }) {
             disabled={update.isPending}
             onChange={(e) => {
               setGwMsg(null);
-              update.mutate({ ideGateway: e.target.checked }, { onError: (err) => setGwMsg({ tone: "red", text: err instanceof ApiError ? err.message : t("Saving failed") }) });
+              const enable = e.target.checked;
+              update.mutate(
+                { ideGateway: enable },
+                {
+                  onSuccess: () => setGwMsg({ tone: "green", text: enable ? t("JetBrains Gateway enabled – the container was recreated.") : t("JetBrains Gateway disabled – the container was recreated.") }),
+                  onError: (err) => setGwMsg({ tone: "red", text: errorText(err, t, t("Saving failed")) }),
+                },
+              );
             }}
           />
+          {update.isPending && <OperationHint op={p.status.operation ?? pendingUpdate(p)} />}
           {p.ideGateway && ssh?.enabled && ssh.port > 0 && (
             <>
               <ol className="list-decimal space-y-1 pl-5 text-sm text-muted">
@@ -204,4 +214,10 @@ export function IdeTab({ project: p }: { project: Project }) {
       </p>
     </div>
   );
+}
+
+/** Placeholder until the first poll reports the server's operation (the request is already running). */
+function pendingUpdate(p: Project): Operation {
+  const now = new Date().toISOString();
+  return { id: "pending", projectId: p.id, projectSlug: p.slug, projectName: p.name, action: "update", startedAt: now, updatedAt: now };
 }

@@ -103,6 +103,8 @@ var instanceRoutesForConfinedTokens = map[string]bool{
 	"GET /api/v1/auth/me":  true,
 	"GET /api/v1/runtimes": true,
 	"GET /api/v1/projects": true,
+	// Filtered to the token's projects like the list.
+	"GET /api/v1/operations": true,
 }
 
 // guard enforces a token's scope and project restriction for one route. Sessions pass.
@@ -194,6 +196,7 @@ func (a *API) Mount(mux *http.ServeMux, protect func(http.Handler) http.Handler)
 	adm("POST /api/v1/system/reconcile", a.reconcileNow)
 
 	rd("GET /api/v1/projects", a.listProjects)
+	rd("GET /api/v1/operations", a.listOperations)
 	adm("POST /api/v1/projects", a.createProject)
 	adm("POST /api/v1/projects/preview", a.previewProject)
 	rd("GET /api/v1/projects/{id}", a.getProject)

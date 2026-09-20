@@ -59,12 +59,9 @@ func (m *Manager) rollback(ctx context.Context, j journal) error {
 // created Docker resources are removed and the database record is deleted. The work runs
 // detached from ctx's cancellation (see Manager.run).
 func (m *Manager) Create(ctx context.Context, req CreateRequest) (View, error) {
-	var view View
-	err := m.run(ctx, limitProvision, func(ctx context.Context) (err error) {
-		view, err = m.create(ctx, req)
-		return err
+	return m.runView(ctx, limitProvision, Operation{Action: "create", ProjectSlug: validate.Slugify(req.Name), ProjectName: req.Name}, func(ctx context.Context) (View, error) {
+		return m.create(ctx, req)
 	})
-	return view, err
 }
 
 func (m *Manager) create(ctx context.Context, req CreateRequest) (View, error) {
@@ -106,6 +103,7 @@ func (m *Manager) create(ctx context.Context, req CreateRequest) (View, error) {
 		return View{}, err
 	}
 	m.createMu.Unlock()
+	setProject(ctx, proj.ID)
 
 	plan, err := planner.Plan(proj)
 	if err != nil {
@@ -131,27 +129,32 @@ func (m *Manager) create(ctx context.Context, req CreateRequest) (View, error) {
 
 	// A repository or template fills the empty directory; the starter page would collide.
 	scaffold := proj.Git.URL != "" || req.Template != ""
+	step(ctx, "Preparing the project directory")
 	if err := m.ensureProjectDir(planner, proj, req.CreateStarter && !scaffold, scaffold); err != nil {
 		return fail("prepare project directory", err)
 	}
 	if proj.Git.URL != "" {
+		step(ctx, "Cloning {{url}}", "url", proj.Git.URL)
 		if _, err := m.clone(ctx, proj); err != nil {
 			return fail("clone repository", err)
 		}
 	} else if req.Template != "" {
 		tpl, _ := TemplateByID(req.Template)
+		step(ctx, "Scaffolding the {{template}} template", "template", tpl.Name)
 		if err := m.applyTemplate(ctx, proj, tpl); err != nil {
 			return fail("apply template "+tpl.ID, err)
 		}
 	}
+	step(ctx, "Writing the configuration")
 	if err := writePlanFiles(plan); err != nil {
 		return fail("write configuration", err)
 	}
 	for _, img := range plan.Images {
-		if err := m.engine.EnsureImage(ctx, img, m.pullProgress(proj.Slug)); err != nil {
+		if err := m.engine.EnsureImage(ctx, img, m.pullProgress(ctx, proj.Slug, img)); err != nil {
 			return fail("pull image "+img, err)
 		}
 	}
+	step(ctx, "Creating the network {{name}}", "name", plan.NetworkName)
 	if _, err := m.engine.CreateNetwork(ctx, plan.NetworkName, plan.Labels); err != nil {
 		return fail("create network", err)
 	}
@@ -160,12 +163,14 @@ func (m *Manager) create(ctx context.Context, req CreateRequest) (View, error) {
 		return fail("attach proxy", err)
 	}
 	for _, v := range plan.Volumes {
+		step(ctx, "Creating the volume {{name}}", "name", v)
 		if err := m.engine.CreateVolume(ctx, v, plan.Labels); err != nil {
 			return fail("create volume "+v, err)
 		}
 		j.volumes = append(j.volumes, v)
 	}
 	for _, c := range plan.Containers {
+		step(ctx, "Creating the container {{name}}", "name", c.Spec.Name)
 		id, err := m.engine.CreateContainer(ctx, c.Spec)
 		if err != nil {
 			return fail("create container "+c.Spec.Name, err)
@@ -173,17 +178,20 @@ func (m *Manager) create(ctx context.Context, req CreateRequest) (View, error) {
 		j.containers = append(j.containers, id)
 	}
 	if req.Start {
-		for _, id := range j.containers {
+		for i, id := range j.containers {
+			step(ctx, "Starting the container {{name}}", "name", plan.Containers[i].Spec.Name)
 			if err := m.engine.StartContainer(ctx, id); err != nil {
 				return fail("start container", err)
 			}
 		}
 		if _, cfg, err := storageConfig(proj); err == nil {
+			step(ctx, "Setting up the object storage bucket")
 			if err := m.provisionBucket(ctx, proj, cfg); err != nil {
 				return fail("initialise", err)
 			}
 		}
 	}
+	step(ctx, "Finishing up")
 	if err := m.store.Projects.UpdateState(ctx, proj.ID, proj.DesiredState, store.LifecycleReady, ""); err != nil {
 		return fail("finalise project", err)
 	}
@@ -203,20 +211,24 @@ func serviceSummary(p store.Project) []string {
 	return out
 }
 
-func (m *Manager) pullProgress(slug string) docker.PullProgress {
-	return func(msg string) { m.log.Info("image pull", "project", slug, "status", msg) }
+// pullProgress reports an image pull to the log and as the current step.
+func (m *Manager) pullProgress(ctx context.Context, slug, image string) docker.PullProgress {
+	return func(msg string) {
+		m.log.Info("image pull", "project", slug, "image", image, "status", msg)
+		step(ctx, "Pulling the image {{image}}: {{status}}", "image", image, "status", msg)
+	}
 }
 
 // Start brings all project containers up, recreating missing ones from the plan.
 func (m *Manager) Start(ctx context.Context, id string) (View, error) {
-	return m.transition(ctx, id, limitProvision, audit.ActionProjectStarted, func(ctx context.Context, proj store.Project, plan Plan) error {
+	return m.transition(ctx, id, limitProvision, "start", audit.ActionProjectStarted, func(ctx context.Context, proj store.Project, plan Plan) error {
 		return m.startPlan(ctx, proj, plan)
 	}, store.DesiredRunning)
 }
 
 // Stop stops all project containers.
 func (m *Manager) Stop(ctx context.Context, id string) (View, error) {
-	return m.transition(ctx, id, limitStop, audit.ActionProjectStopped, func(ctx context.Context, proj store.Project, plan Plan) error {
+	return m.transition(ctx, id, limitStop, "stop", audit.ActionProjectStopped, func(ctx context.Context, proj store.Project, plan Plan) error {
 		return m.stopPlan(ctx, proj, plan)
 	}, store.DesiredStopped)
 }
@@ -225,9 +237,9 @@ func (m *Manager) Stop(ctx context.Context, id string) (View, error) {
 // the runtime images so rebuilt upstream images (PHP patch releases) are picked up;
 // containers whose image changed are recreated.
 func (m *Manager) Restart(ctx context.Context, id string) (View, error) {
-	return m.transition(ctx, id, limitProvision, audit.ActionProjectRestarted, func(ctx context.Context, proj store.Project, plan Plan) error {
+	return m.transition(ctx, id, limitProvision, "restart", audit.ActionProjectRestarted, func(ctx context.Context, proj store.Project, plan Plan) error {
 		for _, img := range plan.Images {
-			if err := m.engine.PullImage(ctx, img, m.pullProgress(proj.Slug)); err != nil {
+			if err := m.engine.PullImage(ctx, img, m.pullProgress(ctx, proj.Slug, img)); err != nil {
 				// A registry hiccup must not prevent a restart with the local image.
 				m.log.Warn("image refresh failed, using local image", "image", img, "err", err)
 			}
@@ -242,16 +254,13 @@ func (m *Manager) Restart(ctx context.Context, id string) (View, error) {
 // transition runs a lifecycle step under the project lock, detached from the caller's
 // cancellation, and records the outcome: the desired state on success, the error on
 // failure (a shutdown or time limit is stored as its readable cause).
-func (m *Manager) transition(ctx context.Context, id string, limit time.Duration, action string, op func(context.Context, store.Project, Plan) error, desired store.DesiredState) (View, error) {
+func (m *Manager) transition(ctx context.Context, id string, limit time.Duration, kind, action string, op func(context.Context, store.Project, Plan) error, desired store.DesiredState) (View, error) {
 	if err := validate.UUID(id); err != nil {
 		return View{}, ErrNotFound
 	}
-	var view View
-	err := m.run(ctx, limit, func(ctx context.Context) (err error) {
-		view, err = m.transitionLocked(ctx, id, action, op, desired)
-		return err
+	return m.runView(ctx, limit, Operation{Action: kind, ProjectID: id}, func(ctx context.Context) (View, error) {
+		return m.transitionLocked(ctx, id, action, op, desired)
 	})
-	return view, err
 }
 
 func (m *Manager) transitionLocked(ctx context.Context, id, action string, op func(context.Context, store.Project, Plan) error, desired store.DesiredState) (View, error) {
@@ -313,6 +322,7 @@ func (m *Manager) ensurePlan(ctx context.Context, proj store.Project, plan Plan,
 		}
 	}
 	if !hasNet {
+		step(ctx, "Creating the network {{name}}", "name", plan.NetworkName)
 		if _, err := m.engine.CreateNetwork(ctx, plan.NetworkName, plan.Labels); err != nil {
 			return fmt.Errorf("create network: %w", err)
 		}
@@ -331,6 +341,7 @@ func (m *Manager) ensurePlan(ctx context.Context, proj store.Project, plan Plan,
 		}
 		for _, v := range plan.Volumes {
 			if !have[v] {
+				step(ctx, "Creating the volume {{name}}", "name", v)
 				if err := m.engine.CreateVolume(ctx, v, plan.Labels); err != nil {
 					return fmt.Errorf("create volume %s: %w", v, err)
 				}
@@ -354,7 +365,7 @@ func (m *Manager) ensurePlan(ctx context.Context, proj store.Project, plan Plan,
 		}
 		cur, ok := byKind[string(c.Kind)]
 		if ok {
-			if err := m.engine.EnsureImage(ctx, c.Spec.Image, m.pullProgress(proj.Slug)); err != nil {
+			if err := m.engine.EnsureImage(ctx, c.Spec.Image, m.pullProgress(ctx, proj.Slug, c.Spec.Image)); err != nil {
 				return fmt.Errorf("pull image %s: %w", c.Spec.Image, err)
 			}
 			localID, err := m.engine.ImageID(ctx, c.Spec.Image)
@@ -366,6 +377,7 @@ func (m *Manager) ensurePlan(ctx context.Context, proj store.Project, plan Plan,
 				// Runtime version changed, the image tag was rebuilt upstream, or the
 				// container's command/mounts/ports differ from the plan: recreate.
 				m.log.Info("recreating container", "container", cur.Name, "from", cur.Image, "to", c.Spec.Image, "spec_changed", specChanged)
+				step(ctx, "Recreating the container {{name}}", "name", cur.Name)
 				// Record (and tag) the rollback target while the old container still
 				// references its image: the containerd image store garbage-collects an
 				// untagged image the moment its last container is gone.
@@ -380,15 +392,17 @@ func (m *Manager) ensurePlan(ctx context.Context, proj store.Project, plan Plan,
 		}
 		id := cur.ID
 		if !ok {
-			if err := m.engine.EnsureImage(ctx, c.Spec.Image, m.pullProgress(proj.Slug)); err != nil {
+			if err := m.engine.EnsureImage(ctx, c.Spec.Image, m.pullProgress(ctx, proj.Slug, c.Spec.Image)); err != nil {
 				return fmt.Errorf("pull image %s: %w", c.Spec.Image, err)
 			}
+			step(ctx, "Creating the container {{name}}", "name", c.Spec.Name)
 			id, err = m.engine.CreateContainer(ctx, c.Spec)
 			if err != nil {
 				return fmt.Errorf("create container %s: %w", c.Spec.Name, err)
 			}
 		}
 		if start && (cur.State != "running" || !ok) {
+			step(ctx, "Starting the container {{name}}", "name", c.Spec.Name)
 			if err := m.engine.StartContainer(ctx, id); err != nil {
 				return fmt.Errorf("start container %s: %w", c.Spec.Name, err)
 			}
@@ -399,6 +413,7 @@ func (m *Manager) ensurePlan(ctx context.Context, proj store.Project, plan Plan,
 	}
 	if start {
 		if _, cfg, err := storageConfig(proj); err == nil {
+			step(ctx, "Setting up the object storage bucket")
 			if err := m.provisionBucket(ctx, proj, cfg); err != nil {
 				return err
 			}
@@ -441,6 +456,7 @@ func (m *Manager) stopPlan(ctx context.Context, proj store.Project, plan Plan) e
 		if !ok || c.State != "running" {
 			continue
 		}
+		step(ctx, "Stopping the container {{name}}", "name", c.Name)
 		if err := m.engine.StopContainer(ctx, c.ID, m.cfg.StopTimeout); err != nil {
 			errs = append(errs, fmt.Errorf("stop container %s: %w", c.Name, err))
 		}
@@ -462,12 +478,9 @@ func (m *Manager) Update(ctx context.Context, id string, req UpdateRequest) (Vie
 	if err := validate.UUID(id); err != nil {
 		return View{}, ErrNotFound
 	}
-	var view View
-	err := m.run(ctx, limitProvision, func(ctx context.Context) (err error) {
-		view, err = m.update(ctx, id, req)
-		return err
+	return m.runView(ctx, limitProvision, Operation{Action: "update", ProjectID: id}, func(ctx context.Context) (View, error) {
+		return m.update(ctx, id, req)
 	})
-	return view, err
 }
 
 func (m *Manager) update(ctx context.Context, id string, req UpdateRequest) (View, error) {
@@ -627,6 +640,7 @@ func (m *Manager) update(ctx context.Context, id string, req UpdateRequest) (Vie
 			case string(store.ServiceDatabase), string(store.ServiceRedis), string(store.ServiceMailpit), string(store.ServiceStorage):
 				continue // stateful/independent services keep running
 			}
+			step(ctx, "Removing the container {{name}} so it is recreated with the new settings", "name", c.Name)
 			if err := m.engine.RemoveContainer(ctx, c.ID); err != nil {
 				return View{}, fmt.Errorf("recreate container %s: %w", c.Name, err)
 			}
@@ -735,7 +749,7 @@ func (m *Manager) Delete(ctx context.Context, id string, opts DeleteOptions) err
 	if err := validate.UUID(id); err != nil {
 		return ErrNotFound
 	}
-	return m.run(ctx, limitDelete, func(ctx context.Context) error { return m.delete(ctx, id, opts) })
+	return m.run(ctx, limitDelete, Operation{Action: "delete", ProjectID: id}, func(ctx context.Context) error { return m.delete(ctx, id, opts) })
 }
 
 func (m *Manager) delete(ctx context.Context, id string, opts DeleteOptions) error {
@@ -774,6 +788,7 @@ func (m *Manager) delete(ctx context.Context, id string, opts DeleteOptions) err
 		return fail("list containers", err)
 	}
 	for _, c := range containers {
+		step(ctx, "Removing the container {{name}}", "name", c.Name)
 		if err := m.engine.RemoveContainer(ctx, c.ID); err != nil {
 			return fail("remove container "+c.Name, err)
 		}
@@ -786,6 +801,7 @@ func (m *Manager) delete(ctx context.Context, id string, opts DeleteOptions) err
 		if v.Labels[docker.LabelProjectID] != id {
 			continue
 		}
+		step(ctx, "Removing the volume {{name}}", "name", v.Name)
 		if err := m.engine.RemoveVolume(ctx, v.Name); err != nil {
 			return fail("remove volume "+v.Name, err)
 		}
@@ -798,6 +814,7 @@ func (m *Manager) delete(ctx context.Context, id string, opts DeleteOptions) err
 		if n.Labels[docker.LabelProjectID] != id {
 			continue
 		}
+		step(ctx, "Removing the network {{name}}", "name", n.Name)
 		if err := m.detachProxy(ctx, n.Name); err != nil {
 			return fail("detach proxy from "+n.Name, err)
 		}
@@ -815,6 +832,7 @@ func (m *Manager) delete(ctx context.Context, id string, opts DeleteOptions) err
 			return fail("remove configuration", err)
 		}
 		if opts.DeleteFiles {
+			step(ctx, "Removing the project files")
 			if err := m.removeProjectFiles(planner, proj); err != nil {
 				return fail("remove project files", err)
 			}

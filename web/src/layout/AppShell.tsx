@@ -8,6 +8,7 @@ import { Logo } from "./Logo";
 import { useTheme, type Theme } from "./theme";
 import { useDashboard } from "@/api/hooks";
 import { Button } from "@/components/ui";
+import { OperationsTray } from "@/components/OperationsTray";
 import { currentLanguage, languages, setLanguage } from "@/i18n";
 
 const nav = [
@@ -103,6 +104,7 @@ export function AppShell() {
           <Outlet />
         </main>
       </div>
+      <OperationsTray />
     </div>
   );
 }

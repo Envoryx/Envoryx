@@ -49,7 +49,10 @@ func newOps() *ops {
 // (principal, client IP for the audit log). The operation is bounded by limit and ends
 // early only when Envoryx shuts down: Shutdown refuses new operations, waits for running
 // ones for a grace period and then cancels them with ErrInterrupted as cause.
-func (m *Manager) run(ctx context.Context, limit time.Duration, fn func(context.Context) error) error {
+//
+// op names the operation for the UI (action and project); the project name and slug
+// are looked up when only the id is known. Steps are reported through step(ctx, …).
+func (m *Manager) run(ctx context.Context, limit time.Duration, op Operation, fn func(context.Context) error) error {
 	o := m.ops
 	o.mu.Lock()
 	if o.closing {
@@ -68,7 +71,27 @@ func (m *Manager) run(ctx context.Context, limit time.Duration, fn func(context.
 	stop := context.AfterFunc(o.root, func() { cancel(context.Cause(o.root)) })
 	defer stop()
 
-	return opError(opCtx, fn(opCtx))
+	if op.ProjectID != "" && op.ProjectSlug == "" {
+		if p, err := m.store.Projects.Get(opCtx, op.ProjectID); err == nil {
+			op.ProjectSlug, op.ProjectName = p.Slug, p.Name
+		}
+	}
+	opCtx, h := m.progress.begin(opCtx, op)
+	err := opError(opCtx, fn(opCtx))
+	h.end(err)
+	return err
+}
+
+// runView is run for operations that return the project view: the view is loaded while
+// the operation is still registered, so its own entry is stripped before it is returned.
+func (m *Manager) runView(ctx context.Context, limit time.Duration, op Operation, fn func(context.Context) (View, error)) (View, error) {
+	var view View
+	err := m.run(ctx, limit, op, func(ctx context.Context) (err error) {
+		view, err = fn(ctx)
+		return err
+	})
+	view.Status.Operation = nil
+	return view, err
 }
 
 // opError replaces a bare "context canceled"/"deadline exceeded" with the cause the

@@ -160,16 +160,17 @@ func (m *Manager) applyTemplate(ctx context.Context, proj store.Project, tpl Tem
 	if len(entries) > 0 {
 		return fmt.Errorf("%w: the project directory is not empty; templates need an empty directory", ErrConflict)
 	}
-	if err := m.engine.EnsureImage(ctx, php.Image, m.pullProgress(proj.Slug)); err != nil {
+	if err := m.engine.EnsureImage(ctx, php.Image, m.pullProgress(ctx, proj.Slug, php.Image)); err != nil {
 		return err
 	}
-	for i, step := range tpl.steps {
+	for i, ts := range tpl.steps {
+		step(ctx, "Scaffolding the {{template}} template: {{step}}", "template", tpl.Name, "step", ts.label)
 		spec := docker.ContainerSpec{
 			Name:       fmt.Sprintf("envoryx-%s-template-%d-%d", proj.Slug, i, time.Now().UnixNano()%1_000_000),
 			Image:      php.Image,
 			Labels:     docker.ManagedLabels(proj.ID, proj.Slug, "template", paths.EnvoryxVersion),
 			Env:        []string{"HOME=/tmp", "COMPOSER_HOME=/tmp/composer", "COMPOSER_NO_INTERACTION=1", "COMPOSER_MEMORY_LIMIT=-1"},
-			Cmd:        step.cmd,
+			Cmd:        ts.cmd,
 			WorkingDir: appMountTarget,
 			User:       fmt.Sprintf("%d:%d", paths.PUID, paths.PGID),
 			Mounts:     []docker.MountSpec{{Type: "bind", Source: planner.projectHostDir(proj), Target: appMountTarget}},
@@ -178,12 +179,12 @@ func (m *Manager) applyTemplate(ctx context.Context, proj store.Project, tpl Tem
 		}
 		res, err := m.engine.RunOneShot(ctx, spec)
 		if err != nil {
-			return fmt.Errorf("template %s (%s): %w", tpl.ID, step.label, err)
+			return fmt.Errorf("template %s (%s): %w", tpl.ID, ts.label, err)
 		}
 		if res.ExitCode != 0 {
-			return fmt.Errorf("%w: template %s failed at %q: %s", ErrConflict, tpl.ID, step.label, lastLine(res.Stdout+"\n"+res.Stderr))
+			return fmt.Errorf("%w: template %s failed at %q: %s", ErrConflict, tpl.ID, ts.label, lastLine(res.Stdout+"\n"+res.Stderr))
 		}
-		for rel, gen := range step.files {
+		for rel, gen := range ts.files {
 			content, err := gen()
 			if err != nil {
 				return err

@@ -256,7 +256,7 @@ func (m *Manager) runGit(ctx context.Context, proj store.Project, args ...string
 	if _, err := m.DeployKey(ctx); err != nil {
 		return docker.ExecResult{}, err
 	}
-	if err := m.engine.EnsureImage(ctx, php.Image, m.pullProgress(proj.Slug)); err != nil {
+	if err := m.engine.EnsureImage(ctx, php.Image, m.pullProgress(ctx, proj.Slug, php.Image)); err != nil {
 		return docker.ExecResult{}, err
 	}
 	spec := docker.ContainerSpec{

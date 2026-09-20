@@ -132,6 +132,12 @@ Go API (single binary, single container)
     The plan is what the wizard summary shows before creating.
   - `Manager` executes lifecycle operations (create, start, stop, restart,
     delete) with per-project locking, a resource journal and rollback.
+    Every detached operation (`ops.go`) is registered in `progress.go`:
+    deep call sites report their current step through `step(ctx, …)`
+    (an English template with `{{placeholders}}` the UI translates), image
+    pulls contribute download progress. `GET /api/v1/operations` lists running
+    and recently finished operations, `status.operation` marks a project
+    with one in flight; the UI polls this for its progress panel.
   - `Reconciler` compares database state with Docker on startup and
     periodically, updating derived status and flagging inconsistencies.
 - **hostpath** – resolves the *host* path behind `/projects` and `/config`

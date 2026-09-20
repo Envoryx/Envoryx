@@ -3,14 +3,16 @@ import { useTranslation } from "react-i18next";
 import { ArrowLeft, ArrowRight, Check, Rocket } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { api, ApiError } from "@/api/client";
+import { api } from "@/api/client";
 import { useCreateProject, useProjectLinks, useRuntimes, useSettings } from "@/api/hooks";
 import { NodeDevServerFields, defaultDevServerForm, devServerRequest, type DevServerForm } from "./NodeDevServerFields";
 import type { CreateProjectRequest, EnvVar, PHPConfig, Preview } from "@/api/types";
 import { Alert, Button, Card, Checkbox, Code, ErrorState, Field, Input, PageHeader, Select, Spinner } from "@/components/ui";
+import { CreateProgress } from "./CreateProgress";
 import { EnvEditor } from "./EnvEditor";
 import { PhpConfigForm } from "./PhpConfigForm";
 import { webServerHint } from "./webServers";
+import { errorText } from "@/lib/errors";
 
 const steps = ["General", "Runtime", "Web server", "Database & services", "Environment", "Summary"] as const;
 
@@ -142,7 +144,7 @@ export function NewProjectPage() {
         if (!cancelled) setPreview(r.preview);
       })
       .catch((err: unknown) => {
-        if (!cancelled) setPreviewError(err instanceof ApiError ? err.message : t("Preview failed"));
+        if (!cancelled) setPreviewError(errorText(err, t, t("Preview failed")));
       });
     return () => {
       cancelled = true;
@@ -150,7 +152,7 @@ export function NewProjectPage() {
   }, [step, request]);
 
   if (runtimes.isPending || !form) return <Spinner label={t("Loading runtimes…")} />;
-  if (runtimes.isError) return <ErrorState message={runtimes.error.message} />;
+  if (runtimes.isError) return <ErrorState message={errorText(runtimes.error, t)} />;
 
   const rt = runtimes.data;
   const php = rt.runtimes.find((r) => r.key === "php");
@@ -168,7 +170,7 @@ export function NewProjectPage() {
     setSubmitError(null);
     create.mutate(request, {
       onSuccess: (p) => navigate(`/projects/${p.id}`),
-      onError: (err) => setSubmitError(err instanceof ApiError ? err.message : t("Creating the project failed")),
+      onError: (err) => setSubmitError(errorText(err, t, t("Creating the project failed"))),
     });
   };
 
@@ -521,6 +523,7 @@ export function NewProjectPage() {
                     )}
                     <Checkbox label={t("Start project after creation")} checked={form.start} onChange={(e) => set({ start: e.target.checked })} />
                   </div>
+                  {create.isPending && <CreateProgress slug={slugify(form.name)} />}
                   {submitError && (
                     <Alert tone="red" title={t("Creation failed")}>
                       {submitError}

@@ -306,7 +306,7 @@ func (m *Manager) ensureDBTool(ctx context.Context) error {
 		c = nil
 	}
 	if c == nil {
-		if err := m.engine.EnsureImage(ctx, DBToolImage, m.pullProgress(dbToolSystem)); err != nil {
+		if err := m.engine.EnsureImage(ctx, DBToolImage, m.pullProgress(ctx, dbToolSystem, DBToolImage)); err != nil {
 			return fmt.Errorf("pull image %s: %w", DBToolImage, err)
 		}
 		spec := docker.ContainerSpec{

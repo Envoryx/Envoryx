@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useIsMutating, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "./client";
 import type { CreateProjectRequest, NodeConfig, Project, UpdateProjectRequest, UpdateSettingsRequest } from "./types";
 import { projectUrl } from "@/lib/format";
@@ -7,6 +7,7 @@ export const keys = {
   me: ["me"] as const,
   setup: ["setup"] as const,
   dashboard: ["dashboard"] as const,
+  operations: ["operations"] as const,
   runtimes: ["runtimes"] as const,
   docker: ["docker"] as const,
   settings: ["settings"] as const,
@@ -20,6 +21,20 @@ export const keys = {
 };
 
 const LIVE_INTERVAL = 5000;
+
+/**
+ * Running and recently finished project operations. Polls quickly while something runs
+ * (or a mutation of ours is in flight), slowly otherwise.
+ */
+export function useOperations() {
+  const mutating = useIsMutating();
+  return useQuery({
+    queryKey: keys.operations,
+    queryFn: async () => (await api.operations()).operations,
+    refetchInterval: (q) => ((q.state.data?.some((o) => !o.finishedAt) ?? false) || mutating > 0 ? 1000 : LIVE_INTERVAL),
+    staleTime: 500,
+  });
+}
 
 export function useDashboard() {
   return useQuery({ queryKey: keys.dashboard, queryFn: api.dashboard, refetchInterval: LIVE_INTERVAL });
@@ -148,6 +163,7 @@ function useProjectInvalidation() {
     void qc.invalidateQueries({ queryKey: keys.projects });
     void qc.invalidateQueries({ queryKey: keys.dashboard });
     void qc.invalidateQueries({ queryKey: keys.docker });
+    void qc.invalidateQueries({ queryKey: keys.operations });
     if (project) {
       qc.setQueryData(keys.project(project.id), project);
     }

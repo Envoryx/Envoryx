@@ -42,10 +42,30 @@ export interface ServiceStatus {
   imagePinned: boolean;
 }
 
+/** A long-running project action (create, start, image pull, backup …) and its current step. */
+export interface Operation {
+  id: string;
+  projectId?: string;
+  projectSlug: string;
+  projectName: string;
+  action: OperationAction;
+  /** English template with {{placeholders}} – translate with t(step, stepArgs). */
+  step?: string;
+  stepArgs?: Record<string, string>;
+  startedAt: string;
+  updatedAt: string;
+  finishedAt?: string;
+  error?: string;
+}
+
+export type OperationAction = "create" | "start" | "stop" | "restart" | "update" | "delete" | "image" | "backup" | "restore";
+
 export interface ProjectStatus {
   state: ProjectState;
   services: ServiceStatus[];
   warnings: string[];
+  /** The action running on the project right now, if any. */
+  operation?: Operation;
 }
 
 export interface PHPConfig {

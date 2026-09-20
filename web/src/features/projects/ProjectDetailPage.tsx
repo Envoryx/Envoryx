@@ -10,6 +10,7 @@ import { NodeDevServerFields, devServerRequest, type DevServerForm } from "./Nod
 import { Alert, Badge, Button, Card, CardHeader, Checkbox, Code, ErrorState, Field, Input, PageHeader, Select, Spinner, StatusDot } from "@/components/ui";
 import { containerStateTone, formatBytes, formatDateTime, formatPercent, serviceLabel, stateMeta } from "@/lib/format";
 import { DeleteProjectDialog, ProjectActionButtons, useActionError } from "./ProjectActions";
+import { OperationHint } from "@/components/OperationsTray";
 import { DatabaseTab } from "./DatabaseTab";
 import { EnvEditor } from "./EnvEditor";
 import { GitTab } from "./GitTab";
@@ -24,6 +25,7 @@ const TerminalTab = lazy(() => import("./TerminalTab").then((m) => ({ default: m
 const ActionsTab = lazy(() => import("./ActionsTab").then((m) => ({ default: m.ActionsTab })));
 import { PhpConfigForm } from "./PhpConfigForm";
 import { webServerHint } from "./webServers";
+import { errorText } from "@/lib/errors";
 
 const tabs = ["Overview", "Domains", "Git", "Actions", "Terminal", "Logs", "Runtime", "Workers", "Database", "Services", "Backups", "Environment", "IDE", "Advanced"] as const;
 type Tab = (typeof tabs)[number];
@@ -41,7 +43,7 @@ export function ProjectDetailPage() {
   if (q.isPending) return <Spinner />;
   if (q.isError) {
     const notFound = q.error instanceof ApiError && q.error.status === 404;
-    return <ErrorState title={notFound ? t("Project not found") : t("Could not load project")} message={notFound ? undefined : q.error.message} action={<Link to="/projects" className="text-sm underline">{t("Back to projects")}</Link>} />;
+    return <ErrorState title={notFound ? t("Project not found") : t("Could not load project")} message={notFound ? undefined : errorText(q.error, t)} action={<Link to="/projects" className="text-sm underline">{t("Back to projects")}</Link>} />;
   }
   const p = q.data;
   const meta = stateMeta[p.status.state];
@@ -59,24 +61,27 @@ export function ProjectDetailPage() {
           </span>
         }
         description={
-          <span className="font-mono text-xs">
-            /projects/{p.path}
-            {p.docroot ? `/${p.docroot}` : ""} ·{" "}
-            {url ? (
-              <a href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 hover:underline">
-                {url} <ExternalLink className="size-3" />
-              </a>
-            ) : (
-              t("no port")
-            )}
-            {devUrl && (
-              <>
-                {" · dev: "}
-                <a href={devUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 hover:underline">
-                  {devUrl} <ExternalLink className="size-3" />
+          <span className="flex flex-col gap-1">
+            {p.status.operation && <OperationHint op={p.status.operation} />}
+            <span className="font-mono text-xs">
+              /projects/{p.path}
+              {p.docroot ? `/${p.docroot}` : ""} ·{" "}
+              {url ? (
+                <a href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 hover:underline">
+                  {url} <ExternalLink className="size-3" />
                 </a>
-              </>
-            )}
+              ) : (
+                t("no port")
+              )}
+              {devUrl && (
+                <>
+                  {" · dev: "}
+                  <a href={devUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 hover:underline">
+                    {devUrl} <ExternalLink className="size-3" />
+                  </a>
+                </>
+              )}
+            </span>
           </span>
         }
         actions={
@@ -168,7 +173,7 @@ function OverviewTab({ project: p }: { project: Project }) {
       { image, use },
       {
         onSuccess: () => setImageMsg({ tone: "green", text: use === "previous" ? t("Rolled back to the previous image.") : t("Back on the current image.") }),
-        onError: (err) => setImageMsg({ tone: "red", text: err instanceof ApiError ? err.message : t("Changing the image failed") }),
+        onError: (err) => setImageMsg({ tone: "red", text: errorText(err, t, t("Changing the image failed")) }),
       },
     );
   };
@@ -302,7 +307,7 @@ function PhpTab({ project: p }: { project: Project }) {
       { name, docroot, php: { version, config } },
       {
         onSuccess: () => setMsg({ tone: "green", text: p.status.state === "running" ? t("Saved and applied. Containers were restarted.") : t("Saved. Changes apply on next start.") }),
-        onError: (err) => setMsg({ tone: "red", text: err instanceof ApiError ? err.message : t("Saving failed") }),
+        onError: (err) => setMsg({ tone: "red", text: errorText(err, t, t("Saving failed")) }),
       },
     );
   };
@@ -365,7 +370,7 @@ function WebServerCard({ project: p }: { project: Project }) {
       { web: { type, version } },
       {
         onSuccess: () => setMsg({ tone: "green", text: p.status.state === "running" ? t("Saved and applied. Containers were restarted.") : t("Saved. Changes apply on next start.") }),
-        onError: (err) => setMsg({ tone: "red", text: err instanceof ApiError ? err.message : t("Saving failed") }),
+        onError: (err) => setMsg({ tone: "red", text: errorText(err, t, t("Saving failed")) }),
       },
     );
   };
@@ -462,7 +467,7 @@ function NodeCard({ project: p }: { project: Project }) {
                 { node: enabled ? { enabled: true, version, ...devServerRequest(dev) } : { enabled: false } },
                 {
                   onSuccess: () => setMsg({ tone: "green", text: enabled ? t("Node.js container updated.") : t("Node.js container removed.") }),
-                  onError: (err) => setMsg({ tone: "red", text: err instanceof ApiError ? err.message : t("Saving failed") }),
+                  onError: (err) => setMsg({ tone: "red", text: errorText(err, t, t("Saving failed")) }),
                 },
               )
             }
@@ -523,7 +528,7 @@ function EnvTab({ project: p }: { project: Project }) {
       { env: env.filter((e) => e.key) },
       {
         onSuccess: () => setMsg({ tone: "green", text: t("Environment saved. Containers were recreated with the new variables.") }),
-        onError: (err) => setMsg({ tone: "red", text: err instanceof ApiError ? err.message : t("Saving failed") }),
+        onError: (err) => setMsg({ tone: "red", text: errorText(err, t, t("Saving failed")) }),
       },
     );
   };
@@ -551,7 +556,7 @@ function AdvancedTab({ project: p }: { project: Project }) {
   const { t } = useTranslation();
   const plan = useProjectPlan(p.id);
   if (plan.isPending) return <Spinner />;
-  if (plan.isError) return <ErrorState message={plan.error.message} />;
+  if (plan.isError) return <ErrorState message={errorText(plan.error, t)} />;
   const pl = plan.data;
   return (
     <Card>

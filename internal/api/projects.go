@@ -66,6 +66,8 @@ type statusDTO struct {
 	State    string             `json:"state"`
 	Services []serviceStatusDTO `json:"services"`
 	Warnings []string           `json:"warnings"`
+	// Operation is the lifecycle action running on the project right now, if any.
+	Operation *project.Operation `json:"operation,omitempty"`
 }
 
 type projectDTO struct {
@@ -107,7 +109,7 @@ func toPorts(in []docker.PortMapping) []portDTO {
 }
 
 func toStatus(st project.Status) statusDTO {
-	out := statusDTO{State: string(st.State), Services: []serviceStatusDTO{}, Warnings: st.Warnings}
+	out := statusDTO{State: string(st.State), Services: []serviceStatusDTO{}, Warnings: st.Warnings, Operation: st.Operation}
 	if out.Warnings == nil {
 		out.Warnings = []string{}
 	}
@@ -338,6 +340,20 @@ func (a *API) listProjects(w http.ResponseWriter, r *http.Request) {
 		out = append(out, a.project(r, v))
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"projects": out})
+}
+
+// listOperations returns the running and recently finished project operations, so the
+// UI can show what Envoryx is doing (image pulls, container recreation, backups).
+func (a *API) listOperations(w http.ResponseWriter, r *http.Request) {
+	p, _ := auth.PrincipalFrom(r.Context())
+	out := []project.Operation{}
+	for _, op := range a.d.Projects.Operations() {
+		if p.TokenName != "" && (op.ProjectID == "" && p.Restricted() || op.ProjectID != "" && !p.CanAccessProject(op.ProjectID)) {
+			continue
+		}
+		out = append(out, op)
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"operations": out})
 }
 
 func (a *API) createProject(w http.ResponseWriter, r *http.Request) {

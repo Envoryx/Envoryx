@@ -7,6 +7,8 @@ import type { Project } from "@/api/types";
 import { Alert, Badge, Button, Card, EmptyState, ErrorState, Input, LinkButton, PageHeader, Spinner, StatusDot } from "@/components/ui";
 import { formatBytes, formatPercent, serviceLabel, stateMeta } from "@/lib/format";
 import { ProjectActionButtons, useActionError } from "./ProjectActions";
+import { OperationHint } from "@/components/OperationsTray";
+import { errorText } from "@/lib/errors";
 
 function ProjectRow({ project, usage }: { project: Project; usage?: { cpuPercent: number; memoryBytes: number } | undefined }) {
   const { t } = useTranslation();
@@ -28,6 +30,7 @@ function ProjectRow({ project, usage }: { project: Project; usage?: { cpuPercent
               {project.name}
             </Link>
             <p className="truncate font-mono text-[11px] text-subtle">{url || t("no port")}</p>
+            {project.status.operation && <OperationHint op={project.status.operation} className="max-w-full" />}
           </div>
         </div>
         <div className="flex flex-wrap gap-1.5">
@@ -101,7 +104,7 @@ export function ProjectsPage() {
       {q.isPending ? (
         <Spinner />
       ) : q.isError ? (
-        <ErrorState message={q.error.message} action={<Button onClick={() => void q.refetch()}>{t("Retry")}</Button>} />
+        <ErrorState message={errorText(q.error, t)} action={<Button onClick={() => void q.refetch()}>{t("Retry")}</Button>} />
       ) : q.data.length === 0 ? (
         <EmptyState
           title={t("No projects yet")}

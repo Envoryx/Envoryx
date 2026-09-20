@@ -1116,15 +1116,16 @@ func (f *Fake) PullImage(ctx context.Context, ref string, progress docker.PullPr
 	}
 	delay := f.PullDelay
 	f.mu.Unlock()
+	// Like the real engine: the first progress line arrives before any bytes do.
+	if progress != nil {
+		progress("contacting the registry")
+	}
 	if delay > 0 {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-time.After(delay):
 		}
-	}
-	if progress != nil {
-		progress("pulling " + ref)
 	}
 	f.mu.Lock()
 	// Like Docker: the previous id of a re-pulled tag stays on disk without a tag.
