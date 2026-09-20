@@ -20,8 +20,9 @@ Open Envoryx → Create project → PHP 8.4 + Caddy → Create → project is ru
 
 Envoryx is under active development. The current milestone (Phase 1 + 2) delivers:
 
-- single-container deployment with embedded web UI (Go + React), English and
-  German interface (more languages are one JSON file each)
+- single-container deployment with embedded web UI (Go + React); interface in
+  English, German, French, Spanish, Italian, Dutch, Polish, Portuguese, Russian
+  and Ukrainian (more languages are one JSON file each)
 - local admin account, secure sessions, audit log
 - Docker engine integration that only ever touches resources labelled `envoryx.managed=true`
 - project templates: Laravel, Symfony (skeleton + webapp), WordPress – scaffolded

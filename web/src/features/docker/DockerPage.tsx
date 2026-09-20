@@ -8,6 +8,7 @@ import { keys, useDockerOverview } from "@/api/hooks";
 import type { ContainerSummary } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, ErrorState, PageHeader, Spinner, StatusDot } from "@/components/ui";
 import { containerStateTone, formatBytes, formatRelative } from "@/lib/format";
+import { errorText, translateMessage } from "@/lib/errors";
 
 function ContainerTable({ rows, managed }: { rows: ContainerSummary[]; managed: boolean }) {
   const { t } = useTranslation();
@@ -51,7 +52,7 @@ function ContainerTable({ rows, managed }: { rows: ContainerSummary[]; managed: 
                 </td>
               )}
               <td className="px-3 py-2 font-mono text-xs text-muted">{c.ports.map((p) => `${p.hostPort}→${p.containerPort}`).join(", ") || "—"}</td>
-              <td className="px-3 py-2 text-xs text-muted">{formatRelative(c.created)}</td>
+              <td className="px-3 py-2 text-xs text-muted">{formatRelative(c.created, t)}</td>
             </tr>
           ))}
         </tbody>
@@ -88,7 +89,7 @@ function UnusedImagesCard() {
         {images.isPending ? (
           <Spinner />
         ) : images.isError ? (
-          <Alert tone="red">{images.error.message}</Alert>
+          <Alert tone="red">{errorText(images.error, t)}</Alert>
         ) : images.data.length === 0 ? (
           <p className="text-sm text-muted">{t("No unused runtime images.")}</p>
         ) : (
@@ -120,7 +121,7 @@ function UnusedImagesCard() {
             {prune.data.errors.length > 0 && <span className="text-red-500"> {prune.data.errors.join("; ")}</span>}
           </p>
         )}
-        {prune.isError && <Alert tone="red">{prune.error.message}</Alert>}
+        {prune.isError && <Alert tone="red">{errorText(prune.error, t)}</Alert>}
       </div>
     </Card>
   );
@@ -138,7 +139,7 @@ export function DockerPage() {
   };
 
   if (q.isPending) return <Spinner />;
-  if (q.isError) return <ErrorState message={q.error.message} action={<Button onClick={() => void q.refetch()}>{t("Retry")}</Button>} />;
+  if (q.isError) return <ErrorState message={errorText(q.error, t)} action={<Button onClick={() => void q.refetch()}>{t("Retry")}</Button>} />;
   const d = q.data;
 
   return (
@@ -156,7 +157,7 @@ export function DockerPage() {
       {!d.info.connected && (
         <div className="mb-6">
           <Alert tone="red" title={t("Docker engine unreachable")}>
-            {d.info.error}
+            {translateMessage(d.info.error, t)}
           </Alert>
         </div>
       )}

@@ -2,10 +2,11 @@ import { Archive, Download, Plus, RotateCcw, Trash2, Upload } from "lucide-react
 import { useTranslation } from "react-i18next";
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, ApiError } from "@/api/client";
+import { api } from "@/api/client";
 import type { InstanceBackup } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Code, Dialog, Field, Input, Spinner } from "@/components/ui";
 import { formatBytes, formatDateTime } from "@/lib/format";
+import { errorText } from "@/lib/errors";
 
 const key = ["instance-backups"] as const;
 
@@ -61,7 +62,7 @@ export function InstanceBackupsCard() {
   useWaitForRestart(restarting);
 
   const invalidate = () => void qc.invalidateQueries({ queryKey: key });
-  const fail = (fallback: string) => (err: unknown) => setMsg({ tone: "red", text: err instanceof ApiError ? err.message : fallback });
+  const fail = (fallback: string) => (err: unknown) => setMsg({ tone: "red", text: errorText(err, t, fallback) });
 
   const create = useMutation({
     mutationFn: (n: string) => api.instanceBackups.create(n),
@@ -157,7 +158,7 @@ export function InstanceBackupsCard() {
         {q.isPending ? (
           <Spinner />
         ) : q.isError ? (
-          <Alert tone="red">{q.error.message}</Alert>
+          <Alert tone="red">{errorText(q.error, t)}</Alert>
         ) : q.data.backups.length === 0 ? (
           <p className="text-sm text-muted">{t("No instance backups yet.")}</p>
         ) : (

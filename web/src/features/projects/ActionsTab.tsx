@@ -8,6 +8,7 @@ import "@xterm/xterm/css/xterm.css";
 import { useProjectActions } from "@/api/hooks";
 import type { ActionInfo, Project } from "@/api/types";
 import { Badge, Button, Card, CardHeader, Code, Dialog, ErrorState, Spinner } from "@/components/ui";
+import { errorText } from "@/lib/errors";
 
 type RunState = "idle" | "running" | "finished" | "failed";
 
@@ -127,7 +128,7 @@ export function ActionsTab({ project }: { project: Project }) {
         {actions.isPending ? (
           <Spinner />
         ) : actions.isError ? (
-          <ErrorState message={actions.error.message} />
+          <ErrorState message={errorText(actions.error, t)} />
         ) : (
           <div className="divide-y divide-[var(--border)]">
             {groups.map(([group, items]) => (

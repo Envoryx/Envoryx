@@ -1,10 +1,10 @@
 import { useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
-import { ApiError } from "@/api/client";
 import { Button, Field, Input, Alert } from "@/components/ui";
 import { LogoFull } from "@/layout/Logo";
 import { useAuth } from "./AuthContext";
+import { errorText } from "@/lib/errors";
 
 export function LoginPage({ mode }: { mode: "login" | "setup" }) {
   const { t } = useTranslation();
@@ -45,7 +45,7 @@ export function LoginPage({ mode }: { mode: "login" | "setup" }) {
       }
       navigate(from, { replace: true });
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : t("The server could not be reached."));
+      setError(errorText(err, t, t("The server could not be reached.")));
     } finally {
       setBusy(false);
     }

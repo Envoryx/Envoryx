@@ -1,7 +1,7 @@
 import { KeyRound, RefreshCw, Save } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useEffect, useState, type FormEvent } from "react";
-import { api, ApiError } from "@/api/client";
+import { api } from "@/api/client";
 import type { TFunction } from "i18next";
 import type { UpdateStatus } from "@/api/types";
 import { useAudit, useDeployKey, useDiagnostics, useSettings, useUpdateSettings } from "@/api/hooks";
@@ -18,6 +18,7 @@ import { NotificationsCard } from "./NotificationsCard";
 import { InstanceBackupsCard } from "./InstanceBackupsCard";
 import { DiagnosticsTab } from "./DiagnosticsTab";
 import { AppearanceCard } from "./AppearanceCard";
+import { errorText } from "@/lib/errors";
 
 function PasswordForm() {
   const { t } = useTranslation();
@@ -42,7 +43,7 @@ function PasswordForm() {
       setNext("");
       setConfirm("");
     } catch (err) {
-      setMsg({ tone: "red", text: err instanceof ApiError ? err.message : t("Request failed") });
+      setMsg({ tone: "red", text: errorText(err, t, t("Request failed")) });
     } finally {
       setBusy(false);
     }
@@ -88,7 +89,7 @@ function PublicHostForm({ current, xdebugHost }: { current: string; xdebugHost: 
       { publicHost: host.trim(), xdebugClientHost: xhost.trim() },
       {
         onSuccess: () => setMsg({ tone: "green", text: t("Saved. Project links now use this host.") }),
-        onError: (err) => setMsg({ tone: "red", text: err instanceof ApiError ? err.message : t("Saving failed") }),
+        onError: (err) => setMsg({ tone: "red", text: errorText(err, t, t("Saving failed")) }),
       },
     );
   }
@@ -156,7 +157,7 @@ function SshCard({ keys, ssh }: { keys: string; ssh: { enabled: boolean; port: n
               { sshAuthorizedKeys: text },
               {
                 onSuccess: () => setMsg({ tone: "green", text: t("Keys saved.") }),
-                onError: (err) => setMsg({ tone: "red", text: err instanceof ApiError ? err.message : t("Saving failed") }),
+                onError: (err) => setMsg({ tone: "red", text: errorText(err, t, t("Saving failed")) }),
               },
             );
           }}
@@ -178,7 +179,7 @@ function DeployKeyCard() {
     <Card>
       <CardHeader title={t("Git deploy key")} description={t("Public key used for SSH clones. Register it as a read-only deploy key in your repositories.")} />
       <div className="space-y-3 p-5">
-        {key.isPending ? <Spinner /> : key.isError ? <Alert tone="red">{key.error.message}</Alert> : <code className="block select-all break-all rounded-md bg-muted p-3 font-mono text-[11px]">{key.data}</code>}
+        {key.isPending ? <Spinner /> : key.isError ? <Alert tone="red">{errorText(key.error, t)}</Alert> : <code className="block select-all break-all rounded-md bg-muted p-3 font-mono text-[11px]">{key.data}</code>}
         {confirm ? (
           <Alert tone="amber" title={t("Regenerate the key?")}>
             {t("All repositories using the current key lose access until the new key is registered.")}
@@ -229,7 +230,7 @@ function InstanceCard() {
   const { t } = useTranslation();
   const s = useSettings();
   if (s.isPending) return <Spinner />;
-  if (s.isError) return <ErrorState message={s.error.message} />;
+  if (s.isError) return <ErrorState message={errorText(s.error, t)} />;
   return (
     <Card>
       <CardHeader title={t("Instance")} description={t("Runtime configuration is provided through environment variables of the Envoryx container.")} />
@@ -260,7 +261,7 @@ function AuditCard() {
       {audit.isPending ? (
         <Spinner />
       ) : audit.isError ? (
-        <ErrorState message={audit.error.message} />
+        <ErrorState message={errorText(audit.error, t)} />
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">

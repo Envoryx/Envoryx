@@ -1,5 +1,7 @@
+import type { TFunction } from "i18next";
 import type { ProjectState } from "@/api/types";
 import type { Tone } from "@/components/ui";
+import i18n from "@/i18n";
 
 export function formatBytes(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
@@ -18,19 +20,19 @@ export function formatPercent(v: number): string {
   return `${v < 10 ? v.toFixed(1) : Math.round(v)} %`;
 }
 
-export function formatRelative(iso: string): string {
-  const t = Date.parse(iso);
-  if (Number.isNaN(t)) return "";
-  const diff = Date.now() - t;
+export function formatRelative(iso: string, t: TFunction): string {
+  const at = Date.parse(iso);
+  if (Number.isNaN(at)) return "";
+  const diff = Date.now() - at;
   const s = Math.round(diff / 1000);
-  if (s < 60) return "just now";
+  if (s < 60) return t("just now");
   const m = Math.round(s / 60);
-  if (m < 60) return `${m} min ago`;
+  if (m < 60) return t("{{count}} min ago", { count: m });
   const h = Math.round(m / 60);
-  if (h < 24) return `${h} h ago`;
+  if (h < 24) return t("{{count}} h ago", { count: h });
   const d = Math.round(h / 24);
-  if (d < 30) return `${d} d ago`;
-  return new Date(t).toLocaleDateString();
+  if (d < 30) return t("{{count}} d ago", { count: d });
+  return new Date(at).toLocaleDateString();
 }
 
 export function formatDateTime(iso: string): string {
@@ -78,7 +80,8 @@ export function projectUrl(port: number, publicHost?: string): string {
 export function serviceLabel(kind: string, version?: string, variant?: string): string {
   const dbNames: Record<string, string> = { mariadb: "MariaDB", mysql: "MySQL", postgresql: "PostgreSQL", mongodb: "MongoDB" };
   const webNames: Record<string, string> = { caddy: "Caddy", apache: "Apache", nginx: "Nginx" };
-  const name: Record<string, string> = { php: "PHP", web: webNames[variant ?? ""] ?? "Web", node: "Node", database: dbNames[variant ?? ""] ?? "Database", redis: "Redis", mailpit: "Mailpit", storage: "Object storage" };
+  // Product names stay as they are; only the generic fallbacks are translated.
+  const name: Record<string, string> = { php: "PHP", web: webNames[variant ?? ""] ?? i18n.t("Web server"), node: "Node", database: dbNames[variant ?? ""] ?? i18n.t("Database"), redis: "Redis", mailpit: "Mailpit", storage: i18n.t("Object storage") };
   const base = name[kind] ?? kind;
   return version ? `${base} ${version}` : base;
 }

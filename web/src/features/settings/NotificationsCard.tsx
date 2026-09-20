@@ -2,10 +2,11 @@ import { Save, Send } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useEffect, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, ApiError } from "@/api/client";
+import { api } from "@/api/client";
 import type { NotifyConfig } from "@/api/types";
 import { Alert, Button, Card, CardHeader, Checkbox, Field, Input, Select, Spinner } from "@/components/ui";
 import { formatDateTime } from "@/lib/format";
+import { errorText, translateMessage } from "@/lib/errors";
 
 const key = ["notifications"] as const;
 
@@ -38,16 +39,16 @@ export function NotificationsCard() {
       setForm((f) => (f ? { ...f, token: "", smtpPassword: "" } : f));
       setMsg({ tone: "green", text: t("Notification settings saved.") });
     },
-    onError: (err) => setMsg({ tone: "red", text: err instanceof ApiError ? err.message : t("Saving failed") }),
+    onError: (err) => setMsg({ tone: "red", text: errorText(err, t, t("Saving failed")) }),
   });
   const test = useMutation({
     mutationFn: (cfg: NotifyConfig) => api.notifications.test(cfg),
     onSuccess: () => setMsg({ tone: "green", text: t("Test notification delivered.") }),
-    onError: (err) => setMsg({ tone: "red", text: err instanceof ApiError ? err.message : t("Test failed") }),
+    onError: (err) => setMsg({ tone: "red", text: errorText(err, t, t("Test failed")) }),
   });
 
   if (q.isPending || !form) return <Card><CardHeader title={t("Notifications")} /><Spinner /></Card>;
-  if (q.isError) return <Card><CardHeader title={t("Notifications")} /><div className="p-5"><Alert tone="red">{q.error.message}</Alert></div></Card>;
+  if (q.isError) return <Card><CardHeader title={t("Notifications")} /><div className="p-5"><Alert tone="red">{errorText(q.error, t)}</Alert></div></Card>;
   const set = (patch: Partial<NotifyConfig>) => setForm((f) => (f ? { ...f, ...patch } : f));
   const st = q.data.status;
   const kinds = form.kinds ?? [];
@@ -70,7 +71,7 @@ export function NotificationsCard() {
       />
       <form onSubmit={submit} className="space-y-4 p-5">
         {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
-        {st.lastError && <Alert tone="amber" title={t("Last delivery failed")}>{st.lastError}</Alert>}
+        {st.lastError && <Alert tone="amber" title={t("Last delivery failed")}>{translateMessage(st.lastError, t)}</Alert>}
         <Checkbox label={t("Enable notifications")} checked={form.enabled} onChange={(e) => set({ enabled: e.target.checked })} />
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label={t("Channel")} htmlFor="notify-provider" hint={hints[form.provider] ? t(hints[form.provider]!) : undefined}>

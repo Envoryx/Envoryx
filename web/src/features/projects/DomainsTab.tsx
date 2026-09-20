@@ -3,10 +3,11 @@ import { useTranslation } from "react-i18next";
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, ApiError } from "@/api/client";
+import { api } from "@/api/client";
 import { keys, useProjectDomains, useProjectLinks } from "@/api/hooks";
 import type { Project, ProxyInfo } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Code, ErrorState, Field, Input, Spinner } from "@/components/ui";
+import { errorText } from "@/lib/errors";
 
 /** URL of a host name through the proxy, honouring non-standard published ports. */
 export function proxyUrl(host: string, proxy: ProxyInfo): string {
@@ -33,12 +34,12 @@ export function DomainsTab({ project }: { project: Project }) {
       setMsg({ tone: "green", text: t("{{hostname}} added.", { hostname: r.domain.hostname }) });
       invalidate();
     },
-    onError: (err) => setMsg({ tone: "red", text: err instanceof ApiError ? err.message : t("Adding the domain failed") }),
+    onError: (err) => setMsg({ tone: "red", text: errorText(err, t, t("Adding the domain failed")) }),
   });
   const remove = useMutation({
     mutationFn: (id: string) => api.projects.domains.remove(project.id, id),
     onSuccess: invalidate,
-    onError: (err) => setMsg({ tone: "red", text: err instanceof ApiError ? err.message : t("Removing the domain failed") }),
+    onError: (err) => setMsg({ tone: "red", text: errorText(err, t, t("Removing the domain failed")) }),
   });
 
   function submit(e: FormEvent) {
@@ -48,7 +49,7 @@ export function DomainsTab({ project }: { project: Project }) {
   }
 
   if (q.isPending) return <Spinner />;
-  if (q.isError) return <ErrorState message={q.error.message} />;
+  if (q.isError) return <ErrorState message={errorText(q.error, t)} />;
   const { domains, proxy } = q.data;
   const { direct } = links(project);
   const published = proxy.enabled && (proxy.httpPort > 0 || proxy.httpsPort > 0);

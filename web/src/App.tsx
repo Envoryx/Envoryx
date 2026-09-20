@@ -1,4 +1,5 @@
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "./features/auth/AuthContext";
 import { LoginPage } from "./features/auth/LoginPage";
 import { AppShell } from "./layout/AppShell";
@@ -11,9 +12,10 @@ import { SettingsPage } from "./features/settings/SettingsPage";
 import { Spinner } from "./components/ui";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
+  const { t } = useTranslation();
   const auth = useAuth();
   const location = useLocation();
-  if (auth.loading) return <Spinner label="Starting Envoryx…" />;
+  if (auth.loading) return <Spinner label={t("Starting Envoryx…")} />;
   if (auth.needsSetup) return <Navigate to="/setup" replace />;
   if (!auth.user) return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   return <>{children}</>;

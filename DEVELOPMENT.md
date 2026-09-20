@@ -109,17 +109,24 @@ Other languages are one JSON file each, English text → translation, see
 `src/i18n/de.json`. Rules:
 
 - Keep `{{placeholders}}` exactly as in the key (a test enforces this).
-- Plural keys carry `_one` / `_other` suffixes (i18next convention).
+- Plural keys carry `_one` / `_other` suffixes (i18next convention). Languages
+  with more plural categories (Russian, Ukrainian, Polish) carry `_one` /
+  `_few` / `_many` / `_other` for every count string; i18next picks the form
+  through `Intl.PluralRules`.
 - Interface texts that come from the backend (worker presets, notification
   kinds, provider names) are translated on the client as well – their
   English strings appear in the dictionary like any other key.
 
-To add a language: create `src/i18n/<code>.json`, import it in
-`src/i18n/index.ts` and add it to `languages` (display name) and
-`resources`. The language selector in the sidebar lists every entry; the
+To add a language: create `src/i18n/<code>.json`, add it to `languages`
+(display name) and `loaders` (dynamic import) in `src/i18n/index.ts`, and to
+the `translations` map in `i18n.test.ts` (the tests check that every German
+key exists in every language and that placeholders match). Only English is
+part of the main bundle; every other dictionary is its own chunk that the
+browser fetches when the language is selected. The language selector in the
+sidebar lists every entry; the
 browser language is detected on first visit and the choice is remembered
-per browser (`localStorage`). To find untranslated keys, run
-`node -e` over the sources or copy the check from `i18n.test.ts`.
+per browser (`localStorage`). Shipped: German, French, Spanish, Italian, Dutch,
+Polish, Portuguese (Brazil), Russian, Ukrainian.
 
 ## Adding a service kind (later phases)
 

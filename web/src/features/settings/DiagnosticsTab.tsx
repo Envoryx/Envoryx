@@ -7,6 +7,7 @@ import { useDiagnostics, useSettings, useUpdateSettings } from "@/api/hooks";
 import type { DiagnosticCheck, Settings } from "@/api/types";
 import { Button, Card, CardHeader, ErrorState, Spinner } from "@/components/ui";
 import { formatDateTime } from "@/lib/format";
+import { errorText } from "@/lib/errors";
 
 const categoryTitle: Record<DiagnosticCheck["category"], string> = {
   runtime: "Docker & storage",
@@ -173,7 +174,7 @@ export function DiagnosticsTab({ onSwitchTab }: { onSwitchTab: (tab: string) => 
   };
 
   if (q.isPending) return <Spinner />;
-  if (q.isError) return <ErrorState message={q.error.message} />;
+  if (q.isError) return <ErrorState message={errorText(q.error, t)} />;
   const d = q.data;
   const groups = (["runtime", "network", "security", "maintenance"] as const).map((cat) => ({ cat, checks: d.checks.filter((c) => c.category === cat) })).filter((g) => g.checks.length > 0);
   // The browser probe counts like a server-side warning.

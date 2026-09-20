@@ -1,13 +1,14 @@
 import { Check, Copy, Database, Eye, EyeOff, ExternalLink, KeyRound, Plus, Trash2, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useState, type FormEvent } from "react";
-import { api, ApiError } from "@/api/client";
+import { api } from "@/api/client";
 import { useDatabaseInfo, useDatabaseList, useDatabaseMutations, useDBTool, useOpenDBTool, usePublicHost, useRuntimes, useUpdateProject } from "@/api/hooks";
 import type { DatabaseCredentials, Project } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Checkbox, Dialog, ErrorState, Field, Input, Select, Spinner, StatusDot } from "@/components/ui";
 import { copyText } from "@/lib/clipboard";
 import { PublicHostNotice } from "@/components/PublicHostNotice";
 import { containerStateTone } from "@/lib/format";
+import { errorText } from "@/lib/errors";
 
 export function CopyButton({ value, label }: { value: string; label: string }) {
   const { t } = useTranslation();
@@ -97,7 +98,7 @@ function AddDatabaseCard({ project }: { project: Project }) {
             setError(null);
             update.mutate(
               { database: { enabled: true, type, version: version || selected?.versions.find((v) => v.default)?.version || "", exposePort: expose } },
-              { onError: (err) => setError(err instanceof ApiError ? err.message : t("Adding the database failed")) },
+              { onError: (err) => setError(errorText(err, t, t("Adding the database failed"))) },
             );
           }}
         >
@@ -133,19 +134,19 @@ export function DatabaseTab({ project }: { project: Project }) {
 
   if (!hasDb) return <AddDatabaseCard project={project} />;
   if (info.isPending) return <Spinner />;
-  if (info.isError) return <ErrorState message={info.error.message} />;
+  if (info.isError) return <ErrorState message={errorText(info.error, t)} />;
   const d = info.data;
   const externalHost = publicHost || window.location.hostname;
   const versions = runtimes.data?.runtimes.find((r) => r.key === d.type)?.versions ?? [];
   const currentVersion = version ?? d.version;
-  const fail = (err: unknown, fallback: string) => setMsg({ tone: "red", text: err instanceof ApiError ? err.message : fallback });
+  const fail = (err: unknown, fallback: string) => setMsg({ tone: "red", text: errorText(err, t, fallback) });
 
   const revealCredentials = async () => {
     setCredsError(null);
     try {
       setCreds((await api.database.credentials(project.id)).credentials);
     } catch (err) {
-      setCredsError(err instanceof ApiError ? err.message : t("Could not load credentials"));
+      setCredsError(errorText(err, t, t("Could not load credentials")));
     }
   };
 
@@ -329,7 +330,7 @@ export function DatabaseTab({ project }: { project: Project }) {
           ) : list.isPending ? (
             <Spinner />
           ) : list.isError ? (
-            <ErrorState message={list.error.message} />
+            <ErrorState message={errorText(list.error, t)} />
           ) : (
             <ul className="divide-y divide-[var(--border)] rounded-md border border-default">
               {list.data.map((name) => (

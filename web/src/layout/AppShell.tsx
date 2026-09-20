@@ -31,7 +31,7 @@ export function AppShell() {
   const cycleTheme = () => setTheme(themeOrder[(themeOrder.indexOf(theme) + 1) % themeOrder.length] ?? "system");
 
   const sidebar = (
-    <nav className="flex h-full flex-col" aria-label="Main">
+    <nav className="flex h-full flex-col" aria-label={t("Main navigation")}>
       <div className="flex h-14 items-center justify-between px-4">
         <Logo withText />
         <button className="rounded-md p-1 text-muted hover:bg-muted lg:hidden" onClick={() => setOpen(false)} aria-label={t("Close menu")}>
@@ -117,7 +117,7 @@ function LanguageButton() {
       <select
         aria-label={t("Language")}
         value={current}
-        onChange={(e) => setLanguage(e.target.value)}
+        onChange={(e) => void setLanguage(e.target.value)}
         className="h-8 appearance-none rounded-md bg-transparent pl-8 pr-2 text-xs text-muted hover:bg-muted hover:text-fg focus:outline-none"
       >
         {Object.entries(languages).map(([code, name]) => (

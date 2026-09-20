@@ -2,12 +2,13 @@ import { Bot, Plus, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, ApiError } from "@/api/client";
+import { api } from "@/api/client";
 import { useProjects } from "@/api/hooks";
 import type { TokenScope } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Checkbox, Code, Field, Input, Spinner, type Tone } from "@/components/ui";
 import { copyText } from "@/lib/clipboard";
 import { formatDateTime } from "@/lib/format";
+import { errorText } from "@/lib/errors";
 
 const key = ["tokens"] as const;
 
@@ -39,12 +40,12 @@ export function TokensCard() {
       setSelected([]);
       void qc.invalidateQueries({ queryKey: key });
     },
-    onError: (err) => setMsg({ tone: "red", text: err instanceof ApiError ? err.message : t("Creating the token failed") }),
+    onError: (err) => setMsg({ tone: "red", text: errorText(err, t, t("Creating the token failed")) }),
   });
   const revoke = useMutation({
     mutationFn: (id: string) => api.tokens.revoke(id),
     onSuccess: () => void qc.invalidateQueries({ queryKey: key }),
-    onError: (err) => setMsg({ tone: "red", text: err instanceof ApiError ? err.message : t("Revoking failed") }),
+    onError: (err) => setMsg({ tone: "red", text: errorText(err, t, t("Revoking failed")) }),
   });
 
   async function copy(label: string, value: string) {
@@ -100,7 +101,7 @@ export function TokensCard() {
         {q.isPending ? (
           <Spinner />
         ) : q.isError ? (
-          <Alert tone="red">{q.error.message}</Alert>
+          <Alert tone="red">{errorText(q.error, t)}</Alert>
         ) : q.data.tokens.length === 0 ? (
           <p className="text-sm text-muted">{t("No tokens yet. The MCP endpoint is")} <Code>{q.data.mcpUrl}</Code>.</p>
         ) : (

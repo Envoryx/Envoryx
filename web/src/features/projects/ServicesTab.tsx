@@ -1,13 +1,13 @@
 import { ExternalLink, Mail, Plus, Server, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useState } from "react";
-import { ApiError } from "@/api/client";
 import { useExtraServices, usePublicHost, useRuntimes, useStorage, useUpdateProject } from "@/api/hooks";
 import type { ExtraServiceInfo, Project } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Checkbox, Dialog, ErrorState, Field, Input, Select, Spinner, StatusDot } from "@/components/ui";
 import { containerStateTone } from "@/lib/format";
 import { AddStorageCard, StorageCard } from "./StorageCard";
 import { PublicHostNotice } from "@/components/PublicHostNotice";
+import { errorText } from "@/lib/errors";
 
 function ServiceCard({ project, info, onMessage }: { project: Project; info: ExtraServiceInfo; onMessage: (m: { tone: "green" | "red"; text: string }) => void }) {
   const { t } = useTranslation();
@@ -21,7 +21,7 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
   const host = publicHost || window.location.hostname;
   const key = info.kind as "redis" | "mailpit";
   const title = info.kind === "redis" ? "Redis" : "Mailpit";
-  const fail = (err: unknown, fallback: string) => onMessage({ tone: "red", text: err instanceof ApiError ? err.message : fallback });
+  const fail = (err: unknown, fallback: string) => onMessage({ tone: "red", text: errorText(err, t, fallback) });
 
   return (
     <Card>
@@ -177,7 +177,7 @@ function AddServiceCard({ project, kind, onMessage }: { project: Project; kind: 
           onClick={() =>
             update.mutate(
               { [kind]: { enabled: true, version: version || undefined, exposePort: expose } },
-              { onSuccess: () => onMessage({ tone: "green", text: t("{{service}} added. PHP was recreated with the new variables.", { service: title }) }), onError: (err) => onMessage({ tone: "red", text: err instanceof ApiError ? err.message : t("Adding failed") }) },
+              { onSuccess: () => onMessage({ tone: "green", text: t("{{service}} added. PHP was recreated with the new variables.", { service: title }) }), onError: (err) => onMessage({ tone: "red", text: errorText(err, t, t("Adding failed")) }) },
             )
           }
         >
@@ -189,11 +189,12 @@ function AddServiceCard({ project, kind, onMessage }: { project: Project; kind: 
 }
 
 export function ServicesTab({ project }: { project: Project }) {
+  const { t } = useTranslation();
   const extras = useExtraServices(project.id);
   const storage = useStorage(project.id);
   const [msg, setMsg] = useState<{ tone: "green" | "red"; text: string } | null>(null);
   if (extras.isPending || storage.isPending) return <Spinner />;
-  if (extras.isError) return <ErrorState message={extras.error.message} />;
+  if (extras.isError) return <ErrorState message={errorText(extras.error, t)} />;
   const has = (k: string) => extras.data.some((s) => s.kind === k);
   return (
     <div className="space-y-6">

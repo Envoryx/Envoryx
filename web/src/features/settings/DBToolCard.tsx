@@ -1,9 +1,9 @@
 import { TableProperties } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useState } from "react";
-import { ApiError } from "@/api/client";
 import { useDBTool, useSetDBTool } from "@/api/hooks";
 import { Alert, Badge, Card, CardHeader, Checkbox, ErrorState, Spinner } from "@/components/ui";
+import { errorText } from "@/lib/errors";
 
 /** Opt-in for the shared Adminer container that opens project databases in the browser. */
 export function DBToolCard() {
@@ -32,7 +32,7 @@ export function DBToolCard() {
         {q.isPending ? (
           <Spinner />
         ) : q.isError ? (
-          <ErrorState message={q.error.message} />
+          <ErrorState message={errorText(q.error, t)} />
         ) : (
           <>
             {error && <Alert tone="red">{error}</Alert>}
@@ -43,7 +43,7 @@ export function DBToolCard() {
               disabled={set.isPending}
               onChange={(e) => {
                 setError(null);
-                set.mutate(e.target.checked, { onError: (err) => setError(err instanceof ApiError ? err.message : t("Saving failed")) });
+                set.mutate(e.target.checked, { onError: (err) => setError(errorText(err, t, t("Saving failed"))) });
               }}
             />
           </>

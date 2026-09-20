@@ -2,15 +2,15 @@ import { ExternalLink, Play, RotateCw, Square, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ApiError } from "@/api/client";
 import { useDeleteProject, useProjectAction, useProjectLinks, type ProjectAction } from "@/api/hooks";
 import type { Project } from "@/api/types";
 import { Button, Checkbox, Dialog, Field, Input, Alert } from "@/components/ui";
+import { errorText } from "@/lib/errors";
 
 export function useActionError() {
   const { t } = useTranslation();
   const [error, setError] = useState<string | null>(null);
-  const capture = (err: unknown) => setError(err instanceof ApiError ? err.message : t("Request failed"));
+  const capture = (err: unknown) => setError(errorText(err, t, t("Request failed")));
   return { error, setError, capture };
 }
 
@@ -91,7 +91,7 @@ export function DeleteProjectDialog({ project, open, onClose }: { project: Proje
           close();
           navigate("/projects");
         },
-        onError: (err) => setError(err instanceof ApiError ? err.message : t("Delete failed")),
+        onError: (err) => setError(errorText(err, t, t("Delete failed"))),
       },
     );
   };

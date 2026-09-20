@@ -2,12 +2,13 @@ import { Check, Copy, Download, GitBranch, GitCommitHorizontal, KeyRound, Refres
 import { useTranslation } from "react-i18next";
 import { useEffect, useState, type FormEvent } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { api, ApiError } from "@/api/client";
+import { api } from "@/api/client";
 import { keys, useDeployKey, useGitStatus } from "@/api/hooks";
 import type { GitResult, Project } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Code, Field, Input, Spinner } from "@/components/ui";
 import { copyText } from "@/lib/clipboard";
 import { formatDateTime } from "@/lib/format";
+import { errorText, translateMessage } from "@/lib/errors";
 
 function DeployKeyCard() {
   const { t } = useTranslation();
@@ -27,7 +28,7 @@ function DeployKeyCard() {
         {key.isPending ? (
           <Spinner />
         ) : key.isError ? (
-          <Alert tone="red">{key.error.message}</Alert>
+          <Alert tone="red">{errorText(key.error, t)}</Alert>
         ) : (
           <div className="flex items-start gap-2">
             <code className="min-w-0 flex-1 select-all break-all rounded-md bg-muted p-3 font-mono text-[11px] text-fg">{key.data}</code>
@@ -73,7 +74,7 @@ export function GitTab({ project }: { project: Project }) {
     void qc.invalidateQueries({ queryKey: ["projects", project.id, "git"] });
     void qc.invalidateQueries({ queryKey: keys.project(project.id) });
   };
-  const fail = (err: unknown, fallback: string) => setMsg({ tone: "red", text: err instanceof ApiError ? err.message : fallback });
+  const fail = (err: unknown, fallback: string) => setMsg({ tone: "red", text: errorText(err, t, fallback) });
 
   const save = async (e: FormEvent) => {
     e.preventDefault();
@@ -193,12 +194,12 @@ export function GitTab({ project }: { project: Project }) {
           {status.isPending ? (
             <Spinner />
           ) : status.isError ? (
-            <Alert tone="red">{status.error.message}</Alert>
+            <Alert tone="red">{errorText(status.error, t)}</Alert>
           ) : !st?.isRepo ? (
             <p className="text-sm text-muted">{st?.configured ? t("The project directory is not a git repository yet. Clone the repository into the empty project directory.") : t("No repository configured.")}</p>
           ) : (
             <div className="space-y-4">
-              {st.error && <Alert tone="red">{st.error}</Alert>}
+              {st.error && <Alert tone="red">{translateMessage(st.error, t)}</Alert>}
               <dl className="grid gap-x-8 gap-y-2 text-sm sm:grid-cols-[10rem_1fr]">
                 <dt className="text-muted">{t("Branch")}</dt>
                 <dd className="flex items-center gap-2">

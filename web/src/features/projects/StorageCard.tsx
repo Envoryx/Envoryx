@@ -2,12 +2,13 @@ import { Cloud, ExternalLink, Plus, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, ApiError } from "@/api/client";
+import { api } from "@/api/client";
 import { usePublicHost, useRuntimes, useStorage, useUpdateProject } from "@/api/hooks";
 import type { Project, StorageInfo } from "@/api/types";
 import { Badge, Button, Card, CardHeader, Checkbox, Dialog, Field, Input, Select, StatusDot } from "@/components/ui";
 import { containerStateTone } from "@/lib/format";
 import { CopyButton, CopyRow } from "./DatabaseTab";
+import { errorText } from "@/lib/errors";
 
 type Message = { tone: "green" | "red"; text: string };
 
@@ -40,7 +41,7 @@ export function StorageCard({ project, onMessage }: { project: Project; onMessag
   const [confirm, setConfirm] = useState("");
   const [snippet, setSnippet] = useState<"laravel" | "cli">("laravel");
   const invalidate = () => void qc.invalidateQueries({ queryKey: ["projects", project.id, "storage"] });
-  const fail = (err: unknown, fallback: string) => onMessage({ tone: "red", text: err instanceof ApiError ? err.message : fallback });
+  const fail = (err: unknown, fallback: string) => onMessage({ tone: "red", text: errorText(err, t, fallback) });
 
   const setPublic = useMutation({
     mutationFn: (publicRead: boolean) => api.storage.setPublic(project.id, publicRead),
@@ -227,7 +228,7 @@ export function AddStorageCard({ project, onMessage }: { project: Project; onMes
                   void qc.invalidateQueries({ queryKey: ["projects", project.id, "storage"] });
                   onMessage({ tone: "green", text: t("Object storage added. PHP was recreated with the new variables.") });
                 },
-                onError: (err) => onMessage({ tone: "red", text: err instanceof ApiError ? err.message : t("Adding failed") }),
+                onError: (err) => onMessage({ tone: "red", text: errorText(err, t, t("Adding failed")) }),
               },
             )
           }

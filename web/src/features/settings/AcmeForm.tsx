@@ -2,10 +2,11 @@ import { Globe, RefreshCw, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useEffect, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, ApiError } from "@/api/client";
+import { api } from "@/api/client";
 import type { ACMEInfo } from "@/api/types";
 import { Alert, Badge, Button, Checkbox, Code, Field, Input, Select, Spinner } from "@/components/ui";
 import { formatDateTime } from "@/lib/format";
+import { errorText, translateMessage } from "@/lib/errors";
 
 const key = ["tls", "acme"] as const;
 
@@ -50,7 +51,7 @@ export function AcmeForm({ baseDomain }: { baseDomain: string }) {
       setToken("");
       setMsg({ tone: "green", text: t("Saved. The certificate is being requested in the background; this takes a minute or two.") });
     },
-    onError: (err) => setMsg({ tone: "red", text: err instanceof ApiError ? err.message : t("Saving failed") }),
+    onError: (err) => setMsg({ tone: "red", text: errorText(err, t, t("Saving failed")) }),
   });
   const issue = useMutation({
     mutationFn: () => api.tls.issueAcme(),
@@ -58,7 +59,7 @@ export function AcmeForm({ baseDomain }: { baseDomain: string }) {
       void qc.invalidateQueries({ queryKey: key });
       setMsg({ tone: "green", text: t("Renewal requested.") });
     },
-    onError: (err) => setMsg({ tone: "red", text: err instanceof ApiError ? err.message : t("Request failed") }),
+    onError: (err) => setMsg({ tone: "red", text: errorText(err, t, t("Request failed")) }),
   });
   const clear = useMutation({
     mutationFn: () => api.tls.clearAcme(),
@@ -69,11 +70,11 @@ export function AcmeForm({ baseDomain }: { baseDomain: string }) {
       setToken("");
       setMsg({ tone: "green", text: t("Let's Encrypt configuration and certificate removed.") });
     },
-    onError: (err) => setMsg({ tone: "red", text: err instanceof ApiError ? err.message : t("Removing failed") }),
+    onError: (err) => setMsg({ tone: "red", text: errorText(err, t, t("Removing failed")) }),
   });
 
   if (q.isPending) return <Spinner />;
-  if (q.isError) return <Alert tone="red">{q.error.message}</Alert>;
+  if (q.isError) return <Alert tone="red">{errorText(q.error, t)}</Alert>;
   if (!q.data.available) return <p className="text-sm text-muted">{t("Not available (HTTPS listener disabled).")}</p>;
 
   function submit(e: FormEvent) {
@@ -115,7 +116,7 @@ export function AcmeForm({ baseDomain }: { baseDomain: string }) {
           </dl>
           {status.lastError && (
             <div className="mt-2">
-              <Alert tone="red" title={t("Last attempt failed")}>{status.lastError}</Alert>
+              <Alert tone="red" title={t("Last attempt failed")}>{translateMessage(status.lastError, t)}</Alert>
             </div>
           )}
           {baseDomain !== status.domain && (

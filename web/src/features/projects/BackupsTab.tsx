@@ -2,11 +2,12 @@ import { Archive, CalendarClock, Download, RotateCcw, Trash2 } from "lucide-reac
 import { useTranslation } from "react-i18next";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, ApiError } from "@/api/client";
+import { api } from "@/api/client";
 import { keys } from "@/api/hooks";
 import type { BackupInfo, BackupSchedule, Project } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Checkbox, Code, Dialog, ErrorState, Field, Input, Select, Spinner } from "@/components/ui";
 import { formatBytes, formatDateTime } from "@/lib/format";
+import { errorText } from "@/lib/errors";
 
 export function BackupsTab({ project }: { project: Project }) {
   const { t } = useTranslation();
@@ -19,7 +20,7 @@ export function BackupsTab({ project }: { project: Project }) {
     void qc.invalidateQueries({ queryKey: keys.project(project.id) });
   };
   const [msg, setMsg] = useState<{ tone: "green" | "red"; text: string } | null>(null);
-  const fail = (err: unknown, fallback: string) => setMsg({ tone: "red", text: err instanceof ApiError ? err.message : fallback });
+  const fail = (err: unknown, fallback: string) => setMsg({ tone: "red", text: errorText(err, t, fallback) });
 
   const [withDb, setWithDb] = useState(hasDb);
   const [withFiles, setWithFiles] = useState(true);
@@ -120,7 +121,7 @@ export function BackupsTab({ project }: { project: Project }) {
         {backups.isPending ? (
           <Spinner />
         ) : backups.isError ? (
-          <ErrorState message={backups.error.message} />
+          <ErrorState message={errorText(backups.error, t)} />
         ) : backups.data.length === 0 ? (
           <p className="px-5 py-8 text-center text-sm text-muted">{t("No backups yet.")}</p>
         ) : (
@@ -240,7 +241,7 @@ function ScheduleCard({ project, onSaved }: { project: Project; onSaved: () => v
       setMsg({ tone: "green", text: form.schedule ? t("Schedule saved.") : t("Scheduled backups disabled.") });
       onSaved();
     },
-    onError: (err) => setMsg({ tone: "red", text: err instanceof ApiError ? err.message : t("Saving failed") }),
+    onError: (err) => setMsg({ tone: "red", text: errorText(err, t, t("Saving failed")) }),
   });
   const set = (patch: Partial<typeof form>) => setForm((f) => ({ ...f, ...patch }));
   const dirty = JSON.stringify(form) !== JSON.stringify({ schedule: current.schedule, hour: current.hour, weekday: current.weekday, keep: current.keep, includeDependencies: current.includeDependencies });

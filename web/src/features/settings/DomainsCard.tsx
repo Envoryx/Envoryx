@@ -2,12 +2,13 @@ import { Download, Save, ShieldCheck, Trash2, Upload } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useEffect, useState, type FormEvent } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, ApiError } from "@/api/client";
+import { api } from "@/api/client";
 import { useSettings, useTLSInfo, useUpdateSettings } from "@/api/hooks";
 import type { TLSInfo } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Checkbox, Code, Field, Input, Spinner } from "@/components/ui";
 import { formatDateTime } from "@/lib/format";
 import { AcmeForm } from "./AcmeForm";
+import { errorText } from "@/lib/errors";
 
 type Msg = { tone: "green" | "red"; text: string } | null;
 
@@ -67,7 +68,7 @@ function BaseDomainForm({ baseDomain, forceHttps, tlsAvailable }: { baseDomain: 
       { baseDomain: base.trim(), forceHttps: force },
       {
         onSuccess: () => setMsg({ tone: "green", text: t("Saved. Project domains follow the new base domain immediately.") }),
-        onError: (err) => setMsg({ tone: "red", text: err instanceof ApiError ? err.message : t("Saving failed") }),
+        onError: (err) => setMsg({ tone: "red", text: errorText(err, t, t("Saving failed")) }),
       },
     );
   }
@@ -103,7 +104,7 @@ function CustomCertForm({ tls }: { tls: TLSInfo }) {
       refresh(data);
       setMsg({ tone: "green", text: t("Custom certificate installed. It is used for every name it covers.") });
     },
-    onError: (err) => setMsg({ tone: "red", text: err instanceof ApiError ? err.message : t("Installing the certificate failed") }),
+    onError: (err) => setMsg({ tone: "red", text: errorText(err, t, t("Installing the certificate failed")) }),
   });
   const clear = useMutation({
     mutationFn: () => api.tls.clearCustom(),
@@ -111,7 +112,7 @@ function CustomCertForm({ tls }: { tls: TLSInfo }) {
       refresh(data);
       setMsg({ tone: "green", text: t("Custom certificate removed.") });
     },
-    onError: (err) => setMsg({ tone: "red", text: err instanceof ApiError ? err.message : t("Removing the certificate failed") }),
+    onError: (err) => setMsg({ tone: "red", text: errorText(err, t, t("Removing the certificate failed")) }),
   });
   const custom = tls.ca?.custom ?? null;
   return (

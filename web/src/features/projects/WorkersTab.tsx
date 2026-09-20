@@ -2,11 +2,12 @@ import { Cog, Plus, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, ApiError } from "@/api/client";
+import { api } from "@/api/client";
 import { keys } from "@/api/hooks";
 import type { Project, Worker, WorkerPreset } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, ErrorState, Field, Input, Select, Spinner, StatusDot } from "@/components/ui";
 import { containerStateTone } from "@/lib/format";
+import { errorText } from "@/lib/errors";
 
 export function WorkersTab({ project }: { project: Project }) {
   const { t } = useTranslation();
@@ -17,7 +18,7 @@ export function WorkersTab({ project }: { project: Project }) {
     void qc.invalidateQueries({ queryKey: keys.project(project.id) });
   };
   const [msg, setMsg] = useState<{ tone: "green" | "red"; text: string } | null>(null);
-  const fail = (err: unknown, fallback: string) => setMsg({ tone: "red", text: err instanceof ApiError ? err.message : fallback });
+  const fail = (err: unknown, fallback: string) => setMsg({ tone: "red", text: errorText(err, t, fallback) });
   const [name, setName] = useState("");
   const [preset, setPreset] = useState("laravel:queue");
   const [arg, setArg] = useState("");
@@ -44,7 +45,7 @@ export function WorkersTab({ project }: { project: Project }) {
   const hasPhp = project.services.some((s) => s.kind === "php" && s.enabled);
 
   if (q.isPending) return <Spinner />;
-  if (q.isError) return <ErrorState message={q.error.message} />;
+  if (q.isError) return <ErrorState message={errorText(q.error, t)} />;
   const presets = q.data.presets;
   const selected = presets.find((p) => p.id === preset);
   const statusOf = (w: Worker) => project.status.services.find((s) => s.kind === "worker" && s.workerId === w.id);
@@ -80,7 +81,7 @@ export function WorkersTab({ project }: { project: Project }) {
                   <div className="min-w-0">
                     <p className="flex items-center gap-2 text-sm font-medium">
                       {w.name}
-                      <Badge>{p?.label ?? w.preset}</Badge>
+                      <Badge>{p ? t(p.label) : w.preset}</Badge>
                       {w.enabled ? (
                         st ? (
                           <span className="inline-flex items-center gap-1.5 text-xs font-normal text-muted">

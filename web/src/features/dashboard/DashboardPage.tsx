@@ -6,6 +6,7 @@ import { useDashboard } from "@/api/hooks";
 import { Alert, Badge, Button, Card, CardHeader, EmptyState, ErrorState, LinkButton, PageHeader, Spinner, StatusDot } from "@/components/ui";
 import { formatBytes, formatPercent, serviceLabel, stateMeta } from "@/lib/format";
 import type { Project } from "@/api/types";
+import { errorText, translateMessage } from "@/lib/errors";
 
 function Stat({ label, value, sub }: { label: string; value: string | number; sub?: string | undefined }) {
   return (
@@ -48,7 +49,7 @@ export function DashboardPage() {
   const q = useDashboard();
 
   if (q.isPending) return <Spinner />;
-  if (q.isError) return <ErrorState message={q.error.message} action={<Button onClick={() => void q.refetch()}>{t("Retry")}</Button>} />;
+  if (q.isError) return <ErrorState message={errorText(q.error, t)} action={<Button onClick={() => void q.refetch()}>{t("Retry")}</Button>} />;
   const d = q.data;
 
   return (
@@ -80,7 +81,7 @@ export function DashboardPage() {
       {d.hostPath.error && !Object.keys(d.hostPath.overrides).length && (
         <div className="mb-6">
           <Alert tone="red" title={t("Host paths could not be detected")}>
-            {t("Envoryx needs to know the host paths behind /projects and /config to mount project files into containers. Set ENVORYX_PROJECTS_HOST_PATH and ENVORYX_CONFIG_HOST_PATH.")} ({d.hostPath.error})
+            {t("Envoryx needs to know the host paths behind /projects and /config to mount project files into containers. Set ENVORYX_PROJECTS_HOST_PATH and ENVORYX_CONFIG_HOST_PATH.")} ({translateMessage(d.hostPath.error, t)})
           </Alert>
         </div>
       )}
@@ -103,7 +104,7 @@ export function DashboardPage() {
                   <Link to={`/projects/${i.projectId}`} className="font-medium underline-offset-2 hover:underline">
                     {i.projectName}
                   </Link>
-                  : {i.message}
+                  : {translateMessage(i.message, t)}
                 </li>
               ))}
             </ul>
@@ -178,7 +179,7 @@ export function DashboardPage() {
                 )}
               </>
             ) : (
-              <p className="text-xs text-red-500">{d.docker.error}</p>
+              <p className="text-xs text-red-500">{translateMessage(d.docker.error, t)}</p>
             )}
           </dl>
         </Card>
