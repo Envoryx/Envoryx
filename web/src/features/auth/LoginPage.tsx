@@ -17,8 +17,12 @@ export function LoginPage({ mode }: { mode: "login" | "setup" }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  // Where RequireAuth sent the user from; also the target once signed in (this render
+  // happens before onSubmit's own navigate and must not override it with "/").
+  const from = (location.state as { from?: string } | null)?.from ?? "/";
+
   if (auth.user) {
-    return <Navigate to="/" replace />;
+    return <Navigate to={from} replace />;
   }
   if (mode === "login" && auth.needsSetup) {
     return <Navigate to="/setup" replace />;
@@ -26,8 +30,6 @@ export function LoginPage({ mode }: { mode: "login" | "setup" }) {
   if (mode === "setup" && !auth.needsSetup && !auth.loading) {
     return <Navigate to="/login" replace />;
   }
-
-  const from = (location.state as { from?: string } | null)?.from ?? "/";
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();

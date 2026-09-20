@@ -32,11 +32,11 @@ export function mockApi(routes: Record<string, Handler>) {
   return { calls, fetchMock };
 }
 
-export function renderApp(ui: ReactNode, { route = "/" }: { route?: string } = {}) {
+export function renderApp(ui: ReactNode, { route = "/", state }: { route?: string; state?: unknown } = {}) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false, refetchInterval: false }, mutations: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
-      <MemoryRouter initialEntries={[route]}>
+      <MemoryRouter initialEntries={[{ pathname: route, state }]}>
         <AuthProvider>{ui}</AuthProvider>
       </MemoryRouter>
     </QueryClientProvider>,

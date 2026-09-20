@@ -46,6 +46,27 @@ describe("LoginPage", () => {
     expect((init?.headers as Record<string, string>)["X-Requested-With"]).toBe("Envoryx");
   });
 
+  it("returns to the page the user came from", async () => {
+    mockApi({
+      "GET /setup": () => ({ body: { needsSetup: false } }),
+      "GET /auth/me": () => ({ status: 401, body: { error: { code: "unauthenticated", message: "authentication required" } } }),
+      "POST /auth/login": () => ({ body: { user: { id: "u1", username: "admin", role: "admin" } } }),
+    });
+    renderApp(
+      <Routes>
+        <Route path="/login" element={<LoginPage mode="login" />} />
+        <Route path="/" element={<Home />} />
+        <Route path="/projects" element={<h1>Projects</h1>} />
+      </Routes>,
+      { route: "/login", state: { from: "/projects" } },
+    );
+    const user = userEvent.setup();
+    await user.type(await screen.findByLabelText("Username"), "admin");
+    await user.type(screen.getByLabelText("Password"), "supersecret123");
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
+    expect(await screen.findByRole("heading", { name: "Projects" })).toBeInTheDocument();
+  });
+
   it("redirects to setup when no user exists", async () => {
     mockApi({ "GET /setup": () => ({ body: { needsSetup: true } }) });
     renderApp(

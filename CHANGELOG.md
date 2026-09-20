@@ -14,6 +14,9 @@ release). `:main` follows the development branch.
 - The interface speaks eight more languages: French, Spanish, Italian, Dutch,
   Polish, Portuguese (Brazil), Russian and Ukrainian. Pick one in the sidebar;
   the browser language is used on first visit.
+### Fixed
+- Signing in after being sent to the sign-in page (session expired, direct
+  link) now returns to the page you wanted instead of the dashboard.
 
 ## [0.3.0] – 2026-09-20
 
