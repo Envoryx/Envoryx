@@ -64,7 +64,7 @@ Envoryx is under active development. The current milestone (Phase 1 + 2) deliver
 - project actions: composer install/update, artisan migrate/seed/cache,
   Symfony console, npm/pnpm/yarn – a fixed catalogue of argv commands with
   live output, shown only when the project has the matching files
-- desired-state reconciliation on startup and periodically; orphan detection
+- desired-state reconciliation on startup and periodically; orphan detection and cleanup
 - diagnostics view of all Docker resources (foreign containers read-only)
 
 - backups per project: database dump + project files (optionally without

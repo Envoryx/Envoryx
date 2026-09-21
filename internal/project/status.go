@@ -130,7 +130,8 @@ func deriveStatus(p store.Project, containers []docker.Container, imageIDs map[s
 }
 
 // Reconcile compares the database with Docker, records inconsistencies and orphaned
-// resources, and repairs interrupted lifecycles. It never removes anything.
+// resources, and repairs interrupted lifecycles. The only thing it removes are orphaned
+// containers and networks (see cleanOrphans); volumes and project data are never touched.
 func (m *Manager) Reconcile(ctx context.Context) ReconcileReport {
 	report := ReconcileReport{At: time.Now().UTC(), Orphans: []Orphan{}, Issues: []ReconcileIssue{}, States: map[string]Status{}}
 	projects, err := m.loadProjects(ctx)
@@ -206,6 +207,9 @@ func (m *Manager) Reconcile(ctx context.Context) ReconcileReport {
 			report.Orphans = append(report.Orphans, Orphan{Type: "volume", ID: v.Name, Name: v.Name, ProjectID: v.Labels[docker.LabelProjectID], ProjectName: v.Labels[docker.LabelProjectName]})
 		}
 	}
+	// Orphaned containers and networks are cleared once they have been seen twice; what
+	// is left (volumes, networks in foreign use, first sightings) stays in the report.
+	report.Orphans = m.cleanOrphans(ctx, report.Orphans)
 	m.AttachProxyToAll(ctx)
 	for _, issue := range report.Issues {
 		m.log.Warn("reconcile issue", "project", issue.ProjectName, "severity", issue.Severity, "msg", issue.Message)

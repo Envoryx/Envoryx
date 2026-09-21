@@ -65,6 +65,8 @@ var Kinds = []struct {
 	{"acme.renewed", "Let's Encrypt certificate issued or renewed", false},
 	{"backup.failed", "A backup could not be created", true},
 	{"envoryx.started", "Envoryx started", false},
+	{"projects.resumed", "Envoryx started the projects again that were running before it was stopped", true},
+	{"docker.orphans_removed", "Envoryx removed orphaned containers or networks that belonged to no project", true},
 	{"envoryx.failed", "Envoryx could not start, or a background task crashed and was restarted", true},
 	{"storage.low", "Free disk space under /config, /projects or /backups is running out (and when it recovers)", true},
 }

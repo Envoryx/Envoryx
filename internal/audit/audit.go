@@ -36,6 +36,7 @@ const (
 	ActionImageRolledBack = "project.image_rolled_back"
 	ActionImageLatest     = "project.image_latest"
 	ActionImagesPruned    = "docker.images_pruned"
+	ActionOrphansRemoved  = "docker.orphans_removed"
 
 	ActionBackupCreated  = "backup.created"
 	ActionBackupRestored = "backup.restored"

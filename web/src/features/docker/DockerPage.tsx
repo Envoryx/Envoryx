@@ -5,7 +5,7 @@ import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/client";
 import { keys, useDockerOverview } from "@/api/hooks";
-import type { ContainerSummary } from "@/api/types";
+import type { ContainerSummary, Orphan } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, ErrorState, PageHeader, Spinner, StatusDot } from "@/components/ui";
 import { containerStateTone, formatBytes, formatRelative } from "@/lib/format";
 import { errorText, translateMessage } from "@/lib/errors";
@@ -57,6 +57,50 @@ function ContainerTable({ rows, managed }: { rows: ContainerSummary[]; managed: 
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+/** Resources with Envoryx labels but no project. Containers and networks are cleared by
+ * the reconciler; volumes hold data and wait for the user. */
+function OrphansAlert({ orphans }: { orphans: Orphan[] }) {
+  const { t } = useTranslation();
+  const qc = useQueryClient();
+  const [error, setError] = useState<string | null>(null);
+  const remove = useMutation({
+    mutationFn: ({ type, id }: Orphan) => api.removeOrphan(type, id),
+    onSuccess: () => {
+      setError(null);
+      void qc.invalidateQueries({ queryKey: keys.docker });
+      void qc.invalidateQueries({ queryKey: keys.dashboard });
+    },
+    onError: (err) => setError(errorText(err, t)),
+  });
+  return (
+    <div className="mt-6">
+      <Alert tone="amber" title={t("{{count}} orphaned Envoryx resources", { count: orphans.length })}>
+        <p>{t("These carry Envoryx labels but belong to no known project (e.g. after restoring an older database). Containers and networks are removed automatically within a minute; volumes hold data and stay until you remove them.")}</p>
+        {error && <p className="mt-2 text-red-600 dark:text-red-400">{error}</p>}
+        <ul className="mt-2 space-y-1 font-mono text-xs">
+          {orphans.map((o) => (
+            <li key={o.type + o.id} className="flex flex-wrap items-center gap-2">
+              <span>
+                {o.type} {o.name} <span className="text-subtle">({t("project")} {o.projectName || o.projectId})</span>
+              </span>
+              <Button
+                size="sm"
+                variant="danger"
+                icon={<Trash2 className="size-3" />}
+                loading={remove.isPending && remove.variables?.id === o.id}
+                disabled={remove.isPending}
+                onClick={() => remove.mutate(o)}
+              >
+                {t("Remove")}
+              </Button>
+            </li>
+          ))}
+        </ul>
+      </Alert>
     </div>
   );
 }
@@ -200,20 +244,7 @@ export function DockerPage() {
         </Card>
       </div>
 
-      {d.orphans.length > 0 && (
-        <div className="mt-6">
-          <Alert tone="amber" title={t("{{count}} orphaned Envoryx resources", { count: d.orphans.length })}>
-            <p>{t("These carry Envoryx labels but belong to no known project (e.g. after restoring an older database). They are never removed automatically.")}</p>
-            <ul className="mt-2 list-disc pl-4 font-mono text-xs">
-              {d.orphans.map((o) => (
-                <li key={o.type + o.id}>
-                  {o.type} {o.name} <span className="text-subtle">({t("project")} {o.projectName || o.projectId})</span>
-                </li>
-              ))}
-            </ul>
-          </Alert>
-        </div>
-      )}
+      {d.orphans.length > 0 && <OrphansAlert orphans={d.orphans} />}
 
       <div className="mt-6 space-y-6">
         <Card>

@@ -11,9 +11,38 @@ release). `:main` follows the development branch.
 ## [Unreleased]
 
 ### Added
+- Whatever Envoryx does on its own is visible: the dashboard shows a
+  dismissible notice with the projects it started again after a restart and
+  the orphaned resources it removed, notifications carry the new kinds
+  `projects.resumed` and `docker.orphans_removed`, and the audit log reads
+  in plain words – actions as labels instead of `docker.orphans_removed`,
+  "Envoryx (automatic)" as the actor of automatic entries, and a details
+  column with what was changed or removed.
+- Orphaned Envoryx containers and networks – left behind by a restored
+  instance backup or a wiped `/config` – are stopped and removed by the
+  reconciler about a minute after they appear, instead of lingering in the
+  host's Docker list. Volumes hold data and are never removed automatically;
+  the Docker page lists them with a *Remove* button. Removals appear in the
+  audit log as `docker.orphans_removed`.
+- Settings → General → *Projects and the Envoryx container*: an opt-in that
+  stops every running project when the Envoryx container is stopped (for
+  maintenance, a host shutdown) and starts them again when Envoryx comes
+  back – also after a reboot of the host. Off by default: the project
+  containers stay independent of Envoryx as before. A restart Envoryx asks
+  for itself does not bounce the projects. Give the Envoryx container a stop
+  timeout that covers all projects (see DEPLOYMENT.md, *Stopping and
+  restarting*).
 - The logo leads to "The spatial foundry", a short ASCII film about the
   build factory, with the version, update status and links to the
   documentation, release notes, source and licence below it.
+
+### Changed
+- The project list is a table again: name, stack, state, resources and
+  actions sit in the same columns on every row, however many services a
+  project has. Badges follow a fixed order (runtime, web server, database,
+  extras), the address is shown without its scheme, and small screens get a
+  two-row layout with the state under the actions. *Restart* is offered only
+  while a project runs; a stopped project has *Start*.
 
 ## [0.4.0] – 2026-09-20
 

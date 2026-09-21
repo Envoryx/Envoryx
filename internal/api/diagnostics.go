@@ -414,7 +414,7 @@ func (a *API) checkReconcile(context.Context) []Check {
 			parts = append(parts, fmt.Sprintf("%d orphaned Docker resources carry Envoryx labels but belong to no project", len(r.Orphans)))
 		}
 		c.Detail = strings.Join(parts, " · ")
-		c.Hint = "Open the affected projects; orphaned resources are listed on the Docker page and can be removed there."
+		c.Hint = "Open the affected projects. Orphaned containers and networks are removed automatically within a minute; orphaned volumes are listed on the Docker page and can be removed there."
 		c.Action = &CheckAction{Kind: "link", Value: "/docker", Label: "Open Docker page"}
 	default:
 		c.Status, c.Detail = checkOK, fmt.Sprintf("%d projects consistent with Docker (checked %s)", r.Projects, r.At.Format("15:04:05"))

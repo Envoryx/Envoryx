@@ -1088,3 +1088,36 @@ func TestDiagnostics(t *testing.T) {
 		t.Fatalf("read token on diagnostics: %d", res.StatusCode)
 	}
 }
+
+// Orphaned volumes are removed on request only, and only when they are on the list.
+func TestRemoveOrphanOverHTTP(t *testing.T) {
+	a := newApp(t)
+	a.setupAndLogin()
+	if err := a.engine.CreateVolume(context.Background(), "envoryx-ghost-database", docker.ManagedLabels("ghost-id", "ghost", "database", "test")); err != nil {
+		t.Fatal(err)
+	}
+	r := a.do(http.MethodPost, "/api/v1/system/reconcile", nil, true)
+	if r.status != http.StatusOK {
+		t.Fatalf("reconcile: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodGet, "/api/v1/docker", nil, false)
+	orphans := r.body["orphans"].([]any)
+	if len(orphans) != 1 {
+		t.Fatalf("orphans: %s", r.raw)
+	}
+	r = a.do(http.MethodPost, "/api/v1/docker/orphans/remove", map[string]any{"type": "volume"}, true)
+	if r.status != http.StatusUnprocessableEntity {
+		t.Fatalf("missing id must be rejected: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodPost, "/api/v1/docker/orphans/remove", map[string]any{"type": "volume", "id": "not-listed"}, true)
+	if r.status != http.StatusNotFound {
+		t.Fatalf("unknown orphan must be 404: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodPost, "/api/v1/docker/orphans/remove", map[string]any{"type": "volume", "id": "envoryx-ghost-database"}, true)
+	if r.status != http.StatusOK || len(r.body["orphans"].([]any)) != 0 {
+		t.Fatalf("remove orphan: %d %s", r.status, r.raw)
+	}
+	if volumes, _ := a.engine.ListVolumes(context.Background(), true); len(volumes) != 0 {
+		t.Fatalf("volume left: %+v", volumes)
+	}
+}

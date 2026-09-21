@@ -113,6 +113,7 @@ func (a *API) dashboard(w http.ResponseWriter, r *http.Request) {
 		"recent":     projects,
 		"issues":     report.Issues,
 		"orphans":    len(report.Orphans),
+		"activity":   a.d.Projects.Activity(),
 		"hostPath":   a.d.HostPath.Status(),
 		"storage":    disk.Check(a.d.Config.ConfigDir, a.d.Config.ProjectsDir, a.d.Config.BackupsDir),
 		"version":    a.d.Version,
@@ -262,6 +263,9 @@ type updateSettingsRequest struct {
 	PublicHost *string `json:"publicHost"`
 	BaseDomain *string `json:"baseDomain"`
 	ForceHTTPS *bool   `json:"forceHttps"`
+	// ProjectsFollowEnvoryx stops the project containers with Envoryx and resumes them
+	// when it comes back.
+	ProjectsFollowEnvoryx *bool `json:"projectsFollowEnvoryx"`
 	// XdebugClientHost is the developer machine Xdebug connects back to.
 	XdebugClientHost *string `json:"xdebugClientHost"`
 	// SSHAuthorizedKeys replaces the public keys accepted by the SSH server.
@@ -318,6 +322,12 @@ func (a *API) updateSettings(w http.ResponseWriter, r *http.Request) {
 		}
 		a.invalidateProxy()
 	}
+	if req.ProjectsFollowEnvoryx != nil {
+		if err := a.d.Projects.SetProjectsFollowEnvoryx(r.Context(), *req.ProjectsFollowEnvoryx); err != nil {
+			writeError(w, r, err)
+			return
+		}
+	}
 	if len(changes) > 0 {
 		a.d.Audit.Log(r.Context(), audit.ActionSettingsChanged, "settings", "", changes)
 	}
@@ -331,6 +341,31 @@ func (a *API) unusedImages(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"images": images})
+}
+
+type removeOrphanRequest struct {
+	Type string `json:"type"`
+	ID   string `json:"id"`
+}
+
+// removeOrphan removes one resource from the orphan list of the last reconcile (the
+// volumes the reconciler leaves alone, or a network in foreign use once that is over).
+func (a *API) removeOrphan(w http.ResponseWriter, r *http.Request) {
+	var req removeOrphanRequest
+	if err := decodeJSON(w, r, &req); err != nil {
+		writeError(w, r, err)
+		return
+	}
+	if req.Type == "" || req.ID == "" {
+		writeError(w, r, fmt.Errorf("%w: type and id are required", validate.ErrInvalid))
+		return
+	}
+	report, err := a.d.Projects.RemoveOrphan(r.Context(), req.Type, req.ID)
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"orphans": report.Orphans})
 }
 
 func (a *API) pruneImages(w http.ResponseWriter, r *http.Request) {
@@ -347,28 +382,29 @@ func (a *API) settings(w http.ResponseWriter, r *http.Request) {
 	schema, _ := db.SchemaVersion(r.Context(), a.d.Store.DB())
 	needed, suggestion := a.publicHostAdvice(r.Context())
 	writeJSON(w, http.StatusOK, map[string]any{
-		"publicHost":           a.publicHost(r.Context()),
-		"publicHostNeeded":     needed,
-		"publicHostSuggestion": suggestion,
-		"baseDomain":           a.d.Projects.BaseDomain(r.Context()),
-		"forceHttps":           a.d.Projects.ForceHTTPS(r.Context()),
-		"xdebugClientHost":     a.d.Projects.XdebugClientHost(r.Context()),
-		"sshAuthorizedKeys":    a.setting(r.Context(), sshd.SettingAuthorizedKeys),
-		"ssh":                  a.sshDTO(),
-		"proxy":                a.proxyDTO(),
-		"version":              a.d.Version,
-		"schemaVersion":        schema,
-		"configDir":            c.ConfigDir,
-		"projectsDir":          c.ProjectsDir,
-		"hostPath":             a.d.HostPath.Status(),
-		"portRange":            map[string]int{"start": c.PortRangeStart, "end": c.PortRangeEnd},
-		"puid":                 c.PUID,
-		"pgid":                 c.PGID,
-		"dockerHost":           c.DockerHost,
-		"session":              map[string]string{"idleTimeout": c.SessionIdleTimeout.String(), "absoluteTimeout": c.SessionAbsoluteTimeout.String()},
-		"secureCookies":        c.SecureCookies,
-		"update":               a.d.Updates.Status(),
-		"warnings":             append([]string{}, a.d.Warnings...),
+		"publicHost":            a.publicHost(r.Context()),
+		"publicHostNeeded":      needed,
+		"publicHostSuggestion":  suggestion,
+		"baseDomain":            a.d.Projects.BaseDomain(r.Context()),
+		"forceHttps":            a.d.Projects.ForceHTTPS(r.Context()),
+		"projectsFollowEnvoryx": a.d.Projects.ProjectsFollowEnvoryx(r.Context()),
+		"xdebugClientHost":      a.d.Projects.XdebugClientHost(r.Context()),
+		"sshAuthorizedKeys":     a.setting(r.Context(), sshd.SettingAuthorizedKeys),
+		"ssh":                   a.sshDTO(),
+		"proxy":                 a.proxyDTO(),
+		"version":               a.d.Version,
+		"schemaVersion":         schema,
+		"configDir":             c.ConfigDir,
+		"projectsDir":           c.ProjectsDir,
+		"hostPath":              a.d.HostPath.Status(),
+		"portRange":             map[string]int{"start": c.PortRangeStart, "end": c.PortRangeEnd},
+		"puid":                  c.PUID,
+		"pgid":                  c.PGID,
+		"dockerHost":            c.DockerHost,
+		"session":               map[string]string{"idleTimeout": c.SessionIdleTimeout.String(), "absoluteTimeout": c.SessionAbsoluteTimeout.String()},
+		"secureCookies":         c.SecureCookies,
+		"update":                a.d.Updates.Status(),
+		"warnings":              append([]string{}, a.d.Warnings...),
 	})
 }
 

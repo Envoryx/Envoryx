@@ -69,6 +69,14 @@ func TestDomainsAndProxySettings(t *testing.T) {
 	if r.status != http.StatusOK || r.body["baseDomain"] != "dev.home" || r.body["forceHttps"] != true {
 		t.Fatalf("settings: %d %s", r.status, r.raw)
 	}
+	// Projects follow Envoryx: off by default, stored on request.
+	if r.body["projectsFollowEnvoryx"] != false {
+		t.Fatalf("projectsFollowEnvoryx must default to false: %s", r.raw)
+	}
+	r = a.do(http.MethodPatch, "/api/v1/settings", map[string]any{"projectsFollowEnvoryx": true}, true)
+	if r.status != http.StatusOK || r.body["projectsFollowEnvoryx"] != true {
+		t.Fatalf("projectsFollowEnvoryx: %d %s", r.status, r.raw)
+	}
 	r = a.do(http.MethodPatch, "/api/v1/settings", map[string]any{"baseDomain": "bad domain"}, true)
 	if r.status != http.StatusUnprocessableEntity {
 		t.Fatalf("invalid base domain must fail: %d %s", r.status, r.raw)

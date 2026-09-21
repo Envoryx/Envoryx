@@ -51,6 +51,7 @@ type Manager struct {
 
 	reportMu sync.RWMutex
 	report   ReconcileReport
+	activity []Activity // autonomous actions since start, newest first (see activity.go)
 
 	notifier  notify.Sender
 	unhealthy map[string]bool // project ids reported as unhealthy (for recovery events)

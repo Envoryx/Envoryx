@@ -16,6 +16,8 @@ import { NotificationsCard } from "./NotificationsCard";
 import { InstanceBackupsCard } from "./InstanceBackupsCard";
 import { DiagnosticsTab } from "./DiagnosticsTab";
 import { AppearanceCard } from "./AppearanceCard";
+import { auditActionLabel, auditActor, auditDetails } from "@/lib/audit";
+import { LifecycleCard } from "./LifecycleCard";
 import { errorText } from "@/lib/errors";
 
 function PasswordForm() {
@@ -259,7 +261,7 @@ function AuditCard() {
                 <th className="px-5 py-2 font-medium">{t("Time")}</th>
                 <th className="px-3 py-2 font-medium">{t("User")}</th>
                 <th className="px-3 py-2 font-medium">{t("Action")}</th>
-                <th className="px-3 py-2 font-medium">{t("Target")}</th>
+                <th className="px-3 py-2 font-medium">{t("Details")}</th>
                 <th className="px-3 py-2 font-medium">IP</th>
               </tr>
             </thead>
@@ -267,10 +269,12 @@ function AuditCard() {
               {audit.data.entries.map((e) => (
                 <tr key={e.id}>
                   <td className="whitespace-nowrap px-5 py-2 text-xs text-muted">{formatDateTime(e.createdAt)}</td>
-                  <td className="px-3 py-2 text-xs">{e.username || "—"}</td>
-                  <td className="px-3 py-2 font-mono text-xs">{e.action}</td>
-                  <td className="px-3 py-2 text-xs text-muted">
-                    {e.details && typeof e.details["name"] === "string" ? String(e.details["name"]) : e.targetType ? `${e.targetType} ${e.targetId.slice(0, 8)}` : "—"}
+                  <td className={clsx("px-3 py-2 text-xs", !e.username && "italic text-muted")}>{auditActor(e, t)}</td>
+                  <td className="px-3 py-2 text-xs" title={e.action}>
+                    {auditActionLabel(e.action, t)}
+                  </td>
+                  <td className="max-w-md truncate px-3 py-2 text-xs text-muted" title={auditDetails(e, t)}>
+                    {auditDetails(e, t)}
                   </td>
                   <td className="px-3 py-2 font-mono text-xs text-subtle">{e.ip}</td>
                 </tr>
@@ -319,6 +323,7 @@ export function SettingsPage() {
         <>
           <AppearanceCard />
           <InstanceCard />
+          <LifecycleCard />
           {s.data && <PublicHostForm current={s.data.publicHost} xdebugHost={s.data.xdebugClientHost ?? ""} />}
           <PasswordForm />
         </>

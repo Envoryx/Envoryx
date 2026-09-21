@@ -418,6 +418,8 @@ export interface Dashboard {
   recent: Project[];
   issues: ReconcileIssue[];
   orphans: number;
+  /** What Envoryx did on its own since it started (projects resumed, orphans removed), newest first. */
+  activity?: Activity[];
   hostPath: HostPathStatus;
   storage: StorageUsage[] | null;
   version: string;
@@ -425,6 +427,13 @@ export interface Dashboard {
   publicHost: string;
   baseDomain: string;
   proxy: ProxyInfo;
+}
+
+/** One autonomous action of Envoryx, see ActivityNotice. */
+export interface Activity {
+  at: string;
+  kind: "projects.resumed" | "docker.orphans_removed" | string;
+  items: string[];
 }
 
 /** Result of the daily release check against GitHub. */
@@ -592,6 +601,7 @@ export interface UpdateSettingsRequest {
   sshAuthorizedKeys?: string;
   baseDomain?: string;
   forceHttps?: boolean;
+  projectsFollowEnvoryx?: boolean;
 }
 
 export interface SSHInfo {
@@ -612,6 +622,8 @@ export interface Settings {
   ssh?: SSHInfo;
   baseDomain: string;
   forceHttps: boolean;
+  /** Project containers stop with the Envoryx container and resume when it comes back. */
+  projectsFollowEnvoryx?: boolean;
   proxy: ProxyInfo;
   version: string;
   update?: UpdateStatus;

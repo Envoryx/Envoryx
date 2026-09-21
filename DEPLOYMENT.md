@@ -369,6 +369,50 @@ pull can usually finish. On Unraid the stop timeout is global (*Settings →
 Docker → Docker stop timeout*, default 10 s) – raise it and the template's
 *Shutdown grace* together if you want the same behaviour.
 
+### Orphaned resources
+
+A container, network or volume with Envoryx labels whose project no longer
+exists in the database – after restoring an older instance backup, a wiped
+`/config`, or a delete that Docker only half completed – is an *orphan*. The
+reconciler stops and removes orphaned containers and networks on its own once
+it has seen them in two consecutive passes (about a minute), so they do not
+linger in the Docker list of the host; a network another container still
+uses is left alone. Volumes hold data and are never removed automatically:
+they stay listed on the *Docker* page with a *Remove* button. Volumes are
+named after the project slug, so a project created again under the same name
+picks its data up. Every removal shows up on the dashboard (*Envoryx acted
+on its own*), as a notification (`docker.orphans_removed`, on by default)
+and in the audit log.
+
+### Projects and the Envoryx container
+
+The project containers are independent of the Envoryx container: they carry
+Docker's `unless-stopped` restart policy and keep running while Envoryx is
+stopped or updated. For maintenance windows, *Settings → General → Projects
+and the Envoryx container* ties them together:
+
+- Stopping the Envoryx container (`docker stop`, Unraid stop, host shutdown)
+  stops every running project after the grace period above, all projects in
+  parallel, then the shared helpers such as the database browser. The
+  projects keep their desired state – this is Envoryx going down, not the
+  user stopping them.
+- On the next start, Envoryx starts the projects that were running before –
+  also after a reboot of the host, where `unless-stopped` alone would leave
+  them stopped (Docker does not restart a container that was stopped
+  explicitly).
+- A restart Envoryx asks for itself (after an instance restore) does not
+  bounce the projects.
+- The dashboard lists the projects Envoryx started again (*Envoryx acted on
+  its own*), a `projects.resumed` notification names them, and each start
+  is in the audit log with *Envoryx (automatic)* as the actor.
+
+The stop has to fit into the Envoryx container's stop timeout together with
+the grace period: a project stack takes about as long as its slowest
+container (databases up to 10 s). The compose file's `stop_grace_period: 90s`
+is enough for typical setups; on Unraid raise *Docker stop timeout* to 60 s
+or more when the option is on. A project that is not stopped in time stays
+running and is picked up on the next start like any other.
+
 ## Updating
 
 ```
@@ -471,8 +515,10 @@ as a consistent `VACUUM INTO` copy, `config/…`).
   request, restarts in place (the process replaces itself, so no restart policy
   is needed) and applies the backup before opening the database: current
   state → `pre-restore` backup, then database and config are replaced.
-  Containers and project files are untouched; projects that were created after
-  the backup appear as orphans in *Docker* and can be removed there. All
+  Project files are untouched; the containers and networks of projects that
+  were created after the backup no longer belong to a project and are removed
+  by the reconciler about a minute later, their volumes appear as orphans in
+  *Docker* until you remove them there (see *Orphaned resources*). All
   sessions end; sign in again with the credentials from the backup. The
   restored database starts with an `instance.restored` audit entry naming the
   backup, the `pre-restore` safety copy and who requested it – the audit rows

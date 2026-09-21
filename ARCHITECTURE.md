@@ -435,6 +435,18 @@ project's `last_error` reads "interrupted by an Envoryx restart" instead of
 "context canceled". The HTTP server calls it from `BeforeShutdown` before
 closing the listener, so handlers waiting on an operation return first.
 
+Project containers are independent of the Envoryx container by default
+(`unless-stopped`). With the `projects_follow_envoryx` setting on, the
+`BeforeShutdown` hook continues after the drain with
+`Manager.StopAllForShutdown`: every project is stopped under its lock through
+`stopPlan` (projects in parallel, containers in reverse plan order), then any
+managed container still running (database browser, orphans). Desired states
+are untouched, so `Manager.ResumeProjects` at the next start – run before the
+first reconcile – starts exactly the projects with `desired_state=running`
+that are not running (`deriveStatus`), a few at a time through the regular
+`Start` operation. A self-requested restart (`requestRestart`) skips the stop:
+the process is back in a moment.
+
 ### 8.5 Delete
 
 `DELETE /projects/{id}` requires `{"confirm": "<slug>"}` in the body. It
@@ -462,7 +474,16 @@ On startup and every 30 s:
 2. Group by `envoryx.project.id`.
 3. For each DB project compute status (§8.6).
 4. Resources whose project ID is unknown are reported as **orphans**
-   (visible in the Docker view, never auto-deleted).
+   (visible in the Docker view). `cleanOrphans` removes orphaned containers
+   (stop, remove) and networks (detach proxy and database browser, remove
+   unless a foreign container is attached) once the previous pass already
+   listed them and the project lock is free – a project mid-create or
+   mid-rollback is never mistaken for an orphan. Volumes are never removed
+   automatically; `RemoveOrphan` (`POST /docker/orphans/remove`) removes a
+   listed orphan on request. Removals are audited as `docker.orphans_removed`.
+   Autonomous actions (orphans removed, projects resumed) are also kept in
+   memory as `Manager.Activity()` – served in the dashboard payload and shown
+   as a dismissible notice – and sent as notifications of the same kind.
 5. Projects with `desired_state=running` but stopped containers are flagged
    (`unexpectedly stopped`) – no automatic restart in Phase 2; the UI shows the
    discrepancy and offers "Start".

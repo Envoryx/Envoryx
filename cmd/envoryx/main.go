@@ -270,7 +270,14 @@ func serve() error {
 	backups.Sweep()
 	manager.SweepBackups(ctx)
 	background := func(name string, fn func(context.Context)) { go supervise(ctx, log, notifier, name, fn) }
-	background("reconciler", func(ctx context.Context) { manager.RunReconciler(ctx, 30*time.Second, log) })
+	background("reconciler", func(ctx context.Context) {
+		// With "projects follow Envoryx" on, the projects that were running before the
+		// stop come back first, so the first reconcile does not report them as down.
+		if manager.ProjectsFollowEnvoryx(ctx) {
+			manager.ResumeProjects(ctx, log)
+		}
+		manager.RunReconciler(ctx, 30*time.Second, log)
+	})
 	background("backup scheduler", func(ctx context.Context) { manager.RunBackupScheduler(ctx, time.Minute, log) })
 	background("disk space monitor", func(ctx context.Context) {
 		disk.Monitor(ctx, 5*time.Minute, notifier, log, cfg.ConfigDir, cfg.ProjectsDir, cfg.BackupsDir)
@@ -376,10 +383,21 @@ func serve() error {
 	// On SIGTERM (Docker stop, Unraid update) or a requested restart, running project
 	// operations get cfg.ShutdownGrace to finish before they are abandoned; new ones are
 	// refused meanwhile. Whatever is cut off is recorded on the project as interrupted.
+	// With "projects follow Envoryx" on, an external stop then takes the project
+	// containers down as well (a restart Envoryx asked for itself does not: the process
+	// is back in a moment and the projects would only be bounced).
 	drain := func() {
 		log.Info("draining project operations", "grace", cfg.ShutdownGrace)
 		if !manager.Shutdown(cfg.ShutdownGrace) {
 			log.Warn("project operations still running after the grace period were interrupted; affected projects carry the note in their status")
+		}
+		stopCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		defer cancel()
+		if !restart.Load() && manager.ProjectsFollowEnvoryx(stopCtx) {
+			begin := time.Now()
+			log.Info("stopping project containers with Envoryx")
+			manager.StopAllForShutdown(stopCtx)
+			log.Info("project containers stopped", "took", time.Since(begin).Round(time.Millisecond))
 		}
 	}
 	srv := server.New(server.Options{Addr: cfg.ListenAddr, AllowedOrigins: origins, Log: log, MCP: mcpSrv.Handler(), BeforeShutdown: drain}, a, sessions, dist)

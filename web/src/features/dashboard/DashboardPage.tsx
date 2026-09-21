@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { DiagnosticsBanner } from "@/components/DiagnosticsBanner";
+import { ActivityNotice } from "@/components/ActivityNotice";
 import { useTranslation } from "react-i18next";
 import { Plus, ArrowRight } from "lucide-react";
 import { useDashboard } from "@/api/hooks";
@@ -65,6 +66,7 @@ export function DashboardPage() {
       />
 
       <DiagnosticsBanner />
+      <ActivityNotice activity={d.activity} />
       {d.update?.available && (
         <div className="mb-6">
           <Alert tone="blue" title={t("Envoryx {{version}} is available", { version: d.update.latest })}>

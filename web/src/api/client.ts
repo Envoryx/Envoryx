@@ -25,6 +25,7 @@ import type {
   NotifyConfig,
   NotifyInfo,
   Operation,
+  Orphan,
   Preview,
   Project,
   ProxyInfo,
@@ -163,6 +164,7 @@ export const api = {
   docker: () => request<DockerOverview>("/docker"),
   unusedImages: () => request<{ images: UnusedImage[] }>("/docker/images/unused"),
   pruneImages: () => request<{ result: PruneResult }>("/docker/images/prune", { method: "POST" }),
+  removeOrphan: (type: string, id: string) => request<{ orphans: Orphan[] }>("/docker/orphans/remove", { method: "POST", body: { type, id } }),
   settings: () => request<Settings>("/settings"),
   updateSettings: (body: UpdateSettingsRequest) => request<Settings>("/settings", { method: "PATCH", body }),
   notifications: {
