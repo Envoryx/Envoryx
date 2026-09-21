@@ -14,7 +14,8 @@ export function useActionError() {
   return { error, setError, capture };
 }
 
-/** Start / stop / restart / open buttons shared by list and detail views. */
+/** Start / stop / restart / open buttons shared by list and detail views. Restart only
+ * makes sense for a running project; a stopped one gets Start (which pulls missing images). */
 export function ProjectActionButtons({
   project,
   size = "sm",
@@ -48,9 +49,11 @@ export function ProjectActionButtons({
           {t("Start")}
         </Button>
       )}
-      <Button size={size} onClick={() => run("restart")} loading={pending("restart")} disabled={busy || transitional} icon={<RotateCw className="size-3.5" />} title={t("Restart – also pulls updated runtime images")}>
-        {t("Restart")}
-      </Button>
+      {running && (
+        <Button size={size} onClick={() => run("restart")} loading={pending("restart")} disabled={busy || transitional} icon={<RotateCw className="size-3.5" />} title={t("Restart – also pulls updated runtime images")}>
+          {t("Restart")}
+        </Button>
+      )}
       {url && (
         <a
           href={url}

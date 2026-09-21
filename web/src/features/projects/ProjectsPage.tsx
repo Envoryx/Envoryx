@@ -10,44 +10,67 @@ import { ProjectActionButtons, useActionError } from "./ProjectActions";
 import { OperationHint } from "@/components/OperationsTray";
 import { errorText } from "@/lib/errors";
 
-function ProjectRow({ project, usage }: { project: Project; usage?: { cpuPercent: number; memoryBytes: number } | undefined }) {
+/** Service badges in a fixed order – runtime, web server, database, extras – so rows read alike. */
+function ServiceBadges({ project }: { project: Project }) {
   const { t } = useTranslation();
-  const meta = stateMeta[project.status.state];
   const php = project.services.find((s) => s.kind === "php");
   const web = project.services.find((s) => s.kind === "web");
   const db = project.services.find((s) => s.kind === "database");
+  const extras = project.services.filter((s) => s.enabled && (s.kind === "node" || s.kind === "redis" || s.kind === "mailpit" || s.kind === "storage"));
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {php ? <Badge tone="blue">{serviceLabel("php", php.version)}</Badge> : <Badge>{t("No PHP")}</Badge>}
+      {web && <Badge>{serviceLabel("web", web.version, web.variant)}</Badge>}
+      {db && <Badge tone="amber">{serviceLabel("database", db.version, db.variant)}</Badge>}
+      {extras.map((s) => (
+        <Badge key={s.kind}>{serviceLabel(s.kind, s.version, s.variant)}</Badge>
+      ))}
+    </div>
+  );
+}
+
+// One grid shared by every row, so name, stack, state, resources and actions line up
+// down the list no matter how many badges a project has. Narrow screens use two rows:
+// name and actions, then the stack and the state; resources are a large-screen extra.
+const rowGrid = "grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-2 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1.7fr)_6.5rem_6rem_auto] lg:items-center lg:gap-x-5";
+
+/** The address without its scheme – the list is tight and every project is https anyway. */
+function shortUrl(url: string): string {
+  return url.replace(/^https?:\/\//, "");
+}
+
+function ProjectRow({ project, usage }: { project: Project; usage?: { cpuPercent: number; memoryBytes: number } | undefined }) {
+  const { t } = useTranslation();
+  const meta = stateMeta[project.status.state];
   const links = useProjectLinks();
   const { url } = links(project);
   const { error, capture } = useActionError();
+  const running = project.status.services.filter((s) => s.running).length;
+  const total = project.status.services.length;
 
   return (
     <li className="px-4 py-3 sm:px-5">
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-        <div className="flex min-w-[14rem] flex-1 items-center gap-3">
+      <div className={rowGrid}>
+        <div className="flex min-w-0 items-center gap-3">
           <StatusDot tone={meta.tone} pulse={meta.pulse ?? false} />
           <div className="min-w-0">
             <Link to={`/projects/${project.id}`} className="block truncate text-sm font-semibold text-fg hover:underline">
               {project.name}
             </Link>
-            <p className="truncate font-mono text-[11px] text-subtle">{url || t("no port")}</p>
+            <p className="truncate font-mono text-[11px] text-subtle" title={url}>
+              {url ? shortUrl(url) : t("no port")}
+            </p>
             {project.status.operation && <OperationHint op={project.status.operation} className="max-w-full" />}
           </div>
         </div>
-        <div className="flex flex-wrap gap-1.5">
-          {php ? <Badge tone="blue">{serviceLabel("php", php.version)}</Badge> : <Badge>{t("No PHP")}</Badge>}
-          {db && <Badge tone="amber">{serviceLabel("database", db.version, db.variant)}</Badge>}
-          {project.services.filter((s) => s.enabled && (s.kind === "redis" || s.kind === "mailpit" || s.kind === "storage" || s.kind === "node")).map((s) => (
-            <Badge key={s.kind}>{serviceLabel(s.kind, s.version, s.variant)}</Badge>
-          ))}
-          {web && <Badge>{serviceLabel("web", web.version, web.variant)}</Badge>}
+        <div className="col-start-1 row-start-2 min-w-0 pl-[22px] lg:col-start-2 lg:row-start-1 lg:pl-0">
+          <ServiceBadges project={project} />
         </div>
-        <div className="hidden w-40 text-xs text-muted md:block">
-          <span className="font-medium text-fg">{t(meta.label)}</span>
-          <span className="block">
-            {t("{{running}}/{{total}} containers", { running: project.status.services.filter((s) => s.running).length, total: project.status.services.length })}
-          </span>
+        <div className="col-start-2 row-start-2 self-center text-right text-xs text-muted lg:col-start-3 lg:row-start-1 lg:text-left">
+          <span className="block font-medium text-fg">{t(meta.label)}</span>
+          <span className="block">{t("{{running}}/{{total}} containers", { running, total })}</span>
         </div>
-        <div className="hidden w-32 text-xs tabular-nums text-muted lg:block">
+        <div className="hidden text-xs tabular-nums text-muted lg:block">
           {usage ? (
             <>
               <span className="block">CPU {formatPercent(usage.cpuPercent)}</span>
@@ -57,7 +80,9 @@ function ProjectRow({ project, usage }: { project: Project; usage?: { cpuPercent
             <span className="block text-subtle">—</span>
           )}
         </div>
-        <ProjectActionButtons project={project} onError={capture} />
+        <div className="col-start-2 row-start-1 justify-self-end lg:col-start-5 lg:row-start-1">
+          <ProjectActionButtons project={project} onError={capture} />
+        </div>
       </div>
       {(error || project.status.warnings.length > 0) && (
         <div className="mt-2 space-y-1 pl-6">

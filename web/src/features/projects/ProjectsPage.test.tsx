@@ -37,6 +37,7 @@ describe("ProjectsPage", () => {
     expect(await screen.findByText("Stopped")).toBeInTheDocument();
     expect(api.calls.some((c) => c.method === "POST" && c.url.endsWith("/stop"))).toBe(true);
     expect(screen.getByRole("button", { name: "Start" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Restart" })).not.toBeInTheDocument();
   });
 
   it("surfaces action errors", async () => {
