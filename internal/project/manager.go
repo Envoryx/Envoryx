@@ -821,6 +821,9 @@ func (m *Manager) List(ctx context.Context) ([]View, error) {
 		if dockerErr != nil {
 			st.Warnings = append(st.Warnings, "Docker engine unavailable: "+dockerErr.Error())
 		}
+		if w := m.venvWarning(p); w != "" {
+			st.Warnings = append(st.Warnings, w)
+		}
 		st.Operation = m.progress.active(p.ID)
 		views = append(views, View{Project: p, Status: st, HTTPPort: p.HTTPPort})
 	}
@@ -844,6 +847,9 @@ func (m *Manager) Get(ctx context.Context, id string) (View, error) {
 	st := deriveStatus(p, containers, imageIDs)
 	if dockerErr != nil {
 		st.Warnings = append(st.Warnings, "Docker engine unavailable: "+dockerErr.Error())
+	}
+	if w := m.venvWarning(p); w != "" {
+		st.Warnings = append(st.Warnings, w)
 	}
 	st.Operation = m.progress.active(p.ID)
 	return View{Project: p, Status: st, HTTPPort: p.HTTPPort}, nil
