@@ -38,6 +38,7 @@ export const auditActionLabels: Record<string, string> = {
   "database.created": "Database created",
   "database.dropped": "Database dropped",
   "terminal.opened": "Terminal opened",
+  "project.exec": "Command run",
   "action.run": "Action run",
   "action.finished": "Action finished",
   "git.deploy_key_generated": "Deploy key generated",

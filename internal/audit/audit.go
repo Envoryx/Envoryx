@@ -57,6 +57,7 @@ const (
 	ActionDBDropped           = "database.dropped"
 
 	ActionTerminalOpened = "terminal.opened"
+	ActionExec           = "project.exec"
 	ActionRun            = "action.run"
 
 	ActionDeployKeyGenerated = "git.deploy_key_generated"

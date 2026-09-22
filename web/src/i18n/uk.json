@@ -1415,6 +1415,7 @@
   "Decides which server command runs.": "Визначає, яка команда сервера запускається.",
   "Application": "Застосунок",
   "Command": "Команда",
+  "Command run": "Команду виконано",
   "Runs from the project directory with .venv/bin first on PATH.": "Запускається з каталогу проєкту, .venv/bin стоїть першим у PATH.",
   "Publish the debugpy port": "Опублікувати порт debugpy",
   "For attaching a debugger from PyCharm or VS Code. Only the port is published: start debugpy in your application, e.g. python -m debugpy --listen 0.0.0.0:5678 manage.py runserver. The IDE tab has the details.": "Для під'єднання зневаджувача з PyCharm або VS Code. Публікується лише порт: запустіть debugpy у застосунку, наприклад python -m debugpy --listen 0.0.0.0:5678 manage.py runserver. Подробиці на вкладці IDE.",

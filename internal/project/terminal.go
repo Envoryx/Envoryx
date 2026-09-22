@@ -24,9 +24,9 @@ func (m *Manager) OpenTerminal(ctx context.Context, id string, kind store.Servic
 	if c.State != "running" {
 		return nil, fmt.Errorf("%w: the %s container is not running", ErrConflict, kind)
 	}
-	paths, err := m.paths()
+	env, err := m.execEnv(kind)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrNotConfigured, err)
+		return nil, err
 	}
 	if cols == 0 || cols > 500 {
 		cols = 120
@@ -35,22 +35,15 @@ func (m *Manager) OpenTerminal(ctx context.Context, id string, kind store.Servic
 		rows = 40
 	}
 	opts := docker.TerminalOptions{
-		Cmd:  shellCmd,
-		Cols: cols,
-		Rows: rows,
-		Env:  []string{"TERM=xterm-256color", "COLORTERM=truecolor", "LANG=C.UTF-8"},
+		Cmd:        shellCmd,
+		Cols:       cols,
+		Rows:       rows,
+		User:       env.User,
+		WorkingDir: env.WorkingDir,
+		Env:        append([]string{"TERM=xterm-256color", "COLORTERM=truecolor"}, env.Env...),
 	}
-	switch kind {
-	case store.ServicePHP, store.ServicePython, store.ServiceNode:
-		opts.WorkingDir = appMountTarget
-		opts.User = fmt.Sprintf("%d:%d", paths.PUID, paths.PGID)
-		// The uid usually has no passwd entry in the image; give tools writable caches.
-		opts.Env = append(append(opts.Env, toolEnv...), "PS1=\\w $ ")
-		if kind == store.ServicePython {
-			opts.Env = append(opts.Env, pythonEnv...)
-		}
-	default:
-		opts.WorkingDir = "/"
+	if env.User != "" {
+		opts.Env = append(opts.Env, "PS1=\\w $ ")
 	}
 	term, err := m.engine.OpenTerminal(ctx, c.ID, opts)
 	if err != nil {

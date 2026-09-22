@@ -1379,6 +1379,7 @@
   "Decides which server command runs.": "Decide quale comando server viene eseguito.",
   "Application": "Applicazione",
   "Command": "Comando",
+  "Command run": "Comando eseguito",
   "Runs from the project directory with .venv/bin first on PATH.": "Viene eseguito dalla directory del progetto con .venv/bin in cima al PATH.",
   "Publish the debugpy port": "Pubblica la porta di debugpy",
   "For attaching a debugger from PyCharm or VS Code. Only the port is published: start debugpy in your application, e.g. python -m debugpy --listen 0.0.0.0:5678 manage.py runserver. The IDE tab has the details.": "Per collegare un debugger da PyCharm o VS Code. Viene pubblicata solo la porta: avvia debugpy nella tua applicazione, es. python -m debugpy --listen 0.0.0.0:5678 manage.py runserver. La scheda IDE ha i dettagli.",

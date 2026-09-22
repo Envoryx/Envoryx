@@ -1379,6 +1379,7 @@
   "Decides which server command runs.": "Bepaalt welk servercommando draait.",
   "Application": "Applicatie",
   "Command": "Commando",
+  "Command run": "Opdracht uitgevoerd",
   "Runs from the project directory with .venv/bin first on PATH.": "Draait vanuit de projectmap met .venv/bin vooraan in PATH.",
   "Publish the debugpy port": "debugpy-poort publiceren",
   "For attaching a debugger from PyCharm or VS Code. Only the port is published: start debugpy in your application, e.g. python -m debugpy --listen 0.0.0.0:5678 manage.py runserver. The IDE tab has the details.": "Om een debugger vanuit PyCharm of VS Code te koppelen. Alleen de poort wordt gepubliceerd: start debugpy in je applicatie, bijv. python -m debugpy --listen 0.0.0.0:5678 manage.py runserver. Het IDE-tabblad heeft de details.",
