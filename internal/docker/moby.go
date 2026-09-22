@@ -507,7 +507,10 @@ func (e *MobyEngine) RunOneShot(ctx context.Context, spec ContainerSpec) (ExecRe
 		defer cancel()
 		_ = e.RemoveContainer(rctx, id)
 	}()
-	wait := e.cli.ContainerWait(ctx, id, client.ContainerWaitOptions{})
+	// The wait is registered before the start so the exit can never be missed. It must
+	// ask for the next exit: the default "not-running" condition is already satisfied by a
+	// created container and would report exit code 0 before the process has even started.
+	wait := e.cli.ContainerWait(ctx, id, client.ContainerWaitOptions{Condition: container.WaitConditionNextExit})
 	if _, err := e.cli.ContainerStart(ctx, id, client.ContainerStartOptions{}); err != nil {
 		return ExecResult{}, wrap(err)
 	}

@@ -198,3 +198,33 @@ func TestIntegrationForeignContainersAreUntouchable(t *testing.T) {
 		t.Fatalf("creating an unlabelled container must be refused, got %v", err)
 	}
 }
+
+// A one-shot must run to completion and report the process's exit code – not return the
+// moment the container exists. The wait is registered before the start, so it has to ask
+// for the next exit; with the default "not-running" condition a created container already
+// qualifies and RunOneShot reported exit code 0 before the command had run (the scaffold
+// of a template then "finished" in milliseconds and was killed by the cleanup).
+func TestIntegrationRunOneShotWaitsForTheExit(t *testing.T) {
+	e := integrationEngine(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	if err := e.EnsureImage(ctx, "alpine:3.20", nil); err != nil {
+		t.Fatal(err)
+	}
+	begin := time.Now()
+	res, err := e.RunOneShot(ctx, ContainerSpec{
+		Name:   "envoryx-integration-oneshot",
+		Image:  "alpine:3.20",
+		Labels: ManagedLabels(testProject, "integration", "oneshot", "test"),
+		Cmd:    []string{"sh", "-c", "sleep 2; echo done; exit 3"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if took := time.Since(begin); took < 2*time.Second {
+		t.Fatalf("RunOneShot returned after %v, before the command could finish", took)
+	}
+	if res.ExitCode != 3 || res.Stdout != "done\n" {
+		t.Fatalf("exit=%d stdout=%q, want 3 / done", res.ExitCode, res.Stdout)
+	}
+}
