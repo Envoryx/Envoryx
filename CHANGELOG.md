@@ -11,6 +11,28 @@ release). `:main` follows the development branch.
 ## [Unreleased]
 
 ### Added
+- Rename a project. Until now the identifier a project was created with was final: the
+  displayed name could be edited, but `shop.test`, `envoryx-shop-php` and the database
+  `shop` stayed whatever they were. *Rename* on the project page (and `envoryx project
+  rename shop "Acme Blog" --yes`, and `rename_project` over MCP) now moves the lot:
+  identifier and display name, the URL and the `-dev`/`-s3` host names, container,
+  network and volume names, the SSH users the IDE connects with, the project directory,
+  the backup directory and the rollback image tags. The database, its login and the
+  object storage bucket travel too unless *Keep the database and bucket names* says
+  otherwise – handy when a committed `.env` or an external client has the old name
+  written into it.
+  Docker can rename none of these, so the containers and the network are recreated from
+  the new plan, the volumes are copied into their new names with a throw-away container
+  from the project's own web image (nothing is pulled) and the old ones removed. The
+  database moves the way it has to: PostgreSQL renames database and role in place, the
+  others create the new database and stream the dump of the old one into it before
+  dropping it, and MongoDB maps the namespace on the way. The bucket's objects are
+  copied into the new bucket and the old one is dropped.
+  The order is chosen so that a failure costs as little as possible: everything that can
+  be checked is checked before the first container stops, the project record is renamed
+  before any data moves and put back when the move fails, and old data is only dropped
+  once the new copy is complete. A project that was running is running again at the end,
+  and the current identifier has to be typed out to start any of it.
 - Duplicate a project. *Duplicate* on the project page copies an existing
   project into a new one – `shop` → `shop-test` – with its configuration:
   runtimes and their settings, web server, services, environment variables,

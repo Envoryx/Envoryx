@@ -235,6 +235,8 @@ type memStore struct {
 	mu      sync.Mutex
 	objects map[string]memObject
 	puts    int
+	// buckets records the bucket-level calls a test wants to assert on.
+	buckets []string
 }
 
 type memObject struct {
@@ -288,6 +290,18 @@ func (s *memStore) DeleteObjects(_ context.Context, bucket string, keys []string
 	for _, k := range keys {
 		delete(s.objects, bucket+"/"+k)
 	}
+	return nil
+}
+
+func (s *memStore) DeleteBucket(_ context.Context, bucket string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for k := range s.objects {
+		if b, _, _ := strings.Cut(k, "/"); b == bucket {
+			return fmt.Errorf("bucket %s is not empty", bucket)
+		}
+	}
+	s.buckets = append(s.buckets, "deleted:"+bucket)
 	return nil
 }
 

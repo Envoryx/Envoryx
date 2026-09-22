@@ -130,8 +130,8 @@ Go API (single binary, single container)
   - `Planner` turns a `ProjectSpec` (desired state) into a `ResourcePlan`
     (network, volumes, containers with full Docker specs, config files).
     The plan is what the wizard summary shows before creating.
-  - `Manager` executes lifecycle operations (create, duplicate, start, stop,
-    restart, delete) with per-project locking, a resource journal and rollback.
+  - `Manager` executes lifecycle operations (create, duplicate, rename, start,
+    stop, restart, delete) with per-project locking, a resource journal and rollback.
     Every detached operation (`ops.go`) is registered in `progress.go`:
     deep call sites report their current step through `step(ctx, …)`
     (an English template with `{{placeholders}}` the UI translates), image
@@ -146,6 +146,15 @@ Go API (single binary, single container)
     Database and storage credentials are copied verbatim, so a `.env` that
     lives in the project files keeps working and the dump restores one to one;
     each copy has its own container, network and volume, so nothing is shared.
+  - Renaming (`rename.go`) changes the slug everything else is derived from.
+    Docker can rename neither containers nor networks nor volumes, so the first
+    two are recreated from the new plan and the volumes are copied into their
+    new names by a throw-away container from the project's own web image. The
+    database follows its dialect (PostgreSQL renames in place, the others move
+    the contents through a dump, MongoDB maps the namespace), the bucket's
+    objects are copied into the new bucket. Checks come before the first stop,
+    the record is renamed before any data moves and put back on failure, and old
+    data is dropped only once the new copy is complete.
   - `Reconciler` compares database state with Docker on startup and
     periodically, updating derived status and flagging inconsistencies.
 - **hostpath** – resolves the *host* path behind `/projects` and `/config`

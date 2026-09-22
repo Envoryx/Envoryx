@@ -18,6 +18,7 @@ import (
 	"github.com/envoryx/envoryx/internal/docker"
 	"github.com/envoryx/envoryx/internal/notify"
 	"github.com/envoryx/envoryx/internal/runtime"
+	"github.com/envoryx/envoryx/internal/s3"
 	"github.com/envoryx/envoryx/internal/store"
 	"github.com/envoryx/envoryx/internal/validate"
 )
@@ -483,38 +484,43 @@ func (m *Manager) copyDatabase(ctx context.Context, src, dst store.Project) erro
 			if err := m.waitForDatabase(ctx, dst, dstSvc, dstCfg, dialect); err != nil {
 				return err
 			}
-			return m.streamDatabase(ctx, src, srcCfg, dst, dstCfg, dialect)
+			from, err := m.ServiceContainer(ctx, src.ID, store.ServiceDatabase)
+			if err != nil {
+				return err
+			}
+			to, err := m.ServiceContainer(ctx, dst.ID, store.ServiceDatabase)
+			if err != nil {
+				return err
+			}
+			return m.streamDump(ctx, dialect, from.ID, srcCfg, to.ID, dstCfg)
 		})
 	})
 }
 
-// streamDatabase pipes a logical dump of the original straight into the client of the
-// copy – no temporary file, and nothing to rewrite on the way, because both sides share
-// the dialect, the database name and the credentials.
-func (m *Manager) streamDatabase(ctx context.Context, src store.Project, srcCfg runtime.DatabaseConfig, dst store.Project, dstCfg runtime.DatabaseConfig, dialect runtime.Dialect) error {
-	from, err := m.ServiceContainer(ctx, src.ID, store.ServiceDatabase)
-	if err != nil {
-		return err
-	}
-	to, err := m.ServiceContainer(ctx, dst.ID, store.ServiceDatabase)
-	if err != nil {
-		return err
-	}
+// streamDump pipes a logical dump of one database straight into the client of another –
+// no temporary file, and for a project of a few hundred megabytes it is over in seconds.
+// The two ends are different containers when a project is copied and the same container
+// when one is renamed; the payload is taken as it is unless the dialect has to map the
+// database name itself (MongoDB's archive carries its namespace).
+func (m *Manager) streamDump(ctx context.Context, dialect runtime.Dialect, fromID string, fromCfg runtime.DatabaseConfig, toID string, toCfg runtime.DatabaseConfig) error {
 	pr, pw := io.Pipe()
 	dumped := make(chan error, 1)
 	go func() {
 		var stderr strings.Builder
-		argv, env := dialect.Dump(srcCfg)
-		code, err := m.engine.ExecStream(ctx, from.ID, docker.ExecStreamOptions{Cmd: argv, Env: env, Stdout: pw, Stderr: &limitedBuilder{b: &stderr}})
+		argv, env := dialect.Dump(fromCfg)
+		code, err := m.engine.ExecStream(ctx, fromID, docker.ExecStreamOptions{Cmd: argv, Env: env, Stdout: pw, Stderr: &limitedBuilder{b: &stderr}})
 		if err == nil && code != 0 {
-			err = fmt.Errorf("dump failed (exit %d): %s", code, sanitizeSQLError(strings.TrimSpace(stderr.String()), srcCfg))
+			err = fmt.Errorf("dump failed (exit %d): %s", code, sanitizeSQLError(strings.TrimSpace(stderr.String()), fromCfg))
 		}
 		_ = pw.CloseWithError(err)
 		dumped <- err
 	}()
+	argv, env := dialect.Restore(toCfg)
+	if dialect.RestoreInto != nil {
+		argv, env = dialect.RestoreInto(toCfg, fromCfg.Database)
+	}
 	var stderr strings.Builder
-	argv, env := dialect.Restore(dstCfg)
-	code, err := m.engine.ExecStream(ctx, to.ID, docker.ExecStreamOptions{Cmd: argv, Env: env, Stdin: pr, Stderr: &limitedBuilder{b: &stderr}})
+	code, err := m.engine.ExecStream(ctx, toID, docker.ExecStreamOptions{Cmd: argv, Env: env, Stdin: pr, Stderr: &limitedBuilder{b: &stderr}})
 	// Unblock the dump when the import stopped reading, then wait for it either way.
 	_ = pr.CloseWithError(err)
 	if derr := <-dumped; derr != nil {
@@ -524,7 +530,7 @@ func (m *Manager) streamDatabase(ctx context.Context, src store.Project, srcCfg 
 		return err
 	}
 	if code != 0 {
-		return fmt.Errorf("import failed (exit %d): %s", code, sanitizeSQLError(strings.TrimSpace(stderr.String()), dstCfg))
+		return fmt.Errorf("import failed (exit %d): %s", code, sanitizeSQLError(strings.TrimSpace(stderr.String()), toCfg))
 	}
 	return nil
 }
@@ -603,22 +609,28 @@ func (m *Manager) copyStorage(ctx context.Context, src, dst store.Project) error
 			if err != nil {
 				return err
 			}
-			objects, err := fromStore.ListObjects(ctx, fromCfg.Bucket)
-			if err != nil {
-				return fmt.Errorf("list objects: %w", err)
-			}
-			for _, o := range objects {
-				body, ctype, err := fromStore.GetObject(ctx, fromCfg.Bucket, o.Key)
-				if err != nil {
-					return fmt.Errorf("get %s: %w", o.Key, err)
-				}
-				err = toStore.PutObject(ctx, toCfg.Bucket, o.Key, body, o.Size, ctype)
-				body.Close()
-				if err != nil {
-					return fmt.Errorf("upload %s: %w", o.Key, err)
-				}
-			}
-			return nil
+			return copyObjects(ctx, fromStore, fromCfg.Bucket, toStore, toCfg.Bucket)
 		})
 	})
+}
+
+// copyObjects reads every object of one bucket and writes it into another, keeping the
+// content type. Both ends may be the same server (a renamed bucket).
+func copyObjects(ctx context.Context, from s3.ObjectStore, fromBucket string, to s3.ObjectStore, toBucket string) error {
+	objects, err := from.ListObjects(ctx, fromBucket)
+	if err != nil {
+		return fmt.Errorf("list objects: %w", err)
+	}
+	for _, o := range objects {
+		body, ctype, err := from.GetObject(ctx, fromBucket, o.Key)
+		if err != nil {
+			return fmt.Errorf("get %s: %w", o.Key, err)
+		}
+		err = to.PutObject(ctx, toBucket, o.Key, body, o.Size, ctype)
+		body.Close()
+		if err != nil {
+			return fmt.Errorf("upload %s: %w", o.Key, err)
+		}
+	}
+	return nil
 }

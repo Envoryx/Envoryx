@@ -27,6 +27,8 @@ func (c *cli) projectCommand(ctx context.Context, args []string) error {
 		return c.projectCreate(ctx, rest)
 	case "duplicate", "copy":
 		return c.projectDuplicate(ctx, rest)
+	case "rename":
+		return c.projectRename(ctx, rest)
 	case "start", "stop", "restart":
 		return c.projectTransition(ctx, cmd, rest)
 	case "delete", "rm":
@@ -318,6 +320,95 @@ func (c *cli) projectDuplicate(ctx context.Context, args []string) error {
 	}
 	if !req.Start {
 		c.printf("  Start it with: envoryx project start %s\n", body.Project.Slug)
+	}
+	return nil
+}
+
+// ---- rename ------------------------------------------------------------------
+
+const renameUsage = `Usage: envoryx project rename <project> <new name> [flags]
+
+Renames the project and everything derived from its identifier: URL and extra host
+names, container, network and volume names, the SSH users, the project directory, the
+backup directory and – unless --keep-data-names – the database, its login and the
+bucket. Containers are recreated, so the project is briefly unavailable; it ends up
+running again if it was running.
+
+  --path DIR           new directory (default: follows the identifier as long as the
+                       old directory matched it)
+  --keep-data-names    leave the database, its login and the bucket as they are
+  --yes                confirm (otherwise the identifier is asked for)
+`
+
+func (c *cli) projectRename(ctx context.Context, args []string) error {
+	if slices.Contains(args, "--help") || slices.Contains(args, "-h") {
+		fmt.Fprint(c.errOut, renameUsage)
+		return nil
+	}
+	fs := c.newFlags("project rename")
+	var (
+		path     = fs.String("path", "", "new directory")
+		keepData = fs.Bool("keep-data-names", false, "keep the database and bucket names")
+		yes      = fs.Bool("yes", false, "confirm")
+	)
+	pos, err := parse(fs, args)
+	if err != nil {
+		return err
+	}
+	name := ""
+	if len(pos) > 1 {
+		name = strings.TrimSpace(strings.Join(pos[1:], " "))
+	}
+	if name == "" {
+		fmt.Fprint(c.errOut, renameUsage)
+		return usagef("which project should be renamed, and what should it be called?")
+	}
+	ctx, cancel := c.context(ctx)
+	defer cancel()
+	p, err := c.findProject(ctx, pos[0])
+	if err != nil {
+		return err
+	}
+	if !*yes {
+		what := "its containers, network, volumes, directory, backups, database and bucket"
+		if *keepData {
+			what = "its containers, network, volumes, directory and backups"
+		}
+		return fmt.Errorf("renaming %s moves %s and recreates the containers; confirm with --yes", p.Slug, what)
+	}
+	api, err := c.connect()
+	if err != nil {
+		return err
+	}
+	var body struct {
+		Project projectSummary `json:"project"`
+		Renamed struct {
+			From     string `json:"from"`
+			To       string `json:"to"`
+			Path     string `json:"path"`
+			Database string `json:"database"`
+			Bucket   string `json:"bucket"`
+		} `json:"renamed"`
+	}
+	// Moving volumes and database contents takes as long as the project is big.
+	if err := api.post(ctx, projectPath(p.ID, "rename"), map[string]any{
+		"name": name, "path": *path, "confirm": p.Slug, "keepDataNames": *keepData,
+	}, &body); err != nil {
+		return err
+	}
+	if c.json {
+		return c.printJSON(body.Project)
+	}
+	c.printf("Renamed %s to %s (%s)\n", body.Renamed.From, body.Project.Name, body.Renamed.To)
+	c.printf("  Directory %s\n", body.Renamed.Path)
+	if body.Renamed.Database != "" {
+		c.printf("  Database  %s\n", body.Renamed.Database)
+	}
+	if body.Renamed.Bucket != "" {
+		c.printf("  Bucket    %s\n", body.Renamed.Bucket)
+	}
+	if u := body.Project.URL(); u != "" {
+		c.printf("  %s\n", u)
 	}
 	return nil
 }

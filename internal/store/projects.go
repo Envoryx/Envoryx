@@ -264,6 +264,25 @@ func (r *Projects) UpdateSettings(ctx context.Context, id, name, docroot string)
 	return nil
 }
 
+// UpdateIdentity renames a project: display name, identifier and directory change
+// together, because everything derived from them (host names, container names, the
+// project directory) has to move in one step.
+func (r *Projects) UpdateIdentity(ctx context.Context, id, name, slug, path string) error {
+	res, err := r.db.ExecContext(ctx,
+		`UPDATE projects SET name = ?, slug = ?, path = ?, updated_at = ? WHERE id = ?`,
+		name, slug, path, formatTime(now()), id)
+	if err != nil {
+		if isUniqueViolation(err) {
+			return fmt.Errorf("project name, identifier or directory already in use: %w", ErrConflict)
+		}
+		return fmt.Errorf("rename project: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 // UpdateBackupSchedule stores the schedule (LastRun untouched).
 func (r *Projects) UpdateBackupSchedule(ctx context.Context, id string, b BackupSchedule) error {
 	res, err := r.db.ExecContext(ctx,

@@ -163,11 +163,14 @@ type HealthSpec struct {
 // Privileged mode, capability additions, host networking, device access and arbitrary
 // binds are intentionally not representable.
 type ContainerSpec struct {
-	Name          string
-	Image         string
-	Labels        map[string]string
-	Env           []string
-	Cmd           []string
+	Name   string
+	Image  string
+	Labels map[string]string
+	Env    []string
+	Cmd    []string
+	// Entrypoint overrides the image's; only one-shot helpers need it (an image whose
+	// entrypoint is its own server cannot run a copy command otherwise).
+	Entrypoint    []string
 	WorkingDir    string
 	User          string
 	Mounts        []MountSpec

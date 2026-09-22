@@ -130,6 +130,20 @@ func (c *Client) CreateBucket(ctx context.Context, bucket string) error {
 	return nil
 }
 
+// DeleteBucket removes an empty bucket; one that is already gone is not an error.
+func (c *Client) DeleteBucket(ctx context.Context, bucket string) error {
+	res, err := c.do(ctx, http.MethodDelete, "/"+bucket, "", nil)
+	if err != nil {
+		var se *Error
+		if errors.As(err, &se) && se.Status == http.StatusNotFound {
+			return nil
+		}
+		return err
+	}
+	res.Body.Close()
+	return nil
+}
+
 // PutBucketPolicy replaces the bucket policy.
 func (c *Client) PutBucketPolicy(ctx context.Context, bucket, policy string) error {
 	res, err := c.do(ctx, http.MethodPut, "/"+bucket, "policy=", []byte(policy))
@@ -455,13 +469,15 @@ func (c *Client) DeleteObjects(ctx context.Context, bucket string, keys []string
 	return nil
 }
 
-// ObjectStore is what backups need from a bucket: listing, streaming reads and writes,
-// batch deletes. *Client implements it; tests use an in-memory stand-in.
+// ObjectStore is what backups and renames need from a bucket: listing, streaming reads
+// and writes, batch deletes and dropping an emptied bucket. *Client implements it; tests
+// use an in-memory stand-in.
 type ObjectStore interface {
 	ListObjects(ctx context.Context, bucket string) ([]Object, error)
 	GetObject(ctx context.Context, bucket, key string) (io.ReadCloser, string, error)
 	PutObject(ctx context.Context, bucket, key string, body io.Reader, size int64, contentType string) error
 	DeleteObjects(ctx context.Context, bucket string, keys []string) error
+	DeleteBucket(ctx context.Context, bucket string) error
 }
 
 // NewClient returns a client for one endpoint and credential pair.

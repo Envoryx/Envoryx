@@ -29,6 +29,7 @@ const (
 	ActionProjectStopped    = "project.stopped"
 	ActionProjectRestarted  = "project.restarted"
 	ActionProjectDuplicated = "project.duplicated"
+	ActionProjectRenamed    = "project.renamed"
 	ActionProjectDeleted    = "project.deleted"
 	ActionProjectFailed     = "project.failed"
 

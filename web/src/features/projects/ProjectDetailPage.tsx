@@ -1,6 +1,6 @@
 import { clsx } from "clsx";
 import { useTranslation } from "react-i18next";
-import { Copy, Trash2, Save, ExternalLink, Undo2, RotateCw } from "lucide-react";
+import { Copy, Pencil, Trash2, Save, ExternalLink, Undo2, RotateCw } from "lucide-react";
 import { lazy, Suspense, useEffect, useState, type ReactElement } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ApiError } from "@/api/client";
@@ -10,7 +10,7 @@ import { NodeDevServerFields, defaultScript, devServerRequest, type DevServerFor
 import { PythonServerFields, defaultPythonServerForm, pythonServerRequest, type PythonServerForm } from "./PythonServerFields";
 import { Alert, Badge, Button, Card, CardHeader, Checkbox, Code, ErrorState, Field, Input, PageHeader, Select, Spinner, StatusDot } from "@/components/ui";
 import { containerStateTone, formatBytes, formatDateTime, formatPercent, serviceLabel, stateMeta } from "@/lib/format";
-import { DeleteProjectDialog, DuplicateProjectDialog, ProjectActionButtons, useActionError } from "./ProjectActions";
+import { DeleteProjectDialog, DuplicateProjectDialog, ProjectActionButtons, RenameProjectDialog, useActionError } from "./ProjectActions";
 import { OperationHint } from "@/components/OperationsTray";
 import { DatabaseTab } from "./DatabaseTab";
 import { EnvEditor } from "./EnvEditor";
@@ -40,6 +40,7 @@ export function ProjectDetailPage() {
   const [tab, setTab] = useState<Tab>("Overview");
   const [deleting, setDeleting] = useState(false);
   const [duplicating, setDuplicating] = useState(false);
+  const [renaming, setRenaming] = useState(false);
   const { error, capture, setError } = useActionError();
 
   if (q.isPending) return <Spinner />;
@@ -92,6 +93,7 @@ export function ProjectDetailPage() {
         actions={
           <>
             <ProjectActionButtons project={p} size="md" onError={capture} />
+            <Button variant="ghost" onClick={() => setRenaming(true)} icon={<Pencil className="size-4" />} aria-label={t("Rename project")} title={t("Rename project – identifier, URL and containers follow")} />
             <Button variant="ghost" onClick={() => setDuplicating(true)} icon={<Copy className="size-4" />} aria-label={t("Duplicate project")} title={t("Duplicate project – config, files and database")} />
             <Button variant="ghost" onClick={() => setDeleting(true)} icon={<Trash2 className="size-4" />} aria-label={t("Delete project")} title={t("Delete project")} />
           </>
@@ -150,7 +152,7 @@ export function ProjectDetailPage() {
       {tab === "Logs" && <LogsTab project={p} />}
       {tab === "Runtime" && (
         <div className="space-y-6">
-          <ProjectSettingsCard project={p} />
+          <ProjectSettingsCard project={p} onRename={() => setRenaming(true)} />
           {/* The application runtime comes first (PHP, else Python, else Node), then the web server, then the other runtimes as toolchains. */}
           {(() => {
             const app = p.appService ?? appKindOf(p);
@@ -174,6 +176,7 @@ export function ProjectDetailPage() {
       {tab === "IDE" && <IdeTab project={p} />}
       {tab === "Advanced" && <AdvancedTab project={p} />}
 
+      <RenameProjectDialog project={p} open={renaming} onClose={() => setRenaming(false)} />
       <DuplicateProjectDialog project={p} open={duplicating} onClose={() => setDuplicating(false)} />
       <DeleteProjectDialog project={p} open={deleting} onClose={() => setDeleting(false)} />
     </div>
@@ -299,7 +302,7 @@ function useSaveFeedback() {
 }
 
 /** Name and document root – every project has them, whatever runs behind the web server. */
-function ProjectSettingsCard({ project: p }: { project: Project }) {
+function ProjectSettingsCard({ project: p, onRename }: { project: Project; onRename: () => void }) {
   const { t } = useTranslation();
   const update = useUpdateProject(p.id);
   const { msg, setMsg } = useSaveFeedback();
@@ -333,8 +336,15 @@ function ProjectSettingsCard({ project: p }: { project: Project }) {
       <div className="space-y-6 p-5">
         {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
         <div className="grid gap-4 sm:grid-cols-3">
-          <Field label={t("Project name")} htmlFor="p-name">
+          <Field
+            label={t("Project name")}
+            htmlFor="p-name"
+            hint={t("The displayed name only; the identifier {{slug}} and with it the URL, the containers and the directory stay.", { slug: p.slug })}
+          >
             <Input id="p-name" value={name} onChange={(e) => setName(e.target.value)} />
+            <button type="button" className="mt-1 text-xs text-accent-500 underline" onClick={onRename}>
+              {t("Rename the project including its identifier…")}
+            </button>
           </Field>
           <Field
             label={t("Document root")}

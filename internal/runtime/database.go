@@ -128,6 +128,15 @@ type Dialect struct {
 	Dump func(cfg DatabaseConfig) (argv []string, env []string)
 	// Restore reads a dump from stdin into the primary database.
 	Restore func(cfg DatabaseConfig) (argv []string, env []string)
+	// RestoreInto reads a dump taken from the database named from into cfg.Database.
+	// nil = Restore, which is right wherever the payload carries no database name of its
+	// own; MongoDB's archive does, so it maps the namespace instead.
+	RestoreInto func(cfg DatabaseConfig, from string) (argv []string, env []string)
+	// RenameDatabase renames a database in place. nil = the server cannot, and the
+	// contents move through a dump into a freshly created one.
+	RenameDatabase func(from, to string) string
+	// RenameUser renames the login the project connects with, keeping its password.
+	RenameUser func(from, to string, cfg DatabaseConfig) string
 	// URL builds the connection string injected as DATABASE_URL (nil = driver://user:pw@host:port/db).
 	URL func(cfg DatabaseConfig) string
 	// ExtraEnv adds flavour-specific variables (e.g. MONGODB_URI).
@@ -172,6 +181,11 @@ var dialects = map[string]Dialect{
 		Restore: func(c DatabaseConfig) ([]string, []string) {
 			return []string{"mariadb", "-uroot", "--", c.Database}, []string{"MYSQL_PWD=" + c.RootPassword}
 		},
+		// MariaDB dropped RENAME DATABASE (it was never safe for views and routines), so
+		// a rename moves the contents through a dump; RENAME USER keeps the password.
+		RenameUser: func(from, to string, _ DatabaseConfig) string {
+			return fmt.Sprintf("RENAME USER '%s'@'%%' TO '%s'@'%%'; FLUSH PRIVILEGES;", from, to)
+		},
 	},
 	"mysql": {
 		Variant: "mysql", Port: 3306, DataDir: "/var/lib/mysql", Driver: "mysql", HasRoot: true,
@@ -197,6 +211,9 @@ var dialects = map[string]Dialect{
 		},
 		Restore: func(c DatabaseConfig) ([]string, []string) {
 			return []string{"mysql", "-uroot", "--", c.Database}, []string{"MYSQL_PWD=" + c.RootPassword}
+		},
+		RenameUser: func(from, to string, _ DatabaseConfig) string {
+			return fmt.Sprintf("RENAME USER '%s'@'%%' TO '%s'@'%%'; FLUSH PRIVILEGES;", from, to)
 		},
 	},
 	"postgresql": {
@@ -230,6 +247,15 @@ var dialects = map[string]Dialect{
 		Restore: func(c DatabaseConfig) ([]string, []string) {
 			return []string{"psql", "-U", c.Username, "-v", "ON_ERROR_STOP=1", "-q", "-d", c.Database}, []string{"PGPASSWORD=" + c.Password}
 		},
+		// PostgreSQL renames both in place; the client connects to "postgres", so the
+		// database being renamed has no session of its own. The password is set again
+		// afterwards because an MD5 hash is salted with the role name.
+		RenameDatabase: func(from, to string) string {
+			return fmt.Sprintf(`ALTER DATABASE "%s" RENAME TO "%s"`, from, to)
+		},
+		RenameUser: func(from, to string, c DatabaseConfig) string {
+			return fmt.Sprintf(`ALTER ROLE "%s" RENAME TO "%s"; ALTER ROLE "%s" WITH PASSWORD '%s'`, from, to, to, c.Password)
+		},
 	},
 }
 
@@ -257,6 +283,18 @@ func init() {
 		},
 		Restore: func(c DatabaseConfig) ([]string, []string) {
 			return []string{"mongorestore", "--quiet", "--archive", "--drop", "--nsInclude", c.Database + ".*", "--uri", mongoURI(c, "127.0.0.1", "admin")}, nil
+		},
+		// The archive carries the namespace it was dumped from, so restoring it under
+		// another database name means mapping <from>.* to <to>.*.
+		RestoreInto: func(c DatabaseConfig, from string) ([]string, []string) {
+			return []string{"mongorestore", "--quiet", "--archive", "--drop", "--nsInclude", from + ".*",
+				"--nsFrom", from + ".*", "--nsTo", c.Database + ".*", "--uri", mongoURI(c, "127.0.0.1", "admin")}, nil
+		},
+		// The root user lives in admin and cannot be renamed; it is recreated with the
+		// same password and roles, then the old one goes. The container environment only
+		// ever matters on an empty data directory, so the server is the source of truth.
+		RenameUser: func(from, to string, c DatabaseConfig) string {
+			return fmt.Sprintf("admin.createUser({user: '%s', pwd: '%s', roles: [{role: 'root', db: 'admin'}]}); admin.dropUser('%s')", to, c.Password, from)
 		},
 		URL: func(c DatabaseConfig) string { return mongoURI(c, "database", c.Database) },
 		ExtraEnv: func(c DatabaseConfig) map[string]string {

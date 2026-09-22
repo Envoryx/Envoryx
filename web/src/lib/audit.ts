@@ -18,6 +18,7 @@ export const auditActionLabels: Record<string, string> = {
   "project.stopped": "Project stopped",
   "project.restarted": "Project restarted",
   "project.duplicated": "Project duplicated",
+  "project.renamed": "Project renamed",
   "project.deleted": "Project deleted",
   "project.failed": "Project creation failed",
   "project.dbtool_opened": "Database browser opened",
