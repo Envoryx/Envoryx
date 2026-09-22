@@ -90,6 +90,19 @@ func (r *ProjectImages) Upsert(ctx context.Context, pi ProjectImage) error {
 	return nil
 }
 
+// ClearPrevious forgets the rollback target of an existing record (the image has left the
+// host); a pin on it is lifted with it.
+func (r *ProjectImages) ClearPrevious(ctx context.Context, projectID, image string) error {
+	res, err := r.db.ExecContext(ctx, `UPDATE project_images SET previous_id = '', pinned = 0 WHERE project_id = ? AND image = ?`, projectID, image)
+	if err != nil {
+		return fmt.Errorf("clear previous project image: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 // SetPinned flips the rollback flag of an existing record.
 func (r *ProjectImages) SetPinned(ctx context.Context, projectID, image string, pinned bool) error {
 	res, err := r.db.ExecContext(ctx, `UPDATE project_images SET pinned = ? WHERE project_id = ? AND image = ?`, boolInt(pinned), projectID, image)

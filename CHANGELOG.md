@@ -85,6 +85,12 @@ release). `:main` follows the development branch.
   keep the data directory itself, so existing volumes stay where they are.
   A major upgrade was already refused for PostgreSQL, so no data moves.
 
+- A rollback target that had left the host (`docker rmi`, a prune on an
+  installation that predates the rollback tags) made every reconcile – once
+  every 30 seconds – retry the tag and log *rollback image not protected*.
+  The image cannot come back, so the history now forgets it on the first
+  miss (one info line), and the project stops offering a rollback that
+  could only fail.
 ## [0.5.0] – 2026-09-22
 
 ### Added
