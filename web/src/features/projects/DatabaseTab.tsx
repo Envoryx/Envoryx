@@ -65,7 +65,7 @@ function AddDatabaseCard({ project }: { project: Project }) {
 
   return (
     <Card>
-      <CardHeader title={t("Database")} description={t("This project has no database yet. Adding one creates a container with a persistent volume and injects the connection variables into the application containers (PHP, Node).")} />
+      <CardHeader title={t("Database")} description={t("This project has no database yet. Adding one creates a container with a persistent volume and injects the connection variables into the application containers (PHP, Python, Node).")} />
       <div className="space-y-4 p-5">
         {error && <Alert tone="red">{error}</Alert>}
         <div className="grid gap-4 sm:grid-cols-2">
@@ -176,7 +176,7 @@ export function DatabaseTab({ project }: { project: Project }) {
                 {t("Connection")}
               </span>
             }
-            description={t("Inside the project network. These values are injected into the application containers (PHP, Node).")}
+            description={t("Inside the project network. These values are injected into the application containers (PHP, Python, Node).")}
             actions={
               <span className="inline-flex items-center gap-1.5 text-xs">
                 <StatusDot tone={containerStateTone(d.state)} />

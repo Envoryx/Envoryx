@@ -116,7 +116,7 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
         open={removeOpen}
         onClose={() => setRemoveOpen(false)}
         title={t("Remove {{service}}?", { service: title })}
-        description={info.volumeName ? t("This removes the container and deletes the volume {{volume}} with all data. The application containers (PHP, Node) are recreated without the {{service}} variables.", { volume: info.volumeName, service: title }) : t("This removes the container. The application containers (PHP, Node) are recreated without the {{service}} variables.", { service: title })}
+        description={info.volumeName ? t("This removes the container and deletes the volume {{volume}} with all data. The application containers (PHP, Python, Node) are recreated without the {{service}} variables.", { volume: info.volumeName, service: title }) : t("This removes the container. The application containers (PHP, Python, Node) are recreated without the {{service}} variables.", { service: title })}
         footer={
           <>
             <Button onClick={() => setRemoveOpen(false)}>{t("Cancel")}</Button>

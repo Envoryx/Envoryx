@@ -38,13 +38,14 @@ type projectOut struct {
 	Name  string `json:"name"`
 	Slug  string `json:"slug"`
 	State string `json:"state"`
-	// Serves says what the project URL reaches: php, node (dev server) or static.
+	// Serves says what the project URL reaches: php, python (application server), node
+	// (dev server) or static.
 	Serves string `json:"serves"`
 	URL    string `json:"url,omitempty"`
 	// DevURL is the dev server's own host name while a Node dev server runs.
 	DevURL string `json:"devUrl,omitempty"`
-	// DirectURL bypasses the proxy: the web server's host port, or the dev server's when
-	// the Node dev server serves the project.
+	// DirectURL bypasses the proxy: the web server's host port, or the application
+	// container's when a Python server or Node dev server serves the project.
 	DirectURL string       `json:"directUrl,omitempty"`
 	Hostnames []string     `json:"hostnames"`
 	Path      string       `json:"path"`
@@ -63,14 +64,20 @@ func (s *Server) projectOut(ctx context.Context, v project.View) projectOut {
 	if err == nil {
 		out.Hostnames = hosts
 	}
-	// The web container's port stays unpublished while the dev server serves the project,
-	// so the direct link is the dev server's host port then.
+	// The web container's port stays unpublished while an application server serves the
+	// project, so the direct link is that container's host port then.
 	directPort, ncfg, dev := v.HTTPPort, runtime.NodeConfig{}, false
 	if svc := p.Service(store.ServiceNode); svc != nil && svc.Enabled && len(svc.Config) > 0 {
 		dev = json.Unmarshal(svc.Config, &ncfg) == nil && ncfg.DevServer
 	}
-	if out.Serves == "node" {
+	switch out.Serves {
+	case "node":
 		directPort = ncfg.HostPort
+	case "python":
+		var pcfg runtime.PythonConfig
+		if svc := p.Service(store.ServicePython); svc != nil && json.Unmarshal(svc.Config, &pcfg) == nil {
+			directPort = pcfg.HostPort
+		}
 	}
 	if directPort > 0 {
 		host := ""
@@ -131,12 +138,12 @@ func mutating(name, title, desc string, idempotent bool) *mcp.Tool {
 func (s *Server) registerTools() {
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("list_projects", "List projects", "List all Envoryx projects with state, URLs and services.")), s.listProjects)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("get_project", "Get project", "Details and live status of one project.")), s.getProject)
-	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("list_runtimes", "List runtimes", "Available runtimes (PHP, Node.js, web servers), database engines, services, PHP extension keys and templates for create_project.")), s.listRuntimes)
-	mcp.AddTool(s.mcp, s.tool(auth.ScopeAdmin, mutating("create_project", "Create project", "Create a new development environment (web server plus PHP and/or Node.js, optional database, Redis, Mailpit, object storage, git clone or template). Returns the project including its URL.", false)), s.createProject)
+	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("list_runtimes", "List runtimes", "Available runtimes (PHP, Node.js, Python, web servers), database engines, services, PHP extension keys and templates for create_project.")), s.listRuntimes)
+	mcp.AddTool(s.mcp, s.tool(auth.ScopeAdmin, mutating("create_project", "Create project", "Create a new development environment (web server plus PHP, Python and/or Node.js, optional database, Redis, Mailpit, object storage, git clone or template). Returns the project including its URL.", false)), s.createProject)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeOperate, mutating("start_project", "Start project", "Start all containers of a project.", true)), s.startProject)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeOperate, mutating("stop_project", "Stop project", "Stop all containers of a project (data is kept).", true)), s.stopProject)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeOperate, mutating("restart_project", "Restart project", "Restart a project; also pulls updated runtime images.", true)), s.restartProject)
-	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("get_logs", "Get logs", "Recent log lines of one project container (web, php, node, database, redis, mailpit).")), s.getLogs)
+	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("get_logs", "Get logs", "Recent log lines of one project container (web, php, python, node, database, redis, mailpit).")), s.getLogs)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("list_actions", "List actions", "Runnable project actions (composer, artisan, npm …) and whether they are currently available.")), s.listActions)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeOperate, mutating("run_action", "Run action", "Run one action from list_actions inside the project (e.g. composer:install) and return its output. Waits for completion (up to 20 minutes).", false)), s.runAction)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("list_databases", "List databases", "Databases on the project's database server.")), s.listDatabases)
@@ -189,13 +196,14 @@ type templateOut struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
-	// Runtime the template scaffolds for: php or node.
-	Runtime             string              `json:"runtime"`
-	Node                *runtime.NodeConfig `json:"node,omitempty"`
-	Docroot             string              `json:"docroot,omitempty"`
-	RequiresDatabase    bool                `json:"requiresDatabase"`
-	RecommendedDatabase string              `json:"recommendedDatabase,omitempty"`
-	Notes               string              `json:"notes,omitempty"`
+	// Runtime the template scaffolds for: php, node or python.
+	Runtime             string                `json:"runtime"`
+	Node                *runtime.NodeConfig   `json:"node,omitempty"`
+	Python              *runtime.PythonConfig `json:"python,omitempty"`
+	Docroot             string                `json:"docroot,omitempty"`
+	RequiresDatabase    bool                  `json:"requiresDatabase"`
+	RecommendedDatabase string                `json:"recommendedDatabase,omitempty"`
+	Notes               string                `json:"notes,omitempty"`
 }
 
 type listRuntimesOut struct {
@@ -207,7 +215,7 @@ type listRuntimesOut struct {
 func (s *Server) listRuntimes(_ context.Context, _ *mcp.CallToolRequest, _ listProjectsIn) (*mcp.CallToolResult, listRuntimesOut, error) {
 	out := listRuntimesOut{Runtimes: []runtimeOut{}, PHPExtensions: []string{}, Templates: []templateOut{}}
 	for _, t := range project.Templates() {
-		out.Templates = append(out.Templates, templateOut{ID: t.ID, Name: t.Name, Description: t.Description, Runtime: t.Runtime, Node: t.Node, Docroot: t.Docroot, RequiresDatabase: t.RequiresDatabase, RecommendedDatabase: t.RecommendedDatabase, Notes: t.Notes})
+		out.Templates = append(out.Templates, templateOut{ID: t.ID, Name: t.Name, Description: t.Description, Runtime: t.Runtime, Node: t.Node, Python: t.Python, Docroot: t.Docroot, RequiresDatabase: t.RequiresDatabase, RecommendedDatabase: t.RecommendedDatabase, Notes: t.Notes})
 	}
 	for _, r := range s.d.Catalog.All() {
 		if !r.Available {
@@ -240,8 +248,8 @@ func (s *Server) listRuntimes(_ context.Context, _ *mcp.CallToolRequest, _ listP
 
 type createProjectIn struct {
 	Name               string            `json:"name" jsonschema:"Display name, e.g. \"Shop API\". The slug and directory are derived from it."`
-	Template           string            `json:"template,omitempty" jsonschema:"Scaffold an application: laravel, symfony, wordpress (PHP) or vite, next, nuxt (Node.js; needs nodeVersion and phpVersion \"none\" for a Node-only project). See list_runtimes for details. Cannot be combined with gitUrl."`
-	PHPVersion         string            `json:"phpVersion,omitempty" jsonschema:"PHP version such as 8.4 (default: the catalogue default). Use \"none\" for a Node-only or static project."`
+	Template           string            `json:"template,omitempty" jsonschema:"Scaffold an application: laravel, symfony, wordpress (PHP), vite, next, nuxt (Node.js; needs nodeVersion and phpVersion \"none\" for a Node-only project) or django, flask, fastapi (Python; needs pythonVersion and phpVersion \"none\"). See list_runtimes for details. Cannot be combined with gitUrl."`
+	PHPVersion         string            `json:"phpVersion,omitempty" jsonschema:"PHP version such as 8.4 (default: the catalogue default). Use \"none\" for a Python, Node-only or static project."`
 	WebServer          string            `json:"webServer,omitempty" jsonschema:"Web server: caddy (default), apache (mod_rewrite + .htaccess, e.g. for WordPress) or nginx."`
 	PHPExtensions      []string          `json:"phpExtensions,omitempty" jsonschema:"PHP extensions to enable (keys from list_runtimes). Default: bcmath, gd, intl, opcache, pdo_mysql, zip."`
 	Database           string            `json:"database,omitempty" jsonschema:"Database engine: mariadb, mysql or postgresql. Omit for no database."`
@@ -255,6 +263,12 @@ type createProjectIn struct {
 	NodeScript         string            `json:"nodeScript,omitempty" jsonschema:"package.json script the dev server runs (default dev)."`
 	NodePort           int               `json:"nodePort,omitempty" jsonschema:"Port the dev server listens on inside the container (default: the preset's port, 5173 for vite, 3000 for next/nuxt)."`
 	NodePackageManager string            `json:"nodePackageManager,omitempty" jsonschema:"npm (default), pnpm or yarn."`
+	PythonVersion      string            `json:"pythonVersion,omitempty" jsonschema:"Add a Python container with this version (e.g. 3.13): the project's runtime (application server) or a tooling container (pip, uv, venv)."`
+	PythonServer       bool              `json:"pythonServer,omitempty" jsonschema:"Run the application server of pythonPreset as the project's main process. Without PHP it is reachable at the project URL. Requires pythonVersion."`
+	PythonPreset       string            `json:"pythonPreset,omitempty" jsonschema:"Server preset: django (manage.py runserver), flask (flask run), asgi (uvicorn: FastAPI, Starlette …), wsgi (gunicorn) or module (python -m). Default django."`
+	PythonApp          string            `json:"pythonApp,omitempty" jsonschema:"Import path of the application, module:attribute (e.g. main:app for FastAPI, app:app for Flask, config.wsgi:application for Django in production mode)."`
+	PythonPort         int               `json:"pythonPort,omitempty" jsonschema:"Port the server listens on inside the container (default: the preset's port, 8000 or 5000 for flask)."`
+	PythonMode         string            `json:"pythonMode,omitempty" jsonschema:"dev (default, reload + debug) or production (gunicorn/uvicorn without reload)."`
 	Docroot            string            `json:"docroot,omitempty" jsonschema:"Document root relative to the project directory, e.g. public. Default: project root (public/ for Laravel/Symfony)."`
 	GitURL             string            `json:"gitUrl,omitempty" jsonschema:"Repository to clone into the new project (https://… or git@…)."`
 	GitBranch          string            `json:"gitBranch,omitempty" jsonschema:"Branch to check out."`
@@ -291,6 +305,12 @@ func (s *Server) createProject(ctx context.Context, _ *mcp.CallToolRequest, in c
 		req.Node = &project.NodeRequest{Version: v, Config: runtime.NodeConfig{
 			DevServer: in.NodeDevServer, Preset: strings.ToLower(strings.TrimSpace(in.NodePreset)),
 			Script: strings.TrimSpace(in.NodeScript), Port: in.NodePort, PackageManager: strings.ToLower(strings.TrimSpace(in.NodePackageManager)),
+		}}
+	}
+	if v := strings.TrimSpace(in.PythonVersion); v != "" {
+		req.Python = &project.PythonRequest{Version: v, Config: runtime.PythonConfig{
+			Server: in.PythonServer, Mode: strings.ToLower(strings.TrimSpace(in.PythonMode)), Preset: strings.ToLower(strings.TrimSpace(in.PythonPreset)),
+			App: strings.TrimSpace(in.PythonApp), Port: in.PythonPort,
 		}}
 	}
 	if u := strings.TrimSpace(in.GitURL); u != "" {
@@ -347,7 +367,7 @@ func (s *Server) restartProject(ctx context.Context, _ *mcp.CallToolRequest, in 
 
 type getLogsIn struct {
 	Project string `json:"project" jsonschema:"Project id, slug or name"`
-	Service string `json:"service,omitempty" jsonschema:"Container: web, php, node, database, redis, mailpit or storage (default: the application container (php, else node), else web)"`
+	Service string `json:"service,omitempty" jsonschema:"Container: web, php, python, node, database, redis, mailpit or storage (default: the application container (php, else python, else node), else web)"`
 	Tail    int    `json:"tail,omitempty" jsonschema:"Number of lines (default 200, max 2000)"`
 }
 
@@ -376,7 +396,7 @@ func (s *Server) getLogs(ctx context.Context, _ *mcp.CallToolRequest, in getLogs
 		}
 	}
 	switch kind {
-	case store.ServiceWeb, store.ServicePHP, store.ServiceNode, store.ServiceDatabase, store.ServiceRedis, store.ServiceMailpit, store.ServiceStorage:
+	case store.ServiceWeb, store.ServicePHP, store.ServicePython, store.ServiceNode, store.ServiceDatabase, store.ServiceRedis, store.ServiceMailpit, store.ServiceStorage:
 	default:
 		r, _ := toolErr(fmt.Errorf("%w: unknown service %q", validate.ErrInvalid, in.Service))
 		return r, getLogsOut{}, nil

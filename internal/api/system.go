@@ -131,6 +131,7 @@ func (a *API) runtimes(w http.ResponseWriter, r *http.Request) {
 		"phpExtensions": runtime.PHPExtensions(),
 		"phpDefaults":   runtime.DefaultPHPConfig(),
 		"nodePresets":   runtime.NodePresets,
+		"pythonPresets": runtime.PythonPresets,
 	})
 }
 

@@ -348,7 +348,7 @@ func (m *Manager) SetDatabaseExposed(ctx context.Context, id string, exposed boo
 
 // recreateAppContainers recreates every container that receives the database environment.
 func (m *Manager) recreateAppContainers(ctx context.Context, id string) error {
-	return m.recreateContainers(ctx, id, store.ServicePHP, store.ServiceNode)
+	return m.recreateContainers(ctx, id, store.ServicePHP, store.ServicePython, store.ServiceNode)
 }
 
 // recreateContainers removes the given containers and re-applies the plan; containers are

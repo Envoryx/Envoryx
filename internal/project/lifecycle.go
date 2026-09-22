@@ -128,12 +128,10 @@ func (m *Manager) create(ctx context.Context, req CreateRequest) (View, error) {
 	}
 
 	// A repository or template fills the empty directory; the starter page would collide.
-	// While a Node dev server serves the app nothing serves the docroot, so no starter.
+	// While a Python server or Node dev server serves the app nothing serves the docroot,
+	// so no starter.
 	scaffold := proj.Git.URL != "" || req.Template != ""
-	starter := req.CreateStarter && !scaffold
-	if _, ok := nodeServesApp(proj); ok {
-		starter = false
-	}
+	starter := req.CreateStarter && !scaffold && !appServesDirectly(proj)
 	step(ctx, "Preparing the project directory")
 	if err := m.ensureProjectDir(planner, proj, starter, scaffold); err != nil {
 		return fail("prepare project directory", err)
@@ -590,6 +588,11 @@ func (m *Manager) update(ctx context.Context, id string, req UpdateRequest) (Vie
 			return View{}, err
 		}
 	}
+	if req.Python != nil {
+		if err := m.applyPythonUpdate(ctx, proj, *req.Python, changes); err != nil {
+			return View{}, err
+		}
+	}
 	if req.Database != nil {
 		r, err := m.applyDatabaseUpdate(ctx, proj, *req.Database, changes)
 		if err != nil {
@@ -684,7 +687,7 @@ func (m *Manager) applyPHPUpdate(ctx context.Context, p store.Project, upd PHPUp
 		}
 		gone := map[string]bool{string(store.ServicePHP): true}
 		for _, w := range p.Workers {
-			if preset, ok := workerPreset(w.Preset); !ok || preset.Runtime != WorkerRuntimeNode {
+			if preset, ok := workerPreset(w.Preset); !ok || preset.Runtime == WorkerRuntimePHP {
 				gone[string(WorkerKind(w))] = true
 			}
 		}
@@ -827,6 +830,111 @@ func (m *Manager) applyNodeUpdate(ctx context.Context, p store.Project, upd Node
 					if c.Service() == string(store.ServiceNode) {
 						if err := m.engine.RemoveContainer(ctx, c.ID); err != nil {
 							return fmt.Errorf("recreate node container: %w", err)
+						}
+					}
+				}
+			}
+		}
+		return nil
+	}
+}
+
+// applyPythonUpdate adds, changes or removes the Python service. Callers hold the lock.
+// Removing it takes the Python container and the Python workers' containers with it –
+// their definitions stay and come back with the runtime.
+func (m *Manager) applyPythonUpdate(ctx context.Context, p store.Project, upd PythonUpdate, changes map[string]any) error {
+	svc := p.Service(store.ServicePython)
+	switch {
+	case !upd.Enabled && svc == nil:
+		return nil
+	case !upd.Enabled:
+		gone := map[string]bool{string(store.ServicePython): true}
+		for _, w := range p.Workers {
+			if preset, ok := workerPreset(w.Preset); ok && preset.Runtime == WorkerRuntimePython {
+				gone[string(WorkerKind(w))] = true
+			}
+		}
+		containers, err := m.engine.ListContainers(ctx, true, p.ID)
+		if err != nil {
+			return err
+		}
+		for _, c := range containers {
+			if !gone[c.Service()] {
+				continue
+			}
+			step(ctx, "Removing the container {{name}}", "name", c.Name)
+			if err := m.engine.RemoveContainer(ctx, c.ID); err != nil {
+				return fmt.Errorf("remove container %s: %w", c.Name, err)
+			}
+		}
+		if err := m.store.Projects.DeleteService(ctx, p.ID, store.ServicePython); err != nil {
+			return err
+		}
+		changes["python"] = "removed"
+		return nil
+	default:
+		v, err := m.catalog.Resolve("python", upd.Version)
+		if err != nil {
+			return err
+		}
+		cfg := upd.Config
+		if err := cfg.Normalize(); err != nil {
+			return err
+		}
+		var old runtime.PythonConfig
+		if svc != nil && len(svc.Config) > 0 {
+			_ = json.Unmarshal(svc.Config, &old)
+		}
+		// Keep the published ports across edits; allocate them when the server or debugpy
+		// is enabled. The two are independent – a tooling container can publish debugpy.
+		cfg.HostPort, cfg.DebugHostPort = 0, 0
+		if cfg.Server {
+			cfg.HostPort = old.HostPort
+			if cfg.HostPort == 0 {
+				port, err := m.allocatePort(ctx)
+				if err != nil {
+					return err
+				}
+				cfg.HostPort = port
+			}
+		}
+		if cfg.Debug {
+			cfg.DebugHostPort = old.DebugHostPort
+			if cfg.DebugHostPort == 0 {
+				port, err := m.allocatePort(ctx, cfg.HostPort)
+				if err != nil {
+					return err
+				}
+				cfg.DebugHostPort = port
+			}
+		}
+		raw, err := json.Marshal(cfg)
+		if err != nil {
+			return err
+		}
+		if svc == nil {
+			if err := m.store.Projects.AddService(ctx, store.ProjectService{ProjectID: p.ID, Kind: store.ServicePython, Variant: "python", Version: v.Version, Image: v.Image, Enabled: true, Position: 12, Config: raw}); err != nil {
+				return err
+			}
+			changes["python"] = v.Version
+			return nil
+		}
+		if svc.Version != v.Version || string(svc.Config) != string(raw) {
+			if err := m.store.Projects.UpdateServiceConfig(ctx, p.ID, store.ServicePython, v.Version, v.Image, raw); err != nil {
+				return err
+			}
+			changes["python"] = v.Version
+			if string(svc.Config) != string(raw) {
+				changes["pythonServer"] = cfg.Server
+				// Command/ports are baked into the container: remove it so ensurePlan recreates it.
+				containers, err := m.engine.ListContainers(ctx, true, p.ID)
+				if err != nil {
+					return err
+				}
+				for _, c := range containers {
+					if c.Service() == string(store.ServicePython) {
+						if err := m.engine.RemoveContainer(ctx, c.ID); err != nil {
+							return fmt.Errorf("recreate python container: %w", err)
 						}
 					}
 				}

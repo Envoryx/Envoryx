@@ -26,10 +26,11 @@ type CreateRequest struct {
 	Path string // relative to projects root; empty = slug
 	// Docroot is the directory served by the web server, relative to the project
 	// directory: public/ for Laravel/Symfony, the build output (dist/, out/) for static
-	// Node builds; unused while a Node dev server serves the app.
+	// Node builds; unused while a Python server or Node dev server serves the app.
 	Docroot  string
 	PHP      *PHPRequest
 	Node     *NodeRequest
+	Python   *PythonRequest
 	Database *DatabaseRequest
 	Redis    *ExtraRequest
 	Mailpit  *ExtraRequest
@@ -40,7 +41,8 @@ type CreateRequest struct {
 	// Template scaffolds an application into the new directory (see Templates()).
 	Template string
 	// CreateStarter writes a starter page (index.php with PHP, index.html otherwise) when
-	// the document root is empty; ignored while a Node dev server serves the app.
+	// the document root is empty; ignored while a Python server or Node dev server serves
+	// the app.
 	CreateStarter bool
 	// Start starts the project right after creation.
 	Start bool
@@ -71,6 +73,19 @@ type NodeUpdate struct {
 	Enabled bool
 	Version string
 	Config  runtime.NodeConfig
+}
+
+// PythonRequest selects the Python container and optional application server.
+type PythonRequest struct {
+	Version string
+	Config  runtime.PythonConfig
+}
+
+// PythonUpdate adds, changes or removes the Python service.
+type PythonUpdate struct {
+	Enabled bool
+	Version string
+	Config  runtime.PythonConfig
 }
 
 // ExtraRequest selects an auxiliary service (Redis, Mailpit).
@@ -145,6 +160,7 @@ type UpdateRequest struct {
 	Web      *WebRequest
 	PHP      *PHPUpdate
 	Node     *NodeUpdate
+	Python   *PythonUpdate
 	Database *DatabaseUpdate
 	Redis    *ExtraUpdate
 	Mailpit  *ExtraUpdate
@@ -297,9 +313,11 @@ type Preview struct {
 	Volumes    []string           `json:"volumes"`
 	Images     []string           `json:"images"`
 	Warnings   []string           `json:"warnings"`
-	// Serves says what the primary hostname reaches: "php", "node" (dev server) or "static".
+	// Serves says what the primary hostname reaches: "php", "python" (application
+	// server), "node" (dev server) or "static".
 	Serves string `json:"serves"`
-	// AppService is the application container's kind (php, node), empty for static sites.
+	// AppService is the application container's kind (php, python, node), empty for
+	// static sites.
 	AppService string `json:"appService,omitempty"`
 	// DevHostname is the dev server's own host name when the Node dev server is enabled.
 	DevHostname string `json:"devHostname,omitempty"`

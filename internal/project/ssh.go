@@ -54,7 +54,7 @@ func (m *Manager) StopIDEBackend(ctx context.Context, id string) (int, error) {
 	}
 	stopped := 0
 	for _, c := range containers {
-		if c.State != "running" || (c.Service() != string(store.ServicePHP) && c.Service() != string(store.ServiceNode)) {
+		if c.State != "running" || !isAppKind(store.ServiceKind(c.Service())) {
 			continue
 		}
 		res, err := m.engine.Exec(ctx, c.ID, []string{"pkill", "-f", "/.cache/JetBrains/"}, []string{"HOME=" + homeMountTarget})
@@ -69,15 +69,22 @@ func (m *Manager) StopIDEBackend(ctx context.Context, id string) (int, error) {
 	return stopped, nil
 }
 
+// isAppKind reports whether a service kind is an application container (PHP, Python,
+// Node): the containers that run as the project owner with the project home mounted.
+func isAppKind(kind store.ServiceKind) bool {
+	return kind == store.ServicePHP || kind == store.ServicePython || kind == store.ServiceNode
+}
+
 // ResolveSSHUser maps an SSH user name to a project and application container:
-// "<slug>" → the project's application container (PHP, or Node when there is no PHP);
-// "<slug>.php" / "<slug>.node" select explicitly.
+// "<slug>" → the project's application container (PHP, else Python, else Node);
+// "<slug>.php" / "<slug>.python" / "<slug>.node" select explicitly.
 func (m *Manager) ResolveSSHUser(ctx context.Context, user string) (ExecTarget, error) {
 	slug, kind := user, store.ServiceKind("")
-	if s, ok := strings.CutSuffix(user, ".php"); ok {
-		slug, kind = s, store.ServicePHP
-	} else if s, ok := strings.CutSuffix(user, ".node"); ok {
-		slug, kind = s, store.ServiceNode
+	for _, k := range []store.ServiceKind{store.ServicePHP, store.ServicePython, store.ServiceNode} {
+		if s, ok := strings.CutSuffix(user, "."+string(k)); ok {
+			slug, kind = s, k
+			break
+		}
 	}
 	if err := validate.Slug(slug); err != nil {
 		return ExecTarget{}, fmt.Errorf("%w: unknown user", store.ErrNotFound)

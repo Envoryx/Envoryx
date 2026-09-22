@@ -425,9 +425,80 @@ or a blank directory / git clone – and the dev server *is* the project:
   containers are recreated once at the next start (new command wrapper,
   unpublished port); from then on `<project>.<base>` reaches the dev server.
 
-A **static site** (no PHP, no Node) is the same web container alone: pick
-**Static site** in the wizard; Envoryx writes a starter `index.html` unless
-you clone a repository.
+A **static site** (no PHP, no Node, no Python server) is the same web
+container alone: pick **Static site** in the wizard; Envoryx writes a
+starter `index.html` unless you clone a repository.
+
+### Python projects (Django, Flask, FastAPI)
+
+Pick **Python application** on the first wizard step (or enable Python on
+any project from the Runtime tab). The Python container
+(`envoryx-<project>-python`, image `ghcr.io/envoryx/envoryx-python:<3.x>`
+with pip, uv, git and the build dependencies common wheels need) runs as
+`PUID:PGID` with the project directory at `/var/www/html` and the
+persistent project home at `/home/envoryx` (pip and uv caches). The
+project's virtual environment is `/var/www/html/.venv`: the container's
+`PATH` starts with `.venv/bin`, so `python`, `pip`, `gunicorn`, `uvicorn` …
+resolve to it as soon as it exists; `~/.local/bin` (`pip install --user`)
+comes next.
+
+- **Application server.** *Run the application server* makes the preset's
+  command the container's main process, restarted automatically and
+  published on a host port of its own. Presets: **Django** (`python
+  manage.py runserver 0.0.0.0:<port>`; production mode `gunicorn
+  <app> --bind …` with the WSGI module, e.g. `config.wsgi:application`),
+  **Flask** (`flask --app <app> run --debug`; production mode gunicorn),
+  **FastAPI / ASGI** (`uvicorn <app> --reload`; production mode without
+  reload – Starlette, Litestar and any ASGI app work the same way), **WSGI**
+  (`gunicorn <app> --reload`) and **Other** (`python -m <module>` reading
+  `HOST`/`PORT`). The application is given as `module:attribute`
+  (`main:app`, `app:app`). Production mode needs gunicorn/uvicorn in the
+  `.venv` (the templates install them).
+- **Routing.** Without PHP the Python server is the application: the proxy
+  routes `https://<project>.<base>` and every extra domain to
+  `envoryx-<project>-python:<port>`, the web container's host port stays
+  unpublished (the project root with `.env` and sources is never served),
+  and the Domains tab's *Direct access* is the Python host port. A Node dev
+  server next to Python keeps `<project>-dev.<base>` and its own host port –
+  the usual Django/FastAPI backend plus Vite frontend. Next to PHP the
+  Python server only has its host port; PHP stays the application.
+- **Cold start.** A blank Python project has nothing to run yet: the
+  container waits for the entry file (`manage.py` for Django, else
+  `<module>.py` or `<module>/`, log line `envoryx: waiting for …`) instead
+  of crash-looping. Pick a template, clone a repository or set the project
+  up from the Python terminal; the container picks it up within seconds.
+- **Templates.** *Django* (`django-admin startproject config .`, settings
+  patched for the proxy – `ALLOWED_HOSTS = ["*"]`, `SECURE_PROXY_SSL_HEADER`,
+  `USE_X_FORWARDED_HOST`, `CSRF_TRUSTED_ORIGINS` from the environment – and
+  `dj-database-url` reading the injected `DATABASE_URL`; psycopg and
+  mysqlclient installed), *Flask* (`app.py`) and *FastAPI* (`main.py`,
+  docs at `/docs`). Each creates the `.venv`, installs the packages and
+  pins them with `pip freeze > requirements.txt`, so *pip install* from the
+  Actions tab reproduces the environment after a fresh clone.
+- **Actions and workers.** Actions: `python --version`, `python -m venv
+  .venv`, `pip install -r requirements.txt` (creates the venv when
+  missing), `pip freeze`, `uv sync`/`uv lock` (with a `pyproject.toml`),
+  Django `migrate`, `makemigrations`, `collectstatic`, `check` and `flush`
+  (with a `manage.py`). Worker presets in the Python image: *Python script*
+  (`python <file>`), *Python module* (`python -m <module>`), *manage.py
+  command* (`rqworker`, `qcluster`, …), *Celery worker* and *Celery beat*
+  (`celery -A <app> …`).
+- **Debugging.** *Publish the debugpy port* (Runtime tab, server required)
+  publishes port 5678 on a host port; the IDE tab shows host, port and path
+  mapping plus command lines that start debugpy in front of the usual
+  servers. Only the port is published – `pip install debugpy` in the
+  `.venv` and start it yourself (`python -m debugpy --listen
+  0.0.0.0:5678 manage.py runserver …`), then attach VS Code (`type:
+  debugpy`, `request: attach`). PyCharm's *Python Debug Server* works the
+  other way round (the IDE listens); use its `pydevd-pycharm` snippet with
+  your workstation's address.
+- **Adding or removing Python later.** The Runtime tab's Python card has
+  an *Enable Python* switch; removing it takes the Python container and the
+  Python workers' containers down – files, `.venv` and worker definitions
+  stay. Over the API: `PATCH /api/v1/projects/{id}` with `{"python":
+  {"enabled": true, "version": "3.13", "server": true, "preset": "asgi",
+  "app": "main:app"}}` adds or changes, `{"python": {"enabled": false}}`
+  removes.
 
 ### Bare metal
 
@@ -548,8 +619,10 @@ newer, its error message names the pre-migrate backup to restore by hand (see
   Merging it builds the images and the next Envoryx image shows the version in
   the wizard. Pre-release versions are marked *preview*.
 
-Node.js images (`envoryx-node:*`) follow the same scheme with `node_versions.json`;
-a project's Node version is changed on the Runtime tab like the PHP version.
+Node.js images (`envoryx-node:*`) follow the same scheme with `node_versions.json`,
+Python images (`envoryx-python:*`, official `python:<v>-slim-bookworm` plus uv,
+git and build dependencies) with `python_versions.json`; a project's Node or
+Python version is changed on the Runtime tab like the PHP version.
 
 ## Git deploy key
 
@@ -705,12 +778,15 @@ running for both.
 Workers tab: add long-running processes from a preset list – Laravel
 `schedule:work`, `queue:work`/`queue:listen` (queue names), Horizon,
 Reverb, Symfony `messenger:consume` (transports) and Scheduler, a PHP script
-or a composer script. Every worker is its own container
-(`envoryx-<project>-worker-<name>`) from the project's PHP image, runs as
-`PUID:PGID` with the same environment and php.ini as the web PHP, restarts
-automatically (Docker `unless-stopped`) and follows start/stop/restart of
-the project. Workers need a PHP service – Node-only projects cannot add
-them yet. `queue:work` stops after an hour (`--max-time`) so code changes
+or a composer script (PHP image); npm scripts and Node scripts (Node
+image); Python scripts and modules, Django management commands, Celery
+worker and beat (Python image). Every worker is its own container
+(`envoryx-<project>-worker-<name>`) from the image of the runtime its
+preset names, runs as `PUID:PGID` with the project's environment (and
+php.ini for PHP, the venv `PATH` for Python), restarts automatically
+(Docker `unless-stopped`) and follows start/stop/restart of the project.
+The Workers tab offers only the presets whose runtime the project has.
+`queue:work` stops after an hour (`--max-time`) so code changes
 are picked up on the automatic restart; use `queue:listen` for instant
 reloads. Logs are in the Logs tab; up to 10 workers per project.
 
@@ -721,9 +797,9 @@ Every project has an **IDE** tab with all values ready to copy.
 **Remote interpreter over SSH.** Envoryx runs an SSH server on port 2222
 (publish it, or use the container's own IP on `br0`). User name = project
 slug (`shop`): it lands in the project's application container – PHP when
-the project has PHP, otherwise Node. Projects with both runtimes also accept
-`shop.php` and `shop.node` to pick one explicitly (the IDE tab lists these
-rows only then). Password = an API token from Settings → API tokens, or a
+the project has PHP, else Python, else Node. Projects with several runtimes
+also accept `shop.php`, `shop.python` and `shop.node` to pick one
+explicitly (the IDE tab lists these rows only then). Password = an API token from Settings → API tokens, or a
 public key stored under Settings → SSH access. Each session is a
 `docker exec` into that container as the project owner – there is no shell
 on the host. SFTP exposes `/var/www/html` (the project) and `/home/envoryx`
@@ -739,11 +815,16 @@ on the host. SFTP exposes `/var/www/html` (the project) and `/home/envoryx`
   and port from the IDE tab, user `shop`, Node path `/usr/local/bin/node`,
   project path `/var/www/html`. npm scripts, the test runner and the
   debugger then run in the container.
+- PyCharm (Python project, or `shop.python` next to PHP): *Settings →
+  Project → Python Interpreter → Add Interpreter → On SSH…*, host and port
+  from the IDE tab, user `shop`, interpreter `/var/www/html/.venv/bin/python`,
+  project path `/var/www/html`. pytest, manage.py and pip then run in the
+  container.
 - VS Code: Remote-SSH works the same way (`ssh -p 2222 shop@<host>`); open
   `/var/www/html` as the remote folder.
 
-A static project (neither PHP nor Node) has no application container, so SSH
-sessions are refused for it.
+A static project (no PHP, Python or Node) has no application container, so
+SSH sessions are refused for it.
 
 The project must be running for sessions to open. Commands are logged to
 the audit log (`ssh.exec`), failed logins are rate limited per IP.
@@ -755,8 +836,8 @@ client. In Envoryx this is opt-in per project (IDE tab → *Allow JetBrains
 Gateway*): it enables SSH port forwarding into the container and mounts a
 shared backend cache (`/config/jetbrains`, ~1.5 GB per IDE version,
 downloaded once). The backend runs as the project owner inside the
-application container – PHP, or Node for a Node-only project (user `<slug>`;
-`<slug>.node` picks Node next to PHP) – and needs 2–4 GB RAM plus CPU while
+application container – PHP, else Python, else Node (user `<slug>`;
+`<slug>.python` / `<slug>.node` pick one next to PHP) – and needs 2–4 GB RAM plus CPU while
 indexing – nothing runs until you connect. Envoryx ships no JetBrains
 software: Gateway itself is free, the IDE backend is uploaded by your
 Gateway client and licensed through it – whoever connects needs a valid
@@ -767,7 +848,7 @@ directory `/var/www/html`. Close the project in Gateway or use *Stop IDE
 backend* to free the memory. Small NAS boxes: leave it off.
 
 The tunnel to the backend needs `socat` in the runtime image (PHP and Node
-images since September 2026). Troubleshooting:
+images since September 2026, Python images from the start). Troubleshooting:
 
 - *Host unreachable* right after installing the backend: use *Restart* on
   the project (a restart pulls the runtime images and recreates the
@@ -828,7 +909,7 @@ Claude Code: `claude mcp add --transport http envoryx https://envoryx.test/mcp -
 Use `http://<host>:8787/mcp` if the proxy/HTTPS is not set up.
 
 Available tools: list/get projects, list runtimes, create project (PHP
-version + extensions, database, Redis, Mailpit, object storage, Node, git clone, env),
+version + extensions, database, Redis, Mailpit, object storage, Node, Python, git clone, env),
 start/stop/restart, get logs, list/run actions (composer, artisan, npm …),
 list/create databases, list/create backups, add domain. Deleting projects,
 dropping databases and restoring backups are intentionally not exposed –
@@ -843,6 +924,14 @@ carries `serves` (`php`/`node`/`static`), `devUrl` and a `directUrl` that
 points at the node host port while the dev server serves the project.
 Example prompt: *"Create a Node.js project called dashboard from the Nuxt
 template, no PHP, then show me its logs."*
+
+Python projects: pass `phpVersion: "none"` plus `pythonVersion`,
+`pythonServer: true` and `pythonPreset` (`django`, `flask`, `asgi`, `wsgi`,
+`module`; optional `pythonApp`, `pythonPort`, `pythonMode`), or a Python
+template (`django`, `flask`, `fastapi`) which fills the server defaults.
+`serves` is `python` then and `directUrl` points at the Python host port.
+Example prompt: *"Create a FastAPI project called inventory-api with
+PostgreSQL, no PHP, then run pip install."*
 
 ### Scripting the REST API
 

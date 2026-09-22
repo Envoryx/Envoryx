@@ -195,9 +195,10 @@ type ProxyOptions struct {
 }
 
 // RouteTable builds the proxy routing table from projects, domains and Docker state. A
-// project's primary host name and its extra domains reach the web container, or the Node
-// dev server when it is the project's application (no PHP); <slug>-dev.<base> always
-// reaches the dev server and <slug>-storage.<base> the object storage.
+// project's primary host name and its extra domains reach the web container, or the
+// Python server or Node dev server when it is the project's application (no PHP);
+// <slug>-dev.<base> always reaches the Node dev server and <slug>-storage.<base> the
+// object storage.
 func (m *Manager) RouteTable(ctx context.Context, opts ProxyOptions) (proxy.Table, error) {
 	t := proxy.Table{Routes: map[string]proxy.Target{}, UIHosts: map[string]bool{}, ForceHTTPS: m.ForceHTTPS(ctx), HTTPSPort: opts.HTTPSPort, EnvoryxURL: opts.EnvoryxURL}
 	base := m.BaseDomain(ctx)
@@ -220,25 +221,22 @@ func (m *Manager) RouteTable(ctx context.Context, opts ProxyOptions) (proxy.Tabl
 	if err != nil {
 		return t, err
 	}
-	webRunning, nodeRunning, storageRunning := map[string]bool{}, map[string]bool{}, map[string]bool{}
+	running := map[string]map[string]bool{} // service kind → project id → running
 	for _, c := range containers {
 		if c.State != "running" {
 			continue
 		}
-		switch c.Service() {
-		case string(store.ServiceWeb):
-			webRunning[c.ProjectID()] = true
-		case string(store.ServiceNode):
-			nodeRunning[c.ProjectID()] = true
-		case string(store.ServiceStorage):
-			storageRunning[c.ProjectID()] = true
+		if running[c.Service()] == nil {
+			running[c.Service()] = map[string]bool{}
 		}
+		running[c.Service()][c.ProjectID()] = true
 	}
+	nodeRunning, storageRunning := running[string(store.ServiceNode)], running[string(store.ServiceStorage)]
 	paths, _ := m.paths()
 	byProject := map[string]store.Project{}
 	for _, p := range projects {
 		byProject[p.ID] = p
-		t.Routes[DefaultHostname(p.Slug, base)] = m.appTarget(paths.SelfContainerID, p, webRunning, nodeRunning)
+		t.Routes[DefaultHostname(p.Slug, base)] = m.appTarget(paths.SelfContainerID, p, running)
 		if cfg, ok := nodeDevConfig(p); ok {
 			t.Routes[DevHostname(p.Slug, base)] = proxy.Target{ProjectID: p.ID, ProjectName: p.Name + " (dev server)", Slug: p.Slug, Running: nodeRunning[p.ID], Dial: m.dialForDev(paths.SelfContainerID, p, cfg)}
 		}
@@ -248,18 +246,20 @@ func (m *Manager) RouteTable(ctx context.Context, opts ProxyOptions) (proxy.Tabl
 	}
 	for _, d := range domains {
 		if p, ok := byProject[d.ProjectID]; ok {
-			t.Routes[d.Hostname] = m.appTarget(paths.SelfContainerID, p, webRunning, nodeRunning)
+			t.Routes[d.Hostname] = m.appTarget(paths.SelfContainerID, p, running)
 		}
 	}
 	return t, nil
 }
 
 // appTarget is the upstream of a project's primary host name and extra domains: the web
-// container, or the Node dev server when it serves the application.
-func (m *Manager) appTarget(selfID string, p store.Project, webRunning, nodeRunning map[string]bool) proxy.Target {
-	target := proxy.Target{ProjectID: p.ID, ProjectName: p.Name, Slug: p.Slug, Running: webRunning[p.ID], Dial: m.dialFor(selfID, p)}
-	if cfg, ok := nodeServesApp(p); ok {
-		target.Running, target.Dial = nodeRunning[p.ID], m.dialForDev(selfID, p, cfg)
+// container, or the Python server or Node dev server when it serves the application.
+func (m *Manager) appTarget(selfID string, p store.Project, running map[string]map[string]bool) proxy.Target {
+	target := proxy.Target{ProjectID: p.ID, ProjectName: p.Name, Slug: p.Slug, Running: running[string(store.ServiceWeb)][p.ID], Dial: m.dialFor(selfID, p)}
+	if cfg, ok := pythonServesApp(p); ok {
+		target.Running, target.Dial = running[string(store.ServicePython)][p.ID], m.dialForApp(selfID, p, store.ServicePython, cfg.HostPort, cfg.Port)
+	} else if cfg, ok := nodeServesApp(p); ok {
+		target.Running, target.Dial = running[string(store.ServiceNode)][p.ID], m.dialForDev(selfID, p, cfg)
 	}
 	return target
 }
@@ -279,13 +279,20 @@ func (m *Manager) dialFor(selfID string, p store.Project) string {
 
 // dialForDev returns the upstream address of a project's Node dev server.
 func (m *Manager) dialForDev(selfID string, p store.Project, cfg runtime.NodeConfig) string {
+	return m.dialForApp(selfID, p, store.ServiceNode, cfg.HostPort, cfg.Port)
+}
+
+// dialForApp returns the upstream address of an application container that listens
+// itself: its container name and port inside Docker, its published host port on bare
+// metal.
+func (m *Manager) dialForApp(selfID string, p store.Project, kind store.ServiceKind, hostPort, port int) string {
 	if selfID == "" {
-		if cfg.HostPort == 0 {
+		if hostPort == 0 {
 			return ""
 		}
-		return net.JoinHostPort("127.0.0.1", strconv.Itoa(cfg.HostPort))
+		return net.JoinHostPort("127.0.0.1", strconv.Itoa(hostPort))
 	}
-	return net.JoinHostPort(ContainerName(p.Slug, store.ServiceNode), strconv.Itoa(cfg.Port))
+	return net.JoinHostPort(ContainerName(p.Slug, kind), strconv.Itoa(port))
 }
 
 // attachProxy connects Envoryx's own container to a project network so the embedded proxy

@@ -1,12 +1,13 @@
 import { clsx } from "clsx";
 import { useTranslation } from "react-i18next";
 import { Trash2, Save, ExternalLink, Undo2, RotateCw } from "lucide-react";
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState, type ReactElement } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ApiError } from "@/api/client";
 import { useDevServerLink, useImageChoice, useProject, useProjectLinks, useProjectPlan, useProjectStats, useRuntimes, useSettings, useUpdateProject } from "@/api/hooks";
-import { defaultNodePresets, servesOf, type EnvVar, type NodeConfig, type PHPConfig, type Project, type UpdateProjectRequest, type WebServerConfig } from "@/api/types";
+import { appKindOf, defaultNodePresets, defaultPythonPresets, servesOf, type EnvVar, type NodeConfig, type PHPConfig, type Project, type PythonConfig, type UpdateProjectRequest, type WebServerConfig } from "@/api/types";
 import { NodeDevServerFields, defaultScript, devServerRequest, type DevServerForm } from "./NodeDevServerFields";
+import { PythonServerFields, defaultPythonServerForm, pythonServerRequest, type PythonServerForm } from "./PythonServerFields";
 import { Alert, Badge, Button, Card, CardHeader, Checkbox, Code, ErrorState, Field, Input, PageHeader, Select, Spinner, StatusDot } from "@/components/ui";
 import { containerStateTone, formatBytes, formatDateTime, formatPercent, serviceLabel, stateMeta } from "@/lib/format";
 import { DeleteProjectDialog, ProjectActionButtons, useActionError } from "./ProjectActions";
@@ -148,20 +149,19 @@ export function ProjectDetailPage() {
       {tab === "Runtime" && (
         <div className="space-y-6">
           <ProjectSettingsCard project={p} />
-          {/* The application runtime comes first: Node when it serves the project (PHP can still be added below), otherwise PHP with Node as the toolchain after the web server. */}
-          {p.appService === "node" ? (
-            <>
-              <NodeCard project={p} />
-              <WebServerCard project={p} />
-              <PhpCard project={p} />
-            </>
-          ) : (
-            <>
-              <PhpCard project={p} />
-              <WebServerCard project={p} />
-              <NodeCard project={p} />
-            </>
-          )}
+          {/* The application runtime comes first (PHP, else Python, else Node), then the web server, then the other runtimes as toolchains. */}
+          {(() => {
+            const app = p.appService ?? appKindOf(p);
+            const cards: Record<"php" | "python" | "node", ReactElement> = { php: <PhpCard key="php" project={p} />, python: <PythonCard key="python" project={p} />, node: <NodeCard key="node" project={p} /> };
+            const [first, ...rest]: ("php" | "python" | "node")[] = app === "node" ? ["node", "python", "php"] : app === "python" ? ["python", "node", "php"] : ["php", "node", "python"];
+            return (
+              <>
+                {first && cards[first]}
+                <WebServerCard project={p} />
+                {rest.map((k) => cards[k])}
+              </>
+            );
+          })()}
         </div>
       )}
       {tab === "Workers" && <WorkersTab project={p} />}
@@ -336,7 +336,13 @@ function ProjectSettingsCard({ project: p }: { project: Project }) {
           <Field
             label={t("Document root")}
             htmlFor="p-docroot"
-            hint={serves === "node" ? t("Not used while the dev server serves the app; the build output (e.g. dist/) once you turn it off.") : t("Relative to the project directory")}
+            hint={
+              serves === "node"
+                ? t("Not used while the dev server serves the app; the build output (e.g. dist/) once you turn it off.")
+                : serves === "python"
+                  ? t("Not used while the application server serves the app; static files (e.g. a collected static/ folder) once you turn it off.")
+                  : t("Relative to the project directory")
+            }
           >
             <Input id="p-docroot" value={docroot} onChange={(e) => setDocroot(e.target.value)} placeholder={t("(project root)")} />
           </Field>
@@ -608,6 +614,109 @@ function NodeCard({ project: p }: { project: Project }) {
           </Field>
         )}
         {enabled && <NodeDevServerFields value={dev} onChange={setDev} presets={runtimes.data?.nodePresets ?? defaultNodePresets} primary={serves !== "php"} />}
+      </div>
+    </Card>
+  );
+}
+
+function PythonCard({ project: p }: { project: Project }) {
+  const { t } = useTranslation();
+  const runtimes = useRuntimes();
+  const update = useUpdateProject(p.id);
+  const links = useProjectLinks();
+  const { msg, setMsg } = useSaveFeedback();
+  const serves = p.serves ?? servesOf(p);
+  const svc = p.services.find((s) => s.kind === "python" && s.enabled);
+  const python = runtimes.data?.runtimes.find((r) => r.key === "python");
+  const stored = (svc?.config ?? {}) as PythonConfig;
+  const fromStored = (): PythonServerForm => ({
+    server: !!stored.server,
+    mode: stored.mode ?? "dev",
+    preset: stored.preset ?? defaultPythonServerForm.preset,
+    app: stored.app ?? defaultPythonServerForm.app,
+    port: String(stored.port ?? 8000),
+    debug: !!stored.debug,
+    debugPort: String(stored.debugPort ?? 5678),
+  });
+  const [enabled, setEnabled] = useState(!!svc);
+  const [version, setVersion] = useState(svc?.version ?? "");
+  const [server, setServer] = useState<PythonServerForm>(fromStored);
+  useEffect(() => {
+    setEnabled(!!svc);
+    setVersion(svc?.version ?? python?.versions.find((v) => v.default)?.version ?? "");
+    setServer(fromStored());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [svc, python]);
+  const dirty = enabled !== !!svc || (enabled && (version !== (svc?.version ?? "") || JSON.stringify(server) !== JSON.stringify(fromStored())));
+  const pythonStatus = p.status.services.find((s) => s.kind === "python");
+  // The server answers on the project URL when Python is the application; next to PHP only its host port is published.
+  const url = serves === "python" ? links(p).url : stored.hostPort ? links({ httpPort: stored.hostPort, hostnames: [], serves: "static", services: [] }).direct : "";
+
+  return (
+    <Card>
+      <CardHeader
+        title={t("Python")}
+        description={
+          serves !== "php"
+            ? t("Application runtime of this project: run Django, Flask, FastAPI or any WSGI/ASGI app here. Removing it only removes the container; the .venv stays in the project directory.")
+            : t("Tooling container (pip, uv, venv), optionally running an application server on its own port. Removing it only removes the container; the .venv stays in the project directory.")
+        }
+        actions={
+          <Button
+            variant="primary"
+            icon={<Save className="size-4" />}
+            loading={update.isPending}
+            disabled={!dirty}
+            onClick={() =>
+              update.mutate(
+                { python: enabled ? { enabled: true, version, ...pythonServerRequest(server) } : { enabled: false } },
+                {
+                  onSuccess: () => setMsg({ tone: "green", text: enabled ? t("Python container updated.") : t("Python container removed.") }),
+                  onError: (err) => setMsg({ tone: "red", text: errorText(err, t, t("Saving failed")) }),
+                },
+              )
+            }
+          >
+            {t("Save")}
+          </Button>
+        }
+      />
+      <div className="space-y-4 p-5">
+        {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
+        {stored.server && (
+          <div className="flex flex-wrap items-center gap-3 rounded-md border border-default px-3 py-2 text-sm">
+            <span className="text-muted">{t("Application server")}</span>
+            {pythonStatus && (
+              <span className="inline-flex items-center gap-1.5 text-xs">
+                <StatusDot tone={containerStateTone(pythonStatus.state)} /> {pythonStatus.state}
+              </span>
+            )}
+            {url ? (
+              <a href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-mono text-xs text-accent-600 hover:underline dark:text-accent-300">
+                {url} <ExternalLink className="size-3" />
+              </a>
+            ) : (
+              <span className="text-xs text-subtle">{t("no port")}</span>
+            )}
+            {stored.hostPort ? <span className="font-mono text-xs text-subtle">{t("host port {{port}}", { port: stored.hostPort })}</span> : null}
+            {stored.mode === "production" && <Badge tone="blue">{t("production server")}</Badge>}
+            {stored.debug && stored.debugHostPort ? <span className="font-mono text-xs text-subtle">{t("debugpy on host port {{port}}", { port: stored.debugHostPort })}</span> : null}
+          </div>
+        )}
+        <Checkbox label={t("Enable Python")} checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
+        {enabled && python && (
+          <Field label={t("Python version")} htmlFor="python-version">
+            <Select id="python-version" value={version} onChange={(e) => setVersion(e.target.value)}>
+              {python.versions.map((v) => (
+                <option key={v.version} value={v.version}>
+                  {v.label}
+                  {v.eol ? t(" (end of life)") : v.preview ? t(" (preview)") : ""}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        )}
+        {enabled && <PythonServerFields value={server} onChange={setServer} presets={runtimes.data?.pythonPresets ?? defaultPythonPresets} primary={serves !== "php"} />}
       </div>
     </Card>
   );

@@ -94,6 +94,22 @@ const (
 // toolEnv are the variables that point tools at the persistent home.
 var toolEnv = []string{"HOME=" + homeMountTarget, "COMPOSER_HOME=" + homeMountTarget + "/.composer", "npm_config_cache=" + homeMountTarget + "/.npm", "COMPOSER_NO_INTERACTION=1"}
 
+// pythonVenvPath is the project's virtual environment as every container sees it: the
+// app mount plus runtime.PythonVenv. The container PATH, the Python actions and the
+// Python templates all create and use this one path.
+const pythonVenvPath = appMountTarget + "/" + runtime.PythonVenv
+
+// pythonEnv makes the project's virtual environment the default interpreter: PATH starts
+// with .venv/bin (python, pip, gunicorn … resolve there once it exists) and the user site
+// (pip install --user lands in the persistent home), pip/uv caches persist in the home.
+var pythonEnv = []string{
+	"VIRTUAL_ENV=" + pythonVenvPath,
+	"PATH=" + pythonVenvPath + "/bin:" + homeMountTarget + "/.local/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin",
+	"PIP_CACHE_DIR=" + homeMountTarget + "/.cache/pip",
+	"UV_CACHE_DIR=" + homeMountTarget + "/.cache/uv",
+	"PYTHONUNBUFFERED=1",
+}
+
 // jetbrainsCacheDir is the shared, host-wide cache for JetBrains Gateway IDE backends
 // (~1.5 GB per IDE version) so it is downloaded once for all projects.
 const jetbrainsCacheDir = "jetbrains"
@@ -253,12 +269,11 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 				RestartPolicy: "unless-stopped",
 				StopTimeout:   stopTimeoutSec,
 			}
-			// While a Node dev server serves the app the proxy bypasses this container and
-			// its port stays unpublished so the docroot (often the project root with .env
-			// and sources) is not exposed on the LAN. The port stays allocated so turning
-			// the dev server off publishes it again.
-			_, servesNode := nodeServesApp(proj)
-			if proj.HTTPPort > 0 && !servesNode {
+			// While a Python server or Node dev server serves the app the proxy bypasses
+			// this container and its port stays unpublished so the docroot (often the
+			// project root with .env and sources) is not exposed on the LAN. The port stays
+			// allocated so turning the server off publishes it again.
+			if proj.HTTPPort > 0 && !appServesDirectly(proj) {
 				spec.Ports = []docker.PortSpec{{HostIP: p.paths.PublishInterface, HostPort: proj.HTTPPort, ContainerPort: 80, Protocol: "tcp"}}
 			}
 			plan.Containers = append(plan.Containers, ContainerPlan{Kind: store.ServiceWeb, Order: 20, Spec: spec})
@@ -313,6 +328,54 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 				}
 			}
 			plan.Containers = append(plan.Containers, ContainerPlan{Kind: store.ServiceNode, Order: 15, Spec: spec})
+			images[svc.Image] = true
+
+		case store.ServicePython:
+			var pcfg runtime.PythonConfig
+			if len(svc.Config) > 0 {
+				if err := json.Unmarshal(svc.Config, &pcfg); err != nil {
+					return Plan{}, fmt.Errorf("python config: %w", err)
+				}
+			}
+			if err := pcfg.Normalize(); err != nil {
+				return Plan{}, err
+			}
+			spec := docker.ContainerSpec{
+				Name:   ContainerName(proj.Slug, store.ServicePython),
+				Image:  svc.Image,
+				Labels: labels,
+				// Tooling container: idles until actions or the terminal run commands.
+				Cmd:           []string{"sleep", "infinity"},
+				Env:           append(append(append([]string{}, env...), toolEnv...), pythonEnv...),
+				User:          fmt.Sprintf("%d:%d", p.paths.PUID, p.paths.PGID),
+				WorkingDir:    appMountTarget,
+				Network:       plan.NetworkName,
+				NetworkAlias:  []string{"python"},
+				Mounts:        append([]docker.MountSpec{{Type: "bind", Source: appHost, Target: appMountTarget}, p.HomeMount(proj)}, p.gatewayMounts(proj)...),
+				RestartPolicy: "unless-stopped",
+				StopTimeout:   stopTimeoutSec,
+			}
+			if pcfg.Server {
+				// Server mode: the application server is the main process, published on a
+				// host port; without PHP the proxy routes the project URL to it.
+				spec.Cmd = pcfg.Command()
+				if _, ok := pythonServesApp(proj); ok {
+					// A blank project has nothing to run yet: wait for the entry file
+					// instead of crash-looping. PHP+Python projects keep the plain command.
+					spec.Cmd = pcfg.WrappedCommand()
+				}
+				spec.Env = append(spec.Env, pcfg.Env()...)
+				if pcfg.HostPort > 0 {
+					spec.Ports = []docker.PortSpec{{HostIP: p.paths.PublishInterface, HostPort: pcfg.HostPort, ContainerPort: pcfg.Port, Protocol: "tcp"}}
+				}
+			}
+			if pcfg.Debug && pcfg.DebugHostPort > 0 {
+				// debugpy itself is started by whatever process the developer launches (see
+				// PythonConfig.Debug) – in the application server, or by hand in the
+				// terminal, which is why the port does not depend on the server.
+				spec.Ports = append(spec.Ports, docker.PortSpec{HostIP: p.paths.PublishInterface, HostPort: pcfg.DebugHostPort, ContainerPort: pcfg.DebugPort, Protocol: "tcp"})
+			}
+			plan.Containers = append(plan.Containers, ContainerPlan{Kind: store.ServicePython, Order: 12, Spec: spec})
 			images[svc.Image] = true
 
 		case store.ServiceDatabase:
@@ -435,10 +498,10 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 	}
 
 	// Workers: one container per definition from the image of the preset's runtime (PHP
-	// presets from the PHP image with its ini, Node presets from the Node image with the
-	// project home), sharing env and the project mount. A worker whose runtime the project
-	// does not have is skipped – it comes back when the runtime is added.
-	php, node := proj.Service(store.ServicePHP), proj.Service(store.ServiceNode)
+	// presets from the PHP image with its ini, Node and Python presets from their image
+	// with the project home), sharing env and the project mount. A worker whose runtime
+	// the project does not have is skipped – it comes back when the runtime is added.
+	php, node, python := proj.Service(store.ServicePHP), proj.Service(store.ServiceNode), proj.Service(store.ServicePython)
 	for _, w := range proj.Workers {
 		if !w.Enabled {
 			continue
@@ -470,6 +533,13 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 			}
 			spec.Image = node.Image
 			spec.Env = append(append(append([]string{}, env...), toolEnv...), "NODE_ENV=development")
+			spec.Mounts = append(spec.Mounts, p.HomeMount(proj))
+		case WorkerRuntimePython:
+			if python == nil || !python.Enabled {
+				continue
+			}
+			spec.Image = python.Image
+			spec.Env = append(append(append([]string{}, env...), toolEnv...), pythonEnv...)
 			spec.Mounts = append(spec.Mounts, p.HomeMount(proj))
 		default:
 			if php == nil || !php.Enabled {

@@ -2,7 +2,7 @@
 
 Envoryx is a Docker-native development environment manager for Unraid and Linux
 Docker hosts. It runs as a single container, talks to the Docker Engine API and
-creates isolated, per-project stacks (PHP, web server, database, cache, Node …).
+creates isolated, per-project stacks (PHP, Python, Node, web server, database, cache …).
 
 This document describes the architecture that Phase 1 (Foundation) and Phase 2
 (Project Lifecycle) are built on and the decisions that shape later phases.
@@ -18,7 +18,7 @@ Go API (single binary, single container)
    │
    ├── Auth            (argon2id, server-side sessions, CSRF/origin checks)
    ├── Project Manager (desired state, lifecycle, rollback, reconciliation)
-   ├── Runtime Catalog (PHP / Node / DB / cache versions → images)
+   ├── Runtime Catalog (PHP / Node / Python / DB / cache versions → images)
    ├── Docker Manager  (label-scoped Docker Engine abstraction)
    ├── Backup Manager  (Phase 7)
    └── Audit Log
@@ -255,7 +255,7 @@ volume     envoryx-<slug>-<service>      e.g. envoryx-acme-shop-mariadb
 Slugs match `^[a-z0-9]([a-z0-9-]{0,38}[a-z0-9])?$` – lower-case DNS-safe.
 
 Inside the project network containers use network aliases: `web`, `php`,
-`database`, `redis`, `node`.
+`database`, `redis`, `node`, `python`.
 
 ### 6.3 Engine interface (internal/docker)
 
@@ -360,10 +360,13 @@ A PHP project consists of two containers from the start:
 **Projects without PHP.** PHP is optional (`CreateRequest.PHP == nil`); the
 web container is not. `internal/project/app.go` is the single source of
 truth for the resulting shape: `appService(p)` is the enabled PHP service,
-else the enabled Node service, else nil; `nodeServesApp(p)` is true when
-there is no PHP and the Node service runs its dev server; `Serves(p)` yields
-`php`, `node` or `static` (exposed as `serves` in the API and MCP output,
-`appService` names the container kind).
+else the enabled Python service, else the enabled Node service, else nil;
+`pythonServesApp(p)` is true when there is no PHP and the Python service
+runs its application server, `nodeServesApp(p)` when there is neither PHP
+nor a Python server and the Node service runs its dev server;
+`appServesDirectly(p)` is either; `Serves(p)` yields `php`, `python`, `node`
+or `static` (exposed as `serves` in the API and MCP output, `appService`
+names the container kind).
 
 - *Static* (`serves=static`, no PHP, Node absent or without dev server): the
   renderers' static branch serves the document root with `index.html` as the
@@ -395,13 +398,32 @@ there is no PHP and the Node service runs its dev server; `Serves(p)` yields
   the domain table. PHP+Node
   projects keep today's `Cmd`, ports and `specFingerprint`, so no existing
   container is recreated by this change.
-- Start order is database → php/node → web (planner order: database and
-  services 5–8, php 10, node 15, web 20). One-shot
-  containers (git, templates) run from `toolImage(p)`: the PHP image, else
-  the Node image, else the catalogue's default Node image – git and ssh ship
-  in both Envoryx images. Templates carry `Runtime` (`php`|`node`); a Node
-  template refuses a request without Node (`ErrInvalid`), a PHP template one
-  without PHP.
+- *Python application server* (`serves=python`): the same mechanics with the
+  Python container as the upstream (`envoryx-<slug>-python:<port>`, host
+  port on bare metal, `Running` follows the python container, web port
+  withdrawn). `runtime.PythonConfig` (`internal/runtime/python.go`) selects
+  the preset – `django` (`manage.py runserver` / gunicorn), `flask` (`flask
+  run --debug` / gunicorn), `asgi` (uvicorn, `--reload` in dev mode), `wsgi`
+  (gunicorn) or `module` (`python -m`, HOST/PORT env) – plus `Mode`
+  (`dev`|`production`), `App` (`module:attribute`, validated against a
+  strict identifier pattern so it can appear in the wait guard) and `Port`.
+  The wait guard tests for the entry file (`manage.py`, else
+  `<module>.py`/`<module>/`) instead of `package.json`. The container runs as
+  PUID:PGID with the project home and `pythonEnv`: `PATH` starts with
+  `/var/www/html/.venv/bin` and `/home/envoryx/.local/bin`, so python, pip,
+  gunicorn … resolve to the project's `.venv` once it exists, and pip/uv
+  caches persist in the home. `PythonConfig.Debug` publishes `DebugPort`
+  (debugpy, default 5678) on `DebugHostPort`; debugpy itself is started by
+  the application. A Python server next to PHP keeps its host port but no
+  route (PHP stays the application); next to a Node dev server the Python
+  server takes the project URL and the dev server keeps `<slug>-dev.<base>`.
+- Start order is database → php/python/node → web (planner order: database
+  and services 5–8, php 10, python 12, node 15, web 20). One-shot
+  containers (git, templates) run from `toolImage(p)`: the application
+  container's image (PHP, Python or Node), else the catalogue's default Node
+  image – git and ssh ship in every Envoryx image. Templates carry `Runtime`
+  (`php`|`node`|`python`); a template refuses a request without its runtime
+  (`ErrInvalid`).
 
 Why a per-project web container instead of one central proxy speaking FastCGI:
 FastCGI details stay inside the project; the future central reverse proxy
@@ -628,12 +650,13 @@ of its restart policy.
 | auth | hashing, sessions, expiry, middleware, CSRF | unit tests with in-memory SQLite |
 | store | migrations, CRUD, transactions | in-memory SQLite |
 | project | planner output, create/start/stop/restart/delete, rollback on failure, reconciliation after "restart", container unexpectedly stopped, unmanaged resources untouched | unit tests against the fake Engine |
-| project (no PHP) | `app.go` helpers per shape; Node-only create (web+node, no starter, unpublished web port, wrapped `Cmd`, Vite allow-list); static create (`index.html` starter, published port); SPA fallback rendering and its PHP rejection; routes of `<slug>.<base>` / extra domains / `-dev` following `nodeServesApp` and flipping back to web when the dev server is turned off; injected env in the node container; one-shot image choice for git/templates; SSH user resolution `<slug>` → php → node; workers refused without PHP; `.next/.nuxt/.output` in backups | unit tests against the fake Engine |
+| project (no PHP) | `app.go` helpers per shape; Node-only create (web+node, no starter, unpublished web port, wrapped `Cmd`, Vite allow-list); static create (`index.html` starter, published port); SPA fallback rendering and its PHP rejection; routes of `<slug>.<base>` / extra domains / `-dev` following `nodeServesApp` and flipping back to web when the dev server is turned off; injected env in the node container; one-shot image choice for git/templates; SSH user resolution `<slug>` → php → python → node; workers refused without their runtime; `.next/.nuxt/.output/.venv` in backups | unit tests against the fake Engine |
+| project (Python) | `python_test.go`: Python-only create (wait guard on the entry file, venv `PATH`, published server port, unpublished web port, no starter), routes and bare-metal dial, SSH users, production mode + debugpy port kept across edits, server off → static, removal takes the Python workers' containers (definition paused), Python + Node dev server (Python takes the project URL, Vite keeps `-dev`), PHP added on top, template defaults merged into the request; `runtime/python_test.go` pins every preset's argv | unit tests against the fake Engine |
 | runtime | per-preset ports, `Command()`/`WrappedCommand()`/`Env()`; web configs caddy/apache/nginx × {php, static, static+spa} with the PHP output pinned as golden | table-driven unit tests |
-| api / mcp | project without `php` over HTTP (preview, DTO fields `serves`/`appService`, 409 on `PUT php`, 404 on php logs, node terminal), `/runtimes` with `nodePresets` and template runtimes; MCP `phpVersion:"none"` + `nodePreset`, template/runtime errors, `get_logs` default service | httptest + fake Engine |
+| api / mcp | project without `php` over HTTP (preview, DTO fields `serves`/`appService`, 409 on `PUT php`, 404 on php logs, node terminal), Python project over HTTP (preview ports, config with allocated host ports, python terminal with venv env, Python/Django actions, server off and removal, rejected preset/app), `/runtimes` with `nodePresets`/`pythonPresets` and template runtimes; MCP `phpVersion:"none"` + `nodePreset`, template/runtime errors, `get_logs` default service | httptest + fake Engine |
 | api | unauthorized access, validation errors, error envelope, full lifecycle over HTTP | httptest + fake Engine |
 | docker | real engine behaviour (labels, guards, foreign containers untouched) | integration tests behind `//go:build integration` (need Docker) |
-| web | components, login flow, wizard flow (PHP, Node.js and static stacks, template filtering), project list actions, IDE/Git/Domains tabs per runtime shape, i18n parity of all dictionaries | Vitest + Testing Library |
+| web | components, login flow, wizard flow (PHP, Python, Node.js and static stacks, template filtering), project list actions, IDE/Git/Domains tabs per runtime shape, Python server fields and card, i18n parity of all dictionaries | Vitest + Testing Library |
 | e2e | lifecycle of a PHP project and of a static project without PHP (`web/e2e`) | Playwright against a Docker host |
 
 ---
@@ -685,15 +708,16 @@ application containers while stateful services keep running.
 ### SSH (`internal/sshd`)
 `golang.org/x/crypto/ssh` server with an Ed25519 host key. Auth resolves the
 user name through `Manager.ResolveSSHUser` (`<slug>` → the application
-container: PHP when present, else Node; `<slug>.php` / `<slug>.node` pick one
-explicitly; a project with neither is `ErrNotFound`) and validates either an API token (password) or an authorized key
+container: PHP when present, else Python, else Node; `<slug>.php` /
+`<slug>.python` / `<slug>.node` pick one explicitly; a project with none is
+`ErrNotFound`) and validates either an API token (password) or an authorized key
 from the settings. Session channels map `pty-req/shell/exec` to
 `Engine.OpenTerminal` (PTY) or `Engine.ExecStream` (pipes, now with
 `WorkingDir`) in the target container as PUID:PGID, `subsystem sftp` to a
 `pkg/sftp` request server over `projectFS`, which serves `/var/www/html`
 and `/home/envoryx` from the Envoryx-side directories of the same bind mounts
 and chowns created files. `/home/envoryx` is a new persistent per-project
-home (`/config/projects/<id>/home`) mounted into php/node/worker containers;
+home (`/config/projects/<id>/home`) mounted into php/python/node/worker containers;
 tool caches and IDE helpers live there. Container specs now carry a
 `envoryx.spec` fingerprint label (command, mounts, ports, …) so `ensurePlan`
 recreates containers whose structure changed (e.g. the new home mount).
@@ -712,12 +736,14 @@ as the project user.
 `project_workers` (migration 0005: name, preset, args, enabled) hold
 long-running processes. Presets are a closed catalogue in `workers.go`
 (argv builders; the single user argument is validated per preset – queue
-names, relative script paths, composer and npm script names). Every preset
-names its `Runtime` (`php` or `node`); the planner emits one container per
-enabled worker from that runtime's image (`Kind` and service label
-`worker:<id>`, name `envoryx-<slug>-worker-<name>`, order 30, project env,
-PUID:PGID, `unless-stopped`; PHP workers get the php.ini mount, Node workers
-the tool env and the project home), so `ensurePlan`, start/stop, env
+names, relative script paths, composer and npm script names, Python module
+paths). Every preset names its `Runtime` (`php`, `node` or `python`); the
+planner emits one container per enabled worker from that runtime's image
+(`Kind` and service label `worker:<id>`, name
+`envoryx-<slug>-worker-<name>`, order 30, project env, PUID:PGID,
+`unless-stopped`; PHP workers get the php.ini mount, Node and Python
+workers the tool env, the project home and – for Python – the venv `PATH`),
+so `ensurePlan`, start/stop, env
 recreation and delete treat them like any other container. A worker whose
 runtime the project lacks is skipped by the planner – it comes back when
 the runtime is added – and `AddWorker`/`UpdateWorker` refuse it with
@@ -739,6 +765,12 @@ exec "$@"'` – so every start builds first and only the serve process sees
 never through a container-wide `NODE_OPTIONS`, which would attach to the
 package manager's own node process.
 
+Python is added, changed and removed the same way (`PythonUpdate`,
+`applyPythonUpdate`, position 12): host ports for the server and debugpy
+are kept across edits and allocated when the server or debugpy is switched
+on; removing Python takes its container and the Python workers' containers
+with it, the worker definitions survive as "paused".
+
 ### Notifications
 `internal/notify` is a small `Sender` (`Notify(ctx, Event)`, `Clear(key)`)
 with providers webhook/ntfy/Discord/Slack/Telegram/SMTP, per-kind cooldowns
@@ -751,10 +783,11 @@ returns secrets and keeps stored ones when a request leaves them empty.
 
 ### Templates
 `project.Templates()` is a closed list: Laravel, Symfony, WordPress
-(`Runtime: "php"`) and Vite + React (TypeScript), Next.js (App Router,
-TypeScript), Nuxt (`Runtime: "node"`). A template is a sequence of argv steps
-run in transient containers from the project's runtime image (`toolImage`:
-PHP, else Node) as PUID:PGID with the project directory mounted
+(`Runtime: "php"`), Vite + React (TypeScript), Next.js (App Router,
+TypeScript), Nuxt (`Runtime: "node"`) and Django, Flask, FastAPI
+(`Runtime: "python"`). A template is a sequence of argv steps
+run in transient containers from the image of the runtime it names as
+PUID:PGID with the project directory mounted
 (`RunOneShot`, label `envoryx.service=template`, default bridge network for
 composer/npm downloads) plus files Envoryx writes afterwards (WordPress
 `wp-config.php` reading the injected `DB_*` variables, random salts). Node
@@ -763,7 +796,16 @@ scaffolds mount the project directory at `/tmp/<slug>` instead of
 is writable, run with `HOME=/tmp`, `npm_config_cache=/tmp/.npm`, `CI=1` and
 the corepack/npm prompts disabled, and carry Node defaults (`DevServer`,
 `Preset`, `Port`, `Script`, docroot `dist` for Vite) that fill an empty
-`NodeRequest.Config`. The directory must be empty (like a clone); templates
+`NodeRequest.Config`. Python scaffolds create `/var/www/html/.venv` first
+and run the following steps with the venv first on `PATH` (pip installs
+into it, never into the image), pin the result with `pip freeze >
+requirements.txt` and carry `PythonConfig` defaults (`Server`, `Preset`,
+`Port`, `App`) that fill an empty `PythonRequest.Config`; the Django
+template patches the generated `settings.py` for the proxy (`ALLOWED_HOSTS
+= ["*"]`, `SECURE_PROXY_SSL_HEADER`, `USE_X_FORWARDED_HOST`,
+`CSRF_TRUSTED_ORIGINS` from the environment) and reads the injected
+`DATABASE_URL` through `dj-database-url`. The directory must be empty (like
+a clone); templates
 set the document root and add required PHP extensions (`mysqli` for
 WordPress) and may require a database. A failing step rolls the whole
 creation back.
@@ -804,10 +846,11 @@ expiry in a background loop; config/token under `/config/ca/acme.json`
   project directory; output streams over the same WebSocket mechanism and
   Ctrl+C is delivered on cancel/disconnect. `ListActions` only lists
   catalogue entries whose service the project has (a PHP-only project shows
-  no npm actions, a Node-only project no composer/artisan ones); each runs in
-  the matching runtime container, `node:version` is the Node counterpart of
+  no npm actions, a Node-only project no composer/artisan ones, Python
+  projects get pip/uv/Django entries); each runs in the matching runtime
+  container, `node:version` and `python:version` are the counterparts of
   `php:version`. Git runs in a transient container from the project's
-  runtime image (`toolImage`: PHP, else Node; `RunOneShot`) with the deploy
+  runtime image (`toolImage`: PHP, else Python, else Node; `RunOneShot`) with the deploy
   key mounted only there; tokens travel via `GIT_CONFIG_*` env. The Node
   service is an idle tooling container (`sleep infinity`, runs as PUID:PGID)
   from `ghcr.io/envoryx/envoryx-node:<v>` until the dev server is enabled.

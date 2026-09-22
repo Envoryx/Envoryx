@@ -42,11 +42,11 @@ export function WorkersTab({ project }: { project: Project }) {
     onSuccess: refresh,
     onError: (err) => fail(err, t("Removing the worker failed")),
   });
-  const hasPhp = project.services.some((s) => s.kind === "php" && s.enabled);
-  const hasNode = project.services.some((s) => s.kind === "node" && s.enabled);
+  const has = (kind: string) => project.services.some((s) => s.kind === kind && s.enabled);
+  const hasRuntime = has("php") || has("node") || has("python");
   // Presets run in the runtime they name; only those the project has are offered. The
   // stored choice may name a preset that is filtered out, so the first offered one stands in.
-  const available = (p: WorkerPreset) => ((p.runtime ?? "php") === "node" ? hasNode : hasPhp);
+  const available = (p: WorkerPreset) => has(p.runtime ?? "php");
   const presets = (q.data?.presets ?? []).filter(available);
   const selected = presets.find((p) => p.id === preset) ?? presets[0];
   const selectedId = () => selected?.id ?? preset;
@@ -65,7 +65,7 @@ export function WorkersTab({ project }: { project: Project }) {
   return (
     <div className="space-y-6">
       {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
-      {!hasPhp && !hasNode && <Alert tone="amber">{t("Workers run in the project's PHP or Node.js container – this project has neither. Add a runtime in the Runtime tab first.")}</Alert>}
+      {!hasRuntime && <Alert tone="amber">{t("Workers run in the project's PHP, Python or Node.js container – this project has none. Add a runtime in the Runtime tab first.")}</Alert>}
       <Card>
         <CardHeader
           title={
@@ -73,7 +73,7 @@ export function WorkersTab({ project }: { project: Project }) {
               <Cog className="size-4 text-accent-500" aria-hidden /> {t("Workers")}
             </span>
           }
-          description={t("Long-running processes next to the web server: queue workers, schedulers, WebSocket servers. Each runs in its own container from the project's PHP or Node.js image, restarts automatically and follows start/stop of the project. Logs are in the Logs tab.")}
+          description={t("Long-running processes next to the web server: queue workers, schedulers, WebSocket servers. Each runs in its own container from the project's PHP, Python or Node.js image, restarts automatically and follows start/stop of the project. Logs are in the Logs tab.")}
         />
         {q.data.workers.length === 0 ? (
           <p className="px-5 py-4 text-sm text-muted">{t("No workers yet.")}</p>
@@ -90,7 +90,7 @@ export function WorkersTab({ project }: { project: Project }) {
                       <Badge>{p ? t(p.label) : w.preset}</Badge>
                       {w.enabled ? (
                         st ? (
-                          <span className="inline-flex items-center gap-1.5 text-xs font-normal text-muted" title={st.status === "runtime missing" ? t("The runtime this worker needs (PHP or Node.js) is not part of the project; the worker resumes once it is added.") : undefined}>
+                          <span className="inline-flex items-center gap-1.5 text-xs font-normal text-muted" title={st.status === "runtime missing" ? t("The runtime this worker needs (PHP, Python or Node.js) is not part of the project; the worker resumes once it is added.") : undefined}>
                             <StatusDot tone={containerStateTone(st.state)} /> {st.status === "runtime missing" ? t("paused – runtime missing") : st.state}
                           </span>
                         ) : null

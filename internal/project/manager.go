@@ -176,6 +176,28 @@ func (m *Manager) buildProject(req CreateRequest) (store.Project, error) {
 					c.Script = tpl.Node.Script
 				}
 			}
+		case "python":
+			if req.Python == nil {
+				return store.Project{}, fmt.Errorf("%w: template %s needs Python", validate.ErrInvalid, tpl.ID)
+			}
+			if tpl.Python != nil {
+				// Same merge as for Node: the template's preset, port and app win where the
+				// request left them empty; a request without server settings takes the
+				// template's Server flag.
+				c := &req.Python.Config
+				if c.Preset == "" && c.Port == 0 && c.App == "" {
+					c.Server = tpl.Python.Server
+				}
+				if c.Preset == "" {
+					c.Preset = tpl.Python.Preset
+					if c.Port == 0 {
+						c.Port = tpl.Python.Port
+					}
+					if c.App == "" {
+						c.App = tpl.Python.App
+					}
+				}
+			}
 		default: // "php"
 			if req.PHP == nil {
 				return store.Project{}, fmt.Errorf("%w: template %s needs PHP", validate.ErrInvalid, tpl.ID)
@@ -281,6 +303,23 @@ func (m *Manager) buildProject(req CreateRequest) (store.Project, error) {
 		}
 		proj.Services = append(proj.Services, store.ProjectService{
 			Kind: store.ServiceNode, Variant: "node", Version: v.Version, Image: v.Image, Enabled: true, Position: 15, Config: raw,
+		})
+	}
+	if req.Python != nil {
+		v, err := m.catalog.Resolve("python", req.Python.Version)
+		if err != nil {
+			return store.Project{}, err
+		}
+		cfg := req.Python.Config
+		if err := cfg.Normalize(); err != nil {
+			return store.Project{}, err
+		}
+		raw, err := json.Marshal(cfg)
+		if err != nil {
+			return store.Project{}, err
+		}
+		proj.Services = append(proj.Services, store.ProjectService{
+			Kind: store.ServicePython, Variant: "python", Version: v.Version, Image: v.Image, Enabled: true, Position: 12, Config: raw,
 		})
 	}
 	if req.Git != nil {
@@ -435,6 +474,9 @@ func (m *Manager) Preview(ctx context.Context, req CreateRequest) (Preview, erro
 	if cfg, ok := nodeServesApp(proj); ok && req.Template == "" && (req.Git == nil || req.Git.URL == "") {
 		pv.Warnings = append(pv.Warnings, fmt.Sprintf("the dev server runs %q but nothing creates a package.json – pick a Node template, clone a repository or scaffold from the Node terminal; until then the container waits", cfg.PackageManager+" run "+cfg.Script))
 	}
+	if cfg, ok := pythonServesApp(proj); ok && req.Template == "" && (req.Git == nil || req.Git.URL == "") {
+		pv.Warnings = append(pv.Warnings, fmt.Sprintf("the application server runs %q but nothing creates the application – pick a Python template, clone a repository or scaffold from the Python terminal; until then the container waits", strings.Join(cfg.Command(), " ")))
+	}
 	// Surface name/path conflicts early so the wizard can react before submitting.
 	if projects, err := m.store.Projects.List(ctx); err == nil {
 		for _, p := range projects {
@@ -513,6 +555,17 @@ func (m *Manager) collectUsedPorts(ctx context.Context, used map[int]bool) error
 				}
 			}
 		}
+		if svc := p.Service(store.ServicePython); svc != nil {
+			var cfg runtime.PythonConfig
+			if json.Unmarshal(svc.Config, &cfg) == nil {
+				if cfg.HostPort > 0 {
+					used[cfg.HostPort] = true
+				}
+				if cfg.DebugHostPort > 0 {
+					used[cfg.DebugHostPort] = true
+				}
+			}
+		}
 		if svc := p.Service(store.ServiceStorage); svc != nil {
 			var cfg runtime.StorageConfig
 			if json.Unmarshal(svc.Config, &cfg) == nil {
@@ -581,7 +634,20 @@ func (m *Manager) assignServicePorts(ctx context.Context, proj *store.Project, r
 			return err
 		}
 		if req.Node.Config.Inspect {
-			if err := m.assignInspectPort(ctx, proj, &taken); err != nil {
+			if err := m.assignDebugPort(ctx, proj, store.ServiceNode, &taken); err != nil {
+				return err
+			}
+		}
+	}
+	if req.Python != nil {
+		if req.Python.Config.Server {
+			if err := assign(store.ServicePython); err != nil {
+				return err
+			}
+		}
+		// The debugger port is independent of the server: a tooling container gets one too.
+		if req.Python.Config.Debug {
+			if err := m.assignDebugPort(ctx, proj, store.ServicePython, &taken); err != nil {
 				return err
 			}
 		}
@@ -589,9 +655,10 @@ func (m *Manager) assignServicePorts(ctx context.Context, proj *store.Project, r
 	return nil
 }
 
-// assignInspectPort publishes the Node inspector on a host port of its own.
-func (m *Manager) assignInspectPort(ctx context.Context, proj *store.Project, taken *[]int) error {
-	svc := proj.Service(store.ServiceNode)
+// assignDebugPort publishes the Node inspector or Python's debugpy on a host port of its
+// own.
+func (m *Manager) assignDebugPort(ctx context.Context, proj *store.Project, kind store.ServiceKind, taken *[]int) error {
+	svc := proj.Service(kind)
 	if svc == nil {
 		return nil
 	}
@@ -600,12 +667,23 @@ func (m *Manager) assignInspectPort(ctx context.Context, proj *store.Project, ta
 		return err
 	}
 	*taken = append(*taken, port)
-	var cfg runtime.NodeConfig
-	if err := json.Unmarshal(svc.Config, &cfg); err != nil {
-		return err
+	var raw []byte
+	switch kind {
+	case store.ServicePython:
+		var cfg runtime.PythonConfig
+		if err := json.Unmarshal(svc.Config, &cfg); err != nil {
+			return err
+		}
+		cfg.DebugHostPort = port
+		raw, err = json.Marshal(cfg)
+	default:
+		var cfg runtime.NodeConfig
+		if err := json.Unmarshal(svc.Config, &cfg); err != nil {
+			return err
+		}
+		cfg.InspectHostPort = port
+		raw, err = json.Marshal(cfg)
 	}
-	cfg.InspectHostPort = port
-	raw, err := json.Marshal(cfg)
 	if err != nil {
 		return err
 	}
@@ -617,6 +695,21 @@ func (m *Manager) assignInspectPort(ctx context.Context, proj *store.Project, ta
 func setHostPort(svc *store.ProjectService, port int) error {
 	if svc.Kind == store.ServiceNode {
 		var cfg runtime.NodeConfig
+		if len(svc.Config) > 0 {
+			if err := json.Unmarshal(svc.Config, &cfg); err != nil {
+				return err
+			}
+		}
+		cfg.HostPort = port
+		raw, err := json.Marshal(cfg)
+		if err != nil {
+			return err
+		}
+		svc.Config = raw
+		return nil
+	}
+	if svc.Kind == store.ServicePython {
+		var cfg runtime.PythonConfig
 		if len(svc.Config) > 0 {
 			if err := json.Unmarshal(svc.Config, &cfg); err != nil {
 				return err
@@ -675,6 +768,8 @@ func (m *Manager) resolveImages(p *store.Project) {
 			key = "php"
 		case store.ServiceNode:
 			key = "node"
+		case store.ServicePython:
+			key = "python"
 		case store.ServiceRedis, store.ServiceMailpit:
 			key = string(svc.Kind)
 		case store.ServiceWeb, store.ServiceDatabase, store.ServiceStorage:
@@ -857,7 +952,7 @@ const starterIndexHTML = `<!doctype html>
 <main>
   <p class="ok">● Running</p>
   <h1>{{project}}</h1>
-  <p>Your Envoryx project is served by the web server from its document root. Build your app into this directory, or enable the Node dev server in the Runtime tab.</p>
+  <p>Your Envoryx project is served by the web server from its document root. Build your app into this directory, or enable a Python server or Node dev server in the Runtime tab.</p>
   <p>Replace <code>index.html</code> to get started.</p>
 </main>
 </body>

@@ -97,8 +97,11 @@ export interface EnvVar {
   isSecret: boolean;
 }
 
-/** What a project's primary hostname serves: PHP-FPM behind the web server, the Node dev server or static files. */
-export type Serves = "php" | "node" | "static";
+/** What a project's primary hostname serves: PHP-FPM behind the web server, the Python application server, the Node dev server or static files. */
+export type Serves = "php" | "python" | "node" | "static";
+
+/** Kind of the container that runs the project's code. */
+export type AppKind = "php" | "python" | "node";
 
 export interface Project {
   id: string;
@@ -118,26 +121,35 @@ export interface Project {
   git: { url: string; branch: string; username: string; hasToken: boolean };
   /** Default hostname (slug.base) followed by extra domains. */
   hostnames: string[];
-  /** Set when the Node dev server is enabled (routed by the proxy); also the primary route when the project has no PHP. */
+  /** Set when the Node dev server is enabled (routed by the proxy); also the primary route when the project has neither PHP nor a Python server. */
   devHostname?: string;
   /** Missing on payloads from a backend that predates it – use servesOf() then. */
   serves?: Serves;
-  /** The application container: PHP if present, else Node; absent for static projects. */
-  appService?: "php" | "node";
+  /** The application container: PHP if present, else Python, else Node; absent for static projects. */
+  appService?: AppKind;
   backupSchedule: BackupSchedule;
   ideGateway?: boolean;
 }
 
 /**
- * Client-side fallback for `project.serves`: PHP enabled → php; Node enabled with the dev server
- * on → node; everything else → static. Prefer `project.serves ?? servesOf(project)`.
+ * Client-side fallback for `project.serves`: PHP enabled → php; Python enabled with the server
+ * on → python; Node enabled with the dev server on → node; everything else → static. Prefer
+ * `project.serves ?? servesOf(project)`.
  */
 export function servesOf(p: Pick<Project, "services">): Serves {
   const enabled = (kind: string) => p.services.find((s) => s.kind === kind && s.enabled);
   if (enabled("php")) return "php";
+  const python = enabled("python");
+  if (python && (python.config as PythonConfig).server) return "python";
   const node = enabled("node");
   if (node && (node.config as NodeConfig).devServer) return "node";
   return "static";
+}
+
+/** Client-side fallback for `project.appService`: the first enabled application runtime. */
+export function appKindOf(p: Pick<Project, "services">): AppKind | undefined {
+  const enabled = (kind: string) => p.services.some((s) => s.kind === kind && s.enabled);
+  return enabled("php") ? "php" : enabled("python") ? "python" : enabled("node") ? "node" : undefined;
 }
 
 export interface RuntimeVersion {
@@ -175,9 +187,11 @@ export interface ProjectTemplate {
   phpExtensions?: string[];
   notes?: string;
   /** The runtime the template scaffolds for and runs in; older backends omit it (PHP). */
-  runtime?: "php" | "node";
+  runtime?: AppKind;
   /** Dev-server defaults of a Node template (preset, port, script). */
   node?: NodeConfig;
+  /** Server defaults of a Python template (preset, port, app). */
+  python?: PythonConfig;
 }
 
 /** Framework preset of the Node dev server with the port the framework listens on by default. */
@@ -195,12 +209,32 @@ export const defaultNodePresets: NodePreset[] = [
   { key: "generic", label: "Other (HOST/PORT env only)", port: 5173 },
 ];
 
+/** Application-server preset of the Python runtime with its default port and import path. */
+export interface PythonPreset {
+  key: string;
+  label: string;
+  port: number;
+  app: string;
+  appLabel: string;
+  appHint: string;
+}
+
+/** Fallback when the backend predates pythonPresets. */
+export const defaultPythonPresets: PythonPreset[] = [
+  { key: "django", label: "Django", port: 8000, app: "config.wsgi:application", appLabel: "WSGI application (production mode)", appHint: "e.g. config.wsgi:application – dev mode runs manage.py runserver" },
+  { key: "flask", label: "Flask", port: 5000, app: "app:app", appLabel: "Application", appHint: "module:attribute, e.g. app:app" },
+  { key: "asgi", label: "FastAPI / ASGI (uvicorn)", port: 8000, app: "main:app", appLabel: "ASGI application", appHint: "module:attribute, e.g. main:app" },
+  { key: "wsgi", label: "WSGI (gunicorn)", port: 8000, app: "app:app", appLabel: "WSGI application", appHint: "module:attribute, e.g. app:app" },
+  { key: "module", label: "Other (python -m, HOST/PORT env only)", port: 8000, app: "app", appLabel: "Module", appHint: "run as python -m <module>; listen on $HOST:$PORT" },
+];
+
 export interface RuntimesResponse {
   runtimes: Runtime[];
   phpExtensions: PHPExtension[];
   phpDefaults: PHPConfig;
   templates?: ProjectTemplate[];
   nodePresets?: NodePreset[];
+  pythonPresets?: PythonPreset[];
 }
 
 export interface DatabaseRequest {
@@ -318,6 +352,34 @@ export interface NodeConfig {
   inspectHostPort?: number;
 }
 
+/** Python service with optional application-server mode (the server runs as the container's main process). */
+export interface PythonRequest {
+  version: string;
+  server?: boolean;
+  /** "dev" (default, reload + debug) or "production" (gunicorn/uvicorn without reload). */
+  mode?: string;
+  preset?: string;
+  /** Import path of the application: module:attribute (main:app, config.wsgi:application). */
+  app?: string;
+  port?: number;
+  /** Publish the debugpy port so an IDE can attach; the application has to start debugpy itself. */
+  debug?: boolean;
+  debugPort?: number;
+}
+
+/** Stored Python service config (from project.services[kind=python].config). */
+export interface PythonConfig {
+  server?: boolean;
+  mode?: string;
+  preset?: string;
+  app?: string;
+  port?: number;
+  hostPort?: number;
+  debug?: boolean;
+  debugPort?: number;
+  debugHostPort?: number;
+}
+
 /** Stored web service config (from project.services[kind=web].config). */
 export interface WebServerConfig {
   /** Unknown paths return index.html (client-side routing); only for projects without PHP. */
@@ -337,6 +399,7 @@ export interface CreateProjectRequest {
   docroot?: string;
   php?: { version: string; config: PHPConfig } | null;
   node?: NodeRequest | null;
+  python?: PythonRequest | null;
   database?: DatabaseRequest | null;
   redis?: ExtraRequest | null;
   mailpit?: ExtraRequest | null;
@@ -356,6 +419,7 @@ export interface UpdateProjectRequest {
   /** enabled false removes PHP; enabled (default true) on a project without PHP adds it. */
   php?: { enabled?: boolean; version?: string; config?: PHPConfig };
   node?: ({ enabled: true } & NodeRequest) | { enabled: false };
+  python?: ({ enabled: true } & PythonRequest) | { enabled: false };
   database?: DatabaseUpdate;
   redis?: ExtraUpdate;
   mailpit?: ExtraUpdate;
@@ -417,7 +481,7 @@ export interface Preview {
   warnings: string[];
   /** Missing on previews from a backend that predates it. */
   serves?: Serves;
-  appService?: "php" | "node";
+  appService?: AppKind;
   /** Set when the Node dev server is on. */
   devHostname?: string;
 }
@@ -766,7 +830,7 @@ export interface WorkerPreset {
   argLabel?: string;
   argHint?: string;
   requires?: string[];
-  /** Service the worker runs in: "php" or "node". */
+  /** Service the worker runs in: "php", "node" or "python". */
   runtime?: string;
 }
 

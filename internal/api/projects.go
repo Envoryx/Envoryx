@@ -92,9 +92,9 @@ type projectDTO struct {
 	DevHostname    string            `json:"devHostname,omitempty"`
 	BackupSchedule backupScheduleDTO `json:"backupSchedule"`
 	IDEGateway     bool              `json:"ideGateway"`
-	// Serves says what the primary host name reaches: "php", "node" (dev server) or
-	// "static"; AppService is the application container's kind (php, node), absent for
-	// static sites.
+	// Serves says what the primary host name reaches: "php", "python" (application
+	// server), "node" (dev server) or "static"; AppService is the application container's
+	// kind (php, python, node), absent for static sites.
 	Serves     string `json:"serves"`
 	AppService string `json:"appService,omitempty"`
 }
@@ -208,6 +208,27 @@ type nodeUpdateDTO struct {
 	nodeRequestDTO
 }
 
+type pythonRequestDTO struct {
+	Version string `json:"version"`
+	// Application-server options (see runtime.PythonConfig).
+	Server    bool   `json:"server"`
+	Mode      string `json:"mode"`
+	Preset    string `json:"preset"`
+	App       string `json:"app"`
+	Port      int    `json:"port"`
+	Debug     bool   `json:"debug"`
+	DebugPort int    `json:"debugPort"`
+}
+
+func (n pythonRequestDTO) config() runtime.PythonConfig {
+	return runtime.PythonConfig{Server: n.Server, Mode: n.Mode, Preset: n.Preset, App: n.App, Port: n.Port, Debug: n.Debug, DebugPort: n.DebugPort}
+}
+
+type pythonUpdateDTO struct {
+	Enabled bool `json:"enabled"`
+	pythonRequestDTO
+}
+
 type extraRequestDTO struct {
 	Version    string `json:"version"`
 	ExposePort bool   `json:"exposePort"`
@@ -240,6 +261,7 @@ type createProjectRequest struct {
 	Docroot       string              `json:"docroot"`
 	PHP           *phpRequestDTO      `json:"php"`
 	Node          *nodeRequestDTO     `json:"node"`
+	Python        *pythonRequestDTO   `json:"python"`
 	Database      *databaseRequestDTO `json:"database"`
 	Redis         *extraRequestDTO    `json:"redis"`
 	Mailpit       *extraRequestDTO    `json:"mailpit"`
@@ -280,6 +302,9 @@ func (r createProjectRequest) toDomain() project.CreateRequest {
 	if r.Node != nil {
 		req.Node = &project.NodeRequest{Version: r.Node.Version, Config: r.Node.config()}
 	}
+	if r.Python != nil {
+		req.Python = &project.PythonRequest{Version: r.Python.Version, Config: r.Python.config()}
+	}
 	if r.Database != nil {
 		req.Database = &project.DatabaseRequest{Type: r.Database.Type, Version: r.Database.Version, ExposePort: r.Database.ExposePort}
 	}
@@ -312,6 +337,7 @@ type updateProjectRequest struct {
 	Web        *webRequestDTO     `json:"web"`
 	PHP        *phpUpdateDTO      `json:"php"`
 	Node       *nodeUpdateDTO     `json:"node"`
+	Python     *pythonUpdateDTO   `json:"python"`
 	Database   *databaseUpdateDTO `json:"database"`
 	Redis      *extraUpdateDTO    `json:"redis"`
 	Mailpit    *extraUpdateDTO    `json:"mailpit"`
@@ -436,6 +462,9 @@ func (a *API) updateProject(w http.ResponseWriter, r *http.Request) {
 	upd.IDEGateway = req.IDEGateway
 	if req.Node != nil {
 		upd.Node = &project.NodeUpdate{Enabled: req.Node.Enabled, Version: req.Node.Version, Config: req.Node.config()}
+	}
+	if req.Python != nil {
+		upd.Python = &project.PythonUpdate{Enabled: req.Python.Enabled, Version: req.Python.Version, Config: req.Python.config()}
 	}
 	if req.Redis != nil {
 		upd.Redis = &project.ExtraUpdate{Enabled: req.Redis.Enabled, Version: req.Redis.Version, ExposePort: req.Redis.ExposePort, RemoveData: req.Redis.RemoveData}

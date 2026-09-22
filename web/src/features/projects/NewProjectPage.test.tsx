@@ -21,6 +21,21 @@ const nodeRuntimesFixture: RuntimesResponse = {
   ],
 };
 
+/** The Node fixture plus Python templates and presets. */
+const pythonRuntimesFixture: RuntimesResponse = {
+  ...nodeRuntimesFixture,
+  templates: [
+    ...(nodeRuntimesFixture.templates ?? []),
+    { id: "django", name: "Django", description: "django-admin startproject", docroot: "", requiresDatabase: false, recommendedDatabase: "postgresql", runtime: "python", python: { server: true, preset: "django", port: 8000, app: "config.wsgi:application" } },
+    { id: "fastapi", name: "FastAPI", description: "A minimal FastAPI application", docroot: "", requiresDatabase: false, runtime: "python", python: { server: true, preset: "asgi", port: 8000, app: "main:app" } },
+  ],
+  pythonPresets: [
+    { key: "django", label: "Django", port: 8000, app: "config.wsgi:application", appLabel: "WSGI application (production mode)", appHint: "e.g. config.wsgi:application" },
+    { key: "flask", label: "Flask", port: 5000, app: "app:app", appLabel: "Application", appHint: "module:attribute" },
+    { key: "asgi", label: "FastAPI / ASGI (uvicorn)", port: 8000, app: "main:app", appLabel: "ASGI application", appHint: "module:attribute" },
+  ],
+};
+
 const emptyPreview: Preview = { slug: "acme-shop", path: "/projects/acme-shop", hostPath: "/x", httpPort: 20000, network: "n", containers: [], volumes: [], images: [], warnings: [] };
 
 /** Records the preview body and answers with a plan derived from the request, like the backend does. */
@@ -28,7 +43,7 @@ function previewRoute(onBody: (b: Record<string, unknown>) => void, extra: Parti
   return (_u: string, init: RequestInit) => {
     const body = JSON.parse(init.body as string) as Record<string, unknown>;
     onBody(body);
-    const serves = body.php ? "php" : (body.node as { devServer?: boolean } | undefined)?.devServer ? "node" : "static";
+    const serves = body.php ? "php" : (body.python as { server?: boolean } | undefined)?.server ? "python" : (body.node as { devServer?: boolean } | undefined)?.devServer ? "node" : "static";
     return { body: { preview: { ...emptyPreview, serves, ...extra } } };
   };
 }
@@ -184,6 +199,73 @@ describe("NewProjectPage wizard", () => {
     expect(screen.queryByText("Dev server URL")).not.toBeInTheDocument();
     expect(previewBody).not.toHaveProperty("php");
     expect(previewBody).toMatchObject({ docroot: "", createStarter: false, node: { version: "24", devServer: true, preset: "vite", port: 5173, script: "dev" } });
+  });
+
+  it("creates a Python project: server on, no php key, no starter, direct URL on the python port", async () => {
+    let previewBody: Record<string, unknown> | undefined;
+    mockApi({
+      ...authedRoutes,
+      "GET /runtimes": () => ({ body: pythonRuntimesFixture }),
+      "POST /projects/preview": previewRoute((b) => (previewBody = b), {
+        containers: [
+          { service: "python", name: "envoryx-acme-shop-python", image: "ghcr.io/envoryx/envoryx-python:3.13", ports: ["20001 → 8000/tcp"], mounts: [] },
+          { service: "web", name: "envoryx-acme-shop-web", image: "caddy:2-alpine", ports: [], mounts: [] },
+        ],
+      }),
+    });
+    renderApp(<NewProjectPage />, { route: "/projects/new" });
+    const user = userEvent.setup();
+    await user.type(await screen.findByLabelText("Project name"), "Acme Shop");
+    await user.click(screen.getByRole("radio", { name: "Python application" }));
+    // Templates follow the stack.
+    expect(screen.queryByRole("radio", { name: /WordPress/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: /Django/ })).toBeInTheDocument();
+    expect(screen.getByText(/Not used while the application server serves the app/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+
+    // Runtimes step: the Python card leads with the server on; PHP and Node are off.
+    expect(await screen.findByLabelText(/Enable Python/)).toBeChecked();
+    expect(screen.getByLabelText(/Enable PHP/)).not.toBeChecked();
+    expect(screen.getByLabelText(/Enable Node\.js/)).not.toBeChecked();
+    expect(screen.getByLabelText(/Run the application server/)).toBeChecked();
+    expect(screen.getByLabelText("Framework preset")).toHaveValue("django");
+    expect(screen.getByLabelText("Command")).toHaveValue("python manage.py runserver 0.0.0.0:8000");
+    // Switching the preset follows its port and app while untouched; the command reflects it.
+    await user.selectOptions(screen.getByLabelText("Framework preset"), "asgi");
+    expect(screen.getByLabelText("ASGI application")).toHaveValue("main:app");
+    expect(screen.getByLabelText("Command")).toHaveValue("uvicorn main:app --host 0.0.0.0 --port 8000 --reload");
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+
+    expect(await screen.findByText(/The application server answers on the project URL\. The web server is part of every project/)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/SPA fallback/)).not.toBeInTheDocument();
+    for (let i = 0; i < 3; i++) await user.click(screen.getByRole("button", { name: "Continue" }));
+
+    expect(await screen.findByText("Python application server (the HTTP port stays unpublished)")).toBeInTheDocument();
+    expect(screen.getByText("http://localhost:20001")).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Create starter/)).not.toBeInTheDocument();
+    expect(previewBody).not.toHaveProperty("php");
+    expect(previewBody).not.toHaveProperty("node");
+    expect(previewBody).toMatchObject({ docroot: "", createStarter: false, python: { version: "3.13", server: true, mode: "dev", preset: "asgi", app: "main:app", port: 8000, debug: false } });
+  });
+
+  it("a Python template presets the server from its defaults", async () => {
+    let previewBody: Record<string, unknown> | undefined;
+    mockApi({
+      ...authedRoutes,
+      "GET /runtimes": () => ({ body: pythonRuntimesFixture }),
+      "POST /projects/preview": previewRoute((b) => (previewBody = b)),
+    });
+    renderApp(<NewProjectPage />, { route: "/projects/new" });
+    const user = userEvent.setup();
+    await user.type(await screen.findByLabelText("Project name"), "Acme Shop");
+    await user.click(screen.getByRole("radio", { name: "Python application" }));
+    await user.click(screen.getByRole("radio", { name: /FastAPI/ }));
+    expect(screen.getByLabelText("Repository URL")).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    expect(await screen.findByLabelText("Framework preset")).toHaveValue("asgi");
+    for (let i = 0; i < 4; i++) await user.click(screen.getByRole("button", { name: "Continue" }));
+    await screen.findByText(/A minimal FastAPI application/);
+    expect(previewBody).toMatchObject({ template: "fastapi", python: { server: true, preset: "asgi", port: 8000, app: "main:app" } });
   });
 
   it("a Node template presets the dev server and docroot from its defaults", async () => {

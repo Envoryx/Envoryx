@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useDashboard, useProjectLinks, useProjects } from "@/api/hooks";
-import type { Project } from "@/api/types";
+import { appKindOf, type Project } from "@/api/types";
 import { Alert, Badge, Button, Card, EmptyState, ErrorState, Input, LinkButton, PageHeader, Spinner, StatusDot } from "@/components/ui";
 import { formatBytes, formatPercent, serviceLabel, stateMeta } from "@/lib/format";
 import { ProjectActionButtons, useActionError } from "./ProjectActions";
@@ -13,13 +13,12 @@ import { errorText } from "@/lib/errors";
 /** Service badges in a fixed order – runtime, web server, database, extras – so rows read alike. */
 function ServiceBadges({ project }: { project: Project }) {
   const { t } = useTranslation();
-  // The application runtime leads: PHP when present, else Node; a static site has none.
-  const enabled = (kind: string) => project.services.some((s) => s.kind === kind && s.enabled);
-  const app = project.appService ?? (enabled("php") ? "php" : enabled("node") ? "node" : undefined);
+  // The application runtime leads: PHP when present, else Python, else Node; a static site has none.
+  const app = project.appService ?? appKindOf(project);
   const runtime = app ? project.services.find((s) => s.kind === app && s.enabled) : undefined;
   const web = project.services.find((s) => s.kind === "web");
   const db = project.services.find((s) => s.kind === "database");
-  const extras = project.services.filter((s) => s.enabled && s.kind !== app && (s.kind === "node" || s.kind === "redis" || s.kind === "mailpit" || s.kind === "storage"));
+  const extras = project.services.filter((s) => s.enabled && s.kind !== app && (s.kind === "node" || s.kind === "python" || s.kind === "redis" || s.kind === "mailpit" || s.kind === "storage"));
   return (
     <div className="flex flex-wrap gap-1.5">
       {runtime ? <Badge tone="blue">{serviceLabel(runtime.kind, runtime.version)}</Badge> : <Badge>{t("Static")}</Badge>}
@@ -136,7 +135,7 @@ export function ProjectsPage() {
       ) : q.data.length === 0 ? (
         <EmptyState
           title={t("No projects yet")}
-          message={t("Create a project to get an isolated PHP or Node.js environment with its own web server and Docker network.")}
+          message={t("Create a project to get an isolated PHP, Python or Node.js environment with its own web server and Docker network.")}
           action={
             <LinkButton to="/projects/new" variant="primary" icon={<Plus className="size-4" />}>
               {t("Create your first project")}

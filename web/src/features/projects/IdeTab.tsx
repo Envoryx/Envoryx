@@ -6,7 +6,7 @@ import { useMutation } from "@tanstack/react-query";
 import { api } from "@/api/client";
 import { useDatabaseInfo, useExtraServices, useSettings, useUpdateProject } from "@/api/hooks";
 import { OperationHint } from "@/components/OperationsTray";
-import type { NodeConfig, Operation, PHPConfig, Project } from "@/api/types";
+import { appKindOf, type NodeConfig, type Operation, type PHPConfig, type Project, type PythonConfig } from "@/api/types";
 import { Alert, Button, Card, CardHeader, Checkbox, Code } from "@/components/ui";
 import { CopyButton, CopyRow } from "./DatabaseTab";
 import { errorText } from "@/lib/errors";
@@ -25,10 +25,13 @@ export function IdeTab({ project: p }: { project: Project }) {
   const php = p.services.find((x) => x.kind === "php" && x.enabled);
   const hasPhp = !!php;
   const hasNode = p.services.some((x) => x.kind === "node" && x.enabled);
-  // The bare SSH user lands in the application container: PHP when present, else Node.
-  const app = p.appService ?? (hasPhp ? "php" : hasNode ? "node" : undefined);
+  const hasPython = p.services.some((x) => x.kind === "python" && x.enabled);
+  // The bare SSH user lands in the application container: PHP when present, else Python, else Node.
+  const app = p.appService ?? appKindOf(p);
+  const runtimeCount = [hasPhp, hasPython, hasNode].filter(Boolean).length;
   const phpCfg = (php?.config ?? {}) as unknown as Partial<PHPConfig>;
   const nodeCfg = (p.services.find((x) => x.kind === "node" && x.enabled)?.config ?? {}) as unknown as Partial<NodeConfig>;
+  const pyCfg = (p.services.find((x) => x.kind === "python" && x.enabled)?.config ?? {}) as unknown as Partial<PythonConfig>;
   const hostname = p.hostnames[0] ?? `${p.slug}.test`;
   const ssh = s?.ssh;
   const sshHost = s?.proxy?.address || host;
@@ -74,7 +77,9 @@ export function IdeTab({ project: p }: { project: Project }) {
           description={
             hasPhp
               ? t("Run PHP, Composer, PHPUnit and Artisan inside the project container from your IDE. PhpStorm: Settings → PHP → CLI Interpreter → “…” → From Docker, Vagrant, VM, WSL, Remote… → SSH. VS Code: Remote-SSH. Plain terminal: ssh.")
-              : t("Run node, npm and your test runner inside the project container from your IDE. WebStorm: Settings → Languages & Frameworks → Node.js → Node interpreter → Add… → SSH. VS Code: Remote-SSH. Plain terminal: ssh.")
+              : app === "python"
+                ? t("Run python, pip and pytest inside the project container from your IDE. PyCharm: Settings → Project → Python Interpreter → Add Interpreter → On SSH…, interpreter path from below. VS Code: Remote-SSH. Plain terminal: ssh.")
+                : t("Run node, npm and your test runner inside the project container from your IDE. WebStorm: Settings → Languages & Frameworks → Node.js → Node interpreter → Add… → SSH. VS Code: Remote-SSH. Plain terminal: ssh.")
           }
         />
         <div className="p-5">
@@ -83,16 +88,18 @@ export function IdeTab({ project: p }: { project: Project }) {
           ) : ssh.port === 0 ? (
             <Alert tone="amber">{t("The SSH port 2222 is not published on the host – add a port mapping 2222:2222 to the Envoryx container.")}</Alert>
           ) : !app ? (
-            <Alert tone="gray">{t("This project has no application container – SSH sessions need PHP or Node.js.")}</Alert>
+            <Alert tone="gray">{t("This project has no application container – SSH sessions need PHP, Python or Node.js.")}</Alert>
           ) : (
             <dl>
               <CopyRow label={t("Host")} value={sshHost} />
               <CopyRow label={t("Port")} value={String(ssh.port)} />
               <CopyRow label={t("User")} value={p.slug} />
-              {hasPhp && hasNode && <CopyRow label={t("User (PHP)")} value={`${p.slug}.php`} />}
-              {hasPhp && hasNode && <CopyRow label={t("User (Node)")} value={`${p.slug}.node`} />}
+              {runtimeCount > 1 && hasPhp && <CopyRow label={t("User (PHP)")} value={`${p.slug}.php`} />}
+              {runtimeCount > 1 && hasPython && <CopyRow label={t("User (Python)")} value={`${p.slug}.python`} />}
+              {runtimeCount > 1 && hasNode && <CopyRow label={t("User (Node)")} value={`${p.slug}.node`} />}
               <CopyRow label={t("Password")} value={t("<API token from Settings → API tokens>")} mono={false} />
               {hasPhp && <CopyRow label={t("PHP path")} value="/usr/local/bin/php" />}
+              {hasPython && <CopyRow label={t("Python path")} value="/var/www/html/.venv/bin/python" />}
               {hasNode && <CopyRow label={t("Node path")} value="/usr/local/bin/node" />}
               <CopyRow label={t("Project path")} value="/var/www/html" />
               {hasPhp && <CopyRow label={t("Helpers path")} value="/home/envoryx/.phpstorm_helpers" />}
@@ -121,7 +128,7 @@ export function IdeTab({ project: p }: { project: Project }) {
           {gwMsg && <Alert tone={gwMsg.tone}>{gwMsg.text}</Alert>}
           <Checkbox
             label={t("Allow JetBrains Gateway for this project")}
-            description={t("Enables SSH port forwarding into the container and mounts a shared IDE backend cache (/config/jetbrains, downloaded once for all projects). Recreates the PHP/Node container.")}
+            description={t("Enables SSH port forwarding into the container and mounts a shared IDE backend cache (/config/jetbrains, downloaded once for all projects). Recreates the application containers.")}
             checked={!!p.ideGateway}
             disabled={update.isPending}
             onChange={(e) => {
@@ -225,6 +232,38 @@ export function IdeTab({ project: p }: { project: Project }) {
         </Card>
       )}
 
+      {hasPython && (
+        <Card>
+          <CardHeader
+            title={
+              <span className="flex items-center gap-2">
+                <Bug className="size-4 text-accent-500" aria-hidden /> {t("Python debugging (debugpy)")}
+              </span>
+            }
+            description={
+              pyCfg.debug && pyCfg.debugHostPort
+                ? t("The debugpy port is published. Start debugpy in your application and attach from the IDE with the values below.")
+                : t("Not enabled – switch on “Publish the debugpy port” in the Runtime tab. Values below apply once enabled.")
+            }
+          />
+          <div className="p-5">
+            <dl>
+              <CopyRow label={t("Attach to host")} value={host} />
+              <CopyRow label={t("Attach to port")} value={String(pyCfg.debugHostPort ?? "")} />
+              <CopyRow label={t("debugpy inside the container")} value={`0.0.0.0:${pyCfg.debugPort ?? 5678}`} />
+              <CopyRow label={t("Path mapping")} value={`${hostDir} → /var/www/html`} />
+            </dl>
+            <p className="mt-3 text-xs text-muted">
+              {t("Only the port is published – debugpy has to be started by your application (pip install debugpy in the .venv). Examples:")}
+            </p>
+            <pre className="mt-1 overflow-x-auto rounded-md bg-muted p-2 font-mono text-[11px]">{pythonDebugExamples(pyCfg.debugPort ?? 5678)}</pre>
+            <p className="mt-2 text-xs text-subtle">
+              {t("VS Code: a launch.json entry of type debugpy with request attach, connect host/port from above and pathMappings localRoot/remoteRoot. PyCharm: Run → Edit Configurations → Python Debug Server listens on your machine instead – use its pydevd-pycharm snippet with your workstation's address as the host.")}
+            </p>
+          </div>
+        </Card>
+      )}
+
       {hasDb && (
         <Card>
           <CardHeader
@@ -284,6 +323,16 @@ function nodeDebugExamples(port: number): string {
     `"dev": "node --inspect=0.0.0.0:${port} node_modules/vite/bin/vite.js"   // Vite`,
     `"dev": "NODE_OPTIONS='--inspect=0.0.0.0:${port}' nuxt dev"        // Nuxt`,
     `"start": "node --inspect=0.0.0.0:${port} server.js"              // plain Node`,
+  ].join("\n");
+}
+
+/** Command lines that start debugpy in front of the usual servers. */
+function pythonDebugExamples(port: number): string {
+  return [
+    `python -m debugpy --listen 0.0.0.0:${port} manage.py runserver 0.0.0.0:8000   # Django`,
+    `python -m debugpy --listen 0.0.0.0:${port} -m flask --app app:app run --host 0.0.0.0 --port 5000   # Flask`,
+    `python -m debugpy --listen 0.0.0.0:${port} -m uvicorn main:app --host 0.0.0.0 --port 8000   # FastAPI / ASGI`,
+    `import debugpy; debugpy.listen(("0.0.0.0", ${port}))   # in code, e.g. at the top of manage.py or main.py`,
   ].join("\n");
 }
 

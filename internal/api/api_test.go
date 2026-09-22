@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -939,13 +940,20 @@ func TestRuntimesEndpoint(t *testing.T) {
 	if len(presets) != 4 || presets[0].(map[string]any)["key"] != "vite" || presets[2].(map[string]any)["key"] != "nuxt" || presets[2].(map[string]any)["port"].(float64) != 3000 {
 		t.Fatalf("nodePresets: %v", presets)
 	}
+	pyPresets := r.body["pythonPresets"].([]any)
+	if len(pyPresets) != 5 || pyPresets[0].(map[string]any)["key"] != "django" || pyPresets[2].(map[string]any)["key"] != "asgi" || pyPresets[1].(map[string]any)["port"].(float64) != 5000 {
+		t.Fatalf("pythonPresets: %v", pyPresets)
+	}
 	for _, x := range r.body["templates"].([]any) {
 		tpl := x.(map[string]any)
-		if rt := tpl["runtime"]; rt != "php" && rt != "node" {
+		if rt := tpl["runtime"]; rt != "php" && rt != "node" && rt != "python" {
 			t.Fatalf("template %v must name its runtime", tpl["id"])
 		}
 		if tpl["runtime"] == "node" && tpl["node"] == nil {
 			t.Fatalf("node template %v must carry dev-server defaults", tpl["id"])
+		}
+		if tpl["runtime"] == "python" && tpl["python"] == nil {
+			t.Fatalf("python template %v must carry server defaults", tpl["id"])
 		}
 	}
 }
@@ -1283,5 +1291,138 @@ func TestRemoveOrphanOverHTTP(t *testing.T) {
 	}
 	if volumes, _ := a.engine.ListVolumes(context.Background(), true); len(volumes) != 0 {
 		t.Fatalf("volume left: %+v", volumes)
+	}
+}
+
+func TestPythonProjectOverHTTP(t *testing.T) {
+	a := newApp(t)
+	a.setupAndLogin()
+	create := map[string]any{
+		"name": "Api", "createStarter": true, "start": true,
+		"python": map[string]any{"version": "3.13", "server": true, "preset": "asgi", "app": "main:app", "debug": true},
+		"node":   map[string]any{"version": "24", "devServer": true, "preset": "vite"},
+	}
+	r := a.do(http.MethodPost, "/api/v1/projects/preview", create, true)
+	if r.status != http.StatusOK {
+		t.Fatalf("preview: %d %s", r.status, r.raw)
+	}
+	pv := r.body["preview"].(map[string]any)
+	kinds := []string{}
+	for _, c := range pv["containers"].([]any) {
+		kinds = append(kinds, c.(map[string]any)["service"].(string))
+	}
+	// Python serves the project URL; the Node dev server keeps its own -dev host name.
+	if strings.Join(kinds, ",") != "python,node,web" || pv["serves"] != "python" || pv["appService"] != "python" || pv["devHostname"] != "api-dev.test" {
+		t.Fatalf("preview: %v", pv)
+	}
+	ports := map[string]int{}
+	for _, c := range pv["containers"].([]any) {
+		m := c.(map[string]any)
+		ports[m["service"].(string)] = len(m["ports"].([]any))
+	}
+	if ports["python"] != 2 || ports["node"] != 1 || ports["web"] != 0 {
+		t.Fatalf("published ports (python server+debugpy, node dev server, web unpublished): %v", ports)
+	}
+
+	r = a.do(http.MethodPost, "/api/v1/projects", create, true)
+	if r.status != http.StatusCreated {
+		t.Fatalf("create: %d %s", r.status, r.raw)
+	}
+	p := r.body["project"].(map[string]any)
+	id := p["id"].(string)
+	path := p["path"].(string)
+	if p["serves"] != "python" || p["appService"] != "python" || p["status"].(map[string]any)["state"] != "running" {
+		t.Fatalf("created project: %v", p)
+	}
+	var pyCfg map[string]any
+	for _, svc := range p["services"].([]any) {
+		m := svc.(map[string]any)
+		if m["kind"] == "python" {
+			pyCfg = m["config"].(map[string]any)
+		}
+	}
+	if pyCfg == nil || pyCfg["preset"] != "asgi" || pyCfg["app"] != "main:app" || pyCfg["port"].(float64) != 8000 || pyCfg["hostPort"].(float64) == 0 || pyCfg["debugPort"].(float64) != 5678 || pyCfg["debugHostPort"].(float64) == 0 {
+		t.Fatalf("python config: %v", pyCfg)
+	}
+	// The starter page is not written: the application server answers the project URL.
+	if _, err := os.Stat(filepath.Join(a.projDir, path, "index.html")); err == nil {
+		t.Fatalf("no starter page while the Python server serves the project")
+	}
+
+	// The Python terminal runs as the project owner with the venv on PATH.
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	hdr := http.Header{"Cookie": {auth.CookieName + "=" + a.cookie.Value}}
+	base := "ws" + strings.TrimPrefix(a.srv.URL, "http") + "/api/v1/projects/" + id + "/"
+	conn, _, err := websocket.Dial(ctx, base+"services/python/terminal/ws", &websocket.DialOptions{HTTPHeader: hdr})
+	if err != nil {
+		t.Fatalf("python terminal: %v", err)
+	}
+	conn.CloseNow()
+	rec := a.engine.Terminals()[0]
+	if rec.Container != "envoryx-api-python" || rec.Opts.User != "1000:1000" || !slices.Contains(rec.Opts.Env, "VIRTUAL_ENV=/var/www/html/.venv") {
+		t.Fatalf("terminal options: %+v", rec)
+	}
+
+	// Actions: Python entries only, Django ones once manage.py exists.
+	actions := func() map[string]bool {
+		r := a.do(http.MethodGet, "/api/v1/projects/"+id+"/actions", nil, false)
+		if r.status != http.StatusOK {
+			t.Fatalf("actions: %d %s", r.status, r.raw)
+		}
+		out := map[string]bool{}
+		for _, x := range r.body["actions"].([]any) {
+			act := x.(map[string]any)
+			out[act["id"].(string)] = act["available"].(bool)
+		}
+		return out
+	}
+	avail := actions()
+	for id := range avail {
+		if strings.HasPrefix(id, "composer:") || strings.HasPrefix(id, "php:") {
+			t.Fatalf("PHP action %s listed on a Python project: %v", id, avail)
+		}
+	}
+	if on, ok := avail["python:version"]; !ok || !on || avail["pip:install"] || avail["django:migrate"] {
+		t.Fatalf("python actions: %v", avail)
+	}
+	if err := os.WriteFile(filepath.Join(a.projDir, path, "manage.py"), []byte("#"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if avail = actions(); !avail["django:migrate"] {
+		t.Fatalf("django:migrate after manage.py: %v", avail)
+	}
+
+	// Switching the server off keeps the container as tooling and publishes the web port.
+	r = a.do(http.MethodPatch, "/api/v1/projects/"+id, map[string]any{"python": map[string]any{"enabled": true, "version": "3.13", "server": false}}, true)
+	if r.status != http.StatusOK {
+		t.Fatalf("server off: %d %s", r.status, r.raw)
+	}
+	p = r.body["project"].(map[string]any)
+	if p["serves"] != "node" || p["appService"] != "python" {
+		t.Fatalf("without the Python server the Node dev server serves: serves=%v app=%v", p["serves"], p["appService"])
+	}
+	// Removing Python hands the project to the dev server entirely.
+	r = a.do(http.MethodPatch, "/api/v1/projects/"+id, map[string]any{"python": map[string]any{"enabled": false}}, true)
+	if r.status != http.StatusOK {
+		t.Fatalf("remove python: %d %s", r.status, r.raw)
+	}
+	p = r.body["project"].(map[string]any)
+	if p["serves"] != "node" || p["appService"] != "node" {
+		t.Fatalf("after removing Python: serves=%v app=%v", p["serves"], p["appService"])
+	}
+	for _, svc := range p["services"].([]any) {
+		if svc.(map[string]any)["kind"] == "python" {
+			t.Fatalf("python service must be gone: %v", p["services"])
+		}
+	}
+	// A Python project rejects an unknown preset and a bad app path.
+	r = a.do(http.MethodPost, "/api/v1/projects", map[string]any{"name": "Bad", "python": map[string]any{"version": "3.13", "server": true, "preset": "rails"}}, true)
+	if r.status != http.StatusUnprocessableEntity {
+		t.Fatalf("unknown preset: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodPost, "/api/v1/projects", map[string]any{"name": "Bad", "python": map[string]any{"version": "3.13", "server": true, "preset": "asgi", "app": "main:app; rm -rf /"}}, true)
+	if r.status != http.StatusUnprocessableEntity {
+		t.Fatalf("bad app path: %d %s", r.status, r.raw)
 	}
 }
