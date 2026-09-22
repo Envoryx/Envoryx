@@ -57,9 +57,11 @@ containers and state manipulation. Covered flows include: create, start, stop,
 restart, delete, rollback after a failed container create, Docker unavailable,
 invalid paths / ids, Envoryx restart (new manager on existing state), container
 unexpectedly stopped, orphaned resources, unauthorized requests and CSRF, and
-the three project shapes – PHP, project without PHP with a Node dev server
+the project shapes – PHP, project without PHP with a Node dev server
 (routing of the project URL to the node container, unpublished web port,
-`package.json` wait guard, injected service variables) and static site (SPA
+`package.json` wait guard, injected service variables), Python application
+server (`python_test.go`: entry-file wait guard, venv `PATH`, debugpy port,
+Python + Node frontend, removal with paused workers) and static site (SPA
 fallback, `index.html` starter). `internal/runtime/webserver_test.go` pins
 the PHP web configs as goldens so the static branch cannot drift into them.
 
@@ -139,6 +141,44 @@ The variable must stay a single entry: Vite before 8.3 appends it verbatim
 as one host (only 8.3+ splits on commas), so a comma-joined list would block
 every request.
 
+### Python image and scaffold smoke
+
+Python templates run `python -m venv`, `pip install …`, `django-admin
+startproject config .` and a settings patch (`python -c`) as one-shot
+containers from `ghcr.io/envoryx/envoryx-python:<v>` with the venv first on
+`PATH`. Build the image locally (`docker build --build-arg
+BASE_TAG=3.13-slim-bookworm --build-arg PYTHON_VERSION=3.13 -t
+ghcr.io/envoryx/envoryx-python:3.13 images/python`) and re-run this smoke
+when changing a template, bumping the default Python version or rebuilding
+the image:
+
+```sh
+D=$(mktemp -d); chmod 777 "$D"
+run() { docker run --rm --user 1000:1000 -w /var/www/html -v "$D:/var/www/html" \
+  -e HOME=/tmp -e PIP_CACHE_DIR=/tmp/.pip -e PIP_DISABLE_PIP_VERSION_CHECK=1 \
+  -e VIRTUAL_ENV=/var/www/html/.venv \
+  -e PATH=/var/www/html/.venv/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin \
+  ghcr.io/envoryx/envoryx-python:3.13 "$@"; }
+
+run python -m venv /var/www/html/.venv
+# django
+run pip install django dj-database-url gunicorn 'psycopg[binary]' mysqlclient
+run django-admin startproject config . && run python manage.py check
+# fastapi / flask: pip install the packages, drop in main.py / app.py from templates.go
+```
+
+Then start the server the way the planner does (`python manage.py runserver
+0.0.0.0:8000`, `uvicorn main:app --host 0.0.0.0 --port 8000 --reload`,
+`flask --app app:app run --host 0.0.0.0 --port 5000 --debug`, and the
+production variants `gunicorn config.wsgi:application --bind 0.0.0.0:8000`)
+with `-p 18000:8000` and probe it with `curl -H 'Host: my-shop.test'
+http://127.0.0.1:18000/` – Django must answer 200 for a foreign host name
+(the template sets `ALLOWED_HOSTS = ["*"]`). The whole path through the
+binary – template scaffold, wait guard, proxy route, actions, worker, add
+and remove – was verified against a real Docker engine when Python support
+landed; `make build` and create a project from the *FastAPI* or *Django*
+template to repeat it.
+
 ## Conventions
 
 - Go: `gofmt`, `go vet`, errors wrapped with `%w`, sentinel errors in the
@@ -154,13 +194,15 @@ every request.
 
 ## Adding a runtime version
 
-PHP and Node versions live in `internal/runtime/php_versions.json` and
-`node_versions.json` – the single source of truth for the catalogue (embedded
-into the binary) and the image build matrices (`php-images.yml`,
-`node-images.yml` read them with `jq`). Normally you never edit them by hand:
-`.github/workflows/runtime-versions.yml` runs `scripts/check-versions.py php|node`
-weekly and opens a PR when upstream changes (Node: newest LTS becomes the
-default, EOL "current" releases are dropped).
+PHP, Node and Python versions live in `internal/runtime/php_versions.json`,
+`node_versions.json` and `python_versions.json` – the single source of truth
+for the catalogue (embedded into the binary) and the image build matrices
+(`php-images.yml`, `node-images.yml`, `python-images.yml` read them with
+`jq`). Normally you never edit them by hand:
+`.github/workflows/runtime-versions.yml` runs `scripts/check-versions.py
+php|node|python` weekly and opens a PR when upstream changes (Node: newest
+LTS becomes the default, EOL "current" releases are dropped; Python: release
+candidates appear as `preview` from the `<v>-rc-slim-bookworm` tag).
 `base` is the upstream tag (`8.6-rc` for pre-releases), `preview`/`eol` drive
 the labels in the UI, `default` is the newest stable version.
 

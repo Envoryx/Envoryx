@@ -10,6 +10,44 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Added
+- Python runtime. The wizard's first step offers *Python application* next
+  to PHP, Node.js and static; a Python container
+  (`ghcr.io/envoryx/envoryx-python:<3.10–3.14>`, official slim image plus
+  pip, uv, git and the build dependencies psycopg/mysqlclient/Pillow need)
+  runs as the project owner with the project's `.venv` first on `PATH`.
+  *Run the application server* makes the preset's command the container's
+  main process: Django (`manage.py runserver`, gunicorn in production
+  mode), Flask (`flask run --debug` / gunicorn), FastAPI and any ASGI app
+  (uvicorn, `--reload` in dev mode), WSGI (gunicorn) or `python -m
+  <module>`. Production mode also turns the frameworks' debuggers off
+  (`DJANGO_DEBUG`, `FLASK_DEBUG`); the Django template ties its `DEBUG` to
+  the first. Without PHP the project URL and extra domains reach the Python
+  server through the proxy, the web container's port stays unpublished and
+  a blank project waits for its entry file (`manage.py`, `main.py` …)
+  instead of crash-looping. A Node dev server next to Python keeps
+  `<project>-dev.<base>` – Django/FastAPI backend plus Vite frontend.
+- Python templates: *Django* (`startproject config`, settings prepared for
+  the proxy and `DATABASE_URL` via dj-database-url, psycopg and mysqlclient
+  installed), *Flask* and *FastAPI* – each creates the `.venv`, installs
+  the packages and pins `requirements.txt`.
+- Python actions (`python --version`, `python -m venv`, `pip install -r
+  requirements.txt`, `pip freeze`, `uv sync`, `uv lock`, Django `migrate`,
+  `makemigrations`, `collectstatic`, `check`, `flush`) and worker presets
+  (Python script, Python module, `manage.py` command, Celery worker, Celery
+  beat) in the Python image; SSH user `<project>.python`; PyCharm/VS Code
+  interpreter hints and a debugpy card (published port, path mapping,
+  command lines) on the IDE tab; `pythonPresets` on `/api/v1/runtimes`;
+  The debugpy port does not depend on the application server: a tooling
+  container publishes it too, because what a developer steps through is
+  usually a management command or a script started from the terminal, and
+  debugpy attaches to whatever process you launch.
+  MCP `create_project` takes `pythonVersion`, `pythonServer`,
+  `pythonPreset`, `pythonApp`, `pythonPort`, `pythonMode`. Backups skip
+  `.venv` and `__pycache__` with the other dependency caches. The weekly
+  runtime-version workflow and the image builds cover Python like PHP and
+  Node.
+
 ## [0.5.0] – 2026-09-22
 
 ### Added

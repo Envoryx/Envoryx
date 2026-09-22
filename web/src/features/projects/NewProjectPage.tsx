@@ -6,7 +6,8 @@ import { useNavigate } from "react-router-dom";
 import { api } from "@/api/client";
 import { useCreateProject, useProjectLinks, useRuntimes, useSettings } from "@/api/hooks";
 import { NodeDevServerFields, defaultDevServerForm, devServerRequest, type DevServerForm } from "./NodeDevServerFields";
-import { defaultNodePresets, type CreateProjectRequest, type EnvVar, type PHPConfig, type Preview, type Project, type ProjectTemplate, type Serves } from "@/api/types";
+import { PythonServerFields, defaultPythonServerForm, pythonServerRequest, type PythonServerForm } from "./PythonServerFields";
+import { defaultNodePresets, defaultPythonPresets, type AppKind, type CreateProjectRequest, type EnvVar, type PHPConfig, type Preview, type Project, type ProjectTemplate, type Serves } from "@/api/types";
 import { Alert, Button, Card, Checkbox, Code, ErrorState, Field, Input, PageHeader, Select, Spinner } from "@/components/ui";
 import { CreateProgress } from "./CreateProgress";
 import { EnvEditor } from "./EnvEditor";
@@ -16,11 +17,12 @@ import { errorText } from "@/lib/errors";
 
 const steps = ["General", "Runtimes", "Web server", "Database & services", "Environment", "Summary"] as const;
 
-/** The runtime choice of step 1; it presets the PHP/Node checkboxes, docroot and starter page. */
-type Stack = "php" | "node" | "static";
+/** The runtime choice of step 1; it presets the PHP/Python/Node checkboxes, docroot and starter page. */
+type Stack = AppKind | "static";
 
 const stacks: { id: Stack; name: string; description: string }[] = [
   { id: "php", name: "PHP application", description: "PHP-FPM behind the web server – Laravel, Symfony, WordPress…" },
+  { id: "python", name: "Python application", description: "Django, Flask, FastAPI… – the application server answers on the project URL." },
   { id: "node", name: "Node.js application", description: "Vite, Next.js, Nuxt… – the dev server answers on the project URL." },
   { id: "static", name: "Static site", description: "The web server serves files from the document root; no application runtime." },
 ];
@@ -34,7 +36,7 @@ function slugify(name: string): string {
 }
 
 /** Older backends omit the template runtime; every template was a PHP one then. */
-function templateRuntime(tpl: ProjectTemplate): "php" | "node" {
+function templateRuntime(tpl: ProjectTemplate): AppKind {
   return tpl.runtime ?? "php";
 }
 
@@ -51,6 +53,9 @@ interface Form {
   nodeEnabled: boolean;
   nodeVersion: string;
   nodeDev: DevServerForm;
+  pythonEnabled: boolean;
+  pythonVersion: string;
+  pythonServer: PythonServerForm;
   webType: string;
   webVersion: string;
   spaFallback: boolean;
@@ -75,6 +80,7 @@ interface Form {
 /** What the primary hostname will serve, derived from the form the same way the backend does. */
 function servesOfForm(f: Form): Serves {
   if (f.phpEnabled) return "php";
+  if (f.pythonEnabled && f.pythonServer.server) return "python";
   if (f.nodeEnabled && f.nodeDev.devServer) return "node";
   return "static";
 }
@@ -96,6 +102,7 @@ export function NewProjectPage() {
     if (runtimes.data && !form) {
       const php = runtimes.data.runtimes.find((r) => r.key === "php");
       const node = runtimes.data.runtimes.find((r) => r.key === "node");
+      const python = runtimes.data.runtimes.find((r) => r.key === "python");
       const web = runtimes.data.runtimes.find((r) => r.key === "caddy");
       setForm({
         name: "",
@@ -110,6 +117,9 @@ export function NewProjectPage() {
         nodeEnabled: false,
         nodeDev: defaultDevServerForm,
         nodeVersion: node?.versions.find((v) => v.default)?.version ?? node?.versions[0]?.version ?? "",
+        pythonEnabled: false,
+        pythonServer: defaultPythonServerForm,
+        pythonVersion: python?.versions.find((v) => v.default)?.version ?? python?.versions[0]?.version ?? "",
         webType: "caddy",
         webVersion: web?.versions.find((v) => v.default)?.version ?? "",
         spaFallback: false,
@@ -150,6 +160,7 @@ export function NewProjectPage() {
     if (form.spaFallback && servesOfForm(form) === "static") req.web = { ...req.web!, spaFallback: true };
     if (form.phpEnabled) req.php = { version: form.phpVersion, config: form.phpConfig };
     if (form.nodeEnabled) req.node = { version: form.nodeVersion, ...devServerRequest(form.nodeDev) };
+    if (form.pythonEnabled) req.python = { version: form.pythonVersion, ...pythonServerRequest(form.pythonServer) };
     if (form.dbType) req.database = { type: form.dbType, version: form.dbVersion, exposePort: form.dbExpose };
     if (form.redis) req.redis = { version: form.redisVersion, exposePort: form.redisExpose };
     if (form.mailpit) req.mailpit = {};
@@ -191,7 +202,9 @@ export function NewProjectPage() {
   const rt = runtimes.data;
   const php = rt.runtimes.find((r) => r.key === "php");
   const node = rt.runtimes.find((r) => r.key === "node");
+  const python = rt.runtimes.find((r) => r.key === "python");
   const nodePresets = rt.nodePresets ?? defaultNodePresets;
+  const pythonPresets = rt.pythonPresets ?? defaultPythonPresets;
   const webServers = rt.runtimes.filter((r) => r.kind === "webserver" && r.available);
   const web = webServers.find((r) => r.key === form.webType);
   const databases = rt.runtimes.filter((r) => r.kind === "database");
@@ -206,17 +219,22 @@ export function NewProjectPage() {
   const chooseStack = (stack: Stack) => {
     const docroot = (fallback: string) => (form.docrootTouched ? form.docroot : fallback);
     const template = selectedTemplate && templateRuntime(selectedTemplate) !== stack ? "" : form.template;
+    // Leaving the Node or Python stack turns its server back off: a PHP or static project
+    // that later enables the runtime as a toolchain starts from the same default as a fresh flow.
+    const nodeOff = { ...form.nodeDev, devServer: false };
+    const pythonOff = { ...form.pythonServer, server: false };
     switch (stack) {
-      // Leaving the Node stack turns the dev server back off: a PHP or static project that
-      // later enables Node as a toolchain starts from the same default as a fresh flow.
       case "php":
-        set({ stack, template, phpEnabled: true, nodeEnabled: false, nodeDev: { ...form.nodeDev, devServer: false }, createStarter: true, docroot: docroot("public") });
+        set({ stack, template, phpEnabled: true, nodeEnabled: false, nodeDev: nodeOff, pythonEnabled: false, pythonServer: pythonOff, createStarter: true, docroot: docroot("public") });
+        break;
+      case "python":
+        set({ stack, template, phpEnabled: false, nodeEnabled: false, nodeDev: nodeOff, pythonEnabled: true, pythonServer: { ...form.pythonServer, server: true }, createStarter: false, docroot: docroot("") });
         break;
       case "node":
-        set({ stack, template, phpEnabled: false, nodeEnabled: true, nodeDev: { ...form.nodeDev, devServer: true, preset: "vite", port: "5173" }, createStarter: false, docroot: docroot("") });
+        set({ stack, template, phpEnabled: false, nodeEnabled: true, nodeDev: { ...form.nodeDev, devServer: true, preset: "vite", port: "5173" }, pythonEnabled: false, pythonServer: pythonOff, createStarter: false, docroot: docroot("") });
         break;
       case "static":
-        set({ stack, template, phpEnabled: false, nodeEnabled: false, nodeDev: { ...form.nodeDev, devServer: false }, createStarter: true, docroot: docroot("") });
+        set({ stack, template, phpEnabled: false, nodeEnabled: false, nodeDev: nodeOff, pythonEnabled: false, pythonServer: pythonOff, createStarter: true, docroot: docroot("") });
         break;
     }
   };
@@ -231,12 +249,21 @@ export function NewProjectPage() {
     };
     if (tpl) {
       if (!form.docrootTouched) patch.docroot = tpl.docroot;
-      if (templateRuntime(tpl) === "node") {
-        patch.nodeEnabled = true;
-        const n = tpl.node;
-        patch.nodeDev = { ...form.nodeDev, devServer: true, preset: n?.preset ?? form.nodeDev.preset, port: n?.port ? String(n.port) : form.nodeDev.port, script: n?.script ?? form.nodeDev.script };
-      } else {
-        patch.phpEnabled = true;
+      switch (templateRuntime(tpl)) {
+        case "node": {
+          patch.nodeEnabled = true;
+          const n = tpl.node;
+          patch.nodeDev = { ...form.nodeDev, devServer: true, preset: n?.preset ?? form.nodeDev.preset, port: n?.port ? String(n.port) : form.nodeDev.port, script: n?.script ?? form.nodeDev.script };
+          break;
+        }
+        case "python": {
+          patch.pythonEnabled = true;
+          const py = tpl.python;
+          patch.pythonServer = { ...form.pythonServer, server: true, preset: py?.preset ?? form.pythonServer.preset, port: py?.port ? String(py.port) : form.pythonServer.port, app: py?.app ?? form.pythonServer.app };
+          break;
+        }
+        default:
+          patch.phpEnabled = true;
       }
     }
     set(patch);
@@ -254,7 +281,9 @@ export function NewProjectPage() {
       ? t('Subfolder served by the web server, e.g. "public" for Laravel/Symfony. Leave empty for the project root.')
       : serves === "node"
         ? t("Not used while the dev server serves the app; the build output (e.g. dist/) once you turn it off.")
-        : t('Build output served by the web server, e.g. "dist". Leave empty for the project root.');
+        : serves === "python"
+          ? t("Not used while the application server serves the app; static files (e.g. a collected static/ folder) once you turn it off.")
+          : t('Build output served by the web server, e.g. "dist". Leave empty for the project root.');
 
   const submit = () => {
     if (!request) return;
@@ -267,7 +296,7 @@ export function NewProjectPage() {
 
   // Older backends omit `serves` on the preview; the form knows the answer as well.
   const previewServes: Serves = preview?.serves ?? serves;
-  const devTarget = { httpPort: 0, hostnames: preview?.devHostname ? [preview.devHostname] : [], serves: previewServes, services: [] as Project["services"] };
+  const devTarget = { httpPort: 0, hostnames: preview?.devHostname ? [preview.devHostname] : [], serves: "node" as Serves, services: [] as Project["services"] };
   const devUrl = preview?.devHostname ? links(devTarget).url : "";
 
   const versionOptions = (versions: { version: string; label: string; eol?: boolean; preview?: boolean }[]) =>
@@ -312,6 +341,25 @@ export function NewProjectPage() {
     </div>
   );
 
+  const pythonCard = python && (
+    <div key="python" className="space-y-4 rounded-md border border-default p-4">
+      <Checkbox label={t("Enable Python")} description={t("Python container for your app or tooling: run Django, Flask, FastAPI (uvicorn) or gunicorn as the application server, or use pip, uv and the interpreter from the terminal.")} checked={form.pythonEnabled} onChange={(e) => set({ pythonEnabled: e.target.checked })} />
+      {form.pythonEnabled && (
+        <>
+          <Field label={t("Python version")} htmlFor="python-version">
+            <Select id="python-version" value={form.pythonVersion} onChange={(e) => set({ pythonVersion: e.target.value })}>
+              {versionOptions(python.versions)}
+            </Select>
+          </Field>
+          <PythonServerFields value={form.pythonServer} onChange={(pythonServer) => set({ pythonServer })} idPrefix="wizard-python" presets={pythonPresets} primary={!form.phpEnabled} />
+          <p className="text-xs text-subtle">{t("pip, uv and venv ship with the Python image; the project's .venv is first on PATH.")}</p>
+        </>
+      )}
+    </div>
+  );
+
+  const runtimeCards = form.stack === "node" ? [nodeCard, pythonCard, phpCard] : form.stack === "python" ? [pythonCard, nodeCard, phpCard] : [phpCard, nodeCard, pythonCard];
+
   return (
     <div>
       <PageHeader title={t("New project")} description={t("Envoryx creates an isolated Docker environment for your project.")} />
@@ -352,7 +400,7 @@ export function NewProjectPage() {
               </Field>
               <fieldset className="space-y-2">
                 <legend className="text-sm font-medium text-fg">{t("Runtime")}</legend>
-                <div className="grid gap-2 sm:grid-cols-3">
+                <div className="grid gap-2 sm:grid-cols-2">
                   {stacks.map((s) => (
                     <label key={s.id} className={clsx("flex cursor-pointer gap-3 rounded-md border p-3 text-sm", form.stack === s.id ? "border-accent-500 bg-accent-500/5" : "border-default hover:bg-muted")}>
                       <input type="radio" name="stack" className="mt-0.5 accent-accent-600" aria-label={t(s.name)} checked={form.stack === s.id} onChange={() => chooseStack(s.id)} />
@@ -412,7 +460,7 @@ export function NewProjectPage() {
             </div>
           )}
 
-          {step === 1 && <div className="space-y-6">{form.stack === "node" ? [nodeCard, phpCard] : [phpCard, nodeCard]}</div>}
+          {step === 1 && <div className="space-y-6">{runtimeCards}</div>}
 
           {step === 2 && web && (
             <div className="space-y-5">
@@ -447,7 +495,9 @@ export function NewProjectPage() {
                   ? t("The web server serves static files from the document root and forwards PHP requests to the PHP container via FastCGI. The project is published on an automatically assigned port and reachable through the proxy under its domain.")
                   : serves === "node"
                     ? t("The dev server answers on the project URL. The web server is part of every project and serves the document root once the dev server is turned off.")
-                    : t("The web server serves static files from the document root.")}
+                    : serves === "python"
+                      ? t("The application server answers on the project URL. The web server is part of every project and serves the document root once the server is turned off.")
+                      : t("The web server serves static files from the document root.")}
               </p>
               {serves === "static" && (
                 <Checkbox label={t("SPA fallback to index.html")} description={t("Unknown paths return index.html so client-side routers work after a reload.")} checked={form.spaFallback} onChange={(e) => set({ spaFallback: e.target.checked })} />
@@ -503,7 +553,7 @@ export function NewProjectPage() {
                     onChange={(e) => set({ dbExpose: e.target.checked })}
                   />
                   <p className="text-sm text-muted">
-                    {t("Envoryx generates secure credentials and injects DB_HOST, DB_DATABASE, DB_USERNAME, DB_PASSWORD and DATABASE_URL into the application containers (PHP, Node). Data lives in a persistent Docker volume.")}
+                    {t("Envoryx generates secure credentials and injects DB_HOST, DB_DATABASE, DB_USERNAME, DB_PASSWORD and DATABASE_URL into the application containers (PHP, Python, Node). Data lives in a persistent Docker volume.")}
                   </p>
                 </div>
               )}
@@ -542,7 +592,7 @@ export function NewProjectPage() {
 
           {step === 4 && (
             <div className="space-y-4">
-              <p className="text-sm text-muted">{t("Variables are available to all containers of this project (e.g. getenv() in PHP, process.env in Node). Mark secrets to mask them in the UI.")}</p>
+              <p className="text-sm text-muted">{t("Variables are available to all containers of this project (e.g. getenv() in PHP, os.environ in Python, process.env in Node). Mark secrets to mask them in the UI.")}</p>
               <EnvEditor value={form.env} onChange={(env) => set({ env })} />
             </div>
           )}
@@ -586,13 +636,18 @@ export function NewProjectPage() {
                     <dt className="text-muted">{t("URL")}</dt>
                     <dd className="font-mono text-xs">
                       {(() => {
-                        // The preview carries no service list; the links hook only reads it for the node
-                        // host port. Behind a Node dev server the HTTP port stays unpublished, so the planned
-                        // node container's host port stands in as a synthetic node service – then the hook's
-                        // own branch applies, also when the proxy is off and the direct URL is all there is.
-                        const nodePort = Number(preview.containers.find((c) => c.service === "node")?.ports[0]?.split(" ")[0]) || 0;
+                        // The preview carries no service list; the links hook only reads it for the
+                        // application container's host port. Behind a Python server or Node dev server the
+                        // HTTP port stays unpublished, so the planned container's host port stands in as a
+                        // synthetic service – then the hook's own branch applies, also when the proxy is off
+                        // and the direct URL is all there is.
+                        const appPort = Number(preview.containers.find((c) => c.service === previewServes)?.ports[0]?.split(" ")[0]) || 0;
                         const services: Project["services"] =
-                          previewServes === "node" ? [{ kind: "node", variant: "node", version: "", image: "", enabled: true, config: { devServer: true, hostPort: nodePort } }] : [];
+                          previewServes === "node"
+                            ? [{ kind: "node", variant: "node", version: "", image: "", enabled: true, config: { devServer: true, hostPort: appPort } }]
+                            : previewServes === "python"
+                              ? [{ kind: "python", variant: "python", version: "", image: "", enabled: true, config: { server: true, hostPort: appPort } }]
+                              : [];
                         const l = links({ httpPort: preview.httpPort, hostnames: [`${preview.slug}.${settings.data?.baseDomain ?? "test"}`], serves: previewServes, services });
                         return !l.direct || l.url === l.direct ? l.url : `${l.url} · ${l.direct}`;
                       })()}
@@ -603,12 +658,20 @@ export function NewProjectPage() {
                         <dd className="text-xs">{t("Node dev server (the HTTP port stays unpublished)")}</dd>
                       </>
                     ) : (
-                      devUrl && (
-                        <>
-                          <dt className="text-muted">{t("Dev server URL")}</dt>
-                          <dd className="font-mono text-xs">{devUrl}</dd>
-                        </>
-                      )
+                      <>
+                        {previewServes === "python" && (
+                          <>
+                            <dt className="text-muted">{t("Serves")}</dt>
+                            <dd className="text-xs">{t("Python application server (the HTTP port stays unpublished)")}</dd>
+                          </>
+                        )}
+                        {devUrl && (
+                          <>
+                            <dt className="text-muted">{t("Dev server URL")}</dt>
+                            <dd className="font-mono text-xs">{devUrl}</dd>
+                          </>
+                        )}
+                      </>
                     )}
                     <dt className="text-muted">{t("Network")}</dt>
                     <dd className="font-mono text-xs">{preview.network}</dd>
@@ -647,7 +710,8 @@ export function NewProjectPage() {
                         {t("Repository {{url}} will be cloned into the project directory.", { url: form.gitUrl.trim() })}
                       </p>
                     ) : (
-                      serves !== "node" && (
+                      serves !== "node" &&
+                      serves !== "python" && (
                         <Checkbox label={form.phpEnabled ? t("Create starter index.php") : t("Create starter index.html")} description={t("Only if the document root is empty.")} checked={form.createStarter} onChange={(e) => set({ createStarter: e.target.checked })} />
                       )
                     )}

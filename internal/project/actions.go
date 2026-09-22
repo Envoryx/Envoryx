@@ -63,7 +63,26 @@ var actionCatalog = []Action{
 	{ID: "pnpm:build", Group: "pnpm", Label: "pnpm run build", Description: "Run the build script with pnpm", Service: store.ServiceNode, Cmd: []string{"pnpm", "run", "build"}, Requires: []string{"pnpm-lock.yaml"}},
 	{ID: "yarn:install", Group: "yarn", Label: "yarn install", Description: "Install with yarn", Service: store.ServiceNode, Cmd: []string{"yarn", "install"}, Requires: []string{"yarn.lock"}},
 	{ID: "yarn:build", Group: "yarn", Label: "yarn build", Description: "Run the build script with yarn", Service: store.ServiceNode, Cmd: []string{"yarn", "build"}, Requires: []string{"yarn.lock"}},
+
+	{ID: "python:version", Group: "Python", Label: "python --version", Description: "Show the Python version (the project's .venv when it exists)", Service: store.ServicePython, Cmd: []string{"python", "--version"}},
+	{ID: "python:venv", Group: "Python", Label: "python -m venv .venv", Description: "Create the virtual environment in the project directory", Service: store.ServicePython, Cmd: []string{"python", "-m", "venv", pythonVenvPath}},
+	// pip installs into the project's .venv: PATH puts its bin/ first once it exists; the
+	// venv is created on demand so a fresh checkout works with one click.
+	{ID: "pip:install", Group: "pip", Label: "pip install -r requirements.txt", Description: "Create .venv if missing and install the requirements", Service: store.ServicePython, Cmd: []string{"sh", "-c", pipInstallScript, "envoryx-pip"}, Requires: []string{"requirements.txt"}},
+	{ID: "pip:freeze", Group: "pip", Label: "pip freeze", Description: "List the installed packages with versions", Service: store.ServicePython, Cmd: []string{"pip", "freeze"}},
+	{ID: "uv:sync", Group: "uv", Label: "uv sync", Description: "Create .venv and install the project from pyproject.toml / uv.lock", Service: store.ServicePython, Cmd: []string{"uv", "sync"}, Requires: []string{"pyproject.toml"}},
+	{ID: "uv:lock", Group: "uv", Label: "uv lock", Description: "Resolve and write uv.lock", Service: store.ServicePython, Cmd: []string{"uv", "lock"}, Requires: []string{"pyproject.toml"}},
+
+	{ID: "django:migrate", Group: "Django", Label: "manage.py migrate", Description: "Apply pending database migrations", Service: store.ServicePython, Cmd: []string{"python", "manage.py", "migrate", "--no-input"}, Requires: []string{"manage.py"}},
+	{ID: "django:makemigrations", Group: "Django", Label: "manage.py makemigrations", Description: "Create migrations for model changes", Service: store.ServicePython, Cmd: []string{"python", "manage.py", "makemigrations", "--no-input"}, Requires: []string{"manage.py"}},
+	{ID: "django:collectstatic", Group: "Django", Label: "manage.py collectstatic", Description: "Collect static files into STATIC_ROOT", Service: store.ServicePython, Cmd: []string{"python", "manage.py", "collectstatic", "--no-input"}, Requires: []string{"manage.py"}},
+	{ID: "django:check", Group: "Django", Label: "manage.py check", Description: "Run Django's system checks", Service: store.ServicePython, Cmd: []string{"python", "manage.py", "check"}, Requires: []string{"manage.py"}},
+	{ID: "django:flush", Group: "Django", Label: "manage.py flush", Description: "Remove all data from the database (keeps the schema)", Service: store.ServicePython, Cmd: []string{"python", "manage.py", "flush", "--no-input"}, Requires: []string{"manage.py"}, Destructive: true},
 }
+
+// pipInstallScript creates the venv when missing and installs requirements.txt into it.
+// A constant: nothing from the request is interpolated.
+const pipInstallScript = `[ -x ` + pythonVenvPath + `/bin/python ] || python -m venv ` + pythonVenvPath + `; exec ` + pythonVenvPath + `/bin/pip install -r requirements.txt`
 
 func findAction(id string) (Action, bool) {
 	for _, a := range actionCatalog {

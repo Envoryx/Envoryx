@@ -1,0 +1,11 @@
+{
+  "image": "ghcr.io/envoryx/envoryx-python",
+  "default": "3.13",
+  "versions": [
+    { "version": "3.14", "base": "3.14-slim-bookworm" },
+    { "version": "3.13", "base": "3.13-slim-bookworm" },
+    { "version": "3.12", "base": "3.12-slim-bookworm" },
+    { "version": "3.11", "base": "3.11-slim-bookworm" },
+    { "version": "3.10", "base": "3.10-slim-bookworm" }
+  ]
+}

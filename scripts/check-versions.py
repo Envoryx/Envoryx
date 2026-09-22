@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Keeps internal/runtime/<product>_versions.json in sync with upstream releases.
 
-Usage: check-versions.py php|node
+Usage: check-versions.py php|node|python
 
 Sources:
   - https://endoflife.date/api/php.json   release cycles and EOL dates
@@ -26,6 +26,8 @@ PRODUCTS = {
             "stable": "{c}-fpm", "preview": "{c}-rc-fpm", "base_stable": "{c}", "base_preview": "{c}-rc", "label": None},
     "node": {"file": "node_versions.json", "eol_api": "https://endoflife.date/api/nodejs.json", "hub": "node", "min": (18,),
              "stable": "{c}-bookworm-slim", "preview": None, "base_stable": "{c}-bookworm-slim", "base_preview": None, "label": "node"},
+    "python": {"file": "python_versions.json", "eol_api": "https://endoflife.date/api/python.json", "hub": "python", "min": (3, 10),
+               "stable": "{c}-slim-bookworm", "preview": "{c}-rc-slim-bookworm", "base_stable": "{c}-slim-bookworm", "base_preview": "{c}-rc-slim-bookworm", "label": None},
 }
 PRODUCT = PRODUCTS[sys.argv[1] if len(sys.argv) > 1 else "php"]
 FILE = Path(__file__).resolve().parent.parent / "internal/runtime" / PRODUCT["file"]
@@ -90,7 +92,7 @@ def main() -> int:
         if lts:
             stable = lts + [v for v in stable if v not in lts]
     if not stable:
-        print("no stable PHP version found, refusing to update", file=sys.stderr)
+        print("no stable version found, refusing to update", file=sys.stderr)
         print("changed=false")
         return 0
 

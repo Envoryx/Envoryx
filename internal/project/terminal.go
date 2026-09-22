@@ -14,7 +14,7 @@ import (
 var shellCmd = []string{"/bin/sh", "-c", "if command -v bash >/dev/null 2>&1; then exec bash; else exec sh; fi"}
 
 // OpenTerminal opens an interactive shell in a project service container. Application
-// containers (php, node) run the shell as the configured PUID/PGID so files created from
+// containers (php, python, node) run the shell as the configured PUID/PGID so files created from
 // the terminal belong to the project owner; the database container runs its tools as root.
 func (m *Manager) OpenTerminal(ctx context.Context, id string, kind store.ServiceKind, cols, rows uint) (docker.Terminal, error) {
 	c, err := m.ServiceContainer(ctx, id, kind)
@@ -41,11 +41,14 @@ func (m *Manager) OpenTerminal(ctx context.Context, id string, kind store.Servic
 		Env:  []string{"TERM=xterm-256color", "COLORTERM=truecolor", "LANG=C.UTF-8"},
 	}
 	switch kind {
-	case store.ServicePHP, store.ServiceNode:
+	case store.ServicePHP, store.ServicePython, store.ServiceNode:
 		opts.WorkingDir = appMountTarget
 		opts.User = fmt.Sprintf("%d:%d", paths.PUID, paths.PGID)
 		// The uid usually has no passwd entry in the image; give tools writable caches.
 		opts.Env = append(append(opts.Env, toolEnv...), "PS1=\\w $ ")
+		if kind == store.ServicePython {
+			opts.Env = append(opts.Env, pythonEnv...)
+		}
 	default:
 		opts.WorkingDir = "/"
 	}

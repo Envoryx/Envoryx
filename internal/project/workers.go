@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/envoryx/envoryx/internal/audit"
+	"github.com/envoryx/envoryx/internal/runtime"
 	"github.com/envoryx/envoryx/internal/store"
 	"github.com/envoryx/envoryx/internal/validate"
 )
@@ -22,7 +23,7 @@ type WorkerPreset struct {
 	ArgHint  string `json:"argHint,omitempty"`
 	// Requires lists files that must exist for the preset to make sense (informational).
 	Requires []string `json:"requires,omitempty"`
-	// Runtime is the service the worker runs in: "php" (default) or "node".
+	// Runtime is the service the worker runs in: "php" (default), "node" or "python".
 	Runtime string `json:"runtime"`
 
 	// build returns argv for the validated argument.
@@ -49,9 +50,31 @@ func queueArg(arg string) error {
 
 // Worker runtimes.
 const (
-	WorkerRuntimePHP  = "php"
-	WorkerRuntimeNode = "node"
+	WorkerRuntimePHP    = "php"
+	WorkerRuntimeNode   = "node"
+	WorkerRuntimePython = "python"
 )
+
+// workerRuntimeKind maps a preset runtime to the service it runs in.
+func workerRuntimeKind(rt string) (store.ServiceKind, string) {
+	switch rt {
+	case WorkerRuntimeNode:
+		return store.ServiceNode, "Node.js"
+	case WorkerRuntimePython:
+		return store.ServicePython, "Python"
+	default:
+		return store.ServicePHP, "PHP"
+	}
+}
+
+// scriptPathArg validates a project-relative script path argument.
+func scriptPathArg(arg string) error {
+	if arg == "" {
+		return fmt.Errorf("%w: script path is required", validate.ErrInvalid)
+	}
+	_, err := validate.RelativePath(arg, 6)
+	return err
+}
 
 var workerPresets = []WorkerPreset{
 	{ID: "laravel:schedule", Group: "Laravel", Label: "Scheduler", Description: "php artisan schedule:work – runs the scheduled tasks every minute", Requires: []string{"artisan"},
@@ -137,6 +160,41 @@ var workerPresets = []WorkerPreset{
 			return err
 		},
 		build: func(arg string) []string { p, _ := validate.RelativePath(arg, 6); return []string{"node", p} }},
+	{ID: "python:file", Group: "Python", Label: "Python script", Description: "python <file> – any long-running script in the project directory (runs in the project's .venv)", ArgLabel: "Script path", ArgHint: "relative to the project, e.g. workers/consume.py", Runtime: WorkerRuntimePython,
+		validateArg: scriptPathArg,
+		build:       func(arg string) []string { p, _ := validate.RelativePath(arg, 6); return []string{"python", p} }},
+	{ID: "python:module", Group: "Python", Label: "Python module", Description: "python -m <module> – a long-running module (queue consumer, scheduler, bot …)", ArgLabel: "Module", ArgHint: "e.g. app.worker", Runtime: WorkerRuntimePython,
+		validateArg: func(arg string) error {
+			if !runtime.ValidAppPath(arg) || strings.Contains(arg, ":") {
+				return fmt.Errorf("%w: invalid module path", validate.ErrInvalid)
+			}
+			return nil
+		},
+		build: func(arg string) []string { return []string{"python", "-m", arg} }},
+	{ID: "django:command", Group: "Django", Label: "manage.py command", Description: "python manage.py <command> – a long-running management command (rqworker, qcluster, run_huey …)", ArgLabel: "Command", ArgHint: "e.g. rqworker", Requires: []string{"manage.py"}, Runtime: WorkerRuntimePython,
+		validateArg: func(arg string) error {
+			if !scriptNameRe.MatchString(arg) {
+				return fmt.Errorf("%w: invalid management command name", validate.ErrInvalid)
+			}
+			return nil
+		},
+		build: func(arg string) []string { return []string{"python", "manage.py", arg} }},
+	{ID: "celery:worker", Group: "Celery", Label: "Celery worker", Description: "celery -A <app> worker – processes tasks (Redis or RabbitMQ broker)", ArgLabel: "Celery app", ArgHint: "e.g. config or proj.celery", Runtime: WorkerRuntimePython,
+		validateArg: func(arg string) error {
+			if !runtime.ValidAppPath(arg) {
+				return fmt.Errorf("%w: invalid Celery app path", validate.ErrInvalid)
+			}
+			return nil
+		},
+		build: func(arg string) []string { return []string{"celery", "-A", arg, "worker", "--loglevel=info"} }},
+	{ID: "celery:beat", Group: "Celery", Label: "Celery beat", Description: "celery -A <app> beat – the periodic task scheduler", ArgLabel: "Celery app", ArgHint: "e.g. config or proj.celery", Runtime: WorkerRuntimePython,
+		validateArg: func(arg string) error {
+			if !runtime.ValidAppPath(arg) {
+				return fmt.Errorf("%w: invalid Celery app path", validate.ErrInvalid)
+			}
+			return nil
+		},
+		build: func(arg string) []string { return []string{"celery", "-A", arg, "beat", "--loglevel=info"} }},
 }
 
 func init() {
@@ -151,8 +209,8 @@ func init() {
 // project lacks it (unknown presets count as PHP, like the catalogue default).
 func workerRuntimeService(p store.Project, w store.Worker) *store.ProjectService {
 	kind := store.ServicePHP
-	if preset, ok := workerPreset(w.Preset); ok && preset.Runtime == WorkerRuntimeNode {
-		kind = store.ServiceNode
+	if preset, ok := workerPreset(w.Preset); ok {
+		kind, _ = workerRuntimeKind(preset.Runtime)
 	}
 	if svc := p.Service(kind); svc != nil && svc.Enabled {
 		return svc
@@ -162,10 +220,7 @@ func workerRuntimeService(p store.Project, w store.Worker) *store.ProjectService
 
 // workerRuntimeAvailable checks that the project has the service a preset runs in.
 func workerRuntimeAvailable(p store.Project, preset WorkerPreset) error {
-	kind, label := store.ServicePHP, "PHP"
-	if preset.Runtime == WorkerRuntimeNode {
-		kind, label = store.ServiceNode, "Node.js"
-	}
+	kind, label := workerRuntimeKind(preset.Runtime)
 	if svc := p.Service(kind); svc == nil || !svc.Enabled {
 		return fmt.Errorf("%w: the %s preset runs from the %s image – this project has no %s service", ErrConflict, preset.Label, label, label)
 	}

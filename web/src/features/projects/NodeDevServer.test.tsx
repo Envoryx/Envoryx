@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { ProjectDetailPage } from "./ProjectDetailPage";
@@ -100,7 +100,9 @@ describe("Node dev server", () => {
     const preset = await screen.findByLabelText("Framework preset");
     await user.selectOptions(preset, "next");
     await user.selectOptions(screen.getByLabelText("Package manager"), "pnpm");
-    await user.click(screen.getAllByRole("button", { name: "Save" }).at(-1)!);
+    // The Node card's own Save button (the Python card after it has one too).
+    const nodeCard = screen.getByRole("heading", { name: "Node.js" }).closest(".rounded-xl")!;
+    await user.click(within(nodeCard as HTMLElement).getByRole("button", { name: "Save" }));
     await waitFor(() => expect(api.calls.some((c) => c.method === "PATCH")).toBe(true));
     expect(api.calls.find((c) => c.method === "PATCH")!.body).toEqual({
       node: { enabled: true, version: "24", devServer: true, mode: "dev", packageManager: "pnpm", script: "dev", buildScript: "", port: 3000, preset: "next", inspect: false, inspectPort: 0 },

@@ -20,17 +20,20 @@ import (
 
 // Template scaffolds a fresh application into an empty project directory. Steps are
 // argv commands run in a transient container from the image of the runtime the template
-// names (PHP or Node) as the project owner, exactly like git operations; nothing is
-// interpolated from user input.
+// names (PHP, Node or Python) as the project owner, exactly like git operations; nothing
+// is interpolated from user input.
 type Template struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
-	// Runtime is the service the template needs and runs in: "php" or "node".
+	// Runtime is the service the template needs and runs in: "php", "node" or "python".
 	Runtime string `json:"runtime"`
 	// Node carries dev-server defaults merged field by field into the request's NodeConfig
 	// (preset, port and script where empty; DevServer when the request set none of them).
 	Node *runtime.NodeConfig `json:"node,omitempty"`
+	// Python carries server defaults merged the same way into the request's PythonConfig
+	// (preset, port and app where empty; Server when the request set none of them).
+	Python *runtime.PythonConfig `json:"python,omitempty"`
 	// Docroot the template expects (applied when the request leaves it empty).
 	Docroot string `json:"docroot"`
 	// RequiresDatabase refuses creation without a database service.
@@ -59,6 +62,58 @@ const composerNoInteraction = "--no-interaction"
 var (
 	composerScaffoldEnv = []string{"HOME=/tmp", "COMPOSER_HOME=/tmp/composer", "COMPOSER_NO_INTERACTION=1", "COMPOSER_MEMORY_LIMIT=-1"}
 	nodeScaffoldEnv     = []string{"HOME=/tmp", "npm_config_cache=/tmp/.npm", "npm_config_yes=true", "CI=1", "COREPACK_ENABLE_DOWNLOAD_PROMPT=0", "NPM_CONFIG_UPDATE_NOTIFIER=false"}
+	// Python scaffolds create the project's .venv first; the steps after it run through
+	// its bin/ (PATH), so pip installs into the venv, never into the image.
+	pythonScaffoldEnv = []string{"HOME=/tmp", "PIP_CACHE_DIR=/tmp/.pip", "PIP_DISABLE_PIP_VERSION_CHECK=1", "PYTHONUNBUFFERED=1", "VIRTUAL_ENV=" + pythonVenvPath, "PATH=" + pythonVenvPath + "/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin"}
+)
+
+// Python scaffold sources. Each is a fixed file written by Envoryx; the Django settings
+// patch runs as a Python one-liner from the venv so nothing depends on sed's dialect.
+const (
+	// djangoSettingsPatch makes the generated settings work behind Envoryx's proxy: every
+	// host name is allowed (the proxy decides), TLS termination is trusted and the
+	// injected DATABASE_URL is used when present (dj-database-url).
+	djangoSettingsPatch = `
+import pathlib
+p = pathlib.Path("config/settings.py")
+s = p.read_text()
+s = s.replace("ALLOWED_HOSTS = []", 'ALLOWED_HOSTS = ["*"]')
+s += """
+
+# --- Added by Envoryx: development behind the Envoryx proxy ---
+import os
+import dj_database_url
+
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+USE_X_FORWARDED_HOST = True
+# Envoryx sets DJANGO_DEBUG=0 when the runtime runs in production mode.
+DEBUG = os.environ.get("DJANGO_DEBUG", "1") == "1"
+# Only needed for cross-origin posts (e.g. from the dev-server host to the project
+# host); add the origins as a project environment variable, comma separated.
+CSRF_TRUSTED_ORIGINS = [o for o in os.environ.get("CSRF_TRUSTED_ORIGINS", "").split(",") if o]
+if os.environ.get("DATABASE_URL"):
+    DATABASES["default"] = dj_database_url.config(conn_max_age=60)
+"""
+p.write_text(s)
+`
+	flaskApp = `from flask import Flask
+
+app = Flask(__name__)
+
+
+@app.get("/")
+def index():
+    return "<h1>Flask on Envoryx</h1><p>Edit app.py – the dev server reloads on save.</p>"
+`
+	fastapiApp = `from fastapi import FastAPI
+
+app = FastAPI(title="Envoryx")
+
+
+@app.get("/")
+def index():
+    return {"message": "FastAPI on Envoryx – edit main.py, uvicorn reloads on save. Docs at /docs."}
+`
 )
 
 // nodeScaffoldMount is where Node scaffolds see the project directory. create-next-app
@@ -142,6 +197,44 @@ var templates = []Template{
 			{label: "npm install", cmd: []string{"npm", "install"}},
 		},
 	},
+	// The Python scaffolds run from the Envoryx Python image: the venv is created in
+	// the project directory, requirements are pinned with pip freeze so the Actions tab's
+	// "pip install" reproduces it after a fresh clone.
+	{
+		ID: "django", Name: "Django", Description: "django-admin startproject with settings prepared for the Envoryx proxy and the project database (dj-database-url).",
+		Runtime: "python", Docroot: "", RecommendedDatabase: "postgresql",
+		Python: &runtime.PythonConfig{Server: true, Preset: "django", Port: 8000, App: "config.wsgi:application"},
+		Notes:  "Run “manage.py migrate” from the Actions tab, then open the site. DATABASE_URL is injected by Envoryx and picked up by settings.py; without a database Django uses SQLite. settings.py ties DEBUG to the runtime mode (DJANGO_DEBUG) and reads CSRF_TRUSTED_ORIGINS from the environment if you need cross-origin posts.",
+		steps: []templateStep{
+			{label: "python -m venv", cmd: []string{"python", "-m", "venv", pythonVenvPath}},
+			{label: "pip install django", cmd: []string{"pip", "install", "django", "dj-database-url", "gunicorn", "psycopg[binary]", "mysqlclient"}},
+			{label: "django-admin startproject", cmd: []string{"django-admin", "startproject", "config", "."}},
+			{label: "prepare settings", cmd: []string{"python", "-c", djangoSettingsPatch}},
+			{label: "pip freeze", cmd: []string{"sh", "-c", "pip freeze > requirements.txt", "envoryx-freeze"}},
+		},
+	},
+	{
+		ID: "flask", Name: "Flask", Description: "A minimal Flask application (app.py) – flask run with the debugger and reloader on the project URL.",
+		Runtime: "python", Docroot: "",
+		Python: &runtime.PythonConfig{Server: true, Preset: "flask", Port: 5000, App: "app:app"},
+		Notes:  "The dev server answers on the project URL. For a production-like run switch the mode to production (gunicorn is installed).",
+		steps: []templateStep{
+			{label: "python -m venv", cmd: []string{"python", "-m", "venv", pythonVenvPath}},
+			{label: "pip install flask", cmd: []string{"pip", "install", "flask", "gunicorn", "python-dotenv"}},
+			{label: "pip freeze, write app.py", cmd: []string{"sh", "-c", "pip freeze > requirements.txt", "envoryx-freeze"}, files: map[string]func() (string, error){"app.py": func() (string, error) { return flaskApp, nil }}},
+		},
+	},
+	{
+		ID: "fastapi", Name: "FastAPI", Description: "A minimal FastAPI application (main.py) served by uvicorn with reload – interactive docs at /docs.",
+		Runtime: "python", Docroot: "",
+		Python: &runtime.PythonConfig{Server: true, Preset: "asgi", Port: 8000, App: "main:app"},
+		Notes:  "uvicorn answers on the project URL; the OpenAPI docs are at /docs.",
+		steps: []templateStep{
+			{label: "python -m venv", cmd: []string{"python", "-m", "venv", pythonVenvPath}},
+			{label: "pip install fastapi", cmd: []string{"pip", "install", "fastapi", "uvicorn[standard]"}},
+			{label: "pip freeze, write main.py", cmd: []string{"sh", "-c", "pip freeze > requirements.txt", "envoryx-freeze"}, files: map[string]func() (string, error){"main.py": func() (string, error) { return fastapiApp, nil }}},
+		},
+	},
 }
 
 // Templates lists the available project templates.
@@ -194,8 +287,11 @@ func wordpressConfig() (string, error) {
 // steps from the image of the runtime the template names.
 func (m *Manager) applyTemplate(ctx context.Context, proj store.Project, tpl Template) error {
 	kind, label, env, mount := store.ServicePHP, "PHP", composerScaffoldEnv, appMountTarget
-	if tpl.Runtime == "node" {
+	switch tpl.Runtime {
+	case "node":
 		kind, label, env, mount = store.ServiceNode, "Node", nodeScaffoldEnv, nodeScaffoldMount(proj.Slug)
+	case "python":
+		kind, label, env = store.ServicePython, "Python", pythonScaffoldEnv
 	}
 	svc := proj.Service(kind)
 	if svc == nil {

@@ -128,7 +128,7 @@ export function DashboardPage() {
             {d.recent.length === 0 ? (
               <EmptyState
                 title={t("No projects yet")}
-                message={t("Create your first development environment – PHP or Node.js with a web server – in under a minute.")}
+                message={t("Create your first development environment – PHP, Python or Node.js with a web server – in under a minute.")}
                 action={
                   <LinkButton to="/projects/new" variant="primary" icon={<Plus className="size-4" />}>
                     {t("New project")}
