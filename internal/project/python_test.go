@@ -291,6 +291,47 @@ func TestPythonTemplateMergesServerDefaults(t *testing.T) {
 	}
 }
 
+// The application server must not race the database: it waits for the port instead of
+// crash-looping (or, with Django's runserver, leaving a live parent that serves nothing).
+func TestApplicationServerWaitsForTheDatabase(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+
+	req := pythonRequest("Waiter", true)
+	req.Database = &DatabaseRequest{Type: "postgresql", Version: "17"}
+	req.Node = &NodeRequest{Version: "24", Config: runtime.NodeConfig{DevServer: true, Preset: "vite"}}
+	if _, err := e.m.Create(ctx, req); err != nil {
+		t.Fatal(err)
+	}
+	py, _ := e.engine.Container("envoryx-waiter-python")
+	script := py.Spec.Cmd[2]
+	// Entry file first (cheap and local), then the database, then the server.
+	entry, db := strings.Index(script, "main.py"), strings.Index(script, "TCP:database:5432")
+	if entry < 0 || db < entry || !strings.Contains(script, `; exec "$@"`) {
+		t.Fatalf("python guards: %q", script)
+	}
+	if strings.Contains(script, "uvicorn") {
+		t.Fatalf("argv must stay in $@: %q", script)
+	}
+	// The Node dev server next to it waits as well. It does not serve the project URL here,
+	// so it keeps no package.json guard – only the container behind the URL gets that one.
+	node, _ := e.engine.Container("envoryx-waiter-node")
+	if !strings.Contains(node.Spec.Cmd[2], "TCP:database:5432") || strings.Contains(node.Spec.Cmd[2], "package.json") {
+		t.Fatalf("node guards: %q", node.Spec.Cmd[2])
+	}
+
+	// Without a database nothing is added – the command stays what it was, so existing
+	// containers are not recreated for an empty guard.
+	plain := pythonRequest("Nowait", true)
+	if _, err := e.m.Create(ctx, plain); err != nil {
+		t.Fatal(err)
+	}
+	solo, _ := e.engine.Container("envoryx-nowait-python")
+	if strings.Contains(solo.Spec.Cmd[2], "socat") {
+		t.Fatalf("no database, no wait: %q", solo.Spec.Cmd[2])
+	}
+}
+
 // A Python container without an application server still publishes debugpy: the process a
 // developer steps through is usually one they start themselves in the terminal.
 func TestDebugpyPortWithoutApplicationServer(t *testing.T) {
