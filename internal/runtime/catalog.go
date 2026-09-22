@@ -105,21 +105,21 @@ func Default() *Catalog {
 	})
 	c.add(Runtime{
 		Key: "caddy", Name: "Caddy", Kind: "webserver", Available: true,
-		Description: "Project web server (static files + FastCGI to PHP)",
+		Description: "Project web server: static files from the document root, FastCGI to PHP when enabled",
 		Versions: []Version{
 			{Version: "2", Image: "caddy:2-alpine", Label: "Caddy 2", Default: true},
 		},
 	})
 	c.add(Runtime{
 		Key: "apache", Name: "Apache", Kind: "webserver", Available: true,
-		Description: "Apache httpd with mod_rewrite and .htaccess support (FastCGI to PHP)",
+		Description: "Apache httpd with mod_rewrite and .htaccess support, FastCGI to PHP when enabled",
 		Versions: []Version{
 			{Version: "2.4", Image: "httpd:2.4-alpine", Label: "Apache 2.4", Default: true},
 		},
 	})
 	c.add(Runtime{
 		Key: "nginx", Name: "Nginx", Kind: "webserver", Available: true,
-		Description: "Nginx with front-controller rewrite (FastCGI to PHP)",
+		Description: "Nginx: static files, front-controller rewrite and FastCGI when PHP is enabled",
 		Versions: []Version{
 			{Version: "1", Image: "nginx:1-alpine", Label: "Nginx 1 (mainline)", Default: true},
 		},
@@ -127,7 +127,7 @@ func Default() *Catalog {
 	_, nodeVersions := loadNodeVersions()
 	c.add(Runtime{
 		Key: "node", Name: "Node.js", Kind: "runtime", Available: true,
-		Description: "Node.js toolchain container with npm, pnpm and yarn (corepack)",
+		Description: "Node.js runtime: toolchain container (npm, pnpm, yarn via corepack) or dev server (Vite, Next.js, Nuxt …) as the project's main process",
 		Versions:    nodeVersions,
 	})
 	c.add(Runtime{

@@ -1,6 +1,6 @@
 import { useIsMutating, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "./client";
-import type { CreateProjectRequest, NodeConfig, Project, UpdateProjectRequest, UpdateSettingsRequest } from "./types";
+import { servesOf, type CreateProjectRequest, type NodeConfig, type Project, type UpdateProjectRequest, type UpdateSettingsRequest } from "./types";
 import { projectUrl } from "@/lib/format";
 
 export const keys = {
@@ -80,13 +80,17 @@ export function useUpdateSettings() {
 /**
  * Returns a function building the URL a project should be opened at: the proxy domain
  * (HTTPS when available) when the proxy ports are published, otherwise the direct port.
+ * While a Node dev server serves the project the web container's HTTP port stays
+ * unpublished, so the node container's host port is the direct address.
  */
-export function useProjectLinks(): (project: Pick<Project, "httpPort" | "hostnames">) => { url: string; direct: string } {
+export function useProjectLinks(): (project: Pick<Project, "httpPort" | "hostnames" | "serves" | "services">) => { url: string; direct: string } {
   const q = useQuery({ queryKey: keys.settings, queryFn: api.settings, staleTime: 60 * 1000 });
   const publicHost = q.data?.publicHost ?? "";
   const proxy = q.data?.proxy;
   return (project) => {
-    const direct = projectUrl(project.httpPort, publicHost);
+    const serves = project.serves ?? servesOf(project);
+    const node = serves === "node" ? ((project.services.find((s) => s.kind === "node" && s.enabled)?.config ?? {}) as NodeConfig) : undefined;
+    const direct = projectUrl(node ? (node.hostPort ?? 0) : project.httpPort, publicHost);
     const host = project.hostnames?.[0];
     if (!proxy?.enabled || !host) return { url: direct, direct };
     if (proxy.tls && proxy.httpsPort > 0) {

@@ -240,13 +240,14 @@ func gitEnv(g store.GitConfig) []string {
 }
 
 // runGit executes git with the given arguments in the project directory inside a transient
-// container built from the project's PHP image (which ships git and ssh). The deploy key
-// is only ever mounted into this short-lived container, never into the long-running PHP
-// container, so application code cannot read it.
+// container built from the project's PHP image, else its Node image, else the default Node
+// image – git and ssh ship in both. The deploy key is only ever mounted into this
+// short-lived container, never into the long-running application containers, so
+// application code cannot read it.
 func (m *Manager) runGit(ctx context.Context, proj store.Project, args ...string) (docker.ExecResult, error) {
-	php := proj.Service(store.ServicePHP)
-	if php == nil {
-		return docker.ExecResult{}, fmt.Errorf("%w: git needs a PHP service (the git client ships in the PHP image)", ErrConflict)
+	image, err := m.toolImage(proj)
+	if err != nil {
+		return docker.ExecResult{}, err
 	}
 	paths, err := m.paths()
 	if err != nil {
@@ -256,12 +257,12 @@ func (m *Manager) runGit(ctx context.Context, proj store.Project, args ...string
 	if _, err := m.DeployKey(ctx); err != nil {
 		return docker.ExecResult{}, err
 	}
-	if err := m.engine.EnsureImage(ctx, php.Image, m.pullProgress(ctx, proj.Slug, php.Image)); err != nil {
+	if err := m.engine.EnsureImage(ctx, image, m.pullProgress(ctx, proj.Slug, image)); err != nil {
 		return docker.ExecResult{}, err
 	}
 	spec := docker.ContainerSpec{
 		Name:       fmt.Sprintf("envoryx-%s-git-%d", proj.Slug, time.Now().UnixNano()%1_000_000),
-		Image:      php.Image,
+		Image:      image,
 		Labels:     docker.ManagedLabels(proj.ID, proj.Slug, "git", paths.EnvoryxVersion),
 		Env:        gitEnv(proj.Git),
 		Cmd:        append([]string{"git", "-C", appMountTarget}, args...),

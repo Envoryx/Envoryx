@@ -97,6 +97,9 @@ export interface EnvVar {
   isSecret: boolean;
 }
 
+/** What a project's primary hostname serves: PHP-FPM behind the web server, the Node dev server or static files. */
+export type Serves = "php" | "node" | "static";
+
 export interface Project {
   id: string;
   name: string;
@@ -115,10 +118,26 @@ export interface Project {
   git: { url: string; branch: string; username: string; hasToken: boolean };
   /** Default hostname (slug.base) followed by extra domains. */
   hostnames: string[];
-  /** Set when the Node dev server is enabled (routed by the proxy). */
+  /** Set when the Node dev server is enabled (routed by the proxy); also the primary route when the project has no PHP. */
   devHostname?: string;
+  /** Missing on payloads from a backend that predates it – use servesOf() then. */
+  serves?: Serves;
+  /** The application container: PHP if present, else Node; absent for static projects. */
+  appService?: "php" | "node";
   backupSchedule: BackupSchedule;
   ideGateway?: boolean;
+}
+
+/**
+ * Client-side fallback for `project.serves`: PHP enabled → php; Node enabled with the dev server
+ * on → node; everything else → static. Prefer `project.serves ?? servesOf(project)`.
+ */
+export function servesOf(p: Pick<Project, "services">): Serves {
+  const enabled = (kind: string) => p.services.find((s) => s.kind === kind && s.enabled);
+  if (enabled("php")) return "php";
+  const node = enabled("node");
+  if (node && (node.config as NodeConfig).devServer) return "node";
+  return "static";
 }
 
 export interface RuntimeVersion {
@@ -155,13 +174,33 @@ export interface ProjectTemplate {
   recommendedDatabase?: string;
   phpExtensions?: string[];
   notes?: string;
+  /** The runtime the template scaffolds for and runs in; older backends omit it (PHP). */
+  runtime?: "php" | "node";
+  /** Dev-server defaults of a Node template (preset, port, script). */
+  node?: NodeConfig;
 }
+
+/** Framework preset of the Node dev server with the port the framework listens on by default. */
+export interface NodePreset {
+  key: string;
+  label: string;
+  port: number;
+}
+
+/** Fallback when the backend predates nodePresets. */
+export const defaultNodePresets: NodePreset[] = [
+  { key: "vite", label: "Vite (Vue, React, Svelte, Laravel…)", port: 5173 },
+  { key: "next", label: "Next.js", port: 3000 },
+  { key: "nuxt", label: "Nuxt", port: 3000 },
+  { key: "generic", label: "Other (HOST/PORT env only)", port: 5173 },
+];
 
 export interface RuntimesResponse {
   runtimes: Runtime[];
   phpExtensions: PHPExtension[];
   phpDefaults: PHPConfig;
   templates?: ProjectTemplate[];
+  nodePresets?: NodePreset[];
 }
 
 export interface DatabaseRequest {
@@ -268,11 +307,18 @@ export interface NodeConfig {
   hostPort?: number;
 }
 
-export const nodePresets: Record<string, string> = {
-  vite: "Vite (Laravel, Vue, React, Svelte…)",
-  next: "Next.js",
-  generic: "Other (HOST/PORT env only)",
-};
+/** Stored web service config (from project.services[kind=web].config). */
+export interface WebServerConfig {
+  /** Unknown paths return index.html (client-side routing); only for projects without PHP. */
+  spaFallback?: boolean;
+}
+
+/** Web server of a project; spaFallback is rejected while the project has PHP. */
+export interface WebRequest {
+  type: string;
+  version: string;
+  spaFallback?: boolean;
+}
 
 export interface CreateProjectRequest {
   name: string;
@@ -285,7 +331,7 @@ export interface CreateProjectRequest {
   mailpit?: ExtraRequest | null;
   storage?: StorageRequest | null;
   git?: GitRequest | null;
-  web?: { type: string; version: string };
+  web?: WebRequest;
   env?: EnvVar[];
   template?: string;
   createStarter?: boolean;
@@ -295,7 +341,7 @@ export interface CreateProjectRequest {
 export interface UpdateProjectRequest {
   name?: string;
   docroot?: string;
-  web?: { type: string; version: string };
+  web?: WebRequest;
   php?: { version: string; config: PHPConfig };
   node?: ({ enabled: true } & NodeRequest) | { enabled: false };
   database?: DatabaseUpdate;
@@ -357,6 +403,11 @@ export interface Preview {
   volumes: string[];
   images: string[];
   warnings: string[];
+  /** Missing on previews from a backend that predates it. */
+  serves?: Serves;
+  appService?: "php" | "node";
+  /** Set when the Node dev server is on. */
+  devHostname?: string;
 }
 
 export interface DockerInfo {

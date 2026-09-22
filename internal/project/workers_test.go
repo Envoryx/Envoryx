@@ -98,3 +98,19 @@ func TestWorkersRunAsExtraContainers(t *testing.T) {
 		t.Fatalf("removed worker lookup: %v", err)
 	}
 }
+
+func TestWorkersNeedPHP(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	view, err := e.m.Create(ctx, nodeRequest("Front", true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = e.m.AddWorker(ctx, view.Project.ID, WorkerRequest{Name: "queue", Preset: "laravel:queue", Enabled: true})
+	if !errors.Is(err, ErrConflict) || !strings.Contains(err.Error(), "workers currently run from the PHP image – this project has no PHP service") {
+		t.Fatalf("worker on a node-only project: %v", err)
+	}
+	if len(view.Project.Workers) != 0 {
+		t.Fatal("no worker may be stored")
+	}
+}

@@ -173,3 +173,26 @@ func TestRedisAndMailpitServices(t *testing.T) {
 }
 
 type dockerContainer = dockertest.FakeContainer
+
+func TestRedisAndMailpitEnvReachNodeApplication(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	req := nodeRequest("Shop", true)
+	req.Redis = &ExtraRequest{}
+	req.Mailpit = &ExtraRequest{}
+	if _, err := e.m.Create(ctx, req); err != nil {
+		t.Fatal(err)
+	}
+	node, _ := e.engine.Container("envoryx-shop-node")
+	env := strings.Join(node.Spec.Env, "\n")
+	for _, want := range []string{"REDIS_URL=redis://redis:6379", "MAIL_HOST=mailpit", "MAILER_DSN=smtp://mailpit:1025", "SMTP_HOST=mailpit", "SMTP_PORT=1025"} {
+		if !strings.Contains(env, want) {
+			t.Errorf("node env missing %q", want)
+		}
+	}
+	// The web container only serves files and never receives service variables.
+	web, _ := e.engine.Container("envoryx-shop-web")
+	if strings.Contains(strings.Join(web.Spec.Env, "\n"), "REDIS_URL") {
+		t.Fatalf("web env: %v", web.Spec.Env)
+	}
+}

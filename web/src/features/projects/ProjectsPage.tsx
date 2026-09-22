@@ -13,13 +13,16 @@ import { errorText } from "@/lib/errors";
 /** Service badges in a fixed order – runtime, web server, database, extras – so rows read alike. */
 function ServiceBadges({ project }: { project: Project }) {
   const { t } = useTranslation();
-  const php = project.services.find((s) => s.kind === "php");
+  // The application runtime leads: PHP when present, else Node; a static site has none.
+  const enabled = (kind: string) => project.services.some((s) => s.kind === kind && s.enabled);
+  const app = project.appService ?? (enabled("php") ? "php" : enabled("node") ? "node" : undefined);
+  const runtime = app ? project.services.find((s) => s.kind === app && s.enabled) : undefined;
   const web = project.services.find((s) => s.kind === "web");
   const db = project.services.find((s) => s.kind === "database");
-  const extras = project.services.filter((s) => s.enabled && (s.kind === "node" || s.kind === "redis" || s.kind === "mailpit" || s.kind === "storage"));
+  const extras = project.services.filter((s) => s.enabled && s.kind !== app && (s.kind === "node" || s.kind === "redis" || s.kind === "mailpit" || s.kind === "storage"));
   return (
     <div className="flex flex-wrap gap-1.5">
-      {php ? <Badge tone="blue">{serviceLabel("php", php.version)}</Badge> : <Badge>{t("No PHP")}</Badge>}
+      {runtime ? <Badge tone="blue">{serviceLabel(runtime.kind, runtime.version)}</Badge> : <Badge>{t("Static")}</Badge>}
       {web && <Badge>{serviceLabel("web", web.version, web.variant)}</Badge>}
       {db && <Badge tone="amber">{serviceLabel("database", db.version, db.variant)}</Badge>}
       {extras.map((s) => (
@@ -133,7 +136,7 @@ export function ProjectsPage() {
       ) : q.data.length === 0 ? (
         <EmptyState
           title={t("No projects yet")}
-          message={t("Create a project to get an isolated PHP + web server environment with its own Docker network.")}
+          message={t("Create a project to get an isolated PHP or Node.js environment with its own web server and Docker network.")}
           action={
             <LinkButton to="/projects/new" variant="primary" icon={<Plus className="size-4" />}>
               {t("Create your first project")}

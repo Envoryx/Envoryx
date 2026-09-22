@@ -294,9 +294,10 @@ func RedisEnv() map[string]string {
 	return map[string]string{"REDIS_HOST": "redis", "REDIS_PORT": "6379", "REDIS_URL": "redis://redis:6379"}
 }
 
-// MailpitEnv returns the variables injected for a Mailpit service (Laravel + Symfony naming).
+// MailpitEnv returns the variables injected for a Mailpit service (Laravel, Symfony and
+// the SMTP_* pair Node mailers such as nodemailer examples read).
 func MailpitEnv() map[string]string {
-	return map[string]string{"MAIL_MAILER": "smtp", "MAIL_HOST": "mailpit", "MAIL_PORT": "1025", "MAIL_ENCRYPTION": "null", "MAILER_DSN": "smtp://mailpit:1025"}
+	return map[string]string{"MAIL_MAILER": "smtp", "MAIL_HOST": "mailpit", "MAIL_PORT": "1025", "MAIL_ENCRYPTION": "null", "MAILER_DSN": "smtp://mailpit:1025", "SMTP_HOST": "mailpit", "SMTP_PORT": "1025"}
 }
 
 // CompareVersions returns -1, 0 or 1 comparing dotted numeric versions.

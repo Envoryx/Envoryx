@@ -6,7 +6,7 @@ import { useNavigate } from "react-router-dom";
 import { api } from "@/api/client";
 import { useCreateProject, useProjectLinks, useRuntimes, useSettings } from "@/api/hooks";
 import { NodeDevServerFields, defaultDevServerForm, devServerRequest, type DevServerForm } from "./NodeDevServerFields";
-import type { CreateProjectRequest, EnvVar, PHPConfig, Preview } from "@/api/types";
+import { defaultNodePresets, type CreateProjectRequest, type EnvVar, type PHPConfig, type Preview, type Project, type ProjectTemplate, type Serves } from "@/api/types";
 import { Alert, Button, Card, Checkbox, Code, ErrorState, Field, Input, PageHeader, Select, Spinner } from "@/components/ui";
 import { CreateProgress } from "./CreateProgress";
 import { EnvEditor } from "./EnvEditor";
@@ -14,7 +14,16 @@ import { PhpConfigForm } from "./PhpConfigForm";
 import { webServerHint } from "./webServers";
 import { errorText } from "@/lib/errors";
 
-const steps = ["General", "Runtime", "Web server", "Database & services", "Environment", "Summary"] as const;
+const steps = ["General", "Runtimes", "Web server", "Database & services", "Environment", "Summary"] as const;
+
+/** The runtime choice of step 1; it presets the PHP/Node checkboxes, docroot and starter page. */
+type Stack = "php" | "node" | "static";
+
+const stacks: { id: Stack; name: string; description: string }[] = [
+  { id: "php", name: "PHP application", description: "PHP-FPM behind the web server – Laravel, Symfony, WordPress…" },
+  { id: "node", name: "Node.js application", description: "Vite, Next.js, Nuxt… – the dev server answers on the project URL." },
+  { id: "static", name: "Static site", description: "The web server serves files from the document root; no application runtime." },
+];
 
 function slugify(name: string): string {
   return name
@@ -24,11 +33,18 @@ function slugify(name: string): string {
     .slice(0, 40);
 }
 
+/** Older backends omit the template runtime; every template was a PHP one then. */
+function templateRuntime(tpl: ProjectTemplate): "php" | "node" {
+  return tpl.runtime ?? "php";
+}
+
 interface Form {
   name: string;
   path: string;
   pathTouched: boolean;
+  stack: Stack;
   docroot: string;
+  docrootTouched: boolean;
   phpEnabled: boolean;
   phpVersion: string;
   phpConfig: PHPConfig;
@@ -37,6 +53,7 @@ interface Form {
   nodeDev: DevServerForm;
   webType: string;
   webVersion: string;
+  spaFallback: boolean;
   dbType: string; // "" = none
   dbVersion: string;
   dbExpose: boolean;
@@ -53,6 +70,13 @@ interface Form {
   env: EnvVar[];
   createStarter: boolean;
   start: boolean;
+}
+
+/** What the primary hostname will serve, derived from the form the same way the backend does. */
+function servesOfForm(f: Form): Serves {
+  if (f.phpEnabled) return "php";
+  if (f.nodeEnabled && f.nodeDev.devServer) return "node";
+  return "static";
 }
 
 export function NewProjectPage() {
@@ -77,7 +101,9 @@ export function NewProjectPage() {
         name: "",
         path: "",
         pathTouched: false,
+        stack: "php",
         docroot: "public",
+        docrootTouched: false,
         phpEnabled: true,
         phpVersion: php?.versions.find((v) => v.default)?.version ?? php?.versions[0]?.version ?? "",
         phpConfig: runtimes.data.phpDefaults,
@@ -86,6 +112,7 @@ export function NewProjectPage() {
         nodeVersion: node?.versions.find((v) => v.default)?.version ?? node?.versions[0]?.version ?? "",
         webType: "caddy",
         webVersion: web?.versions.find((v) => v.default)?.version ?? "",
+        spaFallback: false,
         dbType: "",
         dbVersion: "",
         dbExpose: false,
@@ -106,6 +133,8 @@ export function NewProjectPage() {
     }
   }, [runtimes.data, form]);
 
+  const serves = form ? servesOfForm(form) : "php";
+
   const request = useMemo<CreateProjectRequest | null>(() => {
     if (!form) return null;
     const req: CreateProjectRequest = {
@@ -117,6 +146,8 @@ export function NewProjectPage() {
       createStarter: form.createStarter,
       start: form.start,
     };
+    // The backend rejects the SPA fallback for PHP projects; only send it where it applies.
+    if (form.spaFallback && servesOfForm(form) === "static") req.web = { ...req.web!, spaFallback: true };
     if (form.phpEnabled) req.php = { version: form.phpVersion, config: form.phpConfig };
     if (form.nodeEnabled) req.node = { version: form.nodeVersion, ...devServerRequest(form.nodeDev) };
     if (form.dbType) req.database = { type: form.dbType, version: form.dbVersion, exposePort: form.dbExpose };
@@ -133,6 +164,9 @@ export function NewProjectPage() {
     return req;
   }, [form]);
 
+  // Keyed on the serialised request: a response (or error) for a request that is no longer
+  // current is dropped, so e.g. the error of a template the user has since deselected never shows.
+  const requestKey = request ? JSON.stringify(request) : "";
   useEffect(() => {
     if (step !== steps.length - 1 || !request) return;
     let cancelled = false;
@@ -149,7 +183,7 @@ export function NewProjectPage() {
     return () => {
       cancelled = true;
     };
-  }, [step, request]);
+  }, [step, requestKey]);
 
   if (runtimes.isPending || !form) return <Spinner label={t("Loading runtimes…")} />;
   if (runtimes.isError) return <ErrorState message={errorText(runtimes.error, t)} />;
@@ -157,13 +191,70 @@ export function NewProjectPage() {
   const rt = runtimes.data;
   const php = rt.runtimes.find((r) => r.key === "php");
   const node = rt.runtimes.find((r) => r.key === "node");
+  const nodePresets = rt.nodePresets ?? defaultNodePresets;
   const webServers = rt.runtimes.filter((r) => r.kind === "webserver" && r.available);
   const web = webServers.find((r) => r.key === form.webType);
   const databases = rt.runtimes.filter((r) => r.kind === "database");
   const services = rt.runtimes.filter((r) => r.kind === "service");
+  const templates = (rt.templates ?? []).filter((tpl) => templateRuntime(tpl) === form.stack);
+  const selectedTemplate = rt.templates?.find((x) => x.id === form.template);
   const nameError = form.name.trim().length > 0 && form.name.trim().length < 2 ? t("At least 2 characters.") : slugify(form.name) === "" && form.name.trim() ? t("Name must contain letters or digits.") : undefined;
   const canContinue = step === 0 ? form.name.trim().length >= 2 && !nameError : true;
   const set = (patch: Partial<Form>) => setForm((f) => (f ? { ...f, ...patch } : f));
+
+  /** Presets the runtime checkboxes, docroot and starter page for a stack; fields the user edited stay. */
+  const chooseStack = (stack: Stack) => {
+    const docroot = (fallback: string) => (form.docrootTouched ? form.docroot : fallback);
+    const template = selectedTemplate && templateRuntime(selectedTemplate) !== stack ? "" : form.template;
+    switch (stack) {
+      // Leaving the Node stack turns the dev server back off: a PHP or static project that
+      // later enables Node as a toolchain starts from the same default as a fresh flow.
+      case "php":
+        set({ stack, template, phpEnabled: true, nodeEnabled: false, nodeDev: { ...form.nodeDev, devServer: false }, createStarter: true, docroot: docroot("public") });
+        break;
+      case "node":
+        set({ stack, template, phpEnabled: false, nodeEnabled: true, nodeDev: { ...form.nodeDev, devServer: true, preset: "vite", port: "5173" }, createStarter: false, docroot: docroot("") });
+        break;
+      case "static":
+        set({ stack, template, phpEnabled: false, nodeEnabled: false, nodeDev: { ...form.nodeDev, devServer: false }, createStarter: true, docroot: docroot("") });
+        break;
+    }
+  };
+
+  const chooseTemplate = (id: string) => {
+    const tpl = rt.templates?.find((x) => x.id === id);
+    const patch: Partial<Form> = {
+      template: id,
+      dbType: tpl?.recommendedDatabase && !form.dbType ? tpl.recommendedDatabase : form.dbType,
+      dbVersion: tpl?.recommendedDatabase && !form.dbType ? (rt.runtimes.find((r) => r.key === tpl.recommendedDatabase)?.versions.find((v) => v.default)?.version ?? "") : form.dbVersion,
+      gitUrl: tpl ? "" : form.gitUrl,
+    };
+    if (tpl) {
+      if (!form.docrootTouched) patch.docroot = tpl.docroot;
+      if (templateRuntime(tpl) === "node") {
+        patch.nodeEnabled = true;
+        const n = tpl.node;
+        patch.nodeDev = { ...form.nodeDev, devServer: true, preset: n?.preset ?? form.nodeDev.preset, port: n?.port ? String(n.port) : form.nodeDev.port, script: n?.script ?? form.nodeDev.script };
+      } else {
+        patch.phpEnabled = true;
+      }
+    }
+    set(patch);
+  };
+
+  const setNodeDev = (nodeDev: DevServerForm) => {
+    const patch: Partial<Form> = { nodeDev };
+    // Without the dev server the web server serves the build output – suggest the usual folder.
+    if (form.stack === "node" && !form.docrootTouched && nodeDev.devServer !== form.nodeDev.devServer) patch.docroot = nodeDev.devServer ? "" : "dist";
+    set(patch);
+  };
+
+  const docrootHint =
+    form.stack === "php"
+      ? t('Subfolder served by the web server, e.g. "public" for Laravel/Symfony. Leave empty for the project root.')
+      : serves === "node"
+        ? t("Not used while the dev server serves the app; the build output (e.g. dist/) once you turn it off.")
+        : t('Build output served by the web server, e.g. "dist". Leave empty for the project root.');
 
   const submit = () => {
     if (!request) return;
@@ -173,6 +264,53 @@ export function NewProjectPage() {
       onError: (err) => setSubmitError(errorText(err, t, t("Creating the project failed"))),
     });
   };
+
+  // Older backends omit `serves` on the preview; the form knows the answer as well.
+  const previewServes: Serves = preview?.serves ?? serves;
+  const devTarget = { httpPort: 0, hostnames: preview?.devHostname ? [preview.devHostname] : [], serves: previewServes, services: [] as Project["services"] };
+  const devUrl = preview?.devHostname ? links(devTarget).url : "";
+
+  const versionOptions = (versions: { version: string; label: string; eol?: boolean; preview?: boolean }[]) =>
+    versions.map((v) => (
+      <option key={v.version} value={v.version}>
+        {v.label}
+        {v.eol ? t(" (end of life)") : v.preview ? t(" (preview)") : ""}
+      </option>
+    ));
+
+  const phpCard = php && (
+    <div key="php" className="space-y-4 rounded-md border border-default p-4">
+      <Checkbox label={t("Enable PHP")} description={t("Runs PHP-FPM in its own container. Disable for Node-only or static projects.")} checked={form.phpEnabled} onChange={(e) => set({ phpEnabled: e.target.checked })} />
+      {form.phpEnabled && (
+        <>
+          <Field label={t("PHP version")} htmlFor="php-version">
+            <Select id="php-version" value={form.phpVersion} onChange={(e) => set({ phpVersion: e.target.value })}>
+              {versionOptions(php.versions)}
+            </Select>
+          </Field>
+          <PhpConfigForm value={form.phpConfig} onChange={(c) => set({ phpConfig: c })} extensions={rt.phpExtensions} />
+          <p className="text-xs text-subtle">{t("Composer ships with the PHP image.")}</p>
+        </>
+      )}
+    </div>
+  );
+
+  const nodeCard = node && (
+    <div key="node" className="space-y-4 rounded-md border border-default p-4">
+      <Checkbox label={t("Enable Node.js")} description={t("Node.js container for your app or asset builds: run a dev server (Vite, Next.js, Nuxt…) or use it as a toolchain.")} checked={form.nodeEnabled} onChange={(e) => set({ nodeEnabled: e.target.checked })} />
+      {form.nodeEnabled && (
+        <>
+          <Field label={t("Node.js version")} htmlFor="node-version">
+            <Select id="node-version" value={form.nodeVersion} onChange={(e) => set({ nodeVersion: e.target.value })}>
+              {versionOptions(node.versions)}
+            </Select>
+          </Field>
+          <NodeDevServerFields value={form.nodeDev} onChange={setNodeDev} idPrefix="wizard-node" presets={nodePresets} primary={form.stack === "node"} />
+          <p className="text-xs text-subtle">{t("npm, pnpm and yarn ship with the Node image.")}</p>
+        </>
+      )}
+    </div>
+  );
 
   return (
     <div>
@@ -213,40 +351,38 @@ export function NewProjectPage() {
                 </div>
               </Field>
               <fieldset className="space-y-2">
-                <legend className="text-sm font-medium text-fg">{t("Start from")}</legend>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {[{ id: "", name: "Blank", description: "Empty directory with a starter page, or clone a repository below." }, ...(rt.templates ?? [])].map((item) => (
-                    <label key={item.id} className={clsx("flex cursor-pointer gap-3 rounded-md border p-3 text-sm", form.template === item.id ? "border-accent-500 bg-accent-500/5" : "border-default hover:bg-muted")}>
-                      <input
-                        type="radio"
-                        name="template"
-                        className="mt-0.5 accent-accent-600"
-                        checked={form.template === item.id}
-                        onChange={() => {
-                          const tpl = rt.templates?.find((x) => x.id === item.id);
-                          set({
-                            template: item.id,
-                            docroot: tpl ? tpl.docroot : form.docroot,
-                            phpEnabled: tpl ? true : form.phpEnabled,
-                            dbType: tpl?.recommendedDatabase && !form.dbType ? tpl.recommendedDatabase : form.dbType,
-                            dbVersion: tpl?.recommendedDatabase && !form.dbType ? (rt.runtimes.find((r) => r.key === tpl.recommendedDatabase)?.versions.find((v) => v.default)?.version ?? "") : form.dbVersion,
-                            gitUrl: tpl ? "" : form.gitUrl,
-                          });
-                        }}
-                      />
+                <legend className="text-sm font-medium text-fg">{t("Runtime")}</legend>
+                <div className="grid gap-2 sm:grid-cols-3">
+                  {stacks.map((s) => (
+                    <label key={s.id} className={clsx("flex cursor-pointer gap-3 rounded-md border p-3 text-sm", form.stack === s.id ? "border-accent-500 bg-accent-500/5" : "border-default hover:bg-muted")}>
+                      <input type="radio" name="stack" className="mt-0.5 accent-accent-600" aria-label={t(s.name)} checked={form.stack === s.id} onChange={() => chooseStack(s.id)} />
                       <span>
-                        <span className="block font-medium">{item.id ? item.name : t("Blank")}</span>
-                        <span className="block text-xs text-muted">{item.id ? item.description : t("Empty directory with a starter page, or clone a repository below.")}</span>
+                        <span className="block font-medium">{t(s.name)}</span>
+                        <span className="block text-xs text-muted">{t(s.description)}</span>
                       </span>
                     </label>
                   ))}
                 </div>
-                {form.template && rt.templates?.find((x) => x.id === form.template)?.requiresDatabase && !form.dbType && (
+              </fieldset>
+              <fieldset className="space-y-2">
+                <legend className="text-sm font-medium text-fg">{t("Start from")}</legend>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {[{ id: "", name: t("Blank"), description: t("Empty directory, optionally with a starter page, or clone a repository below.") }, ...templates].map((item) => (
+                    <label key={item.id} className={clsx("flex cursor-pointer gap-3 rounded-md border p-3 text-sm", form.template === item.id ? "border-accent-500 bg-accent-500/5" : "border-default hover:bg-muted")}>
+                      <input type="radio" name="template" className="mt-0.5 accent-accent-600" checked={form.template === item.id} onChange={() => chooseTemplate(item.id)} />
+                      <span>
+                        <span className="block font-medium">{item.name}</span>
+                        <span className="block text-xs text-muted">{item.description}</span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+                {selectedTemplate?.requiresDatabase && !form.dbType && (
                   <p className="text-xs text-amber-600 dark:text-amber-400">{t("This template needs a database – it is preselected in the “Database & services” step.")}</p>
                 )}
               </fieldset>
-              <Field label={t("Document root")} htmlFor="docroot" hint={t('Subfolder served by the web server, e.g. "public" for Laravel/Symfony. Leave empty for the project root.')}>
-                <Input id="docroot" value={form.docroot} onChange={(e) => set({ docroot: e.target.value })} placeholder="public" spellCheck={false} />
+              <Field label={t("Document root")} htmlFor="docroot" hint={docrootHint}>
+                <Input id="docroot" value={form.docroot} onChange={(e) => set({ docroot: e.target.value, docrootTouched: true })} placeholder={form.stack === "php" ? "public" : "dist"} spellCheck={false} />
               </Field>
               <div className={clsx("space-y-4 rounded-md border border-default p-4", form.template && "opacity-50")}>
                 <p className="text-sm font-medium text-fg">{form.template ? t("Git repository (optional – not with a template)") : t("Git repository (optional)")}</p>
@@ -276,45 +412,7 @@ export function NewProjectPage() {
             </div>
           )}
 
-          {step === 1 && php && (
-            <div className="space-y-6">
-              <Checkbox label={t("Enable PHP")} description={t("Runs PHP-FPM in its own container. Disable for static sites.")} checked={form.phpEnabled} onChange={(e) => set({ phpEnabled: e.target.checked })} />
-              {form.phpEnabled && (
-                <>
-                  <Field label={t("PHP version")} htmlFor="php-version">
-                    <Select id="php-version" value={form.phpVersion} onChange={(e) => set({ phpVersion: e.target.value })}>
-                      {php.versions.map((v) => (
-                        <option key={v.version} value={v.version}>
-                          {v.label}
-                          {v.eol ? t(" (end of life)") : v.preview ? t(" (preview)") : ""}
-                        </option>
-                      ))}
-                    </Select>
-                  </Field>
-                  <PhpConfigForm value={form.phpConfig} onChange={(c) => set({ phpConfig: c })} extensions={rt.phpExtensions} />
-                </>
-              )}
-              {node && (
-                <div className="space-y-4 rounded-md border border-default p-4">
-                  <Checkbox label={t("Enable Node.js")} description={t("Toolchain container with npm, pnpm and yarn for asset builds. Runs idle; commands run via Actions or the terminal.")} checked={form.nodeEnabled} onChange={(e) => set({ nodeEnabled: e.target.checked })} />
-                  {form.nodeEnabled && (
-                    <Field label={t("Node.js version")} htmlFor="node-version">
-                      <Select id="node-version" value={form.nodeVersion} onChange={(e) => set({ nodeVersion: e.target.value })}>
-                        {node.versions.map((v) => (
-                          <option key={v.version} value={v.version}>
-                            {v.label}
-                            {v.eol ? t(" (end of life)") : v.preview ? t(" (preview)") : ""}
-                          </option>
-                        ))}
-                      </Select>
-                    </Field>
-                  )}
-                  {form.nodeEnabled && <NodeDevServerFields value={form.nodeDev} onChange={(nodeDev) => set({ nodeDev })} idPrefix="wizard-node" />}
-                </div>
-              )}
-              <p className="text-xs text-subtle">{t("Composer ships with the PHP image.")}</p>
-            </div>
-          )}
+          {step === 1 && <div className="space-y-6">{form.stack === "node" ? [nodeCard, phpCard] : [phpCard, nodeCard]}</div>}
 
           {step === 2 && web && (
             <div className="space-y-5">
@@ -343,8 +441,17 @@ export function NewProjectPage() {
                   ))}
                 </Select>
               </Field>
-              <p className="text-sm text-muted">{webServerHint(t, form.webType)}</p>
-              <p className="text-sm text-muted">{t("The web server serves static files from the document root and forwards PHP requests to the PHP container via FastCGI. The project is published on an automatically assigned port and reachable through the proxy under its domain.")}</p>
+              <p className="text-sm text-muted">{webServerHint(t, form.webType, serves)}</p>
+              <p className="text-sm text-muted">
+                {serves === "php"
+                  ? t("The web server serves static files from the document root and forwards PHP requests to the PHP container via FastCGI. The project is published on an automatically assigned port and reachable through the proxy under its domain.")
+                  : serves === "node"
+                    ? t("The dev server answers on the project URL. The web server is part of every project and serves the document root once the dev server is turned off.")
+                    : t("The web server serves static files from the document root.")}
+              </p>
+              {serves === "static" && (
+                <Checkbox label={t("SPA fallback to index.html")} description={t("Unknown paths return index.html so client-side routers work after a reload.")} checked={form.spaFallback} onChange={(e) => set({ spaFallback: e.target.checked })} />
+              )}
             </div>
           )}
 
@@ -396,7 +503,7 @@ export function NewProjectPage() {
                     onChange={(e) => set({ dbExpose: e.target.checked })}
                   />
                   <p className="text-sm text-muted">
-                    {t("Envoryx generates secure credentials and injects DB_HOST, DB_DATABASE, DB_USERNAME, DB_PASSWORD and DATABASE_URL into the PHP container. Data lives in a persistent Docker volume.")}
+                    {t("Envoryx generates secure credentials and injects DB_HOST, DB_DATABASE, DB_USERNAME, DB_PASSWORD and DATABASE_URL into the application containers (PHP, Node). Data lives in a persistent Docker volume.")}
                   </p>
                 </div>
               )}
@@ -435,7 +542,7 @@ export function NewProjectPage() {
 
           {step === 4 && (
             <div className="space-y-4">
-              <p className="text-sm text-muted">{t("Variables are available to all containers of this project (e.g. PHP via getenv()). Mark secrets to mask them in the UI.")}</p>
+              <p className="text-sm text-muted">{t("Variables are available to all containers of this project (e.g. getenv() in PHP, process.env in Node). Mark secrets to mask them in the UI.")}</p>
               <EnvEditor value={form.env} onChange={(env) => set({ env })} />
             </div>
           )}
@@ -462,12 +569,13 @@ export function NewProjectPage() {
                   <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-[10rem_1fr]">
                     <dt className="text-muted">{t("Identifier")}</dt>
                     <dd className="font-mono text-xs">{preview.slug}</dd>
-                    {form.template && (
+                    {selectedTemplate && (
                       <>
                         <dt className="text-muted">{t("Template")}</dt>
                         <dd className="text-xs">
-                          {rt.templates?.find((x) => x.id === form.template)?.name}
-                          <span className="block text-subtle">{t("Scaffolding runs while the project is created (composer/download – this can take a few minutes).")}</span>
+                          {selectedTemplate.name}
+                          <span className="block text-subtle">{selectedTemplate.description}</span>
+                          {selectedTemplate.notes && <span className="block text-subtle">{selectedTemplate.notes}</span>}
                         </dd>
                       </>
                     )}
@@ -478,10 +586,30 @@ export function NewProjectPage() {
                     <dt className="text-muted">{t("URL")}</dt>
                     <dd className="font-mono text-xs">
                       {(() => {
-                        const l = links({ httpPort: preview.httpPort, hostnames: [`${preview.slug}.${settings.data?.baseDomain ?? "test"}`] });
-                        return l.url === l.direct ? l.url : `${l.url} · ${l.direct}`;
+                        // The preview carries no service list; the links hook only reads it for the node
+                        // host port. Behind a Node dev server the HTTP port stays unpublished, so the planned
+                        // node container's host port stands in as a synthetic node service – then the hook's
+                        // own branch applies, also when the proxy is off and the direct URL is all there is.
+                        const nodePort = Number(preview.containers.find((c) => c.service === "node")?.ports[0]?.split(" ")[0]) || 0;
+                        const services: Project["services"] =
+                          previewServes === "node" ? [{ kind: "node", variant: "node", version: "", image: "", enabled: true, config: { devServer: true, hostPort: nodePort } }] : [];
+                        const l = links({ httpPort: preview.httpPort, hostnames: [`${preview.slug}.${settings.data?.baseDomain ?? "test"}`], serves: previewServes, services });
+                        return !l.direct || l.url === l.direct ? l.url : `${l.url} · ${l.direct}`;
                       })()}
                     </dd>
+                    {previewServes === "node" ? (
+                      <>
+                        <dt className="text-muted">{t("Serves")}</dt>
+                        <dd className="text-xs">{t("Node dev server (the HTTP port stays unpublished)")}</dd>
+                      </>
+                    ) : (
+                      devUrl && (
+                        <>
+                          <dt className="text-muted">{t("Dev server URL")}</dt>
+                          <dd className="font-mono text-xs">{devUrl}</dd>
+                        </>
+                      )
+                    )}
                     <dt className="text-muted">{t("Network")}</dt>
                     <dd className="font-mono text-xs">{preview.network}</dd>
                   </dl>
@@ -519,7 +647,9 @@ export function NewProjectPage() {
                         {t("Repository {{url}} will be cloned into the project directory.", { url: form.gitUrl.trim() })}
                       </p>
                     ) : (
-                      <Checkbox label={t("Create starter index.php")} description={t("Only if the document root is empty.")} checked={form.createStarter} onChange={(e) => set({ createStarter: e.target.checked })} />
+                      serves !== "node" && (
+                        <Checkbox label={form.phpEnabled ? t("Create starter index.php") : t("Create starter index.html")} description={t("Only if the document root is empty.")} checked={form.createStarter} onChange={(e) => set({ createStarter: e.target.checked })} />
+                      )
                     )}
                     <Checkbox label={t("Start project after creation")} checked={form.start} onChange={(e) => set({ start: e.target.checked })} />
                   </div>

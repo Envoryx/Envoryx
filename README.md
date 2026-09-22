@@ -8,12 +8,13 @@
 
 Envoryx runs as a single container on any Linux Docker host (x86_64 or
 arm64; Unraid is the primary target) and manages complete
-development stacks – web server, PHP runtime, database, cache – as isolated,
-per-project Docker environments. Everything is controlled from a modern web UI;
+development stacks – web server, PHP and/or Node.js runtime, database, cache –
+as isolated, per-project Docker environments. Everything is controlled from a modern web UI;
 no `docker-compose.yml` editing required.
 
 ```
 Open Envoryx → Create project → PHP 8.4 + Caddy → Create → project is running
+Create project → Runtime: Node.js → Vite/Next.js/Nuxt template → Create → https://<project>.test (dev server with HMR)
 ```
 
 ## Status
@@ -25,20 +26,28 @@ Envoryx is under active development. The current milestone (Phase 1 + 2) deliver
   and Ukrainian (more languages are one JSON file each)
 - local admin account, secure sessions, audit log
 - Docker engine integration that only ever touches resources labelled `envoryx.managed=true`
-- project templates: Laravel, Symfony (skeleton + webapp), WordPress – scaffolded
-  in a one-shot container as the project owner, wired to the project database
-- project wizard: name, directory, document root, PHP version, php.ini settings
-  and extensions (pdo_mysql, mysqli, pdo_pgsql, mongodb, gd, intl, zip, bcmath,
-  opcache, imagick), Xdebug switch with IDE setup hints, web server (Caddy, Apache or Nginx), environment variables, plan preview
-- per-project Docker network, PHP-FPM container (Envoryx image with Composer)
-  and web server container: Caddy (default), Apache (with `.htaccess` support)
-  or Nginx – switchable after creation
+- project templates: Laravel, Symfony (skeleton + webapp), WordPress (PHP) and
+  Vite + React, Next.js, Nuxt (Node.js) – scaffolded in a one-shot container
+  from the project's runtime image as the project owner, wired to the project
+  database where the framework needs one
+- project wizard: name, directory, runtime (PHP application, Node.js
+  application or static site – PHP is optional, Node-only and static projects
+  work without it), document root, PHP version, php.ini settings and
+  extensions (pdo_mysql, mysqli, pdo_pgsql, mongodb, gd, intl, zip, bcmath,
+  opcache, imagick), Xdebug switch with IDE setup hints, web server (Caddy,
+  Apache or Nginx), SPA fallback for static sites, environment variables,
+  plan preview
+- per-project Docker network with a web server container – Caddy (default),
+  Apache (with `.htaccess` support) or Nginx, switchable after creation – and,
+  optionally, a PHP-FPM container (Envoryx image with Composer) and/or a
+  Node.js container
 - MariaDB, MySQL, PostgreSQL or MongoDB per project: persistent volume, generated
-  credentials, connection variables injected into PHP, optional host port for
+  credentials, connection variables injected into the application containers
+  (PHP, Node), optional host port for
   desktop clients, password rotation, create/drop databases, in-place version
   upgrades where the server supports them
 - Redis (persistent volume, `REDIS_URL`), Mailpit (SMTP catcher with web
-  inbox, `MAIL_*`/`MAILER_DSN`) and S3-compatible object storage (RustFS: a
+  inbox, `MAIL_*`/`MAILER_DSN`/`SMTP_HOST`/`SMTP_PORT`) and S3-compatible object storage (RustFS: a
   bucket per project, web console, `S3_*`/`AWS_*` injected, reachable from the
   browser for presigned URLs) as optional services
 - project files bind-mounted from `/projects/<name>` on the host
@@ -52,23 +61,28 @@ Envoryx is under active development. The current milestone (Phase 1 + 2) deliver
 - live logs per container over WebSocket: pause, search, stderr filter, download
 - browser terminal (xterm.js) into any project container; application
   containers run the shell as the project owner (PUID/PGID)
-- Node.js toolchain container per project (npm, pnpm, yarn via corepack),
-  version selectable, addable later; optional dev-server mode (Vite, Next.js,
-  …) reachable as `https://<project>-dev.<base>` through the proxy with HMR
+- Node.js runtime container per project (npm, pnpm, yarn via corepack),
+  version selectable, addable later – as the toolchain next to PHP or as the
+  application runtime of a Node-only project. Dev-server mode (Vite, Next.js,
+  Nuxt, …) runs `npm run dev` as the container's main process: without PHP
+  the project URL `https://<project>.<base>` itself reaches the dev server
+  (with HMR); next to PHP it is `https://<project>-dev.<base>`
 - Git: clone in the wizard (HTTPS with access token or SSH with a Envoryx
   deploy key), pull, branch switch, status – all inside short-lived containers
   as the project owner; the deploy key is never mounted into app containers
 - workers per project: Laravel scheduler / queue worker / Horizon / Reverb,
   Symfony Messenger and Scheduler, PHP scripts, composer scripts – each in its
-  own auto-restarting container from the PHP image, with logs
+  own auto-restarting container from the PHP image, with logs (PHP projects
+  only for now)
 - project actions: composer install/update, artisan migrate/seed/cache,
-  Symfony console, npm/pnpm/yarn – a fixed catalogue of argv commands with
-  live output, shown only when the project has the matching files
+  Symfony console, npm/pnpm/yarn, node --version – a fixed catalogue of argv
+  commands with live output, run in the matching runtime container and shown
+  only for the runtimes and files the project has
 - desired-state reconciliation on startup and periodically; orphan detection and cleanup
 - diagnostics view of all Docker resources (foreign containers read-only)
 
 - backups per project: database dump + project files (optionally without
-  vendor/node_modules) + configuration, stored under `/config/backups` or an
+  vendor/, node_modules/ and framework build caches) + configuration, stored under `/config/backups` or an
   optional separate `/backups` mount (e.g. on the Unraid array),
   restore with typed confirmation, download as a single archive; daily/weekly
   schedules with retention per project
@@ -80,9 +94,11 @@ Envoryx is under active development. The current milestone (Phase 1 + 2) deliver
 - database browser: optional Adminer container shared by all projects,
   started on first use, opened from the Database tab already logged in,
   served under the Envoryx UI so the session protects it
-- IDE integration: embedded SSH server for PhpStorm/VS Code remote
-  interpreters and SFTP into project containers (API token or public key),
-  an IDE tab with Xdebug server/path mapping, `.idea/php.xml`, JDBC URLs;
+- IDE integration: embedded SSH server for PhpStorm/WebStorm/VS Code remote
+  interpreters and SFTP into project containers (API token or public key) –
+  the user `<project>` lands in the application container (PHP, else Node),
+  `<project>.php` / `<project>.node` pick one explicitly; an IDE tab with
+  Xdebug server/path mapping, `.idea/php.xml`, JDBC URLs;
   optional JetBrains Gateway support (backend in the container, shared cache)
 - notifications (ntfy, Discord, Slack, Telegram, e-mail, generic webhook) for
   unhealthy projects (and their recovery), failed project creation, failed
@@ -149,8 +165,16 @@ Details, environment variables and Unraid notes: [DEPLOYMENT.md](DEPLOYMENT.md).
 Browser ──▶ Envoryx (Go API + React UI) ──▶ Docker Engine
                                              ├── envoryx-<project>      (network)
                                              ├── envoryx-<project>-web  (Caddy/Apache/Nginx, :port → 80)
-                                             └── envoryx-<project>-php  (PHP-FPM)
+                                             ├── envoryx-<project>-php  (PHP-FPM, optional)
+                                             └── envoryx-<project>-node (Node.js / dev server, optional)
 ```
+
+- The web server is part of every project. With PHP it passes requests to
+  PHP-FPM; without PHP it serves the document root statically (optionally with
+  an SPA fallback to `index.html`). When a project has no PHP but a Node dev
+  server, the embedded proxy routes `<project>.<base>` straight to the
+  `-node` container instead, and the web container's host port stays
+  unpublished until the dev server is turned off.
 
 - Envoryx stores the *desired state* of each project in SQLite (`/config/envoryx.db`).
 - The Docker engine holds the *actual state*. Envoryx reconciles both, never trusting

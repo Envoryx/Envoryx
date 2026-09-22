@@ -161,7 +161,7 @@ export function StorageCard({ project, onMessage }: { project: Project; onMessag
                     onSuccess: () => {
                       setRemoveOpen(false);
                       invalidate();
-                      onMessage({ tone: "green", text: t("Object storage removed. PHP was recreated without the variables.") });
+                      onMessage({ tone: "green", text: t("Object storage removed. The application containers were recreated without the variables.") });
                     },
                     onError: (err) => fail(err, t("Removing failed")),
                   },
@@ -226,7 +226,7 @@ export function AddStorageCard({ project, onMessage }: { project: Project; onMes
               {
                 onSuccess: () => {
                   void qc.invalidateQueries({ queryKey: ["projects", project.id, "storage"] });
-                  onMessage({ tone: "green", text: t("Object storage added. PHP was recreated with the new variables.") });
+                  onMessage({ tone: "green", text: t("Object storage added. The application containers were recreated with the new variables.") });
                 },
                 onError: (err) => onMessage({ tone: "red", text: errorText(err, t, t("Adding failed")) }),
               },

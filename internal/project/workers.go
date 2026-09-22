@@ -196,7 +196,7 @@ func (m *Manager) AddWorker(ctx context.Context, id string, req WorkerRequest) (
 		return store.Worker{}, err
 	}
 	if p.Service(store.ServicePHP) == nil {
-		return store.Worker{}, fmt.Errorf("%w: workers need a PHP service", ErrConflict)
+		return store.Worker{}, fmt.Errorf("%w: workers currently run from the PHP image – this project has no PHP service", ErrConflict)
 	}
 	if len(p.Workers) >= 10 {
 		return store.Worker{}, fmt.Errorf("%w: at most 10 workers per project", validate.ErrInvalid)

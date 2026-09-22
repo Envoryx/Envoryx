@@ -490,8 +490,9 @@ func (l *limitedBuilder) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-// dependencyDirs are skipped from file backups unless dependencies are requested.
-var dependencyDirs = map[string]bool{"vendor": true, "node_modules": true}
+// dependencyDirs are dependency and framework build caches (regenerable) skipped from
+// file backups unless dependencies are requested.
+var dependencyDirs = map[string]bool{"vendor": true, "node_modules": true, ".next": true, ".nuxt": true, ".output": true}
 
 // archiveDir writes a gzip tarball of root. Entries are relative to root; sockets and
 // devices are skipped, symlinks are stored as symlinks.

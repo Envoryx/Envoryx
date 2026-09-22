@@ -8,9 +8,16 @@ import { port } from "../playwright.config";
 
 const execFileP = promisify(execFile);
 
-/** The project every spec works with; global teardown removes its Docker leftovers. */
+/** The administrator account lifecycle.spec.ts creates on the first visit; later specs sign in with it. */
+export const adminUsername = "admin";
+export const adminPassword = "e2e-test-password-1";
+
+/** The PHP project lifecycle.spec.ts works with; global teardown removes its Docker leftovers. */
 export const projectName = "E2E Shop";
 export const projectSlug = "e2e-shop";
+/** The project without PHP that node-only.spec.ts creates; cleaned up the same way. */
+export const nodeProjectName = "E2E Static";
+export const nodeProjectSlug = "e2e-static";
 
 const here = fileURLToPath(new URL(".", import.meta.url));
 const bin = process.env.ENVORYX_E2E_BIN ?? resolve(here, "../../bin/envoryx");
@@ -33,9 +40,9 @@ async function waitForHealth(child: ChildProcess): Promise<void> {
   throw new Error(`envoryx did not answer on ${base} within 30 s`);
 }
 
-/** Removes Docker resources of the test project that a failed spec may have left behind. */
-async function removeProjectLeftovers(): Promise<void> {
-  const filter = `label=envoryx.project.name=${projectSlug}`;
+/** Removes Docker resources of a test project that a failed spec may have left behind. */
+async function removeProjectLeftovers(slug: string): Promise<void> {
+  const filter = `label=envoryx.project.name=${slug}`;
   for (const [list, remove] of [
     [["ps", "-aq", "--filter", filter], ["rm", "-f"]],
     [["network", "ls", "-q", "--filter", filter], ["network", "rm"]],
@@ -102,7 +109,7 @@ export default async function globalSetup() {
     child.kill("SIGTERM");
     await Promise.race([exited, new Promise((r) => setTimeout(r, 15_000))]);
     if (child.exitCode === null) child.kill("SIGKILL");
-    await removeProjectLeftovers();
+    for (const slug of [projectSlug, nodeProjectSlug]) await removeProjectLeftovers(slug);
     mkdirSync(resolve(serverLog, ".."), { recursive: true });
     writeFileSync(serverLog, Buffer.concat(chunks));
     if (process.env.ENVORYX_E2E_KEEP) {

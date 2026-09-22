@@ -2,6 +2,7 @@ package mcpserver
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"sort"
@@ -33,11 +34,17 @@ type serviceOut struct {
 }
 
 type projectOut struct {
-	ID        string       `json:"id"`
-	Name      string       `json:"name"`
-	Slug      string       `json:"slug"`
-	State     string       `json:"state"`
-	URL       string       `json:"url,omitempty"`
+	ID    string `json:"id"`
+	Name  string `json:"name"`
+	Slug  string `json:"slug"`
+	State string `json:"state"`
+	// Serves says what the project URL reaches: php, node (dev server) or static.
+	Serves string `json:"serves"`
+	URL    string `json:"url,omitempty"`
+	// DevURL is the dev server's own host name while a Node dev server runs.
+	DevURL string `json:"devUrl,omitempty"`
+	// DirectURL bypasses the proxy: the web server's host port, or the dev server's when
+	// the Node dev server serves the project.
 	DirectURL string       `json:"directUrl,omitempty"`
 	Hostnames []string     `json:"hostnames"`
 	Path      string       `json:"path"`
@@ -50,13 +57,22 @@ type projectOut struct {
 
 func (s *Server) projectOut(ctx context.Context, v project.View) projectOut {
 	p := v.Project
-	out := projectOut{ID: p.ID, Name: p.Name, Slug: p.Slug, State: string(v.Status.State), Path: p.Path, Docroot: p.Docroot,
+	out := projectOut{ID: p.ID, Name: p.Name, Slug: p.Slug, State: string(v.Status.State), Serves: project.Serves(p), Path: p.Path, Docroot: p.Docroot,
 		Warnings: v.Status.Warnings, GitURL: p.Git.URL, GitBranch: p.Git.Branch, Hostnames: []string{}, Services: []serviceOut{}}
 	hosts, err := s.d.Projects.ProjectHostnames(ctx, p)
 	if err == nil {
 		out.Hostnames = hosts
 	}
-	if v.HTTPPort > 0 {
+	// The web container's port stays unpublished while the dev server serves the project,
+	// so the direct link is the dev server's host port then.
+	directPort, ncfg, dev := v.HTTPPort, runtime.NodeConfig{}, false
+	if svc := p.Service(store.ServiceNode); svc != nil && svc.Enabled && len(svc.Config) > 0 {
+		dev = json.Unmarshal(svc.Config, &ncfg) == nil && ncfg.DevServer
+	}
+	if out.Serves == "node" {
+		directPort = ncfg.HostPort
+	}
+	if directPort > 0 {
 		host := ""
 		if s.d.Links.PublicHost != nil {
 			host = s.d.Links.PublicHost(ctx)
@@ -64,19 +80,13 @@ func (s *Server) projectOut(ctx context.Context, v project.View) projectOut {
 		if host == "" {
 			host = "<envoryx-host>"
 		}
-		out.DirectURL = fmt.Sprintf("http://%s:%d", host, v.HTTPPort)
+		out.DirectURL = fmt.Sprintf("http://%s:%d", host, directPort)
 	}
 	if len(out.Hostnames) > 0 {
-		switch {
-		case s.d.Links.HTTPSPort == 443:
-			out.URL = "https://" + out.Hostnames[0]
-		case s.d.Links.HTTPSPort > 0:
-			out.URL = fmt.Sprintf("https://%s:%d", out.Hostnames[0], s.d.Links.HTTPSPort)
-		case s.d.Links.HTTPPort == 80:
-			out.URL = "http://" + out.Hostnames[0]
-		case s.d.Links.HTTPPort > 0:
-			out.URL = fmt.Sprintf("http://%s:%d", out.Hostnames[0], s.d.Links.HTTPPort)
-		}
+		out.URL = s.proxiedURL(out.Hostnames[0])
+	}
+	if dev {
+		out.DevURL = s.proxiedURL(project.DevHostname(p.Slug, s.d.Projects.BaseDomain(ctx)))
 	}
 	if out.URL == "" {
 		out.URL = out.DirectURL
@@ -85,6 +95,22 @@ func (s *Server) projectOut(ctx context.Context, v project.View) projectOut {
 		out.Services = append(out.Services, serviceOut{Kind: string(st.Kind), Variant: st.Variant, Version: st.Version, State: st.State, Health: st.Health})
 	}
 	return out
+}
+
+// proxiedURL builds the URL of a host name served by the embedded proxy ("" when the
+// proxy publishes no port).
+func (s *Server) proxiedURL(host string) string {
+	switch {
+	case s.d.Links.HTTPSPort == 443:
+		return "https://" + host
+	case s.d.Links.HTTPSPort > 0:
+		return fmt.Sprintf("https://%s:%d", host, s.d.Links.HTTPSPort)
+	case s.d.Links.HTTPPort == 80:
+		return "http://" + host
+	case s.d.Links.HTTPPort > 0:
+		return fmt.Sprintf("http://%s:%d", host, s.d.Links.HTTPPort)
+	}
+	return ""
 }
 
 // toolErr converts manager errors into tool results the model can act on (instead of
@@ -105,8 +131,8 @@ func mutating(name, title, desc string, idempotent bool) *mcp.Tool {
 func (s *Server) registerTools() {
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("list_projects", "List projects", "List all Envoryx projects with state, URLs and services.")), s.listProjects)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("get_project", "Get project", "Details and live status of one project.")), s.getProject)
-	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("list_runtimes", "List runtimes", "Available PHP/Node versions, database engines, services and PHP extension keys for create_project.")), s.listRuntimes)
-	mcp.AddTool(s.mcp, s.tool(auth.ScopeAdmin, mutating("create_project", "Create project", "Create a new development environment (PHP + web server, optional database, Redis, Mailpit, Node, git clone). Returns the project including its URL.", false)), s.createProject)
+	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("list_runtimes", "List runtimes", "Available runtimes (PHP, Node.js, web servers), database engines, services, PHP extension keys and templates for create_project.")), s.listRuntimes)
+	mcp.AddTool(s.mcp, s.tool(auth.ScopeAdmin, mutating("create_project", "Create project", "Create a new development environment (web server plus PHP and/or Node.js, optional database, Redis, Mailpit, object storage, git clone or template). Returns the project including its URL.", false)), s.createProject)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeOperate, mutating("start_project", "Start project", "Start all containers of a project.", true)), s.startProject)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeOperate, mutating("stop_project", "Stop project", "Stop all containers of a project (data is kept).", true)), s.stopProject)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeOperate, mutating("restart_project", "Restart project", "Restart a project; also pulls updated runtime images.", true)), s.restartProject)
@@ -160,13 +186,16 @@ type runtimeOut struct {
 }
 
 type templateOut struct {
-	ID                  string `json:"id"`
-	Name                string `json:"name"`
-	Description         string `json:"description"`
-	Docroot             string `json:"docroot,omitempty"`
-	RequiresDatabase    bool   `json:"requiresDatabase"`
-	RecommendedDatabase string `json:"recommendedDatabase,omitempty"`
-	Notes               string `json:"notes,omitempty"`
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	// Runtime the template scaffolds for: php or node.
+	Runtime             string              `json:"runtime"`
+	Node                *runtime.NodeConfig `json:"node,omitempty"`
+	Docroot             string              `json:"docroot,omitempty"`
+	RequiresDatabase    bool                `json:"requiresDatabase"`
+	RecommendedDatabase string              `json:"recommendedDatabase,omitempty"`
+	Notes               string              `json:"notes,omitempty"`
 }
 
 type listRuntimesOut struct {
@@ -178,7 +207,7 @@ type listRuntimesOut struct {
 func (s *Server) listRuntimes(_ context.Context, _ *mcp.CallToolRequest, _ listProjectsIn) (*mcp.CallToolResult, listRuntimesOut, error) {
 	out := listRuntimesOut{Runtimes: []runtimeOut{}, PHPExtensions: []string{}, Templates: []templateOut{}}
 	for _, t := range project.Templates() {
-		out.Templates = append(out.Templates, templateOut{ID: t.ID, Name: t.Name, Description: t.Description, Docroot: t.Docroot, RequiresDatabase: t.RequiresDatabase, RecommendedDatabase: t.RecommendedDatabase, Notes: t.Notes})
+		out.Templates = append(out.Templates, templateOut{ID: t.ID, Name: t.Name, Description: t.Description, Runtime: t.Runtime, Node: t.Node, Docroot: t.Docroot, RequiresDatabase: t.RequiresDatabase, RecommendedDatabase: t.RecommendedDatabase, Notes: t.Notes})
 	}
 	for _, r := range s.d.Catalog.All() {
 		if !r.Available {
@@ -210,23 +239,27 @@ func (s *Server) listRuntimes(_ context.Context, _ *mcp.CallToolRequest, _ listP
 }
 
 type createProjectIn struct {
-	Name          string            `json:"name" jsonschema:"Display name, e.g. \"Shop API\". The slug and directory are derived from it."`
-	Template      string            `json:"template,omitempty" jsonschema:"Scaffold an application: laravel, symfony or wordpress (see list_runtimes for details). Cannot be combined with gitUrl."`
-	PHPVersion    string            `json:"phpVersion,omitempty" jsonschema:"PHP version such as 8.4 (default: the catalogue default). Use \"none\" for a project without PHP."`
-	WebServer     string            `json:"webServer,omitempty" jsonschema:"Web server: caddy (default), apache (mod_rewrite + .htaccess, e.g. for WordPress) or nginx."`
-	PHPExtensions []string          `json:"phpExtensions,omitempty" jsonschema:"PHP extensions to enable (keys from list_runtimes). Default: bcmath, gd, intl, opcache, pdo_mysql, zip."`
-	Database      string            `json:"database,omitempty" jsonschema:"Database engine: mariadb, mysql or postgresql. Omit for no database."`
-	DBVersion     string            `json:"databaseVersion,omitempty" jsonschema:"Database version (default: catalogue default)."`
-	Redis         bool              `json:"redis,omitempty" jsonschema:"Add a Redis service."`
-	Mailpit       bool              `json:"mailpit,omitempty" jsonschema:"Add Mailpit (SMTP catcher with web inbox)."`
-	Storage       bool              `json:"storage,omitempty" jsonschema:"Add S3-compatible object storage with a bucket per project (S3_* and AWS_* variables injected)."`
-	NodeVersion   string            `json:"nodeVersion,omitempty" jsonschema:"Add a Node.js toolchain container with this major version (e.g. 24)."`
-	NodeDevServer bool              `json:"nodeDevServer,omitempty" jsonschema:"Run the package.json dev script as a dev server (Vite preset; reachable at <slug>-dev.<base domain>). Requires nodeVersion."`
-	Docroot       string            `json:"docroot,omitempty" jsonschema:"Document root relative to the project directory, e.g. public. Default: project root (public/ for Laravel/Symfony)."`
-	GitURL        string            `json:"gitUrl,omitempty" jsonschema:"Repository to clone into the new project (https://… or git@…)."`
-	GitBranch     string            `json:"gitBranch,omitempty" jsonschema:"Branch to check out."`
-	Env           map[string]string `json:"env,omitempty" jsonschema:"Environment variables for the application containers."`
-	Start         *bool             `json:"start,omitempty" jsonschema:"Start the project after creation (default true)."`
+	Name               string            `json:"name" jsonschema:"Display name, e.g. \"Shop API\". The slug and directory are derived from it."`
+	Template           string            `json:"template,omitempty" jsonschema:"Scaffold an application: laravel, symfony, wordpress (PHP) or vite, next, nuxt (Node.js; needs nodeVersion and phpVersion \"none\" for a Node-only project). See list_runtimes for details. Cannot be combined with gitUrl."`
+	PHPVersion         string            `json:"phpVersion,omitempty" jsonschema:"PHP version such as 8.4 (default: the catalogue default). Use \"none\" for a Node-only or static project."`
+	WebServer          string            `json:"webServer,omitempty" jsonschema:"Web server: caddy (default), apache (mod_rewrite + .htaccess, e.g. for WordPress) or nginx."`
+	PHPExtensions      []string          `json:"phpExtensions,omitempty" jsonschema:"PHP extensions to enable (keys from list_runtimes). Default: bcmath, gd, intl, opcache, pdo_mysql, zip."`
+	Database           string            `json:"database,omitempty" jsonschema:"Database engine: mariadb, mysql or postgresql. Omit for no database."`
+	DBVersion          string            `json:"databaseVersion,omitempty" jsonschema:"Database version (default: catalogue default)."`
+	Redis              bool              `json:"redis,omitempty" jsonschema:"Add a Redis service."`
+	Mailpit            bool              `json:"mailpit,omitempty" jsonschema:"Add Mailpit (SMTP catcher with web inbox)."`
+	Storage            bool              `json:"storage,omitempty" jsonschema:"Add S3-compatible object storage with a bucket per project (S3_* and AWS_* variables injected)."`
+	NodeVersion        string            `json:"nodeVersion,omitempty" jsonschema:"Add a Node.js container with this major version (e.g. 24): the project's runtime (dev server) or a toolchain for asset builds."`
+	NodeDevServer      bool              `json:"nodeDevServer,omitempty" jsonschema:"Run the package.json dev script as the project's main process. Without PHP it is reachable at the project URL, always at <slug>-dev.<base domain>. Requires nodeVersion."`
+	NodePreset         string            `json:"nodePreset,omitempty" jsonschema:"Dev-server preset: vite, next, nuxt or generic (default vite). Sets how host/port are passed and the default port."`
+	NodeScript         string            `json:"nodeScript,omitempty" jsonschema:"package.json script the dev server runs (default dev)."`
+	NodePort           int               `json:"nodePort,omitempty" jsonschema:"Port the dev server listens on inside the container (default: the preset's port, 5173 for vite, 3000 for next/nuxt)."`
+	NodePackageManager string            `json:"nodePackageManager,omitempty" jsonschema:"npm (default), pnpm or yarn."`
+	Docroot            string            `json:"docroot,omitempty" jsonschema:"Document root relative to the project directory, e.g. public. Default: project root (public/ for Laravel/Symfony)."`
+	GitURL             string            `json:"gitUrl,omitempty" jsonschema:"Repository to clone into the new project (https://… or git@…)."`
+	GitBranch          string            `json:"gitBranch,omitempty" jsonschema:"Branch to check out."`
+	Env                map[string]string `json:"env,omitempty" jsonschema:"Environment variables for the application containers."`
+	Start              *bool             `json:"start,omitempty" jsonschema:"Start the project after creation (default true)."`
 }
 
 func (s *Server) createProject(ctx context.Context, _ *mcp.CallToolRequest, in createProjectIn) (*mcp.CallToolResult, projectOut, error) {
@@ -255,7 +288,10 @@ func (s *Server) createProject(ctx context.Context, _ *mcp.CallToolRequest, in c
 		req.Storage = &project.StorageRequest{}
 	}
 	if v := strings.TrimSpace(in.NodeVersion); v != "" {
-		req.Node = &project.NodeRequest{Version: v, Config: runtime.NodeConfig{DevServer: in.NodeDevServer}}
+		req.Node = &project.NodeRequest{Version: v, Config: runtime.NodeConfig{
+			DevServer: in.NodeDevServer, Preset: strings.ToLower(strings.TrimSpace(in.NodePreset)),
+			Script: strings.TrimSpace(in.NodeScript), Port: in.NodePort, PackageManager: strings.ToLower(strings.TrimSpace(in.NodePackageManager)),
+		}}
 	}
 	if u := strings.TrimSpace(in.GitURL); u != "" {
 		req.Git = &project.GitRequest{URL: u, Branch: strings.TrimSpace(in.GitBranch)}
@@ -311,7 +347,7 @@ func (s *Server) restartProject(ctx context.Context, _ *mcp.CallToolRequest, in 
 
 type getLogsIn struct {
 	Project string `json:"project" jsonschema:"Project id, slug or name"`
-	Service string `json:"service,omitempty" jsonschema:"Container: web, php, node, database, redis, mailpit or storage (default php)"`
+	Service string `json:"service,omitempty" jsonschema:"Container: web, php, node, database, redis, mailpit or storage (default: the application container (php, else node), else web)"`
 	Tail    int    `json:"tail,omitempty" jsonschema:"Number of lines (default 200, max 2000)"`
 }
 
@@ -334,7 +370,10 @@ func (s *Server) getLogs(ctx context.Context, _ *mcp.CallToolRequest, in getLogs
 	}
 	kind := store.ServiceKind(strings.ToLower(strings.TrimSpace(in.Service)))
 	if kind == "" {
-		kind = store.ServicePHP
+		kind = store.ServiceWeb
+		if app, ok := project.AppKind(v.Project); ok {
+			kind = app
+		}
 	}
 	switch kind {
 	case store.ServiceWeb, store.ServicePHP, store.ServiceNode, store.ServiceDatabase, store.ServiceRedis, store.ServiceMailpit, store.ServiceStorage:

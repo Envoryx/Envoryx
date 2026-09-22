@@ -103,7 +103,7 @@ export function BackupsTab({ project }: { project: Project }) {
             <Checkbox label={t("Database")} description={hasDb ? t("Logical dump of the primary database") : t("Project has no database")} checked={withDb && hasDb} disabled={!hasDb} onChange={(e) => setWithDb(e.target.checked)} />
             <Checkbox label={t("Project files")} description={t("Everything in the project directory")} checked={withFiles} onChange={(e) => setWithFiles(e.target.checked)} />
             {hasStorage && <Checkbox label={t("Object storage")} description={t("Every object of the bucket, as plain files in an archive")} checked={withStorage} onChange={(e) => setWithStorage(e.target.checked)} />}
-            <Checkbox label={t("Include dependencies")} description={t("Keep vendor/ and node_modules/ (large, reproducible)")} checked={withDeps} disabled={!withFiles} onChange={(e) => setWithDeps(e.target.checked)} />
+            <Checkbox label={t("Include dependencies")} description={t("Keep vendor/, node_modules/ and framework build caches (.next, .nuxt, .output)")} checked={withDeps} disabled={!withFiles} onChange={(e) => setWithDeps(e.target.checked)} />
           </div>
           <div className="flex items-end gap-2">
             <Field label={t("Note (optional)")} htmlFor="backup-note">
@@ -197,7 +197,7 @@ export function BackupsTab({ project }: { project: Project }) {
             </Alert>
             <Checkbox label={t("Restore database")} checked={rDb} disabled={!restoreTarget.meta.database || !hasDb} onChange={(e) => setRDb(e.target.checked)} description={!restoreTarget.meta.database ? t("not in this backup") : !hasDb ? t("project has no database") : undefined} />
             <Checkbox label={t("Restore files")} checked={rFiles} disabled={!restoreTarget.meta.files} onChange={(e) => setRFiles(e.target.checked)} description={!restoreTarget.meta.files ? t("not in this backup") : undefined} />
-            {rFiles && <Checkbox label={t("Empty the project directory first")} description={t("Makes the directory match the backup exactly (also removes vendor/ and node_modules/ if they were not included).")} checked={rWipe} onChange={(e) => setRWipe(e.target.checked)} />}
+            {rFiles && <Checkbox label={t("Empty the project directory first")} description={t("Makes the directory match the backup exactly (also removes vendor/, node_modules/ and build caches if they were not included).")} checked={rWipe} onChange={(e) => setRWipe(e.target.checked)} />}
             <Checkbox label={t("Restore object storage")} checked={rStorage} disabled={!restoreTarget.meta.storage || !hasStorage} onChange={(e) => setRStorage(e.target.checked)} description={!restoreTarget.meta.storage ? t("not in this backup") : !hasStorage ? t("project has no object storage") : undefined} />
             {rStorage && <Checkbox label={t("Empty the bucket first")} description={t("Makes the bucket match the backup exactly.")} checked={rWipeStorage} onChange={(e) => setRWipeStorage(e.target.checked)} />}
             <Field label={t("Type {{slug}} to confirm", { slug: project.slug })} htmlFor="restore-confirm">
@@ -295,7 +295,7 @@ function ScheduleCard({ project, onSaved }: { project: Project; onSaved: () => v
             </>
           )}
         </div>
-        {form.schedule && <Checkbox label={t("Include vendor/ and node_modules/")} description={t("Larger archives; usually not needed since dependencies can be reinstalled.")} checked={form.includeDependencies} onChange={(e) => set({ includeDependencies: e.target.checked })} />}
+        {form.schedule && <Checkbox label={t("Include vendor/, node_modules/ and framework build caches")} description={t("Larger archives; usually not needed since dependencies can be reinstalled.")} checked={form.includeDependencies} onChange={(e) => set({ includeDependencies: e.target.checked })} />}
       </div>
     </Card>
   );

@@ -3,6 +3,7 @@ package mcpserver_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -430,5 +431,111 @@ func TestTokenScopesOnMCP(t *testing.T) {
 	}
 	if res := call(confined, "create_project", map[string]any{"name": "Nope", "phpVersion": "8.4"}); !res.IsError || !strings.Contains(text(res), "limited to particular projects") {
 		t.Fatalf("confined token creating: error=%v %q", res.IsError, text(res))
+	}
+}
+
+// A project without PHP is created with phpVersion "none"; the Node dev server then
+// serves the project URL and is the default target for logs.
+func TestNodeOnlyProjectOverMCP(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+
+	var rt struct {
+		Templates []struct {
+			ID      string `json:"id"`
+			Runtime string `json:"runtime"`
+			Node    *struct {
+				Port int `json:"port"`
+			} `json:"node"`
+		}
+	}
+	e.call("list_runtimes", nil, &rt)
+	tplRuntime := map[string]string{}
+	for _, tpl := range rt.Templates {
+		tplRuntime[tpl.ID] = tpl.Runtime
+		if tpl.ID == "nuxt" && (tpl.Node == nil || tpl.Node.Port != 3000) {
+			t.Fatalf("nuxt template defaults: %+v", tpl)
+		}
+	}
+	if tplRuntime["laravel"] != "php" || tplRuntime["vite"] != "node" || tplRuntime["next"] != "node" {
+		t.Fatalf("template runtimes: %v", tplRuntime)
+	}
+
+	var p struct {
+		ID, Slug, State, Serves, URL, DevURL, DirectURL string
+		Services                                        []struct{ Kind string }
+	}
+	res := e.call("create_project", map[string]any{"name": "Front", "phpVersion": "none", "nodeVersion": "24", "nodeDevServer": true, "nodePreset": "next"}, &p)
+	if res.IsError {
+		t.Fatal(text(res))
+	}
+	kinds := map[string]bool{}
+	for _, s := range p.Services {
+		kinds[s.Kind] = true
+	}
+	if kinds["php"] || !kinds["node"] || !kinds["web"] || len(kinds) != 2 {
+		t.Fatalf("services: %v", kinds)
+	}
+	if p.State != "running" || p.Serves != "node" || p.URL != "https://front.test" || p.DevURL != "https://front-dev.test" {
+		t.Fatalf("project: %+v", p)
+	}
+	stored, err := e.st.Projects.Get(ctx, p.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var cfg runtime.NodeConfig
+	if err := json.Unmarshal(stored.Service(store.ServiceNode).Config, &cfg); err != nil {
+		t.Fatal(err)
+	}
+	if !cfg.DevServer || cfg.Preset != "next" || cfg.Port != 3000 || cfg.HostPort == 0 {
+		t.Fatalf("node config: %+v", cfg)
+	}
+	// The web port stays unpublished while the dev server serves the project, so the
+	// direct link is the dev server's host port.
+	if want := fmt.Sprintf("http://nas.lan:%d", cfg.HostPort); p.DirectURL != want {
+		t.Fatalf("directUrl %q, want %q", p.DirectURL, want)
+	}
+
+	e.engine.Logs["envoryx-front-node"] = []docker.LogLine{{Time: time.Now(), Stream: "stdout", Text: "ready - started server on 0.0.0.0:3000"}}
+	var logs struct {
+		Service string
+		Lines   []struct{ Text string }
+	}
+	e.call("get_logs", map[string]any{"project": "front"}, &logs)
+	if logs.Service != "node" || len(logs.Lines) != 1 || !strings.Contains(logs.Lines[0].Text, "started server") {
+		t.Fatalf("default logs must come from the node container: %+v", logs)
+	}
+
+	// Template/runtime mismatches surface as tool errors from the manager's validation.
+	res = e.call("create_project", map[string]any{"name": "Lara", "phpVersion": "none", "nodeVersion": "24", "template": "laravel"}, nil)
+	if !res.IsError || !strings.Contains(text(res), "PHP") {
+		t.Fatalf("laravel without PHP: %v %s", res.IsError, text(res))
+	}
+	res = e.call("create_project", map[string]any{"name": "Nux", "template": "nuxt"}, nil)
+	if !res.IsError || !strings.Contains(text(res), "Node.js") {
+		t.Fatalf("nuxt without nodeVersion: %v %s", res.IsError, text(res))
+	}
+
+	// A PHP project keeps its shape and the dev-server alias when Node runs alongside.
+	var shop struct {
+		Serves, URL, DevURL, DirectURL string
+	}
+	if res := e.call("create_project", map[string]any{"name": "Shop", "phpVersion": "8.4", "nodeVersion": "24", "nodeDevServer": true}, &shop); res.IsError {
+		t.Fatal(text(res))
+	}
+	if shop.Serves != "php" || shop.URL != "https://shop.test" || shop.DevURL != "https://shop-dev.test" || !strings.HasPrefix(shop.DirectURL, "http://nas.lan:2000") {
+		t.Fatalf("php+node project: %+v", shop)
+	}
+	var static struct{ Serves, DevURL string }
+	if res := e.call("create_project", map[string]any{"name": "Site", "phpVersion": "none"}, &static); res.IsError {
+		t.Fatal(text(res))
+	}
+	if static.Serves != "static" || static.DevURL != "" {
+		t.Fatalf("static project: %+v", static)
+	}
+	var web struct{ Service string }
+	e.call("get_logs", map[string]any{"project": "site"}, &web)
+	if web.Service != "web" {
+		t.Fatalf("static project logs default to web: %+v", web)
 	}
 }

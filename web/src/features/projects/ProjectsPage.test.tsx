@@ -40,6 +40,25 @@ describe("ProjectsPage", () => {
     expect(screen.queryByRole("button", { name: "Restart" })).not.toBeInTheDocument();
   });
 
+  it("leads with the application runtime badge", async () => {
+    const web = makeProject().services.find((s) => s.kind === "web")!;
+    const node = { kind: "node", variant: "node", version: "24", image: "ghcr.io/envoryx/envoryx-node:24", enabled: true, config: { devServer: true } };
+    const nodeOnly = makeProject({ id: "n1", name: "Vite App", slug: "vite-app", services: [web, node], serves: "node", appService: "node" });
+    const staticSite = makeProject({ id: "s1", name: "Docs Site", slug: "docs-site", services: [web], serves: "static" });
+    mockApi({
+      ...authedRoutes,
+      "GET /projects": () => ({ body: { projects: [makeProject(), nodeOnly, staticSite] } }),
+      "GET /dashboard": () => ({ status: 500, body: {} }),
+    });
+    renderApp(<ProjectsPage />);
+    const viteRow = (await screen.findByText("Vite App")).closest("li")!;
+    expect(within(viteRow).getByText("Node.js 24")).toBeInTheDocument();
+    const docsRow = screen.getByText("Docs Site").closest("li")!;
+    expect(within(docsRow).getByText("Static")).toBeInTheDocument();
+    expect(screen.queryByText("No PHP")).not.toBeInTheDocument();
+    expect(within(screen.getByText("Acme Shop").closest("li")!).getByText("PHP 8.4")).toBeInTheDocument();
+  });
+
   it("surfaces action errors", async () => {
     mockApi({
       ...authedRoutes,

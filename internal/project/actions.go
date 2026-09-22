@@ -54,6 +54,8 @@ var actionCatalog = []Action{
 	{ID: "php:version", Group: "PHP", Label: "php -v", Description: "Show the PHP version and loaded extensions", Service: store.ServicePHP, Cmd: []string{"php", "-v"}},
 	{ID: "php:modules", Group: "PHP", Label: "php -m", Description: "List loaded PHP extensions", Service: store.ServicePHP, Cmd: []string{"php", "-m"}},
 
+	{ID: "node:version", Group: "Node.js", Label: "node -v", Description: "Show the Node.js version", Service: store.ServiceNode, Cmd: []string{"node", "-v"}},
+
 	{ID: "npm:install", Group: "npm", Label: "npm install", Description: "Install Node dependencies", Service: store.ServiceNode, Cmd: []string{"npm", "install"}, Requires: []string{"package.json"}},
 	{ID: "npm:ci", Group: "npm", Label: "npm ci", Description: "Clean install from package-lock.json", Service: store.ServiceNode, Cmd: []string{"npm", "ci"}, Requires: []string{"package.json", "package-lock.json"}},
 	{ID: "npm:build", Group: "npm", Label: "npm run build", Description: "Run the build script", Service: store.ServiceNode, Cmd: []string{"npm", "run", "build"}, Requires: []string{"package.json"}},
@@ -72,8 +74,10 @@ func findAction(id string) (Action, bool) {
 	return Action{}, false
 }
 
-// ListActions returns the catalogue with availability for the project: the service must
-// exist and be running, and the required files must be present in the project directory.
+// ListActions returns the catalogue entries whose service is part of the project, with
+// availability: the service must be running and the required files must be present in
+// the project directory. Actions of services the project does not have are omitted
+// rather than greyed out (a PHP-only project has no use for npm entries).
 func (m *Manager) ListActions(ctx context.Context, id string) ([]ActionInfo, error) {
 	view, err := m.Get(ctx, id)
 	if err != nil {
@@ -92,10 +96,11 @@ func (m *Manager) ListActions(ctx context.Context, id string) ([]ActionInfo, err
 	}
 	out := make([]ActionInfo, 0, len(actionCatalog))
 	for _, a := range actionCatalog {
+		if !present[a.Service] {
+			continue
+		}
 		info := ActionInfo{Action: a, Available: true}
 		switch {
-		case !present[a.Service]:
-			info.Available, info.Reason = false, fmt.Sprintf("project has no %s service", a.Service)
 		case !running[a.Service]:
 			info.Available, info.Reason = false, fmt.Sprintf("%s container is not running", a.Service)
 		default:
@@ -135,10 +140,18 @@ func (m *Manager) RunAction(ctx context.Context, id, actionID string, cols, rows
 	if err != nil {
 		return nil, Action{}, nil, err
 	}
+	listed := false
 	for _, info := range infos {
-		if info.ID == actionID && !info.Available {
+		if info.ID != actionID {
+			continue
+		}
+		listed = true
+		if !info.Available {
 			return nil, Action{}, nil, fmt.Errorf("%w: %s", ErrConflict, info.Reason)
 		}
+	}
+	if !listed {
+		return nil, Action{}, nil, fmt.Errorf("%w: project has no %s service", ErrConflict, action.Service)
 	}
 	c, err := m.ServiceContainer(ctx, id, action.Service)
 	if err != nil {

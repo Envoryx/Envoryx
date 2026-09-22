@@ -65,7 +65,7 @@ function AddDatabaseCard({ project }: { project: Project }) {
 
   return (
     <Card>
-      <CardHeader title={t("Database")} description={t("This project has no database yet. Adding one creates a container with a persistent volume and injects the connection variables into PHP.")} />
+      <CardHeader title={t("Database")} description={t("This project has no database yet. Adding one creates a container with a persistent volume and injects the connection variables into the application containers (PHP, Node).")} />
       <div className="space-y-4 p-5">
         {error && <Alert tone="red">{error}</Alert>}
         <div className="grid gap-4 sm:grid-cols-2">
@@ -176,7 +176,7 @@ export function DatabaseTab({ project }: { project: Project }) {
                 {t("Connection")}
               </span>
             }
-            description={t("Inside the project network. These values are injected into the PHP container.")}
+            description={t("Inside the project network. These values are injected into the application containers (PHP, Node).")}
             actions={
               <span className="inline-flex items-center gap-1.5 text-xs">
                 <StatusDot tone={containerStateTone(d.state)} />
@@ -219,7 +219,7 @@ export function DatabaseTab({ project }: { project: Project }) {
                 setMsg(null);
                 setCreds(null);
                 rotate.mutate(undefined, {
-                  onSuccess: () => setMsg({ tone: "green", text: t("Password rotated. The PHP container was recreated with the new credentials.") }),
+                  onSuccess: () => setMsg({ tone: "green", text: t("Password rotated. The application containers were recreated with the new credentials.") }),
                   onError: (err) => fail(err, t("Rotation failed")),
                 });
               }}
@@ -395,7 +395,7 @@ export function DatabaseTab({ project }: { project: Project }) {
         open={removeOpen}
         onClose={() => setRemoveOpen(false)}
         title={t("Remove database service?")}
-        description={t("This stops and removes the database container {{container}} and deletes the volume {{volume}} with all data. The PHP container is recreated without database variables.", { container: `envoryx-${project.slug}-database`, volume: d.volumeName })}
+        description={t("This stops and removes the database container {{container}} and deletes the volume {{volume}} with all data. The application containers are recreated without database variables.", { container: `envoryx-${project.slug}-database`, volume: d.volumeName })}
         footer={
           <>
             <Button onClick={() => setRemoveOpen(false)}>{t("Cancel")}</Button>

@@ -5,7 +5,7 @@ import { lazy, Suspense, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ApiError } from "@/api/client";
 import { useDevServerLink, useImageChoice, useProject, useProjectLinks, useProjectPlan, useProjectStats, useRuntimes, useSettings, useUpdateProject } from "@/api/hooks";
-import type { EnvVar, NodeConfig, PHPConfig, Project } from "@/api/types";
+import { defaultNodePresets, servesOf, type EnvVar, type NodeConfig, type PHPConfig, type Project, type WebServerConfig } from "@/api/types";
 import { NodeDevServerFields, devServerRequest, type DevServerForm } from "./NodeDevServerFields";
 import { Alert, Badge, Button, Card, CardHeader, Checkbox, Code, ErrorState, Field, Input, PageHeader, Select, Spinner, StatusDot } from "@/components/ui";
 import { containerStateTone, formatBytes, formatDateTime, formatPercent, serviceLabel, stateMeta } from "@/lib/format";
@@ -47,6 +47,7 @@ export function ProjectDetailPage() {
   }
   const p = q.data;
   const meta = stateMeta[p.status.state];
+  const serves = p.serves ?? servesOf(p);
   const { url } = links(p);
   const devUrl = devLink(p);
 
@@ -73,9 +74,11 @@ export function ProjectDetailPage() {
               ) : (
                 t("no port")
               )}
-              {devUrl && (
+              {devUrl && devUrl !== url && (
                 <>
-                  {" · dev: "}
+                  {/* Behind a Node dev server the project URL already is the dev server; the -dev name is only an
+                      alias – and without the proxy both resolve to the same host port, so it is not repeated. */}
+                  {` · ${serves === "node" ? t("dev alias") : "dev"}: `}
                   <a href={devUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 hover:underline">
                     {devUrl} <ExternalLink className="size-3" />
                   </a>
@@ -144,9 +147,20 @@ export function ProjectDetailPage() {
       {tab === "Logs" && <LogsTab project={p} />}
       {tab === "Runtime" && (
         <div className="space-y-6">
-          <PhpTab project={p} />
-          <WebServerCard project={p} />
-          <NodeCard project={p} />
+          <ProjectSettingsCard project={p} />
+          {/* The application runtime comes first: Node when it serves the project, otherwise PHP with Node as the toolchain after the web server. */}
+          {p.appService === "node" ? (
+            <>
+              <NodeCard project={p} />
+              <WebServerCard project={p} />
+            </>
+          ) : (
+            <>
+              <PhpCard project={p} />
+              <WebServerCard project={p} />
+              <NodeCard project={p} />
+            </>
+          )}
         </div>
       )}
       {tab === "Workers" && <WorkersTab project={p} />}
@@ -280,31 +294,20 @@ function useSaveFeedback() {
   return { msg, setMsg };
 }
 
-function PhpTab({ project: p }: { project: Project }) {
+/** Name and document root – every project has them, whatever runs behind the web server. */
+function ProjectSettingsCard({ project: p }: { project: Project }) {
   const { t } = useTranslation();
-  const runtimes = useRuntimes();
   const update = useUpdateProject(p.id);
   const { msg, setMsg } = useSaveFeedback();
-  const svc = p.services.find((s) => s.kind === "php");
-  const [version, setVersion] = useState(svc?.version ?? "");
-  const [config, setConfig] = useState<PHPConfig | null>((svc?.config as unknown as PHPConfig) ?? null);
   const [name, setName] = useState(p.name);
   const [docroot, setDocroot] = useState(p.docroot);
-  const settings = useSettings();
-  const projectsHost = settings.data?.hostPath ? (settings.data.hostPath.overrides[settings.data.projectsDir] ?? settings.data.hostPath.detected[settings.data.projectsDir]) : undefined;
-  const hostDir = projectsHost ? `${projectsHost}/${p.path}` : undefined;
-
-  if (!svc || !config) {
-    return <Alert tone="gray">{t("This project has no PHP service.")}</Alert>;
-  }
-  if (runtimes.isPending) return <Spinner />;
-  const php = runtimes.data?.runtimes.find((r) => r.key === "php");
-  const dirty = version !== svc.version || JSON.stringify(config) !== JSON.stringify(svc.config) || name !== p.name || docroot !== p.docroot;
+  const serves = p.serves ?? servesOf(p);
+  const dirty = name !== p.name || docroot !== p.docroot;
 
   const save = () => {
     setMsg(null);
     update.mutate(
-      { name, docroot, php: { version, config } },
+      { name, docroot },
       {
         onSuccess: () => setMsg({ tone: "green", text: p.status.state === "running" ? t("Saved and applied. Containers were restarted.") : t("Saved. Changes apply on next start.") }),
         onError: (err) => setMsg({ tone: "red", text: errorText(err, t, t("Saving failed")) }),
@@ -315,8 +318,8 @@ function PhpTab({ project: p }: { project: Project }) {
   return (
     <Card>
       <CardHeader
-        title={t("Project & PHP settings")}
-        description={t("Changing the PHP version recreates the PHP container; configuration changes restart it.")}
+        title={t("Project settings")}
+        description={t("Changing the document root rewrites the web server configuration and restarts the containers.")}
         actions={
           <Button variant="primary" onClick={save} loading={update.isPending} disabled={!dirty} icon={<Save className="size-4" />}>
             {t("Save")}
@@ -329,9 +332,62 @@ function PhpTab({ project: p }: { project: Project }) {
           <Field label={t("Project name")} htmlFor="p-name">
             <Input id="p-name" value={name} onChange={(e) => setName(e.target.value)} />
           </Field>
-          <Field label={t("Document root")} htmlFor="p-docroot" hint={t("Relative to the project directory")}>
+          <Field
+            label={t("Document root")}
+            htmlFor="p-docroot"
+            hint={serves === "node" ? t("Not used while the dev server serves the app; the build output (e.g. dist/) once you turn it off.") : t("Relative to the project directory")}
+          >
             <Input id="p-docroot" value={docroot} onChange={(e) => setDocroot(e.target.value)} placeholder={t("(project root)")} />
           </Field>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function PhpCard({ project: p }: { project: Project }) {
+  const { t } = useTranslation();
+  const runtimes = useRuntimes();
+  const update = useUpdateProject(p.id);
+  const { msg, setMsg } = useSaveFeedback();
+  const svc = p.services.find((s) => s.kind === "php");
+  const [version, setVersion] = useState(svc?.version ?? "");
+  const [config, setConfig] = useState<PHPConfig | null>((svc?.config as unknown as PHPConfig) ?? null);
+  const settings = useSettings();
+  const projectsHost = settings.data?.hostPath ? (settings.data.hostPath.overrides[settings.data.projectsDir] ?? settings.data.hostPath.detected[settings.data.projectsDir]) : undefined;
+  const hostDir = projectsHost ? `${projectsHost}/${p.path}` : undefined;
+
+  // Projects without PHP simply have no PHP card; adding PHP later is not supported yet.
+  if (!svc || !config) return null;
+  if (runtimes.isPending) return <Spinner />;
+  const php = runtimes.data?.runtimes.find((r) => r.key === "php");
+  const dirty = version !== svc.version || JSON.stringify(config) !== JSON.stringify(svc.config);
+
+  const save = () => {
+    setMsg(null);
+    update.mutate(
+      { php: { version, config } },
+      {
+        onSuccess: () => setMsg({ tone: "green", text: p.status.state === "running" ? t("Saved and applied. Containers were restarted.") : t("Saved. Changes apply on next start.") }),
+        onError: (err) => setMsg({ tone: "red", text: errorText(err, t, t("Saving failed")) }),
+      },
+    );
+  };
+
+  return (
+    <Card>
+      <CardHeader
+        title={t("PHP")}
+        description={t("Changing the PHP version recreates the PHP container; configuration changes restart it.")}
+        actions={
+          <Button variant="primary" onClick={save} loading={update.isPending} disabled={!dirty} icon={<Save className="size-4" />}>
+            {t("Save")}
+          </Button>
+        }
+      />
+      <div className="space-y-6 p-5">
+        {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
+        <div className="grid gap-4 sm:grid-cols-3">
           <Field label={t("PHP version")} htmlFor="p-version">
             <Select id="p-version" value={version} onChange={(e) => setVersion(e.target.value)}>
               {php?.versions.map((v) => (
@@ -355,19 +411,23 @@ function WebServerCard({ project: p }: { project: Project }) {
   const update = useUpdateProject(p.id);
   const { msg, setMsg } = useSaveFeedback();
   const svc = p.services.find((s) => s.kind === "web");
+  const serves = p.serves ?? servesOf(p);
+  const stored = (svc?.config ?? {}) as WebServerConfig;
   const [type, setType] = useState(svc?.variant ?? "caddy");
   const [version, setVersion] = useState(svc?.version ?? "");
+  const [spa, setSpa] = useState(!!stored.spaFallback);
 
   if (!svc) return null;
   if (runtimes.isPending) return <Spinner />;
   const servers = runtimes.data?.runtimes.filter((r) => r.kind === "webserver" && r.available) ?? [];
   const selected = servers.find((r) => r.key === type);
-  const dirty = type !== svc.variant || version !== svc.version;
+  const dirty = type !== svc.variant || version !== svc.version || spa !== !!stored.spaFallback;
 
   const save = () => {
     setMsg(null);
+    // The backend rejects spaFallback for projects with PHP, so it is only sent for static ones.
     update.mutate(
-      { web: { type, version } },
+      { web: serves === "static" ? { type, version, spaFallback: spa } : { type, version } },
       {
         onSuccess: () => setMsg({ tone: "green", text: p.status.state === "running" ? t("Saved and applied. Containers were restarted.") : t("Saved. Changes apply on next start.") }),
         onError: (err) => setMsg({ tone: "red", text: errorText(err, t, t("Saving failed")) }),
@@ -416,7 +476,10 @@ function WebServerCard({ project: p }: { project: Project }) {
             </Select>
           </Field>
         </div>
-        <p className="text-sm text-muted">{webServerHint(t, type)}</p>
+        {serves === "static" && (
+          <Checkbox label={t("SPA fallback to index.html")} description={t("Unknown paths return index.html so client-side routers work after a reload.")} checked={spa} onChange={(e) => setSpa(e.target.checked)} />
+        )}
+        <p className="text-sm text-muted">{webServerHint(t, type, serves)}</p>
       </div>
     </Card>
   );
@@ -428,6 +491,7 @@ function NodeCard({ project: p }: { project: Project }) {
   const update = useUpdateProject(p.id);
   const devLink = useDevServerLink();
   const { msg, setMsg } = useSaveFeedback();
+  const serves = p.serves ?? servesOf(p);
   const svc = p.services.find((s) => s.kind === "node" && s.enabled);
   const node = runtimes.data?.runtimes.find((r) => r.key === "node");
   const stored = (svc?.config ?? {}) as NodeConfig;
@@ -455,7 +519,11 @@ function NodeCard({ project: p }: { project: Project }) {
     <Card>
       <CardHeader
         title={t("Node.js")}
-        description={t("Toolchain container for asset builds (npm, pnpm, yarn), optionally running your dev server. Removing it only removes the container; node_modules stays in the project directory.")}
+        description={
+          serves !== "php"
+            ? t("Application runtime of this project: run your dev server here or build static assets served by the web server. Removing it only removes the container; node_modules stays in the project directory.")
+            : t("Toolchain container for asset builds (npm, pnpm, yarn), optionally running your dev server. Removing it only removes the container; node_modules stays in the project directory.")
+        }
         actions={
           <Button
             variant="primary"
@@ -509,7 +577,7 @@ function NodeCard({ project: p }: { project: Project }) {
             </Select>
           </Field>
         )}
-        {enabled && <NodeDevServerFields value={dev} onChange={setDev} />}
+        {enabled && <NodeDevServerFields value={dev} onChange={setDev} presets={runtimes.data?.nodePresets ?? defaultNodePresets} primary={serves !== "php"} />}
       </div>
     </Card>
   );

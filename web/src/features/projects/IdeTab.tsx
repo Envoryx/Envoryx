@@ -23,6 +23,10 @@ export function IdeTab({ project: p }: { project: Project }) {
   const projectsHost = s?.hostPath ? (s.hostPath.overrides[s.projectsDir] ?? s.hostPath.detected[s.projectsDir]) : undefined;
   const hostDir = projectsHost ? `${projectsHost}/${p.path}` : "<projects share>/" + p.path;
   const php = p.services.find((x) => x.kind === "php" && x.enabled);
+  const hasPhp = !!php;
+  const hasNode = p.services.some((x) => x.kind === "node" && x.enabled);
+  // The bare SSH user lands in the application container: PHP when present, else Node.
+  const app = p.appService ?? (hasPhp ? "php" : hasNode ? "node" : undefined);
   const phpCfg = (php?.config ?? {}) as unknown as Partial<PHPConfig>;
   const hostname = p.hostnames[0] ?? `${p.slug}.test`;
   const ssh = s?.ssh;
@@ -66,30 +70,40 @@ export function IdeTab({ project: p }: { project: Project }) {
               <TerminalSquare className="size-4 text-accent-500" aria-hidden /> {t("Remote interpreter (SSH)")}
             </span>
           }
-          description={t("Run PHP, Composer, PHPUnit and Artisan inside the project container from your IDE. PhpStorm: Settings → PHP → CLI Interpreter → “…” → From Docker, Vagrant, VM, WSL, Remote… → SSH. VS Code: Remote-SSH. Plain terminal: ssh.")}
+          description={
+            hasPhp
+              ? t("Run PHP, Composer, PHPUnit and Artisan inside the project container from your IDE. PhpStorm: Settings → PHP → CLI Interpreter → “…” → From Docker, Vagrant, VM, WSL, Remote… → SSH. VS Code: Remote-SSH. Plain terminal: ssh.")
+              : t("Run node, npm and your test runner inside the project container from your IDE. WebStorm: Settings → Languages & Frameworks → Node.js → Node interpreter → Add… → SSH. VS Code: Remote-SSH. Plain terminal: ssh.")
+          }
         />
         <div className="p-5">
           {!ssh?.enabled ? (
             <Alert tone="amber">{t("The SSH server is disabled (ENVORYX_SSH is empty).")}</Alert>
           ) : ssh.port === 0 ? (
             <Alert tone="amber">{t("The SSH port 2222 is not published on the host – add a port mapping 2222:2222 to the Envoryx container.")}</Alert>
+          ) : !app ? (
+            <Alert tone="gray">{t("This project has no application container – SSH sessions need PHP or Node.js.")}</Alert>
           ) : (
             <dl>
               <CopyRow label={t("Host")} value={sshHost} />
               <CopyRow label={t("Port")} value={String(ssh.port)} />
-              <CopyRow label={t("User (PHP)")} value={p.slug} />
-              {p.services.some((x) => x.kind === "node" && x.enabled) && <CopyRow label={t("User (Node)")} value={`${p.slug}.node`} />}
+              <CopyRow label={t("User")} value={p.slug} />
+              {hasPhp && hasNode && <CopyRow label={t("User (PHP)")} value={`${p.slug}.php`} />}
+              {hasPhp && hasNode && <CopyRow label={t("User (Node)")} value={`${p.slug}.node`} />}
               <CopyRow label={t("Password")} value={t("<API token from Settings → API tokens>")} mono={false} />
-              <CopyRow label={t("PHP path")} value="/usr/local/bin/php" />
+              {hasPhp && <CopyRow label={t("PHP path")} value="/usr/local/bin/php" />}
+              {hasNode && <CopyRow label={t("Node path")} value="/usr/local/bin/node" />}
               <CopyRow label={t("Project path")} value="/var/www/html" />
-              <CopyRow label={t("Helpers path")} value="/home/envoryx/.phpstorm_helpers" />
+              {hasPhp && <CopyRow label={t("Helpers path")} value="/home/envoryx/.phpstorm_helpers" />}
               <CopyRow label={t("Host key")} value={ssh.fingerprint} />
               <CopyRow label="ssh" value={`ssh -p ${ssh.port} ${p.slug}@${sshHost}`} />
             </dl>
           )}
-          <p className="mt-3 text-xs text-subtle">
-            {t("Authentication: an")} <Link to="/settings?tab=access" className="underline">{t("API token")}</Link> {t("as password, or your public key under Settings → SSH access. Sessions run as the project owner inside")} <Code>envoryx-{p.slug}-php</Code>; {t("the project must be running.")}
-          </p>
+          {app && (
+            <p className="mt-3 text-xs text-subtle">
+              {t("Authentication: an")} <Link to="/settings?tab=access" className="underline">{t("API token")}</Link> {t("as password, or your public key under Settings → SSH access. Sessions run as the project owner inside")} <Code>envoryx-{p.slug}-{app}</Code>; {t("the project must be running.")}
+            </p>
+          )}
         </div>
       </Card>
 
@@ -126,7 +140,18 @@ export function IdeTab({ project: p }: { project: Project }) {
             <>
               <ol className="list-decimal space-y-1 pl-5 text-sm text-muted">
                 <li>Gateway → <span className="text-fg">SSH → New connection</span>: {t("host")} <Code>{sshHost}</Code>, {t("port")} <Code>{ssh.port}</Code>, {t("user")} <Code>{p.slug}</Code>, {t("password = API token (or key).")}</li>
-                <li>{t("IDE: PhpStorm (or WebStorm with user")} <Code>{p.slug}.node</Code>); {t("project directory")} <Code>/var/www/html</Code>.</li>
+                <li>
+                  {hasPhp ? (
+                    <>
+                      {t("IDE: PhpStorm (or WebStorm with user")} <Code>{p.slug}.node</Code>);
+                    </>
+                  ) : (
+                    <>
+                      {t("IDE: WebStorm with user")} <Code>{p.slug}</Code>;
+                    </>
+                  )}{" "}
+                  {t("project directory")} <Code>/var/www/html</Code>.
+                </li>
                 <li>{t("Gateway installs the backend into")} <Code>/home/envoryx/.cache/JetBrains</Code> {t("(shared cache) and opens the thin client.")}</li>
               </ol>
               <p className="text-xs text-subtle">{t("Close the project in Gateway when you are done, or stop the backend here to free memory on the server.")}</p>
@@ -138,32 +163,34 @@ export function IdeTab({ project: p }: { project: Project }) {
         </div>
       </Card>
 
-      <Card>
-        <CardHeader
-          title={
-            <span className="flex items-center gap-2">
-              <Bug className="size-4 text-accent-500" aria-hidden /> Xdebug
-            </span>
-          }
-          description={phpCfg.xdebug ? t("Enabled ({{mode}}). PhpStorm: Settings → PHP → Servers.", { mode: phpCfg.xdebugMode ?? "always" }) : t("Not enabled – switch it on in the Runtime tab. Values below apply once enabled.")}
-        />
-        <div className="p-5">
-          <dl>
-            <CopyRow label={t("Server name")} value={hostname} />
-            <CopyRow label={t("Server host")} value={hostname} />
-            <CopyRow label={t("Debug port")} value="9003" />
-            <CopyRow label={t("IDE key")} value={phpCfg.xdebugIdeKey || "PHPSTORM"} />
-            <CopyRow label={t("Path mapping")} value={`${hostDir} → /var/www/html`} />
-          </dl>
-          <div className="mt-3">
-            <div className="flex items-center justify-between">
-              <p className="text-xs text-muted"><Code>.idea/php.xml</Code> {t("(server + mapping; adjust $PROJECT_DIR$ if the IDE project is not the project root):")}</p>
-              <CopyButton value={phpXml} label="php.xml" />
+      {hasPhp && (
+        <Card>
+          <CardHeader
+            title={
+              <span className="flex items-center gap-2">
+                <Bug className="size-4 text-accent-500" aria-hidden /> Xdebug
+              </span>
+            }
+            description={phpCfg.xdebug ? t("Enabled ({{mode}}). PhpStorm: Settings → PHP → Servers.", { mode: phpCfg.xdebugMode ?? "always" }) : t("Not enabled – switch it on in the Runtime tab. Values below apply once enabled.")}
+          />
+          <div className="p-5">
+            <dl>
+              <CopyRow label={t("Server name")} value={hostname} />
+              <CopyRow label={t("Server host")} value={hostname} />
+              <CopyRow label={t("Debug port")} value="9003" />
+              <CopyRow label={t("IDE key")} value={phpCfg.xdebugIdeKey || "PHPSTORM"} />
+              <CopyRow label={t("Path mapping")} value={`${hostDir} → /var/www/html`} />
+            </dl>
+            <div className="mt-3">
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-muted"><Code>.idea/php.xml</Code> {t("(server + mapping; adjust $PROJECT_DIR$ if the IDE project is not the project root):")}</p>
+                <CopyButton value={phpXml} label="php.xml" />
+              </div>
+              <pre className="mt-1 overflow-x-auto rounded-md bg-muted p-2 font-mono text-[11px]">{phpXml}</pre>
             </div>
-            <pre className="mt-1 overflow-x-auto rounded-md bg-muted p-2 font-mono text-[11px]">{phpXml}</pre>
           </div>
-        </div>
-      </Card>
+        </Card>
+      )}
 
       {hasDb && (
         <Card>

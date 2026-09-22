@@ -404,3 +404,25 @@ func TestValidObjectKey(t *testing.T) {
 		}
 	}
 }
+
+func TestObjectStorageEnvReachesNodeApplication(t *testing.T) {
+	e := newEnv(t)
+	e.m.SetProvisioner(&fakeProvisioner{})
+	ctx := context.Background()
+	req := nodeRequest("Shop", true)
+	req.Storage = &StorageRequest{}
+	view, err := e.m.Create(ctx, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, cfg, err := storageConfig(view.Project)
+	if err != nil {
+		t.Fatal(err)
+	}
+	env := envOf(t, e, "envoryx-shop-node")
+	for k, v := range map[string]string{"S3_ENDPOINT": "http://s3:9000", "S3_BUCKET": "shop", "S3_ACCESS_KEY": cfg.AccessKey, "AWS_SECRET_ACCESS_KEY": cfg.SecretKey} {
+		if env[k] != v {
+			t.Fatalf("env %s = %q, want %q", k, env[k], v)
+		}
+	}
+}

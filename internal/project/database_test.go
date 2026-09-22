@@ -397,3 +397,30 @@ func TestMongoDBProject(t *testing.T) {
 		t.Fatal("downgrade must be refused")
 	}
 }
+
+func TestDatabaseEnvReachesNodeApplication(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	req := nodeRequest("Shop", true)
+	req.Database = &DatabaseRequest{Type: "postgresql"}
+	view, err := e.m.Create(ctx, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var cfg runtime.DatabaseConfig
+	_ = json.Unmarshal(view.Project.Service(store.ServiceDatabase).Config, &cfg)
+	node, _ := e.engine.Container("envoryx-shop-node")
+	env := strings.Join(node.Spec.Env, "\n")
+	for _, want := range []string{"DB_HOST=database", "DB_PORT=5432", "DB_DATABASE=shop", "DATABASE_URL=pgsql://shop:" + cfg.Password + "@database:5432/shop"} {
+		if !strings.Contains(env, want) {
+			t.Errorf("node env missing %q", want)
+		}
+	}
+	calls := strings.Join(e.engine.Calls, " ")
+	if strings.Index(calls, "start:envoryx-shop-database") > strings.Index(calls, "start:envoryx-shop-node") {
+		t.Fatalf("database must start before node: %s", calls)
+	}
+	if info, err := e.m.DatabaseInfo(ctx, view.Project.ID); err != nil || info.State != "running" {
+		t.Fatalf("info: %+v %v", info, err)
+	}
+}

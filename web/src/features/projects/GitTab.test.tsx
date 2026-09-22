@@ -37,4 +37,18 @@ describe("GitTab", () => {
     await user.click(screen.getByRole("button", { name: "Pull" }));
     expect(await screen.findByText("Already up to date.")).toBeInTheDocument();
   });
+
+  it("works without a PHP service", async () => {
+    mockApi({
+      ...authedRoutes,
+      "GET /settings/deploy-key": () => ({ body: { publicKey: "ssh-ed25519 AAAA envoryx-deploy-key" } }),
+      [`GET /projects/${id}/git`]: () => ({ body: { git: { configured: false, url: "", branch: "", hasToken: false, isRepo: false, dirty: 0 } } }),
+    });
+    const web = makeProject().services.find((s) => s.kind === "web")!;
+    const node = { kind: "node", variant: "node", version: "24", image: "ghcr.io/envoryx/envoryx-node:24", enabled: true, config: { devServer: true } };
+    renderApp(<GitTab project={makeProject({ services: [web, node], serves: "node", appService: "node" })} />);
+    expect(await screen.findByText("No repository configured.")).toBeInTheDocument();
+    expect(screen.getByLabelText("Repository URL")).toBeInTheDocument();
+    expect(screen.queryByText(/needs a PHP service/)).not.toBeInTheDocument();
+  });
 });

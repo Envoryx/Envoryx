@@ -1,15 +1,15 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
-import { projectName, projectSlug } from "./global-setup";
+import { adminPassword, adminUsername, projectName, projectSlug } from "./global-setup";
 
 // The whole life of a project, in the order a new user goes through it: first-run setup,
 // sign-in, the wizard, a running project answering HTTP, live logs, stop and delete.
 // The specs share one Envoryx instance and depend on each other, hence serial.
 test.describe.configure({ mode: "serial" });
 
-const username = "admin";
-const password = "e2e-test-password-1";
+const username = adminUsername;
+const password = adminPassword;
 const starterText = "Your Envoryx project is served by PHP";
 
 async function signIn(page: Page) {
@@ -78,8 +78,10 @@ test("the wizard creates a project that starts and serves its starter page", asy
   await expect(page.getByRole("button", { name: "Continue" })).toBeDisabled();
   await page.getByLabel("Project name").fill(projectName);
   await expect(page.getByText(`Identifier: ${projectSlug}`)).toBeVisible();
+  // The PHP stack is preselected; runtimes, web server, database & services and
+  // environment keep their defaults.
+  await expect(page.getByRole("radio", { name: "PHP application" })).toBeChecked();
   await cont();
-  // Runtime, web server, database & services, environment: keep the defaults.
   await expect(page.getByLabel("PHP version")).toHaveValue(/./);
   await cont();
   await expect(page.getByLabel("Web server")).toHaveValue("caddy");

@@ -130,6 +130,7 @@ func (a *API) runtimes(w http.ResponseWriter, r *http.Request) {
 		"templates":     project.Templates(),
 		"phpExtensions": runtime.PHPExtensions(),
 		"phpDefaults":   runtime.DefaultPHPConfig(),
+		"nodePresets":   runtime.NodePresets,
 	})
 }
 

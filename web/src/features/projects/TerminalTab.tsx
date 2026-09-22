@@ -112,7 +112,8 @@ function useTerminalSession(projectId: string, kind: string, generation: number)
 export function TerminalTab({ project }: { project: Project }) {
   const { t } = useTranslation();
   const services = project.services.filter((s) => s.enabled);
-  const [kind, setKind] = useState<string>(services[0]?.kind ?? "php");
+  // Open on the application container (PHP, else Node); the web container is the last resort.
+  const [kind, setKind] = useState<string>(project.appService ?? services[0]?.kind ?? "web");
   const [generation, setGeneration] = useState(0);
   const running = project.status.services.find((s) => s.kind === kind)?.running ?? false;
   const { host, state, message } = useTerminalSession(project.id, kind, generation);

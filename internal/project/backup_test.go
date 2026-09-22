@@ -39,6 +39,9 @@ func TestBackupAndRestore(t *testing.T) {
 	projDir := filepath.Join(e.projDir, "shop")
 	_ = os.MkdirAll(filepath.Join(projDir, "vendor", "lib"), 0o755)
 	_ = os.WriteFile(filepath.Join(projDir, "vendor", "lib", "x.php"), []byte("dep"), 0o644)
+	// Framework build caches count as dependencies too.
+	_ = os.MkdirAll(filepath.Join(projDir, ".next", "cache"), 0o755)
+	_ = os.WriteFile(filepath.Join(projDir, ".next", "cache", "build.json"), []byte("{}"), 0o644)
 	_ = os.WriteFile(filepath.Join(projDir, "public", "index.php"), []byte("v1"), 0o644)
 	_ = os.Symlink("public", filepath.Join(projDir, "www"))
 
@@ -61,7 +64,7 @@ func TestBackupAndRestore(t *testing.T) {
 		}
 	}
 	names := tarNames(t, filepath.Join(dir, "files.tar.gz"))
-	if !contains(names, "public/index.php") || !contains(names, "www") || contains(names, "vendor/lib/x.php") {
+	if !contains(names, "public/index.php") || !contains(names, "www") || contains(names, "vendor/lib/x.php") || contains(names, ".next/cache/build.json") {
 		t.Fatalf("archive entries: %v", names)
 	}
 	meta, _ := os.ReadFile(filepath.Join(dir, "backup.json"))
@@ -77,7 +80,7 @@ func TestBackupAndRestore(t *testing.T) {
 	if info2.Kind != "files" || info2.Meta.Database != nil {
 		t.Fatalf("files-only backup: %+v", info2)
 	}
-	if names := tarNames(t, filepath.Join(e.cfgDir, "backups", "shop", info2.Dir, "files.tar.gz")); !contains(names, "vendor/lib/x.php") {
+	if names := tarNames(t, filepath.Join(e.cfgDir, "backups", "shop", info2.Dir, "files.tar.gz")); !contains(names, "vendor/lib/x.php") || !contains(names, ".next/cache/build.json") {
 		t.Fatalf("dependencies must be included: %v", names)
 	}
 

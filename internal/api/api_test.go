@@ -935,6 +935,137 @@ func TestRuntimesEndpoint(t *testing.T) {
 	if len(runtimes) < 2 || runtimes[0].(map[string]any)["key"] != "php" {
 		t.Fatalf("runtimes content: %v", runtimes)
 	}
+	presets := r.body["nodePresets"].([]any)
+	if len(presets) != 4 || presets[0].(map[string]any)["key"] != "vite" || presets[2].(map[string]any)["key"] != "nuxt" || presets[2].(map[string]any)["port"].(float64) != 3000 {
+		t.Fatalf("nodePresets: %v", presets)
+	}
+	for _, x := range r.body["templates"].([]any) {
+		tpl := x.(map[string]any)
+		if rt := tpl["runtime"]; rt != "php" && rt != "node" {
+			t.Fatalf("template %v must name its runtime", tpl["id"])
+		}
+		if tpl["runtime"] == "node" && tpl["node"] == nil {
+			t.Fatalf("node template %v must carry dev-server defaults", tpl["id"])
+		}
+	}
+}
+
+func TestProjectWithoutPHPOverHTTP(t *testing.T) {
+	a := newApp(t)
+	a.setupAndLogin()
+	create := map[string]any{
+		"name": "Shop", "createStarter": true, "start": true,
+		"node": map[string]any{"version": "24", "devServer": true, "preset": "vite"},
+	}
+	r := a.do(http.MethodPost, "/api/v1/projects/preview", create, true)
+	if r.status != http.StatusOK {
+		t.Fatalf("preview: %d %s", r.status, r.raw)
+	}
+	pv := r.body["preview"].(map[string]any)
+	kinds := []string{}
+	for _, c := range pv["containers"].([]any) {
+		kinds = append(kinds, c.(map[string]any)["service"].(string))
+	}
+	if strings.Join(kinds, ",") != "node,web" || pv["serves"] != "node" || pv["appService"] != "node" || pv["devHostname"] != "shop-dev.test" {
+		t.Fatalf("preview: %v", pv)
+	}
+
+	r = a.do(http.MethodPost, "/api/v1/projects", create, true)
+	if r.status != http.StatusCreated {
+		t.Fatalf("create: %d %s", r.status, r.raw)
+	}
+	p := r.body["project"].(map[string]any)
+	id := p["id"].(string)
+	path := p["path"].(string)
+	if p["serves"] != "node" || p["appService"] != "node" || p["devHostname"] != "shop-dev.test" || p["status"].(map[string]any)["state"] != "running" {
+		t.Fatalf("created project: %v", p)
+	}
+	for _, svc := range p["services"].([]any) {
+		if svc.(map[string]any)["kind"] == "php" {
+			t.Fatalf("project must have no PHP service: %v", p["services"])
+		}
+	}
+
+	// PHP cannot be added after the fact (reserved for a later change) and has no logs.
+	r = a.do(http.MethodPatch, "/api/v1/projects/"+id, map[string]any{"php": map[string]any{"version": "8.4"}}, true)
+	if r.status != http.StatusConflict {
+		t.Fatalf("php update without PHP: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodGet, "/api/v1/projects/"+id+"/services/php/logs", nil, false)
+	if r.status != http.StatusNotFound {
+		t.Fatalf("php logs without PHP: %d %s", r.status, r.raw)
+	}
+	// The SPA fallback belongs to projects without PHP; a PHP project rejects it.
+	r = a.do(http.MethodPost, "/api/v1/projects", map[string]any{"name": "Blog", "php": map[string]any{"version": "8.4"}, "web": map[string]any{"type": "caddy", "spaFallback": true}}, true)
+	if r.status != http.StatusUnprocessableEntity || errCode(r) != "validation_failed" {
+		t.Fatalf("spaFallback with PHP: %d %s", r.status, r.raw)
+	}
+
+	// The Node terminal is the project's shell.
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	hdr := http.Header{"Cookie": {auth.CookieName + "=" + a.cookie.Value}}
+	base := "ws" + strings.TrimPrefix(a.srv.URL, "http") + "/api/v1/projects/" + id + "/"
+	conn, _, err := websocket.Dial(ctx, base+"services/node/terminal/ws", &websocket.DialOptions{HTTPHeader: hdr})
+	if err != nil {
+		t.Fatalf("node terminal: %v", err)
+	}
+	conn.CloseNow()
+	rec := a.engine.Terminals()[0]
+	if rec.Container != "envoryx-shop-node" || rec.Opts.User != "1000:1000" || rec.Opts.WorkingDir != "/var/www/html" {
+		t.Fatalf("terminal options: %+v", rec)
+	}
+
+	// Actions: only the services the project has, npm once package.json exists.
+	actions := func() map[string]bool {
+		r := a.do(http.MethodGet, "/api/v1/projects/"+id+"/actions", nil, false)
+		if r.status != http.StatusOK {
+			t.Fatalf("actions: %d %s", r.status, r.raw)
+		}
+		out := map[string]bool{}
+		for _, x := range r.body["actions"].([]any) {
+			act := x.(map[string]any)
+			out[act["id"].(string)] = act["available"].(bool)
+		}
+		return out
+	}
+	avail := actions()
+	for id := range avail {
+		if strings.HasPrefix(id, "composer:") || strings.HasPrefix(id, "artisan:") || strings.HasPrefix(id, "php:") {
+			t.Fatalf("PHP action %s listed on a Node-only project: %v", id, avail)
+		}
+	}
+	if on, ok := avail["node:version"]; !ok || !on || avail["npm:install"] {
+		t.Fatalf("node actions: %v", avail)
+	}
+	if err := os.WriteFile(filepath.Join(a.projDir, path, "package.json"), []byte("{}"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if avail = actions(); !avail["npm:install"] {
+		t.Fatalf("npm:install after package.json: %v", avail)
+	}
+
+	// A static project (no runtime at all) is valid too and takes the SPA fallback.
+	r = a.do(http.MethodPost, "/api/v1/projects", map[string]any{"name": "Docs", "start": true, "createStarter": true, "web": map[string]any{"type": "caddy", "spaFallback": true}}, true)
+	if r.status != http.StatusCreated {
+		t.Fatalf("static create: %d %s", r.status, r.raw)
+	}
+	docs := r.body["project"].(map[string]any)
+	if docs["serves"] != "static" || docs["appService"] != nil || docs["devHostname"] != nil {
+		t.Fatalf("static project: %v", docs)
+	}
+	web := docs["services"].([]any)[0].(map[string]any)
+	if web["kind"] != "web" || web["config"].(map[string]any)["spaFallback"] != true {
+		t.Fatalf("static web service: %v", web)
+	}
+	r = a.do(http.MethodPatch, "/api/v1/projects/"+docs["id"].(string), map[string]any{"web": map[string]any{"type": "nginx", "spaFallback": false}}, true)
+	if r.status != http.StatusOK {
+		t.Fatalf("static update: %d %s", r.status, r.raw)
+	}
+	web = r.body["project"].(map[string]any)["services"].([]any)[0].(map[string]any)
+	if web["variant"] != "nginx" || web["config"].(map[string]any)["spaFallback"] != nil {
+		t.Fatalf("static web service after update: %v", web)
+	}
 }
 
 func TestObjectStorageEndpoints(t *testing.T) {

@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -64,6 +65,21 @@ func phpRequest(name string, start bool) CreateRequest {
 		CreateStarter: true,
 		Start:         start,
 	}
+}
+
+// nodeRequest is a project without PHP whose Node dev server is the application.
+func nodeRequest(name string, start bool) CreateRequest {
+	return CreateRequest{
+		Name:          name,
+		Node:          &NodeRequest{Version: "24", Config: runtime.NodeConfig{DevServer: true, Preset: "vite"}},
+		CreateStarter: true,
+		Start:         start,
+	}
+}
+
+// staticRequest is a project with neither PHP nor Node: the web server alone.
+func staticRequest(name string, start bool) CreateRequest {
+	return CreateRequest{Name: name, CreateStarter: true, Start: start}
 }
 
 func TestCreateProjectProvisionsResources(t *testing.T) {
@@ -692,4 +708,261 @@ func TestBusyLock(t *testing.T) {
 	if _, err := e.m.Start(ctx, view.Project.ID); !errors.Is(err, ErrBusy) {
 		t.Fatalf("expected ErrBusy, got %v", err)
 	}
+}
+
+func TestCreateProjectWithoutPHP(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+
+	pv, err := e.m.Preview(ctx, nodeRequest("Acme Shop", true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pv.Serves != "node" || pv.AppService != "node" || pv.DevHostname != "acme-shop-dev.test" {
+		t.Fatalf("preview: %+v", pv)
+	}
+	if !containsSubstring(pv.Warnings, "package.json") {
+		t.Fatalf("blank Node project must warn about the missing package.json: %v", pv.Warnings)
+	}
+	// A template or a repository creates the package.json; no warning then.
+	tplReq := nodeRequest("Tpl", true)
+	tplReq.Template = "vite"
+	gitReq := nodeRequest("Git", true)
+	gitReq.Git = &GitRequest{URL: "https://github.com/x/y.git"}
+	for _, req := range []CreateRequest{tplReq, gitReq} {
+		pv, err := e.m.Preview(ctx, req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if containsSubstring(pv.Warnings, "package.json") {
+			t.Fatalf("%s: warning must not appear when something scaffolds: %v", req.Name, pv.Warnings)
+		}
+	}
+
+	view, err := e.m.Create(ctx, nodeRequest("Acme Shop", true))
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	p := view.Project
+	if got := e.engine.ContainerNames(); strings.Join(got, ",") != "envoryx-acme-shop-node,envoryx-acme-shop-web" {
+		t.Fatalf("containers: %v", got)
+	}
+	if p.Service(store.ServicePHP) != nil || view.Status.State != StateRunning {
+		t.Fatalf("project: php=%v state=%s", p.Service(store.ServicePHP), view.Status.State)
+	}
+	calls := strings.Join(e.engine.Calls, " ")
+	if strings.Index(calls, "start:envoryx-acme-shop-node") > strings.Index(calls, "start:envoryx-acme-shop-web") {
+		t.Fatalf("node must start before web: %s", calls)
+	}
+	caddy, _ := os.ReadFile(filepath.Join(e.cfgDir, "projects", p.ID, "web/Caddyfile"))
+	if strings.Contains(string(caddy), "php_fastcgi") || !strings.Contains(string(caddy), "root * /var/www/html\n") {
+		t.Fatalf("caddyfile: %s", caddy)
+	}
+	if _, err := os.Stat(filepath.Join(e.cfgDir, "projects", p.ID, "php/zz-envoryx.ini")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("no PHP ini without PHP: %v", err)
+	}
+	// The dev server serves the app: nothing serves the docroot, so no starter page.
+	entries, _ := os.ReadDir(filepath.Join(e.projDir, "acme-shop"))
+	if len(entries) != 0 {
+		t.Fatalf("no starter page while the dev server serves the app: %v", entries)
+	}
+	web, _ := e.engine.Container("envoryx-acme-shop-web")
+	if len(web.Spec.Ports) != 0 || p.HTTPPort != 20000 {
+		t.Fatalf("web port must stay allocated but unpublished: ports=%+v http=%d", web.Spec.Ports, p.HTTPPort)
+	}
+	node, _ := e.engine.Container("envoryx-acme-shop-node")
+	if len(node.Spec.Cmd) < 5 || node.Spec.Cmd[0] != "sh" || node.Spec.Cmd[1] != "-c" || strings.Join(node.Spec.Cmd[4:], " ") != "npm run dev -- --host 0.0.0.0 --port 5173 --strictPort" {
+		t.Fatalf("node cmd must wait for package.json: %q", node.Spec.Cmd)
+	}
+	// One dot-prefixed entry: Vite < 8.3 takes the variable as a single host, the suffix
+	// match covers acme-shop.test, acme-shop-dev.test and extra domains under the base.
+	if !slices.Contains(node.Spec.Env, "__VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS=.test") {
+		t.Fatalf("vite allow-list: %v", node.Spec.Env)
+	}
+	if node.Spec.Ports[0].HostPort != 20001 || node.Spec.Ports[0].ContainerPort != 5173 {
+		t.Fatalf("node port: %+v", node.Spec.Ports)
+	}
+	if Serves(p) != "node" {
+		t.Fatalf("Serves = %s", Serves(p))
+	}
+}
+
+func TestCreateProjectStatic(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+
+	view, err := e.m.Create(ctx, staticRequest("Docs Site", true))
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	p := view.Project
+	if got := e.engine.ContainerNames(); strings.Join(got, ",") != "envoryx-docs-site-web" {
+		t.Fatalf("containers: %v", got)
+	}
+	if view.Status.State != StateRunning || Serves(p) != "static" {
+		t.Fatalf("state=%s serves=%s", view.Status.State, Serves(p))
+	}
+	if _, ok := AppKind(p); ok {
+		t.Fatal("static project has no application container")
+	}
+	// Docroot "" → the starter lands in the project directory itself.
+	starter, err := os.ReadFile(filepath.Join(e.projDir, "docs-site", "index.html"))
+	if err != nil {
+		t.Fatalf("starter index.html missing: %v", err)
+	}
+	if !strings.Contains(string(starter), "served by the web server") || !strings.Contains(string(starter), "<h1>docs-site</h1>") {
+		t.Fatalf("starter: %s", starter)
+	}
+	if _, err := os.Stat(filepath.Join(e.projDir, "docs-site", "index.php")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatal("no index.php without PHP")
+	}
+	web, _ := e.engine.Container("envoryx-docs-site-web")
+	if len(web.Spec.Ports) != 1 || web.Spec.Ports[0].HostPort != 20000 {
+		t.Fatalf("static site publishes its HTTP port: %+v", web.Spec.Ports)
+	}
+	caddy, _ := os.ReadFile(filepath.Join(e.cfgDir, "projects", p.ID, "web/Caddyfile"))
+	if strings.Contains(string(caddy), "php_fastcgi") || !strings.Contains(string(caddy), "respond @dot 404") || strings.Contains(string(caddy), "try_files") {
+		t.Fatalf("caddyfile: %s", caddy)
+	}
+	pv, err := e.m.Preview(ctx, staticRequest("Other", false))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pv.Serves != "static" || pv.AppService != "" || pv.DevHostname != "" || containsSubstring(pv.Warnings, "package.json") {
+		t.Fatalf("static preview: %+v", pv)
+	}
+}
+
+func TestSPAFallback(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	on, off := true, false
+
+	req := staticRequest("Spa", true)
+	req.Docroot = "dist"
+	req.Web = WebRequest{SPAFallback: &on}
+	view, err := e.m.Create(ctx, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := view.Project.ID
+	caddy, _ := os.ReadFile(filepath.Join(e.cfgDir, "projects", id, "web/Caddyfile"))
+	if !strings.Contains(string(caddy), "try_files {path} /index.html") || !strings.Contains(string(caddy), "root * /var/www/html/dist") {
+		t.Fatalf("caddyfile: %s", caddy)
+	}
+	if got := string(view.Project.Service(store.ServiceWeb).Config); got != `{"spaFallback":true}` {
+		t.Fatalf("stored web config: %s", got)
+	}
+
+	// Switching the web server keeps the option although the store resets the config.
+	view, err = e.m.Update(ctx, id, UpdateRequest{Web: &WebRequest{Type: "nginx"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := string(view.Project.Service(store.ServiceWeb).Config); got != `{"spaFallback":true}` {
+		t.Fatalf("web config after switch: %s", got)
+	}
+	nginx, _ := os.ReadFile(filepath.Join(e.cfgDir, "projects", id, "web/default.conf"))
+	if !strings.Contains(string(nginx), "try_files $uri $uri/ /index.html;") || strings.Contains(string(nginx), "fastcgi_pass") {
+		t.Fatalf("default.conf: %s", nginx)
+	}
+
+	// Turning it off on the same web server rewrites the config file.
+	view, err = e.m.Update(ctx, id, UpdateRequest{Web: &WebRequest{Type: "nginx", SPAFallback: &off}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := string(view.Project.Service(store.ServiceWeb).Config); got != `{}` {
+		t.Fatalf("web config after disabling: %s", got)
+	}
+	nginx, _ = os.ReadFile(filepath.Join(e.cfgDir, "projects", id, "web/default.conf"))
+	if !strings.Contains(string(nginx), "try_files $uri $uri/ =404;") {
+		t.Fatalf("default.conf after disabling: %s", nginx)
+	}
+
+	// PHP projects route unknown paths through the front controller instead.
+	phpReq := phpRequest("Blog", false)
+	phpReq.Web = WebRequest{SPAFallback: &on}
+	if _, err := e.m.Create(ctx, phpReq); !errors.Is(err, validate.ErrInvalid) {
+		t.Fatalf("SPA fallback with PHP must be invalid, got %v", err)
+	}
+	blog, err := e.m.Create(ctx, phpRequest("Blog", false))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.m.Update(ctx, blog.Project.ID, UpdateRequest{Web: &WebRequest{Type: "caddy", SPAFallback: &on}}); !errors.Is(err, validate.ErrInvalid) {
+		t.Fatalf("SPA fallback update with PHP must be invalid, got %v", err)
+	}
+}
+
+func TestTemplateRuntimeGating(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+
+	req := nodeRequest("Shop", false)
+	req.Template = "laravel"
+	req.Database = &DatabaseRequest{}
+	if _, err := e.m.Preview(ctx, req); !errors.Is(err, validate.ErrInvalid) || !strings.Contains(err.Error(), "needs PHP") {
+		t.Fatalf("php template without PHP: %v", err)
+	}
+	req = staticRequest("Shop", false)
+	req.Template = "next"
+	if _, err := e.m.Preview(ctx, req); !errors.Is(err, validate.ErrInvalid) || !strings.Contains(err.Error(), "needs Node.js") {
+		t.Fatalf("node template without Node: %v", err)
+	}
+	// An empty NodeConfig takes the template's dev-server defaults; explicit settings win.
+	// (Partial configs are merged per field below.)
+	req = CreateRequest{Name: "Shop", Node: &NodeRequest{Version: "24"}, Template: "nuxt"}
+	proj, err := e.m.buildProject(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg, ok := nodeServesApp(proj)
+	if !ok || cfg.Preset != "nuxt" || cfg.Port != 3000 || cfg.Script != "dev" {
+		t.Fatalf("template defaults: %+v ok=%v", cfg, ok)
+	}
+	req.Node.Config = runtime.NodeConfig{DevServer: true, Preset: "nuxt", Port: 4000}
+	proj, err = e.m.buildProject(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg, _ := nodeServesApp(proj); cfg.Port != 4000 {
+		t.Fatalf("explicit port must win: %+v", cfg)
+	}
+	// Partial configs merge per field: only devServer (MCP nodeDevServer:true) or only the
+	// package manager (REST) must still take the template's preset, port and script –
+	// otherwise a Next scaffold would run on the Vite preset and the wrong port.
+	req.Template = "next"
+	for _, partial := range []runtime.NodeConfig{{DevServer: true}, {PackageManager: "pnpm"}} {
+		req.Node.Config = partial
+		proj, err = e.m.buildProject(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		cfg, ok := nodeServesApp(proj)
+		if !ok || cfg.Preset != "next" || cfg.Port != 3000 || cfg.Script != "dev" {
+			t.Fatalf("partial %+v: %+v ok=%v", partial, cfg, ok)
+		}
+		if partial.PackageManager != "" && cfg.PackageManager != "pnpm" {
+			t.Fatalf("package manager must win: %+v", cfg)
+		}
+	}
+	// A request that configured the dev server itself keeps its choice to leave it off.
+	req.Node.Config = runtime.NodeConfig{DevServer: false, Preset: "next", Port: 3000, Script: "dev"}
+	proj, err = e.m.buildProject(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := nodeServesApp(proj); ok {
+		t.Fatalf("explicit devServer:false must win: %+v", proj.Services)
+	}
+}
+
+func containsSubstring(list []string, sub string) bool {
+	for _, s := range list {
+		if strings.Contains(s, sub) {
+			return true
+		}
+	}
+	return false
 }

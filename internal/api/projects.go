@@ -87,10 +87,16 @@ type projectDTO struct {
 	Status       statusDTO    `json:"status"`
 	Git          gitDTO       `json:"git"`
 	Hostnames    []string     `json:"hostnames"`
-	// DevHostname is set when the Node dev server is enabled (routed by the proxy).
+	// DevHostname is set when the Node dev server is enabled (routed by the proxy); it is
+	// also the primary route when the project has no PHP.
 	DevHostname    string            `json:"devHostname,omitempty"`
 	BackupSchedule backupScheduleDTO `json:"backupSchedule"`
 	IDEGateway     bool              `json:"ideGateway"`
+	// Serves says what the primary host name reaches: "php", "node" (dev server) or
+	// "static"; AppService is the application container's kind (php, node), absent for
+	// static sites.
+	Serves     string `json:"serves"`
+	AppService string `json:"appService,omitempty"`
 }
 
 type gitDTO struct {
@@ -148,7 +154,11 @@ func toProject(v project.View) projectDTO {
 		DesiredState: string(p.DesiredState), Lifecycle: string(p.Lifecycle), LastError: p.LastError,
 		HTTPPort: p.HTTPPort, CreatedAt: p.CreatedAt, UpdatedAt: p.UpdatedAt,
 		Services: []serviceDTO{}, Env: []envDTO{}, Status: toStatus(v.Status),
-		Git: gitDTO{URL: p.Git.URL, Branch: p.Git.Branch, Username: p.Git.Username, HasToken: p.Git.Token != ""},
+		Git:    gitDTO{URL: p.Git.URL, Branch: p.Git.Branch, Username: p.Git.Username, HasToken: p.Git.Token != ""},
+		Serves: project.Serves(p),
+	}
+	if kind, ok := project.AppKind(p); ok {
+		dto.AppService = string(kind)
 	}
 	for _, s := range p.Services {
 		dto.Services = append(dto.Services, serviceDTO{Kind: string(s.Kind), Variant: s.Variant, Version: s.Version, Image: s.Image, Enabled: s.Enabled, Config: redactedConfig(s)})
@@ -161,6 +171,9 @@ func toProject(v project.View) projectDTO {
 
 // ---- Requests ---------------------------------------------------------------
 
+// phpRequestDTO selects the PHP runtime. Omitting "php" from a create request means no
+// PHP. Reserved for a future add/remove after creation: an "enabled" field defaulting to
+// true (not implemented; PUT with "php" on a project without PHP is a 409).
 type phpRequestDTO struct {
 	Version string            `json:"version"`
 	Config  runtime.PHPConfig `json:"config"`
@@ -232,6 +245,9 @@ type createProjectRequest struct {
 type webRequestDTO struct {
 	Type    string `json:"type"`
 	Version string `json:"version"`
+	// SPAFallback serves /index.html for unknown paths (projects without PHP only); nil
+	// leaves it unchanged.
+	SPAFallback *bool `json:"spaFallback"`
 }
 
 type storageRequestDTO struct {
@@ -272,7 +288,7 @@ func (r createProjectRequest) toDomain() project.CreateRequest {
 		req.Git = &g
 	}
 	if r.Web != nil {
-		req.Web = project.WebRequest{Type: r.Web.Type, Version: r.Web.Version}
+		req.Web = project.WebRequest{Type: r.Web.Type, Version: r.Web.Version, SPAFallback: r.Web.SPAFallback}
 	}
 	for _, e := range r.Env {
 		req.Env = append(req.Env, project.EnvVarRequest{Key: e.Key, Value: e.Value, IsSecret: e.IsSecret})
@@ -402,7 +418,7 @@ func (a *API) updateProject(w http.ResponseWriter, r *http.Request) {
 	}
 	upd := project.UpdateRequest{Name: req.Name, Docroot: req.Docroot}
 	if req.Web != nil {
-		upd.Web = &project.WebRequest{Type: req.Web.Type, Version: req.Web.Version}
+		upd.Web = &project.WebRequest{Type: req.Web.Type, Version: req.Web.Version, SPAFallback: req.Web.SPAFallback}
 	}
 	if req.PHP != nil {
 		upd.PHP = &project.PHPRequest{Version: req.PHP.Version, Config: req.PHP.Config}

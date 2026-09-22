@@ -194,7 +194,10 @@ type ProxyOptions struct {
 	ExtraUIHosts []string
 }
 
-// RouteTable builds the proxy routing table from projects, domains and Docker state.
+// RouteTable builds the proxy routing table from projects, domains and Docker state. A
+// project's primary host name and its extra domains reach the web container, or the Node
+// dev server when it is the project's application (no PHP); <slug>-dev.<base> always
+// reaches the dev server and <slug>-storage.<base> the object storage.
 func (m *Manager) RouteTable(ctx context.Context, opts ProxyOptions) (proxy.Table, error) {
 	t := proxy.Table{Routes: map[string]proxy.Target{}, UIHosts: map[string]bool{}, ForceHTTPS: m.ForceHTTPS(ctx), HTTPSPort: opts.HTTPSPort, EnvoryxURL: opts.EnvoryxURL}
 	base := m.BaseDomain(ctx)
@@ -235,8 +238,7 @@ func (m *Manager) RouteTable(ctx context.Context, opts ProxyOptions) (proxy.Tabl
 	byProject := map[string]store.Project{}
 	for _, p := range projects {
 		byProject[p.ID] = p
-		target := proxy.Target{ProjectID: p.ID, ProjectName: p.Name, Slug: p.Slug, Running: webRunning[p.ID], Dial: m.dialFor(paths.SelfContainerID, p)}
-		t.Routes[DefaultHostname(p.Slug, base)] = target
+		t.Routes[DefaultHostname(p.Slug, base)] = m.appTarget(paths.SelfContainerID, p, webRunning, nodeRunning)
 		if cfg, ok := nodeDevConfig(p); ok {
 			t.Routes[DevHostname(p.Slug, base)] = proxy.Target{ProjectID: p.ID, ProjectName: p.Name + " (dev server)", Slug: p.Slug, Running: nodeRunning[p.ID], Dial: m.dialForDev(paths.SelfContainerID, p, cfg)}
 		}
@@ -246,10 +248,20 @@ func (m *Manager) RouteTable(ctx context.Context, opts ProxyOptions) (proxy.Tabl
 	}
 	for _, d := range domains {
 		if p, ok := byProject[d.ProjectID]; ok {
-			t.Routes[d.Hostname] = proxy.Target{ProjectID: p.ID, ProjectName: p.Name, Slug: p.Slug, Running: webRunning[p.ID], Dial: m.dialFor(paths.SelfContainerID, p)}
+			t.Routes[d.Hostname] = m.appTarget(paths.SelfContainerID, p, webRunning, nodeRunning)
 		}
 	}
 	return t, nil
+}
+
+// appTarget is the upstream of a project's primary host name and extra domains: the web
+// container, or the Node dev server when it serves the application.
+func (m *Manager) appTarget(selfID string, p store.Project, webRunning, nodeRunning map[string]bool) proxy.Target {
+	target := proxy.Target{ProjectID: p.ID, ProjectName: p.Name, Slug: p.Slug, Running: webRunning[p.ID], Dial: m.dialFor(selfID, p)}
+	if cfg, ok := nodeServesApp(p); ok {
+		target.Running, target.Dial = nodeRunning[p.ID], m.dialForDev(selfID, p, cfg)
+	}
+	return target
 }
 
 // dialFor returns the upstream address of a project's web server. Inside Docker the proxy

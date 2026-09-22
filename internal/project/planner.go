@@ -227,7 +227,12 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 
 		case store.ServiceWeb:
 			php := proj.Service(store.ServicePHP)
-			cfg, err := runtime.WebServerConfig(svc.Variant, proj.Docroot, php != nil && php.Enabled)
+			hasPHP := php != nil && php.Enabled
+			wcfg, err := webServiceConfig(svc)
+			if err != nil {
+				return Plan{}, err
+			}
+			cfg, err := runtime.WebServerConfig(svc.Variant, proj.Docroot, runtime.WebOptions{PHP: hasPHP, SPAFallback: wcfg.SPAFallback && !hasPHP})
 			if err != nil {
 				return Plan{}, err
 			}
@@ -247,7 +252,12 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 				RestartPolicy: "unless-stopped",
 				StopTimeout:   stopTimeoutSec,
 			}
-			if proj.HTTPPort > 0 {
+			// While a Node dev server serves the app the proxy bypasses this container and
+			// its port stays unpublished so the docroot (often the project root with .env
+			// and sources) is not exposed on the LAN. The port stays allocated so turning
+			// the dev server off publishes it again.
+			_, servesNode := nodeServesApp(proj)
+			if proj.HTTPPort > 0 && !servesNode {
 				spec.Ports = []docker.PortSpec{{HostIP: p.paths.PublishInterface, HostPort: proj.HTTPPort, ContainerPort: 80, Protocol: "tcp"}}
 			}
 			plan.Containers = append(plan.Containers, ContainerPlan{Kind: store.ServiceWeb, Order: 20, Spec: spec})
@@ -282,7 +292,17 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 				// Dev-server mode: the script is the main process; the proxy routes
 				// <slug>-dev.<base> to it and the host port publishes it directly.
 				spec.Cmd = ncfg.Command()
-				spec.Env = append(spec.Env, ncfg.Env(DevHostname(proj.Slug, p.paths.BaseDomain))...)
+				if _, ok := nodeServesApp(proj); ok {
+					// The project URL points here too and a blank project has no
+					// package.json yet: wait for it instead of crash-looping. PHP+Node
+					// projects keep the plain command so their spec fingerprint is stable.
+					spec.Cmd = ncfg.WrappedCommand()
+				}
+				// One leading-dot entry: Vite suffix-matches it, so <slug>.<base>,
+				// <slug>-dev.<base> and every extra domain under the base domain pass
+				// without the planner knowing the domain table. Vite < 8.3 reads the
+				// variable as a single host, so nothing is comma-joined here.
+				spec.Env = append(spec.Env, ncfg.Env("."+p.paths.BaseDomain)...)
 				if ncfg.HostPort > 0 {
 					spec.Ports = []docker.PortSpec{{HostIP: p.paths.PublishInterface, HostPort: ncfg.HostPort, ContainerPort: ncfg.Port, Protocol: "tcp"}}
 				}
@@ -456,6 +476,19 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 	return plan, nil
 }
 
+// webServiceConfig reads the web service's options; an empty or "{}" config (every project
+// created before the SPA fallback existed) means defaults.
+func webServiceConfig(svc store.ProjectService) (runtime.WebServiceConfig, error) {
+	var cfg runtime.WebServiceConfig
+	if len(svc.Config) == 0 {
+		return cfg, nil
+	}
+	if err := json.Unmarshal(svc.Config, &cfg); err != nil {
+		return cfg, fmt.Errorf("web config: %w", err)
+	}
+	return cfg, nil
+}
+
 // Container returns the planned container for a kind, or nil.
 func (pl *Plan) Container(kind store.ServiceKind) *ContainerPlan {
 	for i := range pl.Containers {
@@ -477,6 +510,13 @@ func (p *Planner) Preview(proj store.Project, plan Plan) Preview {
 		Volumes:  append([]string{}, plan.Volumes...),
 		Images:   append([]string{}, plan.Images...),
 		Warnings: []string{},
+		Serves:   Serves(proj),
+	}
+	if kind, ok := AppKind(proj); ok {
+		pv.AppService = string(kind)
+	}
+	if _, ok := nodeDevConfig(proj); ok {
+		pv.DevHostname = DevHostname(proj.Slug, p.paths.BaseDomain)
 	}
 	for _, c := range plan.Containers {
 		pc := PreviewContainer{Service: string(c.Kind), Name: c.Spec.Name, Image: c.Spec.Image, Ports: []string{}, Mounts: []string{}}
@@ -544,7 +584,7 @@ func (p *Planner) envStrings(proj store.Project) ([]string, error) {
 	}
 	if mp := proj.Service(store.ServiceMailpit); mp != nil && mp.Enabled {
 		env := runtime.MailpitEnv()
-		for _, k := range []string{"MAIL_MAILER", "MAIL_HOST", "MAIL_PORT", "MAIL_ENCRYPTION", "MAILER_DSN"} {
+		for _, k := range []string{"MAIL_MAILER", "MAIL_HOST", "MAIL_PORT", "MAIL_ENCRYPTION", "MAILER_DSN", "SMTP_HOST", "SMTP_PORT"} {
 			set(k, env[k])
 		}
 	}

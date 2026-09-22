@@ -128,9 +128,14 @@ func (m *Manager) create(ctx context.Context, req CreateRequest) (View, error) {
 	}
 
 	// A repository or template fills the empty directory; the starter page would collide.
+	// While a Node dev server serves the app nothing serves the docroot, so no starter.
 	scaffold := proj.Git.URL != "" || req.Template != ""
+	starter := req.CreateStarter && !scaffold
+	if _, ok := nodeServesApp(proj); ok {
+		starter = false
+	}
 	step(ctx, "Preparing the project directory")
-	if err := m.ensureProjectDir(planner, proj, req.CreateStarter && !scaffold, scaffold); err != nil {
+	if err := m.ensureProjectDir(planner, proj, starter, scaffold); err != nil {
 		return fail("prepare project directory", err)
 	}
 	if proj.Git.URL != "" {
@@ -521,19 +526,41 @@ func (m *Manager) update(ctx context.Context, id string, req UpdateRequest) (Vie
 		}
 	}
 	if req.Web != nil {
-		web, err := m.buildWebService(req.Web.Type, req.Web.Version)
-		if err != nil {
-			return View{}, err
-		}
 		cur := proj.Service(store.ServiceWeb)
 		if cur == nil {
 			return View{}, fmt.Errorf("%w: project has no web service", ErrConflict)
 		}
+		wcfg, err := webServiceConfig(*cur)
+		if err != nil {
+			return View{}, err
+		}
+		if req.Web.SPAFallback != nil {
+			if php := proj.Service(store.ServicePHP); php != nil {
+				return View{}, fmt.Errorf("%w: SPA fallback needs a project without PHP; the front controller handles unknown paths", validate.ErrInvalid)
+			}
+			if wcfg.SPAFallback != *req.Web.SPAFallback {
+				wcfg.SPAFallback = *req.Web.SPAFallback
+				changes["spaFallback"] = wcfg.SPAFallback
+			}
+		}
+		web, err := m.buildWebService(req.Web.Type, req.Web.Version, wcfg.SPAFallback)
+		if err != nil {
+			return View{}, err
+		}
 		if cur.Variant != web.Variant || cur.Version != web.Version {
+			// UpdateServiceVariant resets the config; the options are web-server neutral
+			// and are written back right after.
 			if err := m.store.Projects.UpdateServiceVariant(ctx, id, store.ServiceWeb, web.Variant, web.Version, web.Image); err != nil {
 				return View{}, err
 			}
 			changes["web"] = web.Variant + " " + web.Version
+			if err := m.store.Projects.UpdateServiceConfig(ctx, id, store.ServiceWeb, web.Version, web.Image, web.Config); err != nil {
+				return View{}, err
+			}
+		} else if _, ok := changes["spaFallback"]; ok {
+			if err := m.store.Projects.UpdateServiceConfig(ctx, id, store.ServiceWeb, cur.Version, cur.Image, web.Config); err != nil {
+				return View{}, err
+			}
 		}
 	}
 	if req.PHP != nil {

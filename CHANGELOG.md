@@ -11,6 +11,35 @@ release). `:main` follows the development branch.
 ## [Unreleased]
 
 ### Added
+- Projects without PHP. The first wizard step asks for the runtime – *PHP
+  application*, *Node.js application* or *Static site* – and PHP is no
+  longer required. For a Node.js project the dev server is the application:
+  `https://<project>.<base>`, extra domains and `<project>-dev.<base>` all
+  reach it through the proxy (HMR included), the project's direct port is
+  the node container's host port, and a blank project waits for a
+  `package.json` instead of crash-looping. Git, templates, actions, the
+  terminal, the IDE tab (WebStorm/VS Code over SSH with user `<project>`),
+  database, Redis, Mailpit and object storage variables all work without a
+  PHP container. A static site is the web server alone with a starter
+  `index.html`.
+- Node templates: *Vite + React (TypeScript)*, *Next.js (App Router,
+  TypeScript)* and *Nuxt* (Nuxt 4, minimal template) scaffold in a one-shot
+  container from the Node image and preset the dev server; the Vite template
+  sets the document root to `dist` for later static builds.
+- Nuxt preset for the dev server (`--host --port`, default port 3000); each
+  preset carries a default port that the wizard fills in when you switch.
+- *SPA fallback to index.html* for static sites (Web server card and
+  wizard): unknown paths return `index.html` so client-side routers survive
+  a reload.
+- API: `serves` (`php`/`node`/`static`) and `appService` on projects,
+  `web.spaFallback`, `nodePresets` and template runtimes in `/runtimes`;
+  MCP `create_project` accepts `nodePreset`, `nodeScript`, `nodePort` and
+  `nodePackageManager`, its output carries `serves`, `devUrl` and a
+  `directUrl` that points at the dev server for Node-only projects;
+  `get_logs` defaults to the application container. New action
+  `node -v`.
+- Mailpit also injects `SMTP_HOST` and `SMTP_PORT` next to the `MAIL_*`
+  variables (Node mailers usually read those).
 - Whatever Envoryx does on its own is visible: the dashboard shows a
   dismissible notice with the projects it started again after a restart and
   the orphaned resources it removed, notifications carry the new kinds
@@ -37,12 +66,51 @@ release). `:main` follows the development branch.
   documentation, release notes, source and licence below it.
 
 ### Changed
+- Actions of services a project does not have are no longer listed (a
+  PHP-only project shows no npm actions, a Node-only project no
+  composer/artisan ones); running an action of an absent service answers
+  409. The Node service badge reads *Node.js 24*.
+- The bare SSH user `<project>` lands in the application container: PHP as
+  before, Node when the project has no PHP. `<project>.php` and
+  `<project>.node` pick one explicitly on projects with both. PhpStorm
+  configurations of PHP projects are unaffected.
+- While a Node dev server serves a project, the web container's HTTP port is
+  not published – the document root would otherwise expose the project
+  root (`.env`, sources) on the LAN. Turning the dev server off publishes
+  the same port again.
+- Web server configs of projects without PHP deny dotfiles (`/.env`,
+  `/.git/…`) on Caddy and Apache as Nginx already did; PHP configs are
+  unchanged.
+- Backups skip the framework build caches `.next/`, `.nuxt/` and `.output/`
+  by default, like `vendor/` and `node_modules/`; *Include dependencies*
+  covers them all.
+- Workers still require a PHP service; the Workers tab says so on a
+  Node-only project instead of failing at creation.
 - The project list is a table again: name, stack, state, resources and
   actions sit in the same columns on every row, however many services a
   project has. Badges follow a fixed order (runtime, web server, database,
   extras), the address is shown without its scheme, and small screens get a
   two-row layout with the state under the actions. *Restart* is offered only
   while a project runs; a stopped project has *Start*.
+
+### Fixed
+- One-shot containers (templates, git clone/pull/status) could "finish" with
+  exit code 0 before their command had run: the exit wait was registered
+  with Docker's default *not-running* condition, which a freshly created
+  container already satisfies, and the cleanup then killed the still-running
+  scaffold. The wait now asks for the next exit. Found by the Vite template
+  smoke; the effect was a template that left the project directory empty.
+- Git clone, pull and status work on projects without PHP: the one-shot
+  container now comes from the project's Node image (or the default Node
+  image for static sites) instead of failing for want of a PHP service.
+- The starter page of a project without PHP is an `index.html` the web
+  server can serve; previously an `index.php` was written that only ever
+  showed its source.
+- Existing Node-only dev-server projects (created with the *Enable PHP* box
+  unticked or MCP `phpVersion: "none"`): the project URL now reaches the dev
+  server. The node and web containers are recreated once at the next start
+  (new command wrapper, unpublished web port); `<project>-dev.<base>` and
+  the node host port keep working.
 
 ## [0.4.0] – 2026-09-20
 

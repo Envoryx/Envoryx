@@ -5,7 +5,7 @@ import { Link } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/client";
 import { keys, useProjectDomains, useProjectLinks } from "@/api/hooks";
-import type { Project, ProxyInfo } from "@/api/types";
+import { servesOf, type NodeConfig, type Project, type ProxyInfo } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Code, ErrorState, Field, Input, Spinner } from "@/components/ui";
 import { errorText } from "@/lib/errors";
 
@@ -53,6 +53,10 @@ export function DomainsTab({ project }: { project: Project }) {
   const { domains, proxy } = q.data;
   const { direct } = links(project);
   const published = proxy.enabled && (proxy.httpPort > 0 || proxy.httpsPort > 0);
+  const serves = project.serves ?? servesOf(project);
+  // The planner allow-lists every name under the base domain for Vite; foreign domains need the project's own config.
+  const nodeCfg = (project.services.find((s) => s.kind === "node" && s.enabled)?.config ?? {}) as NodeConfig;
+  const viteNote = serves === "node" && (nodeCfg.preset ?? "vite") === "vite";
 
   return (
     <div className="space-y-6">
@@ -101,6 +105,7 @@ export function DomainsTab({ project }: { project: Project }) {
         </ul>
         <form onSubmit={submit} className="space-y-3 border-t border-default p-5">
           {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
+          {viteNote && <p className="text-xs text-muted">{t("Domains under the base domain reach the dev server directly. Other domains must also be listed in server.allowedHosts of vite.config.")}</p>}
           <Field label={t("Add domain")} htmlFor="new-domain" hint={t("Lower-case host name, e.g. shop.local or api.shop.test. Wildcards are not supported.")}>
             <div className="flex gap-2">
               <Input id="new-domain" value={hostname} onChange={(e) => setHostname(e.target.value)} placeholder="shop.local" spellCheck={false} autoCapitalize="none" />
@@ -113,7 +118,7 @@ export function DomainsTab({ project }: { project: Project }) {
       </Card>
 
       <Card>
-        <CardHeader title={t("Direct access")} description={t("The web server port published on the Docker host. Works without DNS or the proxy.")} />
+        <CardHeader title={t("Direct access")} description={serves === "node" ? t("The dev server port published on the Docker host. Works without DNS or the proxy.") : t("The web server port published on the Docker host. Works without DNS or the proxy.")} />
         <div className="p-5 text-sm">
           {direct ? (
             <a href={direct} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-mono text-xs text-accent-600 hover:underline dark:text-accent-300">

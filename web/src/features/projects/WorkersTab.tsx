@@ -59,7 +59,7 @@ export function WorkersTab({ project }: { project: Project }) {
   return (
     <div className="space-y-6">
       {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
-      {!hasPhp && <Alert tone="amber">{t("Workers run from the PHP image – this project has no PHP service.")}</Alert>}
+      {!hasPhp && <Alert tone="amber">{t("Workers currently run from the PHP image – this project has no PHP service.")}</Alert>}
       <Card>
         <CardHeader
           title={
@@ -67,7 +67,7 @@ export function WorkersTab({ project }: { project: Project }) {
               <Cog className="size-4 text-accent-500" aria-hidden /> {t("Workers")}
             </span>
           }
-          description={t("Long-running processes next to the web server: queue workers, schedulers, WebSocket servers. Each runs in its own container from the PHP image, restarts automatically and follows start/stop of the project. Logs are in the Logs tab.")}
+          description={t("Long-running processes next to the web server: queue workers, schedulers, WebSocket servers. Each runs in its own container from the project's PHP image (Node workers are not supported yet), restarts automatically and follows start/stop of the project. Logs are in the Logs tab.")}
         />
         {q.data.workers.length === 0 ? (
           <p className="px-5 py-4 text-sm text-muted">{t("No workers yet.")}</p>

@@ -98,3 +98,48 @@ func TestProxyAttachesToProjectNetworksInsideDocker(t *testing.T) {
 		t.Fatalf("proxy must be detached: %v", nets)
 	}
 }
+
+func TestExtraDomainsFollowTheApplication(t *testing.T) {
+	e := newEnv(t)
+	e.selfID = "envoryx-self"
+	e.engine.AddForeignContainer("envoryx-self", "ghcr.io/envoryx/envoryx", "running")
+	ctx := context.Background()
+
+	php, err := e.m.Create(ctx, phpRequest("Blog", true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	node, err := e.m.Create(ctx, nodeRequest("Shop", true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	static, err := e.m.Create(ctx, staticRequest("Docs", true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for id, host := range map[string]string{php.Project.ID: "blog.example.com", node.Project.ID: "shop.example.com", static.Project.ID: "docs.example.com"} {
+		if _, err := e.m.AddDomain(ctx, id, host); err != nil {
+			t.Fatal(err)
+		}
+	}
+	table, err := e.m.RouteTable(ctx, ProxyOptions{ExtraUIHosts: []string{"192.168.1.10"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"blog.test": "envoryx-blog-web:80", "blog.example.com": "envoryx-blog-web:80",
+		"shop.test": "envoryx-shop-node:5173", "shop.example.com": "envoryx-shop-node:5173", "shop-dev.test": "envoryx-shop-node:5173",
+		"docs.test": "envoryx-docs-web:80", "docs.example.com": "envoryx-docs-web:80",
+	}
+	for host, dial := range want {
+		if r := table.Routes[host]; r.Dial != dial || !r.Running {
+			t.Errorf("%s: %+v, want dial %s", host, r, dial)
+		}
+	}
+	if !table.UIHosts["envoryx.test"] || !table.UIHosts["192.168.1.10"] || table.ProbeHost != "envoryx-diagnostics-probe.test" {
+		t.Fatalf("ui/probe hosts must be unaffected: %+v", table)
+	}
+	if _, ok := table.Routes["docs-dev.test"]; ok {
+		t.Fatal("static project has no dev route")
+	}
+}

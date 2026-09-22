@@ -44,6 +44,21 @@ describe("DomainsTab", () => {
     await waitFor(() => expect(api.calls.some((c) => c.method === "DELETE" && c.url.endsWith("/domains/d1"))).toBe(true));
   });
 
+  it("shows the Vite allowed-hosts note and the dev server port for a Node-served project", async () => {
+    mockApi({
+      ...authedRoutes,
+      "GET /settings": () => ({ body: settings }),
+      [`GET /projects/${id}/domains`]: () => ({ body: { domains: [{ hostname: "acme-shop.test", default: true }], proxy } }),
+    });
+    const web = makeProject().services.find((s) => s.kind === "web")!;
+    const node = { kind: "node", variant: "node", version: "24", image: "ghcr.io/envoryx/envoryx-node:24", enabled: true, config: { devServer: true, preset: "vite", port: 5173, hostPort: 20010 } };
+    renderApp(<DomainsTab project={makeProject({ services: [web, node], serves: "node", appService: "node" })} />);
+    expect(await screen.findByText(/server\.allowedHosts of vite\.config/)).toBeInTheDocument();
+    // The web container's HTTP port is unpublished behind a dev server; the node host port is the direct address.
+    expect(screen.getByRole("link", { name: /http:\/\/localhost:20010/ })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /localhost:20000/ })).not.toBeInTheDocument();
+  });
+
   it("warns when the proxy ports are not published", async () => {
     const unpublished = { ...proxy, httpPort: 0, httpsPort: 0 };
     mockApi({

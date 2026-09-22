@@ -333,11 +333,67 @@ Enable "Run a dev server" on the Node.js service (wizard or Runtime tab):
 the script (default `dev`) runs as the container's main process and is
 reachable at `https://<project>-dev.<base>` through the proxy (HMR
 WebSockets included) and on a direct host port. Presets pass host/port to
-Vite (`--host 0.0.0.0 --port`) or Next.js (`-H -p`); "Other" only sets
-`HOST`/`PORT`. Run `npm install` via Actions first – a crashing script is
-restarted by Docker until it works. For Laravel + Vite set
-`VITE_DEV_SERVER_URL`/`APP_URL` accordingly, or let Vite's `server.hmr`
-config point at the dev host name.
+Vite (`--host 0.0.0.0 --port`, default 5173), Next.js (`-H -p`, 3000) or
+Nuxt (`--host --port`, 3000); "Other" only sets `HOST`/`PORT`. Run
+`npm install` via Actions first – a crashing script is restarted by Docker
+until it works. For Laravel + Vite set `VITE_DEV_SERVER_URL`/`APP_URL`
+accordingly, or let Vite's `server.hmr` config point at the dev host name.
+
+#### Node-only projects (Vite, Next.js, Nuxt)
+
+PHP is optional. Pick **Node.js application** on the first wizard step (or
+`phpVersion: "none"` over MCP/REST) and a Vite, Next.js or Nuxt template –
+or a blank directory / git clone – and the dev server *is* the project:
+
+- **What answers where.** `https://<project>.<base>`, every extra domain and
+  `https://<project>-dev.<base>` all reach the dev server
+  (`envoryx-<project>-node:<port>`) through the proxy, HMR included. The
+  node container's own host port (Domains tab → *Direct access*, MCP
+  `directUrl`) works without DNS or the proxy.
+- **The HTTP port of the web container is not published** while the dev
+  server serves the project. The web container still exists (every project
+  has one), but the document root defaults to the project root for Node
+  projects and would otherwise expose `.env`, sources and `node_modules`
+  statically on the LAN. Turn the dev server off (Runtime tab) and the port
+  is published again with the same number.
+- **Static build mode.** With the dev server off, the web server serves the
+  document root statically – set it to the build output (`dist` for Vite,
+  the template does this; `out` for a Next.js `output: "export"` build) and
+  run `npm run build` via Actions or the terminal. Enable **SPA fallback to
+  index.html** (Web server card) so client-side routes survive a reload;
+  without it unknown paths return 404. Static configs deny dotfiles
+  (`/.env`, `/.git/…`) on all three web servers. There is no production
+  `build && start` mode: `NODE_ENV` stays `development`; for an SSR app set
+  the dev-server script to your `start` script after building.
+- **Cold start.** A freshly created blank Node project has no
+  `package.json` yet: the node container waits for it (log line
+  `envoryx: waiting for package.json …`) instead of crash-looping, and the
+  proxy shows its "web server did not respond" page until the dev server
+  listens – the same page you see during a cold compile after a restart
+  (the proxy waits up to 5 minutes for the first response). Templates
+  scaffold and `npm install` during creation, so they are ready when the
+  project turns green.
+- **Vite host check.** Envoryx passes
+  `__VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS=.<base>` to the container – a
+  single leading-dot entry that Vite suffix-matches, so `<project>.<base>`,
+  `<project>-dev.<base>` and every extra domain under the base domain pass
+  and foreign hosts get 403 (Vite 6.1–8.x; Vite before 8.3 reads the
+  variable as one host, which is why it is never a comma-separated list).
+  Domains *outside* the base domain must be added to `server.allowedHosts`
+  in `vite.config` – the Domains tab reminds you. Next.js and Nuxt have no
+  host check.
+- **Workers are PHP-only** for now (the presets are Laravel/Symfony/PHP
+  scripts); the Workers tab says so on a Node-only project. Actions offer
+  npm/pnpm/yarn and `node -v`; git clone/pull run in a one-shot container
+  from the Node image.
+- **Existing Node-only dev-server projects** (created before this feature
+  via the unticked "Enable PHP" box or MCP `"none"`): the node and web
+  containers are recreated once at the next start (new command wrapper,
+  unpublished port); from then on `<project>.<base>` reaches the dev server.
+
+A **static site** (no PHP, no Node) is the same web container alone: pick
+**Static site** in the wizard; Envoryx writes a starter `index.html` unless
+you clone a repository.
 
 ### Bare metal
 
@@ -436,7 +492,7 @@ Instance backups*. If the old version refuses to start because the schema is
 newer, its error message names the pre-migrate backup to restore by hand (see
 [Instance backups](#instance-backups)).
 
-## Keeping PHP up to date
+## Keeping runtimes up to date
 
 - **Patch releases** (e.g. 8.5.3 → 8.5.4): the `envoryx-php` images are rebuilt
   weekly from the official `php` images. A project **Restart** pulls the tag
@@ -458,7 +514,8 @@ newer, its error message names the pre-migrate backup to restore by hand (see
   Merging it builds the images and the next Envoryx image shows the version in
   the wizard. Pre-release versions are marked *preview*.
 
-Node.js images (`envoryx-node:*`) follow the same scheme with `node_versions.json`.
+Node.js images (`envoryx-node:*`) follow the same scheme with `node_versions.json`;
+a project's Node version is changed on the Runtime tab like the PHP version.
 
 ## Git deploy key
 
@@ -493,7 +550,9 @@ Unraid Appdata Backup plugin or an rsync job), or use the per-backup download.
 **Scheduled backups**: Backups tab → *Scheduled backups*: daily or weekly at
 a given hour (server local time – set `TZ` on the container for your zone),
 keep the last N scheduled backups (manual ones are never deleted), optionally
-including `vendor/`/`node_modules/`. Failures raise a notification.
+including `vendor/`, `node_modules/` and the framework build caches
+(`.next/`, `.nuxt/`, `.output/`), which are skipped by default because they
+are large and reproducible. Failures raise a notification.
 
 ### Instance backups
 
@@ -616,27 +675,41 @@ or a composer script. Every worker is its own container
 (`envoryx-<project>-worker-<name>`) from the project's PHP image, runs as
 `PUID:PGID` with the same environment and php.ini as the web PHP, restarts
 automatically (Docker `unless-stopped`) and follows start/stop/restart of
-the project. `queue:work` stops after an hour (`--max-time`) so code changes
+the project. Workers need a PHP service – Node-only projects cannot add
+them yet. `queue:work` stops after an hour (`--max-time`) so code changes
 are picked up on the automatic restart; use `queue:listen` for instant
 reloads. Logs are in the Logs tab; up to 10 workers per project.
 
-## IDE integration (PhpStorm, VS Code)
+## IDE integration (PhpStorm, WebStorm, VS Code)
 
 Every project has an **IDE** tab with all values ready to copy.
 
 **Remote interpreter over SSH.** Envoryx runs an SSH server on port 2222
 (publish it, or use the container's own IP on `br0`). User name = project
-slug (`shop`, or `shop.node` for the Node container), password = an API
-token from Settings → API tokens, or a public key stored under Settings →
-SSH access. Each session is a `docker exec` into the project's container as
-the project owner – there is no shell on the host. SFTP exposes
-`/var/www/html` (the project) and `/home/envoryx` (a persistent home for
-tool caches and IDE helpers). PhpStorm: *Settings → PHP → CLI Interpreter →
-… → From Docker, Vagrant, VM, WSL, Remote… → SSH*; PHP path
-`/usr/local/bin/php`, helpers path `/home/envoryx/.phpstorm_helpers`, path
-mapping *project folder* → `/var/www/html`. Afterwards PHPUnit/Pest,
-Composer and Artisan run inside the container from the IDE. VS Code:
-Remote-SSH works the same way (`ssh -p 2222 shop@<host>`).
+slug (`shop`): it lands in the project's application container – PHP when
+the project has PHP, otherwise Node. Projects with both runtimes also accept
+`shop.php` and `shop.node` to pick one explicitly (the IDE tab lists these
+rows only then). Password = an API token from Settings → API tokens, or a
+public key stored under Settings → SSH access. Each session is a
+`docker exec` into that container as the project owner – there is no shell
+on the host. SFTP exposes `/var/www/html` (the project) and `/home/envoryx`
+(a persistent home for tool caches and IDE helpers).
+
+- PhpStorm: *Settings → PHP → CLI Interpreter → … → From Docker, Vagrant,
+  VM, WSL, Remote… → SSH*; PHP path `/usr/local/bin/php`, helpers path
+  `/home/envoryx/.phpstorm_helpers`, path mapping *project folder* →
+  `/var/www/html`. Afterwards PHPUnit/Pest, Composer and Artisan run inside
+  the container from the IDE.
+- WebStorm (Node-only project, or `shop.node` next to PHP): *Settings →
+  Languages & Frameworks → Node.js → Node interpreter → Add… → SSH*, host
+  and port from the IDE tab, user `shop`, Node path `/usr/local/bin/node`,
+  project path `/var/www/html`. npm scripts, the test runner and the
+  debugger then run in the container.
+- VS Code: Remote-SSH works the same way (`ssh -p 2222 shop@<host>`); open
+  `/var/www/html` as the remote folder.
+
+A static project (neither PHP nor Node) has no application container, so SSH
+sessions are refused for it.
 
 The project must be running for sessions to open. Commands are logged to
 the audit log (`ssh.exec`), failed logins are rate limited per IP.
@@ -647,8 +720,9 @@ Gateway runs the complete IDE backend on the server and connects a thin
 client. In Envoryx this is opt-in per project (IDE tab → *Allow JetBrains
 Gateway*): it enables SSH port forwarding into the container and mounts a
 shared backend cache (`/config/jetbrains`, ~1.5 GB per IDE version,
-downloaded once). The backend runs as the project owner inside the PHP
-(or Node, user `<slug>.node`) container and needs 2–4 GB RAM plus CPU while
+downloaded once). The backend runs as the project owner inside the
+application container – PHP, or Node for a Node-only project (user `<slug>`;
+`<slug>.node` picks Node next to PHP) – and needs 2–4 GB RAM plus CPU while
 indexing – nothing runs until you connect. Envoryx ships no JetBrains
 software: Gateway itself is free, the IDE backend is uploaded by your
 Gateway client and licensed through it – whoever connects needs a valid
@@ -726,6 +800,15 @@ list/create databases, list/create backups, add domain. Deleting projects,
 dropping databases and restoring backups are intentionally not exposed –
 do those in the UI. Example prompt: *"Create a Laravel project called
 test-api with PHP 8.4, MariaDB and Redis, then run composer install."*
+
+Projects without PHP: pass `phpVersion: "none"` plus `nodeVersion`,
+`nodeDevServer: true` and `nodePreset` (`vite`, `next`, `nuxt`, `generic`;
+optional `nodeScript`, `nodePort`, `nodePackageManager`), or a Node template
+(`vite`, `next`, `nuxt`) which fills the dev-server defaults. The result
+carries `serves` (`php`/`node`/`static`), `devUrl` and a `directUrl` that
+points at the node host port while the dev server serves the project.
+Example prompt: *"Create a Node.js project called dashboard from the Nuxt
+template, no PHP, then show me its logs."*
 
 ### Scripting the REST API
 

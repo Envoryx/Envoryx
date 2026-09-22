@@ -70,10 +70,13 @@ func (m *Manager) StopIDEBackend(ctx context.Context, id string) (int, error) {
 }
 
 // ResolveSSHUser maps an SSH user name to a project and application container:
-// "<slug>" → PHP, "<slug>.node" → Node.
+// "<slug>" → the project's application container (PHP, or Node when there is no PHP);
+// "<slug>.php" / "<slug>.node" select explicitly.
 func (m *Manager) ResolveSSHUser(ctx context.Context, user string) (ExecTarget, error) {
-	slug, kind := user, store.ServicePHP
-	if s, ok := strings.CutSuffix(user, ".node"); ok {
+	slug, kind := user, store.ServiceKind("")
+	if s, ok := strings.CutSuffix(user, ".php"); ok {
+		slug, kind = s, store.ServicePHP
+	} else if s, ok := strings.CutSuffix(user, ".node"); ok {
 		slug, kind = s, store.ServiceNode
 	}
 	if err := validate.Slug(slug); err != nil {
@@ -87,8 +90,13 @@ func (m *Manager) ResolveSSHUser(ctx context.Context, user string) (ExecTarget, 
 		if p.Slug != slug {
 			continue
 		}
-		svc := p.Service(kind)
-		if svc == nil || !svc.Enabled {
+		var svc *store.ProjectService
+		if kind == "" {
+			if svc = appService(p); svc == nil {
+				return ExecTarget{}, fmt.Errorf("%w: project %s has no application container", store.ErrNotFound, slug)
+			}
+			kind = svc.Kind
+		} else if svc = p.Service(kind); svc == nil || !svc.Enabled {
 			return ExecTarget{}, fmt.Errorf("%w: project %s has no %s service", store.ErrNotFound, slug, kind)
 		}
 		paths, err := m.paths()

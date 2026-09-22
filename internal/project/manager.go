@@ -140,14 +140,52 @@ func (m *Manager) buildProject(req CreateRequest) (store.Project, error) {
 	if err != nil {
 		return store.Project{}, err
 	}
-	// Templates bring their own document root and PHP extensions.
+	// Templates bring their own document root and runtime defaults (PHP extensions or
+	// Node dev-server settings). This is the single place that checks a template against
+	// the requested runtimes; MCP and REST only map the error.
 	if req.Template != "" {
 		tpl, ok := TemplateByID(req.Template)
 		if !ok {
 			return store.Project{}, fmt.Errorf("%w: unknown template %q", validate.ErrInvalid, req.Template)
 		}
-		if req.PHP == nil {
-			return store.Project{}, fmt.Errorf("%w: template %s needs PHP", validate.ErrInvalid, tpl.ID)
+		switch tpl.Runtime {
+		case "node":
+			if req.Node == nil {
+				return store.Project{}, fmt.Errorf("%w: template %s needs Node.js", validate.ErrInvalid, tpl.ID)
+			}
+			if tpl.Node != nil {
+				// Merge per field: a request that only sets e.g. devServer or the package
+				// manager must still get the template's preset, port and script (a Next
+				// scaffold on the Vite preset crash-loops on --strictPort and listens on
+				// the wrong port). When the request carries no dev-server settings at
+				// all, the template also decides whether the dev server runs; a request
+				// that configured them (preset/port/script) keeps its own devServer flag.
+				c := &req.Node.Config
+				if c.Preset == "" && c.Port == 0 && c.Script == "" {
+					c.DevServer = tpl.Node.DevServer
+				}
+				if c.Preset == "" {
+					c.Preset = tpl.Node.Preset
+					if c.Port == 0 {
+						c.Port = tpl.Node.Port
+					}
+				}
+				if c.Script == "" {
+					c.Script = tpl.Node.Script
+				}
+			}
+		default: // "php"
+			if req.PHP == nil {
+				return store.Project{}, fmt.Errorf("%w: template %s needs PHP", validate.ErrInvalid, tpl.ID)
+			}
+			if req.PHP.Config.Extensions == nil {
+				req.PHP.Config.Extensions = runtime.DefaultPHPConfig().Extensions
+			}
+			for _, ext := range tpl.PHPExtensions {
+				if !slices.Contains(req.PHP.Config.Extensions, ext) {
+					req.PHP.Config.Extensions = append(req.PHP.Config.Extensions, ext)
+				}
+			}
 		}
 		if tpl.RequiresDatabase && req.Database == nil {
 			return store.Project{}, fmt.Errorf("%w: template %s needs a database", validate.ErrInvalid, tpl.ID)
@@ -157,14 +195,6 @@ func (m *Manager) buildProject(req CreateRequest) (store.Project, error) {
 		}
 		if strings.TrimSpace(req.Docroot) == "" {
 			req.Docroot = tpl.Docroot
-		}
-		if req.PHP.Config.Extensions == nil {
-			req.PHP.Config.Extensions = runtime.DefaultPHPConfig().Extensions
-		}
-		for _, ext := range tpl.PHPExtensions {
-			if !slices.Contains(req.PHP.Config.Extensions, ext) {
-				req.PHP.Config.Extensions = append(req.PHP.Config.Extensions, ext)
-			}
 		}
 	}
 	docroot, err := validate.OptionalRelativePath(req.Docroot, 4)
@@ -185,7 +215,11 @@ func (m *Manager) buildProject(req CreateRequest) (store.Project, error) {
 		proj.DesiredState = store.DesiredRunning
 	}
 
-	web, err := m.buildWebService(req.Web.Type, req.Web.Version)
+	spa := req.Web.SPAFallback != nil && *req.Web.SPAFallback
+	if spa && req.PHP != nil {
+		return store.Project{}, fmt.Errorf("%w: SPA fallback needs a project without PHP; the front controller handles unknown paths", validate.ErrInvalid)
+	}
+	web, err := m.buildWebService(req.Web.Type, req.Web.Version, spa)
 	if err != nil {
 		return store.Project{}, err
 	}
@@ -272,7 +306,7 @@ func (m *Manager) buildProject(req CreateRequest) (store.Project, error) {
 }
 
 // buildWebService validates the web server selection.
-func (m *Manager) buildWebService(webType, version string) (store.ProjectService, error) {
+func (m *Manager) buildWebService(webType, version string, spa bool) (store.ProjectService, error) {
 	if webType == "" {
 		webType = runtime.DefaultWebServer
 	}
@@ -283,7 +317,11 @@ func (m *Manager) buildWebService(webType, version string) (store.ProjectService
 	if err != nil {
 		return store.ProjectService{}, err
 	}
-	return store.ProjectService{Kind: store.ServiceWeb, Variant: webType, Version: v.Version, Image: v.Image, Enabled: true, Position: 20}, nil
+	raw, err := json.Marshal(runtime.WebServiceConfig{SPAFallback: spa})
+	if err != nil {
+		return store.ProjectService{}, err
+	}
+	return store.ProjectService{Kind: store.ServiceWeb, Variant: webType, Version: v.Version, Image: v.Image, Enabled: true, Config: raw, Position: 20}, nil
 }
 
 // buildDatabaseService validates the database selection and generates credentials.
@@ -392,6 +430,9 @@ func (m *Manager) Preview(ctx context.Context, req CreateRequest) (Preview, erro
 		return Preview{}, err
 	}
 	pv := planner.Preview(proj, plan)
+	if cfg, ok := nodeServesApp(proj); ok && req.Template == "" && (req.Git == nil || req.Git.URL == "") {
+		pv.Warnings = append(pv.Warnings, fmt.Sprintf("the dev server runs %q but nothing creates a package.json – pick a Node template, clone a repository or scaffold from the Node terminal; until then the container waits", cfg.PackageManager+" run "+cfg.Script))
+	}
 	// Surface name/path conflicts early so the wizard can react before submitting.
 	if projects, err := m.store.Projects.List(ctx); err == nil {
 		for _, p := range projects {
@@ -755,6 +796,41 @@ $project = getenv('ENVORYX_PROJECT') ?: 'project';
 </html>
 `
 
+// starterIndexHTML is the starter page of projects without PHP; "{{project}}" is replaced
+// with the slug when the file is written since a static page cannot read the environment.
+const starterIndexHTML = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>{{project}} · Envoryx</title>
+<style>
+  body{font-family:system-ui,sans-serif;background:#0f1115;color:#e6e8ee;margin:0;display:grid;place-items:center;min-height:100vh}
+  main{max-width:36rem;padding:2rem}
+  h1{font-weight:600;margin:0 0 .5rem}
+  code{background:#1b1f27;padding:.15rem .4rem;border-radius:.3rem}
+  .ok{color:#4ade80}
+</style>
+</head>
+<body>
+<main>
+  <p class="ok">● Running</p>
+  <h1>{{project}}</h1>
+  <p>Your Envoryx project is served by the web server from its document root. Build your app into this directory, or enable the Node dev server in the Runtime tab.</p>
+  <p>Replace <code>index.html</code> to get started.</p>
+</main>
+</body>
+</html>
+`
+
+// starterPage returns the file name and content of the starter page for a project: PHP
+// projects get index.php (the front controller convention), everything else index.html.
+func starterPage(proj store.Project) (name, content string) {
+	if proj.Service(store.ServicePHP) != nil {
+		return "index.php", starterIndexPHP
+	}
+	return "index.html", strings.ReplaceAll(starterIndexHTML, "{{project}}", proj.Slug)
+}
+
 // ensureProjectDir creates the project directory (and document root) if missing and
 // optionally writes a starter page when the document root is empty.
 //
@@ -806,8 +882,9 @@ func (m *Manager) ensureProjectDir(planner *Planner, proj store.Project, starter
 			return err
 		}
 		if len(entries) == 0 {
-			target := filepath.Join(docroot, "index.php")
-			if err := os.WriteFile(target, []byte(starterIndexPHP), 0o644); err != nil {
+			name, content := starterPage(proj)
+			target := filepath.Join(docroot, name)
+			if err := os.WriteFile(target, []byte(content), 0o644); err != nil {
 				return fmt.Errorf("write starter page: %w", err)
 			}
 			_ = os.Chown(target, planner.paths.PUID, planner.paths.PGID)

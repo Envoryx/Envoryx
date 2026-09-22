@@ -116,7 +116,7 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
         open={removeOpen}
         onClose={() => setRemoveOpen(false)}
         title={t("Remove {{service}}?", { service: title })}
-        description={info.volumeName ? t("This removes the container and deletes the volume {{volume}} with all data. PHP is recreated without the {{service}} variables.", { volume: info.volumeName, service: title }) : t("This removes the container. PHP is recreated without the {{service}} variables.", { service: title })}
+        description={info.volumeName ? t("This removes the container and deletes the volume {{volume}} with all data. The application containers (PHP, Node) are recreated without the {{service}} variables.", { volume: info.volumeName, service: title }) : t("This removes the container. The application containers (PHP, Node) are recreated without the {{service}} variables.", { service: title })}
         footer={
           <>
             <Button onClick={() => setRemoveOpen(false)}>{t("Cancel")}</Button>
@@ -177,7 +177,7 @@ function AddServiceCard({ project, kind, onMessage }: { project: Project; kind: 
           onClick={() =>
             update.mutate(
               { [kind]: { enabled: true, version: version || undefined, exposePort: expose } },
-              { onSuccess: () => onMessage({ tone: "green", text: t("{{service}} added. PHP was recreated with the new variables.", { service: title }) }), onError: (err) => onMessage({ tone: "red", text: errorText(err, t, t("Adding failed")) }) },
+              { onSuccess: () => onMessage({ tone: "green", text: t("{{service}} added. The application containers were recreated with the new variables.", { service: title }) }), onError: (err) => onMessage({ tone: "red", text: errorText(err, t, t("Adding failed")) }) },
             )
           }
         >

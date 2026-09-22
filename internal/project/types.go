@@ -22,9 +22,12 @@ var (
 
 // CreateRequest is the validated intent to create a project.
 type CreateRequest struct {
-	Name     string
-	Path     string // relative to projects root; empty = slug
-	Docroot  string // relative to the project directory
+	Name string
+	Path string // relative to projects root; empty = slug
+	// Docroot is the directory served by the web server, relative to the project
+	// directory: public/ for Laravel/Symfony, the build output (dist/, out/) for static
+	// Node builds; unused while a Node dev server serves the app.
+	Docroot  string
 	PHP      *PHPRequest
 	Node     *NodeRequest
 	Database *DatabaseRequest
@@ -36,7 +39,8 @@ type CreateRequest struct {
 	Env      []EnvVarRequest
 	// Template scaffolds an application into the new directory (see Templates()).
 	Template string
-	// CreateStarter writes a starter index.php when the document root is empty.
+	// CreateStarter writes a starter page (index.php with PHP, index.html otherwise) when
+	// the document root is empty; ignored while a Node dev server serves the app.
 	CreateStarter bool
 	// Start starts the project right after creation.
 	Start bool
@@ -114,6 +118,9 @@ type DatabaseUpdate struct {
 type WebRequest struct {
 	Type    string // "caddy" (default), "apache" or "nginx"
 	Version string
+	// SPAFallback serves /index.html for unknown paths (nil = unchanged, false on create).
+	// Only valid for projects without PHP: there the front controller handles unknown paths.
+	SPAFallback *bool
 }
 
 // EnvVarRequest is one environment variable.
@@ -282,6 +289,12 @@ type Preview struct {
 	Volumes    []string           `json:"volumes"`
 	Images     []string           `json:"images"`
 	Warnings   []string           `json:"warnings"`
+	// Serves says what the primary hostname reaches: "php", "node" (dev server) or "static".
+	Serves string `json:"serves"`
+	// AppService is the application container's kind (php, node), empty for static sites.
+	AppService string `json:"appService,omitempty"`
+	// DevHostname is the dev server's own host name when the Node dev server is enabled.
+	DevHostname string `json:"devHostname,omitempty"`
 }
 
 // PreviewContainer summarises a planned container.

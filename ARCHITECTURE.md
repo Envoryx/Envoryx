@@ -342,7 +342,8 @@ type ProjectSpec struct {
 A PHP project consists of two containers from the start:
 
 - `web` – Caddy (default), Apache httpd or Nginx (`internal/runtime/webserver.go`
-  renders the config per variant), serves static files from
+  renders the config per variant, `WebServerConfig(variant, docroot,
+  WebOptions{PHP, SPAFallback})`), serves static files from
   `/var/www/html/<docroot>` and passes PHP to `php:9000` via FastCGI. Apache
   runs with `AllowOverride All` so `.htaccess` files behave as on a shared host;
   Caddy and Nginx route unknown paths to `index.php`. The variant can be
@@ -355,6 +356,52 @@ A PHP project consists of two containers from the start:
   `SCRIPT_FILENAME` resolves). The catalogue owns the version→image mapping;
   stored images are refreshed from it on load, so a new runtime image is
   applied on the next restart.
+
+**Projects without PHP.** PHP is optional (`CreateRequest.PHP == nil`); the
+web container is not. `internal/project/app.go` is the single source of
+truth for the resulting shape: `appService(p)` is the enabled PHP service,
+else the enabled Node service, else nil; `nodeServesApp(p)` is true when
+there is no PHP and the Node service runs its dev server; `Serves(p)` yields
+`php`, `node` or `static` (exposed as `serves` in the API and MCP output,
+`appService` names the container kind).
+
+- *Static* (`serves=static`, no PHP, Node absent or without dev server): the
+  renderers' static branch serves the document root with `index.html` as the
+  index, denies dotfiles (`/.env`, `/.git/…` – Caddy and Apache get what
+  Nginx already had; the PHP branch is byte-identical to before) and returns
+  404 for unknown paths unless `WebServiceConfig{SPAFallback}` (persisted in
+  the web service's `Config`, `web.spaFallback` on the wire) rewrites them to
+  `/index.html`. SPA fallback is rejected for projects with PHP – the front
+  controller already handles unknown paths. The starter page is an
+  `index.html` instead of `index.php`.
+- *Node dev server* (`serves=node`): the embedded proxy routes
+  `<slug>.<base>`, every extra domain and `<slug>-dev.<base>` (kept as an
+  alias) to `envoryx-<slug>-node:<port>`; on bare metal it dials
+  `127.0.0.1:<node host port>`. The `Running` flag of the route follows the
+  node container. The planner leaves the web container's `Ports` empty so
+  nothing on the LAN reaches the unfiltered project root (`.env`, sources)
+  while the dev server is the application; `HTTPPort` stays allocated and is
+  published again as soon as the dev server is turned off (the `Ports` change
+  makes `ensurePlan` recreate the web container). The node container's `Cmd`
+  is wrapped in an argv-safe guard that waits for `package.json` (a blank
+  project would otherwise crash-loop on `npm run dev`); the validated argv is
+  passed after `$0`, never interpolated. No healthcheck: the container is
+  "running" while it waits, the proxy shows its 502 page until the dev
+  server listens. `NodeConfig.Env` sets
+  `__VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS=.<base>` – exactly one entry,
+  because Vite before 8.3 appends the raw variable as a single host; the
+  leading dot is Vite's suffix match, so `<slug>.<base>`, `<slug>-dev.<base>`
+  and extra domains under the base domain pass without the planner knowing
+  the domain table. PHP+Node
+  projects keep today's `Cmd`, ports and `specFingerprint`, so no existing
+  container is recreated by this change.
+- Start order is database → php/node → web (planner order: database and
+  services 5–8, php 10, node 15, web 20). One-shot
+  containers (git, templates) run from `toolImage(p)`: the PHP image, else
+  the Node image, else the catalogue's default Node image – git and ssh ship
+  in both Envoryx images. Templates carry `Runtime` (`php`|`node`); a Node
+  template refuses a request without Node (`ErrInvalid`), a PHP template one
+  without PHP.
 
 Why a per-project web container instead of one central proxy speaking FastCGI:
 FastCGI details stay inside the project; the future central reverse proxy
@@ -386,7 +433,7 @@ Project files in `/projects` are **never** deleted by rollback.
 ### 8.4 Start / Stop / Restart
 
 - Start: ensure network exists → ensure containers exist (recreate missing
-  ones from the plan) → start in dependency order (php before web) → set
+  ones from the plan) → start in dependency order (database, php/node, web) → set
   `desired_state=running`.
 - Stop: stop containers (10 s grace) → `desired_state=stopped`.
 - Restart: stop + start.
@@ -486,7 +533,10 @@ On startup and every 30 s:
    as a dismissible notice – and sent as notifications of the same kind.
 5. Projects with `desired_state=running` but stopped containers are flagged
    (`unexpectedly stopped`) – no automatic restart in Phase 2; the UI shows the
-   discrepancy and offers "Start".
+   discrepancy and offers "Start". Reconcile only *reports*: a missing
+   container (for example the web container of a Node-only project) shows up
+   as `expected running but observed partial`; the next Start recreates it
+   through `ensurePlan`.
 
 ---
 
@@ -578,9 +628,13 @@ of its restart policy.
 | auth | hashing, sessions, expiry, middleware, CSRF | unit tests with in-memory SQLite |
 | store | migrations, CRUD, transactions | in-memory SQLite |
 | project | planner output, create/start/stop/restart/delete, rollback on failure, reconciliation after "restart", container unexpectedly stopped, unmanaged resources untouched | unit tests against the fake Engine |
+| project (no PHP) | `app.go` helpers per shape; Node-only create (web+node, no starter, unpublished web port, wrapped `Cmd`, Vite allow-list); static create (`index.html` starter, published port); SPA fallback rendering and its PHP rejection; routes of `<slug>.<base>` / extra domains / `-dev` following `nodeServesApp` and flipping back to web when the dev server is turned off; injected env in the node container; one-shot image choice for git/templates; SSH user resolution `<slug>` → php → node; workers refused without PHP; `.next/.nuxt/.output` in backups | unit tests against the fake Engine |
+| runtime | per-preset ports, `Command()`/`WrappedCommand()`/`Env()`; web configs caddy/apache/nginx × {php, static, static+spa} with the PHP output pinned as golden | table-driven unit tests |
+| api / mcp | project without `php` over HTTP (preview, DTO fields `serves`/`appService`, 409 on `PUT php`, 404 on php logs, node terminal), `/runtimes` with `nodePresets` and template runtimes; MCP `phpVersion:"none"` + `nodePreset`, template/runtime errors, `get_logs` default service | httptest + fake Engine |
 | api | unauthorized access, validation errors, error envelope, full lifecycle over HTTP | httptest + fake Engine |
 | docker | real engine behaviour (labels, guards, foreign containers untouched) | integration tests behind `//go:build integration` (need Docker) |
-| web | components, login flow, wizard flow, project list actions | Vitest + Testing Library |
+| web | components, login flow, wizard flow (PHP, Node.js and static stacks, template filtering), project list actions, IDE/Git/Domains tabs per runtime shape, i18n parity of all dictionaries | Vitest + Testing Library |
+| e2e | lifecycle of a PHP project and of a static project without PHP (`web/e2e`) | Playwright against a Docker host |
 
 ---
 
@@ -630,8 +684,9 @@ application containers while stateful services keep running.
 
 ### SSH (`internal/sshd`)
 `golang.org/x/crypto/ssh` server with an Ed25519 host key. Auth resolves the
-user name through `Manager.ResolveSSHUser` (`<slug>` → PHP, `<slug>.node` →
-Node) and validates either an API token (password) or an authorized key
+user name through `Manager.ResolveSSHUser` (`<slug>` → the application
+container: PHP when present, else Node; `<slug>.php` / `<slug>.node` pick one
+explicitly; a project with neither is `ErrNotFound`) and validates either an API token (password) or an authorized key
 from the settings. Session channels map `pty-req/shell/exec` to
 `Engine.OpenTerminal` (PTY) or `Engine.ExecStream` (pipes, now with
 `WorkingDir`) in the target container as PUID:PGID, `subsystem sftp` to a
@@ -661,7 +716,9 @@ names, relative script paths, composer script names). The planner emits one
 container per enabled worker from the PHP image (`Kind` and service label
 `worker:<id>`, name `envoryx-<slug>-worker-<name>`, order 30, project env +
 php.ini mount, PUID:PGID, `unless-stopped`), so `ensurePlan`, start/stop,
-env recreation and delete treat them like any other container. Status lists
+env recreation and delete treat them like any other container. Workers stay
+PHP-only for now: `AddWorker` on a project without PHP returns `ErrConflict`
+("workers currently run from the PHP image"). Status lists
 them as kind `worker` with `workerId`; logs/terminal accept `worker:<id>`.
 
 ### Notifications
@@ -675,15 +732,23 @@ startup. Config with secrets in `/config/notify.json` (0600); the API never
 returns secrets and keeps stored ones when a request leaves them empty.
 
 ### Templates
-`project.Templates()` is a closed list (Laravel, Symfony, WordPress). A
-template is a sequence of argv steps run in transient containers from the
-project's PHP image as PUID:PGID with the project directory mounted
+`project.Templates()` is a closed list: Laravel, Symfony, WordPress
+(`Runtime: "php"`) and Vite + React (TypeScript), Next.js (App Router,
+TypeScript), Nuxt (`Runtime: "node"`). A template is a sequence of argv steps
+run in transient containers from the project's runtime image (`toolImage`:
+PHP, else Node) as PUID:PGID with the project directory mounted
 (`RunOneShot`, label `envoryx.service=template`, default bridge network for
-composer downloads) plus files Envoryx writes afterwards (WordPress
-`wp-config.php` reading the injected `DB_*` variables, random salts). The
-directory must be empty (like a clone); templates set the document root and
-add required PHP extensions (`mysqli` for WordPress) and may require a
-database. A failing step rolls the whole creation back.
+composer/npm downloads) plus files Envoryx writes afterwards (WordPress
+`wp-config.php` reading the injected `DB_*` variables, random salts). Node
+scaffolds mount the project directory at `/tmp/<slug>` instead of
+`/var/www/html` because `create-next-app` checks that the parent directory
+is writable, run with `HOME=/tmp`, `npm_config_cache=/tmp/.npm`, `CI=1` and
+the corepack/npm prompts disabled, and carry Node defaults (`DevServer`,
+`Preset`, `Port`, `Script`, docroot `dist` for Vite) that fill an empty
+`NodeRequest.Config`. The directory must be empty (like a clone); templates
+set the document root and add required PHP extensions (`mysqli` for
+WordPress) and may require a database. A failing step rolls the whole
+creation back.
 
 ### Phase 4 + 8 – Domains, embedded proxy, HTTPS (implemented)
 The proxy lives in the Envoryx binary (`internal/proxy`): two listeners
@@ -719,24 +784,32 @@ expiry in a background loop; config/token under `/config/ca/acme.json`
   and tool caches under `/tmp`. Project actions are a closed
   catalogue of argv commands (`actions.go`) gated by required files in the
   project directory; output streams over the same WebSocket mechanism and
-  Ctrl+C is delivered on cancel/disconnect. Git runs in a transient
-  container from the project's PHP image (`RunOneShot`) with the deploy key
-  mounted only there; tokens travel via `GIT_CONFIG_*` env. The Node service is an idle
-  tooling container (`sleep infinity`, runs as PUID:PGID) from
-  `ghcr.io/envoryx/envoryx-node:<v>`. Dev-server mode (`runtime.NodeConfig`,
-  stored in the service config): the package.json script becomes the
-  container's main process (argv from a closed preset list – Vite/Next flags
-  or HOST/PORT env only – script names validated), a host port is allocated
-  like for other services and the proxy routes `<slug>-dev.<base>` to
-  `envoryx-<slug>-node:<port>` (WebSocket/HMR passes through; Vite's host
-  allow-list is set via `__VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS`). Config
-  changes remove the node container so `ensurePlan` recreates it.
+  Ctrl+C is delivered on cancel/disconnect. `ListActions` only lists
+  catalogue entries whose service the project has (a PHP-only project shows
+  no npm actions, a Node-only project no composer/artisan ones); each runs in
+  the matching runtime container, `node:version` is the Node counterpart of
+  `php:version`. Git runs in a transient container from the project's
+  runtime image (`toolImage`: PHP, else Node; `RunOneShot`) with the deploy
+  key mounted only there; tokens travel via `GIT_CONFIG_*` env. The Node
+  service is an idle tooling container (`sleep infinity`, runs as PUID:PGID)
+  from `ghcr.io/envoryx/envoryx-node:<v>` until the dev server is enabled.
+  Dev-server mode (`runtime.NodeConfig`, stored in the service config): the
+  package.json script becomes the container's main process (argv from the
+  ordered preset list `runtime.NodePresets` – Vite, Next.js, Nuxt flags or
+  HOST/PORT env only, each with a default port – script names validated), a
+  host port is allocated like for other services and the proxy routes
+  `<slug>-dev.<base>` to `envoryx-<slug>-node:<port>` (WebSocket/HMR passes
+  through; Vite's host allow-list is set via
+  `__VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS`). Without PHP the dev server is
+  the project's application and `<slug>.<base>` routes there too (§8.2).
+  Config changes remove the node container so `ensurePlan` recreates it.
 - **Phase 7 Backups** (implemented): `<backups dir>/<slug>/<timestamp-id>/`
   (`/backups` when mounted, else `/config/backups`; `ENVORYX_BACKUPS_DIR`)
   with `backup.json` (metadata + full project export incl. credentials),
   `database.sql.gz` (dump streamed from the database container via exec,
-  password in env) and `files.tar.gz` (written by Envoryx, `vendor/` and
-  `node_modules/` skipped unless requested). Restore requires the slug as
+  password in env) and `files.tar.gz` (written by Envoryx; `vendor/`,
+  `node_modules/` and the framework build caches `.next/`, `.nuxt/`,
+  `.output/` skipped unless requested). Restore requires the slug as
   confirmation, verifies the dump flavour matches the project's database,
   pipes the dump back through the flavour's client, and extracts files with
   tar-slip protection (entries and symlink targets must stay inside the
@@ -761,8 +834,13 @@ expiry in a background loop; config/token under `/config/ca/acme.json`
   send it cross-site without a preflight, which only allowed origins get).
   Password changes and token create/revoke refuse token principals. Tools call the same `project.Manager` methods as the
   REST API – validation, label guards, locks and audit apply unchanged:
-  `list_projects`, `get_project`, `list_runtimes`, `create_project`,
-  `start/stop/restart_project`, `get_logs`, `list_actions`, `run_action`
+  `list_projects`, `get_project`, `list_runtimes`, `create_project`
+  (`phpVersion: "none"` for a project without PHP; `nodePreset`,
+  `nodeScript`, `nodePort`, `nodePackageManager` for the dev server; the
+  output carries `serves`, `devUrl` and a `directUrl` that is the node host
+  port when the dev server serves the project),
+  `start/stop/restart_project`, `get_logs` (default service = the
+  application container: php, else node, else web), `list_actions`, `run_action`
   (runs a catalogue action to completion, returns stripped output + exit
   code, 20 min limit), `list/create_database`, `list/create_backup`,
   `add_domain`. Deleting projects, dropping databases and restoring backups

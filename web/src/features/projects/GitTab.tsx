@@ -52,8 +52,7 @@ function DeployKeyCard() {
 export function GitTab({ project }: { project: Project }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
-  const hasPhp = project.services.some((s) => s.kind === "php" && s.enabled);
-  const status = useGitStatus(project.id, hasPhp);
+  const status = useGitStatus(project.id, true);
   const [url, setUrl] = useState(project.git.url);
   const [branch, setBranch] = useState(project.git.branch);
   const [username, setUsername] = useState(project.git.username);
@@ -113,9 +112,6 @@ export function GitTab({ project }: { project: Project }) {
     }
   };
 
-  if (!hasPhp) {
-    return <Alert tone="gray">{t("Git needs a PHP service – the git client ships in the PHP image.")}</Alert>;
-  }
   const st = status.data;
   const isSSH = url.startsWith("git@") || url.startsWith("ssh://");
 
@@ -130,7 +126,7 @@ export function GitTab({ project }: { project: Project }) {
                 <GitBranch className="size-4 text-accent-500" aria-hidden /> {t("Repository")}
               </span>
             }
-            description={t("Clone and pull run as the project owner inside a short-lived container from the project's PHP image.")}
+            description={t("Clone and pull run as the project owner inside a short-lived container from the project's runtime image.")}
           />
           <form onSubmit={save} className="space-y-4 p-5">
             <Field label={t("Repository URL")} htmlFor="git-url" hint="https://…, git@host:path.git or ssh://…">

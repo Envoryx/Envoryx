@@ -196,3 +196,97 @@ func TestPullAndCheckoutAndSSH(t *testing.T) {
 		t.Fatalf("clone into non-empty dir must conflict, got %v", err)
 	}
 }
+
+// Git one-shots run from whichever runtime image the project has: PHP, else Node, else the
+// catalogue's default Node image – so clone and status work for every project shape.
+func TestGitRunsFromTheProjectRuntimeImage(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	e.engine.OneShotHandler = func(spec docker.ContainerSpec) (docker.ExecResult, error) {
+		if spec.Cmd[3] == "clone" {
+			// The slug is the project directory name; simulate a successful clone.
+			slug := strings.TrimSuffix(strings.TrimPrefix(spec.Name, "envoryx-"), spec.Name[strings.LastIndex(spec.Name, "-git-"):])
+			_ = os.MkdirAll(filepath.Join(e.projDir, slug, ".git"), 0o755)
+			return docker.ExecResult{Stdout: "Cloning into '.'...\n"}, nil
+		}
+		return docker.ExecResult{Stdout: "main\n"}, nil
+	}
+	lastGit := func() docker.ContainerSpec {
+		t.Helper()
+		for i := len(e.engine.OneShots) - 1; i >= 0; i-- {
+			if e.engine.OneShots[i].Labels[docker.LabelService] == "git" {
+				return e.engine.OneShots[i]
+			}
+		}
+		t.Fatal("no git one-shot ran")
+		return docker.ContainerSpec{}
+	}
+
+	// Node-only project: create with a git URL clones from the Node image (this used to
+	// fail and roll the project back because git insisted on PHP).
+	req := nodeRequest("Front", true)
+	req.Git = &GitRequest{URL: "https://github.com/seramos/front.git"}
+	front, err := e.m.Create(ctx, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	clone := e.engine.OneShots[0]
+	if strings.Join(clone.Cmd, " ") != "git -C /var/www/html clone --progress -- https://github.com/seramos/front.git ." {
+		t.Fatalf("clone cmd: %v", clone.Cmd)
+	}
+	if clone.Image != "ghcr.io/envoryx/envoryx-node:24" || clone.User != "1000:1000" {
+		t.Fatalf("clone container: %+v", clone)
+	}
+	if len(clone.Mounts) != 2 || clone.Mounts[1].Target != sshMountTarget || !strings.HasSuffix(clone.Mounts[1].Source, "/ssh") {
+		t.Fatalf("deploy key mount: %+v", clone.Mounts)
+	}
+	if _, err := os.Stat(filepath.Join(e.projDir, "front", "index.html")); err == nil {
+		t.Fatal("starter page must not be written when cloning")
+	}
+	if res, err := e.m.Pull(ctx, front.Project.ID); err != nil || res.ExitCode != 0 {
+		t.Fatalf("pull: %+v %v", res, err)
+	}
+	if img := lastGit().Image; img != "ghcr.io/envoryx/envoryx-node:24" {
+		t.Fatalf("pull image: %s", img)
+	}
+	// The long-running node container must not get the deploy key.
+	node, _ := e.engine.Container("envoryx-front-node")
+	for _, m := range node.Spec.Mounts {
+		if strings.Contains(m.Source, "/ssh") {
+			t.Fatal("deploy key must not be mounted into the node container")
+		}
+	}
+
+	// Static project: no runtime at all → the catalogue's default Node image.
+	static, err := e.m.Create(ctx, staticRequest("Site", true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.m.SetGit(ctx, static.Project.ID, GitRequest{URL: "git@github.com:seramos/site.git"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.m.Pull(ctx, static.Project.ID); err != nil {
+		t.Fatal(err)
+	}
+	def, _ := e.m.catalog.Resolve("node", "")
+	if img := lastGit().Image; img != def.Image || img == "" {
+		t.Fatalf("static git image %q, want catalogue default %q", img, def.Image)
+	}
+
+	// PHP project (with Node as well): PHP image as before.
+	req = phpRequest("Shop", true)
+	req.Node = &NodeRequest{Version: "24"}
+	shop, err := e.m.Create(ctx, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.m.SetGit(ctx, shop.Project.ID, GitRequest{URL: "https://github.com/seramos/shop.git"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.m.Pull(ctx, shop.Project.ID); err != nil {
+		t.Fatal(err)
+	}
+	if img := lastGit().Image; img != "ghcr.io/envoryx/envoryx-php:8.4" {
+		t.Fatalf("php git image: %s", img)
+	}
+}

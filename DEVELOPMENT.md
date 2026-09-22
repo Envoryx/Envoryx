@@ -56,19 +56,28 @@ Backend tests use an in-memory SQLite database and a fake Docker engine
 containers and state manipulation. Covered flows include: create, start, stop,
 restart, delete, rollback after a failed container create, Docker unavailable,
 invalid paths / ids, Envoryx restart (new manager on existing state), container
-unexpectedly stopped, orphaned resources, unauthorized requests and CSRF.
+unexpectedly stopped, orphaned resources, unauthorized requests and CSRF, and
+the three project shapes – PHP, project without PHP with a Node dev server
+(routing of the project URL to the node container, unpublished web port,
+`package.json` wait guard, injected service variables) and static site (SPA
+fallback, `index.html` starter). `internal/runtime/webserver_test.go` pins
+the PHP web configs as goldens so the static branch cannot drift into them.
 
 Frontend tests (Vitest + Testing Library) cover the login/setup flow, the
-project list with actions and the complete wizard including preview and
-validation errors.
+project list with actions, the complete wizard including preview and
+validation errors for the PHP, Node.js and static stacks, and the detail
+tabs per runtime shape. `src/i18n/i18n.test.ts` checks that every German
+key exists in every other dictionary with matching placeholders.
 
 ### Browser end-to-end tests
 
 `web/e2e` holds Playwright specs that drive the built binary in a real
 browser against a real Docker engine – the path a new user takes: first-run
 setup, sign-in, the wizard, a running project answering on its port, live
-logs, stop and delete. They run in CI on every push (`e2e` job) and locally
-with:
+logs, stop and delete (`lifecycle.spec.ts`, a PHP project) and the same for
+a static project without PHP (`node-only.spec.ts`: the web container alone
+serves the starter `index.html`; Git and IDE tabs without PHP). They run in
+CI on every push (`e2e` job) and locally with:
 
 ```
 make build                                   # the binary embeds the frontend
@@ -85,7 +94,50 @@ resources the test project may have left behind. Override with
 `web/test-results/envoryx.log`, traces and screenshots of failed specs next
 to it (`npx playwright show-trace …`). The specs are serial and build on each
 other – add new flows as further `test()` blocks in order, or as a new spec
-file that creates its own project.
+file that creates its own project (`global-setup.ts` exports the project
+names and slugs it cleans up). The Vite template case in `node-only.spec.ts`
+is `test.skip` by default because it runs `npm install` against the
+registry; run it by hand when touching the Node templates.
+
+### Node image and scaffold smoke
+
+Node templates (`internal/project/templates.go`) run `create-vite`,
+`create-next-app` and `nuxi` as one-shot containers from
+`ghcr.io/envoryx/envoryx-node:<v>`. The argv, env and mount point are pinned
+to what was verified against the real image; the unit tests only check that
+the plan carries them. Re-run this smoke when changing a template, bumping
+the default Node version or rebuilding the image – each command must end
+with exit 0 and never wait for input:
+
+```sh
+D=$(mktemp -d); chmod 777 "$D"
+run() { docker run --rm -i --user 1000:1000 -w /tmp/my-shop -v "$D:/tmp/my-shop" \
+  -e HOME=/tmp -e npm_config_cache=/tmp/.npm -e npm_config_yes=true -e CI=1 \
+  -e COREPACK_ENABLE_DOWNLOAD_PROMPT=0 -e NPM_CONFIG_UPDATE_NOTIFIER=false \
+  --entrypoint sh ghcr.io/envoryx/envoryx-node:24 -c '"$@" </dev/null' -- "$@"; }
+
+# vite
+run npm create vite@latest . -- --template react-ts && run npm install
+# next (empty $D again first)
+run npx --yes create-next-app@latest . --yes --ts --app --use-npm --disable-git
+# nuxt (empty $D again first)
+run npx --yes nuxi@latest init . --template minimal --packageManager npm --no-install --no-gitInit --force && run npm install
+```
+
+The project directory is mounted under `/tmp/<slug>` rather than
+`/var/www/html` because `create-next-app` refuses a target whose parent
+directory is not writable (`/var/www` is root-owned in the image). Then
+start the dev server the way the planner does (`npm run dev -- --host
+0.0.0.0 --port 5173 --strictPort` for Vite, `-H 0.0.0.0 -p 3000` for Next,
+`--host 0.0.0.0 --port 3000` for Nuxt) and probe it from inside the
+container – the image has no curl, use
+`node -e 'http.get({host:"127.0.0.1",port:5173,headers:{Host:"my-shop.test"}},r=>console.log(r.statusCode))'`.
+For Vite also confirm the host allow-list: with
+`__VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS=.test` requests for `my-shop.test`,
+`my-shop-dev.test` and `app.test` answer 200 and `evil.example.com` gets 403.
+The variable must stay a single entry: Vite before 8.3 appends it verbatim
+as one host (only 8.3+ splits on commas), so a comma-joined list would block
+every request.
 
 ## Conventions
 
