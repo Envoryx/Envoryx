@@ -359,7 +359,7 @@ func TestMongoDBProject(t *testing.T) {
 		t.Fatal(err)
 	}
 	c, ok := e.engine.Container("envoryx-shop-database")
-	if !ok || c.Spec.Image != "mongo:8.0" || len(c.Spec.Cmd) != 0 || c.Spec.Ports[0].ContainerPort != 27017 || c.Spec.Mounts[0].Target != "/data/db" {
+	if !ok || c.Spec.Image != "mongo:8.2" || len(c.Spec.Cmd) != 0 || c.Spec.Ports[0].ContainerPort != 27017 || c.Spec.Mounts[0].Target != "/data/db" {
 		t.Fatalf("mongo container: %+v", c.Spec)
 	}
 	var hasRootUser bool

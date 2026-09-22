@@ -173,8 +173,14 @@ func Default() *Catalog {
 	c.add(Runtime{
 		Key: "mongodb", Name: "MongoDB", Kind: "database", Available: true,
 		Description: "MongoDB document database with persistent volume and generated credentials",
+		// 8.0 and 7.0 refuse to start on Linux 6.19 and newer ("MongoDB cannot start:
+		// Linux kernel versions 6.19 and newer has a known incompatibility with this
+		// version", SERVER-121912), which covers current desktop and server kernels. 8.2
+		// carries the fix and is therefore what a new project gets; the older series stay
+		// selectable for hosts that already run them.
 		Versions: []Version{
-			{Version: "8", Image: "mongo:8.0", Label: "MongoDB 8.0", Default: true},
+			{Version: "8.2", Image: "mongo:8.2", Label: "MongoDB 8.2", Default: true},
+			{Version: "8", Image: "mongo:8.0", Label: "MongoDB 8.0"},
 			{Version: "7", Image: "mongo:7.0", Label: "MongoDB 7.0"},
 		},
 	})

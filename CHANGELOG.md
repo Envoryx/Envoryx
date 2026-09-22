@@ -49,6 +49,14 @@ release). `:main` follows the development branch.
   Node.
 
 ### Fixed
+- MongoDB is offered as 8.2 and that is what a new project gets. The previous
+  default 8.0 – and 7.0 – refuse to start on Linux 6.19 and newer ("MongoDB
+  cannot start: Linux kernel versions 6.19 and newer has a known
+  incompatibility with this version", SERVER-121912), which is every current
+  desktop and server kernel: the container went into a restart loop and the
+  project never came up. Both older series stay selectable for hosts that run
+  them; an existing project keeps its version, as a MongoDB major cannot be
+  upgraded in place anyway.
 - A new project with the default PostgreSQL 18 came up with a database
   container in a restart loop: the data volume was mounted at
   `/var/lib/postgresql/data`, and the 18 image – which keeps its cluster in
