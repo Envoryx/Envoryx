@@ -48,6 +48,16 @@ release). `:main` follows the development branch.
   runtime-version workflow and the image builds cover Python like PHP and
   Node.
 
+- A project says so when its virtual environment no longer matches its Python
+  version. The `.venv` lives in the project directory and survives a container
+  recreate, but it is built for one minor version – after a change from 3.13 to
+  3.14 its packages sit in `lib/python3.13/site-packages`, where the new
+  interpreter does not look, and the application server starts only to fail on
+  its first import. site-packages cannot be moved across minors, so the project
+  carries a warning naming both versions and the action that rebuilds it
+  (`uv sync` for a uv project, else `pip install -r requirements.txt`). It
+  disappears by itself once the environment is rebuilt.
+
 ### Fixed
 - MongoDB is offered as 8.2 and that is what a new project gets. The previous
   default 8.0 – and 7.0 – refuse to start on Linux 6.19 and newer ("MongoDB
