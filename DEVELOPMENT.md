@@ -48,7 +48,8 @@ make build && ENVORYX_CONFIG_DIR=$PWD/.local/config ENVORYX_PROJECTS_DIR=$PWD/.l
 make test              # go vet + go test -race + tsc + vitest
 make test-go
 make test-web
-make test-integration  # needs a Docker daemon; creates/removes small alpine and RustFS containers
+make test-integration  # needs a Docker daemon; creates/removes alpine and RustFS containers
+                       # and one project with database, Redis and Mailpit
 ```
 
 Backend tests use an in-memory SQLite database and a fake Docker engine
@@ -64,6 +65,24 @@ server (`python_test.go`: entry-file wait guard, venv `PATH`, debugpy port,
 Python + Node frontend, removal with paused workers) and static site (SPA
 fallback, `index.html` starter). `internal/runtime/webserver_test.go` pins
 the PHP web configs as goldens so the static branch cannot drift into them.
+
+The fake engine proves what Envoryx asks Docker for, not whether an image
+accepts it. `internal/project/integration_test.go` (build tag `integration`)
+therefore starts one project with the stateful services – database, Redis,
+Mailpit – against a real engine and checks that they reach *running* and that
+the data survives a database container that is thrown away and rebuilt from
+the plan. It resolves the **catalogue's default versions** on purpose: that is
+what a new project gets, and it is how an upstream image changing its layout
+shows up here first. It runs with PostgreSQL by default;
+`ENVORYX_TEST_ALL_DATABASES=1` adds MariaDB, MySQL and MongoDB, whose images
+are gigabytes – CI sets it on the weekly run. A container the restart policy keeps restarting fails the
+test at once, with its last log lines, instead of waiting out the timeout.
+
+For the same reason, anything whose path or layout depends on a version goes
+through one accessor with the reason in its comment – see
+`runtime.Dialect.DataDirTarget`, where PostgreSQL 18 moved its cluster into a
+major-version subdirectory. Grep for that method before hard-coding such a
+path somewhere else.
 
 Frontend tests (Vitest + Testing Library) cover the login/setup flow, the
 project list with actions, the complete wizard including preview and

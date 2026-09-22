@@ -33,7 +33,7 @@ test-web:
 
 ## Integration tests against a real Docker engine
 test-integration:
-	$(GO) test -tags integration -count=1 ./internal/docker/ ./internal/s3/
+	$(GO) test -tags integration -count=1 -timeout 20m ./internal/docker/ ./internal/s3/ ./internal/project/
 
 ## Browser tests against ./bin/envoryx and a real Docker engine (needs `make build` and
 ## `cd web && npx playwright install chromium` once)
