@@ -38,16 +38,14 @@ release). `:main` follows the development branch.
   beat) in the Python image; SSH user `<project>.python`; PyCharm/VS Code
   interpreter hints and a debugpy card (published port, path mapping,
   command lines) on the IDE tab; `pythonPresets` on `/api/v1/runtimes`;
-  The debugpy port does not depend on the application server: a tooling
-  container publishes it too, because what a developer steps through is
-  usually a management command or a script started from the terminal, and
-  debugpy attaches to whatever process you launch.
   MCP `create_project` takes `pythonVersion`, `pythonServer`,
   `pythonPreset`, `pythonApp`, `pythonPort`, `pythonMode`. Backups skip
   `.venv` and `__pycache__` with the other dependency caches. The weekly
   runtime-version workflow and the image builds cover Python like PHP and
-  Node.
-
+  Node. The debugpy port does not depend on the application server: a
+  tooling container publishes it too, because what a developer steps
+  through is usually a management command or a script started from the
+  terminal, and debugpy attaches to whatever process you launch.
 - A project says so when its virtual environment no longer matches its Python
   version. The `.venv` lives in the project directory and survives a container
   recreate, but it is built for one minor version – after a change from 3.13 to
