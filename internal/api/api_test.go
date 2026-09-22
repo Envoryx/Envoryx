@@ -427,6 +427,44 @@ func TestProjectLifecycleOverHTTP(t *testing.T) {
 	}
 }
 
+func TestDuplicateProjectEndpoint(t *testing.T) {
+	a := newApp(t)
+	a.setupAndLogin()
+	r := a.do(http.MethodPost, "/api/v1/projects", map[string]any{
+		"name": "Shop", "docroot": "public", "createStarter": true, "start": true,
+		"php": map[string]any{"version": "8.4", "config": runtime.DefaultPHPConfig()},
+	}, true)
+	if r.status != http.StatusCreated {
+		t.Fatalf("create: %d %s", r.status, r.raw)
+	}
+	id := r.body["project"].(map[string]any)["id"].(string)
+	_ = os.WriteFile(filepath.Join(a.projDir, "shop", "public", "index.php"), []byte("shop"), 0o644)
+
+	// The parts default to everything the original has.
+	r = a.do(http.MethodPost, "/api/v1/projects/"+id+"/duplicate", map[string]any{"name": "Shop Test"}, true)
+	if r.status != http.StatusCreated {
+		t.Fatalf("duplicate: %d %s", r.status, r.raw)
+	}
+	copied := r.body["project"].(map[string]any)
+	if copied["slug"] != "shop-test" || copied["id"] == id || copied["httpPort"].(float64) == 20000 {
+		t.Fatalf("copy: %v", copied)
+	}
+	if copied["status"].(map[string]any)["state"] != "stopped" {
+		t.Fatalf("a copy is not started unless asked: %v", copied["status"])
+	}
+	if b, err := os.ReadFile(filepath.Join(a.projDir, "shop-test", "public", "index.php")); err != nil || string(b) != "shop" {
+		t.Fatalf("files must be copied by default: %v %q", err, b)
+	}
+	r = a.do(http.MethodPost, "/api/v1/projects/"+id+"/duplicate", map[string]any{"name": "Shop Test"}, true)
+	if r.status != http.StatusConflict {
+		t.Fatalf("an existing name must conflict: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodPost, "/api/v1/projects/"+store.NewID()+"/duplicate", map[string]any{"name": "Ghost"}, true)
+	if r.status != http.StatusNotFound {
+		t.Fatalf("unknown source: %d %s", r.status, r.raw)
+	}
+}
+
 func TestDockerUnavailableIsReported(t *testing.T) {
 	a := newApp(t)
 	a.setupAndLogin()

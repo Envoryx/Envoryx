@@ -107,7 +107,7 @@ func TestToolsCoverTheProjectLifecycle(t *testing.T) {
 	for _, tl := range tools.Tools {
 		names[tl.Name] = true
 	}
-	for _, want := range []string{"list_projects", "create_project", "run_action", "get_logs", "create_backup"} {
+	for _, want := range []string{"list_projects", "create_project", "duplicate_project", "run_action", "get_logs", "create_backup"} {
 		if !names[want] {
 			t.Fatalf("tool %s missing: %v", want, names)
 		}
@@ -423,6 +423,10 @@ func TestTokenScopesOnMCP(t *testing.T) {
 	}
 	if res := call(confined, "restart_project", map[string]any{"project": "shop"}); res.IsError {
 		t.Fatalf("confined token on its project: %s", text(res))
+	}
+	// A copy is a new project, which a confined token may not make.
+	if res := call(confined, "duplicate_project", map[string]any{"project": "shop", "name": "Shop Test"}); !res.IsError || !strings.Contains(text(res), "limited to particular projects") {
+		t.Fatalf("confined token duplicating: error=%v %q", res.IsError, text(res))
 	}
 	for _, ref := range []string{"blog", "Blog", blog.ID} {
 		if res := call(confined, "get_project", map[string]any{"project": ref}); !res.IsError || !strings.Contains(text(res), "no project matches") {

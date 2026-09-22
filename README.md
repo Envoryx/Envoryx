@@ -60,6 +60,12 @@ Envoryx is under active development. The current milestone (Phase 1 + 2) deliver
   and renewed automatically via DNS challenge (Cloudflare) – nothing to
   install anywhere
 - start / stop / restart / edit / delete with confirmation
+- duplicate a project (`shop` → `shop-test`) in one dialog: configuration,
+  environment, workers and repository binding, plus – each optional – the
+  project files, the contents of the database and the objects of the bucket.
+  The copy gets its own directory, host ports and containers but keeps the
+  original's database credentials, so a `.env` in the project files keeps
+  working
 - live logs per container over WebSocket: pause, search, stderr filter, download
 - browser terminal (xterm.js) into any project container; application
   containers run the shell as the project owner (PUID/PGID)
@@ -115,12 +121,12 @@ Envoryx is under active development. The current milestone (Phase 1 + 2) deliver
 - notifications (ntfy, Discord, Slack, Telegram, e-mail, generic webhook) for
   unhealthy projects (and their recovery), failed project creation, failed
   backups and certificate renewals – throttled, secrets never returned
-- MCP server for AI assistants (Claude Code, Cursor, …): create, start, stop
-  and inspect projects, read logs, run actions, create databases and backups
-  – authenticated with personal API tokens, same validation and audit trail
-  as the UI, no destructive tools
+- MCP server for AI assistants (Claude Code, Cursor, …): create, duplicate,
+  start, stop and inspect projects, read logs, run actions, create databases
+  and backups – authenticated with personal API tokens, same validation and
+  audit trail as the UI, no destructive tools
 - command line for SSH sessions, cron jobs and CI: `envoryx project
-  list/show/create/start/stop/logs/exec/run`, `envoryx backup …` and
+  list/show/create/duplicate/start/stop/logs/exec/run`, `envoryx backup …` and
   `envoryx git …`. The binary is its own client – it speaks the same REST API
   with the same API tokens, so a token's scope and project restriction apply
   unchanged, and `envoryx project exec` hands the command's exit code back to

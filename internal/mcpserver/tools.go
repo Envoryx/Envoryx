@@ -140,6 +140,7 @@ func (s *Server) registerTools() {
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("get_project", "Get project", "Details and live status of one project.")), s.getProject)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("list_runtimes", "List runtimes", "Available runtimes (PHP, Node.js, Python, web servers), database engines, services, PHP extension keys and templates for create_project.")), s.listRuntimes)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeAdmin, mutating("create_project", "Create project", "Create a new development environment (web server plus PHP, Python and/or Node.js, optional database, Redis, Mailpit, object storage, git clone or template). Returns the project including its URL.", false)), s.createProject)
+	mcp.AddTool(s.mcp, s.tool(auth.ScopeAdmin, mutating("duplicate_project", "Duplicate project", "Copy an existing project (shop → shop-test): configuration, environment, workers and git binding, optionally the files, the database contents and the objects of the bucket. The copy gets its own directory, host ports and containers and keeps the original's database credentials. Extra domains and the backup schedule are not copied.", false)), s.duplicateProject)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeOperate, mutating("start_project", "Start project", "Start all containers of a project.", true)), s.startProject)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeOperate, mutating("stop_project", "Stop project", "Stop all containers of a project (data is kept).", true)), s.stopProject)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeOperate, mutating("restart_project", "Restart project", "Restart a project; also pulls updated runtime images.", true)), s.restartProject)
@@ -330,6 +331,45 @@ func (s *Server) createProject(ctx context.Context, _ *mcp.CallToolRequest, in c
 		return r, projectOut{}, nil
 	}
 	v, err := s.d.Projects.Create(ctx, req)
+	if err != nil {
+		r, _ := toolErr(err)
+		return r, projectOut{}, nil
+	}
+	return nil, s.projectOut(ctx, v), nil
+}
+
+type duplicateProjectIn struct {
+	Project  string `json:"project" jsonschema:"Project to copy: id, slug or name"`
+	Name     string `json:"name" jsonschema:"Display name of the copy, e.g. \"Shop Test\". Slug and directory are derived from it."`
+	Path     string `json:"path,omitempty" jsonschema:"Directory of the copy below the projects directory (default: its slug)."`
+	Files    *bool  `json:"files,omitempty" jsonschema:"Copy the project directory (default true). vendor/, node_modules/ and other caches are left out unless includeDependencies is set."`
+	Database *bool  `json:"database,omitempty" jsonschema:"Copy the contents of the database (default true; ignored when the project has none)."`
+	Storage  *bool  `json:"storage,omitempty" jsonschema:"Copy the objects of the bucket (default true; ignored without object storage)."`
+	Workers  *bool  `json:"workers,omitempty" jsonschema:"Copy the worker definitions (default true)."`
+	Git      *bool  `json:"git,omitempty" jsonschema:"Copy the repository binding (default true)."`
+
+	IncludeDependencies bool  `json:"includeDependencies,omitempty" jsonschema:"Copy vendor/, node_modules/ and the other regenerable directories too."`
+	Start               *bool `json:"start,omitempty" jsonschema:"Start the copy once it is ready (default false)."`
+}
+
+func (s *Server) duplicateProject(ctx context.Context, _ *mcp.CallToolRequest, in duplicateProjectIn) (*mcp.CallToolResult, projectOut, error) {
+	if p, _ := auth.PrincipalFrom(ctx); p.Restricted() {
+		r, _ := toolErr(fmt.Errorf("%w: this token is limited to particular projects and cannot create new ones", auth.ErrForbidden))
+		return r, projectOut{}, nil
+	}
+	src, err := s.resolve(ctx, in.Project)
+	if err != nil {
+		r, _ := toolErr(err)
+		return r, projectOut{}, nil
+	}
+	on := func(b *bool) bool { return b == nil || *b }
+	req := project.DuplicateRequest{
+		Name: strings.TrimSpace(in.Name), Path: strings.TrimSpace(in.Path),
+		Files: on(in.Files), IncludeDependencies: in.IncludeDependencies,
+		Database: on(in.Database), Storage: on(in.Storage), Workers: on(in.Workers), Git: on(in.Git),
+		Start: in.Start != nil && *in.Start,
+	}
+	v, err := s.d.Projects.Duplicate(ctx, src.Project.ID, req)
 	if err != nil {
 		r, _ := toolErr(err)
 		return r, projectOut{}, nil

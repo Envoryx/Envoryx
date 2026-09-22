@@ -11,6 +11,34 @@ release). `:main` follows the development branch.
 ## [Unreleased]
 
 ### Added
+- Duplicate a project. *Duplicate* on the project page copies an existing
+  project into a new one – `shop` → `shop-test` – with its configuration:
+  runtimes and their settings, web server, services, environment variables,
+  workers and the repository binding. The parts that hold data are checkboxes
+  and default to on: the project directory (without `vendor/`,
+  `node_modules/` and the other regenerable directories unless asked), the
+  contents of the database and the objects of the bucket. Extra domains and
+  the backup schedule are never copied – host names are unique, and a copy
+  made to try something out should not inherit the original's scheduled
+  backups.
+  The copy is its own project in every way that has to be: new id, slug,
+  directory, network, volumes, containers, and a fresh host port wherever the
+  original published one. What it keeps are the generated credentials –
+  database name, user and passwords, the bucket and its keys – because each
+  project has its own server, network and volume anyway, while a `.env` that
+  lives in the project files would otherwise point into the void, and the dump
+  restores one to one (a renamed database would need `--nsFrom/--nsTo` for
+  MongoDB and rewritten grants elsewhere).
+  Nothing goes through a temporary file: the files are copied straight across,
+  the dump of the original is piped into the client of the copy, and the
+  bucket is read object by object. A database or storage container that is
+  not running is started for the transfer and stopped again afterwards, so a
+  stopped project can be copied as it is, and a copy is not started unless
+  that was asked for. Any failure rolls the copy back completely, including
+  the directory it created. `POST /api/v1/projects/{id}/duplicate` is the
+  endpoint (admin scope; a token confined to particular projects may not
+  create new ones), `envoryx project duplicate shop "Shop Test"
+  [--no-files|--no-database|…]` the command, `duplicate_project` the MCP tool.
 - Command line. The Envoryx binary is now its own client: `envoryx project
   list/show/create/start/stop/restart/delete/logs/exec/run`, `envoryx backup
   list/create/restore/download/delete`, `envoryx git status/pull/checkout` and

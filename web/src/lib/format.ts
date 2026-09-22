@@ -3,6 +3,19 @@ import type { ProjectState, UpdateStatus } from "@/api/types";
 import type { Tone } from "@/components/ui";
 import i18n from "@/i18n";
 
+/**
+ * The identifier derived from a project name, mirroring the server's Slugify: lower case,
+ * everything but letters and digits becomes a hyphen. It is a preview – the server has
+ * the last word.
+ */
+export function slugify(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40);
+}
+
 export function formatBytes(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
   const units = ["B", "KB", "MB", "GB", "TB"];

@@ -30,6 +30,7 @@ Projects:
   project list                          every project with its state and URL
   project show <project>                services, ports, git and backups
   project create <name> [flags]         create a project ("project create --help")
+  project duplicate <project> <name>    copy it with config, files and database
   project start|stop|restart <project>
   project delete <project> --yes        remove it (--delete-files removes the files too)
   project logs <project> [flags]        recent output, --follow keeps reading

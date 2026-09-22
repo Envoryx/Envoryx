@@ -1,6 +1,6 @@
 import { clsx } from "clsx";
 import { useTranslation } from "react-i18next";
-import { Trash2, Save, ExternalLink, Undo2, RotateCw } from "lucide-react";
+import { Copy, Trash2, Save, ExternalLink, Undo2, RotateCw } from "lucide-react";
 import { lazy, Suspense, useEffect, useState, type ReactElement } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ApiError } from "@/api/client";
@@ -10,7 +10,7 @@ import { NodeDevServerFields, defaultScript, devServerRequest, type DevServerFor
 import { PythonServerFields, defaultPythonServerForm, pythonServerRequest, type PythonServerForm } from "./PythonServerFields";
 import { Alert, Badge, Button, Card, CardHeader, Checkbox, Code, ErrorState, Field, Input, PageHeader, Select, Spinner, StatusDot } from "@/components/ui";
 import { containerStateTone, formatBytes, formatDateTime, formatPercent, serviceLabel, stateMeta } from "@/lib/format";
-import { DeleteProjectDialog, ProjectActionButtons, useActionError } from "./ProjectActions";
+import { DeleteProjectDialog, DuplicateProjectDialog, ProjectActionButtons, useActionError } from "./ProjectActions";
 import { OperationHint } from "@/components/OperationsTray";
 import { DatabaseTab } from "./DatabaseTab";
 import { EnvEditor } from "./EnvEditor";
@@ -39,6 +39,7 @@ export function ProjectDetailPage() {
   const devLink = useDevServerLink();
   const [tab, setTab] = useState<Tab>("Overview");
   const [deleting, setDeleting] = useState(false);
+  const [duplicating, setDuplicating] = useState(false);
   const { error, capture, setError } = useActionError();
 
   if (q.isPending) return <Spinner />;
@@ -91,6 +92,7 @@ export function ProjectDetailPage() {
         actions={
           <>
             <ProjectActionButtons project={p} size="md" onError={capture} />
+            <Button variant="ghost" onClick={() => setDuplicating(true)} icon={<Copy className="size-4" />} aria-label={t("Duplicate project")} title={t("Duplicate project – config, files and database")} />
             <Button variant="ghost" onClick={() => setDeleting(true)} icon={<Trash2 className="size-4" />} aria-label={t("Delete project")} title={t("Delete project")} />
           </>
         }
@@ -172,6 +174,7 @@ export function ProjectDetailPage() {
       {tab === "IDE" && <IdeTab project={p} />}
       {tab === "Advanced" && <AdvancedTab project={p} />}
 
+      <DuplicateProjectDialog project={p} open={duplicating} onClose={() => setDuplicating(false)} />
       <DeleteProjectDialog project={p} open={deleting} onClose={() => setDeleting(false)} />
     </div>
   );
