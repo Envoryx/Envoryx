@@ -10,23 +10,9 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.5.0] – 2026-09-22
+
 ### Added
-- PHP can be added to or removed from a project after creation (Runtime tab
-  → PHP → *Enable PHP*; API `php.enabled`). Adding makes PHP the
-  application (FastCGI, project URL, published HTTP port); removing hands
-  the project back to the dev server or the static document root, pauses
-  PHP workers and keeps files and worker definitions.
-- Node.js production build mode: the dev server can run as *Production
-  build* – every start runs the build script, then the serve script
-  (`start`, `preview` for Vite) with `NODE_ENV=production` for the serve
-  process only.
-- Node.js workers: *npm script* (`npm run <name>`) and *Node.js script*
-  (`node <file>`) presets run from the Node image; the Workers tab offers
-  the presets whose runtime the project has, and a worker whose runtime is
-  missing pauses until it is back.
-- Node.js debugging: publish the inspector port on a host port of its own
-  (Runtime tab); the IDE tab shows host, port, path mapping and
-  `package.json` examples for Next.js, Vite, Nuxt and plain Node.
 - Projects without PHP. The first wizard step asks for the runtime – *PHP
   application*, *Node.js application* or *Static site* – and PHP is no
   longer required. For a Node.js project the dev server is the application:
@@ -56,6 +42,22 @@ release). `:main` follows the development branch.
   `node -v`.
 - Mailpit also injects `SMTP_HOST` and `SMTP_PORT` next to the `MAIL_*`
   variables (Node mailers usually read those).
+- PHP can be added to or removed from a project after creation (Runtime tab
+  → PHP → *Enable PHP*; API `php.enabled`). Adding makes PHP the
+  application (FastCGI, project URL, published HTTP port); removing hands
+  the project back to the dev server or the static document root, pauses
+  PHP workers and keeps files and worker definitions.
+- Node.js production build mode: the dev server can run as *Production
+  build* – every start runs the build script, then the serve script
+  (`start`, `preview` for Vite) with `NODE_ENV=production` for the serve
+  process only.
+- Node.js workers: *npm script* (`npm run <name>`) and *Node.js script*
+  (`node <file>`) presets run from the Node image; the Workers tab offers
+  the presets whose runtime the project has, and a worker whose runtime is
+  missing pauses until it is back.
+- Node.js debugging: publish the inspector port on a host port of its own
+  (Runtime tab); the IDE tab shows host, port, path mapping and
+  `package.json` examples for Next.js, Vite, Nuxt and plain Node.
 - Whatever Envoryx does on its own is visible: the dashboard shows a
   dismissible notice with the projects it started again after a restart and
   the orphaned resources it removed, notifications carry the new kinds
@@ -100,8 +102,6 @@ release). `:main` follows the development branch.
 - Backups skip the framework build caches `.next/`, `.nuxt/` and `.output/`
   by default, like `vendor/` and `node_modules/`; *Include dependencies*
   covers them all.
-- Workers still require a PHP service; the Workers tab says so on a
-  Node-only project instead of failing at creation.
 - The project list is a table again: name, stack, state, resources and
   actions sit in the same columns on every row, however many services a
   project has. Badges follow a fixed order (runtime, web server, database,
@@ -270,7 +270,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/envoryx/envoryx/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/envoryx/envoryx/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/envoryx/envoryx/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/envoryx/envoryx/compare/v0.1.0...v0.2.0
