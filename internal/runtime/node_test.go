@@ -68,13 +68,25 @@ func TestNodeWrappedCommand(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := c.WrappedCommand()
-	want := append([]string{"sh", "-c", waitForPackageJSON, "envoryx-dev"}, c.Command()...)
+	want := append([]string{"sh", "-c", waitForPackageJSON + `; exec "$@"`, "envoryx-dev"}, c.Command()...)
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %q, want %q", got, want)
 	}
 	// The argv is passed as positional parameters, never spliced into the script.
-	if got[2] != waitForPackageJSON || !contains(got[2], `exec "$@"`) || contains(got[2], "npm") {
+	if !contains(got[2], waitForPackageJSON) || !contains(got[2], `exec "$@"`) || contains(got[2], "npm") {
 		t.Fatalf("script must not embed the command: %q", got[2])
+	}
+	// A further guard (the planner's database wait) runs after the package.json guard and
+	// before the command; an empty one changes nothing.
+	if plain := c.WrappedCommand(""); !reflect.DeepEqual(plain, got) {
+		t.Fatalf("empty guard changed the command: %q", plain)
+	}
+	guarded := c.WrappedCommand("until true; do :; done")
+	if i, j := indexOf(guarded[2], waitForPackageJSON), indexOf(guarded[2], "until true"); i < 0 || j < i {
+		t.Fatalf("guard order: %q", guarded[2])
+	}
+	if !contains(guarded[2], `done; until true; do :; done; exec "$@"`) {
+		t.Fatalf("guards must be chained: %q", guarded[2])
 	}
 }
 

@@ -201,6 +201,18 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 	}
 	images := map[string]bool{}
 
+	// An application server that opens its connections at boot (Django checks migrations,
+	// many frameworks connect on start) dies in the seconds the database needs to
+	// initialise. The restart policy covers most of them, but Django's runserver keeps its
+	// autoreload parent alive after the failed child: the container stays "running" and
+	// answers nothing until someone restarts it. The server therefore waits for the
+	// database instead of racing it.
+	dbGuard := ""
+	if db := proj.Service(store.ServiceDatabase); db != nil && db.Enabled {
+		if d, ok := runtime.DialectFor(db.Variant); ok {
+			dbGuard = runtime.WaitForTCP("database", d.Port, d.Variant)
+		}
+	}
 	for _, svc := range proj.Services {
 		if !svc.Enabled {
 			continue
@@ -307,12 +319,11 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 			if ncfg.DevServer {
 				// Dev-server mode: the script is the main process; the proxy routes
 				// <slug>-dev.<base> to it and the host port publishes it directly.
-				spec.Cmd = ncfg.Command()
+				spec.Cmd = runtime.Guarded(ncfg.Command(), "envoryx-dev", dbGuard)
 				if _, ok := nodeServesApp(proj); ok {
 					// The project URL points here too and a blank project has no
-					// package.json yet: wait for it instead of crash-looping. PHP+Node
-					// projects keep the plain command so their spec fingerprint is stable.
-					spec.Cmd = ncfg.WrappedCommand()
+					// package.json yet: wait for it instead of crash-looping.
+					spec.Cmd = ncfg.WrappedCommand(dbGuard)
 				}
 				// One leading-dot entry: Vite suffix-matches it, so <slug>.<base>,
 				// <slug>-dev.<base> and every extra domain under the base domain pass
@@ -358,11 +369,11 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 			if pcfg.Server {
 				// Server mode: the application server is the main process, published on a
 				// host port; without PHP the proxy routes the project URL to it.
-				spec.Cmd = pcfg.Command()
+				spec.Cmd = runtime.Guarded(pcfg.Command(), "envoryx-serve", dbGuard)
 				if _, ok := pythonServesApp(proj); ok {
 					// A blank project has nothing to run yet: wait for the entry file
-					// instead of crash-looping. PHP+Python projects keep the plain command.
-					spec.Cmd = pcfg.WrappedCommand()
+					// instead of crash-looping.
+					spec.Cmd = pcfg.WrappedCommand(dbGuard)
 				}
 				spec.Env = append(spec.Env, pcfg.Env()...)
 				if pcfg.HostPort > 0 {

@@ -204,18 +204,23 @@ func (c PythonConfig) entry() (module string, django bool) {
 	return mod, false
 }
 
-// WrappedCommand returns Command() behind a wait guard, for containers whose server is the
-// project's application: a blank project has nothing to run yet and the server would
-// crash-loop. The validated argv follows as "$@" (after $0), nothing is interpolated but
-// the entry file name, which matched appRe.
-func (c PythonConfig) WrappedCommand() []string {
+// entryGuard blocks until the project has something to run: a blank project would send
+// the server into a crash-loop. Only the entry file name is interpolated, and it matched
+// appRe.
+func (c PythonConfig) entryGuard() string {
 	mod, django := c.entry()
 	test, what := fmt.Sprintf("[ -e %s.py ] || [ -d %s ]", mod, mod), mod+".py or "+mod+"/"
 	if django {
 		test, what = "[ -e manage.py ]", "manage.py"
 	}
-	script := fmt.Sprintf(`until %s; do echo 'envoryx: waiting for %s in /var/www/html - scaffold with a Python template, clone a repository or use the Python terminal'; sleep 5; done; exec "$@"`, test, what)
-	return append([]string{"sh", "-c", script, "envoryx-serve"}, c.Command()...)
+	return fmt.Sprintf(`until %s; do echo 'envoryx: waiting for %s in /var/www/html - scaffold with a Python template, clone a repository or use the Python terminal'; sleep 5; done`, test, what)
+}
+
+// WrappedCommand returns Command() behind the entry-file guard, for containers whose
+// server is the project's application. Further guards (the database wait the planner
+// builds) run after it.
+func (c PythonConfig) WrappedCommand(guards ...string) []string {
+	return Guarded(c.Command(), "envoryx-serve", append([]string{c.entryGuard()}, guards...)...)
 }
 
 // Env returns the variables that tell the application where to listen: HOST and PORT are

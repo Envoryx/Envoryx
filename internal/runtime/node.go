@@ -80,11 +80,10 @@ func NodePresetByKey(key string) (NodePreset, bool) {
 	return NodePreset{}, false
 }
 
-// waitForPackageJSON is the sh script wrapped around the dev-server command when the Node
-// container is the project's application: a blank project has no package.json yet and
-// "npm run dev" would crash-loop. The validated argv follows as "$@" (after $0), so nothing
-// is interpolated into the script.
-const waitForPackageJSON = `until [ -f package.json ]; do echo 'envoryx: waiting for package.json in /var/www/html - scaffold with a Node template, clone a repository or use the Node terminal'; sleep 5; done; exec "$@"`
+// waitForPackageJSON guards the dev-server command when the Node container is the
+// project's application: a blank project has no package.json yet and "npm run dev" would
+// crash-loop. Nothing is interpolated into it (see Guarded).
+const waitForPackageJSON = `until [ -f package.json ]; do echo 'envoryx: waiting for package.json in /var/www/html - scaffold with a Node template, clone a repository or use the Node terminal'; sleep 5; done`
 
 // Normalize validates the configuration and fills defaults.
 func (c *NodeConfig) Normalize() error {
@@ -210,9 +209,10 @@ func (c NodeConfig) Command() []string {
 }
 
 // WrappedCommand returns Command() behind the package.json wait guard, for containers
-// whose dev server is the project's application.
-func (c NodeConfig) WrappedCommand() []string {
-	return append([]string{"sh", "-c", waitForPackageJSON, "envoryx-dev"}, c.Command()...)
+// whose dev server is the project's application. Further guards (the database wait the
+// planner builds) run after it.
+func (c NodeConfig) WrappedCommand(guards ...string) []string {
+	return Guarded(c.Command(), "envoryx-dev", append([]string{waitForPackageJSON}, guards...)...)
 }
 
 // Env returns the variables that make common dev servers listen on all interfaces and

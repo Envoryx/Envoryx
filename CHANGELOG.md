@@ -57,6 +57,15 @@ release). `:main` follows the development branch.
   project never came up. Both older series stay selectable for hosts that run
   them; an existing project keeps its version, as a MongoDB major cannot be
   upgraded in place anyway.
+- An application server (Python, Node dev server) raced the database on every
+  start: it came up while the database was still initialising, and anything
+  that connects at boot died on the first try. The restart policy hid that for
+  most servers, but Django's `runserver` does not exit – its autoreload parent
+  survives the failed child, so the container stayed *running* and answered
+  nothing until it was restarted by hand. The server now waits for the
+  database port (socat, two-second retries, visible in the container log)
+  before it starts, on a host reboot too. A project without a database keeps
+  the exact command it had, so nothing is recreated for it.
 - A new project with the default PostgreSQL 18 came up with a database
   container in a restart loop: the data volume was mounted at
   `/var/lib/postgresql/data`, and the 18 image – which keeps its cluster in
