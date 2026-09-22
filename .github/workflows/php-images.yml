@@ -76,6 +76,9 @@ jobs:
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     strategy:
+      # Without this one version's failed merge cancels the others, which is the
+      # opposite of what the comment above promises.
+      fail-fast: false
       matrix:
         version: ${{ fromJson(needs.matrix.outputs.matrix).include }}
     steps:
