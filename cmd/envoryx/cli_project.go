@@ -25,6 +25,8 @@ func (c *cli) projectCommand(ctx context.Context, args []string) error {
 		return c.projectShow(ctx, rest)
 	case "create", "new":
 		return c.projectCreate(ctx, rest)
+	case "duplicate", "copy":
+		return c.projectDuplicate(ctx, rest)
 	case "start", "stop", "restart":
 		return c.projectTransition(ctx, cmd, rest)
 	case "delete", "rm":
@@ -214,6 +216,109 @@ func (c *cli) projectDelete(ctx context.Context, args []string) error {
 		return err
 	}
 	c.printf("Deleted %s.\n", p.Slug)
+	return nil
+}
+
+// ---- duplicate ---------------------------------------------------------------
+
+// duplicateRequest mirrors the API's duplicate body. The parts are pointers because the
+// server's default is "everything the original has": only a part switched off is sent.
+type duplicateRequest struct {
+	Name                string `json:"name"`
+	Path                string `json:"path,omitempty"`
+	Files               *bool  `json:"files,omitempty"`
+	Database            *bool  `json:"database,omitempty"`
+	Storage             *bool  `json:"storage,omitempty"`
+	Workers             *bool  `json:"workers,omitempty"`
+	Git                 *bool  `json:"git,omitempty"`
+	IncludeDependencies bool   `json:"includeDependencies,omitempty"`
+	Start               bool   `json:"start,omitempty"`
+}
+
+const duplicateUsage = `Usage: envoryx project duplicate <project> <new name> [flags]
+
+Copies a project with its configuration: runtimes, services, environment, workers and
+the repository binding. The copy gets its own directory, host ports and containers, and
+keeps the original's database credentials, so a checked-in .env keeps working.
+
+  --path DIR           directory for the copy (default: the slug of the new name)
+  --no-files           do not copy the project directory
+  --no-database        do not copy the contents of the database
+  --no-storage         do not copy the objects of the bucket
+  --no-workers         do not copy the worker definitions
+  --no-git             do not copy the repository binding
+  --with-dependencies  copy vendor/, node_modules/ and the other caches too
+  --start              start the copy once it is ready
+
+Extra domains and the backup schedule are never copied.
+`
+
+func (c *cli) projectDuplicate(ctx context.Context, args []string) error {
+	if slices.Contains(args, "--help") || slices.Contains(args, "-h") {
+		fmt.Fprint(c.errOut, duplicateUsage)
+		return nil
+	}
+	fs := c.newFlags("project duplicate")
+	var (
+		path     = fs.String("path", "", "directory for the copy")
+		noFiles  = fs.Bool("no-files", false, "do not copy the project directory")
+		noDB     = fs.Bool("no-database", false, "do not copy the database")
+		noStore  = fs.Bool("no-storage", false, "do not copy the bucket")
+		noWork   = fs.Bool("no-workers", false, "do not copy the workers")
+		noGit    = fs.Bool("no-git", false, "do not copy the repository binding")
+		withDeps = fs.Bool("with-dependencies", false, "copy vendor/, node_modules/ …")
+		start    = fs.Bool("start", false, "start the copy")
+	)
+	pos, err := parse(fs, args)
+	if err != nil {
+		return err
+	}
+	// The rest of the line is the new name, so it does not have to be quoted.
+	name := ""
+	if len(pos) > 1 {
+		name = strings.TrimSpace(strings.Join(pos[1:], " "))
+	}
+	if name == "" {
+		fmt.Fprint(c.errOut, duplicateUsage)
+		return usagef("which project should be copied, and what should the copy be called?")
+	}
+	ctx, cancel := c.context(ctx)
+	defer cancel()
+	src, err := c.findProject(ctx, pos[0])
+	if err != nil {
+		return err
+	}
+	off := false
+	req := duplicateRequest{Name: name, Path: *path, IncludeDependencies: *withDeps, Start: *start}
+	for _, part := range []struct {
+		skip bool
+		to   **bool
+	}{{*noFiles, &req.Files}, {*noDB, &req.Database}, {*noStore, &req.Storage}, {*noWork, &req.Workers}, {*noGit, &req.Git}} {
+		if part.skip {
+			*part.to = &off
+		}
+	}
+	api, err := c.connect()
+	if err != nil {
+		return err
+	}
+	var body struct {
+		Project projectSummary `json:"project"`
+	}
+	// Copying files and streaming a dump takes as long as the project is big.
+	if err := api.post(ctx, projectPath(src.ID, "duplicate"), req, &body); err != nil {
+		return err
+	}
+	if c.json {
+		return c.printJSON(body.Project)
+	}
+	c.printf("Copied %s to %s (%s)\n", src.Slug, body.Project.Name, body.Project.Slug)
+	if u := body.Project.URL(); u != "" {
+		c.printf("  %s\n", u)
+	}
+	if !req.Start {
+		c.printf("  Start it with: envoryx project start %s\n", body.Project.Slug)
+	}
 	return nil
 }
 

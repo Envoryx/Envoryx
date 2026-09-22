@@ -7,6 +7,7 @@ import type {
   BackupInfo,
   BackupSchedule,
   CreateProjectRequest,
+  DuplicateProjectRequest,
   Dashboard,
   DatabaseCredentials,
   DatabaseInfo,
@@ -198,6 +199,8 @@ export const api = {
     create: (body: CreateProjectRequest) => request<{ project: Project }>("/projects", { method: "POST", body }),
     update: (id: string, body: UpdateProjectRequest) =>
       request<{ project: Project }>(`/projects/${encodeURIComponent(id)}`, { method: "PATCH", body }),
+    duplicate: (id: string, body: DuplicateProjectRequest) =>
+      request<{ project: Project }>(`/projects/${encodeURIComponent(id)}/duplicate`, { method: "POST", body }),
     remove: (id: string, confirm: string, deleteFiles: boolean) =>
       request<void>(`/projects/${encodeURIComponent(id)}`, { method: "DELETE", body: { confirm, deleteFiles } }),
     stopIDEBackend: (id: string) => request<{ stopped: number }>(`/projects/${encodeURIComponent(id)}/ide/stop-backend`, { method: "POST" }),

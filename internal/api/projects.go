@@ -346,6 +346,31 @@ type updateProjectRequest struct {
 	IDEGateway *bool              `json:"ideGateway"`
 }
 
+// duplicateProjectRequest copies an existing project. The parts default to "everything
+// the original has": a bare {"name": "shop-test"} is the whole project, files, database
+// and bucket included.
+type duplicateProjectRequest struct {
+	Name                string `json:"name"`
+	Path                string `json:"path"`
+	Files               *bool  `json:"files"`
+	IncludeDependencies bool   `json:"includeDependencies"`
+	Database            *bool  `json:"database"`
+	Storage             *bool  `json:"storage"`
+	Workers             *bool  `json:"workers"`
+	Git                 *bool  `json:"git"`
+	Start               bool   `json:"start"`
+}
+
+func (r duplicateProjectRequest) toDomain() project.DuplicateRequest {
+	on := func(b *bool) bool { return b == nil || *b }
+	return project.DuplicateRequest{
+		Name: r.Name, Path: r.Path,
+		Files: on(r.Files), IncludeDependencies: r.IncludeDependencies,
+		Database: on(r.Database), Storage: on(r.Storage), Workers: on(r.Workers), Git: on(r.Git),
+		Start: r.Start,
+	}
+}
+
 type deleteProjectRequest struct {
 	Confirm     string `json:"confirm"`
 	DeleteFiles bool   `json:"deleteFiles"`
@@ -415,6 +440,27 @@ func (a *API) createProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	view, err := a.d.Projects.Create(r.Context(), req.toDomain())
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	a.invalidateProxy()
+	writeJSON(w, http.StatusCreated, map[string]any{"project": a.project(r, view)})
+}
+
+// duplicateProject copies a project: POST /projects/{id}/duplicate. The copy is a new
+// project, so a token confined to particular projects may not make one.
+func (a *API) duplicateProject(w http.ResponseWriter, r *http.Request) {
+	if p, _ := auth.PrincipalFrom(r.Context()); p.TokenName != "" && p.Restricted() {
+		writeError(w, r, fmt.Errorf("%w: this token is limited to particular projects and cannot create new ones", auth.ErrForbidden))
+		return
+	}
+	var req duplicateProjectRequest
+	if err := decodeJSON(w, r, &req); err != nil {
+		writeError(w, r, err)
+		return
+	}
+	view, err := a.d.Projects.Duplicate(r.Context(), r.PathValue("id"), req.toDomain())
 	if err != nil {
 		writeError(w, r, err)
 		return

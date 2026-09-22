@@ -14,6 +14,7 @@ const (
 	limitStop      = 5 * time.Minute
 	limitDelete    = 10 * time.Minute
 	limitBackup    = 2 * time.Hour // dumps and archives of large projects
+	limitDuplicate = 2 * time.Hour // a copy is a create plus a file copy and a dump
 )
 
 var (

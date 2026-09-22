@@ -14,6 +14,7 @@ import { EnvEditor } from "./EnvEditor";
 import { PhpConfigForm } from "./PhpConfigForm";
 import { webServerHint } from "./webServers";
 import { errorText } from "@/lib/errors";
+import { slugify } from "@/lib/format";
 
 const steps = ["General", "Runtimes", "Web server", "Database & services", "Environment", "Summary"] as const;
 
@@ -26,14 +27,6 @@ const stacks: { id: Stack; name: string; description: string }[] = [
   { id: "node", name: "Node.js application", description: "Vite, Next.js, Nuxt… – the dev server answers on the project URL." },
   { id: "static", name: "Static site", description: "The web server serves files from the document root; no application runtime." },
 ];
-
-function slugify(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 40);
-}
 
 /** Older backends omit the template runtime; every template was a PHP one then. */
 function templateRuntime(tpl: ProjectTemplate): AppKind {

@@ -58,7 +58,7 @@ export interface Operation {
   error?: string;
 }
 
-export type OperationAction = "create" | "start" | "stop" | "restart" | "update" | "delete" | "image" | "backup" | "restore";
+export type OperationAction = "create" | "duplicate" | "start" | "stop" | "restart" | "update" | "delete" | "image" | "backup" | "restore";
 
 export interface ProjectStatus {
   state: ProjectState;
@@ -409,6 +409,22 @@ export interface CreateProjectRequest {
   env?: EnvVar[];
   template?: string;
   createStarter?: boolean;
+  start?: boolean;
+}
+
+/**
+ * Copy of an existing project. Every part defaults to "what the original has", so only
+ * what the user switched off has to be sent.
+ */
+export interface DuplicateProjectRequest {
+  name: string;
+  path?: string;
+  files?: boolean;
+  includeDependencies?: boolean;
+  database?: boolean;
+  storage?: boolean;
+  workers?: boolean;
+  git?: boolean;
   start?: boolean;
 }
 

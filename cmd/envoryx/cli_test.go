@@ -213,6 +213,41 @@ func TestProjectDeleteNeedsConfirmation(t *testing.T) {
 	}
 }
 
+func TestProjectDuplicateSendsOnlyTheSwitchedOffParts(t *testing.T) {
+	srv := newFakeServer(t, map[string]func(http.ResponseWriter, *http.Request){
+		"POST /api/v1/projects/{id}/duplicate": func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusCreated)
+			writeJSON(w, map[string]any{"project": map[string]any{
+				"id": "33333333-3333-4333-8333-333333333333", "name": "Acme Shop Test", "slug": "acme-shop-test",
+				"lifecycle": "ready", "status": map[string]any{"state": "stopped"},
+			}})
+		},
+	})
+	c, out, _ := newTestCLI(t, srv, "")
+	// The new name may be written without quotes.
+	if err := c.run(context.Background(), []string{"project", "duplicate", "acme-shop", "Acme", "Shop", "Test", "--no-database"}); err != nil {
+		t.Fatal(err)
+	}
+	var sent map[string]any
+	_ = json.Unmarshal(srv.bodies["/api/v1/projects/11111111-1111-4111-8111-111111111111/duplicate"], &sent)
+	if sent["name"] != "Acme Shop Test" || sent["database"] != false {
+		t.Fatalf("body: %v", sent)
+	}
+	for _, part := range []string{"files", "storage", "workers", "git", "start"} {
+		if _, ok := sent[part]; ok {
+			t.Fatalf("%s must be left to the server's default: %v", part, sent)
+		}
+	}
+	if !strings.Contains(out.String(), "Copied acme-shop to Acme Shop Test") {
+		t.Fatalf("output: %s", out)
+	}
+
+	c, _, errOut := newTestCLI(t, srv, "")
+	if err := c.run(context.Background(), []string{"project", "duplicate", "acme-shop"}); err == nil || !strings.Contains(err.Error(), "what should the copy be called") {
+		t.Fatalf("missing name: %v (%s)", err, errOut)
+	}
+}
+
 // login checks the token before it writes it down, and the file is readable by its owner
 // only – it holds a credential.
 func TestLoginStoresTheTokenOnlyAfterCheckingIt(t *testing.T) {

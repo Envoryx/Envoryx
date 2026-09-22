@@ -24,6 +24,9 @@ type journal struct {
 	volumes    []string
 	network    string
 	configDir  string
+	// projectDir is set when the operation created the project directory itself (a copy
+	// fills it); it is removed again on rollback.
+	projectDir string
 }
 
 // rollback removes journaled resources in reverse order. Every removal is label-guarded by
@@ -50,6 +53,11 @@ func (m *Manager) rollback(ctx context.Context, j journal) error {
 	if j.configDir != "" {
 		if err := os.RemoveAll(j.configDir); err != nil {
 			errs = append(errs, fmt.Errorf("remove config dir: %w", err))
+		}
+	}
+	if j.projectDir != "" {
+		if err := os.RemoveAll(j.projectDir); err != nil {
+			errs = append(errs, fmt.Errorf("remove project dir: %w", err))
 		}
 	}
 	return errors.Join(errs...)
@@ -152,46 +160,12 @@ func (m *Manager) create(ctx context.Context, req CreateRequest) (View, error) {
 	if err := writePlanFiles(plan); err != nil {
 		return fail("write configuration", err)
 	}
-	for _, img := range plan.Images {
-		if err := m.engine.EnsureImage(ctx, img, m.pullProgress(ctx, proj.Slug, img)); err != nil {
-			return fail("pull image "+img, err)
-		}
-	}
-	step(ctx, "Creating the network {{name}}", "name", plan.NetworkName)
-	if _, err := m.engine.CreateNetwork(ctx, plan.NetworkName, plan.Labels); err != nil {
-		return fail("create network", err)
-	}
-	j.network = plan.NetworkName
-	if err := m.attachProxy(ctx, plan.NetworkName); err != nil {
-		return fail("attach proxy", err)
-	}
-	for _, v := range plan.Volumes {
-		step(ctx, "Creating the volume {{name}}", "name", v)
-		if err := m.engine.CreateVolume(ctx, v, plan.Labels); err != nil {
-			return fail("create volume "+v, err)
-		}
-		j.volumes = append(j.volumes, v)
-	}
-	for _, c := range plan.Containers {
-		step(ctx, "Creating the container {{name}}", "name", c.Spec.Name)
-		id, err := m.engine.CreateContainer(ctx, c.Spec)
-		if err != nil {
-			return fail("create container "+c.Spec.Name, err)
-		}
-		j.containers = append(j.containers, id)
+	if failed, err := m.provision(ctx, plan, &j); err != nil {
+		return fail(failed, err)
 	}
 	if req.Start {
-		for i, id := range j.containers {
-			step(ctx, "Starting the container {{name}}", "name", plan.Containers[i].Spec.Name)
-			if err := m.engine.StartContainer(ctx, id); err != nil {
-				return fail("start container", err)
-			}
-		}
-		if _, cfg, err := storageConfig(proj); err == nil {
-			step(ctx, "Setting up the object storage bucket")
-			if err := m.provisionBucket(ctx, proj, cfg); err != nil {
-				return fail("initialise", err)
-			}
+		if failed, err := m.startProvisioned(ctx, proj, plan, j); err != nil {
+			return fail(failed, err)
 		}
 	}
 	step(ctx, "Finishing up")
@@ -202,6 +176,60 @@ func (m *Manager) create(ctx context.Context, req CreateRequest) (View, error) {
 		"name": proj.Name, "slug": proj.Slug, "path": proj.Path, "port": proj.HTTPPort, "services": serviceSummary(proj),
 	})
 	return m.Get(ctx, proj.ID)
+}
+
+// provision pulls the images of a plan and creates its network, volumes and containers,
+// recording everything it created in j so a failure can be rolled back. It returns the
+// name of the failed step together with the error, which is what the caller's rollback
+// reports. Create and clone share it: both turn a fresh plan into Docker resources.
+func (m *Manager) provision(ctx context.Context, plan Plan, j *journal) (string, error) {
+	for _, img := range plan.Images {
+		if err := m.engine.EnsureImage(ctx, img, m.pullProgress(ctx, plan.Slug, img)); err != nil {
+			return "pull image " + img, err
+		}
+	}
+	step(ctx, "Creating the network {{name}}", "name", plan.NetworkName)
+	if _, err := m.engine.CreateNetwork(ctx, plan.NetworkName, plan.Labels); err != nil {
+		return "create network", err
+	}
+	j.network = plan.NetworkName
+	if err := m.attachProxy(ctx, plan.NetworkName); err != nil {
+		return "attach proxy", err
+	}
+	for _, v := range plan.Volumes {
+		step(ctx, "Creating the volume {{name}}", "name", v)
+		if err := m.engine.CreateVolume(ctx, v, plan.Labels); err != nil {
+			return "create volume " + v, err
+		}
+		j.volumes = append(j.volumes, v)
+	}
+	for _, c := range plan.Containers {
+		step(ctx, "Creating the container {{name}}", "name", c.Spec.Name)
+		id, err := m.engine.CreateContainer(ctx, c.Spec)
+		if err != nil {
+			return "create container " + c.Spec.Name, err
+		}
+		j.containers = append(j.containers, id)
+	}
+	return "", nil
+}
+
+// startProvisioned starts the containers provision just created, in plan order, and
+// creates the bucket of a project with object storage.
+func (m *Manager) startProvisioned(ctx context.Context, proj store.Project, plan Plan, j journal) (string, error) {
+	for i, id := range j.containers {
+		step(ctx, "Starting the container {{name}}", "name", plan.Containers[i].Spec.Name)
+		if err := m.engine.StartContainer(ctx, id); err != nil {
+			return "start container", err
+		}
+	}
+	if _, cfg, err := storageConfig(proj); err == nil {
+		step(ctx, "Setting up the object storage bucket")
+		if err := m.provisionBucket(ctx, proj, cfg); err != nil {
+			return "initialise", err
+		}
+	}
+	return "", nil
 }
 
 func serviceSummary(p store.Project) []string {

@@ -1006,6 +1006,7 @@ work just as well – handy in CI, where nothing should be written to disk.
 envoryx project list                                  # name, slug, state, URL
 envoryx project show shop                             # services, versions, ports, git
 envoryx project create "Shop" --php 8.4 --database mariadb --template laravel --start
+envoryx project duplicate shop "Shop Test"            # config, files and database
 envoryx project start|stop|restart shop
 envoryx project delete shop --yes [--delete-files]
 envoryx project logs shop --service php --tail 200 --follow

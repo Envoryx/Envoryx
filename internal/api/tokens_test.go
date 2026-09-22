@@ -234,6 +234,8 @@ func TestTokenScopesAndProjectRestriction(t *testing.T) {
 	confinedAdmin := mint("shop admin", "admin", shop)
 	expect(confinedAdmin, http.MethodPost, "/api/v1/projects", `{"name":"Nope"}`, http.StatusForbidden)
 	expect(confinedAdmin, http.MethodPatch, "/api/v1/projects/"+blog, `{"name":"Renamed"}`, http.StatusForbidden)
+	// A copy is a new project, which a confined token may not create either.
+	expect(confinedAdmin, http.MethodPost, "/api/v1/projects/"+shop+"/duplicate", `{"name":"Shop Copy"}`, http.StatusForbidden)
 	expect(confinedAdmin, http.MethodGet, "/api/v1/projects/"+shop+"/plan", "", http.StatusOK)
 
 	// Tokens carry scope and projects in the listing; audit records them.

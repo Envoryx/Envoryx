@@ -1,11 +1,13 @@
-import { ExternalLink, Play, RotateCw, Square, Trash2 } from "lucide-react";
+import { Copy, ExternalLink, Play, RotateCw, Square, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useDeleteProject, useProjectAction, useProjectLinks, type ProjectAction } from "@/api/hooks";
-import type { Project } from "@/api/types";
+import { useDeleteProject, useDuplicateProject, useProjectAction, useProjectLinks, type ProjectAction } from "@/api/hooks";
+import type { DuplicateProjectRequest, Project } from "@/api/types";
 import { Button, Checkbox, Dialog, Field, Input, Alert } from "@/components/ui";
 import { errorText } from "@/lib/errors";
+import { slugify } from "@/lib/format";
+import { CreateProgress } from "./CreateProgress";
 
 export function useActionError() {
   const { t } = useTranslation();
@@ -132,3 +134,145 @@ export function DeleteProjectDialog({ project, open, onClose }: { project: Proje
     </Dialog>
   );
 }
+
+/**
+ * Copies a project: shop → shop-test in one dialog. Every part defaults to what the
+ * original has; the copy keeps the original's database credentials, so a .env that lives
+ * in the project files keeps working.
+ */
+export function DuplicateProjectDialog({ project, open, onClose }: { project: Project; open: boolean; onClose: () => void }) {
+  const { t } = useTranslation();
+  const duplicate = useDuplicateProject();
+  const navigate = useNavigate();
+  const [name, setName] = useState("");
+  const [path, setPath] = useState("");
+  const [pathTouched, setPathTouched] = useState(false);
+  const [parts, setParts] = useState({ files: true, includeDependencies: false, database: true, storage: true, workers: true, git: true, start: false });
+  const [error, setError] = useState<string | null>(null);
+
+  const has = (kind: string) => project.services.some((s) => s.kind === kind && s.enabled);
+  const suggestion = t("{{name}} Test", { name: project.name });
+  const wanted = name.trim() || suggestion;
+  const slug = slugify(wanted);
+  const dir = pathTouched ? path.trim() : slug;
+
+  const close = () => {
+    if (duplicate.isPending) return;
+    setName("");
+    setPath("");
+    setPathTouched(false);
+    setError(null);
+    onClose();
+  };
+
+  const submit = () => {
+    setError(null);
+    const body: DuplicateProjectRequest = {
+      name: wanted,
+      files: parts.files,
+      includeDependencies: parts.files && parts.includeDependencies,
+      database: parts.database,
+      storage: parts.storage,
+      workers: parts.workers,
+      git: parts.git,
+      start: parts.start,
+    };
+    // The directory is only sent when it differs from the slug the server derives anyway.
+    if (dir !== slug) body.path = dir;
+    duplicate.mutate(
+      { id: project.id, body },
+      {
+        onSuccess: (copy) => {
+          onClose();
+          navigate(`/projects/${copy.id}`);
+        },
+        onError: (err) => setError(errorText(err, t, t("Copying failed"))),
+      },
+    );
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onClose={close}
+      title={t("Duplicate “{{name}}”?", { name: project.name })}
+      description={t("The copy gets its own directory, host ports and containers. Extra domains and the backup schedule stay with the original.")}
+      footer={
+        <>
+          <Button onClick={close} disabled={duplicate.isPending}>
+            {t("Cancel")}
+          </Button>
+          <Button variant="primary" onClick={submit} loading={duplicate.isPending} disabled={slug === "" || slug === project.slug} icon={<Copy className="size-4" />}>
+            {t("Duplicate project")}
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        {error && <Alert tone="red">{error}</Alert>}
+        <Field
+          label={t("Name of the copy")}
+          htmlFor="copy-name"
+          error={slug === project.slug ? t("The copy needs a name of its own.") : undefined}
+          hint={t("Identifier: {{slug}}", { slug: slug || "—" })}
+        >
+          <Input id="copy-name" value={name} onChange={(e) => setName(e.target.value)} placeholder={suggestion} autoComplete="off" spellCheck={false} />
+        </Field>
+        <Field label={t("Directory")} htmlFor="copy-path" hint={t("Below the projects directory.")}>
+          <Input id="copy-path" value={pathTouched ? path : slug} onChange={(e) => { setPath(e.target.value); setPathTouched(true); }} spellCheck={false} />
+        </Field>
+        <div className="space-y-2">
+          <Checkbox
+            label={t("Copy the project files")}
+            description={t("Everything in /projects/{{path}}.", { path: project.path })}
+            checked={parts.files}
+            onChange={(e) => setParts({ ...parts, files: e.target.checked })}
+          />
+          {parts.files && (
+            <div className="pl-6">
+              <Checkbox
+                label={t("Including dependencies")}
+                description={t("vendor/, node_modules/ and the other directories a build recreates. Slower, but the copy runs without installing them again.")}
+                checked={parts.includeDependencies}
+                onChange={(e) => setParts({ ...parts, includeDependencies: e.target.checked })}
+              />
+            </div>
+          )}
+          {has("database") && (
+            <Checkbox
+              label={t("Copy the database")}
+              description={t("The contents are dumped and imported into the copy's own database server. It keeps the credentials of the original.")}
+              checked={parts.database}
+              onChange={(e) => setParts({ ...parts, database: e.target.checked })}
+            />
+          )}
+          {has("storage") && (
+            <Checkbox
+              label={t("Copy the objects of the bucket")}
+              checked={parts.storage}
+              onChange={(e) => setParts({ ...parts, storage: e.target.checked })}
+            />
+          )}
+          <Checkbox
+            label={t("Copy the workers")}
+            description={t("The queue and scheduler definitions of the original.")}
+            checked={parts.workers}
+            onChange={(e) => setParts({ ...parts, workers: e.target.checked })}
+          />
+          {project.git.url !== "" && (
+            <Checkbox
+              label={t("Copy the repository binding")}
+              description={project.git.url}
+              checked={parts.git}
+              onChange={(e) => setParts({ ...parts, git: e.target.checked })}
+            />
+          )}
+          <Checkbox label={t("Start the copy when it is ready")} checked={parts.start} onChange={(e) => setParts({ ...parts, start: e.target.checked })} />
+        </div>
+        {duplicate.isPending && <CreateProgress slug={slug} action="duplicate" title={t("Copying the project…")} hint={t("Files and the database are copied here; big projects take a moment.")} />}
+      </div>
+    </Dialog>
+  );
+}
+
+
