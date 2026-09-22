@@ -11,6 +11,35 @@ release). `:main` follows the development branch.
 ## [Unreleased]
 
 ### Added
+- Command line. The Envoryx binary is now its own client: `envoryx project
+  list/show/create/start/stop/restart/delete/logs/exec/run`, `envoryx backup
+  list/create/restore/download/delete`, `envoryx git status/pull/checkout` and
+  `envoryx login/logout/whoami`. Everything goes through the REST API with an
+  API token, so a token's scope and project restriction apply exactly as they
+  do in the web interface and for MCP, and every command lands in the audit
+  log under the token's name – the CLI has no database handle and no Docker
+  socket of its own. On the host the container's binary is enough (`docker
+  exec -it envoryx envoryx project list`): inside the container the address is
+  known and only the token is missing. Elsewhere `envoryx login --url …`
+  checks the token before storing it in `~/.config/envoryx/cli.json` (mode
+  0600), and `ENVORYX_URL`/`ENVORYX_TOKEN` work without a file at all, which
+  is what CI wants. A project is named by its name, its slug or its id;
+  `--json` hands the API's own answer to `jq`; `--ca-cert` trusts the local
+  CA on a workstation. Commands exit 0 on success, 1 on failure and 2 on a
+  usage error.
+- `envoryx project exec <project> -- <command>` runs a command in a project
+  container and hands its exit code to the calling shell, so
+  `envoryx project exec shop -- php artisan migrate --force || rollback` does
+  what it reads like. stdout and stderr stay apart, stdin is piped in (up to
+  512 KiB), and the command runs as the project owner in the project
+  directory – where the browser terminal also starts. It is backed by a new
+  endpoint, `POST /api/v1/projects/{id}/services/{kind}/exec`, which runs
+  without a pseudo-terminal and answers with newline-delimited JSON frames
+  (`stdout`, `stderr`, then `exit`); nothing is written before the first
+  frame, so a container that is not running is still an ordinary HTTP error.
+  The terminal WebSocket stays what it is – a PTY for humans, where the
+  streams are merged and the exit code is lost; scripts need the opposite,
+  and a big pipe or an interactive shell still belongs in SSH.
 - Python runtime. The wizard's first step offers *Python application* next
   to PHP, Node.js and static; a Python container
   (`ghcr.io/envoryx/envoryx-python:<3.10–3.14>`, official slim image plus

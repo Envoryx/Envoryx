@@ -119,6 +119,12 @@ Envoryx is under active development. The current milestone (Phase 1 + 2) deliver
   and inspect projects, read logs, run actions, create databases and backups
   – authenticated with personal API tokens, same validation and audit trail
   as the UI, no destructive tools
+- command line for SSH sessions, cron jobs and CI: `envoryx project
+  list/show/create/start/stop/logs/exec/run`, `envoryx backup …` and
+  `envoryx git …`. The binary is its own client – it speaks the same REST API
+  with the same API tokens, so a token's scope and project restriction apply
+  unchanged, and `envoryx project exec` hands the command's exit code back to
+  the calling shell
 
 All phases of the original plan are implemented – see
 [ARCHITECTURE.md](ARCHITECTURE.md) §13. Releases are listed in
@@ -194,6 +200,28 @@ Browser ──▶ Envoryx (Go API + React UI) ──▶ Docker Engine
   the database alone – restarting or updating Envoryx never loses projects.
 - Every resource Envoryx creates carries `envoryx.managed=true` and
   `envoryx.project.id=<uuid>`. Envoryx refuses to modify anything else.
+
+## Command line
+
+The same binary that runs the server is the client. On the host:
+
+```sh
+docker exec -it envoryx envoryx project list
+docker exec -it envoryx envoryx project exec shop -- php artisan migrate --force
+```
+
+From anywhere else, once per machine:
+
+```sh
+envoryx login --url https://envoryx.example.com   # asks for an API token
+envoryx project create "Shop" --php 8.4 --database mariadb --template laravel --start
+envoryx project logs shop --follow
+envoryx backup create shop --note "before the upgrade"
+```
+
+Commands exit 0/1/2, `exec` passes the command's own exit code on, and `--json`
+hands the API's answer to `jq`. See
+[DEPLOYMENT.md → Command line](DEPLOYMENT.md#command-line).
 
 ## Documentation
 

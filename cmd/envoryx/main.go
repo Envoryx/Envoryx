@@ -12,6 +12,9 @@
 //	envoryx admin …     rescue commands: list accounts, reset a password, end sessions,
 //	                    revoke API tokens, reset all accounts (see admin.go)
 //	envoryx version     print the version
+//
+// Everything else is the client side: project, backup, git, login, logout and whoami
+// work against a running Envoryx over its REST API (see cli.go).
 package main
 
 import (
@@ -94,9 +97,14 @@ func main() {
 		os.Exit(adminCommand(os.Args[2:]))
 	case "version":
 		fmt.Println("Envoryx", version)
+	case "help", "-h", "--help":
+		fmt.Print(cliUsage)
 	default:
-		fmt.Fprintf(os.Stderr, "unknown command %q (serve, healthcheck, admin, version)\n", cmd)
-		os.Exit(2)
+		// Everything else is a client command talking to a server over the API. Ctrl+C
+		// cancels the request instead of killing the process mid-stream.
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
+		os.Exit(cliCommand(ctx, os.Args[1:]))
 	}
 }
 
