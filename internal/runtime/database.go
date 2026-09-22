@@ -102,9 +102,14 @@ func IsSystemDatabase(name string) bool { return systemDatabases[name] }
 // directory, health check and the administrative statements used by the UI. Statements
 // only ever receive validated identifiers and generated passwords.
 type Dialect struct {
-	Variant      string
-	Port         int
-	DataDir      string
+	Variant string
+	Port    int
+	// DataDir is the container path the data volume is mounted at, for every version
+	// unless DataDirFor overrides it.
+	DataDir string
+	// DataDirFor returns the mount target for a major version when the image changed its
+	// on-disk layout (PostgreSQL 18). nil = DataDir everywhere.
+	DataDirFor   func(major int) string
 	Driver       string // Laravel DB_CONNECTION
 	HasRoot      bool   // separate superuser password (MySQL/MariaDB) vs. owner = superuser (PostgreSQL)
 	ContainerEnv func(cfg DatabaseConfig) []string
@@ -196,6 +201,17 @@ var dialects = map[string]Dialect{
 	},
 	"postgresql": {
 		Variant: "postgresql", Port: 5432, DataDir: "/var/lib/postgresql/data", Driver: "pgsql", HasRoot: false,
+		// PostgreSQL 18 moved the cluster into a major-version subdirectory
+		// (PGDATA=/var/lib/postgresql/<major>/docker) and the image refuses to start when
+		// it finds a volume on the old path – even an empty one. New clusters therefore
+		// take the whole directory, which is also what a later pg_upgrade --link expects;
+		// 16 and 17 keep the data directory itself so existing volumes stay where they are.
+		DataDirFor: func(major int) string {
+			if major >= 18 {
+				return "/var/lib/postgresql"
+			}
+			return "/var/lib/postgresql/data"
+		},
 		ContainerEnv: func(c DatabaseConfig) []string {
 			return []string{"POSTGRES_USER=" + c.Username, "POSTGRES_PASSWORD=" + c.Password, "POSTGRES_DB=" + c.Database}
 		},
@@ -301,6 +317,20 @@ func MailpitEnv() map[string]string {
 }
 
 // CompareVersions returns -1, 0 or 1 comparing dotted numeric versions.
+// DataDirTarget returns the container path the data volume is mounted at for one version
+// of this dialect: DataDir unless the image changed its layout in a later major version.
+// An unparsable version falls back to DataDir.
+func (d Dialect) DataDirTarget(version string) string {
+	if d.DataDirFor == nil {
+		return d.DataDir
+	}
+	major, err := strconv.Atoi(strings.SplitN(version, ".", 2)[0])
+	if err != nil {
+		return d.DataDir
+	}
+	return d.DataDirFor(major)
+}
+
 func CompareVersions(a, b string) int {
 	pa, pb := strings.Split(a, "."), strings.Split(b, ".")
 	for i := 0; i < len(pa) || i < len(pb); i++ {

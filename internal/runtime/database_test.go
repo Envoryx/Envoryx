@@ -68,3 +68,28 @@ func TestXdebugINI(t *testing.T) {
 		t.Fatal("invalid client host must be rejected")
 	}
 }
+
+func TestPostgresDataDirFollowsTheImageLayout(t *testing.T) {
+	pg, ok := DialectFor("postgresql")
+	if !ok {
+		t.Fatal("no postgresql dialect")
+	}
+	// 18 moved the cluster into /var/lib/postgresql/<major>/docker and refuses to start
+	// with a volume on the old path; 16 and 17 keep the data directory itself.
+	for version, want := range map[string]string{
+		"16": "/var/lib/postgresql/data",
+		"17": "/var/lib/postgresql/data",
+		"18": "/var/lib/postgresql",
+		"19": "/var/lib/postgresql",
+		"":   "/var/lib/postgresql/data",
+	} {
+		if got := pg.DataDirTarget(version); got != want {
+			t.Errorf("postgres %q data dir = %q, want %q", version, got, want)
+		}
+	}
+	// A dialect without an override ignores the version.
+	my, _ := DialectFor("mysql")
+	if got := my.DataDirTarget("9"); got != "/var/lib/mysql" {
+		t.Errorf("mysql data dir = %q", got)
+	}
+}
