@@ -55,7 +55,7 @@ Go API (single binary, single container)
 
 ```
 .
-├── cmd/envoryx/               main package (serve, healthcheck)
+├── cmd/envoryx/               main package (serve, healthcheck, admin rescue, CLI client)
 ├── internal/
 │   ├── api/                  HTTP handlers (v1), request/response DTOs, errors
 │   ├── auth/                 password hashing, sessions, auth middleware
@@ -167,6 +167,25 @@ POST /api/v1/projects/{id}/start
       audit("project.started")
   → 200 { project }
 ```
+
+### 3.4 Command line client
+
+The same binary is the client: `envoryx project …`, `envoryx backup …`,
+`envoryx git …` and `envoryx login` talk to a running server over `/api/v1`
+with an API token, exactly like the web interface and the MCP server. The CLI
+holds no privilege of its own – it has no database handle, no Docker socket and
+no way around a token's scope or project restriction – so `docker exec envoryx
+envoryx project start shop` and the same command from a laptop take the same
+path through the API. (The exception is `envoryx admin …`, which is the rescue
+path *onto* the database when the credentials are lost.)
+
+One endpoint exists for the CLI's sake: `POST
+/api/v1/projects/{id}/services/{kind}/exec` runs a command without a
+pseudo-terminal and answers with newline-delimited JSON frames
+(`stdout`/`stderr`, then `exit`). The terminal WebSocket next to it is a PTY
+for humans, where the two streams are merged and the exit code is lost; scripts
+need the opposite. Nothing is written until the first frame, so a refusal (no
+such service, container not running) is still an ordinary HTTP error.
 
 ---
 

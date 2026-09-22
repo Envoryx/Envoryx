@@ -936,8 +936,9 @@ PostgreSQL, no PHP, then run pip install."*
 ### Scripting the REST API
 
 The same tokens authenticate the REST API (`/api/v1/...`) for scripts, CI
-jobs or a future CLI – send them as `Authorization: Bearer stq_…`. Bearer
-requests need neither a session cookie nor the browser CSRF headers:
+jobs and the [command line](#command-line) – send them as
+`Authorization: Bearer stq_…`. Bearer requests need neither a session cookie
+nor the browser CSRF headers:
 
 ```sh
 curl -H "Authorization: Bearer stq_…" https://envoryx.test/api/v1/projects
@@ -970,6 +971,85 @@ browser session. Audit entries record `user (token: name)`. A request that
 presents an invalid or revoked token is rejected even if a valid session
 cookie is also sent. Tokens created before scopes existed keep full access
 (`admin`, all projects).
+
+## Command line
+
+The Envoryx binary is also its own client. `envoryx project …`, `envoryx
+backup …` and `envoryx git …` talk to a running server over the REST API with
+an API token, which makes them equally at home in an SSH session, a cron job
+or a CI pipeline. On the host the container's own binary does the job:
+
+```sh
+docker exec -it envoryx envoryx project list
+docker exec -it envoryx envoryx project exec shop -- php artisan migrate --force
+```
+
+Inside the container the address is known (`ENVORYX_LISTEN`); only the token is
+needed. From a workstation or a build agent, name the server once:
+
+```sh
+envoryx login --url https://envoryx.example.com      # asks for the token, then stores it
+envoryx login --url https://envoryx.example.com --token "$ENVORYX_TOKEN"
+```
+
+`login` checks the token against the server before writing
+`~/.config/envoryx/cli.json` (mode 0600; `ENVORYX_CLI_CONFIG` points somewhere
+else). `--token -` reads it from stdin, which is what a provisioning script
+wants. `envoryx whoami` shows whose token it is and what it may do, `envoryx
+logout` forgets it again (the token itself is revoked under *Settings → API
+tokens*). Without a stored configuration, `ENVORYX_URL` and `ENVORYX_TOKEN`
+work just as well – handy in CI, where nothing should be written to disk.
+
+### What it can do
+
+```sh
+envoryx project list                                  # name, slug, state, URL
+envoryx project show shop                             # services, versions, ports, git
+envoryx project create "Shop" --php 8.4 --database mariadb --template laravel --start
+envoryx project start|stop|restart shop
+envoryx project delete shop --yes [--delete-files]
+envoryx project logs shop --service php --tail 200 --follow
+envoryx project exec shop -- composer install         # any command, any container
+envoryx project run shop                              # list the catalogue actions
+envoryx project run shop artisan:migrate              # run one, with live output
+envoryx backup list|create|restore|download|delete shop
+envoryx git status|pull shop                          # and: git checkout shop main
+```
+
+A project is named by its name, its slug or its id. `--json` hands the API's
+own answer to `jq` instead of a table; `--service` picks a container other
+than the project's application container (`php`, `python`, `node`, `web`,
+`database`, `redis`, `mailpit`, `storage`, `worker:<id>`). `envoryx project
+create --from-json file.json` sends a create request the flags do not cover
+(everything the wizard offers), and flags given alongside it win.
+
+Every command exits `0` on success, `1` on failure and `2` on a usage error.
+`envoryx project exec` passes the command's own exit code on, so
+`envoryx project exec shop -- php artisan migrate --force || rollback` does
+what it looks like. Its stdout and stderr stay apart, input is piped in
+(`envoryx project exec shop -- sh -c "cat > /tmp/x" < file`, up to 512 KiB),
+and the command runs as the project owner in the project directory – the same
+place the browser terminal starts in. For an interactive shell or a large
+pipe, use SSH: `ssh shop@<host> -p 2222` (see *IDE integration*).
+
+What the token may do, the CLI may do: a `read` token lists and follows logs, an
+`operate` token also starts, stops and runs commands, and creating or deleting
+projects needs `admin`. Refusals arrive as the API wrote them (`this token has
+read scope, the operation needs operate`), and every command lands in the audit
+log with the token's name.
+
+### The certificate
+
+A server behind the local CA is not trusted by a fresh workstation. Pass the
+authority once and store it:
+
+```sh
+envoryx login --url https://envoryx.example.com --ca-cert ~/envoryx-ca.crt
+```
+
+The file is the one from *Settings → TLS → Download CA certificate*
+(`ENVORYX_CA_CERT` does the same). `--insecure` skips verification for a quick
+look on a trusted network; with a Let's Encrypt certificate neither is needed.
 
 ## Lost access
 

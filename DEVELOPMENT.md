@@ -9,7 +9,8 @@
 ## Layout
 
 ```
-cmd/envoryx          entry point (serve, healthcheck, version)
+cmd/envoryx          entry point (serve, healthcheck, admin, version) and the
+                     CLI client (project/backup/git/login, see cli*.go)
 internal/           Go packages – see ARCHITECTURE.md §3
 web/                React + TypeScript frontend (Vite)
 deploy/             docker-compose example
@@ -40,6 +41,17 @@ To run the production build (frontend embedded into the binary):
 
 ```
 make build && ENVORYX_CONFIG_DIR=$PWD/.local/config ENVORYX_PROJECTS_DIR=$PWD/.local/projects ./bin/envoryx
+```
+
+The CLI half of the binary talks to whatever server it is pointed at, so a
+local run is enough to try it. Give it a token from *Settings → API tokens*
+and a configuration file of its own, well away from the one in your home
+directory:
+
+```
+export ENVORYX_CLI_CONFIG=$PWD/.local/cli.json
+./bin/envoryx login --url http://localhost:8787 --token stq_…
+./bin/envoryx project list
 ```
 
 ## Tests
