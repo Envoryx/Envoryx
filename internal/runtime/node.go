@@ -16,17 +16,42 @@ import (
 // dev server.
 type NodeConfig struct {
 	DevServer bool `json:"devServer"`
+	// Mode is "dev" (the script is a dev server with HMR, default) or "production": every
+	// container start runs BuildScript first, then Script as the main process with
+	// NODE_ENV=production – a production-like run of Next.js/Nuxt/Vite preview.
+	Mode string `json:"mode,omitempty"`
 	// PackageManager is npm, pnpm or yarn.
 	PackageManager string `json:"packageManager,omitempty"`
-	// Script is the package.json script to run (default "dev").
+	// Script is the package.json script to run (default "dev"; "start" in production mode,
+	// "preview" for the Vite preset).
 	Script string `json:"script,omitempty"`
+	// BuildScript is the package.json script run before Script in production mode
+	// (default "build").
+	BuildScript string `json:"buildScript,omitempty"`
 	// Port the dev server listens on inside the container (default: the preset's port).
 	Port int `json:"port,omitempty"`
 	// Preset selects how host/port are passed: "vite", "next", "nuxt" or "generic" (env only).
 	Preset string `json:"preset,omitempty"`
 	// HostPort publishes the dev server on the Docker host (assigned by Envoryx).
 	HostPort int `json:"hostPort,omitempty"`
+	// Inspect publishes the Node.js inspector port so an IDE can attach a debugger. The
+	// container only publishes InspectPort; the script itself has to start the inspector
+	// (--inspect=0.0.0.0:<port>) – set through NODE_OPTIONS on the whole container it would
+	// attach to the package manager's own node process instead of the app.
+	Inspect bool `json:"inspect,omitempty"`
+	// InspectPort is the inspector port inside the container (default 9229).
+	InspectPort int `json:"inspectPort,omitempty"`
+	// InspectHostPort publishes the inspector on the Docker host (assigned by Envoryx).
+	InspectHostPort int `json:"inspectHostPort,omitempty"`
 }
+
+// Node run modes.
+const (
+	NodeModeDev        = "dev"
+	NodeModeProduction = "production"
+	// DefaultInspectPort is Node's default inspector port.
+	DefaultInspectPort = 9229
+)
 
 var scriptRe = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9:_.-]{0,63}$`)
 
@@ -64,8 +89,16 @@ const waitForPackageJSON = `until [ -f package.json ]; do echo 'envoryx: waiting
 // Normalize validates the configuration and fills defaults.
 func (c *NodeConfig) Normalize() error {
 	if !c.DevServer {
-		c.PackageManager, c.Script, c.Port, c.Preset = "", "", 0, ""
+		*c = NodeConfig{}
 		return nil
+	}
+	c.Mode = strings.ToLower(strings.TrimSpace(c.Mode))
+	switch c.Mode {
+	case "", NodeModeDev:
+		c.Mode = NodeModeDev
+	case NodeModeProduction:
+	default:
+		return fmt.Errorf("%w: mode must be dev or production", validate.ErrInvalid)
 	}
 	c.PackageManager = strings.ToLower(strings.TrimSpace(c.PackageManager))
 	if c.PackageManager == "" {
@@ -76,13 +109,6 @@ func (c *NodeConfig) Normalize() error {
 	default:
 		return fmt.Errorf("%w: package manager must be npm, pnpm or yarn", validate.ErrInvalid)
 	}
-	c.Script = strings.TrimSpace(c.Script)
-	if c.Script == "" {
-		c.Script = "dev"
-	}
-	if !scriptRe.MatchString(c.Script) {
-		return fmt.Errorf("%w: invalid script name %q", validate.ErrInvalid, c.Script)
-	}
 	c.Preset = strings.ToLower(strings.TrimSpace(c.Preset))
 	if c.Preset == "" {
 		c.Preset = "vite"
@@ -91,21 +117,69 @@ func (c *NodeConfig) Normalize() error {
 	if !ok {
 		return fmt.Errorf("%w: unknown dev server preset %q", validate.ErrInvalid, c.Preset)
 	}
+	c.Script = strings.TrimSpace(c.Script)
+	if c.Script == "" {
+		c.Script = "dev"
+		if c.Mode == NodeModeProduction {
+			c.Script = "start"
+			if c.Preset == "vite" {
+				c.Script = "preview" // vite has no server of its own: "vite preview" serves the build
+			}
+		}
+	}
+	if !scriptRe.MatchString(c.Script) {
+		return fmt.Errorf("%w: invalid script name %q", validate.ErrInvalid, c.Script)
+	}
+	c.BuildScript = strings.TrimSpace(c.BuildScript)
+	if c.Mode != NodeModeProduction {
+		c.BuildScript = ""
+	} else {
+		if c.BuildScript == "" {
+			c.BuildScript = "build"
+		}
+		if !scriptRe.MatchString(c.BuildScript) {
+			return fmt.Errorf("%w: invalid build script name %q", validate.ErrInvalid, c.BuildScript)
+		}
+	}
 	if c.Port == 0 {
 		c.Port = preset.Port
 	}
 	if c.Port < 1024 || c.Port > 65535 {
 		return fmt.Errorf("%w: dev server port must be between 1024 and 65535", validate.ErrInvalid)
 	}
+	if !c.Inspect {
+		c.InspectPort, c.InspectHostPort = 0, 0
+		return nil
+	}
+	if c.InspectPort == 0 {
+		c.InspectPort = DefaultInspectPort
+	}
+	if c.InspectPort < 1024 || c.InspectPort > 65535 {
+		return fmt.Errorf("%w: inspector port must be between 1024 and 65535", validate.ErrInvalid)
+	}
+	if c.InspectPort == c.Port {
+		return fmt.Errorf("%w: inspector port must differ from the dev server port", validate.ErrInvalid)
+	}
 	return nil
 }
 
-// Command returns the argv of the dev server process.
-func (c NodeConfig) Command() []string {
-	cmd := []string{c.PackageManager, "run", c.Script}
+// Production reports whether the container builds and then serves the app.
+func (c NodeConfig) Production() bool { return c.Mode == NodeModeProduction }
+
+// runScript returns the argv that runs a package.json script with the package manager.
+func (c NodeConfig) runScript(script string) []string {
 	if c.PackageManager == "yarn" {
-		cmd = []string{"yarn", c.Script}
+		return []string{"yarn", script}
 	}
+	return []string{c.PackageManager, "run", script}
+}
+
+// serveCommand returns the argv of the process that serves the app: the script with the
+// preset's host/port flags. In production mode "nuxt preview" takes no flags – Nitro reads
+// NITRO_HOST/NITRO_PORT from Env() – while "vite preview" and "next start" accept the
+// same flags as their dev servers.
+func (c NodeConfig) serveCommand() []string {
+	cmd := c.runScript(c.Script)
 	port := strconv.Itoa(c.Port)
 	switch c.Preset {
 	case "vite":
@@ -113,9 +187,26 @@ func (c NodeConfig) Command() []string {
 	case "next":
 		cmd = append(cmd, "--", "-H", "0.0.0.0", "-p", port)
 	case "nuxt":
-		cmd = append(cmd, "--", "--host", "0.0.0.0", "--port", port)
+		if !c.Production() {
+			cmd = append(cmd, "--", "--host", "0.0.0.0", "--port", port)
+		}
 	}
 	return cmd
+}
+
+// Command returns the argv of the container's main process. In production mode the build
+// script runs first on every start and the serve process gets NODE_ENV=production – only
+// that process, so "npm install" from the terminal still installs devDependencies. Script
+// names are validated against scriptRe, so interpolating them into the shell line is safe;
+// the serve argv is passed through "$@" untouched.
+func (c NodeConfig) Command() []string {
+	serve := c.serveCommand()
+	if !c.Production() {
+		return serve
+	}
+	build := strings.Join(c.runScript(c.BuildScript), " ")
+	script := build + ` && NODE_ENV=production exec "$@"`
+	return append([]string{"sh", "-c", script, "envoryx-start"}, serve...)
 }
 
 // WrappedCommand returns Command() behind the package.json wait guard, for containers

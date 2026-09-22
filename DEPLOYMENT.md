@@ -362,9 +362,31 @@ or a blank directory / git clone – and the dev server *is* the project:
   run `npm run build` via Actions or the terminal. Enable **SPA fallback to
   index.html** (Web server card) so client-side routes survive a reload;
   without it unknown paths return 404. Static configs deny dotfiles
-  (`/.env`, `/.git/…`) on all three web servers. There is no production
-  `build && start` mode: `NODE_ENV` stays `development`; for an SSR app set
-  the dev-server script to your `start` script after building.
+  (`/.env`, `/.git/…`) on all three web servers.
+- **Production build mode.** The dev server has a mode switch (Runtime
+  tab): *Dev server* (the default, HMR) or *Production build*. In
+  production mode every container start runs the build script (default
+  `build`) and then the serve script (`start`; `preview` for Vite) as the
+  main process with `NODE_ENV=production` – a production-like run of a
+  Next.js/Nuxt SSR app or Vite's preview server, still behind the same
+  URLs. Only the serve process gets `NODE_ENV=production`; the container
+  itself stays on `development`, so `npm install` from the terminal keeps
+  installing devDependencies. A restart rebuilds, so the first response
+  after a start takes as long as the build.
+- **Debugging.** *Publish the Node.js inspector port* (Runtime tab, dev
+  server required) publishes the inspector port (default 9229) on a host
+  port of its own; the IDE tab shows host, port, path mapping and
+  `package.json` examples. Envoryx does not set `NODE_OPTIONS=--inspect`
+  on the container on purpose: npm (a Node process itself) would grab the
+  port and the debugger would attach to npm instead of your app. Start the
+  inspector in your script – `NODE_OPTIONS='--inspect=0.0.0.0:9229' next
+  dev`, `node --inspect=0.0.0.0:9229 node_modules/vite/bin/vite.js` – and
+  attach WebStorm (*Attach to Node.js/Chrome*) or VS Code (`request:
+  attach`) to the host port. Next.js opens the inspector of its server
+  process one port higher (9230); publish that port when debugging server
+  code. The inspector executes arbitrary code and is published on all
+  host interfaces like the dev-server ports – enable it on trusted
+  networks only and turn it off when you are done.
 - **Cold start.** A freshly created blank Node project has no
   `package.json` yet: the node container waits for it (log line
   `envoryx: waiting for package.json …`) instead of crash-looping, and the
@@ -382,10 +404,22 @@ or a blank directory / git clone – and the dev server *is* the project:
   Domains *outside* the base domain must be added to `server.allowedHosts`
   in `vite.config` – the Domains tab reminds you. Next.js and Nuxt have no
   host check.
-- **Workers are PHP-only** for now (the presets are Laravel/Symfony/PHP
-  scripts); the Workers tab says so on a Node-only project. Actions offer
-  npm/pnpm/yarn and `node -v`; git clone/pull run in a one-shot container
-  from the Node image.
+- **Workers** run in the runtime of their preset: the Laravel/Symfony/PHP
+  presets in the PHP container's image, the *npm script* (`npm run <name>`)
+  and *Node.js script* (`node <file>`) presets in the Node image with the
+  project home mounted. The Workers tab offers only the presets whose
+  runtime the project has. Actions offer npm/pnpm/yarn and `node -v`; git
+  clone/pull run in a one-shot container from the Node image.
+- **Adding or removing PHP later.** The Runtime tab's PHP card has an
+  *Enable PHP* switch on every project. Adding PHP to a Node or static
+  project starts a PHP-FPM container, switches the web server to FastCGI
+  and makes PHP the application (the project URL leaves the dev server;
+  the SPA fallback is dropped). Removing PHP takes the PHP container and
+  the PHP workers' containers down – files and worker definitions stay,
+  the workers come back with PHP – and hands the project back to the dev
+  server or the static document root. Over the API: `PATCH
+  /api/v1/projects/{id}` with `{"php": {"version": "8.4", "config": …}}`
+  adds, `{"php": {"enabled": false}}` removes.
 - **Existing Node-only dev-server projects** (created before this feature
   via the unticked "Enable PHP" box or MCP `"none"`): the node and web
   containers are recreated once at the next start (new command wrapper,

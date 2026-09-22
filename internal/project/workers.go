@@ -22,6 +22,8 @@ type WorkerPreset struct {
 	ArgHint  string `json:"argHint,omitempty"`
 	// Requires lists files that must exist for the preset to make sense (informational).
 	Requires []string `json:"requires,omitempty"`
+	// Runtime is the service the worker runs in: "php" (default) or "node".
+	Runtime string `json:"runtime"`
 
 	// build returns argv for the validated argument.
 	build func(arg string) []string
@@ -44,6 +46,12 @@ func queueArg(arg string) error {
 	}
 	return nil
 }
+
+// Worker runtimes.
+const (
+	WorkerRuntimePHP  = "php"
+	WorkerRuntimeNode = "node"
+)
 
 var workerPresets = []WorkerPreset{
 	{ID: "laravel:schedule", Group: "Laravel", Label: "Scheduler", Description: "php artisan schedule:work – runs the scheduled tasks every minute", Requires: []string{"artisan"},
@@ -112,6 +120,56 @@ var workerPresets = []WorkerPreset{
 			return nil
 		},
 		build: func(arg string) []string { return []string{"composer", "run-script", "--no-interaction", "--", arg} }},
+	{ID: "node:script", Group: "Node.js", Label: "npm script", Description: "npm run <name> – a long-running script from package.json (queue consumer, scheduler, bot …)", ArgLabel: "Script name", ArgHint: "e.g. worker", Requires: []string{"package.json"}, Runtime: WorkerRuntimeNode,
+		validateArg: func(arg string) error {
+			if !scriptNameRe.MatchString(arg) {
+				return fmt.Errorf("%w: invalid npm script name", validate.ErrInvalid)
+			}
+			return nil
+		},
+		build: func(arg string) []string { return []string{"npm", "run", arg} }},
+	{ID: "node:file", Group: "Node.js", Label: "Node.js script", Description: "node <file> – any long-running script in the project directory", ArgLabel: "Script path", ArgHint: "relative to the project, e.g. workers/queue.js", Runtime: WorkerRuntimeNode,
+		validateArg: func(arg string) error {
+			if arg == "" {
+				return fmt.Errorf("%w: script path is required", validate.ErrInvalid)
+			}
+			_, err := validate.RelativePath(arg, 6)
+			return err
+		},
+		build: func(arg string) []string { p, _ := validate.RelativePath(arg, 6); return []string{"node", p} }},
+}
+
+func init() {
+	for i := range workerPresets {
+		if workerPresets[i].Runtime == "" {
+			workerPresets[i].Runtime = WorkerRuntimePHP
+		}
+	}
+}
+
+// workerRuntimeService returns the enabled service a stored worker runs in, nil when the
+// project lacks it (unknown presets count as PHP, like the catalogue default).
+func workerRuntimeService(p store.Project, w store.Worker) *store.ProjectService {
+	kind := store.ServicePHP
+	if preset, ok := workerPreset(w.Preset); ok && preset.Runtime == WorkerRuntimeNode {
+		kind = store.ServiceNode
+	}
+	if svc := p.Service(kind); svc != nil && svc.Enabled {
+		return svc
+	}
+	return nil
+}
+
+// workerRuntimeAvailable checks that the project has the service a preset runs in.
+func workerRuntimeAvailable(p store.Project, preset WorkerPreset) error {
+	kind, label := store.ServicePHP, "PHP"
+	if preset.Runtime == WorkerRuntimeNode {
+		kind, label = store.ServiceNode, "Node.js"
+	}
+	if svc := p.Service(kind); svc == nil || !svc.Enabled {
+		return fmt.Errorf("%w: the %s preset runs from the %s image – this project has no %s service", ErrConflict, preset.Label, label, label)
+	}
+	return nil
 }
 
 // WorkerPresets lists the catalogue.
@@ -195,15 +253,17 @@ func (m *Manager) AddWorker(ctx context.Context, id string, req WorkerRequest) (
 	if err != nil {
 		return store.Worker{}, err
 	}
-	if p.Service(store.ServicePHP) == nil {
-		return store.Worker{}, fmt.Errorf("%w: workers currently run from the PHP image – this project has no PHP service", ErrConflict)
-	}
 	if len(p.Workers) >= 10 {
 		return store.Worker{}, fmt.Errorf("%w: at most 10 workers per project", validate.ErrInvalid)
 	}
 	w, err := buildWorker(id, req)
 	if err != nil {
 		return store.Worker{}, err
+	}
+	if preset, ok := workerPreset(w.Preset); ok {
+		if err := workerRuntimeAvailable(p, preset); err != nil {
+			return store.Worker{}, err
+		}
 	}
 	w.Position = len(p.Workers)
 	if err := m.store.Workers.Add(ctx, &w); err != nil {
@@ -237,6 +297,11 @@ func (m *Manager) UpdateWorker(ctx context.Context, id, workerID string, req Wor
 	w, err := buildWorker(id, req)
 	if err != nil {
 		return store.Worker{}, err
+	}
+	if preset, ok := workerPreset(w.Preset); ok && w.Enabled {
+		if err := workerRuntimeAvailable(p, preset); err != nil {
+			return store.Worker{}, err
+		}
 	}
 	w.ID, w.Position, w.CreatedAt = old.ID, old.Position, old.CreatedAt
 	if err := m.store.Workers.Update(ctx, w); err != nil {

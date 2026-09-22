@@ -107,3 +107,71 @@ func indexOf(s, sub string) int {
 	}
 	return -1
 }
+
+// Production mode builds first and serves with NODE_ENV=production on the serve process
+// only; script defaults follow the preset; the inspector adds a validated second port.
+func TestNodeProductionAndInspector(t *testing.T) {
+	c := NodeConfig{DevServer: true, Mode: "production", Preset: "next"}
+	if err := c.Normalize(); err != nil {
+		t.Fatal(err)
+	}
+	if c.Script != "start" || c.BuildScript != "build" || !c.Production() {
+		t.Fatalf("next production defaults: %+v", c)
+	}
+	want := []string{"sh", "-c", `npm run build && NODE_ENV=production exec "$@"`, "envoryx-start", "npm", "run", "start", "--", "-H", "0.0.0.0", "-p", "3000"}
+	if got := c.Command(); !reflect.DeepEqual(got, want) {
+		t.Fatalf("next production command:\n got %q\nwant %q", got, want)
+	}
+
+	vite := NodeConfig{DevServer: true, Mode: "production", Preset: "vite", PackageManager: "yarn"}
+	if err := vite.Normalize(); err != nil {
+		t.Fatal(err)
+	}
+	if vite.Script != "preview" {
+		t.Fatalf("vite production script = %q, want preview", vite.Script)
+	}
+	if got := vite.Command(); got[2] != `yarn build && NODE_ENV=production exec "$@"` || got[4] != "yarn" || got[5] != "preview" || got[len(got)-1] != "--strictPort" {
+		t.Fatalf("vite/yarn production command: %q", got)
+	}
+
+	nuxt := NodeConfig{DevServer: true, Mode: "production", Preset: "nuxt", Script: "preview"}
+	if err := nuxt.Normalize(); err != nil {
+		t.Fatal(err)
+	}
+	// nuxt preview takes no host/port flags; Nitro reads NITRO_HOST/NITRO_PORT from Env().
+	if got := nuxt.Command(); !reflect.DeepEqual(got[4:], []string{"npm", "run", "preview"}) {
+		t.Fatalf("nuxt production serve argv: %q", got[4:])
+	}
+
+	dev := NodeConfig{DevServer: true, Preset: "vite", BuildScript: "build"}
+	if err := dev.Normalize(); err != nil {
+		t.Fatal(err)
+	}
+	if dev.Mode != NodeModeDev || dev.BuildScript != "" || dev.Command()[0] != "npm" {
+		t.Fatalf("dev mode must stay a plain command: %+v %q", dev, dev.Command())
+	}
+	if err := (&NodeConfig{DevServer: true, Mode: "staging"}).Normalize(); err == nil {
+		t.Fatal("unknown mode must fail")
+	}
+	if err := (&NodeConfig{DevServer: true, Mode: "production", BuildScript: "build && rm -rf /"}).Normalize(); err == nil {
+		t.Fatal("a build script that is not a script name must fail")
+	}
+
+	insp := NodeConfig{DevServer: true, Preset: "vite", Inspect: true}
+	if err := insp.Normalize(); err != nil {
+		t.Fatal(err)
+	}
+	if insp.InspectPort != DefaultInspectPort {
+		t.Fatalf("inspect port default = %d", insp.InspectPort)
+	}
+	if err := (&NodeConfig{DevServer: true, Preset: "vite", Inspect: true, InspectPort: 5173}).Normalize(); err == nil {
+		t.Fatal("inspector on the dev-server port must fail")
+	}
+	off := NodeConfig{DevServer: true, Preset: "vite", InspectPort: 9229, InspectHostPort: 20005}
+	if err := off.Normalize(); err != nil {
+		t.Fatal(err)
+	}
+	if off.InspectPort != 0 || off.InspectHostPort != 0 {
+		t.Fatalf("inspector ports must be cleared when Inspect is off: %+v", off)
+	}
+}

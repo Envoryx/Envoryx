@@ -488,7 +488,7 @@ func TestUpdateChangesVersionAndRecreates(t *testing.T) {
 	id := view.Project.ID
 	cfg := runtime.DefaultPHPConfig()
 	cfg.MemoryLimit = "512M"
-	view, err = e.m.Update(ctx, id, UpdateRequest{PHP: &PHPRequest{Version: "8.3", Config: cfg}})
+	view, err = e.m.Update(ctx, id, UpdateRequest{PHP: &PHPUpdate{Enabled: true, Version: "8.3", Config: cfg}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -955,6 +955,15 @@ func TestTemplateRuntimeGating(t *testing.T) {
 	}
 	if _, ok := nodeServesApp(proj); ok {
 		t.Fatalf("explicit devServer:false must win: %+v", proj.Services)
+	}
+	// In production mode the template's dev script must not become the serve script.
+	req.Node.Config = runtime.NodeConfig{DevServer: true, Mode: "production"}
+	proj, err = e.m.buildProject(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg, ok := nodeServesApp(proj); !ok || cfg.Script != "start" || cfg.BuildScript != "build" || cfg.Preset != "next" {
+		t.Fatalf("production template defaults: %+v", cfg)
 	}
 }
 

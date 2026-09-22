@@ -70,25 +70,33 @@ func deriveStatus(p store.Project, containers []docker.Container, imageIDs map[s
 		}
 		st.Services = append(st.Services, ss)
 	}
+	// Workers count like services, but only those whose runtime the project has (the
+	// planner skips the others); a worker of a missing runtime is listed as paused so the
+	// UI can say why it has no container.
 	workerKinds := map[string]bool{}
-	if php := p.Service(store.ServicePHP); php != nil && php.Enabled {
-		for _, w := range p.Workers {
-			workerKinds[string(WorkerKind(w))] = true
-			if !w.Enabled {
-				continue
-			}
-			enabled++
-			ss := ServiceStatus{Kind: "worker", Variant: w.Name, Version: w.Preset, Image: php.Image, ContainerName: WorkerContainerName(p.Slug, w), State: "missing", Ports: []docker.PortMapping{}, WorkerID: w.ID}
-			if c, ok := byKind[string(WorkerKind(w))]; ok {
-				existing++
-				ss.Exists, ss.ContainerID, ss.State, ss.Status, ss.Health, ss.Ports = true, c.ID, c.State, c.Status, c.Health, c.Ports
-				if c.State == "running" {
-					running++
-					ss.Running = true
-				}
-			}
-			st.Services = append(st.Services, ss)
+	for _, w := range p.Workers {
+		workerKinds[string(WorkerKind(w))] = true
+		if !w.Enabled {
+			continue
 		}
+		rt := workerRuntimeService(p, w)
+		ss := ServiceStatus{Kind: "worker", Variant: w.Name, Version: w.Preset, ContainerName: WorkerContainerName(p.Slug, w), State: "missing", Ports: []docker.PortMapping{}, WorkerID: w.ID}
+		if rt == nil {
+			ss.State, ss.Status = "paused", "runtime missing"
+			st.Services = append(st.Services, ss)
+			continue
+		}
+		enabled++
+		ss.Image = rt.Image
+		if c, ok := byKind[string(WorkerKind(w))]; ok {
+			existing++
+			ss.Exists, ss.ContainerID, ss.State, ss.Status, ss.Health, ss.Ports = true, c.ID, c.State, c.Status, c.Health, c.Ports
+			if c.State == "running" {
+				running++
+				ss.Running = true
+			}
+		}
+		st.Services = append(st.Services, ss)
 	}
 	for kind := range byKind {
 		if strings.HasPrefix(kind, "worker:") {

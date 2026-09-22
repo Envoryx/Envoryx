@@ -23,7 +23,7 @@ export function WorkersTab({ project }: { project: Project }) {
   const [preset, setPreset] = useState("laravel:queue");
   const [arg, setArg] = useState("");
   const add = useMutation({
-    mutationFn: () => api.projects.workers.add(project.id, { name: name.trim(), preset, arg: arg.trim(), enabled: true }),
+    mutationFn: () => api.projects.workers.add(project.id, { name: name.trim(), preset: selectedId(), arg: arg.trim(), enabled: true }),
     onSuccess: (r) => {
       setName("");
       setArg("");
@@ -43,11 +43,17 @@ export function WorkersTab({ project }: { project: Project }) {
     onError: (err) => fail(err, t("Removing the worker failed")),
   });
   const hasPhp = project.services.some((s) => s.kind === "php" && s.enabled);
+  const hasNode = project.services.some((s) => s.kind === "node" && s.enabled);
+  // Presets run in the runtime they name; only those the project has are offered. The
+  // stored choice may name a preset that is filtered out, so the first offered one stands in.
+  const available = (p: WorkerPreset) => ((p.runtime ?? "php") === "node" ? hasNode : hasPhp);
+  const presets = (q.data?.presets ?? []).filter(available);
+  const selected = presets.find((p) => p.id === preset) ?? presets[0];
+  const selectedId = () => selected?.id ?? preset;
 
   if (q.isPending) return <Spinner />;
   if (q.isError) return <ErrorState message={errorText(q.error, t)} />;
-  const presets = q.data.presets;
-  const selected = presets.find((p) => p.id === preset);
+  const canAdd = presets.length > 0;
   const statusOf = (w: Worker) => project.status.services.find((s) => s.kind === "worker" && s.workerId === w.id);
 
   function submit(e: FormEvent) {
@@ -59,7 +65,7 @@ export function WorkersTab({ project }: { project: Project }) {
   return (
     <div className="space-y-6">
       {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
-      {!hasPhp && <Alert tone="amber">{t("Workers currently run from the PHP image – this project has no PHP service.")}</Alert>}
+      {!hasPhp && !hasNode && <Alert tone="amber">{t("Workers run in the project's PHP or Node.js container – this project has neither. Add a runtime in the Runtime tab first.")}</Alert>}
       <Card>
         <CardHeader
           title={
@@ -67,7 +73,7 @@ export function WorkersTab({ project }: { project: Project }) {
               <Cog className="size-4 text-accent-500" aria-hidden /> {t("Workers")}
             </span>
           }
-          description={t("Long-running processes next to the web server: queue workers, schedulers, WebSocket servers. Each runs in its own container from the project's PHP image (Node workers are not supported yet), restarts automatically and follows start/stop of the project. Logs are in the Logs tab.")}
+          description={t("Long-running processes next to the web server: queue workers, schedulers, WebSocket servers. Each runs in its own container from the project's PHP or Node.js image, restarts automatically and follows start/stop of the project. Logs are in the Logs tab.")}
         />
         {q.data.workers.length === 0 ? (
           <p className="px-5 py-4 text-sm text-muted">{t("No workers yet.")}</p>
@@ -84,8 +90,8 @@ export function WorkersTab({ project }: { project: Project }) {
                       <Badge>{p ? t(p.label) : w.preset}</Badge>
                       {w.enabled ? (
                         st ? (
-                          <span className="inline-flex items-center gap-1.5 text-xs font-normal text-muted">
-                            <StatusDot tone={containerStateTone(st.state)} /> {st.state}
+                          <span className="inline-flex items-center gap-1.5 text-xs font-normal text-muted" title={st.status === "runtime missing" ? t("The runtime this worker needs (PHP or Node.js) is not part of the project; the worker resumes once it is added.") : undefined}>
+                            <StatusDot tone={containerStateTone(st.state)} /> {st.status === "runtime missing" ? t("paused – runtime missing") : st.state}
                           </span>
                         ) : null
                       ) : (
@@ -114,7 +120,7 @@ export function WorkersTab({ project }: { project: Project }) {
               <Input id="worker-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="queue" spellCheck={false} autoCapitalize="none" />
             </Field>
             <Field label={t("Preset")} htmlFor="worker-preset" hint={selected ? t(selected.description) : undefined}>
-              <Select id="worker-preset" value={preset} onChange={(e) => { setPreset(e.target.value); setArg(""); }}>
+              <Select id="worker-preset" value={selected?.id ?? ""} onChange={(e) => { setPreset(e.target.value); setArg(""); }}>
                 {groupPresets(presets).map(([group, items]) => (
                   <optgroup key={group} label={group}>
                     {items.map((p) => (
@@ -133,7 +139,7 @@ export function WorkersTab({ project }: { project: Project }) {
           {selected?.requires && selected.requires.length > 0 && (
             <p className="text-xs text-subtle">{t("Expects {{files}} in the project directory.", { files: selected.requires.join(", ") })}</p>
           )}
-          <Button type="submit" variant="primary" loading={add.isPending} disabled={!name.trim() || !hasPhp} icon={<Plus className="size-4" />}>
+          <Button type="submit" variant="primary" loading={add.isPending} disabled={!name.trim() || !canAdd} icon={<Plus className="size-4" />}>
             {t("Add worker")}
           </Button>
         </form>

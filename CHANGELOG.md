@@ -11,6 +11,22 @@ release). `:main` follows the development branch.
 ## [Unreleased]
 
 ### Added
+- PHP can be added to or removed from a project after creation (Runtime tab
+  → PHP → *Enable PHP*; API `php.enabled`). Adding makes PHP the
+  application (FastCGI, project URL, published HTTP port); removing hands
+  the project back to the dev server or the static document root, pauses
+  PHP workers and keeps files and worker definitions.
+- Node.js production build mode: the dev server can run as *Production
+  build* – every start runs the build script, then the serve script
+  (`start`, `preview` for Vite) with `NODE_ENV=production` for the serve
+  process only.
+- Node.js workers: *npm script* (`npm run <name>`) and *Node.js script*
+  (`node <file>`) presets run from the Node image; the Workers tab offers
+  the presets whose runtime the project has, and a worker whose runtime is
+  missing pauses until it is back.
+- Node.js debugging: publish the inspector port on a host port of its own
+  (Runtime tab); the IDE tab shows host, port, path mapping and
+  `package.json` examples for Next.js, Vite, Nuxt and plain Node.
 - Projects without PHP. The first wizard step asks for the runtime – *PHP
   application*, *Node.js application* or *Static site* – and PHP is no
   longer required. For a Node.js project the dev server is the application:

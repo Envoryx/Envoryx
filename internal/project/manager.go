@@ -170,7 +170,9 @@ func (m *Manager) buildProject(req CreateRequest) (store.Project, error) {
 						c.Port = tpl.Node.Port
 					}
 				}
-				if c.Script == "" {
+				// The template's script is its dev script; in production mode the serve
+				// script (start/preview) comes from the preset defaults instead.
+				if c.Script == "" && c.Mode != runtime.NodeModeProduction {
 					c.Script = tpl.Node.Script
 				}
 			}
@@ -492,11 +494,22 @@ func (m *Manager) collectUsedPorts(ctx context.Context, used map[int]bool) error
 				used[cfg.HostPort] = true
 			}
 		}
-		for _, kind := range []store.ServiceKind{store.ServiceRedis, store.ServiceMailpit, store.ServiceNode} {
+		for _, kind := range []store.ServiceKind{store.ServiceRedis, store.ServiceMailpit} {
 			if svc := p.Service(kind); svc != nil {
-				var cfg runtime.ServiceConfig // NodeConfig shares the hostPort field name
+				var cfg runtime.ServiceConfig
 				if json.Unmarshal(svc.Config, &cfg) == nil && cfg.HostPort > 0 {
 					used[cfg.HostPort] = true
+				}
+			}
+		}
+		if svc := p.Service(store.ServiceNode); svc != nil {
+			var cfg runtime.NodeConfig
+			if json.Unmarshal(svc.Config, &cfg) == nil {
+				if cfg.HostPort > 0 {
+					used[cfg.HostPort] = true
+				}
+				if cfg.InspectHostPort > 0 {
+					used[cfg.InspectHostPort] = true
 				}
 			}
 		}
@@ -567,7 +580,36 @@ func (m *Manager) assignServicePorts(ctx context.Context, proj *store.Project, r
 		if err := assign(store.ServiceNode); err != nil {
 			return err
 		}
+		if req.Node.Config.Inspect {
+			if err := m.assignInspectPort(ctx, proj, &taken); err != nil {
+				return err
+			}
+		}
 	}
+	return nil
+}
+
+// assignInspectPort publishes the Node inspector on a host port of its own.
+func (m *Manager) assignInspectPort(ctx context.Context, proj *store.Project, taken *[]int) error {
+	svc := proj.Service(store.ServiceNode)
+	if svc == nil {
+		return nil
+	}
+	port, err := m.allocatePort(ctx, *taken...)
+	if err != nil {
+		return err
+	}
+	*taken = append(*taken, port)
+	var cfg runtime.NodeConfig
+	if err := json.Unmarshal(svc.Config, &cfg); err != nil {
+		return err
+	}
+	cfg.InspectHostPort = port
+	raw, err := json.Marshal(cfg)
+	if err != nil {
+		return err
+	}
+	svc.Config = raw
 	return nil
 }
 

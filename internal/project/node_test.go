@@ -3,6 +3,8 @@ package project
 import (
 	"context"
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -197,5 +199,156 @@ func TestNodeOnlyDevServerRoutes(t *testing.T) {
 	web, ok := e.engine.Container("envoryx-shop-web")
 	if !ok || web.State != "running" || len(web.Spec.Ports) != 0 {
 		t.Fatalf("start must recreate the web container without a published port: %+v", web)
+	}
+}
+
+// Production mode: the node container builds and then serves; the inspector gets a host
+// port of its own that survives edits and is published next to the dev-server port.
+func TestNodeProductionModeAndInspector(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	req := nodeRequest("Shop", true)
+	req.Node.Config = runtime.NodeConfig{DevServer: true, Preset: "next", Mode: "production", Inspect: true}
+	view, err := e.m.Create(ctx, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := view.Project.ID
+	var cfg runtime.NodeConfig
+	if err := json.Unmarshal(view.Project.Service(store.ServiceNode).Config, &cfg); err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Script != "start" || cfg.BuildScript != "build" || cfg.InspectPort != 9229 || cfg.InspectHostPort == 0 || cfg.InspectHostPort == cfg.HostPort {
+		t.Fatalf("stored config: %+v", cfg)
+	}
+	c, ok := e.engine.Container("envoryx-shop-node")
+	if !ok {
+		t.Fatal("node container missing")
+	}
+	cmd := strings.Join(c.Spec.Cmd, " ")
+	// Blank project: the package.json guard wraps the production wrapper.
+	if !strings.HasPrefix(cmd, "sh -c until [ -f package.json ]") || !strings.Contains(cmd, `npm run build && NODE_ENV=production exec "$@" envoryx-start npm run start -- -H 0.0.0.0 -p 3000`) {
+		t.Fatalf("production command: %s", cmd)
+	}
+	for _, env := range c.Spec.Env {
+		if env == "NODE_ENV=production" {
+			t.Fatal("NODE_ENV=production belongs to the serve process only, not the container (npm install would skip devDependencies)")
+		}
+	}
+	ports := map[int]int{}
+	for _, p := range c.Spec.Ports {
+		ports[p.ContainerPort] = p.HostPort
+	}
+	if ports[3000] != cfg.HostPort || ports[9229] != cfg.InspectHostPort {
+		t.Fatalf("published ports: %v (config %+v)", ports, cfg)
+	}
+
+	// Turning the inspector off frees its port; turning it on again keeps the dev port.
+	cfg.Inspect = false
+	if _, err := e.m.Update(ctx, id, UpdateRequest{Node: &NodeUpdate{Enabled: true, Version: "24", Config: cfg}}); err != nil {
+		t.Fatal(err)
+	}
+	c, _ = e.engine.Container("envoryx-shop-node")
+	if len(c.Spec.Ports) != 1 {
+		t.Fatalf("inspector port must be gone: %+v", c.Spec.Ports)
+	}
+	v, _ := e.m.Get(ctx, id)
+	var after runtime.NodeConfig
+	_ = json.Unmarshal(v.Project.Service(store.ServiceNode).Config, &after)
+	if after.InspectHostPort != 0 || after.HostPort != cfg.HostPort {
+		t.Fatalf("config after disabling the inspector: %+v", after)
+	}
+
+	// Back to a plain dev server: no wrapper for the build any more.
+	after.Mode = "dev"
+	after.Script = ""
+	if _, err := e.m.Update(ctx, id, UpdateRequest{Node: &NodeUpdate{Enabled: true, Version: "24", Config: after}}); err != nil {
+		t.Fatal(err)
+	}
+	c, _ = e.engine.Container("envoryx-shop-node")
+	if cmd := strings.Join(c.Spec.Cmd, " "); strings.Contains(cmd, "run build") || !strings.Contains(cmd, "npm run dev -- -H 0.0.0.0 -p 3000") {
+		t.Fatalf("dev command after switching back: %s", cmd)
+	}
+}
+
+// PHP can join a project later and leave it again: the web server switches between static
+// and FastCGI, the proxy between the dev server and the web container, the SPA fallback is
+// dropped when PHP arrives and PHP workers pause while PHP is gone.
+func TestAddAndRemovePHP(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	req := staticRequest("Site", true)
+	spa := true
+	req.Web = WebRequest{Type: "caddy", Version: "2", SPAFallback: &spa}
+	view, err := e.m.Create(ctx, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := view.Project.ID
+	caddy := func() string {
+		b, err := os.ReadFile(filepath.Join(e.cfgDir, "projects", id, "web", "Caddyfile"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(b)
+	}
+	if cf := caddy(); !strings.Contains(cf, "try_files") || strings.Contains(cf, "php_fastcgi") {
+		t.Fatalf("static Caddyfile: %s", cf)
+	}
+
+	cfg := runtime.DefaultPHPConfig()
+	view, err = e.m.Update(ctx, id, UpdateRequest{PHP: &PHPUpdate{Enabled: true, Version: "8.4", Config: cfg}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if view.Project.Service(store.ServicePHP) == nil || Serves(view.Project) != "php" {
+		t.Fatalf("PHP must be added and serve: %+v", view.Project.Services)
+	}
+	if _, ok := e.engine.Container("envoryx-site-php"); !ok {
+		t.Fatal("php container must exist after adding PHP")
+	}
+	if cf := caddy(); strings.Contains(cf, "try_files") || !strings.Contains(cf, "php_fastcgi") {
+		t.Fatalf("Caddyfile with PHP: %s", cf)
+	}
+	if wcfg, _ := webServiceConfig(*view.Project.Service(store.ServiceWeb)); wcfg.SPAFallback {
+		t.Fatal("the SPA fallback must be dropped when PHP arrives")
+	}
+	if _, err := e.m.AddWorker(ctx, id, WorkerRequest{Name: "cron", Preset: "php:script", Arg: "bin/cron.php", Enabled: true}); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := e.engine.Container("envoryx-site-worker-cron"); !ok {
+		t.Fatal("worker container must run with PHP")
+	}
+
+	view, err = e.m.Update(ctx, id, UpdateRequest{PHP: &PHPUpdate{Enabled: false}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if view.Project.Service(store.ServicePHP) != nil || Serves(view.Project) != "static" {
+		t.Fatalf("PHP must be gone: %+v", view.Project.Services)
+	}
+	if _, ok := e.engine.Container("envoryx-site-php"); ok {
+		t.Fatal("php container must be removed")
+	}
+	if _, ok := e.engine.Container("envoryx-site-worker-cron"); ok {
+		t.Fatal("PHP worker container must pause without PHP")
+	}
+	if len(view.Project.Workers) != 1 {
+		t.Fatal("the worker definition must survive – it comes back with PHP")
+	}
+	paused := false
+	for _, svc := range view.Status.Services {
+		if svc.Kind == "worker" && svc.State == "paused" {
+			paused = true
+		}
+	}
+	if !paused || len(view.Status.Warnings) != 0 {
+		t.Fatalf("a PHP worker without PHP must be listed as paused, not warned about: %+v %v", view.Status.Services, view.Status.Warnings)
+	}
+	if cf := caddy(); strings.Contains(cf, "php_fastcgi") {
+		t.Fatalf("Caddyfile after removing PHP: %s", cf)
+	}
+	if v, _ := e.m.Get(ctx, id); v.Status.State != StateRunning {
+		t.Fatalf("project state after removing PHP: %s", v.Status.State)
 	}
 }

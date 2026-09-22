@@ -57,6 +57,7 @@ const templates = [
   "\"{{name}}\" is the project's primary database; remove the database service instead",
   "refusing to delete {{path}}",
   "preset {{preset}} takes no argument",
+  "the {{preset}} preset runs from the {{image}} image – this project has no {{runtime}} service",
   "duplicate environment variable {{name}}",
   "environment variable name \"{{name}}\" must match [A-Z_][A-Z0-9_]*",
   "path segment \"{{segment}}\" contains unsupported characters",

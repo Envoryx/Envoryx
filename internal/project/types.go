@@ -52,6 +52,14 @@ type PHPRequest struct {
 	Config  runtime.PHPConfig
 }
 
+// PHPUpdate changes, adds (Enabled on a project without PHP) or removes (Enabled false)
+// the PHP service.
+type PHPUpdate struct {
+	Enabled bool
+	Version string
+	Config  runtime.PHPConfig
+}
+
 // NodeRequest selects the Node.js toolchain container and optional dev server.
 type NodeRequest struct {
 	Version string
@@ -135,7 +143,7 @@ type UpdateRequest struct {
 	Name     *string
 	Docroot  *string
 	Web      *WebRequest
-	PHP      *PHPRequest
+	PHP      *PHPUpdate
 	Node     *NodeUpdate
 	Database *DatabaseUpdate
 	Redis    *ExtraUpdate

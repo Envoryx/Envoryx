@@ -24,7 +24,7 @@ func TestUnusedImagesOnlyTouchCatalogueImages(t *testing.T) {
 	}
 	// Switch PHP version: the old image stays behind unused.
 	cfg := runtime.DefaultPHPConfig()
-	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{PHP: &PHPRequest{Version: "8.3", Config: cfg}}); err != nil {
+	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{PHP: &PHPUpdate{Enabled: true, Version: "8.3", Config: cfg}}); err != nil {
 		t.Fatal(err)
 	}
 	unused, err := e.m.UnusedImages(ctx)

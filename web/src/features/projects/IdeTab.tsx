@@ -6,7 +6,7 @@ import { useMutation } from "@tanstack/react-query";
 import { api } from "@/api/client";
 import { useDatabaseInfo, useExtraServices, useSettings, useUpdateProject } from "@/api/hooks";
 import { OperationHint } from "@/components/OperationsTray";
-import type { Operation, PHPConfig, Project } from "@/api/types";
+import type { NodeConfig, Operation, PHPConfig, Project } from "@/api/types";
 import { Alert, Button, Card, CardHeader, Checkbox, Code } from "@/components/ui";
 import { CopyButton, CopyRow } from "./DatabaseTab";
 import { errorText } from "@/lib/errors";
@@ -28,6 +28,7 @@ export function IdeTab({ project: p }: { project: Project }) {
   // The bare SSH user lands in the application container: PHP when present, else Node.
   const app = p.appService ?? (hasPhp ? "php" : hasNode ? "node" : undefined);
   const phpCfg = (php?.config ?? {}) as unknown as Partial<PHPConfig>;
+  const nodeCfg = (p.services.find((x) => x.kind === "node" && x.enabled)?.config ?? {}) as unknown as Partial<NodeConfig>;
   const hostname = p.hostnames[0] ?? `${p.slug}.test`;
   const ssh = s?.ssh;
   const sshHost = s?.proxy?.address || host;
@@ -192,6 +193,38 @@ export function IdeTab({ project: p }: { project: Project }) {
         </Card>
       )}
 
+      {hasNode && (
+        <Card>
+          <CardHeader
+            title={
+              <span className="flex items-center gap-2">
+                <Bug className="size-4 text-accent-500" aria-hidden /> {t("Node.js debugging")}
+              </span>
+            }
+            description={
+              nodeCfg.inspect && nodeCfg.inspectHostPort
+                ? t("The inspector port is published. Start the inspector in your script and attach from the IDE with the values below.")
+                : t("Not enabled – switch on “Publish the Node.js inspector port” in the Runtime tab (dev server required). Values below apply once enabled.")
+            }
+          />
+          <div className="p-5">
+            <dl>
+              <CopyRow label={t("Attach to host")} value={host} />
+              <CopyRow label={t("Attach to port")} value={String(nodeCfg.inspectHostPort ?? "")} />
+              <CopyRow label={t("Inspector inside the container")} value={`0.0.0.0:${nodeCfg.inspectPort ?? 9229}`} />
+              <CopyRow label={t("Path mapping")} value={`${hostDir} → /var/www/html`} />
+            </dl>
+            <p className="mt-3 text-xs text-muted">
+              {t("Only the port is published – the inspector has to be started by your script, otherwise NODE_OPTIONS would attach the debugger to npm instead of your app. Examples for package.json:")}
+            </p>
+            <pre className="mt-1 overflow-x-auto rounded-md bg-muted p-2 font-mono text-[11px]">{nodeDebugExamples(nodeCfg.inspectPort ?? 9229)}</pre>
+            <p className="mt-2 text-xs text-subtle">
+              {t("WebStorm: Run → Edit Configurations → Attach to Node.js/Chrome with host and port from above. VS Code: a launch.json entry of type node with request attach, address and port from above, localRoot/remoteRoot as the path mapping. Next.js opens the inspector of its server process one port higher (9230): publish that port instead when debugging server code.")}
+            </p>
+          </div>
+        </Card>
+      )}
+
       {hasDb && (
         <Card>
           <CardHeader
@@ -244,6 +277,16 @@ export function IdeTab({ project: p }: { project: Project }) {
 }
 
 /** Placeholder until the first poll reports the server's operation (the request is already running). */
+/** package.json snippets that start the inspector for the common setups. */
+function nodeDebugExamples(port: number): string {
+  return [
+    `"dev": "NODE_OPTIONS='--inspect=0.0.0.0:${port}' next dev"        // Next.js (server code listens on ${port + 1})`,
+    `"dev": "node --inspect=0.0.0.0:${port} node_modules/vite/bin/vite.js"   // Vite`,
+    `"dev": "NODE_OPTIONS='--inspect=0.0.0.0:${port}' nuxt dev"        // Nuxt`,
+    `"start": "node --inspect=0.0.0.0:${port} server.js"              // plain Node`,
+  ].join("\n");
+}
+
 function pendingUpdate(p: Project): Operation {
   const now = new Date().toISOString();
   return { id: "pending", projectId: p.id, projectSlug: p.slug, projectName: p.name, action: "update", startedAt: now, updatedAt: now };

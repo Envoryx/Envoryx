@@ -3,6 +3,7 @@ package project
 import (
 	"context"
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 
@@ -99,18 +100,60 @@ func TestWorkersRunAsExtraContainers(t *testing.T) {
 	}
 }
 
-func TestWorkersNeedPHP(t *testing.T) {
+// A worker runs in the runtime of its preset: PHP presets need the PHP service, Node
+// presets the Node service and its image, with the project home mounted.
+func TestWorkersFollowTheirRuntime(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 	view, err := e.m.Create(ctx, nodeRequest("Front", true))
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = e.m.AddWorker(ctx, view.Project.ID, WorkerRequest{Name: "queue", Preset: "laravel:queue", Enabled: true})
-	if !errors.Is(err, ErrConflict) || !strings.Contains(err.Error(), "workers currently run from the PHP image – this project has no PHP service") {
-		t.Fatalf("worker on a node-only project: %v", err)
+	id := view.Project.ID
+	_, err = e.m.AddWorker(ctx, id, WorkerRequest{Name: "queue", Preset: "laravel:queue", Enabled: true})
+	if !errors.Is(err, ErrConflict) || !strings.Contains(err.Error(), "runs from the PHP image – this project has no PHP service") {
+		t.Fatalf("PHP worker on a node-only project: %v", err)
 	}
-	if len(view.Project.Workers) != 0 {
+	if v, _ := e.m.Get(ctx, id); len(v.Project.Workers) != 0 {
 		t.Fatal("no worker may be stored")
+	}
+	if _, err := e.m.AddWorker(ctx, id, WorkerRequest{Name: "bad", Preset: "node:file", Arg: "../outside.js", Enabled: true}); err == nil {
+		t.Fatal("a script path outside the project must be rejected")
+	}
+	w, err := e.m.AddWorker(ctx, id, WorkerRequest{Name: "jobs", Preset: "node:script", Arg: "worker", Enabled: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, ok := e.engine.Container("envoryx-front-worker-jobs")
+	if !ok || c.State != "running" {
+		t.Fatalf("node worker container: %+v", c)
+	}
+	if c.Spec.Image != "ghcr.io/envoryx/envoryx-node:24" || strings.Join(c.Spec.Cmd, " ") != "npm run worker" {
+		t.Fatalf("node worker spec: image=%s cmd=%v", c.Spec.Image, c.Spec.Cmd)
+	}
+	home := false
+	for _, m := range c.Spec.Mounts {
+		if m.Target == homeMountTarget {
+			home = true
+		}
+		if m.Target == phpIniTarget {
+			t.Fatal("a Node worker must not mount the PHP ini")
+		}
+	}
+	if !home {
+		t.Fatalf("node worker must get the project home: %+v", c.Spec.Mounts)
+	}
+	if !slices.Contains(c.Spec.Env, "NODE_ENV=development") {
+		t.Fatalf("node worker env: %v", c.Spec.Env)
+	}
+	if _, err := e.m.UpdateWorker(ctx, id, w.ID, WorkerRequest{Name: "jobs", Preset: "php:script", Arg: "bin/w.php", Enabled: true}); !errors.Is(err, ErrConflict) {
+		t.Fatalf("switching a worker to a runtime the project lacks must fail: %v", err)
+	}
+
+	// Presets carry their runtime for the UI.
+	for _, p := range WorkerPresets() {
+		if p.Runtime == "" {
+			t.Fatalf("preset %s has no runtime", p.ID)
+		}
 	}
 }

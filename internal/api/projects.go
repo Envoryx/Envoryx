@@ -172,25 +172,35 @@ func toProject(v project.View) projectDTO {
 // ---- Requests ---------------------------------------------------------------
 
 // phpRequestDTO selects the PHP runtime. Omitting "php" from a create request means no
-// PHP. Reserved for a future add/remove after creation: an "enabled" field defaulting to
-// true (not implemented; PUT with "php" on a project without PHP is a 409).
+// PHP.
 type phpRequestDTO struct {
 	Version string            `json:"version"`
 	Config  runtime.PHPConfig `json:"config"`
+}
+
+// phpUpdateDTO changes the PHP service; "enabled" (default true) adds PHP to a project
+// without it or, when false, removes the PHP container (workers' containers go with it).
+type phpUpdateDTO struct {
+	Enabled *bool `json:"enabled"`
+	phpRequestDTO
 }
 
 type nodeRequestDTO struct {
 	Version string `json:"version"`
 	// Dev-server options (see runtime.NodeConfig).
 	DevServer      bool   `json:"devServer"`
+	Mode           string `json:"mode"`
 	PackageManager string `json:"packageManager"`
 	Script         string `json:"script"`
+	BuildScript    string `json:"buildScript"`
 	Port           int    `json:"port"`
 	Preset         string `json:"preset"`
+	Inspect        bool   `json:"inspect"`
+	InspectPort    int    `json:"inspectPort"`
 }
 
 func (n nodeRequestDTO) config() runtime.NodeConfig {
-	return runtime.NodeConfig{DevServer: n.DevServer, PackageManager: n.PackageManager, Script: n.Script, Port: n.Port, Preset: n.Preset}
+	return runtime.NodeConfig{DevServer: n.DevServer, Mode: n.Mode, PackageManager: n.PackageManager, Script: n.Script, BuildScript: n.BuildScript, Port: n.Port, Preset: n.Preset, Inspect: n.Inspect, InspectPort: n.InspectPort}
 }
 
 type nodeUpdateDTO struct {
@@ -300,7 +310,7 @@ type updateProjectRequest struct {
 	Name       *string            `json:"name"`
 	Docroot    *string            `json:"docroot"`
 	Web        *webRequestDTO     `json:"web"`
-	PHP        *phpRequestDTO     `json:"php"`
+	PHP        *phpUpdateDTO      `json:"php"`
 	Node       *nodeUpdateDTO     `json:"node"`
 	Database   *databaseUpdateDTO `json:"database"`
 	Redis      *extraUpdateDTO    `json:"redis"`
@@ -421,7 +431,7 @@ func (a *API) updateProject(w http.ResponseWriter, r *http.Request) {
 		upd.Web = &project.WebRequest{Type: req.Web.Type, Version: req.Web.Version, SPAFallback: req.Web.SPAFallback}
 	}
 	if req.PHP != nil {
-		upd.PHP = &project.PHPRequest{Version: req.PHP.Version, Config: req.PHP.Config}
+		upd.PHP = &project.PHPUpdate{Enabled: req.PHP.Enabled == nil || *req.PHP.Enabled, Version: req.PHP.Version, Config: req.PHP.Config}
 	}
 	upd.IDEGateway = req.IDEGateway
 	if req.Node != nil {

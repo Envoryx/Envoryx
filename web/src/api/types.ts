@@ -291,20 +291,31 @@ export interface ExtraServiceInfo {
 export interface NodeRequest {
   version: string;
   devServer?: boolean;
+  /** "dev" (default) or "production": build script first, then the script with NODE_ENV=production. */
+  mode?: string;
   packageManager?: string;
   script?: string;
+  buildScript?: string;
   port?: number;
   preset?: string;
+  /** Publish the inspector port so an IDE can attach; the script has to start the inspector itself. */
+  inspect?: boolean;
+  inspectPort?: number;
 }
 
 /** Stored Node service config (from project.services[kind=node].config). */
 export interface NodeConfig {
   devServer?: boolean;
+  mode?: string;
   packageManager?: string;
   script?: string;
+  buildScript?: string;
   port?: number;
   preset?: string;
   hostPort?: number;
+  inspect?: boolean;
+  inspectPort?: number;
+  inspectHostPort?: number;
 }
 
 /** Stored web service config (from project.services[kind=web].config). */
@@ -342,7 +353,8 @@ export interface UpdateProjectRequest {
   name?: string;
   docroot?: string;
   web?: WebRequest;
-  php?: { version: string; config: PHPConfig };
+  /** enabled false removes PHP; enabled (default true) on a project without PHP adds it. */
+  php?: { enabled?: boolean; version?: string; config?: PHPConfig };
   node?: ({ enabled: true } & NodeRequest) | { enabled: false };
   database?: DatabaseUpdate;
   redis?: ExtraUpdate;
@@ -754,6 +766,8 @@ export interface WorkerPreset {
   argLabel?: string;
   argHint?: string;
   requires?: string[];
+  /** Service the worker runs in: "php" or "node". */
+  runtime?: string;
 }
 
 export interface WorkerRequest {

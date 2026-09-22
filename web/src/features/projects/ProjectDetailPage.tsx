@@ -5,8 +5,8 @@ import { lazy, Suspense, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ApiError } from "@/api/client";
 import { useDevServerLink, useImageChoice, useProject, useProjectLinks, useProjectPlan, useProjectStats, useRuntimes, useSettings, useUpdateProject } from "@/api/hooks";
-import { defaultNodePresets, servesOf, type EnvVar, type NodeConfig, type PHPConfig, type Project, type WebServerConfig } from "@/api/types";
-import { NodeDevServerFields, devServerRequest, type DevServerForm } from "./NodeDevServerFields";
+import { defaultNodePresets, servesOf, type EnvVar, type NodeConfig, type PHPConfig, type Project, type UpdateProjectRequest, type WebServerConfig } from "@/api/types";
+import { NodeDevServerFields, defaultScript, devServerRequest, type DevServerForm } from "./NodeDevServerFields";
 import { Alert, Badge, Button, Card, CardHeader, Checkbox, Code, ErrorState, Field, Input, PageHeader, Select, Spinner, StatusDot } from "@/components/ui";
 import { containerStateTone, formatBytes, formatDateTime, formatPercent, serviceLabel, stateMeta } from "@/lib/format";
 import { DeleteProjectDialog, ProjectActionButtons, useActionError } from "./ProjectActions";
@@ -148,11 +148,12 @@ export function ProjectDetailPage() {
       {tab === "Runtime" && (
         <div className="space-y-6">
           <ProjectSettingsCard project={p} />
-          {/* The application runtime comes first: Node when it serves the project, otherwise PHP with Node as the toolchain after the web server. */}
+          {/* The application runtime comes first: Node when it serves the project (PHP can still be added below), otherwise PHP with Node as the toolchain after the web server. */}
           {p.appService === "node" ? (
             <>
               <NodeCard project={p} />
               <WebServerCard project={p} />
+              <PhpCard project={p} />
             </>
           ) : (
             <>
@@ -351,34 +352,52 @@ function PhpCard({ project: p }: { project: Project }) {
   const update = useUpdateProject(p.id);
   const { msg, setMsg } = useSaveFeedback();
   const svc = p.services.find((s) => s.kind === "php");
+  const php = runtimes.data?.runtimes.find((r) => r.key === "php");
+  const defaultVersion = php?.versions.find((v) => v.default)?.version ?? php?.versions[0]?.version ?? "";
+  const [enabled, setEnabled] = useState(!!svc);
   const [version, setVersion] = useState(svc?.version ?? "");
   const [config, setConfig] = useState<PHPConfig | null>((svc?.config as unknown as PHPConfig) ?? null);
   const settings = useSettings();
   const projectsHost = settings.data?.hostPath ? (settings.data.hostPath.overrides[settings.data.projectsDir] ?? settings.data.hostPath.detected[settings.data.projectsDir]) : undefined;
   const hostDir = projectsHost ? `${projectsHost}/${p.path}` : undefined;
+  // A project without PHP starts from the catalogue defaults once PHP is switched on.
+  useEffect(() => {
+    if (!svc && !version) setVersion(defaultVersion);
+    if (!svc && !config && runtimes.data) setConfig(runtimes.data.phpDefaults);
+  }, [svc, version, config, defaultVersion, runtimes.data]);
 
-  // Projects without PHP simply have no PHP card; adding PHP later is not supported yet.
-  if (!svc || !config) return null;
   if (runtimes.isPending) return <Spinner />;
-  const php = runtimes.data?.runtimes.find((r) => r.key === "php");
-  const dirty = version !== svc.version || JSON.stringify(config) !== JSON.stringify(svc.config);
+  const dirty = enabled !== !!svc || (enabled && !!svc && (version !== svc.version || JSON.stringify(config) !== JSON.stringify(svc.config)));
 
   const save = () => {
     setMsg(null);
-    update.mutate(
-      { php: { version, config } },
-      {
-        onSuccess: () => setMsg({ tone: "green", text: p.status.state === "running" ? t("Saved and applied. Containers were restarted.") : t("Saved. Changes apply on next start.") }),
-        onError: (err) => setMsg({ tone: "red", text: errorText(err, t, t("Saving failed")) }),
-      },
-    );
+    const cfg = config ?? runtimes.data?.phpDefaults;
+    const body: UpdateProjectRequest = enabled && cfg ? { php: { enabled: true, version, config: cfg } } : { php: { enabled: false } };
+    update.mutate(body, {
+      onSuccess: () =>
+        setMsg({
+          tone: "green",
+          text: !enabled
+            ? t("PHP removed. The web server now serves the document root statically; PHP workers pause until PHP is back.")
+            : !svc
+              ? t("PHP added. The web server forwards PHP requests to the new container.")
+              : p.status.state === "running"
+                ? t("Saved and applied. Containers were restarted.")
+                : t("Saved. Changes apply on next start."),
+        }),
+      onError: (err) => setMsg({ tone: "red", text: errorText(err, t, t("Saving failed")) }),
+    });
   };
 
   return (
     <Card>
       <CardHeader
         title={t("PHP")}
-        description={t("Changing the PHP version recreates the PHP container; configuration changes restart it.")}
+        description={
+          svc
+            ? t("Changing the PHP version recreates the PHP container; configuration changes restart it. Removing PHP keeps the files and worker definitions.")
+            : t("Add PHP-FPM to this project: the web server then forwards PHP requests to it and PHP becomes the application. The SPA fallback of the static setup is dropped.")
+        }
         actions={
           <Button variant="primary" onClick={save} loading={update.isPending} disabled={!dirty} icon={<Save className="size-4" />}>
             {t("Save")}
@@ -387,19 +406,24 @@ function PhpCard({ project: p }: { project: Project }) {
       />
       <div className="space-y-6 p-5">
         {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
-        <div className="grid gap-4 sm:grid-cols-3">
-          <Field label={t("PHP version")} htmlFor="p-version">
-            <Select id="p-version" value={version} onChange={(e) => setVersion(e.target.value)}>
-              {php?.versions.map((v) => (
-                <option key={v.version} value={v.version}>
-                  {v.label}
-                  {v.eol ? t(" (end of life)") : v.preview ? t(" (preview)") : ""}
-                </option>
-              ))}
-            </Select>
-          </Field>
-        </div>
-        <PhpConfigForm value={config} onChange={setConfig} extensions={runtimes.data?.phpExtensions ?? []} hostname={p.hostnames[0]} projectDir={hostDir} />
+        <Checkbox label={t("Enable PHP")} description={t("Runs PHP-FPM in its own container. Disable for Node-only or static projects.")} checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
+        {enabled && (
+          <>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <Field label={t("PHP version")} htmlFor="p-version">
+                <Select id="p-version" value={version} onChange={(e) => setVersion(e.target.value)}>
+                  {php?.versions.map((v) => (
+                    <option key={v.version} value={v.version}>
+                      {v.label}
+                      {v.eol ? t(" (end of life)") : v.preview ? t(" (preview)") : ""}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            </div>
+            {config && <PhpConfigForm value={config} onChange={setConfig} extensions={runtimes.data?.phpExtensions ?? []} hostname={p.hostnames[0]} projectDir={hostDir} />}
+          </>
+        )}
       </div>
     </Card>
   );
@@ -497,10 +521,14 @@ function NodeCard({ project: p }: { project: Project }) {
   const stored = (svc?.config ?? {}) as NodeConfig;
   const fromStored = (): DevServerForm => ({
     devServer: !!stored.devServer,
+    mode: stored.mode ?? "dev",
     packageManager: stored.packageManager ?? "npm",
-    script: stored.script ?? "dev",
+    script: stored.script ?? defaultScript(stored.mode ?? "dev", stored.preset ?? "vite"),
+    buildScript: stored.buildScript ?? "build",
     port: String(stored.port ?? 5173),
     preset: stored.preset ?? "vite",
+    inspect: !!stored.inspect,
+    inspectPort: String(stored.inspectPort ?? 9229),
   });
   const [enabled, setEnabled] = useState(!!svc);
   const [version, setVersion] = useState(svc?.version ?? "");
@@ -562,6 +590,8 @@ function NodeCard({ project: p }: { project: Project }) {
               <span className="text-xs text-subtle">{t("no port")}</span>
             )}
             {stored.hostPort ? <span className="font-mono text-xs text-subtle">{t("host port {{port}}", { port: stored.hostPort })}</span> : null}
+            {stored.mode === "production" && <Badge tone="blue">{t("production build")}</Badge>}
+            {stored.inspect && stored.inspectHostPort ? <span className="font-mono text-xs text-subtle">{t("inspector on host port {{port}}", { port: stored.inspectHostPort })}</span> : null}
           </div>
         )}
         <Checkbox label={t("Enable Node.js")} checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />

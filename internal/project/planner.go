@@ -13,6 +13,7 @@ import (
 	"github.com/envoryx/envoryx/internal/docker"
 	"github.com/envoryx/envoryx/internal/runtime"
 	"github.com/envoryx/envoryx/internal/store"
+	"github.com/envoryx/envoryx/internal/validate"
 )
 
 // Container mount targets shared by all project containers.
@@ -306,6 +307,10 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 				if ncfg.HostPort > 0 {
 					spec.Ports = []docker.PortSpec{{HostIP: p.paths.PublishInterface, HostPort: ncfg.HostPort, ContainerPort: ncfg.Port, Protocol: "tcp"}}
 				}
+				if ncfg.Inspect && ncfg.InspectHostPort > 0 {
+					// The inspector itself is started by the script (see NodeConfig.Inspect).
+					spec.Ports = append(spec.Ports, docker.PortSpec{HostIP: p.paths.PublishInterface, HostPort: ncfg.InspectHostPort, ContainerPort: ncfg.InspectPort, Protocol: "tcp"})
+				}
 			}
 			plan.Containers = append(plan.Containers, ContainerPlan{Kind: store.ServiceNode, Order: 15, Spec: spec})
 			images[svc.Image] = true
@@ -429,38 +434,52 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 		}
 	}
 
-	// Workers: one container per definition from the PHP image, sharing env, ini and mounts.
-	if php := proj.Service(store.ServicePHP); php != nil && php.Enabled {
-		for _, w := range proj.Workers {
-			if !w.Enabled {
+	// Workers: one container per definition from the image of the preset's runtime (PHP
+	// presets from the PHP image with its ini, Node presets from the Node image with the
+	// project home), sharing env and the project mount. A worker whose runtime the project
+	// does not have is skipped – it comes back when the runtime is added.
+	php, node := proj.Service(store.ServicePHP), proj.Service(store.ServiceNode)
+	for _, w := range proj.Workers {
+		if !w.Enabled {
+			continue
+		}
+		preset, ok := workerPreset(w.Preset)
+		if !ok {
+			return Plan{}, fmt.Errorf("%w: unknown worker preset %q", validate.ErrInvalid, w.Preset)
+		}
+		cmd, err := WorkerCommand(w)
+		if err != nil {
+			return Plan{}, err
+		}
+		spec := docker.ContainerSpec{
+			Name:          WorkerContainerName(proj.Slug, w),
+			Labels:        docker.ManagedLabels(proj.ID, proj.Slug, string(WorkerKind(w)), p.paths.EnvoryxVersion),
+			Cmd:           cmd,
+			User:          fmt.Sprintf("%d:%d", p.paths.PUID, p.paths.PGID),
+			WorkingDir:    appMountTarget,
+			Network:       plan.NetworkName,
+			NetworkAlias:  []string{"worker-" + w.Name},
+			Mounts:        []docker.MountSpec{{Type: "bind", Source: appHost, Target: appMountTarget}},
+			RestartPolicy: "unless-stopped",
+			StopTimeout:   30,
+		}
+		switch preset.Runtime {
+		case WorkerRuntimeNode:
+			if node == nil || !node.Enabled {
 				continue
 			}
-			cmd, err := WorkerCommand(w)
-			if err != nil {
-				return Plan{}, err
+			spec.Image = node.Image
+			spec.Env = append(append(append([]string{}, env...), toolEnv...), "NODE_ENV=development")
+			spec.Mounts = append(spec.Mounts, p.HomeMount(proj))
+		default:
+			if php == nil || !php.Enabled {
+				continue
 			}
-			plan.Containers = append(plan.Containers, ContainerPlan{
-				Kind:  WorkerKind(w),
-				Order: 30,
-				Spec: docker.ContainerSpec{
-					Name:         WorkerContainerName(proj.Slug, w),
-					Image:        php.Image,
-					Labels:       docker.ManagedLabels(proj.ID, proj.Slug, string(WorkerKind(w)), p.paths.EnvoryxVersion),
-					Cmd:          cmd,
-					Env:          append(append([]string{}, env...), "HOME=/tmp", "COMPOSER_HOME=/tmp/composer"),
-					User:         fmt.Sprintf("%d:%d", p.paths.PUID, p.paths.PGID),
-					WorkingDir:   appMountTarget,
-					Network:      plan.NetworkName,
-					NetworkAlias: []string{"worker-" + w.Name},
-					Mounts: []docker.MountSpec{
-						{Type: "bind", Source: appHost, Target: appMountTarget},
-						{Type: "bind", Source: filepath.Join(cfgHost, "php", "zz-envoryx.ini"), Target: phpIniTarget, ReadOnly: true},
-					},
-					RestartPolicy: "unless-stopped",
-					StopTimeout:   30,
-				},
-			})
+			spec.Image = php.Image
+			spec.Env = append(append([]string{}, env...), "HOME=/tmp", "COMPOSER_HOME=/tmp/composer")
+			spec.Mounts = append(spec.Mounts, docker.MountSpec{Type: "bind", Source: filepath.Join(cfgHost, "php", "zz-envoryx.ini"), Target: phpIniTarget, ReadOnly: true})
 		}
+		plan.Containers = append(plan.Containers, ContainerPlan{Kind: WorkerKind(w), Order: 30, Spec: spec})
 	}
 
 	// Fingerprint the structural part of every spec so ensurePlan can recreate containers

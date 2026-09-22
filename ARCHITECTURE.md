@@ -712,14 +712,32 @@ as the project user.
 `project_workers` (migration 0005: name, preset, args, enabled) hold
 long-running processes. Presets are a closed catalogue in `workers.go`
 (argv builders; the single user argument is validated per preset – queue
-names, relative script paths, composer script names). The planner emits one
-container per enabled worker from the PHP image (`Kind` and service label
-`worker:<id>`, name `envoryx-<slug>-worker-<name>`, order 30, project env +
-php.ini mount, PUID:PGID, `unless-stopped`), so `ensurePlan`, start/stop,
-env recreation and delete treat them like any other container. Workers stay
-PHP-only for now: `AddWorker` on a project without PHP returns `ErrConflict`
-("workers currently run from the PHP image"). Status lists
-them as kind `worker` with `workerId`; logs/terminal accept `worker:<id>`.
+names, relative script paths, composer and npm script names). Every preset
+names its `Runtime` (`php` or `node`); the planner emits one container per
+enabled worker from that runtime's image (`Kind` and service label
+`worker:<id>`, name `envoryx-<slug>-worker-<name>`, order 30, project env,
+PUID:PGID, `unless-stopped`; PHP workers get the php.ini mount, Node workers
+the tool env and the project home), so `ensurePlan`, start/stop, env
+recreation and delete treat them like any other container. A worker whose
+runtime the project lacks is skipped by the planner – it comes back when
+the runtime is added – and `AddWorker`/`UpdateWorker` refuse it with
+`ErrConflict`. Status lists them as kind `worker` with `workerId`;
+logs/terminal accept `worker:<id>`.
+
+PHP itself can be added and removed after creation (`PHPUpdate.Enabled`,
+`applyPHPUpdate` in lifecycle.go): adding inserts the service (position
+10) and drops the web service's SPA fallback; removing deletes the
+service, the PHP container and the PHP workers' containers. The web
+configuration and the proxy routing follow from the service list on the
+next `update()` pass, which regenerates the config files and restarts.
+
+The Node dev server has two modes (`NodeConfig.Mode`): `dev` runs the
+script; `production` wraps it – `sh -c '<pm> run <build> && NODE_ENV=production
+exec "$@"'` – so every start builds first and only the serve process sees
+`NODE_ENV=production`. `NodeConfig.Inspect` publishes `InspectPort` (default
+9229) on `InspectHostPort`; the inspector is started by the user's script,
+never through a container-wide `NODE_OPTIONS`, which would attach to the
+package manager's own node process.
 
 ### Notifications
 `internal/notify` is a small `Sender` (`Notify(ctx, Event)`, `Clear(key)`)

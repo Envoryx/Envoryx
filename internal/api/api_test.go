@@ -986,14 +986,47 @@ func TestProjectWithoutPHPOverHTTP(t *testing.T) {
 		}
 	}
 
-	// PHP cannot be added after the fact (reserved for a later change) and has no logs.
-	r = a.do(http.MethodPatch, "/api/v1/projects/"+id, map[string]any{"php": map[string]any{"version": "8.4"}}, true)
-	if r.status != http.StatusConflict {
-		t.Fatalf("php update without PHP: %d %s", r.status, r.raw)
-	}
+	// Without PHP there are no PHP logs.
 	r = a.do(http.MethodGet, "/api/v1/projects/"+id+"/services/php/logs", nil, false)
 	if r.status != http.StatusNotFound {
 		t.Fatalf("php logs without PHP: %d %s", r.status, r.raw)
+	}
+	// PHP can be added later: it becomes the application (routing, published HTTP port),
+	// and removed again ("enabled": false), which hands the project back to the dev server.
+	r = a.do(http.MethodPatch, "/api/v1/projects/"+id, map[string]any{"php": map[string]any{"version": "8.4"}}, true)
+	if r.status != http.StatusOK {
+		t.Fatalf("add php: %d %s", r.status, r.raw)
+	}
+	p = r.body["project"].(map[string]any)
+	if p["serves"] != "php" || p["appService"] != "php" {
+		t.Fatalf("after adding PHP: serves=%v app=%v", p["serves"], p["appService"])
+	}
+	webPublished := false
+	for _, svc := range p["status"].(map[string]any)["services"].([]any) {
+		m := svc.(map[string]any)
+		if m["kind"] == "web" && len(m["ports"].([]any)) > 0 {
+			webPublished = true
+		}
+	}
+	if !webPublished {
+		t.Fatalf("the web port must be published again once PHP serves the project: %s", r.raw)
+	}
+	r = a.do(http.MethodPatch, "/api/v1/projects/"+id, map[string]any{"php": map[string]any{"enabled": false}}, true)
+	if r.status != http.StatusOK {
+		t.Fatalf("remove php: %d %s", r.status, r.raw)
+	}
+	p = r.body["project"].(map[string]any)
+	if p["serves"] != "node" {
+		t.Fatalf("after removing PHP the dev server serves again: %v", p["serves"])
+	}
+	for _, svc := range p["services"].([]any) {
+		if svc.(map[string]any)["kind"] == "php" {
+			t.Fatalf("PHP service must be gone: %v", p["services"])
+		}
+	}
+	r = a.do(http.MethodPatch, "/api/v1/projects/"+id, map[string]any{"php": map[string]any{"enabled": false}}, true)
+	if r.status != http.StatusOK {
+		t.Fatalf("removing PHP twice must be a no-op: %d %s", r.status, r.raw)
 	}
 	// The SPA fallback belongs to projects without PHP; a PHP project rejects it.
 	r = a.do(http.MethodPost, "/api/v1/projects", map[string]any{"name": "Blog", "php": map[string]any{"version": "8.4"}, "web": map[string]any{"type": "caddy", "spaFallback": true}}, true)
