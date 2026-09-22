@@ -60,6 +60,10 @@ Envoryx is under active development. The current milestone (Phase 1 + 2) deliver
   and renewed automatically via DNS challenge (Cloudflare) – nothing to
   install anywhere
 - start / stop / restart / edit / delete with confirmation
+- rename a project after the fact: the identifier follows the name, and with it the
+  URL and host names, the container, network and volume names, the SSH users, the
+  project directory, the backups and – optionally – the database, its login and the
+  bucket. Containers are recreated, the data moves with them
 - duplicate a project (`shop` → `shop-test`) in one dialog: configuration,
   environment, workers and repository binding, plus – each optional – the
   project files, the contents of the database and the objects of the bucket.
@@ -122,11 +126,11 @@ Envoryx is under active development. The current milestone (Phase 1 + 2) deliver
   unhealthy projects (and their recovery), failed project creation, failed
   backups and certificate renewals – throttled, secrets never returned
 - MCP server for AI assistants (Claude Code, Cursor, …): create, duplicate,
-  start, stop and inspect projects, read logs, run actions, create databases
+  rename, start, stop and inspect projects, read logs, run actions, create databases
   and backups – authenticated with personal API tokens, same validation and
   audit trail as the UI, no destructive tools
 - command line for SSH sessions, cron jobs and CI: `envoryx project
-  list/show/create/duplicate/start/stop/logs/exec/run`, `envoryx backup …` and
+  list/show/create/duplicate/rename/start/stop/logs/exec/run`, `envoryx backup …` and
   `envoryx git …`. The binary is its own client – it speaks the same REST API
   with the same API tokens, so a token's scope and project restriction apply
   unchanged, and `envoryx project exec` hands the command's exit code back to

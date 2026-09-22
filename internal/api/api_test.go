@@ -465,6 +465,45 @@ func TestDuplicateProjectEndpoint(t *testing.T) {
 	}
 }
 
+func TestRenameProjectEndpoint(t *testing.T) {
+	a := newApp(t)
+	a.setupAndLogin()
+	r := a.do(http.MethodPost, "/api/v1/projects", map[string]any{
+		"name": "Shop", "docroot": "public", "createStarter": true, "start": true,
+		"php": map[string]any{"version": "8.4", "config": runtime.DefaultPHPConfig()},
+	}, true)
+	if r.status != http.StatusCreated {
+		t.Fatalf("create: %d %s", r.status, r.raw)
+	}
+	id := r.body["project"].(map[string]any)["id"].(string)
+
+	r = a.do(http.MethodPost, "/api/v1/projects/"+id+"/rename", map[string]any{"name": "Acme Blog"}, true)
+	if r.status != http.StatusUnprocessableEntity {
+		t.Fatalf("a rename without the identifier must be refused: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodPost, "/api/v1/projects/"+id+"/rename", map[string]any{"name": "Acme Blog", "confirm": "shop"}, true)
+	if r.status != http.StatusOK {
+		t.Fatalf("rename: %d %s", r.status, r.raw)
+	}
+	p := r.body["project"].(map[string]any)
+	if p["id"] != id || p["slug"] != "acme-blog" || p["path"] != "acme-blog" || p["name"] != "Acme Blog" {
+		t.Fatalf("renamed project: %v", p)
+	}
+	if p["status"].(map[string]any)["state"] != "running" {
+		t.Fatalf("a running project must run again: %v", p["status"])
+	}
+	renamed := r.body["renamed"].(map[string]any)
+	if renamed["from"] != "shop" || renamed["to"] != "acme-blog" {
+		t.Fatalf("renamed: %v", renamed)
+	}
+	if _, err := os.Stat(filepath.Join(a.projDir, "acme-blog", "public")); err != nil {
+		t.Fatalf("the directory must have moved: %v", err)
+	}
+	if hosts := p["hostnames"].([]any); len(hosts) == 0 || !strings.HasPrefix(hosts[0].(string), "acme-blog.") {
+		t.Fatalf("host names must follow: %v", hosts)
+	}
+}
+
 func TestDockerUnavailableIsReported(t *testing.T) {
 	a := newApp(t)
 	a.setupAndLogin()

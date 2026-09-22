@@ -7,6 +7,7 @@ export function operationTitle(op: Operation, t: TFunction): string {
   const titles: Record<OperationAction, string> = {
     create: t("Creating {{name}}", { name }),
     duplicate: t("Copying to {{name}}", { name }),
+    rename: t("Renaming {{name}}", { name }),
     start: t("Starting {{name}}", { name }),
     stop: t("Stopping {{name}}", { name }),
     restart: t("Restarting {{name}}", { name }),
@@ -25,6 +26,7 @@ export function operationDone(op: Operation, t: TFunction): string {
   const titles: Record<OperationAction, string> = {
     create: t("{{name}} created", { name }),
     duplicate: t("{{name}} copied", { name }),
+    rename: t("{{name}} renamed", { name }),
     start: t("{{name}} started", { name }),
     stop: t("{{name}} stopped", { name }),
     restart: t("{{name}} restarted", { name }),
@@ -42,6 +44,7 @@ export function operationVerb(action: OperationAction, t: TFunction): string {
   const verbs: Record<OperationAction, string> = {
     create: t("Creating…"),
     duplicate: t("Copying…"),
+    rename: t("Renaming…"),
     start: t("Starting…"),
     stop: t("Stopping…"),
     restart: t("Restarting…"),

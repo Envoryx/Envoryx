@@ -269,6 +269,7 @@ func (e *MobyEngine) CreateContainer(ctx context.Context, spec ContainerSpec) (s
 		Labels:     spec.Labels,
 		Env:        spec.Env,
 		Cmd:        spec.Cmd,
+		Entrypoint: spec.Entrypoint,
 		WorkingDir: spec.WorkingDir,
 		User:       spec.User,
 	}

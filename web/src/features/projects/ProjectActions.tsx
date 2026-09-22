@@ -1,9 +1,9 @@
-import { Copy, ExternalLink, Play, RotateCw, Square, Trash2 } from "lucide-react";
+import { Copy, ExternalLink, Pencil, Play, RotateCw, Square, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useDeleteProject, useDuplicateProject, useProjectAction, useProjectLinks, type ProjectAction } from "@/api/hooks";
-import type { DuplicateProjectRequest, Project } from "@/api/types";
+import { useDeleteProject, useDuplicateProject, useProjectAction, useProjectLinks, useRenameProject, type ProjectAction } from "@/api/hooks";
+import type { DuplicateProjectRequest, Project, RenameProjectRequest } from "@/api/types";
 import { Button, Checkbox, Dialog, Field, Input, Alert } from "@/components/ui";
 import { errorText } from "@/lib/errors";
 import { slugify } from "@/lib/format";
@@ -276,3 +276,92 @@ export function DuplicateProjectDialog({ project, open, onClose }: { project: Pr
 }
 
 
+/**
+ * Renames a project. Everything derived from the identifier moves with it, which means
+ * recreated containers and – unless the data names are kept – a renamed database and
+ * bucket, so the dialog says so and asks for the current identifier.
+ */
+export function RenameProjectDialog({ project, open, onClose }: { project: Project; open: boolean; onClose: () => void }) {
+  const { t } = useTranslation();
+  const rename = useRenameProject(project.id);
+  const [name, setName] = useState(project.name);
+  const [path, setPath] = useState("");
+  const [pathTouched, setPathTouched] = useState(false);
+  const [keepDataNames, setKeepDataNames] = useState(false);
+  const [confirm, setConfirm] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const slug = slugify(name);
+  // A directory that still matches the identifier follows it; one that was chosen by hand
+  // stays where it is until the field is touched.
+  const follows = project.path === project.slug;
+  const dir = pathTouched ? path.trim() : follows ? slug : project.path;
+  const hasDatabase = project.services.some((s) => s.kind === "database" && s.enabled);
+  const hasStorage = project.services.some((s) => s.kind === "storage" && s.enabled);
+  const unchanged = name.trim() === project.name && dir === project.path;
+
+  const close = () => {
+    if (rename.isPending) return;
+    setName(project.name);
+    setPath("");
+    setPathTouched(false);
+    setConfirm("");
+    setError(null);
+    onClose();
+  };
+
+  const submit = () => {
+    setError(null);
+    const body: RenameProjectRequest = { name: name.trim(), confirm, keepDataNames };
+    if (dir !== project.path) body.path = dir;
+    rename.mutate(body, {
+      onSuccess: () => close(),
+      onError: (err) => setError(errorText(err, t, t("Renaming failed"))),
+    });
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onClose={close}
+      title={t("Rename “{{name}}”?", { name: project.name })}
+      description={t("The identifier is derived from the name, and everything built on it moves along: URL and host names, containers, network, volumes, the SSH users, the project directory and the backups. The containers are recreated, so the project is briefly unavailable.")}
+      footer={
+        <>
+          <Button onClick={close} disabled={rename.isPending}>
+            {t("Cancel")}
+          </Button>
+          <Button variant="primary" onClick={submit} loading={rename.isPending} disabled={confirm !== project.slug || slug === "" || unchanged} icon={<Pencil className="size-4" />}>
+            {t("Rename project")}
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        {error && <Alert tone="red">{error}</Alert>}
+        <Field label={t("Project name")} htmlFor="rename-name" hint={t("Identifier: {{slug}}", { slug: slug || "—" })}>
+          <Input id="rename-name" value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" spellCheck={false} />
+        </Field>
+        <Field label={t("Directory")} htmlFor="rename-path" hint={follows ? t("Below the projects directory.") : t("This directory was chosen by hand and stays unless you change it.")}>
+          <Input id="rename-path" value={dir} onChange={(e) => { setPath(e.target.value); setPathTouched(true); }} spellCheck={false} />
+        </Field>
+        {(hasDatabase || hasStorage) && (
+          <Checkbox
+            label={t("Keep the database and bucket names")}
+            description={
+              hasDatabase
+                ? t("Otherwise the database and its login are renamed to {{name}} – its contents are moved, and anything with the old name written into it (a committed .env, an external client) has to be adjusted.", { name: slug.replace(/-/g, "_") || "—" })
+                : t("Otherwise the bucket is renamed and its objects are moved into it.")
+            }
+            checked={keepDataNames}
+            onChange={(e) => setKeepDataNames(e.target.checked)}
+          />
+        )}
+        <Field label={t("Type {{slug}} to confirm", { slug: project.slug })} htmlFor="rename-confirm">
+          <Input id="rename-confirm" value={confirm} onChange={(e) => setConfirm(e.target.value)} autoComplete="off" spellCheck={false} />
+        </Field>
+        {rename.isPending && <CreateProgress slug={project.slug} action="rename" title={t("Renaming the project…")} hint={t("Volumes and the database contents move here; big projects take a moment.")} />}
+      </div>
+    </Dialog>
+  );
+}

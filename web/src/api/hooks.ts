@@ -1,6 +1,6 @@
 import { useIsMutating, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "./client";
-import { servesOf, type CreateProjectRequest, type DuplicateProjectRequest, type NodeConfig, type Project, type PythonConfig, type UpdateProjectRequest, type UpdateSettingsRequest } from "./types";
+import { servesOf, type CreateProjectRequest, type DuplicateProjectRequest, type RenameProjectRequest, type NodeConfig, type Project, type PythonConfig, type UpdateProjectRequest, type UpdateSettingsRequest } from "./types";
 import { projectUrl } from "@/lib/format";
 
 export const keys = {
@@ -209,6 +209,15 @@ export function useDuplicateProject() {
   return useMutation({
     mutationFn: async ({ id, body }: { id: string; body: DuplicateProjectRequest }) => (await api.projects.duplicate(id, body)).project,
     onSuccess: (project) => invalidate(project),
+  });
+}
+
+/** Renames a project; the answer says what moved with it. */
+export function useRenameProject(id: string) {
+  const invalidate = useProjectInvalidation();
+  return useMutation({
+    mutationFn: (body: RenameProjectRequest) => api.projects.rename(id, body),
+    onSuccess: (res) => invalidate(res.project),
   });
 }
 

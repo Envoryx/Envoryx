@@ -141,6 +141,7 @@ func (s *Server) registerTools() {
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("list_runtimes", "List runtimes", "Available runtimes (PHP, Node.js, Python, web servers), database engines, services, PHP extension keys and templates for create_project.")), s.listRuntimes)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeAdmin, mutating("create_project", "Create project", "Create a new development environment (web server plus PHP, Python and/or Node.js, optional database, Redis, Mailpit, object storage, git clone or template). Returns the project including its URL.", false)), s.createProject)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeAdmin, mutating("duplicate_project", "Duplicate project", "Copy an existing project (shop → shop-test): configuration, environment, workers and git binding, optionally the files, the database contents and the objects of the bucket. The copy gets its own directory, host ports and containers and keeps the original's database credentials. Extra domains and the backup schedule are not copied.", false)), s.duplicateProject)
+	mcp.AddTool(s.mcp, s.tool(auth.ScopeAdmin, mutating("rename_project", "Rename project", "Rename a project and everything derived from its identifier: URL and host names, container, network and volume names, the project directory, the backups and – unless keepDataNames is set – the database, its login and the bucket. The containers are recreated, so the project is briefly unavailable; confirm must be the current identifier.", false)), s.renameProject)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeOperate, mutating("start_project", "Start project", "Start all containers of a project.", true)), s.startProject)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeOperate, mutating("stop_project", "Stop project", "Stop all containers of a project (data is kept).", true)), s.stopProject)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeOperate, mutating("restart_project", "Restart project", "Restart a project; also pulls updated runtime images.", true)), s.restartProject)
@@ -375,6 +376,32 @@ func (s *Server) duplicateProject(ctx context.Context, _ *mcp.CallToolRequest, i
 		return r, projectOut{}, nil
 	}
 	return nil, s.projectOut(ctx, v), nil
+}
+
+type renameProjectIn struct {
+	Project string `json:"project" jsonschema:"Project to rename: id, slug or name"`
+	Name    string `json:"name" jsonschema:"New display name, e.g. \"Acme Blog\". Slug, host names and container names are derived from it."`
+	Confirm string `json:"confirm" jsonschema:"The project's current identifier (slug), as confirmation."`
+	Path    string `json:"path,omitempty" jsonschema:"New directory below the projects directory. Default: follows the new identifier as long as the old directory matched the old one."`
+
+	KeepDataNames bool `json:"keepDataNames,omitempty" jsonschema:"Leave the database, its login and the bucket under their current names; everything else still moves."`
+}
+
+func (s *Server) renameProject(ctx context.Context, _ *mcp.CallToolRequest, in renameProjectIn) (*mcp.CallToolResult, projectOut, error) {
+	v, err := s.resolve(ctx, in.Project)
+	if err != nil {
+		r, _ := toolErr(err)
+		return r, projectOut{}, nil
+	}
+	res, err := s.d.Projects.Rename(ctx, v.Project.ID, project.RenameRequest{
+		Name: strings.TrimSpace(in.Name), Path: strings.TrimSpace(in.Path),
+		Confirm: strings.TrimSpace(in.Confirm), KeepDataNames: in.KeepDataNames,
+	})
+	if err != nil {
+		r, _ := toolErr(err)
+		return r, projectOut{}, nil
+	}
+	return nil, s.projectOut(ctx, res.View), nil
 }
 
 func (s *Server) transition(ctx context.Context, ref string, op func(context.Context, string) (project.View, error)) (*mcp.CallToolResult, projectOut, error) {

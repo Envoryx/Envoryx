@@ -15,6 +15,7 @@ const (
 	limitDelete    = 10 * time.Minute
 	limitBackup    = 2 * time.Hour // dumps and archives of large projects
 	limitDuplicate = 2 * time.Hour // a copy is a create plus a file copy and a dump
+	limitRename    = 2 * time.Hour // a rename moves the volumes and the database contents
 )
 
 var (

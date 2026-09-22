@@ -8,6 +8,8 @@ import type {
   BackupSchedule,
   CreateProjectRequest,
   DuplicateProjectRequest,
+  RenameProjectRequest,
+  RenameResult,
   Dashboard,
   DatabaseCredentials,
   DatabaseInfo,
@@ -201,6 +203,8 @@ export const api = {
       request<{ project: Project }>(`/projects/${encodeURIComponent(id)}`, { method: "PATCH", body }),
     duplicate: (id: string, body: DuplicateProjectRequest) =>
       request<{ project: Project }>(`/projects/${encodeURIComponent(id)}/duplicate`, { method: "POST", body }),
+    rename: (id: string, body: RenameProjectRequest) =>
+      request<{ project: Project; renamed: RenameResult }>(`/projects/${encodeURIComponent(id)}/rename`, { method: "POST", body }),
     remove: (id: string, confirm: string, deleteFiles: boolean) =>
       request<void>(`/projects/${encodeURIComponent(id)}`, { method: "DELETE", body: { confirm, deleteFiles } }),
     stopIDEBackend: (id: string) => request<{ stopped: number }>(`/projects/${encodeURIComponent(id)}/ide/stop-backend`, { method: "POST" }),

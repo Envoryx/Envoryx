@@ -58,7 +58,7 @@ export interface Operation {
   error?: string;
 }
 
-export type OperationAction = "create" | "duplicate" | "start" | "stop" | "restart" | "update" | "delete" | "image" | "backup" | "restore";
+export type OperationAction = "create" | "duplicate" | "rename" | "start" | "stop" | "restart" | "update" | "delete" | "image" | "backup" | "restore";
 
 export interface ProjectStatus {
   state: ProjectState;
@@ -426,6 +426,27 @@ export interface DuplicateProjectRequest {
   workers?: boolean;
   git?: boolean;
   start?: boolean;
+}
+
+/**
+ * Renames a project and everything derived from its identifier. `confirm` is the current
+ * identifier; `keepDataNames` leaves database, login and bucket as they are.
+ */
+export interface RenameProjectRequest {
+  name: string;
+  path?: string;
+  confirm: string;
+  keepDataNames?: boolean;
+}
+
+/** What a rename moved – the UI names the new database and bucket afterwards. */
+export interface RenameResult {
+  from: string;
+  to: string;
+  path: string;
+  database?: string;
+  username?: string;
+  bucket?: string;
 }
 
 export interface UpdateProjectRequest {

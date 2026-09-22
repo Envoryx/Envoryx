@@ -371,6 +371,16 @@ func (r duplicateProjectRequest) toDomain() project.DuplicateRequest {
 	}
 }
 
+// renameProjectRequest renames a project and everything derived from its identifier.
+type renameProjectRequest struct {
+	Name string `json:"name"`
+	Path string `json:"path"`
+	// Confirm must equal the current identifier.
+	Confirm string `json:"confirm"`
+	// KeepDataNames leaves the database, its login and the bucket as they are.
+	KeepDataNames bool `json:"keepDataNames"`
+}
+
 type deleteProjectRequest struct {
 	Confirm     string `json:"confirm"`
 	DeleteFiles bool   `json:"deleteFiles"`
@@ -467,6 +477,31 @@ func (a *API) duplicateProject(w http.ResponseWriter, r *http.Request) {
 	}
 	a.invalidateProxy()
 	writeJSON(w, http.StatusCreated, map[string]any{"project": a.project(r, view)})
+}
+
+// renameProject renames a project: POST /projects/{id}/rename. The answer carries the
+// project plus what moved with it, so the UI can name the new database and bucket.
+func (a *API) renameProject(w http.ResponseWriter, r *http.Request) {
+	var req renameProjectRequest
+	if err := decodeJSON(w, r, &req); err != nil {
+		writeError(w, r, err)
+		return
+	}
+	res, err := a.d.Projects.Rename(r.Context(), r.PathValue("id"), project.RenameRequest{
+		Name: req.Name, Path: req.Path, Confirm: req.Confirm, KeepDataNames: req.KeepDataNames,
+	})
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	a.invalidateProxy()
+	writeJSON(w, http.StatusOK, map[string]any{
+		"project": a.project(r, res.View),
+		"renamed": map[string]any{
+			"from": res.From, "to": res.To, "path": res.Path,
+			"database": res.Database, "username": res.Username, "bucket": res.Bucket,
+		},
+	})
 }
 
 func (a *API) previewProject(w http.ResponseWriter, r *http.Request) {
