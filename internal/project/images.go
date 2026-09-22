@@ -59,8 +59,9 @@ func isRollbackRef(ref string) bool {
 	return strings.HasPrefix(ref, rollbackRepoPrefix)
 }
 
-// protectRollbackTarget tags the rollback target of one history record; a target that
-// has already vanished is only logged, the rollback itself then fails with a clear error.
+// protectRollbackTarget tags the rollback target of one history record. A target that
+// has left the host (`docker rmi`, a prune before the tag existed) cannot come back, so
+// the record forgets it – otherwise every reconcile would retry the tag and warn again.
 func (m *Manager) protectRollbackTarget(ctx context.Context, slug string, rec store.ProjectImage) {
 	if rec.PreviousID == "" {
 		return
@@ -69,9 +70,19 @@ func (m *Manager) protectRollbackTarget(ctx context.Context, slug string, rec st
 	if cur, err := m.engine.ImageID(ctx, ref); err == nil && cur == rec.PreviousID {
 		return
 	}
-	if err := m.engine.TagImage(ctx, rec.PreviousID, ref); err != nil {
-		m.log.Warn("rollback image not protected", "project", slug, "image", rec.Image, "previous", shortID(rec.PreviousID), "err", err)
+	err := m.engine.TagImage(ctx, rec.PreviousID, ref)
+	if err == nil {
+		return
 	}
+	if !errors.Is(err, docker.ErrNotFound) {
+		m.log.Warn("rollback image not protected", "project", slug, "image", rec.Image, "previous", shortID(rec.PreviousID), "err", err)
+		return
+	}
+	if err := m.store.Images.ClearPrevious(ctx, rec.ProjectID, rec.Image); err != nil && !errors.Is(err, store.ErrNotFound) {
+		m.log.Warn("rollback history not cleared", "project", slug, "image", rec.Image, "err", err)
+		return
+	}
+	m.log.Info("rollback image gone from host, history forgotten", "project", slug, "image", rec.Image, "previous", shortID(rec.PreviousID), "pinned", rec.Pinned)
 }
 
 // releaseRollbackTarget drops the rollback tag of one history record. Docker deletes the

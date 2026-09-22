@@ -245,3 +245,51 @@ func TestRollbackTagsReconciled(t *testing.T) {
 		t.Fatalf("stale rollback tag not offered for pruning: %+v", unused)
 	}
 }
+
+// A rollback target that has left the host for good (`docker rmi`, a prune before the
+// tag existed) is forgotten on the next reconcile: the periodic reconcile must not retry
+// the tag and warn every 30 seconds, and the UI must stop offering a rollback that
+// cannot work.
+func TestVanishedRollbackTargetForgotten(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	view, err := e.m.Create(ctx, phpRequest("Roll", true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := view.Project.ID
+	img := view.Project.Service(store.ServicePHP).Image
+	e.engine.Remote[img] = img + "@v2"
+	if _, err := e.m.Restart(ctx, id); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.engine.RemoveImage(ctx, img+"@v1"); err != nil {
+		t.Fatal(err)
+	}
+
+	e.m.Reconcile(ctx)
+	rec, err := e.m.store.Images.Get(ctx, id, img)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rec.PreviousID != "" || rec.Pinned {
+		t.Fatalf("vanished target still recorded: %+v", rec)
+	}
+	v, err := e.m.Get(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, s := range v.Status.Services {
+		if s.Kind == store.ServicePHP && s.ImagePrevious {
+			t.Fatalf("rollback still offered: %+v", s)
+		}
+	}
+	// The next reconcile has nothing left to tag.
+	e.engine.Calls = nil
+	e.m.Reconcile(ctx)
+	for _, c := range e.engine.Calls {
+		if strings.HasPrefix(c, "tag:") {
+			t.Fatalf("reconcile still retries the rollback tag: %v", e.engine.Calls)
+		}
+	}
+}
