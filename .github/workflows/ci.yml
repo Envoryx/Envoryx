@@ -4,6 +4,12 @@ on:
   push:
     branches: [main]
   pull_request:
+  # The catalogue points at floating tags (postgres:18-alpine, redis:8-alpine …). An
+  # upstream rebuild can therefore break what a new project gets without a commit of
+  # ours, so the suite runs once a week as well.
+  schedule:
+    - cron: "0 4 * * 1"
+  workflow_dispatch:
 
 jobs:
   backend:
@@ -20,7 +26,13 @@ jobs:
       - name: Unit tests
         run: go test -race ./...
       - name: Docker integration tests
-        run: go test -tags integration -count=1 ./internal/docker/ ./internal/s3/
+        # internal/project starts the stateful services (database, Redis, Mailpit) with the
+        # catalogue's default versions, which is what catches an upstream image changing
+        # its layout under a new project. Every push checks PostgreSQL; the weekly run adds
+        # MariaDB, MySQL and MongoDB, whose images are gigabytes.
+        env:
+          ENVORYX_TEST_ALL_DATABASES: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '1' || '' }}
+        run: go test -tags integration -count=1 -timeout 30m ./internal/docker/ ./internal/s3/ ./internal/project/
 
   frontend:
     runs-on: ubuntu-latest
