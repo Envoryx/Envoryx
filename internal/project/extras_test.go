@@ -12,6 +12,22 @@ import (
 	"github.com/envoryx/envoryx/internal/validate"
 )
 
+// PostgreSQL 18 stores its cluster in a version subdirectory and the image refuses to
+// start when a volume sits on the old /var/lib/postgresql/data, so the volume has to take
+// the whole directory from 18 on.
+func TestPostgres18MountsTheWholeDataDirectory(t *testing.T) {
+	e := newEnv(t)
+	req := phpRequest("Shop PG18", true)
+	req.Database = &DatabaseRequest{Type: "postgresql", Version: "18"}
+	if _, err := e.m.Create(context.Background(), req); err != nil {
+		t.Fatal(err)
+	}
+	db, _ := e.engine.Container("envoryx-shop-pg18-database")
+	if db.Spec.Image != "postgres:18-alpine" || db.Spec.Mounts[0].Target != "/var/lib/postgresql" {
+		t.Fatalf("postgres 18 container: image %s, mounts %+v", db.Spec.Image, db.Spec.Mounts)
+	}
+}
+
 func TestPostgresAndMySQLDialects(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()

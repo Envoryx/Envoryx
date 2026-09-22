@@ -400,7 +400,7 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 				Cmd:           dialect.Cmd,
 				Network:       plan.NetworkName,
 				NetworkAlias:  []string{"database", svc.Variant},
-				Mounts:        []docker.MountSpec{{Type: "volume", Source: volume, Target: dialect.DataDir}},
+				Mounts:        []docker.MountSpec{{Type: "volume", Source: volume, Target: dialect.DataDirTarget(svc.Version)}},
 				RestartPolicy: "unless-stopped",
 				StopTimeout:   30,
 				Healthcheck: &docker.HealthSpec{

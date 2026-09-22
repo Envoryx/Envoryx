@@ -48,6 +48,16 @@ release). `:main` follows the development branch.
   runtime-version workflow and the image builds cover Python like PHP and
   Node.
 
+### Fixed
+- A new project with the default PostgreSQL 18 came up with a database
+  container in a restart loop: the data volume was mounted at
+  `/var/lib/postgresql/data`, and the 18 image – which keeps its cluster in
+  `/var/lib/postgresql/<major>/docker` – refuses to start when it finds a
+  volume on the old path, even an empty one. From 18 on the volume takes
+  `/var/lib/postgresql` (the layout `pg_upgrade --link` expects); 16 and 17
+  keep the data directory itself, so existing volumes stay where they are.
+  A major upgrade was already refused for PostgreSQL, so no data moves.
+
 ## [0.5.0] – 2026-09-22
 
 ### Added
