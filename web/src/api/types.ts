@@ -319,6 +319,14 @@ export interface ExtraServiceInfo {
   health?: string;
   volumeName?: string;
   webUiPort?: number;
+  /** RabbitMQ login; the password comes from the credentials endpoint. */
+  username?: string;
+}
+
+export interface RabbitMQCredentials {
+  username: string;
+  password: string;
+  url: string;
 }
 
 /** Node.js service with optional dev-server mode (script runs as the container's main process). */
@@ -403,6 +411,7 @@ export interface CreateProjectRequest {
   database?: DatabaseRequest | null;
   redis?: ExtraRequest | null;
   mailpit?: ExtraRequest | null;
+  rabbitmq?: ExtraRequest | null;
   storage?: StorageRequest | null;
   git?: GitRequest | null;
   web?: WebRequest;
@@ -460,6 +469,7 @@ export interface UpdateProjectRequest {
   database?: DatabaseUpdate;
   redis?: ExtraUpdate;
   mailpit?: ExtraUpdate;
+  rabbitmq?: ExtraUpdate;
   storage?: StorageUpdate;
   env?: EnvVar[];
   ideGateway?: boolean;

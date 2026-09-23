@@ -15,6 +15,16 @@ func (a *API) extraServices(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"services": extras})
 }
 
+// rabbitMQCredentials returns the broker login (operate scope, like database credentials).
+func (a *API) rabbitMQCredentials(w http.ResponseWriter, r *http.Request) {
+	creds, err := a.d.Projects.RabbitMQCredentials(r.Context(), r.PathValue("id"))
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"credentials": creds})
+}
+
 func (a *API) databaseInfo(w http.ResponseWriter, r *http.Request) {
 	info, err := a.d.Projects.DatabaseInfo(r.Context(), r.PathValue("id"))
 	if err != nil {

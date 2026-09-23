@@ -59,6 +59,9 @@ interface Form {
   redisVersion: string;
   redisExpose: boolean;
   mailpit: boolean;
+  rabbitmq: boolean;
+  rabbitmqVersion: string;
+  rabbitmqExpose: boolean;
   storage: boolean;
   template: string; // "" = blank
   gitUrl: string;
@@ -123,6 +126,9 @@ export function NewProjectPage() {
         redisVersion: runtimes.data.runtimes.find((r) => r.key === "redis")?.versions.find((v) => v.default)?.version ?? "",
         redisExpose: false,
         mailpit: false,
+        rabbitmq: false,
+        rabbitmqVersion: runtimes.data.runtimes.find((r) => r.key === "rabbitmq")?.versions.find((v) => v.default)?.version ?? "",
+        rabbitmqExpose: false,
         storage: false,
         template: "",
         gitUrl: "",
@@ -157,6 +163,7 @@ export function NewProjectPage() {
     if (form.dbType) req.database = { type: form.dbType, version: form.dbVersion, exposePort: form.dbExpose };
     if (form.redis) req.redis = { version: form.redisVersion, exposePort: form.redisExpose };
     if (form.mailpit) req.mailpit = {};
+    if (form.rabbitmq) req.rabbitmq = { version: form.rabbitmqVersion, exposePort: form.rabbitmqExpose };
     if (form.storage) req.storage = {};
     if (form.template) req.template = form.template;
     if (form.gitUrl.trim() && !form.template) {
@@ -575,6 +582,27 @@ export function NewProjectPage() {
                 </div>
                 <div className="rounded-md border border-default p-4">
                   <Checkbox label="Mailpit" description={t("Catches all outgoing mail and shows it in a web inbox (published on its own port). Injects MAIL_* and MAILER_DSN.")} checked={form.mailpit} onChange={(e) => set({ mailpit: e.target.checked })} />
+                </div>
+                <div className="rounded-md border border-default p-4 space-y-3">
+                  <Checkbox label="RabbitMQ" description={t("Message broker for queues (Symfony Messenger, Laravel queues, Celery) with a persistent volume and a management UI on its own port. Injects RABBITMQ_* including RABBITMQ_URL.")} checked={form.rabbitmq} onChange={(e) => set({ rabbitmq: e.target.checked })} />
+                  {form.rabbitmq && (
+                    <div className="grid gap-4 pl-7 sm:grid-cols-2">
+                      <Field label={t("RabbitMQ version")} htmlFor="rabbitmq-version">
+                        <Select id="rabbitmq-version" value={form.rabbitmqVersion} onChange={(e) => set({ rabbitmqVersion: e.target.value })}>
+                          {services
+                            .find((s) => s.key === "rabbitmq")
+                            ?.versions.map((v) => (
+                              <option key={v.version} value={v.version}>
+                                {v.label}
+                              </option>
+                            ))}
+                        </Select>
+                      </Field>
+                      <div className="self-end pb-1">
+                        <Checkbox label={t("Publish port on the host")} description={t("For AMQP clients running on your machine.")} checked={form.rabbitmqExpose} onChange={(e) => set({ rabbitmqExpose: e.target.checked })} />
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <div className="rounded-md border border-default p-4">
                   <Checkbox label={t("Object storage (S3)")} description={t("S3-compatible object storage with a bucket for this project and a web console. Injects S3_* and the AWS_* variables Laravel and the AWS SDKs read.")} checked={form.storage} onChange={(e) => set({ storage: e.target.checked })} />

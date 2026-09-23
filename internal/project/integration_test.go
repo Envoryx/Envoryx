@@ -390,3 +390,85 @@ func snapshotAndClone(t *testing.T, engine string) {
 		t.Fatalf("the source must not be snapshotted: %+v %v", list, err)
 	}
 }
+
+// TestIntegrationRabbitMQ starts the catalogue's default RabbitMQ, checks the generated
+// login and that a durable queue survives a rebuilt container. The image names its data
+// directory after the node, whose default contains the container's random host name, so
+// without a fixed node name every recreate would start from an empty broker.
+func TestIntegrationRabbitMQ(t *testing.T) {
+	m := integrationManager(t)
+	ctx := context.Background()
+	view, err := m.Create(ctx, CreateRequest{Name: "Envoryx Integration RabbitMQ", CreateStarter: true, Start: true, RabbitMQ: &ExtraRequest{}})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	id, slug := view.Project.ID, view.Project.Slug
+	t.Cleanup(func() {
+		if err := m.Delete(context.Background(), id, DeleteOptions{Confirm: slug, DeleteFiles: true}); err != nil {
+			t.Errorf("cleanup: %v", err)
+		}
+	})
+	restarting := map[store.ServiceKind]int{}
+	healthy := func() error {
+		if err := crashLooping(t, m, id, restarting); err != nil {
+			return err
+		}
+		v, err := m.Get(ctx, id)
+		if err != nil {
+			return err
+		}
+		for _, s := range v.Status.Services {
+			if s.Kind == store.ServiceRabbitMQ && (s.State != "running" || s.Health != "healthy") {
+				return fmt.Errorf("rabbitmq is %s (health %s)", s.State, s.Health)
+			}
+		}
+		return nil
+	}
+	ctl := func(args ...string) (string, error) {
+		c, err := m.ServiceContainer(ctx, id, store.ServiceRabbitMQ)
+		if err != nil {
+			return "", err
+		}
+		res, err := m.engine.Exec(ctx, c.ID, args, nil)
+		if err != nil {
+			return "", err
+		}
+		if res.ExitCode != 0 {
+			return "", fmt.Errorf("%v: exit %d: %s%s", args, res.ExitCode, res.Stdout, res.Stderr)
+		}
+		return res.Stdout, nil
+	}
+	waitFor(t, "rabbitmq healthy", 3*time.Minute, healthy)
+
+	creds, err := m.RabbitMQCredentials(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ctl("rabbitmqctl", "authenticate_user", creds.Username, creds.Password); err != nil {
+		t.Fatalf("generated login: %v", err)
+	}
+	// Through the management API with the generated login, which also proves the UI's
+	// plugin is on.
+	if _, err := ctl("rabbitmqadmin", "--username", creds.Username, "--password", creds.Password, "declare", "queue", "--name", "persisted", "--durable", "true"); err != nil {
+		t.Fatalf("declare queue: %v", err)
+	}
+
+	c, err := m.ServiceContainer(ctx, id, store.ServiceRabbitMQ)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := m.engine.RemoveContainer(ctx, c.ID); err != nil {
+		t.Fatalf("remove rabbitmq container: %v", err)
+	}
+	if _, err := m.Start(ctx, id); err != nil {
+		t.Fatalf("restart after removal: %v", err)
+	}
+	waitFor(t, "rabbitmq healthy after the rebuild", 3*time.Minute, healthy)
+	out, err := ctl("rabbitmqctl", "-q", "list_queues", "name")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "persisted") {
+		t.Fatalf("queue gone after the container was rebuilt: %q", out)
+	}
+}

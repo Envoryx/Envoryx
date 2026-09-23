@@ -1576,3 +1576,38 @@ func TestPythonProjectOverHTTP(t *testing.T) {
 		t.Fatalf("bad app path: %d %s", r.status, r.raw)
 	}
 }
+
+func TestRabbitMQEndpoints(t *testing.T) {
+	a := newApp(t)
+	a.setupAndLogin()
+	create := map[string]any{"name": "Queue", "createStarter": true, "start": true, "php": map[string]any{"version": "8.4"}, "rabbitmq": map[string]any{}}
+	r := a.do(http.MethodPost, "/api/v1/projects", create, true)
+	if r.status != http.StatusCreated {
+		t.Fatalf("create: %d %s", r.status, r.raw)
+	}
+	id := r.body["project"].(map[string]any)["id"].(string)
+
+	// The extras list names the user but leaves the password to the credentials endpoint.
+	r = a.do(http.MethodGet, "/api/v1/projects/"+id+"/extras", nil, false)
+	svc := r.body["services"].([]any)[0].(map[string]any)
+	if r.status != http.StatusOK || svc["kind"] != "rabbitmq" || svc["username"] != "envoryx" || svc["password"] != nil || svc["webUiPort"] == nil {
+		t.Fatalf("extras: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodGet, "/api/v1/projects/"+id+"/rabbitmq/credentials", nil, false)
+	creds := r.body["credentials"].(map[string]any)
+	if r.status != http.StatusOK || creds["password"] == "" || !strings.HasPrefix(creds["url"].(string), "amqp://envoryx:") {
+		t.Fatalf("credentials: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodGet, "/api/v1/projects/"+id+"/services/rabbitmq/logs?tail=5", nil, false)
+	if r.status != http.StatusOK {
+		t.Fatalf("logs: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodPatch, "/api/v1/projects/"+id, map[string]any{"rabbitmq": map[string]any{"enabled": false, "removeData": true}}, true)
+	if r.status != http.StatusOK {
+		t.Fatalf("remove: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodGet, "/api/v1/projects/"+id+"/rabbitmq/credentials", nil, false)
+	if r.status != http.StatusNotFound {
+		t.Fatalf("credentials after removal: %d %s", r.status, r.raw)
+	}
+}

@@ -427,6 +427,7 @@ type createRequest struct {
 	Database *databaseSpec   `json:"database,omitempty"`
 	Redis    *extraSpec      `json:"redis,omitempty"`
 	Mailpit  *extraSpec      `json:"mailpit,omitempty"`
+	RabbitMQ *extraSpec      `json:"rabbitmq,omitempty"`
 	Storage  *extraSpec      `json:"storage,omitempty"`
 	Git      *gitSpec        `json:"git,omitempty"`
 	Env      []envSpec       `json:"env,omitempty"`
@@ -488,7 +489,7 @@ Runtimes (a project without any is a static site served by the web container):
 Services:
   --database TYPE[:VERSION]   mysql, mariadb, postgres, mongodb …
   --expose-database           publish the database port on the host
-  --redis, --mailpit, --storage
+  --redis, --mailpit, --rabbitmq, --storage
 
 Files and repository:
   --path DIR           directory below the projects directory (default: the slug)
@@ -530,6 +531,7 @@ func (c *cli) projectCreate(ctx context.Context, args []string) error {
 		exposeDB   = fs.Bool("expose-database", false, "publish the database port")
 		redis      = fs.Bool("redis", false, "add Redis")
 		mailpit    = fs.Bool("mailpit", false, "add Mailpit")
+		rabbitmq   = fs.Bool("rabbitmq", false, "add RabbitMQ")
 		storage    = fs.Bool("storage", false, "add S3 storage")
 		template   = fs.String("template", "", "project template")
 		starter    = fs.Bool("starter", false, "write starter files")
@@ -593,6 +595,9 @@ func (c *cli) projectCreate(ctx context.Context, args []string) error {
 	}
 	if *mailpit {
 		req.Mailpit = &extraSpec{}
+	}
+	if *rabbitmq {
+		req.RabbitMQ = &extraSpec{}
 	}
 	if *storage {
 		req.Storage = &extraSpec{}
