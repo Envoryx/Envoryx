@@ -1557,5 +1557,7 @@
   "RabbitMQ version": "RabbitMQ-versie",
   "Message broker for queues (Symfony Messenger, Laravel queues, Celery) with a persistent volume and a management UI on its own port. Injects RABBITMQ_* including RABBITMQ_URL.": "Message broker voor queues (Symfony Messenger, Laravel-queues, Celery) met een persistent volume en een beheerinterface op een eigen poort. Injecteert RABBITMQ_*, inclusief RABBITMQ_URL.",
   "AMQP (from app)": "AMQP (vanuit de app)",
-  "<Services tab → Show password>": "<Tabblad Services → Wachtwoord tonen>"
+  "<Services tab → Show password>": "<Tabblad Services → Wachtwoord tonen>",
+  "In-memory cache without persistence – a restart empties it. Injects MEMCACHED_HOST, MEMCACHED_PORT and MEMCACHED_URL.": "In-memory cache zonder persistentie – een herstart maakt hem leeg. Injecteert MEMCACHED_HOST, MEMCACHED_PORT en MEMCACHED_URL.",
+  "For tools on your machine, e.g. telnet or a cache inspector.": "Voor tools op je eigen computer, bijv. telnet of een cache-inspector."
 }

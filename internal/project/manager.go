@@ -282,6 +282,13 @@ func (m *Manager) buildProject(req CreateRequest) (store.Project, error) {
 		}
 		proj.Services = append(proj.Services, svc)
 	}
+	if req.Memcached != nil {
+		svc, err := m.buildExtraService(store.ServiceMemcached, req.Memcached.Version)
+		if err != nil {
+			return store.Project{}, err
+		}
+		proj.Services = append(proj.Services, svc)
+	}
 	if req.RabbitMQ != nil {
 		svc, err := m.buildExtraService(store.ServiceRabbitMQ, req.RabbitMQ.Version)
 		if err != nil {
@@ -554,7 +561,7 @@ func (m *Manager) collectUsedPorts(ctx context.Context, used map[int]bool) error
 				used[cfg.HostPort] = true
 			}
 		}
-		for _, kind := range []store.ServiceKind{store.ServiceRedis, store.ServiceMailpit, store.ServiceRabbitMQ} {
+		for _, kind := range []store.ServiceKind{store.ServiceRedis, store.ServiceMemcached, store.ServiceMailpit, store.ServiceRabbitMQ} {
 			if svc := p.Service(kind); svc != nil {
 				var cfg runtime.ServiceConfig
 				if json.Unmarshal(svc.Config, &cfg) == nil {
@@ -614,7 +621,7 @@ func (m *Manager) collectUsedPorts(ctx context.Context, used map[int]bool) error
 }
 
 // assignServicePorts allocates host ports for services the request wants published
-// (database, Redis, RabbitMQ) and always for the web UIs of Mailpit and RabbitMQ. Ports already chosen for this
+// (database, Redis, Memcached, RabbitMQ) and always for the web UIs of Mailpit and RabbitMQ. Ports already chosen for this
 // project are excluded so the allocations do not collide with each other.
 func (m *Manager) assignServicePorts(ctx context.Context, proj *store.Project, req CreateRequest) error {
 	taken := []int{proj.HTTPPort}
@@ -637,6 +644,11 @@ func (m *Manager) assignServicePorts(ctx context.Context, proj *store.Project, r
 	}
 	if req.Redis != nil && req.Redis.ExposePort {
 		if err := assign(store.ServiceRedis); err != nil {
+			return err
+		}
+	}
+	if req.Memcached != nil && req.Memcached.ExposePort {
+		if err := assign(store.ServiceMemcached); err != nil {
 			return err
 		}
 	}
@@ -810,7 +822,7 @@ func (m *Manager) resolveImages(p *store.Project) {
 			key = "node"
 		case store.ServicePython:
 			key = "python"
-		case store.ServiceRedis, store.ServiceMailpit, store.ServiceRabbitMQ:
+		case store.ServiceRedis, store.ServiceMemcached, store.ServiceMailpit, store.ServiceRabbitMQ:
 			key = string(svc.Kind)
 		case store.ServiceWeb, store.ServiceDatabase, store.ServiceStorage:
 			key = svc.Variant

@@ -740,7 +740,9 @@ upgrades are refused (one step at a time, FCV).
 Redis (volume `envoryx-<slug>-redis`, `REDIS_*` injected) and Mailpit (web
 inbox on an allocated host port, `MAIL_*`/`MAILER_DSN` injected) are
 auxiliary services with a small `{hostPort}` config; env changes recreate the
-application containers while stateful services keep running. RabbitMQ
+application containers while stateful services keep running. Memcached
+(`memcached:1.6-alpine`, no volume, `MEMCACHED_*` injected) is the same minus the
+data: removing it needs no confirmation. RabbitMQ
 (`rabbitmq:<version>-management-alpine`, volume `envoryx-<slug>-rabbitmq`) uses
 the same config plus `webUiPort` (management UI, always published) and a
 generated `username`/`password` that the image applies when it initialises the

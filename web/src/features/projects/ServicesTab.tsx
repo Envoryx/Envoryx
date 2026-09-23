@@ -1,4 +1,4 @@
-import { ExternalLink, Mail, Plus, Rabbit, Server, Trash2 } from "lucide-react";
+import { ExternalLink, Mail, MemoryStick, Plus, Rabbit, Server, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useState } from "react";
 import { useExtraServices, usePublicHost, useRuntimes, useStorage, useUpdateProject } from "@/api/hooks";
@@ -11,8 +11,8 @@ import { PublicHostNotice } from "@/components/PublicHostNotice";
 import { errorText } from "@/lib/errors";
 import { CopyRow } from "./DatabaseTab";
 
-type ExtraKind = "redis" | "mailpit" | "rabbitmq";
-const titles: Record<ExtraKind, string> = { redis: "Redis", mailpit: "Mailpit", rabbitmq: "RabbitMQ" };
+type ExtraKind = "redis" | "memcached" | "mailpit" | "rabbitmq";
+const titles: Record<ExtraKind, string> = { redis: "Redis", memcached: "Memcached", mailpit: "Mailpit", rabbitmq: "RabbitMQ" };
 
 function ServiceCard({ project, info, onMessage }: { project: Project; info: ExtraServiceInfo; onMessage: (m: { tone: "green" | "red"; text: string }) => void }) {
   const { t } = useTranslation();
@@ -41,7 +41,7 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
       <CardHeader
         title={
           <span className="flex items-center gap-2">
-            {info.kind === "mailpit" ? <Mail className="size-4 text-accent-500" aria-hidden /> : info.kind === "rabbitmq" ? <Rabbit className="size-4 text-accent-500" aria-hidden /> : <Server className="size-4 text-accent-500" aria-hidden />}
+            {info.kind === "mailpit" ? <Mail className="size-4 text-accent-500" aria-hidden /> : info.kind === "rabbitmq" ? <Rabbit className="size-4 text-accent-500" aria-hidden /> : info.kind === "memcached" ? <MemoryStick className="size-4 text-accent-500" aria-hidden /> : <Server className="size-4 text-accent-500" aria-hidden />}
             {title} {info.version}
           </span>
         }
@@ -111,10 +111,10 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
             </Button>
           ))}
 
-        {(info.kind === "redis" || info.kind === "rabbitmq") && (
+        {info.kind !== "mailpit" && (
           <Checkbox
             label={t("Publish port on the host")}
-            description={info.hostPort ? t("Reachable at {{address}}", { address: `${host}:${info.hostPort}` }) : info.kind === "redis" ? t("For desktop clients like RedisInsight.") : t("For AMQP clients running on your machine.")}
+            description={info.hostPort ? t("Reachable at {{address}}", { address: `${host}:${info.hostPort}` }) : info.kind === "redis" ? t("For desktop clients like RedisInsight.") : info.kind === "memcached" ? t("For tools on your machine, e.g. telnet or a cache inspector.") : t("For AMQP clients running on your machine.")}
             checked={info.hostPort > 0}
             disabled={update.isPending}
             onChange={(e) => update.mutate({ [key]: { enabled: true, version: info.version, exposePort: e.target.checked } }, { onError: (err) => fail(err, t("Changing the port failed")) })}
@@ -247,6 +247,7 @@ export function ServicesTab({ project }: { project: Project }) {
           <ServiceCard key={s.kind} project={project} info={s} onMessage={setMsg} />
         ))}
         {!has("redis") && <AddServiceCard project={project} kind="redis" onMessage={setMsg} />}
+        {!has("memcached") && <AddServiceCard project={project} kind="memcached" onMessage={setMsg} />}
         {!has("mailpit") && <AddServiceCard project={project} kind="mailpit" onMessage={setMsg} />}
         {!has("rabbitmq") && <AddServiceCard project={project} kind="rabbitmq" onMessage={setMsg} />}
         {!storage.data && <AddStorageCard project={project} onMessage={setMsg} />}

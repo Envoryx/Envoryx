@@ -455,6 +455,28 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 			plan.Containers = append(plan.Containers, ContainerPlan{Kind: store.ServiceRedis, Order: 6, Spec: spec})
 			images[svc.Image] = true
 
+		case store.ServiceMemcached:
+			var cfg runtime.ServiceConfig
+			if err := json.Unmarshal(svc.Config, &cfg); err != nil {
+				return Plan{}, fmt.Errorf("memcached config: %w", err)
+			}
+			// No volume: Memcached keeps everything in memory, a restart empties the cache.
+			spec := docker.ContainerSpec{
+				Name:          ContainerName(proj.Slug, store.ServiceMemcached),
+				Image:         svc.Image,
+				Labels:        labels,
+				Network:       plan.NetworkName,
+				NetworkAlias:  []string{"memcached"},
+				RestartPolicy: "unless-stopped",
+				StopTimeout:   5,
+				Healthcheck:   &docker.HealthSpec{Test: []string{"sh", "-c", `printf 'version\r\n' | nc -w 2 127.0.0.1 11211 | grep -q VERSION`}, Interval: 10 * time.Second, Timeout: 3 * time.Second, StartPeriod: 5 * time.Second, Retries: 3},
+			}
+			if cfg.HostPort > 0 {
+				spec.Ports = []docker.PortSpec{{HostIP: p.paths.PublishInterface, HostPort: cfg.HostPort, ContainerPort: runtime.MemcachedPort, Protocol: "tcp"}}
+			}
+			plan.Containers = append(plan.Containers, ContainerPlan{Kind: store.ServiceMemcached, Order: 6, Spec: spec})
+			images[svc.Image] = true
+
 		case store.ServiceMailpit:
 			var cfg runtime.ServiceConfig
 			if err := json.Unmarshal(svc.Config, &cfg); err != nil {
@@ -716,6 +738,12 @@ func (p *Planner) envStrings(proj store.Project) ([]string, error) {
 	if r := proj.Service(store.ServiceRedis); r != nil && r.Enabled {
 		env := runtime.RedisEnv()
 		for _, k := range []string{"REDIS_HOST", "REDIS_PORT", "REDIS_URL"} {
+			set(k, env[k])
+		}
+	}
+	if mc := proj.Service(store.ServiceMemcached); mc != nil && mc.Enabled {
+		env := runtime.MemcachedEnv()
+		for _, k := range runtime.MemcachedEnvKeys {
 			set(k, env[k])
 		}
 	}

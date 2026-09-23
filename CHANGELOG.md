@@ -11,6 +11,13 @@ release). `:main` follows the development branch.
 ## [Unreleased]
 
 ### Added
+- Memcached as an optional cache next to Redis – in the wizard, on the Services tab, in
+  `envoryx project create --memcached` and the MCP `create_project` tool. It keeps
+  everything in memory (no volume, so removing it needs no confirmation), publishes
+  its port on the host on request and injects `MEMCACHED_HOST`, `MEMCACHED_PORT` (what
+  Laravel's memcached store reads) and `MEMCACHED_URL` (`memcached://memcached:11211`
+  for Symfony's MemcachedAdapter). The PHP images already carry the memcached
+  extension.
 - RabbitMQ as an optional service next to Redis and Mailpit (4.3, or 4.2), in the
   wizard, on the Services tab, in `envoryx project create --rabbitmq` and the MCP
   `create_project` tool. The broker keeps its data in a volume, the management UI is

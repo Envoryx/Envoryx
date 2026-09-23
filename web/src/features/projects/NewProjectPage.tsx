@@ -58,6 +58,8 @@ interface Form {
   redis: boolean;
   redisVersion: string;
   redisExpose: boolean;
+  memcached: boolean;
+  memcachedExpose: boolean;
   mailpit: boolean;
   rabbitmq: boolean;
   rabbitmqVersion: string;
@@ -125,6 +127,8 @@ export function NewProjectPage() {
         redis: false,
         redisVersion: runtimes.data.runtimes.find((r) => r.key === "redis")?.versions.find((v) => v.default)?.version ?? "",
         redisExpose: false,
+        memcached: false,
+        memcachedExpose: false,
         mailpit: false,
         rabbitmq: false,
         rabbitmqVersion: runtimes.data.runtimes.find((r) => r.key === "rabbitmq")?.versions.find((v) => v.default)?.version ?? "",
@@ -162,6 +166,7 @@ export function NewProjectPage() {
     if (form.pythonEnabled) req.python = { version: form.pythonVersion, ...pythonServerRequest(form.pythonServer) };
     if (form.dbType) req.database = { type: form.dbType, version: form.dbVersion, exposePort: form.dbExpose };
     if (form.redis) req.redis = { version: form.redisVersion, exposePort: form.redisExpose };
+    if (form.memcached) req.memcached = { exposePort: form.memcachedExpose };
     if (form.mailpit) req.mailpit = {};
     if (form.rabbitmq) req.rabbitmq = { version: form.rabbitmqVersion, exposePort: form.rabbitmqExpose };
     if (form.storage) req.storage = {};
@@ -577,6 +582,14 @@ export function NewProjectPage() {
                       <div className="self-end pb-1">
                         <Checkbox label={t("Publish port on the host")} description={t("For RedisInsight etc.")} checked={form.redisExpose} onChange={(e) => set({ redisExpose: e.target.checked })} />
                       </div>
+                    </div>
+                  )}
+                </div>
+                <div className="rounded-md border border-default p-4 space-y-3">
+                  <Checkbox label="Memcached" description={t("In-memory cache without persistence – a restart empties it. Injects MEMCACHED_HOST, MEMCACHED_PORT and MEMCACHED_URL.")} checked={form.memcached} onChange={(e) => set({ memcached: e.target.checked })} />
+                  {form.memcached && (
+                    <div className="pl-7">
+                      <Checkbox label={t("Publish port on the host")} description={t("For tools on your machine, e.g. telnet or a cache inspector.")} checked={form.memcachedExpose} onChange={(e) => set({ memcachedExpose: e.target.checked })} />
                     </div>
                   )}
                 </div>

@@ -1557,5 +1557,7 @@
   "RabbitMQ version": "Versão do RabbitMQ",
   "Message broker for queues (Symfony Messenger, Laravel queues, Celery) with a persistent volume and a management UI on its own port. Injects RABBITMQ_* including RABBITMQ_URL.": "Broker de mensagens para filas (Symfony Messenger, filas do Laravel, Celery) com um volume persistente e uma interface de gestão na sua própria porta. Injeta RABBITMQ_*, incluindo RABBITMQ_URL.",
   "AMQP (from app)": "AMQP (a partir da app)",
-  "<Services tab → Show password>": "<Separador Serviços → Mostrar palavra-passe>"
+  "<Services tab → Show password>": "<Separador Serviços → Mostrar palavra-passe>",
+  "In-memory cache without persistence – a restart empties it. Injects MEMCACHED_HOST, MEMCACHED_PORT and MEMCACHED_URL.": "Cache em memória sem persistência – um reinício esvazia-a. Injeta MEMCACHED_HOST, MEMCACHED_PORT e MEMCACHED_URL.",
+  "For tools on your machine, e.g. telnet or a cache inspector.": "Para ferramentas no seu computador, p. ex. telnet ou um inspetor de cache."
 }
