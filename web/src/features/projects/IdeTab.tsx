@@ -114,7 +114,7 @@ export function IdeTab({ project: p }: { project: Project }) {
           }
           description={
             hasPhp
-              ? t("Run PHP, Composer, PHPUnit and Artisan inside the project container from your IDE. PhpStorm: Settings → PHP → CLI Interpreter → “…” → From Docker, Vagrant, VM, WSL, Remote… → SSH. VS Code: Remote-SSH. Plain terminal: ssh.")
+              ? t("Run PHP, Composer, PHPUnit and Artisan inside the project container from your IDE. PhpStorm: Settings → PHP → CLI Interpreter → “…” → “+” → From Docker, Vagrant, VM, WSL, Remote… → SSH, then Path mappings: the project folder → /var/www/html. VS Code: Remote-SSH. Plain terminal: ssh.")
               : app === "python"
                 ? t("Run python, pip and pytest inside the project container from your IDE. PyCharm: Settings → Project → Python Interpreter → Add Interpreter → On SSH…, interpreter path from below. VS Code: Remote-SSH. Plain terminal: ssh.")
                 : t("Run node, npm and your test runner inside the project container from your IDE. WebStorm: Settings → Languages & Frameworks → Node.js → Node interpreter → Add… → SSH. VS Code: Remote-SSH. Plain terminal: ssh.")

@@ -501,7 +501,6 @@
   "Rotate password": "Passwort rotieren",
   "Rotation failed": "Rotation fehlgeschlagen",
   "Run": "Ausführen",
-  "Run PHP, Composer, PHPUnit and Artisan inside the project container from your IDE. PhpStorm: Settings → PHP → CLI Interpreter → “…” → From Docker, Vagrant, VM, WSL, Remote… → SSH. VS Code: Remote-SSH. Plain terminal: ssh.": "Führe PHP, Composer, PHPUnit und Artisan aus deiner IDE im Projekt-Container aus. PhpStorm: Settings → PHP → CLI Interpreter → „…“ → From Docker, Vagrant, VM, WSL, Remote… → SSH. VS Code: Remote-SSH. Terminal: ssh.",
   "Run a dev server": "Dev-Server ausführen",
   "Run the full PhpStorm/WebStorm backend inside the project container and work with the thin client. Needs a capable server: 2–4 GB RAM and CPU per open project. Nothing runs until you connect.": "Lässt das komplette PhpStorm-/WebStorm-Backend im Projekt-Container laufen; du arbeitest mit dem Thin Client. Braucht einen leistungsfähigen Server: 2–4 GB RAM und CPU pro offenem Projekt. Nichts läuft, bis du dich verbindest.",
   "Run {{label}}?": "{{label}} ausführen?",
@@ -1549,5 +1548,6 @@
   "Code already on your machine (e.g. a Git clone)? Settings → Build, Execution, Deployment → Deployment → + → SFTP with the same values, “Use as Default”, then Tools → Deployment → Automatic Upload.": "Code schon auf deinem Rechner (z. B. ein Git-Clone)? Settings → Build, Execution, Deployment → Deployment → + → SFTP mit denselben Werten, „Use as Default“, dann Tools → Deployment → Automatic Upload.",
   "On the first connection the IDE shows the host key as MD5 – compare it with “Host key (MD5)” under Remote interpreter. No local copy wanted? Open the network share directly or use JetBrains Gateway.": "Beim ersten Verbinden zeigt die IDE den Host-Key als MD5 – vergleiche ihn mit „Host-Key (MD5)“ unter Remote-Interpreter. Keine lokale Kopie gewünscht? Öffne die Netzwerkfreigabe direkt oder nutze JetBrains Gateway.",
   "Host key (MD5)": "Host-Key (MD5)",
-  "Web server URL": "Web-Server-URL"
+  "Web server URL": "Web-Server-URL",
+  "Run PHP, Composer, PHPUnit and Artisan inside the project container from your IDE. PhpStorm: Settings → PHP → CLI Interpreter → “…” → “+” → From Docker, Vagrant, VM, WSL, Remote… → SSH, then Path mappings: the project folder → /var/www/html. VS Code: Remote-SSH. Plain terminal: ssh.": "Führe PHP, Composer, PHPUnit und Artisan aus deiner IDE im Projekt-Container aus. PhpStorm: Settings → PHP → CLI Interpreter → „…“ → „+“ → From Docker, Vagrant, VM, WSL, Remote… → SSH, dann Path mappings: Projektordner → /var/www/html. VS Code: Remote-SSH. Terminal: ssh."
 }

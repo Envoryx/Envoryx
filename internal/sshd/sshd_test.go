@@ -523,3 +523,73 @@ func TestFingerprintsNameTheServedKey(t *testing.T) {
 		t.Errorf("FingerprintMD5() = %s, want %s", got, want)
 	}
 }
+
+// PhpStorm's remote interpreter checks over SFTP that the interpreter exists and uploads its
+// helpers to ~/.phpstorm_helpers; neither worked while SFTP only knew the bind mounts and
+// started in "/".
+func TestSFTPServesWhatIDEInterpretersNeed(t *testing.T) {
+	e := newEnv(t)
+	var statted []string
+	e.engine.ExecHandler = func(container string, cmd []string, env []string) (docker.ExecResult, error) {
+		if cmd[0] != "stat" {
+			return docker.ExecResult{ExitCode: 0}, nil
+		}
+		statted = append(statted, container+" "+strings.Join(cmd, " "))
+		if cmd[len(cmd)-1] == "/usr/local/bin/php" {
+			return docker.ExecResult{Stdout: "81ed 21784656 1789777866\n"}, nil
+		}
+		return docker.ExecResult{ExitCode: 1, Stderr: "stat: cannot statx: No such file or directory"}, nil
+	}
+	client, err := e.dial(t, "shop", ssh.Password(e.token))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer client.Close()
+	sc, err := sftp.NewClient(client)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer sc.Close()
+
+	for _, stat := range []func(string) (os.FileInfo, error){sc.Lstat, sc.Stat} {
+		info, err := stat("/usr/local/bin/php")
+		if err != nil {
+			t.Fatalf("interpreter stat: %v", err)
+		}
+		if info.Size() != 21784656 || info.Mode() != 0o755 || info.ModTime().Unix() != 1789777866 {
+			t.Fatalf("interpreter stat: size %d mode %v mtime %v", info.Size(), info.Mode(), info.ModTime())
+		}
+	}
+	if len(statted) != 2 || !strings.HasPrefix(statted[0], "envoryx-shop-php stat -c") || !strings.HasPrefix(statted[1], "envoryx-shop-php stat -L -c") {
+		t.Fatalf("stat commands: %q", statted)
+	}
+	if _, err := sc.Stat("/usr/local/bin/nope"); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("missing file outside the mounts: %v", err)
+	}
+	// Only metadata comes from the container; reading and writing stay confined.
+	if _, err := sc.Open("/usr/local/bin/php"); err == nil {
+		t.Fatal("reading outside the mounts must fail")
+	}
+	if _, err := sc.Create("/usr/local/bin/evil"); err == nil {
+		t.Fatal("writing outside the mounts must fail")
+	}
+
+	wd, err := sc.Getwd()
+	if err != nil || wd != "/home/envoryx" {
+		t.Fatalf("start directory: %q %v", wd, err)
+	}
+	if err := sc.Mkdir(".phpstorm_helpers"); err != nil {
+		t.Fatalf("relative mkdir: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(e.cfgDir, "projects", e.proj.Project.ID, "home", ".phpstorm_helpers")); err != nil {
+		t.Fatalf("helpers dir not in the tool home: %v", err)
+	}
+
+	_, err = sc.Lstat("/home/envoryx/.phpstorm_helpers/build.txt")
+	if !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("missing helper: %v", err)
+	}
+	if strings.Contains(err.Error(), e.cfgDir) {
+		t.Fatalf("error reveals the Envoryx-side path: %v", err)
+	}
+}
