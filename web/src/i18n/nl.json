@@ -1573,5 +1573,7 @@
   "URL (from app)": "URL (vanuit de app)",
   "URL (from your machine)": "URL (vanaf je machine)",
   "<Services tab → Show master key>": "<Tab Diensten → Master-key tonen>",
-  "<Services tab → Show API key>": "<Tab Diensten → API-key tonen>"
+  "<Services tab → Show API key>": "<Tab Diensten → API-key tonen>",
+  "Elasticsearch-compatible search engine as a single node with a persistent volume, plain HTTP without login. Injects OPENSEARCH_HOST, OPENSEARCH_PORT, OPENSEARCH_SCHEME and OPENSEARCH_URL. Needs about 1 GB of RAM.": "Elasticsearch-compatibele zoekmachine als enkele node met persistent volume, gewoon HTTP zonder login. Zet OPENSEARCH_HOST, OPENSEARCH_PORT, OPENSEARCH_SCHEME en OPENSEARCH_URL. Heeft ongeveer 1 GB RAM nodig.",
+  "OpenSearch version": "OpenSearch-versie"
 }

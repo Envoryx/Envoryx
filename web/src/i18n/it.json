@@ -1573,5 +1573,7 @@
   "URL (from app)": "URL (dall’app)",
   "URL (from your machine)": "URL (dalla tua macchina)",
   "<Services tab → Show master key>": "<Scheda Servizi → Mostra chiave master>",
-  "<Services tab → Show API key>": "<Scheda Servizi → Mostra chiave API>"
+  "<Services tab → Show API key>": "<Scheda Servizi → Mostra chiave API>",
+  "Elasticsearch-compatible search engine as a single node with a persistent volume, plain HTTP without login. Injects OPENSEARCH_HOST, OPENSEARCH_PORT, OPENSEARCH_SCHEME and OPENSEARCH_URL. Needs about 1 GB of RAM.": "Motore di ricerca compatibile con Elasticsearch come nodo singolo con volume persistente, HTTP semplice senza login. Imposta OPENSEARCH_HOST, OPENSEARCH_PORT, OPENSEARCH_SCHEME e OPENSEARCH_URL. Richiede circa 1 GB di RAM.",
+  "OpenSearch version": "Versione di OpenSearch"
 }

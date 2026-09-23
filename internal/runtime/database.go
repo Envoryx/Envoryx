@@ -338,10 +338,11 @@ func DatabaseEnv(cfg DatabaseConfig, variant string) map[string]string {
 }
 
 // ServiceConfig is the configuration of auxiliary services (Redis, Memcached, Mailpit,
-// RabbitMQ, Meilisearch, Typesense).
+// RabbitMQ, Meilisearch, Typesense, OpenSearch).
 type ServiceConfig struct {
 	// HostPort publishes the service's primary port (Redis 6379, Memcached 11211, Mailpit
-	// web UI 8025, RabbitMQ AMQP 5672, Meilisearch 7700, Typesense 8108) on the host.
+	// web UI 8025, RabbitMQ AMQP 5672, Meilisearch 7700, Typesense 8108, OpenSearch 9200) on
+	// the host.
 	HostPort int `json:"hostPort"`
 	// WebUIPort publishes RabbitMQ's management UI (15672); it is always published.
 	WebUIPort int `json:"webUiPort,omitempty"`
@@ -392,6 +393,7 @@ func RabbitMQEnv(cfg ServiceConfig) map[string]string {
 const (
 	MeilisearchPort = 7700
 	TypesensePort   = 8108
+	OpenSearchPort  = 9200
 )
 
 // NewSearchConfig generates the admin key of a Meilisearch or Typesense service. The
@@ -430,6 +432,22 @@ func TypesenseEnv(cfg ServiceConfig) map[string]string {
 		"TYPESENSE_PROTOCOL": "http",
 		"TYPESENSE_API_KEY":  cfg.APIKey,
 		"TYPESENSE_URL":      fmt.Sprintf("http://typesense:%d", TypesensePort),
+	}
+}
+
+// OpenSearchEnvKeys lists the variables OpenSearchEnv returns, in injection order.
+var OpenSearchEnvKeys = []string{"OPENSEARCH_HOST", "OPENSEARCH_PORT", "OPENSEARCH_SCHEME", "OPENSEARCH_URL"}
+
+// OpenSearchEnv returns the variables injected for an OpenSearch service. The security
+// plugin is off (plain HTTP, no login), so there is nothing secret. ELASTICSEARCH_* is
+// deliberately not set: current Elasticsearch clients refuse to talk to OpenSearch, and a
+// project reading those names should say so itself.
+func OpenSearchEnv() map[string]string {
+	return map[string]string{
+		"OPENSEARCH_HOST":   "opensearch",
+		"OPENSEARCH_PORT":   strconv.Itoa(OpenSearchPort),
+		"OPENSEARCH_SCHEME": "http",
+		"OPENSEARCH_URL":    fmt.Sprintf("http://opensearch:%d", OpenSearchPort),
 	}
 }
 

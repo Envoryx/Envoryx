@@ -1609,5 +1609,7 @@
   "URL (from app)": "URL (із застосунку)",
   "URL (from your machine)": "URL (з вашого комп’ютера)",
   "<Services tab → Show master key>": "<Вкладка «Сервіси» → Показати майстер-ключ>",
-  "<Services tab → Show API key>": "<Вкладка «Сервіси» → Показати API-ключ>"
+  "<Services tab → Show API key>": "<Вкладка «Сервіси» → Показати API-ключ>",
+  "Elasticsearch-compatible search engine as a single node with a persistent volume, plain HTTP without login. Injects OPENSEARCH_HOST, OPENSEARCH_PORT, OPENSEARCH_SCHEME and OPENSEARCH_URL. Needs about 1 GB of RAM.": "Сумісний з Elasticsearch пошуковий рушій у вигляді одного вузла з постійним томом, звичайний HTTP без входу. Задає OPENSEARCH_HOST, OPENSEARCH_PORT, OPENSEARCH_SCHEME і OPENSEARCH_URL. Потребує близько 1 ГБ ОЗП.",
+  "OpenSearch version": "Версія OpenSearch"
 }

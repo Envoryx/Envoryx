@@ -633,3 +633,71 @@ func TestIntegrationSearch(t *testing.T) {
 		return err
 	})
 }
+
+// TestIntegrationOpenSearch starts the catalogue's default OpenSearch as a single node
+// without the security plugin – which also has to get past the bootstrap checks without
+// vm.max_map_count on the host – and checks that an index survives a rebuilt container.
+func TestIntegrationOpenSearch(t *testing.T) {
+	m := integrationManager(t)
+	ctx := context.Background()
+	view, err := m.Create(ctx, CreateRequest{Name: "Envoryx Integration OpenSearch", CreateStarter: true, Start: true, OpenSearch: &ExtraRequest{}})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	id, slug := view.Project.ID, view.Project.Slug
+	t.Cleanup(func() {
+		if err := m.Delete(context.Background(), id, DeleteOptions{Confirm: slug, DeleteFiles: true}); err != nil {
+			t.Errorf("cleanup: %v", err)
+		}
+	})
+	restarting := map[store.ServiceKind]int{}
+	curl := func(args ...string) (string, error) {
+		if err := crashLooping(t, m, id, restarting); err != nil {
+			return "", err
+		}
+		v, err := m.Get(ctx, id)
+		if err != nil {
+			return "", err
+		}
+		for _, s := range v.Status.Services {
+			// Not every engine reports health in its container list (see statefulServices).
+			if s.Kind == store.ServiceOpenSearch && (s.State != "running" || (s.Health != "" && s.Health != "healthy")) {
+				return "", fmt.Errorf("opensearch is %s (health %s)", s.State, s.Health)
+			}
+		}
+		c, err := m.ServiceContainer(ctx, id, store.ServiceOpenSearch)
+		if err != nil {
+			return "", err
+		}
+		res, err := m.engine.Exec(ctx, c.ID, append([]string{"curl", "-fsS"}, args...), nil)
+		if err != nil {
+			return "", err
+		}
+		if res.ExitCode != 0 {
+			return "", fmt.Errorf("curl %v: exit %d: %s%s", args, res.ExitCode, res.Stdout, res.Stderr)
+		}
+		return res.Stdout, nil
+	}
+	waitFor(t, "opensearch creates an index", 4*time.Minute, func() error {
+		_, err := curl("-X", "PUT", "http://127.0.0.1:9200/persisted")
+		return err
+	})
+
+	c, err := m.ServiceContainer(ctx, id, store.ServiceOpenSearch)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := m.engine.RemoveContainer(ctx, c.ID); err != nil {
+		t.Fatalf("remove opensearch container: %v", err)
+	}
+	if _, err := m.Start(ctx, id); err != nil {
+		t.Fatalf("restart after removal: %v", err)
+	}
+	waitFor(t, "opensearch keeps its index after the rebuild", 4*time.Minute, func() error {
+		out, err := curl("http://127.0.0.1:9200/_cat/indices/persisted")
+		if err == nil && !strings.Contains(out, "persisted") {
+			return fmt.Errorf("index gone: %q", out)
+		}
+		return err
+	})
+}

@@ -1639,14 +1639,14 @@ func TestMemcachedEndpoints(t *testing.T) {
 func TestSearchEndpoints(t *testing.T) {
 	a := newApp(t)
 	a.setupAndLogin()
-	create := map[string]any{"name": "Search", "createStarter": true, "start": true, "php": map[string]any{"version": "8.4"}, "meilisearch": map[string]any{}, "typesense": map[string]any{"exposePort": true}}
+	create := map[string]any{"name": "Search", "createStarter": true, "start": true, "php": map[string]any{"version": "8.4"}, "meilisearch": map[string]any{}, "typesense": map[string]any{"exposePort": true}, "opensearch": map[string]any{}}
 	r := a.do(http.MethodPost, "/api/v1/projects", create, true)
 	if r.status != http.StatusCreated {
 		t.Fatalf("create: %d %s", r.status, r.raw)
 	}
 	id := r.body["project"].(map[string]any)["id"].(string)
 	r = a.do(http.MethodGet, "/api/v1/projects/"+id+"/extras", nil, false)
-	if r.status != http.StatusOK || len(r.body["services"].([]any)) != 2 {
+	if r.status != http.StatusOK || len(r.body["services"].([]any)) != 3 {
 		t.Fatalf("extras: %d %s", r.status, r.raw)
 	}
 	for _, kind := range []string{"meilisearch", "typesense"} {
@@ -1671,5 +1671,14 @@ func TestSearchEndpoints(t *testing.T) {
 		if r.status != http.StatusNotFound {
 			t.Fatalf("%s credentials after removal: %d %s", kind, r.status, r.raw)
 		}
+	}
+	// OpenSearch has no key; its logs and removal work like the others'.
+	r = a.do(http.MethodGet, "/api/v1/projects/"+id+"/services/opensearch/logs?tail=5", nil, false)
+	if r.status != http.StatusOK {
+		t.Fatalf("opensearch logs: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodPatch, "/api/v1/projects/"+id, map[string]any{"opensearch": map[string]any{"enabled": false, "removeData": true}}, true)
+	if r.status != http.StatusOK {
+		t.Fatalf("opensearch remove: %d %s", r.status, r.raw)
 	}
 }

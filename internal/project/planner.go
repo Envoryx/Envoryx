@@ -595,6 +595,40 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 			plan.Containers = append(plan.Containers, ContainerPlan{Kind: store.ServiceTypesense, Order: 9, Spec: spec})
 			images[svc.Image] = true
 
+		case store.ServiceOpenSearch:
+			var cfg runtime.ServiceConfig
+			if err := json.Unmarshal(svc.Config, &cfg); err != nil {
+				return Plan{}, fmt.Errorf("opensearch config: %w", err)
+			}
+			volume := VolumeName(proj.Slug, store.ServiceOpenSearch)
+			plan.Volumes = append(plan.Volumes, volume)
+			spec := docker.ContainerSpec{
+				Name:   ContainerName(proj.Slug, store.ServiceOpenSearch),
+				Image:  svc.Image,
+				Labels: labels,
+				// A development node: one node (which also skips the production bootstrap
+				// checks such as vm.max_map_count), plain HTTP without the security plugin
+				// and its demo certificates, and a heap that leaves room for other projects.
+				Env: []string{
+					"discovery.type=single-node",
+					"DISABLE_SECURITY_PLUGIN=true",
+					"DISABLE_INSTALL_DEMO_CONFIG=true",
+					"OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m",
+				},
+				Network:       plan.NetworkName,
+				NetworkAlias:  []string{"opensearch"},
+				Mounts:        []docker.MountSpec{{Type: "volume", Source: volume, Target: "/usr/share/opensearch/data"}},
+				RestartPolicy: "unless-stopped",
+				StopTimeout:   30,
+				// Yellow is the normal state of a single node: replicas have nowhere to go.
+				Healthcheck: &docker.HealthSpec{Test: []string{"curl", "-fsS", "-o", "/dev/null", fmt.Sprintf("http://127.0.0.1:%d/_cluster/health?wait_for_status=yellow&timeout=2s", runtime.OpenSearchPort)}, Interval: 10 * time.Second, Timeout: 5 * time.Second, StartPeriod: 60 * time.Second, Retries: 5},
+			}
+			if cfg.HostPort > 0 {
+				spec.Ports = []docker.PortSpec{{HostIP: p.paths.PublishInterface, HostPort: cfg.HostPort, ContainerPort: runtime.OpenSearchPort, Protocol: "tcp"}}
+			}
+			plan.Containers = append(plan.Containers, ContainerPlan{Kind: store.ServiceOpenSearch, Order: 9, Spec: spec})
+			images[svc.Image] = true
+
 		case store.ServiceStorage:
 			var cfg runtime.StorageConfig
 			if err := json.Unmarshal(svc.Config, &cfg); err != nil {
@@ -844,6 +878,12 @@ func (p *Planner) envStrings(proj store.Project) ([]string, error) {
 		}
 		env := search.env(cfg)
 		for _, k := range search.keys {
+			set(k, env[k])
+		}
+	}
+	if search := proj.Service(store.ServiceOpenSearch); search != nil && search.Enabled {
+		env := runtime.OpenSearchEnv()
+		for _, k := range runtime.OpenSearchEnvKeys {
 			set(k, env[k])
 		}
 	}

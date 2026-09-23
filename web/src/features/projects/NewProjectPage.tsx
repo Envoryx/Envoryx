@@ -67,6 +67,9 @@ interface Form {
   meilisearch: boolean;
   typesense: boolean;
   typesenseExpose: boolean;
+  opensearch: boolean;
+  opensearchVersion: string;
+  opensearchExpose: boolean;
   storage: boolean;
   template: string; // "" = blank
   gitUrl: string;
@@ -139,6 +142,9 @@ export function NewProjectPage() {
         meilisearch: false,
         typesense: false,
         typesenseExpose: false,
+        opensearch: false,
+        opensearchVersion: runtimes.data.runtimes.find((r) => r.key === "opensearch")?.versions.find((v) => v.default)?.version ?? "",
+        opensearchExpose: false,
         storage: false,
         template: "",
         gitUrl: "",
@@ -182,6 +188,7 @@ export function NewProjectPage() {
     if (form.rabbitmq) req.rabbitmq = { version: form.rabbitmqVersion, exposePort: form.rabbitmqExpose };
     if (form.meilisearch) req.meilisearch = {};
     if (form.typesense) req.typesense = { exposePort: form.typesenseExpose };
+    if (form.opensearch) req.opensearch = { version: form.opensearchVersion, exposePort: form.opensearchExpose };
     if (form.storage) req.storage = {};
     if (form.template) req.template = form.template;
     if (form.gitUrl.trim() && !form.template) {
@@ -638,6 +645,27 @@ export function NewProjectPage() {
                   {form.typesense && (
                     <div className="pl-7">
                       <Checkbox label={t("Publish port on the host")} description={t("For clients and dashboards running on your machine.")} checked={form.typesenseExpose} onChange={(e) => set({ typesenseExpose: e.target.checked })} />
+                    </div>
+                  )}
+                </div>
+                <div className="rounded-md border border-default p-4 space-y-3">
+                  <Checkbox label="OpenSearch" description={t("Elasticsearch-compatible search engine as a single node with a persistent volume, plain HTTP without login. Injects OPENSEARCH_HOST, OPENSEARCH_PORT, OPENSEARCH_SCHEME and OPENSEARCH_URL. Needs about 1 GB of RAM.")} checked={form.opensearch} onChange={(e) => set({ opensearch: e.target.checked })} />
+                  {form.opensearch && (
+                    <div className="grid gap-4 pl-7 sm:grid-cols-2">
+                      <Field label={t("OpenSearch version")} htmlFor="opensearch-version">
+                        <Select id="opensearch-version" value={form.opensearchVersion} onChange={(e) => set({ opensearchVersion: e.target.value })}>
+                          {services
+                            .find((s) => s.key === "opensearch")
+                            ?.versions.map((v) => (
+                              <option key={v.version} value={v.version}>
+                                {v.label}
+                              </option>
+                            ))}
+                        </Select>
+                      </Field>
+                      <div className="self-end pb-1">
+                        <Checkbox label={t("Publish port on the host")} description={t("For clients and dashboards running on your machine.")} checked={form.opensearchExpose} onChange={(e) => set({ opensearchExpose: e.target.checked })} />
+                      </div>
                     </div>
                   )}
                 </div>

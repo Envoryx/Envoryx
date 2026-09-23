@@ -38,6 +38,7 @@ type CreateRequest struct {
 	RabbitMQ    *ExtraRequest
 	Meilisearch *ExtraRequest
 	Typesense   *ExtraRequest
+	OpenSearch  *ExtraRequest
 	Storage     *StorageRequest
 	Web         WebRequest
 	Git         *GitRequest
@@ -93,7 +94,7 @@ type PythonUpdate struct {
 }
 
 // ExtraRequest selects an auxiliary service (Redis, Memcached, Mailpit, RabbitMQ,
-// Meilisearch, Typesense).
+// Meilisearch, Typesense, OpenSearch).
 type ExtraRequest struct {
 	Version    string
 	ExposePort bool
@@ -121,7 +122,7 @@ type ExtraUpdate struct {
 	Version    string
 	ExposePort bool
 	// RemoveData must be true to remove a service that owns a volume (Redis, RabbitMQ,
-	// Meilisearch, Typesense).
+	// Meilisearch, Typesense, OpenSearch).
 	RemoveData bool
 }
 
@@ -174,6 +175,7 @@ type UpdateRequest struct {
 	RabbitMQ    *ExtraUpdate
 	Meilisearch *ExtraUpdate
 	Typesense   *ExtraUpdate
+	OpenSearch  *ExtraUpdate
 	Storage     *StorageUpdate
 	Env         *[]EnvVarRequest
 	// IDEGateway toggles JetBrains Gateway support (port forwarding + shared IDE cache).

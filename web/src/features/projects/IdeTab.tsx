@@ -38,7 +38,7 @@ export function IdeTab({ project: p }: { project: Project }) {
   const sshHost = s?.proxy?.address || host;
   const mailpit = extras.data?.find((e) => e.kind === "mailpit");
   const rabbitmq = extras.data?.find((e) => e.kind === "rabbitmq");
-  const searchEngines = extras.data?.filter((e) => e.kind === "meilisearch" || e.kind === "typesense") ?? [];
+  const searchEngines = extras.data?.filter((e) => e.kind === "meilisearch" || e.kind === "typesense" || e.kind === "opensearch") ?? [];
   const update = useUpdateProject(p.id);
   const [gwMsg, setGwMsg] = useState<{ tone: "green" | "red"; text: string } | null>(null);
   const stopBackend = useMutation({
@@ -377,7 +377,7 @@ export function IdeTab({ project: p }: { project: Project }) {
           <CardHeader
             title={
               <span className="flex items-center gap-2">
-                <Search className="size-4 text-accent-500" aria-hidden /> {e.kind === "meilisearch" ? "Meilisearch" : "Typesense"}
+                <Search className="size-4 text-accent-500" aria-hidden /> {e.kind === "meilisearch" ? "Meilisearch" : e.kind === "typesense" ? "Typesense" : "OpenSearch"}
               </span>
             }
           />
@@ -385,7 +385,7 @@ export function IdeTab({ project: p }: { project: Project }) {
             <dl>
               <CopyRow label={t("URL (from app)")} value={`http://${e.host}:${e.port}`} />
               <CopyRow label={t("URL (from your machine)")} value={e.hostPort ? `http://${host}:${e.hostPort}` : t("not published")} />
-              <CopyRow label={e.kind === "meilisearch" ? t("Master key") : t("API key")} value={e.kind === "meilisearch" ? t("<Services tab → Show master key>") : t("<Services tab → Show API key>")} mono={false} />
+              {e.kind !== "opensearch" && <CopyRow label={e.kind === "meilisearch" ? t("Master key") : t("API key")} value={e.kind === "meilisearch" ? t("<Services tab → Show master key>") : t("<Services tab → Show API key>")} mono={false} />}
             </dl>
           </div>
         </Card>

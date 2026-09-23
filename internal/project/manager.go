@@ -310,6 +310,13 @@ func (m *Manager) buildProject(req CreateRequest) (store.Project, error) {
 		}
 		proj.Services = append(proj.Services, svc)
 	}
+	if req.OpenSearch != nil {
+		svc, err := m.buildExtraService(store.ServiceOpenSearch, req.OpenSearch.Version)
+		if err != nil {
+			return store.Project{}, err
+		}
+		proj.Services = append(proj.Services, svc)
+	}
 	if req.Storage != nil {
 		svc, err := m.buildStorageService(proj.Slug, req.Storage.Version, req.Storage.PublicRead)
 		if err != nil {
@@ -444,6 +451,8 @@ func (m *Manager) buildExtraService(kind store.ServiceKind, version string) (sto
 		if raw, err = json.Marshal(cfg); err != nil {
 			return store.ProjectService{}, err
 		}
+		position = 9
+	case store.ServiceOpenSearch:
 		position = 9
 	}
 	return store.ProjectService{Kind: kind, Variant: string(kind), Version: v.Version, Image: v.Image, Enabled: true, Config: raw, Position: position}, nil
@@ -644,7 +653,7 @@ func (m *Manager) collectUsedPorts(ctx context.Context, used map[int]bool) error
 }
 
 // assignServicePorts allocates host ports for services the request wants published
-// (database, Redis, Memcached, RabbitMQ, Typesense) and always for the web UIs of Mailpit,
+// (database, Redis, Memcached, RabbitMQ, Typesense, OpenSearch) and always for the web UIs of Mailpit,
 // RabbitMQ and Meilisearch. Ports already chosen for this project are excluded so the
 // allocations do not collide with each other.
 func (m *Manager) assignServicePorts(ctx context.Context, proj *store.Project, req CreateRequest) error {
@@ -706,6 +715,11 @@ func (m *Manager) assignServicePorts(ctx context.Context, proj *store.Project, r
 	}
 	if req.Typesense != nil && req.Typesense.ExposePort {
 		if err := assign(store.ServiceTypesense); err != nil {
+			return err
+		}
+	}
+	if req.OpenSearch != nil && req.OpenSearch.ExposePort {
+		if err := assign(store.ServiceOpenSearch); err != nil {
 			return err
 		}
 	}
@@ -857,7 +871,7 @@ func (m *Manager) resolveImages(p *store.Project) {
 			key = "node"
 		case store.ServicePython:
 			key = "python"
-		case store.ServiceRedis, store.ServiceMemcached, store.ServiceMailpit, store.ServiceRabbitMQ, store.ServiceMeilisearch, store.ServiceTypesense:
+		case store.ServiceRedis, store.ServiceMemcached, store.ServiceMailpit, store.ServiceRabbitMQ, store.ServiceMeilisearch, store.ServiceTypesense, store.ServiceOpenSearch:
 			key = string(svc.Kind)
 		case store.ServiceWeb, store.ServiceDatabase, store.ServiceStorage:
 			key = svc.Variant

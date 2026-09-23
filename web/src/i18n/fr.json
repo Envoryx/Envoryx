@@ -1573,5 +1573,7 @@
   "URL (from app)": "URL (depuis l’app)",
   "URL (from your machine)": "URL (depuis votre machine)",
   "<Services tab → Show master key>": "<Onglet Services → Afficher la clé maître>",
-  "<Services tab → Show API key>": "<Onglet Services → Afficher la clé API>"
+  "<Services tab → Show API key>": "<Onglet Services → Afficher la clé API>",
+  "Elasticsearch-compatible search engine as a single node with a persistent volume, plain HTTP without login. Injects OPENSEARCH_HOST, OPENSEARCH_PORT, OPENSEARCH_SCHEME and OPENSEARCH_URL. Needs about 1 GB of RAM.": "Moteur de recherche compatible Elasticsearch en nœud unique avec volume persistant, HTTP simple sans authentification. Injecte OPENSEARCH_HOST, OPENSEARCH_PORT, OPENSEARCH_SCHEME et OPENSEARCH_URL. Nécessite environ 1 Go de RAM.",
+  "OpenSearch version": "Version d’OpenSearch"
 }

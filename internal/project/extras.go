@@ -15,7 +15,7 @@ import (
 // extraOwnsVolume reports whether an auxiliary service keeps persistent data.
 func extraOwnsVolume(kind store.ServiceKind) bool {
 	switch kind {
-	case store.ServiceRedis, store.ServiceRabbitMQ, store.ServiceMeilisearch, store.ServiceTypesense, store.ServiceStorage:
+	case store.ServiceRedis, store.ServiceRabbitMQ, store.ServiceMeilisearch, store.ServiceTypesense, store.ServiceOpenSearch, store.ServiceStorage:
 		return true
 	}
 	return false
@@ -29,7 +29,7 @@ func extraAlwaysPublished(kind store.ServiceKind) bool {
 }
 
 // extraKinds are the auxiliary services ExtraServices describes.
-var extraKinds = []store.ServiceKind{store.ServiceRedis, store.ServiceMemcached, store.ServiceMailpit, store.ServiceRabbitMQ, store.ServiceMeilisearch, store.ServiceTypesense}
+var extraKinds = []store.ServiceKind{store.ServiceRedis, store.ServiceMemcached, store.ServiceMailpit, store.ServiceRabbitMQ, store.ServiceMeilisearch, store.ServiceTypesense, store.ServiceOpenSearch}
 
 // setWebUIPort stores the host port of RabbitMQ's management UI.
 func setWebUIPort(svc *store.ProjectService, port int) error {
@@ -90,6 +90,10 @@ func (m *Manager) ExtraServices(ctx context.Context, id string) ([]ExtraServiceI
 			info.Host, info.Port = "typesense", runtime.TypesensePort
 			info.VolumeName = VolumeName(view.Project.Slug, store.ServiceTypesense)
 			info.InjectedEnv = append(info.InjectedEnv, runtime.TypesenseEnvKeys...)
+		case store.ServiceOpenSearch:
+			info.Host, info.Port = "opensearch", runtime.OpenSearchPort
+			info.VolumeName = VolumeName(view.Project.Slug, store.ServiceOpenSearch)
+			info.InjectedEnv = append(info.InjectedEnv, runtime.OpenSearchEnvKeys...)
 		}
 		sort.Strings(info.InjectedEnv)
 		for _, s := range view.Status.Services {
@@ -148,7 +152,7 @@ func (m *Manager) SearchCredentials(ctx context.Context, id string, kind store.S
 }
 
 // applyExtraUpdate adds, changes or removes Redis/Memcached/Mailpit/RabbitMQ/Meilisearch/
-// Typesense. Callers hold the project lock.
+// Typesense/OpenSearch. Callers hold the project lock.
 // It returns whether application containers must be recreated (their env changes).
 func (m *Manager) applyExtraUpdate(ctx context.Context, p store.Project, kind store.ServiceKind, upd ExtraUpdate, changes map[string]any) (bool, error) {
 	svc := p.Service(kind)

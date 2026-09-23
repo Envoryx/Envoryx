@@ -32,7 +32,7 @@ func TestResolve(t *testing.T) {
 	if _, err := c.Resolve("php", "5.6"); !errors.Is(err, validate.ErrInvalid) {
 		t.Fatalf("unknown version must be invalid, got %v", err)
 	}
-	for _, key := range []string{"mariadb", "mysql", "postgresql", "redis", "memcached", "mailpit", "rabbitmq", "meilisearch", "typesense", "node", "caddy", "apache", "nginx"} {
+	for _, key := range []string{"mariadb", "mysql", "postgresql", "redis", "memcached", "mailpit", "rabbitmq", "meilisearch", "typesense", "opensearch", "node", "caddy", "apache", "nginx"} {
 		if _, err := c.Resolve(key, ""); err != nil {
 			t.Errorf("%s must be available: %v", key, err)
 		}
