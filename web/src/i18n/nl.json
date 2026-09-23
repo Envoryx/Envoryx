@@ -1523,5 +1523,19 @@
   "Envoryx containers carry the Envoryx icon. With the FolderView3 plugin they can also be sorted into a folder automatically.": "Envoryx-containers dragen het Envoryx-pictogram. Met de plugin FolderView3 kunnen ze ook automatisch in een map worden ingedeeld.",
   "FolderView3 folder": "FolderView3-map",
   "Create a folder with exactly this name in FolderView3 first. Leave empty for no label – a folder with the regex ^envoryx- collects the containers as well.": "Maak in FolderView3 eerst een map met precies deze naam aan. Laat leeg voor geen label – een map met de regex ^envoryx- verzamelt de containers ook.",
-  "Saved. Projects move into the folder the next time they are started.": "Opgeslagen. Projecten gaan bij de volgende start naar de map."
+  "Saved. Projects move into the folder the next time they are started.": "Opgeslagen. Projecten gaan bij de volgende start naar de map.",
+  "DNS for *.{{base}}": "DNS voor *.{{base}}",
+  "One wildcard entry in the DNS server of your network points every name under {{base}} at {{ip}} – current and future projects alike.": "Eén wildcard-item in de DNS-server van je netwerk stuurt elke naam onder {{base}} naar {{ip}} – voor huidige en toekomstige projecten.",
+  "Replace <server-ip> with the address of the Docker host.": "Vervang <server-ip> door het adres van de Docker-host.",
+  "DNS server": "DNS-server",
+  "Filters → DNS rewrites → Add DNS rewrite. Domain: *.{{base}}, answer: {{ip}}.": "Filters → DNS rewrites → Add DNS rewrite. Domein: *.{{base}}, antwoord: {{ip}}.",
+  "Local DNS records cannot hold a wildcard, so the entry goes into dnsmasq, which Pi-hole is built on.": "Lokale DNS-records kunnen geen wildcard bevatten, dus het item gaat in dnsmasq, waarop Pi-hole is gebouwd.",
+  "Pi-hole 6: Settings → All settings (Expert mode) → Miscellaneous → misc.dnsmasq_lines, add the line, then Save & Apply.": "Pi-hole 6: Settings → All settings (Expert-modus) → Miscellaneous → misc.dnsmasq_lines, voeg de regel toe en kies Save & Apply.",
+  "Pi-hole 5: put the line into /etc/dnsmasq.d/99-envoryx.conf and run pihole restartdns.": "Pi-hole 5: zet de regel in /etc/dnsmasq.d/99-envoryx.conf en voer pihole restartdns uit.",
+  "Add the line to the dnsmasq configuration and restart dnsmasq. On OpenWrt the command below does both.": "Voeg de regel toe aan de dnsmasq-configuratie en herstart dnsmasq. Op OpenWrt doet de opdracht hieronder beide.",
+  "pfSense: Services → DNS Resolver → Custom options. OPNsense and standalone Unbound: a .conf file in the include directory (OPNsense: /usr/local/etc/unbound.opnsense.d/), then restart Unbound.": "pfSense: Services → DNS Resolver → Custom options. OPNsense en losse Unbound: een .conf-bestand in de include-map (OPNsense: /usr/local/etc/unbound.opnsense.d/), herstart daarna Unbound.",
+  "Hosts file": "Hosts-bestand",
+  "For routers that cannot do wildcard entries, such as a FritzBox: one line in the hosts file of every device. Each new project or domain needs to be added by hand.": "Voor routers zonder wildcard-items, zoals een FritzBox: één regel in het hosts-bestand van elk apparaat. Elk nieuw project of domein moet met de hand worden toegevoegd.",
+  "Linux and macOS: /etc/hosts. Windows: C:\\Windows\\System32\\drivers\\etc\\hosts (as administrator).": "Linux en macOS: /etc/hosts. Windows: C:\\Windows\\System32\\drivers\\etc\\hosts (als beheerder).",
+  "If the Docker host uses the same DNS server, project containers resolve these names too, for example when an application calls its own URL. Settings → Diagnostics checks both.": "Gebruikt de Docker-host dezelfde DNS-server, dan lossen ook de projectcontainers deze namen op, bijvoorbeeld wanneer een applicatie haar eigen URL aanroept. Instellingen → Diagnose controleert beide."
 }

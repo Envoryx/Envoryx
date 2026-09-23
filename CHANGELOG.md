@@ -11,6 +11,13 @@ release). `:main` follows the development branch.
 ## [Unreleased]
 
 ### Added
+- DNS setup guide under *Settings → Domains & HTTPS*. A single wildcard entry
+  sends every project name to Envoryx. The card shows that entry for AdGuard Home,
+  Pi-hole, dnsmasq/OpenWrt and Unbound (pfSense, OPNsense), with Envoryx's address
+  already filled in and a copy button. For routers without wildcard records, such as
+  a FritzBox, it shows the hosts-file line with every current project name.
+  DEPLOYMENT.md no longer sends Pi-hole users to *Local DNS records*, which cannot
+  hold a wildcard.
 - Tidier Unraid Docker tab. Envoryx's containers now carry the Envoryx icon
   (`net.unraid.docker.icon`) instead of the question mark, and can go into a
   [FolderView3](https://github.com/kennymc-c/folder.view3) folder automatically: enter
