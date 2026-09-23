@@ -418,7 +418,9 @@ func TestIntegrationRabbitMQ(t *testing.T) {
 			return err
 		}
 		for _, s := range v.Status.Services {
-			if s.Kind == store.ServiceRabbitMQ && (s.State != "running" || s.Health != "healthy") {
+			// Not every engine reports health in its container list (see statefulServices);
+			// the broker answering below is the readiness signal that always works.
+			if s.Kind == store.ServiceRabbitMQ && (s.State != "running" || (s.Health != "" && s.Health != "healthy")) {
 				return fmt.Errorf("rabbitmq is %s (health %s)", s.State, s.Health)
 			}
 		}
@@ -438,20 +440,25 @@ func TestIntegrationRabbitMQ(t *testing.T) {
 		}
 		return res.Stdout, nil
 	}
-	waitFor(t, "rabbitmq healthy", 3*time.Minute, healthy)
-
 	creds, err := m.RabbitMQCredentials(ctx, id)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := ctl("rabbitmqctl", "authenticate_user", creds.Username, creds.Password); err != nil {
-		t.Fatalf("generated login: %v", err)
+	// The generated login works once the broker has initialised the volume.
+	answers := func() error {
+		if err := healthy(); err != nil {
+			return err
+		}
+		_, err := ctl("rabbitmqctl", "authenticate_user", creds.Username, creds.Password)
+		return err
 	}
+	waitFor(t, "rabbitmq accepts the generated login", 3*time.Minute, answers)
 	// Through the management API with the generated login, which also proves the UI's
-	// plugin is on.
-	if _, err := ctl("rabbitmqadmin", "--username", creds.Username, "--password", creds.Password, "declare", "queue", "--name", "persisted", "--durable", "true"); err != nil {
-		t.Fatalf("declare queue: %v", err)
-	}
+	// plugin is on. The plugin comes up a moment after the broker.
+	waitFor(t, "queue declared through the management API", time.Minute, func() error {
+		_, err := ctl("rabbitmqadmin", "--username", creds.Username, "--password", creds.Password, "declare", "queue", "--name", "persisted", "--durable", "true")
+		return err
+	})
 
 	c, err := m.ServiceContainer(ctx, id, store.ServiceRabbitMQ)
 	if err != nil {
@@ -463,7 +470,7 @@ func TestIntegrationRabbitMQ(t *testing.T) {
 	if _, err := m.Start(ctx, id); err != nil {
 		t.Fatalf("restart after removal: %v", err)
 	}
-	waitFor(t, "rabbitmq healthy after the rebuild", 3*time.Minute, healthy)
+	waitFor(t, "rabbitmq answers after the rebuild", 3*time.Minute, answers)
 	out, err := ctl("rabbitmqctl", "-q", "list_queues", "name")
 	if err != nil {
 		t.Fatal(err)
