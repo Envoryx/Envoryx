@@ -194,6 +194,7 @@ func (m *Manager) RunAction(ctx context.Context, id, actionID string, cols, rows
 		User:       fmt.Sprintf("%d:%d", paths.PUID, paths.PGID),
 		Env:        append([]string{"TERM=xterm-256color", "COLORTERM=truecolor", "LANG=C.UTF-8", "CI=1"}, toolEnv...),
 	}
+	m.ensurePasswdEntry(ctx, c.ID, c.Name, opts.User)
 	term, err = m.engine.OpenTerminal(ctx, c.ID, opts)
 	if err != nil {
 		return nil, Action{}, nil, err

@@ -183,6 +183,13 @@ release). `:main` follows the development branch.
   disappears by itself once the environment is rebuilt.
 
 ### Fixed
+- "I have no name!" in the terminal of a PHP container, and git over SSH failing there
+  with "No user exists for uid 99". The PHP container runs as root and php-fpm switches
+  users itself, but terminal, actions, `envoryx exec` and SSH work in it as PUID:PGID.
+  That uid only got a passwd entry in containers that run as it, and a newly created
+  project got none in any container until its second start. The entry is now made on
+  the first start, for the uid Envoryx works as, and made again before a terminal,
+  action or command runs, so existing containers are healed without a restart.
 - Templates and git on Unraid. The one-shot containers that scaffold a template or run
   git ran as PUID/PGID (99:100 on Unraid) without a passwd entry for that uid, so the
   Next.js template died in create-next-app ("template next failed at create-next-app:

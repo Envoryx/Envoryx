@@ -116,7 +116,10 @@ func TestDuplicateProjectWithoutFilesOrDatabase(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 	execs := 0
-	e.engine.StreamHandler = func(string, []string, []string, []byte) (string, int, error) {
+	e.engine.StreamHandler = func(_ string, cmd []string, _ []string, _ []byte) (string, int, error) {
+		if len(cmd) == 3 && strings.Contains(cmd[2], "getent passwd") {
+			return "", 0, nil // the work user's passwd entry, not a dump
+		}
 		execs++
 		return "", 0, nil
 	}

@@ -22,7 +22,13 @@ func TestExecReturnsExitCodeAndStreams(t *testing.T) {
 	}
 	var gotEnv []string
 	var gotStdin string
+	passwd := false
 	e.engine.StreamHandler = func(container string, cmd []string, env []string, stdin []byte) (string, int, error) {
+		// The PHP container runs as root, so the work user's passwd entry is made on the way.
+		if len(cmd) == 3 && strings.Contains(cmd[2], "getent passwd 1000") {
+			passwd = true
+			return "", 0, nil
+		}
 		gotEnv, gotStdin = env, string(stdin)
 		if !slices.Equal(cmd, []string{"composer", "install"}) {
 			t.Errorf("cmd = %v", cmd)
@@ -44,6 +50,9 @@ func TestExecReturnsExitCodeAndStreams(t *testing.T) {
 	}
 	if out.String() != "installed\n" || errOut.Len() != 0 {
 		t.Fatalf("stdout %q, stderr %q", out.String(), errOut.String())
+	}
+	if !passwd {
+		t.Fatal("exec must give the work user a passwd entry first")
 	}
 	if gotStdin != "yes\n" {
 		t.Fatalf("stdin = %q", gotStdin)
@@ -88,4 +97,19 @@ func TestExecNeedsARunningContainerAndACommand(t *testing.T) {
 	if _, err := e.m.Exec(ctx, view.Project.ID, store.ServiceRedis, ExecOptions{Cmd: []string{"redis-cli"}}); !errors.Is(err, store.ErrNotFound) {
 		t.Fatalf("exec into an absent service: %v", err)
 	}
+}
+
+// The PHP container runs as root (php-fpm switches users itself), but terminal, actions
+// and SSH work in it as PUID:PGID – that uid needs a passwd entry from the start on.
+func TestStartGivesThePHPWorkUserAPasswdEntry(t *testing.T) {
+	e := newEnv(t)
+	if _, err := e.m.Create(context.Background(), phpRequest("Shop", true)); err != nil {
+		t.Fatal(err)
+	}
+	for _, x := range e.engine.Execs {
+		if strings.HasPrefix(x, "envoryx-shop-php: sh -c") && strings.Contains(x, "getent passwd 1000") {
+			return
+		}
+	}
+	t.Fatalf("no passwd entry for the work user in the PHP container: %v", e.engine.Execs)
 }

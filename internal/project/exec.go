@@ -74,6 +74,7 @@ func (m *Manager) Exec(ctx context.Context, id string, kind store.ServiceKind, o
 	if err != nil {
 		return 0, err
 	}
+	m.ensurePasswdEntry(ctx, c.ID, c.Name, env.User)
 	// CI=1 keeps composer, npm and friends from asking questions nobody can answer here;
 	// the catalogue actions run with the same marker.
 	m.audit.Log(ctx, audit.ActionExec, "project", id, map[string]any{
