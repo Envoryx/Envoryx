@@ -23,6 +23,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/pkg/sftp"
@@ -61,6 +62,8 @@ type Server struct {
 	dial func(ctx context.Context, addr string) (net.Conn, error)
 	// relayTool caches per container id whether socat is available for in-namespace relays.
 	relayTool sync.Map
+	// loginGrace is the time a client has to authenticate, in nanoseconds (overridden in tests).
+	loginGrace atomic.Int64
 }
 
 // New loads or creates the host key and prepares the server configuration.
@@ -70,6 +73,7 @@ func New(d Deps) (*Server, error) {
 		return nil, err
 	}
 	s := &Server{d: d, signer: signer, limiter: newFailLimiter()}
+	s.loginGrace.Store(int64(defaultLoginGraceTime))
 	s.dial = func(ctx context.Context, addr string) (net.Conn, error) {
 		return (&net.Dialer{Timeout: 5 * time.Second}).DialContext(ctx, "tcp", addr)
 	}
@@ -278,9 +282,14 @@ func (s *Server) Run(ctx context.Context, addr string) error {
 // ServeConn handles one already accepted connection (exported for tests).
 func (s *Server) ServeConn(ctx context.Context, conn net.Conn) { s.handleConn(ctx, conn) }
 
+// defaultLoginGraceTime bounds the handshake including authentication, as OpenSSH's
+// LoginGraceTime does (same default). IDEs connect first and then ask for the password and
+// the host key, so a person is typing while the clock runs; 30 seconds cut them off mid-prompt.
+const defaultLoginGraceTime = 2 * time.Minute
+
 func (s *Server) handleConn(ctx context.Context, nc net.Conn) {
 	defer nc.Close()
-	_ = nc.SetDeadline(time.Now().Add(30 * time.Second))
+	_ = nc.SetDeadline(time.Now().Add(time.Duration(s.loginGrace.Load())))
 	sc, chans, reqs, err := ssh.NewServerConn(nc, s.config)
 	if err != nil {
 		s.d.Log.Debug("ssh handshake failed", "remote", nc.RemoteAddr(), "err", err)
