@@ -317,12 +317,16 @@ type Engine interface {
 	// RemoveNetwork removes a managed network.
 	RemoveNetwork(ctx context.Context, idOrName string) error
 	// ConnectNetwork attaches a container to a managed network (used to attach Envoryx's own
-	// container so the embedded proxy can reach project web servers).
-	ConnectNetwork(ctx context.Context, network, containerID string) error
+	// container so the embedded proxy can reach project web servers). Aliases are extra DNS
+	// names of the container on that network; they are fixed until it is reconnected.
+	ConnectNetwork(ctx context.Context, network, containerID string, aliases ...string) error
 	// DisconnectNetwork detaches a container from a managed network.
 	DisconnectNetwork(ctx context.Context, network, containerID string) error
 	// ContainerNetworks lists the network names a container is attached to.
 	ContainerNetworks(ctx context.Context, containerID string) ([]string, error)
+	// NetworkAliases lists the aliases a container was given on a network (nil when it is
+	// not attached to it).
+	NetworkAliases(ctx context.Context, network, containerID string) ([]string, error)
 	// NetworkEndpoints lists the containers currently attached to a network – the ones
 	// that would make its removal fail. A missing network yields no endpoints.
 	NetworkEndpoints(ctx context.Context, network string) ([]Endpoint, error)

@@ -27,6 +27,8 @@ type FakeContainer struct {
 	Foreign bool
 	// Extra networks the container was attached to via ConnectNetwork.
 	Attached []string
+	// Aliases per attached network.
+	Aliases map[string][]string
 }
 
 // Fake is an in-memory Engine with failure injection.
@@ -775,7 +777,7 @@ func (f *Fake) RemoveNetwork(_ context.Context, idOrName string) error {
 }
 
 // ConnectNetwork implements docker.Engine.
-func (f *Fake) ConnectNetwork(_ context.Context, network, containerID string) error {
+func (f *Fake) ConnectNetwork(_ context.Context, network, containerID string, aliases ...string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if err := f.check(); err != nil {
@@ -798,6 +800,12 @@ func (f *Fake) ConnectNetwork(_ context.Context, network, containerID string) er
 		}
 	}
 	c.Attached = append(c.Attached, network)
+	if len(aliases) > 0 {
+		if c.Aliases == nil {
+			c.Aliases = map[string][]string{}
+		}
+		c.Aliases[network] = append([]string{}, aliases...)
+	}
 	f.record("network-connect:" + network + ":" + c.Spec.Name)
 	return nil
 }
@@ -820,6 +828,7 @@ func (f *Fake) DisconnectNetwork(_ context.Context, network, containerID string)
 		}
 	}
 	c.Attached = kept
+	delete(c.Aliases, network)
 	f.record("network-disconnect:" + network + ":" + c.Spec.Name)
 	return nil
 }
@@ -855,6 +864,17 @@ func (f *Fake) ContainerNetworks(_ context.Context, containerID string) ([]strin
 		out = append(out, c.Spec.Network)
 	}
 	return out, nil
+}
+
+// NetworkAliases implements docker.Engine.
+func (f *Fake) NetworkAliases(_ context.Context, network, containerID string) ([]string, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	c, ok := f.find(containerID)
+	if !ok {
+		return nil, docker.ErrNotFound
+	}
+	return append([]string(nil), c.Aliases[network]...), nil
 }
 
 // NetworkAccess implements docker.Engine.

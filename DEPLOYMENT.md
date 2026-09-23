@@ -313,11 +313,17 @@ not at the Unraid IP (which is where the direct project ports live).
     `/etc/hosts`, `C:\Windows\System32\drivers\etc\hosts`, one line such as
     `<server-ip> envoryx.test shop.test`. Every new project needs adding by hand.
     The settings page lists all current names.
-- Project containers resolve these names through the Docker host's DNS. When
-  Unraid (or whichever machine runs Docker) uses the same DNS server as your
-  devices, an application can call its own URL (`http://shop.test`) from
-  inside its container too. *Settings → Diagnostics* checks the name from
-  both sides.
+- **Inside project containers** none of this is needed. Envoryx joins every
+  project network and carries all the proxy's host names there as network
+  aliases (every project, `-dev`, `-s3`, extra domains, `envoryx.<base>`).
+  Docker's own DNS answers them with Envoryx's address on that network. An
+  application can therefore call its own URL (`http://shop.test`) or another
+  project's, whatever DNS server the Docker host uses and even when Envoryx has
+  its own IP on `br0`, which containers on a bridge network cannot reach.
+  Docker fixes aliases when a container joins a network, so names added
+  meanwhile reach a project the next time it starts. HTTPS from inside a
+  container needs the Envoryx CA in that container, or `curl -k`. On bare
+  metal there are no aliases, and containers use the Docker host's DNS.
 - `.test` is reserved for exactly this purpose (RFC 6761) and never resolves
   on the public internet. `.local` collides with mDNS on macOS/Linux – prefer
   `.test` or an owned domain (`dev.example.com`).
