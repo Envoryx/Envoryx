@@ -11,6 +11,18 @@ release). `:main` follows the development branch.
 ## [Unreleased]
 
 ### Added
+- Meilisearch and Typesense as optional search engines – in the wizard, on the Services
+  tab, in `envoryx project create --meilisearch`/`--typesense`, the MCP
+  `create_project` tool and the logs endpoints. Both keep their index in a volume and
+  run with a generated key that only leaves the backend through the operate-scoped
+  `/meilisearch/credentials` and `/typesense/credentials` endpoints ("Show master
+  key"/"Show API key" on the Services tab). Meilisearch 1.54 always publishes its port,
+  where its web dashboard lives; Typesense 30.2 publishes on request. The application
+  gets the names Laravel Scout reads (`MEILISEARCH_HOST`/`MEILISEARCH_KEY`,
+  `TYPESENSE_HOST`/`TYPESENSE_PORT`/`TYPESENSE_PROTOCOL`/`TYPESENSE_API_KEY`) plus
+  `MEILISEARCH_URL`/`MEILISEARCH_API_KEY` (Symfony's meilisearch-bundle) and
+  `TYPESENSE_URL`. `SCOUT_DRIVER` is left to the application, so a project indexing
+  with another driver does not silently switch. The IDE tab lists both connections.
 - Memcached as an optional cache next to Redis – in the wizard, on the Services tab, in
   `envoryx project create --memcached` and the MCP `create_project` tool. It keeps
   everything in memory (no volume, so removing it needs no confirmation), publishes

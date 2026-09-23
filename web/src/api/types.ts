@@ -329,6 +329,12 @@ export interface RabbitMQCredentials {
   url: string;
 }
 
+/** Admin key of Meilisearch (master key) or Typesense; url is the one inside the project network. */
+export interface SearchCredentials {
+  apiKey: string;
+  url: string;
+}
+
 /** Node.js service with optional dev-server mode (script runs as the container's main process). */
 export interface NodeRequest {
   version: string;
@@ -413,6 +419,8 @@ export interface CreateProjectRequest {
   memcached?: ExtraRequest | null;
   mailpit?: ExtraRequest | null;
   rabbitmq?: ExtraRequest | null;
+  meilisearch?: ExtraRequest | null;
+  typesense?: ExtraRequest | null;
   storage?: StorageRequest | null;
   git?: GitRequest | null;
   web?: WebRequest;
@@ -472,6 +480,8 @@ export interface UpdateProjectRequest {
   memcached?: ExtraUpdate;
   mailpit?: ExtraUpdate;
   rabbitmq?: ExtraUpdate;
+  meilisearch?: ExtraUpdate;
+  typesense?: ExtraUpdate;
   storage?: StorageUpdate;
   env?: EnvVar[];
   ideGateway?: boolean;

@@ -338,10 +338,10 @@ func DatabaseEnv(cfg DatabaseConfig, variant string) map[string]string {
 }
 
 // ServiceConfig is the configuration of auxiliary services (Redis, Memcached, Mailpit,
-// RabbitMQ).
+// RabbitMQ, Meilisearch, Typesense).
 type ServiceConfig struct {
 	// HostPort publishes the service's primary port (Redis 6379, Memcached 11211, Mailpit
-	// web UI 8025, RabbitMQ AMQP 5672) on the host.
+	// web UI 8025, RabbitMQ AMQP 5672, Meilisearch 7700, Typesense 8108) on the host.
 	HostPort int `json:"hostPort"`
 	// WebUIPort publishes RabbitMQ's management UI (15672); it is always published.
 	WebUIPort int `json:"webUiPort,omitempty"`
@@ -349,6 +349,8 @@ type ServiceConfig struct {
 	// only when it initialises an empty data volume.
 	Username string `json:"username,omitempty"`
 	Password string `json:"password,omitempty"`
+	// APIKey is the generated admin key of Meilisearch (master key) and Typesense.
+	APIKey string `json:"apiKey,omitempty"`
 }
 
 // RabbitMQ ports and the user Envoryx creates. Generated passwords need no escaping in
@@ -383,6 +385,51 @@ func RabbitMQEnv(cfg ServiceConfig) map[string]string {
 		"RABBITMQ_PASSWORD": cfg.Password,
 		"RABBITMQ_VHOST":    "/",
 		"RABBITMQ_URL":      fmt.Sprintf("amqp://%s:%s@rabbitmq:%d/%%2f", cfg.Username, cfg.Password, RabbitMQPort),
+	}
+}
+
+// Search engine ports.
+const (
+	MeilisearchPort = 7700
+	TypesensePort   = 8108
+)
+
+// NewSearchConfig generates the admin key of a Meilisearch or Typesense service. The
+// alphabet needs no escaping in a URL or a command line (see passwordAlphabet), and 32
+// characters are well above Meilisearch's 16-byte minimum for a master key.
+func NewSearchConfig() (ServiceConfig, error) {
+	key, err := GeneratePassword(32)
+	if err != nil {
+		return ServiceConfig{}, err
+	}
+	return ServiceConfig{APIKey: key}, nil
+}
+
+// MeilisearchEnvKeys lists the variables MeilisearchEnv returns, in injection order.
+var MeilisearchEnvKeys = []string{"MEILISEARCH_HOST", "MEILISEARCH_KEY", "MEILISEARCH_URL", "MEILISEARCH_API_KEY"}
+
+// MeilisearchEnv returns the variables injected for a Meilisearch service: the pair
+// Laravel Scout reads (MEILISEARCH_HOST/KEY) and the pair of Symfony's
+// meilisearch-bundle (MEILISEARCH_URL/API_KEY). SCOUT_DRIVER is left to the application,
+// like MESSENGER_TRANSPORT_DSN for RabbitMQ: it would silently move a project that
+// indexes with another driver.
+func MeilisearchEnv(cfg ServiceConfig) map[string]string {
+	url := fmt.Sprintf("http://meilisearch:%d", MeilisearchPort)
+	return map[string]string{"MEILISEARCH_HOST": url, "MEILISEARCH_KEY": cfg.APIKey, "MEILISEARCH_URL": url, "MEILISEARCH_API_KEY": cfg.APIKey}
+}
+
+// TypesenseEnvKeys lists the variables TypesenseEnv returns, in injection order.
+var TypesenseEnvKeys = []string{"TYPESENSE_HOST", "TYPESENSE_PORT", "TYPESENSE_PROTOCOL", "TYPESENSE_API_KEY", "TYPESENSE_URL"}
+
+// TypesenseEnv returns the variables injected for a Typesense service: the names Laravel
+// Scout's Typesense engine reads plus a base URL for clients configured with one.
+func TypesenseEnv(cfg ServiceConfig) map[string]string {
+	return map[string]string{
+		"TYPESENSE_HOST":     "typesense",
+		"TYPESENSE_PORT":     strconv.Itoa(TypesensePort),
+		"TYPESENSE_PROTOCOL": "http",
+		"TYPESENSE_API_KEY":  cfg.APIKey,
+		"TYPESENSE_URL":      fmt.Sprintf("http://typesense:%d", TypesensePort),
 	}
 }
 

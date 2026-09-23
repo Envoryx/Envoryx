@@ -55,3 +55,29 @@ describe("ServicesTab", () => {
     expect(screen.queryByText(/PHP clients need/)).not.toBeInTheDocument();
   });
 });
+
+describe("ServicesTab search engines", () => {
+  const meilisearch = { kind: "meilisearch", version: "1.54", image: "getmeili/meilisearch:v1.54", host: "meilisearch", port: 7700, hostPort: 26010, webUiPort: 26010, injectedEnv: ["MEILISEARCH_API_KEY", "MEILISEARCH_HOST", "MEILISEARCH_KEY", "MEILISEARCH_URL"], state: "running", volumeName: "envoryx-acme-shop-meilisearch" };
+
+  it("links the Meilisearch dashboard, keeps its port published and reveals the master key on request", async () => {
+    const api = mockApi({
+      ...authedRoutes,
+      "GET /runtimes": () => ({ body: runtimesFixture }),
+      [`GET ${P}/extras`]: () => ({ body: { services: [meilisearch] } }),
+      [`GET ${P}/storage`]: () => ({ status: 404, body: { error: { code: "not_found", message: "no storage" } } }),
+      [`GET ${P}/meilisearch/credentials`]: () => ({ body: { credentials: { apiKey: "k3yk3yk3yk3yk3yk3yk3yk3yk3yk3yk3", url: "http://meilisearch:7700" } } }),
+    });
+    renderApp(<ServicesTab project={makeProject()} />);
+    const user = userEvent.setup();
+
+    expect(await screen.findByText("Dashboard")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /:26010/ })).toBeInTheDocument();
+    // Meilisearch's port carries the dashboard: no publish checkbox on its card, only on
+    // the cards offering Redis, Memcached, RabbitMQ and Typesense.
+    expect(screen.getAllByLabelText("Publish port on the host")).toHaveLength(4);
+    expect(screen.getByRole("button", { name: "Add Typesense" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Show master key" }));
+    await waitFor(() => expect(api.calls.some((c) => c.url.endsWith("/meilisearch/credentials"))).toBe(true));
+    expect(await screen.findByText("Master key")).toBeInTheDocument();
+  });
+});

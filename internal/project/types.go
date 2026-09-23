@@ -27,19 +27,21 @@ type CreateRequest struct {
 	// Docroot is the directory served by the web server, relative to the project
 	// directory: public/ for Laravel/Symfony, the build output (dist/, out/) for static
 	// Node builds; unused while a Python server or Node dev server serves the app.
-	Docroot   string
-	PHP       *PHPRequest
-	Node      *NodeRequest
-	Python    *PythonRequest
-	Database  *DatabaseRequest
-	Redis     *ExtraRequest
-	Memcached *ExtraRequest
-	Mailpit   *ExtraRequest
-	RabbitMQ  *ExtraRequest
-	Storage   *StorageRequest
-	Web       WebRequest
-	Git       *GitRequest
-	Env       []EnvVarRequest
+	Docroot     string
+	PHP         *PHPRequest
+	Node        *NodeRequest
+	Python      *PythonRequest
+	Database    *DatabaseRequest
+	Redis       *ExtraRequest
+	Memcached   *ExtraRequest
+	Mailpit     *ExtraRequest
+	RabbitMQ    *ExtraRequest
+	Meilisearch *ExtraRequest
+	Typesense   *ExtraRequest
+	Storage     *StorageRequest
+	Web         WebRequest
+	Git         *GitRequest
+	Env         []EnvVarRequest
 	// Template scaffolds an application into the new directory (see Templates()).
 	Template string
 	// CreateStarter writes a starter page (index.php with PHP, index.html otherwise) when
@@ -90,7 +92,8 @@ type PythonUpdate struct {
 	Config  runtime.PythonConfig
 }
 
-// ExtraRequest selects an auxiliary service (Redis, Memcached, Mailpit, RabbitMQ).
+// ExtraRequest selects an auxiliary service (Redis, Memcached, Mailpit, RabbitMQ,
+// Meilisearch, Typesense).
 type ExtraRequest struct {
 	Version    string
 	ExposePort bool
@@ -117,7 +120,8 @@ type ExtraUpdate struct {
 	Enabled    bool
 	Version    string
 	ExposePort bool
-	// RemoveData must be true to remove a service that owns a volume (Redis, RabbitMQ).
+	// RemoveData must be true to remove a service that owns a volume (Redis, RabbitMQ,
+	// Meilisearch, Typesense).
 	RemoveData bool
 }
 
@@ -157,19 +161,21 @@ type EnvVarRequest struct {
 
 // UpdateRequest changes editable project settings. Nil pointers leave fields untouched.
 type UpdateRequest struct {
-	Name      *string
-	Docroot   *string
-	Web       *WebRequest
-	PHP       *PHPUpdate
-	Node      *NodeUpdate
-	Python    *PythonUpdate
-	Database  *DatabaseUpdate
-	Redis     *ExtraUpdate
-	Memcached *ExtraUpdate
-	Mailpit   *ExtraUpdate
-	RabbitMQ  *ExtraUpdate
-	Storage   *StorageUpdate
-	Env       *[]EnvVarRequest
+	Name        *string
+	Docroot     *string
+	Web         *WebRequest
+	PHP         *PHPUpdate
+	Node        *NodeUpdate
+	Python      *PythonUpdate
+	Database    *DatabaseUpdate
+	Redis       *ExtraUpdate
+	Memcached   *ExtraUpdate
+	Mailpit     *ExtraUpdate
+	RabbitMQ    *ExtraUpdate
+	Meilisearch *ExtraUpdate
+	Typesense   *ExtraUpdate
+	Storage     *StorageUpdate
+	Env         *[]EnvVarRequest
 	// IDEGateway toggles JetBrains Gateway support (port forwarding + shared IDE cache).
 	IDEGateway *bool
 }
@@ -186,8 +192,8 @@ type ExtraServiceInfo struct {
 	State       string            `json:"state"`
 	Health      string            `json:"health,omitempty"`
 	VolumeName  string            `json:"volumeName,omitempty"`
-	// WebUIPort is the host port of a web interface (Mailpit inbox, RabbitMQ management),
-	// 0 otherwise.
+	// WebUIPort is the host port of a web interface (Mailpit inbox, RabbitMQ management,
+	// Meilisearch dashboard), 0 otherwise.
 	WebUIPort int `json:"webUiPort,omitempty"`
 	// Username logs in to RabbitMQ (AMQP and management UI); the password only comes from
 	// Manager.RabbitMQCredentials.
@@ -199,6 +205,12 @@ type RabbitMQCredentials struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
 	URL      string `json:"url"` // as injected into the application (RABBITMQ_URL)
+}
+
+// SearchCredentials are the admin key of a project's Meilisearch or Typesense.
+type SearchCredentials struct {
+	APIKey string `json:"apiKey"`
+	URL    string `json:"url"` // inside the project network, as injected into the application
 }
 
 // StorageInfo describes the object storage service. Credentials are included only when

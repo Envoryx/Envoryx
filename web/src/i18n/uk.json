@@ -1598,5 +1598,16 @@
   "For tools on your machine, e.g. telnet or a cache inspector.": "Для інструментів на вашому комп’ютері, наприклад telnet або інспектора кешу.",
   "PHP clients need the {{ext}} extension, which is off in this project.": "PHP-клієнтам потрібне розширення {{ext}}, яке в цьому проєкті вимкнене.",
   "PHP extension {{ext}} enabled.": "Розширення PHP {{ext}} увімкнено.",
-  "Enable {{ext}}": "Увімкнути {{ext}}"
+  "Enable {{ext}}": "Увімкнути {{ext}}",
+  "Search engine (Laravel Scout, Symfony) with a persistent volume and a web dashboard on its own port. Injects MEILISEARCH_HOST/KEY and MEILISEARCH_URL/API_KEY; set SCOUT_DRIVER yourself.": "Пошуковий рушій (Laravel Scout, Symfony) з постійним томом і вебпанеллю на окремому порту. Задає MEILISEARCH_HOST/KEY і MEILISEARCH_URL/API_KEY; SCOUT_DRIVER задайте самі.",
+  "Search engine (Laravel Scout, InstantSearch) with a persistent volume. Injects TYPESENSE_HOST, TYPESENSE_PORT, TYPESENSE_PROTOCOL, TYPESENSE_API_KEY and TYPESENSE_URL; set SCOUT_DRIVER yourself.": "Пошуковий рушій (Laravel Scout, InstantSearch) з постійним томом. Задає TYPESENSE_HOST, TYPESENSE_PORT, TYPESENSE_PROTOCOL, TYPESENSE_API_KEY і TYPESENSE_URL; SCOUT_DRIVER задайте самі.",
+  "For clients and dashboards running on your machine.": "Для клієнтів і панелей на вашому комп’ютері.",
+  "Master key": "Майстер-ключ",
+  "API key": "API-ключ",
+  "Show master key": "Показати майстер-ключ",
+  "Show API key": "Показати API-ключ",
+  "URL (from app)": "URL (із застосунку)",
+  "URL (from your machine)": "URL (з вашого комп’ютера)",
+  "<Services tab → Show master key>": "<Вкладка «Сервіси» → Показати майстер-ключ>",
+  "<Services tab → Show API key>": "<Вкладка «Сервіси» → Показати API-ключ>"
 }

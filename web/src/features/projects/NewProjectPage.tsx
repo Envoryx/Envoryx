@@ -64,6 +64,9 @@ interface Form {
   rabbitmq: boolean;
   rabbitmqVersion: string;
   rabbitmqExpose: boolean;
+  meilisearch: boolean;
+  typesense: boolean;
+  typesenseExpose: boolean;
   storage: boolean;
   template: string; // "" = blank
   gitUrl: string;
@@ -133,6 +136,9 @@ export function NewProjectPage() {
         rabbitmq: false,
         rabbitmqVersion: runtimes.data.runtimes.find((r) => r.key === "rabbitmq")?.versions.find((v) => v.default)?.version ?? "",
         rabbitmqExpose: false,
+        meilisearch: false,
+        typesense: false,
+        typesenseExpose: false,
         storage: false,
         template: "",
         gitUrl: "",
@@ -174,6 +180,8 @@ export function NewProjectPage() {
     if (form.memcached) req.memcached = { exposePort: form.memcachedExpose };
     if (form.mailpit) req.mailpit = {};
     if (form.rabbitmq) req.rabbitmq = { version: form.rabbitmqVersion, exposePort: form.rabbitmqExpose };
+    if (form.meilisearch) req.meilisearch = {};
+    if (form.typesense) req.typesense = { exposePort: form.typesenseExpose };
     if (form.storage) req.storage = {};
     if (form.template) req.template = form.template;
     if (form.gitUrl.trim() && !form.template) {
@@ -619,6 +627,17 @@ export function NewProjectPage() {
                       <div className="self-end pb-1">
                         <Checkbox label={t("Publish port on the host")} description={t("For AMQP clients running on your machine.")} checked={form.rabbitmqExpose} onChange={(e) => set({ rabbitmqExpose: e.target.checked })} />
                       </div>
+                    </div>
+                  )}
+                </div>
+                <div className="rounded-md border border-default p-4">
+                  <Checkbox label="Meilisearch" description={t("Search engine (Laravel Scout, Symfony) with a persistent volume and a web dashboard on its own port. Injects MEILISEARCH_HOST/KEY and MEILISEARCH_URL/API_KEY; set SCOUT_DRIVER yourself.")} checked={form.meilisearch} onChange={(e) => set({ meilisearch: e.target.checked })} />
+                </div>
+                <div className="rounded-md border border-default p-4 space-y-3">
+                  <Checkbox label="Typesense" description={t("Search engine (Laravel Scout, InstantSearch) with a persistent volume. Injects TYPESENSE_HOST, TYPESENSE_PORT, TYPESENSE_PROTOCOL, TYPESENSE_API_KEY and TYPESENSE_URL; set SCOUT_DRIVER yourself.")} checked={form.typesense} onChange={(e) => set({ typesense: e.target.checked })} />
+                  {form.typesense && (
+                    <div className="pl-7">
+                      <Checkbox label={t("Publish port on the host")} description={t("For clients and dashboards running on your machine.")} checked={form.typesenseExpose} onChange={(e) => set({ typesenseExpose: e.target.checked })} />
                     </div>
                   )}
                 </div>

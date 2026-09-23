@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/envoryx/envoryx/internal/project"
+	"github.com/envoryx/envoryx/internal/store"
 )
 
 func (a *API) extraServices(w http.ResponseWriter, r *http.Request) {
@@ -23,6 +24,19 @@ func (a *API) rabbitMQCredentials(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"credentials": creds})
+}
+
+// searchCredentials returns the admin key of Meilisearch or Typesense (operate scope,
+// like database credentials).
+func (a *API) searchCredentials(kind store.ServiceKind) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		creds, err := a.d.Projects.SearchCredentials(r.Context(), r.PathValue("id"), kind)
+		if err != nil {
+			writeError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"credentials": creds})
+	}
 }
 
 func (a *API) databaseInfo(w http.ResponseWriter, r *http.Request) {

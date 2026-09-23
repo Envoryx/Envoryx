@@ -208,6 +208,20 @@ func Default() *Catalog {
 		},
 	})
 	c.add(Runtime{
+		Key: "meilisearch", Name: "Meilisearch", Kind: "service", Available: true,
+		Description: "Meilisearch search engine with web dashboard and persistent volume (MEILISEARCH_* injected)",
+		Versions: []Version{
+			{Version: "1.54", Image: "getmeili/meilisearch:v1.54", Label: "Meilisearch 1.54", Default: true},
+		},
+	})
+	c.add(Runtime{
+		Key: "typesense", Name: "Typesense", Kind: "service", Available: true,
+		Description: "Typesense search engine with persistent volume (TYPESENSE_* injected)",
+		Versions: []Version{
+			{Version: "30.2", Image: "typesense/typesense:30.2", Label: "Typesense 30.2", Default: true},
+		},
+	})
+	c.add(Runtime{
 		Key: "mailpit", Name: "Mailpit", Kind: "service", Available: true,
 		Description: "Catches outgoing mail (SMTP) with a web inbox (MAIL_* / MAILER_DSN injected)",
 		Versions: []Version{

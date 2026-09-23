@@ -14,6 +14,7 @@ import type {
   Dashboard,
   DatabaseCredentials,
   RabbitMQCredentials,
+  SearchCredentials,
   DatabaseInfo,
   DBToolLink,
   DBToolStatus,
@@ -284,6 +285,9 @@ export const api = {
   },
   rabbitmq: {
     credentials: (id: string) => request<{ credentials: RabbitMQCredentials }>(`/projects/${encodeURIComponent(id)}/rabbitmq/credentials`),
+  },
+  search: {
+    credentials: (id: string, kind: "meilisearch" | "typesense") => request<{ credentials: SearchCredentials }>(`/projects/${encodeURIComponent(id)}/${kind}/credentials`),
   },
   database: {
     info: (id: string) => request<{ database: DatabaseInfo }>(`/projects/${encodeURIComponent(id)}/database`),

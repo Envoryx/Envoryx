@@ -1,9 +1,9 @@
-import { ExternalLink, Mail, MemoryStick, Plus, Rabbit, Server, Trash2 } from "lucide-react";
+import { ExternalLink, Mail, MemoryStick, Plus, Rabbit, Search, Server, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useState } from "react";
 import { useExtraServices, usePublicHost, useRuntimes, useStorage, useUpdateProject } from "@/api/hooks";
 import { api } from "@/api/client";
-import type { ExtraServiceInfo, PHPConfig, Project, RabbitMQCredentials, UpdateProjectRequest } from "@/api/types";
+import type { ExtraServiceInfo, PHPConfig, Project, RabbitMQCredentials, SearchCredentials, UpdateProjectRequest } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Checkbox, Dialog, ErrorState, Field, Input, Select, Spinner, StatusDot } from "@/components/ui";
 import { containerStateTone } from "@/lib/format";
 import { AddStorageCard, StorageCard } from "./StorageCard";
@@ -11,8 +11,11 @@ import { PublicHostNotice } from "@/components/PublicHostNotice";
 import { errorText } from "@/lib/errors";
 import { CopyRow } from "./DatabaseTab";
 
-type ExtraKind = "redis" | "memcached" | "mailpit" | "rabbitmq";
-const titles: Record<ExtraKind, string> = { redis: "Redis", memcached: "Memcached", mailpit: "Mailpit", rabbitmq: "RabbitMQ" };
+type ExtraKind = "redis" | "memcached" | "mailpit" | "rabbitmq" | "meilisearch" | "typesense";
+const titles: Record<ExtraKind, string> = { redis: "Redis", memcached: "Memcached", mailpit: "Mailpit", rabbitmq: "RabbitMQ", meilisearch: "Meilisearch", typesense: "Typesense" };
+// Services whose port is always published because a web UI lives there.
+const alwaysPublished = (kind: string) => kind === "mailpit" || kind === "meilisearch";
+const isSearch = (kind: string): kind is "meilisearch" | "typesense" => kind === "meilisearch" || kind === "typesense";
 // The PHP extension a service's clients need; the images ship them switched off.
 const phpExtensions: Partial<Record<ExtraKind, string>> = { redis: "redis", memcached: "memcached", rabbitmq: "amqp" };
 
@@ -36,6 +39,7 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
   const [removeOpen, setRemoveOpen] = useState(false);
   const [confirm, setConfirm] = useState("");
   const [creds, setCreds] = useState<RabbitMQCredentials | null>(null);
+  const [searchCreds, setSearchCreds] = useState<SearchCredentials | null>(null);
   const host = publicHost || window.location.hostname;
   const key = info.kind as ExtraKind;
   const title = titles[key] ?? info.kind;
@@ -43,7 +47,8 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
   const fail = (err: unknown, fallback: string) => onMessage({ tone: "red", text: errorText(err, t, fallback) });
   const reveal = async () => {
     try {
-      setCreds((await api.rabbitmq.credentials(project.id)).credentials);
+      if (isSearch(info.kind)) setSearchCreds((await api.search.credentials(project.id, info.kind)).credentials);
+      else setCreds((await api.rabbitmq.credentials(project.id)).credentials);
     } catch (err) {
       fail(err, t("Loading the credentials failed"));
     }
@@ -54,7 +59,7 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
       <CardHeader
         title={
           <span className="flex items-center gap-2">
-            {info.kind === "mailpit" ? <Mail className="size-4 text-accent-500" aria-hidden /> : info.kind === "rabbitmq" ? <Rabbit className="size-4 text-accent-500" aria-hidden /> : info.kind === "memcached" ? <MemoryStick className="size-4 text-accent-500" aria-hidden /> : <Server className="size-4 text-accent-500" aria-hidden />}
+            {info.kind === "mailpit" ? <Mail className="size-4 text-accent-500" aria-hidden /> : info.kind === "rabbitmq" ? <Rabbit className="size-4 text-accent-500" aria-hidden /> : info.kind === "memcached" ? <MemoryStick className="size-4 text-accent-500" aria-hidden /> : isSearch(info.kind) ? <Search className="size-4 text-accent-500" aria-hidden /> : <Server className="size-4 text-accent-500" aria-hidden />}
             {title} {info.version}
           </span>
         }
@@ -110,6 +115,20 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
               <dd className="font-mono text-xs">{info.username}</dd>
             </>
           )}
+          {info.kind === "meilisearch" && (
+            <>
+              <dt className="text-muted">{t("Dashboard")}</dt>
+              <dd>
+                {info.webUiPort ? (
+                  <a href={`http://${host}:${info.webUiPort}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-mono text-xs text-accent-600 hover:underline dark:text-accent-300">
+                    http://{host}:{info.webUiPort} <ExternalLink className="size-3" />
+                  </a>
+                ) : (
+                  <span className="text-xs text-subtle">{t("no port")}</span>
+                )}
+              </dd>
+            </>
+          )}
         </dl>
 
         {info.kind === "rabbitmq" &&
@@ -121,6 +140,17 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
           ) : (
             <Button size="sm" onClick={reveal}>
               {t("Show password")}
+            </Button>
+          ))}
+
+        {isSearch(info.kind) &&
+          (searchCreds ? (
+            <dl className="divide-y divide-[var(--border)]">
+              <CopyRow label={info.kind === "meilisearch" ? t("Master key") : t("API key")} value={searchCreds.apiKey} secret />
+            </dl>
+          ) : (
+            <Button size="sm" onClick={reveal}>
+              {info.kind === "meilisearch" ? t("Show master key") : t("Show API key")}
             </Button>
           ))}
 
@@ -141,10 +171,10 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
           </Alert>
         )}
 
-        {info.kind !== "mailpit" && (
+        {!alwaysPublished(info.kind) && (
           <Checkbox
             label={t("Publish port on the host")}
-            description={info.hostPort ? t("Reachable at {{address}}", { address: `${host}:${info.hostPort}` }) : info.kind === "redis" ? t("For desktop clients like RedisInsight.") : info.kind === "memcached" ? t("For tools on your machine, e.g. telnet or a cache inspector.") : t("For AMQP clients running on your machine.")}
+            description={info.hostPort ? t("Reachable at {{address}}", { address: `${host}:${info.hostPort}` }) : info.kind === "redis" ? t("For desktop clients like RedisInsight.") : info.kind === "memcached" ? t("For tools on your machine, e.g. telnet or a cache inspector.") : info.kind === "typesense" ? t("For clients and dashboards running on your machine.") : t("For AMQP clients running on your machine.")}
             checked={info.hostPort > 0}
             disabled={update.isPending}
             onChange={(e) => update.mutate({ [key]: { enabled: true, version: info.version, exposePort: e.target.checked } }, { onError: (err) => fail(err, t("Changing the port failed")) })}
@@ -240,7 +270,7 @@ function AddServiceCard({ project, kind, onMessage }: { project: Project; kind: 
             </Select>
           </Field>
         )}
-        {kind !== "mailpit" && <Checkbox label={t("Publish port on the host")} checked={expose} onChange={(e) => setExpose(e.target.checked)} />}
+        {!alwaysPublished(kind) && <Checkbox label={t("Publish port on the host")} checked={expose} onChange={(e) => setExpose(e.target.checked)} />}
         <Button
           variant="primary"
           icon={<Plus className="size-4" />}
@@ -281,6 +311,8 @@ export function ServicesTab({ project }: { project: Project }) {
         {!has("memcached") && <AddServiceCard project={project} kind="memcached" onMessage={setMsg} />}
         {!has("mailpit") && <AddServiceCard project={project} kind="mailpit" onMessage={setMsg} />}
         {!has("rabbitmq") && <AddServiceCard project={project} kind="rabbitmq" onMessage={setMsg} />}
+        {!has("meilisearch") && <AddServiceCard project={project} kind="meilisearch" onMessage={setMsg} />}
+        {!has("typesense") && <AddServiceCard project={project} kind="typesense" onMessage={setMsg} />}
         {!storage.data && <AddStorageCard project={project} onMessage={setMsg} />}
       </div>
     </div>

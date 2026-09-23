@@ -18,7 +18,7 @@ import (
 
 func serviceKind(r *http.Request) (store.ServiceKind, error) {
 	switch k := store.ServiceKind(r.PathValue("kind")); k {
-	case store.ServicePHP, store.ServiceWeb, store.ServiceDatabase, store.ServicePython, store.ServiceNode, store.ServiceRedis, store.ServiceMemcached, store.ServiceMailpit, store.ServiceRabbitMQ, store.ServiceStorage:
+	case store.ServicePHP, store.ServiceWeb, store.ServiceDatabase, store.ServicePython, store.ServiceNode, store.ServiceRedis, store.ServiceMemcached, store.ServiceMailpit, store.ServiceRabbitMQ, store.ServiceMeilisearch, store.ServiceTypesense, store.ServiceStorage:
 		return k, nil
 	default:
 		if wid, ok := strings.CutPrefix(string(k), "worker:"); ok && validate.UUID(wid) == nil {
