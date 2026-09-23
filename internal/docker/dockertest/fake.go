@@ -65,6 +65,8 @@ type Fake struct {
 	// StreamHandler simulates streamed execs: it receives the container name, argv and the
 	// full stdin and returns stdout content plus exit code. nil = exit 0, empty output.
 	StreamHandler func(container string, cmd []string, env []string, stdin []byte) (stdout string, code int, err error)
+	// StreamStderr, when set, supplies what a streamed command writes to stderr.
+	StreamStderr func(container string, cmd []string) string
 
 	// ReadsStdin tells the fake whether a streamed command consumes stdin to EOF (the
 	// default). Commands that ignore stdin must not block on it – like the real engine.
@@ -663,7 +665,7 @@ func (f *Fake) ExecStream(_ context.Context, id string, opts docker.ExecStreamOp
 	}
 	name := c.Spec.Name
 	f.Execs = append(f.Execs, name+": "+strings.Join(opts.Cmd, " "))
-	handler, reads := f.StreamHandler, f.ReadsStdin
+	handler, reads, stderr := f.StreamHandler, f.ReadsStdin, f.StreamStderr
 	f.mu.Unlock()
 	var in []byte
 	if opts.Stdin != nil && (reads == nil || reads(opts.Cmd)) {
@@ -678,6 +680,9 @@ func (f *Fake) ExecStream(_ context.Context, id string, opts docker.ExecStreamOp
 	}
 	if opts.Stdout != nil {
 		_, _ = io.WriteString(opts.Stdout, out)
+	}
+	if stderr != nil && opts.Stderr != nil {
+		_, _ = io.WriteString(opts.Stderr, stderr(name, opts.Cmd))
 	}
 	return code, nil
 }

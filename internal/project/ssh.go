@@ -113,7 +113,9 @@ func (m *Manager) ResolveSSHUser(ctx context.Context, user string) (ExecTarget, 
 		planner := NewPlanner(paths, m.catalog)
 		t := ExecTarget{
 			Project: p, Kind: kind, User: fmt.Sprintf("%d:%d", paths.PUID, paths.PGID),
-			Env:        append([]string{"LANG=C.UTF-8", "TERM=xterm-256color"}, toolEnv...),
+			// SHELL as OpenSSH sets it from passwd: IDEs run their probes as `$SHELL -l -c …`
+			// (PyCharm's SSH interpreter failed with "-l: not found" without it).
+			Env:        append([]string{"LANG=C.UTF-8", "TERM=xterm-256color", "SHELL=/bin/sh"}, toolEnv...),
 			WorkingDir: appMountTarget, ProjectDir: planner.ProjectDir(p), HomeDir: planner.HomeDir(p),
 			AppMount: appMountTarget, HomeMount: homeMountTarget,
 			ContainerName: ContainerName(p.Slug, kind), Gateway: p.IDEGateway,

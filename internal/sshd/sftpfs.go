@@ -1,7 +1,6 @@
 package sshd
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -16,7 +15,6 @@ import (
 
 	"github.com/pkg/sftp"
 
-	"github.com/envoryx/envoryx/internal/docker"
 	"github.com/envoryx/envoryx/internal/project"
 )
 
@@ -31,10 +29,11 @@ type projectFS struct {
 	prefixes []string
 	uid      int
 	gid      int
-	// statOutside answers Stat/Lstat for paths outside the mounts from the running
-	// container, read-only: IDEs check that an interpreter such as /usr/local/bin/php
-	// exists over SFTP before they use it. Nil when the container is not running.
-	statOutside func(p string, follow bool) (os.FileInfo, error)
+	// outside answers the metadata operations IDEs need outside the mounts from the
+	// running container, as the project user: PhpStorm checks that /usr/local/bin/php
+	// exists, PyCharm creates its default /tmp/pycharm_project_* folder. File contents
+	// stay confined to the mounts. Nil when the container is not running.
+	outside *containerOps
 }
 
 func newProjectFS(t project.ExecTarget) *projectFS {
@@ -123,6 +122,16 @@ func (l listerAt) ListAt(out []os.FileInfo, off int64) (int, error) {
 	return n, nil
 }
 
+// outsidePath reports the cleaned path when a request falls outside the mounts and the
+// virtual directories above them and the container can serve it.
+func (f *projectFS) outsidePath(p string) (string, bool) {
+	clean := path.Clean("/" + p)
+	if _, virtual := virtualDirs[clean]; virtual || f.outside == nil {
+		return "", false
+	}
+	return clean, true
+}
+
 // clientErr drops the Envoryx-side path from filesystem errors: the client addresses
 // files by their container path and has no business seeing where they live here.
 func clientErr(err error) error {
@@ -140,7 +149,13 @@ func clientErr(err error) error {
 // Fileread implements sftp.FileReader.
 func (f *projectFS) Fileread(r *sftp.Request) (io.ReaderAt, error) {
 	local, ok, err := f.resolve(r.Filepath)
-	if err != nil || !ok {
+	if err != nil {
+		return nil, errOutside
+	}
+	if !ok {
+		if p, served := f.outsidePath(r.Filepath); served {
+			return f.outside.read(p)
+		}
 		return nil, errOutside
 	}
 	file, err := os.Open(local)
@@ -153,11 +168,17 @@ func (f *projectFS) Fileread(r *sftp.Request) (io.ReaderAt, error) {
 // Filewrite implements sftp.FileWriter.
 func (f *projectFS) Filewrite(r *sftp.Request) (io.WriterAt, error) {
 	local, ok, err := f.resolve(r.Filepath)
-	if err != nil || !ok {
+	if err != nil {
+		return nil, errOutside
+	}
+	pf := r.Pflags()
+	if !ok {
+		if p, served := f.outsidePath(r.Filepath); served {
+			return f.outside.write(p, pf.Append)
+		}
 		return nil, errOutside
 	}
 	flags := os.O_WRONLY | os.O_CREATE
-	pf := r.Pflags()
 	if pf.Trunc {
 		flags |= os.O_TRUNC
 	}
@@ -180,8 +201,15 @@ func (f *projectFS) Filecmd(r *sftp.Request) error { return clientErr(f.filecmd(
 
 func (f *projectFS) filecmd(r *sftp.Request) error {
 	local, ok, err := f.resolve(r.Filepath)
-	if err != nil || !ok {
+	if err != nil {
 		return errOutside
+	}
+	if !ok {
+		p, served := f.outsidePath(r.Filepath)
+		if !served {
+			return errOutside
+		}
+		return f.outsideCmd(r, p)
 	}
 	switch r.Method {
 	case "Mkdir":
@@ -232,6 +260,33 @@ func (f *projectFS) filecmd(r *sftp.Request) error {
 	return sftp.ErrSSHFxOpUnsupported
 }
 
+// outsideCmd runs a file command outside the mounts in the container.
+func (f *projectFS) outsideCmd(r *sftp.Request, p string) error {
+	switch r.Method {
+	case "Mkdir":
+		return f.outside.mkdir(p)
+	case "Rmdir":
+		return f.outside.rmdir(p)
+	case "Remove":
+		return f.outside.remove(p)
+	case "Rename":
+		// Both ends outside the mounts; a move across the boundary would need the file
+		// contents on both sides.
+		target, served := f.outsidePath(r.Target)
+		if _, inside, _ := f.resolve(r.Target); !served || inside {
+			return errOutside
+		}
+		return f.outside.rename(p, target)
+	case "Setstat":
+		// Permissions are applied; times and sizes are left as the upload made them.
+		if r.AttrFlags().Permissions {
+			return f.outside.chmod(p, os.FileMode(r.Attributes().Mode))
+		}
+		return nil
+	}
+	return errOutside
+}
+
 // Filelist implements sftp.FileLister (List, Stat, Readlink).
 func (f *projectFS) Filelist(r *sftp.Request) (sftp.ListerAt, error) {
 	l, err := f.filelist(r)
@@ -248,6 +303,25 @@ func (f *projectFS) filelist(r *sftp.Request) (sftp.ListerAt, error) {
 	case "List":
 		if !ok {
 			names, virtual := virtualDirs[clean]
+			if f.outside != nil {
+				// The container sees its own tree; the directories leading to the mounts are
+				// added in case the container's listing lacks them.
+				infos, err := f.outside.list(clean)
+				if !virtual {
+					return listerAt(infos), err
+				}
+				seen := map[string]bool{}
+				for _, i := range infos {
+					seen[i.Name()] = true
+				}
+				for _, n := range names {
+					if !seen[n] {
+						infos = append(infos, virtualInfo{name: n, dir: true})
+					}
+				}
+				sort.Slice(infos, func(i, j int) bool { return infos[i].Name() < infos[j].Name() })
+				return listerAt(infos), nil
+			}
 			if !virtual {
 				return nil, os.ErrNotExist
 			}
@@ -283,10 +357,10 @@ func (f *projectFS) filelist(r *sftp.Request) (sftp.ListerAt, error) {
 			if _, virtual := virtualDirs[clean]; virtual {
 				return listerAt{virtualInfo{name: path.Base(clean), dir: true}}, nil
 			}
-			if f.statOutside == nil {
+			if f.outside == nil {
 				return nil, os.ErrNotExist
 			}
-			info, err := f.statOutside(clean, r.Method == "Stat")
+			info, err := f.outside.stat(clean, r.Method == "Stat")
 			if err != nil {
 				return nil, err
 			}
@@ -304,7 +378,15 @@ func (f *projectFS) filelist(r *sftp.Request) (sftp.ListerAt, error) {
 		return listerAt{info}, nil
 	case "Readlink":
 		if !ok {
-			return nil, errOutside
+			p, served := f.outsidePath(clean)
+			if !served {
+				return nil, errOutside
+			}
+			target, err := f.outside.readlink(p)
+			if err != nil {
+				return nil, err
+			}
+			return listerAt{virtualInfo{name: target}}, nil
 		}
 		target, err := os.Readlink(local)
 		if err != nil {
@@ -323,32 +405,21 @@ func (f *projectFS) Lstat(r *sftp.Request) (sftp.ListerAt, error) {
 
 var _ sftp.LstatFileLister = (*projectFS)(nil)
 
-// containerStat stats a path inside the container with stat(1), which coreutils and
-// busybox both provide, as the container's default user.
-func containerStat(ctx context.Context, engine docker.Engine, containerID string) func(string, bool) (os.FileInfo, error) {
-	return func(p string, follow bool) (os.FileInfo, error) {
-		cmd := []string{"stat", "-c", "%f %s %Y", "--", p}
-		if follow {
-			cmd = []string{"stat", "-L", "-c", "%f %s %Y", "--", p}
-		}
-		ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-		defer cancel()
-		res, err := engine.Exec(ctx, containerID, cmd, nil)
-		if err != nil {
-			return nil, err
-		}
-		if res.ExitCode != 0 {
-			return nil, os.ErrNotExist
-		}
-		return parseStat(path.Base(p), res.Stdout)
-	}
-}
-
-// parseStat reads "<raw mode in hex> <size> <mtime>" as printed by stat -c '%f %s %Y'.
+// parseStat reads "<raw mode in hex> <size> <mtime> [<uid> <gid>]" as printed by
+// stat -c '%f %s %Y %u %g'.
 func parseStat(name, out string) (os.FileInfo, error) {
 	fields := strings.Fields(out)
-	if len(fields) != 3 {
+	if len(fields) != 3 && len(fields) != 5 {
 		return nil, fmt.Errorf("unexpected stat output %q", out)
+	}
+	var uid, gid uint64
+	if len(fields) == 5 {
+		var errU, errG error
+		uid, errU = strconv.ParseUint(fields[3], 10, 32)
+		gid, errG = strconv.ParseUint(fields[4], 10, 32)
+		if err := errors.Join(errU, errG); err != nil {
+			return nil, fmt.Errorf("unexpected stat output %q: %w", out, err)
+		}
 	}
 	raw, err1 := strconv.ParseUint(fields[0], 16, 32)
 	size, err2 := strconv.ParseInt(fields[1], 10, 64)
@@ -366,14 +437,15 @@ func parseStat(name, out string) (os.FileInfo, error) {
 	default:
 		mode |= os.ModeIrregular
 	}
-	return statInfo{name: name, size: size, mode: mode, mtime: time.Unix(mtime, 0)}, nil
+	return statInfo{name: name, size: size, mode: mode, mtime: time.Unix(mtime, 0), uid: uint32(uid), gid: uint32(gid)}, nil
 }
 
 type statInfo struct {
-	name  string
-	size  int64
-	mode  os.FileMode
-	mtime time.Time
+	name     string
+	size     int64
+	mode     os.FileMode
+	mtime    time.Time
+	uid, gid uint32
 }
 
 func (i statInfo) Name() string       { return i.name }
@@ -381,4 +453,4 @@ func (i statInfo) Size() int64        { return i.size }
 func (i statInfo) Mode() os.FileMode  { return i.mode }
 func (i statInfo) ModTime() time.Time { return i.mtime }
 func (i statInfo) IsDir() bool        { return i.mode.IsDir() }
-func (i statInfo) Sys() any           { return nil }
+func (i statInfo) Sys() any           { return &syscall.Stat_t{Uid: i.uid, Gid: i.gid} }

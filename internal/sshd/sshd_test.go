@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -158,7 +160,7 @@ func TestExecAndAuth(t *testing.T) {
 	if !strings.HasPrefix(string(out), "PHP 8.4.0") || !strings.HasSuffix(string(out), "hello") {
 		t.Fatalf("output: %q", out)
 	}
-	if len(seen) != 1 || !strings.HasPrefix(seen[0], "envoryx-shop-php|/bin/sh -lc php -v|") || !strings.Contains(seen[0], "HOME=/home/envoryx") {
+	if len(seen) != 1 || !strings.HasPrefix(seen[0], "envoryx-shop-php|/bin/sh -lc php -v|") || !strings.Contains(seen[0], "HOME=/home/envoryx") || !strings.Contains(seen[0], "SHELL=/bin/sh") {
 		t.Fatalf("exec: %v", seen)
 	}
 	sess.Close()
@@ -245,9 +247,14 @@ func TestSFTPMapsProjectAndHome(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(e.projDir, "shop", "public", "new.php")); err != nil {
 		t.Fatalf("project file on disk: %v", err)
 	}
+	// Paths outside the mounts – traversal included – are the container's business, never
+	// files of the Envoryx host: here the container refuses them.
+	e.engine.StreamHandler = func(container string, cmd []string, env []string, stdin []byte) (string, int, error) {
+		return "", 1, nil
+	}
 	for _, bad := range []string{"/etc/passwd", "/var/www/html/../../etc/passwd", "/home/other"} {
 		if _, err := sc.Open(bad); err == nil {
-			t.Fatalf("%s must be inaccessible", bad)
+			t.Fatalf("%s must be refused when the container refuses it", bad)
 		}
 	}
 	if _, err := sc.Stat("/var/www"); err != nil {
@@ -524,21 +531,74 @@ func TestFingerprintsNameTheServedKey(t *testing.T) {
 	}
 }
 
-// PhpStorm's remote interpreter checks over SFTP that the interpreter exists and uploads its
-// helpers to ~/.phpstorm_helpers; neither worked while SFTP only knew the bind mounts and
-// started in "/".
-func TestSFTPServesWhatIDEInterpretersNeed(t *testing.T) {
+// Outside the bind mounts SFTP behaves like a server on the container: PhpStorm checks that
+// /usr/local/bin/php exists, PyCharm uploads the project to /tmp/pycharm_project_* before
+// its settings can be changed, and both put their helpers under ~/.
+func TestSFTPServesTheContainerOutsideTheMounts(t *testing.T) {
 	e := newEnv(t)
-	var statted []string
-	e.engine.ExecHandler = func(container string, cmd []string, env []string) (docker.ExecResult, error) {
-		if cmd[0] != "stat" {
-			return docker.ExecResult{ExitCode: 0}, nil
+	files := map[string]string{} // the container's files outside the mounts
+	var cmds []string
+	e.engine.StreamHandler = func(container string, cmd []string, env []string, stdin []byte) (string, int, error) {
+		if container != "envoryx-shop-php" {
+			t.Errorf("command in %s", container)
 		}
-		statted = append(statted, container+" "+strings.Join(cmd, " "))
-		if cmd[len(cmd)-1] == "/usr/local/bin/php" {
-			return docker.ExecResult{Stdout: "81ed 21784656 1789777866\n"}, nil
+		arg := cmd[len(cmd)-1]
+		switch {
+		case cmd[0] == "stat":
+			cmds = append(cmds, strings.Join(cmd[:len(cmd)-1], " "))
+			if arg == "/usr/local/bin/php" {
+				return "81ed 21784656 1789777866\n", 0, nil
+			}
+			if _, ok := files[arg]; ok {
+				return fmt.Sprintf("81a4 %d 1789777866\n", len(files[arg])), 0, nil
+			}
+			return "", 1, nil
+		case cmd[0] == "mkdir", cmd[0] == "rm", cmd[0] == "rmdir", cmd[0] == "chmod":
+			cmds = append(cmds, strings.Join(cmd, " "))
+			if strings.HasPrefix(arg, "/root/") || strings.HasPrefix(arg, "/home/someone/") {
+				return "", 1, nil
+			}
+			if cmd[0] == "rm" {
+				delete(files, arg)
+			}
+			return "", 0, nil
+		case cmd[0] == "mv":
+			files[cmd[3]] = files[cmd[2]]
+			delete(files, cmd[2])
+			return "", 0, nil
+		case cmd[0] == "sh" && cmd[3] == "envoryx-write":
+			if strings.HasPrefix(cmd[4], "/usr/") {
+				return "", 1, nil
+			}
+			files[cmd[4]] = string(stdin)
+			return "", 0, nil
+		case cmd[0] == "sh" && cmd[3] == "envoryx-read":
+			content, ok := files[cmd[4]]
+			if !ok {
+				return "", 1, nil
+			}
+			return content, 0, nil
+		case cmd[0] == "sh" && cmd[3] == "envoryx-ls":
+			var out strings.Builder
+			for p, content := range files {
+				if path.Dir(p) == cmd[4] {
+					fmt.Fprintf(&out, "81a4 %d 1789777866/%s\n", len(content), path.Base(p))
+				}
+			}
+			return out.String(), 0, nil
 		}
-		return docker.ExecResult{ExitCode: 1, Stderr: "stat: cannot statx: No such file or directory"}, nil
+		return "", 0, nil
+	}
+	e.engine.StreamStderr = func(container string, cmd []string) string {
+		switch arg := cmd[len(cmd)-1]; {
+		case cmd[0] == "mkdir" && strings.HasPrefix(arg, "/home/someone/"):
+			return "mkdir: cannot create directory: No such file or directory"
+		case cmd[0] == "sh" && cmd[3] == "envoryx-read":
+			return "head: " + cmd[4] + ": No such file or directory"
+		case cmd[0] == "sh" && cmd[3] == "envoryx-write":
+			return "sh: can't create " + cmd[4] + ": Permission denied"
+		}
+		return ""
 	}
 	client, err := e.dial(t, "shop", ssh.Password(e.token))
 	if err != nil {
@@ -560,18 +620,75 @@ func TestSFTPServesWhatIDEInterpretersNeed(t *testing.T) {
 			t.Fatalf("interpreter stat: size %d mode %v mtime %v", info.Size(), info.Mode(), info.ModTime())
 		}
 	}
-	if len(statted) != 2 || !strings.HasPrefix(statted[0], "envoryx-shop-php stat -c") || !strings.HasPrefix(statted[1], "envoryx-shop-php stat -L -c") {
-		t.Fatalf("stat commands: %q", statted)
+	if cmds[0] != "stat -c %f %s %Y %u %g --" || cmds[1] != "stat -L -c %f %s %Y %u %g --" {
+		t.Fatalf("stat commands: %q", cmds)
 	}
 	if _, err := sc.Stat("/usr/local/bin/nope"); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("missing file outside the mounts: %v", err)
 	}
-	// Only metadata comes from the container; reading and writing stay confined.
-	if _, err := sc.Open("/usr/local/bin/php"); err == nil {
-		t.Fatal("reading outside the mounts must fail")
+
+	// PyCharm's first step: its default sync folder and the project in it.
+	if err := sc.Mkdir("/tmp/pycharm_project_1234"); err != nil {
+		t.Fatalf("mkdir outside the mounts: %v", err)
 	}
+	w, err := sc.Create("/tmp/pycharm_project_1234/hello.py")
+	if err != nil {
+		t.Fatalf("create outside the mounts: %v", err)
+	}
+	if _, err := w.Write([]byte("print('hi')\n")); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.Close(); err != nil {
+		t.Fatalf("upload outside the mounts: %v", err)
+	}
+	if files["/tmp/pycharm_project_1234/hello.py"] != "print('hi')\n" {
+		t.Fatalf("uploaded content: %q", files["/tmp/pycharm_project_1234/hello.py"])
+	}
+	if err := sc.Chmod("/tmp/pycharm_project_1234/hello.py", 0o755); err != nil {
+		t.Fatal(err)
+	}
+	r, err := sc.Open("/tmp/pycharm_project_1234/hello.py")
+	if err != nil {
+		t.Fatalf("open outside the mounts: %v", err)
+	}
+	if b, _ := io.ReadAll(r); string(b) != "print('hi')\n" {
+		t.Fatalf("read back: %q", b)
+	}
+	r.Close()
+	entries, err := sc.ReadDir("/tmp/pycharm_project_1234")
+	if err != nil || len(entries) != 1 || entries[0].Name() != "hello.py" || entries[0].Size() != 12 {
+		t.Fatalf("listing outside the mounts: %v %v", entries, err)
+	}
+	if err := sc.Rename("/tmp/pycharm_project_1234/hello.py", "/tmp/pycharm_project_1234/main.py"); err != nil {
+		t.Fatal(err)
+	}
+	if err := sc.Remove("/tmp/pycharm_project_1234/main.py"); err != nil {
+		t.Fatal(err)
+	}
+	if len(files) != 0 {
+		t.Fatalf("rename/remove left %v", files)
+	}
+
+	// The container decides, as it would for a shell over the same access.
 	if _, err := sc.Create("/usr/local/bin/evil"); err == nil {
-		t.Fatal("writing outside the mounts must fail")
+		t.Fatal("a write the container refuses must fail")
+	}
+	if _, err := sc.Open("/etc/nope"); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("missing file outside the mounts: %v", err)
+	}
+	if err := sc.Mkdir("/root/nope"); err == nil {
+		t.Fatal("a mkdir the container refuses must fail")
+	}
+	// A missing parent reads as "no such file", as from a real server: PyCharm retries
+	// "permission denied" forever.
+	if err := sc.Mkdir("/home/someone/PycharmProjects/x"); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("mkdir below a missing parent: %v", err)
+	}
+	if err := sc.Mkdir("/var"); err == nil {
+		t.Fatal("the virtual directories above the mounts are not writable")
+	}
+	if err := sc.Rename("/tmp/a", "/var/www/html/a"); err == nil {
+		t.Fatal("a move across the mount boundary must fail")
 	}
 
 	wd, err := sc.Getwd()
@@ -584,7 +701,6 @@ func TestSFTPServesWhatIDEInterpretersNeed(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(e.cfgDir, "projects", e.proj.Project.ID, "home", ".phpstorm_helpers")); err != nil {
 		t.Fatalf("helpers dir not in the tool home: %v", err)
 	}
-
 	_, err = sc.Lstat("/home/envoryx/.phpstorm_helpers/build.txt")
 	if !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("missing helper: %v", err)

@@ -2,6 +2,7 @@ package sshd
 
 import (
 	"os"
+	"syscall"
 	"testing"
 )
 
@@ -24,7 +25,10 @@ func TestParseStat(t *testing.T) {
 			t.Errorf("%q: mode %v size %d mtime %v", tc.out, info.Mode(), info.Size(), info.ModTime())
 		}
 	}
-	for _, bad := range []string{"", "stat: missing operand", "zz 1 2", "81ed x 2"} {
+	if info, err := parseStat("x", "81a4 3 1789777866 1000 100"); err != nil || info.Sys().(*syscall.Stat_t).Uid != 1000 || info.Sys().(*syscall.Stat_t).Gid != 100 {
+		t.Errorf("owner: %v %v", info, err)
+	}
+	for _, bad := range []string{"", "stat: missing operand", "zz 1 2", "81ed x 2", "81ed 1 2 x 3"} {
 		if _, err := parseStat("x", bad); err == nil {
 			t.Errorf("%q must not parse", bad)
 		}
