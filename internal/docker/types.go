@@ -25,6 +25,15 @@ const (
 	LabelSystem = "envoryx.system"
 )
 
+// Labels read outside Envoryx: the Unraid Docker page shows the icon, and the FolderView3
+// plugin puts a container into the folder its label names (the folder must exist there).
+const (
+	LabelUnraidIcon = "net.unraid.docker.icon"
+	LabelFolderView = "folder.view3"
+	// UnraidIcon is the icon shown for every container Envoryx creates.
+	UnraidIcon = "https://raw.githubusercontent.com/envoryx/envoryx/main/deploy/unraid/envoryx.png"
+)
+
 // ErrNotManaged is returned when an operation targets a resource without the managed label.
 var ErrNotManaged = errors.New("resource is not managed by Envoryx")
 
@@ -364,6 +373,15 @@ func ManagedLabels(projectID, projectSlug, service, version string) map[string]s
 		l[LabelService] = service
 	}
 	return l
+}
+
+// AddUnraidLabels adds the Unraid icon and, when folder is set, the FolderView3 folder to a
+// container's labels.
+func AddUnraidLabels(labels map[string]string, folder string) {
+	labels[LabelUnraidIcon] = UnraidIcon
+	if folder != "" {
+		labels[LabelFolderView] = folder
+	}
 }
 
 // IsManaged reports whether a label set carries the managed marker.

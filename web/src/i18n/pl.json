@@ -1554,5 +1554,10 @@
   "No snapshot is taken – there is no way back.": "Migawka nie zostanie utworzona – nie ma drogi powrotnej.",
   "Database of {{source}} cloned into “{{name}}”. The state before it is the newest snapshot.": "Baza danych {{source}} sklonowana do „{{name}}”. Stan sprzed to najnowsza migawka.",
   "Database of {{source}} cloned into “{{name}}”.": "Baza danych {{source}} sklonowana do „{{name}}”.",
-  "Cloning the database failed": "Nie udało się sklonować bazy danych"
+  "Cloning the database failed": "Nie udało się sklonować bazy danych",
+  "Unraid Docker page": "Strona Docker w Unraid",
+  "Envoryx containers carry the Envoryx icon. With the FolderView3 plugin they can also be sorted into a folder automatically.": "Kontenery Envoryx mają ikonę Envoryx. Dzięki wtyczce FolderView3 można je też automatycznie przypisać do folderu.",
+  "FolderView3 folder": "Folder FolderView3",
+  "Create a folder with exactly this name in FolderView3 first. Leave empty for no label – a folder with the regex ^envoryx- collects the containers as well.": "Najpierw utwórz w FolderView3 folder o dokładnie tej nazwie. Pozostaw puste, aby nie ustawiać etykiety – folder z wyrażeniem regularnym ^envoryx- również zbierze kontenery.",
+  "Saved. Projects move into the folder the next time they are started.": "Zapisano. Projekty trafią do folderu przy następnym uruchomieniu."
 }

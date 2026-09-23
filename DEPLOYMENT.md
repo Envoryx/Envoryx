@@ -227,6 +227,27 @@ themselves, not by the Envoryx container – nothing else to map in the template
 Unraid shows Envoryx's containers (`envoryx-<project>-…`) in the Docker tab; you
 can leave them alone, Envoryx manages them.
 
+### Sorting the containers into a folder (FolderView3)
+
+Every project brings several containers, so the Docker tab fills up quickly. They
+all carry the Envoryx icon (`net.unraid.docker.icon`), and the
+[FolderView3](https://github.com/kennymc-c/folder.view3) plugin can collect them in a
+folder in either of two ways:
+
+- **By name, nothing to set in Envoryx:** create a folder in FolderView3 and enter
+  `^envoryx-` as its regex. Every Envoryx container matches, the database browser
+  included.
+- **By label:** enter the folder name under *Settings → General → Unraid Docker page*
+  in Envoryx and create a folder with exactly that name in FolderView3. Envoryx then
+  puts `folder.view3=<name>` on its containers. A label wins over any regex, so the
+  containers stay put even next to a catch-all folder (regex `^`).
+
+Labels are fixed when a container is created. After the folder name changes, a
+project moves the next time it is started (Envoryx recreates its containers for
+that; files, databases and volumes are untouched). One folder per project is left
+out on purpose: FolderView3 does not create folders, so each would have to be
+made by hand.
+
 ### Image visibility
 
 The image is built by GitHub Actions (`.github/workflows/docker.yml`) and

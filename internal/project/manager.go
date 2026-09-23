@@ -103,6 +103,7 @@ func (m *Manager) planner() (*Planner, error) {
 	}
 	p.BaseDomain = m.BaseDomain(context.Background())
 	p.XdebugClientHost = m.XdebugClientHost(context.Background())
+	p.FolderViewFolder = m.FolderViewFolder(context.Background())
 	if m.links != nil {
 		p.PublicHost, p.ProxyHTTPPort, p.ProxyHTTPSPort = m.links(context.Background())
 	}
