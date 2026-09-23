@@ -338,8 +338,13 @@ func (m *Manager) reassignHostPorts(ctx context.Context, proj *store.Project) er
 				}
 				return swap(&c.ConsolePort)
 			})
-		case store.ServiceRedis, store.ServiceMailpit:
-			err = editConfig(svc, func(c *runtime.ServiceConfig) error { return swap(&c.HostPort) })
+		case store.ServiceRedis, store.ServiceMailpit, store.ServiceRabbitMQ:
+			err = editConfig(svc, func(c *runtime.ServiceConfig) error {
+				if err := swap(&c.HostPort); err != nil {
+					return err
+				}
+				return swap(&c.WebUIPort)
+			})
 		}
 		if err != nil {
 			return err

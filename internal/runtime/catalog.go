@@ -193,6 +193,14 @@ func Default() *Catalog {
 		},
 	})
 	c.add(Runtime{
+		Key: "rabbitmq", Name: "RabbitMQ", Kind: "service", Available: true,
+		Description: "RabbitMQ message broker with management UI and persistent volume (RABBITMQ_* injected)",
+		Versions: []Version{
+			{Version: "4.3", Image: "rabbitmq:4.3-management-alpine", Label: "RabbitMQ 4.3", Default: true},
+			{Version: "4.2", Image: "rabbitmq:4.2-management-alpine", Label: "RabbitMQ 4.2"},
+		},
+	})
+	c.add(Runtime{
 		Key: "mailpit", Name: "Mailpit", Kind: "service", Available: true,
 		Description: "Catches outgoing mail (SMTP) with a web inbox (MAIL_* / MAILER_DSN injected)",
 		Versions: []Version{

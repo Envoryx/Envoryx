@@ -337,10 +337,52 @@ func DatabaseEnv(cfg DatabaseConfig, variant string) map[string]string {
 	return env
 }
 
-// ServiceConfig is the configuration of auxiliary services (Redis, Mailpit).
+// ServiceConfig is the configuration of auxiliary services (Redis, Mailpit, RabbitMQ).
 type ServiceConfig struct {
-	// HostPort publishes the service's primary port (Redis 6379, Mailpit web UI 8025) on the host.
+	// HostPort publishes the service's primary port (Redis 6379, Mailpit web UI 8025,
+	// RabbitMQ AMQP 5672) on the host.
 	HostPort int `json:"hostPort"`
+	// WebUIPort publishes RabbitMQ's management UI (15672); it is always published.
+	WebUIPort int `json:"webUiPort,omitempty"`
+	// Username and Password are RabbitMQ's generated credentials. The image applies them
+	// only when it initialises an empty data volume.
+	Username string `json:"username,omitempty"`
+	Password string `json:"password,omitempty"`
+}
+
+// RabbitMQ ports and the user Envoryx creates. Generated passwords need no escaping in
+// the AMQP URL (see passwordAlphabet).
+const (
+	RabbitMQPort      = 5672
+	RabbitMQAdminPort = 15672
+	RabbitMQUser      = "envoryx"
+)
+
+// NewRabbitMQConfig generates RabbitMQ credentials.
+func NewRabbitMQConfig() (ServiceConfig, error) {
+	pw, err := GeneratePassword(PasswordLength)
+	if err != nil {
+		return ServiceConfig{}, err
+	}
+	return ServiceConfig{Username: RabbitMQUser, Password: pw}, nil
+}
+
+// RabbitMQEnvKeys lists the variables RabbitMQEnv returns, in injection order.
+var RabbitMQEnvKeys = []string{"RABBITMQ_HOST", "RABBITMQ_PORT", "RABBITMQ_USER", "RABBITMQ_PASSWORD", "RABBITMQ_VHOST", "RABBITMQ_URL"}
+
+// RabbitMQEnv returns the variables injected for a RabbitMQ service: the names
+// laravel-queue-rabbitmq reads plus an AMQP URL for Symfony Messenger, php-amqplib,
+// amqplib (Node) and Celery/kombu. MESSENGER_TRANSPORT_DSN is deliberately left to the
+// application: setting it would silently move a Doctrine-backed transport to AMQP.
+func RabbitMQEnv(cfg ServiceConfig) map[string]string {
+	return map[string]string{
+		"RABBITMQ_HOST":     "rabbitmq",
+		"RABBITMQ_PORT":     strconv.Itoa(RabbitMQPort),
+		"RABBITMQ_USER":     cfg.Username,
+		"RABBITMQ_PASSWORD": cfg.Password,
+		"RABBITMQ_VHOST":    "/",
+		"RABBITMQ_URL":      fmt.Sprintf("amqp://%s:%s@rabbitmq:%d/%%2f", cfg.Username, cfg.Password, RabbitMQPort),
+	}
 }
 
 // RedisEnv returns the variables injected for a Redis service.

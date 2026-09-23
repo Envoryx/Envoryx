@@ -11,6 +11,17 @@ release). `:main` follows the development branch.
 ## [Unreleased]
 
 ### Added
+- RabbitMQ as an optional service next to Redis and Mailpit (4.3, or 4.2), in the
+  wizard, on the Services tab, in `envoryx project create --rabbitmq` and the MCP
+  `create_project` tool. The broker keeps its data in a volume, the management UI is
+  published on a port of its own, the AMQP port on request. Envoryx generates a login
+  and injects `RABBITMQ_HOST`, `RABBITMQ_PORT`, `RABBITMQ_USER`, `RABBITMQ_PASSWORD`,
+  `RABBITMQ_VHOST` and `RABBITMQ_URL` (`amqp://…@rabbitmq:5672/%2f`) – the names
+  laravel-queue-rabbitmq reads, and a URL for Symfony Messenger, php-amqplib, amqplib
+  and Celery. `MESSENGER_TRANSPORT_DSN` stays yours to set – in Symfony's `.env`,
+  `MESSENGER_TRANSPORT_DSN=${RABBITMQ_URL}/messages` – because injecting it would
+  quietly move a Doctrine transport to AMQP. The password is shown on the Services tab
+  on request (operate scope, like database credentials).
 - SSH remote forwarding (`ssh -R`) into project containers. A process in the container
   reaches the client through a port on the container's localhost: socat listens there
   and connects each connection to Envoryx on the project network, which accepts only the

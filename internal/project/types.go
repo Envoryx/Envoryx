@@ -34,6 +34,7 @@ type CreateRequest struct {
 	Database *DatabaseRequest
 	Redis    *ExtraRequest
 	Mailpit  *ExtraRequest
+	RabbitMQ *ExtraRequest
 	Storage  *StorageRequest
 	Web      WebRequest
 	Git      *GitRequest
@@ -88,7 +89,7 @@ type PythonUpdate struct {
 	Config  runtime.PythonConfig
 }
 
-// ExtraRequest selects an auxiliary service (Redis, Mailpit).
+// ExtraRequest selects an auxiliary service (Redis, Mailpit, RabbitMQ).
 type ExtraRequest struct {
 	Version    string
 	ExposePort bool
@@ -115,7 +116,7 @@ type ExtraUpdate struct {
 	Enabled    bool
 	Version    string
 	ExposePort bool
-	// RemoveData must be true to remove a service that owns a volume (Redis).
+	// RemoveData must be true to remove a service that owns a volume (Redis, RabbitMQ).
 	RemoveData bool
 }
 
@@ -164,6 +165,7 @@ type UpdateRequest struct {
 	Database *DatabaseUpdate
 	Redis    *ExtraUpdate
 	Mailpit  *ExtraUpdate
+	RabbitMQ *ExtraUpdate
 	Storage  *StorageUpdate
 	Env      *[]EnvVarRequest
 	// IDEGateway toggles JetBrains Gateway support (port forwarding + shared IDE cache).
@@ -182,8 +184,19 @@ type ExtraServiceInfo struct {
 	State       string            `json:"state"`
 	Health      string            `json:"health,omitempty"`
 	VolumeName  string            `json:"volumeName,omitempty"`
-	// WebUI is the host-side URL of a web interface (Mailpit inbox), empty otherwise.
+	// WebUIPort is the host port of a web interface (Mailpit inbox, RabbitMQ management),
+	// 0 otherwise.
 	WebUIPort int `json:"webUiPort,omitempty"`
+	// Username logs in to RabbitMQ (AMQP and management UI); the password only comes from
+	// Manager.RabbitMQCredentials.
+	Username string `json:"username,omitempty"`
+}
+
+// RabbitMQCredentials are the login of a project's RabbitMQ broker.
+type RabbitMQCredentials struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+	URL      string `json:"url"` // as injected into the application (RABBITMQ_URL)
 }
 
 // StorageInfo describes the object storage service. Credentials are included only when

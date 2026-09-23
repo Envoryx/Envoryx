@@ -960,7 +960,7 @@ Claude Code: `claude mcp add --transport http envoryx https://envoryx.test/mcp -
 Use `http://<host>:8787/mcp` if the proxy/HTTPS is not set up.
 
 Available tools: list/get projects, list runtimes, create project (PHP
-version + extensions, database, Redis, Mailpit, object storage, Node, Python, git clone, env),
+version + extensions, database, Redis, Mailpit, RabbitMQ, object storage, Node, Python, git clone, env),
 start/stop/restart, get logs, list/run actions (composer, artisan, npm …),
 list/create databases, list/create backups, add domain. Deleting projects,
 dropping databases and restoring backups are intentionally not exposed –
@@ -1076,7 +1076,7 @@ envoryx git status|pull shop                          # and: git checkout shop m
 A project is named by its name, its slug or its id. `--json` hands the API's
 own answer to `jq` instead of a table; `--service` picks a container other
 than the project's application container (`php`, `python`, `node`, `web`,
-`database`, `redis`, `mailpit`, `storage`, `worker:<id>`). `envoryx project
+`database`, `redis`, `mailpit`, `rabbitmq`, `storage`, `worker:<id>`). `envoryx project
 create --from-json file.json` sends a create request the flags do not cover
 (everything the wizard offers), and flags given alongside it win.
 

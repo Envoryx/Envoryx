@@ -56,6 +56,7 @@ const (
 	ServiceDatabase ServiceKind = "database"
 	ServiceRedis    ServiceKind = "redis"
 	ServiceMailpit  ServiceKind = "mailpit"
+	ServiceRabbitMQ ServiceKind = "rabbitmq"
 	ServiceStorage  ServiceKind = "storage"
 )
 

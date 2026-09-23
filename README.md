@@ -49,7 +49,8 @@ Envoryx is under active development. The current milestone (Phase 1 + 2) deliver
   desktop clients, password rotation, create/drop databases, in-place version
   upgrades where the server supports them
 - Redis (persistent volume, `REDIS_URL`), Mailpit (SMTP catcher with web
-  inbox, `MAIL_*`/`MAILER_DSN`/`SMTP_HOST`/`SMTP_PORT`) and S3-compatible object storage (RustFS: a
+  inbox, `MAIL_*`/`MAILER_DSN`/`SMTP_HOST`/`SMTP_PORT`), RabbitMQ (message
+  broker with management UI, generated login, `RABBITMQ_*`/`RABBITMQ_URL`) and S3-compatible object storage (RustFS: a
   bucket per project, web console, `S3_*`/`AWS_*` injected, reachable from the
   browser for presigned URLs) as optional services
 - project files bind-mounted from `/projects/<name>` on the host

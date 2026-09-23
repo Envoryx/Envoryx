@@ -1,13 +1,18 @@
-import { ExternalLink, Mail, Plus, Server, Trash2 } from "lucide-react";
+import { ExternalLink, Mail, Plus, Rabbit, Server, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useState } from "react";
 import { useExtraServices, usePublicHost, useRuntimes, useStorage, useUpdateProject } from "@/api/hooks";
-import type { ExtraServiceInfo, Project } from "@/api/types";
+import { api } from "@/api/client";
+import type { ExtraServiceInfo, Project, RabbitMQCredentials } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Checkbox, Dialog, ErrorState, Field, Input, Select, Spinner, StatusDot } from "@/components/ui";
 import { containerStateTone } from "@/lib/format";
 import { AddStorageCard, StorageCard } from "./StorageCard";
 import { PublicHostNotice } from "@/components/PublicHostNotice";
 import { errorText } from "@/lib/errors";
+import { CopyRow } from "./DatabaseTab";
+
+type ExtraKind = "redis" | "mailpit" | "rabbitmq";
+const titles: Record<ExtraKind, string> = { redis: "Redis", mailpit: "Mailpit", rabbitmq: "RabbitMQ" };
 
 function ServiceCard({ project, info, onMessage }: { project: Project; info: ExtraServiceInfo; onMessage: (m: { tone: "green" | "red"; text: string }) => void }) {
   const { t } = useTranslation();
@@ -18,17 +23,25 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
   const [version, setVersion] = useState(info.version);
   const [removeOpen, setRemoveOpen] = useState(false);
   const [confirm, setConfirm] = useState("");
+  const [creds, setCreds] = useState<RabbitMQCredentials | null>(null);
   const host = publicHost || window.location.hostname;
-  const key = info.kind as "redis" | "mailpit";
-  const title = info.kind === "redis" ? "Redis" : "Mailpit";
+  const key = info.kind as ExtraKind;
+  const title = titles[key] ?? info.kind;
   const fail = (err: unknown, fallback: string) => onMessage({ tone: "red", text: errorText(err, t, fallback) });
+  const reveal = async () => {
+    try {
+      setCreds((await api.rabbitmq.credentials(project.id)).credentials);
+    } catch (err) {
+      fail(err, t("Loading the credentials failed"));
+    }
+  };
 
   return (
     <Card>
       <CardHeader
         title={
           <span className="flex items-center gap-2">
-            {info.kind === "mailpit" ? <Mail className="size-4 text-accent-500" aria-hidden /> : <Server className="size-4 text-accent-500" aria-hidden />}
+            {info.kind === "mailpit" ? <Mail className="size-4 text-accent-500" aria-hidden /> : info.kind === "rabbitmq" ? <Rabbit className="size-4 text-accent-500" aria-hidden /> : <Server className="size-4 text-accent-500" aria-hidden />}
             {title} {info.version}
           </span>
         }
@@ -68,12 +81,40 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
               </dd>
             </>
           )}
+          {info.kind === "rabbitmq" && (
+            <>
+              <dt className="text-muted">{t("Management UI")}</dt>
+              <dd>
+                {info.webUiPort ? (
+                  <a href={`http://${host}:${info.webUiPort}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-mono text-xs text-accent-600 hover:underline dark:text-accent-300">
+                    http://{host}:{info.webUiPort} <ExternalLink className="size-3" />
+                  </a>
+                ) : (
+                  <span className="text-xs text-subtle">{t("no port")}</span>
+                )}
+              </dd>
+              <dt className="text-muted">{t("User")}</dt>
+              <dd className="font-mono text-xs">{info.username}</dd>
+            </>
+          )}
         </dl>
 
-        {info.kind === "redis" && (
+        {info.kind === "rabbitmq" &&
+          (creds ? (
+            <dl className="divide-y divide-[var(--border)]">
+              <CopyRow label={t("Password")} value={creds.password} secret />
+              <CopyRow label="RABBITMQ_URL" value={creds.url} secret />
+            </dl>
+          ) : (
+            <Button size="sm" onClick={reveal}>
+              {t("Show password")}
+            </Button>
+          ))}
+
+        {(info.kind === "redis" || info.kind === "rabbitmq") && (
           <Checkbox
             label={t("Publish port on the host")}
-            description={info.hostPort ? t("Reachable at {{address}}", { address: `${host}:${info.hostPort}` }) : t("For desktop clients like RedisInsight.")}
+            description={info.hostPort ? t("Reachable at {{address}}", { address: `${host}:${info.hostPort}` }) : info.kind === "redis" ? t("For desktop clients like RedisInsight.") : t("For AMQP clients running on your machine.")}
             checked={info.hostPort > 0}
             disabled={update.isPending}
             onChange={(e) => update.mutate({ [key]: { enabled: true, version: info.version, exposePort: e.target.checked } }, { onError: (err) => fail(err, t("Changing the port failed")) })}
@@ -146,14 +187,14 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
   );
 }
 
-function AddServiceCard({ project, kind, onMessage }: { project: Project; kind: "redis" | "mailpit"; onMessage: (m: { tone: "green" | "red"; text: string }) => void }) {
+function AddServiceCard({ project, kind, onMessage }: { project: Project; kind: ExtraKind; onMessage: (m: { tone: "green" | "red"; text: string }) => void }) {
   const { t } = useTranslation();
   const update = useUpdateProject(project.id);
   const runtimes = useRuntimes();
   const rt = runtimes.data?.runtimes.find((r) => r.key === kind);
   const [version, setVersion] = useState("");
   const [expose, setExpose] = useState(false);
-  const title = kind === "redis" ? "Redis" : "Mailpit";
+  const title = titles[kind];
   return (
     <Card>
       <CardHeader title={title} description={rt?.description ?? ""} />
@@ -169,7 +210,7 @@ function AddServiceCard({ project, kind, onMessage }: { project: Project; kind: 
             </Select>
           </Field>
         )}
-        {kind === "redis" && <Checkbox label={t("Publish port on the host")} checked={expose} onChange={(e) => setExpose(e.target.checked)} />}
+        {kind !== "mailpit" && <Checkbox label={t("Publish port on the host")} checked={expose} onChange={(e) => setExpose(e.target.checked)} />}
         <Button
           variant="primary"
           icon={<Plus className="size-4" />}
@@ -207,6 +248,7 @@ export function ServicesTab({ project }: { project: Project }) {
         ))}
         {!has("redis") && <AddServiceCard project={project} kind="redis" onMessage={setMsg} />}
         {!has("mailpit") && <AddServiceCard project={project} kind="mailpit" onMessage={setMsg} />}
+        {!has("rabbitmq") && <AddServiceCard project={project} kind="rabbitmq" onMessage={setMsg} />}
         {!storage.data && <AddStorageCard project={project} onMessage={setMsg} />}
       </div>
     </div>

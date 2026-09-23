@@ -740,7 +740,15 @@ upgrades are refused (one step at a time, FCV).
 Redis (volume `envoryx-<slug>-redis`, `REDIS_*` injected) and Mailpit (web
 inbox on an allocated host port, `MAIL_*`/`MAILER_DSN` injected) are
 auxiliary services with a small `{hostPort}` config; env changes recreate the
-application containers while stateful services keep running.
+application containers while stateful services keep running. RabbitMQ
+(`rabbitmq:<version>-management-alpine`, volume `envoryx-<slug>-rabbitmq`) uses
+the same config plus `webUiPort` (management UI, always published) and a
+generated `username`/`password` that the image applies when it initialises the
+volume; `RABBITMQ_*` including `RABBITMQ_URL` is injected, the password only
+leaves the backend through `GET /projects/{id}/rabbitmq/credentials` (operate
+scope). `RABBITMQ_NODENAME=rabbit@localhost` pins the node name: the data
+directory is named after it, and the default contains the container's host
+name, which changes with every recreate.
 
 ### SSH (`internal/sshd`)
 `golang.org/x/crypto/ssh` server with an Ed25519 host key. Auth resolves the

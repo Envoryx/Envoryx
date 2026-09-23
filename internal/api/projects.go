@@ -265,6 +265,7 @@ type createProjectRequest struct {
 	Database      *databaseRequestDTO `json:"database"`
 	Redis         *extraRequestDTO    `json:"redis"`
 	Mailpit       *extraRequestDTO    `json:"mailpit"`
+	RabbitMQ      *extraRequestDTO    `json:"rabbitmq"`
 	Storage       *storageRequestDTO  `json:"storage"`
 	Git           *gitRequestDTO      `json:"git"`
 	Web           *webRequestDTO      `json:"web"`
@@ -314,6 +315,9 @@ func (r createProjectRequest) toDomain() project.CreateRequest {
 	if r.Mailpit != nil {
 		req.Mailpit = &project.ExtraRequest{Version: r.Mailpit.Version}
 	}
+	if r.RabbitMQ != nil {
+		req.RabbitMQ = &project.ExtraRequest{Version: r.RabbitMQ.Version, ExposePort: r.RabbitMQ.ExposePort}
+	}
 	if r.Storage != nil {
 		req.Storage = &project.StorageRequest{Version: r.Storage.Version, PublicRead: r.Storage.PublicRead}
 	}
@@ -341,6 +345,7 @@ type updateProjectRequest struct {
 	Database   *databaseUpdateDTO `json:"database"`
 	Redis      *extraUpdateDTO    `json:"redis"`
 	Mailpit    *extraUpdateDTO    `json:"mailpit"`
+	RabbitMQ   *extraUpdateDTO    `json:"rabbitmq"`
 	Storage    *storageUpdateDTO  `json:"storage"`
 	Env        *[]envDTO          `json:"env"`
 	IDEGateway *bool              `json:"ideGateway"`
@@ -555,6 +560,9 @@ func (a *API) updateProject(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Mailpit != nil {
 		upd.Mailpit = &project.ExtraUpdate{Enabled: req.Mailpit.Enabled, Version: req.Mailpit.Version}
+	}
+	if req.RabbitMQ != nil {
+		upd.RabbitMQ = &project.ExtraUpdate{Enabled: req.RabbitMQ.Enabled, Version: req.RabbitMQ.Version, ExposePort: req.RabbitMQ.ExposePort, RemoveData: req.RabbitMQ.RemoveData}
 	}
 	if req.Database != nil {
 		upd.Database = &project.DatabaseUpdate{Enabled: req.Database.Enabled, Type: req.Database.Type, Version: req.Database.Version, ExposePort: req.Database.ExposePort, RemoveData: req.Database.RemoveData}

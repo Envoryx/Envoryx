@@ -53,7 +53,7 @@ type Server struct {
 func New(d Deps) *Server {
 	s := &Server{d: d, scopes: map[string]auth.Scope{}}
 	s.mcp = mcp.NewServer(&mcp.Implementation{Name: "envoryx", Title: "Envoryx", Version: d.Version, WebsiteURL: "https://github.com/envoryx/envoryx"}, &mcp.ServerOptions{
-		Instructions: "Envoryx manages Docker-based development environments (web server, PHP and/or Node.js, database, Redis, Mailpit, S3-compatible object storage). " +
+		Instructions: "Envoryx manages Docker-based development environments (web server, PHP and/or Node.js, database, Redis, Mailpit, RabbitMQ, S3-compatible object storage). " +
 			"Projects are identified by id, slug or name. Use list_runtimes to see available versions before creating projects. " +
 			"Deleting projects, dropping databases and restoring backups are not available here; ask the user to do that in the Envoryx UI. " +
 			"Tools may be refused because of the token's scope (read < operate < admin) or its project restriction; the refusal names what is needed – ask the user for a token with that scope rather than retrying.",

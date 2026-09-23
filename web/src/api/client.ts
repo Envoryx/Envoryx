@@ -13,6 +13,7 @@ import type {
   RenameResult,
   Dashboard,
   DatabaseCredentials,
+  RabbitMQCredentials,
   DatabaseInfo,
   DBToolLink,
   DBToolStatus,
@@ -280,6 +281,9 @@ export const api = {
     credentials: (id: string) => request<{ storage: StorageInfo }>(`/projects/${encodeURIComponent(id)}/storage/credentials`),
     setPublic: (id: string, publicRead: boolean) =>
       request<{ storage: StorageInfo }>(`/projects/${encodeURIComponent(id)}/storage/public`, { method: "PUT", body: { publicRead } }),
+  },
+  rabbitmq: {
+    credentials: (id: string) => request<{ credentials: RabbitMQCredentials }>(`/projects/${encodeURIComponent(id)}/rabbitmq/credentials`),
   },
   database: {
     info: (id: string) => request<{ database: DatabaseInfo }>(`/projects/${encodeURIComponent(id)}/database`),

@@ -212,3 +212,83 @@ func TestRedisAndMailpitEnvReachNodeApplication(t *testing.T) {
 		t.Fatalf("web env: %v", web.Spec.Env)
 	}
 }
+
+// RabbitMQ keeps its data under a fixed node name, always publishes the management UI,
+// publishes AMQP only on request and gives the application a login of its own.
+func TestRabbitMQService(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	req := phpRequest("Queue", true)
+	req.RabbitMQ = &ExtraRequest{ExposePort: true}
+	view, err := e.m.Create(ctx, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rq, ok := e.engine.Container("envoryx-queue-rabbitmq")
+	if !ok {
+		t.Fatal("no rabbitmq container")
+	}
+	if rq.Spec.Image != "rabbitmq:4.3-management-alpine" || rq.Spec.Mounts[0].Source != "envoryx-queue-rabbitmq" || rq.Spec.Mounts[0].Target != "/var/lib/rabbitmq" {
+		t.Fatalf("rabbitmq: %+v", rq.Spec)
+	}
+	if len(rq.Spec.Ports) != 2 || rq.Spec.Ports[0].ContainerPort != 5672 || rq.Spec.Ports[1].ContainerPort != 15672 || rq.Spec.Ports[0].HostPort == rq.Spec.Ports[1].HostPort || rq.Spec.Ports[1].HostPort == view.Project.HTTPPort {
+		t.Fatalf("rabbitmq ports: %+v", rq.Spec.Ports)
+	}
+	creds, err := e.m.RabbitMQCredentials(ctx, view.Project.ID)
+	if err != nil || creds.Username != "envoryx" || len(creds.Password) < 20 {
+		t.Fatalf("credentials: %+v %v", creds, err)
+	}
+	rqEnv := strings.Join(rq.Spec.Env, "\n")
+	for _, want := range []string{"RABBITMQ_NODENAME=rabbit@localhost", "RABBITMQ_DEFAULT_USER=envoryx", "RABBITMQ_DEFAULT_PASS=" + creds.Password} {
+		if !strings.Contains(rqEnv, want) {
+			t.Errorf("rabbitmq env missing %s", want)
+		}
+	}
+	php, _ := e.engine.Container("envoryx-queue-php")
+	env := strings.Join(php.Spec.Env, "\n")
+	for _, want := range []string{"RABBITMQ_HOST=rabbitmq", "RABBITMQ_PORT=5672", "RABBITMQ_USER=envoryx", "RABBITMQ_PASSWORD=" + creds.Password, "RABBITMQ_VHOST=/", "RABBITMQ_URL=amqp://envoryx:" + creds.Password + "@rabbitmq:5672/%2f"} {
+		if !strings.Contains(env, want) {
+			t.Errorf("php env missing %s", want)
+		}
+	}
+	extras, err := e.m.ExtraServices(ctx, view.Project.ID)
+	if err != nil || len(extras) != 1 || extras[0].WebUIPort != rq.Spec.Ports[1].HostPort || extras[0].HostPort != rq.Spec.Ports[0].HostPort || extras[0].Username != "envoryx" || extras[0].VolumeName == "" {
+		t.Fatalf("extras: %+v %v", extras, err)
+	}
+
+	// Unpublishing AMQP keeps the management UI.
+	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{RabbitMQ: &ExtraUpdate{Enabled: true}}); err != nil {
+		t.Fatal(err)
+	}
+	rq, _ = e.engine.Container("envoryx-queue-rabbitmq")
+	if len(rq.Spec.Ports) != 1 || rq.Spec.Ports[0].ContainerPort != 15672 || rq.Spec.Ports[0].HostPort != extras[0].WebUIPort {
+		t.Fatalf("ports after unpublishing AMQP: %+v", rq.Spec.Ports)
+	}
+
+	// Removal needs confirmation and takes the volume and the variables with it.
+	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{RabbitMQ: &ExtraUpdate{Enabled: false}}); !errors.Is(err, validate.ErrInvalid) {
+		t.Fatalf("rabbitmq removal must require removeData, got %v", err)
+	}
+	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{RabbitMQ: &ExtraUpdate{Enabled: false, RemoveData: true}}); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(strings.Join(e.engine.VolumeNames(), ","), "rabbitmq") {
+		t.Fatalf("volumes after removal: %v", e.engine.VolumeNames())
+	}
+	php, _ = e.engine.Container("envoryx-queue-php")
+	if strings.Contains(strings.Join(php.Spec.Env, "\n"), "RABBITMQ_") {
+		t.Fatal("php env must drop the RabbitMQ variables")
+	}
+	if _, err := e.m.RabbitMQCredentials(ctx, view.Project.ID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("credentials without rabbitmq: %v", err)
+	}
+
+	// Added again later: a fresh password and a management UI port, AMQP unpublished.
+	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{RabbitMQ: &ExtraUpdate{Enabled: true}}); err != nil {
+		t.Fatal(err)
+	}
+	rq, _ = e.engine.Container("envoryx-queue-rabbitmq")
+	if rq.State != "running" || len(rq.Spec.Ports) != 1 || rq.Spec.Ports[0].ContainerPort != 15672 {
+		t.Fatalf("rabbitmq re-added: %+v", rq)
+	}
+}

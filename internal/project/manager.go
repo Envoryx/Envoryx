@@ -282,6 +282,13 @@ func (m *Manager) buildProject(req CreateRequest) (store.Project, error) {
 		}
 		proj.Services = append(proj.Services, svc)
 	}
+	if req.RabbitMQ != nil {
+		svc, err := m.buildExtraService(store.ServiceRabbitMQ, req.RabbitMQ.Version)
+		if err != nil {
+			return store.Project{}, err
+		}
+		proj.Services = append(proj.Services, svc)
+	}
 	if req.Storage != nil {
 		svc, err := m.buildStorageService(proj.Slug, req.Storage.Version, req.Storage.PublicRead)
 		if err != nil {
@@ -395,11 +402,21 @@ func (m *Manager) buildExtraService(kind store.ServiceKind, version string) (sto
 	if err != nil {
 		return store.ProjectService{}, err
 	}
-	position := 6
-	if kind == store.ServiceMailpit {
+	position, raw := 6, json.RawMessage(`{"hostPort":0}`)
+	switch kind {
+	case store.ServiceMailpit:
 		position = 7
+	case store.ServiceRabbitMQ:
+		cfg, err := runtime.NewRabbitMQConfig()
+		if err != nil {
+			return store.ProjectService{}, err
+		}
+		if raw, err = json.Marshal(cfg); err != nil {
+			return store.ProjectService{}, err
+		}
+		position = 9
 	}
-	return store.ProjectService{Kind: kind, Variant: string(kind), Version: v.Version, Image: v.Image, Enabled: true, Config: json.RawMessage(`{"hostPort":0}`), Position: position}, nil
+	return store.ProjectService{Kind: kind, Variant: string(kind), Version: v.Version, Image: v.Image, Enabled: true, Config: raw, Position: position}, nil
 }
 
 // buildStorageService validates the object storage selection and generates its
@@ -537,11 +554,16 @@ func (m *Manager) collectUsedPorts(ctx context.Context, used map[int]bool) error
 				used[cfg.HostPort] = true
 			}
 		}
-		for _, kind := range []store.ServiceKind{store.ServiceRedis, store.ServiceMailpit} {
+		for _, kind := range []store.ServiceKind{store.ServiceRedis, store.ServiceMailpit, store.ServiceRabbitMQ} {
 			if svc := p.Service(kind); svc != nil {
 				var cfg runtime.ServiceConfig
-				if json.Unmarshal(svc.Config, &cfg) == nil && cfg.HostPort > 0 {
-					used[cfg.HostPort] = true
+				if json.Unmarshal(svc.Config, &cfg) == nil {
+					if cfg.HostPort > 0 {
+						used[cfg.HostPort] = true
+					}
+					if cfg.WebUIPort > 0 {
+						used[cfg.WebUIPort] = true
+					}
 				}
 			}
 		}
@@ -592,7 +614,7 @@ func (m *Manager) collectUsedPorts(ctx context.Context, used map[int]bool) error
 }
 
 // assignServicePorts allocates host ports for services the request wants published
-// (database, Redis) and always for Mailpit's web inbox. Ports already chosen for this
+// (database, Redis, RabbitMQ) and always for the web UIs of Mailpit and RabbitMQ. Ports already chosen for this
 // project are excluded so the allocations do not collide with each other.
 func (m *Manager) assignServicePorts(ctx context.Context, proj *store.Project, req CreateRequest) error {
 	taken := []int{proj.HTTPPort}
@@ -621,6 +643,23 @@ func (m *Manager) assignServicePorts(ctx context.Context, proj *store.Project, r
 	if req.Mailpit != nil {
 		if err := assign(store.ServiceMailpit); err != nil {
 			return err
+		}
+	}
+	if req.RabbitMQ != nil {
+		if req.RabbitMQ.ExposePort {
+			if err := assign(store.ServiceRabbitMQ); err != nil {
+				return err
+			}
+		}
+		if svc := proj.Service(store.ServiceRabbitMQ); svc != nil {
+			port, err := m.allocatePort(ctx, taken...)
+			if err != nil {
+				return err
+			}
+			taken = append(taken, port)
+			if err := setWebUIPort(svc, port); err != nil {
+				return err
+			}
 		}
 	}
 	if req.Storage != nil {
@@ -771,7 +810,7 @@ func (m *Manager) resolveImages(p *store.Project) {
 			key = "node"
 		case store.ServicePython:
 			key = "python"
-		case store.ServiceRedis, store.ServiceMailpit:
+		case store.ServiceRedis, store.ServiceMailpit, store.ServiceRabbitMQ:
 			key = string(svc.Kind)
 		case store.ServiceWeb, store.ServiceDatabase, store.ServiceStorage:
 			key = svc.Variant

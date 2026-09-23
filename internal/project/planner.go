@@ -476,6 +476,40 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 			plan.Containers = append(plan.Containers, ContainerPlan{Kind: store.ServiceMailpit, Order: 7, Spec: spec})
 			images[svc.Image] = true
 
+		case store.ServiceRabbitMQ:
+			var cfg runtime.ServiceConfig
+			if err := json.Unmarshal(svc.Config, &cfg); err != nil {
+				return Plan{}, fmt.Errorf("rabbitmq config: %w", err)
+			}
+			if cfg.Username == "" || cfg.Password == "" {
+				return Plan{}, fmt.Errorf("rabbitmq config for %s is incomplete", proj.Slug)
+			}
+			volume := VolumeName(proj.Slug, store.ServiceRabbitMQ)
+			plan.Volumes = append(plan.Volumes, volume)
+			spec := docker.ContainerSpec{
+				Name:   ContainerName(proj.Slug, store.ServiceRabbitMQ),
+				Image:  svc.Image,
+				Labels: labels,
+				// The node name decides the data directory inside the volume; the default
+				// (rabbit@<container hostname>) changes with every recreated container and
+				// would leave queues and users behind.
+				Env:           []string{"RABBITMQ_NODENAME=rabbit@localhost", "RABBITMQ_DEFAULT_USER=" + cfg.Username, "RABBITMQ_DEFAULT_PASS=" + cfg.Password},
+				Network:       plan.NetworkName,
+				NetworkAlias:  []string{"rabbitmq", "amqp"},
+				Mounts:        []docker.MountSpec{{Type: "volume", Source: volume, Target: "/var/lib/rabbitmq"}},
+				RestartPolicy: "unless-stopped",
+				StopTimeout:   30,
+				Healthcheck:   &docker.HealthSpec{Test: []string{"rabbitmq-diagnostics", "-q", "ping"}, Interval: 10 * time.Second, Timeout: 10 * time.Second, StartPeriod: 30 * time.Second, Retries: 5},
+			}
+			if cfg.HostPort > 0 {
+				spec.Ports = append(spec.Ports, docker.PortSpec{HostIP: p.paths.PublishInterface, HostPort: cfg.HostPort, ContainerPort: runtime.RabbitMQPort, Protocol: "tcp"})
+			}
+			if cfg.WebUIPort > 0 {
+				spec.Ports = append(spec.Ports, docker.PortSpec{HostIP: p.paths.PublishInterface, HostPort: cfg.WebUIPort, ContainerPort: runtime.RabbitMQAdminPort, Protocol: "tcp"})
+			}
+			plan.Containers = append(plan.Containers, ContainerPlan{Kind: store.ServiceRabbitMQ, Order: 9, Spec: spec})
+			images[svc.Image] = true
+
 		case store.ServiceStorage:
 			var cfg runtime.StorageConfig
 			if err := json.Unmarshal(svc.Config, &cfg); err != nil {
@@ -688,6 +722,16 @@ func (p *Planner) envStrings(proj store.Project) ([]string, error) {
 	if mp := proj.Service(store.ServiceMailpit); mp != nil && mp.Enabled {
 		env := runtime.MailpitEnv()
 		for _, k := range []string{"MAIL_MAILER", "MAIL_HOST", "MAIL_PORT", "MAIL_ENCRYPTION", "MAILER_DSN", "SMTP_HOST", "SMTP_PORT"} {
+			set(k, env[k])
+		}
+	}
+	if rq := proj.Service(store.ServiceRabbitMQ); rq != nil && rq.Enabled {
+		var cfg runtime.ServiceConfig
+		if err := json.Unmarshal(rq.Config, &cfg); err != nil {
+			return nil, fmt.Errorf("rabbitmq config: %w", err)
+		}
+		env := runtime.RabbitMQEnv(cfg)
+		for _, k := range runtime.RabbitMQEnvKeys {
 			set(k, env[k])
 		}
 	}
