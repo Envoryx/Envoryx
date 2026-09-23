@@ -516,7 +516,7 @@ func (s *Server) serveSFTP(ctx context.Context, ch ssh.Channel, target project.E
 	s.d.Audit.Log(ctx, "ssh.sftp", "project", target.Project.ID, map[string]any{"name": target.Project.Name})
 	fs := newProjectFS(target)
 	if target.Running && target.ContainerID != "" {
-		fs.statOutside = containerStat(ctx, s.d.Engine, target.ContainerID)
+		fs.outside = &containerOps{ctx: ctx, engine: s.d.Engine, containerID: target.ContainerID, user: target.User}
 	}
 	// Relative paths start in the tool home, as with a real SSH server: IDEs upload their
 	// helpers to ~/.phpstorm_helpers and friends, and "/" is not writable.
