@@ -192,6 +192,15 @@ release). `:main` follows the development branch.
   disappears by itself once the environment is rebuilt.
 
 ### Fixed
+- PhpStorm's remote interpreter over the embedded SSH server reported "PHP version:
+  Not installed". PhpStorm checks over SFTP that the interpreter exists, and SFTP
+  only knew the bind mounts, so `/usr/local/bin/php` was missing; it then uploads its
+  helpers to `~/.phpstorm_helpers`, and SFTP started in the unwritable `/`. SFTP now
+  answers stat requests outside the mounts from the running container (metadata
+  only; reading and writing stay confined to the mounts) and starts in
+  `/home/envoryx`. SFTP errors no longer reveal where a file lives on the Envoryx
+  side. The IDE tab now mentions the "+" in the interpreter dialog and the path
+  mapping a remote interpreter needs.
 - "I have no name!" in the terminal of a PHP container, and git over SSH failing there
   with "No user exists for uid 99". The PHP container runs as root and php-fpm switches
   users itself, but terminal, actions, `envoryx exec` and SSH work in it as PUID:PGID.

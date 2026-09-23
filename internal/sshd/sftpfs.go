@@ -1,6 +1,9 @@
 package sshd
 
 import (
+	"context"
+	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path"
@@ -13,6 +16,7 @@ import (
 
 	"github.com/pkg/sftp"
 
+	"github.com/envoryx/envoryx/internal/docker"
 	"github.com/envoryx/envoryx/internal/project"
 )
 
@@ -27,6 +31,10 @@ type projectFS struct {
 	prefixes []string
 	uid      int
 	gid      int
+	// statOutside answers Stat/Lstat for paths outside the mounts from the running
+	// container, read-only: IDEs check that an interpreter such as /usr/local/bin/php
+	// exists over SFTP before they use it. Nil when the container is not running.
+	statOutside func(p string, follow bool) (os.FileInfo, error)
 }
 
 func newProjectFS(t project.ExecTarget) *projectFS {
@@ -115,13 +123,31 @@ func (l listerAt) ListAt(out []os.FileInfo, off int64) (int, error) {
 	return n, nil
 }
 
+// clientErr drops the Envoryx-side path from filesystem errors: the client addresses
+// files by their container path and has no business seeing where they live here.
+func clientErr(err error) error {
+	var pe *os.PathError
+	if errors.As(err, &pe) {
+		return pe.Err
+	}
+	var le *os.LinkError
+	if errors.As(err, &le) {
+		return le.Err
+	}
+	return err
+}
+
 // Fileread implements sftp.FileReader.
 func (f *projectFS) Fileread(r *sftp.Request) (io.ReaderAt, error) {
 	local, ok, err := f.resolve(r.Filepath)
 	if err != nil || !ok {
 		return nil, errOutside
 	}
-	return os.Open(local)
+	file, err := os.Open(local)
+	if err != nil {
+		return nil, clientErr(err)
+	}
+	return file, nil
 }
 
 // Filewrite implements sftp.FileWriter.
@@ -143,14 +169,16 @@ func (f *projectFS) Filewrite(r *sftp.Request) (io.WriterAt, error) {
 	}
 	file, err := os.OpenFile(local, flags, 0o644)
 	if err != nil {
-		return nil, err
+		return nil, clientErr(err)
 	}
 	_ = file.Chown(f.uid, f.gid)
 	return file, nil
 }
 
 // Filecmd implements sftp.FileCmder.
-func (f *projectFS) Filecmd(r *sftp.Request) error {
+func (f *projectFS) Filecmd(r *sftp.Request) error { return clientErr(f.filecmd(r)) }
+
+func (f *projectFS) filecmd(r *sftp.Request) error {
 	local, ok, err := f.resolve(r.Filepath)
 	if err != nil || !ok {
 		return errOutside
@@ -206,6 +234,11 @@ func (f *projectFS) Filecmd(r *sftp.Request) error {
 
 // Filelist implements sftp.FileLister (List, Stat, Readlink).
 func (f *projectFS) Filelist(r *sftp.Request) (sftp.ListerAt, error) {
+	l, err := f.filelist(r)
+	return l, clientErr(err)
+}
+
+func (f *projectFS) filelist(r *sftp.Request) (sftp.ListerAt, error) {
 	clean := path.Clean("/" + r.Filepath)
 	local, ok, err := f.resolve(clean)
 	if err != nil {
@@ -247,10 +280,17 @@ func (f *projectFS) Filelist(r *sftp.Request) (sftp.ListerAt, error) {
 		return listerAt(infos), nil
 	case "Stat", "Lstat":
 		if !ok {
-			if _, virtual := virtualDirs[clean]; !virtual {
+			if _, virtual := virtualDirs[clean]; virtual {
+				return listerAt{virtualInfo{name: path.Base(clean), dir: true}}, nil
+			}
+			if f.statOutside == nil {
 				return nil, os.ErrNotExist
 			}
-			return listerAt{virtualInfo{name: path.Base(clean), dir: true}}, nil
+			info, err := f.statOutside(clean, r.Method == "Stat")
+			if err != nil {
+				return nil, err
+			}
+			return listerAt{info}, nil
 		}
 		var info os.FileInfo
 		if r.Method == "Lstat" {
@@ -282,3 +322,63 @@ func (f *projectFS) Lstat(r *sftp.Request) (sftp.ListerAt, error) {
 }
 
 var _ sftp.LstatFileLister = (*projectFS)(nil)
+
+// containerStat stats a path inside the container with stat(1), which coreutils and
+// busybox both provide, as the container's default user.
+func containerStat(ctx context.Context, engine docker.Engine, containerID string) func(string, bool) (os.FileInfo, error) {
+	return func(p string, follow bool) (os.FileInfo, error) {
+		cmd := []string{"stat", "-c", "%f %s %Y", "--", p}
+		if follow {
+			cmd = []string{"stat", "-L", "-c", "%f %s %Y", "--", p}
+		}
+		ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		defer cancel()
+		res, err := engine.Exec(ctx, containerID, cmd, nil)
+		if err != nil {
+			return nil, err
+		}
+		if res.ExitCode != 0 {
+			return nil, os.ErrNotExist
+		}
+		return parseStat(path.Base(p), res.Stdout)
+	}
+}
+
+// parseStat reads "<raw mode in hex> <size> <mtime>" as printed by stat -c '%f %s %Y'.
+func parseStat(name, out string) (os.FileInfo, error) {
+	fields := strings.Fields(out)
+	if len(fields) != 3 {
+		return nil, fmt.Errorf("unexpected stat output %q", out)
+	}
+	raw, err1 := strconv.ParseUint(fields[0], 16, 32)
+	size, err2 := strconv.ParseInt(fields[1], 10, 64)
+	mtime, err3 := strconv.ParseInt(fields[2], 10, 64)
+	if err := errors.Join(err1, err2, err3); err != nil {
+		return nil, fmt.Errorf("unexpected stat output %q: %w", out, err)
+	}
+	mode := os.FileMode(raw & 0o777)
+	switch raw & syscall.S_IFMT {
+	case syscall.S_IFDIR:
+		mode |= os.ModeDir
+	case syscall.S_IFLNK:
+		mode |= os.ModeSymlink
+	case syscall.S_IFREG:
+	default:
+		mode |= os.ModeIrregular
+	}
+	return statInfo{name: name, size: size, mode: mode, mtime: time.Unix(mtime, 0)}, nil
+}
+
+type statInfo struct {
+	name  string
+	size  int64
+	mode  os.FileMode
+	mtime time.Time
+}
+
+func (i statInfo) Name() string       { return i.name }
+func (i statInfo) Size() int64        { return i.size }
+func (i statInfo) Mode() os.FileMode  { return i.mode }
+func (i statInfo) ModTime() time.Time { return i.mtime }
+func (i statInfo) IsDir() bool        { return i.mode.IsDir() }
+func (i statInfo) Sys() any           { return nil }

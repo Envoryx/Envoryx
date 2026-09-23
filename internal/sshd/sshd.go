@@ -506,7 +506,12 @@ func (c *countingWriter) Write(p []byte) (int, error) {
 func (s *Server) serveSFTP(ctx context.Context, ch ssh.Channel, target project.ExecTarget) {
 	s.d.Audit.Log(ctx, "ssh.sftp", "project", target.Project.ID, map[string]any{"name": target.Project.Name})
 	fs := newProjectFS(target)
-	srv := sftp.NewRequestServer(ch, sftp.Handlers{FileGet: fs, FilePut: fs, FileCmd: fs, FileList: fs})
+	if target.Running && target.ContainerID != "" {
+		fs.statOutside = containerStat(ctx, s.d.Engine, target.ContainerID)
+	}
+	// Relative paths start in the tool home, as with a real SSH server: IDEs upload their
+	// helpers to ~/.phpstorm_helpers and friends, and "/" is not writable.
+	srv := sftp.NewRequestServer(ch, sftp.Handlers{FileGet: fs, FilePut: fs, FileCmd: fs, FileList: fs}, sftp.WithStartDirectory(target.HomeMount))
 	if err := srv.Serve(); err != nil && !errors.Is(err, io.EOF) {
 		s.d.Log.Debug("sftp session ended", "err", err)
 	}
