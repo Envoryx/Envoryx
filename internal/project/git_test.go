@@ -81,7 +81,7 @@ func TestCreateWithGitClonesInTransientContainer(t *testing.T) {
 	if !strings.Contains(envs, "GIT_CONFIG_KEY_1=http.extraHeader") || !strings.Contains(envs, want) || !strings.Contains(envs, "GIT_CONFIG_COUNT=2") {
 		t.Fatalf("git env: %s", envs)
 	}
-	if clone.User != "1000:1000" || clone.Mounts[0].Source != "/host/development/cloned" || clone.Mounts[1].Source != "/host/appdata/envoryx/ssh" || clone.Mounts[1].Target != "/tmp/envoryx-ssh" {
+	if !runsAsProjectUser(clone, 1000, 1000) || clone.Mounts[0].Source != "/host/development/cloned" || clone.Mounts[1].Source != "/host/appdata/envoryx/ssh" || clone.Mounts[1].Target != "/tmp/envoryx-ssh" {
 		t.Fatalf("clone container spec: %+v", clone)
 	}
 	if clone.Labels[docker.LabelService] != "git" || clone.Labels[docker.LabelProjectID] != view.Project.ID {
@@ -234,7 +234,7 @@ func TestGitRunsFromTheProjectRuntimeImage(t *testing.T) {
 	if strings.Join(clone.Cmd, " ") != "git -C /var/www/html clone --progress -- https://github.com/seramos/front.git ." {
 		t.Fatalf("clone cmd: %v", clone.Cmd)
 	}
-	if clone.Image != "ghcr.io/envoryx/envoryx-node:24" || clone.User != "1000:1000" {
+	if clone.Image != "ghcr.io/envoryx/envoryx-node:24" || !runsAsProjectUser(clone, 1000, 1000) {
 		t.Fatalf("clone container: %+v", clone)
 	}
 	if len(clone.Mounts) != 2 || clone.Mounts[1].Target != sshMountTarget || !strings.HasSuffix(clone.Mounts[1].Source, "/ssh") {

@@ -159,6 +159,16 @@ release). `:main` follows the development branch.
   disappears by itself once the environment is rebuilt.
 
 ### Fixed
+- Templates and git on Unraid. The one-shot containers that scaffold a template or run
+  git ran as PUID/PGID (99:100 on Unraid) without a passwd entry for that uid, so the
+  Next.js template died in create-next-app ("template next failed at create-next-app:
+  Node.js v24…") and git over SSH failed with "No user exists for uid 99". They now start
+  as root, add the entry and drop to PUID/PGID before the command runs – the same entry
+  the long-running containers already got.
+- A failed template now says why. The error showed the last line of the output, which
+  for a crashing Node process is just "Node.js v24.x" and for npm the path of its log
+  file. It now shows the thrown error or npm's cause, and the last 40 lines of the
+  output go to the Envoryx log.
 - MongoDB is offered as 8.2 and that is what a new project gets. The previous
   default 8.0 – and 7.0 – refuse to start on Linux 6.19 and newer ("MongoDB
   cannot start: Linux kernel versions 6.19 and newer has a known

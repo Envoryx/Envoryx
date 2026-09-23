@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -39,7 +40,7 @@ func TestTemplatesScaffoldThroughOneShotContainers(t *testing.T) {
 	if v.Project.Docroot != "public" {
 		t.Fatalf("docroot: %q", v.Project.Docroot)
 	}
-	if len(runs) != 1 || strings.Join(runs[0].Cmd, " ") != "composer create-project laravel/laravel . --no-interaction --prefer-dist" || runs[0].User != "1000:1000" || runs[0].Labels["envoryx.service"] != "template" {
+	if len(runs) != 1 || strings.Join(runs[0].Cmd, " ") != "composer create-project laravel/laravel . --no-interaction --prefer-dist" || !runsAsProjectUser(runs[0], 1000, 1000) || runs[0].Labels["envoryx.service"] != "template" {
 		t.Fatalf("laravel step: %+v", runs)
 	}
 	if _, err := os.Stat(filepath.Join(e.projDir, "shop", "public", "index.php")); err == nil {
@@ -115,7 +116,7 @@ func TestNodeTemplatesScaffoldFromTheNodeImage(t *testing.T) {
 		t.Fatalf("install step: %s", got)
 	}
 	for _, r := range runs {
-		if r.Image != "ghcr.io/envoryx/envoryx-node:24" || r.User != "1000:1000" || r.Labels["envoryx.service"] != "template" || r.RestartPolicy != "no" {
+		if r.Image != "ghcr.io/envoryx/envoryx-node:24" || !runsAsProjectUser(r, 1000, 1000) || r.Labels["envoryx.service"] != "template" || r.RestartPolicy != "no" {
 			t.Fatalf("scaffold container: %+v", r)
 		}
 		// create-next-app needs a writable parent directory; /var/www is root-owned.
@@ -226,6 +227,51 @@ func TestTemplatesCarryTheirRuntime(t *testing.T) {
 	for i := 1; i < len(out); i++ {
 		if Templates()[i-1].Name > Templates()[i].Name {
 			t.Fatalf("templates not sorted by name at %d", i)
+		}
+	}
+}
+
+// runsAsProjectUser reports whether a one-shot starts as root and drops to uid:gid after
+// writing the passwd entry (runAsProjectUser).
+func runsAsProjectUser(spec docker.ContainerSpec, uid, gid int) bool {
+	if spec.User != "0:0" || len(spec.Entrypoint) != 4 {
+		return false
+	}
+	script := spec.Entrypoint[2]
+	return strings.Contains(script, fmt.Sprintf(`getent passwd %d `, uid)) &&
+		strings.Contains(script, fmt.Sprintf(`exec setpriv --reuid=%d --regid=%d --clear-groups -- "$@"`, uid, gid))
+}
+
+func TestRunAsProjectUserLeavesRootAlone(t *testing.T) {
+	spec := docker.ContainerSpec{Cmd: []string{"git", "status"}}
+	runAsProjectUser(&spec, 0, 0)
+	if spec.User != "0:0" || spec.Entrypoint != nil || strings.Join(spec.Cmd, " ") != "git status" {
+		t.Fatalf("root one-shot changed: %+v", spec)
+	}
+	runAsProjectUser(&spec, 99, 100)
+	if !runsAsProjectUser(spec, 99, 100) || strings.Join(spec.Cmd, " ") != "git status" {
+		t.Fatalf("unraid one-shot: %+v", spec)
+	}
+}
+
+func TestFailureLineFindsTheCause(t *testing.T) {
+	for name, tc := range map[string]struct{ out, want string }{
+		"node crash": {
+			out:  "node:os:306\n    throw new ERR_SYSTEM_ERROR(ctx);\n    ^\n\nSystemError [ERR_SYSTEM_ERROR]: A system error occurred: uv_os_get_passwd returned ENOENT (no such file or directory)\n    at Object.userInfo (node:os:306:11)\n  code: 'ERR_SYSTEM_ERROR',\n  info: {\n    errno: -2,\n  }\n}\n\nNode.js v24.21.0\n",
+			want: "SystemError [ERR_SYSTEM_ERROR]: A system error occurred: uv_os_get_passwd returned ENOENT (no such file or directory)",
+		},
+		"npm": {
+			out:  "\x1b[31mnpm error\x1b[39m code E404\nnpm error 404 Not Found - GET https://registry.npmjs.org/create-nope - Not found\nnpm error A complete log of this run can be found in: /tmp/.npm/_logs/x.log\n",
+			want: "npm error 404 Not Found - GET https://registry.npmjs.org/create-nope - Not found",
+		},
+		"python": {
+			out:  "Traceback (most recent call last):\n  File \"x.py\", line 1\nModuleNotFoundError: No module named 'django'\n",
+			want: "ModuleNotFoundError: No module named 'django'",
+		},
+		"fallback": {out: "Installing...\n  Could not find package foo/bar.\n\n", want: "Could not find package foo/bar."},
+	} {
+		if got := failureLine(tc.out); got != tc.want {
+			t.Errorf("%s: got %q, want %q", name, got, tc.want)
 		}
 	}
 }

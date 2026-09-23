@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -325,17 +326,19 @@ func (m *Manager) applyTemplate(ctx context.Context, proj store.Project, tpl Tem
 			Env:        env,
 			Cmd:        ts.cmd,
 			WorkingDir: mount,
-			User:       fmt.Sprintf("%d:%d", paths.PUID, paths.PGID),
 			Mounts:     []docker.MountSpec{{Type: "bind", Source: planner.projectHostDir(proj), Target: mount}},
 			// Composer/npm downloads need DNS/internet: default bridge network.
 			RestartPolicy: "no",
 		}
+		runAsProjectUser(&spec, paths.PUID, paths.PGID)
 		res, err := m.engine.RunOneShot(ctx, spec)
 		if err != nil {
 			return fmt.Errorf("template %s (%s): %w", tpl.ID, ts.label, err)
 		}
 		if res.ExitCode != 0 {
-			return fmt.Errorf("%w: template %s failed at %q: %s", ErrConflict, tpl.ID, ts.label, lastLine(res.Stdout+"\n"+res.Stderr))
+			out := res.Stdout + "\n" + res.Stderr
+			m.log.Warn("template step failed", "project", proj.Slug, "template", tpl.ID, "step", ts.label, "exit", res.ExitCode, "output", tailLines(out, 40))
+			return fmt.Errorf("%w: template %s failed at %q: %s", ErrConflict, tpl.ID, ts.label, failureLine(out))
 		}
 		for rel, gen := range ts.files {
 			content, err := gen()
@@ -355,4 +358,47 @@ func (m *Manager) applyTemplate(ctx context.Context, proj store.Project, tpl Tem
 	chownTree(dir, paths.PUID, paths.PGID)
 	m.audit.Log(ctx, audit.ActionProjectUpdated, "project", proj.ID, map[string]any{"name": proj.Name, "template": tpl.ID})
 	return nil
+}
+
+var (
+	ansiEscape = regexp.MustCompile(`\x1b\[[0-9;]*[A-Za-z]`)
+	// errorLine matches the line a crashing Node or Python process prints for the thrown
+	// error: "SystemError [ERR_SYSTEM_ERROR]: …", "TypeError: …", "django.core…Error: …".
+	errorLine = regexp.MustCompile(`^[\w.]*(Error|Exception)\b[^:]{0,40}: \S`)
+	// npmNoise are "npm error" lines that name no cause.
+	npmNoise = regexp.MustCompile(`^npm error (code|errno|syscall|path|A complete log|Log files|\s|$)`)
+)
+
+// failureLine picks the line of a failed scaffold's output that says what went wrong. The
+// last line is often boilerplate: Node ends a crash with "Node.js v24.x" and npm with the
+// path of its log file. It prefers the thrown error, then npm's first "npm error" line
+// with a cause, and falls back to the last line.
+func failureLine(out string) string {
+	out = ansiEscape.ReplaceAllString(out, "")
+	lines := strings.Split(out, "\n")
+	for i := len(lines) - 1; i >= 0; i-- {
+		if l := strings.TrimSpace(lines[i]); errorLine.MatchString(l) {
+			return l
+		}
+	}
+	for _, l := range lines {
+		if l = strings.TrimSpace(l); strings.HasPrefix(l, "npm error ") && !npmNoise.MatchString(l) {
+			return l
+		}
+	}
+	return lastLine(out)
+}
+
+// tailLines returns the last n non-empty lines of s, for the log.
+func tailLines(s string, n int) string {
+	var keep []string
+	for _, l := range strings.Split(strings.TrimSpace(s), "\n") {
+		if strings.TrimSpace(l) != "" {
+			keep = append(keep, l)
+		}
+	}
+	if len(keep) > n {
+		keep = keep[len(keep)-n:]
+	}
+	return strings.Join(keep, "\n")
 }
