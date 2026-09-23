@@ -8,6 +8,7 @@ import type { TLSInfo } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Checkbox, Code, Field, Input, Spinner } from "@/components/ui";
 import { formatDateTime } from "@/lib/format";
 import { AcmeForm } from "./AcmeForm";
+import { DnsGuide, dnsTarget } from "./DnsGuide";
 import { errorText } from "@/lib/errors";
 
 type Msg = { tone: "green" | "red"; text: string } | null;
@@ -188,6 +189,7 @@ export function DomainsCard() {
       <div className="space-y-6 p-5">
         <ProxyStatus tls={info} />
         <BaseDomainForm baseDomain={settings.data.baseDomain} forceHttps={settings.data.forceHttps} tlsAvailable={tlsAvailable} />
+        {info.proxy.enabled && <DnsGuide baseDomain={settings.data.baseDomain} target={dnsTarget(info.proxy.address, settings.data.publicHost, window.location.hostname)} />}
         {info.enabled && info.ca && (
           <>
             <div className="border-t border-default pt-5">

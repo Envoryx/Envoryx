@@ -1,6 +1,7 @@
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { DomainsCard } from "./DomainsCard";
+import { dnsTarget } from "./DnsGuide";
 import { authedRoutes, mockApi, renderApp } from "@/test/utils";
 
 const proxy = { enabled: true, httpPort: 80, httpsPort: 443, inDocker: true, tls: true };
@@ -65,5 +66,34 @@ describe("DomainsCard", () => {
     });
     renderApp(<DomainsCard />);
     expect(await screen.findByText("Map the proxy ports")).toBeInTheDocument();
+  });
+
+  it("guides the wildcard entry per DNS server with Envoryx's address filled in", async () => {
+    const direct = { ...proxy, address: "192.168.1.50" };
+    const project = { id: "p1", slug: "shop", hostnames: ["shop.test", "shop.local"], devHostname: "shop-dev.test" };
+    mockApi({
+      ...authedRoutes,
+      "GET /settings/tls/acme": () => ({ body: acme }),
+      "GET /settings/tls": () => ({ body: { ...tls, proxy: direct } }),
+      "GET /settings": () => ({ body: { ...settings, proxy: direct } }),
+      "GET /projects": () => ({ body: { projects: [project] } }),
+    });
+    renderApp(<DomainsCard />);
+    const user = userEvent.setup();
+
+    expect(await screen.findByText("Filters → DNS rewrites → Add DNS rewrite. Domain: *.test, answer: 192.168.1.50.")).toBeInTheDocument();
+    await user.click(screen.getByRole("tab", { name: "Pi-hole" }));
+    expect(screen.getByText("address=/test/192.168.1.50")).toBeInTheDocument();
+    await user.click(screen.getByRole("tab", { name: "Unbound" }));
+    expect(screen.getByText(/local-data: "test. IN A 192.168.1.50"/)).toBeInTheDocument();
+    await user.click(screen.getByRole("tab", { name: "Hosts file" }));
+    expect(await screen.findByText("192.168.1.50 envoryx.test shop.test shop.local shop-dev.test")).toBeInTheDocument();
+  });
+
+  it("points the wildcard at an IPv4 address only", () => {
+    expect(dnsTarget("10.0.0.5", "192.168.1.2", "192.168.1.2")).toBe("10.0.0.5");
+    expect(dnsTarget(undefined, "tower.local", "192.168.1.2")).toBe("192.168.1.2");
+    expect(dnsTarget(undefined, "", "envoryx.test")).toBe("");
+    expect(dnsTarget(undefined, "999.1.1.1", "")).toBe("");
   });
 });

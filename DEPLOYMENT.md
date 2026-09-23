@@ -285,15 +285,39 @@ not at the Unraid IP (which is where the direct project ports live).
 - Additional names per project in its **Domains** tab (`shop.local`,
   `api.shop.test`, …). Each name must be unique across projects.
 - The names must resolve to the Envoryx host on every client. Because Envoryx
-  runs on a server, use one of:
-  - **Pi-hole / AdGuard Home**: DNS rewrite `*.test → <server-ip>`
-    (AdGuard: *Filters → DNS rewrites*, domain `*.test`; Pi-hole ≥ 6:
-    *Local DNS → DNS Records*, or `dnsmasq` line below in `/etc/dnsmasq.d/`)
-  - **dnsmasq** (router, server): `address=/.test/<server-ip>`
-  - **hosts file** per client (`/etc/hosts`, `C:\Windows\System32\drivers\etc\hosts`):
-    `<server-ip> shop.test envoryx.test`
-  - macOS: `/etc/resolver/test` with `nameserver <dns-ip>` if you run your
-    own DNS only for that zone.
+  runs on a server, one **wildcard entry** in the DNS server of your network
+  does it for every project, present and future. *Settings → Domains & HTTPS →
+  DNS for \*.test* shows the entry for each of the servers below with the
+  address already filled in. `<server-ip>` is the Docker host, or Envoryx's
+  own IP when it has one (see above).
+  - **AdGuard Home**: *Filters → DNS rewrites → Add DNS rewrite*, domain
+    `*.test`, answer `<server-ip>`.
+  - **Pi-hole**: *Local DNS records* cannot hold a wildcard, so the entry goes
+    into the dnsmasq Pi-hole is built on: `address=/test/<server-ip>`.
+    Pi-hole 6: *Settings → All settings* (Expert mode) *→ Miscellaneous →
+    misc.dnsmasq_lines*, then *Save & Apply* (Pi-hole 6 ignores
+    `/etc/dnsmasq.d/` unless `misc.etc_dnsmasq_d` is on). Pi-hole 5: put the
+    line into `/etc/dnsmasq.d/99-envoryx.conf` and run `pihole restartdns`.
+  - **dnsmasq** (server, OpenWrt): `address=/test/<server-ip>` covers `test`
+    and every name below it. OpenWrt:
+    `uci add_list dhcp.@dnsmasq[0].address='/test/<server-ip>' && uci commit dhcp && /etc/init.d/dnsmasq restart`.
+  - **Unbound** (pfSense: *Services → DNS Resolver → Custom options*;
+    OPNsense: a `.conf` file in `/usr/local/etc/unbound.opnsense.d/`):
+    ```
+    server:
+      local-zone: "test." redirect
+      local-data: "test. IN A <server-ip>"
+    ```
+  - **hosts file** per client, for routers that know no wildcard (a FritzBox
+    has neither wildcard records nor per-domain forwarding):
+    `/etc/hosts`, `C:\Windows\System32\drivers\etc\hosts`, one line such as
+    `<server-ip> envoryx.test shop.test`. Every new project needs adding by hand.
+    The settings page lists all current names.
+- Project containers resolve these names through the Docker host's DNS. When
+  Unraid (or whichever machine runs Docker) uses the same DNS server as your
+  devices, an application can call its own URL (`http://shop.test`) from
+  inside its container too. *Settings → Diagnostics* checks the name from
+  both sides.
 - `.test` is reserved for exactly this purpose (RFC 6761) and never resolves
   on the public internet. `.local` collides with mDNS on macOS/Linux – prefer
   `.test` or an owned domain (`dev.example.com`).
