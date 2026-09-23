@@ -5,7 +5,7 @@ import { authedRoutes, makeProject, mockApi, renderApp } from "@/test/utils";
 const id = "3f0b4a9e-1a2b-4c3d-8e9f-0a1b2c3d4e5f";
 const settings = {
   publicHost: "192.168.1.10", baseDomain: "test", forceHttps: false, proxy: { enabled: true, httpPort: 80, httpsPort: 443, inDocker: true, tls: true, address: "192.168.1.10" },
-  ssh: { enabled: true, port: 2222, fingerprint: "SHA256:abc" }, projectsDir: "/projects", hostPath: { overrides: {}, detected: { "/projects": "/mnt/user/development" }, bareMetal: false },
+  ssh: { enabled: true, port: 2222, fingerprint: "SHA256:abc", fingerprintMd5: "MD5:a4:14" }, projectsDir: "/projects", hostPath: { overrides: {}, detected: { "/projects": "/mnt/user/development" }, bareMetal: false },
 };
 const nodeService = { kind: "node", variant: "node", version: "24", image: "ghcr.io/envoryx/envoryx-node:24", enabled: true, config: { devServer: true, preset: "vite", port: 5173 } };
 const webService = makeProject().services.find((s) => s.kind === "web")!;
@@ -23,7 +23,7 @@ describe("IdeTab", () => {
     renderApp(<IdeTab project={project} />);
     expect(await screen.findByText("ssh -p 2222 acme-shop@192.168.1.10")).toBeInTheDocument();
     expect(screen.getByText(/WebStorm: Settings/)).toBeInTheDocument();
-    expect(screen.getByText("User")).toBeInTheDocument();
+    expect(screen.getAllByText("User")).toHaveLength(2); // SFTP and SSH interpreter
     expect(screen.getByText("/usr/local/bin/node")).toBeInTheDocument();
     expect(screen.getByText("envoryx-acme-shop-node")).toBeInTheDocument();
     expect(screen.queryByText("PHP path")).not.toBeInTheDocument();
@@ -43,6 +43,35 @@ describe("IdeTab", () => {
     expect(await screen.findByText(/no application container/)).toBeInTheDocument();
     expect(screen.queryByText(/envoryx-acme-shop-php/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Sessions run as the project owner/)).not.toBeInTheDocument();
+    expect(screen.queryByText("Project files (SFTP)")).not.toBeInTheDocument();
+  });
+
+  it("explains opening the project as an SFTP deployment", async () => {
+    mockApi({
+      ...authedRoutes,
+      "GET /settings": () => ({ body: settings }),
+      [`GET /projects/${id}/extras`]: () => ({ body: { services: [] } }),
+    });
+    renderApp(<IdeTab project={makeProject()} />);
+    expect(await screen.findByText("Project files (SFTP)")).toBeInTheDocument();
+    expect(screen.getByText("SFTP")).toBeInTheDocument();
+    expect(screen.getByText("Root path")).toBeInTheDocument();
+    expect(screen.getByText(/New Project from Existing Files/)).toBeInTheDocument();
+    expect(screen.getByText(/Upload changed files automatically/)).toBeInTheDocument();
+    expect(screen.getByText(/next to SSH configuration/)).toBeInTheDocument();
+    expect(screen.getByText("https://acme-shop.test")).toBeInTheDocument();
+    expect(screen.getByText("MD5:a4:14")).toBeInTheDocument();
+  });
+
+  it("leaves out the SFTP card while the SSH port is not published", async () => {
+    mockApi({
+      ...authedRoutes,
+      "GET /settings": () => ({ body: { ...settings, ssh: { enabled: true, port: 0, fingerprint: "SHA256:abc" } } }),
+      [`GET /projects/${id}/extras`]: () => ({ body: { services: [] } }),
+    });
+    renderApp(<IdeTab project={makeProject()} />);
+    expect(await screen.findByText(/port mapping 2222:2222/)).toBeInTheDocument();
+    expect(screen.queryByText("Project files (SFTP)")).not.toBeInTheDocument();
   });
 
   it("offers explicit .php and .node users when both runtimes exist", async () => {

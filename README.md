@@ -120,7 +120,8 @@ Envoryx is under active development. The current milestone (Phase 1 + 2) deliver
   started on first use, opened from the Database tab already logged in,
   served under the Envoryx UI so the session protects it
 - IDE integration: embedded SSH server for PhpStorm/WebStorm/VS Code remote
-  interpreters and SFTP into project containers (API token or public key) –
+  interpreters and SFTP into project containers (API token or public key) – open
+  a project in the IDE as an SFTP deployment, no network share needed;
   the user `<project>` lands in the application container (PHP, else
   Python, else Node), `<project>.php` / `<project>.python` / `<project>.node`
   pick one explicitly; an IDE tab with Xdebug server/path mapping,

@@ -1,4 +1,4 @@
-import { Bug, Database, KeyRound, Mail, MonitorSmartphone, TerminalSquare } from "lucide-react";
+import { Bug, Database, FolderSync, KeyRound, Mail, MonitorSmartphone, TerminalSquare } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useState } from "react";
 import { Link } from "react-router-dom";
@@ -9,9 +9,10 @@ import { OperationHint } from "@/components/OperationsTray";
 import { appKindOf, type NodeConfig, type Operation, type PHPConfig, type Project, type PythonConfig } from "@/api/types";
 import { Alert, Button, Card, CardHeader, Checkbox, Code } from "@/components/ui";
 import { CopyButton, CopyRow } from "./DatabaseTab";
+import { proxyUrl } from "./DomainsTab";
 import { errorText } from "@/lib/errors";
 
-/** Everything an IDE needs, ready to copy: Xdebug server, SSH interpreter, database, mail. */
+/** Everything an IDE needs, ready to copy: SFTP deployment, SSH interpreter, Xdebug server, database, mail. */
 export function IdeTab({ project: p }: { project: Project }) {
   const { t } = useTranslation();
   const settings = useSettings();
@@ -67,6 +68,43 @@ export function IdeTab({ project: p }: { project: Project }) {
 
   return (
     <div className="space-y-6">
+      {ssh?.enabled && ssh.port > 0 && app && (
+        <Card>
+          <CardHeader
+            title={
+              <span className="flex items-center gap-2">
+                <FolderSync className="size-4 text-accent-500" aria-hidden /> {t("Project files (SFTP)")}
+              </span>
+            }
+            description={t("Open the project in PhpStorm, WebStorm & co. without a network share: the SSH server also speaks SFTP, with the container's paths. The IDE keeps a local copy and uploads every change on save – this works while the project is stopped, too.")}
+          />
+          <div className="p-5">
+            <dl>
+              <CopyRow label={t("Type")} value="SFTP" mono={false} />
+              <CopyRow label={t("Host")} value={sshHost} />
+              <CopyRow label={t("Port")} value={String(ssh.port)} />
+              <CopyRow label={t("User")} value={p.slug} />
+              <CopyRow label={t("Password")} value={t("<API token from Settings → API tokens>")} mono={false} />
+              <CopyRow label={t("Root path")} value="/var/www/html" />
+              {s?.proxy?.enabled && proxyUrl(hostname, s.proxy) && <CopyRow label={t("Web server URL")} value={proxyUrl(hostname, s.proxy)} />}
+            </dl>
+            <ol className="mt-3 list-decimal space-y-1 pl-5 text-sm text-muted">
+              <li>{t("Welcome screen: New Project from Existing Files… (with a project open: File → New Project from Existing Files…) → “Web server is on remote host, files are accessible via FTP/SFTP/FTPS/WebDAV”.")}</li>
+              <li>{t("Project name and an empty local folder for the copy. Deployment options “Custom”, then on the next page set “Upload changed files automatically to the default server” to “Always”.")}</li>
+              <li>{t("Add Remote Server: type SFTP. “…” next to SSH configuration, then “+”: host, port and username from above, authentication type “Password” (the API token) or “Key pair”. Root path and web server URL as above.")}</li>
+              <li>{t("Choose Remote Path: select the server entry and click “Project Root”, leave the web path empty, Create. The IDE downloads the files.")}</li>
+              <li>{t("Files changed inside the container (composer install, npm install, generated code) come back with a right click on the project folder → Deployment → Download from … – download vendor once for code completion.")}</li>
+            </ol>
+            <p className="mt-3 text-xs text-subtle">
+              {t("Code already on your machine (e.g. a Git clone)? Settings → Build, Execution, Deployment → Deployment → + → SFTP with the same values, “Use as Default”, then Tools → Deployment → Automatic Upload.")}
+            </p>
+            <p className="mt-2 text-xs text-subtle">
+              {t("On the first connection the IDE shows the host key as MD5 – compare it with “Host key (MD5)” under Remote interpreter. No local copy wanted? Open the network share directly or use JetBrains Gateway.")}
+            </p>
+          </div>
+        </Card>
+      )}
+
       <Card>
         <CardHeader
           title={
@@ -104,6 +142,7 @@ export function IdeTab({ project: p }: { project: Project }) {
               <CopyRow label={t("Project path")} value="/var/www/html" />
               {hasPhp && <CopyRow label={t("Helpers path")} value="/home/envoryx/.phpstorm_helpers" />}
               <CopyRow label={t("Host key")} value={ssh.fingerprint} />
+              {ssh.fingerprintMd5 && <CopyRow label={t("Host key (MD5)")} value={ssh.fingerprintMd5} />}
               <CopyRow label="ssh" value={`ssh -p ${ssh.port} ${p.slug}@${sshHost}`} />
             </dl>
           )}
