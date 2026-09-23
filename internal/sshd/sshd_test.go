@@ -502,3 +502,24 @@ func TestExecCompletesWithOpenStdin(t *testing.T) {
 		t.Fatal("exec did not complete while stdin stayed open")
 	}
 }
+
+// JetBrains IDEs ask to trust the host with an MD5 fingerprint; the UI has to offer the
+// same key in that form next to the SHA256 one.
+func TestFingerprintsNameTheServedKey(t *testing.T) {
+	e := newEnv(t)
+	var hostKey ssh.PublicKey
+	c, err := ssh.Dial("tcp", e.addr, &ssh.ClientConfig{
+		User: "shop", Auth: []ssh.AuthMethod{ssh.Password(e.token)}, Timeout: 5 * time.Second,
+		HostKeyCallback: func(_ string, _ net.Addr, key ssh.PublicKey) error { hostKey = key; return nil },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = c.Close()
+	if got, want := e.srv.Fingerprint(), ssh.FingerprintSHA256(hostKey); got != want {
+		t.Errorf("Fingerprint() = %s, want %s", got, want)
+	}
+	if got, want := e.srv.FingerprintMD5(), ssh.FingerprintLegacyMD5(hostKey); got != want {
+		t.Errorf("FingerprintMD5() = %s, want %s", got, want)
+	}
+}

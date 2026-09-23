@@ -332,7 +332,7 @@ func serve() error {
 		if err != nil {
 			log.Warn("ssh server unavailable", "err", err)
 		} else {
-			sshInfo = &api.SSHInfo{Enabled: true, Port: portOfAddr(cfg.SSHListen), Fingerprint: sshSrv.Fingerprint()}
+			sshInfo = &api.SSHInfo{Enabled: true, Port: portOfAddr(cfg.SSHListen), Fingerprint: sshSrv.Fingerprint(), FingerprintMD5: sshSrv.FingerprintMD5()}
 			if proxyInfo.InDocker && proxyInfo.Address == "" {
 				if bindings, err := engine.PortBindings(ctx, resolver.SelfContainerID()); err == nil {
 					sshInfo.Port = 0
