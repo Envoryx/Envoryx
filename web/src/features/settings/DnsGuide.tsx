@@ -130,7 +130,7 @@ export function DnsGuide({ baseDomain, target }: { baseDomain: string; target: s
         ))}
       </div>
       <p className="mt-3 text-xs text-muted">
-        {t("If the Docker host uses the same DNS server, project containers resolve these names too, for example when an application calls its own URL. Settings → Diagnostics checks both.")}
+        {t("Project containers need none of this: Envoryx answers these names on every project network itself, so an application can call its own URL or another project's. New names reach a project when it next starts.")}
       </p>
     </div>
   );

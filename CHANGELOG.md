@@ -11,6 +11,13 @@ release). `:main` follows the development branch.
 ## [Unreleased]
 
 ### Added
+- Project containers resolve the project domains. `http://shop.test` used to fail
+  inside a container unless the Docker host itself asked a DNS server with the
+  wildcard entry, and with Envoryx on its own `br0` IP the address was unreachable
+  from there anyway. Envoryx now carries every host name the proxy serves as a
+  network alias on each project network, so Docker's DNS answers them with Envoryx's
+  address on that network. An application can call its own URL, and projects reach
+  each other. Names added meanwhile arrive when a project next starts.
 - DNS setup guide under *Settings → Domains & HTTPS*. A single wildcard entry
   sends every project name to Envoryx. The card shows that entry for AdGuard Home,
   Pi-hole, dnsmasq/OpenWrt and Unbound (pfSense, OPNsense), with Envoryx's address

@@ -68,6 +68,54 @@ func TestRouteTableAndDomains(t *testing.T) {
 	}
 }
 
+func TestProxyAliasesResolveProjectHostsInsideProjectNetworks(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	selfID := e.engine.AddManagedContainer(docker.ContainerSpec{Name: "envoryx", Labels: map[string]string{"x": "y"}}, "running")
+	e.selfID = selfID
+
+	web, err := e.m.Create(ctx, phpRequest("Web", true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	aliases, _ := e.engine.NetworkAliases(ctx, "envoryx-web", selfID)
+	if strings.Join(aliases, ",") != "envoryx.test,web.test" {
+		t.Fatalf("the proxy must answer the project's and the UI's names on the project network: %v", aliases)
+	}
+
+	if _, err := e.m.Create(ctx, phpRequest("Shop", true)); err != nil {
+		t.Fatal(err)
+	}
+	aliases, _ = e.engine.NetworkAliases(ctx, "envoryx-shop", selfID)
+	if strings.Join(aliases, ",") != "envoryx.test,shop.test,web.test" {
+		t.Fatalf("a new project must reach the existing ones: %v", aliases)
+	}
+	// Reconciliation only attaches missing networks: it never cuts a running project's
+	// connections to hand it new names.
+	e.engine.Calls = nil
+	e.m.Reconcile(ctx)
+	for _, c := range e.engine.Calls {
+		if strings.HasPrefix(c, "network-disconnect:envoryx-web") {
+			t.Fatalf("reconcile must not reconnect a project network: %v", e.engine.Calls)
+		}
+	}
+	aliases, _ = e.engine.NetworkAliases(ctx, "envoryx-web", selfID)
+	if strings.Join(aliases, ",") != "envoryx.test,web.test" {
+		t.Fatalf("aliases must stay until the next start: %v", aliases)
+	}
+	// The next start picks up the names added meanwhile.
+	if _, err := e.m.Stop(ctx, web.Project.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.m.Start(ctx, web.Project.ID); err != nil {
+		t.Fatal(err)
+	}
+	aliases, _ = e.engine.NetworkAliases(ctx, "envoryx-web", selfID)
+	if strings.Join(aliases, ",") != "envoryx.test,shop.test,web.test" {
+		t.Fatalf("a start must refresh the aliases: %v", aliases)
+	}
+}
+
 func TestProxyAttachesToProjectNetworksInsideDocker(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()

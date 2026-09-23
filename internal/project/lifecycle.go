@@ -193,7 +193,7 @@ func (m *Manager) provision(ctx context.Context, plan Plan, j *journal) (string,
 		return "create network", err
 	}
 	j.network = plan.NetworkName
-	if err := m.attachProxy(ctx, plan.NetworkName); err != nil {
+	if err := m.attachProxy(ctx, plan.NetworkName, m.proxyAliases(ctx), true); err != nil {
 		return "attach proxy", err
 	}
 	for _, v := range plan.Volumes {
@@ -358,7 +358,7 @@ func (m *Manager) ensurePlan(ctx context.Context, proj store.Project, plan Plan,
 			return fmt.Errorf("create network: %w", err)
 		}
 	}
-	if err := m.attachProxy(ctx, plan.NetworkName); err != nil {
+	if err := m.attachProxy(ctx, plan.NetworkName, m.proxyAliases(ctx), true); err != nil {
 		m.log.Warn("proxy attach failed", "network", plan.NetworkName, "err", err)
 	}
 	if len(plan.Volumes) > 0 {

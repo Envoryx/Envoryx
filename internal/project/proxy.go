@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/envoryx/envoryx/internal/audit"
+	"github.com/envoryx/envoryx/internal/docker"
 	"github.com/envoryx/envoryx/internal/proxy"
 	"github.com/envoryx/envoryx/internal/runtime"
 	"github.com/envoryx/envoryx/internal/store"
@@ -296,8 +298,12 @@ func (m *Manager) dialForApp(selfID string, p store.Project, kind store.ServiceK
 }
 
 // attachProxy connects Envoryx's own container to a project network so the embedded proxy
-// can reach the web container by name. No-op on bare metal.
-func (m *Manager) attachProxy(ctx context.Context, network string) error {
+// can reach the web container by name. The aliases make the proxy's host names resolve to
+// Envoryx on that network, so a project container reaches http://<slug>.<base> without any
+// DNS entry and without a detour through the host. Aliases are fixed at connect time: with
+// refresh, an attachment whose aliases differ is reconnected (a start, where cutting the
+// proxy's open connections to the project does not matter). No-op on bare metal.
+func (m *Manager) attachProxy(ctx context.Context, network string, aliases []string, refresh bool) error {
 	paths, err := m.paths()
 	if err != nil || paths.SelfContainerID == "" {
 		return nil
@@ -306,15 +312,49 @@ func (m *Manager) attachProxy(ctx context.Context, network string) error {
 	if err != nil {
 		return err
 	}
-	for _, n := range nets {
-		if n == network {
+	if slices.Contains(nets, network) {
+		if !refresh {
 			return nil
 		}
+		have, err := m.engine.NetworkAliases(ctx, network, paths.SelfContainerID)
+		if err != nil {
+			return err
+		}
+		if slices.Equal(sortedCopy(have), sortedCopy(aliases)) {
+			return nil
+		}
+		if err := m.engine.DisconnectNetwork(ctx, network, paths.SelfContainerID); err != nil {
+			return fmt.Errorf("detach proxy from %s: %w", network, err)
+		}
 	}
-	if err := m.engine.ConnectNetwork(ctx, network, paths.SelfContainerID); err != nil {
+	if err := m.engine.ConnectNetwork(ctx, network, paths.SelfContainerID, aliases...); err != nil {
 		return fmt.Errorf("attach proxy to %s: %w", network, err)
 	}
 	return nil
+}
+
+// proxyAliases lists every host name the proxy routes (all projects, their dev server
+// and object storage names, extra domains and the UI), so projects also reach each other.
+func (m *Manager) proxyAliases(ctx context.Context) []string {
+	t, err := m.RouteTable(ctx, ProxyOptions{})
+	if err != nil {
+		m.log.Warn("proxy aliases incomplete", "err", err)
+	}
+	var out []string
+	for h := range t.Routes {
+		out = append(out, h)
+	}
+	for h := range t.UIHosts {
+		out = append(out, h)
+	}
+	slices.Sort(out)
+	return out
+}
+
+func sortedCopy(s []string) []string {
+	out := slices.Clone(s)
+	slices.Sort(out)
+	return out
 }
 
 // detachProxy disconnects Envoryx's container from a project network (before removal).
@@ -340,8 +380,13 @@ func (m *Manager) AttachProxyToAll(ctx context.Context) {
 	if err != nil {
 		return
 	}
+	aliases := m.proxyAliases(ctx)
 	for _, n := range networks {
-		if err := m.attachProxy(ctx, n.Name); err != nil {
+		var names []string
+		if n.Labels[docker.LabelSystem] == "" {
+			names = aliases
+		}
+		if err := m.attachProxy(ctx, n.Name, names, false); err != nil {
 			m.log.Warn("proxy attach failed", "network", n.Name, "err", err)
 		}
 	}

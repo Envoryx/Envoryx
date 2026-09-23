@@ -808,15 +808,19 @@ func (e *MobyEngine) RemoveNetwork(ctx context.Context, idOrName string) error {
 }
 
 // ConnectNetwork implements Engine.
-func (e *MobyEngine) ConnectNetwork(ctx context.Context, network, containerID string) error {
-	res, err := e.cli.NetworkInspect(ctx, network, client.NetworkInspectOptions{})
+func (e *MobyEngine) ConnectNetwork(ctx context.Context, networkName, containerID string, aliases ...string) error {
+	res, err := e.cli.NetworkInspect(ctx, networkName, client.NetworkInspectOptions{})
 	if err != nil {
 		return wrap(err)
 	}
 	if !IsManaged(res.Network.Labels) {
-		return fmt.Errorf("network %s: %w", network, ErrNotManaged)
+		return fmt.Errorf("network %s: %w", networkName, ErrNotManaged)
 	}
-	_, err = e.cli.NetworkConnect(ctx, res.Network.ID, client.NetworkConnectOptions{Container: containerID})
+	opts := client.NetworkConnectOptions{Container: containerID}
+	if len(aliases) > 0 {
+		opts.EndpointConfig = &network.EndpointSettings{Aliases: aliases}
+	}
+	_, err = e.cli.NetworkConnect(ctx, res.Network.ID, opts)
 	if err != nil && strings.Contains(err.Error(), "already exists") {
 		return nil
 	}
@@ -872,6 +876,18 @@ func (e *MobyEngine) ContainerNetworks(ctx context.Context, containerID string) 
 		}
 	}
 	return out, nil
+}
+
+// NetworkAliases implements Engine.
+func (e *MobyEngine) NetworkAliases(ctx context.Context, network, containerID string) ([]string, error) {
+	c, err := e.inspectRaw(ctx, containerID)
+	if err != nil {
+		return nil, err
+	}
+	if c.NetworkSettings == nil || c.NetworkSettings.Networks[network] == nil {
+		return nil, nil
+	}
+	return c.NetworkSettings.Networks[network].Aliases, nil
 }
 
 // PortBindings implements Engine.

@@ -15,6 +15,7 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -139,6 +140,75 @@ func TestIntegrationLifecycleAndGuards(t *testing.T) {
 	}
 	if eps, err := e.NetworkEndpoints(ctx, netName); err != nil || len(eps) != 0 {
 		t.Fatalf("endpoints of a removed network: %+v %v", eps, err)
+	}
+}
+
+// Envoryx gives its own container the proxy's host names as aliases on each project
+// network; Docker's DNS must answer them there and keep them until a reconnect. The names
+// are under .invalid, so a wildcard for .test in the host's DNS cannot answer them instead.
+func TestIntegrationNetworkAliasesResolveOnTheNetwork(t *testing.T) {
+	e := integrationEngine(t)
+	ctx := context.Background()
+	labels := ManagedLabels(testProject, "integration", "", "test")
+	netName := "envoryx-integration-test-alias"
+	proxyName, clientName := "envoryx-integration-test-proxy", "envoryx-integration-test-client"
+	_ = e.RemoveContainer(ctx, proxyName)
+	_ = e.RemoveContainer(ctx, clientName)
+	_ = e.RemoveNetwork(ctx, netName)
+
+	if err := e.EnsureImage(ctx, "alpine:3.20", func(string) {}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.CreateNetwork(ctx, netName, labels); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = e.RemoveNetwork(ctx, netName) })
+	start := func(name, network string) string {
+		id, err := e.CreateContainer(ctx, ContainerSpec{Name: name, Image: "alpine:3.20", Labels: labels, Cmd: []string{"sleep", "60"}, Network: network, RestartPolicy: "no", StopTimeout: 1})
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = e.RemoveContainer(ctx, id) })
+		if err := e.StartContainer(ctx, id); err != nil {
+			t.Fatal(err)
+		}
+		return id
+	}
+	proxyID := start(proxyName, "") // default bridge, like Envoryx before it attaches
+	clientID := start(clientName, netName)
+
+	if err := e.ConnectNetwork(ctx, netName, proxyID, "shop.alias.invalid", "envoryx.alias.invalid"); err != nil {
+		t.Fatal(err)
+	}
+	aliases, err := e.NetworkAliases(ctx, netName, proxyID)
+	if err != nil || len(aliases) != 2 {
+		t.Fatalf("aliases: %v %v", aliases, err)
+	}
+	resolve := func(name string) string {
+		res, err := e.Exec(ctx, clientID, []string{"getent", "hosts", name}, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return res.Stdout
+	}
+	if out := resolve("shop.alias.invalid"); !strings.Contains(out, "shop.alias.invalid") {
+		t.Fatalf("the alias must resolve on the project network: %q", out)
+	}
+	// Aliases are fixed until the container is reconnected.
+	if err := e.DisconnectNetwork(ctx, netName, proxyID); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.ConnectNetwork(ctx, netName, proxyID, "blog.alias.invalid"); err != nil {
+		t.Fatal(err)
+	}
+	if out := resolve("blog.alias.invalid"); !strings.Contains(out, "blog.alias.invalid") {
+		t.Fatalf("a reconnect must bring the new alias: %q", out)
+	}
+	if out := resolve("shop.alias.invalid"); out != "" {
+		t.Fatalf("a reconnect must drop the old alias: %q", out)
+	}
+	if aliases, _ := e.NetworkAliases(ctx, "bridge", proxyID); len(aliases) != 0 {
+		t.Fatalf("no aliases on a network given none: %v", aliases)
 	}
 }
 
