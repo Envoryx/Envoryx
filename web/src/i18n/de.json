@@ -1555,5 +1555,7 @@
   "Show password": "Passwort anzeigen",
   "For AMQP clients running on your machine.": "Für AMQP-Clients auf deinem Rechner.",
   "RabbitMQ version": "RabbitMQ-Version",
-  "Message broker for queues (Symfony Messenger, Laravel queues, Celery) with a persistent volume and a management UI on its own port. Injects RABBITMQ_* including RABBITMQ_URL.": "Message-Broker für Queues (Symfony Messenger, Laravel-Queues, Celery) mit persistentem Volume und Management-Oberfläche auf eigenem Port. Setzt RABBITMQ_* inklusive RABBITMQ_URL."
+  "Message broker for queues (Symfony Messenger, Laravel queues, Celery) with a persistent volume and a management UI on its own port. Injects RABBITMQ_* including RABBITMQ_URL.": "Message-Broker für Queues (Symfony Messenger, Laravel-Queues, Celery) mit persistentem Volume und Management-Oberfläche auf eigenem Port. Setzt RABBITMQ_* inklusive RABBITMQ_URL.",
+  "AMQP (from app)": "AMQP (aus der App)",
+  "<Services tab → Show password>": "<Dienste-Tab → Passwort anzeigen>"
 }

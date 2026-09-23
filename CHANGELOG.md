@@ -21,7 +21,8 @@ release). `:main` follows the development branch.
   and Celery. `MESSENGER_TRANSPORT_DSN` stays yours to set – in Symfony's `.env`,
   `MESSENGER_TRANSPORT_DSN=${RABBITMQ_URL}/messages` – because injecting it would
   quietly move a Doctrine transport to AMQP. The password is shown on the Services tab
-  on request (operate scope, like database credentials).
+  on request (operate scope, like database credentials); the IDE tab lists the
+  connection for desktop clients next to the database and Mailpit.
 - SSH remote forwarding (`ssh -R`) into project containers. A process in the container
   reaches the client through a port on the container's localhost: socat listens there
   and connects each connection to Envoryx on the project network, which accepts only the
