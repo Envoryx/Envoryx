@@ -161,7 +161,12 @@ export function NewProjectPage() {
     };
     // The backend rejects the SPA fallback for PHP projects; only send it where it applies.
     if (form.spaFallback && servesOfForm(form) === "static") req.web = { ...req.web!, spaFallback: true };
-    if (form.phpEnabled) req.php = { version: form.phpVersion, config: form.phpConfig };
+    if (form.phpEnabled) {
+      // The PHP extensions the selected services' clients need (compiled in, off by default).
+      const needed = [form.redis && "redis", form.memcached && "memcached", form.rabbitmq && "amqp"].filter((e): e is string => !!e);
+      const extensions = [...new Set([...form.phpConfig.extensions, ...needed])].sort();
+      req.php = { version: form.phpVersion, config: { ...form.phpConfig, extensions } };
+    }
     if (form.nodeEnabled) req.node = { version: form.nodeVersion, ...devServerRequest(form.nodeDev) };
     if (form.pythonEnabled) req.python = { version: form.pythonVersion, ...pythonServerRequest(form.pythonServer) };
     if (form.dbType) req.database = { type: form.dbType, version: form.dbVersion, exposePort: form.dbExpose };

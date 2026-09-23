@@ -2,6 +2,8 @@ package runtime
 
 import (
 	"errors"
+	"os"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -93,5 +95,35 @@ func TestPHPConfigNormalizeAndINI(t *testing.T) {
 		if !found {
 			t.Errorf("default extension %q is not available", e)
 		}
+	}
+}
+
+// Every extension the UI offers to switch on has to be compiled into the PHP image, and
+// the other way round: images/php/Dockerfile and PHPExtensions are kept in sync by hand.
+func TestPHPExtensionsMatchTheImage(t *testing.T) {
+	raw, err := os.ReadFile("../../images/php/Dockerfile")
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := regexp.MustCompile(`ENV ENVORYX_PHP_EXTENSIONS="([^"]*)"`).FindSubmatch(raw)
+	if m == nil {
+		t.Fatal("ENVORYX_PHP_EXTENSIONS not found in the Dockerfile")
+	}
+	inImage := map[string]bool{}
+	for _, e := range strings.Fields(string(m[1])) {
+		inImage[e] = true
+	}
+	delete(inImage, "xdebug") // switched on through PHPConfig.Xdebug, not the list
+	for _, e := range PHPExtensions() {
+		if e.BuiltIn {
+			continue
+		}
+		if e.Available && !inImage[e.Name] {
+			t.Errorf("%s is offered but not compiled into the image", e.Name)
+		}
+		delete(inImage, e.Name)
+	}
+	for e := range inImage {
+		t.Errorf("%s is compiled into the image but not offered", e)
 	}
 }

@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useState } from "react";
 import { useExtraServices, usePublicHost, useRuntimes, useStorage, useUpdateProject } from "@/api/hooks";
 import { api } from "@/api/client";
-import type { ExtraServiceInfo, Project, RabbitMQCredentials } from "@/api/types";
+import type { ExtraServiceInfo, PHPConfig, Project, RabbitMQCredentials, UpdateProjectRequest } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Checkbox, Dialog, ErrorState, Field, Input, Select, Spinner, StatusDot } from "@/components/ui";
 import { containerStateTone } from "@/lib/format";
 import { AddStorageCard, StorageCard } from "./StorageCard";
@@ -13,6 +13,18 @@ import { CopyRow } from "./DatabaseTab";
 
 type ExtraKind = "redis" | "memcached" | "mailpit" | "rabbitmq";
 const titles: Record<ExtraKind, string> = { redis: "Redis", memcached: "Memcached", mailpit: "Mailpit", rabbitmq: "RabbitMQ" };
+// The PHP extension a service's clients need; the images ship them switched off.
+const phpExtensions: Partial<Record<ExtraKind, string>> = { redis: "redis", memcached: "memcached", rabbitmq: "amqp" };
+
+/** The PHP update that switches on the extension a service needs, or null when nothing is missing. */
+function phpExtensionUpdate(project: Project, kind: ExtraKind): UpdateProjectRequest["php"] | null {
+  const php = project.services.find((s) => s.kind === "php" && s.enabled);
+  const ext = phpExtensions[kind];
+  if (!php || !ext) return null;
+  const config = php.config as unknown as PHPConfig;
+  if (config.extensions?.includes(ext)) return null;
+  return { enabled: true, version: php.version, config: { ...config, extensions: [...(config.extensions ?? []), ext].sort() } };
+}
 
 function ServiceCard({ project, info, onMessage }: { project: Project; info: ExtraServiceInfo; onMessage: (m: { tone: "green" | "red"; text: string }) => void }) {
   const { t } = useTranslation();
@@ -27,6 +39,7 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
   const host = publicHost || window.location.hostname;
   const key = info.kind as ExtraKind;
   const title = titles[key] ?? info.kind;
+  const phpFix = phpExtensionUpdate(project, key);
   const fail = (err: unknown, fallback: string) => onMessage({ tone: "red", text: errorText(err, t, fallback) });
   const reveal = async () => {
     try {
@@ -110,6 +123,23 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
               {t("Show password")}
             </Button>
           ))}
+
+        {phpFix && (
+          <Alert tone="blue">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <span>{t("PHP clients need the {{ext}} extension, which is off in this project.", { ext: phpExtensions[key] })}</span>
+              <Button
+                size="sm"
+                loading={update.isPending}
+                onClick={() =>
+                  update.mutate({ php: phpFix }, { onSuccess: () => onMessage({ tone: "green", text: t("PHP extension {{ext}} enabled.", { ext: phpExtensions[key] }) }), onError: (err) => fail(err, t("Saving failed")) })
+                }
+              >
+                {t("Enable {{ext}}", { ext: phpExtensions[key] })}
+              </Button>
+            </div>
+          </Alert>
+        )}
 
         {info.kind !== "mailpit" && (
           <Checkbox
@@ -217,7 +247,8 @@ function AddServiceCard({ project, kind, onMessage }: { project: Project; kind: 
           loading={update.isPending}
           onClick={() =>
             update.mutate(
-              { [kind]: { enabled: true, version: version || undefined, exposePort: expose } },
+              // The PHP extension its clients need comes along in the same update.
+              { [kind]: { enabled: true, version: version || undefined, exposePort: expose }, ...(phpExtensionUpdate(project, kind) ? { php: phpExtensionUpdate(project, kind)! } : {}) },
               { onSuccess: () => onMessage({ tone: "green", text: t("{{service}} added. The application containers were recreated with the new variables.", { service: title }) }), onError: (err) => onMessage({ tone: "red", text: errorText(err, t, t("Adding failed")) }) },
             )
           }
