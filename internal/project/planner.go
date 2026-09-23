@@ -532,6 +532,69 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 			plan.Containers = append(plan.Containers, ContainerPlan{Kind: store.ServiceRabbitMQ, Order: 9, Spec: spec})
 			images[svc.Image] = true
 
+		case store.ServiceMeilisearch:
+			var cfg runtime.ServiceConfig
+			if err := json.Unmarshal(svc.Config, &cfg); err != nil {
+				return Plan{}, fmt.Errorf("meilisearch config: %w", err)
+			}
+			if cfg.APIKey == "" {
+				return Plan{}, fmt.Errorf("meilisearch config for %s is incomplete", proj.Slug)
+			}
+			volume := VolumeName(proj.Slug, store.ServiceMeilisearch)
+			plan.Volumes = append(plan.Volumes, volume)
+			spec := docker.ContainerSpec{
+				Name:   ContainerName(proj.Slug, store.ServiceMeilisearch),
+				Image:  svc.Image,
+				Labels: labels,
+				// development keeps the web dashboard on the API port. MEILI_UPGRADE_DB lets a
+				// newer image take over the volume of an older one: without it Meilisearch
+				// refuses to start on a database another version wrote.
+				Env:           []string{"MEILI_ENV=development", "MEILI_MASTER_KEY=" + cfg.APIKey, "MEILI_NO_ANALYTICS=true", "MEILI_UPGRADE_DB=true"},
+				Network:       plan.NetworkName,
+				NetworkAlias:  []string{"meilisearch"},
+				Mounts:        []docker.MountSpec{{Type: "volume", Source: volume, Target: "/meili_data"}},
+				RestartPolicy: "unless-stopped",
+				StopTimeout:   10,
+				Healthcheck:   &docker.HealthSpec{Test: []string{"curl", "-fsS", "-o", "/dev/null", fmt.Sprintf("http://127.0.0.1:%d/health", runtime.MeilisearchPort)}, Interval: 10 * time.Second, Timeout: 3 * time.Second, StartPeriod: 10 * time.Second, Retries: 3},
+			}
+			if cfg.HostPort > 0 {
+				spec.Ports = []docker.PortSpec{{HostIP: p.paths.PublishInterface, HostPort: cfg.HostPort, ContainerPort: runtime.MeilisearchPort, Protocol: "tcp"}}
+			}
+			plan.Containers = append(plan.Containers, ContainerPlan{Kind: store.ServiceMeilisearch, Order: 9, Spec: spec})
+			images[svc.Image] = true
+
+		case store.ServiceTypesense:
+			var cfg runtime.ServiceConfig
+			if err := json.Unmarshal(svc.Config, &cfg); err != nil {
+				return Plan{}, fmt.Errorf("typesense config: %w", err)
+			}
+			if cfg.APIKey == "" {
+				return Plan{}, fmt.Errorf("typesense config for %s is incomplete", proj.Slug)
+			}
+			volume := VolumeName(proj.Slug, store.ServiceTypesense)
+			plan.Volumes = append(plan.Volumes, volume)
+			spec := docker.ContainerSpec{
+				Name:   ContainerName(proj.Slug, store.ServiceTypesense),
+				Image:  svc.Image,
+				Labels: labels,
+				// Typesense keeps its (single-node) Raft peer list in the data directory,
+				// keyed by the peering address. The default is the container's IP, which
+				// changes with every recreate; loopback stays the same.
+				Env:           []string{"TYPESENSE_DATA_DIR=/data", "TYPESENSE_API_KEY=" + cfg.APIKey, "TYPESENSE_PEERING_ADDRESS=127.0.0.1"},
+				Network:       plan.NetworkName,
+				NetworkAlias:  []string{"typesense"},
+				Mounts:        []docker.MountSpec{{Type: "volume", Source: volume, Target: "/data"}},
+				RestartPolicy: "unless-stopped",
+				StopTimeout:   30,
+				// The image has bash but neither curl nor wget.
+				Healthcheck: &docker.HealthSpec{Test: []string{"bash", "-c", fmt.Sprintf(`exec 3<>/dev/tcp/127.0.0.1/%d && printf 'GET /health HTTP/1.0\r\n\r\n' >&3 && grep -q '"ok":true' <&3`, runtime.TypesensePort)}, Interval: 10 * time.Second, Timeout: 3 * time.Second, StartPeriod: 10 * time.Second, Retries: 3},
+			}
+			if cfg.HostPort > 0 {
+				spec.Ports = []docker.PortSpec{{HostIP: p.paths.PublishInterface, HostPort: cfg.HostPort, ContainerPort: runtime.TypesensePort, Protocol: "tcp"}}
+			}
+			plan.Containers = append(plan.Containers, ContainerPlan{Kind: store.ServiceTypesense, Order: 9, Spec: spec})
+			images[svc.Image] = true
+
 		case store.ServiceStorage:
 			var cfg runtime.StorageConfig
 			if err := json.Unmarshal(svc.Config, &cfg); err != nil {
@@ -760,6 +823,27 @@ func (p *Planner) envStrings(proj store.Project) ([]string, error) {
 		}
 		env := runtime.RabbitMQEnv(cfg)
 		for _, k := range runtime.RabbitMQEnvKeys {
+			set(k, env[k])
+		}
+	}
+	for _, search := range []struct {
+		kind store.ServiceKind
+		env  func(runtime.ServiceConfig) map[string]string
+		keys []string
+	}{
+		{store.ServiceMeilisearch, runtime.MeilisearchEnv, runtime.MeilisearchEnvKeys},
+		{store.ServiceTypesense, runtime.TypesenseEnv, runtime.TypesenseEnvKeys},
+	} {
+		svc := proj.Service(search.kind)
+		if svc == nil || !svc.Enabled {
+			continue
+		}
+		var cfg runtime.ServiceConfig
+		if err := json.Unmarshal(svc.Config, &cfg); err != nil {
+			return nil, fmt.Errorf("%s config: %w", search.kind, err)
+		}
+		env := search.env(cfg)
+		for _, k := range search.keys {
 			set(k, env[k])
 		}
 	}

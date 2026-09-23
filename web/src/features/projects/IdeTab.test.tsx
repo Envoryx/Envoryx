@@ -124,4 +124,21 @@ describe("IdeTab", () => {
     expect(screen.getByText("http://192.168.1.10:26001")).toBeInTheDocument();
     expect(screen.getByText("<Services tab → Show password>")).toBeInTheDocument();
   });
+
+  it("lists the search engines without their keys", async () => {
+    const meilisearch = { kind: "meilisearch", version: "1.54", image: "getmeili/meilisearch:v1.54", host: "meilisearch", port: 7700, hostPort: 26010, injectedEnv: [], state: "running", webUiPort: 26010 };
+    const typesense = { kind: "typesense", version: "30.2", image: "typesense/typesense:30.2", host: "typesense", port: 8108, hostPort: 0, injectedEnv: [], state: "running" };
+    mockApi({
+      ...authedRoutes,
+      "GET /settings": () => ({ body: settings }),
+      [`GET /projects/${id}/extras`]: () => ({ body: { services: [meilisearch, typesense] } }),
+    });
+    const project = makeProject({ services: [webService, nodeService], serves: "node", appService: "node" });
+    renderApp(<IdeTab project={project} />);
+    expect(await screen.findByText("http://meilisearch:7700")).toBeInTheDocument();
+    expect(screen.getByText("http://192.168.1.10:26010")).toBeInTheDocument();
+    expect(screen.getByText("<Services tab → Show master key>")).toBeInTheDocument();
+    expect(screen.getByText("http://typesense:8108")).toBeInTheDocument();
+    expect(screen.getByText("<Services tab → Show API key>")).toBeInTheDocument();
+  });
 });

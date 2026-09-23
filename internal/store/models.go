@@ -49,16 +49,18 @@ const (
 type ServiceKind string
 
 const (
-	ServiceWeb       ServiceKind = "web"
-	ServicePHP       ServiceKind = "php"
-	ServiceNode      ServiceKind = "node"
-	ServicePython    ServiceKind = "python"
-	ServiceDatabase  ServiceKind = "database"
-	ServiceRedis     ServiceKind = "redis"
-	ServiceMailpit   ServiceKind = "mailpit"
-	ServiceRabbitMQ  ServiceKind = "rabbitmq"
-	ServiceMemcached ServiceKind = "memcached"
-	ServiceStorage   ServiceKind = "storage"
+	ServiceWeb         ServiceKind = "web"
+	ServicePHP         ServiceKind = "php"
+	ServiceNode        ServiceKind = "node"
+	ServicePython      ServiceKind = "python"
+	ServiceDatabase    ServiceKind = "database"
+	ServiceRedis       ServiceKind = "redis"
+	ServiceMailpit     ServiceKind = "mailpit"
+	ServiceRabbitMQ    ServiceKind = "rabbitmq"
+	ServiceMemcached   ServiceKind = "memcached"
+	ServiceMeilisearch ServiceKind = "meilisearch"
+	ServiceTypesense   ServiceKind = "typesense"
+	ServiceStorage     ServiceKind = "storage"
 )
 
 // Project is the persisted desired state of a development project.

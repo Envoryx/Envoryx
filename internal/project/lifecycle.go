@@ -685,6 +685,20 @@ func (m *Manager) update(ctx context.Context, id string, req UpdateRequest) (Vie
 		}
 		recreateApp = recreateApp || r
 	}
+	if req.Meilisearch != nil {
+		r, err := m.applyExtraUpdate(ctx, proj, store.ServiceMeilisearch, *req.Meilisearch, changes)
+		if err != nil {
+			return View{}, err
+		}
+		recreateApp = recreateApp || r
+	}
+	if req.Typesense != nil {
+		r, err := m.applyExtraUpdate(ctx, proj, store.ServiceTypesense, *req.Typesense, changes)
+		if err != nil {
+			return View{}, err
+		}
+		recreateApp = recreateApp || r
+	}
 	if req.Mailpit != nil {
 		r, err := m.applyExtraUpdate(ctx, proj, store.ServiceMailpit, *req.Mailpit, changes)
 		if err != nil {
@@ -729,7 +743,7 @@ func (m *Manager) update(ctx context.Context, id string, req UpdateRequest) (Vie
 		}
 		for _, c := range existing {
 			switch c.Service() {
-			case string(store.ServiceDatabase), string(store.ServiceRedis), string(store.ServiceMemcached), string(store.ServiceMailpit), string(store.ServiceRabbitMQ), string(store.ServiceStorage):
+			case string(store.ServiceDatabase), string(store.ServiceRedis), string(store.ServiceMemcached), string(store.ServiceMailpit), string(store.ServiceRabbitMQ), string(store.ServiceMeilisearch), string(store.ServiceTypesense), string(store.ServiceStorage):
 				continue // stateful/independent services keep running
 			}
 			step(ctx, "Removing the container {{name}} so it is recreated with the new settings", "name", c.Name)

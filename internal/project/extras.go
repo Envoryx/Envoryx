@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"sort"
 
 	"github.com/envoryx/envoryx/internal/runtime"
@@ -13,8 +14,22 @@ import (
 
 // extraOwnsVolume reports whether an auxiliary service keeps persistent data.
 func extraOwnsVolume(kind store.ServiceKind) bool {
-	return kind == store.ServiceRedis || kind == store.ServiceRabbitMQ || kind == store.ServiceStorage
+	switch kind {
+	case store.ServiceRedis, store.ServiceRabbitMQ, store.ServiceMeilisearch, store.ServiceTypesense, store.ServiceStorage:
+		return true
+	}
+	return false
 }
+
+// extraAlwaysPublished reports whether an auxiliary service's primary port is published
+// whatever the request says: it carries a web UI (Mailpit's inbox, Meilisearch's
+// dashboard).
+func extraAlwaysPublished(kind store.ServiceKind) bool {
+	return kind == store.ServiceMailpit || kind == store.ServiceMeilisearch
+}
+
+// extraKinds are the auxiliary services ExtraServices describes.
+var extraKinds = []store.ServiceKind{store.ServiceRedis, store.ServiceMemcached, store.ServiceMailpit, store.ServiceRabbitMQ, store.ServiceMeilisearch, store.ServiceTypesense}
 
 // setWebUIPort stores the host port of RabbitMQ's management UI.
 func setWebUIPort(svc *store.ProjectService, port int) error {
@@ -41,7 +56,7 @@ func (m *Manager) ExtraServices(ctx context.Context, id string) ([]ExtraServiceI
 	}
 	var out []ExtraServiceInfo
 	for _, svc := range view.Project.Services {
-		if !svc.Enabled || (svc.Kind != store.ServiceRedis && svc.Kind != store.ServiceMemcached && svc.Kind != store.ServiceMailpit && svc.Kind != store.ServiceRabbitMQ) {
+		if !svc.Enabled || !slices.Contains(extraKinds, svc.Kind) {
 			continue
 		}
 		var cfg runtime.ServiceConfig
@@ -66,6 +81,15 @@ func (m *Manager) ExtraServices(ctx context.Context, id string) ([]ExtraServiceI
 			info.VolumeName = VolumeName(view.Project.Slug, store.ServiceRabbitMQ)
 			info.Username = cfg.Username
 			info.InjectedEnv = append(info.InjectedEnv, runtime.RabbitMQEnvKeys...)
+		case store.ServiceMeilisearch:
+			// The dashboard shares the API port.
+			info.Host, info.Port, info.WebUIPort = "meilisearch", runtime.MeilisearchPort, cfg.HostPort
+			info.VolumeName = VolumeName(view.Project.Slug, store.ServiceMeilisearch)
+			info.InjectedEnv = append(info.InjectedEnv, runtime.MeilisearchEnvKeys...)
+		case store.ServiceTypesense:
+			info.Host, info.Port = "typesense", runtime.TypesensePort
+			info.VolumeName = VolumeName(view.Project.Slug, store.ServiceTypesense)
+			info.InjectedEnv = append(info.InjectedEnv, runtime.TypesenseEnvKeys...)
 		}
 		sort.Strings(info.InjectedEnv)
 		for _, s := range view.Status.Services {
@@ -99,7 +123,32 @@ func (m *Manager) RabbitMQCredentials(ctx context.Context, id string) (RabbitMQC
 	return RabbitMQCredentials{Username: cfg.Username, Password: cfg.Password, URL: runtime.RabbitMQEnv(cfg)["RABBITMQ_URL"]}, nil
 }
 
-// applyExtraUpdate adds, changes or removes Redis/Memcached/Mailpit/RabbitMQ. Callers hold the project lock.
+// SearchCredentials returns the admin key of a project's Meilisearch or Typesense
+// (operate scope in the API, like database credentials).
+func (m *Manager) SearchCredentials(ctx context.Context, id string, kind store.ServiceKind) (SearchCredentials, error) {
+	if kind != store.ServiceMeilisearch && kind != store.ServiceTypesense {
+		return SearchCredentials{}, fmt.Errorf("%w: %s is not a search engine", validate.ErrInvalid, kind)
+	}
+	p, err := m.loadProject(ctx, id)
+	if err != nil {
+		return SearchCredentials{}, err
+	}
+	svc := p.Service(kind)
+	if svc == nil || !svc.Enabled {
+		return SearchCredentials{}, fmt.Errorf("%w: the project has no %s", ErrNotFound, kind)
+	}
+	var cfg runtime.ServiceConfig
+	if err := json.Unmarshal(svc.Config, &cfg); err != nil {
+		return SearchCredentials{}, err
+	}
+	if kind == store.ServiceMeilisearch {
+		return SearchCredentials{APIKey: cfg.APIKey, URL: runtime.MeilisearchEnv(cfg)["MEILISEARCH_URL"]}, nil
+	}
+	return SearchCredentials{APIKey: cfg.APIKey, URL: runtime.TypesenseEnv(cfg)["TYPESENSE_URL"]}, nil
+}
+
+// applyExtraUpdate adds, changes or removes Redis/Memcached/Mailpit/RabbitMQ/Meilisearch/
+// Typesense. Callers hold the project lock.
 // It returns whether application containers must be recreated (their env changes).
 func (m *Manager) applyExtraUpdate(ctx context.Context, p store.Project, kind store.ServiceKind, upd ExtraUpdate, changes map[string]any) (bool, error) {
 	svc := p.Service(kind)
@@ -141,7 +190,7 @@ func (m *Manager) applyExtraUpdate(ctx context.Context, p store.Project, kind st
 		}
 		newSvc.ProjectID = p.ID
 		taken := []int{p.HTTPPort}
-		if upd.ExposePort || kind == store.ServiceMailpit {
+		if upd.ExposePort || extraAlwaysPublished(kind) {
 			port, err := m.allocatePort(ctx, taken...)
 			if err != nil {
 				return false, err
@@ -177,7 +226,7 @@ func (m *Manager) applyExtraUpdate(ctx context.Context, p store.Project, kind st
 		}
 		var cfg runtime.ServiceConfig
 		_ = json.Unmarshal(svc.Config, &cfg)
-		expose := upd.ExposePort || kind == store.ServiceMailpit
+		expose := upd.ExposePort || extraAlwaysPublished(kind)
 		portChanged := false
 		if expose && cfg.HostPort == 0 {
 			port, err := m.allocatePort(ctx, p.HTTPPort)

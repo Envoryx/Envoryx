@@ -418,24 +418,26 @@ func (c *cli) projectRename(ctx context.Context, args []string) error {
 // createRequest mirrors the API's create body. The CLI builds it from flags, or reads it
 // whole from --from-json for the settings that have no flag.
 type createRequest struct {
-	Name      string          `json:"name"`
-	Path      string          `json:"path,omitempty"`
-	Docroot   string          `json:"docroot,omitempty"`
-	PHP       *phpSpec        `json:"php,omitempty"`
-	Node      *nodeSpec       `json:"node,omitempty"`
-	Python    *pythonSpec     `json:"python,omitempty"`
-	Database  *databaseSpec   `json:"database,omitempty"`
-	Redis     *extraSpec      `json:"redis,omitempty"`
-	Mailpit   *extraSpec      `json:"mailpit,omitempty"`
-	RabbitMQ  *extraSpec      `json:"rabbitmq,omitempty"`
-	Memcached *extraSpec      `json:"memcached,omitempty"`
-	Storage   *extraSpec      `json:"storage,omitempty"`
-	Git       *gitSpec        `json:"git,omitempty"`
-	Env       []envSpec       `json:"env,omitempty"`
-	Template  string          `json:"template,omitempty"`
-	Starter   bool            `json:"createStarter,omitempty"`
-	Start     bool            `json:"start,omitempty"`
-	Web       json.RawMessage `json:"web,omitempty"`
+	Name        string          `json:"name"`
+	Path        string          `json:"path,omitempty"`
+	Docroot     string          `json:"docroot,omitempty"`
+	PHP         *phpSpec        `json:"php,omitempty"`
+	Node        *nodeSpec       `json:"node,omitempty"`
+	Python      *pythonSpec     `json:"python,omitempty"`
+	Database    *databaseSpec   `json:"database,omitempty"`
+	Redis       *extraSpec      `json:"redis,omitempty"`
+	Mailpit     *extraSpec      `json:"mailpit,omitempty"`
+	RabbitMQ    *extraSpec      `json:"rabbitmq,omitempty"`
+	Memcached   *extraSpec      `json:"memcached,omitempty"`
+	Meilisearch *extraSpec      `json:"meilisearch,omitempty"`
+	Typesense   *extraSpec      `json:"typesense,omitempty"`
+	Storage     *extraSpec      `json:"storage,omitempty"`
+	Git         *gitSpec        `json:"git,omitempty"`
+	Env         []envSpec       `json:"env,omitempty"`
+	Template    string          `json:"template,omitempty"`
+	Starter     bool            `json:"createStarter,omitempty"`
+	Start       bool            `json:"start,omitempty"`
+	Web         json.RawMessage `json:"web,omitempty"`
 }
 
 type phpSpec struct {
@@ -491,6 +493,7 @@ Services:
   --database TYPE[:VERSION]   mysql, mariadb, postgres, mongodb …
   --expose-database           publish the database port on the host
   --redis, --memcached, --mailpit, --rabbitmq, --storage
+  --meilisearch, --typesense  search engine
 
 Files and repository:
   --path DIR           directory below the projects directory (default: the slug)
@@ -534,6 +537,8 @@ func (c *cli) projectCreate(ctx context.Context, args []string) error {
 		mailpit    = fs.Bool("mailpit", false, "add Mailpit")
 		rabbitmq   = fs.Bool("rabbitmq", false, "add RabbitMQ")
 		memcached  = fs.Bool("memcached", false, "add Memcached")
+		meili      = fs.Bool("meilisearch", false, "add Meilisearch")
+		typesense  = fs.Bool("typesense", false, "add Typesense")
 		storage    = fs.Bool("storage", false, "add S3 storage")
 		template   = fs.String("template", "", "project template")
 		starter    = fs.Bool("starter", false, "write starter files")
@@ -603,6 +608,12 @@ func (c *cli) projectCreate(ctx context.Context, args []string) error {
 	}
 	if *rabbitmq {
 		req.RabbitMQ = &extraSpec{}
+	}
+	if *meili {
+		req.Meilisearch = &extraSpec{}
+	}
+	if *typesense {
+		req.Typesense = &extraSpec{}
 	}
 	if *storage {
 		req.Storage = &extraSpec{}

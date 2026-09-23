@@ -18,7 +18,7 @@ function ServiceBadges({ project }: { project: Project }) {
   const runtime = app ? project.services.find((s) => s.kind === app && s.enabled) : undefined;
   const web = project.services.find((s) => s.kind === "web");
   const db = project.services.find((s) => s.kind === "database");
-  const extras = project.services.filter((s) => s.enabled && s.kind !== app && (s.kind === "node" || s.kind === "python" || s.kind === "redis" || s.kind === "memcached" || s.kind === "mailpit" || s.kind === "rabbitmq" || s.kind === "storage"));
+  const extras = project.services.filter((s) => s.enabled && s.kind !== app && (s.kind === "node" || s.kind === "python" || s.kind === "redis" || s.kind === "memcached" || s.kind === "mailpit" || s.kind === "rabbitmq" || s.kind === "meilisearch" || s.kind === "typesense" || s.kind === "storage"));
   return (
     <div className="flex flex-wrap gap-1.5">
       {runtime ? <Badge tone="blue">{serviceLabel(runtime.kind, runtime.version)}</Badge> : <Badge>{t("Static")}</Badge>}

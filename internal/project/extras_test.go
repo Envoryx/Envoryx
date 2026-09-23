@@ -336,3 +336,124 @@ func TestMemcachedService(t *testing.T) {
 		t.Fatal("php env must drop the Memcached variables")
 	}
 }
+
+// Meilisearch always publishes its API port (the dashboard lives there), keeps a volume
+// and hands the application the master key under Laravel Scout's and Symfony's names.
+func TestMeilisearchService(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	req := phpRequest("Search", true)
+	req.Meilisearch = &ExtraRequest{}
+	view, err := e.m.Create(ctx, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ms, ok := e.engine.Container("envoryx-search-meilisearch")
+	if !ok {
+		t.Fatal("no meilisearch container")
+	}
+	if ms.Spec.Image != "getmeili/meilisearch:v1.54" || len(ms.Spec.Mounts) != 1 || ms.Spec.Mounts[0].Target != "/meili_data" || len(ms.Spec.Ports) != 1 || ms.Spec.Ports[0].ContainerPort != 7700 || ms.Spec.Ports[0].HostPort == view.Project.HTTPPort {
+		t.Fatalf("meilisearch: %+v", ms.Spec)
+	}
+	creds, err := e.m.SearchCredentials(ctx, view.Project.ID, store.ServiceMeilisearch)
+	if err != nil || len(creds.APIKey) < 16 || creds.URL != "http://meilisearch:7700" {
+		t.Fatalf("credentials: %+v %v", creds, err)
+	}
+	if !strings.Contains(strings.Join(ms.Spec.Env, "\n"), "MEILI_MASTER_KEY="+creds.APIKey) {
+		t.Fatalf("meilisearch env: %v", ms.Spec.Env)
+	}
+	php, _ := e.engine.Container("envoryx-search-php")
+	env := strings.Join(php.Spec.Env, "\n")
+	for _, want := range []string{"MEILISEARCH_HOST=http://meilisearch:7700", "MEILISEARCH_KEY=" + creds.APIKey, "MEILISEARCH_URL=http://meilisearch:7700", "MEILISEARCH_API_KEY=" + creds.APIKey} {
+		if !strings.Contains(env, want) {
+			t.Errorf("php env missing %s", want)
+		}
+	}
+	if strings.Contains(env, "SCOUT_DRIVER") {
+		t.Error("SCOUT_DRIVER is the application's choice")
+	}
+	extras, err := e.m.ExtraServices(ctx, view.Project.ID)
+	if err != nil || len(extras) != 1 || extras[0].Kind != store.ServiceMeilisearch || extras[0].WebUIPort != ms.Spec.Ports[0].HostPort || extras[0].VolumeName == "" {
+		t.Fatalf("extras: %+v %v", extras, err)
+	}
+	if _, err := e.m.SearchCredentials(ctx, view.Project.ID, store.ServiceTypesense); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("typesense credentials without typesense: %v", err)
+	}
+
+	// The dashboard stays published even when the update does not ask for it.
+	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{Meilisearch: &ExtraUpdate{Enabled: true}}); err != nil {
+		t.Fatal(err)
+	}
+	if ms, _ = e.engine.Container("envoryx-search-meilisearch"); len(ms.Spec.Ports) != 1 {
+		t.Fatalf("ports after update: %+v", ms.Spec.Ports)
+	}
+
+	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{Meilisearch: &ExtraUpdate{Enabled: false}}); !errors.Is(err, validate.ErrInvalid) {
+		t.Fatalf("meilisearch removal must require removeData, got %v", err)
+	}
+	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{Meilisearch: &ExtraUpdate{Enabled: false, RemoveData: true}}); err != nil {
+		t.Fatal(err)
+	}
+	if len(e.engine.VolumeNames()) != 0 {
+		t.Fatalf("volumes after removal: %v", e.engine.VolumeNames())
+	}
+	php, _ = e.engine.Container("envoryx-search-php")
+	if strings.Contains(strings.Join(php.Spec.Env, "\n"), "MEILISEARCH_") {
+		t.Fatal("php env must drop the Meilisearch variables")
+	}
+}
+
+// Typesense publishes its port only on request; the peering address is pinned so the
+// Raft state in the volume survives a recreated container.
+func TestTypesenseService(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	req := phpRequest("Search", true)
+	req.Typesense = &ExtraRequest{}
+	view, err := e.m.Create(ctx, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts, ok := e.engine.Container("envoryx-search-typesense")
+	if !ok {
+		t.Fatal("no typesense container")
+	}
+	if ts.Spec.Image != "typesense/typesense:30.2" || len(ts.Spec.Mounts) != 1 || ts.Spec.Mounts[0].Target != "/data" || len(ts.Spec.Ports) != 0 {
+		t.Fatalf("typesense: %+v", ts.Spec)
+	}
+	creds, err := e.m.SearchCredentials(ctx, view.Project.ID, store.ServiceTypesense)
+	if err != nil || creds.APIKey == "" || creds.URL != "http://typesense:8108" {
+		t.Fatalf("credentials: %+v %v", creds, err)
+	}
+	tsEnv := strings.Join(ts.Spec.Env, "\n")
+	for _, want := range []string{"TYPESENSE_API_KEY=" + creds.APIKey, "TYPESENSE_DATA_DIR=/data", "TYPESENSE_PEERING_ADDRESS=127.0.0.1"} {
+		if !strings.Contains(tsEnv, want) {
+			t.Errorf("typesense env missing %s", want)
+		}
+	}
+	php, _ := e.engine.Container("envoryx-search-php")
+	env := strings.Join(php.Spec.Env, "\n")
+	for _, want := range []string{"TYPESENSE_HOST=typesense", "TYPESENSE_PORT=8108", "TYPESENSE_PROTOCOL=http", "TYPESENSE_API_KEY=" + creds.APIKey, "TYPESENSE_URL=http://typesense:8108"} {
+		if !strings.Contains(env, want) {
+			t.Errorf("php env missing %s", want)
+		}
+	}
+
+	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{Typesense: &ExtraUpdate{Enabled: true, ExposePort: true}}); err != nil {
+		t.Fatal(err)
+	}
+	ts, _ = e.engine.Container("envoryx-search-typesense")
+	if len(ts.Spec.Ports) != 1 || ts.Spec.Ports[0].ContainerPort != 8108 {
+		t.Fatalf("ports after publishing: %+v", ts.Spec.Ports)
+	}
+	extras, err := e.m.ExtraServices(ctx, view.Project.ID)
+	if err != nil || len(extras) != 1 || extras[0].HostPort != ts.Spec.Ports[0].HostPort || extras[0].WebUIPort != 0 {
+		t.Fatalf("extras: %+v %v", extras, err)
+	}
+	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{Typesense: &ExtraUpdate{Enabled: false, RemoveData: true}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := e.engine.Container("envoryx-search-typesense"); ok || len(e.engine.VolumeNames()) != 0 {
+		t.Fatalf("typesense left behind: volumes %v", e.engine.VolumeNames())
+	}
+}

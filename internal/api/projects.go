@@ -267,6 +267,8 @@ type createProjectRequest struct {
 	Mailpit       *extraRequestDTO    `json:"mailpit"`
 	RabbitMQ      *extraRequestDTO    `json:"rabbitmq"`
 	Memcached     *extraRequestDTO    `json:"memcached"`
+	Meilisearch   *extraRequestDTO    `json:"meilisearch"`
+	Typesense     *extraRequestDTO    `json:"typesense"`
 	Storage       *storageRequestDTO  `json:"storage"`
 	Git           *gitRequestDTO      `json:"git"`
 	Web           *webRequestDTO      `json:"web"`
@@ -322,6 +324,12 @@ func (r createProjectRequest) toDomain() project.CreateRequest {
 	if r.RabbitMQ != nil {
 		req.RabbitMQ = &project.ExtraRequest{Version: r.RabbitMQ.Version, ExposePort: r.RabbitMQ.ExposePort}
 	}
+	if r.Meilisearch != nil {
+		req.Meilisearch = &project.ExtraRequest{Version: r.Meilisearch.Version}
+	}
+	if r.Typesense != nil {
+		req.Typesense = &project.ExtraRequest{Version: r.Typesense.Version, ExposePort: r.Typesense.ExposePort}
+	}
 	if r.Storage != nil {
 		req.Storage = &project.StorageRequest{Version: r.Storage.Version, PublicRead: r.Storage.PublicRead}
 	}
@@ -340,20 +348,22 @@ func (r createProjectRequest) toDomain() project.CreateRequest {
 }
 
 type updateProjectRequest struct {
-	Name       *string            `json:"name"`
-	Docroot    *string            `json:"docroot"`
-	Web        *webRequestDTO     `json:"web"`
-	PHP        *phpUpdateDTO      `json:"php"`
-	Node       *nodeUpdateDTO     `json:"node"`
-	Python     *pythonUpdateDTO   `json:"python"`
-	Database   *databaseUpdateDTO `json:"database"`
-	Redis      *extraUpdateDTO    `json:"redis"`
-	Mailpit    *extraUpdateDTO    `json:"mailpit"`
-	RabbitMQ   *extraUpdateDTO    `json:"rabbitmq"`
-	Memcached  *extraUpdateDTO    `json:"memcached"`
-	Storage    *storageUpdateDTO  `json:"storage"`
-	Env        *[]envDTO          `json:"env"`
-	IDEGateway *bool              `json:"ideGateway"`
+	Name        *string            `json:"name"`
+	Docroot     *string            `json:"docroot"`
+	Web         *webRequestDTO     `json:"web"`
+	PHP         *phpUpdateDTO      `json:"php"`
+	Node        *nodeUpdateDTO     `json:"node"`
+	Python      *pythonUpdateDTO   `json:"python"`
+	Database    *databaseUpdateDTO `json:"database"`
+	Redis       *extraUpdateDTO    `json:"redis"`
+	Mailpit     *extraUpdateDTO    `json:"mailpit"`
+	RabbitMQ    *extraUpdateDTO    `json:"rabbitmq"`
+	Memcached   *extraUpdateDTO    `json:"memcached"`
+	Meilisearch *extraUpdateDTO    `json:"meilisearch"`
+	Typesense   *extraUpdateDTO    `json:"typesense"`
+	Storage     *storageUpdateDTO  `json:"storage"`
+	Env         *[]envDTO          `json:"env"`
+	IDEGateway  *bool              `json:"ideGateway"`
 }
 
 // duplicateProjectRequest copies an existing project. The parts default to "everything
@@ -571,6 +581,12 @@ func (a *API) updateProject(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.RabbitMQ != nil {
 		upd.RabbitMQ = &project.ExtraUpdate{Enabled: req.RabbitMQ.Enabled, Version: req.RabbitMQ.Version, ExposePort: req.RabbitMQ.ExposePort, RemoveData: req.RabbitMQ.RemoveData}
+	}
+	if req.Meilisearch != nil {
+		upd.Meilisearch = &project.ExtraUpdate{Enabled: req.Meilisearch.Enabled, Version: req.Meilisearch.Version, RemoveData: req.Meilisearch.RemoveData}
+	}
+	if req.Typesense != nil {
+		upd.Typesense = &project.ExtraUpdate{Enabled: req.Typesense.Enabled, Version: req.Typesense.Version, ExposePort: req.Typesense.ExposePort, RemoveData: req.Typesense.RemoveData}
 	}
 	if req.Database != nil {
 		upd.Database = &project.DatabaseUpdate{Enabled: req.Database.Enabled, Type: req.Database.Type, Version: req.Database.Version, ExposePort: req.Database.ExposePort, RemoveData: req.Database.RemoveData}

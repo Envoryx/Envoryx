@@ -1,4 +1,4 @@
-import { Bug, Database, FolderSync, KeyRound, Mail, MonitorSmartphone, Rabbit, TerminalSquare } from "lucide-react";
+import { Bug, Database, FolderSync, KeyRound, Mail, MonitorSmartphone, Rabbit, Search, TerminalSquare } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useState } from "react";
 import { Link } from "react-router-dom";
@@ -38,6 +38,7 @@ export function IdeTab({ project: p }: { project: Project }) {
   const sshHost = s?.proxy?.address || host;
   const mailpit = extras.data?.find((e) => e.kind === "mailpit");
   const rabbitmq = extras.data?.find((e) => e.kind === "rabbitmq");
+  const searchEngines = extras.data?.filter((e) => e.kind === "meilisearch" || e.kind === "typesense") ?? [];
   const update = useUpdateProject(p.id);
   const [gwMsg, setGwMsg] = useState<{ tone: "green" | "red"; text: string } | null>(null);
   const stopBackend = useMutation({
@@ -370,6 +371,25 @@ export function IdeTab({ project: p }: { project: Project }) {
           </div>
         </Card>
       )}
+
+      {searchEngines.map((e) => (
+        <Card key={e.kind}>
+          <CardHeader
+            title={
+              <span className="flex items-center gap-2">
+                <Search className="size-4 text-accent-500" aria-hidden /> {e.kind === "meilisearch" ? "Meilisearch" : "Typesense"}
+              </span>
+            }
+          />
+          <div className="p-5">
+            <dl>
+              <CopyRow label={t("URL (from app)")} value={`http://${e.host}:${e.port}`} />
+              <CopyRow label={t("URL (from your machine)")} value={e.hostPort ? `http://${host}:${e.hostPort}` : t("not published")} />
+              <CopyRow label={e.kind === "meilisearch" ? t("Master key") : t("API key")} value={e.kind === "meilisearch" ? t("<Services tab → Show master key>") : t("<Services tab → Show API key>")} mono={false} />
+            </dl>
+          </div>
+        </Card>
+      ))}
 
       <p className="flex items-center gap-2 text-xs text-subtle">
         <KeyRound className="size-3.5" aria-hidden /> {t("Nothing here is secret except passwords/tokens, which are never shown on this page.")}

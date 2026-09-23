@@ -1562,5 +1562,16 @@
   "For tools on your machine, e.g. telnet or a cache inspector.": "Voor tools op je eigen computer, bijv. telnet of een cache-inspector.",
   "PHP clients need the {{ext}} extension, which is off in this project.": "PHP-clients hebben de extensie {{ext}} nodig, die in dit project uit staat.",
   "PHP extension {{ext}} enabled.": "PHP-extensie {{ext}} ingeschakeld.",
-  "Enable {{ext}}": "{{ext}} inschakelen"
+  "Enable {{ext}}": "{{ext}} inschakelen",
+  "Search engine (Laravel Scout, Symfony) with a persistent volume and a web dashboard on its own port. Injects MEILISEARCH_HOST/KEY and MEILISEARCH_URL/API_KEY; set SCOUT_DRIVER yourself.": "Zoekmachine (Laravel Scout, Symfony) met persistent volume en webdashboard op een eigen poort. Zet MEILISEARCH_HOST/KEY en MEILISEARCH_URL/API_KEY; SCOUT_DRIVER stel je zelf in.",
+  "Search engine (Laravel Scout, InstantSearch) with a persistent volume. Injects TYPESENSE_HOST, TYPESENSE_PORT, TYPESENSE_PROTOCOL, TYPESENSE_API_KEY and TYPESENSE_URL; set SCOUT_DRIVER yourself.": "Zoekmachine (Laravel Scout, InstantSearch) met persistent volume. Zet TYPESENSE_HOST, TYPESENSE_PORT, TYPESENSE_PROTOCOL, TYPESENSE_API_KEY en TYPESENSE_URL; SCOUT_DRIVER stel je zelf in.",
+  "For clients and dashboards running on your machine.": "Voor clients en dashboards op je eigen machine.",
+  "Master key": "Master-key",
+  "API key": "API-key",
+  "Show master key": "Master-key tonen",
+  "Show API key": "API-key tonen",
+  "URL (from app)": "URL (vanuit de app)",
+  "URL (from your machine)": "URL (vanaf je machine)",
+  "<Services tab → Show master key>": "<Tab Diensten → Master-key tonen>",
+  "<Services tab → Show API key>": "<Tab Diensten → API-key tonen>"
 }

@@ -1562,5 +1562,16 @@
   "For tools on your machine, e.g. telnet or a cache inspector.": "Pour les outils sur votre machine, p. ex. telnet ou un inspecteur de cache.",
   "PHP clients need the {{ext}} extension, which is off in this project.": "Les clients PHP ont besoin de l’extension {{ext}}, désactivée dans ce projet.",
   "PHP extension {{ext}} enabled.": "Extension PHP {{ext}} activée.",
-  "Enable {{ext}}": "Activer {{ext}}"
+  "Enable {{ext}}": "Activer {{ext}}",
+  "Search engine (Laravel Scout, Symfony) with a persistent volume and a web dashboard on its own port. Injects MEILISEARCH_HOST/KEY and MEILISEARCH_URL/API_KEY; set SCOUT_DRIVER yourself.": "Moteur de recherche (Laravel Scout, Symfony) avec volume persistant et tableau de bord web sur son propre port. Injecte MEILISEARCH_HOST/KEY et MEILISEARCH_URL/API_KEY ; définissez SCOUT_DRIVER vous-même.",
+  "Search engine (Laravel Scout, InstantSearch) with a persistent volume. Injects TYPESENSE_HOST, TYPESENSE_PORT, TYPESENSE_PROTOCOL, TYPESENSE_API_KEY and TYPESENSE_URL; set SCOUT_DRIVER yourself.": "Moteur de recherche (Laravel Scout, InstantSearch) avec volume persistant. Injecte TYPESENSE_HOST, TYPESENSE_PORT, TYPESENSE_PROTOCOL, TYPESENSE_API_KEY et TYPESENSE_URL ; définissez SCOUT_DRIVER vous-même.",
+  "For clients and dashboards running on your machine.": "Pour les clients et tableaux de bord sur votre machine.",
+  "Master key": "Clé maître",
+  "API key": "Clé API",
+  "Show master key": "Afficher la clé maître",
+  "Show API key": "Afficher la clé API",
+  "URL (from app)": "URL (depuis l’app)",
+  "URL (from your machine)": "URL (depuis votre machine)",
+  "<Services tab → Show master key>": "<Onglet Services → Afficher la clé maître>",
+  "<Services tab → Show API key>": "<Onglet Services → Afficher la clé API>"
 }

@@ -1635,3 +1635,41 @@ func TestMemcachedEndpoints(t *testing.T) {
 		t.Fatalf("remove: %d %s", r.status, r.raw)
 	}
 }
+
+func TestSearchEndpoints(t *testing.T) {
+	a := newApp(t)
+	a.setupAndLogin()
+	create := map[string]any{"name": "Search", "createStarter": true, "start": true, "php": map[string]any{"version": "8.4"}, "meilisearch": map[string]any{}, "typesense": map[string]any{"exposePort": true}}
+	r := a.do(http.MethodPost, "/api/v1/projects", create, true)
+	if r.status != http.StatusCreated {
+		t.Fatalf("create: %d %s", r.status, r.raw)
+	}
+	id := r.body["project"].(map[string]any)["id"].(string)
+	r = a.do(http.MethodGet, "/api/v1/projects/"+id+"/extras", nil, false)
+	if r.status != http.StatusOK || len(r.body["services"].([]any)) != 2 {
+		t.Fatalf("extras: %d %s", r.status, r.raw)
+	}
+	for _, kind := range []string{"meilisearch", "typesense"} {
+		r = a.do(http.MethodGet, "/api/v1/projects/"+id+"/"+kind+"/credentials", nil, false)
+		creds, _ := r.body["credentials"].(map[string]any)
+		if r.status != http.StatusOK || creds["apiKey"] == "" || creds["url"] == "" {
+			t.Fatalf("%s credentials: %d %s", kind, r.status, r.raw)
+		}
+		r = a.do(http.MethodGet, "/api/v1/projects/"+id+"/services/"+kind+"/logs?tail=5", nil, false)
+		if r.status != http.StatusOK {
+			t.Fatalf("%s logs: %d %s", kind, r.status, r.raw)
+		}
+		r = a.do(http.MethodPatch, "/api/v1/projects/"+id, map[string]any{kind: map[string]any{"enabled": false}}, true)
+		if r.status != http.StatusUnprocessableEntity {
+			t.Fatalf("%s removal without removeData: %d %s", kind, r.status, r.raw)
+		}
+		r = a.do(http.MethodPatch, "/api/v1/projects/"+id, map[string]any{kind: map[string]any{"enabled": false, "removeData": true}}, true)
+		if r.status != http.StatusOK {
+			t.Fatalf("%s remove: %d %s", kind, r.status, r.raw)
+		}
+		r = a.do(http.MethodGet, "/api/v1/projects/"+id+"/"+kind+"/credentials", nil, false)
+		if r.status != http.StatusNotFound {
+			t.Fatalf("%s credentials after removal: %d %s", kind, r.status, r.raw)
+		}
+	}
+}

@@ -98,6 +98,8 @@ export const runtimesFixture: RuntimesResponse = {
     { key: "redis", name: "Redis", kind: "service", available: true, description: "", versions: [{ version: "8", image: "redis:8", label: "Redis 8", default: true }] },
     { key: "memcached", name: "Memcached", kind: "service", available: true, description: "", versions: [{ version: "1.6", image: "memcached:1.6-alpine", label: "Memcached 1.6", default: true }] },
     { key: "rabbitmq", name: "RabbitMQ", kind: "service", available: true, description: "", versions: [{ version: "4.3", image: "rabbitmq:4.3-management-alpine", label: "RabbitMQ 4.3", default: true }] },
+    { key: "meilisearch", name: "Meilisearch", kind: "service", available: true, description: "", versions: [{ version: "1.54", image: "getmeili/meilisearch:v1.54", label: "Meilisearch 1.54", default: true }] },
+    { key: "typesense", name: "Typesense", kind: "service", available: true, description: "", versions: [{ version: "30.2", image: "typesense/typesense:30.2", label: "Typesense 30.2", default: true }] },
     { key: "mailpit", name: "Mailpit", kind: "service", available: true, description: "", versions: [{ version: "1.31", image: "axllent/mailpit:v1.31", label: "Mailpit 1.31", default: true }] },
   ],
   phpExtensions: [

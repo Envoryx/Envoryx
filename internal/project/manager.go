@@ -296,6 +296,20 @@ func (m *Manager) buildProject(req CreateRequest) (store.Project, error) {
 		}
 		proj.Services = append(proj.Services, svc)
 	}
+	if req.Meilisearch != nil {
+		svc, err := m.buildExtraService(store.ServiceMeilisearch, req.Meilisearch.Version)
+		if err != nil {
+			return store.Project{}, err
+		}
+		proj.Services = append(proj.Services, svc)
+	}
+	if req.Typesense != nil {
+		svc, err := m.buildExtraService(store.ServiceTypesense, req.Typesense.Version)
+		if err != nil {
+			return store.Project{}, err
+		}
+		proj.Services = append(proj.Services, svc)
+	}
 	if req.Storage != nil {
 		svc, err := m.buildStorageService(proj.Slug, req.Storage.Version, req.Storage.PublicRead)
 		if err != nil {
@@ -415,6 +429,15 @@ func (m *Manager) buildExtraService(kind store.ServiceKind, version string) (sto
 		position = 7
 	case store.ServiceRabbitMQ:
 		cfg, err := runtime.NewRabbitMQConfig()
+		if err != nil {
+			return store.ProjectService{}, err
+		}
+		if raw, err = json.Marshal(cfg); err != nil {
+			return store.ProjectService{}, err
+		}
+		position = 9
+	case store.ServiceMeilisearch, store.ServiceTypesense:
+		cfg, err := runtime.NewSearchConfig()
 		if err != nil {
 			return store.ProjectService{}, err
 		}
@@ -561,7 +584,7 @@ func (m *Manager) collectUsedPorts(ctx context.Context, used map[int]bool) error
 				used[cfg.HostPort] = true
 			}
 		}
-		for _, kind := range []store.ServiceKind{store.ServiceRedis, store.ServiceMemcached, store.ServiceMailpit, store.ServiceRabbitMQ} {
+		for _, kind := range extraKinds {
 			if svc := p.Service(kind); svc != nil {
 				var cfg runtime.ServiceConfig
 				if json.Unmarshal(svc.Config, &cfg) == nil {
@@ -621,8 +644,9 @@ func (m *Manager) collectUsedPorts(ctx context.Context, used map[int]bool) error
 }
 
 // assignServicePorts allocates host ports for services the request wants published
-// (database, Redis, Memcached, RabbitMQ) and always for the web UIs of Mailpit and RabbitMQ. Ports already chosen for this
-// project are excluded so the allocations do not collide with each other.
+// (database, Redis, Memcached, RabbitMQ, Typesense) and always for the web UIs of Mailpit,
+// RabbitMQ and Meilisearch. Ports already chosen for this project are excluded so the
+// allocations do not collide with each other.
 func (m *Manager) assignServicePorts(ctx context.Context, proj *store.Project, req CreateRequest) error {
 	taken := []int{proj.HTTPPort}
 	assign := func(kind store.ServiceKind) error {
@@ -672,6 +696,17 @@ func (m *Manager) assignServicePorts(ctx context.Context, proj *store.Project, r
 			if err := setWebUIPort(svc, port); err != nil {
 				return err
 			}
+		}
+	}
+	// Meilisearch's dashboard is served on its API port.
+	if req.Meilisearch != nil {
+		if err := assign(store.ServiceMeilisearch); err != nil {
+			return err
+		}
+	}
+	if req.Typesense != nil && req.Typesense.ExposePort {
+		if err := assign(store.ServiceTypesense); err != nil {
+			return err
 		}
 	}
 	if req.Storage != nil {
@@ -822,7 +857,7 @@ func (m *Manager) resolveImages(p *store.Project) {
 			key = "node"
 		case store.ServicePython:
 			key = "python"
-		case store.ServiceRedis, store.ServiceMemcached, store.ServiceMailpit, store.ServiceRabbitMQ:
+		case store.ServiceRedis, store.ServiceMemcached, store.ServiceMailpit, store.ServiceRabbitMQ, store.ServiceMeilisearch, store.ServiceTypesense:
 			key = string(svc.Kind)
 		case store.ServiceWeb, store.ServiceDatabase, store.ServiceStorage:
 			key = svc.Variant

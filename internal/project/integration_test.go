@@ -525,3 +525,111 @@ func TestIntegrationMemcached(t *testing.T) {
 		return nil
 	})
 }
+
+// TestIntegrationSearch starts the catalogue's default Meilisearch and Typesense, checks
+// both healthchecks – curl in Meilisearch's image, bash's /dev/tcp in Typesense's, which
+// has neither curl nor wget – and that each accepts the generated key. Typesense's
+// collection must survive a rebuilt container: its Raft state in the volume names the
+// peering address, which is pinned to loopback because the container's IP changes.
+func TestIntegrationSearch(t *testing.T) {
+	m := integrationManager(t)
+	ctx := context.Background()
+	view, err := m.Create(ctx, CreateRequest{Name: "Envoryx Integration Search", CreateStarter: true, Start: true, Meilisearch: &ExtraRequest{}, Typesense: &ExtraRequest{}})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	id, slug := view.Project.ID, view.Project.Slug
+	t.Cleanup(func() {
+		if err := m.Delete(context.Background(), id, DeleteOptions{Confirm: slug, DeleteFiles: true}); err != nil {
+			t.Errorf("cleanup: %v", err)
+		}
+	})
+	restarting := map[store.ServiceKind]int{}
+	healthy := func() error {
+		if err := crashLooping(t, m, id, restarting); err != nil {
+			return err
+		}
+		v, err := m.Get(ctx, id)
+		if err != nil {
+			return err
+		}
+		for _, s := range v.Status.Services {
+			// Not every engine reports health in its container list (see statefulServices).
+			if (s.Kind == store.ServiceMeilisearch || s.Kind == store.ServiceTypesense) && (s.State != "running" || (s.Health != "" && s.Health != "healthy")) {
+				return fmt.Errorf("%s is %s (health %s)", s.Kind, s.State, s.Health)
+			}
+		}
+		return nil
+	}
+	sh := func(kind store.ServiceKind, shell, script string) (string, error) {
+		c, err := m.ServiceContainer(ctx, id, kind)
+		if err != nil {
+			return "", err
+		}
+		res, err := m.engine.Exec(ctx, c.ID, []string{shell, "-c", script}, nil)
+		if err != nil {
+			return "", err
+		}
+		if res.ExitCode != 0 {
+			return "", fmt.Errorf("%s: exit %d: %s%s", kind, res.ExitCode, res.Stdout, res.Stderr)
+		}
+		return res.Stdout, nil
+	}
+	meili, err := m.SearchCredentials(ctx, id, store.ServiceMeilisearch)
+	if err != nil {
+		t.Fatal(err)
+	}
+	typesense, err := m.SearchCredentials(ctx, id, store.ServiceTypesense)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Typesense over HTTP/1.0 through bash, so the answer ends with the connection.
+	tsRequest := func(method, path, body string) string {
+		return fmt.Sprintf(`exec 3<>/dev/tcp/127.0.0.1/8108 && printf '%s %s HTTP/1.0\r\nX-TYPESENSE-API-KEY: %s\r\nContent-Type: application/json\r\nContent-Length: %d\r\n\r\n%s' >&3 && cat <&3`, method, path, typesense.APIKey, len(body), body)
+	}
+
+	waitFor(t, "meilisearch accepts the master key", 2*time.Minute, func() error {
+		if err := healthy(); err != nil {
+			return err
+		}
+		out, err := sh(store.ServiceMeilisearch, "sh", "curl -fsS -H 'Authorization: Bearer "+meili.APIKey+"' http://127.0.0.1:7700/version")
+		if err == nil && !strings.Contains(out, "pkgVersion") {
+			return fmt.Errorf("unexpected answer: %q", out)
+		}
+		return err
+	})
+	if _, err := sh(store.ServiceMeilisearch, "sh", "curl -fsS -o /dev/null http://127.0.0.1:7700/version"); err == nil {
+		t.Fatal("meilisearch answers without the master key")
+	}
+	waitFor(t, "typesense creates a collection with the api key", 2*time.Minute, func() error {
+		if err := healthy(); err != nil {
+			return err
+		}
+		out, err := sh(store.ServiceTypesense, "bash", tsRequest("POST", "/collections", `{"name":"persisted","fields":[{"name":"title","type":"string"}]}`))
+		if err == nil && !strings.Contains(out, `"name":"persisted"`) {
+			return fmt.Errorf("unexpected answer: %q", out)
+		}
+		return err
+	})
+
+	c, err := m.ServiceContainer(ctx, id, store.ServiceTypesense)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := m.engine.RemoveContainer(ctx, c.ID); err != nil {
+		t.Fatalf("remove typesense container: %v", err)
+	}
+	if _, err := m.Start(ctx, id); err != nil {
+		t.Fatalf("restart after removal: %v", err)
+	}
+	waitFor(t, "typesense keeps its collection after the rebuild", 2*time.Minute, func() error {
+		if err := healthy(); err != nil {
+			return err
+		}
+		out, err := sh(store.ServiceTypesense, "bash", tsRequest("GET", "/collections", ""))
+		if err == nil && !strings.Contains(out, `"name":"persisted"`) {
+			return fmt.Errorf("collection gone: %q", out)
+		}
+		return err
+	})
+}

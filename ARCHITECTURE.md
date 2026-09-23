@@ -752,6 +752,22 @@ scope). `RABBITMQ_NODENAME=rabbit@localhost` pins the node name: the data
 directory is named after it, and the default contains the container's host
 name, which changes with every recreate.
 
+Meilisearch (`getmeili/meilisearch:v<version>`, volume `envoryx-<slug>-meilisearch`)
+and Typesense (`typesense/typesense:<version>`, volume `envoryx-<slug>-typesense`)
+share that config with a generated `apiKey` (32 characters; Meilisearch's master
+key), which only leaves the backend through
+`GET /projects/{id}/{meilisearch,typesense}/credentials` (operate scope).
+Meilisearch always publishes its port, since the dashboard (`MEILI_ENV=development`)
+is served there; it runs with `MEILI_UPGRADE_DB=true`, because a newer image
+otherwise refuses a database an older one wrote. Typesense publishes on request and
+pins `TYPESENSE_PEERING_ADDRESS=127.0.0.1`: its single-node Raft state in the volume
+names the peering address, which would otherwise be the container's changing IP.
+Its image has neither curl nor wget, so the healthcheck talks HTTP through bash's
+`/dev/tcp`. The application gets Laravel Scout's names (`MEILISEARCH_HOST`/`KEY`,
+`TYPESENSE_HOST`/`PORT`/`PROTOCOL`/`API_KEY`) plus `MEILISEARCH_URL`/`API_KEY`
+(Symfony's meilisearch-bundle) and `TYPESENSE_URL`; `SCOUT_DRIVER` is left to the
+application, like `MESSENGER_TRANSPORT_DSN` for RabbitMQ.
+
 ### SSH (`internal/sshd`)
 `golang.org/x/crypto/ssh` server with an Ed25519 host key. Auth resolves the
 user name through `Manager.ResolveSSHUser` (`<slug>` → the application

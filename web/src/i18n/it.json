@@ -1562,5 +1562,16 @@
   "For tools on your machine, e.g. telnet or a cache inspector.": "Per strumenti sul tuo computer, ad es. telnet o un ispettore di cache.",
   "PHP clients need the {{ext}} extension, which is off in this project.": "I client PHP richiedono l’estensione {{ext}}, disattivata in questo progetto.",
   "PHP extension {{ext}} enabled.": "Estensione PHP {{ext}} attivata.",
-  "Enable {{ext}}": "Attiva {{ext}}"
+  "Enable {{ext}}": "Attiva {{ext}}",
+  "Search engine (Laravel Scout, Symfony) with a persistent volume and a web dashboard on its own port. Injects MEILISEARCH_HOST/KEY and MEILISEARCH_URL/API_KEY; set SCOUT_DRIVER yourself.": "Motore di ricerca (Laravel Scout, Symfony) con volume persistente e dashboard web su una porta dedicata. Imposta MEILISEARCH_HOST/KEY e MEILISEARCH_URL/API_KEY; SCOUT_DRIVER lo imposti tu.",
+  "Search engine (Laravel Scout, InstantSearch) with a persistent volume. Injects TYPESENSE_HOST, TYPESENSE_PORT, TYPESENSE_PROTOCOL, TYPESENSE_API_KEY and TYPESENSE_URL; set SCOUT_DRIVER yourself.": "Motore di ricerca (Laravel Scout, InstantSearch) con volume persistente. Imposta TYPESENSE_HOST, TYPESENSE_PORT, TYPESENSE_PROTOCOL, TYPESENSE_API_KEY e TYPESENSE_URL; SCOUT_DRIVER lo imposti tu.",
+  "For clients and dashboards running on your machine.": "Per client e dashboard sulla tua macchina.",
+  "Master key": "Chiave master",
+  "API key": "Chiave API",
+  "Show master key": "Mostra chiave master",
+  "Show API key": "Mostra chiave API",
+  "URL (from app)": "URL (dall’app)",
+  "URL (from your machine)": "URL (dalla tua macchina)",
+  "<Services tab → Show master key>": "<Scheda Servizi → Mostra chiave master>",
+  "<Services tab → Show API key>": "<Scheda Servizi → Mostra chiave API>"
 }
