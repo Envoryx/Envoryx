@@ -773,6 +773,8 @@ export interface SSHInfo {
   enabled: boolean;
   port: number;
   fingerprint: string;
+  /** Same key as MD5 – the form JetBrains IDEs show. */
+  fingerprintMd5?: string;
 }
 
 export interface Settings {

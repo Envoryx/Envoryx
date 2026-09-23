@@ -90,6 +90,10 @@ func New(d Deps) (*Server, error) {
 // Fingerprint returns the host key fingerprint for the UI.
 func (s *Server) Fingerprint() string { return ssh.FingerprintSHA256(s.signer.PublicKey()) }
 
+// FingerprintMD5 returns the same key in the colon-separated MD5 form that JetBrains IDEs
+// show when they ask to trust the host.
+func (s *Server) FingerprintMD5() string { return ssh.FingerprintLegacyMD5(s.signer.PublicKey()) }
+
 func loadOrCreateHostKey(path string) (ssh.Signer, error) {
 	raw, err := os.ReadFile(path)
 	if err == nil {

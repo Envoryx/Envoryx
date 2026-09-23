@@ -84,6 +84,8 @@ type SSHInfo struct {
 	// Port is the host-side port (0 = not published).
 	Port        int    `json:"port"`
 	Fingerprint string `json:"fingerprint"`
+	// FingerprintMD5 is the legacy form JetBrains IDEs show when they ask to trust the key.
+	FingerprintMD5 string `json:"fingerprintMd5"`
 }
 
 // API holds handlers.

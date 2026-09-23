@@ -11,6 +11,15 @@ release). `:main` follows the development branch.
 ## [Unreleased]
 
 ### Added
+- The IDE tab explains how to open a project in PhpStorm, WebStorm & co. over SFTP.
+  The embedded SSH server has served SFTP all along, but nothing said so, and the
+  obvious route was the network share. A new card lists the deployment settings
+  (host, port, user, root path `/var/www/html`, web server URL) and walks through
+  PhpStorm's *New Project from Existing Files* wizard, checked step by step against
+  PhpStorm 2026.2: a local copy that uploads on save, and how to fetch what
+  `composer install` or `npm install` changed in the container. The host key is now
+  also shown as MD5, the form PhpStorm asks you to confirm – the SHA256 value alone
+  could not be compared.
 - Project containers resolve the project domains. `http://shop.test` used to fail
   inside a container unless the Docker host itself asked a DNS server with the
   wildcard entry, and with Envoryx on its own `br0` IP the address was unreachable
