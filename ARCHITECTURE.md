@@ -188,10 +188,11 @@ POST /api/v1/projects/{id}/start
 ### 3.4 Command line client
 
 The same binary is the client: `envoryx project …`, `envoryx backup …`,
-`envoryx git …` and `envoryx login` talk to a running server over `/api/v1`
-with an API token, exactly like the web interface and the MCP server. The CLI
-holds no privilege of its own – it has no database handle, no Docker socket and
-no way around a token's scope or project restriction – so `docker exec envoryx
+`envoryx db …`, `envoryx git …` and `envoryx login` talk to a running server
+over `/api/v1` with an API token, exactly like the web interface and the MCP
+server. The CLI holds no privilege of its own – it has no database handle, no
+Docker socket and no way around a token's scope or project restriction – so
+`docker exec envoryx
 envoryx project start shop` and the same command from a laptop take the same
 path through the API. (The exception is `envoryx admin …`, which is the rescue
 path *onto* the database when the credentials are lost.)
@@ -917,6 +918,19 @@ expiry in a background loop; config/token under `/config/ca/acme.json`
   when the last run precedes the most recent slot; the run is recorded before
   the backup so failures wait for the next slot; retention deletes the oldest
   backups with `meta.source == "scheduled"` beyond `keep`.
+  *Snapshots* (`snapshot.go`) are the same backups with the database as their
+  only content and `meta.source == "snapshot"`: `CreateSnapshot` /
+  `RestoreSnapshot` wrap the dump and the import in `withServiceRunning` +
+  `waitForDatabase`, so a stopped project is started for them and stopped
+  again, and `ListSnapshots` returns every backup of `kind == "database"` (a
+  pre-upgrade dump included). `pruneSnapshots` keeps the newest
+  `snapshotKeep` (10) with `source == "snapshot"` and never touches the rest.
+  `CloneDatabase` copies another project's primary database into this one with
+  `copyDatabase`/`streamDump` (the duplicate path: dump piped into the other
+  container's client, no temporary file): both projects are locked – source
+  first, as when duplicating – both must be `ready` and run the same variant,
+  the target's identifier confirms, and the target is snapshotted first
+  unless the request says otherwise. Audit: `database.cloned`.
 - **Phase 9 MCP** (implemented, `internal/mcpserver`): an embedded MCP server
   (official `modelcontextprotocol/go-sdk`, streamable HTTP, stateless, JSON
   responses) mounted at `/mcp` outside the cookie/CSRF scheme. It only
@@ -940,6 +954,7 @@ expiry in a background loop; config/token under `/config/ca/acme.json`
   application container: php, else node, else web), `list_actions`, `run_action`
   (runs a catalogue action to completion, returns stripped output + exit
   code, 20 min limit), `list/create_database`, `list/create_backup`,
-  `add_domain`. Deleting projects, dropping databases and restoring backups
-  are deliberately not exposed. Manager errors become tool errors
+  `list/create_snapshot`, `add_domain`. Deleting projects, dropping databases,
+  restoring backups or snapshots and cloning a database over another are
+  deliberately not exposed. Manager errors become tool errors
   (`isError`) so the assistant can react instead of the session failing.

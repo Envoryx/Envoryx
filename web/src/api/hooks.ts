@@ -18,6 +18,7 @@ export const keys = {
   projectStats: (id: string) => ["projects", id, "stats"] as const,
   database: (id: string) => ["projects", id, "database"] as const,
   databases: (id: string) => ["projects", id, "database", "list"] as const,
+  snapshots: (id: string) => ["projects", id, "database", "snapshots"] as const,
 };
 
 const LIVE_INTERVAL = 5000;
@@ -316,6 +317,37 @@ export function useDatabaseMutations(id: string) {
   const create = useMutation({ mutationFn: (name: string) => api.database.create(id, name), onSuccess: () => refresh() });
   const drop = useMutation({ mutationFn: (name: string) => api.database.drop(id, name), onSuccess: () => refresh() });
   return { rotate, expose, create, drop };
+}
+
+/** Database snapshots of a project, newest first. */
+export function useSnapshots(id: string, enabled: boolean) {
+  return useQuery({
+    queryKey: keys.snapshots(id),
+    queryFn: async () => (await api.database.snapshots(id)).snapshots,
+    enabled,
+  });
+}
+
+export function useSnapshotMutations(id: string) {
+  const qc = useQueryClient();
+  const invalidate = useProjectInvalidation();
+  const refresh = () => {
+    invalidate();
+    void qc.invalidateQueries({ queryKey: keys.snapshots(id) });
+    void qc.invalidateQueries({ queryKey: ["projects", id, "backups"] });
+    void qc.invalidateQueries({ queryKey: keys.databases(id) });
+  };
+  const create = useMutation({ mutationFn: async (note: string) => (await api.database.snapshot(id, note)).snapshot, onSuccess: refresh });
+  const restore = useMutation({
+    mutationFn: async ({ snapshotId, confirm }: { snapshotId: string; confirm: string }) => (await api.database.restoreSnapshot(id, snapshotId, confirm)).snapshot,
+    onSuccess: refresh,
+  });
+  const remove = useMutation({ mutationFn: (snapshotId: string) => api.backups.remove(id, snapshotId), onSuccess: refresh });
+  const clone = useMutation({
+    mutationFn: async (body: { source: string; snapshot: boolean; confirm: string }) => (await api.database.clone(id, body)).clone,
+    onSuccess: refresh,
+  });
+  return { create, restore, remove, clone };
 }
 
 export function useDeleteProject() {

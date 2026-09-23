@@ -902,6 +902,79 @@ func TestBackupEndpoints(t *testing.T) {
 	}
 }
 
+// Snapshots and clones over HTTP: a snapshot is the database alone, a clone takes another
+// project's data and both destructive calls insist on the project's identifier.
+func TestDatabaseSnapshotAndCloneEndpoints(t *testing.T) {
+	a := newApp(t)
+	a.setupAndLogin()
+	var imported []string
+	a.engine.StreamHandler = func(container string, cmd []string, _ []string, stdin []byte) (string, int, error) {
+		switch cmd[0] {
+		case "mariadb-dump":
+			return "-- dump of " + container + "\n", 0, nil
+		case "mariadb":
+			imported = append(imported, container+": "+strings.TrimSpace(string(stdin)))
+		}
+		return "", 0, nil
+	}
+	newProject := func(name string) string {
+		t.Helper()
+		body := map[string]any{"name": name, "start": true, "php": map[string]any{"version": "8.4"}, "database": map[string]any{"type": "mariadb"}}
+		r := a.do(http.MethodPost, "/api/v1/projects", body, true)
+		if r.status != http.StatusCreated {
+			t.Fatalf("create %s: %d %s", name, r.status, r.raw)
+		}
+		return r.body["project"].(map[string]any)["id"].(string)
+	}
+	local, staging := newProject("Local"), newProject("Staging")
+
+	r := a.do(http.MethodPost, "/api/v1/projects/"+local+"/database/snapshots", map[string]any{"note": "before the migration"}, true)
+	if r.status != http.StatusCreated {
+		t.Fatalf("snapshot: %d %s", r.status, r.raw)
+	}
+	snapshot := r.body["snapshot"].(map[string]any)
+	if snapshot["kind"] != "database" || bytes.Contains(r.raw, []byte("assword")) {
+		t.Fatalf("snapshot: %s", r.raw)
+	}
+	sid := snapshot["id"].(string)
+
+	r = a.do(http.MethodGet, "/api/v1/projects/"+local+"/database/snapshots", nil, false)
+	if r.status != http.StatusOK || len(r.body["snapshots"].([]any)) != 1 {
+		t.Fatalf("list snapshots: %d %s", r.status, r.raw)
+	}
+
+	r = a.do(http.MethodPost, "/api/v1/projects/"+local+"/database/snapshots/"+sid+"/restore", map[string]any{"confirm": "nope"}, true)
+	if r.status != http.StatusUnprocessableEntity {
+		t.Fatalf("restore without confirmation: %d %s", r.status, r.raw)
+	}
+	imported = nil
+	r = a.do(http.MethodPost, "/api/v1/projects/"+local+"/database/snapshots/"+sid+"/restore", map[string]any{"confirm": "local"}, true)
+	if r.status != http.StatusOK {
+		t.Fatalf("restore: %d %s", r.status, r.raw)
+	}
+	if len(imported) != 1 || !strings.Contains(imported[0], "envoryx-local-database: -- dump of envoryx-local-database") {
+		t.Fatalf("restored dump: %v", imported)
+	}
+
+	r = a.do(http.MethodPost, "/api/v1/projects/"+local+"/database/clone", map[string]any{"source": staging, "confirm": "nope"}, true)
+	if r.status != http.StatusUnprocessableEntity {
+		t.Fatalf("clone without confirmation: %d %s", r.status, r.raw)
+	}
+	imported = nil
+	r = a.do(http.MethodPost, "/api/v1/projects/"+local+"/database/clone", map[string]any{"source": staging, "confirm": "local"}, true)
+	if r.status != http.StatusOK {
+		t.Fatalf("clone: %d %s", r.status, r.raw)
+	}
+	clone := r.body["clone"].(map[string]any)
+	if clone["source"] != "staging" || clone["database"] != "local" || clone["snapshot"] == nil {
+		t.Fatalf("clone: %s", r.raw)
+	}
+	// Staging's dump is what arrived in local's database, and nothing else was imported.
+	if len(imported) != 1 || imported[0] != "envoryx-local-database: -- dump of envoryx-staging-database" {
+		t.Fatalf("clone imports: %v", imported)
+	}
+}
+
 func TestBackupScheduleEndpoint(t *testing.T) {
 	a := newApp(t)
 	a.setupAndLogin()

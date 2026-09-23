@@ -6,6 +6,7 @@ import type {
   AuditEntry,
   BackupInfo,
   BackupSchedule,
+  CloneDatabaseResult,
   CreateProjectRequest,
   DuplicateProjectRequest,
   RenameProjectRequest,
@@ -292,5 +293,12 @@ export const api = {
       request<void>(`/projects/${encodeURIComponent(id)}/database/databases`, { method: "POST", body: { name } }),
     drop: (id: string, name: string) =>
       request<void>(`/projects/${encodeURIComponent(id)}/database/databases/${encodeURIComponent(name)}`, { method: "DELETE", body: { confirm: name } }),
+    snapshots: (id: string) => request<{ snapshots: BackupInfo[] }>(`/projects/${encodeURIComponent(id)}/database/snapshots`),
+    snapshot: (id: string, note: string) =>
+      request<{ snapshot: BackupInfo }>(`/projects/${encodeURIComponent(id)}/database/snapshots`, { method: "POST", body: { note } }),
+    restoreSnapshot: (id: string, snapshotId: string, confirm: string) =>
+      request<{ snapshot: BackupInfo }>(`/projects/${encodeURIComponent(id)}/database/snapshots/${encodeURIComponent(snapshotId)}/restore`, { method: "POST", body: { confirm } }),
+    clone: (id: string, body: { source: string; snapshot: boolean; confirm: string }) =>
+      request<{ clone: CloneDatabaseResult }>(`/projects/${encodeURIComponent(id)}/database/clone`, { method: "POST", body }),
   },
 };

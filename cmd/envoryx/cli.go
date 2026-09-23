@@ -45,6 +45,13 @@ Backups:
   backup download <project> <backup> [-o FILE]
   backup delete <project> <backup> --yes
 
+Databases:
+  db snapshot <project> [--note TEXT]   dump the database and nothing else
+  db snapshots <project>                the snapshots there are
+  db restore <project> <snapshot> --yes put one back
+  db clone <project> --from <project> --yes
+                                        replace its database with another's
+
 Git:
   git status <project>
   git clone <project>                   clone the configured repository
@@ -171,6 +178,8 @@ func (c *cli) run(ctx context.Context, args []string) error {
 		return c.projectCommand(ctx, rest)
 	case "backup", "backups":
 		return c.backupCommand(ctx, rest)
+	case "db", "database":
+		return c.dbCommand(ctx, rest)
 	case "git":
 		return c.gitCommand(ctx, rest)
 	default:

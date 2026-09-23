@@ -267,3 +267,126 @@ func statefulServices(t *testing.T, engine string) {
 		}
 	}
 }
+
+// sqlIn pipes statements into a project's primary database through the flavour's client –
+// the same argv an import uses – and returns what it printed. It is how this test writes
+// and reads rows without a driver, and it works for every SQL engine in the catalogue.
+func sqlIn(t *testing.T, m *Manager, id, sql string) string {
+	t.Helper()
+	ctx := context.Background()
+	p, err := m.loadProject(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	svc, cfg, err := databaseConfig(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dialect, err := dialectOf(svc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, err := m.ServiceContainer(ctx, id, store.ServiceDatabase)
+	if err != nil {
+		t.Fatal(err)
+	}
+	argv, env := dialect.Restore(cfg)
+	var out, errOut strings.Builder
+	code, err := m.engine.ExecStream(ctx, c.ID, docker.ExecStreamOptions{
+		Cmd: argv, Env: env, Stdin: strings.NewReader(sql), Stdout: &out, Stderr: &errOut,
+	})
+	if err != nil {
+		t.Fatalf("%s: %v", sql, err)
+	}
+	if code != 0 {
+		t.Fatalf("%s: exit %d: %s", sql, code, errOut.String())
+	}
+	return out.String()
+}
+
+// TestIntegrationDatabaseSnapshotAndClone drives a snapshot and a clone against real
+// database containers: the unit tests fake the client, so only this says whether the
+// flavour's own dump really lands in another project's database – one with a different
+// database name and login than the dump was taken from – and whether a snapshot puts the
+// state before it back.
+func TestIntegrationDatabaseSnapshotAndClone(t *testing.T) {
+	engines := []string{"postgresql"}
+	if os.Getenv("ENVORYX_TEST_ALL_DATABASES") != "" {
+		engines = append(engines, "mariadb", "mysql")
+	}
+	for _, engine := range engines {
+		t.Run(engine, func(t *testing.T) { snapshotAndClone(t, engine) })
+	}
+}
+
+func snapshotAndClone(t *testing.T, engine string) {
+	m := integrationManager(t)
+	ctx := context.Background()
+
+	// Two static projects with a database each: source and target of the clone. Their
+	// database names and logins differ, which is exactly what a dump has to survive.
+	create := func(name string) store.Project {
+		t.Helper()
+		view, err := m.Create(ctx, CreateRequest{Name: name, CreateStarter: true, Start: true, Database: &DatabaseRequest{Type: engine}})
+		if err != nil {
+			t.Fatalf("create %s: %v", name, err)
+		}
+		id, slug := view.Project.ID, view.Project.Slug
+		t.Cleanup(func() {
+			if err := m.Delete(context.Background(), id, DeleteOptions{Confirm: slug, DeleteFiles: true}); err != nil {
+				t.Errorf("cleanup %s: %v", slug, err)
+			}
+		})
+		restarting := map[store.ServiceKind]int{}
+		waitFor(t, slug+" answers", 5*time.Minute, func() error {
+			if err := crashLooping(t, m, id, restarting); err != nil {
+				return err
+			}
+			_, err := m.ListDatabases(ctx, id)
+			return err
+		})
+		return view.Project
+	}
+	source := create("Envoryx Clone Source " + engine)
+	target := create("Envoryx Clone Target " + engine)
+
+	sqlIn(t, m, source.ID, "CREATE TABLE orders (note varchar(32)); INSERT INTO orders VALUES ('from-source');")
+	sqlIn(t, m, target.ID, "CREATE TABLE orders (note varchar(32)); INSERT INTO orders VALUES ('from-target');")
+
+	snapshot, err := m.CreateSnapshot(ctx, target.ID, "before the clone")
+	if err != nil {
+		t.Fatalf("snapshot: %v", err)
+	}
+	if snapshot.Kind != "database" || snapshot.Meta.Database == nil || snapshot.Meta.Database.Bytes == 0 {
+		t.Fatalf("snapshot: %+v", snapshot)
+	}
+
+	res, err := m.CloneDatabase(ctx, target.ID, CloneDatabaseRequest{Source: source.ID, Snapshot: true, Confirm: target.Slug})
+	if err != nil {
+		t.Fatalf("clone: %v", err)
+	}
+	if res.Snapshot == nil || res.Source != source.Slug {
+		t.Fatalf("clone result: %+v", res)
+	}
+	rows := sqlIn(t, m, target.ID, "SELECT note FROM orders;")
+	if !strings.Contains(rows, "from-source") || strings.Contains(rows, "from-target") {
+		t.Fatalf("the clone must replace the target's rows, got %q", rows)
+	}
+
+	if _, err := m.RestoreSnapshot(ctx, target.ID, snapshot.ID, target.Slug); err != nil {
+		t.Fatalf("restore snapshot: %v", err)
+	}
+	rows = sqlIn(t, m, target.ID, "SELECT note FROM orders;")
+	if !strings.Contains(rows, "from-target") || strings.Contains(rows, "from-source") {
+		t.Fatalf("the snapshot must bring the state before the clone back, got %q", rows)
+	}
+
+	// Two snapshots of the target (one taken by hand, one by the clone), none of the
+	// source: it is only ever read.
+	if list, err := m.ListSnapshots(ctx, target.ID); err != nil || len(list) != 2 {
+		t.Fatalf("snapshots of the target: %+v %v", list, err)
+	}
+	if list, err := m.ListSnapshots(ctx, source.ID); err != nil || len(list) != 0 {
+		t.Fatalf("the source must not be snapshotted: %+v %v", list, err)
+	}
+}

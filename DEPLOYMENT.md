@@ -975,9 +975,9 @@ cookie is also sent. Tokens created before scopes existed keep full access
 ## Command line
 
 The Envoryx binary is also its own client. `envoryx project …`, `envoryx
-backup …` and `envoryx git …` talk to a running server over the REST API with
-an API token, which makes them equally at home in an SSH session, a cron job
-or a CI pipeline. On the host the container's own binary does the job:
+backup …`, `envoryx db …` and `envoryx git …` talk to a running server over the
+REST API with an API token, which makes them equally at home in an SSH session,
+a cron job or a CI pipeline. On the host the container's own binary does the job:
 
 ```sh
 docker exec -it envoryx envoryx project list
@@ -1015,6 +1015,10 @@ envoryx project exec shop -- composer install         # any command, any contain
 envoryx project run shop                              # list the catalogue actions
 envoryx project run shop artisan:migrate              # run one, with live output
 envoryx backup list|create|restore|download|delete shop
+envoryx db snapshot shop --note "before a migration"  # the database alone
+envoryx db snapshots shop                             # what there is to go back to
+envoryx db restore shop <snapshot> --yes              # put one back
+envoryx db clone local --from staging --yes           # staging's data into local
 envoryx git status|pull shop                          # and: git checkout shop main
 ```
 

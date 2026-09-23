@@ -7,6 +7,7 @@ import type { DatabaseCredentials, Project } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Checkbox, Dialog, ErrorState, Field, Input, Select, Spinner, StatusDot } from "@/components/ui";
 import { copyText } from "@/lib/clipboard";
 import { PublicHostNotice } from "@/components/PublicHostNotice";
+import { CloneDatabaseCard, SnapshotsCard } from "./DatabaseSnapshots";
 import { containerStateTone } from "@/lib/format";
 import { errorText } from "@/lib/errors";
 
@@ -321,6 +322,9 @@ export function DatabaseTab({ project }: { project: Project }) {
           </Card>
         </div>
       </div>
+
+      <SnapshotsCard project={project} database={d} onMessage={setMsg} />
+      <CloneDatabaseCard project={project} database={d} onMessage={setMsg} />
 
       <Card>
         <CardHeader title={t("Databases")} description={t("Databases on this server. The project user “{{user}}” gets full access to databases created here.", { user: d.username })} />

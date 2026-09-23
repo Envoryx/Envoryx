@@ -152,6 +152,8 @@ func (s *Server) registerTools() {
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeOperate, mutating("create_database", "Create database", "Create an additional database on the project's database server (same credentials).", true)), s.createDatabase)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("list_backups", "List backups", "Backups of a project.")), s.listBackups)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeOperate, mutating("create_backup", "Create backup", "Create a backup (database dump + files + object storage + configuration) of a project.", false)), s.createBackup)
+	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("list_snapshots", "List snapshots", "Database snapshots of a project: the dumps that hold the database and nothing else.")), s.listSnapshots)
+	mcp.AddTool(s.mcp, s.tool(auth.ScopeOperate, mutating("create_snapshot", "Create snapshot", "Dump the project's database and nothing else – what to do before a migration or a mass update, so the state before it can be put back. Works on a stopped project too. Only the ten newest snapshots of a project are kept.", false)), s.createSnapshot)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeOperate, mutating("add_domain", "Add domain", "Add an extra host name routed to the project by the embedded proxy.", true)), s.addDomain)
 }
 
@@ -699,6 +701,43 @@ func (s *Server) createBackup(ctx context.Context, _ *mcp.CallToolRequest, in cr
 		return r, backupOut{}, nil
 	}
 	b, err := s.d.Projects.CreateBackup(ctx, v.Project.ID, project.BackupOptions{Database: true, Files: true, Storage: true, IncludeDependencies: in.IncludeDependencies, Note: strings.TrimSpace(in.Note)})
+	if err != nil {
+		r, _ := toolErr(err)
+		return r, backupOut{}, nil
+	}
+	return nil, toBackup(b), nil
+}
+
+func (s *Server) listSnapshots(ctx context.Context, _ *mcp.CallToolRequest, in projectRef) (*mcp.CallToolResult, listBackupsOut, error) {
+	v, err := s.resolve(ctx, in.Project)
+	if err != nil {
+		r, _ := toolErr(err)
+		return r, listBackupsOut{}, nil
+	}
+	list, err := s.d.Projects.ListSnapshots(ctx, v.Project.ID)
+	if err != nil {
+		r, _ := toolErr(err)
+		return r, listBackupsOut{}, nil
+	}
+	out := listBackupsOut{Backups: []backupOut{}}
+	for _, b := range list {
+		out.Backups = append(out.Backups, toBackup(b))
+	}
+	return nil, out, nil
+}
+
+type createSnapshotIn struct {
+	Project string `json:"project" jsonschema:"Project id, slug or name"`
+	Note    string `json:"note,omitempty" jsonschema:"Short note stored with the snapshot, e.g. what it was taken before"`
+}
+
+func (s *Server) createSnapshot(ctx context.Context, _ *mcp.CallToolRequest, in createSnapshotIn) (*mcp.CallToolResult, backupOut, error) {
+	v, err := s.resolve(ctx, in.Project)
+	if err != nil {
+		r, _ := toolErr(err)
+		return r, backupOut{}, nil
+	}
+	b, err := s.d.Projects.CreateSnapshot(ctx, v.Project.ID, strings.TrimSpace(in.Note))
 	if err != nil {
 		r, _ := toolErr(err)
 		return r, backupOut{}, nil
