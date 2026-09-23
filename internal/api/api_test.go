@@ -1639,7 +1639,7 @@ func TestMemcachedEndpoints(t *testing.T) {
 func TestSearchEndpoints(t *testing.T) {
 	a := newApp(t)
 	a.setupAndLogin()
-	create := map[string]any{"name": "Search", "createStarter": true, "start": true, "php": map[string]any{"version": "8.4"}, "meilisearch": map[string]any{}, "typesense": map[string]any{"exposePort": true}, "opensearch": map[string]any{}}
+	create := map[string]any{"name": "Search", "createStarter": true, "start": true, "php": map[string]any{"version": "8.4"}, "meilisearch": map[string]any{}, "typesense": map[string]any{"exposePort": true}, "opensearch": map[string]any{"dashboards": true}}
 	r := a.do(http.MethodPost, "/api/v1/projects", create, true)
 	if r.status != http.StatusCreated {
 		t.Fatalf("create: %d %s", r.status, r.raw)
@@ -1672,10 +1672,26 @@ func TestSearchEndpoints(t *testing.T) {
 			t.Fatalf("%s credentials after removal: %d %s", kind, r.status, r.raw)
 		}
 	}
-	// OpenSearch has no key; its logs and removal work like the others'.
-	r = a.do(http.MethodGet, "/api/v1/projects/"+id+"/services/opensearch/logs?tail=5", nil, false)
+	// OpenSearch has no key; its logs and removal work like the others'. Dashboards shows
+	// up on OpenSearch's entry and has logs of its own.
+	r = a.do(http.MethodGet, "/api/v1/projects/"+id+"/extras", nil, false)
+	search := r.body["services"].([]any)[0].(map[string]any)
+	if search["kind"] != "opensearch" || search["webUiPort"] == nil || search["dashboards"] == nil {
+		t.Fatalf("opensearch with dashboards: %s", r.raw)
+	}
+	for _, kind := range []string{"opensearch", "opensearch-dashboards"} {
+		r = a.do(http.MethodGet, "/api/v1/projects/"+id+"/services/"+kind+"/logs?tail=5", nil, false)
+		if r.status != http.StatusOK {
+			t.Fatalf("%s logs: %d %s", kind, r.status, r.raw)
+		}
+	}
+	r = a.do(http.MethodPatch, "/api/v1/projects/"+id, map[string]any{"opensearch": map[string]any{"enabled": true, "dashboards": false}}, true)
 	if r.status != http.StatusOK {
-		t.Fatalf("opensearch logs: %d %s", r.status, r.raw)
+		t.Fatalf("dashboards off: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodGet, "/api/v1/projects/"+id+"/extras", nil, false)
+	if search := r.body["services"].([]any)[0].(map[string]any); search["webUiPort"] != nil || search["dashboards"] != nil {
+		t.Fatalf("dashboards still listed: %s", r.raw)
 	}
 	r = a.do(http.MethodPatch, "/api/v1/projects/"+id, map[string]any{"opensearch": map[string]any{"enabled": false, "removeData": true}}, true)
 	if r.status != http.StatusOK {

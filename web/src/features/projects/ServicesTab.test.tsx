@@ -81,4 +81,25 @@ describe("ServicesTab search engines", () => {
     await waitFor(() => expect(api.calls.some((c) => c.url.endsWith("/meilisearch/credentials"))).toBe(true));
     expect(await screen.findByText("Master key")).toBeInTheDocument();
   });
+
+  it("shows OpenSearch Dashboards on the OpenSearch card and switches it off without touching the rest", async () => {
+    const opensearch = { kind: "opensearch", version: "3.8", image: "opensearchproject/opensearch:3.8.0", host: "opensearch", port: 9200, hostPort: 0, webUiPort: 26012, injectedEnv: ["OPENSEARCH_HOST", "OPENSEARCH_PORT", "OPENSEARCH_SCHEME", "OPENSEARCH_URL"], state: "running", volumeName: "envoryx-acme-shop-opensearch", dashboards: { image: "opensearchproject/opensearch-dashboards:3.8.0", state: "running", health: "healthy" } };
+    const api = mockApi({
+      ...authedRoutes,
+      "GET /runtimes": () => ({ body: runtimesFixture }),
+      [`GET ${P}/extras`]: () => ({ body: { services: [opensearch] } }),
+      [`GET ${P}/storage`]: () => ({ status: 404, body: { error: { code: "not_found", message: "no storage" } } }),
+      [`PATCH ${P}`]: () => ({ body: { project: makeProject() } }),
+    });
+    renderApp(<ServicesTab project={makeProject()} />);
+    const user = userEvent.setup();
+
+    expect(await screen.findByRole("link", { name: /:26012/ })).toBeInTheDocument();
+    const toggle = screen.getByRole("checkbox", { name: /^OpenSearch Dashboards/ });
+    expect(toggle).toBeChecked();
+    await user.click(toggle);
+    await waitFor(() => expect(api.calls.some((c) => c.method === "PATCH")).toBe(true));
+    const body = api.calls.find((c) => c.method === "PATCH")!.body as { opensearch: { enabled: boolean; version: string; exposePort: boolean; dashboards: boolean } };
+    expect(body.opensearch).toEqual({ enabled: true, version: "3.8", exposePort: false, dashboards: false });
+  });
 });

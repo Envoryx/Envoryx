@@ -98,6 +98,8 @@ type PythonUpdate struct {
 type ExtraRequest struct {
 	Version    string
 	ExposePort bool
+	// Dashboards adds OpenSearch Dashboards (OpenSearch only).
+	Dashboards bool
 }
 
 // StorageRequest adds S3-compatible object storage. PublicRead (default true) lets anyone
@@ -124,6 +126,9 @@ type ExtraUpdate struct {
 	// RemoveData must be true to remove a service that owns a volume (Redis, RabbitMQ,
 	// Meilisearch, Typesense, OpenSearch).
 	RemoveData bool
+	// Dashboards switches OpenSearch Dashboards on or off (OpenSearch only); nil leaves it
+	// as it is.
+	Dashboards *bool
 }
 
 // DatabaseRequest selects a database service.
@@ -195,8 +200,10 @@ type ExtraServiceInfo struct {
 	Health      string            `json:"health,omitempty"`
 	VolumeName  string            `json:"volumeName,omitempty"`
 	// WebUIPort is the host port of a web interface (Mailpit inbox, RabbitMQ management,
-	// Meilisearch dashboard), 0 otherwise.
+	// Meilisearch dashboard, OpenSearch Dashboards), 0 otherwise.
 	WebUIPort int `json:"webUiPort,omitempty"`
+	// Dashboards is the state of OpenSearch Dashboards when the project has it.
+	Dashboards *DashboardsInfo `json:"dashboards,omitempty"`
 	// Username logs in to RabbitMQ (AMQP and management UI); the password only comes from
 	// Manager.RabbitMQCredentials.
 	Username string `json:"username,omitempty"`
@@ -207,6 +214,14 @@ type RabbitMQCredentials struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
 	URL      string `json:"url"` // as injected into the application (RABBITMQ_URL)
+}
+
+// DashboardsInfo describes the OpenSearch Dashboards container; its port is the
+// OpenSearch entry's WebUIPort.
+type DashboardsInfo struct {
+	Image  string `json:"image"`
+	State  string `json:"state"`
+	Health string `json:"health,omitempty"`
 }
 
 // SearchCredentials are the admin key of a project's Meilisearch or Typesense.

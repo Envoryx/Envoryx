@@ -232,6 +232,7 @@ type pythonUpdateDTO struct {
 type extraRequestDTO struct {
 	Version    string `json:"version"`
 	ExposePort bool   `json:"exposePort"`
+	Dashboards bool   `json:"dashboards"` // OpenSearch only
 }
 
 type extraUpdateDTO struct {
@@ -239,6 +240,7 @@ type extraUpdateDTO struct {
 	Version    string `json:"version"`
 	ExposePort bool   `json:"exposePort"`
 	RemoveData bool   `json:"removeData"`
+	Dashboards *bool  `json:"dashboards"` // OpenSearch only; null leaves it
 }
 
 type databaseRequestDTO struct {
@@ -332,7 +334,7 @@ func (r createProjectRequest) toDomain() project.CreateRequest {
 		req.Typesense = &project.ExtraRequest{Version: r.Typesense.Version, ExposePort: r.Typesense.ExposePort}
 	}
 	if r.OpenSearch != nil {
-		req.OpenSearch = &project.ExtraRequest{Version: r.OpenSearch.Version, ExposePort: r.OpenSearch.ExposePort}
+		req.OpenSearch = &project.ExtraRequest{Version: r.OpenSearch.Version, ExposePort: r.OpenSearch.ExposePort, Dashboards: r.OpenSearch.Dashboards}
 	}
 	if r.Storage != nil {
 		req.Storage = &project.StorageRequest{Version: r.Storage.Version, PublicRead: r.Storage.PublicRead}
@@ -594,7 +596,7 @@ func (a *API) updateProject(w http.ResponseWriter, r *http.Request) {
 		upd.Typesense = &project.ExtraUpdate{Enabled: req.Typesense.Enabled, Version: req.Typesense.Version, ExposePort: req.Typesense.ExposePort, RemoveData: req.Typesense.RemoveData}
 	}
 	if req.OpenSearch != nil {
-		upd.OpenSearch = &project.ExtraUpdate{Enabled: req.OpenSearch.Enabled, Version: req.OpenSearch.Version, ExposePort: req.OpenSearch.ExposePort, RemoveData: req.OpenSearch.RemoveData}
+		upd.OpenSearch = &project.ExtraUpdate{Enabled: req.OpenSearch.Enabled, Version: req.OpenSearch.Version, ExposePort: req.OpenSearch.ExposePort, RemoveData: req.OpenSearch.RemoveData, Dashboards: req.OpenSearch.Dashboards}
 	}
 	if req.Database != nil {
 		upd.Database = &project.DatabaseUpdate{Enabled: req.Database.Enabled, Type: req.Database.Type, Version: req.Database.Version, ExposePort: req.Database.ExposePort, RemoveData: req.Database.RemoveData}

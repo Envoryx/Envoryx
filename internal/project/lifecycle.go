@@ -705,6 +705,13 @@ func (m *Manager) update(ctx context.Context, id string, req UpdateRequest) (Vie
 			return View{}, err
 		}
 		recreateApp = recreateApp || r
+		want := req.OpenSearch.Dashboards
+		if !req.OpenSearch.Enabled {
+			want = nil // Dashboards goes with OpenSearch whatever the request says
+		}
+		if err := m.syncOpenSearchDashboards(ctx, id, want, changes); err != nil {
+			return View{}, err
+		}
 	}
 	if req.Mailpit != nil {
 		r, err := m.applyExtraUpdate(ctx, proj, store.ServiceMailpit, *req.Mailpit, changes)
@@ -750,7 +757,7 @@ func (m *Manager) update(ctx context.Context, id string, req UpdateRequest) (Vie
 		}
 		for _, c := range existing {
 			switch c.Service() {
-			case string(store.ServiceDatabase), string(store.ServiceRedis), string(store.ServiceMemcached), string(store.ServiceMailpit), string(store.ServiceRabbitMQ), string(store.ServiceMeilisearch), string(store.ServiceTypesense), string(store.ServiceOpenSearch), string(store.ServiceStorage):
+			case string(store.ServiceDatabase), string(store.ServiceRedis), string(store.ServiceMemcached), string(store.ServiceMailpit), string(store.ServiceRabbitMQ), string(store.ServiceMeilisearch), string(store.ServiceTypesense), string(store.ServiceOpenSearch), string(store.ServiceOpenSearchDashboards), string(store.ServiceStorage):
 				continue // stateful/independent services keep running
 			}
 			step(ctx, "Removing the container {{name}} so it is recreated with the new settings", "name", c.Name)

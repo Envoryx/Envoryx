@@ -1077,7 +1077,7 @@ A project is named by its name, its slug or its id. `--json` hands the API's
 own answer to `jq` instead of a table; `--service` picks a container other
 than the project's application container (`php`, `python`, `node`, `web`,
 `database`, `redis`, `memcached`, `mailpit`, `rabbitmq`, `meilisearch`, `typesense`,
-`opensearch`, `storage`, `worker:<id>`). `envoryx project
+`opensearch`, `opensearch-dashboards`, `storage`, `worker:<id>`). `envoryx project
 create --from-json file.json` sends a create request the flags do not cover
 (everything the wizard offers), and flags given alongside it win.
 

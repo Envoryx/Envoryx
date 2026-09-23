@@ -145,7 +145,7 @@ func (s *Server) registerTools() {
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeOperate, mutating("start_project", "Start project", "Start all containers of a project.", true)), s.startProject)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeOperate, mutating("stop_project", "Stop project", "Stop all containers of a project (data is kept).", true)), s.stopProject)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeOperate, mutating("restart_project", "Restart project", "Restart a project; also pulls updated runtime images.", true)), s.restartProject)
-	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("get_logs", "Get logs", "Recent log lines of one project container (web, php, python, node, database, redis, memcached, mailpit, rabbitmq, meilisearch, typesense, opensearch).")), s.getLogs)
+	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("get_logs", "Get logs", "Recent log lines of one project container (web, php, python, node, database, redis, memcached, mailpit, rabbitmq, meilisearch, typesense, opensearch, opensearch-dashboards).")), s.getLogs)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("list_actions", "List actions", "Runnable project actions (composer, artisan, npm …) and whether they are currently available.")), s.listActions)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeOperate, mutating("run_action", "Run action", "Run one action from list_actions inside the project (e.g. composer:install) and return its output. Waits for completion (up to 20 minutes).", false)), s.runAction)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("list_databases", "List databases", "Databases on the project's database server.")), s.listDatabases)
@@ -265,6 +265,7 @@ type createProjectIn struct {
 	Meilisearch        bool              `json:"meilisearch,omitempty" jsonschema:"Add Meilisearch (search engine with web dashboard, MEILISEARCH_* injected)."`
 	Typesense          bool              `json:"typesense,omitempty" jsonschema:"Add Typesense (search engine, TYPESENSE_* injected)."`
 	OpenSearch         bool              `json:"opensearch,omitempty" jsonschema:"Add OpenSearch (Elasticsearch-compatible search engine without authentication, OPENSEARCH_* injected)."`
+	OpenSearchDash     bool              `json:"opensearchDashboards,omitempty" jsonschema:"Add OpenSearch Dashboards (web UI with Dev Tools console; implies opensearch)."`
 	Storage            bool              `json:"storage,omitempty" jsonschema:"Add S3-compatible object storage with a bucket per project (S3_* and AWS_* variables injected)."`
 	NodeVersion        string            `json:"nodeVersion,omitempty" jsonschema:"Add a Node.js container with this major version (e.g. 24): the project's runtime (dev server) or a toolchain for asset builds."`
 	NodeDevServer      bool              `json:"nodeDevServer,omitempty" jsonschema:"Run the package.json dev script as the project's main process. Without PHP it is reachable at the project URL, always at <slug>-dev.<base domain>. Requires nodeVersion."`
@@ -319,8 +320,8 @@ func (s *Server) createProject(ctx context.Context, _ *mcp.CallToolRequest, in c
 	if in.Typesense {
 		req.Typesense = &project.ExtraRequest{}
 	}
-	if in.OpenSearch {
-		req.OpenSearch = &project.ExtraRequest{}
+	if in.OpenSearch || in.OpenSearchDash {
+		req.OpenSearch = &project.ExtraRequest{Dashboards: in.OpenSearchDash}
 	}
 	if in.Storage {
 		req.Storage = &project.StorageRequest{}
@@ -456,7 +457,7 @@ func (s *Server) restartProject(ctx context.Context, _ *mcp.CallToolRequest, in 
 
 type getLogsIn struct {
 	Project string `json:"project" jsonschema:"Project id, slug or name"`
-	Service string `json:"service,omitempty" jsonschema:"Container: web, php, python, node, database, redis, memcached, mailpit, rabbitmq, meilisearch, typesense, opensearch or storage (default: the application container (php, else python, else node), else web)"`
+	Service string `json:"service,omitempty" jsonschema:"Container: web, php, python, node, database, redis, memcached, mailpit, rabbitmq, meilisearch, typesense, opensearch, opensearch-dashboards or storage (default: the application container (php, else python, else node), else web)"`
 	Tail    int    `json:"tail,omitempty" jsonschema:"Number of lines (default 200, max 2000)"`
 }
 
@@ -485,7 +486,7 @@ func (s *Server) getLogs(ctx context.Context, _ *mcp.CallToolRequest, in getLogs
 		}
 	}
 	switch kind {
-	case store.ServiceWeb, store.ServicePHP, store.ServicePython, store.ServiceNode, store.ServiceDatabase, store.ServiceRedis, store.ServiceMemcached, store.ServiceMailpit, store.ServiceRabbitMQ, store.ServiceMeilisearch, store.ServiceTypesense, store.ServiceOpenSearch, store.ServiceStorage:
+	case store.ServiceWeb, store.ServicePHP, store.ServicePython, store.ServiceNode, store.ServiceDatabase, store.ServiceRedis, store.ServiceMemcached, store.ServiceMailpit, store.ServiceRabbitMQ, store.ServiceMeilisearch, store.ServiceTypesense, store.ServiceOpenSearch, store.ServiceOpenSearchDashboards, store.ServiceStorage:
 	default:
 		r, _ := toolErr(fmt.Errorf("%w: unknown service %q", validate.ErrInvalid, in.Service))
 		return r, getLogsOut{}, nil

@@ -32,7 +32,7 @@ func TestResolve(t *testing.T) {
 	if _, err := c.Resolve("php", "5.6"); !errors.Is(err, validate.ErrInvalid) {
 		t.Fatalf("unknown version must be invalid, got %v", err)
 	}
-	for _, key := range []string{"mariadb", "mysql", "postgresql", "redis", "memcached", "mailpit", "rabbitmq", "meilisearch", "typesense", "opensearch", "node", "caddy", "apache", "nginx"} {
+	for _, key := range []string{"mariadb", "mysql", "postgresql", "redis", "memcached", "mailpit", "rabbitmq", "meilisearch", "typesense", "opensearch", "opensearch-dashboards", "node", "caddy", "apache", "nginx"} {
 		if _, err := c.Resolve(key, ""); err != nil {
 			t.Errorf("%s must be available: %v", key, err)
 		}
@@ -125,5 +125,20 @@ func TestPHPExtensionsMatchTheImage(t *testing.T) {
 	}
 	for e := range inImage {
 		t.Errorf("%s is compiled into the image but not offered", e)
+	}
+}
+
+// Dashboards always runs on OpenSearch's version, so every OpenSearch version needs one.
+func TestOpenSearchDashboardsVersions(t *testing.T) {
+	c := Default()
+	search, _ := c.Get("opensearch")
+	for _, v := range search.Versions {
+		d, err := c.Resolve("opensearch-dashboards", v.Version)
+		if err != nil {
+			t.Fatalf("no dashboards for OpenSearch %s: %v", v.Version, err)
+		}
+		if !strings.HasSuffix(d.Image, strings.TrimPrefix(v.Image, "opensearchproject/opensearch")) {
+			t.Errorf("dashboards %s does not match %s", d.Image, v.Image)
+		}
 	}
 }

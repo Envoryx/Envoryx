@@ -629,6 +629,29 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 			plan.Containers = append(plan.Containers, ContainerPlan{Kind: store.ServiceOpenSearch, Order: 9, Spec: spec})
 			images[svc.Image] = true
 
+		case store.ServiceOpenSearchDashboards:
+			var cfg runtime.ServiceConfig
+			if err := json.Unmarshal(svc.Config, &cfg); err != nil {
+				return Plan{}, fmt.Errorf("opensearch-dashboards config: %w", err)
+			}
+			// Saved objects live in OpenSearch's .kibana index, so no volume. The security
+			// plugin is off like OpenSearch's.
+			spec := docker.ContainerSpec{
+				Name:          ContainerName(proj.Slug, store.ServiceOpenSearchDashboards),
+				Image:         svc.Image,
+				Labels:        labels,
+				Env:           []string{fmt.Sprintf(`OPENSEARCH_HOSTS=["http://opensearch:%d"]`, runtime.OpenSearchPort), "DISABLE_SECURITY_DASHBOARDS_PLUGIN=true"},
+				Network:       plan.NetworkName,
+				RestartPolicy: "unless-stopped",
+				StopTimeout:   10,
+				Healthcheck:   &docker.HealthSpec{Test: []string{"curl", "-fsS", "-o", "/dev/null", fmt.Sprintf("http://127.0.0.1:%d/api/status", runtime.OpenSearchDashboardsPort)}, Interval: 10 * time.Second, Timeout: 5 * time.Second, StartPeriod: 60 * time.Second, Retries: 5},
+			}
+			if cfg.HostPort > 0 {
+				spec.Ports = []docker.PortSpec{{HostIP: p.paths.PublishInterface, HostPort: cfg.HostPort, ContainerPort: runtime.OpenSearchDashboardsPort, Protocol: "tcp"}}
+			}
+			plan.Containers = append(plan.Containers, ContainerPlan{Kind: store.ServiceOpenSearchDashboards, Order: 9, Spec: spec})
+			images[svc.Image] = true
+
 		case store.ServiceStorage:
 			var cfg runtime.StorageConfig
 			if err := json.Unmarshal(svc.Config, &cfg); err != nil {

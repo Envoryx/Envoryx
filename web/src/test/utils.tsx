@@ -101,6 +101,7 @@ export const runtimesFixture: RuntimesResponse = {
     { key: "meilisearch", name: "Meilisearch", kind: "service", available: true, description: "", versions: [{ version: "1.54", image: "getmeili/meilisearch:v1.54", label: "Meilisearch 1.54", default: true }] },
     { key: "typesense", name: "Typesense", kind: "service", available: true, description: "", versions: [{ version: "30.2", image: "typesense/typesense:30.2", label: "Typesense 30.2", default: true }] },
     { key: "opensearch", name: "OpenSearch", kind: "service", available: true, description: "", versions: [{ version: "3.8", image: "opensearchproject/opensearch:3.8.0", label: "OpenSearch 3.8", default: true }, { version: "2.19", image: "opensearchproject/opensearch:2.19.6", label: "OpenSearch 2.19" }] },
+    { key: "opensearch-dashboards", name: "OpenSearch Dashboards", kind: "service", available: true, description: "", versions: [{ version: "3.8", image: "opensearchproject/opensearch-dashboards:3.8.0", label: "OpenSearch Dashboards 3.8", default: true }, { version: "2.19", image: "opensearchproject/opensearch-dashboards:2.19.6", label: "OpenSearch Dashboards 2.19" }] },
     { key: "mailpit", name: "Mailpit", kind: "service", available: true, description: "", versions: [{ version: "1.31", image: "axllent/mailpit:v1.31", label: "Mailpit 1.31", default: true }] },
   ],
   phpExtensions: [

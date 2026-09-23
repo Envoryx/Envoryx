@@ -385,6 +385,7 @@ export function IdeTab({ project: p }: { project: Project }) {
             <dl>
               <CopyRow label={t("URL (from app)")} value={`http://${e.host}:${e.port}`} />
               <CopyRow label={t("URL (from your machine)")} value={e.hostPort ? `http://${host}:${e.hostPort}` : t("not published")} />
+              {e.kind === "opensearch" && e.webUiPort ? <CopyRow label="OpenSearch Dashboards" value={`http://${host}:${e.webUiPort}`} /> : null}
               {e.kind !== "opensearch" && <CopyRow label={e.kind === "meilisearch" ? t("Master key") : t("API key")} value={e.kind === "meilisearch" ? t("<Services tab → Show master key>") : t("<Services tab → Show API key>")} mono={false} />}
             </dl>
           </div>

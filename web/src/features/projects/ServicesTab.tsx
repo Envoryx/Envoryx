@@ -115,6 +115,25 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
               <dd className="font-mono text-xs">{info.username}</dd>
             </>
           )}
+          {info.kind === "opensearch" && info.dashboards && (
+            <>
+              <dt className="text-muted">OpenSearch Dashboards</dt>
+              <dd className="flex flex-wrap items-center gap-2">
+                {info.webUiPort ? (
+                  <a href={`http://${host}:${info.webUiPort}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-mono text-xs text-accent-600 hover:underline dark:text-accent-300">
+                    http://{host}:{info.webUiPort} <ExternalLink className="size-3" />
+                  </a>
+                ) : (
+                  <span className="text-xs text-subtle">{t("no port")}</span>
+                )}
+                <span className="inline-flex items-center gap-1.5 text-xs">
+                  <StatusDot tone={containerStateTone(info.dashboards.state)} />
+                  {info.dashboards.state}
+                  {info.dashboards.health && <Badge tone={info.dashboards.health === "healthy" ? "green" : info.dashboards.health === "starting" ? "blue" : "red"}>{info.dashboards.health}</Badge>}
+                </span>
+              </dd>
+            </>
+          )}
           {info.kind === "meilisearch" && (
             <>
               <dt className="text-muted">{t("Dashboard")}</dt>
@@ -178,6 +197,16 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
             checked={info.hostPort > 0}
             disabled={update.isPending}
             onChange={(e) => update.mutate({ [key]: { enabled: true, version: info.version, exposePort: e.target.checked } }, { onError: (err) => fail(err, t("Changing the port failed")) })}
+          />
+        )}
+
+        {info.kind === "opensearch" && (
+          <Checkbox
+            label="OpenSearch Dashboards"
+            description={t("Web UI with the Dev Tools console, index management and Discover, on its own port. The image is about 2.6 GB and needs roughly 400 MB of RAM.")}
+            checked={!!info.dashboards}
+            disabled={update.isPending}
+            onChange={(e) => update.mutate({ opensearch: { enabled: true, version: info.version, exposePort: info.hostPort > 0, dashboards: e.target.checked } }, { onError: (err) => fail(err, t("Saving failed")) })}
           />
         )}
 
@@ -254,6 +283,7 @@ function AddServiceCard({ project, kind, onMessage }: { project: Project; kind: 
   const rt = runtimes.data?.runtimes.find((r) => r.key === kind);
   const [version, setVersion] = useState("");
   const [expose, setExpose] = useState(false);
+  const [dashboards, setDashboards] = useState(false);
   const title = titles[kind];
   return (
     <Card>
@@ -271,6 +301,7 @@ function AddServiceCard({ project, kind, onMessage }: { project: Project; kind: 
           </Field>
         )}
         {!alwaysPublished(kind) && <Checkbox label={t("Publish port on the host")} checked={expose} onChange={(e) => setExpose(e.target.checked)} />}
+        {kind === "opensearch" && <Checkbox label="OpenSearch Dashboards" description={t("Web UI with the Dev Tools console, index management and Discover, on its own port. The image is about 2.6 GB and needs roughly 400 MB of RAM.")} checked={dashboards} onChange={(e) => setDashboards(e.target.checked)} />}
         <Button
           variant="primary"
           icon={<Plus className="size-4" />}
@@ -278,7 +309,7 @@ function AddServiceCard({ project, kind, onMessage }: { project: Project; kind: 
           onClick={() =>
             update.mutate(
               // The PHP extension its clients need comes along in the same update.
-              { [kind]: { enabled: true, version: version || undefined, exposePort: expose }, ...(phpExtensionUpdate(project, kind) ? { php: phpExtensionUpdate(project, kind)! } : {}) },
+              { [kind]: { enabled: true, version: version || undefined, exposePort: expose, ...(kind === "opensearch" ? { dashboards } : {}) }, ...(phpExtensionUpdate(project, kind) ? { php: phpExtensionUpdate(project, kind)! } : {}) },
               { onSuccess: () => onMessage({ tone: "green", text: t("{{service}} added. The application containers were recreated with the new variables.", { service: title }) }), onError: (err) => onMessage({ tone: "red", text: errorText(err, t, t("Adding failed")) }) },
             )
           }

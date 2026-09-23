@@ -1575,5 +1575,6 @@
   "<Services tab → Show master key>": "<Dienste-Tab → Master-Key anzeigen>",
   "<Services tab → Show API key>": "<Dienste-Tab → API-Key anzeigen>",
   "Elasticsearch-compatible search engine as a single node with a persistent volume, plain HTTP without login. Injects OPENSEARCH_HOST, OPENSEARCH_PORT, OPENSEARCH_SCHEME and OPENSEARCH_URL. Needs about 1 GB of RAM.": "Elasticsearch-kompatible Suchmaschine als einzelner Knoten mit persistentem Volume, einfaches HTTP ohne Login. Setzt OPENSEARCH_HOST, OPENSEARCH_PORT, OPENSEARCH_SCHEME und OPENSEARCH_URL. Braucht etwa 1 GB RAM.",
-  "OpenSearch version": "OpenSearch-Version"
+  "OpenSearch version": "OpenSearch-Version",
+  "Web UI with the Dev Tools console, index management and Discover, on its own port. The image is about 2.6 GB and needs roughly 400 MB of RAM.": "Weboberfläche mit Dev-Tools-Konsole, Index-Verwaltung und Discover auf eigenem Port. Das Image ist etwa 2,6 GB groß und braucht rund 400 MB RAM."
 }

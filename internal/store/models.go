@@ -61,7 +61,10 @@ const (
 	ServiceMeilisearch ServiceKind = "meilisearch"
 	ServiceTypesense   ServiceKind = "typesense"
 	ServiceOpenSearch  ServiceKind = "opensearch"
-	ServiceStorage     ServiceKind = "storage"
+	// ServiceOpenSearchDashboards belongs to ServiceOpenSearch: same version, and it goes
+	// when OpenSearch goes.
+	ServiceOpenSearchDashboards ServiceKind = "opensearch-dashboards"
+	ServiceStorage              ServiceKind = "storage"
 )
 
 // Project is the persisted desired state of a development project.

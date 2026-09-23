@@ -316,6 +316,14 @@ func (m *Manager) buildProject(req CreateRequest) (store.Project, error) {
 			return store.Project{}, err
 		}
 		proj.Services = append(proj.Services, svc)
+		if req.OpenSearch.Dashboards {
+			// On OpenSearch's version: Dashboards refuses to talk to another one.
+			dash, err := m.buildExtraService(store.ServiceOpenSearchDashboards, svc.Version)
+			if err != nil {
+				return store.Project{}, err
+			}
+			proj.Services = append(proj.Services, dash)
+		}
 	}
 	if req.Storage != nil {
 		svc, err := m.buildStorageService(proj.Slug, req.Storage.Version, req.Storage.PublicRead)
@@ -452,7 +460,7 @@ func (m *Manager) buildExtraService(kind store.ServiceKind, version string) (sto
 			return store.ProjectService{}, err
 		}
 		position = 9
-	case store.ServiceOpenSearch:
+	case store.ServiceOpenSearch, store.ServiceOpenSearchDashboards:
 		position = 9
 	}
 	return store.ProjectService{Kind: kind, Variant: string(kind), Version: v.Version, Image: v.Image, Enabled: true, Config: raw, Position: position}, nil
@@ -593,7 +601,7 @@ func (m *Manager) collectUsedPorts(ctx context.Context, used map[int]bool) error
 				used[cfg.HostPort] = true
 			}
 		}
-		for _, kind := range extraKinds {
+		for _, kind := range extraPortKinds {
 			if svc := p.Service(kind); svc != nil {
 				var cfg runtime.ServiceConfig
 				if json.Unmarshal(svc.Config, &cfg) == nil {
@@ -720,6 +728,12 @@ func (m *Manager) assignServicePorts(ctx context.Context, proj *store.Project, r
 	}
 	if req.OpenSearch != nil && req.OpenSearch.ExposePort {
 		if err := assign(store.ServiceOpenSearch); err != nil {
+			return err
+		}
+	}
+	// Dashboards is a web UI: always published.
+	if req.OpenSearch != nil && req.OpenSearch.Dashboards {
+		if err := assign(store.ServiceOpenSearchDashboards); err != nil {
 			return err
 		}
 	}
@@ -871,7 +885,7 @@ func (m *Manager) resolveImages(p *store.Project) {
 			key = "node"
 		case store.ServicePython:
 			key = "python"
-		case store.ServiceRedis, store.ServiceMemcached, store.ServiceMailpit, store.ServiceRabbitMQ, store.ServiceMeilisearch, store.ServiceTypesense, store.ServiceOpenSearch:
+		case store.ServiceRedis, store.ServiceMemcached, store.ServiceMailpit, store.ServiceRabbitMQ, store.ServiceMeilisearch, store.ServiceTypesense, store.ServiceOpenSearch, store.ServiceOpenSearchDashboards:
 			key = string(svc.Kind)
 		case store.ServiceWeb, store.ServiceDatabase, store.ServiceStorage:
 			key = svc.Variant

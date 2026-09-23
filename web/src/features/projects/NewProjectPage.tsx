@@ -70,6 +70,7 @@ interface Form {
   opensearch: boolean;
   opensearchVersion: string;
   opensearchExpose: boolean;
+  opensearchDashboards: boolean;
   storage: boolean;
   template: string; // "" = blank
   gitUrl: string;
@@ -145,6 +146,7 @@ export function NewProjectPage() {
         opensearch: false,
         opensearchVersion: runtimes.data.runtimes.find((r) => r.key === "opensearch")?.versions.find((v) => v.default)?.version ?? "",
         opensearchExpose: false,
+        opensearchDashboards: false,
         storage: false,
         template: "",
         gitUrl: "",
@@ -188,7 +190,7 @@ export function NewProjectPage() {
     if (form.rabbitmq) req.rabbitmq = { version: form.rabbitmqVersion, exposePort: form.rabbitmqExpose };
     if (form.meilisearch) req.meilisearch = {};
     if (form.typesense) req.typesense = { exposePort: form.typesenseExpose };
-    if (form.opensearch) req.opensearch = { version: form.opensearchVersion, exposePort: form.opensearchExpose };
+    if (form.opensearch) req.opensearch = { version: form.opensearchVersion, exposePort: form.opensearchExpose, dashboards: form.opensearchDashboards };
     if (form.storage) req.storage = {};
     if (form.template) req.template = form.template;
     if (form.gitUrl.trim() && !form.template) {
@@ -665,6 +667,9 @@ export function NewProjectPage() {
                       </Field>
                       <div className="self-end pb-1">
                         <Checkbox label={t("Publish port on the host")} description={t("For clients and dashboards running on your machine.")} checked={form.opensearchExpose} onChange={(e) => set({ opensearchExpose: e.target.checked })} />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <Checkbox label="OpenSearch Dashboards" description={t("Web UI with the Dev Tools console, index management and Discover, on its own port. The image is about 2.6 GB and needs roughly 400 MB of RAM.")} checked={form.opensearchDashboards} onChange={(e) => set({ opensearchDashboards: e.target.checked })} />
                       </div>
                     </div>
                   )}

@@ -394,6 +394,8 @@ const (
 	MeilisearchPort = 7700
 	TypesensePort   = 8108
 	OpenSearchPort  = 9200
+	// OpenSearchDashboardsPort is the web UI of OpenSearch Dashboards.
+	OpenSearchDashboardsPort = 5601
 )
 
 // NewSearchConfig generates the admin key of a Meilisearch or Typesense service. The

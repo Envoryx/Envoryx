@@ -128,7 +128,7 @@ describe("IdeTab", () => {
   it("lists the search engines without their keys", async () => {
     const meilisearch = { kind: "meilisearch", version: "1.54", image: "getmeili/meilisearch:v1.54", host: "meilisearch", port: 7700, hostPort: 26010, injectedEnv: [], state: "running", webUiPort: 26010 };
     const typesense = { kind: "typesense", version: "30.2", image: "typesense/typesense:30.2", host: "typesense", port: 8108, hostPort: 0, injectedEnv: [], state: "running" };
-    const opensearch = { kind: "opensearch", version: "3.8", image: "opensearchproject/opensearch:3.8.0", host: "opensearch", port: 9200, hostPort: 26011, injectedEnv: [], state: "running" };
+    const opensearch = { kind: "opensearch", version: "3.8", image: "opensearchproject/opensearch:3.8.0", host: "opensearch", port: 9200, hostPort: 26011, injectedEnv: [], state: "running", webUiPort: 26012 };
     mockApi({
       ...authedRoutes,
       "GET /settings": () => ({ body: settings }),
@@ -144,6 +144,7 @@ describe("IdeTab", () => {
     // OpenSearch runs without login: a URL, no key row.
     expect(screen.getByText("http://opensearch:9200")).toBeInTheDocument();
     expect(screen.getByText("http://192.168.1.10:26011")).toBeInTheDocument();
+    expect(screen.getByText("http://192.168.1.10:26012")).toBeInTheDocument();
     expect(screen.getAllByText(/<Services tab → Show/)).toHaveLength(2);
   });
 });
