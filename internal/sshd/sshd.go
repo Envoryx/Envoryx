@@ -297,19 +297,6 @@ func (s *Server) handleConn(ctx context.Context, nc net.Conn) {
 	}
 	_ = nc.SetDeadline(time.Time{})
 	defer sc.Close()
-	go func() {
-		// Global requests (remote forwarding, keepalives) are not supported; log them so a
-		// client that depends on one can be diagnosed.
-		for req := range reqs {
-			if req.Type != "keepalive@openssh.com" {
-				s.d.Log.Info("ssh global request not supported", "user", sc.User(), "type", req.Type)
-			}
-			if req.WantReply {
-				_ = req.Reply(false, nil)
-			}
-		}
-	}()
-
 	target, err := s.d.Projects.ResolveSSHUser(ctx, sc.User())
 	if err != nil {
 		s.d.Log.Warn("ssh user resolution failed after auth", "user", sc.User(), "err", err)
@@ -317,6 +304,8 @@ func (s *Server) handleConn(ctx context.Context, nc net.Conn) {
 	}
 	actx := audit.WithClientIP(auth.WithPrincipal(ctx, auth.Principal{Username: sc.Permissions.Extensions["envoryx-user"], TokenName: sc.Permissions.Extensions["envoryx-token"]}), remoteIP(nc.RemoteAddr()))
 	s.d.Audit.Log(actx, "ssh.login", "project", target.Project.ID, map[string]any{"name": target.Project.Name, "service": string(target.Kind)})
+	// Global requests: remote forwarding (ssh -R); anything else is answered with a failure.
+	go s.handleGlobalRequests(actx, sc, reqs, target)
 
 	for ch := range chans {
 		if ch.ChannelType() == "direct-tcpip" {

@@ -65,6 +65,11 @@ type Fake struct {
 	// StreamHandler simulates streamed execs: it receives the container name, argv and the
 	// full stdin and returns stdout content plus exit code. nil = exit 0, empty output.
 	StreamHandler func(container string, cmd []string, env []string, stdin []byte) (stdout string, code int, err error)
+	// NetworkGateways and NetworkIPs answer NetworkAddresses: gateway per network, and
+	// address per network and container name.
+	NetworkGateways map[string]string
+	NetworkIPs      map[string]map[string]string
+
 	// StreamStderr, when set, supplies what a streamed command writes to stderr.
 	StreamStderr func(container string, cmd []string) string
 
@@ -854,6 +859,22 @@ func (f *Fake) NetworkEndpoints(_ context.Context, network string) ([]docker.End
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
 	return out, nil
+}
+
+// NetworkAddresses implements docker.Engine.
+func (f *Fake) NetworkAddresses(_ context.Context, network string) (string, map[string]string, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if err := f.check(); err != nil {
+		return "", nil, err
+	}
+	ips := map[string]string{}
+	for _, c := range f.containers {
+		if ip, ok := f.NetworkIPs[network][c.Spec.Name]; ok {
+			ips[c.ID] = ip
+		}
+	}
+	return f.NetworkGateways[network], ips, nil
 }
 
 // ContainerNetworks implements docker.Engine.

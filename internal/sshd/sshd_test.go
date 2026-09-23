@@ -731,3 +731,93 @@ func TestLoginWaitsForThePasswordPrompt(t *testing.T) {
 		t.Fatal("a login that outlasts the grace time must be dropped")
 	}
 }
+
+// ssh -R: PyCharm's SSH interpreter listens on the container's localhost and expects the
+// connections at its own end. socat in the container connects each one to Envoryx on the
+// project network, which accepts only the container's address.
+func TestRemoteForwardingReachesTheClient(t *testing.T) {
+	e := newEnv(t)
+	e.engine.NetworkGateways = map[string]string{"envoryx-shop": "127.0.0.1"}
+	e.engine.NetworkIPs = map[string]map[string]string{"envoryx-shop": {"envoryx-shop-php": "127.0.0.1"}}
+	e.engine.ExecHandler = func(container string, cmd []string, env []string) (docker.ExecResult, error) {
+		if strings.Contains(cmd[2], "/proc/net/tcp") {
+			// 0xB26E = 45678, listening on 127.0.0.1.
+			return docker.ExecResult{Stdout: "  sl  local_address rem_address   st\n   0: 0100007F:B26E 00000000:0000 0A 00000000:00000000\n"}, nil
+		}
+		return docker.ExecResult{}, nil // command -v socat
+	}
+	listeners := make(chan []string, 4)
+	release := make(chan struct{})
+	t.Cleanup(func() { close(release) })
+	e.engine.ReadsStdin = func(cmd []string) bool { return !(len(cmd) > 3 && cmd[3] == "envoryx-forward") }
+	e.engine.StreamHandler = func(container string, cmd []string, env []string, stdin []byte) (string, int, error) {
+		if len(cmd) > 3 && cmd[3] == "envoryx-forward" {
+			listeners <- cmd
+			<-release
+		}
+		return "", 0, nil
+	}
+	client, err := e.dial(t, "shop", ssh.Password(e.token))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer client.Close()
+
+	if _, err := client.Listen("tcp", "0.0.0.0:45679"); err == nil {
+		t.Fatal("only localhost of the container may listen")
+	}
+	ln, err := client.Listen("tcp", "127.0.0.1:45678")
+	if err != nil {
+		t.Fatalf("remote forward: %v", err)
+	}
+	defer ln.Close()
+	cmd := <-listeners
+	if cmd[4] != "45678" || !strings.HasPrefix(cmd[5], "127.0.0.1:") || !strings.Contains(cmd[2], "TCP4-LISTEN") {
+		t.Fatalf("listener command: %q", cmd)
+	}
+
+	// The IDE side answers whatever arrives.
+	go func() {
+		c, err := ln.Accept()
+		if err != nil {
+			return
+		}
+		defer c.Close()
+		buf := make([]byte, 4)
+		if _, err := io.ReadFull(c, buf); err == nil && string(buf) == "ping" {
+			_, _ = c.Write([]byte("pong"))
+		}
+	}()
+	// socat in the container, connecting on behalf of a process there.
+	conn, err := net.Dial("tcp", cmd[5])
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	if _, err := conn.Write([]byte("ping")); err != nil {
+		t.Fatal(err)
+	}
+	_ = conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+	reply := make([]byte, 4)
+	if _, err := io.ReadFull(conn, reply); err != nil || string(reply) != "pong" {
+		t.Fatalf("round trip: %q %v", reply, err)
+	}
+
+	// Anyone else on the network is turned away.
+	e.engine.NetworkIPs = map[string]map[string]string{"envoryx-shop": {"envoryx-shop-php": "127.0.0.2"}}
+	ln2, err := client.Listen("tcp", "localhost:45678")
+	if err != nil {
+		t.Fatalf("second forward: %v", err)
+	}
+	defer ln2.Close()
+	cmd2 := <-listeners
+	foreign, err := net.Dial("tcp", cmd2[5])
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer foreign.Close()
+	_ = foreign.SetReadDeadline(time.Now().Add(5 * time.Second))
+	if n, err := foreign.Read(make([]byte, 1)); err == nil || n != 0 {
+		t.Fatalf("a connection from a foreign address must be closed: %d %v", n, err)
+	}
+}

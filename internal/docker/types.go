@@ -330,6 +330,9 @@ type Engine interface {
 	// NetworkEndpoints lists the containers currently attached to a network – the ones
 	// that would make its removal fail. A missing network yields no endpoints.
 	NetworkEndpoints(ctx context.Context, network string) ([]Endpoint, error)
+	// NetworkAddresses returns a network's IPv4 gateway and the IPv4 address of every
+	// container attached to it, by container ID.
+	NetworkAddresses(ctx context.Context, network string) (gateway string, containers map[string]string, err error)
 	// SelfPortBindings returns the host ports published for the given container ports of
 	// any container (used to discover how Envoryx's own proxy ports are mapped).
 	PortBindings(ctx context.Context, containerID string) ([]PortMapping, error)
