@@ -421,6 +421,7 @@ export interface CreateProjectRequest {
   rabbitmq?: ExtraRequest | null;
   meilisearch?: ExtraRequest | null;
   typesense?: ExtraRequest | null;
+  opensearch?: ExtraRequest | null;
   storage?: StorageRequest | null;
   git?: GitRequest | null;
   web?: WebRequest;
@@ -482,6 +483,7 @@ export interface UpdateProjectRequest {
   rabbitmq?: ExtraUpdate;
   meilisearch?: ExtraUpdate;
   typesense?: ExtraUpdate;
+  opensearch?: ExtraUpdate;
   storage?: StorageUpdate;
   env?: EnvVar[];
   ideGateway?: boolean;

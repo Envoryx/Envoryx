@@ -768,6 +768,16 @@ Its image has neither curl nor wget, so the healthcheck talks HTTP through bash'
 (Symfony's meilisearch-bundle) and `TYPESENSE_URL`; `SCOUT_DRIVER` is left to the
 application, like `MESSENGER_TRANSPORT_DSN` for RabbitMQ.
 
+OpenSearch (`opensearchproject/opensearch:<version>`, volume
+`envoryx-<slug>-opensearch`) runs as a development node: `discovery.type=single-node`
+(which also skips the production bootstrap checks, so the host needs no
+`vm.max_map_count`), `DISABLE_SECURITY_PLUGIN=true` for plain HTTP without login or
+demo certificates, and a 512 MB heap (about 1 GB of RAM in total). With no login there
+is no key and no credentials endpoint; the port is published on request, like
+Redis's. The healthcheck waits for yellow, the normal state of a single node whose
+replicas have nowhere to go. `OPENSEARCH_HOST`/`PORT`/`SCHEME`/`URL` is injected;
+`ELASTICSEARCH_*` is not, because current Elasticsearch clients refuse OpenSearch.
+
 ### SSH (`internal/sshd`)
 `golang.org/x/crypto/ssh` server with an Ed25519 host key. Auth resolves the
 user name through `Manager.ResolveSSHUser` (`<slug>` → the application

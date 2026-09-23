@@ -222,6 +222,14 @@ func Default() *Catalog {
 		},
 	})
 	c.add(Runtime{
+		Key: "opensearch", Name: "OpenSearch", Kind: "service", Available: true,
+		Description: "OpenSearch (Elasticsearch-compatible) search engine with persistent volume, without authentication (OPENSEARCH_* injected)",
+		Versions: []Version{
+			{Version: "3.8", Image: "opensearchproject/opensearch:3.8.0", Label: "OpenSearch 3.8", Default: true},
+			{Version: "2.19", Image: "opensearchproject/opensearch:2.19.6", Label: "OpenSearch 2.19"},
+		},
+	})
+	c.add(Runtime{
 		Key: "mailpit", Name: "Mailpit", Kind: "service", Available: true,
 		Description: "Catches outgoing mail (SMTP) with a web inbox (MAIL_* / MAILER_DSN injected)",
 		Versions: []Version{

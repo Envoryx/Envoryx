@@ -60,6 +60,7 @@ const (
 	ServiceMemcached   ServiceKind = "memcached"
 	ServiceMeilisearch ServiceKind = "meilisearch"
 	ServiceTypesense   ServiceKind = "typesense"
+	ServiceOpenSearch  ServiceKind = "opensearch"
 	ServiceStorage     ServiceKind = "storage"
 )
 

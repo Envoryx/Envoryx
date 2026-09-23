@@ -73,9 +73,10 @@ describe("ServicesTab search engines", () => {
     expect(await screen.findByText("Dashboard")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /:26010/ })).toBeInTheDocument();
     // Meilisearch's port carries the dashboard: no publish checkbox on its card, only on
-    // the cards offering Redis, Memcached, RabbitMQ and Typesense.
-    expect(screen.getAllByLabelText("Publish port on the host")).toHaveLength(4);
+    // the cards offering Redis, Memcached, RabbitMQ, Typesense and OpenSearch.
+    expect(screen.getAllByLabelText("Publish port on the host")).toHaveLength(5);
     expect(screen.getByRole("button", { name: "Add Typesense" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add OpenSearch" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Show master key" }));
     await waitFor(() => expect(api.calls.some((c) => c.url.endsWith("/meilisearch/credentials"))).toBe(true));
     expect(await screen.findByText("Master key")).toBeInTheDocument();

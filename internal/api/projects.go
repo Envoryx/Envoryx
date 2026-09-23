@@ -269,6 +269,7 @@ type createProjectRequest struct {
 	Memcached     *extraRequestDTO    `json:"memcached"`
 	Meilisearch   *extraRequestDTO    `json:"meilisearch"`
 	Typesense     *extraRequestDTO    `json:"typesense"`
+	OpenSearch    *extraRequestDTO    `json:"opensearch"`
 	Storage       *storageRequestDTO  `json:"storage"`
 	Git           *gitRequestDTO      `json:"git"`
 	Web           *webRequestDTO      `json:"web"`
@@ -330,6 +331,9 @@ func (r createProjectRequest) toDomain() project.CreateRequest {
 	if r.Typesense != nil {
 		req.Typesense = &project.ExtraRequest{Version: r.Typesense.Version, ExposePort: r.Typesense.ExposePort}
 	}
+	if r.OpenSearch != nil {
+		req.OpenSearch = &project.ExtraRequest{Version: r.OpenSearch.Version, ExposePort: r.OpenSearch.ExposePort}
+	}
 	if r.Storage != nil {
 		req.Storage = &project.StorageRequest{Version: r.Storage.Version, PublicRead: r.Storage.PublicRead}
 	}
@@ -361,6 +365,7 @@ type updateProjectRequest struct {
 	Memcached   *extraUpdateDTO    `json:"memcached"`
 	Meilisearch *extraUpdateDTO    `json:"meilisearch"`
 	Typesense   *extraUpdateDTO    `json:"typesense"`
+	OpenSearch  *extraUpdateDTO    `json:"opensearch"`
 	Storage     *storageUpdateDTO  `json:"storage"`
 	Env         *[]envDTO          `json:"env"`
 	IDEGateway  *bool              `json:"ideGateway"`
@@ -587,6 +592,9 @@ func (a *API) updateProject(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Typesense != nil {
 		upd.Typesense = &project.ExtraUpdate{Enabled: req.Typesense.Enabled, Version: req.Typesense.Version, ExposePort: req.Typesense.ExposePort, RemoveData: req.Typesense.RemoveData}
+	}
+	if req.OpenSearch != nil {
+		upd.OpenSearch = &project.ExtraUpdate{Enabled: req.OpenSearch.Enabled, Version: req.OpenSearch.Version, ExposePort: req.OpenSearch.ExposePort, RemoveData: req.OpenSearch.RemoveData}
 	}
 	if req.Database != nil {
 		upd.Database = &project.DatabaseUpdate{Enabled: req.Database.Enabled, Type: req.Database.Type, Version: req.Database.Version, ExposePort: req.Database.ExposePort, RemoveData: req.Database.RemoveData}

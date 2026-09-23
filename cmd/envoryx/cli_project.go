@@ -431,6 +431,7 @@ type createRequest struct {
 	Memcached   *extraSpec      `json:"memcached,omitempty"`
 	Meilisearch *extraSpec      `json:"meilisearch,omitempty"`
 	Typesense   *extraSpec      `json:"typesense,omitempty"`
+	OpenSearch  *extraSpec      `json:"opensearch,omitempty"`
 	Storage     *extraSpec      `json:"storage,omitempty"`
 	Git         *gitSpec        `json:"git,omitempty"`
 	Env         []envSpec       `json:"env,omitempty"`
@@ -493,7 +494,7 @@ Services:
   --database TYPE[:VERSION]   mysql, mariadb, postgres, mongodb …
   --expose-database           publish the database port on the host
   --redis, --memcached, --mailpit, --rabbitmq, --storage
-  --meilisearch, --typesense  search engine
+  --meilisearch, --typesense, --opensearch  search engine
 
 Files and repository:
   --path DIR           directory below the projects directory (default: the slug)
@@ -539,6 +540,7 @@ func (c *cli) projectCreate(ctx context.Context, args []string) error {
 		memcached  = fs.Bool("memcached", false, "add Memcached")
 		meili      = fs.Bool("meilisearch", false, "add Meilisearch")
 		typesense  = fs.Bool("typesense", false, "add Typesense")
+		opensearch = fs.Bool("opensearch", false, "add OpenSearch")
 		storage    = fs.Bool("storage", false, "add S3 storage")
 		template   = fs.String("template", "", "project template")
 		starter    = fs.Bool("starter", false, "write starter files")
@@ -614,6 +616,9 @@ func (c *cli) projectCreate(ctx context.Context, args []string) error {
 	}
 	if *typesense {
 		req.Typesense = &extraSpec{}
+	}
+	if *opensearch {
+		req.OpenSearch = &extraSpec{}
 	}
 	if *storage {
 		req.Storage = &extraSpec{}

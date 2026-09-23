@@ -11,6 +11,14 @@ release). `:main` follows the development branch.
 ## [Unreleased]
 
 ### Added
+- OpenSearch as an optional Elasticsearch-compatible search engine (3.8, or 2.19) – in
+  the wizard, on the Services and IDE tabs, in `envoryx project create --opensearch`,
+  the MCP `create_project` tool and the logs endpoints. It runs as a single development
+  node with its indices in a volume, over plain HTTP without login (security plugin
+  off) and with a 512 MB heap (about 1 GB of RAM); the port is published on request.
+  The application gets `OPENSEARCH_HOST`, `OPENSEARCH_PORT`, `OPENSEARCH_SCHEME` and
+  `OPENSEARCH_URL` (`http://opensearch:9200`). `ELASTICSEARCH_*` is left to the
+  application: current Elasticsearch clients refuse to talk to OpenSearch.
 - Meilisearch and Typesense as optional search engines – in the wizard, on the Services
   tab, in `envoryx project create --meilisearch`/`--typesense`, the MCP
   `create_project` tool and the logs endpoints. Both keep their index in a volume and

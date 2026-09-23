@@ -457,3 +457,59 @@ func TestTypesenseService(t *testing.T) {
 		t.Fatalf("typesense left behind: volumes %v", e.engine.VolumeNames())
 	}
 }
+
+// OpenSearch runs as a single development node without the security plugin: no key to
+// hand out, a volume for the indices and the port published only on request.
+func TestOpenSearchService(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	req := phpRequest("Search", true)
+	req.OpenSearch = &ExtraRequest{}
+	view, err := e.m.Create(ctx, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	node, ok := e.engine.Container("envoryx-search-opensearch")
+	if !ok {
+		t.Fatal("no opensearch container")
+	}
+	if node.Spec.Image != "opensearchproject/opensearch:3.8.0" || len(node.Spec.Mounts) != 1 || node.Spec.Mounts[0].Target != "/usr/share/opensearch/data" || len(node.Spec.Ports) != 0 {
+		t.Fatalf("opensearch: %+v", node.Spec)
+	}
+	nodeEnv := strings.Join(node.Spec.Env, "\n")
+	for _, want := range []string{"discovery.type=single-node", "DISABLE_SECURITY_PLUGIN=true", "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m"} {
+		if !strings.Contains(nodeEnv, want) {
+			t.Errorf("opensearch env missing %s", want)
+		}
+	}
+	php, _ := e.engine.Container("envoryx-search-php")
+	env := strings.Join(php.Spec.Env, "\n")
+	for _, want := range []string{"OPENSEARCH_HOST=opensearch", "OPENSEARCH_PORT=9200", "OPENSEARCH_SCHEME=http", "OPENSEARCH_URL=http://opensearch:9200"} {
+		if !strings.Contains(env, want) {
+			t.Errorf("php env missing %s", want)
+		}
+	}
+	if strings.Contains(env, "ELASTICSEARCH_") {
+		t.Error("ELASTICSEARCH_* must be left to the application")
+	}
+	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{OpenSearch: &ExtraUpdate{Enabled: true, ExposePort: true}}); err != nil {
+		t.Fatal(err)
+	}
+	node, _ = e.engine.Container("envoryx-search-opensearch")
+	if len(node.Spec.Ports) != 1 || node.Spec.Ports[0].ContainerPort != 9200 {
+		t.Fatalf("ports after publishing: %+v", node.Spec.Ports)
+	}
+	extras, err := e.m.ExtraServices(ctx, view.Project.ID)
+	if err != nil || len(extras) != 1 || extras[0].Kind != store.ServiceOpenSearch || extras[0].HostPort != node.Spec.Ports[0].HostPort || extras[0].VolumeName == "" {
+		t.Fatalf("extras: %+v %v", extras, err)
+	}
+	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{OpenSearch: &ExtraUpdate{Enabled: false}}); !errors.Is(err, validate.ErrInvalid) {
+		t.Fatalf("opensearch removal must require removeData, got %v", err)
+	}
+	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{OpenSearch: &ExtraUpdate{Enabled: false, RemoveData: true}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := e.engine.Container("envoryx-search-opensearch"); ok || len(e.engine.VolumeNames()) != 0 {
+		t.Fatalf("opensearch left behind: volumes %v", e.engine.VolumeNames())
+	}
+}
