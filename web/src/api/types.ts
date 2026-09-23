@@ -298,6 +298,8 @@ export interface DatabaseCredentials {
 export interface ExtraRequest {
   version?: string;
   exposePort?: boolean;
+  /** OpenSearch only: add OpenSearch Dashboards. */
+  dashboards?: boolean;
 }
 
 export interface ExtraUpdate {
@@ -305,6 +307,8 @@ export interface ExtraUpdate {
   version?: string;
   exposePort?: boolean;
   removeData?: boolean;
+  /** OpenSearch only: switch OpenSearch Dashboards on or off; left out, it stays as it is. */
+  dashboards?: boolean;
 }
 
 export interface ExtraServiceInfo {
@@ -321,6 +325,8 @@ export interface ExtraServiceInfo {
   webUiPort?: number;
   /** RabbitMQ login; the password comes from the credentials endpoint. */
   username?: string;
+  /** OpenSearch Dashboards, when the OpenSearch service has it; its port is webUiPort. */
+  dashboards?: { image: string; state: string; health?: string };
 }
 
 export interface RabbitMQCredentials {

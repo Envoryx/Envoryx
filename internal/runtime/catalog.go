@@ -229,6 +229,16 @@ func Default() *Catalog {
 			{Version: "2.19", Image: "opensearchproject/opensearch:2.19.6", Label: "OpenSearch 2.19"},
 		},
 	})
+	// Dashboards has to match the OpenSearch version, so it lists the same versions and
+	// always follows OpenSearch's.
+	c.add(Runtime{
+		Key: "opensearch-dashboards", Name: "OpenSearch Dashboards", Kind: "service", Available: true,
+		Description: "Web UI for OpenSearch (Dev Tools console, index management, Discover); part of the OpenSearch service",
+		Versions: []Version{
+			{Version: "3.8", Image: "opensearchproject/opensearch-dashboards:3.8.0", Label: "OpenSearch Dashboards 3.8", Default: true},
+			{Version: "2.19", Image: "opensearchproject/opensearch-dashboards:2.19.6", Label: "OpenSearch Dashboards 2.19"},
+		},
+	})
 	c.add(Runtime{
 		Key: "mailpit", Name: "Mailpit", Kind: "service", Available: true,
 		Description: "Catches outgoing mail (SMTP) with a web inbox (MAIL_* / MAILER_DSN injected)",

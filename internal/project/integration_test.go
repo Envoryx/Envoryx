@@ -637,10 +637,11 @@ func TestIntegrationSearch(t *testing.T) {
 // TestIntegrationOpenSearch starts the catalogue's default OpenSearch as a single node
 // without the security plugin – which also has to get past the bootstrap checks without
 // vm.max_map_count on the host – and checks that an index survives a rebuilt container.
+// OpenSearch Dashboards comes along and has to reach it through the project network.
 func TestIntegrationOpenSearch(t *testing.T) {
 	m := integrationManager(t)
 	ctx := context.Background()
-	view, err := m.Create(ctx, CreateRequest{Name: "Envoryx Integration OpenSearch", CreateStarter: true, Start: true, OpenSearch: &ExtraRequest{}})
+	view, err := m.Create(ctx, CreateRequest{Name: "Envoryx Integration OpenSearch", CreateStarter: true, Start: true, OpenSearch: &ExtraRequest{Dashboards: true}})
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -681,6 +682,20 @@ func TestIntegrationOpenSearch(t *testing.T) {
 	waitFor(t, "opensearch creates an index", 4*time.Minute, func() error {
 		_, err := curl("-X", "PUT", "http://127.0.0.1:9200/persisted")
 		return err
+	})
+	waitFor(t, "dashboards reports OpenSearch green", 4*time.Minute, func() error {
+		c, err := m.ServiceContainer(ctx, id, store.ServiceOpenSearchDashboards)
+		if err != nil {
+			return err
+		}
+		res, err := m.engine.Exec(ctx, c.ID, []string{"curl", "-fsS", "http://127.0.0.1:5601/api/status"}, nil)
+		if err != nil {
+			return err
+		}
+		if !strings.Contains(res.Stdout, `"state":"green"`) {
+			return fmt.Errorf("dashboards status: %.200s%s", res.Stdout, res.Stderr)
+		}
+		return nil
 	})
 
 	c, err := m.ServiceContainer(ctx, id, store.ServiceOpenSearch)

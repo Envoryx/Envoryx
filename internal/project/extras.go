@@ -25,11 +25,15 @@ func extraOwnsVolume(kind store.ServiceKind) bool {
 // whatever the request says: it carries a web UI (Mailpit's inbox, Meilisearch's
 // dashboard).
 func extraAlwaysPublished(kind store.ServiceKind) bool {
-	return kind == store.ServiceMailpit || kind == store.ServiceMeilisearch
+	return kind == store.ServiceMailpit || kind == store.ServiceMeilisearch || kind == store.ServiceOpenSearchDashboards
 }
 
-// extraKinds are the auxiliary services ExtraServices describes.
+// extraKinds are the auxiliary services ExtraServices describes. OpenSearch Dashboards is
+// described as part of OpenSearch.
 var extraKinds = []store.ServiceKind{store.ServiceRedis, store.ServiceMemcached, store.ServiceMailpit, store.ServiceRabbitMQ, store.ServiceMeilisearch, store.ServiceTypesense, store.ServiceOpenSearch}
+
+// extraPortKinds are the auxiliary services with a ServiceConfig whose ports count as used.
+var extraPortKinds = append(slices.Clone(extraKinds), store.ServiceOpenSearchDashboards)
 
 // setWebUIPort stores the host port of RabbitMQ's management UI.
 func setWebUIPort(svc *store.ProjectService, port int) error {
@@ -94,6 +98,17 @@ func (m *Manager) ExtraServices(ctx context.Context, id string) ([]ExtraServiceI
 			info.Host, info.Port = "opensearch", runtime.OpenSearchPort
 			info.VolumeName = VolumeName(view.Project.Slug, store.ServiceOpenSearch)
 			info.InjectedEnv = append(info.InjectedEnv, runtime.OpenSearchEnvKeys...)
+			if dash := view.Project.Service(store.ServiceOpenSearchDashboards); dash != nil && dash.Enabled {
+				var dcfg runtime.ServiceConfig
+				_ = json.Unmarshal(dash.Config, &dcfg)
+				info.WebUIPort = dcfg.HostPort
+				info.Dashboards = &DashboardsInfo{Image: dash.Image, State: "missing"}
+				for _, s := range view.Status.Services {
+					if s.Kind == store.ServiceOpenSearchDashboards {
+						info.Dashboards.State, info.Dashboards.Health = s.State, s.Health
+					}
+				}
+			}
 		}
 		sort.Strings(info.InjectedEnv)
 		for _, s := range view.Status.Services {
@@ -149,6 +164,85 @@ func (m *Manager) SearchCredentials(ctx context.Context, id string, kind store.S
 		return SearchCredentials{APIKey: cfg.APIKey, URL: runtime.MeilisearchEnv(cfg)["MEILISEARCH_URL"]}, nil
 	}
 	return SearchCredentials{APIKey: cfg.APIKey, URL: runtime.TypesenseEnv(cfg)["TYPESENSE_URL"]}, nil
+}
+
+// syncOpenSearchDashboards keeps OpenSearch Dashboards in step with OpenSearch: on or off
+// as want says (nil leaves it), never without OpenSearch, and always on OpenSearch's
+// version – Dashboards refuses to talk to another one. Callers hold the project lock.
+func (m *Manager) syncOpenSearchDashboards(ctx context.Context, id string, want *bool, changes map[string]any) error {
+	const kind = store.ServiceOpenSearchDashboards
+	p, err := m.loadProject(ctx, id)
+	if err != nil {
+		return err
+	}
+	search, dash := p.Service(store.ServiceOpenSearch), p.Service(kind)
+	enabled := dash != nil
+	if want != nil {
+		enabled = *want
+	}
+	if search == nil || !search.Enabled {
+		if want != nil && *want {
+			return fmt.Errorf("%w: OpenSearch Dashboards needs OpenSearch", validate.ErrInvalid)
+		}
+		enabled = false
+	}
+	switch {
+	case !enabled && dash == nil:
+		return nil
+
+	case !enabled:
+		containers, err := m.engine.ListContainers(ctx, true, p.ID)
+		if err != nil {
+			return err
+		}
+		for _, c := range containers {
+			if c.Service() == string(kind) {
+				if err := m.engine.RemoveContainer(ctx, c.ID); err != nil {
+					return fmt.Errorf("remove %s container: %w", kind, err)
+				}
+			}
+		}
+		if err := m.store.Projects.DeleteService(ctx, p.ID, kind); err != nil {
+			return err
+		}
+		changes[string(kind)] = "removed"
+		return nil
+
+	case dash == nil:
+		svc, err := m.buildExtraService(kind, search.Version)
+		if err != nil {
+			return err
+		}
+		svc.ProjectID = p.ID
+		taken := []int{p.HTTPPort}
+		var cfg runtime.ServiceConfig
+		if json.Unmarshal(search.Config, &cfg) == nil && cfg.HostPort > 0 {
+			taken = append(taken, cfg.HostPort)
+		}
+		port, err := m.allocatePort(ctx, taken...)
+		if err != nil {
+			return err
+		}
+		if err := setHostPort(&svc, port); err != nil {
+			return err
+		}
+		if err := m.store.Projects.AddService(ctx, svc); err != nil {
+			return err
+		}
+		changes[string(kind)] = svc.Version
+		return nil
+
+	case dash.Version != search.Version:
+		v, err := m.catalog.Resolve(string(kind), search.Version)
+		if err != nil {
+			return err
+		}
+		if err := m.store.Projects.UpdateServiceConfig(ctx, p.ID, kind, v.Version, v.Image, dash.Config); err != nil {
+			return err
+		}
+		changes[string(kind)] = v.Version
+	}
+	return nil
 }
 
 // applyExtraUpdate adds, changes or removes Redis/Memcached/Mailpit/RabbitMQ/Meilisearch/

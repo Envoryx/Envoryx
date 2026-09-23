@@ -513,3 +513,71 @@ func TestOpenSearchService(t *testing.T) {
 		t.Fatalf("opensearch left behind: volumes %v", e.engine.VolumeNames())
 	}
 }
+
+// OpenSearch Dashboards is a service of its own under the hood but follows OpenSearch:
+// the same version, a web UI port that is always published, and gone with OpenSearch.
+func TestOpenSearchDashboards(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	req := phpRequest("Search", true)
+	req.OpenSearch = &ExtraRequest{Version: "2.19", Dashboards: true}
+	view, err := e.m.Create(ctx, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dash, ok := e.engine.Container("envoryx-search-opensearch-dashboards")
+	if !ok {
+		t.Fatal("no dashboards container")
+	}
+	if dash.Spec.Image != "opensearchproject/opensearch-dashboards:2.19.6" || len(dash.Spec.Mounts) != 0 || len(dash.Spec.Ports) != 1 || dash.Spec.Ports[0].ContainerPort != 5601 || dash.Spec.Ports[0].HostPort == view.Project.HTTPPort {
+		t.Fatalf("dashboards: %+v", dash.Spec)
+	}
+	if env := strings.Join(dash.Spec.Env, "\n"); !strings.Contains(env, `OPENSEARCH_HOSTS=["http://opensearch:9200"]`) || !strings.Contains(env, "DISABLE_SECURITY_DASHBOARDS_PLUGIN=true") {
+		t.Fatalf("dashboards env: %v", dash.Spec.Env)
+	}
+	extras, err := e.m.ExtraServices(ctx, view.Project.ID)
+	if err != nil || len(extras) != 1 || extras[0].Kind != store.ServiceOpenSearch || extras[0].WebUIPort != dash.Spec.Ports[0].HostPort || extras[0].Dashboards == nil || extras[0].Dashboards.State != "running" {
+		t.Fatalf("extras: %+v %v", extras, err)
+	}
+
+	// A version change of OpenSearch takes Dashboards along.
+	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{OpenSearch: &ExtraUpdate{Enabled: true, Version: "3.8"}}); err != nil {
+		t.Fatal(err)
+	}
+	if dash, _ = e.engine.Container("envoryx-search-opensearch-dashboards"); dash.Spec.Image != "opensearchproject/opensearch-dashboards:3.8.0" {
+		t.Fatalf("dashboards after the version change: %s", dash.Spec.Image)
+	}
+
+	// Switched off and on again on its own; OpenSearch stays.
+	off, on := false, true
+	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{OpenSearch: &ExtraUpdate{Enabled: true, Dashboards: &off}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := e.engine.Container("envoryx-search-opensearch-dashboards"); ok {
+		t.Fatal("dashboards container left behind")
+	}
+	if _, ok := e.engine.Container("envoryx-search-opensearch"); !ok {
+		t.Fatal("opensearch must stay")
+	}
+	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{OpenSearch: &ExtraUpdate{Enabled: true, Dashboards: &on}}); err != nil {
+		t.Fatal(err)
+	}
+	if dash, ok = e.engine.Container("envoryx-search-opensearch-dashboards"); !ok || len(dash.Spec.Ports) != 1 {
+		t.Fatalf("dashboards re-added: %+v", dash.Spec)
+	}
+
+	// Removing OpenSearch removes Dashboards, even when the request asks to keep it.
+	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{OpenSearch: &ExtraUpdate{Enabled: false, RemoveData: true, Dashboards: &on}}); err != nil {
+		t.Fatal(err)
+	}
+	p, err := e.m.loadProject(ctx, view.Project.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.Service(store.ServiceOpenSearchDashboards) != nil {
+		t.Fatal("dashboards service left behind")
+	}
+	if _, ok := e.engine.Container("envoryx-search-opensearch-dashboards"); ok {
+		t.Fatal("dashboards container left behind")
+	}
+}

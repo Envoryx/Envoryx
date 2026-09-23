@@ -11,6 +11,12 @@ release). `:main` follows the development branch.
 ## [Unreleased]
 
 ### Added
+- OpenSearch Dashboards as an option of OpenSearch – a checkbox in the wizard and on the
+  OpenSearch card of the Services tab, `envoryx project create --opensearch-dashboards`
+  and `opensearchDashboards` in the MCP `create_project` tool. The web UI (Dev Tools
+  console, index management, Discover) gets a host port of its own and a link on the
+  Services and IDE tabs; it always runs OpenSearch's version and goes when OpenSearch
+  goes. The image is about 2.6 GB, the container needs roughly 400 MB of RAM.
 - OpenSearch as an optional Elasticsearch-compatible search engine (3.8, or 2.19) – in
   the wizard, on the Services and IDE tabs, in `envoryx project create --opensearch`,
   the MCP `create_project` tool and the logs endpoints. It runs as a single development

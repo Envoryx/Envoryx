@@ -465,7 +465,8 @@ type databaseSpec struct {
 }
 
 type extraSpec struct {
-	Version string `json:"version,omitempty"`
+	Version    string `json:"version,omitempty"`
+	Dashboards bool   `json:"dashboards,omitempty"` // OpenSearch only
 }
 
 type gitSpec struct {
@@ -495,6 +496,7 @@ Services:
   --expose-database           publish the database port on the host
   --redis, --memcached, --mailpit, --rabbitmq, --storage
   --meilisearch, --typesense, --opensearch  search engine
+  --opensearch-dashboards     OpenSearch with its web UI
 
 Files and repository:
   --path DIR           directory below the projects directory (default: the slug)
@@ -541,6 +543,7 @@ func (c *cli) projectCreate(ctx context.Context, args []string) error {
 		meili      = fs.Bool("meilisearch", false, "add Meilisearch")
 		typesense  = fs.Bool("typesense", false, "add Typesense")
 		opensearch = fs.Bool("opensearch", false, "add OpenSearch")
+		osDash     = fs.Bool("opensearch-dashboards", false, "add OpenSearch with OpenSearch Dashboards")
 		storage    = fs.Bool("storage", false, "add S3 storage")
 		template   = fs.String("template", "", "project template")
 		starter    = fs.Bool("starter", false, "write starter files")
@@ -617,8 +620,8 @@ func (c *cli) projectCreate(ctx context.Context, args []string) error {
 	if *typesense {
 		req.Typesense = &extraSpec{}
 	}
-	if *opensearch {
-		req.OpenSearch = &extraSpec{}
+	if *opensearch || *osDash {
+		req.OpenSearch = &extraSpec{Dashboards: *osDash}
 	}
 	if *storage {
 		req.Storage = &extraSpec{}

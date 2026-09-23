@@ -778,6 +778,16 @@ Redis's. The healthcheck waits for yellow, the normal state of a single node who
 replicas have nowhere to go. `OPENSEARCH_HOST`/`PORT`/`SCHEME`/`URL` is injected;
 `ELASTICSEARCH_*` is not, because current Elasticsearch clients refuse OpenSearch.
 
+OpenSearch Dashboards is a service of its own (`opensearch-dashboards`, so status,
+logs, image pulls and removal work as for any service) that the API only exposes as
+`dashboards` on the OpenSearch request and update. `syncOpenSearchDashboards` keeps it
+on OpenSearch's version (Dashboards refuses another one; the catalogue lists the same
+versions), removes it with OpenSearch and switches it on or off when an update carries
+`dashboards` (absent leaves it). It has no volume – saved objects live in OpenSearch's
+`.kibana` index –, its web UI (5601) is always published and appears as `webUiPort` on
+the OpenSearch entry of `/extras`, and it reaches OpenSearch at
+`http://opensearch:9200` inside the project network with its security plugin off.
+
 ### SSH (`internal/sshd`)
 `golang.org/x/crypto/ssh` server with an Ed25519 host key. Auth resolves the
 user name through `Manager.ResolveSSHUser` (`<slug>` → the application
