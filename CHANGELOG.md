@@ -192,6 +192,10 @@ release). `:main` follows the development branch.
   disappears by itself once the environment is rebuilt.
 
 ### Fixed
+- SSH logins from an IDE failed with "Invalid credentials" (JetBrains Gateway) or a broken
+  connection when the password took more than 30 seconds to type. The IDE connects first and
+  asks for the host key and the password afterwards, and Envoryx allowed only 30 seconds for
+  the whole login. It now allows two minutes, the default of OpenSSH's `LoginGraceTime`.
 - PhpStorm's remote interpreter over the embedded SSH server reported "PHP version:
   Not installed". PhpStorm checks over SFTP that the interpreter exists, and SFTP
   only knew the bind mounts, so `/usr/local/bin/php` was missing; it then uploads its

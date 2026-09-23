@@ -593,3 +593,25 @@ func TestSFTPServesWhatIDEInterpretersNeed(t *testing.T) {
 		t.Fatalf("error reveals the Envoryx-side path: %v", err)
 	}
 }
+
+// IDEs connect first and ask for the password afterwards; a person typing it must not be
+// cut off, while a client that never finishes still is.
+func TestLoginWaitsForThePasswordPrompt(t *testing.T) {
+	e := newEnv(t)
+	slowPassword := func(d time.Duration) ssh.AuthMethod {
+		return ssh.PasswordCallback(func() (string, error) { time.Sleep(d); return e.token, nil })
+	}
+
+	e.srv.SetLoginGrace(3 * time.Second)
+	client, err := e.dial(t, "shop", slowPassword(time.Second))
+	if err != nil {
+		t.Fatalf("login within the grace time: %v", err)
+	}
+	client.Close()
+
+	e.srv.SetLoginGrace(300 * time.Millisecond)
+	if client, err := e.dial(t, "shop", slowPassword(time.Second)); err == nil {
+		client.Close()
+		t.Fatal("a login that outlasts the grace time must be dropped")
+	}
+}
