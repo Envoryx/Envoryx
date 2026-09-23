@@ -137,3 +137,33 @@ func (m *Manager) ResolveSSHUser(ctx context.Context, user string) (ExecTarget, 
 	}
 	return ExecTarget{}, fmt.Errorf("%w: unknown user", store.ErrNotFound)
 }
+
+// CallbackAddresses tells where a process in the target container can reach Envoryx and
+// which address such a connection arrives from: Envoryx's address on the project network
+// (its own container's, or on bare metal the network's gateway, which is the host) and
+// the container's address there. SSH remote forwarding (ssh -R) listens on the first and
+// accepts only the second.
+func (m *Manager) CallbackAddresses(ctx context.Context, t ExecTarget) (envoryx, container string, err error) {
+	paths, err := m.paths()
+	if err != nil {
+		return "", "", fmt.Errorf("%w: %v", ErrNotConfigured, err)
+	}
+	gateway, ips, err := m.engine.NetworkAddresses(ctx, NetworkName(t.Project.Slug))
+	if err != nil {
+		return "", "", err
+	}
+	container = ips[t.ContainerID]
+	envoryx = gateway
+	if self := paths.SelfContainerID; self != "" {
+		envoryx = ""
+		for id, ip := range ips {
+			if strings.HasPrefix(id, self) {
+				envoryx = ip
+			}
+		}
+	}
+	if container == "" || envoryx == "" {
+		return "", "", fmt.Errorf("no address on %s for %s or Envoryx", NetworkName(t.Project.Slug), t.ContainerName)
+	}
+	return envoryx, container, nil
+}

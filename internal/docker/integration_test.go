@@ -14,6 +14,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"net"
 	"os"
 	"strings"
 	"testing"
@@ -100,6 +101,10 @@ func TestIntegrationLifecycleAndGuards(t *testing.T) {
 	eps, err := e.NetworkEndpoints(ctx, netName)
 	if err != nil || len(eps) != 1 || eps[0].ContainerID != id || eps[0].Name != ctName {
 		t.Fatalf("network endpoints: %+v %v", eps, err)
+	}
+	gateway, ips, err := e.NetworkAddresses(ctx, netName)
+	if err != nil || net.ParseIP(gateway).To4() == nil || net.ParseIP(ips[id]).To4() == nil {
+		t.Fatalf("network addresses: %q %v %v", gateway, ips, err)
 	}
 	if err := e.RemoveNetwork(ctx, netName); err == nil {
 		t.Fatal("removing a network with an active endpoint must fail")

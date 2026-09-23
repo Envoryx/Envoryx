@@ -847,6 +847,28 @@ func (e *MobyEngine) DisconnectNetwork(ctx context.Context, network, containerID
 }
 
 // NetworkEndpoints implements Engine.
+// NetworkAddresses implements Engine.
+func (e *MobyEngine) NetworkAddresses(ctx context.Context, network string) (string, map[string]string, error) {
+	res, err := e.cli.NetworkInspect(ctx, network, client.NetworkInspectOptions{})
+	if err != nil {
+		return "", nil, wrap(err)
+	}
+	gateway := ""
+	for _, c := range res.Network.IPAM.Config {
+		if c.Gateway.Is4() {
+			gateway = c.Gateway.String()
+			break
+		}
+	}
+	ips := make(map[string]string, len(res.Network.Containers))
+	for id, ep := range res.Network.Containers {
+		if a := ep.IPv4Address.Addr(); a.Is4() {
+			ips[id] = a.String()
+		}
+	}
+	return gateway, ips, nil
+}
+
 func (e *MobyEngine) NetworkEndpoints(ctx context.Context, network string) ([]Endpoint, error) {
 	res, err := e.cli.NetworkInspect(ctx, network, client.NetworkInspectOptions{})
 	if err != nil {

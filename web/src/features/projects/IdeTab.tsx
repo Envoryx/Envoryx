@@ -116,8 +116,8 @@ export function IdeTab({ project: p }: { project: Project }) {
             hasPhp
               ? t("Run PHP, Composer, PHPUnit and Artisan inside the project container from your IDE. PhpStorm: Settings → PHP → CLI Interpreter → “…” → “+” → From Docker, Vagrant, VM, WSL, Remote… → SSH, then Path mappings: the project folder → /var/www/html. VS Code: Remote-SSH. Plain terminal: ssh.")
               : app === "python"
-                ? t("Run python, pip and pytest inside the project container from your IDE. PyCharm Pro: Settings → Python → Interpreter → Add Interpreter → On SSH…, interpreter path from below. VS Code: Remote-SSH. Plain terminal: ssh.")
-                : t("Run node, npm and your test runner inside the project container from your IDE. WebStorm: Settings → Languages & Frameworks → Node.js → Node runtime → Add… → SSH. VS Code: Remote-SSH. Plain terminal: ssh.")
+                ? t("Run python, pip and pytest inside the project container from your IDE. PyCharm Pro: Settings → Python → Interpreter → Add Interpreter → On SSH…; in the last step “Select existing” with the interpreter path from below, and under Target-Specific Properties Sync folders: the project folder → /var/www/html. VS Code: Remote-SSH. Plain terminal: ssh.")
+                : t("Run node, npm and your test runner inside the project container from your IDE. WebStorm: Settings → Languages & Frameworks → JavaScript Runtime → Node runtime “…” → “+” → Add Remote… → SSH, then in the run configuration Path mappings: the project folder → /var/www/html. VS Code: Remote-SSH. Plain terminal: ssh.")
           }
         />
         <div className="p-5">

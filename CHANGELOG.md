@@ -11,6 +11,11 @@ release). `:main` follows the development branch.
 ## [Unreleased]
 
 ### Added
+- SSH remote forwarding (`ssh -R`) into project containers. A process in the container
+  reaches the client through a port on the container's localhost: socat listens there
+  and connects each connection to Envoryx on the project network, which accepts only the
+  container's address and hands the connection to the client. PyCharm's SSH interpreter
+  needs this to run anything. The listener ends with the forward or the SSH connection.
 - The IDE tab explains how to open a project in PhpStorm, WebStorm & co. over SFTP.
   The embedded SSH server has served SFTP all along, but nothing said so, and the
   obvious route was the network share. A new card lists the deployment settings
@@ -192,6 +197,14 @@ release). `:main` follows the development branch.
   disappears by itself once the environment is rebuilt.
 
 ### Fixed
+- PyCharm's SSH interpreter could not be set up. It uploads the project to
+  `/tmp/pycharm_project_*` before its sync folder can even be changed, and SFTP only knew
+  the bind mounts; its probes also ran `$SHELL -l -c …` with an empty `$SHELL`. Outside
+  the mounts SFTP now behaves like a server on the container (stat, list, read, write,
+  mkdir, rename, delete, chmod run there as the project user, so a client gets what a
+  shell over the same access gets), failures carry the codes a real server sends, and SSH
+  sessions get `SHELL=/bin/sh`. The IDE tab describes PyCharm's wizard (sync folder
+  `/var/www/html`) and WebStorm's "JavaScript Runtime" page as they are in 2026.2.
 - SSH logins from an IDE failed with "Invalid credentials" (JetBrains Gateway) or a broken
   connection when the password took more than 30 seconds to type. The IDE connects first and
   asks for the host key and the password afterwards, and Envoryx allowed only 30 seconds for
