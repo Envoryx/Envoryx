@@ -1555,5 +1555,7 @@
   "Show password": "Wachtwoord tonen",
   "For AMQP clients running on your machine.": "Voor AMQP-clients op je eigen computer.",
   "RabbitMQ version": "RabbitMQ-versie",
-  "Message broker for queues (Symfony Messenger, Laravel queues, Celery) with a persistent volume and a management UI on its own port. Injects RABBITMQ_* including RABBITMQ_URL.": "Message broker voor queues (Symfony Messenger, Laravel-queues, Celery) met een persistent volume en een beheerinterface op een eigen poort. Injecteert RABBITMQ_*, inclusief RABBITMQ_URL."
+  "Message broker for queues (Symfony Messenger, Laravel queues, Celery) with a persistent volume and a management UI on its own port. Injects RABBITMQ_* including RABBITMQ_URL.": "Message broker voor queues (Symfony Messenger, Laravel-queues, Celery) met een persistent volume en een beheerinterface op een eigen poort. Injecteert RABBITMQ_*, inclusief RABBITMQ_URL.",
+  "AMQP (from app)": "AMQP (vanuit de app)",
+  "<Services tab → Show password>": "<Tabblad Services → Wachtwoord tonen>"
 }

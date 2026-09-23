@@ -109,4 +109,19 @@ describe("IdeTab", () => {
     expect(await screen.findByText("jdbc:mariadb://192.168.1.10:20003/acme_shop")).toBeInTheDocument();
     expect(screen.getByText(/PhpProjectServersManager/)).toBeInTheDocument();
   });
+
+  it("lists the RabbitMQ connection without the password", async () => {
+    const rabbitmq = { kind: "rabbitmq", version: "4.3", image: "rabbitmq:4.3-management-alpine", host: "rabbitmq", port: 5672, hostPort: 26002, injectedEnv: [], state: "running", webUiPort: 26001, username: "envoryx" };
+    mockApi({
+      ...authedRoutes,
+      "GET /settings": () => ({ body: settings }),
+      [`GET /projects/${id}/extras`]: () => ({ body: { services: [rabbitmq] } }),
+    });
+    const project = makeProject({ services: [webService, nodeService], serves: "node", appService: "node" });
+    renderApp(<IdeTab project={project} />);
+    expect(await screen.findByText("rabbitmq:5672")).toBeInTheDocument();
+    expect(screen.getByText("26002")).toBeInTheDocument();
+    expect(screen.getByText("http://192.168.1.10:26001")).toBeInTheDocument();
+    expect(screen.getByText("<Services tab → Show password>")).toBeInTheDocument();
+  });
 });

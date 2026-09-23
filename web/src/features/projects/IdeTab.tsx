@@ -1,4 +1,4 @@
-import { Bug, Database, FolderSync, KeyRound, Mail, MonitorSmartphone, TerminalSquare } from "lucide-react";
+import { Bug, Database, FolderSync, KeyRound, Mail, MonitorSmartphone, Rabbit, TerminalSquare } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useState } from "react";
 import { Link } from "react-router-dom";
@@ -37,6 +37,7 @@ export function IdeTab({ project: p }: { project: Project }) {
   const ssh = s?.ssh;
   const sshHost = s?.proxy?.address || host;
   const mailpit = extras.data?.find((e) => e.kind === "mailpit");
+  const rabbitmq = extras.data?.find((e) => e.kind === "rabbitmq");
   const update = useUpdateProject(p.id);
   const [gwMsg, setGwMsg] = useState<{ tone: "green" | "red"; text: string } | null>(null);
   const stopBackend = useMutation({
@@ -343,6 +344,28 @@ export function IdeTab({ project: p }: { project: Project }) {
             <dl>
               <CopyRow label={t("SMTP (from app)")} value="mailpit:1025" />
               {mailpit.webUiPort ? <CopyRow label={t("Inbox")} value={`http://${host}:${mailpit.webUiPort}`} /> : null}
+            </dl>
+          </div>
+        </Card>
+      )}
+
+      {rabbitmq && (
+        <Card>
+          <CardHeader
+            title={
+              <span className="flex items-center gap-2">
+                <Rabbit className="size-4 text-accent-500" aria-hidden /> RabbitMQ
+              </span>
+            }
+          />
+          <div className="p-5">
+            <dl>
+              <CopyRow label={t("AMQP (from app)")} value="rabbitmq:5672" />
+              <CopyRow label={t("Host")} value={host} />
+              <CopyRow label={t("Port")} value={rabbitmq.hostPort ? String(rabbitmq.hostPort) : t("not published")} />
+              <CopyRow label={t("User")} value={rabbitmq.username ?? ""} />
+              <CopyRow label={t("Password")} value={t("<Services tab → Show password>")} mono={false} />
+              {rabbitmq.webUiPort ? <CopyRow label={t("Management UI")} value={`http://${host}:${rabbitmq.webUiPort}`} /> : null}
             </dl>
           </div>
         </Card>
