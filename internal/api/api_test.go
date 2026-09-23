@@ -1611,3 +1611,27 @@ func TestRabbitMQEndpoints(t *testing.T) {
 		t.Fatalf("credentials after removal: %d %s", r.status, r.raw)
 	}
 }
+
+func TestMemcachedEndpoints(t *testing.T) {
+	a := newApp(t)
+	a.setupAndLogin()
+	create := map[string]any{"name": "Cache", "createStarter": true, "start": true, "php": map[string]any{"version": "8.4"}, "memcached": map[string]any{"exposePort": true}}
+	r := a.do(http.MethodPost, "/api/v1/projects", create, true)
+	if r.status != http.StatusCreated {
+		t.Fatalf("create: %d %s", r.status, r.raw)
+	}
+	id := r.body["project"].(map[string]any)["id"].(string)
+	r = a.do(http.MethodGet, "/api/v1/projects/"+id+"/extras", nil, false)
+	svc := r.body["services"].([]any)[0].(map[string]any)
+	if r.status != http.StatusOK || svc["kind"] != "memcached" || svc["port"] != float64(11211) || svc["hostPort"] == float64(0) {
+		t.Fatalf("extras: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodGet, "/api/v1/projects/"+id+"/services/memcached/logs?tail=5", nil, false)
+	if r.status != http.StatusOK {
+		t.Fatalf("logs: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodPatch, "/api/v1/projects/"+id, map[string]any{"memcached": map[string]any{"enabled": false}}, true)
+	if r.status != http.StatusOK {
+		t.Fatalf("remove: %d %s", r.status, r.raw)
+	}
+}

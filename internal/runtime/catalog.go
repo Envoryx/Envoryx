@@ -201,6 +201,13 @@ func Default() *Catalog {
 		},
 	})
 	c.add(Runtime{
+		Key: "memcached", Name: "Memcached", Kind: "service", Available: true,
+		Description: "Memcached in-memory cache without persistence (MEMCACHED_* injected)",
+		Versions: []Version{
+			{Version: "1.6", Image: "memcached:1.6-alpine", Label: "Memcached 1.6", Default: true},
+		},
+	})
+	c.add(Runtime{
 		Key: "mailpit", Name: "Mailpit", Kind: "service", Available: true,
 		Description: "Catches outgoing mail (SMTP) with a web inbox (MAIL_* / MAILER_DSN injected)",
 		Versions: []Version{

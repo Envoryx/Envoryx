@@ -479,3 +479,49 @@ func TestIntegrationRabbitMQ(t *testing.T) {
 		t.Fatalf("queue gone after the container was rebuilt: %q", out)
 	}
 }
+
+// TestIntegrationMemcached starts the catalogue's default Memcached and checks that the
+// healthcheck – busybox nc in the image – really reports it healthy where the engine
+// reports health, and that the server answers from inside the container.
+func TestIntegrationMemcached(t *testing.T) {
+	m := integrationManager(t)
+	ctx := context.Background()
+	view, err := m.Create(ctx, CreateRequest{Name: "Envoryx Integration Memcached", CreateStarter: true, Start: true, Memcached: &ExtraRequest{}})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	id, slug := view.Project.ID, view.Project.Slug
+	t.Cleanup(func() {
+		if err := m.Delete(context.Background(), id, DeleteOptions{Confirm: slug, DeleteFiles: true}); err != nil {
+			t.Errorf("cleanup: %v", err)
+		}
+	})
+	restarting := map[store.ServiceKind]int{}
+	waitFor(t, "memcached answers", 2*time.Minute, func() error {
+		if err := crashLooping(t, m, id, restarting); err != nil {
+			return err
+		}
+		v, err := m.Get(ctx, id)
+		if err != nil {
+			return err
+		}
+		for _, s := range v.Status.Services {
+			// Not every engine reports health in its container list (see statefulServices).
+			if s.Kind == store.ServiceMemcached && (s.State != "running" || (s.Health != "" && s.Health != "healthy")) {
+				return fmt.Errorf("memcached is %s (health %s)", s.State, s.Health)
+			}
+		}
+		c, err := m.ServiceContainer(ctx, id, store.ServiceMemcached)
+		if err != nil {
+			return err
+		}
+		res, err := m.engine.Exec(ctx, c.ID, []string{"sh", "-c", `printf 'set envoryx 0 0 2\r\nok\r\nget envoryx\r\nquit\r\n' | nc -w 2 127.0.0.1 11211`}, nil)
+		if err != nil {
+			return err
+		}
+		if !strings.Contains(res.Stdout, "STORED") || !strings.Contains(res.Stdout, "VALUE envoryx 0 2") {
+			return fmt.Errorf("unexpected answer: %q", res.Stdout)
+		}
+		return nil
+	})
+}

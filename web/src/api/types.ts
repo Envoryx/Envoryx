@@ -410,6 +410,7 @@ export interface CreateProjectRequest {
   python?: PythonRequest | null;
   database?: DatabaseRequest | null;
   redis?: ExtraRequest | null;
+  memcached?: ExtraRequest | null;
   mailpit?: ExtraRequest | null;
   rabbitmq?: ExtraRequest | null;
   storage?: StorageRequest | null;
@@ -468,6 +469,7 @@ export interface UpdateProjectRequest {
   python?: ({ enabled: true } & PythonRequest) | { enabled: false };
   database?: DatabaseUpdate;
   redis?: ExtraUpdate;
+  memcached?: ExtraUpdate;
   mailpit?: ExtraUpdate;
   rabbitmq?: ExtraUpdate;
   storage?: StorageUpdate;

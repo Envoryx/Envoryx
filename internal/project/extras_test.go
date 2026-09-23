@@ -292,3 +292,47 @@ func TestRabbitMQService(t *testing.T) {
 		t.Fatalf("rabbitmq re-added: %+v", rq)
 	}
 }
+
+// Memcached has no volume and no login: removing it needs no confirmation, and the
+// application gets host, port and a DSN.
+func TestMemcachedService(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	req := phpRequest("Cache", true)
+	req.Memcached = &ExtraRequest{ExposePort: true}
+	view, err := e.m.Create(ctx, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mc, ok := e.engine.Container("envoryx-cache-memcached")
+	if !ok {
+		t.Fatal("no memcached container")
+	}
+	if mc.Spec.Image != "memcached:1.6-alpine" || len(mc.Spec.Mounts) != 0 || len(mc.Spec.Ports) != 1 || mc.Spec.Ports[0].ContainerPort != 11211 || mc.Spec.Ports[0].HostPort == view.Project.HTTPPort {
+		t.Fatalf("memcached: %+v", mc.Spec)
+	}
+	if len(e.engine.VolumeNames()) != 0 {
+		t.Fatalf("memcached must not create a volume: %v", e.engine.VolumeNames())
+	}
+	php, _ := e.engine.Container("envoryx-cache-php")
+	env := strings.Join(php.Spec.Env, "\n")
+	for _, want := range []string{"MEMCACHED_HOST=memcached", "MEMCACHED_PORT=11211", "MEMCACHED_URL=memcached://memcached:11211"} {
+		if !strings.Contains(env, want) {
+			t.Errorf("php env missing %s", want)
+		}
+	}
+	extras, err := e.m.ExtraServices(ctx, view.Project.ID)
+	if err != nil || len(extras) != 1 || extras[0].Kind != store.ServiceMemcached || extras[0].Port != 11211 || extras[0].HostPort != mc.Spec.Ports[0].HostPort || extras[0].VolumeName != "" {
+		t.Fatalf("extras: %+v %v", extras, err)
+	}
+	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{Memcached: &ExtraUpdate{Enabled: false}}); err != nil {
+		t.Fatalf("removing memcached needs no confirmation: %v", err)
+	}
+	if _, ok := e.engine.Container("envoryx-cache-memcached"); ok {
+		t.Fatal("memcached container left behind")
+	}
+	php, _ = e.engine.Container("envoryx-cache-php")
+	if strings.Contains(strings.Join(php.Spec.Env, "\n"), "MEMCACHED_") {
+		t.Fatal("php env must drop the Memcached variables")
+	}
+}

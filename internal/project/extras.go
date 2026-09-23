@@ -41,7 +41,7 @@ func (m *Manager) ExtraServices(ctx context.Context, id string) ([]ExtraServiceI
 	}
 	var out []ExtraServiceInfo
 	for _, svc := range view.Project.Services {
-		if !svc.Enabled || (svc.Kind != store.ServiceRedis && svc.Kind != store.ServiceMailpit && svc.Kind != store.ServiceRabbitMQ) {
+		if !svc.Enabled || (svc.Kind != store.ServiceRedis && svc.Kind != store.ServiceMemcached && svc.Kind != store.ServiceMailpit && svc.Kind != store.ServiceRabbitMQ) {
 			continue
 		}
 		var cfg runtime.ServiceConfig
@@ -53,6 +53,9 @@ func (m *Manager) ExtraServices(ctx context.Context, id string) ([]ExtraServiceI
 			for k := range runtime.RedisEnv() {
 				info.InjectedEnv = append(info.InjectedEnv, k)
 			}
+		case store.ServiceMemcached:
+			info.Host, info.Port = "memcached", runtime.MemcachedPort
+			info.InjectedEnv = append(info.InjectedEnv, runtime.MemcachedEnvKeys...)
 		case store.ServiceMailpit:
 			info.Host, info.Port, info.WebUIPort = "mailpit", 1025, cfg.HostPort
 			for k := range runtime.MailpitEnv() {
@@ -96,7 +99,7 @@ func (m *Manager) RabbitMQCredentials(ctx context.Context, id string) (RabbitMQC
 	return RabbitMQCredentials{Username: cfg.Username, Password: cfg.Password, URL: runtime.RabbitMQEnv(cfg)["RABBITMQ_URL"]}, nil
 }
 
-// applyExtraUpdate adds, changes or removes Redis/Mailpit/RabbitMQ. Callers hold the project lock.
+// applyExtraUpdate adds, changes or removes Redis/Memcached/Mailpit/RabbitMQ. Callers hold the project lock.
 // It returns whether application containers must be recreated (their env changes).
 func (m *Manager) applyExtraUpdate(ctx context.Context, p store.Project, kind store.ServiceKind, upd ExtraUpdate, changes map[string]any) (bool, error) {
 	svc := p.Service(kind)

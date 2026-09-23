@@ -27,18 +27,19 @@ type CreateRequest struct {
 	// Docroot is the directory served by the web server, relative to the project
 	// directory: public/ for Laravel/Symfony, the build output (dist/, out/) for static
 	// Node builds; unused while a Python server or Node dev server serves the app.
-	Docroot  string
-	PHP      *PHPRequest
-	Node     *NodeRequest
-	Python   *PythonRequest
-	Database *DatabaseRequest
-	Redis    *ExtraRequest
-	Mailpit  *ExtraRequest
-	RabbitMQ *ExtraRequest
-	Storage  *StorageRequest
-	Web      WebRequest
-	Git      *GitRequest
-	Env      []EnvVarRequest
+	Docroot   string
+	PHP       *PHPRequest
+	Node      *NodeRequest
+	Python    *PythonRequest
+	Database  *DatabaseRequest
+	Redis     *ExtraRequest
+	Memcached *ExtraRequest
+	Mailpit   *ExtraRequest
+	RabbitMQ  *ExtraRequest
+	Storage   *StorageRequest
+	Web       WebRequest
+	Git       *GitRequest
+	Env       []EnvVarRequest
 	// Template scaffolds an application into the new directory (see Templates()).
 	Template string
 	// CreateStarter writes a starter page (index.php with PHP, index.html otherwise) when
@@ -89,7 +90,7 @@ type PythonUpdate struct {
 	Config  runtime.PythonConfig
 }
 
-// ExtraRequest selects an auxiliary service (Redis, Mailpit, RabbitMQ).
+// ExtraRequest selects an auxiliary service (Redis, Memcached, Mailpit, RabbitMQ).
 type ExtraRequest struct {
 	Version    string
 	ExposePort bool
@@ -156,18 +157,19 @@ type EnvVarRequest struct {
 
 // UpdateRequest changes editable project settings. Nil pointers leave fields untouched.
 type UpdateRequest struct {
-	Name     *string
-	Docroot  *string
-	Web      *WebRequest
-	PHP      *PHPUpdate
-	Node     *NodeUpdate
-	Python   *PythonUpdate
-	Database *DatabaseUpdate
-	Redis    *ExtraUpdate
-	Mailpit  *ExtraUpdate
-	RabbitMQ *ExtraUpdate
-	Storage  *StorageUpdate
-	Env      *[]EnvVarRequest
+	Name      *string
+	Docroot   *string
+	Web       *WebRequest
+	PHP       *PHPUpdate
+	Node      *NodeUpdate
+	Python    *PythonUpdate
+	Database  *DatabaseUpdate
+	Redis     *ExtraUpdate
+	Memcached *ExtraUpdate
+	Mailpit   *ExtraUpdate
+	RabbitMQ  *ExtraUpdate
+	Storage   *StorageUpdate
+	Env       *[]EnvVarRequest
 	// IDEGateway toggles JetBrains Gateway support (port forwarding + shared IDE cache).
 	IDEGateway *bool
 }

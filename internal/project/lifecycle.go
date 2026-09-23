@@ -671,6 +671,13 @@ func (m *Manager) update(ctx context.Context, id string, req UpdateRequest) (Vie
 		}
 		recreateApp = recreateApp || r
 	}
+	if req.Memcached != nil {
+		r, err := m.applyExtraUpdate(ctx, proj, store.ServiceMemcached, *req.Memcached, changes)
+		if err != nil {
+			return View{}, err
+		}
+		recreateApp = recreateApp || r
+	}
 	if req.RabbitMQ != nil {
 		r, err := m.applyExtraUpdate(ctx, proj, store.ServiceRabbitMQ, *req.RabbitMQ, changes)
 		if err != nil {
@@ -722,7 +729,7 @@ func (m *Manager) update(ctx context.Context, id string, req UpdateRequest) (Vie
 		}
 		for _, c := range existing {
 			switch c.Service() {
-			case string(store.ServiceDatabase), string(store.ServiceRedis), string(store.ServiceMailpit), string(store.ServiceRabbitMQ), string(store.ServiceStorage):
+			case string(store.ServiceDatabase), string(store.ServiceRedis), string(store.ServiceMemcached), string(store.ServiceMailpit), string(store.ServiceRabbitMQ), string(store.ServiceStorage):
 				continue // stateful/independent services keep running
 			}
 			step(ctx, "Removing the container {{name}} so it is recreated with the new settings", "name", c.Name)

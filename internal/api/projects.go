@@ -266,6 +266,7 @@ type createProjectRequest struct {
 	Redis         *extraRequestDTO    `json:"redis"`
 	Mailpit       *extraRequestDTO    `json:"mailpit"`
 	RabbitMQ      *extraRequestDTO    `json:"rabbitmq"`
+	Memcached     *extraRequestDTO    `json:"memcached"`
 	Storage       *storageRequestDTO  `json:"storage"`
 	Git           *gitRequestDTO      `json:"git"`
 	Web           *webRequestDTO      `json:"web"`
@@ -315,6 +316,9 @@ func (r createProjectRequest) toDomain() project.CreateRequest {
 	if r.Mailpit != nil {
 		req.Mailpit = &project.ExtraRequest{Version: r.Mailpit.Version}
 	}
+	if r.Memcached != nil {
+		req.Memcached = &project.ExtraRequest{Version: r.Memcached.Version, ExposePort: r.Memcached.ExposePort}
+	}
 	if r.RabbitMQ != nil {
 		req.RabbitMQ = &project.ExtraRequest{Version: r.RabbitMQ.Version, ExposePort: r.RabbitMQ.ExposePort}
 	}
@@ -346,6 +350,7 @@ type updateProjectRequest struct {
 	Redis      *extraUpdateDTO    `json:"redis"`
 	Mailpit    *extraUpdateDTO    `json:"mailpit"`
 	RabbitMQ   *extraUpdateDTO    `json:"rabbitmq"`
+	Memcached  *extraUpdateDTO    `json:"memcached"`
 	Storage    *storageUpdateDTO  `json:"storage"`
 	Env        *[]envDTO          `json:"env"`
 	IDEGateway *bool              `json:"ideGateway"`
@@ -560,6 +565,9 @@ func (a *API) updateProject(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Mailpit != nil {
 		upd.Mailpit = &project.ExtraUpdate{Enabled: req.Mailpit.Enabled, Version: req.Mailpit.Version}
+	}
+	if req.Memcached != nil {
+		upd.Memcached = &project.ExtraUpdate{Enabled: req.Memcached.Enabled, Version: req.Memcached.Version, ExposePort: req.Memcached.ExposePort}
 	}
 	if req.RabbitMQ != nil {
 		upd.RabbitMQ = &project.ExtraUpdate{Enabled: req.RabbitMQ.Enabled, Version: req.RabbitMQ.Version, ExposePort: req.RabbitMQ.ExposePort, RemoveData: req.RabbitMQ.RemoveData}

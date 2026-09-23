@@ -337,10 +337,11 @@ func DatabaseEnv(cfg DatabaseConfig, variant string) map[string]string {
 	return env
 }
 
-// ServiceConfig is the configuration of auxiliary services (Redis, Mailpit, RabbitMQ).
+// ServiceConfig is the configuration of auxiliary services (Redis, Memcached, Mailpit,
+// RabbitMQ).
 type ServiceConfig struct {
-	// HostPort publishes the service's primary port (Redis 6379, Mailpit web UI 8025,
-	// RabbitMQ AMQP 5672) on the host.
+	// HostPort publishes the service's primary port (Redis 6379, Memcached 11211, Mailpit
+	// web UI 8025, RabbitMQ AMQP 5672) on the host.
 	HostPort int `json:"hostPort"`
 	// WebUIPort publishes RabbitMQ's management UI (15672); it is always published.
 	WebUIPort int `json:"webUiPort,omitempty"`
@@ -388,6 +389,18 @@ func RabbitMQEnv(cfg ServiceConfig) map[string]string {
 // RedisEnv returns the variables injected for a Redis service.
 func RedisEnv() map[string]string {
 	return map[string]string{"REDIS_HOST": "redis", "REDIS_PORT": "6379", "REDIS_URL": "redis://redis:6379"}
+}
+
+// MemcachedPort is the port Memcached listens on.
+const MemcachedPort = 11211
+
+// MemcachedEnvKeys lists the variables MemcachedEnv returns, in injection order.
+var MemcachedEnvKeys = []string{"MEMCACHED_HOST", "MEMCACHED_PORT", "MEMCACHED_URL"}
+
+// MemcachedEnv returns the variables injected for a Memcached service: the pair Laravel's
+// memcached store reads and a DSN for Symfony's MemcachedAdapter (memcached://host:port).
+func MemcachedEnv() map[string]string {
+	return map[string]string{"MEMCACHED_HOST": "memcached", "MEMCACHED_PORT": strconv.Itoa(MemcachedPort), "MEMCACHED_URL": fmt.Sprintf("memcached://memcached:%d", MemcachedPort)}
 }
 
 // MailpitEnv returns the variables injected for a Mailpit service (Laravel, Symfony and
