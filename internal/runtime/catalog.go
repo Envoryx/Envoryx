@@ -300,6 +300,9 @@ func PHPExtensions() []PHPExtension {
 		{Name: "zip", Description: "ZIP archives", Available: true},
 		{Name: "bcmath", Description: "Arbitrary precision math", Available: true},
 		{Name: "imagick", Description: "ImageMagick", Available: true},
+		{Name: "redis", Description: "Redis client (phpredis)", Available: true},
+		{Name: "memcached", Description: "Memcached client", Available: true},
+		{Name: "amqp", Description: "AMQP client (RabbitMQ, Symfony Messenger)", Available: true},
 	}
 }
 

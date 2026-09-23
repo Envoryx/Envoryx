@@ -16,8 +16,15 @@ release). `:main` follows the development branch.
   everything in memory (no volume, so removing it needs no confirmation), publishes
   its port on the host on request and injects `MEMCACHED_HOST`, `MEMCACHED_PORT` (what
   Laravel's memcached store reads) and `MEMCACHED_URL` (`memcached://memcached:11211`
-  for Symfony's MemcachedAdapter). The PHP images already carry the memcached
-  extension.
+  for Symfony's MemcachedAdapter).
+- The PHP images carry the `redis`, `memcached` and `amqp` extensions, switched off like
+  the others. Laravel talks to Redis through phpredis unless told otherwise, and
+  Symfony's AMQP transport and MemcachedAdapter need their extension, so Redis,
+  Memcached and RabbitMQ were only half usable from PHP. The wizard switches the
+  extension on together with the service, adding a service on the Services tab does
+  the same, and a service whose extension is off offers to switch it on. The images
+  are rebuilt when this reaches `main`; until a project runs the new image, PHP logs
+  that it cannot load the extension.
 - RabbitMQ as an optional service next to Redis and Mailpit (4.3, or 4.2), in the
   wizard, on the Services tab, in `envoryx project create --rabbitmq` and the MCP
   `create_project` tool. The broker keeps its data in a volume, the management UI is

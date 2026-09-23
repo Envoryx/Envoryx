@@ -1595,5 +1595,8 @@
   "AMQP (from app)": "AMQP (із застосунку)",
   "<Services tab → Show password>": "<Вкладка «Сервіси» → Показати пароль>",
   "In-memory cache without persistence – a restart empties it. Injects MEMCACHED_HOST, MEMCACHED_PORT and MEMCACHED_URL.": "Кеш у пам’яті без збереження даних – перезапуск його очищує. Передає MEMCACHED_HOST, MEMCACHED_PORT і MEMCACHED_URL.",
-  "For tools on your machine, e.g. telnet or a cache inspector.": "Для інструментів на вашому комп’ютері, наприклад telnet або інспектора кешу."
+  "For tools on your machine, e.g. telnet or a cache inspector.": "Для інструментів на вашому комп’ютері, наприклад telnet або інспектора кешу.",
+  "PHP clients need the {{ext}} extension, which is off in this project.": "PHP-клієнтам потрібне розширення {{ext}}, яке в цьому проєкті вимкнене.",
+  "PHP extension {{ext}} enabled.": "Розширення PHP {{ext}} увімкнено.",
+  "Enable {{ext}}": "Увімкнути {{ext}}"
 }

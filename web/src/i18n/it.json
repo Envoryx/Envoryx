@@ -1559,5 +1559,8 @@
   "AMQP (from app)": "AMQP (dall’app)",
   "<Services tab → Show password>": "<Scheda Servizi → Mostra password>",
   "In-memory cache without persistence – a restart empties it. Injects MEMCACHED_HOST, MEMCACHED_PORT and MEMCACHED_URL.": "Cache in memoria senza persistenza: un riavvio la svuota. Inietta MEMCACHED_HOST, MEMCACHED_PORT e MEMCACHED_URL.",
-  "For tools on your machine, e.g. telnet or a cache inspector.": "Per strumenti sul tuo computer, ad es. telnet o un ispettore di cache."
+  "For tools on your machine, e.g. telnet or a cache inspector.": "Per strumenti sul tuo computer, ad es. telnet o un ispettore di cache.",
+  "PHP clients need the {{ext}} extension, which is off in this project.": "I client PHP richiedono l’estensione {{ext}}, disattivata in questo progetto.",
+  "PHP extension {{ext}} enabled.": "Estensione PHP {{ext}} attivata.",
+  "Enable {{ext}}": "Attiva {{ext}}"
 }

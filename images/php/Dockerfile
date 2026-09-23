@@ -19,7 +19,7 @@ LABEL org.opencontainers.image.title="Envoryx PHP ${PHP_VERSION}" \
       envoryx.runtime.version="${PHP_VERSION}"
 
 # Extensions that can be toggled per project (keep in sync with internal/runtime/catalog.go).
-ENV ENVORYX_PHP_EXTENSIONS="mysqli pdo_mysql pdo_pgsql mongodb gd intl zip bcmath opcache imagick xdebug"
+ENV ENVORYX_PHP_EXTENSIONS="mysqli pdo_mysql pdo_pgsql mongodb gd intl zip bcmath opcache imagick redis memcached amqp xdebug"
 
 ADD --chmod=0755 https://github.com/mlocati/docker-php-extension-installer/releases/latest/download/install-php-extensions /usr/local/bin/
 
@@ -38,7 +38,8 @@ RUN set -eux; \
         fi; \
     done; \
     # Compiled in, but disabled by default: Envoryx's per-project ini enables what is selected.
-    for ext in ${ENVORYX_PHP_EXTENSIONS}; do rm -f "/usr/local/etc/php/conf.d/docker-php-ext-${ext}.ini"; done; \
+    # The installer names some inis xx-php-ext-* (memcached) to load them after their dependencies.
+    for ext in ${ENVORYX_PHP_EXTENSIONS}; do rm -f "/usr/local/etc/php/conf.d/docker-php-ext-${ext}.ini" "/usr/local/etc/php/conf.d/xx-php-ext-${ext}.ini"; done; \
     # Tools used by project actions (Phase 5).
     apt-get update; \
     # git/unzip/ssh for actions; socat relays SSH port forwards to the IDE backend on 127.0.0.1;
