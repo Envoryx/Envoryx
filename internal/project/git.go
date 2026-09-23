@@ -267,13 +267,13 @@ func (m *Manager) runGit(ctx context.Context, proj store.Project, args ...string
 		Env:        gitEnv(proj.Git),
 		Cmd:        append([]string{"git", "-C", appMountTarget}, args...),
 		WorkingDir: appMountTarget,
-		User:       fmt.Sprintf("%d:%d", paths.PUID, paths.PGID),
 		Mounts: []docker.MountSpec{
 			{Type: "bind", Source: planner.projectHostDir(proj), Target: appMountTarget},
 			{Type: "bind", Source: filepath.Join(paths.ConfigHostDir, sshDirName), Target: sshMountTarget},
 		},
 		RestartPolicy: "no",
 	}
+	runAsProjectUser(&spec, paths.PUID, paths.PGID)
 	return m.engine.RunOneShot(ctx, spec)
 }
 

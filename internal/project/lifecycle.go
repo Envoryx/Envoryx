@@ -462,13 +462,34 @@ func (m *Manager) ensurePasswdEntry(ctx context.Context, containerID, name, user
 	if !ok || uid == "0" {
 		return
 	}
-	script := fmt.Sprintf(`getent group %[2]s >/dev/null || echo "envoryx:x:%[2]s:" >> /etc/group; `+
-		`getent passwd %[1]s >/dev/null || echo "envoryx:x:%[1]s:%[2]s:Envoryx:%[3]s:/bin/sh" >> /etc/passwd`, uid, gid, homeMountTarget)
+	script := passwdEntryScript(uid, gid)
 	var stderr strings.Builder
 	code, err := m.engine.ExecStream(ctx, containerID, docker.ExecStreamOptions{Cmd: []string{"sh", "-c", script}, User: "0:0", Stderr: &stderr})
 	if err != nil || code != 0 {
 		m.log.Debug("passwd entry not created", "container", name, "exit", code, "err", err, "stderr", strings.TrimSpace(stderr.String()))
 	}
+}
+
+func passwdEntryScript(uid, gid string) string {
+	return fmt.Sprintf(`getent group %[2]s >/dev/null || echo "envoryx:x:%[2]s:" >> /etc/group; `+
+		`getent passwd %[1]s >/dev/null || echo "envoryx:x:%[1]s:%[2]s:Envoryx:%[3]s:/bin/sh" >> /etc/passwd`, uid, gid, homeMountTarget)
+}
+
+// runAsProjectUser makes a one-shot container run its command as uid:gid with a passwd
+// entry for that uid. A one-shot has no running phase to exec into first, so it starts as
+// root, writes the entry and drops to the uid with setpriv (util-linux, in every Envoryx
+// image). The wrapper is the entrypoint, so Cmd stays the plain command; the images'
+// own entrypoints only exec their arguments. Without the entry create-next-app dies in os.userInfo() and ssh refuses to
+// connect – the case on Unraid (99:100), where the uid is unknown to the images.
+func runAsProjectUser(spec *docker.ContainerSpec, uid, gid int) {
+	if uid == 0 {
+		spec.User = "0:0"
+		return
+	}
+	u, g := fmt.Sprint(uid), fmt.Sprint(gid)
+	script := passwdEntryScript(u, g) + `; exec setpriv --reuid=` + u + ` --regid=` + g + ` --clear-groups -- "$@"`
+	spec.User = "0:0"
+	spec.Entrypoint = []string{"sh", "-c", script, "sh"}
 }
 
 // stopPlan stops existing containers in reverse start order.
