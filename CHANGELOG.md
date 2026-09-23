@@ -11,6 +11,29 @@ release). `:main` follows the development branch.
 ## [Unreleased]
 
 ### Added
+- Database snapshots and cloning – the two things a day of development keeps asking for:
+  the dump you take before a migration, and the data of another project in your own.
+  *Snapshots* on the project's Database tab dumps the primary database and nothing else,
+  with a note like "before the orders migration", and puts it back with one click. The
+  project does not have to be running for either: a stopped database container is started
+  for the dump or the import and stopped again afterwards. Snapshots are ordinary backups
+  under `/config/backups/<slug>/` – they show up in the Backups tab, can be downloaded and
+  restore through the same verified path – so the dump a database version upgrade insists
+  on appears among them too, ready to be put back. They roll: the ten newest of a project
+  are kept, so taking one before every migration does not fill the disk, and scheduled
+  backups and anything made by hand are never touched by that.
+  *Clone from another project* replaces this project's database contents with another's –
+  staging into local – as long as both run the same engine. The dump is piped straight
+  from one container's client into the other's, so nothing is written to disk in between
+  and a project of a few hundred megabytes is done in seconds. The source is only read,
+  both projects are locked for the duration, and the target is snapshotted first unless
+  that is switched off, so there is a way back. Overwriting a database asks for the
+  project's identifier to be typed out, as restoring does.
+  On the command line: `envoryx db snapshot shop --note "before the migration"`,
+  `envoryx db snapshots shop`, `envoryx db restore shop <id> --yes` and
+  `envoryx db clone local --from staging --yes` (`--no-snapshot` skips the safety net).
+  Over MCP an assistant can take and list snapshots (`create_snapshot`, `list_snapshots`);
+  putting one back and cloning over a database stay out, like restoring a backup.
 - Rename a project. Until now the identifier a project was created with was final: the
   displayed name could be edited, but `shop.test`, `envoryx-shop-php` and the database
   `shop` stayed whatever they were. *Rename* on the project page (and `envoryx project

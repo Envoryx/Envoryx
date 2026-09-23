@@ -338,3 +338,93 @@ func cliCommandExit(err error) int {
 		return 1
 	}
 }
+
+// A snapshot is listed and taken with nothing but the project; restoring one and cloning a
+// database over another ask for --yes first.
+func TestDatabaseSnapshotsAndClone(t *testing.T) {
+	var restored, cloned bool
+	srv := newFakeServer(t, map[string]func(http.ResponseWriter, *http.Request){
+		"GET /api/v1/projects/{id}/database/snapshots": func(w http.ResponseWriter, r *http.Request) {
+			writeJSON(w, map[string]any{"snapshots": []map[string]any{
+				{"id": "44444444-4444-4444-8444-444444444444", "kind": "database", "sizeBytes": 2048,
+					"createdAt": "2026-09-01T10:00:00Z", "meta": map[string]any{"source": "snapshot", "note": "before the orders migration"}},
+			}})
+		},
+		"POST /api/v1/projects/{id}/database/snapshots": func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusCreated)
+			writeJSON(w, map[string]any{"snapshot": map[string]any{"id": "55555555-5555-4555-8555-555555555555", "kind": "database", "sizeBytes": 4096}})
+		},
+		"POST /api/v1/projects/{id}/database/snapshots/{snapshot}/restore": func(w http.ResponseWriter, r *http.Request) {
+			restored = true
+			writeJSON(w, map[string]any{"snapshot": map[string]any{"id": "44444444-4444-4444-8444-444444444444", "kind": "database"}})
+		},
+		"POST /api/v1/projects/{id}/database/clone": func(w http.ResponseWriter, r *http.Request) {
+			cloned = true
+			writeJSON(w, map[string]any{"clone": map[string]any{"source": "blog", "database": "acme_shop",
+				"snapshot": map[string]any{"id": "66666666-6666-4666-8666-666666666666", "kind": "database"}}})
+		},
+	})
+	shop := "/api/v1/projects/11111111-1111-4111-8111-111111111111"
+
+	c, out, _ := newTestCLI(t, srv, "")
+	if err := c.run(context.Background(), []string{"db", "snapshots", "acme-shop"}); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"CREATED", "2.0 KiB", "snapshot", "before the orders migration"} {
+		if !strings.Contains(out.String(), want) {
+			t.Fatalf("missing %q in:\n%s", want, out.String())
+		}
+	}
+
+	c, out, _ = newTestCLI(t, srv, "")
+	if err := c.run(context.Background(), []string{"db", "snapshot", "acme-shop", "--note", "before deploy"}); err != nil {
+		t.Fatal(err)
+	}
+	var taken struct {
+		Note string `json:"note"`
+	}
+	_ = json.Unmarshal(srv.bodies[shop+"/database/snapshots"], &taken)
+	if taken.Note != "before deploy" || !strings.Contains(out.String(), "4.0 KiB") {
+		t.Fatalf("snapshot: %+v %s", taken, out.String())
+	}
+
+	c, _, _ = newTestCLI(t, srv, "")
+	if err := c.run(context.Background(), []string{"db", "restore", "acme-shop", "44444444-4444-4444-8444-444444444444"}); err == nil || !strings.Contains(err.Error(), "--yes") {
+		t.Fatalf("restore without --yes: %v", err)
+	}
+	if restored {
+		t.Fatal("the database was restored without confirmation")
+	}
+	c, _, _ = newTestCLI(t, srv, "")
+	if err := c.run(context.Background(), []string{"db", "restore", "acme-shop", "44444444-4444-4444-8444-444444444444", "--yes"}); err != nil {
+		t.Fatal(err)
+	}
+	var confirm struct {
+		Confirm string `json:"confirm"`
+	}
+	_ = json.Unmarshal(srv.bodies[shop+"/database/snapshots/44444444-4444-4444-8444-444444444444/restore"], &confirm)
+	if !restored || confirm.Confirm != "acme-shop" {
+		t.Fatalf("restore body: %+v", confirm)
+	}
+
+	c, _, _ = newTestCLI(t, srv, "")
+	if err := c.run(context.Background(), []string{"db", "clone", "acme-shop", "--from", "blog"}); err == nil || !strings.Contains(err.Error(), "--yes") {
+		t.Fatalf("clone without --yes: %v", err)
+	}
+	if cloned {
+		t.Fatal("the database was cloned without confirmation")
+	}
+	// The source may also stand as the second argument, and it is sent by id.
+	c, out, _ = newTestCLI(t, srv, "")
+	if err := c.run(context.Background(), []string{"db", "clone", "acme-shop", "blog", "--yes"}); err != nil {
+		t.Fatal(err)
+	}
+	var sent map[string]any
+	_ = json.Unmarshal(srv.bodies[shop+"/database/clone"], &sent)
+	if sent["source"] != "22222222-2222-4222-8222-222222222222" || sent["confirm"] != "acme-shop" || sent["snapshot"] != true {
+		t.Fatalf("clone body: %v", sent)
+	}
+	if !strings.Contains(out.String(), "db restore acme-shop 66666666-6666-4666-8666-666666666666") {
+		t.Fatalf("the way back must be printed:\n%s", out.String())
+	}
+}

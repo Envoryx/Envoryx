@@ -58,7 +58,7 @@ export interface Operation {
   error?: string;
 }
 
-export type OperationAction = "create" | "duplicate" | "rename" | "start" | "stop" | "restart" | "update" | "delete" | "image" | "backup" | "restore";
+export type OperationAction = "create" | "duplicate" | "rename" | "start" | "stop" | "restart" | "update" | "delete" | "image" | "backup" | "snapshot" | "clone-database" | "restore";
 
 export interface ProjectStatus {
   state: ProjectState;
@@ -895,6 +895,13 @@ export interface BackupInfo {
   createdAt: string;
   meta: BackupMeta;
   missing: boolean;
+}
+
+/** What a database clone did: where the data came from and the snapshot taken beforehand. */
+export interface CloneDatabaseResult {
+  source: string;
+  database: string;
+  snapshot?: BackupInfo;
 }
 
 export interface InstanceBackupMeta {

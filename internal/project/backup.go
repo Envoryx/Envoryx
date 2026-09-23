@@ -760,11 +760,8 @@ func (m *Manager) restoreBackup(ctx context.Context, id, backupID string, opts R
 		if err != nil {
 			return BackupInfo{}, err
 		}
-		if meta.Database == nil {
-			return BackupInfo{}, fmt.Errorf("%w: this backup contains no database dump", validate.ErrInvalid)
-		}
-		if meta.Database.Type != svc.Variant {
-			return BackupInfo{}, fmt.Errorf("%w: the dump is for %s but the project uses %s", validate.ErrInvalid, meta.Database.Type, svc.Variant)
+		if err := checkDump(meta, svc); err != nil {
+			return BackupInfo{}, err
 		}
 		step(ctx, "Restoring the database")
 		if err := m.restoreDatabase(ctx, p, svc, cfg, filepath.Join(dir, backupDBFile)); err != nil {
@@ -802,6 +799,18 @@ func (m *Manager) restoreBackup(ctx context.Context, id, backupID string, opts R
 	}
 	m.audit.Log(ctx, audit.ActionBackupRestored, "project", id, restored)
 	return BackupInfo{ID: b.ID, Dir: b.Filename, Kind: b.Kind, SizeBytes: b.SizeBytes, CreatedAt: b.CreatedAt, Meta: meta}, nil
+}
+
+// checkDump reports whether a backup holds a dump this project's database can take: one
+// flavour's dump is not another's, and a backup of files only holds none at all.
+func checkDump(meta BackupMeta, svc *store.ProjectService) error {
+	if meta.Database == nil {
+		return fmt.Errorf("%w: this backup contains no database dump", validate.ErrInvalid)
+	}
+	if meta.Database.Type != svc.Variant {
+		return fmt.Errorf("%w: the dump is for %s but the project uses %s", validate.ErrInvalid, meta.Database.Type, svc.Variant)
+	}
+	return nil
 }
 
 func (m *Manager) restoreDatabase(ctx context.Context, p store.Project, svc *store.ProjectService, cfg runtime.DatabaseConfig, dump string) error {

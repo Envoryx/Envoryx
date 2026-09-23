@@ -107,12 +107,12 @@ func TestToolsCoverTheProjectLifecycle(t *testing.T) {
 	for _, tl := range tools.Tools {
 		names[tl.Name] = true
 	}
-	for _, want := range []string{"list_projects", "create_project", "duplicate_project", "rename_project", "run_action", "get_logs", "create_backup"} {
+	for _, want := range []string{"list_projects", "create_project", "duplicate_project", "rename_project", "run_action", "get_logs", "create_backup", "create_snapshot", "list_snapshots"} {
 		if !names[want] {
 			t.Fatalf("tool %s missing: %v", want, names)
 		}
 	}
-	for _, forbidden := range []string{"delete_project", "drop_database", "restore_backup"} {
+	for _, forbidden := range []string{"delete_project", "drop_database", "restore_backup", "restore_snapshot", "clone_database"} {
 		if names[forbidden] {
 			t.Fatalf("destructive tool %s must not be exposed", forbidden)
 		}

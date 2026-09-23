@@ -57,6 +57,7 @@ const (
 	ActionDBPasswordRotated   = "database.password_rotated"
 	ActionDBCreated           = "database.created"
 	ActionDBDropped           = "database.dropped"
+	ActionDBCloned            = "database.cloned"
 
 	ActionTerminalOpened = "terminal.opened"
 	ActionExec           = "project.exec"

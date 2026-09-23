@@ -102,6 +102,10 @@ Envoryx is under active development. The current milestone (Phase 1 + 2) deliver
 - desired-state reconciliation on startup and periodically; orphan detection and cleanup
 - diagnostics view of all Docker resources (foreign containers read-only)
 
+- database snapshots: a dump of the database alone, taken before a migration
+  and put back with one click (the project need not be running), the ten newest
+  kept per project – and cloning one project's database into another's, piped
+  straight from container to container, with a snapshot of the target first
 - backups per project: database dump + project files (optionally without
   vendor/, node_modules/ and framework build caches) + configuration, stored under `/config/backups` or an
   optional separate `/backups` mount (e.g. on the Unraid array),
@@ -126,15 +130,15 @@ Envoryx is under active development. The current milestone (Phase 1 + 2) deliver
   unhealthy projects (and their recovery), failed project creation, failed
   backups and certificate renewals – throttled, secrets never returned
 - MCP server for AI assistants (Claude Code, Cursor, …): create, duplicate,
-  rename, start, stop and inspect projects, read logs, run actions, create databases
-  and backups – authenticated with personal API tokens, same validation and
-  audit trail as the UI, no destructive tools
+  rename, start, stop and inspect projects, read logs, run actions, create
+  databases, backups and database snapshots – authenticated with personal API
+  tokens, same validation and audit trail as the UI, no destructive tools
 - command line for SSH sessions, cron jobs and CI: `envoryx project
-  list/show/create/duplicate/rename/start/stop/logs/exec/run`, `envoryx backup …` and
-  `envoryx git …`. The binary is its own client – it speaks the same REST API
-  with the same API tokens, so a token's scope and project restriction apply
-  unchanged, and `envoryx project exec` hands the command's exit code back to
-  the calling shell
+  list/show/create/duplicate/rename/start/stop/logs/exec/run`, `envoryx backup …`,
+  `envoryx db snapshot|snapshots|restore|clone` and `envoryx git …`. The binary
+  is its own client – it speaks the same REST API with the same API tokens, so a
+  token's scope and project restriction apply unchanged, and `envoryx project
+  exec` hands the command's exit code back to the calling shell
 
 All phases of the original plan are implemented – see
 [ARCHITECTURE.md](ARCHITECTURE.md) §13. Releases are listed in
@@ -227,6 +231,7 @@ envoryx login --url https://envoryx.example.com   # asks for an API token
 envoryx project create "Shop" --php 8.4 --database mariadb --template laravel --start
 envoryx project logs shop --follow
 envoryx backup create shop --note "before the upgrade"
+envoryx db snapshot shop --note "before the migration"
 ```
 
 Commands exit 0/1/2, `exec` passes the command's own exit code on, and `--json`

@@ -247,6 +247,10 @@ func (a *API) Mount(mux *http.ServeMux, protect func(http.Handler) http.Handler)
 	rd("GET /api/v1/projects/{id}/database/databases", a.databaseList)
 	op("POST /api/v1/projects/{id}/database/databases", a.databaseCreate)
 	adm("DELETE /api/v1/projects/{id}/database/databases/{name}", a.databaseDrop)
+	rd("GET /api/v1/projects/{id}/database/snapshots", a.databaseSnapshots)
+	op("POST /api/v1/projects/{id}/database/snapshots", a.databaseSnapshotCreate)
+	adm("POST /api/v1/projects/{id}/database/snapshots/{snapshot}/restore", a.databaseSnapshotRestore)
+	adm("POST /api/v1/projects/{id}/database/clone", a.databaseClone)
 
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, newError(http.StatusNotFound, "not_found", "unknown API route"))

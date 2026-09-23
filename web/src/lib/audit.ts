@@ -39,6 +39,7 @@ export const auditActionLabels: Record<string, string> = {
   "database.password_rotated": "Database password rotated",
   "database.created": "Database created",
   "database.dropped": "Database dropped",
+  "database.cloned": "Database cloned",
   "terminal.opened": "Terminal opened",
   "project.exec": "Command run",
   "action.run": "Action run",

@@ -15,6 +15,8 @@ export function operationTitle(op: Operation, t: TFunction): string {
     delete: t("Deleting {{name}}", { name }),
     image: t("Changing the image of {{name}}", { name }),
     backup: t("Backing up {{name}}", { name }),
+    snapshot: t("Snapshotting the database of {{name}}", { name }),
+    "clone-database": t("Cloning a database into {{name}}", { name }),
     restore: t("Restoring {{name}}", { name }),
   };
   return titles[op.action] ?? `${op.action} ${name}`;
@@ -34,6 +36,8 @@ export function operationDone(op: Operation, t: TFunction): string {
     delete: t("{{name}} deleted", { name }),
     image: t("Image of {{name}} changed", { name }),
     backup: t("Backup of {{name}} finished", { name }),
+    snapshot: t("Database of {{name}} snapshotted", { name }),
+    "clone-database": t("Database cloned into {{name}}", { name }),
     restore: t("{{name}} restored", { name }),
   };
   return titles[op.action] ?? `${op.action} ${name}`;
@@ -52,6 +56,8 @@ export function operationVerb(action: OperationAction, t: TFunction): string {
     delete: t("Deleting…"),
     image: t("Changing image…"),
     backup: t("Backing up…"),
+    snapshot: t("Snapshotting…"),
+    "clone-database": t("Cloning the database…"),
     restore: t("Restoring…"),
   };
   return verbs[action] ?? action;
