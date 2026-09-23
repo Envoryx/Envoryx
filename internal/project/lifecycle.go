@@ -218,10 +218,12 @@ func (m *Manager) provision(ctx context.Context, plan Plan, j *journal) (string,
 // creates the bucket of a project with object storage.
 func (m *Manager) startProvisioned(ctx context.Context, proj store.Project, plan Plan, j journal) (string, error) {
 	for i, id := range j.containers {
-		step(ctx, "Starting the container {{name}}", "name", plan.Containers[i].Spec.Name)
+		c := plan.Containers[i]
+		step(ctx, "Starting the container {{name}}", "name", c.Spec.Name)
 		if err := m.engine.StartContainer(ctx, id); err != nil {
 			return "start container", err
 		}
+		m.ensurePasswdEntry(ctx, id, c.Spec.Name, m.workUser(c.Kind, c.Spec.User))
 	}
 	if _, cfg, err := storageConfig(proj); err == nil {
 		step(ctx, "Setting up the object storage bucket")
@@ -438,8 +440,8 @@ func (m *Manager) ensurePlan(ctx context.Context, proj store.Project, plan Plan,
 				return fmt.Errorf("start container %s: %w", c.Spec.Name, err)
 			}
 		}
-		if start && c.Spec.User != "" {
-			m.ensurePasswdEntry(ctx, id, c.Spec.Name, c.Spec.User)
+		if start {
+			m.ensurePasswdEntry(ctx, id, c.Spec.Name, m.workUser(c.Kind, c.Spec.User))
 		}
 	}
 	if start {
@@ -451,6 +453,19 @@ func (m *Manager) ensurePlan(ctx context.Context, proj store.Project, plan Plan,
 		}
 	}
 	return nil
+}
+
+// workUser is the uid:gid Envoryx works as in a container: the one it runs as, or – for
+// PHP, which starts as root and lets php-fpm switch users – the one terminal, actions and
+// SSH use there.
+func (m *Manager) workUser(kind store.ServiceKind, specUser string) string {
+	if specUser != "" {
+		return specUser
+	}
+	if e, err := m.execEnv(kind); err == nil {
+		return e.User
+	}
+	return ""
 }
 
 // ensurePasswdEntry gives the project uid/gid a name inside the container. The images

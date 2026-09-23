@@ -45,6 +45,9 @@ func (m *Manager) OpenTerminal(ctx context.Context, id string, kind store.Servic
 	if env.User != "" {
 		opts.Env = append(opts.Env, "PS1=\\w $ ")
 	}
+	// Containers from before the entry was written for every work user (PHP) get it here,
+	// so the prompt does not read "I have no name!" until the next start.
+	m.ensurePasswdEntry(ctx, c.ID, c.Name, env.User)
 	term, err := m.engine.OpenTerminal(ctx, c.ID, opts)
 	if err != nil {
 		return nil, err
