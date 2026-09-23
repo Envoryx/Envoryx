@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"net"
 	"net/url"
 	"os"
@@ -274,6 +275,7 @@ func (m *Manager) ensureDBTool(ctx context.Context) error {
 		}
 	}
 	labels := map[string]string{docker.LabelManaged: "true", docker.LabelSystem: dbToolSystem, docker.LabelService: dbToolSystem, docker.LabelVersion: paths.EnvoryxVersion}
+	folder := m.FolderViewFolder(ctx)
 
 	networks, err := m.engine.ListNetworks(ctx, true)
 	if err != nil {
@@ -298,8 +300,9 @@ func (m *Manager) ensureDBTool(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if c != nil && c.Image != DBToolImage {
-		// A newer Envoryx may ship another Adminer version: recreate.
+	if c != nil && (c.Image != DBToolImage || c.Labels[docker.LabelFolderView] != folder) {
+		// A newer Envoryx may ship another Adminer version, or the FolderView3 folder
+		// changed (labels are fixed at creation): recreate, the container holds no state.
 		if err := m.engine.RemoveContainer(ctx, c.ID); err != nil {
 			return err
 		}
@@ -309,8 +312,10 @@ func (m *Manager) ensureDBTool(ctx context.Context) error {
 		if err := m.engine.EnsureImage(ctx, DBToolImage, m.pullProgress(ctx, dbToolSystem, DBToolImage)); err != nil {
 			return fmt.Errorf("pull image %s: %w", DBToolImage, err)
 		}
+		containerLabels := maps.Clone(labels)
+		docker.AddUnraidLabels(containerLabels, folder)
 		spec := docker.ContainerSpec{
-			Name: DBToolContainer, Image: DBToolImage, Labels: labels,
+			Name: DBToolContainer, Image: DBToolImage, Labels: containerLabels,
 			// Directories, not single files: the connections file is replaced by rename and
 			// a file bind mount would keep showing the old inode.
 			Mounts: []docker.MountSpec{

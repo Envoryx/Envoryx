@@ -766,6 +766,7 @@ export interface UpdateSettingsRequest {
   baseDomain?: string;
   forceHttps?: boolean;
   projectsFollowEnvoryx?: boolean;
+  folderViewFolder?: string;
 }
 
 export interface SSHInfo {
@@ -788,6 +789,8 @@ export interface Settings {
   forceHttps: boolean;
   /** Project containers stop with the Envoryx container and resume when it comes back. */
   projectsFollowEnvoryx?: boolean;
+  /** FolderView3 folder (Unraid plugin) the containers are labelled for; "" = none. */
+  folderViewFolder?: string;
   proxy: ProxyInfo;
   version: string;
   update?: UpdateStatus;

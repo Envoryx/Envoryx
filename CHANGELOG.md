@@ -11,6 +11,16 @@ release). `:main` follows the development branch.
 ## [Unreleased]
 
 ### Added
+- Tidier Unraid Docker tab. Envoryx's containers now carry the Envoryx icon
+  (`net.unraid.docker.icon`) instead of the question mark, and can go into a
+  [FolderView3](https://github.com/kennymc-c/folder.view3) folder automatically: enter
+  the folder name under *Settings → General → Unraid Docker page* and every project
+  container, and the database browser, gets the label `folder.view3=<name>`. Create
+  the folder in FolderView3 with the same name. Labels are set when a container is
+  created, so projects move into the folder the next time they start. Without the
+  setting nothing is recreated. The icon appears whenever a container is next created
+  anyway, for example after a runtime update. A FolderView3 folder with the regex
+  `^envoryx-` works too, with no setting at all.
 - Database snapshots and cloning – the two things a day of development keeps asking for:
   the dump you take before a migration, and the data of another project in your own.
   *Snapshots* on the project's Database tab dumps the primary database and nothing else,

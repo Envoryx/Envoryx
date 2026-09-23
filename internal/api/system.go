@@ -270,6 +270,8 @@ type updateSettingsRequest struct {
 	ProjectsFollowEnvoryx *bool `json:"projectsFollowEnvoryx"`
 	// XdebugClientHost is the developer machine Xdebug connects back to.
 	XdebugClientHost *string `json:"xdebugClientHost"`
+	// FolderViewFolder is the FolderView3 folder the containers are labelled for.
+	FolderViewFolder *string `json:"folderViewFolder"`
 	// SSHAuthorizedKeys replaces the public keys accepted by the SSH server.
 	SSHAuthorizedKeys *string `json:"sshAuthorizedKeys"`
 }
@@ -313,6 +315,12 @@ func (a *API) updateSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.XdebugClientHost != nil {
 		if err := a.d.Projects.SetXdebugClientHost(r.Context(), *req.XdebugClientHost); err != nil {
+			writeError(w, r, err)
+			return
+		}
+	}
+	if req.FolderViewFolder != nil {
+		if err := a.d.Projects.SetFolderViewFolder(r.Context(), *req.FolderViewFolder); err != nil {
 			writeError(w, r, err)
 			return
 		}
@@ -391,6 +399,7 @@ func (a *API) settings(w http.ResponseWriter, r *http.Request) {
 		"forceHttps":            a.d.Projects.ForceHTTPS(r.Context()),
 		"projectsFollowEnvoryx": a.d.Projects.ProjectsFollowEnvoryx(r.Context()),
 		"xdebugClientHost":      a.d.Projects.XdebugClientHost(r.Context()),
+		"folderViewFolder":      a.d.Projects.FolderViewFolder(r.Context()),
 		"sshAuthorizedKeys":     a.setting(r.Context(), sshd.SettingAuthorizedKeys),
 		"ssh":                   a.sshDTO(),
 		"proxy":                 a.proxyDTO(),

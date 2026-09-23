@@ -1554,5 +1554,10 @@
   "No snapshot is taken – there is no way back.": "Знімок не створюється — повернути нічого не вдасться.",
   "Database of {{source}} cloned into “{{name}}”. The state before it is the newest snapshot.": "Базу даних {{source}} клоновано в «{{name}}». Стан до цього — найновіший знімок.",
   "Database of {{source}} cloned into “{{name}}”.": "Базу даних {{source}} клоновано в «{{name}}».",
-  "Cloning the database failed": "Не вдалося клонувати базу даних"
+  "Cloning the database failed": "Не вдалося клонувати базу даних",
+  "Unraid Docker page": "Сторінка Docker в Unraid",
+  "Envoryx containers carry the Envoryx icon. With the FolderView3 plugin they can also be sorted into a folder automatically.": "Контейнери Envoryx відображаються зі значком Envoryx. З плагіном FolderView3 їх також можна автоматично розкладати в теку.",
+  "FolderView3 folder": "Тека FolderView3",
+  "Create a folder with exactly this name in FolderView3 first. Leave empty for no label – a folder with the regex ^envoryx- collects the containers as well.": "Спочатку створіть у FolderView3 теку саме з цією назвою. Залиште порожнім, щоб не ставити мітку – тека з регулярним виразом ^envoryx- теж збере контейнери.",
+  "Saved. Projects move into the folder the next time they are started.": "Збережено. Проєкти потраплять до теки під час наступного запуску."
 }

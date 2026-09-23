@@ -1518,5 +1518,10 @@
   "No snapshot is taken – there is no way back.": "No se crea ninguna instantánea: no hay camino de vuelta.",
   "Database of {{source}} cloned into “{{name}}”. The state before it is the newest snapshot.": "Base de datos de {{source}} clonada en «{{name}}». El estado anterior es la instantánea más reciente.",
   "Database of {{source}} cloned into “{{name}}”.": "Base de datos de {{source}} clonada en «{{name}}».",
-  "Cloning the database failed": "No se pudo clonar la base de datos"
+  "Cloning the database failed": "No se pudo clonar la base de datos",
+  "Unraid Docker page": "Página Docker de Unraid",
+  "Envoryx containers carry the Envoryx icon. With the FolderView3 plugin they can also be sorted into a folder automatically.": "Los contenedores de Envoryx llevan el icono de Envoryx. Con el plugin FolderView3 también pueden ordenarse automáticamente en una carpeta.",
+  "FolderView3 folder": "Carpeta de FolderView3",
+  "Create a folder with exactly this name in FolderView3 first. Leave empty for no label – a folder with the regex ^envoryx- collects the containers as well.": "Crea primero en FolderView3 una carpeta con exactamente este nombre. Déjalo vacío para no poner etiqueta: una carpeta con la regex ^envoryx- también agrupa los contenedores.",
+  "Saved. Projects move into the folder the next time they are started.": "Guardado. Los proyectos pasan a la carpeta la próxima vez que se inicien."
 }

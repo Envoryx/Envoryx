@@ -41,6 +41,8 @@ type Paths struct {
 	BaseDomain string
 	// XdebugClientHost is the global fallback debugger host (developer machine).
 	XdebugClientHost string
+	// FolderViewFolder is the FolderView3 folder the containers are labelled for ("" = none).
+	FolderViewFolder string
 	// PublicHost and the proxy's host-side ports let the planner build URLs that a
 	// browser on the LAN can reach (object storage public URL). Zero = unknown.
 	PublicHost     string
@@ -566,6 +568,7 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 	// Fingerprint the structural part of every spec so ensurePlan can recreate containers
 	// whose command, mounts or ports changed (env is handled explicitly by callers).
 	for i := range plan.Containers {
+		docker.AddUnraidLabels(plan.Containers[i].Spec.Labels, p.paths.FolderViewFolder)
 		plan.Containers[i].Spec.Labels[docker.LabelSpec] = specFingerprint(plan.Containers[i].Spec)
 	}
 	sort.SliceStable(plan.Containers, func(i, j int) bool { return plan.Containers[i].Order < plan.Containers[j].Order })
@@ -713,6 +716,12 @@ func (p *Planner) envStrings(proj store.Project) ([]string, error) {
 func specFingerprint(spec docker.ContainerSpec) string {
 	h := sha256.New()
 	enc := json.NewEncoder(h)
-	_ = enc.Encode(map[string]any{"cmd": spec.Cmd, "wd": spec.WorkingDir, "user": spec.User, "mounts": spec.Mounts, "ports": spec.Ports, "alias": spec.NetworkAlias, "health": spec.Healthcheck, "restart": spec.RestartPolicy})
+	fields := map[string]any{"cmd": spec.Cmd, "wd": spec.WorkingDir, "user": spec.User, "mounts": spec.Mounts, "ports": spec.Ports, "alias": spec.NetworkAlias, "health": spec.Healthcheck, "restart": spec.RestartPolicy}
+	// Labels are fixed at creation, so a changed FolderView3 folder needs a recreate too.
+	// Only a set folder counts: containers from before the setting keep their fingerprint.
+	if f := spec.Labels[docker.LabelFolderView]; f != "" {
+		fields["folder"] = f
+	}
+	_ = enc.Encode(fields)
 	return hex.EncodeToString(h.Sum(nil))[:16]
 }
