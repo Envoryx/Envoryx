@@ -116,8 +116,8 @@ export function IdeTab({ project: p }: { project: Project }) {
             hasPhp
               ? t("Run PHP, Composer, PHPUnit and Artisan inside the project container from your IDE. PhpStorm: Settings → PHP → CLI Interpreter → “…” → “+” → From Docker, Vagrant, VM, WSL, Remote… → SSH, then Path mappings: the project folder → /var/www/html. VS Code: Remote-SSH. Plain terminal: ssh.")
               : app === "python"
-                ? t("Run python, pip and pytest inside the project container from your IDE. PyCharm: Settings → Project → Python Interpreter → Add Interpreter → On SSH…, interpreter path from below. VS Code: Remote-SSH. Plain terminal: ssh.")
-                : t("Run node, npm and your test runner inside the project container from your IDE. WebStorm: Settings → Languages & Frameworks → Node.js → Node interpreter → Add… → SSH. VS Code: Remote-SSH. Plain terminal: ssh.")
+                ? t("Run python, pip and pytest inside the project container from your IDE. PyCharm Pro: Settings → Python → Interpreter → Add Interpreter → On SSH…, interpreter path from below. VS Code: Remote-SSH. Plain terminal: ssh.")
+                : t("Run node, npm and your test runner inside the project container from your IDE. WebStorm: Settings → Languages & Frameworks → Node.js → Node runtime → Add… → SSH. VS Code: Remote-SSH. Plain terminal: ssh.")
           }
         />
         <div className="p-5">
@@ -138,6 +138,7 @@ export function IdeTab({ project: p }: { project: Project }) {
               <CopyRow label={t("Password")} value={t("<API token from Settings → API tokens>")} mono={false} />
               {hasPhp && <CopyRow label={t("PHP path")} value="/usr/local/bin/php" />}
               {hasPython && <CopyRow label={t("Python path")} value="/var/www/html/.venv/bin/python" />}
+              {hasPython && <CopyRow label={t("Python path (without .venv)")} value="/usr/local/bin/python" />}
               {hasNode && <CopyRow label={t("Node path")} value="/usr/local/bin/node" />}
               <CopyRow label={t("Project path")} value="/var/www/html" />
               {hasPhp && <CopyRow label={t("Helpers path")} value="/home/envoryx/.phpstorm_helpers" />}
