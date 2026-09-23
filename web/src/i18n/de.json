@@ -1296,7 +1296,6 @@
   "Changing the document root rewrites the web server configuration and restarts the containers.": "Eine Änderung des Document Root schreibt die Webserver-Konfiguration neu und startet die Container neu.",
   "PHP": "PHP",
   "Application runtime of this project: run your dev server here or build static assets served by the web server. Removing it only removes the container; node_modules stays in the project directory.": "Anwendungslaufzeit dieses Projekts: betreibe hier deinen Dev-Server oder baue statische Assets, die der Webserver ausliefert. Entfernen löscht nur den Container; node_modules bleibt im Projektverzeichnis.",
-  "Run node, npm and your test runner inside the project container from your IDE. WebStorm: Settings → Languages & Frameworks → Node.js → Node interpreter → Add… → SSH. VS Code: Remote-SSH. Plain terminal: ssh.": "Führe node, npm und deinen Test-Runner aus deiner IDE im Projekt-Container aus. WebStorm: Settings → Languages & Frameworks → Node.js → Node interpreter → Add… → SSH. VS Code: Remote-SSH. Terminal: ssh.",
   "Node path": "Node-Pfad",
   "IDE: WebStorm with user": "IDE: WebStorm mit Benutzer",
   "This project has no application container – SSH sessions need PHP, Python or Node.js.": "Dieses Projekt hat keinen Anwendungscontainer – SSH-Sitzungen brauchen PHP, Python oder Node.js.",
@@ -1391,7 +1390,6 @@
   "Application server": "Anwendungsserver",
   "production server": "Produktionsserver",
   "debugpy on host port {{port}}": "debugpy auf Host-Port {{port}}",
-  "Run python, pip and pytest inside the project container from your IDE. PyCharm: Settings → Project → Python Interpreter → Add Interpreter → On SSH…, interpreter path from below. VS Code: Remote-SSH. Plain terminal: ssh.": "Führe python, pip und pytest im Projekt-Container aus deiner IDE aus. PyCharm: Settings → Project → Python Interpreter → Add Interpreter → On SSH…, Interpreter-Pfad von unten. VS Code: Remote-SSH. Terminal: ssh.",
   "User (Python)": "Benutzer (Python)",
   "Python path": "Python-Pfad",
   "Python debugging (debugpy)": "Python-Debugging (debugpy)",
@@ -1549,5 +1547,8 @@
   "On the first connection the IDE shows the host key as MD5 – compare it with “Host key (MD5)” under Remote interpreter. No local copy wanted? Open the network share directly or use JetBrains Gateway.": "Beim ersten Verbinden zeigt die IDE den Host-Key als MD5 – vergleiche ihn mit „Host-Key (MD5)“ unter Remote-Interpreter. Keine lokale Kopie gewünscht? Öffne die Netzwerkfreigabe direkt oder nutze JetBrains Gateway.",
   "Host key (MD5)": "Host-Key (MD5)",
   "Web server URL": "Web-Server-URL",
-  "Run PHP, Composer, PHPUnit and Artisan inside the project container from your IDE. PhpStorm: Settings → PHP → CLI Interpreter → “…” → “+” → From Docker, Vagrant, VM, WSL, Remote… → SSH, then Path mappings: the project folder → /var/www/html. VS Code: Remote-SSH. Plain terminal: ssh.": "Führe PHP, Composer, PHPUnit und Artisan aus deiner IDE im Projekt-Container aus. PhpStorm: Settings → PHP → CLI Interpreter → „…“ → „+“ → From Docker, Vagrant, VM, WSL, Remote… → SSH, dann Path mappings: Projektordner → /var/www/html. VS Code: Remote-SSH. Terminal: ssh."
+  "Run PHP, Composer, PHPUnit and Artisan inside the project container from your IDE. PhpStorm: Settings → PHP → CLI Interpreter → “…” → “+” → From Docker, Vagrant, VM, WSL, Remote… → SSH, then Path mappings: the project folder → /var/www/html. VS Code: Remote-SSH. Plain terminal: ssh.": "Führe PHP, Composer, PHPUnit und Artisan aus deiner IDE im Projekt-Container aus. PhpStorm: Settings → PHP → CLI Interpreter → „…“ → „+“ → From Docker, Vagrant, VM, WSL, Remote… → SSH, dann Path mappings: Projektordner → /var/www/html. VS Code: Remote-SSH. Terminal: ssh.",
+  "Run python, pip and pytest inside the project container from your IDE. PyCharm Pro: Settings → Python → Interpreter → Add Interpreter → On SSH…, interpreter path from below. VS Code: Remote-SSH. Plain terminal: ssh.": "Führe python, pip und pytest im Projekt-Container aus deiner IDE aus. PyCharm Pro: Settings → Python → Interpreter → Add Interpreter → On SSH…, Interpreter-Pfad von unten. VS Code: Remote-SSH. Terminal: ssh.",
+  "Run node, npm and your test runner inside the project container from your IDE. WebStorm: Settings → Languages & Frameworks → Node.js → Node runtime → Add… → SSH. VS Code: Remote-SSH. Plain terminal: ssh.": "Führe node, npm und deinen Test-Runner aus deiner IDE im Projekt-Container aus. WebStorm: Settings → Languages & Frameworks → Node.js → Node runtime → Add… → SSH. VS Code: Remote-SSH. Terminal: ssh.",
+  "Python path (without .venv)": "Python-Pfad (ohne .venv)"
 }

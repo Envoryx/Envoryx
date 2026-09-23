@@ -196,6 +196,10 @@ release). `:main` follows the development branch.
   connection when the password took more than 30 seconds to type. The IDE connects first and
   asks for the host key and the password afterwards, and Envoryx allowed only 30 seconds for
   the whole login. It now allows two minutes, the default of OpenSSH's `LoginGraceTime`.
+- The IDE tab's interpreter hints for PyCharm and WebStorm named menus that 2026.2 no
+  longer has: PyCharm's SSH interpreter sits under Settings → Python → Interpreter and
+  needs PyCharm Pro, WebStorm calls the field "Node runtime". Projects without a `.venv`
+  get `/usr/local/bin/python` as the interpreter path next to the `.venv` one.
 - PhpStorm's remote interpreter over the embedded SSH server reported "PHP version:
   Not installed". PhpStorm checks over SFTP that the interpreter exists, and SFTP
   only knew the bind mounts, so `/usr/local/bin/php` was missing; it then uploads its
