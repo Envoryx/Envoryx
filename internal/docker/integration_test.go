@@ -409,3 +409,65 @@ func TestIntegrationResourcesAndOOM(t *testing.T) {
 		t.Fatal("only the child was killed; the container must still run")
 	}
 }
+
+// The stats carry cumulative block I/O counters and VolumeSizes finds a managed volume
+// with the space its data takes.
+func TestIntegrationIOStatsAndVolumeSizes(t *testing.T) {
+	e := integrationEngine(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	if err := e.EnsureImage(ctx, "alpine:3.20", nil); err != nil {
+		t.Fatal(err)
+	}
+	labels := ManagedLabels(testProject, "integration", "database", "test")
+	vol := "envoryx-integration-sized"
+	if err := e.CreateVolume(ctx, vol, labels); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = e.RemoveVolume(context.Background(), vol) })
+	id, err := e.CreateContainer(ctx, ContainerSpec{
+		Name:          "envoryx-integration-io",
+		Image:         "alpine:3.20",
+		Labels:        labels,
+		Cmd:           []string{"sh", "-c", "dd if=/dev/urandom of=/data/blob bs=1M count=8 conv=fsync 2>/dev/null; sleep 120"},
+		Mounts:        []MountSpec{{Type: "volume", Source: vol, Target: "/data"}},
+		RestartPolicy: "no",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = e.RemoveContainer(context.Background(), id) })
+	if err := e.StartContainer(ctx, id); err != nil {
+		t.Fatal(err)
+	}
+	var st Stats
+	for i := 0; i < 30; i++ {
+		st, err = e.ContainerStats(ctx, id)
+		if err == nil && st.BlockWritten >= 8<<20 {
+			break
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+	if st.BlockWritten < 8<<20 {
+		t.Fatalf("block writes: %d bytes (%v)", st.BlockWritten, err)
+	}
+	sizes, err := e.VolumeSizes(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, s := range sizes {
+		if s.Name == vol {
+			found = true
+			if s.Bytes < 8<<20 || s.Labels[LabelProjectID] != testProject {
+				t.Fatalf("volume size: %+v", s)
+			}
+		}
+		if !IsManaged(s.Labels) {
+			t.Fatalf("unmanaged volume listed: %s", s.Name)
+		}
+	}
+	if !found {
+		t.Fatalf("volume %s not listed", vol)
+	}
+}

@@ -20,6 +20,7 @@ import { AppearanceCard } from "./AppearanceCard";
 import { auditActionLabel, auditActor, auditDetails } from "@/lib/audit";
 import { LifecycleCard } from "./LifecycleCard";
 import { LogHistoryCard } from "./LogHistoryCard";
+import { ResourceHistoryCard } from "./ResourceHistoryCard";
 import { UnraidCard } from "./UnraidCard";
 import { errorText } from "@/lib/errors";
 
@@ -328,6 +329,7 @@ export function SettingsPage() {
           <InstanceCard />
           <LifecycleCard />
           <LogHistoryCard />
+          <ResourceHistoryCard />
           <UnraidCard />
           {s.data && <PublicHostForm current={s.data.publicHost} xdebugHost={s.data.xdebugClientHost ?? ""} />}
           <PasswordForm />

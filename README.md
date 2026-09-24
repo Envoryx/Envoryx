@@ -69,6 +69,9 @@ Envoryx is under active development. The current milestone (Phase 1 + 2) deliver
 - CPU, memory and process limits per project (application containers and
   services separately), applied live; containers that run out of memory
   show up as a warning and a notification
+- resource history per project: CPU, memory, network, disk I/O and disk space
+  (volumes, project directory, backups) as charts from one hour to one year,
+  plus a dashboard overview of which project uses what
 - rename a project after the fact: the identifier follows the name, and with it the
   URL and host names, the container, network and volume names, the SSH users, the
   project directory, the backups and – optionally – the database, its login and the

@@ -278,7 +278,21 @@ type Stats struct {
 	CPUPercent  float64
 	MemoryBytes int64
 	MemoryLimit int64
-	SampledAt   time.Time
+	// Cumulative counters since the container started: bytes received and sent on all
+	// its networks, bytes read from and written to block devices.
+	NetRxBytes   uint64
+	NetTxBytes   uint64
+	BlockRead    uint64
+	BlockWritten uint64
+	SampledAt    time.Time
+}
+
+// VolumeSize is the disk space a managed volume takes.
+type VolumeSize struct {
+	Name   string
+	Labels map[string]string
+	// Bytes is -1 when Docker could not determine it.
+	Bytes int64
 }
 
 // LogLine is one line of container output.
@@ -332,6 +346,9 @@ type Engine interface {
 	// WatchOOM reports OOM kills in managed containers until ctx ends or the event stream
 	// breaks (the returned error says why; nil when ctx ended).
 	WatchOOM(ctx context.Context, fn func(OOMEvent)) error
+	// VolumeSizes reports the size of every managed volume. Docker walks the volumes
+	// for it, so it is not for frequent use.
+	VolumeSizes(ctx context.Context) ([]VolumeSize, error)
 	// ContainerStats returns one usage sample of a managed container.
 	ContainerStats(ctx context.Context, id string) (Stats, error)
 	// Exec runs a command (argv form, never a shell string) inside a managed container and

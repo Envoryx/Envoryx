@@ -276,6 +276,8 @@ type updateSettingsRequest struct {
 	SSHAuthorizedKeys *string `json:"sshAuthorizedKeys"`
 	// LogHistory switches the log history and sets its retention.
 	LogHistory *project.LogHistoryUpdate `json:"logHistory"`
+	// MetricsRetentionDays is how long the resource history is kept.
+	MetricsRetentionDays *int `json:"metricsRetentionDays"`
 }
 
 func (a *API) updateSettings(w http.ResponseWriter, r *http.Request) {
@@ -346,6 +348,12 @@ func (a *API) updateSettings(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	if req.MetricsRetentionDays != nil {
+		if _, err := a.d.Projects.SetMetricsRetention(r.Context(), *req.MetricsRetentionDays); err != nil {
+			writeError(w, r, err)
+			return
+		}
+	}
 	if len(changes) > 0 {
 		a.d.Audit.Log(r.Context(), audit.ActionSettingsChanged, "settings", "", changes)
 	}
@@ -407,6 +415,7 @@ func (a *API) settings(w http.ResponseWriter, r *http.Request) {
 		"forceHttps":            a.d.Projects.ForceHTTPS(r.Context()),
 		"projectsFollowEnvoryx": a.d.Projects.ProjectsFollowEnvoryx(r.Context()),
 		"logHistory":            a.d.Projects.LogHistoryInfo(r.Context()),
+		"metrics":               a.d.Projects.MetricsInfo(r.Context()),
 		"xdebugClientHost":      a.d.Projects.XdebugClientHost(r.Context()),
 		"folderViewFolder":      a.d.Projects.FolderViewFolder(r.Context()),
 		"sshAuthorizedKeys":     a.setting(r.Context(), sshd.SettingAuthorizedKeys),

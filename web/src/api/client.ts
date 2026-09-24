@@ -35,6 +35,7 @@ import type {
   RemoteBackup,
   LogFilter,
   LogHistoryInfo,
+  MetricsInfo,
   LogPage,
   LogSummary,
   NotifyConfig,
@@ -45,6 +46,9 @@ import type {
   Project,
   ProjectManifest,
   ProjectStatsResponse,
+  ProjectMetrics,
+  MetricRange,
+  MetricsOverview,
   ResourceLimits,
   ProxyInfo,
   PruneResult,
@@ -196,6 +200,7 @@ export const api = {
   settings: () => request<Settings>("/settings"),
   updateSettings: (body: UpdateSettingsRequest) => request<Settings>("/settings", { method: "PATCH", body }),
   clearLogHistory: () => request<{ logHistory: LogHistoryInfo }>("/settings/log-history", { method: "DELETE" }),
+  clearMetrics: () => request<{ metrics: MetricsInfo }>("/settings/metrics", { method: "DELETE" }),
   notifications: {
     get: () => request<NotifyInfo>("/settings/notifications"),
     set: (body: NotifyConfig) => request<NotifyInfo>("/settings/notifications", { method: "PUT", body }),
@@ -264,6 +269,7 @@ export const api = {
       request<{ project: Project }>(`/projects/${encodeURIComponent(id)}/images`, { method: "POST", body: { image, use } }),
     plan: (id: string) => request<{ plan: Preview }>(`/projects/${encodeURIComponent(id)}/plan`),
     stats: (id: string) => request<ProjectStatsResponse>(`/projects/${encodeURIComponent(id)}/stats`),
+    metrics: (id: string, range: MetricRange) => request<{ metrics: ProjectMetrics }>(`/projects/${encodeURIComponent(id)}/metrics?range=${range}`),
     setLimits: (id: string, body: ResourceLimits) => request<{ project: Project }>(`/projects/${encodeURIComponent(id)}/limits`, { method: "PUT", body }),
     actions: (id: string) => request<{ actions: ActionInfo[] }>(`/projects/${encodeURIComponent(id)}/actions`),
     extras: (id: string) => request<{ services: ExtraServiceInfo[] }>(`/projects/${encodeURIComponent(id)}/extras`),
@@ -288,6 +294,7 @@ export const api = {
       request<{ offsite: OffsiteUpload[] }>(`/instance/backups/${encodeURIComponent(id)}/offsite`, { method: "POST", body: { targets } }),
   },
 
+  metricsOverview: (range: MetricRange) => request<{ overview: MetricsOverview }>(`/metrics/overview?range=${range}`),
   offsite: {
     list: () => request<{ targets: OffsiteTarget[] }>("/offsite"),
     create: (body: OffsiteTargetInput) => request<{ target: OffsiteTarget }>("/offsite/targets", { method: "POST", body }),

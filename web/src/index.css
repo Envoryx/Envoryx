@@ -145,6 +145,18 @@
   /* The logo follows the accent: a mid tone on light, the bright brand tone on dark. */
   --logo-accent: var(--color-accent-500);
   --logo-fg: var(--fg);
+  /* Chart series (categorical, fixed order – validated against the card surface in both
+     modes) and chart chrome. */
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  --series-5: #e87ba4;
+  --series-6: #008300;
+  --series-7: #4a3aa7;
+  --series-8: #e34948;
+  --chart-grid: #eceef1;
+  --chart-axis: #c9ced6;
   color-scheme: light;
 }
 
@@ -157,6 +169,16 @@
   --fg-muted: #9aa1ae;
   --fg-subtle: #6b7280;
   --logo-accent: var(--color-accent-400);
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --series-5: #d55181;
+  --series-6: #008300;
+  --series-7: #9085e9;
+  --series-8: #e66767;
+  --chart-grid: #1f232b;
+  --chart-axis: #343a45;
   color-scheme: dark;
 }
 

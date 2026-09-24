@@ -604,6 +604,46 @@ export interface ContainerUsage {
   memLimit: number;
 }
 
+export type MetricRange = "1h" | "6h" | "24h" | "7d" | "30d" | "90d" | "365d";
+
+/** [ts, cpu %, cpu max %, mem, mem max, rx/s, tx/s, read/s, write/s] */
+export type MetricPoint = [number, number, number, number, number, number, number, number, number];
+
+export interface ProjectMetrics {
+  from: number;
+  to: number;
+  /** Bucket size in seconds. */
+  res: number;
+  containers: { name: string; group: "app" | "services"; points: MetricPoint[] }[];
+  sizes: { kind: "volume" | "files" | "backups"; name: string; points: [number, number][] }[];
+}
+
+export interface ProjectUsageSummary {
+  id: string;
+  name: string;
+  slug: string;
+  cpuAvg: number;
+  cpuMax: number;
+  cpuNow: number;
+  memAvg: number;
+  memMax: number;
+  memNow: number;
+  netRx: number;
+  netTx: number;
+  blkRead: number;
+  blkWrite: number;
+  disk: Partial<Record<"volume" | "files" | "backups", number>>;
+  /** [ts, cpu %, mem] */
+  series: [number, number, number][];
+}
+
+export interface MetricsOverview {
+  from: number;
+  to: number;
+  res: number;
+  projects: ProjectUsageSummary[];
+}
+
 export interface ProjectStatsResponse {
   stats: Usage;
   sampledAt: string;
@@ -859,6 +899,7 @@ export interface UpdateSettingsRequest {
   projectsFollowEnvoryx?: boolean;
   folderViewFolder?: string;
   logHistory?: { enabled?: boolean; retentionDays?: number; maxMb?: number };
+  metricsRetentionDays?: number;
 }
 
 /** Container output kept beyond the containers (Settings → General). */
@@ -872,6 +913,14 @@ export interface LogHistoryInfo {
   usage: { bytes: number; files: number; oldest?: string };
   /** Containers being read right now. */
   following: number;
+}
+
+/** The resource history (Settings → General). */
+export interface MetricsInfo {
+  retentionDays: number;
+  /** Stored samples (all resolutions) and disk space measurements. */
+  samples: number;
+  sizes: number;
 }
 
 export interface SSHInfo {
@@ -899,6 +948,7 @@ export interface Settings {
   /** FolderView3 folder (Unraid plugin) the containers are labelled for; "" = none. */
   folderViewFolder?: string;
   logHistory?: LogHistoryInfo;
+  metrics?: MetricsInfo;
   proxy: ProxyInfo;
   version: string;
   update?: UpdateStatus;
