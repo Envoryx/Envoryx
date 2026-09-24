@@ -394,15 +394,25 @@ func (e *MobyEngine) RestartContainer(ctx context.Context, id string, timeout ti
 	return wrap(err)
 }
 
-// RemoveContainer implements Engine.
+// RemoveContainer implements Engine. A running container is stopped first, as "docker
+// stop" would: removing it by force kills it outright, and a database, Redis or RabbitMQ
+// killed like that loses what it had not written yet (Redis everything since its last
+// snapshot, MongoDB the writes not yet in its journal). Recreating a container after a
+// version or port change goes through here.
 func (e *MobyEngine) RemoveContainer(ctx context.Context, id string) error {
-	if _, err := e.guardContainer(ctx, id); err != nil {
+	c, err := e.guardContainer(ctx, id)
+	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			return nil
 		}
 		return err
 	}
-	_, err := e.cli.ContainerRemove(ctx, id, client.ContainerRemoveOptions{Force: true})
+	if c.State != nil && c.State.Running {
+		// No timeout of our own: the container's stop timeout applies (what "docker stop"
+		// does). A failed stop is not fatal; the forced removal below still takes it.
+		_, _ = e.cli.ContainerStop(ctx, id, client.ContainerStopOptions{})
+	}
+	_, err = e.cli.ContainerRemove(ctx, id, client.ContainerRemoveOptions{Force: true})
 	if err != nil && cerrdefs.IsNotFound(err) {
 		return nil
 	}

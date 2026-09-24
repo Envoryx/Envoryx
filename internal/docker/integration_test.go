@@ -303,3 +303,52 @@ func TestIntegrationRunOneShotWaitsForTheExit(t *testing.T) {
 		t.Fatalf("exit=%d stdout=%q, want 3 / done", res.ExitCode, res.Stdout)
 	}
 }
+
+// Removing a running container gives it the chance to shut down first: a service that
+// writes on SIGTERM (Redis saving its snapshot, a database flushing) keeps that data.
+func TestIntegrationRemoveStopsRunningContainerFirst(t *testing.T) {
+	e := integrationEngine(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	if err := e.EnsureImage(ctx, "alpine:3.20", nil); err != nil {
+		t.Fatal(err)
+	}
+	labels := ManagedLabels(testProject, "integration", "redis", "test")
+	vol := "envoryx-integration-graceful"
+	if err := e.CreateVolume(ctx, vol, labels); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = e.RemoveVolume(context.Background(), vol) })
+	id, err := e.CreateContainer(ctx, ContainerSpec{
+		Name:   "envoryx-integration-graceful",
+		Image:  "alpine:3.20",
+		Labels: labels,
+		// On SIGTERM: write a marker, the way a server flushes before it exits.
+		Cmd:           []string{"sh", "-c", "trap 'echo saved > /data/marker; exit 0' TERM; while true; do sleep 0.2; done"},
+		Mounts:        []MountSpec{{Type: "volume", Source: vol, Target: "/data"}},
+		RestartPolicy: "no",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := e.StartContainer(ctx, id); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(500 * time.Millisecond)
+	if err := e.RemoveContainer(ctx, id); err != nil {
+		t.Fatal(err)
+	}
+	res, err := e.RunOneShot(ctx, ContainerSpec{
+		Name:   "envoryx-integration-graceful-check",
+		Image:  "alpine:3.20",
+		Labels: ManagedLabels(testProject, "integration", "oneshot", "test"),
+		Cmd:    []string{"cat", "/data/marker"},
+		Mounts: []MountSpec{{Type: "volume", Source: vol, Target: "/data"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Stdout != "saved\n" {
+		t.Fatalf("the container was killed instead of stopped: marker %q (exit %d, %s)", res.Stdout, res.ExitCode, res.Stderr)
+	}
+}
