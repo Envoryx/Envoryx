@@ -56,6 +56,9 @@ type Manager struct {
 	notifier  notify.Sender
 	unhealthy map[string]bool // project ids reported as unhealthy (for recovery events)
 
+	cronOnce sync.Once
+	cronRuns *cronState // cron runs in progress (see cronjobs.go)
+
 	// provisioner creates project buckets; nil = the real S3 client. Tests inject a fake.
 	provisioner s3.Provisioner
 	// objectStore builds the client backups use; nil = the real S3 client.

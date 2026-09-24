@@ -28,7 +28,7 @@ jobs:
       - name: Docker integration tests
         # internal/project starts the stateful services (database, Redis, Memcached, Mailpit, RabbitMQ, Meilisearch, Typesense, OpenSearch) with the
         # catalogue's default versions, which is what catches an upstream image changing
-        # its layout under a new project. Every push checks PostgreSQL; the weekly run adds
+        # its layout under a new project; the cron test pulls the Node.js runtime image. Every push checks PostgreSQL; the weekly run adds
         # MariaDB, MySQL and MongoDB, whose images are gigabytes.
         env:
           ENVORYX_TEST_ALL_DATABASES: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '1' || '' }}

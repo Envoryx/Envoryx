@@ -254,7 +254,7 @@ export function DuplicateProjectDialog({ project, open, onClose }: { project: Pr
             />
           )}
           <Checkbox
-            label={t("Copy the workers")}
+            label={t("Copy the workers and cron jobs")}
             description={t("The queue and scheduler definitions of the original.")}
             checked={parts.workers}
             onChange={(e) => setParts({ ...parts, workers: e.target.checked })}

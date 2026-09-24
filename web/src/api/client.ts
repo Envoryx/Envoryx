@@ -49,6 +49,9 @@ import type {
   Worker,
   WorkerPreset,
   WorkerRequest,
+  CronJob,
+  CronJobRequest,
+  CronRun,
 } from "./types";
 
 export class ApiError extends Error {
@@ -217,6 +220,15 @@ export const api = {
       update: (id: string, workerId: string, body: WorkerRequest) =>
         request<{ worker: Worker }>(`/projects/${encodeURIComponent(id)}/workers/${encodeURIComponent(workerId)}`, { method: "PUT", body }),
       remove: (id: string, workerId: string) => request<void>(`/projects/${encodeURIComponent(id)}/workers/${encodeURIComponent(workerId)}`, { method: "DELETE" }),
+    },
+    cron: {
+      list: (id: string) => request<{ jobs: CronJob[]; timezone: string }>(`/projects/${encodeURIComponent(id)}/cron`),
+      add: (id: string, body: CronJobRequest) => request<{ job: CronJob }>(`/projects/${encodeURIComponent(id)}/cron`, { method: "POST", body }),
+      update: (id: string, jobId: string, body: CronJobRequest) => request<{ job: CronJob }>(`/projects/${encodeURIComponent(id)}/cron/${encodeURIComponent(jobId)}`, { method: "PUT", body }),
+      remove: (id: string, jobId: string) => request<void>(`/projects/${encodeURIComponent(id)}/cron/${encodeURIComponent(jobId)}`, { method: "DELETE" }),
+      run: (id: string, jobId: string) => request<{ run: CronRun }>(`/projects/${encodeURIComponent(id)}/cron/${encodeURIComponent(jobId)}/run`, { method: "POST" }),
+      runs: (id: string, jobId: string) => request<{ runs: CronRun[] }>(`/projects/${encodeURIComponent(id)}/cron/${encodeURIComponent(jobId)}/runs`),
+      preview: (schedule: string) => request<{ next: string[]; timezone: string }>(`/cron/preview`, { method: "POST", body: { schedule } }),
     },
     domains: {
       list: (id: string) => request<{ domains: DomainEntry[]; proxy: ProxyInfo }>(`/projects/${encodeURIComponent(id)}/domains`),

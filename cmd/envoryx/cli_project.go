@@ -247,7 +247,7 @@ keeps the original's database credentials, so a checked-in .env keeps working.
   --no-files           do not copy the project directory
   --no-database        do not copy the contents of the database
   --no-storage         do not copy the objects of the bucket
-  --no-workers         do not copy the worker definitions
+  --no-workers         do not copy the worker and cron job definitions
   --no-git             do not copy the repository binding
   --with-dependencies  copy vendor/, node_modules/ and the other caches too
   --start              start the copy once it is ready

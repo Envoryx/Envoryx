@@ -43,6 +43,7 @@ export const auditActionLabels: Record<string, string> = {
   "terminal.opened": "Terminal opened",
   "project.exec": "Command run",
   "action.run": "Action run",
+  "cron.run": "Cron job run",
   "action.finished": "Action finished",
   "git.deploy_key_generated": "Deploy key generated",
   "git.clone": "Repository cloned",

@@ -716,3 +716,66 @@ func TestIntegrationOpenSearch(t *testing.T) {
 		return err
 	})
 }
+
+// TestIntegrationCronJob runs cron jobs in a real application container: the command
+// goes through sh -c as the project owner in the project directory with the project's
+// variables, a non-zero exit is a failure, and coreutils' timeout ends a run that
+// overstays – inside the container, not just on Envoryx's side.
+func TestIntegrationCronJob(t *testing.T) {
+	m := integrationManager(t)
+	ctx := context.Background()
+	view, err := m.Create(ctx, CreateRequest{Name: "Envoryx Integration Cron", CreateStarter: true, Start: true, Node: &NodeRequest{}})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	id, slug := view.Project.ID, view.Project.Slug
+	t.Cleanup(func() {
+		if err := m.Delete(context.Background(), id, DeleteOptions{Confirm: slug, DeleteFiles: true}); err != nil {
+			t.Errorf("cleanup: %v", err)
+		}
+	})
+	run := func(name, command string, timeout time.Duration) store.CronRun {
+		t.Helper()
+		job, err := m.AddCronJob(ctx, id, CronJobRequest{Name: name, Runtime: WorkerRuntimeNode, Schedule: "@daily", Command: command, Timeout: timeout, Enabled: true})
+		if err != nil {
+			t.Fatalf("add %s: %v", name, err)
+		}
+		if _, err := m.RunCronJobNow(ctx, id, job.ID); err != nil {
+			t.Fatalf("run %s: %v", name, err)
+		}
+		m.cron().wg.Wait()
+		runs, err := m.CronRuns(ctx, id, job.ID)
+		if err != nil || len(runs) != 1 {
+			t.Fatalf("runs of %s: %+v %v", name, runs, err)
+		}
+		return runs[0]
+	}
+
+	ok := run("env", `echo "project=$ENVORYX_PROJECT job=$ENVORYX_CRON_JOB uid=$(id -u) dir=$(pwd)" && echo to-stderr >&2`, time.Minute)
+	want := fmt.Sprintf("project=%s job=env uid=%d dir=/var/www/html", slug, os.Getuid())
+	if ok.Status != store.CronSucceeded || !strings.Contains(ok.Output, want) || !strings.Contains(ok.Output, "to-stderr") {
+		t.Fatalf("env run: %s %q, want %q", ok.Status, ok.Output, want)
+	}
+
+	failed := run("fails", "echo about to fail; exit 3", time.Minute)
+	if failed.Status != store.CronFailed || failed.ExitCode != 3 || !strings.Contains(failed.Output, "about to fail") {
+		t.Fatalf("failing run: %+v", failed)
+	}
+
+	start := time.Now()
+	slow := run("slow", "echo started; sleep 60", 2*time.Second)
+	if slow.Status != store.CronTimedOut || time.Since(start) > 30*time.Second || !strings.Contains(slow.Output, "started") {
+		t.Fatalf("timed-out run after %s: %+v", time.Since(start), slow)
+	}
+	c, err := m.ServiceContainer(ctx, id, store.ServiceNode)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := m.engine.Exec(ctx, c.ID, []string{"sh", "-c", "command -v ps >/dev/null || { echo no ps; exit 0; }; ps -eo args | grep -c '[s]leep 60' || true"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.TrimSpace(res.Stdout) != "0" {
+		t.Fatalf("the timed-out command is still running in the container: %q", res.Stdout)
+	}
+}

@@ -833,6 +833,36 @@ the runtime is added – and `AddWorker`/`UpdateWorker` refuse it with
 `ErrConflict`. Status lists them as kind `worker` with `workerId`;
 logs/terminal accept `worker:<id>`.
 
+### Cron jobs
+`project_cron_jobs` (migration 0009: name, runtime, schedule, command,
+timeout, enabled) are commands run on a schedule; `project_cron_runs` keeps
+the last 20 runs per job with status, exit code and the last 64 KB of the
+combined output. `internal/cron` parses the five-field crontab format (lists,
+ranges, steps, month/day names, `@hourly` … `@yearly`, Vixie's either-day
+rule) and computes the next fire time in Envoryx's zone (`TZ`); schedules that
+never fire (30 February) are refused.
+
+There is no cron daemon in the images and no extra container: a run is a
+`docker exec` into the running application container of the job's runtime –
+`timeout -s TERM -k 10 <secs> sh -c <command>` as PUID:PGID in
+`/var/www/html`, with the container's env plus `CI=1` and
+`ENVORYX_CRON_JOB`. The command is free text on purpose (the user could run
+the same in the terminal); what keeps it contained is who runs it and where:
+the project owner inside that project's container, defined only with admin
+scope (run now and the output need operate). coreutils' `timeout` ends the
+command inside the container, which a cancelled exec would not; exit 124/137
+is `timed_out`.
+
+`RunCronScheduler` ticks every 15 seconds. Each job's next time comes from its
+schedule when the scheduler first sees it (the current minute still counts)
+and after every run, so a minute never fires twice, not even in the hour a DST
+change repeats. Jobs only fire while the project is meant to be running and
+ready; missed runs are not caught up. A job that is still running is skipped
+(logged), at most 8 runs go at once. Runs left `running` by a crash become
+`interrupted` at start. Failures raise `cron.failed` (per job, cleared by the
+next success); manual runs are audited (`cron.run`), scheduled ones are not.
+Duplicating with workers copies the jobs without their history.
+
 PHP itself can be added and removed after creation (`PHPUpdate.Enabled`,
 `applyPHPUpdate` in lifecycle.go): adding inserts the service (position
 10) and drops the web service's SPA fallback; removing deletes the

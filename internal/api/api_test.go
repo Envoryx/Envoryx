@@ -1698,3 +1698,96 @@ func TestSearchEndpoints(t *testing.T) {
 		t.Fatalf("opensearch remove: %d %s", r.status, r.raw)
 	}
 }
+
+func TestCronJobsOverHTTP(t *testing.T) {
+	a := newApp(t)
+	a.setupAndLogin()
+	create := map[string]any{"name": "Cron", "createStarter": true, "start": true, "php": map[string]any{"version": "8.4"}}
+	r := a.do(http.MethodPost, "/api/v1/projects", create, true)
+	if r.status != http.StatusCreated {
+		t.Fatalf("create: %d %s", r.status, r.raw)
+	}
+	id := r.body["project"].(map[string]any)["id"].(string)
+	base := "/api/v1/projects/" + id + "/cron"
+
+	r = a.do(http.MethodPost, "/api/v1/cron/preview", map[string]any{"schedule": "0 3 * * *"}, true)
+	if r.status != http.StatusOK || len(r.body["next"].([]any)) != 5 || r.body["timezone"] == "" {
+		t.Fatalf("preview: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodPost, "/api/v1/cron/preview", map[string]any{"schedule": "0 0 30 2 *"}, true)
+	if r.status != http.StatusUnprocessableEntity {
+		t.Fatalf("preview of a schedule that never fires: %d %s", r.status, r.raw)
+	}
+
+	job := map[string]any{"name": "report", "runtime": "php", "schedule": "*/10 * * * *", "command": "echo hello", "timeoutSeconds": 60, "enabled": true}
+	r = a.do(http.MethodPost, base, job, true)
+	if r.status != http.StatusCreated {
+		t.Fatalf("add: %d %s", r.status, r.raw)
+	}
+	jobID := r.body["job"].(map[string]any)["id"].(string)
+	if r.body["job"].(map[string]any)["nextRun"] == nil {
+		t.Fatalf("no next run: %s", r.raw)
+	}
+	r = a.do(http.MethodPost, base, map[string]any{"name": "bad", "runtime": "php", "schedule": "61 * * * *", "command": "true", "enabled": true}, true)
+	if r.status != http.StatusUnprocessableEntity {
+		t.Fatalf("invalid schedule: %d %s", r.status, r.raw)
+	}
+
+	a.engine.StreamHandler = func(_ string, cmd, _ []string, _ []byte) (string, int, error) {
+		if cmd[0] == "timeout" {
+			return "hello\n", 0, nil
+		}
+		return "", 0, nil
+	}
+	r = a.do(http.MethodPost, base+"/"+jobID+"/run", nil, true)
+	if r.status != http.StatusAccepted {
+		t.Fatalf("run: %d %s", r.status, r.raw)
+	}
+	var run map[string]any
+	for i := 0; i < 100; i++ {
+		r = a.do(http.MethodGet, base+"/"+jobID+"/runs", nil, false)
+		if runs := r.body["runs"].([]any); len(runs) == 1 && runs[0].(map[string]any)["status"] != "running" {
+			run = runs[0].(map[string]any)
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if run == nil || run["status"] != "succeeded" || run["output"] != "hello\n" || run["source"] != "manual" {
+		t.Fatalf("run: %v", run)
+	}
+	r = a.do(http.MethodGet, base, nil, false)
+	listed := r.body["jobs"].([]any)[0].(map[string]any)
+	if r.status != http.StatusOK || listed["lastRun"].(map[string]any)["status"] != "succeeded" || listed["lastRun"].(map[string]any)["output"] != nil || r.body["timezone"] == "" {
+		t.Fatalf("list: %d %s", r.status, r.raw)
+	}
+
+	// A read token sees the jobs but neither the output nor the run button.
+	tok := a.do(http.MethodPost, "/api/v1/tokens", map[string]any{"name": "monitor", "scope": "read"}, true)
+	for path, want := range map[string]int{"GET " + base: http.StatusOK, "GET " + base + "/" + jobID + "/runs": http.StatusForbidden, "POST " + base + "/" + jobID + "/run": http.StatusForbidden} {
+		method, url, _ := strings.Cut(path, " ")
+		req, _ := http.NewRequest(method, a.srv.URL+url, nil)
+		req.Header.Set("Authorization", "Bearer "+tok.body["secret"].(string))
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		res.Body.Close()
+		if res.StatusCode != want {
+			t.Errorf("read token %s: %d, want %d", path, res.StatusCode, want)
+		}
+	}
+
+	job["enabled"] = false
+	r = a.do(http.MethodPut, base+"/"+jobID, job, true)
+	if r.status != http.StatusOK || r.body["job"].(map[string]any)["nextRun"] != nil {
+		t.Fatalf("disable: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodDelete, base+"/"+jobID, nil, true)
+	if r.status != http.StatusNoContent {
+		t.Fatalf("delete: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodGet, base+"/"+jobID+"/runs", nil, false)
+	if r.status != http.StatusNotFound {
+		t.Fatalf("runs after delete: %d %s", r.status, r.raw)
+	}
+}
