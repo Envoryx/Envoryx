@@ -433,6 +433,19 @@ func (m *Manager) ensurePlan(ctx context.Context, proj store.Project, plan Plan,
 				ok = false
 			}
 		}
+		if ok && c.Spec.Resources != nil {
+			recreate, err := m.syncResources(ctx, cur, *c.Spec.Resources)
+			if err != nil {
+				return err
+			}
+			if recreate {
+				step(ctx, "Recreating the container {{name}}", "name", cur.Name)
+				if err := m.engine.RemoveContainer(ctx, cur.ID); err != nil {
+					return fmt.Errorf("remove container %s: %w", cur.Name, err)
+				}
+				ok = false
+			}
+		}
 		id := cur.ID
 		if !ok {
 			if err := m.engine.EnsureImage(ctx, c.Spec.Image, m.pullProgress(ctx, proj.Slug, c.Spec.Image)); err != nil {

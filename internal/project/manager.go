@@ -55,6 +55,9 @@ type Manager struct {
 	activity []Activity // autonomous actions since start, newest first (see activity.go)
 
 	notifier notify.Sender
+	// oom remembers recent OOM kills for the project warnings (see oom.go).
+	oom     *oomLog
+	oomOnce sync.Once
 	// backupHook is told about every backup created (offsite uploads).
 	backupHook func(projectID string, b BackupInfo)
 	unhealthy  map[string]bool // project ids reported as unhealthy (for recovery events)
@@ -237,6 +240,9 @@ func (m *Manager) buildProject(req CreateRequest) (store.Project, error) {
 	if err != nil {
 		return store.Project{}, fmt.Errorf("document root: %w", err)
 	}
+	if err := validateLimits(req.Limits, 0, 0); err != nil {
+		return store.Project{}, err
+	}
 
 	proj := store.Project{
 		ID:           store.NewID(),
@@ -246,6 +252,7 @@ func (m *Manager) buildProject(req CreateRequest) (store.Project, error) {
 		Docroot:      docroot,
 		DesiredState: store.DesiredStopped,
 		Lifecycle:    store.LifecycleCreating,
+		Limits:       req.Limits,
 	}
 	if req.Start {
 		proj.DesiredState = store.DesiredRunning
@@ -950,6 +957,7 @@ func (m *Manager) List(ctx context.Context) ([]View, error) {
 		if w := m.venvWarning(p); w != "" {
 			st.Warnings = append(st.Warnings, w)
 		}
+		st.Warnings = append(st.Warnings, m.oomWarnings(p.ID)...)
 		st.Operation = m.progress.active(p.ID)
 		views = append(views, View{Project: p, Status: st, HTTPPort: p.HTTPPort})
 	}
@@ -977,6 +985,7 @@ func (m *Manager) Get(ctx context.Context, id string) (View, error) {
 	if w := m.venvWarning(p); w != "" {
 		st.Warnings = append(st.Warnings, w)
 	}
+	st.Warnings = append(st.Warnings, m.oomWarnings(p.ID)...)
 	st.Operation = m.progress.active(p.ID)
 	return View{Project: p, Status: st, HTTPPort: p.HTTPPort}, nil
 }

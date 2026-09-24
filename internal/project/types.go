@@ -51,6 +51,8 @@ type CreateRequest struct {
 	CreateStarter bool
 	// Start starts the project right after creation.
 	Start bool
+	// Limits cap CPU, memory and processes of the containers (zero: none).
+	Limits store.ResourceLimits
 }
 
 // PHPRequest selects the PHP runtime.

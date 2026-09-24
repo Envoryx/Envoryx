@@ -131,6 +131,13 @@ func (c *cli) projectShow(ctx context.Context, args []string) error {
 	if p.Git.URL != "" {
 		c.printf("  Git       %s (%s)\n", p.Git.URL, p.Git.Branch)
 	}
+	if l := p.Limits; l.App != (limitSet{}) || l.Services != (limitSet{}) || l.Pids != 0 {
+		pids := l.Pids
+		if pids == 0 {
+			pids = 4096
+		}
+		c.printf("  Limits    app %s · services %s · %d processes (per container)\n", l.App, l.Services, pids)
+	}
 	if p.LastError != "" {
 		c.printf("  Error     %s\n", p.LastError)
 	}

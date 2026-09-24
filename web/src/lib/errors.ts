@@ -71,6 +71,10 @@ const templates = [
   "archive entry \"{{entry}}\" escapes the project directory",
   "expected running but observed {{state}}",
   "{{lifecycle}} was interrupted by an Envoryx restart; review the project and retry or delete it",
+  "{{container}} ran out of memory {{times}} times, last at {{time}} (limit {{limit}} MiB); processes were killed",
+  "{{container}} ran out of memory at {{time}} (limit {{limit}} MiB); a process was killed",
+  "{{container}} ran out of memory {{times}} times, last at {{time}}; processes were killed",
+  "{{container}} ran out of memory at {{time}}; a process was killed",
 ];
 
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

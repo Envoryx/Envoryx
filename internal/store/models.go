@@ -83,8 +83,10 @@ type Project struct {
 	// IDEGateway allows JetBrains Gateway sessions: SSH port forwarding into the
 	// application containers and a shared IDE backend cache mount.
 	IDEGateway bool
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
+	// Limits caps CPU, memory and processes of the project's containers.
+	Limits    ResourceLimits
+	CreatedAt time.Time
+	UpdatedAt time.Time
 
 	Services []ProjectService
 	Env      []EnvVar
@@ -101,6 +103,37 @@ func (p Project) ImageRecord(image string) *ProjectImage {
 		}
 	}
 	return nil
+}
+
+// LimitSet caps one group of containers; zero values mean no limit.
+type LimitSet struct {
+	// CPUs is the number of cores each container may use (1.5 = one and a half).
+	CPUs float64 `json:"cpus,omitempty"`
+	// MemoryMB is the memory of each container in MiB.
+	MemoryMB int `json:"memoryMb,omitempty"`
+}
+
+// IsZero reports a set without limits.
+func (l LimitSet) IsZero() bool { return l.CPUs == 0 && l.MemoryMB == 0 }
+
+// ResourceLimits are the limits of a project: one set for the application containers
+// (web server, PHP, Node, Python, workers), one for the services (database, Redis,
+// search, storage …), and the process limit of every container (0 = Envoryx's default).
+type ResourceLimits struct {
+	App      LimitSet `json:"app"`
+	Services LimitSet `json:"services"`
+	Pids     int      `json:"pids,omitempty"`
+}
+
+// IsZero reports limits that were never set.
+func (l ResourceLimits) IsZero() bool { return l.App.IsZero() && l.Services.IsZero() && l.Pids == 0 }
+
+func (l ResourceLimits) encode() string {
+	if l.IsZero() {
+		return ""
+	}
+	b, _ := json.Marshal(l)
+	return string(b)
 }
 
 // BackupSchedule configures automatic backups of a project.

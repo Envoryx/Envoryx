@@ -746,6 +746,7 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 	for i := range plan.Containers {
 		docker.AddUnraidLabels(plan.Containers[i].Spec.Labels, p.paths.FolderViewFolder)
 		plan.Containers[i].Spec.Labels[docker.LabelSpec] = specFingerprint(plan.Containers[i].Spec)
+		plan.Containers[i].Spec.Resources = containerResources(proj.Limits, plan.Containers[i].Kind)
 	}
 	sort.SliceStable(plan.Containers, func(i, j int) bool { return plan.Containers[i].Order < plan.Containers[j].Order })
 	for img := range images {

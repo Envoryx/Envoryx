@@ -584,6 +584,37 @@ Outside Docker the proxy dials the project's published port
 needs `setcap cap_net_bind_service=+ep ./envoryx` or other addresses
 (`ENVORYX_PROXY_HTTP=:8080`).
 
+## Resource limits
+
+A project's **Advanced** tab caps what its containers may use, so a runaway
+queue worker or Node process cannot take the whole server:
+
+- **Application containers** (web server, PHP, Node.js, Python, every worker)
+  and **services** (database, Redis, Memcached, Mailpit, RabbitMQ, the search
+  engines, object storage) each get CPU cores (e.g. `1.5`) and memory. Docker
+  limits containers one by one, so the numbers apply to *each* container of
+  the group – a project with PHP, Node and two workers may use four times the
+  application limit. A project-wide total would need a cgroup on the host that
+  Envoryx cannot manage from its container.
+- **Processes per container** (default 4096) stops fork bombs and worker pools
+  that keep spawning. It applies to every container, also without other
+  limits.
+- Empty means no limit, which is also where every project starts. OpenSearch
+  needs at least 1.5 GiB.
+
+Changes reach running containers right away through `docker update`; only
+removing a CPU or memory limit recreates the containers concerned (Docker
+cannot lift one in place). Swap is not added on top of the memory limit. The
+card shows each running container's CPU and memory against its limit.
+
+When a container reaches its memory limit, the kernel ends a process in it –
+the main process (the container restarts) or just a child such as a php-fpm
+worker or a queue job, while the container keeps running. Envoryx follows
+Docker's OOM events: the project shows a warning for a day ("php ran out of
+memory at 14:03 (limit 512 MiB); a process was killed") and a notification
+goes out (event `project.oom`, on by default). The limits also go into the project manifest
+(`limits:` in `envoryx.yml`) and show up in `envoryx project show`.
+
 ## Stopping and restarting
 
 Project operations – creating, starting, restarting, updating, deleting a
@@ -1066,8 +1097,8 @@ PhpStorm/VS Code settings. Turn it off when you are done: it slows PHP down.
 Settings → **Notifications**: pick a channel (ntfy, Discord or Slack
 webhook, Telegram bot, e-mail via SMTP, or a generic JSON webhook), choose
 the events and send a test. Events: a project that should be running is
-stopped/broken (and when it recovers), project creation failed, backup
-failed, Let's Encrypt renewal failed/succeeded, Envoryx started, Envoryx
+stopped/broken (and when it recovers), project creation failed, a container
+ran out of memory (see *Resource limits*), backup failed, Let's Encrypt renewal failed/succeeded, Envoryx started, Envoryx
 failed (refused to start – corrupt database, network filesystem, failed
 migration – or a background task crashed and was restarted). Repeats are
 throttled (unhealthy project once per 6 h, failed renewal once per day). The
@@ -1280,6 +1311,10 @@ workers:
   - {name: queue, preset: "laravel:queue", arg: default}
 cron:
   - {name: prune, schedule: "0 3 * * *", command: php artisan model:prune, timeout: 5m}
+limits:                          # per container; see "Resource limits"
+  app: {cpus: 2, memory: 2G}
+  services: {memory: 1G}
+  pids: 4096
 ```
 
 `node:` and `python:` take the fields of the wizard (`devServer`, `preset`,

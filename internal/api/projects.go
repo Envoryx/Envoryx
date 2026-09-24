@@ -12,6 +12,7 @@ import (
 	"github.com/envoryx/envoryx/internal/docker"
 	"github.com/envoryx/envoryx/internal/project"
 	"github.com/envoryx/envoryx/internal/runtime"
+	"github.com/envoryx/envoryx/internal/stats"
 	"github.com/envoryx/envoryx/internal/store"
 	"github.com/envoryx/envoryx/internal/validate"
 )
@@ -92,6 +93,8 @@ type projectDTO struct {
 	DevHostname    string            `json:"devHostname,omitempty"`
 	BackupSchedule backupScheduleDTO `json:"backupSchedule"`
 	IDEGateway     bool              `json:"ideGateway"`
+	// Limits cap CPU, memory and processes of the containers (zero values: none).
+	Limits store.ResourceLimits `json:"limits"`
 	// Serves says what the primary host name reaches: "php", "python" (application
 	// server), "node" (dev server) or "static"; AppService is the application container's
 	// kind (php, python, node), absent for static sites.
@@ -429,6 +432,7 @@ func (a *API) withHostnames(r *http.Request, dto projectDTO, p store.Project) pr
 	}
 	dto.BackupSchedule = toSchedule(p.Backup)
 	dto.IDEGateway = p.IDEGateway
+	dto.Limits = p.Limits
 	if svc := p.Service(store.ServiceNode); svc != nil && svc.Enabled && len(svc.Config) > 0 {
 		var cfg runtime.NodeConfig
 		if json.Unmarshal(svc.Config, &cfg) == nil && cfg.DevServer {
@@ -708,6 +712,22 @@ func (a *API) projectPlan(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"plan": pv})
 }
 
+// setLimits changes a project's resource limits: PUT /projects/{id}/limits. Running
+// containers get them right away.
+func (a *API) setLimits(w http.ResponseWriter, r *http.Request) {
+	var req store.ResourceLimits
+	if err := decodeJSON(w, r, &req); err != nil {
+		writeError(w, r, err)
+		return
+	}
+	view, err := a.d.Projects.SetLimits(r.Context(), r.PathValue("id"), req)
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"project": a.project(r, view)})
+}
+
 func (a *API) projectStats(w http.ResponseWriter, r *http.Request) {
 	view, err := a.d.Projects.Get(r.Context(), r.PathValue("id"))
 	if err != nil {
@@ -720,5 +740,26 @@ func (a *API) projectStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	usage := summary.PerProject[view.Project.ID]
-	writeJSON(w, http.StatusOK, map[string]any{"stats": usage, "sampledAt": summary.SampledAt})
+	// Each container with the limits it runs under, so usage can be shown against them.
+	type containerDTO struct {
+		stats.ContainerStats
+		Group    string  `json:"group"`
+		CPULimit float64 `json:"cpuLimit"` // cores, 0 = none
+		MemLimit int64   `json:"memLimit"` // bytes, 0 = none
+	}
+	containers := []containerDTO{}
+	for _, c := range usage.PerContainer {
+		kind := store.ServiceKind(c.Service)
+		set := view.Project.Limits.App
+		if project.LimitGroup(kind) == "services" {
+			set = view.Project.Limits.Services
+		}
+		containers = append(containers, containerDTO{ContainerStats: c, Group: project.LimitGroup(kind), CPULimit: set.CPUs, MemLimit: int64(set.MemoryMB) << 20})
+	}
+	usage.PerContainer = nil
+	body := map[string]any{"stats": usage, "containers": containers, "limits": view.Project.Limits, "sampledAt": summary.SampledAt}
+	if info, err := a.d.Engine.Ping(r.Context()); err == nil {
+		body["host"] = map[string]any{"cpus": info.NCPU, "memory": info.MemTotal}
+	}
+	writeJSON(w, http.StatusOK, body)
 }

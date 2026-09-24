@@ -44,6 +44,8 @@ import type {
   Preview,
   Project,
   ProjectManifest,
+  ProjectStatsResponse,
+  ResourceLimits,
   ProxyInfo,
   PruneResult,
   RuntimesResponse,
@@ -54,7 +56,6 @@ import type {
   UnusedImage,
   UpdateProjectRequest,
   UpdateSettingsRequest,
-  Usage,
   User,
   Worker,
   WorkerPreset,
@@ -262,7 +263,8 @@ export const api = {
     useImage: (id: string, image: string, use: "previous" | "latest") =>
       request<{ project: Project }>(`/projects/${encodeURIComponent(id)}/images`, { method: "POST", body: { image, use } }),
     plan: (id: string) => request<{ plan: Preview }>(`/projects/${encodeURIComponent(id)}/plan`),
-    stats: (id: string) => request<{ stats: Usage; sampledAt: string }>(`/projects/${encodeURIComponent(id)}/stats`),
+    stats: (id: string) => request<ProjectStatsResponse>(`/projects/${encodeURIComponent(id)}/stats`),
+    setLimits: (id: string, body: ResourceLimits) => request<{ project: Project }>(`/projects/${encodeURIComponent(id)}/limits`, { method: "PUT", body }),
     actions: (id: string) => request<{ actions: ActionInfo[] }>(`/projects/${encodeURIComponent(id)}/actions`),
     extras: (id: string) => request<{ services: ExtraServiceInfo[] }>(`/projects/${encodeURIComponent(id)}/extras`),
     logs: (id: string, kind: string, filter: LogFilter = {}, tail = 500) =>

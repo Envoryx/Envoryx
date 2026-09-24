@@ -61,6 +61,7 @@ var Kinds = []struct {
 }{
 	{"project.unhealthy", "A project that should be running is stopped or broken (and when it recovers)", true},
 	{"project.failed", "Creating a project failed and was rolled back", true},
+	{"project.oom", "A container ran out of memory and the kernel killed a process in it", true},
 	{"acme.failed", "Let's Encrypt certificate could not be issued or renewed", true},
 	{"acme.renewed", "Let's Encrypt certificate issued or renewed", false},
 	{"backup.failed", "A backup could not be created", true},
@@ -164,6 +165,7 @@ var cooldown = map[string]time.Duration{
 	"project.unhealthy": 6 * time.Hour,
 	"acme.failed":       24 * time.Hour,
 	"backup.failed":     time.Hour,
+	"project.oom":       time.Hour,
 	"storage.low":       24 * time.Hour,
 }
 
