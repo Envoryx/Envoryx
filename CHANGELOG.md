@@ -10,28 +10,9 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.7.0] – 2026-09-24
+
 ### Added
-- More DNS providers for the Let's Encrypt wildcard certificate: Hetzner
-  (through the Hetzner Cloud API – the old DNS Console API was shut down in May
-  2026), netcup, Amazon Route 53, DigitalOcean and Porkbun, next to
-  Cloudflare. The settings ask for each provider's own credentials (netcup:
-  customer number, API key and password; Route 53: access key and secret,
-  optionally the hosted zone) and keep the secret ones out of every answer. A
-  stored Cloudflare token is taken over as it is.
-- Offsite backups: *Settings → Backups* takes targets – S3-compatible storage
-  (AWS, Backblaze B2, Wasabi, Hetzner Object Storage, Cloudflare R2, MinIO),
-  SFTP (Hetzner Storage Box, NAS; the server key is pinned) or WebDAV
-  (Nextcloud, ownCloud) – with a connection test. Scheduled project backups go
-  up by themselves, a daily instance backup at a chosen hour too, everything
-  else with *Copy offsite* or *Also copy offsite*; each target keeps its own
-  number of scheduled copies. Archives are optionally encrypted with age
-  (scrypt passphrase) before they leave the host. Failed uploads are retried
-  with growing pauses and reported through the *Backup failed* notification.
-  The Backups tab shows each copy's state and lists what a target holds for the
-  project, deleted backups included; *Fetch* brings one back. A fresh Envoryx
-  fetches its instance backup from the target the same way – disaster
-  recovery in four steps (DEPLOYMENT.md → *Offsite backups*). CLI: `envoryx
-  backup create --offsite`, `backup offsite`, `backup remote`, `backup fetch`.
 - Project manifest `envoryx.yml`: runtimes (with PHP extensions and ini
   settings), web server, database, services, domains, environment (secrets by
   name only), workers and cron jobs as a file in the repository. `envoryx up`
@@ -66,17 +47,42 @@ release). `:main` follows the development branch.
   General → Log history*, which also shows the space used and can delete the
   history. Deleting a project deletes its history; instance backups leave it
   out.
+- Offsite backups: *Settings → Backups* takes targets – S3-compatible storage
+  (AWS, Backblaze B2, Wasabi, Hetzner Object Storage, Cloudflare R2, MinIO),
+  SFTP (Hetzner Storage Box, NAS; the server key is pinned) or WebDAV
+  (Nextcloud, ownCloud) – with a connection test. Scheduled project backups go
+  up by themselves, a daily instance backup at a chosen hour too, everything
+  else with *Copy offsite* or *Also copy offsite*; each target keeps its own
+  number of scheduled copies. Archives are optionally encrypted with age
+  (scrypt passphrase) before they leave the host. Failed uploads are retried
+  with growing pauses and reported through the *Backup failed* notification.
+  The Backups tab shows each copy's state and lists what a target holds for the
+  project, deleted backups included; *Fetch* brings one back. A fresh Envoryx
+  fetches its instance backup from the target the same way – disaster
+  recovery in four steps (DEPLOYMENT.md → *Offsite backups*). CLI: `envoryx
+  backup create --offsite`, `backup offsite`, `backup remote`, `backup fetch`.
+- More DNS providers for the Let's Encrypt wildcard certificate: Hetzner
+  (through the Hetzner Cloud API – the old DNS Console API was shut down in May
+  2026), netcup, Amazon Route 53, DigitalOcean and Porkbun, next to
+  Cloudflare. The settings ask for each provider's own credentials (netcup:
+  customer number, API key and password; Route 53: access key and secret,
+  optionally the hosted zone) and keep the secret ones out of every answer. A
+  stored Cloudflare token is taken over as it is.
 
 ### Fixed
+- `envoryx project create --database postgres` (as the help text suggests)
+  was refused by the server, which only knows `postgresql`. The CLI now maps
+  `postgres`, `pg` and `pgsql` to it, also in `--from-json`.
+- Downloading a project backup left out the object storage archive
+  (`storage.tar.gz`); the download now carries everything the backup holds.
+- Starting a project whose directory was missing – on a fresh host after a
+  recovery, or removed by hand – let Docker create it for the bind mount,
+  owned by root, so the application could not write to it. Envoryx now
+  creates it as the project user first.
 - The certificate check waited for the challenge record at 1.1.1.1; asking
   before the record existed could get the "does not exist" cached for as long
   as the zone allows. Envoryx now asks the zone's own name servers and waits
   until all of them serve the record.
-- Downloading a project backup left out the object storage archive
-  (`storage.tar.gz`); the download now carries everything the backup holds.
-- `envoryx project create --database postgres` (as the help text suggests)
-  was refused by the server, which only knows `postgresql`. The CLI now maps
-  `postgres`, `pg` and `pgsql` to it, also in `--from-json`.
 
 ## [0.6.0] – 2026-09-24
 
@@ -662,7 +668,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/envoryx/envoryx/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/envoryx/envoryx/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/envoryx/envoryx/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/envoryx/envoryx/compare/v0.3.0...v0.4.0
