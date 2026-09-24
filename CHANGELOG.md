@@ -10,208 +10,9 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.6.0] – 2026-09-24
+
 ### Added
-- Cron jobs: any command on a schedule, not only the Laravel and Symfony worker
-  presets. The new Cron tab builds the schedule (every few minutes, hourly, daily,
-  weekly, monthly) or takes a cron expression and shows the next runs; templates
-  start from the Laravel scheduler, a Symfony or Django command, an npm script or a
-  script. Envoryx runs the command in the project's PHP, Python or Node.js container
-  as the project owner, through `sh -c` and bounded by a timeout (default 10
-  minutes), only while the project runs and never twice at once. "Run now", the last
-  20 runs with their output, and a `cron.failed` notification. Schedules use
-  Envoryx's time zone (`TZ`). Duplicating a project with its workers copies the jobs.
-- OpenSearch Dashboards as an option of OpenSearch – a checkbox in the wizard and on the
-  OpenSearch card of the Services tab, `envoryx project create --opensearch-dashboards`
-  and `opensearchDashboards` in the MCP `create_project` tool. The web UI (Dev Tools
-  console, index management, Discover) gets a host port of its own and a link on the
-  Services and IDE tabs; it always runs OpenSearch's version and goes when OpenSearch
-  goes. The image is about 2.6 GB, the container needs roughly 400 MB of RAM.
-- OpenSearch as an optional Elasticsearch-compatible search engine (3.8, or 2.19) – in
-  the wizard, on the Services and IDE tabs, in `envoryx project create --opensearch`,
-  the MCP `create_project` tool and the logs endpoints. It runs as a single development
-  node with its indices in a volume, over plain HTTP without login (security plugin
-  off) and with a 512 MB heap (about 1 GB of RAM); the port is published on request.
-  The application gets `OPENSEARCH_HOST`, `OPENSEARCH_PORT`, `OPENSEARCH_SCHEME` and
-  `OPENSEARCH_URL` (`http://opensearch:9200`). `ELASTICSEARCH_*` is left to the
-  application: current Elasticsearch clients refuse to talk to OpenSearch.
-- Meilisearch and Typesense as optional search engines – in the wizard, on the Services
-  tab, in `envoryx project create --meilisearch`/`--typesense`, the MCP
-  `create_project` tool and the logs endpoints. Both keep their index in a volume and
-  run with a generated key that only leaves the backend through the operate-scoped
-  `/meilisearch/credentials` and `/typesense/credentials` endpoints ("Show master
-  key"/"Show API key" on the Services tab). Meilisearch 1.54 always publishes its port,
-  where its web dashboard lives; Typesense 30.2 publishes on request. The application
-  gets the names Laravel Scout reads (`MEILISEARCH_HOST`/`MEILISEARCH_KEY`,
-  `TYPESENSE_HOST`/`TYPESENSE_PORT`/`TYPESENSE_PROTOCOL`/`TYPESENSE_API_KEY`) plus
-  `MEILISEARCH_URL`/`MEILISEARCH_API_KEY` (Symfony's meilisearch-bundle) and
-  `TYPESENSE_URL`. `SCOUT_DRIVER` is left to the application, so a project indexing
-  with another driver does not silently switch. The IDE tab lists both connections.
-- Memcached as an optional cache next to Redis – in the wizard, on the Services tab, in
-  `envoryx project create --memcached` and the MCP `create_project` tool. It keeps
-  everything in memory (no volume, so removing it needs no confirmation), publishes
-  its port on the host on request and injects `MEMCACHED_HOST`, `MEMCACHED_PORT` (what
-  Laravel's memcached store reads) and `MEMCACHED_URL` (`memcached://memcached:11211`
-  for Symfony's MemcachedAdapter).
-- The PHP images carry the `redis`, `memcached` and `amqp` extensions, switched off like
-  the others. Laravel talks to Redis through phpredis unless told otherwise, and
-  Symfony's AMQP transport and MemcachedAdapter need their extension, so Redis,
-  Memcached and RabbitMQ were only half usable from PHP. The wizard switches the
-  extension on together with the service, adding a service on the Services tab does
-  the same, and a service whose extension is off offers to switch it on. The images
-  are rebuilt when this reaches `main`; until a project runs the new image, PHP logs
-  that it cannot load the extension.
-- RabbitMQ as an optional service next to Redis and Mailpit (4.3, or 4.2), in the
-  wizard, on the Services tab, in `envoryx project create --rabbitmq` and the MCP
-  `create_project` tool. The broker keeps its data in a volume, the management UI is
-  published on a port of its own, the AMQP port on request. Envoryx generates a login
-  and injects `RABBITMQ_HOST`, `RABBITMQ_PORT`, `RABBITMQ_USER`, `RABBITMQ_PASSWORD`,
-  `RABBITMQ_VHOST` and `RABBITMQ_URL` (`amqp://…@rabbitmq:5672/%2f`) – the names
-  laravel-queue-rabbitmq reads, and a URL for Symfony Messenger, php-amqplib, amqplib
-  and Celery. `MESSENGER_TRANSPORT_DSN` stays yours to set – in Symfony's `.env`,
-  `MESSENGER_TRANSPORT_DSN=${RABBITMQ_URL}/messages` – because injecting it would
-  quietly move a Doctrine transport to AMQP. The password is shown on the Services tab
-  on request (operate scope, like database credentials); the IDE tab lists the
-  connection for desktop clients next to the database and Mailpit.
-- SSH remote forwarding (`ssh -R`) into project containers. A process in the container
-  reaches the client through a port on the container's localhost: socat listens there
-  and connects each connection to Envoryx on the project network, which accepts only the
-  container's address and hands the connection to the client. PyCharm's SSH interpreter
-  needs this to run anything. The listener ends with the forward or the SSH connection.
-- The IDE tab explains how to open a project in PhpStorm, WebStorm & co. over SFTP.
-  The embedded SSH server has served SFTP all along, but nothing said so, and the
-  obvious route was the network share. A new card lists the deployment settings
-  (host, port, user, root path `/var/www/html`, web server URL) and walks through
-  PhpStorm's *New Project from Existing Files* wizard, checked step by step against
-  PhpStorm 2026.2: a local copy that uploads on save, and how to fetch what
-  `composer install` or `npm install` changed in the container. The host key is now
-  also shown as MD5, the form PhpStorm asks you to confirm – the SHA256 value alone
-  could not be compared.
-- Project containers resolve the project domains. `http://shop.test` used to fail
-  inside a container unless the Docker host itself asked a DNS server with the
-  wildcard entry, and with Envoryx on its own `br0` IP the address was unreachable
-  from there anyway. Envoryx now carries every host name the proxy serves as a
-  network alias on each project network, so Docker's DNS answers them with Envoryx's
-  address on that network. An application can call its own URL, and projects reach
-  each other. Names added meanwhile arrive when a project next starts.
-- DNS setup guide under *Settings → Domains & HTTPS*. A single wildcard entry
-  sends every project name to Envoryx. The card shows that entry for AdGuard Home,
-  Pi-hole, dnsmasq/OpenWrt and Unbound (pfSense, OPNsense), with Envoryx's address
-  already filled in and a copy button. For routers without wildcard records, such as
-  a FritzBox, it shows the hosts-file line with every current project name.
-  DEPLOYMENT.md no longer sends Pi-hole users to *Local DNS records*, which cannot
-  hold a wildcard.
-- Tidier Unraid Docker tab. Envoryx's containers now carry the Envoryx icon
-  (`net.unraid.docker.icon`) instead of the question mark, and can go into a
-  [FolderView3](https://github.com/kennymc-c/folder.view3) folder automatically: enter
-  the folder name under *Settings → General → Unraid Docker page* and every project
-  container, and the database browser, gets the label `folder.view3=<name>`. Create
-  the folder in FolderView3 with the same name. Labels are set when a container is
-  created, so projects move into the folder the next time they start. Without the
-  setting nothing is recreated. The icon appears whenever a container is next created
-  anyway, for example after a runtime update. A FolderView3 folder with the regex
-  `^envoryx-` works too, with no setting at all.
-- Database snapshots and cloning – the two things a day of development keeps asking for:
-  the dump you take before a migration, and the data of another project in your own.
-  *Snapshots* on the project's Database tab dumps the primary database and nothing else,
-  with a note like "before the orders migration", and puts it back with one click. The
-  project does not have to be running for either: a stopped database container is started
-  for the dump or the import and stopped again afterwards. Snapshots are ordinary backups
-  under `/config/backups/<slug>/` – they show up in the Backups tab, can be downloaded and
-  restore through the same verified path – so the dump a database version upgrade insists
-  on appears among them too, ready to be put back. They roll: the ten newest of a project
-  are kept, so taking one before every migration does not fill the disk, and scheduled
-  backups and anything made by hand are never touched by that.
-  *Clone from another project* replaces this project's database contents with another's –
-  staging into local – as long as both run the same engine. The dump is piped straight
-  from one container's client into the other's, so nothing is written to disk in between
-  and a project of a few hundred megabytes is done in seconds. The source is only read,
-  both projects are locked for the duration, and the target is snapshotted first unless
-  that is switched off, so there is a way back. Overwriting a database asks for the
-  project's identifier to be typed out, as restoring does.
-  On the command line: `envoryx db snapshot shop --note "before the migration"`,
-  `envoryx db snapshots shop`, `envoryx db restore shop <id> --yes` and
-  `envoryx db clone local --from staging --yes` (`--no-snapshot` skips the safety net).
-  Over MCP an assistant can take and list snapshots (`create_snapshot`, `list_snapshots`);
-  putting one back and cloning over a database stay out, like restoring a backup.
-- Rename a project. Until now the identifier a project was created with was final: the
-  displayed name could be edited, but `shop.test`, `envoryx-shop-php` and the database
-  `shop` stayed whatever they were. *Rename* on the project page (and `envoryx project
-  rename shop "Acme Blog" --yes`, and `rename_project` over MCP) now moves the lot:
-  identifier and display name, the URL and the `-dev`/`-s3` host names, container,
-  network and volume names, the SSH users the IDE connects with, the project directory,
-  the backup directory and the rollback image tags. The database, its login and the
-  object storage bucket travel too unless *Keep the database and bucket names* says
-  otherwise – handy when a committed `.env` or an external client has the old name
-  written into it.
-  Docker can rename none of these, so the containers and the network are recreated from
-  the new plan, the volumes are copied into their new names with a throw-away container
-  from the project's own web image (nothing is pulled) and the old ones removed. The
-  database moves the way it has to: PostgreSQL renames database and role in place, the
-  others create the new database and stream the dump of the old one into it before
-  dropping it, and MongoDB maps the namespace on the way. The bucket's objects are
-  copied into the new bucket and the old one is dropped.
-  The order is chosen so that a failure costs as little as possible: everything that can
-  be checked is checked before the first container stops, the project record is renamed
-  before any data moves and put back when the move fails, and old data is only dropped
-  once the new copy is complete. A project that was running is running again at the end,
-  and the current identifier has to be typed out to start any of it.
-- Duplicate a project. *Duplicate* on the project page copies an existing
-  project into a new one – `shop` → `shop-test` – with its configuration:
-  runtimes and their settings, web server, services, environment variables,
-  workers and the repository binding. The parts that hold data are checkboxes
-  and default to on: the project directory (without `vendor/`,
-  `node_modules/` and the other regenerable directories unless asked), the
-  contents of the database and the objects of the bucket. Extra domains and
-  the backup schedule are never copied – host names are unique, and a copy
-  made to try something out should not inherit the original's scheduled
-  backups.
-  The copy is its own project in every way that has to be: new id, slug,
-  directory, network, volumes, containers, and a fresh host port wherever the
-  original published one. What it keeps are the generated credentials –
-  database name, user and passwords, the bucket and its keys – because each
-  project has its own server, network and volume anyway, while a `.env` that
-  lives in the project files would otherwise point into the void, and the dump
-  restores one to one (a renamed database would need `--nsFrom/--nsTo` for
-  MongoDB and rewritten grants elsewhere).
-  Nothing goes through a temporary file: the files are copied straight across,
-  the dump of the original is piped into the client of the copy, and the
-  bucket is read object by object. A database or storage container that is
-  not running is started for the transfer and stopped again afterwards, so a
-  stopped project can be copied as it is, and a copy is not started unless
-  that was asked for. Any failure rolls the copy back completely, including
-  the directory it created. `POST /api/v1/projects/{id}/duplicate` is the
-  endpoint (admin scope; a token confined to particular projects may not
-  create new ones), `envoryx project duplicate shop "Shop Test"
-  [--no-files|--no-database|…]` the command, `duplicate_project` the MCP tool.
-- Command line. The Envoryx binary is now its own client: `envoryx project
-  list/show/create/start/stop/restart/delete/logs/exec/run`, `envoryx backup
-  list/create/restore/download/delete`, `envoryx git status/pull/checkout` and
-  `envoryx login/logout/whoami`. Everything goes through the REST API with an
-  API token, so a token's scope and project restriction apply exactly as they
-  do in the web interface and for MCP, and every command lands in the audit
-  log under the token's name – the CLI has no database handle and no Docker
-  socket of its own. On the host the container's binary is enough (`docker
-  exec -it envoryx envoryx project list`): inside the container the address is
-  known and only the token is missing. Elsewhere `envoryx login --url …`
-  checks the token before storing it in `~/.config/envoryx/cli.json` (mode
-  0600), and `ENVORYX_URL`/`ENVORYX_TOKEN` work without a file at all, which
-  is what CI wants. A project is named by its name, its slug or its id;
-  `--json` hands the API's own answer to `jq`; `--ca-cert` trusts the local
-  CA on a workstation. Commands exit 0 on success, 1 on failure and 2 on a
-  usage error.
-- `envoryx project exec <project> -- <command>` runs a command in a project
-  container and hands its exit code to the calling shell, so
-  `envoryx project exec shop -- php artisan migrate --force || rollback` does
-  what it reads like. stdout and stderr stay apart, stdin is piped in (up to
-  512 KiB), and the command runs as the project owner in the project
-  directory – where the browser terminal also starts. It is backed by a new
-  endpoint, `POST /api/v1/projects/{id}/services/{kind}/exec`, which runs
-  without a pseudo-terminal and answers with newline-delimited JSON frames
-  (`stdout`, `stderr`, then `exit`); nothing is written before the first
-  frame, so a container that is not running is still an ordinary HTTP error.
-  The terminal WebSocket stays what it is – a PTY for humans, where the
-  streams are merged and the exit code is lost; scripts need the opposite,
-  and a big pipe or an interactive shell still belongs in SSH.
 - Python runtime. The wizard's first step offers *Python application* next
   to PHP, Node.js and static; a Python container
   (`ghcr.io/envoryx/envoryx-python:<3.10–3.14>`, official slim image plus
@@ -256,6 +57,207 @@ release). `:main` follows the development branch.
   carries a warning naming both versions and the action that rebuilds it
   (`uv sync` for a uv project, else `pip install -r requirements.txt`). It
   disappears by itself once the environment is rebuilt.
+- Cron jobs: any command on a schedule, not only the Laravel and Symfony worker
+  presets. The new Cron tab builds the schedule (every few minutes, hourly, daily,
+  weekly, monthly) or takes a cron expression and shows the next runs; templates
+  start from the Laravel scheduler, a Symfony or Django command, an npm script or a
+  script. Envoryx runs the command in the project's PHP, Python or Node.js container
+  as the project owner, through `sh -c` and bounded by a timeout (default 10
+  minutes), only while the project runs and never twice at once. "Run now", the last
+  20 runs with their output, and a `cron.failed` notification. Schedules use
+  Envoryx's time zone (`TZ`). Duplicating a project with its workers copies the jobs.
+- RabbitMQ as an optional service next to Redis and Mailpit (4.3, or 4.2), in the
+  wizard, on the Services tab, in `envoryx project create --rabbitmq` and the MCP
+  `create_project` tool. The broker keeps its data in a volume, the management UI is
+  published on a port of its own, the AMQP port on request. Envoryx generates a login
+  and injects `RABBITMQ_HOST`, `RABBITMQ_PORT`, `RABBITMQ_USER`, `RABBITMQ_PASSWORD`,
+  `RABBITMQ_VHOST` and `RABBITMQ_URL` (`amqp://…@rabbitmq:5672/%2f`) – the names
+  laravel-queue-rabbitmq reads, and a URL for Symfony Messenger, php-amqplib, amqplib
+  and Celery. `MESSENGER_TRANSPORT_DSN` stays yours to set – in Symfony's `.env`,
+  `MESSENGER_TRANSPORT_DSN=${RABBITMQ_URL}/messages` – because injecting it would
+  quietly move a Doctrine transport to AMQP. The password is shown on the Services tab
+  on request (operate scope, like database credentials); the IDE tab lists the
+  connection for desktop clients next to the database and Mailpit.
+- Memcached as an optional cache next to Redis – in the wizard, on the Services tab, in
+  `envoryx project create --memcached` and the MCP `create_project` tool. It keeps
+  everything in memory (no volume, so removing it needs no confirmation), publishes
+  its port on the host on request and injects `MEMCACHED_HOST`, `MEMCACHED_PORT` (what
+  Laravel's memcached store reads) and `MEMCACHED_URL` (`memcached://memcached:11211`
+  for Symfony's MemcachedAdapter).
+- The PHP images carry the `redis`, `memcached` and `amqp` extensions, switched off like
+  the others. Laravel talks to Redis through phpredis unless told otherwise, and
+  Symfony's AMQP transport and MemcachedAdapter need their extension, so Redis,
+  Memcached and RabbitMQ were only half usable from PHP. The wizard switches the
+  extension on together with the service, adding a service on the Services tab does
+  the same, and a service whose extension is off offers to switch it on. The images
+  are rebuilt when this reaches `main`; until a project runs the new image, PHP logs
+  that it cannot load the extension.
+- Meilisearch and Typesense as optional search engines – in the wizard, on the Services
+  tab, in `envoryx project create --meilisearch`/`--typesense`, the MCP
+  `create_project` tool and the logs endpoints. Both keep their index in a volume and
+  run with a generated key that only leaves the backend through the operate-scoped
+  `/meilisearch/credentials` and `/typesense/credentials` endpoints ("Show master
+  key"/"Show API key" on the Services tab). Meilisearch 1.54 always publishes its port,
+  where its web dashboard lives; Typesense 30.2 publishes on request. The application
+  gets the names Laravel Scout reads (`MEILISEARCH_HOST`/`MEILISEARCH_KEY`,
+  `TYPESENSE_HOST`/`TYPESENSE_PORT`/`TYPESENSE_PROTOCOL`/`TYPESENSE_API_KEY`) plus
+  `MEILISEARCH_URL`/`MEILISEARCH_API_KEY` (Symfony's meilisearch-bundle) and
+  `TYPESENSE_URL`. `SCOUT_DRIVER` is left to the application, so a project indexing
+  with another driver does not silently switch. The IDE tab lists both connections.
+- OpenSearch as an optional Elasticsearch-compatible search engine (3.8, or 2.19) – in
+  the wizard, on the Services and IDE tabs, in `envoryx project create --opensearch`,
+  the MCP `create_project` tool and the logs endpoints. It runs as a single development
+  node with its indices in a volume, over plain HTTP without login (security plugin
+  off) and with a 512 MB heap (about 1 GB of RAM); the port is published on request.
+  The application gets `OPENSEARCH_HOST`, `OPENSEARCH_PORT`, `OPENSEARCH_SCHEME` and
+  `OPENSEARCH_URL` (`http://opensearch:9200`). `ELASTICSEARCH_*` is left to the
+  application: current Elasticsearch clients refuse to talk to OpenSearch.
+- OpenSearch Dashboards as an option of OpenSearch – a checkbox in the wizard and on the
+  OpenSearch card of the Services tab, `envoryx project create --opensearch-dashboards`
+  and `opensearchDashboards` in the MCP `create_project` tool. The web UI (Dev Tools
+  console, index management, Discover) gets a host port of its own and a link on the
+  Services and IDE tabs; it always runs OpenSearch's version and goes when OpenSearch
+  goes. The image is about 2.6 GB, the container needs roughly 400 MB of RAM.
+- Command line. The Envoryx binary is now its own client: `envoryx project
+  list/show/create/start/stop/restart/delete/logs/exec/run`, `envoryx backup
+  list/create/restore/download/delete`, `envoryx git status/pull/checkout` and
+  `envoryx login/logout/whoami`. Everything goes through the REST API with an
+  API token, so a token's scope and project restriction apply exactly as they
+  do in the web interface and for MCP, and every command lands in the audit
+  log under the token's name – the CLI has no database handle and no Docker
+  socket of its own. On the host the container's binary is enough (`docker
+  exec -it envoryx envoryx project list`): inside the container the address is
+  known and only the token is missing. Elsewhere `envoryx login --url …`
+  checks the token before storing it in `~/.config/envoryx/cli.json` (mode
+  0600), and `ENVORYX_URL`/`ENVORYX_TOKEN` work without a file at all, which
+  is what CI wants. A project is named by its name, its slug or its id;
+  `--json` hands the API's own answer to `jq`; `--ca-cert` trusts the local
+  CA on a workstation. Commands exit 0 on success, 1 on failure and 2 on a
+  usage error.
+- `envoryx project exec <project> -- <command>` runs a command in a project
+  container and hands its exit code to the calling shell, so
+  `envoryx project exec shop -- php artisan migrate --force || rollback` does
+  what it reads like. stdout and stderr stay apart, stdin is piped in (up to
+  512 KiB), and the command runs as the project owner in the project
+  directory – where the browser terminal also starts. It is backed by a new
+  endpoint, `POST /api/v1/projects/{id}/services/{kind}/exec`, which runs
+  without a pseudo-terminal and answers with newline-delimited JSON frames
+  (`stdout`, `stderr`, then `exit`); nothing is written before the first
+  frame, so a container that is not running is still an ordinary HTTP error.
+  The terminal WebSocket stays what it is – a PTY for humans, where the
+  streams are merged and the exit code is lost; scripts need the opposite,
+  and a big pipe or an interactive shell still belongs in SSH.
+- Duplicate a project. *Duplicate* on the project page copies an existing
+  project into a new one – `shop` → `shop-test` – with its configuration:
+  runtimes and their settings, web server, services, environment variables,
+  workers and the repository binding. The parts that hold data are checkboxes
+  and default to on: the project directory (without `vendor/`,
+  `node_modules/` and the other regenerable directories unless asked), the
+  contents of the database and the objects of the bucket. Extra domains and
+  the backup schedule are never copied – host names are unique, and a copy
+  made to try something out should not inherit the original's scheduled
+  backups.
+  The copy is its own project in every way that has to be: new id, slug,
+  directory, network, volumes, containers, and a fresh host port wherever the
+  original published one. What it keeps are the generated credentials –
+  database name, user and passwords, the bucket and its keys – because each
+  project has its own server, network and volume anyway, while a `.env` that
+  lives in the project files would otherwise point into the void, and the dump
+  restores one to one (a renamed database would need `--nsFrom/--nsTo` for
+  MongoDB and rewritten grants elsewhere).
+  Nothing goes through a temporary file: the files are copied straight across,
+  the dump of the original is piped into the client of the copy, and the
+  bucket is read object by object. A database or storage container that is
+  not running is started for the transfer and stopped again afterwards, so a
+  stopped project can be copied as it is, and a copy is not started unless
+  that was asked for. Any failure rolls the copy back completely, including
+  the directory it created. `POST /api/v1/projects/{id}/duplicate` is the
+  endpoint (admin scope; a token confined to particular projects may not
+  create new ones), `envoryx project duplicate shop "Shop Test"
+  [--no-files|--no-database|…]` the command, `duplicate_project` the MCP tool.
+- Rename a project. Until now the identifier a project was created with was final: the
+  displayed name could be edited, but `shop.test`, `envoryx-shop-php` and the database
+  `shop` stayed whatever they were. *Rename* on the project page (and `envoryx project
+  rename shop "Acme Blog" --yes`, and `rename_project` over MCP) now moves the lot:
+  identifier and display name, the URL and the `-dev`/`-s3` host names, container,
+  network and volume names, the SSH users the IDE connects with, the project directory,
+  the backup directory and the rollback image tags. The database, its login and the
+  object storage bucket travel too unless *Keep the database and bucket names* says
+  otherwise – handy when a committed `.env` or an external client has the old name
+  written into it.
+  Docker can rename none of these, so the containers and the network are recreated from
+  the new plan, the volumes are copied into their new names with a throw-away container
+  from the project's own web image (nothing is pulled) and the old ones removed. The
+  database moves the way it has to: PostgreSQL renames database and role in place, the
+  others create the new database and stream the dump of the old one into it before
+  dropping it, and MongoDB maps the namespace on the way. The bucket's objects are
+  copied into the new bucket and the old one is dropped.
+  The order is chosen so that a failure costs as little as possible: everything that can
+  be checked is checked before the first container stops, the project record is renamed
+  before any data moves and put back when the move fails, and old data is only dropped
+  once the new copy is complete. A project that was running is running again at the end,
+  and the current identifier has to be typed out to start any of it.
+- Database snapshots and cloning – the two things a day of development keeps asking for:
+  the dump you take before a migration, and the data of another project in your own.
+  *Snapshots* on the project's Database tab dumps the primary database and nothing else,
+  with a note like "before the orders migration", and puts it back with one click. The
+  project does not have to be running for either: a stopped database container is started
+  for the dump or the import and stopped again afterwards. Snapshots are ordinary backups
+  under `/config/backups/<slug>/` – they show up in the Backups tab, can be downloaded and
+  restore through the same verified path – so the dump a database version upgrade insists
+  on appears among them too, ready to be put back. They roll: the ten newest of a project
+  are kept, so taking one before every migration does not fill the disk, and scheduled
+  backups and anything made by hand are never touched by that.
+  *Clone from another project* replaces this project's database contents with another's –
+  staging into local – as long as both run the same engine. The dump is piped straight
+  from one container's client into the other's, so nothing is written to disk in between
+  and a project of a few hundred megabytes is done in seconds. The source is only read,
+  both projects are locked for the duration, and the target is snapshotted first unless
+  that is switched off, so there is a way back. Overwriting a database asks for the
+  project's identifier to be typed out, as restoring does.
+  On the command line: `envoryx db snapshot shop --note "before the migration"`,
+  `envoryx db snapshots shop`, `envoryx db restore shop <id> --yes` and
+  `envoryx db clone local --from staging --yes` (`--no-snapshot` skips the safety net).
+  Over MCP an assistant can take and list snapshots (`create_snapshot`, `list_snapshots`);
+  putting one back and cloning over a database stay out, like restoring a backup.
+- SSH remote forwarding (`ssh -R`) into project containers. A process in the container
+  reaches the client through a port on the container's localhost: socat listens there
+  and connects each connection to Envoryx on the project network, which accepts only the
+  container's address and hands the connection to the client. PyCharm's SSH interpreter
+  needs this to run anything. The listener ends with the forward or the SSH connection.
+- The IDE tab explains how to open a project in PhpStorm, WebStorm & co. over SFTP.
+  The embedded SSH server has served SFTP all along, but nothing said so, and the
+  obvious route was the network share. A new card lists the deployment settings
+  (host, port, user, root path `/var/www/html`, web server URL) and walks through
+  PhpStorm's *New Project from Existing Files* wizard, checked step by step against
+  PhpStorm 2026.2: a local copy that uploads on save, and how to fetch what
+  `composer install` or `npm install` changed in the container. The host key is now
+  also shown as MD5, the form PhpStorm asks you to confirm – the SHA256 value alone
+  could not be compared.
+- Project containers resolve the project domains. `http://shop.test` used to fail
+  inside a container unless the Docker host itself asked a DNS server with the
+  wildcard entry, and with Envoryx on its own `br0` IP the address was unreachable
+  from there anyway. Envoryx now carries every host name the proxy serves as a
+  network alias on each project network, so Docker's DNS answers them with Envoryx's
+  address on that network. An application can call its own URL, and projects reach
+  each other. Names added meanwhile arrive when a project next starts.
+- DNS setup guide under *Settings → Domains & HTTPS*. A single wildcard entry
+  sends every project name to Envoryx. The card shows that entry for AdGuard Home,
+  Pi-hole, dnsmasq/OpenWrt and Unbound (pfSense, OPNsense), with Envoryx's address
+  already filled in and a copy button. For routers without wildcard records, such as
+  a FritzBox, it shows the hosts-file line with every current project name.
+  DEPLOYMENT.md no longer sends Pi-hole users to *Local DNS records*, which cannot
+  hold a wildcard.
+- Tidier Unraid Docker tab. Envoryx's containers now carry the Envoryx icon
+  (`net.unraid.docker.icon`) instead of the question mark, and can go into a
+  [FolderView3](https://github.com/kennymc-c/folder.view3) folder automatically: enter
+  the folder name under *Settings → General → Unraid Docker page* and every project
+  container, and the database browser, gets the label `folder.view3=<name>`. Create
+  the folder in FolderView3 with the same name. Labels are set when a container is
+  created, so projects move into the folder the next time they start. Without the
+  setting nothing is recreated. The icon appears whenever a container is next created
+  anyway, for example after a runtime update. A FolderView3 folder with the regex
+  `^envoryx-` works too, with no setting at all.
 
 ### Fixed
 - PyCharm's SSH interpreter could not be set up. It uploads the project to
@@ -592,7 +594,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/envoryx/envoryx/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/envoryx/envoryx/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/envoryx/envoryx/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/envoryx/envoryx/compare/v0.2.0...v0.3.0
