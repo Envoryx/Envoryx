@@ -586,7 +586,7 @@ needs `setcap cap_net_bind_service=+ep ./envoryx` or other addresses
 
 ## Resource limits
 
-A project's **Advanced** tab caps what its containers may use, so a runaway
+A project's **Resources** tab caps what its containers may use, so a runaway
 queue worker or Node process cannot take the whole server:
 
 - **Application containers** (web server, PHP, Node.js, Python, every worker)
@@ -614,6 +614,28 @@ Docker's OOM events: the project shows a warning for a day ("php ran out of
 memory at 14:03 (limit 512 MiB); a process was killed") and a notification
 goes out (event `project.oom`, on by default). The limits also go into the project manifest
 (`limits:` in `envoryx.yml`) and show up in `envoryx project show`.
+
+## Resource history
+
+Envoryx records what every running project container uses, once a minute:
+CPU (in cores), memory, network traffic and disk I/O (both per second).
+Once an hour it measures each project's disk space – its volumes (database,
+caches, search, object storage), its project directory and its backups.
+
+- A project's **Resources** tab draws all of it over the last hour up to a
+  year: CPU and memory per container, network and disk I/O for the project,
+  disk space by kind. Every chart has a table view.
+- The **dashboard** lists every project with its average and peak CPU and
+  memory, its disk space and a CPU sparkline, busiest first – the quick way
+  to find the project that eats the server.
+- Values are kept at full detail for a day, then as 5-minute averages (peaks
+  are kept) for a week, then as hourly averages. *Settings → General →
+  Resource history* sets how long (7, 30, 90 days – the default – or a year)
+  and deletes the recorded values. A year of hourly values for a project with
+  five containers is about 60,000 rows in the Envoryx database; a few MB.
+- Disk I/O is what the kernel attributes to the container: writes still in
+  the page cache show up when they are flushed. Stopped projects record
+  nothing; their gap stays open in the chart.
 
 ## Stopping and restarting
 

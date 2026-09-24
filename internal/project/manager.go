@@ -55,6 +55,9 @@ type Manager struct {
 	activity []Activity // autonomous actions since start, newest first (see activity.go)
 
 	notifier notify.Sender
+	// metrics holds the resource history's sampling state (see metrics.go).
+	metrics     *metricsState
+	metricsOnce sync.Once
 	// oom remembers recent OOM kills for the project warnings (see oom.go).
 	oom     *oomLog
 	oomOnce sync.Once

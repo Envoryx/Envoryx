@@ -502,13 +502,47 @@ func (e *MobyEngine) ContainerStats(ctx context.Context, id string) (Stats, erro
 		}
 		return Stats{}, fmt.Errorf("decode stats: %w", err)
 	}
-	return Stats{
+	st := Stats{
 		ContainerID: id,
 		CPUPercent:  cpuPercent(s),
 		MemoryBytes: memoryUsage(s),
 		MemoryLimit: int64(s.MemoryStats.Limit),
 		SampledAt:   s.Read,
-	}, nil
+	}
+	for _, n := range s.Networks {
+		st.NetRxBytes += n.RxBytes
+		st.NetTxBytes += n.TxBytes
+	}
+	// cgroup v2 reports "read"/"write", cgroup v1 "Read"/"Write".
+	for _, e := range s.BlkioStats.IoServiceBytesRecursive {
+		switch strings.ToLower(e.Op) {
+		case "read":
+			st.BlockRead += e.Value
+		case "write":
+			st.BlockWritten += e.Value
+		}
+	}
+	return st, nil
+}
+
+// VolumeSizes implements Engine.
+func (e *MobyEngine) VolumeSizes(ctx context.Context) ([]VolumeSize, error) {
+	res, err := e.cli.DiskUsage(ctx, client.DiskUsageOptions{Volumes: true, Verbose: true})
+	if err != nil {
+		return nil, wrap(err)
+	}
+	var out []VolumeSize
+	for _, v := range res.Volumes.Items {
+		if !IsManaged(v.Labels) {
+			continue
+		}
+		size := int64(-1)
+		if v.UsageData != nil {
+			size = v.UsageData.Size
+		}
+		out = append(out, VolumeSize{Name: v.Name, Labels: v.Labels, Bytes: size})
+	}
+	return out, nil
 }
 
 func cpuPercent(s container.StatsResponse) float64 {

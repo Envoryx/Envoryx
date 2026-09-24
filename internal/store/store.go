@@ -30,6 +30,7 @@ type Store struct {
 	Workers  *Workers
 	CronJobs *CronJobs
 	Offsite  *OffsiteUploads
+	Metrics  *Metrics
 	Images   *ProjectImages
 }
 
@@ -48,6 +49,7 @@ func New(db *sql.DB) *Store {
 		Workers:  &Workers{db: db},
 		CronJobs: &CronJobs{db: db},
 		Offsite:  &OffsiteUploads{db: db},
+		Metrics:  &Metrics{db: db},
 		Images:   &ProjectImages{db: db},
 	}
 }

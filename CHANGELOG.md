@@ -11,7 +11,7 @@ release). `:main` follows the development branch.
 ## [Unreleased]
 
 ### Added
-- Resource limits per project (*Advanced* tab): CPU cores and memory for the
+- Resource limits per project (*Resources* tab): CPU cores and memory for the
   application containers (web server, PHP, Node.js, Python, workers) and,
   separately, for the services (database, caches, search, storage), each per
   container, plus a process limit that every container now has (default 4096)
@@ -22,6 +22,14 @@ release). `:main` follows the development branch.
   container keeps running – the project shows a warning for a day and a
   notification goes out (new event `project.oom`, on by default). Limits are part of `envoryx.yml`
   (`limits:`) and of `envoryx project show`.
+- Resource history: every running project container is sampled once a minute
+  (CPU, memory, network, disk I/O) and each project's disk space – volumes,
+  project directory, backups – once an hour. The new *Resources* tab of a
+  project charts it from one hour to one year (with a table view per chart),
+  and the dashboard lists every project's average and peak usage, busiest
+  first. Values are kept in full for a day, as 5-minute averages for a week
+  and hourly after that; *Settings → General → Resource history* sets the
+  retention (default 90 days, up to a year) and deletes the history.
 
 ## [0.7.1] – 2026-09-24
 

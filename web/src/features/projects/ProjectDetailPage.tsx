@@ -1,9 +1,9 @@
 import { clsx } from "clsx";
 import { useTranslation } from "react-i18next";
-import { LimitsCard } from "./LimitsCard";
+import { ResourcesTab } from "./ResourcesTab";
 import { Copy, Pencil, Trash2, Save, ExternalLink, Undo2, RotateCw } from "lucide-react";
 import { lazy, Suspense, useEffect, useState, type ReactElement } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { ApiError } from "@/api/client";
 import { useDevServerLink, useImageChoice, useProject, useProjectLinks, useProjectPlan, useProjectStats, useRuntimes, useSettings, useUpdateProject } from "@/api/hooks";
 import { appKindOf, defaultNodePresets, defaultPythonPresets, servesOf, type EnvVar, type NodeConfig, type PHPConfig, type Project, type PythonConfig, type UpdateProjectRequest, type WebServerConfig } from "@/api/types";
@@ -30,7 +30,7 @@ import { PhpConfigForm } from "./PhpConfigForm";
 import { webServerHint } from "./webServers";
 import { errorText, translateMessage } from "@/lib/errors";
 
-const tabs = ["Overview", "Domains", "Git", "Actions", "Terminal", "Logs", "Runtime", "Workers", "Cron", "Database", "Services", "Backups", "Environment", "IDE", "Advanced"] as const;
+const tabs = ["Overview", "Resources", "Domains", "Git", "Actions", "Terminal", "Logs", "Runtime", "Workers", "Cron", "Database", "Services", "Backups", "Environment", "IDE", "Advanced"] as const;
 type Tab = (typeof tabs)[number];
 
 export function ProjectDetailPage() {
@@ -39,7 +39,11 @@ export function ProjectDetailPage() {
   const q = useProject(id);
   const links = useProjectLinks();
   const devLink = useDevServerLink();
-  const [tab, setTab] = useState<Tab>("Overview");
+  const [params] = useSearchParams();
+  const [tab, setTab] = useState<Tab>(() => {
+    const requested = params.get("tab");
+    return tabs.includes(requested as Tab) ? (requested as Tab) : "Overview";
+  });
   const [deleting, setDeleting] = useState(false);
   const [duplicating, setDuplicating] = useState(false);
   const [renaming, setRenaming] = useState(false);
@@ -177,12 +181,8 @@ export function ProjectDetailPage() {
       {tab === "Backups" && <BackupsTab project={p} />}
       {tab === "Environment" && <EnvTab project={p} />}
       {tab === "IDE" && <IdeTab project={p} />}
-      {tab === "Advanced" && (
-        <div className="space-y-6">
-          <LimitsCard project={p} />
-          <AdvancedTab project={p} />
-        </div>
-      )}
+      {tab === "Resources" && <ResourcesTab project={p} />}
+      {tab === "Advanced" && <AdvancedTab project={p} />}
 
       <RenameProjectDialog project={p} open={renaming} onClose={() => setRenaming(false)} />
       <DuplicateProjectDialog project={p} open={duplicating} onClose={() => setDuplicating(false)} />

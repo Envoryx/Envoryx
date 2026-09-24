@@ -43,6 +43,10 @@ type Fake struct {
 	volumes    map[string]docker.Volume
 	images     map[string]string // ref -> image id
 	dangling   map[string]bool   // image ids that lost their tag to a re-pull but still exist
+	// StatsByName overrides ContainerStats for a container name.
+	StatsByName map[string]docker.Stats
+	// VolumeBytes are the sizes VolumeSizes reports.
+	VolumeBytes map[string]int64
 	// oomWatchers receive EmitOOM events.
 	oomWatchers []chan docker.OOMEvent
 	// Remote maps image refs to the id a pull would deliver. Unset refs pull as "<ref>@v1".
@@ -588,7 +592,28 @@ func (f *Fake) ContainerStats(_ context.Context, id string) (docker.Stats, error
 	if c.State != "running" {
 		return docker.Stats{ContainerID: c.ID, SampledAt: time.Now().UTC()}, nil
 	}
+	if st, ok := f.StatsByName[c.Spec.Name]; ok {
+		st.ContainerID, st.SampledAt = c.ID, time.Now().UTC()
+		return st, nil
+	}
 	return docker.Stats{ContainerID: c.ID, CPUPercent: 1.5, MemoryBytes: 32 << 20, MemoryLimit: 8 << 30, SampledAt: time.Now().UTC()}, nil
+}
+
+// VolumeSizes implements docker.Engine: the managed volumes with the sizes set in
+// VolumeBytes (0 otherwise).
+func (f *Fake) VolumeSizes(context.Context) ([]docker.VolumeSize, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if err := f.check(); err != nil {
+		return nil, err
+	}
+	var out []docker.VolumeSize
+	for name, v := range f.volumes {
+		if docker.IsManaged(v.Labels) {
+			out = append(out, docker.VolumeSize{Name: name, Labels: v.Labels, Bytes: f.VolumeBytes[name]})
+		}
+	}
+	return out, nil
 }
 
 // Exec implements docker.Engine.

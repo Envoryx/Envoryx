@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { DiagnosticsBanner } from "@/components/DiagnosticsBanner";
 import { ActivityNotice } from "@/components/ActivityNotice";
 import { useTranslation } from "react-i18next";
+import { ResourceOverviewCard } from "./ResourceOverviewCard";
 import { Plus, ArrowRight } from "lucide-react";
 import { useDashboard } from "@/api/hooks";
 import { Alert, Badge, Button, Card, CardHeader, EmptyState, ErrorState, LinkButton, PageHeader, Spinner, StatusDot } from "@/components/ui";
@@ -186,6 +187,8 @@ export function DashboardPage() {
           </dl>
         </Card>
       </div>
+
+      <ResourceOverviewCard />
 
       {d.storage && d.storage.length > 0 && (
         <Card className="mt-6">

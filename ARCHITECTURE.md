@@ -1011,6 +1011,22 @@ when the stream breaks), keeps the latest kill per container for 24 h as a
 status warning and sends `project.oom`. The project stats endpoint returns
 each running container with its group and limits for the usage bars.
 
+### Resource history
+`Manager.RunMetrics` ticks on the minute. `sampleMetrics` reads
+`ContainerStats` of every running project container (8 at a time) and turns
+the network and block I/O counters into per-second rates against the previous
+sample (a restarted container's first sample only sets the baseline). Rows go
+to `metric_samples` at resolution 60 with `samples = 1`; each pass also rolls
+the current and previous buckets up into 300 and 3600 (`INSERT OR REPLACE …
+GROUP BY`, averages weighted by `samples`, maxima kept in `cpu_max`/`mem_max`).
+`measureSizes` fills `metric_sizes` once per project and hour: volume sizes
+from `DiskUsage` (label `envoryx.project.id`), the project directory walked on
+disk, backups from their stored sizes. Pruning keeps 60 s for 24 h, 300 s for
+7 days and 3600 s for the configured retention (`metrics_retention_days`).
+`ProjectMetrics` picks the resolution from the range (≤ 6 h: 60, ≤ 48 h: 300,
+else 3600); `MetricsOverview` aggregates the same rows per project for the
+dashboard.
+
 ### Project manifest
 `internal/manifest` is the file format of `envoryx.yml` and nothing else:
 strict YAML (unknown keys are errors, `redis: true` or a mapping), a format
