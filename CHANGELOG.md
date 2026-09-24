@@ -10,6 +10,8 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.7.1] – 2026-09-24
+
 ### Fixed
 - Recreating a running container – after a version or port change, a rename –
   killed it outright. A database, Redis or RabbitMQ lost what it had not
@@ -682,7 +684,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.7.1...HEAD
+[0.7.1]: https://github.com/envoryx/envoryx/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/envoryx/envoryx/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/envoryx/envoryx/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/envoryx/envoryx/compare/v0.4.0...v0.5.0
