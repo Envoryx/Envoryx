@@ -462,3 +462,46 @@ func TestProjectLogsPassesTheFilterAndExports(t *testing.T) {
 		t.Fatal("--until with --follow must be refused")
 	}
 }
+
+func TestProjectCreateMapsPostgresToTheCatalogueKey(t *testing.T) {
+	srv := newFakeServer(t, map[string]func(http.ResponseWriter, *http.Request){
+		"POST /api/v1/projects": func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusCreated)
+			writeJSON(w, map[string]any{"project": map[string]any{"id": "33333333-3333-4333-8333-333333333333", "name": "Shop", "slug": "shop"}})
+		},
+	})
+	sent := func() databaseSpec {
+		t.Helper()
+		var body createRequest
+		if err := json.Unmarshal(srv.bodies["/api/v1/projects"], &body); err != nil || body.Database == nil {
+			t.Fatalf("request: %v %s", err, srv.bodies["/api/v1/projects"])
+		}
+		return *body.Database
+	}
+
+	c, _, _ := newTestCLI(t, srv, "")
+	if err := c.run(context.Background(), []string{"project", "create", "Shop", "--php", "8.4", "--database", "postgres:17"}); err != nil {
+		t.Fatal(err)
+	}
+	if db := sent(); db.Type != "postgresql" || db.Version != "17" {
+		t.Fatalf("--database postgres:17 sent %+v", db)
+	}
+
+	file := filepath.Join(t.TempDir(), "req.json")
+	_ = os.WriteFile(file, []byte(`{"name":"Shop","database":{"type":"PG"}}`), 0o644)
+	c, _, _ = newTestCLI(t, srv, "")
+	if err := c.run(context.Background(), []string{"project", "create", "--from-json", file}); err != nil {
+		t.Fatal(err)
+	}
+	if db := sent(); db.Type != "postgresql" {
+		t.Fatalf("--from-json sent %+v", db)
+	}
+
+	c, _, _ = newTestCLI(t, srv, "")
+	if err := c.run(context.Background(), []string{"project", "create", "Shop", "--database", "mariadb"}); err != nil {
+		t.Fatal(err)
+	}
+	if db := sent(); db.Type != "mariadb" {
+		t.Fatalf("other types stay as they are: %+v", db)
+	}
+}

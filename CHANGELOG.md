@@ -46,6 +46,11 @@ release). `:main` follows the development branch.
   history. Deleting a project deletes its history; instance backups leave it
   out.
 
+### Fixed
+- `envoryx project create --database postgres` (as the help text suggests)
+  was refused by the server, which only knows `postgresql`. The CLI now maps
+  `postgres`, `pg` and `pgsql` to it, also in `--from-json`.
+
 ## [0.6.0] – 2026-09-24
 
 ### Added

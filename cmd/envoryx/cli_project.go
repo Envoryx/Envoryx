@@ -604,6 +604,9 @@ func (c *cli) projectCreate(ctx context.Context, args []string) error {
 		kind, version, _ := strings.Cut(*database, ":")
 		req.Database = &databaseSpec{Type: kind, Version: runtimeVersion(version), ExposePort: *exposeDB}
 	}
+	if req.Database != nil {
+		req.Database.Type = databaseType(req.Database.Type)
+	}
 	if *redis {
 		req.Redis = &extraSpec{}
 	}
@@ -704,6 +707,18 @@ func runtimeVersion(v string) string {
 		return ""
 	default:
 		return strings.TrimSpace(v)
+	}
+}
+
+// databaseType maps the names people type for PostgreSQL to the catalogue's key; the
+// server knows it only as "postgresql".
+func databaseType(t string) string {
+	t = strings.ToLower(strings.TrimSpace(t))
+	switch t {
+	case "postgres", "pg", "pgsql":
+		return "postgresql"
+	default:
+		return t
 	}
 }
 
