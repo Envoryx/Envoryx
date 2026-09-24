@@ -684,11 +684,32 @@ export interface ACMEStatus {
   lastError?: string;
   notAfter?: string;
   names?: string[];
+  /** Non-secret credentials of the provider. */
+  fields?: Record<string, string>;
+  /** Secret credentials that are stored (their values never come back). */
+  secrets?: string[];
+}
+
+/** One credential a DNS provider needs; label and hint are English (translated in the UI). */
+export interface ACMEField {
+  key: string;
+  label: string;
+  secret: boolean;
+  optional?: boolean;
+  hint?: string;
+}
+
+export interface ACMEProviderInfo {
+  key: string;
+  name: string;
+  fields: ACMEField[];
+  propagationMinutes: number;
 }
 
 export interface ACMEInfo {
   available: boolean;
   providers: Record<string, string>;
+  providerList?: ACMEProviderInfo[];
   status?: ACMEStatus;
 }
 
@@ -696,7 +717,8 @@ export interface ACMERequest {
   provider: string;
   domain: string;
   email: string;
-  token: string;
+  /** The provider's fields; empty secrets keep the stored ones. */
+  credentials: Record<string, string>;
   staging: boolean;
   useAsBaseDomain: boolean;
 }

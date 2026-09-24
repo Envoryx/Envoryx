@@ -6,20 +6,18 @@ package s3
 
 import (
 	"context"
-	"crypto/hmac"
 	"crypto/md5"
-	"crypto/sha256"
 	"encoding/base64"
-	"encoding/hex"
 	"encoding/xml"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
-	"sort"
 	"strings"
 	"time"
+
+	"github.com/envoryx/envoryx/internal/awssig"
 )
 
 // Client talks to one S3-compatible endpoint with one set of credentials. Requests use
@@ -209,120 +207,15 @@ func (c *Client) Sign(req *http.Request, body []byte) error {
 // signWithHash signs with a given payload hash (a real SHA-256 or UNSIGNED-PAYLOAD for
 // streamed bodies).
 func (c *Client) signWithHash(req *http.Request, payloadHash string) error {
-	now := time.Now().UTC()
+	now := time.Now()
 	if c.now != nil {
-		now = c.now().UTC()
+		now = c.now()
 	}
-	amzDate := now.Format("20060102T150405Z")
-	date := now.Format("20060102")
-	req.Header.Set("Host", req.URL.Host)
-	req.Header.Set("X-Amz-Date", amzDate)
-	req.Header.Set("X-Amz-Content-Sha256", payloadHash)
-
-	// Canonical request: signed headers are host and every x-amz-* header we set.
-	var names []string
-	for k := range req.Header {
-		lk := strings.ToLower(k)
-		if lk == "host" || strings.HasPrefix(lk, "x-amz-") {
-			names = append(names, lk)
-		}
-	}
-	sort.Strings(names)
-	var canonHeaders strings.Builder
-	for _, n := range names {
-		v := req.URL.Host
-		if n != "host" {
-			v = strings.TrimSpace(req.Header.Get(n))
-		}
-		canonHeaders.WriteString(n + ":" + v + "\n")
-	}
-	signedHeaders := strings.Join(names, ";")
-	canonical := strings.Join([]string{
-		req.Method,
-		uriEncodePath(req.URL.Path),
-		canonicalQuery(req.URL.RawQuery),
-		canonHeaders.String(),
-		signedHeaders,
-		payloadHash,
-	}, "\n")
-
-	scope := date + "/" + c.Region + "/s3/aws4_request"
-	stringToSign := strings.Join([]string{"AWS4-HMAC-SHA256", amzDate, scope, sha256Hex([]byte(canonical))}, "\n")
-	kDate := hmacSHA256([]byte("AWS4"+c.SecretKey), date)
-	kRegion := hmacSHA256(kDate, c.Region)
-	kService := hmacSHA256(kRegion, "s3")
-	kSigning := hmacSHA256(kService, "aws4_request")
-	signature := hex.EncodeToString(hmacSHA256(kSigning, stringToSign))
-	req.Header.Set("Authorization", fmt.Sprintf("AWS4-HMAC-SHA256 Credential=%s/%s, SignedHeaders=%s, Signature=%s", c.AccessKey, scope, signedHeaders, signature))
+	awssig.Sign(req, payloadHash, awssig.Credentials{AccessKey: c.AccessKey, SecretKey: c.SecretKey, Region: c.Region, Service: "s3"}, now)
 	return nil
 }
 
-// canonicalQuery sorts and encodes the query string the way SigV4 wants (a bare key
-// becomes key=).
-func canonicalQuery(raw string) string {
-	if raw == "" {
-		return ""
-	}
-	parts := strings.Split(raw, "&")
-	pairs := make([][2]string, 0, len(parts))
-	for _, p := range parts {
-		if p == "" {
-			continue
-		}
-		k, v, _ := strings.Cut(p, "=")
-		ku, _ := url.QueryUnescape(k)
-		vu, _ := url.QueryUnescape(v)
-		pairs = append(pairs, [2]string{uriEncode(ku), uriEncode(vu)})
-	}
-	sort.Slice(pairs, func(i, j int) bool {
-		if pairs[i][0] != pairs[j][0] {
-			return pairs[i][0] < pairs[j][0]
-		}
-		return pairs[i][1] < pairs[j][1]
-	})
-	out := make([]string, len(pairs))
-	for i, p := range pairs {
-		out[i] = p[0] + "=" + p[1]
-	}
-	return strings.Join(out, "&")
-}
-
-func uriEncodePath(p string) string {
-	if p == "" {
-		return "/"
-	}
-	segs := strings.Split(p, "/")
-	for i, s := range segs {
-		segs[i] = uriEncode(s)
-	}
-	return strings.Join(segs, "/")
-}
-
-// uriEncode is RFC 3986 encoding with the unreserved set AWS uses.
-func uriEncode(s string) string {
-	var b strings.Builder
-	for i := 0; i < len(s); i++ {
-		ch := s[i]
-		switch {
-		case ch >= 'A' && ch <= 'Z', ch >= 'a' && ch <= 'z', ch >= '0' && ch <= '9', ch == '-', ch == '_', ch == '.', ch == '~':
-			b.WriteByte(ch)
-		default:
-			fmt.Fprintf(&b, "%%%02X", ch)
-		}
-	}
-	return b.String()
-}
-
-func sha256Hex(b []byte) string {
-	h := sha256.Sum256(b)
-	return hex.EncodeToString(h[:])
-}
-
-func hmacSHA256(key []byte, data string) []byte {
-	m := hmac.New(sha256.New, key)
-	m.Write([]byte(data))
-	return m.Sum(nil)
-}
+func sha256Hex(b []byte) string { return awssig.SHA256Hex(b) }
 
 // Noop is a Provisioner that does nothing – for tests and environments without a
 // reachable server.

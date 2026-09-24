@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/envoryx/envoryx/internal/awssig"
 )
 
 // The GET Object example from the AWS "Signature Calculations for the Authorization
@@ -37,13 +39,13 @@ func TestSignMatchesAWSExample(t *testing.T) {
 }
 
 func TestCanonicalQueryAndPath(t *testing.T) {
-	if got := canonicalQuery("policy"); got != "policy=" {
+	if got := awssig.CanonicalQuery("policy"); got != "policy=" {
 		t.Fatalf("bare key: %q", got)
 	}
-	if got := canonicalQuery("b=2&a=1&a=0"); got != "a=0&a=1&b=2" {
+	if got := awssig.CanonicalQuery("b=2&a=1&a=0"); got != "a=0&a=1&b=2" {
 		t.Fatalf("sorted: %q", got)
 	}
-	if got := uriEncodePath("/my bucket/ä"); got != "/my%20bucket/%C3%A4" {
+	if got := awssig.URIEncodePath("/my bucket/ä"); got != "/my%20bucket/%C3%A4" {
 		t.Fatalf("path: %q", got)
 	}
 }

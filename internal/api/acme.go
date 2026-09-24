@@ -9,18 +9,21 @@ import (
 
 func (a *API) acmeStatus(w http.ResponseWriter, r *http.Request) {
 	if a.d.ACME == nil {
-		writeJSON(w, http.StatusOK, map[string]any{"available": false, "providers": acme.Providers})
+		writeJSON(w, http.StatusOK, map[string]any{"available": false, "providers": acme.Providers, "providerList": acme.ProviderList})
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"available": true, "providers": acme.Providers, "status": a.d.ACME.Status()})
+	writeJSON(w, http.StatusOK, map[string]any{"available": true, "providers": acme.Providers, "providerList": acme.ProviderList, "status": a.d.ACME.Status()})
 }
 
 type acmeRequest struct {
 	Provider string `json:"provider"`
 	Domain   string `json:"domain"`
 	Email    string `json:"email"`
-	Token    string `json:"token"`
-	Staging  bool   `json:"staging"`
+	// Credentials are the provider's fields (see providerList); empty secrets keep the
+	// stored ones. Token is the Cloudflare token as older clients send it.
+	Credentials map[string]string `json:"credentials"`
+	Token       string            `json:"token"`
+	Staging     bool              `json:"staging"`
 	// UseAsBaseDomain also switches the project base domain to Domain.
 	UseAsBaseDomain bool `json:"useAsBaseDomain"`
 }
@@ -39,7 +42,7 @@ func (a *API) setACME(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, newError(http.StatusUnprocessableEntity, "validation_failed", "token too long"))
 		return
 	}
-	if err := a.d.ACME.SetConfig(acme.Config{Provider: req.Provider, Domain: req.Domain, Email: req.Email, Token: req.Token, Staging: req.Staging}); err != nil {
+	if err := a.d.ACME.SetConfig(acme.Config{Provider: req.Provider, Domain: req.Domain, Email: req.Email, Credentials: req.Credentials, Token: req.Token, Staging: req.Staging}); err != nil {
 		writeError(w, r, err)
 		return
 	}

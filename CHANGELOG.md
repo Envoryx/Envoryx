@@ -11,6 +11,13 @@ release). `:main` follows the development branch.
 ## [Unreleased]
 
 ### Added
+- More DNS providers for the Let's Encrypt wildcard certificate: Hetzner
+  (through the Hetzner Cloud API – the old DNS Console API was shut down in May
+  2026), netcup, Amazon Route 53, DigitalOcean and Porkbun, next to
+  Cloudflare. The settings ask for each provider's own credentials (netcup:
+  customer number, API key and password; Route 53: access key and secret,
+  optionally the hosted zone) and keep the secret ones out of every answer. A
+  stored Cloudflare token is taken over as it is.
 - Offsite backups: *Settings → Backups* takes targets – S3-compatible storage
   (AWS, Backblaze B2, Wasabi, Hetzner Object Storage, Cloudflare R2, MinIO),
   SFTP (Hetzner Storage Box, NAS; the server key is pinned) or WebDAV
@@ -61,6 +68,10 @@ release). `:main` follows the development branch.
   out.
 
 ### Fixed
+- The certificate check waited for the challenge record at 1.1.1.1; asking
+  before the record existed could get the "does not exist" cached for as long
+  as the zone allows. Envoryx now asks the zone's own name servers and waits
+  until all of them serve the record.
 - Downloading a project backup left out the object storage archive
   (`storage.tar.gz`); the download now carries everything the backup holds.
 - `envoryx project create --database postgres` (as the help text suggests)

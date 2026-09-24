@@ -15,7 +15,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -36,17 +35,21 @@ const (
 	stagingURL     = "https://acme-staging-v02.api.letsencrypt.org/directory"
 	renewBefore    = 30 * 24 * time.Hour
 	checkInterval  = 12 * time.Hour
-	propagationMax = 5 * time.Minute
-	issueTimeout   = 15 * time.Minute
+	// issueSlack is the time an issuance takes besides waiting for the DNS record.
+	issueSlack = 10 * time.Minute
 )
 
-// Config is the operator-supplied ACME configuration. Token is a secret.
+// Config is the operator-supplied ACME configuration. Credentials holds the provider's
+// fields (see ProviderList); the secret ones never leave the server.
 type Config struct {
-	Provider string `json:"provider"`
-	Domain   string `json:"domain"`
-	Email    string `json:"email"`
-	Token    string `json:"token"`
-	Staging  bool   `json:"staging"`
+	Provider    string            `json:"provider"`
+	Domain      string            `json:"domain"`
+	Email       string            `json:"email"`
+	Credentials map[string]string `json:"credentials,omitempty"`
+	Staging     bool              `json:"staging"`
+	// Token is the Cloudflare token of configurations written before providers had
+	// several fields; it is read once and moved into Credentials.
+	Token string `json:"token,omitempty"`
 }
 
 // Status describes the ACME state for the UI. The token is never included.
@@ -64,6 +67,10 @@ type Status struct {
 	NotAfter *time.Time `json:"notAfter,omitempty"`
 	// Names are the DNS names of the current certificate.
 	Names []string `json:"names,omitempty"`
+	// Fields are the provider's non-secret credentials; Secrets names the secret ones
+	// that are stored.
+	Fields  map[string]string `json:"fields,omitempty"`
+	Secrets []string          `json:"secrets,omitempty"`
 }
 
 // Manager holds the configuration and drives issuance/renewal.
@@ -96,13 +103,17 @@ func New(dir string, certs *tlsca.Store, log *slog.Logger) (*Manager, error) {
 		return nil, fmt.Errorf("create acme directory: %w", err)
 	}
 	m := &Manager{dir: dir, certs: certs, log: log, wake: make(chan struct{}, 1), now: time.Now}
-	m.lookupTXT = publicTXTLookup
+	m.lookupTXT = authoritativeTXTLookup
 	raw, err := os.ReadFile(filepath.Join(dir, configFile))
 	if err == nil {
 		if err := json.Unmarshal(raw, &m.cfg); err != nil {
 			log.Warn("acme configuration unreadable; ignoring", "err", err)
 			m.cfg = Config{}
 		}
+		if m.cfg.Token != "" && m.cfg.Credentials == nil {
+			m.cfg.Credentials = map[string]string{"token": m.cfg.Token}
+		}
+		m.cfg.Token = ""
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return nil, fmt.Errorf("read acme configuration: %w", err)
 	}
@@ -118,6 +129,21 @@ func (m *Manager) Status() Status {
 	defer m.mu.Unlock()
 	st := Status{Configured: m.cfg.Provider != "", Provider: m.cfg.Provider, Domain: m.cfg.Domain, Email: m.cfg.Email, Staging: m.cfg.Staging,
 		Issuing: m.issuing, LastAttempt: m.lastAttempt, LastSuccess: m.lastSuccess, LastError: m.lastError}
+	if p, ok := providerInfo(m.cfg.Provider); ok {
+		for _, f := range p.Fields {
+			v := m.cfg.Credentials[f.Key]
+			switch {
+			case v == "":
+			case f.Secret:
+				st.Secrets = append(st.Secrets, f.Key)
+			default:
+				if st.Fields == nil {
+					st.Fields = map[string]string{}
+				}
+				st.Fields[f.Key] = v
+			}
+		}
+	}
 	if info := m.certs.Info(); info.Custom != nil && m.cfg.Domain != "" && covers(info.Custom.DNSNames, m.cfg.Domain) {
 		na := info.Custom.NotAfter
 		st.NotAfter = &na
@@ -133,15 +159,26 @@ func (m *Manager) Config() Config {
 	return m.cfg
 }
 
-// SetConfig validates and stores a configuration. An empty token keeps the stored one.
+// SetConfig validates and stores a configuration. An empty secret field keeps the stored
+// value as long as the provider stays the same.
 func (m *Manager) SetConfig(cfg Config) error {
 	cfg.Provider = strings.ToLower(strings.TrimSpace(cfg.Provider))
 	cfg.Domain = validate.NormalizeHostname(cfg.Domain)
 	cfg.Email = strings.TrimSpace(cfg.Email)
-	cfg.Token = strings.TrimSpace(cfg.Token)
-	if _, ok := Providers[cfg.Provider]; !ok {
+	info, ok := providerInfo(cfg.Provider)
+	if !ok {
 		return fmt.Errorf("%w: unsupported DNS provider %q", validate.ErrInvalid, cfg.Provider)
 	}
+	// Older clients send the Cloudflare token on its own.
+	if t := strings.TrimSpace(cfg.Token); t != "" {
+		if cfg.Credentials == nil {
+			cfg.Credentials = map[string]string{}
+		}
+		if cfg.Credentials["token"] == "" {
+			cfg.Credentials["token"] = t
+		}
+	}
+	cfg.Token = ""
 	if err := validate.Hostname(cfg.Domain); err != nil {
 		return err
 	}
@@ -153,12 +190,30 @@ func (m *Manager) SetConfig(cfg Config) error {
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if cfg.Token == "" {
-		if m.cfg.Token == "" {
-			return fmt.Errorf("%w: DNS provider API token is required", validate.ErrInvalid)
+	creds := map[string]string{}
+	known := map[string]bool{}
+	for _, f := range info.Fields {
+		known[f.Key] = true
+		v := strings.TrimSpace(cfg.Credentials[f.Key])
+		if len(v) > 4096 {
+			return fmt.Errorf("%w: %s is too long", validate.ErrInvalid, f.Label)
 		}
-		cfg.Token = m.cfg.Token
+		if v == "" && f.Secret && m.cfg.Provider == cfg.Provider {
+			v = m.cfg.Credentials[f.Key]
+		}
+		if v == "" && !f.Optional {
+			return fmt.Errorf("%w: %s is required for %s", validate.ErrInvalid, f.Label, info.Name)
+		}
+		if v != "" {
+			creds[f.Key] = v
+		}
 	}
+	for k := range cfg.Credentials {
+		if !known[k] {
+			return fmt.Errorf("%w: %s does not take %q", validate.ErrInvalid, info.Name, k)
+		}
+	}
+	cfg.Credentials = creds
 	if err := m.saveLocked(cfg); err != nil {
 		return err
 	}
@@ -304,9 +359,13 @@ func (m *Manager) Issue(ctx context.Context) (err error) {
 		}
 	}()
 
-	ctx, cancel := context.WithTimeout(ctx, issueTimeout)
+	propagation := 5 * time.Minute
+	if p, ok := providerInfo(cfg.Provider); ok && p.PropagationMinutes > 0 {
+		propagation = time.Duration(p.PropagationMinutes) * time.Minute
+	}
+	ctx, cancel := context.WithTimeout(ctx, propagation+issueSlack)
 	defer cancel()
-	provider, err := newProvider(cfg.Provider, cfg.Token, m.httpClient, m.providerBase)
+	provider, err := newProvider(cfg.Provider, cfg.Credentials, m.httpClient, m.providerBase)
 	if err != nil {
 		return err
 	}
@@ -381,7 +440,7 @@ func (m *Manager) Issue(ctx context.Context) (err error) {
 		todo = append(todo, pending{authz: z, chal: chal, fqdn: fqdn, value: value})
 	}
 	for _, p := range todo {
-		if err := m.waitPropagation(ctx, p.fqdn, p.value); err != nil {
+		if err := m.waitPropagation(ctx, p.fqdn, p.value, propagation); err != nil {
 			return err
 		}
 	}
@@ -424,9 +483,9 @@ func (m *Manager) Issue(ctx context.Context) (err error) {
 	return nil
 }
 
-// waitPropagation polls public resolvers until the TXT record is visible.
-func (m *Manager) waitPropagation(ctx context.Context, fqdn, value string) error {
-	deadline := m.now().Add(propagationMax)
+// waitPropagation polls until the TXT record is visible at every name server of the zone.
+func (m *Manager) waitPropagation(ctx context.Context, fqdn, value string, max time.Duration) error {
+	deadline := m.now().Add(max)
 	for {
 		txts, err := m.lookupTXT(ctx, fqdn)
 		if err == nil {
@@ -437,7 +496,7 @@ func (m *Manager) waitPropagation(ctx context.Context, fqdn, value string) error
 			}
 		}
 		if m.now().After(deadline) {
-			return fmt.Errorf("acme: TXT record %s did not become visible within %s", fqdn, propagationMax)
+			return fmt.Errorf("acme: TXT record %s did not become visible at the zone's name servers within %s", fqdn, max)
 		}
 		select {
 		case <-ctx.Done():
@@ -445,16 +504,6 @@ func (m *Manager) waitPropagation(ctx context.Context, fqdn, value string) error
 		case <-time.After(5 * time.Second):
 		}
 	}
-}
-
-// publicTXTLookup queries a public resolver directly so local DNS rewrites (AdGuard,
-// Pi-hole) cannot hide the challenge record.
-func publicTXTLookup(ctx context.Context, fqdn string) ([]string, error) {
-	r := &net.Resolver{PreferGo: true, Dial: func(ctx context.Context, _, _ string) (net.Conn, error) {
-		d := net.Dialer{Timeout: 5 * time.Second}
-		return d.DialContext(ctx, "udp", "1.1.1.1:53")
-	}}
-	return r.LookupTXT(ctx, fqdn)
 }
 
 // accountKey loads or creates the ACME account key.
