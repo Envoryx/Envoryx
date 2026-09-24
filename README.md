@@ -153,6 +153,10 @@ Envoryx is under active development. The current milestone (Phase 1 + 2) deliver
   is its own client – it speaks the same REST API with the same API tokens, so a
   token's scope and project restriction apply unchanged, and `envoryx project
   exec` hands the command's exit code back to the calling shell
+- project manifest: `envoryx.yml` in the repository describes runtimes,
+  services, domains, environment, workers and cron jobs; `git clone` and
+  `envoryx up` bring the same environment up again, the Git tab exports the
+  file and applies a changed one after a pull
 
 All phases of the original plan are implemented – see
 [ARCHITECTURE.md](ARCHITECTURE.md) §13. Releases are listed in
@@ -246,6 +250,7 @@ envoryx project create "Shop" --php 8.4 --database mariadb --template laravel --
 envoryx project logs shop --follow
 envoryx backup create shop --note "before the upgrade"
 envoryx db snapshot shop --note "before the migration"
+envoryx up                                          # in a clone: envoryx.yml → project
 ```
 
 Commands exit 0/1/2, `exec` passes the command's own exit code on, and `--json`

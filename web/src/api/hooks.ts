@@ -250,6 +250,10 @@ export function useStorage(id: string) {
   });
 }
 
+export function useProjectManifest(id: string) {
+  return useQuery({ queryKey: ["projects", id, "manifest"], queryFn: () => api.manifest.get(id), retry: false });
+}
+
 export function useGitStatus(id: string, enabled = true) {
   return useQuery({ queryKey: ["projects", id, "git"], queryFn: async () => (await api.git.status(id)).git, enabled, retry: false });
 }

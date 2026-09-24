@@ -435,6 +435,8 @@ export interface CreateProjectRequest {
   template?: string;
   createStarter?: boolean;
   start?: boolean;
+  /** Apply the envoryx.yml the cloned repository brings (it wins over the services chosen here). Only with git. */
+  useManifest?: boolean;
 }
 
 /**
@@ -851,6 +853,33 @@ export interface Settings {
   dockerHost: string;
   session: { idleTimeout: string; absoluteTimeout: string };
   secureCookies: boolean;
+}
+
+/** One difference between a project and its envoryx.yml. */
+export interface ManifestChange {
+  /** docroot, web, php, node, python, database, redis …, storage, env, domain, worker, cron */
+  section: string;
+  /** Variable, host name, worker or cron job within the section. */
+  item?: string;
+  action: "add" | "change" | "remove";
+  from?: string;
+  to?: string;
+  /** Why the change is not made: "prune" (a removal needs prune) or "downgrade". */
+  skipped?: "prune" | "downgrade";
+}
+
+export interface ManifestPlan {
+  changes: ManifestChange[];
+  /** Variables declared under secrets without a value on the project. */
+  missingSecrets: string[];
+  inSync: boolean;
+}
+
+/** The project as envoryx.yml plus the file in the project directory compared with it. */
+export interface ProjectManifest {
+  fileName: string;
+  yaml: string;
+  repository: { present: boolean; error?: string; plan?: ManifestPlan };
 }
 
 export interface GitStatus {

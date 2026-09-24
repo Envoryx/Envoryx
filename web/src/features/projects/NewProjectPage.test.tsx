@@ -129,6 +129,33 @@ describe("NewProjectPage wizard", () => {
     expect(create?.body).toMatchObject({ name: "Acme Shop", start: true, createStarter: true, web: { type: "apache", version: "2.4" } });
   });
 
+  it("with a repository, asks the server to apply its envoryx.yml unless unticked", async () => {
+    const api = mockApi({
+      ...authedRoutes,
+      "GET /runtimes": () => ({ body: runtimesFixture }),
+      "POST /projects/preview": previewRoute(() => {}),
+      "POST /projects": () => ({ status: 201, body: { project: makeProject(), manifest: { changes: [], missingSecrets: [], inSync: true } } }),
+    });
+    renderApp(
+      <Routes>
+        <Route path="/projects/new" element={<NewProjectPage />} />
+        <Route path="/projects/:id" element={<h1>Detail</h1>} />
+      </Routes>,
+      { route: "/projects/new" },
+    );
+    const user = userEvent.setup();
+    await user.type(await screen.findByLabelText("Project name"), "Acme Shop");
+    expect(screen.queryByLabelText(/Use the repository's envoryx\.yml/)).not.toBeInTheDocument();
+    await user.type(screen.getByLabelText("Repository URL"), "https://github.com/acme/shop.git");
+    expect(screen.getByLabelText(/Use the repository's envoryx\.yml/)).toBeChecked();
+    for (let i = 0; i < 5; i++) await user.click(screen.getByRole("button", { name: "Continue" }));
+    expect(await screen.findByText(/that file replaces the services chosen here/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Create project" }));
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Detail" })).toBeInTheDocument());
+    const create = api.calls.find((c) => c.method === "POST" && c.url.endsWith("/projects"));
+    expect(create?.body).toMatchObject({ git: { url: "https://github.com/acme/shop.git" }, useManifest: true, createStarter: false });
+  });
+
   it("selecting a template presets docroot and database and disables git", async () => {
     let previewBody: Record<string, unknown> | undefined;
     mockApi({

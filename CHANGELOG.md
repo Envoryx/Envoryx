@@ -11,6 +11,18 @@ release). `:main` follows the development branch.
 ## [Unreleased]
 
 ### Added
+- Project manifest `envoryx.yml`: runtimes (with PHP extensions and ini
+  settings), web server, database, services, domains, environment (secrets by
+  name only), workers and cron jobs as a file in the repository. `envoryx up`
+  in a clone creates the project from it – the server clones the repository's
+  origin at the checked-out branch – or brings an existing project in line;
+  `--dry-run` shows the changes, removals need `--prune`, missing secret values
+  are asked for. `envoryx project manifest <project>` writes the file for an
+  existing project. The *Git* tab shows the project as `envoryx.yml`, saves it
+  into the project directory and applies a changed file after a pull; the
+  wizard applies the manifest of a repository it clones. API:
+  `…/manifest`, `…/manifest/file`, `…/manifest/plan`, `…/manifest/apply` and
+  `POST /projects/from-manifest`.
 - Log history in the Logs tab: pick a time range (last 15 minutes to 30 days,
   everything, or from/to), search and filter to warnings or errors on the
   server, see the error frequency as a chart (click a bar to zoom into that

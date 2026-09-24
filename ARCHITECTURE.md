@@ -65,6 +65,7 @@ Go API (single binary, single container)
 │   ├── docker/               Docker Engine abstraction (interface + moby impl + fake)
 │   ├── hostpath/             host-path detection for bind mounts (see §7)
 │   ├── instance/             backups of the instance itself (db + config), restore on start
+│   ├── manifest/             envoryx.yml: the project manifest's file format
 │   ├── project/              project manager: planning, lifecycle, reconciler
 │   ├── runtime/              runtime catalogue (versions → images, config)
 │   ├── server/               router, middleware, static file serving
@@ -191,9 +192,9 @@ POST /api/v1/projects/{id}/start
 ### 3.4 Command line client
 
 The same binary is the client: `envoryx project …`, `envoryx backup …`,
-`envoryx db …`, `envoryx git …` and `envoryx login` talk to a running server
-over `/api/v1` with an API token, exactly like the web interface and the MCP
-server. The CLI holds no privilege of its own – it has no database handle, no
+`envoryx db …`, `envoryx git …`, `envoryx up` and `envoryx login` talk to a
+running server over `/api/v1` with an API token, exactly like the web interface
+and the MCP server. The CLI holds no privilege of its own – it has no database handle, no
 Docker socket and no way around a token's scope or project restriction – so
 `docker exec envoryx
 envoryx project start shop` and the same command from a laptop take the same
@@ -965,6 +966,41 @@ a clone); templates
 set the document root and add required PHP extensions (`mysqli` for
 WordPress) and may require a database. A failing step rolls the whole
 creation back.
+
+### Project manifest
+`internal/manifest` is the file format of `envoryx.yml` and nothing else:
+strict YAML (unknown keys are errors, `redis: true` or a mapping), a format
+`version`, checks that need no server (names, env keys, duplicates) and a
+deterministic writer. Whether a version exists or an extension is available is
+judged by the server that applies the file.
+
+`internal/project/manifest.go` compares both directions through one exporter:
+`exportState` turns a stored project into a manifest (host ports, credentials,
+the repository and settings at their default left out, versions pinned);
+`desiredState` builds the manifest into a project the way Create would
+(`buildProject`, `buildWorker`, `buildCronJob` – versions resolved, configs
+normalised, everything validated, no side effects) and exports that. The plan
+is the section-by-section difference of the two exports, so a project created
+from a manifest is in sync with it by construction, and the exported file of a
+project plans to nothing. Applying maps the plan onto the existing operations:
+one `Update` for docroot, web server, runtimes, services and environment (one
+restart), then workers, cron jobs and domains through their own methods.
+Removals are only planned as *skipped* unless `Prune` is set; a database type
+change is a removal plus an add (two updates), a database downgrade is skipped.
+Environment merges rather than replaces: plain values come from the file,
+secrets keep the project's value unless one is given, unknown variables stay
+unless pruned.
+
+`CreateFromManifest` is `Create` with the manifest's request (secrets from the
+caller, empty otherwise) followed by an apply for workers, cron jobs and
+domains, then the start; a failure after the create names the project and is
+repaired by running `envoryx up` again. `CreateFromRepository` (the wizard's
+*Use the repository's envoryx.yml*) creates without starting, reads the cloned
+file through an `os.Root` of the project directory (a symlink in the repository
+cannot point the server at another file) and applies it with prune – the fresh
+project has no data yet – before it starts. `envoryx up` reads the file
+locally, sends it as text and lets the server clone `origin` at the current
+branch; it never uploads files.
 
 ### Phase 4 + 8 – Domains, embedded proxy, HTTPS (implemented)
 The proxy lives in the Envoryx binary (`internal/proxy`): two listeners
