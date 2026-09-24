@@ -61,6 +61,9 @@ type Manager struct {
 	// oom remembers recent OOM kills for the project warnings (see oom.go).
 	oom     *oomLog
 	oomOnce sync.Once
+	// healthSt holds the application health checks (see health.go).
+	healthSt   *healthState
+	healthOnce sync.Once
 	// backupHook is told about every backup created (offsite uploads).
 	backupHook func(projectID string, b BackupInfo)
 	unhealthy  map[string]bool // project ids reported as unhealthy (for recovery events)
@@ -246,6 +249,10 @@ func (m *Manager) buildProject(req CreateRequest) (store.Project, error) {
 	if err := validateLimits(req.Limits, 0, 0); err != nil {
 		return store.Project{}, err
 	}
+	health, err := normalizeHealthCheck(req.HealthCheck)
+	if err != nil {
+		return store.Project{}, err
+	}
 
 	proj := store.Project{
 		ID:           store.NewID(),
@@ -256,6 +263,7 @@ func (m *Manager) buildProject(req CreateRequest) (store.Project, error) {
 		DesiredState: store.DesiredStopped,
 		Lifecycle:    store.LifecycleCreating,
 		Limits:       req.Limits,
+		HealthCheck:  health,
 	}
 	if req.Start {
 		proj.DesiredState = store.DesiredRunning
@@ -961,6 +969,7 @@ func (m *Manager) List(ctx context.Context) ([]View, error) {
 			st.Warnings = append(st.Warnings, w)
 		}
 		st.Warnings = append(st.Warnings, m.oomWarnings(p.ID)...)
+		m.addHealth(p, &st)
 		st.Operation = m.progress.active(p.ID)
 		views = append(views, View{Project: p, Status: st, HTTPPort: p.HTTPPort})
 	}
@@ -989,6 +998,7 @@ func (m *Manager) Get(ctx context.Context, id string) (View, error) {
 		st.Warnings = append(st.Warnings, w)
 	}
 	st.Warnings = append(st.Warnings, m.oomWarnings(p.ID)...)
+	m.addHealth(p, &st)
 	st.Operation = m.progress.active(p.ID)
 	return View{Project: p, Status: st, HTTPPort: p.HTTPPort}, nil
 }

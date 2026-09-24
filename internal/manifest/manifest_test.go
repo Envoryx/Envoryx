@@ -158,3 +158,30 @@ func TestLimitMemory(t *testing.T) {
 		t.Fatal("format")
 	}
 }
+
+func TestHealthCheck(t *testing.T) {
+	m, err := Parse([]byte("version: 1\nhealthcheck: /health\n"))
+	if err != nil || m.HealthCheck == nil || *m.HealthCheck != (HealthCheck{Path: "/health"}) {
+		t.Fatalf("short form: %+v %v", m.HealthCheck, err)
+	}
+	m, err = Parse([]byte("version: 1\nhealthcheck:\n  path: /up\n  status: 204\n  interval: 2m\n  timeout: 10s\n  failures: 5\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if iv, to, err := m.HealthCheck.Seconds(); err != nil || iv != 120 || to != 10 || m.HealthCheck.Status != 204 || m.HealthCheck.Failures != 5 {
+		t.Fatalf("full form: %+v %d %d %v", m.HealthCheck, iv, to, err)
+	}
+	for _, in := range []string{
+		"healthcheck: health\n",
+		"healthcheck:\n  path: /up\n  interval: 1.5s\n",
+		"healthcheck:\n  path: /up\n  timeout: soon\n",
+		"healthcheck:\n  path: /up\n  method: POST\n",
+	} {
+		if _, err := Parse([]byte("version: 1\n" + in)); err == nil {
+			t.Errorf("accepted %q", in)
+		}
+	}
+	if FormatSeconds(120) != "2m" || FormatSeconds(45) != "45s" || FormatSeconds(0) != "" {
+		t.Fatal("format")
+	}
+}

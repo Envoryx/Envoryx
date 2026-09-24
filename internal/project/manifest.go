@@ -259,6 +259,7 @@ func exportState(p store.Project, domains []store.Domain, jobs []store.CronJob) 
 		}
 		mf.Limits = &manifest.Limits{App: set(p.Limits.App), Services: set(p.Limits.Services), Pids: p.Limits.Pids}
 	}
+	mf.HealthCheck = exportHealthCheck(p.HealthCheck)
 	for _, j := range jobs {
 		mj := manifest.CronJob{Name: j.Name, Schedule: j.Schedule, Runtime: j.Runtime, Command: j.Command}
 		if j.Timeout != cronDefaultTimeout {
@@ -357,7 +358,28 @@ func manifestRequest(mf manifest.Manifest, name string) CreateRequest {
 		req.Storage = &StorageRequest{Version: mf.Storage.Version, PublicRead: &pr}
 	}
 	req.Limits = manifestLimits(mf.Limits)
+	req.HealthCheck = manifestHealthCheck(mf.HealthCheck)
 	return req
+}
+
+// manifestHealthCheck converts the file's health check (checked by Validate).
+func manifestHealthCheck(h *manifest.HealthCheck) store.HealthCheck {
+	if h == nil {
+		return store.HealthCheck{}
+	}
+	interval, timeout, _ := h.Seconds()
+	return store.HealthCheck{Path: strings.TrimSpace(h.Path), Status: h.Status, IntervalSec: interval, TimeoutSec: timeout, Failures: h.Failures}
+}
+
+// exportHealthCheck writes a health check without its defaults (nil: none).
+func exportHealthCheck(h store.HealthCheck) *manifest.HealthCheck {
+	if n, err := normalizeHealthCheck(h); err == nil {
+		h = n
+	}
+	if !h.Enabled() {
+		return nil
+	}
+	return &manifest.HealthCheck{Path: h.Path, Status: h.Status, Interval: manifest.FormatSeconds(h.IntervalSec), Timeout: manifest.FormatSeconds(h.TimeoutSec), Failures: h.Failures}
 }
 
 // manifestLimits converts the file's limits (the sizes are checked by Validate).
@@ -465,6 +487,8 @@ type manifestOps struct {
 	removeCron    []store.CronJob
 	// limits are set through SetLimits (nil = unchanged).
 	limits *store.ResourceLimits
+	// health is set through SetHealthCheck (nil = unchanged).
+	health *store.HealthCheck
 }
 
 func (o manifestOps) hasUpdate() bool { return !reflect.DeepEqual(o.update, UpdateRequest{}) }
@@ -653,6 +677,20 @@ func (m *Manager) planManifest(ctx context.Context, id string, mf manifest.Manif
 			add(c)
 			l := want.Limits
 			ops.limits = &l
+		}
+	}
+
+	// Compared in the form the project exports, so "interval: 30s" (the default) is no
+	// change.
+	if c, ok := sectionChange("healthcheck", have.HealthCheck, exportHealthCheck(want.HealthCheck)); ok {
+		if c.Action == "remove" {
+			if removal(c) {
+				ops.health = &store.HealthCheck{}
+			}
+		} else {
+			add(c)
+			h := want.HealthCheck
+			ops.health = &h
 		}
 	}
 
@@ -947,6 +985,11 @@ func (m *Manager) ApplyManifest(ctx context.Context, id string, mf manifest.Mani
 	}
 	if ops.limits != nil {
 		if _, err := m.SetLimits(ctx, id, *ops.limits); err != nil {
+			return ManifestResult{Plan: plan}, err
+		}
+	}
+	if ops.health != nil {
+		if _, err := m.SetHealthCheck(ctx, id, *ops.health); err != nil {
 			return ManifestResult{Plan: plan}, err
 		}
 	}

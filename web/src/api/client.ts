@@ -35,6 +35,8 @@ import type {
   RemoteBackup,
   LogFilter,
   LogHistoryInfo,
+  HealthCheck,
+  HealthResult,
   MetricsInfo,
   LogPage,
   LogSummary,
@@ -271,6 +273,8 @@ export const api = {
     stats: (id: string) => request<ProjectStatsResponse>(`/projects/${encodeURIComponent(id)}/stats`),
     metrics: (id: string, range: MetricRange) => request<{ metrics: ProjectMetrics }>(`/projects/${encodeURIComponent(id)}/metrics?range=${range}`),
     setLimits: (id: string, body: ResourceLimits) => request<{ project: Project }>(`/projects/${encodeURIComponent(id)}/limits`, { method: "PUT", body }),
+    setHealthCheck: (id: string, body: HealthCheck) => request<{ project: Project }>(`/projects/${encodeURIComponent(id)}/health-check`, { method: "PUT", body }),
+    testHealthCheck: (id: string, body: HealthCheck) => request<{ result: HealthResult }>(`/projects/${encodeURIComponent(id)}/health-check/test`, { method: "POST", body }),
     actions: (id: string) => request<{ actions: ActionInfo[] }>(`/projects/${encodeURIComponent(id)}/actions`),
     extras: (id: string) => request<{ services: ExtraServiceInfo[] }>(`/projects/${encodeURIComponent(id)}/extras`),
     logs: (id: string, kind: string, filter: LogFilter = {}, tail = 500) =>

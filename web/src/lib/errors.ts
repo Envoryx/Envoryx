@@ -75,6 +75,13 @@ const templates = [
   "{{container}} ran out of memory at {{time}} (limit {{limit}} MiB); a process was killed",
   "{{container}} ran out of memory {{times}} times, last at {{time}}; processes were killed",
   "{{container}} ran out of memory at {{time}}; a process was killed",
+  "the health check {{path}} has failed since {{time}}: {{reason}}",
+  "HTTP {{got}} instead of {{want}} (redirect to {{location}})",
+  "HTTP {{got}} instead of {{want}}",
+  "no answer within {{seconds}} s",
+  "the interval must be {{min}} to {{max}} seconds",
+  "the timeout must be 1 to {{max}} seconds",
+  "the failures before an alarm must be 1 to {{max}}",
 ];
 
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -87,7 +94,12 @@ function translateSegment(s: string, t: TFunction): string | undefined {
   if (i18n.exists(s)) return t(s);
   for (const { tpl, re } of compiled) {
     const m = re.exec(s);
-    if (m) return t(tpl, m.groups ?? {});
+    if (m) {
+      const groups: Record<string, string> = { ...m.groups };
+      // A {{reason}} is itself a backend message.
+      if (groups.reason) groups.reason = translateSegment(groups.reason, t) ?? groups.reason;
+      return t(tpl, groups);
+    }
   }
   return undefined;
 }

@@ -31,6 +31,19 @@ release). `:main` follows the development branch.
   and hourly after that; *Settings → General → Resource history* sets the
   retention (default 90 days, up to a year) and deletes the history.
 
+- Application health checks (*Overview* tab): a path such as `/health` must
+  answer with the expected status. Envoryx asks the web server the way the
+  proxy does (project network, the project's host name), every 30 s by
+  default; after 3 failures in a row the application counts as down, the
+  project shows a warning and a notification goes out (new event
+  `project.down`, on by default), and another one when it answers again.
+  Checks pause while a project is stopped, busy or its application container
+  is not running. *Test* tries a check before saving it. Part of
+  `envoryx.yml` (`healthcheck:`) and `envoryx project show`.
+- New notification events (`project.oom`, `project.down`) are on after the
+  update also where the event selection was saved before: an event type the
+  selection did not offer yet follows its default until it is saved again.
+
 ## [0.7.1] – 2026-09-24
 
 ### Fixed

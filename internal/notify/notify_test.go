@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -243,5 +244,30 @@ func TestNotifySyncWaitsForDelivery(t *testing.T) {
 	n := got.count()
 	if err := s.NotifySync(ctx, Event{Kind: "envoryx.failed", Level: Error, Title: "x", Message: "y"}); err != nil || got.count() != n {
 		t.Fatalf("filtered event was sent (%v)", err)
+	}
+}
+
+func TestNewKindsFollowTheirDefault(t *testing.T) {
+	// Saved by 0.7.1: no Offered list, project.oom and project.down did not exist yet.
+	old := Config{Kinds: []string{"acme.failed"}}
+	if !old.enabledKind("project.down") || !old.enabledKind("project.oom") {
+		t.Fatal("a kind added after the selection must follow its default")
+	}
+	if old.enabledKind("project.unhealthy") || old.enabledKind("acme.renewed") {
+		t.Fatal("a kind the user left out must stay off")
+	}
+	// Saved now: every kind was offered, so what is not selected is off.
+	s, err := New(t.TempDir(), slog.New(slog.NewTextHandler(io.Discard, nil)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetConfig(Config{Provider: "ntfy", Kinds: []string{"acme.failed"}}); err != nil {
+		t.Fatal(err)
+	}
+	if s.cfg.enabledKind("project.down") {
+		t.Fatal("an offered kind the user left out must stay off")
+	}
+	if got := old.effectiveKinds(); !slices.Contains(got, "project.down") || !slices.Contains(got, "acme.failed") || slices.Contains(got, "acme.renewed") {
+		t.Fatalf("effective: %v", got)
 	}
 }

@@ -69,6 +69,8 @@ Envoryx is under active development. The current milestone (Phase 1 + 2) deliver
 - CPU, memory and process limits per project (application containers and
   services separately), applied live; containers that run out of memory
   show up as a warning and a notification
+- application health checks: a path like `/health` must answer with the
+  expected status; a notification when the app goes down and when it is back
 - resource history per project: CPU, memory, network, disk I/O and disk space
   (volumes, project directory, backups) as charts from one hour to one year,
   plus a dashboard overview of which project uses what

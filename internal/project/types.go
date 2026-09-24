@@ -53,6 +53,8 @@ type CreateRequest struct {
 	Start bool
 	// Limits cap CPU, memory and processes of the containers (zero: none).
 	Limits store.ResourceLimits
+	// HealthCheck asks the application over HTTP whether it works (Path "": none).
+	HealthCheck store.HealthCheck
 }
 
 // PHPRequest selects the PHP runtime.
@@ -338,6 +340,8 @@ type Status struct {
 	Warnings []string        `json:"warnings"`
 	// Operation is the lifecycle action currently running on the project, if any.
 	Operation *Operation `json:"operation,omitempty"`
+	// Health is the application health check's state (absent without a check).
+	Health *HealthStatus `json:"health,omitempty"`
 }
 
 // View is a project together with its derived status.

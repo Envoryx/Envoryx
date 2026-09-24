@@ -84,9 +84,11 @@ type Project struct {
 	// application containers and a shared IDE backend cache mount.
 	IDEGateway bool
 	// Limits caps CPU, memory and processes of the project's containers.
-	Limits    ResourceLimits
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	Limits ResourceLimits
+	// HealthCheck asks the application over HTTP whether it works (Path "" = off).
+	HealthCheck HealthCheck
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
 
 	Services []ProjectService
 	Env      []EnvVar
@@ -133,6 +135,58 @@ func (l ResourceLimits) encode() string {
 		return ""
 	}
 	b, _ := json.Marshal(l)
+	return string(b)
+}
+
+// HealthCheck is an HTTP request Envoryx sends to a project's application at an interval;
+// the application is down when it fails several times in a row. Zero values except Path
+// mean Envoryx's defaults.
+type HealthCheck struct {
+	// Path is what is requested, with an optional query ("/health", "/up?full=1").
+	Path string `json:"path,omitempty"`
+	// Status is the expected HTTP status (default 200).
+	Status int `json:"status,omitempty"`
+	// IntervalSec is the time between two checks (default 30).
+	IntervalSec int `json:"intervalSec,omitempty"`
+	// TimeoutSec is how long one answer may take (default 5).
+	TimeoutSec int `json:"timeoutSec,omitempty"`
+	// Failures is how many failed checks in a row make the application down (default 3).
+	Failures int `json:"failures,omitempty"`
+}
+
+// Health check defaults.
+const (
+	DefaultHealthStatus   = 200
+	DefaultHealthInterval = 30
+	DefaultHealthTimeout  = 5
+	DefaultHealthFailures = 3
+)
+
+// Enabled reports a configured check.
+func (h HealthCheck) Enabled() bool { return h.Path != "" }
+
+// WithDefaults fills the unset values.
+func (h HealthCheck) WithDefaults() HealthCheck {
+	if h.Status == 0 {
+		h.Status = DefaultHealthStatus
+	}
+	if h.IntervalSec == 0 {
+		h.IntervalSec = DefaultHealthInterval
+	}
+	if h.TimeoutSec == 0 {
+		h.TimeoutSec = DefaultHealthTimeout
+	}
+	if h.Failures == 0 {
+		h.Failures = DefaultHealthFailures
+	}
+	return h
+}
+
+func (h HealthCheck) encode() string {
+	if !h.Enabled() {
+		return ""
+	}
+	b, _ := json.Marshal(h)
 	return string(b)
 }
 

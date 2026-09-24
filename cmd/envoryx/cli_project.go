@@ -138,6 +138,20 @@ func (c *cli) projectShow(ctx context.Context, args []string) error {
 		}
 		c.printf("  Limits    app %s · services %s · %d processes (per container)\n", l.App, l.Services, pids)
 	}
+	if h := p.HealthCheck; h != nil {
+		line := fmt.Sprintf("GET %s → %d every %ds", h.Path, h.Status, h.IntervalSec)
+		if st := p.Status.Health; st != nil {
+			switch st.State {
+			case "up":
+				line += fmt.Sprintf(" · up (%d ms)", st.LatencyMs)
+			case "failing", "down":
+				line += fmt.Sprintf(" · %s since %s: %s", st.State, st.Since.Local().Format("15:04"), st.Error)
+			default:
+				line += " · " + st.State
+			}
+		}
+		c.printf("  Health    %s\n", line)
+	}
 	if p.LastError != "" {
 		c.printf("  Error     %s\n", p.LastError)
 	}

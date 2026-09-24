@@ -161,7 +161,8 @@ func TestMetricsResolution(t *testing.T) {
 func TestSizesForNewProjects(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
-	now := time.Now()
+	// Early in an hour, so the passes below stay in it.
+	now := time.Now().Truncate(time.Hour).Add(-time.Hour + 5*time.Minute)
 	e.m.MetricsPass(ctx, now) // no project yet
 	v, err := e.m.Create(ctx, phpRequest("Late", false))
 	if err != nil {

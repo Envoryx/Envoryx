@@ -18,6 +18,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -62,6 +63,7 @@ var Kinds = []struct {
 	{"project.unhealthy", "A project that should be running is stopped or broken (and when it recovers)", true},
 	{"project.failed", "Creating a project failed and was rolled back", true},
 	{"project.oom", "A container ran out of memory and the kernel killed a process in it", true},
+	{"project.down", "The application health check failed several times in a row (and when it answers again)", true},
 	{"acme.failed", "Let's Encrypt certificate could not be issued or renewed", true},
 	{"acme.renewed", "Let's Encrypt certificate issued or renewed", false},
 	{"backup.failed", "A backup could not be created", true},
@@ -104,7 +106,14 @@ type Config struct {
 	To           string `json:"to,omitempty"`
 	// Kinds enables event kinds; nil = defaults.
 	Kinds []string `json:"kinds"`
+	// Offered are the kinds that existed when Kinds was chosen. A kind added later
+	// follows its default until the list is saved again – otherwise a new alarm would be
+	// off for everyone who ever saved the settings.
+	Offered []string `json:"offered,omitempty"`
 }
+
+// kindsBefore080 are the kinds of configurations saved before Offered existed.
+var kindsBefore080 = []string{"project.unhealthy", "project.failed", "acme.failed", "acme.renewed", "backup.failed", "cron.failed", "storage.low", "envoryx.started", "envoryx.failed", "projects.resumed", "docker.orphans_removed"}
 
 // Public strips secrets for API responses.
 func (c Config) Public() Config {
@@ -123,12 +132,36 @@ func (c Config) enabledKind(kind string) bool {
 		}
 		return false
 	}
-	for _, k := range c.Kinds {
-		if k == kind {
-			return true
+	if slices.Contains(c.Kinds, kind) {
+		return true
+	}
+	offered := c.Offered
+	if offered == nil {
+		offered = kindsBefore080
+	}
+	if slices.Contains(offered, kind) {
+		return false
+	}
+	for _, k := range Kinds {
+		if k.Kind == kind {
+			return k.Default
 		}
 	}
 	return false
+}
+
+// effectiveKinds is the selection as it applies now, new kinds included.
+func (c Config) effectiveKinds() []string {
+	if c.Kinds == nil {
+		return nil
+	}
+	out := []string{}
+	for _, k := range Kinds {
+		if c.enabledKind(k.Kind) {
+			out = append(out, k.Kind)
+		}
+	}
+	return out
 }
 
 // Status is reported to the UI.
@@ -191,7 +224,9 @@ func New(dir string, log *slog.Logger) (*Service, error) {
 func (s *Service) Status() Status {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return Status{Config: s.cfg.Public(), HasToken: s.cfg.Token != "", HasSMTPPW: s.cfg.SMTPPassword != "", LastSent: s.lastSent, LastError: s.lastError}
+	pub := s.cfg.Public()
+	pub.Kinds, pub.Offered = s.cfg.effectiveKinds(), nil
+	return Status{Config: pub, HasToken: s.cfg.Token != "", HasSMTPPW: s.cfg.SMTPPassword != "", LastSent: s.lastSent, LastError: s.lastError}
 }
 
 // SetConfig validates and stores a configuration. Empty secrets keep the stored ones.
@@ -222,6 +257,10 @@ func (s *Service) SetConfig(cfg Config) error {
 			if !known[k] {
 				return fmt.Errorf("unknown event kind %q", k)
 			}
+		}
+		cfg.Offered = make([]string, 0, len(Kinds))
+		for _, k := range Kinds {
+			cfg.Offered = append(cfg.Offered, k.Kind)
 		}
 	}
 	raw, err := json.Marshal(cfg)
