@@ -419,7 +419,11 @@ func (m *Manager) createBackupLocked(ctx context.Context, p store.Project, opts 
 		return fail("record backup", err)
 	}
 	m.audit.Log(ctx, audit.ActionBackupCreated, "project", p.ID, map[string]any{"name": p.Name, "backup": rec.ID, "kind": kind, "bytes": size})
-	return BackupInfo{ID: rec.ID, Dir: dirName, Kind: kind, SizeBytes: size, CreatedAt: rec.CreatedAt, Meta: meta}, nil
+	info := BackupInfo{ID: rec.ID, Dir: dirName, Kind: kind, SizeBytes: size, CreatedAt: rec.CreatedAt, Meta: meta}
+	if m.backupHook != nil {
+		m.backupHook(p.ID, info)
+	}
+	return info, nil
 }
 
 // backupKind names a backup by its parts: one part → that name, several → "full".
@@ -625,6 +629,8 @@ func (m *Manager) DeleteBackup(ctx context.Context, id, backupID string) error {
 	if err := m.store.Backups.Delete(ctx, id, backupID); err != nil {
 		return err
 	}
+	// Copies on offsite targets stay there; only the local bookkeeping goes.
+	_ = m.store.Offsite.DeleteByBackup(ctx, store.OffsiteProject, backupID)
 	m.audit.Log(ctx, audit.ActionBackupDeleted, "project", id, map[string]any{"name": p.Name, "backup": backupID})
 	return nil
 }
@@ -669,7 +675,7 @@ func (m *Manager) OpenBackupArchive(ctx context.Context, id, backupID string) (i
 	go func() {
 		tw := tar.NewWriter(pw)
 		var werr error
-		for _, name := range []string{backupMetaFile, backupDBFile, backupFilesFile} {
+		for _, name := range backupArchiveMembers {
 			path := filepath.Join(dir, name)
 			info, err := os.Stat(path)
 			if err != nil {

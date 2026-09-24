@@ -6,6 +6,7 @@ import type {
   AuditEntry,
   BackupInfo,
   BackupSchedule,
+  BackupsResponse,
   CloneDatabaseResult,
   CreateProjectRequest,
   DuplicateProjectRequest,
@@ -28,6 +29,10 @@ import type {
   ManifestPlan,
   InstanceBackup,
   InstanceBackupsResponse,
+  OffsiteTarget,
+  OffsiteTargetInput,
+  OffsiteUpload,
+  RemoteBackup,
   LogFilter,
   LogHistoryInfo,
   LogPage,
@@ -277,12 +282,30 @@ export const api = {
       request<{ scheduled: string; restarting: boolean }>(`/instance/backups/${encodeURIComponent(id)}/restore`, { method: "POST", body: { confirm } }),
     cancelRestore: () => request<void>("/instance/restore", { method: "DELETE" }),
     downloadUrl: (id: string) => `/api/v1/instance/backups/${encodeURIComponent(id)}/download`,
+    uploadOffsite: (id: string, targets: string[] = []) =>
+      request<{ offsite: OffsiteUpload[] }>(`/instance/backups/${encodeURIComponent(id)}/offsite`, { method: "POST", body: { targets } }),
+  },
+
+  offsite: {
+    list: () => request<{ targets: OffsiteTarget[] }>("/offsite"),
+    create: (body: OffsiteTargetInput) => request<{ target: OffsiteTarget }>("/offsite/targets", { method: "POST", body }),
+    update: (id: string, body: OffsiteTargetInput) => request<{ target: OffsiteTarget }>(`/offsite/targets/${encodeURIComponent(id)}`, { method: "PUT", body }),
+    remove: (id: string) => request<void>(`/offsite/targets/${encodeURIComponent(id)}`, { method: "DELETE" }),
+    test: (body: OffsiteTargetInput) => request<{ result: { hostKey?: string } }>("/offsite/test", { method: "POST", body }),
+    remoteInstance: (id: string) => request<{ backups: RemoteBackup[] }>(`/offsite/targets/${encodeURIComponent(id)}/instance`),
+    fetchInstance: (id: string, key: string) => request<{ backup: InstanceBackup }>(`/offsite/targets/${encodeURIComponent(id)}/instance/fetch`, { method: "POST", body: { key } }),
+    removeRemote: (id: string, key: string) => request<void>(`/offsite/targets/${encodeURIComponent(id)}/remove`, { method: "POST", body: { key } }),
   },
 
   backups: {
-    list: (id: string) => request<{ backups: BackupInfo[] }>(`/projects/${encodeURIComponent(id)}/backups`),
-    create: (id: string, body: { database: boolean; files: boolean; storage: boolean; includeDependencies: boolean; note: string }) =>
-      request<{ backup: BackupInfo }>(`/projects/${encodeURIComponent(id)}/backups`, { method: "POST", body }),
+    list: (id: string) => request<BackupsResponse>(`/projects/${encodeURIComponent(id)}/backups`),
+    create: (id: string, body: { database: boolean; files: boolean; storage: boolean; includeDependencies: boolean; note: string; offsite?: boolean }) =>
+      request<{ backup: BackupInfo; offsite?: OffsiteUpload[]; offsiteError?: string }>(`/projects/${encodeURIComponent(id)}/backups`, { method: "POST", body }),
+    uploadOffsite: (id: string, backupId: string, targets: string[] = []) =>
+      request<{ offsite: OffsiteUpload[] }>(`/projects/${encodeURIComponent(id)}/backups/${encodeURIComponent(backupId)}/offsite`, { method: "POST", body: { targets } }),
+    remote: (id: string, targetId: string) => request<{ backups: RemoteBackup[] }>(`/projects/${encodeURIComponent(id)}/offsite/${encodeURIComponent(targetId)}`),
+    fetchRemote: (id: string, targetId: string, key: string) =>
+      request<{ backup: BackupInfo }>(`/projects/${encodeURIComponent(id)}/offsite/${encodeURIComponent(targetId)}/fetch`, { method: "POST", body: { key } }),
     remove: (id: string, backupId: string) =>
       request<void>(`/projects/${encodeURIComponent(id)}/backups/${encodeURIComponent(backupId)}`, { method: "DELETE" }),
     restore: (id: string, backupId: string, body: { database: boolean; files: boolean; storage: boolean; wipeFiles: boolean; wipeStorage: boolean; confirm: string }) =>

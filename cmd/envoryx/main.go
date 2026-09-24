@@ -49,6 +49,7 @@ import (
 	"github.com/envoryx/envoryx/internal/logs"
 	"github.com/envoryx/envoryx/internal/mcpserver"
 	"github.com/envoryx/envoryx/internal/notify"
+	"github.com/envoryx/envoryx/internal/offsite"
 	"github.com/envoryx/envoryx/internal/project"
 	"github.com/envoryx/envoryx/internal/proxy"
 	"github.com/envoryx/envoryx/internal/runtime"
@@ -274,6 +275,21 @@ func serve() error {
 		manager.SetNotifier(notifier)
 	}
 
+	// Offsite targets get scheduled project backups and a daily instance backup.
+	var syncer *offsite.Syncer
+	if offsiteCfg, err := offsite.OpenConfig(cfg.ConfigDir); err != nil {
+		log.Warn("offsite backups unavailable", "err", err)
+	} else {
+		syncer = &offsite.Syncer{Config: offsiteCfg, Store: st, Projects: manager, Instance: backups, Log: log,
+			CreateInstanceBackup: func(ctx context.Context, kind string) (instance.Info, error) {
+				return backups.Create(ctx, sqlDB, kind, "daily, for the offsite targets")
+			}}
+		if notifier != nil {
+			syncer.Notify = notifier
+		}
+		manager.SetBackupHook(syncer.OnProjectBackup)
+	}
+
 	// 5. Clear the remains of backups a crash interrupted, then reconcile desired vs.
 	// actual state and keep doing so in the background.
 	backups.Sweep()
@@ -288,6 +304,9 @@ func serve() error {
 		manager.RunReconciler(ctx, 30*time.Second, log)
 	})
 	background("backup scheduler", func(ctx context.Context) { manager.RunBackupScheduler(ctx, time.Minute, log) })
+	if syncer != nil {
+		background("offsite backups", func(ctx context.Context) { syncer.Run(ctx, time.Minute) })
+	}
 	// Every 15 seconds: a job fires at most that long after its minute starts.
 	background("cron scheduler", func(ctx context.Context) { manager.RunCronScheduler(ctx, 15*time.Second, log) })
 	// Container output outlives the containers: followed as it comes, kept per day.
@@ -389,7 +408,7 @@ func serve() error {
 		Config: cfg, Version: version, Store: st, Auth: sessions, Audit: auditLog, Engine: engine,
 		Projects: manager, Catalog: catalog, Stats: collector, HostPath: resolver, Certs: certs, ACME: acmeMgr, Notify: notifier, Proxy: proxyInfo,
 		MCP: mcpSrv.Handler(), SSH: sshInfo, Log: log, StartedAt: time.Now(), Updates: updates,
-		Instance: backups, DB: sqlDB, Restart: requestRestart, Warnings: warnings,
+		Instance: backups, DB: sqlDB, Restart: requestRestart, Warnings: warnings, Offsite: syncer,
 	})
 	var origins []string
 	if cfg.DevMode {

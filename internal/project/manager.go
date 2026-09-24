@@ -54,8 +54,10 @@ type Manager struct {
 	report   ReconcileReport
 	activity []Activity // autonomous actions since start, newest first (see activity.go)
 
-	notifier  notify.Sender
-	unhealthy map[string]bool // project ids reported as unhealthy (for recovery events)
+	notifier notify.Sender
+	// backupHook is told about every backup created (offsite uploads).
+	backupHook func(projectID string, b BackupInfo)
+	unhealthy  map[string]bool // project ids reported as unhealthy (for recovery events)
 
 	cronOnce sync.Once
 	cronRuns *cronState // cron runs in progress (see cronjobs.go)

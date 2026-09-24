@@ -15,7 +15,16 @@ func (a *API) listBackups(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"backups": list})
+	ids := make([]string, len(list))
+	for i, b := range list {
+		ids[i] = b.ID
+	}
+	rows, err := a.d.Store.Offsite.ByBackups(r.Context(), store.OffsiteProject, ids)
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"backups": list, "offsite": a.uploadDTOs(rows), "offsiteTargets": a.offsiteTargetNames()})
 }
 
 type createBackupRequest struct {
@@ -24,6 +33,8 @@ type createBackupRequest struct {
 	Storage             bool   `json:"storage"`
 	IncludeDependencies bool   `json:"includeDependencies"`
 	Note                string `json:"note"`
+	// Offsite copies the new backup to every enabled offsite target.
+	Offsite bool `json:"offsite"`
 }
 
 func (a *API) createBackup(w http.ResponseWriter, r *http.Request) {
@@ -39,7 +50,17 @@ func (a *API) createBackup(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusCreated, map[string]any{"backup": info})
+	body := map[string]any{"backup": info}
+	if req.Offsite && a.d.Offsite != nil {
+		// The backup exists either way; a refused upload (no target enabled) is reported
+		// next to it rather than as the request's failure.
+		if rows, err := a.d.Offsite.UploadProject(r.Context(), r.PathValue("id"), info.ID, nil); err != nil {
+			body["offsiteError"] = err.Error()
+		} else {
+			body["offsite"] = a.uploadDTOs(rows)[info.ID]
+		}
+	}
+	writeJSON(w, http.StatusCreated, body)
 }
 
 func (a *API) deleteBackup(w http.ResponseWriter, r *http.Request) {

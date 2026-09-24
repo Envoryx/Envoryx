@@ -715,7 +715,8 @@ directory and start again – a warning is logged at startup while backups are
 left behind in the old location.
 
 Include the backups directory in your regular off-machine backup (e.g. the
-Unraid Appdata Backup plugin or an rsync job), or use the per-backup download.
+Unraid Appdata Backup plugin or an rsync job), use the per-backup download, or
+let Envoryx copy the backups offsite itself (see *Offsite backups* below).
 
 **Scheduled backups**: Backups tab → *Scheduled backups*: daily or weekly at
 a given hour (server local time – set `TZ` on the container for your zone),
@@ -761,7 +762,75 @@ container, unpack the archive – `envoryx.db` to `/config/envoryx.db` (delete
 again.
 
 Still include `/config`, `/projects` and the backups directory in your regular
-off-machine backup (e.g. the Unraid Appdata Backup plugin or an rsync job).
+off-machine backup (e.g. the Unraid Appdata Backup plugin or an rsync job), or
+set up an offsite target.
+
+### Offsite backups
+
+*Settings → Backups → Offsite backups* copies backups to storage outside the
+host. The local backups stay the working copies; each target keeps its own.
+
+| Type | For | What it needs |
+|------|-----|---------------|
+| S3-compatible | AWS S3, Backblaze B2, Wasabi, Hetzner Object Storage, Cloudflare R2, MinIO | endpoint URL, bucket, region, access key and secret key (path-style addressing) |
+| SFTP | Hetzner Storage Box (port 23), a NAS, any SSH server | host, port, user, password and/or an OpenSSH private key without passphrase |
+| WebDAV | Nextcloud/ownCloud (`https://cloud.example.com/remote.php/dav/files/<user>`, app password), Storage Box, NAS | URL, user, password |
+
+*Test* writes, lists, reads and deletes a small file under the target's
+folder. For SFTP it also records the server's key (SHA256 fingerprint); a
+different key later stops the uploads until the pin is cleared in the target.
+Credentials live in `/config/offsite.json` (mode 0600) and are never sent back
+to the browser.
+
+**What goes up.** Per target:
+
+- *Scheduled project backups* – every scheduled backup of every project is
+  copied once it is taken. *Keep per project* rotates the scheduled copies on
+  the target (0 = keep all); copies made by hand are never rotated away.
+- *Daily instance backup* – at the chosen hour Envoryx takes an instance
+  backup (kind `scheduled`, the last 5 stay locally) and copies it. This is
+  what a fresh Envoryx needs after the host is gone.
+- Everything else on request: *Copy offsite* next to a backup (project or
+  instance), *Also copy offsite* when creating one, `envoryx backup create
+  --offsite` or `envoryx backup offsite <project> <backup>`.
+
+Uploads run in the background. A failed one is retried after 5, 15 and 45
+minutes and 2 hours, then stays failed (the button tries again); every
+failure raises the *Backup failed* notification. The Backups tab shows each
+copy's state next to the backup.
+
+**Encryption** is a per-target switch and on by default. Archives are
+encrypted with [age](https://age-encryption.org) and a scrypt passphrase
+before they leave the host, so the provider only sees `.age` files – backups
+carry the project's passwords, tokens and data. Keep the passphrase somewhere
+else: without it nothing can be restored, and after losing the host a fresh
+Envoryx needs it. The files also open without Envoryx:
+`age -d -o backup.tar backup.tar.age`.
+
+**Layout** on a target, below its folder (default `envoryx`, so several
+instances can share one bucket with different folders):
+
+```
+projects/<slug>/<backup>.<contents>.<source>.tar[.age]   a project backup (the download format)
+instance/<instance backup id>.tar.gz[.age]              an instance backup
+```
+
+**Getting a backup back.** The *Offsite copies* card in a project's Backups
+tab lists what the target holds for the project – also backups that were
+deleted here – and *Fetch* puts one back into the local list, from where it is
+restored as usual (`envoryx backup remote|fetch <project>` on the command
+line).
+
+**After losing the host** (disaster recovery):
+
+1. Start a fresh Envoryx and create an account.
+2. *Settings → Backups*: add the same target with the same folder and
+   passphrase.
+3. *Instance backups → From an offsite target*: fetch the newest one and
+   restore it. Envoryx restarts with the old accounts, projects, settings and
+   targets; sign in with the old credentials.
+4. For each project: *Backups → Offsite copies → Fetch*, then restore
+   database, files and bucket. Starting the project recreates its containers.
 
 ## Database browser (Adminer)
 

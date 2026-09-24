@@ -128,6 +128,12 @@ Envoryx is under active development. The current milestone (Phase 1 + 2) deliver
   one downloadable archive – taken automatically before every schema upgrade,
   restorable (or importable on another host) from the settings with an in-place
   restart
+- offsite backups to S3-compatible storage (AWS, Backblaze B2, Wasabi, Hetzner,
+  Cloudflare R2, MinIO), SFTP (Hetzner Storage Box, NAS) or WebDAV (Nextcloud):
+  scheduled project backups and a daily instance backup go up by themselves,
+  optionally encrypted with age, with their own retention on the target;
+  fetching a copy back – for one project or a whole instance after losing the
+  host – is a click
 
 - database browser: optional Adminer container shared by all projects,
   started on first use, opened from the Database tab already logged in,

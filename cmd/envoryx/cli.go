@@ -50,6 +50,11 @@ Backups:
   backup restore <project> <backup> --yes
   backup download <project> <backup> [-o FILE]
   backup delete <project> <backup> --yes
+  backup offsite <project> <backup>     copy it to the offsite targets (create --offsite
+                                        does it right away)
+  backup remote <project>               the project's backups on an offsite target
+  backup fetch <project> <backup>       copy one back, then restore it as usual
+                                        (--target NAME when there are several)
 
 Databases:
   db snapshot <project> [--note TEXT]   dump the database and nothing else

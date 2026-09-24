@@ -1045,6 +1045,91 @@ export interface InstanceBackupsResponse {
   pendingRestore: { id: string; requestedAt: string } | null;
   dir: string;
   canRestart: boolean;
+  /** Copies on offsite targets, by backup id. */
+  offsite?: Record<string, OffsiteUpload[]>;
+  offsiteTargets?: OffsiteTargetName[];
+}
+
+export type OffsiteType = "s3" | "sftp" | "webdav";
+
+/** An offsite target as stored; secrets are only reported as present. */
+export interface OffsiteTarget {
+  id: string;
+  name: string;
+  type: OffsiteType;
+  enabled: boolean;
+  /** Upload every scheduled project backup. */
+  auto: boolean;
+  /** Take a daily instance backup at instanceHour and upload it. */
+  instance: boolean;
+  instanceHour: number;
+  prefix: string;
+  /** Scheduled copies kept per project (0 = all). */
+  keep: number;
+  instanceKeep: number;
+  encrypt: boolean;
+  endpoint?: string;
+  region?: string;
+  bucket?: string;
+  accessKey?: string;
+  host?: string;
+  port?: number;
+  user?: string;
+  hostKey?: string;
+  url?: string;
+  secrets: { passphrase: boolean; secretKey: boolean; password: boolean; privateKey: boolean };
+  location: string;
+  last?: OffsiteUpload;
+}
+
+/** What the form sends: the settings plus secrets, which stay unchanged when empty. */
+export type OffsiteTargetInput = Omit<OffsiteTarget, "id" | "secrets" | "location" | "last"> & {
+  id?: string;
+  passphrase?: string;
+  secretKey?: string;
+  password?: string;
+  privateKey?: string;
+};
+
+/** The copy of one backup on one target. */
+export interface OffsiteUpload {
+  targetId: string;
+  targetName: string;
+  backupId: string;
+  scope: "project" | "instance";
+  status: "pending" | "running" | "done" | "failed";
+  error?: string;
+  remoteKey?: string;
+  sizeBytes: number;
+  attempts: number;
+  nextAttemptAt?: string;
+  updatedAt: string;
+}
+
+export interface OffsiteTargetName {
+  id: string;
+  name: string;
+  type: OffsiteType;
+  enabled: boolean;
+  encrypt: boolean;
+}
+
+/** A backup found on a target. */
+export interface RemoteBackup {
+  key: string;
+  /** Backup directory (project) or instance backup id. */
+  id: string;
+  createdAt: string;
+  kind: string;
+  source?: string;
+  sizeBytes: number;
+  encrypted: boolean;
+}
+
+export interface BackupsResponse {
+  backups: BackupInfo[];
+  offsite?: Record<string, OffsiteUpload[]>;
+  offsiteTargets?: OffsiteTargetName[];
 }
 
 export interface ActionInfo {

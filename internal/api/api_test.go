@@ -30,6 +30,7 @@ import (
 	"github.com/envoryx/envoryx/internal/logs"
 	"github.com/envoryx/envoryx/internal/mcpserver"
 	"github.com/envoryx/envoryx/internal/notify"
+	"github.com/envoryx/envoryx/internal/offsite"
 	"github.com/envoryx/envoryx/internal/project"
 	"github.com/envoryx/envoryx/internal/runtime"
 	"github.com/envoryx/envoryx/internal/s3"
@@ -54,6 +55,9 @@ type testApp struct {
 	restarts int
 	// logs is the log history; nothing collects into it unless a test appends.
 	logs *logs.Store
+	// offsite copies backups into offsiteMem (Pass runs the queue).
+	offsite    *offsite.Syncer
+	offsiteMem *memTarget
 }
 
 func newApp(t *testing.T) *testApp {
@@ -97,11 +101,23 @@ func newApp(t *testing.T) *testApp {
 	invalidations := 0
 	proxyInfo := &api.ProxyInfo{Enabled: true, HTTPPort: 80, HTTPSPort: 443, InDocker: true, Invalidate: func() { invalidations++ }}
 	mcpSrv := mcpserver.New(mcpserver.Deps{Projects: manager, Catalog: runtime.Default(), Auth: sessions, Version: "test", Log: log})
-	app := &testApp{t: t, engine: engine, proxy: proxyInfo, projDir: projDir, cfgDir: cfgDir, logs: logStore}
+	app := &testApp{t: t, engine: engine, proxy: proxyInfo, projDir: projDir, cfgDir: cfgDir, logs: logStore, offsiteMem: &memTarget{files: map[string][]byte{}}}
 	backups := &instance.Store{ConfigDir: cfgDir, DBPath: filepath.Join(cfgDir, "envoryx.db"), Dir: filepath.Join(t.TempDir(), "_instance"), Version: "test", LatestSchema: db.LatestVersion(), Log: log}
+	offsiteCfg, err := offsite.OpenConfig(cfgDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	app.offsite = &offsite.Syncer{Config: offsiteCfg, Store: st, Projects: manager, Instance: backups, Log: log,
+		CreateInstanceBackup: func(ctx context.Context, kind string) (instance.Info, error) {
+			return backups.Create(ctx, sqlDB, kind, "")
+		},
+		Dial: func(context.Context, offsite.Target, func(string)) (offsite.Backend, error) {
+			return app.offsiteMem, nil
+		}}
+	manager.SetBackupHook(app.offsite.OnProjectBackup)
 	a := api.New(api.Deps{Config: cfg, Version: "test", Store: st, Auth: sessions, Audit: auditLog, Engine: engine, Projects: manager, Updates: update.Disabled("test"),
 		Catalog: runtime.Default(), Stats: stats.New(engine, time.Second, log), HostPath: resolver, Certs: certs, ACME: acmeMgr, Notify: notifier, Proxy: proxyInfo, MCP: mcpSrv.Handler(), Log: log, StartedAt: time.Now(),
-		Instance: backups, DB: sqlDB, Restart: func() { app.restarts++ }})
+		Instance: backups, DB: sqlDB, Restart: func() { app.restarts++ }, Offsite: app.offsite})
 	s := server.New(server.Options{Addr: ":0", Log: log, MCP: mcpSrv.Handler()}, a, sessions, nil)
 	handler := serverHandler(s)
 	srv := httptest.NewServer(handler)

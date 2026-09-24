@@ -18,6 +18,7 @@ import (
 
 type backupInfo struct {
 	ID        string    `json:"id"`
+	Dir       string    `json:"dir"`
 	Kind      string    `json:"kind"`
 	SizeBytes int64     `json:"sizeBytes"`
 	CreatedAt time.Time `json:"createdAt"`
@@ -70,6 +71,12 @@ func (c *cli) backupCommand(ctx context.Context, args []string) error {
 		return c.backupDownload(ctx, rest)
 	case "delete", "rm":
 		return c.backupDelete(ctx, rest)
+	case "offsite", "upload":
+		return c.backupOffsite(ctx, rest)
+	case "remote":
+		return c.backupRemote(ctx, rest)
+	case "fetch":
+		return c.backupFetch(ctx, rest)
 	default:
 		return usagef("unknown backup command %q", cmd)
 	}
@@ -90,9 +97,7 @@ func (c *cli) backupList(ctx context.Context, args []string) error {
 	if c.json {
 		return c.printRaw(ctx, api, projectPath(p.ID, "backups"), nil, "backups")
 	}
-	var body struct {
-		Backups []backupInfo `json:"backups"`
-	}
+	var body backupList
 	if err := api.get(ctx, projectPath(p.ID, "backups"), nil, &body); err != nil {
 		return err
 	}
@@ -106,9 +111,17 @@ func (c *cli) backupList(ctx context.Context, args []string) error {
 		if b.Missing {
 			note = "archive missing – " + note
 		}
-		rows = append(rows, []string{b.ID, b.CreatedAt.Local().Format("2006-01-02 15:04"), b.contents(), humanSize(b.SizeBytes), b.Meta.Source, note})
+		row := []string{b.ID, b.CreatedAt.Local().Format("2006-01-02 15:04"), b.contents(), humanSize(b.SizeBytes), b.Meta.Source}
+		if len(body.OffsiteTargets) > 0 {
+			row = append(row, offsiteSummary(body.Offsite[b.ID]))
+		}
+		rows = append(rows, append(row, note))
 	}
-	c.table([]string{"ID", "CREATED", "CONTENTS", "SIZE", "SOURCE", "NOTE"}, rows)
+	header := []string{"ID", "CREATED", "CONTENTS", "SIZE", "SOURCE"}
+	if len(body.OffsiteTargets) > 0 {
+		header = append(header, "OFFSITE")
+	}
+	c.table(append(header, "NOTE"), rows)
 	return nil
 }
 
@@ -119,6 +132,7 @@ func (c *cli) backupCreate(ctx context.Context, args []string) error {
 	noFiles := fs.Bool("no-files", false, "leave the project files out")
 	noStorage := fs.Bool("no-storage", false, "leave the object storage out")
 	deps := fs.Bool("dependencies", false, "keep vendor/ and node_modules/ in the archive")
+	offsite := fs.Bool("offsite", false, "copy it to every enabled offsite target")
 	pos, err := parse(fs, args)
 	if err != nil {
 		return err
@@ -138,8 +152,13 @@ func (c *cli) backupCreate(ctx context.Context, args []string) error {
 		"includeDependencies": *deps,
 		"note":                *note,
 	}
+	if *offsite {
+		body["offsite"] = true
+	}
 	var out struct {
-		Backup backupInfo `json:"backup"`
+		Backup       backupInfo    `json:"backup"`
+		Offsite      []offsiteCopy `json:"offsite"`
+		OffsiteError string        `json:"offsiteError"`
 	}
 	if err := api.post(ctx, projectPath(p.ID, "backups"), body, &out); err != nil {
 		return err
@@ -148,6 +167,12 @@ func (c *cli) backupCreate(ctx context.Context, args []string) error {
 		return c.printJSON(out.Backup)
 	}
 	c.printf("Backup %s of %s: %s, %s\n", out.Backup.ID, p.Slug, out.Backup.contents(), humanSize(out.Backup.SizeBytes))
+	if out.OffsiteError != "" {
+		return fmt.Errorf("the backup was created, but not copied offsite: %s", out.OffsiteError)
+	}
+	for _, o := range out.Offsite {
+		c.printf("  Copying to %s in the background (envoryx backup list %s shows how it went)\n", o.TargetName, p.Slug)
+	}
 	return nil
 }
 

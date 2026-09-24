@@ -3,6 +3,7 @@ module github.com/envoryx/envoryx
 go 1.27.1
 
 require (
+	filippo.io/age v1.3.2
 	github.com/coder/websocket v1.8.15
 	github.com/containerd/errdefs v1.0.0
 	github.com/moby/moby/api v1.56.0
@@ -16,6 +17,7 @@ require (
 )
 
 require (
+	filippo.io/hpke v0.4.0 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/containerd/errdefs/pkg v0.3.0 // indirect
 	github.com/distribution/reference v0.6.0 // indirect

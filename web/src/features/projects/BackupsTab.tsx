@@ -1,4 +1,4 @@
-import { Archive, CalendarClock, Download, RotateCcw, Trash2 } from "lucide-react";
+import { Archive, CalendarClock, CloudDownload, Download, RotateCcw, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -8,13 +8,21 @@ import type { BackupInfo, BackupSchedule, Project } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Checkbox, Code, Dialog, ErrorState, Field, Input, Select, Spinner } from "@/components/ui";
 import { formatBytes, formatDateTime } from "@/lib/format";
 import { errorText } from "@/lib/errors";
+import { OffsiteBadges, OffsiteUploadButton, RemoteBackups, uploading } from "@/features/offsite/OffsiteParts";
 
 export function BackupsTab({ project }: { project: Project }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
   const hasDb = project.services.some((s) => s.kind === "database" && s.enabled);
   const hasStorage = project.services.some((s) => s.kind === "storage" && s.enabled);
-  const backups = useQuery({ queryKey: ["projects", project.id, "backups"], queryFn: async () => (await api.backups.list(project.id)).backups });
+  const list = useQuery({
+    queryKey: ["projects", project.id, "backups"],
+    queryFn: () => api.backups.list(project.id),
+    // Uploads run in the background: follow them until they are through.
+    refetchInterval: (q) => (uploading(q.state.data?.offsite) ? 3000 : false),
+  });
+  const targets = list.data?.offsiteTargets ?? [];
+  const enabledTargets = targets.filter((x) => x.enabled);
   const refresh = () => {
     void qc.invalidateQueries({ queryKey: ["projects", project.id, "backups"] });
     void qc.invalidateQueries({ queryKey: keys.project(project.id) });
@@ -27,11 +35,16 @@ export function BackupsTab({ project }: { project: Project }) {
   const [withStorage, setWithStorage] = useState(true);
   const [withDeps, setWithDeps] = useState(false);
   const [note, setNote] = useState("");
+  const [withOffsite, setWithOffsite] = useState(false);
   const create = useMutation({
-    mutationFn: () => api.backups.create(project.id, { database: withDb && hasDb, files: withFiles, storage: withStorage && hasStorage, includeDependencies: withDeps, note }),
+    mutationFn: () => api.backups.create(project.id, { database: withDb && hasDb, files: withFiles, storage: withStorage && hasStorage, includeDependencies: withDeps, note, ...(withOffsite && enabledTargets.length > 0 ? { offsite: true } : {}) }),
     onSuccess: (res) => {
       setNote("");
-      setMsg({ tone: "green", text: t("Backup created ({{size}}).", { size: formatBytes(res.backup.sizeBytes) }) });
+      setMsg(
+        res.offsiteError
+          ? { tone: "red", text: t("Backup created ({{size}}), but not copied offsite: {{error}}", { size: formatBytes(res.backup.sizeBytes), error: res.offsiteError }) }
+          : { tone: "green", text: res.offsite?.length ? t("Backup created ({{size}}); the offsite copy is on its way.", { size: formatBytes(res.backup.sizeBytes) }) : t("Backup created ({{size}}).", { size: formatBytes(res.backup.sizeBytes) }) },
+      );
       refresh();
     },
     onError: (err) => fail(err, t("Backup failed")),
@@ -56,6 +69,26 @@ export function BackupsTab({ project }: { project: Project }) {
       setRestoreTarget(null);
       fail(err, t("Restore failed"));
     },
+  });
+
+  const upload = useMutation({
+    mutationFn: (b: BackupInfo) => api.backups.uploadOffsite(project.id, b.id),
+    onSuccess: refresh,
+    onError: (err) => fail(err, t("Copying offsite failed")),
+  });
+  const [fetching, setFetching] = useState<string | null>(null);
+  const fetchRemote = useMutation({
+    mutationFn: ({ targetId, key }: { targetId: string; key: string }) => {
+      setFetching(key);
+      return api.backups.fetchRemote(project.id, targetId, key);
+    },
+    onSuccess: (r) => {
+      setMsg({ tone: "green", text: t("The backup from {{date}} is back in the list above; restore it from there.", { date: formatDateTime(r.backup.createdAt) }) });
+      refresh();
+      void qc.invalidateQueries({ queryKey: ["projects", project.id, "offsite-remote"] });
+    },
+    onError: (err) => fail(err, t("Fetching the backup failed")),
+    onSettled: () => setFetching(null),
   });
 
   const [deleteTarget, setDeleteTarget] = useState<BackupInfo | null>(null);
@@ -104,6 +137,9 @@ export function BackupsTab({ project }: { project: Project }) {
             <Checkbox label={t("Project files")} description={t("Everything in the project directory")} checked={withFiles} onChange={(e) => setWithFiles(e.target.checked)} />
             {hasStorage && <Checkbox label={t("Object storage")} description={t("Every object of the bucket, as plain files in an archive")} checked={withStorage} onChange={(e) => setWithStorage(e.target.checked)} />}
             <Checkbox label={t("Include dependencies")} description={t("Keep vendor/, node_modules/ and framework build caches (.next, .nuxt, .output)")} checked={withDeps} disabled={!withFiles} onChange={(e) => setWithDeps(e.target.checked)} />
+            {enabledTargets.length > 0 && (
+              <Checkbox label={t("Also copy offsite")} description={enabledTargets.map((x) => x.name).join(", ")} checked={withOffsite} onChange={(e) => setWithOffsite(e.target.checked)} />
+            )}
           </div>
           <div className="flex items-end gap-2">
             <Field label={t("Note (optional)")} htmlFor="backup-note">
@@ -118,15 +154,15 @@ export function BackupsTab({ project }: { project: Project }) {
 
       <Card>
         <CardHeader title={t("Backups")} description={t("Newest first. Restoring overwrites the current database and/or files – Envoryx asks for confirmation.")} />
-        {backups.isPending ? (
+        {list.isPending ? (
           <Spinner />
-        ) : backups.isError ? (
-          <ErrorState message={errorText(backups.error, t)} />
-        ) : backups.data.length === 0 ? (
+        ) : list.isError ? (
+          <ErrorState message={errorText(list.error, t)} />
+        ) : list.data.backups.length === 0 ? (
           <p className="px-5 py-8 text-center text-sm text-muted">{t("No backups yet.")}</p>
         ) : (
           <ul className="divide-y divide-[var(--border)]">
-            {backups.data.map((b) => (
+            {list.data.backups.map((b) => (
               <li key={b.id} className="flex flex-wrap items-center gap-x-6 gap-y-2 px-5 py-3">
                 <div className="min-w-[14rem] flex-1">
                   <p className="text-sm font-medium text-fg">
@@ -149,6 +185,7 @@ export function BackupsTab({ project }: { project: Project }) {
                       </Badge>
                     )}
                     {b.missing && <Badge tone="red">{t("files missing")}</Badge>}
+                    <OffsiteBadges copies={list.data?.offsite?.[b.id]} />
                     <span className="font-mono">{b.dir}</span>
                   </p>
                 </div>
@@ -161,6 +198,7 @@ export function BackupsTab({ project }: { project: Project }) {
                   >
                     <Download className="size-3.5" aria-hidden /> {t("Download")}
                   </a>
+                  {!b.missing && <OffsiteUploadButton targets={targets} copies={list.data?.offsite?.[b.id]} busy={upload.isPending && upload.variables?.id === b.id} onUpload={() => upload.mutate(b)} />}
                   <Button size="sm" onClick={() => openRestore(b)} disabled={b.missing} icon={<RotateCcw className="size-3.5" />}>
                     {t("Restore")}
                   </Button>
@@ -173,6 +211,29 @@ export function BackupsTab({ project }: { project: Project }) {
           </ul>
         )}
       </Card>
+
+      {targets.length > 0 && (
+        <Card>
+          <CardHeader
+            title={
+              <span className="flex items-center gap-2">
+                <CloudDownload className="size-4 text-accent-500" aria-hidden /> {t("Offsite copies")}
+              </span>
+            }
+            description={t("The backups of this project on the offsite targets – also those no longer here. Fetching one puts it back into the list above, from where it is restored as usual.")}
+          />
+          <div className="p-5">
+            <RemoteBackups
+              targets={targets}
+              queryKey={["projects", project.id, "offsite-remote"]}
+              load={(targetId) => api.backups.remote(project.id, targetId)}
+              local={(r) => (list.data?.backups ?? []).some((b) => b.dir === r.id && !b.missing)}
+              fetching={fetching}
+              onFetch={(targetId, r) => fetchRemote.mutate({ targetId, key: r.key })}
+            />
+          </div>
+        </Card>
+      )}
 
       <Dialog
         open={restoreTarget !== null}

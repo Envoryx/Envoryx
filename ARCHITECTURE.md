@@ -631,6 +631,7 @@ Detailed in SECURITY.md. Summary of the enforced boundaries:
   envoryx.db                SQLite (WAL)
   projects/<id>/           generated config per project (web server config, php.ini, pool conf)
   backups/<slug>/          Phase 7
+  offsite.json             offsite targets with their credentials (0600)
   ca/                      Phase 8 (0600)
   logs/<id>/<service>/     log history, one file per UTC day (older days gzipped)
 /projects/<slug>/          user project files (bind-mounted into project containers)
@@ -654,6 +655,33 @@ restore. A restore is only recorded (`/config/.restore-pending`) and applied at
 the next start before the database is opened; the API asks `main` to restart,
 which re-execs the binary in place so the container keeps running regardless
 of its restart policy.
+
+`internal/offsite` copies backups off the host. `Target`s (S3-compatible, SFTP,
+WebDAV) live in `/config/offsite.json`, so an instance backup brings them back;
+`offsite_uploads` records one row per backup and target (pending, running,
+done, failed with attempts and the next try). Every backend implements the
+same five calls (`Put` a stream of unknown length, `Get`, `List` one
+directory, `Delete`, `Close`): S3 through `internal/s3` with a multipart upload
+in 16 MiB parts held in memory (a stream that fits one part is a single PUT),
+SFTP through `pkg/sftp` with a pinned host key and a `.part` file renamed when
+complete, WebDAV through `net/http` with MKCOL, a chunked PUT and PROPFIND.
+With encryption on, the archive goes through an age writer (scrypt
+passphrase) on its way to `Put` and the object name gets `.age`.
+
+The `Syncer` runs in the background: the project manager's backup hook queues
+scheduled backups for automatic targets, a manual request queues any backup;
+once a target's hour has come it takes the day's `scheduled` instance backup
+and queues it. Each pass works through the due rows, one upload at a time;
+failures are retried with growing delays (a vanished local backup is not) and
+raise the `backup.failed` notification. After a scheduled upload the target's
+scheduled copies beyond its keep count are deleted. Object names carry
+everything a listing needs (backup directory or id, contents, source,
+encryption), so listing downloads nothing, rotation only ever touches
+`scheduled` copies, and a name outside the layout is refused before a fetch or
+delete. Fetching a project backup streams the tar back into
+`Manager.ImportBackupArchive`, which accepts only the four known member files
+of one backup directory and records the backup; an instance backup goes
+through `instance.Store.Import` and is restored the usual way.
 
 ---
 

@@ -49,11 +49,12 @@ const (
 
 	// KindManual is a backup requested by the user, KindUpload one they imported,
 	// KindPreMigrate/KindPreRestore are taken automatically before the schema changes or
-	// a restore replaces the configuration.
+	// a restore replaces the configuration, KindScheduled daily for offsite targets.
 	KindManual     = "manual"
 	KindUpload     = "upload"
 	KindPreMigrate = "pre-migrate"
 	KindPreRestore = "pre-restore"
+	KindScheduled  = "scheduled"
 
 	// keepAutomatic is how many backups of each automatic kind are kept.
 	keepAutomatic = 5
@@ -67,7 +68,7 @@ var ErrNotFound = errors.New("instance backup not found")
 // ErrPending is returned when a restore is already scheduled.
 var ErrPending = errors.New("a restore is already scheduled; restart Envoryx to apply it")
 
-var idPattern = regexp.MustCompile(`^(manual|upload|pre-migrate|pre-restore)-[0-9]{8}-[0-9]{6}-[0-9a-f]{4}$`)
+var idPattern = regexp.MustCompile(`^(manual|upload|pre-migrate|pre-restore|scheduled)-[0-9]{8}-[0-9]{6}-[0-9a-f]{4}$`)
 
 // Meta is stored as instance.json and returned by the API.
 type Meta struct {
@@ -497,7 +498,7 @@ func (s *Store) Delete(id string) error {
 // prune keeps only the newest automatic backups of a kind; manual and uploaded ones are
 // the user's business.
 func (s *Store) prune(kind string) {
-	if kind != KindPreMigrate && kind != KindPreRestore {
+	if kind != KindPreMigrate && kind != KindPreRestore && kind != KindScheduled {
 		return
 	}
 	list, err := s.List()

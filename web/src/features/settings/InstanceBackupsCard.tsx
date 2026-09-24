@@ -7,6 +7,7 @@ import type { InstanceBackup } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Code, Dialog, Field, Input, Spinner } from "@/components/ui";
 import { formatBytes, formatDateTime } from "@/lib/format";
 import { errorText } from "@/lib/errors";
+import { OffsiteBadges, OffsiteUploadButton, RemoteBackups, uploading } from "@/features/offsite/OffsiteParts";
 
 const key = ["instance-backups"] as const;
 
@@ -51,7 +52,8 @@ function useWaitForRestart(active: boolean) {
 export function InstanceBackupsCard() {
   const { t } = useTranslation();
   const qc = useQueryClient();
-  const q = useQuery({ queryKey: key, queryFn: api.instanceBackups.list });
+  const q = useQuery({ queryKey: key, queryFn: api.instanceBackups.list, refetchInterval: (q) => (uploading(q.state.data?.offsite) ? 3000 : false) });
+  const targets = q.data?.offsiteTargets ?? [];
   const [note, setNote] = useState("");
   const [msg, setMsg] = useState<{ tone: "green" | "red"; text: string } | null>(null);
   const [restoreTarget, setRestoreTarget] = useState<InstanceBackup | null>(null);
@@ -102,6 +104,24 @@ export function InstanceBackupsCard() {
       }
     },
     onError: fail(t("Scheduling the restore failed")),
+  });
+  const offsiteUpload = useMutation({
+    mutationFn: (b: InstanceBackup) => api.instanceBackups.uploadOffsite(b.id),
+    onSuccess: invalidate,
+    onError: fail(t("Copying offsite failed")),
+  });
+  const [fetching, setFetching] = useState<string | null>(null);
+  const fetchRemote = useMutation({
+    mutationFn: ({ targetId, key: remoteKey }: { targetId: string; key: string }) => {
+      setFetching(remoteKey);
+      return api.offsite.fetchInstance(targetId, remoteKey);
+    },
+    onSuccess: (r) => {
+      setMsg({ tone: "green", text: t("Fetched as {{id}} (created {{date}} with Envoryx {{version}}). Restore it from the list to bring this instance back to that state.", { id: r.backup.id, date: formatDateTime(r.backup.meta.createdAt), version: r.backup.meta.envoryx }) });
+      invalidate();
+    },
+    onError: fail(t("Fetching the backup failed")),
+    onSettled: () => setFetching(null),
   });
   const cancel = useMutation({
     mutationFn: () => api.instanceBackups.cancelRestore(),
@@ -176,9 +196,15 @@ export function InstanceBackupsCard() {
                       {b.id} · {formatBytes(b.sizeBytes)} · Envoryx {b.meta.envoryx} · {t("schema {{n}}", { n: b.meta.schema })}
                       {b.meta.note ? ` · ${b.meta.note}` : ""}
                     </p>
+                    {q.data.offsite?.[b.id] && (
+                      <p className="mt-1 flex flex-wrap gap-1">
+                        <OffsiteBadges copies={q.data.offsite[b.id]} />
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
+                  <OffsiteUploadButton targets={targets} copies={q.data.offsite?.[b.id]} busy={offsiteUpload.isPending && offsiteUpload.variables?.id === b.id} onUpload={() => offsiteUpload.mutate(b)} />
                   <a href={api.instanceBackups.downloadUrl(b.id)} download className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-muted hover:bg-muted hover:text-fg">
                     <Download className="size-3.5" aria-hidden />
                     {t("Download")}
@@ -210,8 +236,22 @@ export function InstanceBackupsCard() {
         </form>
         {q.data && (
           <p className="text-xs text-subtle">
-            {t("Stored in")} <Code>{q.data.dir}</Code>. {t("Automatic backups (pre-migrate, pre-restore) keep the last 5; yours stay until you delete them.")}
+            {t("Stored in")} <Code>{q.data.dir}</Code>. {t("Automatic backups (pre-migrate, pre-restore, scheduled) keep the last 5; yours stay until you delete them.")}
           </p>
+        )}
+        {targets.length > 0 && (
+          <div className="space-y-2 border-t border-default pt-4">
+            <p className="text-sm font-medium text-fg">{t("From an offsite target")}</p>
+            <p className="text-xs text-muted">{t("After losing the host: set up a fresh Envoryx, add the same target with the same passphrase, fetch the newest instance backup here and restore it. Then fetch each project's backup in its Backups tab.")}</p>
+            <RemoteBackups
+              targets={targets}
+              queryKey={["instance-backups", "remote"]}
+              load={(targetId) => api.offsite.remoteInstance(targetId)}
+              local={(r) => q.data?.backups.some((b) => b.id === r.id) ?? false}
+              fetching={fetching}
+              onFetch={(targetId, r) => fetchRemote.mutate({ targetId, key: r.key })}
+            />
+          </div>
         )}
       </div>
 
