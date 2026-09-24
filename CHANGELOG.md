@@ -10,27 +10,9 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
-### Added
-- Resource limits per project (*Resources* tab): CPU cores and memory for the
-  application containers (web server, PHP, Node.js, Python, workers) and,
-  separately, for the services (database, caches, search, storage), each per
-  container, plus a process limit that every container now has (default 4096)
-  against fork bombs and runaway worker pools. Changes reach running
-  containers at once; only lifting a limit recreates a container. The card
-  shows each container's CPU and memory against its limit. When a container
-  runs out of memory – also when only a child process is killed and the
-  container keeps running – the project shows a warning for a day and a
-  notification goes out (new event `project.oom`, on by default). Limits are part of `envoryx.yml`
-  (`limits:`) and of `envoryx project show`.
-- Resource history: every running project container is sampled once a minute
-  (CPU, memory, network, disk I/O) and each project's disk space – volumes,
-  project directory, backups – once an hour. The new *Resources* tab of a
-  project charts it from one hour to one year (with a table view per chart),
-  and the dashboard lists every project's average and peak usage, busiest
-  first. Values are kept in full for a day, as 5-minute averages for a week
-  and hourly after that; *Settings → General → Resource history* sets the
-  retention (default 90 days, up to a year) and deletes the history.
+## [0.8.0] – 2026-09-25
 
+### Added
 - Application health checks (*Overview* tab): a path such as `/health` must
   answer with the expected status. Envoryx asks the web server the way the
   proxy does (project network, the project's host name), every 30 s by
@@ -43,6 +25,25 @@ release). `:main` follows the development branch.
 - New notification events (`project.oom`, `project.down`) are on after the
   update also where the event selection was saved before: an event type the
   selection did not offer yet follows its default until it is saved again.
+- Resource history: every running project container is sampled once a minute
+  (CPU, memory, network, disk I/O) and each project's disk space – volumes,
+  project directory, backups – once an hour. The new *Resources* tab of a
+  project charts it from one hour to one year (with a table view per chart),
+  and the dashboard lists every project's average and peak usage, busiest
+  first. Values are kept in full for a day, as 5-minute averages for a week
+  and hourly after that; *Settings → General → Resource history* sets the
+  retention (default 90 days, up to a year) and deletes the history.
+- Resource limits per project (*Resources* tab): CPU cores and memory for the
+  application containers (web server, PHP, Node.js, Python, workers) and,
+  separately, for the services (database, caches, search, storage), each per
+  container, plus a process limit that every container now has (default 4096)
+  against fork bombs and runaway worker pools. Changes reach running
+  containers at once; only lifting a limit recreates a container. The card
+  shows each container's CPU and memory against its limit. When a container
+  runs out of memory – also when only a child process is killed and the
+  container keeps running – the project shows a warning for a day and a
+  notification goes out (new event `project.oom`, on by default). Limits are part of `envoryx.yml`
+  (`limits:`) and of `envoryx project show`.
 
 ## [0.7.1] – 2026-09-24
 
@@ -718,7 +719,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.7.1...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/envoryx/envoryx/compare/v0.7.1...v0.8.0
 [0.7.1]: https://github.com/envoryx/envoryx/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/envoryx/envoryx/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/envoryx/envoryx/compare/v0.5.0...v0.6.0
