@@ -77,6 +77,8 @@ interface Form {
   gitBranch: string;
   gitUsername: string;
   gitToken: string;
+  /** Apply the envoryx.yml the repository brings. */
+  useManifest: boolean;
   env: EnvVar[];
   createStarter: boolean;
   start: boolean;
@@ -153,6 +155,7 @@ export function NewProjectPage() {
         gitBranch: "",
         gitUsername: "",
         gitToken: "",
+        useManifest: true,
         env: [],
         createStarter: true,
         start: true,
@@ -198,6 +201,7 @@ export function NewProjectPage() {
       if (form.gitToken) git.token = form.gitToken;
       req.git = git;
       req.createStarter = false;
+      if (form.useManifest) req.useManifest = true;
     }
     return req;
   }, [form]);
@@ -482,6 +486,14 @@ export function NewProjectPage() {
                       <p className="self-end pb-2 text-xs text-muted sm:col-span-2">{t("SSH uses the Envoryx deploy key (Settings → Deploy key); add it to the repository first.")}</p>
                     )}
                   </div>
+                )}
+                {form.gitUrl.trim() && (
+                  <Checkbox
+                    label={t("Use the repository's envoryx.yml")}
+                    description={t("If the repository brings one, it decides runtimes, services, domains, environment, workers and cron jobs; the next steps only count without it.")}
+                    checked={form.useManifest}
+                    onChange={(e) => set({ useManifest: e.target.checked })}
+                  />
                 )}
               </div>
             </div>
@@ -799,6 +811,7 @@ export function NewProjectPage() {
                     {form.gitUrl.trim() ? (
                       <p className="text-sm text-muted">
                         {t("Repository {{url}} will be cloned into the project directory.", { url: form.gitUrl.trim() })}
+                        {form.useManifest && <> {t("If it brings an envoryx.yml, that file replaces the services chosen here.")}</>}
                       </p>
                     ) : (
                       serves !== "node" &&

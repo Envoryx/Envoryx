@@ -39,6 +39,8 @@ func (c *cli) projectCommand(ctx context.Context, args []string) error {
 		return c.projectExec(ctx, rest)
 	case "run":
 		return c.projectRun(ctx, rest)
+	case "manifest":
+		return c.projectManifest(ctx, rest)
 	default:
 		return usagef("unknown project command %q", cmd)
 	}

@@ -9,6 +9,7 @@ import { Alert, Badge, Button, Card, CardHeader, Code, Field, Input, Spinner } f
 import { copyText } from "@/lib/clipboard";
 import { formatDateTime } from "@/lib/format";
 import { errorText, translateMessage } from "@/lib/errors";
+import { ManifestCard } from "./ManifestCard";
 
 function DeployKeyCard() {
   const { t } = useTranslation();
@@ -233,6 +234,8 @@ export function GitTab({ project }: { project: Project }) {
           )}
         </div>
       </Card>
+
+      <ManifestCard project={project} />
     </div>
   );
 }

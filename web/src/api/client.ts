@@ -25,6 +25,7 @@ import type {
   GitRequest,
   GitResult,
   GitStatus,
+  ManifestPlan,
   InstanceBackup,
   InstanceBackupsResponse,
   LogFilter,
@@ -37,6 +38,7 @@ import type {
   Orphan,
   Preview,
   Project,
+  ProjectManifest,
   ProxyInfo,
   PruneResult,
   RuntimesResponse,
@@ -216,7 +218,7 @@ export const api = {
     list: () => request<{ projects: Project[] }>("/projects"),
     get: (id: string) => request<{ project: Project }>(`/projects/${encodeURIComponent(id)}`),
     preview: (body: CreateProjectRequest) => request<{ preview: Preview }>("/projects/preview", { method: "POST", body }),
-    create: (body: CreateProjectRequest) => request<{ project: Project }>("/projects", { method: "POST", body }),
+    create: (body: CreateProjectRequest) => request<{ project: Project; manifest?: ManifestPlan | null }>("/projects", { method: "POST", body }),
     update: (id: string, body: UpdateProjectRequest) =>
       request<{ project: Project }>(`/projects/${encodeURIComponent(id)}`, { method: "PATCH", body }),
     duplicate: (id: string, body: DuplicateProjectRequest) =>
@@ -289,6 +291,12 @@ export const api = {
       request<{ schedule: BackupSchedule }>(`/projects/${encodeURIComponent(id)}/backups/schedule`, { method: "PUT", body }),
   },
 
+  manifest: {
+    get: (id: string) => request<ProjectManifest>(`/projects/${encodeURIComponent(id)}/manifest`),
+    write: (id: string) => request<ProjectManifest>(`/projects/${encodeURIComponent(id)}/manifest/file`, { method: "PUT" }),
+    apply: (id: string, body: { prune: boolean; start?: boolean }) =>
+      request<{ plan: ManifestPlan; project: Project }>(`/projects/${encodeURIComponent(id)}/manifest/apply`, { method: "POST", body }),
+  },
   git: {
     status: (id: string) => request<{ git: GitStatus }>(`/projects/${encodeURIComponent(id)}/git`),
     set: (id: string, body: GitRequest) => request<{ git: GitStatus }>(`/projects/${encodeURIComponent(id)}/git`, { method: "PUT", body }),

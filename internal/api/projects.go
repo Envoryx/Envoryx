@@ -279,6 +279,9 @@ type createProjectRequest struct {
 	Template      string              `json:"template"`
 	CreateStarter bool                `json:"createStarter"`
 	Start         bool                `json:"start"`
+	// UseManifest applies the envoryx.yml the cloned repository brings (it wins over the
+	// services chosen here). Only with git.
+	UseManifest bool `json:"useManifest"`
 }
 
 type webRequestDTO struct {
@@ -474,6 +477,16 @@ func (a *API) createProject(w http.ResponseWriter, r *http.Request) {
 	var req createProjectRequest
 	if err := decodeJSON(w, r, &req); err != nil {
 		writeError(w, r, err)
+		return
+	}
+	if req.UseManifest && req.Git != nil && strings.TrimSpace(req.Git.URL) != "" {
+		view, plan, err := a.d.Projects.CreateFromRepository(r.Context(), req.toDomain())
+		a.invalidateProxy()
+		if err != nil {
+			writeError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusCreated, map[string]any{"project": a.project(r, view), "manifest": plan})
 		return
 	}
 	view, err := a.d.Projects.Create(r.Context(), req.toDomain())

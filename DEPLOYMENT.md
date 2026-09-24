@@ -1151,6 +1151,87 @@ projects needs `admin`. Refusals arrive as the API wrote them (`this token has
 read scope, the operation needs operate`), and every command lands in the audit
 log with the token's name.
 
+### Project manifest (envoryx.yml)
+
+`envoryx.yml` describes a project in its repository: runtimes, services,
+domains, environment, workers and cron jobs. Commit it with the code, and a
+fresh clone is one command away from the same environment:
+
+```sh
+git clone git@github.com:acme/shop.git && cd shop
+envoryx up                        # creates "shop" on the server, or brings it in line
+envoryx up --dry-run              # only show what would change
+envoryx project manifest shop -o envoryx.yml   # write the file for an existing project
+```
+
+`envoryx up` looks for the file in the current directory and its parents (up to
+the repository root). When the server has no project of that name yet, it
+clones the repository itself – the `origin` remote and the checked-out branch,
+over the same credentials as the wizard (deploy key for SSH URLs,
+`--git-token` for private HTTPS) – creates the project exactly as described and
+starts it. The local checkout only supplies the file and the repository URL; a
+remote that exists only on this machine (a path, `file://`) is refused. When
+the project exists, `up` compares it with the file, applies the differences in
+one restart and starts it (`--no-start` leaves it stopped). The project is
+found by `name:` from the file, `--name`, or the directory name.
+
+```yaml
+version: 1
+name: shop
+docroot: public
+web: {server: nginx}             # caddy (default), apache, nginx
+php:
+  version: "8.4"
+  extensions: [bcmath, intl, pdo_mysql, redis, zip]
+  memoryLimit: 512M              # also uploadMaxFilesize, postMaxSize, maxExecutionTime,
+  xdebug: true                   # displayErrors, errorReporting, xdebugMode, xdebugIdeKey
+database: {type: mariadb, version: "11.4", exposePort: true}
+redis: true                      # or {version: "8", exposePort: true}
+mailpit: true                    # also memcached, rabbitmq, meilisearch, typesense,
+opensearch: {dashboards: true}   # opensearch, storage: {publicRead: false}
+domains: [api.shop.example.com]
+env:
+  APP_ENV: local
+secrets: [STRIPE_SECRET]         # names only – values never go into the repository
+workers:
+  - {name: queue, preset: "laravel:queue", arg: default}
+cron:
+  - {name: prune, schedule: "0 3 * * *", command: php artisan model:prune, timeout: 5m}
+```
+
+`node:` and `python:` take the fields of the wizard (`devServer`, `preset`,
+`port`, `script` …; `server`, `preset`, `app`, `debug` …). A setting left out
+means Envoryx's default, so the file is the whole desired state: `web:` missing
+means Caddy, `extensions:` missing the default set. Unknown keys are errors –
+a typo never silently drops a service. The export pins every version, which is
+what makes `up` reproduce a project exactly.
+
+Some things deliberately stay out of the file: host ports (the server assigns
+them), database, RabbitMQ, search and storage credentials (generated per
+project), the repository itself, backup schedules and the Xdebug client host.
+Secret values are asked for in a terminal (`envoryx up` prompts for each one
+the project does not have yet, `--secret KEY=VALUE` passes one), otherwise the
+variable is created empty and named in the output; afterwards the project keeps
+its value.
+
+Nothing is removed without `--prune`: a service, variable, domain, worker or
+cron job the file no longer has is listed as *kept*. With `--prune` it goes –
+for a database or a service with a volume (Redis, RabbitMQ, the search engines,
+storage) together with its data. Another database `type` counts as such a
+removal. A database version lower than the project's is never applied, as the
+data format does not go back.
+
+In the web interface the *Git* tab shows the project as `envoryx.yml` (copy,
+download, save into the project directory) and compares the file in the project
+directory with the project – after a `git pull` that brought a changed
+manifest, *Apply to project* takes it over. The wizard applies the manifest of
+a repository it clones (*Use the repository's envoryx.yml*, on by default); the
+file then wins over the services picked in the wizard. The API behind it:
+`GET /projects/{id}/manifest`, `PUT …/manifest/file`, `POST …/manifest/plan`
+and `…/manifest/apply` (`yaml` in the body, or the file in the project
+directory), `POST /projects/from-manifest`. Creating and applying need an
+`admin` token, like creating and changing a project.
+
 ### The certificate
 
 A server behind the local CA is not trusted by a fresh workstation. Pass the

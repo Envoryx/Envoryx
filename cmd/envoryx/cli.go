@@ -26,6 +26,11 @@ Work with a running Envoryx over its REST API – from an SSH session, a script 
 CI job. The address and an API token (web interface → Settings → API tokens) come
 from "envoryx login", from the environment or from the flags below.
 
+Manifest:
+  up [flags]                            create or update the project described by
+                                        envoryx.yml in this repository ("up --help")
+  project manifest <project> [-o FILE]  the project as an envoryx.yml
+
 Projects:
   project list                          every project with its state and URL
   project show <project>                services, ports, git and backups
@@ -175,6 +180,8 @@ func (c *cli) run(ctx context.Context, args []string) error {
 		return c.logout(rest)
 	case "whoami":
 		return c.whoami(ctx, rest)
+	case "up":
+		return c.up(ctx, rest)
 	case "project", "projects":
 		return c.projectCommand(ctx, rest)
 	case "backup", "backups":
