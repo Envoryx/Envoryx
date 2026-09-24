@@ -14,6 +14,7 @@ import { TokensCard } from "./TokensCard";
 import { DBToolCard } from "./DBToolCard";
 import { NotificationsCard } from "./NotificationsCard";
 import { InstanceBackupsCard } from "./InstanceBackupsCard";
+import { OffsiteTargetsCard } from "@/features/offsite/OffsiteTargetsCard";
 import { DiagnosticsTab } from "./DiagnosticsTab";
 import { AppearanceCard } from "./AppearanceCard";
 import { auditActionLabel, auditActor, auditDetails } from "@/lib/audit";
@@ -341,7 +342,12 @@ export function SettingsPage() {
         </>
       )}
       {tab === "notifications" && <NotificationsCard />}
-      {tab === "backups" && <InstanceBackupsCard />}
+      {tab === "backups" && (
+        <>
+          <OffsiteTargetsCard />
+          <InstanceBackupsCard />
+        </>
+      )}
       {tab === "tools" && <DBToolCard />}
       {tab === "audit" && <AuditCard />}
     </div>

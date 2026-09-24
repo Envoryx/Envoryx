@@ -10,6 +10,7 @@ import (
 	"github.com/envoryx/envoryx/internal/audit"
 	"github.com/envoryx/envoryx/internal/auth"
 	"github.com/envoryx/envoryx/internal/instance"
+	"github.com/envoryx/envoryx/internal/store"
 	"github.com/envoryx/envoryx/internal/validate"
 )
 
@@ -40,7 +41,17 @@ func (a *API) listInstanceBackups(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"backups": list, "pendingRestore": pending, "dir": s.Dir, "canRestart": a.d.Restart != nil})
+	ids := make([]string, len(list))
+	for i, b := range list {
+		ids[i] = b.ID
+	}
+	rows, err := a.d.Store.Offsite.ByBackups(r.Context(), store.OffsiteInstance, ids)
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"backups": list, "pendingRestore": pending, "dir": s.Dir, "canRestart": a.d.Restart != nil,
+		"offsite": a.uploadDTOs(rows), "offsiteTargets": a.offsiteTargetNames()})
 }
 
 func (a *API) createInstanceBackup(w http.ResponseWriter, r *http.Request) {

@@ -11,6 +11,20 @@ release). `:main` follows the development branch.
 ## [Unreleased]
 
 ### Added
+- Offsite backups: *Settings → Backups* takes targets – S3-compatible storage
+  (AWS, Backblaze B2, Wasabi, Hetzner Object Storage, Cloudflare R2, MinIO),
+  SFTP (Hetzner Storage Box, NAS; the server key is pinned) or WebDAV
+  (Nextcloud, ownCloud) – with a connection test. Scheduled project backups go
+  up by themselves, a daily instance backup at a chosen hour too, everything
+  else with *Copy offsite* or *Also copy offsite*; each target keeps its own
+  number of scheduled copies. Archives are optionally encrypted with age
+  (scrypt passphrase) before they leave the host. Failed uploads are retried
+  with growing pauses and reported through the *Backup failed* notification.
+  The Backups tab shows each copy's state and lists what a target holds for the
+  project, deleted backups included; *Fetch* brings one back. A fresh Envoryx
+  fetches its instance backup from the target the same way – disaster
+  recovery in four steps (DEPLOYMENT.md → *Offsite backups*). CLI: `envoryx
+  backup create --offsite`, `backup offsite`, `backup remote`, `backup fetch`.
 - Project manifest `envoryx.yml`: runtimes (with PHP extensions and ini
   settings), web server, database, services, domains, environment (secrets by
   name only), workers and cron jobs as a file in the repository. `envoryx up`
@@ -47,6 +61,8 @@ release). `:main` follows the development branch.
   out.
 
 ### Fixed
+- Downloading a project backup left out the object storage archive
+  (`storage.tar.gz`); the download now carries everything the backup holds.
 - `envoryx project create --database postgres` (as the help text suggests)
   was refused by the server, which only knows `postgresql`. The CLI now maps
   `postgres`, `pg` and `pgsql` to it, also in `--from-json`.

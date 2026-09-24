@@ -334,6 +334,16 @@ func (m *Manager) transitionLocked(ctx context.Context, id, action string, op fu
 
 // startPlan ensures config files, network and containers exist and starts them in order.
 func (m *Manager) startPlan(ctx context.Context, proj store.Project, plan Plan) error {
+	// A missing project directory – a fresh host after a disaster recovery, a directory
+	// removed by hand – would be created by Docker for the bind mount, owned by root, so
+	// the project user could not write to it. Create it as the project user first.
+	planner, err := m.planner()
+	if err != nil {
+		return err
+	}
+	if err := m.ensureProjectDir(planner, proj, false, false); err != nil {
+		return err
+	}
 	return m.ensurePlan(ctx, proj, plan, true)
 }
 

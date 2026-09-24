@@ -17,6 +17,7 @@ import (
 	"github.com/envoryx/envoryx/internal/docker"
 	"github.com/envoryx/envoryx/internal/hostpath"
 	"github.com/envoryx/envoryx/internal/instance"
+	"github.com/envoryx/envoryx/internal/offsite"
 	"github.com/envoryx/envoryx/internal/project"
 	"github.com/envoryx/envoryx/internal/runtime"
 	"github.com/envoryx/envoryx/internal/stats"
@@ -45,6 +46,8 @@ type Deps struct {
 	Proxy   *ProxyInfo
 	// Instance manages backups of the instance itself (nil = disabled).
 	Instance *instance.Store
+	// Offsite copies backups to S3, SFTP or WebDAV targets (nil = disabled).
+	Offsite *offsite.Syncer
 	// DB is the live database, used for instance backups.
 	DB *sql.DB
 	// Restart asks the server to shut down and start again (e.g. to apply a restore).
@@ -201,6 +204,15 @@ func (a *API) Mount(mux *http.ServeMux, protect func(http.Handler) http.Handler)
 	adm("DELETE /api/v1/instance/backups/{id}", a.deleteInstanceBackup)
 	adm("GET /api/v1/instance/backups/{id}/download", a.downloadInstanceBackup)
 	adm("POST /api/v1/instance/backups/{id}/restore", a.restoreInstanceBackup)
+	adm("POST /api/v1/instance/backups/{id}/offsite", a.uploadInstanceBackupOffsite)
+	adm("GET /api/v1/offsite", a.listOffsiteTargets)
+	adm("POST /api/v1/offsite/targets", a.saveOffsiteTarget)
+	adm("PUT /api/v1/offsite/targets/{target}", a.saveOffsiteTarget)
+	adm("DELETE /api/v1/offsite/targets/{target}", a.deleteOffsiteTarget)
+	adm("POST /api/v1/offsite/test", a.testOffsiteTarget)
+	adm("GET /api/v1/offsite/targets/{target}/instance", a.listRemoteInstanceBackups)
+	adm("POST /api/v1/offsite/targets/{target}/instance/fetch", a.fetchRemoteInstanceBackup)
+	adm("POST /api/v1/offsite/targets/{target}/remove", a.deleteRemoteBackup)
 	adm("DELETE /api/v1/instance/restore", a.cancelInstanceRestore)
 	adm("GET /api/v1/system/reconcile", a.reconcileReport)
 	adm("GET /api/v1/system/diagnostics", a.diagnostics)
@@ -248,6 +260,9 @@ func (a *API) Mount(mux *http.ServeMux, protect func(http.Handler) http.Handler)
 	rd("GET /api/v1/projects/{id}/actions", a.listActions)
 	op("GET /api/v1/projects/{id}/actions/{action}/ws", a.actionWS)
 	rd("GET /api/v1/projects/{id}/backups", a.listBackups)
+	op("POST /api/v1/projects/{id}/backups/{backup}/offsite", a.uploadBackupOffsite)
+	op("GET /api/v1/projects/{id}/offsite/{target}", a.listRemoteBackups)
+	op("POST /api/v1/projects/{id}/offsite/{target}/fetch", a.fetchRemoteBackup)
 	adm("PUT /api/v1/projects/{id}/backups/schedule", a.setBackupSchedule)
 	op("POST /api/v1/projects/{id}/backups", a.createBackup)
 	adm("DELETE /api/v1/projects/{id}/backups/{backup}", a.deleteBackup)
