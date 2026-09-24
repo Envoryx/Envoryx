@@ -162,7 +162,8 @@ Go API (single binary, single container)
 - **instance** – backups of Envoryx itself (see §10): create/list/import/
   delete, automatic pre-migrate/pre-restore snapshots, restore at next start.
 - **logs** – what happens to container output beyond streaming it: the level
-  heuristic, the query filter, the error-frequency statistics (see *Logs*).
+  heuristic, the query filter, the error-frequency statistics and the
+  persistent history with its collector (see *Logs*).
 - **stats** – one-shot container stats with a short cache, aggregated per
   project and for the dashboard.
 - **api** – thin handlers: decode → validate → call manager/store → encode.
@@ -630,6 +631,7 @@ Detailed in SECURITY.md. Summary of the enforced boundaries:
   projects/<id>/           generated config per project (web server config, php.ini, pool conf)
   backups/<slug>/          Phase 7
   ca/                      Phase 8 (0600)
+  logs/<id>/<service>/     log history, one file per UTC day (older days gzipped)
 /projects/<slug>/          user project files (bind-mounted into project containers)
 Docker volumes             database / cache data (named, labelled)
 ```
@@ -902,6 +904,28 @@ with times, UUIDs, hex ids and numbers masked (at most 2000 patterns). The
 download is streamed (`bufio`, no size limit); an error after the first byte
 ends the file with a `# envoryx: export aborted` line. The live WebSocket
 applies the same filter and sends each line's level.
+
+The history (`logs.Store`, `/config/logs/<project id>/<service>/<YYYY-MM-DD>.jsonl`,
+one `{"t","s","m"}` object per line, UTC days) is keyed by project and service,
+not by container, which is what makes it survive a recreated container.
+`logs.Collector` runs in `RunLogHistory` (every 5 s): it lists the managed
+containers of the Logs tab's services (`IsLogService`, not git/template/move
+helpers), follows each running one it does not follow yet and reads each
+stopped one once to the end – output from while Envoryx was down. Every
+reader starts at its service's newest stored line + 1 ns (Docker's `since` is
+inclusive) and drops older lines, so a restart of Envoryx or a recreated
+container whose Docker log starts over stores nothing twice; nothing older
+than the retention or the last clear (`.cleared`) is collected. Lines are
+batched (1 s or 2000 lines, flushed in order) and appended with `O_APPEND`.
+Every hour `Prune` gzips the days before yesterday (a late write to a
+compressed day goes into a plain file next to it and is read with it), drops
+days beyond `log_history_days` (default 7), then the oldest days across all
+projects beyond `log_history_max_mb` (default 1024), and removes the history
+of projects that no longer exist; `Delete` removes a project's right away.
+Queries use the history once it holds lines for the service
+(`LogPage.source` = `history`, else `container`); the tail of an unfiltered
+query without `since` reads the newest days backwards and only counts older
+ones. The directory is outside instance backups.
 
 ### Notifications
 `internal/notify` is a small `Sender` (`Notify(ctx, Event)`, `Clear(key)`)

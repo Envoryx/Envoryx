@@ -28,6 +28,7 @@ import type {
   InstanceBackup,
   InstanceBackupsResponse,
   LogFilter,
+  LogHistoryInfo,
   LogPage,
   LogSummary,
   NotifyConfig,
@@ -186,6 +187,7 @@ export const api = {
   removeOrphan: (type: string, id: string) => request<{ orphans: Orphan[] }>("/docker/orphans/remove", { method: "POST", body: { type, id } }),
   settings: () => request<Settings>("/settings"),
   updateSettings: (body: UpdateSettingsRequest) => request<Settings>("/settings", { method: "PATCH", body }),
+  clearLogHistory: () => request<{ logHistory: LogHistoryInfo }>("/settings/log-history", { method: "DELETE" }),
   notifications: {
     get: () => request<NotifyInfo>("/settings/notifications"),
     set: (body: NotifyConfig) => request<NotifyInfo>("/settings/notifications", { method: "PUT", body }),

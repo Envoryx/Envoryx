@@ -1156,6 +1156,11 @@ func (m *Manager) delete(ctx context.Context, id string, opts DeleteOptions) err
 	if err := m.store.Projects.Delete(ctx, id); err != nil {
 		return fail("delete record", err)
 	}
+	if m.logStore != nil {
+		if err := m.logStore.RemoveProject(id); err != nil {
+			m.log.Warn("remove log history", "project", id, "err", err)
+		}
+	}
 	m.audit.Log(ctx, audit.ActionProjectDeleted, "project", id, map[string]any{"name": proj.Name, "slug": proj.Slug, "deletedFiles": opts.DeleteFiles})
 	return nil
 }

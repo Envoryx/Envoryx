@@ -23,6 +23,16 @@ release). `:main` follows the development branch.
   `…/logs/stats` and `…/logs/download`; the CLI gets `envoryx project logs
   --since/--until/--grep/--level` and `-o FILE`, MCP `get_logs` the same
   filters and a new `get_log_stats` tool.
+- Persistent log history: Envoryx copies the output of every project
+  container into daily files under `/config/logs`, so the History view still
+  finds it after a container was restarted or recreated (image or version
+  change, rename, new password …) and when Docker's 30 MB per container are
+  long rotated away. Output written while Envoryx was down is picked up
+  afterwards, nothing is stored twice. Finished days are gzipped; retention (7
+  days) and a size limit for all projects (1 GB) are set in *Settings →
+  General → Log history*, which also shows the space used and can delete the
+  history. Deleting a project deletes its history; instance backups leave it
+  out.
 
 ## [0.6.0] – 2026-09-24
 

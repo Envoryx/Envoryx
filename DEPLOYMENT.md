@@ -106,6 +106,8 @@ docker build -t ghcr.io/envoryx/envoryx:dev --build-arg VERSION=dev .
   `storage.low` notification goes out (once, and again when it recovers). A
   project or instance backup is refused when it would not leave at least
   512 MiB free – a full appdata disk takes the database down with it.
+- `/config/logs` holds the log history (see [Logs](#logs)): 7 days and at
+  most 1 GB by default, adjustable in *Settings → General → Log history*.
 - The database file is integrity-checked at every start (`PRAGMA
   integrity_check`). A damaged file is refused with the name of the newest
   instance backup to restore instead of being migrated or served.
@@ -854,6 +856,28 @@ The same filters work from scripts: `envoryx project logs shop --since 6h
 --level error`, `--grep`, `--until`, and `-o FILE` to save everything that
 matches (`--since` takes a duration back from now such as `30m`, `6h`, `7d`
 or an RFC 3339 time).
+
+### Log history
+
+Docker keeps a container's output only as long as the container exists (and
+at most 30 MB of it): a project that is updated, reconfigured or renamed gets
+new containers and starts with empty logs. So Envoryx copies the output of
+every project container into `/config/logs/<project>/<service>/<day>.jsonl` as
+it is written, and the History view reads from there – across restarts and
+recreated containers. The footer says which source a result came from.
+
+- Output written while Envoryx was stopped is picked up when it comes back,
+  as long as Docker still has it; nothing is stored twice.
+- Days are UTC. Finished days are compressed (gzip), days older than the
+  retention (default 7) are deleted, and when the history grows beyond its
+  limit (default 1 GB for all projects together) the oldest days go first.
+  Both are set in *Settings → General → Log history*, which also shows the
+  space in use.
+- Deleting a project deletes its history. *Delete stored logs* empties the
+  whole history; lines Docker still holds are not collected again.
+- The history is not part of instance backups.
+- Switched off, nothing new is stored and the Logs tab reads the containers
+  again, as before.
 
 ## Workers (queues, schedulers)
 

@@ -45,6 +45,7 @@ func newStore(t *testing.T) (*Store, *sql.DB) {
 	must("projects/p1/ssh/id_ed25519", "deploykey")
 	must("projects/p1/home/.composer/cache/big", "cache")
 	must("jetbrains/cache", "cache")
+	must("logs/p1/php/2026-09-24.jsonl", `{"m":"line"}`)
 	must("backups/old/backup.json", "{}")
 	return s, sqlDB
 }
@@ -145,7 +146,7 @@ func TestCreateListRestoreRoundTrip(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(s.ConfigDir, "projects", "p2")); !errors.Is(err, os.ErrNotExist) {
 		t.Fatal("project config added after the backup survived the restore")
 	}
-	for _, kept := range []string{"projects/p1/home/.composer/cache/big", "projects/p1/home/later", "jetbrains/cache", "backups/old/backup.json"} {
+	for _, kept := range []string{"projects/p1/home/.composer/cache/big", "projects/p1/home/later", "jetbrains/cache", "logs/p1/php/2026-09-24.jsonl", "backups/old/backup.json"} {
 		if read(kept) == "<"+os.ErrNotExist.Error()+">" || strings.HasPrefix(read(kept), "<") {
 			t.Fatalf("%s should be kept: %s", kept, read(kept))
 		}

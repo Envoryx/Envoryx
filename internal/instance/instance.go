@@ -282,7 +282,8 @@ func (s *Store) configFiles() ([]string, error) {
 }
 
 // skip decides what stays out of the archive: the database files (copied separately),
-// caches, project backups, the instance backups themselves and the restore marker.
+// caches, project backups, the log history, the instance backups themselves and the
+// restore marker.
 func (s *Store) skip(path, rel string, isDir bool) bool {
 	if within(path, s.Dir) {
 		return true
@@ -292,7 +293,7 @@ func (s *Store) skip(path, rel string, isDir bool) bool {
 	}
 	parts := strings.Split(filepath.ToSlash(rel), "/")
 	switch parts[0] {
-	case "backups", "jetbrains", pendingMarker:
+	case "backups", "jetbrains", "logs", pendingMarker:
 		return true
 	case "projects":
 		// projects/<id>/home holds composer/npm caches of the project user.

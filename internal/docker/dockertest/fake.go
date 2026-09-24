@@ -757,6 +757,13 @@ func (f *Fake) StreamLogs(ctx context.Context, id string, opts docker.LogOptions
 	}
 }
 
+// SetLogs replaces a container's output (by name), as a recreated container starts over.
+func (f *Fake) SetLogs(name string, lines ...docker.LogLine) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.Logs[name] = lines
+}
+
 // AppendLogs adds output to a container (by name); a following StreamLogs picks it up.
 func (f *Fake) AppendLogs(name string, lines ...docker.LogLine) {
 	f.mu.Lock()

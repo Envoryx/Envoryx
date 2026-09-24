@@ -104,7 +104,7 @@ describe("LogsTab", () => {
         },
       }),
       [`GET ${base}`]: () => ({
-        body: { lines: [{ time: "2026-09-24T09:10:00Z", stream: "stderr", text: "PHP Fatal error: Allowed memory size of 134217728 bytes", level: "error" }], matched: 5000, truncated: true },
+        body: { lines: [{ time: "2026-09-24T09:10:00Z", stream: "stderr", text: "PHP Fatal error: Allowed memory size of 134217728 bytes", level: "error" }], matched: 5000, truncated: true, source: "history", oldest: "2026-09-17T08:00:00Z" },
       }),
     });
     renderApp(<LogsTab project={makeProject()} />);
@@ -112,6 +112,7 @@ describe("LogsTab", () => {
     await user.click(screen.getByRole("radio", { name: "History" }));
     expect(await screen.findByText("PHP Fatal error: Allowed memory size of 134217728 bytes")).toBeInTheDocument();
     expect(screen.getByText("Last 1 of 5000 matching lines – the download has all of them")).toBeInTheDocument();
+    expect(screen.getByText(/^Log history since /)).toBeInTheDocument();
     expect(calls.some((c) => c.url === `/api/v1${base}?since=24h&tail=2000`)).toBe(true);
 
     await user.selectOptions(screen.getByLabelText("Time range"), "7d");

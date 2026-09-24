@@ -274,6 +274,8 @@ type updateSettingsRequest struct {
 	FolderViewFolder *string `json:"folderViewFolder"`
 	// SSHAuthorizedKeys replaces the public keys accepted by the SSH server.
 	SSHAuthorizedKeys *string `json:"sshAuthorizedKeys"`
+	// LogHistory switches the log history and sets its retention.
+	LogHistory *project.LogHistoryUpdate `json:"logHistory"`
 }
 
 func (a *API) updateSettings(w http.ResponseWriter, r *http.Request) {
@@ -338,6 +340,12 @@ func (a *API) updateSettings(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	if req.LogHistory != nil {
+		if _, err := a.d.Projects.SetLogHistory(r.Context(), *req.LogHistory); err != nil {
+			writeError(w, r, err)
+			return
+		}
+	}
 	if len(changes) > 0 {
 		a.d.Audit.Log(r.Context(), audit.ActionSettingsChanged, "settings", "", changes)
 	}
@@ -398,6 +406,7 @@ func (a *API) settings(w http.ResponseWriter, r *http.Request) {
 		"baseDomain":            a.d.Projects.BaseDomain(r.Context()),
 		"forceHttps":            a.d.Projects.ForceHTTPS(r.Context()),
 		"projectsFollowEnvoryx": a.d.Projects.ProjectsFollowEnvoryx(r.Context()),
+		"logHistory":            a.d.Projects.LogHistoryInfo(r.Context()),
 		"xdebugClientHost":      a.d.Projects.XdebugClientHost(r.Context()),
 		"folderViewFolder":      a.d.Projects.FolderViewFolder(r.Context()),
 		"sshAuthorizedKeys":     a.setting(r.Context(), sshd.SettingAuthorizedKeys),
@@ -479,4 +488,13 @@ func validateAuthorizedKeys(text string) error {
 		}
 	}
 	return nil
+}
+
+// clearLogHistory deletes the stored log history.
+func (a *API) clearLogHistory(w http.ResponseWriter, r *http.Request) {
+	if err := a.d.Projects.ClearLogHistory(r.Context()); err != nil {
+		writeError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"logHistory": a.d.Projects.LogHistoryInfo(r.Context())})
 }
