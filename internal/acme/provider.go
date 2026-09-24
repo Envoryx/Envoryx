@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -21,19 +22,155 @@ type DNSProvider interface {
 	Cleanup(ctx context.Context, handle string) error
 }
 
-// Providers lists the supported DNS providers (key → display name).
-var Providers = map[string]string{
-	"cloudflare": "Cloudflare",
+// Field is one credential a provider needs. Secret fields are never returned by the API;
+// an update that leaves them empty keeps the stored value.
+type Field struct {
+	Key      string `json:"key"`
+	Label    string `json:"label"`
+	Secret   bool   `json:"secret"`
+	Optional bool   `json:"optional,omitempty"`
+	// Hint says where to get it (English; the UI translates).
+	Hint string `json:"hint,omitempty"`
 }
 
-// newProvider instantiates a provider by key.
-func newProvider(key, token string, httpClient *http.Client, baseURL string) (DNSProvider, error) {
+// ProviderInfo describes a DNS provider for the UI.
+type ProviderInfo struct {
+	Key    string  `json:"key"`
+	Name   string  `json:"name"`
+	Fields []Field `json:"fields"`
+	// PropagationMinutes is how long Envoryx waits for the record to show up at the
+	// zone's name servers.
+	PropagationMinutes int `json:"propagationMinutes"`
+}
+
+// ProviderList is every supported provider, in the order the UI offers them.
+var ProviderList = []ProviderInfo{
+	{Key: "cloudflare", Name: "Cloudflare", PropagationMinutes: 5, Fields: []Field{
+		{Key: "token", Label: "API token", Secret: true, Hint: "My Profile → API Tokens → Create Token → “Edit zone DNS” template (Zone:Read + DNS:Edit for the zone)."},
+	}},
+	{Key: "hetzner", Name: "Hetzner", PropagationMinutes: 5, Fields: []Field{
+		{Key: "token", Label: "API token", Secret: true, Hint: "Hetzner Console → the project holding the zone → Security → API tokens, with Read & Write. Tokens of the old DNS Console (dns.hetzner.com) no longer work."},
+	}},
+	{Key: "netcup", Name: "netcup", PropagationMinutes: 20, Fields: []Field{
+		{Key: "customerNumber", Label: "Customer number"},
+		{Key: "apiKey", Label: "API key", Secret: true, Hint: "Customer Control Panel → Master Data → API."},
+		{Key: "apiPassword", Label: "API password", Secret: true},
+	}},
+	{Key: "route53", Name: "Amazon Route 53", PropagationMinutes: 5, Fields: []Field{
+		{Key: "accessKeyId", Label: "Access key ID", Hint: "An IAM user allowed route53:ListHostedZonesByName, route53:GetHostedZone, route53:ListResourceRecordSets and route53:ChangeResourceRecordSets."},
+		{Key: "secretAccessKey", Label: "Secret access key", Secret: true},
+		{Key: "hostedZoneId", Label: "Hosted zone ID", Optional: true, Hint: "Only needed when the domain has several public hosted zones."},
+	}},
+	{Key: "digitalocean", Name: "DigitalOcean", PropagationMinutes: 5, Fields: []Field{
+		{Key: "token", Label: "API token", Secret: true, Hint: "API → Tokens → Generate New Token with the domain scopes (read, create, delete)."},
+	}},
+	{Key: "porkbun", Name: "Porkbun", PropagationMinutes: 10, Fields: []Field{
+		{Key: "apiKey", Label: "API key", Secret: true, Hint: "Account → API Access; also switch on API access for the domain."},
+		{Key: "secretApiKey", Label: "Secret API key", Secret: true},
+	}},
+}
+
+// Providers maps key → display name (kept for API clients that only need the names).
+var Providers = func() map[string]string {
+	out := map[string]string{}
+	for _, p := range ProviderList {
+		out[p.Key] = p.Name
+	}
+	return out
+}()
+
+func providerInfo(key string) (ProviderInfo, bool) {
+	for _, p := range ProviderList {
+		if p.Key == key {
+			return p, true
+		}
+	}
+	return ProviderInfo{}, false
+}
+
+// newProvider instantiates a provider by key. baseURL replaces the API address in tests.
+func newProvider(key string, creds map[string]string, httpClient *http.Client, baseURL string) (DNSProvider, error) {
+	if httpClient == nil {
+		httpClient = &http.Client{Timeout: 30 * time.Second}
+	}
 	switch key {
 	case "cloudflare":
-		return &cloudflare{token: token, http: httpClient, base: baseURL}, nil
+		return &cloudflare{token: creds["token"], http: httpClient, base: baseURL}, nil
+	case "hetzner":
+		return &hetzner{token: creds["token"], http: httpClient, base: or(baseURL, hetznerAPI)}, nil
+	case "digitalocean":
+		return &digitalOcean{token: creds["token"], http: httpClient, base: or(baseURL, digitalOceanAPI)}, nil
+	case "porkbun":
+		return &porkbun{apiKey: creds["apiKey"], secret: creds["secretApiKey"], http: httpClient, base: or(baseURL, porkbunAPI)}, nil
+	case "netcup":
+		return &netcup{customer: creds["customerNumber"], apiKey: creds["apiKey"], password: creds["apiPassword"], http: httpClient, endpoint: or(baseURL, netcupAPI)}, nil
+	case "route53":
+		return &route53{accessKey: creds["accessKeyId"], secretKey: creds["secretAccessKey"], zoneID: creds["hostedZoneId"], http: httpClient, base: or(baseURL, route53API)}, nil
 	}
 	return nil, fmt.Errorf("unsupported DNS provider %q", key)
 }
+
+func or(a, b string) string {
+	if a != "" {
+		return a
+	}
+	return b
+}
+
+// zoneCandidates are the names a zone for fqdn may have, longest first:
+// _acme-challenge.dev.example.com → dev.example.com, example.com.
+func zoneCandidates(fqdn string) []string {
+	labels := strings.Split(strings.Trim(strings.ToLower(fqdn), "."), ".")
+	var out []string
+	for i := 1; i < len(labels)-1; i++ {
+		out = append(out, strings.Join(labels[i:], "."))
+	}
+	return out
+}
+
+// relativeName is fqdn inside zone: _acme-challenge.dev in example.com.
+func relativeName(fqdn, zone string) string {
+	fqdn = strings.Trim(strings.ToLower(fqdn), ".")
+	return strings.TrimSuffix(strings.TrimSuffix(fqdn, strings.ToLower(zone)), ".")
+}
+
+// readBody reads at most 1 MiB of an answer.
+func readBody(r io.Reader) []byte {
+	b, _ := io.ReadAll(io.LimitReader(r, 1<<20))
+	return b
+}
+
+// jsonRequest sends a JSON request and returns status and body.
+func jsonRequest(ctx context.Context, client *http.Client, method, u string, body any, header map[string]string) (int, []byte, error) {
+	var rdr io.Reader
+	if body != nil {
+		b, err := json.Marshal(body)
+		if err != nil {
+			return 0, nil, err
+		}
+		rdr = bytes.NewReader(b)
+	}
+	req, err := http.NewRequestWithContext(ctx, method, u, rdr)
+	if err != nil {
+		return 0, nil, err
+	}
+	req.Header.Set("Accept", "application/json")
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	for k, v := range header {
+		req.Header.Set(k, v)
+	}
+	res, err := client.Do(req)
+	if err != nil {
+		return 0, nil, err
+	}
+	defer res.Body.Close()
+	return res.StatusCode, readBody(res.Body), nil
+}
+
+// quoteTXT puts a TXT value in the quotes zone-file style APIs expect.
+func quoteTXT(v string) string { return strconv.Quote(v) }
 
 // ---- Cloudflare ---------------------------------------------------------------------
 

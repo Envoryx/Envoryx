@@ -63,8 +63,8 @@ Envoryx is under active development. The current milestone (Phase 1 + 2) deliver
   through the embedded reverse proxy, as `https://<project>.test` plus any
   additional domains; certificates from a local CA (download once, trust on
   your devices), or a Let's Encrypt wildcard for your own domain obtained
-  and renewed automatically via DNS challenge (Cloudflare) – nothing to
-  install anywhere
+  and renewed automatically via DNS challenge (Cloudflare, Hetzner, netcup,
+  Amazon Route 53, DigitalOcean, Porkbun) – nothing to install anywhere
 - start / stop / restart / edit / delete with confirmation
 - rename a project after the fact: the identifier follows the name, and with it the
   URL and host names, the container, network and volume names, the SSH users, the

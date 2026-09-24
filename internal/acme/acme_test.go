@@ -239,7 +239,7 @@ func TestIssueObtainsWildcardThroughDNSChallenge(t *testing.T) {
 	m.providerBase = cfSrv.URL
 	m.lookupTXT = func(_ context.Context, fqdn string) ([]string, error) { return cf.txt(fqdn), nil }
 
-	if err := m.SetConfig(Config{Provider: "route53", Domain: "dev.example.com", Email: "me@example.com", Token: "x"}); err == nil {
+	if err := m.SetConfig(Config{Provider: "gandi", Domain: "dev.example.com", Email: "me@example.com", Token: "x"}); err == nil {
 		t.Fatal("unsupported provider must be rejected")
 	}
 	if err := m.SetConfig(Config{Provider: "cloudflare", Domain: "dev.example.com", Email: "me@example.com"}); err == nil {
@@ -290,7 +290,7 @@ func TestIssueObtainsWildcardThroughDNSChallenge(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if m2.Config().Token != "cf-secret" || m2.Status().Domain != "dev.example.com" {
+	if m2.Config().Credentials["token"] != "cf-secret" || m2.Status().Domain != "dev.example.com" {
 		t.Fatalf("config not persisted: %+v", m2.Status())
 	}
 	if err := m2.Clear(); err != nil {

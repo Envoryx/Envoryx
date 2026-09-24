@@ -352,17 +352,31 @@ temporary `_acme-challenge` TXT record through your DNS provider's API,
 Let's Encrypt verifies it, done. Nothing needs to be reachable from the
 internet and the domain never has to point at your server publicly.
 
-1. Cloudflare (currently the supported provider): *My Profile → API Tokens →
-   Create Token → template "Edit zone DNS"*, restricted to the zone. The
-   token needs *Zone:Read* and *Zone:DNS:Edit*.
+1. Get API credentials from your DNS provider:
+
+   | Provider | Credentials | Where |
+   |----------|-------------|-------|
+   | Cloudflare | API token | *My Profile → API Tokens → Create Token → template "Edit zone DNS"*, restricted to the zone (*Zone:Read*, *Zone:DNS:Edit*) |
+   | Hetzner | API token | Hetzner Console → the project that holds the zone → *Security → API tokens*, *Read & Write*. DNS moved into the Console in 2025; tokens of the old DNS Console (dns.hetzner.com, shut down May 2026) do not work |
+   | netcup | customer number, API key, API password | Customer Control Panel → *Master Data → API* |
+   | Amazon Route 53 | access key ID, secret access key, optionally the hosted zone ID | an IAM user with `route53:ListHostedZonesByName`, `route53:GetHostedZone`, `route53:ListResourceRecordSets` and `route53:ChangeResourceRecordSets` (the zone ID is only needed when the domain has several public hosted zones) |
+   | DigitalOcean | API token | *API → Tokens → Generate New Token* with the domain scopes (read, create, delete) |
+   | Porkbun | API key, secret API key | *Account → API Access*; API access must also be switched on for the domain |
+
 2. Settings → Domains & HTTPS → **Let's Encrypt**: provider, domain
    (e.g. `dev.example.com` – the wildcard `*.dev.example.com` is added),
-   contact e-mail, token, "Use as base domain" → Enable.
+   contact e-mail, the provider's credentials, "Use as base domain" → Enable.
+   The zone is found by itself (`dev.example.com` inside `example.com` works);
+   secrets are never shown again and stay when their fields are left empty.
 3. In your **local** DNS (AdGuard/Pi-hole/…) rewrite `*.dev.example.com` →
    Envoryx's address. Do not create a public record for it.
 
 Envoryx requests the certificate in the background (1–2 minutes, status is
-shown in the card), stores it under `/config/ca/custom.*` and renews it 30
+shown in the card; netcup publishes records only after several minutes, so
+there Envoryx waits up to 20 minutes, Porkbun up to 10). Before the CA looks,
+Envoryx checks that every name server of the zone serves the record – asking
+them directly, so a local resolver or a cached "does not exist" cannot fool the
+check. The certificate is stored under `/config/ca/custom.*` and renewed 30
 days before expiry. The local CA stays as fallback for other names (`.test`).
 The staging checkbox uses Let's Encrypt's staging environment to test the
 setup without rate limits (certificates from staging are not trusted).

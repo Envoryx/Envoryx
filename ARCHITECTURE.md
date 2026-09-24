@@ -1051,11 +1051,20 @@ TLS (`internal/tlsca`): an ECDSA P-256 CA under `/config/ca` (`ca.key`
 routing table. An operator-supplied certificate (`custom.crt/key`) wins for
 the names it covers. `force_https` (settings) redirects HTTP → HTTPS except
 for bare IPs. `internal/acme` optionally obtains a public wildcard
-certificate through Let's Encrypt (dns-01 via a `DNSProvider` interface,
-Cloudflare implemented; `golang.org/x/crypto/acme`, no extra dependency),
-stores it as the tlsca custom certificate and renews it 30 days before
-expiry in a background loop; config/token under `/config/ca/acme.json`
-(0600).
+certificate through Let's Encrypt (dns-01 via a `DNSProvider` interface –
+Cloudflare, Hetzner Cloud API, netcup CCP, Route 53, DigitalOcean, Porkbun –
+on `golang.org/x/crypto/acme`, no extra dependency), stores it as the tlsca
+custom certificate and renews it 30 days before expiry in a background loop;
+config and credentials under `/config/ca/acme.json` (0600). `ProviderList`
+declares each provider's credential fields (the UI builds the form from it,
+secrets never leave the server) and how long its name servers take. The
+wildcard and the bare domain put two values on the same
+`_acme-challenge` name: providers with record ids add and delete their own
+record, the RRSet APIs (Route 53, Hetzner) add a value to the set and take
+only that value away again. Propagation is checked at every authoritative
+name server of the zone (found through 1.1.1.1), not at a resolver, so an
+early NXDOMAIN cannot be cached against the check. Route 53 requests are
+signed by `internal/awssig`, the SigV4 signer shared with `internal/s3`.
 
 - **Phase 5 DX** (logs and terminal implemented): log streaming and PTY
   terminal over WebSocket – session cookie validated before the upgrade,
