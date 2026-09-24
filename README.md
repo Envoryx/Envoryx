@@ -66,6 +66,9 @@ Envoryx is under active development. The current milestone (Phase 1 + 2) deliver
   and renewed automatically via DNS challenge (Cloudflare, Hetzner, netcup,
   Amazon Route 53, DigitalOcean, Porkbun) – nothing to install anywhere
 - start / stop / restart / edit / delete with confirmation
+- CPU, memory and process limits per project (application containers and
+  services separately), applied live; containers that run out of memory
+  show up as a warning and a notification
 - rename a project after the fact: the identifier follows the name, and with it the
   URL and host names, the container, network and volume names, the SSH users, the
   project directory, the backups and – optionally – the database, its login and the

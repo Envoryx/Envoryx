@@ -143,3 +143,18 @@ func TestParseErrorsNameTheKey(t *testing.T) {
 		}
 	}
 }
+
+func TestLimitMemory(t *testing.T) {
+	for in, want := range map[string]int{"512": 512, "512M": 512, "512MiB": 512, "2G": 2048, "1.5G": 1536, "2GB": 2048, "": 0} {
+		got, err := LimitSet{Memory: in}.MemoryMB()
+		if err != nil || got != want {
+			t.Errorf("%q: %d %v, want %d", in, got, err, want)
+		}
+	}
+	if _, err := Parse([]byte("version: 1\nlimits:\n  app: {memory: lots}\n")); err == nil {
+		t.Fatal("a size without a number must be refused")
+	}
+	if FormatMemory(2048) != "2G" || FormatMemory(1536) != "1536M" {
+		t.Fatal("format")
+	}
+}

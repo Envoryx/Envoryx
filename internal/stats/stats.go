@@ -37,6 +37,8 @@ type Usage struct {
 	MemoryBytes int64   `json:"memoryBytes"`
 	Running     int     `json:"running"`
 	Containers  int     `json:"containers"`
+	// PerContainer are the samples of the running containers.
+	PerContainer []ContainerStats `json:"perContainer,omitempty"`
 }
 
 // Collector samples stats on demand and caches the result.
@@ -145,6 +147,8 @@ func (c *Collector) collect(ctx context.Context) (Summary, error) {
 		} else {
 			u.CPUPercent += r.stats.CPUPercent
 			u.MemoryBytes += r.stats.MemoryBytes
+			u.PerContainer = append(u.PerContainer, ContainerStats{ContainerID: ct.ID, Name: ct.Name, ProjectID: ct.ProjectID(), Service: ct.Service(),
+				CPUPercent: r.stats.CPUPercent, MemoryBytes: r.stats.MemoryBytes, MemoryLimit: r.stats.MemoryLimit})
 			s.CPUPercent += r.stats.CPUPercent
 			s.MemoryBytes += r.stats.MemoryBytes
 		}

@@ -348,3 +348,51 @@ func TestCreateFromRepositoryAppliesTheClonedManifest(t *testing.T) {
 		t.Fatalf("no manifest: %v %v %+v", err, plan, view.Project.Services)
 	}
 }
+
+func TestManifestLimits(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	src := "version: 1\nname: capped\nphp: {version: \"8.4\"}\nredis: true\nlimits:\n  app: {cpus: 2, memory: 1536M}\n  services: {memory: 1G}\n  pids: 2048\n"
+	res, err := e.m.CreateFromManifest(ctx, mustManifest(t, src), ManifestCreateRequest{Start: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := res.View.Project.ID
+	want := store.ResourceLimits{App: store.LimitSet{CPUs: 2, MemoryMB: 1536}, Services: store.LimitSet{MemoryMB: 1024}, Pids: 2048}
+	if res.View.Project.Limits != want {
+		t.Fatalf("limits: %+v", res.View.Project.Limits)
+	}
+	if d, _ := e.engine.InspectContainer(ctx, "envoryx-capped-redis"); d.Resources != (docker.Resources{MemoryBytes: 1 << 30, PidsLimit: 2048}) {
+		t.Fatalf("redis: %+v", d.Resources)
+	}
+	plan, _ := e.m.PlanManifest(ctx, id, mustManifest(t, src), ManifestOptions{Prune: true})
+	if !plan.InSync {
+		t.Fatalf("created from the file, the project must match it: %v", changeKeys(plan))
+	}
+	exported, _ := e.m.ExportManifest(ctx, id)
+	data, _ := manifest.Marshal(exported)
+	if !strings.Contains(string(data), "memory: 1536M") || !strings.Contains(string(data), "memory: 1G") {
+		t.Fatalf("export:\n%s", data)
+	}
+
+	// Changed in the file: applied to the running containers.
+	changed := strings.Replace(src, "cpus: 2,", "cpus: 1,", 1)
+	if _, err := e.m.ApplyManifest(ctx, id, mustManifest(t, changed), ManifestOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	if d, _ := e.engine.InspectContainer(ctx, "envoryx-capped-php"); d.Resources.NanoCPUs != 1_000_000_000 {
+		t.Fatalf("php after the change: %+v", d.Resources)
+	}
+	// Gone from the file: kept without prune, lifted with it.
+	bare := "version: 1\nname: capped\nphp: {version: \"8.4\"}\nredis: true\n"
+	plan, _ = e.m.PlanManifest(ctx, id, mustManifest(t, bare), ManifestOptions{})
+	if got := changeKeys(plan); !slices.Equal(got, []string{"limits:remove(prune)"}) {
+		t.Fatalf("plan: %v", got)
+	}
+	if _, err := e.m.ApplyManifest(ctx, id, mustManifest(t, bare), ManifestOptions{Prune: true}); err != nil {
+		t.Fatal(err)
+	}
+	if d, _ := e.engine.InspectContainer(ctx, "envoryx-capped-php"); d.Resources != (docker.Resources{PidsLimit: DefaultPidsLimit}) {
+		t.Fatalf("after pruning: %+v", d.Resources)
+	}
+}

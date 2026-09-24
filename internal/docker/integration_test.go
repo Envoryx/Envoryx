@@ -352,3 +352,60 @@ func TestIntegrationRemoveStopsRunningContainerFirst(t *testing.T) {
 		t.Fatalf("the container was killed instead of stopped: marker %q (exit %d, %s)", res.Stdout, res.ExitCode, res.Stderr)
 	}
 }
+
+// Limits are set at creation, changed in place, and a process that outgrows the memory
+// limit is killed and reported – while the container itself keeps running.
+func TestIntegrationResourcesAndOOM(t *testing.T) {
+	e := integrationEngine(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	if err := e.EnsureImage(ctx, "alpine:3.20", nil); err != nil {
+		t.Fatal(err)
+	}
+	events := make(chan OOMEvent, 4)
+	wctx, stop := context.WithCancel(ctx)
+	defer stop()
+	go func() { _ = e.WatchOOM(wctx, func(ev OOMEvent) { events <- ev }) }()
+
+	id, err := e.CreateContainer(ctx, ContainerSpec{
+		Name:   "envoryx-integration-limits",
+		Image:  "alpine:3.20",
+		Labels: ManagedLabels(testProject, "integration", "node", "test"),
+		// The shell survives; the child that eats memory does not.
+		Cmd:           []string{"sh", "-c", "sleep 2; tail /dev/zero; sleep 120"},
+		RestartPolicy: "no",
+		Resources:     &Resources{NanoCPUs: 500_000_000, MemoryBytes: 32 << 20, PidsLimit: 64},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = e.RemoveContainer(context.Background(), id) })
+	d, err := e.InspectContainer(ctx, id)
+	if err != nil || d.Resources != (Resources{NanoCPUs: 500_000_000, MemoryBytes: 32 << 20, PidsLimit: 64}) {
+		t.Fatalf("created with %+v (%v)", d.Resources, err)
+	}
+	if err := e.UpdateResources(ctx, id, Resources{NanoCPUs: 1_000_000_000, MemoryBytes: 48 << 20, PidsLimit: 128}); err != nil {
+		t.Fatal(err)
+	}
+	if d, _ := e.InspectContainer(ctx, id); d.Resources != (Resources{NanoCPUs: 1_000_000_000, MemoryBytes: 48 << 20, PidsLimit: 128}) {
+		t.Fatalf("updated to %+v", d.Resources)
+	}
+	if err := e.UpdateResources(ctx, id, Resources{NanoCPUs: 1_000_000_000, PidsLimit: 128}); !errors.Is(err, ErrNeedsRecreate) {
+		t.Fatalf("lifting the memory limit: %v", err)
+	}
+
+	if err := e.StartContainer(ctx, id); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case ev := <-events:
+		if ev.ContainerID != id || ev.Labels[LabelService] != "node" {
+			t.Fatalf("event: %+v", ev)
+		}
+	case <-time.After(60 * time.Second):
+		t.Fatal("no OOM event")
+	}
+	if d, _ := e.InspectContainer(ctx, id); !d.Running {
+		t.Fatal("only the child was killed; the container must still run")
+	}
+}

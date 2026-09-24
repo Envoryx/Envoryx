@@ -250,6 +250,15 @@ func exportState(p store.Project, domains []store.Domain, jobs []store.CronJob) 
 		}
 		mf.Workers = append(mf.Workers, mw)
 	}
+	if !p.Limits.IsZero() {
+		set := func(l store.LimitSet) *manifest.LimitSet {
+			if l.IsZero() {
+				return nil
+			}
+			return &manifest.LimitSet{CPUs: l.CPUs, Memory: manifest.FormatMemory(l.MemoryMB)}
+		}
+		mf.Limits = &manifest.Limits{App: set(p.Limits.App), Services: set(p.Limits.Services), Pids: p.Limits.Pids}
+	}
 	for _, j := range jobs {
 		mj := manifest.CronJob{Name: j.Name, Schedule: j.Schedule, Runtime: j.Runtime, Command: j.Command}
 		if j.Timeout != cronDefaultTimeout {
@@ -347,7 +356,23 @@ func manifestRequest(mf manifest.Manifest, name string) CreateRequest {
 		pr := mf.Storage.IsPublicRead()
 		req.Storage = &StorageRequest{Version: mf.Storage.Version, PublicRead: &pr}
 	}
+	req.Limits = manifestLimits(mf.Limits)
 	return req
+}
+
+// manifestLimits converts the file's limits (the sizes are checked by Validate).
+func manifestLimits(l *manifest.Limits) store.ResourceLimits {
+	if l == nil {
+		return store.ResourceLimits{}
+	}
+	set := func(s *manifest.LimitSet) store.LimitSet {
+		if s == nil {
+			return store.LimitSet{}
+		}
+		mb, _ := s.MemoryMB()
+		return store.LimitSet{CPUs: s.CPUs, MemoryMB: mb}
+	}
+	return store.ResourceLimits{App: set(l.App), Services: set(l.Services), Pids: l.Pids}
 }
 
 func manifestPHPConfig(p manifest.PHP) runtime.PHPConfig {
@@ -438,6 +463,8 @@ type manifestOps struct {
 	addCron       []CronJobRequest
 	updateCron    map[string]CronJobRequest // by job id
 	removeCron    []store.CronJob
+	// limits are set through SetLimits (nil = unchanged).
+	limits *store.ResourceLimits
 }
 
 func (o manifestOps) hasUpdate() bool { return !reflect.DeepEqual(o.update, UpdateRequest{}) }
@@ -614,6 +641,18 @@ func (m *Manager) planManifest(ctx context.Context, id string, mf manifest.Manif
 			add(c)
 			pr := wantMf.Storage.IsPublicRead()
 			ops.update.Storage = &StorageUpdate{Enabled: true, Version: wantMf.Storage.Version, PublicRead: &pr}
+		}
+	}
+
+	if c, ok := sectionChange("limits", have.Limits, wantMf.Limits); ok {
+		if c.Action == "remove" {
+			if removal(c) {
+				ops.limits = &store.ResourceLimits{}
+			}
+		} else {
+			add(c)
+			l := want.Limits
+			ops.limits = &l
 		}
 	}
 
@@ -903,6 +942,11 @@ func (m *Manager) ApplyManifest(ctx context.Context, id string, mf manifest.Mani
 	}
 	if ops.databaseAdd != nil {
 		if _, err := m.Update(ctx, id, UpdateRequest{Database: ops.databaseAdd}); err != nil {
+			return ManifestResult{Plan: plan}, err
+		}
+	}
+	if ops.limits != nil {
+		if _, err := m.SetLimits(ctx, id, *ops.limits); err != nil {
 			return ManifestResult{Plan: plan}, err
 		}
 	}

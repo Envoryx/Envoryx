@@ -1,5 +1,6 @@
 import { clsx } from "clsx";
 import { useTranslation } from "react-i18next";
+import { LimitsCard } from "./LimitsCard";
 import { Copy, Pencil, Trash2, Save, ExternalLink, Undo2, RotateCw } from "lucide-react";
 import { lazy, Suspense, useEffect, useState, type ReactElement } from "react";
 import { Link, useParams } from "react-router-dom";
@@ -27,7 +28,7 @@ const TerminalTab = lazy(() => import("./TerminalTab").then((m) => ({ default: m
 const ActionsTab = lazy(() => import("./ActionsTab").then((m) => ({ default: m.ActionsTab })));
 import { PhpConfigForm } from "./PhpConfigForm";
 import { webServerHint } from "./webServers";
-import { errorText } from "@/lib/errors";
+import { errorText, translateMessage } from "@/lib/errors";
 
 const tabs = ["Overview", "Domains", "Git", "Actions", "Terminal", "Logs", "Runtime", "Workers", "Cron", "Database", "Services", "Backups", "Environment", "IDE", "Advanced"] as const;
 type Tab = (typeof tabs)[number];
@@ -116,7 +117,7 @@ export function ProjectDetailPage() {
           <Alert tone={p.status.state === "error" ? "red" : "amber"}>
             <ul className="list-disc pl-4">
               {p.status.warnings.map((w, i) => (
-                <li key={i}>{w}</li>
+                <li key={i}>{translateMessage(w, t)}</li>
               ))}
             </ul>
           </Alert>
@@ -176,7 +177,12 @@ export function ProjectDetailPage() {
       {tab === "Backups" && <BackupsTab project={p} />}
       {tab === "Environment" && <EnvTab project={p} />}
       {tab === "IDE" && <IdeTab project={p} />}
-      {tab === "Advanced" && <AdvancedTab project={p} />}
+      {tab === "Advanced" && (
+        <div className="space-y-6">
+          <LimitsCard project={p} />
+          <AdvancedTab project={p} />
+        </div>
+      )}
 
       <RenameProjectDialog project={p} open={renaming} onClose={() => setRenaming(false)} />
       <DuplicateProjectDialog project={p} open={duplicating} onClose={() => setDuplicating(false)} />

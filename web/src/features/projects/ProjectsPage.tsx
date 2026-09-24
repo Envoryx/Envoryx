@@ -8,7 +8,7 @@ import { Alert, Badge, Button, Card, EmptyState, ErrorState, Input, LinkButton, 
 import { formatBytes, formatPercent, serviceLabel, stateMeta } from "@/lib/format";
 import { ProjectActionButtons, useActionError } from "./ProjectActions";
 import { OperationHint } from "@/components/OperationsTray";
-import { errorText } from "@/lib/errors";
+import { errorText, translateMessage } from "@/lib/errors";
 
 /** Service badges in a fixed order – runtime, web server, database, extras – so rows read alike. */
 function ServiceBadges({ project }: { project: Project }) {
@@ -95,7 +95,7 @@ function ProjectRow({ project, usage }: { project: Project; usage?: { cpuPercent
           )}
           {project.status.warnings.map((w, i) => (
             <p key={i} className="text-xs text-amber-600 dark:text-amber-400">
-              {w}
+              {translateMessage(w, t)}
             </p>
           ))}
         </div>

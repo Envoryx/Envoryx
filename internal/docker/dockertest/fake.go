@@ -29,6 +29,8 @@ type FakeContainer struct {
 	Attached []string
 	// Aliases per attached network.
 	Aliases map[string][]string
+	// OOMKilled is what inspect reports for the last exit.
+	OOMKilled bool
 }
 
 // Fake is an in-memory Engine with failure injection.
@@ -41,6 +43,8 @@ type Fake struct {
 	volumes    map[string]docker.Volume
 	images     map[string]string // ref -> image id
 	dangling   map[string]bool   // image ids that lost their tag to a re-pull but still exist
+	// oomWatchers receive EmitOOM events.
+	oomWatchers []chan docker.OOMEvent
 	// Remote maps image refs to the id a pull would deliver. Unset refs pull as "<ref>@v1".
 	Remote map[string]string
 	// Access is returned by NetworkAccess for any container (zero value = bridge).
@@ -363,7 +367,10 @@ func (f *Fake) InspectContainer(_ context.Context, idOrName string) (docker.Cont
 	if err != nil {
 		return docker.ContainerDetails{}, err
 	}
-	d := docker.ContainerDetails{Container: f.toContainer(c), Running: c.State == "running", Env: c.Spec.Env, Image: c.Spec.Image}
+	d := docker.ContainerDetails{Container: f.toContainer(c), Running: c.State == "running", Env: c.Spec.Env, Image: c.Spec.Image, OOMKilled: c.OOMKilled}
+	if c.Spec.Resources != nil {
+		d.Resources = *c.Spec.Resources
+	}
 	for _, m := range c.Spec.Mounts {
 		d.Mounts = append(d.Mounts, docker.MountPoint{Type: m.Type, Source: m.Source, Destination: m.Target, ReadOnly: m.ReadOnly})
 	}
@@ -501,6 +508,70 @@ func (f *Fake) RemoveContainer(_ context.Context, id string) error {
 	delete(f.containers, c.ID)
 	f.record("remove:" + c.Spec.Name)
 	return nil
+}
+
+// UpdateResources implements docker.Engine with the real engine's rule: a limit can be
+// changed in place but not lifted.
+func (f *Fake) UpdateResources(_ context.Context, id string, r docker.Resources) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if err := f.check(); err != nil {
+		return err
+	}
+	c, err := f.guard(id)
+	if err != nil {
+		return err
+	}
+	cur := docker.Resources{}
+	if c.Spec.Resources != nil {
+		cur = *c.Spec.Resources
+	}
+	if (r.MemoryBytes == 0 && cur.MemoryBytes != 0) || (r.NanoCPUs == 0 && cur.NanoCPUs != 0) {
+		return docker.ErrNeedsRecreate
+	}
+	next := r
+	c.Spec.Resources = &next
+	f.record("update-resources:" + c.Spec.Name)
+	return nil
+}
+
+// WatchOOM implements docker.Engine: EmitOOM delivers events to the watchers.
+func (f *Fake) WatchOOM(ctx context.Context, fn func(docker.OOMEvent)) error {
+	f.mu.Lock()
+	ch := make(chan docker.OOMEvent, 16)
+	f.oomWatchers = append(f.oomWatchers, ch)
+	f.mu.Unlock()
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case ev := <-ch:
+			fn(ev)
+		}
+	}
+}
+
+// EmitOOM reports an OOM kill in the container with this name to every watcher.
+func (f *Fake) EmitOOM(name string) {
+	f.mu.Lock()
+	var ev docker.OOMEvent
+	for _, c := range f.containers {
+		if c.Spec.Name == name {
+			ev = docker.OOMEvent{ContainerID: c.ID, Name: name, Labels: c.Spec.Labels, Time: time.Now()}
+		}
+	}
+	watchers := append([]chan docker.OOMEvent(nil), f.oomWatchers...)
+	f.mu.Unlock()
+	for _, ch := range watchers {
+		ch <- ev
+	}
+}
+
+// OOMWatchers reports how many WatchOOM calls are listening.
+func (f *Fake) OOMWatchers() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return len(f.oomWatchers)
 }
 
 // ContainerStats implements docker.Engine.

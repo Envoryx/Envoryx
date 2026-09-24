@@ -15,6 +15,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -458,6 +459,35 @@ type projectSummary struct {
 		URL    string `json:"url"`
 		Branch string `json:"branch"`
 	} `json:"git"`
+	Limits struct {
+		App      limitSet `json:"app"`
+		Services limitSet `json:"services"`
+		Pids     int      `json:"pids"`
+	} `json:"limits"`
+}
+
+type limitSet struct {
+	CPUs     float64 `json:"cpus"`
+	MemoryMB int     `json:"memoryMb"`
+}
+
+// String is "1.5 CPU, 2 GiB", or "no limit".
+func (l limitSet) String() string {
+	var parts []string
+	if l.CPUs > 0 {
+		parts = append(parts, strconv.FormatFloat(l.CPUs, 'f', -1, 64)+" CPU")
+	}
+	if l.MemoryMB > 0 {
+		if l.MemoryMB%1024 == 0 {
+			parts = append(parts, strconv.Itoa(l.MemoryMB/1024)+" GiB")
+		} else {
+			parts = append(parts, strconv.Itoa(l.MemoryMB)+" MiB")
+		}
+	}
+	if len(parts) == 0 {
+		return "no limit"
+	}
+	return strings.Join(parts, ", ")
 }
 
 // URL is the project's address, as far as the CLI can tell without asking the settings.

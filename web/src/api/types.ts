@@ -129,6 +129,7 @@ export interface Project {
   appService?: AppKind;
   backupSchedule: BackupSchedule;
   ideGateway?: boolean;
+  limits?: ResourceLimits;
 }
 
 /**
@@ -573,6 +574,42 @@ export interface Usage {
   memoryBytes: number;
   running: number;
   containers: number;
+}
+
+/** Limits of one group of containers; 0 = no limit. */
+export interface LimitSet {
+  cpus?: number;
+  memoryMb?: number;
+}
+
+/** Per-container limits of a project: application containers, services, processes (0 = default 4096). */
+export interface ResourceLimits {
+  app: LimitSet;
+  services: LimitSet;
+  pids?: number;
+}
+
+/** One running container's usage with the limits it runs under. */
+export interface ContainerUsage {
+  containerId: string;
+  name: string;
+  service: string;
+  group: "app" | "services";
+  /** 100 = one core. */
+  cpuPercent: number;
+  memoryBytes: number;
+  /** Cores, 0 = none. */
+  cpuLimit: number;
+  /** Bytes, 0 = none. */
+  memLimit: number;
+}
+
+export interface ProjectStatsResponse {
+  stats: Usage;
+  sampledAt: string;
+  containers?: ContainerUsage[];
+  limits?: ResourceLimits;
+  host?: { cpus: number; memory: number };
 }
 
 export interface StatsSummary {

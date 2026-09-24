@@ -14,6 +14,7 @@ import (
 	"io"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -63,6 +64,58 @@ type Manifest struct {
 
 	Workers []Worker  `yaml:"workers,omitempty"`
 	Cron    []CronJob `yaml:"cron,omitempty"`
+
+	// Limits cap CPU, memory and processes of every container.
+	Limits *Limits `yaml:"limits,omitempty"`
+}
+
+// Limits are the resource limits of the application containers (web server, PHP, Node,
+// Python, workers) and of the services (database, caches, search, storage), each per
+// container, plus the process limit of every container.
+type Limits struct {
+	App      *LimitSet `yaml:"app,omitempty"`
+	Services *LimitSet `yaml:"services,omitempty"`
+	Pids     int       `yaml:"pids,omitempty"`
+}
+
+// LimitSet is one group's limits: cores (1.5) and memory with a unit (512M, 2G).
+type LimitSet struct {
+	CPUs   float64 `yaml:"cpus,omitempty"`
+	Memory string  `yaml:"memory,omitempty"`
+}
+
+// MemoryMB parses Memory: a number of MiB, or a number with M/MB/MiB or G/GB/GiB.
+func (l LimitSet) MemoryMB() (int, error) {
+	v := strings.ToUpper(strings.TrimSpace(l.Memory))
+	if v == "" {
+		return 0, nil
+	}
+	mult := 1.0
+	for _, suffix := range []struct {
+		s string
+		m float64
+	}{{"GIB", 1024}, {"GB", 1024}, {"G", 1024}, {"MIB", 1}, {"MB", 1}, {"M", 1}} {
+		if strings.HasSuffix(v, suffix.s) {
+			v, mult = strings.TrimSpace(strings.TrimSuffix(v, suffix.s)), suffix.m
+			break
+		}
+	}
+	n, err := strconv.ParseFloat(v, 64)
+	if err != nil || n < 0 {
+		return 0, fmt.Errorf("%w: memory %q is not a size like 512M or 2G", validate.ErrInvalid, l.Memory)
+	}
+	return int(n*mult + 0.5), nil
+}
+
+// FormatMemory writes MiB the way the file shows it: 2G, 1536M.
+func FormatMemory(mb int) string {
+	if mb == 0 {
+		return ""
+	}
+	if mb%1024 == 0 {
+		return strconv.Itoa(mb/1024) + "G"
+	}
+	return strconv.Itoa(mb) + "M"
 }
 
 // Web selects the web server.
@@ -356,6 +409,19 @@ func (m Manifest) Validate() error {
 			return bad("secrets: %s is listed twice", k)
 		}
 		seenSecret[k] = true
+	}
+	if m.Limits != nil {
+		for name, set := range map[string]*LimitSet{"app": m.Limits.App, "services": m.Limits.Services} {
+			if set == nil {
+				continue
+			}
+			if _, err := set.MemoryMB(); err != nil {
+				return bad("limits.%s: %v", name, unwrapInvalid(err))
+			}
+			if set.CPUs < 0 {
+				return bad("limits.%s.cpus must not be negative", name)
+			}
+		}
 	}
 	seenWorker := map[string]bool{}
 	for i, w := range m.Workers {

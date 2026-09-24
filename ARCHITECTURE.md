@@ -995,6 +995,22 @@ set the document root and add required PHP extensions (`mysqli` for
 WordPress) and may require a database. A failing step rolls the whole
 creation back.
 
+### Resource limits
+`store.ResourceLimits` (JSON column `projects.limits`) holds one `LimitSet`
+(CPU cores, MiB) for the application containers (web, php, node, python,
+`worker:*`) and one for the services, plus a process limit; `LimitGroup` maps a
+container kind to its group. The planner puts the resulting `docker.Resources`
+on every container spec – outside `specFingerprint`, so a changed limit never
+recreates anything by itself. `ensurePlan` compares the running limits
+(`InspectContainer`) with the plan and calls `UpdateResources` (docker update,
+memory swap = memory, PIDs default 4096); only lifting a CPU or memory limit
+comes back as `ErrNeedsRecreate`, because Docker reads 0 as "unchanged", and
+the container is recreated. `SetLimits` stores and applies through the same
+path. `RunOOMWatcher` follows Docker's `oom` events (label-filtered, reconnects
+when the stream breaks), keeps the latest kill per container for 24 h as a
+status warning and sends `project.oom`. The project stats endpoint returns
+each running container with its group and limits for the usage bars.
+
 ### Project manifest
 `internal/manifest` is the file format of `envoryx.yml` and nothing else:
 strict YAML (unknown keys are errors, `redis: true` or a mapping), a format

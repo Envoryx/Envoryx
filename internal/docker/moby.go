@@ -214,7 +214,14 @@ func (e *MobyEngine) InspectContainer(ctx context.Context, idOrName string) (Con
 			d.Networks = append(d.Networks, name)
 		}
 	}
+	if c.State != nil {
+		d.OOMKilled = c.State.OOMKilled
+	}
 	if c.HostConfig != nil {
+		d.Resources = Resources{NanoCPUs: c.HostConfig.NanoCPUs, MemoryBytes: c.HostConfig.Memory}
+		if c.HostConfig.PidsLimit != nil && *c.HostConfig.PidsLimit > 0 {
+			d.Resources.PidsLimit = *c.HostConfig.PidsLimit
+		}
 		for port, bindings := range c.HostConfig.PortBindings {
 			for _, b := range bindings {
 				hp, _ := strconv.Atoi(b.HostPort)
@@ -299,6 +306,16 @@ func (e *MobyEngine) CreateContainer(ctx context.Context, spec ContainerSpec) (s
 	}
 	if spec.RestartPolicy == "unless-stopped" {
 		host.RestartPolicy = container.RestartPolicy{Name: container.RestartPolicyUnlessStopped}
+	}
+	if r := spec.Resources; r != nil {
+		host.Resources = container.Resources{NanoCPUs: r.NanoCPUs, Memory: r.MemoryBytes}
+		if r.MemoryBytes > 0 {
+			host.Resources.MemorySwap = r.MemoryBytes // no swap on top of the limit
+		}
+		if r.PidsLimit > 0 {
+			pids := r.PidsLimit
+			host.Resources.PidsLimit = &pids
+		}
 	}
 	for _, m := range spec.Mounts {
 		mt := mount.Mount{Target: m.Target, ReadOnly: m.ReadOnly}
@@ -417,6 +434,55 @@ func (e *MobyEngine) RemoveContainer(ctx context.Context, id string) error {
 		return nil
 	}
 	return wrap(err)
+}
+
+// UpdateResources implements Engine.
+func (e *MobyEngine) UpdateResources(ctx context.Context, id string, r Resources) error {
+	c, err := e.guardContainer(ctx, id)
+	if err != nil {
+		return err
+	}
+	// Docker reads 0 as "leave as it is", so a limit cannot be lifted in place.
+	if c.HostConfig != nil && ((r.MemoryBytes == 0 && c.HostConfig.Memory != 0) || (r.NanoCPUs == 0 && c.HostConfig.NanoCPUs != 0)) {
+		return ErrNeedsRecreate
+	}
+	res := container.Resources{NanoCPUs: r.NanoCPUs, Memory: r.MemoryBytes}
+	if r.MemoryBytes > 0 {
+		res.MemorySwap = r.MemoryBytes
+	}
+	pids := r.PidsLimit
+	if pids <= 0 {
+		pids = -1 // unlimited
+	}
+	res.PidsLimit = &pids
+	_, err = e.cli.ContainerUpdate(ctx, id, client.ContainerUpdateOptions{Resources: &res})
+	return wrap(err)
+}
+
+// WatchOOM implements Engine.
+func (e *MobyEngine) WatchOOM(ctx context.Context, fn func(OOMEvent)) error {
+	f := make(client.Filters).Add("type", "container").Add("event", "oom").Add("label", LabelManaged+"=true")
+	res := e.cli.Events(ctx, client.EventsListOptions{Filters: f})
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case err := <-res.Err:
+			if ctx.Err() != nil {
+				return nil
+			}
+			if err == nil {
+				err = errors.New("event stream closed")
+			}
+			return wrap(err)
+		case m := <-res.Messages:
+			ev := OOMEvent{ContainerID: m.Actor.ID, Name: m.Actor.Attributes["name"], Labels: m.Actor.Attributes, Time: time.Unix(0, m.TimeNano)}
+			if m.TimeNano == 0 {
+				ev.Time = time.Unix(m.Time, 0)
+			}
+			fn(ev)
+		}
+	}
 }
 
 // ContainerStats implements Engine with a single (two-sample) reading.

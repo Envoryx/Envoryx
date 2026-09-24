@@ -10,6 +10,19 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Added
+- Resource limits per project (*Advanced* tab): CPU cores and memory for the
+  application containers (web server, PHP, Node.js, Python, workers) and,
+  separately, for the services (database, caches, search, storage), each per
+  container, plus a process limit that every container now has (default 4096)
+  against fork bombs and runaway worker pools. Changes reach running
+  containers at once; only lifting a limit recreates a container. The card
+  shows each container's CPU and memory against its limit. When a container
+  runs out of memory – also when only a child process is killed and the
+  container keeps running – the project shows a warning for a day and a
+  notification goes out (new event `project.oom`, on by default). Limits are part of `envoryx.yml`
+  (`limits:`) and of `envoryx project show`.
+
 ## [0.7.1] – 2026-09-24
 
 ### Fixed

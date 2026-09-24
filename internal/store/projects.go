@@ -12,19 +12,22 @@ import (
 // Projects is the repository for projects, their services and environment variables.
 type Projects struct{ db *sql.DB }
 
-const projectColumns = `id, name, slug, path, docroot, desired_state, http_port, lifecycle, last_error, git_url, git_branch, git_username, git_token, backup_schedule, backup_hour, backup_weekday, backup_keep, backup_include_deps, backup_last_run, ide_gateway, created_at, updated_at`
+const projectColumns = `id, name, slug, path, docroot, desired_state, http_port, lifecycle, last_error, git_url, git_branch, git_username, git_token, backup_schedule, backup_hour, backup_weekday, backup_keep, backup_include_deps, backup_last_run, ide_gateway, limits, created_at, updated_at`
 
 func scanProject(row interface{ Scan(...any) error }) (Project, error) {
 	var p Project
 	var port sql.NullInt64
-	var created, updated, desired, lifecycle, lastRun string
+	var created, updated, desired, lifecycle, lastRun, limits string
 	var includeDeps, gateway int
 	if err := row.Scan(&p.ID, &p.Name, &p.Slug, &p.Path, &p.Docroot, &desired, &port, &lifecycle, &p.LastError, &p.Git.URL, &p.Git.Branch, &p.Git.Username, &p.Git.Token,
-		&p.Backup.Schedule, &p.Backup.Hour, &p.Backup.Weekday, &p.Backup.Keep, &includeDeps, &lastRun, &gateway, &created, &updated); err != nil {
+		&p.Backup.Schedule, &p.Backup.Hour, &p.Backup.Weekday, &p.Backup.Keep, &includeDeps, &lastRun, &gateway, &limits, &created, &updated); err != nil {
 		return Project{}, err
 	}
 	p.Backup.IncludeDependencies = includeDeps == 1
 	p.IDEGateway = gateway == 1
+	if limits != "" {
+		_ = json.Unmarshal([]byte(limits), &p.Limits)
+	}
 	if lastRun != "" {
 		p.Backup.LastRun = parseTime(lastRun)
 	}
@@ -65,10 +68,10 @@ func (r *Projects) Create(ctx context.Context, p *Project) error {
 	if p.Backup.Hour == 0 && p.Backup.Schedule == "" {
 		p.Backup.Hour = 3
 	}
-	_, err = tx.ExecContext(ctx, `INSERT INTO projects (`+projectColumns+`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+	_, err = tx.ExecContext(ctx, `INSERT INTO projects (`+projectColumns+`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		p.ID, p.Name, p.Slug, p.Path, p.Docroot, string(p.DesiredState), port, string(p.Lifecycle), p.LastError,
 		p.Git.URL, p.Git.Branch, p.Git.Username, p.Git.Token,
-		p.Backup.Schedule, p.Backup.Hour, p.Backup.Weekday, p.Backup.Keep, boolInt(p.Backup.IncludeDependencies), "", boolInt(p.IDEGateway),
+		p.Backup.Schedule, p.Backup.Hour, p.Backup.Weekday, p.Backup.Keep, boolInt(p.Backup.IncludeDependencies), "", boolInt(p.IDEGateway), p.Limits.encode(),
 		formatTime(p.CreatedAt), formatTime(p.UpdatedAt))
 	if err != nil {
 		if isUniqueViolation(err) {
@@ -290,6 +293,18 @@ func (r *Projects) UpdateBackupSchedule(ctx context.Context, id string, b Backup
 		b.Schedule, b.Hour, b.Weekday, b.Keep, boolInt(b.IncludeDependencies), formatTime(now()), id)
 	if err != nil {
 		return fmt.Errorf("update backup schedule: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// SetLimits stores the resource limits of a project.
+func (r *Projects) SetLimits(ctx context.Context, id string, l ResourceLimits) error {
+	res, err := r.db.ExecContext(ctx, `UPDATE projects SET limits = ?, updated_at = ? WHERE id = ?`, l.encode(), formatTime(now()), id)
+	if err != nil {
+		return fmt.Errorf("set limits: %w", err)
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
 		return ErrNotFound

@@ -98,6 +98,10 @@ type ContainerDetails struct {
 	Networks   []string
 	Env        []string
 	Image      string
+	// Resources are the limits the container runs with.
+	Resources Resources
+	// OOMKilled reports that the main process was last ended by the OOM killer.
+	OOMKilled bool
 }
 
 // MountPoint describes a mount of a running container.
@@ -190,6 +194,33 @@ type ContainerSpec struct {
 	StopTimeout   int    // seconds
 	ExtraHosts    []string
 	Healthcheck   *HealthSpec
+	// Resources caps CPU, memory and processes (nil = no limits). They are not part of
+	// the spec fingerprint: UpdateResources changes them on a running container.
+	Resources *Resources
+}
+
+// Resources are the limits of one container. Zero means no limit (PIDs: Docker's
+// default, unlimited).
+type Resources struct {
+	// NanoCPUs is the CPU quota in billionths of a core (1.5 cores = 1_500_000_000).
+	NanoCPUs int64
+	// MemoryBytes is the hard memory limit; swap is not added on top.
+	MemoryBytes int64
+	// PidsLimit caps the number of processes and threads.
+	PidsLimit int64
+}
+
+// ErrNeedsRecreate is returned by UpdateResources when a limit is to be lifted
+// entirely, which Docker only allows on a new container.
+var ErrNeedsRecreate = errors.New("the container must be recreated to lift a limit")
+
+// OOMEvent reports that the kernel killed a process of a managed container for running
+// out of its memory limit (the container itself may keep running).
+type OOMEvent struct {
+	ContainerID string
+	Name        string
+	Labels      map[string]string
+	Time        time.Time
 }
 
 // TerminalOptions configure an interactive exec session.
@@ -295,6 +326,12 @@ type Engine interface {
 	RestartContainer(ctx context.Context, id string, timeout time.Duration) error
 	// RemoveContainer force-removes a managed container.
 	RemoveContainer(ctx context.Context, id string) error
+	// UpdateResources changes the limits of a managed container, running or not. Lifting
+	// a CPU or memory limit entirely returns ErrNeedsRecreate.
+	UpdateResources(ctx context.Context, id string, r Resources) error
+	// WatchOOM reports OOM kills in managed containers until ctx ends or the event stream
+	// breaks (the returned error says why; nil when ctx ended).
+	WatchOOM(ctx context.Context, fn func(OOMEvent)) error
 	// ContainerStats returns one usage sample of a managed container.
 	ContainerStats(ctx context.Context, id string) (Stats, error)
 	// Exec runs a command (argv form, never a shell string) inside a managed container and
