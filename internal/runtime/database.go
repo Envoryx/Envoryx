@@ -115,7 +115,12 @@ type Dialect struct {
 	ContainerEnv func(cfg DatabaseConfig) []string
 	Cmd          []string
 	Health       []string
-	// Client builds the argv + env to run a statement as the administrator.
+	// Client builds the argv + env to run a statement as the administrator. Every client
+	// connects over TCP to 127.0.0.1, never over the unix socket: on the first start the
+	// images run a temporary server for the initialisation that listens on the socket
+	// only and is shut down right after (dropping every session), so a statement sent over
+	// the socket at that moment reached a server about to go away. Over TCP it waits for
+	// the real one – the same thing the health checks look at.
 	Client         func(cfg DatabaseConfig, sql string) (argv []string, env []string)
 	ListDatabases  string
 	CreateDatabase func(name, user string) string
@@ -164,7 +169,7 @@ var dialects = map[string]Dialect{
 		Cmd:    []string{"--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"},
 		Health: []string{"healthcheck.sh", "--connect", "--innodb_initialized"},
 		Client: func(c DatabaseConfig, sql string) ([]string, []string) {
-			return []string{"mariadb", "-uroot", "-N", "-B", "-e", sql}, []string{"MYSQL_PWD=" + c.RootPassword}
+			return []string{"mariadb", "-h127.0.0.1", "-uroot", "-N", "-B", "-e", sql}, []string{"MYSQL_PWD=" + c.RootPassword}
 		},
 		ListDatabases: "SHOW DATABASES",
 		CreateDatabase: func(n, u string) string {
@@ -176,10 +181,10 @@ var dialects = map[string]Dialect{
 		},
 		MajorUpgradeInPlace: true,
 		Dump: func(c DatabaseConfig) ([]string, []string) {
-			return []string{"mariadb-dump", "-uroot", "--single-transaction", "--quick", "--routines", "--triggers", "--events", "--default-character-set=utf8mb4", "--", c.Database}, []string{"MYSQL_PWD=" + c.RootPassword}
+			return []string{"mariadb-dump", "-h127.0.0.1", "-uroot", "--single-transaction", "--quick", "--routines", "--triggers", "--events", "--default-character-set=utf8mb4", "--", c.Database}, []string{"MYSQL_PWD=" + c.RootPassword}
 		},
 		Restore: func(c DatabaseConfig) ([]string, []string) {
-			return []string{"mariadb", "-uroot", "--", c.Database}, []string{"MYSQL_PWD=" + c.RootPassword}
+			return []string{"mariadb", "-h127.0.0.1", "-uroot", "--", c.Database}, []string{"MYSQL_PWD=" + c.RootPassword}
 		},
 		// MariaDB dropped RENAME DATABASE (it was never safe for views and routines), so
 		// a rename moves the contents through a dump; RENAME USER keeps the password.
@@ -195,7 +200,7 @@ var dialects = map[string]Dialect{
 		Cmd:    []string{"--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"},
 		Health: []string{"mysqladmin", "ping", "-h", "127.0.0.1"},
 		Client: func(c DatabaseConfig, sql string) ([]string, []string) {
-			return []string{"mysql", "-uroot", "-N", "-B", "-e", sql}, []string{"MYSQL_PWD=" + c.RootPassword}
+			return []string{"mysql", "-h127.0.0.1", "-uroot", "-N", "-B", "-e", sql}, []string{"MYSQL_PWD=" + c.RootPassword}
 		},
 		ListDatabases: "SHOW DATABASES",
 		CreateDatabase: func(n, u string) string {
@@ -207,10 +212,10 @@ var dialects = map[string]Dialect{
 		},
 		MajorUpgradeInPlace: true,
 		Dump: func(c DatabaseConfig) ([]string, []string) {
-			return []string{"mysqldump", "-uroot", "--single-transaction", "--quick", "--routines", "--triggers", "--events", "--default-character-set=utf8mb4", "--", c.Database}, []string{"MYSQL_PWD=" + c.RootPassword}
+			return []string{"mysqldump", "-h127.0.0.1", "-uroot", "--single-transaction", "--quick", "--routines", "--triggers", "--events", "--default-character-set=utf8mb4", "--", c.Database}, []string{"MYSQL_PWD=" + c.RootPassword}
 		},
 		Restore: func(c DatabaseConfig) ([]string, []string) {
-			return []string{"mysql", "-uroot", "--", c.Database}, []string{"MYSQL_PWD=" + c.RootPassword}
+			return []string{"mysql", "-h127.0.0.1", "-uroot", "--", c.Database}, []string{"MYSQL_PWD=" + c.RootPassword}
 		},
 		RenameUser: func(from, to string, _ DatabaseConfig) string {
 			return fmt.Sprintf("RENAME USER '%s'@'%%' TO '%s'@'%%'; FLUSH PRIVILEGES;", from, to)
@@ -234,7 +239,7 @@ var dialects = map[string]Dialect{
 		},
 		Health: []string{"pg_isready", "-h", "127.0.0.1"},
 		Client: func(c DatabaseConfig, sql string) ([]string, []string) {
-			return []string{"psql", "-U", c.Username, "-d", "postgres", "-A", "-t", "-q", "-v", "ON_ERROR_STOP=1", "-c", sql}, []string{"PGPASSWORD=" + c.Password}
+			return []string{"psql", "-h", "127.0.0.1", "-U", c.Username, "-d", "postgres", "-A", "-t", "-q", "-v", "ON_ERROR_STOP=1", "-c", sql}, []string{"PGPASSWORD=" + c.Password}
 		},
 		ListDatabases:       "SELECT datname FROM pg_database WHERE datistemplate = false ORDER BY datname",
 		CreateDatabase:      func(n, u string) string { return fmt.Sprintf(`CREATE DATABASE "%s" OWNER "%s" ENCODING 'UTF8'`, n, u) },
@@ -242,10 +247,10 @@ var dialects = map[string]Dialect{
 		AlterPassword:       func(u, p string) string { return fmt.Sprintf(`ALTER USER "%s" WITH PASSWORD '%s'`, u, p) },
 		MajorUpgradeInPlace: false,
 		Dump: func(c DatabaseConfig) ([]string, []string) {
-			return []string{"pg_dump", "-U", c.Username, "--clean", "--if-exists", "--no-owner", "--no-privileges", "--", c.Database}, []string{"PGPASSWORD=" + c.Password}
+			return []string{"pg_dump", "-h", "127.0.0.1", "-U", c.Username, "--clean", "--if-exists", "--no-owner", "--no-privileges", "--", c.Database}, []string{"PGPASSWORD=" + c.Password}
 		},
 		Restore: func(c DatabaseConfig) ([]string, []string) {
-			return []string{"psql", "-U", c.Username, "-v", "ON_ERROR_STOP=1", "-q", "-d", c.Database}, []string{"PGPASSWORD=" + c.Password}
+			return []string{"psql", "-h", "127.0.0.1", "-U", c.Username, "-v", "ON_ERROR_STOP=1", "-q", "-d", c.Database}, []string{"PGPASSWORD=" + c.Password}
 		},
 		// PostgreSQL renames both in place; the client connects to "postgres", so the
 		// database being renamed has no session of its own. The password is set again

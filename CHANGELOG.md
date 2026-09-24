@@ -10,6 +10,20 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Fixed
+- Recreating a running container – after a version or port change, a rename –
+  killed it outright. A database, Redis or RabbitMQ lost what it had not
+  written yet: Redis everything since its last snapshot, MongoDB the latest
+  writes. Envoryx now stops the container first, as `docker stop` would, and
+  gives it its stop timeout to shut down cleanly.
+- Database commands right after a database's very first start could fail with
+  "terminating connection due to administrator command". The images
+  initialise through a temporary server that listens on the unix socket only
+  and is shut down right afterwards; Envoryx's clients used that socket.
+  `psql`, `pg_dump`, `mysql`, `mysqldump`, `mariadb` and `mariadb-dump` now
+  connect over TCP to 127.0.0.1, which only the real server answers (MongoDB
+  did already).
+
 ## [0.7.0] – 2026-09-24
 
 ### Added
