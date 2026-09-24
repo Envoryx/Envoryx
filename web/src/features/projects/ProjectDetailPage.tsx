@@ -17,6 +17,7 @@ import { EnvEditor } from "./EnvEditor";
 import { GitTab } from "./GitTab";
 import { DomainsTab } from "./DomainsTab";
 import { WorkersTab } from "./WorkersTab";
+import { CronTab } from "./CronTab";
 import { IdeTab } from "./IdeTab";
 import { ServicesTab } from "./ServicesTab";
 import { BackupsTab } from "./BackupsTab";
@@ -28,7 +29,7 @@ import { PhpConfigForm } from "./PhpConfigForm";
 import { webServerHint } from "./webServers";
 import { errorText } from "@/lib/errors";
 
-const tabs = ["Overview", "Domains", "Git", "Actions", "Terminal", "Logs", "Runtime", "Workers", "Database", "Services", "Backups", "Environment", "IDE", "Advanced"] as const;
+const tabs = ["Overview", "Domains", "Git", "Actions", "Terminal", "Logs", "Runtime", "Workers", "Cron", "Database", "Services", "Backups", "Environment", "IDE", "Advanced"] as const;
 type Tab = (typeof tabs)[number];
 
 export function ProjectDetailPage() {
@@ -169,6 +170,7 @@ export function ProjectDetailPage() {
         </div>
       )}
       {tab === "Workers" && <WorkersTab project={p} />}
+      {tab === "Cron" && <CronTab project={p} />}
       {tab === "Database" && <DatabaseTab project={p} />}
       {tab === "Services" && <ServicesTab project={p} />}
       {tab === "Backups" && <BackupsTab project={p} />}

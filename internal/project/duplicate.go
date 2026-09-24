@@ -48,7 +48,7 @@ type DuplicateRequest struct {
 	// bucket. Both are ignored when the original has no such service.
 	Database bool
 	Storage  bool
-	// Workers copies the worker definitions, Git the repository binding.
+	// Workers copies the worker and cron job definitions, Git the repository binding.
 	Workers bool
 	Git     bool
 	// Start starts the copy when it is ready.
@@ -146,6 +146,18 @@ func (m *Manager) duplicate(ctx context.Context, id string, req DuplicateRequest
 		w.ProjectID = proj.ID
 		if err := m.store.Workers.Add(ctx, w); err != nil {
 			return fail("copy worker "+w.Name, err)
+		}
+	}
+	if req.Workers {
+		jobs, err := m.store.CronJobs.ListByProject(ctx, src.ID)
+		if err != nil {
+			return fail("copy cron jobs", err)
+		}
+		for _, j := range jobs {
+			j.ID, j.ProjectID, j.LastRun = "", proj.ID, nil
+			if err := m.store.CronJobs.Add(ctx, &j); err != nil {
+				return fail("copy cron job "+j.Name, err)
+			}
 		}
 	}
 

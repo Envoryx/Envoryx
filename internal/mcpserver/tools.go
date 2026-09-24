@@ -369,7 +369,7 @@ type duplicateProjectIn struct {
 	Files    *bool  `json:"files,omitempty" jsonschema:"Copy the project directory (default true). vendor/, node_modules/ and other caches are left out unless includeDependencies is set."`
 	Database *bool  `json:"database,omitempty" jsonschema:"Copy the contents of the database (default true; ignored when the project has none)."`
 	Storage  *bool  `json:"storage,omitempty" jsonschema:"Copy the objects of the bucket (default true; ignored without object storage)."`
-	Workers  *bool  `json:"workers,omitempty" jsonschema:"Copy the worker definitions (default true)."`
+	Workers  *bool  `json:"workers,omitempty" jsonschema:"Copy the worker and cron job definitions (default true)."`
 	Git      *bool  `json:"git,omitempty" jsonschema:"Copy the repository binding (default true)."`
 
 	IncludeDependencies bool  `json:"includeDependencies,omitempty" jsonschema:"Copy vendor/, node_modules/ and the other regenerable directories too."`

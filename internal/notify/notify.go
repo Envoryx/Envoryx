@@ -64,6 +64,7 @@ var Kinds = []struct {
 	{"acme.failed", "Let's Encrypt certificate could not be issued or renewed", true},
 	{"acme.renewed", "Let's Encrypt certificate issued or renewed", false},
 	{"backup.failed", "A backup could not be created", true},
+	{"cron.failed", "A cron job failed, timed out or could not run (again after a successful run)", true},
 	{"envoryx.started", "Envoryx started", false},
 	{"projects.resumed", "Envoryx started the projects again that were running before it was stopped", true},
 	{"docker.orphans_removed", "Envoryx removed orphaned containers or networks that belonged to no project", true},

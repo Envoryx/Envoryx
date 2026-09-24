@@ -287,6 +287,8 @@ func serve() error {
 		manager.RunReconciler(ctx, 30*time.Second, log)
 	})
 	background("backup scheduler", func(ctx context.Context) { manager.RunBackupScheduler(ctx, time.Minute, log) })
+	// Every 15 seconds: a job fires at most that long after its minute starts.
+	background("cron scheduler", func(ctx context.Context) { manager.RunCronScheduler(ctx, 15*time.Second, log) })
 	background("disk space monitor", func(ctx context.Context) {
 		disk.Monitor(ctx, 5*time.Minute, notifier, log, cfg.ConfigDir, cfg.ProjectsDir, cfg.BackupsDir)
 	})

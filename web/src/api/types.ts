@@ -894,6 +894,45 @@ export interface Worker {
   createdAt: string;
 }
 
+export type CronRuntime = "php" | "node" | "python";
+export type CronRunStatus = "running" | "succeeded" | "failed" | "timed_out" | "error" | "interrupted";
+
+export interface CronRun {
+  id: string;
+  source: "schedule" | "manual";
+  status: CronRunStatus;
+  exitCode: number;
+  startedAt: string;
+  finishedAt?: string;
+  /** Only in the runs list (operate scope). */
+  output?: string;
+  truncated?: boolean;
+}
+
+export interface CronJob {
+  id: string;
+  name: string;
+  runtime: CronRuntime;
+  schedule: string;
+  command: string;
+  timeoutSeconds: number;
+  enabled: boolean;
+  nextRun?: string;
+  running: boolean;
+  runtimeMissing: boolean;
+  lastRun?: CronRun;
+  createdAt: string;
+}
+
+export interface CronJobRequest {
+  name: string;
+  runtime: CronRuntime;
+  schedule: string;
+  command: string;
+  timeoutSeconds: number;
+  enabled: boolean;
+}
+
 export interface WorkerPreset {
   id: string;
   group: string;

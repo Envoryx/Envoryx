@@ -71,7 +71,7 @@ Envoryx is under active development. The current milestone (Phase 1 + 2) deliver
   project directory, the backups and – optionally – the database, its login and the
   bucket. Containers are recreated, the data moves with them
 - duplicate a project (`shop` → `shop-test`) in one dialog: configuration,
-  environment, workers and repository binding, plus – each optional – the
+  environment, workers, cron jobs and repository binding, plus – each optional – the
   project files, the contents of the database and the objects of the bucket.
   The copy gets its own directory, host ports and containers but keeps the
   original's database credentials, so a `.env` in the project files keeps
@@ -100,6 +100,10 @@ Envoryx is under active development. The current milestone (Phase 1 + 2) deliver
   scripts, Python scripts and modules, Django management commands, Celery
   worker and beat – each in its own auto-restarting container from the
   runtime's image, with logs
+- cron jobs per project: any shell command on a schedule (every few minutes,
+  hourly, daily, weekly, monthly or a cron expression) in the PHP, Python or
+  Node.js container as the project owner, with a timeout, no overlapping runs,
+  "run now", the last 20 runs with their output and a notification on failure
 - project actions: composer install/update, artisan migrate/seed/cache,
   Symfony console, npm/pnpm/yarn, pip install / uv sync, Django migrate /
   collectstatic – a fixed catalogue of argv

@@ -28,6 +28,7 @@ type Store struct {
 	Domains  *Domains
 	Tokens   *APITokens
 	Workers  *Workers
+	CronJobs *CronJobs
 	Images   *ProjectImages
 }
 
@@ -44,6 +45,7 @@ func New(db *sql.DB) *Store {
 		Domains:  &Domains{db: db},
 		Tokens:   &APITokens{db: db},
 		Workers:  &Workers{db: db},
+		CronJobs: &CronJobs{db: db},
 		Images:   &ProjectImages{db: db},
 	}
 }

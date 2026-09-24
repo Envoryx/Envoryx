@@ -11,6 +11,15 @@ release). `:main` follows the development branch.
 ## [Unreleased]
 
 ### Added
+- Cron jobs: any command on a schedule, not only the Laravel and Symfony worker
+  presets. The new Cron tab builds the schedule (every few minutes, hourly, daily,
+  weekly, monthly) or takes a cron expression and shows the next runs; templates
+  start from the Laravel scheduler, a Symfony or Django command, an npm script or a
+  script. Envoryx runs the command in the project's PHP, Python or Node.js container
+  as the project owner, through `sh -c` and bounded by a timeout (default 10
+  minutes), only while the project runs and never twice at once. "Run now", the last
+  20 runs with their output, and a `cron.failed` notification. Schedules use
+  Envoryx's time zone (`TZ`). Duplicating a project with its workers copies the jobs.
 - OpenSearch Dashboards as an option of OpenSearch – a checkbox in the wizard and on the
   OpenSearch card of the Services tab, `envoryx project create --opensearch-dashboards`
   and `opensearchDashboards` in the MCP `create_project` tool. The web UI (Dev Tools

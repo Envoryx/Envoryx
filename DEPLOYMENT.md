@@ -461,6 +461,16 @@ or a blank directory / git clone – and the dev server *is* the project:
   project home mounted. The Workers tab offers only the presets whose
   runtime the project has. Actions offer npm/pnpm/yarn and `node -v`; git
   clone/pull run in a one-shot container from the Node image.
+- **Cron jobs** (Cron tab) run any command on a schedule in the PHP, Python
+  or Node.js container – as the project owner in the project directory,
+  through `sh -c`, with the project's environment. Pick a schedule (every few
+  minutes, hourly, daily, weekly, monthly) or type a cron expression; the form
+  shows the next runs. Schedules are read in Envoryx's time zone – set `TZ` on
+  the container. Jobs only run while the project is running, a run that is
+  still going is not started twice, the timeout (default 10 minutes) stops
+  the command, and the last 20 runs keep their output. For Laravel, either a
+  *Scheduler* worker (`schedule:work`) or a cron job running `php artisan
+  schedule:run` every minute – not both.
 - **Adding or removing PHP later.** The Runtime tab's PHP card has an
   *Enable PHP* switch on every project. Adding PHP to a Node or static
   project starts a PHP-FPM container, switches the web server to FastCGI
