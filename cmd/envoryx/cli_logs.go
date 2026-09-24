@@ -10,7 +10,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -34,9 +36,18 @@ func (c *cli) projectLogs(ctx context.Context, args []string) error {
 	follow := fs.Bool("follow", false, "keep reading")
 	fs.BoolVar(follow, "f", false, "keep reading")
 	timestamps := fs.Bool("timestamps", false, "prefix every line with its time")
+	since := fs.String("since", "", "only lines from this time on: RFC 3339 or a duration back from now (30m, 6h, 7d)")
+	until := fs.String("until", "", "only lines up to this time (not with --follow)")
+	grep := fs.String("grep", "", "only lines containing this text (case-insensitive)")
+	level := fs.String("level", "", "only warnings and errors (warn) or only errors (error), as guessed from the text")
+	output := fs.String("o", "", "write every matching line to this file instead of the last --tail (\"-\" is stdout)")
+	fs.StringVar(output, "output", "", "write every matching line to this file")
 	pos, err := parse(fs, args)
 	if err != nil {
 		return err
+	}
+	if *follow && (*until != "" || *output != "") {
+		return errors.New("--until and -o cannot be combined with --follow")
 	}
 	ctx, cancel := c.context(ctx)
 	defer cancel()
@@ -56,6 +67,15 @@ func (c *cli) projectLogs(ctx context.Context, args []string) error {
 		return err
 	}
 	query := url.Values{"tail": {strconv.Itoa(*tail)}}
+	for k, v := range map[string]string{"since": *since, "until": *until, "q": *grep, "level": *level} {
+		if v != "" {
+			query.Set(k, v)
+		}
+	}
+	if *output != "" {
+		query.Del("tail")
+		return c.exportLogs(ctx, api, p, kind, query, *output)
+	}
 	if !*follow {
 		if c.json {
 			return c.printRaw(ctx, api, projectPath(p.ID, "services", kind, "logs"), query, "lines")
@@ -105,6 +125,32 @@ func (c *cli) projectLogs(ctx context.Context, args []string) error {
 			return errors.New(msg.Message)
 		}
 	}
+}
+
+// exportLogs saves the download endpoint's file: all matching lines, not just a tail.
+func (c *cli) exportLogs(ctx context.Context, api *client, p projectSummary, kind string, query url.Values, target string) error {
+	resp, err := api.request(ctx, http.MethodGet, projectPath(p.ID, "services", kind, "logs", "download"), query, nil)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if target == "-" {
+		_, err := io.Copy(c.out, resp.Body)
+		return err
+	}
+	f, err := os.Create(target)
+	if err != nil {
+		return err
+	}
+	written, err := io.Copy(f, resp.Body)
+	if cerr := f.Close(); err == nil {
+		err = cerr
+	}
+	if err != nil {
+		return err
+	}
+	c.printf("Wrote %s (%s)\n", target, humanSize(written))
+	return nil
 }
 
 func (c *cli) writeLogLine(l logLine, timestamps bool) {

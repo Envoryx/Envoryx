@@ -30,6 +30,7 @@ import (
 	"github.com/envoryx/envoryx/internal/audit"
 	"github.com/envoryx/envoryx/internal/db"
 	"github.com/envoryx/envoryx/internal/docker"
+	"github.com/envoryx/envoryx/internal/logs"
 	"github.com/envoryx/envoryx/internal/runtime"
 	"github.com/envoryx/envoryx/internal/store"
 )
@@ -117,12 +118,12 @@ func crashLooping(t *testing.T, m *Manager, id string, seen map[store.ServiceKin
 // containerTail returns the last log lines of a service, so a failure says why.
 func containerTail(t *testing.T, m *Manager, id string, kind store.ServiceKind) string {
 	t.Helper()
-	lines, err := m.TailLogs(context.Background(), id, kind, 15)
+	page, err := m.QueryLogs(context.Background(), id, kind, logs.Query{}, 15)
 	if err != nil {
 		return "(no logs: " + err.Error() + ")"
 	}
-	out := make([]string, 0, len(lines))
-	for _, l := range lines {
+	out := make([]string, 0, len(page.Lines))
+	for _, l := range page.Lines {
 		out = append(out, l.Text)
 	}
 	return strings.Join(out, "\n")

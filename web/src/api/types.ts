@@ -1016,10 +1016,58 @@ export interface ActionInfo {
   reason?: string;
 }
 
+export type LogLevel = "" | "warn" | "error";
+
 export interface LogLine {
   time: string;
   stream: "stdout" | "stderr";
   text: string;
+  /** Guessed from the text; "" for ordinary lines. */
+  level?: LogLevel;
+}
+
+/** Filter of the log endpoints. since/until: RFC 3339 or a duration back from now (6h, 7d). */
+export interface LogFilter {
+  since?: string;
+  until?: string;
+  q?: string;
+  level?: LogLevel;
+  stream?: "" | "stdout" | "stderr";
+}
+
+export interface LogPage {
+  lines: LogLine[];
+  /** All matching lines in the range; only the last lines.length are returned. */
+  matched: number;
+  truncated: boolean;
+}
+
+export interface LogBucket {
+  start: string;
+  total: number;
+  warnings: number;
+  errors: number;
+}
+
+export interface LogMessage {
+  level: "warn" | "error";
+  /** The text with numbers, ids and times masked – what groups the occurrences. */
+  pattern: string;
+  example: string;
+  count: number;
+  first: string;
+  last: string;
+}
+
+export interface LogSummary {
+  from: string;
+  to: string;
+  bucketSeconds: number;
+  buckets: LogBucket[];
+  total: number;
+  warnings: number;
+  errors: number;
+  top: LogMessage[];
 }
 
 export interface AuditEntry {

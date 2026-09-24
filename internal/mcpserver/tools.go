@@ -13,6 +13,7 @@ import (
 
 	"github.com/envoryx/envoryx/internal/auth"
 	"github.com/envoryx/envoryx/internal/docker"
+	"github.com/envoryx/envoryx/internal/logs"
 	"github.com/envoryx/envoryx/internal/project"
 	"github.com/envoryx/envoryx/internal/runtime"
 	"github.com/envoryx/envoryx/internal/store"
@@ -145,7 +146,8 @@ func (s *Server) registerTools() {
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeOperate, mutating("start_project", "Start project", "Start all containers of a project.", true)), s.startProject)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeOperate, mutating("stop_project", "Stop project", "Stop all containers of a project (data is kept).", true)), s.stopProject)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeOperate, mutating("restart_project", "Restart project", "Restart a project; also pulls updated runtime images.", true)), s.restartProject)
-	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("get_logs", "Get logs", "Recent log lines of one project container (web, php, python, node, database, redis, memcached, mailpit, rabbitmq, meilisearch, typesense, opensearch, opensearch-dashboards).")), s.getLogs)
+	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("get_logs", "Get logs", "Log lines of one project container (web, php, python, node, database, redis, memcached, mailpit, rabbitmq, meilisearch, typesense, opensearch, opensearch-dashboards), optionally limited to a time range, a search text or warnings/errors. Each line carries the level Envoryx guesses from its text.")), s.getLogs)
+	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("get_log_stats", "Get log statistics", "Error frequency of one project container over a time range: lines, warnings and errors per time slot and the most frequent errors and warnings, grouped with numbers and ids masked.")), s.getLogStats)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("list_actions", "List actions", "Runnable project actions (composer, artisan, npm …) and whether they are currently available.")), s.listActions)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeOperate, mutating("run_action", "Run action", "Run one action from list_actions inside the project (e.g. composer:install) and return its output. Waits for completion (up to 20 minutes).", false)), s.runAction)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("list_databases", "List databases", "Databases on the project's database server.")), s.listDatabases)
@@ -459,24 +461,45 @@ type getLogsIn struct {
 	Project string `json:"project" jsonschema:"Project id, slug or name"`
 	Service string `json:"service,omitempty" jsonschema:"Container: web, php, python, node, database, redis, memcached, mailpit, rabbitmq, meilisearch, typesense, opensearch, opensearch-dashboards or storage (default: the application container (php, else python, else node), else web)"`
 	Tail    int    `json:"tail,omitempty" jsonschema:"Number of lines (default 200, max 2000)"`
-}
-
-type logLineOut struct {
-	Time   time.Time `json:"time"`
-	Stream string    `json:"stream"`
-	Text   string    `json:"text"`
+	Since   string `json:"since,omitempty" jsonschema:"Only lines from this time on: RFC 3339 or a duration back from now such as 30m, 6h or 7d"`
+	Until   string `json:"until,omitempty" jsonschema:"Only lines up to this time: RFC 3339 or a duration back from now"`
+	Query   string `json:"query,omitempty" jsonschema:"Only lines containing this text (case-insensitive)"`
+	Level   string `json:"level,omitempty" jsonschema:"Only warnings and errors (warn) or errors (error), as guessed from the text"`
 }
 
 type getLogsOut struct {
-	Service string       `json:"service"`
-	Lines   []logLineOut `json:"lines"`
+	Service string      `json:"service"`
+	Lines   []logs.Line `json:"lines"`
+	// Matched counts all matching lines in the range, of which the last are returned.
+	Matched int `json:"matched"`
 }
 
 func (s *Server) getLogs(ctx context.Context, _ *mcp.CallToolRequest, in getLogsIn) (*mcp.CallToolResult, getLogsOut, error) {
-	v, err := s.resolve(ctx, in.Project)
+	id, kind, q, err := s.logTarget(ctx, in)
 	if err != nil {
 		r, _ := toolErr(err)
 		return r, getLogsOut{}, nil
+	}
+	n := in.Tail
+	if n <= 0 {
+		n = 200
+	}
+	if n > 2000 {
+		n = 2000
+	}
+	page, err := s.d.Projects.QueryLogs(ctx, id, kind, q, n)
+	if err != nil {
+		r, _ := toolErr(err)
+		return r, getLogsOut{}, nil
+	}
+	return nil, getLogsOut{Service: string(kind), Lines: page.Lines, Matched: page.Matched}, nil
+}
+
+// logTarget resolves the project, service and filter of a log tool call.
+func (s *Server) logTarget(ctx context.Context, in getLogsIn) (string, store.ServiceKind, logs.Query, error) {
+	v, err := s.resolve(ctx, in.Project)
+	if err != nil {
+		return "", "", logs.Query{}, err
 	}
 	kind := store.ServiceKind(strings.ToLower(strings.TrimSpace(in.Service)))
 	if kind == "" {
@@ -488,26 +511,44 @@ func (s *Server) getLogs(ctx context.Context, _ *mcp.CallToolRequest, in getLogs
 	switch kind {
 	case store.ServiceWeb, store.ServicePHP, store.ServicePython, store.ServiceNode, store.ServiceDatabase, store.ServiceRedis, store.ServiceMemcached, store.ServiceMailpit, store.ServiceRabbitMQ, store.ServiceMeilisearch, store.ServiceTypesense, store.ServiceOpenSearch, store.ServiceOpenSearchDashboards, store.ServiceStorage:
 	default:
-		r, _ := toolErr(fmt.Errorf("%w: unknown service %q", validate.ErrInvalid, in.Service))
-		return r, getLogsOut{}, nil
+		return "", "", logs.Query{}, fmt.Errorf("%w: unknown service %q", validate.ErrInvalid, in.Service)
 	}
-	n := in.Tail
-	if n <= 0 {
-		n = 200
+	now := time.Now()
+	since, err := logs.ParseTime(in.Since, now)
+	if err != nil {
+		return "", "", logs.Query{}, fmt.Errorf("%w: since: %v", validate.ErrInvalid, err)
 	}
-	if n > 2000 {
-		n = 2000
+	until, err := logs.ParseTime(in.Until, now)
+	if err != nil {
+		return "", "", logs.Query{}, fmt.Errorf("%w: until: %v", validate.ErrInvalid, err)
 	}
-	lines, err := s.d.Projects.TailLogs(ctx, v.Project.ID, kind, n)
+	level, ok := logs.ParseLevel(in.Level)
+	if !ok {
+		return "", "", logs.Query{}, fmt.Errorf("%w: level must be warn or error", validate.ErrInvalid)
+	}
+	return v.Project.ID, kind, logs.Query{Since: since, Until: until, Text: in.Query, MinLevel: level}, nil
+}
+
+type getLogStatsIn struct {
+	Project string `json:"project" jsonschema:"Project id, slug or name"`
+	Service string `json:"service,omitempty" jsonschema:"Container, as for get_logs (default: the application container)"`
+	Since   string `json:"since,omitempty" jsonschema:"Start of the range: RFC 3339 or a duration back from now such as 6h or 7d (default: everything available)"`
+	Until   string `json:"until,omitempty" jsonschema:"End of the range (default: now)"`
+	Query   string `json:"query,omitempty" jsonschema:"Only count lines containing this text"`
+}
+
+func (s *Server) getLogStats(ctx context.Context, _ *mcp.CallToolRequest, in getLogStatsIn) (*mcp.CallToolResult, logs.Summary, error) {
+	id, kind, q, err := s.logTarget(ctx, getLogsIn{Project: in.Project, Service: in.Service, Since: in.Since, Until: in.Until, Query: in.Query})
 	if err != nil {
 		r, _ := toolErr(err)
-		return r, getLogsOut{}, nil
+		return r, logs.Summary{}, nil
 	}
-	out := getLogsOut{Service: string(kind), Lines: []logLineOut{}}
-	for _, l := range lines {
-		out.Lines = append(out.Lines, logLineOut{Time: l.Time, Stream: l.Stream, Text: l.Text})
+	sum, err := s.d.Projects.LogStats(ctx, id, kind, q)
+	if err != nil {
+		r, _ := toolErr(err)
+		return r, logs.Summary{}, nil
 	}
-	return nil, out, nil
+	return nil, sum, nil
 }
 
 type actionOut struct {

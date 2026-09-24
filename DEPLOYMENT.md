@@ -834,6 +834,27 @@ independent of the server's on-disk format. Restoring uploads the objects
 again, optionally emptying the bucket first; the storage container must be
 running for both.
 
+## Logs
+
+The Logs tab has two views per container. *Live* follows the output as it
+comes. *History* searches the past output: a time range (a preset or
+from/to), a text search and a level filter, a chart of lines, warnings and
+errors over time – a click on a bar zooms into that slot – and the most
+frequent errors and warnings, grouped so that the same message with other
+numbers, ids or times counts as one. *Download* saves every line that matches,
+as text or, through the API with `format=jsonl`, as JSON lines.
+
+Containers do not report a level, so Envoryx reads it from the text: words
+such as *Fatal error*, `[error]`, `ERROR:`, *Exception* or *Traceback*, a
+`level` field in JSON or logfmt lines, and a 5xx status in access logs count
+as errors; *Warning*, `[warn]` and *Deprecated* as warnings. stderr alone does
+not make a line an error.
+
+The same filters work from scripts: `envoryx project logs shop --since 6h
+--level error`, `--grep`, `--until`, and `-o FILE` to save everything that
+matches (`--since` takes a duration back from now such as `30m`, `6h`, `7d`
+or an RFC 3339 time).
+
 ## Workers (queues, schedulers)
 
 Workers tab: add long-running processes from a preset list – Laravel

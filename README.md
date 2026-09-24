@@ -76,7 +76,9 @@ Envoryx is under active development. The current milestone (Phase 1 + 2) deliver
   The copy gets its own directory, host ports and containers but keeps the
   original's database credentials, so a `.env` in the project files keeps
   working
-- live logs per container over WebSocket: pause, search, stderr filter, download
+- logs per container: live over WebSocket (pause, search, level filter) and a
+  history view with time range, search, error frequency chart, the most
+  frequent errors grouped and a download of everything that matches
 - browser terminal (xterm.js) into any project container; application
   containers run the shell as the project owner (PUID/PGID)
 - Node.js runtime container per project (npm, pnpm, yarn via corepack),

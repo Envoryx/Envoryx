@@ -10,6 +10,20 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Added
+- Log history in the Logs tab: pick a time range (last 15 minutes to 30 days,
+  everything, or from/to), search and filter to warnings or errors on the
+  server, see the error frequency as a chart (click a bar to zoom into that
+  slot) and the most frequent errors and warnings grouped with numbers, ids and
+  times masked. *Download* now saves every matching line instead of the last
+  10,000. Envoryx guesses the level from the text (PHP, nginx, Caddy,
+  PostgreSQL, MySQL, Python tracebacks, JSON and logfmt `level` fields, 5xx in
+  access logs) and colours live lines by it. The API takes `since`, `until`,
+  `q`, `level` and `stream` on `…/logs` and the live stream, plus
+  `…/logs/stats` and `…/logs/download`; the CLI gets `envoryx project logs
+  --since/--until/--grep/--level` and `-o FILE`, MCP `get_logs` the same
+  filters and a new `get_log_stats` tool.
+
 ## [0.6.0] – 2026-09-24
 
 ### Added

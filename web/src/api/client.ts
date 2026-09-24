@@ -27,7 +27,9 @@ import type {
   GitStatus,
   InstanceBackup,
   InstanceBackupsResponse,
-  LogLine,
+  LogFilter,
+  LogPage,
+  LogSummary,
   NotifyConfig,
   NotifyInfo,
   Operation,
@@ -53,6 +55,14 @@ import type {
   CronJobRequest,
   CronRun,
 } from "./types";
+
+/** Query string of the log endpoints; empty filter fields are left out. */
+export function logParams(filter: LogFilter, extra: Record<string, string> = {}): string {
+  const q = new URLSearchParams();
+  for (const [k, v] of Object.entries(filter)) if (v) q.set(k, v);
+  for (const [k, v] of Object.entries(extra)) q.set(k, v);
+  return q.toString();
+}
 
 export class ApiError extends Error {
   readonly status: number;
@@ -246,8 +256,12 @@ export const api = {
     stats: (id: string) => request<{ stats: Usage; sampledAt: string }>(`/projects/${encodeURIComponent(id)}/stats`),
     actions: (id: string) => request<{ actions: ActionInfo[] }>(`/projects/${encodeURIComponent(id)}/actions`),
     extras: (id: string) => request<{ services: ExtraServiceInfo[] }>(`/projects/${encodeURIComponent(id)}/extras`),
-    logs: (id: string, kind: string, tail = 500) =>
-      request<{ lines: LogLine[] }>(`/projects/${encodeURIComponent(id)}/services/${encodeURIComponent(kind)}/logs?tail=${tail}`),
+    logs: (id: string, kind: string, filter: LogFilter = {}, tail = 500) =>
+      request<LogPage>(`/projects/${encodeURIComponent(id)}/services/${encodeURIComponent(kind)}/logs?${logParams(filter, { tail: String(tail) })}`),
+    logStats: (id: string, kind: string, filter: LogFilter = {}) =>
+      request<LogSummary>(`/projects/${encodeURIComponent(id)}/services/${encodeURIComponent(kind)}/logs/stats?${logParams(filter)}`),
+    logDownloadUrl: (id: string, kind: string, filter: LogFilter = {}) =>
+      `/api/v1/projects/${encodeURIComponent(id)}/services/${encodeURIComponent(kind)}/logs/download?${logParams(filter)}`,
   },
 
   instanceBackups: {

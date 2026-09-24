@@ -692,8 +692,9 @@ func (f *Fake) ExecStream(_ context.Context, id string, opts docker.ExecStreamOp
 	return code, nil
 }
 
-// StreamLogs implements docker.Engine. With Follow it blocks until ctx is cancelled after
-// emitting the configured lines (simulating a live stream with no further output).
+// StreamLogs implements docker.Engine. With Follow it emits the configured lines and then
+// keeps polling for lines added through AppendLogs until ctx is cancelled or the container
+// stops running. Since and Until filter like Docker does (both inclusive).
 func (f *Fake) StreamLogs(ctx context.Context, id string, opts docker.LogOptions, emit func(docker.LogLine)) error {
 	f.mu.Lock()
 	if err := f.check(); err != nil {
@@ -705,8 +706,20 @@ func (f *Fake) StreamLogs(ctx context.Context, id string, opts docker.LogOptions
 		f.mu.Unlock()
 		return err
 	}
-	lines := append([]docker.LogLine(nil), f.Logs[c.Spec.Name]...)
+	name := c.Spec.Name
+	lines := append([]docker.LogLine(nil), f.Logs[name]...)
 	f.mu.Unlock()
+	keep := func(l docker.LogLine) bool {
+		return (opts.Since.IsZero() || !l.Time.Before(opts.Since)) && (opts.Until.IsZero() || !l.Time.After(opts.Until))
+	}
+	sent := len(lines)
+	filtered := lines[:0:0]
+	for _, l := range lines {
+		if keep(l) {
+			filtered = append(filtered, l)
+		}
+	}
+	lines = filtered
 	if opts.Tail != "" && opts.Tail != "all" {
 		if n, err := strconv.Atoi(opts.Tail); err == nil && n < len(lines) {
 			lines = lines[len(lines)-n:]
@@ -715,10 +728,40 @@ func (f *Fake) StreamLogs(ctx context.Context, id string, opts docker.LogOptions
 	for _, l := range lines {
 		emit(l)
 	}
-	if opts.Follow {
-		<-ctx.Done()
+	if !opts.Follow {
+		return nil
 	}
-	return nil
+	t := time.NewTicker(5 * time.Millisecond)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-t.C:
+		}
+		f.mu.Lock()
+		all := f.Logs[name]
+		more := append([]docker.LogLine(nil), all[min(sent, len(all)):]...)
+		sent = len(all)
+		cur, ok := f.containers[c.ID]
+		running := ok && cur.State == "running"
+		f.mu.Unlock()
+		for _, l := range more {
+			if keep(l) {
+				emit(l)
+			}
+		}
+		if !running {
+			return nil
+		}
+	}
+}
+
+// AppendLogs adds output to a container (by name); a following StreamLogs picks it up.
+func (f *Fake) AppendLogs(name string, lines ...docker.LogLine) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.Logs[name] = append(f.Logs[name], lines...)
 }
 
 // ListNetworks implements docker.Engine.

@@ -662,6 +662,63 @@ func TestServiceLogsRESTAndWebSocket(t *testing.T) {
 	}
 }
 
+func TestServiceLogsFilterStatsDownload(t *testing.T) {
+	a := newApp(t)
+	a.setupAndLogin()
+	r := a.do(http.MethodPost, "/api/v1/projects", map[string]any{"name": "Hist", "start": true, "php": map[string]any{"version": "8.4"}}, true)
+	if r.status != http.StatusCreated {
+		t.Fatalf("create: %d %s", r.status, r.raw)
+	}
+	id := r.body["project"].(map[string]any)["id"].(string)
+	base := time.Date(2026, 9, 24, 10, 0, 0, 0, time.UTC)
+	a.engine.Logs["envoryx-hist-php"] = []docker.LogLine{
+		{Time: base, Stream: "stderr", Text: "NOTICE: fpm is running"},
+		{Time: base.Add(time.Minute), Stream: "stderr", Text: "PHP Fatal error: Uncaught Exception in /app/index.php:12"},
+		{Time: base.Add(2 * time.Minute), Stream: "stderr", Text: "PHP Warning: Undefined variable $x"},
+		{Time: base.Add(3 * time.Minute), Stream: "stderr", Text: "PHP Fatal error: Uncaught Exception in /app/index.php:40"},
+		{Time: base.Add(4 * time.Minute), Stream: "stdout", Text: "GET /index.php 200"},
+	}
+	path := "/api/v1/projects/" + id + "/services/php/logs"
+
+	r = a.do(http.MethodGet, path+"?level=error&tail=1", nil, false)
+	if r.status != http.StatusOK || r.body["matched"].(float64) != 2 || r.body["truncated"] != true {
+		t.Fatalf("errors: %d %s", r.status, r.raw)
+	}
+	if l := r.body["lines"].([]any)[0].(map[string]any); l["level"] != "error" || !strings.Contains(l["text"].(string), ":40") {
+		t.Fatalf("last error: %v", l)
+	}
+	r = a.do(http.MethodGet, path+"?since="+base.Add(90*time.Second).Format(time.RFC3339)+"&until="+base.Add(3*time.Minute).Format(time.RFC3339)+"&q=php", nil, false)
+	if r.status != http.StatusOK || r.body["matched"].(float64) != 2 {
+		t.Fatalf("range: %d %s", r.status, r.raw)
+	}
+	for _, bad := range []string{"?since=yesterday", "?level=loud", "?stream=both", "?since=1h&until=2h"} {
+		if r = a.do(http.MethodGet, path+bad, nil, false); r.status != http.StatusUnprocessableEntity && r.status != http.StatusBadRequest {
+			t.Fatalf("%s: %d %s", bad, r.status, r.raw)
+		}
+	}
+
+	r = a.do(http.MethodGet, path+"/stats?since="+base.Format(time.RFC3339)+"&until="+base.Add(10*time.Minute).Format(time.RFC3339), nil, false)
+	if r.status != http.StatusOK || r.body["errors"].(float64) != 2 || r.body["warnings"].(float64) != 1 || r.body["total"].(float64) != 5 {
+		t.Fatalf("stats: %d %s", r.status, r.raw)
+	}
+	top := r.body["top"].([]any)
+	if len(top) != 2 || top[0].(map[string]any)["count"].(float64) != 2 {
+		t.Fatalf("grouped errors: %s", r.raw)
+	}
+
+	r = a.do(http.MethodGet, path+"/download?level=warn", nil, false)
+	if r.status != http.StatusOK || strings.Count(string(r.raw), "\n") != 3 || !strings.Contains(string(r.raw), "2026-09-24T10:02:00Z [stderr] PHP Warning") {
+		t.Fatalf("download: %d %q", r.status, r.raw)
+	}
+	r = a.do(http.MethodGet, path+"/download?format=jsonl&q=GET", nil, false)
+	if r.status != http.StatusOK || !strings.HasPrefix(string(r.raw), `{"time":"2026-09-24T10:04:00Z","stream":"stdout","text":"GET /index.php 200"}`) {
+		t.Fatalf("jsonl: %d %q", r.status, r.raw)
+	}
+	if r = a.do(http.MethodGet, "/api/v1/projects/"+id+"/services/redis/logs/download", nil, false); r.status != http.StatusNotFound {
+		t.Fatalf("unknown service download: %d %s", r.status, r.raw)
+	}
+}
+
 func TestTerminalWebSocket(t *testing.T) {
 	a := newApp(t)
 	a.setupAndLogin()
