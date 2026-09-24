@@ -28,7 +28,8 @@ func TestOperationsReportStepsAndOutcome(t *testing.T) {
 	deadline := time.Now().Add(5 * time.Second)
 	for {
 		ops := e.m.Operations()
-		if len(ops) == 1 && ops[0].Running() && ops[0].ProjectID != "" {
+		// The pull is the step that lasts; the ones before it can be caught on a slow run.
+		if len(ops) == 1 && ops[0].Running() && ops[0].ProjectID != "" && strings.HasPrefix(ops[0].Step, "Pulling") {
 			running = ops[0]
 			break
 		}
