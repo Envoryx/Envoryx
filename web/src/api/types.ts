@@ -797,6 +797,20 @@ export interface UpdateSettingsRequest {
   forceHttps?: boolean;
   projectsFollowEnvoryx?: boolean;
   folderViewFolder?: string;
+  logHistory?: { enabled?: boolean; retentionDays?: number; maxMb?: number };
+}
+
+/** Container output kept beyond the containers (Settings → General). */
+export interface LogHistoryInfo {
+  enabled: boolean;
+  retentionDays: number;
+  maxMb: number;
+  /** false when the history directory could not be opened. */
+  available: boolean;
+  dir?: string;
+  usage: { bytes: number; files: number; oldest?: string };
+  /** Containers being read right now. */
+  following: number;
 }
 
 export interface SSHInfo {
@@ -823,6 +837,7 @@ export interface Settings {
   projectsFollowEnvoryx?: boolean;
   /** FolderView3 folder (Unraid plugin) the containers are labelled for; "" = none. */
   folderViewFolder?: string;
+  logHistory?: LogHistoryInfo;
   proxy: ProxyInfo;
   version: string;
   update?: UpdateStatus;
@@ -1040,6 +1055,10 @@ export interface LogPage {
   /** All matching lines in the range; only the last lines.length are returned. */
   matched: number;
   truncated: boolean;
+  /** "history": the stored history, across container recreations; "container": what Docker still holds. */
+  source: "history" | "container";
+  /** First stored line when source is "history". */
+  oldest?: string;
 }
 
 export interface LogBucket {

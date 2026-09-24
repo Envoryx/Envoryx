@@ -63,19 +63,38 @@ type LogPage struct {
 	// last len(Lines) of them are returned.
 	Matched   int  `json:"matched"`
 	Truncated bool `json:"truncated"`
+	// Source is "history" (the stored history, across container restarts and
+	// recreations) or "container" (what Docker still holds for the current container).
+	Source string `json:"source"`
+	// Oldest is the first stored line when Source is "history".
+	Oldest time.Time `json:"oldest,omitzero"`
 }
+
+// Log sources.
+const (
+	LogSourceHistory   = "history"
+	LogSourceContainer = "container"
+)
 
 // MaxLogLimit caps the lines a query returns; exports are not limited.
 const MaxLogLimit = 10000
 
-// scanLogs emits the lines of a service in the query's time range, oldest first. An
-// unfiltered query with tail > 0 lets the source cut the history short.
-func (m *Manager) scanLogs(ctx context.Context, id string, kind store.ServiceKind, q logs.Query, tail int, emit func(docker.LogLine)) error {
+// scanLogs emits the lines of a service in the query's time range, oldest first, from
+// the history when it holds the service, else from the container. An unfiltered query
+// with tail > 0 lets Docker cut the history short.
+func (m *Manager) scanLogs(ctx context.Context, id string, kind store.ServiceKind, q logs.Query, tail int, emit func(docker.LogLine)) (string, error) {
+	k, ok, err := m.historyKey(ctx, id, kind)
+	if err != nil {
+		return "", err
+	}
+	if ok {
+		return LogSourceHistory, m.logStore.Scan(ctx, k, q.Since, q.Until, emit)
+	}
 	opts := docker.LogOptions{Since: q.Since, Until: q.Until}
 	if tail > 0 && !q.Filtered() {
 		opts.Tail = strconv.Itoa(tail)
 	}
-	return m.StreamLogs(ctx, id, kind, opts, emit)
+	return LogSourceContainer, m.StreamLogs(ctx, id, kind, opts, emit)
 }
 
 // QueryLogs returns the last limit lines of a service that match q.
@@ -83,9 +102,25 @@ func (m *Manager) QueryLogs(ctx context.Context, id string, kind store.ServiceKi
 	if limit <= 0 || limit > MaxLogLimit {
 		limit = 500
 	}
+	k, ok, err := m.historyKey(ctx, id, kind)
+	if err != nil {
+		return LogPage{}, err
+	}
+	if ok && !q.Filtered() && q.Since.IsZero() {
+		// The newest lines of the whole history: read backwards, count the rest.
+		lines, total, err := m.logStore.Tail(ctx, k, q.Until, limit)
+		if err != nil {
+			return LogPage{}, err
+		}
+		page := LogPage{Lines: make([]logs.Line, 0, len(lines)), Matched: total, Truncated: total > len(lines), Source: LogSourceHistory, Oldest: m.logStore.Oldest(ctx, k)}
+		for _, l := range lines {
+			page.Lines = append(page.Lines, logs.NewLine(l, logs.Classify(l.Text)))
+		}
+		return page, nil
+	}
 	ring := logs.NewRing(limit)
 	match := logs.NewMatcher(q)
-	err := m.scanLogs(ctx, id, kind, q, limit, func(l docker.LogLine) {
+	source, err := m.scanLogs(ctx, id, kind, q, limit, func(l docker.LogLine) {
 		if lvl, ok := match.Match(l); ok {
 			ring.Add(logs.NewLine(l, lvl))
 		}
@@ -94,17 +129,22 @@ func (m *Manager) QueryLogs(ctx context.Context, id string, kind store.ServiceKi
 		return LogPage{}, err
 	}
 	lines := ring.Lines()
-	return LogPage{Lines: lines, Matched: ring.Total, Truncated: ring.Total > len(lines)}, nil
+	page := LogPage{Lines: lines, Matched: ring.Total, Truncated: ring.Total > len(lines), Source: source}
+	if source == LogSourceHistory {
+		page.Oldest = m.logStore.Oldest(ctx, k)
+	}
+	return page, nil
 }
 
 // ExportLogs emits every line of a service that matches q, oldest first.
 func (m *Manager) ExportLogs(ctx context.Context, id string, kind store.ServiceKind, q logs.Query, emit func(logs.Line)) error {
 	match := logs.NewMatcher(q)
-	return m.scanLogs(ctx, id, kind, q, 0, func(l docker.LogLine) {
+	_, err := m.scanLogs(ctx, id, kind, q, 0, func(l docker.LogLine) {
 		if lvl, ok := match.Match(l); ok {
 			emit(logs.NewLine(l, lvl))
 		}
 	})
+	return err
 }
 
 // LogStats counts the lines, warnings and errors of a service over time and groups the
@@ -112,7 +152,7 @@ func (m *Manager) ExportLogs(ctx context.Context, id string, kind store.ServiceK
 func (m *Manager) LogStats(ctx context.Context, id string, kind store.ServiceKind, q logs.Query) (logs.Summary, error) {
 	st := logs.NewStats()
 	match := logs.NewMatcher(q)
-	err := m.scanLogs(ctx, id, kind, q, 0, func(l docker.LogLine) {
+	_, err := m.scanLogs(ctx, id, kind, q, 0, func(l docker.LogLine) {
 		if lvl, ok := match.Match(l); ok {
 			st.Add(logs.NewLine(l, lvl), lvl)
 		}

@@ -178,13 +178,22 @@ export function LogHistory({ projectId, kind }: { projectId: string; kind: strin
           <LogLinesTable withDate lines={lines.data.lines.map((l, i) => ({ ...l, id: i }))} />
         )}
       </div>
-      <div className="flex items-center justify-between border-t border-default px-3 py-1.5 text-[11px] text-subtle">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-default px-3 py-1.5 text-[11px] text-subtle">
         <span>
           {lines.data &&
             (lines.data.truncated
               ? t("Last {{shown}} of {{total}} matching lines – the download has all of them", { shown: lines.data.lines.length, total: lines.data.matched })
               : t("{{count}} lines", { count: lines.data.matched }))}
         </span>
+        {lines.data && (
+          <span title={lines.data.source === "history" ? t("Kept across container restarts and recreations") : t("Only what Docker still holds for the current container – the log history is off or has nothing yet")}>
+            {lines.data.source === "history"
+              ? lines.data.oldest
+                ? t("Log history since {{date}}", { date: formatDateTime(lines.data.oldest) })
+                : t("Log history")
+              : t("Current container only")}
+          </span>
+        )}
       </div>
     </div>
   );

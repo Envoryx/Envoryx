@@ -46,6 +46,7 @@ import (
 	"github.com/envoryx/envoryx/internal/docker"
 	"github.com/envoryx/envoryx/internal/hostpath"
 	"github.com/envoryx/envoryx/internal/instance"
+	"github.com/envoryx/envoryx/internal/logs"
 	"github.com/envoryx/envoryx/internal/mcpserver"
 	"github.com/envoryx/envoryx/internal/notify"
 	"github.com/envoryx/envoryx/internal/project"
@@ -289,6 +290,13 @@ func serve() error {
 	background("backup scheduler", func(ctx context.Context) { manager.RunBackupScheduler(ctx, time.Minute, log) })
 	// Every 15 seconds: a job fires at most that long after its minute starts.
 	background("cron scheduler", func(ctx context.Context) { manager.RunCronScheduler(ctx, 15*time.Second, log) })
+	// Container output outlives the containers: followed as it comes, kept per day.
+	if logStore, err := logs.OpenStore(filepath.Join(cfg.ConfigDir, "logs")); err != nil {
+		log.Warn("log history unavailable; the Logs tab reads the containers only", "err", err)
+	} else {
+		manager.SetLogStore(logStore)
+		background("log history", func(ctx context.Context) { manager.RunLogHistory(ctx, 5*time.Second, log) })
+	}
 	background("disk space monitor", func(ctx context.Context) {
 		disk.Monitor(ctx, 5*time.Minute, notifier, log, cfg.ConfigDir, cfg.ProjectsDir, cfg.BackupsDir)
 	})

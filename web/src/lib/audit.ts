@@ -27,6 +27,7 @@ export const auditActionLabels: Record<string, string> = {
   "settings.changed": "Settings changed",
   "docker.images_pruned": "Unused images removed",
   "docker.orphans_removed": "Orphaned resources removed",
+  "logs.history_cleared": "Log history deleted",
   "backup.created": "Backup created",
   "backup.restored": "Backup restored",
   "backup.deleted": "Backup deleted",

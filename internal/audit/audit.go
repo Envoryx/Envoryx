@@ -39,6 +39,8 @@ const (
 	ActionImageLatest     = "project.image_latest"
 	ActionImagesPruned    = "docker.images_pruned"
 	ActionOrphansRemoved  = "docker.orphans_removed"
+	// ActionLogHistoryCleared: the stored log history was deleted.
+	ActionLogHistoryCleared = "logs.history_cleared"
 
 	ActionBackupCreated  = "backup.created"
 	ActionBackupRestored = "backup.restored"

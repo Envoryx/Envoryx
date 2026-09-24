@@ -16,6 +16,7 @@ import (
 
 	"github.com/envoryx/envoryx/internal/audit"
 	"github.com/envoryx/envoryx/internal/docker"
+	"github.com/envoryx/envoryx/internal/logs"
 	"github.com/envoryx/envoryx/internal/notify"
 	"github.com/envoryx/envoryx/internal/runtime"
 	"github.com/envoryx/envoryx/internal/s3"
@@ -58,6 +59,11 @@ type Manager struct {
 
 	cronOnce sync.Once
 	cronRuns *cronState // cron runs in progress (see cronjobs.go)
+
+	// logStore keeps container output beyond the containers; nil = queries read Docker
+	// only (see loghistory.go).
+	logStore     *logs.Store
+	logCollector *logs.Collector
 
 	// provisioner creates project buckets; nil = the real S3 client. Tests inject a fake.
 	provisioner s3.Provisioner

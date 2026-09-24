@@ -27,6 +27,7 @@ import (
 	"github.com/envoryx/envoryx/internal/docker/dockertest"
 	"github.com/envoryx/envoryx/internal/hostpath"
 	"github.com/envoryx/envoryx/internal/instance"
+	"github.com/envoryx/envoryx/internal/logs"
 	"github.com/envoryx/envoryx/internal/mcpserver"
 	"github.com/envoryx/envoryx/internal/notify"
 	"github.com/envoryx/envoryx/internal/project"
@@ -51,6 +52,8 @@ type testApp struct {
 	projDir  string
 	cfgDir   string
 	restarts int
+	// logs is the log history; nothing collects into it unless a test appends.
+	logs *logs.Store
 }
 
 func newApp(t *testing.T) *testApp {
@@ -74,6 +77,11 @@ func newApp(t *testing.T) *testApp {
 	}
 	manager := project.NewManager(st, engine, runtime.Default(), paths, auditLog, project.Config{PortRangeStart: 20000, PortRangeEnd: 20010}, log)
 	manager.SetProvisioner(s3.Noop{})
+	logStore, err := logs.OpenStore(filepath.Join(cfgDir, "logs"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	manager.SetLogStore(logStore)
 	certs, err := tlsca.Open(filepath.Join(cfgDir, "ca"))
 	if err != nil {
 		t.Fatal(err)
@@ -89,7 +97,7 @@ func newApp(t *testing.T) *testApp {
 	invalidations := 0
 	proxyInfo := &api.ProxyInfo{Enabled: true, HTTPPort: 80, HTTPSPort: 443, InDocker: true, Invalidate: func() { invalidations++ }}
 	mcpSrv := mcpserver.New(mcpserver.Deps{Projects: manager, Catalog: runtime.Default(), Auth: sessions, Version: "test", Log: log})
-	app := &testApp{t: t, engine: engine, proxy: proxyInfo, projDir: projDir, cfgDir: cfgDir}
+	app := &testApp{t: t, engine: engine, proxy: proxyInfo, projDir: projDir, cfgDir: cfgDir, logs: logStore}
 	backups := &instance.Store{ConfigDir: cfgDir, DBPath: filepath.Join(cfgDir, "envoryx.db"), Dir: filepath.Join(t.TempDir(), "_instance"), Version: "test", LatestSchema: db.LatestVersion(), Log: log}
 	a := api.New(api.Deps{Config: cfg, Version: "test", Store: st, Auth: sessions, Audit: auditLog, Engine: engine, Projects: manager, Updates: update.Disabled("test"),
 		Catalog: runtime.Default(), Stats: stats.New(engine, time.Second, log), HostPath: resolver, Certs: certs, ACME: acmeMgr, Notify: notifier, Proxy: proxyInfo, MCP: mcpSrv.Handler(), Log: log, StartedAt: time.Now(),
@@ -716,6 +724,51 @@ func TestServiceLogsFilterStatsDownload(t *testing.T) {
 	}
 	if r = a.do(http.MethodGet, "/api/v1/projects/"+id+"/services/redis/logs/download", nil, false); r.status != http.StatusNotFound {
 		t.Fatalf("unknown service download: %d %s", r.status, r.raw)
+	}
+}
+
+func TestLogHistorySettingsAndSource(t *testing.T) {
+	a := newApp(t)
+	a.setupAndLogin()
+	r := a.do(http.MethodGet, "/api/v1/settings", nil, false)
+	lh := r.body["logHistory"].(map[string]any)
+	if lh["enabled"] != true || lh["retentionDays"].(float64) != 7 || lh["maxMb"].(float64) != 1024 || lh["available"] != true {
+		t.Fatalf("defaults: %s", r.raw)
+	}
+	r = a.do(http.MethodPatch, "/api/v1/settings", map[string]any{"logHistory": map[string]any{"retentionDays": 14, "maxMb": 500}}, true)
+	if lh = r.body["logHistory"].(map[string]any); r.status != http.StatusOK || lh["retentionDays"].(float64) != 14 || lh["maxMb"].(float64) != 500 {
+		t.Fatalf("update: %d %s", r.status, r.raw)
+	}
+	if r = a.do(http.MethodPatch, "/api/v1/settings", map[string]any{"logHistory": map[string]any{"retentionDays": 0}}, true); r.status != http.StatusUnprocessableEntity && r.status != http.StatusBadRequest {
+		t.Fatalf("0 days must be refused: %d %s", r.status, r.raw)
+	}
+
+	r = a.do(http.MethodPost, "/api/v1/projects", map[string]any{"name": "Kept", "start": true, "php": map[string]any{"version": "8.4"}}, true)
+	id := r.body["project"].(map[string]any)["id"].(string)
+	a.engine.Logs["envoryx-kept-php"] = []docker.LogLine{{Time: time.Now(), Stream: "stderr", Text: "current container"}}
+	old := time.Now().Add(-48 * time.Hour).UTC()
+	if err := a.logs.Append(logs.Key{Project: id, Service: "php"}, []docker.LogLine{{Time: old, Stream: "stderr", Text: "PHP Fatal error: before the recreation"}}); err != nil {
+		t.Fatal(err)
+	}
+	r = a.do(http.MethodGet, "/api/v1/projects/"+id+"/services/php/logs?level=error", nil, false)
+	if r.status != http.StatusOK || r.body["source"] != "history" || r.body["matched"].(float64) != 1 || r.body["oldest"] != old.Format(time.RFC3339Nano) {
+		t.Fatalf("history source: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodGet, "/api/v1/projects/"+id+"/services/php/logs/download", nil, false)
+	if !strings.Contains(string(r.raw), "before the recreation") {
+		t.Fatalf("download from history: %q", r.raw)
+	}
+
+	if r = a.do(http.MethodDelete, "/api/v1/settings/log-history", nil, true); r.status != http.StatusOK || r.body["logHistory"].(map[string]any)["usage"].(map[string]any)["files"].(float64) != 0 {
+		t.Fatalf("clear: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodGet, "/api/v1/projects/"+id+"/services/php/logs", nil, false)
+	if r.body["source"] != "container" || !strings.Contains(string(r.raw), "current container") {
+		t.Fatalf("after clear: %s", r.raw)
+	}
+	r = a.do(http.MethodGet, "/api/v1/audit", nil, false)
+	if !bytes.Contains(r.raw, []byte("logs.history_cleared")) {
+		t.Fatalf("audit: %s", r.raw)
 	}
 }
 
