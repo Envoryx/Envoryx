@@ -454,6 +454,13 @@ type projectSummary struct {
 				ContainerPort int    `json:"containerPort"`
 			} `json:"ports"`
 		} `json:"services"`
+		Health *struct {
+			State     string    `json:"state"`
+			Status    int       `json:"status"`
+			LatencyMs int64     `json:"latencyMs"`
+			Error     string    `json:"error"`
+			Since     time.Time `json:"since"`
+		} `json:"health"`
 	} `json:"status"`
 	Git struct {
 		URL    string `json:"url"`
@@ -464,6 +471,12 @@ type projectSummary struct {
 		Services limitSet `json:"services"`
 		Pids     int      `json:"pids"`
 	} `json:"limits"`
+	HealthCheck *struct {
+		Path        string `json:"path"`
+		Status      int    `json:"status"`
+		IntervalSec int    `json:"intervalSec"`
+		Failures    int    `json:"failures"`
+	} `json:"healthCheck"`
 }
 
 type limitSet struct {

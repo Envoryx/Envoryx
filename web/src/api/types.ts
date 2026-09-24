@@ -66,6 +66,41 @@ export interface ProjectStatus {
   warnings: string[];
   /** The action running on the project right now, if any. */
   operation?: Operation;
+  /** The application health check's state; absent without a check or before its first run. */
+  health?: HealthStatus;
+}
+
+/** An HTTP request Envoryx sends to the application at an interval. */
+export interface HealthCheck {
+  /** Path with optional query, e.g. /health; "" switches the check off. */
+  path: string;
+  /** Expected HTTP status (default 200). */
+  status?: number;
+  intervalSec?: number;
+  timeoutSec?: number;
+  /** Failed checks in a row before the application counts as down (default 3). */
+  failures?: number;
+}
+
+export type HealthState = "pending" | "up" | "failing" | "down" | "paused";
+
+export interface HealthStatus {
+  state: HealthState;
+  since: string;
+  checked?: string;
+  status?: number;
+  latencyMs?: number;
+  error?: string;
+  failures?: number;
+  downSince?: string;
+}
+
+export interface HealthResult {
+  ok: boolean;
+  status?: number;
+  latencyMs: number;
+  error?: string;
+  url: string;
 }
 
 export interface PHPConfig {
@@ -130,6 +165,8 @@ export interface Project {
   backupSchedule: BackupSchedule;
   ideGateway?: boolean;
   limits?: ResourceLimits;
+  /** The health check with its defaults filled in; absent when off. */
+  healthCheck?: HealthCheck;
 }
 
 /**

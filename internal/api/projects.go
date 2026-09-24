@@ -69,6 +69,8 @@ type statusDTO struct {
 	Warnings []string           `json:"warnings"`
 	// Operation is the lifecycle action running on the project right now, if any.
 	Operation *project.Operation `json:"operation,omitempty"`
+	// Health is the state of the application health check, if the project has one.
+	Health *project.HealthStatus `json:"health,omitempty"`
 }
 
 type projectDTO struct {
@@ -95,6 +97,8 @@ type projectDTO struct {
 	IDEGateway     bool              `json:"ideGateway"`
 	// Limits cap CPU, memory and processes of the containers (zero values: none).
 	Limits store.ResourceLimits `json:"limits"`
+	// HealthCheck is the application health check as stored (absent: none).
+	HealthCheck *store.HealthCheck `json:"healthCheck,omitempty"`
 	// Serves says what the primary host name reaches: "php", "python" (application
 	// server), "node" (dev server) or "static"; AppService is the application container's
 	// kind (php, python, node), absent for static sites.
@@ -118,7 +122,7 @@ func toPorts(in []docker.PortMapping) []portDTO {
 }
 
 func toStatus(st project.Status) statusDTO {
-	out := statusDTO{State: string(st.State), Services: []serviceStatusDTO{}, Warnings: st.Warnings, Operation: st.Operation}
+	out := statusDTO{State: string(st.State), Services: []serviceStatusDTO{}, Warnings: st.Warnings, Operation: st.Operation, Health: st.Health}
 	if out.Warnings == nil {
 		out.Warnings = []string{}
 	}
@@ -433,6 +437,10 @@ func (a *API) withHostnames(r *http.Request, dto projectDTO, p store.Project) pr
 	dto.BackupSchedule = toSchedule(p.Backup)
 	dto.IDEGateway = p.IDEGateway
 	dto.Limits = p.Limits
+	if p.HealthCheck.Enabled() {
+		h := p.HealthCheck.WithDefaults()
+		dto.HealthCheck = &h
+	}
 	if svc := p.Service(store.ServiceNode); svc != nil && svc.Enabled && len(svc.Config) > 0 {
 		var cfg runtime.NodeConfig
 		if json.Unmarshal(svc.Config, &cfg) == nil && cfg.DevServer {
@@ -726,6 +734,37 @@ func (a *API) setLimits(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"project": a.project(r, view)})
+}
+
+// setHealthCheck changes a project's health check: PUT /projects/{id}/health-check. An
+// empty path switches it off.
+func (a *API) setHealthCheck(w http.ResponseWriter, r *http.Request) {
+	var req store.HealthCheck
+	if err := decodeJSON(w, r, &req); err != nil {
+		writeError(w, r, err)
+		return
+	}
+	view, err := a.d.Projects.SetHealthCheck(r.Context(), r.PathValue("id"), req)
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"project": a.project(r, view)})
+}
+
+// testHealthCheck runs a check once, saved or not: POST /projects/{id}/health-check/test.
+func (a *API) testHealthCheck(w http.ResponseWriter, r *http.Request) {
+	var req store.HealthCheck
+	if err := decodeJSON(w, r, &req); err != nil {
+		writeError(w, r, err)
+		return
+	}
+	res, err := a.d.Projects.CheckHealth(r.Context(), r.PathValue("id"), req)
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"result": res})
 }
 
 func (a *API) projectStats(w http.ResponseWriter, r *http.Request) {

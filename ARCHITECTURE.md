@@ -1011,6 +1011,21 @@ when the stream breaks), keeps the latest kill per container for 24 h as a
 status warning and sends `project.oom`. The project stats endpoint returns
 each running container with its group and limits for the usage bars.
 
+### Health checks
+`store.HealthCheck` (JSON column `projects.health_check`, defaults stored as
+zero) is a path, an expected status, interval, timeout and failure threshold.
+`RunHealthChecks` runs `HealthPass` every 5 s; a due check resolves the
+application's upstream with `appTarget` – the proxy's own routing, so the
+check reaches exactly what visitors reach – and sends a GET with the project's
+host name, `X-Forwarded-Proto: https` and no redirect following. The state per
+project (`pending`, `up`, `failing`, `down`, `paused`) lives in memory, is
+attached to the project status (`status.health`, plus a warning while down)
+and drives the `project.down` notifications: one when the threshold is
+reached, one when the check passes again (the down key is cleared then). A
+stopped project, a running operation or a stopped application container pause
+the check without counting failures. `CheckHealth` runs one unsaved check
+for the UI's *Test* button.
+
 ### Resource history
 `Manager.RunMetrics` ticks on the minute. `sampleMetrics` reads
 `ContainerStats` of every running project container (8 at a time) and turns

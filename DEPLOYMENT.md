@@ -615,6 +615,31 @@ memory at 14:03 (limit 512 MiB); a process was killed") and a notification
 goes out (event `project.oom`, on by default). The limits also go into the project manifest
 (`limits:` in `envoryx.yml`) and show up in `envoryx project show`.
 
+## Health checks
+
+A running container is not a working application: PHP may answer every
+request with a 500, the database may be unreachable, a deploy may have left
+the app in maintenance mode. A project's **Overview** tab sets up a health
+check – a path such as `/health` or Laravel's `/up` that must answer with the
+expected status:
+
+- Envoryx asks the web server the way the proxy does: directly on the project
+  network, with the project's host name and `X-Forwarded-Proto: https`, so
+  the application sees a normal visitor. DNS and certificates play no part –
+  the check is about the application. Redirects are not followed; `/health`
+  answering `302 → /login` is a failure that names the target.
+- Every 30 seconds by default (10 s to 1 h), 5 seconds per answer, and the
+  application is **down** after 3 failures in a row. Down and back each send
+  one notification (`project.down`, on by default); the project shows a
+  warning while it is down. *Test* runs the check once, also before saving.
+- The check pauses while the project is stopped, while an operation (start,
+  deploy, restart …) runs on it and while its application container is not
+  running – that case is already reported as a stopped project. Stopping a
+  project that is down ends the outage without a "back" message.
+- The path should check what the application needs (database, cache, queue)
+  and answer quickly. It is part of `envoryx.yml` (`healthcheck:`) and shown
+  by `envoryx project show`.
+
 ## Resource history
 
 Envoryx records what every running project container uses, once a minute:
@@ -1119,7 +1144,8 @@ PhpStorm/VS Code settings. Turn it off when you are done: it slows PHP down.
 Settings → **Notifications**: pick a channel (ntfy, Discord or Slack
 webhook, Telegram bot, e-mail via SMTP, or a generic JSON webhook), choose
 the events and send a test. Events: a project that should be running is
-stopped/broken (and when it recovers), project creation failed, a container
+stopped/broken (and when it recovers), an application fails its health check
+and when it answers again (see *Health checks*), project creation failed, a container
 ran out of memory (see *Resource limits*), backup failed, Let's Encrypt renewal failed/succeeded, Envoryx started, Envoryx
 failed (refused to start – corrupt database, network filesystem, failed
 migration – or a background task crashed and was restarted). Repeats are
@@ -1127,7 +1153,9 @@ throttled (unhealthy project once per 6 h, failed renewal once per day). The
 failed-start notification is sent before the process exits and needs no
 database, only the channel configured in `/config/notify.json`.
 Secrets live in `/config/notify.json` (0600). SMTP authentication requires
-STARTTLS or TLS.
+STARTTLS or TLS. An event type added by an update follows its default until
+the event selection is saved again, so a new alarm is not silently off for
+anyone who once chose their events.
 
 ## AI assistants (MCP)
 
@@ -1337,6 +1365,10 @@ limits:                          # per container; see "Resource limits"
   app: {cpus: 2, memory: 2G}
   services: {memory: 1G}
   pids: 4096
+healthcheck:                     # see "Health checks"; or just: healthcheck: /health
+  path: /health
+  status: 200                    # defaults: 200, every 30s, 5s timeout, down after 3
+  interval: 1m
 ```
 
 `node:` and `python:` take the fields of the wizard (`devServer`, `preset`,

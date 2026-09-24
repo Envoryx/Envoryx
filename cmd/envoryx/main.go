@@ -306,6 +306,7 @@ func serve() error {
 	background("backup scheduler", func(ctx context.Context) { manager.RunBackupScheduler(ctx, time.Minute, log) })
 	background("OOM watcher", func(ctx context.Context) { manager.RunOOMWatcher(ctx, log) })
 	background("resource history", func(ctx context.Context) { manager.RunMetrics(ctx, time.Minute, log) })
+	background("health checks", func(ctx context.Context) { manager.RunHealthChecks(ctx, 5*time.Second, log) })
 	if syncer != nil {
 		background("offsite backups", func(ctx context.Context) { syncer.Run(ctx, time.Minute) })
 	}

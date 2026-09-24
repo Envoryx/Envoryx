@@ -22,6 +22,11 @@ describe("translateMessage", () => {
     expect(translateMessage("Request failed (503)", t)).toBe("Anfrage fehlgeschlagen (503)");
   });
 
+  it("translates the reason inside a health check warning", () => {
+    expect(translateMessage("the health check /health has failed since 14:03: HTTP 500 instead of 200", t)).toBe("Der Health Check /health schlägt seit 14:03 fehl: HTTP 500 statt 200");
+    expect(translateMessage("the health check /up has failed since 09:15: no answer within 5 s", t)).toBe("Der Health Check /up schlägt seit 09:15 fehl: Keine Antwort innerhalb von 5 s");
+  });
+
   it("leaves unknown text alone", () => {
     expect(translateMessage("something: quite unexpected", t)).toBe("something: quite unexpected");
     expect(translateMessage("", t)).toBe("");

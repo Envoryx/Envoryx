@@ -67,6 +67,63 @@ type Manifest struct {
 
 	// Limits cap CPU, memory and processes of every container.
 	Limits *Limits `yaml:"limits,omitempty"`
+
+	// HealthCheck asks the application over HTTP whether it works.
+	HealthCheck *HealthCheck `yaml:"healthcheck,omitempty"`
+}
+
+// HealthCheck is the application health check: a path that must answer with the
+// expected status. "healthcheck: /health" is short for the path alone.
+type HealthCheck struct {
+	Path string `yaml:"path"`
+	// Status is the expected HTTP status (default 200).
+	Status int `yaml:"status,omitempty"`
+	// Interval and Timeout are durations in whole seconds ("30s", "2m"); empty is the
+	// default (30s, 5s).
+	Interval string `yaml:"interval,omitempty"`
+	Timeout  string `yaml:"timeout,omitempty"`
+	// Failures is how many failed checks in a row make the application down (default 3).
+	Failures int `yaml:"failures,omitempty"`
+}
+
+// UnmarshalYAML accepts the path alone as a scalar.
+func (h *HealthCheck) UnmarshalYAML(n *yaml.Node) error {
+	if n.Kind == yaml.ScalarNode {
+		return n.Decode(&h.Path)
+	}
+	type plain HealthCheck
+	return decodeStrict(n, (*plain)(h))
+}
+
+// Seconds parses Interval and Timeout; 0 means the default.
+func (h HealthCheck) Seconds() (interval, timeout int, err error) {
+	parse := func(name, v string) (int, error) {
+		v = strings.TrimSpace(v)
+		if v == "" {
+			return 0, nil
+		}
+		d, err := time.ParseDuration(v)
+		if err != nil || d <= 0 || d%time.Second != 0 {
+			return 0, fmt.Errorf("%w: healthcheck.%s %q is not a duration in whole seconds like 30s or 2m", validate.ErrInvalid, name, v)
+		}
+		return int(d / time.Second), nil
+	}
+	if interval, err = parse("interval", h.Interval); err != nil {
+		return 0, 0, err
+	}
+	timeout, err = parse("timeout", h.Timeout)
+	return interval, timeout, err
+}
+
+// FormatSeconds writes seconds the way the file shows them: 30s, 2m.
+func FormatSeconds(s int) string {
+	if s == 0 {
+		return ""
+	}
+	if s%60 == 0 {
+		return strconv.Itoa(s/60) + "m"
+	}
+	return strconv.Itoa(s) + "s"
 }
 
 // Limits are the resource limits of the application containers (web server, PHP, Node,
@@ -421,6 +478,14 @@ func (m Manifest) Validate() error {
 			if set.CPUs < 0 {
 				return bad("limits.%s.cpus must not be negative", name)
 			}
+		}
+	}
+	if h := m.HealthCheck; h != nil {
+		if !strings.HasPrefix(strings.TrimSpace(h.Path), "/") {
+			return bad("healthcheck.path must start with /, like /health")
+		}
+		if _, _, err := h.Seconds(); err != nil {
+			return bad("%v", unwrapInvalid(err))
 		}
 	}
 	seenWorker := map[string]bool{}

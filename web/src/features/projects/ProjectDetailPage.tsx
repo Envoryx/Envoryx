@@ -1,6 +1,7 @@
 import { clsx } from "clsx";
 import { useTranslation } from "react-i18next";
 import { ResourcesTab } from "./ResourcesTab";
+import { HealthCheckCard } from "./HealthCheckCard";
 import { Copy, Pencil, Trash2, Save, ExternalLink, Undo2, RotateCw } from "lucide-react";
 import { lazy, Suspense, useEffect, useState, type ReactElement } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
@@ -256,6 +257,7 @@ function OverviewTab({ project: p }: { project: Project }) {
         </ul>
       </Card>
       <div className="space-y-6">
+        <HealthCheckCard project={p} />
         <Card>
           <CardHeader title={t("Resources")} />
           <dl className="grid grid-cols-2 gap-4 px-5 py-4 text-sm">
