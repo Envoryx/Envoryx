@@ -34,7 +34,8 @@ Projects:
   project rename <project> <name> --yes rename it and everything derived from it
   project start|stop|restart <project>
   project delete <project> --yes        remove it (--delete-files removes the files too)
-  project logs <project> [flags]        recent output, --follow keeps reading
+  project logs <project> [flags]        recent output, --follow keeps reading,
+                                        --since/--grep/--level filter, -o FILE saves all
   project exec <project> -- <cmd…>      run a command in a container
   project run <project> [action]        run a catalogue action (composer install …)
 

@@ -265,6 +265,8 @@ type LogOptions struct {
 	Follow bool
 	// Since only returns lines newer than this time (zero = no limit).
 	Since time.Time
+	// Until only returns lines older than this time (zero = no limit).
+	Until time.Time
 }
 
 // PullProgress receives human readable image pull progress lines.

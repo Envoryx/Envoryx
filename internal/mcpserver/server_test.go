@@ -107,7 +107,7 @@ func TestToolsCoverTheProjectLifecycle(t *testing.T) {
 	for _, tl := range tools.Tools {
 		names[tl.Name] = true
 	}
-	for _, want := range []string{"list_projects", "create_project", "duplicate_project", "rename_project", "run_action", "get_logs", "create_backup", "create_snapshot", "list_snapshots"} {
+	for _, want := range []string{"list_projects", "create_project", "duplicate_project", "rename_project", "run_action", "get_logs", "get_log_stats", "create_backup", "create_snapshot", "list_snapshots"} {
 		if !names[want] {
 			t.Fatalf("tool %s missing: %v", want, names)
 		}
@@ -188,6 +188,28 @@ func TestToolsCoverTheProjectLifecycle(t *testing.T) {
 	}
 	if res := e.call("get_logs", map[string]any{"project": "test-api", "service": "shell"}, nil); !res.IsError {
 		t.Fatal("unknown service must fail")
+	}
+	e.engine.Logs["envoryx-test-api-php"] = append(e.engine.Logs["envoryx-test-api-php"],
+		docker.LogLine{Time: time.Now(), Stream: "stderr", Text: "PHP Fatal error: Allowed memory size of 1024 bytes exhausted"},
+		docker.LogLine{Time: time.Now(), Stream: "stderr", Text: "PHP Fatal error: Allowed memory size of 2048 bytes exhausted"})
+	var errs struct {
+		Lines   []struct{ Text, Level string }
+		Matched int
+	}
+	e.call("get_logs", map[string]any{"project": "test-api", "level": "error", "since": "1h", "tail": 1}, &errs)
+	if errs.Matched != 2 || len(errs.Lines) != 1 || errs.Lines[0].Level != "error" || !strings.Contains(errs.Lines[0].Text, "2048") {
+		t.Fatalf("filtered logs: %+v", errs)
+	}
+	var stats struct {
+		Errors int
+		Top    []struct{ Count int }
+	}
+	e.call("get_log_stats", map[string]any{"project": "test-api", "since": "1h"}, &stats)
+	if stats.Errors != 2 || len(stats.Top) != 1 || stats.Top[0].Count != 2 {
+		t.Fatalf("log stats: %+v", stats)
+	}
+	if res := e.call("get_logs", map[string]any{"project": "test-api", "since": "yesterday"}, nil); !res.IsError {
+		t.Fatal("a bad time must fail")
 	}
 
 	var dbs struct {

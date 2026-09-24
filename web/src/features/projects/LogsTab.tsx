@@ -1,18 +1,15 @@
 import { clsx } from "clsx";
 import { useTranslation } from "react-i18next";
-import { ArrowDownToLine, Download, Eraser, Pause, Play, Search } from "lucide-react";
+import { ArrowDownToLine, Download, Eraser, History, Pause, Play, Radio, Search } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/api/client";
-import type { Project } from "@/api/types";
-import { Badge, Button, Card, Checkbox, Input } from "@/components/ui";
+import type { LogLevel, Project } from "@/api/types";
+import { Badge, Button, Card, Input, Select } from "@/components/ui";
 import { serviceLabel } from "@/lib/format";
+import { downloadClass, LogHistory } from "./LogHistory";
+import { type LineFilter, lineMatches, LogLinesTable, type ShownLine } from "./LogLines";
 
-interface Line {
-  id: number;
-  time: string;
-  stream: "stdout" | "stderr";
-  text: string;
-}
+type Line = ShownLine & { id: number };
 
 const MAX_LINES = 5000;
 
@@ -70,9 +67,9 @@ function useLogStream(projectId: string, kind: string | null, paused: boolean) {
     ws.onopen = () => setState("live");
     ws.onmessage = (ev) => {
       try {
-        const m = JSON.parse(ev.data as string) as { type: string; time?: string; stream?: "stdout" | "stderr"; text?: string; message?: string };
+        const m = JSON.parse(ev.data as string) as { type: string; time?: string; stream?: "stdout" | "stderr"; text?: string; level?: LogLevel; message?: string };
         if (m.type === "line") {
-          batch.push({ id: ++seq.current, time: m.time ?? "", stream: m.stream ?? "stdout", text: m.text ?? "" });
+          batch.push({ id: ++seq.current, time: m.time ?? "", stream: m.stream ?? "stdout", text: m.text ?? "", level: m.level ?? "" });
           if (flushTimer === null) flushTimer = window.setTimeout(flush, 50);
         } else if (m.type === "error") {
           setError(m.message ?? "stream error");
@@ -102,12 +99,6 @@ function useLogStream(projectId: string, kind: string | null, paused: boolean) {
   return { lines, state, error, clear, pendingCount: pending.current.length };
 }
 
-function formatTime(iso: string): string {
-  const t = Date.parse(iso);
-  if (Number.isNaN(t)) return "";
-  return new Date(t).toLocaleTimeString(undefined, { hour12: false });
-}
-
 export function LogsTab({ project }: { project: Project }) {
   const { t } = useTranslation();
   const services = [
@@ -115,17 +106,67 @@ export function LogsTab({ project }: { project: Project }) {
     ...project.status.services.filter((s) => s.kind === "worker" && s.workerId).map((s) => ({ kind: `worker:${s.workerId}`, label: t("Worker {{name}}", { name: s.variant }) })),
   ];
   const [kind, setKind] = useState<string | null>(services[0]?.kind ?? null);
+  const [mode, setMode] = useState<"live" | "history">("live");
+
+  if (services.length === 0 || !kind) {
+    return <p className="text-sm text-muted">This project has no services.</p>;
+  }
+
+  return (
+    <Card className="flex h-[75vh] min-h-[28rem] flex-col">
+      <div className="flex flex-wrap items-center gap-2 border-b border-default px-3 py-2">
+        <div className="flex flex-wrap items-center gap-1" role="tablist" aria-label={t("Service")}>
+          {services.map((s) => (
+            <button
+              key={s.kind}
+              role="tab"
+              aria-selected={kind === s.kind}
+              onClick={() => setKind(s.kind)}
+              className={clsx("rounded-md px-2.5 py-1.5 text-xs font-medium", kind === s.kind ? "bg-accent-500/10 text-accent-600 dark:text-accent-300" : "text-muted hover:bg-muted hover:text-fg")}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+        <div className="ml-auto inline-flex rounded-md border border-default p-0.5" role="radiogroup" aria-label={t("View")}>
+          {(
+            [
+              ["live", t("Live"), Radio],
+              ["history", t("History"), History],
+            ] as const
+          ).map(([m, label, Icon]) => (
+            <button
+              key={m}
+              role="radio"
+              aria-checked={mode === m}
+              onClick={() => setMode(m)}
+              className={clsx("inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-medium", mode === m ? "bg-muted text-fg" : "text-muted hover:text-fg")}
+            >
+              <Icon className="size-3.5" aria-hidden />
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+      {mode === "live" ? <LiveLogs project={project} kind={kind} /> : <LogHistory key={kind} projectId={project.id} kind={kind} />}
+    </Card>
+  );
+}
+
+/** The live stream of one service, with a client-side filter over the buffer. */
+function LiveLogs({ project, kind }: { project: Project; kind: string }) {
+  const { t } = useTranslation();
   const [paused, setPaused] = useState(false);
   const [query, setQuery] = useState("");
-  const [onlyErrors, setOnlyErrors] = useState(false);
+  const [filter, setFilter] = useState<LineFilter>("all");
   const [autoScroll, setAutoScroll] = useState(true);
   const { lines, state, error, clear } = useLogStream(project.id, kind, paused);
   const viewport = useRef<HTMLDivElement>(null);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return lines.filter((l) => (!onlyErrors || l.stream === "stderr") && (!q || l.text.toLowerCase().includes(q)));
-  }, [lines, query, onlyErrors]);
+    return lines.filter((l) => lineMatches(l, filter, q));
+  }, [lines, query, filter]);
 
   useEffect(() => {
     if (autoScroll && !paused && viewport.current) {
@@ -140,58 +181,34 @@ export function LogsTab({ project }: { project: Project }) {
     setAutoScroll(atBottom);
   };
 
-  const download = async () => {
-    if (!kind) return;
-    const res = await api.projects.logs(project.id, kind, 10000);
-    const text = res.lines.map((l) => `${l.time} [${l.stream}] ${l.text}`).join("\n") + "\n";
-    const blob = new Blob([text], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `envoryx-${project.slug}-${kind}-${new Date().toISOString().replace(/[:.]/g, "-")}.log`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  if (services.length === 0 || !kind) {
-    return <p className="text-sm text-muted">This project has no services.</p>;
-  }
-
   return (
-    <Card className="flex h-[70vh] min-h-[24rem] flex-col">
-      <div className="flex flex-wrap items-center gap-2 border-b border-default px-3 py-2">
-        <div className="flex items-center gap-1" role="tablist" aria-label={t("Service")}>
-          {services.map((s) => (
-            <button
-              key={s.kind}
-              role="tab"
-              aria-selected={kind === s.kind}
-              onClick={() => setKind(s.kind)}
-              className={clsx("rounded-md px-2.5 py-1.5 text-xs font-medium", kind === s.kind ? "bg-accent-500/10 text-accent-600 dark:text-accent-300" : "text-muted hover:bg-muted hover:text-fg")}
-            >
-              {s.label}
-            </button>
-          ))}
-        </div>
-        <span className="ml-1 inline-flex items-center gap-1.5 text-xs text-muted">
+    <>
+      <div className="flex flex-wrap items-center gap-1.5 border-b border-default px-3 py-2">
+        <span className="mr-1 inline-flex items-center gap-1.5 text-xs text-muted">
           <span className={clsx("size-2 rounded-full", state === "live" ? "bg-emerald-500" : state === "connecting" ? "bg-amber-500 animate-pulse" : "bg-zinc-400")} aria-hidden />
           {state === "live" ? (paused ? t("paused") : t("live")) : t(state)}
         </span>
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-subtle" aria-hidden />
+          <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("Search…")} aria-label={t("Search logs")} className="h-8 w-48 pl-7 text-xs" />
+        </div>
+        <Select aria-label={t("Show")} className="h-8 w-44! text-xs" value={filter} onChange={(e) => setFilter(e.target.value as LineFilter)}>
+          <option value="all">{t("All lines")}</option>
+          <option value="warn">{t("Warnings and errors")}</option>
+          <option value="error">{t("Errors only")}</option>
+          <option value="stderr">{t("stderr only")}</option>
+        </Select>
         <div className="ml-auto flex items-center gap-1.5">
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-subtle" aria-hidden />
-            <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("Search…")} aria-label={t("Search logs")} className="h-8 w-48 pl-7 text-xs" />
-          </div>
-          <Checkbox label={t("stderr only")} checked={onlyErrors} onChange={(e) => setOnlyErrors(e.target.checked)} />
           <Button size="sm" onClick={() => setPaused(!paused)} icon={paused ? <Play className="size-3.5" /> : <Pause className="size-3.5" />} aria-pressed={paused}>
             {paused ? t("Resume") : t("Pause")}
           </Button>
           <Button size="sm" onClick={clear} icon={<Eraser className="size-3.5" />}>
             {t("Clear")}
           </Button>
-          <Button size="sm" onClick={() => void download()} icon={<Download className="size-3.5" />}>
+          <a href={api.projects.logDownloadUrl(project.id, kind)} download className={downloadClass} title={t("Everything this service has logged")}>
+            <Download className="size-3.5" aria-hidden />
             {t("Download")}
-          </Button>
+          </a>
         </div>
       </div>
       {error && (
@@ -203,16 +220,7 @@ export function LogsTab({ project }: { project: Project }) {
         {filtered.length === 0 ? (
           <p className="p-4 text-zinc-500">{lines.length === 0 ? t("No output yet.") : t("No lines match the filter.")}</p>
         ) : (
-          <table className="w-full border-collapse">
-            <tbody>
-              {filtered.map((l) => (
-                <tr key={l.id} className={clsx("align-top hover:bg-white/5", l.stream === "stderr" && "text-amber-200")}>
-                  <td className="w-20 select-none whitespace-nowrap py-0 pl-3 pr-2 text-zinc-500">{formatTime(l.time)}</td>
-                  <td className="whitespace-pre-wrap break-all py-0 pr-3">{l.text}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <LogLinesTable lines={filtered} />
         )}
         {!autoScroll && (
           <button
@@ -232,6 +240,6 @@ export function LogsTab({ project }: { project: Project }) {
         </span>
         <Badge>{kind}</Badge>
       </div>
-    </Card>
+    </>
   );
 }

@@ -605,6 +605,9 @@ func (e *MobyEngine) StreamLogs(ctx context.Context, id string, opts LogOptions,
 	if !opts.Since.IsZero() {
 		lo.Since = opts.Since.UTC().Format(time.RFC3339Nano)
 	}
+	if !opts.Until.IsZero() {
+		lo.Until = opts.Until.UTC().Format(time.RFC3339Nano)
+	}
 	rc, err := e.cli.ContainerLogs(ctx, c.ID, lo)
 	if err != nil {
 		return wrap(err)

@@ -428,3 +428,37 @@ func TestDatabaseSnapshotsAndClone(t *testing.T) {
 		t.Fatalf("the way back must be printed:\n%s", out.String())
 	}
 }
+
+func TestProjectLogsPassesTheFilterAndExports(t *testing.T) {
+	var queries []string
+	srv := newFakeServer(t, map[string]func(w http.ResponseWriter, r *http.Request){
+		"/api/v1/projects/11111111-1111-4111-8111-111111111111/services/php/logs": func(w http.ResponseWriter, r *http.Request) {
+			queries = append(queries, r.URL.RawQuery)
+			writeJSON(w, map[string]any{"lines": []map[string]any{{"time": "2026-09-24T10:00:00Z", "stream": "stderr", "text": "PHP Fatal error: boom"}}})
+		},
+		"/api/v1/projects/11111111-1111-4111-8111-111111111111/services/php/logs/download": func(w http.ResponseWriter, r *http.Request) {
+			queries = append(queries, r.URL.RawQuery)
+			_, _ = w.Write([]byte("2026-09-24T10:00:00Z [stderr] PHP Fatal error: boom\n"))
+		},
+	})
+	c, _, errOut := newTestCLI(t, srv, "")
+	if err := c.run(context.Background(), []string{"project", "logs", "acme-shop", "--since", "6h", "--grep", "fatal", "--level", "error"}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(errOut.String(), "PHP Fatal error: boom") || queries[0] != "level=error&q=fatal&since=6h&tail=200" {
+		t.Fatalf("query %q, stderr %q", queries[0], errOut.String())
+	}
+
+	target := filepath.Join(t.TempDir(), "php.log")
+	c, out, _ := newTestCLI(t, srv, "")
+	if err := c.run(context.Background(), []string{"project", "logs", "acme-shop", "--since", "7d", "-o", target}); err != nil {
+		t.Fatal(err)
+	}
+	data, _ := os.ReadFile(target)
+	if queries[1] != "since=7d" || !strings.Contains(string(data), "boom") || !strings.Contains(out.String(), "Wrote "+target) {
+		t.Fatalf("export: query %q, file %q, out %q", queries[1], data, out.String())
+	}
+	if err := c.run(context.Background(), []string{"project", "logs", "acme-shop", "-f", "--until", "1h"}); err == nil {
+		t.Fatal("--until with --follow must be refused")
+	}
+}

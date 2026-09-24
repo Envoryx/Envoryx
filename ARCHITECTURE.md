@@ -161,6 +161,8 @@ Go API (single binary, single container)
   (see §7). Bind mounts for project containers must use host paths.
 - **instance** – backups of Envoryx itself (see §10): create/list/import/
   delete, automatic pre-migrate/pre-restore snapshots, restore at next start.
+- **logs** – what happens to container output beyond streaming it: the level
+  heuristic, the query filter, the error-frequency statistics (see *Logs*).
 - **stats** – one-shot container stats with a short cache, aggregated per
   project and for the dashboard.
 - **api** – thin handlers: decode → validate → call manager/store → encode.
@@ -884,6 +886,23 @@ are kept across edits and allocated when the server or debugpy is switched
 on; removing Python takes its container and the Python workers' containers
 with it, the worker definitions survive as "paused".
 
+### Logs
+Container output comes from Docker's `json-file` driver (10 MB × 3 per
+container). `project.QueryLogs`, `ExportLogs` and `LogStats` read a service's
+lines through one `scanLogs` source with the query's `since`/`until` handed to
+Docker; an unfiltered query also hands over its line count as `tail`, a
+filtered one reads the range and keeps the last N matches in a ring
+(`logs.Ring`). `logs.Classify` guesses the level from the text – a JSON or
+logfmt `level` field wins, otherwise whole words (`fatal`, `error`,
+`exception`, `traceback`, `warning`, `deprecated` …, never `errors` or
+`error_log`) and a 5xx status in access log lines. `logs.Stats` counts per
+minute and picks the bucket size (1 minute … 1 day, under 96 bars) when the
+range is known; errors and warnings are grouped by `logs.Pattern`, the text
+with times, UUIDs, hex ids and numbers masked (at most 2000 patterns). The
+download is streamed (`bufio`, no size limit); an error after the first byte
+ends the file with a `# envoryx: export aborted` line. The live WebSocket
+applies the same filter and sends each line's level.
+
 ### Notifications
 `internal/notify` is a small `Sender` (`Notify(ctx, Event)`, `Clear(key)`)
 with providers webhook/ntfy/Discord/Slack/Telegram/SMTP, per-kind cooldowns
@@ -1027,7 +1046,9 @@ expiry in a background loop; config/token under `/config/ca/acme.json`
   output carries `serves`, `devUrl` and a `directUrl` that is the node host
   port when the dev server serves the project),
   `start/stop/restart_project`, `get_logs` (default service = the
-  application container: php, else node, else web), `list_actions`, `run_action`
+  application container: php, else node, else web; optional `since`, `until`,
+  `query`, `level`), `get_log_stats` (error frequency and the most frequent
+  errors of a range), `list_actions`, `run_action`
   (runs a catalogue action to completion, returns stripped output + exit
   code, 20 min limit), `list/create_database`, `list/create_backup`,
   `list/create_snapshot`, `add_domain`. Deleting projects, dropping databases,
