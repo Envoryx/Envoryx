@@ -514,6 +514,16 @@ export interface SiteAnalysis {
   notices: SiteNotice[];
 }
 
+/** A project's temporary public address (Cloudflare quick tunnel). */
+export interface ProjectShare {
+  active: boolean;
+  state?: "starting" | "online" | "stopped";
+  url?: string;
+  startedAt?: string;
+  expiresAt?: string;
+  message?: string;
+}
+
 /** A way the project runs its tests (PHPUnit, Pest, npm scripts, Playwright, Cypress, pytest, Django). */
 export interface TestSuite {
   id: string;

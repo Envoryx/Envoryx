@@ -11,6 +11,10 @@ release). `:main` follows the development branch.
 ## [Unreleased]
 
 ### Added
+- Share a project on a temporary public https address: a Cloudflare quick
+  tunnel (`*.trycloudflare.com`, no account, no port forwarding) started from
+  the project header, `envoryx project share` or the API, for 5 minutes to 24
+  hours. It ends when its time is up, when the project stops, or by hand.
 - Templates for Drupal (with Drush), TYPO3, Shopware and Craft CMS. Each is
   created with `composer create-project` and wired to the project database:
   Drupal's `settings.php`, TYPO3's `config/system/additional.php`, Craft's

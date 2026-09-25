@@ -30,8 +30,12 @@ const (
 	ActionProjectRestarted  = "project.restarted"
 	ActionProjectDuplicated = "project.duplicated"
 	ActionProjectRenamed    = "project.renamed"
-	ActionProjectDeleted    = "project.deleted"
-	ActionProjectFailed     = "project.failed"
+	// ActionProjectShared: the project was put on a public tunnel address; Unshared: it
+	// ended (by hand, or with the reason why).
+	ActionProjectShared   = "project.shared"
+	ActionProjectUnshared = "project.unshared"
+	ActionProjectDeleted  = "project.deleted"
+	ActionProjectFailed   = "project.failed"
 
 	ActionSettingsChanged = "settings.changed"
 	ActionDBToolOpened    = "project.dbtool_opened"

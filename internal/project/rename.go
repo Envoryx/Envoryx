@@ -122,6 +122,10 @@ func (m *Manager) renameProject(ctx context.Context, id string, req RenameReques
 	result := RenameResult{From: proj.Slug, To: slug, Path: path}
 
 	step(ctx, "Stopping the containers")
+	// The share's tunnel is tied to the old container names; it ends with the rename.
+	if err := m.removeShare(ctx, proj.ID); err != nil {
+		return RenameResult{}, err
+	}
 	if err := m.stopPlan(ctx, proj, oldPlan); err != nil {
 		return RenameResult{}, err
 	}

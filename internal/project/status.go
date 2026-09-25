@@ -99,6 +99,9 @@ func deriveStatus(p store.Project, containers []docker.Container, imageIDs map[s
 		st.Services = append(st.Services, ss)
 	}
 	for kind := range byKind {
+		if kind == shareService {
+			continue // the tunnel of a share is no service of the project
+		}
 		if strings.HasPrefix(kind, "worker:") {
 			if !workerKinds[kind] {
 				st.Warnings = append(st.Warnings, "container for a removed worker still exists")

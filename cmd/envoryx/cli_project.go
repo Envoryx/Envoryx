@@ -29,6 +29,8 @@ func (c *cli) projectCommand(ctx context.Context, args []string) error {
 		return c.projectDuplicate(ctx, rest)
 	case "rename":
 		return c.projectRename(ctx, rest)
+	case "share":
+		return c.projectShare(ctx, rest)
 	case "start", "stop", "restart":
 		return c.projectTransition(ctx, cmd, rest)
 	case "delete", "rm":

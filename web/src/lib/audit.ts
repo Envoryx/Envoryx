@@ -47,6 +47,8 @@ export const auditActionLabels: Record<string, string> = {
   "project.exec": "Command run",
   "action.run": "Action run",
   "test.run": "Tests run",
+  "project.shared": "Project shared",
+  "project.unshared": "Share ended",
   "cron.run": "Cron job run",
   "action.finished": "Action finished",
   "git.deploy_key_generated": "Deploy key generated",
