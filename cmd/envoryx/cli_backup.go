@@ -29,6 +29,9 @@ type backupInfo struct {
 		Database *struct {
 			Name string `json:"name"`
 		} `json:"database"`
+		Databases []struct {
+			DB string `json:"db"`
+		} `json:"databases"`
 		Files *struct {
 			Entries int `json:"entries"`
 		} `json:"files"`
@@ -41,7 +44,14 @@ type backupInfo struct {
 // contents names what is inside a backup, which is what a reader looks for first.
 func (b backupInfo) contents() string {
 	var parts []string
-	if b.Meta.Database != nil {
+	switch n := len(b.Meta.Databases); {
+	case n > 0 && b.Meta.Database != nil:
+		parts = append(parts, fmt.Sprintf("%d databases", n+1))
+	case n > 0:
+		for _, d := range b.Meta.Databases {
+			parts = append(parts, "database "+d.DB)
+		}
+	case b.Meta.Database != nil:
 		parts = append(parts, "database")
 	}
 	if b.Meta.Files != nil {

@@ -95,7 +95,9 @@ export function serviceLabel(kind: string, version?: string, variant?: string): 
   const webNames: Record<string, string> = { caddy: "Caddy", apache: "Apache", nginx: "Nginx" };
   // Product names stay as they are; only the generic fallbacks are translated.
   const name: Record<string, string> = { php: "PHP", web: webNames[variant ?? ""] ?? i18n.t("Web server"), node: "Node.js", python: "Python", database: dbNames[variant ?? ""] ?? i18n.t("Database"), redis: "Redis", memcached: "Memcached", mailpit: "Mailpit", rabbitmq: "RabbitMQ", meilisearch: "Meilisearch", typesense: "Typesense", opensearch: "OpenSearch", "opensearch-dashboards": "OpenSearch Dashboards", storage: i18n.t("Object storage") };
-  const base = name[kind] ?? kind;
+  // An additional database: its name, then the engine ("analytics · PostgreSQL 18").
+  const extraDB = kind.startsWith("db-") ? `${kind.slice(3)} · ${dbNames[variant ?? ""] ?? i18n.t("Database")}` : undefined;
+  const base = extraDB ?? name[kind] ?? kind;
   return version ? `${base} ${version}` : base;
 }
 

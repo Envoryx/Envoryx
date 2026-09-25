@@ -15,6 +15,7 @@ import (
 
 	"github.com/envoryx/envoryx/internal/docker"
 	"github.com/envoryx/envoryx/internal/logs"
+	"github.com/envoryx/envoryx/internal/project"
 	"github.com/envoryx/envoryx/internal/store"
 	"github.com/envoryx/envoryx/internal/validate"
 )
@@ -25,6 +26,9 @@ func serviceKind(r *http.Request) (store.ServiceKind, error) {
 		return k, nil
 	default:
 		if wid, ok := strings.CutPrefix(string(k), "worker:"); ok && validate.UUID(wid) == nil {
+			return k, nil
+		}
+		if name := k.DatabaseName(); name != "" && project.ValidateDatabaseServiceName(name) == nil {
 			return k, nil
 		}
 		return "", newError(http.StatusNotFound, "not_found", "unknown service")

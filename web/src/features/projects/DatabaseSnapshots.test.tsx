@@ -7,6 +7,8 @@ import type { DatabaseInfo, Project } from "@/api/types";
 const shop = "3f0b4a9e-1a2b-4c3d-8e9f-0a1b2c3d4e5f";
 
 const database: DatabaseInfo = {
+  name: "",
+  service: "database",
   type: "mariadb",
   version: "11",
   image: "mariadb:11",
@@ -102,7 +104,34 @@ describe("CloneDatabaseCard", () => {
     await user.type(within(dialog).getByLabelText("Type acme-shop to confirm"), "acme-shop");
     await user.click(within(dialog).getByRole("button", { name: "Clone database" }));
     await waitFor(() => expect(api.calls.some((c) => c.url.endsWith("/database/clone"))).toBe(true));
-    expect(api.calls.find((c) => c.url.endsWith("/database/clone"))!.body).toEqual({ source: staging.id, snapshot: true, confirm: "acme-shop" });
+    expect(api.calls.find((c) => c.url.endsWith("/database/clone"))!.body).toEqual({ source: staging.id, sourceDb: "", snapshot: true, confirm: "acme-shop" });
+  });
+
+  it("offers the additional databases of the same engine, this project's too, and clones into one", async () => {
+    const shopWithReports = withDatabase({
+      services: [
+        { kind: "database", variant: "mariadb", version: "11", image: "mariadb:11", enabled: true, config: {} },
+        { kind: "db-legacy", variant: "mariadb", version: "11", image: "mariadb:11", enabled: true, config: {} },
+      ],
+    });
+    const api = mockApi({
+      ...authedRoutes,
+      "GET /projects": () => ({ body: { projects: [shopWithReports, staging] } }),
+      [`POST /projects/${shop}/database/clone`]: () => ({ body: { clone: { source: "acme-shop", database: "acme_shop" } } }),
+    });
+    const legacy = { ...database, name: "legacy", service: "db-legacy", host: "legacy" };
+    renderApp(<CloneDatabaseCard project={shopWithReports} database={legacy} onMessage={() => {}} />);
+    const user = userEvent.setup();
+    const select = (await screen.findByLabelText("Source project")) as HTMLSelectElement;
+    expect([...select.options].map((o) => o.textContent)).toEqual(["Acme Shop (acme-shop)", "Staging (staging)"]);
+    await user.click(screen.getByRole("button", { name: "Clone database" }));
+    const dialog = screen.getByRole("dialog");
+    await user.type(within(dialog).getByLabelText("Type acme-shop to confirm"), "acme-shop");
+    await user.click(within(dialog).getByRole("button", { name: "Clone database" }));
+    await waitFor(() => expect(api.calls.some((c) => c.url.includes("/database/clone"))).toBe(true));
+    const call = api.calls.find((c) => c.url.includes("/database/clone"))!;
+    expect(call.url).toContain("/database/clone?db=legacy");
+    expect(call.body).toEqual({ source: shop, sourceDb: "", snapshot: true, confirm: "acme-shop" });
   });
 
   it("says so when no other project runs the same engine", async () => {

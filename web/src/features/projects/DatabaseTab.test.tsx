@@ -95,4 +95,44 @@ describe("DatabaseTab database browser", () => {
     expect(await screen.findByText("Enable the database browser in Settings first.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Open database" })).toBeDisabled();
   });
+
+  it("switches between the primary and additional databases and adds another one", async () => {
+    const id = "3f0b4a9e-1a2b-4c3d-8e9f-0a1b2c3d4e5f";
+    const project = makeProject({
+      services: [
+        ...makeProject().services,
+        { kind: "database", variant: "mariadb", version: "11", image: "mariadb:11", enabled: true, config: {} },
+        { kind: "db-analytics", variant: "postgresql", version: "18", image: "postgres:18", enabled: true, config: {} },
+      ],
+    });
+    const info = (over: Record<string, unknown>) => ({
+      body: { database: { name: "", service: "database", type: "mariadb", version: "11", image: "mariadb:11", host: "database", port: 3306, database: "acme_shop", username: "acme_shop", hostPort: 0, injectedEnv: [], state: "stopped", volumeName: "v", volumeExists: true, ...over } },
+    });
+    const api = mockApi({
+      ...authedRoutes,
+      "GET /runtimes": () => ({ body: runtimesFixture }),
+      [`GET /projects/${id}/database?db=analytics`]: () => info({ name: "analytics", service: "db-analytics", type: "postgresql", version: "18", host: "analytics", port: 5432, volumeName: "envoryx-acme-shop-db-analytics" }),
+      [`GET /projects/${id}/database/snapshots?db=analytics`]: () => ({ body: { snapshots: [] } }),
+      [`GET /projects/${id}/database/snapshots`]: () => ({ body: { snapshots: [] } }),
+      [`GET /projects/${id}/database`]: () => info({}),
+      [`PATCH /projects/${id}`]: () => ({ body: { project } }),
+    });
+    renderApp(<DatabaseTab project={project} />);
+    const user = userEvent.setup();
+
+    expect(await screen.findByRole("button", { name: /Primary/, pressed: true })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /analytics/ }));
+    expect(await screen.findByText("envoryx-acme-shop-db-analytics")).toBeInTheDocument();
+    expect(screen.getByText(/ANALYTICS_DB_\*/)).toBeInTheDocument();
+    expect(api.calls.some((c) => c.url.endsWith("/database?db=analytics"))).toBe(true);
+
+    await user.click(screen.getAllByRole("button", { name: "Add database" })[0]!);
+    const name = await screen.findByLabelText("Name");
+    await user.type(name, "legacy");
+    await user.selectOptions(screen.getByLabelText("Type"), "mariadb");
+    const buttons = screen.getAllByRole("button", { name: "Add database" });
+    await user.click(buttons[buttons.length - 1]!);
+    await waitFor(() => expect(api.calls.some((c) => c.method === "PATCH")).toBe(true));
+    expect(api.calls.find((c) => c.method === "PATCH")!.body).toMatchObject({ databases: { legacy: { enabled: true, type: "mariadb" } } });
+  });
 });

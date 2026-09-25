@@ -216,10 +216,10 @@ func statefulServices(t *testing.T, engine string) {
 		if err := crashLooping(t, m, id, restarting); err != nil {
 			return err
 		}
-		_, err := m.ListDatabases(ctx, id)
+		_, err := m.ListDatabases(ctx, id, "")
 		return err
 	})
-	if err := m.CreateDatabase(ctx, id, "persisted"); err != nil {
+	if err := m.CreateDatabase(ctx, id, "", "persisted"); err != nil {
 		t.Fatalf("create database: %v", err)
 	}
 
@@ -247,7 +247,7 @@ func statefulServices(t *testing.T, engine string) {
 		if err := crashLooping(t, m, id, restarting); err != nil {
 			return err
 		}
-		names, err := m.ListDatabases(ctx, id)
+		names, err := m.ListDatabases(ctx, id, "")
 		if err != nil {
 			return err
 		}
@@ -274,12 +274,18 @@ func statefulServices(t *testing.T, engine string) {
 // and reads rows without a driver, and it works for every SQL engine in the catalogue.
 func sqlIn(t *testing.T, m *Manager, id, sql string) string {
 	t.Helper()
+	return sqlInDB(t, m, id, "", sql)
+}
+
+// sqlInDB runs SQL in a database of the project ("" = the primary) as its login.
+func sqlInDB(t *testing.T, m *Manager, id, db, sql string) string {
+	t.Helper()
 	ctx := context.Background()
 	p, err := m.loadProject(ctx, id)
 	if err != nil {
 		t.Fatal(err)
 	}
-	svc, cfg, err := databaseConfig(p)
+	svc, cfg, err := databaseOf(p, db)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -287,7 +293,7 @@ func sqlIn(t *testing.T, m *Manager, id, sql string) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	c, err := m.ServiceContainer(ctx, id, store.ServiceDatabase)
+	c, err := m.ServiceContainer(ctx, id, svc.Kind)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -343,7 +349,7 @@ func snapshotAndClone(t *testing.T, engine string) {
 			if err := crashLooping(t, m, id, restarting); err != nil {
 				return err
 			}
-			_, err := m.ListDatabases(ctx, id)
+			_, err := m.ListDatabases(ctx, id, "")
 			return err
 		})
 		return view.Project
@@ -354,7 +360,7 @@ func snapshotAndClone(t *testing.T, engine string) {
 	sqlIn(t, m, source.ID, "CREATE TABLE orders (note varchar(32)); INSERT INTO orders VALUES ('from-source');")
 	sqlIn(t, m, target.ID, "CREATE TABLE orders (note varchar(32)); INSERT INTO orders VALUES ('from-target');")
 
-	snapshot, err := m.CreateSnapshot(ctx, target.ID, "before the clone")
+	snapshot, err := m.CreateSnapshot(ctx, target.ID, "", "before the clone")
 	if err != nil {
 		t.Fatalf("snapshot: %v", err)
 	}
@@ -374,7 +380,7 @@ func snapshotAndClone(t *testing.T, engine string) {
 		t.Fatalf("the clone must replace the target's rows, got %q", rows)
 	}
 
-	if _, err := m.RestoreSnapshot(ctx, target.ID, snapshot.ID, target.Slug); err != nil {
+	if _, err := m.RestoreSnapshot(ctx, target.ID, "", snapshot.ID, target.Slug); err != nil {
 		t.Fatalf("restore snapshot: %v", err)
 	}
 	rows = sqlIn(t, m, target.ID, "SELECT note FROM orders;")
@@ -384,11 +390,75 @@ func snapshotAndClone(t *testing.T, engine string) {
 
 	// Two snapshots of the target (one taken by hand, one by the clone), none of the
 	// source: it is only ever read.
-	if list, err := m.ListSnapshots(ctx, target.ID); err != nil || len(list) != 2 {
+	if list, err := m.ListSnapshots(ctx, target.ID, ""); err != nil || len(list) != 2 {
 		t.Fatalf("snapshots of the target: %+v %v", list, err)
 	}
-	if list, err := m.ListSnapshots(ctx, source.ID); err != nil || len(list) != 0 {
+	if list, err := m.ListSnapshots(ctx, source.ID, ""); err != nil || len(list) != 0 {
 		t.Fatalf("the source must not be snapshotted: %+v %v", list, err)
+	}
+}
+
+// TestIntegrationRenameWithAdditionalDatabase renames a project whose primary and
+// additional database are both PostgreSQL: its login is the only superuser, and a session
+// cannot rename the role it is logged in as, so the rename goes through a helper login.
+func TestIntegrationRenameWithAdditionalDatabase(t *testing.T) {
+	m := integrationManager(t)
+	ctx := context.Background()
+	view, err := m.Create(ctx, CreateRequest{
+		Name: "Envoryx Rename Source", CreateStarter: true, Start: true,
+		Database:  &DatabaseRequest{Type: "postgresql"},
+		Databases: []NamedDatabaseRequest{{Name: "analytics", DatabaseRequest: DatabaseRequest{Type: "postgresql"}}},
+	})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	id := view.Project.ID
+	slug := view.Project.Slug
+	t.Cleanup(func() {
+		p, err := m.Get(context.Background(), id)
+		if err == nil {
+			slug = p.Project.Slug
+		}
+		if err := m.Delete(context.Background(), id, DeleteOptions{Confirm: slug, DeleteFiles: true}); err != nil {
+			t.Errorf("cleanup: %v", err)
+		}
+	})
+	restarting := map[store.ServiceKind]int{}
+	for _, db := range []string{"", "analytics"} {
+		waitFor(t, "database "+db+" answers", 5*time.Minute, func() error {
+			if err := crashLooping(t, m, id, restarting); err != nil {
+				return err
+			}
+			_, err := m.ListDatabases(ctx, id, db)
+			return err
+		})
+	}
+	sqlInDB(t, m, id, "", "CREATE TABLE orders (note varchar(32)); INSERT INTO orders VALUES ('primary');")
+	sqlInDB(t, m, id, "analytics", "CREATE TABLE visits (note varchar(32)); INSERT INTO visits VALUES ('analytics');")
+
+	res, err := m.Rename(ctx, id, RenameRequest{Name: "Envoryx Rename Target", Confirm: slug})
+	if err != nil {
+		t.Fatalf("rename: %v", err)
+	}
+	slug = res.View.Project.Slug
+	for _, db := range []string{"", "analytics"} {
+		waitFor(t, "renamed database "+db+" answers", 5*time.Minute, func() error {
+			_, err := m.ListDatabases(ctx, id, db)
+			return err
+		})
+	}
+	p, _ := m.Get(ctx, id)
+	for _, db := range []string{"", "analytics"} {
+		_, cfg, err := databaseOf(p.Project, db)
+		if err != nil || cfg.Database != "envoryx_rename_target" || cfg.Username != "envoryx_rename_target" {
+			t.Fatalf("database %q after the rename: %+v %v", db, cfg, err)
+		}
+	}
+	if rows := sqlInDB(t, m, id, "", "SELECT note FROM orders;"); !strings.Contains(rows, "primary") {
+		t.Fatalf("primary rows: %q", rows)
+	}
+	if rows := sqlInDB(t, m, id, "analytics", "SELECT note FROM visits; SELECT rolname FROM pg_roles WHERE rolname = 'envoryx_rename';"); !strings.Contains(rows, "analytics") || strings.Contains(rows, "envoryx_rename\n") {
+		t.Fatalf("analytics rows: %q", rows)
 	}
 }
 

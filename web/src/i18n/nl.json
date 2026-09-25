@@ -1962,5 +1962,21 @@
   "The site brings a .htaccess file, so Apache is suggested: it is the only web server that reads it.": "De site bevat een .htaccess-bestand, dus wordt Apache voorgesteld: dat is de enige webserver die het leest.",
   "Unpacking {{file}}": "{{file}} uitpakken",
   "Adapting the configuration of the website": "Configuratie van de website aanpassen",
-  "Importing the database dump": "Databasedump importeren"
+  "Importing the database dump": "Databasedump importeren",
+  "Lowercase letters, digits and dashes, starting with a letter.": "Kleine letters, cijfers en streepjes, beginnend met een letter.",
+  "The project already has a database of this name.": "Het project heeft al een database met deze naam.",
+  "An additional database runs in a container of its own with its own volume and credentials. It is reached at its name as host and injects variables that start with its name (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …).": "Een extra database draait in een eigen container met een eigen volume en eigen inloggegevens. Hij is bereikbaar onder zijn naam als host en stelt variabelen in die met zijn naam beginnen (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …).",
+  "Name (optional)": "Naam (optioneel)",
+  "Host {{host}}, variables {{prefix}}_DB_HOST, {{prefix}}_DATABASE_URL …": "Host {{host}}, variabelen {{prefix}}_DB_HOST, {{prefix}}_DATABASE_URL …",
+  "Becomes the host name and the prefix of the variables, e.g. analytics.": "Wordt de hostnaam en het voorvoegsel van de variabelen, bijv. analytics.",
+  "Leave empty to add the primary database (host database, DB_* variables).": "Laat leeg om de primaire database toe te voegen (host database, variabelen DB_*).",
+  "Databases of the project": "Databases van het project",
+  "Primary": "Primair",
+  "Inside the project network at the host “{{host}}”. The application containers (PHP, Python, Node) receive these values as {{prefix}}_DB_* and {{prefix}}_DATABASE_URL.": "In het projectnetwerk op host “{{host}}”. De applicatiecontainers (PHP, Python, Node) krijgen deze waarden als {{prefix}}_DB_* en {{prefix}}_DATABASE_URL.",
+  "Logical dumps of all {{number}} databases of the project": "Logische dumps van alle {{number}} databases van het project",
+  "Additional databases": "Extra databases",
+  "Another database server next to the first one – for example PostgreSQL for reporting next to MariaDB. Each is reached at its name as host and injects variables starting with its name (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …).": "Nog een databaseserver naast de eerste – bijvoorbeeld PostgreSQL voor rapportages naast MariaDB. Elke server is bereikbaar onder zijn naam als host en stelt variabelen in die met zijn naam beginnen (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …).",
+  "database": "database",
+  "Add a database": "Database toevoegen",
+  "Restoring the database {{name}}": "Database {{name}} herstellen"
 }

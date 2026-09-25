@@ -58,18 +58,18 @@ func TestPostgresAndMySQLDialects(t *testing.T) {
 	if !strings.Contains(phpEnv, "DB_CONNECTION=pgsql") || !strings.Contains(phpEnv, "DB_PORT=5432") || !strings.Contains(phpEnv, "DATABASE_URL=pgsql://shop_pg:") {
 		t.Fatalf("php env for postgres: %v", php.Spec.Env)
 	}
-	creds, _ := e.m.DatabaseCredentials(ctx, view.Project.ID)
+	creds, _ := e.m.DatabaseCredentials(ctx, view.Project.ID, "")
 	if creds.Port != 5432 || creds.RootPassword != "" {
 		t.Fatalf("postgres credentials: %+v", creds)
 	}
-	dbs, err := e.m.ListDatabases(ctx, view.Project.ID)
+	dbs, err := e.m.ListDatabases(ctx, view.Project.ID, "")
 	if err != nil || strings.Join(dbs, ",") != "reports,shop_pg" {
 		t.Fatalf("list: %v %v", dbs, err)
 	}
 	if cmds[0][0] != "psql" || !strings.Contains(strings.Join(envs[0], ","), "PGPASSWORD="+creds.Password) {
 		t.Fatalf("psql invocation: %v %v", cmds[0], envs[0])
 	}
-	if err := e.m.CreateDatabase(ctx, view.Project.ID, "analytics"); err != nil {
+	if err := e.m.CreateDatabase(ctx, view.Project.ID, "", "analytics"); err != nil {
 		t.Fatal(err)
 	}
 	if last := cmds[len(cmds)-1]; last[len(last)-1] != `CREATE DATABASE "analytics" OWNER "shop_pg" ENCODING 'UTF8'` {

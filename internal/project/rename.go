@@ -168,23 +168,29 @@ func (m *Manager) renameProject(ctx context.Context, id string, req RenameReques
 	renamed := proj // carries the new service configs as they are written
 	renamed.Name, renamed.Slug, renamed.Path = name, slug, path
 	if !req.KeepDataNames {
-		if svc, cfg, err := databaseConfig(proj); err == nil {
+		// Every database of the project carries the identifier, the additional ones too.
+		for _, dbSvc := range proj.Databases() {
+			svc, cfg, err := databaseOf(proj, dbSvc.Kind.DatabaseName())
+			if err != nil {
+				return undoDir(err, "read the database configuration")
+			}
 			newCfg := cfg
 			newCfg.Database = runtime.DBIdentifier(slug)
 			newCfg.Username = newCfg.Database
-			if newCfg.Database != cfg.Database || newCfg.Username != cfg.Username {
-				step(ctx, "Renaming the database to {{name}}", "name", newCfg.Database)
-				if err := m.renameDatabase(ctx, proj, svc, cfg, newCfg); err != nil {
-					return undoDir(err, "rename the database")
-				}
-				if err := m.saveDatabaseConfig(ctx, proj, svc, newCfg); err != nil {
-					return undoDir(err, "record the database name")
-				}
-				setServiceConfig(&renamed, store.ServiceDatabase, newCfg)
+			if newCfg.Database == cfg.Database && newCfg.Username == cfg.Username {
+				continue
+			}
+			step(ctx, "Renaming the database to {{name}}", "name", newCfg.Database)
+			if err := m.renameDatabase(ctx, proj, svc, cfg, newCfg); err != nil {
+				return undoDir(err, "rename the database")
+			}
+			if err := m.saveDatabaseConfig(ctx, proj, svc, newCfg); err != nil {
+				return undoDir(err, "record the database name")
+			}
+			setServiceConfig(&renamed, svc.Kind, newCfg)
+			if svc.Kind == store.ServiceDatabase {
 				result.Database, result.Username = newCfg.Database, newCfg.Username
 			}
-		} else if !errors.Is(err, ErrNotFound) && !errors.Is(err, ErrNoDatabase) {
-			return undoDir(err, "read the database configuration")
 		}
 		if svc, cfg, err := storageConfig(proj); err == nil {
 			newCfg := cfg
@@ -481,7 +487,7 @@ func (m *Manager) renameDatabase(ctx context.Context, p store.Project, svc *stor
 	if err != nil {
 		return err
 	}
-	return m.withServiceRunning(ctx, p, store.ServiceDatabase, func(ctx context.Context) error {
+	return m.withServiceRunning(ctx, p, svc.Kind, func(ctx context.Context) error {
 		if err := m.waitForDatabase(ctx, p, svc, from, dialect); err != nil {
 			return err
 		}
@@ -489,10 +495,27 @@ func (m *Manager) renameDatabase(ctx context.Context, p store.Project, svc *stor
 		// password never changes, so only the name moves.
 		cfg := from
 		if from.Username != to.Username && dialect.RenameUser != nil {
-			if _, err := m.runSQL(ctx, p, svc, cfg, dialect.RenameUser(from.Username, to.Username, from)); err != nil {
+			admin := cfg
+			if dialect.HelperLogin != nil {
+				helper, err := m.helperLogin(ctx, p, svc, cfg, dialect)
+				if err != nil {
+					return err
+				}
+				admin = helper
+			}
+			_, err := m.runSQL(ctx, p, svc, admin, dialect.RenameUser(from.Username, to.Username, from))
+			if err == nil {
+				cfg.Username = to.Username
+			}
+			if dialect.DropLogin != nil && admin.Username != cfg.Username {
+				// Removed as whoever the project's login is now, whatever the rename did.
+				if _, derr := m.runSQL(context.WithoutCancel(ctx), p, svc, cfg, dialect.DropLogin(admin.Username)); derr != nil {
+					m.log.Warn("the helper login of a rename was not removed", "project", p.Slug, "login", admin.Username, "err", derr)
+				}
+			}
+			if err != nil {
 				return fmt.Errorf("rename the login: %w", err)
 			}
-			cfg.Username = to.Username
 		}
 		if from.Database == to.Database {
 			return nil
@@ -506,7 +529,7 @@ func (m *Manager) renameDatabase(ctx context.Context, p store.Project, svc *stor
 		if _, err := m.runSQL(ctx, p, svc, cfg, dialect.CreateDatabase(to.Database, cfg.Username)); err != nil {
 			return fmt.Errorf("create the new database: %w", err)
 		}
-		c, err := m.ServiceContainer(ctx, p.ID, store.ServiceDatabase)
+		c, err := m.ServiceContainer(ctx, p.ID, svc.Kind)
 		if err != nil {
 			return err
 		}
@@ -520,6 +543,22 @@ func (m *Manager) renameDatabase(ctx context.Context, p store.Project, svc *stor
 		}
 		return nil
 	})
+}
+
+// helperLogin creates the short-lived administrator of a rename (see Dialect.HelperLogin)
+// and returns the configuration that logs in as it.
+func (m *Manager) helperLogin(ctx context.Context, p store.Project, svc *store.ProjectService, cfg runtime.DatabaseConfig, dialect runtime.Dialect) (runtime.DatabaseConfig, error) {
+	pw, err := runtime.GeneratePassword(runtime.PasswordLength)
+	if err != nil {
+		return runtime.DatabaseConfig{}, err
+	}
+	helper := cfg
+	helper.Username, helper.Password = "envoryx_rename", pw
+	// A helper a crash left behind goes first; its password is unknown.
+	if _, err := m.runSQL(ctx, p, svc, cfg, dialect.DropLogin(helper.Username)+"; "+dialect.HelperLogin(helper.Username, pw)); err != nil {
+		return runtime.DatabaseConfig{}, fmt.Errorf("create a helper login for the rename: %w", err)
+	}
+	return helper, nil
 }
 
 // renameBucket copies the objects into a bucket under the new name and removes the old

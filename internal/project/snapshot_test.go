@@ -38,7 +38,7 @@ func TestSnapshotDatabase(t *testing.T) {
 	}
 	id := view.Project.ID
 
-	snapshot, err := e.m.CreateSnapshot(ctx, id, "before the orders migration")
+	snapshot, err := e.m.CreateSnapshot(ctx, id, "", "before the orders migration")
 	if err != nil {
 		t.Fatalf("snapshot: %v", err)
 	}
@@ -53,20 +53,20 @@ func TestSnapshotDatabase(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	list, err := e.m.ListSnapshots(ctx, id)
+	list, err := e.m.ListSnapshots(ctx, id, "")
 	if err != nil || len(list) != 1 || list[0].ID != snapshot.ID {
 		t.Fatalf("snapshots: %+v %v (full backup %s must not be one)", list, err, full.ID)
 	}
 
 	// Restoring needs the project's identifier and puts the dump back.
-	if _, err := e.m.RestoreSnapshot(ctx, id, snapshot.ID, "nope"); !errors.Is(err, validate.ErrInvalid) {
+	if _, err := e.m.RestoreSnapshot(ctx, id, "", snapshot.ID, "nope"); !errors.Is(err, validate.ErrInvalid) {
 		t.Fatalf("restore without confirmation: %v", err)
 	}
-	if _, err := e.m.RestoreSnapshot(ctx, id, full.ID, "shop"); err != nil {
+	if _, err := e.m.RestoreSnapshot(ctx, id, "", full.ID, "shop"); err != nil {
 		t.Fatalf("restoring a database-only part of a full backup is fine: %v", err)
 	}
 	imported = nil
-	if _, err := e.m.RestoreSnapshot(ctx, id, snapshot.ID, "shop"); err != nil {
+	if _, err := e.m.RestoreSnapshot(ctx, id, "", snapshot.ID, "shop"); err != nil {
 		t.Fatalf("restore: %v", err)
 	}
 	if len(imported) != 1 || !strings.Contains(imported[0], "envoryx-shop-database: -- dump of envoryx-shop-database") {
@@ -89,14 +89,14 @@ func TestSnapshotStoppedProject(t *testing.T) {
 	if _, err := e.m.Stop(ctx, id); err != nil {
 		t.Fatal(err)
 	}
-	snapshot, err := e.m.CreateSnapshot(ctx, id, "")
+	snapshot, err := e.m.CreateSnapshot(ctx, id, "", "")
 	if err != nil {
 		t.Fatalf("snapshot: %v", err)
 	}
 	if db, _ := e.engine.Container("envoryx-shop-database"); db.State == "running" {
 		t.Fatal("the database container must be stopped again after the snapshot")
 	}
-	if _, err := e.m.RestoreSnapshot(ctx, id, snapshot.ID, "shop"); err != nil {
+	if _, err := e.m.RestoreSnapshot(ctx, id, "", snapshot.ID, "shop"); err != nil {
 		t.Fatalf("restore: %v", err)
 	}
 	if db, _ := e.engine.Container("envoryx-shop-database"); db.State == "running" {
@@ -124,7 +124,7 @@ func TestSnapshotsRollOver(t *testing.T) {
 	}
 	var first string
 	for i := range snapshotKeep + 2 {
-		s, err := e.m.CreateSnapshot(ctx, id, fmt.Sprintf("snapshot %d", i))
+		s, err := e.m.CreateSnapshot(ctx, id, "", fmt.Sprintf("snapshot %d", i))
 		if err != nil {
 			t.Fatalf("snapshot %d: %v", i, err)
 		}
@@ -195,10 +195,10 @@ func TestCloneDatabaseBetweenProjects(t *testing.T) {
 	if res.Snapshot == nil || res.Snapshot.Kind != "database" || !strings.Contains(res.Snapshot.Meta.Note, "staging") {
 		t.Fatalf("snapshot: %+v", res.Snapshot)
 	}
-	if snapshots, err := e.m.ListSnapshots(ctx, local.Project.ID); err != nil || len(snapshots) != 1 {
+	if snapshots, err := e.m.ListSnapshots(ctx, local.Project.ID, ""); err != nil || len(snapshots) != 1 {
 		t.Fatalf("the snapshot belongs to the target: %+v %v", snapshots, err)
 	}
-	if snapshots, _ := e.m.ListSnapshots(ctx, staging.Project.ID); len(snapshots) != 0 {
+	if snapshots, _ := e.m.ListSnapshots(ctx, staging.Project.ID, ""); len(snapshots) != 0 {
 		t.Fatalf("the source is only read: %+v", snapshots)
 	}
 	// Staging's dump went into local's database, not the other way round.

@@ -74,11 +74,11 @@ func TestCreateProjectWithDatabase(t *testing.T) {
 		t.Fatalf("status services: %+v", view.Status.Services)
 	}
 
-	info, err := e.m.DatabaseInfo(ctx, p.ID)
+	info, err := e.m.DatabaseInfo(ctx, p.ID, "")
 	if err != nil || info.Database != "shop" || info.HostPort != 20001 || !info.VolumeExists || info.State != "running" {
 		t.Fatalf("info: %+v %v", info, err)
 	}
-	creds, err := e.m.DatabaseCredentials(ctx, p.ID)
+	creds, err := e.m.DatabaseCredentials(ctx, p.ID, "")
 	if err != nil || creds.Password != cfg.Password || creds.RootPassword != cfg.RootPassword {
 		t.Fatalf("credentials: %+v %v", creds, err)
 	}
@@ -136,33 +136,33 @@ func TestDatabaseOperationsViaExec(t *testing.T) {
 		t.Fatal(err)
 	}
 	id := view.Project.ID
-	creds, _ := e.m.DatabaseCredentials(ctx, id)
+	creds, _ := e.m.DatabaseCredentials(ctx, id, "")
 
-	dbs, err := e.m.ListDatabases(ctx, id)
+	dbs, err := e.m.ListDatabases(ctx, id, "")
 	if err != nil || strings.Join(dbs, ",") != "reports,shop" {
 		t.Fatalf("list: %v %v", dbs, err)
 	}
-	if err := e.m.CreateDatabase(ctx, id, "reports_v2"); err != nil {
+	if err := e.m.CreateDatabase(ctx, id, "", "reports_v2"); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(statements[len(statements)-1], "CREATE DATABASE `reports_v2`") || !strings.Contains(statements[len(statements)-1], "GRANT ALL PRIVILEGES ON `reports_v2`.* TO 'shop'@'%'") {
 		t.Fatalf("create statement: %s", statements[len(statements)-1])
 	}
 	for _, bad := range []string{"Bad Name", "mysql", "1abc", "a;drop", "../x"} {
-		if err := e.m.CreateDatabase(ctx, id, bad); !errors.Is(err, validate.ErrInvalid) {
+		if err := e.m.CreateDatabase(ctx, id, "", bad); !errors.Is(err, validate.ErrInvalid) {
 			t.Errorf("%q must be rejected, got %v", bad, err)
 		}
 	}
-	if err := e.m.CreateDatabase(ctx, id, "broken"); err == nil || !strings.Contains(err.Error(), "database exists") {
+	if err := e.m.CreateDatabase(ctx, id, "", "broken"); err == nil || !strings.Contains(err.Error(), "database exists") {
 		t.Fatalf("server errors must surface: %v", err)
 	}
-	if err := e.m.DropDatabase(ctx, id, "reports", "nope"); !errors.Is(err, validate.ErrInvalid) {
+	if err := e.m.DropDatabase(ctx, id, "", "reports", "nope"); !errors.Is(err, validate.ErrInvalid) {
 		t.Fatalf("drop needs confirmation, got %v", err)
 	}
-	if err := e.m.DropDatabase(ctx, id, "shop", "shop"); !errors.Is(err, validate.ErrInvalid) {
+	if err := e.m.DropDatabase(ctx, id, "", "shop", "shop"); !errors.Is(err, validate.ErrInvalid) {
 		t.Fatalf("primary database must be protected, got %v", err)
 	}
-	if err := e.m.DropDatabase(ctx, id, "reports", "reports"); err != nil {
+	if err := e.m.DropDatabase(ctx, id, "", "reports", "reports"); err != nil {
 		t.Fatal(err)
 	}
 	if statements[len(statements)-1] != "DROP DATABASE `reports`" {
@@ -180,11 +180,11 @@ func TestDatabaseOperationsViaExec(t *testing.T) {
 
 	// Rotation: new password on the server, stored, php recreated with it.
 	phpBefore, _ := e.engine.Container("envoryx-shop-php")
-	view, err = e.m.RotateDatabasePassword(ctx, id)
+	view, err = e.m.RotateDatabasePassword(ctx, id, "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	after, _ := e.m.DatabaseCredentials(ctx, id)
+	after, _ := e.m.DatabaseCredentials(ctx, id, "")
 	if after.Password == creds.Password || len(after.Password) != runtime.PasswordLength {
 		t.Fatalf("password not rotated: %q", after.Password)
 	}
@@ -214,11 +214,11 @@ func TestDatabaseOperationsRequireRunningContainer(t *testing.T) {
 	if _, err := e.m.Stop(ctx, view.Project.ID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := e.m.ListDatabases(ctx, view.Project.ID); !errors.Is(err, ErrConflict) {
+	if _, err := e.m.ListDatabases(ctx, view.Project.ID, ""); !errors.Is(err, ErrConflict) {
 		t.Fatalf("expected conflict while stopped, got %v", err)
 	}
 	plain, _ := e.m.Create(ctx, phpRequest("NoDB", false))
-	if _, err := e.m.DatabaseInfo(ctx, plain.Project.ID); !errors.Is(err, ErrNotFound) {
+	if _, err := e.m.DatabaseInfo(ctx, plain.Project.ID, ""); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("expected not found for project without database, got %v", err)
 	}
 }
@@ -382,11 +382,11 @@ func TestMongoDBProject(t *testing.T) {
 	if !strings.HasPrefix(uri, "MONGODB_URI=mongodb://shop:") || !strings.HasSuffix(uri, "@database:27017/shop?authSource=admin") || conn != "DB_CONNECTION=mongodb" {
 		t.Fatalf("injected env: %q %q", uri, conn)
 	}
-	dbs, err := e.m.ListDatabases(ctx, view.Project.ID)
+	dbs, err := e.m.ListDatabases(ctx, view.Project.ID, "")
 	if err != nil || strings.Join(dbs, ",") != "shop" {
 		t.Fatalf("list: %v %v", dbs, err)
 	}
-	if err := e.m.CreateDatabase(ctx, view.Project.ID, "analytics"); err != nil {
+	if err := e.m.CreateDatabase(ctx, view.Project.ID, "", "analytics"); err != nil {
 		t.Fatal(err)
 	}
 	last := cmds[len(cmds)-1]
@@ -420,7 +420,7 @@ func TestDatabaseEnvReachesNodeApplication(t *testing.T) {
 	if strings.Index(calls, "start:envoryx-shop-database") > strings.Index(calls, "start:envoryx-shop-node") {
 		t.Fatalf("database must start before node: %s", calls)
 	}
-	if info, err := e.m.DatabaseInfo(ctx, view.Project.ID); err != nil || info.State != "running" {
+	if info, err := e.m.DatabaseInfo(ctx, view.Project.ID, ""); err != nil || info.State != "running" {
 		t.Fatalf("info: %+v %v", info, err)
 	}
 }

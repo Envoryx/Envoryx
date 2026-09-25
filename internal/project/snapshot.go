@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"path/filepath"
 	"sort"
 
 	"github.com/envoryx/envoryx/internal/audit"
@@ -13,7 +12,7 @@ import (
 	"github.com/envoryx/envoryx/internal/validate"
 )
 
-// A snapshot is a backup of the primary database and nothing else: the dump you want
+// A snapshot is a backup of one database of a project and nothing else: the dump you want
 // taken before a migration, a mass update or a query you are not sure about, and put back
 // with one click when it goes wrong. It is the ordinary backup machinery – same directory
 // under /config/backups, same metadata, same dump and import path – so a snapshot can be
@@ -30,10 +29,10 @@ const (
 	snapshotKeep   = 10
 )
 
-// CreateSnapshot dumps the primary database of a project. Unlike a backup it does not need
-// the project to be running: a stopped database container is started for the dump and
-// stopped again afterwards.
-func (m *Manager) CreateSnapshot(ctx context.Context, id, note string) (BackupInfo, error) {
+// CreateSnapshot dumps a database of a project (db "" = the primary). Unlike a backup it
+// does not need the project to be running: a stopped database container is started for
+// the dump and stopped again afterwards.
+func (m *Manager) CreateSnapshot(ctx context.Context, id, db, note string) (BackupInfo, error) {
 	if err := validate.UUID(id); err != nil {
 		return BackupInfo{}, ErrNotFound
 	}
@@ -51,21 +50,21 @@ func (m *Manager) CreateSnapshot(ctx context.Context, id, note string) (BackupIn
 		if err != nil {
 			return err
 		}
-		info, err = m.snapshotLocked(ctx, p, note, snapshotSource)
+		info, err = m.snapshotLocked(ctx, p, db, note, snapshotSource)
 		return err
 	})
 	if err != nil {
 		return BackupInfo{}, err
 	}
-	m.pruneSnapshots(context.WithoutCancel(ctx), id)
+	m.pruneSnapshots(context.WithoutCancel(ctx), id, db)
 	return info, nil
 }
 
-// snapshotLocked dumps the primary database for a caller that already holds the project
-// lock. source says who asked: a snapshot taken by hand, or a clone protecting the state
-// it is about to overwrite.
-func (m *Manager) snapshotLocked(ctx context.Context, p store.Project, note, source string) (BackupInfo, error) {
-	svc, cfg, err := databaseConfig(p)
+// snapshotLocked dumps one database for a caller that already holds the project lock.
+// source says who asked: a snapshot taken by hand, or a clone protecting the state it is
+// about to overwrite.
+func (m *Manager) snapshotLocked(ctx context.Context, p store.Project, db, note, source string) (BackupInfo, error) {
+	svc, cfg, err := databaseOf(p, db)
 	if err != nil {
 		return BackupInfo{}, err
 	}
@@ -74,11 +73,11 @@ func (m *Manager) snapshotLocked(ctx context.Context, p store.Project, note, sou
 		return BackupInfo{}, err
 	}
 	var info BackupInfo
-	err = m.withServiceRunning(ctx, p, store.ServiceDatabase, func(ctx context.Context) error {
+	err = m.withServiceRunning(ctx, p, svc.Kind, func(ctx context.Context) error {
 		if err := m.waitForDatabase(ctx, p, svc, cfg, dialect); err != nil {
 			return err
 		}
-		b, err := m.createBackupLocked(ctx, p, BackupOptions{Database: true, Note: note, Source: source})
+		b, err := m.createBackupLocked(ctx, p, BackupOptions{Database: true, OnlyDB: &db, Note: note, Source: source})
 		if err != nil {
 			return err
 		}
@@ -88,17 +87,17 @@ func (m *Manager) snapshotLocked(ctx context.Context, p store.Project, note, sou
 	return info, err
 }
 
-// ListSnapshots returns the backups of a project that hold a database dump and nothing
-// else, newest first – the snapshots taken by hand, the ones a clone took and the dump a
-// database upgrade insisted on.
-func (m *Manager) ListSnapshots(ctx context.Context, id string) ([]BackupInfo, error) {
+// ListSnapshots returns the backups of a project that hold a dump of the database db and
+// nothing but dumps, newest first – the snapshots taken by hand, the ones a clone took and
+// the dump a database upgrade insisted on.
+func (m *Manager) ListSnapshots(ctx context.Context, id, db string) ([]BackupInfo, error) {
 	list, err := m.ListBackups(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 	out := make([]BackupInfo, 0, len(list))
 	for _, b := range list {
-		if b.Kind == "database" {
+		if b.Kind == "database" && b.Meta.HasDatabase(db) {
 			out = append(out, b)
 		}
 	}
@@ -109,7 +108,7 @@ func (m *Manager) ListSnapshots(ctx context.Context, id string) ([]BackupInfo, e
 // nothing else. Destructive: everything written since the snapshot is gone, so confirm
 // must be the project's identifier. A stopped database container is started for the
 // import and stopped again afterwards.
-func (m *Manager) RestoreSnapshot(ctx context.Context, id, snapshotID, confirm string) (BackupInfo, error) {
+func (m *Manager) RestoreSnapshot(ctx context.Context, id, db, snapshotID, confirm string) (BackupInfo, error) {
 	if err := validate.UUID(id); err != nil {
 		return BackupInfo{}, ErrNotFound
 	}
@@ -130,7 +129,7 @@ func (m *Manager) RestoreSnapshot(ctx context.Context, id, snapshotID, confirm s
 		if confirm != p.Slug {
 			return fmt.Errorf("%w: confirmation must equal the project identifier %q", validate.ErrInvalid, p.Slug)
 		}
-		svc, cfg, err := databaseConfig(p)
+		svc, cfg, err := databaseOf(p, db)
 		if err != nil {
 			return err
 		}
@@ -144,41 +143,45 @@ func (m *Manager) RestoreSnapshot(ctx context.Context, id, snapshotID, confirm s
 		}
 		var meta BackupMeta
 		_ = json.Unmarshal(b.Metadata, &meta)
-		if err := checkDump(meta, svc); err != nil {
+		dump, ok := meta.dump(db)
+		if !ok {
+			return fmt.Errorf("%w: this snapshot holds no dump of %s", validate.ErrInvalid, dbLabel(db))
+		}
+		if err := checkDumpType(dump.Type, svc); err != nil {
 			return err
 		}
 		dir, err := m.backupDir(p.Slug, b.Filename)
 		if err != nil {
 			return err
 		}
-		err = m.withServiceRunning(ctx, p, store.ServiceDatabase, func(ctx context.Context) error {
+		err = m.withServiceRunning(ctx, p, svc.Kind, func(ctx context.Context) error {
 			if err := m.waitForDatabase(ctx, p, svc, cfg, dialect); err != nil {
 				return err
 			}
-			step(ctx, "Restoring the database")
-			return m.restoreDatabase(ctx, p, svc, cfg, filepath.Join(dir, backupDBFile))
+			_, _, err := m.restoreDatabases(ctx, p, meta, dir, &db)
+			return err
 		})
 		if err != nil {
-			return fmt.Errorf("restore database: %w", err)
+			return err
 		}
-		m.audit.Log(ctx, audit.ActionBackupRestored, "project", id, map[string]any{"name": p.Name, "backup": snapshotID, "database": true, "snapshot": true})
+		m.audit.Log(ctx, audit.ActionBackupRestored, "project", id, auditDB(map[string]any{"name": p.Name, "backup": snapshotID, "database": true, "snapshot": true}, db))
 		info = BackupInfo{ID: b.ID, Dir: b.Filename, Kind: b.Kind, SizeBytes: b.SizeBytes, CreatedAt: b.CreatedAt, Meta: meta}
 		return nil
 	})
 	return info, err
 }
 
-// pruneSnapshots keeps the newest snapshotKeep snapshots of a project and deletes the
+// pruneSnapshots keeps the newest snapshotKeep snapshots of a database and deletes the
 // rest. Failures are logged and otherwise ignored: the snapshot that was just taken is
 // what the caller asked for, and an old one left behind is no reason to fail it.
-func (m *Manager) pruneSnapshots(ctx context.Context, id string) {
+func (m *Manager) pruneSnapshots(ctx context.Context, id, db string) {
 	list, err := m.ListBackups(ctx, id)
 	if err != nil {
 		return
 	}
 	var snapshots []BackupInfo
 	for _, b := range list {
-		if b.Meta.Source == snapshotSource {
+		if b.Meta.Source == snapshotSource && snapshotOf(b.Meta) == db {
 			snapshots = append(snapshots, b)
 		}
 	}
@@ -192,11 +195,23 @@ func (m *Manager) pruneSnapshots(ctx context.Context, id string) {
 	}
 }
 
+// snapshotOf names the database a snapshot was taken of (each holds exactly one dump).
+func snapshotOf(meta BackupMeta) string {
+	if meta.Database == nil && len(meta.Databases) == 1 {
+		return meta.Databases[0].DB
+	}
+	return ""
+}
+
 // CloneDatabaseRequest is the intent to replace one project's database contents with
 // another's.
 type CloneDatabaseRequest struct {
-	// Source is the project whose primary database is copied.
+	// Source is the project whose database is copied.
 	Source string
+	// DB is the database of this project that is replaced ("" = the primary).
+	DB string
+	// SourceDB is the database of the source that is copied (nil = the one named like DB).
+	SourceDB *string
 	// Snapshot takes a snapshot of the target's database first, so what the clone
 	// overwrites can be put back.
 	Snapshot bool
@@ -226,8 +241,12 @@ func (m *Manager) CloneDatabase(ctx context.Context, id string, req CloneDatabas
 	if err := validate.UUID(req.Source); err != nil {
 		return CloneDatabaseResult{}, fmt.Errorf("%w: which project should the data come from?", validate.ErrInvalid)
 	}
-	if req.Source == id {
-		return CloneDatabaseResult{}, fmt.Errorf("%w: source and target are the same project", validate.ErrInvalid)
+	sourceDB := req.DB
+	if req.SourceDB != nil {
+		sourceDB = *req.SourceDB
+	}
+	if req.Source == id && sourceDB == req.DB {
+		return CloneDatabaseResult{}, fmt.Errorf("%w: source and target are the same database", validate.ErrInvalid)
 	}
 	var res CloneDatabaseResult
 	err := m.run(ctx, limitDuplicate, Operation{Action: "clone-database", ProjectID: id}, func(ctx context.Context) (err error) {
@@ -235,19 +254,26 @@ func (m *Manager) CloneDatabase(ctx context.Context, id string, req CloneDatabas
 		return err
 	})
 	if res.Snapshot != nil {
-		m.pruneSnapshots(context.WithoutCancel(ctx), id)
+		m.pruneSnapshots(context.WithoutCancel(ctx), id, req.DB)
 	}
 	return res, err
 }
 
 func (m *Manager) cloneDatabase(ctx context.Context, id string, req CloneDatabaseRequest) (CloneDatabaseResult, error) {
-	// The source is read for the length of the clone and the target rewritten, so both
-	// are locked, source first as when a project is duplicated.
-	unlockSrc, err := m.lock(req.Source)
-	if err != nil {
-		return CloneDatabaseResult{}, err
+	sourceDB := req.DB
+	if req.SourceDB != nil {
+		sourceDB = *req.SourceDB
 	}
-	defer unlockSrc()
+	// The source is read for the length of the clone and the target rewritten, so both
+	// are locked, source first as when a project is duplicated – once, when they are two
+	// databases of the same project.
+	if req.Source != id {
+		unlockSrc, err := m.lock(req.Source)
+		if err != nil {
+			return CloneDatabaseResult{}, err
+		}
+		defer unlockSrc()
+	}
 	unlock, err := m.lock(id)
 	if err != nil {
 		return CloneDatabaseResult{}, err
@@ -269,14 +295,14 @@ func (m *Manager) cloneDatabase(ctx context.Context, id string, req CloneDatabas
 			return CloneDatabaseResult{}, fmt.Errorf("%w: %s is %s", ErrConflict, p.Name, p.Lifecycle)
 		}
 	}
-	srcSvc, srcCfg, err := databaseConfig(src)
-	if errors.Is(err, ErrNoDatabase) {
-		return CloneDatabaseResult{}, fmt.Errorf("%w: %s has no database to copy", validate.ErrInvalid, src.Slug)
+	srcSvc, srcCfg, err := databaseOf(src, sourceDB)
+	if errors.Is(err, store.ErrNotFound) {
+		return CloneDatabaseResult{}, fmt.Errorf("%w: %s has no database %s to copy", validate.ErrInvalid, src.Slug, dbLabel(sourceDB))
 	}
 	if err != nil {
 		return CloneDatabaseResult{}, err
 	}
-	dstSvc, dstCfg, err := databaseConfig(dst)
+	dstSvc, dstCfg, err := databaseOf(dst, req.DB)
 	if err != nil {
 		return CloneDatabaseResult{}, err
 	}
@@ -286,22 +312,26 @@ func (m *Manager) cloneDatabase(ctx context.Context, id string, req CloneDatabas
 	res := CloneDatabaseResult{Source: src.Slug, Database: dstCfg.Database}
 	// One start of the target's database covers the snapshot and the import; copyDatabase
 	// finds it running and leaves it as it is.
-	err = m.withServiceRunning(ctx, dst, store.ServiceDatabase, func(ctx context.Context) error {
+	err = m.withServiceRunning(ctx, dst, dstSvc.Kind, func(ctx context.Context) error {
 		if req.Snapshot {
-			snapshot, err := m.snapshotLocked(ctx, dst, "before cloning the database of "+src.Slug, snapshotSource)
+			snapshot, err := m.snapshotLocked(ctx, dst, req.DB, "before cloning the database of "+src.Slug, snapshotSource)
 			if err != nil {
 				return fmt.Errorf("clone refused: the database of %s could not be snapshotted first (%w); take the snapshot out of the request to clone anyway", dst.Slug, err)
 			}
 			res.Snapshot = &snapshot
 		}
 		step(ctx, "Copying the database of {{project}}", "project", src.Slug)
-		return m.copyDatabase(ctx, src, dst)
+		return m.copyDatabaseOf(ctx, src, sourceDB, dst, req.DB)
 	})
 	if err != nil {
 		return res, err
 	}
-	m.audit.Log(ctx, audit.ActionDBCloned, "project", id, map[string]any{
+	details := auditDB(map[string]any{
 		"name": dst.Name, "database": dstCfg.Database, "source": src.Slug, "sourceDatabase": srcCfg.Database, "snapshot": res.Snapshot != nil,
-	})
+	}, req.DB)
+	if sourceDB != "" {
+		details["sourceDb"] = sourceDB
+	}
+	m.audit.Log(ctx, audit.ActionDBCloned, "project", id, details)
 	return res, nil
 }

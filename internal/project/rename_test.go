@@ -85,7 +85,7 @@ func TestRenameProjectMovesEverythingDerivedFromTheIdentifier(t *testing.T) {
 		t.Fatalf("the backup must still be readable: %+v %v", backups, err)
 	}
 	// The database moved through a dump into the new name, and the login was renamed.
-	creds, err := e.m.DatabaseCredentials(ctx, id)
+	creds, err := e.m.DatabaseCredentials(ctx, id, "")
 	if err != nil || creds.Database != "acme_blog" || creds.Username != "acme_blog" {
 		t.Fatalf("credentials: %+v %v", creds, err)
 	}
@@ -119,7 +119,7 @@ func TestRenameProjectKeepsTheDataNamesWhenAsked(t *testing.T) {
 	if res.Database != "" || res.Bucket != "" {
 		t.Fatalf("nothing data-side may be renamed: %+v", res)
 	}
-	creds, _ := e.m.DatabaseCredentials(ctx, id)
+	creds, _ := e.m.DatabaseCredentials(ctx, id, "")
 	if creds.Database != "shop" || creds.Username != "shop" {
 		t.Fatalf("the database keeps its name: %+v", creds)
 	}

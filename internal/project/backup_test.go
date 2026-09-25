@@ -53,7 +53,7 @@ func TestBackupAndRestore(t *testing.T) {
 	if info.Kind != "full" || info.Meta.Database == nil || info.Meta.Files == nil || info.SizeBytes == 0 || info.Meta.Note != "before deploy" {
 		t.Fatalf("backup info: %+v", info)
 	}
-	creds, _ := e.m.DatabaseCredentials(ctx, id)
+	creds, _ := e.m.DatabaseCredentials(ctx, id, "")
 	if !strings.Contains(strings.Join(dumpEnv, ","), "MYSQL_PWD="+creds.RootPassword) {
 		t.Fatal("dump must receive the root password via env")
 	}

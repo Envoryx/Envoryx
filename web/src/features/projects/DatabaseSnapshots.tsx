@@ -5,9 +5,15 @@ import { useProjects, useSnapshotMutations, useSnapshots } from "@/api/hooks";
 import type { BackupInfo, DatabaseInfo, Project } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Checkbox, Dialog, ErrorState, Field, Input, Select, Spinner } from "@/components/ui";
 import { formatBytes, formatDateTime } from "@/lib/format";
+import { databaseServices } from "./databases";
 import { errorText } from "@/lib/errors";
 
 type Message = { tone: "green" | "red"; text: string };
+
+/** How a database is named to the reader: an additional one by its name, the primary by its database. */
+function databaseLabel(d: DatabaseInfo): string {
+  return d.name || d.database;
+}
 
 /** How many snapshots the server keeps per project (`snapshotKeep` in internal/project). */
 const SNAPSHOT_KEEP = 10;
@@ -25,8 +31,8 @@ function sourceBadge(snapshot: BackupInfo, t: (key: string) => string) {
  */
 export function SnapshotsCard({ project, database, onMessage }: { project: Project; database: DatabaseInfo; onMessage: (m: Message) => void }) {
   const { t } = useTranslation();
-  const snapshots = useSnapshots(project.id, true);
-  const { create, restore, remove } = useSnapshotMutations(project.id);
+  const snapshots = useSnapshots(project.id, true, database.name);
+  const { create, restore, remove } = useSnapshotMutations(project.id, database.name);
   const [note, setNote] = useState("");
   const [restoreTarget, setRestoreTarget] = useState<BackupInfo | null>(null);
   const [confirm, setConfirm] = useState("");
@@ -43,7 +49,7 @@ export function SnapshotsCard({ project, database, onMessage }: { project: Proje
             </span>
           }
           description={t("A dump of the database “{{name}}” and nothing else – taken before a migration or a mass update, put back with one click. The project does not have to be running for it, and only the {{keep}} newest snapshots are kept.", {
-            name: database.database,
+            name: databaseLabel(database),
             keep: SNAPSHOT_KEEP,
           })}
         />
@@ -158,7 +164,7 @@ export function SnapshotsCard({ project, database, onMessage }: { project: Proje
       >
         <div className="space-y-4">
           <Alert tone="red" title={t("This overwrites current data")}>
-            {t("The database “{{name}}” is replaced by the dump; everything written since the snapshot is lost.", { name: database.database })}
+            {t("The database “{{name}}” is replaced by the dump; everything written since the snapshot is lost.", { name: databaseLabel(database) })}
           </Alert>
           <Field label={t("Type {{slug}} to confirm", { slug: project.slug })} htmlFor="snapshot-restore-confirm">
             <Input id="snapshot-restore-confirm" value={confirm} onChange={(e) => setConfirm(e.target.value)} autoComplete="off" />
@@ -202,17 +208,23 @@ export function SnapshotsCard({ project, database, onMessage }: { project: Proje
 export function CloneDatabaseCard({ project, database, onMessage }: { project: Project; database: DatabaseInfo; onMessage: (m: Message) => void }) {
   const { t } = useTranslation();
   const projects = useProjects();
-  const { clone } = useSnapshotMutations(project.id);
+  const { clone } = useSnapshotMutations(project.id, database.name);
   const [source, setSource] = useState("");
   const [snapshot, setSnapshot] = useState(true);
   const [open, setOpen] = useState(false);
   const [confirm, setConfirm] = useState("");
 
-  // Only projects that run the same engine can hand their dump over.
-  const candidates = (projects.data ?? []).filter(
-    (p) => p.id !== project.id && p.lifecycle === "ready" && p.services.some((s) => s.kind === "database" && s.enabled && s.variant === database.type),
-  );
-  const selected = candidates.find((p) => p.id === source) ?? candidates[0];
+  // Every database of the same engine can hand its dump over: of another project, or
+  // another database of this one.
+  const candidates = (projects.data ?? [])
+    .filter((p) => p.lifecycle === "ready")
+    .flatMap((p) =>
+      databaseServices(p)
+        .filter((d) => d.variant === database.type && !(p.id === project.id && d.name === database.name))
+        .map((d) => ({ key: `${p.id}|${d.name}`, project: p, db: d.name, label: d.name ? `${p.name} (${p.slug}) · ${d.name}` : `${p.name} (${p.slug})` })),
+    );
+  const selected = candidates.find((c) => c.key === source) ?? candidates[0];
+  const sourceName = selected ? (selected.db ? `${selected.project.slug} · ${selected.db}` : selected.project.slug) : "";
 
   return (
     <Card>
@@ -222,7 +234,7 @@ export function CloneDatabaseCard({ project, database, onMessage }: { project: P
             <Copy className="size-4 text-accent-500" aria-hidden /> {t("Clone from another project")}
           </span>
         }
-        description={t("Copies the contents of another project's database into “{{name}}”. The dump is piped straight over, nothing is written to disk in between, and the other project is only read.", { name: database.database })}
+        description={t("Copies the contents of another project's database into “{{name}}”. The dump is piped straight over, nothing is written to disk in between, and the other project is only read.", { name: databaseLabel(database) })}
       />
       <div className="space-y-4 p-5">
         {candidates.length === 0 ? (
@@ -231,10 +243,10 @@ export function CloneDatabaseCard({ project, database, onMessage }: { project: P
           <>
             <div className="flex items-end gap-2">
               <Field label={t("Source project")} htmlFor="clone-source" hint={t("Projects with a {{engine}} database", { engine: database.type })}>
-                <Select id="clone-source" value={selected?.id ?? ""} onChange={(e) => setSource(e.target.value)}>
-                  {candidates.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} ({p.slug})
+                <Select id="clone-source" value={selected?.key ?? ""} onChange={(e) => setSource(e.target.value)}>
+                  {candidates.map((c) => (
+                    <option key={c.key} value={c.key}>
+                      {c.label}
                     </option>
                   ))}
                 </Select>
@@ -264,7 +276,7 @@ export function CloneDatabaseCard({ project, database, onMessage }: { project: P
       <Dialog
         open={open}
         onClose={() => setOpen(false)}
-        title={t("Clone the database of {{source}}?", { source: selected?.slug ?? "" })}
+        title={t("Clone the database of {{source}}?", { source: sourceName })}
         footer={
           <>
             <Button onClick={() => setOpen(false)}>{t("Cancel")}</Button>
@@ -276,7 +288,7 @@ export function CloneDatabaseCard({ project, database, onMessage }: { project: P
               onClick={() =>
                 selected &&
                 clone.mutate(
-                  { source: selected.id, snapshot, confirm },
+                  { source: selected.project.id, sourceDb: selected.db, snapshot, confirm },
                   {
                     onSuccess: (res) => {
                       setOpen(false);
@@ -302,7 +314,7 @@ export function CloneDatabaseCard({ project, database, onMessage }: { project: P
       >
         <div className="space-y-4">
           <Alert tone="red" title={t("This overwrites current data")}>
-            {t("The database “{{name}}” is replaced by the contents of {{source}}; everything in it now is lost.", { name: database.database, source: selected?.slug ?? "" })}
+            {t("The database “{{name}}” is replaced by the contents of {{source}}; everything in it now is lost.", { name: databaseLabel(database), source: sourceName })}
             {snapshot ? ` ${t("A snapshot is taken first, so it can be put back.")}` : ` ${t("No snapshot is taken – there is no way back.")}`}
           </Alert>
           <Field label={t("Type {{slug}} to confirm", { slug: project.slug })} htmlFor="clone-confirm">

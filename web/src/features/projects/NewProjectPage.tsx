@@ -1,6 +1,6 @@
 import { clsx } from "clsx";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, ArrowRight, Check, Rocket } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Plus, Rocket, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/api/client";
@@ -11,6 +11,7 @@ import { defaultNodePresets, defaultPythonPresets, type AppKind, type CreateProj
 import { Alert, Button, Card, Checkbox, Code, ErrorState, Field, Input, PageHeader, Select, Spinner } from "@/components/ui";
 import { CreateProgress } from "./CreateProgress";
 import { ImportSiteCard, nameFromArchive } from "./ImportSiteCard";
+import { databaseNamePattern } from "./databases";
 import { EnvEditor } from "./EnvEditor";
 import { PhpConfigForm } from "./PhpConfigForm";
 import { webServerHint } from "./webServers";
@@ -56,6 +57,8 @@ interface Form {
   dbType: string; // "" = none
   dbVersion: string;
   dbExpose: boolean;
+  /** Additional databases next to the primary one. */
+  extraDbs: { name: string; type: string; version: string }[];
   redis: boolean;
   redisVersion: string;
   redisExpose: boolean;
@@ -138,6 +141,7 @@ export function NewProjectPage() {
         dbType: "",
         dbVersion: "",
         dbExpose: false,
+        extraDbs: [],
         redis: false,
         redisVersion: runtimes.data.runtimes.find((r) => r.key === "redis")?.versions.find((v) => v.default)?.version ?? "",
         redisExpose: false,
@@ -195,6 +199,8 @@ export function NewProjectPage() {
     if (form.nodeEnabled) req.node = { version: form.nodeVersion, ...devServerRequest(form.nodeDev) };
     if (form.pythonEnabled) req.python = { version: form.pythonVersion, ...pythonServerRequest(form.pythonServer) };
     if (form.dbType) req.database = { type: form.dbType, version: form.dbVersion, exposePort: form.dbExpose };
+    const extraDbs = form.extraDbs.filter((d) => d.name.trim());
+    if (extraDbs.length > 0) req.databases = extraDbs.map((d) => ({ name: d.name.trim(), type: d.type, version: d.version, exposePort: false }));
     if (form.redis) req.redis = { version: form.redisVersion, exposePort: form.redisExpose };
     if (form.memcached) req.memcached = { exposePort: form.memcachedExpose };
     if (form.mailpit) req.mailpit = {};
@@ -256,7 +262,15 @@ export function NewProjectPage() {
   const templates = (rt.templates ?? []).filter((tpl) => templateRuntime(tpl) === form.stack);
   const selectedTemplate = rt.templates?.find((x) => x.id === form.template);
   const nameError = form.name.trim().length > 0 && form.name.trim().length < 2 ? t("At least 2 characters.") : slugify(form.name) === "" && form.name.trim() ? t("Name must contain letters or digits.") : undefined;
-  const canContinue = step === 0 ? form.name.trim().length >= 2 && !nameError && (!form.importing || !!form.importSite) : true;
+  const extraDbError = (i: number): string | undefined => {
+    const n = form.extraDbs[i]!.name.trim();
+    if (!n) return undefined;
+    if (!databaseNamePattern.test(n)) return t("Lowercase letters, digits and dashes, starting with a letter.");
+    if (form.extraDbs.some((d, j) => j < i && d.name.trim() === n)) return t("The project already has a database of this name.");
+    return undefined;
+  };
+  const canContinue = step === 0 ? form.name.trim().length >= 2 && !nameError && (!form.importing || !!form.importSite) : step === 3 ? form.extraDbs.every((_, i) => !extraDbError(i)) : true;
+  const setExtraDb = (i: number, patch: Partial<Form["extraDbs"][number]>) => set({ extraDbs: form.extraDbs.map((d, j) => (j === i ? { ...d, ...patch } : d)) });
   const set = (patch: Partial<Form>) => setForm((f) => (f ? { ...f, ...patch } : f));
 
   /** Presets the runtime checkboxes, docroot and starter page for a stack; fields the user edited stay. */
@@ -659,6 +673,58 @@ export function NewProjectPage() {
                   </p>
                 </div>
               )}
+              <div className="space-y-3">
+                <p className="text-sm font-medium text-fg">{t("Additional databases")}</p>
+                <p className="text-sm text-muted">{t("Another database server next to the first one – for example PostgreSQL for reporting next to MariaDB. Each is reached at its name as host and injects variables starting with its name (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …).")}</p>
+                {form.extraDbs.map((d, i) => {
+                  const engine = databases.find((x) => x.key === d.type);
+                  return (
+                    <div key={i} className="grid gap-3 rounded-md border border-default p-4 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-end">
+                      <Field label={t("Name")} htmlFor={`extra-db-name-${i}`} error={extraDbError(i)}>
+                        <Input id={`extra-db-name-${i}`} value={d.name} onChange={(e) => setExtraDb(i, { name: e.target.value.toLowerCase() })} placeholder="analytics" spellCheck={false} autoComplete="off" />
+                      </Field>
+                      <Field label={t("Type")} htmlFor={`extra-db-type-${i}`}>
+                        <Select
+                          id={`extra-db-type-${i}`}
+                          value={d.type}
+                          onChange={(e) => {
+                            const next = databases.find((x) => x.key === e.target.value);
+                            setExtraDb(i, { type: e.target.value, version: next?.versions.find((v) => v.default)?.version ?? next?.versions[0]?.version ?? "" });
+                          }}
+                        >
+                          {databases
+                            .filter((x) => x.available)
+                            .map((x) => (
+                              <option key={x.key} value={x.key}>
+                                {x.name}
+                              </option>
+                            ))}
+                        </Select>
+                      </Field>
+                      <Field label={t("Version")} htmlFor={`extra-db-version-${i}`}>
+                        <Select id={`extra-db-version-${i}`} value={d.version} onChange={(e) => setExtraDb(i, { version: e.target.value })}>
+                          {engine?.versions.map((v) => (
+                            <option key={v.version} value={v.version}>
+                              {v.label}
+                            </option>
+                          ))}
+                        </Select>
+                      </Field>
+                      <Button variant="ghost" aria-label={t("Remove {{name}}", { name: d.name || t("database") })} onClick={() => set({ extraDbs: form.extraDbs.filter((_, j) => j !== i) })} icon={<Trash2 className="size-4" />} />
+                    </div>
+                  );
+                })}
+                <Button
+                  size="sm"
+                  icon={<Plus className="size-3.5" />}
+                  onClick={() => {
+                    const pg = databases.find((x) => x.key === "postgresql") ?? databases[0];
+                    set({ extraDbs: [...form.extraDbs, { name: "", type: pg?.key ?? "postgresql", version: pg?.versions.find((v) => v.default)?.version ?? "" }] });
+                  }}
+                >
+                  {t("Add a database")}
+                </Button>
+              </div>
               <div className="space-y-3">
                 <p className="text-sm font-medium text-fg">{t("Additional services")}</p>
                 <div className="rounded-md border border-default p-4 space-y-3">

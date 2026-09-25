@@ -93,7 +93,7 @@ func TestDBToolFollowsFolderView(t *testing.T) {
 	if err := e.m.SetDBToolEnabled(ctx, true); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := e.m.OpenDBTool(ctx, view.Project.ID); err != nil {
+	if _, err := e.m.OpenDBTool(ctx, view.Project.ID, ""); err != nil {
 		t.Fatal(err)
 	}
 	before, _ := e.engine.Container(DBToolContainer)
@@ -104,7 +104,7 @@ func TestDBToolFollowsFolderView(t *testing.T) {
 	if err := e.m.SetFolderViewFolder(ctx, "Envoryx"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := e.m.OpenDBTool(ctx, view.Project.ID); err != nil {
+	if _, err := e.m.OpenDBTool(ctx, view.Project.ID, ""); err != nil {
 		t.Fatal(err)
 	}
 	after, _ := e.engine.Container(DBToolContainer)

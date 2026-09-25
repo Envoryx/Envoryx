@@ -214,6 +214,11 @@ function uploadSite(site: File, dump: File | null, onProgress?: (loaded: number,
   });
 }
 
+/** The query that addresses an additional database ("" = the primary: none). */
+function dbQuery(db: string): string {
+  return db ? `?db=${encodeURIComponent(db)}` : "";
+}
+
 export const api = {
   health: () => request<{ status: string; version: string; docker: boolean; database: boolean }>("/health"),
 
@@ -389,7 +394,7 @@ export const api = {
   dbtool: {
     status: () => request<DBToolStatus>("/dbtool"),
     set: (enabled: boolean) => request<DBToolStatus>("/dbtool", { method: "PUT", body: { enabled } }),
-    open: (id: string) => request<DBToolLink>(`/projects/${encodeURIComponent(id)}/dbtool`, { method: "POST" }),
+    open: (id: string, db = "") => request<DBToolLink>(`/projects/${encodeURIComponent(id)}/dbtool${dbQuery(db)}`, { method: "POST" }),
   },
   storage: {
     info: (id: string) => request<{ storage: StorageInfo }>(`/projects/${encodeURIComponent(id)}/storage`),
@@ -403,24 +408,29 @@ export const api = {
   search: {
     credentials: (id: string, kind: "meilisearch" | "typesense") => request<{ credentials: SearchCredentials }>(`/projects/${encodeURIComponent(id)}/${kind}/credentials`),
   },
+  /** Every database of a project: the primary first, then the additional ones by name. */
+  databases: (id: string) => request<{ databases: DatabaseInfo[] }>(`/projects/${encodeURIComponent(id)}/databases`),
+
+  /** One database of a project; db names an additional one, "" is the primary. */
   database: {
-    info: (id: string) => request<{ database: DatabaseInfo }>(`/projects/${encodeURIComponent(id)}/database`),
-    credentials: (id: string) =>
-      request<{ credentials: DatabaseCredentials }>(`/projects/${encodeURIComponent(id)}/database/credentials`),
-    rotate: (id: string) => request<{ project: Project }>(`/projects/${encodeURIComponent(id)}/database/rotate`, { method: "POST" }),
-    expose: (id: string, exposed: boolean) =>
-      request<{ project: Project }>(`/projects/${encodeURIComponent(id)}/database/expose`, { method: "POST", body: { exposed } }),
-    list: (id: string) => request<{ databases: string[] }>(`/projects/${encodeURIComponent(id)}/database/databases`),
-    create: (id: string, name: string) =>
-      request<void>(`/projects/${encodeURIComponent(id)}/database/databases`, { method: "POST", body: { name } }),
-    drop: (id: string, name: string) =>
-      request<void>(`/projects/${encodeURIComponent(id)}/database/databases/${encodeURIComponent(name)}`, { method: "DELETE", body: { confirm: name } }),
-    snapshots: (id: string) => request<{ snapshots: BackupInfo[] }>(`/projects/${encodeURIComponent(id)}/database/snapshots`),
-    snapshot: (id: string, note: string) =>
-      request<{ snapshot: BackupInfo }>(`/projects/${encodeURIComponent(id)}/database/snapshots`, { method: "POST", body: { note } }),
-    restoreSnapshot: (id: string, snapshotId: string, confirm: string) =>
-      request<{ snapshot: BackupInfo }>(`/projects/${encodeURIComponent(id)}/database/snapshots/${encodeURIComponent(snapshotId)}/restore`, { method: "POST", body: { confirm } }),
-    clone: (id: string, body: { source: string; snapshot: boolean; confirm: string }) =>
-      request<{ clone: CloneDatabaseResult }>(`/projects/${encodeURIComponent(id)}/database/clone`, { method: "POST", body }),
+    info: (id: string, db = "") => request<{ database: DatabaseInfo }>(`/projects/${encodeURIComponent(id)}/database${dbQuery(db)}`),
+    credentials: (id: string, db = "") =>
+      request<{ credentials: DatabaseCredentials }>(`/projects/${encodeURIComponent(id)}/database/credentials${dbQuery(db)}`),
+    rotate: (id: string, db = "") => request<{ project: Project }>(`/projects/${encodeURIComponent(id)}/database/rotate${dbQuery(db)}`, { method: "POST" }),
+    expose: (id: string, exposed: boolean, db = "") =>
+      request<{ project: Project }>(`/projects/${encodeURIComponent(id)}/database/expose${dbQuery(db)}`, { method: "POST", body: { exposed } }),
+    list: (id: string, db = "") => request<{ databases: string[] }>(`/projects/${encodeURIComponent(id)}/database/databases${dbQuery(db)}`),
+    create: (id: string, name: string, db = "") =>
+      request<void>(`/projects/${encodeURIComponent(id)}/database/databases${dbQuery(db)}`, { method: "POST", body: { name } }),
+    drop: (id: string, name: string, db = "") =>
+      request<void>(`/projects/${encodeURIComponent(id)}/database/databases/${encodeURIComponent(name)}${dbQuery(db)}`, { method: "DELETE", body: { confirm: name } }),
+    snapshots: (id: string, db = "") => request<{ snapshots: BackupInfo[] }>(`/projects/${encodeURIComponent(id)}/database/snapshots${dbQuery(db)}`),
+    snapshot: (id: string, note: string, db = "") =>
+      request<{ snapshot: BackupInfo }>(`/projects/${encodeURIComponent(id)}/database/snapshots${dbQuery(db)}`, { method: "POST", body: { note } }),
+    restoreSnapshot: (id: string, snapshotId: string, confirm: string, db = "") =>
+      request<{ snapshot: BackupInfo }>(`/projects/${encodeURIComponent(id)}/database/snapshots/${encodeURIComponent(snapshotId)}/restore${dbQuery(db)}`, { method: "POST", body: { confirm } }),
+    /** sourceDb: the source's database (absent = the one named like db, "" = its primary). */
+    clone: (id: string, body: { source: string; sourceDb?: string; snapshot: boolean; confirm: string }, db = "") =>
+      request<{ clone: CloneDatabaseResult }>(`/projects/${encodeURIComponent(id)}/database/clone${dbQuery(db)}`, { method: "POST", body }),
   },
 };

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -744,7 +745,24 @@ func (m *Manager) update(ctx context.Context, id string, req UpdateRequest) (Vie
 		}
 	}
 	if req.Database != nil {
-		r, err := m.applyDatabaseUpdate(ctx, proj, *req.Database, changes)
+		r, err := m.applyDatabaseUpdate(ctx, proj, store.ServiceDatabase, *req.Database, changes)
+		if err != nil {
+			return View{}, err
+		}
+		recreateApp = recreateApp || r
+	}
+	for _, name := range slices.Sorted(maps.Keys(req.Databases)) {
+		upd := req.Databases[name]
+		kind := store.DatabaseKind(name)
+		if proj.Service(kind) == nil {
+			if !upd.Enabled {
+				return View{}, fmt.Errorf("%w: the project has no database %q", store.ErrNotFound, name)
+			}
+			if err := ValidateDatabaseServiceName(name); err != nil {
+				return View{}, err
+			}
+		}
+		r, err := m.applyDatabaseUpdate(ctx, proj, kind, upd, changes)
 		if err != nil {
 			return View{}, err
 		}
@@ -842,6 +860,9 @@ func (m *Manager) update(ctx context.Context, id string, req UpdateRequest) (Vie
 			return View{}, err
 		}
 		for _, c := range existing {
+			if store.ServiceKind(c.Service()).IsDatabase() {
+				continue
+			}
 			switch c.Service() {
 			case string(store.ServiceDatabase), string(store.ServiceRedis), string(store.ServiceMemcached), string(store.ServiceMailpit), string(store.ServiceRabbitMQ), string(store.ServiceMeilisearch), string(store.ServiceTypesense), string(store.ServiceOpenSearch), string(store.ServiceOpenSearchDashboards), string(store.ServiceStorage):
 				continue // stateful/independent services keep running

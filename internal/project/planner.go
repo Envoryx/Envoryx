@@ -220,6 +220,16 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 			continue
 		}
 		labels := docker.ManagedLabels(proj.ID, proj.Slug, string(svc.Kind), p.paths.EnvoryxVersion)
+		if svc.Kind.IsDatabase() {
+			c, volume, err := p.databaseContainer(proj, svc, plan.NetworkName, labels)
+			if err != nil {
+				return Plan{}, err
+			}
+			plan.Volumes = append(plan.Volumes, volume)
+			plan.Containers = append(plan.Containers, c)
+			images[svc.Image] = true
+			continue
+		}
 		switch svc.Kind {
 		case store.ServicePHP:
 			var cfg runtime.PHPConfig
@@ -389,45 +399,6 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 				spec.Ports = append(spec.Ports, docker.PortSpec{HostIP: p.paths.PublishInterface, HostPort: pcfg.DebugHostPort, ContainerPort: pcfg.DebugPort, Protocol: "tcp"})
 			}
 			plan.Containers = append(plan.Containers, ContainerPlan{Kind: store.ServicePython, Order: 12, Spec: spec})
-			images[svc.Image] = true
-
-		case store.ServiceDatabase:
-			dialect, ok := runtime.DialectFor(svc.Variant)
-			if !ok {
-				return Plan{}, fmt.Errorf("database variant %q is not supported", svc.Variant)
-			}
-			var cfg runtime.DatabaseConfig
-			if err := json.Unmarshal(svc.Config, &cfg); err != nil {
-				return Plan{}, fmt.Errorf("database config: %w", err)
-			}
-			if cfg.Password == "" || cfg.Database == "" || cfg.Username == "" || (dialect.HasRoot && cfg.RootPassword == "") {
-				return Plan{}, fmt.Errorf("database config for %s is incomplete", proj.Slug)
-			}
-			volume := VolumeName(proj.Slug, store.ServiceDatabase)
-			plan.Volumes = append(plan.Volumes, volume)
-			spec := docker.ContainerSpec{
-				Name:          ContainerName(proj.Slug, store.ServiceDatabase),
-				Image:         svc.Image,
-				Labels:        labels,
-				Env:           dialect.ContainerEnv(cfg),
-				Cmd:           dialect.Cmd,
-				Network:       plan.NetworkName,
-				NetworkAlias:  []string{"database", svc.Variant},
-				Mounts:        []docker.MountSpec{{Type: "volume", Source: volume, Target: dialect.DataDirTarget(svc.Version)}},
-				RestartPolicy: "unless-stopped",
-				StopTimeout:   30,
-				Healthcheck: &docker.HealthSpec{
-					Test:        dialect.Health,
-					Interval:    10 * time.Second,
-					Timeout:     5 * time.Second,
-					StartPeriod: 30 * time.Second,
-					Retries:     5,
-				},
-			}
-			if cfg.HostPort > 0 {
-				spec.Ports = []docker.PortSpec{{HostIP: p.paths.PublishInterface, HostPort: cfg.HostPort, ContainerPort: dialect.Port, Protocol: "tcp"}}
-			}
-			plan.Containers = append(plan.Containers, ContainerPlan{Kind: store.ServiceDatabase, Order: 5, Spec: spec})
 			images[svc.Image] = true
 
 		case store.ServiceRedis:
@@ -756,6 +727,51 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 	return plan, nil
 }
 
+// databaseContainer plans the container of a database – the primary or an additional
+// one – and returns it with its volume. The primary answers as "database" (and by its
+// flavour, as it always did), an additional one by its name.
+func (p *Planner) databaseContainer(proj store.Project, svc store.ProjectService, network string, labels map[string]string) (ContainerPlan, string, error) {
+	dialect, ok := runtime.DialectFor(svc.Variant)
+	if !ok {
+		return ContainerPlan{}, "", fmt.Errorf("database variant %q is not supported", svc.Variant)
+	}
+	var cfg runtime.DatabaseConfig
+	if err := json.Unmarshal(svc.Config, &cfg); err != nil {
+		return ContainerPlan{}, "", fmt.Errorf("database config: %w", err)
+	}
+	if cfg.Password == "" || cfg.Database == "" || cfg.Username == "" || (dialect.HasRoot && cfg.RootPassword == "") {
+		return ContainerPlan{}, "", fmt.Errorf("database config for %s is incomplete", proj.Slug)
+	}
+	aliases := []string{runtime.PrimaryDatabaseHost, svc.Variant}
+	if name := svc.Kind.DatabaseName(); name != "" {
+		aliases = []string{name}
+	}
+	volume := VolumeName(proj.Slug, svc.Kind)
+	spec := docker.ContainerSpec{
+		Name:          ContainerName(proj.Slug, svc.Kind),
+		Image:         svc.Image,
+		Labels:        labels,
+		Env:           dialect.ContainerEnv(cfg),
+		Cmd:           dialect.Cmd,
+		Network:       network,
+		NetworkAlias:  aliases,
+		Mounts:        []docker.MountSpec{{Type: "volume", Source: volume, Target: dialect.DataDirTarget(svc.Version)}},
+		RestartPolicy: "unless-stopped",
+		StopTimeout:   30,
+		Healthcheck: &docker.HealthSpec{
+			Test:        dialect.Health,
+			Interval:    10 * time.Second,
+			Timeout:     5 * time.Second,
+			StartPeriod: 30 * time.Second,
+			Retries:     5,
+		},
+	}
+	if cfg.HostPort > 0 {
+		spec.Ports = []docker.PortSpec{{HostIP: p.paths.PublishInterface, HostPort: cfg.HostPort, ContainerPort: dialect.Port, Protocol: "tcp"}}
+	}
+	return ContainerPlan{Kind: svc.Kind, Order: 5, Spec: spec}, volume, nil
+}
+
 // webServiceConfig reads the web service's options; an empty or "{}" config (every project
 // created before the SPA fallback existed) means defaults.
 func webServiceConfig(svc store.ProjectService) (runtime.WebServiceConfig, error) {
@@ -835,19 +851,25 @@ func (p *Planner) envStrings(proj store.Project) ([]string, error) {
 		vars[k] = v
 	}
 	order = append(order, "ENVORYX_PROJECT")
-	if db := proj.Service(store.ServiceDatabase); db != nil && db.Enabled {
+	for _, db := range proj.Databases() {
 		var cfg runtime.DatabaseConfig
 		if err := json.Unmarshal(db.Config, &cfg); err != nil {
 			return nil, fmt.Errorf("database config: %w", err)
 		}
-		dbEnv := runtime.DatabaseEnv(cfg, db.Variant)
+		dbEnv := databaseEnv(db, cfg)
+		// The primary's standard keys first, in the order frameworks document them; the
+		// rest (flavour extras such as MONGODB_URI, every key of an additional database)
+		// in a stable order.
+		name := db.Kind.DatabaseName()
+		std := map[string]bool{}
 		for _, k := range []string{"DB_CONNECTION", "DB_HOST", "DB_PORT", "DB_DATABASE", "DB_USERNAME", "DB_PASSWORD", "DATABASE_URL"} {
+			k = envKey(name, k)
+			std[k] = true
 			set(k, dbEnv[k])
 		}
-		// Flavour-specific extras (e.g. MONGODB_URI) in a stable order.
 		extra := make([]string, 0, len(dbEnv))
 		for k := range dbEnv {
-			if _, std := map[string]bool{"DB_CONNECTION": true, "DB_HOST": true, "DB_PORT": true, "DB_DATABASE": true, "DB_USERNAME": true, "DB_PASSWORD": true, "DATABASE_URL": true}[k]; !std {
+			if !std[k] {
 				extra = append(extra, k)
 			}
 		}

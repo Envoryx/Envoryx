@@ -1005,6 +1005,54 @@ line).
 4. For each project: *Backups → Offsite copies → Fetch*, then restore
    database, files and bucket. Starting the project recreates its containers.
 
+## Several databases
+
+A project is not limited to one database. Next to the first one – the
+*primary*, reached as host `database` with `DB_*` and `DATABASE_URL` – it can
+have any number of additional databases, each with a name of its own:
+PostgreSQL for reporting next to MariaDB, or a second MariaDB in another
+version for a legacy part of the application. Add them in the wizard
+(*Database & services → Additional databases*) or later in the Database tab
+(*Add database*); the tab switches between the databases of the project.
+
+An additional database named `analytics`:
+
+| | |
+|---|---|
+| Container | `envoryx-<project>-db-analytics` |
+| Volume | `envoryx-<project>-db-analytics` |
+| Host in the project network | `analytics` |
+| Variables | `ANALYTICS_DB_CONNECTION`, `ANALYTICS_DB_HOST`, `ANALYTICS_DB_PORT`, `ANALYTICS_DB_DATABASE`, `ANALYTICS_DB_USERNAME`, `ANALYTICS_DB_PASSWORD`, `ANALYTICS_DATABASE_URL` (plus `ANALYTICS_MONGODB_URI` for MongoDB) |
+
+Names are 1–24 lowercase letters, digits and dashes starting with a letter
+(dashes become underscores in the variables: `legacy-db` → `LEGACY_DB_DB_HOST`);
+names another container of the project answers to (`database`, `redis`,
+`web`, the engine names …) are refused. Each database has its own generated
+credentials, its own published port if wanted, its own version and upgrades,
+and everything the Database tab offers works per database: credentials,
+password rotation, databases on the server, Adminer, snapshots, cloning.
+
+- **Backups** dump every database of the project: the primary to
+  `database.sql.gz` as before, an additional one to
+  `database-<name>.sql.gz`. Restoring puts back every dump whose database the
+  project still has and names the ones it skipped.
+- **Snapshots** are taken of one database; the list and *Restore* go by it,
+  and the ten newest are kept per database.
+- **Cloning** copies any database of the same engine into the selected one –
+  of another project (`staging`'s `analytics` into `local`'s `analytics`), or
+  another database of the same project.
+- **Duplicating and renaming** carry the additional databases along: the
+  copy gets their contents and ports of its own, a rename moves their names
+  and logins like the primary's.
+- `envoryx.yml` lists them under `databases:` (see *Project manifest*); the
+  CLI takes `--add-database NAME=TYPE[:VERSION]` on `project create` and
+  `--db NAME` on every `db` command (`db clone` also `--source-db`, with
+  `primary` for the source's primary). The API addresses one with `?db=<name>`
+  on the `/database…` routes, lists all with `GET /projects/{id}/databases`
+  and adds, changes or removes them with `PATCH /projects/{id}` and
+  `"databases": {"analytics": {"enabled": true, "type": "postgresql"}}`
+  (`"enabled": false, "removeData": true` removes one with its volume).
+
 ## Database browser (Adminer)
 
 *Settings → Database browser* switches on an in-browser database tool for
@@ -1371,6 +1419,8 @@ envoryx db snapshot shop --note "before a migration"  # the database alone
 envoryx db snapshots shop                             # what there is to go back to
 envoryx db restore shop <snapshot> --yes              # put one back
 envoryx db clone local --from staging --yes           # staging's data into local
+envoryx db snapshot shop --db analytics               # an additional database (all db commands)
+envoryx project create "Shop" --database mariadb --add-database analytics=postgres
 envoryx git status|pull shop                          # and: git checkout shop main
 ```
 
@@ -1432,6 +1482,8 @@ php:
   memoryLimit: 512M              # also uploadMaxFilesize, postMaxSize, maxExecutionTime,
   xdebug: true                   # displayErrors, errorReporting, xdebugMode, xdebugIdeKey
 database: {type: mariadb, version: "11.4", exposePort: true}
+databases:                       # additional databases, reached by their name
+  analytics: {type: postgres}    # host analytics, ANALYTICS_DB_* variables
 redis: true                      # or {version: "8", exposePort: true}
 mailpit: true                    # also memcached, rabbitmq, meilisearch, typesense,
 opensearch: {dashboards: true}   # opensearch, storage: {publicRead: false}

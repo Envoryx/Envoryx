@@ -7,7 +7,26 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"net/url"
 )
+
+// dbQuery addresses one database of a project: an additional one by name, the primary
+// with none.
+func dbQuery(db string) url.Values {
+	if db == "" {
+		return nil
+	}
+	return url.Values{"db": {db}}
+}
+
+// dbOf names the database in messages.
+func dbOf(slug, db string) string {
+	if db == "" {
+		return "the database of " + slug
+	}
+	return "the database " + db + " of " + slug
+}
 
 func (c *cli) dbCommand(ctx context.Context, args []string) error {
 	cmd, rest := splitCommand(args)
@@ -29,6 +48,7 @@ func (c *cli) dbCommand(ctx context.Context, args []string) error {
 
 func (c *cli) dbSnapshots(ctx context.Context, args []string) error {
 	fs := c.newFlags("db snapshots")
+	db := fs.String("db", "", "additional database (default: the primary)")
 	pos, err := parse(fs, args)
 	if err != nil {
 		return err
@@ -40,16 +60,16 @@ func (c *cli) dbSnapshots(ctx context.Context, args []string) error {
 		return err
 	}
 	if c.json {
-		return c.printRaw(ctx, api, projectPath(p.ID, "database", "snapshots"), nil, "snapshots")
+		return c.printRaw(ctx, api, projectPath(p.ID, "database", "snapshots"), dbQuery(*db), "snapshots")
 	}
 	var body struct {
 		Snapshots []backupInfo `json:"snapshots"`
 	}
-	if err := api.get(ctx, projectPath(p.ID, "database", "snapshots"), nil, &body); err != nil {
+	if err := api.get(ctx, projectPath(p.ID, "database", "snapshots"), dbQuery(*db), &body); err != nil {
 		return err
 	}
 	if len(body.Snapshots) == 0 {
-		c.printf("No database snapshots of %s yet.\n", p.Slug)
+		c.printf("No snapshots of %s yet.\n", dbOf(p.Slug, *db))
 		return nil
 	}
 	rows := make([][]string, 0, len(body.Snapshots))
@@ -67,6 +87,7 @@ func (c *cli) dbSnapshots(ctx context.Context, args []string) error {
 func (c *cli) dbSnapshot(ctx context.Context, args []string) error {
 	fs := c.newFlags("db snapshot")
 	note := fs.String("note", "", "note to store with the snapshot")
+	db := fs.String("db", "", "additional database (default: the primary)")
 	pos, err := parse(fs, args)
 	if err != nil {
 		return err
@@ -80,19 +101,20 @@ func (c *cli) dbSnapshot(ctx context.Context, args []string) error {
 	var out struct {
 		Snapshot backupInfo `json:"snapshot"`
 	}
-	if err := api.post(ctx, projectPath(p.ID, "database", "snapshots"), map[string]any{"note": *note}, &out); err != nil {
+	if err := api.do(ctx, http.MethodPost, projectPath(p.ID, "database", "snapshots"), dbQuery(*db), map[string]any{"note": *note}, &out); err != nil {
 		return err
 	}
 	if c.json {
 		return c.printJSON(out.Snapshot)
 	}
-	c.printf("Snapshot %s of %s (%s)\n", out.Snapshot.ID, p.Slug, humanSize(out.Snapshot.SizeBytes))
+	c.printf("Snapshot %s of %s (%s)\n", out.Snapshot.ID, dbOf(p.Slug, *db), humanSize(out.Snapshot.SizeBytes))
 	return nil
 }
 
 func (c *cli) dbRestore(ctx context.Context, args []string) error {
 	fs := c.newFlags("db restore")
 	yes := fs.Bool("yes", false, "confirm")
+	db := fs.String("db", "", "additional database (default: the primary)")
 	pos, err := parse(fs, args)
 	if err != nil {
 		return err
@@ -108,18 +130,18 @@ func (c *cli) dbRestore(ctx context.Context, args []string) error {
 		return usagef("which snapshot? envoryx db snapshots %s shows them", p.Slug)
 	}
 	if !*yes {
-		return fmt.Errorf("restoring replaces the database of %s and everything written since; confirm with --yes", p.Slug)
+		return fmt.Errorf("restoring replaces %s and everything written since; confirm with --yes", dbOf(p.Slug, *db))
 	}
 	var out struct {
 		Snapshot backupInfo `json:"snapshot"`
 	}
-	if err := api.post(ctx, projectPath(p.ID, "database", "snapshots", snapshot, "restore"), map[string]any{"confirm": p.Slug}, &out); err != nil {
+	if err := api.do(ctx, http.MethodPost, projectPath(p.ID, "database", "snapshots", snapshot, "restore"), dbQuery(*db), map[string]any{"confirm": p.Slug}, &out); err != nil {
 		return err
 	}
 	if c.json {
 		return c.printJSON(out.Snapshot)
 	}
-	c.printf("Restored the database of %s from snapshot %s.\n", p.Slug, snapshot)
+	c.printf("Restored %s from snapshot %s.\n", dbOf(p.Slug, *db), snapshot)
 	return nil
 }
 
@@ -128,6 +150,8 @@ func (c *cli) dbClone(ctx context.Context, args []string) error {
 	from := fs.String("from", "", "project whose database is copied")
 	yes := fs.Bool("yes", false, "confirm")
 	noSnapshot := fs.Bool("no-snapshot", false, "do not snapshot the target's database first")
+	db := fs.String("db", "", "additional database of the target (default: the primary)")
+	sourceDB := fs.String("source-db", "", "database of the source (default: the one named like --db; \"primary\" for its primary)")
 	pos, err := parse(fs, args)
 	if err != nil {
 		return err
@@ -151,7 +175,7 @@ func (c *cli) dbClone(ctx context.Context, args []string) error {
 		return err
 	}
 	if !*yes {
-		return fmt.Errorf("cloning replaces the database of %s with the one of %s; confirm with --yes", target.Slug, src.Slug)
+		return fmt.Errorf("cloning replaces %s with the one of %s; confirm with --yes", dbOf(target.Slug, *db), src.Slug)
 	}
 	var out struct {
 		Clone struct {
@@ -161,7 +185,14 @@ func (c *cli) dbClone(ctx context.Context, args []string) error {
 		} `json:"clone"`
 	}
 	body := map[string]any{"source": src.ID, "snapshot": !*noSnapshot, "confirm": target.Slug}
-	if err := api.post(ctx, projectPath(target.ID, "database", "clone"), body, &out); err != nil {
+	switch *sourceDB {
+	case "":
+	case "primary":
+		body["sourceDb"] = ""
+	default:
+		body["sourceDb"] = *sourceDB
+	}
+	if err := api.do(ctx, http.MethodPost, projectPath(target.ID, "database", "clone"), dbQuery(*db), body, &out); err != nil {
 		return err
 	}
 	if c.json {

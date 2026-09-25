@@ -3,6 +3,8 @@ package store
 
 import (
 	"encoding/json"
+	"sort"
+	"strings"
 	"time"
 )
 
@@ -213,6 +215,53 @@ type GitConfig struct {
 	Branch   string
 	Username string
 	Token    string
+}
+
+// Additional databases are services of their own kind, "db-<name>": the kind names the
+// container (envoryx-<slug>-db-<name>) and the volume, and the primary database keeps
+// ServiceDatabase with everything that hangs on it.
+const extraDatabasePrefix = "db-"
+
+// DatabaseKind returns the service kind of a project database: the primary for "", an
+// additional one by its name.
+func DatabaseKind(name string) ServiceKind {
+	if name == "" {
+		return ServiceDatabase
+	}
+	return ServiceKind(extraDatabasePrefix + name)
+}
+
+// IsDatabase reports the primary database and the additional ones.
+func (k ServiceKind) IsDatabase() bool {
+	return k == ServiceDatabase || strings.HasPrefix(string(k), extraDatabasePrefix)
+}
+
+// DatabaseName is the name of an additional database ("" for the primary and for every
+// other kind).
+func (k ServiceKind) DatabaseName() string {
+	if name, ok := strings.CutPrefix(string(k), extraDatabasePrefix); ok {
+		return name
+	}
+	return ""
+}
+
+// Databases returns the enabled databases of the project, the primary first, then the
+// additional ones by name.
+func (p *Project) Databases() []*ProjectService {
+	var out []*ProjectService
+	for i := range p.Services {
+		if p.Services[i].Kind.IsDatabase() && p.Services[i].Enabled {
+			out = append(out, &p.Services[i])
+		}
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		a, b := out[i].Kind, out[j].Kind
+		if a == ServiceDatabase || b == ServiceDatabase {
+			return a == ServiceDatabase && b != ServiceDatabase
+		}
+		return a < b
+	})
+	return out
 }
 
 // Service returns the service of the given kind, or nil.

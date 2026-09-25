@@ -1998,5 +1998,21 @@
   "The site brings a .htaccess file, so Apache is suggested: it is the only web server that reads it.": "На сайті є файл .htaccess, тому пропонується Apache: лише він його читає.",
   "Unpacking {{file}}": "Розпакування {{file}}",
   "Adapting the configuration of the website": "Адаптація конфігурації сайту",
-  "Importing the database dump": "Імпорт дампу бази даних"
+  "Importing the database dump": "Імпорт дампу бази даних",
+  "Lowercase letters, digits and dashes, starting with a letter.": "Малі літери, цифри та дефіси, починаючи з літери.",
+  "The project already has a database of this name.": "У проєкту вже є база даних із такою назвою.",
+  "An additional database runs in a container of its own with its own volume and credentials. It is reached at its name as host and injects variables that start with its name (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …).": "Додаткова база даних працює у власному контейнері з власним томом і обліковими даними. Вона доступна за своєю назвою як хост і задає змінні, що починаються з її назви (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …).",
+  "Name (optional)": "Назва (необов'язково)",
+  "Host {{host}}, variables {{prefix}}_DB_HOST, {{prefix}}_DATABASE_URL …": "Хост {{host}}, змінні {{prefix}}_DB_HOST, {{prefix}}_DATABASE_URL …",
+  "Becomes the host name and the prefix of the variables, e.g. analytics.": "Стає назвою хоста й префіксом змінних, наприклад analytics.",
+  "Leave empty to add the primary database (host database, DB_* variables).": "Залиште порожнім, щоб додати основну базу даних (хост database, змінні DB_*).",
+  "Databases of the project": "Бази даних проєкту",
+  "Primary": "Основна",
+  "Inside the project network at the host “{{host}}”. The application containers (PHP, Python, Node) receive these values as {{prefix}}_DB_* and {{prefix}}_DATABASE_URL.": "У мережі проєкту за хостом «{{host}}». Контейнери застосунку (PHP, Python, Node) отримують ці значення як {{prefix}}_DB_* і {{prefix}}_DATABASE_URL.",
+  "Logical dumps of all {{number}} databases of the project": "Логічні дампи всіх баз даних проєкту ({{number}})",
+  "Additional databases": "Додаткові бази даних",
+  "Another database server next to the first one – for example PostgreSQL for reporting next to MariaDB. Each is reached at its name as host and injects variables starting with its name (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …).": "Ще один сервер баз даних поруч із першим – наприклад PostgreSQL для звітів поруч із MariaDB. Кожен доступний за своєю назвою як хост і задає змінні, що починаються з його назви (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …).",
+  "database": "база даних",
+  "Add a database": "Додати базу даних",
+  "Restoring the database {{name}}": "Відновлення бази даних {{name}}"
 }

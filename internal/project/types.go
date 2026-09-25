@@ -27,11 +27,14 @@ type CreateRequest struct {
 	// Docroot is the directory served by the web server, relative to the project
 	// directory: public/ for Laravel/Symfony, the build output (dist/, out/) for static
 	// Node builds; unused while a Python server or Node dev server serves the app.
-	Docroot     string
-	PHP         *PHPRequest
-	Node        *NodeRequest
-	Python      *PythonRequest
-	Database    *DatabaseRequest
+	Docroot  string
+	PHP      *PHPRequest
+	Node     *NodeRequest
+	Python   *PythonRequest
+	Database *DatabaseRequest
+	// Databases are additional databases next to the primary one, each with a name of
+	// its own (host, container and variables follow it).
+	Databases   []NamedDatabaseRequest
 	Redis       *ExtraRequest
 	Memcached   *ExtraRequest
 	Mailpit     *ExtraRequest
@@ -144,6 +147,12 @@ type DatabaseRequest struct {
 	ExposePort bool // publish the database on a host port for external clients
 }
 
+// NamedDatabaseRequest is an additional database of a new project.
+type NamedDatabaseRequest struct {
+	Name string
+	DatabaseRequest
+}
+
 // DatabaseUpdate changes the database service of an existing project.
 type DatabaseUpdate struct {
 	// Enabled adds (true) or removes (false) the database service.
@@ -173,13 +182,15 @@ type EnvVarRequest struct {
 
 // UpdateRequest changes editable project settings. Nil pointers leave fields untouched.
 type UpdateRequest struct {
-	Name        *string
-	Docroot     *string
-	Web         *WebRequest
-	PHP         *PHPUpdate
-	Node        *NodeUpdate
-	Python      *PythonUpdate
-	Database    *DatabaseUpdate
+	Name     *string
+	Docroot  *string
+	Web      *WebRequest
+	PHP      *PHPUpdate
+	Node     *NodeUpdate
+	Python   *PythonUpdate
+	Database *DatabaseUpdate
+	// Databases adds, changes or removes (Enabled false) additional databases by name.
+	Databases   map[string]DatabaseUpdate
 	Redis       *ExtraUpdate
 	Memcached   *ExtraUpdate
 	Mailpit     *ExtraUpdate
@@ -263,6 +274,10 @@ type StorageInfo struct {
 
 // DatabaseInfo describes the database service without secrets.
 type DatabaseInfo struct {
+	// Name is "" for the primary database and the name of an additional one.
+	Name string `json:"name"`
+	// Service is the service kind: "database" or "db-<name>".
+	Service      string   `json:"service"`
 	Type         string   `json:"type"`
 	Version      string   `json:"version"`
 	Image        string   `json:"image"`

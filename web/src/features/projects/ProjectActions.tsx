@@ -8,6 +8,7 @@ import { Button, Checkbox, Dialog, Field, Input, Alert } from "@/components/ui";
 import { errorText } from "@/lib/errors";
 import { slugify } from "@/lib/format";
 import { CreateProgress } from "./CreateProgress";
+import { databaseServices } from "./databases";
 
 export function useActionError() {
   const { t } = useTranslation();
@@ -238,7 +239,7 @@ export function DuplicateProjectDialog({ project, open, onClose }: { project: Pr
               />
             </div>
           )}
-          {has("database") && (
+          {databaseServices(project).length > 0 && (
             <Checkbox
               label={t("Copy the database")}
               description={t("The contents are dumped and imported into the copy's own database server. It keeps the credentials of the original.")}
@@ -296,7 +297,7 @@ export function RenameProjectDialog({ project, open, onClose }: { project: Proje
   // stays where it is until the field is touched.
   const follows = project.path === project.slug;
   const dir = pathTouched ? path.trim() : follows ? slug : project.path;
-  const hasDatabase = project.services.some((s) => s.kind === "database" && s.enabled);
+  const hasDatabase = databaseServices(project).length > 0;
   const hasStorage = project.services.some((s) => s.kind === "storage" && s.enabled);
   const unchanged = name.trim() === project.name && dir === project.path;
 

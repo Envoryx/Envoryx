@@ -168,11 +168,11 @@ func (m *Manager) importDump(ctx context.Context, proj store.Project, file strin
 	if dialect.DumpFormat == "archive" {
 		return fmt.Errorf("%w: an SQL dump cannot be imported into %s", validate.ErrInvalid, svc.Variant)
 	}
-	return m.withServiceRunning(ctx, proj, store.ServiceDatabase, func(ctx context.Context) error {
+	return m.withServiceRunning(ctx, proj, svc.Kind, func(ctx context.Context) error {
 		if err := m.waitForDatabase(ctx, proj, svc, cfg, dialect); err != nil {
 			return err
 		}
-		c, err := m.ServiceContainer(ctx, proj.ID, store.ServiceDatabase)
+		c, err := m.ServiceContainer(ctx, proj.ID, svc.Kind)
 		if err != nil {
 			return err
 		}
