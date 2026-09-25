@@ -238,14 +238,14 @@ func TestAutomaticBackupsArePruned(t *testing.T) {
 
 func TestBeforeMigrateHookTakesBackup(t *testing.T) {
 	// Simulate a database one version behind by undoing the newest migration
-	// (0014 adds the test runs table) and forgetting that it ran.
+	// (0015 adds the proxy rules column) and forgetting that it ran.
 	s, sqlDB := newStore(t)
 	ctx := context.Background()
 	latest := db.LatestVersion()
-	if latest != 14 {
-		t.Fatalf("schema is at %d: this test undoes migration 0014, teach it to undo the newest one", latest)
+	if latest != 15 {
+		t.Fatalf("schema is at %d: this test undoes migration 0015, teach it to undo the newest one", latest)
 	}
-	for _, q := range []string{`DROP TABLE project_test_runs`} {
+	for _, q := range []string{`ALTER TABLE projects DROP COLUMN proxy_rules`} {
 		if _, err := sqlDB.Exec(q); err != nil {
 			t.Fatal(err)
 		}

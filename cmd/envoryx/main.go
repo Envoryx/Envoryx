@@ -466,6 +466,7 @@ func serve() error {
 			httpsAddr = cfg.ProxyHTTPS
 		}
 		ps := proxy.NewServer(handler, router, certs, cfg.ProxyHTTP, httpsAddr, nil, log)
+		manager.SetShareProxy(cfg.ProxyHTTP)
 		background("proxy", func(ctx context.Context) {
 			if err := ps.Run(ctx); err != nil {
 				log.Warn("embedded proxy disabled", "err", err)

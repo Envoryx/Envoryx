@@ -11,6 +11,12 @@ release). `:main` follows the development branch.
 ## [Unreleased]
 
 ### Added
+- Rules for a project's host names, applied by the proxy (*Domains → Rules*,
+  `PUT /projects/{id}/proxy-rules`): an address allowlist, HTTP basic
+  authentication, redirects (paths and prefixes, to paths or other hosts),
+  response headers to set or remove, and CORS with preflight answers. They
+  also apply to a share, which now goes through the proxy – a password
+  protects the public address.
 - Share a project on a temporary public https address: a Cloudflare quick
   tunnel (`*.trycloudflare.com`, no account, no port forwarding) started from
   the project header, `envoryx project share` or the API, for 5 minutes to 24

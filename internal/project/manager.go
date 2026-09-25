@@ -82,7 +82,16 @@ type Manager struct {
 	objectStore func(endpoint, accessKey, secretKey string) s3.ObjectStore
 	// links tells the planner how the LAN reaches the proxy (public host, ports).
 	links func(ctx context.Context) (publicHost string, httpPort, httpsPort int)
+	// shareVia is the proxy's plain HTTP listener, which share tunnels send their requests
+	// to so the project's proxy rules apply ("" = straight to the application).
+	shareVia string
+	// shareHosts maps project ids to the host name of their share address.
+	shareHosts sync.Map
 }
+
+// SetShareProxy tells the manager where the proxy's plain HTTP listener is (":80",
+// "127.0.0.1:8080"); share tunnels then go through the proxy.
+func (m *Manager) SetShareProxy(addr string) { m.shareVia = addr }
 
 // SetLinks installs the function that reports the public host and the proxy's host-side
 // ports, which become part of the URLs injected into projects.

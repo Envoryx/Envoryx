@@ -240,7 +240,12 @@ func (m *Manager) RouteTable(ctx context.Context, opts ProxyOptions) (proxy.Tabl
 		byProject[p.ID] = p
 		t.Routes[DefaultHostname(p.Slug, base)] = m.appTarget(paths.SelfContainerID, p, running)
 		if cfg, ok := nodeDevConfig(p); ok {
-			t.Routes[DevHostname(p.Slug, base)] = proxy.Target{ProjectID: p.ID, ProjectName: p.Name + " (dev server)", Slug: p.Slug, Running: nodeRunning[p.ID], Dial: m.dialForDev(paths.SelfContainerID, p, cfg)}
+			t.Routes[DevHostname(p.Slug, base)] = proxy.Target{ProjectID: p.ID, ProjectName: p.Name + " (dev server)", Slug: p.Slug, Running: nodeRunning[p.ID], Dial: m.dialForDev(paths.SelfContainerID, p, cfg), Rules: proxyRules(p)}
+		}
+		if host, ok := m.shareHosts.Load(p.ID); ok {
+			target := m.appTarget(paths.SelfContainerID, p, running)
+			target.Share = true
+			t.Routes[host.(string)] = target
 		}
 		if _, cfg, err := storageConfig(p); err == nil {
 			t.Routes[StorageHostname(p.Slug, base)] = proxy.Target{ProjectID: p.ID, ProjectName: p.Name + " (object storage)", Slug: p.Slug, Running: storageRunning[p.ID], Dial: m.storageDial(paths.SelfContainerID, p, cfg)}
@@ -257,7 +262,7 @@ func (m *Manager) RouteTable(ctx context.Context, opts ProxyOptions) (proxy.Tabl
 // appTarget is the upstream of a project's primary host name and extra domains: the web
 // container, or the Python server or Node dev server when it serves the application.
 func (m *Manager) appTarget(selfID string, p store.Project, running map[string]map[string]bool) proxy.Target {
-	target := proxy.Target{ProjectID: p.ID, ProjectName: p.Name, Slug: p.Slug, Running: running[string(store.ServiceWeb)][p.ID], Dial: m.dialFor(selfID, p)}
+	target := proxy.Target{ProjectID: p.ID, ProjectName: p.Name, Slug: p.Slug, Running: running[string(store.ServiceWeb)][p.ID], Dial: m.dialFor(selfID, p), Rules: proxyRules(p)}
 	if cfg, ok := pythonServesApp(p); ok {
 		target.Running, target.Dial = running[string(store.ServicePython)][p.ID], m.dialForApp(selfID, p, store.ServicePython, cfg.HostPort, cfg.Port)
 	} else if cfg, ok := nodeServesApp(p); ok {
@@ -341,7 +346,10 @@ func (m *Manager) proxyAliases(ctx context.Context) []string {
 		m.log.Warn("proxy aliases incomplete", "err", err)
 	}
 	var out []string
-	for h := range t.Routes {
+	for h, target := range t.Routes {
+		if target.Share {
+			continue
+		}
 		out = append(out, h)
 	}
 	for h := range t.UIHosts {
