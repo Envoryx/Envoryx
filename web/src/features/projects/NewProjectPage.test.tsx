@@ -409,4 +409,102 @@ describe("NewProjectPage wizard", () => {
     expect(await screen.findByText(/must stay inside/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Create project" })).toBeDisabled();
   });
+
+  it("imports an existing website: uploads, fills the next steps and creates with the upload", async () => {
+    const analysis = {
+      format: "zip",
+      root: "public_html/",
+      files: 1234,
+      bytes: 52_428_800,
+      framework: { id: "wordpress", name: "WordPress", version: "6.2.2" },
+      runtime: "php",
+      phpVersion: "8.3",
+      phpExtensions: ["mysqli"],
+      docroot: "",
+      web: "apache",
+      database: "mariadb",
+      config: { path: "wp-config.php", mode: "adapt" },
+      dump: { bytes: 1000, compressed: false, variant: "mariadb", tool: "mariadb-dump", server: "10.11.6-MariaDB" },
+      notices: [{ level: "info", text: "The archive's folder {{folder}} became the project directory.", params: { folder: "public_html" } }],
+    };
+    const sent: { fields: string[] } = { fields: [] };
+    // Only XMLHttpRequest reports upload progress, so the upload does not go through fetch.
+    class FakeXHR {
+      status = 0;
+      responseText = "";
+      upload: { onprogress: ((e: { lengthComputable: boolean; loaded: number; total: number }) => void) | null } = { onprogress: null };
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      withCredentials = false;
+      open(method: string, url: string) {
+        expect(`${method} ${url}`).toBe("POST /api/v1/site-imports");
+      }
+      setRequestHeader() {}
+      send(form: FormData) {
+        sent.fields = [...form.keys()];
+        this.upload.onprogress?.({ lengthComputable: true, loaded: 5, total: 10 });
+        this.status = 201;
+        this.responseText = JSON.stringify({ import: { id: "11111111-2222-4333-8444-555555555555", siteName: "old_blog.zip", dumpName: "dump.sql", createdAt: "", expiresAt: "", analysis } });
+        setTimeout(() => this.onload?.(), 0);
+      }
+    }
+    vi.stubGlobal("XMLHttpRequest", FakeXHR);
+    let previewBody: Record<string, unknown> | undefined;
+    const api = mockApi({
+      ...authedRoutes,
+      "GET /runtimes": () => ({ body: runtimesFixture }),
+      "POST /projects/preview": previewRoute((b) => (previewBody = b)),
+      "POST /projects": () => ({ status: 201, body: { project: makeProject() } }),
+    });
+    renderApp(
+      <Routes>
+        <Route path="/projects/new" element={<NewProjectPage />} />
+        <Route path="/projects/:id" element={<h1>Detail</h1>} />
+      </Routes>,
+      { route: "/projects/new" },
+    );
+    const user = userEvent.setup();
+    await screen.findByLabelText("Project name");
+    await user.click(screen.getByRole("radio", { name: /Existing website/ }));
+    expect(screen.queryByLabelText("Repository URL")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Upload and analyse" })).toBeDisabled();
+    await user.upload(screen.getByLabelText("Website archive"), new File(["PK"], "old_blog.zip", { type: "application/zip" }));
+    await user.upload(screen.getByLabelText("Database dump (optional)"), new File(["-- dump"], "dump.sql"));
+    await user.click(screen.getByRole("button", { name: "Upload and analyse" }));
+
+    expect(await screen.findByText("Recognised: WordPress 6.2.2")).toBeInTheDocument();
+    expect(sent.fields).toEqual(["site", "database"]);
+    expect(screen.getByText("The archive's folder public_html became the project directory.")).toBeInTheDocument();
+    expect(screen.getByLabelText(/Adapt the configuration to Envoryx/)).toBeChecked();
+    // The name comes from the archive when none was typed.
+    expect(screen.getByLabelText("Project name")).toHaveValue("old blog");
+
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    expect(await screen.findByLabelText("PHP version")).toHaveValue("8.3");
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    expect(await screen.findByLabelText("Web server")).toHaveValue("apache");
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    expect(await screen.findByRole("radio", { name: "MariaDB" })).toBeChecked();
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await user.click(await screen.findByRole("button", { name: "Continue" }));
+    expect(await screen.findByText(/the dump is imported into the project database/)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Create starter/)).not.toBeInTheDocument();
+    await waitFor(() => expect(previewBody).toBeDefined());
+    await user.click(screen.getByRole("button", { name: "Create project" }));
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Detail" })).toBeInTheDocument());
+    const create = api.calls.find((c) => c.method === "POST" && c.url.endsWith("/projects"));
+    expect(create?.body).toMatchObject({
+      name: "old blog",
+      import: { id: "11111111-2222-4333-8444-555555555555", adaptConfig: true },
+      createStarter: false,
+      docroot: "",
+      web: { type: "apache" },
+      database: { type: "mariadb" },
+      php: { version: "8.3" },
+    });
+    const body = create?.body as { php: { config: { extensions: string[] } }; template?: string; git?: unknown };
+    expect(body.php.config.extensions).toContain("mysqli");
+    expect(body.template).toBeUndefined();
+    expect(body.git).toBeUndefined();
+  });
 });

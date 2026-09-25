@@ -27,6 +27,8 @@ import type {
   GitResult,
   GitStatus,
   ManifestPlan,
+  SiteImport,
+  SiteImportResult,
   InstanceBackup,
   InstanceBackupsResponse,
   OffsiteTarget,
@@ -177,6 +179,41 @@ async function upload<T>(path: string, field: string, file: File): Promise<T> {
   return payload as T;
 }
 
+/**
+ * Uploads a website (and optionally its database dump) for import. XMLHttpRequest rather
+ * than fetch, because only it reports upload progress – a site can be gigabytes.
+ */
+function uploadSite(site: File, dump: File | null, onProgress?: (loaded: number, total: number) => void): Promise<{ import: SiteImport }> {
+  const form = new FormData();
+  form.append("site", site, site.name);
+  if (dump) form.append("database", dump, dump.name);
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", "/api/v1/site-imports");
+    xhr.setRequestHeader("Accept", "application/json");
+    xhr.setRequestHeader("X-Requested-With", "Envoryx");
+    xhr.withCredentials = true;
+    if (onProgress) xhr.upload.onprogress = (e) => e.lengthComputable && onProgress(e.loaded, e.total);
+    xhr.onerror = () => reject(new ApiError(0, "network_error", "Upload failed"));
+    xhr.onload = () => {
+      let payload: unknown = null;
+      try {
+        payload = xhr.responseText ? JSON.parse(xhr.responseText) : null;
+      } catch {
+        payload = null;
+      }
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(payload as { import: SiteImport });
+        return;
+      }
+      const err = (payload as { error?: { code?: string; message?: string; details?: unknown } } | null)?.error;
+      if (xhr.status === 401) onUnauthorized?.();
+      reject(new ApiError(xhr.status, err?.code ?? "http_error", err?.message ?? `Upload failed (${xhr.status})`, err?.details));
+    };
+    xhr.send(form);
+  });
+}
+
 export const api = {
   health: () => request<{ status: string; version: string; docker: boolean; database: boolean }>("/health"),
 
@@ -227,11 +264,16 @@ export const api = {
   reconcile: () => request<{ report: unknown }>("/system/reconcile", { method: "POST" }),
   diagnostics: () => request<Diagnostics>("/system/diagnostics"),
 
+  siteImports: {
+    upload: uploadSite,
+    discard: (id: string) => request<void>(`/site-imports/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  },
+
   projects: {
     list: () => request<{ projects: Project[] }>("/projects"),
     get: (id: string) => request<{ project: Project }>(`/projects/${encodeURIComponent(id)}`),
     preview: (body: CreateProjectRequest) => request<{ preview: Preview }>("/projects/preview", { method: "POST", body }),
-    create: (body: CreateProjectRequest) => request<{ project: Project; manifest?: ManifestPlan | null }>("/projects", { method: "POST", body }),
+    create: (body: CreateProjectRequest) => request<{ project: Project; manifest?: ManifestPlan | null; import?: SiteImportResult }>("/projects", { method: "POST", body }),
     update: (id: string, body: UpdateProjectRequest) =>
       request<{ project: Project }>(`/projects/${encodeURIComponent(id)}`, { method: "PATCH", body }),
     duplicate: (id: string, body: DuplicateProjectRequest) =>

@@ -32,6 +32,10 @@ Manifest:
                                         envoryx.yml in this repository ("up --help")
   project manifest <project> [-o FILE]  the project as an envoryx.yml
 
+Existing websites:
+  import <folder|archive> [name]        create a project from a site's files and,
+                                        with --db, its database dump ("import --help")
+
 Projects:
   project list                          every project with its state and URL
   project show <project>                services, ports, git and backups
@@ -188,6 +192,8 @@ func (c *cli) run(ctx context.Context, args []string) error {
 		return c.whoami(ctx, rest)
 	case "up":
 		return c.up(ctx, rest)
+	case "import":
+		return c.importSite(ctx, rest)
 	case "project", "projects":
 		return c.projectCommand(ctx, rest)
 	case "backup", "backups":

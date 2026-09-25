@@ -584,6 +584,87 @@ Outside Docker the proxy dials the project's published port
 needs `setcap cap_net_bind_service=+ep ./envoryx` or other addresses
 (`ENVORYX_PROXY_HTTP=:8080`).
 
+## Importing an existing website
+
+*New project → Start from: Existing website* takes a site that already exists
+somewhere else – an old shared host, a backup, an FTP download – and makes a
+project of it. Upload the files as a ZIP or tar.gz archive (a single folder
+around them such as `public_html/` or `httpdocs/` is left out) and, optionally,
+a database dump (`.sql` or `.sql.gz`). Envoryx reads the archive and fills the
+next steps of the wizard with what it recognised; everything stays editable.
+
+| Site | Recognised by | Suggestion |
+|------|---------------|------------|
+| WordPress | `wp-config.php`, `wp-includes/version.php` | PHP up to what the WordPress version supports, `mysqli`, MariaDB |
+| Laravel | `artisan` + `laravel/framework` | docroot `public`, database from `.env` |
+| Symfony | `bin/console` + `symfony/framework-bundle` | docroot `public` (`web` for Symfony 2/3), database from `DATABASE_URL` |
+| Drupal | `core/lib/Drupal.php` (also below `web/`), Drupal 7 | docroot, PHP by major version |
+| TYPO3 | `typo3/sysext`, `typo3/cms-core` | docroot `public` in Composer mode |
+| Joomla | `configuration.php` with `JConfig` | PHP by version, `mysqli` |
+| Shopware, Craft CMS, other Composer apps | `composer.json` | PHP from `require.php`, `ext-*` extensions |
+| Plain PHP | `.php` files | docroot where `index.php` is, the files that connect to a database |
+| Static site, Node.js, Python | `index.html`, `package.json`, `manage.py`/`requirements.txt` | the matching runtime |
+
+The PHP version is the newest one Envoryx offers that `composer.json` and the
+CMS version allow. Code that calls functions PHP 8 removed (`create_function`,
+`each`) gets PHP 7.4; code that still uses `mysql_*` or `ereg` gets a warning
+– no PHP Envoryx offers runs it unchanged. A `.htaccess` in the document root
+suggests Apache, the only web server that reads it (not for Laravel, Symfony,
+Shopware and Craft, whose front controller works everywhere). The database
+follows the dump's header (a MySQL 8 dump needs MySQL, it uses collations
+MariaDB does not have) or, without a dump, the site's configuration.
+
+**Adapting the configuration** (on by default) wires the site to the project
+database:
+
+- WordPress: `DB_NAME`, `DB_USER`, `DB_PASSWORD` and `DB_HOST` in
+  `wp-config.php` read the variables Envoryx injects, and `WP_HOME`/`WP_SITEURL`
+  follow the address the site is opened with. Links stored in the database
+  still name the old address – replace them with a search-and-replace plugin or
+  `wp search-replace`.
+- Drupal (`settings.php`) and TYPO3 (`additional.php` or
+  `AdditionalConfiguration.php`) get a block at the end that sets the connection
+  from the injected variables.
+- Joomla's `configuration.php` gets the connection written out (its class
+  cannot read the environment), an empty `live_site` and `log_path`/`tmp_path`
+  below the site.
+- Laravel, Symfony and Shopware need nothing: the injected `DB_*` and
+  `DATABASE_URL` override `.env`. The configuration caches of the old server
+  (`bootstrap/cache/config.php`, `var/cache`) are removed.
+
+Every changed file is kept next to itself as `<name>.envoryx-original.php`,
+starting with a line that answers 404 – the web server never hands the old
+credentials out. For plain PHP sites the wizard names the files that open a
+connection; change those by hand (host `database`, the rest on the *Database*
+tab). Without adapting, the files stay exactly as uploaded.
+
+**The dump** is imported after the containers are created – the database
+container is started for it if the project is not. Statements that tie it to
+the old server are left out: `CREATE DATABASE`/`USE` (mysqldump `--databases`),
+`\connect`, `OWNER TO`, `GRANT`/`REVOKE` and roles (pg_dump). pg_dump's custom
+format is refused before anything is created; export plain SQL
+(`pg_dump --format=plain`). A failed import rolls the project back – the
+directory Envoryx filled is emptied again – and the upload stays for another try.
+
+Uploads wait in `<backups>/.site-imports/` for 24 hours (an archive may be up to
+20 GiB and unpack to at most 64 GiB) and are removed once the project exists.
+The project directory must be empty or not exist yet. The API behind it:
+`POST /site-imports` (multipart, fields `site` and `database`) returns the
+analysis, `GET`/`DELETE /site-imports/{id}`, and `POST /projects` with
+`"import": {"id": "…", "adaptConfig": true}` creates the project; both need an
+`admin` token. From the command line:
+
+```sh
+envoryx import ./old-blog "Old Blog" --db old-blog.sql.gz --start
+envoryx import backup.zip --php 8.2 --web nginx --no-adapt
+envoryx import ./site --dry-run          # only show what Envoryx recognises
+```
+
+`envoryx import` packs a folder on the fly (files, folders and symlinks, `.git`
+included) or sends an archive as it is, prints what was recognised and creates
+the project with that suggestion; `--php`, `--database TYPE[:VERSION]` (`none`
+for no database), `--web`, `--docroot` and `--path` override it.
+
 ## Resource limits
 
 A project's **Resources** tab caps what its containers may use, so a runaway
@@ -1245,7 +1326,7 @@ cookie is also sent. Tokens created before scopes existed keep full access
 ## Command line
 
 The Envoryx binary is also its own client. `envoryx project …`, `envoryx
-backup …`, `envoryx db …` and `envoryx git …` talk to a running server over the
+backup …`, `envoryx db …`, `envoryx git …` and `envoryx import` talk to a running server over the
 REST API with an API token, which makes them equally at home in an SSH session,
 a cron job or a CI pipeline. On the host the container's own binary does the job:
 
@@ -1277,6 +1358,7 @@ envoryx project list                                  # name, slug, state, URL
 envoryx project show shop                             # services, versions, ports, git
 envoryx project create "Shop" --php 8.4 --database mariadb --template laravel --start
 envoryx project duplicate shop "Shop Test"            # config, files and database
+envoryx import ./old-site "Old Site" --db dump.sql    # an existing website as a project
 envoryx project rename shop "Acme Blog" --yes         # identifier, URL and data follow
 envoryx project start|stop|restart shop
 envoryx project delete shop --yes [--delete-files]

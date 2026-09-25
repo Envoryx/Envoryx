@@ -475,6 +475,55 @@ export interface CreateProjectRequest {
   start?: boolean;
   /** Apply the envoryx.yml the cloned repository brings (it wins over the services chosen here). Only with git. */
   useManifest?: boolean;
+  /** Fill the project from an uploaded website (POST /site-imports). */
+  import?: { id: string; adaptConfig: boolean };
+}
+
+/** Something the website import wants to tell; `text` is an English i18n key with {{placeholders}}. */
+export interface SiteNotice {
+  level: "info" | "warning";
+  text: string;
+  params?: Record<string, string>;
+}
+
+/** What an uploaded website was recognised as, and how Envoryx suggests to run it. */
+export interface SiteAnalysis {
+  format: "zip" | "tar.gz" | "tar";
+  /** The folder the archive wraps the site in; it is left out when unpacking. */
+  root?: string;
+  files: number;
+  bytes: number;
+  framework: { id: string; name: string; version?: string };
+  runtime: "php" | "static" | "node" | "python";
+  phpVersion?: string;
+  phpExtensions?: string[];
+  docroot: string;
+  /** "apache" for sites that rely on .htaccess. */
+  web?: string;
+  database?: string;
+  /** adapt: Envoryx can rewrite it; env: the injected variables win; manual: edit it by hand. */
+  config?: { path: string; mode: "adapt" | "env" | "manual" } | null;
+  configCandidates?: string[];
+  dump?: { bytes: number; compressed: boolean; variant?: string; server?: string; tool?: string } | null;
+  notices: SiteNotice[];
+}
+
+/** An uploaded website waiting for its project. */
+export interface SiteImport {
+  id: string;
+  siteName: string;
+  dumpName?: string;
+  createdAt: string;
+  expiresAt: string;
+  analysis: SiteAnalysis;
+}
+
+/** What creating a project from an upload did beyond the project itself. */
+export interface SiteImportResult {
+  framework: SiteAnalysis["framework"];
+  database: boolean;
+  adapted: { changed: string[] | null; originals: string[] | null; removed: string[] | null };
+  notices: SiteNotice[];
 }
 
 /**

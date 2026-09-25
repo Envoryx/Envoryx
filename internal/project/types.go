@@ -45,6 +45,8 @@ type CreateRequest struct {
 	Env         []EnvVarRequest
 	// Template scaffolds an application into the new directory (see Templates()).
 	Template string
+	// Import fills the new directory from an uploaded website (see CreateFromImport).
+	Import *ImportRequest
 	// CreateStarter writes a starter page (index.php with PHP, index.html otherwise) when
 	// the document root is empty; ignored while a Python server or Node dev server serves
 	// the app.

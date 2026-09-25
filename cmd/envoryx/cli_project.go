@@ -462,6 +462,7 @@ type createRequest struct {
 	Starter     bool            `json:"createStarter,omitempty"`
 	Start       bool            `json:"start,omitempty"`
 	Web         json.RawMessage `json:"web,omitempty"`
+	Import      *importSpec     `json:"import,omitempty"`
 }
 
 type phpSpec struct {
