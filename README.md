@@ -37,7 +37,8 @@ Envoryx is under active development. The current milestone (Phase 1 + 2) deliver
   Node-only and static projects work without it), document root, PHP version, php.ini settings and
   extensions (pdo_mysql, mysqli, pdo_pgsql, mongodb, gd, intl, zip, bcmath,
   opcache, imagick), Xdebug switch with IDE setup hints, web server (Caddy,
-  Apache or Nginx), SPA fallback for static sites, environment variables,
+  Apache or Nginx), SPA fallback for static sites, environment variables
+  (with `.env` import and export),
   plan preview
 - per-project Docker network with a web server container – Caddy (default),
   Apache (with `.htaccess` support) or Nginx, switchable after creation – and,

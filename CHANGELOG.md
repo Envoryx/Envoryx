@@ -11,6 +11,13 @@ release). `:main` follows the development branch.
 ## [Unreleased]
 
 ### Added
+- `.env` import and export for a project's variables (*Environment* tab and the
+  wizard): *Import .env* reads a pasted or chosen file (`export`, comments,
+  quotes, `${VAR}` references), selects new and changed variables, leaves out
+  the ones Envoryx sets for the project's services (so `DB_HOST=127.0.0.1` of
+  the old setup does not win over the project database), refuses reserved
+  names and multi-line values, and marks secrets by name or by a password in a
+  URL. *Export .env* downloads the variables as a file.
 - Several databases per project. Next to the primary database (host
   `database`, `DB_*`) a project can have any number of additional ones with a
   name of their own – for example PostgreSQL `analytics` next to MariaDB: its

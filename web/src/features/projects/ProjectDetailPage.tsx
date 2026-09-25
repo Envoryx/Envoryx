@@ -776,7 +776,7 @@ function EnvTab({ project: p }: { project: Project }) {
       />
       <div className="space-y-4 p-5">
         {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
-        <EnvEditor value={env} onChange={setEnv} />
+        <EnvEditor value={env} onChange={setEnv} services={p.services} exportName={p.slug} />
       </div>
     </Card>
   );

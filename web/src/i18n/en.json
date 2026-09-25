@@ -39,5 +39,7 @@
   "Indigo": "Indigo",
   "Fuchsia": "Fuchsia",
   "Orange": "Orange",
-  "Graphite": "Graphite"
+  "Graphite": "Graphite",
+  "Import {{count}} variables_one": "Import {{count}} variable",
+  "Import {{count}} variables_other": "Import {{count}} variables"
 }

@@ -1,10 +1,50 @@
-import { Eye, EyeOff, Plus, Trash2 } from "lucide-react";
+import { Download, Eye, EyeOff, FileUp, Plus, Trash2 } from "lucide-react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { EnvVar } from "@/api/types";
 import { Button, Input } from "@/components/ui";
+import { serializeDotenv } from "@/lib/dotenv";
+import { EnvImportDialog } from "./EnvImportDialog";
 
-export function EnvEditor({ value, onChange }: { value: EnvVar[]; onChange: (next: EnvVar[]) => void }) {
+/**
+ * The project's variables. services are the project's (or the wizard's) services, so an
+ * imported .env can tell which variables Envoryx sets itself; exportName names the
+ * downloaded file.
+ */
+export function EnvEditor({
+  value,
+  onChange,
+  services = [],
+  exportName = "project",
+}: {
+  value: EnvVar[];
+  onChange: (next: EnvVar[]) => void;
+  services?: { kind: string; enabled?: boolean; variant?: string }[];
+  exportName?: string;
+}) {
   const { t } = useTranslation();
+  const [importing, setImporting] = useState(false);
+  const merge = (vars: EnvVar[]) => {
+    const next = [...value];
+    for (const v of vars) {
+      const i = next.findIndex((e) => e.key === v.key);
+      if (i >= 0) next[i] = v;
+      else next.push(v);
+    }
+    onChange(next);
+  };
+  const download = () => {
+    const text = serializeDotenv(
+      value.filter((e) => e.key),
+      t("Environment of {{project}}, exported by Envoryx. It holds secrets in plain text; the variables Envoryx sets for the services are not part of it.", { project: exportName }),
+    );
+    const url = URL.createObjectURL(new Blob([text], { type: "text/plain" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${exportName}.env`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
   const update = (i: number, patch: Partial<EnvVar>) => onChange(value.map((e, idx) => (idx === i ? { ...e, ...patch } : e)));
   const remove = (i: number) => onChange(value.filter((_, idx) => idx !== i));
   const add = () => onChange([...value, { key: "", value: "", isSecret: false }]);
@@ -40,9 +80,18 @@ export function EnvEditor({ value, onChange }: { value: EnvVar[]; onChange: (nex
           </Button>
         </div>
       ))}
-      <Button size="sm" onClick={add} icon={<Plus className="size-3.5" />}>
-        {t("Add variable")}
-      </Button>
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" onClick={add} icon={<Plus className="size-3.5" />}>
+          {t("Add variable")}
+        </Button>
+        <Button size="sm" variant="ghost" onClick={() => setImporting(true)} icon={<FileUp className="size-3.5" />}>
+          {t("Import .env")}
+        </Button>
+        <Button size="sm" variant="ghost" onClick={download} disabled={!value.some((e) => e.key)} icon={<Download className="size-3.5" />} title={t("Downloads the variables as a .env file, secrets included.")}>
+          {t("Export .env")}
+        </Button>
+      </div>
+      <EnvImportDialog open={importing} onClose={() => setImporting(false)} current={value} services={services} onImport={merge} />
     </div>
   );
 }
