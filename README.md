@@ -135,6 +135,8 @@ Envoryx is under active development. The current milestone (Phase 1 + 2) deliver
   by its name as host and injecting `<NAME>_DB_*` and `<NAME>_DATABASE_URL`;
   backups, snapshots, cloning, duplicating, renaming, Adminer, `envoryx.yml`,
   CLI and MCP handle every one of them
+- shared package cache: Composer, npm, Yarn, pip and uv download a package once for
+  all projects (templates included); size and clearing under *Settings → Tools*
 - database snapshots: a dump of the database alone, taken before a migration
   and put back with one click (the project need not be running), the ten newest
   kept per project – and cloning one project's database into another's, piped

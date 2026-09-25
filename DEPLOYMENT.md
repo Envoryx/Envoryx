@@ -1077,6 +1077,23 @@ password rotation, databases on the server, Adminer, snapshots, cloning.
   `"databases": {"analytics": {"enabled": true, "type": "postgresql"}}`
   (`"enabled": false, "removeData": true` removes one with its volume).
 
+## Package cache
+
+Composer, npm, Yarn, pip and uv keep their downloads in one cache that every
+project shares: `/config/cache`, mounted at `/var/cache/envoryx` into the PHP,
+Node and Python containers, the workers and the one-shot containers that
+scaffold a template. A package is downloaded once, whichever project asks for
+it next – the second Laravel project is created in a fraction of the time of
+the first. The variables that point the tools there (`COMPOSER_CACHE_DIR`,
+`npm_config_cache`, `YARN_CACHE_FOLDER`, `PIP_CACHE_DIR`, `UV_CACHE_DIR`) can be
+overridden per project like any other. pnpm keeps its store in the project
+home.
+
+The cache only grows. *Settings → Tools → Package cache* shows what each tool
+keeps there and empties one tool's part or all of it; the next install
+downloads again. Instance backups leave it out. On Unraid the cache lives with
+`/config` on the appdata share, usually on the SSD pool.
+
 ## Database browser (Adminer)
 
 *Settings → Database browser* switches on an in-browser database tool for

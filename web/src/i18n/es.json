@@ -2002,5 +2002,16 @@
   "Export .env": "Exportar .env",
   "Downloads the variables as a .env file, secrets included.": "Descarga las variables como archivo .env, secretos incluidos.",
   "Import {{count}} variables_one": "Importar {{count}} variable",
-  "Import {{count}} variables_other": "Importar {{count}} variables"
+  "Import {{count}} variables_other": "Importar {{count}} variables",
+  "Package cache": "Caché de paquetes",
+  "Package cache cleared": "Caché de paquetes vaciada",
+  "{{size}} freed": "{{size}} liberados",
+  "{{tool}} cache emptied, {{size}} freed.": "Caché de {{tool}} vaciada, {{size}} liberados.",
+  "Package cache emptied, {{size}} freed.": "Caché de paquetes vaciada, {{size}} liberados.",
+  "Emptying the cache failed": "No se pudo vaciar la caché",
+  "In use: {{size}}": "En uso: {{size}}",
+  "Empty the {{tool}} cache": "Vaciar la caché de {{tool}}",
+  "Empty the whole cache": "Vaciar toda la caché",
+  "An install running while the cache is emptied may fail; run it again.": "Una instalación en curso mientras se vacía la caché puede fallar; vuelve a ejecutarla.",
+  "Composer, npm, Yarn, pip and uv keep their downloads in one cache shared by all projects, so a package is downloaded once. It fills up over time; emptying it only means the next install downloads again.": "Composer, npm, Yarn, pip y uv guardan sus descargas en una caché compartida por todos los proyectos, así un paquete se descarga una sola vez. Crece con el tiempo; vaciarla solo significa que la próxima instalación vuelve a descargar."
 }

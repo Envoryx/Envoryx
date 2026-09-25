@@ -93,8 +93,47 @@ const (
 	homeDirName     = "home"
 )
 
-// toolEnv are the variables that point tools at the persistent home.
-var toolEnv = []string{"HOME=" + homeMountTarget, "COMPOSER_HOME=" + homeMountTarget + "/.composer", "npm_config_cache=" + homeMountTarget + "/.npm", "COMPOSER_NO_INTERACTION=1"}
+// toolEnv are the variables that point tools at the persistent home. The package
+// managers' download caches are shared by every project instead (packageCacheEnv).
+var toolEnv = []string{"HOME=" + homeMountTarget, "COMPOSER_HOME=" + homeMountTarget + "/.composer", "COMPOSER_NO_INTERACTION=1"}
+
+// The package cache is one directory for all projects (/config/cache on the Envoryx
+// side), so a package is downloaded once whichever project asks for it next: Composer,
+// npm, Yarn, pip and uv keep their caches below it. pnpm is left out: its store is only
+// configurable as npm_config_store_dir, which makes every npm command warn. Every container a package
+// manager runs in has it mounted – the application containers, the workers and the
+// one-shots that scaffold a template.
+const (
+	packageCacheDir    = "cache"
+	packageCacheTarget = "/var/cache/envoryx"
+)
+
+// packageCacheEnv points the package managers at the shared cache. uv links from its
+// cache where it can; across file systems it copies, and it is told so up front instead
+// of warning about it on every install.
+var packageCacheEnv = []string{
+	"COMPOSER_CACHE_DIR=" + packageCacheTarget + "/composer",
+	"npm_config_cache=" + packageCacheTarget + "/npm",
+	"YARN_CACHE_FOLDER=" + packageCacheTarget + "/yarn",
+	"PIP_CACHE_DIR=" + packageCacheTarget + "/pip",
+	"UV_CACHE_DIR=" + packageCacheTarget + "/uv",
+	"UV_LINK_MODE=copy",
+}
+
+// PackageCacheDir is the shared package cache on the Envoryx side.
+func (p *Planner) PackageCacheDir() string { return filepath.Join(p.paths.ConfigDir, packageCacheDir) }
+
+// packageCacheMount is the bind mount of the shared package cache.
+func (p *Planner) packageCacheMount() docker.MountSpec {
+	return docker.MountSpec{Type: "bind", Source: filepath.Join(p.paths.ConfigHostDir, packageCacheDir), Target: packageCacheTarget}
+}
+
+// withPackageCache gives a container the shared package cache: the mount and the
+// variables that point the package managers at it.
+func (p *Planner) withPackageCache(spec *docker.ContainerSpec) {
+	spec.Env = append(spec.Env, packageCacheEnv...)
+	spec.Mounts = append(spec.Mounts, p.packageCacheMount())
+}
 
 // pythonVenvPath is the project's virtual environment as every container sees it: the
 // app mount plus runtime.PythonVenv. The container PATH, the Python actions and the
@@ -107,8 +146,6 @@ const pythonVenvPath = appMountTarget + "/" + runtime.PythonVenv
 var pythonEnv = []string{
 	"VIRTUAL_ENV=" + pythonVenvPath,
 	"PATH=" + pythonVenvPath + "/bin:" + homeMountTarget + "/.local/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin",
-	"PIP_CACHE_DIR=" + homeMountTarget + "/.cache/pip",
-	"UV_CACHE_DIR=" + homeMountTarget + "/.cache/uv",
 	"PYTHONUNBUFFERED=1",
 }
 
@@ -193,7 +230,7 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 	}
 	appHost := p.projectHostDir(proj)
 	cfgHost := p.configHostDir(proj.ID)
-	plan.Dirs = append(plan.Dirs, DirPlan{Path: p.HomeDir(proj), UID: p.paths.PUID, GID: p.paths.PGID})
+	plan.Dirs = append(plan.Dirs, DirPlan{Path: p.HomeDir(proj), UID: p.paths.PUID, GID: p.paths.PGID}, DirPlan{Path: p.PackageCacheDir(), UID: p.paths.PUID, GID: p.paths.PGID})
 	if proj.IDEGateway {
 		plan.Dirs = append(plan.Dirs, DirPlan{Path: filepath.Join(p.paths.ConfigDir, jetbrainsCacheDir), UID: p.paths.PUID, GID: p.paths.PGID})
 	}
@@ -243,27 +280,25 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 				FilePlan{Path: filepath.Join(plan.ConfigDir, "php", "zz-envoryx.ini"), Content: cfg.INIWith(svc.Version, runtime.INIOptions{XdebugClientHost: p.paths.XdebugClientHost}), Mode: 0o644},
 				FilePlan{Path: filepath.Join(plan.ConfigDir, "php", "zz-envoryx.conf"), Content: runtime.FPMPool(p.paths.PUID, p.paths.PGID), Mode: 0o644},
 			)
-			plan.Containers = append(plan.Containers, ContainerPlan{
-				Kind:  store.ServicePHP,
-				Order: 10,
-				Spec: docker.ContainerSpec{
-					Name:         ContainerName(proj.Slug, store.ServicePHP),
-					Image:        svc.Image,
-					Labels:       labels,
-					Env:          env,
-					WorkingDir:   appMountTarget,
-					Network:      plan.NetworkName,
-					NetworkAlias: []string{"php"},
-					Mounts: append([]docker.MountSpec{
-						{Type: "bind", Source: appHost, Target: appMountTarget},
-						{Type: "bind", Source: filepath.Join(cfgHost, "php", "zz-envoryx.ini"), Target: phpIniTarget, ReadOnly: true},
-						{Type: "bind", Source: filepath.Join(cfgHost, "php", "zz-envoryx.conf"), Target: phpPoolTarget, ReadOnly: true},
-						p.HomeMount(proj),
-					}, p.gatewayMounts(proj)...),
-					RestartPolicy: "unless-stopped",
-					StopTimeout:   stopTimeoutSec,
-				},
-			})
+			phpSpec := docker.ContainerSpec{
+				Name:         ContainerName(proj.Slug, store.ServicePHP),
+				Image:        svc.Image,
+				Labels:       labels,
+				Env:          env,
+				WorkingDir:   appMountTarget,
+				Network:      plan.NetworkName,
+				NetworkAlias: []string{"php"},
+				Mounts: append([]docker.MountSpec{
+					{Type: "bind", Source: appHost, Target: appMountTarget},
+					{Type: "bind", Source: filepath.Join(cfgHost, "php", "zz-envoryx.ini"), Target: phpIniTarget, ReadOnly: true},
+					{Type: "bind", Source: filepath.Join(cfgHost, "php", "zz-envoryx.conf"), Target: phpPoolTarget, ReadOnly: true},
+					p.HomeMount(proj),
+				}, p.gatewayMounts(proj)...),
+				RestartPolicy: "unless-stopped",
+				StopTimeout:   stopTimeoutSec,
+			}
+			p.withPackageCache(&phpSpec)
+			plan.Containers = append(plan.Containers, ContainerPlan{Kind: store.ServicePHP, Order: 10, Spec: phpSpec})
 			images[svc.Image] = true
 
 		case store.ServiceWeb:
@@ -328,6 +363,7 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 				RestartPolicy: "unless-stopped",
 				StopTimeout:   5,
 			}
+			p.withPackageCache(&spec)
 			if ncfg.DevServer {
 				// Dev-server mode: the script is the main process; the proxy routes
 				// <slug>-dev.<base> to it and the host port publishes it directly.
@@ -378,6 +414,7 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 				RestartPolicy: "unless-stopped",
 				StopTimeout:   stopTimeoutSec,
 			}
+			p.withPackageCache(&spec)
 			if pcfg.Server {
 				// Server mode: the application server is the main process, published on a
 				// host port; without PHP the proxy routes the project URL to it.
@@ -709,6 +746,7 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 			spec.Env = append(append([]string{}, env...), "HOME=/tmp", "COMPOSER_HOME=/tmp/composer")
 			spec.Mounts = append(spec.Mounts, docker.MountSpec{Type: "bind", Source: filepath.Join(cfgHost, "php", "zz-envoryx.ini"), Target: phpIniTarget, ReadOnly: true})
 		}
+		p.withPackageCache(&spec)
 		plan.Containers = append(plan.Containers, ContainerPlan{Kind: WorkerKind(w), Order: 30, Spec: spec})
 	}
 

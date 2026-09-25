@@ -2040,5 +2040,16 @@
   "Import {{count}} variables_one": "Імпортувати {{count}} змінну",
   "Import {{count}} variables_few": "Імпортувати {{count}} змінні",
   "Import {{count}} variables_many": "Імпортувати {{count}} змінних",
-  "Import {{count}} variables_other": "Імпортувати {{count}} змінної"
+  "Import {{count}} variables_other": "Імпортувати {{count}} змінної",
+  "Package cache": "Кеш пакетів",
+  "Package cache cleared": "Кеш пакетів очищено",
+  "{{size}} freed": "звільнено {{size}}",
+  "{{tool}} cache emptied, {{size}} freed.": "Кеш {{tool}} очищено, звільнено {{size}}.",
+  "Package cache emptied, {{size}} freed.": "Кеш пакетів очищено, звільнено {{size}}.",
+  "Emptying the cache failed": "Не вдалося очистити кеш",
+  "In use: {{size}}": "Зайнято: {{size}}",
+  "Empty the {{tool}} cache": "Очистити кеш {{tool}}",
+  "Empty the whole cache": "Очистити весь кеш",
+  "An install running while the cache is emptied may fail; run it again.": "Встановлення, що триває під час очищення, може завершитися помилкою; запустіть його знову.",
+  "Composer, npm, Yarn, pip and uv keep their downloads in one cache shared by all projects, so a package is downloaded once. It fills up over time; emptying it only means the next install downloads again.": "Composer, npm, Yarn, pip і uv зберігають завантаження в одному кеші, спільному для всіх проєктів, тож пакет завантажується один раз. З часом кеш росте; очищення лише означає, що наступне встановлення завантажить усе знову."
 }

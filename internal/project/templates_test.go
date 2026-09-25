@@ -120,16 +120,19 @@ func TestNodeTemplatesScaffoldFromTheNodeImage(t *testing.T) {
 			t.Fatalf("scaffold container: %+v", r)
 		}
 		// create-next-app needs a writable parent directory; /var/www is root-owned.
-		if r.WorkingDir != "/tmp/shop" || len(r.Mounts) != 1 || r.Mounts[0].Target != "/tmp/shop" || r.Mounts[0].Source != "/host/development/shop" {
+		// The project directory, and the shared package cache the downloads land in.
+		if r.WorkingDir != "/tmp/shop" || len(r.Mounts) != 2 || r.Mounts[0].Target != "/tmp/shop" || r.Mounts[0].Source != "/host/development/shop" ||
+			r.Mounts[1].Source != "/host/appdata/envoryx/cache" || r.Mounts[1].Target != "/var/cache/envoryx" {
 			t.Fatalf("scaffold mount: %+v", r)
 		}
 		env := strings.Join(r.Env, "\n")
-		for _, want := range []string{"HOME=/tmp", "npm_config_cache=/tmp/.npm", "npm_config_yes=true", "CI=1", "COREPACK_ENABLE_DOWNLOAD_PROMPT=0"} {
+		for _, want := range []string{"HOME=/tmp", "npm_config_cache=/var/cache/envoryx/npm", "npm_config_yes=true", "CI=1", "COREPACK_ENABLE_DOWNLOAD_PROMPT=0"} {
 			if !strings.Contains(env, want) {
 				t.Fatalf("scaffold env lacks %s: %s", want, env)
 			}
 		}
-		if strings.Contains(env, "COMPOSER") {
+		// The shared cache names every package manager's cache; Composer's home is PHP's.
+		if strings.Contains(env, "COMPOSER_HOME") {
 			t.Fatalf("composer env on a node scaffold: %s", env)
 		}
 	}

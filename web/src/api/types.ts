@@ -514,6 +514,13 @@ export interface SiteAnalysis {
   notices: SiteNotice[];
 }
 
+/** The package cache shared by all projects (Composer, npm, Yarn, pnpm, pip, uv). */
+export interface PackageCache {
+  path: string;
+  bytes: number;
+  entries: { tool: string; bytes: number }[];
+}
+
 /** An uploaded website waiting for its project. */
 export interface SiteImport {
   id: string;

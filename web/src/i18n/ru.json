@@ -2040,5 +2040,16 @@
   "Import {{count}} variables_one": "Импортировать {{count}} переменную",
   "Import {{count}} variables_few": "Импортировать {{count}} переменные",
   "Import {{count}} variables_many": "Импортировать {{count}} переменных",
-  "Import {{count}} variables_other": "Импортировать {{count}} переменной"
+  "Import {{count}} variables_other": "Импортировать {{count}} переменной",
+  "Package cache": "Кэш пакетов",
+  "Package cache cleared": "Кэш пакетов очищен",
+  "{{size}} freed": "освобождено {{size}}",
+  "{{tool}} cache emptied, {{size}} freed.": "Кэш {{tool}} очищен, освобождено {{size}}.",
+  "Package cache emptied, {{size}} freed.": "Кэш пакетов очищен, освобождено {{size}}.",
+  "Emptying the cache failed": "Не удалось очистить кэш",
+  "In use: {{size}}": "Занято: {{size}}",
+  "Empty the {{tool}} cache": "Очистить кэш {{tool}}",
+  "Empty the whole cache": "Очистить весь кэш",
+  "An install running while the cache is emptied may fail; run it again.": "Установка, идущая во время очистки, может завершиться ошибкой; запустите её снова.",
+  "Composer, npm, Yarn, pip and uv keep their downloads in one cache shared by all projects, so a package is downloaded once. It fills up over time; emptying it only means the next install downloads again.": "Composer, npm, Yarn, pip и uv хранят загрузки в одном кэше, общем для всех проектов, поэтому пакет скачивается один раз. Со временем кэш растёт; очистка лишь означает, что следующая установка скачает всё заново."
 }

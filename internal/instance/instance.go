@@ -294,7 +294,7 @@ func (s *Store) skip(path, rel string, isDir bool) bool {
 	}
 	parts := strings.Split(filepath.ToSlash(rel), "/")
 	switch parts[0] {
-	case "backups", "jetbrains", "logs", pendingMarker:
+	case "backups", "jetbrains", "logs", "cache", pendingMarker:
 		return true
 	case "projects":
 		// projects/<id>/home holds composer/npm caches of the project user.

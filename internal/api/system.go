@@ -507,3 +507,23 @@ func (a *API) clearLogHistory(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"logHistory": a.d.Projects.LogHistoryInfo(r.Context())})
 }
+
+// packageCache reports the size of the shared package cache per tool.
+func (a *API) packageCache(w http.ResponseWriter, r *http.Request) {
+	c, err := a.d.Projects.PackageCache(r.Context())
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"cache": c})
+}
+
+// clearPackageCache empties the shared package cache, or one tool's part (?tool=npm).
+func (a *API) clearPackageCache(w http.ResponseWriter, r *http.Request) {
+	c, err := a.d.Projects.ClearPackageCache(r.Context(), r.URL.Query().Get("tool"))
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"cache": c})
+}

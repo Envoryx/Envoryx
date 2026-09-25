@@ -41,6 +41,8 @@ const (
 	ActionOrphansRemoved  = "docker.orphans_removed"
 	// ActionLogHistoryCleared: the stored log history was deleted.
 	ActionLogHistoryCleared = "logs.history_cleared"
+	// ActionPackageCacheCleared: the shared package cache (or one tool's part) was emptied.
+	ActionPackageCacheCleared = "cache.cleared"
 
 	ActionBackupCreated  = "backup.created"
 	ActionBackupRestored = "backup.restored"
