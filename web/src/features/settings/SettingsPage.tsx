@@ -12,6 +12,7 @@ import { PublicHostNotice } from "@/components/PublicHostNotice";
 import { DomainsCard } from "./DomainsCard";
 import { TokensCard } from "./TokensCard";
 import { DBToolCard } from "./DBToolCard";
+import { PackageCacheCard } from "./PackageCacheCard";
 import { NotificationsCard } from "./NotificationsCard";
 import { InstanceBackupsCard } from "./InstanceBackupsCard";
 import { OffsiteTargetsCard } from "@/features/offsite/OffsiteTargetsCard";
@@ -350,7 +351,12 @@ export function SettingsPage() {
           <InstanceBackupsCard />
         </>
       )}
-      {tab === "tools" && <DBToolCard />}
+      {tab === "tools" && (
+        <div className="space-y-6">
+          <DBToolCard />
+          <PackageCacheCard />
+        </div>
+      )}
       {tab === "audit" && <AuditCard />}
     </div>
   );

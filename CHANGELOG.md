@@ -11,6 +11,12 @@ release). `:main` follows the development branch.
 ## [Unreleased]
 
 ### Added
+- Shared package cache: Composer, npm, Yarn, pip and uv keep their downloads in
+  `/config/cache`, which the application containers, the workers and the
+  template scaffolds of every project share, so a package is downloaded once –
+  a second Laravel project is created in about a quarter of the time.
+  *Settings → Tools → Package cache* shows its size per tool and empties it.
+  Instance backups leave it out.
 - `.env` import and export for a project's variables (*Environment* tab and the
   wizard): *Import .env* reads a pasted or chosen file (`export`, comments,
   quotes, `${VAR}` references), selects new and changed variables, leaves out

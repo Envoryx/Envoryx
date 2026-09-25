@@ -62,10 +62,10 @@ const composerNoInteraction = "--no-interaction"
 // container has no TTY and nobody answers.
 var (
 	composerScaffoldEnv = []string{"HOME=/tmp", "COMPOSER_HOME=/tmp/composer", "COMPOSER_NO_INTERACTION=1", "COMPOSER_MEMORY_LIMIT=-1"}
-	nodeScaffoldEnv     = []string{"HOME=/tmp", "npm_config_cache=/tmp/.npm", "npm_config_yes=true", "CI=1", "COREPACK_ENABLE_DOWNLOAD_PROMPT=0", "NPM_CONFIG_UPDATE_NOTIFIER=false"}
+	nodeScaffoldEnv     = []string{"HOME=/tmp", "npm_config_yes=true", "CI=1", "COREPACK_ENABLE_DOWNLOAD_PROMPT=0", "NPM_CONFIG_UPDATE_NOTIFIER=false"}
 	// Python scaffolds create the project's .venv first; the steps after it run through
 	// its bin/ (PATH), so pip installs into the venv, never into the image.
-	pythonScaffoldEnv = []string{"HOME=/tmp", "PIP_CACHE_DIR=/tmp/.pip", "PIP_DISABLE_PIP_VERSION_CHECK=1", "PYTHONUNBUFFERED=1", "VIRTUAL_ENV=" + pythonVenvPath, "PATH=" + pythonVenvPath + "/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin"}
+	pythonScaffoldEnv = []string{"HOME=/tmp", "PIP_DISABLE_PIP_VERSION_CHECK=1", "PYTHONUNBUFFERED=1", "VIRTUAL_ENV=" + pythonVenvPath, "PATH=" + pythonVenvPath + "/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin"}
 )
 
 // Python scaffold sources. Each is a fixed file written by Envoryx; the Django settings
@@ -317,6 +317,12 @@ func (m *Manager) applyTemplate(ctx context.Context, proj store.Project, tpl Tem
 	if err := m.engine.EnsureImage(ctx, svc.Image, m.pullProgress(ctx, proj.Slug, svc.Image)); err != nil {
 		return err
 	}
+	// The downloads land in the shared package cache, which the project's plan has not
+	// created yet at this point.
+	if err := os.MkdirAll(planner.PackageCacheDir(), 0o755); err != nil {
+		return fmt.Errorf("create the package cache: %w", err)
+	}
+	_ = os.Chown(planner.PackageCacheDir(), paths.PUID, paths.PGID)
 	for i, ts := range tpl.steps {
 		step(ctx, "Scaffolding the {{template}} template: {{step}}", "template", tpl.Name, "step", ts.label)
 		spec := docker.ContainerSpec{
@@ -330,6 +336,8 @@ func (m *Manager) applyTemplate(ctx context.Context, proj store.Project, tpl Tem
 			// Composer/npm downloads need DNS/internet: default bridge network.
 			RestartPolicy: "no",
 		}
+		spec.Env = append([]string{}, spec.Env...)
+		planner.withPackageCache(&spec)
 		runAsProjectUser(&spec, paths.PUID, paths.PGID)
 		res, err := m.engine.RunOneShot(ctx, spec)
 		if err != nil {

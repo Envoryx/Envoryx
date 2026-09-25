@@ -27,6 +27,7 @@ import type {
   GitResult,
   GitStatus,
   ManifestPlan,
+  PackageCache,
   SiteImport,
   SiteImportResult,
   InstanceBackup,
@@ -408,6 +409,11 @@ export const api = {
   search: {
     credentials: (id: string, kind: "meilisearch" | "typesense") => request<{ credentials: SearchCredentials }>(`/projects/${encodeURIComponent(id)}/${kind}/credentials`),
   },
+  packageCache: {
+    get: () => request<{ cache: PackageCache }>("/package-cache"),
+    clear: (tool = "") => request<{ cache: PackageCache }>(`/package-cache${tool ? `?tool=${encodeURIComponent(tool)}` : ""}`, { method: "DELETE" }),
+  },
+
   /** Every database of a project: the primary first, then the additional ones by name. */
   databases: (id: string) => request<{ databases: DatabaseInfo[] }>(`/projects/${encodeURIComponent(id)}/databases`),
 

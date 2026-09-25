@@ -2040,5 +2040,16 @@
   "Import {{count}} variables_one": "Importuj {{count}} zmienną",
   "Import {{count}} variables_few": "Importuj {{count}} zmienne",
   "Import {{count}} variables_many": "Importuj {{count}} zmiennych",
-  "Import {{count}} variables_other": "Importuj {{count}} zmiennej"
+  "Import {{count}} variables_other": "Importuj {{count}} zmiennej",
+  "Package cache": "Pamięć podręczna pakietów",
+  "Package cache cleared": "Wyczyszczono pamięć podręczną pakietów",
+  "{{size}} freed": "zwolniono {{size}}",
+  "{{tool}} cache emptied, {{size}} freed.": "Wyczyszczono pamięć podręczną {{tool}}, zwolniono {{size}}.",
+  "Package cache emptied, {{size}} freed.": "Wyczyszczono pamięć podręczną pakietów, zwolniono {{size}}.",
+  "Emptying the cache failed": "Nie udało się wyczyścić pamięci podręcznej",
+  "In use: {{size}}": "Zajęte: {{size}}",
+  "Empty the {{tool}} cache": "Wyczyść pamięć podręczną {{tool}}",
+  "Empty the whole cache": "Wyczyść całą pamięć podręczną",
+  "An install running while the cache is emptied may fail; run it again.": "Instalacja trwająca podczas czyszczenia może się nie powieść; uruchom ją ponownie.",
+  "Composer, npm, Yarn, pip and uv keep their downloads in one cache shared by all projects, so a package is downloaded once. It fills up over time; emptying it only means the next install downloads again.": "Composer, npm, Yarn, pip i uv trzymają pobrane pliki w jednej pamięci podręcznej wspólnej dla wszystkich projektów, więc pakiet pobiera się raz. Z czasem rośnie; wyczyszczenie oznacza tylko, że następna instalacja pobierze ponownie."
 }
