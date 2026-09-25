@@ -134,6 +134,13 @@ type harness struct {
 	now     time.Time
 }
 
+// today is a time of the real current day: instance backups carry the real creation
+// time, so the syncer's clock must be on the same date.
+func today(hour, min int) time.Time {
+	y, m, d := time.Now().Date()
+	return time.Date(y, m, d, hour, min, 0, 0, time.Local)
+}
+
 func newHarness(t *testing.T, targets ...Target) *harness {
 	t.Helper()
 	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
@@ -160,7 +167,7 @@ func newHarness(t *testing.T, targets ...Target) *harness {
 		}
 	}
 	h := &harness{st: st, mem: &memBackend{files: map[string][]byte{}}, proj: &fakeProjects{backups: map[string]project.OffsiteArchive{}, content: map[string][]byte{}}, notes: &recorder{}, project: projectID,
-		now: time.Date(2026, 9, 24, 3, 30, 0, 0, time.Local)}
+		now: today(3, 30)}
 	inst := &instance.Store{ConfigDir: cfgDir, DBPath: filepath.Join(cfgDir, "none.db"), Dir: filepath.Join(t.TempDir(), "_instance"), Version: "test", LatestSchema: db.LatestVersion(), Log: log}
 	h.s = &Syncer{Config: cfg, Store: st, Projects: h.proj, Instance: inst, Notify: h.notes, Log: log,
 		CreateInstanceBackup: func(ctx context.Context, kind string) (instance.Info, error) {
