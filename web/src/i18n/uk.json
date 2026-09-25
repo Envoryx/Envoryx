@@ -1294,7 +1294,6 @@
   "API token revoked": "API-токен відкликано",
   "Runtimes": "Середовища виконання",
   "PHP application": "PHP-застосунок",
-  "PHP-FPM behind the web server – Laravel, Symfony, WordPress…": "PHP-FPM за вебсервером — Laravel, Symfony, WordPress…",
   "Node.js application": "Node.js-застосунок",
   "Vite, Next.js, Nuxt… – the dev server answers on the project URL.": "Vite, Next.js, Nuxt… — dev-сервер відповідає за URL проєкту.",
   "Static site": "Статичний сайт",
@@ -2069,5 +2068,6 @@
   "test label": "мітка тесту",
   "Recent runs": "Останні запуски",
   "Run a suite to see its output here.": "Запустіть набір, щоб побачити тут вивід.",
-  "Tests run": "Тести запущено"
+  "Tests run": "Тести запущено",
+  "PHP-FPM behind the web server – Laravel, Symfony, WordPress, Drupal, TYPO3, Shopware…": "PHP-FPM за вебсервером — Laravel, Symfony, WordPress, Drupal, TYPO3, Shopware…"
 }

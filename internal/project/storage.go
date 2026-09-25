@@ -36,6 +36,29 @@ func storageConfig(p store.Project) (*store.ProjectService, runtime.StorageConfi
 
 // storagePublicURL is the browser-reachable URL of the bucket: through the proxy when it
 // runs, otherwise the published host port. Scheme follows the proxy's TLS setup.
+// ProjectURL is where a browser on the LAN reaches the project: its host name behind the
+// proxy (HTTPS when the proxy serves it), else the published HTTP port on the public
+// host. "" when neither is known.
+func (p *Planner) ProjectURL(proj store.Project) string {
+	if p.paths.BaseDomain != "" {
+		host := DefaultHostname(proj.Slug, p.paths.BaseDomain)
+		switch {
+		case p.paths.ProxyHTTPSPort == 443:
+			return "https://" + host
+		case p.paths.ProxyHTTPSPort > 0:
+			return fmt.Sprintf("https://%s:%d", host, p.paths.ProxyHTTPSPort)
+		case p.paths.ProxyHTTPPort == 80:
+			return "http://" + host
+		case p.paths.ProxyHTTPPort > 0:
+			return fmt.Sprintf("http://%s:%d", host, p.paths.ProxyHTTPPort)
+		}
+	}
+	if proj.HTTPPort > 0 && p.paths.PublicHost != "" {
+		return fmt.Sprintf("http://%s:%d", p.paths.PublicHost, proj.HTTPPort)
+	}
+	return ""
+}
+
 func (p *Planner) storagePublicURL(slug string, cfg runtime.StorageConfig) string {
 	if p.paths.BaseDomain != "" {
 		host := StorageHostname(slug, p.paths.BaseDomain)

@@ -1258,7 +1258,6 @@
   "API token revoked": "Token API revocato",
   "Runtimes": "Runtime",
   "PHP application": "Applicazione PHP",
-  "PHP-FPM behind the web server – Laravel, Symfony, WordPress…": "PHP-FPM dietro il server web: Laravel, Symfony, WordPress…",
   "Node.js application": "Applicazione Node.js",
   "Vite, Next.js, Nuxt… – the dev server answers on the project URL.": "Vite, Next.js, Nuxt…: il server di sviluppo risponde sull'URL del progetto.",
   "Static site": "Sito statico",
@@ -2031,5 +2030,6 @@
   "test label": "etichetta del test",
   "Recent runs": "Esecuzioni recenti",
   "Run a suite to see its output here.": "Avvia una suite per vederne qui l'output.",
-  "Tests run": "Test eseguiti"
+  "Tests run": "Test eseguiti",
+  "PHP-FPM behind the web server – Laravel, Symfony, WordPress, Drupal, TYPO3, Shopware…": "PHP-FPM dietro il server web: Laravel, Symfony, WordPress, Drupal, TYPO3, Shopware…"
 }

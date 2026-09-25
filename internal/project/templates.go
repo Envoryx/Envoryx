@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
@@ -43,6 +44,9 @@ type Template struct {
 	RecommendedDatabase string `json:"recommendedDatabase,omitempty"`
 	// PHPExtensions are enabled in addition to the defaults.
 	PHPExtensions []string `json:"phpExtensions,omitempty"`
+	// PHPMemoryLimit raises memory_limit where the application needs more than the
+	// default (Shopware); a limit the request set itself stays.
+	PHPMemoryLimit string `json:"phpMemoryLimit,omitempty"`
 	// Notes are shown after creation (next steps).
 	Notes string `json:"notes,omitempty"`
 
@@ -167,6 +171,45 @@ var templates = []Template{
 		Notes: "Open the site to run the WordPress installer (site title, admin account).",
 		steps: []templateStep{{label: "download WordPress", cmd: []string{"php", "-r", wordpressInstall}, files: map[string]func() (string, error){"wp-config.php": wordpressConfig}}},
 	},
+	// The CMS and shop templates: composer create-project, then what the application
+	// needs to find the project database. Their installers need the database running,
+	// so they run after the start – in the browser, or as an action.
+	{
+		ID: "drupal", Name: "Drupal", Description: "drupal/recommended-project with Drush and a settings.php wired to the project database.",
+		Runtime: "php", Docroot: "web", RequiresDatabase: true, RecommendedDatabase: "mariadb",
+		Notes: "Open the site to run the installer – the database is already set up – or run “drush site:install” from the Actions tab, which prints the admin password.",
+		steps: []templateStep{
+			{label: "composer create-project", cmd: []string{"composer", "create-project", "drupal/recommended-project", ".", composerNoInteraction, "--prefer-dist"}},
+			{label: "composer require drush", cmd: []string{"composer", "require", "drush/drush", composerNoInteraction}},
+			{label: "prepare settings.php", cmd: []string{"php", "-r", drupalSettings}},
+		},
+	},
+	{
+		ID: "typo3", Name: "TYPO3", Description: "typo3/cms-base-distribution with the installer enabled and the connection to the project database prepared.",
+		Runtime: "php", Docroot: "public", RequiresDatabase: true, RecommendedDatabase: "mariadb", PHPExtensions: []string{"mysqli"},
+		Notes: "Run “typo3 setup” from the Actions tab once the project is running: it creates the tables, a site for the project URL and the administrator, and prints the password. The web installer on the site works too; the connection comes from config/system/additional.php.",
+		steps: []templateStep{
+			{label: "composer create-project", cmd: []string{"composer", "create-project", "typo3/cms-base-distribution", ".", composerNoInteraction, "--prefer-dist"}},
+			{label: "enable the installer", cmd: []string{"php", "-r", typo3Settings}},
+		},
+	},
+	{
+		ID: "shopware", Name: "Shopware", Description: "shopware/production – Shopware 6 with APP_URL following the project address.",
+		Runtime: "php", Docroot: "public", RequiresDatabase: true, RecommendedDatabase: "mariadb", PHPMemoryLimit: "1G",
+		Notes: "Run “Shopware system:install” from the Actions tab once the project is running: it creates the tables, a sales channel for the project URL and the administrator admin / shopware (change the password in the admin at /admin).",
+		steps: []templateStep{
+			{label: "composer create-project", cmd: []string{"composer", "create-project", "shopware/production", ".", composerNoInteraction, "--prefer-dist"}, files: map[string]func() (string, error){".env.local": func() (string, error) { return shopwareEnvLocal, nil }}},
+		},
+	},
+	{
+		ID: "craft", Name: "Craft CMS", Description: "craftcms/craft with the database connection and the site URL read from the project environment.",
+		Runtime: "php", Docroot: "web", RequiresDatabase: true, RecommendedDatabase: "mariadb",
+		Notes: "Run “craft install” from the Actions tab once the project is running (it prints the admin password), or open /admin/install on the site.",
+		steps: []templateStep{
+			{label: "composer create-project", cmd: []string{"composer", "create-project", "craftcms/craft", ".", composerNoInteraction, "--prefer-dist"}},
+			{label: "wire the database", cmd: []string{"php", "-r", craftEnv}},
+		},
+	},
 	// The Node scaffolds are verified non-interactively against the Envoryx Node image
 	// (DEVELOPMENT.md, "scaffold smoke"): create-vite honours --template with CI=1,
 	// create-next-app --yes skips every prompt and installs, nuxi (citty) needs
@@ -256,6 +299,71 @@ func TemplateByID(id string) (Template, bool) {
 	return Template{}, false
 }
 
+// drupalSettings copies default.settings.php and appends the connection to the project
+// database (read from the injected variables at runtime), a hash salt and the config
+// sync directory; the proxy in front terminates HTTPS.
+const drupalSettings = `
+$dir = getcwd() . '/web/sites/default';
+if (!is_file("$dir/settings.php") && !copy("$dir/default.settings.php", "$dir/settings.php")) { fwrite(STDERR, "copy default.settings.php failed\n"); exit(1); }
+$salt = bin2hex(random_bytes(32));
+$block = <<<'EOT'
+
+// Added by Envoryx: the project database (Envoryx injects DB_*), and the proxy in
+// front of the site terminates HTTPS.
+$databases['default']['default'] = [
+  'driver' => getenv('DB_CONNECTION') === 'pgsql' ? 'pgsql' : 'mysql',
+  'database' => getenv('DB_DATABASE'),
+  'username' => getenv('DB_USERNAME'),
+  'password' => getenv('DB_PASSWORD'),
+  'host' => getenv('DB_HOST'),
+  'port' => getenv('DB_PORT'),
+  'prefix' => '',
+];
+$settings['hash_salt'] = '%SALT%';
+$settings['config_sync_directory'] = '../config/sync';
+$settings['reverse_proxy'] = TRUE;
+$settings['reverse_proxy_addresses'] = [$_SERVER['REMOTE_ADDR'] ?? '127.0.0.1'];
+EOT;
+file_put_contents("$dir/settings.php", str_replace('%SALT%', $salt, $block), FILE_APPEND);
+@mkdir("$dir/files", 0775, true);
+@mkdir(getcwd() . '/config/sync', 0775, true);
+echo "settings.php prepared\n";
+`
+
+// typo3Settings enables the web installer and points TYPO3 at the project database.
+const typo3Settings = `
+@mkdir('config/system', 0775, true);
+$block = <<<'EOT'
+<?php
+// Added by Envoryx: the project database (Envoryx injects DB_*).
+$GLOBALS['TYPO3_CONF_VARS']['DB']['Connections']['Default'] = array_merge($GLOBALS['TYPO3_CONF_VARS']['DB']['Connections']['Default'] ?? [], [
+    'driver' => getenv('DB_CONNECTION') === 'pgsql' ? 'pdo_pgsql' : 'mysqli',
+    'dbname' => getenv('DB_DATABASE'),
+    'user' => getenv('DB_USERNAME'),
+    'password' => getenv('DB_PASSWORD'),
+    'host' => getenv('DB_HOST'),
+    'port' => (int) getenv('DB_PORT'),
+]);
+EOT;
+if (file_put_contents('config/system/additional.php', $block) === false || !touch('public/FIRST_INSTALL')) { fwrite(STDERR, "writing the configuration failed\n"); exit(1); }
+echo "installer enabled\n";
+`
+
+// shopwareEnvLocal lets APP_URL follow the project address (Symfony's Dotenv resolves
+// the injected ENVORYX_URL).
+const shopwareEnvLocal = "# Added by Envoryx: the address the project answers at.\nAPP_URL=${ENVORYX_URL}\n"
+
+// craftEnv appends the connection and the site URL to Craft's .env; phpdotenv resolves
+// the references to the injected variables when Craft starts.
+const craftEnv = `
+$lines = "\n# Added by Envoryx: the project database and address (injected by Envoryx).\n"
+  . "CRAFT_DB_DRIVER=\${DB_CONNECTION}\nCRAFT_DB_SERVER=\${DB_HOST}\nCRAFT_DB_PORT=\${DB_PORT}\n"
+  . "CRAFT_DB_DATABASE=\${DB_DATABASE}\nCRAFT_DB_USER=\${DB_USERNAME}\nCRAFT_DB_PASSWORD=\${DB_PASSWORD}\n"
+  . "PRIMARY_SITE_URL=\${ENVORYX_URL}\n";
+if (file_put_contents('.env', $lines, FILE_APPEND) === false) { fwrite(STDERR, "writing .env failed\n"); exit(1); }
+echo ".env prepared\n";
+`
+
 // wordpressConfig renders wp-config.php reading the injected DB_* variables at runtime.
 func wordpressConfig() (string, error) {
 	salts := make([]string, 8)
@@ -338,6 +446,11 @@ func (m *Manager) applyTemplate(ctx context.Context, proj store.Project, tpl Tem
 		}
 		spec.Env = append([]string{}, spec.Env...)
 		planner.withPackageCache(&spec)
+		if kind == store.ServicePHP {
+			// The project's php.ini: the extensions the application's composer.json
+			// asks for (gd for Drupal, intl for Shopware …) are switched on there.
+			spec.Mounts = append(spec.Mounts, docker.MountSpec{Type: "bind", Source: filepath.Join(planner.configHostDir(proj.ID), "php", "zz-envoryx.ini"), Target: phpIniTarget, ReadOnly: true})
+		}
 		runAsProjectUser(&spec, paths.PUID, paths.PGID)
 		res, err := m.engine.RunOneShot(ctx, spec)
 		if err != nil {

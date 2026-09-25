@@ -24,7 +24,7 @@ const steps = ["General", "Runtimes", "Web server", "Database & services", "Envi
 type Stack = AppKind | "static";
 
 const stacks: { id: Stack; name: string; description: string }[] = [
-  { id: "php", name: "PHP application", description: "PHP-FPM behind the web server – Laravel, Symfony, WordPress…" },
+  { id: "php", name: "PHP application", description: "PHP-FPM behind the web server – Laravel, Symfony, WordPress, Drupal, TYPO3, Shopware…" },
   { id: "python", name: "Python application", description: "Django, Flask, FastAPI… – the application server answers on the project URL." },
   { id: "node", name: "Node.js application", description: "Vite, Next.js, Nuxt… – the dev server answers on the project URL." },
   { id: "static", name: "Static site", description: "The web server serves files from the document root; no application runtime." },

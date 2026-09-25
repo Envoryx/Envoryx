@@ -1258,7 +1258,6 @@
   "API token revoked": "API-token ingetrokken",
   "Runtimes": "Runtimes",
   "PHP application": "PHP-applicatie",
-  "PHP-FPM behind the web server – Laravel, Symfony, WordPress…": "PHP-FPM achter de webserver – Laravel, Symfony, WordPress…",
   "Node.js application": "Node.js-applicatie",
   "Vite, Next.js, Nuxt… – the dev server answers on the project URL.": "Vite, Next.js, Nuxt… – de dev-server antwoordt op de project-URL.",
   "Static site": "Statische site",
@@ -2031,5 +2030,6 @@
   "test label": "testlabel",
   "Recent runs": "Recente runs",
   "Run a suite to see its output here.": "Start een suite om de uitvoer hier te zien.",
-  "Tests run": "Tests uitgevoerd"
+  "Tests run": "Tests uitgevoerd",
+  "PHP-FPM behind the web server – Laravel, Symfony, WordPress, Drupal, TYPO3, Shopware…": "PHP-FPM achter de webserver – Laravel, Symfony, WordPress, Drupal, TYPO3, Shopware…"
 }

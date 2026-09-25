@@ -1294,7 +1294,6 @@
   "API token revoked": "Token API unieważniony",
   "Runtimes": "Środowiska uruchomieniowe",
   "PHP application": "Aplikacja PHP",
-  "PHP-FPM behind the web server – Laravel, Symfony, WordPress…": "PHP-FPM za serwerem WWW – Laravel, Symfony, WordPress…",
   "Node.js application": "Aplikacja Node.js",
   "Vite, Next.js, Nuxt… – the dev server answers on the project URL.": "Vite, Next.js, Nuxt… – serwer deweloperski odpowiada pod adresem URL projektu.",
   "Static site": "Strona statyczna",
@@ -2069,5 +2068,6 @@
   "test label": "etykieta testu",
   "Recent runs": "Ostatnie uruchomienia",
   "Run a suite to see its output here.": "Uruchom zestaw, aby zobaczyć tu jego wynik.",
-  "Tests run": "Uruchomiono testy"
+  "Tests run": "Uruchomiono testy",
+  "PHP-FPM behind the web server – Laravel, Symfony, WordPress, Drupal, TYPO3, Shopware…": "PHP-FPM za serwerem WWW – Laravel, Symfony, WordPress, Drupal, TYPO3, Shopware…"
 }

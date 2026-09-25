@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"maps"
 	"os"
 	"path/filepath"
@@ -189,6 +190,12 @@ func (m *Manager) create(ctx context.Context, req CreateRequest) (View, error) {
 	if err := m.ensureProjectDir(planner, proj, starter, scaffold); err != nil {
 		return fail("prepare project directory", err)
 	}
+	// The configuration comes first: a template's PHP steps run with the project's
+	// php.ini, which switches on the extensions the application needs.
+	step(ctx, "Writing the configuration")
+	if err := writePlanFiles(plan); err != nil {
+		return fail("write configuration", err)
+	}
 	if proj.Git.URL != "" {
 		step(ctx, "Cloning {{url}}", "url", proj.Git.URL)
 		if _, err := m.clone(ctx, proj); err != nil {
@@ -204,10 +211,6 @@ func (m *Manager) create(ctx context.Context, req CreateRequest) (View, error) {
 		if err := m.unpackSite(ctx, planner, proj, staged, req.Import); err != nil {
 			return fail("unpack the website", err)
 		}
-	}
-	step(ctx, "Writing the configuration")
-	if err := writePlanFiles(plan); err != nil {
-		return fail("write configuration", err)
 	}
 	if failed, err := m.provision(ctx, plan, &j); err != nil {
 		return fail(failed, err)
@@ -1356,5 +1359,25 @@ func (m *Manager) removeProjectFiles(planner *Planner, proj store.Project) error
 	if real == realRoot || !strings.HasPrefix(real, realRoot+string(filepath.Separator)) {
 		return fmt.Errorf("%w: refusing to delete %s", validate.ErrInvalid, dir)
 	}
+	return removeTree(real)
+}
+
+// removeTree deletes a directory tree, also where applications made directories
+// read-only (Drupal locks web/sites/default after its installer ran): when a removal
+// is refused, the directories are made writable for their owner and it is tried again.
+// Symlinks are never followed.
+func removeTree(dir string) error {
+	err := os.RemoveAll(dir)
+	if err == nil || !errors.Is(err, os.ErrPermission) {
+		return err
+	}
+	_ = filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
+		if err == nil && d.IsDir() {
+			if info, err := d.Info(); err == nil && info.Mode().Perm()&0o700 != 0o700 {
+				_ = os.Chmod(p, info.Mode().Perm()|0o700)
+			}
+		}
+		return nil
+	})
 	return os.RemoveAll(dir)
 }

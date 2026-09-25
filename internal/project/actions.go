@@ -51,6 +51,14 @@ var actionCatalog = []Action{
 	{ID: "console:cache-clear", Group: "Symfony", Label: "console cache:clear", Description: "Clear the Symfony cache", Service: store.ServicePHP, Cmd: []string{"php", "bin/console", "cache:clear", "--no-interaction"}, Requires: []string{"bin/console"}},
 	{ID: "console:migrate", Group: "Symfony", Label: "console doctrine:migrations:migrate", Description: "Run Doctrine migrations", Service: store.ServicePHP, Cmd: []string{"php", "bin/console", "doctrine:migrations:migrate", "--no-interaction"}, Requires: []string{"bin/console"}},
 
+	{ID: "drush:site-install", Group: "Drupal", Label: "drush site:install", Description: "Install Drupal with the standard profile into the project database; prints the admin password", Service: store.ServicePHP, Cmd: []string{"sh", "-c", drushInstallScript, "envoryx-drush"}, Requires: []string{"vendor/bin/drush"}, Destructive: true},
+	{ID: "drush:cache-rebuild", Group: "Drupal", Label: "drush cache:rebuild", Description: "Rebuild all Drupal caches", Service: store.ServicePHP, Cmd: []string{"vendor/bin/drush", "cache:rebuild"}, Requires: []string{"vendor/bin/drush"}},
+
+	{ID: "shopware:install", Group: "Shopware", Label: "system:install --basic-setup", Description: "Create the tables, a sales channel for APP_URL and the administrator admin / shopware", Service: store.ServicePHP, Cmd: []string{"php", "bin/console", "system:install", "--basic-setup", "--force", "--no-interaction"}, Requires: []string{"bin/console", "vendor/shopware/core"}, Destructive: true},
+
+	{ID: "typo3:setup", Group: "TYPO3", Label: "typo3 setup", Description: "Set TYPO3 up in the project database with a site for the project URL; prints the admin password", Service: store.ServicePHP, Cmd: []string{"sh", "-c", typo3SetupScript, "envoryx-typo3"}, Requires: []string{"vendor/bin/typo3"}, Destructive: true},
+	{ID: "craft:install", Group: "Craft CMS", Label: "craft install", Description: "Install Craft into the project database with a site for the project URL; prints the admin password", Service: store.ServicePHP, Cmd: []string{"sh", "-c", craftInstallScript, "envoryx-craft"}, Requires: []string{"craft", "vendor/craftcms/cms"}, Destructive: true},
+
 	{ID: "php:version", Group: "PHP", Label: "php -v", Description: "Show the PHP version and loaded extensions", Service: store.ServicePHP, Cmd: []string{"php", "-v"}},
 	{ID: "php:modules", Group: "PHP", Label: "php -m", Description: "List loaded PHP extensions", Service: store.ServicePHP, Cmd: []string{"php", "-m"}},
 
@@ -79,6 +87,30 @@ var actionCatalog = []Action{
 	{ID: "django:check", Group: "Django", Label: "manage.py check", Description: "Run Django's system checks", Service: store.ServicePython, Cmd: []string{"python", "manage.py", "check"}, Requires: []string{"manage.py"}},
 	{ID: "django:flush", Group: "Django", Label: "manage.py flush", Description: "Remove all data from the database (keeps the schema)", Service: store.ServicePython, Cmd: []string{"python", "manage.py", "flush", "--no-input"}, Requires: []string{"manage.py"}, Destructive: true},
 }
+
+// The installers of the CMS templates, run once the database is up. They read the
+// connection and the project address from the injected variables and create the
+// administrator with a generated password that the output shows once. Constants:
+// nothing from the request is interpolated.
+const (
+	// adminPassword satisfies the password rules of TYPO3 and Craft (upper and lower
+	// case, digits, a special character).
+	adminPassword = `pw="Envoryx-$(php -r 'echo bin2hex(random_bytes(6));')!"`
+
+	drushInstallScript = `DRUSH_OPTIONS_URI="$ENVORYX_URL" exec vendor/bin/drush site:install standard --yes --site-name="$ENVORYX_PROJECT"`
+
+	typo3SetupScript = adminPassword + `
+driver=mysqli; [ "$DB_CONNECTION" = pgsql ] && driver=postgres
+vendor/bin/typo3 setup --force --no-interaction --driver="$driver" --host="$DB_HOST" --port="$DB_PORT" --dbname="$DB_DATABASE" \
+  --username="$DB_USERNAME" --password="$DB_PASSWORD" --admin-username=admin --admin-user-password="$pw" \
+  --admin-email=admin@example.com --project-name="$ENVORYX_PROJECT" --server-type=other --create-site="$ENVORYX_URL" || exit
+printf '\nBackend: %s/typo3  User: admin  Password: %s\n' "$ENVORYX_URL" "$pw"`
+
+	craftInstallScript = adminPassword + `
+php craft install --interactive=0 --username=admin --email=admin@example.com --password="$pw" \
+  --site-name="$ENVORYX_PROJECT" --site-url="$ENVORYX_URL" --language=en-US || exit
+printf '\nControl panel: %s/admin  User: admin  Password: %s\n' "$ENVORYX_URL" "$pw"`
+)
 
 // pipInstallScript creates the venv when missing and installs requirements.txt into it.
 // A constant: nothing from the request is interpolated.

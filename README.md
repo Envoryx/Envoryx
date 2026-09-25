@@ -27,7 +27,9 @@ Envoryx is under active development. The current milestone (Phase 1 + 2) deliver
   and Ukrainian (more languages are one JSON file each)
 - local admin account, secure sessions, audit log
 - Docker engine integration that only ever touches resources labelled `envoryx.managed=true`
-- project templates: Laravel, Symfony (skeleton + webapp), WordPress (PHP),
+- project templates: Laravel, Symfony (skeleton + webapp), WordPress, Drupal, TYPO3,
+  Shopware, Craft CMS (PHP; the CMS installers run from the Actions tab and print the
+  admin password),
   Vite + React, Next.js, Nuxt (Node.js) and Django, Flask, FastAPI (Python) –
   scaffolded in a one-shot container
   from the project's runtime image as the project owner, wired to the project
