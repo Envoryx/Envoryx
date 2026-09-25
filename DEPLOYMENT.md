@@ -1077,6 +1077,43 @@ password rotation, databases on the server, Adminer, snapshots, cloning.
   `"databases": {"analytics": {"enabled": true, "type": "postgresql"}}`
   (`"enabled": false, "removeData": true` removes one with its volume).
 
+## Running tests
+
+The *Tests* tab of a project lists the test suites Envoryx finds in the
+project directory and runs them in the runtime container as the project owner,
+with the output live like an action:
+
+| Suite | Found by | Filter |
+|---|---|---|
+| Pest | `vendor/bin/pest` | `--filter` |
+| PHPUnit | `vendor/bin/phpunit`, or `bin/phpunit` (Symfony's bridge) | `--filter` |
+| npm scripts | `test` and `test:*` in `package.json` (yarn or pnpm when their lock file is there) | passed on to the script |
+| Playwright | `playwright.config.*` | `--grep` |
+| Cypress | `cypress.config.*` | `--spec` |
+| pytest | `pytest.ini`, `conftest.py`, `[tool.pytest]`, pytest in the requirements | `-k` |
+| Django | `manage.py` | test label |
+
+A suite that `composer.json` asks for but that is not installed yet is listed
+with the hint to run `composer install`. The filter is handed to the runner as
+one argument, never through a shell, and cannot start with a dash.
+
+PHPUnit, Pest, Playwright, Cypress and pytest write a JUnit report, which
+Envoryx reads after the run: the counts and every failed test with its
+message, file and line and the full text of the failure. For npm scripts and
+Django the exit code decides. The last 50 runs of a project are kept with
+their result and the end of their output (*Recent runs*); cancelling a run or
+closing the tab stops it and records it as cancelled. While tests run, the
+project is busy like during an action.
+
+Playwright and Cypress need their browsers and the system libraries those
+use; the Envoryx Node image does not include them, so browser tests usually
+belong on a machine or CI runner that has them.
+
+The API: `GET /projects/{id}/tests` (suites and recent runs),
+`GET /projects/{id}/test-runs/{run}` (one run with its output) and the
+WebSocket `GET /projects/{id}/tests/{suite}/ws?filter=…` (`operate` scope),
+which sends `{"type":"result","run":…}` before it closes.
+
 ## Package cache
 
 Composer, npm, Yarn, pip and uv keep their downloads in one cache that every

@@ -11,6 +11,12 @@ release). `:main` follows the development branch.
 ## [Unreleased]
 
 ### Added
+- Test runner (*Tests* tab): Envoryx finds a project's test suites – Pest,
+  PHPUnit (also Symfony's `bin/phpunit`), the `test`/`test:*` scripts of
+  `package.json`, Playwright, Cypress, pytest and Django – and runs them in the
+  runtime container with live output and an optional filter. Where the runner
+  writes a JUnit report, the result lists every failed test with its message,
+  file and line; the last 50 runs of a project are kept.
 - Shared package cache: Composer, npm, Yarn, pip and uv keep their downloads in
   `/config/cache`, which the application containers, the workers and the
   template scaffolds of every project share, so a package is downloaded once –
