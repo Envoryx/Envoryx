@@ -27,11 +27,12 @@ import { LogsTab } from "./LogsTab";
 // xterm.js is only needed on this tab; keep it out of the main bundle.
 const TerminalTab = lazy(() => import("./TerminalTab").then((m) => ({ default: m.TerminalTab })));
 const ActionsTab = lazy(() => import("./ActionsTab").then((m) => ({ default: m.ActionsTab })));
+const TestsTab = lazy(() => import("./TestsTab").then((m) => ({ default: m.TestsTab })));
 import { PhpConfigForm } from "./PhpConfigForm";
 import { webServerHint } from "./webServers";
 import { errorText, translateMessage } from "@/lib/errors";
 
-const tabs = ["Overview", "Resources", "Domains", "Git", "Actions", "Terminal", "Logs", "Runtime", "Workers", "Cron", "Database", "Services", "Backups", "Environment", "IDE", "Advanced"] as const;
+const tabs = ["Overview", "Resources", "Domains", "Git", "Actions", "Tests", "Terminal", "Logs", "Runtime", "Workers", "Cron", "Database", "Services", "Backups", "Environment", "IDE", "Advanced"] as const;
 type Tab = (typeof tabs)[number];
 
 export function ProjectDetailPage() {
@@ -149,6 +150,11 @@ export function ProjectDetailPage() {
       {tab === "Actions" && (
         <Suspense fallback={<Spinner label={t("Loading actions…")} />}>
           <ActionsTab project={p} />
+        </Suspense>
+      )}
+      {tab === "Tests" && (
+        <Suspense fallback={<Spinner />}>
+          <TestsTab project={p} />
         </Suspense>
       )}
       {tab === "Terminal" && (

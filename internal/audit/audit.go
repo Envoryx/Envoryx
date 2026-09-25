@@ -66,6 +66,7 @@ const (
 	ActionTerminalOpened = "terminal.opened"
 	ActionExec           = "project.exec"
 	ActionRun            = "action.run"
+	ActionTestRun        = "test.run"
 	ActionCronRun        = "cron.run"
 
 	ActionDeployKeyGenerated = "git.deploy_key_generated"

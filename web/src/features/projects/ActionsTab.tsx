@@ -1,105 +1,23 @@
 import { clsx } from "clsx";
 import { useTranslation } from "react-i18next";
 import { AlertTriangle, Play, Square, Terminal as TerminalIcon } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Terminal } from "@xterm/xterm";
-import { FitAddon } from "@xterm/addon-fit";
-import "@xterm/xterm/css/xterm.css";
+import { useMemo, useState } from "react";
 import { useProjectActions } from "@/api/hooks";
 import type { ActionInfo, Project } from "@/api/types";
 import { Badge, Button, Card, CardHeader, Code, Dialog, ErrorState, Spinner } from "@/components/ui";
 import { errorText } from "@/lib/errors";
+import { useLiveRun } from "./useLiveRun";
 
-type RunState = "idle" | "running" | "finished" | "failed";
-
-interface Run {
-  action: ActionInfo;
-  state: RunState;
-  exitCode: number | null;
-  startedAt: number;
-  message?: string;
-}
-
+/** The live runner with the action it runs. */
 function useActionRunner(projectId: string) {
-  const host = useRef<HTMLDivElement>(null);
-  const term = useRef<Terminal | null>(null);
-  const fit = useRef<FitAddon | null>(null);
-  const socket = useRef<WebSocket | null>(null);
-  const [run, setRun] = useState<Run | null>(null);
-
-  useEffect(() => {
-    const el = host.current;
-    if (!el) return;
-    const t = new Terminal({
-      disableStdin: true,
-      convertEol: true,
-      fontFamily: "ui-monospace, 'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace",
-      fontSize: 12.5,
-      theme: { background: "#0f1115", foreground: "#e6e8ee" },
-      scrollback: 10000,
-    });
-    const f = new FitAddon();
-    t.loadAddon(f);
-    t.open(el);
-    f.fit();
-    term.current = t;
-    fit.current = f;
-    const obs = new ResizeObserver(() => {
-      const dims = f.proposeDimensions();
-      if (dims && (dims.cols !== t.cols || dims.rows !== t.rows)) f.fit();
-    });
-    obs.observe(el);
-    return () => {
-      obs.disconnect();
-      socket.current?.close();
-      t.dispose();
-      term.current = null;
-    };
-  }, []);
-
-  const start = (action: ActionInfo) => {
-    socket.current?.close();
-    const t = term.current;
-    if (!t) return;
-    t.reset();
-    t.writeln(`\x1b[90m$ ${action.cmd.join(" ")}\x1b[0m`);
-    setRun({ action, state: "running", exitCode: null, startedAt: Date.now() });
-    const proto = window.location.protocol === "https:" ? "wss" : "ws";
-    const ws = new WebSocket(`${proto}://${window.location.host}/api/v1/projects/${encodeURIComponent(projectId)}/actions/${encodeURIComponent(action.id)}/ws?cols=${t.cols}&rows=${t.rows}`);
-    ws.binaryType = "arraybuffer";
-    socket.current = ws;
-    ws.onmessage = (ev) => {
-      if (ev.data instanceof ArrayBuffer) {
-        t.write(new Uint8Array(ev.data));
-        return;
-      }
-      try {
-        const m = JSON.parse(ev.data as string) as { type: string; code?: number; message?: string };
-        if (m.type === "exit") {
-          const code = m.code ?? -1;
-          t.writeln(code === 0 ? "\r\n\x1b[32m✔ finished (exit 0)\x1b[0m" : `\r\n\x1b[31m✘ exited with code ${code}\x1b[0m`);
-          setRun((r) => (r ? { ...r, state: code === 0 ? "finished" : "failed", exitCode: code } : r));
-        } else if (m.type === "error") {
-          setRun((r) => (r ? { ...r, state: "failed", message: m.message ?? "error" } : r));
-        }
-      } catch {
-        /* ignore */
-      }
-    };
-    ws.onerror = () => setRun((r) => (r && r.state === "running" ? { ...r, state: "failed", message: "connection failed" } : r));
-    ws.onclose = (ev) => {
-      setRun((r) => {
-        if (!r || r.state !== "running") return r;
-        return { ...r, state: "failed", message: ev.reason || "connection closed" };
-      });
-    };
+  const live = useLiveRun();
+  const [action, setAction] = useState<ActionInfo | null>(null);
+  const start = (a: ActionInfo) => {
+    setAction(a);
+    live.start(`/projects/${encodeURIComponent(projectId)}/actions/${encodeURIComponent(a.id)}/ws`, a.cmd.join(" "));
   };
-
-  const cancel = () => {
-    socket.current?.send(JSON.stringify({ type: "cancel" }));
-  };
-
-  return { host, run, start, cancel };
+  const run = live.run && action ? { ...live.run, action } : null;
+  return { host: live.host, run, start, cancel: live.cancel };
 }
 
 export function ActionsTab({ project }: { project: Project }) {

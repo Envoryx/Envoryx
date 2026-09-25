@@ -30,6 +30,8 @@ import type {
   PackageCache,
   SiteImport,
   SiteImportResult,
+  TestRun,
+  TestSuite,
   InstanceBackup,
   InstanceBackupsResponse,
   OffsiteTarget,
@@ -409,6 +411,11 @@ export const api = {
   search: {
     credentials: (id: string, kind: "meilisearch" | "typesense") => request<{ credentials: SearchCredentials }>(`/projects/${encodeURIComponent(id)}/${kind}/credentials`),
   },
+  tests: {
+    list: (id: string) => request<{ suites: TestSuite[]; runs: TestRun[] }>(`/projects/${encodeURIComponent(id)}/tests`),
+    run: (id: string, runId: string) => request<{ run: TestRun }>(`/projects/${encodeURIComponent(id)}/test-runs/${encodeURIComponent(runId)}`),
+  },
+
   packageCache: {
     get: () => request<{ cache: PackageCache }>("/package-cache"),
     clear: (tool = "") => request<{ cache: PackageCache }>(`/package-cache${tool ? `?tool=${encodeURIComponent(tool)}` : ""}`, { method: "DELETE" }),

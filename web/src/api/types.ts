@@ -514,6 +514,54 @@ export interface SiteAnalysis {
   notices: SiteNotice[];
 }
 
+/** A way the project runs its tests (PHPUnit, Pest, npm scripts, Playwright, Cypress, pytest, Django). */
+export interface TestSuite {
+  id: string;
+  framework: string;
+  label: string;
+  service: string;
+  cmd: string[];
+  /** The runner writes a JUnit report: the result names the failed tests. */
+  report: boolean;
+  /** What a filter narrows the run to; absent = no filter. */
+  filterHint?: string;
+  available: boolean;
+  reason?: string;
+}
+
+export interface TestCase {
+  name: string;
+  class?: string;
+  file?: string;
+  line?: number;
+  kind: "failure" | "error";
+  message: string;
+  details?: string;
+}
+
+export interface TestResult {
+  report: boolean;
+  tests: number;
+  failures: number;
+  errors: number;
+  skipped: number;
+  seconds: number;
+  failed: TestCase[];
+  more?: number;
+  output?: string;
+}
+
+export interface TestRun {
+  id: string;
+  suite: string;
+  filter?: string;
+  status: "passed" | "failed" | "cancelled";
+  exitCode: number;
+  startedAt: string;
+  durationMs: number;
+  result: TestResult;
+}
+
 /** The package cache shared by all projects (Composer, npm, Yarn, pnpm, pip, uv). */
 export interface PackageCache {
   path: string;
