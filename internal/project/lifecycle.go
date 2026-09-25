@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/envoryx/envoryx/internal/docker"
 	"github.com/envoryx/envoryx/internal/notify"
 	"github.com/envoryx/envoryx/internal/runtime"
+	"github.com/envoryx/envoryx/internal/siteimport"
 	"github.com/envoryx/envoryx/internal/store"
 	"github.com/envoryx/envoryx/internal/validate"
 )
@@ -27,6 +29,9 @@ type journal struct {
 	// projectDir is set when the operation created the project directory itself (a copy
 	// fills it); it is removed again on rollback.
 	projectDir string
+	// filledDir is an existing, empty project directory the operation filled (an
+	// uploaded website); it is emptied again on rollback.
+	filledDir string
 }
 
 // rollback removes journaled resources in reverse order. Every removal is label-guarded by
@@ -60,6 +65,11 @@ func (m *Manager) rollback(ctx context.Context, j journal) error {
 			errs = append(errs, fmt.Errorf("remove project dir: %w", err))
 		}
 	}
+	if j.filledDir != "" {
+		if err := wipeDir(j.filledDir); err != nil {
+			errs = append(errs, fmt.Errorf("empty project dir: %w", err))
+		}
+	}
 	return errors.Join(errs...)
 }
 
@@ -73,6 +83,24 @@ func (m *Manager) Create(ctx context.Context, req CreateRequest) (View, error) {
 }
 
 func (m *Manager) create(ctx context.Context, req CreateRequest) (View, error) {
+	var staged siteimport.Staged
+	if req.Import != nil {
+		var err error
+		if staged, err = m.checkImport(req); err != nil {
+			return View{}, err
+		}
+		// The extensions the site needs come on top of the chosen ones, as with a template.
+		if req.PHP != nil {
+			if req.PHP.Config.Extensions == nil {
+				req.PHP.Config.Extensions = runtime.DefaultPHPConfig().Extensions
+			}
+			for _, ext := range staged.Analysis.PHPExtensions {
+				if !slices.Contains(req.PHP.Config.Extensions, ext) {
+					req.PHP.Config.Extensions = append(slices.Clone(req.PHP.Config.Extensions), ext)
+				}
+			}
+		}
+	}
 	proj, err := m.buildProject(req)
 	if err != nil {
 		return View{}, err
@@ -135,11 +163,27 @@ func (m *Manager) create(ctx context.Context, req CreateRequest) (View, error) {
 		return View{}, fmt.Errorf("%s: %w", step, cause)
 	}
 
-	// A repository or template fills the empty directory; the starter page would collide.
-	// While a Python server or Node dev server serves the app nothing serves the docroot,
-	// so no starter.
-	scaffold := proj.Git.URL != "" || req.Template != ""
+	// A repository, template or uploaded website fills the empty directory; the starter
+	// page would collide. While a Python server or Node dev server serves the app nothing
+	// serves the docroot, so no starter.
+	scaffold := proj.Git.URL != "" || req.Template != "" || req.Import != nil
 	starter := req.CreateStarter && !scaffold && !appServesDirectly(proj)
+	if req.Import != nil {
+		// The upload goes into an empty directory only, and leaves nothing behind when
+		// the creation fails.
+		target := planner.ProjectDir(proj)
+		entries, err := os.ReadDir(target)
+		switch {
+		case errors.Is(err, os.ErrNotExist):
+			j.projectDir = target
+		case err != nil:
+			return fail("prepare project directory", err)
+		case len(entries) > 0:
+			return fail("prepare project directory", fmt.Errorf("%w: %s already exists and is not empty", ErrConflict, proj.Path))
+		default:
+			j.filledDir = target
+		}
+	}
 	step(ctx, "Preparing the project directory")
 	if err := m.ensureProjectDir(planner, proj, starter, scaffold); err != nil {
 		return fail("prepare project directory", err)
@@ -155,6 +199,10 @@ func (m *Manager) create(ctx context.Context, req CreateRequest) (View, error) {
 		if err := m.applyTemplate(ctx, proj, tpl); err != nil {
 			return fail("apply template "+tpl.ID, err)
 		}
+	} else if req.Import != nil {
+		if err := m.unpackSite(ctx, planner, proj, staged, req.Import); err != nil {
+			return fail("unpack the website", err)
+		}
 	}
 	step(ctx, "Writing the configuration")
 	if err := writePlanFiles(plan); err != nil {
@@ -168,13 +216,28 @@ func (m *Manager) create(ctx context.Context, req CreateRequest) (View, error) {
 			return fail(failed, err)
 		}
 	}
+	if req.Import != nil && staged.DumpFile() != "" {
+		if err := m.importDump(ctx, proj, staged.DumpFile()); err != nil {
+			return fail("import the database dump", err)
+		}
+	}
 	step(ctx, "Finishing up")
 	if err := m.store.Projects.UpdateState(ctx, proj.ID, proj.DesiredState, store.LifecycleReady, ""); err != nil {
 		return fail("finalise project", err)
 	}
-	m.audit.Log(ctx, audit.ActionProjectCreated, "project", proj.ID, map[string]any{
+	details := map[string]any{
 		"name": proj.Name, "slug": proj.Slug, "path": proj.Path, "port": proj.HTTPPort, "services": serviceSummary(proj),
-	})
+	}
+	if req.Import != nil {
+		details["import"] = map[string]any{"site": staged.SiteName, "dump": staged.DumpName, "framework": staged.Analysis.Framework.ID, "adaptConfig": req.Import.AdaptConfig}
+		if res := req.Import.result; res != nil {
+			res.Framework, res.Database, res.Notices = staged.Analysis.Framework, staged.DumpFile() != "", staged.Analysis.Notices
+		}
+		if err := m.DiscardSiteImport(staged.ID); err != nil {
+			m.log.Warn("removing the website upload failed", "id", staged.ID, "err", err)
+		}
+	}
+	m.audit.Log(ctx, audit.ActionProjectCreated, "project", proj.ID, details)
 	return m.Get(ctx, proj.ID)
 }
 

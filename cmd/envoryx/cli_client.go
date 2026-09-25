@@ -134,6 +134,32 @@ func (c *client) do(ctx context.Context, method, path string, query url.Values, 
 	return nil
 }
 
+// upload sends a streamed body (a multipart form) and decodes the JSON answer into out.
+func (c *client) upload(ctx context.Context, path, contentType string, body io.Reader, out any) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.url(path, nil), body)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", contentType)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", "envoryx-cli/"+version)
+	if c.token != "" {
+		req.Header.Set("Authorization", "Bearer "+c.token)
+	}
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return friendlyDialError(err, c.base)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 400 {
+		return decodeAPIError(resp)
+	}
+	if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
+		return fmt.Errorf("unreadable response from %s: %w", c.base.Host, err)
+	}
+	return nil
+}
+
 func (c *client) get(ctx context.Context, path string, query url.Values, out any) error {
 	return c.do(ctx, http.MethodGet, path, query, nil, out)
 }

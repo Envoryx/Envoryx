@@ -7,9 +7,10 @@ import { api } from "@/api/client";
 import { useCreateProject, useProjectLinks, useRuntimes, useSettings } from "@/api/hooks";
 import { NodeDevServerFields, defaultDevServerForm, devServerRequest, type DevServerForm } from "./NodeDevServerFields";
 import { PythonServerFields, defaultPythonServerForm, pythonServerRequest, type PythonServerForm } from "./PythonServerFields";
-import { defaultNodePresets, defaultPythonPresets, type AppKind, type CreateProjectRequest, type EnvVar, type PHPConfig, type Preview, type Project, type ProjectTemplate, type Serves } from "@/api/types";
+import { defaultNodePresets, defaultPythonPresets, type AppKind, type CreateProjectRequest, type EnvVar, type PHPConfig, type Preview, type Project, type ProjectTemplate, type Serves, type SiteImport } from "@/api/types";
 import { Alert, Button, Card, Checkbox, Code, ErrorState, Field, Input, PageHeader, Select, Spinner } from "@/components/ui";
 import { CreateProgress } from "./CreateProgress";
+import { ImportSiteCard, nameFromArchive } from "./ImportSiteCard";
 import { EnvEditor } from "./EnvEditor";
 import { PhpConfigForm } from "./PhpConfigForm";
 import { webServerHint } from "./webServers";
@@ -79,6 +80,10 @@ interface Form {
   gitToken: string;
   /** Apply the envoryx.yml the repository brings. */
   useManifest: boolean;
+  /** Start from an uploaded website instead of a template or repository. */
+  importing: boolean;
+  importSite: SiteImport | null;
+  adaptConfig: boolean;
   env: EnvVar[];
   createStarter: boolean;
   start: boolean;
@@ -156,6 +161,9 @@ export function NewProjectPage() {
         gitUsername: "",
         gitToken: "",
         useManifest: true,
+        importing: false,
+        importSite: null,
+        adaptConfig: true,
         env: [],
         createStarter: true,
         start: true,
@@ -195,6 +203,11 @@ export function NewProjectPage() {
     if (form.typesense) req.typesense = { exposePort: form.typesenseExpose };
     if (form.opensearch) req.opensearch = { version: form.opensearchVersion, exposePort: form.opensearchExpose, dashboards: form.opensearchDashboards };
     if (form.storage) req.storage = {};
+    if (form.importing) {
+      if (form.importSite) req.import = { id: form.importSite.id, adaptConfig: form.adaptConfig };
+      req.createStarter = false;
+      return req;
+    }
     if (form.template) req.template = form.template;
     if (form.gitUrl.trim() && !form.template) {
       const git: NonNullable<CreateProjectRequest["git"]> = { url: form.gitUrl.trim(), branch: form.gitBranch.trim(), username: form.gitUsername.trim() };
@@ -243,7 +256,7 @@ export function NewProjectPage() {
   const templates = (rt.templates ?? []).filter((tpl) => templateRuntime(tpl) === form.stack);
   const selectedTemplate = rt.templates?.find((x) => x.id === form.template);
   const nameError = form.name.trim().length > 0 && form.name.trim().length < 2 ? t("At least 2 characters.") : slugify(form.name) === "" && form.name.trim() ? t("Name must contain letters or digits.") : undefined;
-  const canContinue = step === 0 ? form.name.trim().length >= 2 && !nameError : true;
+  const canContinue = step === 0 ? form.name.trim().length >= 2 && !nameError && (!form.importing || !!form.importSite) : true;
   const set = (patch: Partial<Form>) => setForm((f) => (f ? { ...f, ...patch } : f));
 
   /** Presets the runtime checkboxes, docroot and starter page for a stack; fields the user edited stay. */
@@ -270,9 +283,48 @@ export function NewProjectPage() {
     }
   };
 
+  /** Throws the uploaded website away (it would wait 24 hours on the server otherwise). */
+  const discardImport = () => {
+    if (form.importSite) api.siteImports.discard(form.importSite.id).catch(() => undefined);
+    set({ importSite: null });
+  };
+
+  /** Fills the next steps with what the analysis of the uploaded website suggests. */
+  const applyImport = (imp: SiteImport) => {
+    const a = imp.analysis;
+    const defaultVersion = (key: string) => rt.runtimes.find((r) => r.key === key)?.versions.find((v) => v.default)?.version ?? "";
+    const patch: Partial<Form> = {
+      importSite: imp,
+      adaptConfig: true,
+      template: "",
+      gitUrl: "",
+      createStarter: false,
+      stack: a.runtime,
+      docroot: a.docroot,
+      docrootTouched: true,
+      phpEnabled: a.runtime === "php",
+      nodeEnabled: a.runtime === "node",
+      nodeDev: { ...form.nodeDev, devServer: false },
+      pythonEnabled: a.runtime === "python",
+      pythonServer: { ...form.pythonServer, server: false },
+      dbType: a.database ?? "",
+      dbVersion: a.database ? defaultVersion(a.database) : "",
+    };
+    if (!form.name.trim()) patch.name = nameFromArchive(imp.siteName);
+    if (a.phpVersion && php?.versions.some((v) => v.version === a.phpVersion)) patch.phpVersion = a.phpVersion;
+    if (a.phpExtensions?.length) patch.phpConfig = { ...form.phpConfig, extensions: [...new Set([...form.phpConfig.extensions, ...a.phpExtensions])].sort() };
+    const webKey = a.web && webServers.some((r) => r.key === a.web) ? a.web : "caddy";
+    patch.webType = webKey;
+    patch.webVersion = defaultVersion(webKey);
+    set(patch);
+  };
+
   const chooseTemplate = (id: string) => {
+    if (form.importing) discardImport();
     const tpl = rt.templates?.find((x) => x.id === id);
     const patch: Partial<Form> = {
+      importing: false,
+      importSite: null,
       template: id,
       dbType: tpl?.recommendedDatabase && !form.dbType ? tpl.recommendedDatabase : form.dbType,
       dbVersion: tpl?.recommendedDatabase && !form.dbType ? (rt.runtimes.find((r) => r.key === tpl.recommendedDatabase)?.versions.find((v) => v.default)?.version ?? "") : form.dbVersion,
@@ -447,14 +499,21 @@ export function NewProjectPage() {
                 <legend className="text-sm font-medium text-fg">{t("Start from")}</legend>
                 <div className="grid gap-2 sm:grid-cols-2">
                   {[{ id: "", name: t("Blank"), description: t("Empty directory, optionally with a starter page, or clone a repository below.") }, ...templates].map((item) => (
-                    <label key={item.id} className={clsx("flex cursor-pointer gap-3 rounded-md border p-3 text-sm", form.template === item.id ? "border-accent-500 bg-accent-500/5" : "border-default hover:bg-muted")}>
-                      <input type="radio" name="template" className="mt-0.5 accent-accent-600" checked={form.template === item.id} onChange={() => chooseTemplate(item.id)} />
+                    <label key={item.id} className={clsx("flex cursor-pointer gap-3 rounded-md border p-3 text-sm", !form.importing && form.template === item.id ? "border-accent-500 bg-accent-500/5" : "border-default hover:bg-muted")}>
+                      <input type="radio" name="template" className="mt-0.5 accent-accent-600" checked={!form.importing && form.template === item.id} onChange={() => chooseTemplate(item.id)} />
                       <span>
                         <span className="block font-medium">{item.name}</span>
                         <span className="block text-xs text-muted">{item.description}</span>
                       </span>
                     </label>
                   ))}
+                  <label className={clsx("flex cursor-pointer gap-3 rounded-md border p-3 text-sm", form.importing ? "border-accent-500 bg-accent-500/5" : "border-default hover:bg-muted")}>
+                    <input type="radio" name="template" className="mt-0.5 accent-accent-600" checked={form.importing} onChange={() => set({ importing: true, template: "", gitUrl: "" })} />
+                    <span>
+                      <span className="block font-medium">{t("Existing website")}</span>
+                      <span className="block text-xs text-muted">{t("Upload the files of a site you already have – from an old host or a backup – and optionally its database dump.")}</span>
+                    </span>
+                  </label>
                 </div>
                 {selectedTemplate?.requiresDatabase && !form.dbType && (
                   <p className="text-xs text-amber-600 dark:text-amber-400">{t("This template needs a database – it is preselected in the “Database & services” step.")}</p>
@@ -463,39 +522,43 @@ export function NewProjectPage() {
               <Field label={t("Document root")} htmlFor="docroot" hint={docrootHint}>
                 <Input id="docroot" value={form.docroot} onChange={(e) => set({ docroot: e.target.value, docrootTouched: true })} placeholder={form.stack === "php" ? "public" : "dist"} spellCheck={false} />
               </Field>
-              <div className={clsx("space-y-4 rounded-md border border-default p-4", form.template && "opacity-50")}>
-                <p className="text-sm font-medium text-fg">{form.template ? t("Git repository (optional – not with a template)") : t("Git repository (optional)")}</p>
-                <Field label={t("Repository URL")} htmlFor="git-url" hint={t("Cloned into the empty project directory. https://…, git@host:path.git or ssh://…")}>
-                  <Input id="git-url" value={form.gitUrl} onChange={(e) => set({ gitUrl: e.target.value })} placeholder="https://github.com/you/project.git" spellCheck={false} disabled={!!form.template} />
-                </Field>
-                {form.gitUrl.trim() && (
-                  <div className="grid gap-4 sm:grid-cols-3">
-                    <Field label={t("Branch")} htmlFor="git-branch" hint={t("Empty = default branch")}>
-                      <Input id="git-branch" value={form.gitBranch} onChange={(e) => set({ gitBranch: e.target.value })} placeholder="main" spellCheck={false} />
-                    </Field>
-                    {!(form.gitUrl.startsWith("git@") || form.gitUrl.startsWith("ssh://")) ? (
-                      <>
-                        <Field label={t("Username (optional)")} htmlFor="git-user">
-                          <Input id="git-user" value={form.gitUsername} onChange={(e) => set({ gitUsername: e.target.value })} placeholder="x-access-token" autoComplete="off" />
-                        </Field>
-                        <Field label={t("Access token")} htmlFor="git-token" hint={t("Only for private repositories")}>
-                          <Input id="git-token" type="password" value={form.gitToken} onChange={(e) => set({ gitToken: e.target.value })} autoComplete="new-password" />
-                        </Field>
-                      </>
-                    ) : (
-                      <p className="self-end pb-2 text-xs text-muted sm:col-span-2">{t("SSH uses the Envoryx deploy key (Settings → Deploy key); add it to the repository first.")}</p>
-                    )}
-                  </div>
-                )}
-                {form.gitUrl.trim() && (
-                  <Checkbox
-                    label={t("Use the repository's envoryx.yml")}
-                    description={t("If the repository brings one, it decides runtimes, services, domains, environment, workers and cron jobs; the next steps only count without it.")}
-                    checked={form.useManifest}
-                    onChange={(e) => set({ useManifest: e.target.checked })}
-                  />
-                )}
-              </div>
+              {form.importing ? (
+                <ImportSiteCard value={form.importSite} onUploaded={applyImport} onDiscard={discardImport} adaptConfig={form.adaptConfig} onAdaptConfig={(adaptConfig) => set({ adaptConfig })} />
+              ) : (
+                <div className={clsx("space-y-4 rounded-md border border-default p-4", form.template && "opacity-50")}>
+                  <p className="text-sm font-medium text-fg">{form.template ? t("Git repository (optional – not with a template)") : t("Git repository (optional)")}</p>
+                  <Field label={t("Repository URL")} htmlFor="git-url" hint={t("Cloned into the empty project directory. https://…, git@host:path.git or ssh://…")}>
+                    <Input id="git-url" value={form.gitUrl} onChange={(e) => set({ gitUrl: e.target.value })} placeholder="https://github.com/you/project.git" spellCheck={false} disabled={!!form.template} />
+                  </Field>
+                  {form.gitUrl.trim() && (
+                    <div className="grid gap-4 sm:grid-cols-3">
+                      <Field label={t("Branch")} htmlFor="git-branch" hint={t("Empty = default branch")}>
+                        <Input id="git-branch" value={form.gitBranch} onChange={(e) => set({ gitBranch: e.target.value })} placeholder="main" spellCheck={false} />
+                      </Field>
+                      {!(form.gitUrl.startsWith("git@") || form.gitUrl.startsWith("ssh://")) ? (
+                        <>
+                          <Field label={t("Username (optional)")} htmlFor="git-user">
+                            <Input id="git-user" value={form.gitUsername} onChange={(e) => set({ gitUsername: e.target.value })} placeholder="x-access-token" autoComplete="off" />
+                          </Field>
+                          <Field label={t("Access token")} htmlFor="git-token" hint={t("Only for private repositories")}>
+                            <Input id="git-token" type="password" value={form.gitToken} onChange={(e) => set({ gitToken: e.target.value })} autoComplete="new-password" />
+                          </Field>
+                        </>
+                      ) : (
+                        <p className="self-end pb-2 text-xs text-muted sm:col-span-2">{t("SSH uses the Envoryx deploy key (Settings → Deploy key); add it to the repository first.")}</p>
+                      )}
+                    </div>
+                  )}
+                  {form.gitUrl.trim() && (
+                    <Checkbox
+                      label={t("Use the repository's envoryx.yml")}
+                      description={t("If the repository brings one, it decides runtimes, services, domains, environment, workers and cron jobs; the next steps only count without it.")}
+                      checked={form.useManifest}
+                      onChange={(e) => set({ useManifest: e.target.checked })}
+                    />
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -732,6 +795,18 @@ export function NewProjectPage() {
                         </dd>
                       </>
                     )}
+                    {form.importSite && (
+                      <>
+                        <dt className="text-muted">{t("Website")}</dt>
+                        <dd className="text-xs">
+                          {form.importSite.siteName}
+                          {form.importSite.dumpName && <> + {form.importSite.dumpName}</>}
+                          <span className="block text-subtle">
+                            {form.importSite.dumpName ? t("The files are unpacked into the project directory and the dump is imported into the project database.") : t("The files are unpacked into the project directory.")}
+                          </span>
+                        </dd>
+                      </>
+                    )}
                     <dt className="text-muted">{t("Files")}</dt>
                     <dd className="font-mono text-xs">
                       {preview.path} <span className="text-subtle">({t("host")}: {preview.hostPath})</span>
@@ -808,7 +883,7 @@ export function NewProjectPage() {
                     </p>
                   )}
                   <div className="space-y-3 border-t border-default pt-4">
-                    {form.gitUrl.trim() ? (
+                    {form.importing ? null : form.gitUrl.trim() ? (
                       <p className="text-sm text-muted">
                         {t("Repository {{url}} will be cloned into the project directory.", { url: form.gitUrl.trim() })}
                         {form.useManifest && <> {t("If it brings an envoryx.yml, that file replaces the services chosen here.")}</>}

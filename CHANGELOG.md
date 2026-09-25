@@ -10,6 +10,23 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Added
+- Import an existing website: *New project → Start from: Existing website*
+  takes a ZIP or tar.gz of a site's files and optionally a database dump
+  (`.sql`, `.sql.gz`). Envoryx recognises WordPress, Laravel, Symfony, Drupal,
+  TYPO3, Joomla, Shopware, Craft CMS and plain PHP, static, Node.js and Python
+  sites and fills the wizard with PHP version, extensions, document root, web
+  server (Apache when the site relies on `.htaccess`) and database. Optionally
+  the site's configuration is wired to the project database – `wp-config.php`,
+  Drupal's `settings.php`, TYPO3's additional configuration, Joomla's
+  `configuration.php`; each original is kept as `*.envoryx-original.php` that
+  answers 404 – and the old server's configuration caches are removed. The dump
+  is imported without the statements that tie it to the old server (`USE`,
+  `CREATE DATABASE`, owners and grants); a failed import rolls the project back.
+  `envoryx import <folder|archive> [name] --db dump.sql` does the same from the
+  command line and packs a local folder on the fly. See DEPLOYMENT.md,
+  *Importing an existing website*.
+
 ## [0.8.0] – 2026-09-25
 
 ### Added

@@ -78,6 +78,11 @@ Envoryx is under active development. The current milestone (Phase 1 + 2) deliver
   URL and host names, the container, network and volume names, the SSH users, the
   project directory, the backups and – optionally – the database, its login and the
   bucket. Containers are recreated, the data moves with them
+- import an existing website: upload a ZIP/tar.gz of its files and a SQL dump;
+  Envoryx recognises WordPress, Laravel, Symfony, Drupal, TYPO3, Joomla and plain
+  PHP or HTML sites, suggests PHP version, document root, web server and
+  database, wires the site's configuration to the project database and imports
+  the dump (also `envoryx import ./site --db dump.sql`)
 - duplicate a project (`shop` → `shop-test`) in one dialog: configuration,
   environment, workers, cron jobs and repository binding, plus – each optional – the
   project files, the contents of the database and the objects of the bucket.
@@ -163,7 +168,8 @@ Envoryx is under active development. The current milestone (Phase 1 + 2) deliver
   tokens, same validation and audit trail as the UI, no destructive tools
 - command line for SSH sessions, cron jobs and CI: `envoryx project
   list/show/create/duplicate/rename/start/stop/logs/exec/run`, `envoryx backup …`,
-  `envoryx db snapshot|snapshots|restore|clone` and `envoryx git …`. The binary
+  `envoryx db snapshot|snapshots|restore|clone`, `envoryx git …` and `envoryx
+  import`. The binary
   is its own client – it speaks the same REST API with the same API tokens, so a
   token's scope and project restriction apply unchanged, and `envoryx project
   exec` hands the command's exit code back to the calling shell

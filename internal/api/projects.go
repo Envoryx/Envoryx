@@ -289,6 +289,13 @@ type createProjectRequest struct {
 	// UseManifest applies the envoryx.yml the cloned repository brings (it wins over the
 	// services chosen here). Only with git.
 	UseManifest bool `json:"useManifest"`
+	// Import fills the project from an uploaded website (POST /site-imports).
+	Import *importRequestDTO `json:"import"`
+}
+
+type importRequestDTO struct {
+	ID          string `json:"id"`
+	AdaptConfig bool   `json:"adaptConfig"`
 }
 
 type webRequestDTO struct {
@@ -359,6 +366,9 @@ func (r createProjectRequest) toDomain() project.CreateRequest {
 	}
 	for _, e := range r.Env {
 		req.Env = append(req.Env, project.EnvVarRequest{Key: e.Key, Value: e.Value, IsSecret: e.IsSecret})
+	}
+	if r.Import != nil {
+		req.Import = &project.ImportRequest{ID: r.Import.ID, AdaptConfig: r.Import.AdaptConfig}
 	}
 	return req
 }
@@ -499,6 +509,16 @@ func (a *API) createProject(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		writeJSON(w, http.StatusCreated, map[string]any{"project": a.project(r, view), "manifest": plan})
+		return
+	}
+	if req.Import != nil {
+		view, res, err := a.d.Projects.CreateFromImport(r.Context(), req.toDomain())
+		a.invalidateProxy()
+		if err != nil {
+			writeError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusCreated, map[string]any{"project": a.project(r, view), "import": res})
 		return
 	}
 	view, err := a.d.Projects.Create(r.Context(), req.toDomain())
