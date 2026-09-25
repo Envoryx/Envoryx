@@ -172,6 +172,24 @@ The variable must stay a single entry: Vite before 8.3 appends it verbatim
 as one host (only 8.3+ splits on commas), so a comma-joined list would block
 every request.
 
+### PHP CMS scaffold smoke
+
+The Drupal, TYPO3, Shopware and Craft templates and their install actions were
+verified end to end against Docker (PHP 8.5, MariaDB 11, and Drupal with
+PostgreSQL 18): create the project with the template and `--start`, run the
+action (`drush:site-install`, `typo3:setup`, `shopware:install`,
+`craft:install`) and request the site through the proxy. Shopware matches its
+sales channel against `APP_URL`, so the request needs the host with the port
+the proxy listens on (`Host: <slug>.test:<port>`). Repeat this when changing a
+template, its install script or the default PHP version:
+
+```sh
+for t in drupal typo3 shopware craft; do
+  envoryx project create "T $t" --php 8.5 --database mariadb --template $t --start
+done
+# then run each install action from the Actions tab (or its WebSocket) and open the site
+```
+
 ### Python image and scaffold smoke
 
 Python templates run `python -m venv`, `pip install …`, `django-admin

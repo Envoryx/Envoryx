@@ -889,6 +889,11 @@ func (p *Planner) envStrings(proj store.Project) ([]string, error) {
 		vars[k] = v
 	}
 	order = append(order, "ENVORYX_PROJECT")
+	// The address the project answers at, for what an application has to know about
+	// itself (APP_URL=${ENVORYX_URL} in a .env); it follows a rename with the next plan.
+	if u := p.ProjectURL(proj); u != "" {
+		set("ENVORYX_URL", u)
+	}
 	for _, db := range proj.Databases() {
 		var cfg runtime.DatabaseConfig
 		if err := json.Unmarshal(db.Config, &cfg); err != nil {

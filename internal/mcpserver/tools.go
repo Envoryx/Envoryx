@@ -254,7 +254,7 @@ func (s *Server) listRuntimes(_ context.Context, _ *mcp.CallToolRequest, _ listP
 
 type createProjectIn struct {
 	Name               string            `json:"name" jsonschema:"Display name, e.g. \"Shop API\". The slug and directory are derived from it."`
-	Template           string            `json:"template,omitempty" jsonschema:"Scaffold an application: laravel, symfony, wordpress (PHP), vite, next, nuxt (Node.js; needs nodeVersion and phpVersion \"none\" for a Node-only project) or django, flask, fastapi (Python; needs pythonVersion and phpVersion \"none\"). See list_runtimes for details. Cannot be combined with gitUrl."`
+	Template           string            `json:"template,omitempty" jsonschema:"Scaffold an application: laravel, symfony, wordpress, drupal, typo3, shopware, craft (PHP; the CMS ones need a database and are installed afterwards with run_action: drush:site-install, typo3:setup, shopware:install, craft:install), vite, next, nuxt (Node.js; needs nodeVersion and phpVersion \"none\" for a Node-only project) or django, flask, fastapi (Python; needs pythonVersion and phpVersion \"none\"). See list_runtimes for details. Cannot be combined with gitUrl."`
 	PHPVersion         string            `json:"phpVersion,omitempty" jsonschema:"PHP version such as 8.4 (default: the catalogue default). Use \"none\" for a Python, Node-only or static project."`
 	WebServer          string            `json:"webServer,omitempty" jsonschema:"Web server: caddy (default), apache (mod_rewrite + .htaccess, e.g. for WordPress) or nginx."`
 	PHPExtensions      []string          `json:"phpExtensions,omitempty" jsonschema:"PHP extensions to enable (keys from list_runtimes). Default: bcmath, gd, intl, opcache, pdo_mysql, zip."`

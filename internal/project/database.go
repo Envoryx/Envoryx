@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 
@@ -521,6 +522,20 @@ func (m *Manager) applyDatabaseUpdate(ctx context.Context, p store.Project, kind
 		if err := m.store.Projects.AddService(ctx, newSvc); err != nil {
 			return false, err
 		}
+		// PHP gets the driver of the new database's engine.
+		p.Services = append(p.Services, newSvc)
+		if php := p.Service(store.ServicePHP); php != nil {
+			before := string(php.Config)
+			if err := enableDriverExtensions(&p); err != nil {
+				return false, err
+			}
+			if string(php.Config) != before {
+				if err := m.store.Projects.UpdateServiceConfig(ctx, p.ID, store.ServicePHP, php.Version, php.Image, php.Config); err != nil {
+					return false, err
+				}
+				changes["phpExtensions"] = "pdo_pgsql"
+			}
+		}
 		changes[key("database")] = newSvc.Variant + ":" + newSvc.Version
 		return true, nil
 
@@ -594,6 +609,34 @@ func (m *Manager) applyDatabaseUpdate(ctx context.Context, p store.Project, kind
 		}
 		return false, nil
 	}
+}
+
+// enableDriverExtensions switches on the PHP extension a project database needs:
+// pdo_pgsql for PostgreSQL (pdo_mysql is on by default, MongoDB's driver is chosen by
+// hand). Without it Doctrine, Laravel and Drupal find no driver for the database the
+// project was created with.
+func enableDriverExtensions(p *store.Project) error {
+	php := p.Service(store.ServicePHP)
+	if php == nil || !php.Enabled {
+		return nil
+	}
+	needPg := false
+	for _, db := range p.Databases() {
+		needPg = needPg || db.Variant == "postgresql"
+	}
+	if !needPg {
+		return nil
+	}
+	return editConfig(php, func(c *runtime.PHPConfig) error {
+		if c.Extensions == nil {
+			c.Extensions = runtime.DefaultPHPConfig().Extensions
+		}
+		if !slices.Contains(c.Extensions, "pdo_pgsql") {
+			c.Extensions = append(slices.Clone(c.Extensions), "pdo_pgsql")
+			sort.Strings(c.Extensions)
+		}
+		return nil
+	})
 }
 
 // Names an additional database cannot have: the host names of the project's other

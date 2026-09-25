@@ -10,6 +10,31 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Added
+- Templates for Drupal (with Drush), TYPO3, Shopware and Craft CMS. Each is
+  created with `composer create-project` and wired to the project database:
+  Drupal's `settings.php`, TYPO3's `config/system/additional.php`, Craft's
+  `.env` and Shopware's `APP_URL` read the variables Envoryx injects. Their
+  installers need the running database, so they are actions: *drush
+  site:install*, *typo3 setup* and *craft install* create the administrator and
+  print a generated password, *system:install* sets Shopware up (admin /
+  shopware). The web installers of Drupal, TYPO3 and Craft work too.
+- `ENVORYX_URL`: the address a project answers at, injected into its
+  containers and recomputed with every plan (after a rename, too) – for
+  `APP_URL=${ENVORYX_URL}` in a `.env`.
+
+### Fixed
+- A project with PHP and a PostgreSQL database got no `pdo_pgsql` extension,
+  so the Symfony template (PostgreSQL by default) and every PostgreSQL
+  application found no driver. It is now switched on with the database,
+  also when one is added later.
+- Deleting a project with its files failed when an application had made a
+  directory read-only (Drupal locks `web/sites/default`) and Envoryx does not run
+  as root.
+- Template steps run with the project's `php.ini`, so the extensions an
+  application's `composer.json` asks for (`gd`, `intl` …) are available during
+  `composer create-project`.
+
 ## [0.9.0] – 2026-09-26
 
 ### Added

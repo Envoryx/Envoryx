@@ -224,7 +224,8 @@ func TestApplyManifestDatabaseRules(t *testing.T) {
 	}
 	other := mustManifest(t, "version: 1\nphp: {version: \"8.4\"}\ndatabase: {type: postgres}\n")
 	plan, _ = e.m.PlanManifest(ctx, id, other, ManifestOptions{})
-	if got := changeKeys(plan); !slices.Equal(got, []string{"database:change(prune)"}) {
+	// PostgreSQL brings its PHP driver along.
+	if got := changeKeys(plan); !slices.Equal(got, []string{"php:change", "database:change(prune)"}) {
 		t.Fatalf("type change without prune: %v", got)
 	}
 	res, err = e.m.ApplyManifest(ctx, id, other, ManifestOptions{Prune: true})
@@ -233,6 +234,9 @@ func TestApplyManifestDatabaseRules(t *testing.T) {
 	}
 	if db := res.View.Project.Service(store.ServiceDatabase); db == nil || db.Variant != "postgresql" {
 		t.Fatalf("database after type change: %+v", db)
+	}
+	if php := res.View.Project.Service(store.ServicePHP); php == nil || !strings.Contains(string(php.Config), `"pdo_pgsql"`) {
+		t.Fatalf("php after the change to PostgreSQL: %+v", php)
 	}
 }
 

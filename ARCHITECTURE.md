@@ -967,8 +967,8 @@ startup. Config with secrets in `/config/notify.json` (0600); the API never
 returns secrets and keeps stored ones when a request leaves them empty.
 
 ### Templates
-`project.Templates()` is a closed list: Laravel, Symfony, WordPress
-(`Runtime: "php"`), Vite + React (TypeScript), Next.js (App Router,
+`project.Templates()` is a closed list: Laravel, Symfony, WordPress, Drupal,
+TYPO3, Shopware, Craft CMS (`Runtime: "php"`), Vite + React (TypeScript), Next.js (App Router,
 TypeScript), Nuxt (`Runtime: "node"`) and Django, Flask, FastAPI
 (`Runtime: "python"`). A template is a sequence of argv steps
 run in transient containers from the image of the runtime it names as

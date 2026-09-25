@@ -231,6 +231,9 @@ func (m *Manager) buildProject(req CreateRequest) (store.Project, error) {
 					req.PHP.Config.Extensions = append(req.PHP.Config.Extensions, ext)
 				}
 			}
+			if tpl.PHPMemoryLimit != "" && (req.PHP.Config.MemoryLimit == "" || req.PHP.Config.MemoryLimit == runtime.DefaultPHPConfig().MemoryLimit) {
+				req.PHP.Config.MemoryLimit = tpl.PHPMemoryLimit
+			}
 		}
 		if tpl.RequiresDatabase && req.Database == nil {
 			return store.Project{}, fmt.Errorf("%w: template %s needs a database", validate.ErrInvalid, tpl.ID)
@@ -432,6 +435,9 @@ func (m *Manager) buildProject(req CreateRequest) (store.Project, error) {
 	}
 	proj.Env = env
 	sort.SliceStable(proj.Services, func(i, j int) bool { return proj.Services[i].Position < proj.Services[j].Position })
+	if err := enableDriverExtensions(&proj); err != nil {
+		return store.Project{}, err
+	}
 	return proj, nil
 }
 
