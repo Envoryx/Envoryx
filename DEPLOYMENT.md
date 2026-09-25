@@ -584,6 +584,30 @@ Outside Docker the proxy dials the project's published port
 needs `setcap cap_net_bind_service=+ep ./envoryx` or other addresses
 (`ENVORYX_PROXY_HTTP=:8080`).
 
+## Project variables and .env files
+
+A project's variables (*Environment* tab, or the wizard's *Environment* step)
+reach every container of the project and win over what Envoryx sets for the
+services. **Import .env** reads a `.env` file – pasted or chosen – in the form
+Laravel, Symfony and docker compose write (`export`, comments, single and
+double quotes, `${OTHER}` references to keys above) and lists what it found:
+
+- new variables and changed values are selected; values that stay the same
+  are not;
+- variables Envoryx sets for one of the project's services (`DB_HOST`,
+  `DB_PASSWORD`, `REDIS_HOST`, `MAIL_*`, `ANALYTICS_DB_*` …) are left out
+  unless picked – the old setup's `DB_HOST=127.0.0.1` would otherwise point
+  the application away from the project database;
+- names Envoryx refuses (lower case, `MARIADB_*`, `POSTGRES_*`, `ENVORYX_*` …)
+  and values with line breaks are shown but cannot be imported;
+- secrets are recognised by their name (`*_PASSWORD`, `*_SECRET`, `*_TOKEN`,
+  `APP_KEY`, `*_KEY` …) or by a password in a URL, and masked; each can be
+  switched.
+
+Nothing is stored until the variables are saved. **Export .env** downloads the
+variables as a `.env` file, secrets in plain text; the variables Envoryx sets
+for the services are not part of it.
+
 ## Importing an existing website
 
 *New project → Start from: Existing website* takes a site that already exists

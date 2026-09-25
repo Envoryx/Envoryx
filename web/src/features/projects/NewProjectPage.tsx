@@ -270,6 +270,12 @@ export function NewProjectPage() {
     return undefined;
   };
   const canContinue = step === 0 ? form.name.trim().length >= 2 && !nameError && (!form.importing || !!form.importSite) : step === 3 ? form.extraDbs.every((_, i) => !extraDbError(i)) : true;
+  // The services the new project will have, so an imported .env knows what Envoryx sets.
+  const wizardServices = [
+    ...(form.dbType ? [{ kind: "database", variant: form.dbType }] : []),
+    ...form.extraDbs.filter((d) => d.name.trim()).map((d) => ({ kind: `db-${d.name.trim()}`, variant: d.type })),
+    ...(["redis", "memcached", "mailpit", "rabbitmq", "meilisearch", "typesense", "opensearch", "storage"] as const).filter((k) => form[k]).map((kind) => ({ kind })),
+  ];
   const setExtraDb = (i: number, patch: Partial<Form["extraDbs"][number]>) => set({ extraDbs: form.extraDbs.map((d, j) => (j === i ? { ...d, ...patch } : d)) });
   const set = (patch: Partial<Form>) => setForm((f) => (f ? { ...f, ...patch } : f));
 
@@ -825,7 +831,7 @@ export function NewProjectPage() {
           {step === 4 && (
             <div className="space-y-4">
               <p className="text-sm text-muted">{t("Variables are available to all containers of this project (e.g. getenv() in PHP, os.environ in Python, process.env in Node). Mark secrets to mask them in the UI.")}</p>
-              <EnvEditor value={form.env} onChange={(env) => set({ env })} />
+              <EnvEditor value={form.env} onChange={(env) => set({ env })} services={wizardServices} exportName={slugify(form.name) || "project"} />
             </div>
           )}
 
