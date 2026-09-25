@@ -10,19 +10,9 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.9.0] – 2026-09-26
+
 ### Added
-- Test runner (*Tests* tab): Envoryx finds a project's test suites – Pest,
-  PHPUnit (also Symfony's `bin/phpunit`), the `test`/`test:*` scripts of
-  `package.json`, Playwright, Cypress, pytest and Django – and runs them in the
-  runtime container with live output and an optional filter. Where the runner
-  writes a JUnit report, the result lists every failed test with its message,
-  file and line; the last 50 runs of a project are kept.
-- Shared package cache: Composer, npm, Yarn, pip and uv keep their downloads in
-  `/config/cache`, which the application containers, the workers and the
-  template scaffolds of every project share, so a package is downloaded once –
-  a second Laravel project is created in about a quarter of the time.
-  *Settings → Tools → Package cache* shows its size per tool and empties it.
-  Instance backups leave it out.
 - `.env` import and export for a project's variables (*Environment* tab and the
   wizard): *Import .env* reads a pasted or chosen file (`export`, comments,
   quotes, `${VAR}` references), selects new and changed variables, leaves out
@@ -30,6 +20,21 @@ release). `:main` follows the development branch.
   the old setup does not win over the project database), refuses reserved
   names and multi-line values, and marks secrets by name or by a password in a
   URL. *Export .env* downloads the variables as a file.
+- Import an existing website: *New project → Start from: Existing website*
+  takes a ZIP or tar.gz of a site's files and optionally a database dump
+  (`.sql`, `.sql.gz`). Envoryx recognises WordPress, Laravel, Symfony, Drupal,
+  TYPO3, Joomla, Shopware, Craft CMS and plain PHP, static, Node.js and Python
+  sites and fills the wizard with PHP version, extensions, document root, web
+  server (Apache when the site relies on `.htaccess`) and database. Optionally
+  the site's configuration is wired to the project database – `wp-config.php`,
+  Drupal's `settings.php`, TYPO3's additional configuration, Joomla's
+  `configuration.php`; each original is kept as `*.envoryx-original.php` that
+  answers 404 – and the old server's configuration caches are removed. The dump
+  is imported without the statements that tie it to the old server (`USE`,
+  `CREATE DATABASE`, owners and grants); a failed import rolls the project back.
+  `envoryx import <folder|archive> [name] --db dump.sql` does the same from the
+  command line and packs a local folder on the fly. See DEPLOYMENT.md,
+  *Importing an existing website*.
 - Several databases per project. Next to the primary database (host
   `database`, `DB_*`) a project can have any number of additional ones with a
   name of their own – for example PostgreSQL `analytics` next to MariaDB: its
@@ -46,21 +51,18 @@ release). `:main` follows the development branch.
   `db` command; the API takes `?db=<name>` on the database routes, lists them
   at `GET /projects/{id}/databases` and changes them with `PATCH` and
   `"databases"`; MCP tools take `db` and `additionalDatabases`.
-- Import an existing website: *New project → Start from: Existing website*
-  takes a ZIP or tar.gz of a site's files and optionally a database dump
-  (`.sql`, `.sql.gz`). Envoryx recognises WordPress, Laravel, Symfony, Drupal,
-  TYPO3, Joomla, Shopware, Craft CMS and plain PHP, static, Node.js and Python
-  sites and fills the wizard with PHP version, extensions, document root, web
-  server (Apache when the site relies on `.htaccess`) and database. Optionally
-  the site's configuration is wired to the project database – `wp-config.php`,
-  Drupal's `settings.php`, TYPO3's additional configuration, Joomla's
-  `configuration.php`; each original is kept as `*.envoryx-original.php` that
-  answers 404 – and the old server's configuration caches are removed. The dump
-  is imported without the statements that tie it to the old server (`USE`,
-  `CREATE DATABASE`, owners and grants); a failed import rolls the project back.
-  `envoryx import <folder|archive> [name] --db dump.sql` does the same from the
-  command line and packs a local folder on the fly. See DEPLOYMENT.md,
-  *Importing an existing website*.
+- Shared package cache: Composer, npm, Yarn, pip and uv keep their downloads in
+  `/config/cache`, which the application containers, the workers and the
+  template scaffolds of every project share, so a package is downloaded once –
+  a second Laravel project is created in about a quarter of the time.
+  *Settings → Tools → Package cache* shows its size per tool and empties it.
+  Instance backups leave it out.
+- Test runner (*Tests* tab): Envoryx finds a project's test suites – Pest,
+  PHPUnit (also Symfony's `bin/phpunit`), the `test`/`test:*` scripts of
+  `package.json`, Playwright, Cypress, pytest and Django – and runs them in the
+  runtime container with live output and an optional filter. Where the runner
+  writes a JUnit report, the result lists every failed test with its message,
+  file and line; the last 50 runs of a project are kept.
 
 ### Fixed
 - Renaming a project whose database is PostgreSQL failed with "session user
@@ -777,7 +779,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/envoryx/envoryx/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/envoryx/envoryx/compare/v0.7.1...v0.8.0
 [0.7.1]: https://github.com/envoryx/envoryx/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/envoryx/envoryx/compare/v0.6.0...v0.7.0
