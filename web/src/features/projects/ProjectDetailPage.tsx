@@ -15,6 +15,7 @@ import { containerStateTone, formatBytes, formatDateTime, formatPercent, service
 import { DeleteProjectDialog, DuplicateProjectDialog, ProjectActionButtons, RenameProjectDialog, useActionError } from "./ProjectActions";
 import { OperationHint } from "@/components/OperationsTray";
 import { DatabaseTab } from "./DatabaseTab";
+import { ShareButton } from "./ShareButton";
 import { EnvEditor } from "./EnvEditor";
 import { GitTab } from "./GitTab";
 import { DomainsTab } from "./DomainsTab";
@@ -101,6 +102,7 @@ export function ProjectDetailPage() {
         actions={
           <>
             <ProjectActionButtons project={p} size="md" onError={capture} />
+            <ShareButton project={p} />
             <Button variant="ghost" onClick={() => setRenaming(true)} icon={<Pencil className="size-4" />} aria-label={t("Rename project")} title={t("Rename project – identifier, URL and containers follow")} />
             <Button variant="ghost" onClick={() => setDuplicating(true)} icon={<Copy className="size-4" />} aria-label={t("Duplicate project")} title={t("Duplicate project – config, files and database")} />
             <Button variant="ghost" onClick={() => setDeleting(true)} icon={<Trash2 className="size-4" />} aria-label={t("Delete project")} title={t("Delete project")} />

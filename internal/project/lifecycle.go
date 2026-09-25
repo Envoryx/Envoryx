@@ -329,6 +329,10 @@ func (m *Manager) Start(ctx context.Context, id string) (View, error) {
 // Stop stops all project containers.
 func (m *Manager) Stop(ctx context.Context, id string) (View, error) {
 	return m.transition(ctx, id, limitStop, "stop", audit.ActionProjectStopped, func(ctx context.Context, proj store.Project, plan Plan) error {
+		// A stopped project has nothing to show: its public address ends with it.
+		if err := m.removeShare(ctx, proj.ID); err != nil {
+			return err
+		}
 		return m.stopPlan(ctx, proj, plan)
 	}, store.DesiredStopped)
 }
@@ -618,9 +622,10 @@ func (m *Manager) stopPlan(ctx context.Context, proj store.Project, plan Plan) e
 			errs = append(errs, fmt.Errorf("stop container %s: %w", c.Name, err))
 		}
 	}
-	// Stop containers of kinds no longer in the plan as well (e.g. a removed service).
+	// Stop containers of kinds no longer in the plan as well (e.g. a removed service). A
+	// share's tunnel stays through a restart; stopping the project ends it (Stop).
 	for kind, c := range byKind {
-		if plan.Container(store.ServiceKind(kind)) == nil && c.State == "running" {
+		if kind != shareService && plan.Container(store.ServiceKind(kind)) == nil && c.State == "running" {
 			if err := m.engine.StopContainer(ctx, c.ID, m.cfg.StopTimeout); err != nil {
 				errs = append(errs, fmt.Errorf("stop container %s: %w", c.Name, err))
 			}
@@ -863,8 +868,8 @@ func (m *Manager) update(ctx context.Context, id string, req UpdateRequest) (Vie
 			return View{}, err
 		}
 		for _, c := range existing {
-			if store.ServiceKind(c.Service()).IsDatabase() {
-				continue
+			if store.ServiceKind(c.Service()).IsDatabase() || c.Service() == shareService {
+				continue // a share keeps its address while the application is recreated
 			}
 			switch c.Service() {
 			case string(store.ServiceDatabase), string(store.ServiceRedis), string(store.ServiceMemcached), string(store.ServiceMailpit), string(store.ServiceRabbitMQ), string(store.ServiceMeilisearch), string(store.ServiceTypesense), string(store.ServiceOpenSearch), string(store.ServiceOpenSearchDashboards), string(store.ServiceStorage):

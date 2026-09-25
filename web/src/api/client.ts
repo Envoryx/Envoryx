@@ -28,6 +28,7 @@ import type {
   GitStatus,
   ManifestPlan,
   PackageCache,
+  ProjectShare,
   SiteImport,
   SiteImportResult,
   TestRun,
@@ -411,6 +412,12 @@ export const api = {
   search: {
     credentials: (id: string, kind: "meilisearch" | "typesense") => request<{ credentials: SearchCredentials }>(`/projects/${encodeURIComponent(id)}/${kind}/credentials`),
   },
+  share: {
+    get: (id: string) => request<{ share: ProjectShare }>(`/projects/${encodeURIComponent(id)}/share`),
+    start: (id: string, minutes: number) => request<{ share: ProjectShare }>(`/projects/${encodeURIComponent(id)}/share`, { method: "POST", body: { minutes } }),
+    stop: (id: string) => request<void>(`/projects/${encodeURIComponent(id)}/share`, { method: "DELETE" }),
+  },
+
   tests: {
     list: (id: string) => request<{ suites: TestSuite[]; runs: TestRun[] }>(`/projects/${encodeURIComponent(id)}/tests`),
     run: (id: string, runId: string) => request<{ run: TestRun }>(`/projects/${encodeURIComponent(id)}/test-runs/${encodeURIComponent(runId)}`),

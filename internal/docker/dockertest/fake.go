@@ -421,7 +421,8 @@ func (f *Fake) CreateContainer(_ context.Context, spec docker.ContainerSpec) (st
 			return "", fmt.Errorf("conflict: container name %q already in use", spec.Name)
 		}
 	}
-	if spec.Network != "" {
+	// "host" is Docker's own network mode, always there.
+	if spec.Network != "" && spec.Network != "host" {
 		if _, ok := f.networks[spec.Network]; !ok {
 			return "", fmt.Errorf("network %s: %w", spec.Network, docker.ErrNotFound)
 		}

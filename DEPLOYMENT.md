@@ -1114,6 +1114,38 @@ The API: `GET /projects/{id}/tests` (suites and recent runs),
 WebSocket `GET /projects/{id}/tests/{suite}/ws?filter=…` (`operate` scope),
 which sends `{"type":"result","run":…}` before it closes.
 
+## Sharing a project
+
+*Share* in a running project's header puts it on a temporary public https
+address – to show a client or a colleague work in progress without a VPN,
+port forwarding or an account anywhere. Envoryx starts a Cloudflare quick
+tunnel (`cloudflare/cloudflared`) next to the project, pointed at the
+application the way the proxy reaches it, and shows the address it gets:
+`https://<random-words>.trycloudflare.com`. The address is random and changes
+with every share.
+
+A share lasts 5 minutes to 24 hours (an hour unless chosen otherwise; the dialog offers 15 minutes to 24 hours) and
+ends early when the project stops, when it is renamed or deleted, or with
+*End the share*. Recreating the application for new variables keeps it. Only
+outgoing connections are needed: the host has to reach Cloudflare on port
+7844.
+
+**Anyone who has the address reaches the project from the internet, without
+signing in.** Share a staging copy, not data that has to be protected, and
+keep in mind that an application which builds absolute links from
+`APP_URL`/`ENVORYX_URL` still points them at the local address. Starting a
+share needs an `admin` token or user, ending one `operate`; both land in the
+audit log.
+
+```sh
+envoryx project share shop --for 2h     # prints the public address
+envoryx project share shop --status
+envoryx project share shop --stop
+```
+
+The API: `GET /projects/{id}/share`, `POST /projects/{id}/share`
+(`{"minutes":60}`) and `DELETE /projects/{id}/share`.
+
 ## Package cache
 
 Composer, npm, Yarn, pip and uv keep their downloads in one cache that every
@@ -1499,6 +1531,7 @@ envoryx db restore shop <snapshot> --yes              # put one back
 envoryx db clone local --from staging --yes           # staging's data into local
 envoryx db snapshot shop --db analytics               # an additional database (all db commands)
 envoryx project create "Shop" --database mariadb --add-database analytics=postgres
+envoryx project share shop --for 2h                  # a temporary public address
 envoryx git status|pull shop                          # and: git checkout shop main
 ```
 
