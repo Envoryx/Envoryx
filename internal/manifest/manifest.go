@@ -44,15 +44,18 @@ type Manifest struct {
 	Node   *Node   `yaml:"node,omitempty"`
 	Python *Python `yaml:"python,omitempty"`
 
-	Database    *Database `yaml:"database,omitempty"`
-	Redis       *Service  `yaml:"redis,omitempty"`
-	Memcached   *Service  `yaml:"memcached,omitempty"`
-	Mailpit     *Service  `yaml:"mailpit,omitempty"`
-	RabbitMQ    *Service  `yaml:"rabbitmq,omitempty"`
-	Meilisearch *Service  `yaml:"meilisearch,omitempty"`
-	Typesense   *Service  `yaml:"typesense,omitempty"`
-	OpenSearch  *Service  `yaml:"opensearch,omitempty"`
-	Storage     *Storage  `yaml:"storage,omitempty"`
+	Database *Database `yaml:"database,omitempty"`
+	// Databases are additional databases by name (host, container and the variables'
+	// prefix follow the name: analytics → ANALYTICS_DB_HOST).
+	Databases   map[string]Database `yaml:"databases,omitempty"`
+	Redis       *Service            `yaml:"redis,omitempty"`
+	Memcached   *Service            `yaml:"memcached,omitempty"`
+	Mailpit     *Service            `yaml:"mailpit,omitempty"`
+	RabbitMQ    *Service            `yaml:"rabbitmq,omitempty"`
+	Meilisearch *Service            `yaml:"meilisearch,omitempty"`
+	Typesense   *Service            `yaml:"typesense,omitempty"`
+	OpenSearch  *Service            `yaml:"opensearch,omitempty"`
+	Storage     *Storage            `yaml:"storage,omitempty"`
 
 	// Domains are extra host names next to the derived <slug>.<base domain>.
 	Domains []string `yaml:"domains,omitempty"`

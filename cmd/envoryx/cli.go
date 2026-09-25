@@ -67,6 +67,8 @@ Databases:
   db restore <project> <snapshot> --yes put one back
   db clone <project> --from <project> --yes
                                         replace its database with another's
+                                        (every db command takes --db NAME for an
+                                        additional database; clone also --source-db)
 
 Git:
   git status <project>

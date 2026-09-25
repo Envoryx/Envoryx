@@ -1962,5 +1962,21 @@
   "The site brings a .htaccess file, so Apache is suggested: it is the only web server that reads it.": "Le site contient un fichier .htaccess, Apache est donc proposé : c'est le seul serveur web qui le lit.",
   "Unpacking {{file}}": "Décompression de {{file}}",
   "Adapting the configuration of the website": "Adaptation de la configuration du site",
-  "Importing the database dump": "Importation du dump de base de données"
+  "Importing the database dump": "Importation du dump de base de données",
+  "Lowercase letters, digits and dashes, starting with a letter.": "Lettres minuscules, chiffres et tirets, en commençant par une lettre.",
+  "The project already has a database of this name.": "Le projet a déjà une base de données de ce nom.",
+  "An additional database runs in a container of its own with its own volume and credentials. It is reached at its name as host and injects variables that start with its name (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …).": "Une base de données supplémentaire tourne dans son propre conteneur, avec son propre volume et ses propres identifiants. Elle est joignable sous son nom comme hôte et injecte des variables qui commencent par son nom (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …).",
+  "Name (optional)": "Nom (facultatif)",
+  "Host {{host}}, variables {{prefix}}_DB_HOST, {{prefix}}_DATABASE_URL …": "Hôte {{host}}, variables {{prefix}}_DB_HOST, {{prefix}}_DATABASE_URL …",
+  "Becomes the host name and the prefix of the variables, e.g. analytics.": "Devient le nom d'hôte et le préfixe des variables, p. ex. analytics.",
+  "Leave empty to add the primary database (host database, DB_* variables).": "Laissez vide pour ajouter la base de données principale (hôte database, variables DB_*).",
+  "Databases of the project": "Bases de données du projet",
+  "Primary": "Principale",
+  "Inside the project network at the host “{{host}}”. The application containers (PHP, Python, Node) receive these values as {{prefix}}_DB_* and {{prefix}}_DATABASE_URL.": "Dans le réseau du projet, sur l'hôte « {{host}} ». Les conteneurs d'application (PHP, Python, Node) reçoivent ces valeurs sous {{prefix}}_DB_* et {{prefix}}_DATABASE_URL.",
+  "Logical dumps of all {{number}} databases of the project": "Dumps logiques des {{number}} bases de données du projet",
+  "Additional databases": "Bases de données supplémentaires",
+  "Another database server next to the first one – for example PostgreSQL for reporting next to MariaDB. Each is reached at its name as host and injects variables starting with its name (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …).": "Un autre serveur de base de données à côté du premier – par exemple PostgreSQL pour le reporting à côté de MariaDB. Chacun est joignable sous son nom comme hôte et injecte des variables qui commencent par son nom (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …).",
+  "database": "base de données",
+  "Add a database": "Ajouter une base de données",
+  "Restoring the database {{name}}": "Restauration de la base de données {{name}}"
 }

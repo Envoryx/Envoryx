@@ -40,7 +40,12 @@ func (a *API) setDBTool(w http.ResponseWriter, r *http.Request) {
 
 // openDBTool prepares the browser for a project's database and returns the link.
 func (a *API) openDBTool(w http.ResponseWriter, r *http.Request) {
-	link, err := a.d.Projects.OpenDBTool(r.Context(), r.PathValue("id"))
+	db, err := dbParam(r)
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	link, err := a.d.Projects.OpenDBTool(r.Context(), r.PathValue("id"), db)
 	if err != nil {
 		writeError(w, r, err)
 		return

@@ -72,8 +72,8 @@ func TestDuplicateProjectCopiesConfigFilesAndDatabase(t *testing.T) {
 		}
 	}
 	// Credentials are copied verbatim: a checked-in .env of the original keeps working.
-	srcCreds, _ := e.m.DatabaseCredentials(ctx, src.ID)
-	cpCreds, err := e.m.DatabaseCredentials(ctx, cp.ID)
+	srcCreds, _ := e.m.DatabaseCredentials(ctx, src.ID, "")
+	cpCreds, err := e.m.DatabaseCredentials(ctx, cp.ID, "")
 	if err != nil {
 		t.Fatal(err)
 	}

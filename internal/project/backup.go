@@ -28,6 +28,7 @@ import (
 //
 //	backup.json      metadata + project export (services, env, credentials)
 //	database.sql.gz  logical dump of the primary database (optional)
+//	database-<name>.sql.gz  dump of an additional database (optional, one each)
 //	files.tar.gz     project directory (optional)
 //	storage.tar.gz   objects of the project's bucket (optional)
 const (
@@ -40,7 +41,10 @@ const (
 // BackupOptions select what a backup contains.
 type BackupOptions struct {
 	Database bool
-	Files    bool
+	// OnlyDB limits the dump to one database ("" = all of them); set by snapshots, which
+	// are taken of one database at a time. Primary is its name for the primary.
+	OnlyDB *string
+	Files  bool
 	// Storage includes the object storage bucket (ignored when the project has none,
 	// unless it is the only thing requested).
 	Storage bool
@@ -73,13 +77,11 @@ type BackupMeta struct {
 	CreatedAt   time.Time `json:"createdAt"`
 	Note        string    `json:"note,omitempty"`
 	Source      string    `json:"source,omitempty"`
-	Database    *struct {
-		Type    string `json:"type"`
-		Version string `json:"version"`
-		Name    string `json:"name"`
-		Bytes   int64  `json:"bytes"`
-	} `json:"database,omitempty"`
-	Files *struct {
+	// Database is the dump of the primary database.
+	Database *DumpMeta `json:"database,omitempty"`
+	// Databases are the dumps of additional databases.
+	Databases []ExtraDumpMeta `json:"databases,omitempty"`
+	Files     *struct {
 		Bytes               int64 `json:"bytes"`
 		Entries             int   `json:"entries"`
 		IncludeDependencies bool  `json:"includeDependencies"`
@@ -90,6 +92,54 @@ type BackupMeta struct {
 		Bytes   int64  `json:"bytes"`
 	} `json:"storage,omitempty"`
 	Runtimes map[string]string `json:"runtimes"`
+}
+
+// DumpMeta describes a database dump in a backup.
+type DumpMeta struct {
+	Type    string `json:"type"`
+	Version string `json:"version"`
+	// Name is the database on the server (cfg.Database).
+	Name  string `json:"name"`
+	Bytes int64  `json:"bytes"`
+}
+
+// ExtraDumpMeta is the dump of an additional database; DB is its name in the project.
+type ExtraDumpMeta struct {
+	DB string `json:"db"`
+	DumpMeta
+}
+
+// HasDatabase reports whether the backup holds a dump of the database named db ("" =
+// the primary).
+func (b BackupMeta) HasDatabase(db string) bool {
+	_, ok := b.dump(db)
+	return ok
+}
+
+// HasAnyDatabase reports whether the backup holds any database dump.
+func (b BackupMeta) HasAnyDatabase() bool { return b.Database != nil || len(b.Databases) > 0 }
+
+func (b BackupMeta) dump(db string) (DumpMeta, bool) {
+	if db == "" {
+		if b.Database == nil {
+			return DumpMeta{}, false
+		}
+		return *b.Database, true
+	}
+	for _, d := range b.Databases {
+		if d.DB == db {
+			return d.DumpMeta, true
+		}
+	}
+	return DumpMeta{}, false
+}
+
+// backupDBFileOf is the dump file of a database in a backup directory.
+func backupDBFileOf(db string) string {
+	if db == "" {
+		return backupDBFile
+	}
+	return "database-" + db + ".sql.gz"
 }
 
 // backupFile is the full content of backup.json (metadata plus the project export).
@@ -247,9 +297,9 @@ func (m *Manager) SweepBackups(ctx context.Context) {
 			}
 			kind := "full"
 			switch {
-			case bf.Database != nil && bf.Files == nil:
+			case bf.HasAnyDatabase() && bf.Files == nil:
 				kind = "database"
-			case bf.Database == nil && bf.Files != nil:
+			case !bf.HasAnyDatabase() && bf.Files != nil:
 				kind = "files"
 			}
 			metaJSON, _ := json.Marshal(bf.BackupMeta)
@@ -354,29 +404,35 @@ func (m *Manager) createBackupLocked(ctx context.Context, p store.Project, opts 
 	kind := backupKind(opts)
 
 	if opts.Database {
-		svc, cfg, err := databaseConfig(p)
-		if err != nil {
-			if errors.Is(err, ErrNoDatabase) {
-				if !opts.Files && !opts.Storage {
-					return fail("database", fmt.Errorf("%w: the project has no database", validate.ErrInvalid))
-				}
-				opts.Database = false
-				kind = backupKind(opts)
-			} else {
-				return fail("database", err)
+		if dbs := backupDatabases(p, opts.OnlyDB); len(dbs) == 0 {
+			if !opts.Files && !opts.Storage {
+				return fail("database", fmt.Errorf("%w: the project has no database", validate.ErrInvalid))
 			}
+			opts.Database = false
+			kind = backupKind(opts)
 		} else {
-			step(ctx, "Dumping the database {{name}}", "name", cfg.Database)
-			n, err := m.dumpDatabase(ctx, p, svc, cfg, filepath.Join(dir, backupDBFile))
-			if err != nil {
-				return fail("database dump", err)
+			for _, svc := range dbs {
+				db := svc.Kind.DatabaseName()
+				_, cfg, err := databaseOf(p, db)
+				if err != nil {
+					return fail("database", err)
+				}
+				label := cfg.Database
+				if db != "" {
+					label = db
+				}
+				step(ctx, "Dumping the database {{name}}", "name", label)
+				n, err := m.dumpDatabase(ctx, p, svc, cfg, filepath.Join(dir, backupDBFileOf(db)))
+				if err != nil {
+					return fail("database dump", err)
+				}
+				dm := DumpMeta{Type: svc.Variant, Version: svc.Version, Name: cfg.Database, Bytes: n}
+				if db == "" {
+					meta.Database = &dm
+				} else {
+					meta.Databases = append(meta.Databases, ExtraDumpMeta{DB: db, DumpMeta: dm})
+				}
 			}
-			meta.Database = &struct {
-				Type    string `json:"type"`
-				Version string `json:"version"`
-				Name    string `json:"name"`
-				Bytes   int64  `json:"bytes"`
-			}{Type: svc.Variant, Version: svc.Version, Name: cfg.Database, Bytes: n}
 		}
 	}
 	if opts.Files {
@@ -426,6 +482,17 @@ func (m *Manager) createBackupLocked(ctx context.Context, p store.Project, opts 
 	return info, nil
 }
 
+// backupDatabases are the databases a backup dumps: all of them, or the one named.
+func backupDatabases(p store.Project, only *string) []*store.ProjectService {
+	var out []*store.ProjectService
+	for _, svc := range p.Databases() {
+		if only == nil || svc.Kind.DatabaseName() == *only {
+			out = append(out, svc)
+		}
+	}
+	return out
+}
+
 // backupKind names a backup by its parts: one part → that name, several → "full".
 func backupKind(opts BackupOptions) string {
 	var parts []string
@@ -450,7 +517,7 @@ func (m *Manager) dumpDatabase(ctx context.Context, p store.Project, svc *store.
 	if err != nil {
 		return 0, err
 	}
-	c, err := m.ServiceContainer(ctx, p.ID, store.ServiceDatabase)
+	c, err := m.ServiceContainer(ctx, p.ID, svc.Kind)
 	if err != nil {
 		return 0, err
 	}
@@ -675,7 +742,7 @@ func (m *Manager) OpenBackupArchive(ctx context.Context, id, backupID string) (i
 	go func() {
 		tw := tar.NewWriter(pw)
 		var werr error
-		for _, name := range backupArchiveMembers {
+		for _, name := range backupMembersIn(dir) {
 			path := filepath.Join(dir, name)
 			info, err := os.Stat(path)
 			if err != nil {
@@ -762,18 +829,17 @@ func (m *Manager) restoreBackup(ctx context.Context, id, backupID string, opts R
 	restored := map[string]any{"name": p.Name, "backup": backupID}
 
 	if opts.Database {
-		svc, cfg, err := databaseConfig(p)
+		restoredDBs, skipped, err := m.restoreDatabases(ctx, p, meta, dir, nil)
 		if err != nil {
 			return BackupInfo{}, err
 		}
-		if err := checkDump(meta, svc); err != nil {
-			return BackupInfo{}, err
-		}
-		step(ctx, "Restoring the database")
-		if err := m.restoreDatabase(ctx, p, svc, cfg, filepath.Join(dir, backupDBFile)); err != nil {
-			return BackupInfo{}, fmt.Errorf("restore database: %w", err)
-		}
 		restored["database"] = true
+		if len(restoredDBs) > 0 {
+			restored["databases"] = restoredDBs
+		}
+		if len(skipped) > 0 {
+			restored["skipped"] = skipped
+		}
 	}
 	if opts.Files {
 		if meta.Files == nil {
@@ -807,14 +873,72 @@ func (m *Manager) restoreBackup(ctx context.Context, id, backupID string, opts R
 	return BackupInfo{ID: b.ID, Dir: b.Filename, Kind: b.Kind, SizeBytes: b.SizeBytes, CreatedAt: b.CreatedAt, Meta: meta}, nil
 }
 
-// checkDump reports whether a backup holds a dump this project's database can take: one
-// flavour's dump is not another's, and a backup of files only holds none at all.
-func checkDump(meta BackupMeta, svc *store.ProjectService) error {
-	if meta.Database == nil {
-		return fmt.Errorf("%w: this backup contains no database dump", validate.ErrInvalid)
+// restoreDatabases puts the dumps of a backup back: every database the backup and the
+// project both have, or only the one named by only. Dumps of databases the project no
+// longer has are skipped and named; nothing to restore at all is an error.
+func (m *Manager) restoreDatabases(ctx context.Context, p store.Project, meta BackupMeta, dir string, only *string) (restored, skipped []string, err error) {
+	type target struct {
+		db   string
+		dump DumpMeta
 	}
-	if meta.Database.Type != svc.Variant {
-		return fmt.Errorf("%w: the dump is for %s but the project uses %s", validate.ErrInvalid, meta.Database.Type, svc.Variant)
+	var targets []target
+	if meta.Database != nil {
+		targets = append(targets, target{"", *meta.Database})
+	}
+	for _, d := range meta.Databases {
+		targets = append(targets, target{d.DB, d.DumpMeta})
+	}
+	count := 0
+	for _, t := range targets {
+		if only != nil && t.db != *only {
+			continue
+		}
+		svc, cfg, err := databaseOf(p, t.db)
+		if err != nil {
+			if errors.Is(err, store.ErrNotFound) {
+				skipped = append(skipped, dbLabel(t.db))
+				continue
+			}
+			return nil, nil, err
+		}
+		if err := checkDumpType(t.dump.Type, svc); err != nil {
+			return nil, nil, err
+		}
+		if t.db == "" {
+			step(ctx, "Restoring the database")
+		} else {
+			step(ctx, "Restoring the database {{name}}", "name", t.db)
+		}
+		if err := m.restoreDatabase(ctx, p, svc, cfg, filepath.Join(dir, backupDBFileOf(t.db))); err != nil {
+			return nil, nil, fmt.Errorf("restore database %s: %w", dbLabel(t.db), err)
+		}
+		if t.db != "" {
+			restored = append(restored, t.db)
+		}
+		count++
+	}
+	if count == 0 {
+		if len(targets) == 0 || only != nil && !meta.HasDatabase(*only) {
+			return nil, nil, fmt.Errorf("%w: this backup contains no database dump", validate.ErrInvalid)
+		}
+		return nil, nil, fmt.Errorf("%w: the project has none of the databases this backup holds (%s)", validate.ErrInvalid, strings.Join(skipped, ", "))
+	}
+	return restored, skipped, nil
+}
+
+// dbLabel names a database in messages: its name, or "the primary database".
+func dbLabel(db string) string {
+	if db == "" {
+		return "the primary database"
+	}
+	return db
+}
+
+// checkDumpType reports whether a dump of the flavour dumpType fits the database: one
+// flavour's dump is not another's.
+func checkDumpType(dumpType string, svc *store.ProjectService) error {
+	if dumpType != svc.Variant {
+		return fmt.Errorf("%w: the dump is for %s but the database is %s", validate.ErrInvalid, dumpType, svc.Variant)
 	}
 	return nil
 }
@@ -824,7 +948,7 @@ func (m *Manager) restoreDatabase(ctx context.Context, p store.Project, svc *sto
 	if err != nil {
 		return err
 	}
-	c, err := m.ServiceContainer(ctx, p.ID, store.ServiceDatabase)
+	c, err := m.ServiceContainer(ctx, p.ID, svc.Kind)
 	if err != nil {
 		return err
 	}

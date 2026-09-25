@@ -84,6 +84,9 @@ func IsLogService(kind string) bool {
 	if wid, ok := strings.CutPrefix(kind, "worker:"); ok {
 		return validate.UUID(wid) == nil
 	}
+	if name := store.ServiceKind(kind).DatabaseName(); name != "" {
+		return ValidateDatabaseServiceName(name) == nil
+	}
 	switch store.ServiceKind(kind) {
 	case store.ServicePHP, store.ServiceWeb, store.ServiceDatabase, store.ServicePython, store.ServiceNode, store.ServiceRedis, store.ServiceMemcached, store.ServiceMailpit, store.ServiceRabbitMQ, store.ServiceMeilisearch, store.ServiceTypesense, store.ServiceOpenSearch, store.ServiceOpenSearchDashboards, store.ServiceStorage:
 		return true

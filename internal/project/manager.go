@@ -409,6 +409,22 @@ func (m *Manager) buildProject(req CreateRequest) (store.Project, error) {
 		}
 		proj.Services = append(proj.Services, svc)
 	}
+	seenDB := map[string]bool{}
+	for _, extra := range req.Databases {
+		if err := ValidateDatabaseServiceName(extra.Name); err != nil {
+			return store.Project{}, err
+		}
+		if seenDB[extra.Name] {
+			return store.Project{}, fmt.Errorf("%w: two databases are named %q", validate.ErrInvalid, extra.Name)
+		}
+		seenDB[extra.Name] = true
+		svc, err := m.buildDatabaseService(slug, extra.Type, extra.Version)
+		if err != nil {
+			return store.Project{}, err
+		}
+		svc.Kind = store.DatabaseKind(extra.Name)
+		proj.Services = append(proj.Services, svc)
+	}
 
 	env, err := buildEnv(req.Env)
 	if err != nil {
@@ -624,7 +640,7 @@ func (m *Manager) collectUsedPorts(ctx context.Context, used map[int]bool) error
 		return err
 	}
 	for _, p := range projects {
-		if db := p.Service(store.ServiceDatabase); db != nil {
+		for _, db := range p.Databases() {
 			var cfg runtime.DatabaseConfig
 			if json.Unmarshal(db.Config, &cfg) == nil && cfg.HostPort > 0 {
 				used[cfg.HostPort] = true
@@ -710,6 +726,13 @@ func (m *Manager) assignServicePorts(ctx context.Context, proj *store.Project, r
 	if req.Database != nil && req.Database.ExposePort {
 		if err := assign(store.ServiceDatabase); err != nil {
 			return err
+		}
+	}
+	for _, extra := range req.Databases {
+		if extra.ExposePort {
+			if err := assign(store.DatabaseKind(extra.Name)); err != nil {
+				return err
+			}
 		}
 	}
 	if req.Redis != nil && req.Redis.ExposePort {
@@ -867,7 +890,7 @@ func setHostPort(svc *store.ProjectService, port int) error {
 		svc.Config = raw
 		return nil
 	}
-	if svc.Kind == store.ServiceDatabase {
+	if svc.Kind.IsDatabase() {
 		var cfg runtime.DatabaseConfig
 		if err := json.Unmarshal(svc.Config, &cfg); err != nil {
 			return err

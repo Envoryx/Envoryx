@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"maps"
 	"os"
 	"reflect"
 	"slices"
@@ -196,10 +197,18 @@ func exportState(p store.Project, domains []store.Domain, jobs []store.CronJob) 
 			Port: cfg.Port, Debug: cfg.Debug, DebugPort: cfg.DebugPort,
 		}
 	}
-	if svc := p.Service(store.ServiceDatabase); svc != nil {
+	for _, svc := range p.Databases() {
 		var cfg runtime.DatabaseConfig
 		_ = json.Unmarshal(svc.Config, &cfg)
-		mf.Database = &manifest.Database{Type: svc.Variant, Version: svc.Version, ExposePort: cfg.HostPort != 0}
+		d := manifest.Database{Type: svc.Variant, Version: svc.Version, ExposePort: cfg.HostPort != 0}
+		if name := svc.Kind.DatabaseName(); name != "" {
+			if mf.Databases == nil {
+				mf.Databases = map[string]manifest.Database{}
+			}
+			mf.Databases[name] = d
+		} else {
+			mf.Database = &d
+		}
 	}
 	for _, kind := range extraKinds {
 		svc := p.Service(kind)
@@ -312,6 +321,14 @@ func formatDuration(d time.Duration) string {
 
 // manifestRequest turns a manifest into the create request that builds its services.
 // Environment, domains, workers and cron jobs are not part of it.
+// manifestDBType maps what people write to the catalogue's key.
+func manifestDBType(t string) string {
+	if t == "postgres" {
+		return "postgresql"
+	}
+	return t
+}
+
 func manifestRequest(mf manifest.Manifest, name string) CreateRequest {
 	req := CreateRequest{Name: name, Docroot: mf.Docroot}
 	if mf.Web != nil {
@@ -338,11 +355,11 @@ func manifestRequest(mf manifest.Manifest, name string) CreateRequest {
 		}}
 	}
 	if mf.Database != nil {
-		dbType := mf.Database.Type
-		if dbType == "postgres" { // what people write; the catalogue says postgresql
-			dbType = "postgresql"
-		}
-		req.Database = &DatabaseRequest{Type: dbType, Version: mf.Database.Version, ExposePort: mf.Database.ExposePort}
+		req.Database = &DatabaseRequest{Type: manifestDBType(mf.Database.Type), Version: mf.Database.Version, ExposePort: mf.Database.ExposePort}
+	}
+	for _, name := range slices.Sorted(maps.Keys(mf.Databases)) {
+		d := mf.Databases[name]
+		req.Databases = append(req.Databases, NamedDatabaseRequest{Name: name, DatabaseRequest: DatabaseRequest{Type: manifestDBType(d.Type), Version: d.Version, ExposePort: d.ExposePort}})
 	}
 	extra := func(s *manifest.Service) *ExtraRequest {
 		if s == nil {
@@ -418,6 +435,11 @@ func (m *Manager) desiredState(mf manifest.Manifest, name string) (store.Project
 	if mf.Database != nil && mf.Database.ExposePort {
 		expose[store.ServiceDatabase] = true
 	}
+	for name, d := range mf.Databases {
+		if d.ExposePort {
+			expose[store.DatabaseKind(name)] = true
+		}
+	}
 	for _, kind := range extraKinds {
 		if s := *manifestService(&mf, kind); s != nil && s.ExposePort {
 			expose[kind] = true
@@ -475,8 +497,9 @@ func cronRequest(mj manifest.CronJob, p store.Project) (CronJobRequest, error) {
 type manifestOps struct {
 	update UpdateRequest
 	// databaseAdd is applied in a second update after the old database is removed
-	// (a change of the database type).
+	// (a change of the database type); databasesAdd the same for additional databases.
 	databaseAdd   *DatabaseUpdate
+	databasesAdd  map[string]DatabaseUpdate
 	addDomains    []string
 	removeDomains []store.Domain
 	addWorkers    []WorkerRequest
@@ -595,28 +618,66 @@ func (m *Manager) planManifest(ctx context.Context, id string, mf manifest.Manif
 		}
 	}
 
-	// The database: another type means a new, empty database, so it counts as removal.
-	if c, ok := sectionChange("database", have.Database, wantMf.Database); ok {
+	// The databases: another type means a new, empty database, so it counts as removal.
+	// update and later are where the change goes (the primary's fields, or an additional
+	// database's entry).
+	diffDatabase := func(section string, h, w *manifest.Database, update func(DatabaseUpdate), later func(DatabaseUpdate)) {
+		c, ok := sectionChange(section, h, w)
+		if !ok {
+			return
+		}
 		switch {
 		case c.Action == "remove":
 			if removal(c) {
-				ops.update.Database = &DatabaseUpdate{Enabled: false, RemoveData: true}
+				update(DatabaseUpdate{Enabled: false, RemoveData: true})
 			}
 		case c.Action == "add":
 			add(c)
-			ops.update.Database = &DatabaseUpdate{Enabled: true, Type: wantMf.Database.Type, Version: wantMf.Database.Version, ExposePort: wantMf.Database.ExposePort}
-		case have.Database.Type != wantMf.Database.Type:
+			update(DatabaseUpdate{Enabled: true, Type: w.Type, Version: w.Version, ExposePort: w.ExposePort})
+		case h.Type != w.Type:
 			if removal(c) {
-				ops.update.Database = &DatabaseUpdate{Enabled: false, RemoveData: true}
-				ops.databaseAdd = &DatabaseUpdate{Enabled: true, Type: wantMf.Database.Type, Version: wantMf.Database.Version, ExposePort: wantMf.Database.ExposePort}
+				update(DatabaseUpdate{Enabled: false, RemoveData: true})
+				later(DatabaseUpdate{Enabled: true, Type: w.Type, Version: w.Version, ExposePort: w.ExposePort})
 			}
-		case runtime.CompareVersions(wantMf.Database.Version, have.Database.Version) < 0:
+		case runtime.CompareVersions(w.Version, h.Version) < 0:
 			c.Skipped = "downgrade"
 			add(c)
 		default:
 			add(c)
-			ops.update.Database = &DatabaseUpdate{Enabled: true, Type: wantMf.Database.Type, Version: wantMf.Database.Version, ExposePort: wantMf.Database.ExposePort}
+			update(DatabaseUpdate{Enabled: true, Type: w.Type, Version: w.Version, ExposePort: w.ExposePort})
 		}
+	}
+	diffDatabase("database", have.Database, wantMf.Database,
+		func(u DatabaseUpdate) { ops.update.Database = &u },
+		func(u DatabaseUpdate) { ops.databaseAdd = &u })
+	names := map[string]bool{}
+	for n := range have.Databases {
+		names[n] = true
+	}
+	for n := range wantMf.Databases {
+		names[n] = true
+	}
+	for _, name := range slices.Sorted(maps.Keys(names)) {
+		var h, w *manifest.Database
+		if d, ok := have.Databases[name]; ok {
+			h = &d
+		}
+		if d, ok := wantMf.Databases[name]; ok {
+			w = &d
+		}
+		diffDatabase("databases."+name, h, w,
+			func(u DatabaseUpdate) {
+				if ops.update.Databases == nil {
+					ops.update.Databases = map[string]DatabaseUpdate{}
+				}
+				ops.update.Databases[name] = u
+			},
+			func(u DatabaseUpdate) {
+				if ops.databasesAdd == nil {
+					ops.databasesAdd = map[string]DatabaseUpdate{}
+				}
+				ops.databasesAdd[name] = u
+			})
 	}
 
 	for _, kind := range extraKinds {
@@ -978,8 +1039,8 @@ func (m *Manager) ApplyManifest(ctx context.Context, id string, mf manifest.Mani
 			return ManifestResult{Plan: plan}, err
 		}
 	}
-	if ops.databaseAdd != nil {
-		if _, err := m.Update(ctx, id, UpdateRequest{Database: ops.databaseAdd}); err != nil {
+	if ops.databaseAdd != nil || len(ops.databasesAdd) > 0 {
+		if _, err := m.Update(ctx, id, UpdateRequest{Database: ops.databaseAdd, Databases: ops.databasesAdd}); err != nil {
 			return ManifestResult{Plan: plan}, err
 		}
 	}

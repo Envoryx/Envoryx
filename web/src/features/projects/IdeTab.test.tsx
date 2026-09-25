@@ -98,7 +98,7 @@ describe("IdeTab", () => {
           ssh: { enabled: true, port: 2222, fingerprint: "SHA256:abc" }, projectsDir: "/projects", hostPath: { overrides: {}, detected: { "/projects": "/mnt/user/development" }, bareMetal: false },
         },
       }),
-      [`GET /projects/${id}/database`]: () => ({ body: { database: { type: "mariadb", version: "11", host: "database", port: 3306, database: "acme_shop", username: "acme_shop", hostPort: 20003, injectedEnv: [], state: "running", volumeName: "v", volumeExists: true } } }),
+      [`GET /projects/${id}/databases`]: () => ({ body: { databases: [{ name: "", service: "database", type: "mariadb", version: "11", host: "database", port: 3306, database: "acme_shop", username: "acme_shop", hostPort: 20003, injectedEnv: [], state: "running", volumeName: "v", volumeExists: true }] } }),
       [`GET /projects/${id}/services/extra`]: () => ({ body: { services: [] } }),
       [`GET /projects/${id}/extras`]: () => ({ body: { services: [] } }),
     });

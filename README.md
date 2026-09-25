@@ -128,6 +128,12 @@ Envoryx is under active development. The current milestone (Phase 1 + 2) deliver
 - desired-state reconciliation on startup and periodically; orphan detection and cleanup
 - diagnostics view of all Docker resources (foreign containers read-only)
 
+- several databases per project: next to the primary (host `database`,
+  `DB_*`) any number of named ones – PostgreSQL for reporting next to MariaDB,
+  say – each in its own container with its own volume and credentials, reached
+  by its name as host and injecting `<NAME>_DB_*` and `<NAME>_DATABASE_URL`;
+  backups, snapshots, cloning, duplicating, renaming, Adminer, `envoryx.yml`,
+  CLI and MCP handle every one of them
 - database snapshots: a dump of the database alone, taken before a migration
   and put back with one click (the project need not be running), the ten newest
   kept per project – and cloning one project's database into another's, piped

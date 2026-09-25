@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -17,16 +18,46 @@ import (
 // ErrNoDatabase is returned when a project has no database service.
 var ErrNoDatabase = fmt.Errorf("%w: project has no database service", store.ErrNotFound)
 
+// databaseConfig returns the project's primary database.
 func databaseConfig(p store.Project) (*store.ProjectService, runtime.DatabaseConfig, error) {
-	svc := p.Service(store.ServiceDatabase)
+	return databaseOf(p, "")
+}
+
+// databaseOf returns a database of the project by name: "" is the primary, anything
+// else an additional one.
+func databaseOf(p store.Project, db string) (*store.ProjectService, runtime.DatabaseConfig, error) {
+	svc := p.Service(store.DatabaseKind(db))
 	if svc == nil || !svc.Enabled {
-		return nil, runtime.DatabaseConfig{}, ErrNoDatabase
+		if db == "" {
+			return nil, runtime.DatabaseConfig{}, ErrNoDatabase
+		}
+		return nil, runtime.DatabaseConfig{}, fmt.Errorf("%w: the project has no database %q", store.ErrNotFound, db)
 	}
 	var cfg runtime.DatabaseConfig
 	if err := json.Unmarshal(svc.Config, &cfg); err != nil {
 		return nil, runtime.DatabaseConfig{}, fmt.Errorf("database config: %w", err)
 	}
 	return svc, cfg, nil
+}
+
+// databaseHost is the host name a database is reached at in the project network: the
+// primary is "database", an additional one its name.
+func databaseHost(svc *store.ProjectService) string {
+	if name := svc.Kind.DatabaseName(); name != "" {
+		return name
+	}
+	return runtime.PrimaryDatabaseHost
+}
+
+// databaseEnvPrefix is what the variables of an additional database start with:
+// "analytics" → ANALYTICS_DB_HOST ("" for the primary's DB_*).
+func databaseEnvPrefix(name string) string {
+	return strings.ToUpper(strings.ReplaceAll(name, "-", "_"))
+}
+
+// databaseEnv returns the variables injected for a database.
+func databaseEnv(svc *store.ProjectService, cfg runtime.DatabaseConfig) map[string]string {
+	return runtime.DatabaseEnvFor(cfg, svc.Variant, databaseHost(svc), databaseEnvPrefix(svc.Kind.DatabaseName()))
 }
 
 func dialectOf(svc *store.ProjectService) (runtime.Dialect, error) {
@@ -42,16 +73,38 @@ func (m *Manager) saveDatabaseConfig(ctx context.Context, p store.Project, svc *
 	if err != nil {
 		return err
 	}
-	return m.store.Projects.UpdateServiceConfig(ctx, p.ID, store.ServiceDatabase, svc.Version, svc.Image, raw)
+	return m.store.Projects.UpdateServiceConfig(ctx, p.ID, svc.Kind, svc.Version, svc.Image, raw)
 }
 
-// DatabaseInfo returns the database service description without secrets.
-func (m *Manager) DatabaseInfo(ctx context.Context, id string) (DatabaseInfo, error) {
+// DatabaseInfo returns a database of the project ("" = the primary) without secrets.
+func (m *Manager) DatabaseInfo(ctx context.Context, id, db string) (DatabaseInfo, error) {
 	view, err := m.Get(ctx, id)
 	if err != nil {
 		return DatabaseInfo{}, err
 	}
-	svc, cfg, err := databaseConfig(view.Project)
+	return m.databaseInfo(ctx, view, db, nil)
+}
+
+// Databases returns every database of the project, the primary first.
+func (m *Manager) Databases(ctx context.Context, id string) ([]DatabaseInfo, error) {
+	view, err := m.Get(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	volumes, _ := m.engine.ListVolumes(ctx, true)
+	out := []DatabaseInfo{}
+	for _, svc := range view.Project.Databases() {
+		info, err := m.databaseInfo(ctx, view, svc.Kind.DatabaseName(), volumes)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, info)
+	}
+	return out, nil
+}
+
+func (m *Manager) databaseInfo(ctx context.Context, view View, db string, volumes []docker.Volume) (DatabaseInfo, error) {
+	svc, cfg, err := databaseOf(view.Project, db)
 	if err != nil {
 		return DatabaseInfo{}, err
 	}
@@ -60,32 +113,34 @@ func (m *Manager) DatabaseInfo(ctx context.Context, id string) (DatabaseInfo, er
 		return DatabaseInfo{}, err
 	}
 	info := DatabaseInfo{
-		Type: svc.Variant, Version: svc.Version, Image: svc.Image, Host: "database", Port: dialect.Port,
+		Name: db, Service: string(svc.Kind),
+		Type: svc.Variant, Version: svc.Version, Image: svc.Image, Host: databaseHost(svc), Port: dialect.Port,
 		Database: cfg.Database, Username: cfg.Username, HostPort: cfg.HostPort,
-		VolumeName: VolumeName(view.Project.Slug, store.ServiceDatabase), State: "missing",
+		VolumeName: VolumeName(view.Project.Slug, svc.Kind), State: "missing",
 	}
-	env := runtime.DatabaseEnv(cfg, svc.Variant)
+	env := databaseEnv(svc, cfg)
 	for k := range env {
 		info.InjectedEnv = append(info.InjectedEnv, k)
 	}
 	sort.Strings(info.InjectedEnv)
 	for _, s := range view.Status.Services {
-		if s.Kind == store.ServiceDatabase {
+		if s.Kind == svc.Kind {
 			info.State, info.Health = s.State, s.Health
 		}
 	}
-	if volumes, err := m.engine.ListVolumes(ctx, true); err == nil {
-		for _, v := range volumes {
-			if v.Name == info.VolumeName {
-				info.VolumeExists = true
-			}
+	if volumes == nil {
+		volumes, _ = m.engine.ListVolumes(ctx, true)
+	}
+	for _, v := range volumes {
+		if v.Name == info.VolumeName {
+			info.VolumeExists = true
 		}
 	}
 	return info, nil
 }
 
 // DatabaseCredentials returns the secrets. The call is audit-logged.
-func (m *Manager) DatabaseCredentials(ctx context.Context, id string) (DatabaseCredentials, error) {
+func (m *Manager) DatabaseCredentials(ctx context.Context, id, db string) (DatabaseCredentials, error) {
 	if err := validate.UUID(id); err != nil {
 		return DatabaseCredentials{}, ErrNotFound
 	}
@@ -93,7 +148,7 @@ func (m *Manager) DatabaseCredentials(ctx context.Context, id string) (DatabaseC
 	if err != nil {
 		return DatabaseCredentials{}, err
 	}
-	svc, cfg, err := databaseConfig(p)
+	svc, cfg, err := databaseOf(p, db)
 	if err != nil {
 		return DatabaseCredentials{}, err
 	}
@@ -101,11 +156,12 @@ func (m *Manager) DatabaseCredentials(ctx context.Context, id string) (DatabaseC
 	if err != nil {
 		return DatabaseCredentials{}, err
 	}
-	m.audit.Log(ctx, audit.ActionDBCredentialsViewed, "project", id, map[string]any{"name": p.Name})
+	m.audit.Log(ctx, audit.ActionDBCredentialsViewed, "project", id, auditDB(map[string]any{"name": p.Name}, db))
+	env := databaseEnv(svc, cfg)
 	creds := DatabaseCredentials{
-		Host: "database", Port: dialect.Port, Database: cfg.Database, Username: cfg.Username,
+		Host: databaseHost(svc), Port: dialect.Port, Database: cfg.Database, Username: cfg.Username,
 		Password: cfg.Password, HostPort: cfg.HostPort,
-		URL: runtime.DatabaseEnv(cfg, svc.Variant)["DATABASE_URL"],
+		URL: env[envKey(db, "DATABASE_URL")],
 	}
 	if dialect.HasRoot {
 		creds.RootPassword = cfg.RootPassword
@@ -125,17 +181,17 @@ func (m *Manager) runSQL(ctx context.Context, p store.Project, svc *store.Projec
 	if err != nil {
 		return "", err
 	}
-	var db *docker.Container
+	var c *docker.Container
 	for i := range containers {
-		if containers[i].Service() == string(store.ServiceDatabase) {
-			db = &containers[i]
+		if containers[i].Service() == string(svc.Kind) {
+			c = &containers[i]
 		}
 	}
-	if db == nil || db.State != "running" {
+	if c == nil || c.State != "running" {
 		return "", fmt.Errorf("%w: the database container is not running", ErrConflict)
 	}
 	argv, env := dialect.Client(cfg, sql)
-	res, err := m.engine.Exec(ctx, db.ID, argv, env)
+	res, err := m.engine.Exec(ctx, c.ID, argv, env)
 	if err != nil {
 		return "", err
 	}
@@ -163,7 +219,7 @@ func sanitizeSQLError(msg string, cfg runtime.DatabaseConfig) string {
 }
 
 // ListDatabases returns the user databases on the server.
-func (m *Manager) ListDatabases(ctx context.Context, id string) ([]string, error) {
+func (m *Manager) ListDatabases(ctx context.Context, id, db string) ([]string, error) {
 	if err := validate.UUID(id); err != nil {
 		return nil, ErrNotFound
 	}
@@ -171,7 +227,7 @@ func (m *Manager) ListDatabases(ctx context.Context, id string) ([]string, error
 	if err != nil {
 		return nil, err
 	}
-	svc, cfg, err := databaseConfig(p)
+	svc, cfg, err := databaseOf(p, db)
 	if err != nil {
 		return nil, err
 	}
@@ -196,7 +252,7 @@ func (m *Manager) ListDatabases(ctx context.Context, id string) ([]string, error
 }
 
 // CreateDatabase creates an additional database and grants the project user access.
-func (m *Manager) CreateDatabase(ctx context.Context, id, name string) error {
+func (m *Manager) CreateDatabase(ctx context.Context, id, db, name string) error {
 	if err := validate.UUID(id); err != nil {
 		return ErrNotFound
 	}
@@ -212,7 +268,7 @@ func (m *Manager) CreateDatabase(ctx context.Context, id, name string) error {
 	if err != nil {
 		return err
 	}
-	svc, cfg, err := databaseConfig(p)
+	svc, cfg, err := databaseOf(p, db)
 	if err != nil {
 		return err
 	}
@@ -223,12 +279,12 @@ func (m *Manager) CreateDatabase(ctx context.Context, id, name string) error {
 	if _, err := m.runSQL(ctx, p, svc, cfg, dialect.CreateDatabase(name, cfg.Username)); err != nil {
 		return err
 	}
-	m.audit.Log(ctx, audit.ActionDBCreated, "project", id, map[string]any{"name": p.Name, "database": name})
+	m.audit.Log(ctx, audit.ActionDBCreated, "project", id, auditDB(map[string]any{"name": p.Name, "database": name}, db))
 	return nil
 }
 
 // DropDatabase drops a database. confirm must equal the database name.
-func (m *Manager) DropDatabase(ctx context.Context, id, name, confirm string) error {
+func (m *Manager) DropDatabase(ctx context.Context, id, db, name, confirm string) error {
 	if err := validate.UUID(id); err != nil {
 		return ErrNotFound
 	}
@@ -247,7 +303,7 @@ func (m *Manager) DropDatabase(ctx context.Context, id, name, confirm string) er
 	if err != nil {
 		return err
 	}
-	svc, cfg, err := databaseConfig(p)
+	svc, cfg, err := databaseOf(p, db)
 	if err != nil {
 		return err
 	}
@@ -261,13 +317,13 @@ func (m *Manager) DropDatabase(ctx context.Context, id, name, confirm string) er
 	if _, err := m.runSQL(ctx, p, svc, cfg, dialect.DropDatabase(name)); err != nil {
 		return err
 	}
-	m.audit.Log(ctx, audit.ActionDBDropped, "project", id, map[string]any{"name": p.Name, "database": name})
+	m.audit.Log(ctx, audit.ActionDBDropped, "project", id, auditDB(map[string]any{"name": p.Name, "database": name}, db))
 	return nil
 }
 
 // RotateDatabasePassword sets a new password for the project user, stores it and recreates
 // the application containers so they receive the new environment.
-func (m *Manager) RotateDatabasePassword(ctx context.Context, id string) (View, error) {
+func (m *Manager) RotateDatabasePassword(ctx context.Context, id, db string) (View, error) {
 	if err := validate.UUID(id); err != nil {
 		return View{}, ErrNotFound
 	}
@@ -280,7 +336,7 @@ func (m *Manager) RotateDatabasePassword(ctx context.Context, id string) (View, 
 	if err != nil {
 		return View{}, err
 	}
-	svc, cfg, err := databaseConfig(p)
+	svc, cfg, err := databaseOf(p, db)
 	if err != nil {
 		return View{}, err
 	}
@@ -302,12 +358,12 @@ func (m *Manager) RotateDatabasePassword(ctx context.Context, id string) (View, 
 	if err := m.recreateAppContainers(ctx, id); err != nil {
 		return View{}, err
 	}
-	m.audit.Log(ctx, audit.ActionDBPasswordRotated, "project", id, map[string]any{"name": p.Name})
+	m.audit.Log(ctx, audit.ActionDBPasswordRotated, "project", id, auditDB(map[string]any{"name": p.Name}, db))
 	return m.Get(ctx, id)
 }
 
 // SetDatabaseExposed publishes or unpublishes the database port on the host.
-func (m *Manager) SetDatabaseExposed(ctx context.Context, id string, exposed bool) (View, error) {
+func (m *Manager) SetDatabaseExposed(ctx context.Context, id, db string, exposed bool) (View, error) {
 	if err := validate.UUID(id); err != nil {
 		return View{}, ErrNotFound
 	}
@@ -320,7 +376,7 @@ func (m *Manager) SetDatabaseExposed(ctx context.Context, id string, exposed boo
 	if err != nil {
 		return View{}, err
 	}
-	svc, cfg, err := databaseConfig(p)
+	svc, cfg, err := databaseOf(p, db)
 	if err != nil {
 		return View{}, err
 	}
@@ -339,11 +395,28 @@ func (m *Manager) SetDatabaseExposed(ctx context.Context, id string, exposed boo
 	if err := m.saveDatabaseConfig(ctx, p, svc, cfg); err != nil {
 		return View{}, err
 	}
-	if err := m.recreateContainers(ctx, id, store.ServiceDatabase); err != nil {
+	if err := m.recreateContainers(ctx, id, svc.Kind); err != nil {
 		return View{}, err
 	}
-	m.audit.Log(ctx, audit.ActionProjectUpdated, "project", id, map[string]any{"name": p.Name, "changes": map[string]any{"databaseHostPort": cfg.HostPort}})
+	m.audit.Log(ctx, audit.ActionProjectUpdated, "project", id, auditDB(map[string]any{"name": p.Name, "changes": map[string]any{"databaseHostPort": cfg.HostPort}}, db))
 	return m.Get(ctx, id)
+}
+
+// auditDB names an additional database in audit details (the primary stays unnamed, as
+// before there were several).
+func auditDB(details map[string]any, db string) map[string]any {
+	if db != "" {
+		details["db"] = db
+	}
+	return details
+}
+
+// envKey is the name of a variable of a database: "DATABASE_URL" or "ANALYTICS_DATABASE_URL".
+func envKey(db, key string) string {
+	if db == "" {
+		return key
+	}
+	return databaseEnvPrefix(db) + "_" + key
 }
 
 // recreateAppContainers recreates every container that receives the database environment.
@@ -388,10 +461,18 @@ func (m *Manager) recreateContainers(ctx context.Context, id string, kinds ...st
 	return nil
 }
 
-// applyDatabaseUpdate adds, changes or removes the database service of a project. Callers
-// hold the project lock. It returns whether application containers must be recreated.
-func (m *Manager) applyDatabaseUpdate(ctx context.Context, p store.Project, upd DatabaseUpdate, changes map[string]any) (recreateApp bool, err error) {
-	svc := p.Service(store.ServiceDatabase)
+// applyDatabaseUpdate adds, changes or removes a database service of a project (kind:
+// the primary or an additional one). Callers hold the project lock. It returns whether
+// application containers must be recreated.
+func (m *Manager) applyDatabaseUpdate(ctx context.Context, p store.Project, kind store.ServiceKind, upd DatabaseUpdate, changes map[string]any) (recreateApp bool, err error) {
+	svc := p.Service(kind)
+	// The keys of the audit details; an additional database's carry its name.
+	key := func(k string) string {
+		if name := kind.DatabaseName(); name != "" {
+			return k + ":" + name
+		}
+		return k
+	}
 	switch {
 	case !upd.Enabled && svc == nil:
 		return false, nil
@@ -405,19 +486,19 @@ func (m *Manager) applyDatabaseUpdate(ctx context.Context, p store.Project, upd 
 			return false, err
 		}
 		for _, c := range containers {
-			if c.Service() == string(store.ServiceDatabase) {
+			if c.Service() == string(kind) {
 				if err := m.engine.RemoveContainer(ctx, c.ID); err != nil {
 					return false, fmt.Errorf("remove database container: %w", err)
 				}
 			}
 		}
-		if err := m.engine.RemoveVolume(ctx, VolumeName(p.Slug, store.ServiceDatabase)); err != nil {
+		if err := m.engine.RemoveVolume(ctx, VolumeName(p.Slug, kind)); err != nil {
 			return false, fmt.Errorf("remove database volume: %w", err)
 		}
-		if err := m.store.Projects.DeleteService(ctx, p.ID, store.ServiceDatabase); err != nil {
+		if err := m.store.Projects.DeleteService(ctx, p.ID, kind); err != nil {
 			return false, err
 		}
-		changes["database"] = "removed"
+		changes[key("database")] = "removed"
 		return true, nil
 
 	case upd.Enabled && svc == nil:
@@ -426,6 +507,7 @@ func (m *Manager) applyDatabaseUpdate(ctx context.Context, p store.Project, upd 
 			return false, err
 		}
 		newSvc.ProjectID = p.ID
+		newSvc.Kind = kind
 		if upd.ExposePort {
 			var cfg runtime.DatabaseConfig
 			_ = json.Unmarshal(newSvc.Config, &cfg)
@@ -439,7 +521,7 @@ func (m *Manager) applyDatabaseUpdate(ctx context.Context, p store.Project, upd 
 		if err := m.store.Projects.AddService(ctx, newSvc); err != nil {
 			return false, err
 		}
-		changes["database"] = newSvc.Variant + ":" + newSvc.Version
+		changes[key("database")] = newSvc.Variant + ":" + newSvc.Version
 		return true, nil
 
 	default: // enabled and existing: version and/or port change
@@ -474,10 +556,10 @@ func (m *Manager) applyDatabaseUpdate(ctx context.Context, p store.Project, upd 
 				return false, err
 			}
 			cfg.HostPort = port
-			changes["databaseHostPort"] = port
+			changes[key("databaseHostPort")] = port
 		} else if !upd.ExposePort && cfg.HostPort > 0 {
 			cfg.HostPort = 0
-			changes["databaseHostPort"] = 0
+			changes[key("databaseHostPort")] = 0
 		}
 		if v.Version != svc.Version {
 			// The server rewrites its data directory on the first start with the new
@@ -486,24 +568,24 @@ func (m *Manager) applyDatabaseUpdate(ctx context.Context, p store.Project, upd 
 			if err != nil {
 				return false, fmt.Errorf("upgrade refused: the database must be backed up first and that failed (%w); start the project and try again", err)
 			}
-			changes["databaseVersion"] = v.Version
-			changes["databaseBackup"] = b.ID
+			changes[key("databaseVersion")] = v.Version
+			changes[key("databaseBackup")] = b.ID
 		}
 		raw, err := json.Marshal(cfg)
 		if err != nil {
 			return false, err
 		}
-		if err := m.store.Projects.UpdateServiceConfig(ctx, p.ID, store.ServiceDatabase, v.Version, v.Image, raw); err != nil {
+		if err := m.store.Projects.UpdateServiceConfig(ctx, p.ID, kind, v.Version, v.Image, raw); err != nil {
 			return false, err
 		}
 		// Port changes need a recreated database container; ensurePlan handles image changes.
-		if _, changed := changes["databaseHostPort"]; changed {
+		if _, changed := changes[key("databaseHostPort")]; changed {
 			containers, err := m.engine.ListContainers(ctx, true, p.ID)
 			if err != nil {
 				return false, err
 			}
 			for _, c := range containers {
-				if c.Service() == string(store.ServiceDatabase) {
+				if c.Service() == string(kind) {
 					if err := m.engine.RemoveContainer(ctx, c.ID); err != nil {
 						return false, fmt.Errorf("recreate database container: %w", err)
 					}
@@ -512,4 +594,28 @@ func (m *Manager) applyDatabaseUpdate(ctx context.Context, p store.Project, upd 
 		}
 		return false, nil
 	}
+}
+
+// Names an additional database cannot have: the host names of the project's other
+// containers and the aliases of the primary database.
+var reservedDatabaseNames = map[string]bool{
+	"database": true, "db": true, "web": true, "php": true, "node": true, "python": true,
+	"redis": true, "mailpit": true, "rabbitmq": true, "memcached": true, "meilisearch": true,
+	"typesense": true, "opensearch": true, "opensearch-dashboards": true, "storage": true,
+	"mariadb": true, "mysql": true, "postgresql": true, "postgres": true, "mongodb": true,
+	"localhost": true, "worker": true, "adminer": true,
+}
+
+var databaseServiceNameRe = regexp.MustCompile(`^[a-z][a-z0-9]*(-[a-z0-9]+)*$`)
+
+// ValidateDatabaseServiceName checks the name of an additional database: it becomes a
+// host name, part of container and volume names and the prefix of variables.
+func ValidateDatabaseServiceName(name string) error {
+	if len(name) == 0 || len(name) > 24 || !databaseServiceNameRe.MatchString(name) {
+		return fmt.Errorf("%w: database name %q: 1–24 lowercase letters, digits and dashes, starting with a letter", validate.ErrInvalid, name)
+	}
+	if reservedDatabaseNames[name] {
+		return fmt.Errorf("%w: %q is taken by another container of the project; choose another database name", validate.ErrInvalid, name)
+	}
+	return nil
 }

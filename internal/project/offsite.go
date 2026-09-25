@@ -9,7 +9,9 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"slices"
+	"sort"
 	"strings"
 
 	"github.com/envoryx/envoryx/internal/audit"
@@ -23,6 +25,35 @@ import (
 // backupArchiveMembers are the files of a backup directory, in archive order (the
 // metadata first, so a reader knows early what it holds).
 var backupArchiveMembers = []string{backupMetaFile, backupDBFile, backupFilesFile, backupStorageFile}
+
+// extraDumpRe matches the dump files of additional databases (database-<name>.sql.gz).
+var extraDumpRe = regexp.MustCompile(`^database-([a-z][a-z0-9-]*)\.sql\.gz$`)
+
+// isBackupMember reports a file name that belongs in a backup directory.
+func isBackupMember(name string) bool {
+	if slices.Contains(backupArchiveMembers, name) {
+		return true
+	}
+	m := extraDumpRe.FindStringSubmatch(name)
+	return m != nil && ValidateDatabaseServiceName(m[1]) == nil
+}
+
+// backupMembersIn lists the files of a backup directory in archive order: the fixed
+// members, the dumps of additional databases right after the primary's.
+func backupMembersIn(dir string) []string {
+	var extras []string
+	if entries, err := os.ReadDir(dir); err == nil {
+		for _, e := range entries {
+			if !slices.Contains(backupArchiveMembers, e.Name()) && isBackupMember(e.Name()) {
+				extras = append(extras, e.Name())
+			}
+		}
+	}
+	sort.Strings(extras)
+	out := []string{backupMetaFile, backupDBFile}
+	out = append(out, extras...)
+	return append(out, backupFilesFile, backupStorageFile)
+}
 
 // SetBackupHook registers a function told about every backup created.
 func (m *Manager) SetBackupHook(f func(projectID string, b BackupInfo)) { m.backupHook = f }
@@ -116,7 +147,7 @@ func (m *Manager) ImportBackupArchive(ctx context.Context, projectID string, r i
 		}
 		top, name := path.Split(hdr.Name)
 		top = strings.TrimSuffix(top, "/")
-		if strings.Contains(top, "/") || !slices.Contains(backupArchiveMembers, name) {
+		if strings.Contains(top, "/") || !isBackupMember(name) {
 			return BackupInfo{}, bad("unexpected entry %q", hdr.Name)
 		}
 		// The top directory is <slug>-<backup dir>; the backup dir has a fixed shape.
@@ -181,7 +212,7 @@ func (m *Manager) ImportBackupArchive(ctx context.Context, projectID string, r i
 	if err := os.Rename(tmp, target); err != nil {
 		return BackupInfo{}, err
 	}
-	kind := backupKind(BackupOptions{Database: bf.Database != nil, Files: bf.Files != nil, Storage: bf.Storage != nil})
+	kind := backupKind(BackupOptions{Database: bf.HasAnyDatabase(), Files: bf.Files != nil, Storage: bf.Storage != nil})
 	metaJSON, _ := json.Marshal(bf.BackupMeta)
 	rec := &store.Backup{ProjectID: p.ID, Filename: dirName, SizeBytes: dirSize(target), Kind: kind, Metadata: metaJSON, CreatedAt: bf.CreatedAt}
 	if err := m.store.Backups.Create(ctx, rec); err != nil {

@@ -139,7 +139,7 @@ func toStatus(st project.Status) statusDTO {
 // redactedConfig returns a service configuration safe for API responses: database
 // credentials are stripped, everything else is passed through.
 func redactedConfig(s store.ProjectService) json.RawMessage {
-	if s.Kind == store.ServiceDatabase {
+	if s.Kind.IsDatabase() {
 		var cfg runtime.DatabaseConfig
 		if err := json.Unmarshal(s.Config, &cfg); err == nil {
 			if b, err := json.Marshal(cfg.Redacted()); err == nil {
@@ -256,6 +256,11 @@ type databaseRequestDTO struct {
 	ExposePort bool   `json:"exposePort"`
 }
 
+type namedDatabaseDTO struct {
+	Name string `json:"name"`
+	databaseRequestDTO
+}
+
 type databaseUpdateDTO struct {
 	Enabled    bool   `json:"enabled"`
 	Type       string `json:"type"`
@@ -265,27 +270,29 @@ type databaseUpdateDTO struct {
 }
 
 type createProjectRequest struct {
-	Name          string              `json:"name"`
-	Path          string              `json:"path"`
-	Docroot       string              `json:"docroot"`
-	PHP           *phpRequestDTO      `json:"php"`
-	Node          *nodeRequestDTO     `json:"node"`
-	Python        *pythonRequestDTO   `json:"python"`
-	Database      *databaseRequestDTO `json:"database"`
-	Redis         *extraRequestDTO    `json:"redis"`
-	Mailpit       *extraRequestDTO    `json:"mailpit"`
-	RabbitMQ      *extraRequestDTO    `json:"rabbitmq"`
-	Memcached     *extraRequestDTO    `json:"memcached"`
-	Meilisearch   *extraRequestDTO    `json:"meilisearch"`
-	Typesense     *extraRequestDTO    `json:"typesense"`
-	OpenSearch    *extraRequestDTO    `json:"opensearch"`
-	Storage       *storageRequestDTO  `json:"storage"`
-	Git           *gitRequestDTO      `json:"git"`
-	Web           *webRequestDTO      `json:"web"`
-	Env           []envDTO            `json:"env"`
-	Template      string              `json:"template"`
-	CreateStarter bool                `json:"createStarter"`
-	Start         bool                `json:"start"`
+	Name     string              `json:"name"`
+	Path     string              `json:"path"`
+	Docroot  string              `json:"docroot"`
+	PHP      *phpRequestDTO      `json:"php"`
+	Node     *nodeRequestDTO     `json:"node"`
+	Python   *pythonRequestDTO   `json:"python"`
+	Database *databaseRequestDTO `json:"database"`
+	// Databases are additional databases, each with a name.
+	Databases     []namedDatabaseDTO `json:"databases"`
+	Redis         *extraRequestDTO   `json:"redis"`
+	Mailpit       *extraRequestDTO   `json:"mailpit"`
+	RabbitMQ      *extraRequestDTO   `json:"rabbitmq"`
+	Memcached     *extraRequestDTO   `json:"memcached"`
+	Meilisearch   *extraRequestDTO   `json:"meilisearch"`
+	Typesense     *extraRequestDTO   `json:"typesense"`
+	OpenSearch    *extraRequestDTO   `json:"opensearch"`
+	Storage       *storageRequestDTO `json:"storage"`
+	Git           *gitRequestDTO     `json:"git"`
+	Web           *webRequestDTO     `json:"web"`
+	Env           []envDTO           `json:"env"`
+	Template      string             `json:"template"`
+	CreateStarter bool               `json:"createStarter"`
+	Start         bool               `json:"start"`
 	// UseManifest applies the envoryx.yml the cloned repository brings (it wins over the
 	// services chosen here). Only with git.
 	UseManifest bool `json:"useManifest"`
@@ -328,6 +335,9 @@ func (r createProjectRequest) toDomain() project.CreateRequest {
 	}
 	if r.Python != nil {
 		req.Python = &project.PythonRequest{Version: r.Python.Version, Config: r.Python.config()}
+	}
+	for _, d := range r.Databases {
+		req.Databases = append(req.Databases, project.NamedDatabaseRequest{Name: d.Name, DatabaseRequest: project.DatabaseRequest{Type: d.Type, Version: d.Version, ExposePort: d.ExposePort}})
 	}
 	if r.Database != nil {
 		req.Database = &project.DatabaseRequest{Type: r.Database.Type, Version: r.Database.Version, ExposePort: r.Database.ExposePort}
@@ -374,23 +384,25 @@ func (r createProjectRequest) toDomain() project.CreateRequest {
 }
 
 type updateProjectRequest struct {
-	Name        *string            `json:"name"`
-	Docroot     *string            `json:"docroot"`
-	Web         *webRequestDTO     `json:"web"`
-	PHP         *phpUpdateDTO      `json:"php"`
-	Node        *nodeUpdateDTO     `json:"node"`
-	Python      *pythonUpdateDTO   `json:"python"`
-	Database    *databaseUpdateDTO `json:"database"`
-	Redis       *extraUpdateDTO    `json:"redis"`
-	Mailpit     *extraUpdateDTO    `json:"mailpit"`
-	RabbitMQ    *extraUpdateDTO    `json:"rabbitmq"`
-	Memcached   *extraUpdateDTO    `json:"memcached"`
-	Meilisearch *extraUpdateDTO    `json:"meilisearch"`
-	Typesense   *extraUpdateDTO    `json:"typesense"`
-	OpenSearch  *extraUpdateDTO    `json:"opensearch"`
-	Storage     *storageUpdateDTO  `json:"storage"`
-	Env         *[]envDTO          `json:"env"`
-	IDEGateway  *bool              `json:"ideGateway"`
+	Name     *string            `json:"name"`
+	Docroot  *string            `json:"docroot"`
+	Web      *webRequestDTO     `json:"web"`
+	PHP      *phpUpdateDTO      `json:"php"`
+	Node     *nodeUpdateDTO     `json:"node"`
+	Python   *pythonUpdateDTO   `json:"python"`
+	Database *databaseUpdateDTO `json:"database"`
+	// Databases adds, changes or removes additional databases by name.
+	Databases   map[string]databaseUpdateDTO `json:"databases"`
+	Redis       *extraUpdateDTO              `json:"redis"`
+	Mailpit     *extraUpdateDTO              `json:"mailpit"`
+	RabbitMQ    *extraUpdateDTO              `json:"rabbitmq"`
+	Memcached   *extraUpdateDTO              `json:"memcached"`
+	Meilisearch *extraUpdateDTO              `json:"meilisearch"`
+	Typesense   *extraUpdateDTO              `json:"typesense"`
+	OpenSearch  *extraUpdateDTO              `json:"opensearch"`
+	Storage     *storageUpdateDTO            `json:"storage"`
+	Env         *[]envDTO                    `json:"env"`
+	IDEGateway  *bool                        `json:"ideGateway"`
 }
 
 // duplicateProjectRequest copies an existing project. The parts default to "everything
@@ -645,6 +657,12 @@ func (a *API) updateProject(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Database != nil {
 		upd.Database = &project.DatabaseUpdate{Enabled: req.Database.Enabled, Type: req.Database.Type, Version: req.Database.Version, ExposePort: req.Database.ExposePort, RemoveData: req.Database.RemoveData}
+	}
+	for name, d := range req.Databases {
+		if upd.Databases == nil {
+			upd.Databases = map[string]project.DatabaseUpdate{}
+		}
+		upd.Databases[name] = project.DatabaseUpdate{Enabled: d.Enabled, Type: d.Type, Version: d.Version, ExposePort: d.ExposePort, RemoveData: d.RemoveData}
 	}
 	if req.Env != nil {
 		env := make([]project.EnvVarRequest, 0, len(*req.Env))

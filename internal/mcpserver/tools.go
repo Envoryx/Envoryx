@@ -146,16 +146,16 @@ func (s *Server) registerTools() {
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeOperate, mutating("start_project", "Start project", "Start all containers of a project.", true)), s.startProject)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeOperate, mutating("stop_project", "Stop project", "Stop all containers of a project (data is kept).", true)), s.stopProject)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeOperate, mutating("restart_project", "Restart project", "Restart a project; also pulls updated runtime images.", true)), s.restartProject)
-	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("get_logs", "Get logs", "Log lines of one project container (web, php, python, node, database, redis, memcached, mailpit, rabbitmq, meilisearch, typesense, opensearch, opensearch-dashboards), optionally limited to a time range, a search text or warnings/errors. Each line carries the level Envoryx guesses from its text.")), s.getLogs)
+	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("get_logs", "Get logs", "Log lines of one project container (web, php, python, node, database, redis, memcached, mailpit, rabbitmq, meilisearch, typesense, opensearch, opensearch-dashboards, or db-<name> for an additional database), optionally limited to a time range, a search text or warnings/errors. Each line carries the level Envoryx guesses from its text.")), s.getLogs)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("get_log_stats", "Get log statistics", "Error frequency of one project container over a time range: lines, warnings and errors per time slot and the most frequent errors and warnings, grouped with numbers and ids masked.")), s.getLogStats)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("list_actions", "List actions", "Runnable project actions (composer, artisan, npm …) and whether they are currently available.")), s.listActions)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeOperate, mutating("run_action", "Run action", "Run one action from list_actions inside the project (e.g. composer:install) and return its output. Waits for completion (up to 20 minutes).", false)), s.runAction)
-	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("list_databases", "List databases", "Databases on the project's database server.")), s.listDatabases)
-	mcp.AddTool(s.mcp, s.tool(auth.ScopeOperate, mutating("create_database", "Create database", "Create an additional database on the project's database server (same credentials).", true)), s.createDatabase)
+	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("list_databases", "List databases", "The project's database servers (the primary, reached as host \"database\", and additional ones reached by their name) and the databases on one of them.")), s.listDatabases)
+	mcp.AddTool(s.mcp, s.tool(auth.ScopeOperate, mutating("create_database", "Create database", "Create a database on one of the project's database servers (same credentials).", true)), s.createDatabase)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("list_backups", "List backups", "Backups of a project.")), s.listBackups)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeOperate, mutating("create_backup", "Create backup", "Create a backup (database dump + files + object storage + configuration) of a project.", false)), s.createBackup)
-	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("list_snapshots", "List snapshots", "Database snapshots of a project: the dumps that hold the database and nothing else.")), s.listSnapshots)
-	mcp.AddTool(s.mcp, s.tool(auth.ScopeOperate, mutating("create_snapshot", "Create snapshot", "Dump the project's database and nothing else – what to do before a migration or a mass update, so the state before it can be put back. Works on a stopped project too. Only the ten newest snapshots of a project are kept.", false)), s.createSnapshot)
+	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("list_snapshots", "List snapshots", "Snapshots of one database of a project: the dumps that hold that database and nothing else.")), s.listSnapshots)
+	mcp.AddTool(s.mcp, s.tool(auth.ScopeOperate, mutating("create_snapshot", "Create snapshot", "Dump one database of the project and nothing else – what to do before a migration or a mass update, so the state before it can be put back. Works on a stopped project too. Only the ten newest snapshots of a database are kept.", false)), s.createSnapshot)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeOperate, mutating("add_domain", "Add domain", "Add an extra host name routed to the project by the embedded proxy.", true)), s.addDomain)
 }
 
@@ -260,6 +260,7 @@ type createProjectIn struct {
 	PHPExtensions      []string          `json:"phpExtensions,omitempty" jsonschema:"PHP extensions to enable (keys from list_runtimes). Default: bcmath, gd, intl, opcache, pdo_mysql, zip."`
 	Database           string            `json:"database,omitempty" jsonschema:"Database engine: mariadb, mysql or postgresql. Omit for no database."`
 	DBVersion          string            `json:"databaseVersion,omitempty" jsonschema:"Database version (default: catalogue default)."`
+	Databases          []namedDatabaseIn `json:"additionalDatabases,omitempty" jsonschema:"Additional database servers next to the primary, each reached by its name (host analytics, variables ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …)."`
 	Redis              bool              `json:"redis,omitempty" jsonschema:"Add a Redis service."`
 	Mailpit            bool              `json:"mailpit,omitempty" jsonschema:"Add Mailpit (SMTP catcher with web inbox)."`
 	Memcached          bool              `json:"memcached,omitempty" jsonschema:"Add Memcached (in-memory cache, MEMCACHED_* injected)."`
@@ -288,6 +289,12 @@ type createProjectIn struct {
 	Start              *bool             `json:"start,omitempty" jsonschema:"Start the project after creation (default true)."`
 }
 
+type namedDatabaseIn struct {
+	Name    string `json:"name" jsonschema:"Name of the database server: lowercase letters, digits and dashes (e.g. analytics)"`
+	Type    string `json:"type" jsonschema:"mariadb, mysql, postgresql or mongodb"`
+	Version string `json:"version,omitempty" jsonschema:"Version (default: catalogue default)"`
+}
+
 func (s *Server) createProject(ctx context.Context, _ *mcp.CallToolRequest, in createProjectIn) (*mcp.CallToolResult, projectOut, error) {
 	req := project.CreateRequest{Name: strings.TrimSpace(in.Name), Docroot: strings.TrimSpace(in.Docroot), Template: strings.ToLower(strings.TrimSpace(in.Template)), CreateStarter: true, Start: true}
 	if in.Start != nil {
@@ -303,6 +310,9 @@ func (s *Server) createProject(ctx context.Context, _ *mcp.CallToolRequest, in c
 	}
 	if db := strings.ToLower(strings.TrimSpace(in.Database)); db != "" {
 		req.Database = &project.DatabaseRequest{Type: db, Version: strings.TrimSpace(in.DBVersion)}
+	}
+	for _, d := range in.Databases {
+		req.Databases = append(req.Databases, project.NamedDatabaseRequest{Name: strings.TrimSpace(d.Name), DatabaseRequest: project.DatabaseRequest{Type: strings.ToLower(strings.TrimSpace(d.Type)), Version: strings.TrimSpace(d.Version)}})
 	}
 	if in.Redis {
 		req.Redis = &project.ExtraRequest{}
@@ -511,6 +521,9 @@ func (s *Server) logTarget(ctx context.Context, in getLogsIn) (string, store.Ser
 	switch kind {
 	case store.ServiceWeb, store.ServicePHP, store.ServicePython, store.ServiceNode, store.ServiceDatabase, store.ServiceRedis, store.ServiceMemcached, store.ServiceMailpit, store.ServiceRabbitMQ, store.ServiceMeilisearch, store.ServiceTypesense, store.ServiceOpenSearch, store.ServiceOpenSearchDashboards, store.ServiceStorage:
 	default:
+		if name := kind.DatabaseName(); name != "" && project.ValidateDatabaseServiceName(name) == nil {
+			break
+		}
 		return "", "", logs.Query{}, fmt.Errorf("%w: unknown service %q", validate.ErrInvalid, in.Service)
 	}
 	now := time.Now()
@@ -671,35 +684,64 @@ func collectOutput(ctx context.Context, term docker.Terminal) (string, bool) {
 // ---- Databases, backups, domains ------------------------------------------------------
 
 type listDatabasesOut struct {
-	Engine    string   `json:"engine"`
-	Version   string   `json:"version"`
-	Databases []string `json:"databases"`
+	// Servers are the project's database servers; DB names the one listed below.
+	Servers   []databaseServerOut `json:"servers"`
+	DB        string              `json:"db"`
+	Engine    string              `json:"engine"`
+	Version   string              `json:"version"`
+	Databases []string            `json:"databases"`
 }
 
-func (s *Server) listDatabases(ctx context.Context, _ *mcp.CallToolRequest, in projectRef) (*mcp.CallToolResult, listDatabasesOut, error) {
+type databaseServerOut struct {
+	Name     string `json:"name" jsonschema:"\"\" for the primary, otherwise the additional database's name"`
+	Engine   string `json:"engine"`
+	Version  string `json:"version"`
+	Host     string `json:"host"`
+	Database string `json:"database"`
+	State    string `json:"state"`
+}
+
+type databaseRef struct {
+	Project string `json:"project" jsonschema:"Project id, slug or name"`
+	DB      string `json:"db,omitempty" jsonschema:"Database server: empty for the primary, or the name of an additional one"`
+}
+
+func (s *Server) listDatabases(ctx context.Context, _ *mcp.CallToolRequest, in databaseRef) (*mcp.CallToolResult, listDatabasesOut, error) {
 	v, err := s.resolve(ctx, in.Project)
 	if err != nil {
 		r, _ := toolErr(err)
 		return r, listDatabasesOut{}, nil
 	}
-	info, err := s.d.Projects.DatabaseInfo(ctx, v.Project.ID)
+	db := strings.TrimSpace(in.DB)
+	servers, err := s.d.Projects.Databases(ctx, v.Project.ID)
 	if err != nil {
 		r, _ := toolErr(err)
 		return r, listDatabasesOut{}, nil
 	}
-	names, err := s.d.Projects.ListDatabases(ctx, v.Project.ID)
+	out := listDatabasesOut{DB: db, Servers: []databaseServerOut{}, Databases: []string{}}
+	for _, info := range servers {
+		out.Servers = append(out.Servers, databaseServerOut{Name: info.Name, Engine: info.Type, Version: info.Version, Host: info.Host, Database: info.Database, State: info.State})
+	}
+	info, err := s.d.Projects.DatabaseInfo(ctx, v.Project.ID, db)
 	if err != nil {
 		r, _ := toolErr(err)
 		return r, listDatabasesOut{}, nil
 	}
-	if names == nil {
-		names = []string{}
+	out.Engine, out.Version = info.Type, info.Version
+	names, err := s.d.Projects.ListDatabases(ctx, v.Project.ID, db)
+	if err != nil {
+		r, _ := toolErr(err)
+		return r, listDatabasesOut{}, nil
 	}
-	return nil, listDatabasesOut{Engine: info.Type, Version: info.Version, Databases: names}, nil
+	if names != nil {
+		out.Databases = names
+	}
+	return nil, out, nil
 }
 
 type createDatabaseIn struct {
 	Project string `json:"project" jsonschema:"Project id, slug or name"`
+	DB      string `json:"db,omitempty" jsonschema:"Database server: empty for the primary, or the name of an additional one"`
 	Name    string `json:"name" jsonschema:"Database name: lower-case letters, digits, underscores"`
 }
 
@@ -709,11 +751,11 @@ func (s *Server) createDatabase(ctx context.Context, req *mcp.CallToolRequest, i
 		r, _ := toolErr(err)
 		return r, listDatabasesOut{}, nil
 	}
-	if err := s.d.Projects.CreateDatabase(ctx, v.Project.ID, strings.TrimSpace(in.Name)); err != nil {
+	if err := s.d.Projects.CreateDatabase(ctx, v.Project.ID, strings.TrimSpace(in.DB), strings.TrimSpace(in.Name)); err != nil {
 		r, _ := toolErr(err)
 		return r, listDatabasesOut{}, nil
 	}
-	return s.listDatabases(ctx, req, projectRef{Project: v.Project.ID})
+	return s.listDatabases(ctx, req, databaseRef{Project: v.Project.ID, DB: in.DB})
 }
 
 type backupOut struct {
@@ -770,13 +812,13 @@ func (s *Server) createBackup(ctx context.Context, _ *mcp.CallToolRequest, in cr
 	return nil, toBackup(b), nil
 }
 
-func (s *Server) listSnapshots(ctx context.Context, _ *mcp.CallToolRequest, in projectRef) (*mcp.CallToolResult, listBackupsOut, error) {
+func (s *Server) listSnapshots(ctx context.Context, _ *mcp.CallToolRequest, in databaseRef) (*mcp.CallToolResult, listBackupsOut, error) {
 	v, err := s.resolve(ctx, in.Project)
 	if err != nil {
 		r, _ := toolErr(err)
 		return r, listBackupsOut{}, nil
 	}
-	list, err := s.d.Projects.ListSnapshots(ctx, v.Project.ID)
+	list, err := s.d.Projects.ListSnapshots(ctx, v.Project.ID, strings.TrimSpace(in.DB))
 	if err != nil {
 		r, _ := toolErr(err)
 		return r, listBackupsOut{}, nil
@@ -790,6 +832,7 @@ func (s *Server) listSnapshots(ctx context.Context, _ *mcp.CallToolRequest, in p
 
 type createSnapshotIn struct {
 	Project string `json:"project" jsonschema:"Project id, slug or name"`
+	DB      string `json:"db,omitempty" jsonschema:"Database server: empty for the primary, or the name of an additional one"`
 	Note    string `json:"note,omitempty" jsonschema:"Short note stored with the snapshot, e.g. what it was taken before"`
 }
 
@@ -799,7 +842,7 @@ func (s *Server) createSnapshot(ctx context.Context, _ *mcp.CallToolRequest, in 
 		r, _ := toolErr(err)
 		return r, backupOut{}, nil
 	}
-	b, err := s.d.Projects.CreateSnapshot(ctx, v.Project.ID, strings.TrimSpace(in.Note))
+	b, err := s.d.Projects.CreateSnapshot(ctx, v.Project.ID, strings.TrimSpace(in.DB), strings.TrimSpace(in.Note))
 	if err != nil {
 		r, _ := toolErr(err)
 		return r, backupOut{}, nil

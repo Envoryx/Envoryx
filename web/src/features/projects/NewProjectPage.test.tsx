@@ -507,4 +507,35 @@ describe("NewProjectPage wizard", () => {
     expect(body.template).toBeUndefined();
     expect(body.git).toBeUndefined();
   });
+
+  it("adds further databases with a name of their own", async () => {
+    const api = mockApi({
+      ...authedRoutes,
+      "GET /runtimes": () => ({ body: runtimesFixture }),
+      "POST /projects/preview": previewRoute(() => {}),
+      "POST /projects": () => ({ status: 201, body: { project: makeProject() } }),
+    });
+    renderApp(
+      <Routes>
+        <Route path="/projects/new" element={<NewProjectPage />} />
+        <Route path="/projects/:id" element={<h1>Detail</h1>} />
+      </Routes>,
+      { route: "/projects/new" },
+    );
+    const user = userEvent.setup();
+    await user.type(await screen.findByLabelText("Project name"), "Acme Shop");
+    for (let i = 0; i < 3; i++) await user.click(screen.getByRole("button", { name: "Continue" }));
+    await user.click(await screen.findByRole("radio", { name: "MariaDB" }));
+    await user.click(screen.getByRole("button", { name: "Add a database" }));
+    await user.type(screen.getByLabelText("Name"), "Bad Name");
+    expect(screen.getByText("Lowercase letters, digits and dashes, starting with a letter.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
+    await user.clear(screen.getByLabelText("Name"));
+    await user.type(screen.getByLabelText("Name"), "analytics");
+    for (let i = 0; i < 2; i++) await user.click(screen.getByRole("button", { name: "Continue" }));
+    await user.click(await screen.findByRole("button", { name: "Create project" }));
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Detail" })).toBeInTheDocument());
+    const create = api.calls.find((c) => c.method === "POST" && c.url.endsWith("/projects"));
+    expect(create?.body).toMatchObject({ database: { type: "mariadb" }, databases: [{ name: "analytics", type: "mariadb", version: "11" }] });
+  });
 });

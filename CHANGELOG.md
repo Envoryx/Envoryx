@@ -11,6 +11,22 @@ release). `:main` follows the development branch.
 ## [Unreleased]
 
 ### Added
+- Several databases per project. Next to the primary database (host
+  `database`, `DB_*`) a project can have any number of additional ones with a
+  name of their own – for example PostgreSQL `analytics` next to MariaDB: its
+  own container (`envoryx-<project>-db-analytics`), volume and credentials,
+  reached as host `analytics`, injecting `ANALYTICS_DB_*` and
+  `ANALYTICS_DATABASE_URL`. The wizard adds them under *Additional databases*,
+  the Database tab switches between them and adds or removes one; version,
+  published port, password rotation, Adminer, snapshots (per database) and
+  cloning (from any database of the same engine, of another project or the same
+  one) work for each. Backups dump every database (`database-<name>.sql.gz`
+  next to `database.sql.gz`), duplicating and renaming carry them along.
+  `envoryx.yml` lists them under `databases:`; the CLI has
+  `project create --add-database NAME=TYPE[:VERSION]` and `--db NAME` on every
+  `db` command; the API takes `?db=<name>` on the database routes, lists them
+  at `GET /projects/{id}/databases` and changes them with `PATCH` and
+  `"databases"`; MCP tools take `db` and `additionalDatabases`.
 - Import an existing website: *New project → Start from: Existing website*
   takes a ZIP or tar.gz of a site's files and optionally a database dump
   (`.sql`, `.sql.gz`). Envoryx recognises WordPress, Laravel, Symfony, Drupal,
@@ -26,6 +42,12 @@ release). `:main` follows the development branch.
   `envoryx import <folder|archive> [name] --db dump.sql` does the same from the
   command line and packs a local folder on the fly. See DEPLOYMENT.md,
   *Importing an existing website*.
+
+### Fixed
+- Renaming a project whose database is PostgreSQL failed with "session user
+  cannot be renamed": Envoryx logged in as the very login it renamed, the only
+  superuser there is. The rename now runs through a short-lived helper login
+  that is removed right afterwards.
 
 ## [0.8.0] – 2026-09-25
 

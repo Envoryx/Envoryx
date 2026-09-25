@@ -203,10 +203,19 @@ func (m *Manager) duplicate(ctx context.Context, id string, req DuplicateRequest
 		}
 	}
 	if req.Database {
-		if _, cfg, err := databaseConfig(proj); err == nil {
-			step(ctx, "Copying the database {{name}}", "name", cfg.Database)
-			if err := m.copyDatabase(ctx, src, proj); err != nil {
+		for _, svc := range proj.Databases() {
+			db := svc.Kind.DatabaseName()
+			_, cfg, err := databaseOf(proj, db)
+			if err != nil {
 				return fail("copy the database", err)
+			}
+			label := cfg.Database
+			if db != "" {
+				label = db
+			}
+			step(ctx, "Copying the database {{name}}", "name", label)
+			if err := m.copyDatabaseOf(ctx, src, db, proj, db); err != nil {
+				return fail("copy the database "+label, err)
 			}
 		}
 	}
@@ -326,31 +335,31 @@ func (m *Manager) reassignHostPorts(ctx context.Context, proj *store.Project) er
 	for i := range proj.Services {
 		svc := &proj.Services[i]
 		var err error
-		switch svc.Kind {
-		case store.ServiceDatabase:
+		switch {
+		case svc.Kind.IsDatabase():
 			err = editConfig(svc, func(c *runtime.DatabaseConfig) error { return swap(&c.HostPort) })
-		case store.ServiceNode:
+		case svc.Kind == store.ServiceNode:
 			err = editConfig(svc, func(c *runtime.NodeConfig) error {
 				if err := swap(&c.HostPort); err != nil {
 					return err
 				}
 				return swap(&c.InspectHostPort)
 			})
-		case store.ServicePython:
+		case svc.Kind == store.ServicePython:
 			err = editConfig(svc, func(c *runtime.PythonConfig) error {
 				if err := swap(&c.HostPort); err != nil {
 					return err
 				}
 				return swap(&c.DebugHostPort)
 			})
-		case store.ServiceStorage:
+		case svc.Kind == store.ServiceStorage:
 			err = editConfig(svc, func(c *runtime.StorageConfig) error {
 				if err := swap(&c.HostPort); err != nil {
 					return err
 				}
 				return swap(&c.ConsolePort)
 			})
-		case store.ServiceRedis, store.ServiceMemcached, store.ServiceMailpit, store.ServiceRabbitMQ, store.ServiceMeilisearch, store.ServiceTypesense, store.ServiceOpenSearch, store.ServiceOpenSearchDashboards:
+		case slices.Contains([]store.ServiceKind{store.ServiceRedis, store.ServiceMemcached, store.ServiceMailpit, store.ServiceRabbitMQ, store.ServiceMeilisearch, store.ServiceTypesense, store.ServiceOpenSearch, store.ServiceOpenSearchDashboards}, svc.Kind):
 			err = editConfig(svc, func(c *runtime.ServiceConfig) error {
 				if err := swap(&c.HostPort); err != nil {
 					return err
@@ -457,7 +466,13 @@ func (m *Manager) withServiceRunning(ctx context.Context, p store.Project, kind 
 	if err != nil {
 		return err
 	}
-	if c.State == "running" {
+	// The container list can still say "running" for a moment after a stop returned
+	// (a rename stops the project right before this); the container itself knows.
+	running := c.State == "running"
+	if d, err := m.engine.InspectContainer(ctx, c.ID); err == nil {
+		running = d.Running
+	}
+	if running {
 		return fn(ctx)
 	}
 	step(ctx, "Starting the container {{name}}", "name", c.Name)
@@ -475,14 +490,20 @@ func (m *Manager) withServiceRunning(ctx context.Context, p store.Project, kind 
 
 // copyDatabase transfers the contents of the original's primary database into the copy's.
 func (m *Manager) copyDatabase(ctx context.Context, src, dst store.Project) error {
-	srcSvc, srcCfg, err := databaseConfig(src)
+	return m.copyDatabaseOf(ctx, src, "", dst, "")
+}
+
+// copyDatabaseOf transfers the contents of a database of one project into a database of
+// another (or the same) project. A source without that database has nothing to copy.
+func (m *Manager) copyDatabaseOf(ctx context.Context, src store.Project, srcDB string, dst store.Project, dstDB string) error {
+	srcSvc, srcCfg, err := databaseOf(src, srcDB)
 	if err != nil {
-		if errors.Is(err, ErrNoDatabase) {
+		if errors.Is(err, store.ErrNotFound) {
 			return nil // the original has none: nothing to copy
 		}
 		return err
 	}
-	dstSvc, dstCfg, err := databaseConfig(dst)
+	dstSvc, dstCfg, err := databaseOf(dst, dstDB)
 	if err != nil {
 		return err
 	}
@@ -491,21 +512,21 @@ func (m *Manager) copyDatabase(ctx context.Context, src, dst store.Project) erro
 		return err
 	}
 	if srcSvc.Variant != dstSvc.Variant {
-		return fmt.Errorf("%w: the original runs %s, the copy %s", ErrConflict, srcSvc.Variant, dstSvc.Variant)
+		return fmt.Errorf("%w: the source runs %s, the target %s", ErrConflict, srcSvc.Variant, dstSvc.Variant)
 	}
-	return m.withServiceRunning(ctx, src, store.ServiceDatabase, func(ctx context.Context) error {
-		return m.withServiceRunning(ctx, dst, store.ServiceDatabase, func(ctx context.Context) error {
+	return m.withServiceRunning(ctx, src, srcSvc.Kind, func(ctx context.Context) error {
+		return m.withServiceRunning(ctx, dst, dstSvc.Kind, func(ctx context.Context) error {
 			if err := m.waitForDatabase(ctx, src, srcSvc, srcCfg, dialect); err != nil {
 				return err
 			}
 			if err := m.waitForDatabase(ctx, dst, dstSvc, dstCfg, dialect); err != nil {
 				return err
 			}
-			from, err := m.ServiceContainer(ctx, src.ID, store.ServiceDatabase)
+			from, err := m.ServiceContainer(ctx, src.ID, srcSvc.Kind)
 			if err != nil {
 				return err
 			}
-			to, err := m.ServiceContainer(ctx, dst.ID, store.ServiceDatabase)
+			to, err := m.ServiceContainer(ctx, dst.ID, dstSvc.Kind)
 			if err != nil {
 				return err
 			}
@@ -557,7 +578,7 @@ func (m *Manager) streamDump(ctx context.Context, dialect runtime.Dialect, fromI
 // directory, and during that the server answers on the socket only – the health command
 // is therefore asked first, and only then the client.
 func (m *Manager) waitForDatabase(ctx context.Context, p store.Project, svc *store.ProjectService, cfg runtime.DatabaseConfig, dialect runtime.Dialect) error {
-	c, err := m.ServiceContainer(ctx, p.ID, store.ServiceDatabase)
+	c, err := m.ServiceContainer(ctx, p.ID, svc.Kind)
 	if err != nil {
 		return err
 	}
@@ -570,7 +591,7 @@ func (m *Manager) waitForDatabase(ctx context.Context, p store.Project, svc *sto
 				return nil
 			}
 			if time.Now().After(deadline) {
-				return fmt.Errorf("the database of %s did not become ready in time: %w", p.Slug, err)
+				return fmt.Errorf("the database of %s did not become ready in time: %w%s", p.Slug, err, m.containerTail(ctx, c.ID))
 			}
 			if !reported {
 				step(ctx, "Waiting for the database of {{project}}", "project", p.Slug)
@@ -601,6 +622,21 @@ func (m *Manager) waitForDatabase(ctx context.Context, p store.Project, svc *sto
 		_, err := m.runSQL(ctx, p, svc, cfg, dialect.ListDatabases)
 		return err
 	})
+}
+
+// containerTail returns the last lines a container wrote, for an error that says why it
+// is not serving ("" when there is nothing to show).
+func (m *Manager) containerTail(ctx context.Context, id string) string {
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	defer cancel()
+	var lines []string
+	_ = m.engine.StreamLogs(ctx, id, docker.LogOptions{Tail: "15"}, func(l docker.LogLine) {
+		lines = append(lines, strings.TrimRight(l.Text, "\r\n"))
+	})
+	if len(lines) == 0 {
+		return ""
+	}
+	return "\nlast output of the container:\n" + strings.Join(lines, "\n")
 }
 
 // copyStorage uploads every object of the original's bucket into the copy's.

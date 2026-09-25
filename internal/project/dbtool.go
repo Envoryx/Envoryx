@@ -15,7 +15,6 @@ import (
 
 	"github.com/envoryx/envoryx/internal/audit"
 	"github.com/envoryx/envoryx/internal/docker"
-	"github.com/envoryx/envoryx/internal/store"
 	"github.com/envoryx/envoryx/internal/validate"
 )
 
@@ -155,10 +154,10 @@ func (m *Manager) DBToolStatus(ctx context.Context) (DBToolStatus, error) {
 	return st, nil
 }
 
-// OpenDBTool prepares the browser for a project's database: starts the container when
-// needed, refreshes the credentials file, joins the project network and returns the URL
-// (relative to the Envoryx UI) that logs straight in.
-func (m *Manager) OpenDBTool(ctx context.Context, id string) (DBToolLink, error) {
+// OpenDBTool prepares the browser for a database of a project (db "" = the primary):
+// starts the container when needed, refreshes the credentials file, joins the project
+// network and returns the URL (relative to the Envoryx UI) that logs straight in.
+func (m *Manager) OpenDBTool(ctx context.Context, id, db string) (DBToolLink, error) {
 	if err := validate.UUID(id); err != nil {
 		return DBToolLink{}, ErrNotFound
 	}
@@ -169,7 +168,7 @@ func (m *Manager) OpenDBTool(ctx context.Context, id string) (DBToolLink, error)
 	if err != nil {
 		return DBToolLink{}, err
 	}
-	svc, cfg, err := databaseConfig(proj)
+	svc, cfg, err := databaseOf(proj, db)
 	if err != nil {
 		return DBToolLink{}, err
 	}
@@ -199,12 +198,12 @@ func (m *Manager) OpenDBTool(ctx context.Context, id string) (DBToolLink, error)
 	if err := m.connectDBTool(ctx, c.ID, NetworkName(proj.Slug)); err != nil {
 		return DBToolLink{}, err
 	}
-	server := ContainerName(proj.Slug, store.ServiceDatabase)
+	server := ContainerName(proj.Slug, svc.Kind)
 	q := url.Values{}
 	q.Set(driver, server)
 	q.Set("username", cfg.Username)
 	q.Set("db", cfg.Database)
-	m.audit.Log(ctx, audit.ActionDBToolOpened, "project", id, map[string]any{"name": proj.Name})
+	m.audit.Log(ctx, audit.ActionDBToolOpened, "project", id, auditDB(map[string]any{"name": proj.Name}, db))
 	return DBToolLink{URL: DBToolPathPrefix + "/?" + q.Encode(), Server: server, Username: cfg.Username, Database: cfg.Database}, nil
 }
 
@@ -436,22 +435,24 @@ func (m *Manager) writeDBToolConnections(ctx context.Context) error {
 	}
 	out := map[string]dbToolConnection{}
 	for _, p := range projects {
-		svc, cfg, err := databaseConfig(p)
-		if err != nil {
-			continue
-		}
-		driver, ok := dbToolDrivers[svc.Variant]
-		if !ok {
-			continue
-		}
-		server := ContainerName(p.Slug, store.ServiceDatabase)
-		out[driver+"|"+server+"|"+cfg.Username] = dbToolConnection{Username: cfg.Username, Password: cfg.Password, Database: cfg.Database, Project: p.Name}
-		if cfg.RootPassword != "" {
-			root := "root"
-			if driver == "pgsql" {
-				root = "postgres"
+		for _, dbSvc := range p.Databases() {
+			svc, cfg, err := databaseOf(p, dbSvc.Kind.DatabaseName())
+			if err != nil {
+				continue
 			}
-			out[driver+"|"+server+"|"+root] = dbToolConnection{Username: root, Password: cfg.RootPassword, Database: cfg.Database, Project: p.Name}
+			driver, ok := dbToolDrivers[svc.Variant]
+			if !ok {
+				continue
+			}
+			server := ContainerName(p.Slug, svc.Kind)
+			out[driver+"|"+server+"|"+cfg.Username] = dbToolConnection{Username: cfg.Username, Password: cfg.Password, Database: cfg.Database, Project: p.Name}
+			if cfg.RootPassword != "" {
+				root := "root"
+				if driver == "pgsql" {
+					root = "postgres"
+				}
+				out[driver+"|"+server+"|"+root] = dbToolConnection{Username: root, Password: cfg.RootPassword, Database: cfg.Database, Project: p.Name}
+			}
 		}
 	}
 	dir, _ := m.dbToolDir(paths)

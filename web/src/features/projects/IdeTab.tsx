@@ -4,11 +4,12 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import { api } from "@/api/client";
-import { useDatabaseInfo, useExtraServices, useSettings, useUpdateProject } from "@/api/hooks";
+import { useDatabases, useExtraServices, useSettings, useUpdateProject } from "@/api/hooks";
 import { OperationHint } from "@/components/OperationsTray";
-import { appKindOf, type NodeConfig, type Operation, type PHPConfig, type Project, type PythonConfig } from "@/api/types";
+import { appKindOf, type DatabaseInfo, type NodeConfig, type Operation, type PHPConfig, type Project, type PythonConfig } from "@/api/types";
 import { Alert, Button, Card, CardHeader, Checkbox, Code } from "@/components/ui";
 import { CopyButton, CopyRow } from "./DatabaseTab";
+import { databaseServices } from "./databases";
 import { proxyUrl } from "./DomainsTab";
 import { errorText } from "@/lib/errors";
 
@@ -16,8 +17,8 @@ import { errorText } from "@/lib/errors";
 export function IdeTab({ project: p }: { project: Project }) {
   const { t } = useTranslation();
   const settings = useSettings();
-  const hasDb = p.services.some((s) => s.kind === "database" && s.enabled);
-  const db = useDatabaseInfo(p.id, hasDb);
+  const hasDb = databaseServices(p).length > 0;
+  const dbs = useDatabases(p.id, hasDb);
   const extras = useExtraServices(p.id);
   const s = settings.data;
   const host = s?.publicHost || window.location.hostname;
@@ -60,13 +61,12 @@ export function IdeTab({ project: p }: { project: Project }) {
   </component>
 </project>`;
 
-  const jdbc = db.data
-    ? db.data.type === "postgresql"
-      ? `jdbc:postgresql://${host}:${db.data.hostPort || 5432}/${db.data.database}`
-      : db.data.type === "mongodb"
-        ? `mongodb://${db.data.username}@${host}:${db.data.hostPort || 27017}/${db.data.database}?authSource=admin`
-        : `jdbc:${db.data.type === "mysql" ? "mysql" : "mariadb"}://${host}:${db.data.hostPort || 3306}/${db.data.database}`
-    : "";
+  const jdbc = (d: DatabaseInfo) =>
+    d.type === "postgresql"
+      ? `jdbc:postgresql://${host}:${d.hostPort || 5432}/${d.database}`
+      : d.type === "mongodb"
+        ? `mongodb://${d.username}@${host}:${d.hostPort || 27017}/${d.database}?authSource=admin`
+        : `jdbc:${d.type === "mysql" ? "mysql" : "mariadb"}://${host}:${d.hostPort || 3306}/${d.database}`;
 
   return (
     <div className="space-y-6">
@@ -306,31 +306,31 @@ export function IdeTab({ project: p }: { project: Project }) {
         </Card>
       )}
 
-      {hasDb && (
-        <Card>
-          <CardHeader
-            title={
-              <span className="flex items-center gap-2">
-                <Database className="size-4 text-accent-500" aria-hidden /> {t("Database tool / DataGrip")}
-              </span>
-            }
-            description={db.data?.hostPort ? t("Connect from your machine through the published port.") : t("Publish the database port in the Database tab to connect from your machine.")}
-          />
-          <div className="p-5">
-            {db.data && (
+      {hasDb &&
+        (dbs.data ?? []).map((d) => (
+          <Card key={d.service}>
+            <CardHeader
+              title={
+                <span className="flex items-center gap-2">
+                  <Database className="size-4 text-accent-500" aria-hidden /> {t("Database tool / DataGrip")}
+                  {d.name && <span className="font-mono text-sm text-muted">{d.name}</span>}
+                </span>
+              }
+              description={d.hostPort ? t("Connect from your machine through the published port.") : t("Publish the database port in the Database tab to connect from your machine.")}
+            />
+            <div className="p-5">
               <dl>
-                <CopyRow label={t("Type")} value={db.data.type} mono={false} />
+                <CopyRow label={t("Type")} value={d.type} mono={false} />
                 <CopyRow label={t("Host")} value={host} />
-                <CopyRow label={t("Port")} value={db.data.hostPort ? String(db.data.hostPort) : t("not published")} />
-                <CopyRow label={t("Database")} value={db.data.database} />
-                <CopyRow label={t("User")} value={db.data.username} />
+                <CopyRow label={t("Port")} value={d.hostPort ? String(d.hostPort) : t("not published")} />
+                <CopyRow label={t("Database")} value={d.database} />
+                <CopyRow label={t("User")} value={d.username} />
                 <CopyRow label={t("Password")} value={t("<Database tab → Credentials>")} mono={false} />
-                {db.data.hostPort ? <CopyRow label="URL" value={jdbc} /> : null}
+                {d.hostPort ? <CopyRow label="URL" value={jdbc(d)} /> : null}
               </dl>
-            )}
-          </div>
-        </Card>
-      )}
+            </div>
+          </Card>
+        ))}
 
       {mailpit && (
         <Card>

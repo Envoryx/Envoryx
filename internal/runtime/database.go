@@ -142,10 +142,17 @@ type Dialect struct {
 	RenameDatabase func(from, to string) string
 	// RenameUser renames the login the project connects with, keeping its password.
 	RenameUser func(from, to string, cfg DatabaseConfig) string
-	// URL builds the connection string injected as DATABASE_URL (nil = driver://user:pw@host:port/db).
-	URL func(cfg DatabaseConfig) string
+	// HelperLogin creates a short-lived administrator for what the project's login cannot
+	// do to itself: PostgreSQL refuses to rename the role a session is logged in as, and
+	// the project's login is the only superuser there is. DropLogin removes it again. nil
+	// = RenameUser runs as the project's administrator.
+	HelperLogin func(user, password string) string
+	DropLogin   func(user string) string
+	// URL builds the connection string injected as DATABASE_URL for a server reached as
+	// host (nil = driver://user:pw@host:port/db).
+	URL func(cfg DatabaseConfig, host string) string
 	// ExtraEnv adds flavour-specific variables (e.g. MONGODB_URI).
-	ExtraEnv func(cfg DatabaseConfig) map[string]string
+	ExtraEnv func(cfg DatabaseConfig, host string) map[string]string
 	// DumpFormat describes the backup payload ("sql" or "archive").
 	DumpFormat string
 }
@@ -261,6 +268,10 @@ var dialects = map[string]Dialect{
 		RenameUser: func(from, to string, c DatabaseConfig) string {
 			return fmt.Sprintf(`ALTER ROLE "%s" RENAME TO "%s"; ALTER ROLE "%s" WITH PASSWORD '%s'`, from, to, to, c.Password)
 		},
+		HelperLogin: func(u, p string) string {
+			return fmt.Sprintf(`CREATE ROLE "%s" WITH LOGIN SUPERUSER PASSWORD '%s'`, u, p)
+		},
+		DropLogin: func(u string) string { return fmt.Sprintf(`DROP ROLE IF EXISTS "%s"`, u) },
 	},
 }
 
@@ -301,9 +312,9 @@ func init() {
 		RenameUser: func(from, to string, c DatabaseConfig) string {
 			return fmt.Sprintf("admin.createUser({user: '%s', pwd: '%s', roles: [{role: 'root', db: 'admin'}]}); admin.dropUser('%s')", to, c.Password, from)
 		},
-		URL: func(c DatabaseConfig) string { return mongoURI(c, "database", c.Database) },
-		ExtraEnv: func(c DatabaseConfig) map[string]string {
-			return map[string]string{"MONGODB_URI": mongoURI(c, "database", c.Database), "MONGODB_DATABASE": c.Database}
+		URL: func(c DatabaseConfig, host string) string { return mongoURI(c, host, c.Database) },
+		ExtraEnv: func(c DatabaseConfig, host string) map[string]string {
+			return map[string]string{"MONGODB_URI": mongoURI(c, host, c.Database), "MONGODB_DATABASE": c.Database}
 		},
 	}
 }
@@ -315,8 +326,19 @@ func DialectFor(variant string) (Dialect, bool) {
 }
 
 // DatabaseEnv returns the environment variables injected into application containers
-// (Laravel naming plus a DSN for Symfony/Doctrine). Keys defined by the user win.
+// for the primary database (Laravel naming plus a DSN for Symfony/Doctrine). Keys defined
+// by the user win.
 func DatabaseEnv(cfg DatabaseConfig, variant string) map[string]string {
+	return DatabaseEnvFor(cfg, variant, PrimaryDatabaseHost, "")
+}
+
+// PrimaryDatabaseHost is the host name of a project's primary database.
+const PrimaryDatabaseHost = "database"
+
+// DatabaseEnvFor returns the variables of a database reached as host. An additional
+// database carries a prefix on every key (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL,
+// ANALYTICS_MONGODB_URI), so the primary's DB_* stay what frameworks read.
+func DatabaseEnvFor(cfg DatabaseConfig, variant, host, prefix string) map[string]string {
 	driver, port := "mysql", 3306
 	d, ok := dialects[variant]
 	if ok {
@@ -324,22 +346,29 @@ func DatabaseEnv(cfg DatabaseConfig, variant string) map[string]string {
 	}
 	env := map[string]string{
 		"DB_CONNECTION": driver,
-		"DB_HOST":       "database",
+		"DB_HOST":       host,
 		"DB_PORT":       strconv.Itoa(port),
 		"DB_DATABASE":   cfg.Database,
 		"DB_USERNAME":   cfg.Username,
 		"DB_PASSWORD":   cfg.Password,
-		"DATABASE_URL":  fmt.Sprintf("%s://%s:%s@database:%d/%s", driver, cfg.Username, cfg.Password, port, cfg.Database),
+		"DATABASE_URL":  fmt.Sprintf("%s://%s:%s@%s:%d/%s", driver, cfg.Username, cfg.Password, host, port, cfg.Database),
 	}
 	if ok && d.URL != nil {
-		env["DATABASE_URL"] = d.URL(cfg)
+		env["DATABASE_URL"] = d.URL(cfg, host)
 	}
 	if ok && d.ExtraEnv != nil {
-		for k, v := range d.ExtraEnv(cfg) {
+		for k, v := range d.ExtraEnv(cfg, host) {
 			env[k] = v
 		}
 	}
-	return env
+	if prefix == "" {
+		return env
+	}
+	out := make(map[string]string, len(env))
+	for k, v := range env {
+		out[prefix+"_"+k] = v
+	}
+	return out
 }
 
 // ServiceConfig is the configuration of auxiliary services (Redis, Memcached, Mailpit,

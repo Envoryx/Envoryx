@@ -27,7 +27,7 @@ func TestDBToolLifecycle(t *testing.T) {
 	id := view.Project.ID
 
 	// Off by default.
-	if _, err := e.m.OpenDBTool(ctx, id); !errors.Is(err, ErrDBToolDisabled) {
+	if _, err := e.m.OpenDBTool(ctx, id, ""); !errors.Is(err, ErrDBToolDisabled) {
 		t.Fatalf("disabled: %v", err)
 	}
 	if st, _ := e.m.DBToolStatus(ctx); st.Enabled || st.Running {
@@ -38,7 +38,7 @@ func TestDBToolLifecycle(t *testing.T) {
 	}
 
 	// First use starts the container, writes the credentials and joins the project network.
-	link, err := e.m.OpenDBTool(ctx, id)
+	link, err := e.m.OpenDBTool(ctx, id, "")
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}
@@ -71,7 +71,7 @@ func TestDBToolLifecycle(t *testing.T) {
 	if err := json.Unmarshal(raw, &conns); err != nil {
 		t.Fatal(err)
 	}
-	creds, _ := e.m.DatabaseCredentials(ctx, id)
+	creds, _ := e.m.DatabaseCredentials(ctx, id, "")
 	c, ok := conns["server|envoryx-shop-database|"+creds.Username]
 	if !ok || c.Password != creds.Password || c.Database != creds.Database {
 		t.Fatalf("connections file: %+v", conns)
@@ -89,7 +89,7 @@ func TestDBToolLifecycle(t *testing.T) {
 		t.Fatalf("orphans: %+v", report.Orphans)
 	}
 	// Second open is idempotent.
-	if _, err := e.m.OpenDBTool(ctx, id); err != nil {
+	if _, err := e.m.OpenDBTool(ctx, id, ""); err != nil {
 		t.Fatal(err)
 	}
 	if again, _ := e.engine.Container(DBToolContainer); again.ID != tool.ID {
@@ -133,7 +133,7 @@ func TestDBToolBareMetalAndUnsupported(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := e.m.OpenDBTool(ctx, view.Project.ID); err != nil {
+	if _, err := e.m.OpenDBTool(ctx, view.Project.ID, ""); err != nil {
 		t.Fatal(err)
 	}
 	tool, _ := e.engine.Container(DBToolContainer)
@@ -150,11 +150,11 @@ func TestDBToolBareMetalAndUnsupported(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := e.m.OpenDBTool(ctx, mongo.Project.ID); !errors.Is(err, validate.ErrInvalid) {
+	if _, err := e.m.OpenDBTool(ctx, mongo.Project.ID, ""); !errors.Is(err, validate.ErrInvalid) {
 		t.Fatalf("mongodb must be refused with a hint: %v", err)
 	}
 	plain, _ := e.m.Create(ctx, phpRequest("NoDB", false))
-	if _, err := e.m.OpenDBTool(ctx, plain.Project.ID); err == nil {
+	if _, err := e.m.OpenDBTool(ctx, plain.Project.ID, ""); err == nil {
 		t.Fatal("a project without database has nothing to open")
 	}
 }

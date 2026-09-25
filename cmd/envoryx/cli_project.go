@@ -448,6 +448,7 @@ type createRequest struct {
 	Node        *nodeSpec       `json:"node,omitempty"`
 	Python      *pythonSpec     `json:"python,omitempty"`
 	Database    *databaseSpec   `json:"database,omitempty"`
+	Databases   []namedDBSpec   `json:"databases,omitempty"`
 	Redis       *extraSpec      `json:"redis,omitempty"`
 	Mailpit     *extraSpec      `json:"mailpit,omitempty"`
 	RabbitMQ    *extraSpec      `json:"rabbitmq,omitempty"`
@@ -463,6 +464,12 @@ type createRequest struct {
 	Start       bool            `json:"start,omitempty"`
 	Web         json.RawMessage `json:"web,omitempty"`
 	Import      *importSpec     `json:"import,omitempty"`
+}
+
+// namedDBSpec is an additional database of a new project.
+type namedDBSpec struct {
+	Name string `json:"name"`
+	databaseSpec
 }
 
 type phpSpec struct {
@@ -518,6 +525,9 @@ Runtimes (a project without any is a static site served by the web container):
 Services:
   --database TYPE[:VERSION]   mysql, mariadb, postgres, mongodb …
   --expose-database           publish the database port on the host
+  --add-database NAME=TYPE[:VERSION]
+                              an additional database, reached as host NAME with
+                              NAME_DB_* variables; repeatable
   --redis, --memcached, --mailpit, --rabbitmq, --storage
   --meilisearch, --typesense, --opensearch  search engine
   --opensearch-dashboards     OpenSearch with its web UI
@@ -560,6 +570,7 @@ func (c *cli) projectCreate(ctx context.Context, args []string) error {
 		pyApp      = fs.String("python-app", "", "application module")
 		database   = fs.String("database", "", "mysql, mariadb, postgres, mongodb[:version]")
 		exposeDB   = fs.Bool("expose-database", false, "publish the database port")
+		extraDBs   stringList
 		redis      = fs.Bool("redis", false, "add Redis")
 		mailpit    = fs.Bool("mailpit", false, "add Mailpit")
 		rabbitmq   = fs.Bool("rabbitmq", false, "add RabbitMQ")
@@ -581,6 +592,7 @@ func (c *cli) projectCreate(ctx context.Context, args []string) error {
 		secretVars stringList
 	)
 	fs.Var(&envVars, "env", "KEY=VALUE, repeatable")
+	fs.Var(&extraDBs, "add-database", "NAME=TYPE[:VERSION], repeatable")
 	fs.Var(&secretVars, "secret-env", "KEY=VALUE stored as a secret, repeatable")
 	pos, err := parse(fs, args)
 	if err != nil {
@@ -628,6 +640,14 @@ func (c *cli) projectCreate(ctx context.Context, args []string) error {
 	}
 	if req.Database != nil {
 		req.Database.Type = databaseType(req.Database.Type)
+	}
+	for _, spec := range extraDBs {
+		name, typ, ok := strings.Cut(spec, "=")
+		if !ok || name == "" || typ == "" {
+			return usagef("--add-database expects NAME=TYPE[:VERSION], got %q", spec)
+		}
+		kind, version, _ := strings.Cut(typ, ":")
+		req.Databases = append(req.Databases, namedDBSpec{Name: strings.TrimSpace(name), databaseSpec: databaseSpec{Type: databaseType(kind), Version: runtimeVersion(version)}})
 	}
 	if *redis {
 		req.Redis = &extraSpec{}

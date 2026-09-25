@@ -1,3 +1,4 @@
+import { clsx } from "clsx";
 import { Check, Copy, Database, Eye, EyeOff, ExternalLink, KeyRound, Plus, Trash2, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useState, type FormEvent } from "react";
@@ -8,6 +9,7 @@ import { Alert, Badge, Button, Card, CardHeader, Checkbox, Dialog, ErrorState, F
 import { copyText } from "@/lib/clipboard";
 import { PublicHostNotice } from "@/components/PublicHostNotice";
 import { CloneDatabaseCard, SnapshotsCard } from "./DatabaseSnapshots";
+import { databaseEngineNames, databaseEnvPrefix, databaseNamePattern, databaseServices } from "./databases";
 import { containerStateTone } from "@/lib/format";
 import { errorText } from "@/lib/errors";
 
@@ -53,22 +55,51 @@ export function CopyRow({ label, value, secret = false, mono = true }: { label: 
   );
 }
 
-function AddDatabaseCard({ project }: { project: Project }) {
+function AddDatabaseCard({ project, onAdded, onCancel }: { project: Project; onAdded: (name: string) => void; onCancel?: () => void }) {
   const { t } = useTranslation();
   const runtimes = useRuntimes();
   const update = useUpdateProject(project.id);
+  const existing = databaseServices(project);
+  // Without a primary the first database becomes it (host "database", DB_*); every further one needs a name.
+  const hasPrimary = existing.some((d) => d.name === "");
+  const [name, setName] = useState("");
   const [type, setType] = useState("mariadb");
   const [version, setVersion] = useState("");
   const [expose, setExpose] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const dbs = runtimes.data?.runtimes.filter((r) => r.kind === "database" && r.available) ?? [];
   const selected = dbs.find((d) => d.key === type);
+  const trimmed = name.trim();
+  const nameError =
+    trimmed && !databaseNamePattern.test(trimmed)
+      ? t("Lowercase letters, digits and dashes, starting with a letter.")
+      : existing.some((d) => d.name === trimmed && trimmed)
+        ? t("The project already has a database of this name.")
+        : undefined;
+  const needsName = hasPrimary && !trimmed;
 
   return (
     <Card>
-      <CardHeader title={t("Database")} description={t("This project has no database yet. Adding one creates a container with a persistent volume and injects the connection variables into the application containers (PHP, Python, Node).")} />
+      <CardHeader
+        title={existing.length === 0 ? t("Database") : t("Add database")}
+        description={
+          existing.length === 0
+            ? t("This project has no database yet. Adding one creates a container with a persistent volume and injects the connection variables into the application containers (PHP, Python, Node).")
+            : t("An additional database runs in a container of its own with its own volume and credentials. It is reached at its name as host and injects variables that start with its name (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …).")
+        }
+      />
       <div className="space-y-4 p-5">
         {error && <Alert tone="red">{error}</Alert>}
+        {existing.length > 0 && (
+          <Field
+            label={hasPrimary ? t("Name") : t("Name (optional)")}
+            htmlFor="add-db-name"
+            error={nameError}
+            hint={trimmed && !nameError ? t("Host {{host}}, variables {{prefix}}_DB_HOST, {{prefix}}_DATABASE_URL …", { host: trimmed, prefix: databaseEnvPrefix(trimmed) }) : hasPrimary ? t("Becomes the host name and the prefix of the variables, e.g. analytics.") : t("Leave empty to add the primary database (host database, DB_* variables).")}
+          >
+            <Input id="add-db-name" value={name} onChange={(e) => setName(e.target.value.toLowerCase())} placeholder="analytics" spellCheck={false} autoComplete="off" />
+          </Field>
+        )}
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label={t("Type")} htmlFor="add-db-type">
             <Select id="add-db-type" value={type} onChange={(e) => { setType(e.target.value); setVersion(""); }}>
@@ -90,38 +121,82 @@ function AddDatabaseCard({ project }: { project: Project }) {
           </Field>
         </div>
         <Checkbox label={t("Publish database port on the host")} description={t("For external clients such as TablePlus or DBeaver.")} checked={expose} onChange={(e) => setExpose(e.target.checked)} />
-        <Button
-          variant="primary"
-          icon={<Plus className="size-4" />}
-          loading={update.isPending}
-          disabled={!selected}
-          onClick={() => {
-            setError(null);
-            update.mutate(
-              { database: { enabled: true, type, version: version || selected?.versions.find((v) => v.default)?.version || "", exposePort: expose } },
-              { onError: (err) => setError(errorText(err, t, t("Adding the database failed"))) },
-            );
-          }}
-        >
-          {t("Add database")}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="primary"
+            icon={<Plus className="size-4" />}
+            loading={update.isPending}
+            disabled={!selected || !!nameError || needsName}
+            onClick={() => {
+              setError(null);
+              const spec = { enabled: true, type, version: version || selected?.versions.find((v) => v.default)?.version || "", exposePort: expose };
+              update.mutate(trimmed ? { databases: { [trimmed]: spec } } : { database: spec }, {
+                onSuccess: () => onAdded(trimmed),
+                onError: (err) => setError(errorText(err, t, t("Adding the database failed"))),
+              });
+            }}
+          >
+            {t("Add database")}
+          </Button>
+          {onCancel && <Button onClick={onCancel}>{t("Cancel")}</Button>}
+        </div>
       </div>
     </Card>
   );
 }
 
+/** The Database tab: every database of the project, one at a time, and adding another. */
 export function DatabaseTab({ project }: { project: Project }) {
   const { t } = useTranslation();
-  const hasDb = project.services.some((s) => s.kind === "database" && s.enabled);
-  const info = useDatabaseInfo(project.id, hasDb);
+  const dbs = databaseServices(project);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
+  if (dbs.length === 0) return <AddDatabaseCard project={project} onAdded={(name) => setSelected(name)} />;
+  const current = selected !== null && dbs.some((d) => d.name === selected) ? selected : dbs[0]!.name;
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center gap-2" role="group" aria-label={t("Databases of the project")}>
+        {dbs.map((d) => (
+          <button
+            key={d.kind}
+            type="button"
+            aria-pressed={!adding && d.name === current}
+            onClick={() => { setAdding(false); setSelected(d.name); }}
+            className={clsx(
+              "inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm",
+              !adding && d.name === current ? "border-accent-500 bg-accent-500/10 font-medium text-accent-700 dark:text-accent-300" : "border-default hover:bg-muted",
+            )}
+          >
+            <Database className="size-3.5" aria-hidden />
+            <span className={d.name ? "font-mono" : undefined}>{d.name || t("Primary")}</span>
+            <span className="text-xs text-subtle">{databaseEngineNames[d.variant] ?? d.variant}</span>
+          </button>
+        ))}
+        <Button size="sm" variant={adding ? "primary" : "secondary"} icon={<Plus className="size-3.5" />} onClick={() => setAdding(true)}>
+          {t("Add database")}
+        </Button>
+      </div>
+      {adding ? (
+        <AddDatabaseCard project={project} onAdded={(name) => { setAdding(false); setSelected(name); }} onCancel={() => setAdding(false)} />
+      ) : (
+        <DatabasePanel key={current} project={project} db={current} onRemoved={() => setSelected(null)} />
+      )}
+    </div>
+  );
+}
+
+/** One database of the project: connection, access, server, snapshots and the databases on it. */
+function DatabasePanel({ project, db, onRemoved }: { project: Project; db: string; onRemoved: () => void }) {
+  const { t } = useTranslation();
+  const info = useDatabaseInfo(project.id, true, db);
   const publicHost = usePublicHost();
   const runtimes = useRuntimes();
   const update = useUpdateProject(project.id);
-  const { rotate, expose, create, drop } = useDatabaseMutations(project.id);
+  const { rotate, expose, create, drop } = useDatabaseMutations(project.id, db);
   const dbTool = useDBTool();
   const openTool = useOpenDBTool(project.id);
   const running = info.data?.state === "running";
-  const list = useDatabaseList(project.id, hasDb && running);
+  const list = useDatabaseList(project.id, running, db);
 
   const [creds, setCreds] = useState<DatabaseCredentials | null>(null);
   const [credsError, setCredsError] = useState<string | null>(null);
@@ -133,7 +208,6 @@ export function DatabaseTab({ project }: { project: Project }) {
   const [msg, setMsg] = useState<{ tone: "green" | "red"; text: string } | null>(null);
   const [version, setVersion] = useState<string | null>(null);
 
-  if (!hasDb) return <AddDatabaseCard project={project} />;
   if (info.isPending) return <Spinner />;
   if (info.isError) return <ErrorState message={errorText(info.error, t)} />;
   const d = info.data;
@@ -145,7 +219,7 @@ export function DatabaseTab({ project }: { project: Project }) {
   const revealCredentials = async () => {
     setCredsError(null);
     try {
-      setCreds((await api.database.credentials(project.id)).credentials);
+      setCreds((await api.database.credentials(project.id, db)).credentials);
     } catch (err) {
       setCredsError(errorText(err, t, t("Could not load credentials")));
     }
@@ -177,7 +251,11 @@ export function DatabaseTab({ project }: { project: Project }) {
                 {t("Connection")}
               </span>
             }
-            description={t("Inside the project network. These values are injected into the application containers (PHP, Python, Node).")}
+            description={
+              db
+                ? t("Inside the project network at the host “{{host}}”. The application containers (PHP, Python, Node) receive these values as {{prefix}}_DB_* and {{prefix}}_DATABASE_URL.", { host: d.host, prefix: databaseEnvPrefix(db) })
+                : t("Inside the project network. These values are injected into the application containers (PHP, Python, Node).")
+            }
             actions={
               <span className="inline-flex items-center gap-1.5 text-xs">
                 <StatusDot tone={containerStateTone(d.state)} />
@@ -250,7 +328,7 @@ export function DatabaseTab({ project }: { project: Project }) {
                     title={!running ? t("Start the project first") : undefined}
                     onClick={() => {
                       setMsg(null);
-                      openTool.mutate(undefined, {
+                      openTool.mutate(db, {
                         onSuccess: (link) => {
                           if (!window.open(link.url, "_blank", "noopener")) {
                             setMsg({ tone: "red", text: t("The browser blocked the new tab; allow pop-ups for Envoryx.") });
@@ -302,8 +380,9 @@ export function DatabaseTab({ project }: { project: Project }) {
                   loading={update.isPending}
                   onClick={() => {
                     setMsg(null);
+                    const spec = { enabled: true, version: currentVersion, exposePort: d.hostPort > 0 };
                     update.mutate(
-                      { database: { enabled: true, version: currentVersion, exposePort: d.hostPort > 0 } },
+                      db ? { databases: { [db]: spec } } : { database: spec },
                       { onSuccess: () => { setVersion(null); setMsg({ tone: "green", text: t("Version changed. The database container was recreated.") }); }, onError: (err) => fail(err, t("Version change failed")) },
                     );
                   }}
@@ -399,19 +478,19 @@ export function DatabaseTab({ project }: { project: Project }) {
         open={removeOpen}
         onClose={() => setRemoveOpen(false)}
         title={t("Remove database service?")}
-        description={t("This stops and removes the database container {{container}} and deletes the volume {{volume}} with all data. The application containers are recreated without database variables.", { container: `envoryx-${project.slug}-database`, volume: d.volumeName })}
+        description={t("This stops and removes the database container {{container}} and deletes the volume {{volume}} with all data. The application containers are recreated without database variables.", { container: `envoryx-${project.slug}-${d.service || "database"}`, volume: d.volumeName })}
         footer={
           <>
             <Button onClick={() => setRemoveOpen(false)}>{t("Cancel")}</Button>
             <Button
               variant="danger"
-              disabled={removeConfirm !== d.database}
+              disabled={removeConfirm !== (db || d.database)}
               loading={update.isPending}
               icon={<Trash2 className="size-4" />}
               onClick={() =>
                 update.mutate(
-                  { database: { enabled: false, removeData: true } },
-                  { onSuccess: () => setRemoveOpen(false), onError: (err) => { setRemoveOpen(false); fail(err, t("Removing the database failed")); } },
+                  db ? { databases: { [db]: { enabled: false, removeData: true } } } : { database: { enabled: false, removeData: true } },
+                  { onSuccess: () => { setRemoveOpen(false); onRemoved(); }, onError: (err) => { setRemoveOpen(false); fail(err, t("Removing the database failed")); } },
                 )
               }
             >
@@ -420,7 +499,7 @@ export function DatabaseTab({ project }: { project: Project }) {
           </>
         }
       >
-        <Field label={t("Type {{slug}} to confirm", { slug: d.database })} htmlFor="remove-confirm">
+        <Field label={t("Type {{slug}} to confirm", { slug: db || d.database })} htmlFor="remove-confirm">
           <Input id="remove-confirm" value={removeConfirm} onChange={(e) => setRemoveConfirm(e.target.value)} autoComplete="off" />
         </Field>
       </Dialog>

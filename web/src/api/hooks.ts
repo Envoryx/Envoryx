@@ -16,9 +16,10 @@ export const keys = {
   project: (id: string) => ["projects", id] as const,
   projectPlan: (id: string) => ["projects", id, "plan"] as const,
   projectStats: (id: string) => ["projects", id, "stats"] as const,
-  database: (id: string) => ["projects", id, "database"] as const,
-  databases: (id: string) => ["projects", id, "database", "list"] as const,
-  snapshots: (id: string) => ["projects", id, "database", "snapshots"] as const,
+  database: (id: string, db = "") => ["projects", id, "database", db] as const,
+  databases: (id: string, db = "") => ["projects", id, "database", db, "list"] as const,
+  snapshots: (id: string, db = "") => ["projects", id, "database", db, "snapshots"] as const,
+  databaseServers: (id: string) => ["projects", id, "database-servers"] as const,
 };
 
 const LIVE_INTERVAL = 5000;
@@ -285,70 +286,80 @@ export function useSetDBTool() {
 export function useOpenDBTool(id: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: () => api.dbtool.open(id),
+    mutationFn: (db: string = "") => api.dbtool.open(id, db),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["dbtool"] }),
   });
 }
 
-export function useDatabaseInfo(id: string, enabled: boolean) {
+/** Every database of a project, the primary first. */
+export function useDatabases(id: string, enabled = true) {
   return useQuery({
-    queryKey: keys.database(id),
-    queryFn: async () => (await api.database.info(id)).database,
+    queryKey: keys.databaseServers(id),
+    queryFn: async () => (await api.databases(id)).databases,
     refetchInterval: LIVE_INTERVAL,
     enabled,
   });
 }
 
-export function useDatabaseList(id: string, enabled: boolean) {
+export function useDatabaseInfo(id: string, enabled: boolean, db = "") {
   return useQuery({
-    queryKey: keys.databases(id),
-    queryFn: async () => (await api.database.list(id)).databases,
+    queryKey: keys.database(id, db),
+    queryFn: async () => (await api.database.info(id, db)).database,
+    refetchInterval: LIVE_INTERVAL,
+    enabled,
+  });
+}
+
+export function useDatabaseList(id: string, enabled: boolean, db = "") {
+  return useQuery({
+    queryKey: keys.databases(id, db),
+    queryFn: async () => (await api.database.list(id, db)).databases,
     enabled,
     retry: false,
   });
 }
 
-export function useDatabaseMutations(id: string) {
+export function useDatabaseMutations(id: string, db = "") {
   const qc = useQueryClient();
   const invalidate = useProjectInvalidation();
   const refresh = (project?: Project) => {
     invalidate(project);
-    void qc.invalidateQueries({ queryKey: keys.database(id) });
-    void qc.invalidateQueries({ queryKey: keys.databases(id) });
+    void qc.invalidateQueries({ queryKey: keys.database(id, db) });
+    void qc.invalidateQueries({ queryKey: keys.databaseServers(id) });
   };
-  const rotate = useMutation({ mutationFn: async () => (await api.database.rotate(id)).project, onSuccess: refresh });
-  const expose = useMutation({ mutationFn: async (exposed: boolean) => (await api.database.expose(id, exposed)).project, onSuccess: refresh });
-  const create = useMutation({ mutationFn: (name: string) => api.database.create(id, name), onSuccess: () => refresh() });
-  const drop = useMutation({ mutationFn: (name: string) => api.database.drop(id, name), onSuccess: () => refresh() });
+  const rotate = useMutation({ mutationFn: async () => (await api.database.rotate(id, db)).project, onSuccess: refresh });
+  const expose = useMutation({ mutationFn: async (exposed: boolean) => (await api.database.expose(id, exposed, db)).project, onSuccess: refresh });
+  const create = useMutation({ mutationFn: (name: string) => api.database.create(id, name, db), onSuccess: () => refresh() });
+  const drop = useMutation({ mutationFn: (name: string) => api.database.drop(id, name, db), onSuccess: () => refresh() });
   return { rotate, expose, create, drop };
 }
 
-/** Database snapshots of a project, newest first. */
-export function useSnapshots(id: string, enabled: boolean) {
+/** Snapshots of one database of a project, newest first. */
+export function useSnapshots(id: string, enabled: boolean, db = "") {
   return useQuery({
-    queryKey: keys.snapshots(id),
-    queryFn: async () => (await api.database.snapshots(id)).snapshots,
+    queryKey: keys.snapshots(id, db),
+    queryFn: async () => (await api.database.snapshots(id, db)).snapshots,
     enabled,
   });
 }
 
-export function useSnapshotMutations(id: string) {
+export function useSnapshotMutations(id: string, db = "") {
   const qc = useQueryClient();
   const invalidate = useProjectInvalidation();
   const refresh = () => {
     invalidate();
-    void qc.invalidateQueries({ queryKey: keys.snapshots(id) });
+    // Every database's snapshot list: a database-only backup is listed with each of them.
+    void qc.invalidateQueries({ queryKey: ["projects", id, "database"] });
     void qc.invalidateQueries({ queryKey: ["projects", id, "backups"] });
-    void qc.invalidateQueries({ queryKey: keys.databases(id) });
   };
-  const create = useMutation({ mutationFn: async (note: string) => (await api.database.snapshot(id, note)).snapshot, onSuccess: refresh });
+  const create = useMutation({ mutationFn: async (note: string) => (await api.database.snapshot(id, note, db)).snapshot, onSuccess: refresh });
   const restore = useMutation({
-    mutationFn: async ({ snapshotId, confirm }: { snapshotId: string; confirm: string }) => (await api.database.restoreSnapshot(id, snapshotId, confirm)).snapshot,
+    mutationFn: async ({ snapshotId, confirm }: { snapshotId: string; confirm: string }) => (await api.database.restoreSnapshot(id, snapshotId, confirm, db)).snapshot,
     onSuccess: refresh,
   });
   const remove = useMutation({ mutationFn: (snapshotId: string) => api.backups.remove(id, snapshotId), onSuccess: refresh });
   const clone = useMutation({
-    mutationFn: async (body: { source: string; snapshot: boolean; confirm: string }) => (await api.database.clone(id, body)).clone,
+    mutationFn: async (body: { source: string; sourceDb?: string; snapshot: boolean; confirm: string }) => (await api.database.clone(id, body, db)).clone,
     onSuccess: refresh,
   });
   return { create, restore, remove, clone };

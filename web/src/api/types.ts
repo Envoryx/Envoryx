@@ -307,6 +307,10 @@ export interface DBToolLink {
 }
 
 export interface DatabaseInfo {
+  /** "" for the primary database, the name of an additional one otherwise. */
+  name: string;
+  /** Service kind: "database" or "db-<name>". */
+  service: string;
   type: string;
   version: string;
   image: string;
@@ -459,6 +463,8 @@ export interface CreateProjectRequest {
   node?: NodeRequest | null;
   python?: PythonRequest | null;
   database?: DatabaseRequest | null;
+  /** Additional databases, each reached by its name (host, NAME_DB_* variables). */
+  databases?: (DatabaseRequest & { name: string })[];
   redis?: ExtraRequest | null;
   memcached?: ExtraRequest | null;
   mailpit?: ExtraRequest | null;
@@ -572,6 +578,8 @@ export interface UpdateProjectRequest {
   node?: ({ enabled: true } & NodeRequest) | { enabled: false };
   python?: ({ enabled: true } & PythonRequest) | { enabled: false };
   database?: DatabaseUpdate;
+  /** Adds, changes or removes (enabled: false) additional databases by name. */
+  databases?: Record<string, DatabaseUpdate>;
   redis?: ExtraUpdate;
   memcached?: ExtraUpdate;
   mailpit?: ExtraUpdate;
@@ -1118,6 +1126,8 @@ export interface BackupMeta {
   note?: string;
   source?: string;
   database?: { type: string; version: string; name: string; bytes: number };
+  /** Dumps of additional databases; db is the database's name in the project. */
+  databases?: { db: string; type: string; version: string; name: string; bytes: number }[];
   files?: { bytes: number; entries: number; includeDependencies: boolean };
   storage?: { bucket: string; objects: number; bytes: number };
   runtimes: Record<string, string>;
