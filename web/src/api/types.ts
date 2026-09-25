@@ -167,6 +167,46 @@ export interface Project {
   limits?: ResourceLimits;
   /** The health check with its defaults filled in; absent when off. */
   healthCheck?: HealthCheck;
+  /** What the proxy does with the project's requests; absent when nothing. */
+  proxyRules?: ProxyRules;
+}
+
+export interface RedirectRule {
+  /** One of the project's host names; empty = all. */
+  host?: string;
+  /** A path, or a prefix ending in "*". */
+  from: string;
+  /** A path or an http(s) address; a trailing "*" gets the rest of the path. */
+  to: string;
+  status: number;
+}
+
+export interface HeaderRule {
+  name: string;
+  /** Empty removes the header. */
+  value: string;
+}
+
+export interface CORSRule {
+  origins: string[];
+  methods?: string[];
+  headers?: string[];
+  credentials?: boolean;
+  maxAgeSec?: number;
+}
+
+export interface ProxyRules {
+  allowIPs?: string[];
+  /** The password stays on the server. */
+  basicAuth?: { user: string };
+  redirects?: RedirectRule[];
+  headers?: HeaderRule[];
+  cors?: CORSRule;
+}
+
+/** A change of the rules; a basic authentication without password keeps the stored one. */
+export interface ProxyRulesRequest extends Omit<ProxyRules, "basicAuth"> {
+  basicAuth?: { user: string; password?: string };
 }
 
 /**

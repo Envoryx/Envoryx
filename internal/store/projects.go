@@ -12,15 +12,15 @@ import (
 // Projects is the repository for projects, their services and environment variables.
 type Projects struct{ db *sql.DB }
 
-const projectColumns = `id, name, slug, path, docroot, desired_state, http_port, lifecycle, last_error, git_url, git_branch, git_username, git_token, backup_schedule, backup_hour, backup_weekday, backup_keep, backup_include_deps, backup_last_run, ide_gateway, limits, health_check, created_at, updated_at`
+const projectColumns = `id, name, slug, path, docroot, desired_state, http_port, lifecycle, last_error, git_url, git_branch, git_username, git_token, backup_schedule, backup_hour, backup_weekday, backup_keep, backup_include_deps, backup_last_run, ide_gateway, limits, health_check, proxy_rules, created_at, updated_at`
 
 func scanProject(row interface{ Scan(...any) error }) (Project, error) {
 	var p Project
 	var port sql.NullInt64
-	var created, updated, desired, lifecycle, lastRun, limits, health string
+	var created, updated, desired, lifecycle, lastRun, limits, health, rules string
 	var includeDeps, gateway int
 	if err := row.Scan(&p.ID, &p.Name, &p.Slug, &p.Path, &p.Docroot, &desired, &port, &lifecycle, &p.LastError, &p.Git.URL, &p.Git.Branch, &p.Git.Username, &p.Git.Token,
-		&p.Backup.Schedule, &p.Backup.Hour, &p.Backup.Weekday, &p.Backup.Keep, &includeDeps, &lastRun, &gateway, &limits, &health, &created, &updated); err != nil {
+		&p.Backup.Schedule, &p.Backup.Hour, &p.Backup.Weekday, &p.Backup.Keep, &includeDeps, &lastRun, &gateway, &limits, &health, &rules, &created, &updated); err != nil {
 		return Project{}, err
 	}
 	p.Backup.IncludeDependencies = includeDeps == 1
@@ -30,6 +30,9 @@ func scanProject(row interface{ Scan(...any) error }) (Project, error) {
 	}
 	if health != "" {
 		_ = json.Unmarshal([]byte(health), &p.HealthCheck)
+	}
+	if rules != "" {
+		_ = json.Unmarshal([]byte(rules), &p.ProxyRules)
 	}
 	if lastRun != "" {
 		p.Backup.LastRun = parseTime(lastRun)
@@ -71,10 +74,10 @@ func (r *Projects) Create(ctx context.Context, p *Project) error {
 	if p.Backup.Hour == 0 && p.Backup.Schedule == "" {
 		p.Backup.Hour = 3
 	}
-	_, err = tx.ExecContext(ctx, `INSERT INTO projects (`+projectColumns+`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+	_, err = tx.ExecContext(ctx, `INSERT INTO projects (`+projectColumns+`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		p.ID, p.Name, p.Slug, p.Path, p.Docroot, string(p.DesiredState), port, string(p.Lifecycle), p.LastError,
 		p.Git.URL, p.Git.Branch, p.Git.Username, p.Git.Token,
-		p.Backup.Schedule, p.Backup.Hour, p.Backup.Weekday, p.Backup.Keep, boolInt(p.Backup.IncludeDependencies), "", boolInt(p.IDEGateway), p.Limits.encode(), p.HealthCheck.encode(),
+		p.Backup.Schedule, p.Backup.Hour, p.Backup.Weekday, p.Backup.Keep, boolInt(p.Backup.IncludeDependencies), "", boolInt(p.IDEGateway), p.Limits.encode(), p.HealthCheck.encode(), p.ProxyRules.encode(),
 		formatTime(p.CreatedAt), formatTime(p.UpdatedAt))
 	if err != nil {
 		if isUniqueViolation(err) {
@@ -320,6 +323,18 @@ func (r *Projects) SetHealthCheck(ctx context.Context, id string, h HealthCheck)
 	res, err := r.db.ExecContext(ctx, `UPDATE projects SET health_check = ?, updated_at = ? WHERE id = ?`, h.encode(), formatTime(now()), id)
 	if err != nil {
 		return fmt.Errorf("set health check: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// SetProxyRules stores the rules the proxy applies to a project's host names.
+func (r *Projects) SetProxyRules(ctx context.Context, id string, rules ProxyRules) error {
+	res, err := r.db.ExecContext(ctx, `UPDATE projects SET proxy_rules = ?, updated_at = ? WHERE id = ?`, rules.encode(), formatTime(now()), id)
+	if err != nil {
+		return fmt.Errorf("set proxy rules: %w", err)
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
 		return ErrNotFound

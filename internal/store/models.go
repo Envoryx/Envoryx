@@ -89,8 +89,10 @@ type Project struct {
 	Limits ResourceLimits
 	// HealthCheck asks the application over HTTP whether it works (Path "" = off).
 	HealthCheck HealthCheck
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	// ProxyRules are the redirects, headers, CORS and access rules of its host names.
+	ProxyRules ProxyRules
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
 
 	Services []ProjectService
 	Env      []EnvVar
@@ -189,6 +191,70 @@ func (h HealthCheck) encode() string {
 		return ""
 	}
 	b, _ := json.Marshal(h)
+	return string(b)
+}
+
+// ProxyRules are what the embedded proxy does with requests for a project's host names
+// (its default name, extra domains, dev server name and share address) before they
+// reach the application. The zero value does nothing.
+type ProxyRules struct {
+	// AllowIPs admits only these addresses and networks ("192.168.1.0/24"); empty = all.
+	AllowIPs []string `json:"allowIPs,omitempty"`
+	// BasicAuth asks for a user name and password.
+	BasicAuth *BasicAuthRule `json:"basicAuth,omitempty"`
+	// Redirects are tried in order; the first that matches answers.
+	Redirects []RedirectRule `json:"redirects,omitempty"`
+	// Headers are set on every response (an empty value removes the header).
+	Headers []HeaderRule `json:"headers,omitempty"`
+	// CORS answers preflight requests and adds the CORS headers for these origins.
+	CORS *CORSRule `json:"cors,omitempty"`
+}
+
+// BasicAuthRule is HTTP basic authentication in front of a project.
+type BasicAuthRule struct {
+	User string `json:"user"`
+	// PasswordHash is a bcrypt hash; the password itself is not kept.
+	PasswordHash string `json:"passwordHash"`
+}
+
+// RedirectRule answers requests for a path with a redirect. From is a path, or a prefix
+// ending in "*"; a To ending in "*" gets the rest of the path.
+type RedirectRule struct {
+	// Host limits the rule to one host name ("" = all of the project's).
+	Host   string `json:"host,omitempty"`
+	From   string `json:"from"`
+	To     string `json:"to"`
+	Status int    `json:"status"`
+}
+
+// HeaderRule is a response header.
+type HeaderRule struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
+}
+
+// CORSRule lets pages on other origins call the project.
+type CORSRule struct {
+	// Origins are "https://app.test", "https://*.shop.test" or "*".
+	Origins []string `json:"origins"`
+	// Methods default to GET, POST, PUT, PATCH, DELETE and OPTIONS.
+	Methods []string `json:"methods,omitempty"`
+	// Headers are the request headers allowed (empty = whatever the browser asks for).
+	Headers     []string `json:"headers,omitempty"`
+	Credentials bool     `json:"credentials,omitempty"`
+	MaxAgeSec   int      `json:"maxAgeSec,omitempty"`
+}
+
+// Empty reports rules that do nothing.
+func (r ProxyRules) Empty() bool {
+	return len(r.AllowIPs) == 0 && r.BasicAuth == nil && len(r.Redirects) == 0 && len(r.Headers) == 0 && r.CORS == nil
+}
+
+func (r ProxyRules) encode() string {
+	if r.Empty() {
+		return ""
+	}
+	b, _ := json.Marshal(r)
 	return string(b)
 }
 

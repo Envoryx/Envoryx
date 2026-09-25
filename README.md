@@ -140,6 +140,8 @@ Envoryx is under active development. The current milestone (Phase 1 + 2) deliver
 - test runner: PHPUnit/Pest, npm test scripts, Playwright, Cypress, pytest and Django
   found in the project and run from the *Tests* tab with live output, a filter, the
   failed tests read from the JUnit report and a history of runs
+- rules per project in the proxy: allowed addresses, a password (basic auth),
+  redirects, response headers and CORS – for every host name and a share
 - share a project: a temporary public https address through a Cloudflare quick
   tunnel (no account, no port forwarding) for up to 24 hours, ended with
   the project's stop or by hand

@@ -28,6 +28,11 @@ type Target struct {
 	Dial string
 	// Running is false when the project's web container is not up.
 	Running bool
+	// Rules are the project's redirects, headers, CORS and access rules (nil = none).
+	Rules *Rules
+	// Share marks the public address of a share: the request came through the tunnel
+	// over https, so it is neither redirected to https nor a network alias.
+	Share bool
 }
 
 // Table is a snapshot of the routing state.
@@ -116,6 +121,7 @@ type Handler struct {
 
 	mu      sync.Mutex
 	proxies map[string]*httputil.ReverseProxy
+	creds   credentialCache
 }
 
 // NewHandler creates the proxy handler.
@@ -163,9 +169,26 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.errorPage(w, http.StatusNotFound, "Unknown host", fmt.Sprintf("No Envoryx project is configured for <strong>%s</strong>.", html.EscapeString(host)), table.EnvoryxURL)
 		return
 	}
-	if h.tls && table.ForceHTTPS && r.TLS == nil {
+	rules := target.Rules
+	if !rules.Empty() {
+		if addr, ok := rules.allowed(r); !ok {
+			h.errorPage(w, http.StatusForbidden, "Access denied",
+				fmt.Sprintf("<strong>%s</strong> only admits certain addresses; yours is %s.", html.EscapeString(target.ProjectName), html.EscapeString(addr.String())), "")
+			return
+		}
+	}
+	if h.tls && table.ForceHTTPS && r.TLS == nil && !target.Share {
 		redirectHTTPS(w, r, table.HTTPSPort)
 		return
+	}
+	if !rules.Empty() {
+		if h.guard(w, r, rules) {
+			return
+		}
+		r = withRules(r, rules)
+	}
+	if target.Share {
+		r = r.WithContext(context.WithValue(r.Context(), shareKey{}, true))
 	}
 	if !target.Running || target.Dial == "" {
 		h.errorPage(w, http.StatusServiceUnavailable, target.ProjectName+" is stopped",
@@ -174,6 +197,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	h.proxyFor(target.Dial).ServeHTTP(w, r)
 }
+
+type shareKey struct{}
 
 func redirectHTTPS(w http.ResponseWriter, r *http.Request, port int) {
 	host := hostOf(r)
@@ -197,9 +222,15 @@ func (h *Handler) proxyFor(dial string) *httputil.ReverseProxy {
 			// Keep the original Host so the application sees its own domain.
 			pr.Out.Host = pr.In.Host
 			pr.SetXForwarded()
-			if pr.In.TLS != nil {
+			if pr.In.TLS != nil || pr.In.Context().Value(shareKey{}) != nil {
 				pr.Out.Header.Set("X-Forwarded-Proto", "https")
 			}
+		},
+		ModifyResponse: func(resp *http.Response) error {
+			if rules := rulesOf(resp.Request.Context()); rules != nil {
+				rules.respond(resp)
+			}
+			return nil
 		},
 		Transport: &http.Transport{
 			Proxy:                 nil,

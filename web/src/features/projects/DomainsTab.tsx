@@ -8,6 +8,7 @@ import { keys, useProjectDomains, useProjectLinks } from "@/api/hooks";
 import { servesOf, type NodeConfig, type Project, type ProxyInfo } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Code, ErrorState, Field, Input, Spinner } from "@/components/ui";
 import { errorText } from "@/lib/errors";
+import { ProxyRulesCard } from "./ProxyRulesCard";
 
 /** URL of a host name through the proxy, honouring non-standard published ports. */
 export function proxyUrl(host: string, proxy: ProxyInfo): string {
@@ -116,6 +117,8 @@ export function DomainsTab({ project }: { project: Project }) {
           </Field>
         </form>
       </Card>
+
+      <ProxyRulesCard project={project} />
 
       <Card>
         <CardHeader title={t("Direct access")} description={serves === "node" ? t("The dev server port published on the Docker host. Works without DNS or the proxy.") : t("The web server port published on the Docker host. Works without DNS or the proxy.")} />

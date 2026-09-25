@@ -99,6 +99,8 @@ type projectDTO struct {
 	Limits store.ResourceLimits `json:"limits"`
 	// HealthCheck is the application health check as stored (absent: none).
 	HealthCheck *store.HealthCheck `json:"healthCheck,omitempty"`
+	// ProxyRules are the redirects, headers, CORS and access rules (absent: none).
+	ProxyRules *proxyRulesDTO `json:"proxyRules,omitempty"`
 	// Serves says what the primary host name reaches: "php", "python" (application
 	// server), "node" (dev server) or "static"; AppService is the application container's
 	// kind (php, python, node), absent for static sites.
@@ -463,6 +465,9 @@ func (a *API) withHostnames(r *http.Request, dto projectDTO, p store.Project) pr
 		h := p.HealthCheck.WithDefaults()
 		dto.HealthCheck = &h
 	}
+	if !p.ProxyRules.Empty() {
+		dto.ProxyRules = toProxyRules(p.ProxyRules)
+	}
 	if svc := p.Service(store.ServiceNode); svc != nil && svc.Enabled && len(svc.Config) > 0 {
 		var cfg runtime.NodeConfig
 		if json.Unmarshal(svc.Config, &cfg) == nil && cfg.DevServer {
@@ -787,6 +792,45 @@ func (a *API) setHealthCheck(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
+	writeJSON(w, http.StatusOK, map[string]any{"project": a.project(r, view)})
+}
+
+// proxyRulesDTO are a project's proxy rules as the API shows them: the basic
+// authentication without its password hash.
+type proxyRulesDTO struct {
+	AllowIPs  []string             `json:"allowIPs,omitempty"`
+	BasicAuth *basicAuthDTO        `json:"basicAuth,omitempty"`
+	Redirects []store.RedirectRule `json:"redirects,omitempty"`
+	Headers   []store.HeaderRule   `json:"headers,omitempty"`
+	CORS      *store.CORSRule      `json:"cors,omitempty"`
+}
+
+type basicAuthDTO struct {
+	User string `json:"user"`
+}
+
+func toProxyRules(r store.ProxyRules) *proxyRulesDTO {
+	dto := &proxyRulesDTO{AllowIPs: r.AllowIPs, Redirects: r.Redirects, Headers: r.Headers, CORS: r.CORS}
+	if r.BasicAuth != nil {
+		dto.BasicAuth = &basicAuthDTO{User: r.BasicAuth.User}
+	}
+	return dto
+}
+
+// setProxyRules replaces a project's proxy rules: PUT /projects/{id}/proxy-rules. A
+// basic authentication without password keeps the stored one.
+func (a *API) setProxyRules(w http.ResponseWriter, r *http.Request) {
+	var req project.ProxyRulesRequest
+	if err := decodeJSON(w, r, &req); err != nil {
+		writeError(w, r, err)
+		return
+	}
+	view, err := a.d.Projects.SetProxyRules(r.Context(), r.PathValue("id"), req)
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	a.invalidateProxy()
 	writeJSON(w, http.StatusOK, map[string]any{"project": a.project(r, view)})
 }
 

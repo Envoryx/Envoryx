@@ -584,6 +584,41 @@ Outside Docker the proxy dials the project's published port
 needs `setcap cap_net_bind_service=+ep ./envoryx` or other addresses
 (`ENVORYX_PROXY_HTTP=:8080`).
 
+### Rules: redirects, headers, CORS and access
+
+*Domains → Rules* tells the proxy what to do with a project's requests before
+the application sees them. The rules apply to every host name of the project
+(the default name, extra domains, the Node dev server name) and to a share –
+not to the directly published port, which bypasses the proxy.
+
+- **Allowed addresses** – one address or network per line
+  (`192.168.1.0/24`, `10.8.0.5`, IPv6 too); everybody else gets a 403 page
+  naming their address. The address is the one the connection comes from:
+  behind another reverse proxy (SWAG, Nginx Proxy Manager) that is the other
+  proxy's address. A project with an allowlist cannot be shared.
+- **User name and password** – HTTP basic authentication in front of the whole
+  project, for a staging copy or a share. The password is kept as a bcrypt
+  hash; saving without a new password keeps it. The application does not see
+  these credentials.
+- **Redirects** – tried in order, the first match answers (302 unless 301, 307
+  or 308 is chosen). `From` is a path or a prefix ending in `*`; a `To` ending
+  in `*` gets the rest of the path, and the query string is passed on.
+  `www.shop.test` `/*` → `https://shop.test/*` makes one host name canonical;
+  `/blog/*` → `/news/*` moves a section.
+- **Response headers** – set on every answer of the application
+  (`X-Robots-Tag: noindex`, `Content-Security-Policy`, …); an empty value
+  removes a header such as `X-Powered-By`.
+- **CORS** – for a frontend on another host name calling the project's API:
+  the proxy answers preflight requests from the listed origins
+  (`https://app.test`, `https://*.shop.test` or `*`) and adds the CORS headers
+  to the answers, replacing the application's own. With *Allow cookies and
+  credentials* the origins have to be listed.
+
+The order is: allowlist, https redirect, CORS preflight, password,
+redirects, application. The API: `PUT /projects/{id}/proxy-rules` (`admin`)
+replaces all of a project's rules; the project shows them as `proxyRules`
+without the password. Duplicating a project copies them.
+
 ## Project variables and .env files
 
 A project's variables (*Environment* tab, or the wizard's *Environment* step)
@@ -1119,19 +1154,23 @@ which sends `{"type":"result","run":…}` before it closes.
 *Share* in a running project's header puts it on a temporary public https
 address – to show a client or a colleague work in progress without a VPN,
 port forwarding or an account anywhere. Envoryx starts a Cloudflare quick
-tunnel (`cloudflare/cloudflared`) next to the project, pointed at the
-application the way the proxy reaches it, and shows the address it gets:
+tunnel (`cloudflare/cloudflared`) next to the project, pointed at the proxy
+(so the project's *Rules* apply: a password, headers, redirects) – or straight
+at the application when the proxy has no plain HTTP listener – and shows the
+address it gets:
 `https://<random-words>.trycloudflare.com`. The address is random and changes
 with every share.
 
-A share lasts 5 minutes to 24 hours (an hour unless chosen otherwise; the dialog offers 15 minutes to 24 hours) and
+A share lasts 5 minutes to 24 hours (an hour unless chosen otherwise; the
+dialog offers 15 minutes to 24 hours) and
 ends early when the project stops, when it is renamed or deleted, or with
 *End the share*. Recreating the application for new variables keeps it. Only
 outgoing connections are needed: the host has to reach Cloudflare on port
 7844.
 
 **Anyone who has the address reaches the project from the internet, without
-signing in.** Share a staging copy, not data that has to be protected, and
+signing in** – unless the project's rules ask for a user name and password,
+which is the way to protect a share. Share a staging copy, not data that has to be protected, and
 keep in mind that an application which builds absolute links from
 `APP_URL`/`ENVORYX_URL` still points them at the local address. Starting a
 share needs an `admin` token or user, ending one `operate`; both land in the

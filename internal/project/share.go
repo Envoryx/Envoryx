@@ -4,7 +4,10 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net"
+	"net/netip"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/envoryx/envoryx/internal/audit"
@@ -15,7 +18,9 @@ import (
 
 // Sharing a project puts it on a temporary public address: a Cloudflare quick tunnel
 // (trycloudflare.com – no account, no port forwarding) run by a cloudflared container
-// next to the project, pointed at the application the way the proxy reaches it. The
+// next to the project, pointed at the proxy – so the project's rules (basic
+// authentication, headers, redirects) apply – or at the application when there is no
+// plain HTTP proxy listener. The
 // address is random and changes with every share; the share ends when its time is up,
 // when the project stops, or by hand. Anyone who has the address can open the project,
 // so it is meant for showing work in progress, not for serving it.
@@ -97,6 +102,7 @@ func (m *Manager) readShare(ctx context.Context, c docker.Container) Share {
 		s.Message = lastErr
 	case s.URL != "":
 		s.State = "online"
+		m.shareHosts.Store(c.ProjectID(), strings.TrimPrefix(s.URL, "https://"))
 	default:
 		s.Message = lastErr
 	}
@@ -134,6 +140,9 @@ func (m *Manager) StartShare(ctx context.Context, id string, duration time.Durat
 	target, network := m.shareTarget(paths.SelfContainerID, p)
 	if view.Status.State != StateRunning || target == "" {
 		return Share{}, fmt.Errorf("%w: start the project first; a share points at the running application", ErrConflict)
+	}
+	if len(p.ProxyRules.AllowIPs) > 0 {
+		return Share{}, fmt.Errorf("%w: the project admits only the addresses of its allowlist; remove them to share it", ErrConflict)
 	}
 	if err := m.removeShare(ctx, id); err != nil {
 		return Share{}, err
@@ -191,9 +200,19 @@ func (m *Manager) StartShare(ctx context.Context, id string, duration time.Durat
 }
 
 // shareTarget is the address the tunnel forwards to and the network it joins: inside
-// Docker the project network and the application's container, on bare metal the host
-// network and the published port.
+// Docker the project network, where the proxy answers to the project's host name, on
+// bare metal the host network. Without a plain HTTP proxy listener the tunnel goes to
+// the application itself: its container or its published port.
 func (m *Manager) shareTarget(selfID string, p store.Project) (target, network string) {
+	if host, port, err := net.SplitHostPort(m.shareVia); err == nil && port != "" {
+		if selfID != "" {
+			return net.JoinHostPort(DefaultHostname(p.Slug, m.BaseDomain(context.Background())), port), NetworkName(p.Slug)
+		}
+		if ip, err := netip.ParseAddr(host); host == "" || (err == nil && ip.IsUnspecified()) {
+			host = "127.0.0.1"
+		}
+		return net.JoinHostPort(host, port), "host"
+	}
 	target = m.dialFor(selfID, p)
 	if cfg, ok := pythonServesApp(p); ok {
 		target = m.dialForApp(selfID, p, store.ServicePython, cfg.HostPort, cfg.Port)
@@ -223,6 +242,7 @@ func (m *Manager) StopShare(ctx context.Context, id string) error {
 }
 
 func (m *Manager) removeShare(ctx context.Context, id string) error {
+	m.shareHosts.Delete(id)
 	c, ok, err := m.shareContainer(ctx, id)
 	if err != nil || !ok {
 		return err
@@ -267,8 +287,13 @@ func (m *Manager) expireShares(ctx context.Context, now time.Time, log *slog.Log
 			}
 		}
 		if reason == "" {
+			// After a restart of Envoryx the proxy learns the address again.
+			if _, known := m.shareHosts.Load(c.ProjectID()); !known {
+				m.readShare(ctx, c)
+			}
 			continue
 		}
+		m.shareHosts.Delete(c.ProjectID())
 		if err := m.engine.RemoveContainer(ctx, c.ID); err != nil {
 			log.Warn("share not ended", "container", c.Name, "reason", reason, "err", err)
 			continue
