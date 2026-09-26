@@ -23,7 +23,8 @@ type WorkerPreset struct {
 	ArgHint  string `json:"argHint,omitempty"`
 	// Requires lists files that must exist for the preset to make sense (informational).
 	Requires []string `json:"requires,omitempty"`
-	// Runtime is the service the worker runs in: "php" (default), "node", "python" or "go".
+	// Runtime is the service the worker runs in: "php" (default), "node", "python", "go" or
+	// "ruby".
 	Runtime string `json:"runtime"`
 
 	// build returns argv for the validated argument.
@@ -56,6 +57,7 @@ const (
 	WorkerRuntimeNode   = "node"
 	WorkerRuntimePython = "python"
 	WorkerRuntimeGo     = "go"
+	WorkerRuntimeRuby   = "ruby"
 )
 
 // workerRuntimeKind maps a preset runtime to the service it runs in.
@@ -67,6 +69,8 @@ func workerRuntimeKind(rt string) (store.ServiceKind, string) {
 		return store.ServicePython, "Python"
 	case WorkerRuntimeGo:
 		return store.ServiceGo, "Go"
+	case WorkerRuntimeRuby:
+		return store.ServiceRuby, "Ruby"
 	default:
 		return store.ServicePHP, "PHP"
 	}
@@ -215,6 +219,44 @@ var workerPresets = []WorkerPreset{
 		}},
 }
 
+// The Ruby presets run through the bundle (bundle exec, or a binstub that loads it); the
+// planner puts the bundle install in front of each, like in front of the server.
+var rubyWorkerPresets = []WorkerPreset{
+	{ID: "solidqueue:start", Group: "Solid Queue", Label: "Solid Queue", Description: "bin/jobs start – the Solid Queue supervisor with its workers, dispatchers and recurring tasks (Rails 8)", Requires: []string{"bin/jobs"}, Runtime: WorkerRuntimeRuby,
+		build: func(string) []string { return []string{"bin/jobs", "start"} }},
+	{ID: "goodjob:start", Group: "GoodJob", Label: "GoodJob", Description: "good_job start – processes the jobs GoodJob keeps in PostgreSQL", ArgLabel: "Queues", ArgHint: "e.g. default,mailers (empty = all)", Requires: []string{"Gemfile"}, Runtime: WorkerRuntimeRuby,
+		validateArg: queueArg,
+		build: func(arg string) []string {
+			cmd := []string{"bundle", "exec", "good_job", "start"}
+			if arg != "" {
+				cmd = append(cmd, "--queues="+arg)
+			}
+			return cmd
+		}},
+	{ID: "sidekiq", Group: "Sidekiq", Label: "Sidekiq", Description: "sidekiq – processes jobs from Redis (add Redis to the project; REDIS_URL is injected)", ArgLabel: "Queues", ArgHint: "e.g. default,mailers (empty = default)", Requires: []string{"Gemfile"}, Runtime: WorkerRuntimeRuby,
+		validateArg: queueArg,
+		build: func(arg string) []string {
+			cmd := []string{"bundle", "exec", "sidekiq"}
+			for _, q := range strings.Split(arg, ",") {
+				if q != "" {
+					cmd = append(cmd, "-q", q)
+				}
+			}
+			return cmd
+		}},
+	{ID: "rake:task", Group: "Ruby", Label: "Rake task", Description: "rake <task> – a long-running task of the Rakefile (queue consumer, scheduler, bot …)", ArgLabel: "Task", ArgHint: "e.g. jobs:work", Requires: []string{"Rakefile"}, Runtime: WorkerRuntimeRuby,
+		validateArg: func(arg string) error {
+			if !scriptNameRe.MatchString(arg) {
+				return fmt.Errorf("%w: invalid rake task name", validate.ErrInvalid)
+			}
+			return nil
+		},
+		build: func(arg string) []string { return []string{"bundle", "exec", "rake", arg} }},
+	{ID: "ruby:file", Group: "Ruby", Label: "Ruby script", Description: "ruby <file> – any long-running script in the project directory", ArgLabel: "Script path", ArgHint: "relative to the project, e.g. bin/worker.rb", Runtime: WorkerRuntimeRuby,
+		validateArg: scriptPathArg,
+		build:       func(arg string) []string { p, _ := validate.RelativePath(arg, 6); return []string{"ruby", p} }},
+}
+
 // goWorkerScript builds the package ($1) and execs the binary. Not go run: it does not
 // pass SIGTERM on, so a stopped worker would be killed without a chance to finish its
 // job; exec makes the program the direct child of the image's init.
@@ -235,6 +277,7 @@ func goPackageArg(arg string) string {
 }
 
 func init() {
+	workerPresets = append(workerPresets, rubyWorkerPresets...)
 	for i := range workerPresets {
 		if workerPresets[i].Runtime == "" {
 			workerPresets[i].Runtime = WorkerRuntimePHP

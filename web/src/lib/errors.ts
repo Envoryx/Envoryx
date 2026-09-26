@@ -26,6 +26,8 @@ const templates = [
   "template {{template}} needs a Python service",
   "template {{template}} needs Go",
   "template {{template}} needs a Go service",
+  "template {{template}} needs Ruby",
+  "template {{template}} needs a Ruby service",
   "template {{template}} needs a PHP service",
   "template {{template}} needs a database service",
   "template {{template}} needs a database",

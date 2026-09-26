@@ -2,7 +2,7 @@
 
 Envoryx is a Docker-native development environment manager for Unraid and Linux
 Docker hosts. It runs as a single container, talks to the Docker Engine API and
-creates isolated, per-project stacks (PHP, Python, Go, Node, web server, database, cache …).
+creates isolated, per-project stacks (PHP, Python, Go, Ruby, Node, web server, database, cache …).
 
 This document describes the architecture that Phase 1 (Foundation) and Phase 2
 (Project Lifecycle) are built on and the decisions that shape later phases.
@@ -18,7 +18,7 @@ Go API (single binary, single container)
    │
    ├── Auth            (argon2id, server-side sessions, CSRF/origin checks)
    ├── Project Manager (desired state, lifecycle, rollback, reconciliation)
-   ├── Runtime Catalog (PHP / Node / Python / Go / DB / cache versions → images)
+   ├── Runtime Catalog (PHP / Node / Python / Go / Ruby / DB / cache versions → images)
    ├── Docker Manager  (label-scoped Docker Engine abstraction)
    ├── Backup Manager  (Phase 7)
    └── Audit Log
@@ -414,12 +414,14 @@ A PHP project consists of two containers from the start:
 web container is not. `internal/project/app.go` is the single source of
 truth for the resulting shape: `appService(p)` is the enabled PHP service,
 else the enabled Python service, else the enabled Go service, else the
-enabled Node service, else nil; `pythonServesApp(p)` is true when there is no
-PHP and the Python service runs its application server, `goServesApp(p)` when
-there is neither PHP nor a Python server and the Go service runs its server,
-`nodeServesApp(p)` when there is no PHP, no Python and no Go server and the
-Node service runs its dev server; `appServesDirectly(p)` is any of them;
-`Serves(p)` yields `php`, `python`, `go`, `node`
+enabled Ruby service, else the enabled Node service, else nil;
+`pythonServesApp(p)` is true when there is no PHP and the Python service runs
+its application server, `goServesApp(p)` when there is neither PHP nor a
+Python server and the Go service runs its server, `rubyServesApp(p)` when
+there is no PHP, no Python and no Go server and the Ruby service runs its
+server, `nodeServesApp(p)` when none of them serves and the Node service runs
+its dev server; `appServesDirectly(p)` is any of them;
+`Serves(p)` yields `php`, `python`, `go`, `ruby`, `node`
 or `static` (exposed as `serves` in the API and MCP output, `appService`
 names the container kind).
 
@@ -486,13 +488,49 @@ names the container kind).
   its `bin` on `PATH`; `packageCacheEnv` points `GOMODCACHE` and `GOCACHE`
   into the shared package cache. `Env()` adds `HOST`, `PORT` and `GIN_MODE`.
   Next to PHP or a Python server the Go server keeps only its host port.
-- Start order is database → php/python/go/node → web (planner order: database
-  and services 5–8, php 10, python and go 12, node 15, web 20). One-shot
-  containers (git, templates) run from `toolImage(p)`: the application
-  container's image (PHP, Python, Go or Node), else the catalogue's default Node
-  image – git and ssh ship in every Envoryx image. Templates carry `Runtime`
-  (`php`|`node`|`python`|`go`); a template refuses a request without its runtime
-  (`ErrInvalid`).
+- *Ruby server* (`serves=ruby`): the same mechanics with the Ruby container as
+  the upstream (`envoryx-<slug>-ruby:<port>`). `runtime.RubyConfig`
+  (`internal/runtime/ruby.go`) selects the preset – `rails` (`bin/rails
+  server -b 0.0.0.0 -p <port> -P /tmp/envoryx-rails.pid` in dev mode, `bundle
+  exec puma -b tcp://0.0.0.0:<port>` in production) or `rack` (Puma on
+  `config.ru` in both modes; Puma's command-line bind replaces a
+  `config/puma.rb` port) – plus `Mode`, `Port` and `Debug`/`DebugPort`: with
+  the server, `rdbgScript` runs it under `rdbg --open --nonstop -c --`
+  (`bundle exec rdbg` when `Gemfile.lock` locks the debug gem, so one copy of
+  the gem is loaded; else the image's rdbg, which loads itself through
+  `RUBYOPT`); without it only the port is published. The guards wait for
+  `Gemfile` and `bin/rails` or `config.ru`, then `BundleGuard` runs `bundle
+  check || bundle install` (retrying every 30 s while it fails – the worker
+  containers run it too; Bundler's process lock keeps concurrent installs
+  apart), and the Rails dev server removes its pid file, which a killed
+  container leaves behind. `rubyEnv` sets `GEM_HOME=/home/envoryx/.gem/ruby`
+  (gems persist in the project home; RubyGems keeps compiled extensions per
+  Ruby version, so a version switch rebuilds them through the bundle guard),
+  `GEM_PATH` with the image's `/usr/local/bundle` (rdbg) and
+  `BUNDLE_APP_CONFIG` back at the project's `.bundle`; `packageCacheEnv`
+  turns on Bundler's global gem cache in the shared package cache. `Env()`
+  adds `HOST`, `PORT`, `RAILS_ENV`/`RACK_ENV`/`APP_ENV`/`HANAMI_ENV` after the
+  mode (the Ruby workers get these, too), `RAILS_DEVELOPMENT_HOSTS=.<base>` in
+  dev mode (Rails' host authorization; the leading dot allows every name
+  under the base domain) and `RAILS_SERVE_STATIC_FILES` in production.
+  `rubyDatabaseURLs` rewrites every `*DATABASE_URL` from `pgsql://` to
+  `postgresql://` for the Ruby containers – Active Record maps `postgres`,
+  `postgresql` and `mysql` to its adapters, not `pgsql`. The test suites
+  (`rspec`, `rails test`) run behind `rubyTestScript`, which points
+  `DATABASE_URL` at `<database>_test` (Active Record merges it into any
+  environment, so fixtures would otherwise empty the development tables), and
+  `ensureTestDatabase` creates that database as the administrator first.
+- Start order is database → php/python/go/ruby/node → web (planner order:
+  database and services 5–8, php 10, python, go and ruby 12, node 15, web 20).
+  One-shot containers (git, templates) run from `toolImage(p)`: the
+  application container's image (PHP, Python, Go, Ruby or Node), else the
+  catalogue's default Node image – git and ssh ship in every Envoryx image.
+  Templates carry `Runtime` (`php`|`node`|`python`|`go`|`ruby`); a template
+  refuses a request without its runtime (`ErrInvalid`). The Ruby templates
+  run with the project home mounted, so `rails new`'s bundle lands in the
+  project's `GEM_HOME` and the server starts without a second install; a
+  step's `cmdFor` builds the command from the project (`rails new
+  --name=<slug> --database=<the project's database>`).
 
 Why a per-project web container instead of one central proxy speaking FastCGI:
 FastCGI details stay inside the project; the future central reverse proxy
@@ -750,6 +788,7 @@ through `instance.Store.Import` and is restored the usual way.
 | project | planner output, create/start/stop/restart/delete, rollback on failure, reconciliation after "restart", container unexpectedly stopped, unmanaged resources untouched | unit tests against the fake Engine |
 | project (no PHP) | `app.go` helpers per shape; Node-only create (web+node, no starter, unpublished web port, wrapped `Cmd`, Vite allow-list); static create (`index.html` starter, published port); SPA fallback rendering and its PHP rejection; routes of `<slug>.<base>` / extra domains / `-dev` following `nodeServesApp` and flipping back to web when the dev server is turned off; injected env in the node container; one-shot image choice for git/templates; SSH user resolution `<slug>` → php → python → node; workers refused without their runtime; `.next/.nuxt/.output/.venv` in backups | unit tests against the fake Engine |
 | project (Python) | `python_test.go`: Python-only create (wait guard on the entry file, venv `PATH`, published server port, unpublished web port, no starter), routes and bare-metal dial, SSH users, production mode + debugpy port kept across edits, server off → static, removal takes the Python workers' containers (definition paused), Python + Node dev server (Python takes the project URL, Vite keeps `-dev`), PHP added on top, template defaults merged into the request; `runtime/python_test.go` pins every preset's argv | unit tests against the fake Engine |
+| project (Ruby) | `ruby_test.go`: Ruby-only create (Gemfile/`bin/rails` wait, bundle guard, `GEM_HOME`, `RAILS_DEVELOPMENT_HOSTS`, published server port, unpublished web port, no starter), route and SSH user, rdbg with ports kept across edits and removal, `pgsql://` → `postgresql://`, the Rails template's `rails new` arguments, Sidekiq worker behind the bundle guard in the server's environment, rspec/rails test suites and the `_test` redirect, manifest; `runtime/ruby_test.go` pins the presets' argv and runs `rdbgScript` against stubs | unit tests against the fake Engine |
 | runtime | per-preset ports, `Command()`/`WrappedCommand()`/`Env()`; web configs caddy/apache/nginx × {php, static, static+spa} with the PHP output pinned as golden | table-driven unit tests |
 | api / mcp | project without `php` over HTTP (preview, DTO fields `serves`/`appService`, 409 on `PUT php`, 404 on php logs, node terminal), Python project over HTTP (preview ports, config with allocated host ports, python terminal with venv env, Python/Django actions, server off and removal, rejected preset/app), `/runtimes` with `nodePresets`/`pythonPresets` and template runtimes; MCP `phpVersion:"none"` + `nodePreset`, template/runtime errors, `get_logs` default service | httptest + fake Engine |
 | api | unauthorized access, validation errors, error envelope, full lifecycle over HTTP | httptest + fake Engine |

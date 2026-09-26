@@ -626,4 +626,35 @@ describe("NewProjectPage wizard", () => {
     expect(body.createStarter).toBe(false);
     expect(body.go).toMatchObject({ version: "1.27", server: true, mode: "dev", package: "./cmd/api", port: 8080 });
   });
+
+  it("creates a Ruby project: server on, no php key, no starter", async () => {
+    const api = mockApi({
+      ...authedRoutes,
+      "GET /runtimes": () => ({ body: runtimesFixture }),
+      "POST /projects/preview": previewRoute(() => {}),
+      "POST /projects": () => ({ status: 201, body: { project: makeProject() } }),
+    });
+    renderApp(
+      <Routes>
+        <Route path="/projects/new" element={<NewProjectPage />} />
+        <Route path="/projects/:id" element={<h1>Detail</h1>} />
+      </Routes>,
+      { route: "/projects/new" },
+    );
+    const user = userEvent.setup();
+    await user.type(await screen.findByLabelText("Project name"), "Acme Blog");
+    await user.click(screen.getByRole("radio", { name: /Ruby application/ }));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await user.selectOptions(await screen.findByLabelText("Framework preset"), "rack");
+    for (let i = 0; i < 4; i++) await user.click(screen.getByRole("button", { name: "Continue" }));
+    expect(screen.queryByLabelText(/Create starter/)).not.toBeInTheDocument();
+    await user.click(await screen.findByRole("button", { name: "Create project" }));
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Detail" })).toBeInTheDocument());
+    const create = api.calls.find((c) => c.method === "POST" && c.url.endsWith("/projects"));
+    const body = create?.body as Record<string, unknown>;
+    expect(body.php).toBeUndefined();
+    expect(body.go).toBeUndefined();
+    expect(body.createStarter).toBe(false);
+    expect(body.ruby).toMatchObject({ version: "4.0", server: true, mode: "dev", preset: "rack", port: 9292 });
+  });
 });

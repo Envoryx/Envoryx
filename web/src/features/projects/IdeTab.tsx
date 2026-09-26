@@ -6,7 +6,7 @@ import { useMutation } from "@tanstack/react-query";
 import { api } from "@/api/client";
 import { useDatabases, useExtraServices, useSettings, useUpdateProject } from "@/api/hooks";
 import { OperationHint } from "@/components/OperationsTray";
-import { appKindOf, type DatabaseInfo, type NodeConfig, type Operation, type PHPConfig, type Project, type PythonConfig, type GoConfig } from "@/api/types";
+import { appKindOf, type DatabaseInfo, type NodeConfig, type Operation, type PHPConfig, type Project, type PythonConfig, type GoConfig, type RubyConfig } from "@/api/types";
 import { Alert, Button, Card, CardHeader, Checkbox, Code } from "@/components/ui";
 import { CopyButton, CopyRow } from "./DatabaseTab";
 import { databaseServices } from "./databases";
@@ -29,13 +29,15 @@ export function IdeTab({ project: p }: { project: Project }) {
   const hasNode = p.services.some((x) => x.kind === "node" && x.enabled);
   const hasPython = p.services.some((x) => x.kind === "python" && x.enabled);
   const hasGo = p.services.some((x) => x.kind === "go" && x.enabled);
-  // The bare SSH user lands in the application container: PHP when present, else Python, else Go, else Node.
+  const hasRuby = p.services.some((x) => x.kind === "ruby" && x.enabled);
+  // The bare SSH user lands in the application container: PHP when present, else Python, else Go, else Ruby, else Node.
   const app = p.appService ?? appKindOf(p);
-  const runtimeCount = [hasPhp, hasPython, hasGo, hasNode].filter(Boolean).length;
+  const runtimeCount = [hasPhp, hasPython, hasGo, hasRuby, hasNode].filter(Boolean).length;
   const phpCfg = (php?.config ?? {}) as unknown as Partial<PHPConfig>;
   const nodeCfg = (p.services.find((x) => x.kind === "node" && x.enabled)?.config ?? {}) as unknown as Partial<NodeConfig>;
   const pyCfg = (p.services.find((x) => x.kind === "python" && x.enabled)?.config ?? {}) as unknown as Partial<PythonConfig>;
   const goCfg = (p.services.find((x) => x.kind === "go" && x.enabled)?.config ?? {}) as unknown as Partial<GoConfig>;
+  const rbCfg = (p.services.find((x) => x.kind === "ruby" && x.enabled)?.config ?? {}) as unknown as Partial<RubyConfig>;
   const hostname = p.hostnames[0] ?? `${p.slug}.test`;
   const ssh = s?.ssh;
   const sshHost = s?.proxy?.address || host;
@@ -127,7 +129,9 @@ export function IdeTab({ project: p }: { project: Project }) {
                 ? t("Run python, pip and pytest inside the project container from your IDE. PyCharm Pro: Settings → Python → Interpreter → Add Interpreter → On SSH…; in the last step “Select existing” with the interpreter path from below, and under Target-Specific Properties Sync folders: the project folder → /var/www/html. VS Code: Remote-SSH. Plain terminal: ssh.")
                 : app === "go"
                   ? `${t("Work on the project inside its Go container from your IDE. GoLand: File → Remote Development → SSH (JetBrains Gateway) with the values below opens the project at /var/www/html with the container's go and dlv. VS Code: Remote-SSH, then the Go extension installs gopls and its other tools in the project home. Plain terminal: ssh.")} ${t("GoLand and VS Code forward ports over SSH, so switch on “Allow JetBrains Gateway for this project” below first.")}`
-                  : t("Run node, npm and your test runner inside the project container from your IDE. WebStorm: Settings → Languages & Frameworks → JavaScript Runtime → Node runtime “…” → “+” → Add Remote… → SSH, then in the run configuration Path mappings: the project folder → /var/www/html. VS Code: Remote-SSH. Plain terminal: ssh.")
+                  : app === "ruby"
+                    ? t("Run ruby, bundle, rails and your tests inside the project container from your IDE. RubyMine: Settings → Languages & Frameworks → Ruby Interpreters → “+” → Remote Interpreter or Version Manager… → SSH with the values below and the Ruby path, then map the project folder to /var/www/html; RubyMine runs and debugs with its own debugger inside the container. VS Code: Remote-SSH. Plain terminal: ssh.")
+                    : t("Run node, npm and your test runner inside the project container from your IDE. WebStorm: Settings → Languages & Frameworks → JavaScript Runtime → Node runtime “…” → “+” → Add Remote… → SSH, then in the run configuration Path mappings: the project folder → /var/www/html. VS Code: Remote-SSH. Plain terminal: ssh.")
           }
         />
         <div className="p-5">
@@ -136,7 +140,7 @@ export function IdeTab({ project: p }: { project: Project }) {
           ) : ssh.port === 0 ? (
             <Alert tone="amber">{t("The SSH port 2222 is not published on the host – add a port mapping 2222:2222 to the Envoryx container.")}</Alert>
           ) : !app ? (
-            <Alert tone="gray">{t("This project has no application container – SSH sessions need PHP, Python, Go or Node.js.")}</Alert>
+            <Alert tone="gray">{t("This project has no application container – SSH sessions need PHP, Python, Go, Ruby or Node.js.")}</Alert>
           ) : (
             <dl>
               <CopyRow label={t("Host")} value={sshHost} />
@@ -145,12 +149,15 @@ export function IdeTab({ project: p }: { project: Project }) {
               {runtimeCount > 1 && hasPhp && <CopyRow label={t("User (PHP)")} value={`${p.slug}.php`} />}
               {runtimeCount > 1 && hasPython && <CopyRow label={t("User (Python)")} value={`${p.slug}.python`} />}
               {runtimeCount > 1 && hasGo && <CopyRow label={t("User (Go)")} value={`${p.slug}.go`} />}
+              {runtimeCount > 1 && hasRuby && <CopyRow label={t("User (Ruby)")} value={`${p.slug}.ruby`} />}
               {runtimeCount > 1 && hasNode && <CopyRow label={t("User (Node)")} value={`${p.slug}.node`} />}
               <CopyRow label={t("Password")} value={t("<API token from Settings → API tokens>")} mono={false} />
               {hasPhp && <CopyRow label={t("PHP path")} value="/usr/local/bin/php" />}
               {hasPython && <CopyRow label={t("Python path")} value="/var/www/html/.venv/bin/python" />}
               {hasPython && <CopyRow label={t("Python path (without .venv)")} value="/usr/local/bin/python" />}
               {hasGo && <CopyRow label={t("GOROOT")} value="/usr/local/go" />}
+              {hasRuby && <CopyRow label={t("Ruby path")} value="/usr/local/bin/ruby" />}
+              {hasRuby && <CopyRow label="GEM_HOME" value="/home/envoryx/.gem/ruby" />}
               {hasNode && <CopyRow label={t("Node path")} value="/usr/local/bin/node" />}
               <CopyRow label={t("Project path")} value="/var/www/html" />
               {hasPhp && <CopyRow label={t("Helpers path")} value="/home/envoryx/.phpstorm_helpers" />}
@@ -174,7 +181,7 @@ export function IdeTab({ project: p }: { project: Project }) {
               <MonitorSmartphone className="size-4 text-accent-500" aria-hidden /> {t("JetBrains Gateway (optional)")}
             </span>
           }
-          description={t("Run the full PhpStorm/WebStorm/GoLand backend inside the project container and work with the thin client. Needs a capable server: 2–4 GB RAM and CPU per open project. Nothing runs until you connect.")}
+          description={t("Run the full PhpStorm/WebStorm/GoLand/RubyMine backend inside the project container and work with the thin client. Needs a capable server: 2–4 GB RAM and CPU per open project. Nothing runs until you connect.")}
         />
         <div className="space-y-3 p-5">
           {gwMsg && <Alert tone={gwMsg.tone}>{gwMsg.text}</Alert>}
@@ -358,6 +365,48 @@ export function IdeTab({ project: p }: { project: Project }) {
         </Card>
       )}
 
+      {hasRuby && (
+        <Card>
+          <CardHeader
+            title={
+              <span className="flex items-center gap-2">
+                <Bug className="size-4 text-accent-500" aria-hidden /> {t("Ruby debugging (rdbg)")}
+              </span>
+            }
+            description={
+              rbCfg.debug && rbCfg.debugHostPort
+                ? rbCfg.server
+                  ? t("The server runs under rdbg (the debug gem). Attach VS Code or rdbg -A with the values below.")
+                  : t("The rdbg port is published. Start rdbg --open in the Ruby terminal, then attach with the values below.")
+                : t("Not enabled – switch on “Debug with rdbg” in the Runtime tab. Values below apply once enabled.")
+            }
+          />
+          <div className="p-5">
+            <dl>
+              <CopyRow label={t("Attach to host")} value={host} />
+              <CopyRow label={t("Attach to port")} value={String(rbCfg.debugHostPort ?? "")} />
+              <CopyRow label={t("rdbg inside the container")} value={`0.0.0.0:${rbCfg.debugPort ?? 12345}`} />
+              <CopyRow label={t("Path mapping")} value={`${hostDir} → /var/www/html`} />
+              {rbCfg.debugHostPort ? <CopyRow label={t("Terminal")} value={`rdbg -A ${host} ${rbCfg.debugHostPort}`} /> : null}
+            </dl>
+            {!rbCfg.server && (
+              <>
+                <p className="mt-3 text-xs text-muted">{t("Examples for the Ruby terminal:")}</p>
+                <pre className="mt-1 overflow-x-auto rounded-md bg-muted p-2 font-mono text-[11px]">{rubyDebugExamples(rbCfg.debugPort ?? 12345)}</pre>
+              </>
+            )}
+            <p className="mt-3 text-xs text-muted">{t("VS Code with the vscode-rdbg extension, launch.json:")}</p>
+            <pre className="mt-1 overflow-x-auto rounded-md bg-muted p-2 font-mono text-[11px]">{rdbgLaunchJson(host, rbCfg.debugHostPort)}</pre>
+            <p className="mt-2 text-xs text-subtle">{t("RubyMine does not attach to rdbg: use the remote interpreter above, and RubyMine runs and debugs the application with its own debugger inside the container.")}</p>
+            {rbCfg.debug && (
+              <div className="mt-3">
+                <Alert tone="amber">{t("rdbg accepts everyone who reaches the port and can run any code in the container. Switch it off when you are not debugging.")}</Alert>
+              </div>
+            )}
+          </div>
+        </Card>
+      )}
+
       {hasDb &&
         (dbs.data ?? []).map((d) => (
           <Card key={d.service}>
@@ -468,6 +517,24 @@ function goDebugExamples(port: number): string {
     `dlv debug --headless --listen=:${port} --api-version=2 --accept-multiclient ./cmd/tool   # a program`,
     `dlv test --headless --listen=:${port} --api-version=2 ./internal/store   # the tests of a package`,
   ].join("\n");
+}
+
+/** rdbg command lines for the Ruby terminal when the server does not run under rdbg. */
+function rubyDebugExamples(port: number): string {
+  return [
+    `rdbg --open --host=0.0.0.0 --port=${port} -c -- bin/rails test   # the tests`,
+    `rdbg --open --host=0.0.0.0 --port=${port} -c -- bundle exec rake my:task   # a rake task`,
+    `rdbg --open --host=0.0.0.0 --port=${port} script.rb   # a script`,
+  ].join("\n");
+}
+
+/** The vscode-rdbg attach configuration for the published rdbg port. */
+function rdbgLaunchJson(host: string, port?: number): string {
+  return JSON.stringify(
+    { type: "rdbg", name: "Attach to Envoryx", request: "attach", debugPort: `${host}:${port ?? "<port>"}`, localfsMap: "/var/www/html:${workspaceFolder}" },
+    null,
+    2,
+  );
 }
 
 /** Command lines that start debugpy in front of the usual servers. */

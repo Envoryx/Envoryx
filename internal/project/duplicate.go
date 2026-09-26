@@ -375,6 +375,13 @@ func (m *Manager) reassignHostPorts(ctx context.Context, proj *store.Project) er
 				}
 				return swap(&c.DebugHostPort)
 			})
+		case svc.Kind == store.ServiceRuby:
+			err = editConfig(svc, func(c *runtime.RubyConfig) error {
+				if err := swap(&c.HostPort); err != nil {
+					return err
+				}
+				return swap(&c.DebugHostPort)
+			})
 		case svc.Kind == store.ServiceStorage:
 			err = editConfig(svc, func(c *runtime.StorageConfig) error {
 				if err := swap(&c.HostPort); err != nil {

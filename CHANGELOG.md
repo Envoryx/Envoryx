@@ -33,6 +33,39 @@ release). `:main` follows the development branch.
   `goServer`, `goPackage`, `goPort`, `goMode`) and the CLI (`--go`,
   `--go-server`, `--go-package`) cover Go. The image builds and the weekly
   runtime-version check include Go.
+- Ruby runtime. The wizard's first step offers *Ruby application*; a Ruby
+  container (`ghcr.io/envoryx/envoryx-ruby:<3.3–4.0>`, official
+  `ruby:<v>-slim-bookworm` image plus the build dependencies of common gems
+  and the debug gem, no Node.js) is added on any project from the Runtime
+  tab, too. *Run the server* has two presets: *Rails* (`bin/rails server` in
+  development mode, Puma in production mode) and *Rack* (Puma on
+  `config.ru` – Sinatra, Roda, Hanami …), on `$PORT` (3000/9292). Before it
+  starts, the server waits for its `Gemfile` and runs `bundle install` when
+  the bundle is incomplete, so a cloned application comes up on its own; the
+  gems live in the project home, Bundler's download cache is shared by all
+  projects. `RAILS_ENV`, `RACK_ENV`, `APP_ENV` and `HANAMI_ENV` follow the
+  mode, and Rails in development accepts the project's host names. Without
+  PHP and without a Python or Go server the project URL reaches it. *Debug
+  with rdbg* runs the server under `rdbg --open` on a published port for VS
+  Code's rdbg extension or `rdbg -A` (the IDE tab has the configuration);
+  without the server the port serves an `rdbg` started in the terminal.
+  RubyMine debugs through its SSH remote interpreter (`<project>.ruby`) with
+  its own debugger – its *Ruby remote debug* speaks only `ruby-debug-ide`. The Ruby containers get
+  PostgreSQL's `DATABASE_URL` as `postgresql://`, which Active Record
+  understands.
+- Ruby templates *Rails* (Hotwire with importmap), *Rails (API only)* and
+  *Sinatra*; Bundler and Rails actions (`bundle install`/`update`/`outdated`,
+  `rubocop`, `rails db:prepare`/`migrate`/`rollback`/`seed`, `routes`,
+  `assets:precompile`, `tmp:clear`, `about`); the Tests tab runs `rspec`
+  (with a JUnit report when `rspec_junit_formatter` is in the bundle) and
+  `rails test` against `<database>_test`, which Envoryx creates – never
+  against the development database; worker presets *Solid Queue*, *GoodJob*,
+  *Sidekiq*, *Rake task* and *Ruby script*, running in the server's
+  environment; cron jobs, SSH (`<project>.ruby`), the site import
+  (`Gemfile`), `envoryx.yml` (`ruby:`), the API (`ruby`), MCP (`rubyVersion`,
+  `rubyServer`, `rubyPreset`, `rubyPort`, `rubyMode`) and the CLI (`--ruby`,
+  `--ruby-server`, `--ruby-preset`) cover Ruby. The image builds and the
+  weekly runtime-version check include Ruby.
 
 ### Fixed
 - SSH sessions into the Python container (`<project>.python`, also IDEs that

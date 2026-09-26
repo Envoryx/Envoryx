@@ -70,17 +70,18 @@ func (m *Manager) StopIDEBackend(ctx context.Context, id string) (int, error) {
 }
 
 // isAppKind reports whether a service kind is an application container (PHP, Python, Go,
-// Node): the containers that run as the project owner with the project home mounted.
+// Ruby, Node): the containers that run as the project owner with the project home mounted.
 func isAppKind(kind store.ServiceKind) bool {
-	return kind == store.ServicePHP || kind == store.ServicePython || kind == store.ServiceGo || kind == store.ServiceNode
+	return kind == store.ServicePHP || kind == store.ServicePython || kind == store.ServiceGo || kind == store.ServiceRuby || kind == store.ServiceNode
 }
 
 // ResolveSSHUser maps an SSH user name to a project and application container:
-// "<slug>" → the project's application container (PHP, else Python, else Go, else Node);
-// "<slug>.php" / "<slug>.python" / "<slug>.go" / "<slug>.node" select explicitly.
+// "<slug>" → the project's application container (PHP, else Python, else Go, else Ruby,
+// else Node); "<slug>.php" / "<slug>.python" / "<slug>.go" / "<slug>.ruby" / "<slug>.node"
+// select explicitly.
 func (m *Manager) ResolveSSHUser(ctx context.Context, user string) (ExecTarget, error) {
 	slug, kind := user, store.ServiceKind("")
-	for _, k := range []store.ServiceKind{store.ServicePHP, store.ServicePython, store.ServiceGo, store.ServiceNode} {
+	for _, k := range []store.ServiceKind{store.ServicePHP, store.ServicePython, store.ServiceGo, store.ServiceRuby, store.ServiceNode} {
 		if s, ok := strings.CutSuffix(user, "."+string(k)); ok {
 			slug, kind = s, k
 			break

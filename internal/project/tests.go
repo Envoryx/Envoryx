@@ -15,6 +15,7 @@ import (
 
 	"github.com/envoryx/envoryx/internal/audit"
 	"github.com/envoryx/envoryx/internal/docker"
+	"github.com/envoryx/envoryx/internal/runtime"
 	"github.com/envoryx/envoryx/internal/store"
 	"github.com/envoryx/envoryx/internal/validate"
 )
@@ -25,7 +26,8 @@ import (
 // JUnit report the runner writes where it can.
 type TestSuite struct {
 	ID string `json:"id"`
-	// Framework is pest, phpunit, npm, playwright, cypress, pytest, django or go.
+	// Framework is pest, phpunit, npm, playwright, cypress, pytest, django, go, rspec or
+	// rails.
 	Framework string            `json:"framework"`
 	Label     string            `json:"label"`
 	Service   store.ServiceKind `json:"service"`
@@ -244,7 +246,93 @@ func detectTestSuites(dir string, p store.Project) []TestSuite {
 				return argv, nil
 			}})
 	}
+	if has(store.ServiceRuby) && exists("Gemfile") {
+		lock := read("Gemfile.lock")
+		if exists("spec") && bytes.Contains(lock, []byte(" rspec-core ")) {
+			// A JUnit report needs rspec_junit_formatter in the bundle; without it only the
+			// exit code counts.
+			junit := bytes.Contains(lock, []byte(" rspec_junit_formatter "))
+			out = append(out, TestSuite{ID: "rspec", Framework: "rspec", Label: "rspec", Service: store.ServiceRuby, Cmd: []string{"bundle", "exec", "rspec"}, Report: junit, FilterHint: "-e (example name)", Available: true,
+				build: func(filter, report string) ([]string, []string) {
+					argv := []string{"sh", "-c", rubyTestScript, "envoryx-rspec", "bundle", "exec", "rspec", "--force-color"}
+					if junit {
+						argv = append(argv, "--format", "progress", "--format", "RspecJunitFormatter", "--out", report)
+					}
+					if filter != "" {
+						argv = append(argv, "-e", filter)
+					}
+					return argv, rubyTestEnv
+				}})
+		}
+		if exists("bin/rails") && exists("test") {
+			out = append(out, TestSuite{ID: "rails", Framework: "rails", Label: "rails test", Service: store.ServiceRuby, Cmd: []string{"bin/rails", "test"}, FilterHint: "-n (test name or /regexp/)", Available: true,
+				build: func(filter, _ string) ([]string, []string) {
+					argv := []string{"sh", "-c", rubyTestScript, "envoryx-rails-test", "bin/rails", "test"}
+					if filter != "" {
+						argv = append(argv, "-n", filter)
+					}
+					return argv, rubyTestEnv
+				}})
+		}
+	}
 	return out
+}
+
+// rubyTestEnv runs Rails and Rack test suites in the test environment.
+var rubyTestEnv = []string{"RAILS_ENV=test", "RACK_ENV=test", "APP_ENV=test", "HANAMI_ENV=test"}
+
+// rubyTestScript points DATABASE_URL at <database>_test on the same server before the
+// runner starts. Active Record merges DATABASE_URL into whatever environment runs – the
+// test run would otherwise load its fixtures into the development database and empty its
+// tables. A URL with a query (MongoDB's authSource) is left alone. ensureTestDatabase
+// creates the database; loading the schema is Rails' job (maintain_test_schema).
+const rubyTestScript = `case "$DATABASE_URL" in
+  *'?'*|'') ;;
+  *) export DATABASE_URL="${DATABASE_URL}_test" ;;
+esac
+exec "$@"`
+
+// ensureTestDatabase creates <database>_test on the project's primary SQL database when it
+// is missing – as the administrator, who grants the project login access: MySQL's and
+// MariaDB's project login may not create databases itself. Callers hold the lock. A
+// project without an SQL database has nothing to prepare; a server that cannot be asked
+// (stopped, unreachable) is left to the test run's own error.
+func (m *Manager) ensureTestDatabase(ctx context.Context, id string) error {
+	p, err := m.loadProject(ctx, id)
+	if err != nil {
+		return err
+	}
+	svc, cfg, err := databaseOf(p, "")
+	if err != nil || svc.Variant == "mongodb" {
+		return nil
+	}
+	dialect, err := dialectOf(svc)
+	if err != nil {
+		return nil
+	}
+	name := cfg.Database + "_test"
+	if runtime.ValidateDatabaseName(name) != nil {
+		return nil
+	}
+	out, err := m.runSQL(ctx, p, svc, cfg, dialect.ListDatabases)
+	if err != nil {
+		m.log.Warn("list databases before the test run", "project", p.Slug, "err", err)
+		return nil
+	}
+	for _, line := range strings.Split(out, "\n") {
+		if strings.TrimSpace(line) == name {
+			return nil
+		}
+	}
+	stmt := dialect.CreateDatabase(name, cfg.Username)
+	if cfg.External() && dialect.HasRoot {
+		stmt = fmt.Sprintf("CREATE DATABASE `%s` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci", name)
+	}
+	if _, err := m.runSQL(ctx, p, svc, cfg, stmt); err != nil {
+		return fmt.Errorf("create the test database %s: %w", name, err)
+	}
+	m.audit.Log(ctx, audit.ActionDBCreated, "project", id, auditDB(map[string]any{"name": p.Name, "database": name}, ""))
+	return nil
 }
 
 func firstExisting(exists func(string) bool, names ...string) string {
@@ -329,6 +417,12 @@ func (m *Manager) RunTests(ctx context.Context, id, suiteID, filter string, cols
 	c, err := m.ServiceContainer(ctx, id, suite.Service)
 	if err != nil {
 		return nil, err
+	}
+	if suite.Service == store.ServiceRuby {
+		// rubyTestScript points the run at <database>_test; Rails does not create it.
+		if err := m.ensureTestDatabase(ctx, id); err != nil {
+			return nil, err
+		}
 	}
 	paths, err := m.paths()
 	if err != nil {
