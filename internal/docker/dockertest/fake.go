@@ -834,8 +834,9 @@ func (f *Fake) ExecStream(_ context.Context, id string, opts docker.ExecStreamOp
 }
 
 // StreamLogs implements docker.Engine. With Follow it emits the configured lines and then
-// keeps polling for lines added through AppendLogs until ctx is cancelled or the container
-// stops running. Since and Until filter like Docker does (both inclusive).
+// keeps polling for lines added through AppendLogs (or replaced through SetLogs) until ctx
+// is cancelled or the container stops running or is removed. Since and Until filter like
+// Docker does (both inclusive).
 func (f *Fake) StreamLogs(ctx context.Context, id string, opts docker.LogOptions, emit func(docker.LogLine)) error {
 	f.mu.Lock()
 	if err := f.check(); err != nil {
@@ -881,11 +882,20 @@ func (f *Fake) StreamLogs(ctx context.Context, id string, opts docker.LogOptions
 		case <-t.C:
 		}
 		f.mu.Lock()
-		all := f.Logs[name]
-		more := append([]docker.LogLine(nil), all[min(sent, len(all)):]...)
-		sent = len(all)
 		cur, ok := f.containers[c.ID]
-		running := ok && cur.State == "running"
+		if !ok {
+			// Removed: Docker ends the stream, and output under this name now belongs
+			// to a successor.
+			f.mu.Unlock()
+			return nil
+		}
+		all := f.Logs[name]
+		if len(all) < sent {
+			sent = 0 // SetLogs replaced the output, as a recreated container starts over
+		}
+		more := append([]docker.LogLine(nil), all[sent:]...)
+		sent = len(all)
+		running := cur.State == "running"
 		f.mu.Unlock()
 		for _, l := range more {
 			if keep(l) {
