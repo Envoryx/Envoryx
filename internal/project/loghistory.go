@@ -88,7 +88,7 @@ func IsLogService(kind string) bool {
 		return ValidateDatabaseServiceName(name) == nil
 	}
 	switch store.ServiceKind(kind) {
-	case store.ServicePHP, store.ServiceWeb, store.ServiceDatabase, store.ServicePython, store.ServiceNode, store.ServiceRedis, store.ServiceMemcached, store.ServiceMailpit, store.ServiceRabbitMQ, store.ServiceMeilisearch, store.ServiceTypesense, store.ServiceOpenSearch, store.ServiceOpenSearchDashboards, store.ServiceOllama, store.ServiceStorage:
+	case store.ServicePHP, store.ServiceWeb, store.ServiceDatabase, store.ServicePython, store.ServiceGo, store.ServiceNode, store.ServiceRedis, store.ServiceMemcached, store.ServiceMailpit, store.ServiceRabbitMQ, store.ServiceMeilisearch, store.ServiceTypesense, store.ServiceOpenSearch, store.ServiceOpenSearchDashboards, store.ServiceOllama, store.ServiceStorage:
 		return true
 	}
 	return false

@@ -23,7 +23,7 @@ type WorkerPreset struct {
 	ArgHint  string `json:"argHint,omitempty"`
 	// Requires lists files that must exist for the preset to make sense (informational).
 	Requires []string `json:"requires,omitempty"`
-	// Runtime is the service the worker runs in: "php" (default), "node" or "python".
+	// Runtime is the service the worker runs in: "php" (default), "node", "python" or "go".
 	Runtime string `json:"runtime"`
 
 	// build returns argv for the validated argument.
@@ -53,6 +53,7 @@ const (
 	WorkerRuntimePHP    = "php"
 	WorkerRuntimeNode   = "node"
 	WorkerRuntimePython = "python"
+	WorkerRuntimeGo     = "go"
 )
 
 // workerRuntimeKind maps a preset runtime to the service it runs in.
@@ -62,6 +63,8 @@ func workerRuntimeKind(rt string) (store.ServiceKind, string) {
 		return store.ServiceNode, "Node.js"
 	case WorkerRuntimePython:
 		return store.ServicePython, "Python"
+	case WorkerRuntimeGo:
+		return store.ServiceGo, "Go"
 	default:
 		return store.ServicePHP, "PHP"
 	}
@@ -195,6 +198,26 @@ var workerPresets = []WorkerPreset{
 			return nil
 		},
 		build: func(arg string) []string { return []string{"celery", "-A", arg, "beat", "--loglevel=info"} }},
+	{ID: "go:run", Group: "Go", Label: "Go program", Description: "go run <package> – a long-running program of the module (queue consumer, scheduler, bot …)", ArgLabel: "Package", ArgHint: "e.g. ./cmd/worker", Requires: []string{"go.mod"}, Runtime: WorkerRuntimeGo,
+		validateArg: func(arg string) error {
+			if !runtime.ValidGoPackage(goPackageArg(arg)) {
+				return fmt.Errorf("%w: invalid package path (use . or a path like ./cmd/worker)", validate.ErrInvalid)
+			}
+			return nil
+		},
+		build: func(arg string) []string { return []string{"go", "run", goPackageArg(arg)} }},
+}
+
+// goPackageArg writes a package argument the way go expects a local one: "." or "./…".
+func goPackageArg(arg string) string {
+	arg = strings.TrimSuffix(strings.TrimSpace(arg), "/")
+	if arg == "" {
+		return "."
+	}
+	if !strings.HasPrefix(arg, ".") {
+		return "./" + arg
+	}
+	return arg
 }
 
 func init() {

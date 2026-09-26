@@ -238,6 +238,26 @@ type pythonUpdateDTO struct {
 	pythonRequestDTO
 }
 
+type goRequestDTO struct {
+	Version string `json:"version"`
+	// Application-server options (see runtime.GoConfig).
+	Server    bool   `json:"server"`
+	Mode      string `json:"mode"`
+	Package   string `json:"package"`
+	Port      int    `json:"port"`
+	Debug     bool   `json:"debug"`
+	DebugPort int    `json:"debugPort"`
+}
+
+func (n goRequestDTO) config() runtime.GoConfig {
+	return runtime.GoConfig{Server: n.Server, Mode: n.Mode, Package: n.Package, Port: n.Port, Debug: n.Debug, DebugPort: n.DebugPort}
+}
+
+type goUpdateDTO struct {
+	Enabled bool `json:"enabled"`
+	goRequestDTO
+}
+
 type extraRequestDTO struct {
 	Version    string            `json:"version"`
 	ExposePort bool              `json:"exposePort"`
@@ -315,6 +335,7 @@ type createProjectRequest struct {
 	PHP      *phpRequestDTO      `json:"php"`
 	Node     *nodeRequestDTO     `json:"node"`
 	Python   *pythonRequestDTO   `json:"python"`
+	Go       *goRequestDTO       `json:"go"`
 	Database *databaseRequestDTO `json:"database"`
 	// Databases are additional databases, each with a name.
 	Databases     []namedDatabaseDTO `json:"databases"`
@@ -376,6 +397,9 @@ func (r createProjectRequest) toDomain() project.CreateRequest {
 	if r.Python != nil {
 		req.Python = &project.PythonRequest{Version: r.Python.Version, Config: r.Python.config()}
 	}
+	if r.Go != nil {
+		req.Go = &project.GoRequest{Version: r.Go.Version, Config: r.Go.config()}
+	}
 	for _, d := range r.Databases {
 		req.Databases = append(req.Databases, project.NamedDatabaseRequest{Name: d.Name, DatabaseRequest: project.DatabaseRequest{Type: d.Type, Version: d.Version, ExposePort: d.ExposePort, External: d.External.toDomain()}})
 	}
@@ -433,6 +457,7 @@ type updateProjectRequest struct {
 	PHP      *phpUpdateDTO      `json:"php"`
 	Node     *nodeUpdateDTO     `json:"node"`
 	Python   *pythonUpdateDTO   `json:"python"`
+	Go       *goUpdateDTO       `json:"go"`
 	Database *databaseUpdateDTO `json:"database"`
 	// Databases adds, changes or removes additional databases by name.
 	Databases   map[string]databaseUpdateDTO `json:"databases"`
@@ -677,6 +702,9 @@ func (a *API) updateProject(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Python != nil {
 		upd.Python = &project.PythonUpdate{Enabled: req.Python.Enabled, Version: req.Python.Version, Config: req.Python.config()}
+	}
+	if req.Go != nil {
+		upd.Go = &project.GoUpdate{Enabled: req.Go.Enabled, Version: req.Go.Version, Config: req.Go.config()}
 	}
 	if req.Redis != nil {
 		upd.Redis = &project.ExtraUpdate{Enabled: req.Redis.Enabled, Version: req.Redis.Version, ExposePort: req.Redis.ExposePort, RemoveData: req.Redis.RemoveData, External: req.Redis.External.toDomain()}

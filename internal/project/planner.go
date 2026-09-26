@@ -117,6 +117,10 @@ var packageCacheEnv = []string{
 	"YARN_CACHE_FOLDER=" + packageCacheTarget + "/yarn",
 	"PIP_CACHE_DIR=" + packageCacheTarget + "/pip",
 	"UV_CACHE_DIR=" + packageCacheTarget + "/uv",
+	// Go's module cache is read-only once written (Go marks it so): shared it saves the
+	// downloads; the build cache makes a rebuild after a container recreate incremental.
+	"GOMODCACHE=" + packageCacheTarget + "/gomod",
+	"GOCACHE=" + packageCacheTarget + "/gobuild",
 	"UV_LINK_MODE=copy",
 }
 
@@ -159,6 +163,17 @@ var pythonEnv = []string{
 	"VIRTUAL_ENV=" + pythonVenvPath,
 	"PATH=" + pythonVenvPath + "/bin:" + homeMountTarget + "/.local/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin",
 	"PYTHONUNBUFFERED=1",
+}
+
+// goPath is GOPATH in the persistent home: `go install`ed tools (golangci-lint, sqlc …)
+// survive a container recreate, and its bin/ is on the PATH.
+const goPath = homeMountTarget + "/go"
+
+// goEnv gives the Go containers their GOPATH and a PATH that finds go, installed tools,
+// air and dlv.
+var goEnv = []string{
+	"GOPATH=" + goPath,
+	"PATH=" + goPath + "/bin:/usr/local/go/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin",
 }
 
 // jetbrainsCacheDir is the shared, host-wide cache for JetBrains Gateway IDE backends
@@ -460,6 +475,55 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 			plan.Containers = append(plan.Containers, ContainerPlan{Kind: store.ServicePython, Order: 12, Spec: spec})
 			images[svc.Image] = true
 
+		case store.ServiceGo:
+			var gcfg runtime.GoConfig
+			if len(svc.Config) > 0 {
+				if err := json.Unmarshal(svc.Config, &gcfg); err != nil {
+					return Plan{}, fmt.Errorf("go config: %w", err)
+				}
+			}
+			if err := gcfg.Normalize(); err != nil {
+				return Plan{}, err
+			}
+			spec := docker.ContainerSpec{
+				Name:   ContainerName(proj.Slug, store.ServiceGo),
+				Image:  svc.Image,
+				Labels: labels,
+				// Tooling container: idles until actions or the terminal run commands.
+				Cmd:           []string{"sleep", "infinity"},
+				Env:           append(append(append([]string{}, env...), toolEnv...), goEnv...),
+				User:          fmt.Sprintf("%d:%d", p.paths.PUID, p.paths.PGID),
+				WorkingDir:    appMountTarget,
+				Network:       plan.NetworkName,
+				NetworkAlias:  []string{"go"},
+				Mounts:        append([]docker.MountSpec{{Type: "bind", Source: appHost, Target: appMountTarget}, p.HomeMount(proj)}, p.gatewayMounts(proj)...),
+				RestartPolicy: "unless-stopped",
+				StopTimeout:   stopTimeoutSec,
+			}
+			p.withPackageCache(&spec)
+			if gcfg.Server {
+				// Server mode: the build and the binary (under air in dev mode) are the main
+				// process, published on a host port; without PHP or a Python server the proxy
+				// routes the project URL to it.
+				spec.Cmd = runtime.Guarded(gcfg.Command(), "envoryx-serve", dbGuard)
+				if _, ok := goServesApp(proj); ok {
+					// A blank project has nothing to build yet: wait for go.mod instead of
+					// crash-looping.
+					spec.Cmd = gcfg.WrappedCommand(dbGuard)
+				}
+				spec.Env = append(spec.Env, gcfg.Env()...)
+				if gcfg.HostPort > 0 {
+					spec.Ports = []docker.PortSpec{{HostIP: p.paths.PublishInterface, HostPort: gcfg.HostPort, ContainerPort: gcfg.Port, Protocol: "tcp"}}
+				}
+			}
+			if gcfg.Debug && gcfg.DebugHostPort > 0 {
+				// With the server Delve runs it; without, the port waits for a dlv started in
+				// the terminal (dlv debug/test --headless --listen=:2345).
+				spec.Ports = append(spec.Ports, docker.PortSpec{HostIP: p.paths.PublishInterface, HostPort: gcfg.DebugHostPort, ContainerPort: gcfg.DebugPort, Protocol: "tcp"})
+			}
+			plan.Containers = append(plan.Containers, ContainerPlan{Kind: store.ServiceGo, Order: 12, Spec: spec})
+			images[svc.Image] = true
+
 		case store.ServiceRedis:
 			var cfg runtime.ServiceConfig
 			if err := json.Unmarshal(svc.Config, &cfg); err != nil {
@@ -750,7 +814,7 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 	// presets from the PHP image with its ini, Node and Python presets from their image
 	// with the project home), sharing env and the project mount. A worker whose runtime
 	// the project does not have is skipped – it comes back when the runtime is added.
-	php, node, python := proj.Service(store.ServicePHP), proj.Service(store.ServiceNode), proj.Service(store.ServicePython)
+	php, node, python, golang := proj.Service(store.ServicePHP), proj.Service(store.ServiceNode), proj.Service(store.ServicePython), proj.Service(store.ServiceGo)
 	for _, w := range proj.Workers {
 		if !w.Enabled {
 			continue
@@ -790,6 +854,14 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 			spec.Image = python.Image
 			spec.Env = append(append(append([]string{}, env...), toolEnv...), pythonEnv...)
 			spec.Mounts = append(spec.Mounts, p.HomeMount(proj))
+		case WorkerRuntimeGo:
+			if golang == nil || !golang.Enabled {
+				continue
+			}
+			spec.Image = golang.Image
+			spec.Env = append(append(append([]string{}, env...), toolEnv...), goEnv...)
+			spec.Mounts = append(spec.Mounts, p.HomeMount(proj))
+			p.withPackageCache(&spec)
 		default:
 			if php == nil || !php.Enabled {
 				continue

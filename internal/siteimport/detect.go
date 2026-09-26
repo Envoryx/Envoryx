@@ -54,7 +54,7 @@ type Analysis struct {
 	Bytes int64  `json:"bytes"`
 
 	Framework Framework `json:"framework"`
-	// Runtime is php, static, node or python.
+	// Runtime is php, static, node, python or go.
 	Runtime       string   `json:"runtime"`
 	PHPVersion    string   `json:"phpVersion,omitempty"`
 	PHPExtensions []string `json:"phpExtensions,omitempty"`
@@ -420,6 +420,12 @@ func (a *Analysis) detect(s site, comp *composerJSON) {
 			a.Docroot, _ = s.firstDir("index.html", docrootGuesses...)
 		}
 		a.plainPHPConfig(s)
+
+	case s.has("go.mod"):
+		// Before package.json: a Go server with a frontend toolchain is a Go project.
+		a.Framework = Framework{ID: "go", Name: "Go"}
+		a.Runtime = "go"
+		return
 
 	case s.has("package.json"):
 		a.Framework = Framework{ID: "node", Name: "Node.js"}

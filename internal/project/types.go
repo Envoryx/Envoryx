@@ -31,6 +31,7 @@ type CreateRequest struct {
 	PHP      *PHPRequest
 	Node     *NodeRequest
 	Python   *PythonRequest
+	Go       *GoRequest
 	Database *DatabaseRequest
 	// Databases are additional databases next to the primary one, each with a name of
 	// its own (host, container and variables follow it).
@@ -101,6 +102,19 @@ type PythonUpdate struct {
 	Enabled bool
 	Version string
 	Config  runtime.PythonConfig
+}
+
+// GoRequest selects the Go container and optional application server.
+type GoRequest struct {
+	Version string
+	Config  runtime.GoConfig
+}
+
+// GoUpdate adds, changes or removes the Go service.
+type GoUpdate struct {
+	Enabled bool
+	Version string
+	Config  runtime.GoConfig
 }
 
 // ExtraRequest selects an auxiliary service (Redis, Memcached, Mailpit, RabbitMQ,
@@ -221,6 +235,7 @@ type UpdateRequest struct {
 	PHP      *PHPUpdate
 	Node     *NodeUpdate
 	Python   *PythonUpdate
+	Go       *GoUpdate
 	Database *DatabaseUpdate
 	// Databases adds, changes or removes (Enabled false) additional databases by name.
 	Databases   map[string]DatabaseUpdate
