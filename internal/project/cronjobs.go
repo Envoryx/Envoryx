@@ -81,9 +81,9 @@ func buildCronJob(projectID string, req CronJobRequest) (store.CronJob, error) {
 		return store.CronJob{}, fmt.Errorf("%w: cron job name must be 1-32 lower-case letters, digits or hyphens", validate.ErrInvalid)
 	}
 	switch req.Runtime {
-	case WorkerRuntimePHP, WorkerRuntimeNode, WorkerRuntimePython, WorkerRuntimeGo:
+	case WorkerRuntimePHP, WorkerRuntimeNode, WorkerRuntimePython, WorkerRuntimeGo, WorkerRuntimeRuby:
 	default:
-		return store.CronJob{}, fmt.Errorf("%w: runtime must be php, node, python or go", validate.ErrInvalid)
+		return store.CronJob{}, fmt.Errorf("%w: runtime must be php, node, python, go or ruby", validate.ErrInvalid)
 	}
 	sched, err := cron.Parse(req.Schedule)
 	if err != nil {

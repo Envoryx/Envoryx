@@ -781,6 +781,11 @@ func (m *Manager) update(ctx context.Context, id string, req UpdateRequest) (Vie
 			return View{}, err
 		}
 	}
+	if req.Ruby != nil {
+		if err := m.applyRubyUpdate(ctx, proj, *req.Ruby, changes); err != nil {
+			return View{}, err
+		}
+	}
 	if req.Database != nil {
 		r, err := m.applyDatabaseUpdate(ctx, proj, store.ServiceDatabase, *req.Database, changes)
 		if err != nil {
@@ -1303,6 +1308,111 @@ func (m *Manager) applyGoUpdate(ctx context.Context, p store.Project, upd GoUpda
 					if c.Service() == string(store.ServiceGo) {
 						if err := m.engine.RemoveContainer(ctx, c.ID); err != nil {
 							return fmt.Errorf("recreate go container: %w", err)
+						}
+					}
+				}
+			}
+		}
+		return nil
+	}
+}
+
+// applyRubyUpdate changes, adds or removes the Ruby service. Callers hold the lock. Removing
+// it takes the Ruby container and the Ruby workers' containers with it – their definitions
+// stay and come back with the runtime.
+func (m *Manager) applyRubyUpdate(ctx context.Context, p store.Project, upd RubyUpdate, changes map[string]any) error {
+	svc := p.Service(store.ServiceRuby)
+	switch {
+	case !upd.Enabled && svc == nil:
+		return nil
+	case !upd.Enabled:
+		gone := map[string]bool{string(store.ServiceRuby): true}
+		for _, w := range p.Workers {
+			if preset, ok := workerPreset(w.Preset); ok && preset.Runtime == WorkerRuntimeRuby {
+				gone[string(WorkerKind(w))] = true
+			}
+		}
+		containers, err := m.engine.ListContainers(ctx, true, p.ID)
+		if err != nil {
+			return err
+		}
+		for _, c := range containers {
+			if !gone[c.Service()] {
+				continue
+			}
+			step(ctx, "Removing the container {{name}}", "name", c.Name)
+			if err := m.engine.RemoveContainer(ctx, c.ID); err != nil {
+				return fmt.Errorf("remove container %s: %w", c.Name, err)
+			}
+		}
+		if err := m.store.Projects.DeleteService(ctx, p.ID, store.ServiceRuby); err != nil {
+			return err
+		}
+		changes["ruby"] = "removed"
+		return nil
+	default:
+		v, err := m.catalog.Resolve("ruby", upd.Version)
+		if err != nil {
+			return err
+		}
+		cfg := upd.Config
+		if err := cfg.Normalize(); err != nil {
+			return err
+		}
+		var old runtime.RubyConfig
+		if svc != nil && len(svc.Config) > 0 {
+			_ = json.Unmarshal(svc.Config, &old)
+		}
+		// Keep the published ports across edits; allocate them when the server or rdbg is
+		// enabled. The two are independent – a tooling container can publish rdbg.
+		cfg.HostPort, cfg.DebugHostPort = 0, 0
+		if cfg.Server {
+			cfg.HostPort = old.HostPort
+			if cfg.HostPort == 0 {
+				port, err := m.allocatePort(ctx)
+				if err != nil {
+					return err
+				}
+				cfg.HostPort = port
+			}
+		}
+		if cfg.Debug {
+			cfg.DebugHostPort = old.DebugHostPort
+			if cfg.DebugHostPort == 0 {
+				port, err := m.allocatePort(ctx, cfg.HostPort)
+				if err != nil {
+					return err
+				}
+				cfg.DebugHostPort = port
+			}
+		}
+		raw, err := json.Marshal(cfg)
+		if err != nil {
+			return err
+		}
+		if svc == nil {
+			if err := m.store.Projects.AddService(ctx, store.ProjectService{ProjectID: p.ID, Kind: store.ServiceRuby, Variant: "ruby", Version: v.Version, Image: v.Image, Enabled: true, Position: 12, Config: raw}); err != nil {
+				return err
+			}
+			changes["ruby"] = v.Version
+			return nil
+		}
+		if svc.Version != v.Version || string(svc.Config) != string(raw) {
+			if err := m.store.Projects.UpdateServiceConfig(ctx, p.ID, store.ServiceRuby, v.Version, v.Image, raw); err != nil {
+				return err
+			}
+			changes["ruby"] = v.Version
+			if string(svc.Config) != string(raw) {
+				changes["rubyServer"] = cfg.Server
+				// Command/ports are baked into the container: remove it so ensurePlan recreates it.
+				containers, err := m.engine.ListContainers(ctx, true, p.ID)
+				if err != nil {
+					return err
+				}
+				for _, c := range containers {
+					if c.Service() == string(store.ServiceRuby) {
+						if err := m.engine.RemoveContainer(ctx, c.ID); err != nil {
+							return fmt.Errorf("recreate ruby container: %w", err)
 						}
 					}
 				}

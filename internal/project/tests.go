@@ -25,7 +25,8 @@ import (
 // JUnit report the runner writes where it can.
 type TestSuite struct {
 	ID string `json:"id"`
-	// Framework is pest, phpunit, npm, playwright, cypress, pytest, django or go.
+	// Framework is pest, phpunit, npm, playwright, cypress, pytest, django, go, rspec or
+	// rails.
 	Framework string            `json:"framework"`
 	Label     string            `json:"label"`
 	Service   store.ServiceKind `json:"service"`
@@ -244,8 +245,52 @@ func detectTestSuites(dir string, p store.Project) []TestSuite {
 				return argv, nil
 			}})
 	}
+	if has(store.ServiceRuby) && exists("Gemfile") {
+		lock := read("Gemfile.lock")
+		if exists("spec") && bytes.Contains(lock, []byte(" rspec-core ")) {
+			// A JUnit report needs rspec_junit_formatter in the bundle; without it only the
+			// exit code counts.
+			junit := bytes.Contains(lock, []byte(" rspec_junit_formatter "))
+			out = append(out, TestSuite{ID: "rspec", Framework: "rspec", Label: "rspec", Service: store.ServiceRuby, Cmd: []string{"bundle", "exec", "rspec"}, Report: junit, FilterHint: "-e (example name)", Available: true,
+				build: func(filter, report string) ([]string, []string) {
+					argv := []string{"sh", "-c", rubyTestScript, "envoryx-rspec", "bundle", "exec", "rspec", "--force-color"}
+					if junit {
+						argv = append(argv, "--format", "progress", "--format", "RspecJunitFormatter", "--out", report)
+					}
+					if filter != "" {
+						argv = append(argv, "-e", filter)
+					}
+					return argv, rubyTestEnv
+				}})
+		}
+		if exists("bin/rails") && exists("test") {
+			out = append(out, TestSuite{ID: "rails", Framework: "rails", Label: "rails test", Service: store.ServiceRuby, Cmd: []string{"bin/rails", "test"}, FilterHint: "-n (test name or /regexp/)", Available: true,
+				build: func(filter, _ string) ([]string, []string) {
+					argv := []string{"sh", "-c", rubyTestScript, "envoryx-rails-test", "bin/rails", "test"}
+					if filter != "" {
+						argv = append(argv, "-n", filter)
+					}
+					return argv, rubyTestEnv
+				}})
+		}
+	}
 	return out
 }
+
+// rubyTestEnv runs Rails and Rack test suites in the test environment.
+var rubyTestEnv = []string{"RAILS_ENV=test", "RACK_ENV=test", "APP_ENV=test", "HANAMI_ENV=test"}
+
+// rubyTestScript points DATABASE_URL at <database>_test on the same server before the
+// runner starts. Active Record merges DATABASE_URL into whatever environment runs – the
+// test run would otherwise load its fixtures into the development database and empty its
+// tables. A URL with a query (MongoDB's authSource) is left alone. Rails creates the test
+// database itself (maintain_test_schema runs db:test:prepare) where the login may create
+// databases – PostgreSQL's project login may, MySQL's and MariaDB's may not.
+const rubyTestScript = `case "$DATABASE_URL" in
+  *'?'*|'') ;;
+  *) export DATABASE_URL="${DATABASE_URL}_test" ;;
+esac
+exec "$@"`
 
 func firstExisting(exists func(string) bool, names ...string) string {
 	for _, n := range names {

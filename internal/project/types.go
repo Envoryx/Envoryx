@@ -32,6 +32,7 @@ type CreateRequest struct {
 	Node     *NodeRequest
 	Python   *PythonRequest
 	Go       *GoRequest
+	Ruby     *RubyRequest
 	Database *DatabaseRequest
 	// Databases are additional databases next to the primary one, each with a name of
 	// its own (host, container and variables follow it).
@@ -115,6 +116,19 @@ type GoUpdate struct {
 	Enabled bool
 	Version string
 	Config  runtime.GoConfig
+}
+
+// RubyRequest selects the Ruby container and optional application server.
+type RubyRequest struct {
+	Version string
+	Config  runtime.RubyConfig
+}
+
+// RubyUpdate adds, changes or removes the Ruby service.
+type RubyUpdate struct {
+	Enabled bool
+	Version string
+	Config  runtime.RubyConfig
 }
 
 // ExtraRequest selects an auxiliary service (Redis, Memcached, Mailpit, RabbitMQ,
@@ -236,6 +250,7 @@ type UpdateRequest struct {
 	Node     *NodeUpdate
 	Python   *PythonUpdate
 	Go       *GoUpdate
+	Ruby     *RubyUpdate
 	Database *DatabaseUpdate
 	// Databases adds, changes or removes (Enabled false) additional databases by name.
 	Databases   map[string]DatabaseUpdate
@@ -437,11 +452,11 @@ type Preview struct {
 	Volumes    []string           `json:"volumes"`
 	Images     []string           `json:"images"`
 	Warnings   []string           `json:"warnings"`
-	// Serves says what the primary hostname reaches: "php", "python" (application
-	// server), "node" (dev server) or "static".
+	// Serves says what the primary hostname reaches: "php", "python", "go", "ruby"
+	// (application server), "node" (dev server) or "static".
 	Serves string `json:"serves"`
-	// AppService is the application container's kind (php, python, node), empty for
-	// static sites.
+	// AppService is the application container's kind (php, python, go, ruby, node), empty
+	// for static sites.
 	AppService string `json:"appService,omitempty"`
 	// DevHostname is the dev server's own host name when the Node dev server is enabled.
 	DevHostname string `json:"devHostname,omitempty"`

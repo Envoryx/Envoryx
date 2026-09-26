@@ -54,7 +54,7 @@ type Analysis struct {
 	Bytes int64  `json:"bytes"`
 
 	Framework Framework `json:"framework"`
-	// Runtime is php, static, node, python or go.
+	// Runtime is php, static, node, python, go or ruby.
 	Runtime       string   `json:"runtime"`
 	PHPVersion    string   `json:"phpVersion,omitempty"`
 	PHPExtensions []string `json:"phpExtensions,omitempty"`
@@ -425,6 +425,15 @@ func (a *Analysis) detect(s site, comp *composerJSON) {
 		// Before package.json: a Go server with a frontend toolchain is a Go project.
 		a.Framework = Framework{ID: "go", Name: "Go"}
 		a.Runtime = "go"
+		return
+
+	case s.has("Gemfile"):
+		// Before package.json, too: a Rails application often has one for its assets.
+		a.Framework = Framework{ID: "ruby", Name: "Ruby"}
+		if s.has("bin/rails") || s.has("config/application.rb") {
+			a.Framework.Name = "Rails"
+		}
+		a.Runtime = "ruby"
 		return
 
 	case s.has("package.json"):
