@@ -308,6 +308,7 @@ func serve() error {
 	background("resource history", func(ctx context.Context) { manager.RunMetrics(ctx, time.Minute, log) })
 	background("health checks", func(ctx context.Context) { manager.RunHealthChecks(ctx, 5*time.Second, log) })
 	background("share janitor", func(ctx context.Context) { manager.RunShareJanitor(ctx, 30*time.Second, log) })
+	background("audit retention", func(ctx context.Context) { manager.RunAuditRetention(ctx, time.Hour, log) })
 	if syncer != nil {
 		background("offsite backups", func(ctx context.Context) { syncer.Run(ctx, time.Minute) })
 	}
