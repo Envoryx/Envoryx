@@ -560,8 +560,9 @@ comes next.
   (`python <file>`), *Python module* (`python -m <module>`), *manage.py
   command* (`rqworker`, `qcluster`, …), *Celery worker* and *Celery beat*
   (`celery -A <app> …`).
-- **Debugging.** *Publish the debugpy port* (Runtime tab, server required)
-  publishes port 5678 on a host port; the IDE tab shows host, port and path
+- **Debugging.** *Publish the debugpy port* (Runtime tab – with or without
+  the server, for a script or test run started in the terminal) publishes
+  port 5678 on a host port; the IDE tab shows host, port and path
   mapping plus command lines that start debugpy in front of the usual
   servers. Only the port is published – `pip install debugpy` in the
   `.venv` and start it yourself (`python -m debugpy --listen
