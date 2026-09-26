@@ -595,11 +595,13 @@ downloaded once for all projects.
   process, restarted automatically and published on a host port of its
   own. The server reads its port from `$PORT` (default 8080; `HOST` is
   `0.0.0.0`). **Development** mode runs air, which rebuilds and restarts
-  the server on every change of a `.go` file – a `.air.toml` in the project
-  replaces Envoryx's settings. **Production build** builds once at
-  container start and runs the binary; restart the project after changes.
-  Binaries are built to `/tmp/envoryx-go` inside the container, never into
-  the project directory. `GIN_MODE` follows the mode (`debug`/`release`).
+  the server on every change of a `.go` file. **Production build** builds
+  once at container start and runs the binary; restart the project after
+  changes. Binaries are built to `/tmp/envoryx-go` inside the container,
+  never into the project directory. A `.air.toml` in the project replaces
+  Envoryx's air settings entirely – build command, output directory (air's
+  default is `./tmp` in the project) and, with Delve, how the binary starts:
+  its `build.full_bin` then has to run `dlv exec` itself. `GIN_MODE` follows the mode (`debug`/`release`).
 - **Routing.** Without PHP and without a Python server the Go server is the
   application: the proxy routes `https://<project>.<base>` and every extra
   domain to `envoryx-<project>-go:<port>`, the web container's host port
@@ -607,7 +609,7 @@ downloaded once for all projects.
   or a Python server the Go server only has its host port – an API next to
   the main application. A Node dev server next to Go keeps
   `<project>-dev.<base>`.
-- **Cold start.** Until the project has a `go.mod` the container waits (log
+- **Cold start.** Until the project has a `go.mod` the server container waits (log
   line `envoryx: waiting for go.mod …`) instead of crash-looping. Pick a
   template, clone a repository or run `go mod init` in the Go terminal.
 - **Templates.** *Go (net/http)* (standard library only), *Gin* and *Echo*
@@ -618,8 +620,9 @@ downloaded once for all projects.
   `go vet ./...`, `gofmt -l .`, `go mod tidy`, `go mod download` and `go
   generate ./...`. The Tests tab runs `go test ./...` through gotestsum
   (with a JUnit report, so failures show per test). Worker preset *Go
-  program* (`go run <package>`); cron jobs run in the Go container like in
-  the others.
+  program* builds a package and runs the binary (not `go run`, which would
+  swallow the stop signal); cron jobs run in the Go container like in the
+  others.
 - **Debugging.** *Debug with Delve* runs the server under a headless Delve
   (`dlv exec --headless --accept-multiclient --continue`, port 2345 by
   default) built without optimisations, and publishes that port on a host
@@ -628,7 +631,11 @@ downloaded once for all projects.
   `mode: remote`, `substitutePath` from your folder to `/var/www/html`)
   with the host and port from the IDE tab. Without the server only the port
   is published – for `dlv test --headless --listen=:2345 ./pkg/...` or `dlv
-  debug` started in the Go terminal.
+  debug` started in the Go terminal. Delve has no authentication: whoever
+  reaches the port can run any code in the container, and with the server
+  it listens as long as the switch is on – not only while an IDE is
+  attached. Switch it off when you are not debugging, and do not enable it
+  on a Docker host reachable from untrusted networks.
 - **Adding or removing Go later.** The Runtime tab's Go card has an *Enable
   Go* switch; removing it takes the Go container and the Go workers'
   containers down – files and worker definitions stay. Over the API:
@@ -1288,9 +1295,9 @@ The API: `GET /projects/{id}/share`, `POST /projects/{id}/share`
 
 ## Package cache
 
-Composer, npm, Yarn, pip and uv keep their downloads in one cache that every
-project shares: `/config/cache`, mounted at `/var/cache/envoryx` into the PHP,
-Node and Python containers, the workers and the one-shot containers that
+Composer, npm, Yarn, pip, uv and Go (modules and build cache) keep their
+downloads in one cache that every project shares: `/config/cache`, mounted at
+`/var/cache/envoryx` into the PHP, Node, Python and Go containers, the workers and the one-shot containers that
 scaffold a template. A package is downloaded once, whichever project asks for
 it next – the second Laravel project is created in a fraction of the time of
 the first. The variables that point the tools there (`COMPOSER_CACHE_DIR`,
@@ -1453,7 +1460,7 @@ Workers tab: add long-running processes from a preset list – Laravel
 Reverb, Symfony `messenger:consume` (transports) and Scheduler, a PHP script
 or a composer script (PHP image); npm scripts and Node scripts (Node
 image); Python scripts and modules, Django management commands, Celery
-worker and beat (Python image); Go packages with `go run` (Go image). Every worker is its own container
+worker and beat (Python image); Go programs of the module (Go image). Every worker is its own container
 (`envoryx-<project>-worker-<name>`) from the image of the runtime its
 preset names, runs as `PUID:PGID` with the project's environment (and
 php.ini for PHP, the venv `PATH` for Python), restarts automatically
@@ -1609,9 +1616,9 @@ template (`django`, `flask`, `fastapi`) which fills the server defaults.
 Example prompt: *"Create a FastAPI project called inventory-api with
 PostgreSQL, no PHP, then run pip install."*
 
-Go projects: pass `phpVersion: "none"` plus `goVersion` and `goServer: true`
-(optional `goPackage`, `goPort`, `goMode`), or a Go template (`go`, `gin`,
-`echo`). `serves` is `go` then.
+Go projects: pass `phpVersion: "none"` and `goVersion`, plus `goServer: true`
+(optional `goPackage`, `goPort`, `goMode`) or a Go template (`go`, `gin`,
+`echo`), which switches the server on. `serves` is `go` then.
 
 ### Scripting the REST API
 

@@ -125,14 +125,14 @@ export function TestsTab({ project }: { project: Project }) {
                 <FlaskConical className="size-4 text-accent-500" aria-hidden /> {t("Test suites")}
               </span>
             }
-            description={t("Found in the project: PHPUnit and Pest, the test scripts of package.json, Playwright, Cypress, pytest and Django. They run in the runtime container as the project owner.")}
+            description={t("Found in the project: PHPUnit and Pest, the test scripts of package.json, Playwright, Cypress, pytest, Django and go test. They run in the runtime container as the project owner.")}
           />
           {q.isPending ? (
             <Spinner />
           ) : q.isError ? (
             <ErrorState message={errorText(q.error, t)} />
           ) : q.data.suites.length === 0 ? (
-            <p className="p-5 text-sm text-muted">{t("No test suite found. Envoryx looks for vendor/bin/phpunit or pest, test scripts in package.json, a Playwright or Cypress configuration, pytest and manage.py.")}</p>
+            <p className="p-5 text-sm text-muted">{t("No test suite found. Envoryx looks for vendor/bin/phpunit or pest, test scripts in package.json, a Playwright or Cypress configuration, pytest, manage.py and go.mod.")}</p>
           ) : (
             <ul className="divide-y divide-[var(--border)]">
               {q.data.suites.map((s) => (

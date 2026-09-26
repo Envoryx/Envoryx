@@ -121,7 +121,7 @@ export function DomainsTab({ project }: { project: Project }) {
       <ProxyRulesCard project={project} />
 
       <Card>
-        <CardHeader title={t("Direct access")} description={serves === "node" ? t("The dev server port published on the Docker host. Works without DNS or the proxy.") : t("The web server port published on the Docker host. Works without DNS or the proxy.")} />
+        <CardHeader title={t("Direct access")} description={serves === "node" ? t("The dev server port published on the Docker host. Works without DNS or the proxy.") : serves === "python" || serves === "go" ? t("The application server port published on the Docker host. Works without DNS or the proxy.") : t("The web server port published on the Docker host. Works without DNS or the proxy.")} />
         <div className="p-5 text-sm">
           {direct ? (
             <a href={direct} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-mono text-xs text-accent-600 hover:underline dark:text-accent-300">

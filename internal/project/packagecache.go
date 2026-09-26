@@ -13,7 +13,7 @@ import (
 
 // PackageCacheEntry is the part of the shared package cache one tool keeps.
 type PackageCacheEntry struct {
-	Tool  string `json:"tool"` // composer, npm, yarn, pnpm, pip, uv
+	Tool  string `json:"tool"` // composer, npm, yarn, pnpm, pip, uv, gomod, gobuild
 	Bytes int64  `json:"bytes"`
 }
 

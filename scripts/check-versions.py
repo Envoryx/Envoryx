@@ -28,7 +28,8 @@ PRODUCTS = {
              "stable": "{c}-bookworm-slim", "preview": None, "base_stable": "{c}-bookworm-slim", "base_preview": None, "label": "node"},
     "python": {"file": "python_versions.json", "eol_api": "https://endoflife.date/api/python.json", "hub": "python", "min": (3, 10),
                "stable": "{c}-slim-bookworm", "preview": "{c}-rc-slim-bookworm", "base_stable": "{c}-slim-bookworm", "base_preview": "{c}-rc-slim-bookworm", "label": None},
-    # Go supports its two newest releases; release candidates have no cycle tag to follow.
+    # Go supports its two newest releases (older ones stay, marked eol, like the other
+    # runtimes); release candidates have no cycle tag to follow.
     "go": {"file": "go_versions.json", "eol_api": "https://endoflife.date/api/go.json", "hub": "golang", "min": (1, 26),
            "stable": "{c}-bookworm", "preview": None, "base_stable": "{c}-bookworm", "base_preview": None, "label": None},
 }

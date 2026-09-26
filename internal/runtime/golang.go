@@ -168,8 +168,13 @@ func (c GoConfig) Command() []string {
 	if c.Debug {
 		air = append(air, "--build.full_bin", shellJoin(c.delveAfterRestart()))
 	}
-	// A project that configures air itself keeps its configuration.
-	return append([]string{"sh", "-c", `if [ -f .air.toml ]; then exec air; fi; exec "$@"`, "envoryx-air"}, air...)
+	// A project that configures air itself keeps its configuration – including how the
+	// binary starts, so Delve runs only when its full_bin starts it.
+	own := `if [ -f .air.toml ]; then exec air; fi; exec "$@"`
+	if c.Debug {
+		own = `if [ -f .air.toml ]; then echo 'envoryx: .air.toml found - it replaces the air settings of Envoryx, so Delve only runs if its build.full_bin starts dlv (see the IDE tab)'; exec air; fi; exec "$@"`
+	}
+	return append([]string{"sh", "-c", own, "envoryx-air"}, air...)
 }
 
 // goProductionScript builds the main package ($2) once and runs it – under a headless

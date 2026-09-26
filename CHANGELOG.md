@@ -24,11 +24,11 @@ release). `:main` follows the development branch.
   server under a headless Delve on a published port for GoLand and VS Code
   (the IDE tab has both configurations); without the server the port serves
   a `dlv` started in the terminal. The module and build caches are shared by
-  all projects.
+  all projects (and listed under *Settings → Package cache*).
 - Go templates *Go (net/http)*, *Gin* and *Echo*; Go actions (`go version`,
   `go build`, `go vet`, `gofmt -l`, `go mod tidy`/`download`, `go generate`);
   the Tests tab runs `go test ./...` through gotestsum; worker preset *Go
-  program* (`go run <package>`); cron jobs, SSH (`<project>.go`), the site
+  program* (builds a package, runs the binary); cron jobs, SSH (`<project>.go`), the site
   import (`go.mod`), `envoryx.yml` (`go:`), the API (`go`), MCP (`goVersion`,
   `goServer`, `goPackage`, `goPort`, `goMode`) and the CLI (`--go`,
   `--go-server`, `--go-package`) cover Go. The image builds and the weekly

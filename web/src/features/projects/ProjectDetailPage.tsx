@@ -381,7 +381,7 @@ function ProjectSettingsCard({ project: p, onRename }: { project: Project; onRen
             hint={
               serves === "node"
                 ? t("Not used while the dev server serves the app; the build output (e.g. dist/) once you turn it off.")
-                : serves === "python"
+                : serves === "python" || serves === "go"
                   ? t("Not used while the application server serves the app; static files (e.g. a collected static/ folder) once you turn it off.")
                   : t("Relative to the project directory")
             }
@@ -596,7 +596,7 @@ function NodeCard({ project: p }: { project: Project }) {
       <CardHeader
         title={t("Node.js")}
         description={
-          serves !== "php"
+          serves === "node" || serves === "static"
             ? t("Application runtime of this project: run your dev server here or build static assets served by the web server. Removing it only removes the container; node_modules stays in the project directory.")
             : t("Toolchain container for asset builds (npm, pnpm, yarn), optionally running your dev server. Removing it only removes the container; node_modules stays in the project directory.")
         }
@@ -655,7 +655,7 @@ function NodeCard({ project: p }: { project: Project }) {
             </Select>
           </Field>
         )}
-        {enabled && <NodeDevServerFields value={dev} onChange={setDev} presets={runtimes.data?.nodePresets ?? defaultNodePresets} primary={serves !== "php"} />}
+        {enabled && <NodeDevServerFields value={dev} onChange={setDev} presets={runtimes.data?.nodePresets ?? defaultNodePresets} primary={serves === "node" || serves === "static"} />}
       </div>
     </Card>
   );

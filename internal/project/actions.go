@@ -88,7 +88,7 @@ var actionCatalog = []Action{
 	{ID: "django:flush", Group: "Django", Label: "manage.py flush", Description: "Remove all data from the database (keeps the schema)", Service: store.ServicePython, Cmd: []string{"python", "manage.py", "flush", "--no-input"}, Requires: []string{"manage.py"}, Destructive: true},
 
 	{ID: "go:version", Group: "Go", Label: "go version", Description: "Show the Go version", Service: store.ServiceGo, Cmd: []string{"go", "version"}},
-	{ID: "go:build", Group: "Go", Label: "go build ./...", Description: "Compile every package of the module (nothing is written)", Service: store.ServiceGo, Cmd: []string{"go", "build", "./..."}, Requires: []string{"go.mod"}},
+	{ID: "go:build", Group: "Go", Label: "go build ./...", Description: "Compile every package of the module (nothing is written)", Service: store.ServiceGo, Cmd: []string{"go", "build", "-o", "/dev/null", "./..."}, Requires: []string{"go.mod"}},
 	{ID: "go:vet", Group: "Go", Label: "go vet ./...", Description: "Report suspicious constructs", Service: store.ServiceGo, Cmd: []string{"go", "vet", "./..."}, Requires: []string{"go.mod"}},
 	{ID: "go:fmt", Group: "Go", Label: "gofmt -l .", Description: "List the files gofmt would change", Service: store.ServiceGo, Cmd: []string{"gofmt", "-l", "."}, Requires: []string{"go.mod"}},
 	{ID: "go:mod-tidy", Group: "Go", Label: "go mod tidy", Description: "Add missing and remove unused module requirements", Service: store.ServiceGo, Cmd: []string{"go", "mod", "tidy"}, Requires: []string{"go.mod"}},

@@ -42,7 +42,7 @@ export function ActionsTab({ project }: { project: Project }) {
   return (
     <div className="grid gap-6 lg:grid-cols-[18rem_1fr]">
       <Card className="self-start">
-        <CardHeader title={t("Actions")} description={t("Predefined commands, run inside the matching runtime container (PHP, Python or Node) as the project owner.")} />
+        <CardHeader title={t("Actions")} description={t("Predefined commands, run inside the matching runtime container (PHP, Python, Go or Node) as the project owner.")} />
         {actions.isPending ? (
           <Spinner />
         ) : actions.isError ? (

@@ -761,7 +761,7 @@ export function NewProjectPage() {
                         onChange={(e) => set({ dbExpose: e.target.checked })}
                       />
                       <p className="text-sm text-muted">
-                        {t("Envoryx generates secure credentials and injects DB_HOST, DB_DATABASE, DB_USERNAME, DB_PASSWORD and DATABASE_URL into the application containers (PHP, Python, Node). Data lives in a persistent Docker volume.")}
+                        {t("Envoryx generates secure credentials and injects DB_HOST, DB_DATABASE, DB_USERNAME, DB_PASSWORD and DATABASE_URL into the application containers (PHP, Python, Go, Node). Data lives in a persistent Docker volume.")}
                       </p>
                     </>
                   )}

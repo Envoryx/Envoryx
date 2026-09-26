@@ -126,7 +126,7 @@ export function IdeTab({ project: p }: { project: Project }) {
               : app === "python"
                 ? t("Run python, pip and pytest inside the project container from your IDE. PyCharm Pro: Settings → Python → Interpreter → Add Interpreter → On SSH…; in the last step “Select existing” with the interpreter path from below, and under Target-Specific Properties Sync folders: the project folder → /var/www/html. VS Code: Remote-SSH. Plain terminal: ssh.")
                 : app === "go"
-                  ? t("Work on the project inside its Go container from your IDE. GoLand: File → Remote Development → SSH (JetBrains Gateway) with the values below opens the project at /var/www/html with the container's go and dlv. VS Code: Remote-SSH, then the Go extension installs gopls and its other tools in the project home. Plain terminal: ssh.")
+                  ? `${t("Work on the project inside its Go container from your IDE. GoLand: File → Remote Development → SSH (JetBrains Gateway) with the values below opens the project at /var/www/html with the container's go and dlv. VS Code: Remote-SSH, then the Go extension installs gopls and its other tools in the project home. Plain terminal: ssh.")} ${t("GoLand and VS Code forward ports over SSH, so switch on “Allow JetBrains Gateway for this project” below first.")}`
                   : t("Run node, npm and your test runner inside the project container from your IDE. WebStorm: Settings → Languages & Frameworks → JavaScript Runtime → Node runtime “…” → “+” → Add Remote… → SSH, then in the run configuration Path mappings: the project folder → /var/www/html. VS Code: Remote-SSH. Plain terminal: ssh.")
           }
         />
@@ -174,7 +174,7 @@ export function IdeTab({ project: p }: { project: Project }) {
               <MonitorSmartphone className="size-4 text-accent-500" aria-hidden /> {t("JetBrains Gateway (optional)")}
             </span>
           }
-          description={t("Run the full PhpStorm/WebStorm backend inside the project container and work with the thin client. Needs a capable server: 2–4 GB RAM and CPU per open project. Nothing runs until you connect.")}
+          description={t("Run the full PhpStorm/WebStorm/GoLand backend inside the project container and work with the thin client. Needs a capable server: 2–4 GB RAM and CPU per open project. Nothing runs until you connect.")}
         />
         <div className="space-y-3 p-5">
           {gwMsg && <Alert tone={gwMsg.tone}>{gwMsg.text}</Alert>}
@@ -348,6 +348,12 @@ export function IdeTab({ project: p }: { project: Project }) {
             <p className="mt-2 text-xs text-subtle">
               {t("GoLand: Run → Edit Configurations → + → Go Remote, host and port from above. VS Code: a launch.json entry of type go with request attach, mode remote, host/port from above and substitutePath from your folder to /var/www/html.")}
             </p>
+            {goCfg.server && goCfg.mode !== "production" && <p className="mt-2 text-xs text-subtle">{t("A .air.toml in the project replaces these settings: then its build.full_bin has to start the binary under dlv itself.")}</p>}
+            {goCfg.debug && (
+              <div className="mt-3">
+                <Alert tone="amber">{t("Delve accepts everyone who reaches the port and can run any code in the container. Switch it off when you are not debugging.")}</Alert>
+              </div>
+            )}
           </div>
         </Card>
       )}
