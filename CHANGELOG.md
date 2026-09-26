@@ -11,6 +11,16 @@ release). `:main` follows the development branch.
 ## [Unreleased]
 
 ### Added
+- External databases and Redis: a database (primary or additional) or Redis
+  can be an existing MariaDB, MySQL, PostgreSQL or Redis server instead of a
+  container of the project – *On an external server* in the wizard, the
+  Database tab and the Services tab, `external` in the API and in
+  `envoryx.yml` (without the password). The connection is tested before it is
+  stored (and with *Test connection* beforehand); `host.docker.internal`
+  reaches a server on the Docker host. Backups, snapshots, restores, cloning,
+  the site import and Adminer work against the server; Envoryx never drops
+  databases there, never changes its password and only forgets the connection
+  when it is removed. A duplicate gets local containers with the data.
 - Ollama as a project service for local LLMs (*Services*, the wizard,
   `--ollama`, MCP, `ollama:` in `envoryx.yml`). The application gets
   `OLLAMA_HOST`, `OLLAMA_BASE_URL` and `OLLAMA_URL`. All projects share one model

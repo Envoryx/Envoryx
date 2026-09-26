@@ -1,10 +1,10 @@
 import { clsx } from "clsx";
-import { Check, Copy, Database, Eye, EyeOff, ExternalLink, KeyRound, Plus, Trash2, X } from "lucide-react";
+import { Check, Copy, Database, Eye, EyeOff, ExternalLink, KeyRound, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useState, type FormEvent } from "react";
 import { api } from "@/api/client";
 import { useDatabaseInfo, useDatabaseList, useDatabaseMutations, useDBTool, useOpenDBTool, usePublicHost, useRuntimes, useUpdateProject } from "@/api/hooks";
-import type { DatabaseCredentials, Project } from "@/api/types";
+import type { DatabaseCredentials, ExternalDatabase, Project } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Checkbox, Dialog, ErrorState, Field, Input, Select, Spinner, StatusDot } from "@/components/ui";
 import { copyText } from "@/lib/clipboard";
 import { PublicHostNotice } from "@/components/PublicHostNotice";
@@ -12,6 +12,7 @@ import { CloneDatabaseCard, SnapshotsCard } from "./DatabaseSnapshots";
 import { databaseEngineNames, databaseEnvPrefix, databaseNamePattern, databaseServices } from "./databases";
 import { containerStateTone } from "@/lib/format";
 import { errorText } from "@/lib/errors";
+import { emptyExternalDatabase, externalDatabaseComplete, ExternalDatabaseFields, externalDatabaseTypes } from "./ExternalConnection";
 
 export function CopyButton({ value, label }: { value: string; label: string }) {
   const { t } = useTranslation();
@@ -66,9 +67,12 @@ function AddDatabaseCard({ project, onAdded, onCancel }: { project: Project; onA
   const [type, setType] = useState("mariadb");
   const [version, setVersion] = useState("");
   const [expose, setExpose] = useState(false);
+  const [external, setExternal] = useState(false);
+  const [conn, setConn] = useState<ExternalDatabase>(emptyExternalDatabase);
   const [error, setError] = useState<string | null>(null);
-  const dbs = runtimes.data?.runtimes.filter((r) => r.kind === "database" && r.available) ?? [];
+  const dbs = runtimes.data?.runtimes.filter((r) => r.kind === "database" && r.available && (!external || externalDatabaseTypes.includes(r.key))) ?? [];
   const selected = dbs.find((d) => d.key === type);
+  const chosenVersion = version || selected?.versions.find((v) => v.default)?.version || "";
   const trimmed = name.trim();
   const nameError =
     trimmed && !databaseNamePattern.test(trimmed)
@@ -100,6 +104,16 @@ function AddDatabaseCard({ project, onAdded, onCancel }: { project: Project; onA
             <Input id="add-db-name" value={name} onChange={(e) => setName(e.target.value.toLowerCase())} placeholder="analytics" spellCheck={false} autoComplete="off" />
           </Field>
         )}
+        <div className="flex flex-wrap gap-4" role="radiogroup" aria-label={t("Where the database runs")}>
+          <label className="inline-flex items-center gap-2 text-sm">
+            <input type="radio" name="add-db-where" checked={!external} onChange={() => setExternal(false)} />
+            {t("In a container of the project")}
+          </label>
+          <label className="inline-flex items-center gap-2 text-sm">
+            <input type="radio" name="add-db-where" checked={external} onChange={() => { setExternal(true); if (!externalDatabaseTypes.includes(type)) setType("mariadb"); }} />
+            {t("On an external server")}
+          </label>
+        </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label={t("Type")} htmlFor="add-db-type">
             <Select id="add-db-type" value={type} onChange={(e) => { setType(e.target.value); setVersion(""); }}>
@@ -110,8 +124,8 @@ function AddDatabaseCard({ project, onAdded, onCancel }: { project: Project; onA
               ))}
             </Select>
           </Field>
-          <Field label={t("Version")} htmlFor="add-db-version">
-            <Select id="add-db-version" value={version || selected?.versions.find((v) => v.default)?.version || ""} onChange={(e) => setVersion(e.target.value)}>
+          <Field label={t("Version")} htmlFor="add-db-version" hint={external ? t("Picks the client tools for backups and the connection; choose the server's major version.") : undefined}>
+            <Select id="add-db-version" value={chosenVersion} onChange={(e) => setVersion(e.target.value)}>
               {selected?.versions.map((v) => (
                 <option key={v.version} value={v.version}>
                   {v.label}
@@ -120,16 +134,20 @@ function AddDatabaseCard({ project, onAdded, onCancel }: { project: Project; onA
             </Select>
           </Field>
         </div>
-        <Checkbox label={t("Publish database port on the host")} description={t("For external clients such as TablePlus or DBeaver.")} checked={expose} onChange={(e) => setExpose(e.target.checked)} />
+        {external ? (
+          <ExternalDatabaseFields id="add-db-ext" type={type} version={chosenVersion} value={conn} onChange={setConn} />
+        ) : (
+          <Checkbox label={t("Publish database port on the host")} description={t("For external clients such as TablePlus or DBeaver.")} checked={expose} onChange={(e) => setExpose(e.target.checked)} />
+        )}
         <div className="flex flex-wrap gap-2">
           <Button
             variant="primary"
             icon={<Plus className="size-4" />}
             loading={update.isPending}
-            disabled={!selected || !!nameError || needsName}
+            disabled={!selected || !!nameError || needsName || (external && !externalDatabaseComplete(conn))}
             onClick={() => {
               setError(null);
-              const spec = { enabled: true, type, version: version || selected?.versions.find((v) => v.default)?.version || "", exposePort: expose };
+              const spec = external ? { enabled: true, type, version: chosenVersion, external: conn } : { enabled: true, type, version: chosenVersion, exposePort: expose };
               update.mutate(trimmed ? { databases: { [trimmed]: spec } } : { database: spec }, {
                 onSuccess: () => onAdded(trimmed),
                 onError: (err) => setError(errorText(err, t, t("Adding the database failed"))),
@@ -196,7 +214,10 @@ function DatabasePanel({ project, db, onRemoved }: { project: Project; db: strin
   const dbTool = useDBTool();
   const openTool = useOpenDBTool(project.id);
   const running = info.data?.state === "running";
-  const list = useDatabaseList(project.id, running, db);
+  // An external server is there whether or not the project runs.
+  const external = !!info.data?.external;
+  const usable = running || external;
+  const list = useDatabaseList(project.id, usable, db);
 
   const [creds, setCreds] = useState<DatabaseCredentials | null>(null);
   const [credsError, setCredsError] = useState<string | null>(null);
@@ -207,6 +228,8 @@ function DatabasePanel({ project, db, onRemoved }: { project: Project; db: strin
   const [removeConfirm, setRemoveConfirm] = useState("");
   const [msg, setMsg] = useState<{ tone: "green" | "red"; text: string } | null>(null);
   const [version, setVersion] = useState<string | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const [conn, setConn] = useState<ExternalDatabase>(emptyExternalDatabase);
 
   if (info.isPending) return <Spinner />;
   if (info.isError) return <ErrorState message={errorText(info.error, t)} />;
@@ -252,9 +275,11 @@ function DatabasePanel({ project, db, onRemoved }: { project: Project; db: strin
               </span>
             }
             description={
-              db
-                ? t("Inside the project network at the host “{{host}}”. The application containers (PHP, Python, Node) receive these values as {{prefix}}_DB_* and {{prefix}}_DATABASE_URL.", { host: d.host, prefix: databaseEnvPrefix(db) })
-                : t("Inside the project network. These values are injected into the application containers (PHP, Python, Node).")
+              external
+                ? t("An external server Envoryx does not run. These values are injected into the application containers (PHP, Python, Node).")
+                : db
+                  ? t("Inside the project network at the host “{{host}}”. The application containers (PHP, Python, Node) receive these values as {{prefix}}_DB_* and {{prefix}}_DATABASE_URL.", { host: d.host, prefix: databaseEnvPrefix(db) })
+                  : t("Inside the project network. These values are injected into the application containers (PHP, Python, Node).")
             }
             actions={
               <span className="inline-flex items-center gap-1.5 text-xs">
@@ -288,23 +313,36 @@ function DatabasePanel({ project, db, onRemoved }: { project: Project; db: strin
           </dl>
           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-default px-5 py-3">
             <p className="text-xs text-subtle">{t("Injected")}: {d.injectedEnv.map((k) => k).join(", ")}</p>
-            <Button
-              size="sm"
-              icon={<KeyRound className="size-3.5" />}
-              loading={rotate.isPending}
-              disabled={!running}
-              title={running ? t("Generate a new password for the project user") : t("Start the project to rotate the password")}
-              onClick={() => {
-                setMsg(null);
-                setCreds(null);
-                rotate.mutate(undefined, {
-                  onSuccess: () => setMsg({ tone: "green", text: t("Password rotated. The application containers were recreated with the new credentials.") }),
-                  onError: (err) => fail(err, t("Rotation failed")),
-                });
-              }}
-            >
-              {t("Rotate password")}
-            </Button>
+            {external ? (
+              <Button
+                size="sm"
+                icon={<Pencil className="size-3.5" />}
+                onClick={() => {
+                  setConn({ host: d.host, port: d.port, username: d.username, password: "", database: d.database });
+                  setEditOpen(true);
+                }}
+              >
+                {t("Edit connection")}
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                icon={<KeyRound className="size-3.5" />}
+                loading={rotate.isPending}
+                disabled={!running}
+                title={running ? t("Generate a new password for the project user") : t("Start the project to rotate the password")}
+                onClick={() => {
+                  setMsg(null);
+                  setCreds(null);
+                  rotate.mutate(undefined, {
+                    onSuccess: () => setMsg({ tone: "green", text: t("Password rotated. The application containers were recreated with the new credentials.") }),
+                    onError: (err) => fail(err, t("Rotation failed")),
+                  });
+                }}
+              >
+                {t("Rotate password")}
+              </Button>
+            )}
           </div>
         </Card>
 
@@ -323,9 +361,9 @@ function DatabasePanel({ project, db, onRemoved }: { project: Project; db: strin
                   <Button
                     size="sm"
                     icon={<ExternalLink className="size-3.5" />}
-                    disabled={!dbTool.data.enabled || !running}
+                    disabled={!dbTool.data.enabled || !usable}
                     loading={openTool.isPending}
-                    title={!running ? t("Start the project first") : undefined}
+                    title={!usable ? t("Start the project first") : undefined}
                     onClick={() => {
                       setMsg(null);
                       openTool.mutate(db, {
@@ -342,16 +380,20 @@ function DatabasePanel({ project, db, onRemoved }: { project: Project; db: strin
                   </Button>
                 </div>
               )}
-              <Checkbox
-                label={t("Publish port on the host")}
-                description={d.hostPort ? t("Reachable at {{address}}", { address: `${externalHost}:${d.hostPort}` }) : t("A free port from the project port range is assigned automatically.")}
-                checked={d.hostPort > 0}
-                disabled={expose.isPending}
-                onChange={(e) => {
-                  setMsg(null);
-                  expose.mutate(e.target.checked, { onError: (err) => fail(err, t("Changing the port failed")) });
-                }}
-              />
+              {external ? (
+                <p className="text-sm text-muted">{t("Connect your client to the server itself, at {{address}}.", { address: `${d.host === "host.docker.internal" ? externalHost : d.host}:${d.port}` })}</p>
+              ) : (
+                <Checkbox
+                  label={t("Publish port on the host")}
+                  description={d.hostPort ? t("Reachable at {{address}}", { address: `${externalHost}:${d.hostPort}` }) : t("A free port from the project port range is assigned automatically.")}
+                  checked={d.hostPort > 0}
+                  disabled={expose.isPending}
+                  onChange={(e) => {
+                    setMsg(null);
+                    expose.mutate(e.target.checked, { onError: (err) => fail(err, t("Changing the port failed")) });
+                  }}
+                />
+              )}
               {d.hostPort > 0 && (
                 <dl>
                   <CopyRow label={t("Host")} value={externalHost} />
@@ -365,7 +407,7 @@ function DatabasePanel({ project, db, onRemoved }: { project: Project; db: strin
             <CardHeader title={t("Server")} />
             <div className="space-y-4 p-5">
               <div className="flex items-end gap-2">
-                <Field label={t("{{engine}} version", { engine: ({ mariadb: "MariaDB", mysql: "MySQL", postgresql: "PostgreSQL", mongodb: "MongoDB" } as Record<string, string>)[d.type] ?? d.type })} htmlFor="db-version" hint={d.type === "postgresql" ? t("PostgreSQL cannot upgrade an existing data directory in place.") : d.type === "mongodb" ? t("MongoDB upgrades one major version at a time; a database backup is taken automatically first.") : t("Upgrades keep the data volume and take a database backup first; downgrades are refused.")}>
+                <Field label={t("{{engine}} version", { engine: ({ mariadb: "MariaDB", mysql: "MySQL", postgresql: "PostgreSQL", mongodb: "MongoDB" } as Record<string, string>)[d.type] ?? d.type })} htmlFor="db-version" hint={external ? t("Picks the client tools for backups and the connection; choose the server's major version.") : d.type === "postgresql" ? t("PostgreSQL cannot upgrade an existing data directory in place.") : d.type === "mongodb" ? t("MongoDB upgrades one major version at a time; a database backup is taken automatically first.") : t("Upgrades keep the data volume and take a database backup first; downgrades are refused.")}>
                   <Select id="db-version" value={currentVersion} onChange={(e) => setVersion(e.target.value)}>
                     {versions.map((v) => (
                       <option key={v.version} value={v.version}>
@@ -383,7 +425,7 @@ function DatabasePanel({ project, db, onRemoved }: { project: Project; db: strin
                     const spec = { enabled: true, version: currentVersion, exposePort: d.hostPort > 0 };
                     update.mutate(
                       db ? { databases: { [db]: spec } } : { database: spec },
-                      { onSuccess: () => { setVersion(null); setMsg({ tone: "green", text: t("Version changed. The database container was recreated.") }); }, onError: (err) => fail(err, t("Version change failed")) },
+                      { onSuccess: () => { setVersion(null); setMsg({ tone: "green", text: external ? t("Client version changed.") : t("Version changed. The database container was recreated.") }); }, onError: (err) => fail(err, t("Version change failed")) },
                     );
                   }}
                 >
@@ -392,10 +434,10 @@ function DatabasePanel({ project, db, onRemoved }: { project: Project; db: strin
               </div>
               <dl className="text-sm">
                 <CopyRow label={t("Image")} value={d.image} />
-                <CopyRow label={t("Volume")} value={d.volumeName} />
+                {!external && <CopyRow label={t("Volume")} value={d.volumeName} />}
               </dl>
               <Button variant="ghost" size="sm" className="text-red-600 dark:text-red-400" icon={<Trash2 className="size-3.5" />} onClick={() => setRemoveOpen(true)}>
-                {t("Remove database and data")}
+                {external ? t("Remove connection") : t("Remove database and data")}
               </Button>
             </div>
           </Card>
@@ -406,9 +448,12 @@ function DatabasePanel({ project, db, onRemoved }: { project: Project; db: strin
       <CloneDatabaseCard project={project} database={d} onMessage={setMsg} />
 
       <Card>
-        <CardHeader title={t("Databases")} description={t("Databases on this server. The project user “{{user}}” gets full access to databases created here.", { user: d.username })} />
+        <CardHeader
+          title={t("Databases")}
+          description={external ? t("Databases on the external server that “{{user}}” can see. Envoryx creates databases there but never drops any.", { user: d.username }) : t("Databases on this server. The project user “{{user}}” gets full access to databases created here.", { user: d.username })}
+        />
         <div className="p-5">
-          {!running ? (
+          {!usable ? (
             <p className="text-sm text-muted">{t("Start the project to manage databases.")}</p>
           ) : list.isPending ? (
             <Spinner />
@@ -422,7 +467,7 @@ function DatabasePanel({ project, db, onRemoved }: { project: Project; db: strin
                     {name}
                     {name === d.database && <Badge className="ml-2">{t("primary")}</Badge>}
                   </span>
-                  {name !== d.database && (
+                  {name !== d.database && !external && (
                     <Button variant="ghost" size="sm" aria-label={t("Drop {{name}}", { name })} onClick={() => { setDropTarget(name); setDropConfirm(""); }}>
                       <Trash2 className="size-4" />
                     </Button>
@@ -431,7 +476,7 @@ function DatabasePanel({ project, db, onRemoved }: { project: Project; db: strin
               ))}
             </ul>
           )}
-          {running && (
+          {usable && (
             <form onSubmit={createDb} className="mt-4 flex items-end gap-2">
               <Field label={t("New database")} htmlFor="new-db" hint={t("Lower-case letters, digits and underscores.")}>
                 <Input id="new-db" value={newName} onChange={(e) => setNewName(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""))} placeholder="reports" spellCheck={false} />
@@ -475,7 +520,60 @@ function DatabasePanel({ project, db, onRemoved }: { project: Project; db: strin
       </Dialog>
 
       <Dialog
-        open={removeOpen}
+        open={removeOpen && external}
+        onClose={() => setRemoveOpen(false)}
+        title={t("Remove the connection?")}
+        description={t("Envoryx forgets the connection to {{address}}; the server and its data are not touched. The application containers are recreated without these database variables.", { address: `${d.host}:${d.port}` })}
+        footer={
+          <>
+            <Button onClick={() => setRemoveOpen(false)}>{t("Cancel")}</Button>
+            <Button
+              variant="danger"
+              loading={update.isPending}
+              icon={<Trash2 className="size-4" />}
+              onClick={() =>
+                update.mutate(db ? { databases: { [db]: { enabled: false } } } : { database: { enabled: false } }, {
+                  onSuccess: () => { setRemoveOpen(false); onRemoved(); },
+                  onError: (err) => { setRemoveOpen(false); fail(err, t("Removing the database failed")); },
+                })
+              }
+            >
+              {t("Remove connection")}
+            </Button>
+          </>
+        }
+      />
+
+      <Dialog
+        open={editOpen}
+        onClose={() => setEditOpen(false)}
+        title={t("Edit connection")}
+        description={t("The new connection is tested before it is stored; the application containers are then recreated with it.")}
+        footer={
+          <>
+            <Button onClick={() => setEditOpen(false)}>{t("Cancel")}</Button>
+            <Button
+              variant="primary"
+              disabled={!externalDatabaseComplete(conn, true)}
+              loading={update.isPending}
+              onClick={() => {
+                const spec = { enabled: true, version: d.version, external: conn };
+                update.mutate(db ? { databases: { [db]: spec } } : { database: spec }, {
+                  onSuccess: () => { setEditOpen(false); setCreds(null); setMsg({ tone: "green", text: t("Connection saved. The application containers were recreated with it.") }); },
+                  onError: (err) => { setEditOpen(false); fail(err, t("Saving the connection failed")); },
+                });
+              }}
+            >
+              {t("Save")}
+            </Button>
+          </>
+        }
+      >
+        <ExternalDatabaseFields id={`edit-db-${db || "primary"}`} type={d.type} version={d.version} value={conn} onChange={setConn} passwordOptional />
+      </Dialog>
+
+      <Dialog
+        open={removeOpen && !external}
         onClose={() => setRemoveOpen(false)}
         title={t("Remove database service?")}
         description={t("This stops and removes the database container {{container}} and deletes the volume {{volume}} with all data. The application containers are recreated without database variables.", { container: `envoryx-${project.slug}-${d.service || "database"}`, volume: d.volumeName })}

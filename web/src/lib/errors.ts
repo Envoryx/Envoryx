@@ -85,6 +85,14 @@ const templates = [
   "\"{{name}}\" is not a model name (e.g. llama3.2 or qwen3:8b)",
   "{{model}} is already being downloaded",
   "no download of {{model}} is running",
+  "{{host}} is the container itself; a server on the Docker host is reached as host.docker.internal",
+  "cannot connect to {{type}} at {{address}} as {{user}}",
+  "{{type}} at {{address}} has no database \"{{name}}\" that {{user}} can see",
+  "cannot connect to Redis at {{address}}",
+  "cannot use the external database at {{address}}",
+  "{{service}} runs in a container of the project; remove it first to connect an external server instead",
+  "port {{port}} is out of range",
+  "{{file}} connects to an external server, and its password is never in the file; create the project without the manifest and add the connection in Envoryx",
 ];
 
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

@@ -61,12 +61,16 @@ export function IdeTab({ project: p }: { project: Project }) {
   </component>
 </project>`;
 
-  const jdbc = (d: DatabaseInfo) =>
+  // Where a workstation reaches a database: an external server at its own address (the
+  // Docker host's for host.docker.internal), the project's container through the published port.
+  const reach = (d: DatabaseInfo): { host: string; port: number } | null =>
+    d.external ? { host: d.host === "host.docker.internal" ? host : d.host, port: d.port } : d.hostPort ? { host, port: d.hostPort } : null;
+  const jdbc = (d: DatabaseInfo, r: { host: string; port: number }) =>
     d.type === "postgresql"
-      ? `jdbc:postgresql://${host}:${d.hostPort || 5432}/${d.database}`
+      ? `jdbc:postgresql://${r.host}:${r.port}/${d.database}`
       : d.type === "mongodb"
-        ? `mongodb://${d.username}@${host}:${d.hostPort || 27017}/${d.database}?authSource=admin`
-        : `jdbc:${d.type === "mysql" ? "mysql" : "mariadb"}://${host}:${d.hostPort || 3306}/${d.database}`;
+        ? `mongodb://${d.username}@${r.host}:${r.port}/${d.database}?authSource=admin`
+        : `jdbc:${d.type === "mysql" ? "mysql" : "mariadb"}://${r.host}:${r.port}/${d.database}`;
 
   return (
     <div className="space-y-6">
@@ -316,17 +320,17 @@ export function IdeTab({ project: p }: { project: Project }) {
                   {d.name && <span className="font-mono text-sm text-muted">{d.name}</span>}
                 </span>
               }
-              description={d.hostPort ? t("Connect from your machine through the published port.") : t("Publish the database port in the Database tab to connect from your machine.")}
+              description={d.external ? t("An external server: connect to it directly.") : d.hostPort ? t("Connect from your machine through the published port.") : t("Publish the database port in the Database tab to connect from your machine.")}
             />
             <div className="p-5">
               <dl>
                 <CopyRow label={t("Type")} value={d.type} mono={false} />
-                <CopyRow label={t("Host")} value={host} />
-                <CopyRow label={t("Port")} value={d.hostPort ? String(d.hostPort) : t("not published")} />
+                <CopyRow label={t("Host")} value={reach(d)?.host ?? host} />
+                <CopyRow label={t("Port")} value={reach(d) ? String(reach(d)!.port) : t("not published")} />
                 <CopyRow label={t("Database")} value={d.database} />
                 <CopyRow label={t("User")} value={d.username} />
                 <CopyRow label={t("Password")} value={t("<Database tab → Credentials>")} mono={false} />
-                {d.hostPort ? <CopyRow label="URL" value={jdbc(d)} /> : null}
+                {reach(d) ? <CopyRow label="URL" value={jdbc(d, reach(d)!)} /> : null}
               </dl>
             </div>
           </Card>

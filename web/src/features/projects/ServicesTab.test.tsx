@@ -181,3 +181,44 @@ describe("ServicesTab Ollama", () => {
     expect(await screen.findByText("Start the project to download and manage models.")).toBeInTheDocument();
   });
 });
+
+describe("ServicesTab external Redis", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("adds an external Redis without a container's options", async () => {
+    const api = mockApi({
+      ...authedRoutes,
+      "GET /runtimes": () => ({ body: runtimesFixture }),
+      [`GET ${P}/extras`]: () => ({ body: { services: [] } }),
+      [`GET ${P}/storage`]: () => ({ status: 404, body: { error: { code: "not_found", message: "no storage" } } }),
+      [`PATCH ${P}`]: () => ({ body: { project: makeProject() } }),
+    });
+    renderApp(<ServicesTab project={makeProject()} />);
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole("radio", { name: "On an external server" }));
+    const publish = screen.getAllByLabelText("Publish port on the host").length;
+    await user.type(screen.getByLabelText("Host"), "cache.lan");
+    await user.type(screen.getByLabelText("Password (optional)"), "s3cret");
+    await user.click(screen.getByRole("button", { name: "Add Redis" }));
+    await waitFor(() => expect(api.calls.some((c) => c.method === "PATCH")).toBe(true));
+    expect((api.calls.find((c) => c.method === "PATCH")!.body as { redis: unknown }).redis).toEqual({ enabled: true, external: { host: "cache.lan", port: 0, password: "s3cret" } });
+    expect(publish).toBe(5); // Redis's card lost its publish checkbox
+  });
+
+  it("shows an external Redis with its address and a connection to edit", async () => {
+    const redis = { kind: "redis", version: "8", image: "redis:8-alpine", host: "cache.lan", port: 6380, hostPort: 0, injectedEnv: ["REDIS_HOST", "REDIS_PASSWORD", "REDIS_PORT", "REDIS_URL"], state: "external", external: true };
+    mockApi({
+      ...authedRoutes,
+      "GET /runtimes": () => ({ body: runtimesFixture }),
+      [`GET ${P}/extras`]: () => ({ body: { services: [redis] } }),
+      [`GET ${P}/storage`]: () => ({ status: 404, body: { error: { code: "not_found", message: "no storage" } } }),
+    });
+    renderApp(<ServicesTab project={makeProject()} />);
+    expect(await screen.findByText("cache.lan:6380")).toBeInTheDocument();
+    expect(screen.getByText("external – Envoryx does not run it")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Edit connection" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove connection" })).toBeInTheDocument();
+  });
+});
+

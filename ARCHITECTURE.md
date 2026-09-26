@@ -848,6 +848,41 @@ Before it is stored, `checkGPU` starts a throwaway container from the image with
 GPUs, so a host without the NVIDIA Container Toolkit gets `docker.ErrNoGPU` (409
 `gpu_unavailable`) instead of an Ollama that no longer starts.
 
+External services: a database (primary or additional) or Redis whose config carries
+`host`/`port` (`DatabaseConfig.External()`, `ServiceConfig.External()`) is a server
+Envoryx does not run. The planner skips its container and volume, points the dbGuard at
+the server and gives every container of the project
+`host.docker.internal:host-gateway` (in the spec fingerprint only when present), so a
+server on the Docker host is reachable on Linux too. `DatabaseEnvFor` injects the
+server's address and escapes the credentials in `DATABASE_URL` (url.UserPassword;
+generated credentials come out unchanged), `RedisEnv` adds `REDIS_PASSWORD`. The
+dialects log in as root on 127.0.0.1 for the project's own container and as the
+project's user on the server for an external one (`mysqlLogin`/`pgLogin`; the
+container commands are byte-for-byte what they were); mysqldump then leaves out
+`--events` and adds `--no-tablespaces`, privileges a hosted user rarely has. Every
+client call goes through `runSQL` (statements) or `dbStream` (dumps, restores, the
+site import, `streamDump`): an exec in the container, or for an external server a
+transient container from the database image (`RunOneShot`, or `RunOneShotStream` –
+`docker run --rm -i` with an attached stdin – for streams) on the default network
+with the host gateway, labelled service `dbclient`. `withServiceRunning` passes an
+external service straight through, `waitForDatabase` asks once instead of waiting,
+and the status lists it as state `external` without counting it; `dbclient` and the
+other short-lived helpers (`git`, `template`, `move`, `gpucheck`) are neither stray
+services nor stopped or removed with the project's containers. The connection is
+tested (`checkExternalDatabase`: login and the database visible in `ListDatabases`;
+`checkExternalRedis`: `redis-cli ping` with `REDISCLI_AUTH`) before create or an
+update stores it, and `POST /external/test` (admin) tries one beforehand. Dropping
+databases, rotating the password and publishing a port are refused; creating a
+database skips the GRANT; removing the service only deletes the record; a rename
+keeps the server's names; `DatabaseInfo`/`DatabaseCredentials` carry the server's
+address; Adminer connects to `host:port` (its container has the host gateway too,
+marked by a label so older ones are recreated). A duplicate gets local services
+instead (`duplicateProject` writes fresh container configs, `copyDatabaseOf` then
+streams the external dump into the new container). `envoryx.yml` holds
+`external: {host, port, username, database}` without the password: applying keeps an
+existing connection (changes go through with the stored password) and skips a new one
+with `skipped: "external"`; creating a project from a manifest with one is refused.
+
 ### SSH (`internal/sshd`)
 `golang.org/x/crypto/ssh` server with an Ed25519 host key. Auth resolves the
 user name through `Manager.ResolveSSHUser` (`<slug>` → the application

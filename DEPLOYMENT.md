@@ -1112,6 +1112,46 @@ password rotation, databases on the server, Adminer, snapshots, cloning.
   `"databases": {"analytics": {"enabled": true, "type": "postgresql"}}`
   (`"enabled": false, "removeData": true` removes one with its volume).
 
+## External databases and Redis
+
+Instead of a container of its own, a database – the primary or an additional
+one – or Redis can be a server that already runs elsewhere: the MariaDB on your
+Unraid server, a PostgreSQL in the company network, a managed database. Choose
+*On an external server* in the wizard, when adding a database in the Database
+tab, or when adding Redis in the Services tab, and enter host, port, user,
+password and database. *Test connection* tries it right away; Envoryx tests it
+again before it stores it and says what failed (wrong password, database not
+visible to the user, host unreachable).
+
+- **Supported:** MariaDB, MySQL and PostgreSQL, and Redis (with or without a
+  password). The version you pick selects the client tools Envoryx uses for
+  backups and the connection – choose the server's major version (for
+  PostgreSQL the client must not be older than the server).
+- **A server on the Docker host itself** is reached as
+  `host.docker.internal`; Envoryx adds that name to every container of the
+  project. `localhost` is refused: inside a container it is the container.
+- **The application** gets the same variables as with a container (`DB_HOST`,
+  `DB_PORT`, `DATABASE_URL` … or `ANALYTICS_DB_*`, `REDIS_HOST`, `REDIS_PORT`,
+  `REDIS_URL` and `REDIS_PASSWORD`), pointing at the server; special characters
+  in the password are escaped in the URLs.
+- **What works:** backups, snapshots and restores (a restore overwrites the
+  database on the server, with the usual confirmation), cloning, the site
+  import, Adminer, listing databases and creating new ones.
+- **What Envoryx leaves alone:** it never drops a database on the server,
+  never changes the password (change it on the server, then under *Edit
+  connection*), publishes no port, and removing the database or Redis from the
+  project only forgets the connection. Renaming the project keeps the
+  server's database and user names.
+- **Duplicating** a project gives the copy local containers instead: the
+  database is filled with the external one's data, Redis starts empty. The
+  copy can never change the external server.
+- **`envoryx.yml`** records the connection without the password
+  (`database: {type: mariadb, external: {host: …, port: …, username: …,
+  database: …}}`, `redis: {external: {host: …}}`). Applying a manifest keeps
+  an existing connection and changes it with the stored password; a new
+  external connection is skipped, and creating a project from a manifest that
+  has one is refused – set it up in Envoryx.
+
 ## Running tests
 
 The *Tests* tab of a project lists the test suites Envoryx finds in the
@@ -1665,6 +1705,8 @@ redis: true                      # or {version: "8", exposePort: true}
 mailpit: true                    # also memcached, rabbitmq, meilisearch, typesense,
 opensearch: {dashboards: true}   # opensearch, storage: {publicRead: false}
 ollama: {gpu: true}              # models are not part of the manifest
+# database: {type: mariadb, external: {host: host.docker.internal, port: 3306,
+#            username: shop, database: shop}}   # never the password
 domains: [api.shop.example.com]
 env:
   APP_ENV: local

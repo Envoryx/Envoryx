@@ -319,7 +319,29 @@ export interface DatabaseRequest {
   type: string;
   version: string;
   exposePort: boolean;
+  /** Connect to a server Envoryx does not run instead of a container; version then picks the client tools. */
+  external?: ExternalDatabase;
 }
+
+/** A database server Envoryx does not run. port 0 = the flavour's default. */
+export interface ExternalDatabase {
+  host: string;
+  port: number;
+  username: string;
+  /** On an update, empty keeps the stored password. */
+  password: string;
+  database: string;
+}
+
+/** A Redis server Envoryx does not run. port 0 = 6379. */
+export interface ExternalRedis {
+  host: string;
+  port: number;
+  password: string;
+}
+
+/** A connection to try before it is stored (POST /external/test). */
+export type ExternalTest = { kind: "database"; type: string; version: string } & ExternalDatabase | ({ kind: "redis" } & ExternalRedis);
 
 export interface DatabaseUpdate {
   enabled: boolean;
@@ -327,6 +349,8 @@ export interface DatabaseUpdate {
   version?: string;
   exposePort?: boolean;
   removeData?: boolean;
+  /** Add an external database, or change its connection. */
+  external?: ExternalDatabase;
 }
 
 /** The shared in-browser database tool (Adminer). */
@@ -364,6 +388,8 @@ export interface DatabaseInfo {
   health?: string;
   volumeName: string;
   volumeExists: boolean;
+  /** A server Envoryx does not run: host and port are its address, state is "external", no volume. */
+  external?: boolean;
 }
 
 export interface DatabaseCredentials {
@@ -384,6 +410,8 @@ export interface ExtraRequest {
   dashboards?: boolean;
   /** Ollama only: hand the host's GPUs to the container. */
   gpu?: boolean;
+  /** Redis only: connect to a server Envoryx does not run. */
+  external?: ExternalRedis;
 }
 
 export interface ExtraUpdate {
@@ -395,6 +423,8 @@ export interface ExtraUpdate {
   dashboards?: boolean;
   /** Ollama only: switch the GPUs on or off; left out, it stays as it is. */
   gpu?: boolean;
+  /** Redis only: add an external server or change its address (empty password keeps it). */
+  external?: ExternalRedis;
 }
 
 export interface ExtraServiceInfo {
@@ -415,6 +445,8 @@ export interface ExtraServiceInfo {
   dashboards?: { image: string; state: string; health?: string };
   /** Ollama: whether it was handed the host's GPUs. */
   gpu?: boolean;
+  /** A server Envoryx does not run (Redis): host and port are its address, there is no container. */
+  external?: boolean;
 }
 
 /** A model in the Ollama store every project shares. */
@@ -1206,8 +1238,8 @@ export interface ManifestChange {
   action: "add" | "change" | "remove";
   from?: string;
   to?: string;
-  /** Why the change is not made: "prune" (a removal needs prune) or "downgrade". */
-  skipped?: "prune" | "downgrade";
+  /** Why the change is not made: "prune" (a removal needs prune), "downgrade" or "external" (a new external connection needs its password). */
+  skipped?: "prune" | "downgrade" | "external";
 }
 
 export interface ManifestPlan {

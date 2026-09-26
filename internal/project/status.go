@@ -105,8 +105,8 @@ func deriveStatus(p store.Project, containers []docker.Container, imageIDs map[s
 		st.Services = append(st.Services, ss)
 	}
 	for kind := range byKind {
-		if kind == shareService {
-			continue // the tunnel of a share is no service of the project
+		if kind == shareService || transientServices[kind] {
+			continue // the tunnel of a share and the short-lived helpers are no services of the project
 		}
 		if strings.HasPrefix(kind, "worker:") {
 			if !workerKinds[kind] {
@@ -149,6 +149,11 @@ func deriveStatus(p store.Project, containers []docker.Container, imageIDs map[s
 // Reconcile compares the database with Docker, records inconsistencies and orphaned
 // resources, and repairs interrupted lifecycles. The only thing it removes are orphaned
 // containers and networks (see cleanOrphans); volumes and project data are never touched.
+// transientServices are the helpers that run for a moment next to a project's containers
+// (a client against an external database, a git or template step, a volume move, the GPU
+// check) and remove themselves.
+var transientServices = map[string]bool{"dbclient": true, "git": true, "template": true, "move": true, "gpucheck": true}
+
 func (m *Manager) Reconcile(ctx context.Context) ReconcileReport {
 	report := ReconcileReport{At: time.Now().UTC(), Orphans: []Orphan{}, Issues: []ReconcileIssue{}, States: map[string]Status{}}
 	projects, err := m.loadProjects(ctx)
