@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Keeps internal/runtime/<product>_versions.json in sync with upstream releases.
 
-Usage: check-versions.py php|node|python
+Usage: check-versions.py php|node|python|go
 
 Sources:
   - https://endoflife.date/api/php.json   release cycles and EOL dates
@@ -28,6 +28,9 @@ PRODUCTS = {
              "stable": "{c}-bookworm-slim", "preview": None, "base_stable": "{c}-bookworm-slim", "base_preview": None, "label": "node"},
     "python": {"file": "python_versions.json", "eol_api": "https://endoflife.date/api/python.json", "hub": "python", "min": (3, 10),
                "stable": "{c}-slim-bookworm", "preview": "{c}-rc-slim-bookworm", "base_stable": "{c}-slim-bookworm", "base_preview": "{c}-rc-slim-bookworm", "label": None},
+    # Go supports its two newest releases; release candidates have no cycle tag to follow.
+    "go": {"file": "go_versions.json", "eol_api": "https://endoflife.date/api/go.json", "hub": "golang", "min": (1, 26),
+           "stable": "{c}-bookworm", "preview": None, "base_stable": "{c}-bookworm", "base_preview": None, "label": None},
 }
 PRODUCT = PRODUCTS[sys.argv[1] if len(sys.argv) > 1 else "php"]
 FILE = Path(__file__).resolve().parent.parent / "internal/runtime" / PRODUCT["file"]
