@@ -25,7 +25,7 @@ import (
 // JUnit report the runner writes where it can.
 type TestSuite struct {
 	ID string `json:"id"`
-	// Framework is pest, phpunit, npm, playwright, cypress, pytest or django.
+	// Framework is pest, phpunit, npm, playwright, cypress, pytest, django or go.
 	Framework string            `json:"framework"`
 	Label     string            `json:"label"`
 	Service   store.ServiceKind `json:"service"`
@@ -232,6 +232,17 @@ func detectTestSuites(dir string, p store.Project) []TestSuite {
 					return argv, nil
 				}})
 		}
+	}
+	if has(store.ServiceGo) && exists("go.mod") {
+		// gotestsum runs go test and writes the JUnit report; the filter is go test's -run.
+		out = append(out, TestSuite{ID: "go", Framework: "go", Label: "go test", Service: store.ServiceGo, Cmd: []string{"go", "test", "./..."}, Report: true, FilterHint: "-run", Available: true,
+			build: func(filter, report string) ([]string, []string) {
+				argv := []string{"gotestsum", "--format", "testname", "--junitfile", report, "--", "./..."}
+				if filter != "" {
+					argv = append(argv, "-run", filter)
+				}
+				return argv, nil
+			}})
 	}
 	return out
 }

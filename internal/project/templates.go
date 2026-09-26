@@ -28,7 +28,7 @@ type Template struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
-	// Runtime is the service the template needs and runs in: "php", "node" or "python".
+	// Runtime is the service the template needs and runs in: "php", "node", "python" or "go".
 	Runtime string `json:"runtime"`
 	// Node carries dev-server defaults merged field by field into the request's NodeConfig
 	// (preset, port and script where empty; DevServer when the request set none of them).
@@ -36,6 +36,9 @@ type Template struct {
 	// Python carries server defaults merged the same way into the request's PythonConfig
 	// (preset, port and app where empty; Server when the request set none of them).
 	Python *runtime.PythonConfig `json:"python,omitempty"`
+	// Go carries server defaults merged the same way into the request's GoConfig
+	// (package and port where empty; Server when the request set none of them).
+	Go *runtime.GoConfig `json:"go,omitempty"`
 	// Docroot the template expects (applied when the request leaves it empty).
 	Docroot string `json:"docroot"`
 	// RequiresDatabase refuses creation without a database service.
@@ -69,6 +72,9 @@ var (
 	nodeScaffoldEnv     = []string{"HOME=/tmp", "npm_config_yes=true", "CI=1", "COREPACK_ENABLE_DOWNLOAD_PROMPT=0", "NPM_CONFIG_UPDATE_NOTIFIER=false"}
 	// Python scaffolds create the project's .venv first; the steps after it run through
 	// its bin/ (PATH), so pip installs into the venv, never into the image.
+	// The Go scaffolds use the shared module and build caches (withPackageCache) and a
+	// throwaway GOPATH; the module is called "app" – a main module needs no import path.
+	goScaffoldEnv     = []string{"HOME=/tmp", "GOPATH=/tmp/go", "GOFLAGS=-modcacherw", "PATH=/tmp/go/bin:/usr/local/go/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin"}
 	pythonScaffoldEnv = []string{"HOME=/tmp", "PIP_DISABLE_PIP_VERSION_CHECK=1", "PYTHONUNBUFFERED=1", "VIRTUAL_ENV=" + pythonVenvPath, "PATH=" + pythonVenvPath + "/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin"}
 )
 
@@ -101,6 +107,76 @@ if os.environ.get("DATABASE_URL"):
 """
 p.write_text(s)
 `
+	// goHTTPApp is the net/http template: the standard library only.
+	goHTTPApp = `package main
+
+import (
+	"fmt"
+	"log"
+	"net/http"
+	"os"
+)
+
+func main() {
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintln(w, "Hello from Go on Envoryx!")
+	})
+	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	})
+
+	// Envoryx injects HOST and PORT; the proxy sends the project URL here.
+	addr := os.Getenv("HOST") + ":" + os.Getenv("PORT")
+	log.Printf("listening on %s", addr)
+	log.Fatal(http.ListenAndServe(addr, mux))
+}
+`
+	goGinApp = `package main
+
+import (
+	"net/http"
+	"os"
+
+	"github.com/gin-gonic/gin"
+)
+
+func main() {
+	r := gin.Default()
+	// The proxy in front of the project sets X-Forwarded-For.
+	_ = r.SetTrustedProxies(nil)
+	r.GET("/", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"message": "Hello from Gin on Envoryx!"})
+	})
+	r.GET("/healthz", func(c *gin.Context) { c.Status(http.StatusNoContent) })
+
+	// Envoryx injects HOST and PORT (and GIN_MODE, which follows the runtime mode).
+	_ = r.Run(os.Getenv("HOST") + ":" + os.Getenv("PORT"))
+}
+`
+	goEchoApp = `package main
+
+import (
+	"net/http"
+	"os"
+
+	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
+)
+
+func main() {
+	e := echo.New()
+	e.Use(middleware.Logger(), middleware.Recover())
+	e.GET("/", func(c echo.Context) error {
+		return c.JSON(http.StatusOK, map[string]string{"message": "Hello from Echo on Envoryx!"})
+	})
+	e.GET("/healthz", func(c echo.Context) error { return c.NoContent(http.StatusNoContent) })
+
+	// Envoryx injects HOST and PORT; the proxy sends the project URL here.
+	e.Logger.Fatal(e.Start(os.Getenv("HOST") + ":" + os.Getenv("PORT")))
+}
+`
+
 	flaskApp = `from flask import Flask
 
 app = Flask(__name__)
@@ -279,6 +355,39 @@ var templates = []Template{
 			{label: "pip freeze, write main.py", cmd: []string{"sh", "-c", "pip freeze > requirements.txt", "envoryx-freeze"}, files: map[string]func() (string, error){"main.py": func() (string, error) { return fastapiApp, nil }}},
 		},
 	},
+	// The Go scaffolds run from the Envoryx Go image: go mod init, the program, then the
+	// framework's module; air rebuilds it on the project URL.
+	{
+		ID: "go", Name: "Go (net/http)", Description: "A minimal Go web server on the standard library (main.go) – rebuilt by air on every change.",
+		Runtime: "go", Docroot: "",
+		Go:    &runtime.GoConfig{Server: true, Package: ".", Port: runtime.DefaultGoPort},
+		Notes: "air rebuilds and restarts the server when a .go file changes. Add a .air.toml to configure it yourself; the Tests tab runs go test.",
+		steps: []templateStep{
+			{label: "go mod init, write main.go", cmd: []string{"go", "mod", "init", "app"}, files: map[string]func() (string, error){"main.go": func() (string, error) { return goHTTPApp, nil }}},
+		},
+	},
+	{
+		ID: "gin", Name: "Gin", Description: "A minimal Gin application (main.go) with a JSON route and a health check – rebuilt by air on every change.",
+		Runtime: "go", Docroot: "",
+		Go:    &runtime.GoConfig{Server: true, Package: ".", Port: runtime.DefaultGoPort},
+		Notes: "GIN_MODE follows the runtime mode (debug in dev, release in production).",
+		steps: []templateStep{
+			{label: "go mod init, write main.go", cmd: []string{"go", "mod", "init", "app"}, files: map[string]func() (string, error){"main.go": func() (string, error) { return goGinApp, nil }}},
+			{label: "go get gin", cmd: []string{"go", "get", "github.com/gin-gonic/gin"}},
+			{label: "go mod tidy", cmd: []string{"go", "mod", "tidy"}},
+		},
+	},
+	{
+		ID: "echo", Name: "Echo", Description: "A minimal Echo application (main.go) with logging, recovery and a health check – rebuilt by air on every change.",
+		Runtime: "go", Docroot: "",
+		Go:    &runtime.GoConfig{Server: true, Package: ".", Port: runtime.DefaultGoPort},
+		Notes: "air rebuilds and restarts the server when a .go file changes.",
+		steps: []templateStep{
+			{label: "go mod init, write main.go", cmd: []string{"go", "mod", "init", "app"}, files: map[string]func() (string, error){"main.go": func() (string, error) { return goEchoApp, nil }}},
+			{label: "go get echo", cmd: []string{"go", "get", "github.com/labstack/echo/v4"}},
+			{label: "go mod tidy", cmd: []string{"go", "mod", "tidy"}},
+		},
+	},
 }
 
 // Templates lists the available project templates.
@@ -401,6 +510,8 @@ func (m *Manager) applyTemplate(ctx context.Context, proj store.Project, tpl Tem
 		kind, label, env, mount = store.ServiceNode, "Node", nodeScaffoldEnv, nodeScaffoldMount(proj.Slug)
 	case "python":
 		kind, label, env = store.ServicePython, "Python", pythonScaffoldEnv
+	case "go":
+		kind, label, env = store.ServiceGo, "Go", goScaffoldEnv
 	}
 	svc := proj.Service(kind)
 	if svc == nil {

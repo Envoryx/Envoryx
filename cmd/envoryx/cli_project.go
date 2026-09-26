@@ -449,6 +449,7 @@ type createRequest struct {
 	PHP         *phpSpec        `json:"php,omitempty"`
 	Node        *nodeSpec       `json:"node,omitempty"`
 	Python      *pythonSpec     `json:"python,omitempty"`
+	Go          *goSpec         `json:"go,omitempty"`
 	Database    *databaseSpec   `json:"database,omitempty"`
 	Databases   []namedDBSpec   `json:"databases,omitempty"`
 	Redis       *extraSpec      `json:"redis,omitempty"`
@@ -492,6 +493,12 @@ type pythonSpec struct {
 	App     string `json:"app,omitempty"`
 }
 
+type goSpec struct {
+	Version string `json:"version,omitempty"`
+	Server  bool   `json:"server,omitempty"`
+	Package string `json:"package,omitempty"`
+}
+
 type databaseSpec struct {
 	Type       string `json:"type,omitempty"`
 	Version    string `json:"version,omitempty"`
@@ -525,6 +532,8 @@ Runtimes (a project without any is a static site served by the web container):
                        --node-preset vite|next|nuxt|generic
   --python VERSION     Python version; --python-server runs the application server,
                        --python-preset django|flask|asgi|wsgi|module, --python-app NAME
+  --go VERSION         Go version; --go-server builds and runs the server
+                       (live reload), --go-package ./cmd/server picks the main package
 
 Services:
   --database TYPE[:VERSION]   mysql, mariadb, postgres, mongodb …
@@ -575,6 +584,9 @@ func (c *cli) projectCreate(ctx context.Context, args []string) error {
 		pyServer   = fs.Bool("python-server", false, "run the Python application server")
 		pyPreset   = fs.String("python-preset", "", "django, flask, asgi, wsgi, module")
 		pyApp      = fs.String("python-app", "", "application module")
+		goVersion  = fs.String("go", "", "Go version")
+		goServer   = fs.Bool("go-server", false, "build and run the Go server")
+		goPackage  = fs.String("go-package", "", "main package, e.g. ./cmd/server")
 		database   = fs.String("database", "", "mysql, mariadb, postgres, mongodb[:version]")
 		exposeDB   = fs.Bool("expose-database", false, "publish the database port")
 		extraDBs   stringList
@@ -642,6 +654,9 @@ func (c *cli) projectCreate(ctx context.Context, args []string) error {
 	}
 	if *python != "" || *pyServer || *pyPreset != "" || *pyApp != "" {
 		req.Python = &pythonSpec{Version: runtimeVersion(*python), Server: *pyServer, Preset: *pyPreset, App: *pyApp}
+	}
+	if *goVersion != "" || *goServer || *goPackage != "" {
+		req.Go = &goSpec{Version: runtimeVersion(*goVersion), Server: *goServer, Package: *goPackage}
 	}
 	if *database != "" {
 		kind, version, _ := strings.Cut(*database, ":")

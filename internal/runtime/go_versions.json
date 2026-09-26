@@ -1,0 +1,8 @@
+{
+  "image": "ghcr.io/envoryx/envoryx-go",
+  "default": "1.27",
+  "versions": [
+    { "version": "1.27", "base": "1.27-bookworm" },
+    { "version": "1.26", "base": "1.26-bookworm" }
+  ]
+}

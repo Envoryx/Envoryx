@@ -35,7 +35,7 @@ const (
 // LimitGroup names the set of limits a container kind falls under: "app" or "services".
 func LimitGroup(kind store.ServiceKind) string {
 	switch {
-	case kind == store.ServiceWeb, kind == store.ServicePHP, kind == store.ServiceNode, kind == store.ServicePython,
+	case kind == store.ServiceWeb, kind == store.ServicePHP, kind == store.ServiceNode, kind == store.ServicePython, kind == store.ServiceGo,
 		strings.HasPrefix(string(kind), "worker:"):
 		return "app"
 	default:

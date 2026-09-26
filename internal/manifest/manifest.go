@@ -43,6 +43,7 @@ type Manifest struct {
 	PHP    *PHP    `yaml:"php,omitempty"`
 	Node   *Node   `yaml:"node,omitempty"`
 	Python *Python `yaml:"python,omitempty"`
+	Go     *Go     `yaml:"go,omitempty"`
 
 	Database *Database `yaml:"database,omitempty"`
 	// Databases are additional databases by name (host, container and the variables'
@@ -223,6 +224,17 @@ type Python struct {
 	Mode      string `yaml:"mode,omitempty"`
 	Preset    string `yaml:"preset,omitempty"`
 	App       string `yaml:"app,omitempty"`
+	Port      int    `yaml:"port,omitempty"`
+	Debug     bool   `yaml:"debug,omitempty"`
+	DebugPort int    `yaml:"debugPort,omitempty"`
+}
+
+// Go is the Go runtime and its optional application server.
+type Go struct {
+	Version   string `yaml:"version,omitempty"`
+	Server    bool   `yaml:"server,omitempty"`
+	Mode      string `yaml:"mode,omitempty"`
+	Package   string `yaml:"package,omitempty"`
 	Port      int    `yaml:"port,omitempty"`
 	Debug     bool   `yaml:"debug,omitempty"`
 	DebugPort int    `yaml:"debugPort,omitempty"`

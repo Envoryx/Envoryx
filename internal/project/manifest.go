@@ -197,6 +197,14 @@ func exportState(p store.Project, domains []store.Domain, jobs []store.CronJob) 
 			Port: cfg.Port, Debug: cfg.Debug, DebugPort: cfg.DebugPort,
 		}
 	}
+	if svc := p.Service(store.ServiceGo); svc != nil {
+		var cfg runtime.GoConfig
+		_ = json.Unmarshal(svc.Config, &cfg)
+		mf.Go = &manifest.Go{
+			Version: svc.Version, Server: cfg.Server, Mode: cfg.Mode, Package: cfg.Package,
+			Port: cfg.Port, Debug: cfg.Debug, DebugPort: cfg.DebugPort,
+		}
+	}
 	for _, svc := range p.Databases() {
 		var cfg runtime.DatabaseConfig
 		_ = json.Unmarshal(svc.Config, &cfg)
@@ -374,6 +382,12 @@ func manifestRequest(mf manifest.Manifest, name string) CreateRequest {
 		py := mf.Python
 		req.Python = &PythonRequest{Version: py.Version, Config: runtime.PythonConfig{
 			Server: py.Server, Mode: py.Mode, Preset: py.Preset, App: py.App, Port: py.Port, Debug: py.Debug, DebugPort: py.DebugPort,
+		}}
+	}
+	if mf.Go != nil {
+		g := mf.Go
+		req.Go = &GoRequest{Version: g.Version, Config: runtime.GoConfig{
+			Server: g.Server, Mode: g.Mode, Package: g.Package, Port: g.Port, Debug: g.Debug, DebugPort: g.DebugPort,
 		}}
 	}
 	// An external connection comes without its password, which the file never holds.
@@ -648,6 +662,18 @@ func (m *Manager) planManifest(ctx context.Context, id string, mf manifest.Manif
 			var cfg runtime.PythonConfig
 			_ = json.Unmarshal(want.Service(store.ServicePython).Config, &cfg)
 			ops.update.Python = &PythonUpdate{Enabled: true, Version: wantMf.Python.Version, Config: cfg}
+		}
+	}
+	if c, ok := sectionChange("go", have.Go, wantMf.Go); ok {
+		if c.Action == "remove" {
+			if removal(c) {
+				ops.update.Go = &GoUpdate{Enabled: false}
+			}
+		} else {
+			add(c)
+			var cfg runtime.GoConfig
+			_ = json.Unmarshal(want.Service(store.ServiceGo).Config, &cfg)
+			ops.update.Go = &GoUpdate{Enabled: true, Version: wantMf.Go.Version, Config: cfg}
 		}
 	}
 

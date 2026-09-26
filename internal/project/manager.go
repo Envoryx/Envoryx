@@ -231,6 +231,25 @@ func (m *Manager) buildProject(req CreateRequest) (store.Project, error) {
 					}
 				}
 			}
+		case "go":
+			if req.Go == nil {
+				return store.Project{}, fmt.Errorf("%w: template %s needs Go", validate.ErrInvalid, tpl.ID)
+			}
+			if tpl.Go != nil {
+				// Same merge as for Python: the template's package and port win where the
+				// request left them empty; a request without server settings takes the
+				// template's Server flag.
+				c := &req.Go.Config
+				if c.Package == "" && c.Port == 0 {
+					c.Server = tpl.Go.Server
+				}
+				if c.Package == "" {
+					c.Package = tpl.Go.Package
+				}
+				if c.Port == 0 {
+					c.Port = tpl.Go.Port
+				}
+			}
 		default: // "php"
 			if req.PHP == nil {
 				return store.Project{}, fmt.Errorf("%w: template %s needs PHP", validate.ErrInvalid, tpl.ID)
@@ -428,6 +447,23 @@ func (m *Manager) buildProject(req CreateRequest) (store.Project, error) {
 		}
 		proj.Services = append(proj.Services, store.ProjectService{
 			Kind: store.ServicePython, Variant: "python", Version: v.Version, Image: v.Image, Enabled: true, Position: 12, Config: raw,
+		})
+	}
+	if req.Go != nil {
+		v, err := m.catalog.Resolve("go", req.Go.Version)
+		if err != nil {
+			return store.Project{}, err
+		}
+		cfg := req.Go.Config
+		if err := cfg.Normalize(); err != nil {
+			return store.Project{}, err
+		}
+		raw, err := json.Marshal(cfg)
+		if err != nil {
+			return store.Project{}, err
+		}
+		proj.Services = append(proj.Services, store.ProjectService{
+			Kind: store.ServiceGo, Variant: "go", Version: v.Version, Image: v.Image, Enabled: true, Position: 12, Config: raw,
 		})
 	}
 	if req.Git != nil {
@@ -730,6 +766,17 @@ func (m *Manager) collectUsedPorts(ctx context.Context, used map[int]bool) error
 				}
 			}
 		}
+		if svc := p.Service(store.ServiceGo); svc != nil {
+			var cfg runtime.GoConfig
+			if json.Unmarshal(svc.Config, &cfg) == nil {
+				if cfg.HostPort > 0 {
+					used[cfg.HostPort] = true
+				}
+				if cfg.DebugHostPort > 0 {
+					used[cfg.DebugHostPort] = true
+				}
+			}
+		}
 		if svc := p.Service(store.ServiceStorage); svc != nil {
 			var cfg runtime.StorageConfig
 			if json.Unmarshal(svc.Config, &cfg) == nil {
@@ -873,11 +920,23 @@ func (m *Manager) assignServicePorts(ctx context.Context, proj *store.Project, r
 			}
 		}
 	}
+	if req.Go != nil {
+		if req.Go.Config.Server {
+			if err := assign(store.ServiceGo); err != nil {
+				return err
+			}
+		}
+		if req.Go.Config.Debug {
+			if err := m.assignDebugPort(ctx, proj, store.ServiceGo, &taken); err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }
 
-// assignDebugPort publishes the Node inspector or Python's debugpy on a host port of its
-// own.
+// assignDebugPort publishes the Node inspector, Python's debugpy or Go's Delve on a host
+// port of its own.
 func (m *Manager) assignDebugPort(ctx context.Context, proj *store.Project, kind store.ServiceKind, taken *[]int) error {
 	svc := proj.Service(kind)
 	if svc == nil {
@@ -892,6 +951,13 @@ func (m *Manager) assignDebugPort(ctx context.Context, proj *store.Project, kind
 	switch kind {
 	case store.ServicePython:
 		var cfg runtime.PythonConfig
+		if err := json.Unmarshal(svc.Config, &cfg); err != nil {
+			return err
+		}
+		cfg.DebugHostPort = port
+		raw, err = json.Marshal(cfg)
+	case store.ServiceGo:
+		var cfg runtime.GoConfig
 		if err := json.Unmarshal(svc.Config, &cfg); err != nil {
 			return err
 		}
@@ -916,6 +982,21 @@ func (m *Manager) assignDebugPort(ctx context.Context, proj *store.Project, kind
 func setHostPort(svc *store.ProjectService, port int) error {
 	if svc.Kind == store.ServiceNode {
 		var cfg runtime.NodeConfig
+		if len(svc.Config) > 0 {
+			if err := json.Unmarshal(svc.Config, &cfg); err != nil {
+				return err
+			}
+		}
+		cfg.HostPort = port
+		raw, err := json.Marshal(cfg)
+		if err != nil {
+			return err
+		}
+		svc.Config = raw
+		return nil
+	}
+	if svc.Kind == store.ServiceGo {
+		var cfg runtime.GoConfig
 		if len(svc.Config) > 0 {
 			if err := json.Unmarshal(svc.Config, &cfg); err != nil {
 				return err
@@ -991,6 +1072,8 @@ func (m *Manager) resolveImages(p *store.Project) {
 			key = "node"
 		case store.ServicePython:
 			key = "python"
+		case store.ServiceGo:
+			key = "go"
 		case store.ServiceRedis, store.ServiceMemcached, store.ServiceMailpit, store.ServiceRabbitMQ, store.ServiceMeilisearch, store.ServiceTypesense, store.ServiceOpenSearch, store.ServiceOpenSearchDashboards, store.ServiceOllama:
 			key = string(svc.Kind)
 		case store.ServiceWeb, store.ServiceDatabase, store.ServiceStorage:

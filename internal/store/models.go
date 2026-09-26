@@ -55,6 +55,7 @@ const (
 	ServicePHP         ServiceKind = "php"
 	ServiceNode        ServiceKind = "node"
 	ServicePython      ServiceKind = "python"
+	ServiceGo          ServiceKind = "go"
 	ServiceDatabase    ServiceKind = "database"
 	ServiceRedis       ServiceKind = "redis"
 	ServiceMailpit     ServiceKind = "mailpit"

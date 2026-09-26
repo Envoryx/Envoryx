@@ -50,6 +50,9 @@ var nodeVersionsJSON []byte
 //go:embed python_versions.json
 var pythonVersionsJSON []byte
 
+//go:embed go_versions.json
+var goVersionsJSON []byte
+
 // phpVersionFile is the single source of truth for supported PHP versions. The image build
 // workflow (.github/workflows/php-images.yml) reads the same file for its matrix and the
 // php-versions workflow updates it automatically when upstream publishes new releases.
@@ -99,6 +102,9 @@ func loadNodeVersions() (string, []Version) {
 func loadPythonVersions() (string, []Version) {
 	return loadVersions("python_versions.json", pythonVersionsJSON, "Python")
 }
+func loadGoVersions() (string, []Version) {
+	return loadVersions("go_versions.json", goVersionsJSON, "Go")
+}
 
 // Default returns the built-in catalogue.
 func Default() *Catalog {
@@ -141,6 +147,12 @@ func Default() *Catalog {
 		Key: "python", Name: "Python", Kind: "runtime", Available: true,
 		Description: "Python runtime: tooling container (pip, uv, venv) or application server (Django, Flask, FastAPI/uvicorn, gunicorn) as the project's main process",
 		Versions:    pythonVersions,
+	})
+	_, goVersions := loadGoVersions()
+	c.add(Runtime{
+		Key: "go", Name: "Go", Kind: "runtime", Available: true,
+		Description: "Go runtime: tooling container (go build, go test, modules) or the project's server with live reload (air) and the Delve debugger",
+		Versions:    goVersions,
 	})
 	c.add(Runtime{
 		Key: "mariadb", Name: "MariaDB", Kind: "database", Available: true,

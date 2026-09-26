@@ -32,13 +32,16 @@ func (m *Manager) execEnv(kind store.ServiceKind) (execEnv, error) {
 	}
 	e := execEnv{WorkingDir: "/", Env: []string{"LANG=C.UTF-8"}}
 	switch kind {
-	case store.ServicePHP, store.ServicePython, store.ServiceNode:
+	case store.ServicePHP, store.ServicePython, store.ServiceGo, store.ServiceNode:
 		e.WorkingDir = appMountTarget
 		e.User = fmt.Sprintf("%d:%d", paths.PUID, paths.PGID)
 		// The uid usually has no passwd entry in the image; give tools writable caches.
 		e.Env = append(e.Env, toolEnv...)
-		if kind == store.ServicePython {
+		switch kind {
+		case store.ServicePython:
 			e.Env = append(e.Env, pythonEnv...)
+		case store.ServiceGo:
+			e.Env = append(e.Env, goEnv...)
 		}
 	}
 	return e, nil

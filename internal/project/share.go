@@ -216,6 +216,8 @@ func (m *Manager) shareTarget(selfID string, p store.Project) (target, network s
 	target = m.dialFor(selfID, p)
 	if cfg, ok := pythonServesApp(p); ok {
 		target = m.dialForApp(selfID, p, store.ServicePython, cfg.HostPort, cfg.Port)
+	} else if cfg, ok := goServesApp(p); ok {
+		target = m.dialForApp(selfID, p, store.ServiceGo, cfg.HostPort, cfg.Port)
 	} else if cfg, ok := nodeServesApp(p); ok {
 		target = m.dialForDev(selfID, p, cfg)
 	}
