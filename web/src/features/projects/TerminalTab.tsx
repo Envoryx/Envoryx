@@ -113,7 +113,7 @@ export function TerminalTab({ project }: { project: Project }) {
   const { t } = useTranslation();
   // A server Envoryx does not run has no container to open a shell in.
   const services = project.services.filter((s) => s.enabled && project.status.services.find((st) => st.kind === s.kind)?.state !== "external");
-  // Open on the application container (PHP, else Python, else Node); the web container is the last resort.
+  // Open on the application container (PHP, else Python, else Go, else Node); the web container is the last resort.
   const [kind, setKind] = useState<string>(project.appService ?? services[0]?.kind ?? "web");
   const [generation, setGeneration] = useState(0);
   const running = project.status.services.find((s) => s.kind === kind)?.running ?? false;
@@ -141,7 +141,7 @@ export function TerminalTab({ project }: { project: Project }) {
         </span>
         <div className="ml-auto flex items-center gap-2">
           <span className="text-[11px] text-subtle">
-            {kind === "php" || kind === "python" || kind === "node" ? t("runs as the project owner in /var/www/html") : t("runs as root")}
+            {kind === "php" || kind === "python" || kind === "go" || kind === "node" ? t("runs as the project owner in /var/www/html") : t("runs as root")}
           </span>
           <Button size="sm" onClick={() => setGeneration((g) => g + 1)} icon={<RotateCw className="size-3.5" />} disabled={!running}>
             {t("New session")}

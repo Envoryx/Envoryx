@@ -7,7 +7,7 @@ import { Alert, Button, Checkbox, Code, Field, Input } from "@/components/ui";
 import { errorText } from "@/lib/errors";
 import { formatBytes } from "@/lib/format";
 
-const runtimeNames: Record<string, string> = { php: "PHP", static: "Static site", node: "Node.js", python: "Python" };
+const runtimeNames: Record<string, string> = { php: "PHP", static: "Static site", node: "Node.js", python: "Python", go: "Go" };
 const databaseNames: Record<string, string> = { mariadb: "MariaDB", mysql: "MySQL", postgresql: "PostgreSQL" };
 const webNames: Record<string, string> = { apache: "Apache", caddy: "Caddy", nginx: "nginx" };
 

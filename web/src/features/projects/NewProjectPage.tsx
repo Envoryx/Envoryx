@@ -7,6 +7,7 @@ import { api } from "@/api/client";
 import { useCreateProject, useProjectLinks, useRuntimes, useSettings } from "@/api/hooks";
 import { NodeDevServerFields, defaultDevServerForm, devServerRequest, type DevServerForm } from "./NodeDevServerFields";
 import { PythonServerFields, defaultPythonServerForm, pythonServerRequest, type PythonServerForm } from "./PythonServerFields";
+import { GoServerFields, defaultGoServerForm, goServerRequest, type GoServerForm } from "./GoServerFields";
 import { defaultNodePresets, defaultPythonPresets, type AppKind, type CreateProjectRequest, type EnvVar, type ExternalDatabase, type ExternalRedis, type PHPConfig, type Preview, type Project, type ProjectTemplate, type Serves, type SiteImport } from "@/api/types";
 import { Alert, Button, Card, Checkbox, Code, ErrorState, Field, Input, PageHeader, Select, Spinner } from "@/components/ui";
 import { CreateProgress } from "./CreateProgress";
@@ -21,12 +22,13 @@ import { slugify } from "@/lib/format";
 
 const steps = ["General", "Runtimes", "Web server", "Database & services", "Environment", "Summary"] as const;
 
-/** The runtime choice of step 1; it presets the PHP/Python/Node checkboxes, docroot and starter page. */
+/** The runtime choice of step 1; it presets the PHP/Python/Go/Node checkboxes, docroot and starter page. */
 type Stack = AppKind | "static";
 
 const stacks: { id: Stack; name: string; description: string }[] = [
   { id: "php", name: "PHP application", description: "PHP-FPM behind the web server – Laravel, Symfony, WordPress, Drupal, TYPO3, Shopware…" },
   { id: "python", name: "Python application", description: "Django, Flask, FastAPI… – the application server answers on the project URL." },
+  { id: "go", name: "Go application", description: "net/http, Gin, Echo… – air rebuilds the server on every change; it answers on the project URL." },
   { id: "node", name: "Node.js application", description: "Vite, Next.js, Nuxt… – the dev server answers on the project URL." },
   { id: "static", name: "Static site", description: "The web server serves files from the document root; no application runtime." },
 ];
@@ -52,6 +54,9 @@ interface Form {
   pythonEnabled: boolean;
   pythonVersion: string;
   pythonServer: PythonServerForm;
+  goEnabled: boolean;
+  goVersion: string;
+  goServer: GoServerForm;
   webType: string;
   webVersion: string;
   spaFallback: boolean;
@@ -105,6 +110,7 @@ interface Form {
 function servesOfForm(f: Form): Serves {
   if (f.phpEnabled) return "php";
   if (f.pythonEnabled && f.pythonServer.server) return "python";
+  if (f.goEnabled && f.goServer.server) return "go";
   if (f.nodeEnabled && f.nodeDev.devServer) return "node";
   return "static";
 }
@@ -127,6 +133,7 @@ export function NewProjectPage() {
       const php = runtimes.data.runtimes.find((r) => r.key === "php");
       const node = runtimes.data.runtimes.find((r) => r.key === "node");
       const python = runtimes.data.runtimes.find((r) => r.key === "python");
+      const golang = runtimes.data.runtimes.find((r) => r.key === "go");
       const web = runtimes.data.runtimes.find((r) => r.key === "caddy");
       setForm({
         name: "",
@@ -144,6 +151,9 @@ export function NewProjectPage() {
         pythonEnabled: false,
         pythonServer: defaultPythonServerForm,
         pythonVersion: python?.versions.find((v) => v.default)?.version ?? python?.versions[0]?.version ?? "",
+        goEnabled: false,
+        goServer: defaultGoServerForm,
+        goVersion: golang?.versions.find((v) => v.default)?.version ?? golang?.versions[0]?.version ?? "",
         webType: "caddy",
         webVersion: web?.versions.find((v) => v.default)?.version ?? "",
         spaFallback: false,
@@ -214,6 +224,7 @@ export function NewProjectPage() {
     }
     if (form.nodeEnabled) req.node = { version: form.nodeVersion, ...devServerRequest(form.nodeDev) };
     if (form.pythonEnabled) req.python = { version: form.pythonVersion, ...pythonServerRequest(form.pythonServer) };
+    if (form.goEnabled) req.go = { version: form.goVersion, ...goServerRequest(form.goServer) };
     if (form.dbType) req.database = form.dbExternal && externalDatabaseTypes.includes(form.dbType) ? { type: form.dbType, version: form.dbVersion, exposePort: false, external: form.dbConn } : { type: form.dbType, version: form.dbVersion, exposePort: form.dbExpose };
     const extraDbs = form.extraDbs.filter((d) => d.name.trim());
     if (extraDbs.length > 0) req.databases = extraDbs.map((d) => ({ name: d.name.trim(), type: d.type, version: d.version, exposePort: false }));
@@ -270,6 +281,7 @@ export function NewProjectPage() {
   const php = rt.runtimes.find((r) => r.key === "php");
   const node = rt.runtimes.find((r) => r.key === "node");
   const python = rt.runtimes.find((r) => r.key === "python");
+  const golang = rt.runtimes.find((r) => r.key === "go");
   const nodePresets = rt.nodePresets ?? defaultNodePresets;
   const pythonPresets = rt.pythonPresets ?? defaultPythonPresets;
   const webServers = rt.runtimes.filter((r) => r.kind === "webserver" && r.available);
@@ -300,22 +312,26 @@ export function NewProjectPage() {
   const chooseStack = (stack: Stack) => {
     const docroot = (fallback: string) => (form.docrootTouched ? form.docroot : fallback);
     const template = selectedTemplate && templateRuntime(selectedTemplate) !== stack ? "" : form.template;
-    // Leaving the Node or Python stack turns its server back off: a PHP or static project
+    // Leaving the Node, Python or Go stack turns its server back off: a PHP or static project
     // that later enables the runtime as a toolchain starts from the same default as a fresh flow.
     const nodeOff = { ...form.nodeDev, devServer: false };
     const pythonOff = { ...form.pythonServer, server: false };
+    const goOff = { goEnabled: false, goServer: { ...form.goServer, server: false } };
     switch (stack) {
       case "php":
-        set({ stack, template, phpEnabled: true, nodeEnabled: false, nodeDev: nodeOff, pythonEnabled: false, pythonServer: pythonOff, createStarter: true, docroot: docroot("public") });
+        set({ stack, template, phpEnabled: true, nodeEnabled: false, nodeDev: nodeOff, pythonEnabled: false, pythonServer: pythonOff, ...goOff, createStarter: true, docroot: docroot("public") });
         break;
       case "python":
-        set({ stack, template, phpEnabled: false, nodeEnabled: false, nodeDev: nodeOff, pythonEnabled: true, pythonServer: { ...form.pythonServer, server: true }, createStarter: false, docroot: docroot("") });
+        set({ stack, template, phpEnabled: false, nodeEnabled: false, nodeDev: nodeOff, pythonEnabled: true, pythonServer: { ...form.pythonServer, server: true }, ...goOff, createStarter: false, docroot: docroot("") });
+        break;
+      case "go":
+        set({ stack, template, phpEnabled: false, nodeEnabled: false, nodeDev: nodeOff, pythonEnabled: false, pythonServer: pythonOff, goEnabled: true, goServer: { ...form.goServer, server: true }, createStarter: false, docroot: docroot("") });
         break;
       case "node":
-        set({ stack, template, phpEnabled: false, nodeEnabled: true, nodeDev: { ...form.nodeDev, devServer: true, preset: "vite", port: "5173" }, pythonEnabled: false, pythonServer: pythonOff, createStarter: false, docroot: docroot("") });
+        set({ stack, template, phpEnabled: false, nodeEnabled: true, nodeDev: { ...form.nodeDev, devServer: true, preset: "vite", port: "5173" }, pythonEnabled: false, pythonServer: pythonOff, ...goOff, createStarter: false, docroot: docroot("") });
         break;
       case "static":
-        set({ stack, template, phpEnabled: false, nodeEnabled: false, nodeDev: nodeOff, pythonEnabled: false, pythonServer: pythonOff, createStarter: true, docroot: docroot("") });
+        set({ stack, template, phpEnabled: false, nodeEnabled: false, nodeDev: nodeOff, pythonEnabled: false, pythonServer: pythonOff, ...goOff, createStarter: true, docroot: docroot("") });
         break;
     }
   };
@@ -344,6 +360,8 @@ export function NewProjectPage() {
       nodeDev: { ...form.nodeDev, devServer: false },
       pythonEnabled: a.runtime === "python",
       pythonServer: { ...form.pythonServer, server: false },
+      goEnabled: a.runtime === "go",
+      goServer: { ...form.goServer, server: false },
       dbType: a.database ?? "",
       dbVersion: a.database ? defaultVersion(a.database) : "",
     };
@@ -382,6 +400,12 @@ export function NewProjectPage() {
           patch.pythonServer = { ...form.pythonServer, server: true, preset: py?.preset ?? form.pythonServer.preset, port: py?.port ? String(py.port) : form.pythonServer.port, app: py?.app ?? form.pythonServer.app };
           break;
         }
+        case "go": {
+          patch.goEnabled = true;
+          const g = tpl.go;
+          patch.goServer = { ...form.goServer, server: true, pkg: g?.package ?? form.goServer.pkg, port: g?.port ? String(g.port) : form.goServer.port };
+          break;
+        }
         default:
           patch.phpEnabled = true;
       }
@@ -401,7 +425,7 @@ export function NewProjectPage() {
       ? t('Subfolder served by the web server, e.g. "public" for Laravel/Symfony. Leave empty for the project root.')
       : serves === "node"
         ? t("Not used while the dev server serves the app; the build output (e.g. dist/) once you turn it off.")
-        : serves === "python"
+        : serves === "python" || serves === "go"
           ? t("Not used while the application server serves the app; static files (e.g. a collected static/ folder) once you turn it off.")
           : t('Build output served by the web server, e.g. "dist". Leave empty for the project root.');
 
@@ -478,7 +502,31 @@ export function NewProjectPage() {
     </div>
   );
 
-  const runtimeCards = form.stack === "node" ? [nodeCard, pythonCard, phpCard] : form.stack === "python" ? [pythonCard, nodeCard, phpCard] : [phpCard, nodeCard, pythonCard];
+  const goCard = golang && (
+    <div key="go" className="space-y-4 rounded-md border border-default p-4">
+      <Checkbox label={t("Enable Go")} description={t("Go container for your service or tooling: build and run it with live reload (air) and the Delve debugger, or use go build, go test and go mod from the terminal.")} checked={form.goEnabled} onChange={(e) => set({ goEnabled: e.target.checked })} />
+      {form.goEnabled && (
+        <>
+          <Field label={t("Go version")} htmlFor="go-version">
+            <Select id="go-version" value={form.goVersion} onChange={(e) => set({ goVersion: e.target.value })}>
+              {versionOptions(golang.versions)}
+            </Select>
+          </Field>
+          <GoServerFields value={form.goServer} onChange={(goServer) => set({ goServer })} idPrefix="wizard-go" primary={!form.phpEnabled && !(form.pythonEnabled && form.pythonServer.server)} />
+          <p className="text-xs text-subtle">{t("Modules and build results are cached for all projects; tools installed with go install stay in the project home.")}</p>
+        </>
+      )}
+    </div>
+  );
+
+  const runtimeCards =
+    form.stack === "node"
+      ? [nodeCard, pythonCard, goCard, phpCard]
+      : form.stack === "python"
+        ? [pythonCard, nodeCard, goCard, phpCard]
+        : form.stack === "go"
+          ? [goCard, nodeCard, pythonCard, phpCard]
+          : [phpCard, nodeCard, pythonCard, goCard];
 
   return (
     <div>
@@ -634,7 +682,7 @@ export function NewProjectPage() {
                   ? t("The web server serves static files from the document root and forwards PHP requests to the PHP container via FastCGI. The project is published on an automatically assigned port and reachable through the proxy under its domain.")
                   : serves === "node"
                     ? t("The dev server answers on the project URL. The web server is part of every project and serves the document root once the dev server is turned off.")
-                    : serves === "python"
+                    : serves === "python" || serves === "go"
                       ? t("The application server answers on the project URL. The web server is part of every project and serves the document root once the server is turned off.")
                       : t("The web server serves static files from the document root.")}
               </p>
@@ -961,8 +1009,8 @@ export function NewProjectPage() {
                         const services: Project["services"] =
                           previewServes === "node"
                             ? [{ kind: "node", variant: "node", version: "", image: "", enabled: true, config: { devServer: true, hostPort: appPort } }]
-                            : previewServes === "python"
-                              ? [{ kind: "python", variant: "python", version: "", image: "", enabled: true, config: { server: true, hostPort: appPort } }]
+                            : previewServes === "python" || previewServes === "go"
+                              ? [{ kind: previewServes, variant: previewServes, version: "", image: "", enabled: true, config: { server: true, hostPort: appPort } }]
                               : [];
                         const l = links({ httpPort: preview.httpPort, hostnames: [`${preview.slug}.${settings.data?.baseDomain ?? "test"}`], serves: previewServes, services });
                         return !l.direct || l.url === l.direct ? l.url : `${l.url} · ${l.direct}`;
@@ -979,6 +1027,12 @@ export function NewProjectPage() {
                           <>
                             <dt className="text-muted">{t("Serves")}</dt>
                             <dd className="text-xs">{t("Python application server (the HTTP port stays unpublished)")}</dd>
+                          </>
+                        )}
+                        {previewServes === "go" && (
+                          <>
+                            <dt className="text-muted">{t("Serves")}</dt>
+                            <dd className="text-xs">{t("Go server (the HTTP port stays unpublished)")}</dd>
                           </>
                         )}
                         {devUrl && (
@@ -1028,7 +1082,8 @@ export function NewProjectPage() {
                       </p>
                     ) : (
                       serves !== "node" &&
-                      serves !== "python" && (
+                      serves !== "python" &&
+                      serves !== "go" && (
                         <Checkbox label={form.phpEnabled ? t("Create starter index.php") : t("Create starter index.html")} description={t("Only if the document root is empty.")} checked={form.createStarter} onChange={(e) => set({ createStarter: e.target.checked })} />
                       )
                     )}

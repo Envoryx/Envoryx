@@ -477,8 +477,8 @@ or a blank directory / git clone – and the dev server *is* the project:
   project home mounted. The Workers tab offers only the presets whose
   runtime the project has. Actions offer npm/pnpm/yarn and `node -v`; git
   clone/pull run in a one-shot container from the Node image.
-- **Cron jobs** (Cron tab) run any command on a schedule in the PHP, Python
-  or Node.js container – as the project owner in the project directory,
+- **Cron jobs** (Cron tab) run any command on a schedule in the PHP, Python,
+  Go or Node.js container – as the project owner in the project directory,
   through `sh -c`, with the project's environment. Pick a schedule (every few
   minutes, hourly, daily, weekly, monthly) or type a cron expression; the form
   shows the next runs. Schedules are read in Envoryx's time zone – set `TZ` on
@@ -502,7 +502,7 @@ or a blank directory / git clone – and the dev server *is* the project:
   containers are recreated once at the next start (new command wrapper,
   unpublished port); from then on `<project>.<base>` reaches the dev server.
 
-A **static site** (no PHP, no Node, no Python server) is the same web
+A **static site** (no PHP, no Node, no Python or Go server) is the same web
 container alone: pick **Static site** in the wizard; Envoryx writes a
 starter `index.html` unless you clone a repository.
 
@@ -576,6 +576,66 @@ comes next.
   {"enabled": true, "version": "3.13", "server": true, "preset": "asgi",
   "app": "main:app"}}` adds or changes, `{"python": {"enabled": false}}`
   removes.
+
+### Go projects (net/http, Gin, Echo)
+
+Pick **Go application** on the first wizard step (or enable Go on any
+project from the Runtime tab). The Go container (`envoryx-<project>-go`,
+image `ghcr.io/envoryx/envoryx-go:<1.x>` – the official
+`golang:<v>-bookworm` image plus [air](https://github.com/air-verse/air),
+Delve and gotestsum, `GOTOOLCHAIN=local`) runs as `PUID:PGID` with the
+project directory at `/var/www/html` and the project home at
+`/home/envoryx` (`GOPATH=/home/envoryx/go`, so tools installed with `go
+install` stay and are on `PATH`). The module cache (`GOMODCACHE`) and the
+build cache (`GOCACHE`) live in the shared package cache, so a module is
+downloaded once for all projects.
+
+- **Server.** *Build and run the server* makes the container build the
+  main package (`.` or a path like `./cmd/server`) and run it as its main
+  process, restarted automatically and published on a host port of its
+  own. The server reads its port from `$PORT` (default 8080; `HOST` is
+  `0.0.0.0`). **Development** mode runs air, which rebuilds and restarts
+  the server on every change of a `.go` file – a `.air.toml` in the project
+  replaces Envoryx's settings. **Production build** builds once at
+  container start and runs the binary; restart the project after changes.
+  Binaries are built to `/tmp/envoryx-go` inside the container, never into
+  the project directory. `GIN_MODE` follows the mode (`debug`/`release`).
+- **Routing.** Without PHP and without a Python server the Go server is the
+  application: the proxy routes `https://<project>.<base>` and every extra
+  domain to `envoryx-<project>-go:<port>`, the web container's host port
+  stays unpublished, and *Direct access* is the Go host port. Next to PHP
+  or a Python server the Go server only has its host port – an API next to
+  the main application. A Node dev server next to Go keeps
+  `<project>-dev.<base>`.
+- **Cold start.** Until the project has a `go.mod` the container waits (log
+  line `envoryx: waiting for go.mod …`) instead of crash-looping. Pick a
+  template, clone a repository or run `go mod init` in the Go terminal.
+- **Templates.** *Go (net/http)* (standard library only), *Gin* and *Echo*
+  – each runs `go mod init app` and writes a `main.go` with a start route
+  and a health check (`/healthz`) that listens on `$HOST:$PORT`; Gin and Echo
+  fetch the framework (`go get`, `go mod tidy`).
+- **Actions, tests and workers.** Actions: `go version`, `go build ./...`,
+  `go vet ./...`, `gofmt -l .`, `go mod tidy`, `go mod download` and `go
+  generate ./...`. The Tests tab runs `go test ./...` through gotestsum
+  (with a JUnit report, so failures show per test). Worker preset *Go
+  program* (`go run <package>`); cron jobs run in the Go container like in
+  the others.
+- **Debugging.** *Debug with Delve* runs the server under a headless Delve
+  (`dlv exec --headless --accept-multiclient --continue`, port 2345 by
+  default) built without optimisations, and publishes that port on a host
+  port; breakpoints survive every rebuild. Attach GoLand (*Run → Edit
+  Configurations → Go Remote*) or VS Code (`type: go`, `request: attach`,
+  `mode: remote`, `substitutePath` from your folder to `/var/www/html`)
+  with the host and port from the IDE tab. Without the server only the port
+  is published – for `dlv test --headless --listen=:2345 ./pkg/...` or `dlv
+  debug` started in the Go terminal.
+- **Adding or removing Go later.** The Runtime tab's Go card has an *Enable
+  Go* switch; removing it takes the Go container and the Go workers'
+  containers down – files and worker definitions stay. Over the API:
+  `PATCH /api/v1/projects/{id}` with `{"go": {"enabled": true, "version":
+  "1.27", "server": true, "package": "./cmd/server"}}` adds or changes,
+  `{"go": {"enabled": false}}` removes. The CLI takes `--go <version>`,
+  `--go-server` and `--go-package`.
 
 ### Bare metal
 
@@ -662,7 +722,7 @@ next steps of the wizard with what it recognised; everything stays editable.
 | Joomla | `configuration.php` with `JConfig` | PHP by version, `mysqli` |
 | Shopware, Craft CMS, other Composer apps | `composer.json` | PHP from `require.php`, `ext-*` extensions |
 | Plain PHP | `.php` files | docroot where `index.php` is, the files that connect to a database |
-| Static site, Node.js, Python | `index.html`, `package.json`, `manage.py`/`requirements.txt` | the matching runtime |
+| Static site, Node.js, Python, Go | `index.html`, `package.json`, `manage.py`/`requirements.txt`, `go.mod` | the matching runtime |
 
 The PHP version is the newest one Envoryx offers that `composer.json` and the
 CMS version allow. Code that calls functions PHP 8 removed (`create_function`,
@@ -916,8 +976,9 @@ newer, its error message names the pre-migrate backup to restore by hand (see
 
 Node.js images (`envoryx-node:*`) follow the same scheme with `node_versions.json`,
 Python images (`envoryx-python:*`, official `python:<v>-slim-bookworm` plus uv,
-git and build dependencies) with `python_versions.json`; a project's Node or
-Python version is changed on the Runtime tab like the PHP version.
+git and build dependencies) with `python_versions.json`, Go images
+(`envoryx-go:*`, official `golang:<v>-bookworm` plus air, Delve and gotestsum)
+with `go_versions.json`; a project's Node, Python or Go version is changed on the Runtime tab like the PHP version.
 
 ## Git deploy key
 
@@ -1392,7 +1453,7 @@ Workers tab: add long-running processes from a preset list – Laravel
 Reverb, Symfony `messenger:consume` (transports) and Scheduler, a PHP script
 or a composer script (PHP image); npm scripts and Node scripts (Node
 image); Python scripts and modules, Django management commands, Celery
-worker and beat (Python image). Every worker is its own container
+worker and beat (Python image); Go packages with `go run` (Go image). Every worker is its own container
 (`envoryx-<project>-worker-<name>`) from the image of the runtime its
 preset names, runs as `PUID:PGID` with the project's environment (and
 php.ini for PHP, the venv `PATH` for Python), restarts automatically
@@ -1409,8 +1470,8 @@ Every project has an **IDE** tab with all values ready to copy.
 **Remote interpreter over SSH.** Envoryx runs an SSH server on port 2222
 (publish it, or use the container's own IP on `br0`). User name = project
 slug (`shop`): it lands in the project's application container – PHP when
-the project has PHP, else Python, else Node. Projects with several runtimes
-also accept `shop.php`, `shop.python` and `shop.node` to pick one
+the project has PHP, else Python, else Go, else Node. Projects with several runtimes
+also accept `shop.php`, `shop.python`, `shop.go` and `shop.node` to pick one
 explicitly (the IDE tab lists these rows only then). Password = an API token from Settings → API tokens, or a
 public key stored under Settings → SSH access. Each session is a
 `docker exec` into that container as the project owner – there is no shell
@@ -1435,7 +1496,7 @@ on the host. SFTP exposes `/var/www/html` (the project) and `/home/envoryx`
 - VS Code: Remote-SSH works the same way (`ssh -p 2222 shop@<host>`); open
   `/var/www/html` as the remote folder.
 
-A static project (no PHP, Python or Node) has no application container, so
+A static project (no PHP, Python, Go or Node) has no application container, so
 SSH sessions are refused for it.
 
 The project must be running for sessions to open. Commands are logged to
@@ -1448,8 +1509,8 @@ client. In Envoryx this is opt-in per project (IDE tab → *Allow JetBrains
 Gateway*): it enables SSH port forwarding into the container and mounts a
 shared backend cache (`/config/jetbrains`, ~1.5 GB per IDE version,
 downloaded once). The backend runs as the project owner inside the
-application container – PHP, else Python, else Node (user `<slug>`;
-`<slug>.python` / `<slug>.node` pick one next to PHP) – and needs 2–4 GB RAM plus CPU while
+application container – PHP, else Python, else Go, else Node (user `<slug>`;
+`<slug>.python` / `<slug>.go` / `<slug>.node` pick one next to PHP) – and needs 2–4 GB RAM plus CPU while
 indexing – nothing runs until you connect. Envoryx ships no JetBrains
 software: Gateway itself is free, the IDE backend is uploaded by your
 Gateway client and licensed through it – whoever connects needs a valid
@@ -1547,6 +1608,10 @@ template (`django`, `flask`, `fastapi`) which fills the server defaults.
 `serves` is `python` then and `directUrl` points at the Python host port.
 Example prompt: *"Create a FastAPI project called inventory-api with
 PostgreSQL, no PHP, then run pip install."*
+
+Go projects: pass `phpVersion: "none"` plus `goVersion` and `goServer: true`
+(optional `goPackage`, `goPort`, `goMode`), or a Go template (`go`, `gin`,
+`echo`). `serves` is `go` then.
 
 ### Scripting the REST API
 
@@ -1725,8 +1790,9 @@ healthcheck:                     # see "Health checks"; or just: healthcheck: /h
   interval: 1m
 ```
 
-`node:` and `python:` take the fields of the wizard (`devServer`, `preset`,
-`port`, `script` …; `server`, `preset`, `app`, `debug` …). A setting left out
+`node:`, `python:` and `go:` take the fields of the wizard (`devServer`, `preset`,
+`port`, `script` …; `server`, `preset`, `app`, `debug` …; `server`, `mode`,
+`package`, `port`, `debug`, `debugPort`). A setting left out
 means Envoryx's default, so the file is the whole desired state: `web:` missing
 means Caddy, `extensions:` missing the default set. Unknown keys are errors –
 a typo never silently drops a service. The export pins every version, which is

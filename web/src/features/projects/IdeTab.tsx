@@ -6,7 +6,7 @@ import { useMutation } from "@tanstack/react-query";
 import { api } from "@/api/client";
 import { useDatabases, useExtraServices, useSettings, useUpdateProject } from "@/api/hooks";
 import { OperationHint } from "@/components/OperationsTray";
-import { appKindOf, type DatabaseInfo, type NodeConfig, type Operation, type PHPConfig, type Project, type PythonConfig } from "@/api/types";
+import { appKindOf, type DatabaseInfo, type NodeConfig, type Operation, type PHPConfig, type Project, type PythonConfig, type GoConfig } from "@/api/types";
 import { Alert, Button, Card, CardHeader, Checkbox, Code } from "@/components/ui";
 import { CopyButton, CopyRow } from "./DatabaseTab";
 import { databaseServices } from "./databases";
@@ -28,12 +28,14 @@ export function IdeTab({ project: p }: { project: Project }) {
   const hasPhp = !!php;
   const hasNode = p.services.some((x) => x.kind === "node" && x.enabled);
   const hasPython = p.services.some((x) => x.kind === "python" && x.enabled);
-  // The bare SSH user lands in the application container: PHP when present, else Python, else Node.
+  const hasGo = p.services.some((x) => x.kind === "go" && x.enabled);
+  // The bare SSH user lands in the application container: PHP when present, else Python, else Go, else Node.
   const app = p.appService ?? appKindOf(p);
-  const runtimeCount = [hasPhp, hasPython, hasNode].filter(Boolean).length;
+  const runtimeCount = [hasPhp, hasPython, hasGo, hasNode].filter(Boolean).length;
   const phpCfg = (php?.config ?? {}) as unknown as Partial<PHPConfig>;
   const nodeCfg = (p.services.find((x) => x.kind === "node" && x.enabled)?.config ?? {}) as unknown as Partial<NodeConfig>;
   const pyCfg = (p.services.find((x) => x.kind === "python" && x.enabled)?.config ?? {}) as unknown as Partial<PythonConfig>;
+  const goCfg = (p.services.find((x) => x.kind === "go" && x.enabled)?.config ?? {}) as unknown as Partial<GoConfig>;
   const hostname = p.hostnames[0] ?? `${p.slug}.test`;
   const ssh = s?.ssh;
   const sshHost = s?.proxy?.address || host;
@@ -123,7 +125,9 @@ export function IdeTab({ project: p }: { project: Project }) {
               ? t("Run PHP, Composer, PHPUnit and Artisan inside the project container from your IDE. PhpStorm: Settings → PHP → CLI Interpreter → “…” → “+” → From Docker, Vagrant, VM, WSL, Remote… → SSH, then Path mappings: the project folder → /var/www/html. VS Code: Remote-SSH. Plain terminal: ssh.")
               : app === "python"
                 ? t("Run python, pip and pytest inside the project container from your IDE. PyCharm Pro: Settings → Python → Interpreter → Add Interpreter → On SSH…; in the last step “Select existing” with the interpreter path from below, and under Target-Specific Properties Sync folders: the project folder → /var/www/html. VS Code: Remote-SSH. Plain terminal: ssh.")
-                : t("Run node, npm and your test runner inside the project container from your IDE. WebStorm: Settings → Languages & Frameworks → JavaScript Runtime → Node runtime “…” → “+” → Add Remote… → SSH, then in the run configuration Path mappings: the project folder → /var/www/html. VS Code: Remote-SSH. Plain terminal: ssh.")
+                : app === "go"
+                  ? t("Work on the project inside its Go container from your IDE. GoLand: File → Remote Development → SSH (JetBrains Gateway) with the values below opens the project at /var/www/html with the container's go and dlv. VS Code: Remote-SSH, then the Go extension installs gopls and its other tools in the project home. Plain terminal: ssh.")
+                  : t("Run node, npm and your test runner inside the project container from your IDE. WebStorm: Settings → Languages & Frameworks → JavaScript Runtime → Node runtime “…” → “+” → Add Remote… → SSH, then in the run configuration Path mappings: the project folder → /var/www/html. VS Code: Remote-SSH. Plain terminal: ssh.")
           }
         />
         <div className="p-5">
@@ -132,7 +136,7 @@ export function IdeTab({ project: p }: { project: Project }) {
           ) : ssh.port === 0 ? (
             <Alert tone="amber">{t("The SSH port 2222 is not published on the host – add a port mapping 2222:2222 to the Envoryx container.")}</Alert>
           ) : !app ? (
-            <Alert tone="gray">{t("This project has no application container – SSH sessions need PHP, Python or Node.js.")}</Alert>
+            <Alert tone="gray">{t("This project has no application container – SSH sessions need PHP, Python, Go or Node.js.")}</Alert>
           ) : (
             <dl>
               <CopyRow label={t("Host")} value={sshHost} />
@@ -140,11 +144,13 @@ export function IdeTab({ project: p }: { project: Project }) {
               <CopyRow label={t("User")} value={p.slug} />
               {runtimeCount > 1 && hasPhp && <CopyRow label={t("User (PHP)")} value={`${p.slug}.php`} />}
               {runtimeCount > 1 && hasPython && <CopyRow label={t("User (Python)")} value={`${p.slug}.python`} />}
+              {runtimeCount > 1 && hasGo && <CopyRow label={t("User (Go)")} value={`${p.slug}.go`} />}
               {runtimeCount > 1 && hasNode && <CopyRow label={t("User (Node)")} value={`${p.slug}.node`} />}
               <CopyRow label={t("Password")} value={t("<API token from Settings → API tokens>")} mono={false} />
               {hasPhp && <CopyRow label={t("PHP path")} value="/usr/local/bin/php" />}
               {hasPython && <CopyRow label={t("Python path")} value="/var/www/html/.venv/bin/python" />}
               {hasPython && <CopyRow label={t("Python path (without .venv)")} value="/usr/local/bin/python" />}
+              {hasGo && <CopyRow label={t("GOROOT")} value="/usr/local/go" />}
               {hasNode && <CopyRow label={t("Node path")} value="/usr/local/bin/node" />}
               <CopyRow label={t("Project path")} value="/var/www/html" />
               {hasPhp && <CopyRow label={t("Helpers path")} value="/home/envoryx/.phpstorm_helpers" />}
@@ -310,6 +316,42 @@ export function IdeTab({ project: p }: { project: Project }) {
         </Card>
       )}
 
+      {hasGo && (
+        <Card>
+          <CardHeader
+            title={
+              <span className="flex items-center gap-2">
+                <Bug className="size-4 text-accent-500" aria-hidden /> {t("Go debugging (Delve)")}
+              </span>
+            }
+            description={
+              goCfg.debug && goCfg.debugHostPort
+                ? goCfg.server
+                  ? t("The server runs under a headless Delve. Attach from the IDE with the values below; breakpoints survive every rebuild.")
+                  : t("The Delve port is published. Start dlv headless in the Go terminal, then attach from the IDE with the values below.")
+                : t("Not enabled – switch on “Debug with Delve” in the Runtime tab. Values below apply once enabled.")
+            }
+          />
+          <div className="p-5">
+            <dl>
+              <CopyRow label={t("Attach to host")} value={host} />
+              <CopyRow label={t("Attach to port")} value={String(goCfg.debugHostPort ?? "")} />
+              <CopyRow label={t("Delve inside the container")} value={`:${goCfg.debugPort ?? 2345}`} />
+              <CopyRow label={t("Path mapping")} value={`${hostDir} → /var/www/html`} />
+            </dl>
+            {!goCfg.server && (
+              <>
+                <p className="mt-3 text-xs text-muted">{t("Examples for the Go terminal:")}</p>
+                <pre className="mt-1 overflow-x-auto rounded-md bg-muted p-2 font-mono text-[11px]">{goDebugExamples(goCfg.debugPort ?? 2345)}</pre>
+              </>
+            )}
+            <p className="mt-2 text-xs text-subtle">
+              {t("GoLand: Run → Edit Configurations → + → Go Remote, host and port from above. VS Code: a launch.json entry of type go with request attach, mode remote, host/port from above and substitutePath from your folder to /var/www/html.")}
+            </p>
+          </div>
+        </Card>
+      )}
+
       {hasDb &&
         (dbs.data ?? []).map((d) => (
           <Card key={d.service}>
@@ -411,6 +453,14 @@ function nodeDebugExamples(port: number): string {
     `"dev": "node --inspect=0.0.0.0:${port} node_modules/vite/bin/vite.js"   // Vite`,
     `"dev": "NODE_OPTIONS='--inspect=0.0.0.0:${port}' nuxt dev"        // Nuxt`,
     `"start": "node --inspect=0.0.0.0:${port} server.js"              // plain Node`,
+  ].join("\n");
+}
+
+/** dlv command lines for the Go terminal when the server does not run under Delve. */
+function goDebugExamples(port: number): string {
+  return [
+    `dlv debug --headless --listen=:${port} --api-version=2 --accept-multiclient ./cmd/tool   # a program`,
+    `dlv test --headless --listen=:${port} --api-version=2 ./internal/store   # the tests of a package`,
   ].join("\n");
 }
 

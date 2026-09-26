@@ -132,11 +132,11 @@ export interface EnvVar {
   isSecret: boolean;
 }
 
-/** What a project's primary hostname serves: PHP-FPM behind the web server, the Python application server, the Node dev server or static files. */
-export type Serves = "php" | "python" | "node" | "static";
+/** What a project's primary hostname serves: PHP-FPM behind the web server, the Python or Go server, the Node dev server or static files. */
+export type Serves = "php" | "python" | "go" | "node" | "static";
 
 /** Kind of the container that runs the project's code. */
-export type AppKind = "php" | "python" | "node";
+export type AppKind = "php" | "python" | "go" | "node";
 
 export interface Project {
   id: string;
@@ -211,7 +211,8 @@ export interface ProxyRulesRequest extends Omit<ProxyRules, "basicAuth"> {
 
 /**
  * Client-side fallback for `project.serves`: PHP enabled → php; Python enabled with the server
- * on → python; Node enabled with the dev server on → node; everything else → static. Prefer
+ * on → python; Go with the server on → go; Node enabled with the dev server on → node;
+ * everything else → static. Prefer
  * `project.serves ?? servesOf(project)`.
  */
 export function servesOf(p: Pick<Project, "services">): Serves {
@@ -219,6 +220,8 @@ export function servesOf(p: Pick<Project, "services">): Serves {
   if (enabled("php")) return "php";
   const python = enabled("python");
   if (python && (python.config as PythonConfig).server) return "python";
+  const go = enabled("go");
+  if (go && (go.config as GoConfig).server) return "go";
   const node = enabled("node");
   if (node && (node.config as NodeConfig).devServer) return "node";
   return "static";
@@ -227,7 +230,7 @@ export function servesOf(p: Pick<Project, "services">): Serves {
 /** Client-side fallback for `project.appService`: the first enabled application runtime. */
 export function appKindOf(p: Pick<Project, "services">): AppKind | undefined {
   const enabled = (kind: string) => p.services.some((s) => s.kind === kind && s.enabled);
-  return enabled("php") ? "php" : enabled("python") ? "python" : enabled("node") ? "node" : undefined;
+  return enabled("php") ? "php" : enabled("python") ? "python" : enabled("go") ? "go" : enabled("node") ? "node" : undefined;
 }
 
 export interface RuntimeVersion {
@@ -270,6 +273,8 @@ export interface ProjectTemplate {
   node?: NodeConfig;
   /** Server defaults of a Python template (preset, port, app). */
   python?: PythonConfig;
+  /** Server defaults of a Go template (package, port). */
+  go?: GoConfig;
 }
 
 /** Framework preset of the Node dev server with the port the framework listens on by default. */
@@ -546,6 +551,32 @@ export interface PythonConfig {
   debugHostPort?: number;
 }
 
+/** Go service with optional server mode (air in dev mode, one build in production). */
+export interface GoRequest {
+  version: string;
+  server?: boolean;
+  /** "dev" (default, air live reload) or "production" (one build, then the binary). */
+  mode?: string;
+  /** The main package: "." or a path like ./cmd/server. */
+  package?: string;
+  port?: number;
+  /** Run the server under Delve (or, without the server, publish its port). */
+  debug?: boolean;
+  debugPort?: number;
+}
+
+/** Stored Go service config (from project.services[kind=go].config). */
+export interface GoConfig {
+  server?: boolean;
+  mode?: string;
+  package?: string;
+  port?: number;
+  hostPort?: number;
+  debug?: boolean;
+  debugPort?: number;
+  debugHostPort?: number;
+}
+
 /** Stored web service config (from project.services[kind=web].config). */
 export interface WebServerConfig {
   /** Unknown paths return index.html (client-side routing); only for projects without PHP. */
@@ -566,6 +597,7 @@ export interface CreateProjectRequest {
   php?: { version: string; config: PHPConfig } | null;
   node?: NodeRequest | null;
   python?: PythonRequest | null;
+  go?: GoRequest | null;
   database?: DatabaseRequest | null;
   /** Additional databases, each reached by its name (host, NAME_DB_* variables). */
   databases?: (DatabaseRequest & { name: string })[];
@@ -605,7 +637,7 @@ export interface SiteAnalysis {
   files: number;
   bytes: number;
   framework: { id: string; name: string; version?: string };
-  runtime: "php" | "static" | "node" | "python";
+  runtime: "php" | "static" | "node" | "python" | "go";
   phpVersion?: string;
   phpExtensions?: string[];
   docroot: string;
@@ -747,6 +779,7 @@ export interface UpdateProjectRequest {
   php?: { enabled?: boolean; version?: string; config?: PHPConfig };
   node?: ({ enabled: true } & NodeRequest) | { enabled: false };
   python?: ({ enabled: true } & PythonRequest) | { enabled: false };
+  go?: ({ enabled: true } & GoRequest) | { enabled: false };
   database?: DatabaseUpdate;
   /** Adds, changes or removes (enabled: false) additional databases by name. */
   databases?: Record<string, DatabaseUpdate>;
@@ -1314,7 +1347,7 @@ export interface Worker {
   createdAt: string;
 }
 
-export type CronRuntime = "php" | "node" | "python";
+export type CronRuntime = "php" | "node" | "python" | "go";
 export type CronRunStatus = "running" | "succeeded" | "failed" | "timed_out" | "error" | "interrupted";
 
 export interface CronRun {
@@ -1361,7 +1394,7 @@ export interface WorkerPreset {
   argLabel?: string;
   argHint?: string;
   requires?: string[];
-  /** Service the worker runs in: "php", "node" or "python". */
+  /** Service the worker runs in: "php", "node", "python" or "go". */
   runtime?: string;
 }
 

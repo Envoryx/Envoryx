@@ -595,4 +595,35 @@ describe("NewProjectPage wizard", () => {
     const create = api.calls.find((c) => c.method === "POST" && c.url.endsWith("/projects"));
     expect(create?.body).toMatchObject({ database: { type: "mariadb", exposePort: false, external: { host: "host.docker.internal", port: 0, username: "shop_app", password: "pw", database: "shop" } } });
   });
+
+  it("creates a Go project: server on, no php key, no starter", async () => {
+    const api = mockApi({
+      ...authedRoutes,
+      "GET /runtimes": () => ({ body: runtimesFixture }),
+      "POST /projects/preview": previewRoute(() => {}),
+      "POST /projects": () => ({ status: 201, body: { project: makeProject() } }),
+    });
+    renderApp(
+      <Routes>
+        <Route path="/projects/new" element={<NewProjectPage />} />
+        <Route path="/projects/:id" element={<h1>Detail</h1>} />
+      </Routes>,
+      { route: "/projects/new" },
+    );
+    const user = userEvent.setup();
+    await user.type(await screen.findByLabelText("Project name"), "Acme Api");
+    await user.click(screen.getByRole("radio", { name: /Go application/ }));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await user.clear(await screen.findByLabelText("Main package"));
+    await user.type(screen.getByLabelText("Main package"), "./cmd/api");
+    for (let i = 0; i < 4; i++) await user.click(screen.getByRole("button", { name: "Continue" }));
+    expect(screen.queryByLabelText(/Create starter/)).not.toBeInTheDocument();
+    await user.click(await screen.findByRole("button", { name: "Create project" }));
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Detail" })).toBeInTheDocument());
+    const create = api.calls.find((c) => c.method === "POST" && c.url.endsWith("/projects"));
+    const body = create?.body as Record<string, unknown>;
+    expect(body.php).toBeUndefined();
+    expect(body.createStarter).toBe(false);
+    expect(body.go).toMatchObject({ version: "1.27", server: true, mode: "dev", package: "./cmd/api", port: 8080 });
+  });
 });
