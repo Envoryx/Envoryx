@@ -37,6 +37,12 @@ release). `:main` follows the development branch.
   Container Toolkit, on Unraid the Nvidia Driver plugin) and says so when it
   cannot.
 
+### Changed
+- Builds of the development branch (`:main`) are named after the release they
+  follow: `0.10.0+5 (73304d6)` – five commits after 0.10.0 – instead of
+  `main-` and the full commit hash. Releases show their number without the
+  `v`.
+
 ## [0.10.0] – 2026-09-26
 
 ### Added

@@ -22,6 +22,8 @@ func TestNewer(t *testing.T) {
 		{"v0.2.0", "main-abc123", false},
 		{"main-abc123", "v0.1.0", false},
 		{"v0.2.0", "dev", false},
+		{"v0.11.0", "v0.10.0-3-g73304d6", false},
+		{"v0.10.0-3-g73304d6", "v0.9.0", false},
 		{"0.2.0", "v0.1.0", true},
 	}
 	for _, c := range cases {
@@ -53,11 +55,14 @@ func TestCheck(t *testing.T) {
 		t.Fatalf("user agent %q", ua)
 	}
 
-	// A development build sees the latest release but never claims an update.
-	d := New("main-abc1234", srv.URL, log)
-	_ = d.Check(context.Background())
-	if st := d.Status(); st.Release || st.Available || st.Latest != "v0.2.0" {
-		t.Fatalf("dev status: %+v", st)
+	// A development build sees the latest release but never claims an update – named
+	// the old way or the way git describe names it.
+	for _, dev := range []string{"main-abc1234", "v0.1.0-3-g73304d6"} {
+		d := New(dev, srv.URL, log)
+		_ = d.Check(context.Background())
+		if st := d.Status(); st.Release || st.Available || st.Latest != "v0.2.0" {
+			t.Fatalf("dev status of %s: %+v", dev, st)
+		}
 	}
 
 	// Failures keep the last good data and record the error.
