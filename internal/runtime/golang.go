@@ -130,6 +130,26 @@ func (c GoConfig) delve() []string {
 	return []string{"dlv", "exec", "--headless", "--listen=:" + strconv.Itoa(c.DebugPort), "--api-version=2", "--accept-multiclient", "--continue", goBuildDir + "/app"}
 }
 
+// goPortsFreeScript waits (up to ten seconds) until nothing listens on the ports given
+// as arguments, then execs the command after "--". air starts the new build right after
+// killing the old one, and a Delve that is still tearing down its debuggee holds both
+// ports a moment longer – the new dlv would fail with "address already in use" and the
+// server stay down until the next change. The image has no ss or nc, so it reads
+// /proc/net/tcp{,6} (state 0A is LISTEN).
+const goPortsFreeScript = `i=0
+while [ "$1" != -- ]; do
+  p=$(printf '%04X' "$1")
+  while [ $i -lt 50 ] && grep -qs ":$p [0-9A-F]*:[0-9A-F]* 0A" /proc/net/tcp /proc/net/tcp6; do sleep 0.2; i=$((i+1)); done
+  shift
+done
+shift
+exec "$@"`
+
+// delveAfterRestart is delve() behind goPortsFreeScript, for air's build.full_bin.
+func (c GoConfig) delveAfterRestart() []string {
+	return append([]string{"sh", "-c", goPortsFreeScript, "envoryx-dlv", strconv.Itoa(c.DebugPort), strconv.Itoa(c.Port), "--"}, c.delve()...)
+}
+
 // Command returns the argv of the container's main process. In dev mode it is air –
 // with the project's own .air.toml when there is one, else with flags that build Package
 // into goBuildDir (nothing lands in the project directory); in production mode one build
@@ -146,7 +166,7 @@ func (c GoConfig) Command() []string {
 	air := []string{"air", "--tmp_dir", goBuildDir, "--build.cmd", shellJoin(c.buildArgs()), "--build.bin", goBuildDir + "/app",
 		"--build.exclude_dir", "vendor,node_modules,.git,tmp,testdata"}
 	if c.Debug {
-		air = append(air, "--build.full_bin", shellJoin(c.delve()))
+		air = append(air, "--build.full_bin", shellJoin(c.delveAfterRestart()))
 	}
 	// A project that configures air itself keeps its configuration.
 	return append([]string{"sh", "-c", `if [ -f .air.toml ]; then exec air; fi; exec "$@"`, "envoryx-air"}, air...)
