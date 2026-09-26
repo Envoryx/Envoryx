@@ -1771,6 +1771,29 @@ The file is the one from *Settings → TLS → Download CA certificate*
 (`ENVORYX_CA_CERT` does the same). `--insecure` skips verification for a quick
 look on a trusted network; with a Let's Encrypt certificate neither is needed.
 
+## Audit log
+
+*Settings → Audit log* lists who did what and when: sign-ins, every change to
+a project, backups, database operations, commands run through the API or a
+terminal, settings. Filter by text (action, user, project, IP, details), by
+user – an account's API tokens are included –, by category and by date;
+*Load older entries* pages back, and a click on a user shows only their
+entries. Every project has the same list for itself under *History*.
+
+Open an entry to see everything it recorded. A project change lists each
+setting it changed with its value before and after (PHP version, services,
+document root, variables, workers …); secret values never appear – only that a
+secret was added or removed.
+
+*CSV* and *JSON Lines* export exactly the entries the filters show (the API:
+`GET /api/v1/audit/export?format=csv&action=project.&since=2026-09-01`, with
+the same parameters as `GET /api/v1/audit`: `q`, `user`, `action` (a prefix,
+repeatable), `project`, `since`, `until`, `after`, `limit`). Cells a
+spreadsheet would run as a formula are prefixed with `'`.
+
+*Retention* keeps the log for 30 days up to two years, or forever (the
+default); older entries are deleted every hour.
+
 ## Lost access
 
 The credentials for the web interface can be reset from a shell inside the

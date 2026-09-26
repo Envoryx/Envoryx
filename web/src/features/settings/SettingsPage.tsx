@@ -2,12 +2,12 @@ import { KeyRound, RefreshCw, Save } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useEffect, useState, type FormEvent } from "react";
 import { api } from "@/api/client";
-import { useAudit, useDeployKey, useDiagnostics, useSettings, useUpdateSettings } from "@/api/hooks";
+import { useAuditSettings, useDeployKey, useDiagnostics, useSettings, useUpdateSettings } from "@/api/hooks";
 import { useSearchParams } from "react-router-dom";
 import { clsx } from "clsx";
 import { useQueryClient } from "@tanstack/react-query";
-import { Alert, Badge, Button, Card, CardHeader, ErrorState, Field, Input, PageHeader, Spinner } from "@/components/ui";
-import { formatDateTime, formatVersion } from "@/lib/format";
+import { Alert, Badge, Button, Card, CardHeader, ErrorState, Field, Input, PageHeader, Select, Spinner } from "@/components/ui";
+import { formatVersion } from "@/lib/format";
 import { PublicHostNotice } from "@/components/PublicHostNotice";
 import { DomainsCard } from "./DomainsCard";
 import { TokensCard } from "./TokensCard";
@@ -18,7 +18,7 @@ import { InstanceBackupsCard } from "./InstanceBackupsCard";
 import { OffsiteTargetsCard } from "@/features/offsite/OffsiteTargetsCard";
 import { DiagnosticsTab } from "./DiagnosticsTab";
 import { AppearanceCard } from "./AppearanceCard";
-import { auditActionLabel, auditActor, auditDetails } from "@/lib/audit";
+import { AuditLog } from "@/features/audit/AuditLog";
 import { LifecycleCard } from "./LifecycleCard";
 import { LogHistoryCard } from "./LogHistoryCard";
 import { ResourceHistoryCard } from "./ResourceHistoryCard";
@@ -250,44 +250,54 @@ function InstanceCard() {
 
 function AuditCard() {
   const { t } = useTranslation();
-  const audit = useAudit(50);
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader title={t("Audit log")} description={t("Who did what and when – security-relevant events and every change to a project, with its settings before and after. Secrets are never recorded.")} />
+        <div className="pt-4">
+          <AuditLog />
+        </div>
+      </Card>
+      <AuditRetentionCard />
+    </div>
+  );
+}
+
+const retentionChoices = [0, 30, 90, 180, 365, 730];
+
+function AuditRetentionCard() {
+  const { t } = useTranslation();
+  const { query, save } = useAuditSettings();
+  const [msg, setMsg] = useState<{ tone: "green" | "red"; text: string } | null>(null);
+  if (query.isPending) return <Spinner />;
+  if (query.isError) return <ErrorState message={errorText(query.error, t)} />;
+  const days = query.data.retentionDays;
+  const choices = retentionChoices.includes(days) ? retentionChoices : [...retentionChoices, days].sort((a, b) => a - b);
   return (
     <Card>
-      <CardHeader title={t("Audit log")} description={t("Most recent security-relevant events. Secrets are never recorded.")} />
-      {audit.isPending ? (
-        <Spinner />
-      ) : audit.isError ? (
-        <ErrorState message={errorText(audit.error, t)} />
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="text-left text-xs text-subtle">
-              <tr className="border-b border-default">
-                <th className="px-5 py-2 font-medium">{t("Time")}</th>
-                <th className="px-3 py-2 font-medium">{t("User")}</th>
-                <th className="px-3 py-2 font-medium">{t("Action")}</th>
-                <th className="px-3 py-2 font-medium">{t("Details")}</th>
-                <th className="px-3 py-2 font-medium">IP</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[var(--border)]">
-              {audit.data.entries.map((e) => (
-                <tr key={e.id}>
-                  <td className="whitespace-nowrap px-5 py-2 text-xs text-muted">{formatDateTime(e.createdAt)}</td>
-                  <td className={clsx("px-3 py-2 text-xs", !e.username && "italic text-muted")}>{auditActor(e, t)}</td>
-                  <td className="px-3 py-2 text-xs" title={e.action}>
-                    {auditActionLabel(e.action, t)}
-                  </td>
-                  <td className="max-w-md truncate px-3 py-2 text-xs text-muted" title={auditDetails(e, t)}>
-                    {auditDetails(e, t)}
-                  </td>
-                  <td className="px-3 py-2 font-mono text-xs text-subtle">{e.ip}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <CardHeader title={t("Retention")} description={t("How long the audit log keeps its entries. Older ones are deleted every hour.")} />
+      <div className="space-y-3 p-5">
+        {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
+        <Field label={t("Keep entries")} htmlFor="audit-retention">
+          <Select
+            id="audit-retention"
+            value={days}
+            disabled={save.isPending}
+            onChange={(e) =>
+              save.mutate(Number(e.target.value), {
+                onSuccess: () => setMsg({ tone: "green", text: t("Retention saved.") }),
+                onError: (err) => setMsg({ tone: "red", text: errorText(err, t, t("Saving failed")) }),
+              })
+            }
+          >
+            {choices.map((d) => (
+              <option key={d} value={d}>
+                {d === 0 ? t("Forever") : t("{{count}} days", { count: d })}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      </div>
     </Card>
   );
 }

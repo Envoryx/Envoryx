@@ -41,5 +41,9 @@
   "Orange": "Orange",
   "Graphite": "Graphite",
   "Import {{count}} variables_one": "Import {{count}} variable",
-  "Import {{count}} variables_other": "Import {{count}} variables"
+  "Import {{count}} variables_other": "Import {{count}} variables",
+  "{{count}} days_one": "{{count}} day",
+  "{{count}} days_other": "{{count}} days",
+  "{{count}} settings changed_one": "{{count}} setting changed",
+  "{{count}} settings changed_other": "{{count}} settings changed"
 }

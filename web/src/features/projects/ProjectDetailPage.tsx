@@ -31,9 +31,10 @@ const ActionsTab = lazy(() => import("./ActionsTab").then((m) => ({ default: m.A
 const TestsTab = lazy(() => import("./TestsTab").then((m) => ({ default: m.TestsTab })));
 import { PhpConfigForm } from "./PhpConfigForm";
 import { webServerHint } from "./webServers";
+import { AuditLog } from "@/features/audit/AuditLog";
 import { errorText, translateMessage } from "@/lib/errors";
 
-const tabs = ["Overview", "Resources", "Domains", "Git", "Actions", "Tests", "Terminal", "Logs", "Runtime", "Workers", "Cron", "Database", "Services", "Backups", "Environment", "IDE", "Advanced"] as const;
+const tabs = ["Overview", "Resources", "Domains", "Git", "Actions", "Tests", "Terminal", "Logs", "Runtime", "Workers", "Cron", "Database", "Services", "Backups", "Environment", "IDE", "History", "Advanced"] as const;
 type Tab = (typeof tabs)[number];
 
 export function ProjectDetailPage() {
@@ -191,6 +192,14 @@ export function ProjectDetailPage() {
       {tab === "Environment" && <EnvTab project={p} />}
       {tab === "IDE" && <IdeTab project={p} />}
       {tab === "Resources" && <ResourcesTab project={p} />}
+      {tab === "History" && (
+        <Card>
+          <CardHeader title={t("History")} description={t("Everything done to this project, newest first; open an entry to see what a change changed.")} />
+          <div className="pt-4">
+            <AuditLog project={p.id} />
+          </div>
+        </Card>
+      )}
       {tab === "Advanced" && <AdvancedTab project={p} />}
 
       <RenameProjectDialog project={p} open={renaming} onClose={() => setRenaming(false)} />

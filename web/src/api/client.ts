@@ -3,7 +3,6 @@ import type {
   ACMERequest,
   ActionInfo,
   APIToken,
-  AuditEntry,
   BackupInfo,
   BackupSchedule,
   BackupsResponse,
@@ -79,6 +78,8 @@ import type {
   OllamaModels,
   OllamaPull,
   ExternalTest,
+  AuditFilter,
+  AuditPage,
 } from "./types";
 
 /** Query string of the log endpoints; empty filter fields are left out. */
@@ -222,6 +223,19 @@ function uploadSite(site: File, dump: File | null, onProgress?: (loaded: number,
   });
 }
 
+/** The query string of an audit filter plus extra parameters (empty values left out). */
+function auditQuery(f: AuditFilter, extra: Record<string, string>): string {
+  const p = new URLSearchParams();
+  if (f.q?.trim()) p.set("q", f.q.trim());
+  if (f.user) p.set("user", f.user);
+  for (const a of f.actions ?? []) p.append("action", a);
+  if (f.project) p.set("project", f.project);
+  if (f.since) p.set("since", f.since);
+  if (f.until) p.set("until", f.until);
+  for (const [k, v] of Object.entries(extra)) if (v) p.set(k, v);
+  return p.toString();
+}
+
 /** A model reference as a path: its "/" stay separators (hf.co/org/repo:tag), the rest is escaped. */
 function modelPath(model: string): string {
   return model.split("/").map(encodeURIComponent).join("/");
@@ -278,7 +292,14 @@ export const api = {
     clearAcme: () => request<ACMEInfo>("/settings/tls/acme", { method: "DELETE" }),
     issueAcme: () => request<void>("/settings/tls/acme/issue", { method: "POST" }),
   },
-  audit: (limit = 100) => request<{ entries: AuditEntry[] }>(`/audit?limit=${limit}`),
+  audit: {
+    list: (filter: AuditFilter, after = "", limit = 50) => request<AuditPage>(`/audit?${auditQuery(filter, { after, limit: String(limit) })}`),
+    /** The export's URL: a plain link, so the browser downloads it with the session. */
+    exportUrl: (filter: AuditFilter, format: "csv" | "jsonl") => `/api/v1/audit/export?${auditQuery(filter, { format })}`,
+    users: () => request<{ users: string[] }>("/audit/users"),
+    settings: () => request<{ settings: { retentionDays: number } }>("/audit/settings"),
+    setSettings: (retentionDays: number) => request<{ settings: { retentionDays: number } }>("/audit/settings", { method: "PUT", body: { retentionDays } }),
+  },
   reconcile: () => request<{ report: unknown }>("/system/reconcile", { method: "POST" }),
   diagnostics: () => request<Diagnostics>("/system/diagnostics"),
 
