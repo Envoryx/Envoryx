@@ -206,8 +206,8 @@ func TestRubyTemplateWorkersTestsAndManifest(t *testing.T) {
 // The test runs must never reach the development database: DATABASE_URL gains _test.
 func TestRubyTestScript(t *testing.T) {
 	for in, want := range map[string]string{
-		"postgresql://u:p@database:5432/shop":            "postgresql://u:p@database:5432/shop_test",
-		"":                                               "",
+		"postgresql://u:p@database:5432/shop": "postgresql://u:p@database:5432/shop_test",
+		"":                                    "",
 		"mongodb://u:p@database:27017/shop?authSource=a": "mongodb://u:p@database:27017/shop?authSource=a",
 	} {
 		cmd := exec.Command("sh", "-c", rubyTestScript, "envoryx-test", "sh", "-c", `printf %s "$DATABASE_URL"`)
