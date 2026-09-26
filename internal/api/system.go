@@ -2,6 +2,8 @@ package api
 
 import (
 	"context"
+	"encoding/csv"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -19,6 +21,7 @@ import (
 	"github.com/envoryx/envoryx/internal/project"
 	"github.com/envoryx/envoryx/internal/runtime"
 	"github.com/envoryx/envoryx/internal/sshd"
+	"github.com/envoryx/envoryx/internal/store"
 	"github.com/envoryx/envoryx/internal/validate"
 
 	"golang.org/x/crypto/ssh"
@@ -437,28 +440,150 @@ func (a *API) settings(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// auditEntryDTO is one audit log entry as the API returns it.
+type auditEntryDTO struct {
+	ID         string          `json:"id"`
+	CreatedAt  time.Time       `json:"createdAt"`
+	Username   string          `json:"username"`
+	Action     string          `json:"action"`
+	TargetType string          `json:"targetType"`
+	TargetID   string          `json:"targetId"`
+	Details    json.RawMessage `json:"details"`
+	IP         string          `json:"ip"`
+}
+
+func toAuditDTO(e store.AuditEntry) auditEntryDTO {
+	return auditEntryDTO{ID: e.ID, CreatedAt: e.CreatedAt, Username: e.Username, Action: e.Action, TargetType: e.TargetType, TargetID: e.TargetID, Details: e.Details, IP: e.IP}
+}
+
+// auditQuery reads the audit filters from the query string: q, user, action (prefix,
+// repeatable), project, since and until (RFC 3339 or a date; until's date counts in
+// full), after (the cursor) and limit.
+func auditQuery(r *http.Request) (store.AuditQuery, error) {
+	v := r.URL.Query()
+	q := store.AuditQuery{Text: v.Get("q"), User: v.Get("user"), Actions: v["action"], TargetID: v.Get("project"), After: v.Get("after")}
+	q.Limit, _ = strconv.Atoi(v.Get("limit"))
+	parse := func(s string, endOfDay bool) (time.Time, error) {
+		if s == "" {
+			return time.Time{}, nil
+		}
+		if t, err := time.Parse(time.RFC3339, s); err == nil {
+			return t, nil
+		}
+		t, err := time.Parse(time.DateOnly, s)
+		if err != nil {
+			return time.Time{}, fmt.Errorf("%w: %q is not a date (2026-09-26) or time (RFC 3339)", validate.ErrInvalid, s)
+		}
+		if endOfDay {
+			t = t.AddDate(0, 0, 1)
+		}
+		return t, nil
+	}
+	var err error
+	if q.Since, err = parse(v.Get("since"), false); err != nil {
+		return q, err
+	}
+	if q.Until, err = parse(v.Get("until"), true); err != nil {
+		return q, err
+	}
+	return q, nil
+}
+
+// auditLog returns a page of the audit log, newest first, and the cursor of the next.
 func (a *API) auditLog(w http.ResponseWriter, r *http.Request) {
-	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	entries, err := a.d.Store.Audit.Recent(r.Context(), limit)
+	q, err := auditQuery(r)
 	if err != nil {
 		writeError(w, r, err)
 		return
 	}
-	type entryDTO struct {
-		ID         string    `json:"id"`
-		CreatedAt  time.Time `json:"createdAt"`
-		Username   string    `json:"username"`
-		Action     string    `json:"action"`
-		TargetType string    `json:"targetType"`
-		TargetID   string    `json:"targetId"`
-		Details    any       `json:"details"`
-		IP         string    `json:"ip"`
+	entries, next, err := a.d.Store.Audit.Query(r.Context(), q)
+	if err != nil {
+		writeError(w, r, err)
+		return
 	}
-	out := make([]entryDTO, 0, len(entries))
+	out := make([]auditEntryDTO, 0, len(entries))
 	for _, e := range entries {
-		out = append(out, entryDTO{ID: e.ID, CreatedAt: e.CreatedAt, Username: e.Username, Action: e.Action, TargetType: e.TargetType, TargetID: e.TargetID, Details: e.Details, IP: e.IP})
+		out = append(out, toAuditDTO(e))
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"entries": out})
+	writeJSON(w, http.StatusOK, map[string]any{"entries": out, "next": next})
+}
+
+// auditExport streams every entry matching the filters as CSV or JSON Lines.
+func (a *API) auditExport(w http.ResponseWriter, r *http.Request) {
+	q, err := auditQuery(r)
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	format := r.URL.Query().Get("format")
+	if format == "" {
+		format = "csv"
+	}
+	if format != "csv" && format != "jsonl" {
+		writeError(w, r, fmt.Errorf("%w: format must be csv or jsonl", validate.ErrInvalid))
+		return
+	}
+	name := "envoryx-audit-" + time.Now().UTC().Format("20060102-150405") + "." + format
+	w.Header().Set("Content-Disposition", `attachment; filename="`+name+`"`)
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	var write func(store.AuditEntry) error
+	if format == "csv" {
+		w.Header().Set("Content-Type", "text/csv; charset=utf-8")
+		cw := csv.NewWriter(w)
+		defer cw.Flush()
+		_ = cw.Write([]string{"time", "user", "action", "target_type", "target_id", "ip", "details"})
+		write = func(e store.AuditEntry) error {
+			return cw.Write([]string{e.CreatedAt.UTC().Format(time.RFC3339), csvCell(e.Username), e.Action, e.TargetType, csvCell(e.TargetID), e.IP, csvCell(string(e.Details))})
+		}
+	} else {
+		w.Header().Set("Content-Type", "application/x-ndjson; charset=utf-8")
+		enc := json.NewEncoder(w)
+		write = func(e store.AuditEntry) error { return enc.Encode(toAuditDTO(e)) }
+	}
+	q.Limit = 0
+	if err := a.d.Store.Audit.Each(r.Context(), q, write); err != nil {
+		// The status line is out already; the truncated file is all that can be said.
+		a.d.Log.Warn("audit export interrupted", "err", err)
+	}
+}
+
+// csvCell keeps a spreadsheet from reading a value as a formula (=, +, -, @ first).
+func csvCell(s string) string {
+	if s != "" && strings.ContainsRune("=+-@\t\r", rune(s[0])) {
+		return "'" + s
+	}
+	return s
+}
+
+// auditUsers lists the accounts that appear in the audit log, for the user filter.
+func (a *API) auditUsers(w http.ResponseWriter, r *http.Request) {
+	users, err := a.d.Store.Audit.Users(r.Context())
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"users": users})
+}
+
+func (a *API) auditSettings(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]any{"settings": a.d.Projects.AuditSettings(r.Context())})
+}
+
+func (a *API) setAuditSettings(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		RetentionDays int `json:"retentionDays"`
+	}
+	if err := decodeJSON(w, r, &req); err != nil {
+		writeError(w, r, err)
+		return
+	}
+	st, err := a.d.Projects.SetAuditRetention(r.Context(), req.RetentionDays)
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"settings": st})
 }
 
 func (a *API) reconcileReport(w http.ResponseWriter, r *http.Request) {

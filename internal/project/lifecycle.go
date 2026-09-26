@@ -682,6 +682,8 @@ func (m *Manager) update(ctx context.Context, id string, req UpdateRequest) (Vie
 		return View{}, fmt.Errorf("%w: project is not in a ready state", ErrConflict)
 	}
 	changes := map[string]any{}
+	// The settings as they were, for the audit entry's before and after.
+	before, haveBefore := m.auditState(ctx, id)
 
 	name, docroot := proj.Name, proj.Docroot
 	if req.Name != nil {
@@ -919,7 +921,13 @@ func (m *Manager) update(ctx context.Context, id string, req UpdateRequest) (Vie
 		_ = m.store.Projects.UpdateState(context.WithoutCancel(ctx), id, proj.DesiredState, proj.Lifecycle, err.Error())
 		return View{}, err
 	}
-	m.audit.Log(ctx, audit.ActionProjectUpdated, "project", id, map[string]any{"name": proj.Name, "changes": changes})
+	details := map[string]any{"name": proj.Name, "changes": changes}
+	if after, ok := m.auditState(ctx, id); ok && haveBefore {
+		if diff := manifestDiff(before, after); len(diff) > 0 {
+			details["diff"] = diff
+		}
+	}
+	m.audit.Log(ctx, audit.ActionProjectUpdated, "project", id, details)
 	return m.Get(ctx, id)
 }
 
