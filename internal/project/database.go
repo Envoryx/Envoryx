@@ -220,9 +220,24 @@ func (m *Manager) runSQL(ctx context.Context, p store.Project, svc *store.Projec
 		if msg == "" {
 			msg = strings.TrimSpace(res.Stdout)
 		}
-		return "", fmt.Errorf("database command failed: %s", sanitizeSQLError(msg, cfg))
+		return "", fmt.Errorf("database command failed: %s", sanitizeSQLError(dropClientWarnings(msg), cfg))
 	}
 	return res.Stdout, nil
+}
+
+// dropClientWarnings removes the notes clients print before the actual error (MariaDB's
+// "WARNING: option --ssl-verify-server-cert is disabled …"), which read like the cause.
+func dropClientWarnings(msg string) string {
+	var keep []string
+	for _, line := range strings.Split(msg, "\n") {
+		if !strings.HasPrefix(strings.TrimSpace(line), "WARNING:") {
+			keep = append(keep, line)
+		}
+	}
+	if len(keep) == 0 {
+		return msg
+	}
+	return strings.TrimSpace(strings.Join(keep, "\n"))
 }
 
 // sanitizeSQLError strips secrets from server error messages before they reach logs or the UI.
