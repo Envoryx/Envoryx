@@ -47,3 +47,15 @@ describe("errorText", () => {
     expect(errorText(new TypeError("Failed to fetch"), t)).toBe("The server could not be reached.");
   });
 });
+
+describe("external connection messages", () => {
+  afterEach(() => void i18n.changeLanguage("en"));
+
+  it("translates a failed connection and keeps the server's own words", async () => {
+    await i18n.changeLanguage("de");
+    const msg = "invalid input: cannot connect to mariadb at host.docker.internal:23306 as shop_app: ERROR 1045 (28000): Access denied for user 'shop_app'@'172.17.0.1' (using password: YES)";
+    const out = translateMessage(msg, i18n.t);
+    expect(out).toContain("keine Verbindung zu mariadb unter host.docker.internal:23306 als shop_app");
+    expect(out).toContain("Access denied for user 'shop_app'");
+  });
+});

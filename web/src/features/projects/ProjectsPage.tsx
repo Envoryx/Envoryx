@@ -48,7 +48,7 @@ function ProjectRow({ project, usage }: { project: Project; usage?: { cpuPercent
   const { url } = links(project);
   const { error, capture } = useActionError();
   const running = project.status.services.filter((s) => s.running).length;
-  const total = project.status.services.length;
+  const total = project.status.services.filter((s) => s.state !== "external").length;
 
   return (
     <li className="px-4 py-3 sm:px-5">

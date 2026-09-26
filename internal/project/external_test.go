@@ -318,3 +318,26 @@ func TestExternalDatabaseInTheManifest(t *testing.T) {
 		t.Fatalf("a new external database is skipped: %+v", plan.Changes)
 	}
 }
+
+// A client container that happens to run while the status is read is no stray service.
+func TestTransientHelpersAreNoStrayServices(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	view, err := e.m.Create(ctx, phpRequest("Helpers", true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	image := view.Project.Service(store.ServiceWeb).Image
+	for _, svc := range []string{"dbclient", "git", "template"} {
+		if _, err := e.engine.CreateContainer(ctx, docker.ContainerSpec{Name: "envoryx-helpers-" + svc, Image: image, Labels: docker.ManagedLabels(view.Project.ID, "helpers", svc, "")}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got, err := e.m.Get(ctx, view.Project.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Status.Warnings) != 0 {
+		t.Fatalf("helpers reported as removed services: %v", got.Status.Warnings)
+	}
+}

@@ -7,12 +7,13 @@ import { api } from "@/api/client";
 import { useCreateProject, useProjectLinks, useRuntimes, useSettings } from "@/api/hooks";
 import { NodeDevServerFields, defaultDevServerForm, devServerRequest, type DevServerForm } from "./NodeDevServerFields";
 import { PythonServerFields, defaultPythonServerForm, pythonServerRequest, type PythonServerForm } from "./PythonServerFields";
-import { defaultNodePresets, defaultPythonPresets, type AppKind, type CreateProjectRequest, type EnvVar, type PHPConfig, type Preview, type Project, type ProjectTemplate, type Serves, type SiteImport } from "@/api/types";
+import { defaultNodePresets, defaultPythonPresets, type AppKind, type CreateProjectRequest, type EnvVar, type ExternalDatabase, type ExternalRedis, type PHPConfig, type Preview, type Project, type ProjectTemplate, type Serves, type SiteImport } from "@/api/types";
 import { Alert, Button, Card, Checkbox, Code, ErrorState, Field, Input, PageHeader, Select, Spinner } from "@/components/ui";
 import { CreateProgress } from "./CreateProgress";
 import { ImportSiteCard, nameFromArchive } from "./ImportSiteCard";
 import { databaseNamePattern } from "./databases";
 import { EnvEditor } from "./EnvEditor";
+import { emptyExternalDatabase, emptyExternalRedis, externalDatabaseComplete, ExternalDatabaseFields, externalDatabaseTypes, ExternalRedisFields } from "./ExternalConnection";
 import { PhpConfigForm } from "./PhpConfigForm";
 import { webServerHint } from "./webServers";
 import { errorText } from "@/lib/errors";
@@ -57,11 +58,16 @@ interface Form {
   dbType: string; // "" = none
   dbVersion: string;
   dbExpose: boolean;
+  /** The primary database is a server Envoryx does not run. */
+  dbExternal: boolean;
+  dbConn: ExternalDatabase;
   /** Additional databases next to the primary one. */
   extraDbs: { name: string; type: string; version: string }[];
   redis: boolean;
   redisVersion: string;
   redisExpose: boolean;
+  redisExternal: boolean;
+  redisConn: ExternalRedis;
   memcached: boolean;
   memcachedExpose: boolean;
   mailpit: boolean;
@@ -144,10 +150,14 @@ export function NewProjectPage() {
         dbType: "",
         dbVersion: "",
         dbExpose: false,
+        dbExternal: false,
+        dbConn: emptyExternalDatabase,
         extraDbs: [],
         redis: false,
         redisVersion: runtimes.data.runtimes.find((r) => r.key === "redis")?.versions.find((v) => v.default)?.version ?? "",
         redisExpose: false,
+        redisExternal: false,
+        redisConn: emptyExternalRedis,
         memcached: false,
         memcachedExpose: false,
         mailpit: false,
@@ -204,10 +214,10 @@ export function NewProjectPage() {
     }
     if (form.nodeEnabled) req.node = { version: form.nodeVersion, ...devServerRequest(form.nodeDev) };
     if (form.pythonEnabled) req.python = { version: form.pythonVersion, ...pythonServerRequest(form.pythonServer) };
-    if (form.dbType) req.database = { type: form.dbType, version: form.dbVersion, exposePort: form.dbExpose };
+    if (form.dbType) req.database = form.dbExternal && externalDatabaseTypes.includes(form.dbType) ? { type: form.dbType, version: form.dbVersion, exposePort: false, external: form.dbConn } : { type: form.dbType, version: form.dbVersion, exposePort: form.dbExpose };
     const extraDbs = form.extraDbs.filter((d) => d.name.trim());
     if (extraDbs.length > 0) req.databases = extraDbs.map((d) => ({ name: d.name.trim(), type: d.type, version: d.version, exposePort: false }));
-    if (form.redis) req.redis = { version: form.redisVersion, exposePort: form.redisExpose };
+    if (form.redis) req.redis = form.redisExternal ? { external: form.redisConn } : { version: form.redisVersion, exposePort: form.redisExpose };
     if (form.memcached) req.memcached = { exposePort: form.memcachedExpose };
     if (form.mailpit) req.mailpit = {};
     if (form.rabbitmq) req.rabbitmq = { version: form.rabbitmqVersion, exposePort: form.rabbitmqExpose };
@@ -276,7 +286,7 @@ export function NewProjectPage() {
     if (form.extraDbs.some((d, j) => j < i && d.name.trim() === n)) return t("The project already has a database of this name.");
     return undefined;
   };
-  const canContinue = step === 0 ? form.name.trim().length >= 2 && !nameError && (!form.importing || !!form.importSite) : step === 3 ? form.extraDbs.every((_, i) => !extraDbError(i)) : true;
+  const canContinue = step === 0 ? form.name.trim().length >= 2 && !nameError && (!form.importing || !!form.importSite) : step === 3 ? form.extraDbs.every((_, i) => !extraDbError(i)) && (!form.dbType || !form.dbExternal || !externalDatabaseTypes.includes(form.dbType) || externalDatabaseComplete(form.dbConn)) && (!form.redis || !form.redisExternal || !!form.redisConn.host) : true;
   // The services the new project will have, so an imported .env knows what Envoryx sets.
   const wizardServices = [
     ...(form.dbType ? [{ kind: "database", variant: form.dbType }] : []),
@@ -664,7 +674,19 @@ export function NewProjectPage() {
               </div>
               {form.dbType && (
                 <div className="space-y-4 rounded-md border border-default p-4">
-                  <Field label={t("Version")} htmlFor="db-version" hint={t("Upgrades between versions run on the same data volume; downgrades are not possible.")}>
+                  {externalDatabaseTypes.includes(form.dbType) && (
+                    <div className="flex flex-wrap gap-4" role="radiogroup" aria-label={t("Where the database runs")}>
+                      <label className="inline-flex items-center gap-2 text-sm">
+                        <input type="radio" name="db-where" checked={!form.dbExternal} onChange={() => set({ dbExternal: false })} />
+                        {t("In a container of the project")}
+                      </label>
+                      <label className="inline-flex items-center gap-2 text-sm">
+                        <input type="radio" name="db-where" checked={form.dbExternal} onChange={() => set({ dbExternal: true })} />
+                        {t("On an external server")}
+                      </label>
+                    </div>
+                  )}
+                  <Field label={t("Version")} htmlFor="db-version" hint={form.dbExternal ? t("Picks the client tools for backups and the connection; choose the server's major version.") : t("Upgrades between versions run on the same data volume; downgrades are not possible.")}>
                     <Select id="db-version" value={form.dbVersion} onChange={(e) => set({ dbVersion: e.target.value })}>
                       {databases
                         .find((d) => d.key === form.dbType)
@@ -675,15 +697,26 @@ export function NewProjectPage() {
                         ))}
                     </Select>
                   </Field>
-                  <Checkbox
-                    label={t("Publish database port on the host")}
-                    description={t("Lets you connect from your workstation with TablePlus, DBeaver, etc. The port is assigned automatically.")}
-                    checked={form.dbExpose}
-                    onChange={(e) => set({ dbExpose: e.target.checked })}
-                  />
-                  <p className="text-sm text-muted">
-                    {t("Envoryx generates secure credentials and injects DB_HOST, DB_DATABASE, DB_USERNAME, DB_PASSWORD and DATABASE_URL into the application containers (PHP, Python, Node). Data lives in a persistent Docker volume.")}
-                  </p>
+                  {form.dbExternal && externalDatabaseTypes.includes(form.dbType) ? (
+                    <>
+                      <ExternalDatabaseFields id="db-ext" type={form.dbType} version={form.dbVersion} value={form.dbConn} onChange={(dbConn) => set({ dbConn })} />
+                      <p className="text-sm text-muted">
+                        {t("Envoryx runs no database container and injects this server's DB_HOST, DB_PORT, DB_DATABASE, DB_USERNAME, DB_PASSWORD and DATABASE_URL into the application containers. The connection is tested when the project is created.")}
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <Checkbox
+                        label={t("Publish database port on the host")}
+                        description={t("Lets you connect from your workstation with TablePlus, DBeaver, etc. The port is assigned automatically.")}
+                        checked={form.dbExpose}
+                        onChange={(e) => set({ dbExpose: e.target.checked })}
+                      />
+                      <p className="text-sm text-muted">
+                        {t("Envoryx generates secure credentials and injects DB_HOST, DB_DATABASE, DB_USERNAME, DB_PASSWORD and DATABASE_URL into the application containers (PHP, Python, Node). Data lives in a persistent Docker volume.")}
+                      </p>
+                    </>
+                  )}
                 </div>
               )}
               <div className="space-y-3">
@@ -743,6 +776,23 @@ export function NewProjectPage() {
                 <div className="rounded-md border border-default p-4 space-y-3">
                   <Checkbox label="Redis" description={t("Cache and queue backend with a persistent volume. Injects REDIS_HOST, REDIS_PORT and REDIS_URL.")} checked={form.redis} onChange={(e) => set({ redis: e.target.checked })} />
                   {form.redis && (
+                    <div className="flex flex-wrap gap-4 pl-7" role="radiogroup" aria-label={t("Where {{service}} runs", { service: "Redis" })}>
+                      <label className="inline-flex items-center gap-2 text-sm">
+                        <input type="radio" name="redis-where" checked={!form.redisExternal} onChange={() => set({ redisExternal: false })} />
+                        {t("In a container of the project")}
+                      </label>
+                      <label className="inline-flex items-center gap-2 text-sm">
+                        <input type="radio" name="redis-where" checked={form.redisExternal} onChange={() => set({ redisExternal: true })} />
+                        {t("On an external server")}
+                      </label>
+                    </div>
+                  )}
+                  {form.redis && form.redisExternal && (
+                    <div className="pl-7">
+                      <ExternalRedisFields id="redis-ext" value={form.redisConn} onChange={(redisConn) => set({ redisConn })} />
+                    </div>
+                  )}
+                  {form.redis && !form.redisExternal && (
                     <div className="grid gap-4 pl-7 sm:grid-cols-2">
                       <Field label={t("Redis version")} htmlFor="redis-version">
                         <Select id="redis-version" value={form.redisVersion} onChange={(e) => set({ redisVersion: e.target.value })}>

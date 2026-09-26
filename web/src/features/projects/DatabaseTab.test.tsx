@@ -1,7 +1,9 @@
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { DatabaseTab } from "./DatabaseTab";
 import { authedRoutes, makeProject, mockApi, renderApp, runtimesFixture } from "@/test/utils";
+
+const P = "/projects/3f0b4a9e-1a2b-4c3d-8e9f-0a1b2c3d4e5f";
 
 const withDb = () =>
   makeProject({
@@ -134,5 +136,78 @@ describe("DatabaseTab database browser", () => {
     await user.click(buttons[buttons.length - 1]!);
     await waitFor(() => expect(api.calls.some((c) => c.method === "PATCH")).toBe(true));
     expect(api.calls.find((c) => c.method === "PATCH")!.body).toMatchObject({ databases: { legacy: { enabled: true, type: "mariadb" } } });
+  });
+
+  it("adds an external database after testing the connection", async () => {
+    const api = mockApi({
+      ...authedRoutes,
+      "GET /runtimes": () => ({ body: runtimesFixture }),
+      "POST /external/test": () => ({ body: { ok: true } }),
+      [`PATCH ${P}`]: () => ({ body: { project: makeProject() } }),
+    });
+    renderApp(<DatabaseTab project={makeProject()} />);
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole("radio", { name: "On an external server" }));
+    expect(screen.queryByRole("checkbox", { name: /^Publish database port/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add database" })).toBeDisabled();
+    await user.type(screen.getByLabelText("Host"), "host.docker.internal");
+    await user.type(screen.getByLabelText("Port"), "3307");
+    await user.type(screen.getByLabelText("Database"), "shop");
+    await user.type(screen.getByLabelText("Username"), "shop_app");
+    await user.type(screen.getByLabelText("Password"), "p@ss");
+    await user.click(screen.getByRole("button", { name: "Test connection" }));
+    expect(await screen.findByText("Connected.")).toBeInTheDocument();
+    expect(api.calls.find((c) => c.url.endsWith("/external/test"))!.body).toEqual({ kind: "database", type: "mariadb", version: "11", host: "host.docker.internal", port: 3307, username: "shop_app", password: "p@ss", database: "shop" });
+
+    await user.click(screen.getByRole("button", { name: "Add database" }));
+    await waitFor(() => expect(api.calls.some((c) => c.method === "PATCH")).toBe(true));
+    expect(api.calls.find((c) => c.method === "PATCH")!.body).toEqual({
+      database: { enabled: true, type: "mariadb", version: "11", external: { host: "host.docker.internal", port: 3307, username: "shop_app", password: "p@ss", database: "shop" } },
+    });
+  });
+
+  it("shows an external database without the container's controls and edits its connection", async () => {
+    const external = makeProject({
+      services: [
+        ...makeProject().services,
+        { kind: "database", variant: "mysql", version: "8.4", image: "mysql:8.4", enabled: true, config: { database: "shop", username: "shop_app", hostPort: 0, host: "db.example.com", port: 3306 } },
+      ],
+    });
+    const api = mockApi({
+      ...authedRoutes,
+      "GET /runtimes": () => ({ body: runtimesFixture }),
+      [`GET ${P}/database/databases`]: () => ({ body: { databases: ["shop", "another_app"] } }),
+      [`GET ${P}/database`]: () => ({
+        body: { database: { type: "mysql", version: "8.4", image: "mysql:8.4", host: "db.example.com", port: 3306, database: "shop", username: "shop_app", hostPort: 0, injectedEnv: ["DB_HOST"], state: "external", volumeName: "", volumeExists: false, external: true } },
+      }),
+      "POST /external/test": () => ({ status: 422, body: { error: { code: "validation_failed", message: "cannot connect" } } }),
+      [`PATCH ${P}`]: () => ({ body: { project: external } }),
+    });
+    renderApp(<DatabaseTab project={external} />);
+    const user = userEvent.setup();
+
+    expect(await screen.findByText("db.example.com", { selector: "dd" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Rotate password" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: /^Publish port/ })).not.toBeInTheDocument();
+    expect(screen.getByText("Connect your client to the server itself, at db.example.com:3306.")).toBeInTheDocument();
+    // The server's databases are listed without the project running, never dropped.
+    expect(await screen.findByText("another_app")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Drop another_app" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Edit connection" }));
+    const host = screen.getByLabelText("Host");
+    expect(host).toHaveValue("db.example.com");
+    await user.clear(host);
+    await user.type(host, "db2.example.com");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(api.calls.some((c) => c.method === "PATCH")).toBe(true));
+    // An empty password keeps the stored one.
+    expect(api.calls.find((c) => c.method === "PATCH")!.body).toEqual({ database: { enabled: true, version: "8.4", external: { host: "db2.example.com", port: 3306, username: "shop_app", password: "", database: "shop" } } });
+
+    await user.click(screen.getByRole("button", { name: "Remove connection" }));
+    const dialog = (await screen.findByText(/the server and its data are not touched/)).closest("dialog")!;
+    expect(within(dialog).queryByLabelText(/to confirm/)).not.toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Remove connection" })).toBeEnabled();
   });
 });

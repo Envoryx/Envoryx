@@ -564,4 +564,35 @@ describe("NewProjectPage wizard", () => {
     const create = api.calls.find((c) => c.method === "POST" && c.url.endsWith("/projects"));
     expect(create?.body).toMatchObject({ ollama: { exposePort: false, gpu: true } });
   });
+
+  it("connects the primary database to an external server", async () => {
+    const api = mockApi({
+      ...authedRoutes,
+      "GET /runtimes": () => ({ body: runtimesFixture }),
+      "POST /projects/preview": previewRoute(() => {}),
+      "POST /projects": () => ({ status: 201, body: { project: makeProject() } }),
+    });
+    renderApp(
+      <Routes>
+        <Route path="/projects/new" element={<NewProjectPage />} />
+        <Route path="/projects/:id" element={<h1>Detail</h1>} />
+      </Routes>,
+      { route: "/projects/new" },
+    );
+    const user = userEvent.setup();
+    await user.type(await screen.findByLabelText("Project name"), "Acme Ext");
+    for (let i = 0; i < 3; i++) await user.click(screen.getByRole("button", { name: "Continue" }));
+    await user.click(await screen.findByRole("radio", { name: "MariaDB" }));
+    await user.click(screen.getByRole("radio", { name: "On an external server" }));
+    expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
+    await user.type(screen.getByLabelText("Host"), "host.docker.internal");
+    await user.type(screen.getByLabelText("Database", { selector: "#db-ext-database" }), "shop");
+    await user.type(screen.getByLabelText("Username"), "shop_app");
+    await user.type(screen.getByLabelText("Password"), "pw");
+    for (let i = 0; i < 2; i++) await user.click(screen.getByRole("button", { name: "Continue" }));
+    await user.click(await screen.findByRole("button", { name: "Create project" }));
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Detail" })).toBeInTheDocument());
+    const create = api.calls.find((c) => c.method === "POST" && c.url.endsWith("/projects"));
+    expect(create?.body).toMatchObject({ database: { type: "mariadb", exposePort: false, external: { host: "host.docker.internal", port: 0, username: "shop_app", password: "pw", database: "shop" } } });
+  });
 });

@@ -73,6 +73,8 @@ export function containerStateTone(state: string): Tone {
       return "amber";
     case "dead":
       return "red";
+    case "external":
+      return "blue";
     default:
       return "gray";
   }

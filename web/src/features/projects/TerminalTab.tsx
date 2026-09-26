@@ -111,7 +111,8 @@ function useTerminalSession(projectId: string, kind: string, generation: number)
 
 export function TerminalTab({ project }: { project: Project }) {
   const { t } = useTranslation();
-  const services = project.services.filter((s) => s.enabled);
+  // A server Envoryx does not run has no container to open a shell in.
+  const services = project.services.filter((s) => s.enabled && project.status.services.find((st) => st.kind === s.kind)?.state !== "external");
   // Open on the application container (PHP, else Python, else Node); the web container is the last resort.
   const [kind, setKind] = useState<string>(project.appService ?? services[0]?.kind ?? "web");
   const [generation, setGeneration] = useState(0);

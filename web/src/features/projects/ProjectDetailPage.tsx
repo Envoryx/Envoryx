@@ -231,10 +231,10 @@ function OverviewTab({ project: p }: { project: Project }) {
                 <StatusDot tone={containerStateTone(s.state)} />
                 <div>
                   <p className="text-sm font-medium text-fg">{serviceLabel(s.kind, s.version, s.variant)}</p>
-                  <p className="font-mono text-[11px] text-subtle">{s.containerName}</p>
+                  {s.containerName && <p className="font-mono text-[11px] text-subtle">{s.containerName}</p>}
                 </div>
               </div>
-              <Badge tone={containerStateTone(s.state)}>{s.exists ? s.state : t("missing")}</Badge>
+              <Badge tone={containerStateTone(s.state)}>{s.exists || s.state === "external" ? s.state : t("missing")}</Badge>
               {s.health && <Badge tone={s.health === "healthy" ? "green" : s.health === "starting" ? "blue" : "red"}>{s.health}</Badge>}
               <span className="font-mono text-xs text-muted">{s.image}</span>
               {s.ports.map((port) => (

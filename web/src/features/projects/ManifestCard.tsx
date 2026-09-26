@@ -72,6 +72,7 @@ export function ManifestChanges({ plan }: { plan: ManifestPlan }) {
           </span>
           {c.skipped === "prune" && <span className="text-xs text-subtle">{t("kept – removing needs the option below")}</span>}
           {c.skipped === "downgrade" && <span className="text-xs text-subtle">{t("not changed – the data format does not go back to an older version")}</span>}
+          {c.skipped === "external" && <span className="text-xs text-subtle">{t("not changed – an external connection needs its password, which the file never holds; set it up in Envoryx")}</span>}
         </li>
       ))}
     </ul>

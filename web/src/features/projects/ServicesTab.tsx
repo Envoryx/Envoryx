@@ -1,9 +1,9 @@
-import { BrainCircuit, ExternalLink, Mail, MemoryStick, Plus, Rabbit, Search, Server, Trash2 } from "lucide-react";
+import { BrainCircuit, ExternalLink, Mail, MemoryStick, Pencil, Plus, Rabbit, Search, Server, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useState } from "react";
 import { useExtraServices, usePublicHost, useRuntimes, useStorage, useUpdateProject } from "@/api/hooks";
 import { api } from "@/api/client";
-import type { ExtraServiceInfo, PHPConfig, Project, RabbitMQCredentials, SearchCredentials, UpdateProjectRequest } from "@/api/types";
+import type { ExternalRedis, ExtraServiceInfo, PHPConfig, Project, RabbitMQCredentials, SearchCredentials, UpdateProjectRequest } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Checkbox, Dialog, ErrorState, Field, Input, Select, Spinner, StatusDot } from "@/components/ui";
 import { containerStateTone } from "@/lib/format";
 import { AddStorageCard, StorageCard } from "./StorageCard";
@@ -11,6 +11,7 @@ import { PublicHostNotice } from "@/components/PublicHostNotice";
 import { errorText } from "@/lib/errors";
 import { CopyRow } from "./DatabaseTab";
 import { OllamaModels } from "./OllamaModels";
+import { emptyExternalRedis, ExternalRedisFields } from "./ExternalConnection";
 
 type ExtraKind = "redis" | "memcached" | "mailpit" | "rabbitmq" | "meilisearch" | "typesense" | "opensearch" | "ollama";
 const titles: Record<ExtraKind, string> = { redis: "Redis", memcached: "Memcached", mailpit: "Mailpit", rabbitmq: "RabbitMQ", meilisearch: "Meilisearch", typesense: "Typesense", opensearch: "OpenSearch", ollama: "Ollama" };
@@ -41,6 +42,8 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
   const [confirm, setConfirm] = useState("");
   const [creds, setCreds] = useState<RabbitMQCredentials | null>(null);
   const [searchCreds, setSearchCreds] = useState<SearchCredentials | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const [conn, setConn] = useState<ExternalRedis>(emptyExternalRedis);
   const host = publicHost || window.location.hostname;
   const key = info.kind as ExtraKind;
   const title = titles[key] ?? info.kind;
@@ -135,6 +138,12 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
               </dd>
             </>
           )}
+          {info.external && (
+            <>
+              <dt className="text-muted">{t("Server")}</dt>
+              <dd className="text-xs">{t("external – Envoryx does not run it")}</dd>
+            </>
+          )}
           {info.kind === "ollama" && (
             <>
               <dt className="text-muted">{t("Model store")}</dt>
@@ -197,7 +206,20 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
           </Alert>
         )}
 
-        {!alwaysPublished(info.kind) && (
+        {info.external && (
+          <Button
+            size="sm"
+            icon={<Pencil className="size-3.5" />}
+            onClick={() => {
+              setConn({ host: info.host, port: info.port, password: "" });
+              setEditOpen(true);
+            }}
+          >
+            {t("Edit connection")}
+          </Button>
+        )}
+
+        {!alwaysPublished(info.kind) && !info.external && (
           <Checkbox
             label={t("Publish port on the host")}
             description={info.hostPort ? t("Reachable at {{address}}", { address: `${host}:${info.hostPort}` }) : info.kind === "redis" ? t("For desktop clients like RedisInsight.") : info.kind === "memcached" ? t("For tools on your machine, e.g. telnet or a cache inspector.") : info.kind === "typesense" || info.kind === "opensearch" || info.kind === "ollama" ? t("For clients and dashboards running on your machine.") : t("For AMQP clients running on your machine.")}
@@ -229,7 +251,7 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
           />
         )}
 
-        {versions.length > 1 && (
+        {versions.length > 1 && !info.external && (
           <div className="flex items-end gap-2">
             <Field label={t("Version")} htmlFor={`${info.kind}-version`}>
               <Select id={`${info.kind}-version`} value={version} onChange={(e) => setVersion(e.target.value)}>
@@ -257,16 +279,45 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
         )}
 
         <Button variant="ghost" size="sm" className="text-red-600 dark:text-red-400" icon={<Trash2 className="size-3.5" />} onClick={() => setRemoveOpen(true)}>
-          {info.volumeName ? t("Remove {{service}} and data", { service: title }) : t("Remove {{service}}", { service: title })}
+          {info.external ? t("Remove connection") : info.volumeName ? t("Remove {{service}} and data", { service: title }) : t("Remove {{service}}", { service: title })}
         </Button>
       </div>
 
       <Dialog
+        open={editOpen}
+        onClose={() => setEditOpen(false)}
+        title={t("Edit connection")}
+        description={t("The new connection is tested before it is stored; the application containers are then recreated with it.")}
+        footer={
+          <>
+            <Button onClick={() => setEditOpen(false)}>{t("Cancel")}</Button>
+            <Button
+              variant="primary"
+              disabled={!conn.host}
+              loading={update.isPending}
+              onClick={() =>
+                update.mutate(
+                  { [key]: { enabled: true, external: conn } },
+                  { onSuccess: () => { setEditOpen(false); onMessage({ tone: "green", text: t("Connection saved. The application containers were recreated with it.") }); }, onError: (err) => { setEditOpen(false); fail(err, t("Saving the connection failed")); } },
+                )
+              }
+            >
+              {t("Save")}
+            </Button>
+          </>
+        }
+      >
+        <ExternalRedisFields id={`edit-${info.kind}`} value={conn} onChange={setConn} passwordOptional />
+      </Dialog>
+
+      <Dialog
         open={removeOpen}
         onClose={() => setRemoveOpen(false)}
-        title={t("Remove {{service}}?", { service: title })}
+        title={info.external ? t("Remove the connection?") : t("Remove {{service}}?", { service: title })}
         description={
-          info.volumeName
+          info.external
+            ? t("Envoryx forgets the connection to {{address}}; the server and its data are not touched. The application containers are recreated without the {{service}} variables.", { address: `${info.host}:${info.port}`, service: title })
+            : info.volumeName
             ? t("This removes the container and deletes the volume {{volume}} with all data. The application containers (PHP, Python, Node) are recreated without the {{service}} variables.", { volume: info.volumeName, service: title })
             : info.kind === "ollama"
               ? t("This removes the container. The application containers (PHP, Python, Node) are recreated without the Ollama variables. The models stay in the shared store.")
@@ -310,12 +361,27 @@ function AddServiceCard({ project, kind, onMessage }: { project: Project; kind: 
   const [expose, setExpose] = useState(false);
   const [dashboards, setDashboards] = useState(false);
   const [gpu, setGpu] = useState(false);
+  const [external, setExternal] = useState(false);
+  const [conn, setConn] = useState<ExternalRedis>(emptyExternalRedis);
   const title = titles[kind];
   return (
     <Card>
       <CardHeader title={title} description={rt?.description ?? ""} />
       <div className="space-y-4 p-5">
-        {rt && rt.versions.length > 1 && (
+        {kind === "redis" && (
+          <div className="flex flex-wrap gap-4" role="radiogroup" aria-label={t("Where {{service}} runs", { service: title })}>
+            <label className="inline-flex items-center gap-2 text-sm">
+              <input type="radio" name="add-redis-where" checked={!external} onChange={() => setExternal(false)} />
+              {t("In a container of the project")}
+            </label>
+            <label className="inline-flex items-center gap-2 text-sm">
+              <input type="radio" name="add-redis-where" checked={external} onChange={() => setExternal(true)} />
+              {t("On an external server")}
+            </label>
+          </div>
+        )}
+        {external && <ExternalRedisFields id="add-redis-ext" value={conn} onChange={setConn} />}
+        {rt && rt.versions.length > 1 && !external && (
           <Field label={t("Version")} htmlFor={`add-${kind}-version`}>
             <Select id={`add-${kind}-version`} value={version || rt.versions.find((v) => v.default)?.version || ""} onChange={(e) => setVersion(e.target.value)}>
               {rt.versions.map((v) => (
@@ -326,17 +392,21 @@ function AddServiceCard({ project, kind, onMessage }: { project: Project; kind: 
             </Select>
           </Field>
         )}
-        {!alwaysPublished(kind) && <Checkbox label={t("Publish port on the host")} checked={expose} onChange={(e) => setExpose(e.target.checked)} />}
+        {!alwaysPublished(kind) && !external && <Checkbox label={t("Publish port on the host")} checked={expose} onChange={(e) => setExpose(e.target.checked)} />}
         {kind === "opensearch" && <Checkbox label="OpenSearch Dashboards" description={t("Web UI with the Dev Tools console, index management and Discover, on its own port. The image is about 2.6 GB and needs roughly 400 MB of RAM.")} checked={dashboards} onChange={(e) => setDashboards(e.target.checked)} />}
         {kind === "ollama" && <Checkbox label={t("Use the GPU")} description={t("Hands the host's NVIDIA GPUs to Ollama. Docker needs the NVIDIA Container Toolkit for it (on Unraid: the Nvidia Driver plugin); Envoryx checks that before switching.")} checked={gpu} onChange={(e) => setGpu(e.target.checked)} />}
         <Button
           variant="primary"
           icon={<Plus className="size-4" />}
           loading={update.isPending}
+          disabled={external && !conn.host}
           onClick={() =>
             update.mutate(
               // The PHP extension its clients need comes along in the same update.
-              { [kind]: { enabled: true, version: version || undefined, exposePort: expose, ...(kind === "opensearch" ? { dashboards } : {}), ...(kind === "ollama" ? { gpu } : {}) }, ...(phpExtensionUpdate(project, kind) ? { php: phpExtensionUpdate(project, kind)! } : {}) },
+              {
+                [kind]: external ? { enabled: true, external: conn } : { enabled: true, version: version || undefined, exposePort: expose, ...(kind === "opensearch" ? { dashboards } : {}), ...(kind === "ollama" ? { gpu } : {}) },
+                ...(phpExtensionUpdate(project, kind) ? { php: phpExtensionUpdate(project, kind)! } : {}),
+              },
               { onSuccess: () => onMessage({ tone: "green", text: t("{{service}} added. The application containers were recreated with the new variables.", { service: title }) }), onError: (err) => onMessage({ tone: "red", text: errorText(err, t, t("Adding failed")) }) },
             )
           }

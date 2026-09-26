@@ -50,7 +50,9 @@ Envoryx is under active development. The current milestone (Phase 1 + 2) deliver
   credentials, connection variables injected into the application containers
   (PHP, Python, Node), optional host port for
   desktop clients, password rotation, create/drop databases, in-place version
-  upgrades where the server supports them
+  upgrades where the server supports them – or an existing external MariaDB,
+  MySQL or PostgreSQL server (and Redis) the project connects to instead, with
+  a connection test, backups, snapshots and Adminer
 - Redis (persistent volume, `REDIS_URL`), Memcached (`MEMCACHED_HOST`/`MEMCACHED_PORT`/`MEMCACHED_URL`), Mailpit (SMTP catcher with web
   inbox, `MAIL_*`/`MAILER_DSN`/`SMTP_HOST`/`SMTP_PORT`), RabbitMQ (message
   broker with management UI, generated login, `RABBITMQ_*`/`RABBITMQ_URL`),

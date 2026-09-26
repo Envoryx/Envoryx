@@ -647,7 +647,7 @@ func (m *Manager) stopPlan(ctx context.Context, proj store.Project, plan Plan) e
 	// Stop containers of kinds no longer in the plan as well (e.g. a removed service). A
 	// share's tunnel stays through a restart; stopping the project ends it (Stop).
 	for kind, c := range byKind {
-		if kind != shareService && plan.Container(store.ServiceKind(kind)) == nil && c.State == "running" {
+		if kind != shareService && !transientServices[kind] && plan.Container(store.ServiceKind(kind)) == nil && c.State == "running" {
 			if err := m.engine.StopContainer(ctx, c.ID, m.cfg.StopTimeout); err != nil {
 				errs = append(errs, fmt.Errorf("stop container %s: %w", c.Name, err))
 			}
@@ -897,8 +897,8 @@ func (m *Manager) update(ctx context.Context, id string, req UpdateRequest) (Vie
 			return View{}, err
 		}
 		for _, c := range existing {
-			if store.ServiceKind(c.Service()).IsDatabase() || c.Service() == shareService {
-				continue // a share keeps its address while the application is recreated
+			if store.ServiceKind(c.Service()).IsDatabase() || c.Service() == shareService || transientServices[c.Service()] {
+				continue // a share keeps its address while the application is recreated; helpers finish on their own
 			}
 			switch c.Service() {
 			case string(store.ServiceDatabase), string(store.ServiceRedis), string(store.ServiceMemcached), string(store.ServiceMailpit), string(store.ServiceRabbitMQ), string(store.ServiceMeilisearch), string(store.ServiceTypesense), string(store.ServiceOpenSearch), string(store.ServiceOpenSearchDashboards), string(store.ServiceOllama), string(store.ServiceStorage):

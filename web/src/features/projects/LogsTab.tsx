@@ -101,8 +101,10 @@ function useLogStream(projectId: string, kind: string | null, paused: boolean) {
 
 export function LogsTab({ project }: { project: Project }) {
   const { t } = useTranslation();
+  // A server Envoryx does not run has no container and so no log.
+  const external = new Set(project.status.services.filter((s) => s.state === "external").map((s) => s.kind));
   const services = [
-    ...project.services.filter((s) => s.enabled).map((s) => ({ kind: s.kind, label: serviceLabel(s.kind, s.version, s.variant) })),
+    ...project.services.filter((s) => s.enabled && !external.has(s.kind)).map((s) => ({ kind: s.kind, label: serviceLabel(s.kind, s.version, s.variant) })),
     ...project.status.services.filter((s) => s.kind === "worker" && s.workerId).map((s) => ({ kind: `worker:${s.workerId}`, label: t("Worker {{name}}", { name: s.variant }) })),
   ];
   const [kind, setKind] = useState<string | null>(services[0]?.kind ?? null);

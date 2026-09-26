@@ -78,6 +78,7 @@ import type {
   CronRun,
   OllamaModels,
   OllamaPull,
+  ExternalTest,
 } from "./types";
 
 /** Query string of the log endpoints; empty filter fields are left out. */
@@ -417,6 +418,9 @@ export const api = {
   },
   rabbitmq: {
     credentials: (id: string) => request<{ credentials: RabbitMQCredentials }>(`/projects/${encodeURIComponent(id)}/rabbitmq/credentials`),
+  },
+  external: {
+    test: (body: ExternalTest) => request<{ ok: boolean }>("/external/test", { method: "POST", body }),
   },
   ollama: {
     models: (id: string) => request<OllamaModels>(`/projects/${encodeURIComponent(id)}/ollama/models`),
