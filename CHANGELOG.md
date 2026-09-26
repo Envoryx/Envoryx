@@ -34,6 +34,11 @@ release). `:main` follows the development branch.
   `APP_URL=${ENVORYX_URL}` in a `.env`.
 
 ### Fixed
+- pnpm failed in the Node container with `EACCES` under
+  `/usr/local/lib/corepack`: the image's pnpm lacked its native binary and
+  fetched it on first use, and a version pinned in `packageManager` could not
+  be downloaded either, as the containers run as the project user. The Node
+  images now carry the binary and let Corepack add versions for any user.
 - PostgreSQL no longer logs `FATAL: role "root" does not exist` every ten
   seconds: the health check logs in as the project's database user, and `psql`
   in the container's terminal now does too.
