@@ -304,6 +304,43 @@ func TestIntegrationRunOneShotWaitsForTheExit(t *testing.T) {
 	}
 }
 
+// A streamed one-shot is `docker run --rm -i`: all of stdin reaches the process, the
+// output arrives on the right stream and the exit code survives – several MB, so the
+// input is not just sitting in a buffer.
+func TestIntegrationRunOneShotStreamFeedsStdin(t *testing.T) {
+	e := integrationEngine(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	if err := e.EnsureImage(ctx, "alpine:3.20", nil); err != nil {
+		t.Fatal(err)
+	}
+	input := bytes.Repeat([]byte("envoryx\n"), 1<<19) // 4 MiB
+	var stdout, stderr bytes.Buffer
+	code, err := e.RunOneShotStream(ctx, ContainerSpec{
+		Name:   "envoryx-integration-oneshot-stream",
+		Image:  "alpine:3.20",
+		Labels: ManagedLabels(testProject, "integration", "oneshot", "test"),
+		Cmd:    []string{"sh", "-c", "wc -l; echo to-stderr >&2; exit 4"},
+	}, ExecStreamOptions{Stdin: bytes.NewReader(input), Stdout: &stdout, Stderr: &stderr})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if code != 4 || strings.TrimSpace(stdout.String()) != "524288" || strings.TrimSpace(stderr.String()) != "to-stderr" {
+		t.Fatalf("exit=%d stdout=%q stderr=%q", code, stdout.String(), stderr.String())
+	}
+	// Without input it streams output only.
+	stdout.Reset()
+	code, err = e.RunOneShotStream(ctx, ContainerSpec{
+		Name:   "envoryx-integration-oneshot-stream-out",
+		Image:  "alpine:3.20",
+		Labels: ManagedLabels(testProject, "integration", "oneshot", "test"),
+		Cmd:    []string{"sh", "-c", "seq 1 3"},
+	}, ExecStreamOptions{Stdout: &stdout})
+	if err != nil || code != 0 || stdout.String() != "1\n2\n3\n" {
+		t.Fatalf("output only: exit=%d stdout=%q err=%v", code, stdout.String(), err)
+	}
+}
+
 // Removing a running container gives it the chance to shut down first: a service that
 // writes on SIGTERM (Redis saving its snapshot, a database flushing) keeps that data.
 func TestIntegrationRemoveStopsRunningContainerFirst(t *testing.T) {

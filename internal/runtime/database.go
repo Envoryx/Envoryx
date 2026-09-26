@@ -4,6 +4,8 @@ import (
 	"crypto/rand"
 	"fmt"
 	"math/big"
+	"net"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -21,11 +23,59 @@ type DatabaseConfig struct {
 	Password     string `json:"password"`
 	// HostPort publishes the database on the Docker host for external clients (0 = off).
 	HostPort int `json:"hostPort"`
+	// Host and Port name a server Envoryx does not run (an external database): no
+	// container, no volume, and every client connects there as Username. "" = the
+	// project's own container.
+	Host string `json:"host,omitempty"`
+	Port int    `json:"port,omitempty"`
 }
+
+// External reports whether the database is a server Envoryx does not run.
+func (c DatabaseConfig) External() bool { return c.Host != "" }
 
 // Redacted returns the configuration without secrets for API responses.
 func (c DatabaseConfig) Redacted() map[string]any {
-	return map[string]any{"database": c.Database, "username": c.Username, "hostPort": c.HostPort}
+	out := map[string]any{"database": c.Database, "username": c.Username, "hostPort": c.HostPort}
+	if c.External() {
+		out["host"], out["port"] = c.Host, c.Port
+	}
+	return out
+}
+
+// mysqlLogin is how the MySQL/MariaDB clients log in: as root over TCP to the project's
+// own server, or as the project's user to an external one (where root is not ours).
+func mysqlLogin(c DatabaseConfig) (args, env []string) {
+	if c.External() {
+		return []string{"-h" + c.Host, "-P" + strconv.Itoa(c.Port), "-u" + c.Username}, []string{"MYSQL_PWD=" + c.Password}
+	}
+	return []string{"-h127.0.0.1", "-uroot"}, []string{"MYSQL_PWD=" + c.RootPassword}
+}
+
+// pgLogin is how the PostgreSQL clients log in: the project's user owns its server, so
+// only the address differs for an external one.
+func pgLogin(c DatabaseConfig) []string {
+	if c.External() {
+		return []string{"-h", c.Host, "-p", strconv.Itoa(c.Port), "-U", c.Username}
+	}
+	return []string{"-h", "127.0.0.1", "-U", c.Username}
+}
+
+// mysqlDumpFlags are what a dump needs beyond the login. An external server's user
+// usually lacks the PROCESS privilege mysqldump wants for tablespaces and the EVENT
+// privilege, so those are left out there.
+func mysqlDumpFlags(c DatabaseConfig) []string {
+	if c.External() {
+		return []string{"--single-transaction", "--quick", "--no-tablespaces", "--routines", "--triggers", "--default-character-set=utf8mb4"}
+	}
+	return []string{"--single-transaction", "--quick", "--routines", "--triggers", "--events", "--default-character-set=utf8mb4"}
+}
+
+func concat(parts ...[]string) []string {
+	var out []string
+	for _, p := range parts {
+		out = append(out, p...)
+	}
+	return out
 }
 
 const (
@@ -176,7 +226,8 @@ var dialects = map[string]Dialect{
 		Cmd:    []string{"--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"},
 		Health: []string{"healthcheck.sh", "--connect", "--innodb_initialized"},
 		Client: func(c DatabaseConfig, sql string) ([]string, []string) {
-			return []string{"mariadb", "-h127.0.0.1", "-uroot", "-N", "-B", "-e", sql}, []string{"MYSQL_PWD=" + c.RootPassword}
+			login, env := mysqlLogin(c)
+			return concat([]string{"mariadb"}, login, []string{"-N", "-B", "-e", sql}), env
 		},
 		ListDatabases: "SHOW DATABASES",
 		CreateDatabase: func(n, u string) string {
@@ -188,10 +239,12 @@ var dialects = map[string]Dialect{
 		},
 		MajorUpgradeInPlace: true,
 		Dump: func(c DatabaseConfig) ([]string, []string) {
-			return []string{"mariadb-dump", "-h127.0.0.1", "-uroot", "--single-transaction", "--quick", "--routines", "--triggers", "--events", "--default-character-set=utf8mb4", "--", c.Database}, []string{"MYSQL_PWD=" + c.RootPassword}
+			login, env := mysqlLogin(c)
+			return concat([]string{"mariadb-dump"}, login, mysqlDumpFlags(c), []string{"--", c.Database}), env
 		},
 		Restore: func(c DatabaseConfig) ([]string, []string) {
-			return []string{"mariadb", "-h127.0.0.1", "-uroot", "--", c.Database}, []string{"MYSQL_PWD=" + c.RootPassword}
+			login, env := mysqlLogin(c)
+			return concat([]string{"mariadb"}, login, []string{"--", c.Database}), env
 		},
 		// MariaDB dropped RENAME DATABASE (it was never safe for views and routines), so
 		// a rename moves the contents through a dump; RENAME USER keeps the password.
@@ -207,7 +260,8 @@ var dialects = map[string]Dialect{
 		Cmd:    []string{"--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"},
 		Health: []string{"mysqladmin", "ping", "-h", "127.0.0.1"},
 		Client: func(c DatabaseConfig, sql string) ([]string, []string) {
-			return []string{"mysql", "-h127.0.0.1", "-uroot", "-N", "-B", "-e", sql}, []string{"MYSQL_PWD=" + c.RootPassword}
+			login, env := mysqlLogin(c)
+			return concat([]string{"mysql"}, login, []string{"-N", "-B", "-e", sql}), env
 		},
 		ListDatabases: "SHOW DATABASES",
 		CreateDatabase: func(n, u string) string {
@@ -219,10 +273,12 @@ var dialects = map[string]Dialect{
 		},
 		MajorUpgradeInPlace: true,
 		Dump: func(c DatabaseConfig) ([]string, []string) {
-			return []string{"mysqldump", "-h127.0.0.1", "-uroot", "--single-transaction", "--quick", "--routines", "--triggers", "--events", "--default-character-set=utf8mb4", "--", c.Database}, []string{"MYSQL_PWD=" + c.RootPassword}
+			login, env := mysqlLogin(c)
+			return concat([]string{"mysqldump"}, login, mysqlDumpFlags(c), []string{"--", c.Database}), env
 		},
 		Restore: func(c DatabaseConfig) ([]string, []string) {
-			return []string{"mysql", "-h127.0.0.1", "-uroot", "--", c.Database}, []string{"MYSQL_PWD=" + c.RootPassword}
+			login, env := mysqlLogin(c)
+			return concat([]string{"mysql"}, login, []string{"--", c.Database}), env
 		},
 		RenameUser: func(from, to string, _ DatabaseConfig) string {
 			return fmt.Sprintf("RENAME USER '%s'@'%%' TO '%s'@'%%'; FLUSH PRIVILEGES;", from, to)
@@ -251,7 +307,13 @@ var dialects = map[string]Dialect{
 		// -d postgres: the default database is PGUSER's namesake, which need not exist.
 		Health: []string{"pg_isready", "-h", "127.0.0.1", "-d", "postgres"},
 		Client: func(c DatabaseConfig, sql string) ([]string, []string) {
-			return []string{"psql", "-h", "127.0.0.1", "-U", c.Username, "-d", "postgres", "-A", "-t", "-q", "-v", "ON_ERROR_STOP=1", "-c", sql}, []string{"PGPASSWORD=" + c.Password}
+			// An external server's user may not be allowed into "postgres"; its own
+			// database always lets it in.
+			db := "postgres"
+			if c.External() {
+				db = c.Database
+			}
+			return concat([]string{"psql"}, pgLogin(c), []string{"-d", db, "-A", "-t", "-q", "-v", "ON_ERROR_STOP=1", "-c", sql}), []string{"PGPASSWORD=" + c.Password}
 		},
 		ListDatabases:       "SELECT datname FROM pg_database WHERE datistemplate = false ORDER BY datname",
 		CreateDatabase:      func(n, u string) string { return fmt.Sprintf(`CREATE DATABASE "%s" OWNER "%s" ENCODING 'UTF8'`, n, u) },
@@ -259,10 +321,10 @@ var dialects = map[string]Dialect{
 		AlterPassword:       func(u, p string) string { return fmt.Sprintf(`ALTER USER "%s" WITH PASSWORD '%s'`, u, p) },
 		MajorUpgradeInPlace: false,
 		Dump: func(c DatabaseConfig) ([]string, []string) {
-			return []string{"pg_dump", "-h", "127.0.0.1", "-U", c.Username, "--clean", "--if-exists", "--no-owner", "--no-privileges", "--", c.Database}, []string{"PGPASSWORD=" + c.Password}
+			return concat([]string{"pg_dump"}, pgLogin(c), []string{"--clean", "--if-exists", "--no-owner", "--no-privileges", "--", c.Database}), []string{"PGPASSWORD=" + c.Password}
 		},
 		Restore: func(c DatabaseConfig) ([]string, []string) {
-			return []string{"psql", "-h", "127.0.0.1", "-U", c.Username, "-v", "ON_ERROR_STOP=1", "-q", "-d", c.Database}, []string{"PGPASSWORD=" + c.Password}
+			return concat([]string{"psql"}, pgLogin(c), []string{"-v", "ON_ERROR_STOP=1", "-q", "-d", c.Database}), []string{"PGPASSWORD=" + c.Password}
 		},
 		// PostgreSQL renames both in place; the client connects to "postgres", so the
 		// database being renamed has no session of its own. The password is set again
@@ -349,6 +411,12 @@ func DatabaseEnvFor(cfg DatabaseConfig, variant, host, prefix string) map[string
 	if ok {
 		driver, port = d.Driver, d.Port
 	}
+	if cfg.External() {
+		host, port = cfg.Host, cfg.Port
+	}
+	// An external server's credentials are the user's own, so they are escaped; the
+	// generated ones only use characters that come out unchanged.
+	dsn := url.URL{Scheme: driver, User: url.UserPassword(cfg.Username, cfg.Password), Host: net.JoinHostPort(host, strconv.Itoa(port)), Path: "/" + cfg.Database}
 	env := map[string]string{
 		"DB_CONNECTION": driver,
 		"DB_HOST":       host,
@@ -356,7 +424,7 @@ func DatabaseEnvFor(cfg DatabaseConfig, variant, host, prefix string) map[string
 		"DB_DATABASE":   cfg.Database,
 		"DB_USERNAME":   cfg.Username,
 		"DB_PASSWORD":   cfg.Password,
-		"DATABASE_URL":  fmt.Sprintf("%s://%s:%s@%s:%d/%s", driver, cfg.Username, cfg.Password, host, port, cfg.Database),
+		"DATABASE_URL":  dsn.String(),
 	}
 	if ok && d.URL != nil {
 		env["DATABASE_URL"] = d.URL(cfg, host)
@@ -393,7 +461,14 @@ type ServiceConfig struct {
 	APIKey string `json:"apiKey,omitempty"`
 	// GPU hands the host's GPUs to Ollama.
 	GPU bool `json:"gpu,omitempty"`
+	// Host and Port name an external Redis Envoryx does not run; Password is its
+	// password there ("" = none). "" = the project's own container.
+	Host string `json:"host,omitempty"`
+	Port int    `json:"port,omitempty"`
 }
+
+// External reports whether the service is a server Envoryx does not run (Redis only).
+func (c ServiceConfig) External() bool { return c.Host != "" }
 
 // RabbitMQ ports and the user Envoryx creates. Generated passwords need no escaping in
 // the AMQP URL (see passwordAlphabet).
@@ -494,10 +569,24 @@ func OpenSearchEnv() map[string]string {
 	}
 }
 
-// RedisEnv returns the variables injected for a Redis service.
-func RedisEnv() map[string]string {
-	return map[string]string{"REDIS_HOST": "redis", "REDIS_PORT": "6379", "REDIS_URL": "redis://redis:6379"}
+// RedisEnv returns the variables injected for a Redis service: the project's own
+// container, or an external server with its password (REDIS_PASSWORD only when set).
+func RedisEnv(cfg ServiceConfig) map[string]string {
+	if !cfg.External() {
+		return map[string]string{"REDIS_HOST": "redis", "REDIS_PORT": "6379", "REDIS_URL": "redis://redis:6379"}
+	}
+	u := url.URL{Scheme: "redis", Host: net.JoinHostPort(cfg.Host, strconv.Itoa(cfg.Port))}
+	env := map[string]string{"REDIS_HOST": cfg.Host, "REDIS_PORT": strconv.Itoa(cfg.Port)}
+	if cfg.Password != "" {
+		u.User = url.UserPassword("", cfg.Password)
+		env["REDIS_PASSWORD"] = cfg.Password
+	}
+	env["REDIS_URL"] = u.String()
+	return env
 }
+
+// RedisEnvKeys lists the variables RedisEnv may return, in injection order.
+var RedisEnvKeys = []string{"REDIS_HOST", "REDIS_PORT", "REDIS_PASSWORD", "REDIS_URL"}
 
 // OllamaPort is the port of Ollama's API.
 const OllamaPort = 11434
