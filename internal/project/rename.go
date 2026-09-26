@@ -178,6 +178,9 @@ func (m *Manager) renameProject(ctx context.Context, id string, req RenameReques
 			if err != nil {
 				return undoDir(err, "read the database configuration")
 			}
+			if cfg.External() {
+				continue // an external server's names are not Envoryx's to change
+			}
 			newCfg := cfg
 			newCfg.Database = runtime.DBIdentifier(slug)
 			newCfg.Username = newCfg.Database
@@ -533,13 +536,9 @@ func (m *Manager) renameDatabase(ctx context.Context, p store.Project, svc *stor
 		if _, err := m.runSQL(ctx, p, svc, cfg, dialect.CreateDatabase(to.Database, cfg.Username)); err != nil {
 			return fmt.Errorf("create the new database: %w", err)
 		}
-		c, err := m.ServiceContainer(ctx, p.ID, svc.Kind)
-		if err != nil {
-			return err
-		}
 		fromCfg, toCfg := cfg, cfg
 		toCfg.Database = to.Database
-		if err := m.streamDump(ctx, dialect, c.ID, fromCfg, c.ID, toCfg); err != nil {
+		if err := m.streamDump(ctx, dialect, dbEnd{p, svc, fromCfg}, dbEnd{p, svc, toCfg}); err != nil {
 			return fmt.Errorf("move the contents: %w", err)
 		}
 		if _, err := m.runSQL(ctx, p, svc, cfg, dialect.DropDatabase(from.Database)); err != nil {

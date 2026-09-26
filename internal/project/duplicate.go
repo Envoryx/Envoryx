@@ -281,9 +281,24 @@ func duplicateProject(src store.Project, req DuplicateRequest) (store.Project, e
 		dst.Git = src.Git
 	}
 	for _, s := range src.Services {
+		config := slices.Clone(s.Config)
+		if externalService(&s) {
+			// The copy gets a server of its own – for a database with the original's
+			// data, copied in later – so nothing done to it ever reaches the external one.
+			config = json.RawMessage(`{"hostPort":0}`)
+			if s.Kind.IsDatabase() {
+				cfg, err := runtime.NewDatabaseConfig(slug)
+				if err != nil {
+					return store.Project{}, err
+				}
+				if config, err = json.Marshal(cfg); err != nil {
+					return store.Project{}, err
+				}
+			}
+		}
 		dst.Services = append(dst.Services, store.ProjectService{
 			Kind: s.Kind, Variant: s.Variant, Version: s.Version, Image: s.Image, Enabled: s.Enabled,
-			Config: slices.Clone(s.Config), Position: s.Position,
+			Config: config, Position: s.Position,
 		})
 	}
 	for _, e := range src.Env {
@@ -463,6 +478,9 @@ func copyFile(src, dst string, mode os.FileMode) error {
 // leaves it as it found it: a copy into a project that is not started (or out of one)
 // starts the container for the transfer and stops it again afterwards.
 func (m *Manager) withServiceRunning(ctx context.Context, p store.Project, kind store.ServiceKind, fn func(context.Context) error) error {
+	if externalService(p.Service(kind)) {
+		return fn(ctx) // nothing of ours to start: the server runs elsewhere
+	}
 	c, err := m.ServiceContainer(ctx, p.ID, kind)
 	if err != nil {
 		return err
@@ -523,31 +541,25 @@ func (m *Manager) copyDatabaseOf(ctx context.Context, src store.Project, srcDB s
 			if err := m.waitForDatabase(ctx, dst, dstSvc, dstCfg, dialect); err != nil {
 				return err
 			}
-			from, err := m.ServiceContainer(ctx, src.ID, srcSvc.Kind)
-			if err != nil {
-				return err
-			}
-			to, err := m.ServiceContainer(ctx, dst.ID, dstSvc.Kind)
-			if err != nil {
-				return err
-			}
-			return m.streamDump(ctx, dialect, from.ID, srcCfg, to.ID, dstCfg)
+			return m.streamDump(ctx, dialect, dbEnd{src, srcSvc, srcCfg}, dbEnd{dst, dstSvc, dstCfg})
 		})
 	})
 }
 
 // streamDump pipes a logical dump of one database straight into the client of another –
 // no temporary file, and for a project of a few hundred megabytes it is over in seconds.
-// The two ends are different containers when a project is copied and the same container
-// when one is renamed; the payload is taken as it is unless the dialect has to map the
-// database name itself (MongoDB's archive carries its namespace).
-func (m *Manager) streamDump(ctx context.Context, dialect runtime.Dialect, fromID string, fromCfg runtime.DatabaseConfig, toID string, toCfg runtime.DatabaseConfig) error {
+// The two ends are different databases when a project is copied and the same server
+// when one is renamed, and either may be an external one; the payload is taken as it is
+// unless the dialect has to map the database name itself (MongoDB's archive carries its
+// namespace).
+func (m *Manager) streamDump(ctx context.Context, dialect runtime.Dialect, from, to dbEnd) error {
+	fromCfg, toCfg := from.cfg, to.cfg
 	pr, pw := io.Pipe()
 	dumped := make(chan error, 1)
 	go func() {
 		var stderr strings.Builder
 		argv, env := dialect.Dump(fromCfg)
-		code, err := m.engine.ExecStream(ctx, fromID, docker.ExecStreamOptions{Cmd: argv, Env: env, Stdout: pw, Stderr: &limitedBuilder{b: &stderr}})
+		code, err := m.dbStream(ctx, from, argv, env, nil, pw, &limitedBuilder{b: &stderr})
 		if err == nil && code != 0 {
 			err = fmt.Errorf("dump failed (exit %d): %s", code, sanitizeSQLError(strings.TrimSpace(stderr.String()), fromCfg))
 		}
@@ -559,7 +571,7 @@ func (m *Manager) streamDump(ctx context.Context, dialect runtime.Dialect, fromI
 		argv, env = dialect.RestoreInto(toCfg, fromCfg.Database)
 	}
 	var stderr strings.Builder
-	code, err := m.engine.ExecStream(ctx, toID, docker.ExecStreamOptions{Cmd: argv, Env: env, Stdin: pr, Stderr: &limitedBuilder{b: &stderr}})
+	code, err := m.dbStream(ctx, to, argv, env, pr, nil, &limitedBuilder{b: &stderr})
 	// Unblock the dump when the import stopped reading, then wait for it either way.
 	_ = pr.CloseWithError(err)
 	if derr := <-dumped; derr != nil {
@@ -579,6 +591,13 @@ func (m *Manager) streamDump(ctx context.Context, dialect runtime.Dialect, fromI
 // directory, and during that the server answers on the socket only – the health command
 // is therefore asked first, and only then the client.
 func (m *Manager) waitForDatabase(ctx context.Context, p store.Project, svc *store.ProjectService, cfg runtime.DatabaseConfig, dialect runtime.Dialect) error {
+	if cfg.External() {
+		// Nobody is starting it for us: it answers now or it is not reachable.
+		if _, err := m.runSQL(ctx, p, svc, cfg, dialect.ListDatabases); err != nil {
+			return externalUnreachable(cfg, err)
+		}
+		return nil
+	}
 	c, err := m.ServiceContainer(ctx, p.ID, svc.Kind)
 	if err != nil {
 		return err

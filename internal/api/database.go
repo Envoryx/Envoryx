@@ -275,3 +275,27 @@ func (a *API) databaseClone(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"clone": res})
 }
+
+// testExternal tries a connection to an external server before it is stored.
+func (a *API) testExternal(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Kind     string `json:"kind"`
+		Type     string `json:"type"`
+		Version  string `json:"version"`
+		Host     string `json:"host"`
+		Port     int    `json:"port"`
+		Username string `json:"username"`
+		Password string `json:"password"`
+		Database string `json:"database"`
+	}
+	if err := decodeJSON(w, r, &req); err != nil {
+		writeError(w, r, err)
+		return
+	}
+	err := a.d.Projects.TestExternal(r.Context(), project.ExternalTest{Kind: req.Kind, Type: req.Type, Version: req.Version, Host: req.Host, Port: req.Port, Username: req.Username, Password: req.Password, Database: req.Database})
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+}

@@ -17,7 +17,6 @@ import (
 
 	"github.com/envoryx/envoryx/internal/audit"
 	"github.com/envoryx/envoryx/internal/disk"
-	"github.com/envoryx/envoryx/internal/docker"
 	"github.com/envoryx/envoryx/internal/notify"
 	"github.com/envoryx/envoryx/internal/runtime"
 	"github.com/envoryx/envoryx/internal/store"
@@ -517,13 +516,6 @@ func (m *Manager) dumpDatabase(ctx context.Context, p store.Project, svc *store.
 	if err != nil {
 		return 0, err
 	}
-	c, err := m.ServiceContainer(ctx, p.ID, svc.Kind)
-	if err != nil {
-		return 0, err
-	}
-	if c.State != "running" {
-		return 0, fmt.Errorf("%w: the database container must be running", ErrConflict)
-	}
 	f, err := os.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
 	if err != nil {
 		return 0, err
@@ -531,7 +523,7 @@ func (m *Manager) dumpDatabase(ctx context.Context, p store.Project, svc *store.
 	gz := gzip.NewWriter(f)
 	var stderr strings.Builder
 	argv, env := dialect.Dump(cfg)
-	code, err := m.engine.ExecStream(ctx, c.ID, docker.ExecStreamOptions{Cmd: argv, Env: env, Stdout: gz, Stderr: &limitedBuilder{b: &stderr}})
+	code, err := m.dbStream(ctx, dbEnd{p, svc, cfg}, argv, env, nil, gz, &limitedBuilder{b: &stderr})
 	if cerr := gz.Close(); cerr != nil && err == nil {
 		err = cerr
 	}
@@ -948,13 +940,6 @@ func (m *Manager) restoreDatabase(ctx context.Context, p store.Project, svc *sto
 	if err != nil {
 		return err
 	}
-	c, err := m.ServiceContainer(ctx, p.ID, svc.Kind)
-	if err != nil {
-		return err
-	}
-	if c.State != "running" {
-		return fmt.Errorf("%w: the database container must be running", ErrConflict)
-	}
 	f, err := os.Open(dump)
 	if err != nil {
 		return err
@@ -967,7 +952,7 @@ func (m *Manager) restoreDatabase(ctx context.Context, p store.Project, svc *sto
 	defer gz.Close()
 	var stderr strings.Builder
 	argv, env := dialect.Restore(cfg)
-	code, err := m.engine.ExecStream(ctx, c.ID, docker.ExecStreamOptions{Cmd: argv, Env: env, Stdin: gz, Stderr: &limitedBuilder{b: &stderr}})
+	code, err := m.dbStream(ctx, dbEnd{p, svc, cfg}, argv, env, gz, nil, &limitedBuilder{b: &stderr})
 	if err != nil {
 		return err
 	}

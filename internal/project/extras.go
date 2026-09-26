@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"slices"
 	"sort"
+	"strconv"
 
 	"github.com/envoryx/envoryx/internal/runtime"
 	"github.com/envoryx/envoryx/internal/store"
@@ -263,6 +265,14 @@ func (m *Manager) applyExtraUpdate(ctx context.Context, p store.Project, kind st
 	case !upd.Enabled && svc == nil:
 		return false, nil
 
+	case !upd.Enabled && externalService(svc):
+		// Envoryx forgets the address; the server is not ours to touch.
+		if err := m.store.Projects.DeleteService(ctx, p.ID, kind); err != nil {
+			return false, err
+		}
+		changes[name] = "removed"
+		return true, nil
+
 	case !upd.Enabled:
 		if extraOwnsVolume(kind) && !upd.RemoveData {
 			return false, fmt.Errorf("%w: removing %s deletes its data volume; confirm with removeData", validate.ErrInvalid, name)
@@ -295,6 +305,25 @@ func (m *Manager) applyExtraUpdate(ctx context.Context, p store.Project, kind st
 			return false, err
 		}
 		newSvc.ProjectID = p.ID
+		if upd.External != nil {
+			if kind != store.ServiceRedis {
+				return false, fmt.Errorf("%w: only Redis can be an external server", validate.ErrInvalid)
+			}
+			if upd.ExposePort {
+				return false, errExternalRedisPort
+			}
+			if err := setExternalRedis(&newSvc, *upd.External, ""); err != nil {
+				return false, err
+			}
+			if err := m.checkExternalRedis(ctx, p, &newSvc); err != nil {
+				return false, err
+			}
+			if err := m.store.Projects.AddService(ctx, newSvc); err != nil {
+				return false, err
+			}
+			changes[name] = "external"
+			return true, nil
+		}
 		taken := []int{p.HTTPPort}
 		if upd.ExposePort || extraAlwaysPublished(kind) {
 			port, err := m.allocatePort(ctx, taken...)
@@ -328,6 +357,12 @@ func (m *Manager) applyExtraUpdate(ctx context.Context, p store.Project, kind st
 		}
 		changes[name] = newSvc.Version
 		return true, nil
+
+	case externalService(svc):
+		return m.updateExternalRedis(ctx, p, svc, upd, changes)
+
+	case upd.External != nil:
+		return false, fmt.Errorf("%w: %s runs in a container of the project; remove it first to connect an external server instead", validate.ErrInvalid, name)
 
 	default:
 		version := upd.Version
@@ -397,4 +432,36 @@ func (m *Manager) applyExtraUpdate(ctx context.Context, p store.Project, kind st
 		}
 		return false, nil
 	}
+}
+
+// updateExternalRedis changes the address of an external Redis (tested before it is
+// stored). The application containers are recreated when it changed.
+func (m *Manager) updateExternalRedis(ctx context.Context, p store.Project, svc *store.ProjectService, upd ExtraUpdate, changes map[string]any) (bool, error) {
+	if upd.ExposePort {
+		return false, errExternalRedisPort
+	}
+	if upd.External == nil {
+		return false, nil
+	}
+	var cfg runtime.ServiceConfig
+	if err := json.Unmarshal(svc.Config, &cfg); err != nil {
+		return false, err
+	}
+	updated := *svc
+	if err := setExternalRedis(&updated, *upd.External, cfg.Password); err != nil {
+		return false, err
+	}
+	if string(updated.Config) == string(svc.Config) {
+		return false, nil
+	}
+	if err := m.checkExternalRedis(ctx, p, &updated); err != nil {
+		return false, err
+	}
+	if err := m.store.Projects.UpdateServiceConfig(ctx, p.ID, svc.Kind, svc.Version, svc.Image, updated.Config); err != nil {
+		return false, err
+	}
+	var next runtime.ServiceConfig
+	_ = json.Unmarshal(updated.Config, &next)
+	changes[string(svc.Kind)+"Connection"] = net.JoinHostPort(next.Host, strconv.Itoa(next.Port))
+	return true, nil
 }

@@ -15,6 +15,8 @@ import (
 
 	"github.com/envoryx/envoryx/internal/audit"
 	"github.com/envoryx/envoryx/internal/docker"
+	"github.com/envoryx/envoryx/internal/runtime"
+	"github.com/envoryx/envoryx/internal/store"
 	"github.com/envoryx/envoryx/internal/validate"
 )
 
@@ -154,6 +156,18 @@ func (m *Manager) DBToolStatus(ctx context.Context) (DBToolStatus, error) {
 	return st, nil
 }
 
+// dbToolHostsLabel marks a browser container created with the host gateway entry.
+const dbToolHostsLabel = "envoryx.dbtool.hostgateway"
+
+// dbToolServer is the server Adminer connects to: the database container by name, or an
+// external server's address.
+func dbToolServer(p store.Project, svc *store.ProjectService, cfg runtime.DatabaseConfig) string {
+	if cfg.External() {
+		return net.JoinHostPort(cfg.Host, strconv.Itoa(cfg.Port))
+	}
+	return ContainerName(p.Slug, svc.Kind)
+}
+
 // OpenDBTool prepares the browser for a database of a project (db "" = the primary):
 // starts the container when needed, refreshes the credentials file, joins the project
 // network and returns the URL (relative to the Envoryx UI) that logs straight in.
@@ -195,10 +209,13 @@ func (m *Manager) OpenDBTool(ctx context.Context, id, db string) (DBToolLink, er
 	if c == nil {
 		return DBToolLink{}, errors.New("database browser container disappeared")
 	}
-	if err := m.connectDBTool(ctx, c.ID, NetworkName(proj.Slug)); err != nil {
-		return DBToolLink{}, err
+	server := dbToolServer(proj, svc, cfg)
+	if !cfg.External() {
+		// An external server is reached over the network Adminer already has.
+		if err := m.connectDBTool(ctx, c.ID, NetworkName(proj.Slug)); err != nil {
+			return DBToolLink{}, err
+		}
 	}
-	server := ContainerName(proj.Slug, svc.Kind)
 	q := url.Values{}
 	q.Set(driver, server)
 	q.Set("username", cfg.Username)
@@ -299,9 +316,10 @@ func (m *Manager) ensureDBTool(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if c != nil && (c.Image != DBToolImage || c.Labels[docker.LabelFolderView] != folder) {
-		// A newer Envoryx may ship another Adminer version, or the FolderView3 folder
-		// changed (labels are fixed at creation): recreate, the container holds no state.
+	if c != nil && (c.Image != DBToolImage || c.Labels[docker.LabelFolderView] != folder || c.Labels[dbToolHostsLabel] != "1") {
+		// A newer Envoryx may ship another Adminer version, the FolderView3 folder
+		// changed (labels are fixed at creation), or the container predates the host
+		// gateway entry: recreate, the container holds no state.
 		if err := m.engine.RemoveContainer(ctx, c.ID); err != nil {
 			return err
 		}
@@ -312,6 +330,7 @@ func (m *Manager) ensureDBTool(ctx context.Context) error {
 			return fmt.Errorf("pull image %s: %w", DBToolImage, err)
 		}
 		containerLabels := maps.Clone(labels)
+		containerLabels[dbToolHostsLabel] = "1"
 		docker.AddUnraidLabels(containerLabels, folder)
 		spec := docker.ContainerSpec{
 			Name: DBToolContainer, Image: DBToolImage, Labels: containerLabels,
@@ -323,6 +342,8 @@ func (m *Manager) ensureDBTool(ctx context.Context) error {
 			},
 			Network: DBToolNetwork, NetworkAlias: []string{DBToolContainer}, RestartPolicy: "unless-stopped", StopTimeout: 5,
 			User: fmt.Sprintf("%d:%d", paths.PUID, paths.PGID),
+			// An external database may run on the Docker host itself.
+			ExtraHosts: []string{hostGatewayEntry},
 		}
 		if paths.SelfContainerID == "" {
 			// Bare metal: no shared network, so publish on the loopback interface.
@@ -444,7 +465,7 @@ func (m *Manager) writeDBToolConnections(ctx context.Context) error {
 			if !ok {
 				continue
 			}
-			server := ContainerName(p.Slug, svc.Kind)
+			server := dbToolServer(p, svc, cfg)
 			out[driver+"|"+server+"|"+cfg.Username] = dbToolConnection{Username: cfg.Username, Password: cfg.Password, Database: cfg.Database, Project: p.Name}
 			if cfg.RootPassword != "" {
 				root := "root"

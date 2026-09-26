@@ -317,6 +317,14 @@ func (m *Manager) buildProject(req CreateRequest) (store.Project, error) {
 		if err != nil {
 			return store.Project{}, err
 		}
+		if e := req.Redis.External; e != nil {
+			if req.Redis.ExposePort {
+				return store.Project{}, errExternalRedisPort
+			}
+			if err := setExternalRedis(&svc, *e, ""); err != nil {
+				return store.Project{}, err
+			}
+		}
 		proj.Services = append(proj.Services, svc)
 	}
 	if req.Mailpit != nil {
@@ -429,8 +437,13 @@ func (m *Manager) buildProject(req CreateRequest) (store.Project, error) {
 		}
 		proj.Git = g
 	}
+	for _, d := range append([]DatabaseRequest{derefDB(req.Database)}, namedDBs(req.Databases)...) {
+		if d.External != nil && d.ExposePort {
+			return store.Project{}, errExternalPort
+		}
+	}
 	if req.Database != nil {
-		svc, err := m.buildDatabaseService(slug, req.Database.Type, req.Database.Version)
+		svc, err := m.buildDatabaseService(slug, req.Database.Type, req.Database.Version, req.Database.External)
 		if err != nil {
 			return store.Project{}, err
 		}
@@ -445,7 +458,7 @@ func (m *Manager) buildProject(req CreateRequest) (store.Project, error) {
 			return store.Project{}, fmt.Errorf("%w: two databases are named %q", validate.ErrInvalid, extra.Name)
 		}
 		seenDB[extra.Name] = true
-		svc, err := m.buildDatabaseService(slug, extra.Type, extra.Version)
+		svc, err := m.buildDatabaseService(slug, extra.Type, extra.Version, extra.External)
 		if err != nil {
 			return store.Project{}, err
 		}
@@ -484,8 +497,9 @@ func (m *Manager) buildWebService(webType, version string, spa bool) (store.Proj
 	return store.ProjectService{Kind: store.ServiceWeb, Variant: webType, Version: v.Version, Image: v.Image, Enabled: true, Config: raw, Position: 20}, nil
 }
 
-// buildDatabaseService validates the database selection and generates credentials.
-func (m *Manager) buildDatabaseService(slug, dbType, version string) (store.ProjectService, error) {
+// buildDatabaseService validates the database selection and generates credentials, or
+// takes those of an external server (whose reachability create and update check).
+func (m *Manager) buildDatabaseService(slug, dbType, version string, ext *ExternalDatabase) (store.ProjectService, error) {
 	if dbType == "" {
 		dbType = "mariadb"
 	}
@@ -496,8 +510,13 @@ func (m *Manager) buildDatabaseService(slug, dbType, version string) (store.Proj
 	if err != nil {
 		return store.ProjectService{}, err
 	}
-	cfg, err := runtime.NewDatabaseConfig(slug)
-	if err != nil {
+	var cfg runtime.DatabaseConfig
+	if ext != nil {
+		cfg = runtime.DatabaseConfig{Host: ext.Host, Port: ext.Port, Username: ext.Username, Password: ext.Password, Database: ext.Database}
+		if err := runtime.NormalizeExternalDatabase(&cfg, dbType); err != nil {
+			return store.ProjectService{}, err
+		}
+	} else if cfg, err = runtime.NewDatabaseConfig(slug); err != nil {
 		return store.ProjectService{}, err
 	}
 	raw, err := json.Marshal(cfg)

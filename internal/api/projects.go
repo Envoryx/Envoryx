@@ -239,25 +239,59 @@ type pythonUpdateDTO struct {
 }
 
 type extraRequestDTO struct {
-	Version    string `json:"version"`
-	ExposePort bool   `json:"exposePort"`
-	Dashboards bool   `json:"dashboards"` // OpenSearch only
-	GPU        bool   `json:"gpu"`        // Ollama only
+	Version    string            `json:"version"`
+	ExposePort bool              `json:"exposePort"`
+	Dashboards bool              `json:"dashboards"` // OpenSearch only
+	GPU        bool              `json:"gpu"`        // Ollama only
+	External   *externalRedisDTO `json:"external"`   // Redis only
+}
+
+// externalRedisDTO is the address of a Redis Envoryx does not run.
+type externalRedisDTO struct {
+	Host     string `json:"host"`
+	Port     int    `json:"port"`
+	Password string `json:"password"`
+}
+
+func (e *externalRedisDTO) toDomain() *project.ExternalRedis {
+	if e == nil {
+		return nil
+	}
+	return &project.ExternalRedis{Host: e.Host, Port: e.Port, Password: e.Password}
+}
+
+// externalDatabaseDTO is the connection to a database server Envoryx does not run. On an
+// update an empty password keeps the stored one.
+type externalDatabaseDTO struct {
+	Host     string `json:"host"`
+	Port     int    `json:"port"`
+	Username string `json:"username"`
+	Password string `json:"password"`
+	Database string `json:"database"`
+}
+
+func (e *externalDatabaseDTO) toDomain() *project.ExternalDatabase {
+	if e == nil {
+		return nil
+	}
+	return &project.ExternalDatabase{Host: e.Host, Port: e.Port, Username: e.Username, Password: e.Password, Database: e.Database}
 }
 
 type extraUpdateDTO struct {
-	Enabled    bool   `json:"enabled"`
-	Version    string `json:"version"`
-	ExposePort bool   `json:"exposePort"`
-	RemoveData bool   `json:"removeData"`
-	Dashboards *bool  `json:"dashboards"` // OpenSearch only; null leaves it
-	GPU        *bool  `json:"gpu"`        // Ollama only; null leaves it
+	Enabled    bool              `json:"enabled"`
+	Version    string            `json:"version"`
+	ExposePort bool              `json:"exposePort"`
+	RemoveData bool              `json:"removeData"`
+	Dashboards *bool             `json:"dashboards"` // OpenSearch only; null leaves it
+	GPU        *bool             `json:"gpu"`        // Ollama only; null leaves it
+	External   *externalRedisDTO `json:"external"`   // Redis only
 }
 
 type databaseRequestDTO struct {
-	Type       string `json:"type"`
-	Version    string `json:"version"`
-	ExposePort bool   `json:"exposePort"`
+	Type       string               `json:"type"`
+	Version    string               `json:"version"`
+	ExposePort bool                 `json:"exposePort"`
+	External   *externalDatabaseDTO `json:"external"`
 }
 
 type namedDatabaseDTO struct {
@@ -266,11 +300,12 @@ type namedDatabaseDTO struct {
 }
 
 type databaseUpdateDTO struct {
-	Enabled    bool   `json:"enabled"`
-	Type       string `json:"type"`
-	Version    string `json:"version"`
-	ExposePort bool   `json:"exposePort"`
-	RemoveData bool   `json:"removeData"`
+	Enabled    bool                 `json:"enabled"`
+	Type       string               `json:"type"`
+	Version    string               `json:"version"`
+	ExposePort bool                 `json:"exposePort"`
+	RemoveData bool                 `json:"removeData"`
+	External   *externalDatabaseDTO `json:"external"`
 }
 
 type createProjectRequest struct {
@@ -342,13 +377,13 @@ func (r createProjectRequest) toDomain() project.CreateRequest {
 		req.Python = &project.PythonRequest{Version: r.Python.Version, Config: r.Python.config()}
 	}
 	for _, d := range r.Databases {
-		req.Databases = append(req.Databases, project.NamedDatabaseRequest{Name: d.Name, DatabaseRequest: project.DatabaseRequest{Type: d.Type, Version: d.Version, ExposePort: d.ExposePort}})
+		req.Databases = append(req.Databases, project.NamedDatabaseRequest{Name: d.Name, DatabaseRequest: project.DatabaseRequest{Type: d.Type, Version: d.Version, ExposePort: d.ExposePort, External: d.External.toDomain()}})
 	}
 	if r.Database != nil {
-		req.Database = &project.DatabaseRequest{Type: r.Database.Type, Version: r.Database.Version, ExposePort: r.Database.ExposePort}
+		req.Database = &project.DatabaseRequest{Type: r.Database.Type, Version: r.Database.Version, ExposePort: r.Database.ExposePort, External: r.Database.External.toDomain()}
 	}
 	if r.Redis != nil {
-		req.Redis = &project.ExtraRequest{Version: r.Redis.Version, ExposePort: r.Redis.ExposePort}
+		req.Redis = &project.ExtraRequest{Version: r.Redis.Version, ExposePort: r.Redis.ExposePort, External: r.Redis.External.toDomain()}
 	}
 	if r.Mailpit != nil {
 		req.Mailpit = &project.ExtraRequest{Version: r.Mailpit.Version}
@@ -644,7 +679,7 @@ func (a *API) updateProject(w http.ResponseWriter, r *http.Request) {
 		upd.Python = &project.PythonUpdate{Enabled: req.Python.Enabled, Version: req.Python.Version, Config: req.Python.config()}
 	}
 	if req.Redis != nil {
-		upd.Redis = &project.ExtraUpdate{Enabled: req.Redis.Enabled, Version: req.Redis.Version, ExposePort: req.Redis.ExposePort, RemoveData: req.Redis.RemoveData}
+		upd.Redis = &project.ExtraUpdate{Enabled: req.Redis.Enabled, Version: req.Redis.Version, ExposePort: req.Redis.ExposePort, RemoveData: req.Redis.RemoveData, External: req.Redis.External.toDomain()}
 	}
 	if req.Storage != nil {
 		upd.Storage = &project.StorageUpdate{Enabled: req.Storage.Enabled, Version: req.Storage.Version, PublicRead: req.Storage.PublicRead, RemoveData: req.Storage.RemoveData}
@@ -671,13 +706,13 @@ func (a *API) updateProject(w http.ResponseWriter, r *http.Request) {
 		upd.Ollama = &project.ExtraUpdate{Enabled: req.Ollama.Enabled, Version: req.Ollama.Version, ExposePort: req.Ollama.ExposePort, GPU: req.Ollama.GPU}
 	}
 	if req.Database != nil {
-		upd.Database = &project.DatabaseUpdate{Enabled: req.Database.Enabled, Type: req.Database.Type, Version: req.Database.Version, ExposePort: req.Database.ExposePort, RemoveData: req.Database.RemoveData}
+		upd.Database = &project.DatabaseUpdate{Enabled: req.Database.Enabled, Type: req.Database.Type, Version: req.Database.Version, ExposePort: req.Database.ExposePort, RemoveData: req.Database.RemoveData, External: req.Database.External.toDomain()}
 	}
 	for name, d := range req.Databases {
 		if upd.Databases == nil {
 			upd.Databases = map[string]project.DatabaseUpdate{}
 		}
-		upd.Databases[name] = project.DatabaseUpdate{Enabled: d.Enabled, Type: d.Type, Version: d.Version, ExposePort: d.ExposePort, RemoveData: d.RemoveData}
+		upd.Databases[name] = project.DatabaseUpdate{Enabled: d.Enabled, Type: d.Type, Version: d.Version, ExposePort: d.ExposePort, RemoveData: d.RemoveData, External: d.External.toDomain()}
 	}
 	if req.Env != nil {
 		env := make([]project.EnvVarRequest, 0, len(*req.Env))
