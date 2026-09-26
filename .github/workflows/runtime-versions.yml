@@ -19,7 +19,7 @@ jobs:
         id: check
         run: |
           changed=false
-          for p in php node python go; do
+          for p in php node python go ruby; do
             python3 scripts/check-versions.py "$p" | tee /tmp/out-$p.txt
             grep -q '^changed=true' /tmp/out-$p.txt && changed=true
           done
@@ -30,7 +30,7 @@ jobs:
         with:
           branch: chore/php-versions
           title: "Update runtime versions"
-          commit-message: "Update PHP/Node/Python/Go versions from upstream releases"
+          commit-message: "Update PHP/Node/Python/Go/Ruby versions from upstream releases"
           body: |
             Automated update of `internal/runtime/*_versions.json` based on
             endoflife.date and the image tags on Docker Hub.
