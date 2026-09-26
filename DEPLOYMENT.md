@@ -478,7 +478,7 @@ or a blank directory / git clone – and the dev server *is* the project:
   runtime the project has. Actions offer npm/pnpm/yarn and `node -v`; git
   clone/pull run in a one-shot container from the Node image.
 - **Cron jobs** (Cron tab) run any command on a schedule in the PHP, Python,
-  Go or Node.js container – as the project owner in the project directory,
+  Go, Ruby or Node.js container – as the project owner in the project directory,
   through `sh -c`, with the project's environment. Pick a schedule (every few
   minutes, hourly, daily, weekly, monthly) or type a cron expression; the form
   shows the next runs. Schedules are read in Envoryx's time zone – set `TZ` on
@@ -502,7 +502,7 @@ or a blank directory / git clone – and the dev server *is* the project:
   containers are recreated once at the next start (new command wrapper,
   unpublished port); from then on `<project>.<base>` reaches the dev server.
 
-A **static site** (no PHP, no Node, no Python or Go server) is the same web
+A **static site** (no PHP, no Node, no Python, Go or Ruby server) is the same web
 container alone: pick **Static site** in the wizard; Envoryx writes a
 starter `index.html` unless you clone a repository.
 
@@ -644,6 +644,101 @@ downloaded once for all projects.
   `{"go": {"enabled": false}}` removes. The CLI takes `--go <version>`,
   `--go-server` and `--go-package`.
 
+### Ruby projects (Rails, Sinatra, Rack)
+
+Pick **Ruby application** on the first wizard step (or enable Ruby on any
+project from the Runtime tab). The Ruby container (`envoryx-<project>-ruby`,
+image `ghcr.io/envoryx/envoryx-ruby:<3.x|4.x>` – the official
+`ruby:<v>-slim-bookworm` image plus the build dependencies of the common
+native gems (pg, mysql2, sqlite3, psych) and the debug gem) runs as
+`PUID:PGID` with the project directory at `/var/www/html` and the project
+home at `/home/envoryx`. Gems go to `GEM_HOME=/home/envoryx/.gem/ruby` – they
+stay across container recreates and the project directory holds no
+`vendor/bundle` – and Bundler's download cache lives in the shared package
+cache. The image has no Node.js: `jsbundling-rails`/`cssbundling-rails`
+builds run in a Node service next to Ruby; the Rails template uses importmap
+and needs none.
+
+- **Server.** *Run the server* makes the preset's server the container's
+  main process, restarted automatically and published on a host port of its
+  own. **Rails** runs `bin/rails server` in development mode (Rails reloads
+  changed code itself) and `bundle exec puma` in production mode; **Rack**
+  runs Puma on `config.ru` in both modes (Sinatra, Roda, Hanami – code
+  reloading is the framework's, e.g. `sinatra/reloader`). The server listens
+  on `$PORT` (3000 for Rails, 9292 for Rack; `HOST`/`BINDING` are
+  `0.0.0.0`). `RAILS_ENV`, `RACK_ENV`, `APP_ENV` and `HANAMI_ENV` follow the
+  mode – the workers get the same. In development Envoryx sets
+  `RAILS_DEVELOPMENT_HOSTS=.<base>`, so Rails' host authorization lets the
+  project's host names through. Production mode is Rails' production
+  environment: it needs `config/master.key` (or `SECRET_KEY_BASE` as a
+  project variable), precompiled assets (*rails assets:precompile*) and the
+  databases its `database.yml` names for production; Rails serves `public/`
+  itself (`RAILS_SERVE_STATIC_FILES`), and a production config with
+  `force_ssl` redirects to https.
+- **Bundle.** Before the server starts it waits for the `Gemfile` (and
+  `bin/rails` or `config.ru`), then runs `bundle install` when `bundle check`
+  finds the bundle incomplete – after a clone, a changed `Gemfile` or a Ruby
+  upgrade. While the install fails the container says so in the log and
+  retries every 30 seconds. The workers do the same before they start.
+- **Database.** Envoryx injects `DATABASE_URL`, and Rails merges it into
+  `config/database.yml` – for PostgreSQL the Ruby containers get it as
+  `postgresql://` (Envoryx names the scheme `pgsql` elsewhere, which Active
+  Record does not know). An additional database `analytics` arrives as
+  `ANALYTICS_DATABASE_URL`, which Rails' multi-database setup picks up for a
+  database named `analytics` in `database.yml`.
+- **Routing.** Without PHP and without a Python or Go server the Ruby server
+  is the application: the proxy routes `https://<project>.<base>` and every
+  extra domain to `envoryx-<project>-ruby:<port>`, the web container's host
+  port stays unpublished, and *Direct access* is the Ruby host port. Next to
+  PHP or a Python or Go server it only has its host port. A Node dev server
+  next to Ruby keeps `<project>-dev.<base>`.
+- **Templates.** *Rails* (`rails new` with Hotwire and importmap), *Rails
+  (API only)* (`rails new --api`) – both named after the project and set up
+  for its database (PostgreSQL, MySQL, MariaDB; SQLite without one) – and
+  *Sinatra* (`app.rb`, `config.ru`, a `Gemfile` with Puma, `sinatra-contrib`
+  for the reloader and the debug gem). The Rails templates take a few
+  minutes the first time, while the native gems compile; run *rails
+  db:prepare* from the Actions tab afterwards.
+- **Actions, tests and workers.** Actions: `ruby --version`, `bundle
+  install`/`update`/`outdated`, `rubocop` (with a `.rubocop.yml`), and for
+  Rails `db:prepare`, `db:migrate`, `db:rollback`, `db:seed`, `routes`,
+  `assets:precompile`, `tmp:clear` and `about`. The Tests tab runs `bundle
+  exec rspec` (with a `spec/` directory and rspec in `Gemfile.lock`; with
+  `rspec_junit_formatter` in the bundle failures show per test) and `bin/rails
+  test`, in the test environment and against `<database>_test` on the
+  project's database server: Active Record merges `DATABASE_URL` into every
+  environment, so a test run would otherwise load its fixtures into the
+  development database and empty its tables. Envoryx creates the test
+  database (as the administrator – the MySQL/MariaDB project login may not
+  create databases) before the run; Rails loads the schema. Worker presets:
+  *Solid Queue* (`bin/jobs start`), *GoodJob* (`good_job start`, optional
+  queues), *Sidekiq* (optional queues; add Redis – `REDIS_URL` is injected),
+  *Rake task* and *Ruby script*. Cron jobs run in the Ruby container like in
+  the others.
+- **Debugging.** *Debug with rdbg* runs the server under `rdbg --open
+  --nonstop` (the debug gem, port 12345 by default) and publishes that port
+  on a host port; when `Gemfile.lock` locks the debug gem (Rails and the
+  Sinatra template do) the bundle's rdbg runs it. Attach VS Code with the
+  *VSCode rdbg Ruby Debugger* extension (`type: rdbg`, `request: attach`,
+  `debugPort: "<host>:<port>"`, `localfsMap: "/var/www/html:${workspaceFolder}"`)
+  or a terminal (`rdbg -A <host> <port>`) with the host and port from the IDE
+  tab. RubyMine's *Ruby remote debug* speaks only `ruby-debug-ide`, not the
+  debug gem: in RubyMine, add the Ruby container as an SSH remote interpreter
+  (user `<project>.ruby`, see *IDE integration*) and debug with RubyMine's own
+  debugger – the rdbg switch is not needed for that. Without the server only the port is published – for `rdbg --open
+  --host=0.0.0.0 --port=12345 -c -- bin/rails test` started in the Ruby
+  terminal. rdbg has no authentication: whoever reaches the port can run any
+  code in the container, and with the server it listens as long as the switch
+  is on. Switch it off when you are not debugging, and do not enable it on a
+  Docker host reachable from untrusted networks.
+- **Adding or removing Ruby later.** The Runtime tab's Ruby card has an
+  *Enable Ruby* switch; removing it takes the Ruby container and the Ruby
+  workers' containers down – files and worker definitions stay. Over the API:
+  `PATCH /api/v1/projects/{id}` with `{"ruby": {"enabled": true, "version":
+  "3.4", "server": true, "preset": "rails"}}` adds or changes, `{"ruby":
+  {"enabled": false}}` removes. The CLI takes `--ruby <version>`,
+  `--ruby-server` and `--ruby-preset rails|rack`.
+
 ### Bare metal
 
 Outside Docker the proxy dials the project's published port
@@ -729,7 +824,7 @@ next steps of the wizard with what it recognised; everything stays editable.
 | Joomla | `configuration.php` with `JConfig` | PHP by version, `mysqli` |
 | Shopware, Craft CMS, other Composer apps | `composer.json` | PHP from `require.php`, `ext-*` extensions |
 | Plain PHP | `.php` files | docroot where `index.php` is, the files that connect to a database |
-| Static site, Node.js, Python, Go | `index.html`, `package.json`, `manage.py`/`requirements.txt`, `go.mod` | the matching runtime |
+| Static site, Node.js, Python, Go, Ruby | `index.html`, `package.json`, `manage.py`/`requirements.txt`, `go.mod`, `Gemfile` | the matching runtime |
 
 The PHP version is the newest one Envoryx offers that `composer.json` and the
 CMS version allow. Code that calls functions PHP 8 removed (`create_function`,
@@ -985,7 +1080,9 @@ Node.js images (`envoryx-node:*`) follow the same scheme with `node_versions.jso
 Python images (`envoryx-python:*`, official `python:<v>-slim-bookworm` plus uv,
 git and build dependencies) with `python_versions.json`, Go images
 (`envoryx-go:*`, official `golang:<v>-bookworm` plus air, Delve and gotestsum)
-with `go_versions.json`; a project's Node, Python or Go version is changed on the Runtime tab like the PHP version.
+with `go_versions.json`, Ruby images (`envoryx-ruby:*`, official
+`ruby:<v>-slim-bookworm` plus build dependencies and the debug gem) with
+`ruby_versions.json`; a project's Node, Python, Go or Ruby version is changed on the Runtime tab like the PHP version.
 
 ## Git deploy key
 
@@ -1295,9 +1392,9 @@ The API: `GET /projects/{id}/share`, `POST /projects/{id}/share`
 
 ## Package cache
 
-Composer, npm, Yarn, pip, uv and Go (modules and build cache) keep their
+Composer, npm, Yarn, pip, uv, Go (modules and build cache) and Bundler keep their
 downloads in one cache that every project shares: `/config/cache`, mounted at
-`/var/cache/envoryx` into the PHP, Node, Python and Go containers, the workers and the one-shot containers that
+`/var/cache/envoryx` into the PHP, Node, Python, Go and Ruby containers, the workers and the one-shot containers that
 scaffold a template. A package is downloaded once, whichever project asks for
 it next – the second Laravel project is created in a fraction of the time of
 the first. The variables that point the tools there (`COMPOSER_CACHE_DIR`,
@@ -1460,7 +1557,9 @@ Workers tab: add long-running processes from a preset list – Laravel
 Reverb, Symfony `messenger:consume` (transports) and Scheduler, a PHP script
 or a composer script (PHP image); npm scripts and Node scripts (Node
 image); Python scripts and modules, Django management commands, Celery
-worker and beat (Python image); Go programs of the module (Go image). Every worker is its own container
+worker and beat (Python image); Go programs of the module (Go image); Solid
+Queue, GoodJob, Sidekiq, rake tasks and Ruby scripts (Ruby image, after the
+bundle install). Every worker is its own container
 (`envoryx-<project>-worker-<name>`) from the image of the runtime its
 preset names, runs as `PUID:PGID` with the project's environment (and
 php.ini for PHP, the venv `PATH` for Python), restarts automatically
@@ -1477,8 +1576,8 @@ Every project has an **IDE** tab with all values ready to copy.
 **Remote interpreter over SSH.** Envoryx runs an SSH server on port 2222
 (publish it, or use the container's own IP on `br0`). User name = project
 slug (`shop`): it lands in the project's application container – PHP when
-the project has PHP, else Python, else Go, else Node. Projects with several runtimes
-also accept `shop.php`, `shop.python`, `shop.go` and `shop.node` to pick one
+the project has PHP, else Python, else Go, else Ruby, else Node. Projects with several runtimes
+also accept `shop.php`, `shop.python`, `shop.go`, `shop.ruby` and `shop.node` to pick one
 explicitly (the IDE tab lists these rows only then). Password = an API token from Settings → API tokens, or a
 public key stored under Settings → SSH access. Each session is a
 `docker exec` into that container as the project owner – there is no shell
@@ -1503,7 +1602,7 @@ on the host. SFTP exposes `/var/www/html` (the project) and `/home/envoryx`
 - VS Code: Remote-SSH works the same way (`ssh -p 2222 shop@<host>`); open
   `/var/www/html` as the remote folder.
 
-A static project (no PHP, Python, Go or Node) has no application container, so
+A static project (no PHP, Python, Go, Ruby or Node) has no application container, so
 SSH sessions are refused for it.
 
 The project must be running for sessions to open. Commands are logged to
@@ -1516,8 +1615,8 @@ client. In Envoryx this is opt-in per project (IDE tab → *Allow JetBrains
 Gateway*): it enables SSH port forwarding into the container and mounts a
 shared backend cache (`/config/jetbrains`, ~1.5 GB per IDE version,
 downloaded once). The backend runs as the project owner inside the
-application container – PHP, else Python, else Go, else Node (user `<slug>`;
-`<slug>.python` / `<slug>.go` / `<slug>.node` pick one next to PHP) – and needs 2–4 GB RAM plus CPU while
+application container – PHP, else Python, else Go, else Ruby, else Node (user `<slug>`;
+`<slug>.python` / `<slug>.go` / `<slug>.ruby` / `<slug>.node` pick one next to PHP) – and needs 2–4 GB RAM plus CPU while
 indexing – nothing runs until you connect. Envoryx ships no JetBrains
 software: Gateway itself is free, the IDE backend is uploaded by your
 Gateway client and licensed through it – whoever connects needs a valid
@@ -1619,6 +1718,11 @@ PostgreSQL, no PHP, then run pip install."*
 Go projects: pass `phpVersion: "none"` and `goVersion`, plus `goServer: true`
 (optional `goPackage`, `goPort`, `goMode`) or a Go template (`go`, `gin`,
 `echo`), which switches the server on. `serves` is `go` then.
+
+Ruby projects: pass `phpVersion: "none"` and `rubyVersion`, plus `rubyServer:
+true` (optional `rubyPreset` `rails`/`rack`, `rubyPort`, `rubyMode`) or a Ruby
+template (`rails`, `rails-api`, `sinatra`), which switches the server on.
+`serves` is `ruby` then.
 
 ### Scripting the REST API
 
@@ -1797,9 +1901,10 @@ healthcheck:                     # see "Health checks"; or just: healthcheck: /h
   interval: 1m
 ```
 
-`node:`, `python:` and `go:` take the fields of the wizard (`devServer`, `preset`,
+`node:`, `python:`, `go:` and `ruby:` take the fields of the wizard (`devServer`, `preset`,
 `port`, `script` …; `server`, `preset`, `app`, `debug` …; `server`, `mode`,
-`package`, `port`, `debug`, `debugPort`). A setting left out
+`package`, `port`, `debug`, `debugPort`; `server`, `mode`, `preset`, `port`,
+`debug`, `debugPort`). A setting left out
 means Envoryx's default, so the file is the whole desired state: `web:` missing
 means Caddy, `extensions:` missing the default set. Unknown keys are errors –
 a typo never silently drops a service. The export pins every version, which is

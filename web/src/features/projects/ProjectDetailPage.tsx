@@ -7,10 +7,11 @@ import { lazy, Suspense, useEffect, useState, type ReactElement } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { ApiError } from "@/api/client";
 import { useDevServerLink, useImageChoice, useProject, useProjectLinks, useProjectPlan, useProjectStats, useRuntimes, useSettings, useUpdateProject } from "@/api/hooks";
-import { appKindOf, defaultNodePresets, defaultPythonPresets, servesOf, type EnvVar, type NodeConfig, type PHPConfig, type Project, type PythonConfig, type GoConfig, type UpdateProjectRequest, type WebServerConfig } from "@/api/types";
+import { appKindOf, defaultNodePresets, defaultPythonPresets, defaultRubyPresets, servesOf, type EnvVar, type NodeConfig, type PHPConfig, type Project, type PythonConfig, type GoConfig, type RubyConfig, type UpdateProjectRequest, type WebServerConfig } from "@/api/types";
 import { NodeDevServerFields, defaultScript, devServerRequest, type DevServerForm } from "./NodeDevServerFields";
 import { PythonServerFields, defaultPythonServerForm, pythonServerRequest, type PythonServerForm } from "./PythonServerFields";
 import { GoServerFields, defaultGoServerForm, goServerRequest, type GoServerForm } from "./GoServerFields";
+import { RubyServerFields, defaultRubyServerForm, rubyServerRequest, type RubyServerForm } from "./RubyServerFields";
 import { Alert, Badge, Button, Card, CardHeader, Checkbox, Code, ErrorState, Field, Input, PageHeader, Select, Spinner, StatusDot } from "@/components/ui";
 import { containerStateTone, formatBytes, formatDateTime, formatPercent, serviceLabel, stateMeta } from "@/lib/format";
 import { DeleteProjectDialog, DuplicateProjectDialog, ProjectActionButtons, RenameProjectDialog, useActionError } from "./ProjectActions";
@@ -170,12 +171,20 @@ export function ProjectDetailPage() {
       {tab === "Runtime" && (
         <div className="space-y-6">
           <ProjectSettingsCard project={p} onRename={() => setRenaming(true)} />
-          {/* The application runtime comes first (PHP, else Python, else Go, else Node), then the web server, then the other runtimes as toolchains. */}
+          {/* The application runtime comes first (PHP, else Python, else Go, else Ruby, else Node), then the web server, then the other runtimes as toolchains. */}
           {(() => {
             const app = p.appService ?? appKindOf(p);
-            const cards: Record<"php" | "python" | "go" | "node", ReactElement> = { php: <PhpCard key="php" project={p} />, python: <PythonCard key="python" project={p} />, go: <GoCard key="go" project={p} />, node: <NodeCard key="node" project={p} /> };
-            const [first, ...rest]: ("php" | "python" | "go" | "node")[] =
-              app === "node" ? ["node", "python", "go", "php"] : app === "python" ? ["python", "node", "go", "php"] : app === "go" ? ["go", "node", "python", "php"] : ["php", "node", "python", "go"];
+            const cards: Record<"php" | "python" | "go" | "ruby" | "node", ReactElement> = { php: <PhpCard key="php" project={p} />, python: <PythonCard key="python" project={p} />, go: <GoCard key="go" project={p} />, ruby: <RubyCard key="ruby" project={p} />, node: <NodeCard key="node" project={p} /> };
+            const [first, ...rest]: ("php" | "python" | "go" | "ruby" | "node")[] =
+              app === "node"
+                ? ["node", "python", "go", "ruby", "php"]
+                : app === "python"
+                  ? ["python", "node", "go", "ruby", "php"]
+                  : app === "go"
+                    ? ["go", "node", "python", "ruby", "php"]
+                    : app === "ruby"
+                      ? ["ruby", "node", "python", "go", "php"]
+                      : ["php", "node", "python", "go", "ruby"];
             return (
               <>
                 {first && cards[first]}
@@ -381,7 +390,7 @@ function ProjectSettingsCard({ project: p, onRename }: { project: Project; onRen
             hint={
               serves === "node"
                 ? t("Not used while the dev server serves the app; the build output (e.g. dist/) once you turn it off.")
-                : serves === "python" || serves === "go"
+                : serves === "python" || serves === "go" || serves === "ruby"
                   ? t("Not used while the application server serves the app; static files (e.g. a collected static/ folder) once you turn it off.")
                   : t("Relative to the project directory")
             }
@@ -862,6 +871,109 @@ function GoCard({ project: p }: { project: Project }) {
           </Field>
         )}
         {enabled && <GoServerFields value={server} onChange={setServer} primary={serves !== "php" && serves !== "python"} />}
+      </div>
+    </Card>
+  );
+}
+
+function RubyCard({ project: p }: { project: Project }) {
+  const { t } = useTranslation();
+  const runtimes = useRuntimes();
+  const update = useUpdateProject(p.id);
+  const links = useProjectLinks();
+  const { msg, setMsg } = useSaveFeedback();
+  const serves = p.serves ?? servesOf(p);
+  const svc = p.services.find((s) => s.kind === "ruby" && s.enabled);
+  const ruby = runtimes.data?.runtimes.find((r) => r.key === "ruby");
+  const stored = (svc?.config ?? {}) as RubyConfig;
+  const fromStored = (): RubyServerForm => ({
+    server: !!stored.server,
+    mode: stored.mode ?? "dev",
+    preset: stored.preset ?? defaultRubyServerForm.preset,
+    port: String(stored.port ?? defaultRubyServerForm.port),
+    debug: !!stored.debug,
+    debugPort: String(stored.debugPort ?? 12345),
+  });
+  const [enabled, setEnabled] = useState(!!svc);
+  const [version, setVersion] = useState(svc?.version ?? "");
+  const [server, setServer] = useState<RubyServerForm>(fromStored);
+  useEffect(() => {
+    setEnabled(!!svc);
+    setVersion(svc?.version ?? ruby?.versions.find((v) => v.default)?.version ?? "");
+    setServer(fromStored());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [svc, ruby]);
+  const dirty = enabled !== !!svc || (enabled && (version !== (svc?.version ?? "") || JSON.stringify(server) !== JSON.stringify(fromStored())));
+  const rubyStatus = p.status.services.find((s) => s.kind === "ruby");
+  // The server answers on the project URL when Ruby is the application; otherwise only its host port is published.
+  const url = serves === "ruby" ? links(p).url : stored.hostPort ? links({ httpPort: stored.hostPort, hostnames: [], serves: "static", services: [] }).direct : "";
+
+  return (
+    <Card>
+      <CardHeader
+        title={t("Ruby")}
+        description={
+          serves !== "php" && serves !== "python" && serves !== "go"
+            ? t("Application runtime of this project: run your Rails or Rack application here. Removing it only removes the container; the code stays in the project directory, the gems in the project home.")
+            : t("Tooling container (bundle, rake, rails), optionally running a Ruby server on its own port. Removing it only removes the container; the code stays in the project directory.")
+        }
+        actions={
+          <Button
+            variant="primary"
+            icon={<Save className="size-4" />}
+            loading={update.isPending}
+            disabled={!dirty}
+            onClick={() =>
+              update.mutate(
+                { ruby: enabled ? { enabled: true, version, ...rubyServerRequest(server) } : { enabled: false } },
+                {
+                  onSuccess: () => setMsg({ tone: "green", text: enabled ? t("Ruby container updated.") : t("Ruby container removed.") }),
+                  onError: (err) => setMsg({ tone: "red", text: errorText(err, t, t("Saving failed")) }),
+                },
+              )
+            }
+          >
+            {t("Save")}
+          </Button>
+        }
+      />
+      <div className="space-y-4 p-5">
+        {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
+        {(stored.server || (stored.debug && stored.debugHostPort)) && (
+          <div className="flex flex-wrap items-center gap-3 rounded-md border border-default px-3 py-2 text-sm">
+            <span className="text-muted">{stored.server ? t("Server") : t("Debugger")}</span>
+            {rubyStatus && (
+              <span className="inline-flex items-center gap-1.5 text-xs">
+                <StatusDot tone={containerStateTone(rubyStatus.state)} /> {rubyStatus.state}
+              </span>
+            )}
+            {stored.server &&
+              (url ? (
+                <a href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-mono text-xs text-accent-600 hover:underline dark:text-accent-300">
+                  {url} <ExternalLink className="size-3" />
+                </a>
+              ) : (
+                <span className="text-xs text-subtle">{t("no port")}</span>
+              ))}
+            {stored.server && stored.hostPort ? <span className="font-mono text-xs text-subtle">{t("host port {{port}}", { port: stored.hostPort })}</span> : null}
+            {stored.server && stored.mode === "production" && <Badge tone="blue">{t("production server")}</Badge>}
+            {stored.debug && stored.debugHostPort ? <span className="font-mono text-xs text-subtle">{t("rdbg on host port {{port}}", { port: stored.debugHostPort })}</span> : null}
+          </div>
+        )}
+        <Checkbox label={t("Enable Ruby")} checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
+        {enabled && ruby && (
+          <Field label={t("Ruby version")} htmlFor="ruby-version">
+            <Select id="ruby-version" value={version} onChange={(e) => setVersion(e.target.value)}>
+              {ruby.versions.map((v) => (
+                <option key={v.version} value={v.version}>
+                  {v.label}
+                  {v.eol ? t(" (end of life)") : v.preview ? t(" (preview)") : ""}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        )}
+        {enabled && <RubyServerFields value={server} onChange={setServer} presets={runtimes.data?.rubyPresets ?? defaultRubyPresets} primary={serves !== "php" && serves !== "python" && serves !== "go"} />}
       </div>
     </Card>
   );

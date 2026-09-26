@@ -141,7 +141,7 @@ export function TerminalTab({ project }: { project: Project }) {
         </span>
         <div className="ml-auto flex items-center gap-2">
           <span className="text-[11px] text-subtle">
-            {kind === "php" || kind === "python" || kind === "go" || kind === "node" ? t("runs as the project owner in /var/www/html") : t("runs as root")}
+            {kind === "php" || kind === "python" || kind === "go" || kind === "ruby" || kind === "node" ? t("runs as the project owner in /var/www/html") : t("runs as root")}
           </span>
           <Button size="sm" onClick={() => setGeneration((g) => g + 1)} icon={<RotateCw className="size-3.5" />} disabled={!running}>
             {t("New session")}
