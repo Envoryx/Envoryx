@@ -10,14 +10,9 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.11.0] – 2026-09-26
+
 ### Added
-- The audit log can be searched and filtered by user (with its API tokens),
-  category, project and date, pages back through older entries, and exports
-  the filtered entries as CSV or JSON Lines. Every project has its own
-  *History* tab. A project change now records each setting it changed with
-  its value before and after, shown when the entry is opened. A retention
-  (30 days to two years, or forever as before) is set under *Settings → Audit
-  log*.
 - External databases and Redis: a database (primary or additional) or Redis
   can be an existing MariaDB, MySQL, PostgreSQL or Redis server instead of a
   container of the project – *On an external server* in the wizard, the
@@ -36,6 +31,13 @@ release). `:main` follows the development branch.
   NVIDIA GPUs to Ollama; Envoryx checks beforehand that Docker can (NVIDIA
   Container Toolkit, on Unraid the Nvidia Driver plugin) and says so when it
   cannot.
+- The audit log can be searched and filtered by user (with its API tokens),
+  category, project and date, pages back through older entries, and exports
+  the filtered entries as CSV or JSON Lines. Every project has its own
+  *History* tab. A project change now records each setting it changed with
+  its value before and after, shown when the entry is opened. A retention
+  (30 days to two years, or forever as before) is set under *Settings → Audit
+  log*.
 
 ### Changed
 - Builds of the development branch (`:main`) are named after the release they
@@ -857,7 +859,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/envoryx/envoryx/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/envoryx/envoryx/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/envoryx/envoryx/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/envoryx/envoryx/compare/v0.7.1...v0.8.0
