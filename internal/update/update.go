@@ -22,7 +22,8 @@ const DefaultURL = "https://api.github.com/repos/envoryx/envoryx/releases/latest
 
 // Status is what the UI shows.
 type Status struct {
-	// Current is the running version as built (v0.1.0, main-<sha>, dev).
+	// Current is the running version as built: a release (v0.10.0), a build of main as git
+	// describe names it (v0.10.0-3-g73304d6; main-<sha> before 0.11), or dev.
 	Current string `json:"current"`
 	// Enabled is false when the check was switched off (ENVORYX_UPDATE_CHECK=false).
 	Enabled bool `json:"enabled"`
@@ -170,7 +171,7 @@ func (c *Checker) fail(err error) error {
 var versionRe = regexp.MustCompile(`^v?(\d+)\.(\d+)\.(\d+)$`)
 
 // parseVersion returns [major, minor, patch] for a release tag, nil for anything else
-// (main-<sha>, dev, dirty builds).
+// (v0.10.0-3-g73304d6 and main-<sha> builds of main, dev, dirty builds).
 func parseVersion(v string) []int {
 	m := versionRe.FindStringSubmatch(strings.TrimSpace(v))
 	if m == nil {

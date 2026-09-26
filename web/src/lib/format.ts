@@ -104,10 +104,28 @@ export function serviceLabel(kind: string, version?: string, variant?: string): 
 }
 
 /** "0.4.0 · up to date" – the version with the outcome of the update check. */
-export function formatVersion(t: TFunction, version: string, u?: UpdateStatus): string {
+/**
+ * A build's version as people read it: releases without the "v", a build of main as the
+ * release it follows, how many commits later and its commit (git describe's
+ * v0.10.0-3-g73304d6 → "0.10.0+3 (73304d6)", a * for uncommitted changes), older main-<sha>
+ * builds by their short sha.
+ */
+export function displayVersion(version: string): string {
+  const described = /^v?(\d+\.\d+\.\d+)-(\d+)-g([0-9a-f]+)(-dirty)?$/.exec(version);
+  if (described) {
+    const [, release, ahead, sha, dirty] = described;
+    return `${release}${ahead !== "0" ? `+${ahead}` : ""} (${sha!.slice(0, 7)}${dirty ? "*" : ""})`;
+  }
+  const main = /^main-([0-9a-f]{7,40})$/.exec(version);
+  if (main) return `main (${main[1]!.slice(0, 7)})`;
+  return version.replace(/^v(?=\d)/, "");
+}
+
+export function formatVersion(t: TFunction, raw: string, u?: UpdateStatus): string {
+  const version = displayVersion(raw);
   if (!u || !u.enabled) return version;
   if (!u.release) return `${version} · ${t("development build")}`;
-  if (u.available && u.latest) return `${version} · ${t("{{latest}} available", { latest: u.latest })}`;
+  if (u.available && u.latest) return `${version} · ${t("{{latest}} available", { latest: displayVersion(u.latest) })}`;
   if (u.latest) return `${version} · ${t("up to date")}`;
   if (u.error) return `${version} · ${t("update check failed")}`;
   return version;

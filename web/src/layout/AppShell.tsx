@@ -7,6 +7,7 @@ import { useAuth } from "@/features/auth/AuthContext";
 import { Logo } from "./Logo";
 import { useTheme, type Theme } from "./theme";
 import { useDashboard } from "@/api/hooks";
+import { displayVersion } from "@/lib/format";
 import { Button } from "@/components/ui";
 import { OperationsTray } from "@/components/OperationsTray";
 import { currentLanguage, languages, setLanguage } from "@/i18n";
@@ -70,7 +71,7 @@ export function AppShell() {
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
             <p className="truncate text-sm font-medium text-fg">{auth.user?.username}</p>
-            <p className="truncate text-xs text-subtle">{dashboard.data?.version ? `Envoryx ${dashboard.data.version}` : "Envoryx"}</p>
+            <p className="truncate text-xs text-subtle">{dashboard.data?.version ? `Envoryx ${displayVersion(dashboard.data.version)}` : "Envoryx"}</p>
           </div>
           <div className="flex items-center gap-1">
             <LanguageButton />
