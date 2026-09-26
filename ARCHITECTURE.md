@@ -821,6 +821,33 @@ versions), removes it with OpenSearch and switches it on or off when an update c
 the OpenSearch entry of `/extras`, and it reaches OpenSearch at
 `http://opensearch:9200` inside the project network with its security plugin off.
 
+Ollama (`ollama/ollama:<patch>`; the catalogue's minor version points at the newest
+patch tag, since the image publishes no minor tags) has no volume of its own: every
+project's container bind-mounts the one model store `<config>/ollama` at `/models`
+(`OLLAMA_MODELS`), so a model is pulled once whichever project uses it. It runs as
+PUID:PGID with `HOME=/tmp` (the key pair Ollama generates there only signs pushes),
+so the store has a single owner; Ollama writes blobs under a temporary name and renames
+them, which keeps two projects pulling at once apart. `OLLAMA_HOST`, `OLLAMA_BASE_URL`
+and `OLLAMA_URL` all carry `http://ollama:11434` – the names of the Ollama libraries
+and CLI, LangChain/Open WebUI and Prism. The image has neither curl nor wget, so both
+the healthcheck and the model management talk HTTP through bash's `/dev/tcp`:
+`Manager.ollamaAPI` runs a script via `ExecStream` that sends an HTTP/1.0 request
+(unchunked, so `/api/pull` streams NDJSON line by line) and reads the reply with
+`http.ReadResponse` – the same from inside Docker and on bare metal, where Envoryx has
+no route into the project network. Downloads (`POST /projects/{id}/ollama/models`,
+operate scope) run in the background in `ollamaPulls`; `GET …/ollama/models` lists the
+store (`/api/tags`) plus the project's downloads with their summed layer progress, and
+a finished one stays listed for ten minutes. Docker does not end an exec when its
+caller goes away and Ollama keeps pulling while the connection is open, so the script
+prints its PID first and `exec`s `cat`: `DELETE …/ollama/pulls/{model}`, stopping the
+project or deleting it kill that PID. Deleting a model
+(`DELETE …/ollama/models/{model}`) touches every project and needs admin scope.
+`ServiceConfig.GPU` sets `ContainerSpec.GPUs`, the one device request Envoryx makes
+(`--gpus all`: count -1, capability `gpu`); it enters the fingerprint only when set.
+Before it is stored, `checkGPU` starts a throwaway container from the image with the
+GPUs, so a host without the NVIDIA Container Toolkit gets `docker.ErrNoGPU` (409
+`gpu_unavailable`) instead of an Ollama that no longer starts.
+
 ### SSH (`internal/sshd`)
 `golang.org/x/crypto/ssh` server with an Ed25519 host key. Auth resolves the
 user name through `Manager.ResolveSSHUser` (`<slug>` → the application

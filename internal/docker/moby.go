@@ -317,6 +317,9 @@ func (e *MobyEngine) CreateContainer(ctx context.Context, spec ContainerSpec) (s
 			host.Resources.PidsLimit = &pids
 		}
 	}
+	if spec.GPUs {
+		host.Resources.DeviceRequests = []container.DeviceRequest{{Count: -1, Capabilities: [][]string{{"gpu"}}}}
+	}
 	for _, m := range spec.Mounts {
 		mt := mount.Mount{Target: m.Target, ReadOnly: m.ReadOnly}
 		switch m.Type {
@@ -388,7 +391,22 @@ func (e *MobyEngine) StartContainer(ctx context.Context, id string) error {
 		return err
 	}
 	_, err := e.cli.ContainerStart(ctx, id, client.ContainerStartOptions{})
-	return wrap(err)
+	return gpuError(wrap(err))
+}
+
+// gpuError names the reason when a start failed because Docker has no way to hand over
+// GPUs: no nvidia runtime (older Docker), or no CDI spec for a GPU vendor (newer Docker).
+func gpuError(err error) error {
+	if err == nil {
+		return nil
+	}
+	msg := err.Error()
+	for _, s := range []string{"could not select device driver", "failed to discover GPU vendor", "no known GPU vendor", "nvidia-container-cli"} {
+		if strings.Contains(msg, s) {
+			return fmt.Errorf("%w (%s)", ErrNoGPU, msg)
+		}
+	}
+	return err
 }
 
 // StopContainer implements Engine.
@@ -623,7 +641,7 @@ func (e *MobyEngine) RunOneShot(ctx context.Context, spec ContainerSpec) (ExecRe
 	// created container and would report exit code 0 before the process has even started.
 	wait := e.cli.ContainerWait(ctx, id, client.ContainerWaitOptions{Condition: container.WaitConditionNextExit})
 	if _, err := e.cli.ContainerStart(ctx, id, client.ContainerStartOptions{}); err != nil {
-		return ExecResult{}, wrap(err)
+		return ExecResult{}, gpuError(wrap(err))
 	}
 	var code int64
 	select {

@@ -57,7 +57,9 @@ Envoryx is under active development. The current milestone (Phase 1 + 2) deliver
   Meilisearch (search engine with web dashboard, generated master key,
   `MEILISEARCH_*`), Typesense (search engine, generated API key, `TYPESENSE_*`),
   OpenSearch (Elasticsearch-compatible single node without login, `OPENSEARCH_*`,
-  optionally with OpenSearch Dashboards)
+  optionally with OpenSearch Dashboards), Ollama (local LLMs with one model store
+  shared by all projects, downloads from the UI, optional NVIDIA GPU,
+  `OLLAMA_HOST`/`OLLAMA_BASE_URL`/`OLLAMA_URL`)
   and S3-compatible object storage (RustFS: a
   bucket per project, web console, `S3_*`/`AWS_*` injected, reachable from the
   browser for presigned URLs) as optional services

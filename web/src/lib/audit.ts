@@ -30,6 +30,8 @@ export const auditActionLabels: Record<string, string> = {
   "docker.orphans_removed": "Orphaned resources removed",
   "logs.history_cleared": "Log history deleted",
   "cache.cleared": "Package cache cleared",
+  "ollama.model_pulled": "Ollama model download",
+  "ollama.model_deleted": "Ollama model deleted",
   "backup.created": "Backup created",
   "backup.restored": "Backup restored",
   "backup.deleted": "Backup deleted",
@@ -81,6 +83,12 @@ export function auditDetails(e: AuditEntry, t: TFunction): string {
       return t("Images: {{count}}", { count: Number(d["removed"] ?? 0) });
     case "settings.changed":
       return Object.keys(d).join(", ");
+    case "ollama.model_pulled": {
+      const outcome: Record<string, string> = { success: t("succeeded"), failed: t("failed"), cancelled: t("cancelled") };
+      return [String(d["model"] ?? ""), outcome[String(d["status"])] ?? String(d["status"] ?? "")].filter(Boolean).join(" · ");
+    }
+    case "ollama.model_deleted":
+      return String(d["model"] ?? "");
     case "cache.cleared":
       return [typeof d["tool"] === "string" ? d["tool"] : "", t("{{size}} freed", { size: formatBytes(Number(d["freed"] ?? 0)) })].filter(Boolean).join(" · ");
     case "project.updated": {

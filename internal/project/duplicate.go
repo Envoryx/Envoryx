@@ -360,7 +360,7 @@ func (m *Manager) reassignHostPorts(ctx context.Context, proj *store.Project) er
 				}
 				return swap(&c.ConsolePort)
 			})
-		case slices.Contains([]store.ServiceKind{store.ServiceRedis, store.ServiceMemcached, store.ServiceMailpit, store.ServiceRabbitMQ, store.ServiceMeilisearch, store.ServiceTypesense, store.ServiceOpenSearch, store.ServiceOpenSearchDashboards}, svc.Kind):
+		case slices.Contains([]store.ServiceKind{store.ServiceRedis, store.ServiceMemcached, store.ServiceMailpit, store.ServiceRabbitMQ, store.ServiceMeilisearch, store.ServiceTypesense, store.ServiceOpenSearch, store.ServiceOpenSearchDashboards, store.ServiceOllama}, svc.Kind):
 			err = editConfig(svc, func(c *runtime.ServiceConfig) error {
 				if err := swap(&c.HostPort); err != nil {
 					return err

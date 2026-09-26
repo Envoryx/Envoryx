@@ -538,4 +538,30 @@ describe("NewProjectPage wizard", () => {
     const create = api.calls.find((c) => c.method === "POST" && c.url.endsWith("/projects"));
     expect(create?.body).toMatchObject({ database: { type: "mariadb" }, databases: [{ name: "analytics", type: "mariadb", version: "11" }] });
   });
+
+  it("adds Ollama with the GPU", async () => {
+    const api = mockApi({
+      ...authedRoutes,
+      "GET /runtimes": () => ({ body: runtimesFixture }),
+      "POST /projects/preview": previewRoute(() => {}),
+      "POST /projects": () => ({ status: 201, body: { project: makeProject() } }),
+    });
+    renderApp(
+      <Routes>
+        <Route path="/projects/new" element={<NewProjectPage />} />
+        <Route path="/projects/:id" element={<h1>Detail</h1>} />
+      </Routes>,
+      { route: "/projects/new" },
+    );
+    const user = userEvent.setup();
+    await user.type(await screen.findByLabelText("Project name"), "Acme Chat");
+    for (let i = 0; i < 3; i++) await user.click(screen.getByRole("button", { name: "Continue" }));
+    await user.click(await screen.findByRole("checkbox", { name: /^Ollama/ }));
+    await user.click(screen.getByRole("checkbox", { name: /^Use the GPU/ }));
+    for (let i = 0; i < 2; i++) await user.click(screen.getByRole("button", { name: "Continue" }));
+    await user.click(await screen.findByRole("button", { name: "Create project" }));
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Detail" })).toBeInTheDocument());
+    const create = api.calls.find((c) => c.method === "POST" && c.url.endsWith("/projects"));
+    expect(create?.body).toMatchObject({ ollama: { exposePort: false, gpu: true } });
+  });
 });

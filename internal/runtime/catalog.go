@@ -239,6 +239,15 @@ func Default() *Catalog {
 			{Version: "2.19", Image: "opensearchproject/opensearch-dashboards:2.19.6", Label: "OpenSearch Dashboards 2.19"},
 		},
 	})
+	// Ollama publishes exact tags only (and latest); the minor version points at the
+	// newest patch release.
+	c.add(Runtime{
+		Key: "ollama", Name: "Ollama", Kind: "service", Available: true,
+		Description: "Ollama LLM server; models are kept in one store shared by all projects (OLLAMA_* injected)",
+		Versions: []Version{
+			{Version: "0.34", Image: "ollama/ollama:0.34.4", Label: "Ollama 0.34", Default: true},
+		},
+	})
 	c.add(Runtime{
 		Key: "mailpit", Name: "Mailpit", Kind: "service", Available: true,
 		Description: "Catches outgoing mail (SMTP) with a web inbox (MAIL_* / MAILER_DSN injected)",

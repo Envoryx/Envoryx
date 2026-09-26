@@ -10,6 +10,16 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Added
+- Ollama as a project service for local LLMs (*Services*, the wizard,
+  `--ollama`, MCP, `ollama:` in `envoryx.yml`). The application gets
+  `OLLAMA_HOST`, `OLLAMA_BASE_URL` and `OLLAMA_URL`. All projects share one model
+  store, so a model is downloaded once; models are downloaded, followed,
+  cancelled and deleted on the Ollama card. *Use the GPU* hands the host's
+  NVIDIA GPUs to Ollama; Envoryx checks beforehand that Docker can (NVIDIA
+  Container Toolkit, on Unraid the Nvidia Driver plugin) and says so when it
+  cannot.
+
 ## [0.10.0] – 2026-09-26
 
 ### Added

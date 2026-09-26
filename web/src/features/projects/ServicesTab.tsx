@@ -1,4 +1,4 @@
-import { ExternalLink, Mail, MemoryStick, Plus, Rabbit, Search, Server, Trash2 } from "lucide-react";
+import { BrainCircuit, ExternalLink, Mail, MemoryStick, Plus, Rabbit, Search, Server, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useState } from "react";
 import { useExtraServices, usePublicHost, useRuntimes, useStorage, useUpdateProject } from "@/api/hooks";
@@ -10,9 +10,10 @@ import { AddStorageCard, StorageCard } from "./StorageCard";
 import { PublicHostNotice } from "@/components/PublicHostNotice";
 import { errorText } from "@/lib/errors";
 import { CopyRow } from "./DatabaseTab";
+import { OllamaModels } from "./OllamaModels";
 
-type ExtraKind = "redis" | "memcached" | "mailpit" | "rabbitmq" | "meilisearch" | "typesense" | "opensearch";
-const titles: Record<ExtraKind, string> = { redis: "Redis", memcached: "Memcached", mailpit: "Mailpit", rabbitmq: "RabbitMQ", meilisearch: "Meilisearch", typesense: "Typesense", opensearch: "OpenSearch" };
+type ExtraKind = "redis" | "memcached" | "mailpit" | "rabbitmq" | "meilisearch" | "typesense" | "opensearch" | "ollama";
+const titles: Record<ExtraKind, string> = { redis: "Redis", memcached: "Memcached", mailpit: "Mailpit", rabbitmq: "RabbitMQ", meilisearch: "Meilisearch", typesense: "Typesense", opensearch: "OpenSearch", ollama: "Ollama" };
 // Services whose port is always published because a web UI lives there.
 const alwaysPublished = (kind: string) => kind === "mailpit" || kind === "meilisearch";
 const isSearch = (kind: string): kind is "meilisearch" | "typesense" => kind === "meilisearch" || kind === "typesense";
@@ -59,7 +60,7 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
       <CardHeader
         title={
           <span className="flex items-center gap-2">
-            {info.kind === "mailpit" ? <Mail className="size-4 text-accent-500" aria-hidden /> : info.kind === "rabbitmq" ? <Rabbit className="size-4 text-accent-500" aria-hidden /> : info.kind === "memcached" ? <MemoryStick className="size-4 text-accent-500" aria-hidden /> : isSearch(info.kind) || info.kind === "opensearch" ? <Search className="size-4 text-accent-500" aria-hidden /> : <Server className="size-4 text-accent-500" aria-hidden />}
+            {info.kind === "mailpit" ? <Mail className="size-4 text-accent-500" aria-hidden /> : info.kind === "rabbitmq" ? <Rabbit className="size-4 text-accent-500" aria-hidden /> : info.kind === "memcached" ? <MemoryStick className="size-4 text-accent-500" aria-hidden /> : isSearch(info.kind) || info.kind === "opensearch" ? <Search className="size-4 text-accent-500" aria-hidden /> : info.kind === "ollama" ? <BrainCircuit className="size-4 text-accent-500" aria-hidden /> : <Server className="size-4 text-accent-500" aria-hidden />}
             {title} {info.version}
           </span>
         }
@@ -134,6 +135,12 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
               </dd>
             </>
           )}
+          {info.kind === "ollama" && (
+            <>
+              <dt className="text-muted">{t("Model store")}</dt>
+              <dd className="text-xs">{t("shared by all projects")}</dd>
+            </>
+          )}
           {info.kind === "meilisearch" && (
             <>
               <dt className="text-muted">{t("Dashboard")}</dt>
@@ -193,12 +200,24 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
         {!alwaysPublished(info.kind) && (
           <Checkbox
             label={t("Publish port on the host")}
-            description={info.hostPort ? t("Reachable at {{address}}", { address: `${host}:${info.hostPort}` }) : info.kind === "redis" ? t("For desktop clients like RedisInsight.") : info.kind === "memcached" ? t("For tools on your machine, e.g. telnet or a cache inspector.") : info.kind === "typesense" || info.kind === "opensearch" ? t("For clients and dashboards running on your machine.") : t("For AMQP clients running on your machine.")}
+            description={info.hostPort ? t("Reachable at {{address}}", { address: `${host}:${info.hostPort}` }) : info.kind === "redis" ? t("For desktop clients like RedisInsight.") : info.kind === "memcached" ? t("For tools on your machine, e.g. telnet or a cache inspector.") : info.kind === "typesense" || info.kind === "opensearch" || info.kind === "ollama" ? t("For clients and dashboards running on your machine.") : t("For AMQP clients running on your machine.")}
             checked={info.hostPort > 0}
             disabled={update.isPending}
             onChange={(e) => update.mutate({ [key]: { enabled: true, version: info.version, exposePort: e.target.checked } }, { onError: (err) => fail(err, t("Changing the port failed")) })}
           />
         )}
+
+        {info.kind === "ollama" && (
+          <Checkbox
+            label={t("Use the GPU")}
+            description={t("Hands the host's NVIDIA GPUs to Ollama. Docker needs the NVIDIA Container Toolkit for it (on Unraid: the Nvidia Driver plugin); Envoryx checks that before switching.")}
+            checked={!!info.gpu}
+            disabled={update.isPending}
+            onChange={(e) => update.mutate({ ollama: { enabled: true, version: info.version, exposePort: info.hostPort > 0, gpu: e.target.checked } }, { onError: (err) => fail(err, t("Saving failed")) })}
+          />
+        )}
+
+        {info.kind === "ollama" && <OllamaModels project={project} running={info.state === "running"} onMessage={onMessage} />}
 
         {info.kind === "opensearch" && (
           <Checkbox
@@ -246,7 +265,13 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
         open={removeOpen}
         onClose={() => setRemoveOpen(false)}
         title={t("Remove {{service}}?", { service: title })}
-        description={info.volumeName ? t("This removes the container and deletes the volume {{volume}} with all data. The application containers (PHP, Python, Node) are recreated without the {{service}} variables.", { volume: info.volumeName, service: title }) : t("This removes the container. The application containers (PHP, Python, Node) are recreated without the {{service}} variables.", { service: title })}
+        description={
+          info.volumeName
+            ? t("This removes the container and deletes the volume {{volume}} with all data. The application containers (PHP, Python, Node) are recreated without the {{service}} variables.", { volume: info.volumeName, service: title })
+            : info.kind === "ollama"
+              ? t("This removes the container. The application containers (PHP, Python, Node) are recreated without the Ollama variables. The models stay in the shared store.")
+              : t("This removes the container. The application containers (PHP, Python, Node) are recreated without the {{service}} variables.", { service: title })
+        }
         footer={
           <>
             <Button onClick={() => setRemoveOpen(false)}>{t("Cancel")}</Button>
@@ -284,6 +309,7 @@ function AddServiceCard({ project, kind, onMessage }: { project: Project; kind: 
   const [version, setVersion] = useState("");
   const [expose, setExpose] = useState(false);
   const [dashboards, setDashboards] = useState(false);
+  const [gpu, setGpu] = useState(false);
   const title = titles[kind];
   return (
     <Card>
@@ -302,6 +328,7 @@ function AddServiceCard({ project, kind, onMessage }: { project: Project; kind: 
         )}
         {!alwaysPublished(kind) && <Checkbox label={t("Publish port on the host")} checked={expose} onChange={(e) => setExpose(e.target.checked)} />}
         {kind === "opensearch" && <Checkbox label="OpenSearch Dashboards" description={t("Web UI with the Dev Tools console, index management and Discover, on its own port. The image is about 2.6 GB and needs roughly 400 MB of RAM.")} checked={dashboards} onChange={(e) => setDashboards(e.target.checked)} />}
+        {kind === "ollama" && <Checkbox label={t("Use the GPU")} description={t("Hands the host's NVIDIA GPUs to Ollama. Docker needs the NVIDIA Container Toolkit for it (on Unraid: the Nvidia Driver plugin); Envoryx checks that before switching.")} checked={gpu} onChange={(e) => setGpu(e.target.checked)} />}
         <Button
           variant="primary"
           icon={<Plus className="size-4" />}
@@ -309,7 +336,7 @@ function AddServiceCard({ project, kind, onMessage }: { project: Project; kind: 
           onClick={() =>
             update.mutate(
               // The PHP extension its clients need comes along in the same update.
-              { [kind]: { enabled: true, version: version || undefined, exposePort: expose, ...(kind === "opensearch" ? { dashboards } : {}) }, ...(phpExtensionUpdate(project, kind) ? { php: phpExtensionUpdate(project, kind)! } : {}) },
+              { [kind]: { enabled: true, version: version || undefined, exposePort: expose, ...(kind === "opensearch" ? { dashboards } : {}), ...(kind === "ollama" ? { gpu } : {}) }, ...(phpExtensionUpdate(project, kind) ? { php: phpExtensionUpdate(project, kind)! } : {}) },
               { onSuccess: () => onMessage({ tone: "green", text: t("{{service}} added. The application containers were recreated with the new variables.", { service: title }) }), onError: (err) => onMessage({ tone: "red", text: errorText(err, t, t("Adding failed")) }) },
             )
           }
@@ -345,6 +372,7 @@ export function ServicesTab({ project }: { project: Project }) {
         {!has("meilisearch") && <AddServiceCard project={project} kind="meilisearch" onMessage={setMsg} />}
         {!has("typesense") && <AddServiceCard project={project} kind="typesense" onMessage={setMsg} />}
         {!has("opensearch") && <AddServiceCard project={project} kind="opensearch" onMessage={setMsg} />}
+        {!has("ollama") && <AddServiceCard project={project} kind="ollama" onMessage={setMsg} />}
         {!storage.data && <AddStorageCard project={project} onMessage={setMsg} />}
       </div>
     </div>

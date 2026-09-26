@@ -457,6 +457,7 @@ type createRequest struct {
 	Memcached   *extraSpec      `json:"memcached,omitempty"`
 	Meilisearch *extraSpec      `json:"meilisearch,omitempty"`
 	Typesense   *extraSpec      `json:"typesense,omitempty"`
+	Ollama      *extraSpec      `json:"ollama,omitempty"`
 	OpenSearch  *extraSpec      `json:"opensearch,omitempty"`
 	Storage     *extraSpec      `json:"storage,omitempty"`
 	Git         *gitSpec        `json:"git,omitempty"`
@@ -500,6 +501,7 @@ type databaseSpec struct {
 type extraSpec struct {
 	Version    string `json:"version,omitempty"`
 	Dashboards bool   `json:"dashboards,omitempty"` // OpenSearch only
+	GPU        bool   `json:"gpu,omitempty"`        // Ollama only
 }
 
 type gitSpec struct {
@@ -533,6 +535,9 @@ Services:
   --redis, --memcached, --mailpit, --rabbitmq, --storage
   --meilisearch, --typesense, --opensearch  search engine
   --opensearch-dashboards     OpenSearch with its web UI
+  --ollama                    Ollama LLM server (models shared by all projects)
+  --ollama-gpu                Ollama with the host's GPUs (needs the NVIDIA
+                              Container Toolkit)
 
 Files and repository:
   --path DIR           directory below the projects directory (default: the slug)
@@ -581,6 +586,8 @@ func (c *cli) projectCreate(ctx context.Context, args []string) error {
 		typesense  = fs.Bool("typesense", false, "add Typesense")
 		opensearch = fs.Bool("opensearch", false, "add OpenSearch")
 		osDash     = fs.Bool("opensearch-dashboards", false, "add OpenSearch with OpenSearch Dashboards")
+		ollama     = fs.Bool("ollama", false, "add Ollama")
+		ollamaGPU  = fs.Bool("ollama-gpu", false, "add Ollama with the host's GPUs")
 		storage    = fs.Bool("storage", false, "add S3 storage")
 		template   = fs.String("template", "", "project template")
 		starter    = fs.Bool("starter", false, "write starter files")
@@ -671,6 +678,9 @@ func (c *cli) projectCreate(ctx context.Context, args []string) error {
 	}
 	if *opensearch || *osDash {
 		req.OpenSearch = &extraSpec{Dashboards: *osDash}
+	}
+	if *ollama || *ollamaGPU {
+		req.Ollama = &extraSpec{GPU: *ollamaGPU}
 	}
 	if *storage {
 		req.Storage = &extraSpec{}

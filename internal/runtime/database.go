@@ -377,11 +377,11 @@ func DatabaseEnvFor(cfg DatabaseConfig, variant, host, prefix string) map[string
 }
 
 // ServiceConfig is the configuration of auxiliary services (Redis, Memcached, Mailpit,
-// RabbitMQ, Meilisearch, Typesense, OpenSearch).
+// RabbitMQ, Meilisearch, Typesense, OpenSearch, Ollama).
 type ServiceConfig struct {
 	// HostPort publishes the service's primary port (Redis 6379, Memcached 11211, Mailpit
-	// web UI 8025, RabbitMQ AMQP 5672, Meilisearch 7700, Typesense 8108, OpenSearch 9200) on
-	// the host.
+	// web UI 8025, RabbitMQ AMQP 5672, Meilisearch 7700, Typesense 8108, OpenSearch 9200,
+	// Ollama 11434) on the host.
 	HostPort int `json:"hostPort"`
 	// WebUIPort publishes RabbitMQ's management UI (15672); it is always published.
 	WebUIPort int `json:"webUiPort,omitempty"`
@@ -391,6 +391,8 @@ type ServiceConfig struct {
 	Password string `json:"password,omitempty"`
 	// APIKey is the generated admin key of Meilisearch (master key) and Typesense.
 	APIKey string `json:"apiKey,omitempty"`
+	// GPU hands the host's GPUs to Ollama.
+	GPU bool `json:"gpu,omitempty"`
 }
 
 // RabbitMQ ports and the user Envoryx creates. Generated passwords need no escaping in
@@ -495,6 +497,20 @@ func OpenSearchEnv() map[string]string {
 // RedisEnv returns the variables injected for a Redis service.
 func RedisEnv() map[string]string {
 	return map[string]string{"REDIS_HOST": "redis", "REDIS_PORT": "6379", "REDIS_URL": "redis://redis:6379"}
+}
+
+// OllamaPort is the port of Ollama's API.
+const OllamaPort = 11434
+
+// OllamaEnvKeys lists the variables OllamaEnv returns, in injection order.
+var OllamaEnvKeys = []string{"OLLAMA_HOST", "OLLAMA_BASE_URL", "OLLAMA_URL"}
+
+// OllamaEnv returns the variables injected for an Ollama service, all the same base URL
+// under the names clients read: OLLAMA_HOST (the ollama CLI and the official Python and
+// JavaScript libraries), OLLAMA_BASE_URL (LangChain, Open WebUI) and OLLAMA_URL (Prism).
+func OllamaEnv() map[string]string {
+	u := fmt.Sprintf("http://ollama:%d", OllamaPort)
+	return map[string]string{"OLLAMA_HOST": u, "OLLAMA_BASE_URL": u, "OLLAMA_URL": u}
 }
 
 // MemcachedPort is the port Memcached listens on.

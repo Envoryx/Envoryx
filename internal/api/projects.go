@@ -242,6 +242,7 @@ type extraRequestDTO struct {
 	Version    string `json:"version"`
 	ExposePort bool   `json:"exposePort"`
 	Dashboards bool   `json:"dashboards"` // OpenSearch only
+	GPU        bool   `json:"gpu"`        // Ollama only
 }
 
 type extraUpdateDTO struct {
@@ -250,6 +251,7 @@ type extraUpdateDTO struct {
 	ExposePort bool   `json:"exposePort"`
 	RemoveData bool   `json:"removeData"`
 	Dashboards *bool  `json:"dashboards"` // OpenSearch only; null leaves it
+	GPU        *bool  `json:"gpu"`        // Ollama only; null leaves it
 }
 
 type databaseRequestDTO struct {
@@ -287,6 +289,7 @@ type createProjectRequest struct {
 	Memcached     *extraRequestDTO   `json:"memcached"`
 	Meilisearch   *extraRequestDTO   `json:"meilisearch"`
 	Typesense     *extraRequestDTO   `json:"typesense"`
+	Ollama        *extraRequestDTO   `json:"ollama"`
 	OpenSearch    *extraRequestDTO   `json:"opensearch"`
 	Storage       *storageRequestDTO `json:"storage"`
 	Git           *gitRequestDTO     `json:"git"`
@@ -365,6 +368,9 @@ func (r createProjectRequest) toDomain() project.CreateRequest {
 	if r.OpenSearch != nil {
 		req.OpenSearch = &project.ExtraRequest{Version: r.OpenSearch.Version, ExposePort: r.OpenSearch.ExposePort, Dashboards: r.OpenSearch.Dashboards}
 	}
+	if r.Ollama != nil {
+		req.Ollama = &project.ExtraRequest{Version: r.Ollama.Version, ExposePort: r.Ollama.ExposePort, GPU: r.Ollama.GPU}
+	}
 	if r.Storage != nil {
 		req.Storage = &project.StorageRequest{Version: r.Storage.Version, PublicRead: r.Storage.PublicRead}
 	}
@@ -401,6 +407,7 @@ type updateProjectRequest struct {
 	Memcached   *extraUpdateDTO              `json:"memcached"`
 	Meilisearch *extraUpdateDTO              `json:"meilisearch"`
 	Typesense   *extraUpdateDTO              `json:"typesense"`
+	Ollama      *extraUpdateDTO              `json:"ollama"`
 	OpenSearch  *extraUpdateDTO              `json:"opensearch"`
 	Storage     *storageUpdateDTO            `json:"storage"`
 	Env         *[]envDTO                    `json:"env"`
@@ -659,6 +666,9 @@ func (a *API) updateProject(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.OpenSearch != nil {
 		upd.OpenSearch = &project.ExtraUpdate{Enabled: req.OpenSearch.Enabled, Version: req.OpenSearch.Version, ExposePort: req.OpenSearch.ExposePort, RemoveData: req.OpenSearch.RemoveData, Dashboards: req.OpenSearch.Dashboards}
+	}
+	if req.Ollama != nil {
+		upd.Ollama = &project.ExtraUpdate{Enabled: req.Ollama.Enabled, Version: req.Ollama.Version, ExposePort: req.Ollama.ExposePort, GPU: req.Ollama.GPU}
 	}
 	if req.Database != nil {
 		upd.Database = &project.DatabaseUpdate{Enabled: req.Database.Enabled, Type: req.Database.Type, Version: req.Database.Version, ExposePort: req.Database.ExposePort, RemoveData: req.Database.RemoveData}

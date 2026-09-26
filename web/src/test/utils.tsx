@@ -103,6 +103,7 @@ export const runtimesFixture: RuntimesResponse = {
     { key: "opensearch", name: "OpenSearch", kind: "service", available: true, description: "", versions: [{ version: "3.8", image: "opensearchproject/opensearch:3.8.0", label: "OpenSearch 3.8", default: true }, { version: "2.19", image: "opensearchproject/opensearch:2.19.6", label: "OpenSearch 2.19" }] },
     { key: "opensearch-dashboards", name: "OpenSearch Dashboards", kind: "service", available: true, description: "", versions: [{ version: "3.8", image: "opensearchproject/opensearch-dashboards:3.8.0", label: "OpenSearch Dashboards 3.8", default: true }, { version: "2.19", image: "opensearchproject/opensearch-dashboards:2.19.6", label: "OpenSearch Dashboards 2.19" }] },
     { key: "mailpit", name: "Mailpit", kind: "service", available: true, description: "", versions: [{ version: "1.31", image: "axllent/mailpit:v1.31", label: "Mailpit 1.31", default: true }] },
+    { key: "ollama", name: "Ollama", kind: "service", available: true, description: "", versions: [{ version: "0.34", image: "ollama/ollama:0.34.4", label: "Ollama 0.34", default: true }] },
   ],
   phpExtensions: [
     { name: "mbstring", description: "Multibyte", builtIn: true, available: true },

@@ -23,6 +23,7 @@ function sectionLabel(section: string, t: TFunction): string {
     meilisearch: "Meilisearch",
     typesense: "Typesense",
     opensearch: "OpenSearch",
+    ollama: "Ollama",
   };
   if (names[section]) return names[section];
   switch (section) {
