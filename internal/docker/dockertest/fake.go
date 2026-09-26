@@ -424,6 +424,14 @@ func (f *Fake) CreateContainer(_ context.Context, spec docker.ContainerSpec) (st
 			return "", fmt.Errorf("conflict: container name %q already in use", spec.Name)
 		}
 	}
+	// Docker refuses two mounts on one target.
+	targets := map[string]bool{}
+	for _, mt := range spec.Mounts {
+		if targets[mt.Target] {
+			return "", fmt.Errorf("duplicate mount point: %s", mt.Target)
+		}
+		targets[mt.Target] = true
+	}
 	// "host" is Docker's own network mode, always there.
 	if spec.Network != "" && spec.Network != "host" {
 		if _, ok := f.networks[spec.Network]; !ok {

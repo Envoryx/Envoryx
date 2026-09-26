@@ -23,7 +23,7 @@ ARG DELVE_VERSION=v1.27
 ARG GOTESTSUM_VERSION=v1.13
 RUN set -eux; \
     apt-get update; \
-    apt-get install -y --no-install-recommends git openssh-client ca-certificates socat procps \
+    apt-get install -y --no-install-recommends git openssh-client ca-certificates socat procps tini \
         libfreetype6 fontconfig libxi6 libxrender1 libxtst6 libxext6; \
     rm -rf /var/lib/apt/lists/*; \
     GOBIN=/usr/local/bin go install "github.com/air-verse/air@${AIR_VERSION}"; \
@@ -39,4 +39,8 @@ ENV GOTOOLCHAIN=local \
     CGO_ENABLED=1
 
 WORKDIR /var/www/html
+# air (the server's main process) does not reap the processes it orphans – a killed dlv
+# and its debuggee would pile up as zombies. tini as PID 1 reaps them and forwards
+# signals.
+ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD ["sleep", "infinity"]

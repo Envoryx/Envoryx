@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"errors"
+	"os/exec"
 	"slices"
 	"strings"
 	"testing"
@@ -49,6 +50,10 @@ func TestGoCommands(t *testing.T) {
 	if !slices.Contains(cmd, "go build '-gcflags=all=-N -l' -o /tmp/envoryx-go/app ./cmd/server") || !slices.Contains(cmd, "--build.full_bin") {
 		t.Fatalf("dev debug command: %q", cmd)
 	}
+	// After a rebuild dlv waits for the old one's ports.
+	if fullBin := cmd[slices.Index(cmd, "--build.full_bin")+1]; !strings.Contains(fullBin, "envoryx-dlv 2345 8080 -- dlv exec --headless --listen=:2345") {
+		t.Fatalf("full_bin: %q", fullBin)
+	}
 	prod := GoConfig{Server: true, Mode: "production", Debug: true, DebugPort: 4000}
 	_ = prod.Normalize()
 	cmd = prod.Command()
@@ -61,5 +66,14 @@ func TestGoCommands(t *testing.T) {
 	}
 	if env := prod.Env(); !slices.Equal(env, []string{"HOST=0.0.0.0", "PORT=8080", "GIN_MODE=release"}) {
 		t.Fatalf("env: %v", env)
+	}
+}
+
+// TestGoPortsFreeScript runs the wait in front of dlv: with the ports free it goes
+// straight to the command, keeping its arguments intact.
+func TestGoPortsFreeScript(t *testing.T) {
+	out, err := exec.Command("sh", "-c", goPortsFreeScript, "envoryx-dlv", "1", "2", "--", "printf", "%s|", "a b", "c").Output()
+	if err != nil || string(out) != "a b|c|" {
+		t.Fatalf("output %q, err %v", out, err)
 	}
 }

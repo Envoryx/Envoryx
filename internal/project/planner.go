@@ -861,7 +861,6 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 			spec.Image = golang.Image
 			spec.Env = append(append(append([]string{}, env...), toolEnv...), goEnv...)
 			spec.Mounts = append(spec.Mounts, p.HomeMount(proj))
-			p.withPackageCache(&spec)
 		default:
 			if php == nil || !php.Enabled {
 				continue
