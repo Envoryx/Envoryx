@@ -172,7 +172,7 @@ func (m *Manager) checkExternalRedis(ctx context.Context, p store.Project, svc *
 	if err != nil {
 		return err
 	}
-	out := strings.TrimSpace(res.Stdout + " " + res.Stderr)
+	out := strings.Join(strings.Fields(res.Stdout+" "+res.Stderr), " ")
 	if res.ExitCode != 0 || !strings.HasPrefix(out, "PONG") {
 		if cfg.Password != "" {
 			out = strings.ReplaceAll(out, cfg.Password, "***")
