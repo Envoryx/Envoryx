@@ -92,6 +92,8 @@ export function GoServerFields({ value, onChange, idPrefix = "go", primary = fal
           checked={value.debug}
           onChange={(e) => set({ debug: e.target.checked })}
         />
+        {value.debug && <p className="text-xs text-amber-700 dark:text-amber-300">{t("Delve accepts everyone who reaches the port and can run any code in the container. Switch it off when you are not debugging.")}</p>}
+        {value.debug && value.server && value.mode === "dev" && <p className="text-xs text-muted">{t("A .air.toml in the project replaces these settings: then its build.full_bin has to start the binary under dlv itself.")}</p>}
         {value.debug && (
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label={t("Delve port inside the container")} htmlFor={`${idPrefix}-debug-port`} hint={t("Delve's usual port is 2345")}>

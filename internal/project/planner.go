@@ -505,12 +505,9 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 				// Server mode: the build and the binary (under air in dev mode) are the main
 				// process, published on a host port; without PHP or a Python server the proxy
 				// routes the project URL to it.
-				spec.Cmd = runtime.Guarded(gcfg.Command(), "envoryx-serve", dbGuard)
-				if _, ok := goServesApp(proj); ok {
-					// A blank project has nothing to build yet: wait for go.mod instead of
-					// crash-looping.
-					spec.Cmd = gcfg.WrappedCommand(dbGuard)
-				}
+				// A blank project has nothing to build yet: wait for go.mod instead of
+				// crash-looping – next to PHP or Python, too.
+				spec.Cmd = gcfg.WrappedCommand(dbGuard)
 				spec.Env = append(spec.Env, gcfg.Env()...)
 				if gcfg.HostPort > 0 {
 					spec.Ports = []docker.PortSpec{{HostIP: p.paths.PublishInterface, HostPort: gcfg.HostPort, ContainerPort: gcfg.Port, Protocol: "tcp"}}

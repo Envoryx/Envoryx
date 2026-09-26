@@ -137,7 +137,7 @@ export function LimitsCard({ project }: { project: Project }) {
         {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
         {host && <p className="text-xs text-muted">{t("This host has {{cpus}} cores and {{memory}} of memory.", { cpus: host.cpus, memory: formatBytes(host.memory) })}</p>}
         <div className="grid gap-4 lg:grid-cols-2">
-          <GroupFields id="limits-app" title={t("Application containers")} hint={t("Web server, PHP, Node.js, Python and every worker.")} form={app} onChange={setApp} />
+          <GroupFields id="limits-app" title={t("Application containers")} hint={t("Web server, PHP, Node.js, Python, Go and every worker.")} form={app} onChange={setApp} />
           <GroupFields id="limits-services" title={t("Services")} hint={t("Database, Redis, Memcached, Mailpit, RabbitMQ, search engines, object storage. OpenSearch needs at least 1.5 GiB.")} form={services} onChange={setServices} />
         </div>
         <div className="max-w-xs">

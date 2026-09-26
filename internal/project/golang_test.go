@@ -141,9 +141,12 @@ func TestGoTemplateWorkersTestsAndManifest(t *testing.T) {
 		t.Fatalf("template merged into the config: %+v", cfg)
 	}
 
-	// A go run worker from the Go image.
+	// A worker from the Go image: built, then exec'd so SIGTERM reaches the program.
 	if _, err := e.m.AddWorker(ctx, v.Project.ID, WorkerRequest{Name: "consumer", Preset: "go:run", Arg: "cmd/consumer", Enabled: true}); err != nil {
 		t.Fatal(err)
+	}
+	if w, ok := e.engine.Container("envoryx-gin-app-worker-consumer"); !ok || w.Spec.Image != "ghcr.io/envoryx/envoryx-go:1.27" || !strings.Contains(w.Spec.Cmd[2], "exec /tmp/envoryx-go-worker") || w.Spec.Cmd[len(w.Spec.Cmd)-1] != "./cmd/consumer" {
+		t.Fatalf("go worker: %+v", w.Spec)
 	}
 	if _, err := e.m.AddWorker(ctx, v.Project.ID, WorkerRequest{Name: "bad", Preset: "go:run", Arg: "../escape", Enabled: true}); err == nil {
 		t.Fatal("a package outside the module must be refused")
@@ -180,5 +183,16 @@ func TestGoTemplateWorkersTestsAndManifest(t *testing.T) {
 	req2 := manifestRequest(manifest.Manifest{Version: 1, Go: &manifest.Go{Version: "1.26", Server: true, Package: "./cmd/api", Port: 9000}}, "From Manifest")
 	if req2.Go == nil || req2.Go.Config.Package != "./cmd/api" || req2.Go.Config.Port != 9000 {
 		t.Fatalf("manifest import: %+v", req2.Go)
+	}
+}
+
+// TestGoWorkerDisplayCommand shows the build and the binary, not the wrapping script.
+func TestGoWorkerDisplayCommand(t *testing.T) {
+	cmd, err := WorkerDisplayCommand(store.Worker{Preset: "go:run", Args: []string{"cmd/worker"}})
+	if err != nil || strings.Join(cmd, " ") != "go build -o /tmp/envoryx-go-worker ./cmd/worker && exec /tmp/envoryx-go-worker" {
+		t.Fatalf("display %q, err %v", cmd, err)
+	}
+	if cmd, _ := WorkerDisplayCommand(store.Worker{Preset: "laravel:schedule"}); strings.Join(cmd, " ") != "php artisan schedule:work" {
+		t.Fatalf("other presets keep their command: %q", cmd)
 	}
 }

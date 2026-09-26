@@ -672,6 +672,9 @@ func (m *Manager) Preview(ctx context.Context, req CreateRequest) (Preview, erro
 	if cfg, ok := pythonServesApp(proj); ok && req.Template == "" && (req.Git == nil || req.Git.URL == "") {
 		pv.Warnings = append(pv.Warnings, fmt.Sprintf("the application server runs %q but nothing creates the application – pick a Python template, clone a repository or scaffold from the Python terminal; until then the container waits", strings.Join(cfg.Command(), " ")))
 	}
+	if cfg, ok := goServesApp(proj); ok && req.Template == "" && (req.Git == nil || req.Git.URL == "") {
+		pv.Warnings = append(pv.Warnings, fmt.Sprintf("the server builds %s but nothing creates a go.mod – pick a Go template, clone a repository or run go mod init in the Go terminal; until then the container waits", cfg.Package))
+	}
 	// Surface name/path conflicts early so the wizard can react before submitting.
 	if projects, err := m.store.Projects.List(ctx); err == nil {
 		for _, p := range projects {

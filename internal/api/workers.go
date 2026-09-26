@@ -23,7 +23,7 @@ func toWorker(w store.Worker) workerDTO {
 	if len(w.Args) > 0 {
 		dto.Arg = w.Args[0]
 	}
-	if cmd, err := project.WorkerCommand(w); err == nil {
+	if cmd, err := project.WorkerDisplayCommand(w); err == nil {
 		dto.Command = cmd
 	}
 	return dto

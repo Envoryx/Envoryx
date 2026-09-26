@@ -253,8 +253,8 @@ for the catalogue (embedded into the binary) and the image build matrices
 `.github/workflows/runtime-versions.yml` runs `scripts/check-versions.py
 php|node|python|go` weekly and opens a PR when upstream changes (Node: newest
 LTS becomes the default, EOL "current" releases are dropped; Python: release
-candidates appear as `preview` from the `<v>-rc-slim-bookworm` tag; Go: the
-two supported releases, from 1.26 on).
+candidates appear as `preview` from the `<v>-rc-slim-bookworm` tag; Go: every
+release from 1.26 on, the unsupported ones marked `eol`).
 `base` is the upstream tag (`8.6-rc` for pre-releases), `preview`/`eol` drive
 the labels in the UI, `default` is the newest stable version.
 

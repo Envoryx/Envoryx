@@ -144,7 +144,7 @@ func mutating(name, title, desc string, idempotent bool) *mcp.Tool {
 func (s *Server) registerTools() {
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("list_projects", "List projects", "List all Envoryx projects with state, URLs and services.")), s.listProjects)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("get_project", "Get project", "Details and live status of one project.")), s.getProject)
-	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("list_runtimes", "List runtimes", "Available runtimes (PHP, Node.js, Python, web servers), database engines, services, PHP extension keys and templates for create_project.")), s.listRuntimes)
+	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("list_runtimes", "List runtimes", "Available runtimes (PHP, Node.js, Python, Go, web servers), database engines, services, PHP extension keys and templates for create_project.")), s.listRuntimes)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeAdmin, mutating("create_project", "Create project", "Create a new development environment (web server plus PHP, Python, Go and/or Node.js, optional database, Redis, Memcached, Mailpit, RabbitMQ, Meilisearch, Typesense, OpenSearch, Ollama, object storage, git clone or template). Returns the project including its URL.", false)), s.createProject)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeAdmin, mutating("duplicate_project", "Duplicate project", "Copy an existing project (shop → shop-test): configuration, environment, workers and git binding, optionally the files, the database contents and the objects of the bucket. The copy gets its own directory, host ports and containers and keeps the original's database credentials. Extra domains and the backup schedule are not copied.", false)), s.duplicateProject)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeAdmin, mutating("rename_project", "Rename project", "Rename a project and everything derived from its identifier: URL and host names, container, network and volume names, the project directory, the backups and – unless keepDataNames is set – the database, its login and the bucket. The containers are recreated, so the project is briefly unavailable; confirm must be the current identifier.", false)), s.renameProject)
@@ -207,10 +207,11 @@ type templateOut struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
-	// Runtime the template scaffolds for: php, node or python.
+	// Runtime the template scaffolds for: php, node, python or go.
 	Runtime             string                `json:"runtime"`
 	Node                *runtime.NodeConfig   `json:"node,omitempty"`
 	Python              *runtime.PythonConfig `json:"python,omitempty"`
+	Go                  *runtime.GoConfig     `json:"go,omitempty"`
 	Docroot             string                `json:"docroot,omitempty"`
 	RequiresDatabase    bool                  `json:"requiresDatabase"`
 	RecommendedDatabase string                `json:"recommendedDatabase,omitempty"`
@@ -226,7 +227,7 @@ type listRuntimesOut struct {
 func (s *Server) listRuntimes(_ context.Context, _ *mcp.CallToolRequest, _ listProjectsIn) (*mcp.CallToolResult, listRuntimesOut, error) {
 	out := listRuntimesOut{Runtimes: []runtimeOut{}, PHPExtensions: []string{}, Templates: []templateOut{}}
 	for _, t := range project.Templates() {
-		out.Templates = append(out.Templates, templateOut{ID: t.ID, Name: t.Name, Description: t.Description, Runtime: t.Runtime, Node: t.Node, Python: t.Python, Docroot: t.Docroot, RequiresDatabase: t.RequiresDatabase, RecommendedDatabase: t.RecommendedDatabase, Notes: t.Notes})
+		out.Templates = append(out.Templates, templateOut{ID: t.ID, Name: t.Name, Description: t.Description, Runtime: t.Runtime, Node: t.Node, Python: t.Python, Go: t.Go, Docroot: t.Docroot, RequiresDatabase: t.RequiresDatabase, RecommendedDatabase: t.RecommendedDatabase, Notes: t.Notes})
 	}
 	for _, r := range s.d.Catalog.All() {
 		if !r.Available {
@@ -259,8 +260,8 @@ func (s *Server) listRuntimes(_ context.Context, _ *mcp.CallToolRequest, _ listP
 
 type createProjectIn struct {
 	Name               string            `json:"name" jsonschema:"Display name, e.g. \"Shop API\". The slug and directory are derived from it."`
-	Template           string            `json:"template,omitempty" jsonschema:"Scaffold an application: laravel, symfony, wordpress, drupal, typo3, shopware, craft (PHP; the CMS ones need a database and are installed afterwards with run_action: drush:site-install, typo3:setup, shopware:install, craft:install), vite, next, nuxt (Node.js; needs nodeVersion and phpVersion \"none\" for a Node-only project) or django, flask, fastapi (Python; needs pythonVersion and phpVersion \"none\"). See list_runtimes for details. Cannot be combined with gitUrl."`
-	PHPVersion         string            `json:"phpVersion,omitempty" jsonschema:"PHP version such as 8.4 (default: the catalogue default). Use \"none\" for a Python, Node-only or static project."`
+	Template           string            `json:"template,omitempty" jsonschema:"Scaffold an application: laravel, symfony, wordpress, drupal, typo3, shopware, craft (PHP; the CMS ones need a database and are installed afterwards with run_action: drush:site-install, typo3:setup, shopware:install, craft:install), vite, next, nuxt (Node.js; needs nodeVersion and phpVersion \"none\" for a Node-only project) django, flask, fastapi (Python; needs pythonVersion and phpVersion \"none\") or go, gin, echo (Go; needs goVersion and phpVersion \"none\"). See list_runtimes for details. Cannot be combined with gitUrl."`
+	PHPVersion         string            `json:"phpVersion,omitempty" jsonschema:"PHP version such as 8.4 (default: the catalogue default). Use \"none\" for a Python, Go, Node-only or static project."`
 	WebServer          string            `json:"webServer,omitempty" jsonschema:"Web server: caddy (default), apache (mod_rewrite + .htaccess, e.g. for WordPress) or nginx."`
 	PHPExtensions      []string          `json:"phpExtensions,omitempty" jsonschema:"PHP extensions to enable (keys from list_runtimes). Default: bcmath, gd, intl, opcache, pdo_mysql, zip."`
 	Database           string            `json:"database,omitempty" jsonschema:"Database engine: mariadb, mysql or postgresql. Omit for no database."`

@@ -28,6 +28,8 @@ type WorkerPreset struct {
 
 	// build returns argv for the validated argument.
 	build func(arg string) []string
+	// display is the command as the Workers tab shows it, when build wraps it in a script.
+	display func(arg string) []string
 	// validateArg checks the argument (nil = no argument accepted).
 	validateArg func(arg string) error
 }
@@ -198,15 +200,27 @@ var workerPresets = []WorkerPreset{
 			return nil
 		},
 		build: func(arg string) []string { return []string{"celery", "-A", arg, "beat", "--loglevel=info"} }},
-	{ID: "go:run", Group: "Go", Label: "Go program", Description: "go run <package> – a long-running program of the module (queue consumer, scheduler, bot …)", ArgLabel: "Package", ArgHint: "e.g. ./cmd/worker", Requires: []string{"go.mod"}, Runtime: WorkerRuntimeGo,
+	{ID: "go:run", Group: "Go", Label: "Go program", Description: "Builds a package of the module and runs it as a long-running program (queue consumer, scheduler, bot …)", ArgLabel: "Package", ArgHint: "e.g. ./cmd/worker", Requires: []string{"go.mod"}, Runtime: WorkerRuntimeGo,
 		validateArg: func(arg string) error {
 			if !runtime.ValidGoPackage(goPackageArg(arg)) {
 				return fmt.Errorf("%w: invalid package path (use . or a path like ./cmd/worker)", validate.ErrInvalid)
 			}
 			return nil
 		},
-		build: func(arg string) []string { return []string{"go", "run", goPackageArg(arg)} }},
+		build: func(arg string) []string {
+			return []string{"sh", "-c", goWorkerScript, "envoryx-go-worker", goPackageArg(arg)}
+		},
+		display: func(arg string) []string {
+			return []string{"go", "build", "-o", "/tmp/envoryx-go-worker", goPackageArg(arg), "&&", "exec", "/tmp/envoryx-go-worker"}
+		}},
 }
+
+// goWorkerScript builds the package ($1) and execs the binary. Not go run: it does not
+// pass SIGTERM on, so a stopped worker would be killed without a chance to finish its
+// job; exec makes the program the direct child of the image's init.
+const goWorkerScript = `set -e
+go build -o /tmp/envoryx-go-worker "$1"
+exec /tmp/envoryx-go-worker`
 
 // goPackageArg writes a package argument the way go expects a local one: "." or "./…".
 func goPackageArg(arg string) string {
@@ -284,6 +298,23 @@ func WorkerCommand(w store.Worker) ([]string, error) {
 		return nil, fmt.Errorf("%w: preset %s takes no argument", validate.ErrInvalid, p.ID)
 	}
 	return p.build(arg), nil
+}
+
+// WorkerDisplayCommand is WorkerCommand as the Workers tab shows it: the command a
+// preset wraps in a script, without the script.
+func WorkerDisplayCommand(w store.Worker) ([]string, error) {
+	cmd, err := WorkerCommand(w)
+	if err != nil {
+		return nil, err
+	}
+	if p, _ := workerPreset(w.Preset); p.display != nil {
+		arg := ""
+		if len(w.Args) > 0 {
+			arg = w.Args[0]
+		}
+		return p.display(arg), nil
+	}
+	return cmd, nil
 }
 
 // WorkerKind is the service label of a worker container ("worker:<id>").

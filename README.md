@@ -130,7 +130,7 @@ Envoryx is under active development. The current milestone (Phase 1 + 2) deliver
 - workers per project: Laravel scheduler / queue worker / Horizon / Reverb,
   Symfony Messenger and Scheduler, PHP and composer scripts, npm and Node
   scripts, Python scripts and modules, Django management commands, Celery
-  worker and beat, Go packages (`go run`) – each in its own auto-restarting container from the
+  worker and beat, Go programs of the module – each in its own auto-restarting container from the
   runtime's image, with logs
 - cron jobs per project: any shell command on a schedule (every few minutes,
   hourly, daily, weekly, monthly or a cron expression) in the PHP, Python, Go or
@@ -158,7 +158,7 @@ Envoryx is under active development. The current milestone (Phase 1 + 2) deliver
 - share a project: a temporary public https address through a Cloudflare quick
   tunnel (no account, no port forwarding) for up to 24 hours, ended with
   the project's stop or by hand
-- shared package cache: Composer, npm, Yarn, pip and uv download a package once for
+- shared package cache: Composer, npm, Yarn, pip, uv and Go download a package once for
   all projects (templates included); size and clearing under *Settings → Tools*
 - database snapshots: a dump of the database alone, taken before a migration
   and put back with one click (the project need not be running), the ten newest

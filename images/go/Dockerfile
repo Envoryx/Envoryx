@@ -38,6 +38,10 @@ RUN set -eux; \
 ENV GOTOOLCHAIN=local \
     CGO_ENABLED=1
 
+# SSH sessions (and IDEs probing over SSH) run a login shell, whose /etc/profile resets
+# PATH – go, gofmt and the tools installed with go install would vanish.
+RUN printf '%s\n' 'export PATH="/usr/local/go/bin:${GOPATH:-$HOME/go}/bin:$PATH"' > /etc/profile.d/envoryx-go.sh
+
 WORKDIR /var/www/html
 # air (the server's main process) does not reap the processes it orphans – a killed dlv
 # and its debuggee would pile up as zombies. tini as PID 1 reaps them and forwards

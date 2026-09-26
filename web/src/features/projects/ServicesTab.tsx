@@ -318,10 +318,10 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
           info.external
             ? t("Envoryx forgets the connection to {{address}}; the server and its data are not touched. The application containers are recreated without the {{service}} variables.", { address: `${info.host}:${info.port}`, service: title })
             : info.volumeName
-            ? t("This removes the container and deletes the volume {{volume}} with all data. The application containers (PHP, Python, Node) are recreated without the {{service}} variables.", { volume: info.volumeName, service: title })
+            ? t("This removes the container and deletes the volume {{volume}} with all data. The application containers (PHP, Python, Go, Node) are recreated without the {{service}} variables.", { volume: info.volumeName, service: title })
             : info.kind === "ollama"
-              ? t("This removes the container. The application containers (PHP, Python, Node) are recreated without the Ollama variables. The models stay in the shared store.")
-              : t("This removes the container. The application containers (PHP, Python, Node) are recreated without the {{service}} variables.", { service: title })
+              ? t("This removes the container. The application containers (PHP, Python, Go, Node) are recreated without the Ollama variables. The models stay in the shared store.")
+              : t("This removes the container. The application containers (PHP, Python, Go, Node) are recreated without the {{service}} variables.", { service: title })
         }
         footer={
           <>
