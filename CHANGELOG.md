@@ -10,6 +10,8 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.12.0] – 2026-09-27
+
 ### Added
 - Go runtime. The wizard's first step offers *Go application* next to PHP,
   Python, Node.js and static; a Go container
@@ -922,7 +924,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.11.0...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.12.0...HEAD
+[0.12.0]: https://github.com/envoryx/envoryx/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/envoryx/envoryx/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/envoryx/envoryx/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/envoryx/envoryx/compare/v0.8.0...v0.9.0
