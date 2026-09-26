@@ -8,6 +8,7 @@ import (
 	"path"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/envoryx/envoryx/internal/docker"
@@ -121,6 +122,10 @@ var packageCacheEnv = []string{
 	// downloads; the build cache makes a rebuild after a container recreate incremental.
 	"GOMODCACHE=" + packageCacheTarget + "/gomod",
 	"GOCACHE=" + packageCacheTarget + "/gobuild",
+	// Bundler keeps the downloaded gems (and, since 2.4, the compiled extensions) in one
+	// cache for every project when the global gem cache is on.
+	"BUNDLE_USER_CACHE=" + packageCacheTarget + "/bundler",
+	"BUNDLE_GLOBAL_GEM_CACHE=true",
 	"UV_LINK_MODE=copy",
 }
 
@@ -174,6 +179,39 @@ const goPath = homeMountTarget + "/go"
 var goEnv = []string{
 	"GOPATH=" + goPath,
 	"PATH=" + goPath + "/bin:/usr/local/go/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin",
+}
+
+// rubyGemHome is GEM_HOME in the persistent home: bundle install and gem install put the
+// project's gems there, so they survive a container recreate and the project directory
+// holds no vendor/bundle. RubyGems keeps compiled extensions per Ruby version, so after a
+// version switch bundle check reports them missing and the bundle guard rebuilds them.
+const rubyGemHome = homeMountTarget + "/.gem/ruby"
+
+// rubyEnv gives the Ruby containers their GEM_HOME, a GEM_PATH that still finds the
+// image's gems (rdbg), and a PATH with the gems' executables. BUNDLE_APP_CONFIG goes back
+// to Bundler's default – the project's .bundle/ – instead of the image's root-owned
+// /usr/local/bundle.
+var rubyEnv = []string{
+	"GEM_HOME=" + rubyGemHome,
+	"GEM_PATH=" + rubyGemHome + ":/usr/local/bundle",
+	"BUNDLE_APP_CONFIG=" + appMountTarget + "/.bundle",
+	"PATH=" + rubyGemHome + "/bin:/usr/local/bundle/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin",
+}
+
+// rubyDatabaseURLs rewrites the PostgreSQL connection strings for Ruby: Envoryx names
+// the scheme pgsql (as PHP frameworks expect), which Active Record does not know – it
+// maps postgres and postgresql to its adapter. Every *DATABASE_URL is rewritten, so an
+// additional database reaches Rails' multi-database setup under its own name, too.
+func rubyDatabaseURLs(env []string) []string {
+	out := make([]string, len(env))
+	for i, kv := range env {
+		k, v, _ := strings.Cut(kv, "=")
+		if strings.HasSuffix(k, "DATABASE_URL") && strings.HasPrefix(v, "pgsql://") {
+			kv = k + "=postgresql://" + strings.TrimPrefix(v, "pgsql://")
+		}
+		out[i] = kv
+	}
+	return out
 }
 
 // jetbrainsCacheDir is the shared, host-wide cache for JetBrains Gateway IDE backends
@@ -521,6 +559,51 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 			plan.Containers = append(plan.Containers, ContainerPlan{Kind: store.ServiceGo, Order: 12, Spec: spec})
 			images[svc.Image] = true
 
+		case store.ServiceRuby:
+			var rcfg runtime.RubyConfig
+			if len(svc.Config) > 0 {
+				if err := json.Unmarshal(svc.Config, &rcfg); err != nil {
+					return Plan{}, fmt.Errorf("ruby config: %w", err)
+				}
+			}
+			if err := rcfg.Normalize(); err != nil {
+				return Plan{}, err
+			}
+			spec := docker.ContainerSpec{
+				Name:   ContainerName(proj.Slug, store.ServiceRuby),
+				Image:  svc.Image,
+				Labels: labels,
+				// Tooling container: idles until actions or the terminal run commands.
+				Cmd:           []string{"sleep", "infinity"},
+				Env:           append(append(rubyDatabaseURLs(env), toolEnv...), rubyEnv...),
+				User:          fmt.Sprintf("%d:%d", p.paths.PUID, p.paths.PGID),
+				WorkingDir:    appMountTarget,
+				Network:       plan.NetworkName,
+				NetworkAlias:  []string{"ruby"},
+				Mounts:        append([]docker.MountSpec{{Type: "bind", Source: appHost, Target: appMountTarget}, p.HomeMount(proj)}, p.gatewayMounts(proj)...),
+				RestartPolicy: "unless-stopped",
+				StopTimeout:   stopTimeoutSec,
+			}
+			p.withPackageCache(&spec)
+			if rcfg.Server {
+				// Server mode: the preset's server is the main process, published on a host
+				// port; without PHP or a Python or Go server the proxy routes the project URL
+				// to it. It waits for the Gemfile and installs the bundle first – a fresh
+				// clone comes up without a manual bundle install.
+				spec.Cmd = rcfg.WrappedCommand(dbGuard)
+				spec.Env = append(spec.Env, rcfg.Env("."+p.paths.BaseDomain)...)
+				if rcfg.HostPort > 0 {
+					spec.Ports = []docker.PortSpec{{HostIP: p.paths.PublishInterface, HostPort: rcfg.HostPort, ContainerPort: rcfg.Port, Protocol: "tcp"}}
+				}
+			}
+			if rcfg.Debug && rcfg.DebugHostPort > 0 {
+				// With the server rdbg runs it; without, the port waits for an rdbg started
+				// in the terminal (rdbg --open --host=0.0.0.0 --port=12345 -c -- bin/rails test).
+				spec.Ports = append(spec.Ports, docker.PortSpec{HostIP: p.paths.PublishInterface, HostPort: rcfg.DebugHostPort, ContainerPort: rcfg.DebugPort, Protocol: "tcp"})
+			}
+			plan.Containers = append(plan.Containers, ContainerPlan{Kind: store.ServiceRuby, Order: 12, Spec: spec})
+			images[svc.Image] = true
+
 		case store.ServiceRedis:
 			var cfg runtime.ServiceConfig
 			if err := json.Unmarshal(svc.Config, &cfg); err != nil {
@@ -808,10 +891,17 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 	}
 
 	// Workers: one container per definition from the image of the preset's runtime (PHP
-	// presets from the PHP image with its ini, Node and Python presets from their image
+	// presets from the PHP image with its ini, the other runtimes' presets from their image
 	// with the project home), sharing env and the project mount. A worker whose runtime
 	// the project does not have is skipped – it comes back when the runtime is added.
 	php, node, python, golang := proj.Service(store.ServicePHP), proj.Service(store.ServiceNode), proj.Service(store.ServicePython), proj.Service(store.ServiceGo)
+	ruby := proj.Service(store.ServiceRuby)
+	// Ruby workers run in the server's environment (RAILS_ENV …): a production server
+	// with development workers would split one application across two databases.
+	var rubyAppEnv []string
+	if cfg, ok := rubyConfig(proj); ok && cfg.Normalize() == nil {
+		rubyAppEnv = cfg.AppEnv()
+	}
 	for _, w := range proj.Workers {
 		if !w.Enabled {
 			continue
@@ -858,6 +948,16 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 			spec.Image = golang.Image
 			spec.Env = append(append(append([]string{}, env...), toolEnv...), goEnv...)
 			spec.Mounts = append(spec.Mounts, p.HomeMount(proj))
+		case WorkerRuntimeRuby:
+			if ruby == nil || !ruby.Enabled {
+				continue
+			}
+			spec.Image = ruby.Image
+			spec.Env = append(append(append(rubyDatabaseURLs(env), toolEnv...), rubyEnv...), rubyAppEnv...)
+			spec.Mounts = append(spec.Mounts, p.HomeMount(proj))
+			// Bundler locks the install, so a worker and the server installing at once
+			// wait for each other instead of clashing.
+			spec.Cmd = runtime.Guarded(cmd, "envoryx-worker", runtime.BundleGuard)
 		default:
 			if php == nil || !php.Enabled {
 				continue

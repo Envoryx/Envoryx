@@ -250,6 +250,25 @@ func (m *Manager) buildProject(req CreateRequest) (store.Project, error) {
 					c.Port = tpl.Go.Port
 				}
 			}
+		case "ruby":
+			if req.Ruby == nil {
+				return store.Project{}, fmt.Errorf("%w: template %s needs Ruby", validate.ErrInvalid, tpl.ID)
+			}
+			if tpl.Ruby != nil {
+				// Same merge as for Python: the template's preset and port win where the
+				// request left them empty; a request without server settings takes the
+				// template's Server flag.
+				c := &req.Ruby.Config
+				if c.Preset == "" && c.Port == 0 {
+					c.Server = tpl.Ruby.Server
+				}
+				if c.Preset == "" {
+					c.Preset = tpl.Ruby.Preset
+					if c.Port == 0 {
+						c.Port = tpl.Ruby.Port
+					}
+				}
+			}
 		default: // "php"
 			if req.PHP == nil {
 				return store.Project{}, fmt.Errorf("%w: template %s needs PHP", validate.ErrInvalid, tpl.ID)
@@ -466,6 +485,23 @@ func (m *Manager) buildProject(req CreateRequest) (store.Project, error) {
 			Kind: store.ServiceGo, Variant: "go", Version: v.Version, Image: v.Image, Enabled: true, Position: 12, Config: raw,
 		})
 	}
+	if req.Ruby != nil {
+		v, err := m.catalog.Resolve("ruby", req.Ruby.Version)
+		if err != nil {
+			return store.Project{}, err
+		}
+		cfg := req.Ruby.Config
+		if err := cfg.Normalize(); err != nil {
+			return store.Project{}, err
+		}
+		raw, err := json.Marshal(cfg)
+		if err != nil {
+			return store.Project{}, err
+		}
+		proj.Services = append(proj.Services, store.ProjectService{
+			Kind: store.ServiceRuby, Variant: "ruby", Version: v.Version, Image: v.Image, Enabled: true, Position: 12, Config: raw,
+		})
+	}
 	if req.Git != nil {
 		g, err := buildGitConfig(*req.Git, store.GitConfig{})
 		if err != nil {
@@ -675,6 +711,9 @@ func (m *Manager) Preview(ctx context.Context, req CreateRequest) (Preview, erro
 	if cfg, ok := goServesApp(proj); ok && req.Template == "" && (req.Git == nil || req.Git.URL == "") {
 		pv.Warnings = append(pv.Warnings, fmt.Sprintf("the server builds %s but nothing creates a go.mod – pick a Go template, clone a repository or run go mod init in the Go terminal; until then the container waits", cfg.Package))
 	}
+	if cfg, ok := rubyServesApp(proj); ok && req.Template == "" && (req.Git == nil || req.Git.URL == "") {
+		pv.Warnings = append(pv.Warnings, fmt.Sprintf("the server runs %q but nothing creates the application – pick a Ruby template, clone a repository or scaffold from the Ruby terminal; until then the container waits", strings.Join(cfg.Command(), " ")))
+	}
 	// Surface name/path conflicts early so the wizard can react before submitting.
 	if projects, err := m.store.Projects.List(ctx); err == nil {
 		for _, p := range projects {
@@ -771,6 +810,17 @@ func (m *Manager) collectUsedPorts(ctx context.Context, used map[int]bool) error
 		}
 		if svc := p.Service(store.ServiceGo); svc != nil {
 			var cfg runtime.GoConfig
+			if json.Unmarshal(svc.Config, &cfg) == nil {
+				if cfg.HostPort > 0 {
+					used[cfg.HostPort] = true
+				}
+				if cfg.DebugHostPort > 0 {
+					used[cfg.DebugHostPort] = true
+				}
+			}
+		}
+		if svc := p.Service(store.ServiceRuby); svc != nil {
+			var cfg runtime.RubyConfig
 			if json.Unmarshal(svc.Config, &cfg) == nil {
 				if cfg.HostPort > 0 {
 					used[cfg.HostPort] = true
@@ -935,11 +985,23 @@ func (m *Manager) assignServicePorts(ctx context.Context, proj *store.Project, r
 			}
 		}
 	}
+	if req.Ruby != nil {
+		if req.Ruby.Config.Server {
+			if err := assign(store.ServiceRuby); err != nil {
+				return err
+			}
+		}
+		if req.Ruby.Config.Debug {
+			if err := m.assignDebugPort(ctx, proj, store.ServiceRuby, &taken); err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }
 
-// assignDebugPort publishes the Node inspector, Python's debugpy or Go's Delve on a host
-// port of its own.
+// assignDebugPort publishes the Node inspector, Python's debugpy, Go's Delve or Ruby's
+// rdbg on a host port of its own.
 func (m *Manager) assignDebugPort(ctx context.Context, proj *store.Project, kind store.ServiceKind, taken *[]int) error {
 	svc := proj.Service(kind)
 	if svc == nil {
@@ -961,6 +1023,13 @@ func (m *Manager) assignDebugPort(ctx context.Context, proj *store.Project, kind
 		raw, err = json.Marshal(cfg)
 	case store.ServiceGo:
 		var cfg runtime.GoConfig
+		if err := json.Unmarshal(svc.Config, &cfg); err != nil {
+			return err
+		}
+		cfg.DebugHostPort = port
+		raw, err = json.Marshal(cfg)
+	case store.ServiceRuby:
+		var cfg runtime.RubyConfig
 		if err := json.Unmarshal(svc.Config, &cfg); err != nil {
 			return err
 		}
@@ -1000,6 +1069,21 @@ func setHostPort(svc *store.ProjectService, port int) error {
 	}
 	if svc.Kind == store.ServiceGo {
 		var cfg runtime.GoConfig
+		if len(svc.Config) > 0 {
+			if err := json.Unmarshal(svc.Config, &cfg); err != nil {
+				return err
+			}
+		}
+		cfg.HostPort = port
+		raw, err := json.Marshal(cfg)
+		if err != nil {
+			return err
+		}
+		svc.Config = raw
+		return nil
+	}
+	if svc.Kind == store.ServiceRuby {
+		var cfg runtime.RubyConfig
 		if len(svc.Config) > 0 {
 			if err := json.Unmarshal(svc.Config, &cfg); err != nil {
 				return err
@@ -1077,6 +1161,8 @@ func (m *Manager) resolveImages(p *store.Project) {
 			key = "python"
 		case store.ServiceGo:
 			key = "go"
+		case store.ServiceRuby:
+			key = "ruby"
 		case store.ServiceRedis, store.ServiceMemcached, store.ServiceMailpit, store.ServiceRabbitMQ, store.ServiceMeilisearch, store.ServiceTypesense, store.ServiceOpenSearch, store.ServiceOpenSearchDashboards, store.ServiceOllama:
 			key = string(svc.Kind)
 		case store.ServiceWeb, store.ServiceDatabase, store.ServiceStorage:

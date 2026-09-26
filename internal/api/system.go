@@ -135,6 +135,7 @@ func (a *API) runtimes(w http.ResponseWriter, r *http.Request) {
 		"phpDefaults":   runtime.DefaultPHPConfig(),
 		"nodePresets":   runtime.NodePresets,
 		"pythonPresets": runtime.PythonPresets,
+		"rubyPresets":   runtime.RubyPresets,
 	})
 }
 

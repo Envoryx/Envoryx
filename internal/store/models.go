@@ -56,6 +56,7 @@ const (
 	ServiceNode        ServiceKind = "node"
 	ServicePython      ServiceKind = "python"
 	ServiceGo          ServiceKind = "go"
+	ServiceRuby        ServiceKind = "ruby"
 	ServiceDatabase    ServiceKind = "database"
 	ServiceRedis       ServiceKind = "redis"
 	ServiceMailpit     ServiceKind = "mailpit"

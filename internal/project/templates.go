@@ -28,7 +28,8 @@ type Template struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
-	// Runtime is the service the template needs and runs in: "php", "node", "python" or "go".
+	// Runtime is the service the template needs and runs in: "php", "node", "python", "go"
+	// or "ruby".
 	Runtime string `json:"runtime"`
 	// Node carries dev-server defaults merged field by field into the request's NodeConfig
 	// (preset, port and script where empty; DevServer when the request set none of them).
@@ -39,6 +40,9 @@ type Template struct {
 	// Go carries server defaults merged the same way into the request's GoConfig
 	// (package and port where empty; Server when the request set none of them).
 	Go *runtime.GoConfig `json:"go,omitempty"`
+	// Ruby carries server defaults merged the same way into the request's RubyConfig
+	// (preset and port where empty; Server when the request set none of them).
+	Ruby *runtime.RubyConfig `json:"ruby,omitempty"`
 	// Docroot the template expects (applied when the request leaves it empty).
 	Docroot string `json:"docroot"`
 	// RequiresDatabase refuses creation without a database service.
@@ -59,6 +63,8 @@ type Template struct {
 type templateStep struct {
 	label string
 	cmd   []string
+	// cmdFor replaces cmd when the command depends on the project (its name, its database).
+	cmdFor func(p store.Project) []string
 	// files are written by Envoryx after the command (relative path → content generator).
 	files map[string]func() (string, error)
 }
@@ -76,6 +82,9 @@ var (
 	// throwaway GOPATH; the module is called "app" – a main module needs no import path.
 	goScaffoldEnv     = []string{"HOME=/tmp", "GOPATH=/tmp/go", "GOFLAGS=-modcacherw", "PATH=/tmp/go/bin:/usr/local/go/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin"}
 	pythonScaffoldEnv = []string{"HOME=/tmp", "PIP_DISABLE_PIP_VERSION_CHECK=1", "PYTHONUNBUFFERED=1", "VIRTUAL_ENV=" + pythonVenvPath, "PATH=" + pythonVenvPath + "/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin"}
+	// The Ruby scaffolds install into the project's GEM_HOME (the project home is mounted),
+	// so the server finds the bundle complete on its first start.
+	rubyScaffoldEnv = append([]string{"HOME=" + homeMountTarget}, rubyEnv...)
 )
 
 // Python scaffold sources. Each is a fixed file written by Envoryx; the Django settings
@@ -175,6 +184,43 @@ func main() {
 	// Envoryx injects HOST and PORT; the proxy sends the project URL here.
 	e.Logger.Fatal(e.Start(os.Getenv("HOST") + ":" + os.Getenv("PORT")))
 }
+`
+
+	sinatraGemfile = `source "https://rubygems.org"
+
+gem "sinatra"
+gem "sinatra-contrib"
+gem "puma"
+
+group :development do
+  gem "debug", require: false
+end
+`
+	sinatraConfigRu = `require_relative "app"
+
+run App
+`
+	sinatraApp = `require "sinatra/base"
+require "json"
+
+class App < Sinatra::Base
+  configure :development do
+    require "sinatra/reloader"
+    register Sinatra::Reloader
+  end
+
+  # The Envoryx proxy decides which host names reach the project.
+  set :host_authorization, { permitted_hosts: [] }
+
+  get "/" do
+    content_type :json
+    { message: "Hello from Sinatra on Envoryx!" }.to_json
+  end
+
+  get "/healthz" do
+    204
+  end
+end
 `
 
 	flaskApp = `from flask import Flask
@@ -388,6 +434,83 @@ var templates = []Template{
 			{label: "go mod tidy", cmd: []string{"go", "mod", "tidy"}},
 		},
 	},
+	// The Ruby scaffolds run from the Envoryx Ruby image with the project home mounted:
+	// rails and the bundle land in the project's GEM_HOME.
+	{
+		ID: "rails", Name: "Rails", Description: "rails new with Hotwire and importmap (no Node.js needed), on the project database.",
+		Runtime: "ruby", Docroot: "", RecommendedDatabase: "postgresql",
+		Ruby:  &runtime.RubyConfig{Server: true, Preset: "rails", Port: 3000},
+		Notes: "Run “rails db:prepare” from the Actions tab, then open the site. DATABASE_URL is injected by Envoryx and Rails merges it into config/database.yml; without a database Rails uses SQLite. Rails reloads code on every request in dev mode. Production mode needs config/master.key (rails new wrote one) and the assets built with “rails assets:precompile”.",
+		steps: []templateStep{
+			{label: "gem install rails, rails new", cmdFor: railsNew()},
+		},
+	},
+	{
+		ID: "rails-api", Name: "Rails (API only)", Description: "rails new --api: a JSON backend without views and assets, on the project database.",
+		Runtime: "ruby", Docroot: "", RecommendedDatabase: "postgresql",
+		Ruby:  &runtime.RubyConfig{Server: true, Preset: "rails", Port: 3000},
+		Notes: "Run “rails db:prepare” from the Actions tab, then generate resources in the Ruby terminal (bin/rails generate scaffold …). DATABASE_URL is injected by Envoryx; without a database Rails uses SQLite.",
+		steps: []templateStep{
+			{label: "gem install rails, rails new --api", cmdFor: railsNew("--api")},
+		},
+	},
+	{
+		ID: "sinatra", Name: "Sinatra", Description: "A minimal Sinatra application (app.rb, config.ru) on Puma with a JSON route and a health check.",
+		Runtime: "ruby", Docroot: "",
+		Ruby:  &runtime.RubyConfig{Server: true, Preset: "rack", Port: 9292},
+		Notes: "Sinatra::Reloader (sinatra-contrib) reloads app.rb in dev mode. The debug gem is in the Gemfile, so the rdbg switch works right away.",
+		steps: []templateStep{
+			{label: "write Gemfile, config.ru, app.rb", cmd: []string{"ruby", "--version"}, files: map[string]func() (string, error){
+				"Gemfile":   func() (string, error) { return sinatraGemfile, nil },
+				"config.ru": func() (string, error) { return sinatraConfigRu, nil },
+				"app.rb":    func() (string, error) { return sinatraApp, nil },
+			}},
+			{label: "bundle install", cmd: []string{"bundle", "install"}},
+		},
+	},
+}
+
+// railsNew installs rails into the project's GEM_HOME and generates the application in
+// the project directory: named after the project, for its database (SQLite without one),
+// without a git repository of its own. rails new runs bundle install and the importmap,
+// Turbo and Stimulus installers itself.
+func railsNew(extra ...string) func(p store.Project) []string {
+	return func(p store.Project) []string {
+		args := []string{"rails", "new", ".", "--name=" + railsAppName(p.Slug), "--database=" + railsDatabase(p), "--skip-git"}
+		args = append(args, extra...)
+		return append([]string{"sh", "-c", `gem install --no-document rails && exec "$@"`, "envoryx-rails-new"}, args...)
+	}
+}
+
+// railsAppName turns a slug into a name rails new accepts: underscores for hyphens, and a
+// prefix where the slug starts with a digit or is one of the names Rails reserves.
+func railsAppName(slug string) string {
+	name := strings.ReplaceAll(slug, "-", "_")
+	switch name {
+	case "application", "destroy", "plugin", "runner", "test", "rails":
+		return "app_" + name
+	}
+	if name == "" || name[0] >= '0' && name[0] <= '9' {
+		return "app_" + name
+	}
+	return name
+}
+
+// railsDatabase is the --database of rails new for the project's primary database.
+func railsDatabase(p store.Project) string {
+	db := p.Service(store.ServiceDatabase)
+	if db == nil || !db.Enabled {
+		return "sqlite3"
+	}
+	switch db.Variant {
+	case "postgresql":
+		return "postgresql"
+	case "mysql":
+		return "mysql"
+	case "mariadb":
+		return "mariadb-mysql"
+	}
+	return "sqlite3"
 }
 
 // Templates lists the available project templates.
@@ -512,6 +635,8 @@ func (m *Manager) applyTemplate(ctx context.Context, proj store.Project, tpl Tem
 		kind, label, env = store.ServicePython, "Python", pythonScaffoldEnv
 	case "go":
 		kind, label, env = store.ServiceGo, "Go", goScaffoldEnv
+	case "ruby":
+		kind, label, env = store.ServiceRuby, "Ruby", rubyScaffoldEnv
 	}
 	svc := proj.Service(kind)
 	if svc == nil {
@@ -542,6 +667,13 @@ func (m *Manager) applyTemplate(ctx context.Context, proj store.Project, tpl Tem
 		return fmt.Errorf("create the package cache: %w", err)
 	}
 	_ = os.Chown(planner.PackageCacheDir(), paths.PUID, paths.PGID)
+	if kind == store.ServiceRuby {
+		// The gems go to the project home, which the plan has not created yet either.
+		if err := os.MkdirAll(planner.HomeDir(proj), 0o755); err != nil {
+			return fmt.Errorf("create the project home: %w", err)
+		}
+		_ = os.Chown(planner.HomeDir(proj), paths.PUID, paths.PGID)
+	}
 	for i, ts := range tpl.steps {
 		step(ctx, "Scaffolding the {{template}} template: {{step}}", "template", tpl.Name, "step", ts.label)
 		spec := docker.ContainerSpec{
@@ -554,6 +686,12 @@ func (m *Manager) applyTemplate(ctx context.Context, proj store.Project, tpl Tem
 			Mounts:     []docker.MountSpec{{Type: "bind", Source: planner.projectHostDir(proj), Target: mount}},
 			// Composer/npm downloads need DNS/internet: default bridge network.
 			RestartPolicy: "no",
+		}
+		if ts.cmdFor != nil {
+			spec.Cmd = ts.cmdFor(proj)
+		}
+		if kind == store.ServiceRuby {
+			spec.Mounts = append(spec.Mounts, planner.HomeMount(proj))
 		}
 		spec.Env = append([]string{}, spec.Env...)
 		planner.withPackageCache(&spec)

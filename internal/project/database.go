@@ -471,7 +471,7 @@ func envKey(db, key string) string {
 
 // recreateAppContainers recreates every container that receives the database environment.
 func (m *Manager) recreateAppContainers(ctx context.Context, id string) error {
-	return m.recreateContainers(ctx, id, store.ServicePHP, store.ServicePython, store.ServiceGo, store.ServiceNode)
+	return m.recreateContainers(ctx, id, store.ServicePHP, store.ServicePython, store.ServiceGo, store.ServiceRuby, store.ServiceNode)
 }
 
 // recreateContainers removes the given containers and re-applies the plan; containers are
@@ -771,7 +771,7 @@ func enableDriverExtensions(p *store.Project) error {
 // Names an additional database cannot have: the host names of the project's other
 // containers and the aliases of the primary database.
 var reservedDatabaseNames = map[string]bool{
-	"database": true, "db": true, "web": true, "php": true, "node": true, "python": true, "go": true,
+	"database": true, "db": true, "web": true, "php": true, "node": true, "python": true, "go": true, "ruby": true,
 	"redis": true, "mailpit": true, "rabbitmq": true, "memcached": true, "meilisearch": true,
 	"typesense": true, "opensearch": true, "opensearch-dashboards": true, "ollama": true, "storage": true,
 	"mariadb": true, "mysql": true, "postgresql": true, "postgres": true, "mongodb": true,

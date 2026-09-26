@@ -153,6 +153,8 @@ func (c *cli) importSite(ctx context.Context, args []string) error {
 		req.Python = &pythonSpec{}
 	case "go":
 		req.Go = &goSpec{}
+	case "ruby":
+		req.Ruby = &rubySpec{}
 	}
 	if *php != "" {
 		req.PHP = &phpSpec{Version: runtimeVersion(*php)}

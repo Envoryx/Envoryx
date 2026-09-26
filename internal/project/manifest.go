@@ -205,6 +205,14 @@ func exportState(p store.Project, domains []store.Domain, jobs []store.CronJob) 
 			Port: cfg.Port, Debug: cfg.Debug, DebugPort: cfg.DebugPort,
 		}
 	}
+	if svc := p.Service(store.ServiceRuby); svc != nil {
+		var cfg runtime.RubyConfig
+		_ = json.Unmarshal(svc.Config, &cfg)
+		mf.Ruby = &manifest.Ruby{
+			Version: svc.Version, Server: cfg.Server, Mode: cfg.Mode, Preset: cfg.Preset,
+			Port: cfg.Port, Debug: cfg.Debug, DebugPort: cfg.DebugPort,
+		}
+	}
 	for _, svc := range p.Databases() {
 		var cfg runtime.DatabaseConfig
 		_ = json.Unmarshal(svc.Config, &cfg)
@@ -388,6 +396,12 @@ func manifestRequest(mf manifest.Manifest, name string) CreateRequest {
 		g := mf.Go
 		req.Go = &GoRequest{Version: g.Version, Config: runtime.GoConfig{
 			Server: g.Server, Mode: g.Mode, Package: g.Package, Port: g.Port, Debug: g.Debug, DebugPort: g.DebugPort,
+		}}
+	}
+	if mf.Ruby != nil {
+		r := mf.Ruby
+		req.Ruby = &RubyRequest{Version: r.Version, Config: runtime.RubyConfig{
+			Server: r.Server, Mode: r.Mode, Preset: r.Preset, Port: r.Port, Debug: r.Debug, DebugPort: r.DebugPort,
 		}}
 	}
 	// An external connection comes without its password, which the file never holds.
@@ -674,6 +688,18 @@ func (m *Manager) planManifest(ctx context.Context, id string, mf manifest.Manif
 			var cfg runtime.GoConfig
 			_ = json.Unmarshal(want.Service(store.ServiceGo).Config, &cfg)
 			ops.update.Go = &GoUpdate{Enabled: true, Version: wantMf.Go.Version, Config: cfg}
+		}
+	}
+	if c, ok := sectionChange("ruby", have.Ruby, wantMf.Ruby); ok {
+		if c.Action == "remove" {
+			if removal(c) {
+				ops.update.Ruby = &RubyUpdate{Enabled: false}
+			}
+		} else {
+			add(c)
+			var cfg runtime.RubyConfig
+			_ = json.Unmarshal(want.Service(store.ServiceRuby).Config, &cfg)
+			ops.update.Ruby = &RubyUpdate{Enabled: true, Version: wantMf.Ruby.Version, Config: cfg}
 		}
 	}
 

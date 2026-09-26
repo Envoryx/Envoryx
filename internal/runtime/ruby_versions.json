@@ -1,0 +1,18 @@
+{
+  "image": "ghcr.io/envoryx/envoryx-ruby",
+  "default": "4.0",
+  "versions": [
+    {
+      "version": "4.0",
+      "base": "4.0-slim-bookworm"
+    },
+    {
+      "version": "3.4",
+      "base": "3.4-slim-bookworm"
+    },
+    {
+      "version": "3.3",
+      "base": "3.3-slim-bookworm"
+    }
+  ]
+}

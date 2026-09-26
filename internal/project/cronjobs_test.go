@@ -30,7 +30,7 @@ func TestBuildCronJob(t *testing.T) {
 	}
 	for name, req := range map[string]CronJobRequest{
 		"name":         {Name: "Bad Name!", Runtime: "php", Schedule: "@daily", Command: "true"},
-		"runtime":      {Name: "a", Runtime: "ruby", Schedule: "@daily", Command: "true"},
+		"runtime":      {Name: "a", Runtime: "perl", Schedule: "@daily", Command: "true"},
 		"schedule":     {Name: "a", Runtime: "php", Schedule: "every day", Command: "true"},
 		"never":        {Name: "a", Runtime: "php", Schedule: "0 0 30 2 *", Command: "true"},
 		"empty":        {Name: "a", Runtime: "php", Schedule: "@daily", Command: "  "},

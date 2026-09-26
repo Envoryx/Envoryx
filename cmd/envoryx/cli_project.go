@@ -450,6 +450,7 @@ type createRequest struct {
 	Node        *nodeSpec       `json:"node,omitempty"`
 	Python      *pythonSpec     `json:"python,omitempty"`
 	Go          *goSpec         `json:"go,omitempty"`
+	Ruby        *rubySpec       `json:"ruby,omitempty"`
 	Database    *databaseSpec   `json:"database,omitempty"`
 	Databases   []namedDBSpec   `json:"databases,omitempty"`
 	Redis       *extraSpec      `json:"redis,omitempty"`
@@ -499,6 +500,12 @@ type goSpec struct {
 	Package string `json:"package,omitempty"`
 }
 
+type rubySpec struct {
+	Version string `json:"version,omitempty"`
+	Server  bool   `json:"server,omitempty"`
+	Preset  string `json:"preset,omitempty"`
+}
+
 type databaseSpec struct {
 	Type       string `json:"type,omitempty"`
 	Version    string `json:"version,omitempty"`
@@ -534,6 +541,8 @@ Runtimes (a project without any is a static site served by the web container):
                        --python-preset django|flask|asgi|wsgi|module, --python-app NAME
   --go VERSION         Go version; --go-server builds and runs the server
                        (live reload), --go-package ./cmd/server picks the main package
+  --ruby VERSION       Ruby version; --ruby-server runs the server (bundle install
+                       first), --ruby-preset rails|rack
 
 Services:
   --database TYPE[:VERSION]   mysql, mariadb, postgres, mongodb …
@@ -587,6 +596,9 @@ func (c *cli) projectCreate(ctx context.Context, args []string) error {
 		goVersion  = fs.String("go", "", "Go version")
 		goServer   = fs.Bool("go-server", false, "build and run the Go server")
 		goPackage  = fs.String("go-package", "", "main package, e.g. ./cmd/server")
+		ruby       = fs.String("ruby", "", "Ruby version")
+		rubyServer = fs.Bool("ruby-server", false, "run the Ruby server")
+		rubyPreset = fs.String("ruby-preset", "", "rails, rack")
 		database   = fs.String("database", "", "mysql, mariadb, postgres, mongodb[:version]")
 		exposeDB   = fs.Bool("expose-database", false, "publish the database port")
 		extraDBs   stringList
@@ -657,6 +669,9 @@ func (c *cli) projectCreate(ctx context.Context, args []string) error {
 	}
 	if *goVersion != "" || *goServer || *goPackage != "" {
 		req.Go = &goSpec{Version: runtimeVersion(*goVersion), Server: *goServer, Package: *goPackage}
+	}
+	if *ruby != "" || *rubyServer || *rubyPreset != "" {
+		req.Ruby = &rubySpec{Version: runtimeVersion(*ruby), Server: *rubyServer, Preset: *rubyPreset}
 	}
 	if *database != "" {
 		kind, version, _ := strings.Cut(*database, ":")

@@ -94,6 +94,22 @@ var actionCatalog = []Action{
 	{ID: "go:mod-tidy", Group: "Go", Label: "go mod tidy", Description: "Add missing and remove unused module requirements", Service: store.ServiceGo, Cmd: []string{"go", "mod", "tidy"}, Requires: []string{"go.mod"}},
 	{ID: "go:mod-download", Group: "Go", Label: "go mod download", Description: "Download the modules into the shared module cache", Service: store.ServiceGo, Cmd: []string{"go", "mod", "download"}, Requires: []string{"go.mod"}},
 	{ID: "go:generate", Group: "Go", Label: "go generate ./...", Description: "Run the //go:generate directives", Service: store.ServiceGo, Cmd: []string{"go", "generate", "./..."}, Requires: []string{"go.mod"}},
+
+	{ID: "ruby:version", Group: "Ruby", Label: "ruby --version", Description: "Show the Ruby version", Service: store.ServiceRuby, Cmd: []string{"ruby", "--version"}},
+	// The gems go to GEM_HOME in the persistent project home (see rubyEnv).
+	{ID: "bundle:install", Group: "Bundler", Label: "bundle install", Description: "Install the gems of the Gemfile (Gemfile.lock) into the project home", Service: store.ServiceRuby, Cmd: []string{"bundle", "install"}, Requires: []string{"Gemfile"}},
+	{ID: "bundle:update", Group: "Bundler", Label: "bundle update", Description: "Update the gems and Gemfile.lock within the Gemfile's constraints", Service: store.ServiceRuby, Cmd: []string{"bundle", "update"}, Requires: []string{"Gemfile"}},
+	{ID: "bundle:outdated", Group: "Bundler", Label: "bundle outdated", Description: "List the gems with newer versions", Service: store.ServiceRuby, Cmd: []string{"bundle", "outdated"}, Requires: []string{"Gemfile.lock"}},
+	{ID: "rubocop", Group: "Ruby", Label: "rubocop", Description: "Run RuboCop over the project", Service: store.ServiceRuby, Cmd: []string{"bundle", "exec", "rubocop"}, Requires: []string{".rubocop.yml"}},
+
+	{ID: "rails:db-prepare", Group: "Rails", Label: "rails db:prepare", Description: "Create the database if needed, load the schema or run pending migrations, seed a new database", Service: store.ServiceRuby, Cmd: []string{"bin/rails", "db:prepare"}, Requires: []string{"bin/rails"}},
+	{ID: "rails:db-migrate", Group: "Rails", Label: "rails db:migrate", Description: "Apply pending database migrations", Service: store.ServiceRuby, Cmd: []string{"bin/rails", "db:migrate"}, Requires: []string{"bin/rails"}},
+	{ID: "rails:db-rollback", Group: "Rails", Label: "rails db:rollback", Description: "Revert the last migration", Service: store.ServiceRuby, Cmd: []string{"bin/rails", "db:rollback"}, Requires: []string{"bin/rails"}, Destructive: true},
+	{ID: "rails:db-seed", Group: "Rails", Label: "rails db:seed", Description: "Load db/seeds.rb", Service: store.ServiceRuby, Cmd: []string{"bin/rails", "db:seed"}, Requires: []string{"bin/rails"}},
+	{ID: "rails:routes", Group: "Rails", Label: "rails routes", Description: "List the application's routes", Service: store.ServiceRuby, Cmd: []string{"bin/rails", "routes"}, Requires: []string{"bin/rails"}},
+	{ID: "rails:assets-precompile", Group: "Rails", Label: "rails assets:precompile", Description: "Build the assets into public/assets – what production mode serves", Service: store.ServiceRuby, Cmd: []string{"bin/rails", "assets:precompile"}, Requires: []string{"bin/rails"}},
+	{ID: "rails:tmp-clear", Group: "Rails", Label: "rails tmp:clear", Description: "Clear the cache, sockets and screenshot files in tmp/", Service: store.ServiceRuby, Cmd: []string{"bin/rails", "tmp:clear"}, Requires: []string{"bin/rails"}},
+	{ID: "rails:about", Group: "Rails", Label: "rails about", Description: "Show the versions of Ruby, Rails and the database adapter", Service: store.ServiceRuby, Cmd: []string{"bin/rails", "about"}, Requires: []string{"bin/rails"}},
 }
 
 // The installers of the CMS templates, run once the database is up. They read the

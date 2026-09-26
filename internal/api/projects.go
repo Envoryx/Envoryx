@@ -101,9 +101,9 @@ type projectDTO struct {
 	HealthCheck *store.HealthCheck `json:"healthCheck,omitempty"`
 	// ProxyRules are the redirects, headers, CORS and access rules (absent: none).
 	ProxyRules *proxyRulesDTO `json:"proxyRules,omitempty"`
-	// Serves says what the primary host name reaches: "php", "python" (application
-	// server), "node" (dev server) or "static"; AppService is the application container's
-	// kind (php, python, node), absent for static sites.
+	// Serves says what the primary host name reaches: "php", "python", "go", "ruby"
+	// (application server), "node" (dev server) or "static"; AppService is the application
+	// container's kind (php, python, go, ruby, node), absent for static sites.
 	Serves     string `json:"serves"`
 	AppService string `json:"appService,omitempty"`
 }
@@ -258,6 +258,26 @@ type goUpdateDTO struct {
 	goRequestDTO
 }
 
+type rubyRequestDTO struct {
+	Version string `json:"version"`
+	// Application-server options (see runtime.RubyConfig).
+	Server    bool   `json:"server"`
+	Mode      string `json:"mode"`
+	Preset    string `json:"preset"`
+	Port      int    `json:"port"`
+	Debug     bool   `json:"debug"`
+	DebugPort int    `json:"debugPort"`
+}
+
+func (n rubyRequestDTO) config() runtime.RubyConfig {
+	return runtime.RubyConfig{Server: n.Server, Mode: n.Mode, Preset: n.Preset, Port: n.Port, Debug: n.Debug, DebugPort: n.DebugPort}
+}
+
+type rubyUpdateDTO struct {
+	Enabled bool `json:"enabled"`
+	rubyRequestDTO
+}
+
 type extraRequestDTO struct {
 	Version    string            `json:"version"`
 	ExposePort bool              `json:"exposePort"`
@@ -336,6 +356,7 @@ type createProjectRequest struct {
 	Node     *nodeRequestDTO     `json:"node"`
 	Python   *pythonRequestDTO   `json:"python"`
 	Go       *goRequestDTO       `json:"go"`
+	Ruby     *rubyRequestDTO     `json:"ruby"`
 	Database *databaseRequestDTO `json:"database"`
 	// Databases are additional databases, each with a name.
 	Databases     []namedDatabaseDTO `json:"databases"`
@@ -400,6 +421,9 @@ func (r createProjectRequest) toDomain() project.CreateRequest {
 	if r.Go != nil {
 		req.Go = &project.GoRequest{Version: r.Go.Version, Config: r.Go.config()}
 	}
+	if r.Ruby != nil {
+		req.Ruby = &project.RubyRequest{Version: r.Ruby.Version, Config: r.Ruby.config()}
+	}
 	for _, d := range r.Databases {
 		req.Databases = append(req.Databases, project.NamedDatabaseRequest{Name: d.Name, DatabaseRequest: project.DatabaseRequest{Type: d.Type, Version: d.Version, ExposePort: d.ExposePort, External: d.External.toDomain()}})
 	}
@@ -458,6 +482,7 @@ type updateProjectRequest struct {
 	Node     *nodeUpdateDTO     `json:"node"`
 	Python   *pythonUpdateDTO   `json:"python"`
 	Go       *goUpdateDTO       `json:"go"`
+	Ruby     *rubyUpdateDTO     `json:"ruby"`
 	Database *databaseUpdateDTO `json:"database"`
 	// Databases adds, changes or removes additional databases by name.
 	Databases   map[string]databaseUpdateDTO `json:"databases"`
@@ -705,6 +730,9 @@ func (a *API) updateProject(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Go != nil {
 		upd.Go = &project.GoUpdate{Enabled: req.Go.Enabled, Version: req.Go.Version, Config: req.Go.config()}
+	}
+	if req.Ruby != nil {
+		upd.Ruby = &project.RubyUpdate{Enabled: req.Ruby.Enabled, Version: req.Ruby.Version, Config: req.Ruby.config()}
 	}
 	if req.Redis != nil {
 		upd.Redis = &project.ExtraUpdate{Enabled: req.Redis.Enabled, Version: req.Redis.Version, ExposePort: req.Redis.ExposePort, RemoveData: req.Redis.RemoveData, External: req.Redis.External.toDomain()}

@@ -1222,7 +1222,7 @@ func TestRuntimesEndpoint(t *testing.T) {
 	}
 	for _, x := range r.body["templates"].([]any) {
 		tpl := x.(map[string]any)
-		if rt := tpl["runtime"]; rt != "php" && rt != "node" && rt != "python" && rt != "go" {
+		if rt := tpl["runtime"]; rt != "php" && rt != "node" && rt != "python" && rt != "go" && rt != "ruby" {
 			t.Fatalf("template %v must name its runtime", tpl["id"])
 		}
 		if tpl["runtime"] == "node" && tpl["node"] == nil {
@@ -1233,6 +1233,9 @@ func TestRuntimesEndpoint(t *testing.T) {
 		}
 		if tpl["runtime"] == "go" && tpl["go"] == nil {
 			t.Fatalf("go template %v must carry server defaults", tpl["id"])
+		}
+		if tpl["runtime"] == "ruby" && tpl["ruby"] == nil {
+			t.Fatalf("ruby template %v must carry server defaults", tpl["id"])
 		}
 	}
 }
