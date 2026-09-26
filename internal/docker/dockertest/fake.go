@@ -67,6 +67,9 @@ type Fake struct {
 
 	// OneShotHandler simulates transient containers (RunOneShot). nil = exit 0, no output.
 	OneShotHandler func(spec docker.ContainerSpec) (docker.ExecResult, error)
+	// OneShotStreamHandler simulates streamed transient containers (RunOneShotStream): it
+	// receives the spec and the whole stdin. nil = exit 0, no output.
+	OneShotStreamHandler func(spec docker.ContainerSpec, stdin []byte) (stdout string, code int, err error)
 	// OneShots records every RunOneShot spec.
 	OneShots []docker.ContainerSpec
 
@@ -712,6 +715,39 @@ func (f *Fake) RunOneShot(_ context.Context, spec docker.ContainerSpec) (docker.
 		return handler(spec)
 	}
 	return docker.ExecResult{}, nil
+}
+
+// RunOneShotStream implements docker.Engine. Specs are recorded in OneShots.
+func (f *Fake) RunOneShotStream(_ context.Context, spec docker.ContainerSpec, opts docker.ExecStreamOptions) (int, error) {
+	f.mu.Lock()
+	if err := f.check(); err != nil {
+		f.mu.Unlock()
+		return -1, err
+	}
+	if !docker.IsManaged(spec.Labels) {
+		f.mu.Unlock()
+		return -1, docker.ErrNotManaged
+	}
+	spec.OpenStdin = opts.Stdin != nil
+	f.OneShots = append(f.OneShots, spec)
+	f.record("oneshot:" + spec.Name)
+	handler := f.OneShotStreamHandler
+	f.mu.Unlock()
+	var in []byte
+	if opts.Stdin != nil {
+		in, _ = io.ReadAll(opts.Stdin)
+	}
+	if handler == nil {
+		return 0, nil
+	}
+	out, code, err := handler(spec, in)
+	if err != nil {
+		return -1, err
+	}
+	if opts.Stdout != nil {
+		_, _ = io.WriteString(opts.Stdout, out)
+	}
+	return code, nil
 }
 
 // OpenTerminal implements docker.Engine.

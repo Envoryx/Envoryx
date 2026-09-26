@@ -69,7 +69,11 @@ func (m *Manager) ExtraServices(ctx context.Context, id string) ([]ExtraServiceI
 		switch svc.Kind {
 		case store.ServiceRedis:
 			info.Host, info.Port, info.VolumeName = "redis", 6379, VolumeName(view.Project.Slug, store.ServiceRedis)
-			for k := range runtime.RedisEnv() {
+			if cfg.External() {
+				// No container: nothing runs, nothing is stored here.
+				info.Host, info.Port, info.VolumeName, info.External = cfg.Host, cfg.Port, "", true
+			}
+			for k := range runtime.RedisEnv(cfg) {
 				info.InjectedEnv = append(info.InjectedEnv, k)
 			}
 		case store.ServiceMemcached:

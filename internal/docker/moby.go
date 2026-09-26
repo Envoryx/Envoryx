@@ -280,6 +280,9 @@ func (e *MobyEngine) CreateContainer(ctx context.Context, spec ContainerSpec) (s
 		WorkingDir: spec.WorkingDir,
 		User:       spec.User,
 	}
+	if spec.OpenStdin {
+		cfg.OpenStdin, cfg.StdinOnce, cfg.AttachStdin = true, true, true
+	}
 	if spec.StopTimeout > 0 {
 		t := spec.StopTimeout
 		cfg.StopTimeout = &t
@@ -662,6 +665,71 @@ func (e *MobyEngine) RunOneShot(ctx context.Context, spec ContainerSpec) (ExecRe
 		return ExecResult{}, fmt.Errorf("read output: %w", err)
 	}
 	return ExecResult{ExitCode: int(code), Stdout: stdout.String(), Stderr: stderr.String()}, nil
+}
+
+// RunOneShotStream implements Engine.
+func (e *MobyEngine) RunOneShotStream(ctx context.Context, spec ContainerSpec, opts ExecStreamOptions) (int, error) {
+	spec.RestartPolicy = "no"
+	spec.OpenStdin = opts.Stdin != nil
+	id, err := e.CreateContainer(ctx, spec)
+	if err != nil {
+		return -1, err
+	}
+	defer func() {
+		rctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
+		defer cancel()
+		_ = e.RemoveContainer(rctx, id)
+	}()
+	// Attached before the start, so not a byte of output is missed; the wait is
+	// registered first for the same reason as in RunOneShot.
+	attach, err := e.cli.ContainerAttach(ctx, id, client.ContainerAttachOptions{Stream: true, Stdin: opts.Stdin != nil, Stdout: true, Stderr: true})
+	if err != nil {
+		return -1, wrap(err)
+	}
+	defer attach.Close()
+	wait := e.cli.ContainerWait(ctx, id, client.ContainerWaitOptions{Condition: container.WaitConditionNextExit})
+	if _, err := e.cli.ContainerStart(ctx, id, client.ContainerStartOptions{}); err != nil {
+		return -1, gpuError(wrap(err))
+	}
+	inErr := make(chan error, 1)
+	if opts.Stdin != nil {
+		go func() {
+			_, err := io.Copy(attach.Conn, opts.Stdin)
+			_ = attach.CloseWrite()
+			inErr <- err
+		}()
+	} else {
+		inErr <- nil
+	}
+	stdout, stderr := opts.Stdout, opts.Stderr
+	if stdout == nil {
+		stdout = io.Discard
+	}
+	if stderr == nil {
+		stderr = io.Discard
+	}
+	if _, err := stdcopy.StdCopy(stdout, stderr, attach.Reader); err != nil && !errors.Is(err, io.EOF) {
+		return -1, fmt.Errorf("output: %w", err)
+	}
+	var code int64
+	select {
+	case res := <-wait.Result:
+		code = res.StatusCode
+	case err := <-wait.Error:
+		return -1, wrap(err)
+	case <-ctx.Done():
+		return -1, ctx.Err()
+	}
+	// As in ExecStream: a process that exits without reading all of its input is not an
+	// error of its own, a copy that broke is.
+	select {
+	case err := <-inErr:
+		if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, net.ErrClosed) && !errors.Is(err, syscall.EPIPE) {
+			return -1, fmt.Errorf("input: %w", err)
+		}
+	default:
+	}
+	return int(code), nil
 }
 
 // OpenTerminal implements Engine.

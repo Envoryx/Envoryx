@@ -200,6 +200,9 @@ type ContainerSpec struct {
 	// Resources caps CPU, memory and processes (nil = no limits). They are not part of
 	// the spec fingerprint: UpdateResources changes them on a running container.
 	Resources *Resources
+	// OpenStdin keeps the process's stdin open for one attached client (RunOneShotStream
+	// sets it when it has input to feed).
+	OpenStdin bool
 	// GPUs hands every GPU to the container, as `docker run --gpus all` does. Docker
 	// needs the NVIDIA Container Toolkit (or a CDI spec) for it, otherwise creating the
 	// container fails.
@@ -367,6 +370,10 @@ type Engine interface {
 	// RunOneShot creates a transient container from spec, runs it to completion, collects
 	// its output and removes it. The spec must carry managed labels.
 	RunOneShot(ctx context.Context, spec ContainerSpec) (ExecResult, error)
+	// RunOneShotStream is RunOneShot with streams: stdin (may be nil) is fed to the
+	// process and its output is written to opts while it runs, like `docker run --rm -i`.
+	// Cmd, Env, User and WorkingDir of opts are ignored; the spec carries them.
+	RunOneShotStream(ctx context.Context, spec ContainerSpec, opts ExecStreamOptions) (int, error)
 	// OpenTerminal starts an interactive shell (PTY) inside a managed container.
 	OpenTerminal(ctx context.Context, id string, opts TerminalOptions) (Terminal, error)
 	// StreamLogs emits log lines of a managed container until the stream ends (Follow=false)

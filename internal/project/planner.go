@@ -964,9 +964,15 @@ func (p *Planner) envStrings(proj store.Project) ([]string, error) {
 		}
 	}
 	if r := proj.Service(store.ServiceRedis); r != nil && r.Enabled {
-		env := runtime.RedisEnv()
-		for _, k := range []string{"REDIS_HOST", "REDIS_PORT", "REDIS_URL"} {
-			set(k, env[k])
+		var cfg runtime.ServiceConfig
+		if err := json.Unmarshal(r.Config, &cfg); err != nil {
+			return nil, fmt.Errorf("redis config: %w", err)
+		}
+		env := runtime.RedisEnv(cfg)
+		for _, k := range runtime.RedisEnvKeys {
+			if v, ok := env[k]; ok {
+				set(k, v)
+			}
 		}
 	}
 	if mc := proj.Service(store.ServiceMemcached); mc != nil && mc.Enabled {

@@ -232,6 +232,9 @@ type ExtraServiceInfo struct {
 	Username string `json:"username,omitempty"`
 	// GPU reports whether Ollama was handed the host's GPUs.
 	GPU bool `json:"gpu,omitempty"`
+	// External marks a server Envoryx does not run (Redis): Host and Port are its
+	// address, and there is no container, volume or published port.
+	External bool `json:"external,omitempty"`
 }
 
 // RabbitMQCredentials are the login of a project's RabbitMQ broker.
