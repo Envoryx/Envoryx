@@ -39,7 +39,7 @@ release). `:main` follows the development branch.
   container (`ghcr.io/envoryx/envoryx-ruby:<3.3–4.0>`, official
   `ruby:<v>-slim-bookworm` image plus the build dependencies of common gems
   and the debug gem, no Node.js) is added on any project from the Runtime
-  tab, too. *Run the server* has two presets: *Rails* (`bin/rails server` in
+  tab, too. *Run the Ruby server* has two presets: *Rails* (`bin/rails server` in
   development mode, Puma in production mode) and *Rack* (Puma on
   `config.ru` – Sinatra, Roda, Hanami …), on `$PORT` (3000/9292). Before it
   starts, the server waits for its `Gemfile` and runs `bundle install` when
