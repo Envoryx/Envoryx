@@ -76,6 +76,8 @@ import type {
   CronJob,
   CronJobRequest,
   CronRun,
+  OllamaModels,
+  OllamaPull,
 } from "./types";
 
 /** Query string of the log endpoints; empty filter fields are left out. */
@@ -217,6 +219,11 @@ function uploadSite(site: File, dump: File | null, onProgress?: (loaded: number,
     };
     xhr.send(form);
   });
+}
+
+/** A model reference as a path: its "/" stay separators (hf.co/org/repo:tag), the rest is escaped. */
+function modelPath(model: string): string {
+  return model.split("/").map(encodeURIComponent).join("/");
 }
 
 /** The query that addresses an additional database ("" = the primary: none). */
@@ -410,6 +417,12 @@ export const api = {
   },
   rabbitmq: {
     credentials: (id: string) => request<{ credentials: RabbitMQCredentials }>(`/projects/${encodeURIComponent(id)}/rabbitmq/credentials`),
+  },
+  ollama: {
+    models: (id: string) => request<OllamaModels>(`/projects/${encodeURIComponent(id)}/ollama/models`),
+    pull: (id: string, model: string) => request<{ pull: OllamaPull }>(`/projects/${encodeURIComponent(id)}/ollama/models`, { method: "POST", body: { model } }),
+    remove: (id: string, model: string) => request<void>(`/projects/${encodeURIComponent(id)}/ollama/models/${modelPath(model)}`, { method: "DELETE" }),
+    cancel: (id: string, model: string) => request<void>(`/projects/${encodeURIComponent(id)}/ollama/pulls/${modelPath(model)}`, { method: "DELETE" }),
   },
   search: {
     credentials: (id: string, kind: "meilisearch" | "typesense") => request<{ credentials: SearchCredentials }>(`/projects/${encodeURIComponent(id)}/${kind}/credentials`),

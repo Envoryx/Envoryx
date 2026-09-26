@@ -41,6 +41,7 @@ type CreateRequest struct {
 	RabbitMQ    *ExtraRequest
 	Meilisearch *ExtraRequest
 	Typesense   *ExtraRequest
+	Ollama      *ExtraRequest
 	OpenSearch  *ExtraRequest
 	Storage     *StorageRequest
 	Web         WebRequest
@@ -103,12 +104,14 @@ type PythonUpdate struct {
 }
 
 // ExtraRequest selects an auxiliary service (Redis, Memcached, Mailpit, RabbitMQ,
-// Meilisearch, Typesense, OpenSearch).
+// Meilisearch, Typesense, OpenSearch, Ollama).
 type ExtraRequest struct {
 	Version    string
 	ExposePort bool
 	// Dashboards adds OpenSearch Dashboards (OpenSearch only).
 	Dashboards bool
+	// GPU hands the host's GPUs to the service (Ollama only).
+	GPU bool
 }
 
 // StorageRequest adds S3-compatible object storage. PublicRead (default true) lets anyone
@@ -138,6 +141,8 @@ type ExtraUpdate struct {
 	// Dashboards switches OpenSearch Dashboards on or off (OpenSearch only); nil leaves it
 	// as it is.
 	Dashboards *bool
+	// GPU switches the host's GPUs on or off (Ollama only); nil leaves it as it is.
+	GPU *bool
 }
 
 // DatabaseRequest selects a database service.
@@ -197,6 +202,7 @@ type UpdateRequest struct {
 	RabbitMQ    *ExtraUpdate
 	Meilisearch *ExtraUpdate
 	Typesense   *ExtraUpdate
+	Ollama      *ExtraUpdate
 	OpenSearch  *ExtraUpdate
 	Storage     *StorageUpdate
 	Env         *[]EnvVarRequest
@@ -224,6 +230,8 @@ type ExtraServiceInfo struct {
 	// Username logs in to RabbitMQ (AMQP and management UI); the password only comes from
 	// Manager.RabbitMQCredentials.
 	Username string `json:"username,omitempty"`
+	// GPU reports whether Ollama was handed the host's GPUs.
+	GPU bool `json:"gpu,omitempty"`
 }
 
 // RabbitMQCredentials are the login of a project's RabbitMQ broker.

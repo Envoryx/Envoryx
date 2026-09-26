@@ -221,6 +221,7 @@ func exportState(p store.Project, domains []store.Domain, jobs []store.CronJob) 
 		if kind == store.ServiceOpenSearch {
 			s.Dashboards = p.Service(store.ServiceOpenSearchDashboards) != nil
 		}
+		s.GPU = cfg.GPU
 		*manifestService(&mf, kind) = s
 	}
 	if svc := p.Service(store.ServiceStorage); svc != nil {
@@ -300,6 +301,8 @@ func manifestService(mf *manifest.Manifest, kind store.ServiceKind) **manifest.S
 		return &mf.Typesense
 	case store.ServiceOpenSearch:
 		return &mf.OpenSearch
+	case store.ServiceOllama:
+		return &mf.Ollama
 	}
 	panic("manifestService: no manifest field for " + string(kind))
 }
@@ -365,11 +368,11 @@ func manifestRequest(mf manifest.Manifest, name string) CreateRequest {
 		if s == nil {
 			return nil
 		}
-		return &ExtraRequest{Version: s.Version, ExposePort: s.ExposePort, Dashboards: s.Dashboards}
+		return &ExtraRequest{Version: s.Version, ExposePort: s.ExposePort, Dashboards: s.Dashboards, GPU: s.GPU}
 	}
 	req.Redis, req.Memcached, req.Mailpit = extra(mf.Redis), extra(mf.Memcached), extra(mf.Mailpit)
 	req.RabbitMQ, req.Meilisearch, req.Typesense = extra(mf.RabbitMQ), extra(mf.Meilisearch), extra(mf.Typesense)
-	req.OpenSearch = extra(mf.OpenSearch)
+	req.OpenSearch, req.Ollama = extra(mf.OpenSearch), extra(mf.Ollama)
 	if mf.Storage != nil {
 		pr := mf.Storage.IsPublicRead()
 		req.Storage = &StorageRequest{Version: mf.Storage.Version, PublicRead: &pr}
@@ -699,6 +702,10 @@ func (m *Manager) planManifest(ctx context.Context, id string, mf manifest.Manif
 				d := w.Dashboards
 				upd.Dashboards = &d
 			}
+			if kind == store.ServiceOllama {
+				g := w.GPU
+				upd.GPU = &g
+			}
 		}
 		switch kind {
 		case store.ServiceRedis:
@@ -715,6 +722,8 @@ func (m *Manager) planManifest(ctx context.Context, id string, mf manifest.Manif
 			ops.update.Typesense = upd
 		case store.ServiceOpenSearch:
 			ops.update.OpenSearch = upd
+		case store.ServiceOllama:
+			ops.update.Ollama = upd
 		}
 	}
 	if c, ok := sectionChange("storage", have.Storage, wantMf.Storage); ok {

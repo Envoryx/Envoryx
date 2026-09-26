@@ -114,6 +114,13 @@ func (m *Manager) create(ctx context.Context, req CreateRequest) (View, error) {
 	if _, err := m.engine.Ping(ctx); err != nil {
 		return View{}, err
 	}
+	if req.Ollama != nil && req.Ollama.GPU {
+		if svc := proj.Service(store.ServiceOllama); svc != nil {
+			if err := m.checkGPU(ctx, proj.ID, proj.Slug, svc.Image); err != nil {
+				return View{}, err
+			}
+		}
+	}
 
 	// The project lock is taken before the row exists so the reconciler never sees an
 	// unlocked project in "creating".
@@ -333,6 +340,7 @@ func (m *Manager) Stop(ctx context.Context, id string) (View, error) {
 		if err := m.removeShare(ctx, proj.ID); err != nil {
 			return err
 		}
+		m.cancelOllamaPulls(proj.ID)
 		return m.stopPlan(ctx, proj, plan)
 	}, store.DesiredStopped)
 }
@@ -825,6 +833,13 @@ func (m *Manager) update(ctx context.Context, id string, req UpdateRequest) (Vie
 			return View{}, err
 		}
 	}
+	if req.Ollama != nil {
+		r, err := m.applyExtraUpdate(ctx, proj, store.ServiceOllama, *req.Ollama, changes)
+		if err != nil {
+			return View{}, err
+		}
+		recreateApp = recreateApp || r
+	}
 	if req.Mailpit != nil {
 		r, err := m.applyExtraUpdate(ctx, proj, store.ServiceMailpit, *req.Mailpit, changes)
 		if err != nil {
@@ -872,7 +887,7 @@ func (m *Manager) update(ctx context.Context, id string, req UpdateRequest) (Vie
 				continue // a share keeps its address while the application is recreated
 			}
 			switch c.Service() {
-			case string(store.ServiceDatabase), string(store.ServiceRedis), string(store.ServiceMemcached), string(store.ServiceMailpit), string(store.ServiceRabbitMQ), string(store.ServiceMeilisearch), string(store.ServiceTypesense), string(store.ServiceOpenSearch), string(store.ServiceOpenSearchDashboards), string(store.ServiceStorage):
+			case string(store.ServiceDatabase), string(store.ServiceRedis), string(store.ServiceMemcached), string(store.ServiceMailpit), string(store.ServiceRabbitMQ), string(store.ServiceMeilisearch), string(store.ServiceTypesense), string(store.ServiceOpenSearch), string(store.ServiceOpenSearchDashboards), string(store.ServiceOllama), string(store.ServiceStorage):
 				continue // stateful/independent services keep running
 			}
 			step(ctx, "Removing the container {{name}} so it is recreated with the new settings", "name", c.Name)
@@ -1188,6 +1203,7 @@ func (m *Manager) delete(ctx context.Context, id string, opts DeleteOptions) err
 	if opts.Confirm != proj.Slug {
 		return fmt.Errorf("%w: confirmation must equal the project identifier %q", validate.ErrInvalid, proj.Slug)
 	}
+	m.cancelOllamaPulls(proj.ID)
 	// Refuse before touching anything: a foreign container on a project network (e.g.
 	// attached through Unraid's network dropdown) would make the network removal fail
 	// after the project's own containers and volumes are already gone.

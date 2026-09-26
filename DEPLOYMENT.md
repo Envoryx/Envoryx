@@ -1202,6 +1202,33 @@ keeps there and empties one tool's part or all of it; the next install
 downloads again. Instance backups leave it out. On Unraid the cache lives with
 `/config` on the appdata share, usually on the SSD pool.
 
+## Local LLMs (Ollama)
+
+*Services → Ollama* (or `--ollama` / `--ollama-gpu` with `envoryx project create`)
+adds an Ollama server to a project. The application reaches it at
+`http://ollama:11434`, injected as `OLLAMA_HOST`, `OLLAMA_BASE_URL` and `OLLAMA_URL`
+– the names the Ollama libraries, LangChain and Laravel Prism read.
+
+Models are downloaded on the Ollama card: type a name from the
+[Ollama library](https://ollama.com/library) (`llama3.2`, `qwen3:8b`,
+`nomic-embed-text`, `hf.co/<org>/<repo>:<quant>` …) and watch it arrive. A download
+continues when you leave the page and can be cancelled; the next download of the same
+model picks up where it stopped. The project has to be running.
+
+All projects share one model store, `/config/ollama` (on Unraid
+`/mnt/user/appdata/envoryx/ollama`): a model is downloaded once, and deleting it
+removes it for every project – the dialog says so. Models are several GB each, so
+keep an eye on the share. Removing Ollama from a project leaves the store alone; to
+free the space, delete the models first or empty the directory.
+
+**GPU.** *Use the GPU* hands the host's NVIDIA GPUs to the container
+(`docker run --gpus all`). Docker needs the NVIDIA Container Toolkit for it – on
+Unraid the *Nvidia Driver* plugin from Community Applications, then a restart of
+Docker. Envoryx starts a short test container before it switches the GPU on and
+refuses with that hint when Docker cannot hand the GPU over, so Ollama keeps running
+on the CPU. Without a GPU, small models (up to about 4B parameters) answer at usable
+speed on a current CPU; larger ones need the GPU or patience.
+
 ## Database browser (Adminer)
 
 *Settings → Database browser* switches on an in-browser database tool for
@@ -1457,7 +1484,7 @@ Claude Code: `claude mcp add --transport http envoryx https://envoryx.test/mcp -
 Use `http://<host>:8787/mcp` if the proxy/HTTPS is not set up.
 
 Available tools: list/get projects, list runtimes, create project (PHP
-version + extensions, database, Redis, Memcached, Mailpit, RabbitMQ, Meilisearch, Typesense, OpenSearch, object storage, Node, Python, git clone, env),
+version + extensions, database, Redis, Memcached, Mailpit, RabbitMQ, Meilisearch, Typesense, OpenSearch, Ollama, object storage, Node, Python, git clone, env),
 start/stop/restart, get logs, list/run actions (composer, artisan, npm …),
 list/create databases, list/create backups, add domain. Deleting projects,
 dropping databases and restoring backups are intentionally not exposed –
@@ -1578,7 +1605,7 @@ A project is named by its name, its slug or its id. `--json` hands the API's
 own answer to `jq` instead of a table; `--service` picks a container other
 than the project's application container (`php`, `python`, `node`, `web`,
 `database`, `redis`, `memcached`, `mailpit`, `rabbitmq`, `meilisearch`, `typesense`,
-`opensearch`, `opensearch-dashboards`, `storage`, `worker:<id>`). `envoryx project
+`opensearch`, `opensearch-dashboards`, `ollama`, `storage`, `worker:<id>`). `envoryx project
 create --from-json file.json` sends a create request the flags do not cover
 (everything the wizard offers), and flags given alongside it win.
 
@@ -1637,6 +1664,7 @@ databases:                       # additional databases, reached by their name
 redis: true                      # or {version: "8", exposePort: true}
 mailpit: true                    # also memcached, rabbitmq, meilisearch, typesense,
 opensearch: {dashboards: true}   # opensearch, storage: {publicRead: false}
+ollama: {gpu: true}              # models are not part of the manifest
 domains: [api.shop.example.com]
 env:
   APP_ENV: local

@@ -644,7 +644,7 @@ func enableDriverExtensions(p *store.Project) error {
 var reservedDatabaseNames = map[string]bool{
 	"database": true, "db": true, "web": true, "php": true, "node": true, "python": true,
 	"redis": true, "mailpit": true, "rabbitmq": true, "memcached": true, "meilisearch": true,
-	"typesense": true, "opensearch": true, "opensearch-dashboards": true, "storage": true,
+	"typesense": true, "opensearch": true, "opensearch-dashboards": true, "ollama": true, "storage": true,
 	"mariadb": true, "mysql": true, "postgresql": true, "postgres": true, "mongodb": true,
 	"localhost": true, "worker": true, "adminer": true,
 }

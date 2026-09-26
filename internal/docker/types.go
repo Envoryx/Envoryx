@@ -43,6 +43,9 @@ var ErrNotFound = errors.New("docker resource not found")
 // ErrUnavailable is returned when the Docker Engine cannot be reached.
 var ErrUnavailable = errors.New("docker engine unavailable")
 
+// ErrNoGPU is returned when a container asks for GPUs Docker cannot hand over.
+var ErrNoGPU = errors.New("Docker cannot hand GPUs to containers; install the NVIDIA Container Toolkit (on Unraid: the Nvidia Driver plugin) and restart Docker")
+
 // Info describes the connected Docker Engine.
 type Info struct {
 	APIVersion    string
@@ -174,7 +177,7 @@ type HealthSpec struct {
 
 // ContainerSpec is the closed set of parameters Envoryx uses to create containers.
 // Privileged mode, capability additions, host networking, device access and arbitrary
-// binds are intentionally not representable.
+// binds are intentionally not representable; the one exception is GPUs.
 type ContainerSpec struct {
 	Name   string
 	Image  string
@@ -197,6 +200,10 @@ type ContainerSpec struct {
 	// Resources caps CPU, memory and processes (nil = no limits). They are not part of
 	// the spec fingerprint: UpdateResources changes them on a running container.
 	Resources *Resources
+	// GPUs hands every GPU to the container, as `docker run --gpus all` does. Docker
+	// needs the NVIDIA Container Toolkit (or a CDI spec) for it, otherwise creating the
+	// container fails.
+	GPUs bool
 }
 
 // Resources are the limits of one container. Zero means no limit (PIDs: Docker's

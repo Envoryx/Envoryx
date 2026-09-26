@@ -140,13 +140,13 @@ func (s *Server) registerTools() {
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("list_projects", "List projects", "List all Envoryx projects with state, URLs and services.")), s.listProjects)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("get_project", "Get project", "Details and live status of one project.")), s.getProject)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("list_runtimes", "List runtimes", "Available runtimes (PHP, Node.js, Python, web servers), database engines, services, PHP extension keys and templates for create_project.")), s.listRuntimes)
-	mcp.AddTool(s.mcp, s.tool(auth.ScopeAdmin, mutating("create_project", "Create project", "Create a new development environment (web server plus PHP, Python and/or Node.js, optional database, Redis, Memcached, Mailpit, RabbitMQ, Meilisearch, Typesense, OpenSearch, object storage, git clone or template). Returns the project including its URL.", false)), s.createProject)
+	mcp.AddTool(s.mcp, s.tool(auth.ScopeAdmin, mutating("create_project", "Create project", "Create a new development environment (web server plus PHP, Python and/or Node.js, optional database, Redis, Memcached, Mailpit, RabbitMQ, Meilisearch, Typesense, OpenSearch, Ollama, object storage, git clone or template). Returns the project including its URL.", false)), s.createProject)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeAdmin, mutating("duplicate_project", "Duplicate project", "Copy an existing project (shop → shop-test): configuration, environment, workers and git binding, optionally the files, the database contents and the objects of the bucket. The copy gets its own directory, host ports and containers and keeps the original's database credentials. Extra domains and the backup schedule are not copied.", false)), s.duplicateProject)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeAdmin, mutating("rename_project", "Rename project", "Rename a project and everything derived from its identifier: URL and host names, container, network and volume names, the project directory, the backups and – unless keepDataNames is set – the database, its login and the bucket. The containers are recreated, so the project is briefly unavailable; confirm must be the current identifier.", false)), s.renameProject)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeOperate, mutating("start_project", "Start project", "Start all containers of a project.", true)), s.startProject)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeOperate, mutating("stop_project", "Stop project", "Stop all containers of a project (data is kept).", true)), s.stopProject)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeOperate, mutating("restart_project", "Restart project", "Restart a project; also pulls updated runtime images.", true)), s.restartProject)
-	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("get_logs", "Get logs", "Log lines of one project container (web, php, python, node, database, redis, memcached, mailpit, rabbitmq, meilisearch, typesense, opensearch, opensearch-dashboards, or db-<name> for an additional database), optionally limited to a time range, a search text or warnings/errors. Each line carries the level Envoryx guesses from its text.")), s.getLogs)
+	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("get_logs", "Get logs", "Log lines of one project container (web, php, python, node, database, redis, memcached, mailpit, rabbitmq, meilisearch, typesense, opensearch, opensearch-dashboards, ollama, or db-<name> for an additional database), optionally limited to a time range, a search text or warnings/errors. Each line carries the level Envoryx guesses from its text.")), s.getLogs)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("get_log_stats", "Get log statistics", "Error frequency of one project container over a time range: lines, warnings and errors per time slot and the most frequent errors and warnings, grouped with numbers and ids masked.")), s.getLogStats)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("list_actions", "List actions", "Runnable project actions (composer, artisan, npm …) and whether they are currently available.")), s.listActions)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeOperate, mutating("run_action", "Run action", "Run one action from list_actions inside the project (e.g. composer:install) and return its output. Waits for completion (up to 20 minutes).", false)), s.runAction)
@@ -269,6 +269,8 @@ type createProjectIn struct {
 	Typesense          bool              `json:"typesense,omitempty" jsonschema:"Add Typesense (search engine, TYPESENSE_* injected)."`
 	OpenSearch         bool              `json:"opensearch,omitempty" jsonschema:"Add OpenSearch (Elasticsearch-compatible search engine without authentication, OPENSEARCH_* injected)."`
 	OpenSearchDash     bool              `json:"opensearchDashboards,omitempty" jsonschema:"Add OpenSearch Dashboards (web UI with Dev Tools console; implies opensearch)."`
+	Ollama             bool              `json:"ollama,omitempty" jsonschema:"Add Ollama (LLM server, OLLAMA_HOST/OLLAMA_BASE_URL/OLLAMA_URL injected). Models live in one store shared by all projects and are pulled from the project's Services tab."`
+	OllamaGPU          bool              `json:"ollamaGpu,omitempty" jsonschema:"Hand the host's GPUs to Ollama (implies ollama; needs the NVIDIA Container Toolkit on the host)."`
 	Storage            bool              `json:"storage,omitempty" jsonschema:"Add S3-compatible object storage with a bucket per project (S3_* and AWS_* variables injected)."`
 	NodeVersion        string            `json:"nodeVersion,omitempty" jsonschema:"Add a Node.js container with this major version (e.g. 24): the project's runtime (dev server) or a toolchain for asset builds."`
 	NodeDevServer      bool              `json:"nodeDevServer,omitempty" jsonschema:"Run the package.json dev script as the project's main process. Without PHP it is reachable at the project URL, always at <slug>-dev.<base domain>. Requires nodeVersion."`
@@ -334,6 +336,9 @@ func (s *Server) createProject(ctx context.Context, _ *mcp.CallToolRequest, in c
 	}
 	if in.OpenSearch || in.OpenSearchDash {
 		req.OpenSearch = &project.ExtraRequest{Dashboards: in.OpenSearchDash}
+	}
+	if in.Ollama || in.OllamaGPU {
+		req.Ollama = &project.ExtraRequest{GPU: in.OllamaGPU}
 	}
 	if in.Storage {
 		req.Storage = &project.StorageRequest{}
@@ -469,7 +474,7 @@ func (s *Server) restartProject(ctx context.Context, _ *mcp.CallToolRequest, in 
 
 type getLogsIn struct {
 	Project string `json:"project" jsonschema:"Project id, slug or name"`
-	Service string `json:"service,omitempty" jsonschema:"Container: web, php, python, node, database, redis, memcached, mailpit, rabbitmq, meilisearch, typesense, opensearch, opensearch-dashboards or storage (default: the application container (php, else python, else node), else web)"`
+	Service string `json:"service,omitempty" jsonschema:"Container: web, php, python, node, database, redis, memcached, mailpit, rabbitmq, meilisearch, typesense, opensearch, opensearch-dashboards, ollama or storage (default: the application container (php, else python, else node), else web)"`
 	Tail    int    `json:"tail,omitempty" jsonschema:"Number of lines (default 200, max 2000)"`
 	Since   string `json:"since,omitempty" jsonschema:"Only lines from this time on: RFC 3339 or a duration back from now such as 30m, 6h or 7d"`
 	Until   string `json:"until,omitempty" jsonschema:"Only lines up to this time: RFC 3339 or a duration back from now"`
@@ -519,7 +524,7 @@ func (s *Server) logTarget(ctx context.Context, in getLogsIn) (string, store.Ser
 		}
 	}
 	switch kind {
-	case store.ServiceWeb, store.ServicePHP, store.ServicePython, store.ServiceNode, store.ServiceDatabase, store.ServiceRedis, store.ServiceMemcached, store.ServiceMailpit, store.ServiceRabbitMQ, store.ServiceMeilisearch, store.ServiceTypesense, store.ServiceOpenSearch, store.ServiceOpenSearchDashboards, store.ServiceStorage:
+	case store.ServiceWeb, store.ServicePHP, store.ServicePython, store.ServiceNode, store.ServiceDatabase, store.ServiceRedis, store.ServiceMemcached, store.ServiceMailpit, store.ServiceRabbitMQ, store.ServiceMeilisearch, store.ServiceTypesense, store.ServiceOpenSearch, store.ServiceOpenSearchDashboards, store.ServiceOllama, store.ServiceStorage:
 	default:
 		if name := kind.DatabaseName(); name != "" && project.ValidateDatabaseServiceName(name) == nil {
 			break

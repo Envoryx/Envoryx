@@ -30,7 +30,7 @@ func extraAlwaysPublished(kind store.ServiceKind) bool {
 
 // extraKinds are the auxiliary services ExtraServices describes. OpenSearch Dashboards is
 // described as part of OpenSearch.
-var extraKinds = []store.ServiceKind{store.ServiceRedis, store.ServiceMemcached, store.ServiceMailpit, store.ServiceRabbitMQ, store.ServiceMeilisearch, store.ServiceTypesense, store.ServiceOpenSearch}
+var extraKinds = []store.ServiceKind{store.ServiceRedis, store.ServiceMemcached, store.ServiceMailpit, store.ServiceRabbitMQ, store.ServiceMeilisearch, store.ServiceTypesense, store.ServiceOpenSearch, store.ServiceOllama}
 
 // extraPortKinds are the auxiliary services with a ServiceConfig whose ports count as used.
 var extraPortKinds = append(slices.Clone(extraKinds), store.ServiceOpenSearchDashboards)
@@ -94,6 +94,10 @@ func (m *Manager) ExtraServices(ctx context.Context, id string) ([]ExtraServiceI
 			info.Host, info.Port = "typesense", runtime.TypesensePort
 			info.VolumeName = VolumeName(view.Project.Slug, store.ServiceTypesense)
 			info.InjectedEnv = append(info.InjectedEnv, runtime.TypesenseEnvKeys...)
+		case store.ServiceOllama:
+			// No volume of its own: the models live in the store all projects share.
+			info.Host, info.Port, info.GPU = "ollama", runtime.OllamaPort, cfg.GPU
+			info.InjectedEnv = append(info.InjectedEnv, runtime.OllamaEnvKeys...)
 		case store.ServiceOpenSearch:
 			info.Host, info.Port = "opensearch", runtime.OpenSearchPort
 			info.VolumeName = VolumeName(view.Project.Slug, store.ServiceOpenSearch)
@@ -246,7 +250,7 @@ func (m *Manager) syncOpenSearchDashboards(ctx context.Context, id string, want 
 }
 
 // applyExtraUpdate adds, changes or removes Redis/Memcached/Mailpit/RabbitMQ/Meilisearch/
-// Typesense/OpenSearch. Callers hold the project lock.
+// Typesense/OpenSearch/Ollama. Callers hold the project lock.
 // It returns whether application containers must be recreated (their env changes).
 func (m *Manager) applyExtraUpdate(ctx context.Context, p store.Project, kind store.ServiceKind, upd ExtraUpdate, changes map[string]any) (bool, error) {
 	svc := p.Service(kind)
@@ -307,6 +311,14 @@ func (m *Manager) applyExtraUpdate(ctx context.Context, p store.Project, kind st
 				return false, err
 			}
 		}
+		if kind == store.ServiceOllama && upd.GPU != nil && *upd.GPU {
+			if err := m.checkGPU(ctx, p.ID, p.Slug, newSvc.Image); err != nil {
+				return false, err
+			}
+			if err := editConfig(&newSvc, func(c *runtime.ServiceConfig) error { c.GPU = true; return nil }); err != nil {
+				return false, err
+			}
+		}
 		if err := m.store.Projects.AddService(ctx, newSvc); err != nil {
 			return false, err
 		}
@@ -342,6 +354,17 @@ func (m *Manager) applyExtraUpdate(ctx context.Context, p store.Project, kind st
 			}
 			cfg.WebUIPort, portChanged = port, true
 		}
+		// The GPUs are handed over when the container is created, like a port.
+		gpuChanged := false
+		if kind == store.ServiceOllama && upd.GPU != nil && *upd.GPU != cfg.GPU {
+			if *upd.GPU {
+				if err := m.checkGPU(ctx, p.ID, p.Slug, v.Image); err != nil {
+					return false, err
+				}
+			}
+			cfg.GPU, gpuChanged = *upd.GPU, true
+			changes[name+"GPU"] = cfg.GPU
+		}
 		raw, err := json.Marshal(cfg)
 		if err != nil {
 			return false, err
@@ -355,7 +378,7 @@ func (m *Manager) applyExtraUpdate(ctx context.Context, p store.Project, kind st
 		if err := m.store.Projects.UpdateServiceConfig(ctx, p.ID, kind, v.Version, v.Image, raw); err != nil {
 			return false, err
 		}
-		if portChanged {
+		if portChanged || gpuChanged {
 			containers, err := m.engine.ListContainers(ctx, true, p.ID)
 			if err != nil {
 				return false, err

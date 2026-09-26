@@ -55,6 +55,7 @@ type Manifest struct {
 	Meilisearch *Service            `yaml:"meilisearch,omitempty"`
 	Typesense   *Service            `yaml:"typesense,omitempty"`
 	OpenSearch  *Service            `yaml:"opensearch,omitempty"`
+	Ollama      *Service            `yaml:"ollama,omitempty"`
 	Storage     *Storage            `yaml:"storage,omitempty"`
 
 	// Domains are extra host names next to the derived <slug>.<base domain>.
@@ -240,6 +241,8 @@ type Service struct {
 	ExposePort bool   `yaml:"exposePort,omitempty"`
 	// Dashboards adds OpenSearch Dashboards (OpenSearch only).
 	Dashboards bool `yaml:"dashboards,omitempty"`
+	// GPU hands the host's GPUs to Ollama (Ollama only).
+	GPU bool `yaml:"gpu,omitempty"`
 }
 
 // Storage is the S3-compatible object storage. In the file it is either "true" or a
@@ -430,9 +433,14 @@ func (m Manifest) Validate() error {
 			return bad("name: %v", unwrapInvalid(err))
 		}
 	}
-	for _, s := range []*Service{m.Redis, m.Memcached, m.Mailpit, m.RabbitMQ, m.Meilisearch, m.Typesense} {
+	for _, s := range []*Service{m.Redis, m.Memcached, m.Mailpit, m.RabbitMQ, m.Meilisearch, m.Typesense, m.Ollama} {
 		if s != nil && s.Dashboards {
 			return bad("dashboards belongs to opensearch")
+		}
+	}
+	for _, s := range []*Service{m.Redis, m.Memcached, m.Mailpit, m.RabbitMQ, m.Meilisearch, m.Typesense, m.OpenSearch} {
+		if s != nil && s.GPU {
+			return bad("gpu belongs to ollama")
 		}
 	}
 	if m.Web != nil && m.Web.SPAFallback && m.PHP != nil {

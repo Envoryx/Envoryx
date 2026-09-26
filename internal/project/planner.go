@@ -135,6 +135,18 @@ func (p *Planner) withPackageCache(spec *docker.ContainerSpec) {
 	spec.Mounts = append(spec.Mounts, p.packageCacheMount())
 }
 
+// The Ollama model store is one directory for all projects (/config/ollama on the
+// Envoryx side): a model is pulled once, whichever project runs it. Ollama writes blobs
+// under a temporary name and renames them, so two projects pulling at once do not
+// corrupt each other.
+const (
+	ollamaModelsDir    = "ollama"
+	ollamaModelsTarget = "/models"
+)
+
+// OllamaModelsDir is the shared Ollama model store on the Envoryx side.
+func (p *Planner) OllamaModelsDir() string { return filepath.Join(p.paths.ConfigDir, ollamaModelsDir) }
+
 // pythonVenvPath is the project's virtual environment as every container sees it: the
 // app mount plus runtime.PythonVenv. The container PATH, the Python actions and the
 // Python templates all create and use this one path.
@@ -603,6 +615,36 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 			plan.Containers = append(plan.Containers, ContainerPlan{Kind: store.ServiceTypesense, Order: 9, Spec: spec})
 			images[svc.Image] = true
 
+		case store.ServiceOllama:
+			var cfg runtime.ServiceConfig
+			if err := json.Unmarshal(svc.Config, &cfg); err != nil {
+				return Plan{}, fmt.Errorf("ollama config: %w", err)
+			}
+			plan.Dirs = append(plan.Dirs, DirPlan{Path: p.OllamaModelsDir(), UID: p.paths.PUID, GID: p.paths.PGID})
+			// As the project user, so the shared store belongs to one owner whichever
+			// project pulled a model. Ollama keeps its key pair in $HOME/.ollama; a new
+			// one per container is fine, it only signs pushes to ollama.com.
+			spec := docker.ContainerSpec{
+				Name:          ContainerName(proj.Slug, store.ServiceOllama),
+				Image:         svc.Image,
+				Labels:        labels,
+				Env:           []string{"HOME=/tmp", "OLLAMA_MODELS=" + ollamaModelsTarget},
+				User:          fmt.Sprintf("%d:%d", p.paths.PUID, p.paths.PGID),
+				Mounts:        []docker.MountSpec{{Type: "bind", Source: filepath.Join(p.paths.ConfigHostDir, ollamaModelsDir), Target: ollamaModelsTarget}},
+				Network:       plan.NetworkName,
+				NetworkAlias:  []string{"ollama"},
+				RestartPolicy: "unless-stopped",
+				StopTimeout:   10,
+				GPUs:          cfg.GPU,
+				// The image has neither curl nor wget; bash talks HTTP itself.
+				Healthcheck: &docker.HealthSpec{Test: []string{"bash", "-c", fmt.Sprintf(`exec 3<>/dev/tcp/127.0.0.1/%d && printf 'GET / HTTP/1.0\r\n\r\n' >&3 && grep -q 'Ollama is running' <&3`, runtime.OllamaPort)}, Interval: 10 * time.Second, Timeout: 3 * time.Second, StartPeriod: 10 * time.Second, Retries: 3},
+			}
+			if cfg.HostPort > 0 {
+				spec.Ports = []docker.PortSpec{{HostIP: p.paths.PublishInterface, HostPort: cfg.HostPort, ContainerPort: runtime.OllamaPort, Protocol: "tcp"}}
+			}
+			plan.Containers = append(plan.Containers, ContainerPlan{Kind: store.ServiceOllama, Order: 9, Spec: spec})
+			images[svc.Image] = true
+
 		case store.ServiceOpenSearch:
 			var cfg runtime.ServiceConfig
 			if err := json.Unmarshal(svc.Config, &cfg); err != nil {
@@ -970,6 +1012,12 @@ func (p *Planner) envStrings(proj store.Project) ([]string, error) {
 			set(k, env[k])
 		}
 	}
+	if ol := proj.Service(store.ServiceOllama); ol != nil && ol.Enabled {
+		env := runtime.OllamaEnv()
+		for _, k := range runtime.OllamaEnvKeys {
+			set(k, env[k])
+		}
+	}
 	if search := proj.Service(store.ServiceOpenSearch); search != nil && search.Enabled {
 		env := runtime.OpenSearchEnv()
 		for _, k := range runtime.OpenSearchEnvKeys {
@@ -1006,6 +1054,9 @@ func specFingerprint(spec docker.ContainerSpec) string {
 	// Only a set folder counts: containers from before the setting keep their fingerprint.
 	if f := spec.Labels[docker.LabelFolderView]; f != "" {
 		fields["folder"] = f
+	}
+	if spec.GPUs {
+		fields["gpu"] = true
 	}
 	_ = enc.Encode(fields)
 	return hex.EncodeToString(h.Sum(nil))[:16]

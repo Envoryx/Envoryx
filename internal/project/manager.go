@@ -71,6 +71,9 @@ type Manager struct {
 	cronOnce sync.Once
 	cronRuns *cronState // cron runs in progress (see cronjobs.go)
 
+	ollamaOnce sync.Once
+	ollama     *ollamaPulls // model downloads in progress (see ollama.go)
+
 	// logStore keeps container output beyond the containers; nil = queries read Docker
 	// only (see loghistory.go).
 	logStore     *logs.Store
@@ -351,6 +354,18 @@ func (m *Manager) buildProject(req CreateRequest) (store.Project, error) {
 		}
 		proj.Services = append(proj.Services, svc)
 	}
+	if req.Ollama != nil {
+		svc, err := m.buildExtraService(store.ServiceOllama, req.Ollama.Version)
+		if err != nil {
+			return store.Project{}, err
+		}
+		if req.Ollama.GPU {
+			if err := editConfig(&svc, func(c *runtime.ServiceConfig) error { c.GPU = true; return nil }); err != nil {
+				return store.Project{}, err
+			}
+		}
+		proj.Services = append(proj.Services, svc)
+	}
 	if req.OpenSearch != nil {
 		svc, err := m.buildExtraService(store.ServiceOpenSearch, req.OpenSearch.Version)
 		if err != nil {
@@ -520,7 +535,7 @@ func (m *Manager) buildExtraService(kind store.ServiceKind, version string) (sto
 			return store.ProjectService{}, err
 		}
 		position = 9
-	case store.ServiceOpenSearch, store.ServiceOpenSearchDashboards:
+	case store.ServiceOpenSearch, store.ServiceOpenSearchDashboards, store.ServiceOllama:
 		position = 9
 	}
 	return store.ProjectService{Kind: kind, Variant: string(kind), Version: v.Version, Image: v.Image, Enabled: true, Config: raw, Position: position}, nil
@@ -721,7 +736,7 @@ func (m *Manager) collectUsedPorts(ctx context.Context, used map[int]bool) error
 }
 
 // assignServicePorts allocates host ports for services the request wants published
-// (database, Redis, Memcached, RabbitMQ, Typesense, OpenSearch) and always for the web UIs of Mailpit,
+// (database, Redis, Memcached, RabbitMQ, Typesense, OpenSearch, Ollama) and always for the web UIs of Mailpit,
 // RabbitMQ and Meilisearch. Ports already chosen for this project are excluded so the
 // allocations do not collide with each other.
 func (m *Manager) assignServicePorts(ctx context.Context, proj *store.Project, req CreateRequest) error {
@@ -795,6 +810,11 @@ func (m *Manager) assignServicePorts(ctx context.Context, proj *store.Project, r
 	}
 	if req.OpenSearch != nil && req.OpenSearch.ExposePort {
 		if err := assign(store.ServiceOpenSearch); err != nil {
+			return err
+		}
+	}
+	if req.Ollama != nil && req.Ollama.ExposePort {
+		if err := assign(store.ServiceOllama); err != nil {
 			return err
 		}
 	}
@@ -952,7 +972,7 @@ func (m *Manager) resolveImages(p *store.Project) {
 			key = "node"
 		case store.ServicePython:
 			key = "python"
-		case store.ServiceRedis, store.ServiceMemcached, store.ServiceMailpit, store.ServiceRabbitMQ, store.ServiceMeilisearch, store.ServiceTypesense, store.ServiceOpenSearch, store.ServiceOpenSearchDashboards:
+		case store.ServiceRedis, store.ServiceMemcached, store.ServiceMailpit, store.ServiceRabbitMQ, store.ServiceMeilisearch, store.ServiceTypesense, store.ServiceOpenSearch, store.ServiceOpenSearchDashboards, store.ServiceOllama:
 			key = string(svc.Kind)
 		case store.ServiceWeb, store.ServiceDatabase, store.ServiceStorage:
 			key = svc.Variant

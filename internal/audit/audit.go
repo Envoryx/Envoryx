@@ -47,6 +47,10 @@ const (
 	ActionLogHistoryCleared = "logs.history_cleared"
 	// ActionPackageCacheCleared: the shared package cache (or one tool's part) was emptied.
 	ActionPackageCacheCleared = "cache.cleared"
+	// ActionOllamaModelPulled: a model download into the shared Ollama store ended (its
+	// status says how); Deleted: a model was removed from the store.
+	ActionOllamaModelPulled  = "ollama.model_pulled"
+	ActionOllamaModelDeleted = "ollama.model_deleted"
 
 	ActionBackupCreated  = "backup.created"
 	ActionBackupRestored = "backup.restored"

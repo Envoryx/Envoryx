@@ -88,6 +88,8 @@ func writeError(w http.ResponseWriter, r *http.Request, err error) {
 		ae = newError(http.StatusForbidden, "not_managed", "the resource is not managed by Envoryx")
 	case errors.Is(err, disk.ErrInsufficient):
 		ae = newError(http.StatusInsufficientStorage, "insufficient_storage", err.Error())
+	case errors.Is(err, docker.ErrNoGPU):
+		ae = newError(http.StatusConflict, "gpu_unavailable", docker.ErrNoGPU.Error())
 	case errors.Is(err, docker.ErrUnavailable):
 		ae = newError(http.StatusServiceUnavailable, "docker_unavailable", "the Docker engine is not reachable")
 	case errors.Is(err, project.ErrNotConfigured):

@@ -73,8 +73,8 @@ describe("ServicesTab search engines", () => {
     expect(await screen.findByText("Dashboard")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /:26010/ })).toBeInTheDocument();
     // Meilisearch's port carries the dashboard: no publish checkbox on its card, only on
-    // the cards offering Redis, Memcached, RabbitMQ, Typesense and OpenSearch.
-    expect(screen.getAllByLabelText("Publish port on the host")).toHaveLength(5);
+    // the cards offering Redis, Memcached, RabbitMQ, Typesense, OpenSearch and Ollama.
+    expect(screen.getAllByLabelText("Publish port on the host")).toHaveLength(6);
     expect(screen.getByRole("button", { name: "Add Typesense" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Add OpenSearch" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Show master key" }));
@@ -101,5 +101,83 @@ describe("ServicesTab search engines", () => {
     await waitFor(() => expect(api.calls.some((c) => c.method === "PATCH")).toBe(true));
     const body = api.calls.find((c) => c.method === "PATCH")!.body as { opensearch: { enabled: boolean; version: string; exposePort: boolean; dashboards: boolean } };
     expect(body.opensearch).toEqual({ enabled: true, version: "3.8", exposePort: false, dashboards: false });
+  });
+});
+
+describe("ServicesTab Ollama", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  const ollama = { kind: "ollama", version: "0.34", image: "ollama/ollama:0.34.4", host: "ollama", port: 11434, hostPort: 0, injectedEnv: ["OLLAMA_BASE_URL", "OLLAMA_HOST", "OLLAMA_URL"], state: "running", health: "healthy" };
+  const models = [{ name: "qwen3:8b", size: 5_200_000_000, modifiedAt: "2026-09-26T10:00:00Z", family: "qwen3", parameterSize: "8.2B", quantization: "Q4_K_M" }];
+
+  it("lists the shared models, starts a download, shows its progress and deletes a model after asking", async () => {
+    let pulls: unknown[] = [];
+    const api = mockApi({
+      ...authedRoutes,
+      "GET /runtimes": () => ({ body: runtimesFixture }),
+      [`GET ${P}/extras`]: () => ({ body: { services: [ollama] } }),
+      [`GET ${P}/storage`]: () => ({ status: 404, body: { error: { code: "not_found", message: "no storage" } } }),
+      [`GET ${P}/ollama/models`]: () => ({ body: { models, pulls } }),
+      [`POST ${P}/ollama/models`]: () => {
+        pulls = [{ model: "llama3.2", status: "pulling abc", completed: 1_000_000_000, total: 2_000_000_000, done: false, startedAt: "2026-09-26T12:00:00Z" }];
+        return { status: 202, body: { pull: pulls[0] } };
+      },
+      [`DELETE ${P}/ollama/models`]: () => ({ status: 204 }),
+    });
+    renderApp(<ServicesTab project={makeProject()} />);
+    const user = userEvent.setup();
+
+    expect(await screen.findByText("qwen3:8b")).toBeInTheDocument();
+    expect(screen.getByText("8.2B")).toBeInTheDocument();
+    expect(screen.getByText("shared by all projects")).toBeInTheDocument();
+
+    const input = screen.getByLabelText("Model");
+    await user.type(input, "bad name");
+    expect(screen.getByText("Not a model name, e.g. llama3.2 or qwen3:8b")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Download" })).toBeDisabled();
+    await user.clear(input);
+    await user.type(input, "llama3.2");
+    await user.click(screen.getByRole("button", { name: "Download" }));
+    await waitFor(() => expect(api.calls.some((c) => c.method === "POST")).toBe(true));
+    expect(api.calls.find((c) => c.method === "POST")!.body).toEqual({ model: "llama3.2" });
+    const bar = await screen.findByRole("progressbar", { name: "Download of llama3.2" });
+    expect(bar).toHaveAttribute("aria-valuenow", "50");
+
+    await user.click(screen.getByRole("button", { name: "Delete qwen3:8b" }));
+    expect(await screen.findByText(/every project with Ollama loses it/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Delete" }));
+    await waitFor(() => expect(api.calls.some((c) => c.method === "DELETE")).toBe(true));
+    expect(api.calls.find((c) => c.method === "DELETE")!.url).toBe(`/api/v1${P}/ollama/models/qwen3%3A8b`);
+  });
+
+  it("switches the GPU on and names the missing toolkit when Docker cannot", async () => {
+    const api = mockApi({
+      ...authedRoutes,
+      "GET /runtimes": () => ({ body: runtimesFixture }),
+      [`GET ${P}/extras`]: () => ({ body: { services: [ollama] } }),
+      [`GET ${P}/storage`]: () => ({ status: 404, body: { error: { code: "not_found", message: "no storage" } } }),
+      [`GET ${P}/ollama/models`]: () => ({ body: { models: [], pulls: [] } }),
+      [`PATCH ${P}`]: () => ({ status: 409, body: { error: { code: "gpu_unavailable", message: "Docker cannot hand GPUs to containers; install the NVIDIA Container Toolkit (on Unraid: the Nvidia Driver plugin) and restart Docker" } } }),
+    });
+    renderApp(<ServicesTab project={makeProject()} />);
+    const user = userEvent.setup();
+
+    const gpu = await screen.findByRole("checkbox", { name: /^Use the GPU/ });
+    expect(gpu).not.toBeChecked();
+    await user.click(gpu);
+    await waitFor(() => expect(api.calls.some((c) => c.method === "PATCH")).toBe(true));
+    expect(api.calls.find((c) => c.method === "PATCH")!.body).toEqual({ ollama: { enabled: true, version: "0.34", exposePort: false, gpu: true } });
+    expect(await screen.findByText(/install the NVIDIA Container Toolkit/)).toBeInTheDocument();
+  });
+
+  it("asks to start the project before models can be managed", async () => {
+    mockApi({
+      ...authedRoutes,
+      "GET /runtimes": () => ({ body: runtimesFixture }),
+      [`GET ${P}/extras`]: () => ({ body: { services: [{ ...ollama, state: "exited", health: undefined }] } }),
+      [`GET ${P}/storage`]: () => ({ status: 404, body: { error: { code: "not_found", message: "no storage" } } }),
+    });
+    renderApp(<ServicesTab project={makeProject()} />);
+    expect(await screen.findByText("Start the project to download and manage models.")).toBeInTheDocument();
   });
 });

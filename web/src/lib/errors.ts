@@ -82,6 +82,9 @@ const templates = [
   "the interval must be {{min}} to {{max}} seconds",
   "the timeout must be 1 to {{max}} seconds",
   "the failures before an alarm must be 1 to {{max}}",
+  "\"{{name}}\" is not a model name (e.g. llama3.2 or qwen3:8b)",
+  "{{model}} is already being downloaded",
+  "no download of {{model}} is running",
 ];
 
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

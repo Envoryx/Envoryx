@@ -63,6 +63,7 @@ const (
 	ServiceMeilisearch ServiceKind = "meilisearch"
 	ServiceTypesense   ServiceKind = "typesense"
 	ServiceOpenSearch  ServiceKind = "opensearch"
+	ServiceOllama      ServiceKind = "ollama"
 	// ServiceOpenSearchDashboards belongs to ServiceOpenSearch: same version, and it goes
 	// when OpenSearch goes.
 	ServiceOpenSearchDashboards ServiceKind = "opensearch-dashboards"

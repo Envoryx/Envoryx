@@ -75,6 +75,9 @@ interface Form {
   opensearchVersion: string;
   opensearchExpose: boolean;
   opensearchDashboards: boolean;
+  ollama: boolean;
+  ollamaExpose: boolean;
+  ollamaGpu: boolean;
   storage: boolean;
   template: string; // "" = blank
   gitUrl: string;
@@ -158,6 +161,9 @@ export function NewProjectPage() {
         opensearchVersion: runtimes.data.runtimes.find((r) => r.key === "opensearch")?.versions.find((v) => v.default)?.version ?? "",
         opensearchExpose: false,
         opensearchDashboards: false,
+        ollama: false,
+        ollamaExpose: false,
+        ollamaGpu: false,
         storage: false,
         template: "",
         gitUrl: "",
@@ -208,6 +214,7 @@ export function NewProjectPage() {
     if (form.meilisearch) req.meilisearch = {};
     if (form.typesense) req.typesense = { exposePort: form.typesenseExpose };
     if (form.opensearch) req.opensearch = { version: form.opensearchVersion, exposePort: form.opensearchExpose, dashboards: form.opensearchDashboards };
+    if (form.ollama) req.ollama = { exposePort: form.ollamaExpose, gpu: form.ollamaGpu };
     if (form.storage) req.storage = {};
     if (form.importing) {
       if (form.importSite) req.import = { id: form.importSite.id, adaptConfig: form.adaptConfig };
@@ -274,7 +281,7 @@ export function NewProjectPage() {
   const wizardServices = [
     ...(form.dbType ? [{ kind: "database", variant: form.dbType }] : []),
     ...form.extraDbs.filter((d) => d.name.trim()).map((d) => ({ kind: `db-${d.name.trim()}`, variant: d.type })),
-    ...(["redis", "memcached", "mailpit", "rabbitmq", "meilisearch", "typesense", "opensearch", "storage"] as const).filter((k) => form[k]).map((kind) => ({ kind })),
+    ...(["redis", "memcached", "mailpit", "rabbitmq", "meilisearch", "typesense", "opensearch", "ollama", "storage"] as const).filter((k) => form[k]).map((kind) => ({ kind })),
   ];
   const setExtraDb = (i: number, patch: Partial<Form["extraDbs"][number]>) => set({ extraDbs: form.extraDbs.map((d, j) => (j === i ? { ...d, ...patch } : d)) });
   const set = (patch: Partial<Form>) => setForm((f) => (f ? { ...f, ...patch } : f));
@@ -818,6 +825,15 @@ export function NewProjectPage() {
                       <div className="sm:col-span-2">
                         <Checkbox label="OpenSearch Dashboards" description={t("Web UI with the Dev Tools console, index management and Discover, on its own port. The image is about 2.6 GB and needs roughly 400 MB of RAM.")} checked={form.opensearchDashboards} onChange={(e) => set({ opensearchDashboards: e.target.checked })} />
                       </div>
+                    </div>
+                  )}
+                </div>
+                <div className="rounded-md border border-default p-4 space-y-3">
+                  <Checkbox label="Ollama" description={t("Runs language and embedding models locally (Laravel Prism, LangChain, the Ollama libraries). Injects OLLAMA_HOST, OLLAMA_BASE_URL and OLLAMA_URL. Models live in one store shared by all projects; download them in the Services tab.")} checked={form.ollama} onChange={(e) => set({ ollama: e.target.checked })} />
+                  {form.ollama && (
+                    <div className="space-y-3 pl-7">
+                      <Checkbox label={t("Use the GPU")} description={t("Hands the host's NVIDIA GPUs to Ollama. Docker needs the NVIDIA Container Toolkit for it (on Unraid: the Nvidia Driver plugin); Envoryx checks that before switching.")} checked={form.ollamaGpu} onChange={(e) => set({ ollamaGpu: e.target.checked })} />
+                      <Checkbox label={t("Publish port on the host")} description={t("For clients and dashboards running on your machine.")} checked={form.ollamaExpose} onChange={(e) => set({ ollamaExpose: e.target.checked })} />
                     </div>
                   )}
                 </div>

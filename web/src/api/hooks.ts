@@ -235,6 +235,26 @@ export function useExtraServices(id: string) {
   return useQuery({ queryKey: ["projects", id, "extras"], queryFn: async () => (await api.projects.extras(id)).services, refetchInterval: LIVE_INTERVAL });
 }
 
+/** The shared Ollama store's models and the project's downloads; polled every second while one runs. */
+export function useOllamaModels(id: string, enabled = true) {
+  return useQuery({
+    queryKey: ["projects", id, "ollama"],
+    queryFn: () => api.ollama.models(id),
+    enabled,
+    refetchInterval: (q) => (q.state.data?.pulls.some((p) => !p.done) ? 1000 : LIVE_INTERVAL),
+  });
+}
+
+/** Downloading, cancelling and deleting Ollama models; every change refreshes the list. */
+export function useOllamaMutations(id: string) {
+  const qc = useQueryClient();
+  const refresh = () => void qc.invalidateQueries({ queryKey: ["projects", id, "ollama"] });
+  const pull = useMutation({ mutationFn: async (model: string) => (await api.ollama.pull(id, model)).pull, onSuccess: refresh });
+  const cancel = useMutation({ mutationFn: (model: string) => api.ollama.cancel(id, model), onSuccess: refresh });
+  const remove = useMutation({ mutationFn: (model: string) => api.ollama.remove(id, model), onSuccess: refresh });
+  return { pull, cancel, remove };
+}
+
 /** The project's object storage; null when it has none (404). */
 export function useStorage(id: string) {
   return useQuery({

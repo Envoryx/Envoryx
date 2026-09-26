@@ -382,6 +382,8 @@ export interface ExtraRequest {
   exposePort?: boolean;
   /** OpenSearch only: add OpenSearch Dashboards. */
   dashboards?: boolean;
+  /** Ollama only: hand the host's GPUs to the container. */
+  gpu?: boolean;
 }
 
 export interface ExtraUpdate {
@@ -391,6 +393,8 @@ export interface ExtraUpdate {
   removeData?: boolean;
   /** OpenSearch only: switch OpenSearch Dashboards on or off; left out, it stays as it is. */
   dashboards?: boolean;
+  /** Ollama only: switch the GPUs on or off; left out, it stays as it is. */
+  gpu?: boolean;
 }
 
 export interface ExtraServiceInfo {
@@ -409,6 +413,34 @@ export interface ExtraServiceInfo {
   username?: string;
   /** OpenSearch Dashboards, when the OpenSearch service has it; its port is webUiPort. */
   dashboards?: { image: string; state: string; health?: string };
+  /** Ollama: whether it was handed the host's GPUs. */
+  gpu?: boolean;
+}
+
+/** A model in the Ollama store every project shares. */
+export interface OllamaModel {
+  name: string;
+  size: number;
+  modifiedAt: string;
+  family?: string;
+  parameterSize?: string;
+  quantization?: string;
+}
+
+/** A model download started from Envoryx; completed and total add up the model's layers. */
+export interface OllamaPull {
+  model: string;
+  status: string;
+  completed: number;
+  total: number;
+  error?: string;
+  done: boolean;
+  startedAt: string;
+}
+
+export interface OllamaModels {
+  models: OllamaModel[];
+  pulls: OllamaPull[];
 }
 
 export interface RabbitMQCredentials {
@@ -512,6 +544,7 @@ export interface CreateProjectRequest {
   meilisearch?: ExtraRequest | null;
   typesense?: ExtraRequest | null;
   opensearch?: ExtraRequest | null;
+  ollama?: ExtraRequest | null;
   storage?: StorageRequest | null;
   git?: GitRequest | null;
   web?: WebRequest;
@@ -692,6 +725,7 @@ export interface UpdateProjectRequest {
   meilisearch?: ExtraUpdate;
   typesense?: ExtraUpdate;
   opensearch?: ExtraUpdate;
+  ollama?: ExtraUpdate;
   storage?: StorageUpdate;
   env?: EnvVar[];
   ideGateway?: boolean;
