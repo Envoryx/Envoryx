@@ -241,10 +241,15 @@ var dialects = map[string]Dialect{
 			}
 			return "/var/lib/postgresql/data"
 		},
+		// PGUSER names the role for the health check and for psql in the container's
+		// terminal: without it both log in as the OS user, and the server logs
+		// "role \"root\" does not exist" on every probe (127.0.0.1 is trusted, so the
+		// role is checked).
 		ContainerEnv: func(c DatabaseConfig) []string {
-			return []string{"POSTGRES_USER=" + c.Username, "POSTGRES_PASSWORD=" + c.Password, "POSTGRES_DB=" + c.Database}
+			return []string{"POSTGRES_USER=" + c.Username, "POSTGRES_PASSWORD=" + c.Password, "POSTGRES_DB=" + c.Database, "PGUSER=" + c.Username}
 		},
-		Health: []string{"pg_isready", "-h", "127.0.0.1"},
+		// -d postgres: the default database is PGUSER's namesake, which need not exist.
+		Health: []string{"pg_isready", "-h", "127.0.0.1", "-d", "postgres"},
 		Client: func(c DatabaseConfig, sql string) ([]string, []string) {
 			return []string{"psql", "-h", "127.0.0.1", "-U", c.Username, "-d", "postgres", "-A", "-t", "-q", "-v", "ON_ERROR_STOP=1", "-c", sql}, []string{"PGPASSWORD=" + c.Password}
 		},

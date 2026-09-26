@@ -34,6 +34,9 @@ release). `:main` follows the development branch.
   `APP_URL=${ENVORYX_URL}` in a `.env`.
 
 ### Fixed
+- PostgreSQL no longer logs `FATAL: role "root" does not exist` every ten
+  seconds: the health check logs in as the project's database user, and `psql`
+  in the container's terminal now does too.
 - A project with PHP and a PostgreSQL database got no `pdo_pgsql` extension,
   so the Symfony template (PostgreSQL by default) and every PostgreSQL
   application found no driver. It is now switched on with the database,
