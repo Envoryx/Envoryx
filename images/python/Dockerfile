@@ -32,5 +32,10 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     UV_LINK_MODE=copy
 
+# SSH sessions (and IDEs probing over SSH) run a login shell, whose /etc/profile resets
+# PATH – python, pip and pytest would resolve to the image's instead of the project's
+# .venv, and pip install --user tools would vanish. VIRTUAL_ENV comes from Envoryx.
+RUN printf '%s\n' 'if [ -n "$VIRTUAL_ENV" ]; then export PATH="$VIRTUAL_ENV/bin:$HOME/.local/bin:$PATH"; fi' > /etc/profile.d/envoryx-python.sh
+
 WORKDIR /var/www/html
 CMD ["sleep", "infinity"]

@@ -34,6 +34,12 @@ release). `:main` follows the development branch.
   `--go-server`, `--go-package`) cover Go. The image builds and the weekly
   runtime-version check include Go.
 
+### Fixed
+- SSH sessions into the Python container (`<project>.python`, also IDEs that
+  probe over SSH) now find the project's `.venv` first on `PATH` – `python`,
+  `pip`, `pytest` resolved to the image's interpreter, because the login shell
+  reset `PATH`. Needs the updated `envoryx-python` images.
+
 ## [0.11.0] – 2026-09-26
 
 ### Added
