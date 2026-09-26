@@ -10,7 +10,12 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.10.0] – 2026-09-26
+
 ### Added
+- `ENVORYX_URL`: the address a project answers at, injected into its
+  containers and recomputed with every plan (after a rename, too) – for
+  `APP_URL=${ENVORYX_URL}` in a `.env`.
 - Rules for a project's host names, applied by the proxy (*Domains → Rules*,
   `PUT /projects/{id}/proxy-rules`): an address allowlist, HTTP basic
   authentication, redirects (paths and prefixes, to paths or other hosts),
@@ -29,9 +34,6 @@ release). `:main` follows the development branch.
   site:install*, *typo3 setup* and *craft install* create the administrator and
   print a generated password, *system:install* sets Shopware up (admin /
   shopware). The web installers of Drupal, TYPO3 and Craft work too.
-- `ENVORYX_URL`: the address a project answers at, injected into its
-  containers and recomputed with every plan (after a rename, too) – for
-  `APP_URL=${ENVORYX_URL}` in a `.env`.
 
 ### Fixed
 - pnpm failed in the Node container with `EACCES` under
@@ -822,7 +824,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/envoryx/envoryx/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/envoryx/envoryx/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/envoryx/envoryx/compare/v0.7.1...v0.8.0
 [0.7.1]: https://github.com/envoryx/envoryx/compare/v0.7.0...v0.7.1
