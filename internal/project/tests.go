@@ -15,6 +15,7 @@ import (
 
 	"github.com/envoryx/envoryx/internal/audit"
 	"github.com/envoryx/envoryx/internal/docker"
+	"github.com/envoryx/envoryx/internal/runtime"
 	"github.com/envoryx/envoryx/internal/store"
 	"github.com/envoryx/envoryx/internal/validate"
 )
@@ -283,14 +284,56 @@ var rubyTestEnv = []string{"RAILS_ENV=test", "RACK_ENV=test", "APP_ENV=test", "H
 // rubyTestScript points DATABASE_URL at <database>_test on the same server before the
 // runner starts. Active Record merges DATABASE_URL into whatever environment runs – the
 // test run would otherwise load its fixtures into the development database and empty its
-// tables. A URL with a query (MongoDB's authSource) is left alone. Rails creates the test
-// database itself (maintain_test_schema runs db:test:prepare) where the login may create
-// databases – PostgreSQL's project login may, MySQL's and MariaDB's may not.
+// tables. A URL with a query (MongoDB's authSource) is left alone. ensureTestDatabase
+// creates the database; loading the schema is Rails' job (maintain_test_schema).
 const rubyTestScript = `case "$DATABASE_URL" in
   *'?'*|'') ;;
   *) export DATABASE_URL="${DATABASE_URL}_test" ;;
 esac
 exec "$@"`
+
+// ensureTestDatabase creates <database>_test on the project's primary SQL database when it
+// is missing – as the administrator, who grants the project login access: MySQL's and
+// MariaDB's project login may not create databases itself. Callers hold the lock. A
+// project without an SQL database has nothing to prepare; a server that cannot be asked
+// (stopped, unreachable) is left to the test run's own error.
+func (m *Manager) ensureTestDatabase(ctx context.Context, id string) error {
+	p, err := m.loadProject(ctx, id)
+	if err != nil {
+		return err
+	}
+	svc, cfg, err := databaseOf(p, "")
+	if err != nil || svc.Variant == "mongodb" {
+		return nil
+	}
+	dialect, err := dialectOf(svc)
+	if err != nil {
+		return nil
+	}
+	name := cfg.Database + "_test"
+	if runtime.ValidateDatabaseName(name) != nil {
+		return nil
+	}
+	out, err := m.runSQL(ctx, p, svc, cfg, dialect.ListDatabases)
+	if err != nil {
+		m.log.Warn("list databases before the test run", "project", p.Slug, "err", err)
+		return nil
+	}
+	for _, line := range strings.Split(out, "\n") {
+		if strings.TrimSpace(line) == name {
+			return nil
+		}
+	}
+	stmt := dialect.CreateDatabase(name, cfg.Username)
+	if cfg.External() && dialect.HasRoot {
+		stmt = fmt.Sprintf("CREATE DATABASE `%s` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci", name)
+	}
+	if _, err := m.runSQL(ctx, p, svc, cfg, stmt); err != nil {
+		return fmt.Errorf("create the test database %s: %w", name, err)
+	}
+	m.audit.Log(ctx, audit.ActionDBCreated, "project", id, auditDB(map[string]any{"name": p.Name, "database": name}, ""))
+	return nil
+}
 
 func firstExisting(exists func(string) bool, names ...string) string {
 	for _, n := range names {
@@ -374,6 +417,12 @@ func (m *Manager) RunTests(ctx context.Context, id, suiteID, filter string, cols
 	c, err := m.ServiceContainer(ctx, id, suite.Service)
 	if err != nil {
 		return nil, err
+	}
+	if suite.Service == store.ServiceRuby {
+		// rubyTestScript points the run at <database>_test; Rails does not create it.
+		if err := m.ensureTestDatabase(ctx, id); err != nil {
+			return nil, err
+		}
 	}
 	paths, err := m.paths()
 	if err != nil {
