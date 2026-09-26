@@ -17,6 +17,7 @@ function sectionLabel(section: string, t: TFunction): string {
     node: "Node.js",
     python: "Python",
     go: "Go",
+    ruby: "Ruby",
     redis: "Redis",
     memcached: "Memcached",
     mailpit: "Mailpit",

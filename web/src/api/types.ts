@@ -132,11 +132,11 @@ export interface EnvVar {
   isSecret: boolean;
 }
 
-/** What a project's primary hostname serves: PHP-FPM behind the web server, the Python or Go server, the Node dev server or static files. */
-export type Serves = "php" | "python" | "go" | "node" | "static";
+/** What a project's primary hostname serves: PHP-FPM behind the web server, the Python, Go or Ruby server, the Node dev server or static files. */
+export type Serves = "php" | "python" | "go" | "ruby" | "node" | "static";
 
 /** Kind of the container that runs the project's code. */
-export type AppKind = "php" | "python" | "go" | "node";
+export type AppKind = "php" | "python" | "go" | "ruby" | "node";
 
 export interface Project {
   id: string;
@@ -211,8 +211,8 @@ export interface ProxyRulesRequest extends Omit<ProxyRules, "basicAuth"> {
 
 /**
  * Client-side fallback for `project.serves`: PHP enabled → php; Python enabled with the server
- * on → python; Go with the server on → go; Node enabled with the dev server on → node;
- * everything else → static. Prefer
+ * on → python; Go with the server on → go; Ruby with the server on → ruby; Node enabled with
+ * the dev server on → node; everything else → static. Prefer
  * `project.serves ?? servesOf(project)`.
  */
 export function servesOf(p: Pick<Project, "services">): Serves {
@@ -222,6 +222,8 @@ export function servesOf(p: Pick<Project, "services">): Serves {
   if (python && (python.config as PythonConfig).server) return "python";
   const go = enabled("go");
   if (go && (go.config as GoConfig).server) return "go";
+  const ruby = enabled("ruby");
+  if (ruby && (ruby.config as RubyConfig).server) return "ruby";
   const node = enabled("node");
   if (node && (node.config as NodeConfig).devServer) return "node";
   return "static";
@@ -230,7 +232,7 @@ export function servesOf(p: Pick<Project, "services">): Serves {
 /** Client-side fallback for `project.appService`: the first enabled application runtime. */
 export function appKindOf(p: Pick<Project, "services">): AppKind | undefined {
   const enabled = (kind: string) => p.services.some((s) => s.kind === kind && s.enabled);
-  return enabled("php") ? "php" : enabled("python") ? "python" : enabled("go") ? "go" : enabled("node") ? "node" : undefined;
+  return enabled("php") ? "php" : enabled("python") ? "python" : enabled("go") ? "go" : enabled("ruby") ? "ruby" : enabled("node") ? "node" : undefined;
 }
 
 export interface RuntimeVersion {
@@ -275,6 +277,8 @@ export interface ProjectTemplate {
   python?: PythonConfig;
   /** Server defaults of a Go template (package, port). */
   go?: GoConfig;
+  /** Server defaults of a Ruby template (preset, port). */
+  ruby?: RubyConfig;
 }
 
 /** Framework preset of the Node dev server with the port the framework listens on by default. */
@@ -311,6 +315,19 @@ export const defaultPythonPresets: PythonPreset[] = [
   { key: "module", label: "Other (python -m, HOST/PORT env only)", port: 8000, app: "app", appLabel: "Module", appHint: "run as python -m <module>; listen on $HOST:$PORT" },
 ];
 
+/** Server preset of the Ruby runtime with its default port. */
+export interface RubyPreset {
+  key: string;
+  label: string;
+  port: number;
+}
+
+/** Fallback when the backend predates rubyPresets. */
+export const defaultRubyPresets: RubyPreset[] = [
+  { key: "rails", label: "Rails", port: 3000 },
+  { key: "rack", label: "Rack (Puma on config.ru: Sinatra, Roda, Hanami …)", port: 9292 },
+];
+
 export interface RuntimesResponse {
   runtimes: Runtime[];
   phpExtensions: PHPExtension[];
@@ -318,6 +335,7 @@ export interface RuntimesResponse {
   templates?: ProjectTemplate[];
   nodePresets?: NodePreset[];
   pythonPresets?: PythonPreset[];
+  rubyPresets?: RubyPreset[];
 }
 
 export interface DatabaseRequest {
@@ -577,6 +595,32 @@ export interface GoConfig {
   debugHostPort?: number;
 }
 
+/** Ruby service with optional server mode (Rails or Rack/Puma). */
+export interface RubyRequest {
+  version: string;
+  server?: boolean;
+  /** "dev" (default, RAILS_ENV/RACK_ENV development) or "production". */
+  mode?: string;
+  /** "rails" (default) or "rack". */
+  preset?: string;
+  port?: number;
+  /** Run the server under rdbg (or, without the server, publish its port). */
+  debug?: boolean;
+  debugPort?: number;
+}
+
+/** Stored Ruby service config (from project.services[kind=ruby].config). */
+export interface RubyConfig {
+  server?: boolean;
+  mode?: string;
+  preset?: string;
+  port?: number;
+  hostPort?: number;
+  debug?: boolean;
+  debugPort?: number;
+  debugHostPort?: number;
+}
+
 /** Stored web service config (from project.services[kind=web].config). */
 export interface WebServerConfig {
   /** Unknown paths return index.html (client-side routing); only for projects without PHP. */
@@ -598,6 +642,7 @@ export interface CreateProjectRequest {
   node?: NodeRequest | null;
   python?: PythonRequest | null;
   go?: GoRequest | null;
+  ruby?: RubyRequest | null;
   database?: DatabaseRequest | null;
   /** Additional databases, each reached by its name (host, NAME_DB_* variables). */
   databases?: (DatabaseRequest & { name: string })[];
@@ -637,7 +682,7 @@ export interface SiteAnalysis {
   files: number;
   bytes: number;
   framework: { id: string; name: string; version?: string };
-  runtime: "php" | "static" | "node" | "python" | "go";
+  runtime: "php" | "static" | "node" | "python" | "go" | "ruby";
   phpVersion?: string;
   phpExtensions?: string[];
   docroot: string;
@@ -780,6 +825,7 @@ export interface UpdateProjectRequest {
   node?: ({ enabled: true } & NodeRequest) | { enabled: false };
   python?: ({ enabled: true } & PythonRequest) | { enabled: false };
   go?: ({ enabled: true } & GoRequest) | { enabled: false };
+  ruby?: ({ enabled: true } & RubyRequest) | { enabled: false };
   database?: DatabaseUpdate;
   /** Adds, changes or removes (enabled: false) additional databases by name. */
   databases?: Record<string, DatabaseUpdate>;
@@ -1347,7 +1393,7 @@ export interface Worker {
   createdAt: string;
 }
 
-export type CronRuntime = "php" | "node" | "python" | "go";
+export type CronRuntime = "php" | "node" | "python" | "go" | "ruby";
 export type CronRunStatus = "running" | "succeeded" | "failed" | "timed_out" | "error" | "interrupted";
 
 export interface CronRun {
@@ -1394,7 +1440,7 @@ export interface WorkerPreset {
   argLabel?: string;
   argHint?: string;
   requires?: string[];
-  /** Service the worker runs in: "php", "node", "python" or "go". */
+  /** Service the worker runs in: "php", "node", "python", "go" or "ruby". */
   runtime?: string;
 }
 

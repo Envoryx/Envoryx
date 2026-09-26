@@ -18,7 +18,7 @@ function ServiceBadges({ project }: { project: Project }) {
   const runtime = app ? project.services.find((s) => s.kind === app && s.enabled) : undefined;
   const web = project.services.find((s) => s.kind === "web");
   const db = project.services.find((s) => s.kind === "database");
-  const extras = project.services.filter((s) => s.enabled && s.kind !== app && (s.kind === "node" || s.kind === "python" || s.kind === "go" || s.kind === "redis" || s.kind === "memcached" || s.kind === "mailpit" || s.kind === "rabbitmq" || s.kind === "meilisearch" || s.kind === "typesense" || s.kind === "opensearch" || s.kind === "ollama" || s.kind === "storage"));
+  const extras = project.services.filter((s) => s.enabled && s.kind !== app && (s.kind === "node" || s.kind === "python" || s.kind === "go" || s.kind === "ruby" || s.kind === "redis" || s.kind === "memcached" || s.kind === "mailpit" || s.kind === "rabbitmq" || s.kind === "meilisearch" || s.kind === "typesense" || s.kind === "opensearch" || s.kind === "ollama" || s.kind === "storage"));
   return (
     <div className="flex flex-wrap gap-1.5">
       {runtime ? <Badge tone="blue">{serviceLabel(runtime.kind, runtime.version)}</Badge> : <Badge>{t("Static")}</Badge>}
@@ -135,7 +135,7 @@ export function ProjectsPage() {
       ) : q.data.length === 0 ? (
         <EmptyState
           title={t("No projects yet")}
-          message={t("Create a project to get an isolated PHP, Python, Go or Node.js environment with its own web server and Docker network.")}
+          message={t("Create a project to get an isolated PHP, Python, Go, Ruby or Node.js environment with its own web server and Docker network.")}
           action={
             <LinkButton to="/projects/new" variant="primary" icon={<Plus className="size-4" />}>
               {t("Create your first project")}

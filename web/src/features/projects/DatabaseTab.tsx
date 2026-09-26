@@ -88,7 +88,7 @@ function AddDatabaseCard({ project, onAdded, onCancel }: { project: Project; onA
         title={existing.length === 0 ? t("Database") : t("Add database")}
         description={
           existing.length === 0
-            ? t("This project has no database yet. Adding one creates a container with a persistent volume and injects the connection variables into the application containers (PHP, Python, Go, Node).")
+            ? t("This project has no database yet. Adding one creates a container with a persistent volume and injects the connection variables into the application containers (PHP, Python, Go, Ruby, Node).")
             : t("An additional database runs in a container of its own with its own volume and credentials. It is reached at its name as host and injects variables that start with its name (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …).")
         }
       />
@@ -276,10 +276,10 @@ function DatabasePanel({ project, db, onRemoved }: { project: Project; db: strin
             }
             description={
               external
-                ? t("An external server Envoryx does not run. These values are injected into the application containers (PHP, Python, Go, Node).")
+                ? t("An external server Envoryx does not run. These values are injected into the application containers (PHP, Python, Go, Ruby, Node).")
                 : db
-                  ? t("Inside the project network at the host “{{host}}”. The application containers (PHP, Python, Go, Node) receive these values as {{prefix}}_DB_* and {{prefix}}_DATABASE_URL.", { host: d.host, prefix: databaseEnvPrefix(db) })
-                  : t("Inside the project network. These values are injected into the application containers (PHP, Python, Go, Node).")
+                  ? t("Inside the project network at the host “{{host}}”. The application containers (PHP, Python, Go, Ruby, Node) receive these values as {{prefix}}_DB_* and {{prefix}}_DATABASE_URL.", { host: d.host, prefix: databaseEnvPrefix(db) })
+                  : t("Inside the project network. These values are injected into the application containers (PHP, Python, Go, Ruby, Node).")
             }
             actions={
               <span className="inline-flex items-center gap-1.5 text-xs">

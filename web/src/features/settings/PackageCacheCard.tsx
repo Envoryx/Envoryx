@@ -7,7 +7,7 @@ import { Alert, Button, Card, CardHeader, Code, ErrorState, Spinner } from "@/co
 import { errorText } from "@/lib/errors";
 import { formatBytes } from "@/lib/format";
 
-const toolNames: Record<string, string> = { composer: "Composer", npm: "npm", yarn: "Yarn", pnpm: "pnpm", pip: "pip", uv: "uv", gomod: "Go modules", gobuild: "Go build cache" };
+const toolNames: Record<string, string> = { composer: "Composer", npm: "npm", yarn: "Yarn", pnpm: "pnpm", pip: "pip", uv: "uv", gomod: "Go modules", gobuild: "Go build cache", bundler: "Bundler" };
 
 /** The package cache every project shares: what each tool keeps there, and emptying it. */
 export function PackageCacheCard() {
@@ -34,7 +34,7 @@ export function PackageCacheCard() {
             {t("Package cache")}
           </span>
         }
-        description={t("Composer, npm, Yarn, pip, uv and Go keep their downloads in one cache shared by all projects, so a package is downloaded once. It fills up over time; emptying it only means the next install downloads again.")}
+        description={t("Composer, npm, Yarn, pip, uv, Go and Bundler keep their downloads in one cache shared by all projects, so a package is downloaded once. It fills up over time; emptying it only means the next install downloads again.")}
       />
       <div className="space-y-4 p-5">
         {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}

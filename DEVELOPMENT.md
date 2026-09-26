@@ -76,7 +76,10 @@ the project shapes – PHP, project without PHP with a Node dev server
 server (`python_test.go`: entry-file wait guard, venv `PATH`, debugpy port,
 Python + Node frontend, removal with paused workers), Go server
 (`golang_test.go`: `go.mod` wait guard, air/Delve commands, host ports,
-templates, workers, tests and the manifest) and static site (SPA
+templates, workers, tests and the manifest), Ruby server (`ruby_test.go`:
+Gemfile wait and bundle guard, rdbg, `postgresql://` rewrite, the Rails
+template, workers, the `_test` redirect of the test suites and the manifest)
+and static site (SPA
 fallback, `index.html` starter). `internal/runtime/webserver_test.go` pins
 the PHP web configs as goldens so the static branch cannot drift into them.
 
@@ -245,16 +248,20 @@ template to repeat it.
 
 ## Adding a runtime version
 
-PHP, Node, Python and Go versions live in `internal/runtime/php_versions.json`,
-`node_versions.json`, `python_versions.json` and `go_versions.json` – the single source of truth
+PHP, Node, Python, Go and Ruby versions live in `internal/runtime/php_versions.json`,
+`node_versions.json`, `python_versions.json`, `go_versions.json` and
+`ruby_versions.json` – the single source of truth
 for the catalogue (embedded into the binary) and the image build matrices
-(`php-images.yml`, `node-images.yml`, `python-images.yml`, `go-images.yml` read them with
+(`php-images.yml`, `node-images.yml`, `python-images.yml`, `go-images.yml`,
+`ruby-images.yml` read them with
 `jq`). Normally you never edit them by hand:
 `.github/workflows/runtime-versions.yml` runs `scripts/check-versions.py
-php|node|python|go` weekly and opens a PR when upstream changes (Node: newest
+php|node|python|go|ruby` weekly and opens a PR when upstream changes (Node: newest
 LTS becomes the default, EOL "current" releases are dropped; Python: release
 candidates appear as `preview` from the `<v>-rc-slim-bookworm` tag; Go: every
-release from 1.26 on, the unsupported ones marked `eol`).
+release from 1.26 on, the unsupported ones marked `eol`; Ruby: every stable
+cycle from 3.3 on – previews are tagged per release, not per cycle, so they
+are not followed).
 `base` is the upstream tag (`8.6-rc` for pre-releases), `preview`/`eol` drive
 the labels in the UI, `default` is the newest stable version.
 

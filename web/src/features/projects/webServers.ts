@@ -13,7 +13,7 @@ export function webServerHint(t: TFunction, key: string, serves: Serves = "php")
   if (serves === "node") {
     return t("The dev server answers on the project URL; the web server only serves the document root once the dev server is turned off (e.g. for npm run build output).");
   }
-  if (serves === "python" || serves === "go") {
+  if (serves === "python" || serves === "go" || serves === "ruby") {
     return t("The application server answers on the project URL; the web server only serves the document root once the server is turned off (e.g. collected static files).");
   }
   if (serves === "static") {
