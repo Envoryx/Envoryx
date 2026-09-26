@@ -659,7 +659,7 @@ cache. The image has no Node.js: `jsbundling-rails`/`cssbundling-rails`
 builds run in a Node service next to Ruby; the Rails template uses importmap
 and needs none.
 
-- **Server.** *Run the server* makes the preset's server the container's
+- **Server.** *Run the Ruby server* makes the preset's server the container's
   main process, restarted automatically and published on a host port of its
   own. **Rails** runs `bin/rails server` in development mode (Rails reloads
   changed code itself) and `bundle exec puma` in production mode; **Rack**
