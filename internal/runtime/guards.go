@@ -32,10 +32,15 @@ func Guarded(argv []string, name string, guards ...string) []string {
 }
 
 // WaitForTCP is a guard that blocks until host:port accepts a connection. socat ships in
-// every Envoryx runtime image; host and port never come from user input (a fixed network
-// alias and a dialect's port), so interpolating them into the line is safe. The database
-// images open their port only once initialisation is done – they run the setup server on
-// a socket or with networking off – so a connection is a real readiness signal.
+// every Envoryx runtime image; the host is a fixed network alias or an external server's
+// address that passed NormalizeExternalDatabase (host-name characters or an IP address),
+// so interpolating it into the line is safe. The database images open their port only
+// once initialisation is done – they run the setup server on a socket or with networking
+// off – so a connection is a real readiness signal.
 func WaitForTCP(host string, port int, label string) string {
-	return fmt.Sprintf(`until socat -u /dev/null TCP:%s:%d 2>/dev/null; do echo 'envoryx: waiting for %s at %s:%d'; sleep 2; done`, host, port, label, host, port)
+	addr := host
+	if strings.Contains(host, ":") {
+		addr = "[" + host + "]" // IPv6, as socat wants it
+	}
+	return fmt.Sprintf(`until socat -u /dev/null TCP:%s:%d 2>/dev/null; do echo 'envoryx: waiting for %s at %s:%d'; sleep 2; done`, addr, port, label, host, port)
 }

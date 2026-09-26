@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/envoryx/envoryx/internal/docker"
 	"github.com/envoryx/envoryx/internal/siteimport"
 	"github.com/envoryx/envoryx/internal/store"
 	"github.com/envoryx/envoryx/internal/validate"
@@ -172,10 +171,6 @@ func (m *Manager) importDump(ctx context.Context, proj store.Project, file strin
 		if err := m.waitForDatabase(ctx, proj, svc, cfg, dialect); err != nil {
 			return err
 		}
-		c, err := m.ServiceContainer(ctx, proj.ID, svc.Kind)
-		if err != nil {
-			return err
-		}
 		step(ctx, "Importing the database dump")
 		r, err := siteimport.OpenDumpForImport(file, svc.Variant)
 		if err != nil {
@@ -184,7 +179,7 @@ func (m *Manager) importDump(ctx context.Context, proj store.Project, file strin
 		defer r.Close()
 		var stderr strings.Builder
 		argv, env := dialect.Restore(cfg)
-		code, err := m.engine.ExecStream(ctx, c.ID, docker.ExecStreamOptions{Cmd: argv, Env: env, Stdin: r, Stderr: &limitedBuilder{b: &stderr}})
+		code, err := m.dbStream(ctx, dbEnd{proj, svc, cfg}, argv, env, r, nil, &limitedBuilder{b: &stderr})
 		if err != nil {
 			return err
 		}

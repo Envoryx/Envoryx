@@ -28,6 +28,12 @@ func deriveStatus(p store.Project, containers []docker.Container, imageIDs map[s
 		if !svc.Enabled {
 			continue
 		}
+		if externalService(&svc) {
+			// A server Envoryx does not run has no container to count: it is listed, and
+			// the project's state is that of the containers it does have.
+			st.Services = append(st.Services, ServiceStatus{Kind: svc.Kind, Variant: svc.Variant, Version: svc.Version, Image: svc.Image, State: "external", Ports: []docker.PortMapping{}})
+			continue
+		}
 		enabled++
 		ss := ServiceStatus{
 			Kind: svc.Kind, Variant: svc.Variant, Version: svc.Version, Image: svc.Image,

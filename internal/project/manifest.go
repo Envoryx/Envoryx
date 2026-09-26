@@ -201,6 +201,9 @@ func exportState(p store.Project, domains []store.Domain, jobs []store.CronJob) 
 		var cfg runtime.DatabaseConfig
 		_ = json.Unmarshal(svc.Config, &cfg)
 		d := manifest.Database{Type: svc.Variant, Version: svc.Version, ExposePort: cfg.HostPort != 0}
+		if cfg.External() {
+			d.External = &manifest.External{Host: cfg.Host, Port: cfg.Port, Username: cfg.Username, Database: cfg.Database}
+		}
 		if name := svc.Kind.DatabaseName(); name != "" {
 			if mf.Databases == nil {
 				mf.Databases = map[string]manifest.Database{}
@@ -222,6 +225,9 @@ func exportState(p store.Project, domains []store.Domain, jobs []store.CronJob) 
 			s.Dashboards = p.Service(store.ServiceOpenSearchDashboards) != nil
 		}
 		s.GPU = cfg.GPU
+		if cfg.External() {
+			s.External = &manifest.External{Host: cfg.Host, Port: cfg.Port}
+		}
 		*manifestService(&mf, kind) = s
 	}
 	if svc := p.Service(store.ServiceStorage); svc != nil {
@@ -324,6 +330,19 @@ func formatDuration(d time.Duration) string {
 
 // manifestRequest turns a manifest into the create request that builds its services.
 // Environment, domains, workers and cron jobs are not part of it.
+// hasExternal reports whether a manifest connects anything to an external server.
+func hasExternal(mf manifest.Manifest) bool {
+	if (mf.Database != nil && mf.Database.External != nil) || (mf.Redis != nil && mf.Redis.External != nil) {
+		return true
+	}
+	for _, d := range mf.Databases {
+		if d.External != nil {
+			return true
+		}
+	}
+	return false
+}
+
 // manifestDBType maps what people write to the catalogue's key.
 func manifestDBType(t string) string {
 	if t == "postgres" {
@@ -357,18 +376,29 @@ func manifestRequest(mf manifest.Manifest, name string) CreateRequest {
 			Server: py.Server, Mode: py.Mode, Preset: py.Preset, App: py.App, Port: py.Port, Debug: py.Debug, DebugPort: py.DebugPort,
 		}}
 	}
+	// An external connection comes without its password, which the file never holds.
+	external := func(e *manifest.External) *ExternalDatabase {
+		if e == nil {
+			return nil
+		}
+		return &ExternalDatabase{Host: e.Host, Port: e.Port, Username: e.Username, Database: e.Database}
+	}
 	if mf.Database != nil {
-		req.Database = &DatabaseRequest{Type: manifestDBType(mf.Database.Type), Version: mf.Database.Version, ExposePort: mf.Database.ExposePort}
+		req.Database = &DatabaseRequest{Type: manifestDBType(mf.Database.Type), Version: mf.Database.Version, ExposePort: mf.Database.ExposePort, External: external(mf.Database.External)}
 	}
 	for _, name := range slices.Sorted(maps.Keys(mf.Databases)) {
 		d := mf.Databases[name]
-		req.Databases = append(req.Databases, NamedDatabaseRequest{Name: name, DatabaseRequest: DatabaseRequest{Type: manifestDBType(d.Type), Version: d.Version, ExposePort: d.ExposePort}})
+		req.Databases = append(req.Databases, NamedDatabaseRequest{Name: name, DatabaseRequest: DatabaseRequest{Type: manifestDBType(d.Type), Version: d.Version, ExposePort: d.ExposePort, External: external(d.External)}})
 	}
 	extra := func(s *manifest.Service) *ExtraRequest {
 		if s == nil {
 			return nil
 		}
-		return &ExtraRequest{Version: s.Version, ExposePort: s.ExposePort, Dashboards: s.Dashboards, GPU: s.GPU}
+		r := &ExtraRequest{Version: s.Version, ExposePort: s.ExposePort, Dashboards: s.Dashboards, GPU: s.GPU}
+		if s.External != nil {
+			r.External = &ExternalRedis{Host: s.External.Host, Port: s.External.Port}
+		}
+		return r
 	}
 	req.Redis, req.Memcached, req.Mailpit = extra(mf.Redis), extra(mf.Memcached), extra(mf.Mailpit)
 	req.RabbitMQ, req.Meilisearch, req.Typesense = extra(mf.RabbitMQ), extra(mf.Meilisearch), extra(mf.Typesense)
@@ -634,6 +664,14 @@ func (m *Manager) planManifest(ctx context.Context, id string, mf manifest.Manif
 			if removal(c) {
 				update(DatabaseUpdate{Enabled: false, RemoveData: true})
 			}
+		case (c.Action == "add" && w.External != nil) || (c.Action == "change" && (h.External == nil) != (w.External == nil)) || (c.Action == "change" && w.External != nil && h.Type != w.Type):
+			// A new external connection needs its password, which the file never has.
+			c.Skipped = "external"
+			add(c)
+		case c.Action == "change" && w.External != nil:
+			add(c)
+			e := w.External
+			update(DatabaseUpdate{Enabled: true, Type: w.Type, Version: w.Version, External: &ExternalDatabase{Host: e.Host, Port: e.Port, Username: e.Username, Database: e.Database}})
 		case c.Action == "add":
 			add(c)
 			update(DatabaseUpdate{Enabled: true, Type: w.Type, Version: w.Version, ExposePort: w.ExposePort})
@@ -690,12 +728,20 @@ func (m *Manager) planManifest(ctx context.Context, id string, mf manifest.Manif
 			continue
 		}
 		var upd *ExtraUpdate
-		if c.Action == "remove" {
+		switch {
+		case c.Action == "remove":
 			if !removal(c) {
 				continue
 			}
 			upd = &ExtraUpdate{Enabled: false, RemoveData: true}
-		} else {
+		case (c.Action == "add" && w.External != nil) || (c.Action == "change" && (h.External == nil) != (w.External == nil)):
+			c.Skipped = "external" // the password is not in the file
+			add(c)
+			continue
+		case w.External != nil:
+			add(c)
+			upd = &ExtraUpdate{Enabled: true, Version: w.Version, External: &ExternalRedis{Host: w.External.Host, Port: w.External.Port}}
+		default:
 			add(c)
 			upd = &ExtraUpdate{Enabled: true, Version: w.Version, ExposePort: w.ExposePort}
 			if kind == store.ServiceOpenSearch {
@@ -1120,6 +1166,9 @@ func (m *Manager) CreateFromManifest(ctx context.Context, mf manifest.Manifest, 
 		if !slices.Contains(mf.Secrets, k) {
 			return ManifestResult{}, fmt.Errorf("%w: %s is not declared under secrets in %s", validate.ErrInvalid, k, manifest.FileName)
 		}
+	}
+	if hasExternal(mf) {
+		return ManifestResult{}, fmt.Errorf("%w: %s connects to an external server, and its password is never in the file; create the project without the manifest and add the connection in Envoryx", validate.ErrInvalid, manifest.FileName)
 	}
 	// Workers and cron jobs are checked before anything is created.
 	if _, _, err := m.desiredState(mf, name); err != nil {

@@ -114,6 +114,20 @@ func (m *Manager) create(ctx context.Context, req CreateRequest) (View, error) {
 	if _, err := m.engine.Ping(ctx); err != nil {
 		return View{}, err
 	}
+	for i := range proj.Services {
+		svc := &proj.Services[i]
+		switch {
+		case !externalService(svc):
+		case svc.Kind.IsDatabase():
+			if err := m.checkExternalDatabase(ctx, proj, svc); err != nil {
+				return View{}, err
+			}
+		case svc.Kind == store.ServiceRedis:
+			if err := m.checkExternalRedis(ctx, proj, svc); err != nil {
+				return View{}, err
+			}
+		}
+	}
 	if req.Ollama != nil && req.Ollama.GPU {
 		if svc := proj.Service(store.ServiceOllama); svc != nil {
 			if err := m.checkGPU(ctx, proj.ID, proj.Slug, svc.Image); err != nil {

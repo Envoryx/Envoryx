@@ -291,6 +291,8 @@ func (a *API) Mount(mux *http.ServeMux, protect func(http.Handler) http.Handler)
 	op("GET /api/v1/projects/{id}/meilisearch/credentials", a.searchCredentials(store.ServiceMeilisearch))
 	op("GET /api/v1/projects/{id}/typesense/credentials", a.searchCredentials(store.ServiceTypesense))
 	// The model store is shared by every project: deleting a model is an admin matter.
+	// Trying a connection runs a client container against any address: admin only.
+	adm("POST /api/v1/external/test", a.testExternal)
 	rd("GET /api/v1/projects/{id}/ollama/models", a.ollamaModels)
 	op("POST /api/v1/projects/{id}/ollama/models", a.pullOllamaModel)
 	adm("DELETE /api/v1/projects/{id}/ollama/models/{model...}", a.deleteOllamaModel)

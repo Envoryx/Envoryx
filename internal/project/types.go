@@ -112,6 +112,15 @@ type ExtraRequest struct {
 	Dashboards bool
 	// GPU hands the host's GPUs to the service (Ollama only).
 	GPU bool
+	// External connects to a server Envoryx does not run (Redis only).
+	External *ExternalRedis
+}
+
+// ExternalRedis is the address of a Redis server Envoryx does not run. Port 0 is 6379.
+type ExternalRedis struct {
+	Host     string
+	Port     int
+	Password string
 }
 
 // StorageRequest adds S3-compatible object storage. PublicRead (default true) lets anyone
@@ -143,6 +152,9 @@ type ExtraUpdate struct {
 	Dashboards *bool
 	// GPU switches the host's GPUs on or off (Ollama only); nil leaves it as it is.
 	GPU *bool
+	// External adds an external Redis or changes its address (an empty Password keeps
+	// the stored one).
+	External *ExternalRedis
 }
 
 // DatabaseRequest selects a database service.
@@ -150,6 +162,19 @@ type DatabaseRequest struct {
 	Type       string // "mariadb"
 	Version    string
 	ExposePort bool // publish the database on a host port for external clients
+	// External connects to a server Envoryx does not run instead of creating a
+	// container; Version then only picks the client tools.
+	External *ExternalDatabase
+}
+
+// ExternalDatabase is the connection to a database server Envoryx does not run. Port 0
+// is the flavour's default.
+type ExternalDatabase struct {
+	Host     string
+	Port     int
+	Username string
+	Password string
+	Database string
 }
 
 // NamedDatabaseRequest is an additional database of a new project.
@@ -167,6 +192,9 @@ type DatabaseUpdate struct {
 	ExposePort bool
 	// RemoveData must be true to remove a database together with its volume.
 	RemoveData bool
+	// External adds an external database, or changes the connection of one (an empty
+	// Password keeps the stored one).
+	External *ExternalDatabase
 }
 
 // WebRequest selects the web server.
@@ -302,6 +330,9 @@ type DatabaseInfo struct {
 	Health       string   `json:"health,omitempty"`
 	VolumeName   string   `json:"volumeName"`
 	VolumeExists bool     `json:"volumeExists"`
+	// External marks a server Envoryx does not run: Host and Port are its address, State
+	// is "external", and there is no volume or published port.
+	External bool `json:"external,omitempty"`
 }
 
 // DatabaseCredentials are returned only by the explicit credentials endpoint.

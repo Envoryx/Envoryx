@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"regexp"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/envoryx/envoryx/internal/audit"
@@ -119,15 +121,22 @@ func (m *Manager) databaseInfo(ctx context.Context, view View, db string, volume
 		Database: cfg.Database, Username: cfg.Username, HostPort: cfg.HostPort,
 		VolumeName: VolumeName(view.Project.Slug, svc.Kind), State: "missing",
 	}
+	if cfg.External() {
+		// No container and no volume: the address is the server's, and so is the state.
+		info.Host, info.Port, info.VolumeName, info.State, info.External = cfg.Host, cfg.Port, "", "external", true
+	}
 	env := databaseEnv(svc, cfg)
 	for k := range env {
 		info.InjectedEnv = append(info.InjectedEnv, k)
 	}
 	sort.Strings(info.InjectedEnv)
 	for _, s := range view.Status.Services {
-		if s.Kind == svc.Kind {
+		if s.Kind == svc.Kind && !info.External {
 			info.State, info.Health = s.State, s.Health
 		}
+	}
+	if info.External {
+		return info, nil
 	}
 	if volumes == nil {
 		volumes, _ = m.engine.ListVolumes(ctx, true)
@@ -167,6 +176,9 @@ func (m *Manager) DatabaseCredentials(ctx context.Context, id, db string) (Datab
 	if dialect.HasRoot {
 		creds.RootPassword = cfg.RootPassword
 	}
+	if cfg.External() {
+		creds.Host, creds.Port = cfg.Host, cfg.Port
+	}
 	return creds, nil
 }
 
@@ -178,23 +190,30 @@ func (m *Manager) runSQL(ctx context.Context, p store.Project, svc *store.Projec
 	if err != nil {
 		return "", err
 	}
-	containers, err := m.engine.ListContainers(ctx, true, p.ID)
-	if err != nil {
-		return "", err
-	}
-	var c *docker.Container
-	for i := range containers {
-		if containers[i].Service() == string(svc.Kind) {
-			c = &containers[i]
-		}
-	}
-	if c == nil || c.State != "running" {
-		return "", fmt.Errorf("%w: the database container is not running", ErrConflict)
-	}
 	argv, env := dialect.Client(cfg, sql)
-	res, err := m.engine.Exec(ctx, c.ID, argv, env)
-	if err != nil {
-		return "", err
+	var res docker.ExecResult
+	if cfg.External() {
+		// A server Envoryx does not run: the client comes along in a container of its own.
+		if res, err = m.runExternalSQL(ctx, dbEnd{p, svc, cfg}, argv, env); err != nil {
+			return "", err
+		}
+	} else {
+		containers, err := m.engine.ListContainers(ctx, true, p.ID)
+		if err != nil {
+			return "", err
+		}
+		var c *docker.Container
+		for i := range containers {
+			if containers[i].Service() == string(svc.Kind) {
+				c = &containers[i]
+			}
+		}
+		if c == nil || c.State != "running" {
+			return "", fmt.Errorf("%w: the database container is not running", ErrConflict)
+		}
+		if res, err = m.engine.Exec(ctx, c.ID, argv, env); err != nil {
+			return "", err
+		}
 	}
 	if res.ExitCode != 0 {
 		msg := strings.TrimSpace(res.Stderr)
@@ -277,7 +296,13 @@ func (m *Manager) CreateDatabase(ctx context.Context, id, db, name string) error
 	if err != nil {
 		return err
 	}
-	if _, err := m.runSQL(ctx, p, svc, cfg, dialect.CreateDatabase(name, cfg.Username)); err != nil {
+	stmt := dialect.CreateDatabase(name, cfg.Username)
+	if cfg.External() && dialect.HasRoot {
+		// The project's user creates it and owns it already; granting is for a root the
+		// external server does not give us.
+		stmt = fmt.Sprintf("CREATE DATABASE `%s` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci", name)
+	}
+	if _, err := m.runSQL(ctx, p, svc, cfg, stmt); err != nil {
 		return err
 	}
 	m.audit.Log(ctx, audit.ActionDBCreated, "project", id, auditDB(map[string]any{"name": p.Name, "database": name}, db))
@@ -307,6 +332,9 @@ func (m *Manager) DropDatabase(ctx context.Context, id, db, name, confirm string
 	svc, cfg, err := databaseOf(p, db)
 	if err != nil {
 		return err
+	}
+	if cfg.External() {
+		return fmt.Errorf("%w: Envoryx does not drop databases on an external server; do that on the server itself", validate.ErrInvalid)
 	}
 	dialect, err := dialectOf(svc)
 	if err != nil {
@@ -340,6 +368,9 @@ func (m *Manager) RotateDatabasePassword(ctx context.Context, id, db string) (Vi
 	svc, cfg, err := databaseOf(p, db)
 	if err != nil {
 		return View{}, err
+	}
+	if cfg.External() {
+		return View{}, fmt.Errorf("%w: the password of an external server is changed there; then enter the new one in the connection", validate.ErrInvalid)
 	}
 	dialect, err := dialectOf(svc)
 	if err != nil {
@@ -380,6 +411,9 @@ func (m *Manager) SetDatabaseExposed(ctx context.Context, id, db string, exposed
 	svc, cfg, err := databaseOf(p, db)
 	if err != nil {
 		return View{}, err
+	}
+	if cfg.External() {
+		return View{}, errExternalPort
 	}
 	if exposed == (cfg.HostPort > 0) {
 		return m.Get(ctx, id)
@@ -462,6 +496,61 @@ func (m *Manager) recreateContainers(ctx context.Context, id string, kinds ...st
 	return nil
 }
 
+// updateExternalDatabase changes an external database: its connection (tested before it
+// is stored) and the version of its client tools. The application containers are
+// recreated when the connection changed, since it is baked into their variables.
+func (m *Manager) updateExternalDatabase(ctx context.Context, p store.Project, svc *store.ProjectService, upd DatabaseUpdate, changes map[string]any, key func(string) string) (bool, error) {
+	if upd.ExposePort {
+		return false, errExternalPort
+	}
+	if upd.Type != "" && upd.Type != svc.Variant {
+		return false, fmt.Errorf("%w: changing the database type is not supported; remove and add the database instead", validate.ErrInvalid)
+	}
+	version := upd.Version
+	if version == "" {
+		version = svc.Version
+	}
+	// Only the client tools come from the image, so any version the catalogue has will do.
+	v, err := m.catalog.Resolve(svc.Variant, version)
+	if err != nil {
+		return false, err
+	}
+	var cfg runtime.DatabaseConfig
+	if err := json.Unmarshal(svc.Config, &cfg); err != nil {
+		return false, err
+	}
+	next := cfg
+	if e := upd.External; e != nil {
+		next = runtime.DatabaseConfig{Host: e.Host, Port: e.Port, Username: e.Username, Password: e.Password, Database: e.Database}
+		if next.Password == "" {
+			next.Password = cfg.Password
+		}
+		if err := runtime.NormalizeExternalDatabase(&next, svc.Variant); err != nil {
+			return false, err
+		}
+	}
+	raw, err := json.Marshal(next)
+	if err != nil {
+		return false, err
+	}
+	updated := *svc
+	updated.Version, updated.Image, updated.Config = v.Version, v.Image, raw
+	connChanged := next != cfg
+	if connChanged {
+		if err := m.checkExternalDatabase(ctx, p, &updated); err != nil {
+			return false, err
+		}
+		changes[key("databaseConnection")] = net.JoinHostPort(next.Host, strconv.Itoa(next.Port)) + "/" + next.Database
+	}
+	if v.Version != svc.Version {
+		changes[key("databaseVersion")] = v.Version
+	}
+	if err := m.store.Projects.UpdateServiceConfig(ctx, p.ID, svc.Kind, v.Version, v.Image, raw); err != nil {
+		return false, err
+	}
+	return connChanged, nil
+}
+
 // applyDatabaseUpdate adds, changes or removes a database service of a project (kind:
 // the primary or an additional one). Callers hold the project lock. It returns whether
 // application containers must be recreated.
@@ -477,6 +566,14 @@ func (m *Manager) applyDatabaseUpdate(ctx context.Context, p store.Project, kind
 	switch {
 	case !upd.Enabled && svc == nil:
 		return false, nil
+
+	case !upd.Enabled && svc != nil && externalService(svc):
+		// Envoryx forgets the connection; the server and its data are not ours to touch.
+		if err := m.store.Projects.DeleteService(ctx, p.ID, kind); err != nil {
+			return false, err
+		}
+		changes[key("database")] = "removed"
+		return true, nil
 
 	case !upd.Enabled && svc != nil:
 		if !upd.RemoveData {
@@ -503,12 +600,20 @@ func (m *Manager) applyDatabaseUpdate(ctx context.Context, p store.Project, kind
 		return true, nil
 
 	case upd.Enabled && svc == nil:
-		newSvc, err := m.buildDatabaseService(p.Slug, upd.Type, upd.Version)
+		if upd.External != nil && upd.ExposePort {
+			return false, errExternalPort
+		}
+		newSvc, err := m.buildDatabaseService(p.Slug, upd.Type, upd.Version, upd.External)
 		if err != nil {
 			return false, err
 		}
 		newSvc.ProjectID = p.ID
 		newSvc.Kind = kind
+		if upd.External != nil {
+			if err := m.checkExternalDatabase(ctx, p, &newSvc); err != nil {
+				return false, err
+			}
+		}
 		if upd.ExposePort {
 			var cfg runtime.DatabaseConfig
 			_ = json.Unmarshal(newSvc.Config, &cfg)
@@ -537,7 +642,16 @@ func (m *Manager) applyDatabaseUpdate(ctx context.Context, p store.Project, kind
 			}
 		}
 		changes[key("database")] = newSvc.Variant + ":" + newSvc.Version
+		if upd.External != nil {
+			changes[key("database")] = newSvc.Variant + ":external"
+		}
 		return true, nil
+
+	case externalService(svc):
+		return m.updateExternalDatabase(ctx, p, svc, upd, changes, key)
+
+	case upd.External != nil:
+		return false, fmt.Errorf("%w: this database runs in a container of the project; remove it first to connect an external server instead", validate.ErrInvalid)
 
 	default: // enabled and existing: version and/or port change
 		dbType := upd.Type

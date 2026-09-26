@@ -262,13 +262,23 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 	if db := proj.Service(store.ServiceDatabase); db != nil && db.Enabled {
 		if d, ok := runtime.DialectFor(db.Variant); ok {
 			dbGuard = runtime.WaitForTCP("database", d.Port, d.Variant)
+			var cfg runtime.DatabaseConfig
+			if json.Unmarshal(db.Config, &cfg) == nil && cfg.External() {
+				dbGuard = runtime.WaitForTCP(cfg.Host, cfg.Port, d.Variant)
+			}
 		}
 	}
+	external := false
 	for _, svc := range proj.Services {
 		if !svc.Enabled {
 			continue
 		}
 		labels := docker.ManagedLabels(proj.ID, proj.Slug, string(svc.Kind), p.paths.EnvoryxVersion)
+		if externalService(&svc) {
+			// A server Envoryx does not run: no container, no volume – only the variables.
+			external = true
+			continue
+		}
 		if svc.Kind.IsDatabase() {
 			c, volume, err := p.databaseContainer(proj, svc, plan.NetworkName, labels)
 			if err != nil {
@@ -792,6 +802,13 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 		plan.Containers = append(plan.Containers, ContainerPlan{Kind: WorkerKind(w), Order: 30, Spec: spec})
 	}
 
+	// An external server may run on the Docker host itself; Linux only resolves
+	// host.docker.internal when the container is told the gateway.
+	if external {
+		for i := range plan.Containers {
+			plan.Containers[i].Spec.ExtraHosts = append(plan.Containers[i].Spec.ExtraHosts, hostGatewayEntry)
+		}
+	}
 	// Fingerprint the structural part of every spec so ensurePlan can recreate containers
 	// whose command, mounts or ports changed (env is handled explicitly by callers).
 	for i := range plan.Containers {
@@ -1063,6 +1080,9 @@ func specFingerprint(spec docker.ContainerSpec) string {
 	}
 	if spec.GPUs {
 		fields["gpu"] = true
+	}
+	if len(spec.ExtraHosts) > 0 {
+		fields["hosts"] = spec.ExtraHosts
 	}
 	_ = enc.Encode(fields)
 	return hex.EncodeToString(h.Sum(nil))[:16]

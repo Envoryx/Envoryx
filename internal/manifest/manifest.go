@@ -233,6 +233,18 @@ type Database struct {
 	Type       string `yaml:"type,omitempty"` // mariadb, mysql, postgres, mongodb
 	Version    string `yaml:"version,omitempty"`
 	ExposePort bool   `yaml:"exposePort,omitempty"`
+	// External connects to a server Envoryx does not run; Version then picks the client
+	// tools.
+	External *External `yaml:"external,omitempty"`
+}
+
+// External is a server Envoryx does not run. Its password never goes into the file: it
+// is entered in Envoryx, so a manifest keeps an existing connection but cannot make one.
+type External struct {
+	Host     string `yaml:"host"`
+	Port     int    `yaml:"port,omitempty"`
+	Username string `yaml:"username,omitempty"` // databases only
+	Database string `yaml:"database,omitempty"` // databases only
 }
 
 // Service is an auxiliary service. In the file it is either "true" or a mapping.
@@ -243,6 +255,8 @@ type Service struct {
 	Dashboards bool `yaml:"dashboards,omitempty"`
 	// GPU hands the host's GPUs to Ollama (Ollama only).
 	GPU bool `yaml:"gpu,omitempty"`
+	// External connects to a server Envoryx does not run (Redis only).
+	External *External `yaml:"external,omitempty"`
 }
 
 // Storage is the S3-compatible object storage. In the file it is either "true" or a
@@ -441,6 +455,33 @@ func (m Manifest) Validate() error {
 	for _, s := range []*Service{m.Redis, m.Memcached, m.Mailpit, m.RabbitMQ, m.Meilisearch, m.Typesense, m.OpenSearch} {
 		if s != nil && s.GPU {
 			return bad("gpu belongs to ollama")
+		}
+	}
+	for _, s := range []*Service{m.Memcached, m.Mailpit, m.RabbitMQ, m.Meilisearch, m.Typesense, m.OpenSearch, m.Ollama} {
+		if s != nil && s.External != nil {
+			return bad("external is for redis and databases only")
+		}
+	}
+	if m.Redis != nil && m.Redis.External != nil {
+		if m.Redis.External.Host == "" || m.Redis.ExposePort {
+			return bad("redis.external needs a host and has no port to publish")
+		}
+	}
+	dbs := map[string]*Database{"database": m.Database}
+	for name, d := range m.Databases {
+		dbs["databases."+name] = &d
+	}
+	for section, d := range dbs {
+		if d == nil || d.External == nil {
+			continue
+		}
+		switch {
+		case d.External.Host == "" || d.External.Username == "" || d.External.Database == "":
+			return bad("%s.external needs host, username and database", section)
+		case d.ExposePort:
+			return bad("%s: an external database has no port to publish", section)
+		case d.Type == "mongodb" || d.Type == "mongo":
+			return bad("%s: an external database must be mariadb, mysql or postgres", section)
 		}
 	}
 	if m.Web != nil && m.Web.SPAFallback && m.PHP != nil {
