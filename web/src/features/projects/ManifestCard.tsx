@@ -16,6 +16,7 @@ function sectionLabel(section: string, t: TFunction): string {
     php: "PHP",
     node: "Node.js",
     python: "Python",
+    go: "Go",
     redis: "Redis",
     memcached: "Memcached",
     mailpit: "Mailpit",

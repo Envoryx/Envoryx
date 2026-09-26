@@ -1,6 +1,6 @@
 import { useInfiniteQuery, useIsMutating, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "./client";
-import { servesOf, type AuditFilter, type CreateProjectRequest, type DuplicateProjectRequest, type RenameProjectRequest, type NodeConfig, type Project, type PythonConfig, type UpdateProjectRequest, type UpdateSettingsRequest } from "./types";
+import { servesOf, type AuditFilter, type CreateProjectRequest, type DuplicateProjectRequest, type RenameProjectRequest, type NodeConfig, type Project, type PythonConfig, type GoConfig, type UpdateProjectRequest, type UpdateSettingsRequest } from "./types";
 import { projectUrl } from "@/lib/format";
 
 export const keys = {
@@ -82,7 +82,7 @@ export function useUpdateSettings() {
 /**
  * Returns a function building the URL a project should be opened at: the proxy domain
  * (HTTPS when available) when the proxy ports are published, otherwise the direct port.
- * While a Python server or Node dev server serves the project the web container's HTTP
+ * While a Python or Go server or Node dev server serves the project the web container's HTTP
  * port stays unpublished, so that container's host port is the direct address.
  */
 export function useProjectLinks(): (project: Pick<Project, "httpPort" | "hostnames" | "serves" | "services">) => { url: string; direct: string } {
@@ -91,7 +91,7 @@ export function useProjectLinks(): (project: Pick<Project, "httpPort" | "hostnam
   const proxy = q.data?.proxy;
   return (project) => {
     const serves = project.serves ?? servesOf(project);
-    const app = serves === "node" || serves === "python" ? ((project.services.find((s) => s.kind === serves && s.enabled)?.config ?? {}) as NodeConfig | PythonConfig) : undefined;
+    const app = serves === "node" || serves === "python" || serves === "go" ? ((project.services.find((s) => s.kind === serves && s.enabled)?.config ?? {}) as NodeConfig | PythonConfig | GoConfig) : undefined;
     const direct = projectUrl(app ? (app.hostPort ?? 0) : project.httpPort, publicHost);
     const host = project.hostnames?.[0];
     if (!proxy?.enabled || !host) return { url: direct, direct };

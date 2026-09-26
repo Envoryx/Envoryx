@@ -8,7 +8,7 @@
 
 Envoryx runs as a single container on any Linux Docker host (x86_64 or
 arm64; Unraid is the primary target) and manages complete
-development stacks – web server, PHP, Python and/or Node.js runtime, database, cache –
+development stacks – web server, PHP, Python, Go and/or Node.js runtime, database, cache –
 as isolated, per-project Docker environments. Everything is controlled from a modern web UI;
 no `docker-compose.yml` editing required.
 
@@ -16,6 +16,7 @@ no `docker-compose.yml` editing required.
 Open Envoryx → Create project → PHP 8.4 + Caddy → Create → project is running
 Create project → Runtime: Node.js → Vite/Next.js/Nuxt template → Create → https://<project>.test (dev server with HMR)
 Create project → Runtime: Python → Django/Flask/FastAPI template → Create → https://<project>.test (uvicorn / runserver with reload)
+Create project → Runtime: Go → net/http/Gin/Echo template → Create → https://<project>.test (air live reload, Delve)
 ```
 
 ## Status
@@ -30,13 +31,14 @@ Envoryx is under active development. The current milestone (Phase 1 + 2) deliver
 - project templates: Laravel, Symfony (skeleton + webapp), WordPress, Drupal, TYPO3,
   Shopware, Craft CMS (PHP; the CMS installers run from the Actions tab and print the
   admin password),
-  Vite + React, Next.js, Nuxt (Node.js) and Django, Flask, FastAPI (Python) –
+  Vite + React, Next.js, Nuxt (Node.js), Django, Flask, FastAPI (Python) and
+  net/http, Gin, Echo (Go) –
   scaffolded in a one-shot container
   from the project's runtime image as the project owner, wired to the project
   database where the framework needs one
 - project wizard: name, directory, runtime (PHP application, Python
-  application, Node.js application or static site – PHP is optional, Python,
-  Node-only and static projects work without it), document root, PHP version, php.ini settings and
+  application, Go application, Node.js application or static site – PHP is
+  optional, Python, Go, Node-only and static projects work without it), document root, PHP version, php.ini settings and
   extensions (pdo_mysql, mysqli, pdo_pgsql, mongodb, gd, intl, zip, bcmath,
   opcache, imagick), Xdebug switch with IDE setup hints, web server (Caddy,
   Apache or Nginx), SPA fallback for static sites, environment variables
@@ -45,10 +47,10 @@ Envoryx is under active development. The current milestone (Phase 1 + 2) deliver
 - per-project Docker network with a web server container – Caddy (default),
   Apache (with `.htaccess` support) or Nginx, switchable after creation – and,
   optionally, a PHP-FPM container (Envoryx image with Composer), a Python
-  container and/or a Node.js container
+  container, a Go container and/or a Node.js container
 - MariaDB, MySQL, PostgreSQL or MongoDB per project: persistent volume, generated
   credentials, connection variables injected into the application containers
-  (PHP, Python, Node), optional host port for
+  (PHP, Python, Go, Node), optional host port for
   desktop clients, password rotation, create/drop databases, in-place version
   upgrades where the server supports them – or an existing external MariaDB,
   MySQL or PostgreSQL server (and Redis) the project connects to instead, with
@@ -115,21 +117,28 @@ Envoryx is under active development. The current milestone (Phase 1 + 2) deliver
   (uvicorn) or WSGI app (gunicorn) as the container's main process, and
   without PHP the project URL reaches it; optional debugpy port for PyCharm
   and VS Code
+- Go runtime container per project (Go 1.26/1.27 with air, Delve and
+  gotestsum; module and build caches shared by all projects) – as a tooling
+  container or as the application runtime: server mode builds the main
+  package and runs it as the container's main process, rebuilt by air on
+  every change (a project's `.air.toml` wins) or built once in production
+  mode, and without PHP the project URL reaches it; optional headless Delve
+  for GoLand and VS Code
 - Git: clone in the wizard (HTTPS with access token or SSH with a Envoryx
   deploy key), pull, branch switch, status – all inside short-lived containers
   as the project owner; the deploy key is never mounted into app containers
 - workers per project: Laravel scheduler / queue worker / Horizon / Reverb,
   Symfony Messenger and Scheduler, PHP and composer scripts, npm and Node
   scripts, Python scripts and modules, Django management commands, Celery
-  worker and beat – each in its own auto-restarting container from the
+  worker and beat, Go packages (`go run`) – each in its own auto-restarting container from the
   runtime's image, with logs
 - cron jobs per project: any shell command on a schedule (every few minutes,
-  hourly, daily, weekly, monthly or a cron expression) in the PHP, Python or
+  hourly, daily, weekly, monthly or a cron expression) in the PHP, Python, Go or
   Node.js container as the project owner, with a timeout, no overlapping runs,
   "run now", the last 20 runs with their output and a notification on failure
 - project actions: composer install/update, artisan migrate/seed/cache,
   Symfony console, npm/pnpm/yarn, pip install / uv sync, Django migrate /
-  collectstatic – a fixed catalogue of argv
+  collectstatic, go build / vet / fmt / mod tidy / generate – a fixed catalogue of argv
   commands with live output, run in the matching runtime container and shown
   only for the runtimes and files the project has
 - desired-state reconciliation on startup and periodically; orphan detection and cleanup
@@ -178,9 +187,10 @@ Envoryx is under active development. The current milestone (Phase 1 + 2) deliver
   interpreters and SFTP into project containers (API token or public key) – open
   a project in the IDE as an SFTP deployment, no network share needed;
   the user `<project>` lands in the application container (PHP, else
-  Python, else Node), `<project>.php` / `<project>.python` / `<project>.node`
+  Python, else Go, else Node), `<project>.php` / `<project>.python` /
+  `<project>.go` / `<project>.node`
   pick one explicitly; an IDE tab with Xdebug server/path mapping,
-  `.idea/php.xml`, Node inspector and debugpy details, JDBC URLs;
+  `.idea/php.xml`, Node inspector, debugpy and Delve details, JDBC URLs;
   optional JetBrains Gateway support (backend in the container, shared cache)
 - notifications (ntfy, Discord, Slack, Telegram, e-mail, generic webhook) for
   unhealthy projects (and their recovery), failed project creation, failed
@@ -260,13 +270,14 @@ Browser ──▶ Envoryx (Go API + React UI) ──▶ Docker Engine
                                              ├── envoryx-<project>-web  (Caddy/Apache/Nginx, :port → 80)
                                              ├── envoryx-<project>-php    (PHP-FPM, optional)
                                              ├── envoryx-<project>-python (Python / application server, optional)
+                                             ├── envoryx-<project>-go     (Go / application server, optional)
                                              └── envoryx-<project>-node   (Node.js / dev server, optional)
 ```
 
 - The web server is part of every project. With PHP it passes requests to
   PHP-FPM; without PHP it serves the document root statically (optionally with
   an SPA fallback to `index.html`). When a project has no PHP but a Python
-  application server or a Node dev server, the embedded proxy routes
+  or Go application server or a Node dev server, the embedded proxy routes
   `<project>.<base>` straight to that container instead, and the web
   container's host port stays unpublished until the server is turned off.
 

@@ -2,7 +2,7 @@
 
 Envoryx is a Docker-native development environment manager for Unraid and Linux
 Docker hosts. It runs as a single container, talks to the Docker Engine API and
-creates isolated, per-project stacks (PHP, Python, Node, web server, database, cache …).
+creates isolated, per-project stacks (PHP, Python, Go, Node, web server, database, cache …).
 
 This document describes the architecture that Phase 1 (Foundation) and Phase 2
 (Project Lifecycle) are built on and the decisions that shape later phases.
@@ -18,7 +18,7 @@ Go API (single binary, single container)
    │
    ├── Auth            (argon2id, server-side sessions, CSRF/origin checks)
    ├── Project Manager (desired state, lifecycle, rollback, reconciliation)
-   ├── Runtime Catalog (PHP / Node / Python / DB / cache versions → images)
+   ├── Runtime Catalog (PHP / Node / Python / Go / DB / cache versions → images)
    ├── Docker Manager  (label-scoped Docker Engine abstraction)
    ├── Backup Manager  (Phase 7)
    └── Audit Log
@@ -413,11 +413,13 @@ A PHP project consists of two containers from the start:
 **Projects without PHP.** PHP is optional (`CreateRequest.PHP == nil`); the
 web container is not. `internal/project/app.go` is the single source of
 truth for the resulting shape: `appService(p)` is the enabled PHP service,
-else the enabled Python service, else the enabled Node service, else nil;
-`pythonServesApp(p)` is true when there is no PHP and the Python service
-runs its application server, `nodeServesApp(p)` when there is neither PHP
-nor a Python server and the Node service runs its dev server;
-`appServesDirectly(p)` is either; `Serves(p)` yields `php`, `python`, `node`
+else the enabled Python service, else the enabled Go service, else the
+enabled Node service, else nil; `pythonServesApp(p)` is true when there is no
+PHP and the Python service runs its application server, `goServesApp(p)` when
+there is neither PHP nor a Python server and the Go service runs its server,
+`nodeServesApp(p)` when there is no PHP, no Python and no Go server and the
+Node service runs its dev server; `appServesDirectly(p)` is any of them;
+`Serves(p)` yields `php`, `python`, `go`, `node`
 or `static` (exposed as `serves` in the API and MCP output, `appService`
 names the container kind).
 
@@ -470,12 +472,26 @@ names the container kind).
   the application. A Python server next to PHP keeps its host port but no
   route (PHP stays the application); next to a Node dev server the Python
   server takes the project URL and the dev server keeps `<slug>-dev.<base>`.
-- Start order is database → php/python/node → web (planner order: database
-  and services 5–8, php 10, python 12, node 15, web 20). One-shot
+- *Go server* (`serves=go`): the same mechanics with the Go container as the
+  upstream (`envoryx-<slug>-go:<port>`). `runtime.GoConfig`
+  (`internal/runtime/golang.go`) holds `Mode` (`dev`: air with flags that
+  build `Package` into `/tmp/envoryx-go`, or the project's own `.air.toml`;
+  `production`: `goProductionScript`, one `go build` and `exec` of the
+  binary), `Package` (`.` or `./path`, validated so it can go into air's
+  shell-run `build.cmd`), `Port` and `Debug`/`DebugPort`: with the server,
+  the binary is built with `-gcflags=all=-N -l` and runs under `dlv exec
+  --headless --accept-multiclient --continue`; without it only the port is
+  published. All values reach the container as argv after `$0`. The wait
+  guard tests for `go.mod`. `goEnv` sets `GOPATH=/home/envoryx/go` and puts
+  its `bin` on `PATH`; `packageCacheEnv` points `GOMODCACHE` and `GOCACHE`
+  into the shared package cache. `Env()` adds `HOST`, `PORT` and `GIN_MODE`.
+  Next to PHP or a Python server the Go server keeps only its host port.
+- Start order is database → php/python/go/node → web (planner order: database
+  and services 5–8, php 10, python and go 12, node 15, web 20). One-shot
   containers (git, templates) run from `toolImage(p)`: the application
-  container's image (PHP, Python or Node), else the catalogue's default Node
+  container's image (PHP, Python, Go or Node), else the catalogue's default Node
   image – git and ssh ship in every Envoryx image. Templates carry `Runtime`
-  (`php`|`node`|`python`); a template refuses a request without its runtime
+  (`php`|`node`|`python`|`go`); a template refuses a request without its runtime
   (`ErrInvalid`).
 
 Why a per-project web container instead of one central proxy speaking FastCGI:
@@ -898,8 +914,8 @@ with `skipped: "external"`; creating a project from a manifest with one is refus
 ### SSH (`internal/sshd`)
 `golang.org/x/crypto/ssh` server with an Ed25519 host key. Auth resolves the
 user name through `Manager.ResolveSSHUser` (`<slug>` → the application
-container: PHP when present, else Python, else Node; `<slug>.php` /
-`<slug>.python` / `<slug>.node` pick one explicitly; a project with none is
+container: PHP when present, else Python, else Go, else Node; `<slug>.php` /
+`<slug>.python` / `<slug>.go` / `<slug>.node` pick one explicitly; a project with none is
 `ErrNotFound`) and validates either an API token (password) or an authorized key
 from the settings. Session channels map `pty-req/shell/exec` to
 `Engine.OpenTerminal` (PTY) or `Engine.ExecStream` (pipes, now with
@@ -907,7 +923,7 @@ from the settings. Session channels map `pty-req/shell/exec` to
 `pkg/sftp` request server over `projectFS`, which serves `/var/www/html`
 and `/home/envoryx` from the Envoryx-side directories of the same bind mounts
 and chowns created files. `/home/envoryx` is a new persistent per-project
-home (`/config/projects/<id>/home`) mounted into php/python/node/worker containers;
+home (`/config/projects/<id>/home`) mounted into php/python/go/node/worker containers;
 tool caches and IDE helpers live there. Container specs now carry a
 `envoryx.spec` fingerprint label (command, mounts, ports, …) so `ensurePlan`
 recreates containers whose structure changed (e.g. the new home mount).
@@ -927,7 +943,7 @@ as the project user.
 long-running processes. Presets are a closed catalogue in `workers.go`
 (argv builders; the single user argument is validated per preset – queue
 names, relative script paths, composer and npm script names, Python module
-paths). Every preset names its `Runtime` (`php`, `node` or `python`); the
+paths). Every preset names its `Runtime` (`php`, `node`, `python` or `go`); the
 planner emits one container per enabled worker from that runtime's image
 (`Kind` and service label `worker:<id>`, name
 `envoryx-<slug>-worker-<name>`, order 30, project env, PUID:PGID,
@@ -989,7 +1005,9 @@ Python is added, changed and removed the same way (`PythonUpdate`,
 `applyPythonUpdate`, position 12): host ports for the server and debugpy
 are kept across edits and allocated when the server or debugpy is switched
 on; removing Python takes its container and the Python workers' containers
-with it, the worker definitions survive as "paused".
+with it, the worker definitions survive as "paused". Go follows the same
+pattern (`GoUpdate`, `applyGoUpdate`, position 12) with the server and Delve
+host ports.
 
 ### Logs
 Container output comes from Docker's `json-file` driver (10 MB × 3 per
@@ -1043,8 +1061,8 @@ returns secrets and keeps stored ones when a request leaves them empty.
 ### Templates
 `project.Templates()` is a closed list: Laravel, Symfony, WordPress, Drupal,
 TYPO3, Shopware, Craft CMS (`Runtime: "php"`), Vite + React (TypeScript), Next.js (App Router,
-TypeScript), Nuxt (`Runtime: "node"`) and Django, Flask, FastAPI
-(`Runtime: "python"`). A template is a sequence of argv steps
+TypeScript), Nuxt (`Runtime: "node"`), Django, Flask, FastAPI
+(`Runtime: "python"`) and Go (net/http), Gin, Echo (`Runtime: "go"`). A template is a sequence of argv steps
 run in transient containers from the image of the runtime it names as
 PUID:PGID with the project directory mounted
 (`RunOneShot`, label `envoryx.service=template`, default bridge network for
@@ -1197,10 +1215,11 @@ signed by `internal/awssig`, the SigV4 signer shared with `internal/s3`.
   Ctrl+C is delivered on cancel/disconnect. `ListActions` only lists
   catalogue entries whose service the project has (a PHP-only project shows
   no npm actions, a Node-only project no composer/artisan ones, Python
-  projects get pip/uv/Django entries); each runs in the matching runtime
-  container, `node:version` and `python:version` are the counterparts of
+  projects get pip/uv/Django entries, Go projects `go build/vet/mod …`);
+  each runs in the matching runtime container, `node:version`,
+  `python:version` and `go:version` are the counterparts of
   `php:version`. Git runs in a transient container from the project's
-  runtime image (`toolImage`: PHP, else Python, else Node; `RunOneShot`) with the deploy
+  runtime image (`toolImage`: PHP, else Python, else Go, else Node; `RunOneShot`) with the deploy
   key mounted only there; tokens travel via `GIT_CONFIG_*` env. The Node
   service is an idle tooling container (`sleep infinity`, runs as PUID:PGID)
   from `ghcr.io/envoryx/envoryx-node:<v>` until the dev server is enabled.
