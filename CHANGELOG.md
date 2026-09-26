@@ -11,6 +11,13 @@ release). `:main` follows the development branch.
 ## [Unreleased]
 
 ### Added
+- The audit log can be searched and filtered by user (with its API tokens),
+  category, project and date, pages back through older entries, and exports
+  the filtered entries as CSV or JSON Lines. Every project has its own
+  *History* tab. A project change now records each setting it changed with
+  its value before and after, shown when the entry is opened. A retention
+  (30 days to two years, or forever as before) is set under *Settings → Audit
+  log*.
 - External databases and Redis: a database (primary or additional) or Redis
   can be an existing MariaDB, MySQL, PostgreSQL or Redis server instead of a
   container of the project – *On an external server* in the wizard, the

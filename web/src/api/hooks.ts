@@ -1,6 +1,6 @@
-import { useIsMutating, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useIsMutating, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "./client";
-import { servesOf, type CreateProjectRequest, type DuplicateProjectRequest, type RenameProjectRequest, type NodeConfig, type Project, type PythonConfig, type UpdateProjectRequest, type UpdateSettingsRequest } from "./types";
+import { servesOf, type AuditFilter, type CreateProjectRequest, type DuplicateProjectRequest, type RenameProjectRequest, type NodeConfig, type Project, type PythonConfig, type UpdateProjectRequest, type UpdateSettingsRequest } from "./types";
 import { projectUrl } from "@/lib/format";
 
 export const keys = {
@@ -130,8 +130,28 @@ export function useProjectDomains(id: string) {
   return useQuery({ queryKey: [...keys.project(id), "domains"], queryFn: () => api.projects.domains.list(id) });
 }
 
-export function useAudit(limit = 100) {
-  return useQuery({ queryKey: [...keys.audit, limit], queryFn: () => api.audit(limit) });
+/** The audit log for a filter, a page at a time (fetchNextPage loads older entries). */
+export function useAuditLog(filter: AuditFilter) {
+  return useInfiniteQuery({
+    queryKey: [...keys.audit, filter],
+    queryFn: ({ pageParam }) => api.audit.list(filter, pageParam),
+    initialPageParam: "",
+    getNextPageParam: (last) => last.next || undefined,
+  });
+}
+
+export function useAuditUsers() {
+  return useQuery({ queryKey: [...keys.audit, "users"], queryFn: async () => (await api.audit.users()).users, staleTime: 60 * 1000 });
+}
+
+export function useAuditSettings() {
+  const qc = useQueryClient();
+  const query = useQuery({ queryKey: [...keys.audit, "settings"], queryFn: async () => (await api.audit.settings()).settings });
+  const save = useMutation({
+    mutationFn: async (days: number) => (await api.audit.setSettings(days)).settings,
+    onSuccess: () => void qc.invalidateQueries({ queryKey: keys.audit }),
+  });
+  return { query, save };
 }
 
 export function useProjects() {

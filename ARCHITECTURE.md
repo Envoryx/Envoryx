@@ -255,6 +255,18 @@ audit_log        (id, created_at, user_id, username, action, target_type,
 schema_migrations(version PRIMARY KEY, applied_at)
 ```
 
+The audit log is read through `store.Audit.Query` (text, user with its tokens,
+action prefixes, target, time range; indexes on target, username and action) and
+paged newest first by the keyset `(created_at, id)` – the timestamps are RFC 3339
+text, so paging by the same order they are sorted in is what keeps an entry from
+appearing twice or not at all. `Each` streams the same selection for
+`GET /audit/export` (CSV with formula-like cells prefixed by `'`, or JSON Lines).
+`audit_retention_days` (0 = keep all, the default) is applied hourly by
+`RunAuditRetention`. `project.updated` entries written by `Manager.update` carry
+`diff`: the project exported as its manifest before and after, compared section by
+section (databases, variables, workers and cron jobs item by item) – secret
+values are not part of the export and so never of the diff.
+
 Notes:
 
 - `projects.path` is stored **relative** to the projects root (`acme-shop`),

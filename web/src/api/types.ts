@@ -1590,6 +1590,34 @@ export interface AuditEntry {
   ip: string;
 }
 
+/** Filters of the audit log; empty fields do not filter. */
+export interface AuditFilter {
+  q?: string | undefined;
+  /** An account; its API tokens count too. */
+  user?: string | undefined;
+  /** Action prefixes ("project.", "auth.login"); an entry matches any. */
+  actions?: string[] | undefined;
+  /** A project id. */
+  project?: string | undefined;
+  /** Dates (2026-09-26); until counts in full. */
+  since?: string | undefined;
+  until?: string | undefined;
+}
+
+export interface AuditPage {
+  entries: AuditEntry[];
+  /** Cursor of the next page; "" when this was the last. */
+  next: string;
+}
+
+/** One setting a project update changed (details.diff of project.updated). */
+export interface AuditChange {
+  section: string;
+  item?: string;
+  from?: string;
+  to?: string;
+}
+
 /** One diagnostics check; title and hint are stable strings the UI translates. */
 export interface DiagnosticCheck {
   id: string;
