@@ -1,8 +1,7 @@
 # Envoryx Go runtime image: official golang image plus air (live reload), delve (the
 # debugger GoLand and VS Code attach to), gotestsum (go test with a JUnit report for the
-# Tests tab), git and socat. Runs idle (sleep) as a tooling
-# container; the application server is started as the container's main process when the
-# project enables it.
+# Tests tab), git and socat. Runs idle (sleep) as a tooling container; the application
+# server is started as the container's main process when the project enables it.
 #
 # Build: docker build --build-arg BASE_TAG=1.27-bookworm -t ghcr.io/envoryx/envoryx-go:1.27 images/go
 ARG BASE_TAG=1.27-bookworm
@@ -39,11 +38,11 @@ ENV GOTOOLCHAIN=local \
     CGO_ENABLED=1
 
 # SSH sessions (and IDEs probing over SSH) run a login shell, whose /etc/profile resets
-# PATH - go, gofmt and the tools installed with go install would vanish.
+# PATH, and go, gofmt and the tools installed with go install would vanish.
 RUN printf '%s\n' 'export PATH="/usr/local/go/bin:${GOPATH:-$HOME/go}/bin:$PATH"' > /etc/profile.d/envoryx-go.sh
 
 WORKDIR /var/www/html
-# air (the server's main process) does not reap the processes it orphans - a killed dlv
+# air (the server's main process) doesn't reap the processes it orphans, so a killed dlv
 # and its debuggee would pile up as zombies. tini as PID 1 reaps them and forwards
 # signals.
 ENTRYPOINT ["/usr/bin/tini", "--"]

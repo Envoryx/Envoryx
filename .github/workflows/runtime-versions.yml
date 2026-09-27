@@ -2,7 +2,8 @@ name: Runtime version check
 
 on:
   schedule:
-    # Weekly, before the image rebuild (php-images.yml runs Mondays 04:00).
+    # Weekly, before the image rebuilds (php-images.yml starts Mondays at 04:00, the other
+    # runtimes later).
     - cron: "0 3 * * 1"
   workflow_dispatch:
 
