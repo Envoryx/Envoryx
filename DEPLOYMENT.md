@@ -158,7 +158,7 @@ console) publish their ports on the **Docker host** (the Unraid IP). Envoryx
 builds links to them from the address in your browser's address bar. If you
 reach Envoryx under a different address, because the container has its own IP
 on `br0`/macvlan or you use a reverse proxy, set the host to use for project
-links in **Settings → Project links** (or `ENVORYX_PUBLIC_HOST`), typically
+links in **Settings → General → Project links & developer machine** (or `ENVORYX_PUBLIC_HOST`), typically
 the Unraid IP.
 
 When Envoryx detects that it has an IP of its own and no host is set, the
@@ -1056,8 +1056,7 @@ only; a database newer than the binary is refused with a clear error.
 
 Before the first migration of a new version Envoryx writes an **instance
 backup** (`pre-migrate-…`) to `<backups dir>/_instance/`. To go back to the
-previous version: pull the old image, then restore that backup from *Settings →
-Instance backups*. If the old version refuses to start because the schema is
+previous version: pull the old image, then restore that backup from *Settings → Backups → Instance backups*. If the old version refuses to start because the schema is
 newer, its error message names the pre-migrate backup to restore by hand (see
 [Instance backups](#instance-backups)).
 
@@ -1095,7 +1094,7 @@ the Runtime tab, like the PHP version.
 ## Git deploy key
 
 For SSH repositories Envoryx generates an Ed25519 key pair on first use under
-`/config/ssh/`. Copy the public key from **Settings → Git deploy key** (or the
+`/config/ssh/`. Copy the public key from **Settings → Access → Git deploy key** (or the
 project's Git tab) into your repository as a read-only deploy key. Private
 HTTPS repositories use an access token per project instead (GitHub:
 fine-grained PAT with *Contents: read*; GitLab: username `oauth2` + token).
@@ -1132,7 +1131,7 @@ are large and reproducible. Failures raise a notification.
 
 ### Instance backups
 
-*Settings → Instance backups* snapshots Envoryx itself: the SQLite database
+*Settings → Backups → Instance backups* snapshots Envoryx itself: the SQLite database
 (accounts, sessions, API tokens, projects and their service settings, domains,
 workers, settings), the local CA, the SSH host key and deploy keys,
 notification settings and the generated per-project configuration. Project
@@ -1445,7 +1444,7 @@ speed on a current CPU; larger ones need the GPU or patience.
 
 ## Database browser (Adminer)
 
-*Settings → Database browser* switches on an in-browser database tool for
+*Settings → Tools → Database browser* switches on an in-browser database tool for
 projects with MariaDB, MySQL or PostgreSQL (MongoDB is not supported by the
 Adminer image; use the published port with Compass). Nothing runs until the
 first click on **Open database** in a project's Database tab: Envoryx then
@@ -1588,8 +1587,8 @@ slug (`shop`): it lands in the project's application container, PHP when
 the project has PHP, else Python, else Go, else Ruby, else Node. Projects with
 several runtimes also accept `shop.php`, `shop.python`, `shop.go`, `shop.ruby`
 and `shop.node` to pick one explicitly (the IDE tab lists these rows only
-then). Password = an API token from Settings → API tokens, or a public key
-stored under Settings → SSH access. Each session is a `docker exec` into that
+then). Password = an API token from Settings → Access → API tokens & MCP, or a public key
+stored under Settings → Access → SSH access. Each session is a `docker exec` into that
 container as the project owner; there is no shell
 on the host. SFTP exposes `/var/www/html` (the project) and `/home/envoryx`
 (a persistent home for tool caches and IDE helpers).
@@ -1659,7 +1658,7 @@ Runtime tab → PHP → **Xdebug**: enables step debugging for that project
 (port 9003, mode `debug,develop`, `start_with_request=yes`). Xdebug connects
 back to the machine that made the request (behind Envoryx's proxy that
 address comes from `X-Forwarded-For`) and falls back to the *developer
-machine* set in Settings → Project links (or a per-project override). Map
+machine* set in Settings → General → Project links & developer machine (or a per-project override). Map
 `/var/www/html` to your project folder in the IDE; the tab shows the exact
 PhpStorm/VS Code settings. Turn it off when you are done: it slows PHP down.
 
@@ -1685,7 +1684,7 @@ anyone who once chose their events.
 ## AI assistants (MCP)
 
 Envoryx ships an MCP server at `/mcp` (streamable HTTP). Create a token under
-**Settings → API tokens & MCP**; the page shows a ready-to-paste client
+**Settings → Access → API tokens & MCP**; the page shows a ready-to-paste client
 configuration:
 
 ```json
@@ -1804,8 +1803,7 @@ envoryx login --url https://envoryx.example.com --token "$ENVORYX_TOKEN"
 `~/.config/envoryx/cli.json` (mode 0600; `ENVORYX_CLI_CONFIG` points somewhere
 else). `--token -` reads it from stdin, which is what a provisioning script
 wants. `envoryx whoami` shows whose token it is and what it may do, `envoryx
-logout` forgets it again (the token itself is revoked under *Settings → API
-tokens*). Without a stored configuration, `ENVORYX_URL` and `ENVORYX_TOKEN`
+logout` forgets it again (the token itself is revoked under *Settings → Access → API tokens & MCP*). Without a stored configuration, `ENVORYX_URL` and `ENVORYX_TOKEN`
 work just as well, which is handy in CI, where nothing should be written to disk.
 
 ### What it can do
