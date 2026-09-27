@@ -473,7 +473,7 @@ a blank directory / git clone), and the dev server *is* the project:
   runtime the project has. Actions offer npm/pnpm/yarn and `node -v`; git
   clone/pull run in a one-shot container from the Node image.
 - **Cron jobs** (Cron tab) run any command on a schedule in the PHP, Python,
-  Go, Ruby or Node.js container, as the project owner in the project directory,
+  Go, Ruby, Java or Node.js container, as the project owner in the project directory,
   through `sh -c`, with the project's environment. Pick a schedule (every few
   minutes, hourly, daily, weekly, monthly) or type a cron expression; the form
   shows the next runs. Schedules are read in Envoryx's time zone, so set `TZ` on
@@ -497,7 +497,7 @@ a blank directory / git clone), and the dev server *is* the project:
   containers are recreated once at the next start (new command wrapper,
   unpublished port); from then on `<project>.<base>` reaches the dev server.
 
-A **static site** (no PHP, no Node, no Python, Go or Ruby server) is the same web
+A **static site** (no PHP, no Node, no Python, Go, Ruby or Java server) is the same web
 container alone: pick **Static site** in the wizard; Envoryx writes a
 starter `index.html` unless you clone a repository.
 
@@ -737,6 +737,90 @@ and needs none.
   {"enabled": false}}` removes. The CLI takes `--ruby <version>`,
   `--ruby-server` and `--ruby-preset rails|rack`.
 
+### Java projects (Spring Boot, Quarkus)
+
+Pick **Java application** on the first wizard step (or enable Java on any
+project from the Runtime tab). The Java container (`envoryx-<project>-java`,
+image `ghcr.io/envoryx/envoryx-java:<17|21|25>`: Eclipse Temurin
+`<v>-jdk-noble` plus Maven, Gradle, git and socat; only the LTS releases) runs
+as `PUID:PGID` with the project directory at `/var/www/html` and the project
+home at `/home/envoryx`. Maven's repository and Gradle's caches live in the
+shared package cache, so a dependency is downloaded once for every project.
+
+- **Build tool.** A `pom.xml` means Maven, else a `build.gradle` or
+  `build.gradle.kts` means Gradle. The project's wrapper (`mvnw`, `gradlew`)
+  wins over the image's Maven or Gradle and runs through `sh`, so a wrapper
+  that lost its executable bit in a zip or a Windows checkout still works.
+- **Server.** *Run the Java server* makes the preset's server the container's
+  main process, restarted automatically and published on a host port of its
+  own. Before it starts it waits for the build file. **Spring Boot** runs
+  `mvn spring-boot:run` or `gradle bootRun` in development mode (DevTools
+  restarts the application when compiled classes change, so run `mvn compile`
+  in the Java terminal or let the IDE build after editing); **Quarkus** runs
+  `mvn quarkus:dev` or `gradle quarkusDev`, which recompiles on the next
+  request. Production mode builds the project once without the tests
+  (`mvn package`, `gradle build`) and then runs the jar: Quarkus'
+  `target/quarkus-app/quarkus-run.jar`, else the newest jar in `target/` or
+  `build/libs/` (not the `-plain`, `-sources`, `-javadoc` or `-tests` ones).
+  The **Jar** preset has no dev mode: it builds and runs a jar, the one you
+  name (`build/libs/app.jar`) or the newest. The server listens on port 8080
+  by default; `SERVER_PORT`, `QUARKUS_HTTP_PORT`, `MICRONAUT_SERVER_PORT` and
+  `PORT` carry the port, and the matching host variables are `0.0.0.0`.
+- **Database.** Envoryx injects `SPRING_DATASOURCE_URL`/`_USERNAME`/`_PASSWORD`
+  for Spring Boot and `QUARKUS_DATASOURCE_DB_KIND`/`_JDBC_URL`/`_USERNAME`/`_PASSWORD`
+  for Quarkus (PostgreSQL, MySQL, MariaDB), plus `JDBC_URL` for anything else;
+  an additional database `analytics` arrives as `ANALYTICS_JDBC_URL`.
+  MongoDB, Redis and Mailpit get the Spring and Quarkus variables too
+  (`SPRING_DATA_MONGODB_URI`, `SPRING_DATA_REDIS_URL`, `QUARKUS_REDIS_HOSTS`,
+  `SPRING_MAIL_HOST`, `QUARKUS_MAILER_HOST` …). Quarkus Dev Services are
+  switched off (`QUARKUS_DEVSERVICES_ENABLED=false`): the project's database
+  is the one the application uses, not a container Quarkus would start itself.
+- **Routing.** Without PHP and without a Python, Go or Ruby server the Java
+  server is the application: the proxy routes `https://<project>.<base>` and
+  every extra domain to `envoryx-<project>-java:<port>`, and *Direct access*
+  is the Java host port. Next to one of the others it only has its host port.
+- **Templates.** *Spring Boot* (from start.spring.io: Spring Web, Actuator and
+  DevTools, with JPA and the driver when the project has a database) and
+  *Quarkus REST* (from code.quarkus.io: REST with Jackson and SmallRye Health,
+  with Hibernate ORM Panache and the driver when it has one). Both are Maven
+  projects named after the project, on the project's Java version, and are
+  built once with their wrapper, which takes a few minutes the first time
+  while Maven fills the cache. With a database the Quarkus template sets
+  `%dev.quarkus.hibernate-orm.schema-management.strategy=update` in
+  `application.properties`, so Hibernate creates the tables in dev mode and
+  keeps the data across live reloads.
+- **Actions, tests and workers.** Actions: `java -version`; for Maven
+  `package`, `clean`, `dependency:tree` and
+  `versions:display-dependency-updates`; for Gradle `build`, `clean`,
+  `dependencies` and `tasks`. The Tests tab runs `mvn test` or `gradle test`
+  (filter with `-Dtest` or `--tests`) and shows the result per test from the
+  JUnit reports. The run points `SPRING_DATASOURCE_URL`,
+  `QUARKUS_DATASOURCE_JDBC_URL`, `JDBC_URL` and `DATABASE_URL` at
+  `<database>_test`, which Envoryx creates first, so a test with `create-drop`
+  cannot empty the development database. Worker presets: *Jar file* (`java
+  -jar <file>`) and *Build tool goal* (`mvn <goal>` or `gradle <task>`, e.g.
+  `exec:java -Dexec.mainClass=com.example.Worker`). Cron jobs run in the Java
+  container like in the others.
+- **Debugging.** *Debug with JDWP* starts the server's JVM with a JDWP agent
+  (port 5005 by default, `suspend=n`) and publishes that port on a host
+  port. For `spring-boot:run` the agent goes into the forked application JVM,
+  for `bootRun` an init script (`/opt/envoryx/jdwp.gradle`) adds it, and
+  Quarkus dev mode gets `-Ddebug`. Attach IntelliJ IDEA with *Run → Remote JVM
+  Debug* or VS Code (`type: java`, `request: attach`) with the host and port
+  from the IDE tab. Without the server only the port is published, for a JVM
+  started in the Java terminal with
+  `-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005`.
+  JDWP has no authentication: whoever reaches the port can run any code in
+  the JVM. Switch it off when you are not debugging, and do not enable it on
+  a Docker host reachable from untrusted networks.
+- **Adding or removing Java later.** The Runtime tab's Java card has an
+  *Enable Java* switch; removing it takes the Java container and the Java
+  workers' containers down, while files and worker definitions stay. Over the API:
+  `PATCH /api/v1/projects/{id}` with `{"java": {"enabled": true, "version":
+  "25", "server": true, "preset": "spring-boot"}}` adds or changes, `{"java":
+  {"enabled": false}}` removes. The CLI takes `--java <version>`,
+  `--java-server` and `--java-preset spring-boot|quarkus|jar`.
+
 ### Bare metal
 
 Outside Docker the proxy dials the project's published port
@@ -822,7 +906,7 @@ next steps of the wizard with what it recognised; everything stays editable.
 | Joomla | `configuration.php` with `JConfig` | PHP by version, `mysqli` |
 | Shopware, Craft CMS, other Composer apps | `composer.json` | PHP from `require.php`, `ext-*` extensions |
 | Plain PHP | `.php` files | docroot where `index.php` is, the files that connect to a database |
-| Static site, Node.js, Python, Go, Ruby | `index.html`, `package.json`, `manage.py`/`requirements.txt`, `go.mod`, `Gemfile` | the matching runtime |
+| Static site, Node.js, Python, Go, Ruby, Java | `index.html`, `package.json`, `manage.py`/`requirements.txt`, `go.mod`, `Gemfile`, `pom.xml`/`build.gradle` | the matching runtime |
 
 The PHP version is the newest one Envoryx offers that `composer.json` and the
 CMS version allow. Code that calls functions PHP 8 removed (`create_function`,
@@ -889,7 +973,7 @@ for no database), `--web`, `--docroot` and `--path` override it.
 A project's **Resources** tab caps what its containers may use, so a runaway
 queue worker or Node process cannot take the whole server:
 
-- **Application containers** (web server, PHP, Node.js, Python, Go, Ruby, every worker)
+- **Application containers** (web server, PHP, Node.js, Python, Go, Ruby, Java, every worker)
   and **services** (database, Redis, Memcached, Mailpit, RabbitMQ, the search
   engines, object storage) each get CPU cores (e.g. `1.5`) and memory. Docker
   limits containers one by one, so the numbers apply to *each* container of
@@ -1080,7 +1164,9 @@ git and build dependencies) with `python_versions.json`, Go images
 (`envoryx-go:*`, official `golang:<v>-bookworm` plus air, Delve and gotestsum)
 with `go_versions.json`, Ruby images (`envoryx-ruby:*`, official
 `ruby:<v>-slim-bookworm` plus build dependencies and the debug gem) with
-`ruby_versions.json`. You change a project's Node, Python, Go or Ruby version on
+`ruby_versions.json`, Java images (`envoryx-java:*`, Eclipse Temurin
+`<v>-jdk-noble` plus Maven and Gradle, LTS releases only) with
+`java_versions.json`. You change a project's Node, Python, Go, Ruby or Java version on
 the Runtime tab, like the PHP version.
 
 ## Git deploy key
@@ -1391,9 +1477,9 @@ The API: `GET /projects/{id}/share`, `POST /projects/{id}/share`
 
 ## Package cache
 
-Composer, npm, Yarn, pip, uv, Go (modules and build cache) and Bundler keep their
+Composer, npm, Yarn, pip, uv, Go (modules and build cache), Bundler, Maven and Gradle keep their
 downloads in one cache that every project shares: `/config/cache`, mounted at
-`/var/cache/envoryx` into the PHP, Node, Python, Go and Ruby containers, the
+`/var/cache/envoryx` into the PHP, Node, Python, Go, Ruby and Java containers, the
 workers and the one-shot containers that scaffold a template. A package is
 downloaded once, whichever project asks for it next, so the second Laravel
 project is created in a fraction of the time of the first. The variables that
@@ -1559,7 +1645,7 @@ or a composer script (PHP image); npm scripts and Node scripts (Node
 image); Python scripts and modules, Django management commands, Celery
 worker and beat (Python image); Go programs of the module (Go image); Solid
 Queue, GoodJob, Sidekiq, rake tasks and Ruby scripts (Ruby image, after the
-bundle install). Every worker is its own container
+bundle install); jars and Maven goals or Gradle tasks (Java image). Every worker is its own container
 (`envoryx-<project>-worker-<name>`) from the image of the runtime its
 preset names, runs as `PUID:PGID` with the project's environment (and
 php.ini for PHP, the venv `PATH` for Python), restarts automatically
@@ -1576,9 +1662,9 @@ Every project has an **IDE** tab with all values ready to copy.
 **Remote interpreter over SSH.** Envoryx runs an SSH server on port 2222
 (publish it, or use the container's own IP on `br0`). User name = project
 slug (`shop`): it lands in the project's application container, PHP when
-the project has PHP, else Python, else Go, else Ruby, else Node. Projects with
-several runtimes also accept `shop.php`, `shop.python`, `shop.go`, `shop.ruby`
-and `shop.node` to pick one explicitly (the IDE tab lists these rows only
+the project has PHP, else Python, else Go, else Ruby, else Java, else Node. Projects with
+several runtimes also accept `shop.php`, `shop.python`, `shop.go`, `shop.ruby`,
+`shop.java` and `shop.node` to pick one explicitly (the IDE tab lists these rows only
 then). Password = an API token from Settings → Access → API tokens & MCP, or a public key
 stored under Settings → Access → SSH access. Each session is a `docker exec` into that
 container as the project owner; there is no shell
@@ -1603,7 +1689,7 @@ on the host. SFTP exposes `/var/www/html` (the project) and `/home/envoryx`
 - VS Code: Remote-SSH works the same way (`ssh -p 2222 shop@<host>`); open
   `/var/www/html` as the remote folder.
 
-A static project (no PHP, Python, Go, Ruby or Node) has no application container, so
+A static project (no PHP, Python, Go, Ruby, Java or Node) has no application container, so
 SSH sessions are refused for it.
 
 The project must be running for sessions to open. Commands are logged to
@@ -1616,8 +1702,8 @@ client. In Envoryx this is opt-in per project (IDE tab → *Allow JetBrains
 Gateway*): it enables SSH port forwarding into the container and mounts a
 shared backend cache (`/config/jetbrains`, ~1.5 GB per IDE version,
 downloaded once). The backend runs as the project owner inside the
-application container (PHP, else Python, else Go, else Ruby, else Node; user
-`<slug>`, and `<slug>.python` / `<slug>.go` / `<slug>.ruby` / `<slug>.node`
+application container (PHP, else Python, else Go, else Ruby, else Java, else Node; user
+`<slug>`, and `<slug>.python` / `<slug>.go` / `<slug>.ruby` / `<slug>.java` / `<slug>.node`
 pick one next to PHP) and needs 2-4 GB RAM plus CPU while indexing. Nothing
 runs until you connect. Envoryx ships no JetBrains
 software: Gateway itself is free, the IDE backend is uploaded by your
@@ -1629,7 +1715,7 @@ directory `/var/www/html`. Close the project in Gateway or use *Stop IDE
 backend* to free the memory. Small NAS boxes: leave it off.
 
 The tunnel to the backend needs `socat` in the runtime image. The PHP and Node
-images have it since September 2026; the Python, Go and Ruby images had it from
+images have it since September 2026; the Python, Go, Ruby and Java images had it from
 the start. Troubleshooting:
 
 - *Host unreachable* right after installing the backend: use *Restart* on
@@ -1697,7 +1783,7 @@ Use `http://<host>:8787/mcp` if the proxy/HTTPS is not set up.
 Available tools: list/get projects, list runtimes, create project (PHP
 version + extensions, database, Redis, Memcached, Mailpit, RabbitMQ,
 Meilisearch, Typesense, OpenSearch, Ollama, object storage, Node, Python, Go,
-Ruby, git clone, env),
+Ruby, Java, git clone, env),
 start/stop/restart, get logs, list/run actions (composer, artisan, npm …),
 list/create databases, list/create backups, add domain. Deleting projects,
 dropping databases and restoring backups are intentionally not exposed -
@@ -1708,7 +1794,7 @@ Projects without PHP: pass `phpVersion: "none"` plus `nodeVersion`,
 `nodeDevServer: true` and `nodePreset` (`vite`, `next`, `nuxt`, `generic`;
 optional `nodeScript`, `nodePort`, `nodePackageManager`), or a Node template
 (`vite`, `next`, `nuxt`) which fills the dev-server defaults. The result
-carries `serves` (`php`, `python`, `go`, `ruby`, `node` or `static`),
+carries `serves` (`php`, `python`, `go`, `ruby`, `java`, `node` or `static`),
 `devUrl` and a `directUrl` that points at the node host port while the dev
 server serves the project.
 Example prompt: *"Create a Node.js project called dashboard from the Nuxt
@@ -1730,6 +1816,11 @@ Ruby projects: pass `phpVersion: "none"` and `rubyVersion`, plus `rubyServer:
 true` (optional `rubyPreset` `rails`/`rack`, `rubyPort`, `rubyMode`) or a Ruby
 template (`rails`, `rails-api`, `sinatra`), which switches the server on.
 `serves` is `ruby` then.
+
+Java projects: pass `phpVersion: "none"` and `javaVersion`, plus `javaServer:
+true` (optional `javaPreset` `spring-boot`/`quarkus`/`jar`, `javaPort`,
+`javaMode`) or a Java template (`spring-boot`, `quarkus`), which switches the
+server on. `serves` is `java` then.
 
 ### Scripting the REST API
 
@@ -1829,7 +1920,7 @@ envoryx git status|pull shop                          # and: git checkout shop m
 A project is named by its name, its slug or its id. `--json` hands the API's
 own answer to `jq` instead of a table; `--service` picks a container other
 than the project's application container (`php`, `python`, `go`, `ruby`,
-`node`, `web`, `database`, `redis`, `memcached`, `mailpit`, `rabbitmq`,
+`java`, `node`, `web`, `database`, `redis`, `memcached`, `mailpit`, `rabbitmq`,
 `meilisearch`, `typesense`, `opensearch`, `opensearch-dashboards`, `ollama`,
 `storage`, `worker:<id>`). `envoryx project create --from-json file.json`
 sends a create request the flags don't cover (everything the wizard offers),
@@ -1911,10 +2002,10 @@ healthcheck:                     # see "Health checks"; or just: healthcheck: /h
   interval: 1m
 ```
 
-`node:`, `python:`, `go:` and `ruby:` take the fields of the wizard (`devServer`, `preset`,
+`node:`, `python:`, `go:`, `ruby:` and `java:` take the fields of the wizard (`devServer`, `preset`,
 `port`, `script` …; `server`, `preset`, `app`, `debug` …; `server`, `mode`,
 `package`, `port`, `debug`, `debugPort`; `server`, `mode`, `preset`, `port`,
-`debug`, `debugPort`). A setting left out
+`debug`, `debugPort`; the same plus `jar`). A setting left out
 means Envoryx's default, so the file is the whole desired state: `web:` missing
 means Caddy, `extensions:` missing the default set. Unknown keys are errors -
 a typo never silently drops a service. The export pins every version, which is

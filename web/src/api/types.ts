@@ -133,13 +133,13 @@ export interface EnvVar {
 }
 
 /**
- * What a project's primary hostname serves: PHP-FPM behind the web server, the Python, Go or
- * Ruby server, the Node dev server or static files.
+ * What a project's primary hostname serves: PHP-FPM behind the web server, the Python, Go,
+ * Ruby or Java server, the Node dev server or static files.
  */
-export type Serves = "php" | "python" | "go" | "ruby" | "node" | "static";
+export type Serves = "php" | "python" | "go" | "ruby" | "java" | "node" | "static";
 
 /** Kind of the container that runs the project's code. */
-export type AppKind = "php" | "python" | "go" | "ruby" | "node";
+export type AppKind = "php" | "python" | "go" | "ruby" | "java" | "node";
 
 export interface Project {
   id: string;
@@ -161,12 +161,12 @@ export interface Project {
   hostnames: string[];
   /**
    * Set when the Node dev server is enabled (routed by the proxy); also the primary route
-   * when the project has neither PHP nor a Python, Go or Ruby server.
+   * when the project has neither PHP nor a Python, Go, Ruby or Java server.
    */
   devHostname?: string;
   /** Missing on payloads from a backend that predates it; use servesOf() then. */
   serves?: Serves;
-  /** The application container: PHP if present, else Python, Go, Ruby, Node; absent for static projects. */
+  /** The application container: PHP if present, else Python, Go, Ruby, Java, Node; absent for static projects. */
   appService?: AppKind;
   backupSchedule: BackupSchedule;
   ideGateway?: boolean;
@@ -217,8 +217,8 @@ export interface ProxyRulesRequest extends Omit<ProxyRules, "basicAuth"> {
 
 /**
  * Client-side fallback for `project.serves`: PHP enabled → php; Python enabled with the server
- * on → python; Go with the server on → go; Ruby with the server on → ruby; Node enabled with
- * the dev server on → node; everything else → static. Prefer
+ * on → python; Go with the server on → go; Ruby with the server on → ruby; Java with the
+ * server on → java; Node enabled with the dev server on → node; everything else → static. Prefer
  * `project.serves ?? servesOf(project)`.
  */
 export function servesOf(p: Pick<Project, "services">): Serves {
@@ -230,6 +230,8 @@ export function servesOf(p: Pick<Project, "services">): Serves {
   if (go && (go.config as GoConfig).server) return "go";
   const ruby = enabled("ruby");
   if (ruby && (ruby.config as RubyConfig).server) return "ruby";
+  const java = enabled("java");
+  if (java && (java.config as JavaConfig).server) return "java";
   const node = enabled("node");
   if (node && (node.config as NodeConfig).devServer) return "node";
   return "static";
@@ -238,7 +240,7 @@ export function servesOf(p: Pick<Project, "services">): Serves {
 /** Client-side fallback for `project.appService`: the first enabled application runtime. */
 export function appKindOf(p: Pick<Project, "services">): AppKind | undefined {
   const enabled = (kind: string) => p.services.some((s) => s.kind === kind && s.enabled);
-  return enabled("php") ? "php" : enabled("python") ? "python" : enabled("go") ? "go" : enabled("ruby") ? "ruby" : enabled("node") ? "node" : undefined;
+  return enabled("php") ? "php" : enabled("python") ? "python" : enabled("go") ? "go" : enabled("ruby") ? "ruby" : enabled("java") ? "java" : enabled("node") ? "node" : undefined;
 }
 
 export interface RuntimeVersion {
@@ -285,6 +287,8 @@ export interface ProjectTemplate {
   go?: GoConfig;
   /** Server defaults of a Ruby template (preset, port). */
   ruby?: RubyConfig;
+  /** Server defaults of a Java template (preset, port). */
+  java?: JavaConfig;
 }
 
 /** Framework preset of the Node dev server with the port the framework listens on by default. */
@@ -334,6 +338,20 @@ export const defaultRubyPresets: RubyPreset[] = [
   { key: "rack", label: "Rack (Puma on config.ru: Sinatra, Roda, Hanami …)", port: 9292 },
 ];
 
+/** Server preset of the Java runtime with its default port. */
+export interface JavaPreset {
+  key: string;
+  label: string;
+  port: number;
+}
+
+/** Fallback when the backend predates javaPresets. */
+export const defaultJavaPresets: JavaPreset[] = [
+  { key: "spring-boot", label: "Spring Boot", port: 8080 },
+  { key: "quarkus", label: "Quarkus", port: 8080 },
+  { key: "jar", label: "Other (build, then java -jar: Micronaut, Javalin, Helidon …)", port: 8080 },
+];
+
 export interface RuntimesResponse {
   runtimes: Runtime[];
   phpExtensions: PHPExtension[];
@@ -342,6 +360,7 @@ export interface RuntimesResponse {
   nodePresets?: NodePreset[];
   pythonPresets?: PythonPreset[];
   rubyPresets?: RubyPreset[];
+  javaPresets?: JavaPreset[];
 }
 
 export interface DatabaseRequest {
@@ -627,6 +646,35 @@ export interface RubyConfig {
   debugHostPort?: number;
 }
 
+/** Java service with optional server mode (Spring Boot, Quarkus or any jar). */
+export interface JavaRequest {
+  version: string;
+  server?: boolean;
+  /** "dev" (default, the framework's dev mode) or "production" (build once, run the jar). */
+  mode?: string;
+  /** "spring-boot" (default), "quarkus" or "jar". */
+  preset?: string;
+  /** The jar the "jar" preset runs, relative to the project; empty picks the newest. */
+  jar?: string;
+  port?: number;
+  /** Start the JVM with a JDWP agent (or, without the server, publish its port). */
+  debug?: boolean;
+  debugPort?: number;
+}
+
+/** Stored Java service config (from project.services[kind=java].config). */
+export interface JavaConfig {
+  server?: boolean;
+  mode?: string;
+  preset?: string;
+  jar?: string;
+  port?: number;
+  hostPort?: number;
+  debug?: boolean;
+  debugPort?: number;
+  debugHostPort?: number;
+}
+
 /** Stored web service config (from project.services[kind=web].config). */
 export interface WebServerConfig {
   /** Unknown paths return index.html (client-side routing); only for projects without PHP. */
@@ -649,6 +697,7 @@ export interface CreateProjectRequest {
   python?: PythonRequest | null;
   go?: GoRequest | null;
   ruby?: RubyRequest | null;
+  java?: JavaRequest | null;
   database?: DatabaseRequest | null;
   /** Additional databases, each reached by its name (host, NAME_DB_* variables). */
   databases?: (DatabaseRequest & { name: string })[];
@@ -688,7 +737,7 @@ export interface SiteAnalysis {
   files: number;
   bytes: number;
   framework: { id: string; name: string; version?: string };
-  runtime: "php" | "static" | "node" | "python" | "go" | "ruby";
+  runtime: "php" | "static" | "node" | "python" | "go" | "ruby" | "java";
   phpVersion?: string;
   phpExtensions?: string[];
   docroot: string;
@@ -835,6 +884,7 @@ export interface UpdateProjectRequest {
   python?: ({ enabled: true } & PythonRequest) | { enabled: false };
   go?: ({ enabled: true } & GoRequest) | { enabled: false };
   ruby?: ({ enabled: true } & RubyRequest) | { enabled: false };
+  java?: ({ enabled: true } & JavaRequest) | { enabled: false };
   database?: DatabaseUpdate;
   /** Adds, changes or removes (enabled: false) additional databases by name. */
   databases?: Record<string, DatabaseUpdate>;
@@ -1319,7 +1369,7 @@ export interface Settings {
 
 /** One difference between a project and its envoryx.yml. */
 export interface ManifestChange {
-  /** docroot, web, php, node, python, go, ruby, database, redis …, storage, limits, healthcheck, env, domain, worker, cron */
+  /** docroot, web, php, node, python, go, ruby, java, database, redis …, storage, limits, healthcheck, env, domain, worker, cron */
   section: string;
   /** Variable, host name, worker or cron job within the section. */
   item?: string;
@@ -1405,7 +1455,7 @@ export interface Worker {
   createdAt: string;
 }
 
-export type CronRuntime = "php" | "node" | "python" | "go" | "ruby";
+export type CronRuntime = "php" | "node" | "python" | "go" | "ruby" | "java";
 export type CronRunStatus = "running" | "succeeded" | "failed" | "timed_out" | "error" | "interrupted";
 
 export interface CronRun {
@@ -1452,7 +1502,7 @@ export interface WorkerPreset {
   argLabel?: string;
   argHint?: string;
   requires?: string[];
-  /** Service the worker runs in: "php", "node", "python", "go" or "ruby". */
+  /** Service the worker runs in: "php", "node", "python", "go", "ruby" or "java". */
   runtime?: string;
 }
 

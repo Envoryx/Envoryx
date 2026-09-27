@@ -10,6 +10,31 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Added
+- Java runtime. The wizard's first step offers *Java application*; a Java
+  container (`ghcr.io/envoryx/envoryx-java:<17|21|25>`, Eclipse Temurin plus
+  Maven and Gradle, LTS releases only) is added on any project from the
+  Runtime tab, too. *Run the Java server* runs Spring Boot (`spring-boot:run`
+  or `bootRun`, DevTools restarts on compiled changes), Quarkus
+  (`quarkus:dev` or `quarkusDev`, live reload) or a plain jar; production mode
+  builds once and runs the jar. Maven or Gradle follows the project's build
+  file, and its `mvnw`/`gradlew` wins. Without PHP and without a Python, Go or
+  Ruby server the project URL reaches it. *Debug with JDWP* publishes a JDWP
+  port for IntelliJ IDEA's Remote JVM Debug and VS Code (the IDE tab has
+  both). Maven's repository and Gradle's caches are shared by all projects.
+- `SPRING_DATASOURCE_*`, `QUARKUS_DATASOURCE_*` and `JDBC_URL` (plus
+  `<NAME>_JDBC_URL` per additional database) point Java apps at the project
+  database; MongoDB, Redis and Mailpit get the Spring and Quarkus variables,
+  too. Quarkus Dev Services are switched off.
+- Java templates *Spring Boot* (start.spring.io) and *Quarkus REST*
+  (code.quarkus.io), with JPA or Hibernate and the driver of the project
+  database; Maven and Gradle actions; `mvn test`/`gradle test` on the Tests
+  tab against `<database>_test`, with results per test; *Jar file* and *Build
+  tool goal* workers; cron jobs, SSH (`<project>.java`), the terminal, logs,
+  the manifest (`java:`), the CLI (`--java`, `--java-server`,
+  `--java-preset`) and the MCP tools know Java.
+- Site import recognises `pom.xml` and `build.gradle`.
+
 ## [0.12.0] - 2026-09-27
 
 ### Added

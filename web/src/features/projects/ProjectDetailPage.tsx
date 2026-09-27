@@ -7,11 +7,12 @@ import { lazy, Suspense, useEffect, useState, type ReactElement } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { ApiError } from "@/api/client";
 import { useDevServerLink, useImageChoice, useProject, useProjectLinks, useProjectPlan, useProjectStats, useRuntimes, useSettings, useUpdateProject } from "@/api/hooks";
-import { appKindOf, defaultNodePresets, defaultPythonPresets, defaultRubyPresets, servesOf, type EnvVar, type NodeConfig, type PHPConfig, type Project, type PythonConfig, type GoConfig, type RubyConfig, type UpdateProjectRequest, type WebServerConfig } from "@/api/types";
+import { appKindOf, defaultNodePresets, defaultPythonPresets, defaultRubyPresets, defaultJavaPresets, servesOf, type EnvVar, type NodeConfig, type PHPConfig, type Project, type PythonConfig, type GoConfig, type RubyConfig, type JavaConfig, type UpdateProjectRequest, type WebServerConfig } from "@/api/types";
 import { NodeDevServerFields, defaultScript, devServerRequest, type DevServerForm } from "./NodeDevServerFields";
 import { PythonServerFields, defaultPythonServerForm, pythonServerRequest, type PythonServerForm } from "./PythonServerFields";
 import { GoServerFields, defaultGoServerForm, goServerRequest, type GoServerForm } from "./GoServerFields";
 import { RubyServerFields, defaultRubyServerForm, rubyServerRequest, type RubyServerForm } from "./RubyServerFields";
+import { JavaServerFields, defaultJavaServerForm, javaServerRequest, type JavaServerForm } from "./JavaServerFields";
 import { Alert, Badge, Button, Card, CardHeader, Checkbox, Code, ErrorState, Field, Input, PageHeader, Select, Spinner, StatusDot } from "@/components/ui";
 import { containerStateTone, formatBytes, formatDateTime, formatPercent, serviceLabel, stateMeta } from "@/lib/format";
 import { DeleteProjectDialog, DuplicateProjectDialog, ProjectActionButtons, RenameProjectDialog, useActionError } from "./ProjectActions";
@@ -174,17 +175,12 @@ export function ProjectDetailPage() {
           {/* The application runtime comes first (PHP, else Python, else Go, else Ruby, else Node), then the web server, then the other runtimes as toolchains. */}
           {(() => {
             const app = p.appService ?? appKindOf(p);
-            const cards: Record<"php" | "python" | "go" | "ruby" | "node", ReactElement> = { php: <PhpCard key="php" project={p} />, python: <PythonCard key="python" project={p} />, go: <GoCard key="go" project={p} />, ruby: <RubyCard key="ruby" project={p} />, node: <NodeCard key="node" project={p} /> };
-            const [first, ...rest]: ("php" | "python" | "go" | "ruby" | "node")[] =
-              app === "node"
-                ? ["node", "python", "go", "ruby", "php"]
-                : app === "python"
-                  ? ["python", "node", "go", "ruby", "php"]
-                  : app === "go"
-                    ? ["go", "node", "python", "ruby", "php"]
-                    : app === "ruby"
-                      ? ["ruby", "node", "python", "go", "php"]
-                      : ["php", "node", "python", "go", "ruby"];
+            type Kind = "php" | "python" | "go" | "ruby" | "java" | "node";
+            const cards: Record<Kind, ReactElement> = { php: <PhpCard key="php" project={p} />, python: <PythonCard key="python" project={p} />, go: <GoCard key="go" project={p} />, ruby: <RubyCard key="ruby" project={p} />, java: <JavaCard key="java" project={p} />, node: <NodeCard key="node" project={p} /> };
+            // The application runtime first, then the rest in their usual order (Node before the
+            // servers, PHP last unless it's the application).
+            const order: Kind[] = ["node", "python", "go", "ruby", "java", "php"];
+            const [first, ...rest]: Kind[] = app && app !== "php" ? [app, ...order.filter((k) => k !== app)] : ["php", "node", "python", "go", "ruby", "java"];
             return (
               <>
                 {first && cards[first]}
@@ -390,7 +386,7 @@ function ProjectSettingsCard({ project: p, onRename }: { project: Project; onRen
             hint={
               serves === "node"
                 ? t("Not used while the dev server serves the app; the build output (e.g. dist/) once you turn it off.")
-                : serves === "python" || serves === "go" || serves === "ruby"
+                : serves === "python" || serves === "go" || serves === "ruby" || serves === "java"
                   ? t("Not used while the application server serves the app; static files (e.g. a collected static/ folder) once you turn it off.")
                   : t("Relative to the project directory")
             }
@@ -974,6 +970,110 @@ function RubyCard({ project: p }: { project: Project }) {
           </Field>
         )}
         {enabled && <RubyServerFields value={server} onChange={setServer} presets={runtimes.data?.rubyPresets ?? defaultRubyPresets} primary={serves !== "php" && serves !== "python" && serves !== "go"} />}
+      </div>
+    </Card>
+  );
+}
+
+function JavaCard({ project: p }: { project: Project }) {
+  const { t } = useTranslation();
+  const runtimes = useRuntimes();
+  const update = useUpdateProject(p.id);
+  const links = useProjectLinks();
+  const { msg, setMsg } = useSaveFeedback();
+  const serves = p.serves ?? servesOf(p);
+  const svc = p.services.find((s) => s.kind === "java" && s.enabled);
+  const java = runtimes.data?.runtimes.find((r) => r.key === "java");
+  const stored = (svc?.config ?? {}) as JavaConfig;
+  const fromStored = (): JavaServerForm => ({
+    server: !!stored.server,
+    mode: stored.mode ?? "dev",
+    preset: stored.preset ?? defaultJavaServerForm.preset,
+    port: String(stored.port ?? defaultJavaServerForm.port),
+    debug: !!stored.debug,
+    jar: stored.jar ?? "",
+    debugPort: String(stored.debugPort ?? 5005),
+  });
+  const [enabled, setEnabled] = useState(!!svc);
+  const [version, setVersion] = useState(svc?.version ?? "");
+  const [server, setServer] = useState<JavaServerForm>(fromStored);
+  useEffect(() => {
+    setEnabled(!!svc);
+    setVersion(svc?.version ?? java?.versions.find((v) => v.default)?.version ?? "");
+    setServer(fromStored());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [svc, java]);
+  const dirty = enabled !== !!svc || (enabled && (version !== (svc?.version ?? "") || JSON.stringify(server) !== JSON.stringify(fromStored())));
+  const javaStatus = p.status.services.find((s) => s.kind === "java");
+  // The server answers on the project URL when Java is the application; otherwise only its host port is published.
+  const url = serves === "java" ? links(p).url : stored.hostPort ? links({ httpPort: stored.hostPort, hostnames: [], serves: "static", services: [] }).direct : "";
+
+  return (
+    <Card>
+      <CardHeader
+        title={t("Java")}
+        description={
+          serves !== "php" && serves !== "python" && serves !== "go" && serves !== "ruby"
+            ? t("Application runtime of this project: run your Spring Boot, Quarkus or other JVM application here. Removing it only removes the container; the code stays in the project directory, the dependencies in the shared package cache.")
+            : t("Tooling container (mvn, gradle, java), optionally running a Java server on its own port. Removing it only removes the container; the code stays in the project directory.")
+        }
+        actions={
+          <Button
+            variant="primary"
+            icon={<Save className="size-4" />}
+            loading={update.isPending}
+            disabled={!dirty}
+            onClick={() =>
+              update.mutate(
+                { java: enabled ? { enabled: true, version, ...javaServerRequest(server) } : { enabled: false } },
+                {
+                  onSuccess: () => setMsg({ tone: "green", text: enabled ? t("Java container updated.") : t("Java container removed.") }),
+                  onError: (err) => setMsg({ tone: "red", text: errorText(err, t, t("Saving failed")) }),
+                },
+              )
+            }
+          >
+            {t("Save")}
+          </Button>
+        }
+      />
+      <div className="space-y-4 p-5">
+        {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
+        {(stored.server || (stored.debug && stored.debugHostPort)) && (
+          <div className="flex flex-wrap items-center gap-3 rounded-md border border-default px-3 py-2 text-sm">
+            <span className="text-muted">{stored.server ? t("Server") : t("Debugger")}</span>
+            {javaStatus && (
+              <span className="inline-flex items-center gap-1.5 text-xs">
+                <StatusDot tone={containerStateTone(javaStatus.state)} /> {javaStatus.state}
+              </span>
+            )}
+            {stored.server &&
+              (url ? (
+                <a href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-mono text-xs text-accent-600 hover:underline dark:text-accent-300">
+                  {url} <ExternalLink className="size-3" />
+                </a>
+              ) : (
+                <span className="text-xs text-subtle">{t("no port")}</span>
+              ))}
+            {stored.server && stored.hostPort ? <span className="font-mono text-xs text-subtle">{t("host port {{port}}", { port: stored.hostPort })}</span> : null}
+            {stored.server && stored.mode === "production" && <Badge tone="blue">{t("production server")}</Badge>}
+            {stored.debug && stored.debugHostPort ? <span className="font-mono text-xs text-subtle">{t("JDWP on host port {{port}}", { port: stored.debugHostPort })}</span> : null}
+          </div>
+        )}
+        <Checkbox label={t("Enable Java")} checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
+        {enabled && java && (
+          <Field label={t("Java version")} htmlFor="java-version">
+            <Select id="java-version" value={version} onChange={(e) => setVersion(e.target.value)}>
+              {java.versions.map((v) => (
+                <option key={v.version} value={v.version}>
+                  {v.label}
+                  {v.eol ? t(" (end of life)") : v.preview ? t(" (preview)") : ""}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        )}
+        {enabled && <JavaServerFields value={server} onChange={setServer} presets={runtimes.data?.javaPresets ?? defaultJavaPresets} primary={serves !== "php" && serves !== "python" && serves !== "go" && serves !== "ruby"} />}
       </div>
     </Card>
   );

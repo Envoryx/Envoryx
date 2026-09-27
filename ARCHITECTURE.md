@@ -2,7 +2,7 @@
 
 Envoryx is a Docker-native development environment manager for Unraid and Linux
 Docker hosts. It runs as a single container, talks to the Docker Engine API and
-creates isolated, per-project stacks (PHP, Python, Go, Ruby, Node, web server, database, cache …).
+creates isolated, per-project stacks (PHP, Python, Go, Ruby, Java, Node, web server, database, cache …).
 
 This document is for contributors. It explains how the pieces fit together and why
 they're built the way they are. It started as the design for Phase 1 (Foundation) and
@@ -20,7 +20,7 @@ Go API (single binary, single container)
    │
    ├── Auth            (argon2id, server-side sessions, CSRF/origin checks)
    ├── Project Manager (desired state, lifecycle, rollback, reconciliation)
-   ├── Runtime Catalog (PHP / Node / Python / Go / Ruby / DB / cache versions → images)
+   ├── Runtime Catalog (PHP / Node / Python / Go / Ruby / Java / DB / cache versions → images)
    ├── Docker Manager  (label-scoped Docker Engine abstraction)
    ├── Backup Manager  (project, instance and offsite backups)
    └── Audit Log
@@ -99,7 +99,7 @@ Go API (single binary, single container)
 ├── deploy/                   docker-compose.yml, Unraid template + icon
 ├── .github/workflows/        CI (tests) and multi-arch image builds → ghcr.io/envoryx/*
 ├── images/                  Envoryx runtime images: php (all extensions compiled in, toggled
-│                             per project), node, python, go, ruby
+│                             per project), node, python, go, ruby, java
 ├── Dockerfile                multi-stage build (web → go → alpine)
 ├── Makefile
 ├── ARCHITECTURE.md  SECURITY.md  DEVELOPMENT.md  DEPLOYMENT.md  README.md
@@ -296,7 +296,7 @@ Notes:
   values, extensions, DB credentials). Secrets in SQLite are protected by the
   `/config` directory permissions; see SECURITY.md.
 - Phase 2 had the service kinds `web` (Caddy) and `php`. Today there are also
-  `node`, `python`, `go`, `ruby`, `database` and `db-<name>`, the auxiliary
+  `node`, `python`, `go`, `ruby`, `java`, `database` and `db-<name>`, the auxiliary
   services (`redis`, `memcached`, `mailpit`, …) and `storage`; later migrations
   added the tables for workers, cron jobs, API tokens, images and more.
 
@@ -327,7 +327,7 @@ volume     envoryx-<slug>-<service>      e.g. envoryx-acme-shop-mariadb
 Slugs match `^[a-z0-9]([a-z0-9-]{0,38}[a-z0-9])?$`, so they're lower-case and DNS-safe.
 
 Inside the project network, containers use network aliases: `web`, `php`,
-`python`, `go`, `ruby`, `node`, `database` (plus the flavour, e.g. `mariadb`),
+`python`, `go`, `ruby`, `java`, `node`, `database` (plus the flavour, e.g. `mariadb`),
 the name of an additional database, and one per service (`redis`, `mailpit`,
 `rabbitmq`, `s3`, …).
 
@@ -441,14 +441,16 @@ A PHP project consists of two containers from the start:
 web container is not. `internal/project/app.go` is the single source of
 truth for the resulting shape: `appService(p)` is the enabled PHP service,
 else the enabled Python service, else the enabled Go service, else the
-enabled Ruby service, else the enabled Node service, else nil;
+enabled Ruby service, else the enabled Java service, else the enabled Node
+service, else nil;
 `pythonServesApp(p)` is true when there is no PHP and the Python service runs
 its application server, `goServesApp(p)` when there is neither PHP nor a
 Python server and the Go service runs its server, `rubyServesApp(p)` when
 there is no PHP, no Python and no Go server and the Ruby service runs its
-server, `nodeServesApp(p)` when none of them serves and the Node service runs
+server, `javaServesApp(p)` likewise one step further down,
+`nodeServesApp(p)` when none of them serves and the Node service runs
 its dev server; `appServesDirectly(p)` is any of them;
-`Serves(p)` yields `php`, `python`, `go`, `ruby`, `node`
+`Serves(p)` yields `php`, `python`, `go`, `ruby`, `java`, `node`
 or `static` (exposed as `serves` in the API and MCP output, `appService`
 names the container kind).
 
@@ -546,13 +548,35 @@ names the container kind).
   `DATABASE_URL` at `<database>_test` (Active Record merges it into any
   environment, so fixtures would otherwise empty the development tables), and
   `ensureTestDatabase` creates that database as the administrator first.
-- Start order is database → php/python/go/ruby/node → web (planner order:
-  database and services 5-8, php 10, python, go and ruby 12, node 15, web 20).
+- *Java server* (`serves=java`): the same mechanics with the Java container as
+  the upstream (`envoryx-<slug>-java:<port>`). `runtime.JavaConfig`
+  (`internal/runtime/java.go`) selects the preset (`spring-boot`, `quarkus`
+  or `jar`) plus `Mode`, `Jar`, `Port` and `Debug`/`DebugPort`;
+  `javaServeScript` picks Maven for a `pom.xml`, else Gradle, calls a
+  project's `mvnw`/`gradlew` through `sh` (a wrapper may lack its exec bit)
+  and runs `spring-boot:run`/`bootRun` or `quarkus:dev`/`quarkusDev` in dev
+  mode, or builds once and `exec`s `java -jar` in production (Quarkus'
+  `quarkus-run.jar`, the configured jar or the newest one the build left).
+  JDWP goes into the application JVM: `-Dspring-boot.run.jvmArguments` for
+  Maven, the init script `/opt/envoryx/jdwp.gradle` (reading `ENVORYX_JDWP`)
+  for `bootRun`, `-Ddebug=<port> -DdebugHost=0.0.0.0` for Quarkus. The guard
+  waits for the build file. `Env()` sets the host and port variables of
+  Spring, Quarkus and Micronaut and `QUARKUS_DEVSERVICES_ENABLED=false`;
+  `javaEnv` adds `SPRING_DATASOURCE_*`, `QUARKUS_DATASOURCE_*` and `JDBC_URL`
+  for the primary SQL database (JDBC wants `jdbc:<driver>://host:port/db`),
+  `<NAME>_JDBC_URL` for each additional one and the Spring/Quarkus variables
+  for MongoDB, Redis and Mailpit; `packageCacheEnv` moves Maven's repository
+  and `GRADLE_USER_HOME` into the shared package cache. The test suites
+  (`mvn test`, `gradle test`) run behind `javaTestScript`, which points
+  every JDBC and database URL at `<database>_test` and joins the per-class
+  JUnit files into the one report the Tests tab reads.
+- Start order is database → php/python/go/ruby/java/node → web (planner order:
+  database and services 5-8, php 10, python, go, ruby and java 12, node 15, web 20).
   One-shot containers (git, templates) run from `toolImage(p)`: the
-  application container's image (PHP, Python, Go, Ruby or Node), else the
+  application container's image (PHP, Python, Go, Ruby, Java or Node), else the
   catalogue's default Node image; git and ssh ship in every Envoryx image.
-  Templates carry `Runtime` (`php`|`node`|`python`|`go`|`ruby`); a template
-  refuses a request without its runtime (`ErrInvalid`). The Ruby templates
+  Templates carry `Runtime` (`php`|`node`|`python`|`go`|`ruby`|`java`); a template
+  refuses a request without its runtime (`ErrInvalid`). The Ruby and Java templates
   run with the project home mounted, so `rails new`'s bundle lands in the
   project's `GEM_HOME` and the server starts without a second install; a
   step's `cmdFor` builds the command from the project (`rails new
@@ -589,7 +613,7 @@ Project files in `/projects` are **never** deleted by rollback.
 
 - Start: ensure network exists → ensure containers exist (recreate missing
   ones from the plan) → start in dependency order (database and services,
-  php/python/go/ruby/node, web) → set
+  php/python/go/ruby/java/node, web) → set
   `desired_state=running`.
 - Stop: stop containers (10 s grace) → `desired_state=stopped`.
 - Restart: stop + start.
@@ -817,6 +841,7 @@ through `instance.Store.Import` and is restored the usual way.
 | project (no PHP) | `app.go` helpers per shape; Node-only create (web+node, no starter, unpublished web port, wrapped `Cmd`, Vite allow-list); static create (`index.html` starter, published port); SPA fallback rendering and its PHP rejection; routes of `<slug>.<base>` / extra domains / `-dev` following `nodeServesApp` and flipping back to web when the dev server is turned off; injected env in the node container; one-shot image choice for git/templates; SSH user resolution `<slug>` → php → python → node; workers refused without their runtime; `.next/.nuxt/.output/.venv` in backups | unit tests against the fake Engine |
 | project (Python) | `python_test.go`: Python-only create (wait guard on the entry file, venv `PATH`, published server port, unpublished web port, no starter), routes and bare-metal dial, SSH users, production mode + debugpy port kept across edits, server off → static, removal takes the Python workers' containers (definition paused), Python + Node dev server (Python takes the project URL, Vite keeps `-dev`), PHP added on top, template defaults merged into the request; `runtime/python_test.go` pins every preset's argv | unit tests against the fake Engine |
 | project (Ruby) | `ruby_test.go`: Ruby-only create (Gemfile/`bin/rails` wait, bundle guard, `GEM_HOME`, `RAILS_DEVELOPMENT_HOSTS`, published server port, unpublished web port, no starter), route and SSH user, rdbg with ports kept across edits and removal, `pgsql://` → `postgresql://`, the Rails template's `rails new` arguments, Sidekiq worker behind the bundle guard in the server's environment, rspec/rails test suites and the `_test` redirect, manifest; `runtime/ruby_test.go` pins the presets' argv and runs `rdbgScript` against stubs | unit tests against the fake Engine |
+| project (Java) | `java_test.go`: Java-only create with PostgreSQL (JDBC, Spring and Quarkus variables, published server port, route and SSH user), the other databases' variables, JDWP ports kept across edits and removal, both templates' download URLs and the Quarkus dev schema step, jar and goal workers, Maven and Gradle actions, the test script's `_test` redirect, exit code and report merge, manifest; `runtime/java_test.go` runs `javaServeScript` against stub mvn, gradle and java | unit tests against the fake Engine |
 | runtime | per-preset ports, `Command()`/`WrappedCommand()`/`Env()`; web configs caddy/apache/nginx × {php, static, static+spa} with the PHP output pinned as golden | table-driven unit tests |
 | api / mcp | project without `php` over HTTP (preview, DTO fields `serves`/`appService`, 409 on `PUT php`, 404 on php logs, node terminal), Python project over HTTP (preview ports, config with allocated host ports, python terminal with venv env, Python/Django actions, server off and removal, rejected preset/app), `/runtimes` with `nodePresets`/`pythonPresets` and template runtimes; MCP `phpVersion:"none"` + `nodePreset`, template/runtime errors, `get_logs` default service | httptest + fake Engine |
 | api | unauthorized access, validation errors, error envelope, full lifecycle over HTTP | httptest + fake Engine |
@@ -981,8 +1006,8 @@ with `skipped: "external"`; creating a project from a manifest with one is refus
 ### SSH (`internal/sshd`)
 `golang.org/x/crypto/ssh` server with an Ed25519 host key. Auth resolves the
 user name through `Manager.ResolveSSHUser` (`<slug>` → the application
-container: PHP when present, else Python, else Go, else Ruby, else Node;
-`<slug>.php` / `<slug>.python` / `<slug>.go` / `<slug>.ruby` / `<slug>.node` pick
+container: PHP when present, else Python, else Go, else Ruby, else Java, else Node;
+`<slug>.php` / `<slug>.python` / `<slug>.go` / `<slug>.ruby` / `<slug>.java` / `<slug>.node` pick
 one explicitly; a project with none is `ErrNotFound`) and validates either an API token (password) or an authorized key
 from the settings. Session channels map `pty-req/shell/exec` to
 `Engine.OpenTerminal` (PTY) or `Engine.ExecStream` (pipes, now with
@@ -990,7 +1015,7 @@ from the settings. Session channels map `pty-req/shell/exec` to
 `pkg/sftp` request server over `projectFS`, which serves `/var/www/html`
 and `/home/envoryx` from the Envoryx-side directories of the same bind mounts
 and chowns created files. `/home/envoryx` is a new persistent per-project
-home (`/config/projects/<id>/home`) mounted into php/python/go/ruby/node/worker containers;
+home (`/config/projects/<id>/home`) mounted into php/python/go/ruby/java/node/worker containers;
 tool caches and IDE helpers live there. Container specs now carry a
 `envoryx.spec` fingerprint label (command, mounts, ports, …) so `ensurePlan`
 recreates containers whose structure changed (e.g. the new home mount).
@@ -1010,13 +1035,14 @@ as the project user.
 long-running processes. Presets are a closed catalogue in `workers.go`
 (argv builders; the single user argument is validated per preset: queue
 names, relative script paths, composer and npm script names, Python module
-paths). Every preset names its `Runtime` (`php`, `node`, `python`, `go` or `ruby`); the
+paths). Every preset names its `Runtime` (`php`, `node`, `python`, `go`, `ruby` or `java`); the
 planner emits one container per enabled worker from that runtime's image
 (`Kind` and service label `worker:<id>`, name
 `envoryx-<slug>-worker-<name>`, order 30, project env, PUID:PGID,
 `unless-stopped`; PHP workers get the php.ini mount, the other runtimes' workers
 the tool env, the project home and their runtime's env: the venv `PATH` for
-Python, `GOPATH` for Go, `GEM_HOME` and the app environment for Ruby),
+Python, `GOPATH` for Go, `GEM_HOME` and the app environment for Ruby, the
+JDBC and framework variables for Java),
 so `ensurePlan`, start/stop, env
 recreation and delete treat them like any other container. A worker whose
 runtime the project lacks is skipped by the planner (it comes back when
@@ -1076,7 +1102,8 @@ on; removing Python takes its container and the Python workers' containers
 with it, the worker definitions survive as "paused". Go follows the same
 pattern (`GoUpdate`, `applyGoUpdate`, position 12) with the server and Delve
 host ports, and Ruby (`RubyUpdate`, `applyRubyUpdate`, position 12) with the
-server and rdbg host ports.
+server and rdbg host ports, and Java (`JavaUpdate`, `applyJavaUpdate`,
+position 12) with the server and JDWP host ports.
 
 ### Logs
 Container output comes from Docker's `json-file` driver (10 MB × 3 per
@@ -1131,8 +1158,8 @@ returns secrets and keeps stored ones when a request leaves them empty.
 `project.Templates()` is a closed list: Laravel, Symfony, WordPress, Drupal,
 TYPO3, Shopware, Craft CMS (`Runtime: "php"`), Vite + React (TypeScript), Next.js (App Router,
 TypeScript), Nuxt (`Runtime: "node"`), Django, Flask, FastAPI
-(`Runtime: "python"`), Go (net/http), Gin, Echo (`Runtime: "go"`) and Rails, Rails
-API, Sinatra (`Runtime: "ruby"`). A template is a sequence of argv steps
+(`Runtime: "python"`), Go (net/http), Gin, Echo (`Runtime: "go"`), Rails, Rails
+API, Sinatra (`Runtime: "ruby"`) and Spring Boot, Quarkus REST (`Runtime: "java"`). A template is a sequence of argv steps
 run in transient containers from the image of the runtime it names as
 PUID:PGID with the project directory mounted
 (`RunOneShot`, label `envoryx.service=template`, default bridge network for
@@ -1160,7 +1187,7 @@ creation back.
 ### Resource limits
 `store.ResourceLimits` (JSON column `projects.limits`) holds one `LimitSet`
 (CPU cores, MiB) for the application containers (web, php, node, python, go,
-ruby, `worker:*`) and one for the services, plus a process limit; `LimitGroup` maps a
+ruby, java, `worker:*`) and one for the services, plus a process limit; `LimitGroup` maps a
 container kind to its group. The planner puts the resulting `docker.Resources`
 on every container spec, outside `specFingerprint`, so a changed limit never
 recreates anything by itself. `ensurePlan` compares the running limits
@@ -1288,11 +1315,13 @@ signed by `internal/awssig`, the SigV4 signer shared with `internal/s3`.
   catalogue entries whose service the project has (a PHP-only project shows
   no npm actions, a Node-only project no composer/artisan ones, Python
   projects get pip/uv/Django entries, Go projects `go build/vet/mod …`, Ruby
-  projects bundle and rails entries); each runs in the matching runtime
-  container, and `node:version`, `python:version`, `go:version` and
-  `ruby:version` are the counterparts of `php:version`. Git runs in a
+  projects bundle and rails entries, Java projects Maven or Gradle entries
+  (an entry's `Requires` may name alternatives, `build.gradle|build.gradle.kts`));
+  each runs in the matching runtime container, and `node:version`,
+  `python:version`, `go:version`, `ruby:version` and `java:version` are the
+  counterparts of `php:version`. Git runs in a
   transient container from the project's runtime image (`toolImage`: PHP,
-  else Python, else Go, else Ruby, else Node; `RunOneShot`) with the deploy
+  else Python, else Go, else Ruby, else Java, else Node; `RunOneShot`) with the deploy
   key mounted only there; tokens travel via `GIT_CONFIG_*` env. The Node
   service is an idle tooling container (`sleep infinity`, runs as PUID:PGID)
   from `ghcr.io/envoryx/envoryx-node:<v>` until the dev server is enabled.
@@ -1357,7 +1386,7 @@ signed by `internal/awssig`, the SigV4 signer shared with `internal/s3`.
   output carries `serves`, `devUrl` and a `directUrl` that is the node host
   port when the dev server serves the project),
   `start/stop/restart_project`, `get_logs` (default service = the
-  application container: php, else python, go, ruby, node; else web; optional `since`, `until`,
+  application container: php, else python, go, ruby, java, node; else web; optional `since`, `until`,
   `query`, `level`), `get_log_stats` (error frequency and the most frequent
   errors of a range), `list_actions`, `run_action`
   (runs a catalogue action to completion, returns stripped output + exit

@@ -9,7 +9,8 @@ import { NodeDevServerFields, defaultDevServerForm, devServerRequest, type DevSe
 import { PythonServerFields, defaultPythonServerForm, pythonServerRequest, type PythonServerForm } from "./PythonServerFields";
 import { GoServerFields, defaultGoServerForm, goServerRequest, type GoServerForm } from "./GoServerFields";
 import { RubyServerFields, defaultRubyServerForm, rubyServerRequest, type RubyServerForm } from "./RubyServerFields";
-import { defaultNodePresets, defaultPythonPresets, defaultRubyPresets, type AppKind, type CreateProjectRequest, type EnvVar, type ExternalDatabase, type ExternalRedis, type PHPConfig, type Preview, type Project, type ProjectTemplate, type Serves, type SiteImport } from "@/api/types";
+import { JavaServerFields, defaultJavaServerForm, javaServerRequest, type JavaServerForm } from "./JavaServerFields";
+import { defaultNodePresets, defaultPythonPresets, defaultRubyPresets, defaultJavaPresets, type AppKind, type CreateProjectRequest, type EnvVar, type ExternalDatabase, type ExternalRedis, type PHPConfig, type Preview, type Project, type ProjectTemplate, type Serves, type SiteImport } from "@/api/types";
 import { Alert, Button, Card, Checkbox, Code, ErrorState, Field, Input, PageHeader, Select, Spinner } from "@/components/ui";
 import { CreateProgress } from "./CreateProgress";
 import { ImportSiteCard, nameFromArchive } from "./ImportSiteCard";
@@ -23,7 +24,7 @@ import { slugify } from "@/lib/format";
 
 const steps = ["General", "Runtimes", "Web server", "Database & services", "Environment", "Summary"] as const;
 
-/** The runtime choice of step 1; it presets the PHP/Python/Go/Ruby/Node checkboxes, docroot and starter page. */
+/** The runtime choice of step 1; it presets the PHP/Python/Go/Ruby/Java/Node checkboxes, docroot and starter page. */
 type Stack = AppKind | "static";
 
 const stacks: { id: Stack; name: string; description: string }[] = [
@@ -31,6 +32,7 @@ const stacks: { id: Stack; name: string; description: string }[] = [
   { id: "python", name: "Python application", description: "Django, Flask, FastAPI… - the application server answers on the project URL." },
   { id: "go", name: "Go application", description: "net/http, Gin, Echo… - air rebuilds the server on every change; it answers on the project URL." },
   { id: "ruby", name: "Ruby application", description: "Rails, Sinatra, Rack… - the server answers on the project URL." },
+  { id: "java", name: "Java application", description: "Spring Boot, Quarkus, any jar… - Maven or Gradle builds it; the server answers on the project URL." },
   { id: "node", name: "Node.js application", description: "Vite, Next.js, Nuxt… - the dev server answers on the project URL." },
   { id: "static", name: "Static site", description: "The web server serves files from the document root; no application runtime." },
 ];
@@ -62,6 +64,9 @@ interface Form {
   rubyEnabled: boolean;
   rubyVersion: string;
   rubyServer: RubyServerForm;
+  javaEnabled: boolean;
+  javaVersion: string;
+  javaServer: JavaServerForm;
   webType: string;
   webVersion: string;
   spaFallback: boolean;
@@ -117,6 +122,7 @@ function servesOfForm(f: Form): Serves {
   if (f.pythonEnabled && f.pythonServer.server) return "python";
   if (f.goEnabled && f.goServer.server) return "go";
   if (f.rubyEnabled && f.rubyServer.server) return "ruby";
+  if (f.javaEnabled && f.javaServer.server) return "java";
   if (f.nodeEnabled && f.nodeDev.devServer) return "node";
   return "static";
 }
@@ -141,6 +147,7 @@ export function NewProjectPage() {
       const python = runtimes.data.runtimes.find((r) => r.key === "python");
       const golang = runtimes.data.runtimes.find((r) => r.key === "go");
       const ruby = runtimes.data.runtimes.find((r) => r.key === "ruby");
+      const java = runtimes.data.runtimes.find((r) => r.key === "java");
       const web = runtimes.data.runtimes.find((r) => r.key === "caddy");
       setForm({
         name: "",
@@ -164,6 +171,9 @@ export function NewProjectPage() {
         rubyEnabled: false,
         rubyServer: defaultRubyServerForm,
         rubyVersion: ruby?.versions.find((v) => v.default)?.version ?? ruby?.versions[0]?.version ?? "",
+        javaEnabled: false,
+        javaServer: defaultJavaServerForm,
+        javaVersion: java?.versions.find((v) => v.default)?.version ?? java?.versions[0]?.version ?? "",
         webType: "caddy",
         webVersion: web?.versions.find((v) => v.default)?.version ?? "",
         spaFallback: false,
@@ -236,6 +246,7 @@ export function NewProjectPage() {
     if (form.pythonEnabled) req.python = { version: form.pythonVersion, ...pythonServerRequest(form.pythonServer) };
     if (form.goEnabled) req.go = { version: form.goVersion, ...goServerRequest(form.goServer) };
     if (form.rubyEnabled) req.ruby = { version: form.rubyVersion, ...rubyServerRequest(form.rubyServer) };
+    if (form.javaEnabled) req.java = { version: form.javaVersion, ...javaServerRequest(form.javaServer) };
     if (form.dbType) req.database = form.dbExternal && externalDatabaseTypes.includes(form.dbType) ? { type: form.dbType, version: form.dbVersion, exposePort: false, external: form.dbConn } : { type: form.dbType, version: form.dbVersion, exposePort: form.dbExpose };
     const extraDbs = form.extraDbs.filter((d) => d.name.trim());
     if (extraDbs.length > 0) req.databases = extraDbs.map((d) => ({ name: d.name.trim(), type: d.type, version: d.version, exposePort: false }));
@@ -294,9 +305,11 @@ export function NewProjectPage() {
   const python = rt.runtimes.find((r) => r.key === "python");
   const golang = rt.runtimes.find((r) => r.key === "go");
   const ruby = rt.runtimes.find((r) => r.key === "ruby");
+  const java = rt.runtimes.find((r) => r.key === "java");
   const nodePresets = rt.nodePresets ?? defaultNodePresets;
   const pythonPresets = rt.pythonPresets ?? defaultPythonPresets;
   const rubyPresets = rt.rubyPresets ?? defaultRubyPresets;
+  const javaPresets = rt.javaPresets ?? defaultJavaPresets;
   const webServers = rt.runtimes.filter((r) => r.kind === "webserver" && r.available);
   const web = webServers.find((r) => r.key === form.webType);
   const databases = rt.runtimes.filter((r) => r.kind === "database");
@@ -325,30 +338,34 @@ export function NewProjectPage() {
   const chooseStack = (stack: Stack) => {
     const docroot = (fallback: string) => (form.docrootTouched ? form.docroot : fallback);
     const template = selectedTemplate && templateRuntime(selectedTemplate) !== stack ? "" : form.template;
-    // Leaving the Node, Python, Go or Ruby stack turns its server back off: a PHP or static project
+    // Leaving the Node, Python, Go, Ruby or Java stack turns its server back off: a PHP or static project
     // that later enables the runtime as a toolchain starts from the same default as a fresh flow.
     const nodeOff = { ...form.nodeDev, devServer: false };
     const pythonOff = { ...form.pythonServer, server: false };
     const goOff = { goEnabled: false, goServer: { ...form.goServer, server: false } };
     const rubyOff = { rubyEnabled: false, rubyServer: { ...form.rubyServer, server: false } };
+    const javaOff = { javaEnabled: false, javaServer: { ...form.javaServer, server: false } };
     switch (stack) {
       case "php":
-        set({ stack, template, phpEnabled: true, nodeEnabled: false, nodeDev: nodeOff, pythonEnabled: false, pythonServer: pythonOff, ...goOff, ...rubyOff, createStarter: true, docroot: docroot("public") });
+        set({ stack, template, phpEnabled: true, nodeEnabled: false, nodeDev: nodeOff, pythonEnabled: false, pythonServer: pythonOff, ...goOff, ...rubyOff, ...javaOff, createStarter: true, docroot: docroot("public") });
         break;
       case "python":
-        set({ stack, template, phpEnabled: false, nodeEnabled: false, nodeDev: nodeOff, pythonEnabled: true, pythonServer: { ...form.pythonServer, server: true }, ...goOff, ...rubyOff, createStarter: false, docroot: docroot("") });
+        set({ stack, template, phpEnabled: false, nodeEnabled: false, nodeDev: nodeOff, pythonEnabled: true, pythonServer: { ...form.pythonServer, server: true }, ...goOff, ...rubyOff, ...javaOff, createStarter: false, docroot: docroot("") });
         break;
       case "go":
-        set({ stack, template, phpEnabled: false, nodeEnabled: false, nodeDev: nodeOff, pythonEnabled: false, pythonServer: pythonOff, goEnabled: true, goServer: { ...form.goServer, server: true }, ...rubyOff, createStarter: false, docroot: docroot("") });
+        set({ stack, template, phpEnabled: false, nodeEnabled: false, nodeDev: nodeOff, pythonEnabled: false, pythonServer: pythonOff, goEnabled: true, goServer: { ...form.goServer, server: true }, ...rubyOff, ...javaOff, createStarter: false, docroot: docroot("") });
         break;
       case "ruby":
-        set({ stack, template, phpEnabled: false, nodeEnabled: false, nodeDev: nodeOff, pythonEnabled: false, pythonServer: pythonOff, ...goOff, rubyEnabled: true, rubyServer: { ...form.rubyServer, server: true }, createStarter: false, docroot: docroot("") });
+        set({ stack, template, phpEnabled: false, nodeEnabled: false, nodeDev: nodeOff, pythonEnabled: false, pythonServer: pythonOff, ...goOff, rubyEnabled: true, rubyServer: { ...form.rubyServer, server: true }, ...javaOff, createStarter: false, docroot: docroot("") });
+        break;
+      case "java":
+        set({ stack, template, phpEnabled: false, nodeEnabled: false, nodeDev: nodeOff, pythonEnabled: false, pythonServer: pythonOff, ...goOff, ...rubyOff, javaEnabled: true, javaServer: { ...form.javaServer, server: true }, createStarter: false, docroot: docroot("") });
         break;
       case "node":
-        set({ stack, template, phpEnabled: false, nodeEnabled: true, nodeDev: { ...form.nodeDev, devServer: true, preset: "vite", port: "5173" }, pythonEnabled: false, pythonServer: pythonOff, ...goOff, ...rubyOff, createStarter: false, docroot: docroot("") });
+        set({ stack, template, phpEnabled: false, nodeEnabled: true, nodeDev: { ...form.nodeDev, devServer: true, preset: "vite", port: "5173" }, pythonEnabled: false, pythonServer: pythonOff, ...goOff, ...rubyOff, ...javaOff, createStarter: false, docroot: docroot("") });
         break;
       case "static":
-        set({ stack, template, phpEnabled: false, nodeEnabled: false, nodeDev: nodeOff, pythonEnabled: false, pythonServer: pythonOff, ...goOff, ...rubyOff, createStarter: true, docroot: docroot("") });
+        set({ stack, template, phpEnabled: false, nodeEnabled: false, nodeDev: nodeOff, pythonEnabled: false, pythonServer: pythonOff, ...goOff, ...rubyOff, ...javaOff, createStarter: true, docroot: docroot("") });
         break;
     }
   };
@@ -381,6 +398,8 @@ export function NewProjectPage() {
       goServer: { ...form.goServer, server: false },
       rubyEnabled: a.runtime === "ruby",
       rubyServer: { ...form.rubyServer, server: false },
+      javaEnabled: a.runtime === "java",
+      javaServer: { ...form.javaServer, server: false },
       dbType: a.database ?? "",
       dbVersion: a.database ? defaultVersion(a.database) : "",
     };
@@ -431,6 +450,12 @@ export function NewProjectPage() {
           patch.rubyServer = { ...form.rubyServer, server: true, preset: r?.preset ?? form.rubyServer.preset, port: r?.port ? String(r.port) : form.rubyServer.port };
           break;
         }
+        case "java": {
+          patch.javaEnabled = true;
+          const j = tpl.java;
+          patch.javaServer = { ...form.javaServer, server: true, preset: j?.preset ?? form.javaServer.preset, port: j?.port ? String(j.port) : form.javaServer.port };
+          break;
+        }
         default:
           patch.phpEnabled = true;
       }
@@ -450,7 +475,7 @@ export function NewProjectPage() {
       ? t('Subfolder served by the web server, e.g. "public" for Laravel/Symfony. Leave empty for the project root.')
       : serves === "node"
         ? t("Not used while the dev server serves the app; the build output (e.g. dist/) once you turn it off.")
-        : serves === "python" || serves === "go" || serves === "ruby"
+        : serves === "python" || serves === "go" || serves === "ruby" || serves === "java"
           ? t("Not used while the application server serves the app; static files (e.g. a collected static/ folder) once you turn it off.")
           : t('Build output served by the web server, e.g. "dist". Leave empty for the project root.');
 
@@ -561,16 +586,35 @@ export function NewProjectPage() {
     </div>
   );
 
+  const javaCard = java && (
+    <div key="java" className="space-y-4 rounded-md border border-default p-4">
+      <Checkbox label={t("Enable Java")} description={t("Java container (Eclipse Temurin) for your application or tooling: run Spring Boot, Quarkus or any jar with a JDWP debug port, or use mvn, gradle and java from the terminal. Maven or Gradle follows the project, and a wrapper (mvnw, gradlew) wins.")} checked={form.javaEnabled} onChange={(e) => set({ javaEnabled: e.target.checked })} />
+      {form.javaEnabled && (
+        <>
+          <Field label={t("Java version")} htmlFor="java-version">
+            <Select id="java-version" value={form.javaVersion} onChange={(e) => set({ javaVersion: e.target.value })}>
+              {versionOptions(java.versions)}
+            </Select>
+          </Field>
+          <JavaServerFields value={form.javaServer} onChange={(javaServer) => set({ javaServer })} idPrefix="wizard-java" presets={javaPresets} primary={!form.phpEnabled && !(form.pythonEnabled && form.pythonServer.server) && !(form.goEnabled && form.goServer.server) && !(form.rubyEnabled && form.rubyServer.server)} />
+          <p className="text-xs text-subtle">{t("Maven and Gradle download each dependency once for all projects; the shared package cache keeps them.")}</p>
+        </>
+      )}
+    </div>
+  );
+
   const runtimeCards =
     form.stack === "node"
-      ? [nodeCard, pythonCard, goCard, rubyCard, phpCard]
+      ? [nodeCard, pythonCard, goCard, rubyCard, javaCard, phpCard]
       : form.stack === "python"
-        ? [pythonCard, nodeCard, goCard, rubyCard, phpCard]
+        ? [pythonCard, nodeCard, goCard, rubyCard, javaCard, phpCard]
         : form.stack === "go"
-          ? [goCard, nodeCard, pythonCard, rubyCard, phpCard]
+          ? [goCard, nodeCard, pythonCard, rubyCard, javaCard, phpCard]
           : form.stack === "ruby"
-            ? [rubyCard, nodeCard, pythonCard, goCard, phpCard]
-            : [phpCard, nodeCard, pythonCard, goCard, rubyCard];
+            ? [rubyCard, nodeCard, pythonCard, goCard, javaCard, phpCard]
+            : form.stack === "java"
+              ? [javaCard, nodeCard, pythonCard, goCard, rubyCard, phpCard]
+              : [phpCard, nodeCard, pythonCard, goCard, rubyCard, javaCard];
 
   return (
     <div>
@@ -726,7 +770,7 @@ export function NewProjectPage() {
                   ? t("The web server serves static files from the document root and forwards PHP requests to the PHP container via FastCGI. The project is published on an automatically assigned port and reachable through the proxy under its domain.")
                   : serves === "node"
                     ? t("The dev server answers on the project URL. The web server is part of every project and serves the document root once the dev server is turned off.")
-                    : serves === "python" || serves === "go" || serves === "ruby"
+                    : serves === "python" || serves === "go" || serves === "ruby" || serves === "java"
                       ? t("The application server answers on the project URL. The web server is part of every project and serves the document root once the server is turned off.")
                       : t("The web server serves static files from the document root.")}
               </p>
@@ -805,7 +849,7 @@ export function NewProjectPage() {
                         onChange={(e) => set({ dbExpose: e.target.checked })}
                       />
                       <p className="text-sm text-muted">
-                        {t("Envoryx generates secure credentials and injects DB_HOST, DB_DATABASE, DB_USERNAME, DB_PASSWORD and DATABASE_URL into the application containers (PHP, Python, Go, Ruby, Node). Data lives in a persistent Docker volume.")}
+                        {t("Envoryx generates secure credentials and injects DB_HOST, DB_DATABASE, DB_USERNAME, DB_PASSWORD and DATABASE_URL into the application containers (PHP, Python, Go, Ruby, Java, Node). Data lives in a persistent Docker volume.")}
                       </p>
                     </>
                   )}
@@ -1045,7 +1089,7 @@ export function NewProjectPage() {
                     <dd className="font-mono text-xs">
                       {(() => {
                         // The preview carries no service list; the links hook only reads it for the
-                        // application container's host port. Behind a Python, Go or Ruby server or the Node dev server the
+                        // application container's host port. Behind a Python, Go, Ruby or Java server or the Node dev server the
                         // HTTP port stays unpublished, so the planned container's host port stands in as a
                         // synthetic service; then the hook's own branch applies, also when the proxy is off
                         // and the direct URL is all there is.
@@ -1053,7 +1097,7 @@ export function NewProjectPage() {
                         const services: Project["services"] =
                           previewServes === "node"
                             ? [{ kind: "node", variant: "node", version: "", image: "", enabled: true, config: { devServer: true, hostPort: appPort } }]
-                            : previewServes === "python" || previewServes === "go" || previewServes === "ruby"
+                            : previewServes === "python" || previewServes === "go" || previewServes === "ruby" || previewServes === "java"
                               ? [{ kind: previewServes, variant: previewServes, version: "", image: "", enabled: true, config: { server: true, hostPort: appPort } }]
                               : [];
                         const l = links({ httpPort: preview.httpPort, hostnames: [`${preview.slug}.${settings.data?.baseDomain ?? "test"}`], serves: previewServes, services });
@@ -1083,6 +1127,12 @@ export function NewProjectPage() {
                           <>
                             <dt className="text-muted">{t("Serves")}</dt>
                             <dd className="text-xs">{t("Ruby server (the HTTP port stays unpublished)")}</dd>
+                          </>
+                        )}
+                        {previewServes === "java" && (
+                          <>
+                            <dt className="text-muted">{t("Serves")}</dt>
+                            <dd className="text-xs">{t("Java server (the HTTP port stays unpublished)")}</dd>
                           </>
                         )}
                         {devUrl && (
@@ -1134,7 +1184,8 @@ export function NewProjectPage() {
                       serves !== "node" &&
                       serves !== "python" &&
                       serves !== "go" &&
-                      serves !== "ruby" && (
+                      serves !== "ruby" &&
+                      serves !== "java" && (
                         <Checkbox label={form.phpEnabled ? t("Create starter index.php") : t("Create starter index.html")} description={t("Only if the document root is empty.")} checked={form.createStarter} onChange={(e) => set({ createStarter: e.target.checked })} />
                       )
                     )}
