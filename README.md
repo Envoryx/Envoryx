@@ -6,11 +6,11 @@
 
 **Docker-native development environments for Unraid and Linux servers.**
 
-Envoryx runs as a single container on any Linux Docker host (x86_64 or
-arm64; Unraid is the primary target) and manages complete
-development stacks - web server, PHP, Python, Go, Ruby and/or Node.js runtime, database, cache -
-as isolated, per-project Docker environments. Everything is controlled from a modern web UI;
-no `docker-compose.yml` editing required.
+Envoryx runs as a single container on any Linux Docker host (x86_64 or arm64; Unraid is the
+primary target) and gives every project its own development stack: web server, PHP, Python,
+Go, Ruby and/or Node.js runtime, database, cache. Each project lives in its own Docker
+environment, and you run all of it from a web UI instead of editing `docker-compose.yml`
+files.
 
 ```
 Open Envoryx → Create project → PHP 8.4 + Caddy → Create → project is running
@@ -20,214 +20,241 @@ Create project → Runtime: Go → net/http/Gin/Echo template → Create → htt
 Create project → Runtime: Ruby → Rails/Sinatra template → Create → https://<project>.test (bin/rails server / Puma, rdbg)
 ```
 
-## Status
+## What you get
 
-Envoryx is under active development. The current milestone (Phase 1 + 2) delivers:
+All phases of the original plan are implemented (see [ARCHITECTURE.md](ARCHITECTURE.md)
+§13), and Envoryx is still under active development. Releases are listed in
+[CHANGELOG.md](CHANGELOG.md); `:latest` is the newest release, `:main` the development
+branch.
 
-- single-container deployment with embedded web UI (Go + React); interface in
-  English, German, French, Spanish, Italian, Dutch, Polish, Portuguese, Russian
-  and Ukrainian (more languages are one JSON file each)
-- local admin account, secure sessions, audit log
-- Docker engine integration that only ever touches resources labelled `envoryx.managed=true`
-- project templates: Laravel, Symfony (skeleton + webapp), WordPress, Drupal, TYPO3,
-  Shopware, Craft CMS (PHP; the CMS installers run from the Actions tab and print the
-  admin password),
-  Vite + React, Next.js, Nuxt (Node.js), Django, Flask, FastAPI (Python),
-  net/http, Gin, Echo (Go) and Rails, Rails API, Sinatra (Ruby) -
-  scaffolded in a one-shot container
-  from the project's runtime image as the project owner, wired to the project
-  database where the framework needs one
-- project wizard: name, directory, runtime (PHP application, Python
-  application, Go application, Ruby application, Node.js application or static
-  site - PHP is optional, Python, Go, Ruby, Node-only and static projects work
-  without it), document root, PHP version, php.ini settings and
-  extensions (pdo_mysql, mysqli, pdo_pgsql, mongodb, gd, intl, zip, bcmath,
-  opcache, imagick), Xdebug switch with IDE setup hints, web server (Caddy,
-  Apache or Nginx), SPA fallback for static sites, environment variables
-  (with `.env` import and export),
-  plan preview
-- per-project Docker network with a web server container - Caddy (default),
-  Apache (with `.htaccess` support) or Nginx, switchable after creation - and,
-  optionally, a PHP-FPM container (Envoryx image with Composer), a Python
-  container, a Go container, a Ruby container and/or a Node.js container
-- MariaDB, MySQL, PostgreSQL or MongoDB per project: persistent volume, generated
-  credentials, connection variables injected into the application containers
-  (PHP, Python, Go, Ruby, Node), optional host port for
-  desktop clients, password rotation, create/drop databases, in-place version
-  upgrades where the server supports them - or an existing external MariaDB,
-  MySQL or PostgreSQL server (and Redis) the project connects to instead, with
-  a connection test, backups, snapshots and Adminer
-- Redis (persistent volume, `REDIS_URL`), Memcached (`MEMCACHED_HOST`/`MEMCACHED_PORT`/`MEMCACHED_URL`), Mailpit (SMTP catcher with web
-  inbox, `MAIL_*`/`MAILER_DSN`/`SMTP_HOST`/`SMTP_PORT`), RabbitMQ (message
-  broker with management UI, generated login, `RABBITMQ_*`/`RABBITMQ_URL`),
-  Meilisearch (search engine with web dashboard, generated master key,
-  `MEILISEARCH_*`), Typesense (search engine, generated API key, `TYPESENSE_*`),
-  OpenSearch (Elasticsearch-compatible single node without login, `OPENSEARCH_*`,
-  optionally with OpenSearch Dashboards), Ollama (local LLMs with one model store
-  shared by all projects, downloads from the UI, optional NVIDIA GPU,
-  `OLLAMA_HOST`/`OLLAMA_BASE_URL`/`OLLAMA_URL`)
-  and S3-compatible object storage (RustFS: a
-  bucket per project, web console, `S3_*`/`AWS_*` injected, reachable from the
-  browser for presigned URLs) as optional services
-- project files bind-mounted from `/projects/<name>` on the host
-- projects reachable at `http://<host>:<port>` (port auto-assigned) and,
-  through the embedded reverse proxy, as `https://<project>.test` plus any
-  additional domains; certificates from a local CA (download once, trust on
-  your devices), or a Let's Encrypt wildcard for your own domain obtained
-  and renewed automatically via DNS challenge (Cloudflare, Hetzner, netcup,
-  Amazon Route 53, DigitalOcean, Porkbun) - nothing to install anywhere
-- start / stop / restart / edit / delete with confirmation
-- CPU, memory and process limits per project (application containers and
-  services separately), applied live; containers that run out of memory
-  show up as a warning and a notification
-- application health checks: a path like `/health` must answer with the
-  expected status; a notification when the app goes down and when it is back
-- resource history per project: CPU, memory, network, disk I/O and disk space
-  (volumes, project directory, backups) as charts from one hour to one year,
-  plus a dashboard overview of which project uses what
-- rename a project after the fact: the identifier follows the name, and with it the
-  URL and host names, the container, network and volume names, the SSH users, the
-  project directory, the backups and - optionally - the database, its login and the
-  bucket. Containers are recreated, the data moves with them
-- import an existing website: upload a ZIP/tar.gz of its files and a SQL dump;
-  Envoryx recognises WordPress, Laravel, Symfony, Drupal, TYPO3, Joomla and plain
-  PHP or HTML sites, suggests PHP version, document root, web server and
-  database, wires the site's configuration to the project database and imports
-  the dump (also `envoryx import ./site --db dump.sql`)
-- duplicate a project (`shop` → `shop-test`) in one dialog: configuration,
-  environment, workers, cron jobs and repository binding, plus - each optional - the
-  project files, the contents of the database and the objects of the bucket.
-  The copy gets its own directory, host ports and containers but keeps the
-  original's database credentials, so a `.env` in the project files keeps
-  working
-- logs per container: live over WebSocket (pause, search, level filter) and a
-  persistent history that survives restarted and recreated containers - time
-  range, search, error frequency chart, the most frequent errors grouped and a
-  download of everything that matches; retention by days and size
-- browser terminal (xterm.js) into any project container; application
-  containers run the shell as the project owner (PUID/PGID)
-- Node.js runtime container per project (npm, pnpm, yarn via corepack),
-  version selectable, addable later - as the toolchain next to PHP or as the
-  application runtime of a Node-only project. Dev-server mode (Vite, Next.js,
-  Nuxt, …) runs `npm run dev` as the container's main process: without PHP
-  the project URL `https://<project>.<base>` itself reaches the dev server
-  (with HMR); next to PHP it is `https://<project>-dev.<base>`
-- Python runtime container per project (pip, uv, venv - the project's
-  `.venv` is first on `PATH`), version selectable, addable later - as a
-  tooling container or as the application runtime: server mode runs Django
-  (`manage.py runserver` / gunicorn), Flask, FastAPI and any ASGI app
-  (uvicorn) or WSGI app (gunicorn) as the container's main process, and
-  without PHP the project URL reaches it; optional debugpy port for PyCharm
-  and VS Code
-- Go runtime container per project (Go 1.26/1.27 with air, Delve and
-  gotestsum; module and build caches shared by all projects) - as a tooling
-  container or as the application runtime: server mode builds the main
-  package and runs it as the container's main process, rebuilt by air on
-  every change (a project's `.air.toml` wins) or built once in production
-  mode, and without PHP the project URL reaches it; optional headless Delve
-  for GoLand and VS Code
-- Ruby runtime container per project (Ruby 3.3-4.0 with Bundler and the
-  debug gem; gems in the project home, Bundler's download cache shared by all
-  projects) - as a tooling container or as the application runtime: server
-  mode runs Rails (`bin/rails server`, Puma in production mode) or any Rack
-  application on Puma (Sinatra, Roda, Hanami) as the container's main
-  process, installs the bundle first when it is incomplete, and without PHP
-  the project URL reaches it; optional `rdbg` for VS Code, RubyMine through
-  the SSH remote interpreter
-- Git: clone in the wizard (HTTPS with access token or SSH with a Envoryx
-  deploy key), pull, branch switch, status - all inside short-lived containers
-  as the project owner; the deploy key is never mounted into app containers
-- workers per project: Laravel scheduler / queue worker / Horizon / Reverb,
-  Symfony Messenger and Scheduler, PHP and composer scripts, npm and Node
-  scripts, Python scripts and modules, Django management commands, Celery
-  worker and beat, Go programs of the module, Solid Queue, GoodJob, Sidekiq,
-  rake tasks and Ruby scripts - each in its own auto-restarting container from the
-  runtime's image, with logs
-- cron jobs per project: any shell command on a schedule (every few minutes,
-  hourly, daily, weekly, monthly or a cron expression) in the PHP, Python, Go,
-  Ruby or Node.js container as the project owner, with a timeout, no overlapping runs,
-  "run now", the last 20 runs with their output and a notification on failure
-- project actions: composer install/update, artisan migrate/seed/cache,
-  Symfony console, npm/pnpm/yarn, pip install / uv sync, Django migrate /
-  collectstatic, go build / vet / fmt / mod tidy / generate, bundle install /
-  update, rails db:prepare / migrate / seed / assets:precompile - a fixed catalogue of argv
-  commands with live output, run in the matching runtime container and shown
-  only for the runtimes and files the project has
-- desired-state reconciliation on startup and periodically; orphan detection and cleanup
-- diagnostics view of all Docker resources (foreign containers read-only)
+### The basics
 
-- several databases per project: next to the primary (host `database`,
-  `DB_*`) any number of named ones - PostgreSQL for reporting next to MariaDB,
-  say - each in its own container with its own volume and credentials, reached
-  by its name as host and injecting `<NAME>_DB_*` and `<NAME>_DATABASE_URL`;
-  backups, snapshots, cloning, duplicating, renaming, Adminer, `envoryx.yml`,
-  CLI and MCP handle every one of them
-- test runner: PHPUnit/Pest, npm test scripts, Playwright, Cypress, pytest, Django,
-  go test, RSpec and `rails test` (against `<database>_test`, never the
-  development database) found in the project and run from the *Tests* tab with live output, a filter, the
-  failed tests read from the JUnit report and a history of runs
-- rules per project in the proxy: allowed addresses, a password (basic auth),
-  redirects, response headers and CORS - for every host name and a share
-- share a project: a temporary public https address through a Cloudflare quick
-  tunnel (no account, no port forwarding) for up to 24 hours, ended with
-  the project's stop or by hand
-- shared package cache: Composer, npm, Yarn, pip, uv, Go and Bundler download a package once for
-  all projects (templates included); size and clearing under *Settings → Tools*
-- database snapshots: a dump of the database alone, taken before a migration
-  and put back with one click (the project need not be running), the ten newest
-  kept per project - and cloning one project's database into another's, piped
-  straight from container to container, with a snapshot of the target first
-- backups per project: database dump + project files (optionally without
-  vendor/, node_modules/ and framework build caches) + configuration, stored under `/config/backups` or an
-  optional separate `/backups` mount (e.g. on the Unraid array),
-  restore with typed confirmation, download as a single archive; daily/weekly
-  schedules with retention per project
-- instance backups: Envoryx's own database, CA, SSH keys and configuration as
-  one downloadable archive - taken automatically before every schema upgrade,
-  restorable (or importable on another host) from the settings with an in-place
-  restart
-- offsite backups to S3-compatible storage (AWS, Backblaze B2, Wasabi, Hetzner,
-  Cloudflare R2, MinIO), SFTP (Hetzner Storage Box, NAS) or WebDAV (Nextcloud):
-  scheduled project backups and a daily instance backup go up by themselves,
-  optionally encrypted with age, with their own retention on the target;
-  fetching a copy back - for one project or a whole instance after losing the
-  host - is a click
+Envoryx is one container with the Go backend and the React UI built in. You get a local
+admin account, secure sessions and an audit log, and the interface speaks English, German,
+French, Spanish, Italian, Dutch, Polish, Portuguese, Russian and Ukrainian (another language
+is one JSON file). Envoryx only ever touches Docker resources labelled
+`envoryx.managed=true`, so whatever else runs on the host is safe from it.
 
-- database browser: optional Adminer container shared by all projects,
-  started on first use, opened from the Database tab already logged in,
-  served under the Envoryx UI so the session protects it
-- IDE integration: embedded SSH server for PhpStorm/WebStorm/VS Code remote
-  interpreters and SFTP into project containers (API token or public key) - open
-  a project in the IDE as an SFTP deployment, no network share needed;
-  the user `<project>` lands in the application container (PHP, else
-  Python, else Go, else Ruby, else Node), `<project>.php` / `<project>.python` /
-  `<project>.go` / `<project>.ruby` / `<project>.node`
-  pick one explicitly; an IDE tab with Xdebug server/path mapping,
-  `.idea/php.xml`, Node inspector, debugpy, Delve and rdbg details, JDBC URLs;
-  optional JetBrains Gateway support (backend in the container, shared cache)
-- notifications (ntfy, Discord, Slack, Telegram, e-mail, generic webhook) for
-  unhealthy projects (and their recovery), failed project creation, failed
-  backups and certificate renewals - throttled, secrets never returned
-- MCP server for AI assistants (Claude Code, Cursor, …): create, duplicate,
-  rename, start, stop and inspect projects, read logs, run actions, create
-  databases, backups and database snapshots - authenticated with personal API
-  tokens, same validation and audit trail as the UI, no destructive tools
-- command line for SSH sessions, cron jobs and CI: `envoryx project
-  list/show/create/duplicate/rename/start/stop/logs/exec/run`, `envoryx backup …`,
-  `envoryx db snapshot|snapshots|restore|clone`, `envoryx git …` and `envoryx
-  import`. The binary
-  is its own client - it speaks the same REST API with the same API tokens, so a
-  token's scope and project restriction apply unchanged, and `envoryx project
-  exec` hands the command's exit code back to the calling shell
-- project manifest: `envoryx.yml` in the repository describes runtimes,
-  services, domains, environment, workers and cron jobs; `git clone` and
-  `envoryx up` bring the same environment up again, the Git tab exports the
-  file and applies a changed one after a pull
+### Creating a project
 
-All phases of the original plan are implemented - see
-[ARCHITECTURE.md](ARCHITECTURE.md) §13. Releases are listed in
-[CHANGELOG.md](CHANGELOG.md); `:latest` is the newest release, `:main` the
-development branch.
+The wizard asks for a name, a directory and what the project is: a PHP, Python, Go, Ruby or
+Node.js application, or a static site. PHP is optional; Python, Go, Ruby, Node-only and
+static projects work without it. Then you pick the document root, the PHP version with its
+php.ini settings and extensions (pdo_mysql, mysqli, pdo_pgsql, mongodb, gd, intl, zip,
+bcmath, opcache, imagick), switch Xdebug on if you want it (with IDE setup hints), choose a
+web server (Caddy, Apache or Nginx), an SPA fallback for static sites and your environment
+variables (with `.env` import and export). A plan preview shows what will be created before
+anything is.
+
+Instead of starting empty you can pick a template: Laravel, Symfony (skeleton + webapp),
+WordPress, Drupal, TYPO3, Shopware and Craft CMS for PHP (the CMS installers run from the
+Actions tab and print the admin password), Vite + React, Next.js and Nuxt for Node.js,
+Django, Flask and FastAPI for Python, net/http, Gin and Echo for Go, and Rails, Rails API and
+Sinatra for Ruby. Envoryx scaffolds them in a one-shot container from the project's runtime
+image, as the project owner, and wires them to the project database where the framework
+needs one.
+
+You can also import an existing website: upload a ZIP/tar.gz of its files and a SQL dump.
+Envoryx recognises WordPress, Laravel, Symfony, Drupal, TYPO3, Joomla and plain PHP or HTML
+sites, suggests a PHP version, document root, web server and database, wires the site's
+configuration to the project database and imports the dump (on the command line:
+`envoryx import ./site --db dump.sql`).
+
+Or you clone a repository in the wizard, over HTTPS with an access token or over SSH with an
+Envoryx deploy key. If the repository brings an `envoryx.yml`, that manifest describes
+runtimes, services, domains, environment, workers and cron jobs, so `git clone` and
+`envoryx up` bring the same environment up again. The Git tab exports the file and applies a
+changed one after a pull.
+
+### What runs in a project
+
+Every project gets its own Docker network and a web server container: Caddy (the default),
+Apache (with `.htaccess` support) or Nginx, switchable later. Next to it, as needed, come a
+PHP-FPM container (the Envoryx image with Composer), a Python, a Go, a Ruby and/or a Node.js
+container. Your files are bind-mounted from `/projects/<name>` on the host.
+
+- **Node.js** (npm, pnpm, yarn via corepack) is the toolchain next to PHP or the application
+  runtime of a Node-only project. In dev-server mode (Vite, Next.js, Nuxt, …) it runs
+  `npm run dev` as the container's main process. Without PHP the project URL
+  `https://<project>.<base>` itself reaches the dev server (with HMR); next to PHP it's
+  `https://<project>-dev.<base>`.
+- **Python** (pip, uv, venv; the project's `.venv` is first on `PATH`) is a tooling container
+  or the application runtime. Server mode runs Django (`manage.py runserver` / gunicorn),
+  Flask, FastAPI and any ASGI app (uvicorn) or WSGI app (gunicorn) as the main process, and
+  without PHP the project URL reaches it. An optional debugpy port is there for PyCharm and
+  VS Code.
+- **Go** (Go 1.26/1.27 with air, Delve and gotestsum; module and build caches shared by all
+  projects) works the same way: server mode builds the main package and runs it, rebuilt by
+  air on every change (a project's `.air.toml` wins) or built once in production mode. An
+  optional headless Delve serves GoLand and VS Code.
+- **Ruby** (Ruby 3.3-4.0 with Bundler and the debug gem; gems in the project home, Bundler's
+  download cache shared by all projects) runs Rails (`bin/rails server`, Puma in production
+  mode) or any Rack application on Puma (Sinatra, Roda, Hanami), installs the bundle first
+  when it's incomplete, and takes the project URL when there's no PHP. Optional `rdbg` works
+  with VS Code, and RubyMine uses the SSH remote interpreter.
+
+Each runtime's version is selectable, and you can add one to a project later.
+
+### Databases and services
+
+Each project can have MariaDB, MySQL, PostgreSQL or MongoDB with a persistent volume and
+generated credentials. The connection variables are injected into the application
+containers (PHP, Python, Go, Ruby, Node), and you can publish a host port for desktop
+clients, rotate the password, create and drop databases and upgrade the version in place
+where the server supports it. Next to the primary (host `database`, `DB_*`) a project can
+have any number of named databases, say PostgreSQL for reporting next to MariaDB. Each gets
+its own container, volume and credentials, is reached by its name as host and injects
+`<NAME>_DB_*` and `<NAME>_DATABASE_URL`; backups, snapshots, cloning, duplicating, renaming,
+Adminer, `envoryx.yml`, CLI and MCP handle every one of them. If you already have a
+MariaDB, MySQL or PostgreSQL server (or a Redis), a project can connect to that instead,
+with a connection test, backups, snapshots and Adminer.
+
+The optional services:
+
+- Redis (persistent volume, `REDIS_URL`)
+- Memcached (`MEMCACHED_HOST`/`MEMCACHED_PORT`/`MEMCACHED_URL`)
+- Mailpit, an SMTP catcher with a web inbox (`MAIL_*`/`MAILER_DSN`/`SMTP_HOST`/`SMTP_PORT`)
+- RabbitMQ with the management UI and a generated login (`RABBITMQ_*`/`RABBITMQ_URL`)
+- Meilisearch with its web dashboard and a generated master key (`MEILISEARCH_*`)
+- Typesense with a generated API key (`TYPESENSE_*`)
+- OpenSearch, an Elasticsearch-compatible single node without login (`OPENSEARCH_*`),
+  optionally with OpenSearch Dashboards
+- Ollama for local LLMs, with one model store shared by all projects, downloads from the UI
+  and an optional NVIDIA GPU (`OLLAMA_HOST`/`OLLAMA_BASE_URL`/`OLLAMA_URL`)
+- S3-compatible object storage (RustFS): a bucket per project, a web console, `S3_*`/`AWS_*`
+  injected, reachable from the browser for presigned URLs
+
+An optional database browser (an Adminer container shared by all projects) starts on first
+use, opens from the Database tab already logged in and is served under the Envoryx UI, so
+your session protects it.
+
+### Reaching your projects
+
+A project answers at `http://<host>:<port>` (the port is assigned automatically) and,
+through the embedded reverse proxy, at `https://<project>.test` plus any extra domains you
+add. The certificates come from a local CA that you download once and trust on your
+devices, or from a Let's Encrypt wildcard for your own domain, obtained and renewed
+automatically via DNS challenge (Cloudflare, Hetzner, netcup, Amazon Route 53,
+DigitalOcean, Porkbun). Then there's nothing to install anywhere.
+
+The proxy also carries per-project rules: allowed addresses, a password (basic auth),
+redirects, response headers and CORS, for every host name and for a share. Sharing puts a
+project on a temporary public https address through a Cloudflare quick tunnel (no account,
+no port forwarding) for up to 24 hours; it ends when the project stops or when you end it.
+
+### Working on a project
+
+You start, stop, restart, edit and delete projects (the last one with confirmation). Logs
+come live over WebSocket (pause, search, level filter), and a persistent history survives
+restarted and recreated containers: time range, search, an error frequency chart, the most
+frequent errors grouped, a download of everything that matches, and retention by days and
+size. A browser terminal (xterm.js) opens into any project container; application
+containers run the shell as the project owner (PUID/PGID).
+
+Actions are a fixed catalogue of argv commands with live output, run in the matching
+runtime container and shown only for the runtimes and files the project has: composer
+install/update, artisan migrate/seed/cache, Symfony console, npm/pnpm/yarn, pip install / uv
+sync, Django migrate / collectstatic, go build / vet / fmt / mod tidy / generate, bundle
+install / update, rails db:prepare / migrate / seed / assets:precompile.
+
+The test runner finds PHPUnit/Pest, npm test scripts, Playwright, Cypress, pytest, Django,
+go test, RSpec and `rails test` (against `<database>_test`, never the development database)
+in the project and runs them from the *Tests* tab with live output and a filter. It reads
+the failed tests from the JUnit report and keeps a history of runs.
+
+Git pull, branch switch and status run in short-lived containers as the project owner; the
+deploy key is never mounted into the application containers.
+
+Workers keep long-running commands going, each in its own auto-restarting container from
+the runtime's image, with logs: the Laravel scheduler, queue worker, Horizon and Reverb,
+Symfony Messenger and Scheduler, PHP and composer scripts, npm and Node scripts, Python
+scripts and modules, Django management commands, Celery worker and beat, Go programs of
+the module, Solid Queue, GoodJob, Sidekiq, rake tasks and Ruby scripts.
+
+Cron jobs run any shell command on a schedule (every few minutes, hourly, daily, weekly,
+monthly or a cron expression) in the PHP, Python, Go, Ruby or Node.js container as the
+project owner, with a timeout and no overlapping runs. You can "run now", see the last 20
+runs with their output and get a notification on failure.
+
+Composer, npm, Yarn, pip, uv, Go and Bundler share one package cache, so a package is
+downloaded once for all projects (templates included); its size and a way to clear it are
+under *Settings → Tools*.
+
+### Changing a project later
+
+You can rename a project after the fact. The identifier follows the name, and with it the
+URL and host names, the container, network and volume names, the SSH users, the project
+directory, the backups and, if you like, the database, its login and the bucket. The
+containers are recreated and the data moves with them.
+
+Duplicating (`shop` → `shop-test`) is one dialog: configuration, environment, workers,
+cron jobs and repository binding, plus the project files, the contents of the database and
+the objects of the bucket (each of those optional). The copy gets its own directory, host
+ports and containers but keeps the original's database credentials, so a `.env` in the
+project files keeps working.
+
+CPU, memory and process limits apply per project (application containers and services
+separately) and take effect right away; a container that runs out of memory shows up as a
+warning and a notification. A health check asks a path like `/health` for the expected
+status and notifies you when the app goes down and when it's back. The resource history
+charts CPU, memory, network, disk I/O and disk space (volumes, project directory, backups)
+per project from one hour to one year, and the dashboard shows which project uses what.
+
+### Keeping your data
+
+A database snapshot is a dump of the database alone: take it before a migration and put it
+back with one click, even while the project isn't running. The ten newest are kept per
+project. You can also clone one project's database into another's, piped straight from
+container to container, with a snapshot of the target first.
+
+Project backups hold the database dump, the project files (optionally without vendor/,
+node_modules/ and framework build caches) and the configuration. They're stored under
+`/config/backups` or on an optional separate `/backups` mount (on the Unraid array, for
+example), restored with a typed confirmation and downloadable as a single archive, with
+daily/weekly schedules and retention per project.
+
+Instance backups cover Envoryx itself: its database, CA, SSH keys and configuration in one
+downloadable archive. One is taken automatically before every schema upgrade, and you can
+restore it (or import it on another host) from the settings with an in-place restart.
+
+Offsite backups go to S3-compatible storage (AWS, Backblaze B2, Wasabi, Hetzner, Cloudflare
+R2, MinIO), SFTP (Hetzner Storage Box, NAS) or WebDAV (Nextcloud). Scheduled project backups
+and a daily instance backup go up on their own, optionally encrypted with age, with their
+own retention on the target. Fetching a copy back, for one project or a whole instance after
+losing the host, is a click.
+
+### IDEs, assistants and scripts
+
+An embedded SSH server serves PhpStorm/WebStorm/VS Code remote interpreters and SFTP into
+project containers (with an API token or a public key), so you open a project in the IDE as
+an SFTP deployment without a network share. The user `<project>` lands in the application
+container (PHP, else Python, else Go, else Ruby, else Node); `<project>.php` /
+`<project>.python` / `<project>.go` / `<project>.ruby` / `<project>.node` pick one
+explicitly. The IDE tab has the Xdebug server and path mapping, `.idea/php.xml`, Node
+inspector, debugpy, Delve and rdbg details and JDBC URLs, and JetBrains Gateway is optional
+(backend in the container, shared cache).
+
+Notifications (ntfy, Discord, Slack, Telegram, e-mail, generic webhook) tell you about
+unhealthy projects and their recovery, failed project creation, failed backups and
+certificate renewals. They're throttled, and secrets are never returned.
+
+The MCP server lets AI assistants (Claude Code, Cursor, …) create, duplicate, rename,
+start, stop and inspect projects, read logs, run actions and create databases, backups and
+database snapshots. It uses personal API tokens with the same validation and audit trail as
+the UI, and it has no destructive tools.
+
+For SSH sessions, cron jobs and CI there's a command line: `envoryx project
+list/show/create/duplicate/rename/start/stop/logs/exec/run`, `envoryx backup …`,
+`envoryx db snapshot|snapshots|restore|clone`, `envoryx git …` and `envoryx import`. The
+binary is its own client and speaks the same REST API with the same API tokens, so a
+token's scope and project restriction apply unchanged, and `envoryx project exec` hands the
+command's exit code back to the calling shell.
+
+### Behind the scenes
+
+Envoryx reconciles the desired state with Docker on startup and periodically, and it finds
+and cleans up orphans. A diagnostics view lists all Docker resources (foreign containers
+read-only).
 
 ## Quick start
 
@@ -248,32 +275,30 @@ services:
     restart: unless-stopped
 ```
 
-Open `http://<server>:8787`, create the admin account, click **New project**.
+Open `http://<server>:8787`, create the admin account and click **New project**.
 
 ### Unraid
 
-Install the template once from the Unraid terminal (or via SSH) - it lands on
-the flash drive next to your other user templates:
+Install the template once from the Unraid terminal (or via SSH). It lands on the flash
+drive next to your other user templates:
 
 ```sh
 wget -O /boot/config/plugins/dockerMan/templates-user/my-Envoryx.xml \
   https://raw.githubusercontent.com/envoryx/envoryx/main/deploy/unraid/envoryx.xml
 ```
 
-Then go to **Docker → Add Container**, pick **Envoryx** under *User
-templates* and click **Apply** - ports, `/config`, `/projects`, the Docker
-socket and `PUID`/`PGID` are pre-filled. Create the `development` share first
-if it does not exist yet. Keep the file name `my-Envoryx.xml` and download it
-only once - Unraid stores your container settings in it, and a second copy
-under another name would make *Edit*/*Update* fall back to the defaults (see
-[DEPLOYMENT.md](DEPLOYMENT.md)). Open `http://<unraid-ip>:8787` and create the
-admin account.
+Then go to **Docker → Add Container**, pick **Envoryx** under *User templates* and click
+**Apply**. Ports, `/config`, `/projects`, the Docker socket and `PUID`/`PGID` are
+pre-filled. Create the `development` share first if it doesn't exist yet. Keep the file name
+`my-Envoryx.xml` and download it only once: Unraid stores your container settings in it,
+and a second copy under another name would make *Edit*/*Update* fall back to the defaults
+(see [DEPLOYMENT.md](DEPLOYMENT.md)). Open `http://<unraid-ip>:8787` and create the admin
+account.
 
-For domains and HTTPS (`https://shop.test`) map the proxy ports 80/443 (bridge)
-or give the container its own IP on `br0` - see
-[Domains and HTTPS](DEPLOYMENT.md#domains-and-https).
+For domains and HTTPS (`https://shop.test`), map the proxy ports 80/443 (bridge) or give
+the container its own IP on `br0`; see [Domains and HTTPS](DEPLOYMENT.md#domains-and-https).
 
-Details, environment variables and Unraid notes: [DEPLOYMENT.md](DEPLOYMENT.md).
+Details, environment variables and Unraid notes are in [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ## How it works
 
@@ -288,18 +313,17 @@ Browser ──▶ Envoryx (Go API + React UI) ──▶ Docker Engine
                                              └── envoryx-<project>-node   (Node.js / dev server, optional)
 ```
 
-- The web server is part of every project. With PHP it passes requests to
-  PHP-FPM; without PHP it serves the document root statically (optionally with
-  an SPA fallback to `index.html`). When a project has no PHP but a Python,
-  Go or Ruby application server or a Node dev server, the embedded proxy routes
-  `<project>.<base>` straight to that container instead, and the web
-  container's host port stays unpublished until the server is turned off.
+The web server is part of every project. With PHP it passes requests to PHP-FPM; without
+PHP it serves the document root statically (optionally with an SPA fallback to
+`index.html`). When a project has no PHP but a Python, Go or Ruby application server or a
+Node dev server, the embedded proxy routes `<project>.<base>` straight to that container,
+and the web container's host port stays unpublished until the server is turned off.
 
-- Envoryx stores the *desired state* of each project in SQLite (`/config/envoryx.db`).
-- The Docker engine holds the *actual state*. Envoryx reconciles both, never trusting
-  the database alone - restarting or updating Envoryx never loses projects.
-- Every resource Envoryx creates carries `envoryx.managed=true` and
-  `envoryx.project.id=<uuid>`. Envoryx refuses to modify anything else.
+Envoryx stores the *desired state* of each project in SQLite (`/config/envoryx.db`), and the
+Docker engine holds the *actual state*. Envoryx reconciles the two and never trusts the
+database alone, which is why restarting or updating Envoryx never loses projects. Every
+resource it creates carries `envoryx.managed=true` and `envoryx.project.id=<uuid>`, and it
+refuses to modify anything else.
 
 ## Command line
 
@@ -321,9 +345,8 @@ envoryx db snapshot shop --note "before the migration"
 envoryx up                                          # in a clone: envoryx.yml → project
 ```
 
-Commands exit 0/1/2, `exec` passes the command's own exit code on, and `--json`
-hands the API's answer to `jq`. See
-[DEPLOYMENT.md → Command line](DEPLOYMENT.md#command-line).
+Commands exit 0/1/2, `exec` passes the command's own exit code on, and `--json` hands the
+API's answer to `jq`. More in [DEPLOYMENT.md → Command line](DEPLOYMENT.md#command-line).
 
 ## Documentation
 
@@ -337,15 +360,14 @@ hands the API's answer to `jq`. See
 
 ## License
 
-Envoryx is free software under the **GNU Affero General Public License v3.0**
-(AGPL-3.0) - see [LICENSE](LICENSE). You may use it freely, also commercially.
-If you modify and distribute it, or offer a modified version as a network
-service, you must publish your changes under the same license.
+Envoryx is free software under the **GNU Affero General Public License v3.0** (AGPL-3.0);
+see [LICENSE](LICENSE). You may use it freely, also commercially. If you modify and
+distribute it, or offer a modified version as a network service, you must publish your
+changes under the same license.
 
 Copyright (c) 2026 Stefan Mertens
 
 The projects you run *inside* Envoryx are not affected by this license.
 
-Contributions require a one-time signature of the
-[Contributor License Agreement](CLA.md) - see
-[CONTRIBUTING.md](CONTRIBUTING.md).
+Contributions require a one-time signature of the [Contributor License Agreement](CLA.md);
+see [CONTRIBUTING.md](CONTRIBUTING.md).

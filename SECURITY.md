@@ -1,33 +1,35 @@
 # Security
 
+This page explains what Envoryx can do to your host, how it keeps that in check, and what
+you should protect yourself.
+
 ## The Docker socket
 
 Envoryx is mounted with `/var/run/docker.sock`. **Access to the Docker socket is
 equivalent to root on the host**: anyone who can talk to it can start privileged
-containers, mount `/` and read or modify any file. Envoryx therefore treats the
-socket as its most sensitive capability:
+containers, mount `/` and read or modify any file. That's why Envoryx treats the socket as
+its most sensitive capability:
 
 - Only `internal/docker` talks to the engine. It exposes a narrow, closed API
-  (`docker.Engine`) - there is no way for any other code path, let alone the
-  browser, to pass arbitrary Docker parameters.
-- Container specs are built by the planner from a fixed catalogue. The spec type
-  cannot express privileged mode, added capabilities, host networking, device
-  access or arbitrary bind mounts. The engine additionally applies
-  `no-new-privileges`, drops `NET_RAW`, and disables restart loops for
-  transient containers.
-- Every mutating call (start, stop, remove, …) first inspects the target and
-  verifies the `envoryx.managed=true` label. Unlabelled resources yield
-  `ErrNotManaged` (HTTP 403) and remain untouched. This is covered by unit tests
-  (fake engine) and integration tests (`go test -tags integration`).
-- Foreign containers appear read-only in the diagnostics view with name, image,
-  state and ports only - no labels, env or mounts.
+  (`docker.Engine`); no other code path, let alone the browser, can pass arbitrary Docker
+  parameters.
+- The planner builds container specs from a fixed catalogue. The spec type can't express
+  privileged mode, added capabilities, host networking, device access or arbitrary bind
+  mounts. On top of that the engine applies `no-new-privileges`, drops `NET_RAW` and
+  disables restart loops for transient containers.
+- Every mutating call (start, stop, remove, …) first inspects the target and checks the
+  `envoryx.managed=true` label. Unlabelled resources yield `ErrNotManaged` (HTTP 403) and
+  stay untouched. Unit tests (fake engine) and integration tests
+  (`go test -tags integration`) cover this.
+- Foreign containers show up read-only in the diagnostics view, with name, image, state and
+  ports only: no labels, env or mounts.
 - The API never accepts container IDs for mutations. Operations address
-  `projectID + service kind`; the backend resolves the container.
+  `projectID + service kind`, and the backend resolves the container.
 
 ### Socket proxy
 
-Envoryx honours `DOCKER_HOST`. To reduce the blast radius run a socket proxy such
-as `tecnativa/docker-socket-proxy` and point Envoryx at it
+Envoryx honours `DOCKER_HOST`. To shrink the blast radius, run a socket proxy such as
+`tecnativa/docker-socket-proxy` and point Envoryx at it
 (`DOCKER_HOST=tcp://docker-socket-proxy:2375`). Envoryx needs these endpoints:
 
 | Endpoint group | Used for |
@@ -36,194 +38,189 @@ as `tecnativa/docker-socket-proxy` and point Envoryx at it
 | `CONTAINERS` (list, inspect, create, start, stop, restart, remove, stats) | project lifecycle |
 | `IMAGES` (inspect, pull) | runtime images |
 | `NETWORKS` (list, inspect, create, remove) | project networks |
-| `VOLUMES` (list, inspect, create, remove) | database volumes (Phase 3) |
-| `EXEC` (Phase 5) | terminal, project actions |
+| `VOLUMES` (list, inspect, create, remove) | database volumes |
+| `EXEC` | terminal, project actions |
 | `POST` | required for create/start/stop |
 
-`SWARM`, `NODES`, `SECRETS`, `CONFIGS`, `PLUGINS`, `SYSTEM` (prune), `BUILD`,
-`COMMIT` can stay disabled.
+`SWARM`, `NODES`, `SECRETS`, `CONFIGS`, `PLUGINS`, `SYSTEM` (prune), `BUILD` and `COMMIT` can
+stay disabled.
 
 ## Authentication and sessions
 
-- Passwords are hashed with **argon2id** (64 MiB, t=3, p=2) and never logged.
-  Minimum length 10 characters. Unknown usernames burn the same hashing time as
-  wrong passwords to blunt user enumeration by timing.
-- Sessions are opaque 256-bit random tokens. Only the SHA-256 hash is stored.
-  Idle timeout 12 h (sliding) and absolute timeout 7 days by default.
-- Cookie: `HttpOnly`, `SameSite=Lax`, `Secure` when `ENVORYX_SECURE_COOKIES=true`.
-  Enable this when Envoryx is served through an HTTPS reverse proxy.
-- Login attempts are rate-limited per IP **and** per username with exponential
-  back-off after 5 failures.
+- Passwords are hashed with **argon2id** (64 MiB, t=3, p=2) and never logged. The minimum
+  length is 10 characters. Unknown usernames burn the same hashing time as wrong passwords,
+  so timing doesn't tell an attacker which accounts exist.
+- Sessions are opaque 256-bit random tokens, and only their SHA-256 hash is stored. By
+  default they end after 12 h idle (sliding) and after 7 days at the latest.
+- The cookie is `HttpOnly`, `SameSite=Lax`, and `Secure` when
+  `ENVORYX_SECURE_COOKIES=true`. Switch that on when Envoryx is served through an HTTPS
+  reverse proxy.
+- Login attempts are rate-limited per IP **and** per username, with exponential back-off
+  after 5 failures.
 - Changing the password revokes all other sessions.
 - The first admin is created through a one-time setup page (or from
-  `ENVORYX_ADMIN_USER`/`ENVORYX_ADMIN_PASSWORD`). Setup is refused once any user
-  exists. No generated passwords are ever written to logs.
+  `ENVORYX_ADMIN_USER`/`ENVORYX_ADMIN_PASSWORD`). Setup is refused once any user exists, and
+  generated passwords never end up in logs.
 
 ## API tokens and MCP
 
-- The MCP endpoint (`/mcp`) authenticates **only** with bearer tokens
-  created in Settings. Session cookies are ignored there, so a web page can
-  never call tools with ambient credentials, and tokens cannot mint tokens.
-- Tokens are 256-bit random values with the prefix `stq_`; only their
-  SHA-256 hash is stored. The plain value is shown once. Revoking takes
-  effect immediately.
-- Tools reuse the project manager, so all validation (slugs, paths,
-  hostnames, database names, versions), the `envoryx.managed` label guards and
-  per-project locks apply. `run_action` executes only entries of the closed
-  action catalogue (argv arrays, no shell). Delete/drop/restore are not
-  available via MCP by design.
-- Every tool call that changes state produces an audit entry attributed to
-  the user with the token name.
-- Treat a token like a password: it grants the same rights as your account
-  (minus the destructive operations). Prefer HTTPS (`https://envoryx.<base>`)
-  for the MCP URL when clients connect over the network.
+- The MCP endpoint (`/mcp`) authenticates **only** with bearer tokens created in Settings.
+  It ignores session cookies, so a web page can never call tools with ambient credentials,
+  and tokens can't mint tokens.
+- Tokens are 256-bit random values with the prefix `stq_`; only their SHA-256 hash is
+  stored. You see the plain value once, and revoking takes effect immediately.
+- Tools reuse the project manager, so all validation (slugs, paths, hostnames, database
+  names, versions), the `envoryx.managed` label guards and the per-project locks apply.
+  `run_action` only runs entries of the closed action catalogue (argv arrays, no shell).
+  Delete, drop and restore aren't available via MCP, on purpose.
+- Every tool call that changes state produces an audit entry attributed to the user, with
+  the token name.
+- Treat a token like a password: it grants the same rights as your account (minus the
+  destructive operations). Prefer HTTPS (`https://envoryx.<base>`) for the MCP URL when
+  clients connect over the network.
 
 ## SSH server
 
-The embedded SSH server (port 2222) never gives access to the Envoryx
-container or the host: every session is a `docker exec` into the selected
-project's PHP/Node container as `PUID:PGID`, with the same environment the
-terminal tab uses. Authentication is an API token (password) or a public key
-from the settings; ten failures lock an IP for five minutes. The exec
-command line is passed to `/bin/sh -lc` inside that container - this is the
-same capability the browser terminal already grants. SFTP is a virtual view
-of exactly two directories (project, persistent home) served from Envoryx's
-side of the bind mounts with lexical containment; symlinks may not point
-outside. The Ed25519 host key lives in `/config/ssh/host_ed25519` (0600).
-Only the `env` requests `LANG`, `LC_*`, `TERM`, `XDEBUG_*`, `PHP_IDE_CONFIG`,
-`APP_ENV` and `CI` are forwarded. Sessions and commands are audit-logged.
+The embedded SSH server (port 2222) never gives access to the Envoryx container or the
+host. Every session is a `docker exec` into the selected project's application container
+(PHP, Python, Go, Ruby or Node) as `PUID:PGID`, with the same environment the terminal tab
+uses. You authenticate with an API token (as the password) or a public key from the
+settings; ten failures lock an IP for five minutes. The exec command line goes to
+`/bin/sh -lc` inside that container, which is the same capability the browser terminal
+already grants.
+
+SFTP is a virtual view of exactly two directories (project and persistent home), served
+from Envoryx's side of the bind mounts with lexical containment; symlinks may not point
+outside. The Ed25519 host key lives in `/config/ssh/host_ed25519` (0600). Only the `env`
+requests `LANG`, `LC_*`, `TERM`, `XDEBUG_*`, `PHP_IDE_CONFIG`, `APP_ENV` and `CI` are
+forwarded, and sessions and commands are audit-logged.
 
 ## CSRF / CORS
 
 State-changing API requests must:
 
-1. carry the custom header `X-Requested-With: Envoryx` (cannot be set cross-site
-   without a CORS preflight, which is denied),
-2. have no `Origin` header, or one matching the request host (or the explicit
-   dev-server origin in `ENVORYX_DEV` mode),
+1. carry the custom header `X-Requested-With: Envoryx` (which can't be set cross-site
+   without a CORS preflight, and that is denied),
+2. have no `Origin` header, or one matching the request host (or the explicit dev-server
+   origin in `ENVORYX_DEV` mode),
 3. not carry a `Sec-Fetch-Site` of `cross-site`/`same-site`.
 
-Together with `SameSite=Lax` cookies this blocks CSRF from other origins. CORS
-headers are only emitted for the configured dev origin.
+Together with `SameSite=Lax` cookies this blocks CSRF from other origins. CORS headers are
+only sent for the configured dev origin.
 
-WebSockets (log streaming, terminal) go through the same session middleware:
-the cookie is validated before the upgrade, and the upgrade itself is refused
-for any `Origin` other than the request host (plus the dev-server origin in
-`ENVORYX_DEV` mode). Container IDs are never taken from the client; WebSocket
-routes address `project + service kind` and resolve the container server-side.
+WebSockets (log streaming, terminal) go through the same session middleware: the cookie is
+checked before the upgrade, and the upgrade itself is refused for any `Origin` other than
+the request host (plus the dev-server origin in `ENVORYX_DEV` mode). Container IDs never
+come from the client; WebSocket routes address `project + service kind` and resolve the
+container on the server.
 
 ## Input validation
 
-- Project names: 2-64 printable characters; identifiers (slugs) derived and
-  validated against `^[a-z0-9]([a-z0-9-]{0,38}[a-z0-9])?$`.
-- Project paths are **relative** to `/projects`, at most 3 segments, no `.`/`..`,
-  no hidden segments, restricted character set. Resolved paths are checked
-  lexically and after symlink resolution to stay under the projects root.
-  Deleting project files additionally refuses the root itself.
+- Project names: 2-64 printable characters. Identifiers (slugs) are derived from them and
+  checked against `^[a-z0-9]([a-z0-9-]{0,38}[a-z0-9])?$`.
+- Project paths are **relative** to `/projects`, at most 3 segments, no `.`/`..`, no
+  hidden segments and a restricted character set. Resolved paths must stay under the
+  projects root, checked lexically and after symlink resolution. Deleting project files
+  also refuses the root itself.
 - Document roots follow the same rules relative to the project directory.
-- Versions must exist in the runtime catalogue (no free-form image references).
-- PHP settings: size values match `^[0-9]{1,6}[KMG]?$` (or `-1`),
-  `error_reporting` a constrained expression, extensions from the known list.
-- Environment variable names match `^[A-Z_][A-Z0-9_]*$`, values may not contain
-  line breaks or NUL; `ENVORYX_*` is reserved.
+- Versions must exist in the runtime catalogue; there are no free-form image references.
+- PHP settings: size values match `^[0-9]{1,6}[KMG]?$` (or `-1`), `error_reporting` is a
+  constrained expression, and extensions come from the known list.
+- Environment variable names match `^[A-Z_][A-Z0-9_]*$`, values may not contain line breaks
+  or NUL, and `ENVORYX_*` is reserved.
 - All JSON bodies are limited to 1 MiB and reject unknown fields.
-- UUIDs are validated before touching the database.
-- No shell commands are built from strings anywhere. Container commands are
-  argv arrays. Project actions come from a closed catalogue
-  (`internal/project/actions.go`): the browser sends only the action id, the
-  argv is fixed server-side, execution happens inside the project container as
-  the project owner, and the project lock is held for the duration.
+- UUIDs are validated before anything touches the database.
+- No shell command is built from strings anywhere; container commands are argv arrays.
+  Project actions come from a closed catalogue (`internal/project/actions.go`): the browser
+  sends only the action id, the argv is fixed on the server, it runs inside the project
+  container as the project owner, and the project lock is held while it runs.
 
 ## Destructive operations
 
-- Deleting a project requires the project identifier to be typed as confirmation.
-  Project files are only removed with an explicit second flag.
-- Rollback after a failed create removes only resources recorded in the operation
-  journal (all label-guarded) - never project files.
-- Reconciliation never deletes anything; orphaned resources are reported.
-- Interrupted create/delete operations (Envoryx restart) are marked `failed` and
-  surfaced in the UI instead of being auto-repaired.
+- Deleting a project requires typing the project identifier as confirmation, and project
+  files are only removed with an explicit second flag.
+- Rolling back a failed create removes only resources recorded in the operation journal
+  (all label-guarded), never project files.
+- Reconciliation doesn't delete projects or their data: it only clears orphaned containers
+  and networks and reports the rest.
+- Create and delete operations interrupted by an Envoryx restart are marked `failed` and
+  shown in the UI instead of being repaired automatically.
 
 ## Secrets and logging
 
-- Logs are structured (`log/slog`) and never contain passwords, tokens or
-  environment variable values.
-- The audit log records who did what (login, project lifecycle, settings) with
-  IP and timestamp, but details exclude secrets.
-- Project environment variables marked as secret are masked in the UI. They are
-  stored in SQLite under `/config` (file mode 0600); protect that directory.
-- Git access tokens are stored in SQLite (write-only via the API, `hasToken`
-  is the only thing returned) and passed to git through `GIT_CONFIG_*`
-  environment variables inside a transient container - never in the URL, on
-  a command line or in logs; command output is redacted before it is shown.
-  Repository URLs are restricted to https/http/ssh/scp-like forms (no
-  `file://`, `ext::`, local paths, embedded passwords or option-like values),
-  branch names to `[A-Za-z0-9._/-]` and passed after `--`.
-- The SSH deploy key (`/config/ssh/id_ed25519`, mode 0600, owned by
-  PUID:PGID) is mounted only into the short-lived git container, never into
-  the long-running PHP container, so application code cannot read it.
-- Database credentials are generated (24 chars, `crypto/rand`) and stored in
-  the SQLite database. They are excluded from project responses; the explicit
-  credentials endpoint is audit-logged. Inside the database container they are
-  passed via environment (`MYSQL_PWD`), never on a command line, and stripped
-  from error messages before they reach logs or the UI.
-- CA keys (Phase 8) will live under `/config` with restrictive permissions.
+- Logs are structured (`log/slog`) and never contain passwords, tokens or environment
+  variable values.
+- The audit log records who did what (login, project lifecycle, settings) with IP and
+  timestamp, but its details leave secrets out.
+- Project environment variables marked as secret are masked in the UI. They're stored in
+  SQLite under `/config` (file mode 0600), so protect that directory.
+- Git access tokens are stored in SQLite (write-only via the API; `hasToken` is all that
+  comes back) and handed to git through `GIT_CONFIG_*` environment variables inside a
+  transient container: never in the URL, on a command line or in logs, and command output
+  is redacted before it's shown. Repository URLs are restricted to https/http/ssh/scp-like
+  forms (no `file://`, `ext::`, local paths, embedded passwords or option-like values), and
+  branch names to `[A-Za-z0-9._/-]`, passed after `--`.
+- The SSH deploy key (`/config/ssh/id_ed25519`, mode 0600, owned by PUID:PGID) is mounted
+  only into the short-lived git container, never into the long-running application
+  containers, so application code can't read it.
+- Database credentials are generated (24 chars, `crypto/rand`) and stored in the SQLite
+  database. Project responses leave them out; the explicit credentials endpoint is
+  audit-logged. Inside the database container they're passed via environment
+  (`MYSQL_PWD`), never on a command line, and stripped from error messages before those
+  reach logs or the UI.
 
 ## Backups
 
-Backups contain the full project export including database credentials and
-git tokens (needed to rebuild a project) and live in the backups directory
-(`/config/backups` or the `/backups` mount)
-with mode 0600/0700. Treat downloaded archives accordingly. Restores are
-confirmed with the project identifier, only ever write inside the project
-directory (path traversal and symlink escapes are rejected) and only import a
-dump whose flavour matches the project's database.
+Backups contain the full project export, including database credentials and git tokens
+(they're needed to rebuild a project), and live in the backups directory (`/config/backups`
+or the `/backups` mount) with mode 0600/0700. Treat downloaded archives the same way.
+Restores are confirmed with the project identifier, only ever write inside the project
+directory (path traversal and symlink escapes are rejected) and only import a dump whose
+flavour matches the project's database.
 
 ## Reverse proxy and local CA
 
-- The embedded proxy only routes host names that belong to a project or to
-  Envoryx itself; unknown names get a static 404 page, stopped projects a 503.
-  It never proxies to arbitrary upstreams - targets are container names
-  derived from the project slug (or `127.0.0.1:<port>` on bare metal).
-- Envoryx's own container is attached to every project network so the proxy
-  can reach the web containers. Consequently project containers can reach
-  Envoryx's listeners (UI port, proxy) by IP on that network - the same
-  exposure as any LAN client: the API requires an authenticated session and
-  the CSRF checks, the proxy only routes known names. Application code you
-  run in a project is trusted to the same degree as code on your workstation.
-- The local CA key (`/config/ca/ca.key`, mode 0600) can sign certificates
-  for **any** name. Anyone with that file can impersonate websites on
-  clients that trust the CA. Keep `/config` private, and only install the
-  CA on machines you control. The CA is scoped for a development network;
-  it is not constrained by name. Delete `/config/ca/` to generate a new CA
-  (re-install it on clients afterwards).
+- The embedded proxy only routes host names that belong to a project or to Envoryx itself.
+  Unknown names get a static 404 page, stopped projects a 503. It never proxies to
+  arbitrary upstreams: the targets are container names derived from the project slug (or
+  `127.0.0.1:<port>` on bare metal).
+- Envoryx's own container is attached to every project network so the proxy can reach the
+  web containers. As a result, project containers can reach Envoryx's listeners (UI port,
+  proxy) by IP on that network. That's the same exposure as any LAN client: the API
+  requires an authenticated session and passes the CSRF checks, and the proxy only routes
+  known names. Code you run in a project is trusted as much as code on your workstation.
+- The local CA key (`/config/ca/ca.key`, mode 0600) can sign certificates for **any** name,
+  so anyone with that file can impersonate websites on clients that trust the CA. Keep
+  `/config` private and install the CA only on machines you control. The CA is meant for a
+  development network and isn't constrained by name. Delete `/config/ca/` to get a new CA
+  (and install it on your clients again afterwards).
 - Leaf certificates are valid for 397 days and re-issued automatically.
-- Uploaded custom certificates are validated (PEM, matching key) and stored
-  with mode 0600; the key is never returned by the API.
-- Let's Encrypt integration: the DNS provider API token is stored in
-  `/config/ca/acme.json` (0600) and never returned by the API; scope it to
-  the one zone (Cloudflare "Edit zone DNS" template). The ACME account key
-  lives next to it. Only dns-01 is used - no inbound connectivity is required
-  and none is opened. Challenge TXT records are removed after each attempt.
-- TLS certificates are only issued for names in the routing table, IPs and
-  the configured public host; SNI for other names is rejected.
+- Uploaded custom certificates are validated (PEM, matching key) and stored with mode 0600;
+  the API never returns the key.
+- Let's Encrypt: the DNS provider's credentials are stored in `/config/ca/acme.json` (0600),
+  and the API never returns the secret ones. Scope them to the one zone where the provider
+  allows it (on Cloudflare, the "Edit zone DNS" template). The ACME account key lives next
+  to them. Only dns-01 is used, so no inbound connectivity is required and none is opened,
+  and the challenge TXT records are removed after each attempt.
+- TLS certificates are only issued for names in the routing table, IPs and the configured
+  public host; SNI for other names is rejected.
 
 ## HTTP hardening
 
 - `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
-  `Referrer-Policy: same-origin`, restrictive `Permissions-Policy`.
-- Content-Security-Policy for the SPA (`default-src 'self'`, no inline scripts).
-- Request IDs on every response; request/read/idle timeouts; 64 KiB header limit.
-- Panics are recovered and reported as generic 500s.
+  `Referrer-Policy: same-origin` and a restrictive `Permissions-Policy`.
+- A Content-Security-Policy for the SPA (`default-src 'self'`, no inline scripts).
+- Request IDs on every response, request/read/idle timeouts and a 64 KiB header limit.
+- Panics are recovered and reported as a generic 500.
 
 ## Running as root
 
-The Envoryx container runs as root because it needs the Docker socket and it
-`chown`s newly created project directories to `PUID:PGID` so your editor user
-owns the files. Project containers run their workers as `PUID:PGID` (PHP-FPM
-pool `user`/`group`). If your socket is group-accessible you can run Envoryx as
-that group instead; directory ownership adjustments are then skipped.
+The Envoryx container runs as root because it needs the Docker socket and `chown`s newly
+created project directories to `PUID:PGID`, so your editor user owns the files. Project
+containers run their workers as `PUID:PGID` (PHP-FPM pool `user`/`group`). If your socket
+is group-accessible you can run Envoryx as that group instead; it then skips the directory
+ownership adjustments.
 
 ## Reporting
 
-Please report vulnerabilities privately to the maintainers before disclosure.
+Please report vulnerabilities privately to the maintainers before disclosing them.

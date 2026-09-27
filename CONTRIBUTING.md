@@ -8,7 +8,7 @@ and code are all welcome.
 - **Bugs and ideas:** open an issue. For anything larger than a small fix,
   please discuss it in an issue first so we agree on the approach before you
   spend time on it.
-- **Security issues:** do not open a public issue - see
+- **Security issues:** please don't open a public issue; see
   [SECURITY.md](SECURITY.md).
 - **Setup, tests and coding conventions:** see
   [DEVELOPMENT.md](DEVELOPMENT.md). `make test` must pass before you open a
@@ -25,7 +25,7 @@ sign is published as a
 is identical to `CLA.md` in this repository.
 
 In short: you keep your copyright and grant Envoryx a license to use your
-contribution - including under licenses other than the AGPL, so that the
+contribution, including under licenses other than the AGPL, so that the
 project can be offered under additional terms or handed over to a successor
 without asking every past contributor. In return, Envoryx commits that your
 contribution always stays available as open source.
@@ -41,11 +41,11 @@ issue asking for a private channel.
 - One topic per pull request; keep unrelated refactoring separate.
 - Match the surrounding code: Go is `gofmt`-clean and passes `go vet`
   (`make lint`); the frontend passes `tsc` (`make test-web`).
-- Add or update tests for behaviour changes. Backend tests use the fake Docker
-  engine; see DEVELOPMENT.md for the patterns.
+- Add or update tests when behaviour changes. Backend tests use the fake Docker
+  engine; DEVELOPMENT.md shows the patterns.
 - User-facing strings go through i18n (`web/src/i18n/`), English and German.
 - Write the commit message in the imperative ("Add …", "Fix …") and explain
-  *why* in the body when the diff does not make it obvious.
+  *why* in the body when the diff doesn't make it obvious.
 - Mark code you did not write yourself (copied snippets, vendored files)
   clearly with its source and license in the pull request.
 
