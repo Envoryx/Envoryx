@@ -52,7 +52,8 @@ type Config struct {
 	Token string `json:"token,omitempty"`
 }
 
-// Status describes the ACME state for the UI. The token is never included.
+// Status describes the ACME state for the UI. Secret credentials are never included,
+// only the names of the stored ones.
 type Status struct {
 	Configured  bool       `json:"configured"`
 	Provider    string     `json:"provider,omitempty"`
@@ -63,7 +64,8 @@ type Status struct {
 	LastAttempt *time.Time `json:"lastAttempt,omitempty"`
 	LastSuccess *time.Time `json:"lastSuccess,omitempty"`
 	LastError   string     `json:"lastError,omitempty"`
-	// NotAfter is the expiry of the current certificate for the domain (nil = none).
+	// NotAfter is the expiry of the current certificate for the domain, nil if there is
+	// none.
 	NotAfter *time.Time `json:"notAfter,omitempty"`
 	// Names are the DNS names of the current certificate.
 	Names []string `json:"names,omitempty"`
@@ -152,7 +154,8 @@ func (m *Manager) Status() Status {
 	return st
 }
 
-// Config returns a copy of the configuration (token included; for internal use).
+// Config returns a copy of the configuration, secrets included. It's for internal use
+// only.
 func (m *Manager) Config() Config {
 	m.mu.Lock()
 	defer m.mu.Unlock()

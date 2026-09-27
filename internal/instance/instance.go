@@ -1,8 +1,8 @@
 // Package instance creates and restores backups of the Envoryx instance itself: the
 // SQLite database (users, sessions, tokens, projects, settings), the local CA, the SSH
 // host and deploy keys, notification settings and the generated per-project
-// configuration. Project files and Docker volumes are not part of it - those are covered
-// by project backups.
+// configuration. Project files and Docker volumes are not part of it; project backups
+// cover those.
 //
 // A backup is a single gzip tarball:
 //
@@ -103,8 +103,8 @@ type Pending struct {
 // Applied reports a restore that ApplyPendingRestore carried out.
 type Applied struct {
 	Pending
-	// PreRestoreID is the safety backup of the state that was replaced ("" when there
-	// was no database yet).
+	// PreRestoreID is the safety backup of the state that was replaced, empty when there
+	// was no database yet.
 	PreRestoreID string
 }
 
@@ -253,7 +253,7 @@ func addFile(tw *tar.Writer, name, path string, mode int64) error {
 	return err
 }
 
-// configFiles lists the regular files under ConfigDir that belong into a backup, as
+// configFiles lists the regular files under ConfigDir that belong in a backup, as
 // paths relative to ConfigDir. Symlinks and special files are skipped.
 func (s *Store) configFiles() ([]string, error) {
 	var out []string

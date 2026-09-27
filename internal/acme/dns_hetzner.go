@@ -15,7 +15,7 @@ import (
 // Hetzner DNS lives in the Hetzner Cloud API since the old DNS Console (dns.hetzner.com)
 // and its API were shut down in May 2026. Records are grouped into RRSets (name + type);
 // the add_records/remove_records actions change single values, so the challenges for the
-// domain and its wildcard - two values on one name - do not overwrite each other.
+// domain and its wildcard (two values on one name) don't overwrite each other.
 
 const hetznerAPI = "https://api.hetzner.cloud/v1"
 

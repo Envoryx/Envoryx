@@ -25,7 +25,8 @@ type Collector struct {
 	Store  *Store
 	// Collect selects the containers whose output is kept.
 	Collect func(docker.Container) bool
-	// Floor returns the oldest time worth collecting (retention, a clear); zero = all.
+	// Floor returns the oldest time worth collecting, set by the retention or the last
+	// clear. The zero time collects everything.
 	Floor func() time.Time
 	Log   *slog.Logger
 
