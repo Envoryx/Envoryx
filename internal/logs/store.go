@@ -70,7 +70,7 @@ func (s *Store) keyDir(k Key) (string, error) {
 // record is the on-disk form of a line; short names keep the files small.
 type record struct {
 	T time.Time `json:"t"`
-	S string    `json:"s,omitempty"` // "e" = stderr, "" = stdout
+	S string    `json:"s,omitempty"` // "e" for stderr, empty for stdout
 	M string    `json:"m"`
 }
 
@@ -162,8 +162,8 @@ func (s *Store) Append(k Key, lines []docker.LogLine) error {
 	return nil
 }
 
-// dayFile is one day of one key, plain, gzipped or - briefly, or after a late write to
-// a compressed day - both.
+// dayFile is one day of one key: a plain file, a gzipped one, or both for a while
+// (during compression, or after a late write to a compressed day).
 type dayFile struct {
 	day   string
 	plain string
@@ -213,7 +213,7 @@ func (s *Store) Has(k Key) bool {
 	return err == nil && len(d) > 0
 }
 
-// Oldest returns the time of the first stored line under k (zero = none).
+// Oldest returns the time of the first stored line under k, or zero if there is none.
 func (s *Store) Oldest(ctx context.Context, k Key) time.Time {
 	days, err := s.days(k)
 	if err != nil || len(days) == 0 {
@@ -227,7 +227,7 @@ func (s *Store) Oldest(ctx context.Context, k Key) time.Time {
 	return first
 }
 
-// Last returns the time of the newest stored line under k (zero = none).
+// Last returns the time of the newest stored line under k, or zero if there is none.
 func (s *Store) Last(k Key) time.Time {
 	s.mu.Lock()
 	t, ok := s.last[k]
@@ -257,7 +257,8 @@ func (s *Store) Last(k Key) time.Time {
 	return t
 }
 
-// Scan emits the lines of k in [since, until] (zero = open), oldest first.
+// Scan emits the lines of k in [since, until], oldest first. A zero bound leaves that
+// end open.
 func (s *Store) Scan(ctx context.Context, k Key, since, until time.Time, emit func(docker.LogLine)) error {
 	days, err := s.days(k)
 	if err != nil {
@@ -280,7 +281,7 @@ func (s *Store) Scan(ctx context.Context, k Key, since, until time.Time, emit fu
 	return ctx.Err()
 }
 
-// Tail returns the last n lines of k up to until (zero = now) and how many lines there
+// Tail returns the last n lines of k up to until (zero means now) and how many lines there
 // are in total. It parses only the newest days it needs and merely counts the rest.
 func (s *Store) Tail(ctx context.Context, k Key, until time.Time, n int) ([]docker.LogLine, int, error) {
 	days, err := s.days(k)
@@ -501,7 +502,7 @@ type PruneResult struct {
 }
 
 // Prune compresses the days before yesterday, drops days older than keepDays, the
-// oldest days beyond maxBytes (0 = no limit) and everything of projects keep rejects.
+// oldest days beyond maxBytes (0 for no limit) and everything of projects keep rejects.
 func (s *Store) Prune(now time.Time, keepDays int, maxBytes int64, keep func(project string) bool) (PruneResult, error) {
 	var res PruneResult
 	files, err := s.files()
@@ -652,7 +653,7 @@ func (s *Store) Clear(now time.Time) error {
 	return os.WriteFile(filepath.Join(s.dir, clearedMarker), []byte(now.UTC().Format(time.RFC3339Nano)), 0o640)
 }
 
-// ClearedAt returns when the history was last cleared (zero = never).
+// ClearedAt returns when the history was last cleared, or zero if it never was.
 func (s *Store) ClearedAt() time.Time {
 	b, err := os.ReadFile(filepath.Join(s.dir, clearedMarker))
 	if err != nil {

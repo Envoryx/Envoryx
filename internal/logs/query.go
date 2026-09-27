@@ -12,7 +12,8 @@ import (
 
 // Query selects lines from a service's output.
 type Query struct {
-	// Since and Until bound the time range (zero = open, both inclusive).
+	// Since and Until bound the time range, both inclusive; a zero time leaves that end
+	// open.
 	Since, Until time.Time
 	// Text is a case-insensitive substring every returned line contains.
 	Text string
