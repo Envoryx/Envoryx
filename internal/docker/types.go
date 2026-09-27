@@ -1,6 +1,6 @@
-// Package docker is the only package that talks to the Docker Engine. It exposes a narrow,
-// label-scoped Engine interface so that the rest of Envoryx can never issue arbitrary
-// Docker operations.
+// Package docker is the only package that talks to the Docker Engine. Its Engine
+// interface is deliberately small and only touches resources labelled as Envoryx's, so
+// no other code can run arbitrary Docker operations.
 package docker
 
 import (
@@ -160,7 +160,7 @@ type MountSpec struct {
 
 // PortSpec publishes a container port on the host.
 type PortSpec struct {
-	HostIP        string // "" = all interfaces
+	HostIP        string // empty means all interfaces
 	HostPort      int
 	ContainerPort int
 	Protocol      string // "tcp"
@@ -197,8 +197,8 @@ type ContainerSpec struct {
 	StopTimeout   int    // seconds
 	ExtraHosts    []string
 	Healthcheck   *HealthSpec
-	// Resources caps CPU, memory and processes (nil = no limits). They are not part of
-	// the spec fingerprint: UpdateResources changes them on a running container.
+	// Resources caps CPU, memory and processes; nil means no limits. They aren't part of
+	// the spec fingerprint, because UpdateResources changes them on a running container.
 	Resources *Resources
 	// OpenStdin keeps the process's stdin open for one attached client (RunOneShotStream
 	// sets it when it has input to feed).
@@ -314,13 +314,13 @@ type LogLine struct {
 
 // LogOptions control log streaming.
 type LogOptions struct {
-	// Tail limits the initial history ("" or "all" = everything).
+	// Tail limits the initial history; empty or "all" returns everything.
 	Tail string
 	// Follow keeps streaming until ctx is cancelled.
 	Follow bool
-	// Since only returns lines newer than this time (zero = no limit).
+	// Since only returns lines newer than this time; the zero time means no limit.
 	Since time.Time
-	// Until only returns lines older than this time (zero = no limit).
+	// Until only returns lines older than this time; the zero time means no limit.
 	Until time.Time
 }
 
@@ -403,8 +403,8 @@ type Engine interface {
 	// NetworkAddresses returns a network's IPv4 gateway and the IPv4 address of every
 	// container attached to it, by container ID.
 	NetworkAddresses(ctx context.Context, network string) (gateway string, containers map[string]string, err error)
-	// SelfPortBindings returns the host ports published for the given container ports of
-	// any container (used to discover how Envoryx's own proxy ports are mapped).
+	// PortBindings returns the published ports of any container. Envoryx uses it to find
+	// out how its own proxy ports are mapped.
 	PortBindings(ctx context.Context, containerID string) ([]PortMapping, error)
 	// NetworkAccess describes how a container's listeners are reachable from the LAN:
 	// through published ports, or directly because it uses host networking or has its
