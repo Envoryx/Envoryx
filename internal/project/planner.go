@@ -89,8 +89,8 @@ type DirPlan struct {
 }
 
 const (
-	// homeMountTarget is the writable home of the project user inside php/node/worker
-	// containers: tool caches (composer, npm) and IDE helpers persist there.
+	// homeMountTarget is the writable home of the project user inside the application and
+	// worker containers: tool caches (composer, npm) and IDE helpers persist there.
 	homeMountTarget = "/home/envoryx"
 	homeDirName     = "home"
 )
