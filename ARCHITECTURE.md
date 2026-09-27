@@ -4,8 +4,10 @@ Envoryx is a Docker-native development environment manager for Unraid and Linux
 Docker hosts. It runs as a single container, talks to the Docker Engine API and
 creates isolated, per-project stacks (PHP, Python, Go, Ruby, Node, web server, database, cache …).
 
-This document describes the architecture that Phase 1 (Foundation) and Phase 2
-(Project Lifecycle) are built on and the decisions that shape later phases.
+This document is for contributors. It explains how the pieces fit together and why
+they're built the way they are. It started as the design for Phase 1 (Foundation) and
+Phase 2 (Project Lifecycle); every phase since has been built on it, and §13 describes
+what each one added.
 
 ```
 Browser
@@ -20,7 +22,7 @@ Go API (single binary, single container)
    ├── Project Manager (desired state, lifecycle, rollback, reconciliation)
    ├── Runtime Catalog (PHP / Node / Python / Go / Ruby / DB / cache versions → images)
    ├── Docker Manager  (label-scoped Docker Engine abstraction)
-   ├── Backup Manager  (Phase 7)
+   ├── Backup Manager  (project, instance and offsite backups)
    └── Audit Log
             │  Docker Engine API (unix socket or socket proxy)
             ▼
@@ -57,32 +59,47 @@ Go API (single binary, single container)
 .
 ├── cmd/envoryx/               main package (serve, healthcheck, admin rescue, CLI client)
 ├── internal/
+│   ├── acme/                 Let's Encrypt wildcard certificates via dns-01
 │   ├── api/                  HTTP handlers (v1), request/response DTOs, errors
-│   ├── auth/                 password hashing, sessions, auth middleware
+│   ├── auth/                 password hashing, sessions, API tokens, auth middleware
 │   ├── audit/                audit log writer
+│   ├── awssig/               AWS Signature Version 4 (S3, Route 53)
 │   ├── config/               environment configuration
+│   ├── cron/                 crontab schedule parser
 │   ├── db/                   SQLite open + embedded migrations
+│   ├── disk/                 free-space checks and the low-disk monitor
 │   ├── docker/               Docker Engine abstraction (interface + moby impl + fake)
 │   ├── hostpath/             host-path detection for bind mounts (see §7)
 │   ├── instance/             backups of the instance itself (db + config), restore on start
+│   ├── logs/                 log levels, queries, statistics and the log history
 │   ├── manifest/             envoryx.yml: the project manifest's file format
+│   ├── mcpserver/            MCP server for AI assistants
+│   ├── notify/               notifications (webhook, ntfy, Discord, Slack, Telegram, e-mail)
+│   ├── offsite/              offsite backup targets (S3, SFTP, WebDAV)
 │   ├── project/              project manager: planning, lifecycle, reconciler
+│   ├── proxy/                embedded reverse proxy
 │   ├── runtime/              runtime catalogue (versions → images, config)
+│   ├── s3/                   minimal S3 client (buckets, objects, multipart)
 │   ├── server/               router, middleware, static file serving
+│   ├── siteimport/           import of an existing website (archive + dump)
+│   ├── sshd/                 embedded SSH/SFTP server
 │   ├── store/                repositories on top of database/sql
 │   ├── stats/                container resource statistics
+│   ├── tlsca/                local certificate authority
+│   ├── update/               daily release check
 │   └── validate/             input validation (names, paths, versions)
 ├── web/                      React + TypeScript + Vite frontend
 │   ├── src/
 │   │   ├── api/              central typed API client + TanStack Query hooks
 │   │   ├── components/       small reusable UI primitives
-│   │   ├── features/         feature modules (auth, dashboard, projects, docker)
+│   │   ├── features/         feature modules (auth, dashboard, projects, docker, settings …)
 │   │   ├── layout/           app shell, navigation, theme
 │   │   └── lib/              utilities
 │   └── dist/                 build output (embedded into the Go binary)
 ├── deploy/                   docker-compose.yml, Unraid template + icon
 ├── .github/workflows/        CI (tests) and multi-arch image builds → ghcr.io/envoryx/*
-├── images/php/               Envoryx PHP runtime image (all extensions compiled in, toggled per project)
+├── images/                  Envoryx runtime images: php (all extensions compiled in, toggled
+│                             per project), node, python, go, ruby
 ├── Dockerfile                multi-stage build (web → go → alpine)
 ├── Makefile
 ├── ARCHITECTURE.md  SECURITY.md  DEVELOPMENT.md  DEPLOYMENT.md  README.md
@@ -101,7 +118,7 @@ Go API (single binary, single container)
 | Docker client | `github.com/moby/moby/client` v0.6       | maintained successor of `docker/docker/client` |
 | SQLite        | `modernc.org/sqlite`                      | pure Go, no CGO, static build, WAL mode |
 | Passwords     | `golang.org/x/crypto/argon2` (argon2id)   | modern, memory-hard |
-| WebSocket     | `github.com/coder/websocket` (Phase 5)    | small, context-aware |
+| WebSocket     | `github.com/coder/websocket`              | small, context-aware |
 | Logging       | `log/slog` (JSON in production)           | structured, stdlib |
 | IDs           | UUID v4 (`crypto/rand`)                   | required by spec |
 
@@ -111,7 +128,7 @@ Go API (single binary, single container)
 - **db** - opens SQLite (WAL, foreign keys on, busy timeout), applies embedded
   SQL migrations in order, records them in `schema_migrations`.
 - **store** - one repository type per aggregate (`Users`, `Sessions`,
-  `Projects`, `Settings`, `Audit`). Plain SQL, no ORM. Transactions are passed
+  `Projects`, `Settings`, `Audit`, …). Plain SQL, no ORM. Transactions are passed
   explicitly where multi-table writes happen (`Projects.Create` writes project
   + services + env vars in one transaction).
 - **auth** - argon2id hashing with per-hash parameters, opaque session tokens
@@ -124,8 +141,8 @@ Go API (single binary, single container)
   Every mutating call verifies the label on the target first ("guard").
   A `fake` implementation lives in `docker/dockertest` for unit tests.
 - **runtime** - the catalogue of supported runtimes and services. Versions are
-  data, not code paths: `runtime.Catalog().PHP()` returns versions with image
-  references, default extensions and the config generator. The frontend fetches
+  data, not code paths: `runtime.Default()` builds the catalogue, and
+  `Catalog.Resolve(key, version)` returns a version with its image reference. The frontend fetches
   `/api/v1/runtimes` and never hard-codes versions.
 - **project** - the heart of Envoryx:
   - `Planner` turns a `ProjectSpec` (desired state) into a `ResourcePlan`
@@ -142,7 +159,7 @@ Go API (single binary, single container)
   - Duplicating (`duplicate.go`) is the create path with an existing project
     as the source of truth: the desired state is copied, only names, the
     directory and every published host port are new, and the parts the user
-    asked for follow - the files as a recursive copy, the database as a dump
+    asked for follow: the files as a recursive copy, the database as a dump
     streamed straight into the copy's client, the bucket object by object.
     Database and storage credentials are copied verbatim, so a `.env` that
     lives in the project files keeps working and the dump restores one to one;
@@ -194,11 +211,10 @@ POST /api/v1/projects/{id}/start
 The same binary is the client: `envoryx project …`, `envoryx backup …`,
 `envoryx db …`, `envoryx git …`, `envoryx up` and `envoryx login` talk to a
 running server over `/api/v1` with an API token, exactly like the web interface
-and the MCP server. The CLI holds no privilege of its own - it has no database handle, no
-Docker socket and no way around a token's scope or project restriction - so
-`docker exec envoryx
-envoryx project start shop` and the same command from a laptop take the same
-path through the API. (The exception is `envoryx admin …`, which is the rescue
+and the MCP server. The CLI holds no privilege of its own: it has no database handle,
+no Docker socket and no way around a token's scope or project restriction. So
+`docker exec envoryx envoryx project start shop` and the same command from a laptop
+take the same path through the API. (The exception is `envoryx admin …`, which is the rescue
 path *onto* the database when the credentials are lost.)
 
 One endpoint exists for the CLI's sake: `POST
@@ -213,11 +229,12 @@ such service, container not running) is still an ordinary HTTP error.
 
 ## 4. Frontend architecture
 
-- **React 19 + TypeScript (strict) + Vite 7.**
+- **React 19 + TypeScript (strict) + Vite 8.**
 - **TanStack Query** for server state (caching, invalidation, polling of
   status/stats); no global client store beyond theme + auth context.
 - **react-router** for routes: `/login`, `/setup`, `/` (dashboard),
-  `/projects`, `/projects/new`, `/projects/:id`, `/docker`, `/settings`.
+  `/projects`, `/projects/new`, `/projects/:id`, `/docker`, `/settings` and a few
+  more (audit log, the logo's short film).
 - **Tailwind CSS v4** with CSS variables for theming (dark/light, system).
 - **Own small component set** (`Button`, `Card`, `Badge`, `StatusDot`,
   `Dialog` on native `<dialog>`, `Input`, `Select`, `Table`, `EmptyState`,
@@ -257,15 +274,15 @@ schema_migrations(version PRIMARY KEY, applied_at)
 
 The audit log is read through `store.Audit.Query` (text, user with its tokens,
 action prefixes, target, time range; indexes on target, username and action) and
-paged newest first by the keyset `(created_at, id)` - the timestamps are RFC 3339
-text, so paging by the same order they are sorted in is what keeps an entry from
+paged newest first by the keyset `(created_at, id)`. The timestamps are RFC 3339
+text, so paging in the same order they're sorted in is what keeps an entry from
 appearing twice or not at all. `Each` streams the same selection for
 `GET /audit/export` (CSV with formula-like cells prefixed by `'`, or JSON Lines).
 `audit_retention_days` (0 = keep all, the default) is applied hourly by
 `RunAuditRetention`. `project.updated` entries written by `Manager.update` carry
 `diff`: the project exported as its manifest before and after, compared section by
-section (databases, variables, workers and cron jobs item by item) - secret
-values are not part of the export and so never of the diff.
+section (databases, variables, workers and cron jobs item by item). Secret
+values aren't part of the export, so they're never part of the diff either.
 
 Notes:
 
@@ -278,8 +295,10 @@ Notes:
 - `project_services.config` holds kind-specific settings as JSON (PHP ini
   values, extensions, DB credentials). Secrets in SQLite are protected by the
   `/config` directory permissions; see SECURITY.md.
-- Service kinds in Phase 2: `web` (Caddy) and `php`. Later: `node`,
-  `database`, `redis`, …
+- Phase 2 had the service kinds `web` (Caddy) and `php`. Today there are also
+  `node`, `python`, `go`, `ruby`, `database` and `db-<name>`, the auxiliary
+  services (`redis`, `memcached`, `mailpit`, …) and `storage`; later migrations
+  added the tables for workers, cron jobs, API tokens, images and more.
 
 ---
 
@@ -305,10 +324,12 @@ container  envoryx-<slug>-<service>      e.g. envoryx-acme-shop-php
 volume     envoryx-<slug>-<service>      e.g. envoryx-acme-shop-mariadb
 ```
 
-Slugs match `^[a-z0-9]([a-z0-9-]{0,38}[a-z0-9])?$` - lower-case DNS-safe.
+Slugs match `^[a-z0-9]([a-z0-9-]{0,38}[a-z0-9])?$`, so they're lower-case and DNS-safe.
 
-Inside the project network containers use network aliases: `web`, `php`,
-`database`, `redis`, `node`, `python`.
+Inside the project network, containers use network aliases: `web`, `php`,
+`python`, `go`, `ruby`, `node`, `database` (plus the flavour, e.g. `mariadb`),
+the name of an additional database, and one per service (`redis`, `mailpit`,
+`rabbitmq`, `s3`, …).
 
 ### 6.3 Engine interface (internal/docker)
 
@@ -330,13 +351,18 @@ type Engine interface {
 }
 ```
 
+This was the original sketch; the real interface in `internal/docker/types.go` has
+grown (exec, terminals, logs, images, OOM events, resource updates …) but keeps the
+same rules.
+
 `ContainerSpec` is a *closed* struct built only by the planner (image, name,
 labels, env, mounts, network + aliases, port bindings, restart policy,
-user). The Docker implementation adds hardening (no privileged, drop
-`CAP_NET_RAW`, `no-new-privileges`, restart policy `unless-stopped`).
+user). The Docker implementation adds hardening: never privileged, `NET_RAW`
+dropped, `no-new-privileges`, and no restart policy unless the spec asks for
+`unless-stopped`.
 
 "Guarded" means: inspect target, verify `envoryx.managed=true` label and, when a
-project ID is supplied, `envoryx.project.id` - otherwise return
+project ID is supplied, `envoryx.project.id`. Otherwise return
 `ErrNotManaged` and do nothing.
 
 ### 6.4 Socket proxy readiness
@@ -351,8 +377,8 @@ endpoints Envoryx needs is documented in SECURITY.md for proxy allow-lists.
 
 Envoryx sees project files at `/projects/<slug>` **inside its own container**.
 The Docker daemon, however, resolves bind-mount sources on the **host**. A
-project container therefore needs `/mnt/user/development/<slug>` - the host
-path - not `/projects/<slug>`.
+project container therefore needs the host path `/mnt/user/development/<slug>`,
+not `/projects/<slug>`.
 
 Solution (`internal/hostpath`):
 
@@ -400,8 +426,9 @@ A PHP project consists of two containers from the start:
   `/var/www/html/<docroot>` and passes PHP to `php:9000` via FastCGI. Apache
   runs with `AllowOverride All` so `.htaccess` files behave as on a shared host;
   Caddy and Nginx route unknown paths to `index.php`. The variant can be
-  switched later; the web container is then recreated. Publishes the project's HTTP port on the
-  host (auto-allocated from a configurable range, default 20000-20999).
+  switched later; the web container is then recreated. It publishes the
+  project's HTTP port on the host (auto-allocated from a configurable range,
+  default 20000-20999).
 - `php` - `ghcr.io/envoryx/envoryx-php:<version>` (`images/php/Dockerfile`:
   official php-fpm plus all toggleable extensions compiled in but disabled;
   the generated `zz-envoryx.ini` enables the selected ones). Project files
@@ -427,11 +454,11 @@ names the container kind).
 
 - *Static* (`serves=static`, no PHP, Node absent or without dev server): the
   renderers' static branch serves the document root with `index.html` as the
-  index, denies dotfiles (`/.env`, `/.git/…` - Caddy and Apache get what
-  Nginx already had; the PHP branch is byte-identical to before) and returns
+  index, denies dotfiles (`/.env`, `/.git/…`; Caddy and Apache get what
+  Nginx already had, and the PHP branch is byte-identical to before) and returns
   404 for unknown paths unless `WebServiceConfig{SPAFallback}` (persisted in
   the web service's `Config`, `web.spaFallback` on the wire) rewrites them to
-  `/index.html`. SPA fallback is rejected for projects with PHP - the front
+  `/index.html`. SPA fallback is rejected for projects with PHP, where the front
   controller already handles unknown paths. The starter page is an
   `index.html` instead of `index.php`.
 - *Node dev server* (`serves=node`): the embedded proxy routes
@@ -448,20 +475,19 @@ names the container kind).
   passed after `$0`, never interpolated. No healthcheck: the container is
   "running" while it waits, the proxy shows its 502 page until the dev
   server listens. `NodeConfig.Env` sets
-  `__VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS=.<base>` - exactly one entry,
+  `__VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS=.<base>`, exactly one entry,
   because Vite before 8.3 appends the raw variable as a single host; the
   leading dot is Vite's suffix match, so `<slug>.<base>`, `<slug>-dev.<base>`
   and extra domains under the base domain pass without the planner knowing
-  the domain table. PHP+Node
-  projects keep today's `Cmd`, ports and `specFingerprint`, so no existing
-  container is recreated by this change.
+  the domain table. PHP+Node projects kept their `Cmd`, ports and
+  `specFingerprint` when this came in, so no existing container was recreated.
 - *Python application server* (`serves=python`): the same mechanics with the
   Python container as the upstream (`envoryx-<slug>-python:<port>`, host
   port on bare metal, `Running` follows the python container, web port
   withdrawn). `runtime.PythonConfig` (`internal/runtime/python.go`) selects
-  the preset - `django` (`manage.py runserver` / gunicorn), `flask` (`flask
-  run --debug` / gunicorn), `asgi` (uvicorn, `--reload` in dev mode), `wsgi`
-  (gunicorn) or `module` (`python -m`, HOST/PORT env) - plus `Mode`
+  the preset (`django`: `manage.py runserver` / gunicorn, `flask`: `flask
+  run --debug` / gunicorn, `asgi`: uvicorn, `--reload` in dev mode, `wsgi`:
+  gunicorn, or `module`: `python -m`, HOST/PORT env) plus `Mode`
   (`dev`|`production`), `App` (`module:attribute`, validated against a
   strict identifier pattern so it can appear in the wait guard) and `Port`.
   The wait guard tests for the entry file (`manage.py`, else
@@ -490,18 +516,18 @@ names the container kind).
   Next to PHP or a Python server the Go server keeps only its host port.
 - *Ruby server* (`serves=ruby`): the same mechanics with the Ruby container as
   the upstream (`envoryx-<slug>-ruby:<port>`). `runtime.RubyConfig`
-  (`internal/runtime/ruby.go`) selects the preset - `rails` (`bin/rails
+  (`internal/runtime/ruby.go`) selects the preset (`rails`: `bin/rails
   server -b 0.0.0.0 -p <port> -P /tmp/envoryx-rails.pid` in dev mode, `bundle
-  exec puma -b tcp://0.0.0.0:<port>` in production) or `rack` (Puma on
-  `config.ru` in both modes; Puma's command-line bind replaces a
-  `config/puma.rb` port) - plus `Mode`, `Port` and `Debug`/`DebugPort`: with
+  exec puma -b tcp://0.0.0.0:<port>` in production; or `rack`: Puma on
+  `config.ru` in both modes, where Puma's command-line bind replaces a
+  `config/puma.rb` port) plus `Mode`, `Port` and `Debug`/`DebugPort`: with
   the server, `rdbgScript` runs it under `rdbg --open --nonstop -c --`
   (`bundle exec rdbg` when `Gemfile.lock` locks the debug gem, so one copy of
   the gem is loaded; else the image's rdbg, which loads itself through
   `RUBYOPT`); without it only the port is published. The guards wait for
   `Gemfile` and `bin/rails` or `config.ru`, then `BundleGuard` runs `bundle
-  check || bundle install` (retrying every 30 s while it fails - the worker
-  containers run it too; Bundler's process lock keeps concurrent installs
+  check || bundle install` (retrying every 30 s while it fails; the worker
+  containers run it too, and Bundler's process lock keeps concurrent installs
   apart), and the Rails dev server removes its pid file, which a killed
   container leaves behind. `rubyEnv` sets `GEM_HOME=/home/envoryx/.gem/ruby`
   (gems persist in the project home; RubyGems keeps compiled extensions per
@@ -514,7 +540,7 @@ names the container kind).
   dev mode (Rails' host authorization; the leading dot allows every name
   under the base domain) and `RAILS_SERVE_STATIC_FILES` in production.
   `rubyDatabaseURLs` rewrites every `*DATABASE_URL` from `pgsql://` to
-  `postgresql://` for the Ruby containers - Active Record maps `postgres`,
+  `postgresql://` for the Ruby containers, because Active Record maps `postgres`,
   `postgresql` and `mysql` to its adapters, not `pgsql`. The test suites
   (`rspec`, `rails test`) run behind `rubyTestScript`, which points
   `DATABASE_URL` at `<database>_test` (Active Record merges it into any
@@ -524,7 +550,7 @@ names the container kind).
   database and services 5-8, php 10, python, go and ruby 12, node 15, web 20).
   One-shot containers (git, templates) run from `toolImage(p)`: the
   application container's image (PHP, Python, Go, Ruby or Node), else the
-  catalogue's default Node image - git and ssh ship in every Envoryx image.
+  catalogue's default Node image; git and ssh ship in every Envoryx image.
   Templates carry `Runtime` (`php`|`node`|`python`|`go`|`ruby`); a template
   refuses a request without its runtime (`ErrInvalid`). The Ruby templates
   run with the project home mounted, so `rails new`'s bundle lands in the
@@ -532,11 +558,11 @@ names the container kind).
   step's `cmdFor` builds the command from the project (`rails new
   --name=<slug> --database=<the project's database>`).
 
-Why a per-project web container instead of one central proxy speaking FastCGI:
-FastCGI details stay inside the project; the future central reverse proxy
-(Phase 4) just forwards HTTP by `Host` header to `envoryx-<slug>-web`. Projects
-also remain reachable via `http://<host>:<port>` without any DNS setup, which
-is the robust default for a remote Unraid server.
+Why a per-project web container instead of one central proxy speaking FastCGI?
+FastCGI details stay inside the project, and the embedded reverse proxy (Phase 4,
+see §13) just forwards HTTP by `Host` header to `envoryx-<slug>-web`. Projects
+also stay reachable via `http://<host>:<port>` without any DNS setup, which is
+the safe default for a remote Unraid server.
 
 ### 8.3 Create workflow (transactional with rollback)
 
@@ -562,7 +588,8 @@ Project files in `/projects` are **never** deleted by rollback.
 ### 8.4 Start / Stop / Restart
 
 - Start: ensure network exists → ensure containers exist (recreate missing
-  ones from the plan) → start in dependency order (database, php/node, web) → set
+  ones from the plan) → start in dependency order (database and services,
+  php/python/go/ruby/node, web) → set
   `desired_state=running`.
 - Stop: stop containers (10 s grace) → `desired_state=stopped`.
 - Restart: stop + start.
@@ -577,7 +604,7 @@ also joins. `OpenDBTool` starts it on demand, rewrites
 (atomic rename, mounted as a directory), connects the container to the
 project network and returns `/dbtool/?server=…&username=…&db=…`. A plugin
 mounted into `plugins-enabled/` submits Adminer's login form with the password
-from that file (`loginForm` hook) - the browser never sees the credentials.
+from that file (`loginForm` hook), so the browser never sees the credentials.
 The API serves `/dbtool/` through a session-protected reverse proxy that
 strips the prefix (Adminer's links are relative) and prefixes absolute
 `Location` headers; the UI's CSP is not applied there because Adminer sends
@@ -599,8 +626,8 @@ target away. Workers share the PHP image and follow its record.
 **Detached execution** (`internal/project/ops.go`): create, start, stop,
 restart, update, delete, project backup and restore run through
 `Manager.run`, which derives the operation context from
-`context.WithoutCancel(request ctx)` - the caller's values (principal, IP)
-carry over, its cancellation does not, so a closed tab or a dropped
+`context.WithoutCancel(request ctx)`: the caller's values (principal, IP)
+carry over, its cancellation doesn't, so a closed tab or a dropped
 connection never aborts a pull and rolls a project back. Each operation has
 an upper bound (`limitProvision` 30 min, `limitStop`, `limitDelete`,
 `limitBackup`). At shutdown `Manager.Shutdown(grace)` refuses new operations
@@ -617,8 +644,8 @@ Project containers are independent of the Envoryx container by default
 `Manager.StopAllForShutdown`: every project is stopped under its lock through
 `stopPlan` (projects in parallel, containers in reverse plan order), then any
 managed container still running (database browser, orphans). Desired states
-are untouched, so `Manager.ResumeProjects` at the next start - run before the
-first reconcile - starts exactly the projects with `desired_state=running`
+are untouched, so `Manager.ResumeProjects` at the next start (run before the
+first reconcile) starts exactly the projects with `desired_state=running`
 that are not running (`deriveStatus`), a few at a time through the regular
 `Start` operation. A self-requested restart (`requestRestart`) skips the stop:
 the process is back in a moment.
@@ -628,7 +655,7 @@ the process is back in a moment.
 `DELETE /projects/{id}` requires `{"confirm": "<slug>"}` in the body. It
 stops and removes containers, removes the network and volumes (all guarded),
 removes `/config/projects/<id>`, then deletes the DB rows. Project files are
-kept unless `deleteFiles: true` is set explicitly - and even then only the
+kept unless `deleteFiles: true` is set explicitly, and even then only the
 resolved path under the projects root is removed.
 
 ### 8.6 Status derivation
@@ -653,15 +680,15 @@ On startup and every 30 s:
    (visible in the Docker view). `cleanOrphans` removes orphaned containers
    (stop, remove) and networks (detach proxy and database browser, remove
    unless a foreign container is attached) once the previous pass already
-   listed them and the project lock is free - a project mid-create or
+   listed them and the project lock is free, so a project mid-create or
    mid-rollback is never mistaken for an orphan. Volumes are never removed
    automatically; `RemoveOrphan` (`POST /docker/orphans/remove`) removes a
    listed orphan on request. Removals are audited as `docker.orphans_removed`.
    Autonomous actions (orphans removed, projects resumed) are also kept in
-   memory as `Manager.Activity()` - served in the dashboard payload and shown
-   as a dismissible notice - and sent as notifications of the same kind.
+   memory as `Manager.Activity()` (served in the dashboard payload and shown
+   as a dismissible notice) and sent as notifications of the same kind.
 5. Projects with `desired_state=running` but stopped containers are flagged
-   (`unexpectedly stopped`) - no automatic restart in Phase 2; the UI shows the
+   (`unexpectedly stopped`). There's no automatic restart; the UI shows the
    discrepancy and offers "Start". Reconcile only *reports*: a missing
    container (for example the web container of a Node-only project) shows up
    as `expected running but observed partial`; the next Start recreates it
@@ -683,7 +710,7 @@ Detailed in SECURITY.md. Summary of the enforced boundaries:
 | Privileges | never privileged; `no-new-privileges`; no added capabilities |
 | Auth | argon2id, server-side sessions, HttpOnly + SameSite=Lax cookie, idle/absolute timeout |
 | CSRF | SameSite cookie + `Origin`/`Sec-Fetch-Site` verification + `X-Requested-With` requirement on mutating requests |
-| WebSocket (Phase 5) | same session cookie validated at upgrade + origin check |
+| WebSocket | same session cookie validated at upgrade + origin check |
 | Secrets | never logged; DB credentials shown only on explicit request; audit details exclude secrets |
 | Destructive ops | confirmation token (slug) in request body |
 | Login abuse | per-IP + per-user rate limiting with backoff |
@@ -696,9 +723,9 @@ Detailed in SECURITY.md. Summary of the enforced boundaries:
 /config/
   envoryx.db                SQLite (WAL)
   projects/<id>/           generated config per project (web server config, php.ini, pool conf)
-  backups/<slug>/          Phase 7
+  backups/<slug>/          project backups (unless /backups is mounted)
   offsite.json             offsite targets with their credentials (0600)
-  ca/                      Phase 8 (0600)
+  ca/                      local CA, custom certificate, acme.json (0600)
   logs/<id>/<service>/     log history, one file per UTC day (older days gzipped)
 /projects/<slug>/          user project files (bind-mounted into project containers)
 Docker volumes             database / cache data (named, labelled)
@@ -760,13 +787,14 @@ through `instance.Store.Import` and is restored the usual way.
   Rollback failures are logged and surfaced (`project.lifecycle=failed`,
   `last_error`) rather than hidden.
 - The reconciler is the safety net: whatever state a crash leaves behind is
-  detected and displayed; no automatic destructive action is taken.
+  detected and displayed. Beyond clearing orphaned containers and networks
+  (§8.7) it takes no destructive action on its own.
 - Background tasks (reconciler, backup scheduler, session purge, certificate
   renewal, SSH, proxy) run under `supervise` in `main`: a panic is logged with
   its stack, reported as an `envoryx.failed` notification and the task is
   restarted with backoff. HTTP handlers have their own `recover` middleware.
   A refused start (corrupt database, network filesystem, newer schema) is
-  notified synchronously before the process exits - notification settings are
+  notified synchronously before the process exits. Notification settings are
   a file, so this works without the database.
 - `internal/disk` guards space: backups check `Require(dir, need)` before
   writing, a monitor task notifies `storage.low` once per disk until it
@@ -883,8 +911,8 @@ logs, image pulls and removal work as for any service) that the API only exposes
 `dashboards` on the OpenSearch request and update. `syncOpenSearchDashboards` keeps it
 on OpenSearch's version (Dashboards refuses another one; the catalogue lists the same
 versions), removes it with OpenSearch and switches it on or off when an update carries
-`dashboards` (absent leaves it). It has no volume - saved objects live in OpenSearch's
-`.kibana` index -, its web UI (5601) is always published and appears as `webUiPort` on
+`dashboards` (absent leaves it). It has no volume (saved objects live in OpenSearch's
+`.kibana` index), its web UI (5601) is always published and appears as `webUiPort` on
 the OpenSearch entry of `/extras`, and it reaches OpenSearch at
 `http://opensearch:9200` inside the project network with its security plugin off.
 
@@ -895,13 +923,13 @@ project's container bind-mounts the one model store `<config>/ollama` at `/model
 PUID:PGID with `HOME=/tmp` (the key pair Ollama generates there only signs pushes),
 so the store has a single owner; Ollama writes blobs under a temporary name and renames
 them, which keeps two projects pulling at once apart. `OLLAMA_HOST`, `OLLAMA_BASE_URL`
-and `OLLAMA_URL` all carry `http://ollama:11434` - the names of the Ollama libraries
-and CLI, LangChain/Open WebUI and Prism. The image has neither curl nor wget, so both
+and `OLLAMA_URL` all carry `http://ollama:11434`, under the names the Ollama libraries
+and CLI, LangChain/Open WebUI and Prism read. The image has neither curl nor wget, so both
 the healthcheck and the model management talk HTTP through bash's `/dev/tcp`:
 `Manager.ollamaAPI` runs a script via `ExecStream` that sends an HTTP/1.0 request
 (unchunked, so `/api/pull` streams NDJSON line by line) and reads the reply with
-`http.ReadResponse` - the same from inside Docker and on bare metal, where Envoryx has
-no route into the project network. Downloads (`POST /projects/{id}/ollama/models`,
+`http.ReadResponse`. That works the same from inside Docker and on bare metal, where
+Envoryx has no route into the project network. Downloads (`POST /projects/{id}/ollama/models`,
 operate scope) run in the background in `ollamaPulls`; `GET …/ollama/models` lists the
 store (`/api/tags`) plus the project's downloads with their summed layer progress, and
 a finished one stays listed for ten minutes. Docker does not end an exec when its
@@ -929,8 +957,8 @@ container commands are byte-for-byte what they were); mysqldump then leaves out
 `--events` and adds `--no-tablespaces`, privileges a hosted user rarely has. Every
 client call goes through `runSQL` (statements) or `dbStream` (dumps, restores, the
 site import, `streamDump`): an exec in the container, or for an external server a
-transient container from the database image (`RunOneShot`, or `RunOneShotStream` -
-`docker run --rm -i` with an attached stdin - for streams) on the default network
+transient container from the database image (`RunOneShot`, or for streams
+`RunOneShotStream`, which is `docker run --rm -i` with an attached stdin) on the default network
 with the host gateway, labelled service `dbclient`. `withServiceRunning` passes an
 external service straight through, `waitForDatabase` asks once instead of waiting,
 and the status lists it as state `external` without counting it; `dbclient` and the
@@ -953,16 +981,16 @@ with `skipped: "external"`; creating a project from a manifest with one is refus
 ### SSH (`internal/sshd`)
 `golang.org/x/crypto/ssh` server with an Ed25519 host key. Auth resolves the
 user name through `Manager.ResolveSSHUser` (`<slug>` → the application
-container: PHP when present, else Python, else Go, else Node; `<slug>.php` /
-`<slug>.python` / `<slug>.go` / `<slug>.node` pick one explicitly; a project with none is
-`ErrNotFound`) and validates either an API token (password) or an authorized key
+container: PHP when present, else Python, else Go, else Ruby, else Node;
+`<slug>.php` / `<slug>.python` / `<slug>.go` / `<slug>.ruby` / `<slug>.node` pick
+one explicitly; a project with none is `ErrNotFound`) and validates either an API token (password) or an authorized key
 from the settings. Session channels map `pty-req/shell/exec` to
 `Engine.OpenTerminal` (PTY) or `Engine.ExecStream` (pipes, now with
 `WorkingDir`) in the target container as PUID:PGID, `subsystem sftp` to a
 `pkg/sftp` request server over `projectFS`, which serves `/var/www/html`
 and `/home/envoryx` from the Envoryx-side directories of the same bind mounts
 and chowns created files. `/home/envoryx` is a new persistent per-project
-home (`/config/projects/<id>/home`) mounted into php/python/go/node/worker containers;
+home (`/config/projects/<id>/home`) mounted into php/python/go/ruby/node/worker containers;
 tool caches and IDE helpers live there. Container specs now carry a
 `envoryx.spec` fingerprint label (command, mounts, ports, …) so `ensurePlan`
 recreates containers whose structure changed (e.g. the new home mount).
@@ -980,18 +1008,19 @@ as the project user.
 ### Workers
 `project_workers` (migration 0005: name, preset, args, enabled) hold
 long-running processes. Presets are a closed catalogue in `workers.go`
-(argv builders; the single user argument is validated per preset - queue
+(argv builders; the single user argument is validated per preset: queue
 names, relative script paths, composer and npm script names, Python module
-paths). Every preset names its `Runtime` (`php`, `node`, `python` or `go`); the
+paths). Every preset names its `Runtime` (`php`, `node`, `python`, `go` or `ruby`); the
 planner emits one container per enabled worker from that runtime's image
 (`Kind` and service label `worker:<id>`, name
 `envoryx-<slug>-worker-<name>`, order 30, project env, PUID:PGID,
-`unless-stopped`; PHP workers get the php.ini mount, Node and Python
-workers the tool env, the project home and - for Python - the venv `PATH`),
+`unless-stopped`; PHP workers get the php.ini mount, the other runtimes' workers
+the tool env, the project home and their runtime's env: the venv `PATH` for
+Python, `GOPATH` for Go, `GEM_HOME` and the app environment for Ruby),
 so `ensurePlan`, start/stop, env
 recreation and delete treat them like any other container. A worker whose
-runtime the project lacks is skipped by the planner - it comes back when
-the runtime is added - and `AddWorker`/`UpdateWorker` refuse it with
+runtime the project lacks is skipped by the planner (it comes back when
+the runtime is added), and `AddWorker`/`UpdateWorker` refuse it with
 `ErrConflict`. Status lists them as kind `worker` with `workerId`;
 logs/terminal accept `worker:<id>`.
 
@@ -1004,8 +1033,8 @@ ranges, steps, month/day names, `@hourly` … `@yearly`, Vixie's either-day
 rule) and computes the next fire time in Envoryx's zone (`TZ`); schedules that
 never fire (30 February) are refused.
 
-There is no cron daemon in the images and no extra container: a run is a
-`docker exec` into the running application container of the job's runtime -
+There's no cron daemon in the images and no extra container: a run is a
+`docker exec` into the running application container of the job's runtime,
 `timeout -s TERM -k 10 <secs> sh -c <command>` as PUID:PGID in
 `/var/www/html`, with the container's env plus `CI=1` and
 `ENVORYX_CRON_JOB`. The command is free text on purpose (the user could run
@@ -1033,8 +1062,8 @@ configuration and the proxy routing follow from the service list on the
 next `update()` pass, which regenerates the config files and restarts.
 
 The Node dev server has two modes (`NodeConfig.Mode`): `dev` runs the
-script; `production` wraps it - `sh -c '<pm> run <build> && NODE_ENV=production
-exec "$@"'` - so every start builds first and only the serve process sees
+script; `production` wraps it in `sh -c '<pm> run <build> && NODE_ENV=production
+exec "$@"'`, so every start builds first and only the serve process sees
 `NODE_ENV=production`. `NodeConfig.Inspect` publishes `InspectPort` (default
 9229) on `InspectHostPort`; the inspector is started by the user's script,
 never through a container-wide `NODE_OPTIONS`, which would attach to the
@@ -1046,7 +1075,8 @@ are kept across edits and allocated when the server or debugpy is switched
 on; removing Python takes its container and the Python workers' containers
 with it, the worker definitions survive as "paused". Go follows the same
 pattern (`GoUpdate`, `applyGoUpdate`, position 12) with the server and Delve
-host ports.
+host ports, and Ruby (`RubyUpdate`, `applyRubyUpdate`, position 12) with the
+server and rdbg host ports.
 
 ### Logs
 Container output comes from Docker's `json-file` driver (10 MB × 3 per
@@ -1054,7 +1084,7 @@ container). `project.QueryLogs`, `ExportLogs` and `LogStats` read a service's
 lines through one `scanLogs` source with the query's `since`/`until` handed to
 Docker; an unfiltered query also hands over its line count as `tail`, a
 filtered one reads the range and keeps the last N matches in a ring
-(`logs.Ring`). `logs.Classify` guesses the level from the text - a JSON or
+(`logs.Ring`). `logs.Classify` guesses the level from the text: a JSON or
 logfmt `level` field wins, otherwise whole words (`fatal`, `error`,
 `exception`, `traceback`, `warning`, `deprecated` …, never `errors` or
 `error_log`) and a 5xx status in access log lines. `logs.Stats` counts per
@@ -1071,7 +1101,7 @@ not by container, which is what makes it survive a recreated container.
 `logs.Collector` runs in `RunLogHistory` (every 5 s): it lists the managed
 containers of the Logs tab's services (`IsLogService`, not git/template/move
 helpers), follows each running one it does not follow yet and reads each
-stopped one once to the end - output from while Envoryx was down. Every
+stopped one once to the end, which catches output from while Envoryx was down. Every
 reader starts at its service's newest stored line + 1 ns (Docker's `since` is
 inclusive) and drops older lines, so a restart of Envoryx or a recreated
 container whose Docker log starts over stores nothing twice; nothing older
@@ -1101,7 +1131,8 @@ returns secrets and keeps stored ones when a request leaves them empty.
 `project.Templates()` is a closed list: Laravel, Symfony, WordPress, Drupal,
 TYPO3, Shopware, Craft CMS (`Runtime: "php"`), Vite + React (TypeScript), Next.js (App Router,
 TypeScript), Nuxt (`Runtime: "node"`), Django, Flask, FastAPI
-(`Runtime: "python"`) and Go (net/http), Gin, Echo (`Runtime: "go"`). A template is a sequence of argv steps
+(`Runtime: "python"`), Go (net/http), Gin, Echo (`Runtime: "go"`) and Rails, Rails
+API, Sinatra (`Runtime: "ruby"`). A template is a sequence of argv steps
 run in transient containers from the image of the runtime it names as
 PUID:PGID with the project directory mounted
 (`RunOneShot`, label `envoryx.service=template`, default bridge network for
@@ -1128,10 +1159,10 @@ creation back.
 
 ### Resource limits
 `store.ResourceLimits` (JSON column `projects.limits`) holds one `LimitSet`
-(CPU cores, MiB) for the application containers (web, php, node, python,
-`worker:*`) and one for the services, plus a process limit; `LimitGroup` maps a
+(CPU cores, MiB) for the application containers (web, php, node, python, go,
+ruby, `worker:*`) and one for the services, plus a process limit; `LimitGroup` maps a
 container kind to its group. The planner puts the resulting `docker.Resources`
-on every container spec - outside `specFingerprint`, so a changed limit never
+on every container spec, outside `specFingerprint`, so a changed limit never
 recreates anything by itself. `ensurePlan` compares the running limits
 (`InspectContainer`) with the plan and calls `UpdateResources` (docker update,
 memory swap = memory, PIDs default 4096); only lifting a CPU or memory limit
@@ -1146,8 +1177,8 @@ each running container with its group and limits for the usage bars.
 `store.HealthCheck` (JSON column `projects.health_check`, defaults stored as
 zero) is a path, an expected status, interval, timeout and failure threshold.
 `RunHealthChecks` runs `HealthPass` every 5 s; a due check resolves the
-application's upstream with `appTarget` - the proxy's own routing, so the
-check reaches exactly what visitors reach - and sends a GET with the project's
+application's upstream with `appTarget` (the proxy's own routing, so the
+check reaches exactly what visitors reach) and sends a GET with the project's
 host name, `X-Forwarded-Proto: https` and no redirect following. The state per
 project (`pending`, `up`, `failing`, `down`, `paused`) lives in memory, is
 attached to the project status (`status.health`, plus a warning while down)
@@ -1184,7 +1215,7 @@ judged by the server that applies the file.
 `exportState` turns a stored project into a manifest (host ports, credentials,
 the repository and settings at their default left out, versions pinned);
 `desiredState` builds the manifest into a project the way Create would
-(`buildProject`, `buildWorker`, `buildCronJob` - versions resolved, configs
+(`buildProject`, `buildWorker`, `buildCronJob`: versions resolved, configs
 normalised, everything validated, no side effects) and exports that. The plan
 is the section-by-section difference of the two exports, so a project created
 from a manifest is in sync with it by construction, and the exported file of a
@@ -1203,8 +1234,8 @@ domains, then the start; a failure after the create names the project and is
 repaired by running `envoryx up` again. `CreateFromRepository` (the wizard's
 *Use the repository's envoryx.yml*) creates without starting, reads the cloned
 file through an `os.Root` of the project directory (a symlink in the repository
-cannot point the server at another file) and applies it with prune - the fresh
-project has no data yet - before it starts. `envoryx up` reads the file
+cannot point the server at another file) and applies it with prune (the fresh
+project has no data yet) before it starts. `envoryx up` reads the file
 locally, sends it as text and lets the server clone `origin` at the current
 branch; it never uploads files.
 
@@ -1215,8 +1246,9 @@ The proxy lives in the Envoryx binary (`internal/proxy`): two listeners
 (2 s TTL, invalidated by the API after changes) built by
 `Manager.RouteTable`: `<slug>.<base>` for every project, extra names from the
 `domains` table, `envoryx.<base>` plus the public host for the UI. Unknown
-names → 404 page, stopped project → 503 page, IPs/empty host → UI. Upstreams
-are `envoryx-<slug>-web:80`; to reach them the Envoryx container is connected to
+names → 404 page, stopped project → 503 page, IPs/empty host → UI. The upstream
+is `envoryx-<slug>-web:80`, or the application container when an application
+server or the Node dev server serves the project (§8.2); to reach them the Envoryx container is connected to
 every project network (`ConnectNetwork` on create/ensure/reconcile,
 disconnect before the network is removed). On bare metal the upstream is
 `127.0.0.1:<httpPort>`. Host-side ports are discovered from the container's
@@ -1229,8 +1261,8 @@ TLS (`internal/tlsca`): an ECDSA P-256 CA under `/config/ca` (`ca.key`
 routing table. An operator-supplied certificate (`custom.crt/key`) wins for
 the names it covers. `force_https` (settings) redirects HTTP → HTTPS except
 for bare IPs. `internal/acme` optionally obtains a public wildcard
-certificate through Let's Encrypt (dns-01 via a `DNSProvider` interface -
-Cloudflare, Hetzner Cloud API, netcup CCP, Route 53, DigitalOcean, Porkbun -
+certificate through Let's Encrypt (dns-01 via a `DNSProvider` interface for
+Cloudflare, Hetzner Cloud API, netcup CCP, Route 53, DigitalOcean and Porkbun,
 on `golang.org/x/crypto/acme`, no extra dependency), stores it as the tlsca
 custom certificate and renews it 30 days before expiry in a background loop;
 config and credentials under `/config/ca/acme.json` (0600). `ProviderList`
@@ -1245,27 +1277,29 @@ early NXDOMAIN cannot be cached against the check. Route 53 requests are
 signed by `internal/awssig`, the SigV4 signer shared with `internal/s3`.
 
 - **Phase 5 DX** (logs and terminal implemented): log streaming and PTY
-  terminal over WebSocket - session cookie validated before the upgrade,
+  terminal over WebSocket: session cookie validated before the upgrade,
   same-origin enforced, containers resolved from `project + service kind`
-  server-side; terminal shells in php/node run as PUID:PGID with `HOME=/tmp`
-  and tool caches under `/tmp`. Project actions are a closed
+  server-side. Terminal shells in the application containers run as PUID:PGID
+  with `HOME=/home/envoryx` (the persistent project home) and the runtime's
+  env. Project actions are a closed
   catalogue of argv commands (`actions.go`) gated by required files in the
   project directory; output streams over the same WebSocket mechanism and
   Ctrl+C is delivered on cancel/disconnect. `ListActions` only lists
   catalogue entries whose service the project has (a PHP-only project shows
   no npm actions, a Node-only project no composer/artisan ones, Python
-  projects get pip/uv/Django entries, Go projects `go build/vet/mod …`);
-  each runs in the matching runtime container, `node:version`,
-  `python:version` and `go:version` are the counterparts of
-  `php:version`. Git runs in a transient container from the project's
-  runtime image (`toolImage`: PHP, else Python, else Go, else Node; `RunOneShot`) with the deploy
+  projects get pip/uv/Django entries, Go projects `go build/vet/mod …`, Ruby
+  projects bundle and rails entries); each runs in the matching runtime
+  container, and `node:version`, `python:version`, `go:version` and
+  `ruby:version` are the counterparts of `php:version`. Git runs in a
+  transient container from the project's runtime image (`toolImage`: PHP,
+  else Python, else Go, else Ruby, else Node; `RunOneShot`) with the deploy
   key mounted only there; tokens travel via `GIT_CONFIG_*` env. The Node
   service is an idle tooling container (`sleep infinity`, runs as PUID:PGID)
   from `ghcr.io/envoryx/envoryx-node:<v>` until the dev server is enabled.
   Dev-server mode (`runtime.NodeConfig`, stored in the service config): the
   package.json script becomes the container's main process (argv from the
-  ordered preset list `runtime.NodePresets` - Vite, Next.js, Nuxt flags or
-  HOST/PORT env only, each with a default port - script names validated), a
+  ordered preset list `runtime.NodePresets`: Vite, Next.js, Nuxt flags or
+  HOST/PORT env only, each with a default port; script names validated), a
   host port is allocated like for other services and the proxy routes
   `<slug>-dev.<base>` to `envoryx-<slug>-node:<port>` (WebSocket/HMR passes
   through; Vite's host allow-list is set via
@@ -1298,8 +1332,8 @@ signed by `internal/awssig`, the SigV4 signer shared with `internal/s3`.
   `snapshotKeep` (10) with `source == "snapshot"` and never touches the rest.
   `CloneDatabase` copies another project's primary database into this one with
   `copyDatabase`/`streamDump` (the duplicate path: dump piped into the other
-  container's client, no temporary file): both projects are locked - source
-  first, as when duplicating - both must be `ready` and run the same variant,
+  container's client, no temporary file): both projects are locked (source
+  first, as when duplicating), both must be `ready` and run the same variant,
   the target's identifier confirms, and the target is snapshotted first
   unless the request says otherwise. Audit: `database.cloned`.
 - **Phase 9 MCP** (implemented, `internal/mcpserver`): an embedded MCP server
@@ -1314,15 +1348,16 @@ signed by `internal/awssig`, the SigV4 signer shared with `internal/s3`.
   `csrfMiddleware` skips the origin/`X-Requested-With` checks for bearer
   requests because `Authorization` is not CORS-safelisted (a browser cannot
   send it cross-site without a preflight, which only allowed origins get).
-  Password changes and token create/revoke refuse token principals. Tools call the same `project.Manager` methods as the
-  REST API - validation, label guards, locks and audit apply unchanged:
+  Password changes and token create/revoke refuse token principals. Tools
+  call the same `project.Manager` methods as the REST API, so validation,
+  label guards, locks and audit apply unchanged:
   `list_projects`, `get_project`, `list_runtimes`, `create_project`
   (`phpVersion: "none"` for a project without PHP; `nodePreset`,
   `nodeScript`, `nodePort`, `nodePackageManager` for the dev server; the
   output carries `serves`, `devUrl` and a `directUrl` that is the node host
   port when the dev server serves the project),
   `start/stop/restart_project`, `get_logs` (default service = the
-  application container: php, else node, else web; optional `since`, `until`,
+  application container: php, else python, go, ruby, node; else web; optional `since`, `until`,
   `query`, `level`), `get_log_stats` (error frequency and the most frequent
   errors of a range), `list_actions`, `run_action`
   (runs a catalogue action to completion, returns stripped output + exit
