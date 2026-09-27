@@ -22,7 +22,7 @@ import (
 
 // Template scaffolds a fresh application into an empty project directory. Steps are
 // argv commands run in a transient container from the image of the runtime the template
-// names (PHP, Node or Python) as the project owner, exactly like git operations; nothing
+// names (PHP, Node, Python, Go or Ruby) as the project owner, exactly like git operations; nothing
 // is interpolated from user input.
 type Template struct {
 	ID          string `json:"id"`
@@ -79,7 +79,7 @@ var (
 	// Python scaffolds create the project's .venv first; the steps after it run through
 	// its bin/ (PATH), so pip installs into the venv, never into the image.
 	// The Go scaffolds use the shared module and build caches (withPackageCache) and a
-	// throwaway GOPATH; the module is called "app" - a main module needs no import path.
+	// throwaway GOPATH; the module is called "app", since a main module needs no import path.
 	goScaffoldEnv     = []string{"HOME=/tmp", "GOPATH=/tmp/go", "GOFLAGS=-modcacherw", "PATH=/tmp/go/bin:/usr/local/go/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin"}
 	pythonScaffoldEnv = []string{"HOME=/tmp", "PIP_DISABLE_PIP_VERSION_CHECK=1", "PYTHONUNBUFFERED=1", "VIRTUAL_ENV=" + pythonVenvPath, "PATH=" + pythonVenvPath + "/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin"}
 	// The Ruby scaffolds install into the project's GEM_HOME (the project home is mounted),
@@ -246,7 +246,7 @@ def index():
 // nodeScaffoldMount is where Node scaffolds see the project directory. create-next-app
 // refuses to run unless the parent of the target directory is writable, and /var/www is
 // owned by root in the image; /tmp is world-writable. Mounting under the slug also gives
-// create-vite and create-next-app (which name the package after the directory) a sensible
+// create-vite and create-next-app (which name the package after the directory) a real
 // package name instead of "html".
 func nodeScaffoldMount(slug string) string { return "/tmp/" + slug }
 
@@ -295,7 +295,7 @@ var templates = []Template{
 	},
 	// The CMS and shop templates: composer create-project, then what the application
 	// needs to find the project database. Their installers need the database running,
-	// so they run after the start - in the browser, or as an action.
+	// so they run after the start, in the browser or as an action.
 	{
 		ID: "drupal", Name: "Drupal", Description: "drupal/recommended-project with Drush and a settings.php wired to the project database.",
 		Runtime: "php", Docroot: "web", RequiresDatabase: true, RecommendedDatabase: "mariadb",

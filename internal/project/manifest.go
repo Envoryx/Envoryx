@@ -26,15 +26,15 @@ import (
 // The project manifest (envoryx.yml, see internal/manifest) is the desired state kept in
 // the repository. Both directions go through exportState: the current project is
 // exported as it is stored, the manifest is first built into a project the way Create
-// would build it (buildProject, buildWorker, buildCronJob - versions resolved, configs
+// would build it (buildProject, buildWorker, buildCronJob: versions resolved, configs
 // normalised, everything validated) and then exported the same way. Comparing the two
 // exports section by section yields the plan, and a project created from a manifest is
 // in sync with it by construction.
 
 // ManifestChange is one difference between a project and its manifest.
 type ManifestChange struct {
-	// Section is docroot, web, php, node, python, database, redis, …, storage, env,
-	// domain, worker or cron.
+	// Section is docroot, web, php, node, python, go, ruby, database, redis, …, storage,
+	// limits, healthcheck, env, domain, worker or cron.
 	Section string `json:"section"`
 	// Item names the variable, host name, worker or cron job within the section.
 	Item string `json:"item,omitempty"`
@@ -344,8 +344,6 @@ func formatDuration(d time.Duration) string {
 
 // ---- manifest → desired state ------------------------------------------------
 
-// manifestRequest turns a manifest into the create request that builds its services.
-// Environment, domains, workers and cron jobs are not part of it.
 // hasExternal reports whether a manifest connects anything to an external server.
 func hasExternal(mf manifest.Manifest) bool {
 	if (mf.Database != nil && mf.Database.External != nil) || (mf.Redis != nil && mf.Redis.External != nil) {
@@ -367,6 +365,8 @@ func manifestDBType(t string) string {
 	return t
 }
 
+// manifestRequest turns a manifest into the create request that builds its services.
+// Environment, domains, workers and cron jobs are not part of it.
 func manifestRequest(mf manifest.Manifest, name string) CreateRequest {
 	req := CreateRequest{Name: name, Docroot: mf.Docroot}
 	if mf.Web != nil {
@@ -449,7 +449,7 @@ func manifestHealthCheck(h *manifest.HealthCheck) store.HealthCheck {
 	return store.HealthCheck{Path: strings.TrimSpace(h.Path), Status: h.Status, IntervalSec: interval, TimeoutSec: timeout, Failures: h.Failures}
 }
 
-// exportHealthCheck writes a health check without its defaults (nil: none).
+// exportHealthCheck writes a health check without its defaults, nil if there is none.
 func exportHealthCheck(h store.HealthCheck) *manifest.HealthCheck {
 	if n, err := normalizeHealthCheck(h); err == nil {
 		h = n
@@ -569,9 +569,9 @@ type manifestOps struct {
 	addCron       []CronJobRequest
 	updateCron    map[string]CronJobRequest // by job id
 	removeCron    []store.CronJob
-	// limits are set through SetLimits (nil = unchanged).
+	// limits are set through SetLimits; nil leaves them unchanged.
 	limits *store.ResourceLimits
-	// health is set through SetHealthCheck (nil = unchanged).
+	// health is set through SetHealthCheck; nil leaves it unchanged.
 	health *store.HealthCheck
 }
 
@@ -634,7 +634,7 @@ func (m *Manager) planManifest(ctx context.Context, id string, mf manifest.Manif
 		}
 	}
 
-	// PHP, Node and Python: add, change or (with prune) remove the runtime.
+	// PHP, Node, Python, Go and Ruby: add, change or (with prune) remove the runtime.
 	if c, ok := sectionChange("php", have.PHP, wantMf.PHP); ok {
 		if c.Action == "remove" {
 			if removal(c) {
