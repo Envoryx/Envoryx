@@ -495,9 +495,10 @@ var javaTemplates = []Template{
 		ID: "quarkus", Name: "Quarkus REST", Description: "Quarkus with REST (Jackson) and SmallRye Health from code.quarkus.io; Hibernate ORM with Panache and the driver of the project database when it has one.",
 		Runtime: "java", Docroot: "", RecommendedDatabase: "postgresql",
 		Java:  &runtime.JavaConfig{Server: true, Preset: "quarkus", Port: 8080},
-		Notes: "Quarkus dev mode recompiles on the next request after a change. Envoryx injects QUARKUS_DATASOURCE_* for the project database and switches Dev Services off. /q/health is a ready-made health check path.",
+		Notes: "Quarkus dev mode recompiles on the next request after a change. Envoryx injects QUARKUS_DATASOURCE_* for the project database and switches Dev Services off; with a database, Hibernate creates and updates the tables in dev mode (application.properties). /q/health is a ready-made health check path.",
 		steps: []templateStep{
 			{label: "download from code.quarkus.io", cmdFor: javaScaffold(quarkusCodeURL)},
+			{label: "configure Hibernate for dev mode", cmd: quarkusDevSchema},
 			{label: "mvn package", cmd: javaPrebuild},
 		},
 	},
@@ -514,11 +515,16 @@ unzip -q /tmp/envoryx-scaffold.zip -d /tmp/envoryx-scaffold
 src=/tmp/envoryx-scaffold
 set -- /tmp/envoryx-scaffold/*
 if [ $# -eq 1 ] && [ -d "$1" ]; then src=$1; fi
-cp -a "$src"/. .
-chmod +x mvnw 2>/dev/null || true`
+cp -a "$src"/. .`
+
+// quarkusDevSchema lets Hibernate create and update the tables in dev mode. Quarkus only
+// does that on its own with Dev Services, which Envoryx switches off in favour of the
+// project database; "update" keeps the data across live reloads, where the Dev Services
+// default (drop-and-create) would empty the database every time.
+var quarkusDevSchema = []string{"sh", "-c", `if grep -q quarkus-hibernate-orm pom.xml; then printf '%s\n' '' '# Added by Envoryx: Hibernate creates and updates the tables in dev mode.' '%dev.quarkus.hibernate-orm.schema-management.strategy=update' >> src/main/resources/application.properties; fi`}
 
 // javaPrebuild builds the fresh project once with its own Maven wrapper.
-var javaPrebuild = []string{"sh", "-c", `exec ./mvnw -B -q -DskipTests package`}
+var javaPrebuild = []string{"sh", "-c", `exec sh ./mvnw -B -q -DskipTests package`}
 
 // javaScaffold returns the scaffold step for a download URL built from the project.
 func javaScaffold(download func(store.Project) string) func(store.Project) []string {

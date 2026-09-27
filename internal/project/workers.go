@@ -281,8 +281,8 @@ var javaWorkerPresets = []WorkerPreset{
 
 // javaTaskScript runs its arguments as Maven goals or Gradle tasks, whichever the project
 // uses; exec keeps the build tool the worker's main process.
-const javaTaskScript = `mvn=mvn; [ -x ./mvnw ] && mvn=./mvnw
-gradle=gradle; [ -x ./gradlew ] && gradle=./gradlew
+const javaTaskScript = `mvn=mvn; [ -f ./mvnw ] && mvn="sh ./mvnw"
+gradle=gradle; [ -f ./gradlew ] && gradle="sh ./gradlew"
 if [ -f pom.xml ]; then exec $mvn -B "$@"; fi
 exec $gradle --no-daemon "$@"`
 
