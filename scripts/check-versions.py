@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Keeps internal/runtime/<product>_versions.json in sync with upstream releases.
 
-Usage: check-versions.py php|node|python|go|ruby
+Usage: check-versions.py php|node|python|go|ruby|java
 
 Sources:
   - https://endoflife.date/api/php.json   release cycles and EOL dates
@@ -36,6 +36,10 @@ PRODUCTS = {
     # cycles are followed.
     "ruby": {"file": "ruby_versions.json", "eol_api": "https://endoflife.date/api/ruby.json", "hub": "ruby", "min": (3, 3),
              "stable": "{c}-slim-bookworm", "preview": None, "base_stable": "{c}-slim-bookworm", "base_preview": None, "label": None},
+    # Java: long-term support releases only (17, 21, 25, …). The feature releases in
+    # between live for six months, not worth an image each.
+    "java": {"file": "java_versions.json", "eol_api": "https://endoflife.date/api/eclipse-temurin.json", "hub": "eclipse-temurin", "min": (17,),
+             "stable": "{c}-jdk-noble", "preview": None, "base_stable": "{c}-jdk-noble", "base_preview": None, "label": None, "lts_only": True},
 }
 PRODUCT = PRODUCTS[sys.argv[1] if len(sys.argv) > 1 else "php"]
 FILE = Path(__file__).resolve().parent.parent / "internal/runtime" / PRODUCT["file"]
@@ -74,6 +78,8 @@ def main() -> int:
             continue
         eol = c.get("eol")
         is_eol = isinstance(eol, str) and eol < today
+        if PRODUCT.get("lts_only") and c.get("lts") is not True:
+            continue
         if tag_exists(PRODUCT["stable"].format(c=cycle)):
             lts = c.get("lts")
             is_lts = isinstance(lts, str) and lts <= today  # a future date means "LTS later"
@@ -86,7 +92,7 @@ def main() -> int:
     # endoflife.date may not list the next cycle yet: probe one minor above the newest.
     newest = max((parse(v["version"]) for v in versions), default=MIN_VERSION)
     nxt = f"{newest[0]}.{newest[1] + 1}" if len(newest) > 1 else f"{newest[0] + 1}"
-    if all(v["version"] != nxt for v in versions):
+    if not PRODUCT.get("lts_only") and all(v["version"] != nxt for v in versions):
         if tag_exists(PRODUCT["stable"].format(c=nxt)):
             versions.append({"version": nxt, "base": PRODUCT["base_stable"].format(c=nxt), "eol": False, "preview": False, "lts": False})
         elif PRODUCT["preview"] and tag_exists(PRODUCT["preview"].format(c=nxt)):

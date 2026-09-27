@@ -20,7 +20,7 @@ jobs:
         id: check
         run: |
           changed=false
-          for p in php node python go ruby; do
+          for p in php node python go ruby java; do
             python3 scripts/check-versions.py "$p" | tee /tmp/out-$p.txt
             grep -q '^changed=true' /tmp/out-$p.txt && changed=true
           done
