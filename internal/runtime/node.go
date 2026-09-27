@@ -35,9 +35,9 @@ type NodeConfig struct {
 	// HostPort publishes the dev server on the Docker host (assigned by Envoryx).
 	HostPort int `json:"hostPort,omitempty"`
 	// Inspect publishes the Node.js inspector port so an IDE can attach a debugger. The
-	// container only publishes InspectPort; the script itself has to start the inspector
-	// (--inspect=0.0.0.0:<port>) - set through NODE_OPTIONS on the whole container it would
-	// attach to the package manager's own node process instead of the app.
+	// container only publishes InspectPort; the script has to start the inspector itself
+	// (--inspect=0.0.0.0:<port>). Set through NODE_OPTIONS for the whole container, it
+	// would attach to the package manager's own node process instead of the app.
 	Inspect bool `json:"inspect,omitempty"`
 	// InspectPort is the inspector port inside the container (default 9229).
 	InspectPort int `json:"inspectPort,omitempty"`
@@ -216,10 +216,10 @@ func (c NodeConfig) WrappedCommand(guards ...string) []string {
 }
 
 // Env returns the variables that make common dev servers listen on all interfaces and
-// accept the proxied host name. allowedHost goes into Vite's allow-list verbatim: Vite
-// before 8.3 appends the raw variable as a single entry (no splitting on commas), so exactly
-// one value is passed - a leading dot makes it a suffix match for every name under that
-// domain, which covers <slug>.<base>, <slug>-dev.<base> and extra domains under the base.
+// accept the proxied host name. allowedHost goes into Vite's allow-list as a single
+// value, because Vite before 8.3 doesn't split the variable on commas. A leading dot
+// makes it match every name under that domain, which covers <slug>.<base>,
+// <slug>-dev.<base> and extra domains under the base.
 func (c NodeConfig) Env(allowedHost string) []string {
 	port := strconv.Itoa(c.Port)
 	env := []string{"HOST=0.0.0.0", "PORT=" + port, "NITRO_HOST=0.0.0.0", "NITRO_PORT=" + port}

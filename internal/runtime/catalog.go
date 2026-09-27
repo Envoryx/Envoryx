@@ -1,5 +1,6 @@
-// Package runtime is the data-driven catalogue of runtimes and services Envoryx can
-// provision. The frontend reads it from the API; nothing here is hard-coded in the UI.
+// Package runtime describes the runtimes and services Envoryx can run for a project:
+// their versions, settings and the environment they hand to the application. The UI
+// gets the catalogue from the API instead of hard-coding it.
 package runtime
 
 import (
@@ -56,9 +57,9 @@ var goVersionsJSON []byte
 //go:embed ruby_versions.json
 var rubyVersionsJSON []byte
 
-// phpVersionFile is the single source of truth for supported PHP versions. The image build
-// workflow (.github/workflows/php-images.yml) reads the same file for its matrix and the
-// php-versions workflow updates it automatically when upstream publishes new releases.
+// versionFile is the layout of the *_versions.json files, the one place a runtime's
+// versions are listed. The image workflows (php-images.yml and its siblings) build their
+// matrix from the same file, and runtime-versions.yml adds new upstream releases to it.
 type versionFile struct {
 	Image    string `json:"image"`
 	Default  string `json:"default"`
@@ -309,8 +310,8 @@ func (c *Catalog) Get(key string) (Runtime, bool) {
 	return r, ok
 }
 
-// Resolve validates that the runtime is available and the version exists, returning the
-// version entry. Version "" selects the default.
+// Resolve looks up a version of an available runtime. An empty version picks the
+// default one.
 func (c *Catalog) Resolve(key, version string) (Version, error) {
 	r, ok := c.runtimes[key]
 	if !ok {
@@ -387,14 +388,15 @@ type PHPConfig struct {
 	XdebugMode string `json:"xdebugMode,omitempty"`
 	// XdebugIDEKey is sent to the IDE (default PHPSTORM).
 	XdebugIDEKey string `json:"xdebugIdeKey,omitempty"`
-	// XdebugClientHost overrides the debugger host for this project; empty = discovered
-	// from the request (X-Forwarded-For) with the global setting as fallback.
+	// XdebugClientHost overrides the debugger host for this project. When it's empty,
+	// Xdebug takes the host from the request (X-Forwarded-For) and falls back to the
+	// global setting.
 	XdebugClientHost string `json:"xdebugClientHost,omitempty"`
 }
 
 var ideKeyRe = regexp.MustCompile(`^[A-Za-z0-9_.-]{1,32}$`)
 
-// DefaultPHPConfig returns sensible development defaults.
+// DefaultPHPConfig returns the settings a new project starts with, tuned for development.
 func DefaultPHPConfig() PHPConfig {
 	return PHPConfig{
 		MemoryLimit:       "256M",
@@ -504,13 +506,13 @@ func opcacheBuiltIn(phpVersion string) bool {
 	return major > 8 || (major == 8 && minor >= 5)
 }
 
-// INI renders the php.ini overrides for this configuration for the given PHP version.
-// INIOptions are environment-dependent inputs for the generated php.ini.
+// INIOptions carries what the generated php.ini needs from outside the project.
 type INIOptions struct {
-	// XdebugClientHost is the fallback debugger host when the request does not reveal it.
+	// XdebugClientHost is the debugger host to use when the request doesn't reveal it.
 	XdebugClientHost string
 }
 
+// INI renders the project's php.ini for the given PHP version, without INIOptions.
 func (c PHPConfig) INI(phpVersion string) string { return c.INIWith(phpVersion, INIOptions{}) }
 
 // INIWith renders the per-project php.ini.

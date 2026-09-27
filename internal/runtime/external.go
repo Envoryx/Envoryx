@@ -16,7 +16,8 @@ const HostGateway = "host.docker.internal"
 
 var (
 	// externalUserRe allows the user names hosted databases hand out (app_user,
-	// user@server on Azure, service.account); SQL quotes them, so no quotes of any kind.
+	// user@server on Azure, service.account). The SQL statements put them in quotes, so
+	// no quote character of any kind is allowed.
 	externalUserRe = regexp.MustCompile(`^[A-Za-z0-9_][A-Za-z0-9_.@-]{0,79}$`)
 	// externalDatabaseRe allows the database names found in practice; statements quote
 	// them with ` or ", so neither may appear.
@@ -61,8 +62,8 @@ func validExternalPassword(pw string) error {
 	return nil
 }
 
-// NormalizeExternalDatabase checks the connection of an external database and fills in
-// the flavour's default port. The server is not contacted.
+// NormalizeExternalDatabase checks the connection settings of an external database and
+// fills in the flavour's default port. It never contacts the server.
 func NormalizeExternalDatabase(c *DatabaseConfig, variant string) error {
 	d, ok := dialects[variant]
 	if !ok || !slices.Contains(ExternalVariants, variant) {
@@ -89,7 +90,7 @@ func NormalizeExternalDatabase(c *DatabaseConfig, variant string) error {
 	return nil
 }
 
-// NormalizeExternalRedis checks the address of an external Redis.
+// NormalizeExternalRedis checks the address and password of an external Redis.
 func NormalizeExternalRedis(c *ServiceConfig) error {
 	host, err := validExternalHost(c.Host)
 	if err != nil {

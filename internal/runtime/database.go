@@ -23,9 +23,9 @@ type DatabaseConfig struct {
 	Password     string `json:"password"`
 	// HostPort publishes the database on the Docker host for external clients (0 = off).
 	HostPort int `json:"hostPort"`
-	// Host and Port name a server Envoryx does not run (an external database): no
-	// container, no volume, and every client connects there as Username. "" = the
-	// project's own container.
+	// Host and Port name a server Envoryx doesn't run (an external database). There is
+	// no container and no volume then, and every client connects there as Username. An
+	// empty Host means the project's own container.
 	Host string `json:"host,omitempty"`
 	Port int    `json:"port,omitempty"`
 }
@@ -158,19 +158,19 @@ type Dialect struct {
 	// unless DataDirFor overrides it.
 	DataDir string
 	// DataDirFor returns the mount target for a major version when the image changed its
-	// on-disk layout (PostgreSQL 18). nil = DataDir everywhere.
+	// on-disk layout (PostgreSQL 18). When it's nil, every version uses DataDir.
 	DataDirFor   func(major int) string
 	Driver       string // Laravel DB_CONNECTION
 	HasRoot      bool   // separate superuser password (MySQL/MariaDB) vs. owner = superuser (PostgreSQL)
 	ContainerEnv func(cfg DatabaseConfig) []string
 	Cmd          []string
 	Health       []string
-	// Client builds the argv + env to run a statement as the administrator. Every client
-	// connects over TCP to 127.0.0.1, never over the unix socket: on the first start the
-	// images run a temporary server for the initialisation that listens on the socket
-	// only and is shut down right after (dropping every session), so a statement sent over
-	// the socket at that moment reached a server about to go away. Over TCP it waits for
-	// the real one - the same thing the health checks look at.
+	// Client builds the argv and env that run a statement as the administrator. It
+	// always connects over TCP to 127.0.0.1, never over the unix socket. On the first
+	// start the images run a temporary server for the initialisation that listens on the
+	// socket only and is shut down right after, dropping every session. A statement sent
+	// over the socket then reaches a server about to go away; over TCP it waits for the
+	// real one, which is also what the health checks look at.
 	Client         func(cfg DatabaseConfig, sql string) (argv []string, env []string)
 	ListDatabases  string
 	CreateDatabase func(name, user string) string
@@ -184,22 +184,22 @@ type Dialect struct {
 	// Restore reads a dump from stdin into the primary database.
 	Restore func(cfg DatabaseConfig) (argv []string, env []string)
 	// RestoreInto reads a dump taken from the database named from into cfg.Database.
-	// nil = Restore, which is right wherever the payload carries no database name of its
-	// own; MongoDB's archive does, so it maps the namespace instead.
+	// When it's nil, Restore does the job, which works as long as the dump doesn't name
+	// its database itself. MongoDB's archive does, so MongoDB maps the namespace instead.
 	RestoreInto func(cfg DatabaseConfig, from string) (argv []string, env []string)
-	// RenameDatabase renames a database in place. nil = the server cannot, and the
-	// contents move through a dump into a freshly created one.
+	// RenameDatabase renames a database in place. When it's nil, the server can't, and
+	// the contents move through a dump into a freshly created database.
 	RenameDatabase func(from, to string) string
 	// RenameUser renames the login the project connects with, keeping its password.
 	RenameUser func(from, to string, cfg DatabaseConfig) string
 	// HelperLogin creates a short-lived administrator for what the project's login cannot
 	// do to itself: PostgreSQL refuses to rename the role a session is logged in as, and
-	// the project's login is the only superuser there is. DropLogin removes it again. nil
-	// = RenameUser runs as the project's administrator.
+	// the project's login is the only superuser there is. DropLogin removes it again.
+	// When HelperLogin is nil, RenameUser runs as the project's administrator.
 	HelperLogin func(user, password string) string
 	DropLogin   func(user string) string
-	// URL builds the connection string injected as DATABASE_URL for a server reached as
-	// host (nil = driver://user:pw@host:port/db).
+	// URL builds the DATABASE_URL for a server reached as host. When it's nil, the URL
+	// is driver://user:pw@host:port/db.
 	URL func(cfg DatabaseConfig, host string) string
 	// ExtraEnv adds flavour-specific variables (e.g. MONGODB_URI).
 	ExtraEnv func(cfg DatabaseConfig, host string) map[string]string
@@ -213,8 +213,8 @@ func mongoURI(c DatabaseConfig, host string, db string) string {
 	return u
 }
 
-// mongoClient is the argv prefix of an administrative mongosh call. The connection string
-// travels in the environment (read by the script), not in argv.
+// mongoClientPrelude opens the connection for an administrative mongosh script. It reads
+// the connection string from the environment, so the password never shows up in argv.
 const mongoClientPrelude = "const conn = Mongo(process.env.ENVORYX_MONGO_URI); const admin = conn.getDB('admin'); "
 
 var dialects = map[string]Dialect{
@@ -461,8 +461,9 @@ type ServiceConfig struct {
 	APIKey string `json:"apiKey,omitempty"`
 	// GPU hands the host's GPUs to Ollama.
 	GPU bool `json:"gpu,omitempty"`
-	// Host and Port name an external Redis Envoryx does not run; Password is its
-	// password there ("" = none). "" = the project's own container.
+	// Host and Port name an external Redis that Envoryx doesn't run, and Password is its
+	// password there (empty if it has none). An empty Host means the project's own
+	// container.
 	Host string `json:"host,omitempty"`
 	Port int    `json:"port,omitempty"`
 }
@@ -558,8 +559,8 @@ var OpenSearchEnvKeys = []string{"OPENSEARCH_HOST", "OPENSEARCH_PORT", "OPENSEAR
 
 // OpenSearchEnv returns the variables injected for an OpenSearch service. The security
 // plugin is off (plain HTTP, no login), so there is nothing secret. ELASTICSEARCH_* is
-// deliberately not set: current Elasticsearch clients refuse to talk to OpenSearch, and a
-// project reading those names should say so itself.
+// deliberately not set: current Elasticsearch clients refuse to talk to OpenSearch, so a
+// project that still reads those names should set them itself.
 func OpenSearchEnv() map[string]string {
 	return map[string]string{
 		"OPENSEARCH_HOST":   "opensearch",
@@ -614,13 +615,12 @@ func MemcachedEnv() map[string]string {
 	return map[string]string{"MEMCACHED_HOST": "memcached", "MEMCACHED_PORT": strconv.Itoa(MemcachedPort), "MEMCACHED_URL": fmt.Sprintf("memcached://memcached:%d", MemcachedPort)}
 }
 
-// MailpitEnv returns the variables injected for a Mailpit service (Laravel, Symfony and
-// the SMTP_* pair Node mailers such as nodemailer examples read).
+// MailpitEnv returns the variables injected for a Mailpit service: the names Laravel and
+// Symfony read, plus SMTP_HOST and SMTP_PORT, which many Node mail setups use.
 func MailpitEnv() map[string]string {
 	return map[string]string{"MAIL_MAILER": "smtp", "MAIL_HOST": "mailpit", "MAIL_PORT": "1025", "MAIL_ENCRYPTION": "null", "MAILER_DSN": "smtp://mailpit:1025", "SMTP_HOST": "mailpit", "SMTP_PORT": "1025"}
 }
 
-// CompareVersions returns -1, 0 or 1 comparing dotted numeric versions.
 // DataDirTarget returns the container path the data volume is mounted at for one version
 // of this dialect: DataDir unless the image changed its layout in a later major version.
 // An unparsable version falls back to DataDir.
@@ -635,6 +635,7 @@ func (d Dialect) DataDirTarget(version string) string {
 	return d.DataDirFor(major)
 }
 
+// CompareVersions compares two dotted numeric versions and returns -1, 0 or 1.
 func CompareVersions(a, b string) int {
 	pa, pb := strings.Split(a, "."), strings.Split(b, ".")
 	for i := 0; i < len(pa) || i < len(pb); i++ {

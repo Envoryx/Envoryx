@@ -32,11 +32,11 @@ func Guarded(argv []string, name string, guards ...string) []string {
 }
 
 // WaitForTCP is a guard that blocks until host:port accepts a connection. socat ships in
-// every Envoryx runtime image; the host is a fixed network alias or an external server's
-// address that passed NormalizeExternalDatabase (host-name characters or an IP address),
-// so interpolating it into the line is safe. The database images open their port only
-// once initialisation is done - they run the setup server on a socket or with networking
-// off - so a connection is a real readiness signal.
+// every Envoryx runtime image. Putting host into the shell line is safe: it's either one
+// of our fixed network aliases or an external address that passed
+// NormalizeExternalDatabase. The database images only open their port once their setup
+// is done (until then they run on a socket or with networking off), so a connection
+// really means the database is ready.
 func WaitForTCP(host string, port int, label string) string {
 	addr := host
 	if strings.Contains(host, ":") {
