@@ -4,7 +4,7 @@ import { adminPassword, adminUsername, nodeProjectName, nodeProjectSlug } from "
 // A project without PHP: the wizard's "Static site" stack creates the web container alone,
 // which serves the starter index.html on the published port. This is the cheapest shape
 // without PHP (no npm install in CI) and exercises every code path that used to assume a PHP
-// container - starter page, git one-shot image, IDE tab. Runs after lifecycle.spec.ts, which
+// container: starter page, git one-shot image, IDE tab. Runs after lifecycle.spec.ts, which
 // created the administrator account; the tests build on each other, hence serial.
 test.describe.configure({ mode: "serial" });
 
@@ -54,7 +54,7 @@ test("the wizard creates a static project without PHP that the web server serves
   await expect(page.getByRole("radio", { name: /WordPress/ })).toHaveCount(0);
   await cont();
 
-  // Runtimes: the static stack ticks neither PHP nor Node.js.
+  // Runtimes: the static stack ticks none of them; PHP and Node.js stand for the rest.
   await expect(page.getByLabel("Enable PHP")).not.toBeChecked();
   await expect(page.getByLabel("Enable Node.js")).not.toBeChecked();
   await expect(page.getByLabel("PHP version")).toHaveCount(0);

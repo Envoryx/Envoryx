@@ -17,7 +17,10 @@ export interface DevServerForm {
 
 export const defaultDevServerForm: DevServerForm = { devServer: false, mode: "dev", packageManager: "npm", script: "dev", buildScript: "build", port: "5173", preset: "vite", inspect: false, inspectPort: "9229" };
 
-/** The script the backend defaults to for a mode and preset; the form mirrors it so the field never shows a stale value. */
+/**
+ * The script the backend defaults to for a mode and preset; the form mirrors it so the field
+ * never shows a stale value.
+ */
 export function defaultScript(mode: string, preset: string): string {
   if (mode !== "production") return "dev";
   return preset === "vite" ? "preview" : "start";
@@ -50,7 +53,7 @@ export function NodeDevServerFields({
   idPrefix?: string;
   /** From GET /runtimes (nodePresets); the built-in list stands in for older backends. */
   presets?: NodePreset[];
-  /** The dev server is the project's application (no PHP): it answers on the project URL. */
+  /** The dev server is the project's application (no PHP, Python, Go or Ruby server): it answers on the project URL. */
   primary?: boolean;
 }) {
   const { t } = useTranslation();

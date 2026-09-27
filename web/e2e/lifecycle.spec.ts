@@ -100,7 +100,7 @@ test("the wizard creates a project that starts and serves its starter page", asy
   await page.getByRole("button", { name: "Create project" }).click();
   // While the server works, the wizard shows what it is doing.
   await expect(page.getByTestId("create-progress")).toBeVisible();
-  // Either the detail page appears or the wizard reports why not - no point in waiting
+  // Either the detail page appears or the wizard reports why not; no point in waiting
   // the full pull timeout for a failure that is already on screen.
   const failed = page.getByText("Creation failed");
   await Promise.race([

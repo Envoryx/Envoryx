@@ -190,7 +190,7 @@ async function upload<T>(path: string, field: string, file: File): Promise<T> {
 
 /**
  * Uploads a website (and optionally its database dump) for import. XMLHttpRequest rather
- * than fetch, because only it reports upload progress - a site can be gigabytes.
+ * than fetch, because only it reports upload progress, and a site can be gigabytes.
  */
 function uploadSite(site: File, dump: File | null, onProgress?: (loaded: number, total: number) => void): Promise<{ import: SiteImport }> {
   const form = new FormData();
@@ -241,7 +241,7 @@ function modelPath(model: string): string {
   return model.split("/").map(encodeURIComponent).join("/");
 }
 
-/** The query that addresses an additional database ("" = the primary: none). */
+/** The query that addresses an additional database; none for the primary (""). */
 function dbQuery(db: string): string {
   return db ? `?db=${encodeURIComponent(db)}` : "";
 }
@@ -489,7 +489,7 @@ export const api = {
       request<{ snapshot: BackupInfo }>(`/projects/${encodeURIComponent(id)}/database/snapshots${dbQuery(db)}`, { method: "POST", body: { note } }),
     restoreSnapshot: (id: string, snapshotId: string, confirm: string, db = "") =>
       request<{ snapshot: BackupInfo }>(`/projects/${encodeURIComponent(id)}/database/snapshots/${encodeURIComponent(snapshotId)}/restore${dbQuery(db)}`, { method: "POST", body: { confirm } }),
-    /** sourceDb: the source's database (absent = the one named like db, "" = its primary). */
+    /** sourceDb: the source's database; absent means the one named like db, "" its primary. */
     clone: (id: string, body: { source: string; sourceDb?: string; snapshot: boolean; confirm: string }, db = "") =>
       request<{ clone: CloneDatabaseResult }>(`/projects/${encodeURIComponent(id)}/database/clone${dbQuery(db)}`, { method: "POST", body }),
   },

@@ -52,7 +52,7 @@ function capSeries(all: Series[], other: string): Series[] {
 }
 
 function perContainer(m: ProjectMetrics, pick: (p: MetricPoint) => number, other: string): Series[] {
-  // Slots follow the container, in name order - a range with fewer containers keeps
+  // Slots follow the container, in name order, so a range with fewer containers keeps
   // everyone's color.
   const s = m.containers.map((c, i) => ({ key: c.name, label: c.name, slot: i + 1, points: c.points.map((p) => [p[0], pick(p)] as [number, number]) }));
   return capSeries(s, other);

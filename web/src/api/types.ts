@@ -49,7 +49,7 @@ export interface Operation {
   projectSlug: string;
   projectName: string;
   action: OperationAction;
-  /** English template with {{placeholders}} - translate with t(step, stepArgs). */
+  /** English template with {{placeholders}}; translate with t(step, stepArgs). */
   step?: string;
   stepArgs?: Record<string, string>;
   startedAt: string;
@@ -132,7 +132,10 @@ export interface EnvVar {
   isSecret: boolean;
 }
 
-/** What a project's primary hostname serves: PHP-FPM behind the web server, the Python, Go or Ruby server, the Node dev server or static files. */
+/**
+ * What a project's primary hostname serves: PHP-FPM behind the web server, the Python, Go or
+ * Ruby server, the Node dev server or static files.
+ */
 export type Serves = "php" | "python" | "go" | "ruby" | "node" | "static";
 
 /** Kind of the container that runs the project's code. */
@@ -156,11 +159,14 @@ export interface Project {
   git: { url: string; branch: string; username: string; hasToken: boolean };
   /** Default hostname (slug.base) followed by extra domains. */
   hostnames: string[];
-  /** Set when the Node dev server is enabled (routed by the proxy); also the primary route when the project has neither PHP nor a Python server. */
+  /**
+   * Set when the Node dev server is enabled (routed by the proxy); also the primary route
+   * when the project has neither PHP nor a Python, Go or Ruby server.
+   */
   devHostname?: string;
-  /** Missing on payloads from a backend that predates it - use servesOf() then. */
+  /** Missing on payloads from a backend that predates it; use servesOf() then. */
   serves?: Serves;
-  /** The application container: PHP if present, else Python, else Node; absent for static projects. */
+  /** The application container: PHP if present, else Python, Go, Ruby, Node; absent for static projects. */
   appService?: AppKind;
   backupSchedule: BackupSchedule;
   ideGateway?: boolean;
@@ -172,7 +178,7 @@ export interface Project {
 }
 
 export interface RedirectRule {
-  /** One of the project's host names; empty = all. */
+  /** One of the project's host names; empty means all of them. */
   host?: string;
   /** A path, or a prefix ending in "*". */
   from: string;
@@ -346,7 +352,7 @@ export interface DatabaseRequest {
   external?: ExternalDatabase;
 }
 
-/** A database server Envoryx does not run. port 0 = the flavour's default. */
+/** A database server Envoryx does not run. Port 0 means the flavour's default. */
 export interface ExternalDatabase {
   host: string;
   port: number;
@@ -356,7 +362,7 @@ export interface ExternalDatabase {
   database: string;
 }
 
-/** A Redis server Envoryx does not run. port 0 = 6379. */
+/** A Redis server Envoryx does not run. Port 0 means 6379. */
 export interface ExternalRedis {
   host: string;
   port: number;
@@ -661,7 +667,7 @@ export interface CreateProjectRequest {
   template?: string;
   createStarter?: boolean;
   start?: boolean;
-  /** Apply the envoryx.yml the cloned repository brings (it wins over the services chosen here). Only with git. */
+  /** Apply the envoryx.yml the cloned repository brings (it wins over the services chosen here); git only. */
   useManifest?: boolean;
   /** Fill the project from an uploaded website (POST /site-imports). */
   import?: { id: string; adaptConfig: boolean };
@@ -706,7 +712,10 @@ export interface ProjectShare {
   message?: string;
 }
 
-/** A way the project runs its tests (PHPUnit, Pest, npm scripts, Playwright, Cypress, pytest, Django). */
+/**
+ * A way the project runs its tests (PHPUnit, Pest, npm scripts, Playwright, Cypress, pytest,
+ * Django, go test, RSpec, Rails).
+ */
 export interface TestSuite {
   id: string;
   framework: string;
@@ -715,7 +724,7 @@ export interface TestSuite {
   cmd: string[];
   /** The runner writes a JUnit report: the result names the failed tests. */
   report: boolean;
-  /** What a filter narrows the run to; absent = no filter. */
+  /** What a filter narrows the run to; absent when there is no filter. */
   filterHint?: string;
   available: boolean;
   reason?: string;
@@ -754,7 +763,7 @@ export interface TestRun {
   result: TestResult;
 }
 
-/** The package cache shared by all projects (Composer, npm, Yarn, pnpm, pip, uv). */
+/** The package cache shared by all projects (Composer, npm, Yarn, pip, uv, Go, Bundler). */
 export interface PackageCache {
   path: string;
   bytes: number;
@@ -806,7 +815,7 @@ export interface RenameProjectRequest {
   keepDataNames?: boolean;
 }
 
-/** What a rename moved - the UI names the new database and bucket afterwards. */
+/** What a rename moved, so the UI can name the new database and bucket afterwards. */
 export interface RenameResult {
   from: string;
   to: string;
@@ -920,13 +929,13 @@ export interface Usage {
   containers: number;
 }
 
-/** Limits of one group of containers; 0 = no limit. */
+/** Limits of one group of containers; 0 means no limit. */
 export interface LimitSet {
   cpus?: number;
   memoryMb?: number;
 }
 
-/** Per-container limits of a project: application containers, services, processes (0 = default 4096). */
+/** Per-container limits of a project: application containers, services, processes (0 means 4096). */
 export interface ResourceLimits {
   app: LimitSet;
   services: LimitSet;
@@ -942,9 +951,9 @@ export interface ContainerUsage {
   /** 100 = one core. */
   cpuPercent: number;
   memoryBytes: number;
-  /** Cores, 0 = none. */
+  /** Cores, 0 for no limit. */
   cpuLimit: number;
-  /** Bytes, 0 = none. */
+  /** Bytes, 0 for no limit. */
   memLimit: number;
 }
 
@@ -1206,7 +1215,7 @@ export interface APIToken {
   prefix: string;
   /** Access level; every level includes the ones below it. */
   scope: TokenScope;
-  /** Project ids the token is confined to; empty = all projects. */
+  /** Project ids the token is confined to; empty means all projects. */
   projects: string[];
   createdAt: string;
   lastUsedAt: string | null;
@@ -1271,7 +1280,7 @@ export interface SSHInfo {
   enabled: boolean;
   port: number;
   fingerprint: string;
-  /** Same key as MD5 - the form JetBrains IDEs show. */
+  /** Same key as MD5, the form JetBrains IDEs show. */
   fingerprintMd5?: string;
 }
 
@@ -1289,7 +1298,7 @@ export interface Settings {
   forceHttps: boolean;
   /** Project containers stop with the Envoryx container and resume when it comes back. */
   projectsFollowEnvoryx?: boolean;
-  /** FolderView3 folder (Unraid plugin) the containers are labelled for; "" = none. */
+  /** FolderView3 folder (Unraid plugin) the containers are labelled for; "" for none. */
   folderViewFolder?: string;
   logHistory?: LogHistoryInfo;
   metrics?: MetricsInfo;
@@ -1310,14 +1319,17 @@ export interface Settings {
 
 /** One difference between a project and its envoryx.yml. */
 export interface ManifestChange {
-  /** docroot, web, php, node, python, database, redis …, storage, env, domain, worker, cron */
+  /** docroot, web, php, node, python, go, ruby, database, redis …, storage, limits, healthcheck, env, domain, worker, cron */
   section: string;
   /** Variable, host name, worker or cron job within the section. */
   item?: string;
   action: "add" | "change" | "remove";
   from?: string;
   to?: string;
-  /** Why the change is not made: "prune" (a removal needs prune), "downgrade" or "external" (a new external connection needs its password). */
+  /**
+   * Why the change is not made: "prune" (a removal needs prune), "downgrade" or "external"
+   * (a new external connection needs its password).
+   */
   skipped?: "prune" | "downgrade" | "external";
 }
 
@@ -1519,7 +1531,7 @@ export interface OffsiteTarget {
   instance: boolean;
   instanceHour: number;
   prefix: string;
-  /** Scheduled copies kept per project (0 = all). */
+  /** Scheduled copies kept per project; 0 keeps all. */
   keep: number;
   instanceKeep: number;
   encrypt: boolean;

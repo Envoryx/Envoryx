@@ -11,7 +11,7 @@ const ipv4 = /^(25[0-5]|2[0-4]\d|1?\d?\d)(\.(25[0-5]|2[0-4]\d|1?\d?\d)){3}$/;
 /**
  * dnsTarget picks the address the wildcard entry must point at: Envoryx's own IP (macvlan,
  * br0), else the configured host for project links, else the address this page was opened
- * on - as long as it is an IPv4 address, because every resolver below wants one.
+ * on, as long as it is an IPv4 address, because every resolver below wants one.
  */
 export function dnsTarget(proxyAddress: string | undefined, publicHost: string, pageHost: string): string {
   for (const candidate of [proxyAddress ?? "", publicHost, pageHost]) {

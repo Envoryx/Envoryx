@@ -24,7 +24,7 @@ function Meter({ value, max, label }: { value: number; max: number; label: strin
   );
 }
 
-/** The project's CPU over the range - a single series, so no legend. */
+/** The project's CPU over the range; a single series, so no legend. */
 function Sparkline({ points, from, to }: { points: [number, number, number][]; from: number; to: number }) {
   const w = 96;
   const h = 24;

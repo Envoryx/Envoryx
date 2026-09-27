@@ -6,7 +6,8 @@ export const webServerNames: Record<string, string> = { caddy: "Caddy", apache: 
 
 /**
  * One-line guidance shown next to the web server selector. What the server does depends on
- * what the project serves: FastCGI to PHP, standing by behind a Node dev server, or static files.
+ * what the project serves: FastCGI to PHP, standing by behind an application server or the Node
+ * dev server, or static files.
  * Callers pass `project.serves ?? servesOf(project)`; the default only covers the PHP-era call shape.
  */
 export function webServerHint(t: TFunction, key: string, serves: Serves = "php"): string {

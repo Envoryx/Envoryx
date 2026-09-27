@@ -5,7 +5,7 @@ import i18n from "@/i18n";
 
 /**
  * The identifier derived from a project name, mirroring the server's Slugify: lower case,
- * everything but letters and digits becomes a hyphen. It is a preview - the server has
+ * everything but letters and digits becomes a hyphen. It is a preview; the server has
  * the last word.
  */
 export function slugify(name: string): string {
