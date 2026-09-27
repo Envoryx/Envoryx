@@ -30,20 +30,26 @@ its most sensitive capability:
 
 Envoryx honours `DOCKER_HOST`. To shrink the blast radius, run a socket proxy such as
 `tecnativa/docker-socket-proxy` and point Envoryx at it
-(`DOCKER_HOST=tcp://docker-socket-proxy:2375`). Envoryx needs these endpoints:
+(`DOCKER_HOST=tcp://docker-socket-proxy:2375`). The groups are the proxy's environment
+variables; Envoryx needs these:
 
 | Endpoint group | Used for |
 |----------------|----------|
 | `PING`, `INFO`, `VERSION` | health and dashboard |
-| `CONTAINERS` (list, inspect, create, start, stop, restart, remove, stats) | project lifecycle |
-| `IMAGES` (inspect, pull) | runtime images |
-| `NETWORKS` (list, inspect, create, remove) | project networks |
-| `VOLUMES` (list, inspect, create, remove) | database volumes |
-| `EXEC` | terminal, project actions |
-| `POST` | required for create/start/stop |
+| `CONTAINERS` (list, inspect, create, start, stop, restart, remove, stats, logs, attach, wait, update, exec create) | project lifecycle, logs, resource limits |
+| `EXEC` | terminal, project actions, SSH sessions |
+| `IMAGES` (list, inspect, pull, tag, remove) | runtime images, rollback tags, image clean-up |
+| `NETWORKS` (list, inspect, create, connect, disconnect, remove) | project networks |
+| `VOLUMES` (list, inspect, create, remove) | database and service volumes |
+| `EVENTS` | OOM kills (on by default in the proxy) |
+| `SYSTEM` | disk usage of the volumes (`/system/df`) for the resource history |
+| `POST` | every request that isn't a GET: create, start, stop, remove, … |
 
-`SWARM`, `NODES`, `SECRETS`, `CONFIGS`, `PLUGINS`, `SYSTEM` (prune), `BUILD` and `COMMIT` can
-stay disabled.
+Without `SYSTEM` everything else keeps working; the resource history just shows no volume
+sizes. `SWARM`, `NODES`, `SERVICES`, `TASKS`, `SECRETS`, `CONFIGS`, `PLUGINS`, `BUILD`,
+`COMMIT`, `DISTRIBUTION`, `AUTH`, `SESSION` and `GRPC` can stay disabled. `SYSTEM` only
+opens `/system/…`, where Envoryx reads the disk usage; the prune endpoints belong to the
+other groups, and Envoryx doesn't call them.
 
 ## Authentication and sessions
 
