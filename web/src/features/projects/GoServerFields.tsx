@@ -26,7 +26,7 @@ export function goServerRequest(f: GoServerForm): { server: boolean; mode: strin
   };
 }
 
-/** What the backend runs for a mode (runtime.GoConfig.Command) - shown so the choice is clear. */
+/** What the backend runs for a mode (runtime.GoConfig.Command), shown so the choice is clear. */
 export function goCommandHint(mode: string, pkg: string, debug: boolean): string {
   const p = pkg.trim() || ".";
   const build = `go build${debug ? " -gcflags='all=-N -l'" : ""} ${p}`;

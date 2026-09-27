@@ -113,7 +113,7 @@ export function TerminalTab({ project }: { project: Project }) {
   const { t } = useTranslation();
   // A server Envoryx does not run has no container to open a shell in.
   const services = project.services.filter((s) => s.enabled && project.status.services.find((st) => st.kind === s.kind)?.state !== "external");
-  // Open on the application container (PHP, else Python, else Go, else Node); the web container is the last resort.
+  // Open on the application container (PHP, else Python, Go, Ruby, Node), else the web container.
   const [kind, setKind] = useState<string>(project.appService ?? services[0]?.kind ?? "web");
   const [generation, setGeneration] = useState(0);
   const running = project.status.services.find((s) => s.kind === kind)?.running ?? false;

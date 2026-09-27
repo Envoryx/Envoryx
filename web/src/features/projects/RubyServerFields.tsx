@@ -27,7 +27,7 @@ export function rubyServerRequest(f: RubyServerForm): { server: boolean; mode: s
   };
 }
 
-/** What the backend runs for a preset and mode (runtime.RubyConfig.Command) - shown so the choice is clear. */
+/** What the backend runs for a preset and mode (runtime.RubyConfig.Command), shown so the choice is clear. */
 export function rubyCommandHint(preset: string, mode: string, port: string, debug: boolean): string {
   const p = port || (preset === "rack" ? "9292" : "3000");
   const cmd = preset === "rails" && mode !== "production" ? `bin/rails server -b 0.0.0.0 -p ${p}` : `bundle exec puma -b tcp://0.0.0.0:${p}`;

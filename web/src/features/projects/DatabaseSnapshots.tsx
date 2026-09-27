@@ -204,7 +204,7 @@ export function SnapshotsCard({ project, database, onMessage }: { project: Proje
   );
 }
 
-/** Replace this project's database contents with another project's - staging into local. */
+/** Replace this project's database contents with another project's, say staging into local. */
 export function CloneDatabaseCard({ project, database, onMessage }: { project: Project; database: DatabaseInfo; onMessage: (m: Message) => void }) {
   const { t } = useTranslation();
   const projects = useProjects();

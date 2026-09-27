@@ -279,7 +279,7 @@ export function DuplicateProjectDialog({ project, open, onClose }: { project: Pr
 
 /**
  * Renames a project. Everything derived from the identifier moves with it, which means
- * recreated containers and - unless the data names are kept - a renamed database and
+ * recreated containers and, unless the data names are kept, a renamed database and
  * bucket, so the dialog says so and asks for the current identifier.
  */
 export function RenameProjectDialog({ project, open, onClose }: { project: Project; open: boolean; onClose: () => void }) {

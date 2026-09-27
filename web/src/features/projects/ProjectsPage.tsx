@@ -10,10 +10,10 @@ import { ProjectActionButtons, useActionError } from "./ProjectActions";
 import { OperationHint } from "@/components/OperationsTray";
 import { errorText, translateMessage } from "@/lib/errors";
 
-/** Service badges in a fixed order - runtime, web server, database, extras - so rows read alike. */
+/** Service badges in a fixed order (runtime, web server, database, extras), so rows read alike. */
 function ServiceBadges({ project }: { project: Project }) {
   const { t } = useTranslation();
-  // The application runtime leads: PHP when present, else Python, else Go, else Node; a static site has none.
+  // The application runtime leads: PHP when present, else Python, Go, Ruby, Node; a static site has none.
   const app = project.appService ?? appKindOf(project);
   const runtime = app ? project.services.find((s) => s.kind === app && s.enabled) : undefined;
   const web = project.services.find((s) => s.kind === "web");
@@ -36,7 +36,7 @@ function ServiceBadges({ project }: { project: Project }) {
 // name and actions, then the stack and the state; resources are a large-screen extra.
 const rowGrid = "grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-2 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1.7fr)_6.5rem_6rem_auto] lg:items-center lg:gap-x-5";
 
-/** The address without its scheme - the list is tight and every project is https anyway. */
+/** The address without its scheme: the list is tight and every project is https anyway. */
 function shortUrl(url: string): string {
   return url.replace(/^https?:\/\//, "");
 }

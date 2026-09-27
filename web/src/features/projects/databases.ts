@@ -1,6 +1,9 @@
 import type { Project } from "@/api/types";
 
-/** The services of a project that are databases: the primary ("database") and the additional ones ("db-<name>"), primary first. */
+/**
+ * The services of a project that are databases: the primary ("database") and the additional
+ * ones ("db-<name>"), primary first.
+ */
 export function databaseServices(project: Pick<Project, "services">): { name: string; kind: string; variant: string }[] {
   const out = project.services
     .filter((s) => s.enabled && (s.kind === "database" || s.kind.startsWith("db-")))

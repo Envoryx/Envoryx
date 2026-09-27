@@ -92,7 +92,7 @@ function download(name: string, text: string) {
 
 /**
  * The project manifest (envoryx.yml): the project as a file for the repository, and the
- * file in the project directory compared with the project - after a pull it may describe
+ * file in the project directory compared with the project. After a pull it may describe
  * something else, which "Apply" brings over.
  */
 export function ManifestCard({ project }: { project: Project }) {

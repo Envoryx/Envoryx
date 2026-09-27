@@ -1045,9 +1045,9 @@ export function NewProjectPage() {
                     <dd className="font-mono text-xs">
                       {(() => {
                         // The preview carries no service list; the links hook only reads it for the
-                        // application container's host port. Behind a Python server or Node dev server the
+                        // application container's host port. Behind a Python, Go or Ruby server or the Node dev server the
                         // HTTP port stays unpublished, so the planned container's host port stands in as a
-                        // synthetic service - then the hook's own branch applies, also when the proxy is off
+                        // synthetic service; then the hook's own branch applies, also when the proxy is off
                         // and the direct URL is all there is.
                         const appPort = Number(preview.containers.find((c) => c.service === previewServes)?.ports[0]?.split(" ")[0]) || 0;
                         const services: Project["services"] =

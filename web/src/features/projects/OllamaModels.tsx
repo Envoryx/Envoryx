@@ -9,7 +9,10 @@ import { errorText } from "@/lib/errors";
 
 type Message = { tone: "green" | "red"; text: string };
 
-/** Mirrors ValidateOllamaModel in internal/project: name[:tag], optionally below a namespace or registry host. */
+/**
+ * Mirrors ValidateOllamaModel in internal/project: name[:tag], optionally below a namespace or
+ * registry host.
+ */
 const MODEL_RE = /^[A-Za-z0-9][A-Za-z0-9._-]*(\/[A-Za-z0-9][A-Za-z0-9._-]*)*(:[A-Za-z0-9][A-Za-z0-9._-]*)?$/;
 
 /** One download: a bar while it runs, the outcome once it ended. */
@@ -44,7 +47,7 @@ function PullRow({ pull, onCancel, cancelling }: { pull: OllamaPull; onCancel: (
 
 /**
  * The models of the Ollama store every project shares: download one by name, watch it
- * arrive, delete it. Needs Ollama running - the list comes from Ollama itself.
+ * arrive, delete it. Needs Ollama running, since the list comes from Ollama itself.
  */
 export function OllamaModels({ project, running, onMessage }: { project: Project; running: boolean; onMessage: (m: Message) => void }) {
   const { t } = useTranslation();

@@ -1,7 +1,7 @@
 import type { TFunction } from "i18next";
 import type { Operation, OperationAction } from "@/api/types";
 
-/** "Starting Acme Shop" - what an operation is doing, for trays and headers. */
+/** "Starting Acme Shop": what an operation is doing, for trays and headers. */
 export function operationTitle(op: Operation, t: TFunction): string {
   const name = op.projectName || op.projectSlug;
   const titles: Record<OperationAction, string> = {
@@ -22,7 +22,7 @@ export function operationTitle(op: Operation, t: TFunction): string {
   return titles[op.action] ?? `${op.action} ${name}`;
 }
 
-/** "Acme Shop started" - the outcome of a finished operation. */
+/** "Acme Shop started": the outcome of a finished operation. */
 export function operationDone(op: Operation, t: TFunction): string {
   const name = op.projectName || op.projectSlug;
   const titles: Record<OperationAction, string> = {

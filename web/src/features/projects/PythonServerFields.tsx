@@ -28,7 +28,7 @@ export function pythonServerRequest(f: PythonServerForm): { server: boolean; mod
   };
 }
 
-/** The command the backend runs for a preset and mode - shown so the user knows what the choice means. */
+/** The command the backend runs for a preset and mode, shown so the user knows what the choice means. */
 export function pythonCommandHint(preset: string, mode: string, app: string, port: string): string {
   const bind = `0.0.0.0:${port || "8000"}`;
   const a = app || "app:app";

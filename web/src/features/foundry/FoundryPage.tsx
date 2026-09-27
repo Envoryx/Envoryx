@@ -8,7 +8,10 @@ import "./foundry.css";
 
 const REPO = "https://github.com/envoryx/envoryx";
 
-/** The spatial foundry - a 38-second ASCII short film with the version and project links below, reached through the logo. */
+/**
+ * The spatial foundry: a 38-second ASCII short film with the version and project links below,
+ * reached through the logo.
+ */
 export function FoundryPage() {
   return (
     <div>

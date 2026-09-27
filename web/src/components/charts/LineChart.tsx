@@ -208,7 +208,7 @@ export function LineChart({
   );
 }
 
-/** The same data as a table, newest first - the way to read values without hovering. */
+/** The same data as a table, newest first: the way to read values without hovering. */
 export function SeriesTable({ series, format }: { series: Series[]; format: (v: number) => string }) {
   const { t } = useTranslation();
   const xs = [...new Set(series.flatMap((s) => s.points.map((p) => p[0])))].sort((a, b) => b - a);

@@ -25,7 +25,7 @@ const nameRe = /^[A-Z_][A-Z0-9_]*$/;
 /**
  * Reads a .env file (pasted or chosen) into the project's variables: new ones are added,
  * changed ones replace the current value, and the ones Envoryx sets itself for a service
- * are left out unless picked - the old setup's DB_HOST=127.0.0.1 would otherwise win over
+ * are left out unless picked; the old setup's DB_HOST=127.0.0.1 would otherwise win over
  * the project database.
  */
 export function EnvImportDialog({
