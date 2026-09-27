@@ -135,10 +135,10 @@ func (c RubyConfig) server() []string {
 	return []string{"bundle", "exec", "puma", "-b", "tcp://0.0.0.0:" + port}
 }
 
-// rdbgScript starts the command after it under rdbg listening on port $1. A bundle that
-// locks the debug gem (Rails ships it) gets its own rdbg through bundle exec - two copies
-// of the gem in one process would clash; otherwise the image's rdbg runs, which loads
-// itself through RUBYOPT and so works under bundle exec as well.
+// rdbgScript starts the command after it under rdbg, listening on port $1. If the bundle
+// locks the debug gem (Rails ships it), the bundle's own rdbg runs through bundle exec,
+// since two copies of the gem in one process clash. Otherwise the image's rdbg runs; it
+// loads itself through RUBYOPT, so it works under bundle exec as well.
 const rdbgScript = `port=$1; shift
 set -- --open --host=0.0.0.0 --port="$port" --nonstop -c -- "$@"
 if [ -f Gemfile.lock ] && grep -qE '^    debug \(' Gemfile.lock; then exec bundle exec rdbg "$@"; fi

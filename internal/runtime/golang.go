@@ -130,12 +130,12 @@ func (c GoConfig) delve() []string {
 	return []string{"dlv", "exec", "--headless", "--listen=:" + strconv.Itoa(c.DebugPort), "--api-version=2", "--accept-multiclient", "--continue", goBuildDir + "/app"}
 }
 
-// goPortsFreeScript waits (up to ten seconds) until nothing listens on the ports given
-// as arguments, then execs the command after "--". air starts the new build right after
-// killing the old one, and a Delve that is still tearing down its debuggee holds both
-// ports a moment longer - the new dlv would fail with "address already in use" and the
-// server stay down until the next change. The image has no ss or nc, so it reads
-// /proc/net/tcp{,6} (state 0A is LISTEN).
+// goPortsFreeScript waits up to ten seconds until nothing listens on the ports given as
+// arguments, then execs the command after "--". air starts the new build right after
+// killing the old one, and a Delve still tearing down its debuggee holds both ports a
+// moment longer. Without the wait the new dlv fails with "address already in use" and
+// the server stays down until the next change. The image has no ss or nc, so the script
+// reads /proc/net/tcp{,6} (state 0A is LISTEN).
 const goPortsFreeScript = `i=0
 while [ "$1" != -- ]; do
   p=$(printf '%04X' "$1")
@@ -150,11 +150,11 @@ func (c GoConfig) delveAfterRestart() []string {
 	return append([]string{"sh", "-c", goPortsFreeScript, "envoryx-dlv", strconv.Itoa(c.DebugPort), strconv.Itoa(c.Port), "--"}, c.delve()...)
 }
 
-// Command returns the argv of the container's main process. In dev mode it is air -
-// with the project's own .air.toml when there is one, else with flags that build Package
-// into goBuildDir (nothing lands in the project directory); in production mode one build
-// and the binary (goProductionScript). Every value comes from Normalize and arrives as an
-// argument, nothing is interpolated into a script.
+// Command returns the argv of the container's main process. In dev mode that's air,
+// using the project's own .air.toml if it has one, else flags that build Package into
+// goBuildDir so nothing lands in the project directory. Production mode builds once and
+// runs the binary (goProductionScript). All values come from Normalize and are passed as
+// arguments, never pasted into a script.
 func (c GoConfig) Command() []string {
 	if c.Production() {
 		mode := "run"

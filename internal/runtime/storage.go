@@ -18,15 +18,15 @@ const (
 
 // StorageConfig is the per-project configuration of the object storage service.
 type StorageConfig struct {
-	// HostPort publishes the S3 API on the host (0 = not published); ConsolePort the
-	// web console.
+	// HostPort is the host port of the S3 API (0 means not published), ConsolePort the
+	// one of the web console.
 	HostPort    int `json:"hostPort"`
 	ConsolePort int `json:"consolePort"`
 	// AccessKey/SecretKey are the root credentials of this project's server.
 	AccessKey string `json:"accessKey"`
 	SecretKey string `json:"secretKey"`
-	// Bucket is created at start-up; PublicRead puts a policy on it that lets anyone read
-	// every object - what public-read ACLs give on providers that honour them.
+	// Bucket is created at start-up. PublicRead puts a policy on it that lets anyone read
+	// every object, which is what a public-read ACL does on providers that honour those.
 	Bucket     string `json:"bucket"`
 	PublicRead bool   `json:"publicRead"`
 }
@@ -67,10 +67,10 @@ var StorageEnvKeys = []string{
 }
 
 // StorageEnv returns the variables injected into application containers: a generic S3_*
-// set and the AWS_* names Laravel's s3 disk and the AWS SDKs read. publicURL is the
-// browser-reachable URL of the bucket (for Storage::url() and direct uploads); the
-// public endpoint (its scheme and host) is what presigned URLs meant for a browser must
-// be signed with, since the signature covers the host.
+// set plus the AWS_* names that Laravel's s3 disk and the AWS SDKs read. publicURL is
+// the bucket's URL as the browser sees it, for Storage::url() and direct uploads.
+// Presigned URLs meant for a browser have to be signed against that host, because the
+// signature covers it; that's what S3_PUBLIC_ENDPOINT is for.
 func StorageEnv(c StorageConfig, publicURL string) map[string]string {
 	endpoint := "http://s3:9000"
 	publicEndpoint := strings.TrimSuffix(publicURL, "/"+c.Bucket)

@@ -57,7 +57,7 @@ const (
 var appRe = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*(:[A-Za-z_][A-Za-z0-9_]*)?$`)
 
 // ValidAppPath reports whether s is an import path in appRe's form (module or
-// module:attribute) of sensible length - shared with the worker presets.
+// module:attribute) and not overly long. The worker presets use it too.
 func ValidAppPath(s string) bool { return len(s) <= 128 && appRe.MatchString(s) }
 
 // PythonPreset describes a supported application server and its defaults.
@@ -190,9 +190,9 @@ func (c PythonConfig) Command() []string {
 	}
 }
 
-// entry names what shows there is an application to run: manage.py for Django, else the
-// first component of the import path as a module (<name>.py) or a package (<name>/). The
-// name matched appRe, so it is safe inside the shell test of WrappedCommand.
+// entry returns the file that shows there is an application to run: manage.py for
+// Django, else the first part of the import path as a module (<name>.py) or a package
+// (<name>/). That name matched appRe, so it's safe in the shell test of entryGuard.
 func (c PythonConfig) entry() (module string, django bool) {
 	if c.Preset == "django" {
 		return "", true
