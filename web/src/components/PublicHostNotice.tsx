@@ -19,7 +19,7 @@ export function PublicHostNotice({ className }: { className?: string }) {
     <div className={className}>
       <Alert tone="amber" title={t("Project links need a host")}>
         <p>
-          {t("Envoryx runs with its own IP ({{address}}), but projects publish their ports on the Docker host. Links to published ports – project URLs, Mailpit, the object storage console, database ports – point at the wrong address until the Docker host is set.", { address: settings.data.proxy.address })}
+          {t("Envoryx runs with its own IP ({{address}}), but projects publish their ports on the Docker host. Links to published ports - project URLs, Mailpit, the object storage console, database ports - point at the wrong address until the Docker host is set.", { address: settings.data.proxy.address })}
         </p>
         <div className="mt-2 flex flex-wrap items-center gap-2">
           {candidate && (

@@ -8,7 +8,7 @@ containers, mount `/` and read or modify any file. Envoryx therefore treats the
 socket as its most sensitive capability:
 
 - Only `internal/docker` talks to the engine. It exposes a narrow, closed API
-  (`docker.Engine`) – there is no way for any other code path, let alone the
+  (`docker.Engine`) - there is no way for any other code path, let alone the
   browser, to pass arbitrary Docker parameters.
 - Container specs are built by the planner from a fixed catalogue. The spec type
   cannot express privileged mode, added capabilities, host networking, device
@@ -20,7 +20,7 @@ socket as its most sensitive capability:
   `ErrNotManaged` (HTTP 403) and remain untouched. This is covered by unit tests
   (fake engine) and integration tests (`go test -tags integration`).
 - Foreign containers appear read-only in the diagnostics view with name, image,
-  state and ports only – no labels, env or mounts.
+  state and ports only - no labels, env or mounts.
 - The API never accepts container IDs for mutations. Operations address
   `projectID + service kind`; the backend resolves the container.
 
@@ -85,7 +85,7 @@ container or the host: every session is a `docker exec` into the selected
 project's PHP/Node container as `PUID:PGID`, with the same environment the
 terminal tab uses. Authentication is an API token (password) or a public key
 from the settings; ten failures lock an IP for five minutes. The exec
-command line is passed to `/bin/sh -lc` inside that container – this is the
+command line is passed to `/bin/sh -lc` inside that container - this is the
 same capability the browser terminal already grants. SFTP is a virtual view
 of exactly two directories (project, persistent home) served from Envoryx's
 side of the bind mounts with lexical containment; symlinks may not point
@@ -114,7 +114,7 @@ routes address `project + service kind` and resolve the container server-side.
 
 ## Input validation
 
-- Project names: 2–64 printable characters; identifiers (slugs) derived and
+- Project names: 2-64 printable characters; identifiers (slugs) derived and
   validated against `^[a-z0-9]([a-z0-9-]{0,38}[a-z0-9])?$`.
 - Project paths are **relative** to `/projects`, at most 3 segments, no `.`/`..`,
   no hidden segments, restricted character set. Resolved paths are checked
@@ -139,7 +139,7 @@ routes address `project + service kind` and resolve the container server-side.
 - Deleting a project requires the project identifier to be typed as confirmation.
   Project files are only removed with an explicit second flag.
 - Rollback after a failed create removes only resources recorded in the operation
-  journal (all label-guarded) – never project files.
+  journal (all label-guarded) - never project files.
 - Reconciliation never deletes anything; orphaned resources are reported.
 - Interrupted create/delete operations (Envoryx restart) are marked `failed` and
   surfaced in the UI instead of being auto-repaired.
@@ -154,7 +154,7 @@ routes address `project + service kind` and resolve the container server-side.
   stored in SQLite under `/config` (file mode 0600); protect that directory.
 - Git access tokens are stored in SQLite (write-only via the API, `hasToken`
   is the only thing returned) and passed to git through `GIT_CONFIG_*`
-  environment variables inside a transient container – never in the URL, on
+  environment variables inside a transient container - never in the URL, on
   a command line or in logs; command output is redacted before it is shown.
   Repository URLs are restricted to https/http/ssh/scp-like forms (no
   `file://`, `ext::`, local paths, embedded passwords or option-like values),
@@ -183,11 +183,11 @@ dump whose flavour matches the project's database.
 
 - The embedded proxy only routes host names that belong to a project or to
   Envoryx itself; unknown names get a static 404 page, stopped projects a 503.
-  It never proxies to arbitrary upstreams – targets are container names
+  It never proxies to arbitrary upstreams - targets are container names
   derived from the project slug (or `127.0.0.1:<port>` on bare metal).
 - Envoryx's own container is attached to every project network so the proxy
   can reach the web containers. Consequently project containers can reach
-  Envoryx's listeners (UI port, proxy) by IP on that network – the same
+  Envoryx's listeners (UI port, proxy) by IP on that network - the same
   exposure as any LAN client: the API requires an authenticated session and
   the CSRF checks, the proxy only routes known names. Application code you
   run in a project is trusted to the same degree as code on your workstation.
@@ -203,7 +203,7 @@ dump whose flavour matches the project's database.
 - Let's Encrypt integration: the DNS provider API token is stored in
   `/config/ca/acme.json` (0600) and never returned by the API; scope it to
   the one zone (Cloudflare "Edit zone DNS" template). The ACME account key
-  lives next to it. Only dns-01 is used – no inbound connectivity is required
+  lives next to it. Only dns-01 is used - no inbound connectivity is required
   and none is opened. Challenge TXT records are removed after each attempt.
 - TLS certificates are only issued for names in the routing table, IPs and
   the configured public host; SNI for other names is rejected.

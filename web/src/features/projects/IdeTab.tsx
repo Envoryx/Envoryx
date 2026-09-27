@@ -86,7 +86,7 @@ export function IdeTab({ project: p }: { project: Project }) {
                 <FolderSync className="size-4 text-accent-500" aria-hidden /> {t("Project files (SFTP)")}
               </span>
             }
-            description={t("Open the project in PhpStorm, WebStorm & co. without a network share: the SSH server also speaks SFTP, with the container's paths. The IDE keeps a local copy and uploads every change on save – this works while the project is stopped, too.")}
+            description={t("Open the project in PhpStorm, WebStorm & co. without a network share: the SSH server also speaks SFTP, with the container's paths. The IDE keeps a local copy and uploads every change on save - this works while the project is stopped, too.")}
           />
           <div className="p-5">
             <dl>
@@ -103,13 +103,13 @@ export function IdeTab({ project: p }: { project: Project }) {
               <li>{t("Project name and an empty local folder for the copy. Deployment options “Custom”, then on the next page set “Upload changed files automatically to the default server” to “Always”.")}</li>
               <li>{t("Add Remote Server: type SFTP. “…” next to SSH configuration, then “+”: host, port and username from above, authentication type “Password” (the API token) or “Key pair”. Root path and web server URL as above.")}</li>
               <li>{t("Choose Remote Path: select the server entry and click “Project Root”, leave the web path empty, Create. The IDE downloads the files.")}</li>
-              <li>{t("Files changed inside the container (composer install, npm install, generated code) come back with a right click on the project folder → Deployment → Download from … – download vendor once for code completion.")}</li>
+              <li>{t("Files changed inside the container (composer install, npm install, generated code) come back with a right click on the project folder → Deployment → Download from … - download vendor once for code completion.")}</li>
             </ol>
             <p className="mt-3 text-xs text-subtle">
               {t("Code already on your machine (e.g. a Git clone)? Settings → Build, Execution, Deployment → Deployment → + → SFTP with the same values, “Use as Default”, then Tools → Deployment → Automatic Upload.")}
             </p>
             <p className="mt-2 text-xs text-subtle">
-              {t("On the first connection the IDE shows the host key as MD5 – compare it with “Host key (MD5)” under Remote interpreter. No local copy wanted? Open the network share directly or use JetBrains Gateway.")}
+              {t("On the first connection the IDE shows the host key as MD5 - compare it with “Host key (MD5)” under Remote interpreter. No local copy wanted? Open the network share directly or use JetBrains Gateway.")}
             </p>
           </div>
         </Card>
@@ -138,9 +138,9 @@ export function IdeTab({ project: p }: { project: Project }) {
           {!ssh?.enabled ? (
             <Alert tone="amber">{t("The SSH server is disabled (ENVORYX_SSH is empty).")}</Alert>
           ) : ssh.port === 0 ? (
-            <Alert tone="amber">{t("The SSH port 2222 is not published on the host – add a port mapping 2222:2222 to the Envoryx container.")}</Alert>
+            <Alert tone="amber">{t("The SSH port 2222 is not published on the host - add a port mapping 2222:2222 to the Envoryx container.")}</Alert>
           ) : !app ? (
-            <Alert tone="gray">{t("This project has no application container – SSH sessions need PHP, Python, Go, Ruby or Node.js.")}</Alert>
+            <Alert tone="gray">{t("This project has no application container - SSH sessions need PHP, Python, Go, Ruby or Node.js.")}</Alert>
           ) : (
             <dl>
               <CopyRow label={t("Host")} value={sshHost} />
@@ -181,7 +181,7 @@ export function IdeTab({ project: p }: { project: Project }) {
               <MonitorSmartphone className="size-4 text-accent-500" aria-hidden /> {t("JetBrains Gateway (optional)")}
             </span>
           }
-          description={t("Run the full PhpStorm/WebStorm/GoLand/RubyMine backend inside the project container and work with the thin client. Needs a capable server: 2–4 GB RAM and CPU per open project. Nothing runs until you connect.")}
+          description={t("Run the full PhpStorm/WebStorm/GoLand/RubyMine backend inside the project container and work with the thin client. Needs a capable server: 2-4 GB RAM and CPU per open project. Nothing runs until you connect.")}
         />
         <div className="space-y-3 p-5">
           {gwMsg && <Alert tone={gwMsg.tone}>{gwMsg.text}</Alert>}
@@ -196,7 +196,7 @@ export function IdeTab({ project: p }: { project: Project }) {
               update.mutate(
                 { ideGateway: enable },
                 {
-                  onSuccess: () => setGwMsg({ tone: "green", text: enable ? t("JetBrains Gateway enabled – the container was recreated.") : t("JetBrains Gateway disabled – the container was recreated.") }),
+                  onSuccess: () => setGwMsg({ tone: "green", text: enable ? t("JetBrains Gateway enabled - the container was recreated.") : t("JetBrains Gateway disabled - the container was recreated.") }),
                   onError: (err) => setGwMsg({ tone: "red", text: errorText(err, t, t("Saving failed")) }),
                 },
               );
@@ -238,7 +238,7 @@ export function IdeTab({ project: p }: { project: Project }) {
                 <Bug className="size-4 text-accent-500" aria-hidden /> Xdebug
               </span>
             }
-            description={phpCfg.xdebug ? t("Enabled ({{mode}}). PhpStorm: Settings → PHP → Servers.", { mode: phpCfg.xdebugMode ?? "always" }) : t("Not enabled – switch it on in the Runtime tab. Values below apply once enabled.")}
+            description={phpCfg.xdebug ? t("Enabled ({{mode}}). PhpStorm: Settings → PHP → Servers.", { mode: phpCfg.xdebugMode ?? "always" }) : t("Not enabled - switch it on in the Runtime tab. Values below apply once enabled.")}
           />
           <div className="p-5">
             <dl>
@@ -270,7 +270,7 @@ export function IdeTab({ project: p }: { project: Project }) {
             description={
               nodeCfg.inspect && nodeCfg.inspectHostPort
                 ? t("The inspector port is published. Start the inspector in your script and attach from the IDE with the values below.")
-                : t("Not enabled – switch on “Publish the Node.js inspector port” in the Runtime tab (dev server required). Values below apply once enabled.")
+                : t("Not enabled - switch on “Publish the Node.js inspector port” in the Runtime tab (dev server required). Values below apply once enabled.")
             }
           />
           <div className="p-5">
@@ -281,7 +281,7 @@ export function IdeTab({ project: p }: { project: Project }) {
               <CopyRow label={t("Path mapping")} value={`${hostDir} → /var/www/html`} />
             </dl>
             <p className="mt-3 text-xs text-muted">
-              {t("Only the port is published – the inspector has to be started by your script, otherwise NODE_OPTIONS would attach the debugger to npm instead of your app. Examples for package.json:")}
+              {t("Only the port is published - the inspector has to be started by your script, otherwise NODE_OPTIONS would attach the debugger to npm instead of your app. Examples for package.json:")}
             </p>
             <pre className="mt-1 overflow-x-auto rounded-md bg-muted p-2 font-mono text-[11px]">{nodeDebugExamples(nodeCfg.inspectPort ?? 9229)}</pre>
             <p className="mt-2 text-xs text-subtle">
@@ -302,7 +302,7 @@ export function IdeTab({ project: p }: { project: Project }) {
             description={
               pyCfg.debug && pyCfg.debugHostPort
                 ? t("The debugpy port is published. Start debugpy in your application and attach from the IDE with the values below.")
-                : t("Not enabled – switch on “Publish the debugpy port” in the Runtime tab. Values below apply once enabled.")
+                : t("Not enabled - switch on “Publish the debugpy port” in the Runtime tab. Values below apply once enabled.")
             }
           />
           <div className="p-5">
@@ -313,11 +313,11 @@ export function IdeTab({ project: p }: { project: Project }) {
               <CopyRow label={t("Path mapping")} value={`${hostDir} → /var/www/html`} />
             </dl>
             <p className="mt-3 text-xs text-muted">
-              {t("Only the port is published – debugpy has to be started by your application (pip install debugpy in the .venv). Examples:")}
+              {t("Only the port is published - debugpy has to be started by your application (pip install debugpy in the .venv). Examples:")}
             </p>
             <pre className="mt-1 overflow-x-auto rounded-md bg-muted p-2 font-mono text-[11px]">{pythonDebugExamples(pyCfg.debugPort ?? 5678)}</pre>
             <p className="mt-2 text-xs text-subtle">
-              {t("VS Code: a launch.json entry of type debugpy with request attach, connect host/port from above and pathMappings localRoot/remoteRoot. PyCharm: Run → Edit Configurations → Python Debug Server listens on your machine instead – use its pydevd-pycharm snippet with your workstation's address as the host.")}
+              {t("VS Code: a launch.json entry of type debugpy with request attach, connect host/port from above and pathMappings localRoot/remoteRoot. PyCharm: Run → Edit Configurations → Python Debug Server listens on your machine instead - use its pydevd-pycharm snippet with your workstation's address as the host.")}
             </p>
           </div>
         </Card>
@@ -336,7 +336,7 @@ export function IdeTab({ project: p }: { project: Project }) {
                 ? goCfg.server
                   ? t("The server runs under a headless Delve. Attach from the IDE with the values below; breakpoints survive every rebuild.")
                   : t("The Delve port is published. Start dlv headless in the Go terminal, then attach from the IDE with the values below.")
-                : t("Not enabled – switch on “Debug with Delve” in the Runtime tab. Values below apply once enabled.")
+                : t("Not enabled - switch on “Debug with Delve” in the Runtime tab. Values below apply once enabled.")
             }
           />
           <div className="p-5">
@@ -378,7 +378,7 @@ export function IdeTab({ project: p }: { project: Project }) {
                 ? rbCfg.server
                   ? t("The server runs under rdbg (the debug gem). Attach VS Code or rdbg -A with the values below.")
                   : t("The rdbg port is published. Start rdbg --open in the Ruby terminal, then attach with the values below.")
-                : t("Not enabled – switch on “Debug with rdbg” in the Runtime tab. Values below apply once enabled.")
+                : t("Not enabled - switch on “Debug with rdbg” in the Runtime tab. Values below apply once enabled.")
             }
           />
           <div className="p-5">

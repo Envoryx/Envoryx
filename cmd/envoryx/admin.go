@@ -70,7 +70,7 @@ func adminCommand(args []string) int {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	if _, err := os.Stat(cfg.DatabasePath); errors.Is(err, os.ErrNotExist) {
-		fmt.Fprintf(os.Stderr, "envoryx admin: no database at %s yet – start the server once, then retry\n", cfg.DatabasePath)
+		fmt.Fprintf(os.Stderr, "envoryx admin: no database at %s yet - start the server once, then retry\n", cfg.DatabasePath)
 		return 1
 	}
 	sqlDB, err := db.OpenRaw(ctx, cfg.DatabasePath, log)
@@ -87,7 +87,7 @@ func adminCommand(args []string) int {
 		return 1
 	}
 	if schema != db.LatestVersion() {
-		fmt.Fprintf(os.Stderr, "envoryx admin: database schema %d, this build expects %d – start the server once so it migrates the database, then retry\n", schema, db.LatestVersion())
+		fmt.Fprintf(os.Stderr, "envoryx admin: database schema %d, this build expects %d - start the server once so it migrates the database, then retry\n", schema, db.LatestVersion())
 		return 1
 	}
 	st := store.New(sqlDB)
@@ -145,7 +145,7 @@ func (c *adminCLI) users(ctx context.Context) error {
 		return err
 	}
 	if len(users) == 0 {
-		fmt.Fprintln(c.out, "No accounts – the setup page is shown on the next visit.")
+		fmt.Fprintln(c.out, "No accounts - the setup page is shown on the next visit.")
 		return nil
 	}
 	tw := tabwriter.NewWriter(c.out, 0, 8, 2, ' ', 0)
@@ -203,7 +203,7 @@ func (c *adminCLI) pickUser(ctx context.Context, username string) (store.User, e
 	}
 	switch len(users) {
 	case 0:
-		return store.User{}, errors.New("no accounts exist – open the web interface, the setup page creates the first one")
+		return store.User{}, errors.New("no accounts exist - open the web interface, the setup page creates the first one")
 	case 1:
 		return users[0], nil
 	}

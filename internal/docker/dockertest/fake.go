@@ -85,7 +85,7 @@ type Fake struct {
 	StreamStderr func(container string, cmd []string) string
 
 	// ReadsStdin tells the fake whether a streamed command consumes stdin to EOF (the
-	// default). Commands that ignore stdin must not block on it – like the real engine.
+	// default). Commands that ignore stdin must not block on it - like the real engine.
 	ReadsStdin func(cmd []string) bool
 	// ExecHandler simulates commands run inside containers. It receives the container name
 	// and the argv; nil means every command succeeds with empty output.
@@ -172,7 +172,7 @@ func (f *Fake) SetUnavailable(down bool) {
 	f.Unavailable = down
 }
 
-// Dangle removes a tag but keeps its image as dangling – the state an older Envoryx (no
+// Dangle removes a tag but keeps its image as dangling - the state an older Envoryx (no
 // rollback tags yet) or a re-pull leaves behind.
 func (f *Fake) Dangle(ref string) {
 	f.mu.Lock()
@@ -301,7 +301,7 @@ func (f *Fake) guard(idOrName string) (*FakeContainer, error) {
 
 // toContainer builds the listing view. Like Docker's ContainerList (daemon/list.go,
 // refreshImage), Image is the reference given at creation unless that reference no longer
-// resolves to the container's image id – then it is the id itself.
+// resolves to the container's image id - then it is the id itself.
 func (f *Fake) toContainer(c *FakeContainer) docker.Container {
 	ports := make([]docker.PortMapping, 0, len(c.Spec.Ports))
 	for _, p := range c.Spec.Ports {

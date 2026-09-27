@@ -8,7 +8,7 @@ and code are all welcome.
 - **Bugs and ideas:** open an issue. For anything larger than a small fix,
   please discuss it in an issue first so we agree on the approach before you
   spend time on it.
-- **Security issues:** do not open a public issue – see
+- **Security issues:** do not open a public issue - see
   [SECURITY.md](SECURITY.md).
 - **Setup, tests and coding conventions:** see
   [DEVELOPMENT.md](DEVELOPMENT.md). `make test` must pass before you open a
@@ -25,7 +25,7 @@ sign is published as a
 is identical to `CLA.md` in this repository.
 
 In short: you keep your copyright and grant Envoryx a license to use your
-contribution – including under licenses other than the AGPL, so that the
+contribution - including under licenses other than the AGPL, so that the
 project can be offered under additional terms or handed over to a successor
 without asking every past contributor. In return, Envoryx commits that your
 contribution always stays available as open source.

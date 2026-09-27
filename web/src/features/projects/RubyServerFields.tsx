@@ -27,7 +27,7 @@ export function rubyServerRequest(f: RubyServerForm): { server: boolean; mode: s
   };
 }
 
-/** What the backend runs for a preset and mode (runtime.RubyConfig.Command) – shown so the choice is clear. */
+/** What the backend runs for a preset and mode (runtime.RubyConfig.Command) - shown so the choice is clear. */
 export function rubyCommandHint(preset: string, mode: string, port: string, debug: boolean): string {
   const p = port || (preset === "rack" ? "9292" : "3000");
   const cmd = preset === "rails" && mode !== "production" ? `bin/rails server -b 0.0.0.0 -p ${p}` : `bundle exec puma -b tcp://0.0.0.0:${p}`;
@@ -64,7 +64,7 @@ export function RubyServerFields({
         label={t("Run the Ruby server")}
         description={
           primary
-            ? t("The server becomes the container's main process (restarted automatically) and answers on the project URL plus a direct host port. It needs a Gemfile – use a Ruby template, clone a repository or run rails new in the Ruby terminal. bundle install runs before every start when gems are missing.")
+            ? t("The server becomes the container's main process (restarted automatically) and answers on the project URL plus a direct host port. It needs a Gemfile - use a Ruby template, clone a repository or run rails new in the Ruby terminal. bundle install runs before every start when gems are missing.")
             : t("The server becomes the container's main process (restarted automatically) on a direct host port; the project URL keeps reaching PHP, Python or Go.")
         }
         checked={value.server}

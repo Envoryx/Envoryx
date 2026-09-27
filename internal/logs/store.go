@@ -162,8 +162,8 @@ func (s *Store) Append(k Key, lines []docker.LogLine) error {
 	return nil
 }
 
-// dayFile is one day of one key, plain, gzipped or – briefly, or after a late write to
-// a compressed day – both.
+// dayFile is one day of one key, plain, gzipped or - briefly, or after a late write to
+// a compressed day - both.
 type dayFile struct {
 	day   string
 	plain string

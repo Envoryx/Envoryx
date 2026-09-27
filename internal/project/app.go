@@ -174,7 +174,7 @@ func nodeServesApp(p store.Project) (runtime.NodeConfig, bool) {
 }
 
 // appServesDirectly reports whether an application container answers the project URL
-// itself (Python, Go or Ruby server, Node dev server) – the web container's port then stays
+// itself (Python, Go or Ruby server, Node dev server) - the web container's port then stays
 // unpublished so the docroot (often the project root with .env and sources) is not
 // exposed on the LAN.
 func appServesDirectly(p store.Project) bool {
@@ -213,7 +213,7 @@ func Serves(p store.Project) string {
 }
 
 // toolImage returns the image for one-shot containers (git, templates): the application
-// container's image (PHP, Python, Go, Ruby or Node – git and ssh ship in every Envoryx image), else
+// container's image (PHP, Python, Go, Ruby or Node - git and ssh ship in every Envoryx image), else
 // the catalogue's default Node image. Fails only when the catalogue has no Node image.
 func (m *Manager) toolImage(p store.Project) (string, error) {
 	if svc := appService(p); svc != nil && svc.Image != "" {

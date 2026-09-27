@@ -131,9 +131,9 @@ func detectTestSuites(dir string, p store.Project) []TestSuite {
 			// symfony/phpunit-bridge installs its own PHPUnit behind this script.
 			out = append(out, TestSuite{ID: "phpunit", Framework: "phpunit", Label: "PHPUnit (Symfony)", Service: store.ServicePHP, Cmd: []string{"php", "bin/phpunit"}, Report: true, FilterHint: "--filter", Available: true, build: phpunitReport("php", "bin/phpunit")})
 		case wants("pestphp/pest"):
-			out = append(out, TestSuite{ID: "pest", Framework: "pest", Label: "Pest", Service: store.ServicePHP, Cmd: []string{"vendor/bin/pest"}, Report: true, Reason: "vendor/bin/pest not found – run composer install"})
+			out = append(out, TestSuite{ID: "pest", Framework: "pest", Label: "Pest", Service: store.ServicePHP, Cmd: []string{"vendor/bin/pest"}, Report: true, Reason: "vendor/bin/pest not found - run composer install"})
 		case wants("phpunit/phpunit") || wants("symfony/phpunit-bridge"):
-			out = append(out, TestSuite{ID: "phpunit", Framework: "phpunit", Label: "PHPUnit", Service: store.ServicePHP, Cmd: []string{"vendor/bin/phpunit"}, Report: true, Reason: "vendor/bin/phpunit not found – run composer install"})
+			out = append(out, TestSuite{ID: "phpunit", Framework: "phpunit", Label: "PHPUnit", Service: store.ServicePHP, Cmd: []string{"vendor/bin/phpunit"}, Report: true, Reason: "vendor/bin/phpunit not found - run composer install"})
 		}
 	}
 
@@ -190,7 +190,7 @@ func detectTestSuites(dir string, p store.Project) []TestSuite {
 					return argv, []string{"PLAYWRIGHT_JUNIT_OUTPUT_NAME=" + report}
 				}}
 			if !exists("node_modules/.bin/playwright") {
-				s.Available, s.Reason = false, "node_modules/.bin/playwright not found – run npm install"
+				s.Available, s.Reason = false, "node_modules/.bin/playwright not found - run npm install"
 			}
 			out = append(out, s)
 		}
@@ -204,7 +204,7 @@ func detectTestSuites(dir string, p store.Project) []TestSuite {
 					return argv, nil
 				}}
 			if !exists("node_modules/.bin/cypress") {
-				s.Available, s.Reason = false, "node_modules/.bin/cypress not found – run npm install"
+				s.Available, s.Reason = false, "node_modules/.bin/cypress not found - run npm install"
 			}
 			out = append(out, s)
 		}
@@ -282,7 +282,7 @@ func detectTestSuites(dir string, p store.Project) []TestSuite {
 var rubyTestEnv = []string{"RAILS_ENV=test", "RACK_ENV=test", "APP_ENV=test", "HANAMI_ENV=test"}
 
 // rubyTestScript points DATABASE_URL at <database>_test on the same server before the
-// runner starts. Active Record merges DATABASE_URL into whatever environment runs – the
+// runner starts. Active Record merges DATABASE_URL into whatever environment runs - the
 // test run would otherwise load its fixtures into the development database and empty its
 // tables. A URL with a query (MongoDB's authSource) is left alone. ensureTestDatabase
 // creates the database; loading the schema is Rails' job (maintain_test_schema).
@@ -293,7 +293,7 @@ esac
 exec "$@"`
 
 // ensureTestDatabase creates <database>_test on the project's primary SQL database when it
-// is missing – as the administrator, who grants the project login access: MySQL's and
+// is missing - as the administrator, who grants the project login access: MySQL's and
 // MariaDB's project login may not create databases itself. Callers hold the lock. A
 // project without an SQL database has nothing to prepare; a server that cannot be asked
 // (stopped, unreachable) is left to the test run's own error.

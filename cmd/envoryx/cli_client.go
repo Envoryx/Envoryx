@@ -23,7 +23,7 @@ import (
 )
 
 // client talks to a running Envoryx over its REST API. Everything the CLI does goes
-// through the same endpoints the web interface uses, authenticated with an API token –
+// through the same endpoints the web interface uses, authenticated with an API token -
 // there is no second, privileged path into the server.
 type client struct {
 	base  *url.URL
@@ -213,7 +213,7 @@ func decodeAPIError(resp *http.Response) error {
 		err.Message += "\nCheck the token: envoryx login --url " + resp.Request.URL.Scheme + "://" + resp.Request.URL.Host
 	case http.StatusNotFound:
 		if body.Error.Code == "" {
-			err.Message = "no such route – is " + resp.Request.URL.Host + " an Envoryx server?"
+			err.Message = "no such route - is " + resp.Request.URL.Host + " an Envoryx server?"
 		}
 	}
 	return err

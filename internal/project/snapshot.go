@@ -14,15 +14,15 @@ import (
 
 // A snapshot is a backup of one database of a project and nothing else: the dump you want
 // taken before a migration, a mass update or a query you are not sure about, and put back
-// with one click when it goes wrong. It is the ordinary backup machinery – same directory
-// under /config/backups, same metadata, same dump and import path – so a snapshot can be
+// with one click when it goes wrong. It is the ordinary backup machinery - same directory
+// under /config/backups, same metadata, same dump and import path - so a snapshot can be
 // listed, downloaded, restored and deleted like any other backup; what sets it apart is
 // that it holds the database only and carries `source: "snapshot"`.
 //
 // Snapshots roll: the newest snapshotKeep of a project stay, older ones go when a new one
 // is taken. Taking one is meant to be cheap enough to do before every migration, and a
 // year of those is not what anybody wants to find in their backup directory. Only
-// snapshots are pruned – scheduled backups, the dump a database upgrade takes and
+// snapshots are pruned - scheduled backups, the dump a database upgrade takes and
 // everything made by hand are left alone.
 const (
 	snapshotSource = "snapshot"
@@ -88,7 +88,7 @@ func (m *Manager) snapshotLocked(ctx context.Context, p store.Project, db, note,
 }
 
 // ListSnapshots returns the backups of a project that hold a dump of the database db and
-// nothing but dumps, newest first – the snapshots taken by hand, the ones a clone took and
+// nothing but dumps, newest first - the snapshots taken by hand, the ones a clone took and
 // the dump a database upgrade insisted on.
 func (m *Manager) ListSnapshots(ctx context.Context, id, db string) ([]BackupInfo, error) {
 	list, err := m.ListBackups(ctx, id)
@@ -229,7 +229,7 @@ type CloneDatabaseResult struct {
 	Snapshot *BackupInfo `json:"snapshot,omitempty"`
 }
 
-// CloneDatabase copies the contents of another project's primary database into this one –
+// CloneDatabase copies the contents of another project's primary database into this one -
 // "give me what staging has" without a dump file in between: the dump is piped straight
 // into the target's client, the same way a duplicated project gets its data. The source is
 // only read; the target's database is replaced, so a snapshot of it is taken first unless
@@ -265,7 +265,7 @@ func (m *Manager) cloneDatabase(ctx context.Context, id string, req CloneDatabas
 		sourceDB = *req.SourceDB
 	}
 	// The source is read for the length of the clone and the target rewritten, so both
-	// are locked, source first as when a project is duplicated – once, when they are two
+	// are locked, source first as when a project is duplicated - once, when they are two
 	// databases of the same project.
 	if req.Source != id {
 		unlockSrc, err := m.lock(req.Source)
@@ -307,7 +307,7 @@ func (m *Manager) cloneDatabase(ctx context.Context, id string, req CloneDatabas
 		return CloneDatabaseResult{}, err
 	}
 	if srcSvc.Variant != dstSvc.Variant {
-		return CloneDatabaseResult{}, fmt.Errorf("%w: %s runs %s, %s runs %s – a dump of one is not a dump of the other", ErrConflict, src.Slug, srcSvc.Variant, dst.Slug, dstSvc.Variant)
+		return CloneDatabaseResult{}, fmt.Errorf("%w: %s runs %s, %s runs %s - a dump of one is not a dump of the other", ErrConflict, src.Slug, srcSvc.Variant, dst.Slug, dstSvc.Variant)
 	}
 	res := CloneDatabaseResult{Source: src.Slug, Database: dstCfg.Database}
 	// One start of the target's database covers the snapshot and the import; copyDatabase

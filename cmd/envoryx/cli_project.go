@@ -355,7 +355,7 @@ const renameUsage = `Usage: envoryx project rename <project> <new name> [flags]
 
 Renames the project and everything derived from its identifier: URL and extra host
 names, container, network and volume names, the SSH users, the project directory, the
-backup directory and – unless --keep-data-names – the database, its login and the
+backup directory and - unless --keep-data-names - the database, its login and the
 bucket. Containers are recreated, so the project is briefly unavailable; it ends up
 running again if it was running.
 

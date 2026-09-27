@@ -11,7 +11,7 @@ import (
 )
 
 // A virtual environment lives in the project directory, so it survives a container
-// recreate – but it is built for one Python minor version: the packages sit in
+// recreate - but it is built for one Python minor version: the packages sit in
 // .venv/lib/python<major>.<minor>/site-packages and an interpreter of another minor does
 // not look there. After a version change the venv is therefore still present and still
 // empty from the new interpreter's point of view, and an application server starts only
@@ -78,5 +78,5 @@ func (m *Manager) venvWarning(p store.Project) string {
 	if !ok || built == majorMinor(svc.Version) {
 		return ""
 	}
-	return fmt.Sprintf("the virtual environment was built for Python %s but the container runs %s – its packages are invisible to the new interpreter; %s", built, majorMinor(svc.Version), rebuildHint(dir))
+	return fmt.Sprintf("the virtual environment was built for Python %s but the container runs %s - its packages are invisible to the new interpreter; %s", built, majorMinor(svc.Version), rebuildHint(dir))
 }

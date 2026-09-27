@@ -1,7 +1,7 @@
 // Package instance creates and restores backups of the Envoryx instance itself: the
 // SQLite database (users, sessions, tokens, projects, settings), the local CA, the SSH
 // host and deploy keys, notification settings and the generated per-project
-// configuration. Project files and Docker volumes are not part of it – those are covered
+// configuration. Project files and Docker volumes are not part of it - those are covered
 // by project backups.
 //
 // A backup is a single gzip tarball:

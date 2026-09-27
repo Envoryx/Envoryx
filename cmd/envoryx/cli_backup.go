@@ -61,7 +61,7 @@ func (b backupInfo) contents() string {
 		parts = append(parts, "storage")
 	}
 	if len(parts) == 0 {
-		return "–"
+		return "-"
 	}
 	return strings.Join(parts, "+")
 }
@@ -119,7 +119,7 @@ func (c *cli) backupList(ctx context.Context, args []string) error {
 	for _, b := range body.Backups {
 		note := b.Meta.Note
 		if b.Missing {
-			note = "archive missing – " + note
+			note = "archive missing - " + note
 		}
 		row := []string{b.ID, b.CreatedAt.Local().Format("2006-01-02 15:04"), b.contents(), humanSize(b.SizeBytes), b.Meta.Source}
 		if len(body.OffsiteTargets) > 0 {

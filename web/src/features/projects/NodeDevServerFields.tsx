@@ -74,7 +74,7 @@ export function NodeDevServerFields({
         label={t("Run a dev server")}
         description={
           primary
-            ? t("The script becomes the container's main process (restarted automatically) and answers on the project URL; <slug>-dev.<base domain> and a direct host port point at it too. Needs a package.json – use a Node template, clone a repository or scaffold from the Node terminal.")
+            ? t("The script becomes the container's main process (restarted automatically) and answers on the project URL; <slug>-dev.<base domain> and a direct host port point at it too. Needs a package.json - use a Node template, clone a repository or scaffold from the Node terminal.")
             : t("The script becomes the container's main process (restarted automatically) and is reachable at <slug>-dev.<base domain> through the proxy plus a direct host port.")
         }
         checked={value.devServer}
@@ -86,7 +86,7 @@ export function NodeDevServerFields({
           <div className="grid gap-2 sm:grid-cols-2">
             {[
               { key: "dev", label: t("Dev server"), text: t("The script runs with hot reload; the container restarts it when it exits.") },
-              { key: "production", label: t("Production build"), text: t("Every container start runs the build script, then the serve script with NODE_ENV=production – a production-like run of Next.js, Nuxt or Vite preview.") },
+              { key: "production", label: t("Production build"), text: t("Every container start runs the build script, then the serve script with NODE_ENV=production - a production-like run of Next.js, Nuxt or Vite preview.") },
             ].map((m) => (
               <label key={m.key} className={`flex cursor-pointer items-start gap-2 rounded-md border px-3 py-2 text-sm ${value.mode === m.key ? "border-accent-500 bg-accent-500/5" : "border-default"}`}>
                 <input type="radio" name={`${idPrefix}-mode`} className="mt-0.5 accent-accent-600" checked={value.mode === m.key} onChange={() => chooseMode(m.key)} aria-label={m.label} />
@@ -132,7 +132,7 @@ export function NodeDevServerFields({
         <div className="space-y-3">
           <Checkbox
             label={t("Publish the Node.js inspector port")}
-            description={t("For attaching a debugger from WebStorm or VS Code. Only the port is published: start the inspector in your script, e.g. NODE_OPTIONS='--inspect=0.0.0.0:9229' next dev – set for the whole container it would attach to npm instead of your app. The IDE tab has the details.")}
+            description={t("For attaching a debugger from WebStorm or VS Code. Only the port is published: start the inspector in your script, e.g. NODE_OPTIONS='--inspect=0.0.0.0:9229' next dev - set for the whole container it would attach to npm instead of your app. The IDE tab has the details.")}
             checked={value.inspect}
             onChange={(e) => set({ inspect: e.target.checked })}
           />

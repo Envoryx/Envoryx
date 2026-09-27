@@ -168,7 +168,7 @@ func TestProjectExecSendsStdinAndPicksTheService(t *testing.T) {
 	}
 }
 
-// The API's refusals are printed as they arrive – a token without the right scope says so.
+// The API's refusals are printed as they arrive - a token without the right scope says so.
 func TestAPIRefusalsAreReported(t *testing.T) {
 	srv := newFakeServer(t, map[string]func(http.ResponseWriter, *http.Request){
 		"POST /api/v1/projects/{id}/start": func(w http.ResponseWriter, r *http.Request) {
@@ -249,7 +249,7 @@ func TestProjectDuplicateSendsOnlyTheSwitchedOffParts(t *testing.T) {
 }
 
 // login checks the token before it writes it down, and the file is readable by its owner
-// only – it holds a credential.
+// only - it holds a credential.
 func TestLoginStoresTheTokenOnlyAfterCheckingIt(t *testing.T) {
 	srv := newFakeServer(t, map[string]func(http.ResponseWriter, *http.Request){
 		"GET /api/v1/auth/me": func(w http.ResponseWriter, r *http.Request) {

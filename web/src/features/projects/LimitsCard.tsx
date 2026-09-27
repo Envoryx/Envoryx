@@ -58,7 +58,7 @@ function GroupFields({ id, title, hint, form, onChange }: { id: string; title: s
       <legend className="px-1 text-sm font-medium text-fg">{title}</legend>
       <p className="text-xs text-muted">{hint}</p>
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label={t("CPU cores per container")} htmlFor={`${id}-cpus`} hint={t("e.g. 1.5 – empty: no limit")}>
+        <Field label={t("CPU cores per container")} htmlFor={`${id}-cpus`} hint={t("e.g. 1.5 - empty: no limit")}>
           <Input id={`${id}-cpus`} inputMode="decimal" value={form.cpus} onChange={(e) => onChange({ ...form, cpus: e.target.value })} placeholder={t("no limit")} />
         </Field>
         <Field label={t("Memory per container")} htmlFor={`${id}-memory`} hint={t("empty: no limit")}>
@@ -145,7 +145,7 @@ export function LimitsCard({ project }: { project: Project }) {
             <Input id="limits-pids" inputMode="numeric" value={pids} onChange={(e) => setPids(e.target.value.replace(/[^0-9]/g, ""))} placeholder={String(DEFAULT_PIDS)} />
           </Field>
         </div>
-        <p className="text-xs text-subtle">{t("Changes apply to running containers right away; only removing a CPU or memory limit restarts the affected containers. When a container reaches its memory limit, the kernel ends a process in it – the project then shows a warning and Envoryx sends a notification.")}</p>
+        <p className="text-xs text-subtle">{t("Changes apply to running containers right away; only removing a CPU or memory limit restarts the affected containers. When a container reaches its memory limit, the kernel ends a process in it - the project then shows a warning and Envoryx sends a notification.")}</p>
 
         <div className="space-y-2 border-t border-default pt-4">
           <p className="text-sm font-medium text-fg">{t("Usage now")}</p>

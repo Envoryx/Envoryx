@@ -8,7 +8,7 @@ import "./foundry.css";
 
 const REPO = "https://github.com/envoryx/envoryx";
 
-/** The spatial foundry – a 38-second ASCII short film with the version and project links below, reached through the logo. */
+/** The spatial foundry - a 38-second ASCII short film with the version and project links below, reached through the logo. */
 export function FoundryPage() {
   return (
     <div>
@@ -53,7 +53,7 @@ function Film() {
 
   return (
     <div ref={root} className="foundry">
-      <section className="movie" id="movie" aria-label="The spatial foundry – animated ASCII short film">
+      <section className="movie" id="movie" aria-label="The spatial foundry - animated ASCII short film">
         <canvas id="world" role="img" aria-label="Perspective ASCII factory with two conveyor belts, spatial Docker containers and synchronised assembly arms." />
         <div className="scene-header">
           <div>

@@ -25,7 +25,7 @@ const nameRe = /^[A-Z_][A-Z0-9_]*$/;
 /**
  * Reads a .env file (pasted or chosen) into the project's variables: new ones are added,
  * changed ones replace the current value, and the ones Envoryx sets itself for a service
- * are left out unless picked – the old setup's DB_HOST=127.0.0.1 would otherwise win over
+ * are left out unless picked - the old setup's DB_HOST=127.0.0.1 would otherwise win over
  * the project database.
  */
 export function EnvImportDialog({
@@ -89,7 +89,7 @@ export function EnvImportDialog({
     if (!file) return;
     setReadError(null);
     if (file.size > 1 << 20) {
-      setReadError(t("The file is larger than 1 MB – is it really a .env file?"));
+      setReadError(t("The file is larger than 1 MB - is it really a .env file?"));
       return;
     }
     setText(await file.text());
@@ -196,7 +196,7 @@ export function EnvImportDialog({
         )}
         {rows.some((r) => r.status === "injected") && (
           <p className="text-xs text-muted">
-            {t("Variables marked “set by Envoryx” are injected for the project's services and point at them. Importing one replaces that value – leave them out unless the application really has to reach something else.")}
+            {t("Variables marked “set by Envoryx” are injected for the project's services and point at them. Importing one replaces that value - leave them out unless the application really has to reach something else.")}
           </p>
         )}
       </div>

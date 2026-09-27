@@ -20,7 +20,7 @@ const (
 	LevelError
 )
 
-// String returns "", "warn" or "error" – the value used in the API.
+// String returns "", "warn" or "error" - the value used in the API.
 func (l Level) String() string {
 	switch l {
 	case LevelWarn:
@@ -49,7 +49,7 @@ var (
 	// neither does Go's "err=<nil>".
 	errorWords = regexp.MustCompile(`(?i)\b(fatal|panic|emerg|emergency|crit|critical|error|exception|traceback)\b`)
 	warnWords  = regexp.MustCompile(`(?i)\b(warn|warning|deprecated)\b`)
-	// Access log lines: `"GET / HTTP/1.1" 502 …` – a server error is an error.
+	// Access log lines: `"GET / HTTP/1.1" 502 …` - a server error is an error.
 	status5xx = regexp.MustCompile(`" 5\d\d `)
 	// logfmt: `level=error msg=…`.
 	logfmtLevel = regexp.MustCompile(`(?i)\b(?:level|lvl|severity)="?(\w+)`)

@@ -319,7 +319,7 @@ function TargetDialog({ initial, stored, onClose, onSaved }: { initial: OffsiteT
               <Field label={t("Passphrase")} htmlFor="ot-passphrase" hint={has?.passphrase ? t("Stored. Leave empty to keep it.") : t("At least 12 characters.")}>
                 <Input id="ot-passphrase" type="password" value={form.passphrase ?? ""} onChange={(e) => set({ passphrase: e.target.value })} autoComplete="new-password" placeholder={has?.passphrase ? "••••••••" : ""} />
               </Field>
-              <Alert tone="amber">{t("Write the passphrase down somewhere else. Without it no copy can be restored – after losing this host, a fresh Envoryx needs it to read its own backups. The files open with the age tool too: age -d backup.tar.age > backup.tar")}</Alert>
+              <Alert tone="amber">{t("Write the passphrase down somewhere else. Without it no copy can be restored - after losing this host, a fresh Envoryx needs it to read its own backups. The files open with the age tool too: age -d backup.tar.age > backup.tar")}</Alert>
             </>
           )}
         </Section>
@@ -332,7 +332,7 @@ function TargetDialog({ initial, stored, onClose, onSaved }: { initial: OffsiteT
               <Input id="ot-keep" type="number" min={0} max={1000} value={form.keep} onChange={(e) => set({ keep: Number(e.target.value) })} />
             </Field>
           )}
-          <Checkbox label={t("Daily instance backup")} description={t("Database, settings, CA and keys of Envoryx itself – what a fresh Envoryx needs to come back after this host is lost.")} checked={form.instance} onChange={(e) => set({ instance: e.target.checked })} />
+          <Checkbox label={t("Daily instance backup")} description={t("Database, settings, CA and keys of Envoryx itself - what a fresh Envoryx needs to come back after this host is lost.")} checked={form.instance} onChange={(e) => set({ instance: e.target.checked })} />
           {form.instance && (
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label={t("Time")} htmlFor="ot-hour" hint={t("Server local time")}>

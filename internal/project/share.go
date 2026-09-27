@@ -17,9 +17,9 @@ import (
 )
 
 // Sharing a project puts it on a temporary public address: a Cloudflare quick tunnel
-// (trycloudflare.com – no account, no port forwarding) run by a cloudflared container
-// next to the project, pointed at the proxy – so the project's rules (basic
-// authentication, headers, redirects) apply – or at the application when there is no
+// (trycloudflare.com - no account, no port forwarding) run by a cloudflared container
+// next to the project, pointed at the proxy - so the project's rules (basic
+// authentication, headers, redirects) apply - or at the application when there is no
 // plain HTTP proxy listener. The
 // address is random and changes with every share; the share ends when its time is up,
 // when the project stops, or by hand. Anyone who has the address can open the project,

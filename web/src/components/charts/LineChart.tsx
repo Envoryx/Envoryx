@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 export interface Series {
   key: string;
   label: string;
-  /** Categorical slot 1–8 (fixed per entity, never by rank). */
+  /** Categorical slot 1-8 (fixed per entity, never by rank). */
   slot: number;
   points: [number, number | null][];
 }
@@ -195,7 +195,7 @@ export function LineChart({
                 return (
                   <li key={s.key} className="flex items-center gap-2">
                     <span className="inline-block h-0.5 w-3 shrink-0 rounded-full" style={{ background: seriesColor(s.slot) }} aria-hidden />
-                    <span className="font-semibold text-fg tabular-nums">{v == null ? "–" : format(v)}</span>
+                    <span className="font-semibold text-fg tabular-nums">{v == null ? "-" : format(v)}</span>
                     <span className="text-muted">{s.label}</span>
                   </li>
                 );
@@ -208,7 +208,7 @@ export function LineChart({
   );
 }
 
-/** The same data as a table, newest first – the way to read values without hovering. */
+/** The same data as a table, newest first - the way to read values without hovering. */
 export function SeriesTable({ series, format }: { series: Series[]; format: (v: number) => string }) {
   const { t } = useTranslation();
   const xs = [...new Set(series.flatMap((s) => s.points.map((p) => p[0])))].sort((a, b) => b - a);
@@ -234,7 +234,7 @@ export function SeriesTable({ series, format }: { series: Series[]; format: (v: 
                 const v = m.get(ts);
                 return (
                   <td key={series[i]!.key} className="px-3 py-1 text-right tabular-nums">
-                    {v == null ? "–" : format(v)}
+                    {v == null ? "-" : format(v)}
                   </td>
                 );
               })}

@@ -21,13 +21,13 @@ import (
 
 // A running container does not mean a working application: PHP may answer every request
 // with a 500, the database may be unreachable, a deploy may have left the app in
-// maintenance mode. A health check requests a path of the application at an interval –
+// maintenance mode. A health check requests a path of the application at an interval -
 // the way the proxy does, straight to the web server on the project network, with the
-// project's host name – and calls the application down after several failures in a row.
+// project's host name - and calls the application down after several failures in a row.
 // Down and recovered each send one notification (project.down).
 //
 // Checks pause while the project is stopped, while an operation (start, deploy, restart …)
-// runs on it and while the application container is not running – the reconciler reports
+// runs on it and while the application container is not running - the reconciler reports
 // that case as project.unhealthy already.
 
 // Health states.
@@ -244,7 +244,7 @@ func (m *Manager) healthTarget(ctx context.Context, p store.Project) (dial strin
 	return t.Dial, t.Running && t.Dial != "", nil
 }
 
-// CheckHealth runs a check once without storing anything – the "Test" button, which
+// CheckHealth runs a check once without storing anything - the "Test" button, which
 // may try a check that is not saved yet.
 func (m *Manager) CheckHealth(ctx context.Context, id string, h store.HealthCheck) (HealthResult, error) {
 	if err := validate.UUID(id); err != nil {

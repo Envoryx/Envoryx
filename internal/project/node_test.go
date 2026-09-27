@@ -334,7 +334,7 @@ func TestAddAndRemovePHP(t *testing.T) {
 		t.Fatal("PHP worker container must pause without PHP")
 	}
 	if len(view.Project.Workers) != 1 {
-		t.Fatal("the worker definition must survive – it comes back with PHP")
+		t.Fatal("the worker definition must survive - it comes back with PHP")
 	}
 	paused := false
 	for _, svc := range view.Status.Services {

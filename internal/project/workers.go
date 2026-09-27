@@ -86,9 +86,9 @@ func scriptPathArg(arg string) error {
 }
 
 var workerPresets = []WorkerPreset{
-	{ID: "laravel:schedule", Group: "Laravel", Label: "Scheduler", Description: "php artisan schedule:work – runs the scheduled tasks every minute", Requires: []string{"artisan"},
+	{ID: "laravel:schedule", Group: "Laravel", Label: "Scheduler", Description: "php artisan schedule:work - runs the scheduled tasks every minute", Requires: []string{"artisan"},
 		build: func(string) []string { return []string{"php", "artisan", "schedule:work"} }},
-	{ID: "laravel:queue", Group: "Laravel", Label: "Queue worker", Description: "php artisan queue:work – processes jobs (restart after code changes)", ArgLabel: "Queues", ArgHint: "e.g. default,emails (empty = default)", Requires: []string{"artisan"},
+	{ID: "laravel:queue", Group: "Laravel", Label: "Queue worker", Description: "php artisan queue:work - processes jobs (restart after code changes)", ArgLabel: "Queues", ArgHint: "e.g. default,emails (empty = default)", Requires: []string{"artisan"},
 		validateArg: queueArg,
 		build: func(arg string) []string {
 			cmd := []string{"php", "artisan", "queue:work", "--tries=3", "--sleep=3", "--max-time=3600"}
@@ -97,7 +97,7 @@ var workerPresets = []WorkerPreset{
 			}
 			return cmd
 		}},
-	{ID: "laravel:queue-listen", Group: "Laravel", Label: "Queue listener", Description: "php artisan queue:listen – slower, but picks up code changes automatically", ArgLabel: "Queues", ArgHint: "e.g. default,emails", Requires: []string{"artisan"},
+	{ID: "laravel:queue-listen", Group: "Laravel", Label: "Queue listener", Description: "php artisan queue:listen - slower, but picks up code changes automatically", ArgLabel: "Queues", ArgHint: "e.g. default,emails", Requires: []string{"artisan"},
 		validateArg: queueArg,
 		build: func(arg string) []string {
 			cmd := []string{"php", "artisan", "queue:listen", "--tries=3", "--sleep=3"}
@@ -106,13 +106,13 @@ var workerPresets = []WorkerPreset{
 			}
 			return cmd
 		}},
-	{ID: "laravel:horizon", Group: "Laravel", Label: "Horizon", Description: "php artisan horizon – Redis queue supervisor", Requires: []string{"artisan"},
+	{ID: "laravel:horizon", Group: "Laravel", Label: "Horizon", Description: "php artisan horizon - Redis queue supervisor", Requires: []string{"artisan"},
 		build: func(string) []string { return []string{"php", "artisan", "horizon"} }},
-	{ID: "laravel:reverb", Group: "Laravel", Label: "Reverb", Description: "php artisan reverb:start – WebSocket server on port 8080 inside the project network", Requires: []string{"artisan"},
+	{ID: "laravel:reverb", Group: "Laravel", Label: "Reverb", Description: "php artisan reverb:start - WebSocket server on port 8080 inside the project network", Requires: []string{"artisan"},
 		build: func(string) []string {
 			return []string{"php", "artisan", "reverb:start", "--host=0.0.0.0", "--port=8080"}
 		}},
-	{ID: "symfony:messenger", Group: "Symfony", Label: "Messenger consumer", Description: "bin/console messenger:consume – processes transports (restarts hourly)", ArgLabel: "Transports", ArgHint: "e.g. async (empty = async)", Requires: []string{"bin/console"},
+	{ID: "symfony:messenger", Group: "Symfony", Label: "Messenger consumer", Description: "bin/console messenger:consume - processes transports (restarts hourly)", ArgLabel: "Transports", ArgHint: "e.g. async (empty = async)", Requires: []string{"bin/console"},
 		validateArg: queueArg,
 		build: func(arg string) []string {
 			if arg == "" {
@@ -122,7 +122,7 @@ var workerPresets = []WorkerPreset{
 			cmd = append(cmd, strings.Split(arg, ",")...)
 			return append(cmd, "--time-limit=3600", "-vv")
 		}},
-	{ID: "symfony:scheduler", Group: "Symfony", Label: "Scheduler", Description: "bin/console messenger:consume scheduler_default – Symfony Scheduler", ArgLabel: "Schedule name", ArgHint: "empty = default", Requires: []string{"bin/console"},
+	{ID: "symfony:scheduler", Group: "Symfony", Label: "Scheduler", Description: "bin/console messenger:consume scheduler_default - Symfony Scheduler", ArgLabel: "Schedule name", ArgHint: "empty = default", Requires: []string{"bin/console"},
 		validateArg: func(arg string) error {
 			if arg != "" && !scriptNameRe.MatchString(arg) {
 				return fmt.Errorf("%w: invalid schedule name", validate.ErrInvalid)
@@ -135,7 +135,7 @@ var workerPresets = []WorkerPreset{
 			}
 			return []string{"php", "bin/console", "messenger:consume", "scheduler_" + arg, "--time-limit=3600", "-vv"}
 		}},
-	{ID: "php:script", Group: "PHP", Label: "PHP script", Description: "php <file> – any long-running script in the project directory", ArgLabel: "Script path", ArgHint: "relative to the project, e.g. bin/worker.php",
+	{ID: "php:script", Group: "PHP", Label: "PHP script", Description: "php <file> - any long-running script in the project directory", ArgLabel: "Script path", ArgHint: "relative to the project, e.g. bin/worker.php",
 		validateArg: func(arg string) error {
 			if arg == "" {
 				return fmt.Errorf("%w: script path is required", validate.ErrInvalid)
@@ -144,7 +144,7 @@ var workerPresets = []WorkerPreset{
 			return err
 		},
 		build: func(arg string) []string { p, _ := validate.RelativePath(arg, 6); return []string{"php", p} }},
-	{ID: "composer:script", Group: "Composer", Label: "Composer script", Description: "composer run-script <name> – a script from composer.json", ArgLabel: "Script name", ArgHint: "e.g. worker", Requires: []string{"composer.json"},
+	{ID: "composer:script", Group: "Composer", Label: "Composer script", Description: "composer run-script <name> - a script from composer.json", ArgLabel: "Script name", ArgHint: "e.g. worker", Requires: []string{"composer.json"},
 		validateArg: func(arg string) error {
 			if !scriptNameRe.MatchString(arg) {
 				return fmt.Errorf("%w: invalid composer script name", validate.ErrInvalid)
@@ -152,7 +152,7 @@ var workerPresets = []WorkerPreset{
 			return nil
 		},
 		build: func(arg string) []string { return []string{"composer", "run-script", "--no-interaction", "--", arg} }},
-	{ID: "node:script", Group: "Node.js", Label: "npm script", Description: "npm run <name> – a long-running script from package.json (queue consumer, scheduler, bot …)", ArgLabel: "Script name", ArgHint: "e.g. worker", Requires: []string{"package.json"}, Runtime: WorkerRuntimeNode,
+	{ID: "node:script", Group: "Node.js", Label: "npm script", Description: "npm run <name> - a long-running script from package.json (queue consumer, scheduler, bot …)", ArgLabel: "Script name", ArgHint: "e.g. worker", Requires: []string{"package.json"}, Runtime: WorkerRuntimeNode,
 		validateArg: func(arg string) error {
 			if !scriptNameRe.MatchString(arg) {
 				return fmt.Errorf("%w: invalid npm script name", validate.ErrInvalid)
@@ -160,7 +160,7 @@ var workerPresets = []WorkerPreset{
 			return nil
 		},
 		build: func(arg string) []string { return []string{"npm", "run", arg} }},
-	{ID: "node:file", Group: "Node.js", Label: "Node.js script", Description: "node <file> – any long-running script in the project directory", ArgLabel: "Script path", ArgHint: "relative to the project, e.g. workers/queue.js", Runtime: WorkerRuntimeNode,
+	{ID: "node:file", Group: "Node.js", Label: "Node.js script", Description: "node <file> - any long-running script in the project directory", ArgLabel: "Script path", ArgHint: "relative to the project, e.g. workers/queue.js", Runtime: WorkerRuntimeNode,
 		validateArg: func(arg string) error {
 			if arg == "" {
 				return fmt.Errorf("%w: script path is required", validate.ErrInvalid)
@@ -169,10 +169,10 @@ var workerPresets = []WorkerPreset{
 			return err
 		},
 		build: func(arg string) []string { p, _ := validate.RelativePath(arg, 6); return []string{"node", p} }},
-	{ID: "python:file", Group: "Python", Label: "Python script", Description: "python <file> – any long-running script in the project directory (runs in the project's .venv)", ArgLabel: "Script path", ArgHint: "relative to the project, e.g. workers/consume.py", Runtime: WorkerRuntimePython,
+	{ID: "python:file", Group: "Python", Label: "Python script", Description: "python <file> - any long-running script in the project directory (runs in the project's .venv)", ArgLabel: "Script path", ArgHint: "relative to the project, e.g. workers/consume.py", Runtime: WorkerRuntimePython,
 		validateArg: scriptPathArg,
 		build:       func(arg string) []string { p, _ := validate.RelativePath(arg, 6); return []string{"python", p} }},
-	{ID: "python:module", Group: "Python", Label: "Python module", Description: "python -m <module> – a long-running module (queue consumer, scheduler, bot …)", ArgLabel: "Module", ArgHint: "e.g. app.worker", Runtime: WorkerRuntimePython,
+	{ID: "python:module", Group: "Python", Label: "Python module", Description: "python -m <module> - a long-running module (queue consumer, scheduler, bot …)", ArgLabel: "Module", ArgHint: "e.g. app.worker", Runtime: WorkerRuntimePython,
 		validateArg: func(arg string) error {
 			if !runtime.ValidAppPath(arg) || strings.Contains(arg, ":") {
 				return fmt.Errorf("%w: invalid module path", validate.ErrInvalid)
@@ -180,7 +180,7 @@ var workerPresets = []WorkerPreset{
 			return nil
 		},
 		build: func(arg string) []string { return []string{"python", "-m", arg} }},
-	{ID: "django:command", Group: "Django", Label: "manage.py command", Description: "python manage.py <command> – a long-running management command (rqworker, qcluster, run_huey …)", ArgLabel: "Command", ArgHint: "e.g. rqworker", Requires: []string{"manage.py"}, Runtime: WorkerRuntimePython,
+	{ID: "django:command", Group: "Django", Label: "manage.py command", Description: "python manage.py <command> - a long-running management command (rqworker, qcluster, run_huey …)", ArgLabel: "Command", ArgHint: "e.g. rqworker", Requires: []string{"manage.py"}, Runtime: WorkerRuntimePython,
 		validateArg: func(arg string) error {
 			if !scriptNameRe.MatchString(arg) {
 				return fmt.Errorf("%w: invalid management command name", validate.ErrInvalid)
@@ -188,7 +188,7 @@ var workerPresets = []WorkerPreset{
 			return nil
 		},
 		build: func(arg string) []string { return []string{"python", "manage.py", arg} }},
-	{ID: "celery:worker", Group: "Celery", Label: "Celery worker", Description: "celery -A <app> worker – processes tasks (Redis or RabbitMQ broker)", ArgLabel: "Celery app", ArgHint: "e.g. config or proj.celery", Runtime: WorkerRuntimePython,
+	{ID: "celery:worker", Group: "Celery", Label: "Celery worker", Description: "celery -A <app> worker - processes tasks (Redis or RabbitMQ broker)", ArgLabel: "Celery app", ArgHint: "e.g. config or proj.celery", Runtime: WorkerRuntimePython,
 		validateArg: func(arg string) error {
 			if !runtime.ValidAppPath(arg) {
 				return fmt.Errorf("%w: invalid Celery app path", validate.ErrInvalid)
@@ -196,7 +196,7 @@ var workerPresets = []WorkerPreset{
 			return nil
 		},
 		build: func(arg string) []string { return []string{"celery", "-A", arg, "worker", "--loglevel=info"} }},
-	{ID: "celery:beat", Group: "Celery", Label: "Celery beat", Description: "celery -A <app> beat – the periodic task scheduler", ArgLabel: "Celery app", ArgHint: "e.g. config or proj.celery", Runtime: WorkerRuntimePython,
+	{ID: "celery:beat", Group: "Celery", Label: "Celery beat", Description: "celery -A <app> beat - the periodic task scheduler", ArgLabel: "Celery app", ArgHint: "e.g. config or proj.celery", Runtime: WorkerRuntimePython,
 		validateArg: func(arg string) error {
 			if !runtime.ValidAppPath(arg) {
 				return fmt.Errorf("%w: invalid Celery app path", validate.ErrInvalid)
@@ -222,9 +222,9 @@ var workerPresets = []WorkerPreset{
 // The Ruby presets run through the bundle (bundle exec, or a binstub that loads it); the
 // planner puts the bundle install in front of each, like in front of the server.
 var rubyWorkerPresets = []WorkerPreset{
-	{ID: "solidqueue:start", Group: "Solid Queue", Label: "Solid Queue", Description: "bin/jobs start – the Solid Queue supervisor with its workers, dispatchers and recurring tasks (Rails 8)", Requires: []string{"bin/jobs"}, Runtime: WorkerRuntimeRuby,
+	{ID: "solidqueue:start", Group: "Solid Queue", Label: "Solid Queue", Description: "bin/jobs start - the Solid Queue supervisor with its workers, dispatchers and recurring tasks (Rails 8)", Requires: []string{"bin/jobs"}, Runtime: WorkerRuntimeRuby,
 		build: func(string) []string { return []string{"bin/jobs", "start"} }},
-	{ID: "goodjob:start", Group: "GoodJob", Label: "GoodJob", Description: "good_job start – processes the jobs GoodJob keeps in PostgreSQL", ArgLabel: "Queues", ArgHint: "e.g. default,mailers (empty = all)", Requires: []string{"Gemfile"}, Runtime: WorkerRuntimeRuby,
+	{ID: "goodjob:start", Group: "GoodJob", Label: "GoodJob", Description: "good_job start - processes the jobs GoodJob keeps in PostgreSQL", ArgLabel: "Queues", ArgHint: "e.g. default,mailers (empty = all)", Requires: []string{"Gemfile"}, Runtime: WorkerRuntimeRuby,
 		validateArg: queueArg,
 		build: func(arg string) []string {
 			cmd := []string{"bundle", "exec", "good_job", "start"}
@@ -233,7 +233,7 @@ var rubyWorkerPresets = []WorkerPreset{
 			}
 			return cmd
 		}},
-	{ID: "sidekiq", Group: "Sidekiq", Label: "Sidekiq", Description: "sidekiq – processes jobs from Redis (add Redis to the project; REDIS_URL is injected)", ArgLabel: "Queues", ArgHint: "e.g. default,mailers (empty = default)", Requires: []string{"Gemfile"}, Runtime: WorkerRuntimeRuby,
+	{ID: "sidekiq", Group: "Sidekiq", Label: "Sidekiq", Description: "sidekiq - processes jobs from Redis (add Redis to the project; REDIS_URL is injected)", ArgLabel: "Queues", ArgHint: "e.g. default,mailers (empty = default)", Requires: []string{"Gemfile"}, Runtime: WorkerRuntimeRuby,
 		validateArg: queueArg,
 		build: func(arg string) []string {
 			cmd := []string{"bundle", "exec", "sidekiq"}
@@ -244,7 +244,7 @@ var rubyWorkerPresets = []WorkerPreset{
 			}
 			return cmd
 		}},
-	{ID: "rake:task", Group: "Ruby", Label: "Rake task", Description: "rake <task> – a long-running task of the Rakefile (queue consumer, scheduler, bot …)", ArgLabel: "Task", ArgHint: "e.g. jobs:work", Requires: []string{"Rakefile"}, Runtime: WorkerRuntimeRuby,
+	{ID: "rake:task", Group: "Ruby", Label: "Rake task", Description: "rake <task> - a long-running task of the Rakefile (queue consumer, scheduler, bot …)", ArgLabel: "Task", ArgHint: "e.g. jobs:work", Requires: []string{"Rakefile"}, Runtime: WorkerRuntimeRuby,
 		validateArg: func(arg string) error {
 			if !scriptNameRe.MatchString(arg) {
 				return fmt.Errorf("%w: invalid rake task name", validate.ErrInvalid)
@@ -252,7 +252,7 @@ var rubyWorkerPresets = []WorkerPreset{
 			return nil
 		},
 		build: func(arg string) []string { return []string{"bundle", "exec", "rake", arg} }},
-	{ID: "ruby:file", Group: "Ruby", Label: "Ruby script", Description: "ruby <file> – any long-running script in the project directory", ArgLabel: "Script path", ArgHint: "relative to the project, e.g. bin/worker.rb", Runtime: WorkerRuntimeRuby,
+	{ID: "ruby:file", Group: "Ruby", Label: "Ruby script", Description: "ruby <file> - any long-running script in the project directory", ArgLabel: "Script path", ArgHint: "relative to the project, e.g. bin/worker.rb", Runtime: WorkerRuntimeRuby,
 		validateArg: scriptPathArg,
 		build:       func(arg string) []string { p, _ := validate.RelativePath(arg, 6); return []string{"ruby", p} }},
 }
@@ -302,7 +302,7 @@ func workerRuntimeService(p store.Project, w store.Worker) *store.ProjectService
 func workerRuntimeAvailable(p store.Project, preset WorkerPreset) error {
 	kind, label := workerRuntimeKind(preset.Runtime)
 	if svc := p.Service(kind); svc == nil || !svc.Enabled {
-		return fmt.Errorf("%w: the %s preset runs from the %s image – this project has no %s service", ErrConflict, preset.Label, label, label)
+		return fmt.Errorf("%w: the %s preset runs from the %s image - this project has no %s service", ErrConflict, preset.Label, label, label)
 	}
 	return nil
 }

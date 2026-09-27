@@ -247,7 +247,7 @@ func TestSFTPMapsProjectAndHome(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(e.projDir, "shop", "public", "new.php")); err != nil {
 		t.Fatalf("project file on disk: %v", err)
 	}
-	// Paths outside the mounts – traversal included – are the container's business, never
+	// Paths outside the mounts - traversal included - are the container's business, never
 	// files of the Envoryx host: here the container refuses them.
 	e.engine.StreamHandler = func(container string, cmd []string, env []string, stdin []byte) (string, int, error) {
 		return "", 1, nil

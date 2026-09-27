@@ -94,7 +94,7 @@ export function HealthCheckCard({ project: p }: { project: Project }) {
             <HeartPulse className="size-4 text-accent-500" aria-hidden /> {t("Health check")}
           </span>
         }
-        description={t("Envoryx requests a path of the application the way a visitor would – straight to the web server, with the project's host name – and sends a notification when it fails several times in a row.")}
+        description={t("Envoryx requests a path of the application the way a visitor would - straight to the web server, with the project's host name - and sends a notification when it fails several times in a row.")}
         actions={current ? h ? <Badge tone={tones[h.state]}>{stateLabel[h.state]}</Badge> : <Badge tone="blue">{t("waiting")}</Badge> : <Badge>{t("off")}</Badge>}
       />
       <div className="space-y-4 p-5">
@@ -114,12 +114,12 @@ export function HealthCheckCard({ project: p }: { project: Project }) {
             <span className="font-mono text-xs">GET {result.url}</span>
             <br />
             {result.ok
-              ? t("Answered {{status}} in {{ms}} ms – the check passes.", { status: result.status, ms: result.latencyMs })
+              ? t("Answered {{status}} in {{ms}} ms - the check passes.", { status: result.status, ms: result.latencyMs })
               : t("The check fails: {{error}}", { error: translateMessage(result.error, t) })}
           </Alert>
         )}
         <form onSubmit={submit} className="space-y-4">
-          <Field label={t("Path")} htmlFor="hc-path" hint={t("For example /health or /up – an address that checks what the application needs (database, cache) and answers quickly. Empty: no check.")}>
+          <Field label={t("Path")} htmlFor="hc-path" hint={t("For example /health or /up - an address that checks what the application needs (database, cache) and answers quickly. Empty: no check.")}>
             <Input id="hc-path" value={form.path} onChange={(e) => setForm({ ...form, path: e.target.value })} placeholder="/health" className="font-mono" />
           </Field>
           <div className="grid grid-cols-2 gap-3">

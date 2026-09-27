@@ -11,7 +11,7 @@
 ```
 cmd/envoryx          entry point (serve, healthcheck, admin, version) and the
                      CLI client (project/backup/git/login, see cli*.go)
-internal/           Go packages – see ARCHITECTURE.md §3
+internal/           Go packages - see ARCHITECTURE.md §3
 web/                React + TypeScript frontend (Vite)
 deploy/             docker-compose example
 ```
@@ -70,7 +70,7 @@ containers and state manipulation. Covered flows include: create, start, stop,
 restart, delete, rollback after a failed container create, Docker unavailable,
 invalid paths / ids, Envoryx restart (new manager on existing state), container
 unexpectedly stopped, orphaned resources, unauthorized requests and CSRF, and
-the project shapes – PHP, project without PHP with a Node dev server
+the project shapes - PHP, project without PHP with a Node dev server
 (routing of the project URL to the node container, unpublished web port,
 `package.json` wait guard, injected service variables), Python application
 server (`python_test.go`: entry-file wait guard, venv `PATH`, debugpy port,
@@ -85,18 +85,18 @@ the PHP web configs as goldens so the static branch cannot drift into them.
 
 The fake engine proves what Envoryx asks Docker for, not whether an image
 accepts it. `internal/project/integration_test.go` (build tag `integration`)
-therefore starts one project with the stateful services – database, Redis,
-Mailpit – against a real engine and checks that they reach *running* and that
+therefore starts one project with the stateful services - database, Redis,
+Mailpit - against a real engine and checks that they reach *running* and that
 the data survives a database container that is thrown away and rebuilt from
 the plan. It resolves the **catalogue's default versions** on purpose: that is
 what a new project gets, and it is how an upstream image changing its layout
 shows up here first. It runs with PostgreSQL by default;
 `ENVORYX_TEST_ALL_DATABASES=1` adds MariaDB, MySQL and MongoDB, whose images
-are gigabytes – CI sets it on the weekly run. A container the restart policy keeps restarting fails the
+are gigabytes - CI sets it on the weekly run. A container the restart policy keeps restarting fails the
 test at once, with its last log lines, instead of waiting out the timeout.
 
 For the same reason, anything whose path or layout depends on a version goes
-through one accessor with the reason in its comment – see
+through one accessor with the reason in its comment - see
 `runtime.Dialect.DataDirTarget`, where PostgreSQL 18 moved its cluster into a
 major-version subdirectory. Grep for that method before hard-coding such a
 path somewhere else.
@@ -110,7 +110,7 @@ key exists in every other dictionary with matching placeholders.
 ### Browser end-to-end tests
 
 `web/e2e` holds Playwright specs that drive the built binary in a real
-browser against a real Docker engine – the path a new user takes: first-run
+browser against a real Docker engine - the path a new user takes: first-run
 setup, sign-in, the wizard, a running project answering on its port, live
 logs, stop and delete (`lifecycle.spec.ts`, a PHP project) and the same for
 a static project without PHP (`node-only.spec.ts`: the web container alone
@@ -124,14 +124,14 @@ make test-e2e
 ```
 
 `e2e/global-setup.ts` starts `bin/envoryx` on 127.0.0.1:18790 with throw-away
-`/config` and `/projects` directories (project ports 25000–25099, no
+`/config` and `/projects` directories (project ports 25000-25099, no
 proxy/SSH listeners) and removes everything at the end, including Docker
 resources the test project may have left behind. Override with
 `ENVORYX_E2E_PORT`, `ENVORYX_E2E_PORT_RANGE_START`, `ENVORYX_E2E_BIN`;
 `ENVORYX_E2E_KEEP=1` keeps the data directory. The server log lands in
 `web/test-results/envoryx.log`, traces and screenshots of failed specs next
 to it (`npx playwright show-trace …`). The specs are serial and build on each
-other – add new flows as further `test()` blocks in order, or as a new spec
+other - add new flows as further `test()` blocks in order, or as a new spec
 file that creates its own project (`global-setup.ts` exports the project
 names and slugs it cleans up). The Vite template case in `node-only.spec.ts`
 is `test.skip` by default because it runs `npm install` against the
@@ -144,7 +144,7 @@ Node templates (`internal/project/templates.go`) run `create-vite`,
 `ghcr.io/envoryx/envoryx-node:<v>`. The argv, env and mount point are pinned
 to what was verified against the real image; the unit tests only check that
 the plan carries them. Re-run this smoke when changing a template, bumping
-the default Node version or rebuilding the image – each command must end
+the default Node version or rebuilding the image - each command must end
 with exit 0 and never wait for input:
 
 ```sh
@@ -168,7 +168,7 @@ directory is not writable (`/var/www` is root-owned in the image). Then
 start the dev server the way the planner does (`npm run dev -- --host
 0.0.0.0 --port 5173 --strictPort` for Vite, `-H 0.0.0.0 -p 3000` for Next,
 `--host 0.0.0.0 --port 3000` for Nuxt) and probe it from inside the
-container – the image has no curl, use
+container - the image has no curl, use
 `node -e 'http.get({host:"127.0.0.1",port:5173,headers:{Host:"my-shop.test"}},r=>console.log(r.statusCode))'`.
 For Vite also confirm the host allow-list: with
 `__VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS=.test` requests for `my-shop.test`,
@@ -226,10 +226,10 @@ Then start the server the way the planner does (`python manage.py runserver
 `flask --app app:app run --host 0.0.0.0 --port 5000 --debug`, and the
 production variants `gunicorn config.wsgi:application --bind 0.0.0.0:8000`)
 with `-p 18000:8000` and probe it with `curl -H 'Host: my-shop.test'
-http://127.0.0.1:18000/` – Django must answer 200 for a foreign host name
+http://127.0.0.1:18000/` - Django must answer 200 for a foreign host name
 (the template sets `ALLOWED_HOSTS = ["*"]`). The whole path through the
-binary – template scaffold, wait guard, proxy route, actions, worker, add
-and remove – was verified against a real Docker engine when Python support
+binary - template scaffold, wait guard, proxy route, actions, worker, add
+and remove - was verified against a real Docker engine when Python support
 landed; `make build` and create a project from the *FastAPI* or *Django*
 template to repeat it.
 
@@ -250,7 +250,7 @@ template to repeat it.
 
 PHP, Node, Python, Go and Ruby versions live in `internal/runtime/php_versions.json`,
 `node_versions.json`, `python_versions.json`, `go_versions.json` and
-`ruby_versions.json` – the single source of truth
+`ruby_versions.json` - the single source of truth
 for the catalogue (embedded into the binary) and the image build matrices
 (`php-images.yml`, `node-images.yml`, `python-images.yml`, `go-images.yml`,
 `ruby-images.yml` read them with
@@ -260,7 +260,7 @@ php|node|python|go|ruby` weekly and opens a PR when upstream changes (Node: newe
 LTS becomes the default, EOL "current" releases are dropped; Python: release
 candidates appear as `preview` from the `<v>-rc-slim-bookworm` tag; Go: every
 release from 1.26 on, the unsupported ones marked `eol`; Ruby: every stable
-cycle from 3.3 on – previews are tagged per release, not per cycle, so they
+cycle from 3.3 on - previews are tagged per release, not per cycle, so they
 are not followed).
 `base` is the upstream tag (`8.6-rc` for pre-releases), `preview`/`eol` drive
 the labels in the UI, `default` is the newest stable version.
@@ -292,7 +292,7 @@ Other languages are one JSON file each, English text → translation, see
   `_few` / `_many` / `_other` for every count string; i18next picks the form
   through `Intl.PluralRules`.
 - Interface texts that come from the backend (worker presets, notification
-  kinds, provider names) are translated on the client as well – their
+  kinds, provider names) are translated on the client as well - their
   English strings appear in the dictionary like any other key.
 
 To add a language: create `src/i18n/<code>.json`, add it to `languages`
@@ -317,7 +317,7 @@ Polish, Portuguese (Brazil), Russian, Ukrainian.
 ## Releasing
 
 1. Move the entries under `## [Unreleased]` in `CHANGELOG.md` into a new
-   `## [x.y.z] – YYYY-MM-DD` section and add the compare/tag links at the
+   `## [x.y.z] - YYYY-MM-DD` section and add the compare/tag links at the
    bottom. Keep the wording user-facing (what changed for someone running
    Envoryx, not which files moved).
 2. Commit, then tag and push:
@@ -338,8 +338,8 @@ Every push to `main` and every pull request also runs the **upgrade test**
 published release is started with a sample project, then the candidate image
 takes over the same `/config` and `/projects`. It checks the schema
 migration, the automatic pre-migrate backup, that the project, its
-containers, files, settings, audit log and API token survive, and – when the
-schema moved – that the old release refuses to start on the new database.
+containers, files, settings, audit log and API token survive, and - when the
+schema moved - that the old release refuses to start on the new database.
 The script runs on any Docker host (`jq` required):
 
 ```sh
@@ -349,7 +349,7 @@ scripts/upgrade-test.sh ghcr.io/envoryx/envoryx:0.1.0 ghcr.io/envoryx/envoryx:ma
 Version rules while below 1.0: a **minor** release may change behaviour or
 require a migration (Envoryx takes a pre-migrate instance backup itself), a
 **patch** release only fixes. Schema migrations are forward-only, so a
-release that adds one cannot be downgraded without restoring that backup –
+release that adds one cannot be downgraded without restoring that backup -
 say so in the changelog entry.
 
 ## Dependency updates
@@ -358,7 +358,7 @@ Dependabot (`.github/dependabot.yml`) opens pull requests every Monday for
 Go modules, the web frontend, GitHub Actions and the base images of the
 application `Dockerfile`. Minor and patch updates arrive grouped per
 ecosystem (one PR each); major updates and security fixes come as separate
-PRs. CI, including the upgrade test, runs on every one of them – merge when
+PRs. CI, including the upgrade test, runs on every one of them - merge when
 green, read the release notes first for majors. Node majors in the
 `Dockerfile` are ignored on purpose: only even (LTS) lines are used, and a
 move to the next one is done by hand in `Dockerfile` and `ci.yml` together.

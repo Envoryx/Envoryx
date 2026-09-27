@@ -30,7 +30,7 @@ export function CreateProgress({ slug, action = "create", title, hint }: { slug:
           {step || t("Waiting for the server…")}
           {op && <span className="ml-1 tabular-nums text-subtle">· {t("{{seconds}} s", { seconds: elapsedSeconds(op) })}</span>}
         </p>
-        <p className="mt-1 text-xs text-subtle">{hint ?? t("You can leave this page – the project keeps being created and appears in the list when done.")}</p>
+        <p className="mt-1 text-xs text-subtle">{hint ?? t("You can leave this page - the project keeps being created and appears in the list when done.")}</p>
       </div>
     </div>
   );

@@ -18,7 +18,7 @@ type NodeConfig struct {
 	DevServer bool `json:"devServer"`
 	// Mode is "dev" (the script is a dev server with HMR, default) or "production": every
 	// container start runs BuildScript first, then Script as the main process with
-	// NODE_ENV=production – a production-like run of Next.js/Nuxt/Vite preview.
+	// NODE_ENV=production - a production-like run of Next.js/Nuxt/Vite preview.
 	Mode string `json:"mode,omitempty"`
 	// PackageManager is npm, pnpm or yarn.
 	PackageManager string `json:"packageManager,omitempty"`
@@ -36,7 +36,7 @@ type NodeConfig struct {
 	HostPort int `json:"hostPort,omitempty"`
 	// Inspect publishes the Node.js inspector port so an IDE can attach a debugger. The
 	// container only publishes InspectPort; the script itself has to start the inspector
-	// (--inspect=0.0.0.0:<port>) – set through NODE_OPTIONS on the whole container it would
+	// (--inspect=0.0.0.0:<port>) - set through NODE_OPTIONS on the whole container it would
 	// attach to the package manager's own node process instead of the app.
 	Inspect bool `json:"inspect,omitempty"`
 	// InspectPort is the inspector port inside the container (default 9229).
@@ -174,8 +174,8 @@ func (c NodeConfig) runScript(script string) []string {
 }
 
 // serveCommand returns the argv of the process that serves the app: the script with the
-// preset's host/port flags. In production mode "nuxt preview" takes no flags – Nitro reads
-// NITRO_HOST/NITRO_PORT from Env() – while "vite preview" and "next start" accept the
+// preset's host/port flags. In production mode "nuxt preview" takes no flags - Nitro reads
+// NITRO_HOST/NITRO_PORT from Env() - while "vite preview" and "next start" accept the
 // same flags as their dev servers.
 func (c NodeConfig) serveCommand() []string {
 	cmd := c.runScript(c.Script)
@@ -194,7 +194,7 @@ func (c NodeConfig) serveCommand() []string {
 }
 
 // Command returns the argv of the container's main process. In production mode the build
-// script runs first on every start and the serve process gets NODE_ENV=production – only
+// script runs first on every start and the serve process gets NODE_ENV=production - only
 // that process, so "npm install" from the terminal still installs devDependencies. Script
 // names are validated against scriptRe, so interpolating them into the shell line is safe;
 // the serve argv is passed through "$@" untouched.
@@ -218,7 +218,7 @@ func (c NodeConfig) WrappedCommand(guards ...string) []string {
 // Env returns the variables that make common dev servers listen on all interfaces and
 // accept the proxied host name. allowedHost goes into Vite's allow-list verbatim: Vite
 // before 8.3 appends the raw variable as a single entry (no splitting on commas), so exactly
-// one value is passed – a leading dot makes it a suffix match for every name under that
+// one value is passed - a leading dot makes it a suffix match for every name under that
 // domain, which covers <slug>.<base>, <slug>-dev.<base> and extra domains under the base.
 func (c NodeConfig) Env(allowedHost string) []string {
 	port := strconv.Itoa(c.Port)

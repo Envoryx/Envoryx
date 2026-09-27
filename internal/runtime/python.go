@@ -17,7 +17,7 @@ import (
 type PythonConfig struct {
 	Server bool `json:"server"`
 	// Mode is "dev" (auto-reload, debug pages, default) or "production": the same preset
-	// without reload – gunicorn for Django and Flask, uvicorn for ASGI apps.
+	// without reload - gunicorn for Django and Flask, uvicorn for ASGI apps.
 	Mode string `json:"mode,omitempty"`
 	// Preset selects the server command: "django" (manage.py runserver / gunicorn), "flask"
 	// (flask run / gunicorn), "asgi" (uvicorn: FastAPI, Starlette, Litestar…), "wsgi"
@@ -33,7 +33,7 @@ type PythonConfig struct {
 	HostPort int `json:"hostPort,omitempty"`
 	// Debug publishes the debugpy port so an IDE can attach a debugger. Only the port is
 	// published; the application has to start debugpy (python -m debugpy --listen
-	// 0.0.0.0:<port> …) – see the IDE tab.
+	// 0.0.0.0:<port> …) - see the IDE tab.
 	Debug bool `json:"debug,omitempty"`
 	// DebugPort is the debugpy port inside the container (default 5678).
 	DebugPort int `json:"debugPort,omitempty"`
@@ -57,7 +57,7 @@ const (
 var appRe = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*(:[A-Za-z_][A-Za-z0-9_]*)?$`)
 
 // ValidAppPath reports whether s is an import path in appRe's form (module or
-// module:attribute) of sensible length – shared with the worker presets.
+// module:attribute) of sensible length - shared with the worker presets.
 func ValidAppPath(s string) bool { return len(s) <= 128 && appRe.MatchString(s) }
 
 // PythonPreset describes a supported application server and its defaults.
@@ -74,7 +74,7 @@ type PythonPreset struct {
 
 // PythonPresets lists the supported presets in UI order.
 var PythonPresets = []PythonPreset{
-	{Key: "django", Label: "Django", Port: 8000, App: "config.wsgi:application", AppLabel: "WSGI application (production mode)", AppHint: "e.g. config.wsgi:application – dev mode runs manage.py runserver"},
+	{Key: "django", Label: "Django", Port: 8000, App: "config.wsgi:application", AppLabel: "WSGI application (production mode)", AppHint: "e.g. config.wsgi:application - dev mode runs manage.py runserver"},
 	{Key: "flask", Label: "Flask", Port: 5000, App: "app:app", AppLabel: "Application", AppHint: "module:attribute, e.g. app:app"},
 	{Key: "asgi", Label: "FastAPI / ASGI (uvicorn)", Port: 8000, App: "main:app", AppLabel: "ASGI application", AppHint: "module:attribute, e.g. main:app"},
 	{Key: "wsgi", Label: "WSGI (gunicorn)", Port: 8000, App: "app:app", AppLabel: "WSGI application", AppHint: "module:attribute, e.g. app:app"},
@@ -94,7 +94,7 @@ func PythonPresetByKey(key string) (PythonPreset, bool) {
 // Normalize validates the configuration and fills defaults.
 func (c *PythonConfig) Normalize() error {
 	if !c.Server {
-		// The container idles as a tooling container – but the debugger port stands on its
+		// The container idles as a tooling container - but the debugger port stands on its
 		// own. What a developer steps through most often is a management command, a test
 		// run or a script started from the terminal, and debugpy is attached to whatever
 		// process you launch, not to the container's main command. Everything else is
@@ -226,7 +226,7 @@ func (c PythonConfig) WrappedCommand(guards ...string) []string {
 // Env returns the variables that tell the application where to listen: HOST and PORT are
 // read by the "module" preset and by common settings modules. FLASK_DEBUG and
 // DJANGO_DEBUG follow the mode, so "production" really does run without the debugger and
-// its error pages – the Django template wires DEBUG to DJANGO_DEBUG, and a project that
+// its error pages - the Django template wires DEBUG to DJANGO_DEBUG, and a project that
 // does not read it simply ignores the variable.
 func (c PythonConfig) Env() []string {
 	env := []string{"HOST=0.0.0.0", "PORT=" + strconv.Itoa(c.Port)}

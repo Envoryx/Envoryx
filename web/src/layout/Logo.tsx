@@ -24,7 +24,7 @@ export function Logo({ size = 18, withText = false }: { size?: number; withText?
   );
 }
 
-/** Mark, wordmark and tagline – the full logo (envoryx-logo.svg), inlined so it picks up the accent and theme. */
+/** Mark, wordmark and tagline - the full logo (envoryx-logo.svg), inlined so it picks up the accent and theme. */
 export function LogoFull({ className = "" }: { className?: string }) {
-  return <span className={`inline-block [&>svg]:h-auto [&>svg]:w-full ${className}`} role="img" aria-label="Envoryx – build deeper" dangerouslySetInnerHTML={{ __html: logoSvg }} />;
+  return <span className={`inline-block [&>svg]:h-auto [&>svg]:w-full ${className}`} role="img" aria-label="Envoryx - build deeper" dangerouslySetInnerHTML={{ __html: logoSvg }} />;
 }

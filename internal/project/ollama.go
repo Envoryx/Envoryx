@@ -406,7 +406,7 @@ func (m *Manager) CancelOllamaPull(_ context.Context, id, model string) error {
 	return nil
 }
 
-// DeleteOllamaModel removes a model from the shared store – for every project, which the
+// DeleteOllamaModel removes a model from the shared store - for every project, which the
 // UI says before it asks.
 func (m *Manager) DeleteOllamaModel(ctx context.Context, id, model string) error {
 	if err := ValidateOllamaModel(model); err != nil {

@@ -124,7 +124,7 @@ func splitAtDashDash(args []string) (own, command []string) {
 }
 
 // pipedStdin reads input that was piped or redirected into the CLI. A terminal is left
-// alone – nobody wants a command to block on input nobody typed.
+// alone - nobody wants a command to block on input nobody typed.
 func (c *cli) pipedStdin(slug string) (string, error) {
 	f, ok := c.stdin.(*os.File)
 	if ok && term.IsTerminal(int(f.Fd())) {

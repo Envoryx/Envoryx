@@ -180,7 +180,7 @@ func (m *Manager) Reconcile(ctx context.Context) ReconcileReport {
 
 	for _, p := range projects {
 		// A restart in the middle of create/delete leaves a transitional lifecycle behind.
-		// While the operation is still running it holds the project lock – a create that
+		// While the operation is still running it holds the project lock - a create that
 		// takes a minute to pull images must not be declared interrupted by the periodic
 		// reconcile that happens to run meanwhile.
 		if p.Lifecycle == store.LifecycleCreating || p.Lifecycle == store.LifecycleDeleting {

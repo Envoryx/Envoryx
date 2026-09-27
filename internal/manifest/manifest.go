@@ -1,6 +1,6 @@
 // Package manifest reads and writes envoryx.yml, the project manifest that lives in a
 // project's repository: runtimes, services, domains, environment, workers and cron jobs
-// – everything needed to bring the same environment up again from a fresh clone.
+// - everything needed to bring the same environment up again from a fresh clone.
 //
 // The package knows the file format only. Whether a version exists or a PHP extension is
 // available is decided by the project package when it turns a manifest into a request,
@@ -394,7 +394,7 @@ func boolScalar(n *yaml.Node) (on, ok bool, err error) {
 	return b, true, nil
 }
 
-// decodeStrict decodes a mapping node and refuses keys the target does not have –
+// decodeStrict decodes a mapping node and refuses keys the target does not have -
 // Node.Decode does not inherit the decoder's KnownFields setting.
 func decodeStrict(n *yaml.Node, out any) error {
 	var buf bytes.Buffer
@@ -598,7 +598,7 @@ func unwrapInvalid(err error) string {
 }
 
 // header opens every file Envoryx writes.
-const header = `# Envoryx project manifest – commit it with the code.
+const header = `# Envoryx project manifest - commit it with the code.
 # "envoryx up" in a clone of this repository creates the project exactly like this or
 # brings an existing one in line. Host ports are assigned by the server; secret values
 # never belong here, only their names under "secrets".

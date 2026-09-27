@@ -46,7 +46,7 @@ type remoteBackup struct {
 // offsiteSummary is the OFFSITE column: "B2 ✓, box failed".
 func offsiteSummary(copies []offsiteCopy) string {
 	if len(copies) == 0 {
-		return "–"
+		return "-"
 	}
 	parts := make([]string, 0, len(copies))
 	for _, o := range copies {
@@ -73,7 +73,7 @@ func offsiteTargetFor(targets []offsiteTarget, want string) (offsiteTarget, erro
 	}
 	switch len(enabled) {
 	case 0:
-		return offsiteTarget{}, fmt.Errorf("no offsite target is set up – add one in the web interface under Settings → Backups")
+		return offsiteTarget{}, fmt.Errorf("no offsite target is set up - add one in the web interface under Settings → Backups")
 	case 1:
 		return enabled[0], nil
 	}
@@ -81,7 +81,7 @@ func offsiteTargetFor(targets []offsiteTarget, want string) (offsiteTarget, erro
 	for i, t := range enabled {
 		names[i] = t.Name
 	}
-	return offsiteTarget{}, usagef("several offsite targets (%s) – pick one with --target", strings.Join(names, ", "))
+	return offsiteTarget{}, usagef("several offsite targets (%s) - pick one with --target", strings.Join(names, ", "))
 }
 
 func (c *cli) backupListing(ctx context.Context, want string) (projectSummary, *client, backupList, error) {

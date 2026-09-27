@@ -10,7 +10,7 @@ const nodeRuntimesFixture: RuntimesResponse = {
   ...runtimesFixture,
   templates: [
     ...(runtimesFixture.templates ?? []).map((tpl) => ({ ...tpl, runtime: "php" as const })),
-    { id: "vite", name: "Vite + React (TypeScript)", description: "Vite scaffold with React and TypeScript – dev server with HMR on the project URL.", docroot: "dist", requiresDatabase: false, runtime: "node", node: { devServer: true, preset: "vite", port: 5173, script: "dev" } },
+    { id: "vite", name: "Vite + React (TypeScript)", description: "Vite scaffold with React and TypeScript - dev server with HMR on the project URL.", docroot: "dist", requiresDatabase: false, runtime: "node", node: { devServer: true, preset: "vite", port: 5173, script: "dev" } },
     { id: "next", name: "Next.js (App Router, TypeScript)", description: "create-next-app with the App Router and TypeScript.", docroot: "", requiresDatabase: false, runtime: "node", node: { devServer: true, preset: "next", port: 3000, script: "dev" } },
   ],
   nodePresets: [
@@ -188,7 +188,7 @@ describe("NewProjectPage wizard", () => {
           { service: "node", name: "envoryx-acme-shop-node", image: "ghcr.io/envoryx/envoryx-node:24", ports: ["20001 → 5173/tcp"], mounts: [] },
           { service: "web", name: "envoryx-acme-shop-web", image: "caddy:2-alpine", ports: [], mounts: [] },
         ],
-        warnings: ['the dev server runs "npm run dev" but nothing creates a package.json – pick a Node template, clone a repository or scaffold from the Node terminal; until then the container waits'],
+        warnings: ['the dev server runs "npm run dev" but nothing creates a package.json - pick a Node template, clone a repository or scaffold from the Node terminal; until then the container waits'],
       }),
     });
     renderApp(<NewProjectPage />, { route: "/projects/new" });
@@ -218,7 +218,7 @@ describe("NewProjectPage wizard", () => {
 
     expect(await screen.findByText("Node dev server (the HTTP port stays unpublished)")).toBeInTheDocument();
     // No proxy settings in this test: the URL row shows the direct port, which must be the
-    // node container's published host port – the web HTTP port (20000) has nothing listening.
+    // node container's published host port - the web HTTP port (20000) has nothing listening.
     expect(screen.getByText("http://localhost:20001")).toBeInTheDocument();
     expect(screen.queryByText(/:20000/)).not.toBeInTheDocument();
     expect(screen.getByText(/nothing creates a package.json/)).toBeInTheDocument();

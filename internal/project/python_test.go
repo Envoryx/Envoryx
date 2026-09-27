@@ -314,13 +314,13 @@ func TestApplicationServerWaitsForTheDatabase(t *testing.T) {
 		t.Fatalf("argv must stay in $@: %q", script)
 	}
 	// The Node dev server next to it waits as well. It does not serve the project URL here,
-	// so it keeps no package.json guard – only the container behind the URL gets that one.
+	// so it keeps no package.json guard - only the container behind the URL gets that one.
 	node, _ := e.engine.Container("envoryx-waiter-node")
 	if !strings.Contains(node.Spec.Cmd[2], "TCP:database:5432") || strings.Contains(node.Spec.Cmd[2], "package.json") {
 		t.Fatalf("node guards: %q", node.Spec.Cmd[2])
 	}
 
-	// Without a database nothing is added – the command stays what it was, so existing
+	// Without a database nothing is added - the command stays what it was, so existing
 	// containers are not recreated for an empty guard.
 	plain := pythonRequest("Nowait", true)
 	if _, err := e.m.Create(ctx, plain); err != nil {

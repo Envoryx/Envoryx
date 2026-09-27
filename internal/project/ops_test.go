@@ -43,7 +43,7 @@ func TestShutdownInterruptsAfterGrace(t *testing.T) {
 		t.Fatal(err)
 	}
 	id := view.Project.ID
-	// Strip the project down so Start has to pull again – the pull is where a real
+	// Strip the project down so Start has to pull again - the pull is where a real
 	// engine call blocks and where the shutdown interrupts it.
 	containers, _ := e.engine.ListContainers(ctx, true, id)
 	for _, c := range containers {

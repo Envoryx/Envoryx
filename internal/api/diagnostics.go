@@ -18,7 +18,7 @@ import (
 )
 
 // Diagnostics answer "is everything set up right?" in one place: every check names what
-// it looked at, what it found and – when something is off – what to do about it. Titles
+// it looked at, what it found and - when something is off - what to do about it. Titles
 // and hints are stable English strings the UI translates; details carry live values.
 //
 // Statuses: ok, info (nothing to fix, worth knowing), warning (something will not work
@@ -114,7 +114,7 @@ func (a *API) checkDocker(ctx context.Context) []Check {
 	c.Status = checkOK
 	c.Detail = fmt.Sprintf("Docker %s (API %s) on %s, %d containers running", info.ServerVersion, info.APIVersion, info.OS, info.Running)
 	if info.Hostname != "" {
-		c.Detail += " – host " + info.Hostname
+		c.Detail += " - host " + info.Hostname
 	}
 	return []Check{c}
 }
@@ -206,7 +206,7 @@ func (a *API) checkBackupsDir(context.Context) []Check {
 	probe, err := os.CreateTemp(dir, ".envoryx-diagnostics-*")
 	if err != nil {
 		c.Status, c.Detail = checkError, err.Error()
-		c.Hint = "The directory exists but is not writable – a read-only mount or wrong permissions. Backups will fail until this is fixed."
+		c.Hint = "The directory exists but is not writable - a read-only mount or wrong permissions. Backups will fail until this is fixed."
 		return []Check{c}
 	}
 	probe.Close()
@@ -299,8 +299,8 @@ func (a *API) checkDNS(ctx context.Context) []Check {
 	resolver := systemResolvers()
 	if err != nil {
 		c.Status = checkInfo
-		c.Detail = fmt.Sprintf("*.%s does not resolve from inside the Envoryx container (its DNS: %s). Your devices may use a different DNS server – the check from this browser above is what counts.", base, resolver)
-		c.Hint = "If project domains do not open on your devices either: point every name under the base domain at the proxy – a DNS rewrite for the wildcard domain in AdGuard Home or Pi-hole, a wildcard record in your router or DNS server, or hosts-file entries per project."
+		c.Detail = fmt.Sprintf("*.%s does not resolve from inside the Envoryx container (its DNS: %s). Your devices may use a different DNS server - the check from this browser above is what counts.", base, resolver)
+		c.Hint = "If project domains do not open on your devices either: point every name under the base domain at the proxy - a DNS rewrite for the wildcard domain in AdGuard Home or Pi-hole, a wildcard record in your router or DNS server, or hosts-file entries per project."
 		return []Check{c}
 	}
 	expected := a.d.Proxy.Address
@@ -380,12 +380,12 @@ func (a *API) checkUpdate(context.Context) []Check {
 	st := a.d.Updates.Status()
 	switch {
 	case !st.Enabled:
-		c.Status, c.Detail = checkInfo, st.Current+" – update check disabled"
+		c.Status, c.Detail = checkInfo, st.Current+" - update check disabled"
 	case st.Available:
 		c.Status, c.Detail = checkInfo, fmt.Sprintf("%s available, running %s", st.Latest, st.Current)
 		c.Hint = "Update the container (on Unraid: Docker → Check for Updates → Apply). An instance backup is taken automatically before the database migrates."
 	case st.Error != "" && st.Latest == "":
-		c.Status, c.Detail = checkInfo, st.Current+" – the release check has not succeeded yet: "+st.Error
+		c.Status, c.Detail = checkInfo, st.Current+" - the release check has not succeeded yet: "+st.Error
 	default:
 		c.Status, c.Detail = checkOK, st.Current+" is the newest release"
 		if !st.Release {
@@ -435,7 +435,7 @@ func (a *API) checkNotifications(context.Context) []Check {
 		c.Hint = "Configure ntfy, Telegram, Discord, Slack, e-mail or a webhook under Settings → Notifications."
 		c.Action = &CheckAction{Kind: "settingsTab", Value: "notifications", Label: "Configure"}
 	case st.LastError != "":
-		c.Status, c.Detail = checkWarning, st.Config.Provider+": last delivery failed – "+st.LastError
+		c.Status, c.Detail = checkWarning, st.Config.Provider+": last delivery failed - "+st.LastError
 		c.Hint = "Send a test notification to see the current error."
 	default:
 		c.Status, c.Detail = checkOK, st.Config.Provider

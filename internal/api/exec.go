@@ -16,7 +16,7 @@ import (
 	"github.com/envoryx/envoryx/internal/validate"
 )
 
-// execRequest runs one command in a service container. Cmd is argv – nothing is handed
+// execRequest runs one command in a service container. Cmd is argv - nothing is handed
 // to a shell, so a caller who wants pipes or redirection asks for one explicitly
 // ("sh", "-lc", "…"). Stdin is the command's input; it shares the 1 MiB body limit, and
 // anything larger belongs in SSH (`ssh <slug>@host "…" < big-file`) or a backup.
@@ -38,7 +38,7 @@ const (
 //
 // A failure before the first byte is an ordinary HTTP error; once output is flowing the
 // stream ends with {"type":"error","message":"…"} instead of an exit code. The streams
-// stay apart and the exit code survives – unlike the terminal WebSocket, which is a
+// stay apart and the exit code survives - unlike the terminal WebSocket, which is a
 // pseudo-terminal for humans.
 func (a *API) exec(w http.ResponseWriter, r *http.Request) {
 	kind, err := serviceKind(r)
@@ -156,7 +156,7 @@ func (s *execStream) writer(name string) *execStreamWriter {
 }
 
 // flushPartial emits bytes that were held back as the start of a rune whose rest never
-// came – a command that ends mid-character or writes binary. Dropping them silently
+// came - a command that ends mid-character or writes binary. Dropping them silently
 // would be worse than the replacement characters JSON puts in their place.
 func (s *execStream) flushPartial() {
 	s.mu.Lock()

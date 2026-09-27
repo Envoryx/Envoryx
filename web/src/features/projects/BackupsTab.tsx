@@ -160,7 +160,7 @@ export function BackupsTab({ project }: { project: Project }) {
       </Card>
 
       <Card>
-        <CardHeader title={t("Backups")} description={t("Newest first. Restoring overwrites the current database and/or files – Envoryx asks for confirmation.")} />
+        <CardHeader title={t("Backups")} description={t("Newest first. Restoring overwrites the current database and/or files - Envoryx asks for confirmation.")} />
         {list.isPending ? (
           <Spinner />
         ) : list.isError ? (
@@ -176,7 +176,7 @@ export function BackupsTab({ project }: { project: Project }) {
                     {formatDateTime(b.createdAt)}
                     {b.meta.source === "scheduled" && <Badge tone="blue" className="ml-2">{t("scheduled")}</Badge>}
                     {b.meta.source === "upgrade" && <Badge tone="amber" className="ml-2">{t("before upgrade")}</Badge>}
-                    {b.meta.note && <span className="ml-2 font-normal text-muted">– {b.meta.note}</span>}
+                    {b.meta.note && <span className="ml-2 font-normal text-muted">- {b.meta.note}</span>}
                   </p>
                   <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-subtle">
                     {b.meta.database && <Badge tone="amber">{b.meta.database.type} {b.meta.database.version} · {formatBytes(b.meta.database.bytes)}</Badge>}
@@ -232,7 +232,7 @@ export function BackupsTab({ project }: { project: Project }) {
                 <CloudDownload className="size-4 text-accent-500" aria-hidden /> {t("Offsite copies")}
               </span>
             }
-            description={t("The backups of this project on the offsite targets – also those no longer here. Fetching one puts it back into the list above, from where it is restored as usual.")}
+            description={t("The backups of this project on the offsite targets - also those no longer here. Fetching one puts it back into the list above, from where it is restored as usual.")}
           />
           <div className="p-5">
             <RemoteBackups
@@ -251,7 +251,7 @@ export function BackupsTab({ project }: { project: Project }) {
         open={restoreTarget !== null}
         onClose={() => setRestoreTarget(null)}
         title={t("Restore backup?")}
-        description={restoreTarget ? `${t("From {{date}}", { date: formatDateTime(restoreTarget.createdAt) })}${restoreTarget.meta.note ? ` – ${restoreTarget.meta.note}` : ""}` : undefined}
+        description={restoreTarget ? `${t("From {{date}}", { date: formatDateTime(restoreTarget.createdAt) })}${restoreTarget.meta.note ? ` - ${restoreTarget.meta.note}` : ""}` : undefined}
         footer={
           <>
             <Button onClick={() => setRestoreTarget(null)}>{t("Cancel")}</Button>

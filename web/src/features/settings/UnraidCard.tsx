@@ -49,7 +49,7 @@ export function UnraidCard() {
       ) : (
         <form onSubmit={submit} className="space-y-4 p-5">
           {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
-          <Field label={t("FolderView3 folder")} htmlFor="folderview-folder" hint={t("Create a folder with exactly this name in FolderView3 first. Leave empty for no label – a folder with the regex ^envoryx- collects the containers as well.")}>
+          <Field label={t("FolderView3 folder")} htmlFor="folderview-folder" hint={t("Create a folder with exactly this name in FolderView3 first. Leave empty for no label - a folder with the regex ^envoryx- collects the containers as well.")}>
             <Input id="folderview-folder" value={folder} onChange={(e) => setFolder(e.target.value)} placeholder="Envoryx" maxLength={64} spellCheck={false} />
           </Field>
           <Button type="submit" variant="primary" loading={update.isPending} disabled={folder.trim() === current} icon={<Save className="size-4" />}>

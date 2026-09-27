@@ -77,7 +77,7 @@ func TestSetFolderViewFolderValidates(t *testing.T) {
 			t.Fatalf("%q: %v", bad, err)
 		}
 	}
-	if err := e.m.SetFolderViewFolder(ctx, "Entwicklung – Projekte"); err != nil {
+	if err := e.m.SetFolderViewFolder(ctx, "Entwicklung - Projekte"); err != nil {
 		t.Fatal(err)
 	}
 }

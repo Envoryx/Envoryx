@@ -55,7 +55,7 @@ func TestCheck(t *testing.T) {
 		t.Fatalf("user agent %q", ua)
 	}
 
-	// A development build sees the latest release but never claims an update – named
+	// A development build sees the latest release but never claims an update - named
 	// the old way or the way git describe names it.
 	for _, dev := range []string{"main-abc1234", "v0.1.0-3-g73304d6"} {
 		d := New(dev, srv.URL, log)

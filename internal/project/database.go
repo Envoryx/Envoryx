@@ -707,7 +707,7 @@ func (m *Manager) applyDatabaseUpdate(ctx context.Context, p store.Project, kind
 		}
 		if v.Version != svc.Version {
 			// The server rewrites its data directory on the first start with the new
-			// version and cannot go back, so a dump is taken first – no dump, no upgrade.
+			// version and cannot go back, so a dump is taken first - no dump, no upgrade.
 			b, err := m.createBackupLocked(ctx, p, BackupOptions{Database: true, Note: fmt.Sprintf("before upgrading %s %s → %s", svc.Variant, svc.Version, v.Version), Source: "upgrade"})
 			if err != nil {
 				return false, fmt.Errorf("upgrade refused: the database must be backed up first and that failed (%w); start the project and try again", err)
@@ -784,7 +784,7 @@ var databaseServiceNameRe = regexp.MustCompile(`^[a-z][a-z0-9]*(-[a-z0-9]+)*$`)
 // host name, part of container and volume names and the prefix of variables.
 func ValidateDatabaseServiceName(name string) error {
 	if len(name) == 0 || len(name) > 24 || !databaseServiceNameRe.MatchString(name) {
-		return fmt.Errorf("%w: database name %q: 1–24 lowercase letters, digits and dashes, starting with a letter", validate.ErrInvalid, name)
+		return fmt.Errorf("%w: database name %q: 1-24 lowercase letters, digits and dashes, starting with a letter", validate.ErrInvalid, name)
 	}
 	if reservedDatabaseNames[name] {
 		return fmt.Errorf("%w: %q is taken by another container of the project; choose another database name", validate.ErrInvalid, name)

@@ -13,7 +13,7 @@ import (
 
 // AuditChange is one setting a project update changed, as the audit log shows it: the
 // manifest section (and item: a database, variable, worker or cron job), and the values
-// before and after. Secret values never appear – the export only names secrets.
+// before and after. Secret values never appear - the export only names secrets.
 type AuditChange struct {
 	Section string `json:"section"`
 	Item    string `json:"item,omitempty"`

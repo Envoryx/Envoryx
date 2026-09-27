@@ -274,7 +274,7 @@ func TestIntegrationForeignContainersAreUntouchable(t *testing.T) {
 	}
 }
 
-// A one-shot must run to completion and report the process's exit code – not return the
+// A one-shot must run to completion and report the process's exit code - not return the
 // moment the container exists. The wait is registered before the start, so it has to ask
 // for the next exit; with the default "not-running" condition a created container already
 // qualifies and RunOneShot reported exit code 0 before the command had run (the scaffold
@@ -305,7 +305,7 @@ func TestIntegrationRunOneShotWaitsForTheExit(t *testing.T) {
 }
 
 // A streamed one-shot is `docker run --rm -i`: all of stdin reaches the process, the
-// output arrives on the right stream and the exit code survives – several MB, so the
+// output arrives on the right stream and the exit code survives - several MB, so the
 // input is not just sitting in a buffer.
 func TestIntegrationRunOneShotStreamFeedsStdin(t *testing.T) {
 	e := integrationEngine(t)
@@ -391,7 +391,7 @@ func TestIntegrationRemoveStopsRunningContainerFirst(t *testing.T) {
 }
 
 // Limits are set at creation, changed in place, and a process that outgrows the memory
-// limit is killed and reported – while the container itself keeps running.
+// limit is killed and reported - while the container itself keeps running.
 func TestIntegrationResourcesAndOOM(t *testing.T) {
 	e := integrationEngine(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)

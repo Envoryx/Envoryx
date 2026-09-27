@@ -94,7 +94,7 @@ func (c *Client) ensureBucket(ctx context.Context, bucket string, publicRead boo
 	return c.DeleteBucketPolicy(ctx, bucket)
 }
 
-// PublicReadPolicy allows anonymous GetObject on every object of the bucket – what a
+// PublicReadPolicy allows anonymous GetObject on every object of the bucket - what a
 // public-read ACL gives on providers that honour it.
 func PublicReadPolicy(bucket string) string {
 	return fmt.Sprintf(`{"Version":"2012-10-17","Statement":[{"Sid":"EnvoryxPublicRead","Effect":"Allow","Principal":{"AWS":["*"]},"Action":["s3:GetObject"],"Resource":["arn:aws:s3:::%s/*"]}]}`, bucket)
@@ -217,7 +217,7 @@ func (c *Client) signWithHash(req *http.Request, payloadHash string) error {
 
 func sha256Hex(b []byte) string { return awssig.SHA256Hex(b) }
 
-// Noop is a Provisioner that does nothing – for tests and environments without a
+// Noop is a Provisioner that does nothing - for tests and environments without a
 // reachable server.
 type Noop struct{}
 

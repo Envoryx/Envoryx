@@ -69,7 +69,7 @@ func (c closers) Close() error {
 }
 
 // AnalyzeDump reads the head of a dump and tells where it comes from. Formats psql and
-// mysql cannot read – pg_dump's custom format, a ZIP – are refused here, before anything
+// mysql cannot read - pg_dump's custom format, a ZIP - are refused here, before anything
 // is created.
 func AnalyzeDump(file string) (DumpInfo, error) {
 	st, err := os.Stat(file)

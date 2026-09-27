@@ -12,13 +12,13 @@ describe("translateMessage", () => {
   });
 
   it("translates each segment of a wrapped Go error", () => {
-    expect(translateMessage("invalid input: project name must be 2-64 characters", t)).toBe("Ungültige Eingabe: Der Projektname muss 2–64 Zeichen lang sein");
+    expect(translateMessage("invalid input: project name must be 2-64 characters", t)).toBe("Ungültige Eingabe: Der Projektname muss 2-64 Zeichen lang sein");
     expect(translateMessage("hostname shop.test is already used: conflict", t)).toBe("Der Hostname shop.test wird bereits verwendet: Konflikt");
   });
 
   it("carries values over from templated messages", () => {
     expect(translateMessage('invalid input: unknown template "laravel"', t)).toBe("Ungültige Eingabe: Unbekannte Vorlage „laravel“");
-    expect(translateMessage("conflict: no free port in range 20000-20100", t)).toBe("Konflikt: Kein freier Port im Bereich 20000–20100");
+    expect(translateMessage("conflict: no free port in range 20000-20100", t)).toBe("Konflikt: Kein freier Port im Bereich 20000-20100");
     expect(translateMessage("Request failed (503)", t)).toBe("Anfrage fehlgeschlagen (503)");
   });
 

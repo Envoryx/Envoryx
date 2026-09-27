@@ -289,7 +289,7 @@ func TestFailedUploadsRetryAndNotify(t *testing.T) {
 func TestDailyInstanceBackup(t *testing.T) {
 	h := newHarness(t, Target{Name: "sftp", Type: TypeSFTP, Enabled: true, Instance: true, InstanceHour: 4, InstanceKeep: 3, Host: "box.example.com", User: "u1", Password: "pw", Encrypt: true, Passphrase: "correct horse battery"})
 	ctx := context.Background()
-	h.s.Pass(ctx) // 03:30 – not yet
+	h.s.Pass(ctx) // 03:30 - not yet
 	if list, _ := h.s.Instance.List(); len(list) != 0 {
 		t.Fatalf("taken before its hour: %v", list)
 	}

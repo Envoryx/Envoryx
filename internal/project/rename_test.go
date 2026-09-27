@@ -187,7 +187,7 @@ func TestRenameProjectRefusals(t *testing.T) {
 	}
 }
 
-// A rename that fails before anything has moved leaves the project exactly as it was –
+// A rename that fails before anything has moved leaves the project exactly as it was -
 // running, under its old name.
 func TestRenameProjectPutsEverythingBackWhenItFailsEarly(t *testing.T) {
 	e := newEnv(t)

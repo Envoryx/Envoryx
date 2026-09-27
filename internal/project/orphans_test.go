@@ -15,7 +15,7 @@ func TestReconcileRemovesOrphanedContainersAndNetworks(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 
-	// A project that exists in Docker only – as after restoring an older database.
+	// A project that exists in Docker only - as after restoring an older database.
 	view, err := e.m.Create(ctx, phpRequest("Ghost", true))
 	if err != nil {
 		t.Fatal(err)

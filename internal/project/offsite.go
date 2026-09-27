@@ -105,7 +105,7 @@ func (m *Manager) ProjectSlug(ctx context.Context, projectID string) (string, er
 }
 
 // ImportBackupArchive stores a backup tar (as OpenBackupArchive writes it) as a local
-// backup of the project and records it. The backup must belong to the project – the
+// backup of the project and records it. The backup must belong to the project - the
 // same id, or the same identifier after the project was recreated elsewhere. A backup
 // that is already there is returned as it is.
 func (m *Manager) ImportBackupArchive(ctx context.Context, projectID string, r io.Reader) (BackupInfo, error) {

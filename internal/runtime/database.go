@@ -170,7 +170,7 @@ type Dialect struct {
 	// images run a temporary server for the initialisation that listens on the socket
 	// only and is shut down right after (dropping every session), so a statement sent over
 	// the socket at that moment reached a server about to go away. Over TCP it waits for
-	// the real one – the same thing the health checks look at.
+	// the real one - the same thing the health checks look at.
 	Client         func(cfg DatabaseConfig, sql string) (argv []string, env []string)
 	ListDatabases  string
 	CreateDatabase func(name, user string) string
@@ -288,7 +288,7 @@ var dialects = map[string]Dialect{
 		Variant: "postgresql", Port: 5432, DataDir: "/var/lib/postgresql/data", Driver: "pgsql", HasRoot: false,
 		// PostgreSQL 18 moved the cluster into a major-version subdirectory
 		// (PGDATA=/var/lib/postgresql/<major>/docker) and the image refuses to start when
-		// it finds a volume on the old path – even an empty one. New clusters therefore
+		// it finds a volume on the old path - even an empty one. New clusters therefore
 		// take the whole directory, which is also what a later pg_upgrade --link expects;
 		// 16 and 17 keep the data directory itself so existing volumes stay where they are.
 		DataDirFor: func(major int) string {

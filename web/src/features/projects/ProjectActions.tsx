@@ -53,7 +53,7 @@ export function ProjectActionButtons({
         </Button>
       )}
       {running && (
-        <Button size={size} onClick={() => run("restart")} loading={pending("restart")} disabled={busy || transitional} icon={<RotateCw className="size-3.5" />} title={t("Restart – also pulls updated runtime images")}>
+        <Button size={size} onClick={() => run("restart")} loading={pending("restart")} disabled={busy || transitional} icon={<RotateCw className="size-3.5" />} title={t("Restart - also pulls updated runtime images")}>
           {t("Restart")}
         </Button>
       )}
@@ -215,7 +215,7 @@ export function DuplicateProjectDialog({ project, open, onClose }: { project: Pr
           label={t("Name of the copy")}
           htmlFor="copy-name"
           error={slug === project.slug ? t("The copy needs a name of its own.") : undefined}
-          hint={t("Identifier: {{slug}}", { slug: slug || "—" })}
+          hint={t("Identifier: {{slug}}", { slug: slug || "-" })}
         >
           <Input id="copy-name" value={name} onChange={(e) => setName(e.target.value)} placeholder={suggestion} autoComplete="off" spellCheck={false} />
         </Field>
@@ -279,7 +279,7 @@ export function DuplicateProjectDialog({ project, open, onClose }: { project: Pr
 
 /**
  * Renames a project. Everything derived from the identifier moves with it, which means
- * recreated containers and – unless the data names are kept – a renamed database and
+ * recreated containers and - unless the data names are kept - a renamed database and
  * bucket, so the dialog says so and asks for the current identifier.
  */
 export function RenameProjectDialog({ project, open, onClose }: { project: Project; open: boolean; onClose: () => void }) {
@@ -340,7 +340,7 @@ export function RenameProjectDialog({ project, open, onClose }: { project: Proje
     >
       <div className="space-y-4">
         {error && <Alert tone="red">{error}</Alert>}
-        <Field label={t("Project name")} htmlFor="rename-name" hint={t("Identifier: {{slug}}", { slug: slug || "—" })}>
+        <Field label={t("Project name")} htmlFor="rename-name" hint={t("Identifier: {{slug}}", { slug: slug || "-" })}>
           <Input id="rename-name" value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" spellCheck={false} />
         </Field>
         <Field label={t("Directory")} htmlFor="rename-path" hint={follows ? t("Below the projects directory.") : t("This directory was chosen by hand and stays unless you change it.")}>
@@ -351,7 +351,7 @@ export function RenameProjectDialog({ project, open, onClose }: { project: Proje
             label={t("Keep the database and bucket names")}
             description={
               hasDatabase
-                ? t("Otherwise the database and its login are renamed to {{name}} – its contents are moved, and anything with the old name written into it (a committed .env, an external client) has to be adjusted.", { name: slug.replace(/-/g, "_") || "—" })
+                ? t("Otherwise the database and its login are renamed to {{name}} - its contents are moved, and anything with the old name written into it (a committed .env, an external client) has to be adjusted.", { name: slug.replace(/-/g, "_") || "-" })
                 : t("Otherwise the bucket is renamed and its objects are moved into it.")
             }
             checked={keepDataNames}

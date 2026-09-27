@@ -15,8 +15,8 @@ import (
 )
 
 // When a container reaches its memory limit the kernel kills a process in it. That may
-// be the main process (the container restarts) or just a child – a php-fpm worker, a
-// Node child, a queue job – while the container keeps running, which is easy to miss.
+// be the main process (the container restarts) or just a child - a php-fpm worker, a
+// Node child, a queue job - while the container keeps running, which is easy to miss.
 // Docker reports both as an "oom" event; the watcher turns them into a project warning
 // for a day and a notification.
 
@@ -109,7 +109,7 @@ func (m *Manager) recordOOM(ctx context.Context, ev docker.OOMEvent) {
 	if limit > 0 {
 		msg += fmt.Sprintf(" (limit %d MiB). Raise the memory limit of the %s under Advanced → Resource limits, or find what uses that much.", limit, map[string]string{"app": "application containers", "services": "services"}[LimitGroup(store.ServiceKind(svc))])
 	} else {
-		msg += " – the host itself is out of memory. A memory limit per project keeps one project from starving the others."
+		msg += " - the host itself is out of memory. A memory limit per project keeps one project from starving the others."
 	}
 	m.notify(ctx, notify.Event{Kind: "project.oom", Level: notify.Warning, Project: p.Name, Title: fmt.Sprintf("%s of %s ran out of memory", name, p.Name), Message: msg, Key: "project.oom|" + projectID + "|" + name})
 }

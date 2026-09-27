@@ -49,7 +49,7 @@ export interface Operation {
   projectSlug: string;
   projectName: string;
   action: OperationAction;
-  /** English template with {{placeholders}} – translate with t(step, stepArgs). */
+  /** English template with {{placeholders}} - translate with t(step, stepArgs). */
   step?: string;
   stepArgs?: Record<string, string>;
   startedAt: string;
@@ -158,7 +158,7 @@ export interface Project {
   hostnames: string[];
   /** Set when the Node dev server is enabled (routed by the proxy); also the primary route when the project has neither PHP nor a Python server. */
   devHostname?: string;
-  /** Missing on payloads from a backend that predates it – use servesOf() then. */
+  /** Missing on payloads from a backend that predates it - use servesOf() then. */
   serves?: Serves;
   /** The application container: PHP if present, else Python, else Node; absent for static projects. */
   appService?: AppKind;
@@ -308,7 +308,7 @@ export interface PythonPreset {
 
 /** Fallback when the backend predates pythonPresets. */
 export const defaultPythonPresets: PythonPreset[] = [
-  { key: "django", label: "Django", port: 8000, app: "config.wsgi:application", appLabel: "WSGI application (production mode)", appHint: "e.g. config.wsgi:application – dev mode runs manage.py runserver" },
+  { key: "django", label: "Django", port: 8000, app: "config.wsgi:application", appLabel: "WSGI application (production mode)", appHint: "e.g. config.wsgi:application - dev mode runs manage.py runserver" },
   { key: "flask", label: "Flask", port: 5000, app: "app:app", appLabel: "Application", appHint: "module:attribute, e.g. app:app" },
   { key: "asgi", label: "FastAPI / ASGI (uvicorn)", port: 8000, app: "main:app", appLabel: "ASGI application", appHint: "module:attribute, e.g. main:app" },
   { key: "wsgi", label: "WSGI (gunicorn)", port: 8000, app: "app:app", appLabel: "WSGI application", appHint: "module:attribute, e.g. app:app" },
@@ -806,7 +806,7 @@ export interface RenameProjectRequest {
   keepDataNames?: boolean;
 }
 
-/** What a rename moved – the UI names the new database and bucket afterwards. */
+/** What a rename moved - the UI names the new database and bucket afterwards. */
 export interface RenameResult {
   from: string;
   to: string;
@@ -1271,7 +1271,7 @@ export interface SSHInfo {
   enabled: boolean;
   port: number;
   fingerprint: string;
-  /** Same key as MD5 – the form JetBrains IDEs show. */
+  /** Same key as MD5 - the form JetBrains IDEs show. */
   fingerprintMd5?: string;
 }
 
@@ -1639,7 +1639,7 @@ export interface LogBucket {
 
 export interface LogMessage {
   level: "warn" | "error";
-  /** The text with numbers, ids and times masked – what groups the occurrences. */
+  /** The text with numbers, ids and times masked - what groups the occurrences. */
   pattern: string;
   example: string;
   count: number;

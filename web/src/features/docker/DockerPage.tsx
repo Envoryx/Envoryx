@@ -46,12 +46,12 @@ function ContainerTable({ rows, managed }: { rows: ContainerSummary[]; managed: 
                       {c.projectName}
                     </Link>
                   ) : (
-                    "—"
+                    "-"
                   )}
                   {c.service && <Badge className="ml-1.5">{c.service}</Badge>}
                 </td>
               )}
-              <td className="px-3 py-2 font-mono text-xs text-muted">{c.ports.map((p) => `${p.hostPort}→${p.containerPort}`).join(", ") || "—"}</td>
+              <td className="px-3 py-2 font-mono text-xs text-muted">{c.ports.map((p) => `${p.hostPort}→${p.containerPort}`).join(", ") || "-"}</td>
               <td className="px-3 py-2 text-xs text-muted">{formatRelative(c.created, t)}</td>
             </tr>
           ))}

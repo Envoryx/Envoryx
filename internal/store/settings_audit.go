@@ -121,7 +121,7 @@ type AuditQuery struct {
 	Until    time.Time
 	// After is the cursor from the previous page (Query's next).
 	After string
-	// Limit caps a page (1–1000, default 100); Each ignores it.
+	// Limit caps a page (1-1000, default 100); Each ignores it.
 	Limit int
 }
 

@@ -79,7 +79,7 @@ var (
 	// Python scaffolds create the project's .venv first; the steps after it run through
 	// its bin/ (PATH), so pip installs into the venv, never into the image.
 	// The Go scaffolds use the shared module and build caches (withPackageCache) and a
-	// throwaway GOPATH; the module is called "app" – a main module needs no import path.
+	// throwaway GOPATH; the module is called "app" - a main module needs no import path.
 	goScaffoldEnv     = []string{"HOME=/tmp", "GOPATH=/tmp/go", "GOFLAGS=-modcacherw", "PATH=/tmp/go/bin:/usr/local/go/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin"}
 	pythonScaffoldEnv = []string{"HOME=/tmp", "PIP_DISABLE_PIP_VERSION_CHECK=1", "PYTHONUNBUFFERED=1", "VIRTUAL_ENV=" + pythonVenvPath, "PATH=" + pythonVenvPath + "/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin"}
 	// The Ruby scaffolds install into the project's GEM_HOME (the project home is mounted),
@@ -230,7 +230,7 @@ app = Flask(__name__)
 
 @app.get("/")
 def index():
-    return "<h1>Flask on Envoryx</h1><p>Edit app.py – the dev server reloads on save.</p>"
+    return "<h1>Flask on Envoryx</h1><p>Edit app.py - the dev server reloads on save.</p>"
 `
 	fastapiApp = `from fastapi import FastAPI
 
@@ -239,7 +239,7 @@ app = FastAPI(title="Envoryx")
 
 @app.get("/")
 def index():
-    return {"message": "FastAPI on Envoryx – edit main.py, uvicorn reloads on save. Docs at /docs."}
+    return {"message": "FastAPI on Envoryx - edit main.py, uvicorn reloads on save. Docs at /docs."}
 `
 )
 
@@ -273,7 +273,7 @@ echo "WordPress unpacked\n";
 
 var templates = []Template{
 	{
-		ID: "laravel", Name: "Laravel", Description: "composer create-project laravel/laravel – ready to run with the project database.",
+		ID: "laravel", Name: "Laravel", Description: "composer create-project laravel/laravel - ready to run with the project database.",
 		Runtime: "php", Docroot: "public", RecommendedDatabase: "mariadb",
 		Notes: "Run “artisan migrate” from the Actions tab. Envoryx injects DB_* and REDIS_*/MAIL_* variables; they override .env.",
 		steps: []templateStep{{label: "composer create-project", cmd: []string{"composer", "create-project", "laravel/laravel", ".", composerNoInteraction, "--prefer-dist"}}},
@@ -295,11 +295,11 @@ var templates = []Template{
 	},
 	// The CMS and shop templates: composer create-project, then what the application
 	// needs to find the project database. Their installers need the database running,
-	// so they run after the start – in the browser, or as an action.
+	// so they run after the start - in the browser, or as an action.
 	{
 		ID: "drupal", Name: "Drupal", Description: "drupal/recommended-project with Drush and a settings.php wired to the project database.",
 		Runtime: "php", Docroot: "web", RequiresDatabase: true, RecommendedDatabase: "mariadb",
-		Notes: "Open the site to run the installer – the database is already set up – or run “drush site:install” from the Actions tab, which prints the admin password.",
+		Notes: "Open the site to run the installer - the database is already set up - or run “drush site:install” from the Actions tab, which prints the admin password.",
 		steps: []templateStep{
 			{label: "composer create-project", cmd: []string{"composer", "create-project", "drupal/recommended-project", ".", composerNoInteraction, "--prefer-dist"}},
 			{label: "composer require drush", cmd: []string{"composer", "require", "drush/drush", composerNoInteraction}},
@@ -316,7 +316,7 @@ var templates = []Template{
 		},
 	},
 	{
-		ID: "shopware", Name: "Shopware", Description: "shopware/production – Shopware 6 with APP_URL following the project address.",
+		ID: "shopware", Name: "Shopware", Description: "shopware/production - Shopware 6 with APP_URL following the project address.",
 		Runtime: "php", Docroot: "public", RequiresDatabase: true, RecommendedDatabase: "mariadb", PHPMemoryLimit: "1G",
 		Notes: "Run “Shopware system:install” from the Actions tab once the project is running: it creates the tables, a sales channel for the project URL and the administrator admin / shopware (change the password in the admin at /admin).",
 		steps: []templateStep{
@@ -337,7 +337,7 @@ var templates = []Template{
 	// create-next-app --yes skips every prompt and installs, nuxi (citty) needs
 	// --template when no TTY answers and --no-gitInit (never --gitInit false).
 	{
-		ID: "vite", Name: "Vite + React (TypeScript)", Description: "Vite scaffold with React and TypeScript – dev server with HMR on the project URL.",
+		ID: "vite", Name: "Vite + React (TypeScript)", Description: "Vite scaffold with React and TypeScript - dev server with HMR on the project URL.",
 		Runtime: "node", Docroot: "dist",
 		Node:  &runtime.NodeConfig{DevServer: true, Preset: "vite", Port: 5173, Script: "dev"},
 		Notes: "The dev server answers on the project URL. Turn the dev server off and run “npm run build” to serve dist/ statically (enable the SPA fallback for client-side routing).",
@@ -380,7 +380,7 @@ var templates = []Template{
 		},
 	},
 	{
-		ID: "flask", Name: "Flask", Description: "A minimal Flask application (app.py) – flask run with the debugger and reloader on the project URL.",
+		ID: "flask", Name: "Flask", Description: "A minimal Flask application (app.py) - flask run with the debugger and reloader on the project URL.",
 		Runtime: "python", Docroot: "",
 		Python: &runtime.PythonConfig{Server: true, Preset: "flask", Port: 5000, App: "app:app"},
 		Notes:  "The dev server answers on the project URL. For a production-like run switch the mode to production (gunicorn is installed).",
@@ -391,7 +391,7 @@ var templates = []Template{
 		},
 	},
 	{
-		ID: "fastapi", Name: "FastAPI", Description: "A minimal FastAPI application (main.py) served by uvicorn with reload – interactive docs at /docs.",
+		ID: "fastapi", Name: "FastAPI", Description: "A minimal FastAPI application (main.py) served by uvicorn with reload - interactive docs at /docs.",
 		Runtime: "python", Docroot: "",
 		Python: &runtime.PythonConfig{Server: true, Preset: "asgi", Port: 8000, App: "main:app"},
 		Notes:  "uvicorn answers on the project URL; the OpenAPI docs are at /docs.",
@@ -404,7 +404,7 @@ var templates = []Template{
 	// The Go scaffolds run from the Envoryx Go image: go mod init, the program, then the
 	// framework's module; air rebuilds it on the project URL.
 	{
-		ID: "go", Name: "Go (net/http)", Description: "A minimal Go web server on the standard library (main.go) – rebuilt by air on every change.",
+		ID: "go", Name: "Go (net/http)", Description: "A minimal Go web server on the standard library (main.go) - rebuilt by air on every change.",
 		Runtime: "go", Docroot: "",
 		Go:    &runtime.GoConfig{Server: true, Package: ".", Port: runtime.DefaultGoPort},
 		Notes: "air rebuilds and restarts the server when a .go file changes. Add a .air.toml to configure it yourself; the Tests tab runs go test.",
@@ -413,7 +413,7 @@ var templates = []Template{
 		},
 	},
 	{
-		ID: "gin", Name: "Gin", Description: "A minimal Gin application (main.go) with a JSON route and a health check – rebuilt by air on every change.",
+		ID: "gin", Name: "Gin", Description: "A minimal Gin application (main.go) with a JSON route and a health check - rebuilt by air on every change.",
 		Runtime: "go", Docroot: "",
 		Go:    &runtime.GoConfig{Server: true, Package: ".", Port: runtime.DefaultGoPort},
 		Notes: "GIN_MODE follows the runtime mode (debug in dev, release in production).",
@@ -424,7 +424,7 @@ var templates = []Template{
 		},
 	},
 	{
-		ID: "echo", Name: "Echo", Description: "A minimal Echo application (main.go) with logging, recovery and a health check – rebuilt by air on every change.",
+		ID: "echo", Name: "Echo", Description: "A minimal Echo application (main.go) with logging, recovery and a health check - rebuilt by air on every change.",
 		Runtime: "go", Docroot: "",
 		Go:    &runtime.GoConfig{Server: true, Package: ".", Port: runtime.DefaultGoPort},
 		Notes: "air rebuilds and restarts the server when a .go file changes.",

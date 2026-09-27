@@ -11,7 +11,7 @@ const ipv4 = /^(25[0-5]|2[0-4]\d|1?\d?\d)(\.(25[0-5]|2[0-4]\d|1?\d?\d)){3}$/;
 /**
  * dnsTarget picks the address the wildcard entry must point at: Envoryx's own IP (macvlan,
  * br0), else the configured host for project links, else the address this page was opened
- * on – as long as it is an IPv4 address, because every resolver below wants one.
+ * on - as long as it is an IPv4 address, because every resolver below wants one.
  */
 export function dnsTarget(proxyAddress: string | undefined, publicHost: string, pageHost: string): string {
   for (const candidate of [proxyAddress ?? "", publicHost, pageHost]) {
@@ -104,7 +104,7 @@ export function DnsGuide({ baseDomain, target }: { baseDomain: string; target: s
     <div className="border-t border-default pt-5">
       <h3 className="text-sm font-semibold">{t("DNS for *.{{base}}", vars)}</h3>
       <p className="mt-1 text-sm text-muted">
-        {t("One wildcard entry in the DNS server of your network points every name under {{base}} at {{ip}} – current and future projects alike.", vars)}
+        {t("One wildcard entry in the DNS server of your network points every name under {{base}} at {{ip}} - current and future projects alike.", vars)}
         {!target && " " + t("Replace <server-ip> with the address of the Docker host.")}
       </p>
       <div className="mt-3 flex flex-wrap gap-1" role="tablist" aria-label={t("DNS server")}>

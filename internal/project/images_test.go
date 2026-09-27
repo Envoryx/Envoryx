@@ -56,7 +56,7 @@ func TestUnusedImagesOnlyTouchCatalogueImages(t *testing.T) {
 }
 
 // After an upstream rebuild of the same tag the previous image stays known, is protected
-// from pruning and the project can be rolled back to it – and forward again.
+// from pruning and the project can be rolled back to it - and forward again.
 func TestImageRollback(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
@@ -162,7 +162,7 @@ func TestImageRollback(t *testing.T) {
 	}
 
 	// A second rebuild supersedes the rollback target: the tag moves to v2, v1 is
-	// released and – unreferenced – gone.
+	// released and - unreferenced - gone.
 	e.engine.Remote[img] = img + "@v3"
 	if _, err := e.m.Restart(ctx, id); err != nil {
 		t.Fatal(err)

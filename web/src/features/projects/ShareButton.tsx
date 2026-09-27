@@ -47,7 +47,7 @@ export function ShareButton({ project }: { project: Project }) {
         open={open}
         onClose={() => setOpen(false)}
         title={t("Share {{name}}", { name: project.name })}
-        description={t("A temporary public https address through a Cloudflare quick tunnel – no account and no port forwarding. The address is random and changes with every share.")}
+        description={t("A temporary public https address through a Cloudflare quick tunnel - no account and no port forwarding. The address is random and changes with every share.")}
         footer={
           shared ? (
             <>
