@@ -23,7 +23,7 @@ import (
 )
 
 // client talks to a running Envoryx over its REST API. Everything the CLI does goes
-// through the same endpoints the web interface uses, authenticated with an API token -
+// through the same endpoints the web interface uses, authenticated with an API token;
 // there is no second, privileged path into the server.
 type client struct {
 	base  *url.URL

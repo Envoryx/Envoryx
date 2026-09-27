@@ -241,8 +241,8 @@ func (a *API) databaseSnapshotRestore(w http.ResponseWriter, r *http.Request) {
 
 type cloneDatabaseRequest struct {
 	Source string `json:"source"`
-	// SourceDB is the source's database to copy; absent = the one named like the target
-	// (?db=), "" = its primary.
+	// SourceDB is the source's database to copy. When absent, it's the one named like
+	// the target (?db=); "" means the source's primary.
 	SourceDB *string `json:"sourceDb"`
 	// Snapshot defaults to true: a clone overwrites the target's data, and the request has
 	// to say so explicitly to skip the snapshot that makes it undoable.

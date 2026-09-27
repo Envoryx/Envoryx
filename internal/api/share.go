@@ -15,7 +15,7 @@ func (a *API) getShare(w http.ResponseWriter, r *http.Request) {
 }
 
 type shareRequest struct {
-	// Minutes the share lasts (0 = an hour).
+	// Minutes the share lasts; 0 means an hour.
 	Minutes int `json:"minutes"`
 }
 

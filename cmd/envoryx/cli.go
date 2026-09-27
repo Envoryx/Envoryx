@@ -102,7 +102,7 @@ failure and 2 on a usage error; "project exec" passes the command's own exit cod
 var errCLIUsage = errors.New("usage")
 
 // usageError is a usage error with something more specific to say than the whole usage
-// text - a missing argument, an unknown subcommand.
+// text, such as a missing argument or an unknown subcommand.
 type usageError struct{ msg string }
 
 func (e *usageError) Error() string { return e.msg }
@@ -542,7 +542,7 @@ func (c *cli) listProjects(ctx context.Context) ([]projectSummary, error) {
 	return body.Projects, nil
 }
 
-// findProject resolves what the user typed - an id, a slug or a name - to one project.
+// findProject resolves what the user typed (an id, a slug or a name) to one project.
 // Tokens limited to particular projects only ever see theirs, so the same name resolves
 // differently for different tokens, which is the point.
 func (c *cli) findProject(ctx context.Context, want string) (projectSummary, error) {

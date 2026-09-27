@@ -14,7 +14,7 @@ type tokenDTO struct {
 	Name   string `json:"name"`
 	Prefix string `json:"prefix"`
 	// Scope is read, operate or admin; Projects lists the ids the token is confined to
-	// (empty = all projects).
+	// (empty for all projects).
 	Scope      string     `json:"scope"`
 	Projects   []string   `json:"projects"`
 	CreatedAt  time.Time  `json:"createdAt"`
@@ -44,8 +44,8 @@ func (a *API) listTokens(w http.ResponseWriter, r *http.Request) {
 
 type createTokenRequest struct {
 	Name string `json:"name"`
-	// Scope defaults to operate - enough for assistants and scripts that work with
-	// existing projects; admin must be chosen deliberately.
+	// Scope defaults to operate, which is enough for assistants and scripts that work
+	// with existing projects; admin must be chosen deliberately.
 	Scope    string   `json:"scope"`
 	Projects []string `json:"projects"`
 }

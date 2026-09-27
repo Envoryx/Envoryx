@@ -18,7 +18,7 @@ import (
 )
 
 // Diagnostics answer "is everything set up right?" in one place: every check names what
-// it looked at, what it found and - when something is off - what to do about it. Titles
+// it looked at, what it found and, when something is off, what to do about it. Titles
 // and hints are stable English strings the UI translates; details carry live values.
 //
 // Statuses: ok, info (nothing to fix, worth knowing), warning (something will not work
