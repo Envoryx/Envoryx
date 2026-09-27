@@ -78,8 +78,8 @@ func (c *cli) readToken() (string, error) {
 	return "-", nil // resolveConfig reads stdin
 }
 
-// logout forgets the stored token. The token itself stays valid - it is revoked in the
-// web interface under Settings → API tokens.
+// logout forgets the stored token. The token itself stays valid; revoke it in the web
+// interface under Settings → API tokens.
 func (c *cli) logout(args []string) error {
 	fs := c.newFlags("logout")
 	if _, err := parse(fs, args); err != nil {

@@ -51,7 +51,8 @@ type Fake struct {
 	oomWatchers []chan docker.OOMEvent
 	// Remote maps image refs to the id a pull would deliver. Unset refs pull as "<ref>@v1".
 	Remote map[string]string
-	// Access is returned by NetworkAccess for any container (zero value = bridge).
+	// Access is returned by NetworkAccess for any container; the zero value is bridge
+	// networking.
 	Access docker.NetworkAccess
 
 	// Unavailable makes every call fail with docker.ErrUnavailable.
@@ -65,16 +66,17 @@ type Fake struct {
 	// PullDelay makes EnsureImage honour context cancellation after this delay.
 	PullDelay time.Duration
 
-	// OneShotHandler simulates transient containers (RunOneShot). nil = exit 0, no output.
+	// OneShotHandler simulates transient containers (RunOneShot). nil means exit 0 and no
+	// output.
 	OneShotHandler func(spec docker.ContainerSpec) (docker.ExecResult, error)
 	// OneShotStreamHandler simulates streamed transient containers (RunOneShotStream): it
-	// receives the spec and the whole stdin. nil = exit 0, no output.
+	// receives the spec and the whole stdin. nil means exit 0 and no output.
 	OneShotStreamHandler func(spec docker.ContainerSpec, stdin []byte) (stdout string, code int, err error)
 	// OneShots records every RunOneShot spec.
 	OneShots []docker.ContainerSpec
 
 	// StreamHandler simulates streamed execs: it receives the container name, argv and the
-	// full stdin and returns stdout content plus exit code. nil = exit 0, empty output.
+	// full stdin and returns stdout content plus exit code. nil means exit 0 and no output.
 	StreamHandler func(container string, cmd []string, env []string, stdin []byte) (stdout string, code int, err error)
 	// NetworkGateways and NetworkIPs answer NetworkAddresses: gateway per network, and
 	// address per network and container name.
@@ -85,7 +87,7 @@ type Fake struct {
 	StreamStderr func(container string, cmd []string) string
 
 	// ReadsStdin tells the fake whether a streamed command consumes stdin to EOF (the
-	// default). Commands that ignore stdin must not block on it - like the real engine.
+	// default). Commands that ignore stdin must not block on it, just as with the real engine.
 	ReadsStdin func(cmd []string) bool
 	// ExecHandler simulates commands run inside containers. It receives the container name
 	// and the argv; nil means every command succeeds with empty output.
@@ -141,7 +143,7 @@ func (f *Fake) AddForeignContainer(name, image, state string) string {
 	return id
 }
 
-// AddManagedContainer simulates a Envoryx container that already exists (e.g. after a restart).
+// AddManagedContainer simulates an Envoryx container that already exists (e.g. after a restart).
 func (f *Fake) AddManagedContainer(spec docker.ContainerSpec, state string) string {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -172,7 +174,7 @@ func (f *Fake) SetUnavailable(down bool) {
 	f.Unavailable = down
 }
 
-// Dangle removes a tag but keeps its image as dangling - the state an older Envoryx (no
+// Dangle removes a tag but keeps its image as dangling, the state an older Envoryx (no
 // rollback tags yet) or a re-pull leaves behind.
 func (f *Fake) Dangle(ref string) {
 	f.mu.Lock()
@@ -301,7 +303,7 @@ func (f *Fake) guard(idOrName string) (*FakeContainer, error) {
 
 // toContainer builds the listing view. Like Docker's ContainerList (daemon/list.go,
 // refreshImage), Image is the reference given at creation unless that reference no longer
-// resolves to the container's image id - then it is the id itself.
+// resolves to the container's image id; then it is the id itself.
 func (f *Fake) toContainer(c *FakeContainer) docker.Container {
 	ports := make([]docker.PortMapping, 0, len(c.Spec.Ports))
 	for _, p := range c.Spec.Ports {
@@ -1129,7 +1131,8 @@ func (f *Fake) PortBindings(_ context.Context, containerID string) ([]docker.Por
 	return out, nil
 }
 
-// RemoveNetwork guard: attached (non-project) containers count as endpoints.
+// attachedTo names the containers joined to network through ConnectNetwork. RemoveNetwork
+// counts them as endpoints, like the containers created on the network.
 func (f *Fake) attachedTo(network string) []string {
 	var names []string
 	for _, c := range f.containers {

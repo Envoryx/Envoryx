@@ -17,8 +17,8 @@ type domainDTO struct {
 	CreatedAt time.Time `json:"createdAt,omitempty"`
 }
 
-// projectURLs builds the URLs a project is reachable at: domains through the proxy (when
-// published) and the direct port.
+// projectHosts lists the host names a project answers to: its default name under the
+// base domain first, then the extra domains.
 func (a *API) projectHosts(r *http.Request, p store.Project) ([]domainDTO, error) {
 	base := a.d.Projects.BaseDomain(r.Context())
 	out := []domainDTO{{Hostname: project.DefaultHostname(p.Slug, base), Default: true}}

@@ -44,9 +44,9 @@ type Deps struct {
 	// Updates reports whether a newer release exists (never nil).
 	Updates *update.Checker
 	Proxy   *ProxyInfo
-	// Instance manages backups of the instance itself (nil = disabled).
+	// Instance manages backups of the instance itself; nil disables them.
 	Instance *instance.Store
-	// Offsite copies backups to S3, SFTP or WebDAV targets (nil = disabled).
+	// Offsite copies backups to S3, SFTP or WebDAV targets; nil disables it.
 	Offsite *offsite.Syncer
 	// DB is the live database, used for instance backups.
 	DB *sql.DB
@@ -54,9 +54,9 @@ type Deps struct {
 	Restart func()
 	// Warnings are startup findings worth showing in the UI (storage checks).
 	Warnings []string
-	// MCP is the MCP endpoint handler (nil = disabled); mounted at /mcp by the server.
+	// MCP is the MCP endpoint handler, mounted at /mcp by the server; nil disables it.
 	MCP http.Handler
-	// SSH describes the embedded SSH server (nil = disabled).
+	// SSH describes the embedded SSH server; nil when it's disabled.
 	SSH *SSHInfo
 	Log *slog.Logger
 	// StartedAt is used for uptime reporting.
@@ -67,7 +67,7 @@ type Deps struct {
 }
 
 // ProxyInfo describes the embedded proxy for the UI. HTTPPort/HTTPSPort are the host-side
-// ports (0 = not published / unknown).
+// ports, 0 when not published or unknown.
 type ProxyInfo struct {
 	Enabled   bool
 	HTTPPort  int
@@ -84,7 +84,7 @@ type ProxyInfo struct {
 // SSHInfo describes the embedded SSH server for the UI.
 type SSHInfo struct {
 	Enabled bool `json:"enabled"`
-	// Port is the host-side port (0 = not published).
+	// Port is the host-side port, 0 if not published.
 	Port        int    `json:"port"`
 	Fingerprint string `json:"fingerprint"`
 	// FingerprintMD5 is the legacy form JetBrains IDEs show when they ask to trust the key.

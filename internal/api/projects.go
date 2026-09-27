@@ -90,8 +90,8 @@ type projectDTO struct {
 	Status       statusDTO    `json:"status"`
 	Git          gitDTO       `json:"git"`
 	Hostnames    []string     `json:"hostnames"`
-	// DevHostname is set when the Node dev server is enabled (routed by the proxy); it is
-	// also the primary route when the project has no PHP.
+	// DevHostname is set when the Node dev server is enabled (routed by the proxy). It is
+	// also the primary route when the dev server serves the project (Serves is "node").
 	DevHostname    string            `json:"devHostname,omitempty"`
 	BackupSchedule backupScheduleDTO `json:"backupSchedule"`
 	IDEGateway     bool              `json:"ideGateway"`
@@ -966,8 +966,8 @@ func (a *API) projectStats(w http.ResponseWriter, r *http.Request) {
 	type containerDTO struct {
 		stats.ContainerStats
 		Group    string  `json:"group"`
-		CPULimit float64 `json:"cpuLimit"` // cores, 0 = none
-		MemLimit int64   `json:"memLimit"` // bytes, 0 = none
+		CPULimit float64 `json:"cpuLimit"` // cores, 0 for none
+		MemLimit int64   `json:"memLimit"` // bytes, 0 for none
 	}
 	containers := []containerDTO{}
 	for _, c := range usage.PerContainer {

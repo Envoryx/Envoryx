@@ -86,7 +86,7 @@ func (a *API) uploadDTOs(rows []store.OffsiteUpload) map[string][]offsiteUploadD
 	return out
 }
 
-// offsiteTargetNames is what a backup list needs to offer uploads: no settings, no
+// offsiteTargetName is what a backup list needs to offer uploads: no settings, no
 // secrets, so a read token may see it.
 type offsiteTargetName struct {
 	ID      string `json:"id"`
@@ -221,8 +221,8 @@ type remoteKeyRequest struct {
 	Key string `json:"key"`
 }
 
-// fetchRemoteInstanceBackup: POST /offsite/targets/{target}/instance/fetch - the first
-// step of a disaster recovery; restoring is the usual instance restore afterwards.
+// fetchRemoteInstanceBackup handles POST /offsite/targets/{target}/instance/fetch, the
+// first step of a disaster recovery. Restoring is the usual instance restore afterwards.
 func (a *API) fetchRemoteInstanceBackup(w http.ResponseWriter, r *http.Request) {
 	s, ok := a.syncer(w, r)
 	if !ok {
@@ -262,7 +262,7 @@ func (a *API) deleteRemoteBackup(w http.ResponseWriter, r *http.Request) {
 }
 
 type offsiteUploadRequest struct {
-	// Targets are the target ids; empty = every enabled target.
+	// Targets are the target ids; empty means every enabled target.
 	Targets []string `json:"targets"`
 }
 
@@ -323,8 +323,8 @@ func (a *API) listRemoteBackups(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"backups": list})
 }
 
-// fetchRemoteBackup: POST /projects/{id}/offsite/{target}/fetch - the copy becomes a
-// local backup, restored the usual way.
+// fetchRemoteBackup handles POST /projects/{id}/offsite/{target}/fetch. The copy becomes
+// a local backup, restored the usual way.
 func (a *API) fetchRemoteBackup(w http.ResponseWriter, r *http.Request) {
 	s, ok := a.syncer(w, r)
 	if !ok {

@@ -19,7 +19,7 @@ type acmeRequest struct {
 	Provider string `json:"provider"`
 	Domain   string `json:"domain"`
 	Email    string `json:"email"`
-	// Credentials are the provider's fields (see providerList); empty secrets keep the
+	// Credentials are the provider's fields (see acme.ProviderList); empty secrets keep the
 	// stored ones. Token is the Cloudflare token as older clients send it.
 	Credentials map[string]string `json:"credentials"`
 	Token       string            `json:"token"`

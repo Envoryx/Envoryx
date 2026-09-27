@@ -13,8 +13,8 @@
 //	                    revoke API tokens, reset all accounts (see admin.go)
 //	envoryx version     print the version
 //
-// Everything else is the client side: project, backup, git, login, logout and whoami
-// work against a running Envoryx over its REST API (see cli.go).
+// Everything else is the client side: login, logout, whoami, up, import, project,
+// backup, db and git work against a running Envoryx over its REST API (see cli.go).
 package main
 
 import (
@@ -544,7 +544,8 @@ func notifyStartFailure(cause error) {
 	}
 }
 
-// newestBackupHint names the newest instance backup (of a kind, "" = any) for error messages.
+// newestBackupHint names the newest instance backup of a kind ("" for any kind) for
+// error messages.
 func newestBackupHint(backups *instance.Store, kind string) string {
 	list, err := backups.List()
 	if err != nil {
