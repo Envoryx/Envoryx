@@ -131,7 +131,7 @@ export function ProxyRulesCard({ project: p }: { project: Project }) {
           <Field label={t("Allowed addresses")} htmlFor="pr-allow" hint={t("One address or network per line, e.g. 192.168.1.0/24. Empty: everyone. Behind another reverse proxy, that proxy's address is what counts.")}>
             <textarea id="pr-allow" rows={3} value={form.allowIPs} onChange={(e) => set({ allowIPs: e.target.value })} placeholder={"192.168.1.0/24\n10.8.0.5"} spellCheck={false} className={textareaClass} />
           </Field>
-          <Checkbox label={t("Ask for a user name and password")} description={t("HTTP basic authentication in front of the whole project – for a staging copy or a share.")} checked={form.auth} onChange={(e) => set({ auth: e.target.checked })} />
+          <Checkbox label={t("Ask for a user name and password")} description={t("HTTP basic authentication in front of the whole project - for a staging copy or a share.")} checked={form.auth} onChange={(e) => set({ auth: e.target.checked })} />
           {form.auth && (
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label={t("User name")} htmlFor="pr-user">
@@ -191,7 +191,7 @@ export function ProxyRulesCard({ project: p }: { project: Project }) {
 
         <section className="space-y-3">
           <h3 className="text-sm font-semibold text-fg">CORS</h3>
-          <Checkbox label={t("Allow requests from other origins")} description={t("The proxy answers preflight requests and adds the CORS headers – for a frontend on another host name calling this project's API.")} checked={form.cors} onChange={(e) => set({ cors: e.target.checked })} />
+          <Checkbox label={t("Allow requests from other origins")} description={t("The proxy answers preflight requests and adds the CORS headers - for a frontend on another host name calling this project's API.")} checked={form.cors} onChange={(e) => set({ cors: e.target.checked })} />
           {form.cors && (
             <div className="space-y-3">
               <Field label={t("Origins")} htmlFor="pr-origins" hint={t("One per line: https://app.test, https://*.shop.test or * for every origin.")}>

@@ -1,6 +1,6 @@
-// Package offsite copies backups to storage outside the Envoryx host – an S3-compatible
+// Package offsite copies backups to storage outside the Envoryx host - an S3-compatible
 // bucket (AWS, Backblaze B2, Wasabi, Hetzner Object Storage, Cloudflare R2, MinIO), an
-// SFTP server (Hetzner Storage Box, a NAS) or a WebDAV share (Nextcloud, ownCloud) – and
+// SFTP server (Hetzner Storage Box, a NAS) or a WebDAV share (Nextcloud, ownCloud) - and
 // fetches them back, for a project or for the whole instance after a disaster.
 //
 // The local backup stays the working copy; the target holds a copy with its own
@@ -43,7 +43,7 @@ type Target struct {
 	// Auto uploads every scheduled project backup; manual ones go up on request.
 	Auto bool `json:"auto"`
 	// Instance takes a daily instance backup (database + configuration) at InstanceHour
-	// and uploads it – what a fresh Envoryx needs to come back after losing the host.
+	// and uploads it - what a fresh Envoryx needs to come back after losing the host.
 	Instance     bool `json:"instance"`
 	InstanceHour int  `json:"instanceHour"`
 	// Prefix is the directory inside the bucket or share (default "envoryx").

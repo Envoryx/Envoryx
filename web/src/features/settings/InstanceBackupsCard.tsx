@@ -99,7 +99,7 @@ export function InstanceBackupsCard() {
       if (r.restarting) {
         setRestarting(true);
       } else {
-        setMsg({ tone: "green", text: t("Restore scheduled – restart the Envoryx container to apply it.") });
+        setMsg({ tone: "green", text: t("Restore scheduled - restart the Envoryx container to apply it.") });
         invalidate();
       }
     },

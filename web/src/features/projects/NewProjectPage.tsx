@@ -27,11 +27,11 @@ const steps = ["General", "Runtimes", "Web server", "Database & services", "Envi
 type Stack = AppKind | "static";
 
 const stacks: { id: Stack; name: string; description: string }[] = [
-  { id: "php", name: "PHP application", description: "PHP-FPM behind the web server – Laravel, Symfony, WordPress, Drupal, TYPO3, Shopware…" },
-  { id: "python", name: "Python application", description: "Django, Flask, FastAPI… – the application server answers on the project URL." },
-  { id: "go", name: "Go application", description: "net/http, Gin, Echo… – air rebuilds the server on every change; it answers on the project URL." },
-  { id: "ruby", name: "Ruby application", description: "Rails, Sinatra, Rack… – the server answers on the project URL." },
-  { id: "node", name: "Node.js application", description: "Vite, Next.js, Nuxt… – the dev server answers on the project URL." },
+  { id: "php", name: "PHP application", description: "PHP-FPM behind the web server - Laravel, Symfony, WordPress, Drupal, TYPO3, Shopware…" },
+  { id: "python", name: "Python application", description: "Django, Flask, FastAPI… - the application server answers on the project URL." },
+  { id: "go", name: "Go application", description: "net/http, Gin, Echo… - air rebuilds the server on every change; it answers on the project URL." },
+  { id: "ruby", name: "Ruby application", description: "Rails, Sinatra, Rack… - the server answers on the project URL." },
+  { id: "node", name: "Node.js application", description: "Vite, Next.js, Nuxt… - the dev server answers on the project URL." },
   { id: "static", name: "Static site", description: "The web server serves files from the document root; no application runtime." },
 ];
 
@@ -440,7 +440,7 @@ export function NewProjectPage() {
 
   const setNodeDev = (nodeDev: DevServerForm) => {
     const patch: Partial<Form> = { nodeDev };
-    // Without the dev server the web server serves the build output – suggest the usual folder.
+    // Without the dev server the web server serves the build output - suggest the usual folder.
     if (form.stack === "node" && !form.docrootTouched && nodeDev.devServer !== form.nodeDev.devServer) patch.docroot = nodeDev.devServer ? "" : "dist";
     set(patch);
   };
@@ -546,7 +546,7 @@ export function NewProjectPage() {
 
   const rubyCard = ruby && (
     <div key="ruby" className="space-y-4 rounded-md border border-default p-4">
-      <Checkbox label={t("Enable Ruby")} description={t("Ruby container for your application or tooling: run Rails or a Rack app on Puma with the rdbg debugger, or use bundle, rake and rails from the terminal. No Node.js inside – add Node.js for jsbundling or cssbundling.")} checked={form.rubyEnabled} onChange={(e) => set({ rubyEnabled: e.target.checked })} />
+      <Checkbox label={t("Enable Ruby")} description={t("Ruby container for your application or tooling: run Rails or a Rack app on Puma with the rdbg debugger, or use bundle, rake and rails from the terminal. No Node.js inside - add Node.js for jsbundling or cssbundling.")} checked={form.rubyEnabled} onChange={(e) => set({ rubyEnabled: e.target.checked })} />
       {form.rubyEnabled && (
         <>
           <Field label={t("Ruby version")} htmlFor="ruby-version">
@@ -601,7 +601,7 @@ export function NewProjectPage() {
         <Card className="p-6">
           {step === 0 && (
             <div className="space-y-5">
-              <Field label={t("Project name")} htmlFor="name" error={nameError} hint={form.name ? t("Identifier: {{slug}}", { slug: slugify(form.name) || "—" }) : t("Displayed in the UI; the identifier is derived from it.")}>
+              <Field label={t("Project name")} htmlFor="name" error={nameError} hint={form.name ? t("Identifier: {{slug}}", { slug: slugify(form.name) || "-" }) : t("Displayed in the UI; the identifier is derived from it.")}>
                 <Input id="name" autoFocus value={form.name} onChange={(e) => set({ name: e.target.value, path: form.pathTouched ? form.path : "" })} placeholder="Acme Shop" />
               </Field>
               <Field label={t("Project directory")} htmlFor="path" hint={t("Relative to the projects folder (/projects). Created if it does not exist.")}>
@@ -640,12 +640,12 @@ export function NewProjectPage() {
                     <input type="radio" name="template" className="mt-0.5 accent-accent-600" checked={form.importing} onChange={() => set({ importing: true, template: "", gitUrl: "" })} />
                     <span>
                       <span className="block font-medium">{t("Existing website")}</span>
-                      <span className="block text-xs text-muted">{t("Upload the files of a site you already have – from an old host or a backup – and optionally its database dump.")}</span>
+                      <span className="block text-xs text-muted">{t("Upload the files of a site you already have - from an old host or a backup - and optionally its database dump.")}</span>
                     </span>
                   </label>
                 </div>
                 {selectedTemplate?.requiresDatabase && !form.dbType && (
-                  <p className="text-xs text-amber-600 dark:text-amber-400">{t("This template needs a database – it is preselected in the “Database & services” step.")}</p>
+                  <p className="text-xs text-amber-600 dark:text-amber-400">{t("This template needs a database - it is preselected in the “Database & services” step.")}</p>
                 )}
               </fieldset>
               <Field label={t("Document root")} htmlFor="docroot" hint={docrootHint}>
@@ -655,7 +655,7 @@ export function NewProjectPage() {
                 <ImportSiteCard value={form.importSite} onUploaded={applyImport} onDiscard={discardImport} adaptConfig={form.adaptConfig} onAdaptConfig={(adaptConfig) => set({ adaptConfig })} />
               ) : (
                 <div className={clsx("space-y-4 rounded-md border border-default p-4", form.template && "opacity-50")}>
-                  <p className="text-sm font-medium text-fg">{form.template ? t("Git repository (optional – not with a template)") : t("Git repository (optional)")}</p>
+                  <p className="text-sm font-medium text-fg">{form.template ? t("Git repository (optional - not with a template)") : t("Git repository (optional)")}</p>
                   <Field label={t("Repository URL")} htmlFor="git-url" hint={t("Cloned into the empty project directory. https://…, git@host:path.git or ssh://…")}>
                     <Input id="git-url" value={form.gitUrl} onChange={(e) => set({ gitUrl: e.target.value })} placeholder="https://github.com/you/project.git" spellCheck={false} disabled={!!form.template} />
                   </Field>
@@ -813,7 +813,7 @@ export function NewProjectPage() {
               )}
               <div className="space-y-3">
                 <p className="text-sm font-medium text-fg">{t("Additional databases")}</p>
-                <p className="text-sm text-muted">{t("Another database server next to the first one – for example PostgreSQL for reporting next to MariaDB. Each is reached at its name as host and injects variables starting with its name (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …).")}</p>
+                <p className="text-sm text-muted">{t("Another database server next to the first one - for example PostgreSQL for reporting next to MariaDB. Each is reached at its name as host and injects variables starting with its name (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …).")}</p>
                 {form.extraDbs.map((d, i) => {
                   const engine = databases.find((x) => x.key === d.type);
                   return (
@@ -904,7 +904,7 @@ export function NewProjectPage() {
                   )}
                 </div>
                 <div className="rounded-md border border-default p-4 space-y-3">
-                  <Checkbox label="Memcached" description={t("In-memory cache without persistence – a restart empties it. Injects MEMCACHED_HOST, MEMCACHED_PORT and MEMCACHED_URL.")} checked={form.memcached} onChange={(e) => set({ memcached: e.target.checked })} />
+                  <Checkbox label="Memcached" description={t("In-memory cache without persistence - a restart empties it. Injects MEMCACHED_HOST, MEMCACHED_PORT and MEMCACHED_URL.")} checked={form.memcached} onChange={(e) => set({ memcached: e.target.checked })} />
                   {form.memcached && (
                     <div className="pl-7">
                       <Checkbox label={t("Publish port on the host")} description={t("For tools on your machine, e.g. telnet or a cache inspector.")} checked={form.memcachedExpose} onChange={(e) => set({ memcachedExpose: e.target.checked })} />
@@ -1047,7 +1047,7 @@ export function NewProjectPage() {
                         // The preview carries no service list; the links hook only reads it for the
                         // application container's host port. Behind a Python server or Node dev server the
                         // HTTP port stays unpublished, so the planned container's host port stands in as a
-                        // synthetic service – then the hook's own branch applies, also when the proxy is off
+                        // synthetic service - then the hook's own branch applies, also when the proxy is off
                         // and the direct URL is all there is.
                         const appPort = Number(preview.containers.find((c) => c.service === previewServes)?.ports[0]?.split(" ")[0]) || 0;
                         const services: Project["services"] =

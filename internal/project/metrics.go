@@ -309,7 +309,7 @@ func MetricsResolution(rng time.Duration) int {
 }
 
 // MetricPoint is one bucket of a container: [ts, cpu, cpuMax, mem, memMax, rx, tx,
-// read, write] – compact on the wire.
+// read, write] - compact on the wire.
 type MetricPoint [9]float64
 
 // ContainerSeries is one container's history.

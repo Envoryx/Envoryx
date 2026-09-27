@@ -23,7 +23,7 @@ import (
 
 const cliUsage = `Usage: envoryx <command> [flags]
 
-Work with a running Envoryx over its REST API – from an SSH session, a script or a
+Work with a running Envoryx over its REST API - from an SSH session, a script or a
 CI job. The address and an API token (web interface → Settings → API tokens) come
 from "envoryx login", from the environment or from the flags below.
 
@@ -102,7 +102,7 @@ failure and 2 on a usage error; "project exec" passes the command's own exit cod
 var errCLIUsage = errors.New("usage")
 
 // usageError is a usage error with something more specific to say than the whole usage
-// text – a missing argument, an unknown subcommand.
+// text - a missing argument, an unknown subcommand.
 type usageError struct{ msg string }
 
 func (e *usageError) Error() string { return e.msg }
@@ -542,7 +542,7 @@ func (c *cli) listProjects(ctx context.Context) ([]projectSummary, error) {
 	return body.Projects, nil
 }
 
-// findProject resolves what the user typed – an id, a slug or a name – to one project.
+// findProject resolves what the user typed - an id, a slug or a name - to one project.
 // Tokens limited to particular projects only ever see theirs, so the same name resolves
 // differently for different tokens, which is the point.
 func (c *cli) findProject(ctx context.Context, want string) (projectSummary, error) {
@@ -569,7 +569,7 @@ func (c *cli) findProject(ctx context.Context, want string) (projectSummary, err
 		for _, p := range matches {
 			names = append(names, p.Slug+" ("+p.ID+")")
 		}
-		return projectSummary{}, fmt.Errorf("%q matches several projects: %s – use the slug or the id", want, strings.Join(names, ", "))
+		return projectSummary{}, fmt.Errorf("%q matches several projects: %s - use the slug or the id", want, strings.Join(names, ", "))
 	}
 }
 

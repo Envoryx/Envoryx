@@ -28,7 +28,7 @@ export function webServerHint(t: TFunction, key: string, serves: Serves = "php")
   }
   switch (key) {
     case "apache":
-      return t("Apache honours .htaccess files (mod_rewrite, access rules) – the right choice for WordPress, TYPO3 and projects that ship one for production.");
+      return t("Apache honours .htaccess files (mod_rewrite, access rules) - the right choice for WordPress, TYPO3 and projects that ship one for production.");
     case "nginx":
       return t("Nginx routes unknown paths to index.php (front controller). .htaccess files are ignored, matching a typical Nginx production setup.");
     default:

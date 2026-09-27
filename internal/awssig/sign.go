@@ -1,4 +1,4 @@
-// Package awssig signs HTTP requests with AWS Signature Version 4 – for S3-compatible
+// Package awssig signs HTTP requests with AWS Signature Version 4 - for S3-compatible
 // storage and for Route 53. No SDK: two services and one algorithm do not justify one.
 package awssig
 

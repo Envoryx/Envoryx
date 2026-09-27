@@ -37,7 +37,7 @@ func (a *API) health(w http.ResponseWriter, r *http.Request) {
 	dbOK := a.d.Store.DB().PingContext(ctx) == nil
 	// Liveness: only a broken database makes the container unhealthy. Docker being
 	// unreachable is reported (docker=false, "degraded") but is not a reason to restart
-	// Envoryx – it keeps serving and retries the engine on demand.
+	// Envoryx - it keeps serving and retries the engine on demand.
 	status := http.StatusOK
 	state := "ok"
 	if !dockerOK {
@@ -221,8 +221,8 @@ func (a *API) dockerOverview(w http.ResponseWriter, r *http.Request) {
 }
 
 // publicHostAdvice reports whether project links are broken without a configured public
-// host – Envoryx has an IP of its own (macvlan/ipvlan, Unraid "br0"), so the address in the
-// browser is not the Docker host that publishes project ports – and suggests the Docker
+// host - Envoryx has an IP of its own (macvlan/ipvlan, Unraid "br0"), so the address in the
+// browser is not the Docker host that publishes project ports - and suggests the Docker
 // host: its name from the daemon and, when the LAN resolves it, its IP. On plain bridge
 // networking or bare metal nothing is needed and nothing is suggested.
 func (a *API) publicHostAdvice(ctx context.Context) (bool, map[string]string) {

@@ -25,7 +25,7 @@ export function OperationsTray() {
   const qc = useQueryClient();
   const wasRunning = useRef<Set<string>>(new Set());
 
-  // An operation that just finished changed the project – refresh lists and details right
+  // An operation that just finished changed the project - refresh lists and details right
   // away instead of waiting for their own poll. The mutation that started it may belong to
   // a page the user has left, or to another browser altogether.
   useEffect(() => {

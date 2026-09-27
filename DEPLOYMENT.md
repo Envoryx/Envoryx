@@ -49,8 +49,8 @@ regular server.
 
 Start with `docker compose up -d`, open `http://<host>:8787` and create the
 admin account. Project web servers are published on ports from the configured
-range, e.g. `http://<host>:20000`, and – with the proxy ports mapped and DNS
-set up (see [Domains and HTTPS](#domains-and-https)) – as
+range, e.g. `http://<host>:20000`, and - with the proxy ports mapped and DNS
+set up (see [Domains and HTTPS](#domains-and-https)) - as
 `https://<project>.test`.
 
 ### Building locally
@@ -77,7 +77,7 @@ docker build -t ghcr.io/envoryx/envoryx:dev --build-arg VERSION=dev .
 | `ENVORYX_PROXY_HTTP` | `:80` | Listen address of the embedded proxy inside the container; empty disables it |
 | `ENVORYX_PROXY_HTTPS` | `:443` | HTTPS listener of the proxy (local CA); empty disables HTTPS |
 | `ENVORYX_SSH` | `:2222` | Embedded SSH server for IDE remote interpreters; empty disables it |
-| `ENVORYX_ADMIN_USER` / `ENVORYX_ADMIN_PASSWORD` | – | Create the first admin non-interactively |
+| `ENVORYX_ADMIN_USER` / `ENVORYX_ADMIN_PASSWORD` | - | Create the first admin non-interactively |
 | `ENVORYX_SESSION_IDLE_TIMEOUT` | `12h` | Sliding session expiry |
 | `ENVORYX_SESSION_ABSOLUTE_TIMEOUT` | `168h` | Hard session expiry |
 | `ENVORYX_SECURE_COOKIES` | `false` | Mark cookies `Secure` (enable behind HTTPS) |
@@ -92,20 +92,20 @@ docker build -t ghcr.io/envoryx/envoryx:dev --build-arg VERSION=dev .
 `fsync` and POSIX locks, so at startup Envoryx checks what `/config` is on:
 
 - **Network filesystem (NFS, SMB/CIFS, 9p, Ceph)**: Envoryx refuses to start.
-  Locks are unreliable there and the database corrupts silently – the classic
+  Locks are unreliable there and the database corrupts silently - the classic
   "SQLite is unreliable" story is almost always this. Use a local directory;
   `ENVORYX_ALLOW_NETWORK_FS=true` overrides the check at your own risk.
 - **FUSE** (Unraid's `/mnt/user/...` user shares): Envoryx starts and shows a
   warning in *Settings*. It works in practice, but the pool path is the safer
   choice for a database: use `/mnt/cache/appdata/envoryx` (or your pool's
   name) as the host path for `/config`, or enable *Exclusive access* for the
-  `appdata` share (Unraid ≥ 6.12, share on a single pool) – then `/mnt/user`
+  `appdata` share (Unraid ≥ 6.12, share on a single pool) - then `/mnt/user`
   bypasses FUSE and the warning disappears.
 - Free space on `/config`, `/projects` and `/backups` is shown on the
   dashboard and checked every five minutes; below 2 GiB or 5 % a
   `storage.low` notification goes out (once, and again when it recovers). A
   project or instance backup is refused when it would not leave at least
-  512 MiB free – a full appdata disk takes the database down with it.
+  512 MiB free - a full appdata disk takes the database down with it.
 - `/config/logs` holds the log history (see [Logs](#logs)): 7 days and at
   most 1 GB by default, adjustable in *Settings → General → Log history*.
 - The database file is integrity-checked at every start (`PRAGMA
@@ -128,7 +128,7 @@ ENVORYX_PROJECTS_HOST_PATH=/mnt/user/development
 ENVORYX_CONFIG_HOST_PATH=/mnt/user/appdata/envoryx
 ```
 
-On Unraid always use `/mnt/user/...` (or `/mnt/cache/...`) paths – the same
+On Unraid always use `/mnt/user/...` (or `/mnt/cache/...`) paths - the same
 ones you used in the volume mappings.
 
 ## Diagnostics
@@ -138,7 +138,7 @@ what it looked at, what it found and how to fix it: Docker engine, where
 `/config` lives, host paths, disk space, backup directory, database integrity,
 host for project links, proxy ports, wildcard DNS, SSH, HTTPS, version,
 project/Docker consistency and notifications. Wildcard DNS is checked twice:
-from your browser (the check that matters – it fetches
+from your browser (the check that matters - it fetches
 `envoryx-diagnostics-probe.<base domain>` through the proxy, which also proves
 the CA is trusted over HTTPS) and from inside the Envoryx container, whose DNS
 server is often a different one (the router instead of your ad blocker); that
@@ -150,11 +150,11 @@ available as `GET /api/v1/system/diagnostics` (admin scope).
 
 ## Project links and the Envoryx container's own IP
 
-Project web servers – and Mailpit, database ports, the object storage API and
-console – publish their ports on the **Docker host** (the Unraid IP). Envoryx
+Project web servers - and Mailpit, database ports, the object storage API and
+console - publish their ports on the **Docker host** (the Unraid IP). Envoryx
 builds links to them from the address in your browser's address bar. If you
-reach Envoryx under a different address – the container has its own IP on
-`br0`/macvlan, or you use a reverse proxy – set the host to use for project
+reach Envoryx under a different address - the container has its own IP on
+`br0`/macvlan, or you use a reverse proxy - set the host to use for project
 links in **Settings → Project links** (or `ENVORYX_PUBLIC_HOST`), typically
 the Unraid IP.
 
@@ -182,7 +182,7 @@ The file name matters. Unraid writes your container settings (network type
 such as `br0`, the backups share, ports) to `my-<ContainerName>.xml` on
 *Apply*, but *Edit* and *Update* open the **first** file in `templates-user`
 (alphabetically) whose `<Name>` matches the container. A second copy of the
-template under another name – say `envoryx.xml` – sorts before `my-Envoryx.xml`
+template under another name - say `envoryx.xml` - sorts before `my-Envoryx.xml`
 and wins, so every edit and every update starts from the repository defaults
 and your settings look "reset". Keep exactly one file with `<Name>Envoryx</Name>`
 in that directory:
@@ -201,7 +201,7 @@ template (new variable or path), add the change on the container's edit page
 by hand.
 
 Alternatively add `https://github.com/envoryx/envoryx` under
-**Docker → Add Container → Template repositories** – Unraid then reads
+**Docker → Add Container → Template repositories** - Unraid then reads
 `deploy/unraid/envoryx.xml` directly from the repository and picks up updates.
 
 No publication in Community Applications is required for either way.
@@ -219,13 +219,13 @@ No publication in Community Applications is required for either way.
 | Port | `2222` → `2222` (SSH for IDEs; optional) |
 | Path `/config` | `/mnt/cache/appdata/envoryx` (pool path; `/mnt/user/appdata/envoryx` works with a warning, see [Where to put /config](#where-to-put-config)) |
 | Path `/projects` | `/mnt/user/development` (create the share first) |
-| Path `/backups` | optional, e.g. `/mnt/user/backups/envoryx` – keeps backups off the cache/appdata share |
+| Path `/backups` | optional, e.g. `/mnt/user/backups/envoryx` - keeps backups off the cache/appdata share |
 | Path `/var/run/docker.sock` | `/var/run/docker.sock` |
 | Variable `PUID` | `99` |
 | Variable `PGID` | `100` |
 
-Project ports (20000–20999 by default) are published by the project containers
-themselves, not by the Envoryx container – nothing else to map in the template.
+Project ports (20000-20999 by default) are published by the project containers
+themselves, not by the Envoryx container - nothing else to map in the template.
 Unraid shows Envoryx's containers (`envoryx-<project>-…`) in the Docker tab; you
 can leave them alone, Envoryx manages them.
 
@@ -270,12 +270,12 @@ created by Envoryx itself are chowned to the same ids.
 Envoryx contains a reverse proxy that routes requests by host name to the
 project's web server and serves the Envoryx UI itself. It listens on ports 80
 and 443 **inside** the container; map them to host ports (80/443 or any free
-ones – Envoryx reads its own port bindings and adjusts links accordingly).
+ones - Envoryx reads its own port bindings and adjusts links accordingly).
 When neither port is published, Settings → *Domains & HTTPS* shows a warning
 and project links keep using the direct port.
 
 **Own IP (Unraid `br0`, macvlan/ipvlan) or host networking:** there is no
-port mapping – the proxy is reachable directly on the container's address
+port mapping - the proxy is reachable directly on the container's address
 (`http(s)://<envoryx-ip>`). Envoryx detects this and shows the address in the
 settings. Your DNS entries for `*.test` must then point at the **Envoryx IP**,
 not at the Unraid IP (which is where the direct project ports live).
@@ -327,7 +327,7 @@ not at the Unraid IP (which is where the direct project ports live).
   container needs the Envoryx CA in that container, or `curl -k`. On bare
   metal there are no aliases, and containers use the Docker host's DNS.
 - `.test` is reserved for exactly this purpose (RFC 6761) and never resolves
-  on the public internet. `.local` collides with mDNS on macOS/Linux – prefer
+  on the public internet. `.local` collides with mDNS on macOS/Linux - prefer
   `.test` or an owned domain (`dev.example.com`).
 
 ### HTTPS
@@ -364,17 +364,17 @@ internet and the domain never has to point at your server publicly.
    | Porkbun | API key, secret API key | *Account → API Access*; API access must also be switched on for the domain |
 
 2. Settings → Domains & HTTPS → **Let's Encrypt**: provider, domain
-   (e.g. `dev.example.com` – the wildcard `*.dev.example.com` is added),
+   (e.g. `dev.example.com` - the wildcard `*.dev.example.com` is added),
    contact e-mail, the provider's credentials, "Use as base domain" → Enable.
    The zone is found by itself (`dev.example.com` inside `example.com` works);
    secrets are never shown again and stay when their fields are left empty.
 3. In your **local** DNS (AdGuard/Pi-hole/…) rewrite `*.dev.example.com` →
    Envoryx's address. Do not create a public record for it.
 
-Envoryx requests the certificate in the background (1–2 minutes, status is
+Envoryx requests the certificate in the background (1-2 minutes, status is
 shown in the card; netcup publishes records only after several minutes, so
 there Envoryx waits up to 20 minutes, Porkbun up to 10). Before the CA looks,
-Envoryx checks that every name server of the zone serves the record – asking
+Envoryx checks that every name server of the zone serves the record - asking
 them directly, so a local resolver or a cached "does not exist" cannot fool the
 check. The certificate is stored under `/config/ca/custom.*` and renewed 30
 days before expiry. The local CA stays as fallback for other names (`.test`).
@@ -383,7 +383,7 @@ setup without rate limits (certificates from staging are not trusted).
 
 Note: Let's Encrypt publishes every issued certificate in public
 certificate-transparency logs, so the existence of `*.dev.example.com` is
-visible there – nothing else.
+visible there - nothing else.
 
 **Own certificate**: alternatively upload any wildcard certificate with its
 key in the same card. It is used for every name it covers; other names keep
@@ -402,15 +402,15 @@ reachable at `https://<project>-dev.<base>` through the proxy (HMR
 WebSockets included) and on a direct host port. Presets pass host/port to
 Vite (`--host 0.0.0.0 --port`, default 5173), Next.js (`-H -p`, 3000) or
 Nuxt (`--host --port`, 3000); "Other" only sets `HOST`/`PORT`. Run
-`npm install` via Actions first – a crashing script is restarted by Docker
+`npm install` via Actions first - a crashing script is restarted by Docker
 until it works. For Laravel + Vite set `VITE_DEV_SERVER_URL`/`APP_URL`
 accordingly, or let Vite's `server.hmr` config point at the dev host name.
 
 #### Node-only projects (Vite, Next.js, Nuxt)
 
 PHP is optional. Pick **Node.js application** on the first wizard step (or
-`phpVersion: "none"` over MCP/REST) and a Vite, Next.js or Nuxt template –
-or a blank directory / git clone – and the dev server *is* the project:
+`phpVersion: "none"` over MCP/REST) and a Vite, Next.js or Nuxt template -
+or a blank directory / git clone - and the dev server *is* the project:
 
 - **What answers where.** `https://<project>.<base>`, every extra domain and
   `https://<project>-dev.<base>` all reach the dev server
@@ -424,7 +424,7 @@ or a blank directory / git clone – and the dev server *is* the project:
   statically on the LAN. Turn the dev server off (Runtime tab) and the port
   is published again with the same number.
 - **Static build mode.** With the dev server off, the web server serves the
-  document root statically – set it to the build output (`dist` for Vite,
+  document root statically - set it to the build output (`dist` for Vite,
   the template does this; `out` for a Next.js `output: "export"` build) and
   run `npm run build` via Actions or the terminal. Enable **SPA fallback to
   index.html** (Web server card) so client-side routes survive a reload;
@@ -434,7 +434,7 @@ or a blank directory / git clone – and the dev server *is* the project:
   tab): *Dev server* (the default, HMR) or *Production build*. In
   production mode every container start runs the build script (default
   `build`) and then the serve script (`start`; `preview` for Vite) as the
-  main process with `NODE_ENV=production` – a production-like run of a
+  main process with `NODE_ENV=production` - a production-like run of a
   Next.js/Nuxt SSR app or Vite's preview server, still behind the same
   URLs. Only the serve process gets `NODE_ENV=production`; the container
   itself stays on `development`, so `npm install` from the terminal keeps
@@ -446,30 +446,30 @@ or a blank directory / git clone – and the dev server *is* the project:
   `package.json` examples. Envoryx does not set `NODE_OPTIONS=--inspect`
   on the container on purpose: npm (a Node process itself) would grab the
   port and the debugger would attach to npm instead of your app. Start the
-  inspector in your script – `NODE_OPTIONS='--inspect=0.0.0.0:9229' next
-  dev`, `node --inspect=0.0.0.0:9229 node_modules/vite/bin/vite.js` – and
+  inspector in your script - `NODE_OPTIONS='--inspect=0.0.0.0:9229' next
+  dev`, `node --inspect=0.0.0.0:9229 node_modules/vite/bin/vite.js` - and
   attach WebStorm (*Attach to Node.js/Chrome*) or VS Code (`request:
   attach`) to the host port. Next.js opens the inspector of its server
   process one port higher (9230); publish that port when debugging server
   code. The inspector executes arbitrary code and is published on all
-  host interfaces like the dev-server ports – enable it on trusted
+  host interfaces like the dev-server ports - enable it on trusted
   networks only and turn it off when you are done.
 - **Cold start.** A freshly created blank Node project has no
   `package.json` yet: the node container waits for it (log line
   `envoryx: waiting for package.json …`) instead of crash-looping, and the
   proxy shows its "web server did not respond" page until the dev server
-  listens – the same page you see during a cold compile after a restart
+  listens - the same page you see during a cold compile after a restart
   (the proxy waits up to 5 minutes for the first response). Templates
   scaffold and `npm install` during creation, so they are ready when the
   project turns green.
 - **Vite host check.** Envoryx passes
-  `__VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS=.<base>` to the container – a
+  `__VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS=.<base>` to the container - a
   single leading-dot entry that Vite suffix-matches, so `<project>.<base>`,
   `<project>-dev.<base>` and every extra domain under the base domain pass
-  and foreign hosts get 403 (Vite 6.1–8.x; Vite before 8.3 reads the
+  and foreign hosts get 403 (Vite 6.1-8.x; Vite before 8.3 reads the
   variable as one host, which is why it is never a comma-separated list).
   Domains *outside* the base domain must be added to `server.allowedHosts`
-  in `vite.config` – the Domains tab reminds you. Next.js and Nuxt have no
+  in `vite.config` - the Domains tab reminds you. Next.js and Nuxt have no
   host check.
 - **Workers** run in the runtime of their preset: the Laravel/Symfony/PHP
   presets in the PHP container's image, the *npm script* (`npm run <name>`)
@@ -478,22 +478,22 @@ or a blank directory / git clone – and the dev server *is* the project:
   runtime the project has. Actions offer npm/pnpm/yarn and `node -v`; git
   clone/pull run in a one-shot container from the Node image.
 - **Cron jobs** (Cron tab) run any command on a schedule in the PHP, Python,
-  Go, Ruby or Node.js container – as the project owner in the project directory,
+  Go, Ruby or Node.js container - as the project owner in the project directory,
   through `sh -c`, with the project's environment. Pick a schedule (every few
   minutes, hourly, daily, weekly, monthly) or type a cron expression; the form
-  shows the next runs. Schedules are read in Envoryx's time zone – set `TZ` on
+  shows the next runs. Schedules are read in Envoryx's time zone - set `TZ` on
   the container. Jobs only run while the project is running, a run that is
   still going is not started twice, the timeout (default 10 minutes) stops
   the command, and the last 20 runs keep their output. For Laravel, either a
   *Scheduler* worker (`schedule:work`) or a cron job running `php artisan
-  schedule:run` every minute – not both.
+  schedule:run` every minute - not both.
 - **Adding or removing PHP later.** The Runtime tab's PHP card has an
   *Enable PHP* switch on every project. Adding PHP to a Node or static
   project starts a PHP-FPM container, switches the web server to FastCGI
   and makes PHP the application (the project URL leaves the dev server;
   the SPA fallback is dropped). Removing PHP takes the PHP container and
-  the PHP workers' containers down – files and worker definitions stay,
-  the workers come back with PHP – and hands the project back to the dev
+  the PHP workers' containers down - files and worker definitions stay,
+  the workers come back with PHP - and hands the project back to the dev
   server or the static document root. Over the API: `PATCH
   /api/v1/projects/{id}` with `{"php": {"version": "8.4", "config": …}}`
   adds, `{"php": {"enabled": false}}` removes.
@@ -526,7 +526,7 @@ comes next.
   <app> --bind …` with the WSGI module, e.g. `config.wsgi:application`),
   **Flask** (`flask --app <app> run --debug`; production mode gunicorn),
   **FastAPI / ASGI** (`uvicorn <app> --reload`; production mode without
-  reload – Starlette, Litestar and any ASGI app work the same way), **WSGI**
+  reload - Starlette, Litestar and any ASGI app work the same way), **WSGI**
   (`gunicorn <app> --reload`) and **Other** (`python -m <module>` reading
   `HOST`/`PORT`). The application is given as `module:attribute`
   (`main:app`, `app:app`). Production mode needs gunicorn/uvicorn in the
@@ -536,7 +536,7 @@ comes next.
   `envoryx-<project>-python:<port>`, the web container's host port stays
   unpublished (the project root with `.env` and sources is never served),
   and the Domains tab's *Direct access* is the Python host port. A Node dev
-  server next to Python keeps `<project>-dev.<base>` and its own host port –
+  server next to Python keeps `<project>-dev.<base>` and its own host port -
   the usual Django/FastAPI backend plus Vite frontend. Next to PHP the
   Python server only has its host port; PHP stays the application.
 - **Cold start.** A blank Python project has nothing to run yet: the
@@ -545,8 +545,8 @@ comes next.
   of crash-looping. Pick a template, clone a repository or set the project
   up from the Python terminal; the container picks it up within seconds.
 - **Templates.** *Django* (`django-admin startproject config .`, settings
-  patched for the proxy – `ALLOWED_HOSTS = ["*"]`, `SECURE_PROXY_SSL_HEADER`,
-  `USE_X_FORWARDED_HOST`, `CSRF_TRUSTED_ORIGINS` from the environment – and
+  patched for the proxy - `ALLOWED_HOSTS = ["*"]`, `SECURE_PROXY_SSL_HEADER`,
+  `USE_X_FORWARDED_HOST`, `CSRF_TRUSTED_ORIGINS` from the environment - and
   `dj-database-url` reading the injected `DATABASE_URL`; psycopg and
   mysqlclient installed), *Flask* (`app.py`) and *FastAPI* (`main.py`,
   docs at `/docs`). Each creates the `.venv`, installs the packages and
@@ -560,11 +560,11 @@ comes next.
   (`python <file>`), *Python module* (`python -m <module>`), *manage.py
   command* (`rqworker`, `qcluster`, …), *Celery worker* and *Celery beat*
   (`celery -A <app> …`).
-- **Debugging.** *Publish the debugpy port* (Runtime tab – with or without
+- **Debugging.** *Publish the debugpy port* (Runtime tab - with or without
   the server, for a script or test run started in the terminal) publishes
   port 5678 on a host port; the IDE tab shows host, port and path
   mapping plus command lines that start debugpy in front of the usual
-  servers. Only the port is published – `pip install debugpy` in the
+  servers. Only the port is published - `pip install debugpy` in the
   `.venv` and start it yourself (`python -m debugpy --listen
   0.0.0.0:5678 manage.py runserver …`), then attach VS Code (`type:
   debugpy`, `request: attach`). PyCharm's *Python Debug Server* works the
@@ -572,7 +572,7 @@ comes next.
   your workstation's address.
 - **Adding or removing Python later.** The Runtime tab's Python card has
   an *Enable Python* switch; removing it takes the Python container and the
-  Python workers' containers down – files, `.venv` and worker definitions
+  Python workers' containers down - files, `.venv` and worker definitions
   stay. Over the API: `PATCH /api/v1/projects/{id}` with `{"python":
   {"enabled": true, "version": "3.13", "server": true, "preset": "asgi",
   "app": "main:app"}}` adds or changes, `{"python": {"enabled": false}}`
@@ -582,7 +582,7 @@ comes next.
 
 Pick **Go application** on the first wizard step (or enable Go on any
 project from the Runtime tab). The Go container (`envoryx-<project>-go`,
-image `ghcr.io/envoryx/envoryx-go:<1.x>` – the official
+image `ghcr.io/envoryx/envoryx-go:<1.x>` - the official
 `golang:<v>-bookworm` image plus [air](https://github.com/air-verse/air),
 Delve and gotestsum, `GOTOOLCHAIN=local`) runs as `PUID:PGID` with the
 project directory at `/var/www/html` and the project home at
@@ -600,21 +600,21 @@ downloaded once for all projects.
   once at container start and runs the binary; restart the project after
   changes. Binaries are built to `/tmp/envoryx-go` inside the container,
   never into the project directory. A `.air.toml` in the project replaces
-  Envoryx's air settings entirely – build command, output directory (air's
+  Envoryx's air settings entirely - build command, output directory (air's
   default is `./tmp` in the project) and, with Delve, how the binary starts:
   its `build.full_bin` then has to run `dlv exec` itself. `GIN_MODE` follows the mode (`debug`/`release`).
 - **Routing.** Without PHP and without a Python server the Go server is the
   application: the proxy routes `https://<project>.<base>` and every extra
   domain to `envoryx-<project>-go:<port>`, the web container's host port
   stays unpublished, and *Direct access* is the Go host port. Next to PHP
-  or a Python server the Go server only has its host port – an API next to
+  or a Python server the Go server only has its host port - an API next to
   the main application. A Node dev server next to Go keeps
   `<project>-dev.<base>`.
 - **Cold start.** Until the project has a `go.mod` the server container waits (log
   line `envoryx: waiting for go.mod …`) instead of crash-looping. Pick a
   template, clone a repository or run `go mod init` in the Go terminal.
 - **Templates.** *Go (net/http)* (standard library only), *Gin* and *Echo*
-  – each runs `go mod init app` and writes a `main.go` with a start route
+  - each runs `go mod init app` and writes a `main.go` with a start route
   and a health check (`/healthz`) that listens on `$HOST:$PORT`; Gin and Echo
   fetch the framework (`go get`, `go mod tidy`).
 - **Actions, tests and workers.** Actions: `go version`, `go build ./...`,
@@ -631,15 +631,15 @@ downloaded once for all projects.
   Configurations → Go Remote*) or VS Code (`type: go`, `request: attach`,
   `mode: remote`, `substitutePath` from your folder to `/var/www/html`)
   with the host and port from the IDE tab. Without the server only the port
-  is published – for `dlv test --headless --listen=:2345 ./pkg/...` or `dlv
+  is published - for `dlv test --headless --listen=:2345 ./pkg/...` or `dlv
   debug` started in the Go terminal. Delve has no authentication: whoever
   reaches the port can run any code in the container, and with the server
-  it listens as long as the switch is on – not only while an IDE is
+  it listens as long as the switch is on - not only while an IDE is
   attached. Switch it off when you are not debugging, and do not enable it
   on a Docker host reachable from untrusted networks.
 - **Adding or removing Go later.** The Runtime tab's Go card has an *Enable
   Go* switch; removing it takes the Go container and the Go workers'
-  containers down – files and worker definitions stay. Over the API:
+  containers down - files and worker definitions stay. Over the API:
   `PATCH /api/v1/projects/{id}` with `{"go": {"enabled": true, "version":
   "1.27", "server": true, "package": "./cmd/server"}}` adds or changes,
   `{"go": {"enabled": false}}` removes. The CLI takes `--go <version>`,
@@ -649,13 +649,13 @@ downloaded once for all projects.
 
 Pick **Ruby application** on the first wizard step (or enable Ruby on any
 project from the Runtime tab). The Ruby container (`envoryx-<project>-ruby`,
-image `ghcr.io/envoryx/envoryx-ruby:<3.x|4.x>` – the official
+image `ghcr.io/envoryx/envoryx-ruby:<3.x|4.x>` - the official
 `ruby:<v>-slim-bookworm` image plus the build dependencies of the common
 native gems (pg, mysql2, sqlite3, psych) and the debug gem) runs as
 `PUID:PGID` with the project directory at `/var/www/html` and the project
-home at `/home/envoryx`. Gems go to `GEM_HOME=/home/envoryx/.gem/ruby` – they
+home at `/home/envoryx`. Gems go to `GEM_HOME=/home/envoryx/.gem/ruby` - they
 stay across container recreates and the project directory holds no
-`vendor/bundle` – and Bundler's download cache lives in the shared package
+`vendor/bundle` - and Bundler's download cache lives in the shared package
 cache. The image has no Node.js: `jsbundling-rails`/`cssbundling-rails`
 builds run in a Node service next to Ruby; the Rails template uses importmap
 and needs none.
@@ -664,11 +664,11 @@ and needs none.
   main process, restarted automatically and published on a host port of its
   own. **Rails** runs `bin/rails server` in development mode (Rails reloads
   changed code itself) and `bundle exec puma` in production mode; **Rack**
-  runs Puma on `config.ru` in both modes (Sinatra, Roda, Hanami – code
+  runs Puma on `config.ru` in both modes (Sinatra, Roda, Hanami - code
   reloading is the framework's, e.g. `sinatra/reloader`). The server listens
   on `$PORT` (3000 for Rails, 9292 for Rack; `HOST`/`BINDING` are
   `0.0.0.0`). `RAILS_ENV`, `RACK_ENV`, `APP_ENV` and `HANAMI_ENV` follow the
-  mode – the workers get the same. In development Envoryx sets
+  mode - the workers get the same. In development Envoryx sets
   `RAILS_DEVELOPMENT_HOSTS=.<base>`, so Rails' host authorization lets the
   project's host names through. Production mode is Rails' production
   environment: it needs `config/master.key` (or `SECRET_KEY_BASE` as a
@@ -678,11 +678,11 @@ and needs none.
   `force_ssl` redirects to https.
 - **Bundle.** Before the server starts it waits for the `Gemfile` (and
   `bin/rails` or `config.ru`), then runs `bundle install` when `bundle check`
-  finds the bundle incomplete – after a clone, a changed `Gemfile` or a Ruby
+  finds the bundle incomplete - after a clone, a changed `Gemfile` or a Ruby
   upgrade. While the install fails the container says so in the log and
   retries every 30 seconds. The workers do the same before they start.
 - **Database.** Envoryx injects `DATABASE_URL`, and Rails merges it into
-  `config/database.yml` – for PostgreSQL the Ruby containers get it as
+  `config/database.yml` - for PostgreSQL the Ruby containers get it as
   `postgresql://` (Envoryx names the scheme `pgsql` elsewhere, which Active
   Record does not know). An additional database `analytics` arrives as
   `ANALYTICS_DATABASE_URL`, which Rails' multi-database setup picks up for a
@@ -694,8 +694,8 @@ and needs none.
   PHP or a Python or Go server it only has its host port. A Node dev server
   next to Ruby keeps `<project>-dev.<base>`.
 - **Templates.** *Rails* (`rails new` with Hotwire and importmap), *Rails
-  (API only)* (`rails new --api`) – both named after the project and set up
-  for its database (PostgreSQL, MySQL, MariaDB; SQLite without one) – and
+  (API only)* (`rails new --api`) - both named after the project and set up
+  for its database (PostgreSQL, MySQL, MariaDB; SQLite without one) - and
   *Sinatra* (`app.rb`, `config.ru`, a `Gemfile` with Puma, `sinatra-contrib`
   for the reloader and the debug gem). The Rails templates take a few
   minutes the first time, while the native gems compile; run *rails
@@ -710,10 +710,10 @@ and needs none.
   project's database server: Active Record merges `DATABASE_URL` into every
   environment, so a test run would otherwise load its fixtures into the
   development database and empty its tables. Envoryx creates the test
-  database (as the administrator – the MySQL/MariaDB project login may not
+  database (as the administrator - the MySQL/MariaDB project login may not
   create databases) before the run; Rails loads the schema. Worker presets:
   *Solid Queue* (`bin/jobs start`), *GoodJob* (`good_job start`, optional
-  queues), *Sidekiq* (optional queues; add Redis – `REDIS_URL` is injected),
+  queues), *Sidekiq* (optional queues; add Redis - `REDIS_URL` is injected),
   *Rake task* and *Ruby script*. Cron jobs run in the Ruby container like in
   the others.
 - **Debugging.** *Debug with rdbg* runs the server under `rdbg --open
@@ -726,7 +726,7 @@ and needs none.
   tab. RubyMine's *Ruby remote debug* speaks only `ruby-debug-ide`, not the
   debug gem: in RubyMine, add the Ruby container as an SSH remote interpreter
   (user `<project>.ruby`, see *IDE integration*) and debug with RubyMine's own
-  debugger – the rdbg switch is not needed for that. Without the server only the port is published – for `rdbg --open
+  debugger - the rdbg switch is not needed for that. Without the server only the port is published - for `rdbg --open
   --host=0.0.0.0 --port=12345 -c -- bin/rails test` started in the Ruby
   terminal. rdbg has no authentication: whoever reaches the port can run any
   code in the container, and with the server it listens as long as the switch
@@ -734,7 +734,7 @@ and needs none.
   Docker host reachable from untrusted networks.
 - **Adding or removing Ruby later.** The Runtime tab's Ruby card has an
   *Enable Ruby* switch; removing it takes the Ruby container and the Ruby
-  workers' containers down – files and worker definitions stay. Over the API:
+  workers' containers down - files and worker definitions stay. Over the API:
   `PATCH /api/v1/projects/{id}` with `{"ruby": {"enabled": true, "version":
   "3.4", "server": true, "preset": "rails"}}` adds or changes, `{"ruby":
   {"enabled": false}}` removes. The CLI takes `--ruby <version>`,
@@ -751,27 +751,27 @@ needs `setcap cap_net_bind_service=+ep ./envoryx` or other addresses
 
 *Domains → Rules* tells the proxy what to do with a project's requests before
 the application sees them. The rules apply to every host name of the project
-(the default name, extra domains, the Node dev server name) and to a share –
+(the default name, extra domains, the Node dev server name) and to a share -
 not to the directly published port, which bypasses the proxy.
 
-- **Allowed addresses** – one address or network per line
+- **Allowed addresses** - one address or network per line
   (`192.168.1.0/24`, `10.8.0.5`, IPv6 too); everybody else gets a 403 page
   naming their address. The address is the one the connection comes from:
   behind another reverse proxy (SWAG, Nginx Proxy Manager) that is the other
   proxy's address. A project with an allowlist cannot be shared.
-- **User name and password** – HTTP basic authentication in front of the whole
+- **User name and password** - HTTP basic authentication in front of the whole
   project, for a staging copy or a share. The password is kept as a bcrypt
   hash; saving without a new password keeps it. The application does not see
   these credentials.
-- **Redirects** – tried in order, the first match answers (302 unless 301, 307
+- **Redirects** - tried in order, the first match answers (302 unless 301, 307
   or 308 is chosen). `From` is a path or a prefix ending in `*`; a `To` ending
   in `*` gets the rest of the path, and the query string is passed on.
   `www.shop.test` `/*` → `https://shop.test/*` makes one host name canonical;
   `/blog/*` → `/news/*` moves a section.
-- **Response headers** – set on every answer of the application
+- **Response headers** - set on every answer of the application
   (`X-Robots-Tag: noindex`, `Content-Security-Policy`, …); an empty value
   removes a header such as `X-Powered-By`.
-- **CORS** – for a frontend on another host name calling the project's API:
+- **CORS** - for a frontend on another host name calling the project's API:
   the proxy answers preflight requests from the listed origins
   (`https://app.test`, `https://*.shop.test` or `*`) and adds the CORS headers
   to the answers, replacing the application's own. With *Allow cookies and
@@ -786,7 +786,7 @@ without the password. Duplicating a project copies them.
 
 A project's variables (*Environment* tab, or the wizard's *Environment* step)
 reach every container of the project and win over what Envoryx sets for the
-services. **Import .env** reads a `.env` file – pasted or chosen – in the form
+services. **Import .env** reads a `.env` file - pasted or chosen - in the form
 Laravel, Symfony and docker compose write (`export`, comments, single and
 double quotes, `${OTHER}` references to keys above) and lists what it found:
 
@@ -794,7 +794,7 @@ double quotes, `${OTHER}` references to keys above) and lists what it found:
   are not;
 - variables Envoryx sets for one of the project's services (`DB_HOST`,
   `DB_PASSWORD`, `REDIS_HOST`, `MAIL_*`, `ANALYTICS_DB_*` …) are left out
-  unless picked – the old setup's `DB_HOST=127.0.0.1` would otherwise point
+  unless picked - the old setup's `DB_HOST=127.0.0.1` would otherwise point
   the application away from the project database;
 - names Envoryx refuses (lower case, `MARIADB_*`, `POSTGRES_*`, `ENVORYX_*` …)
   and values with line breaks are shown but cannot be imported;
@@ -809,7 +809,7 @@ for the services are not part of it.
 ## Importing an existing website
 
 *New project → Start from: Existing website* takes a site that already exists
-somewhere else – an old shared host, a backup, an FTP download – and makes a
+somewhere else - an old shared host, a backup, an FTP download - and makes a
 project of it. Upload the files as a ZIP or tar.gz archive (a single folder
 around them such as `public_html/` or `httpdocs/` is left out) and, optionally,
 a database dump (`.sql` or `.sql.gz`). Envoryx reads the archive and fills the
@@ -830,7 +830,7 @@ next steps of the wizard with what it recognised; everything stays editable.
 The PHP version is the newest one Envoryx offers that `composer.json` and the
 CMS version allow. Code that calls functions PHP 8 removed (`create_function`,
 `each`) gets PHP 7.4; code that still uses `mysql_*` or `ereg` gets a warning
-– no PHP Envoryx offers runs it unchanged. A `.htaccess` in the document root
+- no PHP Envoryx offers runs it unchanged. A `.htaccess` in the document root
 suggests Apache, the only web server that reads it (not for Laravel, Symfony,
 Shopware and Craft, whose front controller works everywhere). The database
 follows the dump's header (a MySQL 8 dump needs MySQL, it uses collations
@@ -842,7 +842,7 @@ database:
 - WordPress: `DB_NAME`, `DB_USER`, `DB_PASSWORD` and `DB_HOST` in
   `wp-config.php` read the variables Envoryx injects, and `WP_HOME`/`WP_SITEURL`
   follow the address the site is opened with. Links stored in the database
-  still name the old address – replace them with a search-and-replace plugin or
+  still name the old address - replace them with a search-and-replace plugin or
   `wp search-replace`.
 - Drupal (`settings.php`) and TYPO3 (`additional.php` or
   `AdditionalConfiguration.php`) get a block at the end that sets the connection
@@ -855,18 +855,18 @@ database:
   (`bootstrap/cache/config.php`, `var/cache`) are removed.
 
 Every changed file is kept next to itself as `<name>.envoryx-original.php`,
-starting with a line that answers 404 – the web server never hands the old
+starting with a line that answers 404 - the web server never hands the old
 credentials out. For plain PHP sites the wizard names the files that open a
 connection; change those by hand (host `database`, the rest on the *Database*
 tab). Without adapting, the files stay exactly as uploaded.
 
-**The dump** is imported after the containers are created – the database
+**The dump** is imported after the containers are created - the database
 container is started for it if the project is not. Statements that tie it to
 the old server are left out: `CREATE DATABASE`/`USE` (mysqldump `--databases`),
 `\connect`, `OWNER TO`, `GRANT`/`REVOKE` and roles (pg_dump). pg_dump's custom
 format is refused before anything is created; export plain SQL
-(`pg_dump --format=plain`). A failed import rolls the project back – the
-directory Envoryx filled is emptied again – and the upload stays for another try.
+(`pg_dump --format=plain`). A failed import rolls the project back - the
+directory Envoryx filled is emptied again - and the upload stays for another try.
 
 Uploads wait in `<backups>/.site-imports/` for 24 hours (an archive may be up to
 20 GiB and unpack to at most 64 GiB) and are removed once the project exists.
@@ -896,7 +896,7 @@ queue worker or Node process cannot take the whole server:
   and **services** (database, Redis, Memcached, Mailpit, RabbitMQ, the search
   engines, object storage) each get CPU cores (e.g. `1.5`) and memory. Docker
   limits containers one by one, so the numbers apply to *each* container of
-  the group – a project with PHP, Node and two workers may use four times the
+  the group - a project with PHP, Node and two workers may use four times the
   application limit. A project-wide total would need a cgroup on the host that
   Envoryx cannot manage from its container.
 - **Processes per container** (default 4096) stops fork bombs and worker pools
@@ -910,7 +910,7 @@ removing a CPU or memory limit recreates the containers concerned (Docker
 cannot lift one in place). Swap is not added on top of the memory limit. The
 card shows each running container's CPU and memory against its limit.
 
-When a container reaches its memory limit, the kernel ends a process in it –
+When a container reaches its memory limit, the kernel ends a process in it -
 the main process (the container restarts) or just a child such as a php-fpm
 worker or a queue job, while the container keeps running. Envoryx follows
 Docker's OOM events: the project shows a warning for a day ("php ran out of
@@ -923,12 +923,12 @@ goes out (event `project.oom`, on by default). The limits also go into the proje
 A running container is not a working application: PHP may answer every
 request with a 500, the database may be unreachable, a deploy may have left
 the app in maintenance mode. A project's **Overview** tab sets up a health
-check – a path such as `/health` or Laravel's `/up` that must answer with the
+check - a path such as `/health` or Laravel's `/up` that must answer with the
 expected status:
 
 - Envoryx asks the web server the way the proxy does: directly on the project
   network, with the project's host name and `X-Forwarded-Proto: https`, so
-  the application sees a normal visitor. DNS and certificates play no part –
+  the application sees a normal visitor. DNS and certificates play no part -
   the check is about the application. Redirects are not followed; `/health`
   answering `302 → /login` is a failure that names the target.
 - Every 30 seconds by default (10 s to 1 h), 5 seconds per answer, and the
@@ -937,7 +937,7 @@ expected status:
   warning while it is down. *Test* runs the check once, also before saving.
 - The check pauses while the project is stopped, while an operation (start,
   deploy, restart …) runs on it and while its application container is not
-  running – that case is already reported as a stopped project. Stopping a
+  running - that case is already reported as a stopped project. Stopping a
   project that is down ends the outage without a "back" message.
 - The path should check what the application needs (database, cache, queue)
   and answer quickly. It is part of `envoryx.yml` (`healthcheck:`) and shown
@@ -947,18 +947,18 @@ expected status:
 
 Envoryx records what every running project container uses, once a minute:
 CPU (in cores), memory, network traffic and disk I/O (both per second).
-Once an hour it measures each project's disk space – its volumes (database,
+Once an hour it measures each project's disk space - its volumes (database,
 caches, search, object storage), its project directory and its backups.
 
 - A project's **Resources** tab draws all of it over the last hour up to a
   year: CPU and memory per container, network and disk I/O for the project,
   disk space by kind. Every chart has a table view.
 - The **dashboard** lists every project with its average and peak CPU and
-  memory, its disk space and a CPU sparkline, busiest first – the quick way
+  memory, its disk space and a CPU sparkline, busiest first - the quick way
   to find the project that eats the server.
 - Values are kept at full detail for a day, then as 5-minute averages (peaks
   are kept) for a week, then as hourly averages. *Settings → General →
-  Resource history* sets how long (7, 30, 90 days – the default – or a year)
+  Resource history* sets how long (7, 30, 90 days - the default - or a year)
   and deletes the recorded values. A year of hourly values for a project with
   five containers is about 60,000 rows in the Envoryx database; a few MB.
 - Disk I/O is what the kernel attributes to the container: writes still in
@@ -967,8 +967,8 @@ caches, search, object storage), its project directory and its backups.
 
 ## Stopping and restarting
 
-Project operations – creating, starting, restarting, updating, deleting a
-project, project backups and restores – run to completion on the server even
+Project operations - creating, starting, restarting, updating, deleting a
+project, project backups and restores - run to completion on the server even
 when the browser tab that started them is closed, the page is reloaded or the
 connection drops. The UI simply shows the result on the next load.
 
@@ -985,14 +985,14 @@ The grace period must stay below the container's stop timeout, otherwise
 Docker kills the process first: Docker's default is 10 s; the compose file
 sets `stop_grace_period: 90s` with `ENVORYX_SHUTDOWN_GRACE: 80s` so an image
 pull can usually finish. On Unraid the stop timeout is global (*Settings →
-Docker → Docker stop timeout*, default 10 s) – raise it and the template's
+Docker → Docker stop timeout*, default 10 s) - raise it and the template's
 *Shutdown grace* together if you want the same behaviour.
 
 ### Orphaned resources
 
 A container, network or volume with Envoryx labels whose project no longer
-exists in the database – after restoring an older instance backup, a wiped
-`/config`, or a delete that Docker only half completed – is an *orphan*. The
+exists in the database - after restoring an older instance backup, a wiped
+`/config`, or a delete that Docker only half completed - is an *orphan*. The
 reconciler stops and removes orphaned containers and networks on its own once
 it has seen them in two consecutive passes (about a minute), so they do not
 linger in the Docker list of the host; a network another container still
@@ -1013,9 +1013,9 @@ and the Envoryx container* ties them together:
 - Stopping the Envoryx container (`docker stop`, Unraid stop, host shutdown)
   stops every running project after the grace period above, all projects in
   parallel, then the shared helpers such as the database browser. The
-  projects keep their desired state – this is Envoryx going down, not the
+  projects keep their desired state - this is Envoryx going down, not the
   user stopping them.
-- On the next start, Envoryx starts the projects that were running before –
+- On the next start, Envoryx starts the projects that were running before -
   also after a reboot of the host, where `unless-stopped` alone would leave
   them stopped (Docker does not restart a container that was stopped
   explicitly).
@@ -1060,12 +1060,12 @@ newer, its error message names the pre-migrate backup to restore by hand (see
 - **Patch releases** (e.g. 8.5.3 → 8.5.4): the `envoryx-php` images are rebuilt
   weekly from the official `php` images. A project **Restart** pulls the tag
   again and recreates the container only if the image actually changed. Until
-  then the project keeps running on the previous build – nothing changes
+  then the project keeps running on the previous build - nothing changes
   behind your back.
 - **Rolling back**: when a restart replaced containers with a rebuilt image,
   the project's *Overview* shows *image updated <date>* next to the service
   with a **Roll back** button. It recreates the containers from the image
-  they ran before (the same for MariaDB, Caddy, … – every image tag Envoryx
+  they ran before (the same for MariaDB, Caddy, … - every image tag Envoryx
   pulls). The previous image is kept out of *Docker → unused images* for as
   long as a project can roll back to it. A rolled-back project stays on that
   image through further restarts (a *previous image* badge marks it) until you
@@ -1099,7 +1099,7 @@ Project backups (database dump, files, configuration) are created from the
 project's **Backups** tab and stored as plain directories, one per backup,
 under `<backups dir>/<project>/`. Changing a database's version takes a
 database backup automatically first (source *upgrade*); if no dump can be
-taken – the project is stopped – the upgrade is refused, because the server
+taken - the project is stopped - the upgrade is refused, because the server
 rewrites its data directory on the first start and cannot go back.
 
 By default the backups directory is `/config/backups`, i.e. on the appdata
@@ -1109,7 +1109,7 @@ the optional *Backups* path in the template, e.g. `/mnt/user/backups/envoryx`;
 Compose: uncomment the `/backups` volume) and Envoryx uses it automatically.
 `ENVORYX_BACKUPS_DIR` overrides the location explicitly. To move existing
 backups, stop Envoryx, move the contents of `/config/backups/` into the new
-directory and start again – a warning is logged at startup while backups are
+directory and start again - a warning is logged at startup while backups are
 left behind in the old location.
 
 Include the backups directory in your regular off-machine backup (e.g. the
@@ -1117,7 +1117,7 @@ Unraid Appdata Backup plugin or an rsync job), use the per-backup download, or
 let Envoryx copy the backups offsite itself (see *Offsite backups* below).
 
 **Scheduled backups**: Backups tab → *Scheduled backups*: daily or weekly at
-a given hour (server local time – set `TZ` on the container for your zone),
+a given hour (server local time - set `TZ` on the container for your zone),
 keep the last N scheduled backups (manual ones are never deleted), optionally
 including `vendor/`, `node_modules/` and the framework build caches
 (`.next/`, `.nuxt/`, `.output/`), which are skipped by default because they
@@ -1129,7 +1129,7 @@ are large and reproducible. Failures raise a notification.
 (accounts, sessions, API tokens, projects and their service settings, domains,
 workers, settings), the local CA, the SSH host key and deploy keys,
 notification settings and the generated per-project configuration. Project
-files and Docker volumes are **not** included – that is what project backups
+files and Docker volumes are **not** included - that is what project backups
 are for. A backup is a single `envoryx-<id>.tar.gz` under
 `<backups dir>/_instance/` (`instance.json` with version/schema, `envoryx.db`
 as a consistent `VACUUM INTO` copy, `config/…`).
@@ -1149,14 +1149,14 @@ as a consistent `VACUUM INTO` copy, `config/…`).
   *Docker* until you remove them there (see *Orphaned resources*). All
   sessions end; sign in again with the credentials from the backup. The
   restored database starts with an `instance.restored` audit entry naming the
-  backup, the `pre-restore` safety copy and who requested it – the audit rows
+  backup, the `pre-restore` safety copy and who requested it - the audit rows
   written after the backup was taken are gone with the old database.
 - A backup from a **newer** Envoryx (higher schema version) is refused; an
   older one is migrated forward on start (with its own `pre-migrate` backup).
 
 Manual restore without the UI (e.g. Envoryx does not start): stop the
-container, unpack the archive – `envoryx.db` to `/config/envoryx.db` (delete
-`envoryx.db-wal`/`-shm` if present), `config/*` over `/config/` – and start
+container, unpack the archive - `envoryx.db` to `/config/envoryx.db` (delete
+`envoryx.db-wal`/`-shm` if present), `config/*` over `/config/` - and start
 again.
 
 Still include `/config`, `/projects` and the backups directory in your regular
@@ -1182,10 +1182,10 @@ to the browser.
 
 **What goes up.** Per target:
 
-- *Scheduled project backups* – every scheduled backup of every project is
+- *Scheduled project backups* - every scheduled backup of every project is
   copied once it is taken. *Keep per project* rotates the scheduled copies on
   the target (0 = keep all); copies made by hand are never rotated away.
-- *Daily instance backup* – at the chosen hour Envoryx takes an instance
+- *Daily instance backup* - at the chosen hour Envoryx takes an instance
   backup (kind `scheduled`, the last 5 stay locally) and copies it. This is
   what a fresh Envoryx needs after the host is gone.
 - Everything else on request: *Copy offsite* next to a backup (project or
@@ -1199,7 +1199,7 @@ copy's state next to the backup.
 
 **Encryption** is a per-target switch and on by default. Archives are
 encrypted with [age](https://age-encryption.org) and a scrypt passphrase
-before they leave the host, so the provider only sees `.age` files – backups
+before they leave the host, so the provider only sees `.age` files - backups
 carry the project's passwords, tokens and data. Keep the passphrase somewhere
 else: without it nothing can be restored, and after losing the host a fresh
 Envoryx needs it. The files also open without Envoryx:
@@ -1214,8 +1214,8 @@ instance/<instance backup id>.tar.gz[.age]              an instance backup
 ```
 
 **Getting a backup back.** The *Offsite copies* card in a project's Backups
-tab lists what the target holds for the project – also backups that were
-deleted here – and *Fetch* puts one back into the local list, from where it is
+tab lists what the target holds for the project - also backups that were
+deleted here - and *Fetch* puts one back into the local list, from where it is
 restored as usual (`envoryx backup remote|fetch <project>` on the command
 line).
 
@@ -1232,8 +1232,8 @@ line).
 
 ## Several databases
 
-A project is not limited to one database. Next to the first one – the
-*primary*, reached as host `database` with `DB_*` and `DATABASE_URL` – it can
+A project is not limited to one database. Next to the first one - the
+*primary*, reached as host `database` with `DB_*` and `DATABASE_URL` - it can
 have any number of additional databases, each with a name of its own:
 PostgreSQL for reporting next to MariaDB, or a second MariaDB in another
 version for a legacy part of the application. Add them in the wizard
@@ -1249,7 +1249,7 @@ An additional database named `analytics`:
 | Host in the project network | `analytics` |
 | Variables | `ANALYTICS_DB_CONNECTION`, `ANALYTICS_DB_HOST`, `ANALYTICS_DB_PORT`, `ANALYTICS_DB_DATABASE`, `ANALYTICS_DB_USERNAME`, `ANALYTICS_DB_PASSWORD`, `ANALYTICS_DATABASE_URL` (plus `ANALYTICS_MONGODB_URI` for MongoDB) |
 
-Names are 1–24 lowercase letters, digits and dashes starting with a letter
+Names are 1-24 lowercase letters, digits and dashes starting with a letter
 (dashes become underscores in the variables: `legacy-db` → `LEGACY_DB_DB_HOST`);
 names another container of the project answers to (`database`, `redis`,
 `web`, the engine names …) are refused. Each database has its own generated
@@ -1263,7 +1263,7 @@ password rotation, databases on the server, Adminer, snapshots, cloning.
   project still has and names the ones it skipped.
 - **Snapshots** are taken of one database; the list and *Restore* go by it,
   and the ten newest are kept per database.
-- **Cloning** copies any database of the same engine into the selected one –
+- **Cloning** copies any database of the same engine into the selected one -
   of another project (`staging`'s `analytics` into `local`'s `analytics`), or
   another database of the same project.
 - **Duplicating and renaming** carry the additional databases along: the
@@ -1280,8 +1280,8 @@ password rotation, databases on the server, Adminer, snapshots, cloning.
 
 ## External databases and Redis
 
-Instead of a container of its own, a database – the primary or an additional
-one – or Redis can be a server that already runs elsewhere: the MariaDB on your
+Instead of a container of its own, a database - the primary or an additional
+one - or Redis can be a server that already runs elsewhere: the MariaDB on your
 Unraid server, a PostgreSQL in the company network, a managed database. Choose
 *On an external server* in the wizard, when adding a database in the Database
 tab, or when adding Redis in the Services tab, and enter host, port, user,
@@ -1291,7 +1291,7 @@ visible to the user, host unreachable).
 
 - **Supported:** MariaDB, MySQL and PostgreSQL, and Redis (with or without a
   password). The version you pick selects the client tools Envoryx uses for
-  backups and the connection – choose the server's major version (for
+  backups and the connection - choose the server's major version (for
   PostgreSQL the client must not be older than the server).
 - **A server on the Docker host itself** is reached as
   `host.docker.internal`; Envoryx adds that name to every container of the
@@ -1316,7 +1316,7 @@ visible to the user, host unreachable).
   database: …}}`, `redis: {external: {host: …}}`). Applying a manifest keeps
   an existing connection and changes it with the stored password; a new
   external connection is skipped, and creating a project from a manifest that
-  has one is refused – set it up in Envoryx.
+  has one is refused - set it up in Envoryx.
 
 ## Running tests
 
@@ -1358,11 +1358,11 @@ which sends `{"type":"result","run":…}` before it closes.
 ## Sharing a project
 
 *Share* in a running project's header puts it on a temporary public https
-address – to show a client or a colleague work in progress without a VPN,
+address - to show a client or a colleague work in progress without a VPN,
 port forwarding or an account anywhere. Envoryx starts a Cloudflare quick
 tunnel (`cloudflare/cloudflared`) next to the project, pointed at the proxy
-(so the project's *Rules* apply: a password, headers, redirects) – or straight
-at the application when the proxy has no plain HTTP listener – and shows the
+(so the project's *Rules* apply: a password, headers, redirects) - or straight
+at the application when the proxy has no plain HTTP listener - and shows the
 address it gets:
 `https://<random-words>.trycloudflare.com`. The address is random and changes
 with every share.
@@ -1375,7 +1375,7 @@ outgoing connections are needed: the host has to reach Cloudflare on port
 7844.
 
 **Anyone who has the address reaches the project from the internet, without
-signing in** – unless the project's rules ask for a user name and password,
+signing in** - unless the project's rules ask for a user name and password,
 which is the way to protect a share. Share a staging copy, not data that has to be protected, and
 keep in mind that an application which builds absolute links from
 `APP_URL`/`ENVORYX_URL` still points them at the local address. Starting a
@@ -1397,7 +1397,7 @@ Composer, npm, Yarn, pip, uv, Go (modules and build cache) and Bundler keep thei
 downloads in one cache that every project shares: `/config/cache`, mounted at
 `/var/cache/envoryx` into the PHP, Node, Python, Go and Ruby containers, the workers and the one-shot containers that
 scaffold a template. A package is downloaded once, whichever project asks for
-it next – the second Laravel project is created in a fraction of the time of
+it next - the second Laravel project is created in a fraction of the time of
 the first. The variables that point the tools there (`COMPOSER_CACHE_DIR`,
 `npm_config_cache`, `YARN_CACHE_FOLDER`, `PIP_CACHE_DIR`, `UV_CACHE_DIR`) can be
 overridden per project like any other. pnpm keeps its store in the project
@@ -1413,7 +1413,7 @@ downloads again. Instance backups leave it out. On Unraid the cache lives with
 *Services → Ollama* (or `--ollama` / `--ollama-gpu` with `envoryx project create`)
 adds an Ollama server to a project. The application reaches it at
 `http://ollama:11434`, injected as `OLLAMA_HOST`, `OLLAMA_BASE_URL` and `OLLAMA_URL`
-– the names the Ollama libraries, LangChain and Laravel Prism read.
+- the names the Ollama libraries, LangChain and Laravel Prism read.
 
 Models are downloaded on the Ollama card: type a name from the
 [Ollama library](https://ollama.com/library) (`llama3.2`, `qwen3:8b`,
@@ -1423,12 +1423,12 @@ model picks up where it stopped. The project has to be running.
 
 All projects share one model store, `/config/ollama` (on Unraid
 `/mnt/user/appdata/envoryx/ollama`): a model is downloaded once, and deleting it
-removes it for every project – the dialog says so. Models are several GB each, so
+removes it for every project - the dialog says so. Models are several GB each, so
 keep an eye on the share. Removing Ollama from a project leaves the store alone; to
 free the space, delete the models first or empty the directory.
 
 **GPU.** *Use the GPU* hands the host's NVIDIA GPUs to the container
-(`docker run --gpus all`). Docker needs the NVIDIA Container Toolkit for it – on
+(`docker run --gpus all`). Docker needs the NVIDIA Container Toolkit for it - on
 Unraid the *Nvidia Driver* plugin from Community Applications, then a restart of
 Docker. Envoryx starts a short test container before it switches the GPU on and
 refuses with that hint when Docker cannot hand the GPU over, so Ollama keeps running
@@ -1473,7 +1473,7 @@ application containers:
 | `S3_SECRET_KEY`    | `AWS_SECRET_ACCESS_KEY`      | generated                               |
 | `S3_USE_PATH_STYLE`| `AWS_USE_PATH_STYLE_ENDPOINT`| `true`                                  |
 | `S3_PUBLIC_URL`    | `AWS_URL`                    | `https://<project>-s3.<base>/<bucket>`  |
-| `S3_PUBLIC_ENDPOINT` | –                          | `https://<project>-s3.<base>`           |
+| `S3_PUBLIC_ENDPOINT` | -                          | `https://<project>-s3.<base>`           |
 
 A Laravel `s3` disk works without further configuration
 (`FILESYSTEM_DISK=s3`); code written for any S3-compatible provider runs
@@ -1484,7 +1484,7 @@ uses path-style addressing.
 API as `<project>-s3.<base domain>` (covered by the same wildcard DNS and
 certificate as the project), so `Storage::url()` links, public assets and
 direct uploads work in the browser. Presigned URLs meant for a browser must
-be signed against that public endpoint (`S3_PUBLIC_ENDPOINT`) – the signature
+be signed against that public endpoint (`S3_PUBLIC_ENDPOINT`) - the signature
 covers the host name, a URL signed for `s3:9000` is useless outside the
 project network. The S3 API and the web console are also published on host
 ports (shown in the Services tab) for local tools such as `aws s3 --endpoint-url`.
@@ -1503,7 +1503,7 @@ and needs the bucket name as confirmation.
 **Backups.** Project backups can include the bucket (on by default for manual
 and scheduled backups when the project has object storage): every object is
 stored as a plain file in `storage.tar.gz`, named by its key, with the content
-type kept as an `user.mime_type` extended attribute – readable with any tar,
+type kept as an `user.mime_type` extended attribute - readable with any tar,
 independent of the server's on-disk format. Restoring uploads the objects
 again, optionally emptying the bucket first; the storage container must be
 running for both.
@@ -1513,7 +1513,7 @@ running for both.
 The Logs tab has two views per container. *Live* follows the output as it
 comes. *History* searches the past output: a time range (a preset or
 from/to), a text search and a level filter, a chart of lines, warnings and
-errors over time – a click on a bar zooms into that slot – and the most
+errors over time - a click on a bar zooms into that slot - and the most
 frequent errors and warnings, grouped so that the same message with other
 numbers, ids or times counts as one. *Download* saves every line that matches,
 as text or, through the API with `format=jsonl`, as JSON lines.
@@ -1535,7 +1535,7 @@ Docker keeps a container's output only as long as the container exists (and
 at most 30 MB of it): a project that is updated, reconfigured or renamed gets
 new containers and starts with empty logs. So Envoryx copies the output of
 every project container into `/config/logs/<project>/<service>/<day>.jsonl` as
-it is written, and the History view reads from there – across restarts and
+it is written, and the History view reads from there - across restarts and
 recreated containers. The footer says which source a result came from.
 
 - Output written while Envoryx was stopped is picked up when it comes back,
@@ -1553,7 +1553,7 @@ recreated containers. The footer says which source a result came from.
 
 ## Workers (queues, schedulers)
 
-Workers tab: add long-running processes from a preset list – Laravel
+Workers tab: add long-running processes from a preset list - Laravel
 `schedule:work`, `queue:work`/`queue:listen` (queue names), Horizon,
 Reverb, Symfony `messenger:consume` (transports) and Scheduler, a PHP script
 or a composer script (PHP image); npm scripts and Node scripts (Node
@@ -1576,12 +1576,12 @@ Every project has an **IDE** tab with all values ready to copy.
 
 **Remote interpreter over SSH.** Envoryx runs an SSH server on port 2222
 (publish it, or use the container's own IP on `br0`). User name = project
-slug (`shop`): it lands in the project's application container – PHP when
+slug (`shop`): it lands in the project's application container - PHP when
 the project has PHP, else Python, else Go, else Ruby, else Node. Projects with several runtimes
 also accept `shop.php`, `shop.python`, `shop.go`, `shop.ruby` and `shop.node` to pick one
 explicitly (the IDE tab lists these rows only then). Password = an API token from Settings → API tokens, or a
 public key stored under Settings → SSH access. Each session is a
-`docker exec` into that container as the project owner – there is no shell
+`docker exec` into that container as the project owner - there is no shell
 on the host. SFTP exposes `/var/www/html` (the project) and `/home/envoryx`
 (a persistent home for tool caches and IDE helpers).
 
@@ -1616,11 +1616,11 @@ client. In Envoryx this is opt-in per project (IDE tab → *Allow JetBrains
 Gateway*): it enables SSH port forwarding into the container and mounts a
 shared backend cache (`/config/jetbrains`, ~1.5 GB per IDE version,
 downloaded once). The backend runs as the project owner inside the
-application container – PHP, else Python, else Go, else Ruby, else Node (user `<slug>`;
-`<slug>.python` / `<slug>.go` / `<slug>.ruby` / `<slug>.node` pick one next to PHP) – and needs 2–4 GB RAM plus CPU while
-indexing – nothing runs until you connect. Envoryx ships no JetBrains
+application container - PHP, else Python, else Go, else Ruby, else Node (user `<slug>`;
+`<slug>.python` / `<slug>.go` / `<slug>.ruby` / `<slug>.node` pick one next to PHP) - and needs 2-4 GB RAM plus CPU while
+indexing - nothing runs until you connect. Envoryx ships no JetBrains
 software: Gateway itself is free, the IDE backend is uploaded by your
-Gateway client and licensed through it – whoever connects needs a valid
+Gateway client and licensed through it - whoever connects needs a valid
 subscription for that IDE (PhpStorm, WebStorm or All Products Pack), the
 server needs nothing. Gateway → *SSH → New connection*
 with the values from the IDE tab, choose PhpStorm/WebStorm, project
@@ -1646,8 +1646,8 @@ images since September 2026, Python images from the start). Troubleshooting:
 
 Runtime tab → PHP → **Xdebug**: enables step debugging for that project
 (port 9003, mode `debug,develop`, `start_with_request=yes`). Xdebug connects
-back to the machine that made the request – behind Envoryx's proxy that
-address comes from `X-Forwarded-For` – and falls back to the *developer
+back to the machine that made the request - behind Envoryx's proxy that
+address comes from `X-Forwarded-For` - and falls back to the *developer
 machine* set in Settings → Project links (or a per-project override). Map
 `/var/www/html` to your project folder in the IDE; the tab shows the exact
 PhpStorm/VS Code settings. Turn it off when you are done: it slows PHP down.
@@ -1660,8 +1660,8 @@ the events and send a test. Events: a project that should be running is
 stopped/broken (and when it recovers), an application fails its health check
 and when it answers again (see *Health checks*), project creation failed, a container
 ran out of memory (see *Resource limits*), backup failed, Let's Encrypt renewal failed/succeeded, Envoryx started, Envoryx
-failed (refused to start – corrupt database, network filesystem, failed
-migration – or a background task crashed and was restarted). Repeats are
+failed (refused to start - corrupt database, network filesystem, failed
+migration - or a background task crashed and was restarted). Repeats are
 throttled (unhealthy project once per 6 h, failed renewal once per day). The
 failed-start notification is sent before the process exits and needs no
 database, only the channel configured in `/config/notify.json`.
@@ -1695,7 +1695,7 @@ Available tools: list/get projects, list runtimes, create project (PHP
 version + extensions, database, Redis, Memcached, Mailpit, RabbitMQ, Meilisearch, Typesense, OpenSearch, Ollama, object storage, Node, Python, git clone, env),
 start/stop/restart, get logs, list/run actions (composer, artisan, npm …),
 list/create databases, list/create backups, add domain. Deleting projects,
-dropping databases and restoring backups are intentionally not exposed –
+dropping databases and restoring backups are intentionally not exposed -
 do those in the UI. Example prompt: *"Create a Laravel project called
 test-api with PHP 8.4, MariaDB and Redis, then run composer install."*
 
@@ -1728,7 +1728,7 @@ template (`rails`, `rails-api`, `sinatra`), which switches the server on.
 ### Scripting the REST API
 
 The same tokens authenticate the REST API (`/api/v1/...`) for scripts, CI
-jobs and the [command line](#command-line) – send them as
+jobs and the [command line](#command-line) - send them as
 `Authorization: Bearer stq_…`. Bearer requests need neither a session cookie
 nor the browser CSRF headers:
 
@@ -1751,14 +1751,14 @@ ones below it:
 A token can additionally be **limited to particular projects**. It then sees
 only those in listings, every other project answers `403` (REST) or "no project
 matches" (MCP), instance-wide endpoints (dashboard, settings, Docker overview)
-are closed, and it cannot create projects – regardless of its scope. Use this
+are closed, and it cannot create projects - regardless of its scope. Use this
 for an assistant that should work on one project only.
 
 Refusals carry the reason (`this token has read scope, the operation needs
 operate`) so scripts and assistants can tell what kind of token they need.
 `GET /api/v1/auth/me` shows the calling token's name, scope and projects.
 
-No token can change the password or create/revoke tokens – those need a
+No token can change the password or create/revoke tokens - those need a
 browser session. Audit entries record `user (token: name)`. A request that
 presents an invalid or revoked token is rejected even if a valid session
 cookie is also sent. Tokens created before scopes existed keep full access
@@ -1790,7 +1790,7 @@ else). `--token -` reads it from stdin, which is what a provisioning script
 wants. `envoryx whoami` shows whose token it is and what it may do, `envoryx
 logout` forgets it again (the token itself is revoked under *Settings → API
 tokens*). Without a stored configuration, `ENVORYX_URL` and `ENVORYX_TOKEN`
-work just as well – handy in CI, where nothing should be written to disk.
+work just as well - handy in CI, where nothing should be written to disk.
 
 ### What it can do
 
@@ -1831,7 +1831,7 @@ Every command exits `0` on success, `1` on failure and `2` on a usage error.
 `envoryx project exec shop -- php artisan migrate --force || rollback` does
 what it looks like. Its stdout and stderr stay apart, input is piped in
 (`envoryx project exec shop -- sh -c "cat > /tmp/x" < file`, up to 512 KiB),
-and the command runs as the project owner in the project directory – the same
+and the command runs as the project owner in the project directory - the same
 place the browser terminal starts in. For an interactive shell or a large
 pipe, use SSH: `ssh shop@<host> -p 2222` (see *IDE integration*).
 
@@ -1856,9 +1856,9 @@ envoryx project manifest shop -o envoryx.yml   # write the file for an existing 
 
 `envoryx up` looks for the file in the current directory and its parents (up to
 the repository root). When the server has no project of that name yet, it
-clones the repository itself – the `origin` remote and the checked-out branch,
+clones the repository itself - the `origin` remote and the checked-out branch,
 over the same credentials as the wizard (deploy key for SSH URLs,
-`--git-token` for private HTTPS) – creates the project exactly as described and
+`--git-token` for private HTTPS) - creates the project exactly as described and
 starts it. The local checkout only supplies the file and the repository URL; a
 remote that exists only on this machine (a path, `file://`) is refused. When
 the project exists, `up` compares it with the file, applies the differences in
@@ -1887,7 +1887,7 @@ ollama: {gpu: true}              # models are not part of the manifest
 domains: [api.shop.example.com]
 env:
   APP_ENV: local
-secrets: [STRIPE_SECRET]         # names only – values never go into the repository
+secrets: [STRIPE_SECRET]         # names only - values never go into the repository
 workers:
   - {name: queue, preset: "laravel:queue", arg: default}
 cron:
@@ -1907,7 +1907,7 @@ healthcheck:                     # see "Health checks"; or just: healthcheck: /h
 `package`, `port`, `debug`, `debugPort`; `server`, `mode`, `preset`, `port`,
 `debug`, `debugPort`). A setting left out
 means Envoryx's default, so the file is the whole desired state: `web:` missing
-means Caddy, `extensions:` missing the default set. Unknown keys are errors –
+means Caddy, `extensions:` missing the default set. Unknown keys are errors -
 a typo never silently drops a service. The export pins every version, which is
 what makes `up` reproduce a project exactly.
 
@@ -1920,7 +1920,7 @@ variable is created empty and named in the output; afterwards the project keeps
 its value.
 
 Nothing is removed without `--prune`: a service, variable, domain, worker or
-cron job the file no longer has is listed as *kept*. With `--prune` it goes –
+cron job the file no longer has is listed as *kept*. With `--prune` it goes -
 for a database or a service with a volume (Redis, RabbitMQ, the search engines,
 storage) together with its data. Another database `type` counts as such a
 removal. A database version lower than the project's is never applied, as the
@@ -1928,7 +1928,7 @@ data format does not go back.
 
 In the web interface the *Git* tab shows the project as `envoryx.yml` (copy,
 download, save into the project directory) and compares the file in the project
-directory with the project – after a `git pull` that brought a changed
+directory with the project - after a `git pull` that brought a changed
 manifest, *Apply to project* takes it over. The wizard applies the manifest of
 a repository it clones (*Use the repository's envoryx.yml*, on by default); the
 file then wins over the services picked in the wizard. The API behind it:
@@ -1955,13 +1955,13 @@ look on a trusted network; with a Let's Encrypt certificate neither is needed.
 *Settings → Audit log* lists who did what and when: sign-ins, every change to
 a project, backups, database operations, commands run through the API or a
 terminal, settings. Filter by text (action, user, project, IP, details), by
-user – an account's API tokens are included –, by category and by date;
+user - an account's API tokens are included -, by category and by date;
 *Load older entries* pages back, and a click on a user shows only their
 entries. Every project has the same list for itself under *History*.
 
 Open an entry to see everything it recorded. A project change lists each
 setting it changed with its value before and after (PHP version, services,
-document root, variables, workers …); secret values never appear – only that a
+document root, variables, workers …); secret values never appear - only that a
 secret was added or removed.
 
 *CSV* and *JSON Lines* export exactly the entries the filters show (the API:
@@ -1989,7 +1989,7 @@ docker exec -it envoryx envoryx admin reset --yes      # remove all accounts →
 
 `reset-password` picks the only account when there is just one and ends its
 sessions; `reset` deletes accounts, sessions and API tokens but leaves
-projects, settings and backups alone – open the web interface afterwards and
+projects, settings and backups alone - open the web interface afterwards and
 create the administrator account again. Every command is written to the audit
 log with the user `cli`. On Unraid the container's console (*Docker →
 Envoryx → Console*) is the same shell.
@@ -2006,7 +2006,7 @@ without authentication. The image ships a `HEALTHCHECK` that calls
 
 The check is a *liveness* check: it fails (503, `"status":"unavailable"`)
 only when the database is unusable. An unreachable Docker engine is reported
-as `"docker":false` with `"status":"degraded"` but still answers 200 –
+as `"docker":false` with `"status":"degraded"` but still answers 200 -
 Envoryx keeps running and retries the engine on demand, and restarting the
 Envoryx container would not fix a Docker problem. Tools that restart
 unhealthy containers (autoheal) therefore do not loop on it.

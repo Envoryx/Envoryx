@@ -145,7 +145,7 @@
   /* The logo follows the accent: a mid tone on light, the bright brand tone on dark. */
   --logo-accent: var(--color-accent-500);
   --logo-fg: var(--fg);
-  /* Chart series (categorical, fixed order – validated against the card surface in both
+  /* Chart series (categorical, fixed order - validated against the card surface in both
      modes) and chart chrome. */
   --series-1: #2a78d6;
   --series-2: #eb6834;

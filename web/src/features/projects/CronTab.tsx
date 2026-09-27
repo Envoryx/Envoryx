@@ -318,7 +318,7 @@ export function CronTab({ project }: { project: Project }) {
   return (
     <div className="space-y-6">
       {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
-      {!hasRuntime && <Alert tone="amber">{t("Cron jobs run in the project's PHP, Python, Go, Ruby or Node.js container – this project has none. Add a runtime in the Runtime tab first.")}</Alert>}
+      {!hasRuntime && <Alert tone="amber">{t("Cron jobs run in the project's PHP, Python, Go, Ruby or Node.js container - this project has none. Add a runtime in the Runtime tab first.")}</Alert>}
       {hasRuntime && !running && q.data.jobs.length > 0 && <Alert tone="blue">{t("The project is not running, so its cron jobs are paused. They resume when it starts; missed runs are not caught up.")}</Alert>}
       <Card>
         <CardHeader
@@ -342,7 +342,7 @@ export function CronTab({ project }: { project: Project }) {
                       <Badge>{runtimeLabels[j.runtime]}</Badge>
                       {!j.enabled && <Badge tone="gray">{t("disabled")}</Badge>}
                       {j.running && <Badge tone="blue">{t("running")}</Badge>}
-                      {j.runtimeMissing && <Badge tone="amber">{t("paused – runtime missing")}</Badge>}
+                      {j.runtimeMissing && <Badge tone="amber">{t("paused - runtime missing")}</Badge>}
                     </p>
                     <p className="text-xs text-muted">
                       <span className="font-mono">{j.schedule}</span>

@@ -1,6 +1,6 @@
 // Package sshd is Envoryx's embedded SSH server. It lets IDEs (PhpStorm/WebStorm remote
 // interpreter, VS Code, plain ssh) run commands inside a project's application container
-// and transfer files via SFTP – without exposing the Docker socket or a real shell on the
+// and transfer files via SFTP - without exposing the Docker socket or a real shell on the
 // host. The user name selects the project and container: "<slug>" is the application
 // container (PHP, else Python, else Node), "<slug>.php", "<slug>.python" and
 // "<slug>.node" select explicitly. The password is a Envoryx API token, or a public key from the
@@ -402,7 +402,7 @@ func allowedEnv(k string) bool {
 // run executes a command in the target container, wiring the SSH channel to it.
 func (s *Server) run(ctx context.Context, ch ssh.Channel, st *session, mu *sync.Mutex, target project.ExecTarget, cmd []string, kind string) int {
 	if target.ContainerID == "" || !target.Running {
-		fmt.Fprintf(ch.Stderr(), "Envoryx: project %s is not running – start it in the Envoryx UI first.\r\n", target.Project.Name)
+		fmt.Fprintf(ch.Stderr(), "Envoryx: project %s is not running - start it in the Envoryx UI first.\r\n", target.Project.Name)
 		return 1
 	}
 	env := append(append([]string{}, target.Env...), st.env...)

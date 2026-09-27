@@ -36,7 +36,7 @@ function ProxyStatus({ tls }: { tls: TLSInfo }) {
       </div>
       {p.address && (
         <Alert tone="blue" title={t("Envoryx has its own IP address: {{address}}", { address: p.address })}>
-          {t("The proxy is reachable directly on that address (no port mapping needed). Point your DNS entries for the base domain at")} <Code>{p.address}</Code> – {t("not at the Docker host.")}
+          {t("The proxy is reachable directly on that address (no port mapping needed). Point your DNS entries for the base domain at")} <Code>{p.address}</Code> - {t("not at the Docker host.")}
         </Alert>
       )}
       {missing && p.inDocker && (

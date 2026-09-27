@@ -52,7 +52,7 @@ function capSeries(all: Series[], other: string): Series[] {
 }
 
 function perContainer(m: ProjectMetrics, pick: (p: MetricPoint) => number, other: string): Series[] {
-  // Slots follow the container, in name order – a range with fewer containers keeps
+  // Slots follow the container, in name order - a range with fewer containers keeps
   // everyone's color.
   const s = m.containers.map((c, i) => ({ key: c.name, label: c.name, slot: i + 1, points: c.points.map((p) => [p[0], pick(p)] as [number, number]) }));
   return capSeries(s, other);
@@ -160,7 +160,7 @@ export function ResourcesTab({ project }: { project: Project }) {
               <LineChart series={charts.io} from={m.from} to={now} step={m.res} format={rateFmt} label={t("Disk I/O")} />
             </ChartCard>
             <div className="xl:col-span-2">
-              <ChartCard title={t("Disk space")} description={t("Volumes (database, caches, search, storage), the project directory and its backups – measured hourly")} table={<SeriesTable series={charts.size} format={formatBytes} />}>
+              <ChartCard title={t("Disk space")} description={t("Volumes (database, caches, search, storage), the project directory and its backups - measured hourly")} table={<SeriesTable series={charts.size} format={formatBytes} />}>
                 <LineChart series={charts.size} from={sizeFrom} to={now} step={3600} format={formatBytes} label={t("Disk space")} />
               </ChartCard>
             </div>

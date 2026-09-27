@@ -26,7 +26,7 @@ export function goServerRequest(f: GoServerForm): { server: boolean; mode: strin
   };
 }
 
-/** What the backend runs for a mode (runtime.GoConfig.Command) – shown so the choice is clear. */
+/** What the backend runs for a mode (runtime.GoConfig.Command) - shown so the choice is clear. */
 export function goCommandHint(mode: string, pkg: string, debug: boolean): string {
   const p = pkg.trim() || ".";
   const build = `go build${debug ? " -gcflags='all=-N -l'" : ""} ${p}`;
@@ -43,7 +43,7 @@ export function GoServerFields({ value, onChange, idPrefix = "go", primary = fal
         label={t("Build and run the server")}
         description={
           primary
-            ? t("The server becomes the container's main process (restarted automatically) and answers on the project URL plus a direct host port. It needs a go.mod – use a Go template, clone a repository or run go mod init in the Go terminal.")
+            ? t("The server becomes the container's main process (restarted automatically) and answers on the project URL plus a direct host port. It needs a go.mod - use a Go template, clone a repository or run go mod init in the Go terminal.")
             : t("The server becomes the container's main process (restarted automatically) on a direct host port; the project URL keeps reaching PHP or Python.")
         }
         checked={value.server}
@@ -55,7 +55,7 @@ export function GoServerFields({ value, onChange, idPrefix = "go", primary = fal
           <div className="grid gap-2 sm:grid-cols-2">
             {[
               { key: "dev", label: t("Development"), text: t("air rebuilds and restarts the server whenever a .go file changes; a .air.toml in the project takes over.") },
-              { key: "production", label: t("Production build"), text: t("One go build when the container starts, then the binary – restart the project after changes.") },
+              { key: "production", label: t("Production build"), text: t("One go build when the container starts, then the binary - restart the project after changes.") },
             ].map((m) => (
               <label key={m.key} className={`flex cursor-pointer items-start gap-2 rounded-md border px-3 py-2 text-sm ${value.mode === m.key ? "border-accent-500 bg-accent-500/5" : "border-default"}`}>
                 <input type="radio" name={`${idPrefix}-mode`} className="mt-0.5 accent-accent-600" checked={value.mode === m.key} onChange={() => set({ mode: m.key })} aria-label={m.label} />

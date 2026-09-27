@@ -268,7 +268,7 @@ func TestAddChangeAndRemoveDatabase(t *testing.T) {
 	if err != nil || len(backups) != 1 || backups[0].Meta.Source != "upgrade" || backups[0].Kind != "database" || !strings.Contains(backups[0].Meta.Note, "10.11 → 11") {
 		t.Fatalf("upgrade backup: %+v, %v", backups, err)
 	}
-	// Without a running database container no dump is possible – then no upgrade either.
+	// Without a running database container no dump is possible - then no upgrade either.
 	if _, err := e.m.Stop(ctx, id); err != nil {
 		t.Fatal(err)
 	}

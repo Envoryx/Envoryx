@@ -39,7 +39,7 @@ project is started.
   --git-token TOKEN    access token for a private repository ("-" reads stdin)
   --secret KEY=VALUE   value for a variable listed under secrets, repeatable; in a
                        terminal the missing ones are asked for
-  --prune              also remove what the manifest no longer has – services with
+  --prune              also remove what the manifest no longer has - services with
                        their data, variables, domains, workers, cron jobs
   --dry-run            show what would change and stop
   --no-start           leave the project stopped
@@ -164,11 +164,11 @@ func (c *cli) up(ctx context.Context, args []string) error {
 	if git.URL == "" {
 		u, err := gitOutput(dir, "remote", "get-url", *remote)
 		if err != nil || u == "" {
-			return fmt.Errorf("the server clones the project from its repository, but %s has no remote %q – push it somewhere the server can reach and add the remote, or pass --git URL", dir, *remote)
+			return fmt.Errorf("the server clones the project from its repository, but %s has no remote %q - push it somewhere the server can reach and add the remote, or pass --git URL", dir, *remote)
 		}
 		git.URL = u
 		if isLocalGitURL(u) {
-			return fmt.Errorf("remote %q is %s, which the server cannot reach – pass --git URL", *remote, u)
+			return fmt.Errorf("remote %q is %s, which the server cannot reach - pass --git URL", *remote, u)
 		}
 	}
 	if git.Branch == "" {
@@ -265,10 +265,10 @@ func (c *cli) printPlan(p manifestPlan, prune bool) {
 		}
 		switch ch.Skipped {
 		case "prune":
-			detail = "kept – needs --prune"
+			detail = "kept - needs --prune"
 			skipped++
 		case "downgrade":
-			detail = ch.From + " – not changed, the data format does not go back"
+			detail = ch.From + " - not changed, the data format does not go back"
 			skipped++
 		}
 		rows = append(rows, []string{"  " + mark, subject, detail})
@@ -287,7 +287,7 @@ func (c *cli) printUp(p projectSummary, plan manifestPlan, started bool) {
 		c.printf("  Start it with: envoryx project start %s\n", p.Slug)
 	}
 	if len(plan.MissingSecrets) > 0 {
-		c.printf("  Without a value: %s – set it with envoryx up --secret KEY=VALUE or under Environment in the web interface.\n", strings.Join(plan.MissingSecrets, ", "))
+		c.printf("  Without a value: %s - set it with envoryx up --secret KEY=VALUE or under Environment in the web interface.\n", strings.Join(plan.MissingSecrets, ", "))
 	}
 }
 
@@ -363,7 +363,7 @@ func findManifest(file string) (string, error) {
 		}
 		dir = parent
 	}
-	return "", fmt.Errorf("no %s here or above – write one with \"envoryx project manifest <project> -o %s\" or by hand", manifest.FileName, manifest.FileName)
+	return "", fmt.Errorf("no %s here or above - write one with \"envoryx project manifest <project> -o %s\" or by hand", manifest.FileName, manifest.FileName)
 }
 
 // gitOutput runs git in dir and returns its trimmed output.
@@ -372,7 +372,7 @@ func gitOutput(dir string, args ...string) (string, error) {
 	out, err := cmd.Output()
 	if err != nil {
 		if errors.Is(err, exec.ErrNotFound) {
-			return "", errors.New("git is not installed – pass --git URL")
+			return "", errors.New("git is not installed - pass --git URL")
 		}
 		return "", err
 	}
@@ -386,7 +386,7 @@ func isLocalGitURL(u string) bool {
 
 const manifestUsage = `Usage: envoryx project manifest <project> [flags]
 
-Prints the project as an envoryx.yml – commit it, and "envoryx up" in a clone brings the
+Prints the project as an envoryx.yml - commit it, and "envoryx up" in a clone brings the
 same project up again.
 
   -o FILE    write it to FILE instead of printing it

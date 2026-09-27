@@ -113,7 +113,7 @@ export function StorageCard({ project, onMessage }: { project: Project; onMessag
         <div className="space-y-4">
           <Checkbox
             label={t("Anyone may read objects (public bucket)")}
-            description={t("A bucket policy makes every object readable without credentials – what public-read ACLs do on real providers, which this server does not evaluate. Off: only presigned URLs and authenticated requests work.")}
+            description={t("A bucket policy makes every object readable without credentials - what public-read ACLs do on real providers, which this server does not evaluate. Off: only presigned URLs and authenticated requests work.")}
             checked={live.publicRead}
             disabled={setPublic.isPending}
             onChange={(e) => setPublic.mutate(e.target.checked)}

@@ -103,14 +103,14 @@ export function PhpConfigForm({
       <div className="space-y-3 rounded-md border border-default p-4">
         <Checkbox
           label={t("Xdebug (step debugging)")}
-          description={t("Breakpoints in PhpStorm / VS Code. Slows PHP down noticeably – enable only while debugging. Applies to the PHP container after saving.")}
+          description={t("Breakpoints in PhpStorm / VS Code. Slows PHP down noticeably - enable only while debugging. Applies to the PHP container after saving.")}
           checked={!!value.xdebug}
           onChange={(e) => set("xdebug", e.target.checked)}
         />
         {value.xdebug && (
           <>
             <div className="grid gap-4 sm:grid-cols-3">
-              <Field label={t("Mode")} htmlFor="php-xmode" hint={value.xdebugMode === "trigger" ? t("Only requests with the XDEBUG_TRIGGER cookie/parameter (browser extension) are debugged – no slowdown otherwise.") : t("Every request connects to the IDE; noticeably slower.")}>
+              <Field label={t("Mode")} htmlFor="php-xmode" hint={value.xdebugMode === "trigger" ? t("Only requests with the XDEBUG_TRIGGER cookie/parameter (browser extension) are debugged - no slowdown otherwise.") : t("Every request connects to the IDE; noticeably slower.")}>
                 <Select id="php-xmode" value={value.xdebugMode ?? "always"} onChange={(e) => set("xdebugMode", e.target.value as "always" | "trigger")}>
                   <option value="always">{t("Always")}</option>
                   <option value="trigger">{t("Trigger (browser extension)")}</option>

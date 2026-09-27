@@ -190,7 +190,7 @@ async function upload<T>(path: string, field: string, file: File): Promise<T> {
 
 /**
  * Uploads a website (and optionally its database dump) for import. XMLHttpRequest rather
- * than fetch, because only it reports upload progress – a site can be gigabytes.
+ * than fetch, because only it reports upload progress - a site can be gigabytes.
  */
 function uploadSite(site: File, dump: File | null, onProgress?: (loaded: number, total: number) => void): Promise<{ import: SiteImport }> {
   const form = new FormData();

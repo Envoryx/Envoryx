@@ -37,7 +37,7 @@ type ConfigFile struct {
 }
 
 // Notice is something the import wants to tell. Text is English with {{placeholders}}
-// filled from Params – the web UI translates it like the progress messages.
+// filled from Params - the web UI translates it like the progress messages.
 type Notice struct {
 	Level  string            `json:"level"` // info | warning
 	Text   string            `json:"text"`

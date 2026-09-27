@@ -34,7 +34,7 @@ export function AppShell() {
 
   // The logo leads to the ASCII short film, like a home page.
   const brand = (
-    <Link to="/foundry" className="rounded-md" aria-label="Envoryx" title="Envoryx – The spatial foundry" onClick={() => setOpen(false)}>
+    <Link to="/foundry" className="rounded-md" aria-label="Envoryx" title="Envoryx - The spatial foundry" onClick={() => setOpen(false)}>
       <Logo withText />
     </Link>
   );

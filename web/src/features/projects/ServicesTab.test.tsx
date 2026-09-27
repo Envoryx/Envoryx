@@ -216,7 +216,7 @@ describe("ServicesTab external Redis", () => {
     });
     renderApp(<ServicesTab project={makeProject()} />);
     expect(await screen.findByText("cache.lan:6380")).toBeInTheDocument();
-    expect(screen.getByText("external – Envoryx does not run it")).toBeInTheDocument();
+    expect(screen.getByText("external - Envoryx does not run it")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Edit connection" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Remove connection" })).toBeInTheDocument();
   });

@@ -109,7 +109,7 @@ export function LogHistory({ projectId, kind }: { projectId: string; kind: strin
               value={localInput(range.from)}
               onChange={(e) => e.target.value && setRange({ ...range, from: new Date(e.target.value).toISOString() })}
             />
-            <span className="text-xs text-subtle">–</span>
+            <span className="text-xs text-subtle">-</span>
             <Input
               type="datetime-local"
               aria-label={t("To")}
@@ -182,11 +182,11 @@ export function LogHistory({ projectId, kind }: { projectId: string; kind: strin
         <span>
           {lines.data &&
             (lines.data.truncated
-              ? t("Last {{shown}} of {{total}} matching lines – the download has all of them", { shown: lines.data.lines.length, total: lines.data.matched })
+              ? t("Last {{shown}} of {{total}} matching lines - the download has all of them", { shown: lines.data.lines.length, total: lines.data.matched })
               : t("{{count}} lines", { count: lines.data.matched }))}
         </span>
         {lines.data && (
-          <span title={lines.data.source === "history" ? t("Kept across container restarts and recreations") : t("Only what Docker still holds for the current container – the log history is off or has nothing yet")}>
+          <span title={lines.data.source === "history" ? t("Kept across container restarts and recreations") : t("Only what Docker still holds for the current container - the log history is off or has nothing yet")}>
             {lines.data.source === "history"
               ? lines.data.oldest
                 ? t("Log history since {{date}}", { date: formatDateTime(lines.data.oldest) })
@@ -205,7 +205,7 @@ function bucketLabel(b: LogBucket, seconds: number): string {
   if (seconds >= 86400) return from.toLocaleDateString(undefined, date);
   const time: Intl.DateTimeFormatOptions = { hour: "2-digit", minute: "2-digit", hour12: false };
   const to = new Date(from.getTime() + seconds * 1000);
-  return `${from.toLocaleString(undefined, { ...date, ...time })} – ${to.toLocaleTimeString(undefined, time)}`;
+  return `${from.toLocaleString(undefined, { ...date, ...time })} - ${to.toLocaleTimeString(undefined, time)}`;
 }
 
 /**

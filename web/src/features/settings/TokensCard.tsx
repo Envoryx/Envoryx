@@ -72,12 +72,12 @@ export function TokensCard() {
     <Card>
       <CardHeader
         title={t("API tokens & MCP")}
-        description={t("Tokens authenticate AI assistants (Claude Code, Cursor, …) on the MCP server, SSH/SFTP logins and scripts calling the REST API with an Authorization: Bearer header. Each token has a scope – read, operate or admin – and can be confined to particular projects. A token can never change the password or manage tokens.")}
+        description={t("Tokens authenticate AI assistants (Claude Code, Cursor, …) on the MCP server, SSH/SFTP logins and scripts calling the REST API with an Authorization: Bearer header. Each token has a scope - read, operate or admin - and can be confined to particular projects. A token can never change the password or manage tokens.")}
       />
       <div className="space-y-4 p-5">
         {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
         {created && (
-          <Alert tone="green" title={t('Token "{{name}}" created – copy it now, it is not shown again.', { name: created.name })}>
+          <Alert tone="green" title={t('Token "{{name}}" created - copy it now, it is not shown again.', { name: created.name })}>
             <div className="mt-2 space-y-3">
               <div>
                 <code className="block select-all break-all rounded-md bg-muted p-2 font-mono text-[11px]">{created.secret}</code>

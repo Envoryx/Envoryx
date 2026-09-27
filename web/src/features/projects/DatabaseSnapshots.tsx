@@ -48,7 +48,7 @@ export function SnapshotsCard({ project, database, onMessage }: { project: Proje
               <History className="size-4 text-accent-500" aria-hidden /> {t("Snapshots")}
             </span>
           }
-          description={t("A dump of the database “{{name}}” and nothing else – taken before a migration or a mass update, put back with one click. The project does not have to be running for it, and only the {{keep}} newest snapshots are kept.", {
+          description={t("A dump of the database “{{name}}” and nothing else - taken before a migration or a mass update, put back with one click. The project does not have to be running for it, and only the {{keep}} newest snapshots are kept.", {
             name: databaseLabel(database),
             keep: SNAPSHOT_KEEP,
           })}
@@ -89,7 +89,7 @@ export function SnapshotsCard({ project, database, onMessage }: { project: Proje
                     <p className="text-sm font-medium text-fg">
                       {formatDateTime(s.createdAt)}
                       <span className="ml-2">{sourceBadge(s, t)}</span>
-                      {s.meta.note && <span className="ml-2 font-normal text-muted">– {s.meta.note}</span>}
+                      {s.meta.note && <span className="ml-2 font-normal text-muted">- {s.meta.note}</span>}
                     </p>
                     <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-subtle">
                       {s.meta.database && <Badge tone="amber">{s.meta.database.type} {s.meta.database.version} · {s.meta.database.name}</Badge>}
@@ -131,7 +131,7 @@ export function SnapshotsCard({ project, database, onMessage }: { project: Proje
         open={restoreTarget !== null}
         onClose={() => setRestoreTarget(null)}
         title={t("Restore this snapshot?")}
-        description={restoreTarget ? `${formatDateTime(restoreTarget.createdAt)}${restoreTarget.meta.note ? ` – ${restoreTarget.meta.note}` : ""}` : undefined}
+        description={restoreTarget ? `${formatDateTime(restoreTarget.createdAt)}${restoreTarget.meta.note ? ` - ${restoreTarget.meta.note}` : ""}` : undefined}
         footer={
           <>
             <Button onClick={() => setRestoreTarget(null)}>{t("Cancel")}</Button>
@@ -204,7 +204,7 @@ export function SnapshotsCard({ project, database, onMessage }: { project: Proje
   );
 }
 
-/** Replace this project's database contents with another project's – staging into local. */
+/** Replace this project's database contents with another project's - staging into local. */
 export function CloneDatabaseCard({ project, database, onMessage }: { project: Project; database: DatabaseInfo; onMessage: (m: Message) => void }) {
   const { t } = useTranslation();
   const projects = useProjects();
@@ -315,7 +315,7 @@ export function CloneDatabaseCard({ project, database, onMessage }: { project: P
         <div className="space-y-4">
           <Alert tone="red" title={t("This overwrites current data")}>
             {t("The database “{{name}}” is replaced by the contents of {{source}}; everything in it now is lost.", { name: databaseLabel(database), source: sourceName })}
-            {snapshot ? ` ${t("A snapshot is taken first, so it can be put back.")}` : ` ${t("No snapshot is taken – there is no way back.")}`}
+            {snapshot ? ` ${t("A snapshot is taken first, so it can be put back.")}` : ` ${t("No snapshot is taken - there is no way back.")}`}
           </Alert>
           <Field label={t("Type {{slug}} to confirm", { slug: project.slug })} htmlFor="clone-confirm">
             <Input id="clone-confirm" value={confirm} onChange={(e) => setConfirm(e.target.value)} autoComplete="off" />

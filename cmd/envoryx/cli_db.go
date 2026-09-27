@@ -76,7 +76,7 @@ func (c *cli) dbSnapshots(ctx context.Context, args []string) error {
 	for _, s := range body.Snapshots {
 		note := s.Meta.Note
 		if s.Missing {
-			note = "dump missing – " + note
+			note = "dump missing - " + note
 		}
 		rows = append(rows, []string{s.ID, s.CreatedAt.Local().Format("2006-01-02 15:04"), humanSize(s.SizeBytes), s.Meta.Source, note})
 	}
@@ -200,7 +200,7 @@ func (c *cli) dbClone(ctx context.Context, args []string) error {
 	}
 	c.printf("Copied the database of %s into %s (%s).\n", src.Slug, target.Slug, out.Clone.Database)
 	if out.Clone.Snapshot != nil {
-		c.printf("The state before is snapshot %s – envoryx db restore %s %s --yes puts it back.\n", out.Clone.Snapshot.ID, target.Slug, out.Clone.Snapshot.ID)
+		c.printf("The state before is snapshot %s - envoryx db restore %s %s --yes puts it back.\n", out.Clone.Snapshot.ID, target.Slug, out.Clone.Snapshot.ID)
 	}
 	return nil
 }

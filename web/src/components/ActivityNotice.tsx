@@ -29,7 +29,7 @@ export function activityText(a: Activity, t: TFunction): string {
 }
 
 /**
- * What Envoryx did on its own since it started – projects resumed, orphans removed – so
+ * What Envoryx did on its own since it started - projects resumed, orphans removed - so
  * nothing happens behind the user's back. Dismissing remembers the newest entry per browser;
  * the audit log keeps the durable record.
  */

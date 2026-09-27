@@ -62,7 +62,7 @@ type ExecOptions struct {
 // Exec runs one command in a service container and returns its exit code. It is the
 // non-interactive counterpart of OpenTerminal: without a pseudo-terminal stdout and
 // stderr stay apart and the exit code survives, which is what scripts, CI jobs and the
-// CLI need. The project lock is deliberately not taken – a command runs alongside
+// CLI need. The project lock is deliberately not taken - a command runs alongside
 // whatever else the project is doing, exactly like a terminal session does.
 func (m *Manager) Exec(ctx context.Context, id string, kind store.ServiceKind, opts ExecOptions) (int, error) {
 	if len(opts.Cmd) == 0 {

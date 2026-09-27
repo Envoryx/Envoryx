@@ -7,7 +7,7 @@ import { Alert, Badge, Button, Select, Spinner } from "@/components/ui";
 import { formatBytes, formatDateTime } from "@/lib/format";
 import { errorText } from "@/lib/errors";
 
-/** Whether any copy is still on its way – lists poll while this is true. */
+/** Whether any copy is still on its way - lists poll while this is true. */
 export function uploading(copies: Record<string, OffsiteUpload[]> | undefined): boolean {
   return Object.values(copies ?? {}).some((list) => list.some((c) => c.status === "pending" || c.status === "running"));
 }

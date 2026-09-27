@@ -138,7 +138,7 @@ func (s *Syncer) targetsFor(ids []string) ([]Target, error) {
 			}
 		}
 		if len(out) == 0 {
-			return nil, fmt.Errorf("%w: no offsite target is enabled – add one under Settings → Offsite backups", validate.ErrInvalid)
+			return nil, fmt.Errorf("%w: no offsite target is enabled - add one under Settings → Offsite backups", validate.ErrInvalid)
 		}
 		return out, nil
 	}

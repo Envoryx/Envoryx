@@ -14,9 +14,9 @@ import (
 	"github.com/envoryx/envoryx/internal/store"
 )
 
-// Chaos tests: the failures a home server actually produces – the Docker daemon dying
+// Chaos tests: the failures a home server actually produces - the Docker daemon dying
 // under a running operation, a kill -9 in the middle of a backup, a backup share that
-// went read-only – must leave Envoryx in a state it can explain and recover from.
+// went read-only - must leave Envoryx in a state it can explain and recover from.
 
 func TestDockerVanishesMidRestart(t *testing.T) {
 	e := newEnv(t)

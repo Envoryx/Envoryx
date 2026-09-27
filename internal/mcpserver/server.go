@@ -56,7 +56,7 @@ func New(d Deps) *Server {
 		Instructions: "Envoryx manages Docker-based development environments (web server, PHP and/or Node.js, database, Redis, Memcached, Mailpit, RabbitMQ, Meilisearch, Typesense, OpenSearch, Ollama, S3-compatible object storage). " +
 			"Projects are identified by id, slug or name. Use list_runtimes to see available versions before creating projects. " +
 			"Deleting projects, dropping databases and restoring backups are not available here; ask the user to do that in the Envoryx UI. " +
-			"Tools may be refused because of the token's scope (read < operate < admin) or its project restriction; the refusal names what is needed – ask the user for a token with that scope rather than retrying.",
+			"Tools may be refused because of the token's scope (read < operate < admin) or its project restriction; the refusal names what is needed - ask the user for a token with that scope rather than retrying.",
 		Logger: d.Log,
 	})
 	s.registerTools()

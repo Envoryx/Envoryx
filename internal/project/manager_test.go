@@ -930,7 +930,7 @@ func TestTemplateRuntimeGating(t *testing.T) {
 		t.Fatalf("explicit port must win: %+v", cfg)
 	}
 	// Partial configs merge per field: only devServer (MCP nodeDevServer:true) or only the
-	// package manager (REST) must still take the template's preset, port and script –
+	// package manager (REST) must still take the template's preset, port and script -
 	// otherwise a Next scaffold would run on the Vite preset and the wrong port.
 	req.Template = "next"
 	for _, partial := range []runtime.NodeConfig{{DevServer: true}, {PackageManager: "pnpm"}} {

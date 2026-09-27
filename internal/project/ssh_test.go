@@ -9,8 +9,8 @@ import (
 	"github.com/envoryx/envoryx/internal/store"
 )
 
-// The bare SSH user reaches the project's application container – PHP when present, Node
-// otherwise – so IDE configurations only need the slug; suffixes select explicitly.
+// The bare SSH user reaches the project's application container - PHP when present, Node
+// otherwise - so IDE configurations only need the slug; suffixes select explicitly.
 func TestResolveSSHUserPicksTheApplicationContainer(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()

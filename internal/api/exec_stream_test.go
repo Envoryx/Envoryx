@@ -10,7 +10,7 @@ import (
 // Docker hands output over in arbitrary chunks, so a multi-byte character can straddle
 // two of them. The frames must still carry the text, not replacement characters.
 func TestExecStreamKeepsMultiByteOutputIntact(t *testing.T) {
-	const text = "Größe: 20 µF – ✓"
+	const text = "Größe: 20 µF - ✓"
 	for _, chunk := range []int{1, 2, 3, 5} {
 		rec := httptest.NewRecorder()
 		stream := newExecStream(rec)

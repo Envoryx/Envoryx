@@ -98,6 +98,6 @@ export function auditDetails(e: AuditEntry, t: TFunction): string {
     }
     default:
       if (typeof d["name"] === "string") return String(d["name"]);
-      return e.targetType ? `${e.targetType} ${e.targetId.slice(0, 8)}` : "—";
+      return e.targetType ? `${e.targetType} ${e.targetId.slice(0, 8)}` : "-";
   }
 }

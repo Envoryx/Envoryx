@@ -44,7 +44,7 @@ func (a *API) listTokens(w http.ResponseWriter, r *http.Request) {
 
 type createTokenRequest struct {
 	Name string `json:"name"`
-	// Scope defaults to operate – enough for assistants and scripts that work with
+	// Scope defaults to operate - enough for assistants and scripts that work with
 	// existing projects; admin must be chosen deliberately.
 	Scope    string   `json:"scope"`
 	Projects []string `json:"projects"`

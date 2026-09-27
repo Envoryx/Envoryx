@@ -78,7 +78,7 @@ func (c *cli) readToken() (string, error) {
 	return "-", nil // resolveConfig reads stdin
 }
 
-// logout forgets the stored token. The token itself stays valid – it is revoked in the
+// logout forgets the stored token. The token itself stays valid - it is revoked in the
 // web interface under Settings → API tokens.
 func (c *cli) logout(args []string) error {
 	fs := c.newFlags("logout")
@@ -122,7 +122,7 @@ func (c *cli) whoami(ctx context.Context, args []string) error {
 
 func describeToken(me meResponse) string {
 	if me.Token == nil {
-		return "Browser session – every operation is allowed."
+		return "Browser session - every operation is allowed."
 	}
 	s := fmt.Sprintf("Token %q, scope %s", me.Token.Name, me.Token.Scope)
 	switch len(me.Token.Projects) {

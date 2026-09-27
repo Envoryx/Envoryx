@@ -141,7 +141,7 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
           {info.external && (
             <>
               <dt className="text-muted">{t("Server")}</dt>
-              <dd className="text-xs">{t("external – Envoryx does not run it")}</dd>
+              <dd className="text-xs">{t("external - Envoryx does not run it")}</dd>
             </>
           )}
           {info.kind === "ollama" && (

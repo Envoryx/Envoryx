@@ -60,7 +60,7 @@ async function removeProjectLeftovers(slug: string): Promise<void> {
 
 export default async function globalSetup() {
   if (!existsSync(bin)) {
-    throw new Error(`${bin} not found – run "make build" first (or set ENVORYX_E2E_BIN)`);
+    throw new Error(`${bin} not found - run "make build" first (or set ENVORYX_E2E_BIN)`);
   }
   const work = mkdtempSync(join(tmpdir(), "envoryx-e2e-"));
   const config = join(work, "config");

@@ -198,7 +198,7 @@ func TestPullAndCheckoutAndSSH(t *testing.T) {
 }
 
 // Git one-shots run from whichever runtime image the project has: PHP, else Node, else the
-// catalogue's default Node image – so clone and status work for every project shape.
+// catalogue's default Node image - so clone and status work for every project shape.
 func TestGitRunsFromTheProjectRuntimeImage(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()

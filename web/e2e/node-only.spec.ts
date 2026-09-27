@@ -4,7 +4,7 @@ import { adminPassword, adminUsername, nodeProjectName, nodeProjectSlug } from "
 // A project without PHP: the wizard's "Static site" stack creates the web container alone,
 // which serves the starter index.html on the published port. This is the cheapest shape
 // without PHP (no npm install in CI) and exercises every code path that used to assume a PHP
-// container – starter page, git one-shot image, IDE tab. Runs after lifecycle.spec.ts, which
+// container - starter page, git one-shot image, IDE tab. Runs after lifecycle.spec.ts, which
 // created the administrator account; the tests build on each other, hence serial.
 test.describe.configure({ mode: "serial" });
 

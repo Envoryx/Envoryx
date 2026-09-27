@@ -10,7 +10,7 @@ type StorageKind int
 const (
 	// StorageLocal is a normal local filesystem (ext4, xfs, btrfs, zfs, overlay, …).
 	StorageLocal StorageKind = iota
-	// StorageFUSE is a userspace filesystem – on Unraid that is /mnt/user (shfs). SQLite
+	// StorageFUSE is a userspace filesystem - on Unraid that is /mnt/user (shfs). SQLite
 	// works on it, but locking and fsync behaviour depend on the FUSE driver; the
 	// community advice for databases on Unraid is the pool path (/mnt/cache/appdata).
 	StorageFUSE
@@ -45,7 +45,7 @@ func ValidateStorage(dir string, allowNetwork bool) (warning string, err error) 
 		if !allowNetwork {
 			return "", &ErrNetworkStorage{Dir: dir, FS: c.Name}
 		}
-		return fmt.Sprintf("%s is on a network filesystem (%s); ENVORYX_ALLOW_NETWORK_FS is set, so Envoryx runs anyway – database corruption is possible", dir, c.Name), nil
+		return fmt.Sprintf("%s is on a network filesystem (%s); ENVORYX_ALLOW_NETWORK_FS is set, so Envoryx runs anyway - database corruption is possible", dir, c.Name), nil
 	case StorageFUSE:
 		return fmt.Sprintf("%s is on a FUSE filesystem (%s). On Unraid that is /mnt/user: point the config path at the pool directly (e.g. /mnt/cache/appdata/envoryx) or enable exclusive access for the appdata share, so the SQLite database is on a real filesystem", dir, c.Name), nil
 	}

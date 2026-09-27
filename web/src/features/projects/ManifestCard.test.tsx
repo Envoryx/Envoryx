@@ -46,7 +46,7 @@ describe("ManifestCard", () => {
 
     expect(await screen.findByText("differs from the project")).toBeInTheDocument();
     expect(screen.getByText("version: 8.3 → version: 8.4")).toBeInTheDocument();
-    expect(screen.getByText("kept – removing needs the option below")).toBeInTheDocument();
+    expect(screen.getByText("kept - removing needs the option below")).toBeInTheDocument();
     expect(screen.getByText("APP_DEBUG")).toBeInTheDocument();
 
     await user.click(screen.getByRole("checkbox", { name: /Also remove what the manifest no longer has/ }));

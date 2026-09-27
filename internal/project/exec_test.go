@@ -100,7 +100,7 @@ func TestExecNeedsARunningContainerAndACommand(t *testing.T) {
 }
 
 // The PHP container runs as root (php-fpm switches users itself), but terminal, actions
-// and SSH work in it as PUID:PGID – that uid needs a passwd entry from the start on.
+// and SSH work in it as PUID:PGID - that uid needs a passwd entry from the start on.
 func TestStartGivesThePHPWorkUserAPasswdEntry(t *testing.T) {
 	e := newEnv(t)
 	if _, err := e.m.Create(context.Background(), phpRequest("Shop", true)); err != nil {

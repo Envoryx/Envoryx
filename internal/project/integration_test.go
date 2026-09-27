@@ -5,7 +5,7 @@
 //	go test -tags integration ./internal/project/
 //
 // Unit tests drive the planner through a fake engine, which proves what Envoryx asks
-// Docker for – not whether the images accept it. Every stateful service (database, Redis,
+// Docker for - not whether the images accept it. Every stateful service (database, Redis,
 // Mailpit) was therefore never actually started by any test, and that is where
 // PostgreSQL 18 could ship broken: the image changed the directory it keeps its cluster
 // in and refused to start on the old mount, while the unit test pinned version 17 and saw
@@ -73,7 +73,7 @@ func integrationManager(t *testing.T) *Manager {
 }
 
 // errTerminal marks a state that will not improve, so the wait reports it at once
-// instead of sitting out its timeout – a container the restart policy keeps restarting is
+// instead of sitting out its timeout - a container the restart policy keeps restarting is
 // crash-looping, not starting up, and on a slow CI runner that difference is minutes.
 var errTerminal = errors.New("terminal state")
 
@@ -94,7 +94,7 @@ func waitFor(t *testing.T, what string, timeout time.Duration, fn func() error) 
 	t.Fatalf("%s: %v", what, last)
 }
 
-// crashLooping reports a container the restart policy keeps restarting – no wait will
+// crashLooping reports a container the restart policy keeps restarting - no wait will
 // outlive that. One sample is not enough: between the exit and the next restart Docker
 // reports the container as running, so a crash-looping service can look healthy for a
 // moment. seen counts the observations across polls.
@@ -135,7 +135,7 @@ func containerTail(t *testing.T, m *Manager, id string, kind store.ServiceKind) 
 // container that is thrown away and rebuilt from the plan?
 //
 // Every engine's tag floats (mariadb:11 is rolling, the others move with patch releases),
-// so all four are worth the check – but pulling them is gigabytes. PostgreSQL runs on
+// so all four are worth the check - but pulling them is gigabytes. PostgreSQL runs on
 // every push, the rest when ENVORYX_TEST_ALL_DATABASES is set, which the scheduled run
 // does.
 func TestIntegrationStatefulServices(t *testing.T) {
@@ -179,7 +179,7 @@ func statefulServices(t *testing.T, engine string) {
 	}
 	t.Logf("database image %s (catalogue default %s)", dbSvc.Image, dbSvc.Version)
 
-	// Every enabled service has to reach running – a container that crash-loops on its
+	// Every enabled service has to reach running - a container that crash-loops on its
 	// volume (PostgreSQL 18) never gets there.
 	// Shared across every wait below: a service that crash-loops fails them all, and the
 	// count has to survive the individual waits to be meaningful.
@@ -269,8 +269,8 @@ func statefulServices(t *testing.T, engine string) {
 	}
 }
 
-// sqlIn pipes statements into a project's primary database through the flavour's client –
-// the same argv an import uses – and returns what it printed. It is how this test writes
+// sqlIn pipes statements into a project's primary database through the flavour's client -
+// the same argv an import uses - and returns what it printed. It is how this test writes
 // and reads rows without a driver, and it works for every SQL engine in the catalogue.
 func sqlIn(t *testing.T, m *Manager, id, sql string) string {
 	t.Helper()
@@ -313,8 +313,8 @@ func sqlInDB(t *testing.T, m *Manager, id, db, sql string) string {
 
 // TestIntegrationDatabaseSnapshotAndClone drives a snapshot and a clone against real
 // database containers: the unit tests fake the client, so only this says whether the
-// flavour's own dump really lands in another project's database – one with a different
-// database name and login than the dump was taken from – and whether a snapshot puts the
+// flavour's own dump really lands in another project's database - one with a different
+// database name and login than the dump was taken from - and whether a snapshot puts the
 // state before it back.
 func TestIntegrationDatabaseSnapshotAndClone(t *testing.T) {
 	engines := []string{"postgresql"}
@@ -552,7 +552,7 @@ func TestIntegrationRabbitMQ(t *testing.T) {
 }
 
 // TestIntegrationMemcached starts the catalogue's default Memcached and checks that the
-// healthcheck – busybox nc in the image – really reports it healthy where the engine
+// healthcheck - busybox nc in the image - really reports it healthy where the engine
 // reports health, and that the server answers from inside the container.
 func TestIntegrationMemcached(t *testing.T) {
 	m := integrationManager(t)
@@ -598,8 +598,8 @@ func TestIntegrationMemcached(t *testing.T) {
 }
 
 // TestIntegrationSearch starts the catalogue's default Meilisearch and Typesense, checks
-// both healthchecks – curl in Meilisearch's image, bash's /dev/tcp in Typesense's, which
-// has neither curl nor wget – and that each accepts the generated key. Typesense's
+// both healthchecks - curl in Meilisearch's image, bash's /dev/tcp in Typesense's, which
+// has neither curl nor wget - and that each accepts the generated key. Typesense's
 // collection must survive a rebuilt container: its Raft state in the volume names the
 // peering address, which is pinned to loopback because the container's IP changes.
 func TestIntegrationSearch(t *testing.T) {
@@ -706,8 +706,8 @@ func TestIntegrationSearch(t *testing.T) {
 }
 
 // TestIntegrationOpenSearch starts the catalogue's default OpenSearch as a single node
-// without the security plugin – which also has to get past the bootstrap checks without
-// vm.max_map_count on the host – and checks that an index survives a rebuilt container.
+// without the security plugin - which also has to get past the bootstrap checks without
+// vm.max_map_count on the host - and checks that an index survives a rebuilt container.
 // OpenSearch Dashboards comes along and has to reach it through the project network.
 func TestIntegrationOpenSearch(t *testing.T) {
 	m := integrationManager(t)
@@ -791,7 +791,7 @@ func TestIntegrationOpenSearch(t *testing.T) {
 // TestIntegrationCronJob runs cron jobs in a real application container: the command
 // goes through sh -c as the project owner in the project directory with the project's
 // variables, a non-zero exit is a failure, and coreutils' timeout ends a run that
-// overstays – inside the container, not just on Envoryx's side.
+// overstays - inside the container, not just on Envoryx's side.
 func TestIntegrationCronJob(t *testing.T) {
 	m := integrationManager(t)
 	ctx := context.Background()

@@ -111,7 +111,7 @@ describe("LogsTab", () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole("radio", { name: "History" }));
     expect(await screen.findByText("PHP Fatal error: Allowed memory size of 134217728 bytes")).toBeInTheDocument();
-    expect(screen.getByText("Last 1 of 5000 matching lines – the download has all of them")).toBeInTheDocument();
+    expect(screen.getByText("Last 1 of 5000 matching lines - the download has all of them")).toBeInTheDocument();
     expect(screen.getByText(/^Log history since /)).toBeInTheDocument();
     expect(calls.some((c) => c.url === `/api/v1${base}?since=24h&tail=2000`)).toBe(true);
 

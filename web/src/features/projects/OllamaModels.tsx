@@ -44,7 +44,7 @@ function PullRow({ pull, onCancel, cancelling }: { pull: OllamaPull; onCancel: (
 
 /**
  * The models of the Ollama store every project shares: download one by name, watch it
- * arrive, delete it. Needs Ollama running – the list comes from Ollama itself.
+ * arrive, delete it. Needs Ollama running - the list comes from Ollama itself.
  */
 export function OllamaModels({ project, running, onMessage }: { project: Project; running: boolean; onMessage: (m: Message) => void }) {
   const { t } = useTranslation();

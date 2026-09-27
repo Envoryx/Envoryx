@@ -34,7 +34,7 @@ export function LifecycleCard() {
             {error && <Alert tone="red">{error}</Alert>}
             <Checkbox
               label={t("Stop projects with Envoryx and start them again when it comes back")}
-              description={t("When the Envoryx container is stopped, every running project is stopped as well (a restart from within Envoryx does not). On the next start, the projects that were running come back automatically – also after a reboot of the host. Give the Envoryx container a stop timeout that covers all projects.")}
+              description={t("When the Envoryx container is stopped, every running project is stopped as well (a restart from within Envoryx does not). On the next start, the projects that were running come back automatically - also after a reboot of the host. Give the Envoryx container a stop timeout that covers all projects.")}
               checked={s.data.projectsFollowEnvoryx ?? false}
               disabled={update.isPending}
               onChange={(e) => {

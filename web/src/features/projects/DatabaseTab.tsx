@@ -22,7 +22,7 @@ export function CopyButton({ value, label }: { value: string; label: string }) {
       variant="ghost"
       size="sm"
       aria-label={t("Copy {{label}}", { label })}
-      title={state === "failed" ? t("Copying failed – select the value and copy it manually") : t("Copy {{label}}", { label })}
+      title={state === "failed" ? t("Copying failed - select the value and copy it manually") : t("Copy {{label}}", { label })}
       onClick={async () => {
         const ok = await copyText(value);
         setState(ok ? "done" : "failed");

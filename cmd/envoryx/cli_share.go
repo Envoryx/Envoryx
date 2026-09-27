@@ -63,7 +63,7 @@ func (c *cli) projectShare(ctx context.Context, args []string) error {
 	case !s.Active:
 		c.printf("%s is not shared.\n", p.Slug)
 	case s.URL != "":
-		c.printf("%s\n  public until %s – anyone with the address can open the project\n", s.URL, s.ExpiresAt.Local().Format("2006-01-02 15:04"))
+		c.printf("%s\n  public until %s - anyone with the address can open the project\n", s.URL, s.ExpiresAt.Local().Format("2006-01-02 15:04"))
 	default:
 		c.printf("The tunnel of %s is %s. %s\n", p.Slug, s.State, s.Message)
 	}

@@ -158,7 +158,7 @@ func httpdConf(docroot string, o WebOptions) string {
 	// The PHP branch keeps Apache's stock .ht* rule; the static branch denies every dot
 	// path since no front controller stands in front of the document root. FilesMatch
 	// only sees the final path component (/.env), so dot-directories (/.git/config,
-	// /.next/…) need DirectoryMatch as well – that is what Caddy's (^|/)\. and nginx's
+	// /.next/…) need DirectoryMatch as well - that is what Caddy's (^|/)\. and nginx's
 	// location ~ /\. already cover.
 	access := `<Files ".ht*">
 	Require all denied

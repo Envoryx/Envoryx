@@ -221,7 +221,7 @@ type remoteKeyRequest struct {
 	Key string `json:"key"`
 }
 
-// fetchRemoteInstanceBackup: POST /offsite/targets/{target}/instance/fetch – the first
+// fetchRemoteInstanceBackup: POST /offsite/targets/{target}/instance/fetch - the first
 // step of a disaster recovery; restoring is the usual instance restore afterwards.
 func (a *API) fetchRemoteInstanceBackup(w http.ResponseWriter, r *http.Request) {
 	s, ok := a.syncer(w, r)
@@ -323,7 +323,7 @@ func (a *API) listRemoteBackups(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"backups": list})
 }
 
-// fetchRemoteBackup: POST /projects/{id}/offsite/{target}/fetch – the copy becomes a
+// fetchRemoteBackup: POST /projects/{id}/offsite/{target}/fetch - the copy becomes a
 // local backup, restored the usual way.
 func (a *API) fetchRemoteBackup(w http.ResponseWriter, r *http.Request) {
 	s, ok := a.syncer(w, r)

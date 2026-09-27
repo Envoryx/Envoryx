@@ -43,7 +43,7 @@ const (
 	DefaultGoPort    = 8080
 	// DefaultDelvePort is Delve's customary headless port.
 	DefaultDelvePort = 2345
-	// goBuildDir is where the server binary is built – inside the container, never in the
+	// goBuildDir is where the server binary is built - inside the container, never in the
 	// project directory.
 	goBuildDir = "/tmp/envoryx-go"
 )
@@ -133,7 +133,7 @@ func (c GoConfig) delve() []string {
 // goPortsFreeScript waits (up to ten seconds) until nothing listens on the ports given
 // as arguments, then execs the command after "--". air starts the new build right after
 // killing the old one, and a Delve that is still tearing down its debuggee holds both
-// ports a moment longer – the new dlv would fail with "address already in use" and the
+// ports a moment longer - the new dlv would fail with "address already in use" and the
 // server stay down until the next change. The image has no ss or nc, so it reads
 // /proc/net/tcp{,6} (state 0A is LISTEN).
 const goPortsFreeScript = `i=0
@@ -150,7 +150,7 @@ func (c GoConfig) delveAfterRestart() []string {
 	return append([]string{"sh", "-c", goPortsFreeScript, "envoryx-dlv", strconv.Itoa(c.DebugPort), strconv.Itoa(c.Port), "--"}, c.delve()...)
 }
 
-// Command returns the argv of the container's main process. In dev mode it is air –
+// Command returns the argv of the container's main process. In dev mode it is air -
 // with the project's own .air.toml when there is one, else with flags that build Package
 // into goBuildDir (nothing lands in the project directory); in production mode one build
 // and the binary (goProductionScript). Every value comes from Normalize and arrives as an
@@ -168,7 +168,7 @@ func (c GoConfig) Command() []string {
 	if c.Debug {
 		air = append(air, "--build.full_bin", shellJoin(c.delveAfterRestart()))
 	}
-	// A project that configures air itself keeps its configuration – including how the
+	// A project that configures air itself keeps its configuration - including how the
 	// binary starts, so Delve runs only when its full_bin starts it.
 	own := `if [ -f .air.toml ]; then exec air; fi; exec "$@"`
 	if c.Debug {
@@ -177,7 +177,7 @@ func (c GoConfig) Command() []string {
 	return append([]string{"sh", "-c", own, "envoryx-air"}, air...)
 }
 
-// goProductionScript builds the main package ($2) once and runs it – under a headless
+// goProductionScript builds the main package ($2) once and runs it - under a headless
 // Delve on port $3 when $1 is "debug". The values arrive as arguments, nothing is
 // interpolated into the script.
 const goProductionScript = `set -e
@@ -218,7 +218,7 @@ func (c GoConfig) WrappedCommand(guards ...string) []string {
 	return Guarded(c.Command(), "envoryx-serve", append([]string{c.entryGuard()}, guards...)...)
 }
 
-// Env returns the variables that tell the application where to listen – HOST and PORT –
+// Env returns the variables that tell the application where to listen - HOST and PORT -
 // and GIN_MODE, which Gin reads to switch its debug output off in production.
 func (c GoConfig) Env() []string {
 	env := []string{"HOST=0.0.0.0", "PORT=" + strconv.Itoa(c.Port)}

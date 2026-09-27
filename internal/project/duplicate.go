@@ -25,7 +25,7 @@ import (
 
 // Duplicating is the create path with a different source of truth: the desired state does not
 // come from a wizard request but from a project that already exists. Only the things that
-// must be unique change – name, slug, directory, container identities and every published
+// must be unique change - name, slug, directory, container identities and every published
 // host port. Database and object-storage credentials are copied verbatim on purpose: the
 // copy has its own container, network and volume, so nothing is shared, while a checked-in
 // .env of the original keeps working and the dump restores one to one (a renamed database
@@ -91,7 +91,7 @@ func (m *Manager) duplicate(ctx context.Context, id string, req DuplicateRequest
 		return View{}, err
 	}
 
-	// The original is read while the copy is built – files, a dump, the bucket – so it is
+	// The original is read while the copy is built - files, a dump, the bucket - so it is
 	// locked for the duration: a start, restore or update in between would copy half of
 	// one state and half of another.
 	unlockSrc, err := m.lock(src.ID)
@@ -283,8 +283,8 @@ func duplicateProject(src store.Project, req DuplicateRequest) (store.Project, e
 	for _, s := range src.Services {
 		config := slices.Clone(s.Config)
 		if externalService(&s) {
-			// The copy gets a server of its own – for a database with the original's
-			// data, copied in later – so nothing done to it ever reaches the external one.
+			// The copy gets a server of its own - for a database with the original's
+			// data, copied in later - so nothing done to it ever reaches the external one.
 			config = json.RawMessage(`{"hostPort":0}`)
 			if s.Kind.IsDatabase() {
 				cfg, err := runtime.NewDatabaseConfig(slug)
@@ -560,7 +560,7 @@ func (m *Manager) copyDatabaseOf(ctx context.Context, src store.Project, srcDB s
 	})
 }
 
-// streamDump pipes a logical dump of one database straight into the client of another –
+// streamDump pipes a logical dump of one database straight into the client of another -
 // no temporary file, and for a project of a few hundred megabytes it is over in seconds.
 // The two ends are different databases when a project is copied and the same server
 // when one is renamed, and either may be an external one; the payload is taken as it is
@@ -602,7 +602,7 @@ func (m *Manager) streamDump(ctx context.Context, dialect runtime.Dialect, from,
 
 // waitForDatabase waits until a database container serves its port and accepts the
 // project's credentials. A container created moments ago is still initialising its data
-// directory, and during that the server answers on the socket only – the health command
+// directory, and during that the server answers on the socket only - the health command
 // is therefore asked first, and only then the client.
 func (m *Manager) waitForDatabase(ctx context.Context, p store.Project, svc *store.ProjectService, cfg runtime.DatabaseConfig, dialect runtime.Dialect) error {
 	if cfg.External() {

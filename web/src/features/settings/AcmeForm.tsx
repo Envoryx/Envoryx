@@ -118,7 +118,7 @@ export function AcmeForm({ baseDomain }: { baseDomain: string }) {
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted">
-        {t("Get a public wildcard certificate for your own domain (e.g. *.dev.example.com) from Let's Encrypt through a DNS challenge. Browsers trust it out of the box – no CA installation on any device. Nothing is exposed to the internet: only a temporary TXT record is created at your DNS provider; the domain never needs to point at this host publicly.")} {t("Projects are then")} <Code>&lt;slug&gt;.{domain.trim() || "dev.example.com"}</Code>; {t("point")} <Code>*.{domain.trim() || "dev.example.com"}</Code> {t("at Envoryx in your local DNS.")}
+        {t("Get a public wildcard certificate for your own domain (e.g. *.dev.example.com) from Let's Encrypt through a DNS challenge. Browsers trust it out of the box - no CA installation on any device. Nothing is exposed to the internet: only a temporary TXT record is created at your DNS provider; the domain never needs to point at this host publicly.")} {t("Projects are then")} <Code>&lt;slug&gt;.{domain.trim() || "dev.example.com"}</Code>; {t("point")} <Code>*.{domain.trim() || "dev.example.com"}</Code> {t("at Envoryx in your local DNS.")}
       </p>
       {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
       {configured && status && (

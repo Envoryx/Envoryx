@@ -43,7 +43,7 @@ func (a *testApp) execFrames(path string, body any) (int, []map[string]any) {
 }
 
 // A command's output arrives as it is produced and the exit code closes the stream, so a
-// script can tell success from failure – which is what the terminal WebSocket cannot do.
+// script can tell success from failure - which is what the terminal WebSocket cannot do.
 func TestExecStreamsOutputAndExitCode(t *testing.T) {
 	a := newApp(t)
 	a.setupAndLogin()

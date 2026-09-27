@@ -397,7 +397,7 @@ type Engine interface {
 	// NetworkAliases lists the aliases a container was given on a network (nil when it is
 	// not attached to it).
 	NetworkAliases(ctx context.Context, network, containerID string) ([]string, error)
-	// NetworkEndpoints lists the containers currently attached to a network – the ones
+	// NetworkEndpoints lists the containers currently attached to a network - the ones
 	// that would make its removal fail. A missing network yields no endpoints.
 	NetworkEndpoints(ctx context.Context, network string) ([]Endpoint, error)
 	// NetworkAddresses returns a network's IPv4 gateway and the IPv4 address of every

@@ -46,7 +46,7 @@ func externalService(svc *store.ProjectService) bool {
 
 // clientSpec is the transient container a client runs in against an external server:
 // the database image (its clients match the server version the user picked), no
-// project network – the server is outside it – and the host reachable by name.
+// project network - the server is outside it - and the host reachable by name.
 func clientSpec(e dbEnd, argv, env []string) docker.ContainerSpec {
 	return docker.ContainerSpec{
 		Name:       fmt.Sprintf("envoryx-%s-dbclient-%d", e.p.Slug, time.Now().UnixNano()%1_000_000),

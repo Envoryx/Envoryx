@@ -26,7 +26,7 @@ type StorageConfig struct {
 	AccessKey string `json:"accessKey"`
 	SecretKey string `json:"secretKey"`
 	// Bucket is created at start-up; PublicRead puts a policy on it that lets anyone read
-	// every object – what public-read ACLs give on providers that honour them.
+	// every object - what public-read ACLs give on providers that honour them.
 	Bucket     string `json:"bucket"`
 	PublicRead bool   `json:"publicRead"`
 }

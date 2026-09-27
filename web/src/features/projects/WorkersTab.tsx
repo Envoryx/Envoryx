@@ -65,7 +65,7 @@ export function WorkersTab({ project }: { project: Project }) {
   return (
     <div className="space-y-6">
       {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
-      {!hasRuntime && <Alert tone="amber">{t("Workers run in the project's PHP, Python, Go or Node.js container – this project has none. Add a runtime in the Runtime tab first.")}</Alert>}
+      {!hasRuntime && <Alert tone="amber">{t("Workers run in the project's PHP, Python, Go or Node.js container - this project has none. Add a runtime in the Runtime tab first.")}</Alert>}
       <Card>
         <CardHeader
           title={
@@ -91,7 +91,7 @@ export function WorkersTab({ project }: { project: Project }) {
                       {w.enabled ? (
                         st ? (
                           <span className="inline-flex items-center gap-1.5 text-xs font-normal text-muted" title={st.status === "runtime missing" ? t("The runtime this worker needs (PHP, Python, Go, Ruby or Node.js) is not part of the project; the worker resumes once it is added.") : undefined}>
-                            <StatusDot tone={containerStateTone(st.state)} /> {st.status === "runtime missing" ? t("paused – runtime missing") : st.state}
+                            <StatusDot tone={containerStateTone(st.state)} /> {st.status === "runtime missing" ? t("paused - runtime missing") : st.state}
                           </span>
                         ) : null
                       ) : (

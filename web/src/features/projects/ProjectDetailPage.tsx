@@ -92,7 +92,7 @@ export function ProjectDetailPage() {
               {devUrl && devUrl !== url && (
                 <>
                   {/* Behind a Node dev server the project URL already is the dev server; the -dev name is only an
-                      alias – and without the proxy both resolve to the same host port, so it is not repeated. */}
+                      alias - and without the proxy both resolve to the same host port, so it is not repeated. */}
                   {` · ${serves === "node" ? t("dev alias") : "dev"}: `}
                   <a href={devUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 hover:underline">
                     {devUrl} <ExternalLink className="size-3" />
@@ -106,8 +106,8 @@ export function ProjectDetailPage() {
           <>
             <ProjectActionButtons project={p} size="md" onError={capture} />
             <ShareButton project={p} />
-            <Button variant="ghost" onClick={() => setRenaming(true)} icon={<Pencil className="size-4" />} aria-label={t("Rename project")} title={t("Rename project – identifier, URL and containers follow")} />
-            <Button variant="ghost" onClick={() => setDuplicating(true)} icon={<Copy className="size-4" />} aria-label={t("Duplicate project")} title={t("Duplicate project – config, files and database")} />
+            <Button variant="ghost" onClick={() => setRenaming(true)} icon={<Pencil className="size-4" />} aria-label={t("Rename project")} title={t("Rename project - identifier, URL and containers follow")} />
+            <Button variant="ghost" onClick={() => setDuplicating(true)} icon={<Copy className="size-4" />} aria-label={t("Duplicate project")} title={t("Duplicate project - config, files and database")} />
             <Button variant="ghost" onClick={() => setDeleting(true)} icon={<Trash2 className="size-4" />} aria-label={t("Delete project")} title={t("Delete project")} />
           </>
         }
@@ -291,11 +291,11 @@ function OverviewTab({ project: p }: { project: Project }) {
           <dl className="grid grid-cols-2 gap-4 px-5 py-4 text-sm">
             <div>
               <dt className="text-xs text-subtle">{t("CPU")}</dt>
-              <dd className="text-lg font-semibold tabular-nums">{stats.data ? formatPercent(stats.data.stats.cpuPercent) : "—"}</dd>
+              <dd className="text-lg font-semibold tabular-nums">{stats.data ? formatPercent(stats.data.stats.cpuPercent) : "-"}</dd>
             </div>
             <div>
               <dt className="text-xs text-subtle">{t("Memory")}</dt>
-              <dd className="text-lg font-semibold tabular-nums">{stats.data ? formatBytes(stats.data.stats.memoryBytes) : "—"}</dd>
+              <dd className="text-lg font-semibold tabular-nums">{stats.data ? formatBytes(stats.data.stats.memoryBytes) : "-"}</dd>
             </div>
           </dl>
         </Card>
@@ -339,7 +339,7 @@ function useSaveFeedback() {
   return { msg, setMsg };
 }
 
-/** Name and document root – every project has them, whatever runs behind the web server. */
+/** Name and document root - every project has them, whatever runs behind the web server. */
 function ProjectSettingsCard({ project: p, onRename }: { project: Project; onRename: () => void }) {
   const { t } = useTranslation();
   const update = useUpdateProject(p.id);

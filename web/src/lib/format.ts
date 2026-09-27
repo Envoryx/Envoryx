@@ -5,7 +5,7 @@ import i18n from "@/i18n";
 
 /**
  * The identifier derived from a project name, mirroring the server's Slugify: lower case,
- * everything but letters and digits becomes a hyphen. It is a preview – the server has
+ * everything but letters and digits becomes a hyphen. It is a preview - the server has
  * the last word.
  */
 export function slugify(name: string): string {
@@ -103,7 +103,7 @@ export function serviceLabel(kind: string, version?: string, variant?: string): 
   return version ? `${base} ${version}` : base;
 }
 
-/** "0.4.0 · up to date" – the version with the outcome of the update check. */
+/** "0.4.0 · up to date" - the version with the outcome of the update check. */
 /**
  * A build's version as people read it: releases without the "v", a build of main as the
  * release it follows, how many commits later and its commit (git describe's

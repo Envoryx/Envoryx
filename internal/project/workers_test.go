@@ -111,7 +111,7 @@ func TestWorkersFollowTheirRuntime(t *testing.T) {
 	}
 	id := view.Project.ID
 	_, err = e.m.AddWorker(ctx, id, WorkerRequest{Name: "queue", Preset: "laravel:queue", Enabled: true})
-	if !errors.Is(err, ErrConflict) || !strings.Contains(err.Error(), "runs from the PHP image – this project has no PHP service") {
+	if !errors.Is(err, ErrConflict) || !strings.Contains(err.Error(), "runs from the PHP image - this project has no PHP service") {
 		t.Fatalf("PHP worker on a node-only project: %v", err)
 	}
 	if v, _ := e.m.Get(ctx, id); len(v.Project.Workers) != 0 {

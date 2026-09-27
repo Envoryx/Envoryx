@@ -1,7 +1,7 @@
 /**
  * The variables Envoryx sets in the application containers for a project's services
  * (internal/runtime: DatabaseEnvFor, RedisEnv, MailpitEnv, …EnvKeys). A variable of the
- * project with the same name wins over them – which is what an imported .env of the old
+ * project with the same name wins over them - which is what an imported .env of the old
  * setup (DB_HOST=127.0.0.1) must not do by accident.
  */
 

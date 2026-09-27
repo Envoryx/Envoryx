@@ -26,7 +26,7 @@ import (
 // The project manifest (envoryx.yml, see internal/manifest) is the desired state kept in
 // the repository. Both directions go through exportState: the current project is
 // exported as it is stored, the manifest is first built into a project the way Create
-// would build it (buildProject, buildWorker, buildCronJob – versions resolved, configs
+// would build it (buildProject, buildWorker, buildCronJob - versions resolved, configs
 // normalised, everything validated) and then exported the same way. Comparing the two
 // exports section by section yields the plan, and a project created from a manifest is
 // in sync with it by construction.
@@ -1043,7 +1043,7 @@ func sectionFields(v any) map[string]string {
 	}
 	var fields map[string]any
 	if yaml.Unmarshal(raw, &fields) != nil {
-		return out // "redis: true" – a service without settings
+		return out // "redis: true" - a service without settings
 	}
 	for k, val := range fields {
 		switch x := val.(type) {
@@ -1088,12 +1088,12 @@ func diffSections(have, want any) (from, to string) {
 		if v, ok := a[k]; ok {
 			f = append(f, k+": "+v)
 		} else {
-			f = append(f, k+": –")
+			f = append(f, k+": -")
 		}
 		if v, ok := b[k]; ok {
 			t = append(t, k+": "+v)
 		} else {
-			t = append(t, k+": –")
+			t = append(t, k+": -")
 		}
 	}
 	return strings.Join(f, ", "), strings.Join(t, ", ")
@@ -1212,7 +1212,7 @@ func (m *Manager) CreateFromManifest(ctx context.Context, mf manifest.Manifest, 
 		name = mf.Name
 	}
 	if name == "" {
-		return ManifestResult{}, fmt.Errorf("%w: the project needs a name – set name in %s or pass one", validate.ErrInvalid, manifest.FileName)
+		return ManifestResult{}, fmt.Errorf("%w: the project needs a name - set name in %s or pass one", validate.ErrInvalid, manifest.FileName)
 	}
 	for k := range req.Secrets {
 		if !slices.Contains(mf.Secrets, k) {

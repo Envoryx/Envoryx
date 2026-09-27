@@ -42,7 +42,7 @@ func TestPythonPresetDefaults(t *testing.T) {
 			t.Fatalf("%+v must fail", bad)
 		}
 	}
-	// Without the server everything about the server goes – but the debugger port stays:
+	// Without the server everything about the server goes - but the debugger port stays:
 	// it belongs to whatever process the developer starts, e.g. a management command in
 	// the terminal, not to the container's main command.
 	off := PythonConfig{Preset: "flask", Port: 9000, Debug: true}

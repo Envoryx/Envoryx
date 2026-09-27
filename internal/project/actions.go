@@ -107,7 +107,7 @@ var actionCatalog = []Action{
 	{ID: "rails:db-rollback", Group: "Rails", Label: "rails db:rollback", Description: "Revert the last migration", Service: store.ServiceRuby, Cmd: []string{"bin/rails", "db:rollback"}, Requires: []string{"bin/rails"}, Destructive: true},
 	{ID: "rails:db-seed", Group: "Rails", Label: "rails db:seed", Description: "Load db/seeds.rb", Service: store.ServiceRuby, Cmd: []string{"bin/rails", "db:seed"}, Requires: []string{"bin/rails"}},
 	{ID: "rails:routes", Group: "Rails", Label: "rails routes", Description: "List the application's routes", Service: store.ServiceRuby, Cmd: []string{"bin/rails", "routes"}, Requires: []string{"bin/rails"}},
-	{ID: "rails:assets-precompile", Group: "Rails", Label: "rails assets:precompile", Description: "Build the assets into public/assets – what production mode serves", Service: store.ServiceRuby, Cmd: []string{"bin/rails", "assets:precompile"}, Requires: []string{"bin/rails"}},
+	{ID: "rails:assets-precompile", Group: "Rails", Label: "rails assets:precompile", Description: "Build the assets into public/assets - what production mode serves", Service: store.ServiceRuby, Cmd: []string{"bin/rails", "assets:precompile"}, Requires: []string{"bin/rails"}},
 	{ID: "rails:tmp-clear", Group: "Rails", Label: "rails tmp:clear", Description: "Clear the cache, sockets and screenshot files in tmp/", Service: store.ServiceRuby, Cmd: []string{"bin/rails", "tmp:clear"}, Requires: []string{"bin/rails"}},
 	{ID: "rails:about", Group: "Rails", Label: "rails about", Description: "Show the versions of Ruby, Rails and the database adapter", Service: store.ServiceRuby, Cmd: []string{"bin/rails", "about"}, Requires: []string{"bin/rails"}},
 }

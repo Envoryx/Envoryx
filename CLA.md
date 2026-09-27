@@ -6,8 +6,8 @@ maintained by Stefan Mertens ("the Maintainer").
 This agreement clarifies the intellectual property rights granted with
 contributions from any person or entity. It protects you, the Maintainer and
 the Project's users, and it keeps the Maintainer able to steward the Project
-long-term – including offering it under additional licenses or transferring it
-to a successor – without having to track down every past contributor.
+long-term - including offering it under additional licenses or transferring it
+to a successor - without having to track down every past contributor.
 
 You keep the copyright in your work. You do **not** transfer or assign
 anything. You grant the Maintainer a license, and in return the Maintainer

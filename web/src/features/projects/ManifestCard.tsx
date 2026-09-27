@@ -72,9 +72,9 @@ export function ManifestChanges({ plan }: { plan: ManifestPlan }) {
           <span className="min-w-0 flex-1 break-words font-mono text-xs text-muted">
             {c.from && c.to ? `${c.from} → ${c.to}` : c.action === "remove" ? c.from : c.to}
           </span>
-          {c.skipped === "prune" && <span className="text-xs text-subtle">{t("kept – removing needs the option below")}</span>}
-          {c.skipped === "downgrade" && <span className="text-xs text-subtle">{t("not changed – the data format does not go back to an older version")}</span>}
-          {c.skipped === "external" && <span className="text-xs text-subtle">{t("not changed – an external connection needs its password, which the file never holds; set it up in Envoryx")}</span>}
+          {c.skipped === "prune" && <span className="text-xs text-subtle">{t("kept - removing needs the option below")}</span>}
+          {c.skipped === "downgrade" && <span className="text-xs text-subtle">{t("not changed - the data format does not go back to an older version")}</span>}
+          {c.skipped === "external" && <span className="text-xs text-subtle">{t("not changed - an external connection needs its password, which the file never holds; set it up in Envoryx")}</span>}
         </li>
       ))}
     </ul>
@@ -92,7 +92,7 @@ function download(name: string, text: string) {
 
 /**
  * The project manifest (envoryx.yml): the project as a file for the repository, and the
- * file in the project directory compared with the project – after a pull it may describe
+ * file in the project directory compared with the project - after a pull it may describe
  * something else, which "Apply" brings over.
  */
 export function ManifestCard({ project }: { project: Project }) {

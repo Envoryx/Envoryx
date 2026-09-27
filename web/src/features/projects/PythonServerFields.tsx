@@ -28,7 +28,7 @@ export function pythonServerRequest(f: PythonServerForm): { server: boolean; mod
   };
 }
 
-/** The command the backend runs for a preset and mode – shown so the user knows what the choice means. */
+/** The command the backend runs for a preset and mode - shown so the user knows what the choice means. */
 export function pythonCommandHint(preset: string, mode: string, app: string, port: string): string {
   const bind = `0.0.0.0:${port || "8000"}`;
   const a = app || "app:app";
@@ -78,7 +78,7 @@ export function PythonServerFields({
         label={t("Run the application server")}
         description={
           primary
-            ? t("The server becomes the container's main process (restarted automatically) and answers on the project URL plus a direct host port. Needs your application and its .venv – use a Python template, clone a repository or set it up from the Python terminal.")
+            ? t("The server becomes the container's main process (restarted automatically) and answers on the project URL plus a direct host port. Needs your application and its .venv - use a Python template, clone a repository or set it up from the Python terminal.")
             : t("The server becomes the container's main process (restarted automatically) on a direct host port; the project URL keeps reaching PHP.")
         }
         checked={value.server}
@@ -90,7 +90,7 @@ export function PythonServerFields({
           <div className="grid gap-2 sm:grid-cols-2">
             {[
               { key: "dev", label: t("Development"), text: t("Auto-reload and debug pages: manage.py runserver, flask run --debug, uvicorn --reload.") },
-              { key: "production", label: t("Production server"), text: t("gunicorn (Django, Flask, WSGI) or uvicorn without reload – the packages have to be installed in the .venv.") },
+              { key: "production", label: t("Production server"), text: t("gunicorn (Django, Flask, WSGI) or uvicorn without reload - the packages have to be installed in the .venv.") },
             ].map((m) => (
               <label key={m.key} className={`flex cursor-pointer items-start gap-2 rounded-md border px-3 py-2 text-sm ${value.mode === m.key ? "border-accent-500 bg-accent-500/5" : "border-default"}`}>
                 <input type="radio" name={`${idPrefix}-mode`} className="mt-0.5 accent-accent-600" checked={value.mode === m.key} onChange={() => set({ mode: m.key })} aria-label={m.label} />

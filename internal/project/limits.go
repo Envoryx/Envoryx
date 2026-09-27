@@ -18,7 +18,7 @@ import (
 // search, storage) another. Docker limits containers, not groups of them, so the numbers
 // apply to each container of the group. Limits are not part of the spec fingerprint:
 // changing them updates running containers in place (docker update) instead of
-// recreating them – only lifting a limit entirely needs a new container.
+// recreating them - only lifting a limit entirely needs a new container.
 
 // DefaultPidsLimit is the process limit of every container unless the project sets
 // another: far above what a development stack runs, low enough to stop a fork bomb or a

@@ -40,7 +40,7 @@ const (
 	RubyModeProduction = "production"
 	// DefaultRdbgPort is the port the debug gem's documentation uses for rdbg --open.
 	DefaultRdbgPort = 12345
-	// railsPidFile is where bin/rails server writes its pid – inside the container, not in
+	// railsPidFile is where bin/rails server writes its pid - inside the container, not in
 	// the project's tmp/pids, and removed before every start: a pid file left behind by a
 	// killed container makes Rails refuse to start ("A server is already running").
 	railsPidFile = "/tmp/envoryx-rails.pid"
@@ -136,7 +136,7 @@ func (c RubyConfig) server() []string {
 }
 
 // rdbgScript starts the command after it under rdbg listening on port $1. A bundle that
-// locks the debug gem (Rails ships it) gets its own rdbg through bundle exec – two copies
+// locks the debug gem (Rails ships it) gets its own rdbg through bundle exec - two copies
 // of the gem in one process would clash; otherwise the image's rdbg runs, which loads
 // itself through RUBYOPT and so works under bundle exec as well.
 const rdbgScript = `port=$1; shift
@@ -164,8 +164,8 @@ func (c RubyConfig) entryGuard() string {
 	return fmt.Sprintf(`until %s; do echo 'envoryx: waiting for %s in /var/www/html - scaffold with a Ruby template, clone a repository or use the Ruby terminal'; sleep 5; done`, test, what)
 }
 
-// BundleGuard installs the bundle when it is not complete – after a clone, a changed
-// Gemfile or a Ruby upgrade – and waits instead of crash-looping while that fails. Shared
+// BundleGuard installs the bundle when it is not complete - after a clone, a changed
+// Gemfile or a Ruby upgrade - and waits instead of crash-looping while that fails. Shared
 // with the worker containers; a script without a Gemfile starts right away.
 const BundleGuard = `if [ -e Gemfile ]; then until bundle check >/dev/null 2>&1 || bundle install; do echo 'envoryx: bundle install failed - fix the Gemfile (see above), retrying in 30 s'; sleep 30; done; fi`
 
@@ -182,7 +182,7 @@ func (c RubyConfig) WrappedCommand(guards ...string) []string {
 
 // Env returns the variables that tell the application where to listen and in which
 // environment it runs: RAILS_ENV, RACK_ENV, APP_ENV (Sinatra) and HANAMI_ENV follow the
-// mode. In development Rails only answers host names it knows – allowedHost goes into
+// mode. In development Rails only answers host names it knows - allowedHost goes into
 // RAILS_DEVELOPMENT_HOSTS, where a leading dot allows every name under the domain. In
 // production Rails serves public/ itself (there is no nginx in front of Puma).
 func (c RubyConfig) Env(allowedHost string) []string {

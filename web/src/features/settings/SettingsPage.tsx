@@ -138,7 +138,7 @@ function SshCard({ keys, ssh }: { keys: string; ssh: { enabled: boolean; port: n
         {!ssh?.enabled ? (
           <Alert tone="amber">{t("Disabled (ENVORYX_SSH is empty).")}</Alert>
         ) : ssh.port === 0 ? (
-          <Alert tone="amber">{t("The SSH port 2222 is not published on the host – add a port mapping 2222:2222 to the Envoryx container.")}</Alert>
+          <Alert tone="amber">{t("The SSH port 2222 is not published on the host - add a port mapping 2222:2222 to the Envoryx container.")}</Alert>
         ) : (
           <dl className="grid gap-x-8 gap-y-2 text-sm sm:grid-cols-[10rem_1fr]">
             <dt className="text-muted">{t("Port")}</dt>
@@ -237,7 +237,7 @@ function InstanceCard() {
         <Row label={t("Projects directory")} value={s.data.projectsDir} mono />
         <Row label={t("Host path (projects)")} value={s.data.hostPath.overrides[s.data.projectsDir] ?? s.data.hostPath.detected[s.data.projectsDir] ?? t("unresolved")} mono />
         <Row label={t("Host path (config)")} value={s.data.hostPath.overrides[s.data.configDir] ?? s.data.hostPath.detected[s.data.configDir] ?? t("unresolved")} mono />
-        <Row label={t("Project port range")} value={`${s.data.portRange.start}–${s.data.portRange.end}`} />
+        <Row label={t("Project port range")} value={`${s.data.portRange.start}-${s.data.portRange.end}`} />
         <Row label={t("Container user (PUID:PGID)")} value={`${s.data.puid}:${s.data.pgid}`} />
         <Row label={t("Docker host")} value={s.data.dockerHost || t("default socket")} mono />
         <Row label={t("Session timeouts")} value={t("idle {{idle}} · absolute {{absolute}}", { idle: s.data.session.idleTimeout, absolute: s.data.session.absoluteTimeout })} />
@@ -253,7 +253,7 @@ function AuditCard() {
   return (
     <div className="space-y-6">
       <Card>
-        <CardHeader title={t("Audit log")} description={t("Who did what and when – security-relevant events and every change to a project, with its settings before and after. Secrets are never recorded.")} />
+        <CardHeader title={t("Audit log")} description={t("Who did what and when - security-relevant events and every change to a project, with its settings before and after. Secrets are never recorded.")} />
         <div className="pt-4">
           <AuditLog />
         </div>

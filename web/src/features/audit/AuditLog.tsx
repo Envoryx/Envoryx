@@ -50,8 +50,8 @@ function ChangeTable({ changes }: { changes: AuditChange[] }) {
               {c.section}
               {c.item && <span className="text-muted"> · {c.item}</span>}
             </td>
-            <td className="py-1 pr-3 font-mono text-red-600 dark:text-red-400">{c.from || <span className="text-subtle">—</span>}</td>
-            <td className="py-1 font-mono text-emerald-700 dark:text-emerald-400">{c.to || <span className="text-subtle">—</span>}</td>
+            <td className="py-1 pr-3 font-mono text-red-600 dark:text-red-400">{c.from || <span className="text-subtle">-</span>}</td>
+            <td className="py-1 font-mono text-emerald-700 dark:text-emerald-400">{c.to || <span className="text-subtle">-</span>}</td>
           </tr>
         ))}
       </tbody>

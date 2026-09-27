@@ -191,9 +191,9 @@ func serve() error {
 	if err != nil {
 		switch {
 		case errors.Is(err, db.ErrCorrupt):
-			return fmt.Errorf("database: %w – restore an instance backup (%s; see DEPLOYMENT.md, Instance backups)", err, newestBackupHint(backups, ""))
+			return fmt.Errorf("database: %w - restore an instance backup (%s; see DEPLOYMENT.md, Instance backups)", err, newestBackupHint(backups, ""))
 		case errors.Is(err, db.ErrNewerSchema):
-			return fmt.Errorf("database: %w – either run the newer Envoryx image again, or restore the instance backup taken before its migration (%s; see DEPLOYMENT.md, Updating)", err, newestBackupHint(backups, instance.KindPreMigrate))
+			return fmt.Errorf("database: %w - either run the newer Envoryx image again, or restore the instance backup taken before its migration (%s; see DEPLOYMENT.md, Updating)", err, newestBackupHint(backups, instance.KindPreMigrate))
 		}
 		return fmt.Errorf("database: %w", err)
 	}

@@ -10,17 +10,17 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
-## [0.12.0] – 2026-09-27
+## [0.12.0] - 2026-09-27
 
 ### Added
 - Go runtime. The wizard's first step offers *Go application* next to PHP,
   Python, Node.js and static; a Go container
-  (`ghcr.io/envoryx/envoryx-go:<1.26–1.27>`, official `golang:<v>-bookworm`
+  (`ghcr.io/envoryx/envoryx-go:<1.26-1.27>`, official `golang:<v>-bookworm`
   image plus air, Delve and gotestsum) is added on any project from the
   Runtime tab, too. *Build and run the server* builds the main package (`.` or
-  e.g. `./cmd/server`) and runs it as the container's main process – rebuilt
+  e.g. `./cmd/server`) and runs it as the container's main process - rebuilt
   by air on every change in development mode (a project's `.air.toml` wins),
-  built once in production mode – on `$PORT` (8080). Without PHP and without
+  built once in production mode - on `$PORT` (8080). Without PHP and without
   a Python server the project URL reaches it; before a `go.mod` exists the
   container waits instead of crash-looping. *Debug with Delve* runs the
   server under a headless Delve on a published port for GoLand and VS Code
@@ -36,12 +36,12 @@ release). `:main` follows the development branch.
   `--go-server`, `--go-package`) cover Go. The image builds and the weekly
   runtime-version check include Go.
 - Ruby runtime. The wizard's first step offers *Ruby application*; a Ruby
-  container (`ghcr.io/envoryx/envoryx-ruby:<3.3–4.0>`, official
+  container (`ghcr.io/envoryx/envoryx-ruby:<3.3-4.0>`, official
   `ruby:<v>-slim-bookworm` image plus the build dependencies of common gems
   and the debug gem, no Node.js) is added on any project from the Runtime
   tab, too. *Run the Ruby server* has two presets: *Rails* (`bin/rails server` in
   development mode, Puma in production mode) and *Rack* (Puma on
-  `config.ru` – Sinatra, Roda, Hanami …), on `$PORT` (3000/9292). Before it
+  `config.ru` - Sinatra, Roda, Hanami …), on `$PORT` (3000/9292). Before it
   starts, the server waits for its `Gemfile` and runs `bundle install` when
   the bundle is incomplete, so a cloned application comes up on its own; the
   gems live in the project home, Bundler's download cache is shared by all
@@ -52,7 +52,7 @@ release). `:main` follows the development branch.
   Code's rdbg extension or `rdbg -A` (the IDE tab has the configuration);
   without the server the port serves an `rdbg` started in the terminal.
   RubyMine debugs through its SSH remote interpreter (`<project>.ruby`) with
-  its own debugger – its *Ruby remote debug* speaks only `ruby-debug-ide`. The Ruby containers get
+  its own debugger - its *Ruby remote debug* speaks only `ruby-debug-ide`. The Ruby containers get
   PostgreSQL's `DATABASE_URL` as `postgresql://`, which Active Record
   understands.
 - Ruby templates *Rails* (Hotwire with importmap), *Rails (API only)* and
@@ -60,7 +60,7 @@ release). `:main` follows the development branch.
   `rubocop`, `rails db:prepare`/`migrate`/`rollback`/`seed`, `routes`,
   `assets:precompile`, `tmp:clear`, `about`); the Tests tab runs `rspec`
   (with a JUnit report when `rspec_junit_formatter` is in the bundle) and
-  `rails test` against `<database>_test`, which Envoryx creates – never
+  `rails test` against `<database>_test`, which Envoryx creates - never
   against the development database; worker presets *Solid Queue*, *GoodJob*,
   *Sidekiq*, *Rake task* and *Ruby script*, running in the server's
   environment; cron jobs, SSH (`<project>.ruby`), the site import
@@ -71,16 +71,16 @@ release). `:main` follows the development branch.
 
 ### Fixed
 - SSH sessions into the Python container (`<project>.python`, also IDEs that
-  probe over SSH) now find the project's `.venv` first on `PATH` – `python`,
+  probe over SSH) now find the project's `.venv` first on `PATH` - `python`,
   `pip`, `pytest` resolved to the image's interpreter, because the login shell
   reset `PATH`. Needs the updated `envoryx-python` images.
 
-## [0.11.0] – 2026-09-26
+## [0.11.0] - 2026-09-26
 
 ### Added
 - External databases and Redis: a database (primary or additional) or Redis
   can be an existing MariaDB, MySQL, PostgreSQL or Redis server instead of a
-  container of the project – *On an external server* in the wizard, the
+  container of the project - *On an external server* in the wizard, the
   Database tab and the Services tab, `external` in the API and in
   `envoryx.yml` (without the password). The connection is tested before it is
   stored (and with *Test connection* beforehand); `host.docker.internal`
@@ -106,21 +106,21 @@ release). `:main` follows the development branch.
 
 ### Changed
 - Builds of the development branch (`:main`) are named after the release they
-  follow: `0.10.0+5 (73304d6)` – five commits after 0.10.0 – instead of
+  follow: `0.10.0+5 (73304d6)` - five commits after 0.10.0 - instead of
   `main-` and the full commit hash. Releases show their number without the
   `v`.
 
-## [0.10.0] – 2026-09-26
+## [0.10.0] - 2026-09-26
 
 ### Added
 - `ENVORYX_URL`: the address a project answers at, injected into its
-  containers and recomputed with every plan (after a rename, too) – for
+  containers and recomputed with every plan (after a rename, too) - for
   `APP_URL=${ENVORYX_URL}` in a `.env`.
 - Rules for a project's host names, applied by the proxy (*Domains → Rules*,
   `PUT /projects/{id}/proxy-rules`): an address allowlist, HTTP basic
   authentication, redirects (paths and prefixes, to paths or other hosts),
   response headers to set or remove, and CORS with preflight answers. They
-  also apply to a share, which now goes through the proxy – a password
+  also apply to a share, which now goes through the proxy - a password
   protects the public address.
 - Share a project on a temporary public https address: a Cloudflare quick
   tunnel (`*.trycloudflare.com`, no account, no port forwarding) started from
@@ -155,7 +155,7 @@ release). `:main` follows the development branch.
   application's `composer.json` asks for (`gd`, `intl` …) are available during
   `composer create-project`.
 
-## [0.9.0] – 2026-09-26
+## [0.9.0] - 2026-09-26
 
 ### Added
 - `.env` import and export for a project's variables (*Environment* tab and the
@@ -171,10 +171,10 @@ release). `:main` follows the development branch.
   TYPO3, Joomla, Shopware, Craft CMS and plain PHP, static, Node.js and Python
   sites and fills the wizard with PHP version, extensions, document root, web
   server (Apache when the site relies on `.htaccess`) and database. Optionally
-  the site's configuration is wired to the project database – `wp-config.php`,
+  the site's configuration is wired to the project database - `wp-config.php`,
   Drupal's `settings.php`, TYPO3's additional configuration, Joomla's
   `configuration.php`; each original is kept as `*.envoryx-original.php` that
-  answers 404 – and the old server's configuration caches are removed. The dump
+  answers 404 - and the old server's configuration caches are removed. The dump
   is imported without the statements that tie it to the old server (`USE`,
   `CREATE DATABASE`, owners and grants); a failed import rolls the project back.
   `envoryx import <folder|archive> [name] --db dump.sql` does the same from the
@@ -182,7 +182,7 @@ release). `:main` follows the development branch.
   *Importing an existing website*.
 - Several databases per project. Next to the primary database (host
   `database`, `DB_*`) a project can have any number of additional ones with a
-  name of their own – for example PostgreSQL `analytics` next to MariaDB: its
+  name of their own - for example PostgreSQL `analytics` next to MariaDB: its
   own container (`envoryx-<project>-db-analytics`), volume and credentials,
   reached as host `analytics`, injecting `ANALYTICS_DB_*` and
   `ANALYTICS_DATABASE_URL`. The wizard adds them under *Additional databases*,
@@ -198,13 +198,13 @@ release). `:main` follows the development branch.
   `"databases"`; MCP tools take `db` and `additionalDatabases`.
 - Shared package cache: Composer, npm, Yarn, pip and uv keep their downloads in
   `/config/cache`, which the application containers, the workers and the
-  template scaffolds of every project share, so a package is downloaded once –
+  template scaffolds of every project share, so a package is downloaded once -
   a second Laravel project is created in about a quarter of the time.
   *Settings → Tools → Package cache* shows its size per tool and empties it.
   Instance backups leave it out.
-- Test runner (*Tests* tab): Envoryx finds a project's test suites – Pest,
+- Test runner (*Tests* tab): Envoryx finds a project's test suites - Pest,
   PHPUnit (also Symfony's `bin/phpunit`), the `test`/`test:*` scripts of
-  `package.json`, Playwright, Cypress, pytest and Django – and runs them in the
+  `package.json`, Playwright, Cypress, pytest and Django - and runs them in the
   runtime container with live output and an optional filter. Where the runner
   writes a JUnit report, the result lists every failed test with its message,
   file and line; the last 50 runs of a project are kept.
@@ -215,7 +215,7 @@ release). `:main` follows the development branch.
   superuser there is. The rename now runs through a short-lived helper login
   that is removed right afterwards.
 
-## [0.8.0] – 2026-09-25
+## [0.8.0] - 2026-09-25
 
 ### Added
 - Application health checks (*Overview* tab): a path such as `/health` must
@@ -231,8 +231,8 @@ release). `:main` follows the development branch.
   update also where the event selection was saved before: an event type the
   selection did not offer yet follows its default until it is saved again.
 - Resource history: every running project container is sampled once a minute
-  (CPU, memory, network, disk I/O) and each project's disk space – volumes,
-  project directory, backups – once an hour. The new *Resources* tab of a
+  (CPU, memory, network, disk I/O) and each project's disk space - volumes,
+  project directory, backups - once an hour. The new *Resources* tab of a
   project charts it from one hour to one year (with a table view per chart),
   and the dashboard lists every project's average and peak usage, busiest
   first. Values are kept in full for a day, as 5-minute averages for a week
@@ -245,15 +245,15 @@ release). `:main` follows the development branch.
   against fork bombs and runaway worker pools. Changes reach running
   containers at once; only lifting a limit recreates a container. The card
   shows each container's CPU and memory against its limit. When a container
-  runs out of memory – also when only a child process is killed and the
-  container keeps running – the project shows a warning for a day and a
+  runs out of memory - also when only a child process is killed and the
+  container keeps running - the project shows a warning for a day and a
   notification goes out (new event `project.oom`, on by default). Limits are part of `envoryx.yml`
   (`limits:`) and of `envoryx project show`.
 
-## [0.7.1] – 2026-09-24
+## [0.7.1] - 2026-09-24
 
 ### Fixed
-- Recreating a running container – after a version or port change, a rename –
+- Recreating a running container - after a version or port change, a rename -
   killed it outright. A database, Redis or RabbitMQ lost what it had not
   written yet: Redis everything since its last snapshot, MongoDB the latest
   writes. Envoryx now stops the container first, as `docker stop` would, and
@@ -266,14 +266,14 @@ release). `:main` follows the development branch.
   connect over TCP to 127.0.0.1, which only the real server answers (MongoDB
   did already).
 
-## [0.7.0] – 2026-09-24
+## [0.7.0] - 2026-09-24
 
 ### Added
 - Project manifest `envoryx.yml`: runtimes (with PHP extensions and ini
   settings), web server, database, services, domains, environment (secrets by
   name only), workers and cron jobs as a file in the repository. `envoryx up`
-  in a clone creates the project from it – the server clones the repository's
-  origin at the checked-out branch – or brings an existing project in line;
+  in a clone creates the project from it - the server clones the repository's
+  origin at the checked-out branch - or brings an existing project in line;
   `--dry-run` shows the changes, removals need `--prune`, missing secret values
   are asked for. `envoryx project manifest <project>` writes the file for an
   existing project. The *Git* tab shows the project as `envoryx.yml`, saves it
@@ -303,10 +303,10 @@ release). `:main` follows the development branch.
   General → Log history*, which also shows the space used and can delete the
   history. Deleting a project deletes its history; instance backups leave it
   out.
-- Offsite backups: *Settings → Backups* takes targets – S3-compatible storage
+- Offsite backups: *Settings → Backups* takes targets - S3-compatible storage
   (AWS, Backblaze B2, Wasabi, Hetzner Object Storage, Cloudflare R2, MinIO),
   SFTP (Hetzner Storage Box, NAS; the server key is pinned) or WebDAV
-  (Nextcloud, ownCloud) – with a connection test. Scheduled project backups go
+  (Nextcloud, ownCloud) - with a connection test. Scheduled project backups go
   up by themselves, a daily instance backup at a chosen hour too, everything
   else with *Copy offsite* or *Also copy offsite*; each target keeps its own
   number of scheduled copies. Archives are optionally encrypted with age
@@ -314,11 +314,11 @@ release). `:main` follows the development branch.
   with growing pauses and reported through the *Backup failed* notification.
   The Backups tab shows each copy's state and lists what a target holds for the
   project, deleted backups included; *Fetch* brings one back. A fresh Envoryx
-  fetches its instance backup from the target the same way – disaster
+  fetches its instance backup from the target the same way - disaster
   recovery in four steps (DEPLOYMENT.md → *Offsite backups*). CLI: `envoryx
   backup create --offsite`, `backup offsite`, `backup remote`, `backup fetch`.
 - More DNS providers for the Let's Encrypt wildcard certificate: Hetzner
-  (through the Hetzner Cloud API – the old DNS Console API was shut down in May
+  (through the Hetzner Cloud API - the old DNS Console API was shut down in May
   2026), netcup, Amazon Route 53, DigitalOcean and Porkbun, next to
   Cloudflare. The settings ask for each provider's own credentials (netcup:
   customer number, API key and password; Route 53: access key and secret,
@@ -331,8 +331,8 @@ release). `:main` follows the development branch.
   `postgres`, `pg` and `pgsql` to it, also in `--from-json`.
 - Downloading a project backup left out the object storage archive
   (`storage.tar.gz`); the download now carries everything the backup holds.
-- Starting a project whose directory was missing – on a fresh host after a
-  recovery, or removed by hand – let Docker create it for the bind mount,
+- Starting a project whose directory was missing - on a fresh host after a
+  recovery, or removed by hand - let Docker create it for the bind mount,
   owned by root, so the application could not write to it. Envoryx now
   creates it as the project user first.
 - The certificate check waited for the challenge record at 1.1.1.1; asking
@@ -340,12 +340,12 @@ release). `:main` follows the development branch.
   as the zone allows. Envoryx now asks the zone's own name servers and waits
   until all of them serve the record.
 
-## [0.6.0] – 2026-09-24
+## [0.6.0] - 2026-09-24
 
 ### Added
 - Python runtime. The wizard's first step offers *Python application* next
   to PHP, Node.js and static; a Python container
-  (`ghcr.io/envoryx/envoryx-python:<3.10–3.14>`, official slim image plus
+  (`ghcr.io/envoryx/envoryx-python:<3.10-3.14>`, official slim image plus
   pip, uv, git and the build dependencies psycopg/mysqlclient/Pillow need)
   runs as the project owner with the project's `.venv` first on `PATH`.
   *Run the application server* makes the preset's command the container's
@@ -358,10 +358,10 @@ release). `:main` follows the development branch.
   server through the proxy, the web container's port stays unpublished and
   a blank project waits for its entry file (`manage.py`, `main.py` …)
   instead of crash-looping. A Node dev server next to Python keeps
-  `<project>-dev.<base>` – Django/FastAPI backend plus Vite frontend.
+  `<project>-dev.<base>` - Django/FastAPI backend plus Vite frontend.
 - Python templates: *Django* (`startproject config`, settings prepared for
   the proxy and `DATABASE_URL` via dj-database-url, psycopg and mysqlclient
-  installed), *Flask* and *FastAPI* – each creates the `.venv`, installs
+  installed), *Flask* and *FastAPI* - each creates the `.venv`, installs
   the packages and pins `requirements.txt`.
 - Python actions (`python --version`, `python -m venv`, `pip install -r
   requirements.txt`, `pip freeze`, `uv sync`, `uv lock`, Django `migrate`,
@@ -380,7 +380,7 @@ release). `:main` follows the development branch.
   terminal, and debugpy attaches to whatever process you launch.
 - A project says so when its virtual environment no longer matches its Python
   version. The `.venv` lives in the project directory and survives a container
-  recreate, but it is built for one minor version – after a change from 3.13 to
+  recreate, but it is built for one minor version - after a change from 3.13 to
   3.14 its packages sit in `lib/python3.13/site-packages`, where the new
   interpreter does not look, and the application server starts only to fail on
   its first import. site-packages cannot be moved across minors, so the project
@@ -401,14 +401,14 @@ release). `:main` follows the development branch.
   `create_project` tool. The broker keeps its data in a volume, the management UI is
   published on a port of its own, the AMQP port on request. Envoryx generates a login
   and injects `RABBITMQ_HOST`, `RABBITMQ_PORT`, `RABBITMQ_USER`, `RABBITMQ_PASSWORD`,
-  `RABBITMQ_VHOST` and `RABBITMQ_URL` (`amqp://…@rabbitmq:5672/%2f`) – the names
+  `RABBITMQ_VHOST` and `RABBITMQ_URL` (`amqp://…@rabbitmq:5672/%2f`) - the names
   laravel-queue-rabbitmq reads, and a URL for Symfony Messenger, php-amqplib, amqplib
-  and Celery. `MESSENGER_TRANSPORT_DSN` stays yours to set – in Symfony's `.env`,
-  `MESSENGER_TRANSPORT_DSN=${RABBITMQ_URL}/messages` – because injecting it would
+  and Celery. `MESSENGER_TRANSPORT_DSN` stays yours to set - in Symfony's `.env`,
+  `MESSENGER_TRANSPORT_DSN=${RABBITMQ_URL}/messages` - because injecting it would
   quietly move a Doctrine transport to AMQP. The password is shown on the Services tab
   on request (operate scope, like database credentials); the IDE tab lists the
   connection for desktop clients next to the database and Mailpit.
-- Memcached as an optional cache next to Redis – in the wizard, on the Services tab, in
+- Memcached as an optional cache next to Redis - in the wizard, on the Services tab, in
   `envoryx project create --memcached` and the MCP `create_project` tool. It keeps
   everything in memory (no volume, so removing it needs no confirmation), publishes
   its port on the host on request and injects `MEMCACHED_HOST`, `MEMCACHED_PORT` (what
@@ -422,7 +422,7 @@ release). `:main` follows the development branch.
   the same, and a service whose extension is off offers to switch it on. The images
   are rebuilt when this reaches `main`; until a project runs the new image, PHP logs
   that it cannot load the extension.
-- Meilisearch and Typesense as optional search engines – in the wizard, on the Services
+- Meilisearch and Typesense as optional search engines - in the wizard, on the Services
   tab, in `envoryx project create --meilisearch`/`--typesense`, the MCP
   `create_project` tool and the logs endpoints. Both keep their index in a volume and
   run with a generated key that only leaves the backend through the operate-scoped
@@ -434,7 +434,7 @@ release). `:main` follows the development branch.
   `MEILISEARCH_URL`/`MEILISEARCH_API_KEY` (Symfony's meilisearch-bundle) and
   `TYPESENSE_URL`. `SCOUT_DRIVER` is left to the application, so a project indexing
   with another driver does not silently switch. The IDE tab lists both connections.
-- OpenSearch as an optional Elasticsearch-compatible search engine (3.8, or 2.19) – in
+- OpenSearch as an optional Elasticsearch-compatible search engine (3.8, or 2.19) - in
   the wizard, on the Services and IDE tabs, in `envoryx project create --opensearch`,
   the MCP `create_project` tool and the logs endpoints. It runs as a single development
   node with its indices in a volume, over plain HTTP without login (security plugin
@@ -442,7 +442,7 @@ release). `:main` follows the development branch.
   The application gets `OPENSEARCH_HOST`, `OPENSEARCH_PORT`, `OPENSEARCH_SCHEME` and
   `OPENSEARCH_URL` (`http://opensearch:9200`). `ELASTICSEARCH_*` is left to the
   application: current Elasticsearch clients refuse to talk to OpenSearch.
-- OpenSearch Dashboards as an option of OpenSearch – a checkbox in the wizard and on the
+- OpenSearch Dashboards as an option of OpenSearch - a checkbox in the wizard and on the
   OpenSearch card of the Services tab, `envoryx project create --opensearch-dashboards`
   and `opensearchDashboards` in the MCP `create_project` tool. The web UI (Dev Tools
   console, index management, Discover) gets a host port of its own and a link on the
@@ -454,7 +454,7 @@ release). `:main` follows the development branch.
   `envoryx login/logout/whoami`. Everything goes through the REST API with an
   API token, so a token's scope and project restriction apply exactly as they
   do in the web interface and for MCP, and every command lands in the audit
-  log under the token's name – the CLI has no database handle and no Docker
+  log under the token's name - the CLI has no database handle and no Docker
   socket of its own. On the host the container's binary is enough (`docker
   exec -it envoryx envoryx project list`): inside the container the address is
   known and only the token is missing. Elsewhere `envoryx login --url …`
@@ -469,28 +469,28 @@ release). `:main` follows the development branch.
   `envoryx project exec shop -- php artisan migrate --force || rollback` does
   what it reads like. stdout and stderr stay apart, stdin is piped in (up to
   512 KiB), and the command runs as the project owner in the project
-  directory – where the browser terminal also starts. It is backed by a new
+  directory - where the browser terminal also starts. It is backed by a new
   endpoint, `POST /api/v1/projects/{id}/services/{kind}/exec`, which runs
   without a pseudo-terminal and answers with newline-delimited JSON frames
   (`stdout`, `stderr`, then `exit`); nothing is written before the first
   frame, so a container that is not running is still an ordinary HTTP error.
-  The terminal WebSocket stays what it is – a PTY for humans, where the
+  The terminal WebSocket stays what it is - a PTY for humans, where the
   streams are merged and the exit code is lost; scripts need the opposite,
   and a big pipe or an interactive shell still belongs in SSH.
 - Duplicate a project. *Duplicate* on the project page copies an existing
-  project into a new one – `shop` → `shop-test` – with its configuration:
+  project into a new one - `shop` → `shop-test` - with its configuration:
   runtimes and their settings, web server, services, environment variables,
   workers and the repository binding. The parts that hold data are checkboxes
   and default to on: the project directory (without `vendor/`,
   `node_modules/` and the other regenerable directories unless asked), the
   contents of the database and the objects of the bucket. Extra domains and
-  the backup schedule are never copied – host names are unique, and a copy
+  the backup schedule are never copied - host names are unique, and a copy
   made to try something out should not inherit the original's scheduled
   backups.
   The copy is its own project in every way that has to be: new id, slug,
   directory, network, volumes, containers, and a fresh host port wherever the
-  original published one. What it keeps are the generated credentials –
-  database name, user and passwords, the bucket and its keys – because each
+  original published one. What it keeps are the generated credentials -
+  database name, user and passwords, the bucket and its keys - because each
   project has its own server, network and volume anyway, while a `.env` that
   lives in the project files would otherwise point into the void, and the dump
   restores one to one (a renamed database would need `--nsFrom/--nsTo` for
@@ -513,7 +513,7 @@ release). `:main` follows the development branch.
   network and volume names, the SSH users the IDE connects with, the project directory,
   the backup directory and the rollback image tags. The database, its login and the
   object storage bucket travel too unless *Keep the database and bucket names* says
-  otherwise – handy when a committed `.env` or an external client has the old name
+  otherwise - handy when a committed `.env` or an external client has the old name
   written into it.
   Docker can rename none of these, so the containers and the network are recreated from
   the new plan, the volumes are copied into their new names with a throw-away container
@@ -527,19 +527,19 @@ release). `:main` follows the development branch.
   before any data moves and put back when the move fails, and old data is only dropped
   once the new copy is complete. A project that was running is running again at the end,
   and the current identifier has to be typed out to start any of it.
-- Database snapshots and cloning – the two things a day of development keeps asking for:
+- Database snapshots and cloning - the two things a day of development keeps asking for:
   the dump you take before a migration, and the data of another project in your own.
   *Snapshots* on the project's Database tab dumps the primary database and nothing else,
   with a note like "before the orders migration", and puts it back with one click. The
   project does not have to be running for either: a stopped database container is started
   for the dump or the import and stopped again afterwards. Snapshots are ordinary backups
-  under `/config/backups/<slug>/` – they show up in the Backups tab, can be downloaded and
-  restore through the same verified path – so the dump a database version upgrade insists
+  under `/config/backups/<slug>/` - they show up in the Backups tab, can be downloaded and
+  restore through the same verified path - so the dump a database version upgrade insists
   on appears among them too, ready to be put back. They roll: the ten newest of a project
   are kept, so taking one before every migration does not fill the disk, and scheduled
   backups and anything made by hand are never touched by that.
-  *Clone from another project* replaces this project's database contents with another's –
-  staging into local – as long as both run the same engine. The dump is piped straight
+  *Clone from another project* replaces this project's database contents with another's -
+  staging into local - as long as both run the same engine. The dump is piped straight
   from one container's client into the other's, so nothing is written to disk in between
   and a project of a few hundred megabytes is done in seconds. The source is only read,
   both projects are locked for the duration, and the target is snapshotted first unless
@@ -562,7 +562,7 @@ release). `:main` follows the development branch.
   PhpStorm's *New Project from Existing Files* wizard, checked step by step against
   PhpStorm 2026.2: a local copy that uploads on save, and how to fetch what
   `composer install` or `npm install` changed in the container. The host key is now
-  also shown as MD5, the form PhpStorm asks you to confirm – the SHA256 value alone
+  also shown as MD5, the form PhpStorm asks you to confirm - the SHA256 value alone
   could not be compared.
 - Project containers resolve the project domains. `http://shop.test` used to fail
   inside a container unless the Docker host itself asked a DNS server with the
@@ -626,14 +626,14 @@ release). `:main` follows the development branch.
   git ran as PUID/PGID (99:100 on Unraid) without a passwd entry for that uid, so the
   Next.js template died in create-next-app ("template next failed at create-next-app:
   Node.js v24…") and git over SSH failed with "No user exists for uid 99". They now start
-  as root, add the entry and drop to PUID/PGID before the command runs – the same entry
+  as root, add the entry and drop to PUID/PGID before the command runs - the same entry
   the long-running containers already got.
 - A failed template now says why. The error showed the last line of the output, which
   for a crashing Node process is just "Node.js v24.x" and for npm the path of its log
   file. It now shows the thrown error or npm's cause, and the last 40 lines of the
   output go to the Envoryx log.
 - MongoDB is offered as 8.2 and that is what a new project gets. The previous
-  default 8.0 – and 7.0 – refuse to start on Linux 6.19 and newer ("MongoDB
+  default 8.0 - and 7.0 - refuse to start on Linux 6.19 and newer ("MongoDB
   cannot start: Linux kernel versions 6.19 and newer has a known
   incompatibility with this version", SERVER-121912), which is every current
   desktop and server kernel: the container went into a restart loop and the
@@ -643,7 +643,7 @@ release). `:main` follows the development branch.
 - An application server (Python, Node dev server) raced the database on every
   start: it came up while the database was still initialising, and anything
   that connects at boot died on the first try. The restart policy hid that for
-  most servers, but Django's `runserver` does not exit – its autoreload parent
+  most servers, but Django's `runserver` does not exit - its autoreload parent
   survives the failed child, so the container stayed *running* and answered
   nothing until it was restarted by hand. The server now waits for the
   database port (socat, two-second retries, visible in the container log)
@@ -651,24 +651,24 @@ release). `:main` follows the development branch.
   the exact command it had, so nothing is recreated for it.
 - A new project with the default PostgreSQL 18 came up with a database
   container in a restart loop: the data volume was mounted at
-  `/var/lib/postgresql/data`, and the 18 image – which keeps its cluster in
-  `/var/lib/postgresql/<major>/docker` – refuses to start when it finds a
+  `/var/lib/postgresql/data`, and the 18 image - which keeps its cluster in
+  `/var/lib/postgresql/<major>/docker` - refuses to start when it finds a
   volume on the old path, even an empty one. From 18 on the volume takes
   `/var/lib/postgresql` (the layout `pg_upgrade --link` expects); 16 and 17
   keep the data directory itself, so existing volumes stay where they are.
   A major upgrade was already refused for PostgreSQL, so no data moves.
 
 - A rollback target that had left the host (`docker rmi`, a prune on an
-  installation that predates the rollback tags) made every reconcile – once
-  every 30 seconds – retry the tag and log *rollback image not protected*.
+  installation that predates the rollback tags) made every reconcile - once
+  every 30 seconds - retry the tag and log *rollback image not protected*.
   The image cannot come back, so the history now forgets it on the first
   miss (one info line), and the project stops offering a rollback that
   could only fail.
-## [0.5.0] – 2026-09-22
+## [0.5.0] - 2026-09-22
 
 ### Added
-- Projects without PHP. The first wizard step asks for the runtime – *PHP
-  application*, *Node.js application* or *Static site* – and PHP is no
+- Projects without PHP. The first wizard step asks for the runtime - *PHP
+  application*, *Node.js application* or *Static site* - and PHP is no
   longer required. For a Node.js project the dev server is the application:
   `https://<project>.<base>`, extra domains and `<project>-dev.<base>` all
   reach it through the proxy (HMR included), the project's direct port is
@@ -702,7 +702,7 @@ release). `:main` follows the development branch.
   the project back to the dev server or the static document root, pauses
   PHP workers and keeps files and worker definitions.
 - Node.js production build mode: the dev server can run as *Production
-  build* – every start runs the build script, then the serve script
+  build* - every start runs the build script, then the serve script
   (`start`, `preview` for Vite) with `NODE_ENV=production` for the serve
   process only.
 - Node.js workers: *npm script* (`npm run <name>`) and *Node.js script*
@@ -716,11 +716,11 @@ release). `:main` follows the development branch.
   dismissible notice with the projects it started again after a restart and
   the orphaned resources it removed, notifications carry the new kinds
   `projects.resumed` and `docker.orphans_removed`, and the audit log reads
-  in plain words – actions as labels instead of `docker.orphans_removed`,
+  in plain words - actions as labels instead of `docker.orphans_removed`,
   "Envoryx (automatic)" as the actor of automatic entries, and a details
   column with what was changed or removed.
-- Orphaned Envoryx containers and networks – left behind by a restored
-  instance backup or a wiped `/config` – are stopped and removed by the
+- Orphaned Envoryx containers and networks - left behind by a restored
+  instance backup or a wiped `/config` - are stopped and removed by the
   reconciler about a minute after they appear, instead of lingering in the
   host's Docker list. Volumes hold data and are never removed automatically;
   the Docker page lists them with a *Remove* button. Removals appear in the
@@ -728,7 +728,7 @@ release). `:main` follows the development branch.
 - Settings → General → *Projects and the Envoryx container*: an opt-in that
   stops every running project when the Envoryx container is stopped (for
   maintenance, a host shutdown) and starts them again when Envoryx comes
-  back – also after a reboot of the host. Off by default: the project
+  back - also after a reboot of the host. Off by default: the project
   containers stay independent of Envoryx as before. A restart Envoryx asks
   for itself does not bounce the projects. Give the Envoryx container a stop
   timeout that covers all projects (see DEPLOYMENT.md, *Stopping and
@@ -747,7 +747,7 @@ release). `:main` follows the development branch.
   `<project>.node` pick one explicitly on projects with both. PhpStorm
   configurations of PHP projects are unaffected.
 - While a Node dev server serves a project, the web container's HTTP port is
-  not published – the document root would otherwise expose the project
+  not published - the document root would otherwise expose the project
   root (`.env`, sources) on the LAN. Turning the dev server off publishes
   the same port again.
 - Web server configs of projects without PHP deny dotfiles (`/.env`,
@@ -782,7 +782,7 @@ release). `:main` follows the development branch.
   (new command wrapper, unpublished web port); `<project>-dev.<base>` and
   the node host port keep working.
 
-## [0.4.0] – 2026-09-20
+## [0.4.0] - 2026-09-20
 
 ### Added
 - Rescue commands for a lost login: `envoryx admin reset-password`,
@@ -793,8 +793,8 @@ release). `:main` follows the development branch.
 - The interface speaks eight more languages: French, Spanish, Italian, Dutch,
   Polish, Portuguese (Brazil), Russian and Ukrainian. Pick one in the sidebar;
   the browser language is used on first visit.
-- Envoryx now shows what it is doing. Long actions – creating, starting,
-  restarting, applying settings, deleting, backups and restores – report their
+- Envoryx now shows what it is doing. Long actions - creating, starting,
+  restarting, applying settings, deleting, backups and restores - report their
   current step (image pull with download progress, container recreation,
   template scaffolding …) in a panel at the bottom right, in the project list
   and on the project page; the outcome appears there as well. The wizard shows
@@ -808,19 +808,19 @@ release). `:main` follows the development branch.
 - Signing in after being sent to the sign-in page (session expired, direct
   link) now returns to the page you wanted instead of the dashboard.
 
-## [0.3.0] – 2026-09-20
+## [0.3.0] - 2026-09-20
 
 ### Added
 - Envoryx has its logo: the `<E>` mark and wordmark replace the placeholder
   icon in the sidebar, on the sign-in page, as favicon and as the Unraid
   template icon. Mint is the default accent colour; **Settings → General →
-  Appearance** offers ocean, violet, amber and rose – buttons, highlights and
+  Appearance** offers ocean, violet, amber and rose - buttons, highlights and
   the logo follow. The choice is stored per browser, like the theme.
 - Settings are organised in tabs (Diagnostics, General, Domains & HTTPS,
   Access, Notifications, Backups, Tools, Audit log). The new **Diagnostics**
-  tab runs 14 set-up checks – Docker, storage, host paths, disk space, backup
+  tab runs 14 set-up checks - Docker, storage, host paths, disk space, backup
   directory, database integrity, host for project links, proxy ports, wildcard
-  DNS, SSH, HTTPS, version, project/Docker consistency, notifications – and
+  DNS, SSH, HTTPS, version, project/Docker consistency, notifications - and
   lists each finding with a fix; some fix themselves at the click of a button.
   The dashboard shows a banner while something needs attention.
   (`GET /api/v1/system/diagnostics`)
@@ -834,13 +834,13 @@ release). `:main` follows the development branch.
   and the app briefly flashed light on every load: the script applying the
   stored theme was blocked by Envoryx's own Content Security Policy.
 - When Envoryx runs with an IP of its own (Unraid `br0`, macvlan) and no host
-  for project links is configured, links to published ports – project URLs,
-  Mailpit, the object storage console, database ports – silently pointed at
+  for project links is configured, links to published ports - project URLs,
+  Mailpit, the object storage console, database ports - silently pointed at
   Envoryx's address, where nothing listens. The dashboard, the affected
   project tabs and the settings now say so and offer the Docker host that
   Docker reports as a one-click fix.
 
-## [0.2.0] – 2026-09-19
+## [0.2.0] - 2026-09-19
 
 ### Added
 - S3-compatible object storage as an optional project service: one RustFS
@@ -851,7 +851,7 @@ release). `:main` follows the development branch.
   console, and a switch for anonymous reads (bucket policy standing in for
   public-read ACLs). Wizard, Services tab and MCP `create_project` know it.
 - API tokens have scopes: `read` (look, no secrets), `operate` (work with
-  existing projects – start/stop, actions, backups, databases, git, SSH) and
+  existing projects - start/stop, actions, backups, databases, git, SSH) and
   `admin` (everything a browser session may do). A token can also be limited
   to particular projects; it then sees and touches only those and cannot
   create new ones. Scopes apply to the REST API, the MCP server and SSH/SFTP
@@ -865,7 +865,7 @@ release). `:main` follows the development branch.
   project's containers and volumes first and then leaving it in `failed`.
 - The image a project can roll back to is kept under a tag
   (`envoryx-rollback/<project>:<image>`) instead of lying around untagged, so
-  `docker image prune` – Unraid's "remove unused images", clean-up plugins –
+  `docker image prune` - Unraid's "remove unused images", clean-up plugins -
   no longer deletes it. Existing rollback targets are tagged at the next start;
   the tag moves on when a newer image supersedes it and goes with the project.
 - A backup interrupted by a crash or `kill -9` no longer lingers: at start-up
@@ -875,14 +875,14 @@ release). `:main` follows the development branch.
   temporary name and renamed when complete, so a truncated archive can never
   be mistaken for a good one; leftovers are removed at start-up as well.
 
-## [0.1.0] – 2026-09-19
+## [0.1.0] - 2026-09-19
 
 First tagged release. Everything below is new.
 
 ### Projects
 - Single-container deployment for Unraid and Linux Docker hosts, embedded
   web UI (English, German), local admin account, sessions, audit log.
-- Per-project stacks from a fixed catalogue: PHP 8.1–8.6 (Envoryx images with
+- Per-project stacks from a fixed catalogue: PHP 8.1-8.6 (Envoryx images with
   toggleable extensions, Xdebug), Caddy/Apache/Nginx, MariaDB/MySQL/
   PostgreSQL/MongoDB, Redis, Mailpit, Node.js toolchain with dev-server mode.
 - Templates (Laravel, Symfony, WordPress), git clone with deploy key or

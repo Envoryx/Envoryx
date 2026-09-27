@@ -247,8 +247,8 @@ var backupDirPattern = regexp.MustCompile(`^\d{8}-\d{6}-[0-9a-f]{8}$`)
 
 // SweepBackups tidies up after backups that a crash or kill interrupted. A directory
 // without backup.json never completed (the metadata is written last) and is removed;
-// one that completed but was not recorded – the process died between writing and
-// recording – is adopted so it shows up and can be restored. Directories that belong to
+// one that completed but was not recorded - the process died between writing and
+// recording - is adopted so it shows up and can be restored. Directories that belong to
 // another installation (different project id) or do not look like Envoryx's are left
 // alone. It runs at start-up, before the scheduler, when no backup can be in progress.
 func (m *Manager) SweepBackups(ctx context.Context) {

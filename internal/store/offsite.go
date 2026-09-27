@@ -183,7 +183,7 @@ func (r *OffsiteUploads) DeleteByKey(ctx context.Context, targetID, remoteKey st
 	return err
 }
 
-// EnqueueIfAbsent queues a copy unless the backup has a row for the target already –
+// EnqueueIfAbsent queues a copy unless the backup has a row for the target already -
 // the automatic path, which must not restart a failed upload on every pass.
 func (r *OffsiteUploads) EnqueueIfAbsent(ctx context.Context, u OffsiteUpload) error {
 	t := formatTime(now())
