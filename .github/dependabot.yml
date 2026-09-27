@@ -1,7 +1,8 @@
 # Dependabot keeps Go modules, the web frontend, GitHub Actions and the
-# application image's base images current. Runtime images (images/php,
-# images/node) derive their base tags from internal/runtime/*_versions.json
-# and are updated by runtime-versions.yml instead.
+# application image's base images current. The runtime images (images/php,
+# node, python, go, ruby) take their base tags from
+# internal/runtime/*_versions.json and are updated by runtime-versions.yml
+# instead.
 #
 # Updates are grouped so a solo maintainer gets one PR per ecosystem and
 # week rather than a dozen; security updates still arrive individually.

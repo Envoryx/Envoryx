@@ -25,7 +25,7 @@ ADD --chmod=0755 https://github.com/mlocati/docker-php-extension-installer/relea
 
 # Extensions are installed one by one so a single incompatible extension is identifiable.
 # Stable versions must build every extension; pre-release versions (BASE_TAG *-rc) may skip
-# extensions that do not compile yet - they are listed in /etc/envoryx/missing-extensions.
+# extensions that don't compile yet; they are listed in /etc/envoryx/missing-extensions.
 RUN set -eux; \
     mkdir -p /etc/envoryx; : > /etc/envoryx/missing-extensions; \
     for ext in ${ENVORYX_PHP_EXTENSIONS}; do \
@@ -40,7 +40,7 @@ RUN set -eux; \
     # Compiled in, but disabled by default: Envoryx's per-project ini enables what is selected.
     # The installer names some inis xx-php-ext-* (memcached) to load them after their dependencies.
     for ext in ${ENVORYX_PHP_EXTENSIONS}; do rm -f "/usr/local/etc/php/conf.d/docker-php-ext-${ext}.ini" "/usr/local/etc/php/conf.d/xx-php-ext-${ext}.ini"; done; \
-    # Tools used by project actions (Phase 5).
+    # Tools used by project actions.
     apt-get update; \
     # git/unzip/ssh for actions; socat relays SSH port forwards to the IDE backend on 127.0.0.1;
     # procps + X libs let JetBrains Gateway run its IDE backend here.

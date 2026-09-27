@@ -31,8 +31,8 @@ RUN set -eux; \
     ruby --version; gem --version; bundle --version; rdbg --version
 
 # SSH sessions (and IDEs probing over SSH) run a login shell, whose /etc/profile resets
-# PATH - the executables of the gems in the project home (GEM_HOME, set by Envoryx) and
-# rdbg would vanish.
+# PATH, and the executables of the gems in the project home (GEM_HOME, set by Envoryx)
+# and rdbg would vanish.
 RUN printf '%s\n' 'export PATH="${GEM_HOME:-/usr/local/bundle}/bin:/usr/local/bundle/bin:$PATH"' > /etc/profile.d/envoryx-ruby.sh
 
 WORKDIR /var/www/html

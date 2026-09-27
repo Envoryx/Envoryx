@@ -30,7 +30,7 @@ jobs:
           matrix=$(jq -c '{include: [.versions[] | {version: .version, base: .base}]}' internal/runtime/node_versions.json)
           echo "matrix=${matrix}" >> "$GITHUB_OUTPUT"
 
-  # One native build per architecture (no QEMU: extensions compile at full speed).
+  # One native build per architecture (no QEMU, so the build runs at full speed).
   build:
     needs: matrix
     strategy:
