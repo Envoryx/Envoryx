@@ -10,9 +10,10 @@ import (
 
 // A project's "application" is the container that runs its code: the PHP-FPM container
 // when the project has PHP, else the Python container, else the Go container, else the
-// Ruby container, else the Node container. Projects with none are static sites served by the web container alone. Every runtime-dependent
-// decision (routing, starter page, one-shot image, SSH user) goes through the helpers in
-// this file so the shapes stay consistent.
+// Ruby container, else the Node container. Projects with none are static sites served
+// by the web container alone. Every runtime-dependent decision (routing, starter page,
+// one-shot image, SSH user) goes through the helpers in this file so the shapes stay
+// consistent.
 
 // appService returns the project's application container: the enabled PHP service,
 // else the enabled Python service, else the enabled Go service, else the enabled Ruby
@@ -148,8 +149,8 @@ func rubyServesApp(p store.Project) (runtime.RubyConfig, bool) {
 // nodeServesApp reports whether the Node dev server is the project's application (no
 // enabled PHP service, no Python, Go or Ruby server, NodeConfig.DevServer). The config
 // is returned normalised. With a Python, Go or Ruby server the Node dev server is the
-// frontend toolchain: it keeps its <slug>-dev.<base> route and host port, the project URL reaches
-// the server.
+// frontend toolchain: it keeps its <slug>-dev.<base> route and host port, and the
+// project URL reaches the server.
 func nodeServesApp(p store.Project) (runtime.NodeConfig, bool) {
 	if hasPHP(p) {
 		return runtime.NodeConfig{}, false
@@ -174,8 +175,8 @@ func nodeServesApp(p store.Project) (runtime.NodeConfig, bool) {
 }
 
 // appServesDirectly reports whether an application container answers the project URL
-// itself (Python, Go or Ruby server, Node dev server) - the web container's port then stays
-// unpublished so the docroot (often the project root with .env and sources) is not
+// itself (Python, Go or Ruby server, Node dev server). The web container's port then
+// stays unpublished so the docroot (often the project root with .env and sources) isn't
 // exposed on the LAN.
 func appServesDirectly(p store.Project) bool {
 	if _, ok := pythonServesApp(p); ok {
@@ -213,8 +214,9 @@ func Serves(p store.Project) string {
 }
 
 // toolImage returns the image for one-shot containers (git, templates): the application
-// container's image (PHP, Python, Go, Ruby or Node - git and ssh ship in every Envoryx image), else
-// the catalogue's default Node image. Fails only when the catalogue has no Node image.
+// container's image (PHP, Python, Go, Ruby or Node; git and ssh ship in every Envoryx
+// image), else the catalogue's default Node image. It fails only when the catalogue has
+// no Node image.
 func (m *Manager) toolImage(p store.Project) (string, error) {
 	if svc := appService(p); svc != nil && svc.Image != "" {
 		return svc.Image, nil

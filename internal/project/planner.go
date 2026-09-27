@@ -42,10 +42,11 @@ type Paths struct {
 	BaseDomain string
 	// XdebugClientHost is the global fallback debugger host (developer machine).
 	XdebugClientHost string
-	// FolderViewFolder is the FolderView3 folder the containers are labelled for ("" = none).
+	// FolderViewFolder is the FolderView3 folder the containers are labelled for; empty
+	// for none.
 	FolderViewFolder string
 	// PublicHost and the proxy's host-side ports let the planner build URLs that a
-	// browser on the LAN can reach (object storage public URL). Zero = unknown.
+	// browser on the LAN can reach (object storage public URL). Zero values mean unknown.
 	PublicHost     string
 	ProxyHTTPPort  int
 	ProxyHTTPSPort int
@@ -101,9 +102,9 @@ var toolEnv = []string{"HOME=" + homeMountTarget, "COMPOSER_HOME=" + homeMountTa
 // The package cache is one directory for all projects (/config/cache on the Envoryx
 // side), so a package is downloaded once whichever project asks for it next: Composer,
 // npm, Yarn, pip and uv keep their caches below it. pnpm is left out: its store is only
-// configurable as npm_config_store_dir, which makes every npm command warn. Every container a package
-// manager runs in has it mounted - the application containers, the workers and the
-// one-shots that scaffold a template.
+// configurable as npm_config_store_dir, which makes every npm command warn. Every
+// container a package manager runs in has it mounted: the application containers, the
+// workers and the one-shots that scaffold a template.
 const (
 	packageCacheDir    = "cache"
 	packageCacheTarget = "/var/cache/envoryx"
@@ -189,7 +190,7 @@ const rubyGemHome = homeMountTarget + "/.gem/ruby"
 
 // rubyEnv gives the Ruby containers their GEM_HOME, a GEM_PATH that still finds the
 // image's gems (rdbg), and a PATH with the gems' executables. BUNDLE_APP_CONFIG goes back
-// to Bundler's default - the project's .bundle/ - instead of the image's root-owned
+// to Bundler's default, the project's .bundle/, instead of the image's root-owned
 // /usr/local/bundle.
 var rubyEnv = []string{
 	"GEM_HOME=" + rubyGemHome,
@@ -199,7 +200,7 @@ var rubyEnv = []string{
 }
 
 // rubyDatabaseURLs rewrites the PostgreSQL connection strings for Ruby: Envoryx names
-// the scheme pgsql (as PHP frameworks expect), which Active Record does not know - it
+// the scheme pgsql (as PHP frameworks expect), which Active Record doesn't know: it
 // maps postgres and postgresql to its adapter. Every *DATABASE_URL is rewritten, so an
 // additional database reaches Rails' multi-database setup under its own name, too.
 func rubyDatabaseURLs(env []string) []string {
@@ -403,9 +404,10 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 				RestartPolicy: "unless-stopped",
 				StopTimeout:   stopTimeoutSec,
 			}
-			// While a Python server or Node dev server serves the app the proxy bypasses
-			// this container and its port stays unpublished so the docroot (often the
-			// project root with .env and sources) is not exposed on the LAN. The port stays
+			// While an application server (Python, Go, Ruby) or the Node dev server
+			// serves the app, the proxy bypasses this container and its port stays
+			// unpublished so the docroot (often the project root with .env and sources)
+			// isn't exposed on the LAN. The port stays
 			// allocated so turning the server off publishes it again.
 			if proj.HTTPPort > 0 && !appServesDirectly(proj) {
 				spec.Ports = []docker.PortSpec{{HostIP: p.paths.PublishInterface, HostPort: proj.HTTPPort, ContainerPort: 80, Protocol: "tcp"}}
@@ -506,8 +508,8 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 			}
 			if pcfg.Debug && pcfg.DebugHostPort > 0 {
 				// debugpy itself is started by whatever process the developer launches (see
-				// PythonConfig.Debug) - in the application server, or by hand in the
-				// terminal, which is why the port does not depend on the server.
+				// PythonConfig.Debug): in the application server, or by hand in the
+				// terminal, which is why the port doesn't depend on the server.
 				spec.Ports = append(spec.Ports, docker.PortSpec{HostIP: p.paths.PublishInterface, HostPort: pcfg.DebugHostPort, ContainerPort: pcfg.DebugPort, Protocol: "tcp"})
 			}
 			plan.Containers = append(plan.Containers, ContainerPlan{Kind: store.ServicePython, Order: 12, Spec: spec})
@@ -544,7 +546,7 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 				// process, published on a host port; without PHP or a Python server the proxy
 				// routes the project URL to it.
 				// A blank project has nothing to build yet: wait for go.mod instead of
-				// crash-looping - next to PHP or Python, too.
+				// crash-looping, next to PHP or Python too.
 				spec.Cmd = gcfg.WrappedCommand(dbGuard)
 				spec.Env = append(spec.Env, gcfg.Env()...)
 				if gcfg.HostPort > 0 {
@@ -588,7 +590,7 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 			if rcfg.Server {
 				// Server mode: the preset's server is the main process, published on a host
 				// port; without PHP or a Python or Go server the proxy routes the project URL
-				// to it. It waits for the Gemfile and installs the bundle first - a fresh
+				// to it. It waits for the Gemfile and installs the bundle first, so a fresh
 				// clone comes up without a manual bundle install.
 				spec.Cmd = rcfg.WrappedCommand(dbGuard)
 				spec.Env = append(spec.Env, rcfg.Env("."+p.paths.BaseDomain)...)
@@ -893,7 +895,7 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 	// Workers: one container per definition from the image of the preset's runtime (PHP
 	// presets from the PHP image with its ini, the other runtimes' presets from their image
 	// with the project home), sharing env and the project mount. A worker whose runtime
-	// the project does not have is skipped - it comes back when the runtime is added.
+	// the project doesn't have is skipped; it comes back when the runtime is added.
 	php, node, python, golang := proj.Service(store.ServicePHP), proj.Service(store.ServiceNode), proj.Service(store.ServicePython), proj.Service(store.ServiceGo)
 	ruby := proj.Service(store.ServiceRuby)
 	// Ruby workers run in the server's environment (RAILS_ENV …): a production server
@@ -992,8 +994,8 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 	return plan, nil
 }
 
-// databaseContainer plans the container of a database - the primary or an additional
-// one - and returns it with its volume. The primary answers as "database" (and by its
+// databaseContainer plans the container of a database (the primary or an additional
+// one) and returns it with its volume. The primary answers as "database" (and by its
 // flavour, as it always did), an additional one by its name.
 func (p *Planner) databaseContainer(proj store.Project, svc store.ProjectService, network string, labels map[string]string) (ContainerPlan, string, error) {
 	dialect, ok := runtime.DialectFor(svc.Variant)

@@ -26,7 +26,8 @@ type CreateRequest struct {
 	Path string // relative to projects root; empty = slug
 	// Docroot is the directory served by the web server, relative to the project
 	// directory: public/ for Laravel/Symfony, the build output (dist/, out/) for static
-	// Node builds; unused while a Python server or Node dev server serves the app.
+	// Node builds. It's unused while an application server (Python, Go, Ruby) or the
+	// Node dev server serves the app.
 	Docroot  string
 	PHP      *PHPRequest
 	Node     *NodeRequest
@@ -54,14 +55,15 @@ type CreateRequest struct {
 	// Import fills the new directory from an uploaded website (see CreateFromImport).
 	Import *ImportRequest
 	// CreateStarter writes a starter page (index.php with PHP, index.html otherwise) when
-	// the document root is empty; ignored while a Python server or Node dev server serves
-	// the app.
+	// the document root is empty. It's ignored while an application server (Python, Go,
+	// Ruby) or the Node dev server serves the app.
 	CreateStarter bool
 	// Start starts the project right after creation.
 	Start bool
-	// Limits cap CPU, memory and processes of the containers (zero: none).
+	// Limits cap CPU, memory and processes of the containers; zero values mean no limit.
 	Limits store.ResourceLimits
-	// HealthCheck asks the application over HTTP whether it works (Path "": none).
+	// HealthCheck asks the application over HTTP whether it works; an empty Path means
+	// no check.
 	HealthCheck store.HealthCheck
 }
 
@@ -229,7 +231,8 @@ type DatabaseUpdate struct {
 type WebRequest struct {
 	Type    string // "caddy" (default), "apache" or "nginx"
 	Version string
-	// SPAFallback serves /index.html for unknown paths (nil = unchanged, false on create).
+	// SPAFallback serves /index.html for unknown paths; nil leaves it unchanged (off on
+	// create).
 	// Only valid for projects without PHP: there the front controller handles unknown paths.
 	SPAFallback *bool
 }
@@ -437,7 +440,7 @@ type Status struct {
 type View struct {
 	Project store.Project
 	Status  Status
-	// HTTPPort is the host port of the project's web server (0 = none).
+	// HTTPPort is the host port of the project's web server, 0 if it has none.
 	HTTPPort int
 }
 

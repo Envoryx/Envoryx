@@ -74,19 +74,21 @@ type Manager struct {
 	ollamaOnce sync.Once
 	ollama     *ollamaPulls // model downloads in progress (see ollama.go)
 
-	// logStore keeps container output beyond the containers; nil = queries read Docker
-	// only (see loghistory.go).
+	// logStore keeps container output beyond the containers. When it's nil, queries read
+	// Docker only (see loghistory.go).
 	logStore     *logs.Store
 	logCollector *logs.Collector
 
-	// provisioner creates project buckets; nil = the real S3 client. Tests inject a fake.
+	// provisioner creates project buckets; nil means the real S3 client. Tests inject a
+	// fake.
 	provisioner s3.Provisioner
-	// objectStore builds the client backups use; nil = the real S3 client.
+	// objectStore builds the client backups use; nil means the real S3 client.
 	objectStore func(endpoint, accessKey, secretKey string) s3.ObjectStore
 	// links tells the planner how the LAN reaches the proxy (public host, ports).
 	links func(ctx context.Context) (publicHost string, httpPort, httpsPort int)
 	// shareVia is the proxy's plain HTTP listener, which share tunnels send their requests
-	// to so the project's proxy rules apply ("" = straight to the application).
+	// to so the project's proxy rules apply. Empty sends them straight to the
+	// application.
 	shareVia string
 	// shareHosts maps project ids to the host name of their share address.
 	shareHosts sync.Map
@@ -110,7 +112,7 @@ func (m *Manager) SetObjectStoreFactory(f func(endpoint, accessKey, secretKey st
 	m.objectStore = f
 }
 
-// SetNotifier installs the notification sink (nil = none).
+// SetNotifier installs the notification sink; nil switches notifications off.
 func (m *Manager) SetNotifier(n notify.Sender) { m.notifier = n }
 
 // notify delivers an event when a notifier is installed.
@@ -855,9 +857,9 @@ func (m *Manager) collectUsedPorts(ctx context.Context, used map[int]bool) error
 }
 
 // assignServicePorts allocates host ports for services the request wants published
-// (database, Redis, Memcached, RabbitMQ, Typesense, OpenSearch, Ollama) and always for the web UIs of Mailpit,
-// RabbitMQ and Meilisearch. Ports already chosen for this project are excluded so the
-// allocations do not collide with each other.
+// (database, Redis, Memcached, RabbitMQ, Typesense, OpenSearch, Ollama) and always for
+// the web UIs of Mailpit, RabbitMQ and Meilisearch. Ports already chosen for this
+// project are excluded so the allocations don't collide with each other.
 func (m *Manager) assignServicePorts(ctx context.Context, proj *store.Project, req CreateRequest) error {
 	taken := []int{proj.HTTPPort}
 	assign := func(kind store.ServiceKind) error {
@@ -1145,9 +1147,9 @@ func setHostPort(svc *store.ProjectService, port int) error {
 // ---------------------------------------------------------------------------
 
 // resolveImages refreshes the image reference of every service from the catalogue. The
-// catalogue owns the version→image mapping, so a Envoryx update that ships a new runtime
-// image propagates to existing projects on their next start/restart. Unknown versions keep
-// the stored image.
+// catalogue owns the version→image mapping, so an Envoryx update that ships a new
+// runtime image reaches existing projects on their next start or restart. Unknown
+// versions keep the stored image.
 func (m *Manager) resolveImages(p *store.Project) {
 	for i := range p.Services {
 		svc := &p.Services[i]
