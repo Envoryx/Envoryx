@@ -10,9 +10,9 @@ type StorageKind int
 const (
 	// StorageLocal is a normal local filesystem (ext4, xfs, btrfs, zfs, overlay, …).
 	StorageLocal StorageKind = iota
-	// StorageFUSE is a userspace filesystem - on Unraid that is /mnt/user (shfs). SQLite
-	// works on it, but locking and fsync behaviour depend on the FUSE driver; the
-	// community advice for databases on Unraid is the pool path (/mnt/cache/appdata).
+	// StorageFUSE is a userspace filesystem, on Unraid /mnt/user (shfs). SQLite works on
+	// it, but locking and fsync behaviour depend on the FUSE driver, which is why the
+	// Unraid community puts databases on the pool path (/mnt/cache/appdata).
 	StorageFUSE
 	// StorageNetwork is NFS/SMB/CIFS. SQLite's file locking is unreliable there;
 	// silent corruption is the documented outcome.

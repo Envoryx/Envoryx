@@ -70,7 +70,7 @@ func (p Principal) CanAccessProject(id string) bool {
 }
 
 // Require returns ErrForbidden with a readable reason unless the principal covers the
-// level and - when projectID is not empty - may access that project.
+// level and, when projectID isn't empty, may access that project.
 func (p Principal) Require(need Scope, projectID string) error {
 	if !p.Allows(need) {
 		return fmt.Errorf("%w: this token has %s scope, the operation needs %s", ErrForbidden, p.Scope, need)

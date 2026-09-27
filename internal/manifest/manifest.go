@@ -1,6 +1,6 @@
 // Package manifest reads and writes envoryx.yml, the project manifest that lives in a
-// project's repository: runtimes, services, domains, environment, workers and cron jobs
-// - everything needed to bring the same environment up again from a fresh clone.
+// project's repository: runtimes, services, domains, environment, workers and cron jobs.
+// That's everything needed to bring the same environment up again from a fresh clone.
 //
 // The package knows the file format only. Whether a version exists or a PHP extension is
 // available is decided by the project package when it turns a manifest into a request,
@@ -394,8 +394,8 @@ func boolScalar(n *yaml.Node) (on, ok bool, err error) {
 	return b, true, nil
 }
 
-// decodeStrict decodes a mapping node and refuses keys the target does not have -
-// Node.Decode does not inherit the decoder's KnownFields setting.
+// decodeStrict decodes a mapping node and refuses keys the target doesn't have. It's
+// needed because Node.Decode doesn't inherit the decoder's KnownFields setting.
 func decodeStrict(n *yaml.Node, out any) error {
 	var buf bytes.Buffer
 	enc := yaml.NewEncoder(&buf)

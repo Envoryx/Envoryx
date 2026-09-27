@@ -93,7 +93,8 @@ func (s *Service) ValidateAPIToken(ctx context.Context, token string) (Principal
 	return Principal{UserID: user.ID, Username: user.Username, Role: user.Role, TokenName: t.Name, Scope: Scope(t.Scope), Projects: t.ProjectIDs}, nil
 }
 
-// ListAPITokens returns all tokens (without hashes being useful to anyone).
+// ListAPITokens returns all tokens. They include the hashes, which are no use for
+// getting a token back.
 func (s *Service) ListAPITokens(ctx context.Context) ([]store.APIToken, error) {
 	return s.store.Tokens.List(ctx)
 }

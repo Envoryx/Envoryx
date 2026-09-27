@@ -39,14 +39,15 @@ type projectOut struct {
 	Name  string `json:"name"`
 	Slug  string `json:"slug"`
 	State string `json:"state"`
-	// Serves says what the project URL reaches: php, python (application server), node
-	// (dev server) or static.
+	// Serves says what the project URL reaches: php, the application server of python,
+	// go or ruby, node (the dev server) or static.
 	Serves string `json:"serves"`
 	URL    string `json:"url,omitempty"`
 	// DevURL is the dev server's own host name while a Node dev server runs.
 	DevURL string `json:"devUrl,omitempty"`
 	// DirectURL bypasses the proxy: the web server's host port, or the application
-	// container's when a Python server or Node dev server serves the project.
+	// container's when a Python, Go or Ruby server or a Node dev server serves the
+	// project.
 	DirectURL string       `json:"directUrl,omitempty"`
 	Hostnames []string     `json:"hostnames"`
 	Path      string       `json:"path"`
