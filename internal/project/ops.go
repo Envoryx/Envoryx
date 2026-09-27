@@ -47,7 +47,7 @@ func newOps() *ops {
 
 // run executes a lifecycle operation detached from the caller's cancellation. A browser
 // tab closed or a connection lost halfway through an image pull must not abort the
-// operation and roll the project back - the caller's context only contributes its values
+// operation and roll the project back; the caller's context only contributes its values
 // (principal, client IP for the audit log). The operation is bounded by limit and ends
 // early only when Envoryx shuts down: Shutdown refuses new operations, waits for running
 // ones for a grace period and then cancels them with ErrInterrupted as cause.

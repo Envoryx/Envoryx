@@ -12,9 +12,9 @@ import (
 // ErrNotOrphan is returned when a resource to remove is not in the current orphan list.
 var ErrNotOrphan = fmt.Errorf("%w: not an orphaned Envoryx resource", ErrNotFound)
 
-// cleanOrphans removes the orphaned containers and networks the previous reconcile pass
-// already reported - a resource orphaned only for the moment (a project being created
-// or rolled back) is left alone - and whose project is not locked. Volumes hold data and
+// cleanOrphans removes the orphaned containers and networks that the previous reconcile
+// pass already reported and whose project isn't locked. A resource orphaned only for the
+// moment (a project being created or rolled back) is left alone that way. Volumes hold data and
 // are never removed automatically. It returns what is still orphaned.
 func (m *Manager) cleanOrphans(ctx context.Context, orphans []Orphan) []Orphan {
 	previous := map[string]bool{}
@@ -114,7 +114,7 @@ func (m *Manager) removeOrphan(ctx context.Context, o Orphan) error {
 	}
 }
 
-// RemoveOrphan removes one resource from the current orphan list on the user's request -
+// RemoveOrphan removes one resource from the current orphan list on the user's request,
 // the only way an orphaned volume goes away. The list is refreshed afterwards.
 func (m *Manager) RemoveOrphan(ctx context.Context, typ, id string) (ReconcileReport, error) {
 	var target *Orphan

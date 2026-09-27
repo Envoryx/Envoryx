@@ -339,7 +339,7 @@ func TestEnvoryxRestartRecognisesExistingContainers(t *testing.T) {
 	}
 	id := view.Project.ID
 
-	// Simulate a Envoryx restart: new manager on the same DB and same Docker state.
+	// Simulate an Envoryx restart: new manager on the same DB and same Docker state.
 	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn}))
 	paths := func() (Paths, error) {
 		return Paths{ConfigDir: e.cfgDir, ConfigHostDir: "/host/appdata/envoryx", ProjectsDir: e.projDir, ProjectsHostDir: "/host/development", PUID: 1000, PGID: 1000}, nil

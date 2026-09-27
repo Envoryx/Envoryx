@@ -54,7 +54,7 @@ func (m *Manager) PackageCache(ctx context.Context) (PackageCache, error) {
 	return out, nil
 }
 
-// ClearPackageCache empties the shared package cache (tool "" = all of it). The next
+// ClearPackageCache empties the shared package cache (tool "" for all of it). The next
 // install downloads again; an install running right now may fail and has to be repeated.
 func (m *Manager) ClearPackageCache(ctx context.Context, tool string) (PackageCache, error) {
 	paths, err := m.paths()

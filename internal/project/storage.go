@@ -34,8 +34,6 @@ func storageConfig(p store.Project) (*store.ProjectService, runtime.StorageConfi
 	return svc, cfg, nil
 }
 
-// storagePublicURL is the browser-reachable URL of the bucket: through the proxy when it
-// runs, otherwise the published host port. Scheme follows the proxy's TLS setup.
 // ProjectURL is where a browser on the LAN reaches the project: its host name behind the
 // proxy (HTTPS when the proxy serves it), else the published HTTP port on the public
 // host. "" when neither is known.
@@ -59,6 +57,8 @@ func (p *Planner) ProjectURL(proj store.Project) string {
 	return ""
 }
 
+// storagePublicURL is the browser-reachable URL of the bucket: through the proxy when it
+// runs, otherwise the published host port. The scheme follows the proxy's TLS setup.
 func (p *Planner) storagePublicURL(slug string, cfg runtime.StorageConfig) string {
 	if p.paths.BaseDomain != "" {
 		host := StorageHostname(slug, p.paths.BaseDomain)

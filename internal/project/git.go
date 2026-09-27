@@ -240,10 +240,10 @@ func gitEnv(g store.GitConfig) []string {
 }
 
 // runGit executes git with the given arguments in the project directory inside a transient
-// container built from the project's PHP image, else its Node image, else the default Node
-// image - git and ssh ship in both. The deploy key is only ever mounted into this
-// short-lived container, never into the long-running application containers, so
-// application code cannot read it.
+// container from the application container's image, else the default Node image (see
+// toolImage); git and ssh ship in every Envoryx image. The deploy key is only ever
+// mounted into this short-lived container, never into the long-running application
+// containers, so application code cannot read it.
 func (m *Manager) runGit(ctx context.Context, proj store.Project, args ...string) (docker.ExecResult, error) {
 	image, err := m.toolImage(proj)
 	if err != nil {

@@ -168,7 +168,7 @@ func dbToolServer(p store.Project, svc *store.ProjectService, cfg runtime.Databa
 	return ContainerName(p.Slug, svc.Kind)
 }
 
-// OpenDBTool prepares the browser for a database of a project (db "" = the primary):
+// OpenDBTool prepares the browser for a database of a project (db "" for the primary):
 // starts the container when needed, refreshes the credentials file, joins the project
 // network and returns the URL (relative to the Envoryx UI) that logs straight in.
 func (m *Manager) OpenDBTool(ctx context.Context, id, db string) (DBToolLink, error) {

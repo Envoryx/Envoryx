@@ -21,7 +21,8 @@ type DatabaseConfig struct {
 	Database     string `json:"database"`
 	Username     string `json:"username"`
 	Password     string `json:"password"`
-	// HostPort publishes the database on the Docker host for external clients (0 = off).
+	// HostPort publishes the database on the Docker host for external clients; 0 means
+	// not published.
 	HostPort int `json:"hostPort"`
 	// Host and Port name a server Envoryx doesn't run (an external database). There is
 	// no container and no volume then, and every client connects there as Username. An

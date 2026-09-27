@@ -28,7 +28,8 @@ func (m *Manager) AuditSettings(ctx context.Context) AuditSettings {
 	return AuditSettings{RetentionDays: m.intSetting(ctx, SettingAuditDays, 0, 0, MaxAuditDays)}
 }
 
-// SetAuditRetention sets how many days the audit log keeps (0 = all) and applies it now.
+// SetAuditRetention sets how many days the audit log keeps (0 keeps all) and applies it
+// now.
 func (m *Manager) SetAuditRetention(ctx context.Context, days int) (AuditSettings, error) {
 	if days < 0 || days > MaxAuditDays {
 		return AuditSettings{}, fmt.Errorf("%w: keep the audit log for 1 to %d days, or 0 for all of it", validate.ErrInvalid, MaxAuditDays)

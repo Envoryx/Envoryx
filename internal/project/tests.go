@@ -36,7 +36,7 @@ type TestSuite struct {
 	// Report is true for runners that write a JUnit report: then the result names the
 	// failed tests, otherwise only the exit code counts.
 	Report bool `json:"report"`
-	// FilterHint says what the filter narrows the run to ("" = no filter).
+	// FilterHint says what the filter narrows the run to; empty when there's no filter.
 	FilterHint string `json:"filterHint,omitempty"`
 	Available  bool   `json:"available"`
 	Reason     string `json:"reason,omitempty"`
@@ -282,7 +282,7 @@ func detectTestSuites(dir string, p store.Project) []TestSuite {
 var rubyTestEnv = []string{"RAILS_ENV=test", "RACK_ENV=test", "APP_ENV=test", "HANAMI_ENV=test"}
 
 // rubyTestScript points DATABASE_URL at <database>_test on the same server before the
-// runner starts. Active Record merges DATABASE_URL into whatever environment runs - the
+// runner starts. Active Record merges DATABASE_URL into whatever environment runs, so the
 // test run would otherwise load its fixtures into the development database and empty its
 // tables. A URL with a query (MongoDB's authSource) is left alone. ensureTestDatabase
 // creates the database; loading the schema is Rails' job (maintain_test_schema).
@@ -293,7 +293,7 @@ esac
 exec "$@"`
 
 // ensureTestDatabase creates <database>_test on the project's primary SQL database when it
-// is missing - as the administrator, who grants the project login access: MySQL's and
+// is missing, as the administrator, who grants the project login access: MySQL's and
 // MariaDB's project login may not create databases itself. Callers hold the lock. A
 // project without an SQL database has nothing to prepare; a server that cannot be asked
 // (stopped, unreachable) is left to the test run's own error.

@@ -31,10 +31,10 @@ type Paths struct {
 	ConfigHostDir    string // e.g. /mnt/user/appdata/envoryx
 	ProjectsDir      string // e.g. /projects
 	ProjectsHostDir  string // e.g. /mnt/user/development
-	BackupsDir       string // e.g. /backups; "" = <ConfigDir>/backups
+	BackupsDir       string // e.g. /backups; "" means <ConfigDir>/backups
 	PUID, PGID       int
 	EnvoryxVersion   string
-	PublishInterface string // host IP to bind ports to; "" = all
+	PublishInterface string // host IP to bind ports to; "" for all
 	// SelfContainerID is Envoryx's own container id ("" when running on bare metal). The
 	// embedded proxy joins project networks through it.
 	SelfContainerID string

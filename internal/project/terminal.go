@@ -14,8 +14,9 @@ import (
 var shellCmd = []string{"/bin/sh", "-c", "if command -v bash >/dev/null 2>&1; then exec bash; else exec sh; fi"}
 
 // OpenTerminal opens an interactive shell in a project service container. Application
-// containers (php, python, node) run the shell as the configured PUID/PGID so files created from
-// the terminal belong to the project owner; the database container runs its tools as root.
+// containers (php, python, go, ruby, node) run the shell as the configured PUID/PGID so
+// files created from the terminal belong to the project owner; the database container
+// runs its tools as root.
 func (m *Manager) OpenTerminal(ctx context.Context, id string, kind store.ServiceKind, cols, rows uint) (docker.Terminal, error) {
 	c, err := m.ServiceContainer(ctx, id, kind)
 	if err != nil {

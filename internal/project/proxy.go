@@ -188,7 +188,7 @@ func (m *Manager) RemoveDomain(ctx context.Context, id, domainID string) error {
 
 // ProxyOptions describe the proxy environment for building the routing table.
 type ProxyOptions struct {
-	// HTTPSPort is the host-side HTTPS port (0 = 443 / unknown).
+	// HTTPSPort is the host-side HTTPS port; 0 means 443 or unknown.
 	HTTPSPort int
 	// EnvoryxURL links back to the UI on error pages.
 	EnvoryxURL string
@@ -198,7 +198,7 @@ type ProxyOptions struct {
 
 // RouteTable builds the proxy routing table from projects, domains and Docker state. A
 // project's primary host name and its extra domains reach the web container, or the
-// Python server or Node dev server when it is the project's application (no PHP);
+// Python, Go or Ruby server or Node dev server when it is the project's application;
 // <slug>-dev.<base> always reaches the Node dev server and <slug>-storage.<base> the
 // object storage.
 func (m *Manager) RouteTable(ctx context.Context, opts ProxyOptions) (proxy.Table, error) {

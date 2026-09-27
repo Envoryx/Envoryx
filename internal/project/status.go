@@ -146,14 +146,14 @@ func deriveStatus(p store.Project, containers []docker.Container, imageIDs map[s
 	return st
 }
 
-// Reconcile compares the database with Docker, records inconsistencies and orphaned
-// resources, and repairs interrupted lifecycles. The only thing it removes are orphaned
-// containers and networks (see cleanOrphans); volumes and project data are never touched.
 // transientServices are the helpers that run for a moment next to a project's containers
 // (a client against an external database, a git or template step, a volume move, the GPU
 // check) and remove themselves.
 var transientServices = map[string]bool{"dbclient": true, "git": true, "template": true, "move": true, "gpucheck": true}
 
+// Reconcile compares the database with Docker, records inconsistencies and orphaned
+// resources, and repairs interrupted lifecycles. The only thing it removes are orphaned
+// containers and networks (see cleanOrphans); volumes and project data are never touched.
 func (m *Manager) Reconcile(ctx context.Context) ReconcileReport {
 	report := ReconcileReport{At: time.Now().UTC(), Orphans: []Orphan{}, Issues: []ReconcileIssue{}, States: map[string]Status{}}
 	projects, err := m.loadProjects(ctx)
@@ -180,7 +180,7 @@ func (m *Manager) Reconcile(ctx context.Context) ReconcileReport {
 
 	for _, p := range projects {
 		// A restart in the middle of create/delete leaves a transitional lifecycle behind.
-		// While the operation is still running it holds the project lock - a create that
+		// While the operation is still running it holds the project lock: a create that
 		// takes a minute to pull images must not be declared interrupted by the periodic
 		// reconcile that happens to run meanwhile.
 		if p.Lifecycle == store.LifecycleCreating || p.Lifecycle == store.LifecycleDeleting {

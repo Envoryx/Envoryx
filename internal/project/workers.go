@@ -18,7 +18,7 @@ type WorkerPreset struct {
 	Group       string `json:"group"`
 	Label       string `json:"label"`
 	Description string `json:"description"`
-	// ArgLabel/ArgHint describe the optional user argument (empty = none).
+	// ArgLabel and ArgHint describe the optional user argument; empty when it has none.
 	ArgLabel string `json:"argLabel,omitempty"`
 	ArgHint  string `json:"argHint,omitempty"`
 	// Requires lists files that must exist for the preset to make sense (informational).
@@ -31,7 +31,7 @@ type WorkerPreset struct {
 	build func(arg string) []string
 	// display is the command as the Workers tab shows it, when build wraps it in a script.
 	display func(arg string) []string
-	// validateArg checks the argument (nil = no argument accepted).
+	// validateArg checks the argument; nil means no argument is accepted.
 	validateArg func(arg string) error
 }
 

@@ -61,7 +61,7 @@ func isRollbackRef(ref string) bool {
 
 // protectRollbackTarget tags the rollback target of one history record. A target that
 // has left the host (`docker rmi`, a prune before the tag existed) cannot come back, so
-// the record forgets it - otherwise every reconcile would retry the tag and warn again.
+// the record forgets it. Otherwise every reconcile would retry the tag and warn again.
 func (m *Manager) protectRollbackTarget(ctx context.Context, slug string, rec store.ProjectImage) {
 	if rec.PreviousID == "" {
 		return
