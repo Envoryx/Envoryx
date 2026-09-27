@@ -5,14 +5,6 @@ what each part of it does once your projects are running.
 
 ## Requirements
 
-> **Renamed from Staqio.** Envoryx is not a drop-in upgrade for a Staqio
-> installation: the image, config directory (`/mnt/user/appdata/envoryx`),
-> `ENVORYX_*` variables, Docker labels, container/volume names and the
-> `envoryx.test` base domain all changed. Install Envoryx fresh and recreate
-> projects (project files on disk are untouched; use the Staqio backups to restore
-> databases).
-
-
 - Linux host with Docker Engine ≥ 24 (API ≥ 1.43); Unraid 6.12+ / 7.x or
   any other Linux distribution
 - x86_64 or arm64 (Raspberry Pi 4/5, Ampere/Graviton, Apple Silicon under
