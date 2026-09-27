@@ -28,7 +28,7 @@ func parsePrivateKey(pem string) (ssh.Signer, error) {
 }
 
 // ErrHostKeyChanged is returned when an SFTP server presents a key other than the pinned
-// one - a different server, or someone in between.
+// one: either it's a different server, or someone is in between.
 var ErrHostKeyChanged = errors.New("the SFTP server's host key changed")
 
 func dialSFTP(ctx context.Context, t Target, pin func(string)) (Backend, error) {

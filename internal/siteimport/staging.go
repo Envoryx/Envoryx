@@ -32,7 +32,7 @@ type Staged struct {
 // SiteFile is the uploaded archive.
 func (s Staged) SiteFile() string { return filepath.Join(s.dir, "site") }
 
-// DumpFile is the uploaded dump ("" = none).
+// DumpFile is the uploaded dump, or "" if there is none.
 func (s Staged) DumpFile() string {
 	if s.DumpName == "" {
 		return ""

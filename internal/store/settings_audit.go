@@ -174,7 +174,7 @@ func (q AuditQuery) where() (string, []any) {
 }
 
 // Query returns a page of matching entries, newest first, and the cursor of the next
-// page ("" = this was the last).
+// page, or "" if this was the last one.
 func (r *Audit) Query(ctx context.Context, q AuditQuery) ([]AuditEntry, string, error) {
 	if q.Limit <= 0 || q.Limit > 1000 {
 		q.Limit = 100

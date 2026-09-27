@@ -133,7 +133,7 @@ func FormatSeconds(s int) string {
 }
 
 // Limits are the resource limits of the application containers (web server, PHP, Node,
-// Python, workers) and of the services (database, caches, search, storage), each per
+// Python, Go, Ruby, workers) and of the services (database, caches, search, storage), each per
 // container, plus the process limit of every container.
 type Limits struct {
 	App      *LimitSet `yaml:"app,omitempty"`

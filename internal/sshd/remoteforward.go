@@ -18,7 +18,7 @@ import (
 )
 
 // Remote forwarding (ssh -R) makes a port on the container's localhost lead back to the
-// client - PyCharm's SSH interpreter needs it to run anything. The listener has to live in
+// client; PyCharm's SSH interpreter needs it to run anything. The listener has to live in
 // the container's network namespace, so socat listens there and connects every accepted
 // connection to Envoryx on the project network; Envoryx accepts only the container's
 // address and hands each connection to the client as a forwarded-tcpip channel.

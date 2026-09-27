@@ -1,10 +1,10 @@
 // Package sshd is Envoryx's embedded SSH server. It lets IDEs (PhpStorm/WebStorm remote
 // interpreter, VS Code, plain ssh) run commands inside a project's application container
-// and transfer files via SFTP - without exposing the Docker socket or a real shell on the
+// and transfer files via SFTP, without exposing the Docker socket or a real shell on the
 // host. The user name selects the project and container: "<slug>" is the application
-// container (PHP, else Python, else Node), "<slug>.php", "<slug>.python" and
-// "<slug>.node" select explicitly. The password is a Envoryx API token, or a public key from the
-// settings is used.
+// container (PHP, else Python, else Go, else Ruby, else Node), and "<slug>.php",
+// "<slug>.python", "<slug>.go", "<slug>.ruby" or "<slug>.node" pick one explicitly. The
+// password is an Envoryx API token, or a public key from the settings is used.
 package sshd
 
 import (
@@ -478,7 +478,7 @@ func (t *outputTap) String() string {
 	return strings.ToValidUTF8(string(t.buf), "?")
 }
 
-// countingReader / countingWriter measure tunnel traffic for the forward log.
+// countingReader and countingWriter measure tunnel traffic for the forward log.
 type countingReader struct {
 	r io.Reader
 	n int64

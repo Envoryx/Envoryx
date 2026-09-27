@@ -56,7 +56,7 @@ func newProjectFS(t project.ExecTarget) *projectFS {
 
 var errOutside = sftp.ErrSSHFxPermissionDenied
 
-// resolve maps a container path to a Envoryx-side path. It returns ok=false for the
+// resolve maps a container path to an Envoryx-side path. It returns ok=false for the
 // virtual directories above the roots ("/", "/var", "/var/www", "/home").
 func (f *projectFS) resolve(p string) (local string, ok bool, err error) {
 	clean := path.Clean("/" + p)
