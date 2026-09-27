@@ -32,7 +32,8 @@ type Config struct {
 	ConfigHostPath   string
 	ProjectsHostPath string
 
-	// DockerHost overrides the Docker endpoint (DOCKER_HOST). Empty = default socket.
+	// DockerHost overrides the Docker endpoint (DOCKER_HOST). Empty means the default
+	// socket.
 	DockerHost string
 
 	// DatabasePath is the SQLite database file.
@@ -80,7 +81,8 @@ type Config struct {
 
 	// PublicHost is the host name or IP the browser should use for project links (ports are
 	// published on the Docker host, which may differ from the address Envoryx is reached at,
-	// e.g. when the Envoryx container has its own macvlan IP). Empty = browser address bar.
+	// e.g. when the Envoryx container has its own macvlan IP). Empty means whatever is in
+	// the browser's address bar.
 	PublicHost string
 
 	// DevMode relaxes a few things for local development (e.g. text logs, CORS for the Vite dev server).

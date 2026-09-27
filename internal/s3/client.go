@@ -1,7 +1,7 @@
 // Package s3 is the minimal S3 client Envoryx needs for a project's object storage:
 // provisioning the bucket and its access policy, and moving objects in and out for
-// backups. Requests are signed with AWS Signature Version 4; no SDK, since a handful of
-// calls do not justify one.
+// backups. Requests are signed with AWS Signature Version 4 (package awssig); a handful
+// of calls isn't worth pulling in the AWS SDK.
 package s3
 
 import (
@@ -94,8 +94,8 @@ func (c *Client) ensureBucket(ctx context.Context, bucket string, publicRead boo
 	return c.DeleteBucketPolicy(ctx, bucket)
 }
 
-// PublicReadPolicy allows anonymous GetObject on every object of the bucket - what a
-// public-read ACL gives on providers that honour it.
+// PublicReadPolicy allows anonymous GetObject on every object of the bucket, which is
+// what a public-read ACL does on providers that honour those.
 func PublicReadPolicy(bucket string) string {
 	return fmt.Sprintf(`{"Version":"2012-10-17","Statement":[{"Sid":"EnvoryxPublicRead","Effect":"Allow","Principal":{"AWS":["*"]},"Action":["s3:GetObject"],"Resource":["arn:aws:s3:::%s/*"]}]}`, bucket)
 }
@@ -217,7 +217,7 @@ func (c *Client) signWithHash(req *http.Request, payloadHash string) error {
 
 func sha256Hex(b []byte) string { return awssig.SHA256Hex(b) }
 
-// Noop is a Provisioner that does nothing - for tests and environments without a
+// Noop is a Provisioner that does nothing, for tests and environments without a
 // reachable server.
 type Noop struct{}
 

@@ -20,9 +20,9 @@ import (
 // application, in this order: the address allowlist, CORS preflight answers, basic
 // authentication and redirects; response headers and CORS headers go on the answer.
 type Rules struct {
-	// Allow admits only these networks (empty = every address).
+	// Allow admits only these networks; empty admits every address.
 	Allow []netip.Prefix
-	// BasicAuth asks for credentials (nil = none).
+	// BasicAuth asks for credentials; nil means no login.
 	BasicAuth *BasicAuth
 	Redirects []Redirect
 	// Headers are set on every proxied response; an empty value removes the header.
@@ -123,8 +123,8 @@ func (r *Rules) redirect(req *http.Request) (string, int, bool) {
 	return "", 0, false
 }
 
-// corsOrigin returns the value of Access-Control-Allow-Origin for the request's origin
-// ("" = not allowed).
+// corsOrigin returns the value of Access-Control-Allow-Origin for the request's origin,
+// or "" when that origin isn't allowed.
 func (c *CORS) corsOrigin(origin string) string {
 	if origin == "" {
 		return ""

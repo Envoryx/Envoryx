@@ -28,7 +28,8 @@ type Target struct {
 	Dial string
 	// Running is false when the project's web container is not up.
 	Running bool
-	// Rules are the project's redirects, headers, CORS and access rules (nil = none).
+	// Rules are the project's redirects, headers, CORS and access rules, nil if it has
+	// none.
 	Rules *Rules
 	// Share marks the public address of a share: the request came through the tunnel
 	// over https, so it is neither redirected to https nor a network alias.
@@ -43,7 +44,7 @@ type Table struct {
 	UIHosts map[string]bool
 	// ForceHTTPS redirects plain HTTP requests for known hosts to HTTPS.
 	ForceHTTPS bool
-	// HTTPSPort is the host-side HTTPS port used in redirects (0 = 443).
+	// HTTPSPort is the host-side HTTPS port used in redirects; 0 means 443.
 	HTTPSPort int
 	// EnvoryxURL is where the UI can be reached (for links on error pages).
 	EnvoryxURL string
@@ -278,7 +279,7 @@ type Server struct {
 	httpAddr  string
 	httpsAddr string
 	log       *slog.Logger
-	// PublicHosts are extra names the TLS listener issues certificates for (UI hosts).
+	// extraAllow admits extra names the TLS listener issues certificates for (UI hosts).
 	extraAllow func(host string) bool
 }
 

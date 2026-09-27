@@ -104,10 +104,10 @@ type Config struct {
 	SMTPSecurity string `json:"smtpSecurity,omitempty"`
 	From         string `json:"from,omitempty"`
 	To           string `json:"to,omitempty"`
-	// Kinds enables event kinds; nil = defaults.
+	// Kinds enables event kinds; nil means the defaults.
 	Kinds []string `json:"kinds"`
 	// Offered are the kinds that existed when Kinds was chosen. A kind added later
-	// follows its default until the list is saved again - otherwise a new alarm would be
+	// follows its default until the list is saved again. Otherwise a new alarm would be
 	// off for everyone who ever saved the settings.
 	Offered []string `json:"offered,omitempty"`
 }

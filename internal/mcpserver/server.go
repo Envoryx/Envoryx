@@ -25,9 +25,9 @@ import (
 
 // Links describes how projects are reachable so tools can return URLs.
 type Links struct {
-	// PublicHost is the host for direct port links ("" = unknown).
+	// PublicHost is the host for direct port links; empty when it isn't known.
 	PublicHost func(ctx context.Context) string
-	// HTTPPort / HTTPSPort are the host-side proxy ports (0 = not published).
+	// HTTPPort and HTTPSPort are the host-side proxy ports, 0 if not published.
 	HTTPPort, HTTPSPort int
 }
 

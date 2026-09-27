@@ -72,8 +72,9 @@ func (s *Service) Middleware(unauthorized http.Handler) func(http.Handler) http.
 	}
 }
 
-// ClientIP returns the remote IP of a request. Proxy headers are intentionally ignored
-// unless Envoryx is explicitly told it runs behind a trusted proxy (future setting).
+// ClientIP returns the remote IP of a request. Proxy headers are ignored on purpose:
+// anyone can send them, and there is no setting yet for a trusted proxy in front of
+// Envoryx.
 func ClientIP(r *http.Request) string {
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
