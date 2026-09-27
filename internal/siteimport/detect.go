@@ -14,7 +14,7 @@ import (
 // Framework is what the site was recognised as.
 type Framework struct {
 	// ID is wordpress, laravel, symfony, drupal, typo3, joomla, shopware, craft, composer
-	// (another Composer application), php (plain PHP), static, node or python.
+	// (another Composer application), php (plain PHP), static, node, python, go or ruby.
 	ID      string `json:"id"`
 	Name    string `json:"name"`
 	Version string `json:"version,omitempty"`
@@ -37,7 +37,7 @@ type ConfigFile struct {
 }
 
 // Notice is something the import wants to tell. Text is English with {{placeholders}}
-// filled from Params - the web UI translates it like the progress messages.
+// filled from Params; the web UI translates it like the progress messages.
 type Notice struct {
 	Level  string            `json:"level"` // info | warning
 	Text   string            `json:"text"`
@@ -62,7 +62,7 @@ type Analysis struct {
 	// Web is the suggested web server ("apache" for sites that rely on .htaccess, ""
 	// for the default).
 	Web string `json:"web,omitempty"`
-	// Database is the suggested database (mariadb, mysql, postgresql; "" = none).
+	// Database is the suggested database (mariadb, mysql, postgresql), empty for none.
 	Database string      `json:"database,omitempty"`
 	Config   *ConfigFile `json:"config,omitempty"`
 	// ConfigCandidates are PHP files of a plain site that open a database connection.
@@ -245,7 +245,7 @@ func (c *composerJSON) requires(pkg string) bool {
 	return ok
 }
 
-// Analyze inspects an uploaded site archive (and dump, "" = none).
+// Analyze inspects an uploaded site archive and, unless dumpFile is empty, its dump.
 func Analyze(siteFile, dumpFile string, opt Options) (Analysis, error) {
 	format, err := sniffFormat(siteFile)
 	if err != nil {
@@ -299,7 +299,7 @@ func (a *Analysis) addExtension(names ...string) {
 	}
 }
 
-// firstDir returns the first of the directories (relative, "" = the root) that holds
+// firstDir returns the first of the directories (relative, "" for the root) that holds
 // the file.
 func (s site) firstDir(file string, dirs ...string) (string, bool) {
 	for _, d := range dirs {
@@ -582,7 +582,7 @@ func oldest(versions []string) string {
 	return versions[len(versions)-1]
 }
 
-// frameworkPHPLimit is the newest PHP an old CMS release runs on ("" = any).
+// frameworkPHPLimit is the newest PHP an old CMS release runs on, or "" if any will do.
 func frameworkPHPLimit(f Framework) string {
 	v, parts, ok := parseVersion(f.Version)
 	if !ok || parts == 0 {

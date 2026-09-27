@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-// User is a Envoryx login account.
+// User is an Envoryx login account.
 type User struct {
 	ID           string
 	Username     string
@@ -80,7 +80,7 @@ type Project struct {
 	Path         string // relative to the projects root
 	Docroot      string // relative to Path, may be empty
 	DesiredState DesiredState
-	HTTPPort     int // 0 = none allocated
+	HTTPPort     int // 0 when none is allocated
 	Lifecycle    Lifecycle
 	LastError    string
 	Git          GitConfig
@@ -90,7 +90,8 @@ type Project struct {
 	IDEGateway bool
 	// Limits caps CPU, memory and processes of the project's containers.
 	Limits ResourceLimits
-	// HealthCheck asks the application over HTTP whether it works (Path "" = off).
+	// HealthCheck asks the application over HTTP whether it works; an empty Path
+	// switches it off.
 	HealthCheck HealthCheck
 	// ProxyRules are the redirects, headers, CORS and access rules of its host names.
 	ProxyRules ProxyRules
@@ -126,8 +127,9 @@ type LimitSet struct {
 func (l LimitSet) IsZero() bool { return l.CPUs == 0 && l.MemoryMB == 0 }
 
 // ResourceLimits are the limits of a project: one set for the application containers
-// (web server, PHP, Node, Python, workers), one for the services (database, Redis,
-// search, storage …), and the process limit of every container (0 = Envoryx's default).
+// (web server, PHP, Node, Python, Go, Ruby, workers), one for the services (database,
+// Redis, search, storage …), and the process limit of every container (0 means Envoryx's
+// default).
 type ResourceLimits struct {
 	App      LimitSet `json:"app"`
 	Services LimitSet `json:"services"`
@@ -201,7 +203,7 @@ func (h HealthCheck) encode() string {
 // (its default name, extra domains, dev server name and share address) before they
 // reach the application. The zero value does nothing.
 type ProxyRules struct {
-	// AllowIPs admits only these addresses and networks ("192.168.1.0/24"); empty = all.
+	// AllowIPs admits only these addresses and networks ("192.168.1.0/24"); empty admits all.
 	AllowIPs []string `json:"allowIPs,omitempty"`
 	// BasicAuth asks for a user name and password.
 	BasicAuth *BasicAuthRule `json:"basicAuth,omitempty"`
@@ -223,7 +225,7 @@ type BasicAuthRule struct {
 // RedirectRule answers requests for a path with a redirect. From is a path, or a prefix
 // ending in "*"; a To ending in "*" gets the rest of the path.
 type RedirectRule struct {
-	// Host limits the rule to one host name ("" = all of the project's).
+	// Host limits the rule to one host name; empty means all of the project's.
 	Host   string `json:"host,omitempty"`
 	From   string `json:"from"`
 	To     string `json:"to"`
@@ -242,7 +244,8 @@ type CORSRule struct {
 	Origins []string `json:"origins"`
 	// Methods default to GET, POST, PUT, PATCH, DELETE and OPTIONS.
 	Methods []string `json:"methods,omitempty"`
-	// Headers are the request headers allowed (empty = whatever the browser asks for).
+	// Headers are the request headers allowed; empty allows whatever the browser asks
+	// for.
 	Headers     []string `json:"headers,omitempty"`
 	Credentials bool     `json:"credentials,omitempty"`
 	MaxAgeSec   int      `json:"maxAgeSec,omitempty"`
@@ -263,17 +266,17 @@ func (r ProxyRules) encode() string {
 
 // BackupSchedule configures automatic backups of a project.
 type BackupSchedule struct {
-	// Schedule is "" (off), "daily" or "weekly".
+	// Schedule is "daily", "weekly" or "" for off.
 	Schedule string
 	// Hour of day (local time) the backup runs at.
 	Hour int
-	// Weekday for weekly schedules (0 = Sunday).
+	// Weekday for weekly schedules, 0 being Sunday.
 	Weekday int
 	// Keep is how many scheduled backups are retained (older ones are deleted).
 	Keep int
 	// IncludeDependencies keeps vendor/ and node_modules/ in the file archive.
 	IncludeDependencies bool
-	// LastRun is when the schedule last produced a backup (zero = never).
+	// LastRun is when the schedule last produced a backup, zero if it never has.
 	LastRun time.Time
 }
 

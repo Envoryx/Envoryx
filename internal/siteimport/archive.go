@@ -1,5 +1,5 @@
-// Package siteimport turns an existing website - an archive of its files, optionally a
-// database dump - into the ingredients of a new project: it recognises what the site is
+// Package siteimport turns an existing website (an archive of its files, optionally a
+// database dump) into the ingredients of a new project: it recognises what the site is
 // (WordPress, Laravel, a plain PHP site…), suggests a runtime, and adapts the site's own
 // configuration to the project database.
 package siteimport
@@ -80,7 +80,7 @@ func skipped(name string) bool {
 }
 
 // cleanName normalises a member name. ok is false for names that leave the archive root
-// (absolute, "..") - those are refused, never extracted.
+// (absolute, ".."); those are refused, never extracted.
 func cleanName(raw string) (name string, ok bool) {
 	n := strings.TrimPrefix(raw, "./")
 	if n == "" || n == "." {
@@ -213,8 +213,8 @@ func walk(file string, format Format, fn func(e entry) error) error {
 }
 
 // commonRoot returns the directory prefix every member shares ("public_html/" when the
-// archive holds that one folder) - the prefix extraction strips. Single folders nested
-// in each other are stripped together ("backup/httpdocs/").
+// archive holds that one folder), which extraction strips. Single folders nested in
+// each other are stripped together ("backup/httpdocs/").
 func commonRoot(names []string) string {
 	prefix := ""
 	for depth := 0; depth < 4; depth++ {

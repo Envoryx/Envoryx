@@ -1,7 +1,8 @@
-// Package offsite copies backups to storage outside the Envoryx host - an S3-compatible
-// bucket (AWS, Backblaze B2, Wasabi, Hetzner Object Storage, Cloudflare R2, MinIO), an
-// SFTP server (Hetzner Storage Box, a NAS) or a WebDAV share (Nextcloud, ownCloud) - and
-// fetches them back, for a project or for the whole instance after a disaster.
+// Package offsite copies backups to storage outside the Envoryx host and fetches them
+// back, for a project or for the whole instance after a disaster. A target is an
+// S3-compatible bucket (AWS, Backblaze B2, Wasabi, Hetzner Object Storage, Cloudflare R2,
+// MinIO), an SFTP server (Hetzner Storage Box, a NAS) or a WebDAV share (Nextcloud,
+// ownCloud).
 //
 // The local backup stays the working copy; the target holds a copy with its own
 // retention. Archives are optionally encrypted with age (scrypt passphrase) before they
@@ -42,13 +43,14 @@ type Target struct {
 	Enabled bool   `json:"enabled"`
 	// Auto uploads every scheduled project backup; manual ones go up on request.
 	Auto bool `json:"auto"`
-	// Instance takes a daily instance backup (database + configuration) at InstanceHour
-	// and uploads it - what a fresh Envoryx needs to come back after losing the host.
+	// Instance takes a daily instance backup (database and configuration) at
+	// InstanceHour and uploads it. That's what a fresh Envoryx needs to come back after
+	// losing the host.
 	Instance     bool `json:"instance"`
 	InstanceHour int  `json:"instanceHour"`
 	// Prefix is the directory inside the bucket or share (default "envoryx").
 	Prefix string `json:"prefix"`
-	// Keep is how many scheduled backups per project stay on the target (0 = all);
+	// Keep is how many scheduled backups per project stay on the target (0 keeps all);
 	// backups uploaded by hand are never rotated away.
 	Keep int `json:"keep"`
 	// InstanceKeep is the same for the daily instance backups.

@@ -18,7 +18,7 @@ type DumpInfo struct {
 	Bytes      int64 `json:"bytes"`
 	Compressed bool  `json:"compressed"`
 	// Variant is the database the dump was taken from as far as its header tells:
-	// "mariadb", "mysql" or "postgresql" ("" = plain SQL of unknown origin).
+	// "mariadb", "mysql" or "postgresql", empty for plain SQL of unknown origin.
 	Variant string `json:"variant,omitempty"`
 	// Server is the server version the header names ("10.11.6-MariaDB", "8.0.35").
 	Server string `json:"server,omitempty"`
@@ -69,8 +69,8 @@ func (c closers) Close() error {
 }
 
 // AnalyzeDump reads the head of a dump and tells where it comes from. Formats psql and
-// mysql cannot read - pg_dump's custom format, a ZIP - are refused here, before anything
-// is created.
+// mysql can't read (pg_dump's custom format, a ZIP) are refused here, before anything is
+// created.
 func AnalyzeDump(file string) (DumpInfo, error) {
 	st, err := os.Stat(file)
 	if err != nil {

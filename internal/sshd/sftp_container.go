@@ -16,7 +16,7 @@ import (
 // containerOps serves SFTP requests for paths outside the bind mounts from the running
 // application container, as the project user: stat, ls, mkdir, rm, mv, cat and chmod run
 // there, so the answers and the permissions are the ones a shell over the same SSH
-// access gets. IDEs rely on this - PhpStorm checks /usr/local/bin/php, PyCharm uploads
+// access gets. IDEs rely on this: PhpStorm checks /usr/local/bin/php, PyCharm uploads
 // the project to /tmp/pycharm_project_* before its settings can even be changed. The
 // tools are the ones coreutils and busybox both provide.
 type containerOps struct {
