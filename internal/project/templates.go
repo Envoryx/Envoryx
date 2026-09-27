@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -22,14 +23,14 @@ import (
 
 // Template scaffolds a fresh application into an empty project directory. Steps are
 // argv commands run in a transient container from the image of the runtime the template
-// names (PHP, Node, Python, Go or Ruby) as the project owner, exactly like git operations; nothing
-// is interpolated from user input.
+// names (PHP, Node, Python, Go, Ruby or Java) as the project owner, exactly like git
+// operations; nothing is interpolated from user input.
 type Template struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
-	// Runtime is the service the template needs and runs in: "php", "node", "python", "go"
-	// or "ruby".
+	// Runtime is the service the template needs and runs in: "php", "node", "python", "go",
+	// "ruby" or "java".
 	Runtime string `json:"runtime"`
 	// Node carries dev-server defaults merged field by field into the request's NodeConfig
 	// (preset, port and script where empty; DevServer when the request set none of them).
@@ -43,6 +44,9 @@ type Template struct {
 	// Ruby carries server defaults merged the same way into the request's RubyConfig
 	// (preset and port where empty; Server when the request set none of them).
 	Ruby *runtime.RubyConfig `json:"ruby,omitempty"`
+	// Java carries server defaults merged the same way into the request's JavaConfig
+	// (preset and port where empty; Server when the request set none of them).
+	Java *runtime.JavaConfig `json:"java,omitempty"`
 	// Docroot the template expects (applied when the request leaves it empty).
 	Docroot string `json:"docroot"`
 	// RequiresDatabase refuses creation without a database service.
@@ -85,6 +89,9 @@ var (
 	// The Ruby scaffolds install into the project's GEM_HOME (the project home is mounted),
 	// so the server finds the bundle complete on its first start.
 	rubyScaffoldEnv = append([]string{"HOME=" + homeMountTarget}, rubyEnv...)
+	// The Java scaffolds keep the Maven wrapper's download in the project home and the
+	// dependencies in the shared package cache, so the server's first build finds both.
+	javaScaffoldEnv = []string{"HOME=" + homeMountTarget}
 )
 
 // Python scaffold sources. Each is a fixed file written by Envoryx; the Django settings
@@ -470,6 +477,132 @@ var templates = []Template{
 	},
 }
 
+// The Java scaffolds download the generated project from start.spring.io or
+// code.quarkus.io (the same projects their web pages hand out, Maven wrapper included) and
+// build it once, so the dependencies are in the cache and a broken setup shows up here.
+var javaTemplates = []Template{
+	{
+		ID: "spring-boot", Name: "Spring Boot", Description: "Spring Boot with Spring Web, Actuator and DevTools from start.spring.io; JPA and the driver of the project database when it has one.",
+		Runtime: "java", Docroot: "", RecommendedDatabase: "postgresql",
+		Java:  &runtime.JavaConfig{Server: true, Preset: "spring-boot", Port: 8080},
+		Notes: "Envoryx injects SPRING_DATASOURCE_* for the project database. DevTools restarts the application when compiled classes change: run “mvn compile” in the Java terminal (or let your IDE build over SSH) after editing. /actuator/health is a ready-made health check path.",
+		steps: []templateStep{
+			{label: "download from start.spring.io", cmdFor: javaScaffold(springInitializrURL)},
+			{label: "mvn package", cmd: javaPrebuild},
+		},
+	},
+	{
+		ID: "quarkus", Name: "Quarkus REST", Description: "Quarkus with REST (Jackson) and SmallRye Health from code.quarkus.io; Hibernate ORM with Panache and the driver of the project database when it has one.",
+		Runtime: "java", Docroot: "", RecommendedDatabase: "postgresql",
+		Java:  &runtime.JavaConfig{Server: true, Preset: "quarkus", Port: 8080},
+		Notes: "Quarkus dev mode recompiles on the next request after a change. Envoryx injects QUARKUS_DATASOURCE_* for the project database and switches Dev Services off. /q/health is a ready-made health check path.",
+		steps: []templateStep{
+			{label: "download from code.quarkus.io", cmdFor: javaScaffold(quarkusCodeURL)},
+			{label: "mvn package", cmd: javaPrebuild},
+		},
+	},
+}
+
+func init() { templates = append(templates, javaTemplates...) }
+
+// javaScaffoldScript downloads the zip at $1 and unpacks it into the project directory;
+// a zip that wraps the project in one folder (code.quarkus.io) is unpacked from inside it.
+const javaScaffoldScript = `set -e
+curl -fsSL --retry 2 -o /tmp/envoryx-scaffold.zip "$1"
+rm -rf /tmp/envoryx-scaffold && mkdir /tmp/envoryx-scaffold
+unzip -q /tmp/envoryx-scaffold.zip -d /tmp/envoryx-scaffold
+src=/tmp/envoryx-scaffold
+set -- /tmp/envoryx-scaffold/*
+if [ $# -eq 1 ] && [ -d "$1" ]; then src=$1; fi
+cp -a "$src"/. .
+chmod +x mvnw 2>/dev/null || true`
+
+// javaPrebuild builds the fresh project once with its own Maven wrapper.
+var javaPrebuild = []string{"sh", "-c", `exec ./mvnw -B -q -DskipTests package`}
+
+// javaScaffold returns the scaffold step for a download URL built from the project.
+func javaScaffold(download func(store.Project) string) func(store.Project) []string {
+	return func(p store.Project) []string {
+		return []string{"sh", "-c", javaScaffoldScript, "envoryx-java-scaffold", download(p)}
+	}
+}
+
+// springInitializrURL asks start.spring.io for a Maven project on the project's JDK,
+// named after the project, with JPA and the driver when it has a SQL database (JPA
+// without a data source would stop the application from starting) or Spring Data MongoDB.
+func springInitializrURL(p store.Project) string {
+	deps := []string{"web", "actuator", "devtools"}
+	switch v := primaryDBVariant(p); v {
+	case "mariadb", "mysql", "postgresql":
+		deps = append(deps, "data-jpa", v)
+	case "mongodb":
+		deps = append(deps, "data-mongodb")
+	}
+	q := url.Values{}
+	q.Set("type", "maven-project")
+	q.Set("language", "java")
+	q.Set("javaVersion", javaMajor(p))
+	q.Set("groupId", "com.example")
+	q.Set("artifactId", p.Slug)
+	q.Set("name", p.Slug)
+	q.Set("packageName", "com.example."+javaPackageName(p.Slug))
+	q.Set("dependencies", strings.Join(deps, ","))
+	q.Set("baseDir", "")
+	return "https://start.spring.io/starter.zip?" + q.Encode()
+}
+
+// quarkusCodeURL asks code.quarkus.io for a Maven project on the project's JDK with REST
+// and health checks, plus Hibernate ORM with Panache and the JDBC driver (or MongoDB with
+// Panache) for the project database.
+func quarkusCodeURL(p store.Project) string {
+	ext := []string{"rest-jackson", "smallrye-health"}
+	switch v := primaryDBVariant(p); v {
+	case "mariadb", "mysql", "postgresql":
+		ext = append(ext, "hibernate-orm-panache", "jdbc-"+v)
+	case "mongodb":
+		ext = append(ext, "mongodb-panache")
+	}
+	q := url.Values{}
+	q.Set("g", "com.example")
+	q.Set("a", p.Slug)
+	q.Set("j", javaMajor(p))
+	q.Set("b", "MAVEN")
+	for _, e := range ext {
+		q.Add("e", e)
+	}
+	return "https://code.quarkus.io/d?" + q.Encode()
+}
+
+// primaryDBVariant is the flavour of the project's primary database, "" without one.
+func primaryDBVariant(p store.Project) string {
+	if db := p.Service(store.ServiceDatabase); db != nil && db.Enabled {
+		return db.Variant
+	}
+	return ""
+}
+
+// javaMajor is the project's JDK version (the catalogue lists majors only).
+func javaMajor(p store.Project) string {
+	if svc := p.Service(store.ServiceJava); svc != nil && svc.Version != "" {
+		return svc.Version
+	}
+	return "21"
+}
+
+// javaPackageName turns a slug into a Java package segment: underscores for hyphens, and
+// a prefix where it would start with a digit or be a keyword.
+func javaPackageName(slug string) string {
+	name := strings.ReplaceAll(slug, "-", "_")
+	switch name {
+	case "abstract", "assert", "boolean", "break", "byte", "case", "catch", "char", "class", "const", "continue", "default", "do", "double", "else", "enum", "extends", "final", "finally", "float", "for", "goto", "if", "implements", "import", "instanceof", "int", "interface", "long", "native", "new", "package", "private", "protected", "public", "return", "short", "static", "strictfp", "super", "switch", "synchronized", "this", "throw", "throws", "transient", "try", "void", "volatile", "while", "true", "false", "null", "var", "record", "yield":
+		return "app_" + name
+	}
+	if name == "" || name[0] >= '0' && name[0] <= '9' {
+		return "app_" + name
+	}
+	return name
+}
+
 // railsNew installs rails into the project's GEM_HOME and generates the application in
 // the project directory: named after the project, for its database (SQLite without one),
 // without a git repository of its own. rails new runs bundle install and the importmap,
@@ -637,6 +770,8 @@ func (m *Manager) applyTemplate(ctx context.Context, proj store.Project, tpl Tem
 		kind, label, env = store.ServiceGo, "Go", goScaffoldEnv
 	case "ruby":
 		kind, label, env = store.ServiceRuby, "Ruby", rubyScaffoldEnv
+	case "java":
+		kind, label, env = store.ServiceJava, "Java", javaScaffoldEnv
 	}
 	svc := proj.Service(kind)
 	if svc == nil {
@@ -667,8 +802,9 @@ func (m *Manager) applyTemplate(ctx context.Context, proj store.Project, tpl Tem
 		return fmt.Errorf("create the package cache: %w", err)
 	}
 	_ = os.Chown(planner.PackageCacheDir(), paths.PUID, paths.PGID)
-	if kind == store.ServiceRuby {
-		// The gems go to the project home, which the plan has not created yet either.
+	if kind == store.ServiceRuby || kind == store.ServiceJava {
+		// The gems and the Maven wrapper go to the project home, which the plan has not
+		// created yet either.
 		if err := os.MkdirAll(planner.HomeDir(proj), 0o755); err != nil {
 			return fmt.Errorf("create the project home: %w", err)
 		}
@@ -690,7 +826,7 @@ func (m *Manager) applyTemplate(ctx context.Context, proj store.Project, tpl Tem
 		if ts.cmdFor != nil {
 			spec.Cmd = ts.cmdFor(proj)
 		}
-		if kind == store.ServiceRuby {
+		if kind == store.ServiceRuby || kind == store.ServiceJava {
 			spec.Mounts = append(spec.Mounts, planner.HomeMount(proj))
 		}
 		spec.Env = append([]string{}, spec.Env...)

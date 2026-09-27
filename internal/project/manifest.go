@@ -33,7 +33,7 @@ import (
 
 // ManifestChange is one difference between a project and its manifest.
 type ManifestChange struct {
-	// Section is docroot, web, php, node, python, go, ruby, database, redis, …, storage,
+	// Section is docroot, web, php, node, python, go, ruby, java, database, redis, …, storage,
 	// limits, healthcheck, env, domain, worker or cron.
 	Section string `json:"section"`
 	// Item names the variable, host name, worker or cron job within the section.
@@ -210,6 +210,14 @@ func exportState(p store.Project, domains []store.Domain, jobs []store.CronJob) 
 		_ = json.Unmarshal(svc.Config, &cfg)
 		mf.Ruby = &manifest.Ruby{
 			Version: svc.Version, Server: cfg.Server, Mode: cfg.Mode, Preset: cfg.Preset,
+			Port: cfg.Port, Debug: cfg.Debug, DebugPort: cfg.DebugPort,
+		}
+	}
+	if svc := p.Service(store.ServiceJava); svc != nil {
+		var cfg runtime.JavaConfig
+		_ = json.Unmarshal(svc.Config, &cfg)
+		mf.Java = &manifest.Java{
+			Version: svc.Version, Server: cfg.Server, Mode: cfg.Mode, Preset: cfg.Preset, Jar: cfg.Jar,
 			Port: cfg.Port, Debug: cfg.Debug, DebugPort: cfg.DebugPort,
 		}
 	}
@@ -402,6 +410,12 @@ func manifestRequest(mf manifest.Manifest, name string) CreateRequest {
 		r := mf.Ruby
 		req.Ruby = &RubyRequest{Version: r.Version, Config: runtime.RubyConfig{
 			Server: r.Server, Mode: r.Mode, Preset: r.Preset, Port: r.Port, Debug: r.Debug, DebugPort: r.DebugPort,
+		}}
+	}
+	if mf.Java != nil {
+		j := mf.Java
+		req.Java = &JavaRequest{Version: j.Version, Config: runtime.JavaConfig{
+			Server: j.Server, Mode: j.Mode, Preset: j.Preset, Jar: j.Jar, Port: j.Port, Debug: j.Debug, DebugPort: j.DebugPort,
 		}}
 	}
 	// An external connection comes without its password, which the file never holds.
@@ -634,7 +648,7 @@ func (m *Manager) planManifest(ctx context.Context, id string, mf manifest.Manif
 		}
 	}
 
-	// PHP, Node, Python, Go and Ruby: add, change or (with prune) remove the runtime.
+	// PHP, Node, Python, Go, Ruby and Java: add, change or (with prune) remove the runtime.
 	if c, ok := sectionChange("php", have.PHP, wantMf.PHP); ok {
 		if c.Action == "remove" {
 			if removal(c) {
@@ -700,6 +714,18 @@ func (m *Manager) planManifest(ctx context.Context, id string, mf manifest.Manif
 			var cfg runtime.RubyConfig
 			_ = json.Unmarshal(want.Service(store.ServiceRuby).Config, &cfg)
 			ops.update.Ruby = &RubyUpdate{Enabled: true, Version: wantMf.Ruby.Version, Config: cfg}
+		}
+	}
+	if c, ok := sectionChange("java", have.Java, wantMf.Java); ok {
+		if c.Action == "remove" {
+			if removal(c) {
+				ops.update.Java = &JavaUpdate{Enabled: false}
+			}
+		} else {
+			add(c)
+			var cfg runtime.JavaConfig
+			_ = json.Unmarshal(want.Service(store.ServiceJava).Config, &cfg)
+			ops.update.Java = &JavaUpdate{Enabled: true, Version: wantMf.Java.Version, Config: cfg}
 		}
 	}
 

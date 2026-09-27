@@ -26,7 +26,8 @@ import (
 // JUnit report the runner writes where it can.
 type TestSuite struct {
 	ID string `json:"id"`
-	// Framework is pest, phpunit, npm, playwright, cypress, pytest, django, go, rspec or
+	// Framework is pest, phpunit, npm, playwright, cypress, pytest, django, go, rspec,
+	// maven, gradle or
 	// rails.
 	Framework string            `json:"framework"`
 	Label     string            `json:"label"`
@@ -246,6 +247,14 @@ func detectTestSuites(dir string, p store.Project) []TestSuite {
 				return argv, nil
 			}})
 	}
+	if has(store.ServiceJava) {
+		switch {
+		case exists("pom.xml"):
+			out = append(out, javaTestSuite("maven"))
+		case exists("build.gradle") || exists("build.gradle.kts"):
+			out = append(out, javaTestSuite("gradle"))
+		}
+	}
 	if has(store.ServiceRuby) && exists("Gemfile") {
 		lock := read("Gemfile.lock")
 		if exists("spec") && bytes.Contains(lock, []byte(" rspec-core ")) {
@@ -277,6 +286,46 @@ func detectTestSuites(dir string, p store.Project) []TestSuite {
 	}
 	return out
 }
+
+// javaTestSuite runs the tests with the project's build tool (its wrapper when it has
+// one) through javaTestScript; the filter is surefire's -Dtest or Gradle's --tests.
+func javaTestSuite(tool string) TestSuite {
+	label, hint := "mvn test", "-Dtest (class or Class#method)"
+	if tool == "gradle" {
+		label, hint = "gradle test", "--tests (class or method pattern)"
+	}
+	return TestSuite{ID: tool, Framework: tool, Label: label, Service: store.ServiceJava, Cmd: strings.Fields(label), Report: true, FilterHint: hint, Available: true,
+		build: func(filter, report string) ([]string, []string) {
+			return []string{"sh", "-c", javaTestScript, "envoryx-" + tool + "-test", tool, report, filter}, nil
+		}}
+}
+
+// javaTestScript runs the tests: $1 is maven or gradle, $2 the report to write and $3 the
+// filter (may be empty). Like rubyTestScript it points every JDBC and database URL at
+// <database>_test first: Spring Boot and Quarkus read the injected URLs in tests too, and
+// a test with ddl-auto create-drop would otherwise empty the development database.
+// Surefire and Gradle write one JUnit file per test class, so the old ones go before the
+// run and the new ones are joined into the single report the Tests tab reads.
+const javaTestScript = `tool=$1 report=$2 filter=$3
+for v in SPRING_DATASOURCE_URL QUARKUS_DATASOURCE_JDBC_URL JDBC_URL DATABASE_URL; do
+  eval "u=\${$v:-}"
+  case "$u" in *'?'*|'') ;; *) export "$v=${u}_test" ;; esac
+done
+rm -f target/surefire-reports/TEST-*.xml build/test-results/test/TEST-*.xml
+if [ "$tool" = maven ]; then
+  mvn=mvn; [ -x ./mvnw ] && mvn=./mvnw
+  if [ -n "$filter" ]; then $mvn -B test "-Dtest=$filter" -Dsurefire.failIfNoSpecifiedTests=false; else $mvn -B test; fi
+else
+  gradle=gradle; [ -x ./gradlew ] && gradle=./gradlew
+  if [ -n "$filter" ]; then $gradle --no-daemon test --tests "$filter"; else $gradle --no-daemon test; fi
+fi
+rc=$?
+{ echo '<testsuites>'
+  for f in target/surefire-reports/TEST-*.xml build/test-results/test/TEST-*.xml; do
+    [ -f "$f" ] && sed '1{/^<?xml/d;}' "$f"
+  done
+  echo '</testsuites>'; } > "$report"
+exit $rc`
 
 // rubyTestEnv runs Rails and Rack test suites in the test environment.
 var rubyTestEnv = []string{"RAILS_ENV=test", "RACK_ENV=test", "APP_ENV=test", "HANAMI_ENV=test"}
@@ -418,8 +467,9 @@ func (m *Manager) RunTests(ctx context.Context, id, suiteID, filter string, cols
 	if err != nil {
 		return nil, err
 	}
-	if suite.Service == store.ServiceRuby {
-		// rubyTestScript points the run at <database>_test; Rails does not create it.
+	if suite.Service == store.ServiceRuby || suite.Service == store.ServiceJava {
+		// rubyTestScript and javaTestScript point the run at <database>_test, which neither
+		// Rails nor Spring Boot or Quarkus create.
 		if err := m.ensureTestDatabase(ctx, id); err != nil {
 			return nil, err
 		}

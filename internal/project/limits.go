@@ -14,7 +14,7 @@ import (
 )
 
 // Resource limits cap every container of a project: the application containers (web
-// server, PHP, Node, Python, Go, Ruby, workers) share one set, the services (database, caches,
+// server, PHP, Node, Python, Go, Ruby, Java, workers) share one set, the services (database, caches,
 // search, storage) another. Docker limits containers, not groups of them, so the numbers
 // apply to each container of the group. Limits are not part of the spec fingerprint:
 // changing them updates running containers in place (docker update) instead of
@@ -35,7 +35,7 @@ const (
 // LimitGroup names the set of limits a container kind falls under: "app" or "services".
 func LimitGroup(kind store.ServiceKind) string {
 	switch {
-	case kind == store.ServiceWeb, kind == store.ServicePHP, kind == store.ServiceNode, kind == store.ServicePython, kind == store.ServiceGo, kind == store.ServiceRuby,
+	case kind == store.ServiceWeb, kind == store.ServicePHP, kind == store.ServiceNode, kind == store.ServicePython, kind == store.ServiceGo, kind == store.ServiceRuby, kind == store.ServiceJava,
 		strings.HasPrefix(string(kind), "worker:"):
 		return "app"
 	default:

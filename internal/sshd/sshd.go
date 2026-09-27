@@ -2,8 +2,8 @@
 // interpreter, VS Code, plain ssh) run commands inside a project's application container
 // and transfer files via SFTP, without exposing the Docker socket or a real shell on the
 // host. The user name selects the project and container: "<slug>" is the application
-// container (PHP, else Python, else Go, else Ruby, else Node), and "<slug>.php",
-// "<slug>.python", "<slug>.go", "<slug>.ruby" or "<slug>.node" pick one explicitly. The
+// container (PHP, else Python, Go, Ruby, Java, Node), and "<slug>.php", "<slug>.python",
+// "<slug>.go", "<slug>.ruby", "<slug>.java" or "<slug>.node" pick one explicitly. The
 // password is an Envoryx API token, or a public key from the settings is used.
 package sshd
 

@@ -136,6 +136,7 @@ func (a *API) runtimes(w http.ResponseWriter, r *http.Request) {
 		"nodePresets":   runtime.NodePresets,
 		"pythonPresets": runtime.PythonPresets,
 		"rubyPresets":   runtime.RubyPresets,
+		"javaPresets":   runtime.JavaPresets,
 	})
 }
 

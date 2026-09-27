@@ -187,7 +187,7 @@ func (m *Manager) create(ctx context.Context, req CreateRequest) (View, error) {
 	}
 
 	// A repository, template or uploaded website fills the empty directory; the starter
-	// page would collide. While an application server (Python, Go, Ruby) or the Node dev
+	// page would collide. While an application server (Python, Go, Ruby, Java) or the Node dev
 	// server serves the app, nothing serves the docroot, so there's no starter either.
 	scaffold := proj.Git.URL != "" || req.Template != "" || req.Import != nil
 	starter := req.CreateStarter && !scaffold && !appServesDirectly(proj)
@@ -784,6 +784,11 @@ func (m *Manager) update(ctx context.Context, id string, req UpdateRequest) (Vie
 	}
 	if req.Ruby != nil {
 		if err := m.applyRubyUpdate(ctx, proj, *req.Ruby, changes); err != nil {
+			return View{}, err
+		}
+	}
+	if req.Java != nil {
+		if err := m.applyJavaUpdate(ctx, proj, *req.Java, changes); err != nil {
 			return View{}, err
 		}
 	}
@@ -1414,6 +1419,111 @@ func (m *Manager) applyRubyUpdate(ctx context.Context, p store.Project, upd Ruby
 					if c.Service() == string(store.ServiceRuby) {
 						if err := m.engine.RemoveContainer(ctx, c.ID); err != nil {
 							return fmt.Errorf("recreate ruby container: %w", err)
+						}
+					}
+				}
+			}
+		}
+		return nil
+	}
+}
+
+// applyJavaUpdate changes, adds or removes the Java service. Callers hold the lock. Removing
+// it takes the Java container and the Java workers' containers with it. Their
+// definitions stay and come back with the runtime.
+func (m *Manager) applyJavaUpdate(ctx context.Context, p store.Project, upd JavaUpdate, changes map[string]any) error {
+	svc := p.Service(store.ServiceJava)
+	switch {
+	case !upd.Enabled && svc == nil:
+		return nil
+	case !upd.Enabled:
+		gone := map[string]bool{string(store.ServiceJava): true}
+		for _, w := range p.Workers {
+			if preset, ok := workerPreset(w.Preset); ok && preset.Runtime == WorkerRuntimeJava {
+				gone[string(WorkerKind(w))] = true
+			}
+		}
+		containers, err := m.engine.ListContainers(ctx, true, p.ID)
+		if err != nil {
+			return err
+		}
+		for _, c := range containers {
+			if !gone[c.Service()] {
+				continue
+			}
+			step(ctx, "Removing the container {{name}}", "name", c.Name)
+			if err := m.engine.RemoveContainer(ctx, c.ID); err != nil {
+				return fmt.Errorf("remove container %s: %w", c.Name, err)
+			}
+		}
+		if err := m.store.Projects.DeleteService(ctx, p.ID, store.ServiceJava); err != nil {
+			return err
+		}
+		changes["java"] = "removed"
+		return nil
+	default:
+		v, err := m.catalog.Resolve("java", upd.Version)
+		if err != nil {
+			return err
+		}
+		cfg := upd.Config
+		if err := cfg.Normalize(); err != nil {
+			return err
+		}
+		var old runtime.JavaConfig
+		if svc != nil && len(svc.Config) > 0 {
+			_ = json.Unmarshal(svc.Config, &old)
+		}
+		// Keep the published ports across edits; allocate them when the server or JDWP is
+		// enabled. The two are independent: a tooling container can publish JDWP.
+		cfg.HostPort, cfg.DebugHostPort = 0, 0
+		if cfg.Server {
+			cfg.HostPort = old.HostPort
+			if cfg.HostPort == 0 {
+				port, err := m.allocatePort(ctx)
+				if err != nil {
+					return err
+				}
+				cfg.HostPort = port
+			}
+		}
+		if cfg.Debug {
+			cfg.DebugHostPort = old.DebugHostPort
+			if cfg.DebugHostPort == 0 {
+				port, err := m.allocatePort(ctx, cfg.HostPort)
+				if err != nil {
+					return err
+				}
+				cfg.DebugHostPort = port
+			}
+		}
+		raw, err := json.Marshal(cfg)
+		if err != nil {
+			return err
+		}
+		if svc == nil {
+			if err := m.store.Projects.AddService(ctx, store.ProjectService{ProjectID: p.ID, Kind: store.ServiceJava, Variant: "java", Version: v.Version, Image: v.Image, Enabled: true, Position: 12, Config: raw}); err != nil {
+				return err
+			}
+			changes["java"] = v.Version
+			return nil
+		}
+		if svc.Version != v.Version || string(svc.Config) != string(raw) {
+			if err := m.store.Projects.UpdateServiceConfig(ctx, p.ID, store.ServiceJava, v.Version, v.Image, raw); err != nil {
+				return err
+			}
+			changes["java"] = v.Version
+			if string(svc.Config) != string(raw) {
+				changes["javaServer"] = cfg.Server
+				// Command/ports are baked into the container: remove it so ensurePlan recreates it.
+				containers, err := m.engine.ListContainers(ctx, true, p.ID)
+				if err != nil {
+					return err
+				}
+				for _, c := range containers {
+					if c.Service() == string(store.ServiceJava) {
+						if err := m.engine.RemoveContainer(ctx, c.ID); err != nil {
+							return fmt.Errorf("recreate java container: %w", err)
 						}
 					}
 				}

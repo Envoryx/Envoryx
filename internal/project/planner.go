@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"net"
 	"path"
 	"path/filepath"
 	"sort"
@@ -101,7 +102,7 @@ var toolEnv = []string{"HOME=" + homeMountTarget, "COMPOSER_HOME=" + homeMountTa
 
 // The package cache is one directory for all projects (/config/cache on the Envoryx
 // side), so a package is downloaded once whichever project asks for it next: Composer,
-// npm, Yarn, pip and uv keep their caches below it. pnpm is left out: its store is only
+// npm, Yarn, pip, uv, Go, Bundler, Maven and Gradle keep their caches below it. pnpm is left out: its store is only
 // configurable as npm_config_store_dir, which makes every npm command warn. Every
 // container a package manager runs in has it mounted: the application containers, the
 // workers and the one-shots that scaffold a template.
@@ -127,6 +128,10 @@ var packageCacheEnv = []string{
 	// cache for every project when the global gem cache is on.
 	"BUNDLE_USER_CACHE=" + packageCacheTarget + "/bundler",
 	"BUNDLE_GLOBAL_GEM_CACHE=true",
+	// Maven's local repository and Gradle's user home (dependencies, wrapper
+	// distributions) are safe to share: both lock what they write.
+	"MAVEN_OPTS=-Dmaven.repo.local=" + packageCacheTarget + "/maven",
+	"GRADLE_USER_HOME=" + packageCacheTarget + "/gradle",
 	"UV_LINK_MODE=copy",
 }
 
@@ -211,6 +216,57 @@ func rubyDatabaseURLs(env []string) []string {
 			kv = k + "=postgresql://" + strings.TrimPrefix(v, "pgsql://")
 		}
 		out[i] = kv
+	}
+	return out
+}
+
+// javaEnv adds the names Java frameworks read to the variables every application
+// container gets: Spring Boot's SPRING_DATASOURCE_* and Quarkus's QUARKUS_DATASOURCE_*
+// for the primary SQL database, a JDBC_URL for it and <NAME>_JDBC_URL for every
+// additional one (JDBC wants its own URL form, jdbc:<driver>://host:port/db), and the
+// Spring and Quarkus names of MongoDB, Redis and Mailpit.
+func javaEnv(proj store.Project, env []string) []string {
+	vars := map[string]string{}
+	for _, kv := range env {
+		k, v, _ := strings.Cut(kv, "=")
+		vars[k] = v
+	}
+	out := append([]string{}, env...)
+	add := func(k, v string) { out = append(out, k+"="+v) }
+	for _, db := range proj.Databases() {
+		name := db.Kind.DatabaseName()
+		get := func(k string) string { return vars[envKey(name, k)] }
+		driver := map[string]string{"mariadb": "mariadb", "mysql": "mysql", "postgresql": "postgresql"}[db.Variant]
+		if driver == "" {
+			if name == "" && db.Variant == "mongodb" {
+				add("SPRING_DATA_MONGODB_URI", get("MONGODB_URI"))
+				add("QUARKUS_MONGODB_CONNECTION_STRING", get("MONGODB_URI"))
+				add("QUARKUS_MONGODB_DATABASE", get("MONGODB_DATABASE"))
+			}
+			continue
+		}
+		jdbc := "jdbc:" + driver + "://" + net.JoinHostPort(get("DB_HOST"), get("DB_PORT")) + "/" + get("DB_DATABASE")
+		add(envKey(name, "JDBC_URL"), jdbc)
+		if name != "" {
+			continue
+		}
+		add("SPRING_DATASOURCE_URL", jdbc)
+		add("SPRING_DATASOURCE_USERNAME", get("DB_USERNAME"))
+		add("SPRING_DATASOURCE_PASSWORD", get("DB_PASSWORD"))
+		add("QUARKUS_DATASOURCE_DB_KIND", driver)
+		add("QUARKUS_DATASOURCE_JDBC_URL", jdbc)
+		add("QUARKUS_DATASOURCE_USERNAME", get("DB_USERNAME"))
+		add("QUARKUS_DATASOURCE_PASSWORD", get("DB_PASSWORD"))
+	}
+	if u := vars["REDIS_URL"]; u != "" {
+		add("SPRING_DATA_REDIS_URL", u)
+		add("QUARKUS_REDIS_HOSTS", u)
+	}
+	if h := vars["SMTP_HOST"]; h != "" {
+		add("SPRING_MAIL_HOST", h)
+		add("SPRING_MAIL_PORT", vars["SMTP_PORT"])
+		add("QUARKUS_MAILER_HOST", h)
+		add("QUARKUS_MAILER_PORT", vars["SMTP_PORT"])
 	}
 	return out
 }
@@ -606,6 +662,51 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 			plan.Containers = append(plan.Containers, ContainerPlan{Kind: store.ServiceRuby, Order: 12, Spec: spec})
 			images[svc.Image] = true
 
+		case store.ServiceJava:
+			var jcfg runtime.JavaConfig
+			if len(svc.Config) > 0 {
+				if err := json.Unmarshal(svc.Config, &jcfg); err != nil {
+					return Plan{}, fmt.Errorf("java config: %w", err)
+				}
+			}
+			if err := jcfg.Normalize(); err != nil {
+				return Plan{}, err
+			}
+			spec := docker.ContainerSpec{
+				Name:   ContainerName(proj.Slug, store.ServiceJava),
+				Image:  svc.Image,
+				Labels: labels,
+				// Tooling container: idles until actions or the terminal run commands.
+				Cmd:           []string{"sleep", "infinity"},
+				Env:           append(javaEnv(proj, env), toolEnv...),
+				User:          fmt.Sprintf("%d:%d", p.paths.PUID, p.paths.PGID),
+				WorkingDir:    appMountTarget,
+				Network:       plan.NetworkName,
+				NetworkAlias:  []string{"java"},
+				Mounts:        append([]docker.MountSpec{{Type: "bind", Source: appHost, Target: appMountTarget}, p.HomeMount(proj)}, p.gatewayMounts(proj)...),
+				RestartPolicy: "unless-stopped",
+				StopTimeout:   stopTimeoutSec,
+			}
+			p.withPackageCache(&spec)
+			if jcfg.Server {
+				// Server mode: the framework's dev goal or the built jar is the main process,
+				// published on a host port; without PHP or a Python, Go or Ruby server the
+				// proxy routes the project URL to it. A blank project has nothing to build
+				// yet, so it waits for pom.xml or build.gradle.
+				spec.Cmd = jcfg.WrappedCommand(dbGuard)
+				spec.Env = append(spec.Env, jcfg.Env()...)
+				if jcfg.HostPort > 0 {
+					spec.Ports = []docker.PortSpec{{HostIP: p.paths.PublishInterface, HostPort: jcfg.HostPort, ContainerPort: jcfg.Port, Protocol: "tcp"}}
+				}
+			}
+			if jcfg.Debug && jcfg.DebugHostPort > 0 {
+				// With the server its JVM listens for the debugger; without, the port waits
+				// for a JVM started in the terminal with the same -agentlib:jdwp option.
+				spec.Ports = append(spec.Ports, docker.PortSpec{HostIP: p.paths.PublishInterface, HostPort: jcfg.DebugHostPort, ContainerPort: jcfg.DebugPort, Protocol: "tcp"})
+			}
+			plan.Containers = append(plan.Containers, ContainerPlan{Kind: store.ServiceJava, Order: 12, Spec: spec})
+			images[svc.Image] = true
+
 		case store.ServiceRedis:
 			var cfg runtime.ServiceConfig
 			if err := json.Unmarshal(svc.Config, &cfg); err != nil {
@@ -897,7 +998,7 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 	// with the project home), sharing env and the project mount. A worker whose runtime
 	// the project doesn't have is skipped; it comes back when the runtime is added.
 	php, node, python, golang := proj.Service(store.ServicePHP), proj.Service(store.ServiceNode), proj.Service(store.ServicePython), proj.Service(store.ServiceGo)
-	ruby := proj.Service(store.ServiceRuby)
+	ruby, java := proj.Service(store.ServiceRuby), proj.Service(store.ServiceJava)
 	// Ruby workers run in the server's environment (RAILS_ENV …): a production server
 	// with development workers would split one application across two databases.
 	var rubyAppEnv []string
@@ -960,6 +1061,13 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 			// Bundler locks the install, so a worker and the server installing at once
 			// wait for each other instead of clashing.
 			spec.Cmd = runtime.Guarded(cmd, "envoryx-worker", runtime.BundleGuard)
+		case WorkerRuntimeJava:
+			if java == nil || !java.Enabled {
+				continue
+			}
+			spec.Image = java.Image
+			spec.Env = append(javaEnv(proj, env), toolEnv...)
+			spec.Mounts = append(spec.Mounts, p.HomeMount(proj))
 		default:
 			if php == nil || !php.Enabled {
 				continue

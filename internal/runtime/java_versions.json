@@ -1,0 +1,18 @@
+{
+  "image": "ghcr.io/envoryx/envoryx-java",
+  "default": "25",
+  "versions": [
+    {
+      "version": "25",
+      "base": "25-jdk-noble"
+    },
+    {
+      "version": "21",
+      "base": "21-jdk-noble"
+    },
+    {
+      "version": "17",
+      "base": "17-jdk-noble"
+    }
+  ]
+}

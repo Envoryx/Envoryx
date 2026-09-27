@@ -58,6 +58,7 @@ const (
 	WorkerRuntimePython = "python"
 	WorkerRuntimeGo     = "go"
 	WorkerRuntimeRuby   = "ruby"
+	WorkerRuntimeJava   = "java"
 )
 
 // workerRuntimeKind maps a preset runtime to the service it runs in.
@@ -71,6 +72,8 @@ func workerRuntimeKind(rt string) (store.ServiceKind, string) {
 		return store.ServiceGo, "Go"
 	case WorkerRuntimeRuby:
 		return store.ServiceRuby, "Ruby"
+	case WorkerRuntimeJava:
+		return store.ServiceJava, "Java"
 	default:
 		return store.ServicePHP, "PHP"
 	}
@@ -257,6 +260,50 @@ var rubyWorkerPresets = []WorkerPreset{
 		build:       func(arg string) []string { p, _ := validate.RelativePath(arg, 6); return []string{"ruby", p} }},
 }
 
+// javaWorkerPresets run a jar or a goal of the project's build tool: Maven when there's a
+// pom.xml, else Gradle, a wrapper (mvnw, gradlew) before the image's tools.
+var javaWorkerPresets = []WorkerPreset{
+	{ID: "java:jar", Group: "Java", Label: "Jar file", Description: "java -jar <file> - a built jar (a Spring Boot app with a worker profile, a consumer, a scheduler …)", ArgLabel: "Jar", ArgHint: "relative to the project, e.g. target/worker.jar", Runtime: WorkerRuntimeJava,
+		validateArg: func(arg string) error {
+			if !runtime.ValidJavaJar(strings.TrimPrefix(arg, "./")) {
+				return fmt.Errorf("%w: the jar must be a relative path ending in .jar", validate.ErrInvalid)
+			}
+			return nil
+		},
+		build: func(arg string) []string { return []string{"java", "-jar", strings.TrimPrefix(arg, "./")} }},
+	{ID: "java:task", Group: "Java", Label: "Build tool goal", Description: "mvn <goal> or gradle <task> - e.g. exec:java -Dexec.mainClass=com.example.Worker, or run with Gradle's application plugin", ArgLabel: "Goal or task", ArgHint: "e.g. exec:java -Dexec.mainClass=com.example.Worker", Runtime: WorkerRuntimeJava,
+		validateArg: javaTaskArg,
+		build: func(arg string) []string {
+			return append([]string{"sh", "-c", javaTaskScript, "envoryx-java-task"}, strings.Fields(arg)...)
+		},
+		display: func(arg string) []string { return append([]string{"mvn|gradle"}, strings.Fields(arg)...) }},
+}
+
+// javaTaskScript runs its arguments as Maven goals or Gradle tasks, whichever the project
+// uses; exec keeps the build tool the worker's main process.
+const javaTaskScript = `mvn=mvn; [ -x ./mvnw ] && mvn=./mvnw
+gradle=gradle; [ -x ./gradlew ] && gradle=./gradlew
+if [ -f pom.xml ]; then exec $mvn -B "$@"; fi
+exec $gradle --no-daemon "$@"`
+
+// javaTaskTokenRe accepts a goal or task name (exec:java, run, :app:run) or a -D system
+// property; the tokens become separate arguments, never a shell string.
+var javaTaskTokenRe = regexp.MustCompile(`^([A-Za-z0-9:][A-Za-z0-9:_.-]*|-D[A-Za-z0-9_.-]+=[A-Za-z0-9_.,:/@-]*)$`)
+
+// javaTaskArg validates the goal or task of the "java:task" preset.
+func javaTaskArg(arg string) error {
+	tokens := strings.Fields(arg)
+	if len(tokens) == 0 || len(tokens) > 8 {
+		return fmt.Errorf("%w: give one to eight goals, tasks or -D properties", validate.ErrInvalid)
+	}
+	for _, t := range tokens {
+		if len(t) > 200 || !javaTaskTokenRe.MatchString(t) {
+			return fmt.Errorf("%w: invalid goal, task or property %q", validate.ErrInvalid, t)
+		}
+	}
+	return nil
+}
+
 // goWorkerScript builds the package ($1) and execs the binary. Not go run: it does not
 // pass SIGTERM on, so a stopped worker would be killed without a chance to finish its
 // job; exec makes the program the direct child of the image's init.
@@ -277,7 +324,7 @@ func goPackageArg(arg string) string {
 }
 
 func init() {
-	workerPresets = append(workerPresets, rubyWorkerPresets...)
+	workerPresets = append(append(workerPresets, rubyWorkerPresets...), javaWorkerPresets...)
 	for i := range workerPresets {
 		if workerPresets[i].Runtime == "" {
 			workerPresets[i].Runtime = WorkerRuntimePHP

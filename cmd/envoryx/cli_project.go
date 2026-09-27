@@ -451,6 +451,7 @@ type createRequest struct {
 	Python      *pythonSpec     `json:"python,omitempty"`
 	Go          *goSpec         `json:"go,omitempty"`
 	Ruby        *rubySpec       `json:"ruby,omitempty"`
+	Java        *javaSpec       `json:"java,omitempty"`
 	Database    *databaseSpec   `json:"database,omitempty"`
 	Databases   []namedDBSpec   `json:"databases,omitempty"`
 	Redis       *extraSpec      `json:"redis,omitempty"`
@@ -506,6 +507,12 @@ type rubySpec struct {
 	Preset  string `json:"preset,omitempty"`
 }
 
+type javaSpec struct {
+	Version string `json:"version,omitempty"`
+	Server  bool   `json:"server,omitempty"`
+	Preset  string `json:"preset,omitempty"`
+}
+
 type databaseSpec struct {
 	Type       string `json:"type,omitempty"`
 	Version    string `json:"version,omitempty"`
@@ -543,6 +550,8 @@ Runtimes (a project without any is a static site served by the web container):
                        (live reload), --go-package ./cmd/server picks the main package
   --ruby VERSION       Ruby version; --ruby-server runs the server (bundle install
                        first), --ruby-preset rails|rack
+  --java VERSION       JDK version (17, 21, 25); --java-server runs the server,
+                       --java-preset spring-boot|quarkus|jar
 
 Services:
   --database TYPE[:VERSION]   mysql, mariadb, postgres, mongodb …
@@ -599,6 +608,9 @@ func (c *cli) projectCreate(ctx context.Context, args []string) error {
 		ruby       = fs.String("ruby", "", "Ruby version")
 		rubyServer = fs.Bool("ruby-server", false, "run the Ruby server")
 		rubyPreset = fs.String("ruby-preset", "", "rails, rack")
+		java       = fs.String("java", "", "JDK version")
+		javaServer = fs.Bool("java-server", false, "run the Java server")
+		javaPreset = fs.String("java-preset", "", "spring-boot, quarkus, jar")
 		database   = fs.String("database", "", "mysql, mariadb, postgres, mongodb[:version]")
 		exposeDB   = fs.Bool("expose-database", false, "publish the database port")
 		extraDBs   stringList
@@ -672,6 +684,9 @@ func (c *cli) projectCreate(ctx context.Context, args []string) error {
 	}
 	if *ruby != "" || *rubyServer || *rubyPreset != "" {
 		req.Ruby = &rubySpec{Version: runtimeVersion(*ruby), Server: *rubyServer, Preset: *rubyPreset}
+	}
+	if *java != "" || *javaServer || *javaPreset != "" {
+		req.Java = &javaSpec{Version: runtimeVersion(*java), Server: *javaServer, Preset: *javaPreset}
 	}
 	if *database != "" {
 		kind, version, _ := strings.Cut(*database, ":")

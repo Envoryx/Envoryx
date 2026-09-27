@@ -45,6 +45,7 @@ type Manifest struct {
 	Python *Python `yaml:"python,omitempty"`
 	Go     *Go     `yaml:"go,omitempty"`
 	Ruby   *Ruby   `yaml:"ruby,omitempty"`
+	Java   *Java   `yaml:"java,omitempty"`
 
 	Database *Database `yaml:"database,omitempty"`
 	// Databases are additional databases by name (host, container and the variables'
@@ -133,7 +134,7 @@ func FormatSeconds(s int) string {
 }
 
 // Limits are the resource limits of the application containers (web server, PHP, Node,
-// Python, Go, Ruby, workers) and of the services (database, caches, search, storage), each per
+// Python, Go, Ruby, Java, workers) and of the services (database, caches, search, storage), each per
 // container, plus the process limit of every container.
 type Limits struct {
 	App      *LimitSet `yaml:"app,omitempty"`
@@ -252,6 +253,18 @@ type Ruby struct {
 	DebugPort int    `yaml:"debugPort,omitempty"`
 }
 
+// Java is the Java runtime and its optional application server.
+type Java struct {
+	Version   string `yaml:"version,omitempty"`
+	Server    bool   `yaml:"server,omitempty"`
+	Mode      string `yaml:"mode,omitempty"`
+	Preset    string `yaml:"preset,omitempty"`
+	Jar       string `yaml:"jar,omitempty"`
+	Port      int    `yaml:"port,omitempty"`
+	Debug     bool   `yaml:"debug,omitempty"`
+	DebugPort int    `yaml:"debugPort,omitempty"`
+}
+
 // Database selects the database server.
 type Database struct {
 	Type       string `yaml:"type,omitempty"` // mariadb, mysql, postgres, mongodb
@@ -303,7 +316,7 @@ type Worker struct {
 type CronJob struct {
 	Name     string `yaml:"name"`
 	Schedule string `yaml:"schedule"`
-	Runtime  string `yaml:"runtime,omitempty"` // php, node, python, go or ruby; default: the app's
+	Runtime  string `yaml:"runtime,omitempty"` // php, node, python, go, ruby or java; default: the app's
 	Command  string `yaml:"command"`
 	// Timeout is a Go duration ("10m", "1h"); empty is Envoryx's default.
 	Timeout string `yaml:"timeout,omitempty"`
