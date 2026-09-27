@@ -54,7 +54,7 @@ type Checker struct {
 	status Status
 }
 
-// New creates a checker for the running version. url "" uses DefaultURL.
+// New creates a checker for the running version. An empty url means DefaultURL.
 func New(current, url string, log *slog.Logger) *Checker {
 	if url == "" {
 		url = DefaultURL

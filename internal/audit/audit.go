@@ -30,8 +30,8 @@ const (
 	ActionProjectRestarted  = "project.restarted"
 	ActionProjectDuplicated = "project.duplicated"
 	ActionProjectRenamed    = "project.renamed"
-	// ActionProjectShared: the project was put on a public tunnel address; Unshared: it
-	// ended (by hand, or with the reason why).
+	// ActionProjectShared is written when a project goes out on a public tunnel address,
+	// ActionProjectUnshared when that ends, by hand or with the reason in its details.
 	ActionProjectShared   = "project.shared"
 	ActionProjectUnshared = "project.unshared"
 	ActionProjectDeleted  = "project.deleted"
@@ -43,12 +43,14 @@ const (
 	ActionImageLatest     = "project.image_latest"
 	ActionImagesPruned    = "docker.images_pruned"
 	ActionOrphansRemoved  = "docker.orphans_removed"
-	// ActionLogHistoryCleared: the stored log history was deleted.
+	// ActionLogHistoryCleared is written when the stored log history is deleted.
 	ActionLogHistoryCleared = "logs.history_cleared"
-	// ActionPackageCacheCleared: the shared package cache (or one tool's part) was emptied.
+	// ActionPackageCacheCleared is written when the shared package cache, or one tool's
+	// part of it, is emptied.
 	ActionPackageCacheCleared = "cache.cleared"
-	// ActionOllamaModelPulled: a model download into the shared Ollama store ended (its
-	// status says how); Deleted: a model was removed from the store.
+	// ActionOllamaModelPulled is written when a model download into the shared Ollama
+	// store ends, successful or not (its status says which). ActionOllamaModelDeleted is
+	// written when a model is removed from the store.
 	ActionOllamaModelPulled  = "ollama.model_pulled"
 	ActionOllamaModelDeleted = "ollama.model_deleted"
 
@@ -111,8 +113,8 @@ func Actor(p auth.Principal) string {
 }
 
 // Log records an action performed by the principal in ctx (if any). details is
-// marshalled to JSON; pass nil for none. Failures to write the audit log are logged but
-// do not fail the business operation.
+// marshalled to JSON; pass nil for none. If the audit log can't be written, that's
+// logged, but the action itself still succeeds.
 func (l *Logger) Log(ctx context.Context, action, targetType, targetID string, details any) {
 	e := store.AuditEntry{Action: action, TargetType: targetType, TargetID: targetID}
 	if p, ok := auth.PrincipalFrom(ctx); ok {
