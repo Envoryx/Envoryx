@@ -127,13 +127,13 @@ var actionCatalog = []Action{
 // mavenCmd runs Maven through the project's wrapper (mvnw) when there is one, else the
 // image's mvn, in batch mode. The goals are constants of the catalogue.
 func mavenCmd(goals ...string) []string {
-	return append([]string{"sh", "-c", `mvn=mvn; [ -x ./mvnw ] && mvn=./mvnw; exec $mvn -B "$@"`, "envoryx-mvn"}, goals...)
+	return append([]string{"sh", "-c", `mvn=mvn; [ -f ./mvnw ] && mvn="sh ./mvnw"; exec $mvn -B "$@"`, "envoryx-mvn"}, goals...)
 }
 
 // gradleCmd runs Gradle through the project's wrapper (gradlew) when there is one, else
 // the image's gradle, without leaving a daemon behind in the action's exec.
 func gradleCmd(tasks ...string) []string {
-	return append([]string{"sh", "-c", `gradle=gradle; [ -x ./gradlew ] && gradle=./gradlew; exec $gradle --no-daemon "$@"`, "envoryx-gradle"}, tasks...)
+	return append([]string{"sh", "-c", `gradle=gradle; [ -f ./gradlew ] && gradle="sh ./gradlew"; exec $gradle --no-daemon "$@"`, "envoryx-gradle"}, tasks...)
 }
 
 // The installers of the CMS templates, run once the database is up. They read the

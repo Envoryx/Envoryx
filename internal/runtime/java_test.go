@@ -108,7 +108,9 @@ func TestJavaServeScript(t *testing.T) {
 			mode := os.FileMode(0o644)
 			content := ""
 			if f == "mvnw" || f == "gradlew" {
-				mode, content = 0o755, "#!/bin/sh\nprintf '"+f+"'; printf ' %s' \"$@\"; printf '\\n'\n"
+				// Not executable on purpose: a wrapper from a zip or an upload often isn't,
+				// and the script runs it through sh anyway.
+				content = "#!/bin/sh\nprintf '" + f + "'; printf ' %s' \"$@\"; printf '\\n'\n"
 			}
 			if err := os.WriteFile(p, []byte(content), mode); err != nil {
 				t.Fatal(err)

@@ -313,10 +313,10 @@ for v in SPRING_DATASOURCE_URL QUARKUS_DATASOURCE_JDBC_URL JDBC_URL DATABASE_URL
 done
 rm -f target/surefire-reports/TEST-*.xml build/test-results/test/TEST-*.xml
 if [ "$tool" = maven ]; then
-  mvn=mvn; [ -x ./mvnw ] && mvn=./mvnw
+  mvn=mvn; [ -f ./mvnw ] && mvn="sh ./mvnw"
   if [ -n "$filter" ]; then $mvn -B test "-Dtest=$filter" -Dsurefire.failIfNoSpecifiedTests=false; else $mvn -B test; fi
 else
-  gradle=gradle; [ -x ./gradlew ] && gradle=./gradlew
+  gradle=gradle; [ -f ./gradlew ] && gradle="sh ./gradlew"
   if [ -n "$filter" ]; then $gradle --no-daemon test --tests "$filter"; else $gradle --no-daemon test; fi
 fi
 rc=$?

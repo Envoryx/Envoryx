@@ -151,13 +151,14 @@ func (c JavaConfig) Production() bool { return c.Mode == JavaModeProduction }
 // javaServeScript starts the server: $1 is the preset, $2 the mode, $3 the JDWP port (0
 // when off) and $4 the jar of the "jar" preset (may be empty). The build tool follows
 // the project: pom.xml means Maven, else Gradle, and a wrapper (mvnw, gradlew) wins over
-// the image's tools. Dev mode runs the framework's own dev goal; production and the
+// the image's tools. Wrappers run through sh, so one that lost its executable bit (a zip
+// download, an upload from Windows) still works. Dev mode runs the framework's own dev goal; production and the
 // "jar" preset build once and exec java, so the JVM is the container's main process and
 // gets the stop signal directly.
 const javaServeScript = `set -e
 preset=$1 mode=$2 dport=$3 jar=$4
-mvn=mvn; [ -x ./mvnw ] && mvn=./mvnw
-gradle=gradle; [ -x ./gradlew ] && gradle=./gradlew
+mvn=mvn; [ -f ./mvnw ] && mvn="sh ./mvnw"
+gradle=gradle; [ -f ./gradlew ] && gradle="sh ./gradlew"
 tool=gradle; [ -f pom.xml ] && tool=maven
 jdwp=
 [ "$dport" != 0 ] && jdwp="-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:$dport"
