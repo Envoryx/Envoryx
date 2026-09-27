@@ -151,7 +151,8 @@ func summaryToContainer(c container.Summary) Container {
 	}
 }
 
-// inspectRaw inspects any container (used internally for guards).
+// inspectRaw inspects any container, managed or not. Only guards and read-only lookups
+// use it.
 func (e *MobyEngine) inspectRaw(ctx context.Context, idOrName string) (container.InspectResponse, error) {
 	res, err := e.cli.ContainerInspect(ctx, idOrName, client.ContainerInspectOptions{})
 	if err != nil {
@@ -266,7 +267,8 @@ func stateString(s *container.State) string {
 	}
 }
 
-// CreateContainer implements Engine. The spec is translated into a hardened Docker config.
+// CreateContainer implements Engine. Every container it creates drops NET_RAW, can't gain
+// privileges, keeps at most 30 MB of logs and doesn't restart unless the spec asks for it.
 func (e *MobyEngine) CreateContainer(ctx context.Context, spec ContainerSpec) (string, error) {
 	if !IsManaged(spec.Labels) {
 		return "", fmt.Errorf("refusing to create container without managed label: %w", ErrNotManaged)
@@ -584,7 +586,8 @@ func cpuPercent(s container.StatsResponse) float64 {
 
 func memoryUsage(s container.StatsResponse) int64 {
 	usage := s.MemoryStats.Usage
-	// cgroup v2 reports page cache in "inactive_file"; cgroup v1 in "cache".
+	// Page cache doesn't count, as in docker stats. cgroup v2 reports it as
+	// "inactive_file", cgroup v1 as "cache".
 	if v, ok := s.MemoryStats.Stats["inactive_file"]; ok && v < usage {
 		usage -= v
 	} else if v, ok := s.MemoryStats.Stats["cache"]; ok && v < usage {
@@ -1045,7 +1048,6 @@ func (e *MobyEngine) DisconnectNetwork(ctx context.Context, network, containerID
 	return wrap(err)
 }
 
-// NetworkEndpoints implements Engine.
 // NetworkAddresses implements Engine.
 func (e *MobyEngine) NetworkAddresses(ctx context.Context, network string) (string, map[string]string, error) {
 	res, err := e.cli.NetworkInspect(ctx, network, client.NetworkInspectOptions{})
@@ -1068,6 +1070,7 @@ func (e *MobyEngine) NetworkAddresses(ctx context.Context, network string) (stri
 	return gateway, ips, nil
 }
 
+// NetworkEndpoints implements Engine.
 func (e *MobyEngine) NetworkEndpoints(ctx context.Context, network string) ([]Endpoint, error) {
 	res, err := e.cli.NetworkInspect(ctx, network, client.NetworkInspectOptions{})
 	if err != nil {
