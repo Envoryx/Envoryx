@@ -23,7 +23,7 @@ var (
 // CreateRequest is the validated intent to create a project.
 type CreateRequest struct {
 	Name string
-	Path string // relative to projects root; empty = slug
+	Path string // relative to projects root; empty means the slug
 	// Docroot is the directory served by the web server, relative to the project
 	// directory: public/ for Laravel/Symfony, the build output (dist/, out/) for static
 	// Node builds. It's unused while an application server (Python, Go, Ruby) or the

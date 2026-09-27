@@ -65,7 +65,7 @@ type PythonPreset struct {
 	Key   string `json:"key"`
 	Label string `json:"label"`
 	Port  int    `json:"port"`
-	// App is the default import path (empty = the preset needs none in dev mode).
+	// App is the default import path; empty when the preset needs none in dev mode.
 	App string `json:"app"`
 	// AppLabel/AppHint describe the App field in the UI.
 	AppLabel string `json:"appLabel"`

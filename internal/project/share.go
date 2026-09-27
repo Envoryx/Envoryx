@@ -17,13 +17,13 @@ import (
 )
 
 // Sharing a project puts it on a temporary public address: a Cloudflare quick tunnel
-// (trycloudflare.com - no account, no port forwarding) run by a cloudflared container
-// next to the project, pointed at the proxy - so the project's rules (basic
-// authentication, headers, redirects) apply - or at the application when there is no
-// plain HTTP proxy listener. The
-// address is random and changes with every share; the share ends when its time is up,
-// when the project stops, or by hand. Anyone who has the address can open the project,
-// so it is meant for showing work in progress, not for serving it.
+// (trycloudflare.com, no account, no port forwarding) run by a cloudflared container
+// next to the project. The tunnel points at the proxy, so the project's rules (basic
+// authentication, headers, redirects) apply, or at the application when there is no
+// plain HTTP proxy listener. The address is random and changes with every share; the
+// share ends when its time is up, when the project stops, or by hand. Anyone who has the
+// address can open the project, so it's meant for showing work in progress, not for
+// serving it.
 const (
 	shareImage = "cloudflare/cloudflared:2026.9.3"
 	// shareService labels the tunnel container; it is none of the project's services.
@@ -111,7 +111,7 @@ func (m *Manager) readShare(ctx context.Context, c docker.Container) Share {
 
 var shareErrorRe = regexp.MustCompile(` ERR |failed to|error=`)
 
-// StartShare puts the project on a new public address for duration (0 = an hour). A
+// StartShare puts the project on a new public address for duration (0 means an hour). A
 // share that is running already is replaced: the address changes.
 func (m *Manager) StartShare(ctx context.Context, id string, duration time.Duration) (Share, error) {
 	if err := validate.UUID(id); err != nil {

@@ -275,7 +275,7 @@ func normalizeCORS(c store.CORSRule) (store.CORSRule, error) {
 	return out, nil
 }
 
-// proxyRules compiles a project's stored rules for the proxy (nil = none).
+// proxyRules compiles a project's stored rules for the proxy, nil if there are none.
 func proxyRules(p store.Project) *proxy.Rules {
 	r := p.ProxyRules
 	if r.Empty() {

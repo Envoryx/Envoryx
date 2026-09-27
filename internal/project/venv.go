@@ -11,7 +11,7 @@ import (
 )
 
 // A virtual environment lives in the project directory, so it survives a container
-// recreate - but it is built for one Python minor version: the packages sit in
+// recreate, but it is built for one Python minor version: the packages sit in
 // .venv/lib/python<major>.<minor>/site-packages and an interpreter of another minor does
 // not look there. After a version change the venv is therefore still present and still
 // empty from the new interpreter's point of view, and an application server starts only
@@ -20,7 +20,8 @@ import (
 // happened and names the action that rebuilds it.
 
 // venvPythonVersion returns the major.minor a virtual environment was built for, read
-// from .venv/pyvenv.cfg. Missing, unreadable or without a version line = nothing to say.
+// from .venv/pyvenv.cfg. ok is false when the file is missing, unreadable or has no
+// version line.
 func venvPythonVersion(projectDir string) (string, bool) {
 	raw, err := os.ReadFile(filepath.Join(projectDir, runtime.PythonVenv, "pyvenv.cfg"))
 	if err != nil {

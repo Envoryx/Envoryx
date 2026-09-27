@@ -417,7 +417,7 @@ func (m *Manager) execCron(ctx context.Context, p store.Project, j store.CronJob
 
 // RunCronScheduler fires due cron jobs until ctx ends. Each job's next time is computed
 // from its schedule when the scheduler first sees it (or its schedule changes) and again
-// after every run, so a minute is never fired twice - also not in the hour a DST change
+// after every run, so a minute is never fired twice, not even in the hour a DST change
 // repeats.
 func (m *Manager) RunCronScheduler(ctx context.Context, interval time.Duration, log *slog.Logger) {
 	if n, err := m.store.CronJobs.InterruptRunning(ctx); err != nil {

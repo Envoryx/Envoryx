@@ -14,11 +14,11 @@ import (
 )
 
 // Resource limits cap every container of a project: the application containers (web
-// server, PHP, Node, Python, workers) share one set, the services (database, caches,
+// server, PHP, Node, Python, Go, Ruby, workers) share one set, the services (database, caches,
 // search, storage) another. Docker limits containers, not groups of them, so the numbers
 // apply to each container of the group. Limits are not part of the spec fingerprint:
 // changing them updates running containers in place (docker update) instead of
-// recreating them - only lifting a limit entirely needs a new container.
+// recreating them; only lifting a limit entirely needs a new container.
 
 // DefaultPidsLimit is the process limit of every container unless the project sets
 // another: far above what a development stack runs, low enough to stop a fork bomb or a
@@ -64,7 +64,7 @@ func containerResources(l store.ResourceLimits, kind store.ServiceKind) *docker.
 	}
 }
 
-// validateLimits checks limits against the host (hostCPUs/hostMemory 0 = unknown).
+// validateLimits checks limits against the host (hostCPUs or hostMemory 0 when unknown).
 func validateLimits(l store.ResourceLimits, hostCPUs int, hostMemory int64) error {
 	for name, set := range map[string]store.LimitSet{"application containers": l.App, "services": l.Services} {
 		if set.CPUs < 0 || math.IsNaN(set.CPUs) {

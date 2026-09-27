@@ -42,7 +42,7 @@ func (m *Manager) SetProjectsFollowEnvoryx(ctx context.Context, on bool) error {
 
 // StopAllForShutdown stops the running containers of every project, then every other
 // managed container that is still running (the database browser, orphans). Projects are
-// stopped in parallel, each in the order of its plan; no project's desired state changes -
+// stopped in parallel, each in the order of its plan. No project's desired state changes:
 // this is Envoryx going down, not the user stopping the project, so ResumeProjects can
 // bring them back. It is meant to run after Shutdown has drained the lifecycle
 // operations; a project whose lock is still held is skipped.

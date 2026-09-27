@@ -178,7 +178,7 @@ func (m *Manager) SearchCredentials(ctx context.Context, id string, kind store.S
 
 // syncOpenSearchDashboards keeps OpenSearch Dashboards in step with OpenSearch: on or off
 // as want says (nil leaves it), never without OpenSearch, and always on OpenSearch's
-// version - Dashboards refuses to talk to another one. Callers hold the project lock.
+// version, since Dashboards refuses to talk to another one. Callers hold the project lock.
 func (m *Manager) syncOpenSearchDashboards(ctx context.Context, id string, want *bool, changes map[string]any) error {
 	const kind = store.ServiceOpenSearchDashboards
 	p, err := m.loadProject(ctx, id)

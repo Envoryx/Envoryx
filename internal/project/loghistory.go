@@ -62,7 +62,8 @@ type LogHistoryInfo struct {
 	Following int `json:"following"`
 }
 
-// SetLogStore installs the log history (nil = none, queries go to Docker only).
+// SetLogStore installs the log history. With nil there is none and queries go to
+// Docker only.
 func (m *Manager) SetLogStore(s *logs.Store) {
 	m.logStore = s
 	if s == nil {

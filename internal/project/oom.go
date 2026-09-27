@@ -15,8 +15,8 @@ import (
 )
 
 // When a container reaches its memory limit the kernel kills a process in it. That may
-// be the main process (the container restarts) or just a child - a php-fpm worker, a
-// Node child, a queue job - while the container keeps running, which is easy to miss.
+// be the main process (the container restarts) or just a child (a php-fpm worker, a
+// Node child, a queue job) while the container keeps running, which is easy to miss.
 // Docker reports both as an "oom" event; the watcher turns them into a project warning
 // for a day and a notification.
 

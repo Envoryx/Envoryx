@@ -6,7 +6,7 @@ import (
 	"github.com/envoryx/envoryx/internal/notify"
 )
 
-// Activity is one thing Envoryx did on its own - without a user asking for it - since the
+// Activity is one thing Envoryx did on its own, without a user asking for it, since the
 // process started: projects resumed after a restart, orphaned resources removed. The
 // dashboard shows the list so nothing happens behind the user's back; the audit log is
 // the durable record.
