@@ -89,6 +89,10 @@ They also cover every project shape:
 - a Ruby server (`ruby_test.go`: Gemfile wait and bundle guard, rdbg, `postgresql://`
   rewrite, the Rails template, workers, the `_test` redirect of the test suites and the
   manifest);
+- a Java server (`java_test.go`: the JDBC, Spring and Quarkus variables, route and SSH user,
+  JDWP ports kept across edits, the templates, workers, the `_test` redirect and report merge
+  of the test script and the manifest; `runtime/java_test.go` runs the serve script against
+  stub mvn, gradle and java);
 - a static site (SPA fallback, `index.html` starter).
 
 `internal/runtime/webserver_test.go` pins the PHP web configs as goldens, so the static
@@ -235,6 +239,25 @@ the binary (template scaffold, wait guard, proxy route, actions, worker, add and
 verified against a real Docker engine when Python support landed; `make build` and create a
 project from the *FastAPI* or *Django* template to repeat it.
 
+### Java image and scaffold smoke
+
+The Java templates download a project from start.spring.io or code.quarkus.io and build it
+once with its Maven wrapper. Build the image locally
+(`docker build --build-arg BASE_TAG=25-jdk-noble --build-arg JAVA_VERSION=25 -t ghcr.io/envoryx/envoryx-java:25 images/java`),
+then `make build`, start a scratch instance and create one project per template (Spring Boot
+with PostgreSQL, Quarkus with MariaDB) plus a Gradle project (a Kotlin Spring Boot zip from
+start.spring.io, cloned or copied in). Check for each:
+
+- the project URL answers once the dev server is up (the first start fills the Maven or
+  Gradle cache and takes a few minutes);
+- *Debug with JDWP* publishes a port that completes the handshake
+  (`printf JDWP-Handshake | nc <host> <port>` echoes it back);
+- the Tests tab runs against `<database>_test` and shows the tests from the JUnit report;
+- Quarkus picks up a changed resource on the next request, and production mode serves the
+  built jar.
+
+Re-run it when you change `javaServeScript`, the templates or the image.
+
 ## Conventions
 
 - Go: `gofmt`, `go vet`, errors wrapped with `%w`, sentinel errors in the package that owns
@@ -249,14 +272,15 @@ project from the *FastAPI* or *Django* template to repeat it.
 
 ## Adding a runtime version
 
-PHP, Node, Python, Go and Ruby versions live in `internal/runtime/php_versions.json`,
-`node_versions.json`, `python_versions.json`, `go_versions.json` and `ruby_versions.json`.
+PHP, Node, Python, Go, Ruby and Java versions live in `internal/runtime/php_versions.json`,
+`node_versions.json`, `python_versions.json`, `go_versions.json`, `ruby_versions.json` and
+`java_versions.json`.
 They're the one place those versions are listed: the catalogue embeds them into the binary,
 and the image build matrices (`php-images.yml`, `node-images.yml`, `python-images.yml`,
-`go-images.yml`, `ruby-images.yml`) read them with `jq`.
+`go-images.yml`, `ruby-images.yml`, `java-images.yml`) read them with `jq`.
 
 Normally you never edit them by hand. `.github/workflows/runtime-versions.yml` runs
-`scripts/check-versions.py php|node|python|go|ruby` weekly and opens a PR when upstream
+`scripts/check-versions.py php|node|python|go|ruby|java` weekly and opens a PR when upstream
 changes:
 
 - Node: the newest LTS becomes the default, EOL "current" releases are dropped.
@@ -264,6 +288,8 @@ changes:
 - Go: every release from 1.26 on, with the unsupported ones marked `eol`.
 - Ruby: every stable cycle from 3.3 on. Previews are tagged per release, not per cycle, so
   they aren't followed.
+- Java: the LTS releases from 17 on (Eclipse Temurin `<v>-jdk-noble`). The feature releases
+  in between are skipped; they're supported for six months only.
 
 In the files, `base` is the upstream tag (`8.6-rc` for pre-releases), `preview`/`eol` drive
 the labels in the UI, and `default` is the newest stable version.
@@ -358,6 +384,6 @@ it's green, and read the release notes first for majors. Node majors in the `Doc
 ignored on purpose. Only even (LTS) lines are used, and the move to the next one happens by
 hand, in `Dockerfile` and `ci.yml` together.
 
-The **runtime images** (PHP, Node, Python, Go, Ruby) aren't covered by Dependabot: their
+The **runtime images** (PHP, Node, Python, Go, Ruby, Java) aren't covered by Dependabot: their
 base tags follow `internal/runtime/*_versions.json`, which the `Runtime version check`
 workflow updates from upstream releases (see "Adding a runtime version").

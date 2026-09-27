@@ -657,4 +657,39 @@ describe("NewProjectPage wizard", () => {
     expect(body.createStarter).toBe(false);
     expect(body.ruby).toMatchObject({ version: "4.0", server: true, mode: "dev", preset: "rack", port: 9292 });
   });
+
+  it("creates a Java project: server on, no php key, no starter, the jar only for the jar preset", async () => {
+    const api = mockApi({
+      ...authedRoutes,
+      "GET /runtimes": () => ({ body: runtimesFixture }),
+      "POST /projects/preview": previewRoute(() => {}),
+      "POST /projects": () => ({ status: 201, body: { project: makeProject() } }),
+    });
+    renderApp(
+      <Routes>
+        <Route path="/projects/new" element={<NewProjectPage />} />
+        <Route path="/projects/:id" element={<h1>Detail</h1>} />
+      </Routes>,
+      { route: "/projects/new" },
+    );
+    const user = userEvent.setup();
+    await user.type(await screen.findByLabelText("Project name"), "Acme API");
+    await user.click(screen.getByRole("radio", { name: /Java application/ }));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    // The Java card leads and runs the server; Ruby is off.
+    expect(await screen.findByRole("checkbox", { name: /Enable Java/ })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: /Enable Ruby/ })).not.toBeChecked();
+    await user.selectOptions(screen.getByLabelText("Framework preset"), "jar");
+    await user.type(screen.getByLabelText("Jar"), "target/api.jar");
+    for (let i = 0; i < 4; i++) await user.click(screen.getByRole("button", { name: "Continue" }));
+    expect(screen.queryByLabelText(/Create starter/)).not.toBeInTheDocument();
+    await user.click(await screen.findByRole("button", { name: "Create project" }));
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Detail" })).toBeInTheDocument());
+    const create = api.calls.find((c) => c.method === "POST" && c.url.endsWith("/projects"));
+    const body = create?.body as Record<string, unknown>;
+    expect(body.php).toBeUndefined();
+    expect(body.ruby).toBeUndefined();
+    expect(body.createStarter).toBe(false);
+    expect(body.java).toMatchObject({ version: "25", server: true, preset: "jar", jar: "target/api.jar", port: 8080 });
+  });
 });
