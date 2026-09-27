@@ -40,7 +40,7 @@ const (
 // BackupOptions select what a backup contains.
 type BackupOptions struct {
 	Database bool
-	// OnlyDB limits the dump to one database ("" = all of them); set by snapshots, which
+	// OnlyDB limits the dump to one database ("" for all of them); set by snapshots, which
 	// are taken of one database at a time. Primary is its name for the primary.
 	OnlyDB *string
 	Files  bool
@@ -108,7 +108,7 @@ type ExtraDumpMeta struct {
 	DumpMeta
 }
 
-// HasDatabase reports whether the backup holds a dump of the database named db ("" =
+// HasDatabase reports whether the backup holds a dump of the database named db ("" for
 // the primary).
 func (b BackupMeta) HasDatabase(db string) bool {
 	_, ok := b.dump(db)
@@ -246,9 +246,9 @@ func (m *Manager) ListBackups(ctx context.Context, id string) ([]BackupInfo, err
 var backupDirPattern = regexp.MustCompile(`^\d{8}-\d{6}-[0-9a-f]{8}$`)
 
 // SweepBackups tidies up after backups that a crash or kill interrupted. A directory
-// without backup.json never completed (the metadata is written last) and is removed;
-// one that completed but was not recorded - the process died between writing and
-// recording - is adopted so it shows up and can be restored. Directories that belong to
+// without backup.json never completed (the metadata is written last) and is removed.
+// One that completed but wasn't recorded, because the process died between writing and
+// recording, is adopted so it shows up and can be restored. Directories that belong to
 // another installation (different project id) or do not look like Envoryx's are left
 // alone. It runs at start-up, before the scheduler, when no backup can be in progress.
 func (m *Manager) SweepBackups(ctx context.Context) {

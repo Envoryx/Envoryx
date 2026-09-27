@@ -79,7 +79,7 @@ func (m *Manager) saveDatabaseConfig(ctx context.Context, p store.Project, svc *
 	return m.store.Projects.UpdateServiceConfig(ctx, p.ID, svc.Kind, svc.Version, svc.Image, raw)
 }
 
-// DatabaseInfo returns a database of the project ("" = the primary) without secrets.
+// DatabaseInfo returns a database of the project ("" for the primary) without secrets.
 func (m *Manager) DatabaseInfo(ctx context.Context, id, db string) (DatabaseInfo, error) {
 	view, err := m.Get(ctx, id)
 	if err != nil {
@@ -707,7 +707,7 @@ func (m *Manager) applyDatabaseUpdate(ctx context.Context, p store.Project, kind
 		}
 		if v.Version != svc.Version {
 			// The server rewrites its data directory on the first start with the new
-			// version and cannot go back, so a dump is taken first - no dump, no upgrade.
+			// version and cannot go back, so a dump is taken first: no dump, no upgrade.
 			b, err := m.createBackupLocked(ctx, p, BackupOptions{Database: true, Note: fmt.Sprintf("before upgrading %s %s → %s", svc.Variant, svc.Version, v.Version), Source: "upgrade"})
 			if err != nil {
 				return false, fmt.Errorf("upgrade refused: the database must be backed up first and that failed (%w); start the project and try again", err)

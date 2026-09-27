@@ -20,7 +20,7 @@ import (
 // Renaming changes the one thing everything else is derived from: the slug. Host names,
 // container and network names, volume names, the SSH users, the backup directory, the
 // rollback image tags, the database and its login and the object storage bucket all
-// follow it, and none of them can be renamed in place by Docker - containers and the
+// follow it, and Docker can rename none of them in place: containers and the
 // network are recreated, volumes are copied and dropped, the database moves through a
 // dump (PostgreSQL renames in place), the bucket's objects are copied into the new one.
 //
@@ -35,7 +35,7 @@ type RenameRequest struct {
 	// current name is how a rename only moves the directory.
 	Name string
 	// Path is the new directory below the projects root. Empty keeps the current one,
-	// unless it still matches the old identifier - then it follows the new one.
+	// unless it still matches the old identifier; then it follows the new one.
 	Path string
 	// Confirm must equal the current identifier: renaming recreates every container and
 	// rewrites the database name, so it is not something to trigger by accident.
@@ -444,7 +444,7 @@ func (m *Manager) moveVolumes(ctx context.Context, proj store.Project, oldPlan, 
 }
 
 // copyVolume creates the target volume and copies the source into it with a throw-away
-// container from the project's own web image - the one image every project has, and small
+// container from the project's own web image, the one image every project has, and small
 // enough that nothing is pulled. It runs as root so ownership survives the copy.
 func (m *Manager) copyVolume(ctx context.Context, proj store.Project, image, from, to string, labels map[string]string) error {
 	if err := m.engine.CreateVolume(ctx, to, labels); err != nil {
