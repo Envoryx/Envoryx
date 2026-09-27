@@ -1802,9 +1802,11 @@ envoryx login --url https://envoryx.example.com --token "$ENVORYX_TOKEN"
 `login` checks the token against the server before writing
 `~/.config/envoryx/cli.json` (mode 0600; `ENVORYX_CLI_CONFIG` points somewhere
 else). `--token -` reads it from stdin, which is what a provisioning script
-wants. `envoryx whoami` shows whose token it is and what it may do, `envoryx
-logout` forgets it again (the token itself is revoked under *Settings → Access → API tokens & MCP*). Without a stored configuration, `ENVORYX_URL` and `ENVORYX_TOKEN`
-work just as well, which is handy in CI, where nothing should be written to disk.
+wants. `envoryx whoami` shows whose token it is and what it may do, and
+`envoryx logout` forgets it again (the token itself is revoked under
+*Settings → Access → API tokens & MCP*). Without a stored configuration, `ENVORYX_URL`
+and `ENVORYX_TOKEN` work just as well, which is handy in CI, where nothing should be
+written to disk.
 
 ### What it can do
 
