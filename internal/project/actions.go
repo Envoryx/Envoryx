@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/envoryx/envoryx/internal/audit"
 	"github.com/envoryx/envoryx/internal/docker"
@@ -110,6 +111,29 @@ var actionCatalog = []Action{
 	{ID: "rails:assets-precompile", Group: "Rails", Label: "rails assets:precompile", Description: "Build the assets into public/assets - what production mode serves", Service: store.ServiceRuby, Cmd: []string{"bin/rails", "assets:precompile"}, Requires: []string{"bin/rails"}},
 	{ID: "rails:tmp-clear", Group: "Rails", Label: "rails tmp:clear", Description: "Clear the cache, sockets and screenshot files in tmp/", Service: store.ServiceRuby, Cmd: []string{"bin/rails", "tmp:clear"}, Requires: []string{"bin/rails"}},
 	{ID: "rails:about", Group: "Rails", Label: "rails about", Description: "Show the versions of Ruby, Rails and the database adapter", Service: store.ServiceRuby, Cmd: []string{"bin/rails", "about"}, Requires: []string{"bin/rails"}},
+
+	// Maven and Gradle run through the project's wrapper when it has one (see mavenCmd).
+	{ID: "java:version", Group: "Java", Label: "java -version", Description: "Show the JDK version", Service: store.ServiceJava, Cmd: []string{"java", "-version"}},
+	{ID: "maven:package", Group: "Maven", Label: "mvn package", Description: "Compile and package the project, without running the tests", Service: store.ServiceJava, Cmd: mavenCmd("-DskipTests", "package"), Requires: []string{"pom.xml"}},
+	{ID: "maven:clean", Group: "Maven", Label: "mvn clean", Description: "Delete target/", Service: store.ServiceJava, Cmd: mavenCmd("clean"), Requires: []string{"pom.xml"}},
+	{ID: "maven:dependency-tree", Group: "Maven", Label: "mvn dependency:tree", Description: "Show the resolved dependencies", Service: store.ServiceJava, Cmd: mavenCmd("dependency:tree"), Requires: []string{"pom.xml"}},
+	{ID: "maven:dependency-updates", Group: "Maven", Label: "mvn versions:display-dependency-updates", Description: "List the dependencies with newer versions", Service: store.ServiceJava, Cmd: mavenCmd("versions:display-dependency-updates"), Requires: []string{"pom.xml"}},
+	{ID: "gradle:build", Group: "Gradle", Label: "gradle build", Description: "Compile and assemble the project, without running the tests", Service: store.ServiceJava, Cmd: gradleCmd("-x", "test", "build"), Requires: []string{"build.gradle|build.gradle.kts"}},
+	{ID: "gradle:clean", Group: "Gradle", Label: "gradle clean", Description: "Delete build/", Service: store.ServiceJava, Cmd: gradleCmd("clean"), Requires: []string{"build.gradle|build.gradle.kts"}},
+	{ID: "gradle:dependencies", Group: "Gradle", Label: "gradle dependencies", Description: "Show the resolved dependencies", Service: store.ServiceJava, Cmd: gradleCmd("dependencies"), Requires: []string{"build.gradle|build.gradle.kts"}},
+	{ID: "gradle:tasks", Group: "Gradle", Label: "gradle tasks", Description: "List the tasks the build offers", Service: store.ServiceJava, Cmd: gradleCmd("tasks"), Requires: []string{"build.gradle|build.gradle.kts"}},
+}
+
+// mavenCmd runs Maven through the project's wrapper (mvnw) when there is one, else the
+// image's mvn, in batch mode. The goals are constants of the catalogue.
+func mavenCmd(goals ...string) []string {
+	return append([]string{"sh", "-c", `mvn=mvn; [ -x ./mvnw ] && mvn=./mvnw; exec $mvn -B "$@"`, "envoryx-mvn"}, goals...)
+}
+
+// gradleCmd runs Gradle through the project's wrapper (gradlew) when there is one, else
+// the image's gradle, without leaving a daemon behind in the action's exec.
+func gradleCmd(tasks ...string) []string {
+	return append([]string{"sh", "-c", `gradle=gradle; [ -x ./gradlew ] && gradle=./gradlew; exec $gradle --no-daemon "$@"`, "envoryx-gradle"}, tasks...)
 }
 
 // The installers of the CMS templates, run once the database is up. They read the
@@ -179,9 +203,18 @@ func (m *Manager) ListActions(ctx context.Context, id string) ([]ActionInfo, err
 		case !running[a.Service]:
 			info.Available, info.Reason = false, fmt.Sprintf("%s container is not running", a.Service)
 		default:
+			// An entry may name alternatives ("build.gradle|build.gradle.kts"); one of
+			// them is enough.
 			for _, f := range a.Requires {
-				if _, err := os.Stat(filepath.Join(dir, filepath.FromSlash(f))); err != nil {
-					info.Available, info.Reason = false, f+" not found in project"
+				found := false
+				for _, alt := range strings.Split(f, "|") {
+					if _, err := os.Stat(filepath.Join(dir, filepath.FromSlash(alt))); err == nil {
+						found = true
+						break
+					}
+				}
+				if !found {
+					info.Available, info.Reason = false, strings.ReplaceAll(f, "|", " or ")+" not found in project"
 					break
 				}
 			}

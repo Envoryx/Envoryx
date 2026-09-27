@@ -14,7 +14,8 @@ import (
 // Framework is what the site was recognised as.
 type Framework struct {
 	// ID is wordpress, laravel, symfony, drupal, typo3, joomla, shopware, craft, composer
-	// (another Composer application), php (plain PHP), static, node, python, go or ruby.
+	// (another Composer application), php (plain PHP), static, node, python, go, ruby or
+	// java.
 	ID      string `json:"id"`
 	Name    string `json:"name"`
 	Version string `json:"version,omitempty"`
@@ -54,7 +55,7 @@ type Analysis struct {
 	Bytes int64  `json:"bytes"`
 
 	Framework Framework `json:"framework"`
-	// Runtime is php, static, node, python, go or ruby.
+	// Runtime is php, static, node, python, go, ruby or java.
 	Runtime       string   `json:"runtime"`
 	PHPVersion    string   `json:"phpVersion,omitempty"`
 	PHPExtensions []string `json:"phpExtensions,omitempty"`
@@ -83,6 +84,7 @@ type Options struct {
 // Files kept in memory while walking, by base name (small ones only).
 var interesting = map[string]bool{
 	"composer.json": true, "package.json": true, ".env": true, ".htaccess": true,
+	"pom.xml": true, "build.gradle": true, "build.gradle.kts": true,
 	"wp-config.php": true, "version.php": true, "settings.php": true, "configuration.php": true,
 	"Drupal.php": true, "bootstrap.inc": true, "Typo3Version.php": true, "Version.php": true,
 	"LocalConfiguration.php": true, "requirements.txt": true, "pyproject.toml": true,
@@ -434,6 +436,19 @@ func (a *Analysis) detect(s site, comp *composerJSON) {
 			a.Framework.Name = "Rails"
 		}
 		a.Runtime = "ruby"
+		return
+
+	case s.has("pom.xml") || s.has("build.gradle") || s.has("build.gradle.kts"):
+		// Before package.json, too: Spring and Quarkus projects often build a frontend.
+		a.Framework = Framework{ID: "java", Name: "Java"}
+		build := string(s.read("pom.xml")) + string(s.read("build.gradle")) + string(s.read("build.gradle.kts"))
+		switch {
+		case strings.Contains(build, "spring-boot"):
+			a.Framework.Name = "Spring Boot"
+		case strings.Contains(build, "quarkus"):
+			a.Framework.Name = "Quarkus"
+		}
+		a.Runtime = "java"
 		return
 
 	case s.has("package.json"):

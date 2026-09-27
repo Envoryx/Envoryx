@@ -271,6 +271,25 @@ func (m *Manager) buildProject(req CreateRequest) (store.Project, error) {
 					}
 				}
 			}
+		case "java":
+			if req.Java == nil {
+				return store.Project{}, fmt.Errorf("%w: template %s needs Java", validate.ErrInvalid, tpl.ID)
+			}
+			if tpl.Java != nil {
+				// Same merge as for Ruby: the template's preset and port win where the
+				// request left them empty; a request without server settings takes the
+				// template's Server flag.
+				c := &req.Java.Config
+				if c.Preset == "" && c.Port == 0 {
+					c.Server = tpl.Java.Server
+				}
+				if c.Preset == "" {
+					c.Preset = tpl.Java.Preset
+					if c.Port == 0 {
+						c.Port = tpl.Java.Port
+					}
+				}
+			}
 		default: // "php"
 			if req.PHP == nil {
 				return store.Project{}, fmt.Errorf("%w: template %s needs PHP", validate.ErrInvalid, tpl.ID)
@@ -504,6 +523,23 @@ func (m *Manager) buildProject(req CreateRequest) (store.Project, error) {
 			Kind: store.ServiceRuby, Variant: "ruby", Version: v.Version, Image: v.Image, Enabled: true, Position: 12, Config: raw,
 		})
 	}
+	if req.Java != nil {
+		v, err := m.catalog.Resolve("java", req.Java.Version)
+		if err != nil {
+			return store.Project{}, err
+		}
+		cfg := req.Java.Config
+		if err := cfg.Normalize(); err != nil {
+			return store.Project{}, err
+		}
+		raw, err := json.Marshal(cfg)
+		if err != nil {
+			return store.Project{}, err
+		}
+		proj.Services = append(proj.Services, store.ProjectService{
+			Kind: store.ServiceJava, Variant: "java", Version: v.Version, Image: v.Image, Enabled: true, Position: 12, Config: raw,
+		})
+	}
 	if req.Git != nil {
 		g, err := buildGitConfig(*req.Git, store.GitConfig{})
 		if err != nil {
@@ -716,6 +752,9 @@ func (m *Manager) Preview(ctx context.Context, req CreateRequest) (Preview, erro
 	if cfg, ok := rubyServesApp(proj); ok && req.Template == "" && (req.Git == nil || req.Git.URL == "") {
 		pv.Warnings = append(pv.Warnings, fmt.Sprintf("the server runs %q but nothing creates the application - pick a Ruby template, clone a repository or scaffold from the Ruby terminal; until then the container waits", strings.Join(cfg.Command(), " ")))
 	}
+	if cfg, ok := javaServesApp(proj); ok && req.Template == "" && (req.Git == nil || req.Git.URL == "") {
+		pv.Warnings = append(pv.Warnings, fmt.Sprintf("the %s server waits for a pom.xml or build.gradle but nothing creates one - pick a Java template, clone a repository or scaffold from the Java terminal; until then the container waits", cfg.Preset))
+	}
 	// Surface name/path conflicts early so the wizard can react before submitting.
 	if projects, err := m.store.Projects.List(ctx); err == nil {
 		for _, p := range projects {
@@ -823,6 +862,17 @@ func (m *Manager) collectUsedPorts(ctx context.Context, used map[int]bool) error
 		}
 		if svc := p.Service(store.ServiceRuby); svc != nil {
 			var cfg runtime.RubyConfig
+			if json.Unmarshal(svc.Config, &cfg) == nil {
+				if cfg.HostPort > 0 {
+					used[cfg.HostPort] = true
+				}
+				if cfg.DebugHostPort > 0 {
+					used[cfg.DebugHostPort] = true
+				}
+			}
+		}
+		if svc := p.Service(store.ServiceJava); svc != nil {
+			var cfg runtime.JavaConfig
 			if json.Unmarshal(svc.Config, &cfg) == nil {
 				if cfg.HostPort > 0 {
 					used[cfg.HostPort] = true
@@ -999,11 +1049,23 @@ func (m *Manager) assignServicePorts(ctx context.Context, proj *store.Project, r
 			}
 		}
 	}
+	if req.Java != nil {
+		if req.Java.Config.Server {
+			if err := assign(store.ServiceJava); err != nil {
+				return err
+			}
+		}
+		if req.Java.Config.Debug {
+			if err := m.assignDebugPort(ctx, proj, store.ServiceJava, &taken); err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }
 
-// assignDebugPort publishes the Node inspector, Python's debugpy, Go's Delve or Ruby's
-// rdbg on a host port of its own.
+// assignDebugPort publishes the Node inspector, Python's debugpy, Go's Delve, Ruby's rdbg
+// or Java's JDWP agent on a host port of its own.
 func (m *Manager) assignDebugPort(ctx context.Context, proj *store.Project, kind store.ServiceKind, taken *[]int) error {
 	svc := proj.Service(kind)
 	if svc == nil {
@@ -1032,6 +1094,13 @@ func (m *Manager) assignDebugPort(ctx context.Context, proj *store.Project, kind
 		raw, err = json.Marshal(cfg)
 	case store.ServiceRuby:
 		var cfg runtime.RubyConfig
+		if err := json.Unmarshal(svc.Config, &cfg); err != nil {
+			return err
+		}
+		cfg.DebugHostPort = port
+		raw, err = json.Marshal(cfg)
+	case store.ServiceJava:
+		var cfg runtime.JavaConfig
 		if err := json.Unmarshal(svc.Config, &cfg); err != nil {
 			return err
 		}
@@ -1086,6 +1155,21 @@ func setHostPort(svc *store.ProjectService, port int) error {
 	}
 	if svc.Kind == store.ServiceRuby {
 		var cfg runtime.RubyConfig
+		if len(svc.Config) > 0 {
+			if err := json.Unmarshal(svc.Config, &cfg); err != nil {
+				return err
+			}
+		}
+		cfg.HostPort = port
+		raw, err := json.Marshal(cfg)
+		if err != nil {
+			return err
+		}
+		svc.Config = raw
+		return nil
+	}
+	if svc.Kind == store.ServiceJava {
+		var cfg runtime.JavaConfig
 		if len(svc.Config) > 0 {
 			if err := json.Unmarshal(svc.Config, &cfg); err != nil {
 				return err
@@ -1165,6 +1249,8 @@ func (m *Manager) resolveImages(p *store.Project) {
 			key = "go"
 		case store.ServiceRuby:
 			key = "ruby"
+		case store.ServiceJava:
+			key = "java"
 		case store.ServiceRedis, store.ServiceMemcached, store.ServiceMailpit, store.ServiceRabbitMQ, store.ServiceMeilisearch, store.ServiceTypesense, store.ServiceOpenSearch, store.ServiceOpenSearchDashboards, store.ServiceOllama:
 			key = string(svc.Kind)
 		case store.ServiceWeb, store.ServiceDatabase, store.ServiceStorage:
