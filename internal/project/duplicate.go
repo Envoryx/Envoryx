@@ -53,6 +53,11 @@ type DuplicateRequest struct {
 	Git     bool
 	// Start starts the copy when it is ready.
 	Start bool
+
+	// A branch environment (see branches.go) is a copy with an identifier of its own, the
+	// original as its parent and the copied files switched to branch.
+	slug   string
+	branch string
 }
 
 // databaseReadyTimeout bounds the wait for a freshly created database container: it
@@ -190,6 +195,12 @@ func (m *Manager) duplicate(ctx context.Context, id string, req DuplicateRequest
 			return fail("copy project files", err)
 		}
 	}
+	if req.branch != "" {
+		step(ctx, "Switching to the branch {{branch}}", "branch", req.branch)
+		if err := m.checkoutBranch(ctx, proj, req.branch); err != nil {
+			return fail("switch to the branch", err)
+		}
+	}
 	step(ctx, "Writing the configuration")
 	if err := writePlanFiles(plan); err != nil {
 		return fail("write configuration", err)
@@ -245,6 +256,9 @@ func duplicateProject(src store.Project, req DuplicateRequest) (store.Project, e
 		return store.Project{}, err
 	}
 	slug := validate.Slugify(req.Name)
+	if req.slug != "" {
+		slug = req.slug
+	}
 	if err := validate.Slug(slug); err != nil {
 		return store.Project{}, fmt.Errorf("%w: project name %q does not yield a usable identifier", validate.ErrInvalid, req.Name)
 	}
@@ -279,6 +293,9 @@ func duplicateProject(src store.Project, req DuplicateRequest) (store.Project, e
 	}
 	if req.Git {
 		dst.Git = src.Git
+	}
+	if req.branch != "" {
+		dst.ParentID, dst.Git.Branch = src.ID, req.branch
 	}
 	for _, s := range src.Services {
 		config := slices.Clone(s.Config)

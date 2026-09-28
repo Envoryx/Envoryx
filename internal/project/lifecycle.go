@@ -343,6 +343,9 @@ func (m *Manager) pullProgress(ctx context.Context, slug, image string) docker.P
 
 // Start brings all project containers up, recreating missing ones from the plan.
 func (m *Manager) Start(ctx context.Context, id string) (View, error) {
+	// A start counts as a visit, so a branch environment the idle stop halted is not
+	// stopped again on the scheduler's next pass.
+	m.touch(id)
 	return m.transition(ctx, id, limitProvision, "start", audit.ActionProjectStarted, func(ctx context.Context, proj store.Project, plan Plan) error {
 		return m.startPlan(ctx, proj, plan)
 	}, store.DesiredRunning)
@@ -1655,6 +1658,17 @@ func (m *Manager) delete(ctx context.Context, id string, opts DeleteOptions) err
 	}
 	if opts.Confirm != proj.Slug {
 		return fmt.Errorf("%w: confirmation must equal the project identifier %q", validate.ErrInvalid, proj.Slug)
+	}
+	// The branch environments are copies with a life of their own (files, database);
+	// they go first, deliberately.
+	if kids, err := m.children(ctx, id); err != nil {
+		return err
+	} else if len(kids) > 0 {
+		names := make([]string, len(kids))
+		for i, k := range kids {
+			names[i] = k.Slug
+		}
+		return fmt.Errorf("%w: %s still has branch environments (%s); delete them first", ErrConflict, proj.Name, strings.Join(names, ", "))
 	}
 	m.cancelOllamaPulls(proj.ID)
 	// Refuse before touching anything: a foreign container on a project network (e.g.

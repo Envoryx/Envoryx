@@ -50,6 +50,10 @@ Projects:
                                         --since/--grep/--level filter, -o FILE saves all
   project exec <project> -- <cmd…>      run a command in a container
   project run <project> [action]        run a catalogue action (composer install …)
+  project branches <project>            its branch environments with their deploy state
+  project branch <project> <branch>     a branch environment: a copy on that branch
+  project deploy <environment>          pull a branch environment and run the deploy
+                                        commands (--no-pull runs only the commands)
 
 Backups:
   backup list <project>
@@ -476,6 +480,13 @@ type projectSummary struct {
 		URL    string `json:"url"`
 		Branch string `json:"branch"`
 	} `json:"git"`
+	ParentID    string `json:"parentId"`
+	BranchState *struct {
+		Commit       string    `json:"commit"`
+		DeployStatus string    `json:"deployStatus"`
+		DeployedAt   time.Time `json:"deployedAt"`
+		DeployOutput string    `json:"deployOutput"`
+	} `json:"branchState"`
 	Limits struct {
 		App      limitSet `json:"app"`
 		Services limitSet `json:"services"`

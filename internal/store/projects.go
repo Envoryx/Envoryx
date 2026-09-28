@@ -12,15 +12,15 @@ import (
 // Projects is the repository for projects, their services and environment variables.
 type Projects struct{ db *sql.DB }
 
-const projectColumns = `id, name, slug, path, docroot, desired_state, http_port, lifecycle, last_error, git_url, git_branch, git_username, git_token, backup_schedule, backup_hour, backup_weekday, backup_keep, backup_include_deps, backup_last_run, ide_gateway, limits, health_check, proxy_rules, created_at, updated_at`
+const projectColumns = `id, name, slug, path, docroot, desired_state, http_port, lifecycle, last_error, git_url, git_branch, git_username, git_token, backup_schedule, backup_hour, backup_weekday, backup_keep, backup_include_deps, backup_last_run, ide_gateway, limits, health_check, proxy_rules, parent_id, branch_settings, branch_state, created_at, updated_at`
 
 func scanProject(row interface{ Scan(...any) error }) (Project, error) {
 	var p Project
 	var port sql.NullInt64
-	var created, updated, desired, lifecycle, lastRun, limits, health, rules string
+	var created, updated, desired, lifecycle, lastRun, limits, health, rules, branches, branchState string
 	var includeDeps, gateway int
 	if err := row.Scan(&p.ID, &p.Name, &p.Slug, &p.Path, &p.Docroot, &desired, &port, &lifecycle, &p.LastError, &p.Git.URL, &p.Git.Branch, &p.Git.Username, &p.Git.Token,
-		&p.Backup.Schedule, &p.Backup.Hour, &p.Backup.Weekday, &p.Backup.Keep, &includeDeps, &lastRun, &gateway, &limits, &health, &rules, &created, &updated); err != nil {
+		&p.Backup.Schedule, &p.Backup.Hour, &p.Backup.Weekday, &p.Backup.Keep, &includeDeps, &lastRun, &gateway, &limits, &health, &rules, &p.ParentID, &branches, &branchState, &created, &updated); err != nil {
 		return Project{}, err
 	}
 	p.Backup.IncludeDependencies = includeDeps == 1
@@ -33,6 +33,12 @@ func scanProject(row interface{ Scan(...any) error }) (Project, error) {
 	}
 	if rules != "" {
 		_ = json.Unmarshal([]byte(rules), &p.ProxyRules)
+	}
+	if branches != "" {
+		_ = json.Unmarshal([]byte(branches), &p.Branches)
+	}
+	if branchState != "" {
+		_ = json.Unmarshal([]byte(branchState), &p.BranchState)
 	}
 	if lastRun != "" {
 		p.Backup.LastRun = parseTime(lastRun)
@@ -74,10 +80,11 @@ func (r *Projects) Create(ctx context.Context, p *Project) error {
 	if p.Backup.Hour == 0 && p.Backup.Schedule == "" {
 		p.Backup.Hour = 3
 	}
-	_, err = tx.ExecContext(ctx, `INSERT INTO projects (`+projectColumns+`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+	_, err = tx.ExecContext(ctx, `INSERT INTO projects (`+projectColumns+`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		p.ID, p.Name, p.Slug, p.Path, p.Docroot, string(p.DesiredState), port, string(p.Lifecycle), p.LastError,
 		p.Git.URL, p.Git.Branch, p.Git.Username, p.Git.Token,
 		p.Backup.Schedule, p.Backup.Hour, p.Backup.Weekday, p.Backup.Keep, boolInt(p.Backup.IncludeDependencies), "", boolInt(p.IDEGateway), p.Limits.encode(), p.HealthCheck.encode(), p.ProxyRules.encode(),
+		p.ParentID, p.Branches.encode(), p.BranchState.encode(),
 		formatTime(p.CreatedAt), formatTime(p.UpdatedAt))
 	if err != nil {
 		if isUniqueViolation(err) {
@@ -335,6 +342,31 @@ func (r *Projects) SetProxyRules(ctx context.Context, id string, rules ProxyRule
 	res, err := r.db.ExecContext(ctx, `UPDATE projects SET proxy_rules = ?, updated_at = ? WHERE id = ?`, rules.encode(), formatTime(now()), id)
 	if err != nil {
 		return fmt.Errorf("set proxy rules: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// SetBranchSettings stores a project's rules for its branch environments.
+func (r *Projects) SetBranchSettings(ctx context.Context, id string, b BranchSettings) error {
+	res, err := r.db.ExecContext(ctx, `UPDATE projects SET branch_settings = ?, updated_at = ? WHERE id = ?`, b.encode(), formatTime(now()), id)
+	if err != nil {
+		return fmt.Errorf("set branch settings: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// SetBranchState stores a branch environment's deploy state. It leaves updated_at alone:
+// the state changes with every deploy and access, which is not an edit of the project.
+func (r *Projects) SetBranchState(ctx context.Context, id string, s BranchState) error {
+	res, err := r.db.ExecContext(ctx, `UPDATE projects SET branch_state = ? WHERE id = ?`, s.encode(), id)
+	if err != nil {
+		return fmt.Errorf("set branch state: %w", err)
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
 		return ErrNotFound

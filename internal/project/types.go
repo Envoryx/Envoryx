@@ -67,6 +67,8 @@ type CreateRequest struct {
 	// HealthCheck asks the application over HTTP whether it works; an empty Path means
 	// no check.
 	HealthCheck store.HealthCheck
+	// Branches are the rules for the project's branch environments.
+	Branches store.BranchSettings
 }
 
 // PHPRequest selects the PHP runtime.

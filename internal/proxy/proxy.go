@@ -123,6 +123,10 @@ type Handler struct {
 	mu      sync.Mutex
 	proxies map[string]*httputil.ReverseProxy
 	creds   credentialCache
+
+	// OnVisit, when set, is told about every request that reaches a running project;
+	// the idle stop of branch environments counts from the last one.
+	OnVisit func(projectID string)
 }
 
 // NewHandler creates the proxy handler.
@@ -195,6 +199,9 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.errorPage(w, http.StatusServiceUnavailable, target.ProjectName+" is stopped",
 			fmt.Sprintf("The project <strong>%s</strong> is not running. Start it in Envoryx.", html.EscapeString(target.ProjectName)), table.EnvoryxURL)
 		return
+	}
+	if h.OnVisit != nil {
+		h.OnVisit(target.ProjectID)
 	}
 	h.proxyFor(target.Dial).ServeHTTP(w, r)
 }

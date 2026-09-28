@@ -107,6 +107,11 @@ type projectDTO struct {
 	// for static sites.
 	Serves     string `json:"serves"`
 	AppService string `json:"appService,omitempty"`
+	// ParentID names the project a branch environment was made from, BranchState its
+	// deploy state; Branches are a parent's settings for its environments (absent: none).
+	ParentID    string                `json:"parentId,omitempty"`
+	BranchState *store.BranchState    `json:"branchState,omitempty"`
+	Branches    *store.BranchSettings `json:"branches,omitempty"`
 }
 
 type gitDTO struct {
@@ -169,6 +174,12 @@ func toProject(v project.View) projectDTO {
 	}
 	if kind, ok := project.AppKind(p); ok {
 		dto.AppService = string(kind)
+	}
+	if p.ParentID != "" {
+		dto.ParentID, dto.BranchState = p.ParentID, &p.BranchState
+	}
+	if !p.Branches.Empty() {
+		dto.Branches = &p.Branches
 	}
 	for _, s := range p.Services {
 		dto.Services = append(dto.Services, serviceDTO{Kind: string(s.Kind), Variant: s.Variant, Version: s.Version, Image: s.Image, Enabled: s.Enabled, Config: redactedConfig(s)})

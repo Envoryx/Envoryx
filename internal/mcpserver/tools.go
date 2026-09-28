@@ -162,6 +162,9 @@ func (s *Server) registerTools() {
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("get_project", "Get project", "Details and live status of one project.")), s.getProject)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("list_runtimes", "List runtimes", "Available runtimes (PHP, Node.js, Python, Go, Ruby, Java, .NET, web servers), database engines, services, PHP extension keys and templates for create_project.")), s.listRuntimes)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeAdmin, mutating("create_project", "Create project", "Create a new development environment (web server plus PHP, Python, Go, Ruby, Java, .NET and/or Node.js, optional database, Redis, Memcached, Mailpit, RabbitMQ, Meilisearch, Typesense, OpenSearch, Ollama, object storage, git clone or template). Returns the project including its URL.", false)), s.createProject)
+	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("list_branch_environments", "List branch environments", "The branch environments of a project (copies of it on other branches of its repository) with their branch, deployed commit and the outcome of the last deploy.")), s.listBranchEnvironments)
+	mcp.AddTool(s.mcp, s.tool(auth.ScopeAdmin, mutating("create_branch_environment", "Create branch environment", "Create a branch environment: a started copy of the project (files, database, bucket, workers) switched to a branch of its repository and deployed with the project's deploy commands. It gets its own URL (<project>-<branch>).", false)), s.createBranchEnvironment)
+	mcp.AddTool(s.mcp, s.tool(auth.ScopeOperate, mutating("deploy_branch_environment", "Deploy branch environment", "Pull a branch environment's branch (fast forward only) and run the parent project's deploy commands in its application container. Returns the status and output.", false)), s.deployBranchEnvironment)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeAdmin, mutating("duplicate_project", "Duplicate project", "Copy an existing project (shop → shop-test): configuration, environment, workers and git binding, optionally the files, the database contents and the objects of the bucket. The copy gets its own directory, host ports and containers and keeps the original's database credentials. Extra domains and the backup schedule are not copied.", false)), s.duplicateProject)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeAdmin, mutating("rename_project", "Rename project", "Rename a project and everything derived from its identifier: URL and host names, container, network and volume names, the project directory, the backups and - unless keepDataNames is set - the database, its login and the bucket. The containers are recreated, so the project is briefly unavailable; confirm must be the current identifier.", false)), s.renameProject)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeOperate, mutating("start_project", "Start project", "Start all containers of a project.", true)), s.startProject)
@@ -482,6 +485,100 @@ func (s *Server) duplicateProject(ctx context.Context, _ *mcp.CallToolRequest, i
 		return r, projectOut{}, nil
 	}
 	return nil, s.projectOut(ctx, v), nil
+}
+
+type branchEnvOut struct {
+	Project      projectOut `json:"project"`
+	Branch       string     `json:"branch"`
+	Commit       string     `json:"commit,omitempty"`
+	DeployStatus string     `json:"deployStatus,omitempty"`
+	DeployedAt   string     `json:"deployedAt,omitempty"`
+	// DeployOutput is the end of the last deploy's output.
+	DeployOutput string `json:"deployOutput,omitempty"`
+}
+
+func (s *Server) branchEnvOut(ctx context.Context, v project.View) branchEnvOut {
+	st := v.Project.BranchState
+	out := branchEnvOut{Project: s.projectOut(ctx, v), Branch: v.Project.Git.Branch, Commit: st.Commit, DeployStatus: st.DeployStatus, DeployOutput: st.DeployOutput}
+	if !st.DeployedAt.IsZero() {
+		out.DeployedAt = st.DeployedAt.Format(time.RFC3339)
+	}
+	if len(out.DeployOutput) > 4000 {
+		out.DeployOutput = "…" + out.DeployOutput[len(out.DeployOutput)-4000:]
+	}
+	return out
+}
+
+type projectIn struct {
+	Project string `json:"project" jsonschema:"Project id, slug or name"`
+}
+
+type listBranchEnvironmentsOut struct {
+	Environments []branchEnvOut `json:"environments"`
+}
+
+func (s *Server) listBranchEnvironments(ctx context.Context, _ *mcp.CallToolRequest, in projectIn) (*mcp.CallToolResult, listBranchEnvironmentsOut, error) {
+	p, err := s.resolve(ctx, in.Project)
+	if err != nil {
+		r, _ := toolErr(err)
+		return r, listBranchEnvironmentsOut{}, nil
+	}
+	views, err := s.d.Projects.BranchEnvironments(ctx, p.Project.ID)
+	if err != nil {
+		r, _ := toolErr(err)
+		return r, listBranchEnvironmentsOut{}, nil
+	}
+	out := listBranchEnvironmentsOut{Environments: []branchEnvOut{}}
+	for _, v := range views {
+		out.Environments = append(out.Environments, s.branchEnvOut(ctx, v))
+	}
+	return nil, out, nil
+}
+
+type createBranchEnvironmentIn struct {
+	Project string `json:"project" jsonschema:"Parent project: id, slug or name. It needs a repository and a git checkout."`
+	Branch  string `json:"branch" jsonschema:"Branch of the repository, e.g. feature/login"`
+}
+
+func (s *Server) createBranchEnvironment(ctx context.Context, _ *mcp.CallToolRequest, in createBranchEnvironmentIn) (*mcp.CallToolResult, branchEnvOut, error) {
+	if p, _ := auth.PrincipalFrom(ctx); p.Restricted() {
+		r, _ := toolErr(fmt.Errorf("%w: this token is limited to particular projects and cannot create new ones", auth.ErrForbidden))
+		return r, branchEnvOut{}, nil
+	}
+	p, err := s.resolve(ctx, in.Project)
+	if err != nil {
+		r, _ := toolErr(err)
+		return r, branchEnvOut{}, nil
+	}
+	v, err := s.d.Projects.CreateBranchEnvironment(ctx, p.Project.ID, strings.TrimSpace(in.Branch))
+	if err != nil {
+		r, _ := toolErr(err)
+		return r, branchEnvOut{}, nil
+	}
+	return nil, s.branchEnvOut(ctx, v), nil
+}
+
+type deployBranchEnvironmentIn struct {
+	Project string `json:"project" jsonschema:"Branch environment: id, slug or name"`
+	Pull    *bool  `json:"pull,omitempty" jsonschema:"Pull the branch first (default true); false only runs the deploy commands."`
+}
+
+func (s *Server) deployBranchEnvironment(ctx context.Context, _ *mcp.CallToolRequest, in deployBranchEnvironmentIn) (*mcp.CallToolResult, branchEnvOut, error) {
+	p, err := s.resolve(ctx, in.Project)
+	if err != nil {
+		r, _ := toolErr(err)
+		return r, branchEnvOut{}, nil
+	}
+	v, err := s.d.Projects.Deploy(ctx, p.Project.ID, in.Pull == nil || *in.Pull)
+	if err != nil {
+		// The failed deploy's output is the useful part of the answer.
+		if cur, gerr := s.d.Projects.Get(ctx, p.Project.ID); gerr == nil && cur.Project.BranchState.DeployOutput != "" {
+			err = fmt.Errorf("%w\n\n%s", err, s.branchEnvOut(ctx, cur).DeployOutput)
+		}
+		r, _ := toolErr(err)
+		return r, branchEnvOut{}, nil
+	}
+	return nil, s.branchEnvOut(ctx, v), nil
 }
 
 type renameProjectIn struct {

@@ -97,8 +97,14 @@ type Project struct {
 	HealthCheck HealthCheck
 	// ProxyRules are the redirects, headers, CORS and access rules of its host names.
 	ProxyRules ProxyRules
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
+	// ParentID names the project a branch environment was made from; empty for every
+	// other project. Branches are the parent's settings for its environments,
+	// BranchState an environment's deploy state.
+	ParentID    string
+	Branches    BranchSettings
+	BranchState BranchState
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
 
 	Services []ProjectService
 	Env      []EnvVar
@@ -264,6 +270,70 @@ func (r ProxyRules) encode() string {
 	}
 	b, _ := json.Marshal(r)
 	return string(b)
+}
+
+// BranchSettings are a project's rules for its branch environments. The zero value
+// watches nothing: environments are then only made and removed by hand.
+type BranchSettings struct {
+	// Watch polls the repository (git ls-remote): a push to an environment's branch is
+	// pulled and deployed, an environment whose branch is gone is deleted, and a new
+	// branch that matches Patterns gets an environment.
+	Watch bool `json:"watch,omitempty"`
+	// Patterns are the branches that get an environment of their own while Watch is on
+	// ("feature/*", path.Match syntax); empty creates none automatically.
+	Patterns []string `json:"patterns,omitempty"`
+	// PollMinutes is how often the repository is asked; 0 means the default.
+	PollMinutes int `json:"pollMinutes,omitempty"`
+	// IdleStopDays stops an environment nobody has opened for that many days; 0 never.
+	IdleStopDays int `json:"idleStopDays,omitempty"`
+	// Deploy are the shell commands run in an environment's application container after
+	// it was created or pulled (composer install, php artisan migrate, npm ci …).
+	Deploy []string `json:"deploy,omitempty"`
+	// MaxEnvironments caps the environments Watch creates; 0 means the default.
+	MaxEnvironments int `json:"maxEnvironments,omitempty"`
+}
+
+// Empty reports whether nothing is configured.
+func (b BranchSettings) Empty() bool {
+	return !b.Watch && len(b.Patterns) == 0 && b.PollMinutes == 0 && b.IdleStopDays == 0 && len(b.Deploy) == 0 && b.MaxEnvironments == 0
+}
+
+func (b BranchSettings) encode() string {
+	if b.Empty() {
+		return ""
+	}
+	j, _ := json.Marshal(b)
+	return string(j)
+}
+
+// Deploy states of a branch environment.
+const (
+	DeployRunning   = "running"
+	DeploySucceeded = "succeeded"
+	DeployFailed    = "failed"
+)
+
+// BranchState is what a branch environment last deployed and when it was last used.
+type BranchState struct {
+	// Commit is the commit the environment was last deployed at.
+	Commit string `json:"commit,omitempty"`
+	// DeployStatus is DeployRunning, DeploySucceeded or DeployFailed; empty before the
+	// first deploy.
+	DeployStatus string    `json:"deployStatus,omitempty"`
+	DeployedAt   time.Time `json:"deployedAt,omitzero"`
+	// DeployOutput is the end of what the last pull and deploy commands printed.
+	DeployOutput string `json:"deployOutput,omitempty"`
+	// LastAccess is the last request through the proxy (or start from the UI); the idle
+	// stop counts from it.
+	LastAccess time.Time `json:"lastAccess,omitzero"`
+}
+
+func (b BranchState) encode() string {
+	if b == (BranchState{}) {
+		return ""
+	}
+	j, _ := json.Marshal(b)
+	return string(j)
 }
 
 // BackupSchedule configures automatic backups of a project.

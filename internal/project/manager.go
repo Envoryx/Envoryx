@@ -37,6 +37,9 @@ type PathsProvider func() (Paths, error)
 
 // Manager owns the project lifecycle.
 type Manager struct {
+	// branches is the branch scheduler's memory (visits, polls, failed branches).
+	branches branchTracker
+
 	store   *store.Store
 	engine  docker.Engine
 	catalog *runtime.Catalog
@@ -346,6 +349,10 @@ func (m *Manager) buildProject(req CreateRequest) (store.Project, error) {
 	if err != nil {
 		return store.Project{}, err
 	}
+	branches, err := normalizeBranchSettings(req.Branches)
+	if err != nil {
+		return store.Project{}, err
+	}
 
 	proj := store.Project{
 		ID:           store.NewID(),
@@ -357,6 +364,7 @@ func (m *Manager) buildProject(req CreateRequest) (store.Project, error) {
 		Lifecycle:    store.LifecycleCreating,
 		Limits:       req.Limits,
 		HealthCheck:  health,
+		Branches:     branches,
 	}
 	if req.Start {
 		proj.DesiredState = store.DesiredRunning
