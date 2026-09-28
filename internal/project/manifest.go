@@ -228,6 +228,11 @@ func exportState(p store.Project, domains []store.Domain, jobs []store.CronJob) 
 			Version: svc.Version, Server: cfg.Server, Mode: cfg.Mode, Preset: cfg.Preset, Project: cfg.Project, DLL: cfg.DLL, Port: cfg.Port,
 		}
 	}
+	for name, c := range mf.CustomImages() {
+		if svc := p.Service(store.ServiceKind(name)); svc != nil {
+			c.Image, c.Dockerfile = svc.Custom.Image, svc.Custom.Dockerfile
+		}
+	}
 	for _, svc := range p.Databases() {
 		var cfg runtime.DatabaseConfig
 		_ = json.Unmarshal(svc.Config, &cfg)
@@ -531,6 +536,23 @@ func (m *Manager) desiredState(mf manifest.Manifest, name string) (store.Project
 	if err != nil {
 		return store.Project{}, nil, err
 	}
+	for name, c := range mf.CustomImages() {
+		svc := p.Service(store.ServiceKind(name))
+		if svc == nil || (c.Image == "" && c.Dockerfile == "") {
+			continue
+		}
+		if c.Image != "" {
+			if err := validateImageRef(c.Image); err != nil {
+				return store.Project{}, nil, fmt.Errorf("%s: %w", name, err)
+			}
+		}
+		if c.Dockerfile != "" {
+			if err := validateDockerfilePath(c.Dockerfile); err != nil {
+				return store.Project{}, nil, fmt.Errorf("%s: %w", name, err)
+			}
+		}
+		svc.Custom = store.CustomImage{Image: c.Image, Dockerfile: c.Dockerfile}
+	}
 	expose := map[store.ServiceKind]bool{}
 	if mf.Database != nil && mf.Database.ExposePort {
 		expose[store.ServiceDatabase] = true
@@ -614,6 +636,8 @@ type manifestOps struct {
 	health *store.HealthCheck
 	// branches are set through SetBranchSettings; nil leaves them unchanged.
 	branches *store.BranchSettings
+	// images are the runtimes whose custom image changes (SetCustomImage).
+	images map[store.ServiceKind]CustomImageRequest
 }
 
 func (o manifestOps) hasUpdate() bool { return !reflect.DeepEqual(o.update, UpdateRequest{}) }
@@ -766,6 +790,24 @@ func (m *Manager) planManifest(ctx context.Context, id string, mf manifest.Manif
 			var cfg runtime.DotnetConfig
 			_ = json.Unmarshal(want.Service(store.ServiceDotnet).Config, &cfg)
 			ops.update.Dotnet = &DotnetUpdate{Enabled: true, Version: wantMf.Dotnet.Version, Config: cfg}
+		}
+	}
+
+	// Custom images go through SetCustomImage (the section change above lists them).
+	for kind := range customImageKinds {
+		w := want.Service(kind)
+		if w == nil {
+			continue
+		}
+		var h store.CustomImage
+		if s := cur.Service(kind); s != nil {
+			h = s.Custom
+		}
+		if h.Image != w.Custom.Image || h.Dockerfile != w.Custom.Dockerfile {
+			if ops.images == nil {
+				ops.images = map[store.ServiceKind]CustomImageRequest{}
+			}
+			ops.images[kind] = CustomImageRequest{Image: w.Custom.Image, Dockerfile: w.Custom.Dockerfile}
 		}
 	}
 
@@ -1188,12 +1230,12 @@ func workerManifest(w store.Worker) manifest.Worker {
 	return mw
 }
 
-func sortedKeys[V any](m map[string]V) []string {
-	keys := make([]string, 0, len(m))
+func sortedKeys[K ~string, V any](m map[K]V) []K {
+	keys := make([]K, 0, len(m))
 	for k := range m {
 		keys = append(keys, k)
 	}
-	sort.Strings(keys)
+	slices.Sort(keys)
 	return keys
 }
 
@@ -1226,6 +1268,11 @@ func (m *Manager) ApplyManifest(ctx context.Context, id string, mf manifest.Mani
 	if ops.databaseAdd != nil || len(ops.databasesAdd) > 0 {
 		if _, err := m.Update(ctx, id, UpdateRequest{Database: ops.databaseAdd, Databases: ops.databasesAdd}); err != nil {
 			return ManifestResult{Plan: plan}, err
+		}
+	}
+	for _, kind := range sortedKeys(ops.images) {
+		if _, err := m.SetCustomImage(ctx, id, kind, ops.images[kind]); err != nil {
+			return ManifestResult{Plan: plan}, fmt.Errorf("%s image: %w", kind, err)
 		}
 	}
 	if ops.limits != nil {

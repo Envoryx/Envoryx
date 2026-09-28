@@ -441,6 +441,35 @@ type ProjectService struct {
 	Enabled   bool
 	Config    json.RawMessage // kind-specific configuration
 	Position  int
+	// Custom replaces the catalogue image of a runtime service; the zero value keeps it.
+	Custom CustomImage
+}
+
+// CustomImage is an image of the user's for a runtime service: a registry reference, or
+// a Dockerfile in the project that Envoryx builds (its directory is the build context).
+type CustomImage struct {
+	Image      string `json:"image,omitempty"`
+	Dockerfile string `json:"dockerfile,omitempty"`
+	// Warnings are what the last check of the image found missing.
+	Warnings []string `json:"warnings,omitempty"`
+	// CheckedImage is the image the warnings belong to (a built tag changes with the
+	// Dockerfile), CheckedAt when it was checked.
+	CheckedImage string    `json:"checkedImage,omitempty"`
+	CheckedAt    time.Time `json:"checkedAt,omitzero"`
+	// BuildOutput is the end of the last build's output, BuildFailed whether it failed.
+	BuildOutput string `json:"buildOutput,omitempty"`
+	BuildFailed bool   `json:"buildFailed,omitempty"`
+}
+
+// Set reports whether a custom image is configured.
+func (c CustomImage) Set() bool { return c.Image != "" || c.Dockerfile != "" }
+
+func (c CustomImage) encode() string {
+	if !c.Set() {
+		return ""
+	}
+	b, _ := json.Marshal(c)
+	return string(b)
 }
 
 // EnvVar is a project environment variable.

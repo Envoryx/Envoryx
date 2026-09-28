@@ -201,6 +201,13 @@ func (m *Manager) duplicate(ctx context.Context, id string, req DuplicateRequest
 			return fail("switch to the branch", err)
 		}
 	}
+	if buildsDockerfile(proj) {
+		// The image of a Dockerfile follows the copy's files (another branch may change it).
+		m.resolveImages(&proj)
+		if plan, err = planner.Plan(proj); err != nil {
+			return fail("plan the copy", err)
+		}
+	}
 	step(ctx, "Writing the configuration")
 	if err := writePlanFiles(plan); err != nil {
 		return fail("write configuration", err)
@@ -315,7 +322,7 @@ func duplicateProject(src store.Project, req DuplicateRequest) (store.Project, e
 		}
 		dst.Services = append(dst.Services, store.ProjectService{
 			Kind: s.Kind, Variant: s.Variant, Version: s.Version, Image: s.Image, Enabled: s.Enabled,
-			Config: config, Position: s.Position,
+			Config: config, Position: s.Position, Custom: s.Custom,
 		})
 	}
 	for _, e := range src.Env {

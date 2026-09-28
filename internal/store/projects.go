@@ -121,9 +121,9 @@ func (r *Projects) Create(ctx context.Context, p *Project) error {
 
 func insertService(ctx context.Context, q querier, s ProjectService) error {
 	_, err := q.ExecContext(ctx,
-		`INSERT INTO project_services (id, project_id, kind, variant, version, image, enabled, config, position)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		s.ID, s.ProjectID, string(s.Kind), s.Variant, s.Version, s.Image, boolInt(s.Enabled), string(s.Config), s.Position)
+		`INSERT INTO project_services (id, project_id, kind, variant, version, image, enabled, config, position, custom_image)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		s.ID, s.ProjectID, string(s.Kind), s.Variant, s.Version, s.Image, boolInt(s.Enabled), string(s.Config), s.Position, s.Custom.encode())
 	if err != nil {
 		if isUniqueViolation(err) {
 			return fmt.Errorf("service %s already exists: %w", s.Kind, ErrConflict)
@@ -190,7 +190,7 @@ func (r *Projects) List(ctx context.Context) ([]Project, error) {
 
 func (r *Projects) loadChildren(ctx context.Context, p *Project) error {
 	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, project_id, kind, variant, version, image, enabled, config, position
+		`SELECT id, project_id, kind, variant, version, image, enabled, config, position, custom_image
 		 FROM project_services WHERE project_id = ? ORDER BY position, kind`, p.ID)
 	if err != nil {
 		return fmt.Errorf("select services: %w", err)
@@ -198,15 +198,18 @@ func (r *Projects) loadChildren(ctx context.Context, p *Project) error {
 	p.Services = nil
 	for rows.Next() {
 		var s ProjectService
-		var kind, cfg string
+		var kind, cfg, custom string
 		var enabled int
-		if err := rows.Scan(&s.ID, &s.ProjectID, &kind, &s.Variant, &s.Version, &s.Image, &enabled, &cfg, &s.Position); err != nil {
+		if err := rows.Scan(&s.ID, &s.ProjectID, &kind, &s.Variant, &s.Version, &s.Image, &enabled, &cfg, &s.Position, &custom); err != nil {
 			_ = rows.Close()
 			return err
 		}
 		s.Kind = ServiceKind(kind)
 		s.Enabled = enabled != 0
 		s.Config = json.RawMessage(cfg)
+		if custom != "" {
+			_ = json.Unmarshal([]byte(custom), &s.Custom)
+		}
 		p.Services = append(p.Services, s)
 	}
 	_ = rows.Close()
@@ -318,6 +321,19 @@ func (r *Projects) SetLimits(ctx context.Context, id string, l ResourceLimits) e
 	res, err := r.db.ExecContext(ctx, `UPDATE projects SET limits = ?, updated_at = ? WHERE id = ?`, l.encode(), formatTime(now()), id)
 	if err != nil {
 		return fmt.Errorf("set limits: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// SetCustomImage stores the custom image of a service; the zero value returns it to the
+// catalogue image.
+func (r *Projects) SetCustomImage(ctx context.Context, projectID string, kind ServiceKind, c CustomImage) error {
+	res, err := r.db.ExecContext(ctx, `UPDATE project_services SET custom_image = ? WHERE project_id = ? AND kind = ?`, c.encode(), projectID, string(kind))
+	if err != nil {
+		return fmt.Errorf("set custom image: %w", err)
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
 		return ErrNotFound

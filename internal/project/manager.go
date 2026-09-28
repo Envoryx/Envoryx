@@ -40,8 +40,10 @@ type Manager struct {
 	// branches is the branch scheduler's memory (visits, polls, failed branches).
 	branches branchTracker
 
-	store   *store.Store
-	engine  docker.Engine
+	store  *store.Store
+	engine docker.Engine
+	// custom holds the build specs and context hashes of custom images (customimages.go).
+	custom  customImages
 	catalog *runtime.Catalog
 	paths   PathsProvider
 	audit   *audit.Logger
@@ -130,7 +132,9 @@ func NewManager(st *store.Store, engine docker.Engine, catalog *runtime.Catalog,
 	if cfg.StopTimeout == 0 {
 		cfg.StopTimeout = 10 * time.Second
 	}
-	return &Manager{store: st, engine: engine, catalog: catalog, paths: paths, audit: auditLog, log: log, cfg: cfg, ops: newOps(), progress: newProgress()}
+	m := &Manager{store: st, engine: engine, catalog: catalog, paths: paths, audit: auditLog, log: log, cfg: cfg, ops: newOps(), progress: newProgress()}
+	engine.SetRegistryCredentials(m.registryCredentials)
+	return m
 }
 
 func (m *Manager) planner() (*Planner, error) {
@@ -1311,33 +1315,14 @@ func setHostPort(svc *store.ProjectService, port int) error {
 func (m *Manager) resolveImages(p *store.Project) {
 	for i := range p.Services {
 		svc := &p.Services[i]
-		key := ""
-		switch svc.Kind {
-		case store.ServicePHP:
-			key = "php"
-		case store.ServiceNode:
-			key = "node"
-		case store.ServicePython:
-			key = "python"
-		case store.ServiceGo:
-			key = "go"
-		case store.ServiceRuby:
-			key = "ruby"
-		case store.ServiceJava:
-			key = "java"
-		case store.ServiceDotnet:
-			key = "dotnet"
-		case store.ServiceRedis, store.ServiceMemcached, store.ServiceMailpit, store.ServiceRabbitMQ, store.ServiceMeilisearch, store.ServiceTypesense, store.ServiceOpenSearch, store.ServiceOpenSearchDashboards, store.ServiceOllama:
-			key = string(svc.Kind)
-		case store.ServiceWeb, store.ServiceDatabase, store.ServiceStorage:
-			key = svc.Variant
-		}
+		key := catalogKey(*svc)
 		if key == "" {
 			continue
 		}
 		if v, err := m.catalog.Resolve(key, svc.Version); err == nil && v.Image != "" {
 			svc.Image = v.Image
 		}
+		m.resolveCustomImage(*p, svc)
 	}
 }
 

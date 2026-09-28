@@ -315,13 +315,14 @@ func Serves(p store.Project) string {
 	return "static"
 }
 
-// toolImage returns the image for one-shot containers (git, templates): the application
-// container's image (PHP, Python, Go, Ruby, Java, .NET or Node; git and ssh ship in every
-// Envoryx image), else the catalogue's default Node image. It fails only when the
+// toolImage returns the image for one-shot containers (git, templates): the catalogue
+// image of the application container (PHP, Python, Go, Ruby, Java, .NET or Node; git and
+// ssh ship in every Envoryx image, even when the project runs a custom one), else the catalogue's default Node image. It fails only when the
 // catalogue has no Node image.
 func (m *Manager) toolImage(p store.Project) (string, error) {
 	if svc := appService(p); svc != nil && svc.Image != "" {
-		return svc.Image, nil
+		// A custom image may lack git, or be built from a Dockerfile not cloned yet.
+		return m.catalogImage(*svc), nil
 	}
 	v, err := m.catalog.Resolve("node", "")
 	if err != nil {

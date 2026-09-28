@@ -51,6 +51,16 @@ type Fake struct {
 	oomWatchers []chan docker.OOMEvent
 	// Remote maps image refs to the id a pull would deliver. Unset refs pull as "<ref>@v1".
 	Remote map[string]string
+	// ImageInfos answers InspectImage per reference; a present image without an entry has
+	// an empty configuration.
+	ImageInfos map[string]docker.ImageInfo
+	// BuildHandler simulates builds: it gets the options and the context tar and may write
+	// output or fail. nil means every build succeeds.
+	BuildHandler func(opts docker.BuildOptions, context []byte) error
+	// Builds records every build (the Context field is drained).
+	Builds []docker.BuildOptions
+	// Credentials is what SetRegistryCredentials installed.
+	Credentials docker.RegistryCredentials
 	// Access is returned by NetworkAccess for any container; the zero value is bridge
 	// networking.
 	Access docker.NetworkAccess
@@ -112,6 +122,7 @@ func New() *Fake {
 		images:     map[string]string{},
 		dangling:   map[string]bool{},
 		Remote:     map[string]string{},
+		ImageInfos: map[string]docker.ImageInfo{},
 		FailCreate: map[string]error{},
 		FailStart:  map[string]error{},
 		FailPull:   map[string]error{},
@@ -1293,6 +1304,64 @@ func (f *Fake) EnsureImage(ctx context.Context, ref string, progress docker.Pull
 	}
 	f.mu.Unlock()
 	return f.PullImage(ctx, ref, progress)
+}
+
+// InspectImage implements docker.Engine.
+func (f *Fake) InspectImage(_ context.Context, ref string) (docker.ImageInfo, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if err := f.check(); err != nil {
+		return docker.ImageInfo{}, err
+	}
+	id, ok := f.resolveImage(ref)
+	if !ok {
+		return docker.ImageInfo{}, docker.ErrNotFound
+	}
+	info := f.ImageInfos[ref]
+	info.ID = id
+	return info, nil
+}
+
+// BuildImage implements docker.Engine.
+func (f *Fake) BuildImage(_ context.Context, opts docker.BuildOptions) error {
+	f.mu.Lock()
+	if err := f.check(); err != nil {
+		f.mu.Unlock()
+		return err
+	}
+	handler := f.BuildHandler
+	f.mu.Unlock()
+	var tarball []byte
+	if opts.Context != nil {
+		b, err := io.ReadAll(opts.Context)
+		if err != nil {
+			return err
+		}
+		tarball = b
+	}
+	if handler != nil {
+		if err := handler(opts, tarball); err != nil {
+			return err
+		}
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	opts.Context = nil
+	f.Builds = append(f.Builds, opts)
+	if old, ok := f.images[opts.Tag]; ok {
+		f.images[opts.Tag] = ""
+		f.dropIfUnreferenced(old, false)
+	}
+	f.images[opts.Tag] = f.nextID("sha256:")
+	f.record("build:" + opts.Tag)
+	return nil
+}
+
+// SetRegistryCredentials implements docker.Engine.
+func (f *Fake) SetRegistryCredentials(creds docker.RegistryCredentials) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.Credentials = creds
 }
 
 // TagImage implements docker.Engine.

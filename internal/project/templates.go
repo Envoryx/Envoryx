@@ -950,7 +950,10 @@ func (m *Manager) applyTemplate(ctx context.Context, proj store.Project, tpl Tem
 	if len(entries) > 0 {
 		return fmt.Errorf("%w: the project directory is not empty; templates need an empty directory", ErrConflict)
 	}
-	if err := m.engine.EnsureImage(ctx, svc.Image, m.pullProgress(ctx, proj.Slug, svc.Image)); err != nil {
+	// The catalogue image: a custom one may lack the scaffolding tools, and a Dockerfile of
+	// the project cannot exist before the project does.
+	image := m.catalogImage(*svc)
+	if err := m.engine.EnsureImage(ctx, image, m.pullProgress(ctx, proj.Slug, image)); err != nil {
 		return err
 	}
 	// The downloads land in the shared package cache, which the project's plan has not
@@ -971,7 +974,7 @@ func (m *Manager) applyTemplate(ctx context.Context, proj store.Project, tpl Tem
 		step(ctx, "Scaffolding the {{template}} template: {{step}}", "template", tpl.Name, "step", ts.label)
 		spec := docker.ContainerSpec{
 			Name:       fmt.Sprintf("envoryx-%s-template-%d-%d", proj.Slug, i, time.Now().UnixNano()%1_000_000),
-			Image:      svc.Image,
+			Image:      image,
 			Labels:     docker.ManagedLabels(proj.ID, proj.Slug, "template", paths.EnvoryxVersion),
 			Env:        env,
 			Cmd:        ts.cmd,
