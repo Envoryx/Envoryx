@@ -155,6 +155,11 @@ Go API (single binary, single container)
   data, not code paths: `runtime.Default()` builds the catalogue, and
   `Catalog.Resolve(key, version)` returns a version with its image reference. The frontend fetches
   `/api/v1/runtimes` and never hard-codes versions.
+- **addon** - addon definitions: `Parse` reads a YAML file strictly (`KnownFields`) and
+  validates it (names, images, ports, volumes, health check, every `{{placeholder}}`),
+  `Render` fills templates, `Registry` keeps the files under `/config/addons` (list with
+  per-file errors, save, delete, fetch from a URL) and `Examples` returns the files embedded
+  from `internal/addon/examples`.
 - **project** - the heart of Envoryx:
   - `Planner` turns a `ProjectSpec` (desired state) into a `ResourcePlan`
     (network, volumes, containers with full Docker specs, config files).
@@ -364,6 +369,9 @@ envoryx.service=<kind>          (containers, volumes)
 envoryx.version=<envoryx version>
 ```
 
+Containers that depend on an addon definition also carry
+`envoryx.addon.definition=<hash>` (see *Addons*).
+
 Images Envoryx builds from a project Dockerfile are the exception: they're labelled
 `envoryx.build=<runtime>` only, as containers inherit image labels (see *Custom runtime
 images*).
@@ -374,14 +382,15 @@ images*).
 network    envoryx-<slug>
 container  envoryx-<slug>-<service>      e.g. envoryx-acme-shop-php
 volume     envoryx-<slug>-<service>      e.g. envoryx-acme-shop-mariadb
+addon      envoryx-<slug>-addon-<name>   container; its volumes add -<volume>
 ```
 
 Slugs match `^[a-z0-9]([a-z0-9-]{0,38}[a-z0-9])?$`, so they're lower-case and DNS-safe.
 
 Inside the project network, containers use network aliases: `web`, `php`,
 `python`, `go`, `ruby`, `java`, `dotnet`, `node`, `database` (plus the flavour, e.g. `mariadb`),
-the name of an additional database, and one per service (`redis`, `mailpit`,
-`rabbitmq`, `s3`, …).
+the name of an additional database, one per service (`redis`, `mailpit`,
+`rabbitmq`, `s3`, …) and one per addon (its `hostname`, else its name).
 
 ### 6.3 Engine interface (internal/docker)
 
@@ -1385,6 +1394,43 @@ image must not look like Envoryx's (orphan clean-up would take it for one of its
 `registries` setting; the engine asks a `RegistryCredentials` callback before every pull
 (base64url `AuthConfig` for the reference's registry host) and build, so changes apply
 without a restart.
+
+### Addons
+`internal/addon` (the format, the registry) and `internal/project/addons.go`. An addon file
+under `/config/addons/<name>.yml` describes one container; a project runs it as the service
+`addon-<name>` (`store.AddonKind`, `ServiceKind.AddonName`/`IsAddon`), whose config is an
+`AddonConfig`: the host port, the generated secrets and a copy of the definition. The copy
+keeps a project working when the file changes or goes; `InstallAddon` refreshes it in every
+project using the addon (definition, image of the version or the new default, secrets for
+newly declared names), and `DeleteAddon` refuses while any project uses it.
+`resolveImages` takes an addon's image from its copy, not the catalogue.
+
+The planner turns the service into a container (`addonContainer`): the templates of `env`
+and `command` rendered with `addonVars` (host, port, web UI URL, project, primary database,
+secrets), the named volumes `envoryx-<slug>-addon-<name>-<volume>`, the health check and
+the host port. `addonEnv` adds the rendered `inject` variables in `envStrings` after
+Envoryx's own and before the project's variables. The route table maps
+`<slug>-<name>.<base>` to the container for addons with a web UI (`dialForApp`, so bare
+metal goes through the host port, which a web UI always gets). Changes go through
+`Update` (`UpdateRequest.Addons`, `applyAddonUpdate`), like the built-in services;
+addon containers are left alone when the application containers are recreated.
+
+Environment is not part of the spec fingerprint (it holds secrets), so a new definition
+wouldn't reach running containers on its own. `labelAddonDefinitions` sets
+`envoryx.addon.definition` to a hash of the definition on the addon's container and to a
+hash of all injected templates on every container whose environment has an injected
+variable; `specFingerprint` includes that label, so the next start recreates exactly
+those containers. Projects without addons keep their fingerprints.
+
+Backups: a database backup not limited to one database archives every addon volume
+without `noBackup` into `addon-<name>-<volume>.tar.gz` (`BackupMeta.AddonVolumes`). The
+addon's container stops for it and starts again; a one-shot `busybox:1.37` container with
+the volume at `/v` streams `tar -czf -` into the file, and a restore empties the volume and
+unpacks the stream the same way. Rename moves addon volumes with the others (they are in
+the plan), a duplicate gets new host ports and empty volumes. `catalogueRepos` counts the
+installed addons' images and busybox as Envoryx's, so unused ones appear under unused images.
+The manifest carries `addons: {name: true | {version, exposePort}}`; logs, log history and
+MCP accept `addon-<name>` as a service.
 
 ### Phase 4 + 8 - Domains, embedded proxy, HTTPS (implemented)
 The proxy lives in the Envoryx binary (`internal/proxy`): two listeners

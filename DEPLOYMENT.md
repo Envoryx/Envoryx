@@ -1859,6 +1859,131 @@ tar and independent of the server's on-disk format. Restoring uploads the object
 again, optionally emptying the bucket first; the storage container must be
 running for both.
 
+## Addons
+
+An addon adds a service Envoryx doesn't have built in, without a new Envoryx version: a
+YAML file describes one container per project - its image and versions, environment,
+data volumes, a port with an optional web UI, a health check, the variables it hands your
+application and the credentials worth showing. Redis, Mailpit, the search engines, Ollama
+and object storage stay built in, with their extra features; addons sit next to them.
+
+**Installing.** Addon files live under `/config/addons/<name>.yml`. Manage them under
+**Settings → Addons** (admins only):
+
+- **New addon** opens an editor with a starting file; **Edit** changes an installed one.
+- **Examples** ships five files to install as they are or to adjust first:
+  - *pgAdmin* (PostgreSQL web UI in desktop mode, no login; the card shows the project
+    database's host, user and password to add it as a server);
+  - *phpMyAdmin* (signed in to the project's MySQL or MariaDB database);
+  - *Elasticsearch* 9 or 8 (one node without security, port publishable,
+    `ELASTICSEARCH_URL`/`_HOST`/`_PORT`);
+  - *Soketi* (Pusher-compatible WebSocket server for Laravel Echo and broadcasting,
+    reached by browsers through its web UI address, `PUSHER_*`);
+  - *Keycloak* 26 (development mode, admin password generated per project,
+    `KEYCLOAK_URL`), handy for trying single sign-on.
+- **Install from a URL** downloads a file over http(s), a raw GitHub link for example.
+
+Every file is checked when it's saved: unknown keys, a name Envoryx uses itself, an image
+that isn't a reference, a placeholder the addon can't fill - each is refused with the
+reason. A file under `/config/addons` that doesn't parse is listed with its error. A file
+can be at most 64 KB.
+
+**What an addon can't do.** The format has no field for privileged mode, capabilities,
+host directories, the host network or devices, and unknown keys are errors, so an addon
+always runs with named volumes on its project's network, like the built-in services.
+
+**The file.**
+
+```yaml
+name: widget                  # 2-30 lower-case letters, digits and dashes; container
+                              # envoryx-<slug>-addon-widget, not a name Envoryx uses itself
+title: Widget                 # shown in the UI (defaults to the name)
+description: What it's for.
+homepage: https://example.com
+versions:                     # at least one; the default (or the first) when none is chosen
+  - version: "2"
+    image: acme/widget:2
+    default: true
+  - version: "1"
+    image: acme/widget:1
+hostname: widget              # name on the project network (defaults to the name)
+port: 8080                    # what it listens on: {{port}}, web UI, host port
+webUI: true                   # https://<slug>-widget.<base domain> through the proxy
+publishPort: true             # offer "Publish the port on the host" (desktop clients)
+command: ["serve", "--name", "{{project.slug}}"]   # replaces the image's command
+user: "1000:1000"             # inside the container
+env:                          # the container's environment
+  WIDGET_PASSWORD: "{{secret.password}}"
+  WIDGET_DB: "{{database.host}}:{{database.port}}"
+  discovery.type: single-node # images that read settings from the environment may use dots
+secrets: [password]           # 24 random characters per project: {{secret.password}}
+volumes:
+  - {name: data, path: /data}
+  - {name: cache, path: /cache, noBackup: true}
+healthcheck:
+  test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/health || exit 1"]
+  interval: 10s               # also timeout, startPeriod (durations up to 1h), retries
+inject:                       # handed to the application containers
+  WIDGET_URL: "http://{{host}}:{{port}}"
+credentials:                  # shown on the project's card
+  - {label: Password, value: "{{secret.password}}", secret: true}
+```
+
+The placeholders every template can use: `{{host}}` and `{{port}}` (the addon inside the
+project network), `{{url}}` (the web UI's address, empty without `webUI`),
+`{{project.slug}}`, `{{project.name}}`, `{{project.url}}`, `{{database.type}}`,
+`{{database.host}}`, `{{database.port}}`, `{{database.name}}`, `{{database.user}}`,
+`{{database.password}}` (the primary database; empty when the project has none) and
+`{{secret.<name>}}` for every declared secret. Names under `env:` may contain lower-case
+letters and dots; names under `inject:` are regular variable names (`[A-Z_][A-Z0-9_]*`).
+The injected variables come after Envoryx's own (an addon can override `DB_HOST`) and
+before the project's variables, which always win. A secret credential is masked until
+revealed, and viewers don't get its value at all.
+
+**In a project.** Installed addons show up at the bottom of the project's **Services**
+tab: *Add <title>* with a version and, when the addon offers it, *Publish the port on the
+host*. Developers can add, change and remove them; installing files takes an admin. Adding
+one creates the container and, if the addon injects variables, recreates the application
+containers with them. The card shows the web UI's address, the internal host and port, the
+host port, the injected variables, the volumes, the image and the credentials. An addon
+with a web UI always gets a host port too, like Mailpit.
+
+**Changing a file.** A project keeps a copy of the definition it runs, with its generated
+secrets. Saving a new version of an installed file updates that copy in every project
+using it (new secrets are generated, existing ones kept; a version the file no longer
+lists becomes the default), and the containers follow at the next start or restart - the
+addon's container, and the application containers when the injected variables changed.
+A file still used by a project can't be deleted (Envoryx names the projects); a project
+whose file is gone keeps running its copy but can't change it. Removing an addon from a
+project deletes its container and, after a confirmation, its volumes.
+
+**Backups.** A database backup (manual, scheduled, before an upgrade) also archives every
+addon volume without `noBackup` as `addon-<name>-<volume>.tar.gz`. The addon's container is
+stopped while its volumes are read, so the archive is consistent, and started again
+afterwards; `busybox:1.37` does the reading (pulled once). Restoring a backup's database
+part empties those volumes and unpacks the archives, for the addons the project still has.
+Snapshots of a single database leave the addon volumes out. A copy of a project gets the
+same addons with the same secrets, new host ports and empty volumes; renaming moves the
+volumes along.
+
+In `envoryx.yml`, installed addons go under `addons:`; the server must have the file:
+
+```yaml
+addons:
+  phpmyadmin: true                         # the default version
+  elasticsearch: {version: "8", exposePort: true}
+```
+
+An addon the file no longer names is removed with `--prune`, together with its volumes.
+
+The API: `GET /addons` (installed files with the projects using them, plus the examples),
+`POST /addons` with `{"source": "<yaml>"}` or `{"url": "https://…"}`, `GET /addons/{name}`
+(with the file) and `DELETE /addons/{name}`, all admin; `GET /projects/{id}/addons` (the
+project's addons and the installed ones it can add) and `PUT /projects/{id}/addons/{name}`
+with `{"enabled": true, "version": "8", "exposePort": true}` or
+`{"enabled": false, "removeData": true}` (developer). The audit log records
+`addon.installed` and `addon.removed`; changes in a project are `project.updated`.
+
 ## Logs
 
 The Logs tab has two views per container. *Live* follows the output as it
@@ -2207,8 +2332,8 @@ ones below it:
 | Scope     | Allows                                                                                                                                                              |
 |-----------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `read`    | Looking: project list and details, status, logs, statistics, backups list, runtimes. No secrets (no database credentials, no deploy key), no changes.               |
-| `operate` | Working with existing projects: start/stop/restart, image rollback, actions (composer, artisan …), creating backups and databases, git, domains, SSH/SFTP, terminal, database browser. Default for new tokens. |
-| `admin`   | Everything an admin may do: creating and deleting projects, settings, TLS, notifications, instance backups, image clean-up, restores, dropping databases.  |
+| `operate` | Working with existing projects: start/stop/restart, image rollback, actions (composer, artisan …), creating backups and databases, git, domains, SSH/SFTP, terminal, database browser, adding installed addons. Default for new tokens. |
+| `admin`   | Everything an admin may do: creating and deleting projects, settings, TLS, notifications, instance backups, image clean-up, restores, dropping databases, installing addons. |
 
 A token can additionally be **limited to particular projects**. It then sees
 only those in listings, every other project answers `403` (REST) or "no project
@@ -2385,7 +2510,7 @@ branches:                        # see "Branch environments"
 `package`, `port`, `debug`, `debugPort`; `server`, `mode`, `preset`, `port`,
 `debug`, `debugPort`; the same plus `jar`; `server`, `mode`, `preset`,
 `project`, `dll`, `port`). Every runtime also takes `image:` or `dockerfile:` (see
-*Custom runtime images*). A setting left out
+*Custom runtime images*); installed addons go under `addons:` (see *Addons*). A setting left out
 means Envoryx's default, so the file is the whole desired state: `web:` missing
 means Caddy, `extensions:` missing the default set. Unknown keys are errors -
 a typo never silently drops a service. The export pins every version, which is
@@ -2402,7 +2527,7 @@ its value.
 Nothing is removed without `--prune`: a service, variable, domain, worker or
 cron job the file no longer has is listed as *kept*. With `--prune` it goes -
 for a database or a service with a volume (Redis, RabbitMQ, the search engines,
-storage) together with its data. Another database `type` counts as such a
+storage, an addon with volumes) together with its data. Another database `type` counts as such a
 removal. A database version lower than the project's is never applied, as the
 data format does not go back.
 
