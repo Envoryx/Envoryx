@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """Keeps internal/runtime/<product>_versions.json in sync with upstream releases.
 
-Usage: check-versions.py php|node|python|go|ruby|java
+Usage: check-versions.py php|node|python|go|ruby|java|dotnet
 
 Sources:
   - https://endoflife.date/api/php.json   release cycles and EOL dates
   - Docker Hub                             which php:<cycle>-fpm / -rc-fpm tags exist
+                                           (.NET: the Microsoft Container Registry)
 
 Rules:
   - a cycle is listed when php:<cycle>-fpm exists (stable) or php:<cycle>-rc-fpm exists (preview)
@@ -40,11 +41,15 @@ PRODUCTS = {
     # between live for six months, not worth an image each.
     "java": {"file": "java_versions.json", "eol_api": "https://endoflife.date/api/eclipse-temurin.json", "hub": "eclipse-temurin", "min": (17,),
              "stable": "{c}-jdk-noble", "preview": None, "base_stable": "{c}-jdk-noble", "base_preview": None, "label": None, "lts_only": True},
+    # .NET: long-term support releases only (8, 10, 12, …), like Java; the SDK images live
+    # on the Microsoft Container Registry, not Docker Hub.
+    "dotnet": {"file": "dotnet_versions.json", "eol_api": "https://endoflife.date/api/dotnet.json", "mcr": "dotnet/sdk", "min": (8,),
+               "stable": "{c}.0-noble", "preview": None, "base_stable": "{c}.0-noble", "base_preview": None, "label": None, "lts_only": True},
 }
 PRODUCT = PRODUCTS[sys.argv[1] if len(sys.argv) > 1 else "php"]
 FILE = Path(__file__).resolve().parent.parent / "internal/runtime" / PRODUCT["file"]
 MIN_VERSION = PRODUCT["min"]
-HUB = f"https://hub.docker.com/v2/repositories/library/{PRODUCT['hub']}/tags/"
+HUB = f"https://hub.docker.com/v2/repositories/library/{PRODUCT.get('hub')}/tags/"
 
 
 def get(url: str):
@@ -53,7 +58,20 @@ def get(url: str):
         return r.status, r.read()
 
 
+MCR_TAGS = None
+
+
 def tag_exists(tag: str) -> bool:
+    global MCR_TAGS
+    if PRODUCT.get("mcr"):
+        # The registry lists every tag in one response; it is read once.
+        if MCR_TAGS is None:
+            try:
+                _, body = get(f"https://mcr.microsoft.com/v2/{PRODUCT['mcr']}/tags/list")
+                MCR_TAGS = set(json.loads(body)["tags"])
+            except Exception:
+                MCR_TAGS = set()
+        return tag in MCR_TAGS
     try:
         status, _ = get(HUB + tag)
         return status == 200
