@@ -364,6 +364,10 @@ envoryx.service=<kind>          (containers, volumes)
 envoryx.version=<envoryx version>
 ```
 
+Images Envoryx builds from a project Dockerfile are the exception: they're labelled
+`envoryx.build=<runtime>` only, as containers inherit image labels (see *Custom runtime
+images*).
+
 ### 6.2 Names
 
 ```
@@ -1344,6 +1348,42 @@ cannot point the server at another file) and applies it with prune (the fresh
 project has no data yet) before it starts. `envoryx up` reads the file
 locally, sends it as text and lets the server clone `origin` at the current
 branch; it never uploads files.
+
+### Custom runtime images
+`internal/project/customimages.go`. A runtime service stores its custom image in
+`project_services.custom_image` (JSON `store.CustomImage`: the reference or the Dockerfile
+path, plus the last check's warnings with the image they belong to and the tail of the
+last build's output). `resolveImages`, which sets every service's image from the catalogue
+on load, then overrides a runtime's image: a reference is used as it is; a Dockerfile
+becomes the tag `envoryx-build/<kind>:<first 16 hex of a SHA-256>` over the Dockerfile's
+name and every directory and regular file of its directory (path, mode, content hash).
+File hashes are cached by path, size and modification time, so resolving on every load
+costs a directory walk. The tag and how to build it are remembered in the Manager; a
+context that can't be read resolves to `envoryx-build/<kind>:unavailable`, whose build
+fails with the reason. Because the tag follows the content, the planner and the
+container spec fingerprint need no special case: a changed context is a changed image.
+
+`ensureImage` replaces `EnsureImage` where the lifecycle makes images available
+(provision, start): an `envoryx-build/` tag that doesn't exist locally is built from its
+spec (context streamed as a tar through the same `os.Root` walk, symlinks left out,
+classic builder, registry logins as `AuthConfigs`), under a per-tag lock so two projects
+don't build the same context at once; anything else is pulled if missing. Restart's
+refresh pulls skip build tags. Git and templates run in the runtime's catalogue image
+(`catalogImage`). A copy (duplicate, branch environment) resolves again after its files
+are in place, as another branch may have another Dockerfile.
+
+The check (`probeImage`) inspects the image (labels, `ENTRYPOINT`) and runs a one-shot
+container with the entrypoint `sh -c` and a script of `command -v` tests for the common
+and per-runtime tools; missing ones become warnings, stored with the checked image so a
+new build hides stale ones. It never blocks the image.
+
+Built images carry `envoryx.build=<kind>` and deliberately not `envoryx.managed`:
+containers inherit their image's labels, and a container someone else starts from such an
+image must not look like Envoryx's (orphan clean-up would take it for one of its own).
+`UnusedImages` counts `envoryx-build/` tags as Envoryx's. Registry logins live in the
+`registries` setting; the engine asks a `RegistryCredentials` callback before every pull
+(base64url `AuthConfig` for the reference's registry host) and build, so changes apply
+without a restart.
 
 ### Phase 4 + 8 - Domains, embedded proxy, HTTPS (implemented)
 The proxy lives in the Envoryx binary (`internal/proxy`): two listeners

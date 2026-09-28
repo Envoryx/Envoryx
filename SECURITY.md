@@ -191,6 +191,16 @@ container on the server.
   (`MYSQL_PWD`), never on a command line, and stripped from error messages before those
   reach logs or the UI.
 
+- Private registry logins (*Settings → Tools*) are stored like the other secrets: in the
+  SQLite database under `/config`, not encrypted, write-only through the API (`hasPassword`
+  is all that comes back). They go to the Docker daemon with each pull and build, never
+  into a container, a command line or a log.
+- A custom runtime image runs with the same mounts and network as the Envoryx image it
+  replaces, so it reaches nothing the runtime couldn't; only admins can set one. The
+  build context of a project Dockerfile is read through an `os.Root` of the Dockerfile's
+  directory and symbolic links are left out, so a repository can't send files from outside
+  that directory (or the host) to the build.
+
 ## Backups
 
 Backups contain the full project export, including database credentials and git tokens

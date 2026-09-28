@@ -115,7 +115,10 @@ and/or a Node.js container. Your files are bind-mounted from `/projects/<name>` 
   points at the project database. There's no debug port: VS Code starts `netcoredbg` in the
   container over SSH, Rider attaches over SSH.
 
-Each runtime's version is selectable, and you can add one to a project later.
+Each runtime's version is selectable, and you can add one to a project later. A runtime can
+also run an image of your own: one from a (private) registry, or a Dockerfile in the project
+that Envoryx builds and rebuilds when it changes. Envoryx checks such an image and tells you
+what it lacks.
 
 ### Databases and services
 
