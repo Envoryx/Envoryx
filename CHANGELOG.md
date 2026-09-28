@@ -10,6 +10,8 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-09-28
+
 ### Added
 - Java runtime. The wizard's first step offers *Java application*; a Java
   container (`ghcr.io/envoryx/envoryx-java:<17|21|25>`, Eclipse Temurin plus
@@ -108,6 +110,8 @@ release). `:main` follows the development branch.
 - The public keys under *Settings → Access → SSH access* are now the *Admin
   keys*: they still open every project. Keys that should follow a user's
   roles go under that user's *My SSH keys*.
+- README, DEPLOYMENT, ARCHITECTURE, DEVELOPMENT, SECURITY and CONTRIBUTING
+  are rewritten in plainer words, and every code comment with them.
 
 ## [0.12.0] - 2026-09-27
 
@@ -1023,7 +1027,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.12.0...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.13.0...HEAD
+[0.13.0]: https://github.com/envoryx/envoryx/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/envoryx/envoryx/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/envoryx/envoryx/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/envoryx/envoryx/compare/v0.9.0...v0.10.0
