@@ -19,6 +19,7 @@ function sectionLabel(section: string, t: TFunction): string {
     go: "Go",
     ruby: "Ruby",
     java: "Java",
+    dotnet: ".NET",
     redis: "Redis",
     memcached: "Memcached",
     mailpit: "Mailpit",

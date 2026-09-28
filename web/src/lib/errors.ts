@@ -30,6 +30,8 @@ const templates = [
   "template {{template}} needs a Ruby service",
   "template {{template}} needs Java",
   "template {{template}} needs a Java service",
+  "template {{template}} needs .NET",
+  "template {{template}} needs a .NET service",
   "template {{template}} needs a PHP service",
   "template {{template}} needs a database service",
   "template {{template}} needs a database",

@@ -8,7 +8,7 @@
 
 Envoryx runs as a single container on any Linux Docker host (x86_64 or arm64; Unraid is the
 primary target) and gives every project its own development stack: web server, PHP, Python,
-Go, Ruby, Java and/or Node.js runtime, database, cache. Each project lives in its own Docker
+Go, Ruby, Java, .NET and/or Node.js runtime, database, cache. Each project lives in its own Docker
 environment, and you run all of it from a web UI instead of editing `docker-compose.yml`
 files.
 
@@ -19,6 +19,7 @@ Create project → Runtime: Python → Django/Flask/FastAPI template → Create 
 Create project → Runtime: Go → net/http/Gin/Echo template → Create → https://<project>.test (air live reload, Delve)
 Create project → Runtime: Ruby → Rails/Sinatra template → Create → https://<project>.test (bin/rails server / Puma, rdbg)
 Create project → Runtime: Java → Spring Boot/Quarkus template → Create → https://<project>.test (spring-boot:run / quarkus:dev, JDWP)
+Create project → Runtime: .NET → Web API/MVC/Blazor/Razor Pages template → Create → https://<project>.test (dotnet watch, netcoredbg)
 ```
 
 ## What you get
@@ -38,9 +39,9 @@ is one JSON file). Envoryx only ever touches Docker resources labelled
 
 ### Creating a project
 
-The wizard asks for a name, a directory and what the project is: a PHP, Python, Go, Ruby, Java
-or Node.js application, or a static site. PHP is optional; Python, Go, Ruby, Java, Node-only and
-static projects work without it. Then you pick the document root, the PHP version with its
+The wizard asks for a name, a directory and what the project is: a PHP, Python, Go, Ruby, Java,
+.NET or Node.js application, or a static site. PHP is optional; Python, Go, Ruby, Java, .NET,
+Node-only and static projects work without it. Then you pick the document root, the PHP version with its
 php.ini settings and extensions (pdo_mysql, mysqli, pdo_pgsql, mongodb, gd, intl, zip,
 bcmath, opcache, imagick), switch Xdebug on if you want it (with IDE setup hints), choose a
 web server (Caddy, Apache or Nginx), an SPA fallback for static sites and your environment
@@ -51,7 +52,8 @@ Instead of starting empty you can pick a template: Laravel, Symfony (skeleton + 
 WordPress, Drupal, TYPO3, Shopware and Craft CMS for PHP (the CMS installers run from the
 Actions tab and print the admin password), Vite + React, Next.js and Nuxt for Node.js,
 Django, Flask and FastAPI for Python, net/http, Gin and Echo for Go, Rails, Rails API and
-Sinatra for Ruby, and Spring Boot and Quarkus for Java. Envoryx scaffolds them in a one-shot
+Sinatra for Ruby, Spring Boot and Quarkus for Java, and ASP.NET Core Web API, MVC, Razor
+Pages and Blazor for .NET. Envoryx scaffolds them in a one-shot
 container from the project's runtime image, as the project owner, and wires them to the
 project database where the framework needs one.
 
@@ -71,8 +73,8 @@ changed one after a pull.
 
 Every project gets its own Docker network and a web server container: Caddy (the default),
 Apache (with `.htaccess` support) or Nginx, switchable later. Next to it, as needed, come a
-PHP-FPM container (the Envoryx image with Composer), a Python, a Go, a Ruby, a Java and/or a Node.js
-container. Your files are bind-mounted from `/projects/<name>` on the host.
+PHP-FPM container (the Envoryx image with Composer), a Python, a Go, a Ruby, a Java, a .NET
+and/or a Node.js container. Your files are bind-mounted from `/projects/<name>` on the host.
 
 - **Node.js** (npm, pnpm, yarn via corepack) is the toolchain next to PHP or the application
   runtime of a Node-only project. In dev-server mode (Vite, Next.js, Nuxt, …) it runs
@@ -99,6 +101,12 @@ container. Your files are bind-mounted from `/projects/<name>` on the host.
   jar, builds once and runs the jar in production mode, and takes the project URL when
   there's no PHP. `SPRING_DATASOURCE_*`, `QUARKUS_DATASOURCE_*` and `JDBC_URL` point at the
   project database, and an optional JDWP port serves IntelliJ IDEA and VS Code.
+- **.NET** (SDK 10 or 8 with `dotnet-ef`; NuGet packages are shared by all projects) runs
+  ASP.NET Core under `dotnet watch` with hot reload, publishes once and runs the DLL in
+  production mode, runs any other published application (worker services, console hosts),
+  and takes the project URL when there's no PHP. `ConnectionStrings__DefaultConnection`
+  points at the project database. There's no debug port: VS Code starts `netcoredbg` in the
+  container over SSH, Rider attaches over SSH.
 
 Each runtime's version is selectable, and you can add one to a project later.
 
@@ -177,10 +185,10 @@ the runtime's image, with logs: the Laravel scheduler, queue worker, Horizon and
 Symfony Messenger and Scheduler, PHP and composer scripts, npm and Node scripts, Python
 scripts and modules, Django management commands, Celery worker and beat, Go programs of
 the module, Solid Queue, GoodJob, Sidekiq, rake tasks and Ruby scripts, jars and Maven or
-Gradle goals.
+Gradle goals, and .NET projects or DLLs.
 
 Cron jobs run any shell command on a schedule (every few minutes, hourly, daily, weekly,
-monthly or a cron expression) in the PHP, Python, Go, Ruby, Java or Node.js container as the
+monthly or a cron expression) in the PHP, Python, Go, Ruby, Java, .NET or Node.js container as the
 project owner, with a timeout and no overlapping runs. You can "run now", see the last 20
 runs with their output and get a notification on failure.
 
@@ -236,10 +244,11 @@ losing the host, is a click.
 An embedded SSH server serves PhpStorm/WebStorm/VS Code remote interpreters and SFTP into
 project containers (with an API token or a public key), so you open a project in the IDE as
 an SFTP deployment without a network share. The user `<project>` lands in the application
-container (PHP, else Python, else Go, else Ruby, else Java, else Node); `<project>.php` /
-`<project>.python` / `<project>.go` / `<project>.ruby` / `<project>.java` / `<project>.node` pick one
-explicitly. The IDE tab has the Xdebug server and path mapping, `.idea/php.xml`, Node
-inspector, debugpy, Delve, rdbg and JDWP details and JDBC URLs, and JetBrains Gateway is optional
+container (PHP, else Python, else Go, else Ruby, else Java, else .NET, else Node);
+`<project>.php` / `<project>.python` / `<project>.go` / `<project>.ruby` / `<project>.java` /
+`<project>.dotnet` / `<project>.node` pick one explicitly. The IDE tab has the Xdebug server
+and path mapping, `.idea/php.xml`, Node inspector, debugpy, Delve, rdbg and JDWP details, a
+VS Code `launch.json` for netcoredbg and JDBC URLs, and JetBrains Gateway is optional
 (backend in the container, shared cache).
 
 Notifications (ntfy, Discord, Slack, Telegram, e-mail, generic webhook) tell you about
@@ -319,12 +328,13 @@ Browser ──▶ Envoryx (Go API + React UI) ──▶ Docker Engine
                                              ├── envoryx-<project>-go     (Go / application server, optional)
                                              ├── envoryx-<project>-ruby   (Ruby / application server, optional)
                                              ├── envoryx-<project>-java   (Java / application server, optional)
+                                             ├── envoryx-<project>-dotnet (.NET / application server, optional)
                                              └── envoryx-<project>-node   (Node.js / dev server, optional)
 ```
 
 The web server is part of every project. With PHP it passes requests to PHP-FPM; without
 PHP it serves the document root statically (optionally with an SPA fallback to
-`index.html`). When a project has no PHP but a Python, Go, Ruby or Java application server or a
+`index.html`). When a project has no PHP but a Python, Go, Ruby, Java or .NET application server or a
 Node dev server, the embedded proxy routes `<project>.<base>` straight to that container,
 and the web container's host port stays unpublished until the server is turned off.
 

@@ -9,7 +9,7 @@ import { formatDateTime, formatRelative } from "@/lib/format";
 import { errorText } from "@/lib/errors";
 import { defaultSchedule, describeSchedule, everyOptions, fromCron, toCron, weekdayNames, type ScheduleForm, type ScheduleKind } from "./cronSchedule";
 
-const runtimeLabels: Record<CronRuntime, string> = { php: "PHP", node: "Node.js", python: "Python", go: "Go", ruby: "Ruby", java: "Java" };
+const runtimeLabels: Record<CronRuntime, string> = { php: "PHP", node: "Node.js", python: "Python", go: "Go", ruby: "Ruby", java: "Java", dotnet: ".NET" };
 
 const statusTone: Record<CronRun["status"], Tone> = { running: "blue", succeeded: "green", failed: "red", timed_out: "red", error: "red", interrupted: "amber" };
 const statusLabel: Record<CronRun["status"], string> = { running: "running", succeeded: "succeeded", failed: "failed", timed_out: "timed out", error: "could not run", interrupted: "interrupted" };
@@ -25,6 +25,7 @@ const templates: { label: string; runtime: CronRuntime; name: string; command: s
   { label: "Go program", runtime: "go", name: "task", command: "go run ./cmd/cleanup", schedule: "0 * * * *" },
   { label: "Rake task", runtime: "ruby", name: "task", command: "bundle exec rake cleanup", schedule: "0 * * * *" },
   { label: "Java jar", runtime: "java", name: "task", command: "java -jar target/cleanup.jar", schedule: "0 * * * *" },
+  { label: ".NET project", runtime: "dotnet", name: "task", command: "dotnet run --project src/Cleanup/Cleanup.csproj", schedule: "0 * * * *" },
 ];
 
 const textareaClass = "w-full rounded-md border border-default bg-elevated p-2 font-mono text-xs text-fg focus:border-accent-500 focus:outline-none";
@@ -199,7 +200,7 @@ function JobForm({ project, job, onDone }: { project: Project; job?: CronJob; on
   const { t } = useTranslation();
   const qc = useQueryClient();
   const has = (kind: string) => project.services.some((s) => s.kind === kind && s.enabled);
-  const runtimes = (["php", "python", "go", "ruby", "java", "node"] as CronRuntime[]).filter(has);
+  const runtimes = (["php", "python", "go", "ruby", "java", "dotnet", "node"] as CronRuntime[]).filter(has);
   const [form, setForm] = useState<FormState>(() => (job ? toForm(job) : { name: "", runtime: runtimes[0] ?? "php", schedule: defaultSchedule, command: "", timeoutMinutes: 10, enabled: true }));
   const [error, setError] = useState<string | null>(null);
   const set = (patch: Partial<FormState>) => setForm((f) => ({ ...f, ...patch }));
@@ -310,7 +311,7 @@ export function CronTab({ project }: { project: Project }) {
     setEditing(null);
     if (text) setMsg({ tone: "green", text });
   };
-  const hasRuntime = project.services.some((s) => (s.kind === "php" || s.kind === "node" || s.kind === "python" || s.kind === "go" || s.kind === "ruby" || s.kind === "java") && s.enabled);
+  const hasRuntime = project.services.some((s) => (s.kind === "php" || s.kind === "node" || s.kind === "python" || s.kind === "go" || s.kind === "ruby" || s.kind === "java" || s.kind === "dotnet") && s.enabled);
 
   if (q.isPending) return <Spinner />;
   if (q.isError) return <ErrorState message={errorText(q.error, t)} />;
@@ -319,7 +320,7 @@ export function CronTab({ project }: { project: Project }) {
   return (
     <div className="space-y-6">
       {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
-      {!hasRuntime && <Alert tone="amber">{t("Cron jobs run in the project's PHP, Python, Go, Ruby, Java or Node.js container - this project has none. Add a runtime in the Runtime tab first.")}</Alert>}
+      {!hasRuntime && <Alert tone="amber">{t("Cron jobs run in the project's PHP, Python, Go, Ruby, Java, .NET or Node.js container - this project has none. Add a runtime in the Runtime tab first.")}</Alert>}
       {hasRuntime && !running && q.data.jobs.length > 0 && <Alert tone="blue">{t("The project is not running, so its cron jobs are paused. They resume when it starts; missed runs are not caught up.")}</Alert>}
       <Card>
         <CardHeader
@@ -328,7 +329,7 @@ export function CronTab({ project }: { project: Project }) {
               <Clock className="size-4 text-accent-500" aria-hidden /> {t("Cron jobs")}
             </span>
           }
-          description={t("Commands Envoryx runs on a schedule inside the project's PHP, Python, Go, Ruby, Java or Node.js container while the project is running. A run that is still going when the next one is due is not started twice. Schedules are read in {{timezone}}.", { timezone: q.data.timezone })}
+          description={t("Commands Envoryx runs on a schedule inside the project's PHP, Python, Go, Ruby, Java, .NET or Node.js container while the project is running. A run that is still going when the next one is due is not started twice. Schedules are read in {{timezone}}.", { timezone: q.data.timezone })}
         />
         {q.data.jobs.length === 0 ? (
           <p className="px-5 py-4 text-sm text-muted">{t("No cron jobs yet.")}</p>
