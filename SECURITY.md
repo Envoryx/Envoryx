@@ -67,6 +67,20 @@ other groups, and Envoryx doesn't call them.
 - The first admin is created through a one-time setup page (or from
   `ENVORYX_ADMIN_USER`/`ENVORYX_ADMIN_PASSWORD`). Setup is refused once any user exists, and
   generated passwords never end up in logs.
+- Further users are invited. The invitation link carries a 256-bit random token, only its
+  hash is stored, it works once within 48 hours, and using it (also as a password reset)
+  ends that user's other sessions. An invited user without a password can't sign in with
+  one, and a disabled user can neither sign in nor use their sessions, API tokens or SSH
+  keys.
+- Every request is checked against the user's role (viewer, developer, admin, or none) and,
+  for a project, against their role in that project; a project without access is left out
+  of every list. Only an admin's browser session manages users, and the last active admin
+  can't be demoted, disabled or deleted.
+- Single sign-on (OpenID Connect) uses the authorization code flow with PKCE, a state bound
+  to the browser by a short-lived `HttpOnly` cookie, and a nonce; the ID token is verified
+  against the provider's published keys, issuer and client ID. Accounts are linked by the
+  provider's subject, never by name: an existing Envoryx account is only linked while an
+  admin's invitation for it is open. The client secret is never sent back to the browser.
 
 ## API tokens and MCP
 
@@ -81,17 +95,19 @@ other groups, and Envoryx doesn't call them.
   Delete, drop and restore aren't available via MCP, on purpose.
 - Every tool call that changes state produces an audit entry attributed to the user, with
   the token name.
-- Treat a token like a password: it grants the same rights as your account (minus the
-  destructive operations). Prefer HTTPS (`https://envoryx.<base>`) for the MCP URL when
+- Treat a token like a password: it grants up to the rights of your account (minus the
+  destructive operations), never more. The owner's role is checked at every use, so a
+  token loses what its owner loses. Prefer HTTPS (`https://envoryx.<base>`) for the MCP URL when
   clients connect over the network.
 
 ## SSH server
 
 The embedded SSH server (port 2222) never gives access to the Envoryx container or the
 host. Every session is a `docker exec` into the selected project's application container
-(PHP, Python, Go, Ruby or Node) as `PUID:PGID`, with the same environment the terminal tab
-uses. You authenticate with an API token (as the password) or a public key from the
-settings; ten failures lock an IP for five minutes. The exec command line goes to
+(PHP, Python, Go, Ruby, Java, .NET or Node) as `PUID:PGID`, with the same environment the terminal tab
+uses. You authenticate with an API token (as the password) or a public key: a user's own
+keys act with that user's roles, the admin keys from the settings open every project. Ten
+failures lock an IP for five minutes. The exec command line goes to
 `/bin/sh -lc` inside that container, which is the same capability the browser terminal
 already grants.
 

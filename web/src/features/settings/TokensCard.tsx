@@ -1,5 +1,6 @@
 import { Bot, Plus, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { useAuth } from "@/features/auth/AuthContext";
 import { useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/client";
@@ -20,6 +21,7 @@ function mcpConfig(url: string, secret: string): string {
 
 export function TokensCard() {
   const { t } = useTranslation();
+  const { user } = useAuth();
   const qc = useQueryClient();
   const q = useQuery({ queryKey: key, queryFn: api.tokens.list });
   const projects = useProjects();
@@ -114,6 +116,7 @@ export function TokensCard() {
                     <p className="flex flex-wrap items-center gap-2 font-medium">
                       {tok.name}
                       <Badge tone={scopeTone[tok.scope] ?? "gray"}>{scopeLabel(tok.scope)}</Badge>
+                      {tok.owner && tok.owner !== user?.username && <span className="text-xs font-normal text-subtle">{t("of {{name}}", { name: tok.owner })}</span>}
                       {tok.projects.length > 0 && (
                         <Badge tone="gray" className="font-normal">
                           {t("only")} {tok.projects.map(projectName).join(", ")}

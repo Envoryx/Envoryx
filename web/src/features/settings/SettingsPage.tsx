@@ -17,6 +17,10 @@ import { NotificationsCard } from "./NotificationsCard";
 import { InstanceBackupsCard } from "./InstanceBackupsCard";
 import { OffsiteTargetsCard } from "@/features/offsite/OffsiteTargetsCard";
 import { DiagnosticsTab } from "./DiagnosticsTab";
+import { UsersCard } from "./UsersCard";
+import { OidcCard } from "./OidcCard";
+import { MySshKeysCard } from "./MySshKeysCard";
+import { isAdmin, useAuth } from "@/features/auth/AuthContext";
 import { AppearanceCard } from "./AppearanceCard";
 import { AuditLog } from "@/features/audit/AuditLog";
 import { LifecycleCard } from "./LifecycleCard";
@@ -148,7 +152,7 @@ function SshCard({ keys, ssh }: { keys: string; ssh: { enabled: boolean; port: n
           </dl>
         )}
         {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
-        <Field label={t("Authorized public keys")} htmlFor="ssh-keys" hint={t("One key per line (authorized_keys format), e.g. the content of ~/.ssh/id_ed25519.pub. Lines starting with # are comments.")}>
+        <Field label={t("Admin keys")} htmlFor="ssh-keys" hint={t("These keys open every project, like an admin. Keys that should follow a user's roles belong under My SSH keys of that user.")}>
           <textarea id="ssh-keys" value={text} onChange={(e) => setText(e.target.value)} rows={4} spellCheck={false} className="w-full rounded-md border border-default bg-elevated p-2 font-mono text-[11px] text-fg focus:border-accent-500 focus:outline-none" placeholder="ssh-ed25519 AAAA… you@laptop" />
         </Field>
         <Button
@@ -205,13 +209,17 @@ function DeployKeyCard() {
   );
 }
 
-const tabs = ["diagnostics", "general", "domains", "access", "notifications", "backups", "tools", "audit"] as const;
+const tabs = ["diagnostics", "general", "domains", "access", "users", "notifications", "backups", "tools", "audit", "account"] as const;
 type Tab = (typeof tabs)[number];
+/** What a user who is not an admin sees: their own account. */
+const userTabs: readonly Tab[] = ["account"];
 const tabLabel: Record<Tab, string> = {
   diagnostics: "Diagnostics",
   general: "General",
   domains: "Domains & HTTPS",
   access: "Access",
+  users: "Users",
+  account: "Account",
   notifications: "Notifications",
   backups: "Backups",
   tools: "Tools",
@@ -303,12 +311,38 @@ function AuditRetentionCard() {
 }
 
 export function SettingsPage() {
+  const { user } = useAuth();
+  return isAdmin(user) ? <AdminSettingsPage /> : <AccountSettingsPage />;
+}
+
+/** Settings of a user who is not an admin: their own account only. */
+function AccountSettingsPage() {
+  const { t } = useTranslation();
+  return (
+    <div className="space-y-6">
+      <PageHeader title={t("Settings")} description={t("Your account: appearance, password, API tokens and SSH keys.")} />
+      <div className="flex flex-wrap gap-1 border-b border-default" role="tablist">
+        {userTabs.map((name) => (
+          <button key={name} role="tab" aria-selected className="-mb-px inline-flex items-center gap-1.5 border-b-2 border-accent-500 px-3 py-2 text-sm font-medium text-fg">
+            {t(tabLabel[name])}
+          </button>
+        ))}
+      </div>
+      <AppearanceCard />
+      <PasswordForm />
+      <TokensCard />
+      <MySshKeysCard />
+    </div>
+  );
+}
+
+function AdminSettingsPage() {
   const { t } = useTranslation();
   const s = useSettings();
   const diagnostics = useDiagnostics();
   const [params, setParams] = useSearchParams();
   const requested = params.get("tab");
-  const tab: Tab = isTab(requested) ? requested : "diagnostics";
+  const tab: Tab = isTab(requested) && requested !== "account" ? requested : "diagnostics";
   const setTab = (next: Tab) => setParams(next === "diagnostics" ? {} : { tab: next }, { replace: true });
   const attention = diagnostics.data ? diagnostics.data.summary.warning + diagnostics.data.summary.error : 0;
 
@@ -317,7 +351,7 @@ export function SettingsPage() {
       <PageHeader title={t("Settings")} description={t("Instance configuration, access and health in one place.")} />
 
       <div className="flex flex-wrap gap-1 border-b border-default" role="tablist">
-        {tabs.map((name) => (
+        {tabs.filter((name) => name !== "account").map((name) => (
           <button
             key={name}
             role="tab"
@@ -350,8 +384,15 @@ export function SettingsPage() {
       {tab === "access" && (
         <>
           <TokensCard />
+          <MySshKeysCard />
           {s.data && <SshCard keys={s.data.sshAuthorizedKeys ?? ""} ssh={s.data.ssh} />}
           <DeployKeyCard />
+        </>
+      )}
+      {tab === "users" && (
+        <>
+          <UsersCard />
+          <OidcCard />
         </>
       )}
       {tab === "notifications" && <NotificationsCard />}

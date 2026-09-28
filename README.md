@@ -31,11 +31,18 @@ branch.
 
 ### The basics
 
-Envoryx is one container with the Go backend and the React UI built in. You get a local
-admin account, secure sessions and an audit log, and the interface speaks English, German,
+Envoryx is one container with the Go backend and the React UI built in. You get secure
+sessions, an audit log and user accounts with roles, and the interface speaks English, German,
 French, Spanish, Italian, Dutch, Polish, Portuguese, Russian and Ukrainian (another language
 is one JSON file). Envoryx only ever touches Docker resources labelled
 `envoryx.managed=true`, so whatever else runs on the host is safe from it.
+
+The first account is an admin. Further users come in through an invitation link and get a
+role: viewers look, developers work with projects (start, stop, terminal, actions, git,
+backups), admins do everything. A user can have another role in particular projects, and a
+project they have no role in stays out of sight. Sign-in works with a password or with
+single sign-on through an OpenID Connect provider (Authentik, Keycloak, Authelia, Google …),
+whose groups can set the roles.
 
 ### Creating a project
 
@@ -251,9 +258,10 @@ losing the host, is a click.
 ### IDEs, assistants and scripts
 
 An embedded SSH server serves PhpStorm/WebStorm/VS Code remote interpreters and SFTP into
-project containers (with an API token or a public key), so you open a project in the IDE as
-an SFTP deployment without a network share. The user `<project>` lands in the application
-container (PHP, else Python, else Go, else Ruby, else Java, else .NET, else Node);
+project containers (with an API token or your own public key, both limited to your roles),
+so you open a project in the IDE as an SFTP deployment without a network share. The user
+`<project>` lands in the application container (PHP, else Python, else Go, else Ruby, else
+Java, else .NET, else Node);
 `<project>.php` / `<project>.python` / `<project>.go` / `<project>.ruby` / `<project>.java` /
 `<project>.dotnet` / `<project>.node` pick one explicitly. The IDE tab has the Xdebug server
 and path mapping, `.idea/php.xml`, Node inspector, debugpy, Delve, rdbg and JDWP details, a
@@ -274,8 +282,8 @@ list/show/create/duplicate/rename/start/stop/logs/exec/run/branches/branch/deplo
 `envoryx backup …`,
 `envoryx db snapshot|snapshots|restore|clone`, `envoryx git …` and `envoryx import`. The
 binary is its own client and speaks the same REST API with the same API tokens, so a
-token's scope and project restriction apply unchanged, and `envoryx project exec` hands the
-command's exit code back to the calling shell.
+token's scope, its project restriction and its owner's roles apply unchanged, and
+`envoryx project exec` hands the command's exit code back to the calling shell.
 
 ### Behind the scenes
 

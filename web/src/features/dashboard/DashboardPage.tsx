@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { DiagnosticsBanner } from "@/components/DiagnosticsBanner";
 import { ActivityNotice } from "@/components/ActivityNotice";
 import { useTranslation } from "react-i18next";
+import { isAdmin, useAuth } from "@/features/auth/AuthContext";
 import { ResourceOverviewCard } from "./ResourceOverviewCard";
 import { Plus, ArrowRight } from "lucide-react";
 import { useDashboard } from "@/api/hooks";
@@ -48,6 +49,8 @@ function RecentProject({ project }: { project: Project }) {
 
 export function DashboardPage() {
   const { t } = useTranslation();
+  // Only an admin of the whole instance creates projects.
+  const admin = isAdmin(useAuth().user);
   const q = useDashboard();
 
   if (q.isPending) return <Spinner />;
@@ -60,13 +63,15 @@ export function DashboardPage() {
         title={t("Dashboard")}
         description={t("Overview of your development environments.")}
         actions={
-          <LinkButton to="/projects/new" variant="primary" icon={<Plus className="size-4" />}>
-            {t("New project")}
-          </LinkButton>
+          admin ? (
+            <LinkButton to="/projects/new" variant="primary" icon={<Plus className="size-4" />}>
+              {t("New project")}
+            </LinkButton>
+          ) : undefined
         }
       />
 
-      <DiagnosticsBanner />
+      {admin && <DiagnosticsBanner />}
       <ActivityNotice activity={d.activity} />
       {d.update?.available && (
         <div className="mb-6">
@@ -131,9 +136,11 @@ export function DashboardPage() {
                 title={t("No projects yet")}
                 message={t("Create your first development environment - PHP, Python, Go, Ruby, Java, .NET or Node.js with a web server - in under a minute.")}
                 action={
-                  <LinkButton to="/projects/new" variant="primary" icon={<Plus className="size-4" />}>
-                    {t("New project")}
-                  </LinkButton>
+                  admin ? (
+                    <LinkButton to="/projects/new" variant="primary" icon={<Plus className="size-4" />}>
+                      {t("New project")}
+                    </LinkButton>
+                  ) : undefined
                 }
               />
             ) : (

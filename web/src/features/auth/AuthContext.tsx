@@ -83,3 +83,8 @@ export function useAuth(): AuthState {
   if (!ctx) throw new Error("useAuth must be used inside AuthProvider");
   return ctx;
 }
+
+/** Whether the signed-in user is an admin of the whole instance (an empty role predates roles and was one). */
+export function isAdmin(user: User | null): boolean {
+  return !!user && (user.role === "admin" || user.role === "");
+}

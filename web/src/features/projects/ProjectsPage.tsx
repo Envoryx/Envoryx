@@ -1,5 +1,6 @@
 import { Plus, Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { isAdmin, useAuth } from "@/features/auth/AuthContext";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useDashboard, useProjectLinks, useProjects } from "@/api/hooks";
@@ -106,6 +107,8 @@ function ProjectRow({ project, usage }: { project: Project; usage?: { cpuPercent
 
 export function ProjectsPage() {
   const { t } = useTranslation();
+  // Only an admin of the whole instance creates projects.
+  const admin = isAdmin(useAuth().user);
   const q = useProjects();
   const dash = useDashboard();
   const [filter, setFilter] = useState("");
@@ -123,9 +126,11 @@ export function ProjectsPage() {
         title={t("Projects")}
         description={t("Each project runs in its own isolated set of containers.")}
         actions={
-          <LinkButton to="/projects/new" variant="primary" icon={<Plus className="size-4" />}>
-            {t("New project")}
-          </LinkButton>
+          admin ? (
+            <LinkButton to="/projects/new" variant="primary" icon={<Plus className="size-4" />}>
+              {t("New project")}
+            </LinkButton>
+          ) : undefined
         }
       />
       {q.isPending ? (
@@ -137,9 +142,11 @@ export function ProjectsPage() {
           title={t("No projects yet")}
           message={t("Create a project to get an isolated PHP, Python, Go, Ruby, Java, .NET or Node.js environment with its own web server and Docker network.")}
           action={
-            <LinkButton to="/projects/new" variant="primary" icon={<Plus className="size-4" />}>
-              {t("Create your first project")}
-            </LinkButton>
+            admin ? (
+              <LinkButton to="/projects/new" variant="primary" icon={<Plus className="size-4" />}>
+                {t("Create your first project")}
+              </LinkButton>
+            ) : undefined
           }
         />
       ) : (

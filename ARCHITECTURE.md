@@ -61,7 +61,7 @@ Go API (single binary, single container)
 ├── internal/
 │   ├── acme/                 Let's Encrypt wildcard certificates via dns-01
 │   ├── api/                  HTTP handlers (v1), request/response DTOs, errors
-│   ├── auth/                 password hashing, sessions, API tokens, auth middleware
+│   ├── auth/                 password hashing, sessions, API tokens, roles, invitations, middleware
 │   ├── audit/                audit log writer
 │   ├── awssig/               AWS Signature Version 4 (S3, Route 53)
 │   ├── config/               environment configuration
@@ -76,6 +76,7 @@ Go API (single binary, single container)
 │   ├── mcpserver/            MCP server for AI assistants
 │   ├── notify/               notifications (webhook, ntfy, Discord, Slack, Telegram, e-mail)
 │   ├── offsite/              offsite backup targets (S3, SFTP, WebDAV)
+│   ├── oidc/                 single sign-on through an OpenID Connect provider
 │   ├── project/              project manager: planning, lifecycle, reconciler
 │   ├── proxy/                embedded reverse proxy
 │   ├── runtime/              runtime catalogue (versions → images, config)
@@ -133,7 +134,17 @@ Go API (single binary, single container)
   + services + env vars in one transaction).
 - **auth** - argon2id hashing with per-hash parameters, opaque session tokens
   (256-bit random, stored as SHA-256 hash), idle + absolute timeouts,
-  middleware that injects the principal into the request context.
+  middleware that injects the principal into the request context. The principal
+  carries the user's global role (`admin`, `developer`, `viewer`, `none`), their
+  project roles and, for an API token, its scope and project list;
+  `Principal.ScopeFor(project)` is what it may do there (the user's role, capped by
+  the token), `MaxScope` the most it may do anywhere, and `Confined` marks a token
+  with a project list or a user with role `none`. Invitations (`InviteUser`,
+  `AcceptInvite`) and the guard that keeps one active admin live here too.
+- **oidc** - OpenID Connect sign-in with `go-oidc` and `oauth2`: discovery, the code
+  flow with PKCE, state (in memory, bound to a cookie) and nonce, and `resolveUser`,
+  which finds the account by the provider's subject, links an invited one of the same
+  name, creates one when allowed and sets the role from the groups.
 - **docker** - the *only* package that imports the moby client. Exposes a
   narrow `Engine` interface (create/start/stop/remove/list/inspect for
   containers, networks, volumes; image pull; stats; ping/info). All list
@@ -203,7 +214,14 @@ Go API (single binary, single container)
 - **stats** - one-shot container stats with a short cache, aggregated per
   project and for the dashboard.
 - **api** - thin handlers: decode → validate → call manager/store → encode.
-  Uniform error envelope `{ "error": { "code", "message", "details" } }`.
+  Uniform error envelope `{ "error": { "code", "message", "details" } }`. Every route
+  declares its level (`rd`, `op`, `adm`), and `guard` holds the principal to it: in the
+  project for `/projects/{id}` routes, on the instance otherwise. A confined principal
+  reaches only `instanceRoutesForConfined` (the lists, runtimes, `me`) and, with a browser
+  session, `instanceRoutesForConfinedUsers` (dashboard, trimmed settings, own password,
+  tokens and SSH keys); `routesForAnyProject` (the database browser) needs the level in
+  any project. The MCP server does the same per call: the tool's level travels in the
+  context and `resolve` checks it in the project the call names.
 - **server** - builds the router, middleware chain (recover, request id,
   logging, security headers, auth, CSRF origin check), serves the embedded SPA.
 
@@ -211,7 +229,8 @@ Go API (single binary, single container)
 
 ```
 POST /api/v1/projects/{id}/start
-  → auth middleware (session cookie → user)
+  → auth middleware (session cookie → user with roles)
+  → guard: the route's level against Principal.ScopeFor(project)
   → origin/CSRF check (state-changing method)
   → api.Projects.Start: validate UUID
   → project.Manager.Start(ctx, id)
@@ -230,7 +249,8 @@ The same binary is the client: `envoryx project …`, `envoryx backup …`,
 `envoryx db …`, `envoryx git …`, `envoryx up` and `envoryx login` talk to a
 running server over `/api/v1` with an API token, exactly like the web interface
 and the MCP server. The CLI holds no privilege of its own: it has no database handle,
-no Docker socket and no way around a token's scope or project restriction. So
+no Docker socket and no way around a token's scope, its project restriction or its
+owner's roles. So
 `docker exec envoryx envoryx project start shop` and the same command from a laptop
 take the same path through the API. (The exception is `envoryx admin …`, which is the rescue
 path *onto* the database when the credentials are lost.)
@@ -321,6 +341,12 @@ Notes:
   `branch_settings` (a parent's `store.BranchSettings`) and `branch_state` (an
   environment's `store.BranchState`) are JSON, `''` when unset. Deploy and
   visit updates to `branch_state` leave `updated_at` alone.
+- Migration 0018 adds to `users` the open invitation (`invite_hash`,
+  `invite_expires_at`), the OpenID Connect link (`oidc_subject`), `disabled` and the
+  user's own `ssh_keys`, and the table `project_roles(user_id→users,
+  project_id→projects, role, PRIMARY KEY(user_id, project_id))`, both foreign keys
+  `ON DELETE CASCADE`. `users.role` is `admin`, `developer`, `viewer` or `none`; accounts
+  from before stay `admin`. The OIDC configuration is the setting `oidc` (JSON).
 
 ---
 
@@ -883,7 +909,8 @@ through `instance.Store.Import` and is restored the usual way.
 | Layer | What | How |
 |-------|------|-----|
 | validate | names, paths, versions, traversal attempts | table-driven unit tests |
-| auth | hashing, sessions, expiry, middleware, CSRF | unit tests with in-memory SQLite |
+| auth | hashing, sessions, expiry, middleware, CSRF, roles and project roles, tokens capped by their owner | unit tests with in-memory SQLite |
+| oidc | `oidc_test.go` against an in-process provider (discovery, keys, signed ID tokens): users created with their group's role, the role following the groups, refusal without a group, no takeover of a local account by name, linking through an invitation, username fallbacks, wrong nonce and replayed state | httptest + in-memory SQLite |
 | store | migrations, CRUD, transactions | in-memory SQLite |
 | project | planner output, create/start/stop/restart/delete, rollback on failure, reconciliation after "restart", container unexpectedly stopped, unmanaged resources untouched | unit tests against the fake Engine |
 | project (no PHP) | `app.go` helpers per shape; Node-only create (web+node, no starter, unpublished web port, wrapped `Cmd`, Vite allow-list); static create (`index.html` starter, published port); SPA fallback rendering and its PHP rejection; routes of `<slug>.<base>` / extra domains / `-dev` following `nodeServesApp` and flipping back to web when the dev server is turned off; injected env in the node container; one-shot image choice for git/templates; SSH user resolution `<slug>` → php → python → node; workers refused without their runtime; `.next/.nuxt/.output/.venv` in backups | unit tests against the fake Engine |
@@ -894,7 +921,7 @@ through `instance.Store.Import` and is restored the usual way.
 | project (branches) | `branches_test.go`: settings validation, slugs and patterns, an environment created with the git switch and first deploy, a failed deploy command, the scheduler deleting, deploying and creating against a scripted `ls-remote`, the idle stop, the parent's delete guard, the `branches:` manifest section | unit tests against the fake Engine |
 | runtime | per-preset ports, `Command()`/`WrappedCommand()`/`Env()`; web configs caddy/apache/nginx × {php, static, static+spa} with the PHP output pinned as golden | table-driven unit tests |
 | api / mcp | project without `php` over HTTP (preview, DTO fields `serves`/`appService`, 409 on `PUT php`, 404 on php logs, node terminal), Python project over HTTP (preview ports, config with allocated host ports, python terminal with venv env, Python/Django actions, server off and removal, rejected preset/app), `/runtimes` with `nodePresets`/`pythonPresets` and template runtimes; MCP `phpVersion:"none"` + `nodePreset`, template/runtime errors, `get_logs` default service | httptest + fake Engine |
-| api | unauthorized access, validation errors, error envelope, full lifecycle over HTTP | httptest + fake Engine |
+| api | unauthorized access, validation errors, error envelope, full lifecycle over HTTP; `users_test.go`: invitation and sign-up, project roles, the trimmed settings, tokens capped by their owner, the last admin, a user confined to one project, disabling | httptest + fake Engine |
 | docker | real engine behaviour (labels, guards, foreign containers untouched) | integration tests behind `//go:build integration` (need Docker) |
 | web | components, login flow, wizard flow (PHP, Python, Node.js and static stacks, template filtering), project list actions, IDE/Git/Domains tabs per runtime shape, Python server fields and card, i18n parity of all dictionaries | Vitest + Testing Library |
 | e2e | lifecycle of a PHP project and of a static project without PHP (`web/e2e`) | Playwright against a Docker host |

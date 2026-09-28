@@ -1,4 +1,5 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
+import { api } from "@/api/client";
 import { useTranslation } from "react-i18next";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { Button, Field, Input, Alert } from "@/components/ui";
@@ -17,8 +18,18 @@ export function LoginPage({ mode }: { mode: "login" | "setup" }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  // A failed single sign-on comes back here with its reason.
+  const [error, setError] = useState<string | null>(() => new URLSearchParams(location.search).get("sso_error"));
   const [busy, setBusy] = useState(false);
+  const [sso, setSso] = useState<{ enabled: boolean; name?: string } | null>(null);
+  useEffect(() => {
+    if (mode !== "login") return;
+    let live = true;
+    api.auth.oidcStatus().then((s) => live && setSso(s), () => undefined);
+    return () => {
+      live = false;
+    };
+  }, [mode]);
 
   // Where RequireAuth sent the user from; also the target once signed in (this render
   // happens before onSubmit's own navigate and must not override it with "/").
@@ -92,6 +103,16 @@ export function LoginPage({ mode }: { mode: "login" | "setup" }) {
           <Button type="submit" variant="primary" className="w-full" loading={busy}>
             {mode === "setup" ? t("Create account") : t("Sign in")}
           </Button>
+          {mode === "login" && sso?.enabled && (
+            <>
+              <div className="flex items-center gap-3 text-xs text-subtle">
+                <span className="h-px flex-1 bg-[var(--border)]" /> {t("or")} <span className="h-px flex-1 bg-[var(--border)]" />
+              </div>
+              <a href={`/api/v1/auth/oidc/start?return=${encodeURIComponent(from)}`} className="flex w-full items-center justify-center rounded-md border border-default px-3 py-2 text-sm font-medium text-fg hover:bg-muted">
+                {t("Sign in with {{name}}", { name: sso.name ?? "SSO" })}
+              </a>
+            </>
+          )}
           {mode === "login" && (
             <p className="text-center text-xs text-fg-muted">
               <a href={LOST_ACCESS_DOCS} target="_blank" rel="noreferrer" className="underline hover:text-fg">

@@ -911,8 +911,9 @@ downloaded once for every project.
   not `dotnet watch` itself). VS Code with the C# extension uses netcoredbg
   (`/usr/local/bin/netcoredbg`) through `pipeTransport`; Microsoft's own
   `vsdbg` may only be used from Microsoft's IDEs, so the image doesn't ship
-  it. Store a public key under Settings → Access → SSH access first, since
-  the pipe can't answer a password prompt. A `.vscode/launch.json`:
+  it. Store your public key under *My SSH keys* first (*Settings → Account*,
+  for admins *Settings → Access*), since the pipe can't answer a password
+  prompt. A `.vscode/launch.json`:
 
   ```json
   {
@@ -1843,8 +1844,11 @@ slug (`shop`): it lands in the project's application container, PHP when
 the project has PHP, else Python, else Go, else Ruby, else Java, else .NET, else Node.
 Projects with several runtimes also accept `shop.php`, `shop.python`, `shop.go`,
 `shop.ruby`, `shop.java`, `shop.dotnet` and `shop.node` to pick one explicitly (the IDE tab lists these rows only
-then). Password = an API token from Settings → Access → API tokens & MCP, or a public key
-stored under Settings → Access → SSH access. Each session is a `docker exec` into that
+then). Password = one of your API tokens (*API tokens & MCP*), or sign in with a public key
+you stored under *My SSH keys* (both under *Settings → Account*, for admins *Settings →
+Access*). Tokens and keys act with your roles, so they only open the projects you may work
+in. The *Admin keys* under *Settings → Access → SSH access* open every project, like an
+admin. Each session is a `docker exec` into that
 container as the project owner; there is no shell
 on the host. SFTP exposes `/var/www/html` (the project) and `/home/envoryx`
 (a persistent home for tool caches and IDE helpers).
@@ -1940,10 +1944,91 @@ STARTTLS or TLS. An event type added by an update follows its default until
 the event selection is saved again, so a new alarm is not silently off for
 anyone who once chose their events.
 
+## Users and roles
+
+The setup page creates the first admin. Everyone else comes in through an invitation:
+*Settings → Users → Invite user*, a name and a role, and Envoryx shows a link
+(`https://<envoryx>/invite/<token>`) that works once within 48 hours. Envoryx sends no mail,
+so you pass the link on yourself; it's shown only this once. Whoever opens it sets a
+password (at least 10 characters) and is signed in. The same button on an existing user
+(*Reset password*) hands out a new link for a forgotten password, and using it signs that
+user out everywhere else.
+
+| Role | May |
+|------|-----|
+| Viewer | look: projects, status, logs, statistics, backups (the `read` scope) |
+| Developer | work with projects: start, stop, restart, terminal, actions, git, backups, databases, SSH/SFTP (`operate`) |
+| Admin | everything: creating and deleting projects, settings, TLS, instance backups, users (`admin`) |
+| No access | nothing, except in the projects the user has a role of their own in |
+
+*Projects* on a user gives them another role in particular projects, which replaces the
+global role there: a viewer everywhere can be a developer in one shop, or a developer have
+no access to the production copy. An admin stays admin in every project. A project a user
+has no access to is out of sight: it's missing from the lists and the dashboard, MCP
+doesn't find it, and the API and SSH refuse it. Creating projects, copies and
+branch environments takes an admin of the whole instance; a branch environment starts with
+the project roles of its parent.
+
+Users who aren't admins see a smaller interface: *Settings* has only their *Account* tab
+(appearance, password, API tokens, *My SSH keys*), the Docker page and *New project* are
+gone, viewers can't start or stop projects and don't get the *Terminal* and *Actions* tabs,
+and *History* and *Advanced* are for admins. The server checks every request on its own,
+so hiding is a courtesy, not the protection.
+
+A user can be disabled, which ends their sessions and stops their API tokens and SSH keys
+until they're enabled again, or deleted with their tokens and project roles. Nobody can
+disable or delete themselves, and the last admin who can still sign in can't be demoted,
+disabled or deleted. The audit log records `user.invited`, `user.joined`, `user.updated` and
+`user.deleted`.
+
+The API for scripts that know what they're doing: `GET/POST /api/v1/users`,
+`PATCH/DELETE /api/v1/users/{id}` (`role`, `disabled`), `POST /api/v1/users/{id}/invite`
+(a new link) and `PUT /api/v1/users/{id}/projects/{project}` with `{"role": "developer"}`
+(`""` removes it). They need an admin's browser session; API tokens can't manage users.
+The command line deliberately has no user management.
+
+### Single sign-on (OpenID Connect)
+
+*Settings → Users → Single sign-on* signs people in through Authentik, Keycloak,
+Authelia, Google or any other OpenID Connect provider. Register Envoryx there as a
+confidential client with the redirect URL the card shows
+(`https://<envoryx>/api/v1/auth/oidc/callback`, on the address you reach Envoryx at), then
+fill in the issuer URL, client ID and secret and a label for the button, try *Test* and
+switch on *Offer single sign-on on the login page*. The login page then has a *Sign in with
+…* button next to the password form. The client secret is stored and never shown again;
+leave the field empty to keep it.
+
+Envoryx asks for `openid profile email groups` and uses the authorization code flow with
+PKCE, state and nonce; the ID token is checked against the provider's keys. The username
+comes from the `preferred_username` claim (or the one you set); providers that don't send
+it (Google, Dex) fall back to the part of the e-mail address before the `@`, then to the
+name, with characters a username can't have turned into dots. The groups come from the
+`groups` claim, from the userinfo endpoint when the ID token has none (Keycloak needs a
+*Group Membership* mapper for that).
+
+*Roles from groups* maps group names to roles; the first match from admin down wins, and
+it's applied at every sign-in, so the provider stays the source of truth (it never takes
+away the last admin, though). *Users in none of these groups* decides what happens to
+everyone else: they may not sign in (the default), sign in without access to any project,
+as viewers or as developers. Without any group mapping the role stays whatever an admin set
+in Envoryx. Project roles are always set in Envoryx.
+
+An account is linked by the provider's subject. With *Create users at their first sign-in*
+a new person gets an Envoryx user right away; without it only invited users get in, and the
+invitation links the account at the first single sign-on while the link is still valid.
+An existing Envoryx account is never taken over by its name: to connect one, give it a new
+link (*Reset password*) and sign in through the provider before the link expires. When
+something goes wrong, the login page says why.
+
+The settings API: `GET/PUT /api/v1/settings/oidc` (admin; the answer has `hasSecret`
+instead of the secret) and `POST /api/v1/settings/oidc/test`. The public
+`GET /api/v1/auth/oidc` tells the login page whether to show the button.
+
 ## AI assistants (MCP)
 
 Envoryx ships an MCP server at `/mcp` (streamable HTTP). Create a token under
-**Settings → Access → API tokens & MCP**; the page shows a ready-to-paste client
+**Settings → Access → API tokens & MCP** (**Settings → Account** for users who aren't
+admins); the page shows a ready-to-paste client
 configuration:
 
 ```json
@@ -2035,7 +2120,7 @@ ones below it:
 |-----------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `read`    | Looking: project list and details, status, logs, statistics, backups list, runtimes. No secrets (no database credentials, no deploy key), no changes.               |
 | `operate` | Working with existing projects: start/stop/restart, image rollback, actions (composer, artisan …), creating backups and databases, git, domains, SSH/SFTP, terminal, database browser. Default for new tokens. |
-| `admin`   | Everything a browser session may do: creating and deleting projects, settings, TLS, notifications, instance backups, image clean-up, restores, dropping databases.  |
+| `admin`   | Everything an admin may do: creating and deleting projects, settings, TLS, notifications, instance backups, image clean-up, restores, dropping databases.  |
 
 A token can additionally be **limited to particular projects**. It then sees
 only those in listings, every other project answers `403` (REST) or "no project
@@ -2043,12 +2128,17 @@ matches" (MCP), instance-wide endpoints (dashboard, settings, Docker overview)
 are closed, and it can't create projects, whatever its scope. Use this
 for an assistant that should work on one project only.
 
+A token belongs to the user who created it and never does more than that user may, whatever
+its scope: an `admin` token of a developer can't delete projects, and a token loses what its
+owner loses. A scope the owner can't reach anywhere is refused when the token is created.
+Everyone sees and revokes their own tokens; admins see all of them with their owner.
+
 Refusals carry the reason (`this token has read scope, the operation needs
 operate`) so scripts and assistants can tell what kind of token they need.
 `GET /api/v1/auth/me` shows the calling token's name, scope and projects.
 
-No token can change the password or create/revoke tokens; those need a
-browser session. Audit entries record `user (token: name)`. A request that
+No token can change the password, create/revoke tokens or manage users; those
+need a browser session. Audit entries record `user (token: name)`. A request that
 presents an invalid or revoked token is rejected even if a valid session
 cookie is also sent. Tokens created before scopes existed keep full access
 (`admin`, all projects).
@@ -2079,7 +2169,7 @@ envoryx login --url https://envoryx.example.com --token "$ENVORYX_TOKEN"
 else). `--token -` reads it from stdin, which is what a provisioning script
 wants. `envoryx whoami` shows whose token it is and what it may do, and
 `envoryx logout` forgets it again (the token itself is revoked under
-*Settings → Access → API tokens & MCP*). Without a stored configuration, `ENVORYX_URL`
+*API tokens & MCP* in the settings). Without a stored configuration, `ENVORYX_URL`
 and `ENVORYX_TOKEN` work just as well, which is handy in CI, where nothing should be
 written to disk.
 
@@ -2276,8 +2366,10 @@ default); older entries are deleted every hour.
 
 ## Lost access
 
-The credentials for the web interface can be reset from a shell inside the
-running container; nothing else is touched and no restart is needed:
+A user who forgot their password gets a new link from an admin (*Settings → Users → Reset
+password*, see *Users and roles*). When no admin can sign in any more, the credentials can
+be reset from a shell inside the running container; nothing else is touched and no restart
+is needed:
 
 ```sh
 docker exec -it envoryx envoryx admin users            # which accounts exist

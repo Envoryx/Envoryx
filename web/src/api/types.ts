@@ -1,7 +1,53 @@
 export interface User {
   id: string;
   username: string;
+  /** admin, developer, viewer or none. */
   role: string;
+}
+
+/** Global roles; "none" reaches only the projects a user has a role in. */
+export type Role = "admin" | "developer" | "viewer" | "none";
+
+/** A user as the user management shows it. */
+export interface UserAdmin {
+  id: string;
+  username: string;
+  role: Role;
+  disabled: boolean;
+  /** No password set through the invitation yet. */
+  invited: boolean;
+  inviteExpiresAt?: string;
+  /** Linked to a single sign-on account. */
+  sso: boolean;
+  /** Roles in particular projects, by project id. */
+  projectRoles: Record<string, Role>;
+  createdAt: string;
+}
+
+export interface InviteResult {
+  user: UserAdmin;
+  inviteUrl: string;
+  expiresAt: string;
+}
+
+/** The OpenID Connect configuration (the client secret is never sent back). */
+export interface OIDCSettings {
+  enabled: boolean;
+  name: string;
+  issuer: string;
+  clientId: string;
+  clientSecret?: string;
+  hasSecret?: boolean;
+  redirectUrl?: string;
+  scopes?: string[];
+  usernameClaim?: string;
+  groupsClaim?: string;
+  adminGroups?: string[];
+  developerGroups?: string[];
+  viewerGroups?: string[];
+  /** developer, viewer, none or deny. */
+  defaultRole: string;
+  autoCreate: boolean;
 }
 
 export type ProjectState =
@@ -177,6 +223,8 @@ export interface Project {
   proxyRules?: ProxyRules;
   /** Set on a branch environment: the project it was made from. */
   parentId?: string;
+  /** What the signed-in user may do here: read, operate or admin. */
+  access?: "read" | "operate" | "admin";
   /** A branch environment's deploy state. */
   branchState?: BranchState;
   /** A parent's rules for its branch environments; absent when none are set. */
@@ -1360,6 +1408,8 @@ export interface APIToken {
   projects: string[];
   createdAt: string;
   lastUsedAt: string | null;
+  /** The user the token acts for; it never does more than that user. */
+  owner?: string;
 }
 
 export interface NotifyConfig {
