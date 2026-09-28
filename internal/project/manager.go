@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/envoryx/envoryx/internal/addon"
 	"github.com/envoryx/envoryx/internal/audit"
 	"github.com/envoryx/envoryx/internal/docker"
 	"github.com/envoryx/envoryx/internal/logs"
@@ -43,7 +44,9 @@ type Manager struct {
 	store  *store.Store
 	engine docker.Engine
 	// custom holds the build specs and context hashes of custom images (customimages.go).
-	custom  customImages
+	custom customImages
+	// addons are the installed addon files (addons.go).
+	addons  *addon.Registry
 	catalog *runtime.Catalog
 	paths   PathsProvider
 	audit   *audit.Logger
@@ -134,6 +137,7 @@ func NewManager(st *store.Store, engine docker.Engine, catalog *runtime.Catalog,
 	}
 	m := &Manager{store: st, engine: engine, catalog: catalog, paths: paths, audit: auditLog, log: log, cfg: cfg, ops: newOps(), progress: newProgress()}
 	engine.SetRegistryCredentials(m.registryCredentials)
+	m.addons = addon.NewRegistry(m.addonsDir)
 	return m
 }
 
@@ -878,6 +882,12 @@ func (m *Manager) collectUsedPorts(ctx context.Context, used map[int]bool) error
 				}
 			}
 		}
+		for _, svc := range p.Addons() {
+			var cfg AddonConfig
+			if json.Unmarshal(svc.Config, &cfg) == nil && cfg.HostPort > 0 {
+				used[cfg.HostPort] = true
+			}
+		}
 		if svc := p.Service(store.ServiceNode); svc != nil {
 			var cfg runtime.NodeConfig
 			if json.Unmarshal(svc.Config, &cfg) == nil {
@@ -1315,6 +1325,14 @@ func setHostPort(svc *store.ProjectService, port int) error {
 func (m *Manager) resolveImages(p *store.Project) {
 	for i := range p.Services {
 		svc := &p.Services[i]
+		if svc.Kind.IsAddon() {
+			if cfg, err := addonConfig(svc); err == nil {
+				if v, err := cfg.Definition.Resolve(svc.Version); err == nil {
+					svc.Image = v.Image
+				}
+			}
+			continue
+		}
 		key := catalogKey(*svc)
 		if key == "" {
 			continue

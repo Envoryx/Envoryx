@@ -11,6 +11,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/envoryx/envoryx/internal/addon"
 	"github.com/envoryx/envoryx/internal/auth"
 	"github.com/envoryx/envoryx/internal/docker"
 	"github.com/envoryx/envoryx/internal/logs"
@@ -690,6 +691,9 @@ func (s *Server) logTarget(ctx context.Context, in getLogsIn) (string, store.Ser
 	case store.ServiceWeb, store.ServicePHP, store.ServicePython, store.ServiceGo, store.ServiceRuby, store.ServiceJava, store.ServiceDotnet, store.ServiceNode, store.ServiceDatabase, store.ServiceRedis, store.ServiceMemcached, store.ServiceMailpit, store.ServiceRabbitMQ, store.ServiceMeilisearch, store.ServiceTypesense, store.ServiceOpenSearch, store.ServiceOpenSearchDashboards, store.ServiceOllama, store.ServiceStorage:
 	default:
 		if name := kind.DatabaseName(); name != "" && project.ValidateDatabaseServiceName(name) == nil {
+			break
+		}
+		if name := kind.AddonName(); name != "" && addon.ValidName(name) == nil {
 			break
 		}
 		return "", "", logs.Query{}, fmt.Errorf("%w: unknown service %q", validate.ErrInvalid, in.Service)

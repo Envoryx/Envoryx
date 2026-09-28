@@ -387,6 +387,36 @@ func DatabaseKind(name string) ServiceKind {
 	return ServiceKind(extraDatabasePrefix + name)
 }
 
+// addonPrefix starts the kind of an addon's service: addon-<name>.
+const addonPrefix = "addon-"
+
+// AddonKind is the service kind of an addon.
+func AddonKind(name string) ServiceKind { return ServiceKind(addonPrefix + name) }
+
+// AddonName is the addon of an addon service ("" for every other kind).
+func (k ServiceKind) AddonName() string {
+	name, _ := strings.CutPrefix(string(k), addonPrefix)
+	if name == string(k) {
+		return ""
+	}
+	return name
+}
+
+// IsAddon reports an addon's service.
+func (k ServiceKind) IsAddon() bool { return strings.HasPrefix(string(k), addonPrefix) }
+
+// Addons returns the project's addon services, by name.
+func (p *Project) Addons() []*ProjectService {
+	var out []*ProjectService
+	for i := range p.Services {
+		if p.Services[i].Kind.IsAddon() {
+			out = append(out, &p.Services[i])
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Kind < out[j].Kind })
+	return out
+}
+
 // IsDatabase reports the primary database and the additional ones.
 func (k ServiceKind) IsDatabase() bool {
 	return k == ServiceDatabase || strings.HasPrefix(string(k), extraDatabasePrefix)

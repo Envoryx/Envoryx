@@ -91,6 +91,8 @@ type BackupMeta struct {
 		Bytes   int64  `json:"bytes"`
 	} `json:"storage,omitempty"`
 	Runtimes map[string]string `json:"runtimes"`
+	// AddonVolumes are the archives of addon volumes (addon-<name>-<volume>.tar.gz).
+	AddonVolumes []string `json:"addonVolumes,omitempty"`
 }
 
 // DumpMeta describes a database dump in a backup.
@@ -401,14 +403,20 @@ func (m *Manager) createBackupLocked(ctx context.Context, p store.Project, opts 
 		opts.Storage = false
 	}
 	kind := backupKind(opts)
+	// Addon volumes are data like the databases: they go with every database backup that
+	// is not limited to one database.
+	addonData := opts.Database && opts.OnlyDB == nil && hasAddonVolumes(p)
 
 	if opts.Database {
 		if dbs := backupDatabases(p, opts.OnlyDB); len(dbs) == 0 {
-			if !opts.Files && !opts.Storage {
-				return fail("database", fmt.Errorf("%w: the project has no database", validate.ErrInvalid))
+			// Without a database there may still be addon volumes to archive below.
+			if !addonData {
+				if !opts.Files && !opts.Storage {
+					return fail("database", fmt.Errorf("%w: the project has no database", validate.ErrInvalid))
+				}
+				opts.Database = false
+				kind = backupKind(opts)
 			}
-			opts.Database = false
-			kind = backupKind(opts)
 		} else {
 			for _, svc := range dbs {
 				db := svc.Kind.DatabaseName()
@@ -433,6 +441,13 @@ func (m *Manager) createBackupLocked(ctx context.Context, p store.Project, opts 
 				}
 			}
 		}
+	}
+	if addonData {
+		files, err := m.backupAddonVolumes(ctx, p, dir)
+		if err != nil {
+			return fail("addon volumes", err)
+		}
+		meta.AddonVolumes = files
 	}
 	if opts.Files {
 		step(ctx, "Archiving the project files")
@@ -821,16 +836,25 @@ func (m *Manager) restoreBackup(ctx context.Context, id, backupID string, opts R
 	restored := map[string]any{"name": p.Name, "backup": backupID}
 
 	if opts.Database {
-		restoredDBs, skipped, err := m.restoreDatabases(ctx, p, meta, dir, nil)
-		if err != nil {
-			return BackupInfo{}, err
+		if meta.HasAnyDatabase() || len(meta.AddonVolumes) == 0 {
+			restoredDBs, skipped, err := m.restoreDatabases(ctx, p, meta, dir, nil)
+			if err != nil {
+				return BackupInfo{}, err
+			}
+			restored["database"] = true
+			if len(restoredDBs) > 0 {
+				restored["databases"] = restoredDBs
+			}
+			if len(skipped) > 0 {
+				restored["skipped"] = skipped
+			}
 		}
-		restored["database"] = true
-		if len(restoredDBs) > 0 {
-			restored["databases"] = restoredDBs
-		}
-		if len(skipped) > 0 {
-			restored["skipped"] = skipped
+		if len(meta.AddonVolumes) > 0 {
+			vols, err := m.restoreAddonVolumes(ctx, p, dir, meta.AddonVolumes)
+			if err != nil {
+				return BackupInfo{}, fmt.Errorf("restore addon volumes: %w", err)
+			}
+			restored["addonVolumes"] = vols
 		}
 	}
 	if opts.Files {

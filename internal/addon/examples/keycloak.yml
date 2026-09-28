@@ -1,0 +1,29 @@
+# Keycloak in development mode, to try single sign-on against a real identity provider.
+name: keycloak
+title: Keycloak
+description: Identity provider (OpenID Connect, SAML) in development mode.
+homepage: https://www.keycloak.org
+versions:
+  - version: "26"
+    image: quay.io/keycloak/keycloak:26.7
+    default: true
+port: 8080
+webUI: true
+command: ["start-dev"]
+env:
+  KC_BOOTSTRAP_ADMIN_USERNAME: admin
+  KC_BOOTSTRAP_ADMIN_PASSWORD: "{{secret.password}}"
+  KC_PROXY_HEADERS: xforwarded
+  KC_HTTP_ENABLED: "true"
+secrets: [password]
+volumes:
+  - name: data
+    path: /opt/keycloak/data
+inject:
+  KEYCLOAK_URL: "http://{{host}}:{{port}}"
+credentials:
+  - label: Admin user
+    value: admin
+  - label: Admin password
+    value: "{{secret.password}}"
+    secret: true

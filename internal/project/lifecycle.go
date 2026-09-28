@@ -903,6 +903,13 @@ func (m *Manager) update(ctx context.Context, id string, req UpdateRequest) (Vie
 		}
 		recreateApp = recreateApp || r
 	}
+	for _, name := range sortedKeys(req.Addons) {
+		r, err := m.applyAddonUpdate(ctx, proj, name, req.Addons[name], changes)
+		if err != nil {
+			return View{}, err
+		}
+		recreateApp = recreateApp || r
+	}
 
 	proj, err = m.loadProject(ctx, id)
 	if err != nil {
@@ -932,7 +939,7 @@ func (m *Manager) update(ctx context.Context, id string, req UpdateRequest) (Vie
 			return View{}, err
 		}
 		for _, c := range existing {
-			if store.ServiceKind(c.Service()).IsDatabase() || c.Service() == shareService || transientServices[c.Service()] {
+			if store.ServiceKind(c.Service()).IsDatabase() || store.ServiceKind(c.Service()).IsAddon() || c.Service() == shareService || transientServices[c.Service()] {
 				continue // a share keeps its address while the application is recreated; helpers finish on their own
 			}
 			switch c.Service() {
