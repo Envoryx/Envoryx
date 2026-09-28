@@ -98,6 +98,10 @@ They also cover every project shape:
   detection, the `_test` redirect and TRX merge of the test script, the TRX parser, actions
   with glob requirements and the manifest; `runtime/dotnet_test.go` runs the serve script
   against a stub dotnet);
+- branch environments (`branches_test.go`: settings validation, slugs and patterns, creating
+  an environment with the git switch and the first deploy, a failed deploy command, the
+  scheduler deleting, deploying and creating against a scripted `ls-remote`, the idle stop,
+  the delete guard on the parent and the manifest section);
 - a static site (SPA fallback, `index.html` starter).
 
 `internal/runtime/webserver_test.go` pins the PHP web configs as goldens, so the static

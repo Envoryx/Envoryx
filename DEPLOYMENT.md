@@ -1305,6 +1305,54 @@ project's Git tab) into your repository as a read-only deploy key. Private
 HTTPS repositories use an access token per project instead (GitHub:
 fine-grained PAT with *Contents: read*; GitLab: username `oauth2` + token).
 
+## Branch environments
+
+A branch environment is a copy of a project on another branch of its repository, with its
+own containers, database and URL. Open the parent's **Branches** tab, load the branches of
+the repository and pick one. Envoryx copies the project the way *Duplicate* does (files
+including the ignored `.env`, `vendor/` and `node_modules/`, the database, the bucket,
+workers and cron jobs), switches the copy to the branch (`git fetch`, `git checkout -f -B
+<branch> origin/<branch>`, `git clean -fd`), starts it and deploys it once. It's called
+`Shop (feature/login)` and answers at `shop-feature-login.test`; the identifier is cut to
+40 characters and numbered if it's taken. The parent needs a repository and a git checkout
+(clone it first), and an environment can't have environments of its own.
+
+**Deploy commands** are set once on the parent, one per line, and run in the environment's
+application container as the project owner:
+
+```
+composer install
+php artisan migrate --force
+```
+
+A deploy pulls the branch fast-forward only (local commits in the environment stay), then
+runs the commands in order; the first one that fails stops it. The environment's *Branches*
+tab shows the commit, the outcome and the output, and has *Pull and deploy* and *Run deploy
+commands*. The environment has to be running.
+
+With **Watch the repository** on, Envoryx asks the remote with `git ls-remote` every few
+minutes (5 unless set otherwise). That works behind NAT and needs no webhook. On each
+check:
+
+- an environment whose branch is gone is deleted, files and data included;
+- a running environment behind its branch is pulled and deployed (a failed deploy of the
+  same commit isn't retried);
+- one new branch that matches a pattern (`feature/*`; `*` doesn't match `/`) and isn't the
+  parent's own branch gets an environment, up to five unless set otherwise. If creating it
+  fails, Envoryx tries again with the branch's next commit, not on every check.
+
+**Stop idle environments after** stops an environment nobody opened for that many days,
+counted from the last request through the proxy or the last start. A stopped environment
+keeps its files and data. A parent can't be deleted while it has environments; delete
+those first. The same settings go into `envoryx.yml` as `branches:` (see *Project
+manifest*), and the notifications `branch.failed` and `branch.changed` report failed
+creations and deploys, and created, deleted or idle-stopped environments.
+
+The API: `GET /projects/{id}/branches` (settings, environments, last check), `PUT
+…/branches/settings`, `GET …/branches/remote` (asks the repository), `POST …/branches`
+with `{"branch": "feature/login"}` (admin, like creating a project) and `POST
+/projects/{id}/deploy` on an environment (`{"pull": false}` runs only the commands).
+
 ## Backups
 
 Project backups (database dump, files, configuration) are created from the
@@ -1879,7 +1927,9 @@ the events and send a test. Events: a project that should be running is
 stopped/broken (and when it recovers), an application fails its health check
 and when it answers again (see *Health checks*), project creation failed, a
 container ran out of memory (see *Resource limits*), backup failed, Let's
-Encrypt renewal failed/succeeded, Envoryx started, Envoryx failed (it refused
+Encrypt renewal failed/succeeded, a branch environment could not be created or
+deployed, or was created, deleted with its branch or stopped for being idle (see
+*Branch environments*), Envoryx started, Envoryx failed (it refused
 to start because of a corrupt database, a network filesystem or a failed
 migration, or a background task crashed and was restarted). Repeats are
 throttled (unhealthy project once per 6 h, failed renewal once per day). The
@@ -1958,6 +2008,11 @@ server on. `serves` is `java` then.
 `dotnetProject`, `dotnetPort`, `dotnetMode`) or a .NET template
 (`aspnet-webapi`, `aspnet-mvc`, `blazor`, `razor-pages`), which switches the
 server on. `serves` is `dotnet` then.
+
+Branch environments: `list_branch_environments`, `create_branch_environment`
+(`project`, `branch`; admin) and `deploy_branch_environment` (`project`, optional
+`pull: false`) answer with the branch, the deployed commit and the deploy's status and
+output.
 
 ### Scripting the REST API
 
@@ -2052,6 +2107,9 @@ envoryx db snapshot shop --db analytics               # an additional database (
 envoryx project create "Shop" --database mariadb --add-database analytics=postgres
 envoryx project share shop --for 2h                  # a temporary public address
 envoryx git status|pull shop                          # and: git checkout shop main
+envoryx project branches shop                         # its branch environments
+envoryx project branch shop feature/login             # a copy of shop on that branch
+envoryx project deploy shop-feature-login [--no-pull] # pull and run the deploy commands
 ```
 
 A project is named by its name, its slug or its id. `--json` hands the API's
@@ -2137,6 +2195,11 @@ healthcheck:                     # see "Health checks"; or just: healthcheck: /h
   path: /health
   status: 200                    # defaults: 200, every 30s, 5s timeout, down after 3
   interval: 1m
+branches:                        # see "Branch environments"
+  watch: true
+  patterns: ["feature/*"]
+  idleStopDays: 7                # also: pollMinutes, maxEnvironments
+  deploy: [composer install, php artisan migrate --force]
 ```
 
 `node:`, `python:`, `go:`, `ruby:`, `java:` and `dotnet:` take the fields of the wizard (`devServer`, `preset`,

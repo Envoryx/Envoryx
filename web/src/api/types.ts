@@ -175,6 +175,12 @@ export interface Project {
   healthCheck?: HealthCheck;
   /** What the proxy does with the project's requests; absent when nothing. */
   proxyRules?: ProxyRules;
+  /** Set on a branch environment: the project it was made from. */
+  parentId?: string;
+  /** A branch environment's deploy state. */
+  branchState?: BranchState;
+  /** A parent's rules for its branch environments; absent when none are set. */
+  branches?: BranchSettings;
 }
 
 export interface RedirectRule {
@@ -356,6 +362,44 @@ export const defaultJavaPresets: JavaPreset[] = [
   { key: "quarkus", label: "Quarkus", port: 8080 },
   { key: "jar", label: "Other (build, then java -jar: Micronaut, Javalin, Helidon …)", port: 8080 },
 ];
+
+/** A project's rules for its branch environments. */
+export interface BranchSettings {
+  /** Poll the repository: deploy pushes, delete environments of deleted branches, create environments for matching branches. */
+  watch?: boolean;
+  /** Branches that get an environment automatically ("feature/*"). */
+  patterns?: string[];
+  pollMinutes?: number;
+  /** Stop an environment nobody opened for that many days; 0 never. */
+  idleStopDays?: number;
+  /** Shell commands run in the application container after a pull. */
+  deploy?: string[];
+  maxEnvironments?: number;
+}
+
+/** What a branch environment last deployed. */
+export interface BranchState {
+  commit?: string;
+  deployStatus?: "running" | "succeeded" | "failed";
+  deployedAt?: string;
+  deployOutput?: string;
+  lastAccess?: string;
+}
+
+/** A branch of the parent's repository. */
+export interface RemoteBranch {
+  name: string;
+  commit: string;
+  /** Slug of its environment, if it has one. */
+  environment?: string;
+  matches: boolean;
+}
+
+export interface BranchEnvironments {
+  settings: BranchSettings;
+  environments: Project[];
+  lastPoll?: { at: string; error?: string };
+}
 
 /** Server preset of the .NET runtime with its default port. */
 export interface DotnetPreset {

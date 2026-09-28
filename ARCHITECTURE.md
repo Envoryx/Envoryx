@@ -164,6 +164,24 @@ Go API (single binary, single container)
     Database and storage credentials are copied verbatim, so a `.env` that
     lives in the project files keeps working and the dump restores one to one;
     each copy has its own container, network and volume, so nothing is shared.
+  - Branch environments (`branches.go`) are duplicates with a parent:
+    `projects.parent_id` names the project they were made from, the copy takes
+    the slug `<parent>-<branch>` (cut to 40 characters, numbered when taken),
+    and after the file copy `checkoutBranch` runs `git fetch`, `checkout -f -B
+    <branch> origin/<branch>` and `clean -fd` in a git one-shot, so the
+    parent's ignored files (`.env`, `vendor/`, `node_modules/`) stay. `Deploy`
+    pulls fast-forward only, records the commit and runs the parent's
+    `BranchSettings.Deploy` commands through `Exec` in the application
+    container; status, commit and the output's tail go to
+    `projects.branch_state`. `RunBranchScheduler` (every 30 s) stores the
+    visits the proxy reported (`Handler.OnVisit` → `Manager.Visited`, kept in
+    memory), stops environments idle for `IdleStopDays`, and polls every
+    watched parent that is due with `git ls-remote --heads`: a vanished branch
+    deletes its environment, a moved one is pulled and deployed (a failed
+    deploy of the same commit is not retried), and one new branch matching the
+    patterns per pass gets an environment, up to `MaxEnvironments`. A failed
+    creation is remembered by commit and tried again with the next one.
+    `Delete` refuses a parent that still has environments.
   - Renaming (`rename.go`) changes the slug everything else is derived from.
     Docker can rename neither containers nor networks nor volumes, so the first
     two are recreated from the new plan and the volumes are copied into their
@@ -299,6 +317,10 @@ Notes:
   `node`, `python`, `go`, `ruby`, `java`, `dotnet`, `database` and `db-<name>`, the auxiliary
   services (`redis`, `memcached`, `mailpit`, …) and `storage`; later migrations
   added the tables for workers, cron jobs, API tokens, images and more.
+- `projects.parent_id` (migration 0017) marks a branch environment;
+  `branch_settings` (a parent's `store.BranchSettings`) and `branch_state` (an
+  environment's `store.BranchState`) are JSON, `''` when unset. Deploy and
+  visit updates to `branch_state` leave `updated_at` alone.
 
 ---
 
@@ -839,8 +861,8 @@ through `instance.Store.Import` and is restored the usual way.
 - The reconciler is the safety net: whatever state a crash leaves behind is
   detected and displayed. Beyond clearing orphaned containers and networks
   (§8.7) it takes no destructive action on its own.
-- Background tasks (reconciler, backup scheduler, session purge, certificate
-  renewal, SSH, proxy) run under `supervise` in `main`: a panic is logged with
+- Background tasks (reconciler, backup scheduler, branch scheduler, session
+  purge, certificate renewal, SSH, proxy) run under `supervise` in `main`: a panic is logged with
   its stack, reported as an `envoryx.failed` notification and the task is
   restarted with backoff. HTTP handlers have their own `recover` middleware.
   A refused start (corrupt database, network filesystem, newer schema) is
@@ -869,6 +891,7 @@ through `instance.Store.Import` and is restored the usual way.
 | project (Ruby) | `ruby_test.go`: Ruby-only create (Gemfile/`bin/rails` wait, bundle guard, `GEM_HOME`, `RAILS_DEVELOPMENT_HOSTS`, published server port, unpublished web port, no starter), route and SSH user, rdbg with ports kept across edits and removal, `pgsql://` → `postgresql://`, the Rails template's `rails new` arguments, Sidekiq worker behind the bundle guard in the server's environment, rspec/rails test suites and the `_test` redirect, manifest; `runtime/ruby_test.go` pins the presets' argv and runs `rdbgScript` against stubs | unit tests against the fake Engine |
 | project (Java) | `java_test.go`: Java-only create with PostgreSQL (JDBC, Spring and Quarkus variables, published server port, route and SSH user), the other databases' variables, JDWP ports kept across edits and removal, both templates' download URLs and the Quarkus dev schema step, jar and goal workers, Maven and Gradle actions, the test script's `_test` redirect, exit code and report merge, manifest; `runtime/java_test.go` runs `javaServeScript` against stub mvn, gradle and java | unit tests against the fake Engine |
 | project (.NET) | `dotnet_test.go`: .NET-only create with PostgreSQL (connection string, published server port, route and SSH user), the other databases' connection strings with quoting, preset and version changes keeping the host port, server off and removal, the Web API template's steps and EF Core arguments, project and DLL workers, test suite detection (solution, single test project, Microsoft.Testing.Platform), the test script's `_test` redirect, exit code and TRX merge, `parseTRX`, actions with glob requirements, manifest; `runtime/dotnet_test.go` runs `dotnetServeScript` against a stub dotnet | unit tests against the fake Engine |
+| project (branches) | `branches_test.go`: settings validation, slugs and patterns, an environment created with the git switch and first deploy, a failed deploy command, the scheduler deleting, deploying and creating against a scripted `ls-remote`, the idle stop, the parent's delete guard, the `branches:` manifest section | unit tests against the fake Engine |
 | runtime | per-preset ports, `Command()`/`WrappedCommand()`/`Env()`; web configs caddy/apache/nginx × {php, static, static+spa} with the PHP output pinned as golden | table-driven unit tests |
 | api / mcp | project without `php` over HTTP (preview, DTO fields `serves`/`appService`, 409 on `PUT php`, 404 on php logs, node terminal), Python project over HTTP (preview ports, config with allocated host ports, python terminal with venv env, Python/Django actions, server off and removal, rejected preset/app), `/runtimes` with `nodePresets`/`pythonPresets` and template runtimes; MCP `phpVersion:"none"` + `nodePreset`, template/runtime errors, `get_logs` default service | httptest + fake Engine |
 | api | unauthorized access, validation errors, error envelope, full lifecycle over HTTP | httptest + fake Engine |

@@ -209,6 +209,15 @@ the objects of the bucket (each of those optional). The copy gets its own direct
 ports and containers but keeps the original's database credentials, so a `.env` in the
 project files keeps working.
 
+Branch environments build on that: pick a branch in the *Branches* tab and you get a copy
+of the project on that branch, with the parent's data and its own URL
+(`shop-feature-login.test`), deployed with the commands you set once on the parent
+(`composer install`, `php artisan migrate --force` …). Switch on *Watch the repository* and
+Envoryx asks the remote every few minutes (plain `git ls-remote`, so no webhook and no
+public address needed): pushes get deployed, a deleted branch takes its environment with
+it, and new branches matching `feature/*` get one on their own. Environments nobody has
+opened for a while can stop by themselves.
+
 CPU, memory and process limits apply per project (application containers and services
 separately) and take effect right away; a container that runs out of memory shows up as a
 warning and a notification. A health check asks a path like `/health` for the expected
@@ -256,12 +265,13 @@ unhealthy projects and their recovery, failed project creation, failed backups a
 certificate renewals. They're throttled, and secrets are never returned.
 
 The MCP server lets AI assistants (Claude Code, Cursor, …) create, duplicate, rename,
-start, stop and inspect projects, read logs, run actions and create databases, backups and
+start, stop and inspect projects, create and deploy branch environments, read logs, run actions and create databases, backups and
 database snapshots. It uses personal API tokens with the same validation and audit trail as
 the UI, and it has no destructive tools.
 
 For SSH sessions, cron jobs and CI there's a command line: `envoryx project
-list/show/create/duplicate/rename/start/stop/logs/exec/run`, `envoryx backup …`,
+list/show/create/duplicate/rename/start/stop/logs/exec/run/branches/branch/deploy`,
+`envoryx backup …`,
 `envoryx db snapshot|snapshots|restore|clone`, `envoryx git …` and `envoryx import`. The
 binary is its own client and speaks the same REST API with the same API tokens, so a
 token's scope and project restriction apply unchanged, and `envoryx project exec` hands the
