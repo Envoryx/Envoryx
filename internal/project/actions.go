@@ -122,7 +122,24 @@ var actionCatalog = []Action{
 	{ID: "gradle:clean", Group: "Gradle", Label: "gradle clean", Description: "Delete build/", Service: store.ServiceJava, Cmd: gradleCmd("clean"), Requires: []string{"build.gradle|build.gradle.kts"}},
 	{ID: "gradle:dependencies", Group: "Gradle", Label: "gradle dependencies", Description: "Show the resolved dependencies", Service: store.ServiceJava, Cmd: gradleCmd("dependencies"), Requires: []string{"build.gradle|build.gradle.kts"}},
 	{ID: "gradle:tasks", Group: "Gradle", Label: "gradle tasks", Description: "List the tasks the build offers", Service: store.ServiceJava, Cmd: gradleCmd("tasks"), Requires: []string{"build.gradle|build.gradle.kts"}},
+
+	// The dotnet commands take the one solution or project file at the top of the project.
+	{ID: "dotnet:info", Group: ".NET", Label: "dotnet --info", Description: "Show the SDK, the runtimes and the environment", Service: store.ServiceDotnet, Cmd: []string{"dotnet", "--info"}},
+	{ID: "dotnet:restore", Group: ".NET", Label: "dotnet restore", Description: "Restore the NuGet packages into the shared package cache", Service: store.ServiceDotnet, Cmd: []string{"dotnet", "restore"}, Requires: []string{dotnetBuildFiles}},
+	{ID: "dotnet:build", Group: ".NET", Label: "dotnet build", Description: "Compile the solution or project", Service: store.ServiceDotnet, Cmd: []string{"dotnet", "build"}, Requires: []string{dotnetBuildFiles}},
+	{ID: "dotnet:clean", Group: ".NET", Label: "dotnet clean", Description: "Delete the build output", Service: store.ServiceDotnet, Cmd: []string{"dotnet", "clean"}, Requires: []string{dotnetBuildFiles}},
+	{ID: "dotnet:format", Group: ".NET", Label: "dotnet format", Description: "Format the code by the .editorconfig rules", Service: store.ServiceDotnet, Cmd: []string{"dotnet", "format"}, Requires: []string{dotnetBuildFiles}},
+	{ID: "dotnet:outdated", Group: ".NET", Label: "dotnet list package --outdated", Description: "List the NuGet packages with newer versions", Service: store.ServiceDotnet, Cmd: []string{"dotnet", "list", "package", "--outdated"}, Requires: []string{dotnetBuildFiles}},
+	// dotnet-ef ships in the image; the project needs Microsoft.EntityFrameworkCore.Design.
+	{ID: "ef:database-update", Group: "Entity Framework", Label: "dotnet ef database update", Description: "Apply pending migrations to the project database", Service: store.ServiceDotnet, Cmd: []string{"dotnet", "ef", "database", "update"}, Requires: []string{dotnetProjectFiles}},
+	{ID: "ef:migrations-list", Group: "Entity Framework", Label: "dotnet ef migrations list", Description: "List the migrations and whether they are applied", Service: store.ServiceDotnet, Cmd: []string{"dotnet", "ef", "migrations", "list"}, Requires: []string{dotnetProjectFiles}},
 }
+
+// The files a dotnet command finds on its own at the top of the project.
+const (
+	dotnetProjectFiles = "*.csproj|*.fsproj|*.vbproj"
+	dotnetBuildFiles   = "*.sln|*.slnx|" + dotnetProjectFiles
+)
 
 // mavenCmd runs Maven through the project's wrapper (mvnw) when there is one, else the
 // image's mvn, in batch mode. The goals are constants of the catalogue.
@@ -203,12 +220,17 @@ func (m *Manager) ListActions(ctx context.Context, id string) ([]ActionInfo, err
 		case !running[a.Service]:
 			info.Available, info.Reason = false, fmt.Sprintf("%s container is not running", a.Service)
 		default:
-			// An entry may name alternatives ("build.gradle|build.gradle.kts"); one of
-			// them is enough.
+			// An entry may name alternatives ("build.gradle|build.gradle.kts") and
+			// patterns ("*.csproj"); one match is enough.
 			for _, f := range a.Requires {
 				found := false
 				for _, alt := range strings.Split(f, "|") {
-					if _, err := os.Stat(filepath.Join(dir, filepath.FromSlash(alt))); err == nil {
+					if strings.ContainsAny(alt, "*?[") {
+						if m, _ := filepath.Glob(filepath.Join(dir, filepath.FromSlash(alt))); len(m) > 0 {
+							found = true
+							break
+						}
+					} else if _, err := os.Stat(filepath.Join(dir, filepath.FromSlash(alt))); err == nil {
 						found = true
 						break
 					}

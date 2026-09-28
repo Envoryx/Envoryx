@@ -59,6 +59,7 @@ const (
 	WorkerRuntimeGo     = "go"
 	WorkerRuntimeRuby   = "ruby"
 	WorkerRuntimeJava   = "java"
+	WorkerRuntimeDotnet = "dotnet"
 )
 
 // workerRuntimeKind maps a preset runtime to the service it runs in.
@@ -74,6 +75,8 @@ func workerRuntimeKind(rt string) (store.ServiceKind, string) {
 		return store.ServiceRuby, "Ruby"
 	case WorkerRuntimeJava:
 		return store.ServiceJava, "Java"
+	case WorkerRuntimeDotnet:
+		return store.ServiceDotnet, ".NET"
 	default:
 		return store.ServicePHP, "PHP"
 	}
@@ -304,6 +307,49 @@ func javaTaskArg(arg string) error {
 	return nil
 }
 
+// dotnetWorkerPresets run a project (published first) or a built DLL.
+var dotnetWorkerPresets = []WorkerPreset{
+	{ID: "dotnet:project", Group: ".NET", Label: "Project", Description: "dotnet publish, then run it - a worker service, a queue consumer, a console host …", ArgLabel: "Project file", ArgHint: "relative to the project, e.g. src/Worker/Worker.csproj", Runtime: WorkerRuntimeDotnet,
+		validateArg: func(arg string) error {
+			if !runtime.ValidDotnetProject(strings.TrimPrefix(arg, "./")) {
+				return fmt.Errorf("%w: the project must be a relative path ending in .csproj, .fsproj or .vbproj", validate.ErrInvalid)
+			}
+			return nil
+		},
+		build: func(arg string) []string {
+			return []string{"sh", "-c", dotnetWorkerScript, "envoryx-dotnet-worker", strings.TrimPrefix(arg, "./")}
+		},
+		display: func(arg string) []string {
+			return []string{"dotnet", "run", "--project", strings.TrimPrefix(arg, "./")}
+		}},
+	{ID: "dotnet:dll", Group: ".NET", Label: "DLL", Description: "dotnet <file> - a built application", ArgLabel: "DLL", ArgHint: "relative to the project, e.g. " + runtime.DotnetPublishDir + "/Worker.dll", Runtime: WorkerRuntimeDotnet,
+		validateArg: func(arg string) error {
+			if !runtime.ValidDotnetDLL(strings.TrimPrefix(arg, "./")) {
+				return fmt.Errorf("%w: the DLL must be a relative path ending in .dll", validate.ErrInvalid)
+			}
+			return nil
+		},
+		build: func(arg string) []string { return []string{"dotnet", strings.TrimPrefix(arg, "./")} }},
+}
+
+// dotnetWorkerScript publishes the project ($1) into the container and execs the
+// application named after it (the assembly name defaults to the project file's), else the
+// only one the publish left. Not dotnet run: it would stay the parent, and the worker's
+// stop signal would not reach the application. Without the compiler server, which would
+// otherwise linger in the worker's container.
+const dotnetWorkerScript = `set -e
+out=/tmp/envoryx-dotnet-worker
+rm -rf "$out"
+dotnet publish "$1" -c Release -o "$out" --nologo -p:UseSharedCompilation=false
+name=$(basename "$1"); dll="$out/${name%.*}.dll"
+if [ ! -f "${dll%.dll}.runtimeconfig.json" ]; then
+  set -- "$out"/*.runtimeconfig.json
+  if [ $# -ne 1 ] || [ ! -f "$1" ]; then echo "envoryx: the publish left no single application in $out" >&2; exit 1; fi
+  dll=${1%.runtimeconfig.json}.dll
+fi
+cd "$out"
+exec dotnet "$(basename "$dll")"`
+
 // goWorkerScript builds the package ($1) and execs the binary. Not go run: it does not
 // pass SIGTERM on, so a stopped worker would be killed without a chance to finish its
 // job; exec makes the program the direct child of the image's init.
@@ -324,7 +370,7 @@ func goPackageArg(arg string) string {
 }
 
 func init() {
-	workerPresets = append(append(workerPresets, rubyWorkerPresets...), javaWorkerPresets...)
+	workerPresets = append(append(append(workerPresets, rubyWorkerPresets...), javaWorkerPresets...), dotnetWorkerPresets...)
 	for i := range workerPresets {
 		if workerPresets[i].Runtime == "" {
 			workerPresets[i].Runtime = WorkerRuntimePHP

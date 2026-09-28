@@ -14,8 +14,8 @@ import (
 // Framework is what the site was recognised as.
 type Framework struct {
 	// ID is wordpress, laravel, symfony, drupal, typo3, joomla, shopware, craft, composer
-	// (another Composer application), php (plain PHP), static, node, python, go, ruby or
-	// java.
+	// (another Composer application), php (plain PHP), static, node, python, go, ruby,
+	// java or dotnet.
 	ID      string `json:"id"`
 	Name    string `json:"name"`
 	Version string `json:"version,omitempty"`
@@ -55,7 +55,7 @@ type Analysis struct {
 	Bytes int64  `json:"bytes"`
 
 	Framework Framework `json:"framework"`
-	// Runtime is php, static, node, python, go, ruby or java.
+	// Runtime is php, static, node, python, go, ruby, java or dotnet.
 	Runtime       string   `json:"runtime"`
 	PHPVersion    string   `json:"phpVersion,omitempty"`
 	PHPExtensions []string `json:"phpExtensions,omitempty"`
@@ -161,7 +161,9 @@ func collect(file string, format Format) (*scan, error) {
 		if isPHP {
 			s.phpFiles++
 		}
-		wanted := interesting[base] && e.Size <= 1<<20 && strings.Count(e.Name, "/") <= 8 && !strings.Contains(e.Name, "node_modules/")
+		// .NET project files have the project's name; they say whether it is ASP.NET Core.
+		dotnetProject := ext == ".csproj" || ext == ".fsproj" || ext == ".vbproj"
+		wanted := (interesting[base] || dotnetProject) && e.Size <= 1<<20 && strings.Count(e.Name, "/") <= 8 && !strings.Contains(e.Name, "node_modules/")
 		// Composer and CMS core files hold the versions, so vendor/ may be read for those.
 		if wanted && strings.Contains(e.Name, "vendor/") && base != "Version.php" {
 			wanted = false
@@ -210,6 +212,22 @@ func (s site) read(rel string) []byte  { return s.contents[s.root+rel] }
 func (s site) text(rel string) string  { return string(s.read(rel)) }
 func (s site) rel(name string) string  { return strings.TrimPrefix(name, s.root) }
 func (s site) under(dir string) string { return strings.TrimSuffix(path.Join(dir, "x"), "x") }
+
+// hasTopExt reports whether a file with one of the extensions lies at the top of the site.
+func (s site) hasTopExt(exts ...string) bool {
+	for name := range s.files {
+		rel, ok := strings.CutPrefix(name, s.root)
+		if !ok || strings.Contains(rel, "/") {
+			continue
+		}
+		for _, ext := range exts {
+			if path.Ext(rel) == ext {
+				return true
+			}
+		}
+	}
+	return false
+}
 
 type composerJSON struct {
 	Name    string            `json:"name"`
@@ -449,6 +467,18 @@ func (a *Analysis) detect(s site, comp *composerJSON) {
 			a.Framework.Name = "Quarkus"
 		}
 		a.Runtime = "java"
+		return
+
+	case s.hasTopExt(".sln", ".slnx", ".csproj", ".fsproj", ".vbproj"):
+		// Before package.json, too: ASP.NET Core projects often build a frontend.
+		a.Framework = Framework{ID: "dotnet", Name: ".NET"}
+		for name, content := range s.contents {
+			if strings.HasPrefix(name, s.root) && strings.Contains(string(content), `Sdk="Microsoft.NET.Sdk.Web"`) {
+				a.Framework.Name = "ASP.NET Core"
+				break
+			}
+		}
+		a.Runtime = "dotnet"
 		return
 
 	case s.has("package.json"):

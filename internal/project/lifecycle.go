@@ -187,8 +187,9 @@ func (m *Manager) create(ctx context.Context, req CreateRequest) (View, error) {
 	}
 
 	// A repository, template or uploaded website fills the empty directory; the starter
-	// page would collide. While an application server (Python, Go, Ruby, Java) or the Node dev
-	// server serves the app, nothing serves the docroot, so there's no starter either.
+	// page would collide. While an application server (Python, Go, Ruby, Java, .NET) or the
+	// Node dev server serves the app, nothing serves the docroot, so there's no starter
+	// either.
 	scaffold := proj.Git.URL != "" || req.Template != "" || req.Import != nil
 	starter := req.CreateStarter && !scaffold && !appServesDirectly(proj)
 	if req.Import != nil {
@@ -789,6 +790,11 @@ func (m *Manager) update(ctx context.Context, id string, req UpdateRequest) (Vie
 	}
 	if req.Java != nil {
 		if err := m.applyJavaUpdate(ctx, proj, *req.Java, changes); err != nil {
+			return View{}, err
+		}
+	}
+	if req.Dotnet != nil {
+		if err := m.applyDotnetUpdate(ctx, proj, *req.Dotnet, changes); err != nil {
 			return View{}, err
 		}
 	}
@@ -1524,6 +1530,100 @@ func (m *Manager) applyJavaUpdate(ctx context.Context, p store.Project, upd Java
 					if c.Service() == string(store.ServiceJava) {
 						if err := m.engine.RemoveContainer(ctx, c.ID); err != nil {
 							return fmt.Errorf("recreate java container: %w", err)
+						}
+					}
+				}
+			}
+		}
+		return nil
+	}
+}
+
+// applyDotnetUpdate changes, adds or removes the .NET service. Callers hold the lock.
+// Removing it takes the .NET container and the .NET workers' containers with it. Their
+// definitions stay and come back with the runtime.
+func (m *Manager) applyDotnetUpdate(ctx context.Context, p store.Project, upd DotnetUpdate, changes map[string]any) error {
+	svc := p.Service(store.ServiceDotnet)
+	switch {
+	case !upd.Enabled && svc == nil:
+		return nil
+	case !upd.Enabled:
+		gone := map[string]bool{string(store.ServiceDotnet): true}
+		for _, w := range p.Workers {
+			if preset, ok := workerPreset(w.Preset); ok && preset.Runtime == WorkerRuntimeDotnet {
+				gone[string(WorkerKind(w))] = true
+			}
+		}
+		containers, err := m.engine.ListContainers(ctx, true, p.ID)
+		if err != nil {
+			return err
+		}
+		for _, c := range containers {
+			if !gone[c.Service()] {
+				continue
+			}
+			step(ctx, "Removing the container {{name}}", "name", c.Name)
+			if err := m.engine.RemoveContainer(ctx, c.ID); err != nil {
+				return fmt.Errorf("remove container %s: %w", c.Name, err)
+			}
+		}
+		if err := m.store.Projects.DeleteService(ctx, p.ID, store.ServiceDotnet); err != nil {
+			return err
+		}
+		changes["dotnet"] = "removed"
+		return nil
+	default:
+		v, err := m.catalog.Resolve("dotnet", upd.Version)
+		if err != nil {
+			return err
+		}
+		cfg := upd.Config
+		if err := cfg.Normalize(); err != nil {
+			return err
+		}
+		var old runtime.DotnetConfig
+		if svc != nil && len(svc.Config) > 0 {
+			_ = json.Unmarshal(svc.Config, &old)
+		}
+		// Keep the published port across edits; allocate it when the server is enabled.
+		cfg.HostPort = 0
+		if cfg.Server {
+			cfg.HostPort = old.HostPort
+			if cfg.HostPort == 0 {
+				port, err := m.allocatePort(ctx)
+				if err != nil {
+					return err
+				}
+				cfg.HostPort = port
+			}
+		}
+		raw, err := json.Marshal(cfg)
+		if err != nil {
+			return err
+		}
+		if svc == nil {
+			if err := m.store.Projects.AddService(ctx, store.ProjectService{ProjectID: p.ID, Kind: store.ServiceDotnet, Variant: "dotnet", Version: v.Version, Image: v.Image, Enabled: true, Position: 12, Config: raw}); err != nil {
+				return err
+			}
+			changes["dotnet"] = v.Version
+			return nil
+		}
+		if svc.Version != v.Version || string(svc.Config) != string(raw) {
+			if err := m.store.Projects.UpdateServiceConfig(ctx, p.ID, store.ServiceDotnet, v.Version, v.Image, raw); err != nil {
+				return err
+			}
+			changes["dotnet"] = v.Version
+			if string(svc.Config) != string(raw) {
+				changes["dotnetServer"] = cfg.Server
+				// Command/ports are baked into the container: remove it so ensurePlan recreates it.
+				containers, err := m.engine.ListContainers(ctx, true, p.ID)
+				if err != nil {
+					return err
+				}
+				for _, c := range containers {
+					if c.Service() == string(store.ServiceDotnet) {
+						if err := m.engine.RemoveContainer(ctx, c.ID); err != nil {
+							return fmt.Errorf("recreate dotnet container: %w", err)
 						}
 					}
 				}

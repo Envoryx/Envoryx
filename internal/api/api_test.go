@@ -1222,7 +1222,7 @@ func TestRuntimesEndpoint(t *testing.T) {
 	}
 	for _, x := range r.body["templates"].([]any) {
 		tpl := x.(map[string]any)
-		if rt := tpl["runtime"]; rt != "php" && rt != "node" && rt != "python" && rt != "go" && rt != "ruby" && rt != "java" {
+		if rt := tpl["runtime"]; rt != "php" && rt != "node" && rt != "python" && rt != "go" && rt != "ruby" && rt != "java" && rt != "dotnet" {
 			t.Fatalf("template %v must name its runtime", tpl["id"])
 		}
 		if tpl["runtime"] == "node" && tpl["node"] == nil {
@@ -1240,10 +1240,17 @@ func TestRuntimesEndpoint(t *testing.T) {
 		if tpl["runtime"] == "java" && tpl["java"] == nil {
 			t.Fatalf("java template %v must carry server defaults", tpl["id"])
 		}
+		if tpl["runtime"] == "dotnet" && tpl["dotnet"] == nil {
+			t.Fatalf("dotnet template %v must carry server defaults", tpl["id"])
+		}
 	}
 	javaPresets := r.body["javaPresets"].([]any)
 	if len(javaPresets) != 3 || javaPresets[0].(map[string]any)["key"] != "spring-boot" || javaPresets[2].(map[string]any)["key"] != "jar" {
 		t.Fatalf("javaPresets: %v", javaPresets)
+	}
+	dotnetPresets := r.body["dotnetPresets"].([]any)
+	if len(dotnetPresets) != 2 || dotnetPresets[0].(map[string]any)["key"] != "aspnetcore" || dotnetPresets[1].(map[string]any)["key"] != "dll" {
+		t.Fatalf("dotnetPresets: %v", dotnetPresets)
 	}
 }
 

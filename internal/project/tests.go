@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -27,8 +28,7 @@ import (
 type TestSuite struct {
 	ID string `json:"id"`
 	// Framework is pest, phpunit, npm, playwright, cypress, pytest, django, go, rspec,
-	// maven, gradle or
-	// rails.
+	// rails, maven, gradle or dotnet.
 	Framework string            `json:"framework"`
 	Label     string            `json:"label"`
 	Service   store.ServiceKind `json:"service"`
@@ -43,6 +43,8 @@ type TestSuite struct {
 	Reason     string `json:"reason,omitempty"`
 
 	build func(filter, report string) (argv, env []string)
+	// trx marks a report in the TRX format of dotnet test instead of JUnit.
+	trx bool
 }
 
 // TestRunInfo is a run as the API shows it.
@@ -255,6 +257,11 @@ func detectTestSuites(dir string, p store.Project) []TestSuite {
 			out = append(out, javaTestSuite("gradle"))
 		}
 	}
+	if has(store.ServiceDotnet) {
+		if s, ok := dotnetTestSuite(dir, read("global.json")); ok {
+			out = append(out, s)
+		}
+	}
 	if has(store.ServiceRuby) && exists("Gemfile") {
 		lock := read("Gemfile.lock")
 		if exists("spec") && bytes.Contains(lock, []byte(" rspec-core ")) {
@@ -325,6 +332,97 @@ rc=$?
     [ -f "$f" ] && sed '1{/^<?xml/d;}' "$f"
   done
   echo '</testsuites>'; } > "$report"
+exit $rc`
+
+// dotnetTestSuite finds the test projects (xUnit, NUnit, MSTest, TUnit, anything with the
+// test SDK) up to four levels down. dotnet test runs the solution at the top, else the one
+// test project; several test projects without a solution file cannot be run as one. A
+// project on Microsoft.Testing.Platform (chosen in global.json) runs without the trx
+// logger and filter, which that platform spells per test framework.
+func dotnetTestSuite(dir string, globalJSON []byte) (TestSuite, bool) {
+	var tests []string
+	top := false
+	_ = filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+		rel, _ := filepath.Rel(dir, path)
+		depth := strings.Count(filepath.ToSlash(rel), "/")
+		if d.IsDir() {
+			name := d.Name()
+			if path != dir && (depth >= 4 || name == "bin" || name == "obj" || name == "node_modules" || strings.HasPrefix(name, ".")) {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		ext := filepath.Ext(d.Name())
+		if depth == 0 && (ext == ".sln" || ext == ".slnx") {
+			top = true
+		}
+		if ext != ".csproj" && ext != ".fsproj" && ext != ".vbproj" {
+			return nil
+		}
+		if b, err := os.ReadFile(path); err == nil && len(b) < 1<<20 && dotnetTestProjectRe.Match(b) {
+			tests = append(tests, filepath.ToSlash(rel))
+		}
+		return nil
+	})
+	if len(tests) == 0 {
+		return TestSuite{}, false
+	}
+	target := ""
+	if !top {
+		if len(tests) > 1 {
+			return TestSuite{ID: "dotnet", Framework: "dotnet", Label: "dotnet test", Service: store.ServiceDotnet, Cmd: []string{"dotnet", "test"},
+				Reason: fmt.Sprintf("%d test projects and no solution file at the top of the project - add one (dotnet new sln, dotnet sln add)", len(tests))}, true
+		}
+		target = tests[0]
+	}
+	mtp := bytes.Contains(globalJSON, []byte("Microsoft.Testing.Platform"))
+	s := TestSuite{ID: "dotnet", Framework: "dotnet", Label: "dotnet test", Service: store.ServiceDotnet, Cmd: []string{"dotnet", "test"}, Report: !mtp, Available: true, trx: true,
+		build: func(filter, report string) ([]string, []string) {
+			runner := "vstest"
+			if mtp {
+				runner, filter = "mtp", ""
+			}
+			return []string{"sh", "-c", dotnetTestScript, "envoryx-dotnet-test", runner, report, filter, target}, nil
+		}}
+	if target != "" {
+		s.Cmd = append(s.Cmd, target)
+	}
+	if !mtp {
+		s.FilterHint = "--filter (e.g. FullyQualifiedName~OrderTests)"
+	}
+	return s, true
+}
+
+// dotnetTestProjectRe recognises a test project by its SDK or test framework package.
+var dotnetTestProjectRe = regexp.MustCompile(`Microsoft\.NET\.Test\.Sdk|MSTest\.Sdk|"xunit|"NUnit|"TUnit|<IsTestProject>\s*true`)
+
+// dotnetTestScript runs the tests: $1 is vstest or mtp, $2 the report to write, $3 the
+// filter and $4 the test project (both may be empty). Like javaTestScript it points the
+// primary database's connection string at <database>_test first, which integration tests
+// (WebApplicationFactory) read too. The trx logger writes one file per test project; they
+// are joined into the single report the Tests tab reads, without their XML declarations
+// and byte order marks. Naming a logger turns off the default console output, so the
+// console logger is named too.
+const dotnetTestScript = `runner=$1 report=$2 filter=$3 target=$4
+case "${ConnectionStrings__DefaultConnection:-}" in
+  *Database=*) ConnectionStrings__DefaultConnection=$(printf '%s' "$ConnectionStrings__DefaultConnection" | sed 's/\(Database=[^;]*\)/\1_test/'); export ConnectionStrings__DefaultConnection ;;
+esac
+dir=/tmp/envoryx-trx
+rm -rf "$dir"
+set -- test
+[ -n "$target" ] && set -- "$@" "$target"
+[ -n "$filter" ] && set -- "$@" --filter "$filter"
+if [ "$runner" = mtp ]; then exec dotnet "$@"; fi
+dotnet "$@" --logger trx --logger 'console;verbosity=normal' --results-directory "$dir"
+rc=$?
+{ echo '<trx>'
+  for f in "$dir"/*.trx; do
+    [ -f "$f" ] && sed '1s/^\xEF\xBB\xBF//; 1{/^<?xml/d;}' "$f"
+  done
+  echo '</trx>'; } > "$report"
 exit $rc`
 
 // rubyTestEnv runs Rails and Rack test suites in the test environment.
@@ -467,9 +565,9 @@ func (m *Manager) RunTests(ctx context.Context, id, suiteID, filter string, cols
 	if err != nil {
 		return nil, err
 	}
-	if suite.Service == store.ServiceRuby || suite.Service == store.ServiceJava {
-		// rubyTestScript and javaTestScript point the run at <database>_test, which neither
-		// Rails nor Spring Boot or Quarkus create.
+	if suite.Service == store.ServiceRuby || suite.Service == store.ServiceJava || suite.Service == store.ServiceDotnet {
+		// rubyTestScript, javaTestScript and dotnetTestScript point the run at
+		// <database>_test, which neither Rails, Spring Boot, Quarkus nor EF Core create.
 		if err := m.ensureTestDatabase(ctx, id); err != nil {
 			return nil, err
 		}
@@ -515,7 +613,11 @@ func (m *Manager) FinishTestRun(ctx context.Context, s *TestSession, exitCode in
 	if s.Suite.Report {
 		out, err := m.engine.Exec(ctx, s.containerID, []string{"cat", s.report}, nil)
 		if err == nil && out.ExitCode == 0 && strings.TrimSpace(out.Stdout) != "" {
-			if parsed, perr := parseJUnit(strings.NewReader(out.Stdout), appMountTarget); perr == nil {
+			parse := parseJUnit
+			if s.Suite.trx {
+				parse = parseTRX
+			}
+			if parsed, perr := parse(strings.NewReader(out.Stdout), appMountTarget); perr == nil {
 				res = parsed
 			} else {
 				m.log.Warn("test report unreadable", "project", s.projectID, "suite", s.Suite.ID, "err", perr)

@@ -290,6 +290,25 @@ func (m *Manager) buildProject(req CreateRequest) (store.Project, error) {
 					}
 				}
 			}
+		case "dotnet":
+			if req.Dotnet == nil {
+				return store.Project{}, fmt.Errorf("%w: template %s needs .NET", validate.ErrInvalid, tpl.ID)
+			}
+			if tpl.Dotnet != nil {
+				// Same merge as for Ruby: the template's preset and port win where the
+				// request left them empty; a request without server settings takes the
+				// template's Server flag.
+				c := &req.Dotnet.Config
+				if c.Preset == "" && c.Port == 0 {
+					c.Server = tpl.Dotnet.Server
+				}
+				if c.Preset == "" {
+					c.Preset = tpl.Dotnet.Preset
+					if c.Port == 0 {
+						c.Port = tpl.Dotnet.Port
+					}
+				}
+			}
 		default: // "php"
 			if req.PHP == nil {
 				return store.Project{}, fmt.Errorf("%w: template %s needs PHP", validate.ErrInvalid, tpl.ID)
@@ -540,6 +559,23 @@ func (m *Manager) buildProject(req CreateRequest) (store.Project, error) {
 			Kind: store.ServiceJava, Variant: "java", Version: v.Version, Image: v.Image, Enabled: true, Position: 12, Config: raw,
 		})
 	}
+	if req.Dotnet != nil {
+		v, err := m.catalog.Resolve("dotnet", req.Dotnet.Version)
+		if err != nil {
+			return store.Project{}, err
+		}
+		cfg := req.Dotnet.Config
+		if err := cfg.Normalize(); err != nil {
+			return store.Project{}, err
+		}
+		raw, err := json.Marshal(cfg)
+		if err != nil {
+			return store.Project{}, err
+		}
+		proj.Services = append(proj.Services, store.ProjectService{
+			Kind: store.ServiceDotnet, Variant: "dotnet", Version: v.Version, Image: v.Image, Enabled: true, Position: 12, Config: raw,
+		})
+	}
 	if req.Git != nil {
 		g, err := buildGitConfig(*req.Git, store.GitConfig{})
 		if err != nil {
@@ -755,6 +791,9 @@ func (m *Manager) Preview(ctx context.Context, req CreateRequest) (Preview, erro
 	if cfg, ok := javaServesApp(proj); ok && req.Template == "" && (req.Git == nil || req.Git.URL == "") {
 		pv.Warnings = append(pv.Warnings, fmt.Sprintf("the %s server waits for a pom.xml or build.gradle but nothing creates one - pick a Java template, clone a repository or scaffold from the Java terminal; until then the container waits", cfg.Preset))
 	}
+	if _, ok := dotnetServesApp(proj); ok && req.Template == "" && (req.Git == nil || req.Git.URL == "") {
+		pv.Warnings = append(pv.Warnings, "the .NET server waits for a .csproj but nothing creates one - pick a .NET template, clone a repository or scaffold from the .NET terminal; until then the container waits")
+	}
 	// Surface name/path conflicts early so the wizard can react before submitting.
 	if projects, err := m.store.Projects.List(ctx); err == nil {
 		for _, p := range projects {
@@ -880,6 +919,12 @@ func (m *Manager) collectUsedPorts(ctx context.Context, used map[int]bool) error
 				if cfg.DebugHostPort > 0 {
 					used[cfg.DebugHostPort] = true
 				}
+			}
+		}
+		if svc := p.Service(store.ServiceDotnet); svc != nil {
+			var cfg runtime.DotnetConfig
+			if json.Unmarshal(svc.Config, &cfg) == nil && cfg.HostPort > 0 {
+				used[cfg.HostPort] = true
 			}
 		}
 		if svc := p.Service(store.ServiceStorage); svc != nil {
@@ -1061,6 +1106,12 @@ func (m *Manager) assignServicePorts(ctx context.Context, proj *store.Project, r
 			}
 		}
 	}
+	// .NET has no debug port: IDEs start the debugger in the container over SSH.
+	if req.Dotnet != nil && req.Dotnet.Config.Server {
+		if err := assign(store.ServiceDotnet); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -1168,6 +1219,21 @@ func setHostPort(svc *store.ProjectService, port int) error {
 		svc.Config = raw
 		return nil
 	}
+	if svc.Kind == store.ServiceDotnet {
+		var cfg runtime.DotnetConfig
+		if len(svc.Config) > 0 {
+			if err := json.Unmarshal(svc.Config, &cfg); err != nil {
+				return err
+			}
+		}
+		cfg.HostPort = port
+		raw, err := json.Marshal(cfg)
+		if err != nil {
+			return err
+		}
+		svc.Config = raw
+		return nil
+	}
 	if svc.Kind == store.ServiceJava {
 		var cfg runtime.JavaConfig
 		if len(svc.Config) > 0 {
@@ -1251,6 +1317,8 @@ func (m *Manager) resolveImages(p *store.Project) {
 			key = "ruby"
 		case store.ServiceJava:
 			key = "java"
+		case store.ServiceDotnet:
+			key = "dotnet"
 		case store.ServiceRedis, store.ServiceMemcached, store.ServiceMailpit, store.ServiceRabbitMQ, store.ServiceMeilisearch, store.ServiceTypesense, store.ServiceOpenSearch, store.ServiceOpenSearchDashboards, store.ServiceOllama:
 			key = string(svc.Kind)
 		case store.ServiceWeb, store.ServiceDatabase, store.ServiceStorage:

@@ -26,8 +26,8 @@ type CreateRequest struct {
 	Path string // relative to projects root; empty means the slug
 	// Docroot is the directory served by the web server, relative to the project
 	// directory: public/ for Laravel/Symfony, the build output (dist/, out/) for static
-	// Node builds. It's unused while an application server (Python, Go, Ruby, Java) or the
-	// Node dev server serves the app.
+	// Node builds. It's unused while an application server (Python, Go, Ruby, Java, .NET)
+	// or the Node dev server serves the app.
 	Docroot  string
 	PHP      *PHPRequest
 	Node     *NodeRequest
@@ -35,6 +35,7 @@ type CreateRequest struct {
 	Go       *GoRequest
 	Ruby     *RubyRequest
 	Java     *JavaRequest
+	Dotnet   *DotnetRequest
 	Database *DatabaseRequest
 	// Databases are additional databases next to the primary one, each with a name of
 	// its own (host, container and variables follow it).
@@ -57,7 +58,7 @@ type CreateRequest struct {
 	Import *ImportRequest
 	// CreateStarter writes a starter page (index.php with PHP, index.html otherwise) when
 	// the document root is empty. It's ignored while an application server (Python, Go,
-	// Ruby, Java) or the Node dev server serves the app.
+	// Ruby, Java, .NET) or the Node dev server serves the app.
 	CreateStarter bool
 	// Start starts the project right after creation.
 	Start bool
@@ -145,6 +146,19 @@ type JavaUpdate struct {
 	Enabled bool
 	Version string
 	Config  runtime.JavaConfig
+}
+
+// DotnetRequest selects the .NET container and optional application server.
+type DotnetRequest struct {
+	Version string
+	Config  runtime.DotnetConfig
+}
+
+// DotnetUpdate adds, changes or removes the .NET service.
+type DotnetUpdate struct {
+	Enabled bool
+	Version string
+	Config  runtime.DotnetConfig
 }
 
 // ExtraRequest selects an auxiliary service (Redis, Memcached, Mailpit, RabbitMQ,
@@ -269,6 +283,7 @@ type UpdateRequest struct {
 	Go       *GoUpdate
 	Ruby     *RubyUpdate
 	Java     *JavaUpdate
+	Dotnet   *DotnetUpdate
 	Database *DatabaseUpdate
 	// Databases adds, changes or removes (Enabled false) additional databases by name.
 	Databases   map[string]DatabaseUpdate
@@ -471,10 +486,10 @@ type Preview struct {
 	Images     []string           `json:"images"`
 	Warnings   []string           `json:"warnings"`
 	// Serves says what the primary hostname reaches: "php", "python", "go", "ruby",
-	// "java" (application server), "node" (dev server) or "static".
+	// "java", "dotnet" (application server), "node" (dev server) or "static".
 	Serves string `json:"serves"`
-	// AppService is the application container's kind (php, python, go, ruby, java, node), empty
-	// for static sites.
+	// AppService is the application container's kind (php, python, go, ruby, java, dotnet,
+	// node), empty for static sites.
 	AppService string `json:"appService,omitempty"`
 	// DevHostname is the dev server's own host name when the Node dev server is enabled.
 	DevHostname string `json:"devHostname,omitempty"`

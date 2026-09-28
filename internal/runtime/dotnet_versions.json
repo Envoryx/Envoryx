@@ -1,0 +1,14 @@
+{
+  "image": "ghcr.io/envoryx/envoryx-dotnet",
+  "default": "10",
+  "versions": [
+    {
+      "version": "10",
+      "base": "10.0-noble"
+    },
+    {
+      "version": "8",
+      "base": "8.0-noble"
+    }
+  ]
+}

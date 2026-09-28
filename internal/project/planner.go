@@ -102,8 +102,9 @@ var toolEnv = []string{"HOME=" + homeMountTarget, "COMPOSER_HOME=" + homeMountTa
 
 // The package cache is one directory for all projects (/config/cache on the Envoryx
 // side), so a package is downloaded once whichever project asks for it next: Composer,
-// npm, Yarn, pip, uv, Go, Bundler, Maven and Gradle keep their caches below it. pnpm is left out: its store is only
-// configurable as npm_config_store_dir, which makes every npm command warn. Every
+// npm, Yarn, pip, uv, Go, Bundler, Maven, Gradle and NuGet keep their caches below it.
+// pnpm is left out: its store is only configurable as npm_config_store_dir, which makes
+// every npm command warn. Every
 // container a package manager runs in has it mounted: the application containers, the
 // workers and the one-shots that scaffold a template.
 const (
@@ -132,6 +133,10 @@ var packageCacheEnv = []string{
 	// distributions) are safe to share: both lock what they write.
 	"MAVEN_OPTS=-Dmaven.repo.local=" + packageCacheTarget + "/maven",
 	"GRADLE_USER_HOME=" + packageCacheTarget + "/gradle",
+	// NuGet's global packages folder holds every package version once, extracted, and
+	// restores lock it; the HTTP cache keeps the downloads.
+	"NUGET_PACKAGES=" + packageCacheTarget + "/nuget/packages",
+	"NUGET_HTTP_CACHE_PATH=" + packageCacheTarget + "/nuget/http",
 	"UV_LINK_MODE=copy",
 }
 
@@ -269,6 +274,67 @@ func javaEnv(proj store.Project, env []string) []string {
 		add("QUARKUS_MAILER_PORT", vars["SMTP_PORT"])
 	}
 	return out
+}
+
+// dotnetEnv adds the connection strings .NET reads through GetConnectionString to the
+// variables every application container gets: ConnectionStrings__DefaultConnection for
+// the primary SQL database (the name the ASP.NET Core templates use) and
+// ConnectionStrings__<name> for every additional one, in the ADO.NET form Npgsql and the
+// MySQL providers take, plus ConnectionStrings__MongoDB and ConnectionStrings__Redis
+// (StackExchange.Redis's host:port form).
+func dotnetEnv(proj store.Project, env []string) []string {
+	vars := map[string]string{}
+	for _, kv := range env {
+		k, v, _ := strings.Cut(kv, "=")
+		vars[k] = v
+	}
+	out := append([]string{}, env...)
+	for _, db := range proj.Databases() {
+		name := db.Kind.DatabaseName()
+		get := func(k string) string { return vars[envKey(name, k)] }
+		key := "ConnectionStrings__DefaultConnection"
+		if name != "" {
+			key = "ConnectionStrings__" + name
+		}
+		var cs string
+		switch db.Variant {
+		case "postgresql":
+			cs = adoConnectionString("Host", get("DB_HOST"), "Port", get("DB_PORT"), "Database", get("DB_DATABASE"), "Username", get("DB_USERNAME"), "Password", get("DB_PASSWORD"))
+		case "mariadb", "mysql":
+			cs = adoConnectionString("Server", get("DB_HOST"), "Port", get("DB_PORT"), "Database", get("DB_DATABASE"), "User ID", get("DB_USERNAME"), "Password", get("DB_PASSWORD"))
+		case "mongodb":
+			if name == "" {
+				key = "ConnectionStrings__MongoDB"
+			}
+			cs = get("MONGODB_URI")
+		}
+		if cs != "" {
+			out = append(out, key+"="+cs)
+		}
+	}
+	if h := vars["REDIS_HOST"]; h != "" {
+		cs := net.JoinHostPort(h, vars["REDIS_PORT"])
+		if pw := vars["REDIS_PASSWORD"]; pw != "" {
+			cs += ",password=" + pw
+		}
+		out = append(out, "ConnectionStrings__Redis="+cs)
+	}
+	return out
+}
+
+// adoConnectionString joins key/value pairs into an ADO.NET connection string. A value
+// with a separator, a quote or surrounding spaces goes in double quotes, inner ones
+// doubled, the way DbConnectionStringBuilder reads it back.
+func adoConnectionString(kv ...string) string {
+	parts := make([]string, 0, len(kv)/2)
+	for i := 0; i+1 < len(kv); i += 2 {
+		v := kv[i+1]
+		if strings.ContainsAny(v, `;'"=`) || strings.TrimSpace(v) != v {
+			v = `"` + strings.ReplaceAll(v, `"`, `""`) + `"`
+		}
+		parts = append(parts, kv[i]+"="+v)
+	}
+	return strings.Join(parts, ";")
 }
 
 // jetbrainsCacheDir is the shared, host-wide cache for JetBrains Gateway IDE backends
@@ -707,6 +773,46 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 			plan.Containers = append(plan.Containers, ContainerPlan{Kind: store.ServiceJava, Order: 12, Spec: spec})
 			images[svc.Image] = true
 
+		case store.ServiceDotnet:
+			var dcfg runtime.DotnetConfig
+			if len(svc.Config) > 0 {
+				if err := json.Unmarshal(svc.Config, &dcfg); err != nil {
+					return Plan{}, fmt.Errorf("dotnet config: %w", err)
+				}
+			}
+			if err := dcfg.Normalize(); err != nil {
+				return Plan{}, err
+			}
+			spec := docker.ContainerSpec{
+				Name:   ContainerName(proj.Slug, store.ServiceDotnet),
+				Image:  svc.Image,
+				Labels: labels,
+				// Tooling container: idles until actions or the terminal run commands.
+				Cmd:           []string{"sleep", "infinity"},
+				Env:           append(dotnetEnv(proj, env), toolEnv...),
+				User:          fmt.Sprintf("%d:%d", p.paths.PUID, p.paths.PGID),
+				WorkingDir:    appMountTarget,
+				Network:       plan.NetworkName,
+				NetworkAlias:  []string{"dotnet"},
+				Mounts:        append([]docker.MountSpec{{Type: "bind", Source: appHost, Target: appMountTarget}, p.HomeMount(proj)}, p.gatewayMounts(proj)...),
+				RestartPolicy: "unless-stopped",
+				StopTimeout:   stopTimeoutSec,
+			}
+			p.withPackageCache(&spec)
+			if dcfg.Server {
+				// Server mode: dotnet watch or the published DLL is the main process,
+				// published on a host port; without PHP or a Python, Go, Ruby or Java
+				// server the proxy routes the project URL to it. A blank project has nothing
+				// to build yet, so it waits for a project file.
+				spec.Cmd = dcfg.WrappedCommand(dbGuard)
+				spec.Env = append(spec.Env, dcfg.Env()...)
+				if dcfg.HostPort > 0 {
+					spec.Ports = []docker.PortSpec{{HostIP: p.paths.PublishInterface, HostPort: dcfg.HostPort, ContainerPort: dcfg.Port, Protocol: "tcp"}}
+				}
+			}
+			plan.Containers = append(plan.Containers, ContainerPlan{Kind: store.ServiceDotnet, Order: 12, Spec: spec})
+			images[svc.Image] = true
+
 		case store.ServiceRedis:
 			var cfg runtime.ServiceConfig
 			if err := json.Unmarshal(svc.Config, &cfg); err != nil {
@@ -998,7 +1104,7 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 	// with the project home), sharing env and the project mount. A worker whose runtime
 	// the project doesn't have is skipped; it comes back when the runtime is added.
 	php, node, python, golang := proj.Service(store.ServicePHP), proj.Service(store.ServiceNode), proj.Service(store.ServicePython), proj.Service(store.ServiceGo)
-	ruby, java := proj.Service(store.ServiceRuby), proj.Service(store.ServiceJava)
+	ruby, java, dotnet := proj.Service(store.ServiceRuby), proj.Service(store.ServiceJava), proj.Service(store.ServiceDotnet)
 	// Ruby workers run in the server's environment (RAILS_ENV …): a production server
 	// with development workers would split one application across two databases.
 	var rubyAppEnv []string
@@ -1067,6 +1173,13 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 			}
 			spec.Image = java.Image
 			spec.Env = append(javaEnv(proj, env), toolEnv...)
+			spec.Mounts = append(spec.Mounts, p.HomeMount(proj))
+		case WorkerRuntimeDotnet:
+			if dotnet == nil || !dotnet.Enabled {
+				continue
+			}
+			spec.Image = dotnet.Image
+			spec.Env = append(dotnetEnv(proj, env), toolEnv...)
 			spec.Mounts = append(spec.Mounts, p.HomeMount(proj))
 		default:
 			if php == nil || !php.Enabled {

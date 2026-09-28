@@ -17,7 +17,7 @@ import (
 )
 
 // execEnv is how a command runs inside a service container: application containers (php,
-// python, go, ruby, java, node) run as the project owner in the project directory, every other service as
+// python, go, ruby, java, dotnet, node) run as the project owner in the project directory, every other service as
 // the image's own user at the root, the way the terminal has always opened them.
 type execEnv struct {
 	User       string
@@ -32,7 +32,7 @@ func (m *Manager) execEnv(kind store.ServiceKind) (execEnv, error) {
 	}
 	e := execEnv{WorkingDir: "/", Env: []string{"LANG=C.UTF-8"}}
 	switch kind {
-	case store.ServicePHP, store.ServicePython, store.ServiceGo, store.ServiceRuby, store.ServiceJava, store.ServiceNode:
+	case store.ServicePHP, store.ServicePython, store.ServiceGo, store.ServiceRuby, store.ServiceJava, store.ServiceDotnet, store.ServiceNode:
 		e.WorkingDir = appMountTarget
 		e.User = fmt.Sprintf("%d:%d", paths.PUID, paths.PGID)
 		// The uid usually has no passwd entry in the image; give tools writable caches.

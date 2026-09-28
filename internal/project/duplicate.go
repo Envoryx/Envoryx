@@ -382,6 +382,8 @@ func (m *Manager) reassignHostPorts(ctx context.Context, proj *store.Project) er
 				}
 				return swap(&c.DebugHostPort)
 			})
+		case svc.Kind == store.ServiceDotnet:
+			err = editConfig(svc, func(c *runtime.DotnetConfig) error { return swap(&c.HostPort) })
 		case svc.Kind == store.ServiceJava:
 			err = editConfig(svc, func(c *runtime.JavaConfig) error {
 				if err := swap(&c.HostPort); err != nil {

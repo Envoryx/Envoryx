@@ -222,6 +222,8 @@ func (m *Manager) shareTarget(selfID string, p store.Project) (target, network s
 		target = m.dialForApp(selfID, p, store.ServiceRuby, cfg.HostPort, cfg.Port)
 	} else if cfg, ok := javaServesApp(p); ok {
 		target = m.dialForApp(selfID, p, store.ServiceJava, cfg.HostPort, cfg.Port)
+	} else if cfg, ok := dotnetServesApp(p); ok {
+		target = m.dialForApp(selfID, p, store.ServiceDotnet, cfg.HostPort, cfg.Port)
 	} else if cfg, ok := nodeServesApp(p); ok {
 		target = m.dialForDev(selfID, p, cfg)
 	}
