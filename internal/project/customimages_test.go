@@ -217,6 +217,10 @@ func TestCustomImageFromDockerfile(t *testing.T) {
 	if _, err := e.m.Restart(ctx, id); err == nil || !strings.Contains(err.Error(), "non-zero code") {
 		t.Fatalf("failed build: %v", err)
 	}
+	// The build ran before the containers stopped: the project keeps running.
+	if c, ok := e.engine.Container("envoryx-built-php"); !ok || c.State != "running" {
+		t.Fatalf("the failed build stopped the project: %+v", c.Spec.Image)
+	}
 	got, _ := e.m.Get(ctx, id)
 	if c := got.Project.Service(store.ServicePHP).Custom; !c.BuildFailed || !strings.Contains(c.BuildOutput, "RUN false") || c.Dockerfile == "" {
 		t.Fatalf("recorded: %+v", c)

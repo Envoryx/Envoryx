@@ -370,7 +370,11 @@ func (m *Manager) Restart(ctx context.Context, id string) (View, error) {
 	return m.transition(ctx, id, limitProvision, "restart", audit.ActionProjectRestarted, func(ctx context.Context, proj store.Project, plan Plan) error {
 		for _, img := range plan.Images {
 			if isBuildRef(img) {
-				// Built from the project's Dockerfile: a changed one has a new tag already.
+				// Built from the project's Dockerfile: a changed one has a new tag, built here
+				// before the containers stop, so a broken Dockerfile leaves the project running.
+				if err := m.ensureImage(ctx, proj, img); err != nil {
+					return err
+				}
 				continue
 			}
 			if err := m.engine.PullImage(ctx, img, m.pullProgress(ctx, proj.Slug, img)); err != nil {
