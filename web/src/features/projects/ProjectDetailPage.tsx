@@ -7,12 +7,13 @@ import { lazy, Suspense, useEffect, useState, type ReactElement } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { ApiError } from "@/api/client";
 import { useDevServerLink, useImageChoice, useProject, useProjectLinks, useProjectPlan, useProjectStats, useRuntimes, useSettings, useUpdateProject } from "@/api/hooks";
-import { appKindOf, defaultNodePresets, defaultPythonPresets, defaultRubyPresets, defaultJavaPresets, servesOf, type EnvVar, type NodeConfig, type PHPConfig, type Project, type PythonConfig, type GoConfig, type RubyConfig, type JavaConfig, type UpdateProjectRequest, type WebServerConfig } from "@/api/types";
+import { appKindOf, defaultNodePresets, defaultPythonPresets, defaultRubyPresets, defaultJavaPresets, defaultDotnetPresets, servesOf, type EnvVar, type NodeConfig, type PHPConfig, type Project, type PythonConfig, type GoConfig, type RubyConfig, type JavaConfig, type DotnetConfig, type UpdateProjectRequest, type WebServerConfig } from "@/api/types";
 import { NodeDevServerFields, defaultScript, devServerRequest, type DevServerForm } from "./NodeDevServerFields";
 import { PythonServerFields, defaultPythonServerForm, pythonServerRequest, type PythonServerForm } from "./PythonServerFields";
 import { GoServerFields, defaultGoServerForm, goServerRequest, type GoServerForm } from "./GoServerFields";
 import { RubyServerFields, defaultRubyServerForm, rubyServerRequest, type RubyServerForm } from "./RubyServerFields";
 import { JavaServerFields, defaultJavaServerForm, javaServerRequest, type JavaServerForm } from "./JavaServerFields";
+import { DotnetServerFields, defaultDotnetServerForm, dotnetServerRequest, type DotnetServerForm } from "./DotnetServerFields";
 import { Alert, Badge, Button, Card, CardHeader, Checkbox, Code, ErrorState, Field, Input, PageHeader, Select, Spinner, StatusDot } from "@/components/ui";
 import { containerStateTone, formatBytes, formatDateTime, formatPercent, serviceLabel, stateMeta } from "@/lib/format";
 import { DeleteProjectDialog, DuplicateProjectDialog, ProjectActionButtons, RenameProjectDialog, useActionError } from "./ProjectActions";
@@ -172,15 +173,15 @@ export function ProjectDetailPage() {
       {tab === "Runtime" && (
         <div className="space-y-6">
           <ProjectSettingsCard project={p} onRename={() => setRenaming(true)} />
-          {/* The application runtime comes first (PHP, else Python, else Go, else Ruby, else Node), then the web server, then the other runtimes as toolchains. */}
+          {/* The application runtime comes first (PHP, else Python, Go, Ruby, Java, .NET, Node), then the web server, then the other runtimes as toolchains. */}
           {(() => {
             const app = p.appService ?? appKindOf(p);
-            type Kind = "php" | "python" | "go" | "ruby" | "java" | "node";
-            const cards: Record<Kind, ReactElement> = { php: <PhpCard key="php" project={p} />, python: <PythonCard key="python" project={p} />, go: <GoCard key="go" project={p} />, ruby: <RubyCard key="ruby" project={p} />, java: <JavaCard key="java" project={p} />, node: <NodeCard key="node" project={p} /> };
+            type Kind = "php" | "python" | "go" | "ruby" | "java" | "dotnet" | "node";
+            const cards: Record<Kind, ReactElement> = { php: <PhpCard key="php" project={p} />, python: <PythonCard key="python" project={p} />, go: <GoCard key="go" project={p} />, ruby: <RubyCard key="ruby" project={p} />, java: <JavaCard key="java" project={p} />, dotnet: <DotnetCard key="dotnet" project={p} />, node: <NodeCard key="node" project={p} /> };
             // The application runtime first, then the rest in their usual order (Node before the
             // servers, PHP last unless it's the application).
-            const order: Kind[] = ["node", "python", "go", "ruby", "java", "php"];
-            const [first, ...rest]: Kind[] = app && app !== "php" ? [app, ...order.filter((k) => k !== app)] : ["php", "node", "python", "go", "ruby", "java"];
+            const order: Kind[] = ["node", "python", "go", "ruby", "java", "dotnet", "php"];
+            const [first, ...rest]: Kind[] = app && app !== "php" ? [app, ...order.filter((k) => k !== app)] : ["php", "node", "python", "go", "ruby", "java", "dotnet"];
             return (
               <>
                 {first && cards[first]}
@@ -386,7 +387,7 @@ function ProjectSettingsCard({ project: p, onRename }: { project: Project; onRen
             hint={
               serves === "node"
                 ? t("Not used while the dev server serves the app; the build output (e.g. dist/) once you turn it off.")
-                : serves === "python" || serves === "go" || serves === "ruby" || serves === "java"
+                : serves === "python" || serves === "go" || serves === "ruby" || serves === "java" || serves === "dotnet"
                   ? t("Not used while the application server serves the app; static files (e.g. a collected static/ folder) once you turn it off.")
                   : t("Relative to the project directory")
             }
@@ -1074,6 +1075,108 @@ function JavaCard({ project: p }: { project: Project }) {
           </Field>
         )}
         {enabled && <JavaServerFields value={server} onChange={setServer} presets={runtimes.data?.javaPresets ?? defaultJavaPresets} primary={serves !== "php" && serves !== "python" && serves !== "go" && serves !== "ruby"} />}
+      </div>
+    </Card>
+  );
+}
+
+function DotnetCard({ project: p }: { project: Project }) {
+  const { t } = useTranslation();
+  const runtimes = useRuntimes();
+  const update = useUpdateProject(p.id);
+  const links = useProjectLinks();
+  const { msg, setMsg } = useSaveFeedback();
+  const serves = p.serves ?? servesOf(p);
+  const svc = p.services.find((s) => s.kind === "dotnet" && s.enabled);
+  const dotnet = runtimes.data?.runtimes.find((r) => r.key === "dotnet");
+  const stored = (svc?.config ?? {}) as DotnetConfig;
+  const fromStored = (): DotnetServerForm => ({
+    server: !!stored.server,
+    mode: stored.mode ?? "dev",
+    preset: stored.preset ?? defaultDotnetServerForm.preset,
+    project: stored.project ?? "",
+    dll: stored.dll ?? "",
+    port: String(stored.port ?? defaultDotnetServerForm.port),
+  });
+  const [enabled, setEnabled] = useState(!!svc);
+  const [version, setVersion] = useState(svc?.version ?? "");
+  const [server, setServer] = useState<DotnetServerForm>(fromStored);
+  useEffect(() => {
+    setEnabled(!!svc);
+    setVersion(svc?.version ?? dotnet?.versions.find((v) => v.default)?.version ?? "");
+    setServer(fromStored());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [svc, dotnet]);
+  const dirty = enabled !== !!svc || (enabled && (version !== (svc?.version ?? "") || JSON.stringify(server) !== JSON.stringify(fromStored())));
+  const dotnetStatus = p.status.services.find((s) => s.kind === "dotnet");
+  // The server answers on the project URL when .NET is the application; otherwise only its host port is published.
+  const url = serves === "dotnet" ? links(p).url : stored.hostPort ? links({ httpPort: stored.hostPort, hostnames: [], serves: "static", services: [] }).direct : "";
+  const isApp = serves !== "php" && serves !== "python" && serves !== "go" && serves !== "ruby" && serves !== "java";
+
+  return (
+    <Card>
+      <CardHeader
+        title=".NET"
+        description={
+          isApp
+            ? t("Application runtime of this project: run your ASP.NET Core or other .NET application here. Removing it only removes the container; the code stays in the project directory, the packages in the shared package cache.")
+            : t("Tooling container (dotnet, dotnet-ef), optionally running a .NET server on its own port. Removing it only removes the container; the code stays in the project directory.")
+        }
+        actions={
+          <Button
+            variant="primary"
+            icon={<Save className="size-4" />}
+            loading={update.isPending}
+            disabled={!dirty}
+            onClick={() =>
+              update.mutate(
+                { dotnet: enabled ? { enabled: true, version, ...dotnetServerRequest(server) } : { enabled: false } },
+                {
+                  onSuccess: () => setMsg({ tone: "green", text: enabled ? t(".NET container updated.") : t(".NET container removed.") }),
+                  onError: (err) => setMsg({ tone: "red", text: errorText(err, t, t("Saving failed")) }),
+                },
+              )
+            }
+          >
+            {t("Save")}
+          </Button>
+        }
+      />
+      <div className="space-y-4 p-5">
+        {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
+        {stored.server && (
+          <div className="flex flex-wrap items-center gap-3 rounded-md border border-default px-3 py-2 text-sm">
+            <span className="text-muted">{t("Server")}</span>
+            {dotnetStatus && (
+              <span className="inline-flex items-center gap-1.5 text-xs">
+                <StatusDot tone={containerStateTone(dotnetStatus.state)} /> {dotnetStatus.state}
+              </span>
+            )}
+            {url ? (
+              <a href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-mono text-xs text-accent-600 hover:underline dark:text-accent-300">
+                {url} <ExternalLink className="size-3" />
+              </a>
+            ) : (
+              <span className="text-xs text-subtle">{t("no port")}</span>
+            )}
+            {stored.hostPort ? <span className="font-mono text-xs text-subtle">{t("host port {{port}}", { port: stored.hostPort })}</span> : null}
+            {stored.mode === "production" && <Badge tone="blue">{t("production server")}</Badge>}
+          </div>
+        )}
+        <Checkbox label={t("Enable .NET")} checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
+        {enabled && dotnet && (
+          <Field label={t(".NET version")} htmlFor="dotnet-version">
+            <Select id="dotnet-version" value={version} onChange={(e) => setVersion(e.target.value)}>
+              {dotnet.versions.map((v) => (
+                <option key={v.version} value={v.version}>
+                  {v.label}
+                  {v.eol ? t(" (end of life)") : v.preview ? t(" (preview)") : ""}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        )}
+        {enabled && <DotnetServerFields value={server} onChange={setServer} presets={runtimes.data?.dotnetPresets ?? defaultDotnetPresets} primary={isApp} />}
       </div>
     </Card>
   );

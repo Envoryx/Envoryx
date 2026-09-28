@@ -134,12 +134,12 @@ export interface EnvVar {
 
 /**
  * What a project's primary hostname serves: PHP-FPM behind the web server, the Python, Go,
- * Ruby or Java server, the Node dev server or static files.
+ * Ruby, Java or .NET server, the Node dev server or static files.
  */
-export type Serves = "php" | "python" | "go" | "ruby" | "java" | "node" | "static";
+export type Serves = "php" | "python" | "go" | "ruby" | "java" | "dotnet" | "node" | "static";
 
 /** Kind of the container that runs the project's code. */
-export type AppKind = "php" | "python" | "go" | "ruby" | "java" | "node";
+export type AppKind = "php" | "python" | "go" | "ruby" | "java" | "dotnet" | "node";
 
 export interface Project {
   id: string;
@@ -161,12 +161,12 @@ export interface Project {
   hostnames: string[];
   /**
    * Set when the Node dev server is enabled (routed by the proxy); also the primary route
-   * when the project has neither PHP nor a Python, Go, Ruby or Java server.
+   * when the project has neither PHP nor a Python, Go, Ruby, Java or .NET server.
    */
   devHostname?: string;
   /** Missing on payloads from a backend that predates it; use servesOf() then. */
   serves?: Serves;
-  /** The application container: PHP if present, else Python, Go, Ruby, Java, Node; absent for static projects. */
+  /** The application container: PHP if present, else Python, Go, Ruby, Java, .NET, Node; absent for static projects. */
   appService?: AppKind;
   backupSchedule: BackupSchedule;
   ideGateway?: boolean;
@@ -218,7 +218,8 @@ export interface ProxyRulesRequest extends Omit<ProxyRules, "basicAuth"> {
 /**
  * Client-side fallback for `project.serves`: PHP enabled → php; Python enabled with the server
  * on → python; Go with the server on → go; Ruby with the server on → ruby; Java with the
- * server on → java; Node enabled with the dev server on → node; everything else → static. Prefer
+ * server on → java; .NET with the server on → dotnet; Node enabled with the dev server on →
+ * node; everything else → static. Prefer
  * `project.serves ?? servesOf(project)`.
  */
 export function servesOf(p: Pick<Project, "services">): Serves {
@@ -232,6 +233,8 @@ export function servesOf(p: Pick<Project, "services">): Serves {
   if (ruby && (ruby.config as RubyConfig).server) return "ruby";
   const java = enabled("java");
   if (java && (java.config as JavaConfig).server) return "java";
+  const dotnet = enabled("dotnet");
+  if (dotnet && (dotnet.config as DotnetConfig).server) return "dotnet";
   const node = enabled("node");
   if (node && (node.config as NodeConfig).devServer) return "node";
   return "static";
@@ -240,7 +243,7 @@ export function servesOf(p: Pick<Project, "services">): Serves {
 /** Client-side fallback for `project.appService`: the first enabled application runtime. */
 export function appKindOf(p: Pick<Project, "services">): AppKind | undefined {
   const enabled = (kind: string) => p.services.some((s) => s.kind === kind && s.enabled);
-  return enabled("php") ? "php" : enabled("python") ? "python" : enabled("go") ? "go" : enabled("ruby") ? "ruby" : enabled("java") ? "java" : enabled("node") ? "node" : undefined;
+  return enabled("php") ? "php" : enabled("python") ? "python" : enabled("go") ? "go" : enabled("ruby") ? "ruby" : enabled("java") ? "java" : enabled("dotnet") ? "dotnet" : enabled("node") ? "node" : undefined;
 }
 
 export interface RuntimeVersion {
@@ -289,6 +292,8 @@ export interface ProjectTemplate {
   ruby?: RubyConfig;
   /** Server defaults of a Java template (preset, port). */
   java?: JavaConfig;
+  /** Server defaults of a .NET template (preset, port). */
+  dotnet?: DotnetConfig;
 }
 
 /** Framework preset of the Node dev server with the port the framework listens on by default. */
@@ -352,6 +357,19 @@ export const defaultJavaPresets: JavaPreset[] = [
   { key: "jar", label: "Other (build, then java -jar: Micronaut, Javalin, Helidon …)", port: 8080 },
 ];
 
+/** Server preset of the .NET runtime with its default port. */
+export interface DotnetPreset {
+  key: string;
+  label: string;
+  port: number;
+}
+
+/** Fallback when the backend predates dotnetPresets. */
+export const defaultDotnetPresets: DotnetPreset[] = [
+  { key: "aspnetcore", label: "ASP.NET Core (Web API, MVC, Razor Pages, Blazor)", port: 8080 },
+  { key: "dll", label: "Other (publish, then dotnet <dll>: worker services, console hosts …)", port: 8080 },
+];
+
 export interface RuntimesResponse {
   runtimes: Runtime[];
   phpExtensions: PHPExtension[];
@@ -361,6 +379,7 @@ export interface RuntimesResponse {
   pythonPresets?: PythonPreset[];
   rubyPresets?: RubyPreset[];
   javaPresets?: JavaPreset[];
+  dotnetPresets?: DotnetPreset[];
 }
 
 export interface DatabaseRequest {
@@ -675,6 +694,32 @@ export interface JavaConfig {
   debugHostPort?: number;
 }
 
+/** .NET service with optional server mode (ASP.NET Core or any published DLL). */
+export interface DotnetRequest {
+  version: string;
+  server?: boolean;
+  /** "dev" (default, dotnet watch) or "production" (publish once, run the DLL). */
+  mode?: string;
+  /** "aspnetcore" (default) or "dll". */
+  preset?: string;
+  /** Project file to run, relative to the project; empty finds the one web or worker project. */
+  project?: string;
+  /** The DLL the "dll" preset runs, relative to the project; empty runs what the publish produced. */
+  dll?: string;
+  port?: number;
+}
+
+/** Stored .NET service config (from project.services[kind=dotnet].config). */
+export interface DotnetConfig {
+  server?: boolean;
+  mode?: string;
+  preset?: string;
+  project?: string;
+  dll?: string;
+  port?: number;
+  hostPort?: number;
+}
+
 /** Stored web service config (from project.services[kind=web].config). */
 export interface WebServerConfig {
   /** Unknown paths return index.html (client-side routing); only for projects without PHP. */
@@ -698,6 +743,7 @@ export interface CreateProjectRequest {
   go?: GoRequest | null;
   ruby?: RubyRequest | null;
   java?: JavaRequest | null;
+  dotnet?: DotnetRequest | null;
   database?: DatabaseRequest | null;
   /** Additional databases, each reached by its name (host, NAME_DB_* variables). */
   databases?: (DatabaseRequest & { name: string })[];
@@ -737,7 +783,7 @@ export interface SiteAnalysis {
   files: number;
   bytes: number;
   framework: { id: string; name: string; version?: string };
-  runtime: "php" | "static" | "node" | "python" | "go" | "ruby" | "java";
+  runtime: "php" | "static" | "node" | "python" | "go" | "ruby" | "java" | "dotnet";
   phpVersion?: string;
   phpExtensions?: string[];
   docroot: string;
@@ -885,6 +931,7 @@ export interface UpdateProjectRequest {
   go?: ({ enabled: true } & GoRequest) | { enabled: false };
   ruby?: ({ enabled: true } & RubyRequest) | { enabled: false };
   java?: ({ enabled: true } & JavaRequest) | { enabled: false };
+  dotnet?: ({ enabled: true } & DotnetRequest) | { enabled: false };
   database?: DatabaseUpdate;
   /** Adds, changes or removes (enabled: false) additional databases by name. */
   databases?: Record<string, DatabaseUpdate>;
@@ -1369,7 +1416,7 @@ export interface Settings {
 
 /** One difference between a project and its envoryx.yml. */
 export interface ManifestChange {
-  /** docroot, web, php, node, python, go, ruby, java, database, redis …, storage, limits, healthcheck, env, domain, worker, cron */
+  /** docroot, web, php, node, python, go, ruby, java, dotnet, database, redis …, storage, limits, healthcheck, env, domain, worker, cron */
   section: string;
   /** Variable, host name, worker or cron job within the section. */
   item?: string;
@@ -1455,7 +1502,7 @@ export interface Worker {
   createdAt: string;
 }
 
-export type CronRuntime = "php" | "node" | "python" | "go" | "ruby" | "java";
+export type CronRuntime = "php" | "node" | "python" | "go" | "ruby" | "java" | "dotnet";
 export type CronRunStatus = "running" | "succeeded" | "failed" | "timed_out" | "error" | "interrupted";
 
 export interface CronRun {
@@ -1502,7 +1549,7 @@ export interface WorkerPreset {
   argLabel?: string;
   argHint?: string;
   requires?: string[];
-  /** Service the worker runs in: "php", "node", "python", "go", "ruby" or "java". */
+  /** Service the worker runs in: "php", "node", "python", "go", "ruby", "java" or "dotnet". */
   runtime?: string;
 }
 

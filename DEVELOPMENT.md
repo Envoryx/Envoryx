@@ -93,6 +93,11 @@ They also cover every project shape:
   JDWP ports kept across edits, the templates, workers, the `_test` redirect and report merge
   of the test script and the manifest; `runtime/java_test.go` runs the serve script against
   stub mvn, gradle and java);
+- a .NET server (`dotnet_test.go`: the connection strings, route and SSH user, preset and
+  version changes keeping the host port, the templates' steps, workers, the test suite
+  detection, the `_test` redirect and TRX merge of the test script, the TRX parser, actions
+  with glob requirements and the manifest; `runtime/dotnet_test.go` runs the serve script
+  against a stub dotnet);
 - a static site (SPA fallback, `index.html` starter).
 
 `internal/runtime/webserver_test.go` pins the PHP web configs as goldens, so the static
@@ -258,6 +263,28 @@ start.spring.io, cloned or copied in). Check for each:
 
 Re-run it when you change `javaServeScript`, the templates or the image.
 
+### .NET image and scaffold smoke
+
+The .NET templates come with the SDK, so only the NuGet restore needs the network. Build the
+image locally
+(`docker build --build-arg BASE_TAG=10.0-noble --build-arg DOTNET_VERSION=10 -t ghcr.io/envoryx/envoryx-dotnet:10 images/dotnet`,
+and the same with `8.0-noble` and `8`), then `make build`, start a scratch instance with SSH
+enabled and create one project per template: the Web API with PostgreSQL, MariaDB and MySQL
+(on .NET 8 too), MVC, Blazor and Razor Pages. Check for each:
+
+- the project URL answers once `dotnet watch` is up, and the log shows no "Overriding
+  HTTP_PORTS" warning; the Web API's `/todos` reads and writes the database;
+- an edit to `Program.cs` shows up without a restart of the container;
+- Blazor's `/_blazor` WebSocket upgrades through the proxy (101);
+- `netcoredbg --interpreter=cli` over `ssh -p <port> <project>.dotnet@<host>` attaches to the
+  application and stops at a breakpoint in a request handler;
+- with an xUnit project and a solution at the top, the Tests tab runs against
+  `<database>_test` and shows the failed test with file and line;
+- production mode and the *DLL* preset (a `dotnet new worker` project) publish and run the
+  application as the container's main process, with no compiler server left behind.
+
+Re-run it when you change `dotnetServeScript`, the templates, the test script or the image.
+
 ## Conventions
 
 - Go: `gofmt`, `go vet`, errors wrapped with `%w`, sentinel errors in the package that owns
@@ -272,15 +299,16 @@ Re-run it when you change `javaServeScript`, the templates or the image.
 
 ## Adding a runtime version
 
-PHP, Node, Python, Go, Ruby and Java versions live in `internal/runtime/php_versions.json`,
-`node_versions.json`, `python_versions.json`, `go_versions.json`, `ruby_versions.json` and
-`java_versions.json`.
+PHP, Node, Python, Go, Ruby, Java and .NET versions live in
+`internal/runtime/php_versions.json`, `node_versions.json`, `python_versions.json`,
+`go_versions.json`, `ruby_versions.json`, `java_versions.json` and `dotnet_versions.json`.
 They're the one place those versions are listed: the catalogue embeds them into the binary,
 and the image build matrices (`php-images.yml`, `node-images.yml`, `python-images.yml`,
-`go-images.yml`, `ruby-images.yml`, `java-images.yml`) read them with `jq`.
+`go-images.yml`, `ruby-images.yml`, `java-images.yml`, `dotnet-images.yml`) read them with
+`jq`.
 
 Normally you never edit them by hand. `.github/workflows/runtime-versions.yml` runs
-`scripts/check-versions.py php|node|python|go|ruby|java` weekly and opens a PR when upstream
+`scripts/check-versions.py php|node|python|go|ruby|java|dotnet` weekly and opens a PR when upstream
 changes:
 
 - Node: the newest LTS becomes the default, EOL "current" releases are dropped.
@@ -290,6 +318,10 @@ changes:
   they aren't followed.
 - Java: the LTS releases from 17 on (Eclipse Temurin `<v>-jdk-noble`). The feature releases
   in between are skipped; they're supported for six months only.
+- .NET: the LTS releases from 8 on (`mcr.microsoft.com/dotnet/sdk:<v>.0-noble`; the tags are
+  read from the Microsoft Container Registry, not Docker Hub). The STS releases in between
+  are skipped like Java's feature releases. A release past its end of support (.NET 8 on
+  2026-11-10) stays in the list, marked `eol`.
 
 In the files, `base` is the upstream tag (`8.6-rc` for pre-releases), `preview`/`eol` drive
 the labels in the UI, and `default` is the newest stable version.
@@ -384,6 +416,6 @@ it's green, and read the release notes first for majors. Node majors in the `Doc
 ignored on purpose. Only even (LTS) lines are used, and the move to the next one happens by
 hand, in `Dockerfile` and `ci.yml` together.
 
-The **runtime images** (PHP, Node, Python, Go, Ruby, Java) aren't covered by Dependabot: their
+The **runtime images** (PHP, Node, Python, Go, Ruby, Java, .NET) aren't covered by Dependabot: their
 base tags follow `internal/runtime/*_versions.json`, which the `Runtime version check`
 workflow updates from upstream releases (see "Adding a runtime version").

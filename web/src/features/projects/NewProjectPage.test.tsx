@@ -692,4 +692,41 @@ describe("NewProjectPage wizard", () => {
     expect(body.createStarter).toBe(false);
     expect(body.java).toMatchObject({ version: "25", server: true, preset: "jar", jar: "target/api.jar", port: 8080 });
   });
+
+  it("creates a .NET project from a template: server on, no php key, no starter", async () => {
+    const templates = [{ id: "aspnet-webapi", name: "ASP.NET Core Web API", description: "", runtime: "dotnet" as const, dotnet: { server: true, preset: "aspnetcore", port: 8080 }, docroot: "", requiresDatabase: false, recommendedDatabase: "postgresql" }];
+    const api = mockApi({
+      ...authedRoutes,
+      "GET /runtimes": () => ({ body: { ...runtimesFixture, templates } }),
+      "POST /projects/preview": previewRoute(() => {}),
+      "POST /projects": () => ({ status: 201, body: { project: makeProject() } }),
+    });
+    renderApp(
+      <Routes>
+        <Route path="/projects/new" element={<NewProjectPage />} />
+        <Route path="/projects/:id" element={<h1>Detail</h1>} />
+      </Routes>,
+      { route: "/projects/new" },
+    );
+    const user = userEvent.setup();
+    await user.type(await screen.findByLabelText("Project name"), "Acme API");
+    await user.click(screen.getByRole("radio", { name: /\.NET application/ }));
+    await user.click(screen.getByRole("radio", { name: /ASP\.NET Core Web API/ }));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    // The .NET card leads and runs the server; Java is off.
+    expect(await screen.findByRole("checkbox", { name: /Enable \.NET/ })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: /Enable Java/ })).not.toBeChecked();
+    await user.selectOptions(screen.getByLabelText(".NET version"), "8");
+    for (let i = 0; i < 4; i++) await user.click(screen.getByRole("button", { name: "Continue" }));
+    expect(screen.queryByLabelText(/Create starter/)).not.toBeInTheDocument();
+    await user.click(await screen.findByRole("button", { name: "Create project" }));
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Detail" })).toBeInTheDocument());
+    const create = api.calls.find((c) => c.method === "POST" && c.url.endsWith("/projects"));
+    const body = create?.body as Record<string, unknown>;
+    expect(body.php).toBeUndefined();
+    expect(body.java).toBeUndefined();
+    expect(body.createStarter).toBe(false);
+    expect(body.template).toBe("aspnet-webapi");
+    expect(body.dotnet).toMatchObject({ version: "8", server: true, mode: "dev", preset: "aspnetcore", project: "", dll: "", port: 8080 });
+  });
 });

@@ -31,9 +31,10 @@ export function IdeTab({ project: p }: { project: Project }) {
   const hasGo = p.services.some((x) => x.kind === "go" && x.enabled);
   const hasRuby = p.services.some((x) => x.kind === "ruby" && x.enabled);
   const hasJava = p.services.some((x) => x.kind === "java" && x.enabled);
-  // The bare SSH user lands in the application container: PHP when present, else Python, Go, Ruby, Java, Node.
+  const hasDotnet = p.services.some((x) => x.kind === "dotnet" && x.enabled);
+  // The bare SSH user lands in the application container: PHP when present, else Python, Go, Ruby, Java, .NET, Node.
   const app = p.appService ?? appKindOf(p);
-  const runtimeCount = [hasPhp, hasPython, hasGo, hasRuby, hasJava, hasNode].filter(Boolean).length;
+  const runtimeCount = [hasPhp, hasPython, hasGo, hasRuby, hasJava, hasDotnet, hasNode].filter(Boolean).length;
   const phpCfg = (php?.config ?? {}) as unknown as Partial<PHPConfig>;
   const nodeCfg = (p.services.find((x) => x.kind === "node" && x.enabled)?.config ?? {}) as unknown as Partial<NodeConfig>;
   const pyCfg = (p.services.find((x) => x.kind === "python" && x.enabled)?.config ?? {}) as unknown as Partial<PythonConfig>;
@@ -135,6 +136,8 @@ export function IdeTab({ project: p }: { project: Project }) {
                     ? t("Run ruby, bundle, rails and your tests inside the project container from your IDE. RubyMine: Settings → Languages & Frameworks → Ruby Interpreters → “+” → Remote Interpreter or Version Manager… → SSH with the values below and the Ruby path, then map the project folder to /var/www/html; RubyMine runs and debugs with its own debugger inside the container. VS Code: Remote-SSH. Plain terminal: ssh.")
                     : app === "java"
                       ? `${t("Work on the project inside its Java container from your IDE. IntelliJ IDEA: File → Remote Development → SSH (JetBrains Gateway) with the values below opens the project at /var/www/html with the container's JDK, Maven and Gradle. VS Code: Remote-SSH, then the Extension Pack for Java. Plain terminal: ssh.")} ${t("IntelliJ IDEA and VS Code forward ports over SSH, so switch on “Allow JetBrains Gateway for this project” below first.")}`
+                      : app === "dotnet"
+                        ? `${t("Work on the project inside its .NET container from your IDE. Rider: File → Remote Development → SSH (JetBrains Gateway) with the values below opens the project at /var/www/html with the container's SDK. VS Code: Remote-SSH, then C# Dev Kit. Plain terminal: ssh.")} ${t("Rider and VS Code forward ports over SSH, so switch on “Allow JetBrains Gateway for this project” below first.")}`
                     : t("Run node, npm and your test runner inside the project container from your IDE. WebStorm: Settings → Languages & Frameworks → JavaScript Runtime → Node runtime “…” → “+” → Add Remote… → SSH, then in the run configuration Path mappings: the project folder → /var/www/html. VS Code: Remote-SSH. Plain terminal: ssh.")
           }
         />
@@ -144,7 +147,7 @@ export function IdeTab({ project: p }: { project: Project }) {
           ) : ssh.port === 0 ? (
             <Alert tone="amber">{t("The SSH port 2222 is not published on the host - add a port mapping 2222:2222 to the Envoryx container.")}</Alert>
           ) : !app ? (
-            <Alert tone="gray">{t("This project has no application container - SSH sessions need PHP, Python, Go, Ruby, Java or Node.js.")}</Alert>
+            <Alert tone="gray">{t("This project has no application container - SSH sessions need PHP, Python, Go, Ruby, Java, .NET or Node.js.")}</Alert>
           ) : (
             <dl>
               <CopyRow label={t("Host")} value={sshHost} />
@@ -155,6 +158,7 @@ export function IdeTab({ project: p }: { project: Project }) {
               {runtimeCount > 1 && hasGo && <CopyRow label={t("User (Go)")} value={`${p.slug}.go`} />}
               {runtimeCount > 1 && hasRuby && <CopyRow label={t("User (Ruby)")} value={`${p.slug}.ruby`} />}
               {runtimeCount > 1 && hasJava && <CopyRow label={t("User (Java)")} value={`${p.slug}.java`} />}
+              {runtimeCount > 1 && hasDotnet && <CopyRow label={t("User (.NET)")} value={`${p.slug}.dotnet`} />}
               {runtimeCount > 1 && hasNode && <CopyRow label={t("User (Node)")} value={`${p.slug}.node`} />}
               <CopyRow label={t("Password")} value={t("<API token from Settings → API tokens>")} mono={false} />
               {hasPhp && <CopyRow label={t("PHP path")} value="/usr/local/bin/php" />}
@@ -164,6 +168,7 @@ export function IdeTab({ project: p }: { project: Project }) {
               {hasRuby && <CopyRow label={t("Ruby path")} value="/usr/local/bin/ruby" />}
               {hasRuby && <CopyRow label="GEM_HOME" value="/home/envoryx/.gem/ruby" />}
               {hasJava && <CopyRow label="JAVA_HOME" value="/opt/java/openjdk" />}
+              {hasDotnet && <CopyRow label={t(".NET SDK path")} value="/usr/bin/dotnet" />}
               {hasNode && <CopyRow label={t("Node path")} value="/usr/local/bin/node" />}
               <CopyRow label={t("Project path")} value="/var/www/html" />
               {hasPhp && <CopyRow label={t("Helpers path")} value="/home/envoryx/.phpstorm_helpers" />}
@@ -187,7 +192,7 @@ export function IdeTab({ project: p }: { project: Project }) {
               <MonitorSmartphone className="size-4 text-accent-500" aria-hidden /> {t("JetBrains Gateway (optional)")}
             </span>
           }
-          description={t("Run the full PhpStorm/WebStorm/GoLand/RubyMine/IntelliJ IDEA backend inside the project container and work with the thin client. Needs a capable server: 2-4 GB RAM and CPU per open project. Nothing runs until you connect.")}
+          description={t("Run the full PhpStorm/WebStorm/GoLand/RubyMine/IntelliJ IDEA/Rider backend inside the project container and work with the thin client. Needs a capable server: 2-4 GB RAM and CPU per open project. Nothing runs until you connect.")}
         />
         <div className="space-y-3 p-5">
           {gwMsg && <Alert tone={gwMsg.tone}>{gwMsg.text}</Alert>}
@@ -454,6 +459,29 @@ export function IdeTab({ project: p }: { project: Project }) {
         </Card>
       )}
 
+      {hasDotnet && (
+        <Card>
+          <CardHeader
+            title={
+              <span className="flex items-center gap-2">
+                <Bug className="size-4 text-accent-500" aria-hidden /> {t(".NET debugging (netcoredbg)")}
+              </span>
+            }
+            description={t("No debug port: the debugger runs inside the container and talks to your IDE over the Envoryx SSH connection, which must be able to log in without a password prompt - add your public key under Settings → SSH access.")}
+          />
+          <div className="p-5">
+            <dl>
+              <CopyRow label={t("SSH user")} value={runtimeCount > 1 ? `${p.slug}.dotnet` : p.slug} />
+              <CopyRow label={t("Debugger path")} value="/usr/local/bin/netcoredbg" />
+              <CopyRow label={t("Path mapping")} value={`${hostDir} → /var/www/html`} />
+            </dl>
+            <p className="mt-3 text-xs text-muted">{t("VS Code with the C# extension, launch.json - then pick the application's process (named after the project, not dotnet watch):")}</p>
+            <pre className="mt-1 overflow-x-auto rounded-md bg-muted p-2 font-mono text-[11px]">{dotnetLaunchJson(sshHost, ssh?.port, runtimeCount > 1 ? `${p.slug}.dotnet` : p.slug)}</pre>
+            <p className="mt-3 text-xs text-muted">{t("Rider: Run → Attach to Remote Process…, add an SSH connection with the values above and pick the application's process; Rider brings its own debugger. Behind JetBrains Gateway, Rider debugs like a local project.")}</p>
+          </div>
+        </Card>
+      )}
+
       {hasDb &&
         (dbs.data ?? []).map((d) => (
           <Card key={d.service}>
@@ -579,6 +607,27 @@ function rubyDebugExamples(port: number): string {
 function rdbgLaunchJson(host: string, port?: number): string {
   return JSON.stringify(
     { type: "rdbg", name: "Attach to Envoryx", request: "attach", debugPort: `${host}:${port ?? "<port>"}`, localfsMap: "/var/www/html:${workspaceFolder}" },
+    null,
+    2,
+  );
+}
+
+/** The VS Code attach configuration that starts netcoredbg in the container over SSH. */
+function dotnetLaunchJson(host: string, port: number | undefined, user: string): string {
+  return JSON.stringify(
+    {
+      name: "Attach to Envoryx (.NET)",
+      type: "coreclr",
+      request: "attach",
+      processId: "${command:pickRemoteProcess}",
+      pipeTransport: {
+        pipeCwd: "${workspaceFolder}",
+        pipeProgram: "ssh",
+        pipeArgs: ["-T", "-p", String(port ?? 2222), `${user}@${host}`],
+        debuggerPath: "/usr/local/bin/netcoredbg",
+      },
+      sourceFileMap: { "/var/www/html": "${workspaceFolder}" },
+    },
     null,
     2,
   );

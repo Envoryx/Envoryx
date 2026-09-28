@@ -473,7 +473,7 @@ a blank directory / git clone), and the dev server *is* the project:
   runtime the project has. Actions offer npm/pnpm/yarn and `node -v`; git
   clone/pull run in a one-shot container from the Node image.
 - **Cron jobs** (Cron tab) run any command on a schedule in the PHP, Python,
-  Go, Ruby, Java or Node.js container, as the project owner in the project directory,
+  Go, Ruby, Java, .NET or Node.js container, as the project owner in the project directory,
   through `sh -c`, with the project's environment. Pick a schedule (every few
   minutes, hourly, daily, weekly, monthly) or type a cron expression; the form
   shows the next runs. Schedules are read in Envoryx's time zone, so set `TZ` on
@@ -497,7 +497,7 @@ a blank directory / git clone), and the dev server *is* the project:
   containers are recreated once at the next start (new command wrapper,
   unpublished port); from then on `<project>.<base>` reaches the dev server.
 
-A **static site** (no PHP, no Node, no Python, Go, Ruby or Java server) is the same web
+A **static site** (no PHP, no Node, no Python, Go, Ruby, Java or .NET server) is the same web
 container alone: pick **Static site** in the wizard; Envoryx writes a
 starter `index.html` unless you clone a repository.
 
@@ -821,6 +821,131 @@ shared package cache, so a dependency is downloaded once for every project.
   {"enabled": false}}` removes. The CLI takes `--java <version>`,
   `--java-server` and `--java-preset spring-boot|quarkus|jar`.
 
+### .NET projects (ASP.NET Core, Blazor, worker services)
+
+Pick **.NET application** on the first wizard step (or enable .NET on any
+project from the Runtime tab). The .NET container (`envoryx-<project>-dotnet`,
+image `ghcr.io/envoryx/envoryx-dotnet:<8|10>`: the official SDK image
+`mcr.microsoft.com/dotnet/sdk:<v>.0-noble` plus `dotnet-ef`, the netcoredbg
+debugger, git and socat; only the LTS releases, and .NET 8 reaches its end of
+support on 2026-11-10) runs as `PUID:PGID` with the project directory at
+`/var/www/html` and the project home at `/home/envoryx`. NuGet's packages
+folder and HTTP cache live in the shared package cache, so a package is
+downloaded once for every project.
+
+- **Which project.** The server runs the project file you set (a relative
+  path such as `src/Shop/Shop.csproj`). Left empty, it takes the one `.csproj`,
+  `.fsproj` or `.vbproj` at the top of the project, else the one ASP.NET Core
+  or worker project (`Sdk="Microsoft.NET.Sdk.Web"` or `.Worker`) up to four
+  levels down; with several it stops and says so in the log. A common layout
+  is `src/` and `tests/` with a solution at the top. A test project that sits
+  inside the application's own directory is compiled into the application
+  (standard .NET globbing), so keep it outside or exclude it with
+  `<Compile Remove="tests/**" />`.
+- **Server.** *Run the .NET server* makes the preset's server the container's
+  main process, restarted automatically and published on a host port of its
+  own. Before it starts it waits for a project file. **ASP.NET Core** (Web
+  API, MVC, Razor Pages, Blazor) runs `dotnet watch --non-interactive` in
+  development mode: code changes are applied with hot reload, and when an
+  edit can't be applied the application restarts. `--urls
+  http://0.0.0.0:<port>` wins over the launch profile's `applicationUrl`,
+  which only listens on localhost. Production mode runs `dotnet publish -c
+  Release` into `bin/envoryx-publish` and starts the DLL from there, so
+  `wwwroot` and the `appsettings` files come from the published output. The
+  **DLL** preset has no dev mode: it publishes and runs the DLL you name, or
+  the application the publish produced (worker services, console hosts). The
+  server listens on port 8080 by default; `ASPNETCORE_HTTP_PORTS` carries it
+  (it stays empty under `dotnet watch`, where `--urls` does the job),
+  `ASPNETCORE_ENVIRONMENT` and `DOTNET_ENVIRONMENT` are `Development` or
+  `Production`, and `ASPNETCORE_FORWARDEDHEADERS_ENABLED=true` makes the
+  application trust the proxy's `X-Forwarded-*` headers, so redirects and
+  links keep the project URL's scheme and host.
+- **Database.** Envoryx injects `ConnectionStrings__DefaultConnection` for the
+  primary PostgreSQL, MySQL or MariaDB database, which
+  `builder.Configuration.GetConnectionString("DefaultConnection")` reads. It's
+  in the ADO.NET form Npgsql (`Host=database;Port=5432;Database=…;Username=…;Password=…`)
+  and the MySQL providers (`Server=database;Port=3306;Database=…;User ID=…;Password=…`)
+  take. An additional database `analytics` arrives as
+  `ConnectionStrings__analytics`; MongoDB as `ConnectionStrings__MongoDB` (the
+  URI) and Redis as `ConnectionStrings__Redis` (`redis:6379`, with
+  `,password=…` for an external one with a password).
+- **Routing.** Without PHP and without a Python, Go, Ruby or Java server the
+  .NET server is the application: the proxy routes `https://<project>.<base>`
+  and every extra domain to `envoryx-<project>-dotnet:<port>`, and *Direct
+  access* is the .NET host port. Blazor's interactive components use a
+  WebSocket, which the proxy passes through.
+- **Templates.** *ASP.NET Core Web API*, *ASP.NET Core MVC*, *Blazor Web App*
+  and *ASP.NET Core Razor Pages* come from `dotnet new` (`webapi`, `mvc`,
+  `blazor`, `webapp`) with `--no-https`, since the Envoryx proxy terminates
+  TLS; they need no network until the NuGet restore. The project is named
+  after the project's slug and built once. With a PostgreSQL, MySQL or MariaDB
+  database the Web API template adds EF Core: the provider (Npgsql, or
+  Oracle's `MySql.EntityFrameworkCore` for MySQL and MariaDB, since Pomelo has
+  no release for EF Core 10) and `Microsoft.EntityFrameworkCore.Design` in the
+  SDK's major version, pinned to the versions that resolved, plus
+  `AppDatabase.cs` with a context, a sample `Todo` entity and `GET`/`POST
+  /todos`. It creates the tables with `EnsureCreated` on the first start;
+  switch to migrations (`dotnet ef migrations add Initial`, then the `dotnet
+  ef database update` action) once the model settles.
+- **Actions, tests and workers.** Actions: `dotnet --info`, `restore`,
+  `build`, `clean`, `format` and `list package --outdated` (they need a
+  solution or project file at the top), `dotnet ef database update` and
+  `dotnet ef migrations list` (a project file at the top, referencing
+  `Microsoft.EntityFrameworkCore.Design`). The Tests tab runs `dotnet test`
+  once a test project (xUnit, NUnit, MSTest, TUnit or the test SDK) exists:
+  the solution at the top, or the one test project; several test projects
+  without a solution file need one (`dotnet new sln`, `dotnet sln add`). Filter
+  with `--filter` (`FullyQualifiedName~OrderTests`); the results per test,
+  with file and line, come from the TRX report. The run points
+  `ConnectionStrings__DefaultConnection` at `<database>_test`, which Envoryx
+  creates first, so integration tests (`WebApplicationFactory`) don't touch
+  the development data. A project on Microsoft.Testing.Platform (chosen in
+  `global.json`) runs without the report and the filter; only the exit code
+  counts there. Worker presets: *Project* (publishes the project inside the
+  worker's container and runs it, so the stop signal reaches the application)
+  and *DLL* (`dotnet <file>`). Cron jobs run in the .NET container like in the
+  others.
+- **Debugging.** There's no debug port. The IDEs start a debugger inside the
+  container over the SSH user `<project>.dotnet` and attach to the running
+  application (under `dotnet watch` it's the process named after the project,
+  not `dotnet watch` itself). VS Code with the C# extension uses netcoredbg
+  (`/usr/local/bin/netcoredbg`) through `pipeTransport`; Microsoft's own
+  `vsdbg` may only be used from Microsoft's IDEs, so the image doesn't ship
+  it. Store a public key under Settings → Access → SSH access first, since
+  the pipe can't answer a password prompt. A `.vscode/launch.json`:
+
+  ```json
+  {
+    "version": "0.2.0",
+    "configurations": [
+      {
+        "name": "Attach to Envoryx",
+        "type": "coreclr",
+        "request": "attach",
+        "processId": "${command:pickRemoteProcess}",
+        "pipeTransport": {
+          "pipeProgram": "ssh",
+          "pipeArgs": ["-p", "2222", "shop.dotnet@<host>"],
+          "pipeCwd": "${workspaceFolder}",
+          "debuggerPath": "/usr/local/bin/netcoredbg"
+        },
+        "sourceFileMap": { "/var/www/html": "${workspaceFolder}" }
+      }
+    ]
+  }
+  ```
+
+  Rider and Visual Studio attach through *Attach to Remote Process* over an
+  SSH connection to the same user.
+- **Adding or removing .NET later.** The Runtime tab's .NET card has an
+  *Enable .NET* switch; removing it takes the .NET container and the .NET
+  workers' containers down, while files and worker definitions stay. Over the
+  API: `PATCH /api/v1/projects/{id}` with `{"dotnet": {"enabled": true,
+  "version": "10", "server": true, "preset": "aspnetcore"}}` adds or changes
+  (also `mode`, `project`, `dll`, `port`), `{"dotnet": {"enabled": false}}`
+  removes. The CLI takes `--dotnet <version>`, `--dotnet-server` and
+  `--dotnet-preset aspnetcore|dll`.
+
 ### Bare metal
 
 Outside Docker the proxy dials the project's published port
@@ -906,7 +1031,7 @@ next steps of the wizard with what it recognised; everything stays editable.
 | Joomla | `configuration.php` with `JConfig` | PHP by version, `mysqli` |
 | Shopware, Craft CMS, other Composer apps | `composer.json` | PHP from `require.php`, `ext-*` extensions |
 | Plain PHP | `.php` files | docroot where `index.php` is, the files that connect to a database |
-| Static site, Node.js, Python, Go, Ruby, Java | `index.html`, `package.json`, `manage.py`/`requirements.txt`, `go.mod`, `Gemfile`, `pom.xml`/`build.gradle` | the matching runtime |
+| Static site, Node.js, Python, Go, Ruby, Java, .NET | `index.html`, `package.json`, `manage.py`/`requirements.txt`, `go.mod`, `Gemfile`, `pom.xml`/`build.gradle`, `.sln`/`.slnx`/`.csproj` at the top | the matching runtime |
 
 The PHP version is the newest one Envoryx offers that `composer.json` and the
 CMS version allow. Code that calls functions PHP 8 removed (`create_function`,
@@ -973,7 +1098,7 @@ for no database), `--web`, `--docroot` and `--path` override it.
 A project's **Resources** tab caps what its containers may use, so a runaway
 queue worker or Node process cannot take the whole server:
 
-- **Application containers** (web server, PHP, Node.js, Python, Go, Ruby, Java, every worker)
+- **Application containers** (web server, PHP, Node.js, Python, Go, Ruby, Java, .NET, every worker)
   and **services** (database, Redis, Memcached, Mailpit, RabbitMQ, the search
   engines, object storage) each get CPU cores (e.g. `1.5`) and memory. Docker
   limits containers one by one, so the numbers apply to *each* container of
@@ -1166,7 +1291,10 @@ with `go_versions.json`, Ruby images (`envoryx-ruby:*`, official
 `ruby:<v>-slim-bookworm` plus build dependencies and the debug gem) with
 `ruby_versions.json`, Java images (`envoryx-java:*`, Eclipse Temurin
 `<v>-jdk-noble` plus Maven and Gradle, LTS releases only) with
-`java_versions.json`. You change a project's Node, Python, Go, Ruby or Java version on
+`java_versions.json`, .NET images (`envoryx-dotnet:*`, the official SDK image
+`mcr.microsoft.com/dotnet/sdk:<v>.0-noble` plus `dotnet-ef` and netcoredbg, LTS
+releases only) with `dotnet_versions.json`. You change a project's Node, Python,
+Go, Ruby, Java or .NET version on
 the Runtime tab, like the PHP version.
 
 ## Git deploy key
@@ -1477,16 +1605,17 @@ The API: `GET /projects/{id}/share`, `POST /projects/{id}/share`
 
 ## Package cache
 
-Composer, npm, Yarn, pip, uv, Go (modules and build cache), Bundler, Maven and Gradle keep their
+Composer, npm, Yarn, pip, uv, Go (modules and build cache), Bundler, Maven, Gradle and NuGet keep their
 downloads in one cache that every project shares: `/config/cache`, mounted at
-`/var/cache/envoryx` into the PHP, Node, Python, Go, Ruby and Java containers, the
+`/var/cache/envoryx` into the PHP, Node, Python, Go, Ruby, Java and .NET containers, the
 workers and the one-shot containers that scaffold a template. A package is
 downloaded once, whichever project asks for it next, so the second Laravel
 project is created in a fraction of the time of the first. The variables that
 point the tools there (`COMPOSER_CACHE_DIR`, `npm_config_cache`,
 `YARN_CACHE_FOLDER`, `PIP_CACHE_DIR`, `UV_CACHE_DIR`, `GOMODCACHE`, `GOCACHE`,
-`BUNDLE_USER_CACHE`) can be overridden per project like any other. pnpm keeps
-its store in the project home.
+`BUNDLE_USER_CACHE`, `NUGET_PACKAGES`, `NUGET_HTTP_CACHE_PATH`) can be
+overridden per project like any other. pnpm keeps its store in the project
+home.
 
 The cache only grows. *Settings → Tools → Package cache* shows what each tool
 keeps there and empties one tool's part or all of it; the next install
@@ -1645,7 +1774,8 @@ or a composer script (PHP image); npm scripts and Node scripts (Node
 image); Python scripts and modules, Django management commands, Celery
 worker and beat (Python image); Go programs of the module (Go image); Solid
 Queue, GoodJob, Sidekiq, rake tasks and Ruby scripts (Ruby image, after the
-bundle install); jars and Maven goals or Gradle tasks (Java image). Every worker is its own container
+bundle install); jars and Maven goals or Gradle tasks (Java image); .NET
+projects and DLLs (.NET image). Every worker is its own container
 (`envoryx-<project>-worker-<name>`) from the image of the runtime its
 preset names, runs as `PUID:PGID` with the project's environment (and
 php.ini for PHP, the venv `PATH` for Python), restarts automatically
@@ -1662,9 +1792,9 @@ Every project has an **IDE** tab with all values ready to copy.
 **Remote interpreter over SSH.** Envoryx runs an SSH server on port 2222
 (publish it, or use the container's own IP on `br0`). User name = project
 slug (`shop`): it lands in the project's application container, PHP when
-the project has PHP, else Python, else Go, else Ruby, else Java, else Node. Projects with
-several runtimes also accept `shop.php`, `shop.python`, `shop.go`, `shop.ruby`,
-`shop.java` and `shop.node` to pick one explicitly (the IDE tab lists these rows only
+the project has PHP, else Python, else Go, else Ruby, else Java, else .NET, else Node.
+Projects with several runtimes also accept `shop.php`, `shop.python`, `shop.go`,
+`shop.ruby`, `shop.java`, `shop.dotnet` and `shop.node` to pick one explicitly (the IDE tab lists these rows only
 then). Password = an API token from Settings → Access → API tokens & MCP, or a public key
 stored under Settings → Access → SSH access. Each session is a `docker exec` into that
 container as the project owner; there is no shell
@@ -1689,7 +1819,7 @@ on the host. SFTP exposes `/var/www/html` (the project) and `/home/envoryx`
 - VS Code: Remote-SSH works the same way (`ssh -p 2222 shop@<host>`); open
   `/var/www/html` as the remote folder.
 
-A static project (no PHP, Python, Go, Ruby, Java or Node) has no application container, so
+A static project (no PHP, Python, Go, Ruby, Java, .NET or Node) has no application container, so
 SSH sessions are refused for it.
 
 The project must be running for sessions to open. Commands are logged to
@@ -1702,8 +1832,9 @@ client. In Envoryx this is opt-in per project (IDE tab → *Allow JetBrains
 Gateway*): it enables SSH port forwarding into the container and mounts a
 shared backend cache (`/config/jetbrains`, ~1.5 GB per IDE version,
 downloaded once). The backend runs as the project owner inside the
-application container (PHP, else Python, else Go, else Ruby, else Java, else Node; user
-`<slug>`, and `<slug>.python` / `<slug>.go` / `<slug>.ruby` / `<slug>.java` / `<slug>.node`
+application container (PHP, else Python, else Go, else Ruby, else Java, else .NET, else
+Node; user `<slug>`, and `<slug>.python` / `<slug>.go` / `<slug>.ruby` / `<slug>.java` /
+`<slug>.dotnet` / `<slug>.node`
 pick one next to PHP) and needs 2-4 GB RAM plus CPU while indexing. Nothing
 runs until you connect. Envoryx ships no JetBrains
 software: Gateway itself is free, the IDE backend is uploaded by your
@@ -1715,7 +1846,7 @@ directory `/var/www/html`. Close the project in Gateway or use *Stop IDE
 backend* to free the memory. Small NAS boxes: leave it off.
 
 The tunnel to the backend needs `socat` in the runtime image. The PHP and Node
-images have it since September 2026; the Python, Go, Ruby and Java images had it from
+images have it since September 2026; the Python, Go, Ruby, Java and .NET images had it from
 the start. Troubleshooting:
 
 - *Host unreachable* right after installing the backend: use *Restart* on
@@ -1783,7 +1914,7 @@ Use `http://<host>:8787/mcp` if the proxy/HTTPS is not set up.
 Available tools: list/get projects, list runtimes, create project (PHP
 version + extensions, database, Redis, Memcached, Mailpit, RabbitMQ,
 Meilisearch, Typesense, OpenSearch, Ollama, object storage, Node, Python, Go,
-Ruby, Java, git clone, env),
+Ruby, Java, .NET, git clone, env),
 start/stop/restart, get logs, list/run actions (composer, artisan, npm …),
 list/create databases, list/create backups, add domain. Deleting projects,
 dropping databases and restoring backups are intentionally not exposed -
@@ -1794,7 +1925,7 @@ Projects without PHP: pass `phpVersion: "none"` plus `nodeVersion`,
 `nodeDevServer: true` and `nodePreset` (`vite`, `next`, `nuxt`, `generic`;
 optional `nodeScript`, `nodePort`, `nodePackageManager`), or a Node template
 (`vite`, `next`, `nuxt`) which fills the dev-server defaults. The result
-carries `serves` (`php`, `python`, `go`, `ruby`, `java`, `node` or `static`),
+carries `serves` (`php`, `python`, `go`, `ruby`, `java`, `dotnet`, `node` or `static`),
 `devUrl` and a `directUrl` that points at the node host port while the dev
 server serves the project.
 Example prompt: *"Create a Node.js project called dashboard from the Nuxt
@@ -1821,6 +1952,12 @@ Java projects: pass `phpVersion: "none"` and `javaVersion`, plus `javaServer:
 true` (optional `javaPreset` `spring-boot`/`quarkus`/`jar`, `javaPort`,
 `javaMode`) or a Java template (`spring-boot`, `quarkus`), which switches the
 server on. `serves` is `java` then.
+
+.NET projects: pass `phpVersion: "none"` and `dotnetVersion`, plus
+`dotnetServer: true` (optional `dotnetPreset` `aspnetcore`/`dll`,
+`dotnetProject`, `dotnetPort`, `dotnetMode`) or a .NET template
+(`aspnet-webapi`, `aspnet-mvc`, `blazor`, `razor-pages`), which switches the
+server on. `serves` is `dotnet` then.
 
 ### Scripting the REST API
 
@@ -1920,7 +2057,7 @@ envoryx git status|pull shop                          # and: git checkout shop m
 A project is named by its name, its slug or its id. `--json` hands the API's
 own answer to `jq` instead of a table; `--service` picks a container other
 than the project's application container (`php`, `python`, `go`, `ruby`,
-`java`, `node`, `web`, `database`, `redis`, `memcached`, `mailpit`, `rabbitmq`,
+`java`, `dotnet`, `node`, `web`, `database`, `redis`, `memcached`, `mailpit`, `rabbitmq`,
 `meilisearch`, `typesense`, `opensearch`, `opensearch-dashboards`, `ollama`,
 `storage`, `worker:<id>`). `envoryx project create --from-json file.json`
 sends a create request the flags don't cover (everything the wizard offers),
@@ -2002,10 +2139,11 @@ healthcheck:                     # see "Health checks"; or just: healthcheck: /h
   interval: 1m
 ```
 
-`node:`, `python:`, `go:`, `ruby:` and `java:` take the fields of the wizard (`devServer`, `preset`,
+`node:`, `python:`, `go:`, `ruby:`, `java:` and `dotnet:` take the fields of the wizard (`devServer`, `preset`,
 `port`, `script` …; `server`, `preset`, `app`, `debug` …; `server`, `mode`,
 `package`, `port`, `debug`, `debugPort`; `server`, `mode`, `preset`, `port`,
-`debug`, `debugPort`; the same plus `jar`). A setting left out
+`debug`, `debugPort`; the same plus `jar`; `server`, `mode`, `preset`,
+`project`, `dll`, `port`). A setting left out
 means Envoryx's default, so the file is the whole desired state: `web:` missing
 means Caddy, `extensions:` missing the default set. Unknown keys are errors -
 a typo never silently drops a service. The export pins every version, which is

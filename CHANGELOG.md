@@ -34,6 +34,35 @@ release). `:main` follows the development branch.
   the manifest (`java:`), the CLI (`--java`, `--java-server`,
   `--java-preset`) and the MCP tools know Java.
 - Site import recognises `pom.xml` and `build.gradle`.
+- .NET runtime. The wizard's first step offers *.NET application*; a .NET
+  container (`ghcr.io/envoryx/envoryx-dotnet:<8|10>`, the official SDK image
+  plus `dotnet-ef` and the netcoredbg debugger, LTS releases only) is added on
+  any project from the Runtime tab, too. *Run the .NET server* runs ASP.NET
+  Core under `dotnet watch` (hot reload, restart when an edit can't be
+  applied) or publishes once and runs the DLL in production mode; the *DLL*
+  preset publishes and runs any other application (worker services, console
+  hosts). The project file is found on its own (the one at the top, else the
+  one web or worker project) or set by hand. Without PHP and without a Python,
+  Go, Ruby or Java server the project URL reaches it. NuGet packages are
+  shared by all projects.
+- `ConnectionStrings__DefaultConnection` (ADO.NET form for Npgsql and the
+  MySQL providers) points .NET apps at the primary SQL database,
+  `ConnectionStrings__<name>` at each additional one, and
+  `ConnectionStrings__MongoDB` and `ConnectionStrings__Redis` at those
+  services.
+- Debugging .NET needs no port: VS Code starts `netcoredbg` in the container
+  through `pipeTransport` over the SSH user `<project>.dotnet`, Rider and
+  Visual Studio attach to the remote process over SSH.
+- .NET templates *ASP.NET Core Web API* (EF Core with a sample `/todos`
+  endpoint on PostgreSQL, MySQL or MariaDB), *ASP.NET Core MVC*, *Blazor Web
+  App* and *ASP.NET Core Razor Pages*, all from `dotnet new`; `dotnet` and
+  `dotnet ef` actions; `dotnet test` on the Tests tab against
+  `<database>_test`, with results per test from the TRX report; *Project* and
+  *DLL* workers; cron jobs, SSH (`<project>.dotnet`), the terminal, logs, the
+  manifest (`dotnet:`), the CLI (`--dotnet`, `--dotnet-server`,
+  `--dotnet-preset`) and the MCP tools know .NET.
+- Site import recognises solution and project files (`.sln`, `.slnx`,
+  `.csproj`, `.fsproj`, `.vbproj`).
 
 ## [0.12.0] - 2026-09-27
 
