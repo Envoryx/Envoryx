@@ -436,8 +436,8 @@ func (s *Server) createProject(ctx context.Context, _ *mcp.CallToolRequest, in c
 	for _, k := range keys {
 		req.Env = append(req.Env, project.EnvVarRequest{Key: k, Value: in.Env[k]})
 	}
-	if p, _ := auth.PrincipalFrom(ctx); p.Restricted() {
-		r, _ := toolErr(fmt.Errorf("%w: this token is limited to particular projects and cannot create new ones", auth.ErrForbidden))
+	if p, _ := auth.PrincipalFrom(ctx); !p.Allows(auth.ScopeAdmin) {
+		r, _ := toolErr(fmt.Errorf("%w: creating projects needs admin access to the whole instance", auth.ErrForbidden))
 		return r, projectOut{}, nil
 	}
 	v, err := s.d.Projects.Create(ctx, req)
@@ -463,8 +463,8 @@ type duplicateProjectIn struct {
 }
 
 func (s *Server) duplicateProject(ctx context.Context, _ *mcp.CallToolRequest, in duplicateProjectIn) (*mcp.CallToolResult, projectOut, error) {
-	if p, _ := auth.PrincipalFrom(ctx); p.Restricted() {
-		r, _ := toolErr(fmt.Errorf("%w: this token is limited to particular projects and cannot create new ones", auth.ErrForbidden))
+	if p, _ := auth.PrincipalFrom(ctx); !p.Allows(auth.ScopeAdmin) {
+		r, _ := toolErr(fmt.Errorf("%w: creating projects needs admin access to the whole instance", auth.ErrForbidden))
 		return r, projectOut{}, nil
 	}
 	src, err := s.resolve(ctx, in.Project)
@@ -541,8 +541,8 @@ type createBranchEnvironmentIn struct {
 }
 
 func (s *Server) createBranchEnvironment(ctx context.Context, _ *mcp.CallToolRequest, in createBranchEnvironmentIn) (*mcp.CallToolResult, branchEnvOut, error) {
-	if p, _ := auth.PrincipalFrom(ctx); p.Restricted() {
-		r, _ := toolErr(fmt.Errorf("%w: this token is limited to particular projects and cannot create new ones", auth.ErrForbidden))
+	if p, _ := auth.PrincipalFrom(ctx); !p.Allows(auth.ScopeAdmin) {
+		r, _ := toolErr(fmt.Errorf("%w: creating projects needs admin access to the whole instance", auth.ErrForbidden))
 		return r, branchEnvOut{}, nil
 	}
 	p, err := s.resolve(ctx, in.Project)

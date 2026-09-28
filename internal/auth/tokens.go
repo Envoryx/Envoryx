@@ -40,6 +40,11 @@ func (s *Service) CreateAPIToken(ctx context.Context, p Principal, spec TokenSpe
 	if err != nil {
 		return "", store.APIToken{}, err
 	}
+	// A token is capped by its owner at every use anyway; a scope the owner can never
+	// reach is refused up front rather than silently not working.
+	if !p.MaxScope().Covers(scope) {
+		return "", store.APIToken{}, fmt.Errorf("%w: your role allows at most %s tokens", ErrInvalidScope, p.MaxScope())
+	}
 	projects := slices.Clone(spec.Projects)
 	slices.Sort(projects)
 	projects = slices.Compact(projects)
@@ -84,13 +89,21 @@ func (s *Service) ValidateAPIToken(ctx context.Context, token string) (Principal
 		}
 		return Principal{}, err
 	}
+	if user.Disabled {
+		return Principal{}, ErrUnauthenticated
+	}
 	ts := s.now()
 	if t.LastUsedAt == nil || ts.Sub(*t.LastUsedAt) > time.Minute {
 		if err := s.store.Tokens.Touch(ctx, t.ID, ts); err != nil {
 			s.log.Warn("touch api token failed", "err", err)
 		}
 	}
-	return Principal{UserID: user.ID, Username: user.Username, Role: user.Role, TokenName: t.Name, Scope: Scope(t.Scope), Projects: t.ProjectIDs}, nil
+	p, err := s.principal(ctx, user)
+	if err != nil {
+		return Principal{}, err
+	}
+	p.TokenName, p.Scope, p.Projects = t.Name, Scope(t.Scope), t.ProjectIDs
+	return p, nil
 }
 
 // ListAPITokens returns all tokens. They include the hashes, which are no use for

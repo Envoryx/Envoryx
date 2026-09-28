@@ -62,8 +62,8 @@ func (a *API) remoteBranches(w http.ResponseWriter, r *http.Request) {
 // createBranchEnvironment makes a branch environment: POST /projects/{id}/branches with
 // {"branch": "feature/x"}. Like a duplicate it creates a project.
 func (a *API) createBranchEnvironment(w http.ResponseWriter, r *http.Request) {
-	if p, _ := auth.PrincipalFrom(r.Context()); p.TokenName != "" && p.Restricted() {
-		writeError(w, r, fmt.Errorf("%w: this token is limited to particular projects and cannot create new ones", auth.ErrForbidden))
+	if p, _ := auth.PrincipalFrom(r.Context()); !p.Allows(auth.ScopeAdmin) {
+		writeError(w, r, fmt.Errorf("%w: creating projects needs admin access to the whole instance", auth.ErrForbidden))
 		return
 	}
 	var req struct {

@@ -10,12 +10,24 @@ import (
 
 // User is an Envoryx login account.
 type User struct {
-	ID           string
-	Username     string
+	ID       string
+	Username string
+	// PasswordHash is empty for a user who has not accepted an invitation yet and for one
+	// who only signs in through OpenID Connect.
 	PasswordHash string
-	Role         string
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	// Role is admin, developer, viewer or none (see auth.Role).
+	Role string
+	// InviteHash is the hash of an open invitation's token, InviteExpiresAt its end.
+	InviteHash      string
+	InviteExpiresAt time.Time
+	// OIDCSubject links the user to an OpenID Connect account (issuer subject).
+	OIDCSubject string
+	// Disabled users can neither sign in nor use their API tokens.
+	Disabled bool
+	// SSHKeys are the user's public keys for the SSH server, authorized_keys format.
+	SSHKeys   string
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 // Session is a server-side login session. ID is the SHA-256 hash of the opaque token.

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/envoryx/envoryx/internal/audit"
+	"github.com/envoryx/envoryx/internal/auth"
 	"github.com/envoryx/envoryx/internal/config"
 	"github.com/envoryx/envoryx/internal/db"
 	"github.com/envoryx/envoryx/internal/disk"
@@ -81,10 +82,23 @@ func (a *API) dockerInfo(ctx context.Context) dockerInfoDTO {
 
 func (a *API) dashboard(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	views, err := a.d.Projects.List(ctx)
+	// Tokens need admin scope for the dashboard, as before users had roles; a user sees
+	// the projects their role reaches.
+	p, _ := auth.PrincipalFrom(ctx)
+	if p.TokenName != "" && !p.Allows(auth.ScopeAdmin) {
+		writeError(w, r, fmt.Errorf("%w: the dashboard needs admin scope", auth.ErrForbidden))
+		return
+	}
+	all, err := a.d.Projects.List(ctx)
 	if err != nil {
 		writeError(w, r, err)
 		return
+	}
+	views := all[:0]
+	for _, v := range all {
+		if p.CanAccessProject(v.Project.ID) {
+			views = append(views, v)
+		}
 	}
 	running, stopped, attention := 0, 0, 0
 	projects := make([]projectDTO, 0, len(views))
@@ -412,6 +426,26 @@ func (a *API) pruneImages(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) settings(w http.ResponseWriter, r *http.Request) {
 	c := a.d.Config
+	// Tokens need admin scope for the settings, as before users had roles. A user who is
+	// not an admin gets what the project pages read: addresses, SSH and the path mapping.
+	if p, _ := auth.PrincipalFrom(r.Context()); !p.Allows(auth.ScopeAdmin) {
+		if p.TokenName != "" {
+			writeError(w, r, fmt.Errorf("%w: the settings need admin scope", auth.ErrForbidden))
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{
+			"publicHost":       a.publicHost(r.Context()),
+			"baseDomain":       a.d.Projects.BaseDomain(r.Context()),
+			"forceHttps":       a.d.Projects.ForceHTTPS(r.Context()),
+			"xdebugClientHost": a.d.Projects.XdebugClientHost(r.Context()),
+			"ssh":              a.sshDTO(),
+			"proxy":            a.proxyDTO(),
+			"version":          a.d.Version,
+			"projectsDir":      c.ProjectsDir,
+			"hostPath":         a.d.HostPath.Status(),
+		})
+		return
+	}
 	schema, _ := db.SchemaVersion(r.Context(), a.d.Store.DB())
 	needed, suggestion := a.publicHostAdvice(r.Context())
 	writeJSON(w, http.StatusOK, map[string]any{

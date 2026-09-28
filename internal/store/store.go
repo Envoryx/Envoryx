@@ -33,6 +33,7 @@ type Store struct {
 	Offsite  *OffsiteUploads
 	Metrics  *Metrics
 	Images   *ProjectImages
+	Roles    *ProjectRoles
 }
 
 // New creates the repositories.
@@ -53,6 +54,7 @@ func New(db *sql.DB) *Store {
 		Offsite:  &OffsiteUploads{db: db},
 		Metrics:  &Metrics{db: db},
 		Images:   &ProjectImages{db: db},
+		Roles:    &ProjectRoles{db: db},
 	}
 }
 
@@ -89,6 +91,11 @@ func isUniqueViolation(err error) bool {
 	}
 	msg := err.Error()
 	return strings.Contains(msg, "UNIQUE constraint failed") || strings.Contains(msg, "constraint failed: UNIQUE")
+}
+
+// isForeignKeyViolation detects SQLite FOREIGN KEY constraint failures.
+func isForeignKeyViolation(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "FOREIGN KEY constraint failed")
 }
 
 type querier interface {

@@ -196,12 +196,13 @@ func TestMiddleware(t *testing.T) {
 	if seen.Scope != ScopeOperate || strings.Join(seen.Projects, ",") != "p1,p2" {
 		t.Fatalf("scope/projects on the principal: %+v", seen)
 	}
-	// Sessions may do everything; tokens are held to their scope and projects.
-	if !p.Allows(ScopeAdmin) || p.Restricted() {
-		t.Fatalf("session principal must be unrestricted: %+v", p)
+	// An admin's session may do everything; tokens are held to their scope and projects,
+	// and a token confined to projects does nothing instance-wide.
+	if !p.Allows(ScopeAdmin) || p.Restricted() || p.Confined() {
+		t.Fatalf("an admin's session must be unrestricted: %+v", p)
 	}
-	if !seen.Allows(ScopeRead) || !seen.Allows(ScopeOperate) || seen.Allows(ScopeAdmin) {
-		t.Fatalf("operate token allows: read=%v operate=%v admin=%v", seen.Allows(ScopeRead), seen.Allows(ScopeOperate), seen.Allows(ScopeAdmin))
+	if !seen.Confined() || seen.Allows(ScopeRead) {
+		t.Fatalf("a confined token has no instance access: %+v", seen)
 	}
 	if !seen.CanAccessProject("p1") || seen.CanAccessProject("p3") || seen.Require(ScopeRead, "p3") == nil || seen.Require(ScopeAdmin, "p1") == nil || seen.Require(ScopeOperate, "p2") != nil {
 		t.Fatalf("project restriction not enforced: %+v", seen)
@@ -218,5 +219,41 @@ func TestMiddleware(t *testing.T) {
 	hb.ServeHTTP(rec, req)
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("invalid bearer must not fall back to the cookie: %d", rec.Code)
+	}
+}
+
+func TestRolesAndScopes(t *testing.T) {
+	viewer := Principal{Role: "viewer", ProjectRoles: map[string]Role{"shop": RoleDeveloper, "prod": RoleNone}}
+	if viewer.ScopeFor("") != ScopeRead || viewer.ScopeFor("blog") != ScopeRead || viewer.ScopeFor("shop") != ScopeOperate || viewer.ScopeFor("prod") != "" {
+		t.Fatalf("viewer scopes: %s %s %s %q", viewer.ScopeFor(""), viewer.ScopeFor("blog"), viewer.ScopeFor("shop"), viewer.ScopeFor("prod"))
+	}
+	if viewer.Allows(ScopeOperate) || !viewer.Allows(ScopeRead) || viewer.Confined() {
+		t.Fatal("a viewer reads the instance and operates nothing instance-wide")
+	}
+	if viewer.Require(ScopeOperate, "shop") != nil || viewer.Require(ScopeOperate, "blog") == nil || viewer.CanAccessProject("prod") {
+		t.Fatal("project roles replace the global role")
+	}
+	// A token of that viewer never exceeds the user, even with admin scope.
+	tok := viewer
+	tok.TokenName, tok.Scope = "ci", ScopeAdmin
+	if tok.ScopeFor("shop") != ScopeOperate || tok.ScopeFor("blog") != ScopeRead {
+		t.Fatalf("token capped by the user: %s %s", tok.ScopeFor("shop"), tok.ScopeFor("blog"))
+	}
+	tok.Scope = ScopeRead
+	if tok.ScopeFor("shop") != ScopeRead {
+		t.Fatal("and by its own scope")
+	}
+	// A user with no global role only reaches the projects given to them.
+	none := Principal{Role: "none", ProjectRoles: map[string]Role{"shop": RoleViewer}}
+	if !none.Confined() || none.Allows(ScopeRead) || !none.CanAccessProject("shop") || none.CanAccessProject("blog") {
+		t.Fatal("role none is confined to its projects")
+	}
+	// An admin stays admin everywhere, whatever the project roles say.
+	admin := Principal{Role: "admin", ProjectRoles: map[string]Role{"shop": RoleViewer}}
+	if admin.ScopeFor("shop") != ScopeAdmin {
+		t.Fatal("admin everywhere")
+	}
+	if _, err := ParseRole("owner"); err == nil {
+		t.Fatal("unknown roles are refused")
 	}
 }

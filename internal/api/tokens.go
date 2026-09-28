@@ -19,6 +19,8 @@ type tokenDTO struct {
 	Projects   []string   `json:"projects"`
 	CreatedAt  time.Time  `json:"createdAt"`
 	LastUsedAt *time.Time `json:"lastUsedAt"`
+	// Owner is the user the token acts for; it never does more than that user may.
+	Owner string `json:"owner,omitempty"`
 }
 
 func toToken(t store.APIToken) tokenDTO {
@@ -29,15 +31,33 @@ func toToken(t store.APIToken) tokenDTO {
 	return tokenDTO{ID: t.ID, Name: t.Name, Prefix: t.Prefix, Scope: t.Scope, Projects: projects, CreatedAt: t.CreatedAt, LastUsedAt: t.LastUsedAt}
 }
 
+// listTokens returns the caller's tokens; an admin sees everyone's, with the owner.
 func (a *API) listTokens(w http.ResponseWriter, r *http.Request) {
+	p, _ := auth.PrincipalFrom(r.Context())
+	if p.TokenName != "" {
+		writeError(w, r, errTokenManagesTokens)
+		return
+	}
 	list, err := a.d.Auth.ListAPITokens(r.Context())
 	if err != nil {
 		writeError(w, r, err)
 		return
 	}
+	names := map[string]string{}
+	if users, err := a.d.Store.Users.List(r.Context()); err == nil {
+		for _, u := range users {
+			names[u.ID] = u.Username
+		}
+	}
+	admin := p.Allows(auth.ScopeAdmin)
 	out := make([]tokenDTO, 0, len(list))
 	for _, t := range list {
-		out = append(out, toToken(t))
+		if !admin && t.UserID != p.UserID {
+			continue
+		}
+		d := toToken(t)
+		d.Owner = names[t.UserID]
+		out = append(out, d)
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"tokens": out, "mcpUrl": a.mcpURL(r)})
 }
@@ -72,9 +92,13 @@ func (a *API) createToken(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, newError(http.StatusUnprocessableEntity, "validation_failed", "too many projects"))
 		return
 	}
-	// Only existing projects can be named; a deleted one would otherwise linger as a
-	// meaningless restriction.
+	// Only existing projects the caller can see can be named; a deleted one would
+	// otherwise linger as a meaningless restriction.
 	for _, id := range req.Projects {
+		if !p.CanAccessProject(id) {
+			writeError(w, r, newError(http.StatusUnprocessableEntity, "validation_failed", "unknown project "+id))
+			return
+		}
 		if _, err := a.d.Projects.Get(r.Context(), id); err != nil {
 			if errors.Is(err, store.ErrNotFound) {
 				writeError(w, r, newError(http.StatusUnprocessableEntity, "validation_failed", "unknown project "+id))
@@ -104,6 +128,14 @@ func (a *API) deleteToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id := r.PathValue("id")
+	// Only the owner or an admin revokes a token; to anyone else it does not exist.
+	if p, _ := auth.PrincipalFrom(r.Context()); !p.Allows(auth.ScopeAdmin) {
+		t, err := a.d.Store.Tokens.Get(r.Context(), id)
+		if err != nil || t.UserID != p.UserID {
+			writeError(w, r, store.ErrNotFound)
+			return
+		}
+	}
 	if err := a.d.Auth.RevokeAPIToken(r.Context(), id); err != nil {
 		writeError(w, r, err)
 		return

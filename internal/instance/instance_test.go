@@ -238,14 +238,16 @@ func TestAutomaticBackupsArePruned(t *testing.T) {
 
 func TestBeforeMigrateHookTakesBackup(t *testing.T) {
 	// Simulate a database one version behind by undoing the newest migration
-	// (0017 adds the branch environment columns) and forgetting that it ran.
+	// (0018 adds users' invitations, SSO links and project roles) and forgetting that it
+	// ran.
 	s, sqlDB := newStore(t)
 	ctx := context.Background()
 	latest := db.LatestVersion()
-	if latest != 17 {
-		t.Fatalf("schema is at %d: this test undoes migration 0017, teach it to undo the newest one", latest)
+	if latest != 18 {
+		t.Fatalf("schema is at %d: this test undoes migration 0018, teach it to undo the newest one", latest)
 	}
-	for _, q := range []string{`DROP INDEX projects_parent`, `ALTER TABLE projects DROP COLUMN parent_id`, `ALTER TABLE projects DROP COLUMN branch_settings`, `ALTER TABLE projects DROP COLUMN branch_state`} {
+	for _, q := range []string{`DROP TABLE project_roles`, `DROP INDEX users_invite_hash`, `DROP INDEX users_oidc_subject`,
+		`ALTER TABLE users DROP COLUMN invite_hash`, `ALTER TABLE users DROP COLUMN invite_expires_at`, `ALTER TABLE users DROP COLUMN oidc_subject`, `ALTER TABLE users DROP COLUMN disabled`, `ALTER TABLE users DROP COLUMN ssh_keys`} {
 		if _, err := sqlDB.Exec(q); err != nil {
 			t.Fatal(err)
 		}

@@ -66,6 +66,10 @@ func writeError(w http.ResponseWriter, r *http.Request, err error) {
 	case errors.As(err, &ae):
 	case errors.Is(err, context.Canceled):
 		ae = newError(499, "client_closed", "request cancelled")
+	case errors.Is(err, auth.ErrInviteInvalid):
+		ae = newError(http.StatusGone, "invite_invalid", err.Error())
+	case errors.Is(err, auth.ErrLastAdmin):
+		ae = newError(http.StatusConflict, "last_admin", err.Error())
 	case errors.Is(err, validate.ErrInvalid), errors.Is(err, auth.ErrWeakPassword), errors.Is(err, auth.ErrInvalidScope):
 		ae = newError(http.StatusUnprocessableEntity, "validation_failed", err.Error())
 	case errors.Is(err, auth.ErrForbidden):

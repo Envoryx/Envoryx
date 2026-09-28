@@ -38,10 +38,12 @@ type Principal struct {
 	// bearer, MCP or SSH) instead of a browser session.
 	TokenName string
 	// Scope and Projects are the token's access level and project restriction; empty
-	// Projects means all projects. Both mean nothing for sessions, which may do
-	// everything.
+	// Projects means all projects. Both mean nothing for sessions.
 	Scope    Scope
 	Projects []string
+	// ProjectRoles are the user's roles in particular projects, which replace the
+	// global Role there.
+	ProjectRoles map[string]Role
 }
 
 // Options configure the session service.
@@ -113,6 +115,13 @@ func (s *Service) Login(ctx context.Context, username, password, ip, userAgent s
 		}
 		return "", store.User{}, err
 	}
+	// An invited user has no password yet, one who signs in through OpenID Connect may
+	// have none at all; a disabled one may not sign in. All look like a wrong password.
+	if user.PasswordHash == "" || user.Disabled {
+		_, _ = VerifyPassword(dummyHash, password)
+		s.limiter.fail(ip, username, s.now())
+		return "", store.User{}, ErrInvalidCredentials
+	}
 	ok, err := VerifyPassword(user.PasswordHash, password)
 	if err != nil {
 		return "", store.User{}, fmt.Errorf("verify password: %w", err)
@@ -122,10 +131,22 @@ func (s *Service) Login(ctx context.Context, username, password, ip, userAgent s
 		return "", store.User{}, ErrInvalidCredentials
 	}
 	s.limiter.reset(ip, username)
+	token, err = s.StartSession(ctx, user, ip, userAgent)
+	if err != nil {
+		return "", store.User{}, err
+	}
+	return token, user, nil
+}
 
+// StartSession opens a session for a user who has proven who they are (password, OpenID
+// Connect) and returns its raw token.
+func (s *Service) StartSession(ctx context.Context, user store.User, ip, userAgent string) (token string, err error) {
+	if user.Disabled {
+		return "", ErrInvalidCredentials
+	}
 	raw := make([]byte, 32)
 	if _, err := rand.Read(raw); err != nil {
-		return "", store.User{}, fmt.Errorf("generate session token: %w", err)
+		return "", fmt.Errorf("generate session token: %w", err)
 	}
 	token = base64.RawURLEncoding.EncodeToString(raw)
 	ts := s.now()
@@ -139,9 +160,33 @@ func (s *Service) Login(ctx context.Context, username, password, ip, userAgent s
 		UserAgent:  truncate(userAgent, 256),
 	}
 	if err := s.store.Sessions.Create(ctx, sess); err != nil {
-		return "", store.User{}, err
+		return "", err
 	}
-	return token, user, nil
+	return token, nil
+}
+
+// PrincipalFor is the principal of a user signing in some other way (an SSH key).
+func (s *Service) PrincipalFor(ctx context.Context, user store.User) (Principal, error) {
+	if user.Disabled {
+		return Principal{}, ErrUnauthenticated
+	}
+	return s.principal(ctx, user)
+}
+
+// principal builds the principal of a user with the user's project roles.
+func (s *Service) principal(ctx context.Context, user store.User) (Principal, error) {
+	roles, err := s.store.Roles.ByUser(ctx, user.ID)
+	if err != nil {
+		return Principal{}, err
+	}
+	p := Principal{UserID: user.ID, Username: user.Username, Role: user.Role}
+	if len(roles) > 0 {
+		p.ProjectRoles = make(map[string]Role, len(roles))
+		for id, r := range roles {
+			p.ProjectRoles[id] = Role(r)
+		}
+	}
+	return p, nil
 }
 
 // Validate resolves a raw token into a principal, sliding the idle expiry forward.
@@ -170,13 +215,22 @@ func (s *Service) Validate(ctx context.Context, token string) (Principal, error)
 		}
 		return Principal{}, err
 	}
+	if user.Disabled {
+		_ = s.store.Sessions.Delete(ctx, id)
+		return Principal{}, ErrUnauthenticated
+	}
 	// Only touch the row every minute to avoid a write per request.
 	if ts.Sub(sess.LastSeenAt) > time.Minute {
 		if err := s.store.Sessions.Touch(ctx, id, ts, ts.Add(s.opts.IdleTimeout)); err != nil {
 			s.log.Warn("touch session failed", "err", err)
 		}
 	}
-	return Principal{UserID: user.ID, Username: user.Username, Role: user.Role, SessionID: id}, nil
+	p, err := s.principal(ctx, user)
+	if err != nil {
+		return Principal{}, err
+	}
+	p.SessionID = id
+	return p, nil
 }
 
 // Logout deletes the session behind a raw token.

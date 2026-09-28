@@ -286,6 +286,41 @@ func TestPublicKeyAuth(t *testing.T) {
 	}
 }
 
+// A user's own key acts with the user's roles: a developer in the project gets in, a
+// viewer does not, and a disabled user not at all.
+func TestUserKeyFollowsRoles(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	signer, err := ssh.NewSignerFromKey(mustKey(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	u, err := e.st.Users.Create(ctx, "dana", "", "viewer")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := e.st.Users.SetSSHKeys(ctx, u.ID, string(ssh.MarshalAuthorizedKey(signer.PublicKey()))); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.dial(t, "shop", ssh.PublicKeys(signer)); err == nil {
+		t.Fatal("a viewer's key must not open a shell")
+	}
+	if err := e.st.Roles.Set(ctx, u.ID, e.proj.Project.ID, "developer"); err != nil {
+		t.Fatal(err)
+	}
+	client, err := e.dial(t, "shop", ssh.PublicKeys(signer))
+	if err != nil {
+		t.Fatalf("a developer's key: %v", err)
+	}
+	client.Close()
+	if err := e.st.Users.SetDisabled(ctx, u.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.dial(t, "shop", ssh.PublicKeys(signer)); err == nil {
+		t.Fatal("a disabled user's key must be rejected")
+	}
+}
+
 func TestPortForwardingRequiresGateway(t *testing.T) {
 	e := newEnv(t)
 	// Runtime image without socat → forwarding falls back to the project network.
