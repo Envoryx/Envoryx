@@ -43,6 +43,12 @@ func (c *cli) projectCommand(ctx context.Context, args []string) error {
 		return c.projectRun(ctx, rest)
 	case "manifest":
 		return c.projectManifest(ctx, rest)
+	case "branches":
+		return c.projectBranches(ctx, rest)
+	case "branch":
+		return c.projectBranch(ctx, rest)
+	case "deploy":
+		return c.projectDeploy(ctx, rest)
 	default:
 		return usagef("unknown project command %q", cmd)
 	}

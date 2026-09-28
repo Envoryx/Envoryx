@@ -83,6 +83,7 @@ const (
 	ActionGitClone           = "git.clone"
 	ActionGitPull            = "git.pull"
 	ActionGitCheckout        = "git.checkout"
+	ActionBranchDeployed     = "branch.deployed"
 )
 
 type ipKey struct{}

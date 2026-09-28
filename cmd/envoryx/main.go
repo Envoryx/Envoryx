@@ -314,6 +314,8 @@ func serve() error {
 	}
 	// Every 15 seconds: a job fires at most that long after its minute starts.
 	background("cron scheduler", func(ctx context.Context) { manager.RunCronScheduler(ctx, 15*time.Second, log) })
+	// Branch environments: repositories polled on their own interval, idle ones stopped.
+	background("branch scheduler", func(ctx context.Context) { manager.RunBranchScheduler(ctx, 30*time.Second, log) })
 	// Container output outlives the containers: followed as it comes, kept per day.
 	if logStore, err := logs.OpenStore(filepath.Join(cfg.ConfigDir, "logs")); err != nil {
 		log.Warn("log history unavailable; the Logs tab reads the containers only", "err", err)
@@ -462,6 +464,7 @@ func serve() error {
 		router := proxy.NewRouter(source, 2*time.Second, log)
 		proxyInfo.Invalidate = router.Invalidate
 		handler := proxy.NewHandler(router, srv.Handler(), certs != nil, log)
+		handler.OnVisit = manager.Visited
 		httpsAddr := ""
 		if certs != nil {
 			httpsAddr = cfg.ProxyHTTPS

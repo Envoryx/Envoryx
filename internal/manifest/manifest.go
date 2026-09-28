@@ -78,6 +78,22 @@ type Manifest struct {
 
 	// HealthCheck asks the application over HTTP whether it works.
 	HealthCheck *HealthCheck `yaml:"healthcheck,omitempty"`
+
+	// Branches are the rules for the project's branch environments.
+	Branches *Branches `yaml:"branches,omitempty"`
+}
+
+// Branches configure branch environments: copies of the project on other branches of its
+// repository, deployed with the commands in Deploy.
+type Branches struct {
+	// Watch polls the repository: pushes are deployed, deleted branches take their
+	// environment with them and branches matching Patterns get one.
+	Watch           bool     `yaml:"watch,omitempty"`
+	Patterns        []string `yaml:"patterns,omitempty"`
+	PollMinutes     int      `yaml:"pollMinutes,omitempty"`
+	IdleStopDays    int      `yaml:"idleStopDays,omitempty"`
+	MaxEnvironments int      `yaml:"maxEnvironments,omitempty"`
+	Deploy          []string `yaml:"deploy,omitempty"`
 }
 
 // HealthCheck is the application health check: a path that must answer with the

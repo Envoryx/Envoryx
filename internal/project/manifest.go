@@ -34,7 +34,7 @@ import (
 // ManifestChange is one difference between a project and its manifest.
 type ManifestChange struct {
 	// Section is docroot, web, php, node, python, go, ruby, java, dotnet, database, redis,
-	// …, storage, limits, healthcheck, env, domain, worker or cron.
+	// …, storage, limits, healthcheck, branches, env, domain, worker or cron.
 	Section string `json:"section"`
 	// Item names the variable, host name, worker or cron job within the section.
 	Item string `json:"item,omitempty"`
@@ -307,6 +307,7 @@ func exportState(p store.Project, domains []store.Domain, jobs []store.CronJob) 
 		mf.Limits = &manifest.Limits{App: set(p.Limits.App), Services: set(p.Limits.Services), Pids: p.Limits.Pids}
 	}
 	mf.HealthCheck = exportHealthCheck(p.HealthCheck)
+	mf.Branches = exportBranches(p.Branches)
 	for _, j := range jobs {
 		mj := manifest.CronJob{Name: j.Name, Schedule: j.Schedule, Runtime: j.Runtime, Command: j.Command}
 		if j.Timeout != cronDefaultTimeout {
@@ -464,7 +465,18 @@ func manifestRequest(mf manifest.Manifest, name string) CreateRequest {
 	}
 	req.Limits = manifestLimits(mf.Limits)
 	req.HealthCheck = manifestHealthCheck(mf.HealthCheck)
+	if b := mf.Branches; b != nil {
+		req.Branches = store.BranchSettings{Watch: b.Watch, Patterns: b.Patterns, PollMinutes: b.PollMinutes, IdleStopDays: b.IdleStopDays, MaxEnvironments: b.MaxEnvironments, Deploy: b.Deploy}
+	}
 	return req
+}
+
+// exportBranches writes the branch settings, nil if there are none.
+func exportBranches(b store.BranchSettings) *manifest.Branches {
+	if b.Empty() {
+		return nil
+	}
+	return &manifest.Branches{Watch: b.Watch, Patterns: b.Patterns, PollMinutes: b.PollMinutes, IdleStopDays: b.IdleStopDays, MaxEnvironments: b.MaxEnvironments, Deploy: b.Deploy}
 }
 
 // manifestHealthCheck converts the file's health check (checked by Validate).
@@ -600,6 +612,8 @@ type manifestOps struct {
 	limits *store.ResourceLimits
 	// health is set through SetHealthCheck; nil leaves it unchanged.
 	health *store.HealthCheck
+	// branches are set through SetBranchSettings; nil leaves them unchanged.
+	branches *store.BranchSettings
 }
 
 func (o manifestOps) hasUpdate() bool { return !reflect.DeepEqual(o.update, UpdateRequest{}) }
@@ -913,6 +927,17 @@ func (m *Manager) planManifest(ctx context.Context, id string, mf manifest.Manif
 			ops.health = &h
 		}
 	}
+	if c, ok := sectionChange("branches", have.Branches, exportBranches(want.Branches)); ok {
+		if c.Action == "remove" {
+			if removal(c) {
+				ops.branches = &store.BranchSettings{}
+			}
+		} else {
+			add(c)
+			b := want.Branches
+			ops.branches = &b
+		}
+	}
 
 	// Environment: plain values come from the manifest, secrets keep what the project
 	// has unless a value was given; variables the manifest does not know stay unless
@@ -1210,6 +1235,11 @@ func (m *Manager) ApplyManifest(ctx context.Context, id string, mf manifest.Mani
 	}
 	if ops.health != nil {
 		if _, err := m.SetHealthCheck(ctx, id, *ops.health); err != nil {
+			return ManifestResult{Plan: plan}, err
+		}
+	}
+	if ops.branches != nil {
+		if _, err := m.SetBranchSettings(ctx, id, *ops.branches); err != nil {
 			return ManifestResult{Plan: plan}, err
 		}
 	}
