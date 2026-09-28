@@ -299,6 +299,11 @@ export function useGitStatus(id: string, enabled = true) {
   return useQuery({ queryKey: ["projects", id, "git"], queryFn: async () => (await api.git.status(id)).git, enabled, retry: false });
 }
 
+/** A project's branch settings and environments; polled while the tab is open, since the scheduler changes them. */
+export function useBranchEnvironments(id: string) {
+  return useQuery({ queryKey: ["projects", id, "branches"], queryFn: () => api.projects.branches(id), refetchInterval: LIVE_INTERVAL });
+}
+
 export function useDeployKey() {
   return useQuery({ queryKey: ["deploy-key"], queryFn: async () => (await api.git.deployKey()).publicKey, staleTime: 60 * 60 * 1000 });
 }

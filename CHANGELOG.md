@@ -63,6 +63,23 @@ release). `:main` follows the development branch.
   `--dotnet-preset`) and the MCP tools know .NET.
 - Site import recognises solution and project files (`.sln`, `.slnx`,
   `.csproj`, `.fsproj`, `.vbproj`).
+- Branch environments. The new *Branches* tab makes a copy of a project on
+  another branch of its repository: files (with `.env`, `vendor/` and
+  `node_modules/`), database, bucket, workers and cron jobs are copied, the
+  working tree switches to the branch, and the copy starts under its own URL
+  (`<project>-<branch>.test`). Deploy commands set on the parent (say
+  `composer install` and `php artisan migrate --force`) run after the copy
+  and after every pull, in the environment's application container.
+  *Watch the repository* asks the remote with `git ls-remote`, so it works
+  behind NAT without a webhook: a push is pulled and deployed, a deleted
+  branch takes its environment with it, and a new branch matching a pattern
+  like `feature/*` gets one (up to five by default). Environments nobody
+  opened for a set number of days are stopped. A project with environments
+  can't be deleted until they're gone.
+- `branches:` in `envoryx.yml`, `envoryx project branches|branch|deploy`, the
+  MCP tools `list_branch_environments`, `create_branch_environment` and
+  `deploy_branch_environment`, and the notifications `branch.failed` (on by
+  default) and `branch.changed` (off by default).
 
 ## [0.12.0] - 2026-09-27
 

@@ -28,6 +28,7 @@ import { CronTab } from "./CronTab";
 import { IdeTab } from "./IdeTab";
 import { ServicesTab } from "./ServicesTab";
 import { BackupsTab } from "./BackupsTab";
+import { BranchesTab } from "./BranchesTab";
 import { LogsTab } from "./LogsTab";
 // xterm.js is only needed on this tab; keep it out of the main bundle.
 const TerminalTab = lazy(() => import("./TerminalTab").then((m) => ({ default: m.TerminalTab })));
@@ -38,7 +39,7 @@ import { webServerHint } from "./webServers";
 import { AuditLog } from "@/features/audit/AuditLog";
 import { errorText, translateMessage } from "@/lib/errors";
 
-const tabs = ["Overview", "Resources", "Domains", "Git", "Actions", "Tests", "Terminal", "Logs", "Runtime", "Workers", "Cron", "Database", "Services", "Backups", "Environment", "IDE", "History", "Advanced"] as const;
+const tabs = ["Overview", "Resources", "Domains", "Git", "Branches", "Actions", "Tests", "Terminal", "Logs", "Runtime", "Workers", "Cron", "Database", "Services", "Backups", "Environment", "IDE", "History", "Advanced"] as const;
 type Tab = (typeof tabs)[number];
 
 export function ProjectDetailPage() {
@@ -125,6 +126,16 @@ export function ProjectDetailPage() {
           </Alert>
         </div>
       )}
+      {p.parentId && (
+        <div className="mb-4">
+          <Alert tone="blue">
+            {t("Branch environment of the branch {{branch}}.", { branch: p.git.branch })}{" "}
+            <Link to={`/projects/${p.parentId}`} className="underline">
+              {t("Open the parent project")}
+            </Link>
+          </Alert>
+        </div>
+      )}
       {p.status.warnings.length > 0 && (
         <div className="mb-4">
           <Alert tone={p.status.state === "error" ? "red" : "amber"}>
@@ -154,6 +165,7 @@ export function ProjectDetailPage() {
       {tab === "Overview" && <OverviewTab project={p} />}
       {tab === "Domains" && <DomainsTab project={p} />}
       {tab === "Git" && <GitTab project={p} />}
+      {tab === "Branches" && <BranchesTab project={p} />}
       {tab === "Actions" && (
         <Suspense fallback={<Spinner label={t("Loading actions…")} />}>
           <ActionsTab project={p} />
