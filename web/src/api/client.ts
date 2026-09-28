@@ -44,6 +44,12 @@ import type {
   InviteResult,
   OIDCSettings,
   RegistryLogin,
+  AddonDefinition,
+  AddonUpdate,
+  AvailableAddon,
+  ExampleAddon,
+  InstalledAddon,
+  ProjectAddon,
   Role,
   UserAdmin,
   BranchEnvironments,
@@ -281,6 +287,16 @@ export const api = {
     remove: (id: string) => request<void>(`/users/${encodeURIComponent(id)}`, { method: "DELETE" }),
     renewInvite: (id: string) => request<InviteResult>(`/users/${encodeURIComponent(id)}/invite`, { method: "POST" }),
     setProjectRole: (id: string, projectId: string, role: Role | "") => request<{ user: UserAdmin }>(`/users/${encodeURIComponent(id)}/projects/${encodeURIComponent(projectId)}`, { method: "PUT", body: { role } }),
+  },
+
+  addons: {
+    list: () => request<{ addons: InstalledAddon[]; examples: ExampleAddon[] }>("/addons"),
+    get: (name: string) => request<{ addon: AddonDefinition; source: string }>(`/addons/${encodeURIComponent(name)}`),
+    install: (body: { source?: string; url?: string }) => request<{ addon: AddonDefinition }>("/addons", { method: "POST", body }),
+    remove: (name: string) => request<void>(`/addons/${encodeURIComponent(name)}`, { method: "DELETE" }),
+    project: (id: string) => request<{ addons: ProjectAddon[]; available: AvailableAddon[] }>(`/projects/${encodeURIComponent(id)}/addons`),
+    set: (id: string, name: string, body: AddonUpdate) =>
+      request<{ project: Project }>(`/projects/${encodeURIComponent(id)}/addons/${encodeURIComponent(name)}`, { method: "PUT", body }),
   },
 
   registries: {

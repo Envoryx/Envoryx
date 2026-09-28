@@ -11,6 +11,7 @@ import { PublicHostNotice } from "@/components/PublicHostNotice";
 import { errorText } from "@/lib/errors";
 import { CopyRow } from "./DatabaseTab";
 import { OllamaModels } from "./OllamaModels";
+import { AddonsSection } from "./AddonsSection";
 import { emptyExternalRedis, ExternalRedisFields } from "./ExternalConnection";
 
 type ExtraKind = "redis" | "memcached" | "mailpit" | "rabbitmq" | "meilisearch" | "typesense" | "opensearch" | "ollama";
@@ -445,6 +446,7 @@ export function ServicesTab({ project }: { project: Project }) {
         {!has("ollama") && <AddServiceCard project={project} kind="ollama" onMessage={setMsg} />}
         {!storage.data && <AddStorageCard project={project} onMessage={setMsg} />}
       </div>
+      <AddonsSection project={project} />
     </div>
   );
 }
