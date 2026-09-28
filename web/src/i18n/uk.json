@@ -2606,5 +2606,8 @@
   "The file is checked when you save; a new version of an installed addon reaches the projects using it at their next start.": "Файл перевіряється під час збереження; нова версія встановленого доповнення потрапляє до проєктів, які його використовують, під час їхнього наступного запуску.",
   "Addon file": "Файл доповнення",
   "Backing up the volume {{name}}": "Резервне копіювання тому {{name}}",
-  "Restoring the volume {{name}}": "Відновлення тому {{name}}"
+  "Restoring the volume {{name}}": "Відновлення тому {{name}}",
+  "The project has no database; the addon volumes are saved.": "Проєкт не має бази даних; зберігаються томи доповнень.",
+  "The addon volumes are saved, too.": "Томи доповнень теж зберігаються.",
+  "With the addon volumes: {{files}}": "З томами доповнень: {{files}}"
 }

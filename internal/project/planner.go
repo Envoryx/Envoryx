@@ -1459,7 +1459,7 @@ func (p *Planner) envStrings(proj store.Project) ([]string, error) {
 			set(k, env[k])
 		}
 	}
-	if err := p.addonEnv(proj, set); err != nil {
+	if err := p.addonEnv(proj, func(k string) bool { _, ok := vars[k]; return ok }, set); err != nil {
 		return nil, err
 	}
 	for _, e := range proj.Env {

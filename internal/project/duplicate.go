@@ -416,7 +416,15 @@ func (m *Manager) reassignHostPorts(ctx context.Context, proj *store.Project) er
 				return swap(&c.DebugHostPort)
 			})
 		case svc.Kind.IsAddon():
-			err = editConfig(svc, func(c *AddonConfig) error { return swap(&c.HostPort) })
+			err = editConfig(svc, func(c *AddonConfig) error {
+				// The copy starts with empty volumes: it gets secrets of its own.
+				secrets, err := newAddonSecrets(c.Definition, nil)
+				if err != nil {
+					return err
+				}
+				c.Secrets = secrets
+				return swap(&c.HostPort)
+			})
 		case svc.Kind == store.ServiceStorage:
 			err = editConfig(svc, func(c *runtime.StorageConfig) error {
 				if err := swap(&c.HostPort); err != nil {

@@ -2562,5 +2562,8 @@
   "The file is checked when you save; a new version of an installed addon reaches the projects using it at their next start.": "Il file viene verificato al salvataggio; una nuova versione di un addon installato raggiunge i progetti che lo usano al loro prossimo avvio.",
   "Addon file": "File dell'addon",
   "Backing up the volume {{name}}": "Backup del volume {{name}}",
-  "Restoring the volume {{name}}": "Ripristino del volume {{name}}"
+  "Restoring the volume {{name}}": "Ripristino del volume {{name}}",
+  "The project has no database; the addon volumes are saved.": "Il progetto non ha database; vengono salvati i volumi degli addon.",
+  "The addon volumes are saved, too.": "Vengono salvati anche i volumi degli addon.",
+  "With the addon volumes: {{files}}": "Con i volumi degli addon: {{files}}"
 }

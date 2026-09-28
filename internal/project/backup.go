@@ -836,7 +836,7 @@ func (m *Manager) restoreBackup(ctx context.Context, id, backupID string, opts R
 	restored := map[string]any{"name": p.Name, "backup": backupID}
 
 	if opts.Database {
-		if meta.HasAnyDatabase() || len(meta.AddonVolumes) == 0 {
+		if (meta.HasAnyDatabase() && len(p.Databases()) > 0) || len(meta.AddonVolumes) == 0 {
 			restoredDBs, skipped, err := m.restoreDatabases(ctx, p, meta, dir, nil)
 			if err != nil {
 				return BackupInfo{}, err

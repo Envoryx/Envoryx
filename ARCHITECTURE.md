@@ -1402,14 +1402,16 @@ under `/config/addons/<name>.yml` describes one container; a project runs it as 
 `AddonConfig`: the host port, the generated secrets and a copy of the definition. The copy
 keeps a project working when the file changes or goes; `InstallAddon` refreshes it in every
 project using the addon (definition, image of the version or the new default, secrets for
-newly declared names), and `DeleteAddon` refuses while any project uses it.
+newly declared names, a host port when the new version adds a web UI), and `DeleteAddon`
+refuses while any project uses it. A copy of a project (`Duplicate`, branch environments)
+generates secrets of its own for its empty volumes.
 `resolveImages` takes an addon's image from its copy, not the catalogue.
 
 The planner turns the service into a container (`addonContainer`): the templates of `env`
 and `command` rendered with `addonVars` (host, port, web UI URL, project, primary database,
 secrets), the named volumes `envoryx-<slug>-addon-<name>-<volume>`, the health check and
 the host port. `addonEnv` adds the rendered `inject` variables in `envStrings` after
-Envoryx's own and before the project's variables. The route table maps
+Envoryx's own, skipping any name Envoryx set already, and before the project's variables. The route table maps
 `<slug>-<name>.<base>` to the container for addons with a web UI (`dialForApp`, so bare
 metal goes through the host port, which a web UI always gets). Changes go through
 `Update` (`UpdateRequest.Addons`, `applyAddonUpdate`), like the built-in services;

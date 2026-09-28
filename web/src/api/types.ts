@@ -1673,6 +1673,8 @@ export interface BackupMeta {
   files?: { bytes: number; entries: number; includeDependencies: boolean };
   storage?: { bucket: string; objects: number; bytes: number };
   runtimes: Record<string, string>;
+  /** Archives of addon volumes (addon-<name>-<volume>.tar.gz), restored with the database. */
+  addonVolumes?: string[];
 }
 
 export interface Worker {

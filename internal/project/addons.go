@@ -204,8 +204,10 @@ func (p *Planner) addonContainer(proj store.Project, svc store.ProjectService, n
 	return ContainerPlan{Kind: svc.Kind, Order: 9, Spec: spec}, volumes, nil
 }
 
-// addonEnv adds what the project's addons hand the application.
-func (p *Planner) addonEnv(proj store.Project, set func(k, v string)) error {
+// addonEnv adds what the project's addons hand the application. has reports variables
+// Envoryx set already; an addon does not override them (the user's variables still
+// override everything).
+func (p *Planner) addonEnv(proj store.Project, has func(k string) bool, set func(k, v string)) error {
 	for _, svc := range proj.Addons() {
 		if !svc.Enabled {
 			continue
@@ -217,7 +219,9 @@ func (p *Planner) addonEnv(proj store.Project, set func(k, v string)) error {
 		vars := p.addonVars(proj, cfg)
 		for _, kv := range addon.RenderMap(cfg.Definition.Inject, vars) {
 			k, v, _ := strings.Cut(kv, "=")
-			set(k, v)
+			if !has(k) {
+				set(k, v)
+			}
 		}
 	}
 	return nil
@@ -436,8 +440,16 @@ func (m *Manager) InstallAddon(ctx context.Context, raw []byte) (addon.Definitio
 		if cfg.Secrets, err = newAddonSecrets(d, cfg.Secrets); err != nil {
 			return d, err
 		}
-		if !d.WebUI && !d.PublishPort {
+		switch {
+		case !d.WebUI && !d.PublishPort:
 			cfg.HostPort = 0
+		case d.WebUI && cfg.HostPort == 0:
+			// A web UI the new version adds needs its port (the proxy's way in on bare metal).
+			port, err := m.allocatePort(ctx, p.HTTPPort)
+			if err != nil {
+				return d, err
+			}
+			cfg.HostPort = port
 		}
 		raw, err := json.Marshal(cfg)
 		if err != nil {

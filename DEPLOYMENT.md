@@ -1936,8 +1936,8 @@ project network), `{{url}}` (the web UI's address, empty without `webUI`),
 `{{database.password}}` (the primary database; empty when the project has none) and
 `{{secret.<name>}}` for every declared secret. Names under `env:` may contain lower-case
 letters and dots; names under `inject:` are regular variable names (`[A-Z_][A-Z0-9_]*`).
-The injected variables come after Envoryx's own (an addon can override `DB_HOST`) and
-before the project's variables, which always win. A secret credential is masked until
+The injected variables never replace Envoryx's own (an addon cannot change `DB_HOST`),
+and the project's variables always win over them. A secret credential is masked until
 revealed, and viewers don't get its value at all.
 
 **In a project.** Installed addons show up at the bottom of the project's **Services**
@@ -1963,7 +1963,7 @@ stopped while its volumes are read, so the archive is consistent, and started ag
 afterwards; `busybox:1.37` does the reading (pulled once). Restoring a backup's database
 part empties those volumes and unpacks the archives, for the addons the project still has.
 Snapshots of a single database leave the addon volumes out. A copy of a project gets the
-same addons with the same secrets, new host ports and empty volumes; renaming moves the
+same addons with secrets of its own, new host ports and empty volumes; renaming moves the
 volumes along.
 
 In `envoryx.yml`, installed addons go under `addons:`; the server must have the file:

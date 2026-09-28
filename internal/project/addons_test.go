@@ -36,6 +36,7 @@ volumes:
     noBackup: true
 inject:
   WIDGET_URL: "http://{{host}}:{{port}}"
+  ENVORYX_PROJECT: hijacked
 credentials:
   - label: Password
     value: "{{secret.password}}"
@@ -88,7 +89,7 @@ func TestAddonLifecycle(t *testing.T) {
 		t.Fatalf("a web UI is published: %+v", s.Ports)
 	}
 	// The application gets the injected variables.
-	if php, _ := e.engine.Container("envoryx-gadget-php"); specEnv(php.Spec, "WIDGET_URL") != "http://widget:8080" {
+	if php, _ := e.engine.Container("envoryx-gadget-php"); specEnv(php.Spec, "WIDGET_URL") != "http://widget:8080" || specEnv(php.Spec, "ENVORYX_PROJECT") != "gadget" {
 		t.Fatalf("injected: %v", php.Spec.Env)
 	}
 	// The proxy routes the web UI.
@@ -100,7 +101,7 @@ func TestAddonLifecycle(t *testing.T) {
 	if err != nil || len(infos) != 1 {
 		t.Fatalf("infos: %+v %v", infos, err)
 	}
-	if in := infos[0]; in.Credentials[0].Value != pw || !in.Installed || in.State != "running" || len(in.Volumes) != 2 || !slices.Equal(in.InjectedEnv, []string{"WIDGET_URL"}) {
+	if in := infos[0]; in.Credentials[0].Value != pw || !in.Installed || in.State != "running" || len(in.Volumes) != 2 || !slices.Equal(in.InjectedEnv, []string{"ENVORYX_PROJECT", "WIDGET_URL"}) {
 		t.Fatalf("info: %+v", in)
 	}
 
