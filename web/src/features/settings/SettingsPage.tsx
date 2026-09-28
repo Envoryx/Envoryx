@@ -19,6 +19,7 @@ import { OffsiteTargetsCard } from "@/features/offsite/OffsiteTargetsCard";
 import { DiagnosticsTab } from "./DiagnosticsTab";
 import { UsersCard } from "./UsersCard";
 import { OidcCard } from "./OidcCard";
+import { RegistriesCard } from "./RegistriesCard";
 import { MySshKeysCard } from "./MySshKeysCard";
 import { isAdmin, useAuth } from "@/features/auth/AuthContext";
 import { AppearanceCard } from "./AppearanceCard";
@@ -406,6 +407,7 @@ function AdminSettingsPage() {
         <div className="space-y-6">
           <DBToolCard />
           <PackageCacheCard />
+          <RegistriesCard />
         </div>
       )}
       {tab === "audit" && <AuditCard />}

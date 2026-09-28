@@ -43,6 +43,7 @@ import type {
   HealthCheck,
   InviteResult,
   OIDCSettings,
+  RegistryLogin,
   Role,
   UserAdmin,
   BranchEnvironments,
@@ -282,6 +283,11 @@ export const api = {
     setProjectRole: (id: string, projectId: string, role: Role | "") => request<{ user: UserAdmin }>(`/users/${encodeURIComponent(id)}/projects/${encodeURIComponent(projectId)}`, { method: "PUT", body: { role } }),
   },
 
+  registries: {
+    list: () => request<{ registries: RegistryLogin[] }>("/settings/registries"),
+    set: (registries: RegistryLogin[]) => request<{ registries: RegistryLogin[] }>("/settings/registries", { method: "PUT", body: { registries } }),
+  },
+
   oidc: {
     get: () => request<{ oidc: OIDCSettings }>("/settings/oidc"),
     set: (body: OIDCSettings) => request<{ oidc: OIDCSettings }>("/settings/oidc", { method: "PUT", body }),
@@ -377,6 +383,12 @@ export const api = {
       request<{ project: Project }>(`/projects/${encodeURIComponent(id)}/restart`, { method: "POST" }),
     useImage: (id: string, image: string, use: "previous" | "latest") =>
       request<{ project: Project }>(`/projects/${encodeURIComponent(id)}/images`, { method: "POST", body: { image, use } }),
+    setCustomImage: (id: string, kind: string, body: { image?: string; dockerfile?: string }) =>
+      request<{ project: Project }>(`/projects/${encodeURIComponent(id)}/services/${encodeURIComponent(kind)}/image`, { method: "PUT", body }),
+    removeCustomImage: (id: string, kind: string) =>
+      request<{ project: Project }>(`/projects/${encodeURIComponent(id)}/services/${encodeURIComponent(kind)}/image`, { method: "DELETE" }),
+    rebuildCustomImage: (id: string, kind: string) =>
+      request<{ project: Project }>(`/projects/${encodeURIComponent(id)}/services/${encodeURIComponent(kind)}/image/build`, { method: "POST" }),
     plan: (id: string) => request<{ plan: Preview }>(`/projects/${encodeURIComponent(id)}/plan`),
     stats: (id: string) => request<ProjectStatsResponse>(`/projects/${encodeURIComponent(id)}/stats`),
     metrics: (id: string, range: MetricRange) => request<{ metrics: ProjectMetrics }>(`/projects/${encodeURIComponent(id)}/metrics?range=${range}`),
