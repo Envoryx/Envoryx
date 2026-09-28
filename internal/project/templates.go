@@ -23,14 +23,14 @@ import (
 
 // Template scaffolds a fresh application into an empty project directory. Steps are
 // argv commands run in a transient container from the image of the runtime the template
-// names (PHP, Node, Python, Go, Ruby or Java) as the project owner, exactly like git
-// operations; nothing is interpolated from user input.
+// names (PHP, Node, Python, Go, Ruby, Java or .NET) as the project owner, exactly like
+// git operations; nothing is interpolated from user input.
 type Template struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	// Runtime is the service the template needs and runs in: "php", "node", "python", "go",
-	// "ruby" or "java".
+	// "ruby", "java" or "dotnet".
 	Runtime string `json:"runtime"`
 	// Node carries dev-server defaults merged field by field into the request's NodeConfig
 	// (preset, port and script where empty; DevServer when the request set none of them).
@@ -47,6 +47,9 @@ type Template struct {
 	// Java carries server defaults merged the same way into the request's JavaConfig
 	// (preset and port where empty; Server when the request set none of them).
 	Java *runtime.JavaConfig `json:"java,omitempty"`
+	// Dotnet carries server defaults merged the same way into the request's DotnetConfig
+	// (preset and port where empty; Server when the request set none of them).
+	Dotnet *runtime.DotnetConfig `json:"dotnet,omitempty"`
 	// Docroot the template expects (applied when the request leaves it empty).
 	Docroot string `json:"docroot"`
 	// RequiresDatabase refuses creation without a database service.
@@ -92,6 +95,10 @@ var (
 	// The Java scaffolds keep the Maven wrapper's download in the project home and the
 	// dependencies in the shared package cache, so the server's first build finds both.
 	javaScaffoldEnv = []string{"HOME=" + homeMountTarget}
+	// The .NET scaffolds keep dotnet's first-run state and template cache in the project
+	// home and the packages in the shared package cache, so the server's first build
+	// restores nothing.
+	dotnetScaffoldEnv = []string{"HOME=" + homeMountTarget}
 )
 
 // Python scaffold sources. Each is a fixed file written by Envoryx; the Django settings
@@ -609,6 +616,148 @@ func javaPackageName(slug string) string {
 	return name
 }
 
+// The .NET templates come with the SDK, so scaffolding needs no network until the NuGet
+// restore. --no-https leaves out the HTTPS launch profile and redirect: the Envoryx proxy
+// terminates TLS. Every template ends with a build, which fills the package cache and
+// shows a broken setup here rather than in the server's log.
+var dotnetTemplates = []Template{
+	{
+		ID: "aspnet-webapi", Name: "ASP.NET Core Web API", Description: "Minimal API with OpenAPI (dotnet new webapi); EF Core with a sample /todos endpoint on the project database when it is PostgreSQL, MySQL or MariaDB.",
+		Runtime: "dotnet", Docroot: "", RecommendedDatabase: "postgresql",
+		Dotnet: &runtime.DotnetConfig{Server: true, Preset: "aspnetcore", Port: 8080},
+		Notes:  "dotnet watch applies code changes with hot reload and restarts the application when it can't. Envoryx injects ConnectionStrings__DefaultConnection for the project database; AppDatabase.cs creates the tables with EnsureCreated - switch to migrations (dotnet ef migrations add Initial, then the \"dotnet ef database update\" action) once the model settles.",
+		steps: []templateStep{
+			{label: "dotnet new webapi", cmdFor: dotnetNew("webapi")},
+			{label: "EF Core for the project database", cmdFor: dotnetEFCore},
+			{label: "dotnet build", cmd: dotnetPrebuild},
+		},
+	},
+	{
+		ID: "aspnet-mvc", Name: "ASP.NET Core MVC", Description: "Model-View-Controller web app with Razor views (dotnet new mvc).",
+		Runtime: "dotnet", Docroot: "",
+		Dotnet: &runtime.DotnetConfig{Server: true, Preset: "aspnetcore", Port: 8080},
+		Notes:  "dotnet watch applies code and Razor view changes with hot reload. Envoryx injects ConnectionStrings__DefaultConnection when the project has a database.",
+		steps: []templateStep{
+			{label: "dotnet new mvc", cmdFor: dotnetNew("mvc")},
+			{label: "dotnet build", cmd: dotnetPrebuild},
+		},
+	},
+	{
+		ID: "blazor", Name: "Blazor Web App", Description: "Blazor with interactive server rendering (dotnet new blazor).",
+		Runtime: "dotnet", Docroot: "",
+		Dotnet: &runtime.DotnetConfig{Server: true, Preset: "aspnetcore", Port: 8080},
+		Notes:  "dotnet watch applies component changes with hot reload. Interactive components talk to the server over a WebSocket, which the Envoryx proxy passes through.",
+		steps: []templateStep{
+			{label: "dotnet new blazor", cmdFor: dotnetNew("blazor")},
+			{label: "dotnet build", cmd: dotnetPrebuild},
+		},
+	},
+	{
+		ID: "razor-pages", Name: "ASP.NET Core Razor Pages", Description: "Page-based web app with Razor Pages (dotnet new webapp).",
+		Runtime: "dotnet", Docroot: "",
+		Dotnet: &runtime.DotnetConfig{Server: true, Preset: "aspnetcore", Port: 8080},
+		Notes:  "dotnet watch applies code and page changes with hot reload. Envoryx injects ConnectionStrings__DefaultConnection when the project has a database.",
+		steps: []templateStep{
+			{label: "dotnet new webapp", cmdFor: dotnetNew("webapp")},
+			{label: "dotnet build", cmd: dotnetPrebuild},
+		},
+	},
+}
+
+func init() { templates = append(templates, dotnetTemplates...) }
+
+// dotnetNew returns the scaffold step of a dotnet new template: the project is named after
+// the project's slug (dotnet new makes a valid namespace of it) and lands in the project
+// directory itself.
+func dotnetNew(template string) func(store.Project) []string {
+	return func(p store.Project) []string {
+		return []string{"dotnet", "new", template, "--name", p.Slug, "--output", ".", "--no-https"}
+	}
+}
+
+// dotnetPrebuild builds the fresh project once.
+var dotnetPrebuild = []string{"dotnet", "build", "--nologo"}
+
+// dotnetEFCore adds EF Core with the provider of the project database to the Web API
+// template: $1 is the SDK's major version, $2 the provider package and $3 its Use method.
+// Without a database it has nothing to do.
+func dotnetEFCore(p store.Project) []string {
+	pkg, use := "", ""
+	switch primaryDBVariant(p) {
+	case "postgresql":
+		pkg, use = "Npgsql.EntityFrameworkCore.PostgreSQL", "UseNpgsql"
+	case "mysql", "mariadb":
+		// Oracle's provider: Pomelo, the usual one, has no release for EF Core 10.
+		pkg, use = "MySql.EntityFrameworkCore", "UseMySQL"
+	}
+	major := "10"
+	if svc := p.Service(store.ServiceDotnet); svc != nil && svc.Version != "" {
+		major = svc.Version
+	}
+	return []string{"sh", "-c", dotnetEFCoreScript, "envoryx-dotnet-efcore", major, pkg, use}
+}
+
+// dotnetEFCoreScript adds the provider and the design package (for dotnet ef) in the
+// SDK's major version and pins what that resolved to, so every later restore gets the
+// same packages. AppDatabase.cs holds the context, a sample entity and its endpoints;
+// Program.cs gets one line to register the context and one to map the endpoints. The
+// template writes Program.cs with CRLF line ends, which the inserted lines keep.
+const dotnetEFCoreScript = `set -e
+major=$1 pkg=$2 use=$3
+[ -n "$pkg" ] || { echo 'no PostgreSQL, MySQL or MariaDB database - nothing to add'; exit 0; }
+dotnet add package "$pkg" --version "$major.*"
+dotnet add package Microsoft.EntityFrameworkCore.Design --version "$major.*"
+dotnet list package | awk '$1 == ">" && $3 ~ /\*/ {print $2, $4}' | while read -r p v; do dotnet add package "$p" --version "$v" >/dev/null; done
+cat > AppDatabase.cs <<CS
+using Microsoft.EntityFrameworkCore;
+
+// Added by Envoryx: the project database through EF Core. Envoryx injects its connection
+// string as ConnectionStrings__DefaultConnection. EnsureCreated builds the tables on the
+// first start; switch to migrations (dotnet ef migrations add Initial) once the model
+// settles.
+public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
+{
+    public DbSet<Todo> Todos => Set<Todo>();
+}
+
+public class Todo
+{
+    public int Id { get; set; }
+    public required string Title { get; set; }
+    public bool Done { get; set; }
+}
+
+public static class AppDatabase
+{
+    public static WebApplicationBuilder AddAppDatabase(this WebApplicationBuilder builder)
+    {
+        var connection = builder.Configuration.GetConnectionString("DefaultConnection")
+            ?? throw new InvalidOperationException("ConnectionStrings:DefaultConnection is not set");
+        builder.Services.AddDbContext<AppDbContext>(options => options.$use(connection));
+        return builder;
+    }
+
+    public static WebApplication MapTodos(this WebApplication app)
+    {
+        using (var scope = app.Services.CreateScope())
+        {
+            scope.ServiceProvider.GetRequiredService<AppDbContext>().Database.EnsureCreated();
+        }
+        var todos = app.MapGroup("/todos");
+        todos.MapGet("/", async (AppDbContext db) => await db.Todos.ToListAsync());
+        todos.MapPost("/", async (Todo todo, AppDbContext db) =>
+        {
+            db.Todos.Add(todo);
+            await db.SaveChangesAsync();
+            return Results.Created(\$"/todos/{todo.Id}", todo);
+        });
+        return app;
+    }
+}
+CS
+sed -i -e 's/^var builder = WebApplication\.CreateBuilder(args);\(\r\?\)$/&\nbuilder.AddAppDatabase();\1/' -e 's/^app\.Run();\(\r\?\)$/app.MapTodos();\1\n\1\n&/' Program.cs
+grep -q '^builder\.AddAppDatabase();' Program.cs && grep -q '^app\.MapTodos();' Program.cs`
+
 // railsNew installs rails into the project's GEM_HOME and generates the application in
 // the project directory: named after the project, for its database (SQLite without one),
 // without a git repository of its own. rails new runs bundle install and the importmap,
@@ -778,6 +927,8 @@ func (m *Manager) applyTemplate(ctx context.Context, proj store.Project, tpl Tem
 		kind, label, env = store.ServiceRuby, "Ruby", rubyScaffoldEnv
 	case "java":
 		kind, label, env = store.ServiceJava, "Java", javaScaffoldEnv
+	case "dotnet":
+		kind, label, env = store.ServiceDotnet, ".NET", dotnetScaffoldEnv
 	}
 	svc := proj.Service(kind)
 	if svc == nil {
@@ -808,9 +959,9 @@ func (m *Manager) applyTemplate(ctx context.Context, proj store.Project, tpl Tem
 		return fmt.Errorf("create the package cache: %w", err)
 	}
 	_ = os.Chown(planner.PackageCacheDir(), paths.PUID, paths.PGID)
-	if kind == store.ServiceRuby || kind == store.ServiceJava {
-		// The gems and the Maven wrapper go to the project home, which the plan has not
-		// created yet either.
+	if kind == store.ServiceRuby || kind == store.ServiceJava || kind == store.ServiceDotnet {
+		// The gems, the Maven wrapper and dotnet's first-run state go to the project home,
+		// which the plan has not created yet either.
 		if err := os.MkdirAll(planner.HomeDir(proj), 0o755); err != nil {
 			return fmt.Errorf("create the project home: %w", err)
 		}
@@ -832,7 +983,7 @@ func (m *Manager) applyTemplate(ctx context.Context, proj store.Project, tpl Tem
 		if ts.cmdFor != nil {
 			spec.Cmd = ts.cmdFor(proj)
 		}
-		if kind == store.ServiceRuby || kind == store.ServiceJava {
+		if kind == store.ServiceRuby || kind == store.ServiceJava || kind == store.ServiceDotnet {
 			spec.Mounts = append(spec.Mounts, planner.HomeMount(proj))
 		}
 		spec.Env = append([]string{}, spec.Env...)

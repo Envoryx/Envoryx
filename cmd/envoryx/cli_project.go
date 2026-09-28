@@ -452,6 +452,7 @@ type createRequest struct {
 	Go          *goSpec         `json:"go,omitempty"`
 	Ruby        *rubySpec       `json:"ruby,omitempty"`
 	Java        *javaSpec       `json:"java,omitempty"`
+	Dotnet      *dotnetSpec     `json:"dotnet,omitempty"`
 	Database    *databaseSpec   `json:"database,omitempty"`
 	Databases   []namedDBSpec   `json:"databases,omitempty"`
 	Redis       *extraSpec      `json:"redis,omitempty"`
@@ -513,6 +514,12 @@ type javaSpec struct {
 	Preset  string `json:"preset,omitempty"`
 }
 
+type dotnetSpec struct {
+	Version string `json:"version,omitempty"`
+	Server  bool   `json:"server,omitempty"`
+	Preset  string `json:"preset,omitempty"`
+}
+
 type databaseSpec struct {
 	Type       string `json:"type,omitempty"`
 	Version    string `json:"version,omitempty"`
@@ -552,6 +559,8 @@ Runtimes (a project without any is a static site served by the web container):
                        first), --ruby-preset rails|rack
   --java VERSION       JDK version (17, 21, 25); --java-server runs the server,
                        --java-preset spring-boot|quarkus|jar
+  --dotnet VERSION     .NET SDK version (8, 10); --dotnet-server runs the server,
+                       --dotnet-preset aspnetcore|dll
 
 Services:
   --database TYPE[:VERSION]   mysql, mariadb, postgres, mongodb …
@@ -592,49 +601,52 @@ func (c *cli) projectCreate(ctx context.Context, args []string) error {
 	}
 	fs := c.newFlags("project create")
 	var (
-		path       = fs.String("path", "", "project directory")
-		docroot    = fs.String("docroot", "", "document root")
-		php        = fs.String("php", "", "PHP version")
-		node       = fs.String("node", "", "Node.js version")
-		nodeDev    = fs.Bool("node-dev-server", false, "run the Node dev server")
-		nodePreset = fs.String("node-preset", "", "vite, next, nuxt, generic")
-		python     = fs.String("python", "", "Python version")
-		pyServer   = fs.Bool("python-server", false, "run the Python application server")
-		pyPreset   = fs.String("python-preset", "", "django, flask, asgi, wsgi, module")
-		pyApp      = fs.String("python-app", "", "application module")
-		goVersion  = fs.String("go", "", "Go version")
-		goServer   = fs.Bool("go-server", false, "build and run the Go server")
-		goPackage  = fs.String("go-package", "", "main package, e.g. ./cmd/server")
-		ruby       = fs.String("ruby", "", "Ruby version")
-		rubyServer = fs.Bool("ruby-server", false, "run the Ruby server")
-		rubyPreset = fs.String("ruby-preset", "", "rails, rack")
-		java       = fs.String("java", "", "JDK version")
-		javaServer = fs.Bool("java-server", false, "run the Java server")
-		javaPreset = fs.String("java-preset", "", "spring-boot, quarkus, jar")
-		database   = fs.String("database", "", "mysql, mariadb, postgres, mongodb[:version]")
-		exposeDB   = fs.Bool("expose-database", false, "publish the database port")
-		extraDBs   stringList
-		redis      = fs.Bool("redis", false, "add Redis")
-		mailpit    = fs.Bool("mailpit", false, "add Mailpit")
-		rabbitmq   = fs.Bool("rabbitmq", false, "add RabbitMQ")
-		memcached  = fs.Bool("memcached", false, "add Memcached")
-		meili      = fs.Bool("meilisearch", false, "add Meilisearch")
-		typesense  = fs.Bool("typesense", false, "add Typesense")
-		opensearch = fs.Bool("opensearch", false, "add OpenSearch")
-		osDash     = fs.Bool("opensearch-dashboards", false, "add OpenSearch with OpenSearch Dashboards")
-		ollama     = fs.Bool("ollama", false, "add Ollama")
-		ollamaGPU  = fs.Bool("ollama-gpu", false, "add Ollama with the host's GPUs")
-		storage    = fs.Bool("storage", false, "add S3 storage")
-		template   = fs.String("template", "", "project template")
-		starter    = fs.Bool("starter", false, "write starter files")
-		gitURL     = fs.String("git", "", "repository to clone")
-		branch     = fs.String("branch", "", "branch")
-		gitUser    = fs.String("git-username", "", "repository user name")
-		gitToken   = fs.String("git-token", "", "repository token")
-		start      = fs.Bool("start", false, "start the project")
-		fromJSON   = fs.String("from-json", "", "create request as JSON")
-		envVars    stringList
-		secretVars stringList
+		path         = fs.String("path", "", "project directory")
+		docroot      = fs.String("docroot", "", "document root")
+		php          = fs.String("php", "", "PHP version")
+		node         = fs.String("node", "", "Node.js version")
+		nodeDev      = fs.Bool("node-dev-server", false, "run the Node dev server")
+		nodePreset   = fs.String("node-preset", "", "vite, next, nuxt, generic")
+		python       = fs.String("python", "", "Python version")
+		pyServer     = fs.Bool("python-server", false, "run the Python application server")
+		pyPreset     = fs.String("python-preset", "", "django, flask, asgi, wsgi, module")
+		pyApp        = fs.String("python-app", "", "application module")
+		goVersion    = fs.String("go", "", "Go version")
+		goServer     = fs.Bool("go-server", false, "build and run the Go server")
+		goPackage    = fs.String("go-package", "", "main package, e.g. ./cmd/server")
+		ruby         = fs.String("ruby", "", "Ruby version")
+		rubyServer   = fs.Bool("ruby-server", false, "run the Ruby server")
+		rubyPreset   = fs.String("ruby-preset", "", "rails, rack")
+		java         = fs.String("java", "", "JDK version")
+		javaServer   = fs.Bool("java-server", false, "run the Java server")
+		javaPreset   = fs.String("java-preset", "", "spring-boot, quarkus, jar")
+		dotnet       = fs.String("dotnet", "", ".NET SDK version")
+		dotnetServer = fs.Bool("dotnet-server", false, "run the .NET server")
+		dotnetPreset = fs.String("dotnet-preset", "", "aspnetcore, dll")
+		database     = fs.String("database", "", "mysql, mariadb, postgres, mongodb[:version]")
+		exposeDB     = fs.Bool("expose-database", false, "publish the database port")
+		extraDBs     stringList
+		redis        = fs.Bool("redis", false, "add Redis")
+		mailpit      = fs.Bool("mailpit", false, "add Mailpit")
+		rabbitmq     = fs.Bool("rabbitmq", false, "add RabbitMQ")
+		memcached    = fs.Bool("memcached", false, "add Memcached")
+		meili        = fs.Bool("meilisearch", false, "add Meilisearch")
+		typesense    = fs.Bool("typesense", false, "add Typesense")
+		opensearch   = fs.Bool("opensearch", false, "add OpenSearch")
+		osDash       = fs.Bool("opensearch-dashboards", false, "add OpenSearch with OpenSearch Dashboards")
+		ollama       = fs.Bool("ollama", false, "add Ollama")
+		ollamaGPU    = fs.Bool("ollama-gpu", false, "add Ollama with the host's GPUs")
+		storage      = fs.Bool("storage", false, "add S3 storage")
+		template     = fs.String("template", "", "project template")
+		starter      = fs.Bool("starter", false, "write starter files")
+		gitURL       = fs.String("git", "", "repository to clone")
+		branch       = fs.String("branch", "", "branch")
+		gitUser      = fs.String("git-username", "", "repository user name")
+		gitToken     = fs.String("git-token", "", "repository token")
+		start        = fs.Bool("start", false, "start the project")
+		fromJSON     = fs.String("from-json", "", "create request as JSON")
+		envVars      stringList
+		secretVars   stringList
 	)
 	fs.Var(&envVars, "env", "KEY=VALUE, repeatable")
 	fs.Var(&extraDBs, "add-database", "NAME=TYPE[:VERSION], repeatable")
@@ -687,6 +699,9 @@ func (c *cli) projectCreate(ctx context.Context, args []string) error {
 	}
 	if *java != "" || *javaServer || *javaPreset != "" {
 		req.Java = &javaSpec{Version: runtimeVersion(*java), Server: *javaServer, Preset: *javaPreset}
+	}
+	if *dotnet != "" || *dotnetServer || *dotnetPreset != "" {
+		req.Dotnet = &dotnetSpec{Version: runtimeVersion(*dotnet), Server: *dotnetServer, Preset: *dotnetPreset}
 	}
 	if *database != "" {
 		kind, version, _ := strings.Cut(*database, ":")

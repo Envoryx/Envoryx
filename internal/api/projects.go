@@ -102,9 +102,9 @@ type projectDTO struct {
 	// ProxyRules are the redirects, headers, CORS and access rules (absent: none).
 	ProxyRules *proxyRulesDTO `json:"proxyRules,omitempty"`
 	// Serves says what the primary host name reaches: "php", "python", "go", "ruby",
-	// "java" (application server), "node" (dev server) or "static"; AppService is the
-	// application container's kind (php, python, go, ruby, java, node), absent for static
-	// sites.
+	// "java", "dotnet" (application server), "node" (dev server) or "static"; AppService is
+	// the application container's kind (php, python, go, ruby, java, dotnet, node), absent
+	// for static sites.
 	Serves     string `json:"serves"`
 	AppService string `json:"appService,omitempty"`
 }
@@ -300,6 +300,26 @@ type javaUpdateDTO struct {
 	javaRequestDTO
 }
 
+type dotnetRequestDTO struct {
+	Version string `json:"version"`
+	// Application-server options (see runtime.DotnetConfig).
+	Server  bool   `json:"server"`
+	Mode    string `json:"mode"`
+	Preset  string `json:"preset"`
+	Project string `json:"project"`
+	DLL     string `json:"dll"`
+	Port    int    `json:"port"`
+}
+
+func (n dotnetRequestDTO) config() runtime.DotnetConfig {
+	return runtime.DotnetConfig{Server: n.Server, Mode: n.Mode, Preset: n.Preset, Project: n.Project, DLL: n.DLL, Port: n.Port}
+}
+
+type dotnetUpdateDTO struct {
+	Enabled bool `json:"enabled"`
+	dotnetRequestDTO
+}
+
 type extraRequestDTO struct {
 	Version    string            `json:"version"`
 	ExposePort bool              `json:"exposePort"`
@@ -380,6 +400,7 @@ type createProjectRequest struct {
 	Go       *goRequestDTO       `json:"go"`
 	Ruby     *rubyRequestDTO     `json:"ruby"`
 	Java     *javaRequestDTO     `json:"java"`
+	Dotnet   *dotnetRequestDTO   `json:"dotnet"`
 	Database *databaseRequestDTO `json:"database"`
 	// Databases are additional databases, each with a name.
 	Databases     []namedDatabaseDTO `json:"databases"`
@@ -450,6 +471,9 @@ func (r createProjectRequest) toDomain() project.CreateRequest {
 	if r.Java != nil {
 		req.Java = &project.JavaRequest{Version: r.Java.Version, Config: r.Java.config()}
 	}
+	if r.Dotnet != nil {
+		req.Dotnet = &project.DotnetRequest{Version: r.Dotnet.Version, Config: r.Dotnet.config()}
+	}
 	for _, d := range r.Databases {
 		req.Databases = append(req.Databases, project.NamedDatabaseRequest{Name: d.Name, DatabaseRequest: project.DatabaseRequest{Type: d.Type, Version: d.Version, ExposePort: d.ExposePort, External: d.External.toDomain()}})
 	}
@@ -510,6 +534,7 @@ type updateProjectRequest struct {
 	Go       *goUpdateDTO       `json:"go"`
 	Ruby     *rubyUpdateDTO     `json:"ruby"`
 	Java     *javaUpdateDTO     `json:"java"`
+	Dotnet   *dotnetUpdateDTO   `json:"dotnet"`
 	Database *databaseUpdateDTO `json:"database"`
 	// Databases adds, changes or removes additional databases by name.
 	Databases   map[string]databaseUpdateDTO `json:"databases"`
@@ -763,6 +788,9 @@ func (a *API) updateProject(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Java != nil {
 		upd.Java = &project.JavaUpdate{Enabled: req.Java.Enabled, Version: req.Java.Version, Config: req.Java.config()}
+	}
+	if req.Dotnet != nil {
+		upd.Dotnet = &project.DotnetUpdate{Enabled: req.Dotnet.Enabled, Version: req.Dotnet.Version, Config: req.Dotnet.config()}
 	}
 	if req.Redis != nil {
 		upd.Redis = &project.ExtraUpdate{Enabled: req.Redis.Enabled, Version: req.Redis.Version, ExposePort: req.Redis.ExposePort, RemoveData: req.Redis.RemoveData, External: req.Redis.External.toDomain()}

@@ -198,9 +198,9 @@ type ProxyOptions struct {
 
 // RouteTable builds the proxy routing table from projects, domains and Docker state. A
 // project's primary host name and its extra domains reach the web container, or the
-// Python, Go, Ruby or Java server or Node dev server when it is the project's application;
-// <slug>-dev.<base> always reaches the Node dev server and <slug>-storage.<base> the
-// object storage.
+// Python, Go, Ruby, Java or .NET server or Node dev server when it is the project's
+// application; <slug>-dev.<base> always reaches the Node dev server and
+// <slug>-storage.<base> the object storage.
 func (m *Manager) RouteTable(ctx context.Context, opts ProxyOptions) (proxy.Table, error) {
 	t := proxy.Table{Routes: map[string]proxy.Target{}, UIHosts: map[string]bool{}, ForceHTTPS: m.ForceHTTPS(ctx), HTTPSPort: opts.HTTPSPort, EnvoryxURL: opts.EnvoryxURL}
 	base := m.BaseDomain(ctx)
@@ -260,8 +260,8 @@ func (m *Manager) RouteTable(ctx context.Context, opts ProxyOptions) (proxy.Tabl
 }
 
 // appTarget is the upstream of a project's primary host name and extra domains: the web
-// container, or the Python, Go, Ruby or Java server or Node dev server when it serves the
-// application.
+// container, or the Python, Go, Ruby, Java or .NET server or Node dev server when it
+// serves the application.
 func (m *Manager) appTarget(selfID string, p store.Project, running map[string]map[string]bool) proxy.Target {
 	target := proxy.Target{ProjectID: p.ID, ProjectName: p.Name, Slug: p.Slug, Running: running[string(store.ServiceWeb)][p.ID], Dial: m.dialFor(selfID, p), Rules: proxyRules(p)}
 	if cfg, ok := pythonServesApp(p); ok {
@@ -272,6 +272,8 @@ func (m *Manager) appTarget(selfID string, p store.Project, running map[string]m
 		target.Running, target.Dial = running[string(store.ServiceRuby)][p.ID], m.dialForApp(selfID, p, store.ServiceRuby, cfg.HostPort, cfg.Port)
 	} else if cfg, ok := javaServesApp(p); ok {
 		target.Running, target.Dial = running[string(store.ServiceJava)][p.ID], m.dialForApp(selfID, p, store.ServiceJava, cfg.HostPort, cfg.Port)
+	} else if cfg, ok := dotnetServesApp(p); ok {
+		target.Running, target.Dial = running[string(store.ServiceDotnet)][p.ID], m.dialForApp(selfID, p, store.ServiceDotnet, cfg.HostPort, cfg.Port)
 	} else if cfg, ok := nodeServesApp(p); ok {
 		target.Running, target.Dial = running[string(store.ServiceNode)][p.ID], m.dialForDev(selfID, p, cfg)
 	}

@@ -40,14 +40,14 @@ type projectOut struct {
 	Slug  string `json:"slug"`
 	State string `json:"state"`
 	// Serves says what the project URL reaches: php, the application server of python,
-	// go, ruby or java, node (the dev server) or static.
+	// go, ruby, java or dotnet, node (the dev server) or static.
 	Serves string `json:"serves"`
 	URL    string `json:"url,omitempty"`
 	// DevURL is the dev server's own host name while a Node dev server runs.
 	DevURL string `json:"devUrl,omitempty"`
 	// DirectURL bypasses the proxy: the web server's host port, or the application
-	// container's when a Python, Go, Ruby or Java server or a Node dev server serves the
-	// project.
+	// container's when a Python, Go, Ruby, Java or .NET server or a Node dev server serves
+	// the project.
 	DirectURL string       `json:"directUrl,omitempty"`
 	Hostnames []string     `json:"hostnames"`
 	Path      string       `json:"path"`
@@ -94,6 +94,11 @@ func (s *Server) projectOut(ctx context.Context, v project.View) projectOut {
 		var jcfg runtime.JavaConfig
 		if svc := p.Service(store.ServiceJava); svc != nil && json.Unmarshal(svc.Config, &jcfg) == nil {
 			directPort = jcfg.HostPort
+		}
+	case "dotnet":
+		var dcfg runtime.DotnetConfig
+		if svc := p.Service(store.ServiceDotnet); svc != nil && json.Unmarshal(svc.Config, &dcfg) == nil {
+			directPort = dcfg.HostPort
 		}
 	}
 	if directPort > 0 {
@@ -155,14 +160,14 @@ func mutating(name, title, desc string, idempotent bool) *mcp.Tool {
 func (s *Server) registerTools() {
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("list_projects", "List projects", "List all Envoryx projects with state, URLs and services.")), s.listProjects)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("get_project", "Get project", "Details and live status of one project.")), s.getProject)
-	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("list_runtimes", "List runtimes", "Available runtimes (PHP, Node.js, Python, Go, Ruby, Java, web servers), database engines, services, PHP extension keys and templates for create_project.")), s.listRuntimes)
-	mcp.AddTool(s.mcp, s.tool(auth.ScopeAdmin, mutating("create_project", "Create project", "Create a new development environment (web server plus PHP, Python, Go, Ruby, Java and/or Node.js, optional database, Redis, Memcached, Mailpit, RabbitMQ, Meilisearch, Typesense, OpenSearch, Ollama, object storage, git clone or template). Returns the project including its URL.", false)), s.createProject)
+	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("list_runtimes", "List runtimes", "Available runtimes (PHP, Node.js, Python, Go, Ruby, Java, .NET, web servers), database engines, services, PHP extension keys and templates for create_project.")), s.listRuntimes)
+	mcp.AddTool(s.mcp, s.tool(auth.ScopeAdmin, mutating("create_project", "Create project", "Create a new development environment (web server plus PHP, Python, Go, Ruby, Java, .NET and/or Node.js, optional database, Redis, Memcached, Mailpit, RabbitMQ, Meilisearch, Typesense, OpenSearch, Ollama, object storage, git clone or template). Returns the project including its URL.", false)), s.createProject)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeAdmin, mutating("duplicate_project", "Duplicate project", "Copy an existing project (shop → shop-test): configuration, environment, workers and git binding, optionally the files, the database contents and the objects of the bucket. The copy gets its own directory, host ports and containers and keeps the original's database credentials. Extra domains and the backup schedule are not copied.", false)), s.duplicateProject)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeAdmin, mutating("rename_project", "Rename project", "Rename a project and everything derived from its identifier: URL and host names, container, network and volume names, the project directory, the backups and - unless keepDataNames is set - the database, its login and the bucket. The containers are recreated, so the project is briefly unavailable; confirm must be the current identifier.", false)), s.renameProject)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeOperate, mutating("start_project", "Start project", "Start all containers of a project.", true)), s.startProject)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeOperate, mutating("stop_project", "Stop project", "Stop all containers of a project (data is kept).", true)), s.stopProject)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeOperate, mutating("restart_project", "Restart project", "Restart a project; also pulls updated runtime images.", true)), s.restartProject)
-	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("get_logs", "Get logs", "Log lines of one project container (web, php, python, go, ruby, java, node, database, redis, memcached, mailpit, rabbitmq, meilisearch, typesense, opensearch, opensearch-dashboards, ollama, or db-<name> for an additional database), optionally limited to a time range, a search text or warnings/errors. Each line carries the level Envoryx guesses from its text.")), s.getLogs)
+	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("get_logs", "Get logs", "Log lines of one project container (web, php, python, go, ruby, java, dotnet, node, database, redis, memcached, mailpit, rabbitmq, meilisearch, typesense, opensearch, opensearch-dashboards, ollama, or db-<name> for an additional database), optionally limited to a time range, a search text or warnings/errors. Each line carries the level Envoryx guesses from its text.")), s.getLogs)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("get_log_stats", "Get log statistics", "Error frequency of one project container over a time range: lines, warnings and errors per time slot and the most frequent errors and warnings, grouped with numbers and ids masked.")), s.getLogStats)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeRead, readOnly("list_actions", "List actions", "Runnable project actions (composer, artisan, npm …) and whether they are currently available.")), s.listActions)
 	mcp.AddTool(s.mcp, s.tool(auth.ScopeOperate, mutating("run_action", "Run action", "Run one action from list_actions inside the project (e.g. composer:install) and return its output. Waits for completion (up to 20 minutes).", false)), s.runAction)
@@ -218,13 +223,14 @@ type templateOut struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
-	// Runtime the template scaffolds for: php, node, python, go, ruby or java.
+	// Runtime the template scaffolds for: php, node, python, go, ruby, java or dotnet.
 	Runtime             string                `json:"runtime"`
 	Node                *runtime.NodeConfig   `json:"node,omitempty"`
 	Python              *runtime.PythonConfig `json:"python,omitempty"`
 	Go                  *runtime.GoConfig     `json:"go,omitempty"`
 	Ruby                *runtime.RubyConfig   `json:"ruby,omitempty"`
 	Java                *runtime.JavaConfig   `json:"java,omitempty"`
+	Dotnet              *runtime.DotnetConfig `json:"dotnet,omitempty"`
 	Docroot             string                `json:"docroot,omitempty"`
 	RequiresDatabase    bool                  `json:"requiresDatabase"`
 	RecommendedDatabase string                `json:"recommendedDatabase,omitempty"`
@@ -240,7 +246,7 @@ type listRuntimesOut struct {
 func (s *Server) listRuntimes(_ context.Context, _ *mcp.CallToolRequest, _ listProjectsIn) (*mcp.CallToolResult, listRuntimesOut, error) {
 	out := listRuntimesOut{Runtimes: []runtimeOut{}, PHPExtensions: []string{}, Templates: []templateOut{}}
 	for _, t := range project.Templates() {
-		out.Templates = append(out.Templates, templateOut{ID: t.ID, Name: t.Name, Description: t.Description, Runtime: t.Runtime, Node: t.Node, Python: t.Python, Go: t.Go, Ruby: t.Ruby, Java: t.Java, Docroot: t.Docroot, RequiresDatabase: t.RequiresDatabase, RecommendedDatabase: t.RecommendedDatabase, Notes: t.Notes})
+		out.Templates = append(out.Templates, templateOut{ID: t.ID, Name: t.Name, Description: t.Description, Runtime: t.Runtime, Node: t.Node, Python: t.Python, Go: t.Go, Ruby: t.Ruby, Java: t.Java, Dotnet: t.Dotnet, Docroot: t.Docroot, RequiresDatabase: t.RequiresDatabase, RecommendedDatabase: t.RecommendedDatabase, Notes: t.Notes})
 	}
 	for _, r := range s.d.Catalog.All() {
 		if !r.Available {
@@ -273,8 +279,8 @@ func (s *Server) listRuntimes(_ context.Context, _ *mcp.CallToolRequest, _ listP
 
 type createProjectIn struct {
 	Name               string            `json:"name" jsonschema:"Display name, e.g. \"Shop API\". The slug and directory are derived from it."`
-	Template           string            `json:"template,omitempty" jsonschema:"Scaffold an application: laravel, symfony, wordpress, drupal, typo3, shopware, craft (PHP; the CMS ones need a database and are installed afterwards with run_action: drush:site-install, typo3:setup, shopware:install, craft:install), vite, next, nuxt (Node.js; needs nodeVersion and phpVersion \"none\" for a Node-only project) django, flask, fastapi (Python; needs pythonVersion and phpVersion \"none\"), go, gin, echo (Go; needs goVersion and phpVersion \"none\") rails, rails-api, sinatra (Ruby; needs rubyVersion and phpVersion \"none\") or spring-boot, quarkus (Java; needs javaVersion and phpVersion \"none\"). See list_runtimes for details. Cannot be combined with gitUrl."`
-	PHPVersion         string            `json:"phpVersion,omitempty" jsonschema:"PHP version such as 8.4 (default: the catalogue default). Use \"none\" for a Python, Go, Ruby, Java, Node-only or static project."`
+	Template           string            `json:"template,omitempty" jsonschema:"Scaffold an application: laravel, symfony, wordpress, drupal, typo3, shopware, craft (PHP; the CMS ones need a database and are installed afterwards with run_action: drush:site-install, typo3:setup, shopware:install, craft:install), vite, next, nuxt (Node.js; needs nodeVersion and phpVersion \"none\" for a Node-only project) django, flask, fastapi (Python; needs pythonVersion and phpVersion \"none\"), go, gin, echo (Go; needs goVersion and phpVersion \"none\") rails, rails-api, sinatra (Ruby; needs rubyVersion and phpVersion \"none\"), spring-boot, quarkus (Java; needs javaVersion and phpVersion \"none\") or aspnet-webapi, aspnet-mvc, blazor, razor-pages (.NET; needs dotnetVersion and phpVersion \"none\"). See list_runtimes for details. Cannot be combined with gitUrl."`
+	PHPVersion         string            `json:"phpVersion,omitempty" jsonschema:"PHP version such as 8.4 (default: the catalogue default). Use \"none\" for a Python, Go, Ruby, Java, .NET, Node-only or static project."`
 	WebServer          string            `json:"webServer,omitempty" jsonschema:"Web server: caddy (default), apache (mod_rewrite + .htaccess, e.g. for WordPress) or nginx."`
 	PHPExtensions      []string          `json:"phpExtensions,omitempty" jsonschema:"PHP extensions to enable (keys from list_runtimes). Default: bcmath, gd, intl, opcache, pdo_mysql, zip."`
 	Database           string            `json:"database,omitempty" jsonschema:"Database engine: mariadb, mysql or postgresql. Omit for no database."`
@@ -318,6 +324,12 @@ type createProjectIn struct {
 	JavaPreset         string            `json:"javaPreset,omitempty" jsonschema:"Server preset: spring-boot (spring-boot:run / bootRun in dev), quarkus (quarkus:dev in dev) or jar (build, then java -jar). Default spring-boot."`
 	JavaPort           int               `json:"javaPort,omitempty" jsonschema:"Port the server listens on inside the container (default 8080)."`
 	JavaMode           string            `json:"javaMode,omitempty" jsonschema:"dev (default, the framework's dev mode) or production (build once, run the jar)."`
+	DotnetVersion      string            `json:"dotnetVersion,omitempty" jsonschema:"Add a .NET container with this SDK (8 or 10): the project's runtime (server) or a tooling container (dotnet, dotnet-ef)."`
+	DotnetServer       bool              `json:"dotnetServer,omitempty" jsonschema:"Run the server of dotnetPreset as the project's main process. Without PHP or a Python, Go, Ruby or Java server it is reachable at the project URL. Requires dotnetVersion."`
+	DotnetPreset       string            `json:"dotnetPreset,omitempty" jsonschema:"Server preset: aspnetcore (dotnet watch in dev) or dll (publish, then dotnet <dll>). Default aspnetcore."`
+	DotnetProject      string            `json:"dotnetProject,omitempty" jsonschema:"Project file to run, relative to the project, e.g. src/Shop/Shop.csproj. Default: the one project file at the top, else the one web or worker project."`
+	DotnetPort         int               `json:"dotnetPort,omitempty" jsonschema:"Port the server listens on inside the container (default 8080)."`
+	DotnetMode         string            `json:"dotnetMode,omitempty" jsonschema:"dev (default, dotnet watch with hot reload) or production (publish once, run the DLL)."`
 	Docroot            string            `json:"docroot,omitempty" jsonschema:"Document root relative to the project directory, e.g. public. Default: project root (public/ for Laravel/Symfony)."`
 	GitURL             string            `json:"gitUrl,omitempty" jsonschema:"Repository to clone into the new project (https://… or git@…)."`
 	GitBranch          string            `json:"gitBranch,omitempty" jsonschema:"Branch to check out."`
@@ -402,6 +414,11 @@ func (s *Server) createProject(ctx context.Context, _ *mcp.CallToolRequest, in c
 	if v := strings.TrimSpace(in.JavaVersion); v != "" {
 		req.Java = &project.JavaRequest{Version: v, Config: runtime.JavaConfig{
 			Server: in.JavaServer, Mode: strings.ToLower(strings.TrimSpace(in.JavaMode)), Preset: strings.ToLower(strings.TrimSpace(in.JavaPreset)), Port: in.JavaPort,
+		}}
+	}
+	if v := strings.TrimSpace(in.DotnetVersion); v != "" {
+		req.Dotnet = &project.DotnetRequest{Version: v, Config: runtime.DotnetConfig{
+			Server: in.DotnetServer, Mode: strings.ToLower(strings.TrimSpace(in.DotnetMode)), Preset: strings.ToLower(strings.TrimSpace(in.DotnetPreset)), Project: strings.TrimSpace(in.DotnetProject), Port: in.DotnetPort,
 		}}
 	}
 	if u := strings.TrimSpace(in.GitURL); u != "" {
@@ -523,7 +540,7 @@ func (s *Server) restartProject(ctx context.Context, _ *mcp.CallToolRequest, in 
 
 type getLogsIn struct {
 	Project string `json:"project" jsonschema:"Project id, slug or name"`
-	Service string `json:"service,omitempty" jsonschema:"Container: web, php, python, go, ruby, node, database, redis, memcached, mailpit, rabbitmq, meilisearch, typesense, opensearch, opensearch-dashboards, ollama or storage (default: the application container (php, else python, go, ruby, java, node), else web)"`
+	Service string `json:"service,omitempty" jsonschema:"Container: web, php, python, go, ruby, java, dotnet, node, database, redis, memcached, mailpit, rabbitmq, meilisearch, typesense, opensearch, opensearch-dashboards, ollama or storage (default: the application container (php, else python, go, ruby, java, dotnet, node), else web)"`
 	Tail    int    `json:"tail,omitempty" jsonschema:"Number of lines (default 200, max 2000)"`
 	Since   string `json:"since,omitempty" jsonschema:"Only lines from this time on: RFC 3339 or a duration back from now such as 30m, 6h or 7d"`
 	Until   string `json:"until,omitempty" jsonschema:"Only lines up to this time: RFC 3339 or a duration back from now"`
@@ -573,7 +590,7 @@ func (s *Server) logTarget(ctx context.Context, in getLogsIn) (string, store.Ser
 		}
 	}
 	switch kind {
-	case store.ServiceWeb, store.ServicePHP, store.ServicePython, store.ServiceGo, store.ServiceRuby, store.ServiceJava, store.ServiceNode, store.ServiceDatabase, store.ServiceRedis, store.ServiceMemcached, store.ServiceMailpit, store.ServiceRabbitMQ, store.ServiceMeilisearch, store.ServiceTypesense, store.ServiceOpenSearch, store.ServiceOpenSearchDashboards, store.ServiceOllama, store.ServiceStorage:
+	case store.ServiceWeb, store.ServicePHP, store.ServicePython, store.ServiceGo, store.ServiceRuby, store.ServiceJava, store.ServiceDotnet, store.ServiceNode, store.ServiceDatabase, store.ServiceRedis, store.ServiceMemcached, store.ServiceMailpit, store.ServiceRabbitMQ, store.ServiceMeilisearch, store.ServiceTypesense, store.ServiceOpenSearch, store.ServiceOpenSearchDashboards, store.ServiceOllama, store.ServiceStorage:
 	default:
 		if name := kind.DatabaseName(); name != "" && project.ValidateDatabaseServiceName(name) == nil {
 			break

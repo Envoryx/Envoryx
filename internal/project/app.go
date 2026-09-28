@@ -10,16 +10,15 @@ import (
 
 // A project's "application" is the container that runs its code: the PHP-FPM container
 // when the project has PHP, else the Python container, else the Go container, else the
-// Ruby container, else the Java container, else the Node container. Projects with none
-// are static sites served
-// by the web container alone. Every runtime-dependent decision (routing, starter
-// page, one-shot image, SSH user) goes through the helpers in this file so the shapes
-// stay consistent.
+// Ruby container, else the Java container, else the .NET container, else the Node
+// container. Projects with none are static sites served by the web container alone.
+// Every runtime-dependent decision (routing, starter page, one-shot image, SSH user) goes
+// through the helpers in this file so the shapes stay consistent.
 
 // appService returns the project's application container: the enabled PHP service,
-// else the enabled Python, Go, Ruby, Java or Node service, in that order, else nil.
+// else the enabled Python, Go, Ruby, Java, .NET or Node service, in that order, else nil.
 func appService(p store.Project) *store.ProjectService {
-	for _, kind := range []store.ServiceKind{store.ServicePHP, store.ServicePython, store.ServiceGo, store.ServiceRuby, store.ServiceJava, store.ServiceNode} {
+	for _, kind := range []store.ServiceKind{store.ServicePHP, store.ServicePython, store.ServiceGo, store.ServiceRuby, store.ServiceJava, store.ServiceDotnet, store.ServiceNode} {
 		if svc := p.Service(kind); svc != nil && svc.Enabled {
 			return svc
 		}
@@ -27,8 +26,8 @@ func appService(p store.Project) *store.ProjectService {
 	return nil
 }
 
-// AppKind is appService's kind for API/MCP consumers (php, python, go, ruby, java, node) and
-// false when none.
+// AppKind is appService's kind for API/MCP consumers (php, python, go, ruby, java, dotnet,
+// node) and false when none.
 func AppKind(p store.Project) (store.ServiceKind, bool) {
 	svc := appService(p)
 	if svc == nil {
@@ -187,9 +186,53 @@ func javaServesApp(p store.Project) (runtime.JavaConfig, bool) {
 	return cfg, true
 }
 
+// dotnetConfig returns the configuration of a project's enabled .NET service, if any.
+func dotnetConfig(p store.Project) (runtime.DotnetConfig, bool) {
+	svc := p.Service(store.ServiceDotnet)
+	if svc == nil || !svc.Enabled {
+		return runtime.DotnetConfig{}, false
+	}
+	var cfg runtime.DotnetConfig
+	if len(svc.Config) > 0 {
+		if err := json.Unmarshal(svc.Config, &cfg); err != nil {
+			return runtime.DotnetConfig{}, false
+		}
+	}
+	return cfg, true
+}
+
+// dotnetServesApp reports whether the .NET server is the project's application (no
+// enabled PHP service, no Python, Go, Ruby or Java server, DotnetConfig.Server). The
+// config is returned normalised.
+func dotnetServesApp(p store.Project) (runtime.DotnetConfig, bool) {
+	if hasPHP(p) {
+		return runtime.DotnetConfig{}, false
+	}
+	if _, ok := pythonServesApp(p); ok {
+		return runtime.DotnetConfig{}, false
+	}
+	if _, ok := goServesApp(p); ok {
+		return runtime.DotnetConfig{}, false
+	}
+	if _, ok := rubyServesApp(p); ok {
+		return runtime.DotnetConfig{}, false
+	}
+	if _, ok := javaServesApp(p); ok {
+		return runtime.DotnetConfig{}, false
+	}
+	cfg, ok := dotnetConfig(p)
+	if !ok || !cfg.Server {
+		return runtime.DotnetConfig{}, false
+	}
+	if err := cfg.Normalize(); err != nil {
+		return runtime.DotnetConfig{}, false
+	}
+	return cfg, true
+}
+
 // nodeServesApp reports whether the Node dev server is the project's application (no
-// enabled PHP service, no Python, Go, Ruby or Java server, NodeConfig.DevServer). The
-// config is returned normalised. With such a server the Node dev server is the
+// enabled PHP service, no Python, Go, Ruby, Java or .NET server, NodeConfig.DevServer).
+// The config is returned normalised. With such a server the Node dev server is the
 // frontend toolchain: it keeps its <slug>-dev.<base> route and host port, and the
 // project URL reaches the server.
 func nodeServesApp(p store.Project) (runtime.NodeConfig, bool) {
@@ -208,6 +251,9 @@ func nodeServesApp(p store.Project) (runtime.NodeConfig, bool) {
 	if _, ok := javaServesApp(p); ok {
 		return runtime.NodeConfig{}, false
 	}
+	if _, ok := dotnetServesApp(p); ok {
+		return runtime.NodeConfig{}, false
+	}
 	cfg, ok := nodeDevConfig(p)
 	if !ok {
 		return runtime.NodeConfig{}, false
@@ -219,9 +265,9 @@ func nodeServesApp(p store.Project) (runtime.NodeConfig, bool) {
 }
 
 // appServesDirectly reports whether an application container answers the project URL
-// itself (Python, Go, Ruby or Java server, Node dev server). The web container's port then
-// stays unpublished so the docroot (often the project root with .env and sources) isn't
-// exposed on the LAN.
+// itself (Python, Go, Ruby, Java or .NET server, Node dev server). The web container's
+// port then stays unpublished so the docroot (often the project root with .env and
+// sources) isn't exposed on the LAN.
 func appServesDirectly(p store.Project) bool {
 	if _, ok := pythonServesApp(p); ok {
 		return true
@@ -235,12 +281,15 @@ func appServesDirectly(p store.Project) bool {
 	if _, ok := javaServesApp(p); ok {
 		return true
 	}
+	if _, ok := dotnetServesApp(p); ok {
+		return true
+	}
 	_, ok := nodeServesApp(p)
 	return ok
 }
 
 // Serves classifies what the project's primary hostname serves: "php", "python", "go",
-// "ruby", "java", "node" or "static".
+// "ruby", "java", "dotnet", "node" or "static".
 func Serves(p store.Project) string {
 	if hasPHP(p) {
 		return "php"
@@ -257,6 +306,9 @@ func Serves(p store.Project) string {
 	if _, ok := javaServesApp(p); ok {
 		return "java"
 	}
+	if _, ok := dotnetServesApp(p); ok {
+		return "dotnet"
+	}
 	if _, ok := nodeServesApp(p); ok {
 		return "node"
 	}
@@ -264,9 +316,9 @@ func Serves(p store.Project) string {
 }
 
 // toolImage returns the image for one-shot containers (git, templates): the application
-// container's image (PHP, Python, Go, Ruby, Java or Node; git and ssh ship in every Envoryx
-// image), else the catalogue's default Node image. It fails only when the catalogue has
-// no Node image.
+// container's image (PHP, Python, Go, Ruby, Java, .NET or Node; git and ssh ship in every
+// Envoryx image), else the catalogue's default Node image. It fails only when the
+// catalogue has no Node image.
 func (m *Manager) toolImage(p store.Project) (string, error) {
 	if svc := appService(p); svc != nil && svc.Image != "" {
 		return svc.Image, nil

@@ -60,6 +60,9 @@ var rubyVersionsJSON []byte
 //go:embed java_versions.json
 var javaVersionsJSON []byte
 
+//go:embed dotnet_versions.json
+var dotnetVersionsJSON []byte
+
 // versionFile is the layout of the *_versions.json files, the one place a runtime's
 // versions are listed. The image workflows (php-images.yml and its siblings) build their
 // matrix from the same file, and runtime-versions.yml adds new upstream releases to it.
@@ -117,6 +120,9 @@ func loadRubyVersions() (string, []Version) {
 }
 func loadJavaVersions() (string, []Version) {
 	return loadVersions("java_versions.json", javaVersionsJSON, "Java")
+}
+func loadDotnetVersions() (string, []Version) {
+	return loadVersions("dotnet_versions.json", dotnetVersionsJSON, ".NET")
 }
 
 // Default returns the built-in catalogue.
@@ -178,6 +184,12 @@ func Default() *Catalog {
 		Key: "java", Name: "Java", Kind: "runtime", Available: true,
 		Description: "Java runtime (Eclipse Temurin, Maven, Gradle): tooling container or the project's server (Spring Boot, Quarkus, any jar) with a JDWP debug port",
 		Versions:    javaVersions,
+	})
+	_, dotnetVersions := loadDotnetVersions()
+	c.add(Runtime{
+		Key: "dotnet", Name: ".NET", Kind: "runtime", Available: true,
+		Description: ".NET SDK runtime (dotnet, dotnet-ef, netcoredbg): tooling container or the project's server (ASP.NET Core with dotnet watch, any published DLL)",
+		Versions:    dotnetVersions,
 	})
 	c.add(Runtime{
 		Key: "mariadb", Name: "MariaDB", Kind: "database", Available: true,

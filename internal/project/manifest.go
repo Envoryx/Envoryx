@@ -33,8 +33,8 @@ import (
 
 // ManifestChange is one difference between a project and its manifest.
 type ManifestChange struct {
-	// Section is docroot, web, php, node, python, go, ruby, java, database, redis, …, storage,
-	// limits, healthcheck, env, domain, worker or cron.
+	// Section is docroot, web, php, node, python, go, ruby, java, dotnet, database, redis,
+	// …, storage, limits, healthcheck, env, domain, worker or cron.
 	Section string `json:"section"`
 	// Item names the variable, host name, worker or cron job within the section.
 	Item string `json:"item,omitempty"`
@@ -219,6 +219,13 @@ func exportState(p store.Project, domains []store.Domain, jobs []store.CronJob) 
 		mf.Java = &manifest.Java{
 			Version: svc.Version, Server: cfg.Server, Mode: cfg.Mode, Preset: cfg.Preset, Jar: cfg.Jar,
 			Port: cfg.Port, Debug: cfg.Debug, DebugPort: cfg.DebugPort,
+		}
+	}
+	if svc := p.Service(store.ServiceDotnet); svc != nil {
+		var cfg runtime.DotnetConfig
+		_ = json.Unmarshal(svc.Config, &cfg)
+		mf.Dotnet = &manifest.Dotnet{
+			Version: svc.Version, Server: cfg.Server, Mode: cfg.Mode, Preset: cfg.Preset, Project: cfg.Project, DLL: cfg.DLL, Port: cfg.Port,
 		}
 	}
 	for _, svc := range p.Databases() {
@@ -416,6 +423,12 @@ func manifestRequest(mf manifest.Manifest, name string) CreateRequest {
 		j := mf.Java
 		req.Java = &JavaRequest{Version: j.Version, Config: runtime.JavaConfig{
 			Server: j.Server, Mode: j.Mode, Preset: j.Preset, Jar: j.Jar, Port: j.Port, Debug: j.Debug, DebugPort: j.DebugPort,
+		}}
+	}
+	if mf.Dotnet != nil {
+		d := mf.Dotnet
+		req.Dotnet = &DotnetRequest{Version: d.Version, Config: runtime.DotnetConfig{
+			Server: d.Server, Mode: d.Mode, Preset: d.Preset, Project: d.Project, DLL: d.DLL, Port: d.Port,
 		}}
 	}
 	// An external connection comes without its password, which the file never holds.
@@ -648,7 +661,8 @@ func (m *Manager) planManifest(ctx context.Context, id string, mf manifest.Manif
 		}
 	}
 
-	// PHP, Node, Python, Go, Ruby and Java: add, change or (with prune) remove the runtime.
+	// PHP, Node, Python, Go, Ruby, Java and .NET: add, change or (with prune) remove the
+	// runtime.
 	if c, ok := sectionChange("php", have.PHP, wantMf.PHP); ok {
 		if c.Action == "remove" {
 			if removal(c) {
@@ -726,6 +740,18 @@ func (m *Manager) planManifest(ctx context.Context, id string, mf manifest.Manif
 			var cfg runtime.JavaConfig
 			_ = json.Unmarshal(want.Service(store.ServiceJava).Config, &cfg)
 			ops.update.Java = &JavaUpdate{Enabled: true, Version: wantMf.Java.Version, Config: cfg}
+		}
+	}
+	if c, ok := sectionChange("dotnet", have.Dotnet, wantMf.Dotnet); ok {
+		if c.Action == "remove" {
+			if removal(c) {
+				ops.update.Dotnet = &DotnetUpdate{Enabled: false}
+			}
+		} else {
+			add(c)
+			var cfg runtime.DotnetConfig
+			_ = json.Unmarshal(want.Service(store.ServiceDotnet).Config, &cfg)
+			ops.update.Dotnet = &DotnetUpdate{Enabled: true, Version: wantMf.Dotnet.Version, Config: cfg}
 		}
 	}
 

@@ -343,6 +343,27 @@ func TestAnalyzeStatic(t *testing.T) {
 	}
 }
 
+// A solution at the top makes a .NET site even with a frontend's package.json; a web
+// project below it makes it ASP.NET Core.
+func TestAnalyzeDotnet(t *testing.T) {
+	site := writeZip(t,
+		member{name: "shop/Shop.sln", body: ""},
+		member{name: "shop/package.json", body: "{}"},
+		member{name: "shop/src/Shop/Shop.csproj", body: `<Project Sdk="Microsoft.NET.Sdk.Web"></Project>`},
+	)
+	a, err := Analyze(site, "", testOptions)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a.Runtime != "dotnet" || a.Framework.ID != "dotnet" || a.Framework.Name != "ASP.NET Core" {
+		t.Errorf("analysis = %+v", a)
+	}
+	lib := writeZip(t, member{name: "Tool.fsproj", body: `<Project Sdk="Microsoft.NET.Sdk"></Project>`})
+	if a, err := Analyze(lib, "", testOptions); err != nil || a.Runtime != "dotnet" || a.Framework.Name != ".NET" {
+		t.Errorf("analysis = %+v %v", a, err)
+	}
+}
+
 func TestAnalyzeDrupalAndJoomla(t *testing.T) {
 	drupal := writeZip(t,
 		member{name: "composer.json", body: `{"require": {"drupal/core-recommended": "^10"}}`},
