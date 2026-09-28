@@ -29,6 +29,7 @@ import { IdeTab } from "./IdeTab";
 import { ServicesTab } from "./ServicesTab";
 import { BackupsTab } from "./BackupsTab";
 import { BranchesTab } from "./BranchesTab";
+import { CustomImagesCard } from "./CustomImagesCard";
 import { isAdmin, useAuth } from "@/features/auth/AuthContext";
 import { LogsTab } from "./LogsTab";
 // xterm.js is only needed on this tab; keep it out of the main bundle.
@@ -208,6 +209,7 @@ export function ProjectDetailPage() {
                 {first && cards[first]}
                 <WebServerCard project={p} />
                 {rest.map((k) => cards[k])}
+                <CustomImagesCard project={p} />
               </>
             );
           })()}

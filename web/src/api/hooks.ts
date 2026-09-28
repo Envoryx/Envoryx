@@ -217,6 +217,22 @@ export function useImageChoice(id: string) {
   });
 }
 
+/** Sets a runtime's custom image (image or dockerfile), returns it to the catalogue (both empty) or rebuilds its Dockerfile. */
+export function useCustomImage(id: string) {
+  const invalidate = useProjectInvalidation();
+  return useMutation({
+    mutationFn: async ({ kind, image, dockerfile, rebuild }: { kind: string; image?: string; dockerfile?: string; rebuild?: boolean }) =>
+      (rebuild
+        ? await api.projects.rebuildCustomImage(id, kind)
+        : image || dockerfile
+          ? await api.projects.setCustomImage(id, kind, image ? { image } : { dockerfile: dockerfile ?? "" })
+          : await api.projects.removeCustomImage(id, kind)
+      ).project,
+    onSuccess: (project) => invalidate(project),
+    onError: () => invalidate(),
+  });
+}
+
 export function useCreateProject() {
   const invalidate = useProjectInvalidation();
   return useMutation({

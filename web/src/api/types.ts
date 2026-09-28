@@ -170,6 +170,27 @@ export interface ProjectService {
   image: string;
   enabled: boolean;
   config: Record<string, unknown>;
+  /** Set when a runtime runs an image of the user's instead of the catalogue's. */
+  customImage?: CustomImage;
+}
+
+/** A registry image or a Dockerfile in the project that Envoryx builds, with the result of the last check and build. */
+export interface CustomImage {
+  image?: string;
+  dockerfile?: string;
+  warnings?: string[];
+  checkedImage?: string;
+  checkedAt?: string;
+  buildOutput?: string;
+  buildFailed?: boolean;
+}
+
+/** A private registry login; the password is write-only. */
+export interface RegistryLogin {
+  host: string;
+  username: string;
+  password?: string;
+  hasPassword?: boolean;
 }
 
 export interface EnvVar {
