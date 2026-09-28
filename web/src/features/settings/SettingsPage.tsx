@@ -20,6 +20,7 @@ import { DiagnosticsTab } from "./DiagnosticsTab";
 import { UsersCard } from "./UsersCard";
 import { OidcCard } from "./OidcCard";
 import { RegistriesCard } from "./RegistriesCard";
+import { AddonsCard } from "./AddonsCard";
 import { MySshKeysCard } from "./MySshKeysCard";
 import { isAdmin, useAuth } from "@/features/auth/AuthContext";
 import { AppearanceCard } from "./AppearanceCard";
@@ -210,7 +211,7 @@ function DeployKeyCard() {
   );
 }
 
-const tabs = ["diagnostics", "general", "domains", "access", "users", "notifications", "backups", "tools", "audit", "account"] as const;
+const tabs = ["diagnostics", "general", "domains", "access", "users", "notifications", "backups", "addons", "tools", "audit", "account"] as const;
 type Tab = (typeof tabs)[number];
 /** What a user who is not an admin sees: their own account. */
 const userTabs: readonly Tab[] = ["account"];
@@ -223,6 +224,7 @@ const tabLabel: Record<Tab, string> = {
   account: "Account",
   notifications: "Notifications",
   backups: "Backups",
+  addons: "Addons",
   tools: "Tools",
   audit: "Audit log",
 };
@@ -403,6 +405,7 @@ function AdminSettingsPage() {
           <InstanceBackupsCard />
         </>
       )}
+      {tab === "addons" && <AddonsCard />}
       {tab === "tools" && (
         <div className="space-y-6">
           <DBToolCard />

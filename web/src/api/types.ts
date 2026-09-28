@@ -185,6 +185,74 @@ export interface CustomImage {
   buildFailed?: boolean;
 }
 
+/** An addon definition (a YAML file under /config/addons). */
+export interface AddonDefinition {
+  name: string;
+  title: string;
+  description?: string;
+  homepage?: string;
+  versions: { version: string; image: string; default?: boolean }[];
+  hostname?: string;
+  port?: number;
+  webUI?: boolean;
+  publishPort?: boolean;
+  secrets?: string[];
+  volumes?: { name: string; path: string; noBackup?: boolean }[];
+  inject?: Record<string, string>;
+}
+
+/** An installed addon file; one that does not parse carries its error. */
+export interface InstalledAddon extends AddonDefinition {
+  file: string;
+  error?: string;
+  projects: string[];
+}
+
+/** A definition shipped with Envoryx, with its YAML. */
+export interface ExampleAddon extends AddonDefinition {
+  source: string;
+}
+
+/** An addon of a project. */
+export interface ProjectAddon {
+  name: string;
+  title: string;
+  description?: string;
+  homepage?: string;
+  version: string;
+  versions: string[];
+  image: string;
+  host: string;
+  port?: number;
+  hostPort?: number;
+  publishPort?: boolean;
+  url?: string;
+  injectedEnv: string[];
+  credentials: { label: string; value: string; secret?: boolean }[];
+  volumes: string[];
+  state: string;
+  health?: string;
+  installed: boolean;
+}
+
+/** An installed addon a project can add. */
+export interface AvailableAddon {
+  name: string;
+  title: string;
+  description?: string;
+  versions: string[];
+  publishPort?: boolean;
+  webUI?: boolean;
+  hasVolumes?: boolean;
+}
+
+export interface AddonUpdate {
+  enabled: boolean;
+  version?: string;
+  exposePort?: boolean;
+  removeData?: boolean;
+}
+
 /** A private registry login; the password is write-only. */
 export interface RegistryLogin {
   host: string;

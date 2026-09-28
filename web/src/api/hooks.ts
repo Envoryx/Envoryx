@@ -1,6 +1,6 @@
 import { useInfiniteQuery, useIsMutating, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "./client";
-import { servesOf, type AuditFilter, type CreateProjectRequest, type DuplicateProjectRequest, type RenameProjectRequest, type NodeConfig, type Project, type PythonConfig, type GoConfig, type RubyConfig, type JavaConfig, type DotnetConfig, type UpdateProjectRequest, type UpdateSettingsRequest } from "./types";
+import { servesOf, type AddonUpdate, type AuditFilter, type CreateProjectRequest, type DuplicateProjectRequest, type RenameProjectRequest, type NodeConfig, type Project, type PythonConfig, type GoConfig, type RubyConfig, type JavaConfig, type DotnetConfig, type UpdateProjectRequest, type UpdateSettingsRequest } from "./types";
 import { projectUrl } from "@/lib/format";
 
 export const keys = {
@@ -264,6 +264,22 @@ export function useUpdateProject(id: string) {
   return useMutation({
     mutationFn: async (body: UpdateProjectRequest) => (await api.projects.update(id, body)).project,
     onSuccess: (project) => invalidate(project),
+  });
+}
+
+/** A project's addons and the installed ones it can add. */
+export function useProjectAddons(id: string) {
+  return useQuery({ queryKey: ["projects", id, "addons"], queryFn: () => api.addons.project(id), refetchInterval: LIVE_INTERVAL });
+}
+
+/** Adds, changes or removes an addon of a project. */
+export function useSetAddon(id: string) {
+  const invalidate = useProjectInvalidation();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ name, ...body }: AddonUpdate & { name: string }) => (await api.addons.set(id, name, body)).project,
+    onSuccess: (project) => invalidate(project),
+    onSettled: () => void qc.invalidateQueries({ queryKey: ["projects", id, "addons"] }),
   });
 }
 
