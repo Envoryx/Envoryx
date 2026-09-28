@@ -2606,5 +2606,8 @@
   "The file is checked when you save; a new version of an installed addon reaches the projects using it at their next start.": "Файл проверяется при сохранении; новая версия установленного дополнения попадает в проекты, которые его используют, при их следующем запуске.",
   "Addon file": "Файл дополнения",
   "Backing up the volume {{name}}": "Резервное копирование тома {{name}}",
-  "Restoring the volume {{name}}": "Восстановление тома {{name}}"
+  "Restoring the volume {{name}}": "Восстановление тома {{name}}",
+  "The project has no database; the addon volumes are saved.": "У проекта нет базы данных; сохраняются тома дополнений.",
+  "The addon volumes are saved, too.": "Тома дополнений тоже сохраняются.",
+  "With the addon volumes: {{files}}": "С томами дополнений: {{files}}"
 }

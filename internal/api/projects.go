@@ -164,7 +164,13 @@ func redactedConfig(s store.ProjectService) json.RawMessage {
 		// The generated secrets stay out; the addons endpoint shows the credentials.
 		var cfg project.AddonConfig
 		if err := json.Unmarshal(s.Config, &cfg); err == nil {
-			if b, err := json.Marshal(map[string]any{"hostPort": cfg.HostPort, "title": cfg.Definition.Title}); err == nil {
+			backed := 0
+			for _, v := range cfg.Definition.Volumes {
+				if !v.NoBackup {
+					backed++
+				}
+			}
+			if b, err := json.Marshal(map[string]any{"hostPort": cfg.HostPort, "title": cfg.Definition.Title, "backupVolumes": backed}); err == nil {
 				return b
 			}
 		}

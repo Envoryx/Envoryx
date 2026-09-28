@@ -2606,5 +2606,8 @@
   "The file is checked when you save; a new version of an installed addon reaches the projects using it at their next start.": "Plik jest sprawdzany przy zapisie; nowa wersja zainstalowanego dodatku trafia do używających go projektów przy ich następnym starcie.",
   "Addon file": "Plik dodatku",
   "Backing up the volume {{name}}": "Tworzenie kopii wolumenu {{name}}",
-  "Restoring the volume {{name}}": "Przywracanie wolumenu {{name}}"
+  "Restoring the volume {{name}}": "Przywracanie wolumenu {{name}}",
+  "The project has no database; the addon volumes are saved.": "Projekt nie ma bazy danych; zapisywane są wolumeny dodatków.",
+  "The addon volumes are saved, too.": "Wolumeny dodatków też są zapisywane.",
+  "With the addon volumes: {{files}}": "Z wolumenami dodatków: {{files}}"
 }

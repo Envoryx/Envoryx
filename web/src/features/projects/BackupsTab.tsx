@@ -21,6 +21,10 @@ export function BackupsTab({ project }: { project: Project }) {
   const qc = useQueryClient();
   const dbCount = databaseServices(project).length;
   const hasDb = dbCount > 0;
+  // Addon volumes go with the database part of a backup, also in a project without a database.
+  const addonData = project.services.some((s) => s.kind.startsWith("addon-") && Number(s.config.backupVolumes ?? 0) > 0);
+  const hasData = hasDb || addonData;
+  const restorable = (meta: BackupMeta) => (hasDumps(meta) && hasDb) || (meta.addonVolumes?.length ?? 0) > 0;
   const hasStorage = project.services.some((s) => s.kind === "storage" && s.enabled);
   const list = useQuery({
     queryKey: ["projects", project.id, "backups"],
@@ -37,14 +41,14 @@ export function BackupsTab({ project }: { project: Project }) {
   const [msg, setMsg] = useState<{ tone: "green" | "red"; text: string } | null>(null);
   const fail = (err: unknown, fallback: string) => setMsg({ tone: "red", text: errorText(err, t, fallback) });
 
-  const [withDb, setWithDb] = useState(hasDb);
+  const [withDb, setWithDb] = useState(hasData);
   const [withFiles, setWithFiles] = useState(true);
   const [withStorage, setWithStorage] = useState(true);
   const [withDeps, setWithDeps] = useState(false);
   const [note, setNote] = useState("");
   const [withOffsite, setWithOffsite] = useState(false);
   const create = useMutation({
-    mutationFn: () => api.backups.create(project.id, { database: withDb && hasDb, files: withFiles, storage: withStorage && hasStorage, includeDependencies: withDeps, note, ...(withOffsite && enabledTargets.length > 0 ? { offsite: true } : {}) }),
+    mutationFn: () => api.backups.create(project.id, { database: withDb && hasData, files: withFiles, storage: withStorage && hasStorage, includeDependencies: withDeps, note, ...(withOffsite && enabledTargets.length > 0 ? { offsite: true } : {}) }),
     onSuccess: (res) => {
       setNote("");
       setMsg(
@@ -66,7 +70,7 @@ export function BackupsTab({ project }: { project: Project }) {
   const [rConfirm, setRConfirm] = useState("");
   const restore = useMutation({
     mutationFn: (b: BackupInfo) =>
-      api.backups.restore(project.id, b.id, { database: rDb && hasDumps(b.meta) && hasDb, files: rFiles && !!b.meta.files, storage: rStorage && !!b.meta.storage && hasStorage, wipeFiles: rWipe, wipeStorage: rWipeStorage, confirm: rConfirm }),
+      api.backups.restore(project.id, b.id, { database: rDb && restorable(b.meta), files: rFiles && !!b.meta.files, storage: rStorage && !!b.meta.storage && hasStorage, wipeFiles: rWipe, wipeStorage: rWipeStorage, confirm: rConfirm }),
     onSuccess: () => {
       setRestoreTarget(null);
       setMsg({ tone: "green", text: t("Backup restored.") });
@@ -112,7 +116,7 @@ export function BackupsTab({ project }: { project: Project }) {
   });
 
   const openRestore = (b: BackupInfo) => {
-    setRDb(hasDumps(b.meta) && hasDb);
+    setRDb(restorable(b.meta));
     setRFiles(!!b.meta.files);
     setRStorage(!!b.meta.storage && hasStorage);
     setRWipeStorage(false);
@@ -140,7 +144,16 @@ export function BackupsTab({ project }: { project: Project }) {
         />
         <div className="space-y-4 p-5">
           <div className="grid gap-3 sm:grid-cols-3">
-            <Checkbox label={t("Database")} description={dbCount > 1 ? t("Logical dumps of all {{number}} databases of the project", { number: dbCount }) : hasDb ? t("Logical dump of the primary database") : t("Project has no database")} checked={withDb && hasDb} disabled={!hasDb} onChange={(e) => setWithDb(e.target.checked)} />
+            <Checkbox
+              label={t("Database")}
+              description={
+                (dbCount > 1 ? t("Logical dumps of all {{number}} databases of the project", { number: dbCount }) : hasDb ? t("Logical dump of the primary database") : addonData ? t("The project has no database; the addon volumes are saved.") : t("Project has no database")) +
+                (hasDb && addonData ? " " + t("The addon volumes are saved, too.") : "")
+              }
+              checked={withDb && hasData}
+              disabled={!hasData}
+              onChange={(e) => setWithDb(e.target.checked)}
+            />
             <Checkbox label={t("Project files")} description={t("Everything in the project directory")} checked={withFiles} onChange={(e) => setWithFiles(e.target.checked)} />
             {hasStorage && <Checkbox label={t("Object storage")} description={t("Every object of the bucket, as plain files in an archive")} checked={withStorage} onChange={(e) => setWithStorage(e.target.checked)} />}
             <Checkbox label={t("Include dependencies")} description={t("Keep vendor/, node_modules/ and framework build caches (.next, .nuxt, .output)")} checked={withDeps} disabled={!withFiles} onChange={(e) => setWithDeps(e.target.checked)} />
@@ -152,7 +165,7 @@ export function BackupsTab({ project }: { project: Project }) {
             <Field label={t("Note (optional)")} htmlFor="backup-note">
               <Input id="backup-note" value={note} onChange={(e) => setNote(e.target.value)} placeholder={t("before upgrade to Laravel 13")} maxLength={500} />
             </Field>
-            <Button variant="primary" loading={create.isPending} disabled={!(withDb && hasDb) && !withFiles && !(withStorage && hasStorage)} onClick={() => create.mutate()} icon={<Archive className="size-4" />}>
+            <Button variant="primary" loading={create.isPending} disabled={!(withDb && hasData) && !withFiles && !(withStorage && hasStorage)} onClick={() => create.mutate()} icon={<Archive className="size-4" />}>
               {t("Create backup")}
             </Button>
           </div>
@@ -269,7 +282,21 @@ export function BackupsTab({ project }: { project: Project }) {
               {rFiles && restoreTarget.meta.files && <p>{rWipe ? t("Files in the archive overwrite the project directory; everything else in the directory is deleted first.") : t("Files in the archive overwrite the project directory; files not in the backup are kept.")}</p>}
               {rStorage && restoreTarget.meta.storage && <p>{rWipeStorage ? t("Objects in the archive are uploaded into the bucket; everything else in the bucket is deleted first.") : t("Objects in the archive are uploaded into the bucket; objects not in the backup are kept.")}</p>}
             </Alert>
-            <Checkbox label={t("Restore database")} checked={rDb} disabled={!hasDumps(restoreTarget.meta) || !hasDb} onChange={(e) => setRDb(e.target.checked)} description={!hasDumps(restoreTarget.meta) ? t("not in this backup") : !hasDb ? t("project has no database") : undefined} />
+            <Checkbox
+              label={t("Restore database")}
+              checked={rDb}
+              disabled={!restorable(restoreTarget.meta)}
+              onChange={(e) => setRDb(e.target.checked)}
+              description={
+                (restoreTarget.meta.addonVolumes?.length ?? 0) > 0
+                  ? t("With the addon volumes: {{files}}", { files: restoreTarget.meta.addonVolumes!.join(", ") })
+                  : !hasDumps(restoreTarget.meta)
+                    ? t("not in this backup")
+                    : !hasDb
+                      ? t("project has no database")
+                      : undefined
+              }
+            />
             <Checkbox label={t("Restore files")} checked={rFiles} disabled={!restoreTarget.meta.files} onChange={(e) => setRFiles(e.target.checked)} description={!restoreTarget.meta.files ? t("not in this backup") : undefined} />
             {rFiles && <Checkbox label={t("Empty the project directory first")} description={t("Makes the directory match the backup exactly (also removes vendor/, node_modules/ and build caches if they were not included).")} checked={rWipe} onChange={(e) => setRWipe(e.target.checked)} />}
             <Checkbox label={t("Restore object storage")} checked={rStorage} disabled={!restoreTarget.meta.storage || !hasStorage} onChange={(e) => setRStorage(e.target.checked)} description={!restoreTarget.meta.storage ? t("not in this backup") : !hasStorage ? t("project has no object storage") : undefined} />

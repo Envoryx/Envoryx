@@ -57,4 +57,26 @@ describe("BackupsTab", () => {
     await waitFor(() => expect(api.calls.some((c) => c.url.endsWith("/restore"))).toBe(true));
     expect(api.calls.find((c) => c.url.endsWith("/restore"))!.body).toEqual({ database: true, files: true, storage: false, wipeFiles: false, wipeStorage: false, confirm: "acme-shop" });
   });
+
+  it("backs up and restores addon volumes in a project without a database", async () => {
+    const withAddon = { ...backup, meta: { ...backup.meta, database: undefined, addonVolumes: ["addon-keycloak-data.tar.gz"] } };
+    const api = mockApi({
+      ...authedRoutes,
+      [`GET /projects/${id}/backups`]: () => ({ body: { backups: [withAddon] } }),
+      [`POST /projects/${id}/backups/b1/restore`]: () => ({ body: { backup: withAddon } }),
+      [`POST /projects/${id}/backups`]: () => ({ status: 201, body: { backup: withAddon } }),
+    });
+    const project = makeProject({ services: [...makeProject().services, { kind: "addon-keycloak", variant: "keycloak", version: "26", image: "quay.io/keycloak/keycloak:26.7", enabled: true, config: { backupVolumes: 1 } }] });
+    renderApp(<BackupsTab project={project} />);
+    const user = userEvent.setup();
+
+    expect(await screen.findByText("The project has no database; the addon volumes are saved.")).toBeInTheDocument();
+    const db = screen.getByRole("checkbox", { name: /^Database/ });
+    expect(db).toBeEnabled();
+    expect(db).toBeChecked();
+    await user.click((await screen.findAllByRole("button", { name: "Restore" }))[0]!);
+    expect(await screen.findByText("With the addon volumes: addon-keycloak-data.tar.gz")).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: /^Restore database/ })).toBeEnabled();
+    void api;
+  });
 });
