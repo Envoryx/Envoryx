@@ -208,7 +208,9 @@ type Web struct {
 
 // PHP is the PHP runtime with its php.ini settings. Empty fields take Envoryx's defaults.
 type PHP struct {
-	Version           string   `yaml:"version,omitempty"`
+	Version string `yaml:"version,omitempty"`
+	// Image or Dockerfile replaces the catalogue image (see CustomImage).
+	CustomImage       `yaml:",inline"`
 	Extensions        []string `yaml:"extensions,omitempty"`
 	MemoryLimit       string   `yaml:"memoryLimit,omitempty"`
 	UploadMaxFilesize string   `yaml:"uploadMaxFilesize,omitempty"`
@@ -224,7 +226,9 @@ type PHP struct {
 
 // Node is the Node.js toolchain and its optional dev server.
 type Node struct {
-	Version        string `yaml:"version,omitempty"`
+	Version string `yaml:"version,omitempty"`
+	// Image or Dockerfile replaces the catalogue image (see CustomImage).
+	CustomImage    `yaml:",inline"`
 	DevServer      bool   `yaml:"devServer,omitempty"`
 	Mode           string `yaml:"mode,omitempty"`
 	PackageManager string `yaml:"packageManager,omitempty"`
@@ -238,59 +242,76 @@ type Node struct {
 
 // Python is the Python runtime and its optional application server.
 type Python struct {
-	Version   string `yaml:"version,omitempty"`
-	Server    bool   `yaml:"server,omitempty"`
-	Mode      string `yaml:"mode,omitempty"`
-	Preset    string `yaml:"preset,omitempty"`
-	App       string `yaml:"app,omitempty"`
-	Port      int    `yaml:"port,omitempty"`
-	Debug     bool   `yaml:"debug,omitempty"`
-	DebugPort int    `yaml:"debugPort,omitempty"`
+	Version string `yaml:"version,omitempty"`
+	// Image or Dockerfile replaces the catalogue image (see CustomImage).
+	CustomImage `yaml:",inline"`
+	Server      bool   `yaml:"server,omitempty"`
+	Mode        string `yaml:"mode,omitempty"`
+	Preset      string `yaml:"preset,omitempty"`
+	App         string `yaml:"app,omitempty"`
+	Port        int    `yaml:"port,omitempty"`
+	Debug       bool   `yaml:"debug,omitempty"`
+	DebugPort   int    `yaml:"debugPort,omitempty"`
 }
 
 // Go is the Go runtime and its optional application server.
 type Go struct {
-	Version   string `yaml:"version,omitempty"`
-	Server    bool   `yaml:"server,omitempty"`
-	Mode      string `yaml:"mode,omitempty"`
-	Package   string `yaml:"package,omitempty"`
-	Port      int    `yaml:"port,omitempty"`
-	Debug     bool   `yaml:"debug,omitempty"`
-	DebugPort int    `yaml:"debugPort,omitempty"`
+	Version string `yaml:"version,omitempty"`
+	// Image or Dockerfile replaces the catalogue image (see CustomImage).
+	CustomImage `yaml:",inline"`
+	Server      bool   `yaml:"server,omitempty"`
+	Mode        string `yaml:"mode,omitempty"`
+	Package     string `yaml:"package,omitempty"`
+	Port        int    `yaml:"port,omitempty"`
+	Debug       bool   `yaml:"debug,omitempty"`
+	DebugPort   int    `yaml:"debugPort,omitempty"`
 }
 
 // Ruby is the Ruby runtime and its optional application server.
 type Ruby struct {
-	Version   string `yaml:"version,omitempty"`
-	Server    bool   `yaml:"server,omitempty"`
-	Mode      string `yaml:"mode,omitempty"`
-	Preset    string `yaml:"preset,omitempty"`
-	Port      int    `yaml:"port,omitempty"`
-	Debug     bool   `yaml:"debug,omitempty"`
-	DebugPort int    `yaml:"debugPort,omitempty"`
+	Version string `yaml:"version,omitempty"`
+	// Image or Dockerfile replaces the catalogue image (see CustomImage).
+	CustomImage `yaml:",inline"`
+	Server      bool   `yaml:"server,omitempty"`
+	Mode        string `yaml:"mode,omitempty"`
+	Preset      string `yaml:"preset,omitempty"`
+	Port        int    `yaml:"port,omitempty"`
+	Debug       bool   `yaml:"debug,omitempty"`
+	DebugPort   int    `yaml:"debugPort,omitempty"`
 }
 
 // Java is the Java runtime and its optional application server.
 type Java struct {
-	Version   string `yaml:"version,omitempty"`
-	Server    bool   `yaml:"server,omitempty"`
-	Mode      string `yaml:"mode,omitempty"`
-	Preset    string `yaml:"preset,omitempty"`
-	Jar       string `yaml:"jar,omitempty"`
-	Port      int    `yaml:"port,omitempty"`
-	Debug     bool   `yaml:"debug,omitempty"`
-	DebugPort int    `yaml:"debugPort,omitempty"`
+	Version string `yaml:"version,omitempty"`
+	// Image or Dockerfile replaces the catalogue image (see CustomImage).
+	CustomImage `yaml:",inline"`
+	Server      bool   `yaml:"server,omitempty"`
+	Mode        string `yaml:"mode,omitempty"`
+	Preset      string `yaml:"preset,omitempty"`
+	Jar         string `yaml:"jar,omitempty"`
+	Port        int    `yaml:"port,omitempty"`
+	Debug       bool   `yaml:"debug,omitempty"`
+	DebugPort   int    `yaml:"debugPort,omitempty"`
 }
 
 // Dotnet is the .NET runtime and its optional application server.
 type Dotnet struct {
 	Version string `yaml:"version,omitempty"`
-	Server  bool   `yaml:"server,omitempty"`
-	Mode    string `yaml:"mode,omitempty"`
-	Preset  string `yaml:"preset,omitempty"`
-	Project string `yaml:"project,omitempty"`
-	DLL     string `yaml:"dll,omitempty"`
-	Port    int    `yaml:"port,omitempty"`
+	// Image or Dockerfile replaces the catalogue image (see CustomImage).
+	CustomImage `yaml:",inline"`
+	Server      bool   `yaml:"server,omitempty"`
+	Mode        string `yaml:"mode,omitempty"`
+	Preset      string `yaml:"preset,omitempty"`
+	Project     string `yaml:"project,omitempty"`
+	DLL         string `yaml:"dll,omitempty"`
+	Port        int    `yaml:"port,omitempty"`
+}
+
+// CustomImage is the image of the user's a runtime can run instead of the catalogue's:
+// a registry reference, or a Dockerfile in the project that Envoryx builds.
+type CustomImage struct {
+	Image      string `yaml:"image,omitempty"`
+	Dockerfile string `yaml:"dockerfile,omitempty"`
 }
 
 // Database selects the database server.
@@ -495,6 +516,34 @@ func Parse(data []byte) (Manifest, error) {
 
 // Validate checks what the file format alone can tell: the version, names and the
 // consistency between sections.
+// CustomImages returns the custom image fields of the runtimes the manifest has, by
+// section name.
+func (m *Manifest) CustomImages() map[string]*CustomImage {
+	out := map[string]*CustomImage{}
+	if m.PHP != nil {
+		out["php"] = &m.PHP.CustomImage
+	}
+	if m.Node != nil {
+		out["node"] = &m.Node.CustomImage
+	}
+	if m.Python != nil {
+		out["python"] = &m.Python.CustomImage
+	}
+	if m.Go != nil {
+		out["go"] = &m.Go.CustomImage
+	}
+	if m.Ruby != nil {
+		out["ruby"] = &m.Ruby.CustomImage
+	}
+	if m.Java != nil {
+		out["java"] = &m.Java.CustomImage
+	}
+	if m.Dotnet != nil {
+		out["dotnet"] = &m.Dotnet.CustomImage
+	}
+	return out
+}
+
 func (m Manifest) Validate() error {
 	bad := func(format string, a ...any) error {
 		return fmt.Errorf("%w: %s: %s", validate.ErrInvalid, FileName, fmt.Sprintf(format, a...))
@@ -510,6 +559,11 @@ func (m Manifest) Validate() error {
 	if m.Name != "" {
 		if err := validate.ProjectName(m.Name); err != nil {
 			return bad("name: %v", unwrapInvalid(err))
+		}
+	}
+	for name, c := range m.CustomImages() {
+		if c.Image != "" && c.Dockerfile != "" {
+			return bad("%s: give image or dockerfile, not both", name)
 		}
 	}
 	for _, s := range []*Service{m.Redis, m.Memcached, m.Mailpit, m.RabbitMQ, m.Meilisearch, m.Typesense, m.Ollama} {

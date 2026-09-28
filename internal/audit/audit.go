@@ -42,7 +42,12 @@ const (
 	ActionImageRolledBack = "project.image_rolled_back"
 	ActionImageLatest     = "project.image_latest"
 	ActionImagesPruned    = "docker.images_pruned"
-	ActionOrphansRemoved  = "docker.orphans_removed"
+	// ActionCustomImageChanged is written when a runtime gets a custom image, returns to
+	// the catalogue image or its Dockerfile is rebuilt.
+	ActionCustomImageChanged = "project.custom_image_changed"
+	// ActionRegistriesChanged is written when the private registry logins change.
+	ActionRegistriesChanged = "settings.registries_changed"
+	ActionOrphansRemoved    = "docker.orphans_removed"
 	// ActionLogHistoryCleared is written when the stored log history is deleted.
 	ActionLogHistoryCleared = "logs.history_cleared"
 	// ActionPackageCacheCleared is written when the shared package cache, or one tool's

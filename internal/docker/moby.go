@@ -3,6 +3,7 @@ package docker
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,14 +14,18 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
 	cerrdefs "github.com/containerd/errdefs"
+	"github.com/distribution/reference"
 	"github.com/moby/moby/api/pkg/stdcopy"
+	"github.com/moby/moby/api/types/build"
 	"github.com/moby/moby/api/types/container"
 	"github.com/moby/moby/api/types/mount"
 	"github.com/moby/moby/api/types/network"
+	"github.com/moby/moby/api/types/registry"
 	"github.com/moby/moby/client"
 )
 
@@ -28,6 +33,9 @@ import (
 type MobyEngine struct {
 	cli *client.Client
 	log *slog.Logger
+
+	credsMu sync.Mutex
+	creds   RegistryCredentials
 }
 
 // Options configure the engine connection.
@@ -1294,7 +1302,7 @@ func (e *MobyEngine) PullImage(ctx context.Context, ref string, progress PullPro
 	if progress != nil {
 		progress("contacting the registry")
 	}
-	resp, err := e.cli.ImagePull(ctx, ref, client.ImagePullOptions{})
+	resp, err := e.cli.ImagePull(ctx, ref, client.ImagePullOptions{RegistryAuth: e.pullAuth(ref)})
 	if err != nil {
 		return wrap(err)
 	}
@@ -1326,6 +1334,148 @@ func (e *MobyEngine) PullImage(ctx context.Context, ref string, progress PullPro
 		}
 	}
 	return nil
+}
+
+// SetRegistryCredentials implements Engine.
+func (e *MobyEngine) SetRegistryCredentials(creds RegistryCredentials) {
+	e.credsMu.Lock()
+	defer e.credsMu.Unlock()
+	e.creds = creds
+}
+
+func (e *MobyEngine) credentials() []RegistryCredential {
+	e.credsMu.Lock()
+	creds := e.creds
+	e.credsMu.Unlock()
+	if creds == nil {
+		return nil
+	}
+	return creds()
+}
+
+// dockerHubAuthKey is the server address Docker files Docker Hub logins under.
+const dockerHubAuthKey = "https://index.docker.io/v1/"
+
+// RegistryHost returns the registry host of an image reference ("docker.io" for Docker
+// Hub, also for short names like "php:8.4").
+func RegistryHost(ref string) string {
+	named, err := reference.ParseNormalizedNamed(ref)
+	if err != nil {
+		return ""
+	}
+	return reference.Domain(named)
+}
+
+// normalizeHost folds the spellings of Docker Hub into "docker.io".
+func normalizeHost(host string) string {
+	host = strings.TrimSuffix(strings.TrimPrefix(strings.TrimPrefix(strings.ToLower(strings.TrimSpace(host)), "https://"), "http://"), "/")
+	switch host {
+	case "index.docker.io", "registry-1.docker.io", "index.docker.io/v1", "hub.docker.com":
+		return "docker.io"
+	}
+	return host
+}
+
+// pullAuth returns the encoded login for the registry of ref, or "" for anonymous pulls.
+func (e *MobyEngine) pullAuth(ref string) string {
+	host := RegistryHost(ref)
+	for _, c := range e.credentials() {
+		if normalizeHost(c.Host) == host {
+			buf, err := json.Marshal(registry.AuthConfig{Username: c.Username, Password: c.Password, ServerAddress: c.Host})
+			if err != nil {
+				return ""
+			}
+			return base64.URLEncoding.EncodeToString(buf)
+		}
+	}
+	return ""
+}
+
+// buildAuths returns every login, keyed the way the builder looks them up.
+func (e *MobyEngine) buildAuths() map[string]registry.AuthConfig {
+	out := map[string]registry.AuthConfig{}
+	for _, c := range e.credentials() {
+		key := normalizeHost(c.Host)
+		if key == "docker.io" {
+			key = dockerHubAuthKey
+		}
+		out[key] = registry.AuthConfig{Username: c.Username, Password: c.Password, ServerAddress: key}
+	}
+	return out
+}
+
+// InspectImage implements Engine.
+func (e *MobyEngine) InspectImage(ctx context.Context, ref string) (ImageInfo, error) {
+	res, err := e.cli.ImageInspect(ctx, ref)
+	if err != nil {
+		return ImageInfo{}, wrap(err)
+	}
+	info := ImageInfo{ID: res.ID}
+	if cfg := res.Config; cfg != nil {
+		info.Labels, info.Entrypoint, info.Cmd, info.User = cfg.Labels, cfg.Entrypoint, cfg.Cmd, cfg.User
+	}
+	return info, nil
+}
+
+// BuildImage implements Engine. It uses the classic builder, which needs no BuildKit
+// session and takes the registry logins with the request.
+func (e *MobyEngine) BuildImage(ctx context.Context, opts BuildOptions) error {
+	res, err := e.cli.ImageBuild(ctx, opts.Context, client.ImageBuildOptions{
+		Tags:        []string{opts.Tag},
+		Dockerfile:  opts.Dockerfile,
+		Labels:      opts.Labels,
+		PullParent:  opts.Pull,
+		NoCache:     opts.NoCache,
+		Remove:      true,
+		ForceRemove: true,
+		AuthConfigs: e.buildAuths(),
+		Version:     build.BuilderV1,
+	})
+	if err != nil {
+		return wrap(err)
+	}
+	defer res.Body.Close()
+	dec := json.NewDecoder(res.Body)
+	for {
+		var msg struct {
+			Stream string `json:"stream"`
+			Status string `json:"status"`
+			ID     string `json:"id"`
+			Error  *struct {
+				Message string `json:"message"`
+			} `json:"errorDetail"`
+			ErrorText string `json:"error"`
+		}
+		if err := dec.Decode(&msg); err != nil {
+			if errors.Is(err, io.EOF) {
+				return nil
+			}
+			return fmt.Errorf("build %s: %w", opts.Tag, err)
+		}
+		if msg.Error != nil || msg.ErrorText != "" {
+			text := msg.ErrorText
+			if msg.Error != nil && msg.Error.Message != "" {
+				text = msg.Error.Message
+			}
+			if opts.Output != nil {
+				opts.Output(text)
+			}
+			return fmt.Errorf("build %s: %s", opts.Tag, text)
+		}
+		if opts.Output == nil {
+			continue
+		}
+		out := msg.Stream
+		// Pulls of base images report every layer; only the image-level lines are kept.
+		if out == "" && msg.Status != "" && (msg.ID == "" || strings.HasPrefix(msg.Status, "Pulling from")) {
+			out = msg.Status + "\n"
+		}
+		for _, line := range strings.SplitAfter(out, "\n") {
+			if line = strings.TrimRight(line, "\r\n"); line != "" {
+				opts.Output(line)
+			}
+		}
+	}
 }
 
 // pullSummary condenses Docker's per-layer pull messages into one line: overall

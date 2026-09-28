@@ -141,9 +141,10 @@ func imageRepo(ref string) string {
 	return ref
 }
 
-// UnusedImages lists local images that come from the Envoryx catalogue and are not used by
-// any container on the host (Envoryx's or anyone else's). Images from other sources are
-// never reported, so nothing foreign can be removed through Envoryx.
+// UnusedImages lists local images that come from the Envoryx catalogue or were built from
+// a project's Dockerfile and are not used by any container on the host (Envoryx's or
+// anyone else's). Images from other sources are never reported, so nothing foreign can be
+// removed through Envoryx.
 func (m *Manager) UnusedImages(ctx context.Context) ([]UnusedImage, error) {
 	images, err := m.engine.ListImages(ctx)
 	if err != nil {
@@ -179,7 +180,7 @@ func (m *Manager) UnusedImages(ctx context.Context) ([]UnusedImage, error) {
 		}
 		ours, used := false, false
 		for _, t := range img.Tags {
-			if repos[imageRepo(t)] || isRollbackRef(t) {
+			if repos[imageRepo(t)] || isRollbackRef(t) || isBuildRef(t) {
 				ours = true
 			}
 			if inUse[t] {

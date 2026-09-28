@@ -327,6 +327,44 @@ type LogOptions struct {
 // PullProgress receives human readable image pull progress lines.
 type PullProgress func(msg string)
 
+// RegistryCredential is a login for a private registry, used for pulls and for the base
+// images of builds. Host is the registry's host name ("docker.io" for Docker Hub).
+type RegistryCredential struct {
+	Host     string
+	Username string
+	Password string
+}
+
+// RegistryCredentials returns the configured registry logins; it is asked before every
+// pull and build, so changed settings apply at once.
+type RegistryCredentials func() []RegistryCredential
+
+// BuildOptions describe an image build.
+type BuildOptions struct {
+	// Context is the build context as a tar stream.
+	Context io.Reader
+	// Dockerfile is the Dockerfile's path inside the context.
+	Dockerfile string
+	// Tag names the result.
+	Tag string
+	// Labels are added to the image.
+	Labels map[string]string
+	// Pull fetches newer versions of the base images; NoCache ignores the build cache.
+	Pull    bool
+	NoCache bool
+	// Output receives the build output line by line.
+	Output func(line string)
+}
+
+// ImageInfo is what Envoryx reads from an image's configuration.
+type ImageInfo struct {
+	ID         string
+	Labels     map[string]string
+	Entrypoint []string
+	Cmd        []string
+	User       string
+}
+
 // Engine is the label-scoped Docker abstraction used by Envoryx.
 type Engine interface {
 	// Ping checks connectivity and returns engine information.
@@ -424,6 +462,13 @@ type Engine interface {
 	PullImage(ctx context.Context, ref string, progress PullProgress) error
 	// ImageExists reports whether the image is available locally.
 	ImageExists(ctx context.Context, ref string) (bool, error)
+	// InspectImage returns the configuration of a local image (ErrNotFound if absent).
+	InspectImage(ctx context.Context, ref string) (ImageInfo, error)
+	// BuildImage builds and tags an image. A failed step returns an error whose text ends
+	// with Docker's message; the output up to it went to opts.Output.
+	BuildImage(ctx context.Context, opts BuildOptions) error
+	// SetRegistryCredentials installs the lookup for private registry logins.
+	SetRegistryCredentials(creds RegistryCredentials)
 	// ImageID returns the local id of an image reference (ErrNotFound if absent).
 	ImageID(ctx context.Context, ref string) (string, error)
 	// ListImages lists local images.

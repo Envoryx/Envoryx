@@ -273,7 +273,7 @@ func (m *Manager) create(ctx context.Context, req CreateRequest) (View, error) {
 // reports. Create and clone share it: both turn a fresh plan into Docker resources.
 func (m *Manager) provision(ctx context.Context, plan Plan, j *journal) (string, error) {
 	for _, img := range plan.Images {
-		if err := m.engine.EnsureImage(ctx, img, m.pullProgress(ctx, plan.Slug, img)); err != nil {
+		if err := m.ensureImage(ctx, store.Project{ID: plan.ProjectID, Slug: plan.Slug}, img); err != nil {
 			return "pull image " + img, err
 		}
 	}
@@ -369,6 +369,10 @@ func (m *Manager) Stop(ctx context.Context, id string) (View, error) {
 func (m *Manager) Restart(ctx context.Context, id string) (View, error) {
 	return m.transition(ctx, id, limitProvision, "restart", audit.ActionProjectRestarted, func(ctx context.Context, proj store.Project, plan Plan) error {
 		for _, img := range plan.Images {
+			if isBuildRef(img) {
+				// Built from the project's Dockerfile: a changed one has a new tag already.
+				continue
+			}
 			if err := m.engine.PullImage(ctx, img, m.pullProgress(ctx, proj.Slug, img)); err != nil {
 				// A registry hiccup must not prevent a restart with the local image.
 				m.log.Warn("image refresh failed, using local image", "image", img, "err", err)
@@ -505,7 +509,7 @@ func (m *Manager) ensurePlan(ctx context.Context, proj store.Project, plan Plan,
 		}
 		cur, ok := byKind[string(c.Kind)]
 		if ok {
-			if err := m.engine.EnsureImage(ctx, c.Spec.Image, m.pullProgress(ctx, proj.Slug, c.Spec.Image)); err != nil {
+			if err := m.ensureImage(ctx, proj, c.Spec.Image); err != nil {
 				return fmt.Errorf("pull image %s: %w", c.Spec.Image, err)
 			}
 			localID, err := m.engine.ImageID(ctx, c.Spec.Image)
@@ -545,7 +549,7 @@ func (m *Manager) ensurePlan(ctx context.Context, proj store.Project, plan Plan,
 		}
 		id := cur.ID
 		if !ok {
-			if err := m.engine.EnsureImage(ctx, c.Spec.Image, m.pullProgress(ctx, proj.Slug, c.Spec.Image)); err != nil {
+			if err := m.ensureImage(ctx, proj, c.Spec.Image); err != nil {
 				return fmt.Errorf("pull image %s: %w", c.Spec.Image, err)
 			}
 			step(ctx, "Creating the container {{name}}", "name", c.Spec.Name)

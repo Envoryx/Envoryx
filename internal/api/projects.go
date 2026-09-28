@@ -26,6 +26,8 @@ type serviceDTO struct {
 	Image   string          `json:"image"`
 	Enabled bool            `json:"enabled"`
 	Config  json.RawMessage `json:"config"`
+	// CustomImage is set when a runtime runs an image of the user's.
+	CustomImage *store.CustomImage `json:"customImage,omitempty"`
 }
 
 type envDTO struct {
@@ -184,7 +186,11 @@ func toProject(v project.View) projectDTO {
 		dto.Branches = &p.Branches
 	}
 	for _, s := range p.Services {
-		dto.Services = append(dto.Services, serviceDTO{Kind: string(s.Kind), Variant: s.Variant, Version: s.Version, Image: s.Image, Enabled: s.Enabled, Config: redactedConfig(s)})
+		sd := serviceDTO{Kind: string(s.Kind), Variant: s.Variant, Version: s.Version, Image: s.Image, Enabled: s.Enabled, Config: redactedConfig(s)}
+		if s.Custom.Set() {
+			sd.CustomImage = &s.Custom
+		}
+		dto.Services = append(dto.Services, sd)
 	}
 	for _, e := range p.Env {
 		dto.Env = append(dto.Env, envDTO{Key: e.Key, Value: e.Value, IsSecret: e.IsSecret})
