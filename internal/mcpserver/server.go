@@ -64,9 +64,11 @@ func New(d Deps) *Server {
 	return s
 }
 
-// enforceScope refuses tool calls the token's scope does not cover. The refusal is a tool
-// result, not a protocol error, so the model learns what the token may do. Listing tools
-// stays unrestricted: the client sees the full catalogue and gets told on use.
+// enforceScope refuses tool calls the principal cannot make anywhere: neither on the
+// instance nor in any of its projects. The level a tool needs travels on in the context,
+// and resolve holds the principal to it in the project the call names. The refusal is a
+// tool result, not a protocol error, so the model learns what the token may do. Listing
+// tools stays unrestricted: the client sees the full catalogue and gets told on use.
 func (s *Server) enforceScope(next mcp.MethodHandler) mcp.MethodHandler {
 	return func(ctx context.Context, method string, req mcp.Request) (mcp.Result, error) {
 		if call, ok := req.(*mcp.CallToolRequest); ok && method == "tools/call" {
@@ -75,12 +77,25 @@ func (s *Server) enforceScope(next mcp.MethodHandler) mcp.MethodHandler {
 			if !known {
 				need = auth.ScopeAdmin
 			}
-			if err := p.Require(need, ""); err != nil {
-				return toolErr(err)
+			if !p.Allows(need) && !p.MaxScope().Covers(need) {
+				if err := p.Require(need, ""); err != nil {
+					return toolErr(err)
+				}
 			}
+			ctx = context.WithValue(ctx, needKey{}, need)
 		}
 		return next(ctx, method, req)
 	}
+}
+
+type needKey struct{}
+
+// toolNeed is the level the running tool needs (read when unknown).
+func toolNeed(ctx context.Context) auth.Scope {
+	if need, ok := ctx.Value(needKey{}).(auth.Scope); ok {
+		return need
+	}
+	return auth.ScopeRead
 }
 
 // tool records the scope a tool needs and returns it for registration.
@@ -127,9 +142,22 @@ func unauthorized(w http.ResponseWriter, msg string) {
 // MCP exposes the underlying server (used by in-memory tests).
 func (s *Server) MCP() *mcp.Server { return s.mcp }
 
-// resolve finds a project by id, slug or name. A token confined to particular projects
-// sees the others as non-existent.
+// resolve finds a project by id, slug or name and holds the principal to the level the
+// running tool needs in it. Projects the principal may not see look non-existent.
 func (s *Server) resolve(ctx context.Context, ref string) (project.View, error) {
+	v, err := s.find(ctx, ref)
+	if err != nil {
+		return project.View{}, err
+	}
+	p, _ := auth.PrincipalFrom(ctx)
+	if err := p.Require(toolNeed(ctx), v.Project.ID); err != nil {
+		return project.View{}, err
+	}
+	return v, nil
+}
+
+// find is resolve without the level check.
+func (s *Server) find(ctx context.Context, ref string) (project.View, error) {
 	ref = strings.TrimSpace(ref)
 	if ref == "" {
 		return project.View{}, fmt.Errorf("%w: project is required", validate.ErrInvalid)
@@ -163,9 +191,6 @@ func (s *Server) visibleProjects(ctx context.Context) ([]project.View, error) {
 		return nil, err
 	}
 	p, _ := auth.PrincipalFrom(ctx)
-	if !p.Restricted() {
-		return views, nil
-	}
 	out := views[:0]
 	for _, v := range views {
 		if p.CanAccessProject(v.Project.ID) {

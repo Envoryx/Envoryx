@@ -50,6 +50,7 @@ import (
 	"github.com/envoryx/envoryx/internal/mcpserver"
 	"github.com/envoryx/envoryx/internal/notify"
 	"github.com/envoryx/envoryx/internal/offsite"
+	"github.com/envoryx/envoryx/internal/oidc"
 	"github.com/envoryx/envoryx/internal/project"
 	"github.com/envoryx/envoryx/internal/proxy"
 	"github.com/envoryx/envoryx/internal/runtime"
@@ -414,7 +415,7 @@ func serve() error {
 	a := api.New(api.Deps{
 		Config: cfg, Version: version, Store: st, Auth: sessions, Audit: auditLog, Engine: engine,
 		Projects: manager, Catalog: catalog, Stats: collector, HostPath: resolver, Certs: certs, ACME: acmeMgr, Notify: notifier, Proxy: proxyInfo,
-		MCP: mcpSrv.Handler(), SSH: sshInfo, Log: log, StartedAt: time.Now(), Updates: updates,
+		MCP: mcpSrv.Handler(), SSH: sshInfo, Log: log, StartedAt: time.Now(), Updates: updates, OIDC: oidc.New(st, sessions, log),
 		Instance: backups, DB: sqlDB, Restart: requestRestart, Warnings: warnings, Offsite: syncer,
 	})
 	var origins []string

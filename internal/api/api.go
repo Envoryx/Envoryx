@@ -18,6 +18,7 @@ import (
 	"github.com/envoryx/envoryx/internal/hostpath"
 	"github.com/envoryx/envoryx/internal/instance"
 	"github.com/envoryx/envoryx/internal/offsite"
+	"github.com/envoryx/envoryx/internal/oidc"
 	"github.com/envoryx/envoryx/internal/project"
 	"github.com/envoryx/envoryx/internal/runtime"
 	"github.com/envoryx/envoryx/internal/stats"
@@ -56,6 +57,8 @@ type Deps struct {
 	Warnings []string
 	// MCP is the MCP endpoint handler, mounted at /mcp by the server; nil disables it.
 	MCP http.Handler
+	// OIDC signs users in through an OpenID Connect provider; nil disables it.
+	OIDC *oidc.Service
 	// SSH describes the embedded SSH server; nil when it's disabled.
 	SSH *SSHInfo
 	Log *slog.Logger
@@ -102,37 +105,65 @@ func New(d Deps) *API { return &API{d: d} }
 // SetAllowedOriginHosts configures extra WebSocket origins (dev server).
 func (a *API) SetAllowedOriginHosts(hosts []string) { a.d.AllowedOriginHosts = hosts }
 
-// instanceRoutesForConfinedTokens are the routes without a project id that a token
-// limited to particular projects may still call; lists filter by the token's projects.
-var instanceRoutesForConfinedTokens = map[string]bool{
+// instanceRoutesForConfined are the routes without a project id that a principal
+// confined to particular projects (a token with a project list, a user whose global role
+// is none) may still call; lists filter by its projects. All of them only read.
+var instanceRoutesForConfined = map[string]bool{
 	"GET /api/v1/auth/me":  true,
 	"GET /api/v1/runtimes": true,
 	"GET /api/v1/projects": true,
-	// Filtered to the token's projects like the list.
+	// Filtered to the principal's projects like the list.
 	"GET /api/v1/operations": true,
 }
 
-// guard enforces a token's scope and project restriction for one route. Sessions pass.
-// Project routes must name one of the token's projects; other routes are instance-wide
-// and closed to confined tokens except for the few listed above.
+// instanceRoutesForConfinedUsers are the further instance routes a confined user's
+// browser session needs to use the UI: the dashboard (filtered), the settings the
+// project pages read (trimmed for non-admins), and the own password and tokens.
+var instanceRoutesForConfinedUsers = map[string]bool{
+	"GET /api/v1/dashboard":        true,
+	"GET /api/v1/settings":         true,
+	"POST /api/v1/auth/password":   true,
+	"GET /api/v1/auth/ssh-keys":    true,
+	"PUT /api/v1/auth/ssh-keys":    true,
+	"GET /api/v1/tokens":           true,
+	"POST /api/v1/tokens":          true,
+	"DELETE /api/v1/tokens/{id}":   true,
+	"GET /api/v1/metrics/overview": true,
+}
+
+// routesForAnyProject serve every project alike and hand out nothing by themselves: the
+// database browser, which only opens a database with credentials from a project's own
+// routes. Holding the level in any project is enough.
+var routesForAnyProject = map[string]bool{
+	"GET /api/v1/dbtool":           true,
+	project.DBToolPathPrefix + "/": true,
+}
+
+// guard enforces the principal's access for one route: the user's role (in the project
+// for project routes) and, for an API token, its scope and project list as well.
+// Instance-wide routes are closed to confined principals except for the few listed above.
 func (a *API) guard(need auth.Scope, pattern string, h http.HandlerFunc) http.HandlerFunc {
 	perProject := strings.Contains(pattern, "/projects/{id}")
 	return func(w http.ResponseWriter, r *http.Request) {
 		p, _ := auth.PrincipalFrom(r.Context())
-		if p.TokenName != "" {
-			var err error
-			switch {
-			case perProject:
-				err = p.Require(need, r.PathValue("id"))
-			case p.Restricted() && !instanceRoutesForConfinedTokens[pattern]:
-				err = fmt.Errorf("%w: this token is limited to particular projects", auth.ErrForbidden)
-			default:
+		var err error
+		switch {
+		case perProject:
+			err = p.Require(need, r.PathValue("id"))
+		case routesForAnyProject[pattern]:
+			if !p.MaxScope().Covers(need) {
 				err = p.Require(need, "")
 			}
-			if err != nil {
-				writeError(w, r, err)
-				return
+		case p.Confined():
+			if !instanceRoutesForConfined[pattern] && (p.TokenName != "" || !instanceRoutesForConfinedUsers[pattern]) {
+				err = fmt.Errorf("%w: limited to particular projects", auth.ErrForbidden)
 			}
+		default:
+			err = p.Require(need, "")
+		}
+		if err != nil {
+			writeError(w, r, err)
+			return
 		}
 		h(w, r)
 	}
@@ -146,6 +177,13 @@ func (a *API) Mount(mux *http.ServeMux, protect func(http.Handler) http.Handler)
 	mux.HandleFunc("POST /api/v1/setup", a.setup)
 	mux.HandleFunc("POST /api/v1/auth/login", a.login)
 	mux.HandleFunc("POST /api/v1/auth/logout", a.logout)
+	// Single sign-on: whether to offer it, and the round trip through the provider.
+	mux.HandleFunc("GET /api/v1/auth/oidc", a.oidcStatus)
+	mux.HandleFunc("GET /api/v1/auth/oidc/start", a.oidcStart)
+	mux.HandleFunc("GET /api/v1/auth/oidc/callback", a.oidcCallback)
+	// An invitation link is its own credential.
+	mux.HandleFunc("GET /api/v1/invites/{token}", a.invitation)
+	mux.HandleFunc("POST /api/v1/invites/{token}", a.acceptInvitation)
 
 	// Every protected route declares the token scope it needs: rd (read), op (operate)
 	// or adm (admin). Browser sessions pass all of them; see guard for the project
@@ -157,20 +195,31 @@ func (a *API) Mount(mux *http.ServeMux, protect func(http.Handler) http.Handler)
 	op := func(pattern string, h http.HandlerFunc) { route(auth.ScopeOperate, pattern, h) }
 	adm := func(pattern string, h http.HandlerFunc) { route(auth.ScopeAdmin, pattern, h) }
 	rd("GET /api/v1/auth/me", a.me)
-	adm("POST /api/v1/auth/password", a.changePassword)
+	rd("POST /api/v1/auth/password", a.changePassword)
+	rd("GET /api/v1/auth/ssh-keys", a.mySSHKeys)
+	rd("PUT /api/v1/auth/ssh-keys", a.setMySSHKeys)
 
-	adm("GET /api/v1/dashboard", a.dashboard)
+	rd("GET /api/v1/dashboard", a.dashboard)
 	rd("GET /api/v1/runtimes", a.runtimes)
 	rd("POST /api/v1/cron/preview", a.cronPreview)
 	adm("GET /api/v1/docker", a.dockerOverview)
 	adm("GET /api/v1/docker/images/unused", a.unusedImages)
 	adm("POST /api/v1/docker/images/prune", a.pruneImages)
 	adm("POST /api/v1/docker/orphans/remove", a.removeOrphan)
-	adm("GET /api/v1/settings", a.settings)
+	rd("GET /api/v1/settings", a.settings)
 	adm("PATCH /api/v1/settings", a.updateSettings)
-	adm("GET /api/v1/tokens", a.listTokens)
-	adm("POST /api/v1/tokens", a.createToken)
-	adm("DELETE /api/v1/tokens/{id}", a.deleteToken)
+	adm("GET /api/v1/settings/oidc", a.oidcSettings)
+	adm("PUT /api/v1/settings/oidc", a.setOIDCSettings)
+	adm("POST /api/v1/settings/oidc/test", a.testOIDCSettings)
+	adm("GET /api/v1/users", a.listUsers)
+	adm("POST /api/v1/users", a.inviteUser)
+	adm("PATCH /api/v1/users/{id}", a.updateUser)
+	adm("DELETE /api/v1/users/{id}", a.deleteUser)
+	adm("POST /api/v1/users/{id}/invite", a.renewInvite)
+	adm("PUT /api/v1/users/{id}/projects/{project}", a.setProjectRole)
+	rd("GET /api/v1/tokens", a.listTokens)
+	rd("POST /api/v1/tokens", a.createToken)
+	rd("DELETE /api/v1/tokens/{id}", a.deleteToken)
 	adm("DELETE /api/v1/settings/log-history", a.clearLogHistory)
 	adm("DELETE /api/v1/settings/metrics", a.clearMetrics)
 	rd("GET /api/v1/metrics/overview", a.metricsOverview)

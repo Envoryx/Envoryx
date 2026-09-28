@@ -313,6 +313,10 @@ func (m *Manager) CreateBranchEnvironment(ctx context.Context, id, branch string
 		return View{}, err
 	}
 	m.touch(v.Project.ID)
+	// Whoever has a role in the parent has the same role in its environments.
+	if err := m.store.Roles.Copy(ctx, id, v.Project.ID); err != nil {
+		m.log.Warn("copy the parent's project roles", "project", v.Project.Slug, "err", err)
+	}
 	m.notify(ctx, notify.Event{Kind: "branch.changed", Level: notify.Info, Project: v.Project.Name, Title: fmt.Sprintf("Branch environment %s created", v.Project.Name), Message: fmt.Sprintf("%s runs the branch %s of %s.", v.Project.Slug, branch, p.Name)})
 	// The copy carries the parent's state; the branch's own dependencies and migrations
 	// come with the first deploy.

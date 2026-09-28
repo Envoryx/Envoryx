@@ -447,7 +447,7 @@ func TestTokenScopesOnMCP(t *testing.T) {
 		t.Fatalf("confined token on its project: %s", text(res))
 	}
 	// A copy is a new project, which a confined token may not make.
-	if res := call(confined, "duplicate_project", map[string]any{"project": "shop", "name": "Shop Test"}); !res.IsError || !strings.Contains(text(res), "limited to particular projects") {
+	if res := call(confined, "duplicate_project", map[string]any{"project": "shop", "name": "Shop Test"}); !res.IsError || !strings.Contains(text(res), "needs admin access to the whole instance") {
 		t.Fatalf("confined token duplicating: error=%v %q", res.IsError, text(res))
 	}
 	for _, ref := range []string{"blog", "Blog", blog.ID} {
@@ -455,7 +455,7 @@ func TestTokenScopesOnMCP(t *testing.T) {
 			t.Fatalf("confined token must not see %q: error=%v %q", ref, res.IsError, text(res))
 		}
 	}
-	if res := call(confined, "create_project", map[string]any{"name": "Nope", "phpVersion": "8.4"}); !res.IsError || !strings.Contains(text(res), "limited to particular projects") {
+	if res := call(confined, "create_project", map[string]any{"name": "Nope", "phpVersion": "8.4"}); !res.IsError || !strings.Contains(text(res), "needs admin access to the whole instance") {
 		t.Fatalf("confined token creating: error=%v %q", res.IsError, text(res))
 	}
 }

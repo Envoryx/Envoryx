@@ -191,9 +191,47 @@ func (s *Server) publicKeyAuth(conn ssh.ConnMetadata, key ssh.PublicKey) (*ssh.P
 			return &ssh.Permissions{Extensions: map[string]string{"envoryx-user": "ssh-key", "envoryx-token": comment}}, nil
 		}
 	}
+	// A user's own key acts with that user's roles, like the user's API tokens.
+	users, _ := s.d.Store.Users.List(ctx)
+	for _, u := range users {
+		if u.SSHKeys == "" || u.Disabled || !keyListed(u.SSHKeys, want) {
+			continue
+		}
+		p, err := s.d.Auth.PrincipalFor(ctx, u)
+		if err != nil {
+			return nil, errors.New("unknown key")
+		}
+		target, err := s.d.Projects.ResolveSSHUser(ctx, conn.User())
+		if err != nil {
+			s.fail(ip)
+			s.d.Log.Info("ssh unknown project", "user", conn.User(), "remote", ip, "err", err)
+			return nil, errors.New("unknown project")
+		}
+		if err := p.Require(auth.ScopeOperate, target.Project.ID); err != nil {
+			s.fail(ip)
+			s.d.Log.Info("ssh key not permitted", "user", conn.User(), "owner", u.Username, "remote", ip, "err", err)
+			return nil, errors.New("key not permitted for this project")
+		}
+		s.limiter.reset(ip)
+		return &ssh.Permissions{Extensions: map[string]string{"envoryx-user": u.Username, "envoryx-token": "ssh key"}}, nil
+	}
 	// Not a failed attempt in the brute-force sense: clients routinely offer every key in
 	// their agent before trying the password, and keys cannot be guessed.
 	return nil, errors.New("unknown key")
+}
+
+// keyListed reports whether an authorized_keys list holds the key.
+func keyListed(list string, want []byte) bool {
+	for _, line := range strings.Split(list, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		if pk, _, _, _, err := ssh.ParseAuthorizedKey([]byte(line)); err == nil && string(pk.Marshal()) == string(want) {
+			return true
+		}
+	}
+	return false
 }
 
 // fail counts an authentication failure and logs when the address gets locked out.

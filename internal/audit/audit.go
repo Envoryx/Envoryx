@@ -84,6 +84,11 @@ const (
 	ActionGitPull            = "git.pull"
 	ActionGitCheckout        = "git.checkout"
 	ActionBranchDeployed     = "branch.deployed"
+
+	ActionUserInvited = "user.invited"
+	ActionUserJoined  = "user.joined"
+	ActionUserUpdated = "user.updated"
+	ActionUserDeleted = "user.deleted"
 )
 
 type ipKey struct{}

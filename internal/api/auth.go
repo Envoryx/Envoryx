@@ -110,7 +110,11 @@ func (a *API) logout(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) me(w http.ResponseWriter, r *http.Request) {
 	p, _ := auth.PrincipalFrom(r.Context())
-	out := map[string]any{"user": userDTO{ID: p.UserID, Username: p.Username, Role: p.Role}}
+	roles := map[string]string{}
+	for id, r := range p.ProjectRoles {
+		roles[id] = string(r)
+	}
+	out := map[string]any{"user": userDTO{ID: p.UserID, Username: p.Username, Role: p.Role}, "projectRoles": roles, "admin": p.Allows(auth.ScopeAdmin)}
 	if p.TokenName != "" {
 		projects := p.Projects
 		if projects == nil {

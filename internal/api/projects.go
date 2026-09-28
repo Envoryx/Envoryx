@@ -109,7 +109,9 @@ type projectDTO struct {
 	AppService string `json:"appService,omitempty"`
 	// ParentID names the project a branch environment was made from, BranchState its
 	// deploy state; Branches are a parent's settings for its environments (absent: none).
-	ParentID    string                `json:"parentId,omitempty"`
+	ParentID string `json:"parentId,omitempty"`
+	// Access is what the caller may do in the project: read, operate or admin.
+	Access      string                `json:"access,omitempty"`
 	BranchState *store.BranchState    `json:"branchState,omitempty"`
 	Branches    *store.BranchSettings `json:"branches,omitempty"`
 }
@@ -633,7 +635,11 @@ func (a *API) withHostnames(r *http.Request, dto projectDTO, p store.Project) pr
 }
 
 func (a *API) project(r *http.Request, v project.View) projectDTO {
-	return a.withHostnames(r, toProject(v), v.Project)
+	dto := a.withHostnames(r, toProject(v), v.Project)
+	// What the caller may do here, so the UI can leave out what would be refused.
+	p, _ := auth.PrincipalFrom(r.Context())
+	dto.Access = string(p.ScopeFor(v.Project.ID))
+	return dto
 }
 
 func (a *API) listProjects(w http.ResponseWriter, r *http.Request) {
@@ -645,7 +651,7 @@ func (a *API) listProjects(w http.ResponseWriter, r *http.Request) {
 	p, _ := auth.PrincipalFrom(r.Context())
 	out := make([]projectDTO, 0, len(views))
 	for _, v := range views {
-		if p.TokenName != "" && !p.CanAccessProject(v.Project.ID) {
+		if !p.CanAccessProject(v.Project.ID) {
 			continue
 		}
 		out = append(out, a.project(r, v))
@@ -659,7 +665,7 @@ func (a *API) listOperations(w http.ResponseWriter, r *http.Request) {
 	p, _ := auth.PrincipalFrom(r.Context())
 	out := []project.Operation{}
 	for _, op := range a.d.Projects.Operations() {
-		if p.TokenName != "" && (op.ProjectID == "" && p.Restricted() || op.ProjectID != "" && !p.CanAccessProject(op.ProjectID)) {
+		if op.ProjectID == "" && p.Confined() || op.ProjectID != "" && !p.CanAccessProject(op.ProjectID) {
 			continue
 		}
 		out = append(out, op)
@@ -705,8 +711,8 @@ func (a *API) createProject(w http.ResponseWriter, r *http.Request) {
 // duplicateProject copies a project: POST /projects/{id}/duplicate. The copy is a new
 // project, so a token confined to particular projects may not make one.
 func (a *API) duplicateProject(w http.ResponseWriter, r *http.Request) {
-	if p, _ := auth.PrincipalFrom(r.Context()); p.TokenName != "" && p.Restricted() {
-		writeError(w, r, fmt.Errorf("%w: this token is limited to particular projects and cannot create new ones", auth.ErrForbidden))
+	if p, _ := auth.PrincipalFrom(r.Context()); !p.Allows(auth.ScopeAdmin) {
+		writeError(w, r, fmt.Errorf("%w: creating projects needs admin access to the whole instance", auth.ErrForbidden))
 		return
 	}
 	var req duplicateProjectRequest

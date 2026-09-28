@@ -18,8 +18,8 @@ const maxSiteUpload = 20 << 30
 // "site" (ZIP or tar archive) and optionally "database" (.sql or .sql.gz). The answer
 // is the analysis the project wizard is filled from.
 func (a *API) uploadSite(w http.ResponseWriter, r *http.Request) {
-	if p, _ := auth.PrincipalFrom(r.Context()); p.TokenName != "" && p.Restricted() {
-		writeError(w, r, fmt.Errorf("%w: this token is limited to particular projects and cannot create new ones", auth.ErrForbidden))
+	if p, _ := auth.PrincipalFrom(r.Context()); !p.Allows(auth.ScopeAdmin) {
+		writeError(w, r, fmt.Errorf("%w: creating projects needs admin access to the whole instance", auth.ErrForbidden))
 		return
 	}
 	// A website takes longer to upload than the server's read timeout allows a request.
