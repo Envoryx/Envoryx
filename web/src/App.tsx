@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "./features/auth/AuthContext";
+import { InvitePage } from "@/features/auth/InvitePage";
 import { LoginPage } from "./features/auth/LoginPage";
 import { AppShell } from "./layout/AppShell";
 import { DashboardPage } from "./features/dashboard/DashboardPage";
@@ -27,6 +28,7 @@ export function App() {
     <Routes>
       <Route path="/login" element={<LoginPage mode="login" />} />
       <Route path="/setup" element={<LoginPage mode="setup" />} />
+      <Route path="/invite/:token" element={<InvitePage />} />
       <Route
         element={
           <RequireAuth>

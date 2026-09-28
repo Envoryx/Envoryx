@@ -29,6 +29,7 @@ import { IdeTab } from "./IdeTab";
 import { ServicesTab } from "./ServicesTab";
 import { BackupsTab } from "./BackupsTab";
 import { BranchesTab } from "./BranchesTab";
+import { isAdmin, useAuth } from "@/features/auth/AuthContext";
 import { LogsTab } from "./LogsTab";
 // xterm.js is only needed on this tab; keep it out of the main bundle.
 const TerminalTab = lazy(() => import("./TerminalTab").then((m) => ({ default: m.TerminalTab })));
@@ -55,6 +56,7 @@ export function ProjectDetailPage() {
   });
   const [deleting, setDeleting] = useState(false);
   const [duplicating, setDuplicating] = useState(false);
+  const { user } = useAuth();
   const [renaming, setRenaming] = useState(false);
   const { error, capture, setError } = useActionError();
 
@@ -64,6 +66,13 @@ export function ProjectDetailPage() {
     return <ErrorState title={notFound ? t("Project not found") : t("Could not load project")} message={notFound ? undefined : errorText(q.error, t)} action={<Link to="/projects" className="text-sm underline">{t("Back to projects")}</Link>} />;
   }
   const p = q.data;
+  // What the signed-in user may do here: viewers look, developers work, project admins
+  // also rename and delete; copying makes a new project, which needs an instance admin.
+  const access = p.access ?? "admin";
+  const projectAdmin = access === "admin";
+  const instanceAdmin = isAdmin(user);
+  const visibleTab = (name: (typeof tabs)[number]) =>
+    !((name === "Terminal" || name === "Actions") && access === "read") && !((name === "History" || name === "Advanced") && !instanceAdmin);
   const meta = stateMeta[p.status.state];
   const serves = p.serves ?? servesOf(p);
   const { url } = links(p);
@@ -108,10 +117,10 @@ export function ProjectDetailPage() {
         actions={
           <>
             <ProjectActionButtons project={p} size="md" onError={capture} />
-            <ShareButton project={p} />
-            <Button variant="ghost" onClick={() => setRenaming(true)} icon={<Pencil className="size-4" />} aria-label={t("Rename project")} title={t("Rename project - identifier, URL and containers follow")} />
-            <Button variant="ghost" onClick={() => setDuplicating(true)} icon={<Copy className="size-4" />} aria-label={t("Duplicate project")} title={t("Duplicate project - config, files and database")} />
-            <Button variant="ghost" onClick={() => setDeleting(true)} icon={<Trash2 className="size-4" />} aria-label={t("Delete project")} title={t("Delete project")} />
+            {projectAdmin && <ShareButton project={p} />}
+            {projectAdmin && <Button variant="ghost" onClick={() => setRenaming(true)} icon={<Pencil className="size-4" />} aria-label={t("Rename project")} title={t("Rename project - identifier, URL and containers follow")} />}
+            {instanceAdmin && <Button variant="ghost" onClick={() => setDuplicating(true)} icon={<Copy className="size-4" />} aria-label={t("Duplicate project")} title={t("Duplicate project - config, files and database")} />}
+            {projectAdmin && <Button variant="ghost" onClick={() => setDeleting(true)} icon={<Trash2 className="size-4" />} aria-label={t("Delete project")} title={t("Delete project")} />}
           </>
         }
       />
@@ -149,7 +158,7 @@ export function ProjectDetailPage() {
       )}
 
       <div className="mb-4 flex gap-1 border-b border-default" role="tablist">
-        {tabs.map((name) => (
+        {tabs.filter((name) => visibleTab(name)).map((name) => (
           <button
             key={name}
             role="tab"

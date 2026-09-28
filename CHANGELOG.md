@@ -80,6 +80,34 @@ release). `:main` follows the development branch.
   MCP tools `list_branch_environments`, `create_branch_environment` and
   `deploy_branch_environment`, and the notifications `branch.failed` (on by
   default) and `branch.changed` (off by default).
+- Users and roles. *Settings → Users* invites people: you pick a name and a
+  role, Envoryx hands you a link that works once within 48 hours (it sends no
+  mail), and the new user sets a password through it. A new link resets a
+  forgotten password. The roles match the token scopes: *Viewer* looks,
+  *Developer* works with projects (start, stop, terminal, actions, git,
+  backups), *Admin* does everything including users and settings, and *No
+  access* reaches only the projects a user is given. A role per project
+  replaces the global one there, so someone can be a viewer everywhere and a
+  developer in one shop. A project a user has no access to doesn't show up
+  anywhere (lists, dashboard, MCP, SSH); branch environments take over their
+  parent's project roles. Users can be disabled, and the last admin can't be
+  demoted, disabled or deleted.
+- Single sign-on with OpenID Connect (Authentik, Keycloak, Authelia, Google,
+  Dex …): authorization code with PKCE, a *Sign in with …* button on the login
+  page, and optionally the role set from the provider's groups at every
+  sign-in. Users can be created at their first sign-in, or only invited ones
+  get in, and an existing account is never taken over by its name.
+- Every user has their own SSH keys (*My SSH keys*), which act with that
+  user's roles, and manages their own API tokens.
+
+### Changed
+- An API token never does more than the user it belongs to, whatever its
+  scope; a scope above the owner's role is refused when the token is created.
+  Admins see everyone's tokens with their owner, everyone else only their own.
+  Existing accounts stay admins, so existing tokens keep working as before.
+- The public keys under *Settings → Access → SSH access* are now the *Admin
+  keys*: they still open every project. Keys that should follow a user's
+  roles go under that user's *My SSH keys*.
 
 ## [0.12.0] - 2026-09-27
 

@@ -123,6 +123,13 @@ accessor, with the reason in its comment. `runtime.Dialect.DataDirTarget` is the
 PostgreSQL 18 moved its cluster into a major-version subdirectory. Grep for that method
 before you hard-code such a path somewhere else.
 
+Roles and sign-in have tests of their own: `internal/auth` checks the effective scope of
+every role, project role and token (`TestRolesAndScopes`), `internal/api/users_test.go`
+walks an invitation through to a confined user and a disabled one over HTTP,
+`internal/sshd` lets a user's own key in only where their role allows, and
+`internal/oidc/oidc_test.go` runs the whole sign-in against an in-process provider that
+signs real ID tokens (PKCE, nonce, groups, linking, username fallbacks).
+
 Frontend tests (Vitest + Testing Library) cover the login/setup flow, the project list
 with actions, the complete wizard including preview and validation errors for the PHP,
 Node.js, Python and static stacks, and the detail tabs per runtime shape.
@@ -288,6 +295,45 @@ enabled and create one project per template: the Web API with PostgreSQL, MariaD
   application as the container's main process, with no compiler server left behind.
 
 Re-run it when you change `dotnetServeScript`, the templates, the test script or the image.
+
+### Single sign-on smoke
+
+Dex with its mock connector is a real OpenID Connect provider that signs you in without a
+login form, as the user `kilgore` in the group `authors`, so the whole redirect round trip
+runs with `curl`. Put this into `dex/config.yaml`:
+
+```yaml
+issuer: http://127.0.0.1:5556/dex
+storage: { type: memory }
+web: { http: 0.0.0.0:5556 }
+oauth2: { skipApprovalScreen: true }
+connectors: [{ type: mockCallback, id: mock, name: Example }]
+staticClients:
+- id: envoryx
+  secret: dex-secret
+  name: Envoryx
+  redirectURIs: [http://127.0.0.1:18787/api/v1/auth/oidc/callback]
+```
+
+Start it with
+
+```sh
+docker run -d --network host -v "$PWD/dex:/etc/dex:ro" ghcr.io/dexidp/dex dex serve /etc/dex/config.yaml
+```
+
+start a scratch instance on `127.0.0.1:18787`, and set single sign-on to that issuer, client
+and secret with `authors` as a developer group and users created at their first sign-in.
+Then
+
+```sh
+curl -sL -c jar -b jar -o /dev/null -w '%{url_effective}\n' \
+  'http://127.0.0.1:18787/api/v1/auth/oidc/start?return=/projects'
+curl -s -b jar -H 'X-Requested-With: Envoryx' http://127.0.0.1:18787/api/v1/auth/me
+```
+
+should end on `/projects` and show `kilgore` as a developer. Dex sends no
+`preferred_username`, so this also covers the fallback to the e-mail address. Re-run it
+when you change `internal/oidc` or the callback.
 
 ## Conventions
 

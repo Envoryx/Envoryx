@@ -36,7 +36,7 @@ export function renderApp(ui: ReactNode, { route = "/", state }: { route?: strin
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false, refetchInterval: false }, mutations: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
-      <MemoryRouter initialEntries={[{ pathname: route, state }]}>
+      <MemoryRouter initialEntries={[{ pathname: route.split("?")[0] ?? route, search: route.includes("?") ? route.slice(route.indexOf("?")) : "", state }]}>
         <AuthProvider>{ui}</AuthProvider>
       </MemoryRouter>
     </QueryClientProvider>,

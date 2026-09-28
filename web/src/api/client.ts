@@ -41,6 +41,10 @@ import type {
   LogFilter,
   LogHistoryInfo,
   HealthCheck,
+  InviteResult,
+  OIDCSettings,
+  Role,
+  UserAdmin,
   BranchEnvironments,
   BranchSettings,
   RemoteBranch,
@@ -262,6 +266,26 @@ export const api = {
     me: (silent401 = false) => request<{ user: User }>("/auth/me", { silent401 }),
     changePassword: (currentPassword: string, newPassword: string) =>
       request<void>("/auth/password", { method: "POST", body: { currentPassword, newPassword } }),
+    sshKeys: () => request<{ keys: string }>("/auth/ssh-keys"),
+    setSshKeys: (keys: string) => request<{ keys: string }>("/auth/ssh-keys", { method: "PUT", body: { keys } }),
+    oidcStatus: () => request<{ enabled: boolean; name?: string }>("/auth/oidc", { silent401: true }),
+    invitation: (token: string) => request<{ username: string; expiresAt: string; reset: boolean }>(`/invites/${encodeURIComponent(token)}`, { silent401: true }),
+    acceptInvitation: (token: string, password: string) => request<{ user: User }>(`/invites/${encodeURIComponent(token)}`, { method: "POST", body: { password }, silent401: true }),
+  },
+
+  users: {
+    list: () => request<{ users: UserAdmin[] }>("/users"),
+    invite: (body: { username: string; role: Role; projectRoles?: Record<string, Role> }) => request<InviteResult>("/users", { method: "POST", body }),
+    update: (id: string, body: { role?: Role; disabled?: boolean }) => request<{ user: UserAdmin }>(`/users/${encodeURIComponent(id)}`, { method: "PATCH", body }),
+    remove: (id: string) => request<void>(`/users/${encodeURIComponent(id)}`, { method: "DELETE" }),
+    renewInvite: (id: string) => request<InviteResult>(`/users/${encodeURIComponent(id)}/invite`, { method: "POST" }),
+    setProjectRole: (id: string, projectId: string, role: Role | "") => request<{ user: UserAdmin }>(`/users/${encodeURIComponent(id)}/projects/${encodeURIComponent(projectId)}`, { method: "PUT", body: { role } }),
+  },
+
+  oidc: {
+    get: () => request<{ oidc: OIDCSettings }>("/settings/oidc"),
+    set: (body: OIDCSettings) => request<{ oidc: OIDCSettings }>("/settings/oidc", { method: "PUT", body }),
+    test: (body: OIDCSettings) => request<{ ok: boolean; error?: string }>("/settings/oidc/test", { method: "POST", body }),
   },
 
   dashboard: () => request<Dashboard>("/dashboard"),
