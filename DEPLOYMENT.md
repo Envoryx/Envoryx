@@ -1298,6 +1298,94 @@ releases only) with `dotnet_versions.json`. You change a project's Node, Python,
 Go, Ruby, Java or .NET version on
 the Runtime tab, like the PHP version.
 
+## Custom runtime images
+
+A runtime (PHP, Node.js, Python, Go, Ruby, Java, .NET) can run an image of your own
+instead of the Envoryx image, for a system package, a PHP extension or a tool the Envoryx
+image doesn't have. Open the project's **Runtime** tab; the *Runtime images* card has one
+row per runtime with three choices:
+
+- **Envoryx image** - the catalogue image of the selected version (the default).
+- **Image from a registry** - any reference, like `ghcr.io/acme/php:8.4`. Envoryx pulls it
+  when you save (so a moved tag is picked up), and a restart pulls it again like the
+  Envoryx images.
+- **Dockerfile in the project** - a path relative to the project directory, like
+  `.envoryx/php.Dockerfile`. Envoryx builds it and tags the result
+  `envoryx-build/<runtime>:<hash>`.
+
+Workers and cron jobs run in their runtime's image, so they follow. Databases, services
+(Redis, Mailpit, …) and the web server always keep the vetted images. Git operations and
+templates keep using the Envoryx image, too: they need its tools, and a Dockerfile from the
+repository doesn't exist before the clone.
+
+**The Dockerfile's directory is the build context**: everything in it is sent to Docker,
+so give the Dockerfile a directory of its own (`.envoryx/` is a good place) rather than the
+project root. A context with more than 5000 files or 512 MB is refused; symbolic links in
+it are left out, and `.dockerignore` is not read. The hash behind the tag covers the
+Dockerfile and every file in its directory, so when one of them changes the next start
+(or restart) builds a new image, and an unchanged context is never built twice. Projects
+and branch environments with the same context share the image. **Rebuild without cache**
+builds again with fresh base images and without Docker's build cache (for a newer Envoryx
+image, or an `apt-get` that should fetch newer packages). The build uses Docker's classic
+builder, so BuildKit-only syntax (`RUN --mount=…`, heredocs) isn't available.
+
+Start from an Envoryx image to keep every feature:
+
+```dockerfile
+# .envoryx/php.Dockerfile
+FROM ghcr.io/envoryx/envoryx-php:8.4
+RUN apt-get update && apt-get install -y --no-install-recommends ghostscript \
+    && rm -rf /var/lib/apt/lists/*
+COPY conf/ /usr/local/etc/php/conf.d/
+```
+
+The end of the last build's output is shown under the row. A build that fails when you
+save or rebuild leaves the running containers alone and keeps the setting; a start or
+restart that can't build fails with Docker's message. Either way you fix the Dockerfile and
+try again.
+
+**The check.** Every image is checked when it's set and after every build: Envoryx runs
+it once with `sh -c` and looks for what it relies on - a shell, `git`, `socat` (waiting for
+the database, SSH port forwarding), `ssh`, the runtime itself (`php` and `php-fpm`, `node`
+and `npm`, `python3`, `go`, `ruby` and `bundle`, `java`, `dotnet`) and the runtime's tools
+(Composer and Xdebug; corepack; pip and uv; air, Delve and gotestsum; rdbg; Maven and
+Gradle; netcoredbg and dotnet-ef). An `ENTRYPOINT` other than tini or the official images'
+entrypoints is named, as it runs before every command Envoryx starts and has to end with
+`exec "$@"`. The findings show as warnings with what doesn't work without them, for
+example *socat is missing: no waiting for the database at start and SSH port forwarding*.
+Envoryx uses the image anyway. Images built from an Envoryx image carry its
+`envoryx.runtime` label; a PHP image without it is told that the extension switches have
+no effect.
+
+**Private registries.** Logins go under **Settings → Tools → Private registries**: the
+registry host (`ghcr.io`, `registry.example.com:5000`, `docker.io` for Docker Hub),
+a username and a password or access token (for GHCR a token with `read:packages`).
+Envoryx pulls with them and passes them to builds for their `FROM` images. The password is
+never shown again; saving without one keeps the stored password. Setting an image that
+can't be pulled for lack of a login points you here.
+
+In `envoryx.yml` each runtime takes `image:` or `dockerfile:` (not both):
+
+```yaml
+php:
+  version: "8.4"
+  dockerfile: .envoryx/php.Dockerfile
+node:
+  version: "24"
+  image: ghcr.io/acme/node-tools:24
+```
+
+Setting or removing a custom image needs the **admin** role (like changing a runtime);
+developers can rebuild. Built images that no container uses any more show up under
+*Docker → unused images* with the catalogue images and go with *Remove unused images*;
+images from registries you named are never removed by Envoryx.
+
+The API: `PUT /projects/{id}/services/{kind}/image` with `{"image": "…"}` or
+`{"dockerfile": "…"}`, `DELETE …/image` (back to the Envoryx image), `POST …/image/build`
+(rebuild without cache), and `GET`/`PUT /settings/registries` (admin; passwords are
+write-only). The project's services carry `customImage` with the setting, the warnings
+and the last build's output.
+
 ## Git deploy key
 
 For SSH repositories Envoryx generates an Ed25519 key pair on first use under
@@ -2296,7 +2384,8 @@ branches:                        # see "Branch environments"
 `port`, `script` …; `server`, `preset`, `app`, `debug` …; `server`, `mode`,
 `package`, `port`, `debug`, `debugPort`; `server`, `mode`, `preset`, `port`,
 `debug`, `debugPort`; the same plus `jar`; `server`, `mode`, `preset`,
-`project`, `dll`, `port`). A setting left out
+`project`, `dll`, `port`). Every runtime also takes `image:` or `dockerfile:` (see
+*Custom runtime images*). A setting left out
 means Envoryx's default, so the file is the whole desired state: `web:` missing
 means Caddy, `extensions:` missing the default set. Unknown keys are errors -
 a typo never silently drops a service. The export pins every version, which is

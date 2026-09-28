@@ -10,6 +10,23 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Added
+- Custom runtime images. A runtime (PHP, Node.js, Python, Go, Ruby, Java,
+  .NET) can run an image from a registry or one Envoryx builds from a
+  Dockerfile in the project (*Runtime → Runtime images*). The Dockerfile's
+  directory is the build context; when a file there changes, the next start
+  builds a new image, and *Rebuild without cache* fetches fresh base images.
+  Workers and cron jobs follow their runtime; databases, services and web
+  servers keep the vetted images. Every image is checked when it's set or
+  built, and what it lacks (a shell, git, socat, the runtime's tools, Xdebug
+  …) is shown as a warning, but the image is used anyway. `envoryx.yml`
+  takes `image:` or `dockerfile:` per runtime.
+- Private registry logins under *Settings → Tools → Private registries*,
+  used for pulls and for the `FROM` images of builds. Passwords are
+  write-only.
+- Built images (`envoryx-build/…`) are listed and removed with the other
+  unused images.
+
 ## [0.13.0] - 2026-09-28
 
 ### Added
