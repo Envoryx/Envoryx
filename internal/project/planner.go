@@ -455,6 +455,16 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 			external = true
 			continue
 		}
+		if svc.Kind.IsAddon() {
+			c, volumes, err := p.addonContainer(proj, svc, plan.NetworkName, labels)
+			if err != nil {
+				return Plan{}, err
+			}
+			plan.Volumes = append(plan.Volumes, volumes...)
+			plan.Containers = append(plan.Containers, c)
+			images[svc.Image] = true
+			continue
+		}
 		if svc.Kind.IsDatabase() {
 			c, volume, err := p.databaseContainer(proj, svc, plan.NetworkName, labels)
 			if err != nil {
@@ -1200,6 +1210,7 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 			plan.Containers[i].Spec.ExtraHosts = append(plan.Containers[i].Spec.ExtraHosts, hostGatewayEntry)
 		}
 	}
+	p.labelAddonDefinitions(proj, plan.Containers)
 	// Fingerprint the structural part of every spec so ensurePlan can recreate containers
 	// whose command, mounts or ports changed (env is handled explicitly by callers).
 	for i := range plan.Containers {
@@ -1448,6 +1459,9 @@ func (p *Planner) envStrings(proj store.Project) ([]string, error) {
 			set(k, env[k])
 		}
 	}
+	if err := p.addonEnv(proj, set); err != nil {
+		return nil, err
+	}
 	for _, e := range proj.Env {
 		set(e.Key, e.Value)
 	}
@@ -1471,6 +1485,9 @@ func specFingerprint(spec docker.ContainerSpec) string {
 	}
 	if spec.GPUs {
 		fields["gpu"] = true
+	}
+	if d := spec.Labels[labelAddonDefinition]; d != "" {
+		fields["addon"] = d
 	}
 	if len(spec.ExtraHosts) > 0 {
 		fields["hosts"] = spec.ExtraHosts

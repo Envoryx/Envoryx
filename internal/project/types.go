@@ -298,7 +298,9 @@ type UpdateRequest struct {
 	Ollama      *ExtraUpdate
 	OpenSearch  *ExtraUpdate
 	Storage     *StorageUpdate
-	Env         *[]EnvVarRequest
+	// Addons adds, changes or removes (Enabled false) installed addons by name.
+	Addons map[string]AddonUpdate
+	Env    *[]EnvVarRequest
 	// IDEGateway toggles JetBrains Gateway support (port forwarding + shared IDE cache).
 	IDEGateway *bool
 }

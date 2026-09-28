@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/envoryx/envoryx/internal/addon"
 	"github.com/envoryx/envoryx/internal/audit"
 	"github.com/envoryx/envoryx/internal/docker"
 	"github.com/envoryx/envoryx/internal/logs"
@@ -87,6 +88,9 @@ func IsLogService(kind string) bool {
 	}
 	if name := store.ServiceKind(kind).DatabaseName(); name != "" {
 		return ValidateDatabaseServiceName(name) == nil
+	}
+	if name := store.ServiceKind(kind).AddonName(); name != "" {
+		return addon.ValidName(name) == nil
 	}
 	switch store.ServiceKind(kind) {
 	case store.ServicePHP, store.ServiceWeb, store.ServiceDatabase, store.ServicePython, store.ServiceGo, store.ServiceRuby, store.ServiceJava, store.ServiceDotnet, store.ServiceNode, store.ServiceRedis, store.ServiceMemcached, store.ServiceMailpit, store.ServiceRabbitMQ, store.ServiceMeilisearch, store.ServiceTypesense, store.ServiceOpenSearch, store.ServiceOpenSearchDashboards, store.ServiceOllama, store.ServiceStorage:

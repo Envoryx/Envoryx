@@ -415,6 +415,8 @@ func (m *Manager) reassignHostPorts(ctx context.Context, proj *store.Project) er
 				}
 				return swap(&c.DebugHostPort)
 			})
+		case svc.Kind.IsAddon():
+			err = editConfig(svc, func(c *AddonConfig) error { return swap(&c.HostPort) })
 		case svc.Kind == store.ServiceStorage:
 			err = editConfig(svc, func(c *runtime.StorageConfig) error {
 				if err := swap(&c.HostPort); err != nil {

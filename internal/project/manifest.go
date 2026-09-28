@@ -228,6 +228,14 @@ func exportState(p store.Project, domains []store.Domain, jobs []store.CronJob) 
 			Version: svc.Version, Server: cfg.Server, Mode: cfg.Mode, Preset: cfg.Preset, Project: cfg.Project, DLL: cfg.DLL, Port: cfg.Port,
 		}
 	}
+	for _, svc := range p.Addons() {
+		var cfg AddonConfig
+		_ = json.Unmarshal(svc.Config, &cfg)
+		if mf.Addons == nil {
+			mf.Addons = map[string]manifest.Addon{}
+		}
+		mf.Addons[svc.Kind.AddonName()] = manifest.Addon{Version: svc.Version, ExposePort: cfg.HostPort > 0 && cfg.Definition.PublishPort}
+	}
 	for name, c := range mf.CustomImages() {
 		if svc := p.Service(store.ServiceKind(name)); svc != nil {
 			c.Image, c.Dockerfile = svc.Custom.Image, svc.Custom.Dockerfile
@@ -808,6 +816,48 @@ func (m *Manager) planManifest(ctx context.Context, id string, mf manifest.Manif
 				ops.images = map[store.ServiceKind]CustomImageRequest{}
 			}
 			ops.images[kind] = CustomImageRequest{Image: w.Custom.Image, Dockerfile: w.Custom.Dockerfile}
+		}
+	}
+
+	// Addons: the file names installed addons; one it drops is removed with its data.
+	for _, name := range sortedKeys(mf.Addons) {
+		d, _, err := m.addons.Get(name)
+		if err != nil {
+			return ManifestPlan{}, manifestOps{}, fmt.Errorf("%w: addons: %s is not installed on this Envoryx (Settings, Addons)", validate.ErrInvalid, name)
+		}
+		w := mf.Addons[name]
+		var h *manifest.Addon
+		if cur, ok := have.Addons[name]; ok {
+			h = &cur
+			if w.Version == "" {
+				w.Version = cur.Version
+			}
+		}
+		if w.Version == "" {
+			v, _ := d.Resolve("")
+			w.Version = v.Version
+		}
+		if !d.PublishPort {
+			w.ExposePort = false
+		}
+		if c, ok := sectionChange("addons."+name, h, &w); ok {
+			add(c)
+			if ops.update.Addons == nil {
+				ops.update.Addons = map[string]AddonUpdate{}
+			}
+			ops.update.Addons[name] = AddonUpdate{Enabled: true, Version: w.Version, ExposePort: w.ExposePort}
+		}
+	}
+	for _, name := range sortedKeys(have.Addons) {
+		if _, ok := mf.Addons[name]; ok {
+			continue
+		}
+		h := have.Addons[name]
+		if c, ok := sectionChange[manifest.Addon]("addons."+name, &h, nil); ok && removal(c) {
+			if ops.update.Addons == nil {
+				ops.update.Addons = map[string]AddonUpdate{}
+			}
+			ops.update.Addons[name] = AddonUpdate{Enabled: false, RemoveData: true}
 		}
 	}
 

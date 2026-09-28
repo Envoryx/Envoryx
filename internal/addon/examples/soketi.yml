@@ -1,0 +1,29 @@
+# Soketi, a Pusher-compatible WebSocket server (Laravel Echo, broadcasting). Browsers
+# connect through <project>-soketi.<domain>.
+name: soketi
+title: Soketi
+description: Pusher-compatible WebSocket server for broadcasting (Laravel Echo).
+homepage: https://docs.soketi.app
+versions:
+  - version: "1.6"
+    image: quay.io/soketi/soketi:1.6-16-debian
+    default: true
+port: 6001
+webUI: true
+env:
+  SOKETI_DEFAULT_APP_ID: app
+  SOKETI_DEFAULT_APP_KEY: "{{secret.key}}"
+  SOKETI_DEFAULT_APP_SECRET: "{{secret.secret}}"
+secrets: [key, secret]
+inject:
+  PUSHER_APP_ID: app
+  PUSHER_APP_KEY: "{{secret.key}}"
+  PUSHER_APP_SECRET: "{{secret.secret}}"
+  PUSHER_HOST: "{{host}}"
+  PUSHER_PORT: "{{port}}"
+  PUSHER_SCHEME: http
+credentials:
+  - label: App key
+    value: "{{secret.key}}"
+  - label: Browser URL
+    value: "{{url}}"

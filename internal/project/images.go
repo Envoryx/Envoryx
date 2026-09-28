@@ -118,12 +118,21 @@ func (m *Manager) ProtectRollbackTargets(ctx context.Context) {
 	}
 }
 
-// catalogueRepos returns the image repositories Envoryx itself pulls (without tags).
+// catalogueRepos returns the image repositories Envoryx itself pulls (without tags): the
+// catalogue's, its helpers' and those of the installed addons.
 func (m *Manager) catalogueRepos() map[string]bool {
-	repos := map[string]bool{imageRepo(DBToolImage): true}
+	repos := map[string]bool{imageRepo(DBToolImage): true, imageRepo(addonVolumeTool): true}
 	for _, r := range m.catalog.All() {
 		for _, v := range r.Versions {
 			repos[imageRepo(v.Image)] = true
+		}
+	}
+	// The images of installed addons are pulled by Envoryx, too.
+	if list, err := m.addons.List(); err == nil {
+		for _, a := range list {
+			for _, v := range a.Versions {
+				repos[imageRepo(v.Image)] = true
+			}
 		}
 	}
 	return repos

@@ -61,6 +61,8 @@ type Manifest struct {
 	OpenSearch  *Service            `yaml:"opensearch,omitempty"`
 	Ollama      *Service            `yaml:"ollama,omitempty"`
 	Storage     *Storage            `yaml:"storage,omitempty"`
+	// Addons are installed addons by name.
+	Addons map[string]Addon `yaml:"addons,omitempty"`
 
 	// Domains are extra host names next to the derived <slug>.<base domain>.
 	Domains []string `yaml:"domains,omitempty"`
@@ -345,6 +347,48 @@ type Service struct {
 	External *External `yaml:"external,omitempty"`
 }
 
+// addonNameRe mirrors the addon package's rule (the manifest does not import it).
+var addonNameRe = regexp.MustCompile(`^[a-z][a-z0-9-]{0,28}[a-z0-9]$`)
+
+func validAddonName(name string) error {
+	if !addonNameRe.MatchString(name) || strings.Contains(name, "--") {
+		return fmt.Errorf("%q is not an addon name", name)
+	}
+	return nil
+}
+
+// Addon is an installed addon of the project. In the file it is either "true" or a
+// mapping.
+type Addon struct {
+	Version    string `yaml:"version,omitempty"`
+	ExposePort bool   `yaml:"exposePort,omitempty"`
+}
+
+// UnmarshalYAML accepts "name: true" for the default version.
+func (a *Addon) UnmarshalYAML(n *yaml.Node) error {
+	if on, ok, err := boolScalar(n); ok {
+		if err != nil {
+			return err
+		}
+		if !on {
+			return fmt.Errorf("line %d: leave the addon out instead of setting it to false", n.Line)
+		}
+		*a = Addon{}
+		return nil
+	}
+	type plain Addon
+	return decodeStrict(n, (*plain)(a))
+}
+
+// MarshalYAML writes an addon without settings as "true".
+func (a Addon) MarshalYAML() (any, error) {
+	if a == (Addon{}) {
+		return true, nil
+	}
+	type plain Addon
+	return plain(a), nil
+}
+
 // Storage is the S3-compatible object storage. In the file it is either "true" or a
 // mapping; PublicRead defaults to true.
 type Storage struct {
@@ -559,6 +603,11 @@ func (m Manifest) Validate() error {
 	if m.Name != "" {
 		if err := validate.ProjectName(m.Name); err != nil {
 			return bad("name: %v", unwrapInvalid(err))
+		}
+	}
+	for name := range m.Addons {
+		if err := validAddonName(name); err != nil {
+			return bad("addons: %v", err)
 		}
 	}
 	for name, c := range m.CustomImages() {

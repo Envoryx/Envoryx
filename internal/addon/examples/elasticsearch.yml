@@ -1,0 +1,30 @@
+# A single Elasticsearch node without security, for development only.
+name: elasticsearch
+title: Elasticsearch
+description: Search engine, one node without security (development only).
+homepage: https://www.elastic.co/elasticsearch
+versions:
+  - version: "9"
+    image: elasticsearch:9.5.3
+    default: true
+  - version: "8"
+    image: elasticsearch:8.19.22
+port: 9200
+publishPort: true
+env:
+  discovery.type: single-node
+  xpack.security.enabled: "false"
+  ES_JAVA_OPTS: -Xms512m -Xmx512m
+volumes:
+  - name: data
+    path: /usr/share/elasticsearch/data
+healthcheck:
+  test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:9200/_cluster/health || exit 1"]
+  interval: 10s
+  timeout: 5s
+  startPeriod: 60s
+  retries: 6
+inject:
+  ELASTICSEARCH_URL: "http://{{host}}:{{port}}"
+  ELASTICSEARCH_HOST: "{{host}}"
+  ELASTICSEARCH_PORT: "{{port}}"

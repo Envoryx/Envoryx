@@ -1,0 +1,17 @@
+# phpMyAdmin signed in to the project's MySQL or MariaDB database.
+name: phpmyadmin
+title: phpMyAdmin
+description: Web UI for MySQL and MariaDB, signed in to the project database.
+homepage: https://www.phpmyadmin.net
+versions:
+  - version: "5.2"
+    image: phpmyadmin:5.2
+    default: true
+port: 80
+webUI: true
+env:
+  PMA_HOST: "{{database.host}}"
+  PMA_PORT: "{{database.port}}"
+  PMA_USER: "{{database.user}}"
+  PMA_PASSWORD: "{{database.password}}"
+  UPLOAD_LIMIT: 512M

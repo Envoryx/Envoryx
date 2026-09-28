@@ -1,0 +1,29 @@
+# pgAdmin in desktop mode: no login, the web UI at <project>-pgadmin.<domain>. Add the
+# project database as a server with the host, user and password shown on the card.
+name: pgadmin
+title: pgAdmin
+description: Web UI for PostgreSQL databases.
+homepage: https://www.pgadmin.org
+versions:
+  - version: "9"
+    image: dpage/pgadmin4:9
+    default: true
+port: 80
+webUI: true
+env:
+  PGADMIN_DEFAULT_EMAIL: admin@example.com
+  PGADMIN_DEFAULT_PASSWORD: "{{secret.password}}"
+  PGADMIN_CONFIG_SERVER_MODE: "False"
+  PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+secrets: [password]
+volumes:
+  - name: data
+    path: /var/lib/pgadmin
+credentials:
+  - label: Database host
+    value: "{{database.host}}:{{database.port}}"
+  - label: Database user
+    value: "{{database.user}}"
+  - label: Database password
+    value: "{{database.password}}"
+    secret: true

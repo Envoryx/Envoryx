@@ -250,6 +250,16 @@ func (m *Manager) RouteTable(ctx context.Context, opts ProxyOptions) (proxy.Tabl
 		if _, cfg, err := storageConfig(p); err == nil {
 			t.Routes[StorageHostname(p.Slug, base)] = proxy.Target{ProjectID: p.ID, ProjectName: p.Name + " (object storage)", Slug: p.Slug, Running: storageRunning[p.ID], Dial: m.storageDial(paths.SelfContainerID, p, cfg)}
 		}
+		for _, svc := range p.Addons() {
+			cfg, err := addonConfig(svc)
+			if err != nil || !cfg.Definition.WebUI || !svc.Enabled {
+				continue
+			}
+			t.Routes[AddonHostname(p.Slug, cfg.Definition.Name, base)] = proxy.Target{
+				ProjectID: p.ID, ProjectName: p.Name + " (" + cfg.Definition.Title + ")", Slug: p.Slug,
+				Running: running[string(svc.Kind)][p.ID], Dial: m.dialForApp(paths.SelfContainerID, p, svc.Kind, cfg.HostPort, cfg.Definition.Port),
+			}
+		}
 	}
 	for _, d := range domains {
 		if p, ok := byProject[d.ProjectID]; ok {
