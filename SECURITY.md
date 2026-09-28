@@ -200,6 +200,17 @@ container on the server.
   build context of a project Dockerfile is read through an `os.Root` of the Dockerfile's
   directory and symbolic links are left out, so a repository can't send files from outside
   that directory (or the host) to the build.
+- Addons are a sandbox by construction: the file format has no field for privileged mode,
+  capabilities, host directories, the host network or devices, and it's read strictly
+  (`KnownFields`), so an unknown key is an error rather than ignored. An addon container
+  gets named volumes on its project's network, like the built-in services, and its
+  image runs whatever that image runs; only admins install or change addon files (under
+  `/config/addons`), developers can only add installed ones to their projects. *Install
+  from a URL* fetches any http(s) URL from the Envoryx server as the admin asks (20 s
+  timeout, 64 KB limit, HTTP 200 only) and installs it only if it validates. The secrets
+  an addon generates per project are stored like the other secrets (in the project's
+  service configuration in SQLite, not encrypted); the project's service list leaves them
+  out, and secret credentials reach only users who may operate the project.
 
 ## Backups
 

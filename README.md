@@ -149,6 +149,12 @@ The optional services:
 - S3-compatible object storage (RustFS): a bucket per project, a web console, `S3_*`/`AWS_*`
   injected, reachable from the browser for presigned URLs
 
+Anything else comes in as an addon: a YAML file (under *Settings → Addons*, pasted, from a
+URL or one of the shipped examples: pgAdmin, phpMyAdmin, Elasticsearch, Soketi, Keycloak)
+describes the container, its versions, variables, volumes, web UI and what it injects into
+the application, and every project can then add it on its Services tab. Addons get no host
+directories, host network or privileges.
+
 An optional database browser (an Adminer container shared by all projects) starts on first
 use, opens from the Database tab already logged in and is served under the Envoryx UI, so
 your session protects it.

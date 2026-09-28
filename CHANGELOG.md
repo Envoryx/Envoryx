@@ -26,6 +26,19 @@ release). `:main` follows the development branch.
   write-only.
 - Built images (`envoryx-build/…`) are listed and removed with the other
   unused images.
+- Addons: services described in a YAML file instead of Envoryx's code. An
+  addon is one container per project with selectable image versions,
+  environment (with secrets generated per project), named volumes, a port
+  with an optional web UI at `<slug>-<name>.<base domain>` and a host port, a
+  health check, the variables it injects into the application and the
+  credentials the UI shows. Admins install files under *Settings → Addons*
+  (write one, paste one, install from a URL, or start from the shipped
+  pgAdmin, phpMyAdmin, Elasticsearch, Soketi and Keycloak examples);
+  developers add installed addons on a project's *Services* tab. The format
+  has no way to ask for privileges, host paths, the host network or devices.
+  A new version of a file reaches the projects using it at their next start.
+  Addon volumes go into database backups (the container stops while they are
+  read) and come back on restore. `envoryx.yml` takes `addons:`.
 
 ## [0.13.0] - 2026-09-28
 
