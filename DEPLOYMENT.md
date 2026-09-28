@@ -1340,9 +1340,9 @@ COPY conf/ /usr/local/etc/php/conf.d/
 ```
 
 The end of the last build's output is shown under the row. A build that fails when you
-save or rebuild leaves the running containers alone and keeps the setting; a start or
-restart that can't build fails with Docker's message. Either way you fix the Dockerfile and
-try again.
+save, rebuild or restart leaves the running containers alone (a restart builds before it
+stops anything) and keeps the setting; a start that can't build fails with Docker's
+message. Either way you fix the Dockerfile and try again.
 
 **The check.** Every image is checked when it's set and after every build: Envoryx runs
 it once with `sh -c` and looks for what it relies on - a shell, `git`, `socat` (waiting for

@@ -578,7 +578,7 @@ func (m *Manager) SetCustomImage(ctx context.Context, id string, kind store.Serv
 		}
 	}
 	return m.runView(ctx, limitProvision, Operation{Action: "image", ProjectID: id}, func(ctx context.Context) (View, error) {
-		return m.customImageLocked(ctx, id, kind, func(svc *store.ProjectService) (bool, error) {
+		return m.customImageLocked(ctx, id, kind, func(ctx context.Context, svc *store.ProjectService) (bool, error) {
 			if svc.Custom.Image == req.Image && svc.Custom.Dockerfile == req.Dockerfile {
 				return false, nil
 			}
@@ -595,7 +595,7 @@ func (m *Manager) RebuildCustomImage(ctx context.Context, id string, kind store.
 		return View{}, ErrNotFound
 	}
 	return m.runView(ctx, limitProvision, Operation{Action: "image", ProjectID: id}, func(ctx context.Context) (View, error) {
-		return m.customImageLocked(ctx, id, kind, func(svc *store.ProjectService) (bool, error) {
+		return m.customImageLocked(ctx, id, kind, func(_ context.Context, svc *store.ProjectService) (bool, error) {
 			if svc.Custom.Dockerfile == "" {
 				return false, fmt.Errorf("%w: the %s service does not build a Dockerfile", validate.ErrInvalid, kind)
 			}
@@ -606,7 +606,7 @@ func (m *Manager) RebuildCustomImage(ctx context.Context, id string, kind store.
 
 // customImageLocked applies change to the service under the project lock, then makes the
 // image available (a fresh build if rebuild), checks it and restarts a running project.
-func (m *Manager) customImageLocked(ctx context.Context, id string, kind store.ServiceKind, change func(*store.ProjectService) (bool, error), rebuild bool) (View, error) {
+func (m *Manager) customImageLocked(ctx context.Context, id string, kind store.ServiceKind, change func(context.Context, *store.ProjectService) (bool, error), rebuild bool) (View, error) {
 	unlock, err := m.lock(id)
 	if err != nil {
 		return View{}, err
@@ -621,7 +621,7 @@ func (m *Manager) customImageLocked(ctx context.Context, id string, kind store.S
 		return View{}, fmt.Errorf("%w: the project has no %s service", ErrNotFound, kind)
 	}
 	before := svc.Custom
-	changed, err := change(svc)
+	changed, err := change(ctx, svc)
 	if err != nil {
 		return View{}, err
 	}

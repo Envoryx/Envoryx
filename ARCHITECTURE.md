@@ -1367,8 +1367,9 @@ container spec fingerprint need no special case: a changed context is a changed 
 (provision, start): an `envoryx-build/` tag that doesn't exist locally is built from its
 spec (context streamed as a tar through the same `os.Root` walk, symlinks left out,
 classic builder, registry logins as `AuthConfigs`), under a per-tag lock so two projects
-don't build the same context at once; anything else is pulled if missing. Restart's
-refresh pulls skip build tags. Git and templates run in the runtime's catalogue image
+don't build the same context at once; anything else is pulled if missing. Restart builds
+missing build tags in its refresh step, before it stops the containers, instead of pulling
+them. Git and templates run in the runtime's catalogue image
 (`catalogImage`). A copy (duplicate, branch environment) resolves again after its files
 are in place, as another branch may have another Dockerfile.
 
