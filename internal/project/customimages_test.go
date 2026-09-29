@@ -316,3 +316,29 @@ func TestRegistryLogins(t *testing.T) {
 		}
 	}
 }
+
+// A start that failed with an earlier image stored its error; one that works with the
+// next image clears it, as a plain start would.
+func TestCustomImageClearsTheErrorOfAnEarlierStart(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	view, err := e.m.Create(ctx, phpRequest("Retry", true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := view.Project.ID
+	if err := e.store.Projects.UpdateState(ctx, id, store.DesiredRunning, store.LifecycleReady, "start php: the image broke"); err != nil {
+		t.Fatal(err)
+	}
+	ref := "ghcr.io/acme/php:8.4"
+	e.engine.OneShotHandler = func(spec docker.ContainerSpec) (docker.ExecResult, error) {
+		return docker.ExecResult{Stdout: "sh\ngit\nssh\nphp\nphp-fpm\nsocat\ncomposer\n"}, nil
+	}
+	view, err = e.m.SetCustomImage(ctx, id, store.ServicePHP, CustomImageRequest{Image: ref})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := e.store.Projects.Get(ctx, id); got.LastError != "" {
+		t.Fatalf("the old error stayed: %q", got.LastError)
+	}
+}
