@@ -148,6 +148,16 @@ func TestUsersRolesAndInvitations(t *testing.T) {
 	if r := a.do(http.MethodGet, "/api/v1/runtimes", nil, false); r.status != http.StatusOK {
 		t.Fatalf("runtimes for a confined user: %d", r.status)
 	}
+	// The resource comparison lists only Blog as well, not the other projects' names.
+	r = a.do(http.MethodGet, "/api/v1/metrics/overview?range=24h", nil, false)
+	if r.status != http.StatusOK {
+		t.Fatalf("metrics overview: %d %s", r.status, r.raw)
+	}
+	for _, u := range r.body["overview"].(map[string]any)["projects"].([]any) {
+		if u.(map[string]any)["id"] != blog {
+			t.Fatalf("metrics overview shows another project: %s", r.raw)
+		}
+	}
 
 	// Disabling signs Dana out and stops the token.
 	a.cookie = admin
