@@ -124,7 +124,7 @@ func (m *Manager) ResolveSSHUser(ctx context.Context, user string) (ExecTarget, 
 		}
 		t.Mounts = map[string]string{t.AppMount: t.ProjectDir, t.HomeMount: t.HomeDir}
 		if p.IDEGateway {
-			t.Mounts[homeMountTarget+"/.cache/JetBrains"] = filepath.Join(paths.ConfigDir, jetbrainsCacheDir)
+			t.Mounts[homeMountTarget+"/.cache/JetBrains/"+filepath.ToSlash(gatewayDistDir)] = filepath.Join(paths.ConfigDir, jetbrainsCacheDir, gatewayDistDir)
 		}
 		containers, err := m.engine.ListContainers(ctx, true, p.ID)
 		if err != nil {

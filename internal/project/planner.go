@@ -341,6 +341,11 @@ func adoConnectionString(kv ...string) string {
 // (~1.5 GB per IDE version) so it is downloaded once for all projects.
 const jetbrainsCacheDir = "jetbrains"
 
+// gatewayDistDir is the part of ~/.cache/JetBrains that holds the downloaded backends. Only
+// it is shared: the rest of that directory keeps per-project data (index caches with the
+// source, local history, join links with their tokens), which stays in the project home.
+var gatewayDistDir = filepath.Join("RemoteDev", "dist")
+
 // BackupsRoot is the directory that holds one sub-directory of backups per project.
 func (p Paths) BackupsRoot() string {
 	if p.BackupsDir != "" {
@@ -354,7 +359,7 @@ func (p *Planner) gatewayMounts(proj store.Project) []docker.MountSpec {
 	if !proj.IDEGateway {
 		return nil
 	}
-	return []docker.MountSpec{{Type: "bind", Source: filepath.Join(p.paths.ConfigHostDir, jetbrainsCacheDir), Target: homeMountTarget + "/.cache/JetBrains"}}
+	return []docker.MountSpec{{Type: "bind", Source: filepath.Join(p.paths.ConfigHostDir, jetbrainsCacheDir, gatewayDistDir), Target: homeMountTarget + "/.cache/JetBrains/" + filepath.ToSlash(gatewayDistDir)}}
 }
 
 // HomeMount is the bind mount of the project home for application containers.
@@ -420,7 +425,20 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 	cfgHost := p.configHostDir(proj.ID)
 	plan.Dirs = append(plan.Dirs, DirPlan{Path: p.HomeDir(proj), UID: p.paths.PUID, GID: p.paths.PGID}, DirPlan{Path: p.PackageCacheDir(), UID: p.paths.PUID, GID: p.paths.PGID})
 	if proj.IDEGateway {
-		plan.Dirs = append(plan.Dirs, DirPlan{Path: filepath.Join(p.paths.ConfigDir, jetbrainsCacheDir), UID: p.paths.PUID, GID: p.paths.PGID})
+		// Every level is planned, so each belongs to the project user: the directories are
+		// created here rather than by Docker (which would make the mount point root's), and
+		// only a planned directory gets its owner set.
+		for _, dir := range []string{
+			filepath.Join(p.paths.ConfigDir, jetbrainsCacheDir),
+			filepath.Join(p.paths.ConfigDir, jetbrainsCacheDir, "RemoteDev"),
+			filepath.Join(p.paths.ConfigDir, jetbrainsCacheDir, gatewayDistDir),
+			filepath.Join(p.HomeDir(proj), ".cache"),
+			filepath.Join(p.HomeDir(proj), ".cache", "JetBrains"),
+			filepath.Join(p.HomeDir(proj), ".cache", "JetBrains", "RemoteDev"),
+			filepath.Join(p.HomeDir(proj), ".cache", "JetBrains", gatewayDistDir),
+		} {
+			plan.Dirs = append(plan.Dirs, DirPlan{Path: dir, UID: p.paths.PUID, GID: p.paths.PGID})
+		}
 	}
 	env, err := p.envStrings(proj)
 	if err != nil {
