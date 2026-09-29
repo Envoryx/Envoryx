@@ -18,6 +18,12 @@ release). `:main` follows the development branch.
   with HTTP 500. Existing networks keep their range. If the range is used
   in your LAN or VPN, set another one; `off` keeps Docker's choice, and
   its running out now says what to do.
+- A container's environment variables now count when Envoryx decides
+  whether it is up to date. Workers stayed in development after a switch
+  to production mode (Ruby), and containers kept newer variables after an
+  instance restore; a restart now recreates them. **After this update the
+  dashboard reports every running container once** as running with an
+  older setup; restart each project when it suits you.
 
 ### Security
 - With JetBrains Gateway on, every project mounted the whole shared

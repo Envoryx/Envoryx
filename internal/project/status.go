@@ -152,8 +152,8 @@ func deriveStatus(p store.Project, containers []docker.Container, imageIDs map[s
 var transientServices = map[string]bool{"dbclient": true, "git": true, "template": true, "move": true, "gpucheck": true}
 
 // outdatedContainers names the services whose container was created from another spec
-// than the plan has now, typically after an Envoryx update changed a command or health
-// check. Such a container keeps running as it is; only a start or restart recreates it.
+// than the plan has now: after an Envoryx update changed a command or health check, or
+// after a change of the variables that only a new container picks up. Such a container keeps running as it is; only a start or restart recreates it.
 func outdatedContainers(planner *Planner, p store.Project, containers []docker.Container) []string {
 	plan, err := planner.Plan(p)
 	if err != nil {
@@ -252,7 +252,7 @@ func (m *Manager) Reconcile(ctx context.Context) ReconcileReport {
 		if planErr == nil && p.DesiredState == store.DesiredRunning && p.Lifecycle == store.LifecycleReady {
 			for _, kind := range outdatedContainers(planner, p, containers) {
 				report.Issues = append(report.Issues, ReconcileIssue{ProjectID: p.ID, ProjectName: p.Name, Severity: "warning",
-					Message: fmt.Sprintf("the %s container is from an older Envoryx; restart the project to update it", kind)})
+					Message: fmt.Sprintf("the %s container runs with an older setup; restart the project to update it", kind)})
 			}
 		}
 	}

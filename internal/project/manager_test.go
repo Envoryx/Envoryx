@@ -414,7 +414,7 @@ func TestReconcileReportsContainersFromAnOlderSpec(t *testing.T) {
 	outdated := func() []string {
 		var msgs []string
 		for _, i := range e.m.Reconcile(ctx).Issues {
-			if strings.Contains(i.Message, "older Envoryx") {
+			if strings.Contains(i.Message, "older setup") {
 				msgs = append(msgs, i.Message)
 			}
 		}
@@ -429,7 +429,7 @@ func TestReconcileReportsContainersFromAnOlderSpec(t *testing.T) {
 		t.Fatal("php container missing")
 	}
 	got := outdated()
-	if len(got) != 1 || got[0] != "the php container is from an older Envoryx; restart the project to update it" {
+	if len(got) != 1 || got[0] != "the php container runs with an older setup; restart the project to update it" {
 		t.Fatalf("outdated: %v", got)
 	}
 
