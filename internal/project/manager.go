@@ -1531,7 +1531,7 @@ const starterIndexHTML = `<!doctype html>
 <main>
   <p class="ok">● Running</p>
   <h1>{{project}}</h1>
-  <p>Your Envoryx project is served by the web server from its document root. Build your app into this directory, or enable a Python server or Node dev server in the Runtime tab.</p>
+  <p>Your Envoryx project is served by the web server from its document root. Build your app into this directory, or enable a Python server or Node dev server under Runtime.</p>
   <p>Replace <code>index.html</code> to get started.</p>
 </main>
 </body>

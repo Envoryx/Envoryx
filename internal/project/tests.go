@@ -312,7 +312,7 @@ func javaTestSuite(tool string) TestSuite {
 // <database>_test first: Spring Boot and Quarkus read the injected URLs in tests too, and
 // a test with ddl-auto create-drop would otherwise empty the development database.
 // Surefire and Gradle write one JUnit file per test class, so the old ones go before the
-// run and the new ones are joined into the single report the Tests tab reads.
+// run and the new ones are joined into the single report the Tests section reads.
 const javaTestScript = `tool=$1 report=$2 filter=$3
 for v in SPRING_DATASOURCE_URL QUARKUS_DATASOURCE_JDBC_URL JDBC_URL DATABASE_URL; do
   eval "u=\${$v:-}"
@@ -403,7 +403,7 @@ var dotnetTestProjectRe = regexp.MustCompile(`Microsoft\.NET\.Test\.Sdk|MSTest\.
 // filter and $4 the test project (both may be empty). Like javaTestScript it points the
 // primary database's connection string at <database>_test first, which integration tests
 // (WebApplicationFactory) read too. The trx logger writes one file per test project; they
-// are joined into the single report the Tests tab reads, without their XML declarations
+// are joined into the single report the Tests section reads, without their XML declarations
 // and byte order marks. Naming a logger turns off the default console output, so the
 // console logger is named too.
 const dotnetTestScript = `runner=$1 report=$2 filter=$3 target=$4

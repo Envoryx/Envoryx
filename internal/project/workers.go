@@ -29,7 +29,7 @@ type WorkerPreset struct {
 
 	// build returns argv for the validated argument.
 	build func(arg string) []string
-	// display is the command as the Workers tab shows it, when build wraps it in a script.
+	// display is the command as the Workers & cron section shows it, when build wraps it in a script.
 	display func(arg string) []string
 	// validateArg checks the argument; nil means no argument is accepted.
 	validateArg func(arg string) error
@@ -436,7 +436,7 @@ func WorkerCommand(w store.Worker) ([]string, error) {
 	return p.build(arg), nil
 }
 
-// WorkerDisplayCommand is WorkerCommand as the Workers tab shows it: the command a
+// WorkerDisplayCommand is WorkerCommand as the Workers & cron section shows it: the command a
 // preset wraps in a script, without the script.
 func WorkerDisplayCommand(w store.Worker) ([]string, error) {
 	cmd, err := WorkerCommand(w)

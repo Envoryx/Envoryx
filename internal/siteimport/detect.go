@@ -485,7 +485,7 @@ func (a *Analysis) detect(s site, comp *composerJSON) {
 		a.Framework = Framework{ID: "node", Name: "Node.js"}
 		a.Runtime = "node"
 		if !s.hasDir("node_modules") {
-			a.notice("info", "node_modules/ is not part of the archive: run “npm install” from the Actions tab after creation.")
+			a.notice("info", "node_modules/ is not part of the archive: run “npm install” from Actions after creation.")
 		}
 		return
 
@@ -504,7 +504,7 @@ func (a *Analysis) detect(s site, comp *composerJSON) {
 		return
 	}
 	if comp != nil && !s.hasDir("vendor") {
-		a.notice("info", "vendor/ is not part of the archive: run “composer install” from the Actions tab after creation.")
+		a.notice("info", "vendor/ is not part of the archive: run “composer install” from Actions after creation.")
 	}
 	// Extensions the application asks for itself (composer.json "ext-…").
 	if comp != nil {

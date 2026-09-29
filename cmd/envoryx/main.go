@@ -354,7 +354,7 @@ func serve() error {
 	background("branch scheduler", func(ctx context.Context) { manager.RunBranchScheduler(ctx, 30*time.Second, log) })
 	// Container output outlives the containers: followed as it comes, kept per day.
 	if logStore, err := logs.OpenStore(filepath.Join(cfg.ConfigDir, "logs")); err != nil {
-		log.Warn("log history unavailable; the Logs tab reads the containers only", "err", err)
+		log.Warn("log history unavailable; the Logs section reads the containers only", "err", err)
 	} else {
 		manager.SetLogStore(logStore)
 		background("log history", func(ctx context.Context) { manager.RunLogHistory(ctx, 5*time.Second, log) })

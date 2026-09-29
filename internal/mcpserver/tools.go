@@ -298,7 +298,7 @@ type createProjectIn struct {
 	Typesense          bool              `json:"typesense,omitempty" jsonschema:"Add Typesense (search engine, TYPESENSE_* injected)."`
 	OpenSearch         bool              `json:"opensearch,omitempty" jsonschema:"Add OpenSearch (Elasticsearch-compatible search engine without authentication, OPENSEARCH_* injected)."`
 	OpenSearchDash     bool              `json:"opensearchDashboards,omitempty" jsonschema:"Add OpenSearch Dashboards (web UI with Dev Tools console; implies opensearch)."`
-	Ollama             bool              `json:"ollama,omitempty" jsonschema:"Add Ollama (LLM server, OLLAMA_HOST/OLLAMA_BASE_URL/OLLAMA_URL injected). Models live in one store shared by all projects and are pulled from the project's Services tab."`
+	Ollama             bool              `json:"ollama,omitempty" jsonschema:"Add Ollama (LLM server, OLLAMA_HOST/OLLAMA_BASE_URL/OLLAMA_URL injected). Models live in one store shared by all projects and are pulled from the project's Services section."`
 	OllamaGPU          bool              `json:"ollamaGpu,omitempty" jsonschema:"Hand the host's GPUs to Ollama (implies ollama; needs the NVIDIA Container Toolkit on the host)."`
 	Storage            bool              `json:"storage,omitempty" jsonschema:"Add S3-compatible object storage with a bucket per project (S3_* and AWS_* variables injected)."`
 	NodeVersion        string            `json:"nodeVersion,omitempty" jsonschema:"Add a Node.js container with this major version (e.g. 24): the project's runtime (dev server) or a toolchain for asset builds."`

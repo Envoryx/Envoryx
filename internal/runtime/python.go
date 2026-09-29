@@ -33,7 +33,7 @@ type PythonConfig struct {
 	HostPort int `json:"hostPort,omitempty"`
 	// Debug publishes the debugpy port so an IDE can attach a debugger. Only the port is
 	// published; the application has to start debugpy (python -m debugpy --listen
-	// 0.0.0.0:<port> …) - see the IDE tab.
+	// 0.0.0.0:<port> …) - see the IDE section.
 	Debug bool `json:"debug,omitempty"`
 	// DebugPort is the debugpy port inside the container (default 5678).
 	DebugPort int `json:"debugPort,omitempty"`

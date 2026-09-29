@@ -73,7 +73,7 @@ func (p *dbToolProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if dial == "" {
-		http.Error(w, "The database browser is not running. Open a database from a project's Database tab to start it.", http.StatusServiceUnavailable)
+		http.Error(w, "The database browser is not running. Open a database from a project's Database section to start it.", http.StatusServiceUnavailable)
 		return
 	}
 	p.proxyFor(dial).ServeHTTP(w, r)
