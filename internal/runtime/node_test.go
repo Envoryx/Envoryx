@@ -130,7 +130,7 @@ func TestNodeProductionAndInspector(t *testing.T) {
 	if c.Script != "start" || c.BuildScript != "build" || !c.Production() {
 		t.Fatalf("next production defaults: %+v", c)
 	}
-	want := []string{"sh", "-c", `npm run build && NODE_ENV=production exec "$@"`, "envoryx-start", "npm", "run", "start", "--", "-H", "0.0.0.0", "-p", "3000"}
+	want := []string{"sh", "-c", `NODE_ENV=production npm run build && NODE_ENV=production exec "$@"`, "envoryx-start", "npm", "run", "start", "--", "-H", "0.0.0.0", "-p", "3000"}
 	if got := c.Command(); !reflect.DeepEqual(got, want) {
 		t.Fatalf("next production command:\n got %q\nwant %q", got, want)
 	}
@@ -142,13 +142,17 @@ func TestNodeProductionAndInspector(t *testing.T) {
 	if vite.Script != "preview" {
 		t.Fatalf("vite production script = %q, want preview", vite.Script)
 	}
-	if got := vite.Command(); got[2] != `yarn build && NODE_ENV=production exec "$@"` || got[4] != "yarn" || got[5] != "preview" || got[len(got)-1] != "--strictPort" {
+	if got := vite.Command(); got[2] != `NODE_ENV=production yarn build && NODE_ENV=production exec "$@"` || got[4] != "yarn" || got[5] != "preview" || got[len(got)-1] != "--strictPort" {
 		t.Fatalf("vite/yarn production command: %q", got)
 	}
 
-	nuxt := NodeConfig{DevServer: true, Mode: "production", Preset: "nuxt", Script: "preview"}
+	// Nuxt's starter has no start script; production defaults to its preview server.
+	nuxt := NodeConfig{DevServer: true, Mode: "production", Preset: "nuxt"}
 	if err := nuxt.Normalize(); err != nil {
 		t.Fatal(err)
+	}
+	if nuxt.Script != "preview" {
+		t.Fatalf("nuxt production script = %q, want preview", nuxt.Script)
 	}
 	// nuxt preview takes no host/port flags; Nitro reads NITRO_HOST/NITRO_PORT from Env().
 	if got := nuxt.Command(); !reflect.DeepEqual(got[4:], []string{"npm", "run", "preview"}) {

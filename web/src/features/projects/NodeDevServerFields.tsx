@@ -23,7 +23,7 @@ export const defaultDevServerForm: DevServerForm = { devServer: false, mode: "de
  */
 export function defaultScript(mode: string, preset: string): string {
   if (mode !== "production") return "dev";
-  return preset === "vite" ? "preview" : "start";
+  return preset === "vite" || preset === "nuxt" ? "preview" : "start";
 }
 
 /** Converts the form into the request fields (numbers parsed, defaults applied server-side). */
