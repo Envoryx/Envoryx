@@ -2624,5 +2624,14 @@
   "Boxed": "Centrado",
   "Pages use the whole window.": "Las páginas ocupan toda la ventana.",
   "Pages stay in a centred column, easier to read on wide screens.": "Las páginas quedan en una columna centrada, más fácil de leer en pantallas anchas.",
-  "Accent colour and page width are stored in this browser; the logo, buttons and highlights follow the accent.": "El color de acento y el ancho de página se guardan en este navegador; el logo, los botones y los resaltados siguen el color de acento."
+  "Accent colour and page width are stored in this browser; the logo, buttons and highlights follow the accent.": "El color de acento y el ancho de página se guardan en este navegador; el logo, los botones y los resaltados siguen el color de acento.",
+  "project should be running but is stopped": "El proyecto debería estar en marcha, pero está detenido",
+  "project should be running but is partial": "El proyecto debería estar en marcha, pero solo funciona una parte de los contenedores",
+  "project should be running but is missing": "El proyecto debería estar en marcha, pero faltan sus contenedores",
+  "project should be running but is error": "El proyecto debería estar en marcha, pero tiene un error",
+  "{{service}} is rolled back to the previous image but the container runs another one; restart to apply": "{{service}} ha vuelto a la imagen anterior, pero el contenedor ejecuta otra; reinicia para aplicarlo",
+  "{{service}} container uses image {{image}} but {{configured}} is configured; restart to apply": "El contenedor {{service}} usa la imagen {{image}}, pero está configurada {{configured}}; reinicia para aplicarlo",
+  "a newer {{service}} image was pulled; restart to apply": "Se descargó una imagen {{service}} más reciente; reinicia para aplicarla",
+  "container for a removed worker still exists": "Aún existe un contenedor de un worker eliminado",
+  "container for removed service \"{{service}}\" still exists": "Aún existe un contenedor del servicio eliminado «{{service}}»"
 }

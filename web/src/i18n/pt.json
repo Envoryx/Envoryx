@@ -2624,5 +2624,14 @@
   "Boxed": "Centralizada",
   "Pages use the whole window.": "As páginas ocupam a janela inteira.",
   "Pages stay in a centred column, easier to read on wide screens.": "As páginas ficam numa coluna centralizada, mais fácil de ler em telas largas.",
-  "Accent colour and page width are stored in this browser; the logo, buttons and highlights follow the accent.": "A cor de destaque e a largura da página ficam salvas neste navegador; o logo, os botões e os destaques seguem a cor de destaque."
+  "Accent colour and page width are stored in this browser; the logo, buttons and highlights follow the accent.": "A cor de destaque e a largura da página ficam salvas neste navegador; o logo, os botões e os destaques seguem a cor de destaque.",
+  "project should be running but is stopped": "O projeto deveria estar em execução, mas está parado",
+  "project should be running but is partial": "O projeto deveria estar em execução, mas só parte dos contêineres roda",
+  "project should be running but is missing": "O projeto deveria estar em execução, mas faltam seus contêineres",
+  "project should be running but is error": "O projeto deveria estar em execução, mas está com erro",
+  "{{service}} is rolled back to the previous image but the container runs another one; restart to apply": "{{service}} voltou à imagem anterior, mas o contêiner roda outra; reinicie para aplicar",
+  "{{service}} container uses image {{image}} but {{configured}} is configured; restart to apply": "O contêiner {{service}} usa a imagem {{image}}, mas {{configured}} está configurada; reinicie para aplicar",
+  "a newer {{service}} image was pulled; restart to apply": "Uma imagem {{service}} mais nova foi baixada; reinicie para aplicar",
+  "container for a removed worker still exists": "Ainda existe um contêiner de um worker removido",
+  "container for removed service \"{{service}}\" still exists": "Ainda existe um contêiner do serviço removido \"{{service}}\""
 }

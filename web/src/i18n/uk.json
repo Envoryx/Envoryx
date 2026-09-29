@@ -2672,5 +2672,14 @@
   "Boxed": "По центру",
   "Pages use the whole window.": "Сторінки займають усе вікно.",
   "Pages stay in a centred column, easier to read on wide screens.": "Сторінки лишаються в колонці по центру, їх легше читати на широких екранах.",
-  "Accent colour and page width are stored in this browser; the logo, buttons and highlights follow the accent.": "Акцентний колір і ширина сторінки зберігаються в цьому браузері; логотип, кнопки й виділення слідують за акцентним кольором."
+  "Accent colour and page width are stored in this browser; the logo, buttons and highlights follow the accent.": "Акцентний колір і ширина сторінки зберігаються в цьому браузері; логотип, кнопки й виділення слідують за акцентним кольором.",
+  "project should be running but is stopped": "Проєкт має працювати, але зупинений",
+  "project should be running but is partial": "Проєкт має працювати, але запущено лише частину контейнерів",
+  "project should be running but is missing": "Проєкт має працювати, але його контейнерів немає",
+  "project should be running but is error": "Проєкт має працювати, але в ньому помилка",
+  "{{service}} is rolled back to the previous image but the container runs another one; restart to apply": "{{service}} повернуто до попереднього образу, але контейнер працює з іншим; перезапустіть, щоб застосувати",
+  "{{service}} container uses image {{image}} but {{configured}} is configured; restart to apply": "Контейнер {{service}} використовує образ {{image}}, але налаштовано {{configured}}; перезапустіть, щоб застосувати",
+  "a newer {{service}} image was pulled; restart to apply": "Завантажено новіший образ {{service}}; перезапустіть, щоб застосувати",
+  "container for a removed worker still exists": "Контейнер видаленого воркера досі існує",
+  "container for removed service \"{{service}}\" still exists": "Контейнер видаленого сервісу «{{service}}» досі існує"
 }

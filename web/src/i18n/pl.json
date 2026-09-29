@@ -2672,5 +2672,14 @@
   "Boxed": "Wyśrodkowana",
   "Pages use the whole window.": "Strony zajmują całe okno.",
   "Pages stay in a centred column, easier to read on wide screens.": "Strony zostają w wyśrodkowanej kolumnie, łatwiejszej do czytania na szerokich ekranach.",
-  "Accent colour and page width are stored in this browser; the logo, buttons and highlights follow the accent.": "Kolor akcentu i szerokość strony są zapisywane w tej przeglądarce; logo, przyciski i wyróżnienia podążają za kolorem akcentu."
+  "Accent colour and page width are stored in this browser; the logo, buttons and highlights follow the accent.": "Kolor akcentu i szerokość strony są zapisywane w tej przeglądarce; logo, przyciski i wyróżnienia podążają za kolorem akcentu.",
+  "project should be running but is stopped": "Projekt powinien działać, ale jest zatrzymany",
+  "project should be running but is partial": "Projekt powinien działać, ale działa tylko część kontenerów",
+  "project should be running but is missing": "Projekt powinien działać, ale brakuje jego kontenerów",
+  "project should be running but is error": "Projekt powinien działać, ale ma błąd",
+  "{{service}} is rolled back to the previous image but the container runs another one; restart to apply": "{{service}} wrócił do poprzedniego obrazu, ale kontener działa na innym; uruchom ponownie, aby zastosować",
+  "{{service}} container uses image {{image}} but {{configured}} is configured; restart to apply": "Kontener {{service}} używa obrazu {{image}}, ale skonfigurowano {{configured}}; uruchom ponownie, aby zastosować",
+  "a newer {{service}} image was pulled; restart to apply": "Pobrano nowszy obraz {{service}}; uruchom ponownie, aby zastosować",
+  "container for a removed worker still exists": "Nadal istnieje kontener usuniętego workera",
+  "container for removed service \"{{service}}\" still exists": "Nadal istnieje kontener usuniętej usługi „{{service}}”"
 }

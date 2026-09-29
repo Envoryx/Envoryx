@@ -2624,5 +2624,14 @@
   "Boxed": "Begrenzt",
   "Pages use the whole window.": "Die Seiten nutzen das ganze Fenster.",
   "Pages stay in a centred column, easier to read on wide screens.": "Die Seiten bleiben in einer mittigen Spalte, auf breiten Bildschirmen leichter zu lesen.",
-  "Accent colour and page width are stored in this browser; the logo, buttons and highlights follow the accent.": "Akzentfarbe und Seitenbreite werden in diesem Browser gespeichert; Logo, Buttons und Hervorhebungen folgen der Akzentfarbe."
+  "Accent colour and page width are stored in this browser; the logo, buttons and highlights follow the accent.": "Akzentfarbe und Seitenbreite werden in diesem Browser gespeichert; Logo, Buttons und Hervorhebungen folgen der Akzentfarbe.",
+  "project should be running but is stopped": "Das Projekt sollte laufen, ist aber gestoppt",
+  "project should be running but is partial": "Das Projekt sollte laufen, aber nur ein Teil der Container läuft",
+  "project should be running but is missing": "Das Projekt sollte laufen, aber seine Container fehlen",
+  "project should be running but is error": "Das Projekt sollte laufen, hat aber einen Fehler",
+  "{{service}} is rolled back to the previous image but the container runs another one; restart to apply": "{{service}} ist auf das vorherige Image zurückgesetzt, der Container läuft aber noch mit einem anderen; zum Übernehmen neu starten",
+  "{{service}} container uses image {{image}} but {{configured}} is configured; restart to apply": "Der {{service}}-Container nutzt das Image {{image}}, eingestellt ist aber {{configured}}; zum Übernehmen neu starten",
+  "a newer {{service}} image was pulled; restart to apply": "Ein neueres {{service}}-Image wurde geladen; zum Übernehmen neu starten",
+  "container for a removed worker still exists": "Ein Container für einen entfernten Worker existiert noch",
+  "container for removed service \"{{service}}\" still exists": "Ein Container für den entfernten Dienst „{{service}}“ existiert noch"
 }
