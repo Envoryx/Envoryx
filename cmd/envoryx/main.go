@@ -480,7 +480,8 @@ func serve() error {
 			log.Info("project containers stopped", "took", time.Since(begin).Round(time.Millisecond))
 		}
 	}
-	srv := server.New(server.Options{Addr: cfg.ListenAddr, AllowedOrigins: origins, Log: log, MCP: mcpSrv.Handler(), BeforeShutdown: drain}, a, sessions, dist)
+	probeHost := func(ctx context.Context) string { return project.ProbeHostname(manager.BaseDomain(ctx)) }
+	srv := server.New(server.Options{Addr: cfg.ListenAddr, AllowedOrigins: origins, Log: log, MCP: mcpSrv.Handler(), BeforeShutdown: drain, ProbeHost: probeHost}, a, sessions, dist)
 
 	// 8. Embedded reverse proxy (host-name routing + HTTPS for projects and the UI).
 	if proxyInfo.Enabled {

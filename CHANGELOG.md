@@ -44,6 +44,10 @@ release). `:main` follows the development branch.
   a role in only some projects; it now shows only theirs.
 
 ### Fixed
+- The diagnostics check "Project domains from this browser" could never
+  pass: the page's own content security policy blocked the request, and
+  the check then blamed DNS. The policy now lets that one probe host
+  through.
 - A failed create left the files of a template, clone or starter page in
   the project directory, and trying again with the same name failed with
   "templates need an empty directory". The rollback now removes a
