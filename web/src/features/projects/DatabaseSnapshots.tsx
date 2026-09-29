@@ -27,7 +27,7 @@ function sourceBadge(snapshot: BackupInfo, t: (key: string) => string) {
 
 /**
  * Snapshots of the database alone: the dump to take before a migration and to put back
- * when it went wrong. They are ordinary backups, so the Backups tab lists them too.
+ * when it went wrong. They are ordinary backups, so the Backups section lists them too.
  */
 export function SnapshotsCard({ project, database, onMessage }: { project: Project; database: DatabaseInfo; onMessage: (m: Message) => void }) {
   const { t } = useTranslation();

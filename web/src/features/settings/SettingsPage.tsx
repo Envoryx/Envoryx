@@ -1,10 +1,9 @@
-import { KeyRound, RefreshCw, Save } from "lucide-react";
+import { Archive, Bell, Container, Database, FolderGit2, Globe, Hourglass, Key, KeyRound, LockKeyhole, Package, Puzzle, RefreshCw, Save, ScrollText, SlidersHorizontal, SquareTerminal, Stethoscope, UserRound, Users } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useEffect, useState, type FormEvent } from "react";
 import { api } from "@/api/client";
 import { useAuditSettings, useDeployKey, useDiagnostics, useSettings, useUpdateSettings } from "@/api/hooks";
-import { useSearchParams } from "react-router-dom";
-import { clsx } from "clsx";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { Alert, Badge, Button, Card, CardHeader, ErrorState, Field, Input, PageHeader, Select, Spinner } from "@/components/ui";
 import { formatVersion } from "@/lib/format";
@@ -31,6 +30,8 @@ import { LogHistoryCard } from "./LogHistoryCard";
 import { ResourceHistoryCard } from "./ResourceHistoryCard";
 import { UnraidCard } from "./UnraidCard";
 import { errorText } from "@/lib/errors";
+import { SectionLayout, type SectionGroup } from "@/components/SectionNav";
+import { settingsHref, type SettingsTab } from "./links";
 
 function PasswordForm() {
   const { t } = useTranslation();
@@ -212,27 +213,57 @@ function DeployKeyCard() {
   );
 }
 
-const tabs = ["diagnostics", "general", "domains", "access", "users", "notifications", "backups", "addons", "tools", "audit", "account"] as const;
-type Tab = (typeof tabs)[number];
-/** What a user who is not an admin sees: their own account. */
-const userTabs: readonly Tab[] = ["account"];
-const tabLabel: Record<Tab, string> = {
-  diagnostics: "Diagnostics",
-  general: "General",
-  domains: "Domains & HTTPS",
-  access: "Access",
-  users: "Users",
-  account: "Account",
-  notifications: "Notifications",
-  backups: "Backups",
-  addons: "Addons",
-  tools: "Tools",
-  audit: "Audit log",
-};
+type Tab = SettingsTab;
 
-function isTab(v: string | null): v is Tab {
-  return tabs.includes(v as Tab);
-}
+// Every user has an account; the other groups are the instance's and only for admins.
+const accountGroup: SectionGroup<Tab> = {
+  group: "My account",
+  items: [
+    { id: "profile", label: "Profile", icon: UserRound },
+    { id: "tokens", label: "API tokens & MCP", icon: KeyRound },
+    { id: "sshkeys", label: "SSH keys", icon: Key },
+  ],
+};
+const adminGroups: SectionGroup<Tab>[] = [
+  {
+    group: "Instance",
+    items: [
+      { id: "diagnostics", label: "Diagnostics", icon: Stethoscope },
+      { id: "general", label: "General", icon: SlidersHorizontal },
+      { id: "domains", label: "Domains & HTTPS", icon: Globe },
+    ],
+  },
+  {
+    group: "Access & security",
+    items: [
+      { id: "users", label: "Users", icon: Users },
+      { id: "ssh", label: "SSH access", icon: SquareTerminal },
+      { id: "deploykey", label: "Git deploy key", icon: FolderGit2 },
+      { id: "secretkey", label: "Secret key_instance", icon: LockKeyhole },
+    ],
+  },
+  {
+    group: "Operations",
+    items: [
+      { id: "backups", label: "Backups", icon: Archive },
+      { id: "notifications", label: "Notifications", icon: Bell },
+      { id: "retention", label: "Retention", icon: Hourglass },
+      { id: "audit", label: "Audit log", icon: ScrollText },
+    ],
+  },
+  {
+    group: "Extensions",
+    items: [
+      { id: "addons", label: "Addons", icon: Puzzle },
+      { id: "dbtool", label: "Database browser", icon: Database },
+      { id: "packagecache", label: "Package cache", icon: Package },
+      { id: "registries", label: "Private registries", icon: Container },
+    ],
+  },
+];
+
+// Links written before the settings were split into sections still land on the right one.
+const renamed: Record<string, Tab> = { account: "profile", access: "tokens", tools: "dbtool" };
 
 function InstanceCard() {
   const { t } = useTranslation();
@@ -260,21 +291,6 @@ function InstanceCard() {
   );
 }
 
-function AuditCard() {
-  const { t } = useTranslation();
-  return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader title={t("Audit log")} description={t("Who did what and when - security-relevant events and every change to a project, with its settings before and after. Secrets are never recorded.")} />
-        <div className="pt-4">
-          <AuditLog />
-        </div>
-      </Card>
-      <AuditRetentionCard />
-    </div>
-  );
-}
-
 const retentionChoices = [0, 30, 90, 180, 365, 730];
 
 function AuditRetentionCard() {
@@ -287,7 +303,7 @@ function AuditRetentionCard() {
   const choices = retentionChoices.includes(days) ? retentionChoices : [...retentionChoices, days].sort((a, b) => a - b);
   return (
     <Card>
-      <CardHeader title={t("Retention")} description={t("How long the audit log keeps its entries. Older ones are deleted every hour.")} />
+      <CardHeader title={t("Audit log")} description={t("How long the audit log keeps its entries. Older ones are deleted every hour.")} />
       <div className="space-y-3 p-5">
         {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
         <Field label={t("Keep entries")} htmlFor="audit-retention">
@@ -315,107 +331,98 @@ function AuditRetentionCard() {
 }
 
 export function SettingsPage() {
+  const { t } = useTranslation();
   const { user } = useAuth();
-  return isAdmin(user) ? <AdminSettingsPage /> : <AccountSettingsPage />;
-}
-
-/** Settings of a user who is not an admin: their own account only. */
-function AccountSettingsPage() {
-  const { t } = useTranslation();
-  return (
-    <div className="space-y-6">
-      <PageHeader title={t("Settings")} description={t("Your account: appearance, password, API tokens and SSH keys.")} />
-      <div className="flex flex-wrap gap-1 border-b border-default" role="tablist">
-        {userTabs.map((name) => (
-          <button key={name} role="tab" aria-selected className="-mb-px inline-flex items-center gap-1.5 border-b-2 border-accent-500 px-3 py-2 text-sm font-medium text-fg">
-            {t(tabLabel[name])}
-          </button>
-        ))}
-      </div>
-      <AppearanceCard />
-      <PasswordForm />
-      <TokensCard />
-      <MySshKeysCard />
-    </div>
-  );
-}
-
-function AdminSettingsPage() {
-  const { t } = useTranslation();
+  const admin = isAdmin(user);
   const s = useSettings();
-  const diagnostics = useDiagnostics();
-  const [params, setParams] = useSearchParams();
-  const requested = params.get("tab");
-  const tab: Tab = isTab(requested) && requested !== "account" ? requested : "diagnostics";
-  const setTab = (next: Tab) => setParams(next === "diagnostics" ? {} : { tab: next }, { replace: true });
+  const diagnostics = useDiagnostics(admin);
+  const [params] = useSearchParams();
+  const navigate = useNavigate();
   const attention = diagnostics.data ? diagnostics.data.summary.warning + diagnostics.data.summary.error : 0;
+  const groups: SectionGroup<Tab>[] = admin
+    ? [
+        ...adminGroups.map((g) =>
+          g.group !== "Instance"
+            ? g
+            : {
+                ...g,
+                items: g.items.map((i) =>
+                  i.id === "diagnostics" && diagnostics.data ? { ...i, badge: <Badge tone={attention > 0 ? (diagnostics.data.summary.error > 0 ? "red" : "amber") : "green"}>{attention > 0 ? attention : "✓"}</Badge> } : i,
+                ),
+              },
+        ),
+        accountGroup,
+      ]
+    : [accountGroup];
+  const requested = params.get("tab") ?? "";
+  const wanted = renamed[requested] ?? requested;
+  const tab: Tab = groups.some((g) => g.items.some((i) => i.id === wanted)) ? (wanted as Tab) : admin ? "diagnostics" : "profile";
+  const tabHref = (id: Tab) => (id === (admin ? "diagnostics" : "profile") ? "/settings" : settingsHref(id));
 
   return (
-    <div className="space-y-6">
-      <PageHeader title={t("Settings")} description={t("Instance configuration, access and health in one place.")} />
-
-      <div className="flex flex-wrap gap-1 border-b border-default" role="tablist">
-        {tabs.filter((name) => name !== "account").map((name) => (
-          <button
-            key={name}
-            role="tab"
-            aria-selected={tab === name}
-            onClick={() => setTab(name)}
-            className={clsx("-mb-px inline-flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-medium", tab === name ? "border-accent-500 text-fg" : "border-transparent text-muted hover:text-fg")}
-          >
-            {t(tabLabel[name])}
-            {name === "diagnostics" && diagnostics.data && (
-              <Badge tone={attention > 0 ? (diagnostics.data.summary.error > 0 ? "red" : "amber") : "green"}>{attention > 0 ? attention : "✓"}</Badge>
-            )}
-          </button>
-        ))}
-      </div>
-
-      {tab === "diagnostics" && <DiagnosticsTab onSwitchTab={(next) => isTab(next) && setTab(next)} />}
-      {tab === "general" && (
-        <>
-          <AppearanceCard />
-          <InstanceCard />
-          <LifecycleCard />
-          <LogHistoryCard />
-          <ResourceHistoryCard />
-          <UnraidCard />
-          {s.data && <PublicHostForm current={s.data.publicHost} xdebugHost={s.data.xdebugClientHost ?? ""} />}
-          <PasswordForm />
-        </>
-      )}
-      {tab === "domains" && <DomainsCard />}
-      {tab === "access" && (
-        <>
-          <TokensCard />
-          <MySshKeysCard />
-          {s.data && <SshCard keys={s.data.sshAuthorizedKeys ?? ""} ssh={s.data.ssh} />}
-          <DeployKeyCard />
-          <SecretKeyCard />
-        </>
-      )}
-      {tab === "users" && (
-        <>
-          <UsersCard />
-          <OidcCard />
-        </>
-      )}
-      {tab === "notifications" && <NotificationsCard />}
-      {tab === "backups" && (
-        <>
-          <OffsiteTargetsCard />
-          <InstanceBackupsCard />
-        </>
-      )}
-      {tab === "addons" && <AddonsCard />}
-      {tab === "tools" && (
+    <div>
+      <PageHeader title={t("Settings")} description={admin ? t("Instance configuration, access and health in one place.") : t("Your account: appearance, password, API tokens and SSH keys.")} />
+      <SectionLayout label={t("Settings sections")} groups={groups} current={tab} href={tabHref}>
         <div className="space-y-6">
-          <DBToolCard />
-          <PackageCacheCard />
-          <RegistriesCard />
+          {tab === "profile" && (
+            <>
+              <AppearanceCard />
+              <PasswordForm />
+            </>
+          )}
+          {tab === "tokens" && <TokensCard />}
+          {tab === "sshkeys" && <MySshKeysCard />}
+          {tab === "diagnostics" && <DiagnosticsTab onSwitchTab={(next) => navigate(tabHref((renamed[next] ?? next) as Tab))} />}
+          {tab === "general" && (
+            <>
+              <InstanceCard />
+              <LifecycleCard />
+              <UnraidCard />
+            </>
+          )}
+          {tab === "domains" && (
+            <>
+              <DomainsCard />
+              {s.data && <PublicHostForm current={s.data.publicHost} xdebugHost={s.data.xdebugClientHost ?? ""} />}
+            </>
+          )}
+          {tab === "users" && (
+            <>
+              <UsersCard />
+              <OidcCard />
+            </>
+          )}
+          {tab === "ssh" && s.data && <SshCard keys={s.data.sshAuthorizedKeys ?? ""} ssh={s.data.ssh} />}
+          {tab === "deploykey" && <DeployKeyCard />}
+          {tab === "secretkey" && <SecretKeyCard />}
+          {tab === "backups" && (
+            <>
+              <OffsiteTargetsCard />
+              <InstanceBackupsCard />
+            </>
+          )}
+          {tab === "notifications" && <NotificationsCard />}
+          {tab === "retention" && (
+            <>
+              <LogHistoryCard />
+              <ResourceHistoryCard />
+              <AuditRetentionCard />
+            </>
+          )}
+          {tab === "audit" && (
+            <Card>
+              <CardHeader title={t("Audit log")} description={t("Who did what and when - security-relevant events and every change to a project, with its settings before and after. Secrets are never recorded.")} />
+              <div className="pt-4">
+                <AuditLog />
+              </div>
+            </Card>
+          )}
+          {tab === "addons" && <AddonsCard />}
+          {tab === "dbtool" && <DBToolCard />}
+          {tab === "packagecache" && <PackageCacheCard />}
+          {tab === "registries" && <RegistriesCard />}
         </div>
-      )}
-      {tab === "audit" && <AuditCard />}
+      </SectionLayout>
     </div>
   );
 }

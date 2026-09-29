@@ -61,8 +61,8 @@ export function usePublicHost(): string {
 }
 
 /** Set-up checks with fixes; refreshed every minute while the page is open. */
-export function useDiagnostics() {
-  return useQuery({ queryKey: ["diagnostics"], queryFn: api.diagnostics, refetchInterval: 60 * 1000, staleTime: 20 * 1000 });
+export function useDiagnostics(enabled = true) {
+  return useQuery({ queryKey: ["diagnostics"], queryFn: api.diagnostics, enabled, refetchInterval: 60 * 1000, staleTime: 20 * 1000 });
 }
 
 export function useUpdateSettings() {

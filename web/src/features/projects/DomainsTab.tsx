@@ -8,6 +8,8 @@ import { keys, useProjectDomains, useProjectLinks } from "@/api/hooks";
 import { servesOf, type NodeConfig, type Project, type ProxyInfo } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Code, ErrorState, Field, Input, Spinner } from "@/components/ui";
 import { errorText } from "@/lib/errors";
+import { isAdmin, useAuth } from "@/features/auth/AuthContext";
+import { settingsHref } from "@/features/settings/links";
 import { ProxyRulesCard } from "./ProxyRulesCard";
 
 /** URL of a host name through the proxy, honouring non-standard published ports. */
@@ -22,6 +24,7 @@ export function DomainsTab({ project }: { project: Project }) {
   const q = useProjectDomains(project.id);
   const qc = useQueryClient();
   const links = useProjectLinks();
+  const admin = isAdmin(useAuth().user);
   const [hostname, setHostname] = useState("");
   const [msg, setMsg] = useState<{ tone: "green" | "red"; text: string } | null>(null);
   const invalidate = () => {
@@ -67,7 +70,11 @@ export function DomainsTab({ project }: { project: Project }) {
         </Alert>
       ) : !published ? (
         <Alert tone="amber" title={t("Proxy ports are not published")}>
-          {t("Map host ports 80 and 443 to the Envoryx container to open projects by domain.")} <Link to="/settings?tab=domains" className="underline">{t("Settings → Domains & HTTPS")}</Link>
+          {t("Map host ports 80 and 443 to the Envoryx container to open projects by domain.")} {admin && (
+            <Link to={settingsHref("domains")} className="underline">
+              {t("Settings → Domains & HTTPS")}
+            </Link>
+          )}
         </Alert>
       ) : null}
 

@@ -10,9 +10,13 @@ import { copyText } from "@/lib/clipboard";
 import { formatDateTime } from "@/lib/format";
 import { errorText, translateMessage } from "@/lib/errors";
 import { ManifestCard } from "./ManifestCard";
+import { isAdmin, useAuth } from "@/features/auth/AuthContext";
+import { settingsHref } from "@/features/settings/links";
+import { Link } from "react-router-dom";
 
 function DeployKeyCard() {
   const { t } = useTranslation();
+  const admin = isAdmin(useAuth().user);
   const key = useDeployKey();
   const [copied, setCopied] = useState(false);
   return (
@@ -20,10 +24,17 @@ function DeployKeyCard() {
       <CardHeader
         title={
           <span className="flex items-center gap-2">
-            <KeyRound className="size-4 text-accent-500" aria-hidden /> {t("Deploy key")}
+            <KeyRound className="size-4 text-accent-500" aria-hidden /> {t("Git deploy key")}
           </span>
         }
         description={t("Add this public key as a read-only deploy key to your repository (GitHub: Settings → Deploy keys) to clone via SSH.")}
+        actions={
+          admin && (
+            <Link to={settingsHref("deploykey")} className="text-xs text-muted underline hover:text-fg">
+              {t("Regenerate in the settings")}
+            </Link>
+          )
+        }
       />
       <div className="p-5">
         {key.isPending ? (
