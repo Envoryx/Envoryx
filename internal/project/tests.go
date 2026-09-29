@@ -324,7 +324,8 @@ if [ "$tool" = maven ]; then
   if [ -n "$filter" ]; then $mvn -B test "-Dtest=$filter" -Dsurefire.failIfNoSpecifiedTests=false; else $mvn -B test; fi
 else
   gradle=gradle; [ -f ./gradlew ] && gradle="sh ./gradlew"
-  if [ -n "$filter" ]; then $gradle --no-daemon test --tests "$filter"; else $gradle --no-daemon test; fi
+  # --console=plain: the output is stored and shown as text, not a live terminal.
+  if [ -n "$filter" ]; then $gradle --no-daemon --console=plain test --tests "$filter"; else $gradle --no-daemon --console=plain test; fi
 fi
 rc=$?
 { echo '<testsuites>'
