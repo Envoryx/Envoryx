@@ -405,9 +405,9 @@ accordingly, or let Vite's `server.hmr` config point at the dev host name.
 
 #### Node-only projects (Vite, Next.js, Nuxt)
 
-PHP is optional. Pick **Node.js application** on the first wizard step (or
-`phpVersion: "none"` over MCP/REST) and a Vite, Next.js or Nuxt template (or
-a blank directory / git clone), and the dev server *is* the project:
+PHP is optional. Start from a Vite, Next.js or Nuxt template, or pick **Node.js
+application** for an empty project or a repository (or `phpVersion: "none"`
+over MCP/REST), and the dev server *is* the project:
 
 - **What answers where.** `https://<project>.<base>`, every extra domain and
   `https://<project>-dev.<base>` all reach the dev server
@@ -505,8 +505,8 @@ starter `index.html` unless you clone a repository.
 
 ### Python projects (Django, Flask, FastAPI)
 
-Pick **Python application** on the first wizard step (or enable Python on
-any project under Runtime). The Python container
+Start from a Python template, or pick **Python application** for an empty
+project or a repository (or enable Python on any project under Runtime). The Python container
 (`envoryx-<project>-python`, image `ghcr.io/envoryx/envoryx-python:<3.x>`
 with pip, uv, git and the build dependencies common wheels need) runs as
 `PUID:PGID` with the project directory at `/var/www/html` and the
@@ -577,8 +577,8 @@ comes next.
 
 ### Go projects (net/http, Gin, Echo)
 
-Pick **Go application** on the first wizard step (or enable Go on any
-project under Runtime). The Go container (`envoryx-<project>-go`,
+Start from a Go template, or pick **Go application** for an empty project or
+a repository (or enable Go on any project under Runtime). The Go container (`envoryx-<project>-go`,
 image `ghcr.io/envoryx/envoryx-go:<1.x>`: the official
 `golang:<v>-bookworm` image plus [air](https://github.com/air-verse/air),
 Delve and gotestsum, `GOTOOLCHAIN=local`) runs as `PUID:PGID` with the
@@ -645,8 +645,8 @@ downloaded once for all projects.
 
 ### Ruby projects (Rails, Sinatra, Rack)
 
-Pick **Ruby application** on the first wizard step (or enable Ruby on any
-project under Runtime). The Ruby container (`envoryx-<project>-ruby`,
+Start from a Ruby template, or pick **Ruby application** for an empty project
+or a repository (or enable Ruby on any project under Runtime). The Ruby container (`envoryx-<project>-ruby`,
 image `ghcr.io/envoryx/envoryx-ruby:<3.x|4.x>`: the official
 `ruby:<v>-slim-bookworm` image plus the build dependencies of the common
 native gems (pg, mysql2, sqlite3, psych) and the debug gem) runs as
@@ -741,8 +741,8 @@ and needs none.
 
 ### Java projects (Spring Boot, Quarkus)
 
-Pick **Java application** on the first wizard step (or enable Java on any
-project under Runtime). The Java container (`envoryx-<project>-java`,
+Start from a Java template, or pick **Java application** for an empty project
+or a repository (or enable Java on any project under Runtime). The Java container (`envoryx-<project>-java`,
 image `ghcr.io/envoryx/envoryx-java:<17|21|25>`: Eclipse Temurin
 `<v>-jdk-noble` plus Maven, Gradle, git and socat; only the LTS releases) runs
 as `PUID:PGID` with the project directory at `/var/www/html` and the project
@@ -825,8 +825,8 @@ shared package cache, so a dependency is downloaded once for every project.
 
 ### .NET projects (ASP.NET Core, Blazor, worker services)
 
-Pick **.NET application** on the first wizard step (or enable .NET on any
-project under Runtime). The .NET container (`envoryx-<project>-dotnet`,
+Start from a .NET template, or pick **.NET application** for an empty project
+or a repository (or enable .NET on any project under Runtime). The .NET container (`envoryx-<project>-dotnet`,
 image `ghcr.io/envoryx/envoryx-dotnet:<8|10>`: the official SDK image
 `mcr.microsoft.com/dotnet/sdk:<v>.0-noble` plus `dotnet-ef`, the netcoredbg
 debugger, git and socat; only the LTS releases, and .NET 8 reaches its end of
@@ -992,7 +992,7 @@ without the password. Duplicating a project copies them.
 
 ## Project variables and .env files
 
-A project's variables (*Environment* section, or the wizard's *Environment* step)
+A project's variables (*Environment* section, or *Advanced settings → Environment* in the wizard)
 reach every container of the project and win over what Envoryx sets for the
 services. **Import .env** reads a `.env` file (pasted or chosen) in the form
 Laravel, Symfony and docker compose write (`export`, comments, single and
@@ -1016,12 +1016,12 @@ for the services are not part of it.
 
 ## Importing an existing website
 
-*New project → Start from: Existing website* takes a site that already exists
+*New project → Existing website* takes a site that already exists
 somewhere else (an old shared host, a backup, an FTP download) and makes a
 project of it. Upload the files as a ZIP or tar.gz archive (a single folder
 around them such as `public_html/` or `httpdocs/` is left out) and, optionally,
 a database dump (`.sql` or `.sql.gz`). Envoryx reads the archive and fills the
-next steps of the wizard with what it recognised; everything stays editable.
+rest of the wizard with what it recognised; everything stays editable.
 
 | Site | Recognised by | Suggestion |
 |------|---------------|------------|
@@ -1650,7 +1650,7 @@ A project isn't limited to one database. Next to the first one (the
 have any number of additional databases, each with a name of its own:
 PostgreSQL for reporting next to MariaDB, or a second MariaDB in another
 version for a legacy part of the application. Add them in the wizard
-(*Database & services → Additional databases*) or later in the Database section
+(*Project & services → Additional databases*) or later in the Database section
 (*Add database*); the section switches between the databases of the project.
 
 An additional database named `analytics`:

@@ -417,7 +417,7 @@ Italian, Dutch, Polish, Portuguese (Brazil), Russian, Ukrainian.
 2. Extend `project.Planner.Plan` with the container/volume/file plan.
 3. Extend `buildProject` / `UpdateRequest` validation.
 4. Add planner + lifecycle tests with the fake engine.
-5. Expose it in the wizard step "Database & services".
+5. Expose it in the wizard step "Project & services".
 
 ## Releasing
 
