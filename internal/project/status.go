@@ -175,6 +175,31 @@ func outdatedContainers(planner *Planner, p store.Project, containers []docker.C
 	return out
 }
 
+// failInterrupted marks a create or delete that no longer runs as failed. It takes the
+// project lock, which a running operation holds, and then reads the project again: the
+// list the reconcile started from may predate an operation that finished meanwhile.
+func (m *Manager) failInterrupted(ctx context.Context, p *store.Project) (string, bool) {
+	unlock, err := m.lock(p.ID)
+	if err != nil {
+		return "", false
+	}
+	defer unlock()
+	cur, err := m.store.Projects.Get(ctx, p.ID)
+	if err != nil {
+		return "", false
+	}
+	*p = cur
+	if cur.Lifecycle != store.LifecycleCreating && cur.Lifecycle != store.LifecycleDeleting {
+		return "", false
+	}
+	msg := fmt.Sprintf("%s was interrupted by an Envoryx restart; review the project and retry or delete it", cur.Lifecycle)
+	if err := m.store.Projects.UpdateState(ctx, p.ID, p.DesiredState, store.LifecycleFailed, msg); err == nil {
+		p.Lifecycle = store.LifecycleFailed
+		p.LastError = msg
+	}
+	return msg, true
+}
+
 // Reconcile compares the database with Docker, records inconsistencies and orphaned
 // resources, and repairs interrupted lifecycles. The only thing it removes are orphaned
 // containers and networks (see cleanOrphans); volumes and project data are never touched.
@@ -210,13 +235,7 @@ func (m *Manager) Reconcile(ctx context.Context) ReconcileReport {
 		// takes a minute to pull images must not be declared interrupted by the periodic
 		// reconcile that happens to run meanwhile.
 		if p.Lifecycle == store.LifecycleCreating || p.Lifecycle == store.LifecycleDeleting {
-			if unlock, err := m.lock(p.ID); err == nil {
-				msg := fmt.Sprintf("%s was interrupted by an Envoryx restart; review the project and retry or delete it", p.Lifecycle)
-				if err := m.store.Projects.UpdateState(ctx, p.ID, p.DesiredState, store.LifecycleFailed, msg); err == nil {
-					p.Lifecycle = store.LifecycleFailed
-					p.LastError = msg
-				}
-				unlock()
+			if msg, ok := m.failInterrupted(ctx, &p); ok {
 				report.Issues = append(report.Issues, ReconcileIssue{ProjectID: p.ID, ProjectName: p.Name, Severity: "error", Message: msg})
 			}
 		}
