@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/envoryx/envoryx/internal/docker"
+	"github.com/envoryx/envoryx/internal/store"
 	"github.com/envoryx/envoryx/internal/validate"
 )
 
@@ -115,5 +116,35 @@ func TestExpiredSharesEnd(t *testing.T) {
 	e.m.expireShares(ctx, s.ExpiresAt.Add(time.Second), log)
 	if _, ok := e.engine.Container("envoryx-demo-share"); ok {
 		t.Fatal("an expired share must end")
+	}
+}
+
+// A running share is public; an allowlist added while it runs would not restrict it.
+func TestAllowlistIsRefusedWhileShared(t *testing.T) {
+	e := newEnv(t)
+	e.selfID = "envoryx-self"
+	e.engine.AddForeignContainer("envoryx-self", "ghcr.io/envoryx/envoryx", "running")
+	ctx := context.Background()
+	view, err := e.m.Create(ctx, phpRequest("Open", true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := view.Project.ID
+	tunnelLogs(e, "envoryx-open-share")
+	if _, err := e.m.StartShare(ctx, id, 30*time.Minute); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.m.SetProxyRules(ctx, id, ProxyRulesRequest{AllowIPs: []string{"127.0.0.1"}}); !errors.Is(err, ErrConflict) {
+		t.Fatalf("allowlist while shared: %v", err)
+	}
+	// Other rules stay possible, and after the share the allowlist is accepted.
+	if _, err := e.m.SetProxyRules(ctx, id, ProxyRulesRequest{Headers: []store.HeaderRule{{Name: "X-Robots-Tag", Value: "noindex"}}}); err != nil {
+		t.Fatalf("headers while shared: %v", err)
+	}
+	if err := e.m.StopShare(ctx, id); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.m.SetProxyRules(ctx, id, ProxyRulesRequest{AllowIPs: []string{"127.0.0.1"}}); err != nil {
+		t.Fatalf("allowlist after the share: %v", err)
 	}
 }
