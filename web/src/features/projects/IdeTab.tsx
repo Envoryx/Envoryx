@@ -249,7 +249,7 @@ export function IdeTab({ project: p }: { project: Project }) {
                 <Bug className="size-4 text-accent-500" aria-hidden /> Xdebug
               </span>
             }
-            description={phpCfg.xdebug ? t("Enabled ({{mode}}). PhpStorm: Settings → PHP → Servers.", { mode: phpCfg.xdebugMode ?? "always" }) : t("Not enabled - switch it on in the Runtime tab. Values below apply once enabled.")}
+            description={phpCfg.xdebug ? t("Enabled ({{mode}}). PhpStorm: Settings → PHP → Servers.", { mode: phpCfg.xdebugMode ?? "always" }) : t("Not enabled - switch it on under Runtime. Values below apply once enabled.")}
           />
           <div className="p-5">
             <dl>
@@ -281,7 +281,7 @@ export function IdeTab({ project: p }: { project: Project }) {
             description={
               nodeCfg.inspect && nodeCfg.inspectHostPort
                 ? t("The inspector port is published. Start the inspector in your script and attach from the IDE with the values below.")
-                : t("Not enabled - switch on “Publish the Node.js inspector port” in the Runtime tab (dev server required). Values below apply once enabled.")
+                : t("Not enabled - switch on “Publish the Node.js inspector port” under Runtime (dev server required). Values below apply once enabled.")
             }
           />
           <div className="p-5">
@@ -313,7 +313,7 @@ export function IdeTab({ project: p }: { project: Project }) {
             description={
               pyCfg.debug && pyCfg.debugHostPort
                 ? t("The debugpy port is published. Start debugpy in your application and attach from the IDE with the values below.")
-                : t("Not enabled - switch on “Publish the debugpy port” in the Runtime tab. Values below apply once enabled.")
+                : t("Not enabled - switch on “Publish the debugpy port” under Runtime. Values below apply once enabled.")
             }
           />
           <div className="p-5">
@@ -347,7 +347,7 @@ export function IdeTab({ project: p }: { project: Project }) {
                 ? goCfg.server
                   ? t("The server runs under a headless Delve. Attach from the IDE with the values below; breakpoints survive every rebuild.")
                   : t("The Delve port is published. Start dlv headless in the Go terminal, then attach from the IDE with the values below.")
-                : t("Not enabled - switch on “Debug with Delve” in the Runtime tab. Values below apply once enabled.")
+                : t("Not enabled - switch on “Debug with Delve” under Runtime. Values below apply once enabled.")
             }
           />
           <div className="p-5">
@@ -389,7 +389,7 @@ export function IdeTab({ project: p }: { project: Project }) {
                 ? rbCfg.server
                   ? t("The server runs under rdbg (the debug gem). Attach VS Code or rdbg -A with the values below.")
                   : t("The rdbg port is published. Start rdbg --open in the Ruby terminal, then attach with the values below.")
-                : t("Not enabled - switch on “Debug with rdbg” in the Runtime tab. Values below apply once enabled.")
+                : t("Not enabled - switch on “Debug with rdbg” under Runtime. Values below apply once enabled.")
             }
           />
           <div className="p-5">
@@ -431,7 +431,7 @@ export function IdeTab({ project: p }: { project: Project }) {
                 ? jvCfg.server
                   ? t("The server's JVM listens for a debugger. Attach IntelliJ IDEA or VS Code with the values below.")
                   : t("The JDWP port is published. Start a JVM with the agent in the Java terminal, then attach with the values below.")
-                : t("Not enabled - switch on “Debug with JDWP” in the Runtime tab. Values below apply once enabled.")
+                : t("Not enabled - switch on “Debug with JDWP” under Runtime. Values below apply once enabled.")
             }
           />
           <div className="p-5">
@@ -492,7 +492,7 @@ export function IdeTab({ project: p }: { project: Project }) {
                   {d.name && <span className="font-mono text-sm text-muted">{d.name}</span>}
                 </span>
               }
-              description={d.external ? t("An external server: connect to it directly.") : d.hostPort ? t("Connect from your machine through the published port.") : t("Publish the database port in the Database tab to connect from your machine.")}
+              description={d.external ? t("An external server: connect to it directly.") : d.hostPort ? t("Connect from your machine through the published port.") : t("Publish the database port under Database to connect from your machine.")}
             />
             <div className="p-5">
               <dl>
@@ -501,7 +501,7 @@ export function IdeTab({ project: p }: { project: Project }) {
                 <CopyRow label={t("Port")} value={reach(d) ? String(reach(d)!.port) : t("not published")} />
                 <CopyRow label={t("Database")} value={d.database} />
                 <CopyRow label={t("User")} value={d.username} />
-                <CopyRow label={t("Password")} value={t("<Database tab → Credentials>")} mono={false} />
+                <CopyRow label={t("Password")} value={t("<Database → Credentials>")} mono={false} />
                 {reach(d) ? <CopyRow label="URL" value={jdbc(d, reach(d)!)} /> : null}
               </dl>
             </div>
@@ -541,7 +541,7 @@ export function IdeTab({ project: p }: { project: Project }) {
               <CopyRow label={t("Host")} value={host} />
               <CopyRow label={t("Port")} value={rabbitmq.hostPort ? String(rabbitmq.hostPort) : t("not published")} />
               <CopyRow label={t("User")} value={rabbitmq.username ?? ""} />
-              <CopyRow label={t("Password")} value={t("<Services tab → Show password>")} mono={false} />
+              <CopyRow label={t("Password")} value={t("<Services → Show password>")} mono={false} />
               {rabbitmq.webUiPort ? <CopyRow label={t("Management UI")} value={`http://${host}:${rabbitmq.webUiPort}`} /> : null}
             </dl>
           </div>
@@ -562,7 +562,7 @@ export function IdeTab({ project: p }: { project: Project }) {
               <CopyRow label={t("URL (from app)")} value={`http://${e.host}:${e.port}`} />
               <CopyRow label={t("URL (from your machine)")} value={e.hostPort ? `http://${host}:${e.hostPort}` : t("not published")} />
               {e.kind === "opensearch" && e.webUiPort ? <CopyRow label="OpenSearch Dashboards" value={`http://${host}:${e.webUiPort}`} /> : null}
-              {e.kind !== "opensearch" && <CopyRow label={e.kind === "meilisearch" ? t("Master key") : t("API key")} value={e.kind === "meilisearch" ? t("<Services tab → Show master key>") : t("<Services tab → Show API key>")} mono={false} />}
+              {e.kind !== "opensearch" && <CopyRow label={e.kind === "meilisearch" ? t("Master key") : t("API key")} value={e.kind === "meilisearch" ? t("<Services → Show master key>") : t("<Services → Show API key>")} mono={false} />}
             </dl>
           </div>
         </Card>

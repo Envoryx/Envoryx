@@ -1052,7 +1052,7 @@ export function NewProjectPage() {
                   )}
                 </div>
                 <div className="rounded-md border border-default p-4 space-y-3">
-                  <Checkbox label="Ollama" description={t("Runs language and embedding models locally (Laravel Prism, LangChain, the Ollama libraries). Injects OLLAMA_HOST, OLLAMA_BASE_URL and OLLAMA_URL. Models live in one store shared by all projects; download them in the Services tab.")} checked={form.ollama} onChange={(e) => set({ ollama: e.target.checked })} />
+                  <Checkbox label="Ollama" description={t("Runs language and embedding models locally (Laravel Prism, LangChain, the Ollama libraries). Injects OLLAMA_HOST, OLLAMA_BASE_URL and OLLAMA_URL. Models live in one store shared by all projects; download them in the Services section.")} checked={form.ollama} onChange={(e) => set({ ollama: e.target.checked })} />
                   {form.ollama && (
                     <div className="space-y-3 pl-7">
                       <Checkbox label={t("Use the GPU")} description={t("Hands the host's NVIDIA GPUs to Ollama. Docker needs the NVIDIA Container Toolkit for it (on Unraid: the Nvidia Driver plugin); Envoryx checks that before switching.")} checked={form.ollamaGpu} onChange={(e) => set({ ollamaGpu: e.target.checked })} />

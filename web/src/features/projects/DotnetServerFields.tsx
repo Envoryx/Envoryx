@@ -117,7 +117,7 @@ export function DotnetServerFields({
           </Field>
         </div>
       )}
-      <p className="text-xs text-subtle">{t("Debugging needs no port: VS Code starts netcoredbg in the container over SSH, Rider attaches over SSH. The IDE tab has the setup.")}</p>
+      <p className="text-xs text-subtle">{t("Debugging needs no port: VS Code starts netcoredbg in the container over SSH, Rider attaches over SSH. The IDE section has the setup.")}</p>
     </div>
   );
 }

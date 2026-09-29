@@ -122,7 +122,7 @@ describe("IdeTab", () => {
     expect(await screen.findByText("rabbitmq:5672")).toBeInTheDocument();
     expect(screen.getByText("26002")).toBeInTheDocument();
     expect(screen.getByText("http://192.168.1.10:26001")).toBeInTheDocument();
-    expect(screen.getByText("<Services tab → Show password>")).toBeInTheDocument();
+    expect(screen.getByText("<Services → Show password>")).toBeInTheDocument();
   });
 
   it("lists the search engines without their keys", async () => {
@@ -138,13 +138,13 @@ describe("IdeTab", () => {
     renderApp(<IdeTab project={project} />);
     expect(await screen.findByText("http://meilisearch:7700")).toBeInTheDocument();
     expect(screen.getByText("http://192.168.1.10:26010")).toBeInTheDocument();
-    expect(screen.getByText("<Services tab → Show master key>")).toBeInTheDocument();
+    expect(screen.getByText("<Services → Show master key>")).toBeInTheDocument();
     expect(screen.getByText("http://typesense:8108")).toBeInTheDocument();
-    expect(screen.getByText("<Services tab → Show API key>")).toBeInTheDocument();
+    expect(screen.getByText("<Services → Show API key>")).toBeInTheDocument();
     // OpenSearch runs without login: a URL, no key row.
     expect(screen.getByText("http://opensearch:9200")).toBeInTheDocument();
     expect(screen.getByText("http://192.168.1.10:26011")).toBeInTheDocument();
     expect(screen.getByText("http://192.168.1.10:26012")).toBeInTheDocument();
-    expect(screen.getAllByText(/<Services tab → Show/)).toHaveLength(2);
+    expect(screen.getAllByText(/<Services → Show/)).toHaveLength(2);
   });
 });

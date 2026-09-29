@@ -96,7 +96,7 @@ describe("Node dev server", () => {
     const user = userEvent.setup();
     expect((await screen.findAllByRole("link", { name: /https:\/\/acme-shop-dev\.test/ }))[0]).toHaveAttribute("href", "https://acme-shop-dev.test");
 
-    await user.click(screen.getByRole("tab", { name: "Runtime" }));
+    await user.click(screen.getByRole("link", { name: "Runtime" }));
     const preset = await screen.findByLabelText("Framework preset");
     await user.selectOptions(preset, "next");
     await user.selectOptions(screen.getByLabelText("Package manager"), "pnpm");
@@ -161,7 +161,7 @@ describe("PHP card", () => {
       { route: `/projects/${id}` },
     );
     const user = userEvent.setup();
-    await user.click(await screen.findByRole("tab", { name: "Runtime" }));
+    await user.click(await screen.findByRole("link", { name: "Runtime" }));
     const php = await screen.findByRole("checkbox", { name: /Enable PHP/ });
     expect(php).not.toBeChecked();
     await user.click(php);

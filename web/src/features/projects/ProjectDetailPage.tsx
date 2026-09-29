@@ -2,9 +2,9 @@ import { clsx } from "clsx";
 import { useTranslation } from "react-i18next";
 import { ResourcesTab } from "./ResourcesTab";
 import { HealthCheckCard } from "./HealthCheckCard";
-import { Copy, Pencil, Trash2, Save, ExternalLink, Undo2, RotateCw } from "lucide-react";
+import { Activity, Archive, Blocks, Clock, CodeXml, Copy, Database, Ellipsis, ExternalLink, FileCode2, FlaskConical, FolderGit2, GitBranch, Globe, Gauge, History, Layers, Pencil, RotateCw, Save, ScrollText, SquareTerminal, Trash2, Undo2, Variable, Zap, type LucideIcon } from "lucide-react";
 import { lazy, Suspense, useEffect, useState, type ReactElement } from "react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ApiError } from "@/api/client";
 import { useDevServerLink, useImageChoice, useProject, useProjectLinks, useProjectPlan, useProjectStats, useRuntimes, useSettings, useUpdateProject } from "@/api/hooks";
 import { appKindOf, defaultNodePresets, defaultPythonPresets, defaultRubyPresets, defaultJavaPresets, defaultDotnetPresets, servesOf, type EnvVar, type NodeConfig, type PHPConfig, type Project, type PythonConfig, type GoConfig, type RubyConfig, type JavaConfig, type DotnetConfig, type UpdateProjectRequest, type WebServerConfig } from "@/api/types";
@@ -14,12 +14,12 @@ import { GoServerFields, defaultGoServerForm, goServerRequest, type GoServerForm
 import { RubyServerFields, defaultRubyServerForm, rubyServerRequest, type RubyServerForm } from "./RubyServerFields";
 import { JavaServerFields, defaultJavaServerForm, javaServerRequest, type JavaServerForm } from "./JavaServerFields";
 import { DotnetServerFields, defaultDotnetServerForm, dotnetServerRequest, type DotnetServerForm } from "./DotnetServerFields";
-import { Alert, Badge, Button, Card, CardHeader, Checkbox, Code, ErrorState, Field, Input, PageHeader, Select, Spinner, StatusDot } from "@/components/ui";
+import { Alert, Badge, Button, Card, CardHeader, Checkbox, Code, Dialog, ErrorState, Field, Input, Menu, PageHeader, Select, Spinner, StatusDot, type MenuItem } from "@/components/ui";
 import { containerStateTone, formatBytes, formatDateTime, formatPercent, serviceLabel, stateMeta } from "@/lib/format";
 import { DeleteProjectDialog, DuplicateProjectDialog, ProjectActionButtons, RenameProjectDialog, useActionError } from "./ProjectActions";
 import { OperationHint } from "@/components/OperationsTray";
 import { DatabaseTab } from "./DatabaseTab";
-import { ShareButton } from "./ShareButton";
+import { ShareDialog, SharedBadge, useShare } from "./Share";
 import { EnvEditor } from "./EnvEditor";
 import { GitTab } from "./GitTab";
 import { DomainsTab } from "./DomainsTab";
@@ -41,8 +41,56 @@ import { webServerHint } from "./webServers";
 import { AuditLog } from "@/features/audit/AuditLog";
 import { errorText, translateMessage } from "@/lib/errors";
 
-const tabs = ["Overview", "Resources", "Domains", "Git", "Branches", "Actions", "Tests", "Terminal", "Logs", "Runtime", "Workers", "Cron", "Database", "Services", "Backups", "Environment", "IDE", "History", "Advanced"] as const;
-type Tab = (typeof tabs)[number];
+type Tab = "Overview" | "Terminal" | "Actions" | "Tests" | "IDE" | "Git" | "Branches" | "Runtime" | "Environment" | "Domains" | "Workers" | "Database" | "Services" | "Backups" | "Logs" | "Resources" | "History";
+
+// The project's sections, grouped by what one comes to do. The id is the ?tab= value.
+const sections: { group?: string; items: { id: Tab; label: string; icon: LucideIcon }[] }[] = [
+  { items: [{ id: "Overview", label: "Overview", icon: Gauge }] },
+  {
+    group: "Develop",
+    items: [
+      { id: "Terminal", label: "Terminal", icon: SquareTerminal },
+      { id: "Actions", label: "Actions", icon: Zap },
+      { id: "Tests", label: "Tests", icon: FlaskConical },
+      { id: "IDE", label: "IDE", icon: CodeXml },
+    ],
+  },
+  {
+    group: "Code",
+    items: [
+      { id: "Git", label: "Git", icon: FolderGit2 },
+      { id: "Branches", label: "Branches", icon: GitBranch },
+    ],
+  },
+  {
+    group: "Configuration",
+    items: [
+      { id: "Runtime", label: "Runtime", icon: Layers },
+      { id: "Environment", label: "Environment", icon: Variable },
+      { id: "Domains", label: "Domains", icon: Globe },
+      { id: "Workers", label: "Workers & cron", icon: Clock },
+    ],
+  },
+  {
+    group: "Data",
+    items: [
+      { id: "Database", label: "Database", icon: Database },
+      { id: "Services", label: "Services", icon: Blocks },
+      { id: "Backups", label: "Backups", icon: Archive },
+    ],
+  },
+  {
+    group: "Observe",
+    items: [
+      { id: "Logs", label: "Logs", icon: ScrollText },
+      { id: "Resources", label: "Resources", icon: Activity },
+      { id: "History", label: "History", icon: History },
+    ],
+  },
+];
+
+// Links written before the sections were grouped still land on the right one.
+const renamed: Record<string, Tab> = { Cron: "Workers" };
 
 export function ProjectDetailPage() {
   const { t } = useTranslation();
@@ -51,11 +99,10 @@ export function ProjectDetailPage() {
   const links = useProjectLinks();
   const devLink = useDevServerLink();
   const [params] = useSearchParams();
-  const [tab, setTab] = useState<Tab>(() => {
-    const requested = params.get("tab");
-    return tabs.includes(requested as Tab) ? (requested as Tab) : "Overview";
-  });
+  const navigate = useNavigate();
   const [deleting, setDeleting] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  const [showingPlan, setShowingPlan] = useState(false);
   const [duplicating, setDuplicating] = useState(false);
   const { user } = useAuth();
   const [renaming, setRenaming] = useState(false);
@@ -72,8 +119,12 @@ export function ProjectDetailPage() {
   const access = p.access ?? "admin";
   const projectAdmin = access === "admin";
   const instanceAdmin = isAdmin(user);
-  const visibleTab = (name: (typeof tabs)[number]) =>
-    !((name === "Terminal" || name === "Actions") && access === "read") && !((name === "History" || name === "Advanced") && !instanceAdmin);
+  const visible = (id: Tab) => !((id === "Terminal" || id === "Actions") && access === "read") && !(id === "History" && !instanceAdmin);
+  const groups = sections.map((s) => ({ ...s, items: s.items.filter((i) => visible(i.id)) })).filter((s) => s.items.length > 0);
+  const requested = params.get("tab") ?? "";
+  const wanted = renamed[requested] ?? requested;
+  const tab: Tab = groups.some((s) => s.items.some((i) => i.id === wanted)) ? (wanted as Tab) : "Overview";
+  const tabHref = (id: Tab) => (id === "Overview" ? "" : `?tab=${id}`);
   const meta = stateMeta[p.status.state];
   const serves = p.serves ?? servesOf(p);
   const { url } = links(p);
@@ -118,10 +169,8 @@ export function ProjectDetailPage() {
         actions={
           <>
             <ProjectActionButtons project={p} size="md" onError={capture} />
-            {projectAdmin && <ShareButton project={p} />}
-            {projectAdmin && <Button variant="ghost" onClick={() => setRenaming(true)} icon={<Pencil className="size-4" />} aria-label={t("Rename project")} title={t("Rename project - identifier, URL and containers follow")} />}
-            {instanceAdmin && <Button variant="ghost" onClick={() => setDuplicating(true)} icon={<Copy className="size-4" />} aria-label={t("Duplicate project")} title={t("Duplicate project - config, files and database")} />}
-            {projectAdmin && <Button variant="ghost" onClick={() => setDeleting(true)} icon={<Trash2 className="size-4" />} aria-label={t("Delete project")} title={t("Delete project")} />}
+            {projectAdmin && <SharedBadge project={p} onOpen={() => setSharing(true)} />}
+            <ProjectMenu project={p} projectAdmin={projectAdmin} instanceAdmin={instanceAdmin} onShare={() => setSharing(true)} onRename={() => setRenaming(true)} onDuplicate={() => setDuplicating(true)} onShowPlan={() => setShowingPlan(true)} onDelete={() => setDeleting(true)} />
           </>
         }
       />
@@ -158,81 +207,121 @@ export function ProjectDetailPage() {
         </div>
       )}
 
-      <div className="mb-4 flex gap-1 border-b border-default" role="tablist">
-        {tabs.filter((name) => visibleTab(name)).map((name) => (
-          <button
-            key={name}
-            role="tab"
-            aria-selected={tab === name}
-            onClick={() => setTab(name)}
-            className={clsx("-mb-px border-b-2 px-3 py-2 text-sm font-medium", tab === name ? "border-accent-500 text-fg" : "border-transparent text-muted hover:text-fg")}
-          >
-            {t(name)}
-          </button>
-        ))}
+      <div className="lg:flex lg:items-start lg:gap-8">
+        <nav aria-label={t("Project sections")} className="hidden w-44 shrink-0 lg:sticky lg:top-6 lg:block">
+          {groups.map((s) => (
+            <div key={s.group ?? ""} className="mb-4">
+              {s.group && <p className="mb-1 px-2 text-[11px] font-semibold uppercase tracking-wider text-subtle">{t(s.group)}</p>}
+              <ul className="space-y-0.5">
+                {s.items.map((i) => (
+                  <li key={i.id}>
+                    <Link
+                      to={tabHref(i.id)}
+                      aria-current={tab === i.id ? "page" : undefined}
+                      className={clsx("flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm font-medium transition-colors", tab === i.id ? "bg-muted text-fg" : "text-muted hover:bg-muted hover:text-fg")}
+                    >
+                      <i.icon className="size-4 shrink-0" aria-hidden />
+                      {t(i.label)}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </nav>
+        <div className="mb-4 lg:hidden">
+          <Select aria-label={t("Project sections")} value={tab} onChange={(e) => navigate(tabHref(e.target.value as Tab))}>
+            {groups.map((s) =>
+              s.group ? (
+                <optgroup key={s.group} label={t(s.group)}>
+                  {s.items.map((i) => (
+                    <option key={i.id} value={i.id}>
+                      {t(i.label)}
+                    </option>
+                  ))}
+                </optgroup>
+              ) : (
+                s.items.map((i) => (
+                  <option key={i.id} value={i.id}>
+                    {t(i.label)}
+                  </option>
+                ))
+              ),
+            )}
+          </Select>
+        </div>
+        <div className="min-w-0 flex-1">
+          {tab === "Overview" && <OverviewTab project={p} />}
+          {tab === "Domains" && <DomainsTab project={p} />}
+          {tab === "Git" && <GitTab project={p} />}
+          {tab === "Branches" && <BranchesTab project={p} />}
+          {tab === "Actions" && (
+            <Suspense fallback={<Spinner label={t("Loading actions…")} />}>
+              <ActionsTab project={p} />
+            </Suspense>
+          )}
+          {tab === "Tests" && (
+            <Suspense fallback={<Spinner />}>
+              <TestsTab project={p} />
+            </Suspense>
+          )}
+          {tab === "Terminal" && (
+            <Suspense fallback={<Spinner label={t("Loading terminal…")} />}>
+              <TerminalTab project={p} />
+            </Suspense>
+          )}
+          {tab === "Logs" && <LogsTab project={p} />}
+          {tab === "Runtime" && (
+            <div className="space-y-6">
+              <ProjectSettingsCard project={p} onRename={() => setRenaming(true)} />
+              {/* The application runtime comes first (PHP, else Python, Go, Ruby, Java, .NET, Node), then the web server, then the other runtimes as toolchains. */}
+              {(() => {
+                const app = p.appService ?? appKindOf(p);
+                type Kind = "php" | "python" | "go" | "ruby" | "java" | "dotnet" | "node";
+                const cards: Record<Kind, ReactElement> = { php: <PhpCard key="php" project={p} />, python: <PythonCard key="python" project={p} />, go: <GoCard key="go" project={p} />, ruby: <RubyCard key="ruby" project={p} />, java: <JavaCard key="java" project={p} />, dotnet: <DotnetCard key="dotnet" project={p} />, node: <NodeCard key="node" project={p} /> };
+                // The application runtime first, then the rest in their usual order (Node before the
+                // servers, PHP last unless it's the application).
+                const order: Kind[] = ["node", "python", "go", "ruby", "java", "dotnet", "php"];
+                const [first, ...rest]: Kind[] = app && app !== "php" ? [app, ...order.filter((k) => k !== app)] : ["php", "node", "python", "go", "ruby", "java", "dotnet"];
+                return (
+                  <>
+                    {first && cards[first]}
+                    <WebServerCard project={p} />
+                    {rest.map((k) => cards[k])}
+                    <CustomImagesCard project={p} />
+                  </>
+                );
+              })()}
+            </div>
+          )}
+          {tab === "Workers" && (
+            <div className="space-y-6">
+              {!p.services.some((s) => (s.kind === "php" || s.kind === "node" || s.kind === "python" || s.kind === "go" || s.kind === "ruby" || s.kind === "java" || s.kind === "dotnet") && s.enabled) && (
+                <Alert tone="amber">{t("Workers and cron jobs run in the project's PHP, Python, Go, Ruby, Java, .NET or Node.js container - this project has none. Add one under Runtime first.")}</Alert>
+              )}
+              <WorkersTab project={p} />
+              <CronTab project={p} />
+            </div>
+          )}
+          {tab === "Database" && <DatabaseTab project={p} />}
+          {tab === "Services" && <ServicesTab project={p} />}
+          {tab === "Backups" && <BackupsTab project={p} />}
+          {tab === "Environment" && <EnvTab project={p} />}
+          {tab === "IDE" && <IdeTab project={p} />}
+          {tab === "Resources" && <ResourcesTab project={p} />}
+          {tab === "History" && (
+            <Card>
+              <CardHeader title={t("History")} description={t("Everything done to this project, newest first; open an entry to see what a change changed.")} />
+              <div className="pt-4">
+                <AuditLog project={p.id} />
+              </div>
+            </Card>
+          )}
+        </div>
       </div>
 
-      {tab === "Overview" && <OverviewTab project={p} />}
-      {tab === "Domains" && <DomainsTab project={p} />}
-      {tab === "Git" && <GitTab project={p} />}
-      {tab === "Branches" && <BranchesTab project={p} />}
-      {tab === "Actions" && (
-        <Suspense fallback={<Spinner label={t("Loading actions…")} />}>
-          <ActionsTab project={p} />
-        </Suspense>
-      )}
-      {tab === "Tests" && (
-        <Suspense fallback={<Spinner />}>
-          <TestsTab project={p} />
-        </Suspense>
-      )}
-      {tab === "Terminal" && (
-        <Suspense fallback={<Spinner label={t("Loading terminal…")} />}>
-          <TerminalTab project={p} />
-        </Suspense>
-      )}
-      {tab === "Logs" && <LogsTab project={p} />}
-      {tab === "Runtime" && (
-        <div className="space-y-6">
-          <ProjectSettingsCard project={p} onRename={() => setRenaming(true)} />
-          {/* The application runtime comes first (PHP, else Python, Go, Ruby, Java, .NET, Node), then the web server, then the other runtimes as toolchains. */}
-          {(() => {
-            const app = p.appService ?? appKindOf(p);
-            type Kind = "php" | "python" | "go" | "ruby" | "java" | "dotnet" | "node";
-            const cards: Record<Kind, ReactElement> = { php: <PhpCard key="php" project={p} />, python: <PythonCard key="python" project={p} />, go: <GoCard key="go" project={p} />, ruby: <RubyCard key="ruby" project={p} />, java: <JavaCard key="java" project={p} />, dotnet: <DotnetCard key="dotnet" project={p} />, node: <NodeCard key="node" project={p} /> };
-            // The application runtime first, then the rest in their usual order (Node before the
-            // servers, PHP last unless it's the application).
-            const order: Kind[] = ["node", "python", "go", "ruby", "java", "dotnet", "php"];
-            const [first, ...rest]: Kind[] = app && app !== "php" ? [app, ...order.filter((k) => k !== app)] : ["php", "node", "python", "go", "ruby", "java", "dotnet"];
-            return (
-              <>
-                {first && cards[first]}
-                <WebServerCard project={p} />
-                {rest.map((k) => cards[k])}
-                <CustomImagesCard project={p} />
-              </>
-            );
-          })()}
-        </div>
-      )}
-      {tab === "Workers" && <WorkersTab project={p} />}
-      {tab === "Cron" && <CronTab project={p} />}
-      {tab === "Database" && <DatabaseTab project={p} />}
-      {tab === "Services" && <ServicesTab project={p} />}
-      {tab === "Backups" && <BackupsTab project={p} />}
-      {tab === "Environment" && <EnvTab project={p} />}
-      {tab === "IDE" && <IdeTab project={p} />}
-      {tab === "Resources" && <ResourcesTab project={p} />}
-      {tab === "History" && (
-        <Card>
-          <CardHeader title={t("History")} description={t("Everything done to this project, newest first; open an entry to see what a change changed.")} />
-          <div className="pt-4">
-            <AuditLog project={p.id} />
-          </div>
-        </Card>
-      )}
-      {tab === "Advanced" && <AdvancedTab project={p} />}
-
+      {projectAdmin && <ShareDialog project={p} open={sharing} onClose={() => setSharing(false)} />}
+      {instanceAdmin && <DockerPlanDialog project={p} open={showingPlan} onClose={() => setShowingPlan(false)} />}
       <RenameProjectDialog project={p} open={renaming} onClose={() => setRenaming(false)} />
       <DuplicateProjectDialog project={p} open={duplicating} onClose={() => setDuplicating(false)} />
       <DeleteProjectDialog project={p} open={deleting} onClose={() => setDeleting(false)} />
@@ -1242,48 +1331,74 @@ function EnvTab({ project: p }: { project: Project }) {
   );
 }
 
-function AdvancedTab({ project: p }: { project: Project }) {
+/** The less used project actions, each gated by the role it needs. */
+function ProjectMenu({ project: p, projectAdmin, instanceAdmin, onShare, onRename, onDuplicate, onShowPlan, onDelete }: { project: Project; projectAdmin: boolean; instanceAdmin: boolean; onShare: () => void; onRename: () => void; onDuplicate: () => void; onShowPlan: () => void; onDelete: () => void }) {
+  const { t } = useTranslation();
+  const share = useShare(p);
+  const items: MenuItem[] = [];
+  if (projectAdmin) {
+    const running = p.status.state === "running";
+    const shared = !!share.data?.active;
+    items.push({ label: shared ? t("Shared") : t("Share publicly"), icon: <Globe className="size-4" />, onSelect: onShare, disabled: !running && !shared, title: running || shared ? t("Share on a public address") : t("Project is not running") });
+    items.push({ label: t("Rename project"), icon: <Pencil className="size-4" />, onSelect: onRename, title: t("Rename project - identifier, URL and containers follow") });
+  }
+  if (instanceAdmin) {
+    items.push({ label: t("Duplicate project"), icon: <Copy className="size-4" />, onSelect: onDuplicate, title: t("Duplicate project - config, files and database") });
+    items.push({ label: t("Docker plan"), icon: <FileCode2 className="size-4" />, onSelect: onShowPlan });
+  }
+  if (projectAdmin) items.push({ label: t("Delete project"), icon: <Trash2 className="size-4" />, onSelect: onDelete, danger: true });
+  if (items.length === 0) return null;
+  return <Menu label={t("More actions")} icon={<Ellipsis className="size-4" />} items={items} />;
+}
+
+function DockerPlanDialog({ project: p, open, onClose }: { project: Project; open: boolean; onClose: () => void }) {
+  const { t } = useTranslation();
+  return (
+    <Dialog wide open={open} onClose={onClose} title={t("Docker plan")} description={t("What Envoryx provisions for this project. Generated from the desired state; not editable by design.")} footer={<Button onClick={onClose}>{t("Close")}</Button>}>
+      {open && <DockerPlan project={p} />}
+    </Dialog>
+  );
+}
+
+function DockerPlan({ project: p }: { project: Project }) {
   const { t } = useTranslation();
   const plan = useProjectPlan(p.id);
   if (plan.isPending) return <Spinner />;
   if (plan.isError) return <ErrorState message={errorText(plan.error, t)} />;
   const pl = plan.data;
   return (
-    <Card>
-      <CardHeader title={t("Docker plan")} description={t("What Envoryx provisions for this project. Generated from the desired state; not editable by design.")} />
-      <div className="space-y-5 p-5 text-sm">
-        <dl className="grid gap-x-6 gap-y-2 sm:grid-cols-[10rem_1fr]">
-          <dt className="text-muted">{t("Host path")}</dt>
-          <dd className="font-mono text-xs">{pl.hostPath}</dd>
-          <dt className="text-muted">{t("Network")}</dt>
-          <dd className="font-mono text-xs">{pl.network}</dd>
-          <dt className="text-muted">{t("Images")}</dt>
-          <dd className="font-mono text-xs">{pl.images.join(", ")}</dd>
-        </dl>
-        <ul className="divide-y divide-[var(--border)] rounded-md border border-default">
-          {pl.containers.map((c) => (
-            <li key={c.name} className="px-3 py-2 text-xs">
-              <div className="flex items-center justify-between gap-3">
-                <span className="font-mono font-medium text-fg">{c.name}</span>
-                <span className="font-mono text-subtle">{c.image}</span>
-              </div>
-              <ul className="mt-1 space-y-0.5 font-mono text-[11px] text-muted">
-                {c.ports.map((port) => (
-                  <li key={port}>{t("port")} {port}</li>
-                ))}
-                {c.mounts.map((m) => (
-                  <li key={m} className="truncate">
-                    {t("mount")} {m}
-                  </li>
-                ))}
-              </ul>
-            </li>
-          ))}
-        </ul>
-        <p className="text-xs text-subtle">
-          {t("All resources carry the labels")} <Code>envoryx.managed=true</Code> {t("and")} <Code>envoryx.project.id={p.id}</Code>.
-        </p>
-      </div>
-    </Card>
+    <div className="space-y-5 text-sm">
+      <dl className="grid gap-x-6 gap-y-2 sm:grid-cols-[10rem_1fr]">
+        <dt className="text-muted">{t("Host path")}</dt>
+        <dd className="font-mono text-xs">{pl.hostPath}</dd>
+        <dt className="text-muted">{t("Network")}</dt>
+        <dd className="font-mono text-xs">{pl.network}</dd>
+        <dt className="text-muted">{t("Images")}</dt>
+        <dd className="font-mono text-xs">{pl.images.join(", ")}</dd>
+      </dl>
+      <ul className="divide-y divide-[var(--border)] rounded-md border border-default">
+        {pl.containers.map((c) => (
+          <li key={c.name} className="px-3 py-2 text-xs">
+            <div className="flex items-center justify-between gap-3">
+              <span className="font-mono font-medium text-fg">{c.name}</span>
+              <span className="font-mono text-subtle">{c.image}</span>
+            </div>
+            <ul className="mt-1 space-y-0.5 font-mono text-[11px] text-muted">
+              {c.ports.map((port) => (
+                <li key={port}>{t("port")} {port}</li>
+              ))}
+              {c.mounts.map((m) => (
+                <li key={m} className="truncate">
+                  {t("mount")} {m}
+                </li>
+              ))}
+            </ul>
+          </li>
+        ))}
+      </ul>
+      <p className="text-xs text-subtle">
+        {t("All resources carry the labels")} <Code>envoryx.managed=true</Code> {t("and")} <Code>envoryx.project.id={p.id}</Code>.
+      </p>
+    </div>
   );
 }

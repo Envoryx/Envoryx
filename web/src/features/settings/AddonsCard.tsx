@@ -75,7 +75,7 @@ export function AddonsCard() {
               <Package className="size-4 text-accent-500" aria-hidden /> {t("Addons")}
             </span>
           }
-          description={t("Addons add services described in a YAML file: one container per project with its image, variables, volumes and an optional web UI. Addons get no host directories, host network or privileges. Projects add installed addons on their Services tab.")}
+          description={t("Addons add services described in a YAML file: one container per project with its image, variables, volumes and an optional web UI. Addons get no host directories, host network or privileges. Projects add installed addons in their Services section.")}
           actions={
             <Button variant="primary" icon={<Plus className="size-4" />} onClick={() => setEditor({ title: t("New addon"), source: template })}>
               {t("New addon")}

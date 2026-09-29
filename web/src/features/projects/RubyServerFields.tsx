@@ -111,8 +111,8 @@ export function RubyServerFields({
           label={t("Debug with rdbg")}
           description={
             value.server
-              ? t("The server runs under rdbg (the debug gem), which VS Code (vscode-rdbg) or rdbg -A in a terminal attach to. RubyMine debugs with its own debugger over the SSH interpreter instead. The IDE tab has the connection.")
-              : t("Publishes the rdbg port for an rdbg started in the Ruby terminal, e.g. rdbg --open --host=0.0.0.0 --port=12345 -c -- bin/rails test. The IDE tab has the connection.")
+              ? t("The server runs under rdbg (the debug gem), which VS Code (vscode-rdbg) or rdbg -A in a terminal attach to. RubyMine debugs with its own debugger over the SSH interpreter instead. The IDE section has the connection.")
+              : t("Publishes the rdbg port for an rdbg started in the Ruby terminal, e.g. rdbg --open --host=0.0.0.0 --port=12345 -c -- bin/rails test. The IDE section has the connection.")
           }
           checked={value.debug}
           onChange={(e) => set({ debug: e.target.checked })}
