@@ -1,6 +1,6 @@
 import { clsx } from "clsx";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, ArrowRight, Check, Plus, Rocket, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, ChevronDown, FilePlus, GitBranch, Plus, Rocket, Trash2, Upload } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/api/client";
@@ -19,11 +19,16 @@ import { databaseNamePattern } from "./databases";
 import { EnvEditor } from "./EnvEditor";
 import { emptyExternalDatabase, emptyExternalRedis, externalDatabaseComplete, ExternalDatabaseFields, externalDatabaseTypes, ExternalRedisFields } from "./ExternalConnection";
 import { PhpConfigForm } from "./PhpConfigForm";
+import { TemplateGallery, runtimeNames, templateRuntime } from "./TemplateGallery";
+import { WizardSummary, type SummaryRow } from "./WizardSummary";
 import { webServerHint } from "./webServers";
 import { errorText } from "@/lib/errors";
 import { slugify } from "@/lib/format";
 
-const steps = ["General", "Runtimes", "Web server", "Database & services", "Environment", "Summary"] as const;
+const steps = ["Start", "Project & services", "Create"] as const;
+
+/** Where a new project begins; the runtime follows from it (a template or website brings its own). */
+type Source = "" | "template" | "git" | "import" | "blank";
 
 /** The runtime choice of step 1; it presets the PHP/Python/Go/Ruby/Java/.NET/Node checkboxes, docroot and starter page. */
 type Stack = AppKind | "static";
@@ -38,11 +43,6 @@ const stacks: { id: Stack; name: string; description: string }[] = [
   { id: "node", name: "Node.js application", description: "Vite, Next.js, Nuxt… - the dev server answers on the project URL." },
   { id: "static", name: "Static site", description: "The web server serves files from the document root; no application runtime." },
 ];
-
-/** Older backends omit the template runtime; every template was a PHP one then. */
-function templateRuntime(tpl: ProjectTemplate): AppKind {
-  return tpl.runtime ?? "php";
-}
 
 interface Form {
   name: string;
@@ -112,8 +112,7 @@ interface Form {
   gitToken: string;
   /** Apply the envoryx.yml the repository brings. */
   useManifest: boolean;
-  /** Start from an uploaded website instead of a template or repository. */
-  importing: boolean;
+  source: Source;
   importSite: SiteImport | null;
   adaptConfig: boolean;
   env: EnvVar[];
@@ -145,6 +144,8 @@ export function NewProjectPage() {
   const [preview, setPreview] = useState<Preview | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [advanced, setAdvanced] = useState(false);
+  const [moreRuntimes, setMoreRuntimes] = useState(false);
 
   useEffect(() => {
     if (runtimes.data && !form) {
@@ -221,7 +222,7 @@ export function NewProjectPage() {
         gitUsername: "",
         gitToken: "",
         useManifest: true,
-        importing: false,
+        source: "",
         importSite: null,
         adaptConfig: true,
         env: [],
@@ -270,13 +271,13 @@ export function NewProjectPage() {
     if (form.opensearch) req.opensearch = { version: form.opensearchVersion, exposePort: form.opensearchExpose, dashboards: form.opensearchDashboards };
     if (form.ollama) req.ollama = { exposePort: form.ollamaExpose, gpu: form.ollamaGpu };
     if (form.storage) req.storage = {};
-    if (form.importing) {
+    if (form.source === "import") {
       if (form.importSite) req.import = { id: form.importSite.id, adaptConfig: form.adaptConfig };
       req.createStarter = false;
       return req;
     }
-    if (form.template) req.template = form.template;
-    if (form.gitUrl.trim() && !form.template) {
+    if (form.source === "template" && form.template) req.template = form.template;
+    if (form.source === "git" && form.gitUrl.trim()) {
       const git: NonNullable<CreateProjectRequest["git"]> = { url: form.gitUrl.trim(), branch: form.gitBranch.trim(), username: form.gitUsername.trim() };
       if (form.gitToken) git.token = form.gitToken;
       req.git = git;
@@ -327,7 +328,6 @@ export function NewProjectPage() {
   const web = webServers.find((r) => r.key === form.webType);
   const databases = rt.runtimes.filter((r) => r.kind === "database");
   const services = rt.runtimes.filter((r) => r.kind === "service");
-  const templates = (rt.templates ?? []).filter((tpl) => templateRuntime(tpl) === form.stack);
   const selectedTemplate = rt.templates?.find((x) => x.id === form.template);
   const nameError = form.name.trim().length > 0 && form.name.trim().length < 2 ? t("At least 2 characters.") : slugify(form.name) === "" && form.name.trim() ? t("Name must contain letters or digits.") : undefined;
   const extraDbError = (i: number): string | undefined => {
@@ -337,7 +337,8 @@ export function NewProjectPage() {
     if (form.extraDbs.some((d, j) => j < i && d.name.trim() === n)) return t("The project already has a database of this name.");
     return undefined;
   };
-  const canContinue = step === 0 ? form.name.trim().length >= 2 && !nameError && (!form.importing || !!form.importSite) : step === 3 ? form.extraDbs.every((_, i) => !extraDbError(i)) && (!form.dbType || !form.dbExternal || !externalDatabaseTypes.includes(form.dbType) || externalDatabaseComplete(form.dbConn)) && (!form.redis || !form.redisExternal || !!form.redisConn.host) : true;
+  const canLeaveStart = form.source === "template" ? !!selectedTemplate : form.source === "git" ? !!form.gitUrl.trim() : form.source === "import" ? !!form.importSite : form.source === "blank";
+  const canContinue = step === 0 ? canLeaveStart : step === 1 ? form.name.trim().length >= 2 && !nameError && form.extraDbs.every((_, i) => !extraDbError(i)) && (!form.dbType || !form.dbExternal || !externalDatabaseTypes.includes(form.dbType) || externalDatabaseComplete(form.dbConn)) && (!form.redis || !form.redisExternal || !!form.redisConn.host) : true;
   // The services the new project will have, so an imported .env knows what Envoryx sets.
   const wizardServices = [
     ...(form.dbType ? [{ kind: "database", variant: form.dbType }] : []),
@@ -432,10 +433,10 @@ export function NewProjectPage() {
   };
 
   const chooseTemplate = (id: string) => {
-    if (form.importing) discardImport();
+    if (form.importSite) discardImport();
     const tpl = rt.templates?.find((x) => x.id === id);
     const patch: Partial<Form> = {
-      importing: false,
+      source: "template",
       importSite: null,
       template: id,
       dbType: tpl?.recommendedDatabase && !form.dbType ? tpl.recommendedDatabase : form.dbType,
@@ -486,6 +487,28 @@ export function NewProjectPage() {
       }
     }
     set(patch);
+  };
+
+  /** A template brings its runtime: switch the stack first, then apply the template on top. */
+  const pickTemplate = (tpl: ProjectTemplate) => {
+    chooseStack(templateRuntime(tpl));
+    chooseTemplate(tpl.id);
+  };
+
+  const chooseSource = (source: Exclude<Source, "" | "template">) => {
+    if (source !== "import" && form.importSite) discardImport();
+    set({ source, template: "" });
+    // An empty project serves its starter page; a repository or website brings its own files.
+    if (source === "blank") set({ createStarter: form.stack === "php" || form.stack === "static" });
+  };
+
+  /** Goes on; a repository names the project after itself unless a name is set. */
+  const next = () => {
+    if (step === 0 && form.source === "git" && !form.name.trim()) {
+      const base = form.gitUrl.trim().replace(/\/+$/, "").split(/[/:]/).pop()?.replace(/\.git$/, "") ?? "";
+      if (base) set({ name: base });
+    }
+    setStep(step + 1);
   };
 
   const setNodeDev = (nodeDev: DevServerForm) => {
@@ -648,610 +671,736 @@ export function NewProjectPage() {
   // The chosen stack's card leads; the others follow as toolchains, PHP last unless it's the stack.
   const cardsByKind = { php: phpCard, node: nodeCard, python: pythonCard, go: goCard, ruby: rubyCard, java: javaCard, dotnet: dotnetCard };
   const cardOrder: AppKind[] = ["node", "python", "go", "ruby", "java", "dotnet", "php"];
-  const runtimeCards =
-    form.stack === "php" || form.stack === "static"
-      ? (["php", "node", "python", "go", "ruby", "java", "dotnet"] as AppKind[]).map((k) => cardsByKind[k])
-      : [form.stack, ...cardOrder.filter((k) => k !== form.stack)].map((k) => cardsByKind[k]);
+  const ordered: AppKind[] = form.stack === "php" || form.stack === "static" ? ["php", "node", "python", "go", "ruby", "java", "dotnet"] : [form.stack, ...cardOrder.filter((k) => k !== form.stack)];
+  // The project's own runtime stays in view; the rest are tools most projects never add, so
+  // they wait behind a toggle unless one is already switched on.
+  const [lead, ...tools] = form.stack === "static" ? [undefined, ...ordered] : ordered;
+  const toolsOn = tools.some((k) => k && form[`${k}Enabled` as const]);
+  const runtimeCards = (
+    <>
+      {lead && cardsByKind[lead]}
+      <div className="space-y-4">
+        <button type="button" aria-expanded={moreRuntimes || toolsOn} onClick={() => setMoreRuntimes(!moreRuntimes)} disabled={toolsOn} className="flex items-center gap-1.5 text-sm font-medium text-accent-600 disabled:cursor-default disabled:text-fg dark:text-accent-300">
+          <ChevronDown className={clsx("size-4 transition-transform", (moreRuntimes || toolsOn) && "rotate-180")} aria-hidden />
+          {t("More runtimes as tools")}
+        </button>
+        {(moreRuntimes || toolsOn) && tools.map((k) => k && cardsByKind[k])}
+      </div>
+    </>
+  );
 
-  return (
-    <div>
-      <PageHeader title={t("New project")} description={t("Envoryx creates an isolated Docker environment for your project.")} />
-      <div className="grid gap-6 lg:grid-cols-[14rem_1fr]">
-        <ol className="flex gap-2 overflow-x-auto lg:flex-col lg:gap-1" aria-label={t("Steps")}>
-          {steps.map((label, i) => (
-            <li key={label}>
-              <button
-                type="button"
-                onClick={() => i < step && setStep(i)}
-                disabled={i > step}
-                className={clsx(
-                  "flex w-full items-center gap-2.5 whitespace-nowrap rounded-md px-2.5 py-2 text-left text-sm",
-                  i === step ? "bg-accent-500/10 font-medium text-accent-600 dark:text-accent-300" : i < step ? "text-fg hover:bg-muted" : "text-subtle",
-                )}
-                aria-current={i === step ? "step" : undefined}
-              >
-                <span className={clsx("flex size-5 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold", i < step ? "bg-accent-600 text-white" : i === step ? "bg-accent-500/20" : "bg-muted")}>
-                  {i < step ? <Check className="size-3" /> : i + 1}
-                </span>
-                {t(label)}
-              </button>
-            </li>
+  const webFields = (
+    <div className="space-y-5">
+      <Field label={t("Web server")} htmlFor="web">
+        <Select
+          id="web"
+          value={form.webType}
+          onChange={(e) => {
+            const next = webServers.find((r) => r.key === e.target.value);
+            set({ webType: e.target.value, webVersion: next?.versions.find((v) => v.default)?.version ?? next?.versions[0]?.version ?? "" });
+          }}
+        >
+          {webServers.map((r) => (
+            <option key={r.key} value={r.key}>
+              {r.name}
+            </option>
           ))}
-        </ol>
+        </Select>
+      </Field>
+      <Field label={t("Version")} htmlFor="web-version">
+        <Select id="web-version" value={form.webVersion} onChange={(e) => set({ webVersion: e.target.value })}>
+          {web?.versions.map((v) => (
+            <option key={v.version} value={v.version}>
+              {v.label}
+            </option>
+          ))}
+        </Select>
+      </Field>
+      <p className="text-sm text-muted">{webServerHint(t, form.webType, serves)}</p>
+      <p className="text-sm text-muted">
+        {serves === "php"
+          ? t("The web server serves static files from the document root and forwards PHP requests to the PHP container via FastCGI. The project is published on an automatically assigned port and reachable through the proxy under its domain.")
+          : serves === "node"
+            ? t("The dev server answers on the project URL. The web server is part of every project and serves the document root once the dev server is turned off.")
+            : serves === "python" || serves === "go" || serves === "ruby" || serves === "java" || serves === "dotnet"
+              ? t("The application server answers on the project URL. The web server is part of every project and serves the document root once the server is turned off.")
+              : t("The web server serves static files from the document root.")}
+      </p>
+      {serves === "static" && (
+        <Checkbox label={t("SPA fallback to index.html")} description={t("Unknown paths return index.html so client-side routers work after a reload.")} checked={form.spaFallback} onChange={(e) => set({ spaFallback: e.target.checked })} />
+      )}
+    </div>
+  );
 
-        <Card className="p-6">
-          {step === 0 && (
-            <div className="space-y-5">
-              <Field label={t("Project name")} htmlFor="name" error={nameError} hint={form.name ? t("Identifier: {{slug}}", { slug: slugify(form.name) || "-" }) : t("Displayed in the UI; the identifier is derived from it.")}>
-                <Input id="name" autoFocus value={form.name} onChange={(e) => set({ name: e.target.value, path: form.pathTouched ? form.path : "" })} placeholder="Acme Shop" />
-              </Field>
-              <Field label={t("Project directory")} htmlFor="path" hint={t("Relative to the projects folder (/projects). Created if it does not exist.")}>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-subtle">/projects/</span>
-                  <Input id="path" value={form.pathTouched ? form.path : slugify(form.name)} onChange={(e) => set({ path: e.target.value, pathTouched: true })} placeholder="acme-shop" spellCheck={false} />
-                </div>
-              </Field>
-              <fieldset className="space-y-2">
-                <legend className="text-sm font-medium text-fg">{t("Runtime")}</legend>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {stacks.map((s) => (
-                    <label key={s.id} className={clsx("flex cursor-pointer gap-3 rounded-md border p-3 text-sm", form.stack === s.id ? "border-accent-500 bg-accent-500/5" : "border-default hover:bg-muted")}>
-                      <input type="radio" name="stack" className="mt-0.5 accent-accent-600" aria-label={t(s.name)} checked={form.stack === s.id} onChange={() => chooseStack(s.id)} />
-                      <span>
-                        <span className="block font-medium">{t(s.name)}</span>
-                        <span className="block text-xs text-muted">{t(s.description)}</span>
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              </fieldset>
-              <fieldset className="space-y-2">
-                <legend className="text-sm font-medium text-fg">{t("Start from")}</legend>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {[{ id: "", name: t("Blank"), description: t("Empty directory, optionally with a starter page, or clone a repository below.") }, ...templates].map((item) => (
-                    <label key={item.id} className={clsx("flex cursor-pointer gap-3 rounded-md border p-3 text-sm", !form.importing && form.template === item.id ? "border-accent-500 bg-accent-500/5" : "border-default hover:bg-muted")}>
-                      <input type="radio" name="template" className="mt-0.5 accent-accent-600" checked={!form.importing && form.template === item.id} onChange={() => chooseTemplate(item.id)} />
-                      <span>
-                        <span className="block font-medium">{item.name}</span>
-                        <span className="block text-xs text-muted">{item.description}</span>
-                      </span>
-                    </label>
-                  ))}
-                  <label className={clsx("flex cursor-pointer gap-3 rounded-md border p-3 text-sm", form.importing ? "border-accent-500 bg-accent-500/5" : "border-default hover:bg-muted")}>
-                    <input type="radio" name="template" className="mt-0.5 accent-accent-600" checked={form.importing} onChange={() => set({ importing: true, template: "", gitUrl: "" })} />
-                    <span>
-                      <span className="block font-medium">{t("Existing website")}</span>
-                      <span className="block text-xs text-muted">{t("Upload the files of a site you already have - from an old host or a backup - and optionally its database dump.")}</span>
-                    </span>
-                  </label>
-                </div>
-                {selectedTemplate?.requiresDatabase && !form.dbType && (
-                  <p className="text-xs text-amber-600 dark:text-amber-400">{t("This template needs a database - it is preselected in the “Database & services” step.")}</p>
-                )}
-              </fieldset>
-              <Field label={t("Document root")} htmlFor="docroot" hint={docrootHint}>
-                <Input id="docroot" value={form.docroot} onChange={(e) => set({ docroot: e.target.value, docrootTouched: true })} placeholder={form.stack === "php" ? "public" : "dist"} spellCheck={false} />
-              </Field>
-              {form.importing ? (
-                <ImportSiteCard value={form.importSite} onUploaded={applyImport} onDiscard={discardImport} adaptConfig={form.adaptConfig} onAdaptConfig={(adaptConfig) => set({ adaptConfig })} />
-              ) : (
-                <div className={clsx("space-y-4 rounded-md border border-default p-4", form.template && "opacity-50")}>
-                  <p className="text-sm font-medium text-fg">{form.template ? t("Git repository (optional - not with a template)") : t("Git repository (optional)")}</p>
-                  <Field label={t("Repository URL")} htmlFor="git-url" hint={t("Cloned into the empty project directory. https://…, git@host:path.git or ssh://…")}>
-                    <Input id="git-url" value={form.gitUrl} onChange={(e) => set({ gitUrl: e.target.value })} placeholder="https://github.com/you/project.git" spellCheck={false} disabled={!!form.template} />
-                  </Field>
-                  {form.gitUrl.trim() && (
-                    <div className="grid gap-4 sm:grid-cols-3">
-                      <Field label={t("Branch")} htmlFor="git-branch" hint={t("Empty = default branch")}>
-                        <Input id="git-branch" value={form.gitBranch} onChange={(e) => set({ gitBranch: e.target.value })} placeholder="main" spellCheck={false} />
-                      </Field>
-                      {!(form.gitUrl.startsWith("git@") || form.gitUrl.startsWith("ssh://")) ? (
-                        <>
-                          <Field label={t("Username (optional)")} htmlFor="git-user">
-                            <Input id="git-user" value={form.gitUsername} onChange={(e) => set({ gitUsername: e.target.value })} placeholder="x-access-token" autoComplete="off" />
-                          </Field>
-                          <Field label={t("Access token")} htmlFor="git-token" hint={t("Only for private repositories")}>
-                            <Input id="git-token" type="password" value={form.gitToken} onChange={(e) => set({ gitToken: e.target.value })} autoComplete="new-password" />
-                          </Field>
-                        </>
-                      ) : (
-                        <p className="self-end pb-2 text-xs text-muted sm:col-span-2">{t("SSH uses the Envoryx deploy key (Settings → Git deploy key); add it to the repository first.")}</p>
-                      )}
-                    </div>
-                  )}
-                  {form.gitUrl.trim() && (
-                    <Checkbox
-                      label={t("Use the repository's envoryx.yml")}
-                      description={t("If the repository brings one, it decides runtimes, services, domains, environment, workers and cron jobs; the next steps only count without it.")}
-                      checked={form.useManifest}
-                      onChange={(e) => set({ useManifest: e.target.checked })}
-                    />
-                  )}
-                </div>
-              )}
+  const servicesFields = (
+    <div className="space-y-6">
+      <div>
+        <p className="mb-2 text-sm font-medium text-fg">{t("Database")}</p>
+        <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label={t("Database")}>
+          <label className={clsx("flex items-center gap-2.5 rounded-md border px-3 py-2 text-sm cursor-pointer", form.dbType === "" ? "border-accent-500 bg-accent-500/5" : "border-default hover:bg-muted")}>
+            <input type="radio" name="db" className="accent-accent-600" checked={form.dbType === ""} onChange={() => set({ dbType: "", dbVersion: "" })} /> {t("None")}
+          </label>
+          {databases.map((d) => (
+            <label
+              key={d.key}
+              className={clsx("flex items-center gap-2.5 rounded-md border px-3 py-2 text-sm", !d.available ? "border-default opacity-60" : form.dbType === d.key ? "border-accent-500 bg-accent-500/5 cursor-pointer" : "border-default hover:bg-muted cursor-pointer")}
+              title={d.description}
+            >
+              <input
+                type="radio"
+                name="db"
+                className="accent-accent-600"
+                disabled={!d.available}
+                checked={form.dbType === d.key}
+                onChange={() => set({ dbType: d.key, dbVersion: d.versions.find((v) => v.default)?.version ?? d.versions[0]?.version ?? "" })}
+              />
+              {d.name}
+              {!d.available && <span className="text-xs text-subtle">{t("soon")}</span>}
+            </label>
+          ))}
+        </div>
+      </div>
+      {form.dbType && (
+        <div className="space-y-4 rounded-md border border-default p-4">
+          {externalDatabaseTypes.includes(form.dbType) && (
+            <div className="flex flex-wrap gap-4" role="radiogroup" aria-label={t("Where the database runs")}>
+              <label className="inline-flex items-center gap-2 text-sm">
+                <input type="radio" name="db-where" checked={!form.dbExternal} onChange={() => set({ dbExternal: false })} />
+                {t("In a container of the project")}
+              </label>
+              <label className="inline-flex items-center gap-2 text-sm">
+                <input type="radio" name="db-where" checked={form.dbExternal} onChange={() => set({ dbExternal: true })} />
+                {t("On an external server")}
+              </label>
             </div>
           )}
-
-          {step === 1 && <div className="space-y-6">{runtimeCards}</div>}
-
-          {step === 2 && web && (
-            <div className="space-y-5">
-              <Field label={t("Web server")} htmlFor="web">
+          <Field label={t("Version")} htmlFor="db-version" hint={form.dbExternal ? t("Picks the client tools for backups and the connection; choose the server's major version.") : t("Upgrades between versions run on the same data volume; downgrades are not possible.")}>
+            <Select id="db-version" value={form.dbVersion} onChange={(e) => set({ dbVersion: e.target.value })}>
+              {databases
+                .find((d) => d.key === form.dbType)
+                ?.versions.map((v) => (
+                  <option key={v.version} value={v.version}>
+                    {v.label}
+                  </option>
+                ))}
+            </Select>
+          </Field>
+          {form.dbExternal && externalDatabaseTypes.includes(form.dbType) ? (
+            <>
+              <ExternalDatabaseFields id="db-ext" type={form.dbType} version={form.dbVersion} value={form.dbConn} onChange={(dbConn) => set({ dbConn })} />
+              <p className="text-sm text-muted">
+                {t("Envoryx runs no database container and injects this server's DB_HOST, DB_PORT, DB_DATABASE, DB_USERNAME, DB_PASSWORD and DATABASE_URL into the application containers. The connection is tested when the project is created.")}
+              </p>
+            </>
+          ) : (
+            <>
+              <Checkbox
+                label={t("Publish database port on the host")}
+                description={t("Lets you connect from your workstation with TablePlus, DBeaver, etc. The port is assigned automatically.")}
+                checked={form.dbExpose}
+                onChange={(e) => set({ dbExpose: e.target.checked })}
+              />
+              <p className="text-sm text-muted">
+                {t("Envoryx generates secure credentials and injects DB_HOST, DB_DATABASE, DB_USERNAME, DB_PASSWORD and DATABASE_URL into the application containers (PHP, Python, Go, Ruby, Java, .NET, Node). Data lives in a persistent Docker volume.")}
+              </p>
+            </>
+          )}
+        </div>
+      )}
+      <div className="space-y-3">
+        <p className="text-sm font-medium text-fg">{t("Additional databases")}</p>
+        <p className="text-sm text-muted">{t("Another database server next to the first one - for example PostgreSQL for reporting next to MariaDB. Each is reached at its name as host and injects variables starting with its name (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …).")}</p>
+        {form.extraDbs.map((d, i) => {
+          const engine = databases.find((x) => x.key === d.type);
+          return (
+            <div key={i} className="grid gap-3 rounded-md border border-default p-4 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-end">
+              <Field label={t("Name")} htmlFor={`extra-db-name-${i}`} error={extraDbError(i)}>
+                <Input id={`extra-db-name-${i}`} value={d.name} onChange={(e) => setExtraDb(i, { name: e.target.value.toLowerCase() })} placeholder="analytics" spellCheck={false} autoComplete="off" />
+              </Field>
+              <Field label={t("Type")} htmlFor={`extra-db-type-${i}`}>
                 <Select
-                  id="web"
-                  value={form.webType}
+                  id={`extra-db-type-${i}`}
+                  value={d.type}
                   onChange={(e) => {
-                    const next = webServers.find((r) => r.key === e.target.value);
-                    set({ webType: e.target.value, webVersion: next?.versions.find((v) => v.default)?.version ?? next?.versions[0]?.version ?? "" });
+                    const next = databases.find((x) => x.key === e.target.value);
+                    setExtraDb(i, { type: e.target.value, version: next?.versions.find((v) => v.default)?.version ?? next?.versions[0]?.version ?? "" });
                   }}
                 >
-                  {webServers.map((r) => (
-                    <option key={r.key} value={r.key}>
-                      {r.name}
-                    </option>
-                  ))}
+                  {databases
+                    .filter((x) => x.available)
+                    .map((x) => (
+                      <option key={x.key} value={x.key}>
+                        {x.name}
+                      </option>
+                    ))}
                 </Select>
               </Field>
-              <Field label={t("Version")} htmlFor="web-version">
-                <Select id="web-version" value={form.webVersion} onChange={(e) => set({ webVersion: e.target.value })}>
-                  {web.versions.map((v) => (
+              <Field label={t("Version")} htmlFor={`extra-db-version-${i}`}>
+                <Select id={`extra-db-version-${i}`} value={d.version} onChange={(e) => setExtraDb(i, { version: e.target.value })}>
+                  {engine?.versions.map((v) => (
                     <option key={v.version} value={v.version}>
                       {v.label}
                     </option>
                   ))}
                 </Select>
               </Field>
-              <p className="text-sm text-muted">{webServerHint(t, form.webType, serves)}</p>
-              <p className="text-sm text-muted">
-                {serves === "php"
-                  ? t("The web server serves static files from the document root and forwards PHP requests to the PHP container via FastCGI. The project is published on an automatically assigned port and reachable through the proxy under its domain.")
-                  : serves === "node"
-                    ? t("The dev server answers on the project URL. The web server is part of every project and serves the document root once the dev server is turned off.")
-                    : serves === "python" || serves === "go" || serves === "ruby" || serves === "java" || serves === "dotnet"
-                      ? t("The application server answers on the project URL. The web server is part of every project and serves the document root once the server is turned off.")
-                      : t("The web server serves static files from the document root.")}
-              </p>
-              {serves === "static" && (
-                <Checkbox label={t("SPA fallback to index.html")} description={t("Unknown paths return index.html so client-side routers work after a reload.")} checked={form.spaFallback} onChange={(e) => set({ spaFallback: e.target.checked })} />
-              )}
+              <Button variant="ghost" aria-label={t("Remove {{name}}", { name: d.name || t("database") })} onClick={() => set({ extraDbs: form.extraDbs.filter((_, j) => j !== i) })} icon={<Trash2 className="size-4" />} />
             </div>
-          )}
+          );
+        })}
+        <Button
+          size="sm"
+          icon={<Plus className="size-3.5" />}
+          onClick={() => {
+            const pg = databases.find((x) => x.key === "postgresql") ?? databases[0];
+            set({ extraDbs: [...form.extraDbs, { name: "", type: pg?.key ?? "postgresql", version: pg?.versions.find((v) => v.default)?.version ?? "" }] });
+          }}
+        >
+          {t("Add a database")}
+        </Button>
+      </div>
+      <div className="space-y-3">
+        <p className="text-sm font-medium text-fg">{t("Additional services")}</p>
+        {/* Two columns while the services are off; one that is on and has options takes the full width. */}
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className={clsx("space-y-3 rounded-md border border-default p-4", form.redis && "sm:col-span-2")}>
+            <Checkbox label="Redis" description={t("Cache and queue backend with a persistent volume. Injects REDIS_HOST, REDIS_PORT and REDIS_URL.")} checked={form.redis} onChange={(e) => set({ redis: e.target.checked })} />
+            {form.redis && (
+              <div className="flex flex-wrap gap-4 pl-7" role="radiogroup" aria-label={t("Where {{service}} runs", { service: "Redis" })}>
+                <label className="inline-flex items-center gap-2 text-sm">
+                  <input type="radio" name="redis-where" checked={!form.redisExternal} onChange={() => set({ redisExternal: false })} />
+                  {t("In a container of the project")}
+                </label>
+                <label className="inline-flex items-center gap-2 text-sm">
+                  <input type="radio" name="redis-where" checked={form.redisExternal} onChange={() => set({ redisExternal: true })} />
+                  {t("On an external server")}
+                </label>
+              </div>
+            )}
+            {form.redis && form.redisExternal && (
+              <div className="pl-7">
+                <ExternalRedisFields id="redis-ext" value={form.redisConn} onChange={(redisConn) => set({ redisConn })} />
+              </div>
+            )}
+            {form.redis && !form.redisExternal && (
+              <div className="grid gap-4 pl-7 sm:grid-cols-2">
+                <Field label={t("Redis version")} htmlFor="redis-version">
+                  <Select id="redis-version" value={form.redisVersion} onChange={(e) => set({ redisVersion: e.target.value })}>
+                    {services
+                      .find((s) => s.key === "redis")
+                      ?.versions.map((v) => (
+                        <option key={v.version} value={v.version}>
+                          {v.label}
+                        </option>
+                      ))}
+                  </Select>
+                </Field>
+                <div className="self-end pb-1">
+                  <Checkbox label={t("Publish port on the host")} description={t("For RedisInsight etc.")} checked={form.redisExpose} onChange={(e) => set({ redisExpose: e.target.checked })} />
+                </div>
+              </div>
+            )}
+          </div>
+          <div className={clsx("space-y-3 rounded-md border border-default p-4", form.memcached && "sm:col-span-2")}>
+            <Checkbox label="Memcached" description={t("In-memory cache without persistence - a restart empties it. Injects MEMCACHED_HOST, MEMCACHED_PORT and MEMCACHED_URL.")} checked={form.memcached} onChange={(e) => set({ memcached: e.target.checked })} />
+            {form.memcached && (
+              <div className="pl-7">
+                <Checkbox label={t("Publish port on the host")} description={t("For tools on your machine, e.g. telnet or a cache inspector.")} checked={form.memcachedExpose} onChange={(e) => set({ memcachedExpose: e.target.checked })} />
+              </div>
+            )}
+          </div>
+          <div className="rounded-md border border-default p-4">
+            <Checkbox label="Mailpit" description={t("Catches all outgoing mail and shows it in a web inbox (published on its own port). Injects MAIL_* and MAILER_DSN.")} checked={form.mailpit} onChange={(e) => set({ mailpit: e.target.checked })} />
+          </div>
+          <div className={clsx("space-y-3 rounded-md border border-default p-4", form.rabbitmq && "sm:col-span-2")}>
+            <Checkbox label="RabbitMQ" description={t("Message broker for queues (Symfony Messenger, Laravel queues, Celery) with a persistent volume and a management UI on its own port. Injects RABBITMQ_* including RABBITMQ_URL.")} checked={form.rabbitmq} onChange={(e) => set({ rabbitmq: e.target.checked })} />
+            {form.rabbitmq && (
+              <div className="grid gap-4 pl-7 sm:grid-cols-2">
+                <Field label={t("RabbitMQ version")} htmlFor="rabbitmq-version">
+                  <Select id="rabbitmq-version" value={form.rabbitmqVersion} onChange={(e) => set({ rabbitmqVersion: e.target.value })}>
+                    {services
+                      .find((s) => s.key === "rabbitmq")
+                      ?.versions.map((v) => (
+                        <option key={v.version} value={v.version}>
+                          {v.label}
+                        </option>
+                      ))}
+                  </Select>
+                </Field>
+                <div className="self-end pb-1">
+                  <Checkbox label={t("Publish port on the host")} description={t("For AMQP clients running on your machine.")} checked={form.rabbitmqExpose} onChange={(e) => set({ rabbitmqExpose: e.target.checked })} />
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="rounded-md border border-default p-4">
+            <Checkbox label="Meilisearch" description={t("Search engine (Laravel Scout, Symfony) with a persistent volume and a web dashboard on its own port. Injects MEILISEARCH_HOST/KEY and MEILISEARCH_URL/API_KEY; set SCOUT_DRIVER yourself.")} checked={form.meilisearch} onChange={(e) => set({ meilisearch: e.target.checked })} />
+          </div>
+          <div className={clsx("space-y-3 rounded-md border border-default p-4", form.typesense && "sm:col-span-2")}>
+            <Checkbox label="Typesense" description={t("Search engine (Laravel Scout, InstantSearch) with a persistent volume. Injects TYPESENSE_HOST, TYPESENSE_PORT, TYPESENSE_PROTOCOL, TYPESENSE_API_KEY and TYPESENSE_URL; set SCOUT_DRIVER yourself.")} checked={form.typesense} onChange={(e) => set({ typesense: e.target.checked })} />
+            {form.typesense && (
+              <div className="pl-7">
+                <Checkbox label={t("Publish port on the host")} description={t("For clients and dashboards running on your machine.")} checked={form.typesenseExpose} onChange={(e) => set({ typesenseExpose: e.target.checked })} />
+              </div>
+            )}
+          </div>
+          <div className={clsx("space-y-3 rounded-md border border-default p-4", form.opensearch && "sm:col-span-2")}>
+            <Checkbox label="OpenSearch" description={t("Elasticsearch-compatible search engine as a single node with a persistent volume, plain HTTP without login. Injects OPENSEARCH_HOST, OPENSEARCH_PORT, OPENSEARCH_SCHEME and OPENSEARCH_URL. Needs about 1 GB of RAM.")} checked={form.opensearch} onChange={(e) => set({ opensearch: e.target.checked })} />
+            {form.opensearch && (
+              <div className="grid gap-4 pl-7 sm:grid-cols-2">
+                <Field label={t("OpenSearch version")} htmlFor="opensearch-version">
+                  <Select id="opensearch-version" value={form.opensearchVersion} onChange={(e) => set({ opensearchVersion: e.target.value })}>
+                    {services
+                      .find((s) => s.key === "opensearch")
+                      ?.versions.map((v) => (
+                        <option key={v.version} value={v.version}>
+                          {v.label}
+                        </option>
+                      ))}
+                  </Select>
+                </Field>
+                <div className="self-end pb-1">
+                  <Checkbox label={t("Publish port on the host")} description={t("For clients and dashboards running on your machine.")} checked={form.opensearchExpose} onChange={(e) => set({ opensearchExpose: e.target.checked })} />
+                </div>
+                <div className="sm:col-span-2">
+                  <Checkbox label="OpenSearch Dashboards" description={t("Web UI with the Dev Tools console, index management and Discover, on its own port. The image is about 2.6 GB and needs roughly 400 MB of RAM.")} checked={form.opensearchDashboards} onChange={(e) => set({ opensearchDashboards: e.target.checked })} />
+                </div>
+              </div>
+            )}
+          </div>
+          <div className={clsx("space-y-3 rounded-md border border-default p-4", form.ollama && "sm:col-span-2")}>
+            <Checkbox label="Ollama" description={t("Runs language and embedding models locally (Laravel Prism, LangChain, the Ollama libraries). Injects OLLAMA_HOST, OLLAMA_BASE_URL and OLLAMA_URL. Models live in one store shared by all projects; download them in the Services section.")} checked={form.ollama} onChange={(e) => set({ ollama: e.target.checked })} />
+            {form.ollama && (
+              <div className="space-y-3 pl-7">
+                <Checkbox label={t("Use the GPU")} description={t("Hands the host's NVIDIA GPUs to Ollama. Docker needs the NVIDIA Container Toolkit for it (on Unraid: the Nvidia Driver plugin); Envoryx checks that before switching.")} checked={form.ollamaGpu} onChange={(e) => set({ ollamaGpu: e.target.checked })} />
+                <Checkbox label={t("Publish port on the host")} description={t("For clients and dashboards running on your machine.")} checked={form.ollamaExpose} onChange={(e) => set({ ollamaExpose: e.target.checked })} />
+              </div>
+            )}
+          </div>
+          <div className="rounded-md border border-default p-4">
+            <Checkbox label={t("Object storage (S3)")} description={t("S3-compatible object storage with a bucket for this project and a web console. Injects S3_* and the AWS_* variables Laravel and the AWS SDKs read.")} checked={form.storage} onChange={(e) => set({ storage: e.target.checked })} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 
-          {step === 3 && (
+  const gitFields = (
+    <>
+      <Field label={t("Repository URL")} htmlFor="git-url" hint={t("Cloned into the empty project directory. https://…, git@host:path.git or ssh://…")}>
+        <Input id="git-url" value={form.gitUrl} onChange={(e) => set({ gitUrl: e.target.value })} placeholder="https://github.com/you/project.git" spellCheck={false} />
+      </Field>
+      {form.gitUrl.trim() && (
+        <div className="grid gap-4 sm:grid-cols-3">
+          <Field label={t("Branch")} htmlFor="git-branch" hint={t("Empty = default branch")}>
+            <Input id="git-branch" value={form.gitBranch} onChange={(e) => set({ gitBranch: e.target.value })} placeholder="main" spellCheck={false} />
+          </Field>
+          {!(form.gitUrl.startsWith("git@") || form.gitUrl.startsWith("ssh://")) ? (
+            <>
+              <Field label={t("Username (optional)")} htmlFor="git-user">
+                <Input id="git-user" value={form.gitUsername} onChange={(e) => set({ gitUsername: e.target.value })} placeholder="x-access-token" autoComplete="off" />
+              </Field>
+              <Field label={t("Access token")} htmlFor="git-token" hint={t("Only for private repositories")}>
+                <Input id="git-token" type="password" value={form.gitToken} onChange={(e) => set({ gitToken: e.target.value })} autoComplete="new-password" />
+              </Field>
+            </>
+          ) : (
+            <p className="self-end pb-2 text-xs text-muted sm:col-span-2">{t("SSH uses the Envoryx deploy key (Settings → Git deploy key); add it to the repository first.")}</p>
+          )}
+        </div>
+      )}
+      {form.gitUrl.trim() && (
+        <Checkbox
+          label={t("Use the repository's envoryx.yml")}
+          description={t("If the repository brings one, it decides runtimes, services, domains, environment, workers and cron jobs; the next steps only count without it.")}
+          checked={form.useManifest}
+          onChange={(e) => set({ useManifest: e.target.checked })}
+        />
+      )}
+    </>
+  );
+
+  const previewPanel = (
+    <div className="space-y-5">
+      {previewError ? (
+        <Alert tone="red" title={t("Cannot create this project")}>
+          {previewError}
+        </Alert>
+      ) : !preview ? (
+        <Spinner label={t("Calculating plan…")} />
+      ) : (
+        <>
+          {preview.warnings.length > 0 && (
+            <Alert tone="amber">
+              <ul className="list-disc pl-4">
+                {preview.warnings.map((w, i) => (
+                  <li key={i}>{w}</li>
+                ))}
+              </ul>
+            </Alert>
+          )}
+          <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-[10rem_1fr]">
+            <dt className="text-muted">{t("Identifier")}</dt>
+            <dd className="font-mono text-xs">{preview.slug}</dd>
+            {selectedTemplate && (
+              <>
+                <dt className="text-muted">{t("Template")}</dt>
+                <dd className="text-xs">
+                  {selectedTemplate.name}
+                  <span className="block text-subtle">{selectedTemplate.description}</span>
+                  {selectedTemplate.notes && <span className="block text-subtle">{selectedTemplate.notes}</span>}
+                </dd>
+              </>
+            )}
+            {form.importSite && (
+              <>
+                <dt className="text-muted">{t("Website")}</dt>
+                <dd className="text-xs">
+                  {form.importSite.siteName}
+                  {form.importSite.dumpName && <> + {form.importSite.dumpName}</>}
+                  <span className="block text-subtle">
+                    {form.importSite.dumpName ? t("The files are unpacked into the project directory and the dump is imported into the project database.") : t("The files are unpacked into the project directory.")}
+                  </span>
+                </dd>
+              </>
+            )}
+            <dt className="text-muted">{t("Files")}</dt>
+            <dd className="font-mono text-xs">
+              {preview.path} <span className="text-subtle">({t("host")}: {preview.hostPath})</span>
+            </dd>
+            <dt className="text-muted">{t("URL")}</dt>
+            <dd className="font-mono text-xs">
+              {(() => {
+                // The preview carries no service list; the links hook only reads it for the
+                // application container's host port. Behind a Python, Go, Ruby, Java or .NET server or the Node dev server the
+                // HTTP port stays unpublished, so the planned container's host port stands in as a
+                // synthetic service; then the hook's own branch applies, also when the proxy is off
+                // and the direct URL is all there is.
+                const appPort = Number(preview.containers.find((c) => c.service === previewServes)?.ports[0]?.split(" ")[0]) || 0;
+                const services: Project["services"] =
+                  previewServes === "node"
+                    ? [{ kind: "node", variant: "node", version: "", image: "", enabled: true, config: { devServer: true, hostPort: appPort } }]
+                    : previewServes === "python" || previewServes === "go" || previewServes === "ruby" || previewServes === "java" || previewServes === "dotnet"
+                      ? [{ kind: previewServes, variant: previewServes, version: "", image: "", enabled: true, config: { server: true, hostPort: appPort } }]
+                      : [];
+                const l = links({ httpPort: preview.httpPort, hostnames: [`${preview.slug}.${settings.data?.baseDomain ?? "test"}`], serves: previewServes, services });
+                return !l.direct || l.url === l.direct ? l.url : `${l.url} · ${l.direct}`;
+              })()}
+            </dd>
+            {previewServes === "node" ? (
+              <>
+                <dt className="text-muted">{t("Serves")}</dt>
+                <dd className="text-xs">{t("Node dev server (the HTTP port stays unpublished)")}</dd>
+              </>
+            ) : (
+              <>
+                {previewServes === "python" && (
+                  <>
+                    <dt className="text-muted">{t("Serves")}</dt>
+                    <dd className="text-xs">{t("Python application server (the HTTP port stays unpublished)")}</dd>
+                  </>
+                )}
+                {previewServes === "go" && (
+                  <>
+                    <dt className="text-muted">{t("Serves")}</dt>
+                    <dd className="text-xs">{t("Go server (the HTTP port stays unpublished)")}</dd>
+                  </>
+                )}
+                {previewServes === "ruby" && (
+                  <>
+                    <dt className="text-muted">{t("Serves")}</dt>
+                    <dd className="text-xs">{t("Ruby server (the HTTP port stays unpublished)")}</dd>
+                  </>
+                )}
+                {previewServes === "java" && (
+                  <>
+                    <dt className="text-muted">{t("Serves")}</dt>
+                    <dd className="text-xs">{t("Java server (the HTTP port stays unpublished)")}</dd>
+                  </>
+                )}
+                {previewServes === "dotnet" && (
+                  <>
+                    <dt className="text-muted">{t("Serves")}</dt>
+                    <dd className="text-xs">{t(".NET server (the HTTP port stays unpublished)")}</dd>
+                  </>
+                )}
+                {devUrl && (
+                  <>
+                    <dt className="text-muted">{t("Dev server URL")}</dt>
+                    <dd className="font-mono text-xs">{devUrl}</dd>
+                  </>
+                )}
+              </>
+            )}
+            <dt className="text-muted">{t("Network")}</dt>
+            <dd className="font-mono text-xs">{preview.network}</dd>
+          </dl>
+          <div>
+            <p className="mb-2 text-sm font-medium text-fg">{t("Containers")}</p>
+            <ul className="divide-y divide-[var(--border)] rounded-md border border-default">
+              {preview.containers.map((c) => (
+                <li key={c.name} className="px-3 py-2 text-xs">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-mono font-medium text-fg">{c.name}</span>
+                    <span className="font-mono text-subtle">{c.image}</span>
+                  </div>
+                  <ul className="mt-1 space-y-0.5 font-mono text-[11px] text-muted">
+                    {c.ports.map((p) => (
+                      <li key={p}>{t("port")} {p}</li>
+                    ))}
+                    {c.mounts.map((m) => (
+                      <li key={m} className="truncate">
+                        {t("mount")} {m}
+                      </li>
+                    ))}
+                  </ul>
+                </li>
+              ))}
+            </ul>
+          </div>
+          {preview.volumes.length > 0 && (
+            <p className="text-sm text-muted">
+              {t("Volumes")}: <Code>{preview.volumes.join(", ")}</Code>
+            </p>
+          )}
+          <div className="space-y-3 border-t border-default pt-4">
+            {form.source === "import" ? null : form.source === "git" && form.gitUrl.trim() ? (
+              <p className="text-sm text-muted">
+                {t("Repository {{url}} will be cloned into the project directory.", { url: form.gitUrl.trim() })}
+                {form.useManifest && <> {t("If it brings an envoryx.yml, that file replaces the services chosen here.")}</>}
+              </p>
+            ) : (
+              serves !== "node" &&
+              serves !== "python" &&
+              serves !== "go" &&
+              serves !== "ruby" &&
+              serves !== "java" &&
+              serves !== "dotnet" && (
+                <Checkbox label={form.phpEnabled ? t("Create starter index.php") : t("Create starter index.html")} description={t("Only if the document root is empty.")} checked={form.createStarter} onChange={(e) => set({ createStarter: e.target.checked })} />
+              )
+            )}
+            <Checkbox label={t("Start project after creation")} checked={form.start} onChange={(e) => set({ start: e.target.checked })} />
+          </div>
+          {create.isPending && <CreateProgress slug={slugify(form.name)} />}
+          {submitError && (
+            <Alert tone="red" title={t("Creation failed")}>
+              {submitError}
+            </Alert>
+          )}
+        </>
+      )}
+    </div>
+  );
+
+  /** The runtimes a project can serve from, as compact choices for an empty project or a repository. */
+  const stackPicker = (
+    <fieldset className="space-y-2">
+      <legend className="text-sm font-medium text-fg">{form.source === "git" ? t("What does the repository run?") : t("Runtime")}</legend>
+      <div className="grid gap-2 sm:grid-cols-2">
+        {stacks.map((s) => (
+          <label key={s.id} className={clsx("flex cursor-pointer gap-3 rounded-md border p-3 text-sm", form.stack === s.id ? "border-accent-500 bg-accent-500/5" : "border-default hover:bg-muted")}>
+            <input type="radio" name="stack" className="mt-0.5 accent-accent-600" aria-label={t(s.name)} checked={form.stack === s.id} onChange={() => chooseStack(s.id)} />
+            <span>
+              <span className="block font-medium">{t(s.name)}</span>
+              <span className="block text-xs text-muted">{t(s.description)}</span>
+            </span>
+          </label>
+        ))}
+      </div>
+    </fieldset>
+  );
+
+  const sources: { id: Exclude<Source, "" | "template">; icon: typeof GitBranch; name: string; description: string }[] = [
+    { id: "git", icon: GitBranch, name: t("Git repository"), description: t("Clone an existing project from GitHub, GitLab or your own server.") },
+    { id: "import", icon: Upload, name: t("Existing website"), description: t("Upload the files of a site you already have - from an old host or a backup - and optionally its database dump.") },
+    { id: "blank", icon: FilePlus, name: t("Empty project"), description: t("An empty directory with the runtime of your choice, optionally with a starter page.") },
+  ];
+
+  const primaryName = form.stack === "static" ? t("Static site") : runtimeNames[form.stack];
+  const runtimeRows = (["php", "node", "python", "go", "ruby", "java", "dotnet"] as AppKind[]).filter((k) => form[`${k}Enabled` as const]);
+  const versionLabel = (key: string, version: string) => rt.runtimes.find((r) => r.key === key)?.versions.find((v) => v.version === version)?.label ?? version;
+  const runtimeVersion: Record<AppKind, string> = { php: form.phpVersion, node: form.nodeVersion, python: form.pythonVersion, go: form.goVersion, ruby: form.rubyVersion, java: form.javaVersion, dotnet: form.dotnetVersion };
+  const chosenServices = [
+    form.redis && "Redis",
+    form.memcached && "Memcached",
+    form.mailpit && "Mailpit",
+    form.rabbitmq && "RabbitMQ",
+    form.meilisearch && "Meilisearch",
+    form.typesense && "Typesense",
+    form.opensearch && "OpenSearch",
+    form.ollama && "Ollama",
+    form.storage && t("Object storage (S3)"),
+  ].filter((x): x is string => !!x);
+  const slug = form.pathTouched ? form.path.trim() || slugify(form.name) : slugify(form.name);
+  const hostname = `${slugify(form.name) || "…"}.${settings.data?.baseDomain ?? "test"}`;
+  const summary: SummaryRow[] = [
+    {
+      label: t("Start from"),
+      value:
+        form.source === "template" && selectedTemplate
+          ? selectedTemplate.name
+          : form.source === "git"
+            ? form.gitUrl.trim() || t("Git repository")
+            : form.source === "import"
+              ? (form.importSite?.siteName ?? t("Existing website"))
+              : form.source === "blank"
+                ? t("Empty project")
+                : <span className="text-subtle">{t("not chosen yet")}</span>,
+      target: "start",
+    },
+    { label: t("Name"), value: form.name.trim() ? `${form.name.trim()} · ${hostname}` : <span className="text-subtle">{t("not set yet")}</span>, target: "name" },
+    {
+      label: t("Runtime"),
+      value: runtimeRows.length === 0 ? primaryName : runtimeRows.map((k) => versionLabel(k, runtimeVersion[k])).join(" · "),
+      target: "runtime",
+    },
+    { label: t("Web server"), value: versionLabel(form.webType, form.webVersion), target: "web" },
+    {
+      label: t("Database"),
+      value: form.dbType ? `${versionLabel(form.dbType, form.dbVersion)}${form.dbExternal ? ` (${t("external")})` : ""}` : t("None"),
+      target: "database",
+    },
+    { label: t("Services"), value: chosenServices.length > 0 ? chosenServices.join(", ") : t("None"), target: "services" },
+    { label: t("Directory"), value: <span className="font-mono text-xs">/projects/{slug || "…"}{form.docroot.trim() ? ` → ${form.docroot.trim()}` : ""}</span>, target: "directories" },
+  ];
+  if (form.env.some((e) => e.key)) summary.push({ label: t("Environment"), value: t("{{count}} variables", { count: form.env.filter((e) => e.key).length }), target: "env" });
+
+  /** Shows the setting behind a summary row: its step, and the advanced settings opened where needed. */
+  const jump = (target: string) => {
+    if (target === "start") {
+      setStep(0);
+      return;
+    }
+    if (step === 0 && !canLeaveStart) return;
+    setStep(1);
+    if (target === "runtime" || target === "web" || target === "directories" || target === "env") setAdvanced(true);
+    window.setTimeout(() => document.getElementById(`wizard-${target}`)?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+  };
+
+  return (
+    <div>
+      <PageHeader title={t("New project")} description={t("Envoryx creates an isolated Docker environment for your project.")} />
+      <ol className="mb-6 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm" aria-label={t("Steps")}>
+        {steps.map((label, i) => (
+          <li key={label} className="flex items-center gap-2">
+            {i > 0 && <span className="h-px w-6 bg-[var(--border)]" aria-hidden />}
+            <button
+              type="button"
+              onClick={() => i < step && setStep(i)}
+              disabled={i > step}
+              className={clsx("flex items-center gap-2 rounded-md px-2 py-1", i === step ? "font-medium text-fg" : i < step ? "text-muted hover:bg-muted hover:text-fg" : "text-subtle")}
+              aria-current={i === step ? "step" : undefined}
+            >
+              <span className={clsx("flex size-5 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold", i < step ? "bg-accent-600 text-white" : i === step ? "bg-accent-500/20 text-accent-700 dark:text-accent-300" : "bg-muted")}>
+                {i < step ? <Check className="size-3" /> : i + 1}
+              </span>
+              {t(label)}
+            </button>
+          </li>
+        ))}
+      </ol>
+
+      <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+        <Card className="p-6">
+          {step === 0 && (
             <div className="space-y-6">
-              <div>
-                <p className="mb-2 text-sm font-medium text-fg">{t("Database")}</p>
-                <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label={t("Database")}>
-                  <label className={clsx("flex items-center gap-2.5 rounded-md border px-3 py-2 text-sm cursor-pointer", form.dbType === "" ? "border-accent-500 bg-accent-500/5" : "border-default hover:bg-muted")}>
-                    <input type="radio" name="db" className="accent-accent-600" checked={form.dbType === ""} onChange={() => set({ dbType: "", dbVersion: "" })} /> {t("None")}
-                  </label>
-                  {databases.map((d) => (
-                    <label
-                      key={d.key}
-                      className={clsx("flex items-center gap-2.5 rounded-md border px-3 py-2 text-sm", !d.available ? "border-default opacity-60" : form.dbType === d.key ? "border-accent-500 bg-accent-500/5 cursor-pointer" : "border-default hover:bg-muted cursor-pointer")}
-                      title={d.description}
+              <section className="space-y-3">
+                <div>
+                  <h2 className="text-base font-semibold text-fg">{t("Start from a template")}</h2>
+                  <p className="text-sm text-muted">{t("A ready project with the right runtime and, where it needs one, a database. You can change everything in the next step.")}</p>
+                </div>
+                <TemplateGallery templates={rt.templates ?? []} selected={form.source === "template" ? form.template : ""} onSelect={pickTemplate} />
+              </section>
+              <section className="space-y-3">
+                <h2 className="text-base font-semibold text-fg">{t("Or start from")}</h2>
+                <div className="grid gap-2 sm:grid-cols-3" role="radiogroup" aria-label={t("Or start from")}>
+                  {sources.map((src) => (
+                    <button
+                      key={src.id}
+                      type="button"
+                      role="radio"
+                      aria-checked={form.source === src.id}
+                      onClick={() => chooseSource(src.id)}
+                      className={clsx("flex flex-col items-start gap-1 rounded-lg border p-3 text-left text-sm", form.source === src.id ? "border-accent-500 bg-accent-500/5 ring-1 ring-accent-500" : "border-default hover:bg-muted")}
                     >
-                      <input
-                        type="radio"
-                        name="db"
-                        className="accent-accent-600"
-                        disabled={!d.available}
-                        checked={form.dbType === d.key}
-                        onChange={() => set({ dbType: d.key, dbVersion: d.versions.find((v) => v.default)?.version ?? d.versions[0]?.version ?? "" })}
-                      />
-                      {d.name}
-                      {!d.available && <span className="text-xs text-subtle">{t("soon")}</span>}
-                    </label>
+                      <src.icon className="size-4 text-accent-500" aria-hidden />
+                      <span className="font-medium text-fg">{src.name}</span>
+                      <span className="text-xs text-muted">{src.description}</span>
+                    </button>
                   ))}
                 </div>
-              </div>
-              {form.dbType && (
-                <div className="space-y-4 rounded-md border border-default p-4">
-                  {externalDatabaseTypes.includes(form.dbType) && (
-                    <div className="flex flex-wrap gap-4" role="radiogroup" aria-label={t("Where the database runs")}>
-                      <label className="inline-flex items-center gap-2 text-sm">
-                        <input type="radio" name="db-where" checked={!form.dbExternal} onChange={() => set({ dbExternal: false })} />
-                        {t("In a container of the project")}
-                      </label>
-                      <label className="inline-flex items-center gap-2 text-sm">
-                        <input type="radio" name="db-where" checked={form.dbExternal} onChange={() => set({ dbExternal: true })} />
-                        {t("On an external server")}
-                      </label>
-                    </div>
-                  )}
-                  <Field label={t("Version")} htmlFor="db-version" hint={form.dbExternal ? t("Picks the client tools for backups and the connection; choose the server's major version.") : t("Upgrades between versions run on the same data volume; downgrades are not possible.")}>
-                    <Select id="db-version" value={form.dbVersion} onChange={(e) => set({ dbVersion: e.target.value })}>
-                      {databases
-                        .find((d) => d.key === form.dbType)
-                        ?.versions.map((v) => (
-                          <option key={v.version} value={v.version}>
-                            {v.label}
-                          </option>
-                        ))}
-                    </Select>
-                  </Field>
-                  {form.dbExternal && externalDatabaseTypes.includes(form.dbType) ? (
-                    <>
-                      <ExternalDatabaseFields id="db-ext" type={form.dbType} version={form.dbVersion} value={form.dbConn} onChange={(dbConn) => set({ dbConn })} />
-                      <p className="text-sm text-muted">
-                        {t("Envoryx runs no database container and injects this server's DB_HOST, DB_PORT, DB_DATABASE, DB_USERNAME, DB_PASSWORD and DATABASE_URL into the application containers. The connection is tested when the project is created.")}
-                      </p>
-                    </>
-                  ) : (
-                    <>
-                      <Checkbox
-                        label={t("Publish database port on the host")}
-                        description={t("Lets you connect from your workstation with TablePlus, DBeaver, etc. The port is assigned automatically.")}
-                        checked={form.dbExpose}
-                        onChange={(e) => set({ dbExpose: e.target.checked })}
-                      />
-                      <p className="text-sm text-muted">
-                        {t("Envoryx generates secure credentials and injects DB_HOST, DB_DATABASE, DB_USERNAME, DB_PASSWORD and DATABASE_URL into the application containers (PHP, Python, Go, Ruby, Java, .NET, Node). Data lives in a persistent Docker volume.")}
-                      </p>
-                    </>
-                  )}
-                </div>
-              )}
-              <div className="space-y-3">
-                <p className="text-sm font-medium text-fg">{t("Additional databases")}</p>
-                <p className="text-sm text-muted">{t("Another database server next to the first one - for example PostgreSQL for reporting next to MariaDB. Each is reached at its name as host and injects variables starting with its name (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …).")}</p>
-                {form.extraDbs.map((d, i) => {
-                  const engine = databases.find((x) => x.key === d.type);
-                  return (
-                    <div key={i} className="grid gap-3 rounded-md border border-default p-4 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-end">
-                      <Field label={t("Name")} htmlFor={`extra-db-name-${i}`} error={extraDbError(i)}>
-                        <Input id={`extra-db-name-${i}`} value={d.name} onChange={(e) => setExtraDb(i, { name: e.target.value.toLowerCase() })} placeholder="analytics" spellCheck={false} autoComplete="off" />
-                      </Field>
-                      <Field label={t("Type")} htmlFor={`extra-db-type-${i}`}>
-                        <Select
-                          id={`extra-db-type-${i}`}
-                          value={d.type}
-                          onChange={(e) => {
-                            const next = databases.find((x) => x.key === e.target.value);
-                            setExtraDb(i, { type: e.target.value, version: next?.versions.find((v) => v.default)?.version ?? next?.versions[0]?.version ?? "" });
-                          }}
-                        >
-                          {databases
-                            .filter((x) => x.available)
-                            .map((x) => (
-                              <option key={x.key} value={x.key}>
-                                {x.name}
-                              </option>
-                            ))}
-                        </Select>
-                      </Field>
-                      <Field label={t("Version")} htmlFor={`extra-db-version-${i}`}>
-                        <Select id={`extra-db-version-${i}`} value={d.version} onChange={(e) => setExtraDb(i, { version: e.target.value })}>
-                          {engine?.versions.map((v) => (
-                            <option key={v.version} value={v.version}>
-                              {v.label}
-                            </option>
-                          ))}
-                        </Select>
-                      </Field>
-                      <Button variant="ghost" aria-label={t("Remove {{name}}", { name: d.name || t("database") })} onClick={() => set({ extraDbs: form.extraDbs.filter((_, j) => j !== i) })} icon={<Trash2 className="size-4" />} />
-                    </div>
-                  );
-                })}
-                <Button
-                  size="sm"
-                  icon={<Plus className="size-3.5" />}
-                  onClick={() => {
-                    const pg = databases.find((x) => x.key === "postgresql") ?? databases[0];
-                    set({ extraDbs: [...form.extraDbs, { name: "", type: pg?.key ?? "postgresql", version: pg?.versions.find((v) => v.default)?.version ?? "" }] });
-                  }}
-                >
-                  {t("Add a database")}
-                </Button>
-              </div>
-              <div className="space-y-3">
-                <p className="text-sm font-medium text-fg">{t("Additional services")}</p>
-                <div className="rounded-md border border-default p-4 space-y-3">
-                  <Checkbox label="Redis" description={t("Cache and queue backend with a persistent volume. Injects REDIS_HOST, REDIS_PORT and REDIS_URL.")} checked={form.redis} onChange={(e) => set({ redis: e.target.checked })} />
-                  {form.redis && (
-                    <div className="flex flex-wrap gap-4 pl-7" role="radiogroup" aria-label={t("Where {{service}} runs", { service: "Redis" })}>
-                      <label className="inline-flex items-center gap-2 text-sm">
-                        <input type="radio" name="redis-where" checked={!form.redisExternal} onChange={() => set({ redisExternal: false })} />
-                        {t("In a container of the project")}
-                      </label>
-                      <label className="inline-flex items-center gap-2 text-sm">
-                        <input type="radio" name="redis-where" checked={form.redisExternal} onChange={() => set({ redisExternal: true })} />
-                        {t("On an external server")}
-                      </label>
-                    </div>
-                  )}
-                  {form.redis && form.redisExternal && (
-                    <div className="pl-7">
-                      <ExternalRedisFields id="redis-ext" value={form.redisConn} onChange={(redisConn) => set({ redisConn })} />
-                    </div>
-                  )}
-                  {form.redis && !form.redisExternal && (
-                    <div className="grid gap-4 pl-7 sm:grid-cols-2">
-                      <Field label={t("Redis version")} htmlFor="redis-version">
-                        <Select id="redis-version" value={form.redisVersion} onChange={(e) => set({ redisVersion: e.target.value })}>
-                          {services
-                            .find((s) => s.key === "redis")
-                            ?.versions.map((v) => (
-                              <option key={v.version} value={v.version}>
-                                {v.label}
-                              </option>
-                            ))}
-                        </Select>
-                      </Field>
-                      <div className="self-end pb-1">
-                        <Checkbox label={t("Publish port on the host")} description={t("For RedisInsight etc.")} checked={form.redisExpose} onChange={(e) => set({ redisExpose: e.target.checked })} />
-                      </div>
-                    </div>
-                  )}
-                </div>
-                <div className="rounded-md border border-default p-4 space-y-3">
-                  <Checkbox label="Memcached" description={t("In-memory cache without persistence - a restart empties it. Injects MEMCACHED_HOST, MEMCACHED_PORT and MEMCACHED_URL.")} checked={form.memcached} onChange={(e) => set({ memcached: e.target.checked })} />
-                  {form.memcached && (
-                    <div className="pl-7">
-                      <Checkbox label={t("Publish port on the host")} description={t("For tools on your machine, e.g. telnet or a cache inspector.")} checked={form.memcachedExpose} onChange={(e) => set({ memcachedExpose: e.target.checked })} />
-                    </div>
-                  )}
-                </div>
-                <div className="rounded-md border border-default p-4">
-                  <Checkbox label="Mailpit" description={t("Catches all outgoing mail and shows it in a web inbox (published on its own port). Injects MAIL_* and MAILER_DSN.")} checked={form.mailpit} onChange={(e) => set({ mailpit: e.target.checked })} />
-                </div>
-                <div className="rounded-md border border-default p-4 space-y-3">
-                  <Checkbox label="RabbitMQ" description={t("Message broker for queues (Symfony Messenger, Laravel queues, Celery) with a persistent volume and a management UI on its own port. Injects RABBITMQ_* including RABBITMQ_URL.")} checked={form.rabbitmq} onChange={(e) => set({ rabbitmq: e.target.checked })} />
-                  {form.rabbitmq && (
-                    <div className="grid gap-4 pl-7 sm:grid-cols-2">
-                      <Field label={t("RabbitMQ version")} htmlFor="rabbitmq-version">
-                        <Select id="rabbitmq-version" value={form.rabbitmqVersion} onChange={(e) => set({ rabbitmqVersion: e.target.value })}>
-                          {services
-                            .find((s) => s.key === "rabbitmq")
-                            ?.versions.map((v) => (
-                              <option key={v.version} value={v.version}>
-                                {v.label}
-                              </option>
-                            ))}
-                        </Select>
-                      </Field>
-                      <div className="self-end pb-1">
-                        <Checkbox label={t("Publish port on the host")} description={t("For AMQP clients running on your machine.")} checked={form.rabbitmqExpose} onChange={(e) => set({ rabbitmqExpose: e.target.checked })} />
-                      </div>
-                    </div>
-                  )}
-                </div>
-                <div className="rounded-md border border-default p-4">
-                  <Checkbox label="Meilisearch" description={t("Search engine (Laravel Scout, Symfony) with a persistent volume and a web dashboard on its own port. Injects MEILISEARCH_HOST/KEY and MEILISEARCH_URL/API_KEY; set SCOUT_DRIVER yourself.")} checked={form.meilisearch} onChange={(e) => set({ meilisearch: e.target.checked })} />
-                </div>
-                <div className="rounded-md border border-default p-4 space-y-3">
-                  <Checkbox label="Typesense" description={t("Search engine (Laravel Scout, InstantSearch) with a persistent volume. Injects TYPESENSE_HOST, TYPESENSE_PORT, TYPESENSE_PROTOCOL, TYPESENSE_API_KEY and TYPESENSE_URL; set SCOUT_DRIVER yourself.")} checked={form.typesense} onChange={(e) => set({ typesense: e.target.checked })} />
-                  {form.typesense && (
-                    <div className="pl-7">
-                      <Checkbox label={t("Publish port on the host")} description={t("For clients and dashboards running on your machine.")} checked={form.typesenseExpose} onChange={(e) => set({ typesenseExpose: e.target.checked })} />
-                    </div>
-                  )}
-                </div>
-                <div className="rounded-md border border-default p-4 space-y-3">
-                  <Checkbox label="OpenSearch" description={t("Elasticsearch-compatible search engine as a single node with a persistent volume, plain HTTP without login. Injects OPENSEARCH_HOST, OPENSEARCH_PORT, OPENSEARCH_SCHEME and OPENSEARCH_URL. Needs about 1 GB of RAM.")} checked={form.opensearch} onChange={(e) => set({ opensearch: e.target.checked })} />
-                  {form.opensearch && (
-                    <div className="grid gap-4 pl-7 sm:grid-cols-2">
-                      <Field label={t("OpenSearch version")} htmlFor="opensearch-version">
-                        <Select id="opensearch-version" value={form.opensearchVersion} onChange={(e) => set({ opensearchVersion: e.target.value })}>
-                          {services
-                            .find((s) => s.key === "opensearch")
-                            ?.versions.map((v) => (
-                              <option key={v.version} value={v.version}>
-                                {v.label}
-                              </option>
-                            ))}
-                        </Select>
-                      </Field>
-                      <div className="self-end pb-1">
-                        <Checkbox label={t("Publish port on the host")} description={t("For clients and dashboards running on your machine.")} checked={form.opensearchExpose} onChange={(e) => set({ opensearchExpose: e.target.checked })} />
-                      </div>
-                      <div className="sm:col-span-2">
-                        <Checkbox label="OpenSearch Dashboards" description={t("Web UI with the Dev Tools console, index management and Discover, on its own port. The image is about 2.6 GB and needs roughly 400 MB of RAM.")} checked={form.opensearchDashboards} onChange={(e) => set({ opensearchDashboards: e.target.checked })} />
-                      </div>
-                    </div>
-                  )}
-                </div>
-                <div className="rounded-md border border-default p-4 space-y-3">
-                  <Checkbox label="Ollama" description={t("Runs language and embedding models locally (Laravel Prism, LangChain, the Ollama libraries). Injects OLLAMA_HOST, OLLAMA_BASE_URL and OLLAMA_URL. Models live in one store shared by all projects; download them in the Services section.")} checked={form.ollama} onChange={(e) => set({ ollama: e.target.checked })} />
-                  {form.ollama && (
-                    <div className="space-y-3 pl-7">
-                      <Checkbox label={t("Use the GPU")} description={t("Hands the host's NVIDIA GPUs to Ollama. Docker needs the NVIDIA Container Toolkit for it (on Unraid: the Nvidia Driver plugin); Envoryx checks that before switching.")} checked={form.ollamaGpu} onChange={(e) => set({ ollamaGpu: e.target.checked })} />
-                      <Checkbox label={t("Publish port on the host")} description={t("For clients and dashboards running on your machine.")} checked={form.ollamaExpose} onChange={(e) => set({ ollamaExpose: e.target.checked })} />
-                    </div>
-                  )}
-                </div>
-                <div className="rounded-md border border-default p-4">
-                  <Checkbox label={t("Object storage (S3)")} description={t("S3-compatible object storage with a bucket for this project and a web console. Injects S3_* and the AWS_* variables Laravel and the AWS SDKs read.")} checked={form.storage} onChange={(e) => set({ storage: e.target.checked })} />
-                </div>
-              </div>
+                {form.source === "git" && (
+                  <div className="space-y-4 rounded-md border border-default p-4">
+                    {gitFields}
+                    {stackPicker}
+                  </div>
+                )}
+                {form.source === "import" && <ImportSiteCard value={form.importSite} onUploaded={applyImport} onDiscard={discardImport} adaptConfig={form.adaptConfig} onAdaptConfig={(adaptConfig) => set({ adaptConfig })} />}
+                {form.source === "blank" && <div className="rounded-md border border-default p-4">{stackPicker}</div>}
+              </section>
             </div>
           )}
 
-          {step === 4 && (
-            <div className="space-y-4">
-              <p className="text-sm text-muted">{t("Variables are available to all containers of this project (e.g. getenv() in PHP, os.environ in Python, process.env in Node). Mark secrets to mask them in the UI.")}</p>
-              <EnvEditor value={form.env} onChange={(env) => set({ env })} services={wizardServices} exportName={slugify(form.name) || "project"} />
+          {step === 1 && (
+            <div className="space-y-8">
+              <section id="wizard-name" className="scroll-mt-6">
+                <Field label={t("Project name")} htmlFor="name" error={nameError} hint={form.name.trim() ? t("Reachable at {{host}}", { host: hostname }) : t("Displayed in the UI; the address and the identifier are derived from it.")}>
+                  <Input id="name" autoFocus value={form.name} onChange={(e) => set({ name: e.target.value, path: form.pathTouched ? form.path : "" })} placeholder={selectedTemplate && form.source === "template" ? selectedTemplate.name : "Acme Shop"} />
+                </Field>
+                {selectedTemplate?.requiresDatabase && form.source === "template" && !form.dbType && <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">{t("This template needs a database - pick one below.")}</p>}
+              </section>
+              <section id="wizard-database" className="scroll-mt-6">
+                {servicesFields}
+              </section>
+              <section className="rounded-lg border border-default">
+                <button type="button" aria-expanded={advanced} onClick={() => setAdvanced(!advanced)} className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left">
+                  <span>
+                    <span className="block text-sm font-medium text-fg">{t("Advanced settings")}</span>
+                    <span className="block text-xs text-muted">{t("Runtime versions and options, more runtimes as tools, web server, directories and environment variables. The defaults fit most projects.")}</span>
+                  </span>
+                  <ChevronDown className={clsx("size-4 shrink-0 text-muted transition-transform", advanced && "rotate-180")} aria-hidden />
+                </button>
+                {advanced && (
+                  <div className="space-y-8 border-t border-default p-4">
+                    <div id="wizard-runtime" className="scroll-mt-6 space-y-4">
+                      <h3 className="text-sm font-semibold text-fg">{t("Runtime")}</h3>
+                      {runtimeCards}
+                    </div>
+                    <div id="wizard-web" className="scroll-mt-6 space-y-4">
+                      <h3 className="text-sm font-semibold text-fg">{t("Web server")}</h3>
+                      {webFields}
+                    </div>
+                    <div id="wizard-directories" className="scroll-mt-6 space-y-4">
+                      <h3 className="text-sm font-semibold text-fg">{t("Directories")}</h3>
+                      <Field label={t("Project directory")} htmlFor="path" hint={t("Relative to the projects folder (/projects). Created if it does not exist.")}>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-subtle">/projects/</span>
+                          <Input id="path" value={form.pathTouched ? form.path : slugify(form.name)} onChange={(e) => set({ path: e.target.value, pathTouched: true })} placeholder="acme-shop" spellCheck={false} />
+                        </div>
+                      </Field>
+                      <Field label={t("Document root")} htmlFor="docroot" hint={docrootHint}>
+                        <Input id="docroot" value={form.docroot} onChange={(e) => set({ docroot: e.target.value, docrootTouched: true })} placeholder={form.stack === "php" ? "public" : "dist"} spellCheck={false} />
+                      </Field>
+                    </div>
+                    <div id="wizard-env" className="scroll-mt-6 space-y-4">
+                      <h3 className="text-sm font-semibold text-fg">{t("Environment")}</h3>
+                      <p className="text-sm text-muted">{t("Variables are available to all containers of this project (e.g. getenv() in PHP, os.environ in Python, process.env in Node). Mark secrets to mask them in the UI.")}</p>
+                      <EnvEditor value={form.env} onChange={(env) => set({ env })} services={wizardServices} exportName={slugify(form.name) || "project"} />
+                    </div>
+                  </div>
+                )}
+              </section>
             </div>
           )}
 
-          {step === 5 && (
-            <div className="space-y-5">
-              {previewError ? (
-                <Alert tone="red" title={t("Cannot create this project")}>
-                  {previewError}
-                </Alert>
-              ) : !preview ? (
-                <Spinner label={t("Calculating plan…")} />
-              ) : (
-                <>
-                  {preview.warnings.length > 0 && (
-                    <Alert tone="amber">
-                      <ul className="list-disc pl-4">
-                        {preview.warnings.map((w, i) => (
-                          <li key={i}>{w}</li>
-                        ))}
-                      </ul>
-                    </Alert>
-                  )}
-                  <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-[10rem_1fr]">
-                    <dt className="text-muted">{t("Identifier")}</dt>
-                    <dd className="font-mono text-xs">{preview.slug}</dd>
-                    {selectedTemplate && (
-                      <>
-                        <dt className="text-muted">{t("Template")}</dt>
-                        <dd className="text-xs">
-                          {selectedTemplate.name}
-                          <span className="block text-subtle">{selectedTemplate.description}</span>
-                          {selectedTemplate.notes && <span className="block text-subtle">{selectedTemplate.notes}</span>}
-                        </dd>
-                      </>
-                    )}
-                    {form.importSite && (
-                      <>
-                        <dt className="text-muted">{t("Website")}</dt>
-                        <dd className="text-xs">
-                          {form.importSite.siteName}
-                          {form.importSite.dumpName && <> + {form.importSite.dumpName}</>}
-                          <span className="block text-subtle">
-                            {form.importSite.dumpName ? t("The files are unpacked into the project directory and the dump is imported into the project database.") : t("The files are unpacked into the project directory.")}
-                          </span>
-                        </dd>
-                      </>
-                    )}
-                    <dt className="text-muted">{t("Files")}</dt>
-                    <dd className="font-mono text-xs">
-                      {preview.path} <span className="text-subtle">({t("host")}: {preview.hostPath})</span>
-                    </dd>
-                    <dt className="text-muted">{t("URL")}</dt>
-                    <dd className="font-mono text-xs">
-                      {(() => {
-                        // The preview carries no service list; the links hook only reads it for the
-                        // application container's host port. Behind a Python, Go, Ruby, Java or .NET server or the Node dev server the
-                        // HTTP port stays unpublished, so the planned container's host port stands in as a
-                        // synthetic service; then the hook's own branch applies, also when the proxy is off
-                        // and the direct URL is all there is.
-                        const appPort = Number(preview.containers.find((c) => c.service === previewServes)?.ports[0]?.split(" ")[0]) || 0;
-                        const services: Project["services"] =
-                          previewServes === "node"
-                            ? [{ kind: "node", variant: "node", version: "", image: "", enabled: true, config: { devServer: true, hostPort: appPort } }]
-                            : previewServes === "python" || previewServes === "go" || previewServes === "ruby" || previewServes === "java" || previewServes === "dotnet"
-                              ? [{ kind: previewServes, variant: previewServes, version: "", image: "", enabled: true, config: { server: true, hostPort: appPort } }]
-                              : [];
-                        const l = links({ httpPort: preview.httpPort, hostnames: [`${preview.slug}.${settings.data?.baseDomain ?? "test"}`], serves: previewServes, services });
-                        return !l.direct || l.url === l.direct ? l.url : `${l.url} · ${l.direct}`;
-                      })()}
-                    </dd>
-                    {previewServes === "node" ? (
-                      <>
-                        <dt className="text-muted">{t("Serves")}</dt>
-                        <dd className="text-xs">{t("Node dev server (the HTTP port stays unpublished)")}</dd>
-                      </>
-                    ) : (
-                      <>
-                        {previewServes === "python" && (
-                          <>
-                            <dt className="text-muted">{t("Serves")}</dt>
-                            <dd className="text-xs">{t("Python application server (the HTTP port stays unpublished)")}</dd>
-                          </>
-                        )}
-                        {previewServes === "go" && (
-                          <>
-                            <dt className="text-muted">{t("Serves")}</dt>
-                            <dd className="text-xs">{t("Go server (the HTTP port stays unpublished)")}</dd>
-                          </>
-                        )}
-                        {previewServes === "ruby" && (
-                          <>
-                            <dt className="text-muted">{t("Serves")}</dt>
-                            <dd className="text-xs">{t("Ruby server (the HTTP port stays unpublished)")}</dd>
-                          </>
-                        )}
-                        {previewServes === "java" && (
-                          <>
-                            <dt className="text-muted">{t("Serves")}</dt>
-                            <dd className="text-xs">{t("Java server (the HTTP port stays unpublished)")}</dd>
-                          </>
-                        )}
-                        {previewServes === "dotnet" && (
-                          <>
-                            <dt className="text-muted">{t("Serves")}</dt>
-                            <dd className="text-xs">{t(".NET server (the HTTP port stays unpublished)")}</dd>
-                          </>
-                        )}
-                        {devUrl && (
-                          <>
-                            <dt className="text-muted">{t("Dev server URL")}</dt>
-                            <dd className="font-mono text-xs">{devUrl}</dd>
-                          </>
-                        )}
-                      </>
-                    )}
-                    <dt className="text-muted">{t("Network")}</dt>
-                    <dd className="font-mono text-xs">{preview.network}</dd>
-                  </dl>
-                  <div>
-                    <p className="mb-2 text-sm font-medium text-fg">{t("Containers")}</p>
-                    <ul className="divide-y divide-[var(--border)] rounded-md border border-default">
-                      {preview.containers.map((c) => (
-                        <li key={c.name} className="px-3 py-2 text-xs">
-                          <div className="flex items-center justify-between gap-3">
-                            <span className="font-mono font-medium text-fg">{c.name}</span>
-                            <span className="font-mono text-subtle">{c.image}</span>
-                          </div>
-                          <ul className="mt-1 space-y-0.5 font-mono text-[11px] text-muted">
-                            {c.ports.map((p) => (
-                              <li key={p}>{t("port")} {p}</li>
-                            ))}
-                            {c.mounts.map((m) => (
-                              <li key={m} className="truncate">
-                                {t("mount")} {m}
-                              </li>
-                            ))}
-                          </ul>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                  {preview.volumes.length > 0 && (
-                    <p className="text-sm text-muted">
-                      {t("Volumes")}: <Code>{preview.volumes.join(", ")}</Code>
-                    </p>
-                  )}
-                  <div className="space-y-3 border-t border-default pt-4">
-                    {form.importing ? null : form.gitUrl.trim() ? (
-                      <p className="text-sm text-muted">
-                        {t("Repository {{url}} will be cloned into the project directory.", { url: form.gitUrl.trim() })}
-                        {form.useManifest && <> {t("If it brings an envoryx.yml, that file replaces the services chosen here.")}</>}
-                      </p>
-                    ) : (
-                      serves !== "node" &&
-                      serves !== "python" &&
-                      serves !== "go" &&
-                      serves !== "ruby" &&
-                      serves !== "java" &&
-                      serves !== "dotnet" && (
-                        <Checkbox label={form.phpEnabled ? t("Create starter index.php") : t("Create starter index.html")} description={t("Only if the document root is empty.")} checked={form.createStarter} onChange={(e) => set({ createStarter: e.target.checked })} />
-                      )
-                    )}
-                    <Checkbox label={t("Start project after creation")} checked={form.start} onChange={(e) => set({ start: e.target.checked })} />
-                  </div>
-                  {create.isPending && <CreateProgress slug={slugify(form.name)} />}
-                  {submitError && (
-                    <Alert tone="red" title={t("Creation failed")}>
-                      {submitError}
-                    </Alert>
-                  )}
-                </>
-              )}
-            </div>
-          )}
+          {step === 2 && previewPanel}
 
           <div className="mt-8 flex items-center justify-between border-t border-default pt-4">
             <Button variant="ghost" onClick={() => (step === 0 ? navigate("/projects") : setStep(step - 1))} icon={<ArrowLeft className="size-4" />} disabled={create.isPending}>
               {step === 0 ? t("Cancel") : t("Back")}
             </Button>
             {step < steps.length - 1 ? (
-              <Button variant="primary" onClick={() => setStep(step + 1)} disabled={!canContinue} icon={<ArrowRight className="size-4" />}>
+              <Button variant="primary" onClick={next} disabled={!canContinue} icon={<ArrowRight className="size-4" />}>
                 {t("Continue")}
               </Button>
             ) : (
@@ -1261,6 +1410,7 @@ export function NewProjectPage() {
             )}
           </div>
         </Card>
+        <WizardSummary rows={summary} onJump={jump} />
       </div>
     </div>
   );
