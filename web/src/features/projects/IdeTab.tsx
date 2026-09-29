@@ -103,7 +103,8 @@ export function IdeTab({ project: p }: { project: Project }) {
               <CopyRow label={t("Root path")} value="/var/www/html" />
               {s?.proxy?.enabled && proxyUrl(hostname, s.proxy) && <CopyRow label={t("Web server URL")} value={proxyUrl(hostname, s.proxy)} />}
             </dl>
-            <ol className="mt-3 list-decimal space-y-1 pl-5 text-sm text-muted">
+            <p className="mt-3 text-xs text-subtle">{t("The steps are PhpStorm's and WebStorm's. GoLand, PyCharm, RubyMine, IntelliJ IDEA and Rider have no “New Project from Existing Files”: open or clone the code locally and follow “Code already on your machine” below.")}</p>
+            <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-muted">
               <li>{t("Welcome screen: New Project from Existing Files… (with a project open: File → New Project from Existing Files…) → “Web server is on remote host, files are accessible via FTP/SFTP/FTPS/WebDAV”.")}</li>
               <li>{t("Project name and an empty local folder for the copy. Deployment options “Custom”, then on the next page set “Upload changed files automatically to the default server” to “Always”.")}</li>
               <li>{t("Add Remote Server: type SFTP. “…” next to SSH configuration, then “+”: host, port and username from above, authentication type “Password” (the API token) or “Key pair”. Root path and web server URL as above.")}</li>
@@ -135,7 +136,7 @@ export function IdeTab({ project: p }: { project: Project }) {
                 : app === "go"
                   ? `${t("Work on the project inside its Go container from your IDE. GoLand: File → Remote Development → SSH (JetBrains Gateway) with the values below opens the project at /var/www/html with the container's go and dlv. VS Code: Remote-SSH, then the Go extension installs gopls and its other tools in the project home. Plain terminal: ssh.")} ${t("GoLand and VS Code forward ports over SSH, so switch on “Allow JetBrains Gateway for this project” below first.")}`
                   : app === "ruby"
-                    ? t("Run ruby, bundle, rails and your tests inside the project container from your IDE. RubyMine: Settings → Languages & Frameworks → Ruby Interpreters → “+” → Remote Interpreter or Version Manager… → SSH with the values below and the Ruby path, then map the project folder to /var/www/html; RubyMine runs and debugs with its own debugger inside the container. VS Code: Remote-SSH. Plain terminal: ssh.")
+                    ? `${t("Run ruby, bundle, rails and your tests inside the project container from your IDE. RubyMine: Settings → Languages & Frameworks → Ruby Interpreters → “+” → Remote Interpreter or Version Manager… → SSH with the values below and the Ruby path, then map the project folder to /var/www/html; RubyMine runs and debugs with its own debugger inside the container. VS Code: Remote-SSH. Plain terminal: ssh.")} ${t("RubyMine's debugger forwards a port over SSH, so switch on “Allow JetBrains Gateway for this project” below first.")}`
                     : app === "java"
                       ? `${t("Work on the project inside its Java container from your IDE. IntelliJ IDEA: File → Remote Development → SSH (JetBrains Gateway) with the values below opens the project at /var/www/html with the container's JDK, Maven and Gradle. VS Code: Remote-SSH, then the Extension Pack for Java. Plain terminal: ssh.")} ${t("IntelliJ IDEA and VS Code forward ports over SSH, so switch on “Allow JetBrains Gateway for this project” below first.")}`
                       : app === "dotnet"
@@ -235,12 +236,12 @@ export function IdeTab({ project: p }: { project: Project }) {
                     </>
                   ) : (
                     <>
-                      {t("IDE: WebStorm with user")} <Code>{p.slug}</Code>;
+                      {t("IDE: {{ide}} with user", { ide: gatewayIde[app ?? "node"] ?? "WebStorm" })} <Code>{p.slug}</Code>;
                     </>
                   )}{" "}
                   {t("project directory")} <Code>/var/www/html</Code>.
                 </li>
-                <li>{t("Gateway installs the backend into")} <Code>/home/envoryx/.cache/JetBrains</Code> {t("(shared cache) and opens the thin client.")}</li>
+                <li>{t("Gateway installs the backend into")} <Code>/home/envoryx/.cache/JetBrains/RemoteDev/dist</Code> {t("(shared cache) and opens the thin client.")}</li>
               </ol>
               <p className="text-xs text-subtle">{t("Close the project in Gateway when you are done, or stop the backend here to free memory on the server.")}</p>
               <Button size="sm" onClick={() => { setGwMsg(null); stopBackend.mutate(); }} loading={stopBackend.isPending}>
@@ -586,6 +587,9 @@ export function IdeTab({ project: p }: { project: Project }) {
 }
 
 /** Placeholder until the first poll reports the server's operation (the request is already running). */
+/** The JetBrains IDE Gateway starts for a project's application runtime. */
+const gatewayIde: Record<string, string> = { python: "PyCharm", go: "GoLand", ruby: "RubyMine", java: "IntelliJ IDEA", dotnet: "Rider", node: "WebStorm" };
+
 /** package.json snippets that start the inspector for the common setups, under the script Envoryx runs. */
 function nodeDebugExamples(port: number, script: string): string {
   return [

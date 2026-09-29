@@ -56,7 +56,9 @@ describe("IdeTab", () => {
     expect(await screen.findByText("Project files (SFTP)")).toBeInTheDocument();
     expect(screen.getByText("SFTP")).toBeInTheDocument();
     expect(screen.getByText("Root path")).toBeInTheDocument();
-    expect(screen.getByText(/New Project from Existing Files/)).toBeInTheDocument();
+    expect(screen.getByText(/^Welcome screen: New Project from Existing Files/)).toBeInTheDocument();
+    // The other JetBrains IDEs lack that wizard and get pointed at the other way.
+    expect(screen.getByText(/GoLand, PyCharm, RubyMine, IntelliJ IDEA and Rider have no/)).toBeInTheDocument();
     expect(screen.getByText(/Upload changed files automatically/)).toBeInTheDocument();
     expect(screen.getByText(/next to SSH configuration/)).toBeInTheDocument();
     expect(screen.getByText("https://acme-shop.test")).toBeInTheDocument();
