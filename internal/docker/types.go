@@ -44,6 +44,12 @@ var ErrNotFound = errors.New("docker resource not found")
 var ErrUnavailable = errors.New("docker engine unavailable")
 
 // ErrNoGPU is returned when a container asks for GPUs Docker cannot hand over.
+// ErrSubnetInUse means the subnet asked for overlaps a network or route Docker already has.
+var ErrSubnetInUse = errors.New("the subnet overlaps an existing network")
+
+// ErrAddressPoolsExhausted means Docker had no address range left for a new network.
+var ErrAddressPoolsExhausted = errors.New("Docker has no free address range left for a new network")
+
 var ErrNoGPU = errors.New("Docker cannot hand GPUs to containers; install the NVIDIA Container Toolkit (on Unraid: the Nvidia Driver plugin) and restart Docker")
 
 // Info describes the connected Docker Engine.
@@ -122,6 +128,8 @@ type Network struct {
 	Driver  string
 	Labels  map[string]string
 	Managed bool
+	// Subnets are the network's IPv4 and IPv6 prefixes (e.g. 10.213.0.0/24).
+	Subnets []string
 }
 
 // Endpoint is a container attached to a network.
@@ -420,8 +428,9 @@ type Engine interface {
 
 	// ListNetworks lists networks; managedOnly restricts to Envoryx networks.
 	ListNetworks(ctx context.Context, managedOnly bool) ([]Network, error)
-	// CreateNetwork creates a bridge network with labels.
-	CreateNetwork(ctx context.Context, name string, labels map[string]string) (string, error)
+	// CreateNetwork creates a bridge network with labels. subnet (e.g. 10.213.4.0/24) fixes
+	// its address range; empty leaves the choice to Docker.
+	CreateNetwork(ctx context.Context, name string, labels map[string]string, subnet string) (string, error)
 	// RemoveNetwork removes a managed network.
 	RemoveNetwork(ctx context.Context, idOrName string) error
 	// ConnectNetwork attaches a container to a managed network (used to attach Envoryx's own

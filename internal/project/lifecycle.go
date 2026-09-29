@@ -278,7 +278,7 @@ func (m *Manager) provision(ctx context.Context, plan Plan, j *journal) (string,
 		}
 	}
 	step(ctx, "Creating the network {{name}}", "name", plan.NetworkName)
-	if _, err := m.engine.CreateNetwork(ctx, plan.NetworkName, plan.Labels); err != nil {
+	if err := m.createNetwork(ctx, plan.NetworkName, plan.Labels); err != nil {
 		return "create network", err
 	}
 	j.network = plan.NetworkName
@@ -471,7 +471,7 @@ func (m *Manager) ensurePlan(ctx context.Context, proj store.Project, plan Plan,
 	}
 	if !hasNet {
 		step(ctx, "Creating the network {{name}}", "name", plan.NetworkName)
-		if _, err := m.engine.CreateNetwork(ctx, plan.NetworkName, plan.Labels); err != nil {
+		if err := m.createNetwork(ctx, plan.NetworkName, plan.Labels); err != nil {
 			return fmt.Errorf("create network: %w", err)
 		}
 	}

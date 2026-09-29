@@ -304,7 +304,7 @@ func (m *Manager) ensureDBTool(ctx context.Context) error {
 		}
 	}
 	if !haveNet {
-		if _, err := m.engine.CreateNetwork(ctx, DBToolNetwork, labels); err != nil {
+		if err := m.createNetwork(ctx, DBToolNetwork, labels); err != nil {
 			return fmt.Errorf("create network: %w", err)
 		}
 	}

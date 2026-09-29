@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -58,6 +59,11 @@ type Config struct {
 	// Port range used for project web servers published on the host.
 	PortRangeStart int
 	PortRangeEnd   int
+
+	// NetworkPool is the IPv4 range each new project network gets a /24 of, so Docker's
+	// default ranges (about 30 networks) do not cap the number of projects. Invalid (from
+	// ENVORYX_NETWORK_POOL=off) leaves the choice to Docker.
+	NetworkPool netip.Prefix
 
 	// PUID/PGID are the uid/gid project containers run their workers as, so files created by
 	// PHP/Node inside a project belong to the owner of the project directory.
@@ -125,6 +131,7 @@ func Load() (Config, error) {
 	}
 	c.DatabasePath = env("ENVORYX_DATABASE_PATH", filepath.Join(c.ConfigDir, "envoryx.db"))
 	c.BackupsDir = env("ENVORYX_BACKUPS_DIR", defaultBackupsDir(c.ConfigDir))
+	c.NetworkPool, _ = networkPool(env("ENVORYX_NETWORK_POOL", defaultNetworkPool))
 
 	if err := c.validate(); err != nil {
 		return Config{}, err
@@ -151,6 +158,9 @@ func (c Config) validate() error {
 	}
 	if c.PortRangeStart < 1024 || c.PortRangeEnd > 65535 || c.PortRangeStart > c.PortRangeEnd {
 		errs = append(errs, fmt.Errorf("invalid port range %d-%d", c.PortRangeStart, c.PortRangeEnd))
+	}
+	if _, err := networkPool(env("ENVORYX_NETWORK_POOL", defaultNetworkPool)); err != nil {
+		errs = append(errs, err)
 	}
 	if c.PUID < 0 || c.PGID < 0 {
 		errs = append(errs, errors.New("PUID/PGID must not be negative"))
@@ -180,6 +190,23 @@ func (c Config) validate() error {
 var hostRe = regexp.MustCompile(`^([A-Za-z0-9]([A-Za-z0-9-]{0,62}[A-Za-z0-9])?)(\.[A-Za-z0-9]([A-Za-z0-9-]{0,62}[A-Za-z0-9])?)*$`)
 
 // validHost accepts a DNS host name, an IPv4 or a bracket-free IPv6 address.
+// defaultNetworkPool is the range project networks get their /24 from unless set.
+const defaultNetworkPool = "10.213.0.0/16"
+
+// networkPool reads ENVORYX_NETWORK_POOL: an IPv4 range of /24 or larger, or "off" for
+// Docker's own choice (the zero prefix).
+func networkPool(v string) (netip.Prefix, error) {
+	switch v = strings.TrimSpace(v); v {
+	case "off", "docker", "":
+		return netip.Prefix{}, nil
+	}
+	p, err := netip.ParsePrefix(v)
+	if err != nil || !p.Addr().Is4() || p.Bits() > 24 {
+		return netip.Prefix{}, fmt.Errorf("ENVORYX_NETWORK_POOL must be an IPv4 range of /24 or larger (e.g. 10.213.0.0/16) or off, got %q", v)
+	}
+	return p.Masked(), nil
+}
+
 func validHost(h string) bool {
 	if len(h) > 253 {
 		return false

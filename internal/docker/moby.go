@@ -981,18 +981,38 @@ func (e *MobyEngine) ListNetworks(ctx context.Context, managedOnly bool) ([]Netw
 	}
 	out := make([]Network, 0, len(res.Items))
 	for _, n := range res.Items {
-		out = append(out, Network{ID: n.ID, Name: n.Name, Driver: n.Driver, Labels: n.Labels, Managed: IsManaged(n.Labels)})
+		var subnets []string
+		for _, c := range n.IPAM.Config {
+			if c.Subnet.IsValid() {
+				subnets = append(subnets, c.Subnet.String())
+			}
+		}
+		out = append(out, Network{ID: n.ID, Name: n.Name, Driver: n.Driver, Labels: n.Labels, Managed: IsManaged(n.Labels), Subnets: subnets})
 	}
 	return out, nil
 }
 
 // CreateNetwork implements Engine.
-func (e *MobyEngine) CreateNetwork(ctx context.Context, name string, labels map[string]string) (string, error) {
+func (e *MobyEngine) CreateNetwork(ctx context.Context, name string, labels map[string]string, subnet string) (string, error) {
 	if !IsManaged(labels) {
 		return "", fmt.Errorf("refusing to create network without managed label: %w", ErrNotManaged)
 	}
-	res, err := e.cli.NetworkCreate(ctx, name, client.NetworkCreateOptions{Driver: "bridge", Labels: labels})
+	opts := client.NetworkCreateOptions{Driver: "bridge", Labels: labels}
+	if subnet != "" {
+		prefix, err := netip.ParsePrefix(subnet)
+		if err != nil {
+			return "", fmt.Errorf("invalid subnet %q: %w", subnet, err)
+		}
+		opts.IPAM = &network.IPAM{Config: []network.IPAMConfig{{Subnet: prefix}}}
+	}
+	res, err := e.cli.NetworkCreate(ctx, name, opts)
 	if err != nil {
+		switch msg := err.Error(); {
+		case strings.Contains(msg, "overlaps"):
+			return "", fmt.Errorf("%w: %v", ErrSubnetInUse, err)
+		case strings.Contains(msg, "fully subnetted"):
+			return "", fmt.Errorf("%w: %v", ErrAddressPoolsExhausted, err)
+		}
 		return "", wrap(err)
 	}
 	return res.ID, nil

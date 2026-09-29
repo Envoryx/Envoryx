@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"slices"
@@ -30,6 +31,9 @@ import (
 type Config struct {
 	PortRangeStart int
 	PortRangeEnd   int
+	// NetworkPool is the IPv4 range new networks get a /24 of; the zero value leaves the
+	// choice to Docker.
+	NetworkPool netip.Prefix
 	// StopTimeout is the grace period for container stops.
 	StopTimeout time.Duration
 	// ConfigDir and BackupsDir locate the sealed files and the project backups for
