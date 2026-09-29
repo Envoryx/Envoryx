@@ -10,10 +10,17 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.16.1] - 2026-09-29
+
 ### Changed
 - Pages use the full width of the window. *Settings → Profile → Appearance*
   switches back to the centred column (*Boxed*); like the accent colour, the
   choice is stored per browser.
+
+### Fixed
+- The status warnings of a project ("project should be running but is
+  missing", the notes on images that a restart applies and on containers
+  of removed workers or services) showed in English in every language.
 
 ## [0.16.0] - 2026-09-29
 
@@ -1146,7 +1153,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.16.0...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.16.1...HEAD
+[0.16.1]: https://github.com/envoryx/envoryx/compare/v0.16.0...v0.16.1
 [0.16.0]: https://github.com/envoryx/envoryx/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/envoryx/envoryx/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/envoryx/envoryx/compare/v0.13.0...v0.14.0
