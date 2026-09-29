@@ -1092,7 +1092,7 @@ func TestDatabaseSnapshotAndCloneEndpoints(t *testing.T) {
 		t.Fatalf("clone: %d %s", r.status, r.raw)
 	}
 	clone := r.body["clone"].(map[string]any)
-	if clone["source"] != "staging" || clone["database"] != "local" || clone["snapshot"] == nil {
+	if clone["source"] != "staging" || clone["database"] != "app_local" || clone["snapshot"] == nil {
 		t.Fatalf("clone: %s", r.raw)
 	}
 	// Staging's dump is what arrived in local's database, and nothing else was imported.

@@ -93,3 +93,26 @@ func TestPostgresDataDirFollowsTheImageLayout(t *testing.T) {
 		t.Errorf("mysql data dir = %q", got)
 	}
 }
+
+func TestDBIdentifierAvoidsNamesTheServersRefuse(t *testing.T) {
+	for slug, want := range map[string]string{
+		"acme-shop":                             "acme_shop",
+		"pg-probe":                              "app_pg_probe", // PostgreSQL refuses roles starting with pg_
+		"pgadmin":                               "pgadmin",
+		"postgres":                              "app_postgres",
+		"mysql":                                 "app_mysql",
+		"admin":                                 "app_admin", // MongoDB's system database
+		"root":                                  "app_root",  // MySQL's image refuses root as MYSQL_USER
+		"2024-promo":                            "app_2024_promo",
+		"a-very-long-project-name-that-goes-on": "a_very_long_project_name_that_go",
+		"9-a-very-long-project-name-that-goes":  "app_9_a_very_long_project_name_t",
+	} {
+		got := DBIdentifier(slug)
+		if got != want {
+			t.Errorf("DBIdentifier(%q) = %q, want %q", slug, got, want)
+		}
+		if len(got) > 32 {
+			t.Errorf("DBIdentifier(%q) = %q is longer than 32", slug, got)
+		}
+	}
+}
