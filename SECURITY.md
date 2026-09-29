@@ -104,7 +104,7 @@ other groups, and Envoryx doesn't call them.
 
 The embedded SSH server (port 2222) never gives access to the Envoryx container or the
 host. Every session is a `docker exec` into the selected project's application container
-(PHP, Python, Go, Ruby, Java, .NET or Node) as `PUID:PGID`, with the same environment the terminal tab
+(PHP, Python, Go, Ruby, Java, .NET or Node) as `PUID:PGID`, with the same environment the Terminal section
 uses. You authenticate with an API token (as the password) or a public key: a user's own
 keys act with that user's roles, the admin keys from the settings open every project. Ten
 failures lock an IP for five minutes. The exec command line goes to

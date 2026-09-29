@@ -56,8 +56,8 @@ variables (with `.env` import and export). A plan preview shows what will be cre
 anything is.
 
 Instead of starting empty you can pick a template: Laravel, Symfony (skeleton + webapp),
-WordPress, Drupal, TYPO3, Shopware and Craft CMS for PHP (the CMS installers run from the
-Actions tab and print the admin password), Vite + React, Next.js and Nuxt for Node.js,
+WordPress, Drupal, TYPO3, Shopware and Craft CMS for PHP (the CMS installers run from
+Actions and print the admin password), Vite + React, Next.js and Nuxt for Node.js,
 Django, Flask and FastAPI for Python, net/http, Gin and Echo for Go, Rails, Rails API and
 Sinatra for Ruby, Spring Boot and Quarkus for Java, and ASP.NET Core Web API, MVC, Razor
 Pages and Blazor for .NET. Envoryx scaffolds them in a one-shot
@@ -73,7 +73,7 @@ configuration to the project database and imports the dump (on the command line:
 Or you clone a repository in the wizard, over HTTPS with an access token or over SSH with an
 Envoryx deploy key. If the repository brings an `envoryx.yml`, that manifest describes
 runtimes, services, domains, environment, workers and cron jobs, so `git clone` and
-`envoryx up` bring the same environment up again. The Git tab exports the file and applies a
+`envoryx up` bring the same environment up again. The Git section exports the file and applies a
 changed one after a pull.
 
 ### What runs in a project
@@ -152,11 +152,11 @@ The optional services:
 Anything else comes in as an addon: a YAML file (under *Settings → Addons*, pasted, from a
 URL or one of the shipped examples: pgAdmin, phpMyAdmin, Elasticsearch, Soketi, Keycloak)
 describes the container, its versions, variables, volumes, web UI and what it injects into
-the application, and every project can then add it on its Services tab. Addons get no host
+the application, and every project can then add it in its Services section. Addons get no host
 directories, host network or privileges.
 
 An optional database browser (an Adminer container shared by all projects) starts on first
-use, opens from the Database tab already logged in and is served under the Envoryx UI, so
+use, opens from the Database section already logged in and is served under the Envoryx UI, so
 your session protects it.
 
 ### Reaching your projects
@@ -190,7 +190,7 @@ install / update, rails db:prepare / migrate / seed / assets:precompile.
 
 The test runner finds PHPUnit/Pest, npm test scripts, Playwright, Cypress, pytest, Django,
 go test, RSpec and `rails test` (against `<database>_test`, never the development database)
-in the project and runs them from the *Tests* tab with live output and a filter. It reads
+in the project and runs them from the *Tests* section with live output and a filter. It reads
 the failed tests from the JUnit report and keeps a history of runs.
 
 Git pull, branch switch and status run in short-lived containers as the project owner; the
@@ -225,7 +225,7 @@ the objects of the bucket (each of those optional). The copy gets its own direct
 ports and containers but keeps the original's database credentials, so a `.env` in the
 project files keeps working.
 
-Branch environments build on that: pick a branch in the *Branches* tab and you get a copy
+Branch environments build on that: pick a branch in the *Branches* section and you get a copy
 of the project on that branch, with the parent's data and its own URL
 (`shop-feature-login.test`), deployed with the commands you set once on the parent
 (`composer install`, `php artisan migrate --force` …). Switch on *Watch the repository* and
@@ -276,7 +276,7 @@ so you open a project in the IDE as an SFTP deployment without a network share. 
 `<project>` lands in the application container (PHP, else Python, else Go, else Ruby, else
 Java, else .NET, else Node);
 `<project>.php` / `<project>.python` / `<project>.go` / `<project>.ruby` / `<project>.java` /
-`<project>.dotnet` / `<project>.node` pick one explicitly. The IDE tab has the Xdebug server
+`<project>.dotnet` / `<project>.node` pick one explicitly. The IDE section has the Xdebug server
 and path mapping, `.idea/php.xml`, Node inspector, debugpy, Delve, rdbg and JDWP details, a
 VS Code `launch.json` for netcoredbg and JDBC URLs, and JetBrains Gateway is optional
 (backend in the container, shared cache).
