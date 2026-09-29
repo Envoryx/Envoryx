@@ -289,6 +289,7 @@ func serve() error {
 	}
 	manager := project.NewManager(st, engine, catalog, paths, auditLog, project.Config{
 		PortRangeStart: cfg.PortRangeStart, PortRangeEnd: cfg.PortRangeEnd, StopTimeout: 10 * time.Second,
+		ConfigDir: cfg.ConfigDir, BackupsDir: cfg.BackupsDir,
 	}, log)
 	manager.SetSecretKeySource(keySource)
 	// Plain values from before encryption and values of an older key get the current key;

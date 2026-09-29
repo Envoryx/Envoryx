@@ -70,7 +70,7 @@ func (m *Manager) ResealAll(ctx context.Context) (ResealReport, error) {
 		return rep, err
 	}
 	rep.Database = n
-	if p, err := m.paths(); err == nil {
+	if p, err := m.sealRoots(); err == nil {
 		for _, f := range sealedConfigFiles {
 			changed, err := secrets.ResealFile(filepath.Join(p.ConfigDir, f))
 			if err != nil {
@@ -96,7 +96,7 @@ func (m *Manager) RotateSecretKey(ctx context.Context) (SecretKeyInfo, ResealRep
 	if !info.CanRotate {
 		return info, ResealReport{}, fmt.Errorf("%w: the key comes from %s; set a new key there and the old one as %s for one start", validate.ErrInvalid, secrets.EnvKey, secrets.EnvOldKey)
 	}
-	if _, err := m.paths(); err != nil {
+	if _, err := m.sealRoots(); err != nil {
 		// Without them the files and backups could not be resealed.
 		return info, ResealReport{}, fmt.Errorf("%w: %v", ErrNotConfigured, err)
 	}
@@ -128,4 +128,13 @@ func (m *Manager) RotateSecretKey(ctx context.Context) (SecretKeyInfo, ResealRep
 	r.DropOld()
 	m.audit.Log(ctx, audit.ActionSecretKeyRotated, "settings", "", map[string]any{"from": old.ID(), "to": next.ID(), "database": rep.Database, "files": rep.Files, "backups": rep.Backups})
 	return m.SecretKeyInfo(), rep, nil
+}
+
+// sealRoots returns the directories resealing works in: from the configuration when it
+// names them (no host path detection needed), else from the paths.
+func (m *Manager) sealRoots() (Paths, error) {
+	if m.cfg.ConfigDir != "" {
+		return Paths{ConfigDir: m.cfg.ConfigDir, BackupsDir: m.cfg.BackupsDir}, nil
+	}
+	return m.paths()
 }
