@@ -10,6 +10,14 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-09-29
+
+**Keep a copy of your secret key.** This version encrypts the stored secrets
+at its first start. Afterwards, open *Settings → Access → Secret key* and
+store the key somewhere safe, or set it as `ENVORYX_SECRET_KEY` (the Unraid
+template has an optional field for it). Without the key, an instance backup
+can't be restored on another host.
+
 ### Added
 - Secrets at rest are encrypted (AES-256-GCM): Git tokens, secret project
   variables, service credentials, addon secrets, the single sign-on client
@@ -1079,7 +1087,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.14.0...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.15.0...HEAD
+[0.15.0]: https://github.com/envoryx/envoryx/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/envoryx/envoryx/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/envoryx/envoryx/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/envoryx/envoryx/compare/v0.11.0...v0.12.0
