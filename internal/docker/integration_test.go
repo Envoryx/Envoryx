@@ -58,7 +58,7 @@ func TestIntegrationLifecycleAndGuards(t *testing.T) {
 	if err := e.EnsureImage(ctx, "alpine:3.20", func(msg string) { t.Log(msg) }); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := e.CreateNetwork(ctx, netName, ManagedLabels(testProject, "integration", "", "test")); err != nil {
+	if _, err := e.CreateNetwork(ctx, netName, ManagedLabels(testProject, "integration", "", "test"), ""); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = e.RemoveNetwork(ctx, netName) })
@@ -164,7 +164,7 @@ func TestIntegrationNetworkAliasesResolveOnTheNetwork(t *testing.T) {
 	if err := e.EnsureImage(ctx, "alpine:3.20", func(string) {}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := e.CreateNetwork(ctx, netName, labels); err != nil {
+	if _, err := e.CreateNetwork(ctx, netName, labels, ""); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = e.RemoveNetwork(ctx, netName) })
@@ -506,5 +506,37 @@ func TestIntegrationIOStatsAndVolumeSizes(t *testing.T) {
 	}
 	if !found {
 		t.Fatalf("volume %s not listed", vol)
+	}
+}
+
+// A network created with a fixed subnet reports it, and a second one on the same range
+// is refused as ErrSubnetInUse, which the network pool moves past.
+func TestIntegrationNetworkWithSubnet(t *testing.T) {
+	e := integrationEngine(t)
+	ctx := context.Background()
+	labels := ManagedLabels(testProject, "integration", "", "test")
+	a, b := "envoryx-integration-subnet-a", "envoryx-integration-subnet-b"
+	_ = e.RemoveNetwork(ctx, a)
+	_ = e.RemoveNetwork(ctx, b)
+	if _, err := e.CreateNetwork(ctx, a, labels, "10.254.253.0/24"); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = e.RemoveNetwork(ctx, a) })
+	nets, err := e.ListNetworks(ctx, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, n := range nets {
+		if n.Name == a && len(n.Subnets) == 1 && n.Subnets[0] == "10.254.253.0/24" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("subnet not listed: %+v", nets)
+	}
+	if _, err := e.CreateNetwork(ctx, b, labels, "10.254.253.0/24"); !errors.Is(err, ErrSubnetInUse) {
+		_ = e.RemoveNetwork(ctx, b)
+		t.Fatalf("overlapping subnet: %v", err)
 	}
 }
