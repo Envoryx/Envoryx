@@ -68,6 +68,7 @@ docker build -t ghcr.io/envoryx/envoryx:dev --build-arg VERSION=dev .
 | `DOCKER_HOST` | unix socket | Docker endpoint; set to a socket proxy URL if used |
 | `PUID` / `PGID` | `99` / `100` | uid/gid project containers run as and project dirs are owned by |
 | `ENVORYX_PORT_RANGE_START` / `_END` | `20000` / `20999` | Host ports assigned to project web servers |
+| `ENVORYX_NETWORK_POOL` | `10.213.0.0/16` | IPv4 range each new project network gets a /24 of (256 projects per /16); `off` leaves the choice to Docker, whose default ranges run out after about 30 networks. Pick a range your LAN and VPN don't use |
 | `ENVORYX_PUBLIC_HOST` | browser address | Host/IP used for project links (see below); also editable in Settings |
 | `ENVORYX_PROXY_HTTP` | `:80` | Listen address of the embedded proxy inside the container; empty disables it |
 | `ENVORYX_PROXY_HTTPS` | `:443` | HTTPS listener of the proxy (local CA); empty disables HTTPS |

@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/netip"
 	"slices"
 	"sort"
 	"strconv"
@@ -168,6 +169,20 @@ func (f *Fake) AddNetwork(name string, labels map[string]string) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.networks[name] = docker.Network{ID: f.nextID("n"), Name: name, Driver: "bridge", Labels: labels, Managed: docker.IsManaged(labels)}
+}
+
+// AddNetworkWithSubnet adds a network (foreign or managed) that holds an address range.
+func (f *Fake) AddNetworkWithSubnet(name string, labels map[string]string, subnet string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.networks[name] = docker.Network{ID: f.nextID("n"), Name: name, Driver: "bridge", Labels: labels, Managed: docker.IsManaged(labels), Subnets: []string{subnet}}
+}
+
+// NetworkSubnets returns the subnets of a network by name.
+func (f *Fake) NetworkSubnets(name string) []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.networks[name].Subnets
 }
 
 // AddImage marks an image as present.
@@ -973,7 +988,7 @@ func (f *Fake) ListNetworks(_ context.Context, managedOnly bool) ([]docker.Netwo
 }
 
 // CreateNetwork implements docker.Engine.
-func (f *Fake) CreateNetwork(_ context.Context, name string, labels map[string]string) (string, error) {
+func (f *Fake) CreateNetwork(_ context.Context, name string, labels map[string]string, subnet string) (string, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if err := f.check(); err != nil {
@@ -985,8 +1000,24 @@ func (f *Fake) CreateNetwork(_ context.Context, name string, labels map[string]s
 	if _, ok := f.networks[name]; ok {
 		return "", fmt.Errorf("network %q already exists", name)
 	}
+	var subnets []string
+	if subnet != "" {
+		want, err := netip.ParsePrefix(subnet)
+		if err != nil {
+			return "", err
+		}
+		// Like Docker: a subnet that overlaps another network's is refused.
+		for _, n := range f.networks {
+			for _, s := range n.Subnets {
+				if have, err := netip.ParsePrefix(s); err == nil && have.Overlaps(want) {
+					return "", fmt.Errorf("%w: Pool overlaps with other one on this address space", docker.ErrSubnetInUse)
+				}
+			}
+		}
+		subnets = []string{subnet}
+	}
 	id := f.nextID("n")
-	f.networks[name] = docker.Network{ID: id, Name: name, Driver: "bridge", Labels: labels, Managed: true}
+	f.networks[name] = docker.Network{ID: id, Name: name, Driver: "bridge", Labels: labels, Managed: true, Subnets: subnets}
 	f.record("network-create:" + name)
 	return id, nil
 }

@@ -288,7 +288,7 @@ func serve() error {
 		}, nil
 	}
 	manager := project.NewManager(st, engine, catalog, paths, auditLog, project.Config{
-		PortRangeStart: cfg.PortRangeStart, PortRangeEnd: cfg.PortRangeEnd, StopTimeout: 10 * time.Second,
+		PortRangeStart: cfg.PortRangeStart, PortRangeEnd: cfg.PortRangeEnd, NetworkPool: cfg.NetworkPool, StopTimeout: 10 * time.Second,
 		ConfigDir: cfg.ConfigDir, BackupsDir: cfg.BackupsDir,
 	}, log)
 	manager.SetSecretKeySource(keySource)

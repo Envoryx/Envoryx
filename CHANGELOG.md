@@ -10,6 +10,15 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Changed
+- New project networks get a /24 out of `ENVORYX_NETWORK_POOL`
+  (`10.213.0.0/16` unless set, 256 projects) instead of one of Docker's
+  default ranges, which ran out after about 30 projects: every project
+  keeps its network while stopped, and creating the next one then failed
+  with HTTP 500. Existing networks keep their range. If the range is used
+  in your LAN or VPN, set another one; `off` keeps Docker's choice, and
+  its running out now says what to do.
+
 ### Security
 - With JetBrains Gateway on, every project mounted the whole shared
   `~/.cache/JetBrains`. Besides the downloaded IDE backends it holds index
