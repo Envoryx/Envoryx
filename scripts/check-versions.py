@@ -141,10 +141,26 @@ def main() -> int:
 
     changed = out != current
     if changed:
-        FILE.write_text(json.dumps(out, indent=2) + "\n")
-    print(json.dumps(out, indent=2))
+        FILE.write_text(dump(out))
+    print(dump(out), end="")
     print(f"changed={'true' if changed else 'false'}")
     return 0
+
+
+
+def dump(data):
+    """Writes a versions file the way the repository keeps them: one line per version,
+    so an update's diff shows only the versions that changed."""
+    lines = ["{"]
+    for key, value in data.items():
+        if key != "versions":
+            lines.append(f"  {json.dumps(key)}: {json.dumps(value)},")
+    entries = ["    { " + ", ".join(f"{json.dumps(k)}: {json.dumps(v)}" for k, v in e.items()) + " }" for e in data["versions"]]
+    lines.append('  "versions": [')
+    lines.append(",\n".join(entries))
+    lines.append("  ]")
+    lines.append("}")
+    return "\n".join(lines) + "\n"
 
 
 if __name__ == "__main__":
