@@ -78,3 +78,40 @@ export function useAccent(): [Accent, (a: Accent) => void] {
 
   return [accent, setAccent];
 }
+
+export type LayoutWidth = "fluid" | "boxed";
+const LAYOUT_KEY = "envoryx.layout";
+
+function applyLayout(layout: LayoutWidth) {
+  if (layout === "fluid") document.documentElement.removeAttribute("data-layout");
+  else document.documentElement.dataset.layout = layout;
+}
+
+/**
+ * Page width: the full window (the default) or the narrower column Envoryx used to have.
+ * Stored per browser like the theme; the shell reads the attribute on <html>, so a change
+ * applies at once without the two sharing React state.
+ */
+export function useLayoutWidth(): [LayoutWidth, (l: LayoutWidth) => void] {
+  const [layout, setLayoutState] = useState<LayoutWidth>(() => {
+    try {
+      return localStorage.getItem(LAYOUT_KEY) === "boxed" ? "boxed" : "fluid";
+    } catch {
+      return "fluid";
+    }
+  });
+
+  useEffect(() => applyLayout(layout), [layout]);
+
+  const setLayout = useCallback((l: LayoutWidth) => {
+    setLayoutState(l);
+    try {
+      if (l === "fluid") localStorage.removeItem(LAYOUT_KEY);
+      else localStorage.setItem(LAYOUT_KEY, l);
+    } catch {
+      /* storage unavailable */
+    }
+  }, []);
+
+  return [layout, setLayout];
+}

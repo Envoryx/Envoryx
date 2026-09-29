@@ -1,4 +1,4 @@
-// Applies the stored theme and accent before React renders. It lives in a
+// Applies the stored theme, accent and page width before React renders. It lives in a
 // module (not an inline <script> in index.html) because the server's CSP
 // forbids inline scripts; imported first from main.tsx it still runs before
 // the first paint of the app.
@@ -8,6 +8,7 @@ try {
   document.documentElement.classList.toggle("dark", dark);
   const a = localStorage.getItem("envoryx.accent");
   if (a && a !== "mint") document.documentElement.dataset.accent = a;
+  if (localStorage.getItem("envoryx.layout") === "boxed") document.documentElement.dataset.layout = "boxed";
 } catch {
-  /* storage unavailable: system theme, default accent */
+  /* storage unavailable: system theme, default accent, full width */
 }

@@ -929,7 +929,6 @@
   "Either this device's DNS does not resolve names under the base domain, or this browser does not trust the Envoryx CA yet. Install the CA (Domains & HTTPS) and add a wildcard DNS rewrite on the DNS server your devices use (AdGuard Home, Pi-hole, router).": "Óf de DNS van dit apparaat lost geen namen onder het basisdomein op, óf deze browser vertrouwt de Envoryx-CA nog niet. Installeer de CA (Domeinen & HTTPS) en voeg een wildcard-DNS-rewrite toe op de DNS-server die je apparaten gebruiken (AdGuard Home, Pi-hole, router).",
   "This device's DNS does not resolve names under the base domain. Add a wildcard DNS rewrite on the DNS server your devices use (AdGuard Home, Pi-hole, router), or hosts-file entries per project.": "De DNS van dit apparaat lost geen namen onder het basisdomein op. Voeg een wildcard-DNS-rewrite toe op de DNS-server die je apparaten gebruiken (AdGuard Home, Pi-hole, router), of hosts-bestandsvermeldingen per project.",
   "Appearance": "Uiterlijk",
-  "The accent colour is stored in this browser; the logo, buttons and highlights follow it.": "De accentkleur wordt in deze browser opgeslagen; het logo, knoppen en markeringen volgen haar.",
   "Accent colour": "Accentkleur",
   "Mint": "Mint",
   "Ocean": "Oceaan",
@@ -2619,5 +2618,11 @@
   "Show all {{count}} templates_one": "{{count}} sjabloon tonen",
   "Show all {{count}} templates_other": "Alle {{count}} sjablonen tonen",
   "{{count}} variables_one": "{{count}} variabele",
-  "{{count}} variables_other": "{{count}} variabelen"
+  "{{count}} variables_other": "{{count}} variabelen",
+  "Page width": "Paginabreedte",
+  "Full width": "Volledige breedte",
+  "Boxed": "Gecentreerd",
+  "Pages use the whole window.": "Pagina's gebruiken het hele venster.",
+  "Pages stay in a centred column, easier to read on wide screens.": "Pagina's blijven in een gecentreerde kolom, makkelijker te lezen op brede schermen.",
+  "Accent colour and page width are stored in this browser; the logo, buttons and highlights follow the accent.": "Accentkleur en paginabreedte worden in deze browser opgeslagen; logo, knoppen en markeringen volgen de accentkleur."
 }

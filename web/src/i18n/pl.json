@@ -959,7 +959,6 @@
   "Either this device's DNS does not resolve names under the base domain, or this browser does not trust the Envoryx CA yet. Install the CA (Domains & HTTPS) and add a wildcard DNS rewrite on the DNS server your devices use (AdGuard Home, Pi-hole, router).": "Albo DNS tego urządzenia nie rozwiązuje nazw pod domeną bazową, albo ta przeglądarka nie ufa jeszcze CA Envoryx. Zainstaluj CA (Domeny i HTTPS) i dodaj przepisanie wildcard DNS na serwerze DNS używanym przez twoje urządzenia (AdGuard Home, Pi-hole, router).",
   "This device's DNS does not resolve names under the base domain. Add a wildcard DNS rewrite on the DNS server your devices use (AdGuard Home, Pi-hole, router), or hosts-file entries per project.": "DNS tego urządzenia nie rozwiązuje nazw pod domeną bazową. Dodaj przepisanie wildcard DNS na serwerze DNS używanym przez twoje urządzenia (AdGuard Home, Pi-hole, router) lub wpisy w pliku hosts dla każdego projektu.",
   "Appearance": "Wygląd",
-  "The accent colour is stored in this browser; the logo, buttons and highlights follow it.": "Kolor akcentu jest zapisany w tej przeglądarce; logo, przyciski i wyróżnienia go używają.",
   "Accent colour": "Kolor akcentu",
   "Mint": "Mięta",
   "Ocean": "Ocean",
@@ -2667,5 +2666,11 @@
   "{{count}} variables_one": "{{count}} zmienna",
   "{{count}} variables_few": "{{count}} zmienne",
   "{{count}} variables_many": "{{count}} zmiennych",
-  "{{count}} variables_other": "{{count}} zmiennej"
+  "{{count}} variables_other": "{{count}} zmiennej",
+  "Page width": "Szerokość strony",
+  "Full width": "Pełna szerokość",
+  "Boxed": "Wyśrodkowana",
+  "Pages use the whole window.": "Strony zajmują całe okno.",
+  "Pages stay in a centred column, easier to read on wide screens.": "Strony zostają w wyśrodkowanej kolumnie, łatwiejszej do czytania na szerokich ekranach.",
+  "Accent colour and page width are stored in this browser; the logo, buttons and highlights follow the accent.": "Kolor akcentu i szerokość strony są zapisywane w tej przeglądarce; logo, przyciski i wyróżnienia podążają za kolorem akcentu."
 }

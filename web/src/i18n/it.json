@@ -929,7 +929,6 @@
   "Either this device's DNS does not resolve names under the base domain, or this browser does not trust the Envoryx CA yet. Install the CA (Domains & HTTPS) and add a wildcard DNS rewrite on the DNS server your devices use (AdGuard Home, Pi-hole, router).": "O il DNS di questo dispositivo non risolve i nomi sotto il dominio di base, oppure questo browser non considera ancora attendibile la CA di Envoryx. Installa la CA (Domini e HTTPS) e aggiungi una riscrittura DNS wildcard sul server DNS usato dai tuoi dispositivi (AdGuard Home, Pi-hole, router).",
   "This device's DNS does not resolve names under the base domain. Add a wildcard DNS rewrite on the DNS server your devices use (AdGuard Home, Pi-hole, router), or hosts-file entries per project.": "Il DNS di questo dispositivo non risolve i nomi sotto il dominio di base. Aggiungi una riscrittura DNS wildcard sul server DNS usato dai tuoi dispositivi (AdGuard Home, Pi-hole, router) o voci nel file hosts per ogni progetto.",
   "Appearance": "Aspetto",
-  "The accent colour is stored in this browser; the logo, buttons and highlights follow it.": "Il colore di accento viene salvato in questo browser; logo, pulsanti ed evidenziazioni lo seguono.",
   "Accent colour": "Colore di accento",
   "Mint": "Menta",
   "Ocean": "Oceano",
@@ -2619,5 +2618,11 @@
   "Show all {{count}} templates_one": "Mostra {{count}} modello",
   "Show all {{count}} templates_other": "Mostra tutti i {{count}} modelli",
   "{{count}} variables_one": "{{count}} variabile",
-  "{{count}} variables_other": "{{count}} variabili"
+  "{{count}} variables_other": "{{count}} variabili",
+  "Page width": "Larghezza pagina",
+  "Full width": "Larghezza piena",
+  "Boxed": "Centrata",
+  "Pages use the whole window.": "Le pagine occupano tutta la finestra.",
+  "Pages stay in a centred column, easier to read on wide screens.": "Le pagine restano in una colonna centrata, più leggibile sugli schermi larghi.",
+  "Accent colour and page width are stored in this browser; the logo, buttons and highlights follow the accent.": "Colore d'accento e larghezza pagina sono salvati in questo browser; logo, pulsanti ed evidenziazioni seguono il colore d'accento."
 }

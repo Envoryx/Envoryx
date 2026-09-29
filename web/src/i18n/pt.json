@@ -929,7 +929,6 @@
   "Either this device's DNS does not resolve names under the base domain, or this browser does not trust the Envoryx CA yet. Install the CA (Domains & HTTPS) and add a wildcard DNS rewrite on the DNS server your devices use (AdGuard Home, Pi-hole, router).": "Ou o DNS deste dispositivo não resolve nomes sob o domínio base, ou este navegador ainda não confia na CA do Envoryx. Instale a CA (Domínios e HTTPS) e adicione uma reescrita DNS wildcard no servidor DNS que seus dispositivos usam (AdGuard Home, Pi-hole, roteador).",
   "This device's DNS does not resolve names under the base domain. Add a wildcard DNS rewrite on the DNS server your devices use (AdGuard Home, Pi-hole, router), or hosts-file entries per project.": "O DNS deste dispositivo não resolve nomes sob o domínio base. Adicione uma reescrita DNS wildcard no servidor DNS que seus dispositivos usam (AdGuard Home, Pi-hole, roteador) ou entradas no arquivo hosts por projeto.",
   "Appearance": "Aparência",
-  "The accent colour is stored in this browser; the logo, buttons and highlights follow it.": "A cor de destaque é salva neste navegador; o logotipo, os botões e os realces a seguem.",
   "Accent colour": "Cor de destaque",
   "Mint": "Menta",
   "Ocean": "Oceano",
@@ -2619,5 +2618,11 @@
   "Show all {{count}} templates_one": "Mostrar {{count}} modelo",
   "Show all {{count}} templates_other": "Mostrar todos os {{count}} modelos",
   "{{count}} variables_one": "{{count}} variável",
-  "{{count}} variables_other": "{{count}} variáveis"
+  "{{count}} variables_other": "{{count}} variáveis",
+  "Page width": "Largura da página",
+  "Full width": "Largura total",
+  "Boxed": "Centralizada",
+  "Pages use the whole window.": "As páginas ocupam a janela inteira.",
+  "Pages stay in a centred column, easier to read on wide screens.": "As páginas ficam numa coluna centralizada, mais fácil de ler em telas largas.",
+  "Accent colour and page width are stored in this browser; the logo, buttons and highlights follow the accent.": "A cor de destaque e a largura da página ficam salvas neste navegador; o logo, os botões e os destaques seguem a cor de destaque."
 }

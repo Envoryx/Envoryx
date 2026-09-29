@@ -109,7 +109,7 @@ export function AppShell() {
             {t("Docker engine is not reachable. Project operations are unavailable until the connection is restored.")}
           </div>
         )}
-        <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 lg:px-8">
+        <main className="mx-auto w-full flex-1 px-4 py-6 sm:px-6 lg:px-8 [:root[data-layout=boxed]_&]:max-w-6xl">
           <Outlet />
         </main>
       </div>

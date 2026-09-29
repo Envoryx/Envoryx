@@ -10,6 +10,11 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Changed
+- Pages use the full width of the window. *Settings → Profile → Appearance*
+  switches back to the centred column (*Boxed*); like the accent colour, the
+  choice is stored per browser.
+
 ## [0.16.0] - 2026-09-29
 
 The interface has a new layout. Projects, the settings and the Docker page
