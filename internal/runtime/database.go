@@ -364,17 +364,19 @@ func init() {
 		MajorUpgradeInPlace: false,
 		// The database tools only accept credentials via --uri/--password; the URI is
 		// therefore visible in the container's process list for the duration of the dump.
+		// It names no database: mongodump 100.17 and later refuse a database in the URI
+		// that differs from --db, and authSource=admin already says where the user lives.
 		Dump: func(c DatabaseConfig) ([]string, []string) {
-			return []string{"mongodump", "--quiet", "--archive", "--db", c.Database, "--uri", mongoURI(c, "127.0.0.1", "admin")}, nil
+			return []string{"mongodump", "--quiet", "--archive", "--db", c.Database, "--uri", mongoURI(c, "127.0.0.1", "")}, nil
 		},
 		Restore: func(c DatabaseConfig) ([]string, []string) {
-			return []string{"mongorestore", "--quiet", "--archive", "--drop", "--nsInclude", c.Database + ".*", "--uri", mongoURI(c, "127.0.0.1", "admin")}, nil
+			return []string{"mongorestore", "--quiet", "--archive", "--drop", "--nsInclude", c.Database + ".*", "--uri", mongoURI(c, "127.0.0.1", "")}, nil
 		},
 		// The archive carries the namespace it was dumped from, so restoring it under
 		// another database name means mapping <from>.* to <to>.*.
 		RestoreInto: func(c DatabaseConfig, from string) ([]string, []string) {
 			return []string{"mongorestore", "--quiet", "--archive", "--drop", "--nsInclude", from + ".*",
-				"--nsFrom", from + ".*", "--nsTo", c.Database + ".*", "--uri", mongoURI(c, "127.0.0.1", "admin")}, nil
+				"--nsFrom", from + ".*", "--nsTo", c.Database + ".*", "--uri", mongoURI(c, "127.0.0.1", "")}, nil
 		},
 		// The root user lives in admin and cannot be renamed; it is recreated with the
 		// same password and roles, then the old one goes. The container environment only
