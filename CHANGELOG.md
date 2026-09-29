@@ -10,6 +10,46 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Security
+- With JetBrains Gateway on, every project mounted the whole shared
+  `~/.cache/JetBrains`. Besides the downloaded IDE backends it holds index
+  caches with the source, local history and join links with their tokens,
+  so one project could read another project's source and join links, in
+  its container and over SFTP. Only `RemoteDev/dist` with the backends is
+  shared now; the rest stays in each project home. The old shared data in
+  `/config/jetbrains` is no longer mounted; everything except
+  `RemoteDev/dist` there can be deleted.
+- Adding an IP allowlist to a project that was shared publicly was
+  accepted, but the tunnel reaches the proxy from Envoryx itself, so the
+  share stayed public (and an allowlist naming 127.0.0.1 let the internet
+  in). An allowlist is now refused while a share runs.
+
+### Fixed
+- MongoDB snapshots, project backups, clones and branch copies failed
+  with HTTP 500: mongodump 100.17 and later refuse the connection string
+  Envoryx passed.
+- The periodic reconcile could set a project whose create had just
+  finished to failed ("creating was interrupted by an Envoryx restart").
+- Behind HTTPS, PHP projects on Caddy saw `X-Forwarded-Proto: http`, so
+  TYPO3 answered 404 and Shopware "Sales Channel Not Found" after setup.
+  Caddy also served dotfiles such as `.env` and `.htaccess` in PHP
+  projects; like nginx and Apache it now answers 404.
+- Next.js failed to build in production mode (it ran under
+  `NODE_ENV=development`), and Nuxt's production mode started a `start`
+  script its starter doesn't have; it now uses `preview`.
+- The *pip install* action failed after a Python version change ("No
+  module named pip"); it now rebuilds the stale `.venv`.
+- An error from a failed start with one custom image stayed on the
+  project after a later image started fine.
+- Rider's "Attach to Remote Process" over SSH failed ("cancel-tcpip-forward
+  failed"): a forward asked for port 0 couldn't be cancelled.
+- The IDE section gave DataGrip a MongoDB URL with the user in it, so the
+  password was ignored; the Node inspector example named the wrong script;
+  the Gateway steps named WebStorm for every project without PHP; the Ruby
+  text didn't say RubyMine's debugger needs *Allow JetBrains Gateway*.
+- `gradle test` output in the Tests section ended in console control
+  sequences.
+
 ## [0.16.2] - 2026-09-29
 
 ### Added
