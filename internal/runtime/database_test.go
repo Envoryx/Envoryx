@@ -116,3 +116,17 @@ func TestDBIdentifierAvoidsNamesTheServersRefuse(t *testing.T) {
 		}
 	}
 }
+
+func TestMongoToolsNameNoDatabaseInTheURI(t *testing.T) {
+	d, _ := DialectFor("mongodb")
+	c := DatabaseConfig{Database: "shop", Username: "shop", Password: "pw"}
+	// mongodump 100.17 and later refuse a database in the URI that differs from --db.
+	for name, argv := range map[string][]string{"dump": first(d.Dump(c)), "restore": first(d.Restore(c)), "restore into": first(d.RestoreInto(c, "staging"))} {
+		uri := argv[len(argv)-1]
+		if !strings.Contains(uri, "@127.0.0.1:27017/?authSource=admin") {
+			t.Errorf("%s: uri %q must name no database", name, uri)
+		}
+	}
+}
+
+func first(argv, _ []string) []string { return argv }
