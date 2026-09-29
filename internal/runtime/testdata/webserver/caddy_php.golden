@@ -2,11 +2,19 @@
 {
 	admin off
 	auto_https off
+	servers {
+		trusted_proxies static private_ranges
+	}
 }
 
 :80 {
 	root * /var/www/html/public
 	encode gzip
+	@dot {
+		path_regexp (^|/)\.
+		not path /.well-known/*
+	}
+	respond @dot 404
 	php_fastcgi php:9000
 	file_server
 	log {
