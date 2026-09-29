@@ -77,7 +77,8 @@ export function IdeTab({ project: p }: { project: Project }) {
     d.type === "postgresql"
       ? `jdbc:postgresql://${r.host}:${r.port}/${d.database}`
       : d.type === "mongodb"
-        ? `mongodb://${d.username}@${r.host}:${r.port}/${d.database}?authSource=admin`
+        ? // No user in the URL: DataGrip takes it from there and then ignores the password field.
+          `mongodb://${r.host}:${r.port}/${d.database}?authSource=admin`
         : `jdbc:${d.type === "mysql" ? "mysql" : "mariadb"}://${r.host}:${r.port}/${d.database}`;
 
   return (
@@ -303,7 +304,7 @@ export function IdeTab({ project: p }: { project: Project }) {
             <p className="mt-3 text-xs text-muted">
               {t("Only the port is published - the inspector has to be started by your script, otherwise NODE_OPTIONS would attach the debugger to npm instead of your app. Examples for package.json:")}
             </p>
-            <pre className="mt-1 overflow-x-auto rounded-md bg-muted p-2 font-mono text-[11px]">{nodeDebugExamples(nodeCfg.inspectPort ?? 9229)}</pre>
+            <pre className="mt-1 overflow-x-auto rounded-md bg-muted p-2 font-mono text-[11px]">{nodeDebugExamples(nodeCfg.inspectPort ?? 9229, nodeCfg.script || "dev")}</pre>
             <p className="mt-2 text-xs text-subtle">
               {t("WebStorm: Run → Edit Configurations → Attach to Node.js/Chrome with host and port from above. VS Code: a launch.json entry of type node with request attach, address and port from above, localRoot/remoteRoot as the path mapping. Next.js opens the inspector of its server process one port higher (9230): publish that port instead when debugging server code.")}
             </p>
@@ -585,13 +586,13 @@ export function IdeTab({ project: p }: { project: Project }) {
 }
 
 /** Placeholder until the first poll reports the server's operation (the request is already running). */
-/** package.json snippets that start the inspector for the common setups. */
-function nodeDebugExamples(port: number): string {
+/** package.json snippets that start the inspector for the common setups, under the script Envoryx runs. */
+function nodeDebugExamples(port: number, script: string): string {
   return [
-    `"dev": "NODE_OPTIONS='--inspect=0.0.0.0:${port}' next dev"        // Next.js (server code listens on ${port + 1})`,
-    `"dev": "node --inspect=0.0.0.0:${port} node_modules/vite/bin/vite.js"   // Vite`,
-    `"dev": "NODE_OPTIONS='--inspect=0.0.0.0:${port}' nuxt dev"        // Nuxt`,
-    `"start": "node --inspect=0.0.0.0:${port} server.js"              // plain Node`,
+    `"${script}": "NODE_OPTIONS='--inspect=0.0.0.0:${port}' next dev"        // Next.js (server code listens on ${port + 1})`,
+    `"${script}": "node --inspect=0.0.0.0:${port} node_modules/vite/bin/vite.js"   // Vite`,
+    `"${script}": "NODE_OPTIONS='--inspect=0.0.0.0:${port}' nuxt dev"        // Nuxt`,
+    `"${script}": "node --inspect=0.0.0.0:${port} server.js"              // plain Node`,
   ].join("\n");
 }
 
