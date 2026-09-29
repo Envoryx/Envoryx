@@ -33,6 +33,10 @@ type Options struct {
 	// BeforeShutdown runs when the context ends, before the listener closes: it drains
 	// the long-running project operations that handlers are waiting on.
 	BeforeShutdown func()
+	// ProbeHost names the host the diagnostics fetch from the browser to check wildcard
+	// DNS and the proxy (envoryx-diagnostics-probe.<base domain>); the page's policy lets
+	// that one host through. Empty: no such check.
+	ProbeHost func(context.Context) string
 }
 
 // Server wraps http.Server.
@@ -56,7 +60,7 @@ func New(opts Options, a *api.API, sessions *auth.Service, dist fs.FS) *Server {
 
 	var handler http.Handler = mux
 	handler = csrfMiddleware(opts.AllowedOrigins)(handler)
-	handler = securityHeaders(handler)
+	handler = securityHeaders(handler, opts.ProbeHost)
 	handler = requestContext(handler)
 	handler = logging(opts.Log)(handler)
 	handler = recoverer(opts.Log)(handler)
@@ -185,7 +189,7 @@ func requestContext(next http.Handler) http.Handler {
 	})
 }
 
-func securityHeaders(next http.Handler) http.Handler {
+func securityHeaders(next http.Handler, probeHost func(context.Context) string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		h := w.Header()
 		h.Set("X-Content-Type-Options", "nosniff")
@@ -195,7 +199,13 @@ func securityHeaders(next http.Handler) http.Handler {
 		// The proxied database browser sends its own (nonce-based) policy; two policies
 		// would both apply and block its scripts.
 		if !strings.HasPrefix(r.URL.Path, "/api/") && !strings.HasPrefix(r.URL.Path, project.DBToolPathPrefix+"/") {
-			h.Set("Content-Security-Policy", "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; connect-src 'self' ws: wss:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'")
+			connect := "'self' ws: wss:"
+			if probeHost != nil {
+				if host := probeHost(r.Context()); host != "" {
+					connect += " http://" + host + ":* https://" + host + ":*"
+				}
+			}
+			h.Set("Content-Security-Policy", "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; connect-src "+connect+"; frame-ancestors 'none'; base-uri 'self'; form-action 'self'")
 		}
 		next.ServeHTTP(w, r)
 	})
