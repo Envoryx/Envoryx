@@ -74,22 +74,21 @@ test("the wizard creates a project that starts and serves its starter page", asy
   await page.getByRole("link", { name: "Create your first project" }).click();
   await expect(page).toHaveURL("/projects/new");
 
-  const cont = () => page.getByRole("button", { name: "Continue" }).click();
-  await expect(page.getByRole("button", { name: "Continue" })).toBeDisabled();
+  const next = page.getByRole("button", { name: "Continue", exact: true });
+  await expect(next).toBeDisabled();
+  // An empty PHP project; database, services and the advanced settings keep their defaults.
+  await page.getByRole("radio", { name: /^Empty project/ }).click();
+  await page.getByRole("radio", { name: "PHP application" }).check();
+  await next.click();
+  await expect(next).toBeDisabled();
   await page.getByLabel("Project name").fill(projectName);
-  await expect(page.getByText(`Identifier: ${projectSlug}`)).toBeVisible();
-  // The PHP stack is preselected; runtimes, web server, database & services and
-  // environment keep their defaults.
-  await expect(page.getByRole("radio", { name: "PHP application" })).toBeChecked();
-  await cont();
-  await expect(page.getByLabel("PHP version")).toHaveValue(/./);
-  await cont();
-  await expect(page.getByLabel("Web server")).toHaveValue("caddy");
-  await cont();
+  await expect(page.getByText(new RegExp(`Reachable at ${projectSlug}\\.`))).toBeVisible();
   await expect(page.getByRole("radiogroup", { name: "Database" })).toBeVisible();
-  await cont();
+  await page.getByRole("button", { name: /^Advanced settings/ }).click();
+  await expect(page.getByLabel("PHP version")).toHaveValue(/./);
+  await expect(page.getByLabel("Web server")).toHaveValue("caddy");
   await page.getByRole("button", { name: "Add variable" }).waitFor();
-  await cont();
+  await next.click();
 
   // Preview: the plan names the containers that are about to be created.
   await expect(page.getByText(`envoryx-${projectSlug}-php`)).toBeVisible();
