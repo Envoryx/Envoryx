@@ -10,6 +10,8 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.16.2] - 2026-09-29
+
 ### Added
 - The dashboard notes containers that an older Envoryx created from another
   spec (a changed command or health check) and asks for a restart of the
@@ -1167,7 +1169,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.16.1...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.16.2...HEAD
+[0.16.2]: https://github.com/envoryx/envoryx/compare/v0.16.1...v0.16.2
 [0.16.1]: https://github.com/envoryx/envoryx/compare/v0.16.0...v0.16.1
 [0.16.0]: https://github.com/envoryx/envoryx/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/envoryx/envoryx/compare/v0.14.0...v0.15.0
