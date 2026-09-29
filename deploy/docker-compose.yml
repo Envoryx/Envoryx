@@ -34,6 +34,9 @@ services:
       # Optional: bootstrap the admin account non-interactively.
       # ENVORYX_ADMIN_USER: admin
       # ENVORYX_ADMIN_PASSWORD: change-me-please
+      # Optional: the key that encrypts stored secrets (openssl rand -base64 32);
+      # without it Envoryx keeps one in /config/secret.key. Keep a copy either way.
+      # ENVORYX_SECRET_KEY: "<base64 of 32 bytes>"
       # Optional: change or disable (empty) the proxy listeners inside the container.
       # ENVORYX_PROXY_HTTP: ":80"
       # ENVORYX_PROXY_HTTPS: ":443"

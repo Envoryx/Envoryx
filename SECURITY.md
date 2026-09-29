@@ -174,8 +174,16 @@ container on the server.
   variable values.
 - The audit log records who did what (login, project lifecycle, settings) with IP and
   timestamp, but its details leave secrets out.
-- Project environment variables marked as secret are masked in the UI. They're stored in
-  SQLite under `/config` (file mode 0600), so protect that directory.
+- Secrets at rest are encrypted with AES-256-GCM: Git tokens, project variables marked as
+  secret, service credentials, addon secrets, the single sign-on client secret and registry
+  logins in SQLite; `notify.json`, `offsite.json` and `ca/acme.json` as a whole; and the
+  project export in each `backup.json`. The key comes from `ENVORYX_SECRET_KEY` or, without
+  it, from `/config/secret.key` (0600); the variable keeps it out of `/config` and its
+  backups. Instance backups never contain the key. A start whose key doesn't fit the
+  database is refused rather than run with unreadable secrets. Private key files read by
+  other programs (CA, SSH host key, ACME account key, deploy key) and the database
+  browser's `dbtool/connections.json` are not encrypted; protect `/config` (file mode
+  0600) all the same. Secret variables are also masked in the UI.
 - Git access tokens are stored in SQLite (write-only via the API; `hasToken` is all that
   comes back) and handed to git through `GIT_CONFIG_*` environment variables inside a
   transient container: never in the URL, on a command line or in logs, and command output
@@ -191,9 +199,9 @@ container on the server.
   (`MYSQL_PWD`), never on a command line, and stripped from error messages before those
   reach logs or the UI.
 
-- Private registry logins (*Settings → Tools*) are stored like the other secrets: in the
-  SQLite database under `/config`, not encrypted, write-only through the API (`hasPassword`
-  is all that comes back). They go to the Docker daemon with each pull and build, never
+- Private registry logins (*Settings → Tools*) are stored like the other secrets: encrypted
+  in the SQLite database under `/config`, write-only through the API (`hasPassword` is all
+  that comes back). They go to the Docker daemon with each pull and build, never
   into a container, a command line or a log.
 - A custom runtime image runs with the same mounts and network as the Envoryx image it
   replaces, so it reaches nothing the runtime couldn't; only admins can set one. The
@@ -208,15 +216,17 @@ container on the server.
   `/config/addons`), developers can only add installed ones to their projects. *Install
   from a URL* fetches any http(s) URL from the Envoryx server as the admin asks (20 s
   timeout, 64 KB limit, HTTP 200 only) and installs it only if it validates. The secrets
-  an addon generates per project are stored like the other secrets (in the project's
-  service configuration in SQLite, not encrypted); the project's service list leaves them
+  an addon generates per project are stored like the other secrets (encrypted, in the
+  project's service configuration in SQLite); the project's service list leaves them
   out, and secret credentials reach only users who may operate the project.
 
 ## Backups
 
 Backups contain the full project export, including database credentials and git tokens
-(they're needed to rebuild a project), and live in the backups directory (`/config/backups`
-or the `/backups` mount) with mode 0600/0700. Treat downloaded archives the same way.
+(they're needed to rebuild a project), encrypted with the secret key in `backup.json`, and
+live in the backups directory (`/config/backups` or the `/backups` mount) with mode
+0600/0700. The database dump in a backup is not encrypted: treat downloaded archives with
+the same care. Instance backups hold the encrypted database and never the key.
 Restores are confirmed with the project identifier, only ever write inside the project
 directory (path traversal and symlink escapes are rejected) and only import a dump whose
 flavour matches the project's database.
@@ -240,8 +250,8 @@ flavour matches the project's database.
 - Leaf certificates are valid for 397 days and re-issued automatically.
 - Uploaded custom certificates are validated (PEM, matching key) and stored with mode 0600;
   the API never returns the key.
-- Let's Encrypt: the DNS provider's credentials are stored in `/config/ca/acme.json` (0600),
-  and the API never returns the secret ones. Scope them to the one zone where the provider
+- Let's Encrypt: the DNS provider's credentials are stored encrypted in
+  `/config/ca/acme.json` (0600), and the API never returns the secret ones. Scope them to the one zone where the provider
   allows it (on Cloudflare, the "Edit zone DNS" template). The ACME account key lives next
   to them. Only dns-01 is used, so no inbound connectivity is required and none is opened,
   and the challenge TXT records are removed after each attempt.

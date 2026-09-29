@@ -258,6 +258,10 @@ Instance backups cover Envoryx itself: its database, CA, SSH keys and configurat
 downloadable archive. One is taken automatically before every schema upgrade, and you can
 restore it (or import it on another host) from the settings with an in-place restart.
 
+Passwords, tokens and keys that Envoryx stores are encrypted with a key of their own, from
+`ENVORYX_SECRET_KEY` or a key file Envoryx creates. Backups never contain that key, so a
+copy of `/config` or a leaked backup doesn't give the secrets away.
+
 Offsite backups go to S3-compatible storage (AWS, Backblaze B2, Wasabi, Hetzner, Cloudflare
 R2, MinIO), SFTP (Hetzner Storage Box, NAS) or WebDAV (Nextcloud). Scheduled project backups
 and a daily instance backup go up on their own, optionally encrypted with age, with their
