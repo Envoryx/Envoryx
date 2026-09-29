@@ -75,4 +75,25 @@ describe("InstanceBackupsCard", () => {
     await waitFor(() => expect(api.calls.some((c) => c.method === "DELETE")).toBe(true));
     await waitFor(() => expect(screen.queryByText(/is scheduled/)).not.toBeInTheDocument());
   });
+
+  it("asks for the backup's key when it differs from this instance's", async () => {
+    const id = "manual-20260918-100000-ab12";
+    const api = mockApi({
+      ...authedRoutes,
+      "GET /settings/secret-key": () => ({ body: { secretKey: { source: "file", path: "/config/secret.key", keyId: "aaaa1111", canRotate: true, envKey: "ENVORYX_SECRET_KEY", envOldKey: "ENVORYX_SECRET_KEY_OLD" } } }),
+      "GET /instance/backups": () => ({ body: { backups: [{ id, kind: "manual", sizeBytes: 1, createdAt: "2026-09-18T10:00:00Z", meta: { ...meta, keyId: "bbbb2222" } }], pendingRestore: null, dir: "/b", canRestart: false } }),
+      [`POST /instance/backups/${id}/restore`]: () => ({ status: 202, body: { scheduled: id, restarting: false } }),
+    });
+    renderApp(<InstanceBackupsCard />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: `Restore ${id}` }));
+    const keyField = await screen.findByLabelText("Secret key of the backup");
+    await user.type(screen.getByLabelText("Type restore to confirm"), "restore");
+    const go = screen.getByRole("button", { name: "Restore and restart" });
+    expect(go).toBeDisabled();
+    await user.type(keyField, "S0meKey=");
+    await user.click(go);
+    await waitFor(() => expect(api.calls.some((c) => c.url.endsWith("/restore"))).toBe(true));
+    expect(api.calls.find((c) => c.url.endsWith("/restore"))!.body).toEqual({ confirm: "restore", key: "S0meKey=" });
+  });
 });

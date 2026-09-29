@@ -21,6 +21,7 @@ import { UsersCard } from "./UsersCard";
 import { OidcCard } from "./OidcCard";
 import { RegistriesCard } from "./RegistriesCard";
 import { AddonsCard } from "./AddonsCard";
+import { SecretKeyCard } from "./SecretKeyCard";
 import { MySshKeysCard } from "./MySshKeysCard";
 import { isAdmin, useAuth } from "@/features/auth/AuthContext";
 import { AppearanceCard } from "./AppearanceCard";
@@ -390,6 +391,7 @@ function AdminSettingsPage() {
           <MySshKeysCard />
           {s.data && <SshCard keys={s.data.sshAuthorizedKeys ?? ""} ssh={s.data.ssh} />}
           <DeployKeyCard />
+          <SecretKeyCard />
         </>
       )}
       {tab === "users" && (

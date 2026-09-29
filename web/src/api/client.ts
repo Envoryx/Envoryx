@@ -44,6 +44,7 @@ import type {
   InviteResult,
   OIDCSettings,
   RegistryLogin,
+  SecretKeyInfo,
   AddonDefinition,
   AddonUpdate,
   AvailableAddon,
@@ -299,6 +300,12 @@ export const api = {
       request<{ project: Project }>(`/projects/${encodeURIComponent(id)}/addons/${encodeURIComponent(name)}`, { method: "PUT", body }),
   },
 
+  secretKey: {
+    get: () => request<{ secretKey: SecretKeyInfo }>("/settings/secret-key"),
+    reveal: () => request<{ key: string }>("/settings/secret-key/reveal", { method: "POST" }),
+    rotate: () => request<{ secretKey: SecretKeyInfo; resealed: { database: number; files: number; backups: number } }>("/settings/secret-key/rotate", { method: "POST" }),
+  },
+
   registries: {
     list: () => request<{ registries: RegistryLogin[] }>("/settings/registries"),
     set: (registries: RegistryLogin[]) => request<{ registries: RegistryLogin[] }>("/settings/registries", { method: "PUT", body: { registries } }),
@@ -432,8 +439,8 @@ export const api = {
     create: (note: string) => request<{ backup: InstanceBackup }>("/instance/backups", { method: "POST", body: { note } }),
     upload: (file: File) => upload<{ backup: InstanceBackup }>("/instance/backups/upload", "file", file),
     remove: (id: string) => request<void>(`/instance/backups/${encodeURIComponent(id)}`, { method: "DELETE" }),
-    restore: (id: string, confirm: string) =>
-      request<{ scheduled: string; restarting: boolean }>(`/instance/backups/${encodeURIComponent(id)}/restore`, { method: "POST", body: { confirm } }),
+    restore: (id: string, confirm: string, key?: string) =>
+      request<{ scheduled: string; restarting: boolean }>(`/instance/backups/${encodeURIComponent(id)}/restore`, { method: "POST", body: key ? { confirm, key } : { confirm } }),
     cancelRestore: () => request<void>("/instance/restore", { method: "DELETE" }),
     downloadUrl: (id: string) => `/api/v1/instance/backups/${encodeURIComponent(id)}/download`,
     uploadOffsite: (id: string, targets: string[] = []) =>
