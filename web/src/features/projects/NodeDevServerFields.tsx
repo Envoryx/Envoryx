@@ -135,7 +135,7 @@ export function NodeDevServerFields({
         <div className="space-y-3">
           <Checkbox
             label={t("Publish the Node.js inspector port")}
-            description={t("For attaching a debugger from WebStorm or VS Code. Only the port is published: start the inspector in your script, e.g. NODE_OPTIONS='--inspect=0.0.0.0:9229' next dev - set for the whole container it would attach to npm instead of your app. The IDE tab has the details.")}
+            description={t("For attaching a debugger from WebStorm or VS Code. Only the port is published: start the inspector in your script, e.g. NODE_OPTIONS='--inspect=0.0.0.0:9229' next dev - set for the whole container it would attach to npm instead of your app. The IDE section has the details.")}
             checked={value.inspect}
             onChange={(e) => set({ inspect: e.target.checked })}
           />

@@ -60,7 +60,7 @@ export function LogHistoryCard() {
             {t("Log history")}
           </span>
         }
-        description={t("Envoryx copies the output of the project containers into daily files, so the Logs tab can still search it after a container was restarted or recreated. Finished days are compressed.")}
+        description={t("Envoryx copies the output of the project containers into daily files, so the Logs section can still search it after a container was restarted or recreated. Finished days are compressed.")}
         actions={info && <Badge tone={info.enabled && info.available ? "green" : "gray"}>{info.enabled && info.available ? t("on") : t("off")}</Badge>}
       />
       <div className="space-y-4 p-5">
@@ -71,10 +71,10 @@ export function LogHistoryCard() {
         ) : !info ? null : (
           <>
             {error && <Alert tone="red">{error}</Alert>}
-            {!info.available && <Alert tone="amber">{t("The log history directory could not be opened; see the Envoryx log. The Logs tab reads the containers only.")}</Alert>}
+            {!info.available && <Alert tone="amber">{t("The log history directory could not be opened; see the Envoryx log. The Logs section reads the containers only.")}</Alert>}
             <Checkbox
               label={t("Keep the output of the project containers")}
-              description={t("When off, nothing new is stored and the Logs tab reads what Docker still holds for the current container (10 MB × 3 per container). What is stored stays until retention removes it.")}
+              description={t("When off, nothing new is stored and the Logs section reads what Docker still holds for the current container (10 MB × 3 per container). What is stored stays until retention removes it.")}
               checked={info.enabled}
               disabled={update.isPending || !info.available}
               onChange={(e) => {

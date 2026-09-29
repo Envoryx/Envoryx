@@ -68,7 +68,7 @@ describe("BranchesTab", () => {
   it("asks for a repository first", () => {
     mockApi({ ...authedRoutes });
     renderApp(<BranchesTab project={makeProject()} />);
-    expect(screen.getByText(/Set a repository in the Git tab first/)).toBeInTheDocument();
+    expect(screen.getByText(/Set a repository under Git first/)).toBeInTheDocument();
   });
 
   it("deploys a branch environment and names its parent", async () => {

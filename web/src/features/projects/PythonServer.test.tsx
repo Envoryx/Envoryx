@@ -85,7 +85,7 @@ describe("Python card", () => {
     // The project URL is the Python server's.
     expect((await screen.findAllByRole("link", { name: /https:\/\/acme-shop\.test/ }))[0]).toHaveAttribute("href", "https://acme-shop.test");
 
-    await user.click(screen.getByRole("tab", { name: "Runtime" }));
+    await user.click(screen.getByRole("link", { name: "Runtime" }));
     const headings = (await screen.findAllByRole("heading", { level: 2 })).map((h) => h.textContent);
     expect(headings.indexOf("Python")).toBeLessThan(headings.indexOf("Node.js"));
     expect(headings.indexOf("Python")).toBeLessThan(headings.indexOf("PHP"));

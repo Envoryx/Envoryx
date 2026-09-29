@@ -35,7 +35,7 @@ function ParentView({ project: p }: { project: Project }) {
   const { t } = useTranslation();
   const q = useBranchEnvironments(p.id);
   if (!p.git.url) {
-    return <Alert tone="amber">{t("Branch environments are copies of this project on other branches of its repository. Set a repository in the Git tab first.")}</Alert>;
+    return <Alert tone="amber">{t("Branch environments are copies of this project on other branches of its repository. Set a repository under Git first.")}</Alert>;
   }
   if (q.isPending) return <Spinner />;
   if (q.isError) return <ErrorState message={errorText(q.error, t)} />;
@@ -317,7 +317,7 @@ function EnvironmentCard({ project: p }: { project: Project }) {
           <dt className="text-muted">{t("Deploy commands")}</dt>
           <dd>
             {commands.length === 0 ? (
-              <span className="text-xs text-subtle">{t("None - set them in the Branches tab of the parent project.")}</span>
+              <span className="text-xs text-subtle">{t("None - set them in the Branches section of the parent project.")}</span>
             ) : (
               <ul className="space-y-1">
                 {commands.map((c) => (

@@ -121,8 +121,8 @@ export function JavaServerFields({
           label={t("Debug with JDWP")}
           description={
             value.server
-              ? t("The server's JVM starts with a JDWP agent that IntelliJ IDEA (Run → Remote JVM Debug) and VS Code attach to. The IDE tab has the connection.")
-              : t("Publishes the JDWP port for a JVM started in the Java terminal with -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005. The IDE tab has the connection.")
+              ? t("The server's JVM starts with a JDWP agent that IntelliJ IDEA (Run → Remote JVM Debug) and VS Code attach to. The IDE section has the connection.")
+              : t("Publishes the JDWP port for a JVM started in the Java terminal with -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005. The IDE section has the connection.")
           }
           checked={value.debug}
           onChange={(e) => set({ debug: e.target.checked })}

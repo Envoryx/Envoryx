@@ -129,7 +129,7 @@ test("the wizard creates a project that starts and serves its starter page", asy
 test("the logs tab streams container output", async ({ page }) => {
   await signIn(page);
   await openProject(page);
-  await page.getByRole("tab", { name: "Logs" }).click();
+  await page.getByRole("link", { name: "Logs", exact: true }).click();
 
   // PHP is the first service; PHP-FPM announces its start on stderr, so the tail is not empty.
   await expect(page.getByText("live", { exact: true })).toBeVisible();
@@ -160,7 +160,8 @@ test("stop, then delete the project including its files", async ({ page, request
     .poll(async () => (await request.get(url!, { failOnStatusCode: false }).catch(() => null))?.status() ?? 0, { timeout: 30_000 })
     .not.toBe(200);
 
-  await page.getByRole("button", { name: "Delete project" }).click();
+  await page.getByRole("button", { name: "More actions" }).click();
+  await page.getByRole("menuitem", { name: "Delete project" }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
   const confirm = dialog.getByRole("button", { name: "Delete project" });

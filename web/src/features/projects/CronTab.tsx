@@ -320,7 +320,6 @@ export function CronTab({ project }: { project: Project }) {
   return (
     <div className="space-y-6">
       {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
-      {!hasRuntime && <Alert tone="amber">{t("Cron jobs run in the project's PHP, Python, Go, Ruby, Java, .NET or Node.js container - this project has none. Add a runtime in the Runtime tab first.")}</Alert>}
       {hasRuntime && !running && q.data.jobs.length > 0 && <Alert tone="blue">{t("The project is not running, so its cron jobs are paused. They resume when it starts; missed runs are not caught up.")}</Alert>}
       <Card>
         <CardHeader

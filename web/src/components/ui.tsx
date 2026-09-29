@@ -1,7 +1,7 @@
 import { clsx } from "clsx";
 import { useTranslation } from "react-i18next";
 import { Loader2, AlertTriangle, Inbox } from "lucide-react";
-import { forwardRef, useEffect, useRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes } from "react";
+import { forwardRef, useEffect, useId, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type KeyboardEvent, type ReactNode, type SelectHTMLAttributes } from "react";
 import { Link, type LinkProps } from "react-router-dom";
 
 /* ---------- Button ---------- */
@@ -270,6 +270,7 @@ export function Dialog({
   description,
   children,
   footer,
+  wide = false,
 }: {
   open: boolean;
   onClose: () => void;
@@ -277,8 +278,10 @@ export function Dialog({
   description?: ReactNode;
   children?: ReactNode;
   footer?: ReactNode;
+  wide?: boolean;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -293,11 +296,11 @@ export function Dialog({
       onClick={(e) => {
         if (e.target === ref.current) onClose();
       }}
-      className="m-auto w-full max-w-lg rounded-xl border border-default bg-elevated p-0 text-fg shadow-2xl backdrop:bg-black/50 open:animate-in"
-      aria-labelledby="dialog-title"
+      className={clsx("m-auto w-full rounded-xl border border-default bg-elevated p-0 text-fg shadow-2xl backdrop:bg-black/50 open:animate-in", wide ? "max-w-3xl" : "max-w-lg")}
+      aria-labelledby={titleId}
     >
       <div className="px-6 pt-5">
-        <h2 id="dialog-title" className="text-base font-semibold">
+        <h2 id={titleId} className="text-base font-semibold">
           {title}
         </h2>
         {description && <div className="mt-1 text-sm text-muted">{description}</div>}
@@ -305,6 +308,91 @@ export function Dialog({
       {children && <div className="px-6 py-4">{children}</div>}
       {footer && <div className="flex justify-end gap-2 border-t border-default px-6 py-4">{footer}</div>}
     </dialog>
+  );
+}
+
+/* ---------- Menu ---------- */
+
+export interface MenuItem {
+  label: string;
+  icon?: ReactNode;
+  onSelect: () => void;
+  danger?: boolean;
+  disabled?: boolean;
+  title?: string;
+}
+
+/**
+ * A button that opens a short list of actions below it. Closes on a pick, Escape or a click
+ * elsewhere; the arrow keys move between the entries.
+ */
+export function Menu({ label, icon, items }: { label: string; icon: ReactNode; items: MenuItem[] }) {
+  const [open, setOpen] = useState(false);
+  // Opens towards the side with room: to the left under a button at the right edge, to the
+  // right where the header wraps and the button ends up on the left (phones).
+  const [alignLeft, setAlignLeft] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
+  const list = useRef<HTMLUListElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    list.current?.querySelector<HTMLButtonElement>("button:not(:disabled)")?.focus();
+    const away = (e: MouseEvent) => {
+      if (!root.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", away);
+    return () => document.removeEventListener("mousedown", away);
+  }, [open]);
+  const onKeyDown = (e: KeyboardEvent<HTMLUListElement>) => {
+    const entries = [...(list.current?.querySelectorAll<HTMLButtonElement>("button:not(:disabled)") ?? [])];
+    const at = entries.indexOf(document.activeElement as HTMLButtonElement);
+    if (e.key === "Escape") {
+      setOpen(false);
+      root.current?.querySelector<HTMLButtonElement>("button")?.focus();
+    } else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      const step = e.key === "ArrowDown" ? 1 : -1;
+      entries[(at + step + entries.length) % entries.length]?.focus();
+    }
+  };
+  return (
+    <div ref={root} className="relative">
+      <Button
+        variant="ghost"
+        icon={icon}
+        aria-label={label}
+        title={label}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => {
+          setAlignLeft((root.current?.getBoundingClientRect().right ?? Infinity) < 240);
+          setOpen((o) => !o);
+        }}
+      />
+      {open && (
+        <ul ref={list} role="menu" aria-label={label} onKeyDown={onKeyDown} className={clsx("absolute z-30 mt-1 min-w-52 rounded-lg border border-default bg-elevated py-1 shadow-lg", alignLeft ? "left-0" : "right-0")}>
+          {items.map((item) => (
+            <li key={item.label} role="none">
+              <button
+                role="menuitem"
+                disabled={item.disabled}
+                title={item.title}
+                onClick={() => {
+                  setOpen(false);
+                  item.onSelect();
+                }}
+                className={clsx(
+                  "flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm disabled:cursor-not-allowed disabled:opacity-50",
+                  item.danger ? "text-red-600 hover:bg-red-500/10 dark:text-red-400" : "text-fg hover:bg-muted",
+                )}
+              >
+                {item.icon}
+                {item.label}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 

@@ -159,7 +159,7 @@ export function ImportSiteCard({
       {(cfg?.mode === "manual" || (!cfg && a.database)) && (
         <Alert tone="blue" title={t("Connect the site to the project database")}>
           {cfg ? t("Change the database connection in {{file}} after creation.", { file: cfg.path }) : t("Change the database connection of the site after creation.")}{" "}
-          {t("The server is reached at the host “database”; name, user and password are on the project's Database tab (also injected as DB_DATABASE, DB_USERNAME and DB_PASSWORD).")}
+          {t("The server is reached at the host “database”; name, user and password are in the project's Database section (also injected as DB_DATABASE, DB_USERNAME and DB_PASSWORD).")}
           {a.configCandidates && a.configCandidates.length > 1 && (
             <span className="mt-1 block">
               {t("Files that open a connection:")}{" "}

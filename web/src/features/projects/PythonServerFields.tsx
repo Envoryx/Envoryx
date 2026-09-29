@@ -126,7 +126,7 @@ export function PythonServerFields({
       <div className="space-y-3">
         <Checkbox
           label={t("Publish the debugpy port")}
-          description={t("For attaching a debugger from PyCharm or VS Code. Only the port is published: start debugpy in your application, e.g. python -m debugpy --listen 0.0.0.0:5678 manage.py runserver. The IDE tab has the details.")}
+          description={t("For attaching a debugger from PyCharm or VS Code. Only the port is published: start debugpy in your application, e.g. python -m debugpy --listen 0.0.0.0:5678 manage.py runserver. The IDE section has the details.")}
           checked={value.debug}
           onChange={(e) => set({ debug: e.target.checked })}
         />

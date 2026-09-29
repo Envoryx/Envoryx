@@ -108,17 +108,17 @@ test("the tabs work without a PHP container", async ({ page }) => {
   await openProject(page);
 
   // Logs: the web server is the first (and only) service, so its tab is selected.
-  await page.getByRole("tab", { name: "Logs" }).click();
+  await page.getByRole("link", { name: "Logs", exact: true }).click();
   await expect(page.getByRole("tab", { name: /Caddy/ })).toHaveAttribute("aria-selected", "true");
   await expect(page.getByText("live", { exact: true })).toBeVisible();
 
   // Git: the deploy key and repository form render; no "needs PHP" refusal.
-  await page.getByRole("tab", { name: "Git" }).click();
+  await page.getByRole("link", { name: "Git", exact: true }).click();
   await expect(page.getByLabel("Repository URL")).toBeVisible();
   await expect(page.getByRole("alert")).toHaveCount(0);
 
   // IDE: no Xdebug card and no PHP path for a project without PHP.
-  await page.getByRole("tab", { name: "IDE" }).click();
+  await page.getByRole("link", { name: "IDE", exact: true }).click();
   await expect(page.getByText("Remote interpreter (SSH)")).toBeVisible();
   await expect(page.getByText("Xdebug")).toHaveCount(0);
   await expect(page.getByText("PHP path")).toHaveCount(0);
@@ -130,7 +130,8 @@ test("stop and delete the static project", async ({ page }) => {
   await page.getByRole("button", { name: "Stop", exact: true }).click();
   await expect(page.getByText("Stopped", { exact: true })).toBeVisible({ timeout: 60_000 });
 
-  await page.getByRole("button", { name: "Delete project" }).click();
+  await page.getByRole("button", { name: "More actions" }).click();
+  await page.getByRole("menuitem", { name: "Delete project" }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel(`Type ${nodeProjectSlug} to confirm`).fill(nodeProjectSlug);
   await dialog.getByLabel("Also delete project files").check();
@@ -174,6 +175,6 @@ test.skip("the Vite template scaffolds a Node.js project whose dev server answer
     .toBe(200);
   expect(await (await request.get(url!)).text()).toContain("/@vite/client");
 
-  await page.getByRole("tab", { name: "Logs" }).click();
+  await page.getByRole("link", { name: "Logs", exact: true }).click();
   await expect(page.getByText(/VITE v/)).toBeVisible({ timeout: 60_000 });
 });

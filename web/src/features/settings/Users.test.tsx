@@ -150,7 +150,9 @@ describe("Roles in the UI", () => {
     }
     expect(screen.queryByRole("button", { name: "Delete project" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Rename project" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("tab", { name: "Terminal" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("tab", { name: "History" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "More actions" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Logs" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Terminal" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "History" })).not.toBeInTheDocument();
   });
 });

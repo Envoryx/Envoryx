@@ -71,7 +71,7 @@ describe("Go card", () => {
     const user = userEvent.setup();
     expect((await screen.findAllByRole("link", { name: /https:\/\/acme-shop\.test/ }))[0]).toHaveAttribute("href", "https://acme-shop.test");
 
-    await user.click(screen.getByRole("tab", { name: "Runtime" }));
+    await user.click(screen.getByRole("link", { name: "Runtime" }));
     const headings = (await screen.findAllByRole("heading", { level: 2 })).map((h) => h.textContent);
     expect(headings.indexOf("Go")).toBeLessThan(headings.indexOf("PHP"));
     const card = screen.getByRole("heading", { name: "Go" }).closest(".rounded-xl") as HTMLElement;
