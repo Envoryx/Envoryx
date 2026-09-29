@@ -1,5 +1,5 @@
 import { screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import userEvent, { type UserEvent } from "@testing-library/user-event";
 import { Route, Routes } from "react-router-dom";
 import { NewProjectPage } from "./NewProjectPage";
 import { authedRoutes, makeProject, mockApi, renderApp, runtimesFixture } from "@/test/utils";
@@ -48,6 +48,43 @@ function previewRoute(onBody: (b: Record<string, unknown>) => void, extra: Parti
   };
 }
 
+/** Renders the wizard with a detail route to land on after creating. */
+function renderWizard() {
+  renderApp(
+    <Routes>
+      <Route path="/projects/new" element={<NewProjectPage />} />
+      <Route path="/projects/:id" element={<h1>Detail</h1>} />
+    </Routes>,
+    { route: "/projects/new" },
+  );
+}
+
+const cont = (user: UserEvent) => user.click(screen.getByRole("button", { name: "Continue" }));
+
+/** Step 1: an empty project, optionally with another runtime than the preselected PHP. */
+async function startEmpty(user: UserEvent, stack?: string) {
+  await user.click(await screen.findByRole("radio", { name: /^Empty project/ }));
+  if (stack) await user.click(screen.getByRole("radio", { name: stack }));
+}
+
+/** Step 1: a template from the gallery; one outside the popular short list needs "Show all" first. */
+async function pickTemplate(user: UserEvent, name: RegExp) {
+  await screen.findByRole("button", { name: "Continue" });
+  if (!screen.queryByRole("button", { name })) await user.click(screen.getByRole("button", { name: /^Show all \d+ templates/ }));
+  await user.click(screen.getByRole("button", { name }));
+}
+
+/** Step 2: the project name. */
+async function nameIt(user: UserEvent, name: string) {
+  await user.type(await screen.findByLabelText("Project name"), name);
+}
+
+const openAdvanced = (user: UserEvent) => user.click(screen.getByRole("button", { name: /^Advanced settings/ }));
+const openTools = (user: UserEvent) => user.click(screen.getByRole("button", { name: "More runtimes as tools" }));
+
+/** Continues from step 2 to the Create step. */
+const toCreate = async (user: UserEvent) => cont(user);
+
 describe("NewProjectPage wizard", () => {
   afterEach(() => vi.unstubAllGlobals());
 
@@ -75,47 +112,44 @@ describe("NewProjectPage wizard", () => {
       }),
       "POST /projects": () => ({ status: 201, body: { project: makeProject() } }),
     });
-    renderApp(
-      <Routes>
-        <Route path="/projects/new" element={<NewProjectPage />} />
-        <Route path="/projects/:id" element={<h1>Detail</h1>} />
-      </Routes>,
-      { route: "/projects/new" },
-    );
+    renderWizard();
     const user = userEvent.setup();
 
-    const cont = async () => user.click(screen.getByRole("button", { name: "Continue" }));
-    expect(await screen.findByLabelText("Project name")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
-    await user.type(screen.getByLabelText("Project name"), "Acme Shop");
-    expect(screen.getByText("Identifier: acme-shop")).toBeInTheDocument();
-    await cont();
+    // Nothing chosen yet: no way on.
+    expect(await screen.findByRole("button", { name: "Continue" })).toBeDisabled();
+    await startEmpty(user);
+    await cont(user);
 
-    // Runtime step: versions come from the API, not the UI.
-    const version = await screen.findByLabelText("PHP version");
+    expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
+    await nameIt(user, "Acme Shop");
+    expect(screen.getByText("Reachable at acme-shop.test")).toBeInTheDocument();
+
+    // Runtime: versions come from the API, not the UI.
+    await openAdvanced(user);
+    const version = screen.getByLabelText("PHP version");
     expect(version).toHaveValue("8.4");
     await user.selectOptions(version, "8.3");
     expect(screen.getByLabelText(/gd/)).toBeDisabled();
+    await openTools(user);
     await user.click(screen.getByLabelText(/Enable Node\.js/));
     expect(screen.getByLabelText("Node.js version")).toHaveValue("24");
-    await cont();
 
-    expect(await screen.findByLabelText("Web server")).toHaveValue("caddy");
+    expect(screen.getByLabelText("Web server")).toHaveValue("caddy");
     await user.selectOptions(screen.getByLabelText("Web server"), "apache");
-    expect(screen.getByLabelText("Version")).toHaveValue("2.4");
+    expect(screen.getByLabelText("Version", { selector: "#web-version" })).toHaveValue("2.4");
     expect(screen.getByText(/honours \.htaccess/)).toBeInTheDocument();
-    await cont();
-    expect(await screen.findByText("Database")).toBeInTheDocument();
+
+    expect(screen.getByRole("radiogroup", { name: "Database" })).toBeInTheDocument();
     await user.click(screen.getByRole("radio", { name: "MariaDB" }));
-    expect(screen.getByLabelText("Version")).toHaveValue("11");
+    expect(screen.getByLabelText("Version", { selector: "#db-version" })).toHaveValue("11");
     await user.click(screen.getByLabelText(/Publish database port/));
     await user.click(screen.getByLabelText(/^Mailpit/));
-    await cont();
-    await user.click(await screen.findByRole("button", { name: "Add variable" }));
+
+    await user.click(screen.getByRole("button", { name: "Add variable" }));
     await user.type(screen.getByLabelText("Variable name"), "app_env");
     expect(screen.getByLabelText("Variable name")).toHaveValue("APP_ENV");
     await user.type(screen.getByLabelText("Variable value"), "local");
-    await cont();
+    await toCreate(user);
 
     expect(await screen.findByText("envoryx-acme-shop-php")).toBeInTheDocument();
     expect(screen.getByText("envoryx-acme-shop-web")).toBeInTheDocument();
@@ -136,19 +170,17 @@ describe("NewProjectPage wizard", () => {
       "POST /projects/preview": previewRoute(() => {}),
       "POST /projects": () => ({ status: 201, body: { project: makeProject(), manifest: { changes: [], missingSecrets: [], inSync: true } } }),
     });
-    renderApp(
-      <Routes>
-        <Route path="/projects/new" element={<NewProjectPage />} />
-        <Route path="/projects/:id" element={<h1>Detail</h1>} />
-      </Routes>,
-      { route: "/projects/new" },
-    );
+    renderWizard();
     const user = userEvent.setup();
-    await user.type(await screen.findByLabelText("Project name"), "Acme Shop");
+    await user.click(await screen.findByRole("radio", { name: /^Git repository/ }));
     expect(screen.queryByLabelText(/Use the repository's envoryx\.yml/)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
     await user.type(screen.getByLabelText("Repository URL"), "https://github.com/acme/shop.git");
     expect(screen.getByLabelText(/Use the repository's envoryx\.yml/)).toBeChecked();
-    for (let i = 0; i < 5; i++) await user.click(screen.getByRole("button", { name: "Continue" }));
+    await cont(user);
+    // Without a name, the repository names the project.
+    expect(await screen.findByLabelText("Project name")).toHaveValue("shop");
+    await toCreate(user);
     expect(await screen.findByText(/that file replaces the services chosen here/)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Create project" }));
     await waitFor(() => expect(screen.getByRole("heading", { name: "Detail" })).toBeInTheDocument());
@@ -156,7 +188,7 @@ describe("NewProjectPage wizard", () => {
     expect(create?.body).toMatchObject({ git: { url: "https://github.com/acme/shop.git" }, useManifest: true, createStarter: false });
   });
 
-  it("selecting a template presets docroot and database and disables git", async () => {
+  it("selecting a template presets docroot and database; switching to a repository drops it", async () => {
     let previewBody: Record<string, unknown> | undefined;
     mockApi({
       ...authedRoutes,
@@ -166,15 +198,29 @@ describe("NewProjectPage wizard", () => {
         return { body: { preview: { slug: "blog", path: "/projects/blog", hostPath: "/x", httpPort: 20000, network: "n", containers: [], volumes: [], images: [], warnings: [] } } };
       },
     });
-    renderApp(<NewProjectPage />, { route: "/projects/new" });
+    renderWizard();
     const user = userEvent.setup();
-    await user.type(await screen.findByLabelText("Project name"), "Blog");
-    await user.click(screen.getByRole("radio", { name: /WordPress/ }));
+    await pickTemplate(user, /^WordPress/);
+    expect(screen.getByRole("button", { name: /^WordPress/ })).toHaveAttribute("aria-pressed", "true");
+    await cont(user);
+    await nameIt(user, "Blog");
+    expect(screen.getByRole("radio", { name: "MariaDB" })).toBeChecked();
+    await openAdvanced(user);
     expect(screen.getByLabelText("Document root")).toHaveValue("");
-    expect(screen.getByLabelText("Repository URL")).toBeDisabled();
-    for (let i = 0; i < 5; i++) await user.click(screen.getByRole("button", { name: "Continue" }));
+    await toCreate(user);
     await screen.findByText("Latest WordPress");
     expect(previewBody).toMatchObject({ template: "wordpress", docroot: "", database: { type: "mariadb" } });
+
+    // Back to the start: a repository replaces the template.
+    await user.click(screen.getByRole("button", { name: "Back" }));
+    await user.click(screen.getByRole("button", { name: "Back" }));
+    await user.click(await screen.findByRole("radio", { name: /^Git repository/ }));
+    expect(screen.getByRole("button", { name: /^WordPress/ })).toHaveAttribute("aria-pressed", "false");
+    await user.type(screen.getByLabelText("Repository URL"), "https://github.com/acme/blog.git");
+    await cont(user);
+    await toCreate(user);
+    await waitFor(() => expect(previewBody).toHaveProperty("git"));
+    expect(previewBody).not.toHaveProperty("template");
   });
 
   it("creates a Node-only project: no php key, dev server on, no starter", async () => {
@@ -191,30 +237,33 @@ describe("NewProjectPage wizard", () => {
         warnings: ['the dev server runs "npm run dev" but nothing creates a package.json - pick a Node template, clone a repository or scaffold from the Node terminal; until then the container waits'],
       }),
     });
-    renderApp(<NewProjectPage />, { route: "/projects/new" });
+    renderWizard();
     const user = userEvent.setup();
-    await user.type(await screen.findByLabelText("Project name"), "Acme Shop");
+    // The gallery shows every runtime; the filter narrows it to Node.js.
+    expect(await screen.findByRole("button", { name: /^WordPress/ })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Node.js" }));
+    expect(screen.queryByRole("button", { name: /^WordPress/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Vite \+ React/ })).toBeInTheDocument();
+    await startEmpty(user);
     expect(screen.getByRole("radio", { name: "PHP application" })).toBeChecked();
-    // Templates follow the stack: PHP ones disappear, Node ones show up.
-    expect(screen.getByRole("radio", { name: /WordPress/ })).toBeInTheDocument();
     await user.click(screen.getByRole("radio", { name: "Node.js application" }));
-    expect(screen.queryByRole("radio", { name: /WordPress/ })).not.toBeInTheDocument();
-    expect(screen.getByRole("radio", { name: /Vite \+ React/ })).toBeInTheDocument();
+    await cont(user);
+    await nameIt(user, "Acme Shop");
+
+    // The Node card leads with the dev server preselected; PHP waits among the tools, off.
+    await openAdvanced(user);
     expect(screen.getByLabelText("Document root")).toHaveValue("");
     expect(screen.getByText(/Not used while the dev server serves the app/)).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Continue" }));
-
-    // Runtimes step: the Node card comes first with the dev server preselected; PHP is off.
-    expect(await screen.findByLabelText(/Enable Node\.js/)).toBeChecked();
+    expect(screen.getByLabelText(/Enable Node\.js/)).toBeChecked();
+    expect(screen.queryByLabelText(/Enable PHP/)).not.toBeInTheDocument();
+    await openTools(user);
     expect(screen.getByLabelText(/Enable PHP/)).not.toBeChecked();
     expect(screen.getByLabelText(/Run a dev server/)).toBeChecked();
     expect(screen.getByLabelText("Framework preset")).toHaveValue("vite");
     expect(screen.getByText(/answers on the project URL; <slug>-dev/)).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Continue" }));
-
-    expect(await screen.findByText(/The web server is part of every project/)).toBeInTheDocument();
+    expect(screen.getByText(/The web server is part of every project/)).toBeInTheDocument();
     expect(screen.queryByLabelText(/SPA fallback/)).not.toBeInTheDocument();
-    for (let i = 0; i < 3; i++) await user.click(screen.getByRole("button", { name: "Continue" }));
+    await toCreate(user);
 
     expect(await screen.findByText("Node dev server (the HTTP port stays unpublished)")).toBeInTheDocument();
     // No proxy settings in this test: the URL row shows the direct port, which must be the
@@ -240,18 +289,21 @@ describe("NewProjectPage wizard", () => {
         ],
       }),
     });
-    renderApp(<NewProjectPage />, { route: "/projects/new" });
+    renderWizard();
     const user = userEvent.setup();
-    await user.type(await screen.findByLabelText("Project name"), "Acme Shop");
-    await user.click(screen.getByRole("radio", { name: "Python application" }));
-    // Templates follow the stack.
-    expect(screen.queryByRole("radio", { name: /WordPress/ })).not.toBeInTheDocument();
-    expect(screen.getByRole("radio", { name: /Django/ })).toBeInTheDocument();
-    expect(screen.getByText(/Not used while the application server serves the app/)).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Continue" }));
+    // The Python filter shows its templates only.
+    await user.click(await screen.findByRole("button", { name: "Python" }));
+    expect(screen.queryByRole("button", { name: /^WordPress/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Django/ })).toBeInTheDocument();
+    await startEmpty(user, "Python application");
+    await cont(user);
+    await nameIt(user, "Acme Shop");
 
-    // Runtimes step: the Python card leads with the server on; PHP and Node are off.
-    expect(await screen.findByLabelText(/Enable Python/)).toBeChecked();
+    // The Python card leads with the server on; PHP and Node wait among the tools, off.
+    await openAdvanced(user);
+    expect(screen.getByText(/Not used while the application server serves the app/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Enable Python/)).toBeChecked();
+    await openTools(user);
     expect(screen.getByLabelText(/Enable PHP/)).not.toBeChecked();
     expect(screen.getByLabelText(/Enable Node\.js/)).not.toBeChecked();
     expect(screen.getByLabelText(/Run the application server/)).toBeChecked();
@@ -261,11 +313,9 @@ describe("NewProjectPage wizard", () => {
     await user.selectOptions(screen.getByLabelText("Framework preset"), "asgi");
     expect(screen.getByLabelText("ASGI application")).toHaveValue("main:app");
     expect(screen.getByLabelText("Command")).toHaveValue("uvicorn main:app --host 0.0.0.0 --port 8000 --reload");
-    await user.click(screen.getByRole("button", { name: "Continue" }));
-
-    expect(await screen.findByText(/The application server answers on the project URL\. The web server is part of every project/)).toBeInTheDocument();
+    expect(screen.getByText(/The application server answers on the project URL\. The web server is part of every project/)).toBeInTheDocument();
     expect(screen.queryByLabelText(/SPA fallback/)).not.toBeInTheDocument();
-    for (let i = 0; i < 3; i++) await user.click(screen.getByRole("button", { name: "Continue" }));
+    await toCreate(user);
 
     expect(await screen.findByText("Python application server (the HTTP port stays unpublished)")).toBeInTheDocument();
     expect(screen.getByText("http://localhost:20001")).toBeInTheDocument();
@@ -282,15 +332,14 @@ describe("NewProjectPage wizard", () => {
       "GET /runtimes": () => ({ body: pythonRuntimesFixture }),
       "POST /projects/preview": previewRoute((b) => (previewBody = b)),
     });
-    renderApp(<NewProjectPage />, { route: "/projects/new" });
+    renderWizard();
     const user = userEvent.setup();
-    await user.type(await screen.findByLabelText("Project name"), "Acme Shop");
-    await user.click(screen.getByRole("radio", { name: "Python application" }));
-    await user.click(screen.getByRole("radio", { name: /FastAPI/ }));
-    expect(screen.getByLabelText("Repository URL")).toBeDisabled();
-    await user.click(screen.getByRole("button", { name: "Continue" }));
-    expect(await screen.findByLabelText("Framework preset")).toHaveValue("asgi");
-    for (let i = 0; i < 4; i++) await user.click(screen.getByRole("button", { name: "Continue" }));
+    await pickTemplate(user, /^FastAPI/);
+    await cont(user);
+    await nameIt(user, "Acme Shop");
+    await openAdvanced(user);
+    expect(screen.getByLabelText("Framework preset")).toHaveValue("asgi");
+    await toCreate(user);
     await screen.findByText(/A minimal FastAPI application/);
     expect(previewBody).toMatchObject({ template: "fastapi", python: { server: true, preset: "asgi", port: 8000, app: "main:app" } });
   });
@@ -302,20 +351,20 @@ describe("NewProjectPage wizard", () => {
       "GET /runtimes": () => ({ body: nodeRuntimesFixture }),
       "POST /projects/preview": previewRoute((b) => (previewBody = b)),
     });
-    renderApp(<NewProjectPage />, { route: "/projects/new" });
+    renderWizard();
     const user = userEvent.setup();
-    await user.type(await screen.findByLabelText("Project name"), "Acme Shop");
-    await user.click(screen.getByRole("radio", { name: "Node.js application" }));
-    await user.click(screen.getByRole("radio", { name: /Next\.js/ }));
-    expect(screen.getByLabelText("Repository URL")).toBeDisabled();
-    await user.click(screen.getByRole("radio", { name: /Vite \+ React/ }));
+    await pickTemplate(user, /^Next\.js/);
+    await pickTemplate(user, /^Vite \+ React/);
+    await cont(user);
+    await nameIt(user, "Acme Shop");
+    await openAdvanced(user);
     expect(screen.getByLabelText("Document root")).toHaveValue("dist");
-    for (let i = 0; i < 5; i++) await user.click(screen.getByRole("button", { name: "Continue" }));
+    await toCreate(user);
     await screen.findByText(/Vite scaffold with React/);
     expect(previewBody).toMatchObject({ template: "vite", docroot: "dist", node: { devServer: true, preset: "vite", port: 5173, script: "dev" } });
   });
 
-  it("switching the stack drops a template of the other runtime", async () => {
+  it("an empty project on another runtime drops a template of the previous one", async () => {
     let previewBody: Record<string, unknown> | undefined;
     mockApi({
       ...authedRoutes,
@@ -327,15 +376,15 @@ describe("NewProjectPage wizard", () => {
         return { body: { preview: { ...emptyPreview, serves: "node" } } };
       },
     });
-    renderApp(<NewProjectPage />, { route: "/projects/new" });
+    renderWizard();
     const user = userEvent.setup();
-    await user.type(await screen.findByLabelText("Project name"), "Blog");
-    await user.click(screen.getByRole("radio", { name: /WordPress/ }));
-    expect(screen.getByLabelText("Document root")).toHaveValue("");
-    await user.click(screen.getByRole("radio", { name: "Node.js application" }));
-    expect(screen.getByRole("radio", { name: /^Blank/ })).toBeChecked();
-    expect(screen.getByLabelText("Repository URL")).toBeEnabled();
-    for (let i = 0; i < 5; i++) await user.click(screen.getByRole("button", { name: "Continue" }));
+    await pickTemplate(user, /^WordPress/);
+    await startEmpty(user, "Node.js application");
+    expect(screen.getByRole("button", { name: /^WordPress/ })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("radio", { name: /^Empty project/ })).toHaveAttribute("aria-checked", "true");
+    await cont(user);
+    await nameIt(user, "Blog");
+    await toCreate(user);
     await screen.findByText("Node dev server (the HTTP port stays unpublished)");
     expect(screen.queryByText(/needs PHP/)).not.toBeInTheDocument();
     expect(previewBody).not.toHaveProperty("template");
@@ -349,21 +398,21 @@ describe("NewProjectPage wizard", () => {
       "GET /runtimes": () => ({ body: nodeRuntimesFixture }),
       "POST /projects/preview": previewRoute((b) => (previewBody = b)),
     });
-    renderApp(<NewProjectPage />, { route: "/projects/new" });
+    renderWizard();
     const user = userEvent.setup();
-    await user.type(await screen.findByLabelText("Project name"), "Docs");
-    await user.click(screen.getByRole("radio", { name: "Static site" }));
-    // Only Blank is left to start from.
-    expect(screen.getAllByRole("radio", { name: /Blank|WordPress|Laravel|Vite|Next/ })).toHaveLength(1);
+    await startEmpty(user, "Static site");
+    await cont(user);
+    await nameIt(user, "Docs");
+    await openAdvanced(user);
     expect(screen.getByText(/Build output served by the web server/)).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Continue" }));
-    expect(await screen.findByLabelText(/Enable PHP/)).not.toBeChecked();
+    // A static site has no runtime of its own: all of them wait among the tools, off.
+    await openTools(user);
+    expect(screen.getByLabelText(/Enable PHP/)).not.toBeChecked();
     expect(screen.getByLabelText(/Enable Node\.js/)).not.toBeChecked();
-    await user.click(screen.getByRole("button", { name: "Continue" }));
-    expect(await screen.findByText("The web server serves static files from the document root.")).toBeInTheDocument();
+    expect(screen.getByText("The web server serves static files from the document root.")).toBeInTheDocument();
     expect(screen.getByText(/Caddy serves the document root statically/)).toBeInTheDocument();
     await user.click(screen.getByLabelText(/SPA fallback to index.html/));
-    for (let i = 0; i < 3; i++) await user.click(screen.getByRole("button", { name: "Continue" }));
+    await toCreate(user);
     expect(await screen.findByLabelText(/Create starter index\.html/)).toBeChecked();
     expect(previewBody).not.toHaveProperty("php");
     expect(previewBody).not.toHaveProperty("node");
@@ -372,27 +421,30 @@ describe("NewProjectPage wizard", () => {
 
   it("leaving the Node stack turns the dev server default back off", async () => {
     mockApi({ ...authedRoutes, "GET /runtimes": () => ({ body: nodeRuntimesFixture }) });
-    renderApp(<NewProjectPage />, { route: "/projects/new" });
+    renderWizard();
     const user = userEvent.setup();
-    await user.type(await screen.findByLabelText("Project name"), "App");
-    await user.click(screen.getByRole("radio", { name: "Node.js application" }));
+    await startEmpty(user, "Node.js application");
     await user.click(screen.getByRole("radio", { name: "PHP application" }));
-    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await cont(user);
+    await nameIt(user, "App");
+    await openAdvanced(user);
+    await openTools(user);
     // Node as a toolchain next to PHP starts without a dev server, like a fresh PHP flow.
-    await user.click(await screen.findByLabelText(/Enable Node\.js/));
+    await user.click(screen.getByLabelText(/Enable Node\.js/));
     expect(screen.getByLabelText(/Run a dev server/)).not.toBeChecked();
   });
 
   it("turning the dev server off on the Node stack suggests dist as the document root", async () => {
     mockApi({ ...authedRoutes, "GET /runtimes": () => ({ body: nodeRuntimesFixture }) });
-    renderApp(<NewProjectPage />, { route: "/projects/new" });
+    renderWizard();
     const user = userEvent.setup();
-    await user.type(await screen.findByLabelText("Project name"), "App");
-    await user.click(screen.getByRole("radio", { name: "Node.js application" }));
-    await user.click(screen.getByRole("button", { name: "Continue" }));
-    await user.click(await screen.findByLabelText(/Run a dev server/));
-    await user.click(screen.getByRole("button", { name: "Back" }));
-    expect(await screen.findByLabelText("Document root")).toHaveValue("dist");
+    await startEmpty(user, "Node.js application");
+    await cont(user);
+    await nameIt(user, "App");
+    await openAdvanced(user);
+    expect(screen.getByLabelText("Document root")).toHaveValue("");
+    await user.click(screen.getByLabelText(/Run a dev server/));
+    expect(screen.getByLabelText("Document root")).toHaveValue("dist");
   });
 
   it("shows validation errors from the preview", async () => {
@@ -401,11 +453,14 @@ describe("NewProjectPage wizard", () => {
       "GET /runtimes": () => ({ body: runtimesFixture }),
       "POST /projects/preview": () => ({ status: 422, body: { error: { code: "validation_failed", message: "invalid input: path must stay inside the projects directory" } } }),
     });
-    renderApp(<NewProjectPage />, { route: "/projects/new" });
+    renderWizard();
     const user = userEvent.setup();
-    await user.type(await screen.findByLabelText("Project name"), "Evil");
+    await startEmpty(user);
+    await cont(user);
+    await nameIt(user, "Evil");
+    await openAdvanced(user);
     await user.type(screen.getByLabelText("Project directory"), "../etc");
-    for (let i = 0; i < 5; i++) await user.click(screen.getByRole("button", { name: "Continue" }));
+    await toCreate(user);
     expect(await screen.findByText(/must stay inside/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Create project" })).toBeDisabled();
   });
@@ -456,17 +511,11 @@ describe("NewProjectPage wizard", () => {
       "POST /projects/preview": previewRoute((b) => (previewBody = b)),
       "POST /projects": () => ({ status: 201, body: { project: makeProject() } }),
     });
-    renderApp(
-      <Routes>
-        <Route path="/projects/new" element={<NewProjectPage />} />
-        <Route path="/projects/:id" element={<h1>Detail</h1>} />
-      </Routes>,
-      { route: "/projects/new" },
-    );
+    renderWizard();
     const user = userEvent.setup();
-    await screen.findByLabelText("Project name");
-    await user.click(screen.getByRole("radio", { name: /Existing website/ }));
+    await user.click(await screen.findByRole("radio", { name: /^Existing website/ }));
     expect(screen.queryByLabelText("Repository URL")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Upload and analyse" })).toBeDisabled();
     await user.upload(screen.getByLabelText("Website archive"), new File(["PK"], "old_blog.zip", { type: "application/zip" }));
     await user.upload(screen.getByLabelText("Database dump (optional)"), new File(["-- dump"], "dump.sql"));
@@ -476,17 +525,15 @@ describe("NewProjectPage wizard", () => {
     expect(sent.fields).toEqual(["site", "database"]);
     expect(screen.getByText("The archive's folder public_html became the project directory.")).toBeInTheDocument();
     expect(screen.getByLabelText(/Adapt the configuration to Envoryx/)).toBeChecked();
-    // The name comes from the archive when none was typed.
-    expect(screen.getByLabelText("Project name")).toHaveValue("old blog");
+    await cont(user);
 
-    await user.click(screen.getByRole("button", { name: "Continue" }));
-    expect(await screen.findByLabelText("PHP version")).toHaveValue("8.3");
-    await user.click(screen.getByRole("button", { name: "Continue" }));
-    expect(await screen.findByLabelText("Web server")).toHaveValue("apache");
-    await user.click(screen.getByRole("button", { name: "Continue" }));
-    expect(await screen.findByRole("radio", { name: "MariaDB" })).toBeChecked();
-    await user.click(screen.getByRole("button", { name: "Continue" }));
-    await user.click(await screen.findByRole("button", { name: "Continue" }));
+    // The name comes from the archive when none was typed.
+    expect(await screen.findByLabelText("Project name")).toHaveValue("old blog");
+    expect(screen.getByRole("radio", { name: "MariaDB" })).toBeChecked();
+    await openAdvanced(user);
+    expect(screen.getByLabelText("PHP version")).toHaveValue("8.3");
+    expect(screen.getByLabelText("Web server")).toHaveValue("apache");
+    await toCreate(user);
     expect(await screen.findByText(/the dump is imported into the project database/)).toBeInTheDocument();
     expect(screen.queryByLabelText(/Create starter/)).not.toBeInTheDocument();
     await waitFor(() => expect(previewBody).toBeDefined());
@@ -515,24 +562,19 @@ describe("NewProjectPage wizard", () => {
       "POST /projects/preview": previewRoute(() => {}),
       "POST /projects": () => ({ status: 201, body: { project: makeProject() } }),
     });
-    renderApp(
-      <Routes>
-        <Route path="/projects/new" element={<NewProjectPage />} />
-        <Route path="/projects/:id" element={<h1>Detail</h1>} />
-      </Routes>,
-      { route: "/projects/new" },
-    );
+    renderWizard();
     const user = userEvent.setup();
-    await user.type(await screen.findByLabelText("Project name"), "Acme Shop");
-    for (let i = 0; i < 3; i++) await user.click(screen.getByRole("button", { name: "Continue" }));
-    await user.click(await screen.findByRole("radio", { name: "MariaDB" }));
+    await startEmpty(user);
+    await cont(user);
+    await nameIt(user, "Acme Shop");
+    await user.click(screen.getByRole("radio", { name: "MariaDB" }));
     await user.click(screen.getByRole("button", { name: "Add a database" }));
     await user.type(screen.getByLabelText("Name"), "Bad Name");
     expect(screen.getByText("Lowercase letters, digits and dashes, starting with a letter.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
     await user.clear(screen.getByLabelText("Name"));
     await user.type(screen.getByLabelText("Name"), "analytics");
-    for (let i = 0; i < 2; i++) await user.click(screen.getByRole("button", { name: "Continue" }));
+    await toCreate(user);
     await user.click(await screen.findByRole("button", { name: "Create project" }));
     await waitFor(() => expect(screen.getByRole("heading", { name: "Detail" })).toBeInTheDocument());
     const create = api.calls.find((c) => c.method === "POST" && c.url.endsWith("/projects"));
@@ -546,19 +588,14 @@ describe("NewProjectPage wizard", () => {
       "POST /projects/preview": previewRoute(() => {}),
       "POST /projects": () => ({ status: 201, body: { project: makeProject() } }),
     });
-    renderApp(
-      <Routes>
-        <Route path="/projects/new" element={<NewProjectPage />} />
-        <Route path="/projects/:id" element={<h1>Detail</h1>} />
-      </Routes>,
-      { route: "/projects/new" },
-    );
+    renderWizard();
     const user = userEvent.setup();
-    await user.type(await screen.findByLabelText("Project name"), "Acme Chat");
-    for (let i = 0; i < 3; i++) await user.click(screen.getByRole("button", { name: "Continue" }));
-    await user.click(await screen.findByRole("checkbox", { name: /^Ollama/ }));
+    await startEmpty(user);
+    await cont(user);
+    await nameIt(user, "Acme Chat");
+    await user.click(screen.getByRole("checkbox", { name: /^Ollama/ }));
     await user.click(screen.getByRole("checkbox", { name: /^Use the GPU/ }));
-    for (let i = 0; i < 2; i++) await user.click(screen.getByRole("button", { name: "Continue" }));
+    await toCreate(user);
     await user.click(await screen.findByRole("button", { name: "Create project" }));
     await waitFor(() => expect(screen.getByRole("heading", { name: "Detail" })).toBeInTheDocument());
     const create = api.calls.find((c) => c.method === "POST" && c.url.endsWith("/projects"));
@@ -572,24 +609,19 @@ describe("NewProjectPage wizard", () => {
       "POST /projects/preview": previewRoute(() => {}),
       "POST /projects": () => ({ status: 201, body: { project: makeProject() } }),
     });
-    renderApp(
-      <Routes>
-        <Route path="/projects/new" element={<NewProjectPage />} />
-        <Route path="/projects/:id" element={<h1>Detail</h1>} />
-      </Routes>,
-      { route: "/projects/new" },
-    );
+    renderWizard();
     const user = userEvent.setup();
-    await user.type(await screen.findByLabelText("Project name"), "Acme Ext");
-    for (let i = 0; i < 3; i++) await user.click(screen.getByRole("button", { name: "Continue" }));
-    await user.click(await screen.findByRole("radio", { name: "MariaDB" }));
+    await startEmpty(user);
+    await cont(user);
+    await nameIt(user, "Acme Ext");
+    await user.click(screen.getByRole("radio", { name: "MariaDB" }));
     await user.click(screen.getByRole("radio", { name: "On an external server" }));
     expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
     await user.type(screen.getByLabelText("Host"), "host.docker.internal");
     await user.type(screen.getByLabelText("Database", { selector: "#db-ext-database" }), "shop");
     await user.type(screen.getByLabelText("Username"), "shop_app");
     await user.type(screen.getByLabelText("Password"), "pw");
-    for (let i = 0; i < 2; i++) await user.click(screen.getByRole("button", { name: "Continue" }));
+    await toCreate(user);
     await user.click(await screen.findByRole("button", { name: "Create project" }));
     await waitFor(() => expect(screen.getByRole("heading", { name: "Detail" })).toBeInTheDocument());
     const create = api.calls.find((c) => c.method === "POST" && c.url.endsWith("/projects"));
@@ -603,20 +635,15 @@ describe("NewProjectPage wizard", () => {
       "POST /projects/preview": previewRoute(() => {}),
       "POST /projects": () => ({ status: 201, body: { project: makeProject() } }),
     });
-    renderApp(
-      <Routes>
-        <Route path="/projects/new" element={<NewProjectPage />} />
-        <Route path="/projects/:id" element={<h1>Detail</h1>} />
-      </Routes>,
-      { route: "/projects/new" },
-    );
+    renderWizard();
     const user = userEvent.setup();
-    await user.type(await screen.findByLabelText("Project name"), "Acme Api");
-    await user.click(screen.getByRole("radio", { name: /Go application/ }));
-    await user.click(screen.getByRole("button", { name: "Continue" }));
-    await user.clear(await screen.findByLabelText("Main package"));
+    await startEmpty(user, "Go application");
+    await cont(user);
+    await nameIt(user, "Acme Api");
+    await openAdvanced(user);
+    await user.clear(screen.getByLabelText("Main package"));
     await user.type(screen.getByLabelText("Main package"), "./cmd/api");
-    for (let i = 0; i < 4; i++) await user.click(screen.getByRole("button", { name: "Continue" }));
+    await toCreate(user);
     expect(screen.queryByLabelText(/Create starter/)).not.toBeInTheDocument();
     await user.click(await screen.findByRole("button", { name: "Create project" }));
     await waitFor(() => expect(screen.getByRole("heading", { name: "Detail" })).toBeInTheDocument());
@@ -634,19 +661,14 @@ describe("NewProjectPage wizard", () => {
       "POST /projects/preview": previewRoute(() => {}),
       "POST /projects": () => ({ status: 201, body: { project: makeProject() } }),
     });
-    renderApp(
-      <Routes>
-        <Route path="/projects/new" element={<NewProjectPage />} />
-        <Route path="/projects/:id" element={<h1>Detail</h1>} />
-      </Routes>,
-      { route: "/projects/new" },
-    );
+    renderWizard();
     const user = userEvent.setup();
-    await user.type(await screen.findByLabelText("Project name"), "Acme Blog");
-    await user.click(screen.getByRole("radio", { name: /Ruby application/ }));
-    await user.click(screen.getByRole("button", { name: "Continue" }));
-    await user.selectOptions(await screen.findByLabelText("Framework preset"), "rack");
-    for (let i = 0; i < 4; i++) await user.click(screen.getByRole("button", { name: "Continue" }));
+    await startEmpty(user, "Ruby application");
+    await cont(user);
+    await nameIt(user, "Acme Blog");
+    await openAdvanced(user);
+    await user.selectOptions(screen.getByLabelText("Framework preset"), "rack");
+    await toCreate(user);
     expect(screen.queryByLabelText(/Create starter/)).not.toBeInTheDocument();
     await user.click(await screen.findByRole("button", { name: "Create project" }));
     await waitFor(() => expect(screen.getByRole("heading", { name: "Detail" })).toBeInTheDocument());
@@ -665,23 +687,19 @@ describe("NewProjectPage wizard", () => {
       "POST /projects/preview": previewRoute(() => {}),
       "POST /projects": () => ({ status: 201, body: { project: makeProject() } }),
     });
-    renderApp(
-      <Routes>
-        <Route path="/projects/new" element={<NewProjectPage />} />
-        <Route path="/projects/:id" element={<h1>Detail</h1>} />
-      </Routes>,
-      { route: "/projects/new" },
-    );
+    renderWizard();
     const user = userEvent.setup();
-    await user.type(await screen.findByLabelText("Project name"), "Acme API");
-    await user.click(screen.getByRole("radio", { name: /Java application/ }));
-    await user.click(screen.getByRole("button", { name: "Continue" }));
-    // The Java card leads and runs the server; Ruby is off.
-    expect(await screen.findByRole("checkbox", { name: /Enable Java/ })).toBeChecked();
+    await startEmpty(user, "Java application");
+    await cont(user);
+    await nameIt(user, "Acme API");
+    await openAdvanced(user);
+    // The Java card leads and runs the server; Ruby is off among the tools.
+    expect(screen.getByRole("checkbox", { name: /Enable Java/ })).toBeChecked();
+    await openTools(user);
     expect(screen.getByRole("checkbox", { name: /Enable Ruby/ })).not.toBeChecked();
     await user.selectOptions(screen.getByLabelText("Framework preset"), "jar");
     await user.type(screen.getByLabelText("Jar"), "target/api.jar");
-    for (let i = 0; i < 4; i++) await user.click(screen.getByRole("button", { name: "Continue" }));
+    await toCreate(user);
     expect(screen.queryByLabelText(/Create starter/)).not.toBeInTheDocument();
     await user.click(await screen.findByRole("button", { name: "Create project" }));
     await waitFor(() => expect(screen.getByRole("heading", { name: "Detail" })).toBeInTheDocument());
@@ -701,23 +719,18 @@ describe("NewProjectPage wizard", () => {
       "POST /projects/preview": previewRoute(() => {}),
       "POST /projects": () => ({ status: 201, body: { project: makeProject() } }),
     });
-    renderApp(
-      <Routes>
-        <Route path="/projects/new" element={<NewProjectPage />} />
-        <Route path="/projects/:id" element={<h1>Detail</h1>} />
-      </Routes>,
-      { route: "/projects/new" },
-    );
+    renderWizard();
     const user = userEvent.setup();
-    await user.type(await screen.findByLabelText("Project name"), "Acme API");
-    await user.click(screen.getByRole("radio", { name: /\.NET application/ }));
-    await user.click(screen.getByRole("radio", { name: /ASP\.NET Core Web API/ }));
-    await user.click(screen.getByRole("button", { name: "Continue" }));
-    // The .NET card leads and runs the server; Java is off.
-    expect(await screen.findByRole("checkbox", { name: /Enable \.NET/ })).toBeChecked();
+    await pickTemplate(user, /^ASP\.NET Core Web API/);
+    await cont(user);
+    await nameIt(user, "Acme API");
+    await openAdvanced(user);
+    // The .NET card leads and runs the server; Java is off among the tools.
+    expect(screen.getByRole("checkbox", { name: /Enable \.NET/ })).toBeChecked();
+    await openTools(user);
     expect(screen.getByRole("checkbox", { name: /Enable Java/ })).not.toBeChecked();
     await user.selectOptions(screen.getByLabelText(".NET version"), "8");
-    for (let i = 0; i < 4; i++) await user.click(screen.getByRole("button", { name: "Continue" }));
+    await toCreate(user);
     expect(screen.queryByLabelText(/Create starter/)).not.toBeInTheDocument();
     await user.click(await screen.findByRole("button", { name: "Create project" }));
     await waitFor(() => expect(screen.getByRole("heading", { name: "Detail" })).toBeInTheDocument());
