@@ -145,3 +145,28 @@ func TestReconcileLeavesRunningCreateAlone(t *testing.T) {
 		t.Fatalf("project after create: %+v", projects)
 	}
 }
+
+// The reconcile reads its project list before it takes a project's lock; a create that
+// finished in between must not be declared interrupted.
+func TestReconcileRereadsAProjectAfterTheLock(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	p := &store.Project{Name: "Quick", Slug: "quick", Path: "quick", Lifecycle: store.LifecycleCreating}
+	if err := e.store.Projects.Create(ctx, p); err != nil {
+		t.Fatal(err)
+	}
+	stale := *p
+	if err := e.store.Projects.UpdateState(ctx, p.ID, store.DesiredRunning, store.LifecycleReady, ""); err != nil {
+		t.Fatal(err)
+	}
+	if msg, failed := e.m.failInterrupted(ctx, &stale); failed {
+		t.Fatalf("finished create marked as interrupted: %s", msg)
+	}
+	if stale.Lifecycle != store.LifecycleReady {
+		t.Fatalf("stale copy not refreshed: %s", stale.Lifecycle)
+	}
+	got, _ := e.store.Projects.Get(ctx, p.ID)
+	if got.Lifecycle != store.LifecycleReady {
+		t.Fatalf("lifecycle changed to %s", got.Lifecycle)
+	}
+}
