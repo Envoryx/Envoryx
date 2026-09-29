@@ -32,6 +32,10 @@ type Config struct {
 	PortRangeEnd   int
 	// StopTimeout is the grace period for container stops.
 	StopTimeout time.Duration
+	// ConfigDir and BackupsDir locate the sealed files and the project backups for
+	// resealing, which must not wait for the host paths to be detected. Empty: taken from
+	// the paths.
+	ConfigDir, BackupsDir string
 }
 
 // PathsProvider returns the current planner paths (host paths may be detected lazily).

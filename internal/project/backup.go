@@ -1138,12 +1138,12 @@ func (m *Manager) ResealBackups(ctx context.Context) (int, error) {
 	if r == nil {
 		return 0, nil
 	}
-	paths, err := m.paths()
+	root, err := m.sealRoots()
 	if err != nil {
 		m.log.Warn("project backups not resealed: the paths are not configured yet", "err", err)
 		return 0, nil
 	}
-	files, err := filepath.Glob(filepath.Join(paths.BackupsRoot(), "*", "*", backupMetaFile))
+	files, err := filepath.Glob(filepath.Join(root.BackupsRoot(), "*", "*", backupMetaFile))
 	if err != nil {
 		return 0, err
 	}
