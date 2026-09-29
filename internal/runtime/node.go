@@ -121,8 +121,10 @@ func (c *NodeConfig) Normalize() error {
 		c.Script = "dev"
 		if c.Mode == NodeModeProduction {
 			c.Script = "start"
-			if c.Preset == "vite" {
-				c.Script = "preview" // vite has no server of its own: "vite preview" serves the build
+			// Vite has no server of its own ("vite preview" serves the build), and Nuxt's
+			// starter has no start script: "nuxt preview" runs the built .output.
+			if c.Preset == "vite" || c.Preset == "nuxt" {
+				c.Script = "preview"
 			}
 		}
 	}
@@ -194,8 +196,9 @@ func (c NodeConfig) serveCommand() []string {
 }
 
 // Command returns the argv of the container's main process. In production mode the build
-// script runs first on every start and the serve process gets NODE_ENV=production - only
-// that process, so "npm install" from the terminal still installs devDependencies. Script
+// script runs first on every start, and the build and the serve process get
+// NODE_ENV=production - only those two, so "npm install" from the terminal still installs
+// devDependencies. Next.js fails to build under the container's NODE_ENV=development. Script
 // names are validated against scriptRe, so interpolating them into the shell line is safe;
 // the serve argv is passed through "$@" untouched.
 func (c NodeConfig) Command() []string {
@@ -204,7 +207,7 @@ func (c NodeConfig) Command() []string {
 		return serve
 	}
 	build := strings.Join(c.runScript(c.BuildScript), " ")
-	script := build + ` && NODE_ENV=production exec "$@"`
+	script := "NODE_ENV=production " + build + ` && NODE_ENV=production exec "$@"`
 	return append([]string{"sh", "-c", script, "envoryx-start"}, serve...)
 }
 
