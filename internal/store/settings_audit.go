@@ -9,10 +9,19 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/envoryx/envoryx/internal/secrets"
 )
 
 // Settings is a simple key/value repository.
 type Settings struct{ db *sql.DB }
+
+// SecretSettings are the settings whose values are sealed at rest (package secrets).
+var SecretSettings = map[string]bool{"oidc": true, "registries": true, SettingSecretCheck: true}
+
+// SettingSecretCheck holds a sealed known value: opening it at start proves the key fits
+// the database.
+const SettingSecretCheck = "secret_check"
 
 // Get returns the value for key or ErrNotFound.
 func (r *Settings) Get(ctx context.Context, key string) (string, error) {
@@ -24,11 +33,22 @@ func (r *Settings) Get(ctx context.Context, key string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("select setting: %w", err)
 	}
+	if SecretSettings[key] {
+		if v, err = secrets.Open(v); err != nil {
+			return "", fmt.Errorf("setting %s: %w", key, err)
+		}
+	}
 	return v, nil
 }
 
 // Set upserts a value.
 func (r *Settings) Set(ctx context.Context, key, value string) error {
+	if SecretSettings[key] {
+		var err error
+		if value, err = secrets.Seal(value); err != nil {
+			return err
+		}
+	}
 	_, err := r.db.ExecContext(ctx,
 		`INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?)
 		 ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
@@ -51,6 +71,11 @@ func (r *Settings) All(ctx context.Context) (map[string]string, error) {
 		var k, v string
 		if err := rows.Scan(&k, &v); err != nil {
 			return nil, err
+		}
+		if SecretSettings[k] {
+			if v, err = secrets.Open(v); err != nil {
+				return nil, fmt.Errorf("setting %s: %w", k, err)
+			}
 		}
 		out[k] = v
 	}

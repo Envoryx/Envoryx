@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/envoryx/envoryx/internal/db"
+	"github.com/envoryx/envoryx/internal/secrets"
 	"github.com/envoryx/envoryx/internal/validate"
 )
 
@@ -92,10 +93,10 @@ func TestCreateListRestoreRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := s.ScheduleRestore(info.ID, "admin (token: cli)"); err != nil {
+	if err := s.ScheduleRestore(info.ID, "admin (token: cli)", ""); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.ScheduleRestore(info.ID, "admin"); !errors.Is(err, ErrPending) {
+	if err := s.ScheduleRestore(info.ID, "admin", ""); !errors.Is(err, ErrPending) {
 		t.Fatalf("second schedule = %v", err)
 	}
 	if err := s.Delete(info.ID); !errors.Is(err, ErrPending) {
@@ -199,7 +200,7 @@ func TestImportValidatesArchives(t *testing.T) {
 	if _, err := s.Import(bytes.NewReader(raw)); !errors.Is(err, validate.ErrInvalid) {
 		t.Fatalf("newer import = %v", err)
 	}
-	if err := s.ScheduleRestore(info.ID, "admin"); !errors.Is(err, validate.ErrInvalid) {
+	if err := s.ScheduleRestore(info.ID, "admin", ""); !errors.Is(err, validate.ErrInvalid) {
 		t.Fatalf("newer restore = %v", err)
 	}
 	if entries, _ := os.ReadDir(s.Dir); len(entries) != 2 {
@@ -316,5 +317,72 @@ func TestSweepRemovesInterruptedBackup(t *testing.T) {
 	}
 	if n := s.Sweep(); n != 0 {
 		t.Fatalf("second sweep removed %d", n)
+	}
+}
+
+func TestSecretKeyStaysOutOfBackups(t *testing.T) {
+	s, sqlDB := newStore(t)
+	ctx := context.Background()
+	defer secrets.SetDefault(nil)
+	backupKey, _ := secrets.GenerateKey()
+	secrets.SetDefault(secrets.NewRing(backupKey))
+	for _, f := range []string{secrets.KeyFile, secrets.OldKeyFile} {
+		if err := secrets.WriteKeyFile(filepath.Join(s.ConfigDir, f), backupKey); err != nil {
+			t.Fatal(err)
+		}
+	}
+	check, _ := secrets.Seal("envoryx")
+	if _, err := sqlDB.Exec(`INSERT INTO settings(key, value, updated_at) VALUES ('secret_check', ?, '2026-01-01')`, check); err != nil {
+		t.Fatal(err)
+	}
+	info, err := s.Create(ctx, sqlDB, KindManual, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Meta.KeyID != backupKey.ID() || info.Meta.Entries != 5 {
+		t.Fatalf("meta: %+v", info.Meta)
+	}
+
+	// The same key restores without asking.
+	if err := s.ScheduleRestore(info.ID, "admin", ""); err != nil {
+		t.Fatal(err)
+	}
+	_ = s.CancelRestore()
+	// A key the process only holds as an old one does not survive the restart: asked for.
+	current, _ := secrets.GenerateKey()
+	secrets.SetDefault(secrets.NewRing(current, backupKey))
+	if err := s.ScheduleRestore(info.ID, "admin", ""); !errors.Is(err, ErrKeyRequired) {
+		t.Fatalf("old key in memory: %v", err)
+	}
+	// Another instance (another key) needs the backup's key, and the right one.
+	other, _ := secrets.GenerateKey()
+	secrets.SetDefault(secrets.NewRing(other))
+	if err := s.ScheduleRestore(info.ID, "admin", ""); !errors.Is(err, ErrKeyRequired) {
+		t.Fatalf("no key: %v", err)
+	}
+	if err := s.ScheduleRestore(info.ID, "admin", other.Encode()); !errors.Is(err, validate.ErrInvalid) || !strings.Contains(err.Error(), backupKey.ID()) {
+		t.Fatalf("wrong key: %v", err)
+	}
+	if err := s.ScheduleRestore(info.ID, "admin", backupKey.Encode()); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(s.ConfigDir, secrets.RestoreKeyFile))
+	if k, perr := secrets.ParseKey(string(raw)); err != nil || perr != nil || k.ID() != backupKey.ID() {
+		t.Fatalf("restore key file: %v %v", err, perr)
+	}
+	// The restore keeps the running instance's key files.
+	if err := secrets.WriteKeyFile(filepath.Join(s.ConfigDir, secrets.KeyFile), other); err != nil {
+		t.Fatal(err)
+	}
+	openRaw := func(ctx context.Context, path string) (*sql.DB, error) { return db.OpenRaw(ctx, path, s.Log) }
+	if _, err := s.ApplyPendingRestore(ctx, openRaw); err != nil {
+		t.Fatal(err)
+	}
+	for name, want := range map[string]string{secrets.KeyFile: other.ID(), secrets.RestoreKeyFile: backupKey.ID()} {
+		raw, err := os.ReadFile(filepath.Join(s.ConfigDir, name))
+		k, perr := secrets.ParseKey(string(raw))
+		if err != nil || perr != nil || k.ID() != want {
+			t.Errorf("%s after restore: %v %v", name, err, perr)
+		}
 	}
 }

@@ -161,6 +161,8 @@ func (a *API) restoreInstanceBackup(w http.ResponseWriter, r *http.Request) {
 	}
 	var req struct {
 		Confirm string `json:"confirm"`
+		// Key is the backup's secret key when it differs from the running instance's.
+		Key string `json:"key"`
 	}
 	if err := decodeJSON(w, r, &req); err != nil {
 		writeError(w, r, err)
@@ -172,7 +174,7 @@ func (a *API) restoreInstanceBackup(w http.ResponseWriter, r *http.Request) {
 	}
 	id := r.PathValue("id")
 	p, _ := auth.PrincipalFrom(r.Context())
-	if err := s.ScheduleRestore(id, audit.Actor(p)); err != nil {
+	if err := s.ScheduleRestore(id, audit.Actor(p), req.Key); err != nil {
 		writeError(w, r, err)
 		return
 	}

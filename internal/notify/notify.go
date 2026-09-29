@@ -23,6 +23,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/envoryx/envoryx/internal/secrets"
 )
 
 // Level is the severity of an event.
@@ -210,7 +212,7 @@ func New(dir string, log *slog.Logger) (*Service, error) {
 		return nil, fmt.Errorf("create notify directory: %w", err)
 	}
 	s := &Service{dir: dir, log: log, http: &http.Client{Timeout: 20 * time.Second}, recent: map[string]time.Time{}, now: time.Now}
-	raw, err := os.ReadFile(filepath.Join(dir, configFile))
+	raw, err := secrets.ReadFile(filepath.Join(dir, configFile))
 	if err == nil {
 		if err := json.Unmarshal(raw, &s.cfg); err != nil {
 			log.Warn("notification configuration unreadable; ignoring", "err", err)
@@ -269,7 +271,7 @@ func (s *Service) SetConfig(cfg Config) error {
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(filepath.Join(s.dir, configFile), raw, 0o600); err != nil {
+	if err := secrets.WriteFile(filepath.Join(s.dir, configFile), raw, 0o600); err != nil {
 		return fmt.Errorf("write notification configuration: %w", err)
 	}
 	s.cfg = cfg

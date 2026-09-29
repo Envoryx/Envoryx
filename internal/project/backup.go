@@ -19,6 +19,7 @@ import (
 	"github.com/envoryx/envoryx/internal/disk"
 	"github.com/envoryx/envoryx/internal/notify"
 	"github.com/envoryx/envoryx/internal/runtime"
+	"github.com/envoryx/envoryx/internal/secrets"
 	"github.com/envoryx/envoryx/internal/store"
 	"github.com/envoryx/envoryx/internal/validate"
 )
@@ -146,11 +147,31 @@ func backupDBFileOf(db string) string {
 // backupFile is the full content of backup.json (metadata plus the project export).
 type backupFile struct {
 	BackupMeta
-	Export projectExport `json:"project"`
+	// Export is the project export in plain text: backups from before secrets were
+	// encrypted. New backups carry it sealed with the instance key as SealedExport.
+	Export       *projectExport `json:"project,omitempty"`
+	SealedExport string         `json:"sealedProject,omitempty"`
+}
+
+// newBackupFile builds backup.json's content, the export sealed.
+func newBackupFile(meta BackupMeta, p store.Project) (backupFile, error) {
+	export := exportProject(p)
+	if secrets.Default() == nil {
+		return backupFile{BackupMeta: meta, Export: &export}, nil
+	}
+	raw, err := json.Marshal(export)
+	if err != nil {
+		return backupFile{}, err
+	}
+	sealed, err := secrets.Seal(string(raw))
+	if err != nil {
+		return backupFile{}, err
+	}
+	return backupFile{BackupMeta: meta, SealedExport: sealed}, nil
 }
 
 // projectExport is the desired state of a project, including secrets. It enables a full
-// rebuild (also into a new project later). Backups live under /config, which is protected.
+// rebuild (also into a new project later); backup.json keeps it sealed (see backupFile).
 type projectExport struct {
 	Name     string            `json:"name"`
 	Slug     string            `json:"slug"`
@@ -475,7 +496,11 @@ func (m *Manager) createBackupLocked(ctx context.Context, p store.Project, opts 
 		}{Bucket: scfg.Bucket, Objects: objects, Bytes: n}
 	}
 
-	content, err := json.MarshalIndent(backupFile{BackupMeta: meta, Export: exportProject(p)}, "", "  ")
+	bf, err := newBackupFile(meta, p)
+	if err != nil {
+		return fail("write metadata", err)
+	}
+	content, err := json.MarshalIndent(bf, "", "  ")
 	if err != nil {
 		return fail("write metadata", err)
 	}
@@ -1103,4 +1128,71 @@ func extractArchive(archive, target string, uid, gid int) error {
 		}
 	}
 	return nil
+}
+
+// ResealBackups seals the project export of every backup.json with the current key:
+// plain exports from before encryption and exports sealed with an older key. It returns
+// how many files it changed.
+func (m *Manager) ResealBackups(ctx context.Context) (int, error) {
+	r := secrets.Default()
+	if r == nil {
+		return 0, nil
+	}
+	paths, err := m.paths()
+	if err != nil {
+		m.log.Warn("project backups not resealed: the paths are not configured yet", "err", err)
+		return 0, nil
+	}
+	files, err := filepath.Glob(filepath.Join(paths.BackupsRoot(), "*", "*", backupMetaFile))
+	if err != nil {
+		return 0, err
+	}
+	changed := 0
+	for _, f := range files {
+		if ctx.Err() != nil {
+			return changed, ctx.Err()
+		}
+		raw, err := os.ReadFile(f)
+		if err != nil {
+			return changed, err
+		}
+		var bf backupFile
+		if err := json.Unmarshal(raw, &bf); err != nil {
+			m.log.Warn("backup.json not resealed: unreadable", "file", f, "err", err)
+			continue
+		}
+		switch {
+		case bf.Export != nil:
+			plain, err := json.Marshal(bf.Export)
+			if err != nil {
+				return changed, err
+			}
+			if bf.SealedExport, err = r.Seal(string(plain)); err != nil {
+				return changed, err
+			}
+			bf.Export = nil
+		case r.NeedsReseal(bf.SealedExport):
+			v, _, err := r.Reseal(bf.SealedExport)
+			if err != nil {
+				return changed, fmt.Errorf("%s: %w", f, err)
+			}
+			bf.SealedExport = v
+		default:
+			continue
+		}
+		out, err := json.MarshalIndent(bf, "", "  ")
+		if err != nil {
+			return changed, err
+		}
+		tmp := f + ".tmp"
+		if err := os.WriteFile(tmp, out, 0o600); err != nil {
+			return changed, err
+		}
+		if err := os.Rename(tmp, f); err != nil {
+			_ = os.Remove(tmp)
+			return changed, err
+		}
+		changed++
+	}
+	return changed, nil
 }

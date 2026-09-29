@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
+	"github.com/envoryx/envoryx/internal/secrets"
 )
 
 // Projects is the repository for projects, their services and environment variables.
@@ -23,6 +25,11 @@ func scanProject(row interface{ Scan(...any) error }) (Project, error) {
 		&p.Backup.Schedule, &p.Backup.Hour, &p.Backup.Weekday, &p.Backup.Keep, &includeDeps, &lastRun, &gateway, &limits, &health, &rules, &p.ParentID, &branches, &branchState, &created, &updated); err != nil {
 		return Project{}, err
 	}
+	token, err := secrets.Open(p.Git.Token)
+	if err != nil {
+		return Project{}, fmt.Errorf("project %s git token: %w", p.Slug, err)
+	}
+	p.Git.Token = token
 	p.Backup.IncludeDependencies = includeDeps == 1
 	p.IDEGateway = gateway == 1
 	if limits != "" {
@@ -80,9 +87,13 @@ func (r *Projects) Create(ctx context.Context, p *Project) error {
 	if p.Backup.Hour == 0 && p.Backup.Schedule == "" {
 		p.Backup.Hour = 3
 	}
+	token, err := secrets.Seal(p.Git.Token)
+	if err != nil {
+		return err
+	}
 	_, err = tx.ExecContext(ctx, `INSERT INTO projects (`+projectColumns+`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		p.ID, p.Name, p.Slug, p.Path, p.Docroot, string(p.DesiredState), port, string(p.Lifecycle), p.LastError,
-		p.Git.URL, p.Git.Branch, p.Git.Username, p.Git.Token,
+		p.Git.URL, p.Git.Branch, p.Git.Username, token,
 		p.Backup.Schedule, p.Backup.Hour, p.Backup.Weekday, p.Backup.Keep, boolInt(p.Backup.IncludeDependencies), "", boolInt(p.IDEGateway), p.Limits.encode(), p.HealthCheck.encode(), p.ProxyRules.encode(),
 		p.ParentID, p.Branches.encode(), p.BranchState.encode(),
 		formatTime(p.CreatedAt), formatTime(p.UpdatedAt))
@@ -120,10 +131,14 @@ func (r *Projects) Create(ctx context.Context, p *Project) error {
 }
 
 func insertService(ctx context.Context, q querier, s ProjectService) error {
-	_, err := q.ExecContext(ctx,
+	cfg, err := secrets.Seal(string(s.Config))
+	if err != nil {
+		return err
+	}
+	_, err = q.ExecContext(ctx,
 		`INSERT INTO project_services (id, project_id, kind, variant, version, image, enabled, config, position, custom_image)
 		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		s.ID, s.ProjectID, string(s.Kind), s.Variant, s.Version, s.Image, boolInt(s.Enabled), string(s.Config), s.Position, s.Custom.encode())
+		s.ID, s.ProjectID, string(s.Kind), s.Variant, s.Version, s.Image, boolInt(s.Enabled), cfg, s.Position, s.Custom.encode())
 	if err != nil {
 		if isUniqueViolation(err) {
 			return fmt.Errorf("service %s already exists: %w", s.Kind, ErrConflict)
@@ -134,9 +149,16 @@ func insertService(ctx context.Context, q querier, s ProjectService) error {
 }
 
 func insertEnv(ctx context.Context, q querier, e EnvVar) error {
+	value := e.Value
+	if e.IsSecret {
+		var err error
+		if value, err = secrets.Seal(value); err != nil {
+			return err
+		}
+	}
 	_, err := q.ExecContext(ctx,
 		`INSERT INTO project_environment_variables (id, project_id, key, value, is_secret, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
-		e.ID, e.ProjectID, e.Key, e.Value, boolInt(e.IsSecret), formatTime(e.CreatedAt))
+		e.ID, e.ProjectID, e.Key, value, boolInt(e.IsSecret), formatTime(e.CreatedAt))
 	if err != nil {
 		if isUniqueViolation(err) {
 			return fmt.Errorf("environment variable %s already exists: %w", e.Key, ErrConflict)
@@ -206,7 +228,12 @@ func (r *Projects) loadChildren(ctx context.Context, p *Project) error {
 		}
 		s.Kind = ServiceKind(kind)
 		s.Enabled = enabled != 0
-		s.Config = json.RawMessage(cfg)
+		plain, err := secrets.Open(cfg)
+		if err != nil {
+			_ = rows.Close()
+			return fmt.Errorf("service %s config: %w", kind, err)
+		}
+		s.Config = json.RawMessage(plain)
 		if custom != "" {
 			_ = json.Unmarshal([]byte(custom), &s.Custom)
 		}
@@ -233,6 +260,13 @@ func (r *Projects) loadChildren(ctx context.Context, p *Project) error {
 			return err
 		}
 		e.IsSecret = secret != 0
+		if e.IsSecret {
+			v, err := secrets.Open(e.Value)
+			if err != nil {
+				return fmt.Errorf("variable %s: %w", e.Key, err)
+			}
+			e.Value = v
+		}
 		e.CreatedAt = parseTime(created)
 		p.Env = append(p.Env, e)
 	}
@@ -412,9 +446,13 @@ func (r *Projects) SetBackupLastRun(ctx context.Context, id string, at time.Time
 
 // UpdateGit replaces the repository binding of a project.
 func (r *Projects) UpdateGit(ctx context.Context, id string, g GitConfig) error {
+	token, err := secrets.Seal(g.Token)
+	if err != nil {
+		return err
+	}
 	res, err := r.db.ExecContext(ctx,
 		`UPDATE projects SET git_url = ?, git_branch = ?, git_username = ?, git_token = ?, updated_at = ? WHERE id = ?`,
-		g.URL, g.Branch, g.Username, g.Token, formatTime(now()), id)
+		g.URL, g.Branch, g.Username, token, formatTime(now()), id)
 	if err != nil {
 		return fmt.Errorf("update git config: %w", err)
 	}
@@ -429,9 +467,13 @@ func (r *Projects) UpdateServiceConfig(ctx context.Context, projectID string, ki
 	if len(cfg) == 0 {
 		cfg = json.RawMessage("{}")
 	}
+	sealed, err := secrets.Seal(string(cfg))
+	if err != nil {
+		return err
+	}
 	res, err := r.db.ExecContext(ctx,
 		`UPDATE project_services SET version = ?, image = ?, config = ? WHERE project_id = ? AND kind = ?`,
-		version, image, string(cfg), projectID, string(kind))
+		version, image, sealed, projectID, string(kind))
 	if err != nil {
 		return fmt.Errorf("update service: %w", err)
 	}

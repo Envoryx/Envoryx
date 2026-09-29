@@ -32,11 +32,13 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/envoryx/envoryx/internal/disk"
+	"github.com/envoryx/envoryx/internal/secrets"
 	"github.com/envoryx/envoryx/internal/validate"
 )
 
@@ -80,6 +82,9 @@ type Meta struct {
 	Note      string    `json:"note,omitempty"`
 	// Entries counts the config files in the archive (not the database).
 	Entries int `json:"entries"`
+	// KeyID names the key the database's secrets are sealed with ("" for a database
+	// from before encryption). The key itself is never in the archive.
+	KeyID string `json:"keyId,omitempty"`
 }
 
 // Info is a backup as listed by the API.
@@ -157,6 +162,10 @@ func (s *Store) Create(ctx context.Context, sqlDB *sql.DB, kind, note string) (I
 	}
 
 	meta := Meta{Format: format, Envoryx: s.Version, Schema: schema, CreatedAt: time.Now().UTC(), Kind: kind, Note: note}
+	var check string
+	if sqlDB.QueryRowContext(ctx, `SELECT value FROM settings WHERE key = 'secret_check'`).Scan(&check) == nil {
+		meta.KeyID = secrets.KeyIDOf(check)
+	}
 	// The archive grows under a name List ignores and is renamed once complete, so a
 	// crash mid-way never leaves a plausible-looking but truncated backup behind.
 	partial := target + partialSuffix
@@ -293,6 +302,9 @@ func (s *Store) skip(path, rel string, isDir bool) bool {
 		return true // envoryx.db, -wal, -shm: the database is copied with VACUUM INTO
 	}
 	parts := strings.Split(filepath.ToSlash(rel), "/")
+	if len(parts) == 1 && slices.Contains(secrets.KeyFiles, parts[0]) {
+		return true // the key never goes into a backup, and a restore keeps the current one
+	}
 	switch parts[0] {
 	case "backups", "jetbrains", "logs", "cache", pendingMarker:
 		return true
@@ -539,12 +551,34 @@ func (s *Store) PendingRestore() (*Pending, error) {
 	return &p, nil
 }
 
+// ErrKeyRequired is returned when a backup's secrets are sealed with a key the running
+// instance does not have.
+var ErrKeyRequired = errors.New("key required")
+
 // ScheduleRestore records that id is to be restored at the next start. The caller is
-// expected to restart the server afterwards.
-func (s *Store) ScheduleRestore(id, requestedBy string) error {
+// expected to restart the server afterwards. A backup sealed with another key needs that
+// key (base64); it is kept next to the current one until the restored secrets are
+// resealed.
+func (s *Store) ScheduleRestore(id, requestedBy, key string) error {
 	info, err := s.Get(id)
 	if err != nil {
 		return err
+	}
+	var restoreKey *secrets.Key
+	// Only the current key survives the restart; an older one the process still holds in
+	// memory does not count.
+	if ring := secrets.Default(); info.Meta.KeyID != "" && ring != nil && ring.Current().ID() != info.Meta.KeyID {
+		if strings.TrimSpace(key) == "" {
+			return fmt.Errorf("%w: %w: the backup's secrets are encrypted with key %s; give that key to restore it", validate.ErrInvalid, ErrKeyRequired, info.Meta.KeyID)
+		}
+		k, err := secrets.ParseKey(key)
+		if err != nil {
+			return fmt.Errorf("%w: %v", validate.ErrInvalid, err)
+		}
+		if k.ID() != info.Meta.KeyID {
+			return fmt.Errorf("%w: that is key %s, the backup needs key %s", validate.ErrInvalid, k.ID(), info.Meta.KeyID)
+		}
+		restoreKey = k
 	}
 	if info.Meta.Schema > s.LatestSchema {
 		return fmt.Errorf("%w: the backup was made with a newer Envoryx (schema %d, this build supports %d)", validate.ErrInvalid, info.Meta.Schema, s.LatestSchema)
@@ -553,6 +587,11 @@ func (s *Store) ScheduleRestore(id, requestedBy string) error {
 		return err
 	} else if p != nil {
 		return ErrPending
+	}
+	if restoreKey != nil {
+		if err := secrets.WriteKeyFile(filepath.Join(s.ConfigDir, secrets.RestoreKeyFile), restoreKey); err != nil {
+			return err
+		}
 	}
 	raw, _ := json.Marshal(Pending{ID: id, RequestedAt: time.Now().UTC(), RequestedBy: requestedBy})
 	return os.WriteFile(s.markerPath(), raw, 0o600)
