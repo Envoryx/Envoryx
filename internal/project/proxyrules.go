@@ -62,6 +62,16 @@ func (m *Manager) SetProxyRules(ctx context.Context, id string, req ProxyRulesRe
 	if err != nil {
 		return View{}, err
 	}
+	// A share reaches the proxy from Envoryx itself, so an allowlist cannot restrict it:
+	// the tunnel would stay public, and one naming 127.0.0.1 would let the internet in.
+	// Starting a share refuses an allowlist; this is the same rule the other way round.
+	if len(rules.AllowIPs) > 0 {
+		if _, shared, err := m.shareContainer(ctx, id); err != nil {
+			return View{}, err
+		} else if shared {
+			return View{}, fmt.Errorf("%w: the project is shared publicly; end the share before you limit it to an allowlist", ErrConflict)
+		}
+	}
 	if err := m.store.Projects.SetProxyRules(ctx, id, rules); err != nil {
 		return View{}, err
 	}
