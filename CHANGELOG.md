@@ -10,6 +10,60 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-09-29
+
+The interface has a new layout. Projects, the settings and the Docker page
+use a grouped sidebar instead of long rows of tabs, and the new-project
+wizard starts with where a project comes from. Several settings moved (see
+*Changed*); links to the old places still land on the right one.
+
+### Added
+- New-project wizard in three steps. It starts from a gallery of all
+  templates, with a search and a runtime filter, or from a Git repository,
+  an existing website or an empty project; the runtime follows from that
+  choice, and a repository names the project after itself. The second step
+  holds the name, the database and the services; runtime versions, more
+  runtimes as tools, the web server, the directories and the environment
+  wait under *Advanced settings*. A summary next to every step shows each
+  choice and jumps to where it's set.
+- Python 3.15 as a preview version.
+
+### Changed
+- A project's sections sit in a sidebar: *Overview*, then *Develop*
+  (Terminal, Actions, Tests, IDE), *Code* (Git, Branches), *Configuration*
+  (Runtime, Environment, Domains, Workers & cron), *Data* (Database,
+  Services, Backups) and *Observe* (Logs, Resources, History), with a select
+  on phones. The chosen section is kept in the address (`?tab=`). Workers
+  and cron jobs share one section. *Share publicly*, *Rename*, *Duplicate*,
+  *Delete* and the Docker plan (formerly the *Advanced* tab) moved into the
+  *More actions* menu in the header; a *Shared* badge stays visible while a
+  project is shared.
+- The settings use the same sidebar. Everyone has *My account* (Profile
+  with appearance and password, API tokens & MCP, SSH keys). Admins also
+  get *Instance* (Diagnostics, General, Domains & HTTPS), *Access &
+  security* (Users, SSH access, Git deploy key, Secret key), *Operations*
+  (Backups, Notifications, Retention, Audit log) and *Extensions* (Addons,
+  Database browser, Package cache, Private registries). The host for
+  project links and the Xdebug host moved to *Domains & HTTPS*, log,
+  resource and audit log retention to *Retention*, and the secret key from
+  *Access* to *Settings → Secret key*.
+- The dashboard shows one box of notices (set-up check, update,
+  inconsistencies, what Envoryx did on its own), the recent projects with
+  start, stop and open, and a system card with Docker, CPU, memory and disk
+  space. Users who aren't admins no longer get links to the Docker page.
+- The Docker page is split into *Overview*, *Containers* (grouped by
+  project), *Networks & volumes* (with the project each one belongs to) and
+  *Images*. Host paths are checked in the diagnostics.
+- Your username at the bottom of the navigation opens your profile. The
+  German interface calls the dashboard "Dashboard".
+- Python 3.14 is the default for new projects.
+- The Envoryx image is built on Alpine 3.24.
+
+### Fixed
+- Dialogs could announce the title of another dialog to screen readers.
+- On phones, project rows squeezed the project name to one letter, and the
+  dashboard scrolled sideways.
+
 ## [0.15.0] - 2026-09-29
 
 **Keep a copy of your secret key.** This version encrypts the stored secrets
@@ -1087,7 +1141,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.15.0...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.16.0...HEAD
+[0.16.0]: https://github.com/envoryx/envoryx/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/envoryx/envoryx/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/envoryx/envoryx/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/envoryx/envoryx/compare/v0.12.0...v0.13.0
