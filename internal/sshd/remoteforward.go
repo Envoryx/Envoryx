@@ -99,7 +99,9 @@ func (s *Server) handleGlobalRequests(ctx context.Context, sc ssh.Conn, reqs <-c
 				_ = req.Reply(false, nil)
 				continue
 			}
-			forwards.add(net.JoinHostPort(fr.BindAddr, strconv.Itoa(int(fr.BindPort))), stop)
+			// A cancel names the port that was actually bound, so a forward asked for
+			// port 0 is kept under the port the container listens on.
+			forwards.add(net.JoinHostPort(fr.BindAddr, strconv.Itoa(int(port))), stop)
 			var reply []byte
 			if fr.BindPort == 0 {
 				reply = ssh.Marshal(struct{ Port uint32 }{port})

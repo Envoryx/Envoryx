@@ -11,7 +11,9 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -774,10 +776,13 @@ func TestRemoteForwardingReachesTheClient(t *testing.T) {
 	e := newEnv(t)
 	e.engine.NetworkGateways = map[string]string{"envoryx-shop": "127.0.0.1"}
 	e.engine.NetworkIPs = map[string]map[string]string{"envoryx-shop": {"envoryx-shop-php": "127.0.0.1"}}
+	// The socket table shows the port the last listener was started for (45678 until then),
+	// listening on 127.0.0.1, so a forward on port 0 finds its random port too.
+	var listening atomic.Int64
+	listening.Store(45678)
 	e.engine.ExecHandler = func(container string, cmd []string, env []string) (docker.ExecResult, error) {
 		if strings.Contains(cmd[2], "/proc/net/tcp") {
-			// 0xB26E = 45678, listening on 127.0.0.1.
-			return docker.ExecResult{Stdout: "  sl  local_address rem_address   st\n   0: 0100007F:B26E 00000000:0000 0A 00000000:00000000\n"}, nil
+			return docker.ExecResult{Stdout: fmt.Sprintf("  sl  local_address rem_address   st\n   0: 0100007F:%04X 00000000:0000 0A 00000000:00000000\n", listening.Load())}, nil
 		}
 		return docker.ExecResult{}, nil // command -v socat
 	}
@@ -787,6 +792,9 @@ func TestRemoteForwardingReachesTheClient(t *testing.T) {
 	e.engine.ReadsStdin = func(cmd []string) bool { return !(len(cmd) > 3 && cmd[3] == "envoryx-forward") }
 	e.engine.StreamHandler = func(container string, cmd []string, env []string, stdin []byte) (string, int, error) {
 		if len(cmd) > 3 && cmd[3] == "envoryx-forward" {
+			if p, err := strconv.Atoi(cmd[4]); err == nil {
+				listening.Store(int64(p))
+			}
 			listeners <- cmd
 			<-release
 		}
@@ -854,5 +862,19 @@ func TestRemoteForwardingReachesTheClient(t *testing.T) {
 	_ = foreign.SetReadDeadline(time.Now().Add(5 * time.Second))
 	if n, err := foreign.Read(make([]byte, 1)); err == nil || n != 0 {
 		t.Fatalf("a connection from a foreign address must be closed: %d %v", n, err)
+	}
+
+	// A forward asked for port 0 (Rider does that) is cancelled by the port it got.
+	for _, l := range []net.Listener{ln, ln2} {
+		if err := l.Close(); err != nil {
+			t.Fatalf("cancel: %v", err)
+		}
+	}
+	ln0, err := client.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("forward on port 0: %v", err)
+	}
+	if err := ln0.Close(); err != nil {
+		t.Fatalf("cancel of a port-0 forward: %v", err)
 	}
 }
