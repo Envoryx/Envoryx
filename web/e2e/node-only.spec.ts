@@ -42,31 +42,27 @@ test("the wizard creates a static project without PHP that the web server serves
   await signIn(page);
   await page.goto("/projects/new");
 
-  const cont = () => page.getByRole("button", { name: "Continue" }).click();
-  await page.getByLabel("Project name").fill(nodeProjectName);
-  await expect(page.getByText(`Identifier: ${nodeProjectSlug}`)).toBeVisible();
-  // The runtime radios carry their name as accessible label.
-  await expect(page.getByRole("radio", { name: "PHP application" })).toBeChecked();
+  const next = page.getByRole("button", { name: "Continue", exact: true });
+  // An empty project; the runtime radios carry their name as accessible label.
+  await page.getByRole("radio", { name: /^Empty project/ }).click();
   await page.getByRole("radio", { name: "Static site" }).check();
   await expect(page.getByRole("radio", { name: "Static site" })).toBeChecked();
-  // Templates need a runtime; only "Blank" stays offered for a static site.
-  await expect(page.getByRole("radio", { name: /Blank/ })).toBeChecked();
-  await expect(page.getByRole("radio", { name: /WordPress/ })).toHaveCount(0);
-  await cont();
+  await next.click();
+  await page.getByLabel("Project name").fill(nodeProjectName);
+  await expect(page.getByText(new RegExp(`Reachable at ${nodeProjectSlug}\\.`))).toBeVisible();
+  await expect(page.getByRole("radiogroup", { name: "Database" })).toBeVisible();
 
-  // Runtimes: the static stack ticks none of them; PHP and Node.js stand for the rest.
+  // Advanced: a static site has no runtime of its own; PHP and Node.js stand for the tools.
+  await page.getByRole("button", { name: /^Advanced settings/ }).click();
+  await page.getByRole("button", { name: "More runtimes as tools", exact: true }).click();
   await expect(page.getByLabel("Enable PHP")).not.toBeChecked();
   await expect(page.getByLabel("Enable Node.js")).not.toBeChecked();
   await expect(page.getByLabel("PHP version")).toHaveCount(0);
-  await cont();
   await expect(page.getByLabel("Web server")).toHaveValue("caddy");
   // The SPA fallback exists only for projects without PHP; keep it off here.
   await expect(page.getByLabel("SPA fallback to index.html")).not.toBeChecked();
-  await cont();
-  await expect(page.getByRole("radiogroup", { name: "Database" })).toBeVisible();
-  await cont();
   await page.getByRole("button", { name: "Add variable" }).waitFor();
-  await cont();
+  await next.click();
 
   // Preview: the plan has a web container and nothing else; the starter is an index.html.
   await expect(page.getByText(`envoryx-${nodeProjectSlug}-web`)).toBeVisible();
@@ -149,18 +145,16 @@ test.skip("the Vite template scaffolds a Node.js project whose dev server answer
   await signIn(page);
   await page.goto("/projects/new");
 
-  const cont = () => page.getByRole("button", { name: "Continue" }).click();
+  const next = page.getByRole("button", { name: "Continue", exact: true });
+  await page.getByRole("button", { name: /^Vite \+ React/ }).click();
+  await next.click();
   await page.getByLabel("Project name").fill(nodeProjectName);
-  await page.getByRole("radio", { name: "Node.js application" }).check();
-  await page.getByRole("radio", { name: /Vite \+ React/ }).check();
-  await cont();
+  await page.getByRole("button", { name: /^Advanced settings/ }).click();
   await expect(page.getByLabel("Enable Node.js")).toBeChecked();
-  await expect(page.getByLabel("Enable PHP")).not.toBeChecked();
   await expect(page.getByRole("checkbox", { name: /^Run a dev server/ })).toBeChecked();
-  await cont();
-  await cont();
-  await cont();
-  await cont();
+  await page.getByRole("button", { name: "More runtimes as tools", exact: true }).click();
+  await expect(page.getByLabel("Enable PHP")).not.toBeChecked();
+  await next.click();
   await expect(page.getByText(`envoryx-${nodeProjectSlug}-node`)).toBeVisible();
   await expect(page.getByText("Node dev server (the HTTP port stays unpublished)")).toBeVisible();
   await expect(page.getByLabel("Create starter index.html")).toHaveCount(0);
