@@ -77,7 +77,7 @@ var actionCatalog = []Action{
 	{ID: "python:venv", Group: "Python", Label: "python -m venv .venv", Description: "Create the virtual environment in the project directory", Service: store.ServicePython, Cmd: []string{"python", "-m", "venv", pythonVenvPath}},
 	// pip installs into the project's .venv: PATH puts its bin/ first once it exists; the
 	// venv is created on demand so a fresh checkout works with one click.
-	{ID: "pip:install", Group: "pip", Label: "pip install -r requirements.txt", Description: "Create .venv if missing and install the requirements", Service: store.ServicePython, Cmd: []string{"sh", "-c", pipInstallScript, "envoryx-pip"}, Requires: []string{"requirements.txt"}},
+	{ID: "pip:install", Group: "pip", Label: "pip install -r requirements.txt", Description: "Create .venv (rebuilt after a Python version change) and install the requirements", Service: store.ServicePython, Cmd: []string{"sh", "-c", pipInstallScript, "envoryx-pip"}, Requires: []string{"requirements.txt"}},
 	{ID: "pip:freeze", Group: "pip", Label: "pip freeze", Description: "List the installed packages with versions", Service: store.ServicePython, Cmd: []string{"pip", "freeze"}},
 	{ID: "uv:sync", Group: "uv", Label: "uv sync", Description: "Create .venv and install the project from pyproject.toml / uv.lock", Service: store.ServicePython, Cmd: []string{"uv", "sync"}, Requires: []string{"pyproject.toml"}},
 	{ID: "uv:lock", Group: "uv", Label: "uv lock", Description: "Resolve and write uv.lock", Service: store.ServicePython, Cmd: []string{"uv", "lock"}, Requires: []string{"pyproject.toml"}},
@@ -177,9 +177,13 @@ php craft install --interactive=0 --username=admin --email=admin@example.com --p
 printf '\nControl panel: %s/admin  User: admin  Password: %s\n' "$ENVORYX_URL" "$pw"`
 )
 
-// pipInstallScript creates the venv when missing and installs requirements.txt into it.
-// A constant: nothing from the request is interpolated.
-const pipInstallScript = `[ -x ` + pythonVenvPath + `/bin/python ] || python -m venv ` + pythonVenvPath + `; exec ` + pythonVenvPath + `/bin/pip install -r requirements.txt`
+// pipInstallScript installs requirements.txt into the venv. It creates the venv when it is
+// missing and rebuilds it (venv --clear) when it was made for another Python minor: after a
+// version change the old one still has a working bin/python link but no pip and none of the
+// packages for the new interpreter. A constant: nothing from the request is interpolated.
+const pipInstallScript = `v=$(python -c 'import sys; print("%d.%d" % sys.version_info[:2])'); ` +
+	`grep -Eq "^version *= *$v([.]|$)" ` + pythonVenvPath + `/pyvenv.cfg 2>/dev/null || python -m venv --clear ` + pythonVenvPath + `; ` +
+	`exec ` + pythonVenvPath + `/bin/pip install -r requirements.txt`
 
 func findAction(id string) (Action, bool) {
 	for _, a := range actionCatalog {
