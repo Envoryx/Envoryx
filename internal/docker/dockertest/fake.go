@@ -234,6 +234,25 @@ func (f *Fake) SetState(name, state string) bool {
 	return false
 }
 
+// SetLabel changes a label of an existing container, e.g. to make it look like one an
+// older Envoryx created with another spec.
+func (f *Fake) SetLabel(name, key, value string) bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for _, c := range f.containers {
+		if c.Spec.Name == name {
+			labels := map[string]string{}
+			for k, v := range c.Spec.Labels {
+				labels[k] = v
+			}
+			labels[key] = value
+			c.Spec.Labels = labels
+			return true
+		}
+	}
+	return false
+}
+
 // Container returns a snapshot of a container by name.
 func (f *Fake) Container(name string) (FakeContainer, bool) {
 	f.mu.Lock()

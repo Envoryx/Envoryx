@@ -31,6 +31,7 @@ describe("translateMessage", () => {
     expect(translateMessage("project should be running but is missing", t)).toBe("Das Projekt sollte laufen, aber seine Container fehlen");
     expect(translateMessage("a newer php image was pulled; restart to apply", t)).toBe("Ein neueres php-Image wurde geladen; zum Übernehmen neu starten");
     expect(translateMessage('container for removed service "redis" still exists', t)).toBe("Ein Container für den entfernten Dienst „redis“ existiert noch");
+    expect(translateMessage("the database container is from an older Envoryx; restart the project to update it", t)).toBe("Der database-Container stammt von einer älteren Envoryx-Version; starte das Projekt neu, um ihn zu aktualisieren");
   });
 
   it("leaves unknown text alone", () => {

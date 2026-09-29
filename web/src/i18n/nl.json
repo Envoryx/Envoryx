@@ -2633,5 +2633,6 @@
   "{{service}} container uses image {{image}} but {{configured}} is configured; restart to apply": "De {{service}}-container gebruikt image {{image}}, maar {{configured}} is ingesteld; herstart om toe te passen",
   "a newer {{service}} image was pulled; restart to apply": "Er is een nieuwer {{service}}-image opgehaald; herstart om toe te passen",
   "container for a removed worker still exists": "Er bestaat nog een container van een verwijderde worker",
-  "container for removed service \"{{service}}\" still exists": "Er bestaat nog een container van de verwijderde dienst \"{{service}}\""
+  "container for removed service \"{{service}}\" still exists": "Er bestaat nog een container van de verwijderde dienst \"{{service}}\"",
+  "the {{service}} container is from an older Envoryx; restart the project to update it": "De {{service}}-container komt van een oudere Envoryx; herstart het project om hem bij te werken"
 }

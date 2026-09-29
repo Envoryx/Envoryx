@@ -2681,5 +2681,6 @@
   "{{service}} container uses image {{image}} but {{configured}} is configured; restart to apply": "Контейнер {{service}} використовує образ {{image}}, але налаштовано {{configured}}; перезапустіть, щоб застосувати",
   "a newer {{service}} image was pulled; restart to apply": "Завантажено новіший образ {{service}}; перезапустіть, щоб застосувати",
   "container for a removed worker still exists": "Контейнер видаленого воркера досі існує",
-  "container for removed service \"{{service}}\" still exists": "Контейнер видаленого сервісу «{{service}}» досі існує"
+  "container for removed service \"{{service}}\" still exists": "Контейнер видаленого сервісу «{{service}}» досі існує",
+  "the {{service}} container is from an older Envoryx; restart the project to update it": "Контейнер {{service}} створено старішою версією Envoryx; перезапустіть проєкт, щоб оновити його"
 }

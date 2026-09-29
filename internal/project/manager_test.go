@@ -389,6 +389,44 @@ func TestReconcileInterruptedLifecycleAndOrphans(t *testing.T) {
 	}
 }
 
+func TestReconcileReportsContainersFromAnOlderSpec(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	v, err := e.m.Create(ctx, phpRequest("Alpha", true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	outdated := func() []string {
+		var msgs []string
+		for _, i := range e.m.Reconcile(ctx).Issues {
+			if strings.Contains(i.Message, "older Envoryx") {
+				msgs = append(msgs, i.Message)
+			}
+		}
+		return msgs
+	}
+	if got := outdated(); len(got) != 0 {
+		t.Fatalf("fresh containers reported as outdated: %v", got)
+	}
+
+	// A container an older Envoryx created carries another spec fingerprint.
+	if !e.engine.SetLabel("envoryx-alpha-php", docker.LabelSpec, "0000000000000000") {
+		t.Fatal("php container missing")
+	}
+	got := outdated()
+	if len(got) != 1 || got[0] != "the php container is from an older Envoryx; restart the project to update it" {
+		t.Fatalf("outdated: %v", got)
+	}
+
+	// A restart recreates it from the current plan.
+	if _, err := e.m.Restart(ctx, v.Project.ID); err != nil {
+		t.Fatal(err)
+	}
+	if got := outdated(); len(got) != 0 {
+		t.Fatalf("still outdated after the restart: %v", got)
+	}
+}
+
 func TestDeleteRemovesOnlyOwnResources(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
