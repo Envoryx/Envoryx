@@ -118,14 +118,16 @@ func NewDatabaseConfig(slug string) (DatabaseConfig, error) {
 }
 
 // DBIdentifier turns a project slug into a safe database/user name (letters, digits, "_").
+// Names a server refuses or keeps for itself get an "app_" prefix: a leading digit,
+// PostgreSQL's "pg_" roles, the system databases and MySQL's root user. The result stays
+// within MySQL's 32 characters for a user name.
 func DBIdentifier(slug string) string {
-	s := strings.ReplaceAll(slug, "-", "_")
-	if len(s) > 32 {
-		s = s[:32]
-	}
-	s = strings.Trim(s, "_")
-	if s == "" || (s[0] >= '0' && s[0] <= '9') {
+	s := strings.Trim(strings.ReplaceAll(slug, "-", "_"), "_")
+	if s == "" || (s[0] >= '0' && s[0] <= '9') || strings.HasPrefix(s, "pg_") || systemDatabases[s] || s == "root" {
 		s = "app_" + s
+	}
+	if len(s) > 32 {
+		s = strings.TrimRight(s[:32], "_")
 	}
 	return s
 }

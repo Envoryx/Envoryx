@@ -188,7 +188,7 @@ func TestCloneDatabaseBetweenProjects(t *testing.T) {
 	if err != nil {
 		t.Fatalf("clone: %v", err)
 	}
-	if res.Source != "staging" || res.Database != "local" {
+	if res.Source != "staging" || res.Database != "app_local" {
 		t.Fatalf("result: %+v", res)
 	}
 	// The target was snapshotted first, and the snapshot says what it was taken for.
