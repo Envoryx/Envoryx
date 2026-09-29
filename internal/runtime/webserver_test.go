@@ -61,7 +61,7 @@ func TestWebServerConfig(t *testing.T) {
 			variant: "caddy", file: "Caddyfile", target: "/etc/caddy/Caddyfile",
 			contains: []string{"root * /var/www/html/public", "file_server"},
 			phpOnly:  []string{"php_fastcgi php:9000"},
-			static:   []string{`@dot path_regexp (^|/)\.`, "respond @dot 404"},
+			static:   []string{"path_regexp (^|/)\\.", "not path /.well-known/*", "respond @dot 404", "trusted_proxies static private_ranges"},
 			spa:      []string{"try_files {path} /index.html"},
 		},
 		{
