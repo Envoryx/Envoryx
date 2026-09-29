@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/envoryx/envoryx/internal/auth"
 	"github.com/envoryx/envoryx/internal/validate"
 )
 
@@ -53,6 +54,15 @@ func (a *API) metricsOverview(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
+	// Like the project list: a user with roles in some projects sees only those.
+	p, _ := auth.PrincipalFrom(r.Context())
+	visible := ov.Projects[:0]
+	for _, u := range ov.Projects {
+		if p.CanAccessProject(u.ID) {
+			visible = append(visible, u)
+		}
+	}
+	ov.Projects = visible
 	writeJSON(w, http.StatusOK, map[string]any{"overview": ov})
 }
 

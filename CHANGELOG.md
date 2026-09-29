@@ -24,6 +24,10 @@ release). `:main` follows the development branch.
   share stayed public (and an allowlist naming 127.0.0.1 let the internet
   in). An allowlist is now refused while a share runs.
 
+- The resource comparison (`GET /metrics/overview`, the dashboard's
+  resource card) listed every project's name and usage to users who have
+  a role in only some projects; it now shows only theirs.
+
 ### Fixed
 - MongoDB snapshots, project backups, clones and branch copies failed
   with HTTP 500: mongodump 100.17 and later refuse the connection string
