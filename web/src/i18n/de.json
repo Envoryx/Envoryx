@@ -161,7 +161,7 @@
   "Details": "Details",
   "Dev server": "Dev-Server",
   "Developer machine for Xdebug": "Entwicklerrechner für Xdebug",
-  "Diagnostics view. Envoryx only manages resources labelled envoryx.managed=true; everything else is shown read-only.": "Diagnoseansicht. Envoryx verwaltet nur Ressourcen mit dem Label envoryx.managed=true; alles andere wird nur angezeigt.",
+  "Envoryx only manages resources labelled envoryx.managed=true; everything else is shown read-only.": "Envoryx verwaltet nur Ressourcen mit dem Label envoryx.managed=true; alles andere wird nur angezeigt.",
   "Direct access": "Direktzugriff",
   "Disable": "Deaktivieren",
   "Disabled (ENVORYX_SSH is empty).": "Deaktiviert (ENVORYX_SSH ist leer).",
@@ -436,7 +436,6 @@
   "Queues": "Queues",
   "Reachable at {{address}}": "Erreichbar unter {{address}}",
   "Read-only. Envoryx never touches containers without the envoryx.managed=true label.": "Nur lesend. Envoryx fasst Container ohne das Label envoryx.managed=true nie an.",
-  "Recent projects": "Zuletzt genutzte Projekte",
   "Reconcile now": "Jetzt abgleichen",
   "Redirect plain HTTP requests for project and UI domains to HTTPS.": "HTTP-Anfragen für Projekt- und UI-Domains auf HTTPS umleiten.",
   "Redis version": "Redis-Version",
@@ -771,7 +770,6 @@
   "Removed {{count}} images, {{size}} reclaimed._one": "{{count}} Image entfernt, {{size}} freigegeben.",
   "Removed {{count}} images, {{size}} reclaimed._other": "{{count}} Images entfernt, {{size}} freigegeben.",
   "{{engine}} version": "{{engine}}-Version",
-  "{{free}} free of {{total}}": "{{free}} frei von {{total}}",
   "{{hostname}} added.": "{{hostname}} hinzugefügt.",
   "{{running}} / {{total}} running": "{{running}} / {{total}} laufen",
   "{{running}}/{{total}} containers": "{{running}}/{{total}} Container",
@@ -2596,5 +2594,12 @@
   ". Sessions run as the project owner inside": ". Sitzungen laufen als Projekt-Owner in",
   "An admin can set it in the settings.": "Ein Admin kann ihn in den Einstellungen festlegen.",
   "Regenerate in the settings": "In den Einstellungen neu erzeugen",
-  "Secret key_instance": "Geheimer Schlüssel"
+  "Secret key_instance": "Geheimer Schlüssel",
+  "{{running}} of {{total}} running": "{{running}} von {{total}} laufen",
+  "Networks & volumes": "Netzwerke & Volumes",
+  "Host paths and the other set-up checks are part of the diagnostics.": "Host-Pfade und die übrigen Einrichtungsprüfungen gehören zur Diagnose.",
+  "{{free}} free": "{{free}} frei",
+  "System": "System",
+  "Docker sections": "Docker-Bereiche",
+  "Without a project": "Ohne Projekt"
 }

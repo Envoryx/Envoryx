@@ -33,16 +33,18 @@ function ServiceBadges({ project }: { project: Project }) {
 }
 
 // One grid shared by every row, so name, stack, state, resources and actions line up
-// down the list no matter how many badges a project has. Narrow screens use two rows:
-// name and actions, then the stack and the state; resources are a large-screen extra.
-const rowGrid = "grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-2 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1.7fr)_6.5rem_6rem_auto] lg:items-center lg:gap-x-5";
+// down the list no matter how many badges a project has. A narrow list (a phone, or the
+// dashboard's column) stacks them: name and state, then the stack, then the actions
+// in a row of their own, so three buttons never squeeze the name; resources join the
+// state there. The list is the @container.
+const rowGrid = "grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-2 @3xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1.7fr)_6.5rem_6rem_auto] @3xl:items-center @3xl:gap-x-5";
 
 /** The address without its scheme: the list is tight and every project is https anyway. */
 function shortUrl(url: string): string {
   return url.replace(/^https?:\/\//, "");
 }
 
-function ProjectRow({ project, usage }: { project: Project; usage?: { cpuPercent: number; memoryBytes: number } | undefined }) {
+export function ProjectRow({ project, usage }: { project: Project; usage?: { cpuPercent: number; memoryBytes: number } | undefined }) {
   const { t } = useTranslation();
   const meta = stateMeta[project.status.state];
   const links = useProjectLinks();
@@ -66,14 +68,15 @@ function ProjectRow({ project, usage }: { project: Project; usage?: { cpuPercent
             {project.status.operation && <OperationHint op={project.status.operation} className="max-w-full" />}
           </div>
         </div>
-        <div className="col-start-1 row-start-2 min-w-0 pl-[22px] lg:col-start-2 lg:row-start-1 lg:pl-0">
+        <div className="col-start-1 row-start-2 min-w-0 pl-[22px] @3xl:col-start-2 @3xl:row-start-1 @3xl:pl-0">
           <ServiceBadges project={project} />
         </div>
-        <div className="col-start-2 row-start-2 self-center text-right text-xs text-muted lg:col-start-3 lg:row-start-1 lg:text-left">
+        <div className="col-start-2 row-start-1 self-start text-right text-xs text-muted @3xl:col-start-3 @3xl:self-center @3xl:row-start-1 @3xl:text-left">
           <span className="block font-medium text-fg">{t(meta.label)}</span>
           <span className="block">{t("{{running}}/{{total}} containers", { running, total })}</span>
+          {usage && <span className="block tabular-nums @3xl:hidden">{`CPU ${formatPercent(usage.cpuPercent)} · RAM ${formatBytes(usage.memoryBytes)}`}</span>}
         </div>
-        <div className="hidden text-xs tabular-nums text-muted lg:block">
+        <div className="hidden text-xs tabular-nums text-muted @3xl:block">
           {usage ? (
             <>
               <span className="block">CPU {formatPercent(usage.cpuPercent)}</span>
@@ -83,7 +86,7 @@ function ProjectRow({ project, usage }: { project: Project; usage?: { cpuPercent
             <span className="block text-subtle">-</span>
           )}
         </div>
-        <div className="col-start-2 row-start-1 justify-self-end lg:col-start-5 lg:row-start-1">
+        <div className="col-span-2 row-start-3 pl-[22px] @3xl:col-span-1 @3xl:col-start-5 @3xl:row-start-1 @3xl:justify-self-end @3xl:pl-0">
           <ProjectActionButtons project={project} onError={capture} />
         </div>
       </div>
@@ -167,7 +170,7 @@ export function ProjectsPage() {
           {projects.length === 0 ? (
             <p className="px-5 py-8 text-center text-sm text-muted">{t("No project matches “{{filter}}”.", { filter })}</p>
           ) : (
-            <ul className="divide-y divide-[var(--border)]">
+            <ul className="@container divide-y divide-[var(--border)]">
               {projects.map((p) => (
                 <ProjectRow key={p.id} project={p} usage={dash.data?.stats?.perProject[p.id]} />
               ))}

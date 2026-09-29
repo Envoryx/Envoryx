@@ -161,7 +161,7 @@
   "Details": "Details",
   "Dev server": "Dev-server",
   "Developer machine for Xdebug": "Ontwikkelaarsmachine voor Xdebug",
-  "Diagnostics view. Envoryx only manages resources labelled envoryx.managed=true; everything else is shown read-only.": "Diagnoseweergave. Envoryx beheert alleen resources met het label envoryx.managed=true; al het andere wordt alleen-lezen getoond.",
+  "Envoryx only manages resources labelled envoryx.managed=true; everything else is shown read-only.": "Envoryx beheert alleen resources met het label envoryx.managed=true; al het andere wordt alleen-lezen getoond.",
   "Direct access": "Directe toegang",
   "Disable": "Uitschakelen",
   "Disabled (ENVORYX_SSH is empty).": "Uitgeschakeld (ENVORYX_SSH is leeg).",
@@ -436,7 +436,6 @@
   "Queues": "Queues",
   "Reachable at {{address}}": "Bereikbaar op {{address}}",
   "Read-only. Envoryx never touches containers without the envoryx.managed=true label.": "Alleen-lezen. Envoryx raakt containers zonder het label envoryx.managed=true nooit aan.",
-  "Recent projects": "Recente projecten",
   "Reconcile now": "Nu afstemmen",
   "Redirect plain HTTP requests for project and UI domains to HTTPS.": "HTTP-verzoeken voor project- en interfacedomeinen doorsturen naar HTTPS.",
   "Redis version": "Redis-versie",
@@ -771,7 +770,6 @@
   "Removed {{count}} images, {{size}} reclaimed._one": "{{count}} image verwijderd, {{size}} vrijgemaakt.",
   "Removed {{count}} images, {{size}} reclaimed._other": "{{count}} images verwijderd, {{size}} vrijgemaakt.",
   "{{engine}} version": "{{engine}}-versie",
-  "{{free}} free of {{total}}": "{{free}} vrij van {{total}}",
   "{{hostname}} added.": "{{hostname}} toegevoegd.",
   "{{running}} / {{total}} running": "{{running}} / {{total}} actief",
   "{{running}}/{{total}} containers": "{{running}}/{{total}} containers",
@@ -2596,5 +2594,12 @@
   ". Sessions run as the project owner inside": ". Sessies draaien als projecteigenaar in",
   "An admin can set it in the settings.": "Een beheerder kan dit instellen in de instellingen.",
   "Regenerate in the settings": "Opnieuw genereren in de instellingen",
-  "Secret key_instance": "Geheime sleutel"
+  "Secret key_instance": "Geheime sleutel",
+  "{{running}} of {{total}} running": "{{running}} van {{total}} actief",
+  "Networks & volumes": "Netwerken & volumes",
+  "Host paths and the other set-up checks are part of the diagnostics.": "Hostpaden en de andere installatiecontroles horen bij de diagnose.",
+  "{{free}} free": "{{free}} vrij",
+  "System": "Systeem",
+  "Docker sections": "Docker-onderdelen",
+  "Without a project": "Zonder project"
 }

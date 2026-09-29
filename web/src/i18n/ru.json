@@ -161,7 +161,7 @@
   "Details": "Подробности",
   "Dev server": "Dev-сервер",
   "Developer machine for Xdebug": "Машина разработчика для Xdebug",
-  "Diagnostics view. Envoryx only manages resources labelled envoryx.managed=true; everything else is shown read-only.": "Режим диагностики. Envoryx управляет только ресурсами с меткой envoryx.managed=true; всё остальное показано только для чтения.",
+  "Envoryx only manages resources labelled envoryx.managed=true; everything else is shown read-only.": "Envoryx управляет только ресурсами с меткой envoryx.managed=true; всё остальное показано только для чтения.",
   "Direct access": "Прямой доступ",
   "Disable": "Отключить",
   "Disabled (ENVORYX_SSH is empty).": "Отключено (ENVORYX_SSH пуст).",
@@ -436,7 +436,6 @@
   "Queues": "Очереди",
   "Reachable at {{address}}": "Доступно по адресу {{address}}",
   "Read-only. Envoryx never touches containers without the envoryx.managed=true label.": "Только чтение. Envoryx никогда не затрагивает контейнеры без метки envoryx.managed=true.",
-  "Recent projects": "Недавние проекты",
   "Reconcile now": "Согласовать сейчас",
   "Redirect plain HTTP requests for project and UI domains to HTTPS.": "Перенаправлять HTTP-запросы к доменам проектов и интерфейса на HTTPS.",
   "Redis version": "Версия Redis",
@@ -791,7 +790,6 @@
   "Removed {{count}} images, {{size}} reclaimed._many": "Удалено {{count}} образов, освобождено {{size}}.",
   "Removed {{count}} images, {{size}} reclaimed._other": "Удалено {{count}} образа, освобождено {{size}}.",
   "{{engine}} version": "Версия {{engine}}",
-  "{{free}} free of {{total}}": "{{free}} свободно из {{total}}",
   "{{hostname}} added.": "{{hostname}} добавлен.",
   "{{running}} / {{total}} running": "{{running}} / {{total}} работают",
   "{{running}}/{{total}} containers": "{{running}}/{{total}} контейнеров",
@@ -2640,5 +2638,12 @@
   ". Sessions run as the project owner inside": ". Сеансы выполняются от имени владельца проекта в",
   "An admin can set it in the settings.": "Администратор может задать его в настройках.",
   "Regenerate in the settings": "Сгенерировать заново в настройках",
-  "Secret key_instance": "Секретный ключ"
+  "Secret key_instance": "Секретный ключ",
+  "{{running}} of {{total}} running": "{{running}} из {{total}} запущено",
+  "Networks & volumes": "Сети и тома",
+  "Host paths and the other set-up checks are part of the diagnostics.": "Пути хоста и остальные проверки настройки входят в диагностику.",
+  "{{free}} free": "{{free}} свободно",
+  "System": "Система",
+  "Docker sections": "Разделы Docker",
+  "Without a project": "Без проекта"
 }

@@ -156,8 +156,9 @@ export function Card({ className, children, ...rest }: { className?: string; chi
 
 export function CardHeader({ title, description, actions }: { title: ReactNode; description?: ReactNode; actions?: ReactNode }) {
   return (
-    <div className="flex items-start justify-between gap-4 border-b border-default px-5 py-4">
-      <div>
+    <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 border-b border-default px-5 py-4">
+      {/* Wraps the actions below the title only where both don't fit side by side (phones). */}
+      <div className="min-w-48 flex-1">
         <h2 className="text-sm font-semibold text-fg">{title}</h2>
         {description && <p className="mt-0.5 text-xs text-muted">{description}</p>}
       </div>

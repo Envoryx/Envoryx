@@ -117,7 +117,7 @@ Envoryx container. Envoryx therefore needs to know that `/projects` inside its
 container is `/mnt/user/development` on the host.
 
 Envoryx detects this automatically by inspecting its own container's mounts. If
-detection fails (the dashboard shows a red banner and project creation is
+detection fails (the dashboard's notices say so and project creation is
 disabled), set the two variables explicitly:
 
 ```
@@ -142,7 +142,7 @@ server is often a different one (the router instead of your ad blocker); that
 second result is only a note.
 Findings with a button are fixed in place (for example setting the Docker host
 for project links); the others link to the setting or to this guide. The
-dashboard shows a banner while warnings or errors exist. The same data is
+dashboard lists them among its notices while warnings or errors exist. The same data is
 available as `GET /api/v1/system/diagnostics` (admin scope).
 
 ## Project links and the Envoryx container's own IP
