@@ -271,7 +271,7 @@ func (c *cli) printAnalysis(s siteImport, req createRequest) {
 		case a.Config.Mode == "env":
 			c.printf("  the injected DB_* variables override %s\n", a.Config.Path)
 		default:
-			c.printf("  change the database connection in %s (host \"database\", see the Database tab)\n", a.Config.Path)
+			c.printf("  change the database connection in %s (host \"database\", see Database)\n", a.Config.Path)
 		}
 	}
 	for _, n := range a.Notices {

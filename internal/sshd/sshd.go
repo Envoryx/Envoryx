@@ -575,7 +575,7 @@ func (s *Server) handleForward(ctx context.Context, ch ssh.NewChannel, target pr
 		_ = ch.Reject(reason, msg)
 	}
 	if !target.Gateway {
-		reject(ssh.Prohibited, "port forwarding is disabled for this project (enable JetBrains Gateway in the IDE tab)")
+		reject(ssh.Prohibited, "port forwarding is disabled for this project (enable JetBrains Gateway in the IDE section)")
 		return
 	}
 	switch host {

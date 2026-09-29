@@ -172,7 +172,7 @@ func (c GoConfig) Command() []string {
 	// binary starts, so Delve runs only when its full_bin starts it.
 	own := `if [ -f .air.toml ]; then exec air; fi; exec "$@"`
 	if c.Debug {
-		own = `if [ -f .air.toml ]; then echo 'envoryx: .air.toml found - it replaces the air settings of Envoryx, so Delve only runs if its build.full_bin starts dlv (see the IDE tab)'; exec air; fi; exec "$@"`
+		own = `if [ -f .air.toml ]; then echo 'envoryx: .air.toml found - it replaces the air settings of Envoryx, so Delve only runs if its build.full_bin starts dlv (see the IDE section)'; exec air; fi; exec "$@"`
 	}
 	return append([]string{"sh", "-c", own, "envoryx-air"}, air...)
 }

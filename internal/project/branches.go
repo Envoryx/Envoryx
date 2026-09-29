@@ -162,7 +162,7 @@ func (m *Manager) SetBranchSettings(ctx context.Context, id string, req BranchSe
 		return store.BranchSettings{}, err
 	}
 	if b.Watch && p.Git.URL == "" {
-		return store.BranchSettings{}, fmt.Errorf("%w: watching branches needs a repository; set one in the Git tab", validate.ErrInvalid)
+		return store.BranchSettings{}, fmt.Errorf("%w: watching branches needs a repository; set one under Git", validate.ErrInvalid)
 	}
 	if err := m.store.Projects.SetBranchSettings(ctx, id, b); err != nil {
 		return store.BranchSettings{}, err
@@ -211,7 +211,7 @@ func (m *Manager) children(ctx context.Context, id string) ([]store.Project, err
 // lsRemote lists the branches of a project's repository with their commits.
 func (m *Manager) lsRemote(ctx context.Context, p store.Project) (map[string]string, error) {
 	if p.Git.URL == "" {
-		return nil, fmt.Errorf("%w: the project has no repository; set one in the Git tab", validate.ErrInvalid)
+		return nil, fmt.Errorf("%w: the project has no repository; set one under Git", validate.ErrInvalid)
 	}
 	res, err := m.runGit(ctx, p, "ls-remote", "--heads", "--", p.Git.URL)
 	if err != nil {
@@ -277,7 +277,7 @@ func (m *Manager) CreateBranchEnvironment(ctx context.Context, id, branch string
 		return View{}, fmt.Errorf("%w: %s is a branch environment itself; create the environment from its parent", validate.ErrInvalid, p.Name)
 	}
 	if p.Git.URL == "" {
-		return View{}, fmt.Errorf("%w: branch environments need a repository; set one in the Git tab", validate.ErrInvalid)
+		return View{}, fmt.Errorf("%w: branch environments need a repository; set one under Git", validate.ErrInvalid)
 	}
 	paths, err := m.paths()
 	if err != nil {

@@ -50,10 +50,10 @@ func majorMinor(v string) string {
 // project carries: uv.lock/pyproject.toml → uv sync, else requirements.txt.
 func rebuildHint(projectDir string) string {
 	if exists(filepath.Join(projectDir, "uv.lock")) || exists(filepath.Join(projectDir, "pyproject.toml")) {
-		return `run "uv sync" from the Actions tab`
+		return `run "uv sync" from Actions`
 	}
 	if exists(filepath.Join(projectDir, "requirements.txt")) {
-		return `run "pip install -r requirements.txt" from the Actions tab`
+		return `run "pip install -r requirements.txt" from Actions`
 	}
 	return `delete .venv and install the dependencies again from the Python terminal`
 }

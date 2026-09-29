@@ -196,7 +196,7 @@ type ExternalTest struct {
 }
 
 // TestExternal connects to an external server the way a project would, without a
-// project: the wizard's and the database tab's "Test connection".
+// project: the wizard's and the Database section's "Test connection".
 func (m *Manager) TestExternal(ctx context.Context, t ExternalTest) error {
 	probe := store.Project{ID: "connection-test", Slug: "connection-test"}
 	switch t.Kind {

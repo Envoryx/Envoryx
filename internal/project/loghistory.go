@@ -81,7 +81,7 @@ func (m *Manager) SetLogStore(s *logs.Store) {
 }
 
 // IsLogService reports whether a container's service label names one whose output the
-// Logs tab shows (not the one-off helpers such as git or template).
+// Logs section shows (not the one-off helpers such as git or template).
 func IsLogService(kind string) bool {
 	if wid, ok := strings.CutPrefix(kind, "worker:"); ok {
 		return validate.UUID(wid) == nil

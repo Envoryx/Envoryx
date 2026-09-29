@@ -289,7 +289,7 @@ var templates = []Template{
 	{
 		ID: "laravel", Name: "Laravel", Description: "composer create-project laravel/laravel - ready to run with the project database.",
 		Runtime: "php", Docroot: "public", RecommendedDatabase: "mariadb",
-		Notes: "Run “artisan migrate” from the Actions tab. Envoryx injects DB_* and REDIS_*/MAIL_* variables; they override .env.",
+		Notes: "Run “artisan migrate” from Actions. Envoryx injects DB_* and REDIS_*/MAIL_* variables; they override .env.",
 		steps: []templateStep{{label: "composer create-project", cmd: []string{"composer", "create-project", "laravel/laravel", ".", composerNoInteraction, "--prefer-dist"}}},
 	},
 	{
@@ -313,7 +313,7 @@ var templates = []Template{
 	{
 		ID: "drupal", Name: "Drupal", Description: "drupal/recommended-project with Drush and a settings.php wired to the project database.",
 		Runtime: "php", Docroot: "web", RequiresDatabase: true, RecommendedDatabase: "mariadb",
-		Notes: "Open the site to run the installer - the database is already set up - or run “drush site:install” from the Actions tab, which prints the admin password.",
+		Notes: "Open the site to run the installer - the database is already set up - or run “drush site:install” from Actions, which prints the admin password.",
 		steps: []templateStep{
 			{label: "composer create-project", cmd: []string{"composer", "create-project", "drupal/recommended-project", ".", composerNoInteraction, "--prefer-dist"}},
 			{label: "composer require drush", cmd: []string{"composer", "require", "drush/drush", composerNoInteraction}},
@@ -323,7 +323,7 @@ var templates = []Template{
 	{
 		ID: "typo3", Name: "TYPO3", Description: "typo3/cms-base-distribution with the installer enabled and the connection to the project database prepared.",
 		Runtime: "php", Docroot: "public", RequiresDatabase: true, RecommendedDatabase: "mariadb", PHPExtensions: []string{"mysqli"},
-		Notes: "Run “typo3 setup” from the Actions tab once the project is running: it creates the tables, a site for the project URL and the administrator, and prints the password. The web installer on the site works too; the connection comes from config/system/additional.php.",
+		Notes: "Run “typo3 setup” from Actions once the project is running: it creates the tables, a site for the project URL and the administrator, and prints the password. The web installer on the site works too; the connection comes from config/system/additional.php.",
 		steps: []templateStep{
 			{label: "composer create-project", cmd: []string{"composer", "create-project", "typo3/cms-base-distribution", ".", composerNoInteraction, "--prefer-dist"}},
 			{label: "enable the installer", cmd: []string{"php", "-r", typo3Settings}},
@@ -332,7 +332,7 @@ var templates = []Template{
 	{
 		ID: "shopware", Name: "Shopware", Description: "shopware/production - Shopware 6 with APP_URL following the project address.",
 		Runtime: "php", Docroot: "public", RequiresDatabase: true, RecommendedDatabase: "mariadb", PHPMemoryLimit: "1G",
-		Notes: "Run “Shopware system:install” from the Actions tab once the project is running: it creates the tables, a sales channel for the project URL and the administrator admin / shopware (change the password in the admin at /admin).",
+		Notes: "Run “Shopware system:install” from Actions once the project is running: it creates the tables, a sales channel for the project URL and the administrator admin / shopware (change the password in the admin at /admin).",
 		steps: []templateStep{
 			{label: "composer create-project", cmd: []string{"composer", "create-project", "shopware/production", ".", composerNoInteraction, "--prefer-dist"}, files: map[string]func() (string, error){".env.local": func() (string, error) { return shopwareEnvLocal, nil }}},
 		},
@@ -340,7 +340,7 @@ var templates = []Template{
 	{
 		ID: "craft", Name: "Craft CMS", Description: "craftcms/craft with the database connection and the site URL read from the project environment.",
 		Runtime: "php", Docroot: "web", RequiresDatabase: true, RecommendedDatabase: "mariadb",
-		Notes: "Run “craft install” from the Actions tab once the project is running (it prints the admin password), or open /admin/install on the site.",
+		Notes: "Run “craft install” from Actions once the project is running (it prints the admin password), or open /admin/install on the site.",
 		steps: []templateStep{
 			{label: "composer create-project", cmd: []string{"composer", "create-project", "craftcms/craft", ".", composerNoInteraction, "--prefer-dist"}},
 			{label: "wire the database", cmd: []string{"php", "-r", craftEnv}},
@@ -378,13 +378,13 @@ var templates = []Template{
 		},
 	},
 	// The Python scaffolds run from the Envoryx Python image: the venv is created in
-	// the project directory, requirements are pinned with pip freeze so the Actions tab's
+	// the project directory, requirements are pinned with pip freeze so the Actions section's
 	// "pip install" reproduces it after a fresh clone.
 	{
 		ID: "django", Name: "Django", Description: "django-admin startproject with settings prepared for the Envoryx proxy and the project database (dj-database-url).",
 		Runtime: "python", Docroot: "", RecommendedDatabase: "postgresql",
 		Python: &runtime.PythonConfig{Server: true, Preset: "django", Port: 8000, App: "config.wsgi:application"},
-		Notes:  "Run “manage.py migrate” from the Actions tab, then open the site. DATABASE_URL is injected by Envoryx and picked up by settings.py; without a database Django uses SQLite. settings.py ties DEBUG to the runtime mode (DJANGO_DEBUG) and reads CSRF_TRUSTED_ORIGINS from the environment if you need cross-origin posts.",
+		Notes:  "Run “manage.py migrate” from Actions, then open the site. DATABASE_URL is injected by Envoryx and picked up by settings.py; without a database Django uses SQLite. settings.py ties DEBUG to the runtime mode (DJANGO_DEBUG) and reads CSRF_TRUSTED_ORIGINS from the environment if you need cross-origin posts.",
 		steps: []templateStep{
 			{label: "python -m venv", cmd: []string{"python", "-m", "venv", pythonVenvPath}},
 			{label: "pip install django", cmd: []string{"pip", "install", "django", "dj-database-url", "gunicorn", "psycopg[binary]", "mysqlclient"}},
@@ -421,7 +421,7 @@ var templates = []Template{
 		ID: "go", Name: "Go (net/http)", Description: "A minimal Go web server on the standard library (main.go) - rebuilt by air on every change.",
 		Runtime: "go", Docroot: "",
 		Go:    &runtime.GoConfig{Server: true, Package: ".", Port: runtime.DefaultGoPort},
-		Notes: "air rebuilds and restarts the server when a .go file changes. Add a .air.toml to configure it yourself; the Tests tab runs go test.",
+		Notes: "air rebuilds and restarts the server when a .go file changes. Add a .air.toml to configure it yourself; the Tests section runs go test.",
 		steps: []templateStep{
 			{label: "go mod init, write main.go", cmd: []string{"go", "mod", "init", "app"}, files: map[string]func() (string, error){"main.go": func() (string, error) { return goHTTPApp, nil }}},
 		},
@@ -454,7 +454,7 @@ var templates = []Template{
 		ID: "rails", Name: "Rails", Description: "rails new with Hotwire and importmap (no Node.js needed), on the project database.",
 		Runtime: "ruby", Docroot: "", RecommendedDatabase: "postgresql",
 		Ruby:  &runtime.RubyConfig{Server: true, Preset: "rails", Port: 3000},
-		Notes: "Run “rails db:prepare” from the Actions tab, then open the site. DATABASE_URL is injected by Envoryx and Rails merges it into config/database.yml; without a database Rails uses SQLite. Rails reloads code on every request in dev mode. Production mode needs config/master.key (rails new wrote one) and the assets built with “rails assets:precompile”.",
+		Notes: "Run “rails db:prepare” from Actions, then open the site. DATABASE_URL is injected by Envoryx and Rails merges it into config/database.yml; without a database Rails uses SQLite. Rails reloads code on every request in dev mode. Production mode needs config/master.key (rails new wrote one) and the assets built with “rails assets:precompile”.",
 		steps: []templateStep{
 			{label: "gem install rails, rails new", cmdFor: railsNew()},
 		},
@@ -463,7 +463,7 @@ var templates = []Template{
 		ID: "rails-api", Name: "Rails (API only)", Description: "rails new --api: a JSON backend without views and assets, on the project database.",
 		Runtime: "ruby", Docroot: "", RecommendedDatabase: "postgresql",
 		Ruby:  &runtime.RubyConfig{Server: true, Preset: "rails", Port: 3000},
-		Notes: "Run “rails db:prepare” from the Actions tab, then generate resources in the Ruby terminal (bin/rails generate scaffold …). DATABASE_URL is injected by Envoryx; without a database Rails uses SQLite.",
+		Notes: "Run “rails db:prepare” from Actions, then generate resources in the Ruby terminal (bin/rails generate scaffold …). DATABASE_URL is injected by Envoryx; without a database Rails uses SQLite.",
 		steps: []templateStep{
 			{label: "gem install rails, rails new --api", cmdFor: railsNew("--api")},
 		},
