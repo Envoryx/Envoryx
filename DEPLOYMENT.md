@@ -104,7 +104,7 @@ docker build -t ghcr.io/envoryx/envoryx:dev --build-arg VERSION=dev .
   project or instance backup is refused when it would not leave at least
   512 MiB free, because a full appdata disk takes the database down with it.
 - `/config/logs` holds the log history (see [Logs](#logs)): 7 days and at
-  most 1 GB by default, adjustable in *Settings → General → Log history*.
+  most 1 GB by default, adjustable in *Settings → Retention → Log history*.
 - The database file is integrity-checked at every start (`PRAGMA
   integrity_check`). A damaged file is refused with the name of the newest
   instance backup to restore instead of being migrated or served.
@@ -152,7 +152,7 @@ console) publish their ports on the **Docker host** (the Unraid IP). Envoryx
 builds links to them from the address in your browser's address bar. If you
 reach Envoryx under a different address, because the container has its own IP
 on `br0`/macvlan or you use a reverse proxy, set the host to use for project
-links in **Settings → General → Project links & developer machine** (or `ENVORYX_PUBLIC_HOST`), typically
+links in **Settings → Domains & HTTPS → Project links & developer machine** (or `ENVORYX_PUBLIC_HOST`), typically
 the Unraid IP.
 
 When Envoryx detects that it has an IP of its own and no host is set, the
@@ -913,9 +913,8 @@ downloaded once for every project.
   not `dotnet watch` itself). VS Code with the C# extension uses netcoredbg
   (`/usr/local/bin/netcoredbg`) through `pipeTransport`; Microsoft's own
   `vsdbg` may only be used from Microsoft's IDEs, so the image doesn't ship
-  it. Store your public key under *My SSH keys* first (*Settings → Account*,
-  for admins *Settings → Access*), since the pipe can't answer a password
-  prompt. A `.vscode/launch.json`:
+  it. Store your public key under *Settings → SSH keys* first, since the pipe
+  can't answer a password prompt. A `.vscode/launch.json`:
 
   ```json
   {
@@ -1167,7 +1166,7 @@ caches, search, object storage), its project directory and its backups.
   memory, its disk space and a CPU sparkline, busiest first: the quick way
   to find the project that eats the server.
 - Values are kept at full detail for a day, then as 5-minute averages (peaks
-  are kept) for a week, then as hourly averages. *Settings → General →
+  are kept) for a week, then as hourly averages. *Settings → Retention →
   Resource history* sets how long (7, 30, 90 days, which is the default, or a year)
   and deletes the recorded values. A year of hourly values for a project with
   five containers is about 60,000 rows in the Envoryx database; a few MB.
@@ -1359,7 +1358,7 @@ Envoryx uses the image anyway. Images built from an Envoryx image carry its
 `envoryx.runtime` label; a PHP image without it is told that the extension switches have
 no effect.
 
-**Private registries.** Logins go under **Settings → Tools → Private registries**: the
+**Private registries.** Logins go under **Settings → Private registries**: the
 registry host (`ghcr.io`, `registry.example.com:5000`, `docker.io` for Docker Hub),
 a username and a password or access token (for GHCR a token with `read:packages`).
 Envoryx pulls with them and passes them to builds for their `FROM` images. The password is
@@ -1411,7 +1410,7 @@ digits, e.g. from `openssl rand -base64 32`. Without it Envoryx creates `/config
 the file to the variable needs nothing else: Envoryx still reads the file at that start,
 re-encrypts everything with the variable's key and deletes the file.
 
-*Settings → Access → Secret key* shows the key's ID and where it comes from. *Show key*
+*Settings → Secret key* shows the key's ID and where it comes from. *Show key*
 reveals the key itself (the reveal is written to the audit log); keep a copy somewhere
 outside Envoryx. Instance backups never contain the key, so without a copy an instance
 backup can't be restored on another host.
@@ -1445,7 +1444,7 @@ unencrypted; delete them (and their offsite copies) once you have a new one.
 ## Git deploy key
 
 For SSH repositories Envoryx generates an Ed25519 key pair on first use under
-`/config/ssh/`. Copy the public key from **Settings → Access → Git deploy key** (or the
+`/config/ssh/`. Copy the public key from **Settings → Git deploy key** (or the
 project's Git section) into your repository as a read-only deploy key. Private
 HTTPS repositories use an access token per project instead (GitHub:
 fine-grained PAT with *Contents: read*; GitLab: username `oauth2` + token).
@@ -1819,7 +1818,7 @@ point the tools there (`COMPOSER_CACHE_DIR`, `npm_config_cache`,
 overridden per project like any other. pnpm keeps its store in the project
 home.
 
-The cache only grows. *Settings → Tools → Package cache* shows what each tool
+The cache only grows. *Settings → Package cache* shows what each tool
 keeps there and empties one tool's part or all of it; the next install
 downloads again. Instance backups leave it out. On Unraid the cache lives with
 `/config` on the appdata share, usually on the SSD pool.
@@ -1853,7 +1852,7 @@ speed on a current CPU; larger ones need the GPU or patience.
 
 ## Database browser (Adminer)
 
-*Settings → Tools → Database browser* switches on an in-browser database tool for
+*Settings → Database browser* switches on an in-browser database tool for
 projects with MariaDB, MySQL or PostgreSQL (MongoDB is not supported by the
 Adminer image; use the published port with Compass). Nothing runs until the
 first click on **Open database** in a project's Database section: Envoryx then
@@ -2084,7 +2083,7 @@ recreated containers. The footer says which source a result came from.
 - Days are UTC. Finished days are compressed (gzip), days older than the
   retention (default 7) are deleted, and when the history grows beyond its
   limit (default 1 GB for all projects together) the oldest days go first.
-  Both are set in *Settings → General → Log history*, which also shows the
+  Both are set in *Settings → Retention → Log history*, which also shows the
   space in use.
 - Deleting a project deletes its history. *Delete stored logs* empties the
   whole history; lines Docker still holds are not collected again.
@@ -2123,9 +2122,8 @@ the project has PHP, else Python, else Go, else Ruby, else Java, else .NET, else
 Projects with several runtimes also accept `shop.php`, `shop.python`, `shop.go`,
 `shop.ruby`, `shop.java`, `shop.dotnet` and `shop.node` to pick one explicitly (the IDE section lists these rows only
 then). Password = one of your API tokens (*API tokens & MCP*), or sign in with a public key
-you stored under *My SSH keys* (both under *Settings → Account*, for admins *Settings →
-Access*). Tokens and keys act with your roles, so they only open the projects you may work
-in. The *Admin keys* under *Settings → Access → SSH access* open every project, like an
+you stored under *Settings → SSH keys* (both in *My account*, for everyone). Tokens and keys act with your roles, so they only open the projects you may work
+in. The *Admin keys* under *Settings → SSH access* open every project, like an
 admin. Each session is a `docker exec` into that
 container as the project owner; there is no shell
 on the host. SFTP exposes `/var/www/html` (the project) and `/home/envoryx`
@@ -2197,7 +2195,7 @@ Runtime → PHP → **Xdebug**: enables step debugging for that project
 (port 9003, mode `debug,develop`, `start_with_request=yes`). Xdebug connects
 back to the machine that made the request (behind Envoryx's proxy that
 address comes from `X-Forwarded-For`) and falls back to the *developer
-machine* set in Settings → General → Project links & developer machine (or a per-project override). Map
+machine* set in Settings → Domains & HTTPS → Project links & developer machine (or a per-project override). Map
 `/var/www/html` to your project folder in the IDE; the IDE section shows the exact
 PhpStorm/VS Code settings. Turn it off when you are done: it slows PHP down.
 
@@ -2248,8 +2246,8 @@ doesn't find it, and the API and SSH refuse it. Creating projects, copies and
 branch environments takes an admin of the whole instance; a branch environment starts with
 the project roles of its parent.
 
-Users who aren't admins see a smaller interface: *Settings* has only their *Account* tab
-(appearance, password, API tokens, *My SSH keys*), the Docker page and *New project* are
+Users who aren't admins see a smaller interface: *Settings* has only *My account*
+(profile with appearance and password, API tokens & MCP, SSH keys), the Docker page and *New project* are
 gone, viewers can't start or stop projects and don't get the *Terminal* and *Actions* sections,
 and *History* and the *Docker plan* are for admins. The server checks every request on its own,
 so hiding is a courtesy, not the protection.
@@ -2306,8 +2304,7 @@ instead of the secret) and `POST /api/v1/settings/oidc/test`. The public
 ## AI assistants (MCP)
 
 Envoryx ships an MCP server at `/mcp` (streamable HTTP). Create a token under
-**Settings → Access → API tokens & MCP** (**Settings → Account** for users who aren't
-admins); the page shows a ready-to-paste client
+**Settings → API tokens & MCP** (under *My account*, for every user); the page shows a ready-to-paste client
 configuration:
 
 ```json

@@ -220,7 +220,7 @@ func serve() error {
 		if err := keySource.Persist(); err != nil {
 			return fmt.Errorf("secret key: %w", err)
 		}
-		log.Warn("created a new secret key: keep a copy (Settings, Access, Secret key) or set ENVORYX_SECRET_KEY; without it an instance backup cannot be restored elsewhere", "path", keySource.Path, "keyId", keyRing.Current().ID())
+		log.Warn("created a new secret key: keep a copy (Settings, Secret key) or set ENVORYX_SECRET_KEY; without it an instance backup cannot be restored elsewhere", "path", keySource.Path, "keyId", keyRing.Current().ID())
 	}
 	schema, _ := db.SchemaVersion(ctx, sqlDB)
 	log.Info("database ready", "path", cfg.DatabasePath, "schema", schema)

@@ -210,7 +210,7 @@ runs with their output and get a notification on failure.
 
 Composer, npm, Yarn, pip, uv, Go and Bundler share one package cache, so a package is
 downloaded once for all projects (templates included); its size and a way to clear it are
-under *Settings → Tools*.
+under *Settings → Package cache*.
 
 ### Changing a project later
 
