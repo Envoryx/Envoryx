@@ -22,7 +22,7 @@ COPY --from=web /src/web/dist ./web/dist
 RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o /out/envoryx ./cmd/envoryx
 
 # ---- Runtime --------------------------------------------------------------
-FROM alpine:3.21
+FROM alpine:3.24
 LABEL org.opencontainers.image.title="Envoryx" \
       org.opencontainers.image.description="Docker-native development environments for Unraid and Linux" \
       org.opencontainers.image.source="https://github.com/envoryx/envoryx" \
