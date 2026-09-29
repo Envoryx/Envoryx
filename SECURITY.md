@@ -162,7 +162,9 @@ container on the server.
 - Deleting a project requires typing the project identifier as confirmation, and project
   files are only removed with an explicit second flag.
 - Rolling back a failed create removes only resources recorded in the operation journal
-  (all label-guarded), never project files.
+  (all label-guarded). Of the project directory it removes only what the create put
+  there: a directory the create made goes, one it found empty is emptied again, and one
+  that already held files is never touched.
 - Reconciliation doesn't delete projects or their data: it only clears orphaned containers
   and networks and reports the rest.
 - Create and delete operations interrupted by an Envoryx restart are marked `failed` and

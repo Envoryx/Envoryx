@@ -38,6 +38,11 @@ release). `:main` follows the development branch.
   a role in only some projects; it now shows only theirs.
 
 ### Fixed
+- A failed create left the files of a template, clone or starter page in
+  the project directory, and trying again with the same name failed with
+  "templates need an empty directory". The rollback now removes a
+  directory the create made and empties one it found empty; a directory
+  that already held files is still never touched.
 - MongoDB snapshots, project backups, clones and branch copies failed
   with HTTP 500: mongodump 100.17 and later refuse the connection string
   Envoryx passed.

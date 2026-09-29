@@ -175,9 +175,24 @@ func TestCreateRollsBackOnContainerFailure(t *testing.T) {
 			t.Fatalf("config dir not cleaned: %v", entries)
 		}
 	}
-	// Project files are never deleted by a rollback.
-	if _, err := os.Stat(filepath.Join(e.projDir, "broken")); err != nil {
-		t.Fatalf("project files must survive rollback: %v", err)
+	// The directory the create made is gone again, so a retry starts clean.
+	if _, err := os.Stat(filepath.Join(e.projDir, "broken")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("the project directory the create made must go with the rollback: %v", err)
+	}
+	// A directory that already held files keeps them.
+	kept := filepath.Join(e.projDir, "kept")
+	if err := os.MkdirAll(kept, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(kept, "notes.txt"), []byte("mine"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	e.engine.FailCreate["envoryx-kept-web"] = errors.New("simulated docker failure")
+	if _, err := e.m.Create(ctx, phpRequest("Kept", true)); err == nil {
+		t.Fatal("expected failure")
+	}
+	if b, err := os.ReadFile(filepath.Join(kept, "notes.txt")); err != nil || string(b) != "mine" {
+		t.Fatalf("files that were there before must survive rollback: %q %v", b, err)
 	}
 	// The foreign container is untouched.
 	for _, c := range e.engine.Calls {
