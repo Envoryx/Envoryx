@@ -8,6 +8,7 @@ import { Logo } from "./Logo";
 import { useTheme, type Theme } from "./theme";
 import { useDashboard } from "@/api/hooks";
 import { displayVersion } from "@/lib/format";
+import { settingsHref } from "@/features/settings/links";
 import { Button } from "@/components/ui";
 import { OperationsTray } from "@/components/OperationsTray";
 import { currentLanguage, languages, setLanguage } from "@/i18n";
@@ -68,13 +69,13 @@ export function AppShell() {
         ))}
       </ul>
       <div className="border-t border-default p-3">
-        <div className="flex items-center justify-between gap-2">
-          <div className="min-w-0">
-            <p className="truncate text-sm font-medium text-fg">{auth.user?.username}</p>
-            <p className="truncate text-xs text-subtle">{dashboard.data?.version ? `Envoryx ${displayVersion(dashboard.data.version)}` : "Envoryx"}</p>
-          </div>
+        <Link to={settingsHref("profile")} onClick={() => setOpen(false)} className="block rounded-md px-2 py-1 hover:bg-muted" title={t("My account")}>
+          <p className="truncate text-sm font-medium text-fg">{auth.user?.username}</p>
+          <p className="truncate text-xs text-subtle">{dashboard.data?.version ? `Envoryx ${displayVersion(dashboard.data.version)}` : "Envoryx"}</p>
+        </Link>
+        <div className="mt-2 flex items-center justify-between gap-1">
+          <LanguageButton />
           <div className="flex items-center gap-1">
-            <LanguageButton />
             <Button variant="ghost" size="sm" onClick={cycleTheme} aria-label={t("Theme: {{theme}}", { theme })} title={t("Theme: {{theme}}", { theme })}>
               <ThemeIcon className="size-4" />
             </Button>

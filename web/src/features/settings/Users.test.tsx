@@ -120,11 +120,13 @@ describe("Roles in the UI", () => {
       "GET /tokens": () => ({ body: { tokens: [], mcpUrl: "http://x/mcp" } }),
       "GET /auth/ssh-keys": () => ({ body: { keys: "" } }),
     });
-    renderApp(<SettingsPage />);
+    // An old link to the admins' Access tab lands on the user's own tokens.
+    renderApp(<SettingsPage />, { route: "/settings?tab=access" });
+    const nav = await screen.findByRole("navigation", { name: "Settings sections" });
+    expect(within(nav).getAllByRole("link").map((l) => l.textContent)).toEqual(["Profile", "API tokens & MCP", "SSH keys"]);
+    expect(within(nav).getByRole("link", { name: "API tokens & MCP" })).toHaveAttribute("aria-current", "page");
+    await userEvent.setup().click(within(nav).getByRole("link", { name: "SSH keys" }));
     expect(await screen.findByText("My SSH keys")).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Account" })).toBeInTheDocument();
-    expect(screen.queryByRole("tab", { name: "Users" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("tab", { name: "Diagnostics" })).not.toBeInTheDocument();
   });
 
   it("lets a viewer look at a project but not start, rename or delete it", async () => {

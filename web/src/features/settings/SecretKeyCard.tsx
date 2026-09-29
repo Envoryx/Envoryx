@@ -45,7 +45,7 @@ export function SecretKeyCard() {
       <CardHeader
         title={
           <span className="flex items-center gap-2">
-            <KeyRound className="size-4 text-accent-500" aria-hidden /> {t("Secret key")}
+            <KeyRound className="size-4 text-accent-500" aria-hidden /> {t("Secret key", { context: "instance" })}
           </span>
         }
         description={t("Passwords, tokens and keys that Envoryx stores (in the database, the notification, offsite and certificate settings and in project backups) are encrypted with this key. Instance backups never contain it: keep a copy, or an instance backup cannot be restored on another machine.")}

@@ -755,7 +755,7 @@ export function NewProjectPage() {
                           </Field>
                         </>
                       ) : (
-                        <p className="self-end pb-2 text-xs text-muted sm:col-span-2">{t("SSH uses the Envoryx deploy key (Settings → Deploy key); add it to the repository first.")}</p>
+                        <p className="self-end pb-2 text-xs text-muted sm:col-span-2">{t("SSH uses the Envoryx deploy key (Settings → Git deploy key); add it to the repository first.")}</p>
                       )}
                     </div>
                   )}

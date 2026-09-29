@@ -1,10 +1,9 @@
-import { clsx } from "clsx";
 import { useTranslation } from "react-i18next";
 import { ResourcesTab } from "./ResourcesTab";
 import { HealthCheckCard } from "./HealthCheckCard";
-import { Activity, Archive, Blocks, Clock, CodeXml, Copy, Database, Ellipsis, ExternalLink, FileCode2, FlaskConical, FolderGit2, GitBranch, Globe, Gauge, History, Layers, Pencil, RotateCw, Save, ScrollText, SquareTerminal, Trash2, Undo2, Variable, Zap, type LucideIcon } from "lucide-react";
+import { Activity, Archive, Blocks, Clock, CodeXml, Copy, Database, Ellipsis, ExternalLink, FileCode2, FlaskConical, FolderGit2, GitBranch, Globe, Gauge, History, Layers, Pencil, RotateCw, Save, ScrollText, SquareTerminal, Trash2, Undo2, Variable, Zap } from "lucide-react";
 import { lazy, Suspense, useEffect, useState, type ReactElement } from "react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { ApiError } from "@/api/client";
 import { useDevServerLink, useImageChoice, useProject, useProjectLinks, useProjectPlan, useProjectStats, useRuntimes, useSettings, useUpdateProject } from "@/api/hooks";
 import { appKindOf, defaultNodePresets, defaultPythonPresets, defaultRubyPresets, defaultJavaPresets, defaultDotnetPresets, servesOf, type EnvVar, type NodeConfig, type PHPConfig, type Project, type PythonConfig, type GoConfig, type RubyConfig, type JavaConfig, type DotnetConfig, type UpdateProjectRequest, type WebServerConfig } from "@/api/types";
@@ -31,6 +30,7 @@ import { BackupsTab } from "./BackupsTab";
 import { BranchesTab } from "./BranchesTab";
 import { CustomImagesCard } from "./CustomImagesCard";
 import { isAdmin, useAuth } from "@/features/auth/AuthContext";
+import { SectionLayout, type SectionGroup } from "@/components/SectionNav";
 import { LogsTab } from "./LogsTab";
 // xterm.js is only needed on this tab; keep it out of the main bundle.
 const TerminalTab = lazy(() => import("./TerminalTab").then((m) => ({ default: m.TerminalTab })));
@@ -44,7 +44,7 @@ import { errorText, translateMessage } from "@/lib/errors";
 type Tab = "Overview" | "Terminal" | "Actions" | "Tests" | "IDE" | "Git" | "Branches" | "Runtime" | "Environment" | "Domains" | "Workers" | "Database" | "Services" | "Backups" | "Logs" | "Resources" | "History";
 
 // The project's sections, grouped by what one comes to do. The id is the ?tab= value.
-const sections: { group?: string; items: { id: Tab; label: string; icon: LucideIcon }[] }[] = [
+const sections: SectionGroup<Tab>[] = [
   { items: [{ id: "Overview", label: "Overview", icon: Gauge }] },
   {
     group: "Develop",
@@ -99,7 +99,6 @@ export function ProjectDetailPage() {
   const links = useProjectLinks();
   const devLink = useDevServerLink();
   const [params] = useSearchParams();
-  const navigate = useNavigate();
   const [deleting, setDeleting] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [showingPlan, setShowingPlan] = useState(false);
@@ -207,118 +206,74 @@ export function ProjectDetailPage() {
         </div>
       )}
 
-      <div className="lg:flex lg:items-start lg:gap-8">
-        <nav aria-label={t("Project sections")} className="hidden w-44 shrink-0 lg:sticky lg:top-6 lg:block">
-          {groups.map((s) => (
-            <div key={s.group ?? ""} className="mb-4">
-              {s.group && <p className="mb-1 px-2 text-[11px] font-semibold uppercase tracking-wider text-subtle">{t(s.group)}</p>}
-              <ul className="space-y-0.5">
-                {s.items.map((i) => (
-                  <li key={i.id}>
-                    <Link
-                      to={tabHref(i.id)}
-                      aria-current={tab === i.id ? "page" : undefined}
-                      className={clsx("flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm font-medium transition-colors", tab === i.id ? "bg-muted text-fg" : "text-muted hover:bg-muted hover:text-fg")}
-                    >
-                      <i.icon className="size-4 shrink-0" aria-hidden />
-                      {t(i.label)}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </nav>
-        <div className="mb-4 lg:hidden">
-          <Select aria-label={t("Project sections")} value={tab} onChange={(e) => navigate(tabHref(e.target.value as Tab))}>
-            {groups.map((s) =>
-              s.group ? (
-                <optgroup key={s.group} label={t(s.group)}>
-                  {s.items.map((i) => (
-                    <option key={i.id} value={i.id}>
-                      {t(i.label)}
-                    </option>
-                  ))}
-                </optgroup>
-              ) : (
-                s.items.map((i) => (
-                  <option key={i.id} value={i.id}>
-                    {t(i.label)}
-                  </option>
-                ))
-              ),
+      <SectionLayout label={t("Project sections")} groups={groups} current={tab} href={tabHref}>
+        {tab === "Overview" && <OverviewTab project={p} />}
+        {tab === "Domains" && <DomainsTab project={p} />}
+        {tab === "Git" && <GitTab project={p} />}
+        {tab === "Branches" && <BranchesTab project={p} />}
+        {tab === "Actions" && (
+          <Suspense fallback={<Spinner label={t("Loading actions…")} />}>
+            <ActionsTab project={p} />
+          </Suspense>
+        )}
+        {tab === "Tests" && (
+          <Suspense fallback={<Spinner />}>
+            <TestsTab project={p} />
+          </Suspense>
+        )}
+        {tab === "Terminal" && (
+          <Suspense fallback={<Spinner label={t("Loading terminal…")} />}>
+            <TerminalTab project={p} />
+          </Suspense>
+        )}
+        {tab === "Logs" && <LogsTab project={p} />}
+        {tab === "Runtime" && (
+          <div className="space-y-6">
+            <ProjectSettingsCard project={p} onRename={() => setRenaming(true)} />
+            {/* The application runtime comes first (PHP, else Python, Go, Ruby, Java, .NET, Node), then the web server, then the other runtimes as toolchains. */}
+            {(() => {
+              const app = p.appService ?? appKindOf(p);
+              type Kind = "php" | "python" | "go" | "ruby" | "java" | "dotnet" | "node";
+              const cards: Record<Kind, ReactElement> = { php: <PhpCard key="php" project={p} />, python: <PythonCard key="python" project={p} />, go: <GoCard key="go" project={p} />, ruby: <RubyCard key="ruby" project={p} />, java: <JavaCard key="java" project={p} />, dotnet: <DotnetCard key="dotnet" project={p} />, node: <NodeCard key="node" project={p} /> };
+              // The application runtime first, then the rest in their usual order (Node before the
+              // servers, PHP last unless it's the application).
+              const order: Kind[] = ["node", "python", "go", "ruby", "java", "dotnet", "php"];
+              const [first, ...rest]: Kind[] = app && app !== "php" ? [app, ...order.filter((k) => k !== app)] : ["php", "node", "python", "go", "ruby", "java", "dotnet"];
+              return (
+                <>
+                  {first && cards[first]}
+                  <WebServerCard project={p} />
+                  {rest.map((k) => cards[k])}
+                  <CustomImagesCard project={p} />
+                </>
+              );
+            })()}
+          </div>
+        )}
+        {tab === "Workers" && (
+          <div className="space-y-6">
+            {!p.services.some((s) => (s.kind === "php" || s.kind === "node" || s.kind === "python" || s.kind === "go" || s.kind === "ruby" || s.kind === "java" || s.kind === "dotnet") && s.enabled) && (
+              <Alert tone="amber">{t("Workers and cron jobs run in the project's PHP, Python, Go, Ruby, Java, .NET or Node.js container - this project has none. Add one under Runtime first.")}</Alert>
             )}
-          </Select>
-        </div>
-        <div className="min-w-0 flex-1">
-          {tab === "Overview" && <OverviewTab project={p} />}
-          {tab === "Domains" && <DomainsTab project={p} />}
-          {tab === "Git" && <GitTab project={p} />}
-          {tab === "Branches" && <BranchesTab project={p} />}
-          {tab === "Actions" && (
-            <Suspense fallback={<Spinner label={t("Loading actions…")} />}>
-              <ActionsTab project={p} />
-            </Suspense>
-          )}
-          {tab === "Tests" && (
-            <Suspense fallback={<Spinner />}>
-              <TestsTab project={p} />
-            </Suspense>
-          )}
-          {tab === "Terminal" && (
-            <Suspense fallback={<Spinner label={t("Loading terminal…")} />}>
-              <TerminalTab project={p} />
-            </Suspense>
-          )}
-          {tab === "Logs" && <LogsTab project={p} />}
-          {tab === "Runtime" && (
-            <div className="space-y-6">
-              <ProjectSettingsCard project={p} onRename={() => setRenaming(true)} />
-              {/* The application runtime comes first (PHP, else Python, Go, Ruby, Java, .NET, Node), then the web server, then the other runtimes as toolchains. */}
-              {(() => {
-                const app = p.appService ?? appKindOf(p);
-                type Kind = "php" | "python" | "go" | "ruby" | "java" | "dotnet" | "node";
-                const cards: Record<Kind, ReactElement> = { php: <PhpCard key="php" project={p} />, python: <PythonCard key="python" project={p} />, go: <GoCard key="go" project={p} />, ruby: <RubyCard key="ruby" project={p} />, java: <JavaCard key="java" project={p} />, dotnet: <DotnetCard key="dotnet" project={p} />, node: <NodeCard key="node" project={p} /> };
-                // The application runtime first, then the rest in their usual order (Node before the
-                // servers, PHP last unless it's the application).
-                const order: Kind[] = ["node", "python", "go", "ruby", "java", "dotnet", "php"];
-                const [first, ...rest]: Kind[] = app && app !== "php" ? [app, ...order.filter((k) => k !== app)] : ["php", "node", "python", "go", "ruby", "java", "dotnet"];
-                return (
-                  <>
-                    {first && cards[first]}
-                    <WebServerCard project={p} />
-                    {rest.map((k) => cards[k])}
-                    <CustomImagesCard project={p} />
-                  </>
-                );
-              })()}
+            <WorkersTab project={p} />
+            <CronTab project={p} />
+          </div>
+        )}
+        {tab === "Database" && <DatabaseTab project={p} />}
+        {tab === "Services" && <ServicesTab project={p} />}
+        {tab === "Backups" && <BackupsTab project={p} />}
+        {tab === "Environment" && <EnvTab project={p} />}
+        {tab === "IDE" && <IdeTab project={p} />}
+        {tab === "Resources" && <ResourcesTab project={p} />}
+        {tab === "History" && (
+          <Card>
+            <CardHeader title={t("History")} description={t("Everything done to this project, newest first; open an entry to see what a change changed.")} />
+            <div className="pt-4">
+              <AuditLog project={p.id} />
             </div>
-          )}
-          {tab === "Workers" && (
-            <div className="space-y-6">
-              {!p.services.some((s) => (s.kind === "php" || s.kind === "node" || s.kind === "python" || s.kind === "go" || s.kind === "ruby" || s.kind === "java" || s.kind === "dotnet") && s.enabled) && (
-                <Alert tone="amber">{t("Workers and cron jobs run in the project's PHP, Python, Go, Ruby, Java, .NET or Node.js container - this project has none. Add one under Runtime first.")}</Alert>
-              )}
-              <WorkersTab project={p} />
-              <CronTab project={p} />
-            </div>
-          )}
-          {tab === "Database" && <DatabaseTab project={p} />}
-          {tab === "Services" && <ServicesTab project={p} />}
-          {tab === "Backups" && <BackupsTab project={p} />}
-          {tab === "Environment" && <EnvTab project={p} />}
-          {tab === "IDE" && <IdeTab project={p} />}
-          {tab === "Resources" && <ResourcesTab project={p} />}
-          {tab === "History" && (
-            <Card>
-              <CardHeader title={t("History")} description={t("Everything done to this project, newest first; open an entry to see what a change changed.")} />
-              <div className="pt-4">
-                <AuditLog project={p.id} />
-              </div>
-            </Card>
-          )}
-        </div>
-      </div>
+          </Card>
+        )}
+      </SectionLayout>
 
       {projectAdmin && <ShareDialog project={p} open={sharing} onClose={() => setSharing(false)} />}
       {instanceAdmin && <DockerPlanDialog project={p} open={showingPlan} onClose={() => setShowingPlan(false)} />}

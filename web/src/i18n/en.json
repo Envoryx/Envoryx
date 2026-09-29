@@ -47,5 +47,6 @@
   "{{count}} settings changed_one": "{{count}} setting changed",
   "{{count}} settings changed_other": "{{count}} settings changed",
   "{{count}} project roles_one": "{{count}} project role",
-  "{{count}} project roles_other": "{{count}} project roles"
+  "{{count}} project roles_other": "{{count}} project roles",
+  "Secret key_instance": "Secret key"
 }

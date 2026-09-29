@@ -1545,7 +1545,7 @@ export interface UpdateSettingsRequest {
   metricsRetentionDays?: number;
 }
 
-/** Container output kept beyond the containers (Settings → General). */
+/** Container output kept beyond the containers (Settings → Retention). */
 export interface LogHistoryInfo {
   enabled: boolean;
   retentionDays: number;
@@ -1558,7 +1558,7 @@ export interface LogHistoryInfo {
   following: number;
 }
 
-/** The resource history (Settings → General). */
+/** The resource history (Settings → Retention). */
 export interface MetricsInfo {
   retentionDays: number;
   /** Stored samples (all resolutions) and disk space measurements. */

@@ -6,6 +6,7 @@ import { useMutation } from "@tanstack/react-query";
 import { api } from "@/api/client";
 import { useDatabases, useExtraServices, useSettings, useUpdateProject } from "@/api/hooks";
 import { OperationHint } from "@/components/OperationsTray";
+import { settingsHref } from "@/features/settings/links";
 import { appKindOf, type DatabaseInfo, type NodeConfig, type Operation, type PHPConfig, type Project, type PythonConfig, type GoConfig, type RubyConfig, type JavaConfig } from "@/api/types";
 import { Alert, Button, Card, CardHeader, Checkbox, Code } from "@/components/ui";
 import { CopyButton, CopyRow } from "./DatabaseTab";
@@ -97,7 +98,7 @@ export function IdeTab({ project: p }: { project: Project }) {
               <CopyRow label={t("Host")} value={sshHost} />
               <CopyRow label={t("Port")} value={String(ssh.port)} />
               <CopyRow label={t("User")} value={p.slug} />
-              <CopyRow label={t("Password")} value={t("<API token from Settings → API tokens>")} mono={false} />
+              <CopyRow label={t("Password")} value={t("<API token from Settings → API tokens & MCP>")} mono={false} />
               <CopyRow label={t("Root path")} value="/var/www/html" />
               {s?.proxy?.enabled && proxyUrl(hostname, s.proxy) && <CopyRow label={t("Web server URL")} value={proxyUrl(hostname, s.proxy)} />}
             </dl>
@@ -160,7 +161,7 @@ export function IdeTab({ project: p }: { project: Project }) {
               {runtimeCount > 1 && hasJava && <CopyRow label={t("User (Java)")} value={`${p.slug}.java`} />}
               {runtimeCount > 1 && hasDotnet && <CopyRow label={t("User (.NET)")} value={`${p.slug}.dotnet`} />}
               {runtimeCount > 1 && hasNode && <CopyRow label={t("User (Node)")} value={`${p.slug}.node`} />}
-              <CopyRow label={t("Password")} value={t("<API token from Settings → API tokens>")} mono={false} />
+              <CopyRow label={t("Password")} value={t("<API token from Settings → API tokens & MCP>")} mono={false} />
               {hasPhp && <CopyRow label={t("PHP path")} value="/usr/local/bin/php" />}
               {hasPython && <CopyRow label={t("Python path")} value="/var/www/html/.venv/bin/python" />}
               {hasPython && <CopyRow label={t("Python path (without .venv)")} value="/usr/local/bin/python" />}
@@ -179,7 +180,15 @@ export function IdeTab({ project: p }: { project: Project }) {
           )}
           {app && (
             <p className="mt-3 text-xs text-subtle">
-              {t("Authentication: an")} <Link to="/settings?tab=access" className="underline">{t("API token")}</Link> {t("as password, or your public key under Settings → SSH access. Sessions run as the project owner inside")} <Code>envoryx-{p.slug}-{app}</Code>; {t("the project must be running.")}
+              {t("Authentication: an")}{" "}
+              <Link to={settingsHref("tokens")} className="underline">
+                {t("API token")}
+              </Link>{" "}
+              {t("as password, or your public key under")}{" "}
+              <Link to={settingsHref("sshkeys")} className="underline">
+                {t("Settings → SSH keys")}
+              </Link>
+              {t(". Sessions run as the project owner inside")} <Code>envoryx-{p.slug}-{app}</Code>; {t("the project must be running.")}
             </p>
           )}
         </div>
@@ -467,7 +476,7 @@ export function IdeTab({ project: p }: { project: Project }) {
                 <Bug className="size-4 text-accent-500" aria-hidden /> {t(".NET debugging (netcoredbg)")}
               </span>
             }
-            description={t("No debug port: the debugger runs inside the container and talks to your IDE over the Envoryx SSH connection, which must be able to log in without a password prompt - add your public key under Settings → SSH access.")}
+            description={t("No debug port: the debugger runs inside the container and talks to your IDE over the Envoryx SSH connection, which must be able to log in without a password prompt - add your public key under Settings → SSH keys.")}
           />
           <div className="p-5">
             <dl>

@@ -14,7 +14,7 @@ describe("Settings diagnostics", () => {
       { id: "docker.engine", category: "runtime", status: "ok", title: "Docker engine", detail: "Docker 29 on Linux" },
       publicHost
         ? { id: "network.publicHost", category: "network", status: "ok", title: "Host for project links", detail: "Links use " + publicHost }
-        : { id: "network.publicHost", category: "network", status: "warning", title: "Host for project links", detail: "Envoryx has its own IP", hint: "Set the Docker host's address under Settings → General → Host for project links.", action: { kind: "setPublicHost", value: "192.168.1.24" }, docs: "project-links" },
+        : { id: "network.publicHost", category: "network", status: "warning", title: "Host for project links", detail: "Envoryx has its own IP", hint: "Set the Docker host's address under Settings → Domains & HTTPS → Host for project links.", action: { kind: "setPublicHost", value: "192.168.1.24" }, docs: "project-links" },
       { id: "maintenance.notifications", category: "maintenance", status: "info", title: "Notifications", detail: "No channel configured.", hint: "Configure a channel.", action: { kind: "settingsTab", value: "notifications", label: "Configure" } },
     ];
     let probeReachable = true;
@@ -38,17 +38,17 @@ describe("Settings diagnostics", () => {
     renderApp(<SettingsPage />);
     const user = userEvent.setup();
 
-    // Diagnostics is the first tab: groups, the warning with its hint and the fix button.
+    // Diagnostics is where admins land: groups, the warning with its hint and the fix button.
     expect(await screen.findByText("1 warning")).toBeInTheDocument();
     expect(screen.getByText("Docker & storage")).toBeInTheDocument();
     expect(screen.getByText("Network & links")).toBeInTheDocument();
     expect(screen.getByText(/Set the Docker host's address/)).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: /Diagnostics/ })).toHaveTextContent("1");
+    expect(screen.getByRole("link", { name: /Diagnostics/ })).toHaveTextContent("1");
 
     await user.click(screen.getByRole("button", { name: "Use 192.168.1.24" }));
     await waitFor(() => expect(api.calls.some((c) => c.method === "PATCH" && c.url.endsWith("/settings"))).toBe(true));
     await waitFor(() => expect(screen.getByText("Everything looks good")).toBeInTheDocument());
-    expect(screen.getByRole("tab", { name: /Diagnostics/ })).toHaveTextContent("✓");
+    expect(screen.getByRole("link", { name: /Diagnostics/ })).toHaveTextContent("✓");
 
     // The browser probe is part of the network group and passed.
     expect(screen.getByText("Project domains from this browser")).toBeInTheDocument();
@@ -61,8 +61,8 @@ describe("Settings diagnostics", () => {
     expect(screen.getByText("1 warning")).toBeInTheDocument();
     expect(screen.getByText(/This device's DNS does not resolve names under the base domain/)).toBeInTheDocument();
 
-    // An action of kind settingsTab switches the tab.
+    // An action of kind settingsTab opens that section.
     await user.click(screen.getByRole("button", { name: "Configure" }));
-    await waitFor(() => expect(screen.getByRole("tab", { name: "Notifications" })).toHaveAttribute("aria-selected", "true"));
+    await waitFor(() => expect(screen.getByRole("link", { name: "Notifications" })).toHaveAttribute("aria-current", "page"));
   });
 });
