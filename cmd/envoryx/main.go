@@ -54,6 +54,7 @@ import (
 	"github.com/envoryx/envoryx/internal/project"
 	"github.com/envoryx/envoryx/internal/proxy"
 	"github.com/envoryx/envoryx/internal/runtime"
+	"github.com/envoryx/envoryx/internal/secrets"
 	"github.com/envoryx/envoryx/internal/server"
 	"github.com/envoryx/envoryx/internal/sshd"
 	"github.com/envoryx/envoryx/internal/stats"
@@ -157,6 +158,18 @@ func serve() error {
 		}
 	}
 	warnStrandedBackups(cfg, log)
+
+	// The key that seals the secrets at rest: ENVORYX_SECRET_KEY, else /config/secret.key
+	// (created now if missing). Keys of a rotation or restore still open older values
+	// until everything is resealed below.
+	keyRing, keySource, err := secrets.Load(cfg.ConfigDir, os.Getenv)
+	if err != nil {
+		return fmt.Errorf("secret key: %w", err)
+	}
+	secrets.SetDefault(keyRing)
+	if !keySource.Created {
+		log.Info("secret key loaded", "source", keySource.Kind, "keyId", keyRing.Current().ID())
+	}
 	var warnings []string
 	for _, dir := range uniqueDirs(cfg.ConfigDir, filepath.Dir(cfg.DatabasePath)) {
 		w, err := config.ValidateStorage(dir, cfg.AllowNetworkFS)
@@ -200,6 +213,15 @@ func serve() error {
 	}
 	defer sqlDB.Close()
 	st := store.New(sqlDB)
+	if err := st.CheckSecretKey(ctx); err != nil {
+		return fmt.Errorf("secret key: %w", err)
+	}
+	if keySource.Created {
+		if err := keySource.Persist(); err != nil {
+			return fmt.Errorf("secret key: %w", err)
+		}
+		log.Warn("created a new secret key: keep a copy (Settings, Access, Secret key) or set ENVORYX_SECRET_KEY; without it an instance backup cannot be restored elsewhere", "path", keySource.Path, "keyId", keyRing.Current().ID())
+	}
 	schema, _ := db.SchemaVersion(ctx, sqlDB)
 	log.Info("database ready", "path", cfg.DatabasePath, "schema", schema)
 
@@ -268,6 +290,18 @@ func serve() error {
 	manager := project.NewManager(st, engine, catalog, paths, auditLog, project.Config{
 		PortRangeStart: cfg.PortRangeStart, PortRangeEnd: cfg.PortRangeEnd, StopTimeout: 10 * time.Second,
 	}, log)
+	manager.SetSecretKeySource(keySource)
+	// Plain values from before encryption and values of an older key get the current key;
+	// only then are the key files of a rotation or restore gone.
+	if rep, err := manager.ResealAll(ctx); err != nil {
+		return fmt.Errorf("seal secrets: %w", err)
+	} else if rep != (project.ResealReport{}) {
+		log.Info("secrets sealed with the current key", "keyId", keyRing.Current().ID(), "database", rep.Database, "files", rep.Files, "backups", rep.Backups)
+	}
+	if removed := keySource.Cleanup(); len(removed) > 0 {
+		log.Info("old key files removed after resealing", "files", removed)
+	}
+	keyRing.DropOld()
 	collector := stats.New(engine, 5*time.Second, log)
 	notifier, err := notify.New(cfg.ConfigDir, log)
 	if err != nil {

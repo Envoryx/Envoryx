@@ -24,6 +24,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/envoryx/envoryx/internal/secrets"
 	"github.com/envoryx/envoryx/internal/validate"
 )
 
@@ -220,7 +221,7 @@ type Config struct {
 // OpenConfig loads the targets from dir.
 func OpenConfig(dir string) (*Config, error) {
 	c := &Config{dir: dir}
-	raw, err := os.ReadFile(filepath.Join(dir, configFile))
+	raw, err := secrets.ReadFile(filepath.Join(dir, configFile))
 	if errors.Is(err, os.ErrNotExist) {
 		return c, nil
 	}
@@ -347,11 +348,7 @@ func (c *Config) write(targets []Target) error {
 	if err := os.MkdirAll(c.dir, 0o700); err != nil {
 		return err
 	}
-	tmp := filepath.Join(c.dir, configFile+".tmp")
-	if err := os.WriteFile(tmp, raw, 0o600); err != nil {
-		return fmt.Errorf("write offsite configuration: %w", err)
-	}
-	return os.Rename(tmp, filepath.Join(c.dir, configFile))
+	return secrets.WriteFile(filepath.Join(c.dir, configFile), raw, 0o600)
 }
 
 func newID() string {

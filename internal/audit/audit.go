@@ -47,8 +47,12 @@ const (
 	ActionCustomImageChanged = "project.custom_image_changed"
 	// ActionAddonInstalled is written when an addon file is installed or replaced,
 	// ActionAddonRemoved when one is deleted.
-	ActionAddonInstalled = "addon.installed"
-	ActionAddonRemoved   = "addon.removed"
+	// ActionSecretKeyRevealed is written when an admin shows the secret key,
+	// ActionSecretKeyRotated when a new key replaces it.
+	ActionSecretKeyRevealed = "settings.secret_key_revealed"
+	ActionSecretKeyRotated  = "settings.secret_key_rotated"
+	ActionAddonInstalled    = "addon.installed"
+	ActionAddonRemoved      = "addon.removed"
 	// ActionRegistriesChanged is written when the private registry logins change.
 	ActionRegistriesChanged = "settings.registries_changed"
 	ActionOrphansRemoved    = "docker.orphans_removed"

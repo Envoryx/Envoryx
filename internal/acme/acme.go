@@ -25,6 +25,7 @@ import (
 	"golang.org/x/crypto/acme"
 
 	"github.com/envoryx/envoryx/internal/notify"
+	"github.com/envoryx/envoryx/internal/secrets"
 	"github.com/envoryx/envoryx/internal/tlsca"
 	"github.com/envoryx/envoryx/internal/validate"
 )
@@ -106,7 +107,7 @@ func New(dir string, certs *tlsca.Store, log *slog.Logger) (*Manager, error) {
 	}
 	m := &Manager{dir: dir, certs: certs, log: log, wake: make(chan struct{}, 1), now: time.Now}
 	m.lookupTXT = authoritativeTXTLookup
-	raw, err := os.ReadFile(filepath.Join(dir, configFile))
+	raw, err := secrets.ReadFile(filepath.Join(dir, configFile))
 	if err == nil {
 		if err := json.Unmarshal(raw, &m.cfg); err != nil {
 			log.Warn("acme configuration unreadable; ignoring", "err", err)
@@ -249,7 +250,7 @@ func (m *Manager) saveLocked(cfg Config) error {
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(filepath.Join(m.dir, configFile), raw, 0o600); err != nil {
+	if err := secrets.WriteFile(filepath.Join(m.dir, configFile), raw, 0o600); err != nil {
 		return fmt.Errorf("write acme configuration: %w", err)
 	}
 	m.cfg = cfg

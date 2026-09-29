@@ -21,6 +21,7 @@ import (
 	"github.com/envoryx/envoryx/internal/notify"
 	"github.com/envoryx/envoryx/internal/runtime"
 	"github.com/envoryx/envoryx/internal/s3"
+	"github.com/envoryx/envoryx/internal/secrets"
 	"github.com/envoryx/envoryx/internal/store"
 	"github.com/envoryx/envoryx/internal/validate"
 )
@@ -46,12 +47,16 @@ type Manager struct {
 	// custom holds the build specs and context hashes of custom images (customimages.go).
 	custom customImages
 	// addons are the installed addon files (addons.go).
-	addons  *addon.Registry
-	catalog *runtime.Catalog
-	paths   PathsProvider
-	audit   *audit.Logger
-	log     *slog.Logger
-	cfg     Config
+	addons *addon.Registry
+	// keySource is where the secret key came from; rotateMu serialises rotations
+	// (secretkey.go).
+	keySource secrets.Source
+	rotateMu  sync.Mutex
+	catalog   *runtime.Catalog
+	paths     PathsProvider
+	audit     *audit.Logger
+	log       *slog.Logger
+	cfg       Config
 
 	locks    sync.Map // project id -> *sync.Mutex
 	createMu sync.Mutex
