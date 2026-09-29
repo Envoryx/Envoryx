@@ -74,8 +74,10 @@ func TestTemplatesScaffoldThroughOneShotContainers(t *testing.T) {
 		t.Fatalf("template extensions must be added to the defaults: %s", exts)
 	}
 
-	// Failures roll the project back.
+	// Failures roll the project back, including what the scaffold had written, so the
+	// same create can be tried again.
 	e.engine.OneShotHandler = func(spec docker.ContainerSpec) (docker.ExecResult, error) {
+		_ = os.WriteFile(filepath.Join(e.projDir, "broken", "composer.json"), []byte("{}"), 0o644)
 		return docker.ExecResult{ExitCode: 1, Stderr: "Could not find package"}, nil
 	}
 	if _, err := e.m.Create(ctx, CreateRequest{Name: "Broken", Template: "symfony", PHP: &PHPRequest{Version: "8.4"}}); err == nil || !strings.Contains(err.Error(), "Could not find package") {
@@ -83,6 +85,10 @@ func TestTemplatesScaffoldThroughOneShotContainers(t *testing.T) {
 	}
 	if views, _ := e.m.List(ctx); len(views) != 2 {
 		t.Fatalf("failed project must be rolled back, have %d", len(views))
+	}
+	e.engine.OneShotHandler = nil
+	if _, err := e.m.Create(ctx, CreateRequest{Name: "Broken", Template: "symfony", PHP: &PHPRequest{Version: "8.4"}}); err != nil {
+		t.Fatalf("retry after a failed template: %v", err)
 	}
 	if _, err := e.m.Create(ctx, CreateRequest{Name: "X", Template: "nope", PHP: &PHPRequest{Version: "8.4"}}); !errors.Is(err, validate.ErrInvalid) {
 		t.Fatalf("unknown template: %v", err)

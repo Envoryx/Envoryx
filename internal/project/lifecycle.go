@@ -192,21 +192,21 @@ func (m *Manager) create(ctx context.Context, req CreateRequest) (View, error) {
 	// either.
 	scaffold := proj.Git.URL != "" || req.Template != "" || req.Import != nil
 	starter := req.CreateStarter && !scaffold && !appServesDirectly(proj)
-	if req.Import != nil {
-		// The upload goes into an empty directory only, and leaves nothing behind when
-		// the creation fails.
-		target := planner.ProjectDir(proj)
-		entries, err := os.ReadDir(target)
-		switch {
-		case errors.Is(err, os.ErrNotExist):
-			j.projectDir = target
-		case err != nil:
-			return fail("prepare project directory", err)
-		case len(entries) > 0:
-			return fail("prepare project directory", fmt.Errorf("%w: %s already exists and is not empty", ErrConflict, proj.Path))
-		default:
-			j.filledDir = target
-		}
+	// A failed create leaves nothing behind in a directory it made or found empty, so a
+	// retry with the same name starts clean (a template or clone needs an empty one). A
+	// directory that already held files is never touched: they are the user's.
+	target := planner.ProjectDir(proj)
+	entries, err := os.ReadDir(target)
+	switch {
+	case errors.Is(err, os.ErrNotExist):
+		j.projectDir = target
+	case err != nil:
+		return fail("prepare project directory", err)
+	case len(entries) == 0:
+		j.filledDir = target
+	case req.Import != nil:
+		// The upload goes into an empty directory only.
+		return fail("prepare project directory", fmt.Errorf("%w: %s already exists and is not empty", ErrConflict, proj.Path))
 	}
 	step(ctx, "Preparing the project directory")
 	if err := m.ensureProjectDir(planner, proj, starter, scaffold); err != nil {
