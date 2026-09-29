@@ -132,7 +132,7 @@ signs real ID tokens (PKCE, nonce, groups, linking, username fallbacks).
 
 Frontend tests (Vitest + Testing Library) cover the login/setup flow, the project list
 with actions, the complete wizard including preview and validation errors for the PHP,
-Node.js, Python and static stacks, and the detail tabs per runtime shape.
+Node.js, Python and static stacks, and the project sections per runtime shape.
 `src/i18n/i18n.test.ts` checks that every German key exists in every other dictionary with
 matching placeholders.
 
@@ -142,7 +142,7 @@ matching placeholders.
 real Docker engine, along the path a new user takes: first-run setup, sign-in, the wizard, a
 running project answering on its port, live logs, stop and delete (`lifecycle.spec.ts`, a
 PHP project), and the same for a static project without PHP (`node-only.spec.ts`: the web
-container alone serves the starter `index.html`; Git and IDE tabs without PHP). They run in
+container alone serves the starter `index.html`; Git and IDE sections without PHP). They run in
 CI on every push (the `e2e` job) and locally with:
 
 ```
@@ -217,7 +217,7 @@ template, its install script or the default PHP version:
 for t in drupal typo3 shopware craft; do
   envoryx project create "T $t" --php 8.5 --database mariadb --template $t --start
 done
-# then run each install action from the Actions tab (or its WebSocket) and open the site
+# then run each install action from Actions (or its WebSocket) and open the site
 ```
 
 ### Python image and scaffold smoke
@@ -268,7 +268,7 @@ start.spring.io, cloned or copied in). Check for each:
   Gradle cache and takes a few minutes);
 - *Debug with JDWP* publishes a port that completes the handshake
   (`printf JDWP-Handshake | nc <host> <port>` echoes it back);
-- the Tests tab runs against `<database>_test` and shows the tests from the JUnit report;
+- the Tests section runs against `<database>_test` and shows the tests from the JUnit report;
 - Quarkus picks up a changed resource on the next request, and production mode serves the
   built jar.
 
@@ -289,7 +289,7 @@ enabled and create one project per template: the Web API with PostgreSQL, MariaD
 - Blazor's `/_blazor` WebSocket upgrades through the proxy (101);
 - `netcoredbg --interpreter=cli` over `ssh -p <port> <project>.dotnet@<host>` attaches to the
   application and stops at a breakpoint in a request handler;
-- with an xUnit project and a solution at the top, the Tests tab runs against
+- with an xUnit project and a solution at the top, the Tests section runs against
   `<database>_test` and shows the failed test with file and line;
 - production mode and the *DLL* preset (a `dotnet new worker` project) publish and run the
   application as the container's main process, with no compiler server left behind.

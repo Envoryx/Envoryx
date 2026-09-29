@@ -635,7 +635,7 @@ names the container kind).
   and `GRADLE_USER_HOME` into the shared package cache. The test suites
   (`mvn test`, `gradle test`) run behind `javaTestScript`, which points
   every JDBC and database URL at `<database>_test` and joins the per-class
-  JUnit files into the one report the Tests tab reads.
+  JUnit files into the one report the Tests section reads.
 - *.NET server* (`serves=dotnet`): the same mechanics with the .NET container
   as the upstream (`envoryx-<slug>-dotnet:<port>`). `runtime.DotnetConfig`
   (`internal/runtime/dotnet.go`) selects the preset (`aspnetcore` or `dll`)
@@ -943,7 +943,7 @@ through `instance.Store.Import` and is restored the usual way.
 | api / mcp | project without `php` over HTTP (preview, DTO fields `serves`/`appService`, 409 on `PUT php`, 404 on php logs, node terminal), Python project over HTTP (preview ports, config with allocated host ports, python terminal with venv env, Python/Django actions, server off and removal, rejected preset/app), `/runtimes` with `nodePresets`/`pythonPresets` and template runtimes; MCP `phpVersion:"none"` + `nodePreset`, template/runtime errors, `get_logs` default service | httptest + fake Engine |
 | api | unauthorized access, validation errors, error envelope, full lifecycle over HTTP; `users_test.go`: invitation and sign-up, project roles, the trimmed settings, tokens capped by their owner, the last admin, a user confined to one project, disabling | httptest + fake Engine |
 | docker | real engine behaviour (labels, guards, foreign containers untouched) | integration tests behind `//go:build integration` (need Docker) |
-| web | components, login flow, wizard flow (PHP, Python, Node.js and static stacks, template filtering), project list actions, IDE/Git/Domains tabs per runtime shape, Python server fields and card, i18n parity of all dictionaries | Vitest + Testing Library |
+| web | components, login flow, wizard flow (PHP, Python, Node.js and static stacks, template filtering), project list actions, IDE/Git/Domains sections per runtime shape, Python server fields and card, i18n parity of all dictionaries | Vitest + Testing Library |
 | e2e | lifecycle of a PHP project and of a static project without PHP (`web/e2e`) | Playwright against a Docker host |
 
 ---
@@ -1224,7 +1224,7 @@ The history (`logs.Store`, `/config/logs/<project id>/<service>/<YYYY-MM-DD>.jso
 one `{"t","s","m"}` object per line, UTC days) is keyed by project and service,
 not by container, which is what makes it survive a recreated container.
 `logs.Collector` runs in `RunLogHistory` (every 5 s): it lists the managed
-containers of the Logs tab's services (`IsLogService`, not git/template/move
+containers of the Logs section's services (`IsLogService`, not git/template/move
 helpers), follows each running one it does not follow yet and reads each
 stopped one once to the end, which catches output from while Envoryx was down. Every
 reader starts at its service's newest stored line + 1 ns (Docker's `since` is

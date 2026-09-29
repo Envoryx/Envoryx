@@ -156,7 +156,7 @@ links in **Settings → General → Project links & developer machine** (or `ENV
 the Unraid IP.
 
 When Envoryx detects that it has an IP of its own and no host is set, the
-dashboard, the project tabs with such links and the settings show a notice
+dashboard, the project sections with such links and the settings show a notice
 with the Docker host as Docker reports it (name, and its IP when the LAN
 resolves the name) and a one-click button to use it.
 
@@ -281,7 +281,7 @@ not at the Unraid IP (which is where the direct project ports live).
 
 - Base domain, default `test` (Settings → Domains & HTTPS). Every project is
   `<slug>.<base>` (`shop.test`), the UI is `envoryx.<base>`.
-- Additional names per project in its **Domains** tab (`shop.local`,
+- Additional names per project in its **Domains** section (`shop.local`,
   `api.shop.test`, …). Each name must be unique across projects.
 - The names must resolve to the Envoryx host on every client. Because Envoryx
   runs on a server, one **wildcard entry** in the DNS server of your network
@@ -393,7 +393,7 @@ supports WebSockets. Projects can therefore generate correct absolute URLs
 
 ### Node dev servers
 
-Enable "Run a dev server" on the Node.js service (wizard or Runtime tab):
+Enable "Run a dev server" on the Node.js service (wizard or Runtime):
 the script (default `dev`) runs as the container's main process and is
 reachable at `https://<project>-dev.<base>` through the proxy (HMR
 WebSockets included) and on a direct host port. Presets pass host/port to
@@ -412,13 +412,13 @@ a blank directory / git clone), and the dev server *is* the project:
 - **What answers where.** `https://<project>.<base>`, every extra domain and
   `https://<project>-dev.<base>` all reach the dev server
   (`envoryx-<project>-node:<port>`) through the proxy, HMR included. The
-  node container's own host port (Domains tab → *Direct access*, MCP
+  node container's own host port (Domains → *Direct access*, MCP
   `directUrl`) works without DNS or the proxy.
 - **The HTTP port of the web container is not published** while the dev
   server serves the project. The web container still exists (every project
   has one), but the document root defaults to the project root for Node
   projects and would otherwise expose `.env`, sources and `node_modules`
-  statically on the LAN. Turn the dev server off (Runtime tab) and the port
+  statically on the LAN. Turn the dev server off (Runtime) and the port
   is published again with the same number.
 - **Static build mode.** With the dev server off, the web server serves the
   document root statically. Set it to the build output (`dist` for Vite,
@@ -427,8 +427,8 @@ a blank directory / git clone), and the dev server *is* the project:
   index.html** (Web server card) so client-side routes survive a reload;
   without it unknown paths return 404. Static configs deny dotfiles
   (`/.env`, `/.git/…`) on all three web servers.
-- **Production build mode.** The dev server has a mode switch (Runtime
-  tab): *Dev server* (the default, HMR) or *Production build*. In
+- **Production build mode.** The dev server has a mode switch (Runtime):
+  *Dev server* (the default, HMR) or *Production build*. In
   production mode every container start runs the build script (default
   `build`) and then the serve script (`start`; `preview` for Vite) as the
   main process with `NODE_ENV=production`: a production-like run of a
@@ -437,9 +437,9 @@ a blank directory / git clone), and the dev server *is* the project:
   itself stays on `development`, so `npm install` from the terminal keeps
   installing devDependencies. A restart rebuilds, so the first response
   after a start takes as long as the build.
-- **Debugging.** *Publish the Node.js inspector port* (Runtime tab, dev
+- **Debugging.** *Publish the Node.js inspector port* (Runtime, dev
   server required) publishes the inspector port (default 9229) on a host
-  port of its own; the IDE tab shows host, port, path mapping and
+  port of its own; the IDE section shows host, port, path mapping and
   `package.json` examples. Envoryx does not set `NODE_OPTIONS=--inspect`
   on the container on purpose: npm (a Node process itself) would grab the
   port and the debugger would attach to npm instead of your app. Start the
@@ -466,15 +466,15 @@ a blank directory / git clone), and the dev server *is* the project:
   and foreign hosts get 403 (Vite 6.1-8.x; Vite before 8.3 reads the
   variable as one host, which is why it is never a comma-separated list).
   Domains *outside* the base domain must be added to `server.allowedHosts`
-  in `vite.config`; the Domains tab reminds you. Next.js and Nuxt have no
+  in `vite.config`; the Domains section reminds you. Next.js and Nuxt have no
   host check.
 - **Workers** run in the runtime of their preset: the Laravel/Symfony/PHP
   presets in the PHP container's image, the *npm script* (`npm run <name>`)
   and *Node.js script* (`node <file>`) presets in the Node image with the
-  project home mounted. The Workers tab offers only the presets whose
+  project home mounted. *Workers & cron* offers only the presets whose
   runtime the project has. Actions offer npm/pnpm/yarn and `node -v`; git
   clone/pull run in a one-shot container from the Node image.
-- **Cron jobs** (Cron tab) run any command on a schedule in the PHP, Python,
+- **Cron jobs** (*Workers & cron*) run any command on a schedule in the PHP, Python,
   Go, Ruby, Java, .NET or Node.js container, as the project owner in the project directory,
   through `sh -c`, with the project's environment. Pick a schedule (every few
   minutes, hourly, daily, weekly, monthly) or type a cron expression; the form
@@ -484,7 +484,7 @@ a blank directory / git clone), and the dev server *is* the project:
   the command, and the last 20 runs keep their output. For Laravel, either a
   *Scheduler* worker (`schedule:work`) or a cron job running `php artisan
   schedule:run` every minute, not both.
-- **Adding or removing PHP later.** The Runtime tab's PHP card has an
+- **Adding or removing PHP later.** The Runtime section's PHP card has an
   *Enable PHP* switch on every project. Adding PHP to a Node or static
   project starts a PHP-FPM container, switches the web server to FastCGI
   and makes PHP the application (the project URL leaves the dev server;
@@ -506,7 +506,7 @@ starter `index.html` unless you clone a repository.
 ### Python projects (Django, Flask, FastAPI)
 
 Pick **Python application** on the first wizard step (or enable Python on
-any project from the Runtime tab). The Python container
+any project under Runtime). The Python container
 (`envoryx-<project>-python`, image `ghcr.io/envoryx/envoryx-python:<3.x>`
 with pip, uv, git and the build dependencies common wheels need) runs as
 `PUID:PGID` with the project directory at `/var/www/html` and the
@@ -532,7 +532,7 @@ comes next.
   routes `https://<project>.<base>` and every extra domain to
   `envoryx-<project>-python:<port>`, the web container's host port stays
   unpublished (the project root with `.env` and sources is never served),
-  and the Domains tab's *Direct access* is the Python host port. A Node dev
+  and the Domains section's *Direct access* is the Python host port. A Node dev
   server next to Python keeps `<project>-dev.<base>` and its own host port -
   the usual Django/FastAPI backend plus Vite frontend. Next to PHP the
   Python server only has its host port; PHP stays the application.
@@ -547,8 +547,8 @@ comes next.
   `dj-database-url` reading the injected `DATABASE_URL`; psycopg and
   mysqlclient installed), *Flask* (`app.py`) and *FastAPI* (`main.py`,
   docs at `/docs`). Each creates the `.venv`, installs the packages and
-  pins them with `pip freeze > requirements.txt`, so *pip install* from the
-  Actions tab reproduces the environment after a fresh clone.
+  pins them with `pip freeze > requirements.txt`, so *pip install* from
+  Actions reproduces the environment after a fresh clone.
 - **Actions and workers.** Actions: `python --version`, `python -m venv
   .venv`, `pip install -r requirements.txt` (creates the venv when
   missing), `pip freeze`, `uv sync`/`uv lock` (with a `pyproject.toml`),
@@ -557,9 +557,9 @@ comes next.
   (`python <file>`), *Python module* (`python -m <module>`), *manage.py
   command* (`rqworker`, `qcluster`, …), *Celery worker* and *Celery beat*
   (`celery -A <app> …`).
-- **Debugging.** *Publish the debugpy port* (Runtime tab; with or without
+- **Debugging.** *Publish the debugpy port* (Runtime; with or without
   the server, for a script or test run started in the terminal) publishes
-  port 5678 on a host port; the IDE tab shows host, port and path
+  port 5678 on a host port; the IDE section shows host, port and path
   mapping plus command lines that start debugpy in front of the usual
   servers. Only the port is published: `pip install debugpy` in the
   `.venv` and start it yourself (`python -m debugpy --listen
@@ -567,7 +567,7 @@ comes next.
   debugpy`, `request: attach`). PyCharm's *Python Debug Server* works the
   other way round (the IDE listens); use its `pydevd-pycharm` snippet with
   your workstation's address.
-- **Adding or removing Python later.** The Runtime tab's Python card has
+- **Adding or removing Python later.** The Runtime section's Python card has
   an *Enable Python* switch; removing it takes the Python container and the
   Python workers' containers down; files, `.venv` and worker definitions
   stay. Over the API: `PATCH /api/v1/projects/{id}` with `{"python":
@@ -578,7 +578,7 @@ comes next.
 ### Go projects (net/http, Gin, Echo)
 
 Pick **Go application** on the first wizard step (or enable Go on any
-project from the Runtime tab). The Go container (`envoryx-<project>-go`,
+project under Runtime). The Go container (`envoryx-<project>-go`,
 image `ghcr.io/envoryx/envoryx-go:<1.x>`: the official
 `golang:<v>-bookworm` image plus [air](https://github.com/air-verse/air),
 Delve and gotestsum, `GOTOOLCHAIN=local`) runs as `PUID:PGID` with the
@@ -617,7 +617,7 @@ downloaded once for all projects.
   fetch the framework (`go get`, `go mod tidy`).
 - **Actions, tests and workers.** Actions: `go version`, `go build ./...`,
   `go vet ./...`, `gofmt -l .`, `go mod tidy`, `go mod download` and `go
-  generate ./...`. The Tests tab runs `go test ./...` through gotestsum
+  generate ./...`. The Tests section runs `go test ./...` through gotestsum
   (with a JUnit report, so failures show per test). Worker preset *Go
   program* builds a package and runs the binary (not `go run`, which would
   swallow the stop signal); cron jobs run in the Go container like in the
@@ -628,14 +628,14 @@ downloaded once for all projects.
   port; breakpoints survive every rebuild. Attach GoLand (*Run → Edit
   Configurations → Go Remote*) or VS Code (`type: go`, `request: attach`,
   `mode: remote`, `substitutePath` from your folder to `/var/www/html`)
-  with the host and port from the IDE tab. Without the server only the port
+  with the host and port from the IDE section. Without the server only the port
   is published, for `dlv test --headless --listen=:2345 ./pkg/...` or `dlv
   debug` started in the Go terminal. Delve has no authentication: whoever
   reaches the port can run any code in the container, and with the server
   it listens as long as the switch is on, not only while an IDE is
   attached. Switch it off when you are not debugging, and do not enable it
   on a Docker host reachable from untrusted networks.
-- **Adding or removing Go later.** The Runtime tab's Go card has an *Enable
+- **Adding or removing Go later.** The Runtime section's Go card has an *Enable
   Go* switch; removing it takes the Go container and the Go workers'
   containers down, while files and worker definitions stay. Over the API:
   `PATCH /api/v1/projects/{id}` with `{"go": {"enabled": true, "version":
@@ -646,7 +646,7 @@ downloaded once for all projects.
 ### Ruby projects (Rails, Sinatra, Rack)
 
 Pick **Ruby application** on the first wizard step (or enable Ruby on any
-project from the Runtime tab). The Ruby container (`envoryx-<project>-ruby`,
+project under Runtime). The Ruby container (`envoryx-<project>-ruby`,
 image `ghcr.io/envoryx/envoryx-ruby:<3.x|4.x>`: the official
 `ruby:<v>-slim-bookworm` image plus the build dependencies of the common
 native gems (pg, mysql2, sqlite3, psych) and the debug gem) runs as
@@ -697,11 +697,11 @@ and needs none.
   *Sinatra* (`app.rb`, `config.ru`, a `Gemfile` with Puma, `sinatra-contrib`
   for the reloader and the debug gem). The Rails templates take a few
   minutes the first time, while the native gems compile; run *rails
-  db:prepare* from the Actions tab afterwards.
+  db:prepare* from Actions afterwards.
 - **Actions, tests and workers.** Actions: `ruby --version`, `bundle
   install`/`update`/`outdated`, `rubocop` (with a `.rubocop.yml`), and for
   Rails `db:prepare`, `db:migrate`, `db:rollback`, `db:seed`, `routes`,
-  `assets:precompile`, `tmp:clear` and `about`. The Tests tab runs `bundle
+  `assets:precompile`, `tmp:clear` and `about`. The Tests section runs `bundle
   exec rspec` (with a `spec/` directory and rspec in `Gemfile.lock`; with
   `rspec_junit_formatter` in the bundle failures show per test) and `bin/rails
   test`, in the test environment and against `<database>_test` on the
@@ -721,7 +721,7 @@ and needs none.
   *VSCode rdbg Ruby Debugger* extension (`type: rdbg`, `request: attach`,
   `debugPort: "<host>:<port>"`, `localfsMap: "/var/www/html:${workspaceFolder}"`)
   or a terminal (`rdbg -A <host> <port>`) with the host and port from the IDE
-  tab. RubyMine's *Ruby remote debug* speaks only `ruby-debug-ide`, not the
+  section. RubyMine's *Ruby remote debug* speaks only `ruby-debug-ide`, not the
   debug gem: in RubyMine, add the Ruby container as an SSH remote interpreter
   (user `<project>.ruby`, see *IDE integration*) and debug with RubyMine's own
   debugger; the rdbg switch isn't needed for that. Without the server only the
@@ -731,7 +731,7 @@ and needs none.
   server it listens as long as the switch is on. Switch it off when you are
   not debugging, and do not enable it on a
   Docker host reachable from untrusted networks.
-- **Adding or removing Ruby later.** The Runtime tab's Ruby card has an
+- **Adding or removing Ruby later.** The Runtime section's Ruby card has an
   *Enable Ruby* switch; removing it takes the Ruby container and the Ruby
   workers' containers down, while files and worker definitions stay. Over the API:
   `PATCH /api/v1/projects/{id}` with `{"ruby": {"enabled": true, "version":
@@ -742,7 +742,7 @@ and needs none.
 ### Java projects (Spring Boot, Quarkus)
 
 Pick **Java application** on the first wizard step (or enable Java on any
-project from the Runtime tab). The Java container (`envoryx-<project>-java`,
+project under Runtime). The Java container (`envoryx-<project>-java`,
 image `ghcr.io/envoryx/envoryx-java:<17|21|25>`: Eclipse Temurin
 `<v>-jdk-noble` plus Maven, Gradle, git and socat; only the LTS releases) runs
 as `PUID:PGID` with the project directory at `/var/www/html` and the project
@@ -794,7 +794,7 @@ shared package cache, so a dependency is downloaded once for every project.
 - **Actions, tests and workers.** Actions: `java -version`; for Maven
   `package`, `clean`, `dependency:tree` and
   `versions:display-dependency-updates`; for Gradle `build`, `clean`,
-  `dependencies` and `tasks`. The Tests tab runs `mvn test` or `gradle test`
+  `dependencies` and `tasks`. The Tests section runs `mvn test` or `gradle test`
   (filter with `-Dtest` or `--tests`) and shows the result per test from the
   JUnit reports. The run points `SPRING_DATASOURCE_URL`,
   `QUARKUS_DATASOURCE_JDBC_URL`, `JDBC_URL` and `DATABASE_URL` at
@@ -809,13 +809,13 @@ shared package cache, so a dependency is downloaded once for every project.
   for `bootRun` an init script (`/opt/envoryx/jdwp.gradle`) adds it, and
   Quarkus dev mode gets `-Ddebug`. Attach IntelliJ IDEA with *Run → Remote JVM
   Debug* or VS Code (`type: java`, `request: attach`) with the host and port
-  from the IDE tab. Without the server only the port is published, for a JVM
+  from the IDE section. Without the server only the port is published, for a JVM
   started in the Java terminal with
   `-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005`.
   JDWP has no authentication: whoever reaches the port can run any code in
   the JVM. Switch it off when you are not debugging, and do not enable it on
   a Docker host reachable from untrusted networks.
-- **Adding or removing Java later.** The Runtime tab's Java card has an
+- **Adding or removing Java later.** The Runtime section's Java card has an
   *Enable Java* switch; removing it takes the Java container and the Java
   workers' containers down, while files and worker definitions stay. Over the API:
   `PATCH /api/v1/projects/{id}` with `{"java": {"enabled": true, "version":
@@ -826,7 +826,7 @@ shared package cache, so a dependency is downloaded once for every project.
 ### .NET projects (ASP.NET Core, Blazor, worker services)
 
 Pick **.NET application** on the first wizard step (or enable .NET on any
-project from the Runtime tab). The .NET container (`envoryx-<project>-dotnet`,
+project under Runtime). The .NET container (`envoryx-<project>-dotnet`,
 image `ghcr.io/envoryx/envoryx-dotnet:<8|10>`: the official SDK image
 `mcr.microsoft.com/dotnet/sdk:<v>.0-noble` plus `dotnet-ef`, the netcoredbg
 debugger, git and socat; only the LTS releases, and .NET 8 reaches its end of
@@ -893,7 +893,7 @@ downloaded once for every project.
   `build`, `clean`, `format` and `list package --outdated` (they need a
   solution or project file at the top), `dotnet ef database update` and
   `dotnet ef migrations list` (a project file at the top, referencing
-  `Microsoft.EntityFrameworkCore.Design`). The Tests tab runs `dotnet test`
+  `Microsoft.EntityFrameworkCore.Design`). The Tests section runs `dotnet test`
   once a test project (xUnit, NUnit, MSTest, TUnit or the test SDK) exists:
   the solution at the top, or the one test project; several test projects
   without a solution file need one (`dotnet new sln`, `dotnet sln add`). Filter
@@ -940,7 +940,7 @@ downloaded once for every project.
 
   Rider and Visual Studio attach through *Attach to Remote Process* over an
   SSH connection to the same user.
-- **Adding or removing .NET later.** The Runtime tab's .NET card has an
+- **Adding or removing .NET later.** The Runtime section's .NET card has an
   *Enable .NET* switch; removing it takes the .NET container and the .NET
   workers' containers down, while files and worker definitions stay. Over the
   API: `PATCH /api/v1/projects/{id}` with `{"dotnet": {"enabled": true,
@@ -993,7 +993,7 @@ without the password. Duplicating a project copies them.
 
 ## Project variables and .env files
 
-A project's variables (*Environment* tab, or the wizard's *Environment* step)
+A project's variables (*Environment* section, or the wizard's *Environment* step)
 reach every container of the project and win over what Envoryx sets for the
 services. **Import .env** reads a `.env` file (pasted or chosen) in the form
 Laravel, Symfony and docker compose write (`export`, comments, single and
@@ -1066,8 +1066,8 @@ database:
 Every changed file is kept next to itself as `<name>.envoryx-original.php`,
 starting with a line that answers 404, so the web server never hands the old
 credentials out. For plain PHP sites the wizard names the files that open a
-connection; change those by hand (host `database`, the rest on the *Database*
-tab). Without adapting, the files stay exactly as uploaded.
+connection; change those by hand (host `database`, the rest under *Database*).
+Without adapting, the files stay exactly as uploaded.
 
 **The dump** is imported after the containers are created; the database
 container is started for it if the project isn't running. Statements that tie it to
@@ -1098,7 +1098,7 @@ for no database), `--web`, `--docroot` and `--path` override it.
 
 ## Resource limits
 
-A project's **Resources** tab caps what its containers may use, so a runaway
+A project's **Resources** section caps what its containers may use, so a runaway
 queue worker or Node process cannot take the whole server:
 
 - **Application containers** (web server, PHP, Node.js, Python, Go, Ruby, Java, .NET, every worker)
@@ -1132,7 +1132,7 @@ project manifest (`limits:` in `envoryx.yml`) and show up in
 
 A running container is not a working application: PHP may answer every
 request with a 500, the database may be unreachable, a deploy may have left
-the app in maintenance mode. A project's **Overview** tab sets up a health
+the app in maintenance mode. A project's **Overview** section sets up a health
 check: a path such as `/health` or Laravel's `/up` that must answer with the
 expected status.
 
@@ -1160,7 +1160,7 @@ CPU (in cores), memory, network traffic and disk I/O (both per second).
 Once an hour it measures each project's disk space: its volumes (database,
 caches, search, object storage), its project directory and its backups.
 
-- A project's **Resources** tab draws all of it over the last hour up to a
+- A project's **Resources** section draws all of it over the last hour up to a
   year: CPU and memory per container, network and disk I/O for the project,
   disk space by kind. Every chart has a table view.
 - The **dashboard** lists every project with its average and peak CPU and
@@ -1279,7 +1279,7 @@ newer, its error message names the pre-migrate backup to restore by hand (see
   long as a project can roll back to it. A rolled-back project stays on that
   image through further restarts (a *previous image* badge marks it) until you
   choose **Use current image**. Rolling back is a per-tag safety net, not a
-  version change: for another PHP version use the Runtime tab.
+  version change: for another PHP version use the Runtime section.
 - **New minor versions** (e.g. 8.6): a weekly workflow compares
   `internal/runtime/php_versions.json` with endoflife.date and Docker Hub and
   opens a pull request when a version appears, becomes stable or reaches EOL.
@@ -1298,13 +1298,13 @@ with `go_versions.json`, Ruby images (`envoryx-ruby:*`, official
 `mcr.microsoft.com/dotnet/sdk:<v>.0-noble` plus `dotnet-ef` and netcoredbg, LTS
 releases only) with `dotnet_versions.json`. You change a project's Node, Python,
 Go, Ruby, Java or .NET version on
-the Runtime tab, like the PHP version.
+the Runtime section, like the PHP version.
 
 ## Custom runtime images
 
 A runtime (PHP, Node.js, Python, Go, Ruby, Java, .NET) can run an image of your own
 instead of the Envoryx image, for a system package, a PHP extension or a tool the Envoryx
-image doesn't have. Open the project's **Runtime** tab; the *Runtime images* card has one
+image doesn't have. Open the project's **Runtime** section; the *Runtime images* card has one
 row per runtime with three choices:
 
 - **Envoryx image** - the catalogue image of the selected version (the default).
@@ -1446,14 +1446,14 @@ unencrypted; delete them (and their offsite copies) once you have a new one.
 
 For SSH repositories Envoryx generates an Ed25519 key pair on first use under
 `/config/ssh/`. Copy the public key from **Settings → Access → Git deploy key** (or the
-project's Git tab) into your repository as a read-only deploy key. Private
+project's Git section) into your repository as a read-only deploy key. Private
 HTTPS repositories use an access token per project instead (GitHub:
 fine-grained PAT with *Contents: read*; GitLab: username `oauth2` + token).
 
 ## Branch environments
 
 A branch environment is a copy of a project on another branch of its repository, with its
-own containers, database and URL. Open the parent's **Branches** tab, load the branches of
+own containers, database and URL. Open the parent's **Branches** section, load the branches of
 the repository and pick one. Envoryx copies the project the way *Duplicate* does (files
 including the ignored `.env`, `vendor/` and `node_modules/`, the database, the bucket,
 workers and cron jobs), switches the copy to the branch (`git fetch`, `git checkout -f -B
@@ -1472,7 +1472,7 @@ php artisan migrate --force
 
 A deploy pulls the branch fast-forward only (local commits in the environment stay), then
 runs the commands in order; the first one that fails stops it. The environment's *Branches*
-tab shows the commit, the outcome and the output, and has *Pull and deploy* and *Run deploy
+section shows the commit, the outcome and the output, and has *Pull and deploy* and *Run deploy
 commands*. The environment has to be running.
 
 With **Watch the repository** on, Envoryx asks the remote with `git ls-remote` every few
@@ -1501,7 +1501,7 @@ with `{"branch": "feature/login"}` (admin, like creating a project) and `POST
 ## Backups
 
 Project backups (database dump, files, configuration) are created from the
-project's **Backups** tab and stored as plain directories, one per backup,
+project's **Backups** section and stored as plain directories, one per backup,
 under `<backups dir>/<project>/`. Changing a database's version takes a
 database backup automatically first (source *upgrade*); if no dump can be
 taken because the project is stopped, the upgrade is refused, because the server
@@ -1521,7 +1521,7 @@ Include the backups directory in your regular off-machine backup (e.g. the
 Unraid Appdata Backup plugin or an rsync job), use the per-backup download, or
 let Envoryx copy the backups offsite itself (see *Offsite backups* below).
 
-**Scheduled backups**: Backups tab → *Scheduled backups*: daily or weekly at
+**Scheduled backups**: Backups → *Scheduled backups*: daily or weekly at
 a given hour (server local time; set `TZ` on the container for your zone),
 keep the last N scheduled backups (manual ones are never deleted), optionally
 including `vendor/`, `node_modules/` and the framework build caches
@@ -1608,7 +1608,7 @@ Credentials live in `/config/offsite.json` (mode 0600, encrypted with the
 
 Uploads run in the background. A failed one is retried after 5, 15 and 45
 minutes and 2 hours, then stays failed (the button tries again); every
-failure raises the *Backup failed* notification. The Backups tab shows each
+failure raises the *Backup failed* notification. The Backups section shows each
 copy's state next to the backup.
 
 **Encryption** is a per-target switch and on by default. Archives are
@@ -1628,7 +1628,7 @@ instance/<instance backup id>.tar.gz[.age]              an instance backup
 ```
 
 **Getting a backup back.** The *Offsite copies* card in a project's Backups
-tab lists what the target holds for the project (also backups that were
+section lists what the target holds for the project (also backups that were
 deleted here), and *Fetch* puts one back into the local list, from where it is
 restored as usual (`envoryx backup remote|fetch <project>` on the command
 line).
@@ -1651,8 +1651,8 @@ A project isn't limited to one database. Next to the first one (the
 have any number of additional databases, each with a name of its own:
 PostgreSQL for reporting next to MariaDB, or a second MariaDB in another
 version for a legacy part of the application. Add them in the wizard
-(*Database & services → Additional databases*) or later in the Database tab
-(*Add database*); the tab switches between the databases of the project.
+(*Database & services → Additional databases*) or later in the Database section
+(*Add database*); the section switches between the databases of the project.
 
 An additional database named `analytics`:
 
@@ -1668,7 +1668,7 @@ Names are 1-24 lowercase letters, digits and dashes starting with a letter
 names another container of the project answers to (`database`, `redis`,
 `web`, the engine names …) are refused. Each database has its own generated
 credentials, its own published port if wanted, its own version and upgrades,
-and everything the Database tab offers works per database: credentials,
+and everything the Database section offers works per database: credentials,
 password rotation, databases on the server, Adminer, snapshots, cloning.
 
 - **Backups** dump every database of the project: the primary to
@@ -1698,7 +1698,7 @@ Instead of a container of its own, a database (the primary or an additional
 one) or Redis can be a server that already runs elsewhere: the MariaDB on your
 Unraid server, a PostgreSQL in the company network, a managed database. Choose
 *On an external server* in the wizard, when adding a database in the Database
-tab, or when adding Redis in the Services tab, and enter host, port, user,
+section, or when adding Redis in the Services section, and enter host, port, user,
 password and database. *Test connection* tries it right away; Envoryx tests it
 again before it stores it and says what failed (wrong password, database not
 visible to the user, host unreachable).
@@ -1734,7 +1734,7 @@ visible to the user, host unreachable).
 
 ## Running tests
 
-The *Tests* tab of a project lists the test suites Envoryx finds in the
+The *Tests* section of a project lists the test suites Envoryx finds in the
 project directory and runs them in the runtime container as the project owner,
 with the output live like an action:
 
@@ -1856,7 +1856,7 @@ speed on a current CPU; larger ones need the GPU or patience.
 *Settings → Tools → Database browser* switches on an in-browser database tool for
 projects with MariaDB, MySQL or PostgreSQL (MongoDB is not supported by the
 Adminer image; use the published port with Compass). Nothing runs until the
-first click on **Open database** in a project's Database tab: Envoryx then
+first click on **Open database** in a project's Database section: Envoryx then
 pulls `adminer:5`, starts one shared container `envoryx-dbtool` on its own
 network, joins it to the project's network and opens Adminer in a new tab,
 already logged in as the project user (the root user is available too by
@@ -1874,7 +1874,7 @@ is not touched by *unused image* pruning while enabled.
 
 ## Object storage (S3)
 
-Projects can get S3-compatible object storage (the **Services** tab, or
+Projects can get S3-compatible object storage (the **Services** section, or
 *Object storage* in the wizard). Envoryx runs one RustFS container per project
 with a persistent volume, generates an access/secret key pair, creates a bucket
 named after the project at start-up and injects two sets of variables into the
@@ -1903,16 +1903,16 @@ direct uploads work in the browser. Presigned URLs meant for a browser must
 be signed against that public endpoint (`S3_PUBLIC_ENDPOINT`): the signature
 covers the host name, and a URL signed for `s3:9000` is useless outside the
 project network. The S3 API and the web console are also published on host
-ports (shown in the Services tab) for local tools such as `aws s3 --endpoint-url`.
+ports (shown in the Services section) for local tools such as `aws s3 --endpoint-url`.
 
 **Public read.** Real providers honour `public-read` ACLs; RustFS accepts but
 ignores them. Envoryx therefore puts a bucket policy on the bucket that lets
 anyone read every object, switched on by default so `Storage::url()` behaves
 as it would in production. Turn *Anyone may read objects* off in the Services
-tab to test that nothing relies on it; then only presigned URLs and
+section to test that nothing relies on it; then only presigned URLs and
 authenticated requests work.
 
-The console (RustFS's own UI) opens from the Services tab; sign in with the
+The console (RustFS's own UI) opens from the Services section; sign in with the
 project's access keys. Removing the object storage deletes the bucket volume
 and needs the bucket name as confirmation.
 
@@ -2006,7 +2006,7 @@ and the project's variables always win over them. A secret credential is masked 
 revealed, and viewers don't get its value at all.
 
 **In a project.** Installed addons show up at the bottom of the project's **Services**
-tab: *Add <title>* with a version and, when the addon offers it, *Publish the port on the
+section: *Add <title>* with a version and, when the addon offers it, *Publish the port on the
 host*. Developers can add, change and remove them; installing files takes an admin. Adding
 one creates the container and, if the addon injects variables, recreates the application
 containers with them. The card shows the web UI's address, the internal host and port, the
@@ -2051,7 +2051,7 @@ with `{"enabled": true, "version": "8", "exposePort": true}` or
 
 ## Logs
 
-The Logs tab has two views per container. *Live* follows the output as it
+The Logs section has two views per container. *Live* follows the output as it
 comes. *History* searches the past output: a time range (a preset or
 from/to), a text search and a level filter, a chart of lines, warnings and
 errors over time (a click on a bar zooms into that slot) and the most
@@ -2089,12 +2089,12 @@ recreated containers. The footer says which source a result came from.
 - Deleting a project deletes its history. *Delete stored logs* empties the
   whole history; lines Docker still holds are not collected again.
 - The history is not part of instance backups.
-- Switched off, nothing new is stored and the Logs tab reads the containers
+- Switched off, nothing new is stored and the Logs section reads the containers
   again, as before.
 
 ## Workers (queues, schedulers)
 
-In the Workers tab you add long-running processes from a preset list: Laravel
+Under *Workers & cron* you add long-running processes from a preset list: Laravel
 `schedule:work`, `queue:work`/`queue:listen` (queue names), Horizon,
 Reverb, Symfony `messenger:consume` (transports) and Scheduler, a PHP script
 or a composer script (PHP image); npm scripts and Node scripts (Node
@@ -2107,21 +2107,21 @@ projects and DLLs (.NET image). Every worker is its own container
 preset names, runs as `PUID:PGID` with the project's environment (and
 php.ini for PHP, the venv `PATH` for Python), restarts automatically
 (Docker `unless-stopped`) and follows start/stop/restart of the project.
-The Workers tab offers only the presets whose runtime the project has.
+*Workers & cron* offers only the presets whose runtime the project has.
 `queue:work` stops after an hour (`--max-time`) so code changes
 are picked up on the automatic restart; use `queue:listen` for instant
-reloads. Logs are in the Logs tab; up to 10 workers per project.
+reloads. Logs are in the Logs section; up to 10 workers per project.
 
 ## IDE integration (PhpStorm, WebStorm, VS Code)
 
-Every project has an **IDE** tab with all values ready to copy.
+Every project has an **IDE** section with all values ready to copy.
 
 **Remote interpreter over SSH.** Envoryx runs an SSH server on port 2222
 (publish it, or use the container's own IP on `br0`). User name = project
 slug (`shop`): it lands in the project's application container, PHP when
 the project has PHP, else Python, else Go, else Ruby, else Java, else .NET, else Node.
 Projects with several runtimes also accept `shop.php`, `shop.python`, `shop.go`,
-`shop.ruby`, `shop.java`, `shop.dotnet` and `shop.node` to pick one explicitly (the IDE tab lists these rows only
+`shop.ruby`, `shop.java`, `shop.dotnet` and `shop.node` to pick one explicitly (the IDE section lists these rows only
 then). Password = one of your API tokens (*API tokens & MCP*), or sign in with a public key
 you stored under *My SSH keys* (both under *Settings → Account*, for admins *Settings →
 Access*). Tokens and keys act with your roles, so they only open the projects you may work
@@ -2138,12 +2138,12 @@ on the host. SFTP exposes `/var/www/html` (the project) and `/home/envoryx`
   the container from the IDE.
 - WebStorm (Node-only project, or `shop.node` next to PHP): *Settings →
   Languages & Frameworks → Node.js → Node interpreter → Add… → SSH*, host
-  and port from the IDE tab, user `shop`, Node path `/usr/local/bin/node`,
+  and port from the IDE section, user `shop`, Node path `/usr/local/bin/node`,
   project path `/var/www/html`. npm scripts, the test runner and the
   debugger then run in the container.
 - PyCharm (Python project, or `shop.python` next to PHP): *Settings →
   Project → Python Interpreter → Add Interpreter → On SSH…*, host and port
-  from the IDE tab, user `shop`, interpreter `/var/www/html/.venv/bin/python`,
+  from the IDE section, user `shop`, interpreter `/var/www/html/.venv/bin/python`,
   project path `/var/www/html`. pytest, manage.py and pip then run in the
   container.
 - VS Code: Remote-SSH works the same way (`ssh -p 2222 shop@<host>`); open
@@ -2158,7 +2158,7 @@ the audit log (`ssh.exec`), failed logins are rate limited per IP.
 ### JetBrains Gateway (optional)
 
 Gateway runs the complete IDE backend on the server and connects a thin
-client. In Envoryx this is opt-in per project (IDE tab → *Allow JetBrains
+client. In Envoryx this is opt-in per project (IDE → *Allow JetBrains
 Gateway*): it enables SSH port forwarding into the container and mounts a
 shared backend cache (`/config/jetbrains`, ~1.5 GB per IDE version,
 downloaded once). The backend runs as the project owner inside the
@@ -2171,7 +2171,7 @@ software: Gateway itself is free, the IDE backend is uploaded by your
 Gateway client and licensed through it. Whoever connects needs a valid
 subscription for that IDE (PhpStorm, WebStorm or All Products Pack), the
 server needs nothing. Gateway → *SSH → New connection*
-with the values from the IDE tab, choose PhpStorm/WebStorm, project
+with the values from the IDE section, choose PhpStorm/WebStorm, project
 directory `/var/www/html`. Close the project in Gateway or use *Stop IDE
 backend* to free the memory. Small NAS boxes: leave it off.
 
@@ -2193,12 +2193,12 @@ the start. Troubleshooting:
 
 ## Xdebug
 
-Runtime tab → PHP → **Xdebug**: enables step debugging for that project
+Runtime → PHP → **Xdebug**: enables step debugging for that project
 (port 9003, mode `debug,develop`, `start_with_request=yes`). Xdebug connects
 back to the machine that made the request (behind Envoryx's proxy that
 address comes from `X-Forwarded-For`) and falls back to the *developer
 machine* set in Settings → General → Project links & developer machine (or a per-project override). Map
-`/var/www/html` to your project folder in the IDE; the tab shows the exact
+`/var/www/html` to your project folder in the IDE; the IDE section shows the exact
 PhpStorm/VS Code settings. Turn it off when you are done: it slows PHP down.
 
 ## Notifications
@@ -2250,8 +2250,8 @@ the project roles of its parent.
 
 Users who aren't admins see a smaller interface: *Settings* has only their *Account* tab
 (appearance, password, API tokens, *My SSH keys*), the Docker page and *New project* are
-gone, viewers can't start or stop projects and don't get the *Terminal* and *Actions* tabs,
-and *History* and *Advanced* are for admins. The server checks every request on its own,
+gone, viewers can't start or stop projects and don't get the *Terminal* and *Actions* sections,
+and *History* and the *Docker plan* are for admins. The server checks every request on its own,
 so hiding is a courtesy, not the protection.
 
 A user can be disabled, which ends their sessions and stops their API tokens and SSH keys
@@ -2597,7 +2597,7 @@ storage, an addon with volumes) together with its data. Another database `type` 
 removal. A database version lower than the project's is never applied, as the
 data format does not go back.
 
-In the web interface the *Git* tab shows the project as `envoryx.yml` (copy,
+In the web interface the *Git* section shows the project as `envoryx.yml` (copy,
 download, save into the project directory) and compares the file in the project
 directory with the project. After a `git pull` that brought a changed
 manifest, *Apply to project* takes it over. The wizard applies the manifest of
