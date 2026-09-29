@@ -959,7 +959,6 @@
   "Either this device's DNS does not resolve names under the base domain, or this browser does not trust the Envoryx CA yet. Install the CA (Domains & HTTPS) and add a wildcard DNS rewrite on the DNS server your devices use (AdGuard Home, Pi-hole, router).": "Либо DNS этого устройства не разрешает имена под базовым доменом, либо этот браузер ещё не доверяет ЦС Envoryx. Установите ЦС (Домены и HTTPS) и добавьте wildcard-перезапись DNS на DNS-сервере, который используют ваши устройства (AdGuard Home, Pi-hole, роутер).",
   "This device's DNS does not resolve names under the base domain. Add a wildcard DNS rewrite on the DNS server your devices use (AdGuard Home, Pi-hole, router), or hosts-file entries per project.": "DNS этого устройства не разрешает имена под базовым доменом. Добавьте wildcard-перезапись DNS на DNS-сервере, который используют ваши устройства (AdGuard Home, Pi-hole, роутер), или записи в файле hosts для каждого проекта.",
   "Appearance": "Внешний вид",
-  "The accent colour is stored in this browser; the logo, buttons and highlights follow it.": "Акцентный цвет хранится в этом браузере; логотип, кнопки и выделения следуют ему.",
   "Accent colour": "Акцентный цвет",
   "Mint": "Мята",
   "Ocean": "Океан",
@@ -2667,5 +2666,11 @@
   "{{count}} variables_one": "{{count}} переменная",
   "{{count}} variables_few": "{{count}} переменные",
   "{{count}} variables_many": "{{count}} переменных",
-  "{{count}} variables_other": "{{count}} переменной"
+  "{{count}} variables_other": "{{count}} переменной",
+  "Page width": "Ширина страницы",
+  "Full width": "Во всю ширину",
+  "Boxed": "По центру",
+  "Pages use the whole window.": "Страницы занимают всё окно.",
+  "Pages stay in a centred column, easier to read on wide screens.": "Страницы остаются в колонке по центру, их легче читать на широких экранах.",
+  "Accent colour and page width are stored in this browser; the logo, buttons and highlights follow the accent.": "Акцентный цвет и ширина страницы хранятся в этом браузере; логотип, кнопки и выделения следуют акцентному цвету."
 }

@@ -929,7 +929,6 @@
   "Either this device's DNS does not resolve names under the base domain, or this browser does not trust the Envoryx CA yet. Install the CA (Domains & HTTPS) and add a wildcard DNS rewrite on the DNS server your devices use (AdGuard Home, Pi-hole, router).": "O el DNS de este dispositivo no resuelve nombres bajo el dominio base, o este navegador todavía no confía en la CA de Envoryx. Instala la CA (Dominios y HTTPS) y añade una reescritura DNS comodín en el servidor DNS que usan tus dispositivos (AdGuard Home, Pi-hole, router).",
   "This device's DNS does not resolve names under the base domain. Add a wildcard DNS rewrite on the DNS server your devices use (AdGuard Home, Pi-hole, router), or hosts-file entries per project.": "El DNS de este dispositivo no resuelve nombres bajo el dominio base. Añade una reescritura DNS comodín en el servidor DNS que usan tus dispositivos (AdGuard Home, Pi-hole, router) o entradas en el archivo hosts por proyecto.",
   "Appearance": "Apariencia",
-  "The accent colour is stored in this browser; the logo, buttons and highlights follow it.": "El color de acento se guarda en este navegador; el logotipo, los botones y los resaltados lo siguen.",
   "Accent colour": "Color de acento",
   "Mint": "Menta",
   "Ocean": "Océano",
@@ -2619,5 +2618,11 @@
   "Show all {{count}} templates_one": "Mostrar {{count}} plantilla",
   "Show all {{count}} templates_other": "Mostrar las {{count}} plantillas",
   "{{count}} variables_one": "{{count}} variable",
-  "{{count}} variables_other": "{{count}} variables"
+  "{{count}} variables_other": "{{count}} variables",
+  "Page width": "Ancho de página",
+  "Full width": "Ancho completo",
+  "Boxed": "Centrado",
+  "Pages use the whole window.": "Las páginas ocupan toda la ventana.",
+  "Pages stay in a centred column, easier to read on wide screens.": "Las páginas quedan en una columna centrada, más fácil de leer en pantallas anchas.",
+  "Accent colour and page width are stored in this browser; the logo, buttons and highlights follow the accent.": "El color de acento y el ancho de página se guardan en este navegador; el logo, los botones y los resaltados siguen el color de acento."
 }

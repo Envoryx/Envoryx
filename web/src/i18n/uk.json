@@ -959,7 +959,6 @@
   "Either this device's DNS does not resolve names under the base domain, or this browser does not trust the Envoryx CA yet. Install the CA (Domains & HTTPS) and add a wildcard DNS rewrite on the DNS server your devices use (AdGuard Home, Pi-hole, router).": "Або DNS цього пристрою не розв'язує імена під базовим доменом, або цей браузер ще не довіряє ЦС Envoryx. Установіть ЦС (Домени та HTTPS) і додайте wildcard-перезапис DNS на DNS-сервері, який використовують ваші пристрої (AdGuard Home, Pi-hole, роутер).",
   "This device's DNS does not resolve names under the base domain. Add a wildcard DNS rewrite on the DNS server your devices use (AdGuard Home, Pi-hole, router), or hosts-file entries per project.": "DNS цього пристрою не розв'язує імена під базовим доменом. Додайте wildcard-перезапис DNS на DNS-сервері, який використовують ваші пристрої (AdGuard Home, Pi-hole, роутер), або записи у файлі hosts для кожного проєкту.",
   "Appearance": "Вигляд",
-  "The accent colour is stored in this browser; the logo, buttons and highlights follow it.": "Акцентний колір зберігається в цьому браузері; логотип, кнопки та виділення слідують йому.",
   "Accent colour": "Акцентний колір",
   "Mint": "М'ята",
   "Ocean": "Океан",
@@ -2667,5 +2666,11 @@
   "{{count}} variables_one": "{{count}} змінна",
   "{{count}} variables_few": "{{count}} змінні",
   "{{count}} variables_many": "{{count}} змінних",
-  "{{count}} variables_other": "{{count}} змінної"
+  "{{count}} variables_other": "{{count}} змінної",
+  "Page width": "Ширина сторінки",
+  "Full width": "На всю ширину",
+  "Boxed": "По центру",
+  "Pages use the whole window.": "Сторінки займають усе вікно.",
+  "Pages stay in a centred column, easier to read on wide screens.": "Сторінки лишаються в колонці по центру, їх легше читати на широких екранах.",
+  "Accent colour and page width are stored in this browser; the logo, buttons and highlights follow the accent.": "Акцентний колір і ширина сторінки зберігаються в цьому браузері; логотип, кнопки й виділення слідують за акцентним кольором."
 }

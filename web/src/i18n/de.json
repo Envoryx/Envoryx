@@ -929,7 +929,6 @@
   "Either this device's DNS does not resolve names under the base domain, or this browser does not trust the Envoryx CA yet. Install the CA (Domains & HTTPS) and add a wildcard DNS rewrite on the DNS server your devices use (AdGuard Home, Pi-hole, router).": "Entweder löst der DNS dieses Geräts keine Namen unter der Basis-Domain auf, oder dieser Browser vertraut der Envoryx-CA noch nicht. CA installieren (Domains & HTTPS) und einen Wildcard-DNS-Rewrite auf dem DNS-Server deiner Geräte anlegen (AdGuard Home, Pi-hole, Router).",
   "This device's DNS does not resolve names under the base domain. Add a wildcard DNS rewrite on the DNS server your devices use (AdGuard Home, Pi-hole, router), or hosts-file entries per project.": "Der DNS dieses Geräts löst keine Namen unter der Basis-Domain auf. Einen Wildcard-DNS-Rewrite auf dem DNS-Server deiner Geräte anlegen (AdGuard Home, Pi-hole, Router) oder hosts-Einträge pro Projekt.",
   "Appearance": "Erscheinungsbild",
-  "The accent colour is stored in this browser; the logo, buttons and highlights follow it.": "Die Akzentfarbe wird in diesem Browser gespeichert; Logo, Buttons und Hervorhebungen folgen ihr.",
   "Accent colour": "Akzentfarbe",
   "Mint": "Mint",
   "Ocean": "Ozean",
@@ -2619,5 +2618,11 @@
   "Show all {{count}} templates_one": "{{count}} Vorlage zeigen",
   "Show all {{count}} templates_other": "Alle {{count}} Vorlagen zeigen",
   "{{count}} variables_one": "{{count}} Variable",
-  "{{count}} variables_other": "{{count}} Variablen"
+  "{{count}} variables_other": "{{count}} Variablen",
+  "Page width": "Seitenbreite",
+  "Full width": "Volle Breite",
+  "Boxed": "Begrenzt",
+  "Pages use the whole window.": "Die Seiten nutzen das ganze Fenster.",
+  "Pages stay in a centred column, easier to read on wide screens.": "Die Seiten bleiben in einer mittigen Spalte, auf breiten Bildschirmen leichter zu lesen.",
+  "Accent colour and page width are stored in this browser; the logo, buttons and highlights follow the accent.": "Akzentfarbe und Seitenbreite werden in diesem Browser gespeichert; Logo, Buttons und Hervorhebungen folgen der Akzentfarbe."
 }
