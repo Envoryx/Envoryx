@@ -8,6 +8,7 @@ import (
 	"net"
 	"path"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -1495,7 +1496,12 @@ func (p *Planner) envStrings(proj store.Project) ([]string, error) {
 func specFingerprint(spec docker.ContainerSpec) string {
 	h := sha256.New()
 	enc := json.NewEncoder(h)
-	fields := map[string]any{"cmd": spec.Cmd, "wd": spec.WorkingDir, "user": spec.User, "mounts": spec.Mounts, "ports": spec.Ports, "alias": spec.NetworkAlias, "health": spec.Healthcheck, "restart": spec.RestartPolicy}
+	// The environment counts too, sorted: a worker that follows its runtime into production
+	// mode, or a container after an instance restore, must be recreated with the variables
+	// the plan has now.
+	env := slices.Clone(spec.Env)
+	slices.Sort(env)
+	fields := map[string]any{"cmd": spec.Cmd, "wd": spec.WorkingDir, "user": spec.User, "mounts": spec.Mounts, "ports": spec.Ports, "alias": spec.NetworkAlias, "health": spec.Healthcheck, "restart": spec.RestartPolicy, "env": env}
 	// Labels are fixed at creation, so a changed FolderView3 folder needs a recreate too.
 	// Only a set folder counts: containers from before the setting keep their fingerprint.
 	if f := spec.Labels[docker.LabelFolderView]; f != "" {

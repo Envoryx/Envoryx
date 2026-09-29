@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/envoryx/envoryx/internal/runtime"
 	"github.com/envoryx/envoryx/internal/store"
 	"github.com/envoryx/envoryx/internal/validate"
 )
@@ -155,5 +156,51 @@ func TestWorkersFollowTheirRuntime(t *testing.T) {
 		if p.Runtime == "" {
 			t.Fatalf("preset %s has no runtime", p.ID)
 		}
+	}
+}
+
+// A worker runs in its runtime's environment (RAILS_ENV …). Switching the runtime to
+// production recreates the runtime's container at once; the worker is reported as
+// outdated until a restart gives it the new environment too.
+func TestWorkersFollowTheRuntimeModeOnRestart(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	v, err := e.m.Create(ctx, rubyRequest("Modes", true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := v.Project.ID
+	w, err := e.m.AddWorker(ctx, id, WorkerRequest{Name: "jobs", Preset: "ruby:file", Arg: "bin/worker.rb", Enabled: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	name := "envoryx-modes-worker-" + w.Name
+	hasVar := func(want string) bool {
+		c, ok := e.engine.Container(name)
+		if !ok {
+			t.Fatalf("worker container %s missing", name)
+		}
+		return slices.Contains(c.Spec.Env, want)
+	}
+	if !hasVar("RAILS_ENV=development") {
+		t.Fatal("worker without the development environment")
+	}
+	if _, err := e.m.Update(ctx, id, UpdateRequest{Ruby: &RubyUpdate{Enabled: true, Version: "3.4", Config: runtime.RubyConfig{Server: true, Preset: "rails", Mode: "production"}}}); err != nil {
+		t.Fatal(err)
+	}
+	outdated := false
+	for _, i := range e.m.Reconcile(ctx).Issues {
+		if strings.Contains(i.Message, "older setup") {
+			outdated = true
+		}
+	}
+	if !outdated && !hasVar("RAILS_ENV=production") {
+		t.Fatal("a worker left in development must be reported")
+	}
+	if _, err := e.m.Restart(ctx, id); err != nil {
+		t.Fatal(err)
+	}
+	if !hasVar("RAILS_ENV=production") {
+		t.Fatal("the restart must give the worker the production environment")
 	}
 }

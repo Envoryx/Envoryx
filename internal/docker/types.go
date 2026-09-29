@@ -16,7 +16,7 @@ const (
 	LabelProjectID   = "envoryx.project.id"
 	LabelProjectName = "envoryx.project.name"
 	LabelService     = "envoryx.service"
-	// LabelSpec is a fingerprint of the structural container spec (command, mounts, ports);
+	// LabelSpec is a fingerprint of the container spec (command, environment, mounts, ports);
 	// a mismatch tells Envoryx to recreate the container.
 	LabelSpec    = "envoryx.spec"
 	LabelVersion = "envoryx.version"
