@@ -683,6 +683,10 @@ func (m *Manager) customImageLocked(ctx context.Context, id string, kind store.S
 			_ = m.store.Projects.UpdateState(context.WithoutCancel(ctx), id, proj.DesiredState, proj.Lifecycle, err.Error())
 			return View{}, err
 		}
+		// A start that worked clears the error an earlier attempt left, like a start does.
+		if proj.LastError != "" {
+			_ = m.store.Projects.UpdateState(context.WithoutCancel(ctx), id, proj.DesiredState, proj.Lifecycle, "")
+		}
 	}
 	return m.Get(context.WithoutCancel(ctx), id)
 }
