@@ -466,8 +466,9 @@ func TestAgentKeyProbesDoNotLockOut(t *testing.T) {
 	}
 }
 
-// With Gateway enabled the shared IDE cache (/config/jetbrains, bind-mounted at
-// ~/.cache/JetBrains) is part of the SFTP tree, exactly where the container sees it.
+// With Gateway enabled the shared IDE backends (/config/jetbrains/RemoteDev/dist, bind-mounted
+// at ~/.cache/JetBrains/RemoteDev/dist) are part of the SFTP tree, exactly where the container
+// sees them. The rest of the shared directory is not: it could hold other projects' caches.
 func TestSFTPShowsJetBrainsCacheWithGateway(t *testing.T) {
 	e := newEnv(t)
 	on := true
@@ -509,6 +510,17 @@ func TestSFTPShowsJetBrainsCacheWithGateway(t *testing.T) {
 	f.Close()
 	if _, err := os.Stat(filepath.Join(dist, "uploaded")); err != nil {
 		t.Fatalf("upload landed elsewhere: %v", err)
+	}
+	// An index cache another project left in the shared directory stays out of reach.
+	other := filepath.Join(e.cfgDir, "jetbrains", "PhpStorm2026.2", "caches")
+	if err := os.MkdirAll(other, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(other, "content.dat"), []byte("secret"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := sc.Stat("/home/envoryx/.cache/JetBrains/PhpStorm2026.2/caches/content.dat"); err == nil {
+		t.Fatal("another project's IDE cache is readable over SFTP")
 	}
 }
 

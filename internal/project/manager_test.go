@@ -1013,3 +1013,31 @@ func containsSubstring(list []string, sub string) bool {
 	}
 	return false
 }
+
+// Gateway shares only the downloaded IDE backends between projects; the rest of
+// ~/.cache/JetBrains (index caches with the source, join links) stays in each project home.
+func TestGatewaySharesOnlyTheBackends(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	v, err := e.m.Create(ctx, phpRequest("Gate", true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	on := true
+	if _, err := e.m.Update(ctx, v.Project.ID, UpdateRequest{IDEGateway: &on}); err != nil {
+		t.Fatal(err)
+	}
+	c, ok := e.engine.Container("envoryx-gate-php")
+	if !ok {
+		t.Fatal("php container missing")
+	}
+	var targets []string
+	for _, m := range c.Spec.Mounts {
+		if strings.Contains(m.Target, ".cache") {
+			targets = append(targets, m.Target+" <- "+m.Source)
+		}
+	}
+	if len(targets) != 1 || !strings.HasPrefix(targets[0], "/home/envoryx/.cache/JetBrains/RemoteDev/dist <- ") || !strings.HasSuffix(targets[0], "/jetbrains/RemoteDev/dist") {
+		t.Fatalf("cache mounts: %v", targets)
+	}
+}
