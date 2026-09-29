@@ -46,16 +46,18 @@ whose groups can set the roles.
 
 ### Creating a project
 
-The wizard asks for a name, a directory and what the project is: a PHP, Python, Go, Ruby, Java,
-.NET or Node.js application, or a static site. PHP is optional; Python, Go, Ruby, Java, .NET,
-Node-only and static projects work without it. Then you pick the document root, the PHP version with its
-php.ini settings and extensions (pdo_mysql, mysqli, pdo_pgsql, mongodb, gd, intl, zip,
-bcmath, opcache, imagick), switch Xdebug on if you want it (with IDE setup hints), choose a
-web server (Caddy, Apache or Nginx), an SPA fallback for static sites and your environment
-variables (with `.env` import and export). A plan preview shows what will be created before
-anything is.
+The wizard has three steps. First it asks where the project starts: a template, a Git
+repository, an existing website or an empty project, where you pick what it is: a PHP,
+Python, Go, Ruby, Java, .NET or Node.js application, or a static site. PHP is optional;
+Python, Go, Ruby, Java, .NET, Node-only and static projects work without it. Then you name
+the project and pick its database and services. Under *Advanced settings* wait the PHP
+version with its php.ini settings and extensions (pdo_mysql, mysqli, pdo_pgsql, mongodb, gd,
+intl, zip, bcmath, opcache, imagick), Xdebug (with IDE setup hints), more runtimes as tools,
+the web server (Caddy, Apache or Nginx), an SPA fallback for static sites, the directory and
+document root and your environment variables (with `.env` import and export). A plan preview
+shows what will be created before anything is.
 
-Instead of starting empty you can pick a template: Laravel, Symfony (skeleton + webapp),
+The templates sit in one gallery with a search and a runtime filter: Laravel, Symfony (skeleton + webapp),
 WordPress, Drupal, TYPO3, Shopware and Craft CMS for PHP (the CMS installers run from
 Actions and print the admin password), Vite + React, Next.js and Nuxt for Node.js,
 Django, Flask and FastAPI for Python, net/http, Gin and Echo for Go, Rails, Rails API and
