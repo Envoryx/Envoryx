@@ -161,7 +161,7 @@
   "Details": "Detalles",
   "Dev server": "Servidor de desarrollo",
   "Developer machine for Xdebug": "Equipo del desarrollador para Xdebug",
-  "Diagnostics view. Envoryx only manages resources labelled envoryx.managed=true; everything else is shown read-only.": "Vista de diagnóstico. Envoryx solo gestiona recursos con la etiqueta envoryx.managed=true; todo lo demás se muestra en modo de solo lectura.",
+  "Envoryx only manages resources labelled envoryx.managed=true; everything else is shown read-only.": "Envoryx solo gestiona recursos con la etiqueta envoryx.managed=true; todo lo demás se muestra en modo de solo lectura.",
   "Direct access": "Acceso directo",
   "Disable": "Desactivar",
   "Disabled (ENVORYX_SSH is empty).": "Desactivado (ENVORYX_SSH está vacío).",
@@ -436,7 +436,6 @@
   "Queues": "Colas",
   "Reachable at {{address}}": "Accesible en {{address}}",
   "Read-only. Envoryx never touches containers without the envoryx.managed=true label.": "Solo lectura. Envoryx nunca toca contenedores sin la etiqueta envoryx.managed=true.",
-  "Recent projects": "Proyectos recientes",
   "Reconcile now": "Reconciliar ahora",
   "Redirect plain HTTP requests for project and UI domains to HTTPS.": "Redirigir las peticiones HTTP de los dominios de proyectos y de la interfaz a HTTPS.",
   "Redis version": "Versión de Redis",
@@ -771,7 +770,6 @@
   "Removed {{count}} images, {{size}} reclaimed._one": "{{count}} imagen eliminada, {{size}} liberados.",
   "Removed {{count}} images, {{size}} reclaimed._other": "{{count}} imágenes eliminadas, {{size}} liberados.",
   "{{engine}} version": "Versión de {{engine}}",
-  "{{free}} free of {{total}}": "{{free}} libres de {{total}}",
   "{{hostname}} added.": "{{hostname}} añadido.",
   "{{running}} / {{total}} running": "{{running}} / {{total}} en ejecución",
   "{{running}}/{{total}} containers": "{{running}}/{{total}} contenedores",
@@ -2596,5 +2594,12 @@
   ". Sessions run as the project owner inside": ". Las sesiones se ejecutan como propietario del proyecto en",
   "An admin can set it in the settings.": "Un administrador puede definirlo en los ajustes.",
   "Regenerate in the settings": "Regenerar en los ajustes",
-  "Secret key_instance": "Clave secreta"
+  "Secret key_instance": "Clave secreta",
+  "{{running}} of {{total}} running": "{{running}} de {{total}} en ejecución",
+  "Networks & volumes": "Redes y volúmenes",
+  "Host paths and the other set-up checks are part of the diagnostics.": "Las rutas del host y las demás comprobaciones de configuración forman parte del diagnóstico.",
+  "{{free}} free": "{{free}} libres",
+  "System": "Sistema",
+  "Docker sections": "Secciones de Docker",
+  "Without a project": "Sin proyecto"
 }

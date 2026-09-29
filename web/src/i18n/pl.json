@@ -161,7 +161,7 @@
   "Details": "Szczegóły",
   "Dev server": "Serwer deweloperski",
   "Developer machine for Xdebug": "Maszyna programisty dla Xdebug",
-  "Diagnostics view. Envoryx only manages resources labelled envoryx.managed=true; everything else is shown read-only.": "Widok diagnostyczny. Envoryx zarządza tylko zasobami z etykietą envoryx.managed=true; wszystko inne jest wyświetlane tylko do odczytu.",
+  "Envoryx only manages resources labelled envoryx.managed=true; everything else is shown read-only.": "Envoryx zarządza tylko zasobami z etykietą envoryx.managed=true; wszystko inne jest wyświetlane tylko do odczytu.",
   "Direct access": "Dostęp bezpośredni",
   "Disable": "Wyłącz",
   "Disabled (ENVORYX_SSH is empty).": "Wyłączone (ENVORYX_SSH jest puste).",
@@ -436,7 +436,6 @@
   "Queues": "Kolejki",
   "Reachable at {{address}}": "Dostępny pod {{address}}",
   "Read-only. Envoryx never touches containers without the envoryx.managed=true label.": "Tylko do odczytu. Envoryx nigdy nie rusza kontenerów bez etykiety envoryx.managed=true.",
-  "Recent projects": "Ostatnie projekty",
   "Reconcile now": "Uzgodnij teraz",
   "Redirect plain HTTP requests for project and UI domains to HTTPS.": "Przekierowuj żądania HTTP dla domen projektów i interfejsu na HTTPS.",
   "Redis version": "Wersja Redis",
@@ -791,7 +790,6 @@
   "Removed {{count}} images, {{size}} reclaimed._many": "Usunięto {{count}} obrazów, odzyskano {{size}}.",
   "Removed {{count}} images, {{size}} reclaimed._other": "Usunięto {{count}} obrazu, odzyskano {{size}}.",
   "{{engine}} version": "Wersja {{engine}}",
-  "{{free}} free of {{total}}": "{{free}} wolne z {{total}}",
   "{{hostname}} added.": "{{hostname}} dodano.",
   "{{running}} / {{total}} running": "{{running}} / {{total}} uruchomionych",
   "{{running}}/{{total}} containers": "{{running}}/{{total}} kontenerów",
@@ -2640,5 +2638,12 @@
   ". Sessions run as the project owner inside": ". Sesje działają jako właściciel projektu w",
   "An admin can set it in the settings.": "Administrator może go ustawić w ustawieniach.",
   "Regenerate in the settings": "Wygeneruj ponownie w ustawieniach",
-  "Secret key_instance": "Klucz tajny"
+  "Secret key_instance": "Klucz tajny",
+  "{{running}} of {{total}} running": "{{running}} z {{total}} działa",
+  "Networks & volumes": "Sieci i wolumeny",
+  "Host paths and the other set-up checks are part of the diagnostics.": "Ścieżki hosta i pozostałe kontrole konfiguracji są częścią diagnostyki.",
+  "{{free}} free": "{{free}} wolne",
+  "System": "System",
+  "Docker sections": "Sekcje Dockera",
+  "Without a project": "Bez projektu"
 }

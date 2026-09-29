@@ -161,7 +161,7 @@
   "Details": "Dettagli",
   "Dev server": "Server di sviluppo",
   "Developer machine for Xdebug": "Macchina dello sviluppatore per Xdebug",
-  "Diagnostics view. Envoryx only manages resources labelled envoryx.managed=true; everything else is shown read-only.": "Vista diagnostica. Envoryx gestisce solo le risorse con etichetta envoryx.managed=true; tutto il resto è mostrato in sola lettura.",
+  "Envoryx only manages resources labelled envoryx.managed=true; everything else is shown read-only.": "Envoryx gestisce solo le risorse con etichetta envoryx.managed=true; tutto il resto è mostrato in sola lettura.",
   "Direct access": "Accesso diretto",
   "Disable": "Disabilita",
   "Disabled (ENVORYX_SSH is empty).": "Disabilitato (ENVORYX_SSH è vuoto).",
@@ -436,7 +436,6 @@
   "Queues": "Code",
   "Reachable at {{address}}": "Raggiungibile su {{address}}",
   "Read-only. Envoryx never touches containers without the envoryx.managed=true label.": "Sola lettura. Envoryx non tocca mai i container senza l'etichetta envoryx.managed=true.",
-  "Recent projects": "Progetti recenti",
   "Reconcile now": "Riconcilia ora",
   "Redirect plain HTTP requests for project and UI domains to HTTPS.": "Reindirizza le richieste HTTP dei domini dei progetti e dell'interfaccia a HTTPS.",
   "Redis version": "Versione Redis",
@@ -771,7 +770,6 @@
   "Removed {{count}} images, {{size}} reclaimed._one": "{{count}} immagine rimossa, {{size}} recuperati.",
   "Removed {{count}} images, {{size}} reclaimed._other": "{{count}} immagini rimosse, {{size}} recuperati.",
   "{{engine}} version": "Versione {{engine}}",
-  "{{free}} free of {{total}}": "{{free}} liberi su {{total}}",
   "{{hostname}} added.": "{{hostname}} aggiunto.",
   "{{running}} / {{total}} running": "{{running}} / {{total}} in esecuzione",
   "{{running}}/{{total}} containers": "{{running}}/{{total}} container",
@@ -2596,5 +2594,12 @@
   ". Sessions run as the project owner inside": ". Le sessioni girano come proprietario del progetto in",
   "An admin can set it in the settings.": "Un amministratore può impostarlo nelle impostazioni.",
   "Regenerate in the settings": "Rigenera nelle impostazioni",
-  "Secret key_instance": "Chiave segreta"
+  "Secret key_instance": "Chiave segreta",
+  "{{running}} of {{total}} running": "{{running}} di {{total}} in esecuzione",
+  "Networks & volumes": "Reti e volumi",
+  "Host paths and the other set-up checks are part of the diagnostics.": "I percorsi host e gli altri controlli di configurazione fanno parte della diagnostica.",
+  "{{free}} free": "{{free}} liberi",
+  "System": "Sistema",
+  "Docker sections": "Sezioni Docker",
+  "Without a project": "Senza progetto"
 }

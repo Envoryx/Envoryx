@@ -161,7 +161,7 @@
   "Details": "Détails",
   "Dev server": "Serveur de développement",
   "Developer machine for Xdebug": "Machine du développeur pour Xdebug",
-  "Diagnostics view. Envoryx only manages resources labelled envoryx.managed=true; everything else is shown read-only.": "Vue de diagnostic. Envoryx ne gère que les ressources portant le label envoryx.managed=true ; tout le reste est affiché en lecture seule.",
+  "Envoryx only manages resources labelled envoryx.managed=true; everything else is shown read-only.": "Envoryx ne gère que les ressources portant le label envoryx.managed=true ; tout le reste est affiché en lecture seule.",
   "Direct access": "Accès direct",
   "Disable": "Désactiver",
   "Disabled (ENVORYX_SSH is empty).": "Désactivé (ENVORYX_SSH est vide).",
@@ -436,7 +436,6 @@
   "Queues": "Files d'attente",
   "Reachable at {{address}}": "Joignable à {{address}}",
   "Read-only. Envoryx never touches containers without the envoryx.managed=true label.": "Lecture seule. Envoryx ne touche jamais aux conteneurs sans le label envoryx.managed=true.",
-  "Recent projects": "Projets récents",
   "Reconcile now": "Réconcilier maintenant",
   "Redirect plain HTTP requests for project and UI domains to HTTPS.": "Rediriger les requêtes HTTP des domaines de projets et de l'interface vers HTTPS.",
   "Redis version": "Version de Redis",
@@ -771,7 +770,6 @@
   "Removed {{count}} images, {{size}} reclaimed._one": "{{count}} image supprimée, {{size}} récupérés.",
   "Removed {{count}} images, {{size}} reclaimed._other": "{{count}} images supprimées, {{size}} récupérés.",
   "{{engine}} version": "Version de {{engine}}",
-  "{{free}} free of {{total}}": "{{free}} libres sur {{total}}",
   "{{hostname}} added.": "{{hostname}} ajouté.",
   "{{running}} / {{total}} running": "{{running}} / {{total}} en cours",
   "{{running}}/{{total}} containers": "{{running}}/{{total}} conteneurs",
@@ -2596,5 +2594,12 @@
   ". Sessions run as the project owner inside": ". Les sessions s'exécutent en tant que propriétaire du projet dans",
   "An admin can set it in the settings.": "Un administrateur peut le définir dans les paramètres.",
   "Regenerate in the settings": "Régénérer dans les paramètres",
-  "Secret key_instance": "Clé secrète"
+  "Secret key_instance": "Clé secrète",
+  "{{running}} of {{total}} running": "{{running}} sur {{total}} en cours",
+  "Networks & volumes": "Réseaux et volumes",
+  "Host paths and the other set-up checks are part of the diagnostics.": "Les chemins hôte et les autres vérifications de configuration font partie du diagnostic.",
+  "{{free}} free": "{{free}} libres",
+  "System": "Système",
+  "Docker sections": "Sections Docker",
+  "Without a project": "Sans projet"
 }
