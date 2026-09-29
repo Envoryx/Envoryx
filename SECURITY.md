@@ -199,7 +199,7 @@ container on the server.
   (`MYSQL_PWD`), never on a command line, and stripped from error messages before those
   reach logs or the UI.
 
-- Private registry logins (*Settings → Tools*) are stored like the other secrets: encrypted
+- Private registry logins (*Settings → Private registries*) are stored like the other secrets: encrypted
   in the SQLite database under `/config`, write-only through the API (`hasPassword` is all
   that comes back). They go to the Docker daemon with each pull and build, never
   into a container, a command line or a log.

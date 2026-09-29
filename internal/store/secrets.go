@@ -23,7 +23,7 @@ func (s *Store) CheckSecretKey(ctx context.Context) error {
 	v, err := secrets.Open(raw)
 	if err != nil {
 		if errors.Is(err, secrets.ErrUnknownKey) {
-			return fmt.Errorf("the database's secrets were encrypted with key %s, which Envoryx was not given: set %s to that key for one start (Envoryx re-encrypts everything with its current key), set it as %s, or put its key file back as /config/%s (Settings, Access, Secret key shows the key of a running instance)",
+			return fmt.Errorf("the database's secrets were encrypted with key %s, which Envoryx was not given: set %s to that key for one start (Envoryx re-encrypts everything with its current key), set it as %s, or put its key file back as /config/%s (Settings, Secret key shows the key of a running instance)",
 				secrets.KeyIDOf(raw), secrets.EnvOldKey, secrets.EnvKey, secrets.KeyFile)
 		}
 		return err

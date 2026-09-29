@@ -50,7 +50,7 @@ make build && ENVORYX_CONFIG_DIR=$PWD/.local/config ENVORYX_PROJECTS_DIR=$PWD/.l
 ```
 
 The CLI half of the binary talks to whatever server you point it at, so a local run is
-enough to try it. Give it a token from *Settings → API tokens* and a configuration file of
+enough to try it. Give it a token from *Settings → API tokens & MCP* and a configuration file of
 its own, well away from the one in your home directory:
 
 ```

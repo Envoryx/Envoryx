@@ -24,7 +24,7 @@ import (
 const cliUsage = `Usage: envoryx <command> [flags]
 
 Work with a running Envoryx over its REST API - from an SSH session, a script or a
-CI job. The address and an API token (web interface → Settings → API tokens) come
+CI job. The address and an API token (web interface → Settings → API tokens & MCP) come
 from "envoryx login", from the environment or from the flags below.
 
 Manifest:
@@ -375,7 +375,7 @@ func (c *cli) connect() (*client, error) {
 		return nil, err
 	}
 	if c.cfg.Token == "" {
-		return nil, errors.New("no API token: run \"envoryx login\", or set ENVORYX_TOKEN (create one under Settings → API tokens)")
+		return nil, errors.New("no API token: run \"envoryx login\", or set ENVORYX_TOKEN (create one under Settings → API tokens & MCP)")
 	}
 	api, err := newClient(c.cfg)
 	if err != nil {

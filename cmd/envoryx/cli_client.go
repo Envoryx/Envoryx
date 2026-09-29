@@ -230,7 +230,7 @@ func friendlyDialError(err error, base *url.URL) error {
 	var hostErr x509.HostnameError
 	switch {
 	case errors.As(err, &certErr), errors.As(err, &hostErr):
-		return fmt.Errorf("%s uses a certificate this machine does not trust: pass --ca-cert with the file from Settings → TLS (or --insecure on a trusted network)\n%w", base.Host, err)
+		return fmt.Errorf("%s uses a certificate this machine does not trust: pass --ca-cert with the file from Settings → Domains & HTTPS (or --insecure on a trusted network)\n%w", base.Host, err)
 	}
 	var netErr *net.OpError
 	if errors.As(err, &netErr) {

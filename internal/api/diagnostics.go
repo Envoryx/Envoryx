@@ -247,7 +247,7 @@ func (a *API) checkPublicHost(ctx context.Context) []Check {
 	case needed:
 		c.Status = checkWarning
 		c.Detail = fmt.Sprintf("Envoryx has its own IP (%s) but no host for project links is set; links to published ports (project URLs, Mailpit, object storage console, database ports) point at Envoryx instead of the Docker host.", a.d.Proxy.Address)
-		c.Hint = "Set the Docker host's address under Settings → General → Host for project links."
+		c.Hint = "Set the Docker host's address under Settings → Domains & HTTPS → Host for project links."
 		// The UI labels this action itself ("Use <host>").
 		if v := suggestion["ip"]; v != "" {
 			c.Action = &CheckAction{Kind: "setPublicHost", Value: v}
@@ -284,7 +284,7 @@ func (a *API) checkProxyPorts(context.Context) []Check {
 // checkDNS resolves a name under the base domain the way Envoryx's own resolver does and
 // compares it with where the proxy is. Devices often use a different DNS server (an ad
 // blocker with the wildcard rewrite while the container asks the router), so a failure
-// here is only a note; the browser check in the diagnostics tab has the final say.
+// here is only a note; the browser check in the Diagnostics section has the final say.
 func (a *API) checkDNS(ctx context.Context) []Check {
 	c := Check{ID: "network.dns", Category: catNetwork, Title: "Wildcard DNS as seen by Envoryx", Docs: "names"}
 	if a.d.Proxy == nil || !a.d.Proxy.Enabled {

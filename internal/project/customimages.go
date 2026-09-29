@@ -695,7 +695,7 @@ func imageError(ref string, err error) error {
 	}
 	hint := ""
 	if msg := strings.ToLower(err.Error()); strings.Contains(msg, "authoriz") || strings.Contains(msg, "denied") {
-		hint = "; if the registry is private, add a login under Settings, Tools, Private registries"
+		hint = "; if the registry is private, add a login under Settings, Private registries"
 	}
 	if isBuildRef(ref) {
 		return fmt.Errorf("%w: %v%s", validate.ErrInvalid, err, hint)

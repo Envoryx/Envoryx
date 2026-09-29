@@ -67,7 +67,7 @@ func (c *cli) login(ctx context.Context, args []string) error {
 // it comes, which is what a provisioning script does.
 func (c *cli) readToken() (string, error) {
 	if f, ok := c.stdin.(*os.File); ok && term.IsTerminal(int(f.Fd())) {
-		fmt.Fprint(c.errOut, "API token (web interface → Settings → API tokens): ")
+		fmt.Fprint(c.errOut, "API token (web interface → Settings → API tokens & MCP): ")
 		raw, err := term.ReadPassword(int(f.Fd()))
 		fmt.Fprintln(c.errOut)
 		if err != nil {
@@ -79,7 +79,7 @@ func (c *cli) readToken() (string, error) {
 }
 
 // logout forgets the stored token. The token itself stays valid; revoke it in the web
-// interface under Settings → API tokens.
+// interface under Settings → API tokens & MCP.
 func (c *cli) logout(args []string) error {
 	fs := c.newFlags("logout")
 	if _, err := parse(fs, args); err != nil {
@@ -93,7 +93,7 @@ func (c *cli) logout(args []string) error {
 		}
 		return err
 	}
-	c.printf("Removed %s. The token itself stays valid until it is revoked under Settings → API tokens.\n", path)
+	c.printf("Removed %s. The token itself stays valid until it is revoked under Settings → API tokens & MCP.\n", path)
 	return nil
 }
 
