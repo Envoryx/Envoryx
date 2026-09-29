@@ -2565,5 +2565,20 @@
   "Restoring the volume {{name}}": "Volume {{name}} wordt hersteld",
   "The project has no database; the addon volumes are saved.": "Het project heeft geen database; de volumes van de addons worden opgeslagen.",
   "The addon volumes are saved, too.": "De volumes van de addons worden ook opgeslagen.",
-  "With the addon volumes: {{files}}": "Met de volumes van de addons: {{files}}"
+  "With the addon volumes: {{files}}": "Met de volumes van de addons: {{files}}",
+  "New key {{id}} in place: {{database}} database values, {{files}} files and {{backups}} project backups re-encrypted. Keep a copy of the new key.": "Nieuwe sleutel {{id}} actief: {{database}} databasewaarden, {{files}} bestanden en {{backups}} projectback-ups opnieuw versleuteld. Bewaar een kopie van de nieuwe sleutel.",
+  "Passwords, tokens and keys that Envoryx stores (in the database, the notification, offsite and certificate settings and in project backups) are encrypted with this key. Instance backups never contain it: keep a copy, or an instance backup cannot be restored on another machine.": "Wachtwoorden, tokens en sleutels die Envoryx bewaart (in de database, de instellingen voor meldingen, externe back-ups en certificaten en in projectback-ups) zijn met deze sleutel versleuteld. Instantieback-ups bevatten hem nooit: bewaar een kopie, anders kan een instantieback-up op een andere machine niet worden hersteld.",
+  "Key ID": "Sleutel-ID",
+  "Source": "Bron",
+  "the environment variable": "de omgevingsvariabele",
+  "the key file": "het sleutelbestand",
+  "Key": "Sleutel",
+  "Show key": "Sleutel tonen",
+  "To keep the key out of /config (and out of appdata backups of it), set it as {{env}} in the container; Envoryx takes it from there and removes the key file at the next start.": "Om de sleutel buiten /config (en buiten appdata-back-ups daarvan) te houden, stel je hem in de container in als {{env}}; Envoryx neemt hem dan daarvandaan en verwijdert het sleutelbestand bij de volgende start.",
+  "Replace the key": "Sleutel vervangen",
+  "To replace the key, set a new one as {{env}} and the current one as {{old}} for one start; Envoryx re-encrypts everything and the old variable can go.": "Om de sleutel te vervangen, stel je een nieuwe in als {{env}} en de huidige voor één start als {{old}}; Envoryx versleutelt alles opnieuw, daarna kan de oude variabele weg.",
+  "Replace the secret key?": "Geheime sleutel vervangen?",
+  "Envoryx creates a new key and re-encrypts every secret and every project backup with it. Instance backups made before keep needing the current key {{id}}: keep a copy of it as long as you may restore one of them.": "Envoryx maakt een nieuwe sleutel en versleutelt elk geheim en elke projectback-up daarmee opnieuw. Eerdere instantieback-ups blijven de huidige sleutel {{id}} nodig hebben: bewaar er een kopie van zolang je er een zou kunnen herstellen.",
+  "Secret key of the backup": "Geheime sleutel van de back-up",
+  "The backup's secrets are encrypted with key {{id}}, not with this instance's. Enter that key; afterwards everything is encrypted with this instance's key.": "De geheimen van de back-up zijn versleuteld met sleutel {{id}}, niet met die van deze instantie. Voer die sleutel in; daarna is alles versleuteld met de sleutel van deze instantie."
 }

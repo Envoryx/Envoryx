@@ -253,6 +253,16 @@ export interface AddonUpdate {
   removeData?: boolean;
 }
 
+/** Where the key sealing the secrets at rest comes from. */
+export interface SecretKeyInfo {
+  source: "env" | "file" | "";
+  path?: string;
+  keyId: string;
+  canRotate: boolean;
+  envKey: string;
+  envOldKey: string;
+}
+
 /** A private registry login; the password is write-only. */
 export interface RegistryLogin {
   host: string;
@@ -1779,6 +1789,8 @@ export interface InstanceBackupMeta {
   kind: string;
   note?: string;
   entries: number;
+  /** The key the backup's secrets are sealed with (absent before encryption). */
+  keyId?: string;
 }
 
 export interface InstanceBackup {

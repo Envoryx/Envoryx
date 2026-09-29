@@ -2609,5 +2609,20 @@
   "Restoring the volume {{name}}": "Przywracanie wolumenu {{name}}",
   "The project has no database; the addon volumes are saved.": "Projekt nie ma bazy danych; zapisywane są wolumeny dodatków.",
   "The addon volumes are saved, too.": "Wolumeny dodatków też są zapisywane.",
-  "With the addon volumes: {{files}}": "Z wolumenami dodatków: {{files}}"
+  "With the addon volumes: {{files}}": "Z wolumenami dodatków: {{files}}",
+  "New key {{id}} in place: {{database}} database values, {{files}} files and {{backups}} project backups re-encrypted. Keep a copy of the new key.": "Nowy klucz {{id}} aktywny: ponownie zaszyfrowano {{database}} wartości w bazie, {{files}} pliki i {{backups}} kopie projektów. Zachowaj kopię nowego klucza.",
+  "Passwords, tokens and keys that Envoryx stores (in the database, the notification, offsite and certificate settings and in project backups) are encrypted with this key. Instance backups never contain it: keep a copy, or an instance backup cannot be restored on another machine.": "Hasła, tokeny i klucze przechowywane przez Envoryx (w bazie danych, w ustawieniach powiadomień, kopii zewnętrznych i certyfikatów oraz w kopiach projektów) są szyfrowane tym kluczem. Kopie instancji nigdy go nie zawierają: zachowaj kopię, inaczej kopii instancji nie da się przywrócić na innej maszynie.",
+  "Key ID": "ID klucza",
+  "Source": "Źródło",
+  "the environment variable": "zmienna środowiskowa",
+  "the key file": "plik klucza",
+  "Key": "Klucz",
+  "Show key": "Pokaż klucz",
+  "To keep the key out of /config (and out of appdata backups of it), set it as {{env}} in the container; Envoryx takes it from there and removes the key file at the next start.": "Aby trzymać klucz poza /config (i poza kopiami appdata), ustaw go w kontenerze jako {{env}}; Envoryx weźmie go stamtąd i usunie plik klucza przy następnym starcie.",
+  "Replace the key": "Zastąp klucz",
+  "To replace the key, set a new one as {{env}} and the current one as {{old}} for one start; Envoryx re-encrypts everything and the old variable can go.": "Aby zastąpić klucz, ustaw nowy jako {{env}}, a obecny na jeden start jako {{old}}; Envoryx zaszyfruje wszystko ponownie, potem starą zmienną można usunąć.",
+  "Replace the secret key?": "Zastąpić tajny klucz?",
+  "Envoryx creates a new key and re-encrypts every secret and every project backup with it. Instance backups made before keep needing the current key {{id}}: keep a copy of it as long as you may restore one of them.": "Envoryx tworzy nowy klucz i ponownie szyfruje nim każdy sekret i każdą kopię projektu. Wcześniejsze kopie instancji nadal wymagają obecnego klucza {{id}}: zachowaj jego kopię, dopóki możesz chcieć którąś przywrócić.",
+  "Secret key of the backup": "Tajny klucz kopii",
+  "The backup's secrets are encrypted with key {{id}}, not with this instance's. Enter that key; afterwards everything is encrypted with this instance's key.": "Sekrety kopii są zaszyfrowane kluczem {{id}}, a nie kluczem tej instancji. Wpisz ten klucz; potem wszystko będzie zaszyfrowane kluczem tej instancji."
 }

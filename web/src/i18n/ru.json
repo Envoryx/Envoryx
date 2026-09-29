@@ -2609,5 +2609,20 @@
   "Restoring the volume {{name}}": "Восстановление тома {{name}}",
   "The project has no database; the addon volumes are saved.": "У проекта нет базы данных; сохраняются тома дополнений.",
   "The addon volumes are saved, too.": "Тома дополнений тоже сохраняются.",
-  "With the addon volumes: {{files}}": "С томами дополнений: {{files}}"
+  "With the addon volumes: {{files}}": "С томами дополнений: {{files}}",
+  "New key {{id}} in place: {{database}} database values, {{files}} files and {{backups}} project backups re-encrypted. Keep a copy of the new key.": "Новый ключ {{id}} действует: заново зашифровано значений в базе: {{database}}, файлов: {{files}}, резервных копий проектов: {{backups}}. Сохраните копию нового ключа.",
+  "Passwords, tokens and keys that Envoryx stores (in the database, the notification, offsite and certificate settings and in project backups) are encrypted with this key. Instance backups never contain it: keep a copy, or an instance backup cannot be restored on another machine.": "Пароли, токены и ключи, которые хранит Envoryx (в базе данных, в настройках уведомлений, внешних копий и сертификатов и в резервных копиях проектов), зашифрованы этим ключом. Резервные копии экземпляра никогда его не содержат: сохраните копию, иначе резервную копию экземпляра нельзя будет восстановить на другой машине.",
+  "Key ID": "ID ключа",
+  "Source": "Источник",
+  "the environment variable": "переменная окружения",
+  "the key file": "файл ключа",
+  "Key": "Ключ",
+  "Show key": "Показать ключ",
+  "To keep the key out of /config (and out of appdata backups of it), set it as {{env}} in the container; Envoryx takes it from there and removes the key file at the next start.": "Чтобы ключ не лежал в /config (и в резервных копиях appdata), задайте его в контейнере как {{env}}; Envoryx возьмёт его оттуда и удалит файл ключа при следующем запуске.",
+  "Replace the key": "Заменить ключ",
+  "To replace the key, set a new one as {{env}} and the current one as {{old}} for one start; Envoryx re-encrypts everything and the old variable can go.": "Чтобы заменить ключ, задайте новый как {{env}}, а текущий на один запуск как {{old}}; Envoryx перешифрует всё, после чего старую переменную можно удалить.",
+  "Replace the secret key?": "Заменить секретный ключ?",
+  "Envoryx creates a new key and re-encrypts every secret and every project backup with it. Instance backups made before keep needing the current key {{id}}: keep a copy of it as long as you may restore one of them.": "Envoryx создаёт новый ключ и перешифровывает им каждый секрет и каждую резервную копию проекта. Более ранним резервным копиям экземпляра по-прежнему нужен текущий ключ {{id}}: храните его копию, пока может понадобиться их восстановить.",
+  "Secret key of the backup": "Секретный ключ резервной копии",
+  "The backup's secrets are encrypted with key {{id}}, not with this instance's. Enter that key; afterwards everything is encrypted with this instance's key.": "Секреты резервной копии зашифрованы ключом {{id}}, а не ключом этого экземпляра. Введите этот ключ; после этого всё будет зашифровано ключом этого экземпляра."
 }

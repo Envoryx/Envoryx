@@ -91,11 +91,16 @@ export function InstanceBackupsCard() {
     },
     onError: fail(t("Deleting the backup failed")),
   });
+  const secretKey = useQuery({ queryKey: ["secretKey"], queryFn: async () => (await api.secretKey.get()).secretKey });
+  const [restoreKey, setRestoreKey] = useState("");
+  // A backup sealed with another key needs that key to be restored here.
+  const foreignKey = (b: InstanceBackup | null) => !!b?.meta.keyId && !!secretKey.data && b.meta.keyId !== secretKey.data.keyId;
   const restore = useMutation({
-    mutationFn: (b: InstanceBackup) => api.instanceBackups.restore(b.id, confirm),
+    mutationFn: (b: InstanceBackup) => api.instanceBackups.restore(b.id, confirm, foreignKey(b) ? restoreKey.trim() : undefined),
     onSuccess: (r) => {
       setRestoreTarget(null);
       setConfirm("");
+      setRestoreKey("");
       if (r.restarting) {
         setRestarting(true);
       } else {
@@ -273,7 +278,7 @@ export function InstanceBackupsCard() {
             >
               {t("Cancel")}
             </Button>
-            <Button variant="danger" loading={restore.isPending} disabled={confirm !== "restore"} onClick={() => restoreTarget && restore.mutate(restoreTarget)} icon={<RotateCcw className="size-4" />}>
+            <Button variant="danger" loading={restore.isPending} disabled={confirm !== "restore" || (foreignKey(restoreTarget) && !restoreKey.trim())} onClick={() => restoreTarget && restore.mutate(restoreTarget)} icon={<RotateCcw className="size-4" />}>
               {t("Restore and restart")}
             </Button>
           </>
@@ -285,6 +290,15 @@ export function InstanceBackupsCard() {
             <p className="mt-1">{t("Project files and Docker containers are not touched. Projects created after the backup show up as orphans and can be cleaned up afterwards.")}</p>
             <p className="mt-1">{t("Envoryx restarts to apply the restore; all sessions end.")}</p>
           </Alert>
+          {foreignKey(restoreTarget) && (
+            <Field
+              label={t("Secret key of the backup")}
+              htmlFor="instance-restore-key"
+              hint={t("The backup's secrets are encrypted with key {{id}}, not with this instance's. Enter that key; afterwards everything is encrypted with this instance's key.", { id: restoreTarget?.meta.keyId ?? "" })}
+            >
+              <Input id="instance-restore-key" type="password" value={restoreKey} onChange={(e) => setRestoreKey(e.target.value)} autoComplete="off" />
+            </Field>
+          )}
           <Field label={t("Type restore to confirm")} htmlFor="instance-restore-confirm">
             <Input id="instance-restore-confirm" value={confirm} onChange={(e) => setConfirm(e.target.value)} autoComplete="off" />
           </Field>
