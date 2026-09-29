@@ -2633,5 +2633,6 @@
   "{{service}} container uses image {{image}} but {{configured}} is configured; restart to apply": "Le conteneur {{service}} utilise l'image {{image}} mais {{configured}} est configurée ; redémarrez pour appliquer",
   "a newer {{service}} image was pulled; restart to apply": "Une image {{service}} plus récente a été téléchargée ; redémarrez pour appliquer",
   "container for a removed worker still exists": "Un conteneur d'un worker supprimé existe encore",
-  "container for removed service \"{{service}}\" still exists": "Un conteneur du service supprimé « {{service}} » existe encore"
+  "container for removed service \"{{service}}\" still exists": "Un conteneur du service supprimé « {{service}} » existe encore",
+  "the {{service}} container is from an older Envoryx; restart the project to update it": "Le conteneur {{service}} vient d'une version plus ancienne d'Envoryx ; redémarrez le projet pour le mettre à jour"
 }

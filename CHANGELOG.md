@@ -10,6 +10,20 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Added
+- The dashboard notes containers that an older Envoryx created from another
+  spec (a changed command or health check) and asks for a restart of the
+  project, which recreates them. Such containers kept running as they were;
+  a PostgreSQL container from before 0.10.0, for example, kept logging
+  `FATAL: role "root" does not exist` every ten seconds.
+
+### Fixed
+- A project whose name starts with "pg" and a separator (e.g. "PG Probe")
+  got the database user `pg_…`, which PostgreSQL refuses, so the database
+  never started. Such names, the system databases (`postgres`, `mysql`,
+  `admin` …) and `root` now get an `app_` prefix. Existing projects keep
+  their names.
+
 ## [0.16.1] - 2026-09-29
 
 ### Changed

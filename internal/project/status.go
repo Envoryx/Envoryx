@@ -151,6 +151,30 @@ func deriveStatus(p store.Project, containers []docker.Container, imageIDs map[s
 // check) and remove themselves.
 var transientServices = map[string]bool{"dbclient": true, "git": true, "template": true, "move": true, "gpucheck": true}
 
+// outdatedContainers names the services whose container was created from another spec
+// than the plan has now, typically after an Envoryx update changed a command or health
+// check. Such a container keeps running as it is; only a start or restart recreates it.
+func outdatedContainers(planner *Planner, p store.Project, containers []docker.Container) []string {
+	plan, err := planner.Plan(p)
+	if err != nil {
+		return nil
+	}
+	byKind := map[string]docker.Container{}
+	for _, c := range containers {
+		if c.ProjectID() == p.ID {
+			byKind[c.Service()] = c
+		}
+	}
+	var out []string
+	for _, pc := range plan.Containers {
+		c, ok := byKind[string(pc.Kind)]
+		if ok && c.Labels[docker.LabelSpec] != pc.Spec.Labels[docker.LabelSpec] {
+			out = append(out, string(pc.Kind))
+		}
+	}
+	return out
+}
+
 // Reconcile compares the database with Docker, records inconsistencies and orphaned
 // resources, and repairs interrupted lifecycles. The only thing it removes are orphaned
 // containers and networks (see cleanOrphans); volumes and project data are never touched.
@@ -177,6 +201,8 @@ func (m *Manager) Reconcile(ctx context.Context) ReconcileReport {
 	networks, _ := m.engine.ListNetworks(ctx, true)
 	volumes, _ := m.engine.ListVolumes(ctx, true)
 	m.ProtectRollbackTargets(ctx)
+	// Without host paths there is no plan; the outdated-container check is skipped then.
+	planner, planErr := m.planner()
 
 	for _, p := range projects {
 		// A restart in the middle of create/delete leaves a transitional lifecycle behind.
@@ -203,6 +229,12 @@ func (m *Manager) Reconcile(ctx context.Context) ReconcileReport {
 		if st.State == StateMissing && p.Lifecycle == store.LifecycleReady {
 			report.Issues = append(report.Issues, ReconcileIssue{ProjectID: p.ID, ProjectName: p.Name, Severity: "error",
 				Message: "no containers exist for this project; start it to recreate them"})
+		}
+		if planErr == nil && p.DesiredState == store.DesiredRunning && p.Lifecycle == store.LifecycleReady {
+			for _, kind := range outdatedContainers(planner, p, containers) {
+				report.Issues = append(report.Issues, ReconcileIssue{ProjectID: p.ID, ProjectName: p.Name, Severity: "warning",
+					Message: fmt.Sprintf("the %s container is from an older Envoryx; restart the project to update it", kind)})
+			}
 		}
 	}
 
