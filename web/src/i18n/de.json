@@ -2634,5 +2634,8 @@
   "a newer {{service}} image was pulled; restart to apply": "Ein neueres {{service}}-Image wurde geladen; zum Übernehmen neu starten",
   "container for a removed worker still exists": "Ein Container für einen entfernten Worker existiert noch",
   "container for removed service \"{{service}}\" still exists": "Ein Container für den entfernten Dienst „{{service}}“ existiert noch",
-  "the {{service}} container is from an older Envoryx; restart the project to update it": "Der {{service}}-Container stammt von einer älteren Envoryx-Version; starte das Projekt neu, um ihn zu aktualisieren"
+  "the {{service}} container is from an older Envoryx; restart the project to update it": "Der {{service}}-Container stammt von einer älteren Envoryx-Version; starte das Projekt neu, um ihn zu aktualisieren",
+  "IDE: {{ide}} with user": "IDE: {{ide}} mit Benutzer",
+  "RubyMine's debugger forwards a port over SSH, so switch on “Allow JetBrains Gateway for this project” below first.": "Der Debugger von RubyMine leitet einen Port über SSH weiter, schalte deshalb zuerst unten „JetBrains Gateway für dieses Projekt erlauben“ ein.",
+  "The steps are PhpStorm's and WebStorm's. GoLand, PyCharm, RubyMine, IntelliJ IDEA and Rider have no “New Project from Existing Files”: open or clone the code locally and follow “Code already on your machine” below.": "Die Schritte gelten für PhpStorm und WebStorm. GoLand, PyCharm, RubyMine, IntelliJ IDEA und Rider haben kein „New Project from Existing Files“: Öffne oder klone den Code lokal und folge „Code schon auf deinem Rechner“ unten."
 }
