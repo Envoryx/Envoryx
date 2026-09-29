@@ -2624,5 +2624,14 @@
   "Boxed": "Gecentreerd",
   "Pages use the whole window.": "Pagina's gebruiken het hele venster.",
   "Pages stay in a centred column, easier to read on wide screens.": "Pagina's blijven in een gecentreerde kolom, makkelijker te lezen op brede schermen.",
-  "Accent colour and page width are stored in this browser; the logo, buttons and highlights follow the accent.": "Accentkleur en paginabreedte worden in deze browser opgeslagen; logo, knoppen en markeringen volgen de accentkleur."
+  "Accent colour and page width are stored in this browser; the logo, buttons and highlights follow the accent.": "Accentkleur en paginabreedte worden in deze browser opgeslagen; logo, knoppen en markeringen volgen de accentkleur.",
+  "project should be running but is stopped": "Het project zou moeten draaien, maar is gestopt",
+  "project should be running but is partial": "Het project zou moeten draaien, maar slechts een deel van de containers draait",
+  "project should be running but is missing": "Het project zou moeten draaien, maar de containers ontbreken",
+  "project should be running but is error": "Het project zou moeten draaien, maar heeft een fout",
+  "{{service}} is rolled back to the previous image but the container runs another one; restart to apply": "{{service}} is teruggezet naar het vorige image, maar de container draait een ander; herstart om toe te passen",
+  "{{service}} container uses image {{image}} but {{configured}} is configured; restart to apply": "De {{service}}-container gebruikt image {{image}}, maar {{configured}} is ingesteld; herstart om toe te passen",
+  "a newer {{service}} image was pulled; restart to apply": "Er is een nieuwer {{service}}-image opgehaald; herstart om toe te passen",
+  "container for a removed worker still exists": "Er bestaat nog een container van een verwijderde worker",
+  "container for removed service \"{{service}}\" still exists": "Er bestaat nog een container van de verwijderde dienst \"{{service}}\""
 }

@@ -2624,5 +2624,14 @@
   "Boxed": "Centrée",
   "Pages use the whole window.": "Les pages occupent toute la fenêtre.",
   "Pages stay in a centred column, easier to read on wide screens.": "Les pages restent dans une colonne centrée, plus lisible sur les grands écrans.",
-  "Accent colour and page width are stored in this browser; the logo, buttons and highlights follow the accent.": "La couleur d'accent et la largeur de page sont enregistrées dans ce navigateur ; le logo, les boutons et les mises en évidence suivent la couleur d'accent."
+  "Accent colour and page width are stored in this browser; the logo, buttons and highlights follow the accent.": "La couleur d'accent et la largeur de page sont enregistrées dans ce navigateur ; le logo, les boutons et les mises en évidence suivent la couleur d'accent.",
+  "project should be running but is stopped": "Le projet devrait tourner mais il est arrêté",
+  "project should be running but is partial": "Le projet devrait tourner mais seule une partie des conteneurs tourne",
+  "project should be running but is missing": "Le projet devrait tourner mais ses conteneurs manquent",
+  "project should be running but is error": "Le projet devrait tourner mais il est en erreur",
+  "{{service}} is rolled back to the previous image but the container runs another one; restart to apply": "{{service}} est revenu à l'image précédente mais le conteneur en exécute une autre ; redémarrez pour appliquer",
+  "{{service}} container uses image {{image}} but {{configured}} is configured; restart to apply": "Le conteneur {{service}} utilise l'image {{image}} mais {{configured}} est configurée ; redémarrez pour appliquer",
+  "a newer {{service}} image was pulled; restart to apply": "Une image {{service}} plus récente a été téléchargée ; redémarrez pour appliquer",
+  "container for a removed worker still exists": "Un conteneur d'un worker supprimé existe encore",
+  "container for removed service \"{{service}}\" still exists": "Un conteneur du service supprimé « {{service}} » existe encore"
 }

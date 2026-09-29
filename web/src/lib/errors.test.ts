@@ -27,6 +27,12 @@ describe("translateMessage", () => {
     expect(translateMessage("the health check /up has failed since 09:15: no answer within 5 s", t)).toBe("Der Health Check /up schlägt seit 09:15 fehl: Keine Antwort innerhalb von 5 s");
   });
 
+  it("translates the status warnings of a project", () => {
+    expect(translateMessage("project should be running but is missing", t)).toBe("Das Projekt sollte laufen, aber seine Container fehlen");
+    expect(translateMessage("a newer php image was pulled; restart to apply", t)).toBe("Ein neueres php-Image wurde geladen; zum Übernehmen neu starten");
+    expect(translateMessage('container for removed service "redis" still exists', t)).toBe("Ein Container für den entfernten Dienst „redis“ existiert noch");
+  });
+
   it("leaves unknown text alone", () => {
     expect(translateMessage("something: quite unexpected", t)).toBe("something: quite unexpected");
     expect(translateMessage("", t)).toBe("");
