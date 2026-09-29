@@ -160,6 +160,10 @@ Go API (single binary, single container)
   `Render` fills templates, `Registry` keeps the files under `/config/addons` (list with
   per-file errors, save, delete, fetch from a URL) and `Examples` returns the files embedded
   from `internal/addon/examples`.
+- **secrets** - encryption of the secrets at rest: `Key`/`Ring` (AES-256-GCM, sealed values
+  `envoryx:v1:<key id>:<base64>`), `Load` of the key from `ENVORYX_SECRET_KEY` or
+  `/config/secret.key`, the process's default ring used by `store` and the sealed config
+  files (`ReadFile`/`WriteFile`/`ResealFile`).
 - **project** - the heart of Envoryx:
   - `Planner` turns a `ProjectSpec` (desired state) into a `ResourcePlan`
     (network, volumes, containers with full Docker specs, config files).
@@ -822,7 +826,7 @@ Detailed in SECURITY.md. Summary of the enforced boundaries:
 | Auth | argon2id, server-side sessions, HttpOnly + SameSite=Lax cookie, idle/absolute timeout |
 | CSRF | SameSite cookie + `Origin`/`Sec-Fetch-Site` verification + `X-Requested-With` requirement on mutating requests |
 | WebSocket | same session cookie validated at upgrade + origin check |
-| Secrets | never logged; DB credentials shown only on explicit request; audit details exclude secrets |
+| Secrets | encrypted at rest (`internal/secrets`); never logged; DB credentials shown only on explicit request; audit details exclude secrets |
 | Destructive ops | confirmation token (slug) in request body |
 | Login abuse | per-IP + per-user rate limiting with backoff |
 
@@ -832,10 +836,11 @@ Detailed in SECURITY.md. Summary of the enforced boundaries:
 
 ```
 /config/
-  envoryx.db                SQLite (WAL)
+  envoryx.db                SQLite (WAL); secrets in it sealed (see Secrets at rest)
+  secret.key               key of the sealed secrets, unless ENVORYX_SECRET_KEY is set (0600)
   projects/<id>/           generated config per project (web server config, php.ini, pool conf)
   backups/<slug>/          project backups (unless /backups is mounted)
-  offsite.json             offsite targets with their credentials (0600)
+  offsite.json             offsite targets with their credentials (0600, sealed)
   ca/                      local CA, custom certificate, acme.json (0600)
   logs/<id>/<service>/     log history, one file per UTC day (older days gzipped)
 /projects/<slug>/          user project files (bind-mounted into project containers)
@@ -852,8 +857,10 @@ network filesystem (`config.ValidateStorage`; FUSE only warns, the warning is
 shown in Settings).
 
 `internal/instance` backs up the instance itself (database via `VACUUM INTO`,
-`ca/`, `ssh/`, `notify.json`, `projects/<id>/` without `home/` caches) into a
-single tarball under `<backups>/_instance/`. One is written automatically
+`ca/`, `ssh/`, `notify.json`, `projects/<id>/` without `home/` caches, never the
+key files `secret.key*`) into a single tarball under `<backups>/_instance/`;
+`instance.json` records the key ID of the database's secrets (`Meta.KeyID`, read
+from its `secret_check`). One is written automatically
 before the first pending migration (`db.Options.BeforeMigrate`) and before a
 restore. A restore is only recorded (`/config/.restore-pending`) and applied at
 the next start before the database is opened; the API asks `main` to restart,
@@ -1429,10 +1436,60 @@ without `noBackup` into `addon-<name>-<volume>.tar.gz` (`BackupMeta.AddonVolumes
 addon's container stops for it and starts again; a one-shot `busybox:1.37` container with
 the volume at `/v` streams `tar -czf -` into the file, and a restore empties the volume and
 unpacks the stream the same way. Rename moves addon volumes with the others (they are in
-the plan), a duplicate gets new host ports and empty volumes. `catalogueRepos` counts the
+the plan), a duplicate gets new host ports, secrets of its own and empty volumes. `catalogueRepos` counts the
 installed addons' images and busybox as Envoryx's, so unused ones appear under unused images.
 The manifest carries `addons: {name: true | {version, exposePort}}`; logs, log history and
 MCP accept `addon-<name>` as a service.
+
+### Secrets at rest
+`internal/secrets` seals every secret Envoryx stores with AES-256-GCM. A sealed value is
+`envoryx:v1:<key id>:<base64 of nonce and ciphertext>`; the key ID is the first 4 bytes of
+the key's SHA-256 in hex. A value without the prefix is plain text from before encryption:
+`Open` returns it unchanged, which is what makes the in-place conversion possible. A `Ring`
+seals with its current key and opens with the current and any older keys it holds
+(`Rotate`, `Add`, `DropOld`). One ring serves the process (`SetDefault`); without one (tests,
+tools) `Seal` and `Open` pass values through.
+
+`Load` builds the ring at start: the current key from `ENVORYX_SECRET_KEY` or
+`/config/secret.key`, plus every key that may still have sealed values: a key file the
+variable replaced, `ENVORYX_SECRET_KEY_OLD`, and the files a rotation or restore leaves
+(`secret.key.next`, `secret.key.old`, `secret.key.restore`). Without a key file and variable
+it generates a key but only `Source.Persist` writes it, after the database check, so a
+start that is refused leaves no stray key file.
+
+What is sealed:
+- `store`: `projects.git_token`, the values of secret project variables, every
+  `project_services.config` (whole, whatever the kind), and the settings in
+  `SecretSettings` (`oidc`, `registries`, `secret_check`). Reads open them, so the rest of
+  the code sees plain values.
+- `notify.json`, `offsite.json` and `ca/acme.json`, whole, through `secrets.ReadFile` and
+  `WriteFile`.
+- `backup.json`: new backups carry the project export as `sealedProject`; older ones had it
+  in plain text under `project`.
+
+The setting `secret_check` holds the sealed word `envoryx`. `Store.CheckSecretKey` opens it
+at start (and writes it for a new or pre-encryption database); a key that doesn't fit ends
+the start with the key ID the database needs and the ways to give it. Startup order in
+`main`: `secrets.Load` and `SetDefault` before the instance restore (whose pre-restore
+backup and failure notification need the ring), then the database, `CheckSecretKey`,
+`Persist` of a generated key, `NewManager`, and `Manager.ResealAll`: `Store.ResealSecrets`
+(one transaction over the four sources), `ResealFile` for the three files and
+`ResealBackups` (every `backup.json` under the backups root). Only when all of that
+succeeded does `Source.Cleanup` remove the leftover key files, and `DropOld` forgets the
+older keys.
+
+`Manager.RotateSecretKey` (key file only; with the variable the admin changes it outside and
+sets the old one as `ENVORYX_SECRET_KEY_OLD`) writes the new key to `secret.key.next`,
+rotates the ring, reseals everything, writes `secret.key` and removes `.next`, then drops
+the old key. An interruption leaves both keys on disk: the next start opens everything with
+either and reseals to `secret.key`'s. `RevealSecretKey` is audited.
+
+Instance backups never contain the key files (`instance.Store.skip`), and a restore keeps
+the running instance's. `ScheduleRestore` needs the backup's key unless it is the current
+one (an older key the process still holds in memory is not enough: it is gone after the
+restart), checks its ID against `Meta.KeyID` and writes it as `secret.key.restore`; the
+start after the restore opens the restored secrets with it, reseals them to the current key
+and removes the file.
 
 ### Phase 4 + 8 - Domains, embedded proxy, HTTPS (implemented)
 The proxy lives in the Envoryx binary (`internal/proxy`): two listeners

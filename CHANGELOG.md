@@ -10,6 +10,26 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Added
+- Secrets at rest are encrypted (AES-256-GCM): Git tokens, secret project
+  variables, service credentials, addon secrets, the single sign-on client
+  secret and registry logins in the database, the notification, offsite and
+  Let's Encrypt settings files, and the project export in every project
+  backup. The key comes from `ENVORYX_SECRET_KEY` or, without it, from
+  `/config/secret.key`, which Envoryx creates. *Settings → Access → Secret
+  key* shows the key (keep a copy) and replaces it; with the variable,
+  `ENVORYX_SECRET_KEY_OLD` carries the previous key for one start. Instance
+  backups never contain the key and record its ID; restoring one made with
+  another key asks for that key. A start whose key doesn't fit the database
+  is refused with the key ID it needs.
+
+### Changed
+- The first start of this version encrypts the existing secrets, files and
+  project backups in place and, unless `ENVORYX_SECRET_KEY` is set, creates
+  `/config/secret.key`. Keep a copy of the key: without it an instance
+  backup can't be restored on another host. Instance backups made with
+  earlier versions still hold the secrets unencrypted.
+
 ## [0.14.0] - 2026-09-29
 
 ### Added

@@ -73,6 +73,8 @@ docker build -t ghcr.io/envoryx/envoryx:dev --build-arg VERSION=dev .
 | `ENVORYX_PROXY_HTTPS` | `:443` | HTTPS listener of the proxy (local CA); empty disables HTTPS |
 | `ENVORYX_SSH` | `:2222` | Embedded SSH server for IDE remote interpreters; empty disables it |
 | `ENVORYX_ADMIN_USER` / `ENVORYX_ADMIN_PASSWORD` | - | Create the first admin non-interactively |
+| `ENVORYX_SECRET_KEY` | - | Key that encrypts the stored secrets (base64 of 32 bytes or 64 hex digits, e.g. `openssl rand -base64 32`); without it Envoryx keeps one in `/config/secret.key`, see [Secret key](#secret-key) |
+| `ENVORYX_SECRET_KEY_OLD` | - | The previous key, for one start after changing `ENVORYX_SECRET_KEY` |
 | `ENVORYX_SESSION_IDLE_TIMEOUT` | `12h` | Sliding session expiry |
 | `ENVORYX_SESSION_ABSOLUTE_TIMEOUT` | `168h` | Hard session expiry |
 | `ENVORYX_SECURE_COOKIES` | `false` | Mark cookies `Secure` (enable behind HTTPS) |
@@ -1386,6 +1388,60 @@ The API: `PUT /projects/{id}/services/{kind}/image` with `{"image": "…"}` or
 write-only). The project's services carry `customImage` with the setting, the warnings
 and the last build's output.
 
+## Secret key
+
+Envoryx encrypts the secrets it stores (AES-256-GCM):
+
+- in the database: Git tokens, project variables marked as secret, the service
+  settings (database, RabbitMQ, Meilisearch/Typesense, object storage and external
+  server credentials, addon secrets), the single sign-on client secret and the private
+  registry logins;
+- `/config/notify.json`, `/config/offsite.json` and `/config/ca/acme.json` (as a whole);
+- the project export in each project backup's `backup.json`.
+
+Not encrypted: the private key files that other programs read directly (the local CA,
+the SSH host key, the ACME account key, the deploy key in `/config/ssh/`) and
+`/config/dbtool/connections.json`, which the database browser reads. User passwords and
+API, session and invitation tokens are stored as hashes anyway.
+
+**Where the key comes from.** `ENVORYX_SECRET_KEY` wins: base64 of 32 bytes or 64 hex
+digits, e.g. from `openssl rand -base64 32`. Without it Envoryx creates `/config/secret.key`
+(mode 0600) at the first start. The variable is the better place: a copy of `/config`
+(an appdata backup, a stolen disk image) then holds only encrypted secrets. Switching from
+the file to the variable needs nothing else: Envoryx still reads the file at that start,
+re-encrypts everything with the variable's key and deletes the file.
+
+*Settings → Access → Secret key* shows the key's ID and where it comes from. *Show key*
+reveals the key itself (the reveal is written to the audit log); keep a copy somewhere
+outside Envoryx. Instance backups never contain the key, so without a copy an instance
+backup can't be restored on another host.
+
+**Replacing the key.**
+
+- With the key file, *Replace the key* creates a new key and re-encrypts every secret,
+  the three files and every project backup. The new key waits in `secret.key.next` until
+  that is done, so an interruption leaves both keys at hand and the next start finishes
+  the job.
+- With `ENVORYX_SECRET_KEY`, set the new key there and the current one as
+  `ENVORYX_SECRET_KEY_OLD` for one start; Envoryx re-encrypts everything, and the old
+  variable can go afterwards.
+
+Either way, instance backups made before keep needing the old key.
+
+**A missing or wrong key.** Every start first checks the key against the database. If it
+doesn't fit (the variable was dropped, the key file is gone, a copied `/config` without
+its key), Envoryx refuses to start and says which key ID the database needs and how to
+give it: as `ENVORYX_SECRET_KEY_OLD` for one start (everything is then re-encrypted with
+the current key), as `ENVORYX_SECRET_KEY`, or as `/config/secret.key`. A start that fails
+this way leaves no new key file behind. Without the key the secrets are lost; everything
+else (projects, files, settings without secrets) is not affected by the key.
+
+**Updating from an earlier version.** The first start of this version creates the key file
+(unless `ENVORYX_SECRET_KEY` is set) and encrypts the existing secrets, files and project
+backups in place; the log says how many. Take a copy of the key afterwards. Instance
+backups made with an earlier version are not rewritten and still contain the secrets
+unencrypted; delete them (and their offsite copies) once you have a new one.
+
 ## Git deploy key
 
 For SSH repositories Envoryx generates an Ed25519 key pair on first use under
@@ -1481,7 +1537,9 @@ notification settings and the generated per-project configuration. Project
 files and Docker volumes are **not** included; that's what project backups
 are for. A backup is a single `envoryx-<id>.tar.gz` under
 `<backups dir>/_instance/` (`instance.json` with version/schema, `envoryx.db`
-as a consistent `VACUUM INTO` copy, `config/…`).
+as a consistent `VACUUM INTO` copy, `config/…`). The [secret key](#secret-key)
+is never in it: `instance.json` only records its ID, and the secrets in the
+archive stay encrypted.
 
 - **Create** a backup any time (e.g. before an update); **download** it and
   **import** it on another host to move an installation.
@@ -1502,11 +1560,18 @@ as a consistent `VACUUM INTO` copy, `config/…`).
   written after the backup was taken are gone with the old database.
 - A backup from a **newer** Envoryx (higher schema version) is refused; an
   older one is migrated forward on start (with its own `pre-migrate` backup).
+- A backup whose secrets are encrypted with **another key** (another host, or a
+  key replaced since) asks for that key in the restore dialog; the key must
+  match the ID the backup records. After the restart everything is
+  re-encrypted with this instance's key. Only the current key counts: after a
+  replacement, older backups need the old key, so keep a copy of it as long as
+  you may restore one of them.
 
 Manual restore without the UI (e.g. Envoryx doesn't start): stop the
 container, unpack the archive (`envoryx.db` to `/config/envoryx.db`, deleting
 `envoryx.db-wal`/`-shm` if present, and `config/*` over `/config/`) and start
-again.
+again. If the backup was made with another key, give that key for this start
+as `ENVORYX_SECRET_KEY_OLD` (see [Secret key](#secret-key)).
 
 Still include `/config`, `/projects` and the backups directory in your regular
 off-machine backup (e.g. the Unraid Appdata Backup plugin or an rsync job), or
@@ -1526,8 +1591,8 @@ host. The local backups stay the working copies; each target keeps its own.
 *Test* writes, lists, reads and deletes a small file under the target's
 folder. For SFTP it also records the server's key (SHA256 fingerprint); a
 different key later stops the uploads until the pin is cleared in the target.
-Credentials live in `/config/offsite.json` (mode 0600) and are never sent back
-to the browser.
+Credentials live in `/config/offsite.json` (mode 0600, encrypted with the
+[secret key](#secret-key)) and are never sent back to the browser.
 
 **What goes up.** Per target:
 
@@ -2152,7 +2217,8 @@ migration, or a background task crashed and was restarted). Repeats are
 throttled (unhealthy project once per 6 h, failed renewal once per day). The
 failed-start notification is sent before the process exits and needs no
 database, only the channel configured in `/config/notify.json`.
-Secrets live in `/config/notify.json` (0600). SMTP authentication requires
+Secrets live in `/config/notify.json` (0600, encrypted with the
+[secret key](#secret-key)). SMTP authentication requires
 STARTTLS or TLS. An event type added by an update follows its default until
 the event selection is saved again, so a new alarm is not silently off for
 anyone who once chose their events.
