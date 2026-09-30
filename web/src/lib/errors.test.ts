@@ -43,6 +43,11 @@ describe("translateMessage", () => {
     );
   });
 
+  it("names what a PHP version's image lacks", () => {
+    expect(translateMessage("invalid input: PHP 8.6 does not ship Xdebug yet; switch it off or choose another PHP version", t)).toBe("Ungültige Eingabe: PHP 8.6 enthält Xdebug noch nicht; schalte es aus oder wähle eine andere PHP-Version");
+    expect(translateMessage("invalid input: PHP 8.6 does not ship imagick, redis yet; switch them off or choose another PHP version", t)).toBe("Ungültige Eingabe: PHP 8.6 enthält imagick, redis noch nicht; schalte sie aus oder wähle eine andere PHP-Version");
+  });
+
   it("leaves unknown text alone", () => {
     expect(translateMessage("something: quite unexpected", t)).toBe("something: quite unexpected");
     expect(translateMessage("", t)).toBe("");

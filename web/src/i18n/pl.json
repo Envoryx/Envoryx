@@ -2689,5 +2689,9 @@
   "The steps are PhpStorm's and WebStorm's. GoLand, PyCharm, RubyMine, IntelliJ IDEA and Rider have no “New Project from Existing Files”: open or clone the code locally and follow “Code already on your machine” below.": "Kroki dotyczą PhpStorm i WebStorm. GoLand, PyCharm, RubyMine, IntelliJ IDEA i Rider nie mają „New Project from Existing Files”: otwórz lub sklonuj kod lokalnie i postępuj według „Kod jest już na twoim komputerze” poniżej.",
   "cannot start {{version}} on Linux kernel {{kernel}} and newer (this host runs {{host}}); switch to {{other}}": "{{version}} nie uruchamia się na jądrze Linux {{kernel}} i nowszym (ten host ma {{host}}); przejdź na {{other}}",
   "cannot start {{version}} on Linux kernel {{kernel}} and newer (this host runs {{host}})": "{{version}} nie uruchamia się na jądrze Linux {{kernel}} i nowszym (ten host ma {{host}})",
-  " (not on this host)": " (nie na tym hoście)"
+  " (not on this host)": " (nie na tym hoście)",
+  "Not available for PHP {{version}} yet": "Jeszcze niedostępne dla PHP {{version}}",
+  "Not available for PHP {{version}} yet - switch it off to save": "Jeszcze niedostępne dla PHP {{version}} - wyłącz, aby zapisać",
+  "PHP {{version}} does not ship {{extension}} yet; switch it off or choose another PHP version": "PHP {{version}} nie zawiera jeszcze {{extension}}; wyłącz je lub wybierz inną wersję PHP",
+  "PHP {{version}} does not ship {{extensions}} yet; switch them off or choose another PHP version": "PHP {{version}} nie zawiera jeszcze {{extensions}}; wyłącz je lub wybierz inną wersję PHP"
 }

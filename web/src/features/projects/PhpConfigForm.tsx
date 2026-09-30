@@ -1,4 +1,4 @@
-import type { PHPConfig, PHPExtension } from "@/api/types";
+import type { PHPConfig, PHPExtension, RuntimeVersion } from "@/api/types";
 import { useTranslation } from "react-i18next";
 import { Checkbox, Code, Field, Input, Select } from "@/components/ui";
 
@@ -10,6 +10,7 @@ export function PhpConfigForm({
   extensions,
   projectDir,
   hostname,
+  version,
 }: {
   value: PHPConfig;
   onChange: (next: PHPConfig) => void;
@@ -18,8 +19,16 @@ export function PhpConfigForm({
   projectDir?: string | undefined;
   /** Project host name (PhpStorm server name). */
   hostname?: string | undefined;
+  /** The selected PHP version: what its image lacks cannot be switched on. */
+  version?: RuntimeVersion | undefined;
 }) {
   const { t } = useTranslation();
+  const missing = version?.missingExtensions ?? [];
+  const notYet = t("Not available for PHP {{version}} yet", { version: version?.version ?? "" });
+  const switchOff = t("Not available for PHP {{version}} yet - switch it off to save", { version: version?.version ?? "" });
+  // What is still on although the version lacks it stays switchable, so it can be switched
+  // off; saving refuses it until then.
+  const xdebugMissing = missing.includes("xdebug");
   const set = <K extends keyof PHPConfig>(key: K, v: PHPConfig[K]) => onChange({ ...value, [key]: v });
   const toggleExt = (name: string, on: boolean) => {
     const next = new Set(value.extensions);
@@ -79,12 +88,13 @@ export function PhpConfigForm({
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {extensions.map((ext) => {
             const checked = ext.builtIn || value.extensions.includes(ext.name);
-            const disabled = ext.builtIn || !ext.available;
+            const lacking = !ext.builtIn && missing.includes(ext.name);
+            const disabled = ext.builtIn || !ext.available || (lacking && !checked);
             return (
               <label
                 key={ext.name}
                 className={`flex items-start gap-2.5 rounded-md border border-default px-3 py-2 ${disabled ? "opacity-60" : "cursor-pointer hover:bg-muted"}`}
-                title={!ext.available ? t("Not available in this PHP image") : ext.builtIn ? t("Built into the image") : undefined}
+                title={!ext.available ? t("Not available in this PHP image") : lacking ? notYet : ext.builtIn ? t("Built into the image") : undefined}
               >
                 <input type="checkbox" className="mt-0.5 size-4 accent-accent-600" checked={checked} disabled={disabled} onChange={(e) => toggleExt(ext.name, e.target.checked)} />
                 <span>
@@ -93,6 +103,7 @@ export function PhpConfigForm({
                     {ext.description}
                     {ext.builtIn ? t(" · built-in") : !ext.available ? t(" · not available") : ""}
                   </span>
+                  {lacking && <span className={`block text-[11px] ${checked ? "text-amber-700 dark:text-amber-400" : "text-subtle"}`}>{checked ? switchOff : notYet}</span>}
                 </span>
               </label>
             );
@@ -101,12 +112,16 @@ export function PhpConfigForm({
       </div>
 
       <div className="space-y-3 rounded-md border border-default p-4">
-        <Checkbox
-          label={t("Xdebug (step debugging)")}
-          description={t("Breakpoints in PhpStorm / VS Code. Slows PHP down noticeably - enable only while debugging. Applies to the PHP container after saving.")}
-          checked={!!value.xdebug}
-          onChange={(e) => set("xdebug", e.target.checked)}
-        />
+        <div className={xdebugMissing && !value.xdebug ? "opacity-60" : undefined}>
+          <Checkbox
+            label={t("Xdebug (step debugging)")}
+            description={t("Breakpoints in PhpStorm / VS Code. Slows PHP down noticeably - enable only while debugging. Applies to the PHP container after saving.")}
+            checked={!!value.xdebug}
+            disabled={xdebugMissing && !value.xdebug}
+            onChange={(e) => set("xdebug", e.target.checked)}
+          />
+          {xdebugMissing && <p className={`mt-1 pl-7 text-xs ${value.xdebug ? "text-amber-700 dark:text-amber-400" : "text-subtle"}`}>{value.xdebug ? switchOff : notYet}</p>}
+        </div>
         {value.xdebug && (
           <>
             <div className="grid gap-4 sm:grid-cols-3">

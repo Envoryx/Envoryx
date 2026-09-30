@@ -542,7 +542,7 @@ function PhpCard({ project: p }: { project: Project }) {
                 </Select>
               </Field>
             </div>
-            {config && <PhpConfigForm value={config} onChange={setConfig} extensions={runtimes.data?.phpExtensions ?? []} hostname={p.hostnames[0]} projectDir={hostDir} />}
+            {config && <PhpConfigForm value={config} onChange={setConfig} extensions={runtimes.data?.phpExtensions ?? []} hostname={p.hostnames[0]} projectDir={hostDir} version={php?.versions.find((v) => v.version === version)} />}
           </>
         )}
       </div>
