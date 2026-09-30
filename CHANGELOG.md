@@ -98,6 +98,14 @@ release). `:main` follows the development branch.
   they are next recreated, and the label is not part of the container
   fingerprint. The network pool still steps around every network on the
   host.
+- Only one Envoryx instance per Docker host could use the database
+  browser: its container and network were both called `envoryx-dbtool`,
+  and a second instance got "the name is taken by another Envoryx
+  instance". They are now named after the instance ID
+  (`envoryx-dbtool-` plus its first 8 characters). An existing
+  `envoryx-dbtool` of the instance is removed at the start and the next
+  **Open database** creates the new one; another instance's is left
+  alone.
 - The project overview and the Docker page listed each published port
   twice (":28001 → 3000" for IPv4 and for IPv6) when ports are published
   on all interfaces. Each port is listed once now.

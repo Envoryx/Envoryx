@@ -143,7 +143,7 @@ func TestDBToolOpensOnlyTheDatabasesOfOwnProjects(t *testing.T) {
 
 	// What reaches the container: the proxy's secret and the checked login, never what the
 	// client sent in those headers.
-	tool, ok := a.engine.Container(project.DBToolContainer)
+	tool, ok := a.engine.Container(project.DBToolName(a.engine.Instance))
 	if !ok || len(tool.Spec.Ports) != 1 {
 		t.Fatalf("tool container: %+v", tool)
 	}

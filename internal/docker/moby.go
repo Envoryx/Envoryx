@@ -50,6 +50,9 @@ type Options struct {
 	Instance string
 }
 
+// InstanceID implements Engine.
+func (e *MobyEngine) InstanceID() string { return e.instance }
+
 // owns reports whether a resource with these labels is this instance's to manage.
 func (e *MobyEngine) owns(labels map[string]string) bool { return Owns(e.instance, labels) }
 
