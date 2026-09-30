@@ -702,6 +702,10 @@ and needs none.
   MySQL/MariaDB project login may not create databases. *rails db:prepare*
   then loads `db/queue_schema.rb` into it. The *Solid Queue* worker waits
   with a message in its log until the tables exist.
+- **Solid Cache and Solid Cable.** In the same way `CACHE_DATABASE_URL` and
+  `CABLE_DATABASE_URL` point at `<database>_cache` and `<database>_cable`,
+  for the `cache` and `cable` entries Rails 8 writes for production, and
+  Envoryx creates those databases when `database.yml` has the entries.
 - **Routing.** Without PHP and without a Python or Go server the Ruby server
   is the application: the proxy routes `https://<project>.<base>` and every
   extra domain to `envoryx-<project>-ruby:<port>`, the web container's host

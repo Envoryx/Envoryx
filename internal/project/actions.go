@@ -292,11 +292,12 @@ func (m *Manager) RunAction(ctx context.Context, id, actionID string, cols, rows
 		return nil, Action{}, nil, err
 	}
 	if strings.HasPrefix(action.ID, "rails:db-") {
-		// The Rails tasks work on every database of the environment, the queue database
-		// QUEUE_DATABASE_URL names included. PostgreSQL's project login creates it itself,
-		// MySQL's and MariaDB's may not; a failure is left to the task's own error.
-		if err := m.ensureQueueDatabase(ctx, id); err != nil {
-			m.log.Warn("create the queue database", "project", id, "err", err)
+		// The Rails tasks work on every database of the environment, the queue, cache and
+		// cable databases rubyDatabaseEnv names included. PostgreSQL's project login
+		// creates them itself, MySQL's and MariaDB's may not; a failure is left to the
+		// task's own error.
+		if err := m.ensureRailsDatabases(ctx, id); err != nil {
+			m.log.Warn("create the Rails databases", "project", id, "err", err)
 		}
 	}
 	paths, err := m.paths()

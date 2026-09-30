@@ -299,6 +299,22 @@ func TestRailsQueueDatabase(t *testing.T) {
 	if len(sql) != 0 {
 		t.Fatalf("no queue database without a queue entry: %q", sql)
 	}
+	// The production entries of Solid Cache and Solid Cable get theirs, too.
+	writeProjectFiles(t, filepath.Join(e.projDir, "blog"), map[string]string{"config/database.yml": "production:\n  primary:\n    database: blog\n  cache:\n    database: blog_production_cache\n  cable:\n    database: blog_production_cable\n"})
+	sql = nil
+	if _, _, release, err := e.m.RunAction(ctx, v.Project.ID, "rails:db-prepare", 0, 0); err != nil {
+		t.Fatal(err)
+	} else {
+		release()
+	}
+	if joined := strings.Join(sql, "\n"); !strings.Contains(joined, `CREATE DATABASE "blog_cache"`) || !strings.Contains(joined, `CREATE DATABASE "blog_cable"`) || created() != 0 {
+		t.Fatalf("cache and cable databases: %q", sql)
+	}
+	for _, want := range []string{"CACHE_DATABASE_URL=postgresql://blog:" + cfg.Password + "@database:5432/blog_cache", "CABLE_DATABASE_URL=postgresql://blog:" + cfg.Password + "@database:5432/blog_cable"} {
+		if !slices.Contains(c.Spec.Env, want) {
+			t.Fatalf("ruby env lacks %s: %v", want, c.Spec.Env)
+		}
+	}
 
 	// The Solid Queue worker waits for its tables instead of crash-looping.
 	if _, err := e.m.AddWorker(ctx, v.Project.ID, WorkerRequest{Name: "jobs", Preset: "solidqueue:start", Enabled: true}); err != nil {
@@ -313,14 +329,19 @@ func TestRailsQueueDatabase(t *testing.T) {
 	}
 }
 
-// The project's own QUEUE_DATABASE_URL wins; MongoDB has no queue database.
+// The project's own QUEUE_, CACHE_ and CABLE_DATABASE_URL win; MongoDB has none of them.
 func TestRubyQueueDatabaseURL(t *testing.T) {
 	pg := store.ProjectService{Kind: store.ServiceDatabase, Variant: "postgresql", Enabled: true, Config: json.RawMessage(`{"database":"shop","username":"shop","password":"pw"}`)}
 	got := rubyDatabaseEnv(store.Project{Services: []store.ProjectService{pg}}, []string{"DATABASE_URL=pgsql://shop:pw@database:5432/shop"})
 	if !slices.Contains(got, "QUEUE_DATABASE_URL=postgresql://shop:pw@database:5432/shop_queue") {
 		t.Fatalf("postgres: %v", got)
 	}
-	own := []string{"QUEUE_DATABASE_URL=postgresql://elsewhere/q"}
+	for _, want := range []string{"CACHE_DATABASE_URL=postgresql://shop:pw@database:5432/shop_cache", "CABLE_DATABASE_URL=postgresql://shop:pw@database:5432/shop_cable"} {
+		if !slices.Contains(got, want) {
+			t.Fatalf("postgres lacks %s: %v", want, got)
+		}
+	}
+	own := []string{"QUEUE_DATABASE_URL=postgresql://elsewhere/q", "CACHE_DATABASE_URL=postgresql://elsewhere/c", "CABLE_DATABASE_URL=postgresql://elsewhere/w"}
 	if got := rubyDatabaseEnv(store.Project{Services: []store.ProjectService{pg}}, own); !slices.Equal(got, own) {
 		t.Fatalf("own URL: %v", got)
 	}

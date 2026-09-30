@@ -104,6 +104,13 @@ release). `:main` follows the development branch.
   `server_version` from `DB_SERVER_VERSION`, as in the Symfony template,
   unless it sets a version itself. The site's `.env` usually names it in
   `DATABASE_URL`, which the injected URL replaces without one.
+- Ruby containers get `CACHE_DATABASE_URL` and `CABLE_DATABASE_URL`
+  (`<database>_cache`, `<database>_cable`) next to `QUEUE_DATABASE_URL`, so
+  the Solid Cache and Solid Cable entries of a Rails 8 production
+  `database.yml` reach the project's database server. Envoryx creates those
+  databases when `database.yml` has the entries, like the queue database.
+  Ruby containers report an older setup once after the update; restart the
+  project when it suits you.
 - The Ruby images ship libvips, which Active Storage's default `:vips`
   processor needs for image variants (the images grow by about 180 MB).
 
