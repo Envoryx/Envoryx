@@ -7,6 +7,7 @@ import { keys } from "@/api/hooks";
 import type { HeaderRule, Project, ProxyRules, ProxyRulesRequest, RedirectRule } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Checkbox, Field, Input, Select } from "@/components/ui";
 import { errorText } from "@/lib/errors";
+import { projectAccess } from "@/lib/access";
 
 const textareaClass = "w-full rounded-md border border-default bg-elevated p-2 font-mono text-xs text-fg focus:border-accent-500 focus:outline-none";
 
@@ -72,6 +73,7 @@ export function ProxyRulesCard({ project: p }: { project: Project }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
   const current = p.proxyRules;
+  const editable = projectAccess(p).admin;
   const [form, setForm] = useState<Form>(toForm(current));
   const [msg, setMsg] = useState<{ tone: "green" | "red"; text: string } | null>(null);
   const currentKey = JSON.stringify(current ?? {});
@@ -123,7 +125,8 @@ export function ProxyRulesCard({ project: p }: { project: Project }) {
         description={t("What the proxy does with requests before the application sees them. The rules apply to every host name of the project and to a share, not to the directly published port.")}
         actions={active.length ? <Badge tone="blue">{active.join(" · ")}</Badge> : <Badge>{t("none")}</Badge>}
       />
-      <form onSubmit={submit} className="space-y-6 p-5">
+      <form onSubmit={submit} className="p-5">
+        <fieldset disabled={!editable} className="min-w-0 space-y-6">
         {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
 
         <section className="space-y-3">
@@ -213,12 +216,15 @@ export function ProxyRulesCard({ project: p }: { project: Project }) {
           )}
         </section>
 
-        <div className="flex items-center gap-2">
-          <Button type="submit" variant="primary" size="sm" loading={save.isPending} disabled={!dirty || needsPassword} icon={<Save className="size-3.5" />}>
-            {t("Save")}
-          </Button>
-          {needsPassword && <span className="text-xs text-subtle">{t("Enter a password for the basic authentication.")}</span>}
-        </div>
+        {editable && (
+          <div className="flex items-center gap-2">
+            <Button type="submit" variant="primary" size="sm" loading={save.isPending} disabled={!dirty || needsPassword} icon={<Save className="size-3.5" />}>
+              {t("Save")}
+            </Button>
+            {needsPassword && <span className="text-xs text-subtle">{t("Enter a password for the basic authentication.")}</span>}
+          </div>
+        )}
+        </fieldset>
       </form>
     </Card>
   );

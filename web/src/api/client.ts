@@ -271,7 +271,9 @@ export const api = {
     login: (username: string, password: string) =>
       request<{ user: User }>("/auth/login", { method: "POST", body: { username, password }, silent401: true }),
     logout: () => request<void>("/auth/logout", { method: "POST" }),
-    me: (silent401 = false) => request<{ user: User }>("/auth/me", { silent401 }),
+    /** admin: the session may administer the instance; projectRoles: the user's role per project id where it differs. */
+    me: (silent401 = false) =>
+      request<{ user: User; admin?: boolean; projectRoles?: Record<string, string>; token?: { name: string; scope: string; projects: string[] } }>("/auth/me", { silent401 }),
     changePassword: (currentPassword: string, newPassword: string) =>
       request<void>("/auth/password", { method: "POST", body: { currentPassword, newPassword } }),
     sshKeys: () => request<{ keys: string }>("/auth/ssh-keys"),

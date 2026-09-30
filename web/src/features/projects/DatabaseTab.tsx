@@ -12,6 +12,7 @@ import { CloneDatabaseCard, SnapshotsCard } from "./DatabaseSnapshots";
 import { databaseEngineNames, databaseEnvPrefix, databaseNamePattern, databaseServices } from "./databases";
 import { containerStateTone } from "@/lib/format";
 import { errorText } from "@/lib/errors";
+import { projectAccess } from "@/lib/access";
 import { emptyExternalDatabase, externalDatabaseComplete, ExternalDatabaseFields, externalDatabaseTypes } from "./ExternalConnection";
 import { unavailableHint, versionOptions } from "./versionOptions";
 
@@ -166,7 +167,12 @@ export function DatabaseTab({ project }: { project: Project }) {
   const dbs = databaseServices(project);
   const [selected, setSelected] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
-  if (dbs.length === 0) return <AddDatabaseCard project={project} onAdded={(name) => setSelected(name)} />;
+  // Adding a database changes the project (PATCH), which needs admin in it.
+  const canAdd = projectAccess(project).admin;
+  if (dbs.length === 0) {
+    if (!canAdd) return <Card><p className="p-5 text-sm text-muted">{t("Project has no database")}</p></Card>;
+    return <AddDatabaseCard project={project} onAdded={(name) => setSelected(name)} />;
+  }
   const current = selected !== null && dbs.some((d) => d.name === selected) ? selected : dbs[0]!.name;
   return (
     <div className="space-y-6">
@@ -187,11 +193,13 @@ export function DatabaseTab({ project }: { project: Project }) {
             <span className="text-xs text-subtle">{databaseEngineNames[d.variant] ?? d.variant}</span>
           </button>
         ))}
-        <Button size="sm" variant={adding ? "primary" : "secondary"} icon={<Plus className="size-3.5" />} onClick={() => setAdding(true)}>
-          {t("Add database")}
-        </Button>
+        {canAdd && (
+          <Button size="sm" variant={adding ? "primary" : "secondary"} icon={<Plus className="size-3.5" />} onClick={() => setAdding(true)}>
+            {t("Add database")}
+          </Button>
+        )}
       </div>
-      {adding ? (
+      {adding && canAdd ? (
         <AddDatabaseCard project={project} onAdded={(name) => { setAdding(false); setSelected(name); }} onCancel={() => setAdding(false)} />
       ) : (
         <DatabasePanel key={current} project={project} db={current} onRemoved={() => setSelected(null)} />
@@ -204,6 +212,9 @@ export function DatabaseTab({ project }: { project: Project }) {
 function DatabasePanel({ project, db, onRemoved }: { project: Project; db: string; onRemoved: () => void }) {
   const { t } = useTranslation();
   const info = useDatabaseInfo(project.id, true, db);
+  // Credentials, new databases, snapshots and the browser need operate; everything that
+  // changes the server, drops or restores needs admin (internal/api/api.go).
+  const can = projectAccess(project);
   const publicHost = usePublicHost();
   const runtimes = useRuntimes();
   const update = useUpdateProject(project.id);
@@ -301,16 +312,18 @@ function DatabasePanel({ project, db, onRemoved }: { project: Project; db: strin
               <div className="flex items-center justify-between gap-3 py-1.5">
                 <dt className="w-28 shrink-0 text-sm text-muted sm:w-36">{t("Password")}</dt>
                 <dd className="min-w-0 flex-1 truncate font-mono text-xs text-subtle">••••••••••••</dd>
-                <Button size="sm" onClick={() => void revealCredentials()} icon={<Eye className="size-3.5" />}>
-                  {t("Reveal")}
-                </Button>
+                {can.operate && (
+                  <Button size="sm" onClick={() => void revealCredentials()} icon={<Eye className="size-3.5" />}>
+                    {t("Reveal")}
+                  </Button>
+                )}
               </div>
             )}
             {credsError && <p className="py-1 text-xs text-red-500">{credsError}</p>}
           </dl>
           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-default px-5 py-3">
             <p className="text-xs text-subtle">{t("Injected")}: {d.injectedEnv.map((k) => k).join(", ")}</p>
-            {external ? (
+            {!can.admin ? null : external ? (
               <Button
                 size="sm"
                 icon={<Pencil className="size-3.5" />}
@@ -347,7 +360,7 @@ function DatabasePanel({ project, db, onRemoved }: { project: Project; db: strin
           <Card>
             <CardHeader title={t("External access")} description={t("Connect from your workstation with a database client.")} />
             <div className="space-y-3 p-5">
-              {dbTool.data?.supported.includes(d.type) && (
+              {can.operate && dbTool.data?.supported.includes(d.type) && (
                 <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-default px-3 py-2">
                   <div>
                     <p className="text-sm font-medium">{t("Open in the browser")}</p>
@@ -384,7 +397,7 @@ function DatabasePanel({ project, db, onRemoved }: { project: Project; db: strin
                   label={t("Publish port on the host")}
                   description={d.hostPort ? t("Reachable at {{address}}", { address: `${externalHost}:${d.hostPort}` }) : t("A free port from the project port range is assigned automatically.")}
                   checked={d.hostPort > 0}
-                  disabled={expose.isPending}
+                  disabled={expose.isPending || !can.admin}
                   onChange={(e) => {
                     setMsg(null);
                     expose.mutate(e.target.checked, { onError: (err) => fail(err, t("Changing the port failed")) });
@@ -405,10 +418,11 @@ function DatabasePanel({ project, db, onRemoved }: { project: Project; db: strin
             <div className="space-y-4 p-5">
               <div className="flex items-end gap-2">
                 <Field label={t("{{engine}} version", { engine: ({ mariadb: "MariaDB", mysql: "MySQL", postgresql: "PostgreSQL", mongodb: "MongoDB" } as Record<string, string>)[d.type] ?? d.type })} htmlFor="db-version" hint={external ? t("Picks the client tools for backups and the connection; choose the server's major version.") : unavailableHint(versions, t) || (d.type === "postgresql" ? t("PostgreSQL cannot upgrade an existing data directory in place.") : d.type === "mongodb" ? t("MongoDB upgrades one major version at a time; a database backup is taken automatically first.") : t("Upgrades keep the data volume and take a database backup first; downgrades are refused."))}>
-                  <Select id="db-version" value={currentVersion} onChange={(e) => setVersion(e.target.value)}>
+                  <Select id="db-version" value={currentVersion} onChange={(e) => setVersion(e.target.value)} disabled={!can.admin}>
                     {versionOptions(versions, t, { keep: d.version, anyHost: external })}
                   </Select>
                 </Field>
+                {can.admin && (
                 <Button
                   variant="primary"
                   disabled={currentVersion === d.version}
@@ -424,21 +438,24 @@ function DatabasePanel({ project, db, onRemoved }: { project: Project; db: strin
                 >
                   {t("Apply")}
                 </Button>
+                )}
               </div>
               <dl className="text-sm">
                 <CopyRow label={t("Image")} value={d.image} />
                 {!external && <CopyRow label={t("Volume")} value={d.volumeName} />}
               </dl>
-              <Button variant="ghost" size="sm" className="text-red-600 dark:text-red-400" icon={<Trash2 className="size-3.5" />} onClick={() => setRemoveOpen(true)}>
-                {external ? t("Remove connection") : t("Remove database and data")}
-              </Button>
+              {can.admin && (
+                <Button variant="ghost" size="sm" className="text-red-600 dark:text-red-400" icon={<Trash2 className="size-3.5" />} onClick={() => setRemoveOpen(true)}>
+                  {external ? t("Remove connection") : t("Remove database and data")}
+                </Button>
+              )}
             </div>
           </Card>
         </div>
       </div>
 
       <SnapshotsCard project={project} database={d} onMessage={setMsg} />
-      <CloneDatabaseCard project={project} database={d} onMessage={setMsg} />
+      {can.admin && <CloneDatabaseCard project={project} database={d} onMessage={setMsg} />}
 
       <Card>
         <CardHeader
@@ -460,7 +477,7 @@ function DatabasePanel({ project, db, onRemoved }: { project: Project; db: strin
                     {name}
                     {name === d.database && <Badge className="ml-2">{t("primary")}</Badge>}
                   </span>
-                  {name !== d.database && !external && (
+                  {can.admin && name !== d.database && !external && (
                     <Button variant="ghost" size="sm" aria-label={t("Drop {{name}}", { name })} onClick={() => { setDropTarget(name); setDropConfirm(""); }}>
                       <Trash2 className="size-4" />
                     </Button>
@@ -469,7 +486,7 @@ function DatabasePanel({ project, db, onRemoved }: { project: Project; db: strin
               ))}
             </ul>
           )}
-          {usable && (
+          {usable && can.operate && (
             <form onSubmit={createDb} className="mt-4 flex items-end gap-2">
               <Field label={t("New database")} htmlFor="new-db" hint={t("Lower-case letters, digits and underscores.")}>
                 <Input id="new-db" value={newName} onChange={(e) => setNewName(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""))} placeholder="reports" spellCheck={false} />

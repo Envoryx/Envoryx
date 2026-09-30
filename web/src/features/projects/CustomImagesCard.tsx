@@ -6,6 +6,7 @@ import type { Project, ProjectService } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Code, Field, Input, Select, type Tone } from "@/components/ui";
 import { formatDateTime, serviceLabel } from "@/lib/format";
 import { errorText } from "@/lib/errors";
+import { projectAccess } from "@/lib/access";
 
 /** The runtimes that can run an image of the user's; databases, services and web servers keep the vetted images. */
 export const customImageKinds = ["php", "node", "python", "go", "ruby", "java", "dotnet"] as const;
@@ -19,7 +20,7 @@ function sourceOf(svc: ProjectService): Source {
 function RuntimeImage({ project: p, svc }: { project: Project; svc: ProjectService }) {
   const { t } = useTranslation();
   const mutation = useCustomImage(p.id);
-  const access = p.access ?? "admin";
+  const can = projectAccess(p);
   const c = svc.customImage;
   const [source, setSource] = useState<Source>(sourceOf(svc));
   const [image, setImage] = useState(c?.image ?? "");
@@ -62,7 +63,7 @@ function RuntimeImage({ project: p, svc }: { project: Project; svc: ProjectServi
         <Code className="truncate text-xs">{svc.image}</Code>
       </div>
       {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
-      {access === "admin" && (
+      {can.admin && (
         <div className="grid items-end gap-3 sm:grid-cols-[12rem_1fr_auto]">
           <Field label={t("Image")} htmlFor={`img-src-${svc.kind}`}>
             <Select id={`img-src-${svc.kind}`} value={source} onChange={(e) => setSource(e.target.value as Source)}>
@@ -87,13 +88,13 @@ function RuntimeImage({ project: p, svc }: { project: Project; svc: ProjectServi
           </Button>
         </div>
       )}
-      {source === "dockerfile" && access === "admin" && (
+      {source === "dockerfile" && can.admin && (
         <p className="text-xs text-muted">
           {t("Relative to the project directory. Its directory is the build context, so keep it in a directory of its own. Envoryx builds it again whenever a file there changes. Start from an Envoryx image to keep every feature, for example:")}{" "}
           <Code>FROM {svc.image.startsWith("ghcr.io/envoryx/") ? svc.image : `ghcr.io/envoryx/envoryx-${svc.kind}:${svc.version}`}</Code>
         </p>
       )}
-      {stored === "dockerfile" && access !== "read" && (
+      {stored === "dockerfile" && can.operate && (
         <Button
           size="sm"
           icon={<Hammer className="size-4" />}

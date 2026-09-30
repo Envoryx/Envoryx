@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { ActivityNotice } from "@/components/ActivityNotice";
 import { NoticeRow, Notices } from "@/components/NoticeRow";
 import { useTranslation } from "react-i18next";
-import { isAdmin, useAuth } from "@/features/auth/AuthContext";
+import { useAuth } from "@/features/auth/AuthContext";
 import { ResourceOverviewCard } from "./ResourceOverviewCard";
 import { Plus, ArrowRight } from "lucide-react";
 import { useDashboard, useDiagnostics } from "@/api/hooks";
@@ -148,7 +148,7 @@ function SystemCard({ d, admin }: { d: Dashboard; admin: boolean }) {
 export function DashboardPage() {
   const { t } = useTranslation();
   // Only an admin of the whole instance creates projects.
-  const admin = isAdmin(useAuth().user);
+  const admin = useAuth().admin;
   const q = useDashboard();
 
   if (q.isPending) return <Spinner />;

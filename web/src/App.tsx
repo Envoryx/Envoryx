@@ -23,6 +23,14 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+/** Pages whose every route needs an admin of the whole instance; anyone else lands on the project list. */
+export function RequireAdmin({ children }: { children: React.ReactNode }) {
+  const { admin, loading } = useAuth();
+  if (loading) return null;
+  if (!admin) return <Navigate to="/projects" replace />;
+  return <>{children}</>;
+}
+
 export function App() {
   return (
     <Routes>
@@ -38,9 +46,23 @@ export function App() {
       >
         <Route index element={<DashboardPage />} />
         <Route path="/projects" element={<ProjectsPage />} />
-        <Route path="/projects/new" element={<NewProjectPage />} />
+        <Route
+          path="/projects/new"
+          element={
+            <RequireAdmin>
+              <NewProjectPage />
+            </RequireAdmin>
+          }
+        />
         <Route path="/projects/:id" element={<ProjectDetailPage />} />
-        <Route path="/docker" element={<DockerPage />} />
+        <Route
+          path="/docker"
+          element={
+            <RequireAdmin>
+              <DockerPage />
+            </RequireAdmin>
+          }
+        />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/foundry" element={<FoundryPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />

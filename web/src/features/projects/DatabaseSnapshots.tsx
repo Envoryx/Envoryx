@@ -7,6 +7,7 @@ import { Alert, Badge, Button, Card, CardHeader, Checkbox, Dialog, ErrorState, F
 import { formatBytes, formatDateTime } from "@/lib/format";
 import { databaseServices } from "./databases";
 import { errorText } from "@/lib/errors";
+import { projectAccess } from "@/lib/access";
 
 type Message = { tone: "green" | "red"; text: string };
 
@@ -33,6 +34,8 @@ export function SnapshotsCard({ project, database, onMessage }: { project: Proje
   const { t } = useTranslation();
   const snapshots = useSnapshots(project.id, true, database.name);
   const { create, restore, remove } = useSnapshotMutations(project.id, database.name);
+  // Taking and downloading a snapshot needs operate, restoring and deleting one admin.
+  const can = projectAccess(project);
   const [note, setNote] = useState("");
   const [restoreTarget, setRestoreTarget] = useState<BackupInfo | null>(null);
   const [confirm, setConfirm] = useState("");
@@ -54,6 +57,7 @@ export function SnapshotsCard({ project, database, onMessage }: { project: Proje
           })}
         />
         <div className="space-y-4 p-5">
+          {can.operate && (
           <form
             className="flex items-end gap-2"
             onSubmit={(e) => {
@@ -74,6 +78,7 @@ export function SnapshotsCard({ project, database, onMessage }: { project: Proje
               {t("Take snapshot")}
             </Button>
           </form>
+          )}
 
           {snapshots.isPending ? (
             <Spinner />
@@ -98,6 +103,7 @@ export function SnapshotsCard({ project, database, onMessage }: { project: Proje
                   </div>
                   <span className="text-xs tabular-nums text-muted">{formatBytes(s.sizeBytes)}</span>
                   <div className="flex items-center gap-1.5">
+                    {can.operate && (
                     <a
                       href={`/api/v1/projects/${encodeURIComponent(project.id)}/backups/${encodeURIComponent(s.id)}/download`}
                       className="inline-flex h-8 items-center gap-1.5 rounded-md border border-default bg-elevated px-2.5 text-xs font-medium text-fg hover:bg-muted"
@@ -105,6 +111,9 @@ export function SnapshotsCard({ project, database, onMessage }: { project: Proje
                     >
                       <Download className="size-3.5" aria-hidden /> {t("Download")}
                     </a>
+                    )}
+                    {can.admin && (
+                    <>
                     <Button
                       size="sm"
                       disabled={s.missing}
@@ -119,6 +128,8 @@ export function SnapshotsCard({ project, database, onMessage }: { project: Proje
                     <Button variant="ghost" size="sm" aria-label={t("Delete snapshot")} onClick={() => setDeleteTarget(s)}>
                       <Trash2 className="size-4" />
                     </Button>
+                    </>
+                    )}
                   </div>
                 </li>
               ))}

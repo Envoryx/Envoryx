@@ -56,4 +56,31 @@ describe("CronTab", () => {
     expect(body).toEqual({ name: "scheduler", runtime: "php", schedule: "*/15 * * * *", command: "php artisan schedule:run", timeoutSeconds: 600, enabled: true });
     expect(await screen.findByText('Cron job "scheduler" added.')).toBeInTheDocument();
   });
+
+  it("lets a developer run a job and see its history but not change it", async () => {
+    mockApi({
+      ...authedRoutes,
+      [`GET /projects/${id}/cron`]: () => ({ body: { jobs: [job], timezone: "Europe/Berlin" } }),
+    });
+    renderApp(<CronTab project={makeProject({ access: "operate" })} />);
+
+    expect(await screen.findByText("report")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Run now" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "History" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Disable" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Remove report" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Add cron job")).not.toBeInTheDocument();
+  });
+
+  it("shows a viewer the jobs without any button", async () => {
+    mockApi({
+      ...authedRoutes,
+      [`GET /projects/${id}/cron`]: () => ({ body: { jobs: [job], timezone: "Europe/Berlin" } }),
+    });
+    renderApp(<CronTab project={makeProject({ access: "read" })} />);
+
+    expect(await screen.findByText("report")).toBeInTheDocument();
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
 });

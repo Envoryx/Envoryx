@@ -8,7 +8,8 @@ import { keys, useProjectDomains, useProjectLinks } from "@/api/hooks";
 import { servesOf, type NodeConfig, type Project, type ProxyInfo } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Code, ErrorState, Field, Input, Spinner } from "@/components/ui";
 import { errorText } from "@/lib/errors";
-import { isAdmin, useAuth } from "@/features/auth/AuthContext";
+import { useAuth } from "@/features/auth/AuthContext";
+import { projectAccess } from "@/lib/access";
 import { settingsHref } from "@/features/settings/links";
 import { ProxyRulesCard } from "./ProxyRulesCard";
 
@@ -24,7 +25,8 @@ export function DomainsTab({ project }: { project: Project }) {
   const q = useProjectDomains(project.id);
   const qc = useQueryClient();
   const links = useProjectLinks();
-  const admin = isAdmin(useAuth().user);
+  const admin = useAuth().admin;
+  const { operate } = projectAccess(project);
   const [hostname, setHostname] = useState("");
   const [msg, setMsg] = useState<{ tone: "green" | "red"; text: string } | null>(null);
   const invalidate = () => {
@@ -102,7 +104,7 @@ export function DomainsTab({ project }: { project: Project }) {
                     )}
                   </div>
                 </div>
-                {!d.default && d.id && (
+                {operate && !d.default && d.id && (
                   <Button size="sm" variant="ghost" onClick={() => remove.mutate(d.id!)} loading={remove.isPending && remove.variables === d.id} icon={<Trash2 className="size-3.5" />} aria-label={t("Remove {{name}}", { name: d.hostname })}>
                     {t("Remove")}
                   </Button>
@@ -111,6 +113,7 @@ export function DomainsTab({ project }: { project: Project }) {
             );
           })}
         </ul>
+        {operate && (
         <form onSubmit={submit} className="space-y-3 border-t border-default p-5">
           {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
           {viteNote && <p className="text-xs text-muted">{t("Domains under the base domain reach the dev server directly. Other domains must also be listed in server.allowedHosts of vite.config.")}</p>}
@@ -123,6 +126,7 @@ export function DomainsTab({ project }: { project: Project }) {
             </div>
           </Field>
         </form>
+        )}
       </Card>
 
       <ProxyRulesCard project={project} />

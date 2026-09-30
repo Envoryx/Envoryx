@@ -147,12 +147,14 @@ describe("Roles in the UI", () => {
     );
     expect(await screen.findByRole("heading", { name: /Acme Shop/ })).toBeInTheDocument();
     for (const name of ["Start", "Stop", "Restart - also pulls updated runtime images"]) {
-      const b = screen.queryByTitle(name);
-      if (b) expect(b).toBeDisabled();
+      expect(screen.queryByTitle(name)).not.toBeInTheDocument();
     }
-    expect(screen.queryByRole("button", { name: "Delete project" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Rename project" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "More actions" })).not.toBeInTheDocument();
+    // The menu keeps only the Docker plan, which needs no more than read access.
+    await userEvent.setup().click(screen.getByRole("button", { name: "More actions" }));
+    expect(screen.getByRole("menuitem", { name: "Docker plan" })).toBeInTheDocument();
+    for (const name of ["Delete project", "Rename project", "Duplicate project", "Share publicly"]) {
+      expect(screen.queryByRole("menuitem", { name })).not.toBeInTheDocument();
+    }
     expect(screen.getByRole("link", { name: "Logs" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Terminal" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "History" })).not.toBeInTheDocument();

@@ -7,6 +7,7 @@ import { api } from "@/api/client";
 import type { Project, TestRun, TestSuite } from "@/api/types";
 import { Badge, Button, Card, CardHeader, Code, ErrorState, Input, Spinner } from "@/components/ui";
 import { errorText } from "@/lib/errors";
+import { projectAccess } from "@/lib/access";
 import { formatDateTime } from "@/lib/format";
 import { useLiveRun } from "./useLiveRun";
 
@@ -98,6 +99,8 @@ export function TestsTab({ project }: { project: Project }) {
     }
   });
   const running = live.run?.state === "running";
+  // Viewers see the suites and past runs; running one needs operate.
+  const canRun = projectAccess(project).operate;
 
   const start = (suite: TestSuite) => {
     const filter = (filters[suite.id] ?? "").trim();
@@ -142,12 +145,14 @@ export function TestsTab({ project }: { project: Project }) {
                       <span className="block text-sm font-medium">{s.label}</span>
                       <span className="block truncate font-mono text-[11px] text-subtle">{s.cmd.join(" ")}</span>
                     </span>
-                    <Button size="sm" variant="primary" icon={<Play className="size-3.5" />} disabled={!s.available || running} title={s.available ? undefined : s.reason} onClick={() => start(s)}>
-                      {t("Run")}
-                    </Button>
+                    {canRun && (
+                      <Button size="sm" variant="primary" icon={<Play className="size-3.5" />} disabled={!s.available || running} title={s.available ? undefined : s.reason} onClick={() => start(s)}>
+                        {t("Run")}
+                      </Button>
+                    )}
                   </div>
                   {!s.available && s.reason && <p className="text-xs text-amber-700 dark:text-amber-400">{s.reason}</p>}
-                  {s.filterHint && s.available && (
+                  {canRun && s.filterHint && s.available && (
                     <Input
                       aria-label={t("Filter for {{suite}}", { suite: s.label })}
                       placeholder={t("Filter ({{hint}}), optional", { hint: t(s.filterHint) })}

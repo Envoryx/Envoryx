@@ -206,6 +206,13 @@ func TestTokenScopesAndProjectRestriction(t *testing.T) {
 	if _, raw := call(rd, http.MethodGet, "/api/v1/auth/me", ""); !strings.Contains(raw, `"scope":"read"`) {
 		t.Fatalf("me must show the token scope: %s", raw)
 	}
+	// The UI hides what a session may not do from these two, not from the owner's role.
+	if _, raw := call(rd, http.MethodGet, "/api/v1/auth/me", ""); !strings.Contains(raw, `"admin":false`) {
+		t.Fatalf("a read token of an admin must not administer the instance: %s", raw)
+	}
+	if _, raw := call(rd, http.MethodGet, "/api/v1/projects/"+shop, ""); !strings.Contains(raw, `"access":"read"`) {
+		t.Fatalf("a read token must see read access to the project: %s", raw)
+	}
 
 	// operate: works with existing projects, cannot create/delete or change settings.
 	op := mint("assistant", "operate")

@@ -6,6 +6,7 @@ import type { AvailableAddon, Project, ProjectAddon } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Checkbox, Dialog, ErrorState, Field, Input, Select, Spinner, StatusDot } from "@/components/ui";
 import { containerStateTone } from "@/lib/format";
 import { errorText } from "@/lib/errors";
+import { projectAccess } from "@/lib/access";
 import { CopyRow } from "./DatabaseTab";
 
 type OnMessage = (m: { tone: "green" | "red"; text: string }) => void;
@@ -13,7 +14,7 @@ type OnMessage = (m: { tone: "green" | "red"; text: string }) => void;
 function AddonCard({ project, info, onMessage }: { project: Project; info: ProjectAddon; onMessage: OnMessage }) {
   const { t } = useTranslation();
   const set = useSetAddon(project.id);
-  const canChange = (project.access ?? "admin") !== "read";
+  const canChange = projectAccess(project).operate;
   const [version, setVersion] = useState(info.version);
   const [expose, setExpose] = useState(!!info.hostPort);
   const [removeOpen, setRemoveOpen] = useState(false);
@@ -214,7 +215,7 @@ export function AddonsSection({ project }: { project: Project }) {
   const [msg, setMsg] = useState<{ tone: "green" | "red"; text: string } | null>(null);
   if (q.isPending) return <Spinner />;
   if (q.isError) return <ErrorState message={errorText(q.error, t)} />;
-  const canAdd = (project.access ?? "admin") !== "read";
+  const canAdd = projectAccess(project).operate;
   const { addons, available } = q.data;
   if (addons.length === 0 && (available.length === 0 || !canAdd)) return null;
   return (

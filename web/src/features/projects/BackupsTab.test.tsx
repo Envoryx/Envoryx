@@ -79,4 +79,36 @@ describe("BackupsTab", () => {
     expect(screen.getByRole("checkbox", { name: /^Restore database/ })).toBeEnabled();
     void api;
   });
+
+  it("shows a viewer the backups but nothing to create, download, restore or delete", async () => {
+    mockApi({
+      ...authedRoutes,
+      [`GET /projects/${id}/backups`]: () => ({ body: { backups: [backup], offsiteTargets: [{ id: "t1", name: "NAS", enabled: true }] } }),
+    });
+    renderApp(<BackupsTab project={makeProject({ access: "read" })} />);
+
+    expect(await screen.findByText(/before deploy/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Create backup" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Download/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Restore" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Delete backup" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Offsite copies")).not.toBeInTheDocument();
+    // The schedule stays readable but cannot be saved.
+    expect(screen.getByLabelText("Frequency")).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+  });
+
+  it("lets a developer create and download backups but not restore or delete them", async () => {
+    mockApi({
+      ...authedRoutes,
+      [`GET /projects/${id}/backups`]: () => ({ body: { backups: [backup] } }),
+    });
+    renderApp(<BackupsTab project={makeProject({ access: "operate" })} />);
+
+    expect(await screen.findByText(/before deploy/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Create backup" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Download/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Restore" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Delete backup" })).not.toBeInTheDocument();
+  });
 });

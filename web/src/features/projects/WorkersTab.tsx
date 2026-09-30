@@ -8,11 +8,14 @@ import type { Project, Worker, WorkerPreset } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, ErrorState, Field, Input, Select, Spinner, StatusDot } from "@/components/ui";
 import { containerStateTone } from "@/lib/format";
 import { errorText } from "@/lib/errors";
+import { projectAccess } from "@/lib/access";
 
 export function WorkersTab({ project }: { project: Project }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
   const q = useQuery({ queryKey: ["projects", project.id, "workers"], queryFn: () => api.projects.workers.list(project.id) });
+  // Adding, changing and removing workers needs admin in the project.
+  const editable = projectAccess(project).admin;
   const refresh = () => {
     void qc.invalidateQueries({ queryKey: ["projects", project.id, "workers"] });
     void qc.invalidateQueries({ queryKey: keys.project(project.id) });
@@ -98,6 +101,7 @@ export function WorkersTab({ project }: { project: Project }) {
                     </p>
                     <p className="mt-0.5 font-mono text-[11px] text-subtle">{w.command.join(" ")}</p>
                   </div>
+                  {editable && (
                   <div className="flex items-center gap-1.5">
                     <Button size="sm" onClick={() => toggle.mutate(w)} loading={toggle.isPending && toggle.variables?.id === w.id}>
                       {w.enabled ? t("Disable") : t("Enable")}
@@ -106,11 +110,13 @@ export function WorkersTab({ project }: { project: Project }) {
                       {t("Remove")}
                     </Button>
                   </div>
+                  )}
                 </li>
               );
             })}
           </ul>
         )}
+        {editable && (
         <form onSubmit={submit} className="space-y-4 border-t border-default p-5">
           <p className="text-sm font-medium text-fg">{t("Add worker")}</p>
           <div className="grid gap-4 sm:grid-cols-3">
@@ -141,6 +147,7 @@ export function WorkersTab({ project }: { project: Project }) {
             {t("Add worker")}
           </Button>
         </form>
+        )}
       </Card>
     </div>
   );

@@ -22,7 +22,7 @@ import { RegistriesCard } from "./RegistriesCard";
 import { AddonsCard } from "./AddonsCard";
 import { SecretKeyCard } from "./SecretKeyCard";
 import { MySshKeysCard } from "./MySshKeysCard";
-import { isAdmin, useAuth } from "@/features/auth/AuthContext";
+import { useAuth } from "@/features/auth/AuthContext";
 import { AppearanceCard } from "./AppearanceCard";
 import { AuditLog } from "@/features/audit/AuditLog";
 import { LifecycleCard } from "./LifecycleCard";
@@ -332,8 +332,7 @@ function AuditRetentionCard() {
 
 export function SettingsPage() {
   const { t } = useTranslation();
-  const { user } = useAuth();
-  const admin = isAdmin(user);
+  const { admin } = useAuth();
   const s = useSettings();
   const diagnostics = useDiagnostics(admin);
   const [params] = useSearchParams();

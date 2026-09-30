@@ -29,7 +29,8 @@ import { ServicesTab } from "./ServicesTab";
 import { BackupsTab } from "./BackupsTab";
 import { BranchesTab } from "./BranchesTab";
 import { CustomImagesCard } from "./CustomImagesCard";
-import { isAdmin, useAuth } from "@/features/auth/AuthContext";
+import { useAuth } from "@/features/auth/AuthContext";
+import { projectAccess } from "@/lib/access";
 import { SectionLayout, type SectionGroup } from "@/components/SectionNav";
 import { LogsTab } from "./LogsTab";
 // xterm.js is only needed on this tab; keep it out of the main bundle.
@@ -103,7 +104,7 @@ export function ProjectDetailPage() {
   const [sharing, setSharing] = useState(false);
   const [showingPlan, setShowingPlan] = useState(false);
   const [duplicating, setDuplicating] = useState(false);
-  const { user } = useAuth();
+  const { admin: instanceAdmin } = useAuth();
   const [renaming, setRenaming] = useState(false);
   const { error, capture, setError } = useActionError();
 
@@ -115,10 +116,8 @@ export function ProjectDetailPage() {
   const p = q.data;
   // What the signed-in user may do here: viewers look, developers work, project admins
   // also rename and delete; copying makes a new project, which needs an instance admin.
-  const access = p.access ?? "admin";
-  const projectAdmin = access === "admin";
-  const instanceAdmin = isAdmin(user);
-  const visible = (id: Tab) => !((id === "Terminal" || id === "Actions") && access === "read") && !(id === "History" && !instanceAdmin);
+  const { operate, admin: projectAdmin } = projectAccess(p);
+  const visible = (id: Tab) => !((id === "Terminal" || id === "Actions") && !operate) && !(id === "History" && !instanceAdmin);
   const groups = sections.map((s) => ({ ...s, items: s.items.filter((i) => visible(i.id)) })).filter((s) => s.items.length > 0);
   const requested = params.get("tab") ?? "";
   const wanted = renamed[requested] ?? requested;
@@ -168,7 +167,7 @@ export function ProjectDetailPage() {
         actions={
           <>
             <ProjectActionButtons project={p} size="md" onError={capture} />
-            {projectAdmin && <SharedBadge project={p} onOpen={() => setSharing(true)} />}
+            {operate && <SharedBadge project={p} onOpen={() => setSharing(true)} />}
             <ProjectMenu project={p} projectAdmin={projectAdmin} instanceAdmin={instanceAdmin} onShare={() => setSharing(true)} onRename={() => setRenaming(true)} onDuplicate={() => setDuplicating(true)} onShowPlan={() => setShowingPlan(true)} onDelete={() => setDeleting(true)} />
           </>
         }
@@ -229,6 +228,8 @@ export function ProjectDetailPage() {
         {tab === "Logs" && <LogsTab project={p} />}
         {tab === "Runtime" && (
           <div className="space-y-6">
+            {/* Viewers and developers see the settings; changing them needs a project admin. */}
+            <fieldset disabled={!projectAdmin} className="min-w-0 space-y-6">
             <ProjectSettingsCard project={p} onRename={() => setRenaming(true)} />
             {/* The application runtime comes first (PHP, else Python, Go, Ruby, Java, .NET, Node), then the web server, then the other runtimes as toolchains. */}
             {(() => {
@@ -244,10 +245,11 @@ export function ProjectDetailPage() {
                   {first && cards[first]}
                   <WebServerCard project={p} />
                   {rest.map((k) => cards[k])}
-                  <CustomImagesCard project={p} />
                 </>
               );
             })()}
+            </fieldset>
+            <CustomImagesCard project={p} />
           </div>
         )}
         {tab === "Workers" && (
@@ -262,7 +264,11 @@ export function ProjectDetailPage() {
         {tab === "Database" && <DatabaseTab project={p} />}
         {tab === "Services" && <ServicesTab project={p} />}
         {tab === "Backups" && <BackupsTab project={p} />}
-        {tab === "Environment" && <EnvTab project={p} />}
+        {tab === "Environment" && (
+          <fieldset disabled={!projectAdmin} className="min-w-0">
+            <EnvTab project={p} />
+          </fieldset>
+        )}
         {tab === "IDE" && <IdeTab project={p} />}
         {tab === "Resources" && <ResourcesTab project={p} />}
         {tab === "History" && (
@@ -275,8 +281,8 @@ export function ProjectDetailPage() {
         )}
       </SectionLayout>
 
-      {projectAdmin && <ShareDialog project={p} open={sharing} onClose={() => setSharing(false)} />}
-      {instanceAdmin && <DockerPlanDialog project={p} open={showingPlan} onClose={() => setShowingPlan(false)} />}
+      {operate && <ShareDialog project={p} open={sharing} onClose={() => setSharing(false)} />}
+      <DockerPlanDialog project={p} open={showingPlan} onClose={() => setShowingPlan(false)} />
       <RenameProjectDialog project={p} open={renaming} onClose={() => setRenaming(false)} />
       <DuplicateProjectDialog project={p} open={duplicating} onClose={() => setDuplicating(false)} />
       <DeleteProjectDialog project={p} open={deleting} onClose={() => setDeleting(false)} />
@@ -288,6 +294,7 @@ function OverviewTab({ project: p }: { project: Project }) {
   const { t } = useTranslation();
   const stats = useProjectStats(p.id, p.status.state === "running" || p.status.state === "partial");
   const imageChoice = useImageChoice(p.id);
+  const canChooseImage = projectAccess(p).operate;
   const [imageMsg, setImageMsg] = useState<{ tone: "green" | "red"; text: string } | null>(null);
   const chooseImage = (image: string, use: "previous" | "latest") => {
     setImageMsg(null);
@@ -326,7 +333,7 @@ function OverviewTab({ project: p }: { project: Project }) {
                   :{port.hostPort} → {port.containerPort}
                 </span>
               ))}
-              {s.imagePinned ? (
+              {!canChooseImage ? null : s.imagePinned ? (
                 <span className="inline-flex items-center gap-2 text-xs">
                   <Badge tone="amber">{t("previous image")}</Badge>
                   <Button size="sm" variant="ghost" icon={<RotateCw className="size-3.5" />} loading={imageChoice.isPending} onClick={() => chooseImage(s.image, "latest")}>
@@ -430,9 +437,11 @@ function ProjectSettingsCard({ project: p, onRename }: { project: Project; onRen
         title={t("Project settings")}
         description={t("Changing the document root rewrites the web server configuration and restarts the containers.")}
         actions={
-          <Button variant="primary" onClick={save} loading={update.isPending} disabled={!dirty} icon={<Save className="size-4" />}>
-            {t("Save")}
-          </Button>
+          projectAccess(p).admin && (
+            <Button variant="primary" onClick={save} loading={update.isPending} disabled={!dirty} icon={<Save className="size-4" />}>
+              {t("Save")}
+            </Button>
+          )
         }
       />
       <div className="space-y-6 p-5">
@@ -444,9 +453,11 @@ function ProjectSettingsCard({ project: p, onRename }: { project: Project; onRen
             hint={t("The displayed name only; the identifier {{slug}} and with it the URL, the containers and the directory stay.", { slug: p.slug })}
           >
             <Input id="p-name" value={name} onChange={(e) => setName(e.target.value)} />
-            <button type="button" className="mt-1 text-xs text-accent-500 underline" onClick={onRename}>
-              {t("Rename the project including its identifier…")}
-            </button>
+            {projectAccess(p).admin && (
+              <button type="button" className="mt-1 text-xs text-accent-500 underline" onClick={onRename}>
+                {t("Rename the project including its identifier…")}
+              </button>
+            )}
           </Field>
           <Field
             label={t("Document root")}
@@ -520,9 +531,11 @@ function PhpCard({ project: p }: { project: Project }) {
             : t("Add PHP-FPM to this project: the web server then forwards PHP requests to it and PHP becomes the application. The SPA fallback of the static setup is dropped.")
         }
         actions={
-          <Button variant="primary" onClick={save} loading={update.isPending} disabled={!dirty} icon={<Save className="size-4" />}>
-            {t("Save")}
-          </Button>
+          projectAccess(p).admin && (
+            <Button variant="primary" onClick={save} loading={update.isPending} disabled={!dirty} icon={<Save className="size-4" />}>
+              {t("Save")}
+            </Button>
+          )
         }
       />
       <div className="space-y-6 p-5">
@@ -586,9 +599,11 @@ function WebServerCard({ project: p }: { project: Project }) {
         title={t("Web server")}
         description={t("Switching the web server recreates the web container; the document root and port stay the same.")}
         actions={
-          <Button variant="primary" onClick={save} loading={update.isPending} disabled={!dirty} icon={<Save className="size-4" />}>
-            {t("Save")}
-          </Button>
+          projectAccess(p).admin && (
+            <Button variant="primary" onClick={save} loading={update.isPending} disabled={!dirty} icon={<Save className="size-4" />}>
+              {t("Save")}
+            </Button>
+          )
         }
       />
       <div className="space-y-4 p-5">
@@ -674,23 +689,25 @@ function NodeCard({ project: p }: { project: Project }) {
             : t("Toolchain container for asset builds (npm, pnpm, yarn), optionally running your dev server. Removing it only removes the container; node_modules stays in the project directory.")
         }
         actions={
-          <Button
-            variant="primary"
-            icon={<Save className="size-4" />}
-            loading={update.isPending}
-            disabled={!dirty}
-            onClick={() =>
-              update.mutate(
-                { node: enabled ? { enabled: true, version, ...devServerRequest(dev) } : { enabled: false } },
-                {
-                  onSuccess: () => setMsg({ tone: "green", text: enabled ? t("Node.js container updated.") : t("Node.js container removed.") }),
-                  onError: (err) => setMsg({ tone: "red", text: errorText(err, t, t("Saving failed")) }),
-                },
-              )
-            }
-          >
-            {t("Save")}
-          </Button>
+          projectAccess(p).admin && (
+            <Button
+              variant="primary"
+              icon={<Save className="size-4" />}
+              loading={update.isPending}
+              disabled={!dirty}
+              onClick={() =>
+                update.mutate(
+                  { node: enabled ? { enabled: true, version, ...devServerRequest(dev) } : { enabled: false } },
+                  {
+                    onSuccess: () => setMsg({ tone: "green", text: enabled ? t("Node.js container updated.") : t("Node.js container removed.") }),
+                    onError: (err) => setMsg({ tone: "red", text: errorText(err, t, t("Saving failed")) }),
+                  },
+                )
+              }
+            >
+              {t("Save")}
+            </Button>
+          )
         }
       />
       <div className="space-y-4 p-5">
@@ -777,23 +794,25 @@ function PythonCard({ project: p }: { project: Project }) {
             : t("Tooling container (pip, uv, venv), optionally running an application server on its own port. Removing it only removes the container; the .venv stays in the project directory.")
         }
         actions={
-          <Button
-            variant="primary"
-            icon={<Save className="size-4" />}
-            loading={update.isPending}
-            disabled={!dirty}
-            onClick={() =>
-              update.mutate(
-                { python: enabled ? { enabled: true, version, ...pythonServerRequest(server) } : { enabled: false } },
-                {
-                  onSuccess: () => setMsg({ tone: "green", text: enabled ? t("Python container updated.") : t("Python container removed.") }),
-                  onError: (err) => setMsg({ tone: "red", text: errorText(err, t, t("Saving failed")) }),
-                },
-              )
-            }
-          >
-            {t("Save")}
-          </Button>
+          projectAccess(p).admin && (
+            <Button
+              variant="primary"
+              icon={<Save className="size-4" />}
+              loading={update.isPending}
+              disabled={!dirty}
+              onClick={() =>
+                update.mutate(
+                  { python: enabled ? { enabled: true, version, ...pythonServerRequest(server) } : { enabled: false } },
+                  {
+                    onSuccess: () => setMsg({ tone: "green", text: enabled ? t("Python container updated.") : t("Python container removed.") }),
+                    onError: (err) => setMsg({ tone: "red", text: errorText(err, t, t("Saving failed")) }),
+                  },
+                )
+              }
+            >
+              {t("Save")}
+            </Button>
+          )
         }
       />
       <div className="space-y-4 p-5">
@@ -879,23 +898,25 @@ function GoCard({ project: p }: { project: Project }) {
             : t("Tooling container (go build, go test, modules), optionally running a Go server on its own port. Removing it only removes the container; the code stays in the project directory.")
         }
         actions={
-          <Button
-            variant="primary"
-            icon={<Save className="size-4" />}
-            loading={update.isPending}
-            disabled={!dirty}
-            onClick={() =>
-              update.mutate(
-                { go: enabled ? { enabled: true, version, ...goServerRequest(server) } : { enabled: false } },
-                {
-                  onSuccess: () => setMsg({ tone: "green", text: enabled ? t("Go container updated.") : t("Go container removed.") }),
-                  onError: (err) => setMsg({ tone: "red", text: errorText(err, t, t("Saving failed")) }),
-                },
-              )
-            }
-          >
-            {t("Save")}
-          </Button>
+          projectAccess(p).admin && (
+            <Button
+              variant="primary"
+              icon={<Save className="size-4" />}
+              loading={update.isPending}
+              disabled={!dirty}
+              onClick={() =>
+                update.mutate(
+                  { go: enabled ? { enabled: true, version, ...goServerRequest(server) } : { enabled: false } },
+                  {
+                    onSuccess: () => setMsg({ tone: "green", text: enabled ? t("Go container updated.") : t("Go container removed.") }),
+                    onError: (err) => setMsg({ tone: "red", text: errorText(err, t, t("Saving failed")) }),
+                  },
+                )
+              }
+            >
+              {t("Save")}
+            </Button>
+          )
         }
       />
       <div className="space-y-4 p-5">
@@ -982,23 +1003,25 @@ function RubyCard({ project: p }: { project: Project }) {
             : t("Tooling container (bundle, rake, rails), optionally running a Ruby server on its own port. Removing it only removes the container; the code stays in the project directory.")
         }
         actions={
-          <Button
-            variant="primary"
-            icon={<Save className="size-4" />}
-            loading={update.isPending}
-            disabled={!dirty}
-            onClick={() =>
-              update.mutate(
-                { ruby: enabled ? { enabled: true, version, ...rubyServerRequest(server) } : { enabled: false } },
-                {
-                  onSuccess: () => setMsg({ tone: "green", text: enabled ? t("Ruby container updated.") : t("Ruby container removed.") }),
-                  onError: (err) => setMsg({ tone: "red", text: errorText(err, t, t("Saving failed")) }),
-                },
-              )
-            }
-          >
-            {t("Save")}
-          </Button>
+          projectAccess(p).admin && (
+            <Button
+              variant="primary"
+              icon={<Save className="size-4" />}
+              loading={update.isPending}
+              disabled={!dirty}
+              onClick={() =>
+                update.mutate(
+                  { ruby: enabled ? { enabled: true, version, ...rubyServerRequest(server) } : { enabled: false } },
+                  {
+                    onSuccess: () => setMsg({ tone: "green", text: enabled ? t("Ruby container updated.") : t("Ruby container removed.") }),
+                    onError: (err) => setMsg({ tone: "red", text: errorText(err, t, t("Saving failed")) }),
+                  },
+                )
+              }
+            >
+              {t("Save")}
+            </Button>
+          )
         }
       />
       <div className="space-y-4 p-5">
@@ -1086,23 +1109,25 @@ function JavaCard({ project: p }: { project: Project }) {
             : t("Tooling container (mvn, gradle, java), optionally running a Java server on its own port. Removing it only removes the container; the code stays in the project directory.")
         }
         actions={
-          <Button
-            variant="primary"
-            icon={<Save className="size-4" />}
-            loading={update.isPending}
-            disabled={!dirty}
-            onClick={() =>
-              update.mutate(
-                { java: enabled ? { enabled: true, version, ...javaServerRequest(server) } : { enabled: false } },
-                {
-                  onSuccess: () => setMsg({ tone: "green", text: enabled ? t("Java container updated.") : t("Java container removed.") }),
-                  onError: (err) => setMsg({ tone: "red", text: errorText(err, t, t("Saving failed")) }),
-                },
-              )
-            }
-          >
-            {t("Save")}
-          </Button>
+          projectAccess(p).admin && (
+            <Button
+              variant="primary"
+              icon={<Save className="size-4" />}
+              loading={update.isPending}
+              disabled={!dirty}
+              onClick={() =>
+                update.mutate(
+                  { java: enabled ? { enabled: true, version, ...javaServerRequest(server) } : { enabled: false } },
+                  {
+                    onSuccess: () => setMsg({ tone: "green", text: enabled ? t("Java container updated.") : t("Java container removed.") }),
+                    onError: (err) => setMsg({ tone: "red", text: errorText(err, t, t("Saving failed")) }),
+                  },
+                )
+              }
+            >
+              {t("Save")}
+            </Button>
+          )
         }
       />
       <div className="space-y-4 p-5">
@@ -1190,23 +1215,25 @@ function DotnetCard({ project: p }: { project: Project }) {
             : t("Tooling container (dotnet, dotnet-ef), optionally running a .NET server on its own port. Removing it only removes the container; the code stays in the project directory.")
         }
         actions={
-          <Button
-            variant="primary"
-            icon={<Save className="size-4" />}
-            loading={update.isPending}
-            disabled={!dirty}
-            onClick={() =>
-              update.mutate(
-                { dotnet: enabled ? { enabled: true, version, ...dotnetServerRequest(server) } : { enabled: false } },
-                {
-                  onSuccess: () => setMsg({ tone: "green", text: enabled ? t(".NET container updated.") : t(".NET container removed.") }),
-                  onError: (err) => setMsg({ tone: "red", text: errorText(err, t, t("Saving failed")) }),
-                },
-              )
-            }
-          >
-            {t("Save")}
-          </Button>
+          projectAccess(p).admin && (
+            <Button
+              variant="primary"
+              icon={<Save className="size-4" />}
+              loading={update.isPending}
+              disabled={!dirty}
+              onClick={() =>
+                update.mutate(
+                  { dotnet: enabled ? { enabled: true, version, ...dotnetServerRequest(server) } : { enabled: false } },
+                  {
+                    onSuccess: () => setMsg({ tone: "green", text: enabled ? t(".NET container updated.") : t(".NET container removed.") }),
+                    onError: (err) => setMsg({ tone: "red", text: errorText(err, t, t("Saving failed")) }),
+                  },
+                )
+              }
+            >
+              {t("Save")}
+            </Button>
+          )
         }
       />
       <div className="space-y-4 p-5">
@@ -1273,9 +1300,11 @@ function EnvTab({ project: p }: { project: Project }) {
         title={t("Environment variables")}
         description={t("Injected into every container of this project. Saving recreates the containers.")}
         actions={
-          <Button variant="primary" onClick={save} loading={update.isPending} disabled={!dirty} icon={<Save className="size-4" />}>
-            {t("Save")}
-          </Button>
+          projectAccess(p).admin && (
+            <Button variant="primary" onClick={save} loading={update.isPending} disabled={!dirty} icon={<Save className="size-4" />}>
+              {t("Save")}
+            </Button>
+          )
         }
       />
       <div className="space-y-4 p-5">
@@ -1299,10 +1328,10 @@ function ProjectMenu({ project: p, projectAdmin, instanceAdmin, onShare, onRenam
   }
   if (instanceAdmin) {
     items.push({ label: t("Duplicate project"), icon: <Copy className="size-4" />, onSelect: onDuplicate, title: t("Duplicate project - config, files and database") });
-    items.push({ label: t("Docker plan"), icon: <FileCode2 className="size-4" />, onSelect: onShowPlan });
   }
+  // The plan needs only read access: it lists containers, images, ports and mounts, no environment.
+  items.push({ label: t("Docker plan"), icon: <FileCode2 className="size-4" />, onSelect: onShowPlan });
   if (projectAdmin) items.push({ label: t("Delete project"), icon: <Trash2 className="size-4" />, onSelect: onDelete, danger: true });
-  if (items.length === 0) return null;
   return <Menu label={t("More actions")} icon={<Ellipsis className="size-4" />} items={items} />;
 }
 

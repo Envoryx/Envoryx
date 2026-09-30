@@ -7,6 +7,7 @@ import { keys } from "@/api/hooks";
 import type { HealthCheck, HealthResult, HealthState, Project } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Field, Input } from "@/components/ui";
 import { errorText, translateMessage } from "@/lib/errors";
+import { projectAccess } from "@/lib/access";
 import { formatRelative } from "@/lib/format";
 
 const defaults = { status: 200, intervalSec: 30, timeoutSec: 5, failures: 3 };
@@ -45,6 +46,8 @@ export function HealthCheckCard({ project: p }: { project: Project }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
   const current = p.healthCheck;
+  // Saving and testing the check both need admin in the project.
+  const editable = projectAccess(p).admin;
   const [form, setForm] = useState<Form>(toForm(current));
   const [msg, setMsg] = useState<{ tone: "green" | "red"; text: string } | null>(null);
   const [result, setResult] = useState<HealthResult | null>(null);
@@ -118,7 +121,8 @@ export function HealthCheckCard({ project: p }: { project: Project }) {
               : t("The check fails: {{error}}", { error: translateMessage(result.error, t) })}
           </Alert>
         )}
-        <form onSubmit={submit} className="space-y-4">
+        <form onSubmit={submit}>
+          <fieldset disabled={!editable} className="min-w-0 space-y-4">
           <Field label={t("Path")} htmlFor="hc-path" hint={t("For example /health or /up - an address that checks what the application needs (database, cache) and answers quickly. Empty: no check.")}>
             <Input id="hc-path" value={form.path} onChange={(e) => setForm({ ...form, path: e.target.value })} placeholder="/health" className="font-mono" />
           </Field>
@@ -136,6 +140,7 @@ export function HealthCheckCard({ project: p }: { project: Project }) {
               <Input id="hc-failures" type="number" min={1} max={20} value={form.failures} onChange={(e) => setForm({ ...form, failures: e.target.value })} />
             </Field>
           </div>
+          {editable && (
           <div className="flex flex-wrap items-center gap-2">
             <Button type="submit" variant="primary" size="sm" loading={save.isPending} disabled={!dirty || (!form.path.trim() && !current)} icon={<Save className="size-3.5" />}>
               {t("Save")}
@@ -171,6 +176,8 @@ export function HealthCheckCard({ project: p }: { project: Project }) {
               </Button>
             )}
           </div>
+          )}
+          </fieldset>
         </form>
       </div>
     </Card>

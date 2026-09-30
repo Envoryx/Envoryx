@@ -9,6 +9,7 @@ import { Badge, Button, Card, CardHeader, Checkbox, Dialog, Field, Input, Select
 import { containerStateTone } from "@/lib/format";
 import { CopyButton, CopyRow } from "./DatabaseTab";
 import { errorText } from "@/lib/errors";
+import { projectAccess } from "@/lib/access";
 
 type Message = { tone: "green" | "red"; text: string };
 
@@ -34,6 +35,8 @@ export function StorageCard({ project, onMessage }: { project: Project; onMessag
   const qc = useQueryClient();
   const storage = useStorage(project.id);
   const update = useUpdateProject(project.id);
+  // The access keys need operate; the bucket policy and removing the storage admin.
+  const can = projectAccess(project);
   const publicHost = usePublicHost();
   const host = publicHost || window.location.hostname;
   const [creds, setCreds] = useState<StorageInfo | null>(null);
@@ -92,11 +95,13 @@ export function StorageCard({ project, onMessage }: { project: Project; onMessag
                 <CopyRow label={t("Secret key")} value={creds.secretKey ?? ""} secret />
               </>
             ) : (
-              <div className="py-2">
-                <Button size="sm" onClick={reveal}>
-                  {t("Show access keys")}
-                </Button>
-              </div>
+              can.operate && (
+                <div className="py-2">
+                  <Button size="sm" onClick={reveal}>
+                    {t("Show access keys")}
+                  </Button>
+                </div>
+              )
             )}
           </dl>
           <p className="mt-3 text-xs text-muted">
@@ -115,7 +120,7 @@ export function StorageCard({ project, onMessage }: { project: Project; onMessag
             label={t("Anyone may read objects (public bucket)")}
             description={t("A bucket policy makes every object readable without credentials - what public-read ACLs do on real providers, which this server does not evaluate. Off: only presigned URLs and authenticated requests work.")}
             checked={live.publicRead}
-            disabled={setPublic.isPending}
+            disabled={setPublic.isPending || !can.admin}
             onChange={(e) => setPublic.mutate(e.target.checked)}
           />
           <div>
@@ -136,11 +141,13 @@ export function StorageCard({ project, onMessage }: { project: Project; onMessag
               {t("Presigned URLs for the browser must be signed against the public endpoint (S3_PUBLIC_ENDPOINT); the signature covers the host name. Laravel's Storage::url() uses AWS_URL.")}
             </p>
           </div>
-          <div className="flex justify-end">
-            <Button variant="ghost" size="sm" icon={<Trash2 className="size-3.5" />} onClick={() => setRemoveOpen(true)}>
-              {t("Remove object storage")}
-            </Button>
-          </div>
+          {can.admin && (
+            <div className="flex justify-end">
+              <Button variant="ghost" size="sm" icon={<Trash2 className="size-3.5" />} onClick={() => setRemoveOpen(true)}>
+                {t("Remove object storage")}
+              </Button>
+            </div>
+          )}
         </div>
       </div>
       <Dialog
