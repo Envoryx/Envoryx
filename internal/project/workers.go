@@ -34,15 +34,42 @@ type WorkerPreset struct {
 	display func(arg string) []string
 	// validateArg checks the argument; nil means no argument is accepted.
 	validateArg func(arg string) error
-	// guard is a shell check run before the command (after the bundle install for Ruby);
-	// it waits with a message instead of letting the worker crash-loop.
-	guard string
+	// guard returns a shell check run before the command (after the bundle install for
+	// Ruby) for the validated argument; it waits with a message instead of letting the
+	// worker crash-loop.
+	guard func(arg string) string
 }
 
 // solidQueueGuard waits until the Solid Queue tables exist. Without them bin/jobs crashes
 // right away and Docker restarts it over and over; they come from rails db:prepare, which
 // loads db/queue_schema.rb into the queue database.
 const solidQueueGuard = `until bin/rails runner 'begin; exit(SolidQueue::Job.table_exists? ? 0 : 1); rescue StandardError => e; warn e.message; exit 1; end'; do echo 'envoryx: the Solid Queue tables are missing - run "rails db:prepare" from Actions (config/database.yml needs the queue database), checking again in 30 s'; sleep 30; done`
+
+// messengerGuard sets up the transports before messenger:consume. The recipe's
+// MESSENGER_TRANSPORT_DSN (doctrine://default?auto_setup=0) leaves the messenger_messages
+// table to the application, a fresh project has no migration for it, and the consumer
+// crashes on the missing table right away. messenger:setup-transports creates it and
+// does nothing when it exists (or for transports that need no setup); while it fails,
+// usually because the database is not reachable yet, the worker waits. The names passed
+// queueArg, so they are safe in the shell line.
+func messengerGuard(transports []string) string {
+	var b strings.Builder
+	for i, t := range transports {
+		if i > 0 {
+			b.WriteString("; ")
+		}
+		fmt.Fprintf(&b, `until php bin/console messenger:setup-transports --no-interaction %s; do echo 'envoryx: setting up the Messenger transport %s failed (see above) - check DATABASE_URL and MESSENGER_TRANSPORT_DSN, trying again in 10 s'; sleep 10; done`, t, t)
+	}
+	return b.String()
+}
+
+// messengerTransports is the transport list of the Messenger preset's argument.
+func messengerTransports(arg string) []string {
+	if arg == "" {
+		return []string{"async"}
+	}
+	return strings.Split(arg, ",")
+}
 
 var (
 	queueNameRe  = regexp.MustCompile(`^[A-Za-z0-9_.-]{1,64}(,[A-Za-z0-9_.-]{1,64})*$`)
@@ -130,13 +157,11 @@ var workerPresets = []WorkerPreset{
 	{ID: "symfony:messenger", Group: "Symfony", Label: "Messenger consumer", Description: "bin/console messenger:consume - processes transports (restarts hourly)", ArgLabel: "Transports", ArgHint: "e.g. async (empty = async)", Requires: []string{"bin/console"},
 		validateArg: queueArg,
 		build: func(arg string) []string {
-			if arg == "" {
-				arg = "async"
-			}
 			cmd := []string{"php", "bin/console", "messenger:consume"}
-			cmd = append(cmd, strings.Split(arg, ",")...)
+			cmd = append(cmd, messengerTransports(arg)...)
 			return append(cmd, "--time-limit=3600", "-vv")
-		}},
+		},
+		guard: func(arg string) string { return messengerGuard(messengerTransports(arg)) }},
 	{ID: "symfony:scheduler", Group: "Symfony", Label: "Scheduler", Description: "bin/console messenger:consume scheduler_default - Symfony Scheduler", ArgLabel: "Schedule name", ArgHint: "empty = default", Requires: []string{"bin/console"},
 		validateArg: func(arg string) error {
 			if arg != "" && !scriptNameRe.MatchString(arg) {
@@ -238,7 +263,7 @@ var workerPresets = []WorkerPreset{
 // planner puts the bundle install in front of each, like in front of the server.
 var rubyWorkerPresets = []WorkerPreset{
 	{ID: "solidqueue:start", Group: "Solid Queue", Label: "Solid Queue", Description: "bin/jobs start - the Solid Queue supervisor with its workers, dispatchers and recurring tasks (Rails 8)", Requires: []string{"bin/jobs"}, Runtime: WorkerRuntimeRuby,
-		build: func(string) []string { return []string{"bin/jobs", "start"} }, guard: solidQueueGuard},
+		build: func(string) []string { return []string{"bin/jobs", "start"} }, guard: func(string) string { return solidQueueGuard }},
 	{ID: "goodjob:start", Group: "GoodJob", Label: "GoodJob", Description: "good_job start - processes the jobs GoodJob keeps in PostgreSQL", ArgLabel: "Queues", ArgHint: "e.g. default,mailers (empty = all)", Requires: []string{"Gemfile"}, Runtime: WorkerRuntimeRuby,
 		validateArg: queueArg,
 		build: func(arg string) []string {
@@ -449,6 +474,18 @@ func WorkerCommand(w store.Worker) ([]string, error) {
 		return nil, fmt.Errorf("%w: preset %s takes no argument", validate.ErrInvalid, p.ID)
 	}
 	return p.build(arg), nil
+}
+
+// workerGuard is the preset's guard for a worker whose command WorkerCommand accepted.
+func workerGuard(p WorkerPreset, w store.Worker) string {
+	if p.guard == nil {
+		return ""
+	}
+	arg := ""
+	if len(w.Args) > 0 {
+		arg = w.Args[0]
+	}
+	return p.guard(arg)
 }
 
 // WorkerDisplayCommand is WorkerCommand as the Workers & cron section shows it: the command a

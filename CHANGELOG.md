@@ -84,6 +84,12 @@ release). `:main` follows the development branch.
   keeps the stored one, also when single sign-on is switched off. The
   settings card has *Remove the stored client secret when saving*, the
   API takes `"clearSecret": true`.
+- The Symfony Messenger consumer no longer restarts in a loop until the
+  `messenger_messages` table exists: it runs `messenger:setup-transports`
+  for its transports first, which creates the table the recipe's
+  `doctrine://default?auto_setup=0` leaves to the application, and waits
+  with a hint while the database cannot be reached. Existing Messenger
+  workers are recreated once on the next start.
 
 ## [0.17.0] - 2026-09-30
 

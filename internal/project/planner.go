@@ -1276,7 +1276,7 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 			spec.Mounts = append(spec.Mounts, p.HomeMount(proj))
 			// Bundler locks the install, so a worker and the server installing at once
 			// wait for each other instead of clashing.
-			spec.Cmd = runtime.Guarded(cmd, "envoryx-worker", runtime.BundleGuard, preset.guard)
+			spec.Cmd = runtime.Guarded(cmd, "envoryx-worker", runtime.BundleGuard, workerGuard(preset, w))
 		case WorkerRuntimeJava:
 			if java == nil || !java.Enabled {
 				continue
@@ -1297,6 +1297,7 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 			}
 			spec.Image = php.Image
 			spec.Env = append(append([]string{}, env...), "HOME=/tmp", "COMPOSER_HOME=/tmp/composer")
+			spec.Cmd = runtime.Guarded(cmd, "envoryx-worker", workerGuard(preset, w))
 			spec.Mounts = append(spec.Mounts, docker.MountSpec{Type: "bind", Source: filepath.Join(cfgHost, "php", "zz-envoryx.ini"), Target: phpIniTarget, ReadOnly: true})
 		}
 		p.withPackageCache(&spec)
