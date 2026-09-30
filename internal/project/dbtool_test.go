@@ -158,3 +158,96 @@ func TestDBToolBareMetalAndUnsupported(t *testing.T) {
 		t.Fatal("a project without database has nothing to open")
 	}
 }
+
+func TestDBToolProjectsMapsTargetsToTheirProject(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	shop, err := e.m.Create(ctx, dbRequest("Shop", false))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := phpRequest("Blog", false)
+	req.Database = &DatabaseRequest{Type: "postgresql"}
+	blog, err := e.m.Create(ctx, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	shopCreds, _ := e.m.DatabaseCredentials(ctx, shop.Project.ID, "")
+	blogCreds, _ := e.m.DatabaseCredentials(ctx, blog.Project.ID, "")
+
+	for _, c := range []struct {
+		name   string
+		target DBToolTarget
+		want   string
+	}{
+		{"app user", DBToolTarget{"server", "envoryx-shop-database", shopCreds.Username}, shop.Project.ID},
+		{"root", DBToolTarget{"server", "envoryx-shop-database", "root"}, shop.Project.ID},
+		{"login page of a server", DBToolTarget{"server", "envoryx-shop-database", ""}, shop.Project.ID},
+		{"postgres app user", DBToolTarget{"pgsql", "envoryx-blog-database", blogCreds.Username}, blog.Project.ID},
+		{"postgres administrator", DBToolTarget{"pgsql", "envoryx-blog-database", "postgres"}, blog.Project.ID},
+		{"another project's user on the server", DBToolTarget{"server", "envoryx-shop-database", blogCreds.Username}, ""},
+		{"wrong driver", DBToolTarget{"pgsql", "envoryx-shop-database", "root"}, ""},
+		{"unknown server", DBToolTarget{"server", "db.example.com", "root"}, ""},
+		{"no server", DBToolTarget{"server", "", "root"}, ""},
+	} {
+		ids, err := e.m.DBToolProjects(ctx, c.target)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if c.want == "" && len(ids) != 0 || c.want != "" && (len(ids) != 1 || ids[0] != c.want) {
+			t.Errorf("%s: %v, want %q", c.name, ids, c.want)
+		}
+	}
+}
+
+func TestDBToolContainerAnswersOnlyTheProxy(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	e.selfID = e.engine.AddManagedContainer(docker.ContainerSpec{Name: "envoryx", Labels: map[string]string{"x": "y"}}, "running")
+	view, err := e.m.Create(ctx, dbRequest("Shop", false))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := e.m.SetDBToolEnabled(ctx, true); err != nil {
+		t.Fatal(err)
+	}
+
+	// A container from before the router is not used and the reconcile removes it.
+	e.engine.AddManagedContainer(docker.ContainerSpec{Name: DBToolContainer, Image: DBToolImage,
+		Labels: map[string]string{docker.LabelManaged: "true", docker.LabelSystem: "dbtool", dbToolHostsLabel: "1"}}, "running")
+	if dial, _ := e.m.DBToolDial(ctx); dial != "" {
+		t.Fatalf("an unguarded container must not be proxied to: %q", dial)
+	}
+	e.m.Reconcile(ctx)
+	if _, ok := e.engine.Container(DBToolContainer); ok {
+		t.Fatal("the unguarded container must be removed")
+	}
+
+	if _, err := e.m.OpenDBTool(ctx, view.Project.ID, ""); err != nil {
+		t.Fatal(err)
+	}
+	tool, _ := e.engine.Container(DBToolContainer)
+	if tool.Spec.Labels[dbToolGuardLabel] != "1" || len(tool.Spec.Cmd) == 0 || tool.Spec.Cmd[len(tool.Spec.Cmd)-1] != "/envoryx/router.php" {
+		t.Fatalf("the container must run behind the router: %+v %v", tool.Spec.Labels, tool.Spec.Cmd)
+	}
+	router, err := os.ReadFile(filepath.Join(e.cfgDir, "dbtool", "router.php"))
+	if err != nil || !strings.Contains(string(router), "HTTP_X_ENVORYX_DBTOOL_TOKEN") {
+		t.Fatalf("router script: %v", err)
+	}
+	token, err := e.m.DBToolProxyToken()
+	if err != nil || len(token) != 64 {
+		t.Fatalf("token: %q %v", token, err)
+	}
+	if _, err := e.m.OpenDBTool(ctx, view.Project.ID, ""); err != nil {
+		t.Fatal(err)
+	}
+	if again, _ := e.m.DBToolProxyToken(); again != token {
+		t.Fatal("the token must stay while the container lives")
+	}
+	if err := e.m.SetDBToolEnabled(ctx, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.m.DBToolProxyToken(); err == nil {
+		t.Fatal("switching off must remove the token")
+	}
+}

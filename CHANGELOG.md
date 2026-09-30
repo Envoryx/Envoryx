@@ -73,6 +73,16 @@ release). `:main` follows the development branch.
   every project (with its name) and the resource usage of every project.
   It now lists issues and usage of the caller's projects only, and the
   orphan count only for instance admins.
+- The database browser opened the database of any project for anyone who
+  could operate a single one: its credentials file holds the logins of
+  every project, root included, and `/dbtool/` did not check which
+  database a request named. Envoryx now checks every request and opens
+  only databases of projects the user or token may operate; other servers
+  are refused. The Adminer container also logged in anyone who reached it
+  directly, which the containers of every project whose database had been
+  opened in it could do over the shared network; it now answers only
+  requests that come through Envoryx. An existing container is replaced
+  on the next reconcile or open.
 
 ### Fixed
 - Several Envoryx instances on one Docker host (a test instance next to

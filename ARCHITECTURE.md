@@ -243,7 +243,8 @@ Go API (single binary, single container)
   reaches only `instanceRoutesForConfined` (the lists, runtimes, `me`) and, with a browser
   session, `instanceRoutesForConfinedUsers` (dashboard, trimmed settings, own password,
   tokens and SSH keys); `routesForAnyProject` (the database browser) needs the level in
-  any project. The MCP server does the same per call: the tool's level travels in the
+  any project, and the browser proxy then checks the database of each request against
+  the principal's own projects. The MCP server does the same per call: the tool's level travels in the
   context and `resolve` checks it in the project the call names.
 - **server** - builds the router, middleware chain (recover, request id,
   logging, security headers, auth, CSRF origin check), serves the embedded SPA.
@@ -785,7 +786,21 @@ private as the page. The API serves `/dbtool/` through a session-protected
 reverse proxy (operate level) that
 strips the prefix (Adminer's links are relative) and prefixes absolute
 `Location` headers; the UI's CSP is not applied there because Adminer sends
-its own nonce-based policy. Project deletion detaches the tool before removing
+its own nonce-based policy. The route guard only needs operate in some
+project; the proxy (`internal/api/dbtool.go`) reads each request's target
+the way Adminer does (the first of `sqlite`, `pgsql`, `oracle`, `mssql`,
+`server` in the query and `username`; `auth[...]` in a login form post),
+maps it to its projects with `DBToolProjects` (built from the same logins as
+the connections file) and forwards it only when the principal may operate one
+of them; unknown targets and ambiguous query shapes get `403`. It sets
+`X-Envoryx-Dbtool-Target` to the checked login, and the plugin refuses to
+connect (`credentials`/`login` hooks) when Adminer's own reading differs. The
+container runs PHP's built-in server with `/config/dbtool/router.php`, which
+answers only requests with the proxy's secret (`X-Envoryx-Dbtool-Token`, from
+`/config/dbtool/proxy-token`) and only for `/` and `/index.php`, because
+project containers on the networks it joined could reach it directly. The
+container carries `envoryx.dbtool.guard=1`; one without it is not proxied to
+and is removed by the reconcile. Project deletion detaches the tool before removing
 the network; disabling removes container, network and file. On bare metal the
 container publishes on 127.0.0.1 instead of a shared network.
 

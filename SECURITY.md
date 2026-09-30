@@ -222,6 +222,29 @@ container on the server.
   project's service configuration in SQLite); the project's service list leaves them
   out, and secret credentials reach only users who may operate the project.
 
+## Database browser
+
+The optional database browser is one Adminer container for every project, and the
+credentials file it reads holds the logins of all of them. It therefore never decides on
+its own what a request may open:
+
+- It is reached only through Envoryx at `/dbtool/`, behind the Envoryx session or a
+  bearer token. The proxy reads the database each request names (Adminer's driver and
+  server parameters and `username`, and the fields of a login form) and forwards it only
+  when that login belongs to a project the user or token may operate. The project's
+  administrator login (`root`, `postgres`) follows the same rule, because whoever may
+  operate a project can read its credentials anyway. Anything else, including hosts that
+  belong to no project and query shapes PHP would read differently (repeated or array
+  parameters, two drivers), is refused with `403`. The check runs on every request, not
+  only at login, since Adminer keeps its logins in a session of its own.
+- The proxy tells the container which login it checked, and the Envoryx plugin inside
+  Adminer connects only to exactly that login.
+- The container joins the network of every project whose database is opened in it, so
+  the project containers there could reach it. It answers only requests that carry a
+  random secret the proxy adds (`/config/dbtool/proxy-token`), serves nothing but
+  Adminer's entry page, and a container from an older Envoryx without this guard is
+  removed by the next reconcile.
+
 ## Backups
 
 Backups contain the full project export, including database credentials and git tokens

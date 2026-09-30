@@ -1957,12 +1957,18 @@ changing the user name in the URL).
 How it stays private: Adminer is served under the Envoryx UI at `/dbtool/`,
 so an Envoryx session with operate access is required (API tokens need the
 `operate` scope) and no extra port, host name or certificate is involved.
-The credentials are written to `/config/dbtool/connections.json` (mode
-0640, owned by `PUID`, mounted read-only into the container, which runs as
-`PUID:PGID`) and refreshed on every open, so rotated passwords and new
-projects are picked up without a restart. For the automatic login the
-password goes into a hidden field of the login page that is submitted
-right away, so it does reach the browser of whoever opens the page. Switching the browser off
+Every request is checked against the user's own projects: the browser opens
+only databases of projects the user (or API token) may operate, the root user
+included, and refuses every other server with `403`. The container itself
+answers only requests that come through Envoryx (it checks a secret in
+`/config/dbtool/proxy-token`), so the project containers on the networks it
+joins can't use it. The credentials are written to
+`/config/dbtool/connections.json` (mode 0640, owned by `PUID`, mounted
+read-only into the container, which runs as `PUID:PGID`) and refreshed on
+every open, so rotated passwords and new projects are picked up without a
+restart. For the automatic login the password goes into a hidden field of
+the login page that is submitted right away, so it does reach the browser of
+whoever opens the page. Switching the browser off
 removes the container, its network and the credentials file. The container
 is not touched by *unused image* pruning while enabled.
 
