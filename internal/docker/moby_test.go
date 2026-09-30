@@ -1,6 +1,23 @@
 package docker
 
-import "testing"
+import (
+	"net/netip"
+	"testing"
+
+	"github.com/moby/moby/api/types/container"
+)
+
+func TestSummaryToContainerListsDualStackBindingOnce(t *testing.T) {
+	c := summaryToContainer(container.Summary{Ports: []container.PortSummary{
+		{IP: netip.MustParseAddr("0.0.0.0"), PrivatePort: 3000, PublicPort: 28001, Type: "tcp"},
+		{IP: netip.MustParseAddr("::"), PrivatePort: 3000, PublicPort: 28001, Type: "tcp"},
+		{IP: netip.MustParseAddr("0.0.0.0"), PrivatePort: 9229, PublicPort: 28002, Type: "tcp"},
+		{PrivatePort: 80, Type: "tcp"},
+	}})
+	if len(c.Ports) != 2 || c.Ports[0].HostPort != 28001 || c.Ports[1].HostPort != 28002 {
+		t.Fatalf("ports: %+v", c.Ports)
+	}
+}
 
 func TestPullSummary(t *testing.T) {
 	s := pullSummary{layers: map[string]*layerProgress{}}
