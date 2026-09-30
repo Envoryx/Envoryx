@@ -107,7 +107,8 @@ var (
 const (
 	// djangoSettingsPatch makes the generated settings work behind Envoryx's proxy: every
 	// host name is allowed (the proxy decides), TLS termination is trusted and the
-	// injected DATABASE_URL is used when present (dj-database-url).
+	// injected DATABASE_URL is used when present (dj-database-url). WhiteNoise serves the
+	// static files, which gunicorn in production mode does not.
 	djangoSettingsPatch = `
 import pathlib
 p = pathlib.Path("config/settings.py")
@@ -128,6 +129,12 @@ DEBUG = os.environ.get("DJANGO_DEBUG", "1") == "1"
 CSRF_TRUSTED_ORIGINS = [o for o in os.environ.get("CSRF_TRUSTED_ORIGINS", "").split(",") if o]
 if os.environ.get("DATABASE_URL"):
     DATABASES["default"] = dj_database_url.config(conn_max_age=60)
+
+# Target of "manage.py collectstatic". gunicorn (production mode) serves no static files
+# itself, WhiteNoise does; it also finds them in the apps without a collectstatic run.
+STATIC_ROOT = BASE_DIR / "staticfiles"
+MIDDLEWARE.insert(MIDDLEWARE.index("django.middleware.security.SecurityMiddleware") + 1, "whitenoise.middleware.WhiteNoiseMiddleware")
+WHITENOISE_USE_FINDERS = True
 """
 p.write_text(s)
 `
@@ -389,7 +396,7 @@ var templates = []Template{
 		Notes:  "Run “manage.py migrate” from Actions, then open the site. DATABASE_URL is injected by Envoryx and picked up by settings.py; without a database Django uses SQLite. settings.py ties DEBUG to the runtime mode (DJANGO_DEBUG) and reads CSRF_TRUSTED_ORIGINS from the environment if you need cross-origin posts.",
 		steps: []templateStep{
 			{label: "python -m venv", cmd: []string{"python", "-m", "venv", pythonVenvPath}},
-			{label: "pip install django", cmd: []string{"pip", "install", "django", "dj-database-url", "gunicorn", "psycopg[binary]", "mysqlclient"}},
+			{label: "pip install django", cmd: []string{"pip", "install", "django", "dj-database-url", "gunicorn", "whitenoise", "psycopg[binary]", "mysqlclient"}},
 			{label: "django-admin startproject", cmd: []string{"django-admin", "startproject", "config", "."}},
 			{label: "prepare settings", cmd: []string{"python", "-c", djangoSettingsPatch}},
 			{label: "pip freeze", cmd: []string{"sh", "-c", "pip freeze > requirements.txt", "envoryx-freeze"}},
