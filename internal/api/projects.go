@@ -92,6 +92,9 @@ type projectDTO struct {
 	Status       statusDTO    `json:"status"`
 	Git          gitDTO       `json:"git"`
 	Hostnames    []string     `json:"hostnames"`
+	// URL is where a browser reaches the project, with the proxy's scheme and port
+	// (absent when unknown).
+	URL string `json:"url,omitempty"`
 	// DevHostname is set when the Node dev server is enabled (routed by the proxy). It is
 	// also the primary route when the dev server serves the project (Serves is "node").
 	DevHostname    string            `json:"devHostname,omitempty"`
@@ -637,6 +640,7 @@ func (a *API) withHostnames(r *http.Request, dto projectDTO, p store.Project) pr
 			dto.Hostnames = append(dto.Hostnames, h.Hostname)
 		}
 	}
+	dto.URL = a.d.Projects.ProjectURL(p)
 	dto.BackupSchedule = toSchedule(p.Backup)
 	dto.IDEGateway = p.IDEGateway
 	dto.Limits = p.Limits

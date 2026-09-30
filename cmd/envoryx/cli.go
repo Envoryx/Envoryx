@@ -452,6 +452,7 @@ type projectSummary struct {
 	Serves       string   `json:"serves"`
 	Hostnames    []string `json:"hostnames"`
 	DevHostname  string   `json:"devHostname"`
+	Address      string   `json:"url"`
 	Status       struct {
 		State    string   `json:"state"`
 		Warnings []string `json:"warnings"`
@@ -524,8 +525,12 @@ func (l limitSet) String() string {
 	return strings.Join(parts, ", ")
 }
 
-// URL is the project's address, as far as the CLI can tell without asking the settings.
+// URL is the project's address: the server's (proxy scheme and port included), else the
+// first host name for servers that do not send one.
 func (p projectSummary) URL() string {
+	if p.Address != "" {
+		return p.Address
+	}
 	if len(p.Hostnames) > 0 {
 		return "https://" + p.Hostnames[0]
 	}

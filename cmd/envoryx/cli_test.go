@@ -32,7 +32,7 @@ func newFakeServer(t *testing.T, routes map[string]func(w http.ResponseWriter, r
 				"appService": "php", "hostnames": []string{"acme-shop.test"},
 				"lifecycle": "ready", "status": map[string]any{"state": "running"}},
 			{"id": "22222222-2222-4222-8222-222222222222", "name": "Blog", "slug": "blog", "path": "blog",
-				"appService": "node", "lifecycle": "ready", "status": map[string]any{"state": "stopped", "warnings": []string{"image changed"}}},
+				"appService": "node", "hostnames": []string{"blog.test"}, "url": "https://blog.test:18443", "lifecycle": "ready", "status": map[string]any{"state": "stopped", "warnings": []string{"image changed"}}},
 		}})
 	})
 	for pattern, h := range routes {
@@ -76,13 +76,31 @@ func TestProjectListPrintsATable(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := out.String()
-	for _, want := range []string{"NAME", "Acme Shop", "acme-shop", "running", "https://acme-shop.test", "stopped", "1 warning"} {
+	// The server's URL carries the proxy port; without one the CLI falls back to the host name.
+	for _, want := range []string{"NAME", "Acme Shop", "acme-shop", "running", "https://acme-shop.test", "https://blog.test:18443", "stopped", "1 warning"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("missing %q in:\n%s", want, text)
 		}
 	}
 	if srv.token != "stq_testtoken" {
 		t.Fatalf("token sent = %q", srv.token)
+	}
+}
+
+// An internal error's message is generic; the cause the server adds in the details is
+// what the operator needs.
+func TestAPIErrorCarriesTheCause(t *testing.T) {
+	srv := newFakeServer(t, map[string]func(http.ResponseWriter, *http.Request){
+		"GET /api/v1/projects/{id}": func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = w.Write([]byte(`{"error":{"code":"internal_error","message":"an internal error occurred","details":{"cause":"inspect container: boom"}}}`))
+		},
+	})
+	c, _, _ := newTestCLI(t, srv, "")
+	err := c.run(context.Background(), []string{"project", "show", "--json", "blog"})
+	if err == nil || err.Error() != "an internal error occurred: inspect container: boom" {
+		t.Fatalf("error = %v", err)
 	}
 }
 
