@@ -1078,6 +1078,12 @@ database:
 - Laravel, Symfony and Shopware need nothing: the injected `DB_*` and
   `DATABASE_URL` override `.env`. The configuration caches of the old server
   (`bootstrap/cache/config.php`, `var/cache`) are removed.
+- Symfony's `config/packages/doctrine.yaml` gets
+  `server_version: '%env(DB_SERVER_VERSION)%'` unless it sets a version
+  itself: the site usually names it in `DATABASE_URL` (`?serverVersion=`),
+  the injected URL carries none, and Doctrine would fail with
+  `Invalid platform version`. This file is changed in place, without a copy
+  (Symfony would load one in `config/packages` as configuration).
 
 Every changed file is kept next to itself as `<name>.envoryx-original.php`,
 starting with a line that answers 404, so the web server never hands the old

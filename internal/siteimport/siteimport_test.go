@@ -559,6 +559,57 @@ func TestAdaptDrupalTypo3Laravel(t *testing.T) {
 	}
 }
 
+func TestAdaptSymfonyServerVersion(t *testing.T) {
+	a := Analysis{Framework: Framework{ID: "symfony"}, Config: &ConfigFile{Path: ".env", Mode: ConfigEnv}}
+	recipe := "doctrine:\n    dbal:\n        url: '%env(resolve:DATABASE_URL)%'\n\n        # IMPORTANT: You MUST configure your server version,\n        #server_version: '16'\n\n        profiling_collect_backtrace: '%kernel.debug%'\n"
+	set := "server_version: '%env(DB_SERVER_VERSION)%'"
+	cases := []struct {
+		name, yaml, want string
+		version          string
+	}{
+		{"commented recipe line", recipe, "\n        " + set, "18"},
+		{"no version line", "doctrine:\n  dbal:\n    url: '%env(resolve:DATABASE_URL)%'\n    charset: utf8mb4\n", "    url: '%env(resolve:DATABASE_URL)%'\n    " + set, "mariadb-11.4.0"},
+		// The site sets the version itself, reads another variable, or Envoryx injects none.
+		{"own version", "doctrine:\n  dbal:\n    url: '%env(resolve:DATABASE_URL)%'\n    server_version: '8.0'\n", "", "18"},
+		{"other variable", "doctrine:\n  dbal:\n    url: '%env(resolve:APP_DB)%'\n", "", "18"},
+		{"no injected version", recipe, "", ""},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			dir := t.TempDir()
+			_ = os.MkdirAll(filepath.Join(dir, "config/packages"), 0o755)
+			_ = os.WriteFile(filepath.Join(dir, symfonyDoctrineYAML), []byte(c.yaml), 0o644)
+			res, err := Adapt(dir, a, Database{Variant: "postgresql", ServerVersion: c.version}, -1, -1)
+			if err != nil {
+				t.Fatal(err)
+			}
+			got, _ := os.ReadFile(filepath.Join(dir, symfonyDoctrineYAML))
+			if c.want == "" {
+				if string(got) != c.yaml || len(res.Changed) != 0 {
+					t.Errorf("doctrine.yaml changed: %s (%+v)", got, res)
+				}
+				return
+			}
+			if !strings.Contains(string(got), c.want) || strings.Count(string(got), "server_version") != 1 {
+				t.Errorf("doctrine.yaml = %s", got)
+			}
+			// No copy next to it: Symfony loads every file in config/packages.
+			if !slices.Equal(res.Changed, []string{symfonyDoctrineYAML}) || len(res.Originals) != 0 {
+				t.Errorf("result = %+v", res)
+			}
+		})
+	}
+
+	// Without the file nothing is created.
+	dir := t.TempDir()
+	if res, err := Adapt(dir, a, Database{Variant: "postgresql", ServerVersion: "18"}, -1, -1); err != nil || len(res.Changed) != 0 {
+		t.Errorf("no doctrine.yaml: %+v, %v", res, err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, symfonyDoctrineYAML)); err == nil {
+		t.Error("doctrine.yaml was created")
+	}
+}
+
 func TestAdaptRefusesSymlinkedConfig(t *testing.T) {
 	dir := t.TempDir()
 	outside := filepath.Join(t.TempDir(), "secret.php")

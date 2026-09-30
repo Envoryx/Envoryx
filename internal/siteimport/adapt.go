@@ -20,6 +20,8 @@ type Database struct {
 	Name     string
 	User     string
 	Password string
+	// ServerVersion is the DB_SERVER_VERSION Envoryx injects; empty when it injects none.
+	ServerVersion string
 }
 
 // Adapted lists what Adapt changed, relative to the project directory.
@@ -94,8 +96,38 @@ func Adapt(dir string, a Analysis, db Database, uid, gid int) (Adapted, error) {
 		if err := w.remove("var/cache"); err != nil {
 			return out, err
 		}
+		if a.Framework.ID == "symfony" && db.ServerVersion != "" {
+			if err := w.patch(symfonyDoctrineYAML, adaptSymfonyDoctrine); err != nil {
+				return out, err
+			}
+		}
 	}
 	return out, nil
+}
+
+const symfonyDoctrineYAML = "config/packages/doctrine.yaml"
+
+var (
+	yamlServerVersionRe   = regexp.MustCompile(`(?m)^[ \t]*server_version:`)
+	yamlCommentedServerRe = regexp.MustCompile(`(?m)^([ \t]*)#[ \t]*server_version:.*$`)
+	yamlDatabaseURLRe     = regexp.MustCompile(`(?m)^([ \t]*)url: .*\bDATABASE_URL\b.*$`)
+)
+
+// adaptSymfonyDoctrine points Doctrine's server_version at DB_SERVER_VERSION, as the
+// Symfony template does. Sites usually name the version in DATABASE_URL
+// (?serverVersion=8.0.32), the injected DATABASE_URL replaces it without one, and
+// DoctrineBundle then fails with 'Invalid platform version "" specified'. A version the
+// file sets itself stays, and so does a connection that does not come from DATABASE_URL.
+func adaptSymfonyDoctrine(src string) (string, error) {
+	if strings.Contains(src, "DB_SERVER_VERSION") || yamlServerVersionRe.MatchString(src) || !yamlDatabaseURLRe.MatchString(src) {
+		return src, nil
+	}
+	set := "server_version: '%env(DB_SERVER_VERSION)%' # added by Envoryx, which injects DB_SERVER_VERSION"
+	if loc := yamlCommentedServerRe.FindStringSubmatchIndex(src); loc != nil {
+		return src[:loc[0]] + src[loc[2]:loc[3]] + set + src[loc[1]:], nil
+	}
+	loc := yamlDatabaseURLRe.FindStringSubmatchIndex(src)
+	return src[:loc[1]] + "\n" + src[loc[2]:loc[3]] + set + src[loc[1]:], nil
 }
 
 type writer struct {
@@ -124,6 +156,17 @@ func (w writer) resolve(rel string) (string, error) {
 
 // edit rewrites a file (created when missing), keeping a guarded copy of the original.
 func (w writer) edit(rel string, fn func(string) (string, error)) error {
+	return w.rewrite(rel, fn, true)
+}
+
+// patch rewrites a file without keeping a copy, for files without credentials in a
+// directory the application reads as a whole: a copy in config/packages would be loaded
+// as configuration, too.
+func (w writer) patch(rel string, fn func(string) (string, error)) error {
+	return w.rewrite(rel, fn, false)
+}
+
+func (w writer) rewrite(rel string, fn func(string) (string, error), keepOriginal bool) error {
 	p, err := w.resolve(rel)
 	if err != nil {
 		return err
@@ -147,7 +190,7 @@ func (w writer) edit(rel string, fn func(string) (string, error)) error {
 		_ = os.Chmod(dir, info.Mode().Perm()|0o200)
 		defer os.Chmod(dir, info.Mode().Perm())
 	}
-	if exists {
+	if exists && keepOriginal {
 		ext := path.Ext(rel)
 		orig := strings.TrimSuffix(rel, ext) + ".envoryx-original" + ext
 		op, err := w.resolve(orig)
@@ -158,9 +201,9 @@ func (w writer) edit(rel string, fn func(string) (string, error)) error {
 			return err
 		}
 		w.out.Originals = append(w.out.Originals, orig)
-		if mode&0o200 == 0 {
-			_ = os.Chmod(p, mode|0o200)
-		}
+	}
+	if exists && mode&0o200 == 0 {
+		_ = os.Chmod(p, mode|0o200)
 	}
 	if err := w.write(p, next, mode|0o200); err != nil {
 		return err

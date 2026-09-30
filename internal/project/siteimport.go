@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/envoryx/envoryx/internal/runtime"
 	"github.com/envoryx/envoryx/internal/siteimport"
 	"github.com/envoryx/envoryx/internal/store"
 	"github.com/envoryx/envoryx/internal/validate"
@@ -139,6 +140,9 @@ func (m *Manager) unpackSite(ctx context.Context, planner *Planner, proj store.P
 	db := siteimport.Database{Host: "database"}
 	if svc, cfg, err := databaseConfig(proj); err == nil {
 		db.Variant, db.Name, db.User, db.Password = svc.Variant, cfg.Database, cfg.Username, cfg.Password
+		if !cfg.External() {
+			db.ServerVersion = runtime.DatabaseServerVersion(svc.Variant, svc.Version)
+		}
 		if d, err := dialectOf(svc); err == nil {
 			db.Port = d.Port
 		}

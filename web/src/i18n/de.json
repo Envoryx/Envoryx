@@ -1921,6 +1921,7 @@
   "The DB_* variables and DATABASE_URL Envoryx injects override the values in {{file}}; nothing has to be changed.": "Die von Envoryx gesetzten DB_*-Variablen und DATABASE_URL überschreiben die Werte in {{file}}; nichts muss geändert werden.",
   "Clear the cached configuration": "Zwischengespeicherte Konfiguration löschen",
   "Removes the configuration cache the old server left behind (bootstrap/cache/config.php, var/cache).": "Entfernt den Konfigurations-Cache, den der alte Server hinterlassen hat (bootstrap/cache/config.php, var/cache).",
+  "Removes the configuration cache the old server left behind (var/cache) and points server_version in config/packages/doctrine.yaml at DB_SERVER_VERSION, as the DATABASE_URL Envoryx injects carries no serverVersion.": "Entfernt den Konfigurations-Cache, den der alte Server hinterlassen hat (var/cache), und stellt server_version in config/packages/doctrine.yaml auf DB_SERVER_VERSION um, weil die von Envoryx gesetzte DATABASE_URL kein serverVersion enthält.",
   "Connect the site to the project database": "Website mit der Projektdatenbank verbinden",
   "Change the database connection in {{file}} after creation.": "Passe die Datenbankverbindung in {{file}} nach dem Anlegen an.",
   "Change the database connection of the site after creation.": "Passe die Datenbankverbindung der Website nach dem Anlegen an.",

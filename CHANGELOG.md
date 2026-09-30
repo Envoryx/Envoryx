@@ -90,6 +90,11 @@ release). `:main` follows the development branch.
   `doctrine://default?auto_setup=0` leaves to the application, and waits
   with a hint while the database cannot be reached. Existing Messenger
   workers are recreated once on the next start.
+- Imported Symfony sites no longer fail with `Invalid platform version`:
+  with "Adapt the configuration" on, `config/packages/doctrine.yaml` reads
+  `server_version` from `DB_SERVER_VERSION`, as in the Symfony template,
+  unless it sets a version itself. The site's `.env` usually names it in
+  `DATABASE_URL`, which the injected URL replaces without one.
 
 ## [0.17.0] - 2026-09-30
 
