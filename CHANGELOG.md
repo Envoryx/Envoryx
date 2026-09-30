@@ -42,6 +42,18 @@ release). `:main` follows the development branch.
   keep their setting, and an `envoryx.yml` without `publicRead` leaves an
   existing bucket alone. An exported manifest now names a public bucket
   with `publicRead: true`.
+- Removing Redis, RabbitMQ, Meilisearch, Typesense or OpenSearch keeps
+  its data volume unless *Delete the data* is chosen in the dialog: adding
+  the service again later reuses the data with the credentials it was
+  created with. The card that adds the service shows kept data with
+  *Delete kept data*; kept data is not backed up, moves along with a
+  rename and is deleted with the project. In the API a removal without
+  `removeData` now keeps the data instead of answering 422;
+  `"removeData": true` still deletes it. `GET .../extras` lists kept
+  volumes under `keptData`, `DELETE .../extras/{kind}/data` deletes one.
+- The API refuses `"exposePort": false` for Mailpit and Meilisearch with
+  a 422 instead of ignoring it: their port carries the inbox and the
+  dashboard and is always published.
 
 ### Security
 - An admin API token could show and replace the secret key that decrypts
@@ -144,6 +156,10 @@ release). `:main` follows the development branch.
   pointed at another machine. It now asks that address for the probe
   host and only reports OK when this instance's proxy answers; another
   server there is a warning, no answer is reported as unverified.
+- `PATCH /projects/{id}` with a service object that leaves out `enabled`
+  (e.g. `{"memcached": {"exposePort": false}}`) removed the service; a
+  missing `enabled` or `exposePort` now keeps what the service has. A
+  version change in the Services section no longer sends the port along.
 
 ## [0.17.0] - 2026-09-30
 

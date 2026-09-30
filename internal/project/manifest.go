@@ -958,17 +958,17 @@ func (m *Manager) planManifest(ctx context.Context, id string, mf manifest.Manif
 			if !removal(c) {
 				continue
 			}
-			upd = &ExtraUpdate{Enabled: false, RemoveData: true}
+			upd = &ExtraUpdate{Enabled: new(false), RemoveData: true}
 		case (c.Action == "add" && w.External != nil) || (c.Action == "change" && (h.External == nil) != (w.External == nil)):
 			c.Skipped = "external" // the password is not in the file
 			add(c)
 			continue
 		case w.External != nil:
 			add(c)
-			upd = &ExtraUpdate{Enabled: true, Version: w.Version, External: &ExternalRedis{Host: w.External.Host, Port: w.External.Port}}
+			upd = &ExtraUpdate{Enabled: new(true), Version: w.Version, External: &ExternalRedis{Host: w.External.Host, Port: w.External.Port}}
 		default:
 			add(c)
-			upd = &ExtraUpdate{Enabled: true, Version: w.Version, ExposePort: w.ExposePort}
+			upd = &ExtraUpdate{Enabled: new(true), Version: w.Version, ExposePort: new(w.ExposePort)}
 			if kind == store.ServiceOpenSearch {
 				d := w.Dashboards
 				upd.Dashboards = &d

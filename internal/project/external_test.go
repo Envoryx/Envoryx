@@ -266,7 +266,7 @@ func TestExternalRedis(t *testing.T) {
 	if len(extras) != 1 || !extras[0].External || extras[0].Host != "cache.lan" || extras[0].VolumeName != "" {
 		t.Fatalf("extras: %+v", extras)
 	}
-	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{Redis: &ExtraUpdate{Enabled: false}}); err != nil {
+	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{Redis: &ExtraUpdate{Enabled: new(false)}}); err != nil {
 		t.Fatalf("removing an external Redis needs no confirmation: %v", err)
 	}
 }

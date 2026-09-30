@@ -53,7 +53,7 @@ func TestUpdateAuditsBeforeAndAfter(t *testing.T) {
 		t.Fatal(err)
 	}
 	docroot := "web"
-	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{Docroot: &docroot, Redis: &ExtraUpdate{Enabled: true}}); err != nil {
+	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{Docroot: &docroot, Redis: &ExtraUpdate{Enabled: new(true)}}); err != nil {
 		t.Fatal(err)
 	}
 	entries, err := e.store.Audit.Recent(ctx, 10)

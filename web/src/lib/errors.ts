@@ -64,7 +64,6 @@ const templates = [
   "your role allows at most {{scope}} tokens",
   "network {{network}} is still used by {{users}} - disconnect or remove that container first",
   "network {{network}} is still used by {{users}} - disconnect or remove these containers first",
-  "removing {{service}} deletes its data volume; confirm with removeData",
   "\"{{name}}\" is the project's primary database; remove the database service instead",
   "refusing to delete {{path}}",
   "preset {{preset}} takes no argument",

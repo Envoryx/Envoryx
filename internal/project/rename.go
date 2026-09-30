@@ -245,6 +245,9 @@ func (m *Manager) renameProject(ctx context.Context, id string, req RenameReques
 	if err := m.moveVolumes(ctx, renamed, oldPlan, newPlan); err != nil {
 		return fail(err, "move the volumes")
 	}
+	if err := m.moveKeptData(ctx, renamed, proj.Slug, newPlan.Labels); err != nil {
+		return fail(err, "move the kept service data")
+	}
 	if err := m.removeProjectNetworks(ctx, id); err != nil {
 		return fail(err, "remove the old network")
 	}

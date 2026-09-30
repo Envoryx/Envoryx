@@ -899,7 +899,7 @@ func (m *Manager) update(ctx context.Context, id string, req UpdateRequest) (Vie
 		}
 		recreateApp = recreateApp || r
 		want := req.OpenSearch.Dashboards
-		if !req.OpenSearch.Enabled {
+		if req.OpenSearch.Enabled != nil && !*req.OpenSearch.Enabled {
 			want = nil // Dashboards goes with OpenSearch whatever the request says
 		}
 		if err := m.syncOpenSearchDashboards(ctx, id, want, changes); err != nil {

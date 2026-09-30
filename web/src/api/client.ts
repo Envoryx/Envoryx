@@ -22,6 +22,7 @@ import type {
   DockerOverview,
   DomainEntry,
   ExtraServiceInfo,
+  KeptDataInfo,
   GitRequest,
   GitResult,
   GitStatus,
@@ -427,7 +428,8 @@ export const api = {
     setHealthCheck: (id: string, body: HealthCheck) => request<{ project: Project }>(`/projects/${encodeURIComponent(id)}/health-check`, { method: "PUT", body }),
     testHealthCheck: (id: string, body: HealthCheck) => request<{ result: HealthResult }>(`/projects/${encodeURIComponent(id)}/health-check/test`, { method: "POST", body }),
     actions: (id: string) => request<{ actions: ActionInfo[] }>(`/projects/${encodeURIComponent(id)}/actions`),
-    extras: (id: string) => request<{ services: ExtraServiceInfo[] }>(`/projects/${encodeURIComponent(id)}/extras`),
+    extras: (id: string) => request<{ services: ExtraServiceInfo[]; keptData?: KeptDataInfo[] }>(`/projects/${encodeURIComponent(id)}/extras`),
+    deleteKeptData: (id: string, kind: string) => request<void>(`/projects/${encodeURIComponent(id)}/extras/${encodeURIComponent(kind)}/data`, { method: "DELETE" }),
     logs: (id: string, kind: string, filter: LogFilter = {}, tail = 500) =>
       request<LogPage>(`/projects/${encodeURIComponent(id)}/services/${encodeURIComponent(kind)}/logs?${logParams(filter, { tail: String(tail) })}`),
     logStats: (id: string, kind: string, filter: LogFilter = {}) =>

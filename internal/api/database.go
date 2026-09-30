@@ -13,7 +13,21 @@ func (a *API) extraServices(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"services": extras})
+	kept, err := a.d.Projects.KeptData(r.Context(), r.PathValue("id"))
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"services": extras, "keptData": kept})
+}
+
+// deleteKeptData deletes the data volume a removed service left behind.
+func (a *API) deleteKeptData(w http.ResponseWriter, r *http.Request) {
+	if err := a.d.Projects.DeleteKeptData(r.Context(), r.PathValue("id"), store.ServiceKind(r.PathValue("kind"))); err != nil {
+		writeError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // rabbitMQCredentials returns the broker login (operate scope, like database credentials).

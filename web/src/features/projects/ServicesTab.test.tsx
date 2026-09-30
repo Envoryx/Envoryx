@@ -99,8 +99,61 @@ describe("ServicesTab search engines", () => {
     expect(toggle).toBeChecked();
     await user.click(toggle);
     await waitFor(() => expect(api.calls.some((c) => c.method === "PATCH")).toBe(true));
-    const body = api.calls.find((c) => c.method === "PATCH")!.body as { opensearch: { enabled: boolean; version: string; exposePort: boolean; dashboards: boolean } };
-    expect(body.opensearch).toEqual({ enabled: true, version: "3.8", exposePort: false, dashboards: false });
+    const body = api.calls.find((c) => c.method === "PATCH")!.body as { opensearch: { enabled: boolean; dashboards: boolean } };
+    expect(body.opensearch).toEqual({ enabled: true, dashboards: false });
+  });
+
+  it("removes a service keeping its data unless deleting it is chosen and confirmed", async () => {
+    const api = mockApi({
+      ...authedRoutes,
+      "GET /runtimes": () => ({ body: runtimesFixture }),
+      [`GET ${P}/extras`]: () => ({ body: { services: [meilisearch] } }),
+      [`GET ${P}/storage`]: () => ({ status: 404, body: { error: { code: "not_found", message: "no storage" } } }),
+      [`PATCH ${P}`]: () => ({ body: { project: makeProject() } }),
+    });
+    renderApp(<ServicesTab project={makeProject()} />);
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole("button", { name: "Remove Meilisearch" }));
+    expect(screen.getByRole("radio", { name: /Keep the data/ })).toBeChecked();
+    expect(screen.queryByLabelText("Type meilisearch to confirm")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Remove" }));
+    await waitFor(() => expect(api.calls.some((c) => c.method === "PATCH")).toBe(true));
+    expect(api.calls.find((c) => c.method === "PATCH")!.body).toEqual({ meilisearch: { enabled: false, removeData: false } });
+    expect(await screen.findByText("Meilisearch removed. Its data was kept.")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Remove Meilisearch" }));
+    await user.click(screen.getByRole("radio", { name: /Delete the data/ }));
+    const remove = screen.getByRole("button", { name: "Remove" });
+    expect(remove).toBeDisabled();
+    await user.type(screen.getByLabelText("Type meilisearch to confirm"), "meilisearch");
+    await user.click(remove);
+    await waitFor(() => expect(api.calls.filter((c) => c.method === "PATCH")).toHaveLength(2));
+    expect(api.calls.filter((c) => c.method === "PATCH")[1]!.body).toEqual({ meilisearch: { enabled: false, removeData: true } });
+  });
+
+  it("shows kept data on the card that adds the service and deletes it on request", async () => {
+    const api = mockApi({
+      ...authedRoutes,
+      "GET /runtimes": () => ({ body: runtimesFixture }),
+      [`GET ${P}/extras`]: () => ({ body: { services: [], keptData: [{ kind: "meilisearch", version: "1.54", volumeName: "envoryx-acme-shop-meilisearch", keptAt: "2026-09-30T10:00:00Z" }] } }),
+      [`GET ${P}/storage`]: () => ({ status: 404, body: { error: { code: "not_found", message: "no storage" } } }),
+      [`DELETE ${P}/extras/meilisearch/data`]: () => ({ status: 204 }),
+      [`PATCH ${P}`]: () => ({ body: { project: makeProject() } }),
+    });
+    renderApp(<ServicesTab project={makeProject()} />);
+    const user = userEvent.setup();
+
+    expect(await screen.findByText(/Kept data: envoryx-acme-shop-meilisearch/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Delete kept data" }));
+    await user.click(screen.getByRole("button", { name: "Delete" }));
+    await waitFor(() => expect(api.calls.some((c) => c.method === "DELETE")).toBe(true));
+    expect(await screen.findByText("Kept Meilisearch data deleted.")).toBeInTheDocument();
+
+    // Mailpit and Meilisearch publish their port anyway: adding them never sends exposePort.
+    await user.click(screen.getByRole("button", { name: "Add Mailpit" }));
+    await waitFor(() => expect(api.calls.some((c) => c.method === "PATCH")).toBe(true));
+    expect(api.calls.find((c) => c.method === "PATCH")!.body).toEqual({ mailpit: { enabled: true } });
   });
 });
 
@@ -166,7 +219,7 @@ describe("ServicesTab Ollama", () => {
     expect(gpu).not.toBeChecked();
     await user.click(gpu);
     await waitFor(() => expect(api.calls.some((c) => c.method === "PATCH")).toBe(true));
-    expect(api.calls.find((c) => c.method === "PATCH")!.body).toEqual({ ollama: { enabled: true, version: "0.34", exposePort: false, gpu: true } });
+    expect(api.calls.find((c) => c.method === "PATCH")!.body).toEqual({ ollama: { enabled: true, gpu: true } });
     expect(await screen.findByText(/install the NVIDIA Container Toolkit/)).toBeInTheDocument();
   });
 

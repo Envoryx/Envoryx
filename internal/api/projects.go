@@ -359,11 +359,25 @@ type dotnetUpdateDTO struct {
 }
 
 type extraRequestDTO struct {
-	Version    string            `json:"version"`
-	ExposePort bool              `json:"exposePort"`
+	Version string `json:"version"`
+	// ExposePort is a pointer so that an explicit false can be refused for services whose
+	// port is always published.
+	ExposePort *bool             `json:"exposePort"`
 	Dashboards bool              `json:"dashboards"` // OpenSearch only
 	GPU        bool              `json:"gpu"`        // Ollama only
 	External   *externalRedisDTO `json:"external"`   // Redis only
+}
+
+func isTrue(b *bool) bool { return b != nil && *b }
+
+// refuseUnpublished rejects exposePort: false for Mailpit and Meilisearch: their web UI
+// (the inbox, the dashboard) lives on that port, so it is always published, and quietly
+// ignoring the request would leave the caller believing otherwise.
+func refuseUnpublished(service string, expose *bool) error {
+	if expose != nil && !*expose {
+		return fmt.Errorf("%w: %s always publishes its port on the host because its web UI lives there; leave exposePort out", validate.ErrInvalid, service)
+	}
+	return nil
 }
 
 // externalRedisDTO is the address of a Redis Envoryx does not run.
@@ -397,10 +411,13 @@ func (e *externalDatabaseDTO) toDomain() *project.ExternalDatabase {
 	return &project.ExternalDatabase{Host: e.Host, Port: e.Port, Username: e.Username, Password: e.Password, Database: e.Database}
 }
 
+// extraUpdateDTO changes an auxiliary service. Enabled and ExposePort left out keep what
+// the service has; removeData on a removal deletes the data volume, which otherwise stays
+// for the service's return.
 type extraUpdateDTO struct {
-	Enabled    bool              `json:"enabled"`
+	Enabled    *bool             `json:"enabled"`
 	Version    string            `json:"version"`
-	ExposePort bool              `json:"exposePort"`
+	ExposePort *bool             `json:"exposePort"`
 	RemoveData bool              `json:"removeData"`
 	Dashboards *bool             `json:"dashboards"` // OpenSearch only; null leaves it
 	GPU        *bool             `json:"gpu"`        // Ollama only; null leaves it
@@ -489,6 +506,18 @@ type storageUpdateDTO struct {
 	RemoveData bool   `json:"removeData"`
 }
 
+func (r createProjectRequest) checkPorts() error {
+	if r.Mailpit != nil {
+		if err := refuseUnpublished("Mailpit", r.Mailpit.ExposePort); err != nil {
+			return err
+		}
+	}
+	if r.Meilisearch != nil {
+		return refuseUnpublished("Meilisearch", r.Meilisearch.ExposePort)
+	}
+	return nil
+}
+
 func (r createProjectRequest) toDomain() project.CreateRequest {
 	req := project.CreateRequest{Name: r.Name, Path: r.Path, Docroot: r.Docroot, Template: strings.TrimSpace(r.Template), CreateStarter: r.CreateStarter, Start: r.Start}
 	if r.PHP != nil {
@@ -519,28 +548,28 @@ func (r createProjectRequest) toDomain() project.CreateRequest {
 		req.Database = &project.DatabaseRequest{Type: r.Database.Type, Version: r.Database.Version, ExposePort: r.Database.ExposePort, External: r.Database.External.toDomain()}
 	}
 	if r.Redis != nil {
-		req.Redis = &project.ExtraRequest{Version: r.Redis.Version, ExposePort: r.Redis.ExposePort, External: r.Redis.External.toDomain()}
+		req.Redis = &project.ExtraRequest{Version: r.Redis.Version, ExposePort: isTrue(r.Redis.ExposePort), External: r.Redis.External.toDomain()}
 	}
 	if r.Mailpit != nil {
 		req.Mailpit = &project.ExtraRequest{Version: r.Mailpit.Version}
 	}
 	if r.Memcached != nil {
-		req.Memcached = &project.ExtraRequest{Version: r.Memcached.Version, ExposePort: r.Memcached.ExposePort}
+		req.Memcached = &project.ExtraRequest{Version: r.Memcached.Version, ExposePort: isTrue(r.Memcached.ExposePort)}
 	}
 	if r.RabbitMQ != nil {
-		req.RabbitMQ = &project.ExtraRequest{Version: r.RabbitMQ.Version, ExposePort: r.RabbitMQ.ExposePort}
+		req.RabbitMQ = &project.ExtraRequest{Version: r.RabbitMQ.Version, ExposePort: isTrue(r.RabbitMQ.ExposePort)}
 	}
 	if r.Meilisearch != nil {
 		req.Meilisearch = &project.ExtraRequest{Version: r.Meilisearch.Version}
 	}
 	if r.Typesense != nil {
-		req.Typesense = &project.ExtraRequest{Version: r.Typesense.Version, ExposePort: r.Typesense.ExposePort}
+		req.Typesense = &project.ExtraRequest{Version: r.Typesense.Version, ExposePort: isTrue(r.Typesense.ExposePort)}
 	}
 	if r.OpenSearch != nil {
-		req.OpenSearch = &project.ExtraRequest{Version: r.OpenSearch.Version, ExposePort: r.OpenSearch.ExposePort, Dashboards: r.OpenSearch.Dashboards}
+		req.OpenSearch = &project.ExtraRequest{Version: r.OpenSearch.Version, ExposePort: isTrue(r.OpenSearch.ExposePort), Dashboards: r.OpenSearch.Dashboards}
 	}
 	if r.Ollama != nil {
-		req.Ollama = &project.ExtraRequest{Version: r.Ollama.Version, ExposePort: r.Ollama.ExposePort, GPU: r.Ollama.GPU}
+		req.Ollama = &project.ExtraRequest{Version: r.Ollama.Version, ExposePort: isTrue(r.Ollama.ExposePort), GPU: r.Ollama.GPU}
 	}
 	if r.Storage != nil {
 		req.Storage = &project.StorageRequest{Version: r.Storage.Version, PublicRead: r.Storage.PublicRead}
@@ -719,6 +748,10 @@ func (a *API) createProject(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
+	if err := req.checkPorts(); err != nil {
+		writeError(w, r, err)
+		return
+	}
 	if req.UseManifest && req.Git != nil && strings.TrimSpace(req.Git.URL) != "" {
 		view, plan, err := a.d.Projects.CreateFromRepository(r.Context(), req.toDomain())
 		a.invalidateProxy()
@@ -800,6 +833,10 @@ func (a *API) previewProject(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
+	if err := req.checkPorts(); err != nil {
+		writeError(w, r, err)
+		return
+	}
 	pv, err := a.d.Projects.Preview(r.Context(), req.toDomain())
 	if err != nil {
 		writeError(w, r, err)
@@ -856,6 +893,10 @@ func (a *API) updateProject(w http.ResponseWriter, r *http.Request) {
 		upd.Storage = &project.StorageUpdate{Enabled: req.Storage.Enabled, Version: req.Storage.Version, PublicRead: req.Storage.PublicRead, RemoveData: req.Storage.RemoveData}
 	}
 	if req.Mailpit != nil {
+		if err := refuseUnpublished("Mailpit", req.Mailpit.ExposePort); err != nil {
+			writeError(w, r, err)
+			return
+		}
 		upd.Mailpit = &project.ExtraUpdate{Enabled: req.Mailpit.Enabled, Version: req.Mailpit.Version}
 	}
 	if req.Memcached != nil {
@@ -865,6 +906,10 @@ func (a *API) updateProject(w http.ResponseWriter, r *http.Request) {
 		upd.RabbitMQ = &project.ExtraUpdate{Enabled: req.RabbitMQ.Enabled, Version: req.RabbitMQ.Version, ExposePort: req.RabbitMQ.ExposePort, RemoveData: req.RabbitMQ.RemoveData}
 	}
 	if req.Meilisearch != nil {
+		if err := refuseUnpublished("Meilisearch", req.Meilisearch.ExposePort); err != nil {
+			writeError(w, r, err)
+			return
+		}
 		upd.Meilisearch = &project.ExtraUpdate{Enabled: req.Meilisearch.Enabled, Version: req.Meilisearch.Version, RemoveData: req.Meilisearch.RemoveData}
 	}
 	if req.Typesense != nil {

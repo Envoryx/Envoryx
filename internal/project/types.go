@@ -201,11 +201,16 @@ type StorageUpdate struct {
 
 // ExtraUpdate adds, changes or removes an auxiliary service.
 type ExtraUpdate struct {
-	Enabled    bool
-	Version    string
-	ExposePort bool
-	// RemoveData must be true to remove a service that owns a volume (Redis, RabbitMQ,
-	// Meilisearch, Typesense, OpenSearch).
+	// Enabled adds (true) or removes (false) the service; nil keeps it as it is, for an
+	// update of its settings.
+	Enabled *bool
+	Version string
+	// ExposePort publishes the service's port on the host; nil keeps it as it is.
+	ExposePort *bool
+	// RemoveData deletes the data volume of a service that owns one (Redis, RabbitMQ,
+	// Meilisearch, Typesense, OpenSearch) when it is removed. Without it the volume and
+	// the settings it was initialised with are kept, and adding the service again
+	// reuses both.
 	RemoveData bool
 	// Dashboards switches OpenSearch Dashboards on or off (OpenSearch only); nil leaves it
 	// as it is.
@@ -330,6 +335,14 @@ type ExtraServiceInfo struct {
 	// External marks a server Envoryx does not run (Redis): Host and Port are its
 	// address, and there is no container, volume or published port.
 	External bool `json:"external,omitempty"`
+}
+
+// KeptDataInfo is the data volume of a removed auxiliary service that was kept.
+type KeptDataInfo struct {
+	Kind       store.ServiceKind `json:"kind"`
+	Version    string            `json:"version"`
+	VolumeName string            `json:"volumeName"`
+	KeptAt     time.Time         `json:"keptAt"`
 }
 
 // RabbitMQCredentials are the login of a project's RabbitMQ broker.
