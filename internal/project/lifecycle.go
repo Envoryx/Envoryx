@@ -316,6 +316,10 @@ func (m *Manager) provision(ctx context.Context, plan Plan, j *journal) (string,
 func (m *Manager) startProvisioned(ctx context.Context, proj store.Project, plan Plan, j journal) (string, error) {
 	for i, id := range j.containers {
 		c := plan.Containers[i]
+		if m.cannotStartHere(ctx, proj, c.Kind) { // a copy of a project that has such a version
+			step(ctx, "Not starting the container {{name}}: its version cannot run on this host's kernel", "name", c.Spec.Name)
+			continue
+		}
 		step(ctx, "Starting the container {{name}}", "name", c.Spec.Name)
 		if err := m.engine.StartContainer(ctx, id); err != nil {
 			return "start container", err
@@ -569,6 +573,18 @@ func (m *Manager) ensurePlan(ctx context.Context, proj store.Project, plan Plan,
 			if err != nil {
 				return fmt.Errorf("create container %s: %w", c.Spec.Name, err)
 			}
+		}
+		if start && m.cannotStartHere(ctx, proj, c.Kind) {
+			// Its server exits at once on this kernel and Docker would restart it
+			// forever. The rest of the project starts; the status warning says why this
+			// one does not and what to do.
+			if ok && (cur.State == "running" || cur.State == "restarting") {
+				if err := m.engine.StopContainer(ctx, id, 10*time.Second); err != nil {
+					return fmt.Errorf("stop container %s: %w", c.Spec.Name, err)
+				}
+			}
+			step(ctx, "Not starting the container {{name}}: its version cannot run on this host's kernel", "name", c.Spec.Name)
+			continue
 		}
 		if start && (cur.State != "running" || !ok) {
 			step(ctx, "Starting the container {{name}}", "name", c.Spec.Name)

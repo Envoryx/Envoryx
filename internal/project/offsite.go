@@ -29,10 +29,17 @@ var backupArchiveMembers = []string{backupMetaFile, backupDBFile, backupFilesFil
 // extraDumpRe matches the dump files of additional databases (database-<name>.sql.gz).
 var extraDumpRe = regexp.MustCompile(`^database-([a-z][a-z0-9-]*)\.sql\.gz$`)
 
+// dbVolumeCopyRe matches the copies of database data volumes
+// (database.volume.tar.gz, database-<name>.volume.tar.gz).
+var dbVolumeCopyRe = regexp.MustCompile(`^database(?:-([a-z][a-z0-9-]*))?\.volume\.tar\.gz$`)
+
 // isBackupMember reports a file name that belongs in a backup directory.
 func isBackupMember(name string) bool {
 	if slices.Contains(backupArchiveMembers, name) {
 		return true
+	}
+	if m := dbVolumeCopyRe.FindStringSubmatch(name); m != nil {
+		return m[1] == "" || ValidateDatabaseServiceName(m[1]) == nil
 	}
 	m := extraDumpRe.FindStringSubmatch(name)
 	return m != nil && ValidateDatabaseServiceName(m[1]) == nil

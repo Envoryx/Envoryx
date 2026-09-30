@@ -14,7 +14,7 @@ import { containerStateTone } from "@/lib/format";
 import { errorText } from "@/lib/errors";
 import { projectAccess } from "@/lib/access";
 import { emptyExternalDatabase, externalDatabaseComplete, ExternalDatabaseFields, externalDatabaseTypes } from "./ExternalConnection";
-import { unavailableHint, versionOptions } from "./versionOptions";
+import { mongoUpgradeHint, unavailableHint, versionOptions } from "./versionOptions";
 
 export function CopyButton({ value, label }: { value: string; label: string }) {
   const { t } = useTranslation();
@@ -417,7 +417,7 @@ function DatabasePanel({ project, db, onRemoved }: { project: Project; db: strin
             <CardHeader title={t("Server")} />
             <div className="space-y-4 p-5">
               <div className="flex items-end gap-2">
-                <Field label={t("{{engine}} version", { engine: ({ mariadb: "MariaDB", mysql: "MySQL", postgresql: "PostgreSQL", mongodb: "MongoDB" } as Record<string, string>)[d.type] ?? d.type })} htmlFor="db-version" hint={external ? t("Picks the client tools for backups and the connection; choose the server's major version.") : unavailableHint(versions, t) || (d.type === "postgresql" ? t("PostgreSQL cannot upgrade an existing data directory in place.") : d.type === "mongodb" ? t("MongoDB upgrades one major version at a time; a database backup is taken automatically first.") : t("Upgrades keep the data volume and take a database backup first; downgrades are refused."))}>
+                <Field label={t("{{engine}} version", { engine: ({ mariadb: "MariaDB", mysql: "MySQL", postgresql: "PostgreSQL", mongodb: "MongoDB" } as Record<string, string>)[d.type] ?? d.type })} htmlFor="db-version" hint={external ? t("Picks the client tools for backups and the connection; choose the server's major version.") : [unavailableHint(versions, t, false, d.version), d.type === "postgresql" ? t("PostgreSQL cannot upgrade an existing data directory in place.") : d.type === "mongodb" ? mongoUpgradeHint(versions, d.version, t) : t("Upgrades keep the data volume and take a database backup first; downgrades are refused.")].filter(Boolean).join(" ")}>
                   <Select id="db-version" value={currentVersion} onChange={(e) => setVersion(e.target.value)} disabled={!can.admin}>
                     {versionOptions(versions, t, { keep: d.version, anyHost: external })}
                   </Select>

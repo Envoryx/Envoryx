@@ -12,9 +12,9 @@ import { errorText } from "@/lib/errors";
 import { projectAccess } from "@/lib/access";
 import { OffsiteBadges, OffsiteUploadButton, RemoteBackups, uploading } from "@/features/offsite/OffsiteParts";
 
-/** Whether a backup holds a dump of any database. */
+/** Whether a backup holds any database: a dump, or a copy of its data volume. */
 function hasDumps(meta: BackupMeta): boolean {
-  return !!meta.database || (meta.databases?.length ?? 0) > 0;
+  return !!meta.database || (meta.databases?.length ?? 0) > 0 || (meta.databaseVolumes?.length ?? 0) > 0;
 }
 
 export function BackupsTab({ project }: { project: Project }) {
@@ -203,6 +203,12 @@ export function BackupsTab({ project }: { project: Project }) {
                         {d.db}: {d.type} {d.version} · {formatBytes(d.bytes)}
                       </Badge>
                     ))}
+                    {b.meta.databaseVolumes?.map((d) => (
+                      <Badge key={`volume-${d.db ?? ""}`} tone="amber">
+                        {d.db ? `${d.db}: ` : ""}
+                        {d.type} {d.version} · {t("volume copy")} · {formatBytes(d.bytes)}
+                      </Badge>
+                    ))}
                     {b.meta.files && (
                       <Badge>
                         {t("{{count}} files", { count: b.meta.files.entries })} · {formatBytes(b.meta.files.bytes)}
@@ -290,6 +296,7 @@ export function BackupsTab({ project }: { project: Project }) {
             <Alert tone="red" title={t("This overwrites current data")}>
               {rDb && restoreTarget.meta.database && <p>{t("The database “{{name}}” is replaced by the dump; changes since the backup are lost.", { name: restoreTarget.meta.database.name })}</p>}
               {rDb && restoreTarget.meta.databases?.map((d) => <p key={d.db}>{t("The database “{{name}}” is replaced by the dump; changes since the backup are lost.", { name: d.db })}</p>)}
+              {rDb && restoreTarget.meta.databaseVolumes?.map((d) => <p key={`volume-${d.db ?? ""}`}>{d.db ? t("The data volume of the database “{{name}}” is replaced by the copy; changes since the backup are lost.", { name: d.db }) : t("The data volume of the primary database is replaced by the copy; changes since the backup are lost.")}</p>)}
               {rFiles && restoreTarget.meta.files && <p>{rWipe ? t("Files in the archive overwrite the project directory; everything else in the directory is deleted first.") : t("Files in the archive overwrite the project directory; files not in the backup are kept.")}</p>}
               {rStorage && restoreTarget.meta.storage && <p>{rWipeStorage ? t("Objects in the archive are uploaded into the bucket; everything else in the bucket is deleted first.") : t("Objects in the archive are uploaded into the bucket; objects not in the backup are kept.")}</p>}
             </Alert>

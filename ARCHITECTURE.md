@@ -159,7 +159,13 @@ Go API (single binary, single container)
   6.19); against the Docker host's kernel (`Manager.HostKernel`, from Docker info,
   cached) `/runtimes` marks it `unavailable` with the reason, create and newly
   chosen database versions are refused, and projects that have it get a status
-  warning. An unknown kernel locks nothing.
+  warning with the way forward from their data. Such a service's container is not
+  started (no crash loop), and a backup copies its data volume file by file instead
+  of dumping it (`databaseVolumes` in backup.json, restored like a dump). An unknown
+  kernel locks nothing. For a database that does not upgrade any older data in
+  place (`Dialect.MajorUpgradeInPlace` false), a version lists the ones whose data
+  it takes over (`UpgradesFrom`, MongoDB 8.2 from 8.0); `Catalog.UpgradesInPlace`
+  decides a version change.
 - **addon** - addon definitions: `Parse` reads a YAML file strictly (`KnownFields`) and
   validates it (names, images, ports, volumes, health check, every `{{placeholder}}`),
   `Render` fills templates, `Registry` keeps the files under `/config/addons` (list with

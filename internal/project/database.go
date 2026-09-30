@@ -690,7 +690,11 @@ func (m *Manager) applyDatabaseUpdate(ctx context.Context, p store.Project, kind
 		if runtime.CompareVersions(v.Version, svc.Version) < 0 {
 			return false, fmt.Errorf("%w: downgrading %s from %s to %s is not supported by the data format", validate.ErrInvalid, svc.Variant, svc.Version, v.Version)
 		}
-		if d, _ := runtime.DialectFor(svc.Variant); !d.MajorUpgradeInPlace && v.Version != svc.Version {
+		if !m.catalog.UpgradesInPlace(svc.Variant, svc.Version, v.Version) {
+			// Exporting needs the old server running; where the kernel stops it, say so.
+			if m.kernelProblem(*svc, m.HostKernel(ctx)) != "" {
+				return false, fmt.Errorf("%w: %s", validate.ErrInvalid, m.catalog.KernelProblemInUse(svc.Variant, svc.Version, m.HostKernel(ctx)))
+			}
 			return false, fmt.Errorf("%w: %s cannot upgrade an existing data directory from %s to %s in place; export, remove and re-add the database", validate.ErrInvalid, svc.Variant, svc.Version, v.Version)
 		}
 		// Only a new version is checked: a project keeps the one it has, so other

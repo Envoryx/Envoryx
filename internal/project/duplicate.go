@@ -551,6 +551,10 @@ func (m *Manager) withServiceRunning(ctx context.Context, p store.Project, kind 
 	if running {
 		return fn(ctx)
 	}
+	if m.cannotStartHere(ctx, p, kind) {
+		svc := p.Service(kind)
+		return fmt.Errorf("%w: %s", validate.ErrInvalid, m.catalog.KernelProblemInUse(catalogKey(*svc), svc.Version, m.HostKernel(ctx)))
+	}
 	step(ctx, "Starting the container {{name}}", "name", c.Name)
 	if err := m.engine.StartContainer(ctx, c.ID); err != nil {
 		return fmt.Errorf("start %s: %w", c.Name, err)

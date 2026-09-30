@@ -127,7 +127,7 @@ export const lockedMongoRuntime: Runtime = {
   available: true,
   description: "",
   versions: [
-    { version: "8.2", image: "mongo:8.2", label: "MongoDB 8.2", default: true },
+    { version: "8.2", image: "mongo:8.2", label: "MongoDB 8.2", default: true, upgradesFrom: ["8"] },
     { version: "8", image: "mongo:8.0", label: "MongoDB 8.0", unavailable: true, unavailableReason: mongoLock("8.0") },
     { version: "7", image: "mongo:7.0", label: "MongoDB 7.0", unavailable: true, unavailableReason: mongoLock("7.0") },
   ],
