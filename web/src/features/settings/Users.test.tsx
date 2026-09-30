@@ -67,6 +67,23 @@ describe("OidcCard", () => {
     await user.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(api.calls.some((c) => c.method === "PUT")).toBe(true));
     expect(api.calls.find((c) => c.method === "PUT")!.body).toMatchObject({ enabled: true, issuer: "https://auth.lan/application/o/envoryx/", clientId: "envoryx", clientSecret: "", adminGroups: ["ops", "admins"], defaultRole: "viewer" });
+    expect(api.calls.find((c) => c.method === "PUT")!.body).not.toHaveProperty("clearSecret");
+  });
+
+  it("removes the stored client secret on request", async () => {
+    const api = mockApi({
+      ...authedRoutes,
+      "GET /settings/oidc": () => ({ body: { oidc: { enabled: false, name: "SSO", issuer: "", clientId: "", defaultRole: "deny", autoCreate: false, hasSecret: true, redirectUrl: "https://envoryx.lan/api/v1/auth/oidc/callback" } } }),
+      "PUT /settings/oidc": () => ({ body: { oidc: { enabled: false, name: "SSO", issuer: "", clientId: "", defaultRole: "deny", autoCreate: false, hasSecret: false } } }),
+    });
+    renderApp(<OidcCard />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("checkbox", { name: "Remove the stored client secret when saving" }));
+    expect(screen.getByLabelText("Client secret")).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(api.calls.some((c) => c.method === "PUT")).toBe(true));
+    expect(api.calls.find((c) => c.method === "PUT")!.body).toMatchObject({ clientSecret: "", clearSecret: true });
+    await waitFor(() => expect(screen.queryByRole("checkbox", { name: "Remove the stored client secret when saving" })).not.toBeInTheDocument());
   });
 });
 

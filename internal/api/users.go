@@ -56,11 +56,7 @@ func inviteURL(r *http.Request, token string) string {
 
 // sessionAdmin refuses token principals; the route itself requires admin.
 func sessionAdmin(w http.ResponseWriter, r *http.Request) bool {
-	if p, _ := auth.PrincipalFrom(r.Context()); p.TokenName != "" {
-		writeError(w, r, errUsersNeedSession)
-		return false
-	}
-	return true
+	return sessionOnly(w, r, errUsersNeedSession)
 }
 
 // listUsers returns every user: GET /users.

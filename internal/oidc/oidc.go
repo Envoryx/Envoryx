@@ -162,13 +162,14 @@ func (s *Service) Config(ctx context.Context) (Config, error) {
 	return c.normalize()
 }
 
-// SetConfig stores a configuration. An empty client secret keeps the stored one.
-func (s *Service) SetConfig(ctx context.Context, c Config) (Config, error) {
+// SetConfig stores a configuration. An empty client secret keeps the stored one unless
+// clearSecret asks to drop it (e.g. when single sign-on is switched off for good).
+func (s *Service) SetConfig(ctx context.Context, c Config, clearSecret bool) (Config, error) {
 	c, err := c.normalize()
 	if err != nil {
 		return Config{}, err
 	}
-	if c.ClientSecret == "" {
+	if c.ClientSecret == "" && !clearSecret {
 		if old, err := s.Config(ctx); err == nil {
 			c.ClientSecret = old.ClientSecret
 		}

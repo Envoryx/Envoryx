@@ -74,8 +74,8 @@ other groups, and Envoryx doesn't call them.
   keys.
 - Every request is checked against the user's role (viewer, developer, admin, or none) and,
   for a project, against their role in that project; a project without access is left out
-  of every list. Only an admin's browser session manages users, and the last active admin
-  can't be demoted, disabled or deleted.
+  of every list. Only an admin's browser session manages users or shows and replaces the
+  secret key, and the last active admin can't be demoted, disabled or deleted.
 - Single sign-on (OpenID Connect) uses the authorization code flow with PKCE, a state bound
   to the browser by a short-lived `HttpOnly` cookie, and a nonce; the ID token is verified
   against the provider's published keys, issuer and client ID. Accounts are linked by the

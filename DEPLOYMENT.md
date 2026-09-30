@@ -1483,7 +1483,8 @@ re-encrypts everything with the variable's key and deletes the file.
 
 *Settings → Secret key* shows the key's ID and where it comes from. *Show key*
 reveals the key itself (the reveal is written to the audit log); keep a copy somewhere
-outside Envoryx. Instance backups never contain the key, so without a copy an instance
+outside Envoryx. Showing and replacing the key need an admin's browser session; API
+tokens are refused, even with admin scope. Instance backups never contain the key, so without a copy an instance
 backup can't be restored on another host.
 
 **Replacing the key.**
@@ -1625,7 +1626,10 @@ one Docker host*); a restore keeps the current key and ID.
   were created after the backup no longer belong to a project and are removed
   by the reconciler about a minute later, their volumes appear as orphans in
   *Docker* until you remove them there (see *Orphaned resources*). All
-  sessions end; sign in again with the credentials from the backup. The
+  browser sessions end, also those the backup holds; sign in again with the
+  credentials from the backup. API tokens are the backup's: they keep
+  working for scripts and IDEs, but a token revoked after the backup was
+  taken is valid again, so revoke it once more. The
   restored database starts with an `instance.restored` audit entry naming the
   backup, the `pre-restore` safety copy and who requested it. The audit rows
   written after the backup was taken are gone with the old database.
@@ -2351,7 +2355,9 @@ confidential client with the redirect URL the card shows
 fill in the issuer URL, client ID and secret and a label for the button, try *Test* and
 switch on *Offer single sign-on on the login page*. The login page then has a *Sign in with
 …* button next to the password form. The client secret is stored and never shown again;
-leave the field empty to keep it.
+leave the field empty to keep it, or tick *Remove the stored client secret when saving*
+to delete it (switching single sign-on off alone keeps it; the API takes
+`"clearSecret": true` on `PUT /api/v1/settings/oidc`).
 
 Envoryx asks for `openid profile email groups` and uses the authorization code flow with
 PKCE, state and nonce; the ID token is checked against the provider's keys. The username
@@ -2491,8 +2497,8 @@ Refusals carry the reason (`this token has read scope, the operation needs
 operate`) so scripts and assistants can tell what kind of token they need.
 `GET /api/v1/auth/me` shows the calling token's name, scope and projects.
 
-No token can change the password, create/revoke tokens or manage users; those
-need a browser session. Audit entries record `user (token: name)`. A request that
+No token can change the password, create/revoke tokens, manage users or show
+or replace the secret key; those need a browser session. Audit entries record `user (token: name)`. A request that
 presents an invalid or revoked token is rejected even if a valid session
 cookie is also sent. Tokens created before scopes existed keep full access
 (`admin`, all projects).

@@ -97,6 +97,16 @@ func TestAPITokensAndMCPEndpoint(t *testing.T) {
 	if res := bearer(http.MethodDelete, "/api/v1/tokens/"+id, ""); res.StatusCode != http.StatusForbidden {
 		t.Fatalf("bearer must not revoke tokens: %d", res.StatusCode)
 	}
+	// So does the key that decrypts every stored secret, even for an admin token.
+	for _, path := range []string{"/api/v1/settings/secret-key/reveal", "/api/v1/settings/secret-key/rotate"} {
+		if res := bearer(http.MethodPost, path, ""); res.StatusCode != http.StatusForbidden {
+			t.Fatalf("bearer must not use %s: %d", path, res.StatusCode)
+		}
+	}
+	// The session gets past the check (the test instance has no key loaded).
+	if r := a.do(http.MethodPost, "/api/v1/settings/secret-key/reveal", nil, true); r.status == http.StatusForbidden {
+		t.Fatalf("session reveal: %d %s", r.status, r.raw)
+	}
 	// A wrong bearer token does not fall back to the cookie.
 	req, _ = http.NewRequest(http.MethodGet, a.srv.URL+"/api/v1/auth/me", nil)
 	req.Header.Set("Authorization", "Bearer stq_wrongwrongwrongwrongwrongwrong")

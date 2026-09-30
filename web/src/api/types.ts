@@ -37,6 +37,8 @@ export interface OIDCSettings {
   issuer: string;
   clientId: string;
   clientSecret?: string;
+  /** Sent on save: drop the stored client secret (an empty clientSecret keeps it). */
+  clearSecret?: boolean;
   hasSecret?: boolean;
   redirectUrl?: string;
   scopes?: string[];
