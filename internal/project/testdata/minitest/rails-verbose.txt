@@ -1,0 +1,47 @@
+Running 5 tests in a single process (parallelization threshold is 50)
+Run options: -v --seed 59831
+
+# Running:
+
+PostTest#test_passes = 0.01 s = .
+PostTest#test_plain_method_failure = 0.00 s = F
+
+
+Failure:
+PostTest#test_plain_method_failure [test/models/post_test.rb:21]:
+plain failure
+
+bin/rails test test/models/post_test.rb:20
+
+PostTest#test_raises = 0.00 s = E
+
+
+Error:
+PostTest#test_raises:
+ArgumentError: boom
+    test/models/post_test.rb:13:in 'block in <class:PostTest>'
+
+bin/rails test test/models/post_test.rb:12
+
+PostTest#test_fails_on_purpose = 0.00 s = F
+
+
+Failure:
+PostTest#test_fails_on_purpose [test/models/post_test.rb:9]:
+Expected: "a"
+  Actual: "b"
+
+bin/rails test test/models/post_test.rb:8
+
+PostTest#test_skipped_one = 0.00 s = S
+
+
+Skipped:
+PostTest#test_skipped_one [test/models/post_test.rb:17]:
+later
+
+bin/rails test test/models/post_test.rb:16
+
+
+Finished in 0.013239s, 377.6733 runs/s, 226.6040 assertions/s.
+5 runs, 3 assertions, 2 failures, 1 errors, 1 skips

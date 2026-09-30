@@ -45,6 +45,9 @@ type TestSuite struct {
 	build func(filter, report string) (argv, env []string)
 	// trx marks a report in the TRX format of dotnet test instead of JUnit.
 	trx bool
+	// parseOutput reads the result from what a runner without a report printed; ok is
+	// false when the output says nothing it knows.
+	parseOutput func(text, root string) (res TestResult, ok bool)
 }
 
 // TestRunInfo is a run as the API shows it.
@@ -288,7 +291,8 @@ func detectTestSuites(dir string, p store.Project) []TestSuite {
 						argv = append(argv, "-n", filter)
 					}
 					return argv, rubyTestEnv
-				}})
+				},
+				parseOutput: parseMinitest})
 		}
 	}
 	return out
@@ -697,6 +701,11 @@ func (m *Manager) FinishTestRun(ctx context.Context, s *TestSession, exitCode in
 		_, _ = m.engine.Exec(ctx, s.containerID, []string{"rm", "-f", s.report}, nil)
 	}
 	text := ansiCodes.ReplaceAllString(string(output), "")
+	if !res.Report && s.Suite.parseOutput != nil {
+		if parsed, ok := s.Suite.parseOutput(text, appMountTarget); ok {
+			res = parsed
+		}
+	}
 	if len(text) > testOutputTail {
 		text = "…" + text[len(text)-testOutputTail:]
 	}

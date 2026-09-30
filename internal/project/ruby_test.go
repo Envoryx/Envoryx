@@ -203,6 +203,16 @@ func TestRubyTemplateWorkersTestsAndManifest(t *testing.T) {
 	if strings.Join(argv[4:], " ") != "bin/rails test -n /login/" {
 		t.Fatalf("rails test argv: %q", argv)
 	}
+	// rails test writes no report: its counts and failed tests come from its output.
+	s := &TestSession{Suite: rails, runID: store.NewID(), projectID: v.Project.ID, Release: func() {}}
+	run, err := e.m.FinishTestRun(ctx, s, 1, false, []byte("# Running:\r\n\r\nF\r\n\r\nFailure:\r\nPostTest#test_title [test/models/post_test.rb:9]:\r\nExpected: \"a\"\r\n  Actual: \"b\"\r\n\r\nbin/rails test test/models/post_test.rb:8\r\n\r\nFinished in 0.01s, 1 runs/s.\r\n2 runs, 2 assertions, 1 failures, 0 errors, 0 skips\r\n"))
+	s.Release()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !run.Result.Report || run.Result.Tests != 2 || run.Result.Failures != 1 || len(run.Result.Failed) != 1 || run.Result.Failed[0].Name != "test_title" || run.Status != store.TestFailed {
+		t.Fatalf("rails test run: %+v", run)
+	}
 
 	mf, err := e.m.ExportManifest(ctx, v.Project.ID)
 	if err != nil {

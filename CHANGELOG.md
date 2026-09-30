@@ -114,6 +114,11 @@ release). `:main` follows the development branch.
 - The Ruby images ship libvips, which Active Storage's default `:vips`
   processor needs for image variants (the images grow by about 180 MB).
 
+### Fixed
+- `rails test` runs in the Tests section show their counts and failed
+  tests (name, message, file and line), read from the minitest output;
+  before, only the exit code counted.
+
 ## [0.17.0] - 2026-09-30
 
 Fixes from a full system test, four of them for security (see
