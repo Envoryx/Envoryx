@@ -64,6 +64,8 @@ type Fake struct {
 	Builds []docker.BuildOptions
 	// Credentials is what SetRegistryCredentials installed.
 	Credentials docker.RegistryCredentials
+	// KernelVersion is what Ping reports as the host kernel.
+	KernelVersion string
 	// Access is returned by NetworkAccess for any container; the zero value is bridge
 	// networking.
 	Access docker.NetworkAccess
@@ -387,7 +389,7 @@ func (f *Fake) Ping(context.Context) (docker.Info, error) {
 			running++
 		}
 	}
-	return docker.Info{APIVersion: "1.56", ServerVersion: "fake", Hostname: "fakehost", OS: "linux", Architecture: "x86_64", Containers: len(f.containers), Running: running, NCPU: 4, MemTotal: 8 << 30}, nil
+	return docker.Info{APIVersion: "1.56", ServerVersion: "fake", Hostname: "fakehost", OS: "linux", Architecture: "x86_64", Containers: len(f.containers), Running: running, NCPU: 4, MemTotal: 8 << 30, KernelVersion: f.KernelVersion}, nil
 }
 
 // ListContainers implements docker.Engine.

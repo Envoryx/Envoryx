@@ -622,6 +622,9 @@ func (m *Manager) applyDatabaseUpdate(ctx context.Context, p store.Project, kind
 		if err != nil {
 			return false, err
 		}
+		if err := m.checkKernel(m.HostKernel(ctx), newSvc); err != nil {
+			return false, err
+		}
 		newSvc.ProjectID = p.ID
 		newSvc.Kind = kind
 		if upd.External != nil {
@@ -689,6 +692,15 @@ func (m *Manager) applyDatabaseUpdate(ctx context.Context, p store.Project, kind
 		}
 		if d, _ := runtime.DialectFor(svc.Variant); !d.MajorUpgradeInPlace && v.Version != svc.Version {
 			return false, fmt.Errorf("%w: %s cannot upgrade an existing data directory from %s to %s in place; export, remove and re-add the database", validate.ErrInvalid, svc.Variant, svc.Version, v.Version)
+		}
+		// Only a new version is checked: a project keeps the one it has, so other
+		// changes still save on a host whose kernel that version cannot start on.
+		if v.Version != svc.Version {
+			next := *svc
+			next.Version = v.Version
+			if err := m.checkKernel(m.HostKernel(ctx), next); err != nil {
+				return false, err
+			}
 		}
 		var cfg runtime.DatabaseConfig
 		if err := json.Unmarshal(svc.Config, &cfg); err != nil {

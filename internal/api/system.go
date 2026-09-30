@@ -67,6 +67,7 @@ type dockerInfoDTO struct {
 	Running       int    `json:"running"`
 	NCPU          int    `json:"ncpu"`
 	MemTotal      int64  `json:"memTotal"`
+	KernelVersion string `json:"kernelVersion,omitempty"`
 }
 
 func (a *API) dockerInfo(ctx context.Context) dockerInfoDTO {
@@ -77,6 +78,7 @@ func (a *API) dockerInfo(ctx context.Context) dockerInfoDTO {
 	return dockerInfoDTO{
 		Connected: true, APIVersion: info.APIVersion, ServerVersion: info.ServerVersion, OS: info.OS,
 		Architecture: info.Architecture, Containers: info.Containers, Running: info.Running, NCPU: info.NCPU, MemTotal: info.MemTotal,
+		KernelVersion: info.KernelVersion,
 	}
 }
 
@@ -145,7 +147,7 @@ func (a *API) dashboard(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) runtimes(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
-		"runtimes":      a.d.Catalog.All(),
+		"runtimes":      a.d.Catalog.ForKernel(a.d.Projects.HostKernel(r.Context())),
 		"templates":     project.Templates(),
 		"phpExtensions": runtime.PHPExtensions(),
 		"phpDefaults":   runtime.DefaultPHPConfig(),

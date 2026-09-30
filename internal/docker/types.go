@@ -64,6 +64,9 @@ type Info struct {
 	Running      int
 	NCPU         int
 	MemTotal     int64
+	// KernelVersion is the Docker host's kernel release (uname -r), e.g.
+	// "6.19.0-31-generic"; containers share it, so it decides what they can run.
+	KernelVersion string
 }
 
 // Container is a summary of a container as listed by the engine.

@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { DatabaseTab } from "./DatabaseTab";
-import { authedRoutes, makeProject, mockApi, renderApp, runtimesFixture } from "@/test/utils";
+import { authedRoutes, lockedMongoRuntimesFixture, makeProject, mockApi, renderApp, runtimesFixture } from "@/test/utils";
 
 const P = "/projects/3f0b4a9e-1a2b-4c3d-8e9f-0a1b2c3d4e5f";
 
@@ -209,5 +209,44 @@ describe("DatabaseTab database browser", () => {
     const dialog = (await screen.findByText(/the server and its data are not touched/)).closest("dialog")!;
     expect(within(dialog).queryByLabelText(/to confirm/)).not.toBeInTheDocument();
     expect(within(dialog).getByRole("button", { name: "Remove connection" })).toBeEnabled();
+  });
+});
+
+describe("DatabaseTab on a kernel MongoDB 8.0 cannot start on", () => {
+  const option = (select: HTMLElement, name: string) => within(select).getByRole("option", { name: new RegExp("^" + name) }) as HTMLOptionElement;
+
+  it("offers only the versions the host can run when adding a database", async () => {
+    mockApi({ ...authedRoutes, "GET /runtimes": () => ({ body: lockedMongoRuntimesFixture }) });
+    renderApp(<DatabaseTab project={makeProject()} />);
+    const user = userEvent.setup();
+    await screen.findByRole("option", { name: "MongoDB" });
+    await user.selectOptions(screen.getByLabelText("Type"), "mongodb");
+    const version = screen.getByLabelText("Version");
+    expect(version).toHaveValue("8.2");
+    expect(option(version, "MongoDB 8.2").disabled).toBe(false);
+    expect(option(version, "MongoDB 8.0").disabled).toBe(true);
+    expect(option(version, "MongoDB 7.0")).toHaveTextContent("MongoDB 7.0 (not on this host)");
+    expect(screen.getByText(/cannot start MongoDB 8\.0 on Linux kernel 6\.19 and newer \(this host runs 6\.19\.0-31-generic\); switch to MongoDB 8\.2/)).toBeInTheDocument();
+  });
+
+  it("keeps the version a database already has selectable", async () => {
+    const withMongo = makeProject({
+      services: [...makeProject().services, { kind: "database", variant: "mongodb", version: "8", image: "mongo:8.0", enabled: true, config: { database: "shop", username: "shop", hostPort: 0 } }],
+    });
+    mockApi({
+      ...authedRoutes,
+      "GET /runtimes": () => ({ body: lockedMongoRuntimesFixture }),
+      "GET /settings": () => ({ body: { publicHost: "" } }),
+      [`GET ${P}/database/databases`]: () => ({ body: { databases: ["shop"] } }),
+      [`GET ${P}/database`]: () => ({
+        body: { database: { type: "mongodb", version: "8", image: "mongo:8.0", host: "database", port: 27017, database: "shop", username: "shop", hostPort: 0, injectedEnv: [], state: "exited", volumeName: "v", volumeExists: true } },
+      }),
+    });
+    renderApp(<DatabaseTab project={withMongo} />);
+    const version = await screen.findByLabelText("MongoDB version");
+    expect(version).toHaveValue("8");
+    expect(option(version, "MongoDB 8.0").disabled).toBe(false);
+    expect(option(version, "MongoDB 7.0").disabled).toBe(true);
+    expect(option(version, "MongoDB 8.2").disabled).toBe(false);
   });
 });

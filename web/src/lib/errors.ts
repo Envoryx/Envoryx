@@ -106,6 +106,8 @@ const templates = [
   "{{service}} runs in a container of the project; remove it first to connect an external server instead",
   "port {{port}} is out of range",
   "{{file}} connects to an external server, and its password is never in the file; create the project without the manifest and add the connection in Envoryx",
+  "cannot start {{version}} on Linux kernel {{kernel}} and newer (this host runs {{host}}); switch to {{other}}",
+  "cannot start {{version}} on Linux kernel {{kernel}} and newer (this host runs {{host}})",
 ];
 
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

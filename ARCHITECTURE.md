@@ -154,7 +154,12 @@ Go API (single binary, single container)
 - **runtime** - the catalogue of supported runtimes and services. Versions are
   data, not code paths: `runtime.Default()` builds the catalogue, and
   `Catalog.Resolve(key, version)` returns a version with its image reference. The frontend fetches
-  `/api/v1/runtimes` and never hard-codes versions.
+  `/api/v1/runtimes` and never hard-codes versions. A version can name the first
+  Linux kernel it refuses to start on (`BrokenFromKernel`, MongoDB 8.0/7.0 from
+  6.19); against the Docker host's kernel (`Manager.HostKernel`, from Docker info,
+  cached) `/runtimes` marks it `unavailable` with the reason, create and newly
+  chosen database versions are refused, and projects that have it get a status
+  warning. An unknown kernel locks nothing.
 - **addon** - addon definitions: `Parse` reads a YAML file strictly (`KnownFields`) and
   validates it (names, images, ports, volumes, health check, every `{{placeholder}}`),
   `Render` fills templates, `Registry` keeps the files under `/config/addons` (list with

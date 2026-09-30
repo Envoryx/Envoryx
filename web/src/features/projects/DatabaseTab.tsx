@@ -13,6 +13,7 @@ import { databaseEngineNames, databaseEnvPrefix, databaseNamePattern, databaseSe
 import { containerStateTone } from "@/lib/format";
 import { errorText } from "@/lib/errors";
 import { emptyExternalDatabase, externalDatabaseComplete, ExternalDatabaseFields, externalDatabaseTypes } from "./ExternalConnection";
+import { unavailableHint, versionOptions } from "./versionOptions";
 
 export function CopyButton({ value, label }: { value: string; label: string }) {
   const { t } = useTranslation();
@@ -124,13 +125,9 @@ function AddDatabaseCard({ project, onAdded, onCancel }: { project: Project; onA
               ))}
             </Select>
           </Field>
-          <Field label={t("Version")} htmlFor="add-db-version" hint={external ? t("Picks the client tools for backups and the connection; choose the server's major version.") : undefined}>
+          <Field label={t("Version")} htmlFor="add-db-version" hint={external ? t("Picks the client tools for backups and the connection; choose the server's major version.") : unavailableHint(selected?.versions ?? [], t) || undefined}>
             <Select id="add-db-version" value={chosenVersion} onChange={(e) => setVersion(e.target.value)}>
-              {selected?.versions.map((v) => (
-                <option key={v.version} value={v.version}>
-                  {v.label}
-                </option>
-              ))}
+              {versionOptions(selected?.versions ?? [], t, { anyHost: external })}
             </Select>
           </Field>
         </div>
@@ -407,13 +404,9 @@ function DatabasePanel({ project, db, onRemoved }: { project: Project; db: strin
             <CardHeader title={t("Server")} />
             <div className="space-y-4 p-5">
               <div className="flex items-end gap-2">
-                <Field label={t("{{engine}} version", { engine: ({ mariadb: "MariaDB", mysql: "MySQL", postgresql: "PostgreSQL", mongodb: "MongoDB" } as Record<string, string>)[d.type] ?? d.type })} htmlFor="db-version" hint={external ? t("Picks the client tools for backups and the connection; choose the server's major version.") : d.type === "postgresql" ? t("PostgreSQL cannot upgrade an existing data directory in place.") : d.type === "mongodb" ? t("MongoDB upgrades one major version at a time; a database backup is taken automatically first.") : t("Upgrades keep the data volume and take a database backup first; downgrades are refused.")}>
+                <Field label={t("{{engine}} version", { engine: ({ mariadb: "MariaDB", mysql: "MySQL", postgresql: "PostgreSQL", mongodb: "MongoDB" } as Record<string, string>)[d.type] ?? d.type })} htmlFor="db-version" hint={external ? t("Picks the client tools for backups and the connection; choose the server's major version.") : unavailableHint(versions, t) || (d.type === "postgresql" ? t("PostgreSQL cannot upgrade an existing data directory in place.") : d.type === "mongodb" ? t("MongoDB upgrades one major version at a time; a database backup is taken automatically first.") : t("Upgrades keep the data volume and take a database backup first; downgrades are refused."))}>
                   <Select id="db-version" value={currentVersion} onChange={(e) => setVersion(e.target.value)}>
-                    {versions.map((v) => (
-                      <option key={v.version} value={v.version}>
-                        {v.label}
-                      </option>
-                    ))}
+                    {versionOptions(versions, t, { keep: d.version, anyHost: external })}
                   </Select>
                 </Field>
                 <Button

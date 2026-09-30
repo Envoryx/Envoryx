@@ -1201,6 +1201,42 @@ func TestPublicHostSetting(t *testing.T) {
 	}
 }
 
+func TestRuntimesMarkVersionsTheKernelCannotRun(t *testing.T) {
+	a := newApp(t)
+	a.engine.KernelVersion = "6.19.0-31-generic"
+	a.setupAndLogin()
+	r := a.do(http.MethodGet, "/api/v1/runtimes", nil, false)
+	if r.status != http.StatusOK {
+		t.Fatalf("runtimes: %d", r.status)
+	}
+	for _, x := range r.body["runtimes"].([]any) {
+		rt := x.(map[string]any)
+		if rt["key"] != "mongodb" {
+			continue
+		}
+		for _, y := range rt["versions"].([]any) {
+			v := y.(map[string]any)
+			broken := v["version"] != "8.2"
+			reason, _ := v["unavailableReason"].(string)
+			if (v["unavailable"] == true) != broken || strings.Contains(reason, "on Linux kernel 6.19 and newer") != broken {
+				t.Fatalf("mongodb %v: %v", v["version"], v)
+			}
+		}
+	}
+	r = a.do(http.MethodPost, "/api/v1/projects", map[string]any{
+		"name": "Shop", "docroot": "public",
+		"php":      map[string]any{"version": "8.4", "config": runtime.DefaultPHPConfig()},
+		"database": map[string]any{"type": "mongodb", "version": "7"},
+	}, true)
+	if r.status != http.StatusUnprocessableEntity || !strings.Contains(string(r.raw), "cannot start MongoDB 7.0 on Linux kernel 6.19 and newer (this host runs 6.19.0-31-generic); switch to MongoDB 8.2") {
+		t.Fatalf("create with mongo 7.0: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodGet, "/api/v1/dashboard", nil, false)
+	if r.status != http.StatusOK || r.body["docker"].(map[string]any)["kernelVersion"] != "6.19.0-31-generic" {
+		t.Fatalf("dashboard docker block: %d %s", r.status, r.raw)
+	}
+}
+
 func TestRuntimesEndpoint(t *testing.T) {
 	a := newApp(t)
 	a.setupAndLogin()

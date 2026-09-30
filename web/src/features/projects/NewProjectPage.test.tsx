@@ -2,7 +2,7 @@ import { screen, waitFor } from "@testing-library/react";
 import userEvent, { type UserEvent } from "@testing-library/user-event";
 import { Route, Routes } from "react-router-dom";
 import { NewProjectPage } from "./NewProjectPage";
-import { authedRoutes, makeProject, mockApi, renderApp, runtimesFixture } from "@/test/utils";
+import { authedRoutes, lockedMongoRuntimesFixture, makeProject, mockApi, renderApp, runtimesFixture } from "@/test/utils";
 import type { Preview, RuntimesResponse } from "@/api/types";
 
 /** The PHP fixture plus what a backend with Node-only support adds: Node templates and presets. */
@@ -579,6 +579,21 @@ describe("NewProjectPage wizard", () => {
     await waitFor(() => expect(screen.getByRole("heading", { name: "Detail" })).toBeInTheDocument());
     const create = api.calls.find((c) => c.method === "POST" && c.url.endsWith("/projects"));
     expect(create?.body).toMatchObject({ database: { type: "mariadb" }, databases: [{ name: "analytics", type: "mariadb", version: "11" }] });
+  });
+
+  it("locks the MongoDB versions the host kernel cannot start", async () => {
+    mockApi({ ...authedRoutes, "GET /runtimes": () => ({ body: lockedMongoRuntimesFixture }) });
+    renderWizard();
+    const user = userEvent.setup();
+    await startEmpty(user);
+    await cont(user);
+    await nameIt(user, "Acme Shop");
+    await user.click(screen.getByRole("radio", { name: "MongoDB" }));
+    const version = screen.getByLabelText("Version");
+    expect(version).toHaveValue("8.2");
+    const disabled = [...(version as HTMLSelectElement).options].filter((o) => o.disabled).map((o) => o.value);
+    expect(disabled).toEqual(["8", "7"]);
+    expect(screen.getByText(/switch to MongoDB 8\.2/)).toBeInTheDocument();
   });
 
   it("adds Ollama with the GPU", async () => {

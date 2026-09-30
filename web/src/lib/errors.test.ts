@@ -34,6 +34,15 @@ describe("translateMessage", () => {
     expect(translateMessage("the database container runs with an older setup; restart the project to update it", t)).toBe("Der database-Container läuft noch mit einer älteren Einrichtung; starte das Projekt neu, um ihn zu aktualisieren");
   });
 
+  it("translates a version the host kernel cannot start", () => {
+    expect(translateMessage("cannot start MongoDB 8.0 on Linux kernel 6.19 and newer (this host runs 6.19.0-31-generic); switch to MongoDB 8.2", t)).toBe(
+      "MongoDB 8.0 startet nicht auf Linux-Kernel 6.19 und neuer (dieser Host hat 6.19.0-31-generic); wechsle zu MongoDB 8.2",
+    );
+    expect(translateMessage("invalid input: cannot start MongoDB 7.0 on Linux kernel 6.19 and newer (this host runs 7.0.0-31-generic)", t)).toBe(
+      "Ungültige Eingabe: MongoDB 7.0 startet nicht auf Linux-Kernel 6.19 und neuer (dieser Host hat 7.0.0-31-generic)",
+    );
+  });
+
   it("leaves unknown text alone", () => {
     expect(translateMessage("something: quite unexpected", t)).toBe("something: quite unexpected");
     expect(translateMessage("", t)).toBe("");
