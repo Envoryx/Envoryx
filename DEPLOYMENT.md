@@ -690,6 +690,18 @@ and needs none.
   Record does not know). An additional database `analytics` arrives as
   `ANALYTICS_DATABASE_URL`, which Rails' multi-database setup picks up for a
   database named `analytics` in `database.yml`.
+- **Solid Queue.** The Ruby containers also get `QUEUE_DATABASE_URL`, which
+  points at `<database>_queue` on the project's SQL server. Rails merges it
+  into the `queue` entry of `database.yml`, which Rails 8 writes for
+  production, and the Rails templates add one to development, too (with
+  `config.active_job.queue_adapter = :solid_queue` in `development.rb`).
+  Otherwise `bin/jobs` looks for its tables in the primary database and keeps
+  crashing. Envoryx creates the queue database when an application's
+  `database.yml` has a `queue` entry: after the template ran and before the
+  Rails database actions. It does this as the administrator, because the
+  MySQL/MariaDB project login may not create databases. *rails db:prepare*
+  then loads `db/queue_schema.rb` into it. The *Solid Queue* worker waits
+  with a message in its log until the tables exist.
 - **Routing.** Without PHP and without a Python or Go server the Ruby server
   is the application: the proxy routes `https://<project>.<base>` and every
   extra domain to `envoryx-<project>-ruby:<port>`, the web container's host

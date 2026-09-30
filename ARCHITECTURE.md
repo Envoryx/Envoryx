@@ -625,6 +625,15 @@ names the container kind).
   `DATABASE_URL` at `<database>_test` (Active Record merges it into any
   environment, so fixtures would otherwise empty the development tables), and
   `ensureTestDatabase` creates that database as the administrator first.
+  `rubyDatabaseEnv` adds `QUEUE_DATABASE_URL` (`<database>_queue`, unless the
+  project sets it or has an additional database named `queue`). Active Record
+  merges `<NAME>_DATABASE_URL` into the entry of that name. The Rails templates
+  add a development `queue` entry for Solid Queue. `ensureQueueDatabase`
+  creates the database for an application whose `database.yml` has a queue
+  entry: after the template ran (`prepareQueueDatabase`, once the server
+  answers) and before every `rails:db-*` action. The Solid Queue worker
+  preset carries a guard that waits for the tables instead of letting
+  `bin/jobs` crash-loop.
 - *Java server* (`serves=java`): the same mechanics with the Java container as
   the upstream (`envoryx-<slug>-java:<port>`). `runtime.JavaConfig`
   (`internal/runtime/java.go`) selects the preset (`spring-boot`, `quarkus`
