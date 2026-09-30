@@ -1171,6 +1171,8 @@
   "this backup contains no files": "Deze back-up bevat geen bestanden",
   "this backup contains no object storage": "Deze back-up bevat geen objectopslag",
   "this token has {{scope}} scope, the operation needs {{needed}}": "Deze token heeft bereik {{scope}}, de bewerking vereist {{needed}}",
+  "your role allows at most {{scope}} tokens": "Je rol staat hoogstens tokens met bereik {{scope}} toe",
+  "your role allows no API tokens": "Je rol staat geen API-tokens toe",
   "this token is limited to other projects": "Deze token is beperkt tot andere projecten",
   "this token is limited to particular projects": "Deze token is beperkt tot bepaalde projecten",
   "type restore to confirm": "Typ restore om te bevestigen",

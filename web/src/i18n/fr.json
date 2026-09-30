@@ -1171,6 +1171,8 @@
   "this backup contains no files": "Cette sauvegarde ne contient aucun fichier",
   "this backup contains no object storage": "Cette sauvegarde ne contient aucun stockage d'objets",
   "this token has {{scope}} scope, the operation needs {{needed}}": "Ce jeton a la portée {{scope}}, l'opération nécessite {{needed}}",
+  "your role allows at most {{scope}} tokens": "Votre rôle permet au plus des jetons de portée {{scope}}",
+  "your role allows no API tokens": "Votre rôle ne permet aucun jeton API",
   "this token is limited to other projects": "Ce jeton est limité à d'autres projets",
   "this token is limited to particular projects": "Ce jeton est limité à certains projets",
   "type restore to confirm": "Saisissez restore pour confirmer",

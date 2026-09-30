@@ -22,6 +22,7 @@ import (
 	"github.com/envoryx/envoryx/internal/project"
 	"github.com/envoryx/envoryx/internal/runtime"
 	"github.com/envoryx/envoryx/internal/sshd"
+	"github.com/envoryx/envoryx/internal/stats"
 	"github.com/envoryx/envoryx/internal/store"
 	"github.com/envoryx/envoryx/internal/validate"
 
@@ -124,16 +125,37 @@ func (a *API) dashboard(w http.ResponseWriter, r *http.Request) {
 
 	var statsOut any
 	if s, err := a.d.Stats.Summary(ctx); err == nil {
+		// The summary is cached and shared; the per-project figures are copied for the
+		// projects the caller may see.
+		per := make(map[string]stats.Usage, len(s.PerProject))
+		for id, u := range s.PerProject {
+			if p.CanAccessProject(id) {
+				per[id] = u
+			}
+		}
+		s.PerProject = per
 		statsOut = s
 	}
+	// Reconcile issues name their project; orphans belong to no project and are
+	// cleaned up on the admin-only Docker page, so only an instance admin hears of them.
 	report := a.d.Projects.LastReport()
+	issues := make([]project.ReconcileIssue, 0, len(report.Issues))
+	for _, is := range report.Issues {
+		if is.ProjectID == "" || p.CanAccessProject(is.ProjectID) {
+			issues = append(issues, is)
+		}
+	}
+	orphans := 0
+	if p.Allows(auth.ScopeAdmin) {
+		orphans = len(report.Orphans)
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"projects":   map[string]int{"total": len(views), "running": running, "stopped": stopped, "attention": attention},
 		"docker":     a.dockerInfo(ctx),
 		"stats":      statsOut,
 		"recent":     projects,
-		"issues":     report.Issues,
-		"orphans":    len(report.Orphans),
+		"issues":     issues,
+		"orphans":    orphans,
 		"activity":   a.d.Projects.Activity(),
 		"hostPath":   a.d.HostPath.Status(),
 		"storage":    disk.Check(a.d.Config.ConfigDir, a.d.Config.ProjectsDir, a.d.Config.BackupsDir),

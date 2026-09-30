@@ -20,6 +20,20 @@ const TokenPrefix = "stq_"
 // ErrInvalidTokenName is returned for unusable token names.
 var ErrInvalidTokenName = errors.New("token name must be 1-64 printable characters")
 
+// scopeAboveRole refuses a scope beyond the owner's role. It counts as ErrInvalidScope
+// (a validation error) but reads on its own: prefixed with that message it sounded as if
+// the scope name itself were wrong.
+type scopeAboveRole struct{ max Scope }
+
+func (e scopeAboveRole) Error() string {
+	if e.max == "" {
+		return "your role allows no API tokens"
+	}
+	return fmt.Sprintf("your role allows at most %s tokens", e.max)
+}
+
+func (e scopeAboveRole) Is(target error) bool { return target == ErrInvalidScope }
+
 // TokenSpec describes the token to issue.
 type TokenSpec struct {
 	Name  string
@@ -43,7 +57,7 @@ func (s *Service) CreateAPIToken(ctx context.Context, p Principal, spec TokenSpe
 	// A token is capped by its owner at every use anyway; a scope the owner can never
 	// reach is refused up front rather than silently not working.
 	if !p.MaxScope().Covers(scope) {
-		return "", store.APIToken{}, fmt.Errorf("%w: your role allows at most %s tokens", ErrInvalidScope, p.MaxScope())
+		return "", store.APIToken{}, scopeAboveRole{max: p.MaxScope()}
 	}
 	projects := slices.Clone(spec.Projects)
 	slices.Sort(projects)

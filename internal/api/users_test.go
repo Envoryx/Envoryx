@@ -1,9 +1,12 @@
 package api_test
 
 import (
+	"context"
 	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/envoryx/envoryx/internal/docker"
 )
 
 func TestUsersRolesAndInvitations(t *testing.T) {
@@ -172,6 +175,30 @@ func TestUsersRolesAndInvitations(t *testing.T) {
 		if u.(map[string]any)["id"] != blog {
 			t.Fatalf("metrics overview shows another project: %s", r.raw)
 		}
+	}
+
+	// The dashboard counts neither the instance's orphans nor other projects' issues:
+	// Shop without containers is an issue, the ghost volume an orphan.
+	a.cookie = admin
+	ctx := context.Background()
+	if err := a.engine.CreateVolume(ctx, "envoryx-ghost-database", docker.ManagedLabels("ghost-id", "ghost", "database", "test")); err != nil {
+		t.Fatal(err)
+	}
+	shopContainers, _ := a.engine.ListContainers(ctx, true, shop)
+	for _, c := range shopContainers {
+		_ = a.engine.RemoveContainer(ctx, c.ID)
+	}
+	if r := a.do(http.MethodPost, "/api/v1/system/reconcile", nil, true); r.status != http.StatusOK {
+		t.Fatalf("reconcile: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodGet, "/api/v1/dashboard", nil, false)
+	if r.body["orphans"] != float64(1) || !strings.Contains(string(r.raw), shop) {
+		t.Fatalf("admin dashboard: %s", r.raw)
+	}
+	a.cookie = dana
+	r = a.do(http.MethodGet, "/api/v1/dashboard", nil, false)
+	if r.status != http.StatusOK || r.body["orphans"] != float64(0) || strings.Contains(string(r.raw), shop) {
+		t.Fatalf("confined dashboard: %d %s", r.status, r.raw)
 	}
 
 	// Disabling signs Dana out and stops the token.

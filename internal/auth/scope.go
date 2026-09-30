@@ -177,7 +177,9 @@ func (p Principal) Require(need Scope, projectID string) error {
 		if p.Allows(need) {
 			return nil
 		}
-		if p.Confined() {
+		// The project restriction is the reason only when the level is within reach
+		// somewhere; a read token confined to a project is told about its scope.
+		if p.Confined() && p.MaxScope().Covers(need) {
 			return fmt.Errorf("%w: limited to particular projects", ErrForbidden)
 		}
 		return fmt.Errorf("%w: %s", ErrForbidden, p.lacks(need))

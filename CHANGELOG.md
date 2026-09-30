@@ -52,6 +52,11 @@ release). `:main` follows the development branch.
   disabled account since was undone for that session. The restore now
   ends every session. API tokens are the backup's and keep working; a
   token revoked after the backup was taken has to be revoked again.
+- The dashboard showed users with access to only some projects the
+  instance-wide count of orphaned resources, the reconcile issues of
+  every project (with its name) and the resource usage of every project.
+  It now lists issues and usage of the caller's projects only, and the
+  orphan count only for instance admins.
 
 ### Fixed
 - Several Envoryx instances on one Docker host (a test instance next to
@@ -122,6 +127,14 @@ release). `:main` follows the development branch.
 - A user whose global role is none could not see the schedule preview
   in a project's cron editor (403). The Database tab no longer asks
   viewers for the database browser's state, which they may not read.
+- Asking for a token scope above your role answered "scope must be read,
+  operate or admin: your role allows at most read tokens", as if the
+  scope name were wrong. It now reads "your role allows at most read
+  tokens".
+- A read token confined to one project that called an operate tool over
+  MCP (e.g. `stop_project`) was told "limited to particular projects"
+  instead of "this token has read scope, the operation needs operate",
+  as the REST API says. The same applied to the database browser routes.
 
 ## [0.17.0] - 2026-09-30
 

@@ -181,6 +181,13 @@ func TestMiddleware(t *testing.T) {
 	if _, _, err := svc.CreateAPIToken(ctx, p, TokenSpec{Name: "bad", Scope: "root"}); !errors.Is(err, ErrInvalidScope) {
 		t.Fatalf("unknown scope = %v", err)
 	}
+	// A scope above the role names the limit without calling the scope invalid.
+	if _, _, err := svc.CreateAPIToken(ctx, Principal{UserID: p.UserID, Role: "viewer"}, TokenSpec{Name: "big", Scope: ScopeAdmin}); !errors.Is(err, ErrInvalidScope) || err.Error() != "your role allows at most read tokens" {
+		t.Fatalf("scope above the role = %v", err)
+	}
+	if _, _, err := svc.CreateAPIToken(ctx, Principal{UserID: p.UserID, Role: "none"}, TokenSpec{Name: "any", Scope: ScopeRead}); !errors.Is(err, ErrInvalidScope) || err.Error() != "your role allows no API tokens" {
+		t.Fatalf("no role = %v", err)
+	}
 	var seen Principal
 	hb := svc.Middleware(unauth)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		seen, _ = PrincipalFrom(r.Context())
@@ -247,6 +254,16 @@ func TestRolesAndScopes(t *testing.T) {
 	none := Principal{Role: "none", ProjectRoles: map[string]Role{"shop": RoleViewer}}
 	if !none.Confined() || none.Allows(ScopeRead) || !none.CanAccessProject("shop") || none.CanAccessProject("blog") {
 		t.Fatal("role none is confined to its projects")
+	}
+	// On the instance a confined principal hears about the project restriction only when
+	// its scope would do; otherwise the scope is what falls short.
+	confined := Principal{Role: "admin", TokenName: "ci", Scope: ScopeRead, Projects: []string{"shop"}}
+	if err := confined.Require(ScopeOperate, ""); err == nil || !strings.Contains(err.Error(), "this token has read scope, the operation needs operate") {
+		t.Fatalf("confined read token asking for operate: %v", err)
+	}
+	confined.Scope = ScopeOperate
+	if err := confined.Require(ScopeOperate, ""); err == nil || !strings.Contains(err.Error(), "limited to particular projects") {
+		t.Fatalf("confined operate token on the instance: %v", err)
 	}
 	// An admin stays admin everywhere, whatever the project roles say.
 	admin := Principal{Role: "admin", ProjectRoles: map[string]Role{"shop": RoleViewer}}

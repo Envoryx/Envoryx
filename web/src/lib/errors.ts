@@ -61,6 +61,7 @@ const templates = [
   "a worker named \"{{name}}\" already exists",
   "{{disk}} has {{free}} free, the operation needs about {{needed}} plus a {{reserve}} reserve",
   "this token has {{scope}} scope, the operation needs {{needed}}",
+  "your role allows at most {{scope}} tokens",
   "network {{network}} is still used by {{users}} - disconnect or remove that container first",
   "network {{network}} is still used by {{users}} - disconnect or remove these containers first",
   "removing {{service}} deletes its data volume; confirm with removeData",
