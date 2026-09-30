@@ -31,6 +31,17 @@ describe("IdeTab", () => {
     expect(screen.queryByText("Xdebug")).not.toBeInTheDocument();
   });
 
+  it("tells where Xdebug connects and how to forward it over SSH", async () => {
+    mockApi({
+      ...authedRoutes,
+      "GET /settings": () => ({ body: settings }),
+      [`GET /projects/${id}/extras`]: () => ({ body: { services: [] } }),
+    });
+    renderApp(<IdeTab project={makeProject()} />);
+    expect(await screen.findByText(/then to host\.docker\.internal\. host\.docker\.internal is the Docker host, not your workstation/)).toBeInTheDocument();
+    expect(screen.getByText(/ssh -R 9003:localhost:9003/)).toBeInTheDocument();
+  });
+
   it("names no session container for a static project", async () => {
     mockApi({
       ...authedRoutes,

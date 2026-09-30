@@ -277,6 +277,11 @@ export function IdeTab({ project: p }: { project: Project }) {
               </div>
               <pre className="mt-1 overflow-x-auto rounded-md bg-muted p-2 font-mono text-[11px]">{phpXml}</pre>
             </div>
+            <p className="mt-3 text-xs text-subtle">
+              {t("Xdebug connects to the browser's address first, then to {{host}}. host.docker.internal is the Docker host, not your workstation: if PhpStorm runs elsewhere and the server cannot reach it, forward the port over SSH (ssh -R 9003:localhost:9003 with the SSH login from above) and set the Xdebug host under Runtime to localhost.", {
+                host: phpCfg.xdebugClientHost || s?.xdebugClientHost || "host.docker.internal",
+              })}
+            </p>
           </div>
         </Card>
       )}
@@ -339,7 +344,7 @@ export function IdeTab({ project: p }: { project: Project }) {
             </p>
             <pre className="mt-1 overflow-x-auto rounded-md bg-muted p-2 font-mono text-[11px]">{pythonDebugExamples(pyCfg.debugPort ?? 5678)}</pre>
             <p className="mt-2 text-xs text-subtle">
-              {t("VS Code: a launch.json entry of type debugpy with request attach, connect host/port from above and pathMappings localRoot/remoteRoot. PyCharm: Run → Edit Configurations → Python Debug Server listens on your machine instead - use its pydevd-pycharm snippet with your workstation's address as the host.")}
+              {t("VS Code: a launch.json entry of type debugpy with request attach, connect host/port from above and pathMappings localRoot/remoteRoot. PyCharm: Run → Edit Configurations → Python Debug Server listens on your machine instead. In its pydevd-pycharm snippet use host.docker.internal as the host if PyCharm runs on the Docker host; otherwise forward the port over SSH (ssh -R <port>:localhost:<port> with the SSH login from above) and use localhost.")}
             </p>
           </div>
         </Card>
