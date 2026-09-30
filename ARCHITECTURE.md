@@ -773,8 +773,10 @@ Project files in `/projects` are **never** deleted by rollback.
 All operations hold the per-project lock; concurrent requests return `409`.
 
 **Database browser** (`internal/project/dbtool.go`): one Adminer container
-(`envoryx-dbtool`, label `envoryx.system=dbtool`, so the reconciler never
-reports it as an orphan) on its own managed network, which Envoryx's container
+(`DBToolName`: `envoryx-dbtool-` plus the first 8 characters of a generated
+instance ID or all of a hand-written one, label `envoryx.system=dbtool`, so
+the reconciler never reports it as an orphan) on its own managed network of
+the same name, which Envoryx's container
 also joins. `OpenDBTool` starts it on demand, rewrites
 `/config/dbtool/connections.json` from every project's database config
 (atomic rename, mounted as a directory), connects the container to the
@@ -799,8 +801,10 @@ container runs PHP's built-in server with `/config/dbtool/router.php`, which
 answers only requests with the proxy's secret (`X-Envoryx-Dbtool-Token`, from
 `/config/dbtool/proxy-token`) and only for `/` and `/index.php`, because
 project containers on the networks it joined could reach it directly. The
-container carries `envoryx.dbtool.guard=1`; one without it is not proxied to
-and is removed by the reconcile. Project deletion detaches the tool before removing
+container carries `envoryx.dbtool.guard=1`; one without it, or one under the
+host-wide `envoryx-dbtool` of older versions (which allowed one browser per
+Docker host), is not proxied to and is removed by the reconcile, the old
+network with it; the next open creates the current one. Project deletion detaches the tool before removing
 the network; disabling removes container, network and file. On bare metal the
 container publishes on 127.0.0.1 instead of a shared network.
 

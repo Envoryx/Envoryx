@@ -392,6 +392,9 @@ type Engine interface {
 	// Ping checks connectivity and returns engine information.
 	Ping(ctx context.Context) (Info, error)
 
+	// InstanceID is the Envoryx instance the engine works for (LabelInstance); "" when
+	// resources are not labelled.
+	InstanceID() string
 	// ListContainers lists containers. If managedOnly is true only the containers this
 	// instance manages are returned; projectID additionally filters by project.
 	ListContainers(ctx context.Context, managedOnly bool, projectID string) ([]Container, error)

@@ -45,8 +45,8 @@ func TestDBToolLifecycle(t *testing.T) {
 	if !strings.HasPrefix(link.URL, "/dbtool/?") || !strings.Contains(link.URL, "server=envoryx-shop-database") || !strings.Contains(link.URL, "username=") || link.Server != "envoryx-shop-database" {
 		t.Fatalf("link: %+v", link)
 	}
-	tool, _ := e.engine.Container(DBToolContainer)
-	if tool.State != "running" || tool.Spec.Labels[docker.LabelSystem] != "dbtool" || tool.Spec.Network != DBToolNetwork {
+	tool, _ := e.engine.Container(DBToolName(testInstance))
+	if tool.State != "running" || tool.Spec.Labels[docker.LabelSystem] != "dbtool" || tool.Spec.Network != DBToolName(testInstance) {
 		t.Fatalf("tool container: %+v", tool)
 	}
 	if len(tool.Spec.Ports) != 0 {
@@ -57,10 +57,10 @@ func TestDBToolLifecycle(t *testing.T) {
 		t.Fatalf("tool must join the project network: %v", nets)
 	}
 	selfNets, _ := e.engine.ContainerNetworks(ctx, selfID)
-	if !contains(selfNets, DBToolNetwork) {
+	if !contains(selfNets, DBToolName(testInstance)) {
 		t.Fatalf("Envoryx must join the tool network to reach it: %v", selfNets)
 	}
-	if dial, _ := e.m.DBToolDial(ctx); dial != DBToolContainer+":8080" {
+	if dial, _ := e.m.DBToolDial(ctx); dial != DBToolName(testInstance)+":8080" {
 		t.Fatalf("dial = %q", dial)
 	}
 	raw, err := os.ReadFile(filepath.Join(e.cfgDir, "dbtool", "connections.json"))
@@ -92,7 +92,7 @@ func TestDBToolLifecycle(t *testing.T) {
 	if _, err := e.m.OpenDBTool(ctx, id, ""); err != nil {
 		t.Fatal(err)
 	}
-	if again, _ := e.engine.Container(DBToolContainer); again.ID != tool.ID {
+	if again, _ := e.engine.Container(DBToolName(testInstance)); again.ID != tool.ID {
 		t.Fatal("open must reuse the running container")
 	}
 
@@ -109,12 +109,12 @@ func TestDBToolLifecycle(t *testing.T) {
 	if err := e.m.SetDBToolEnabled(ctx, false); err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := e.engine.Container(DBToolContainer); ok {
+	if _, ok := e.engine.Container(DBToolName(testInstance)); ok {
 		t.Fatal("container must be removed when disabled")
 	}
 	networks, _ := e.engine.ListNetworks(ctx, true)
 	for _, n := range networks {
-		if n.Name == DBToolNetwork {
+		if n.Name == DBToolName(testInstance) {
 			t.Fatal("tool network must be removed when disabled")
 		}
 	}
@@ -136,7 +136,7 @@ func TestDBToolBareMetalAndUnsupported(t *testing.T) {
 	if _, err := e.m.OpenDBTool(ctx, view.Project.ID, ""); err != nil {
 		t.Fatal(err)
 	}
-	tool, _ := e.engine.Container(DBToolContainer)
+	tool, _ := e.engine.Container(DBToolName(testInstance))
 	if len(tool.Spec.Ports) != 1 || tool.Spec.Ports[0].HostIP != "127.0.0.1" || tool.Spec.Ports[0].ContainerPort != 8080 {
 		t.Fatalf("bare metal must publish on loopback: %+v", tool.Spec.Ports)
 	}
@@ -213,20 +213,20 @@ func TestDBToolContainerAnswersOnlyTheProxy(t *testing.T) {
 	}
 
 	// A container from before the router is not used and the reconcile removes it.
-	e.engine.AddManagedContainer(docker.ContainerSpec{Name: DBToolContainer, Image: DBToolImage,
+	e.engine.AddManagedContainer(docker.ContainerSpec{Name: DBToolName(testInstance), Image: DBToolImage,
 		Labels: map[string]string{docker.LabelManaged: "true", docker.LabelSystem: "dbtool", dbToolHostsLabel: "1"}}, "running")
 	if dial, _ := e.m.DBToolDial(ctx); dial != "" {
 		t.Fatalf("an unguarded container must not be proxied to: %q", dial)
 	}
 	e.m.Reconcile(ctx)
-	if _, ok := e.engine.Container(DBToolContainer); ok {
+	if _, ok := e.engine.Container(DBToolName(testInstance)); ok {
 		t.Fatal("the unguarded container must be removed")
 	}
 
 	if _, err := e.m.OpenDBTool(ctx, view.Project.ID, ""); err != nil {
 		t.Fatal(err)
 	}
-	tool, _ := e.engine.Container(DBToolContainer)
+	tool, _ := e.engine.Container(DBToolName(testInstance))
 	if tool.Spec.Labels[dbToolGuardLabel] != "1" || len(tool.Spec.Cmd) == 0 || tool.Spec.Cmd[len(tool.Spec.Cmd)-1] != "/envoryx/router.php" {
 		t.Fatalf("the container must run behind the router: %+v %v", tool.Spec.Labels, tool.Spec.Cmd)
 	}

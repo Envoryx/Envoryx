@@ -96,7 +96,7 @@ func TestDBToolFollowsFolderView(t *testing.T) {
 	if _, err := e.m.OpenDBTool(ctx, view.Project.ID, ""); err != nil {
 		t.Fatal(err)
 	}
-	before, _ := e.engine.Container(DBToolContainer)
+	before, _ := e.engine.Container(DBToolName(testInstance))
 	if before.Spec.Labels[docker.LabelUnraidIcon] != docker.UnraidIcon {
 		t.Fatalf("icon label missing: %v", before.Spec.Labels)
 	}
@@ -107,7 +107,7 @@ func TestDBToolFollowsFolderView(t *testing.T) {
 	if _, err := e.m.OpenDBTool(ctx, view.Project.ID, ""); err != nil {
 		t.Fatal(err)
 	}
-	after, _ := e.engine.Container(DBToolContainer)
+	after, _ := e.engine.Container(DBToolName(testInstance))
 	if after.ID == before.ID || after.Spec.Labels[docker.LabelFolderView] != "Envoryx" {
 		t.Fatalf("database browser must be recreated with the folder: %+v", after.Spec.Labels)
 	}

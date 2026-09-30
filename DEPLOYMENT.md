@@ -1279,7 +1279,8 @@ What the instances still share:
 - **The network pool.** Both may use the same `ENVORYX_NETWORK_POOL`: a new
   network takes a /24 that no network on the host uses, whoever created it.
   Separate ranges only give each instance its full 256 networks.
-- **The database browser** runs as the container `envoryx-dbtool`, so only one
+- **Nothing for the database browser.** Its container and network are named
+  after the instance ID (`envoryx-dbtool-<first 8 characters>`), so every
   instance can have it enabled.
 
 The instance ID is not part of instance backups and a restore keeps the
@@ -1949,9 +1950,11 @@ speed on a current CPU; larger ones need the GPU or patience.
 projects with MariaDB, MySQL or PostgreSQL (MongoDB is not supported by the
 Adminer image; use the published port with Compass). Nothing runs until the
 first click on **Open database** in a project's Database section: Envoryx then
-pulls `adminer:5`, starts one shared container `envoryx-dbtool` on its own
-network, joins it to the project's network and opens Adminer in a new tab,
-already logged in as the project user (the root user is available too by
+pulls `adminer:5`, starts one shared container on its own network (both
+named `envoryx-dbtool-` plus the first 8 characters of the
+[instance ID](#several-instances-on-one-docker-host); older versions used
+plain `envoryx-dbtool`, which the next open replaces), joins it to the
+project's network and opens Adminer in a new tab, already logged in as the project user (the root user is available too by
 changing the user name in the URL).
 
 How it stays private: Adminer is served under the Envoryx UI at `/dbtool/`,

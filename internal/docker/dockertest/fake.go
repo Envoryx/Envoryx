@@ -123,6 +123,9 @@ type Fake struct {
 	Instance string
 }
 
+// InstanceID implements docker.Engine.
+func (f *Fake) InstanceID() string { return f.Instance }
+
 // owns reports whether a resource with these labels is the fake's instance's to manage.
 func (f *Fake) owns(labels map[string]string) bool { return docker.Owns(f.Instance, labels) }
 

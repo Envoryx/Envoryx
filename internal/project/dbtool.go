@@ -3,6 +3,7 @@ package project
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -12,6 +13,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -42,11 +44,12 @@ const (
 	// settingDBToolPort remembers the host port used on bare metal (no shared network).
 	settingDBToolPort = "dbtool_host_port"
 
-	DBToolImage     = "adminer:5"
-	DBToolContainer = "envoryx-dbtool"
-	DBToolNetwork   = "envoryx-dbtool"
-	dbToolSystem    = "dbtool"
-	dbToolPort      = 8080
+	DBToolImage = "adminer:5"
+	// legacyDBToolName is the container and network name from before instance IDs. It
+	// allowed one database browser per Docker host; see DBToolName.
+	legacyDBToolName = "envoryx-dbtool"
+	dbToolSystem     = "dbtool"
+	dbToolPort       = 8080
 	// DBToolPathPrefix is where the UI server mounts the reverse proxy.
 	DBToolPathPrefix = "/dbtool"
 	// DBToolTokenHeader carries the proxy's secret; the container refuses requests without it.
@@ -207,7 +210,8 @@ func (m *Manager) DBToolStatus(ctx context.Context) (DBToolStatus, error) {
 	}
 	if c != nil {
 		st.ContainerID = c.ID
-		st.Running = c.State == "running"
+		// One under the old host-wide name is replaced by the next open (see ensureDBTool).
+		st.Running = c.State == "running" && c.Name == m.dbToolName()
 	}
 	return st, nil
 }
@@ -218,6 +222,29 @@ const dbToolHostsLabel = "envoryx.dbtool.hostgateway"
 // dbToolGuardLabel marks a browser container that runs behind the router script and so
 // answers only the proxy. An older container would serve anyone on its networks.
 const dbToolGuardLabel = "envoryx.dbtool.guard"
+
+// generatedInstanceID matches the IDs instance.LoadID creates.
+var generatedInstanceID = regexp.MustCompile(`^[0-9a-f]{32}$`)
+
+// DBToolName is the name of the browser's container and of its network for an instance.
+// Docker names are host-wide, so each instance on a shared host gets its own: a generated
+// ID contributes its first 8 characters, a hand-written one (which may share a prefix with
+// another) all of it, shortened with a hash where the name would outgrow a DNS label (the
+// proxy dials the container by name).
+func DBToolName(instance string) string {
+	switch {
+	case instance == "":
+		return legacyDBToolName
+	case generatedInstanceID.MatchString(instance):
+		instance = instance[:8]
+	case len(instance) > 48:
+		sum := sha256.Sum256([]byte(instance))
+		instance = strings.TrimRight(instance[:39], "-") + "-" + hex.EncodeToString(sum[:])[:8]
+	}
+	return legacyDBToolName + "-" + instance
+}
+
+func (m *Manager) dbToolName() string { return DBToolName(m.engine.InstanceID()) }
 
 // dbToolServer is the server Adminer connects to: the database container by name, or an
 // external server's address.
@@ -292,8 +319,9 @@ func (m *Manager) DBToolDial(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if c == nil || c.State != "running" || c.Labels[dbToolGuardLabel] != "1" {
-		// A container from before the router is not used; opening a database recreates it.
+	if c == nil || c.State != "running" || c.Labels[dbToolGuardLabel] != "1" || c.Name != m.dbToolName() {
+		// A container from before the router or under the host-wide name is not used;
+		// opening a database recreates it.
 		return "", nil
 	}
 	paths, err := m.paths()
@@ -301,7 +329,7 @@ func (m *Manager) DBToolDial(ctx context.Context) (string, error) {
 		return "", err
 	}
 	if paths.SelfContainerID != "" {
-		return net.JoinHostPort(DBToolContainer, strconv.Itoa(dbToolPort)), nil
+		return net.JoinHostPort(c.Name, strconv.Itoa(dbToolPort)), nil
 	}
 	for _, p := range c.Ports {
 		if p.ContainerPort == dbToolPort && p.HostPort != 0 {
@@ -359,6 +387,25 @@ func (m *Manager) ensureDBTool(ctx context.Context) error {
 	}
 	labels := map[string]string{docker.LabelManaged: "true", docker.LabelSystem: dbToolSystem, docker.LabelService: dbToolSystem, docker.LabelVersion: paths.EnvoryxVersion}
 	folder := m.FolderViewFolder(ctx)
+	name := m.dbToolName()
+
+	c, err := m.findDBTool(ctx)
+	if err != nil {
+		return err
+	}
+	if c != nil && (c.Name != name || c.Image != DBToolImage || c.Labels[docker.LabelFolderView] != folder || c.Labels[dbToolHostsLabel] != "1" || c.Labels[dbToolGuardLabel] != "1") {
+		// A newer Envoryx may ship another Adminer version, the FolderView3 folder
+		// changed (labels are fixed at creation), or the container predates the host
+		// gateway entry, the router or the per-instance name: recreate, the container
+		// holds no state.
+		if err := m.engine.RemoveContainer(ctx, c.ID); err != nil {
+			return err
+		}
+		c = nil
+	}
+	if err := m.removeLegacyDBToolNetwork(ctx); err != nil {
+		m.log.Warn("remove the old database browser network", "err", err)
+	}
 
 	networks, err := m.engine.ListNetworks(ctx, true)
 	if err != nil {
@@ -366,31 +413,17 @@ func (m *Manager) ensureDBTool(ctx context.Context) error {
 	}
 	haveNet := false
 	for _, n := range networks {
-		if n.Name == DBToolNetwork {
+		if n.Name == name {
 			haveNet = true
 		}
 	}
 	if !haveNet {
-		if err := m.createNetwork(ctx, DBToolNetwork, labels); err != nil {
+		if err := m.createNetwork(ctx, name, labels); err != nil {
 			return fmt.Errorf("create network: %w", err)
 		}
 	}
-	if err := m.attachProxy(ctx, DBToolNetwork, nil, false); err != nil {
-		m.log.Warn("proxy attach failed", "network", DBToolNetwork, "err", err)
-	}
-
-	c, err := m.findDBTool(ctx)
-	if err != nil {
-		return err
-	}
-	if c != nil && (c.Image != DBToolImage || c.Labels[docker.LabelFolderView] != folder || c.Labels[dbToolHostsLabel] != "1" || c.Labels[dbToolGuardLabel] != "1") {
-		// A newer Envoryx may ship another Adminer version, the FolderView3 folder
-		// changed (labels are fixed at creation), or the container predates the host
-		// gateway entry or the router: recreate, the container holds no state.
-		if err := m.engine.RemoveContainer(ctx, c.ID); err != nil {
-			return err
-		}
-		c = nil
+	if err := m.attachProxy(ctx, name, nil, false); err != nil {
+		m.log.Warn("proxy attach failed", "network", name, "err", err)
 	}
 	if c == nil {
 		if err := m.engine.EnsureImage(ctx, DBToolImage, m.pullProgress(ctx, dbToolSystem, DBToolImage)); err != nil {
@@ -401,7 +434,7 @@ func (m *Manager) ensureDBTool(ctx context.Context) error {
 		containerLabels[dbToolGuardLabel] = "1"
 		docker.AddUnraidLabels(containerLabels, folder)
 		spec := docker.ContainerSpec{
-			Name: DBToolContainer, Image: DBToolImage, Labels: containerLabels,
+			Name: name, Image: DBToolImage, Labels: containerLabels,
 			// Directories, not single files: the connections file is replaced by rename and
 			// a file bind mount would keep showing the old inode.
 			Mounts: []docker.MountSpec{
@@ -411,7 +444,7 @@ func (m *Manager) ensureDBTool(ctx context.Context) error {
 			// The image's own command plus the router script, which turns away everything
 			// that does not come through the proxy.
 			Cmd:     []string{"php", "-S", "[::]:" + strconv.Itoa(dbToolPort), "-t", "/var/www/html", "/envoryx/router.php"},
-			Network: DBToolNetwork, NetworkAlias: []string{DBToolContainer}, RestartPolicy: "unless-stopped", StopTimeout: 5,
+			Network: name, NetworkAlias: []string{name}, RestartPolicy: "unless-stopped", StopTimeout: 5,
 			User: fmt.Sprintf("%d:%d", paths.PUID, paths.PGID),
 			// An external database may run on the Docker host itself.
 			ExtraHosts: []string{hostGatewayEntry},
@@ -485,11 +518,14 @@ func (m *Manager) DBToolProxyToken() (string, error) {
 	return token, nil
 }
 
-// retireUnguardedDBTool removes a browser container from before the router: it answers
-// anyone on the project networks it joined and logs them in. The next open recreates it.
-func (m *Manager) retireUnguardedDBTool(ctx context.Context, containers []docker.Container) {
+// retireOutdatedDBTool removes a browser container from before the router, which answers
+// anyone on the project networks it joined and logs them in, and one under the host-wide
+// name of older versions, which keeps other instances on the host from having their own.
+// The next open recreates it.
+func (m *Manager) retireOutdatedDBTool(ctx context.Context, containers []docker.Container) {
+	name := m.dbToolName()
 	for _, c := range containers {
-		if c.Labels[docker.LabelSystem] != dbToolSystem || c.Labels[dbToolGuardLabel] == "1" {
+		if c.Labels[docker.LabelSystem] != dbToolSystem || (c.Labels[dbToolGuardLabel] == "1" && c.Name == name) {
 			continue
 		}
 		unlock, err := m.lock(dbToolSystem)
@@ -500,10 +536,35 @@ func (m *Manager) retireUnguardedDBTool(ctx context.Context, containers []docker
 			m.log.Warn("remove outdated database browser", "err", err)
 		} else {
 			m.log.Info("outdated database browser removed; opening a database recreates it")
+			if err := m.removeLegacyDBToolNetwork(ctx); err != nil {
+				m.log.Warn("remove the old database browser network", "err", err)
+			}
 		}
 		unlock()
 		return
 	}
+}
+
+// removeLegacyDBToolNetwork removes this instance's network under the host-wide name of
+// older versions once the browser has moved to its own. Another instance's network of that
+// name is not listed as managed and stays.
+func (m *Manager) removeLegacyDBToolNetwork(ctx context.Context) error {
+	if m.dbToolName() == legacyDBToolName {
+		return nil
+	}
+	networks, err := m.engine.ListNetworks(ctx, true)
+	if err != nil {
+		return err
+	}
+	for _, n := range networks {
+		if n.Name == legacyDBToolName && n.Labels[docker.LabelSystem] == dbToolSystem {
+			_ = m.detachProxy(ctx, n.Name)
+			if err := m.engine.RemoveNetwork(ctx, n.ID); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 // connectDBTool joins the browser to a project network (idempotent).
@@ -551,7 +612,7 @@ func (m *Manager) removeDBTool(ctx context.Context) error {
 		return err
 	}
 	for _, n := range networks {
-		if n.Name == DBToolNetwork {
+		if n.Name == m.dbToolName() || (n.Name == legacyDBToolName && n.Labels[docker.LabelSystem] == dbToolSystem) {
 			_ = m.detachProxy(ctx, n.Name)
 			if err := m.engine.RemoveNetwork(ctx, n.ID); err != nil {
 				return err

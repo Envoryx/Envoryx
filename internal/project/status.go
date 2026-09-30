@@ -231,7 +231,7 @@ func (m *Manager) Reconcile(ctx context.Context) ReconcileReport {
 	networks, _ := m.engine.ListNetworks(ctx, true)
 	volumes, _ := m.engine.ListVolumes(ctx, true)
 	m.ProtectRollbackTargets(ctx)
-	m.retireUnguardedDBTool(ctx, containers)
+	m.retireOutdatedDBTool(ctx, containers)
 	// Without host paths there is no plan; the outdated-container check is skipped then.
 	planner, planErr := m.planner()
 
