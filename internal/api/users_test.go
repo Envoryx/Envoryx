@@ -159,6 +159,10 @@ func TestUsersRolesAndInvitations(t *testing.T) {
 	if r := a.do(http.MethodGet, "/api/v1/runtimes", nil, false); r.status != http.StatusOK {
 		t.Fatalf("runtimes for a confined user: %d", r.status)
 	}
+	// The cron editor's schedule preview reads nothing and works in every project.
+	if r := a.do(http.MethodPost, "/api/v1/cron/preview", map[string]any{"schedule": "*/5 * * * *"}, true); r.status != http.StatusOK {
+		t.Fatalf("cron preview for a confined user: %d %s", r.status, r.raw)
+	}
 	// The resource comparison lists only Blog as well, not the other projects' names.
 	r = a.do(http.MethodGet, "/api/v1/metrics/overview?range=24h", nil, false)
 	if r.status != http.StatusOK {

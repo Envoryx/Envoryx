@@ -348,8 +348,9 @@ export function useProjectActions(id: string) {
   });
 }
 
-export function useDBTool() {
-  return useQuery({ queryKey: ["dbtool"], queryFn: () => api.dbtool.status(), refetchInterval: LIVE_INTERVAL });
+/** The database browser's state; it needs operate in some project, so a viewer's page passes enabled = false. */
+export function useDBTool(enabled = true) {
+  return useQuery({ queryKey: ["dbtool"], queryFn: () => api.dbtool.status(), refetchInterval: LIVE_INTERVAL, enabled });
 }
 
 export function useSetDBTool() {
