@@ -195,6 +195,11 @@ func TestDotnetTemplateWorkersTestsAndManifest(t *testing.T) {
 	if !ok || w.Spec.Image != "ghcr.io/envoryx/envoryx-dotnet:10" || w.Spec.Cmd[2] != dotnetWorkerScript || w.Spec.Cmd[4] != "src/Jobs/Jobs.csproj" || envValue(w.Spec.Env, "ConnectionStrings__DefaultConnection") == "" {
 		t.Fatalf("dotnet worker: %+v", w.Spec)
 	}
+	// The section shows the publish that runs, not a dotnet run that doesn't.
+	cmd, err := WorkerDisplayCommand(store.Worker{Preset: "dotnet:project", Args: []string{"./src/Jobs/Jobs.csproj"}})
+	if err != nil || strings.Join(cmd, " ") != "dotnet publish src/Jobs/Jobs.csproj -c Release -o /tmp/envoryx-dotnet-worker && exec dotnet /tmp/envoryx-dotnet-worker/Jobs.dll" {
+		t.Fatalf("display %q, err %v", cmd, err)
+	}
 	if _, err := e.m.AddWorker(ctx, v.Project.ID, WorkerRequest{Name: "tool", Preset: "dotnet:dll", Arg: "tools/Tool.dll", Enabled: true}); err != nil {
 		t.Fatal(err)
 	}

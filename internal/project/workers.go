@@ -3,6 +3,7 @@ package project
 import (
 	"context"
 	"fmt"
+	"path"
 	"regexp"
 	"strings"
 
@@ -328,7 +329,10 @@ var dotnetWorkerPresets = []WorkerPreset{
 			return []string{"sh", "-c", dotnetWorkerScript, "envoryx-dotnet-worker", strings.TrimPrefix(arg, "./")}
 		},
 		display: func(arg string) []string {
-			return []string{"dotnet", "run", "--project", strings.TrimPrefix(arg, "./")}
+			proj := strings.TrimPrefix(arg, "./")
+			name := path.Base(proj)
+			dll := dotnetWorkerOut + "/" + strings.TrimSuffix(name, path.Ext(name)) + ".dll"
+			return []string{"dotnet", "publish", proj, "-c", "Release", "-o", dotnetWorkerOut, "&&", "exec", "dotnet", dll}
 		}},
 	{ID: "dotnet:dll", Group: ".NET", Label: "DLL", Description: "dotnet <file> - a built application", ArgLabel: "DLL", ArgHint: "relative to the project, e.g. " + runtime.DotnetPublishDir + "/Worker.dll", Runtime: WorkerRuntimeDotnet,
 		validateArg: func(arg string) error {
@@ -340,13 +344,16 @@ var dotnetWorkerPresets = []WorkerPreset{
 		build: func(arg string) []string { return []string{"dotnet", strings.TrimPrefix(arg, "./")} }},
 }
 
+// dotnetWorkerOut is where the "dotnet:project" worker publishes its project.
+const dotnetWorkerOut = "/tmp/envoryx-dotnet-worker"
+
 // dotnetWorkerScript publishes the project ($1) into the container and execs the
 // application named after it (the assembly name defaults to the project file's), else the
 // only one the publish left. Not dotnet run: it would stay the parent, and the worker's
 // stop signal would not reach the application. Without the compiler server, which would
 // otherwise linger in the worker's container.
 const dotnetWorkerScript = `set -e
-out=/tmp/envoryx-dotnet-worker
+out=` + dotnetWorkerOut + `
 rm -rf "$out"
 dotnet publish "$1" -c Release -o "$out" --nologo -p:UseSharedCompilation=false
 name=$(basename "$1"); dll="$out/${name%.*}.dll"
