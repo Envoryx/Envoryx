@@ -10,10 +10,18 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-09-30
+
+Fixes from a full system test, four of them for security (see
+*Security*). **After the update the dashboard reports every running
+container once** as running with an older setup, because the container
+fingerprint now includes the environment; restart each project when it
+suits you. Ruby projects install their bundle once more on that restart,
+and PHP projects pull the new PHP image. New project networks come from
+`ENVORYX_NETWORK_POOL` (`10.213.0.0/16`); set another range if that one is
+used in your network.
+
 ### Added
-- PHP's `mail()` reaches Mailpit: the PHP images ship msmtp, and while
-  Mailpit is on, `sendmail_path` sends through it. Without Mailpit
-  `mail()` returns false as before.
 - Envoryx sets `DB_SERVER_VERSION` for the MariaDB, MySQL and PostgreSQL
   servers it runs, in the form Doctrine expects (`18`, `8.4.0`,
   `mariadb-11.4.0`); additional servers get it with their prefix.
@@ -22,6 +30,9 @@ release). `:main` follows the development branch.
   version stays at 8.0). On Docker hosts where the old version cannot
   start, the backup taken first is a copy of the data volume instead of
   a dump; restore, download and offsite copies handle it.
+- PHP's `mail()` reaches Mailpit: the PHP images ship msmtp, and while
+  Mailpit is on, `sendmail_path` sends through it. Without Mailpit
+  `mail()` returns false as before.
 
 ### Changed
 - New project networks get a /24 out of `ENVORYX_NETWORK_POOL`
@@ -1294,7 +1305,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.16.2...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.17.0...HEAD
+[0.17.0]: https://github.com/envoryx/envoryx/compare/v0.16.2...v0.17.0
 [0.16.2]: https://github.com/envoryx/envoryx/compare/v0.16.1...v0.16.2
 [0.16.1]: https://github.com/envoryx/envoryx/compare/v0.16.0...v0.16.1
 [0.16.0]: https://github.com/envoryx/envoryx/compare/v0.15.0...v0.16.0
