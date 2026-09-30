@@ -2638,5 +2638,8 @@
   "the {{service}} container runs with an older setup; restart the project to update it": "Le conteneur {{service}} tourne avec une configuration plus ancienne ; redémarrez le projet pour le mettre à jour",
   "IDE: {{ide}} with user": "IDE : {{ide}} avec l'utilisateur",
   "RubyMine's debugger forwards a port over SSH, so switch on “Allow JetBrains Gateway for this project” below first.": "Le débogueur de RubyMine redirige un port via SSH : activez d'abord « Autoriser JetBrains Gateway pour ce projet » ci-dessous.",
-  "The steps are PhpStorm's and WebStorm's. GoLand, PyCharm, RubyMine, IntelliJ IDEA and Rider have no “New Project from Existing Files”: open or clone the code locally and follow “Code already on your machine” below.": "Ces étapes sont celles de PhpStorm et WebStorm. GoLand, PyCharm, RubyMine, IntelliJ IDEA et Rider n'ont pas « New Project from Existing Files » : ouvrez ou clonez le code localement et suivez « Le code est déjà sur votre machine » ci-dessous."
+  "The steps are PhpStorm's and WebStorm's. GoLand, PyCharm, RubyMine, IntelliJ IDEA and Rider have no “New Project from Existing Files”: open or clone the code locally and follow “Code already on your machine” below.": "Ces étapes sont celles de PhpStorm et WebStorm. GoLand, PyCharm, RubyMine, IntelliJ IDEA et Rider n'ont pas « New Project from Existing Files » : ouvrez ou clonez le code localement et suivez « Le code est déjà sur votre machine » ci-dessous.",
+  "cannot start {{version}} on Linux kernel {{kernel}} and newer (this host runs {{host}}); switch to {{other}}": "{{version}} ne démarre pas sur le noyau Linux {{kernel}} et plus récent (cet hôte utilise {{host}}) ; passez à {{other}}",
+  "cannot start {{version}} on Linux kernel {{kernel}} and newer (this host runs {{host}})": "{{version}} ne démarre pas sur le noyau Linux {{kernel}} et plus récent (cet hôte utilise {{host}})",
+  " (not on this host)": " (pas sur cet hôte)"
 }

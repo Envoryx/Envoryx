@@ -94,6 +94,7 @@ func (e *MobyEngine) Ping(ctx context.Context) (Info, error) {
 		Running:       info.Info.ContainersRunning,
 		NCPU:          info.Info.NCPU,
 		MemTotal:      info.Info.MemTotal,
+		KernelVersion: info.Info.KernelVersion,
 	}, nil
 }
 

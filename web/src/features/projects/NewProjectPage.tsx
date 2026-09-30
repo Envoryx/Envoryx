@@ -22,6 +22,7 @@ import { PhpConfigForm } from "./PhpConfigForm";
 import { TemplateGallery, runtimeNames, templateRuntime } from "./TemplateGallery";
 import { WizardSummary, type SummaryRow } from "./WizardSummary";
 import { webServerHint } from "./webServers";
+import { unavailableHint, versionOptions } from "./versionOptions";
 import { errorText } from "@/lib/errors";
 import { slugify } from "@/lib/format";
 
@@ -327,6 +328,7 @@ export function NewProjectPage() {
   const webServers = rt.runtimes.filter((r) => r.kind === "webserver" && r.available);
   const web = webServers.find((r) => r.key === form.webType);
   const databases = rt.runtimes.filter((r) => r.kind === "database");
+  const dbVersions = databases.find((d) => d.key === form.dbType)?.versions ?? [];
   const services = rt.runtimes.filter((r) => r.kind === "service");
   const selectedTemplate = rt.templates?.find((x) => x.id === form.template);
   const nameError = form.name.trim().length > 0 && form.name.trim().length < 2 ? t("At least 2 characters.") : slugify(form.name) === "" && form.name.trim() ? t("Name must contain letters or digits.") : undefined;
@@ -541,14 +543,6 @@ export function NewProjectPage() {
   const devTarget = { httpPort: 0, hostnames: preview?.devHostname ? [preview.devHostname] : [], serves: "node" as Serves, services: [] as Project["services"] };
   const devUrl = preview?.devHostname ? links(devTarget).url : "";
 
-  const versionOptions = (versions: { version: string; label: string; eol?: boolean; preview?: boolean }[]) =>
-    versions.map((v) => (
-      <option key={v.version} value={v.version}>
-        {v.label}
-        {v.eol ? t(" (end of life)") : v.preview ? t(" (preview)") : ""}
-      </option>
-    ));
-
   const phpCard = php && (
     <div key="php" className="space-y-4 rounded-md border border-default p-4">
       <Checkbox label={t("Enable PHP")} description={t("Runs PHP-FPM in its own container. Disable for Node-only or static projects.")} checked={form.phpEnabled} onChange={(e) => set({ phpEnabled: e.target.checked })} />
@@ -556,7 +550,7 @@ export function NewProjectPage() {
         <>
           <Field label={t("PHP version")} htmlFor="php-version">
             <Select id="php-version" value={form.phpVersion} onChange={(e) => set({ phpVersion: e.target.value })}>
-              {versionOptions(php.versions)}
+              {versionOptions(php.versions, t)}
             </Select>
           </Field>
           <PhpConfigForm value={form.phpConfig} onChange={(c) => set({ phpConfig: c })} extensions={rt.phpExtensions} />
@@ -573,7 +567,7 @@ export function NewProjectPage() {
         <>
           <Field label={t("Node.js version")} htmlFor="node-version">
             <Select id="node-version" value={form.nodeVersion} onChange={(e) => set({ nodeVersion: e.target.value })}>
-              {versionOptions(node.versions)}
+              {versionOptions(node.versions, t)}
             </Select>
           </Field>
           <NodeDevServerFields value={form.nodeDev} onChange={setNodeDev} idPrefix="wizard-node" presets={nodePresets} primary={form.stack === "node"} />
@@ -590,7 +584,7 @@ export function NewProjectPage() {
         <>
           <Field label={t("Python version")} htmlFor="python-version">
             <Select id="python-version" value={form.pythonVersion} onChange={(e) => set({ pythonVersion: e.target.value })}>
-              {versionOptions(python.versions)}
+              {versionOptions(python.versions, t)}
             </Select>
           </Field>
           <PythonServerFields value={form.pythonServer} onChange={(pythonServer) => set({ pythonServer })} idPrefix="wizard-python" presets={pythonPresets} primary={!form.phpEnabled} />
@@ -607,7 +601,7 @@ export function NewProjectPage() {
         <>
           <Field label={t("Go version")} htmlFor="go-version">
             <Select id="go-version" value={form.goVersion} onChange={(e) => set({ goVersion: e.target.value })}>
-              {versionOptions(golang.versions)}
+              {versionOptions(golang.versions, t)}
             </Select>
           </Field>
           <GoServerFields value={form.goServer} onChange={(goServer) => set({ goServer })} idPrefix="wizard-go" primary={!form.phpEnabled && !(form.pythonEnabled && form.pythonServer.server)} />
@@ -624,7 +618,7 @@ export function NewProjectPage() {
         <>
           <Field label={t("Ruby version")} htmlFor="ruby-version">
             <Select id="ruby-version" value={form.rubyVersion} onChange={(e) => set({ rubyVersion: e.target.value })}>
-              {versionOptions(ruby.versions)}
+              {versionOptions(ruby.versions, t)}
             </Select>
           </Field>
           <RubyServerFields value={form.rubyServer} onChange={(rubyServer) => set({ rubyServer })} idPrefix="wizard-ruby" presets={rubyPresets} primary={!form.phpEnabled && !(form.pythonEnabled && form.pythonServer.server) && !(form.goEnabled && form.goServer.server)} />
@@ -641,7 +635,7 @@ export function NewProjectPage() {
         <>
           <Field label={t("Java version")} htmlFor="java-version">
             <Select id="java-version" value={form.javaVersion} onChange={(e) => set({ javaVersion: e.target.value })}>
-              {versionOptions(java.versions)}
+              {versionOptions(java.versions, t)}
             </Select>
           </Field>
           <JavaServerFields value={form.javaServer} onChange={(javaServer) => set({ javaServer })} idPrefix="wizard-java" presets={javaPresets} primary={!form.phpEnabled && !(form.pythonEnabled && form.pythonServer.server) && !(form.goEnabled && form.goServer.server) && !(form.rubyEnabled && form.rubyServer.server)} />
@@ -658,7 +652,7 @@ export function NewProjectPage() {
         <>
           <Field label={t(".NET version")} htmlFor="dotnet-version">
             <Select id="dotnet-version" value={form.dotnetVersion} onChange={(e) => set({ dotnetVersion: e.target.value })}>
-              {versionOptions(dotnet.versions)}
+              {versionOptions(dotnet.versions, t)}
             </Select>
           </Field>
           <DotnetServerFields value={form.dotnetServer} onChange={(dotnetServer) => set({ dotnetServer })} idPrefix="wizard-dotnet" presets={dotnetPresets} primary={!form.phpEnabled && !(form.pythonEnabled && form.pythonServer.server) && !(form.goEnabled && form.goServer.server) && !(form.rubyEnabled && form.rubyServer.server) && !(form.javaEnabled && form.javaServer.server)} />
@@ -774,15 +768,13 @@ export function NewProjectPage() {
               </label>
             </div>
           )}
-          <Field label={t("Version")} htmlFor="db-version" hint={form.dbExternal ? t("Picks the client tools for backups and the connection; choose the server's major version.") : t("Upgrades between versions run on the same data volume; downgrades are not possible.")}>
+          <Field
+            label={t("Version")}
+            htmlFor="db-version"
+            hint={form.dbExternal ? t("Picks the client tools for backups and the connection; choose the server's major version.") : unavailableHint(dbVersions, t) || t("Upgrades between versions run on the same data volume; downgrades are not possible.")}
+          >
             <Select id="db-version" value={form.dbVersion} onChange={(e) => set({ dbVersion: e.target.value })}>
-              {databases
-                .find((d) => d.key === form.dbType)
-                ?.versions.map((v) => (
-                  <option key={v.version} value={v.version}>
-                    {v.label}
-                  </option>
-                ))}
+              {versionOptions(dbVersions, t, { anyHost: form.dbExternal })}
             </Select>
           </Field>
           {form.dbExternal && externalDatabaseTypes.includes(form.dbType) ? (
@@ -835,13 +827,9 @@ export function NewProjectPage() {
                     ))}
                 </Select>
               </Field>
-              <Field label={t("Version")} htmlFor={`extra-db-version-${i}`}>
+              <Field label={t("Version")} htmlFor={`extra-db-version-${i}`} hint={unavailableHint(engine?.versions ?? [], t) || undefined}>
                 <Select id={`extra-db-version-${i}`} value={d.version} onChange={(e) => setExtraDb(i, { version: e.target.value })}>
-                  {engine?.versions.map((v) => (
-                    <option key={v.version} value={v.version}>
-                      {v.label}
-                    </option>
-                  ))}
+                  {versionOptions(engine?.versions ?? [], t)}
                 </Select>
               </Field>
               <Button variant="ghost" aria-label={t("Remove {{name}}", { name: d.name || t("database") })} onClick={() => set({ extraDbs: form.extraDbs.filter((_, j) => j !== i) })} icon={<Trash2 className="size-4" />} />

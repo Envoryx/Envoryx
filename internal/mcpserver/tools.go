@@ -247,12 +247,12 @@ type listRuntimesOut struct {
 	Templates     []templateOut `json:"templates"`
 }
 
-func (s *Server) listRuntimes(_ context.Context, _ *mcp.CallToolRequest, _ listProjectsIn) (*mcp.CallToolResult, listRuntimesOut, error) {
+func (s *Server) listRuntimes(ctx context.Context, _ *mcp.CallToolRequest, _ listProjectsIn) (*mcp.CallToolResult, listRuntimesOut, error) {
 	out := listRuntimesOut{Runtimes: []runtimeOut{}, PHPExtensions: []string{}, Templates: []templateOut{}}
 	for _, t := range project.Templates() {
 		out.Templates = append(out.Templates, templateOut{ID: t.ID, Name: t.Name, Description: t.Description, Runtime: t.Runtime, Node: t.Node, Python: t.Python, Go: t.Go, Ruby: t.Ruby, Java: t.Java, Dotnet: t.Dotnet, Docroot: t.Docroot, RequiresDatabase: t.RequiresDatabase, RecommendedDatabase: t.RecommendedDatabase, Notes: t.Notes})
 	}
-	for _, r := range s.d.Catalog.All() {
+	for _, r := range s.d.Catalog.ForKernel(s.d.Projects.HostKernel(ctx)) {
 		if !r.Available {
 			continue
 		}
@@ -264,6 +264,9 @@ func (s *Server) listRuntimes(_ context.Context, _ *mcp.CallToolRequest, _ listP
 			}
 			if v.EOL {
 				label += " (eol)"
+			}
+			if v.Unavailable {
+				label += " (unavailable: " + v.UnavailableReason + ")"
 			}
 			ro.Versions = append(ro.Versions, label)
 			if v.Default {

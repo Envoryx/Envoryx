@@ -105,6 +105,9 @@ type hashKey struct {
 
 // catalogKey maps a service to its catalogue entry ("" for none).
 func catalogKey(svc store.ProjectService) string {
+	if svc.Kind.IsDatabase() { // the primary and the additional ones
+		return svc.Variant
+	}
 	switch svc.Kind {
 	case store.ServicePHP, store.ServiceNode, store.ServicePython, store.ServiceGo, store.ServiceRuby, store.ServiceJava, store.ServiceDotnet:
 		return string(svc.Kind)

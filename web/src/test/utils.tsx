@@ -3,7 +3,7 @@ import { render } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { AuthProvider } from "@/features/auth/AuthContext";
-import type { Project, RuntimesResponse } from "@/api/types";
+import type { Project, Runtime, RuntimesResponse } from "@/api/types";
 
 type Handler = (url: string, init: RequestInit) => { status?: number; body?: unknown } | Promise<{ status?: number; body?: unknown }>;
 
@@ -116,3 +116,22 @@ export const runtimesFixture: RuntimesResponse = {
   ],
   phpDefaults: { memoryLimit: "256M", uploadMaxFilesize: "64M", postMaxSize: "64M", maxExecutionTime: 120, displayErrors: true, errorReporting: "E_ALL", extensions: ["opcache"] },
 };
+
+const mongoLock = (v: string) => `cannot start MongoDB ${v} on Linux kernel 6.19 and newer (this host runs 6.19.0-31-generic); switch to MongoDB 8.2`;
+
+/** MongoDB as the API lists it on a Docker host with Linux 6.19: 8.0 and 7.0 cannot start there. */
+export const lockedMongoRuntime: Runtime = {
+  key: "mongodb",
+  name: "MongoDB",
+  kind: "database",
+  available: true,
+  description: "",
+  versions: [
+    { version: "8.2", image: "mongo:8.2", label: "MongoDB 8.2", default: true },
+    { version: "8", image: "mongo:8.0", label: "MongoDB 8.0", unavailable: true, unavailableReason: mongoLock("8.0") },
+    { version: "7", image: "mongo:7.0", label: "MongoDB 7.0", unavailable: true, unavailableReason: mongoLock("7.0") },
+  ],
+};
+
+/** The runtimes fixture on a Linux 6.19 host, with MongoDB. */
+export const lockedMongoRuntimesFixture: RuntimesResponse = { ...runtimesFixture, runtimes: [...runtimesFixture.runtimes, lockedMongoRuntime] };

@@ -406,6 +406,9 @@ export interface RuntimeVersion {
   eol?: boolean;
   preview?: boolean;
   default?: boolean;
+  /** The Docker host cannot run this version (e.g. its kernel is too new); the reason says why. */
+  unavailable?: boolean;
+  unavailableReason?: string;
 }
 
 export interface Runtime {

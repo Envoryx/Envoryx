@@ -24,6 +24,14 @@ type Version struct {
 	// Preview marks pre-release versions (RC/beta) that are not meant for production use.
 	Preview bool `json:"preview,omitempty"`
 	Default bool `json:"default,omitempty"`
+	// BrokenFromKernel is the first Linux kernel ("major.minor") the version refuses to
+	// start on. Containers share the Docker host's kernel, so such a version cannot be
+	// chosen on an affected host (see KernelProblem).
+	BrokenFromKernel string `json:"brokenFromKernel,omitempty"`
+	// Unavailable and UnavailableReason are set for the Docker host at hand (ForKernel):
+	// the version cannot run there and the UI offers it disabled with the reason.
+	Unavailable       bool   `json:"unavailable,omitempty"`
+	UnavailableReason string `json:"unavailableReason,omitempty"`
 }
 
 // Runtime describes a runtime family (php, node …) or a service family (caddy, mariadb …).
@@ -226,11 +234,11 @@ func Default() *Catalog {
 		// Linux kernel versions 6.19 and newer has a known incompatibility with this
 		// version", SERVER-121912), which covers current desktop and server kernels. 8.2
 		// carries the fix and is therefore what a new project gets; the older series stay
-		// selectable for hosts that already run them.
+		// selectable on older kernels, and projects that have them keep them.
 		Versions: []Version{
 			{Version: "8.2", Image: "mongo:8.2", Label: "MongoDB 8.2", Default: true},
-			{Version: "8", Image: "mongo:8.0", Label: "MongoDB 8.0"},
-			{Version: "7", Image: "mongo:7.0", Label: "MongoDB 7.0"},
+			{Version: "8", Image: "mongo:8.0", Label: "MongoDB 8.0", BrokenFromKernel: "6.19"},
+			{Version: "7", Image: "mongo:7.0", Label: "MongoDB 7.0", BrokenFromKernel: "6.19"},
 		},
 	})
 	c.add(Runtime{

@@ -111,7 +111,12 @@ func (m *Manager) create(ctx context.Context, req CreateRequest) (View, error) {
 	if err != nil {
 		return View{}, err
 	}
-	if _, err := m.engine.Ping(ctx); err != nil {
+	info, err := m.engine.Ping(ctx)
+	if err != nil {
+		return View{}, err
+	}
+	m.noteKernel(info.KernelVersion)
+	if err := m.checkKernel(info.KernelVersion, proj.Services...); err != nil {
 		return View{}, err
 	}
 	for i := range proj.Services {

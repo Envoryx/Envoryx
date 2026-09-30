@@ -79,6 +79,8 @@ type Manager struct {
 	// metrics holds the resource history's sampling state (see metrics.go).
 	metrics     *metricsState
 	metricsOnce sync.Once
+	// kernel caches the Docker host's kernel release (see kernel.go).
+	kernel kernelCache
 	// oom remembers recent OOM kills for the project warnings (see oom.go).
 	oom     *oomLog
 	oomOnce sync.Once
@@ -788,6 +790,9 @@ func (m *Manager) Preview(ctx context.Context, req CreateRequest) (Preview, erro
 	if err != nil {
 		return Preview{}, err
 	}
+	if err := m.checkKernel(m.HostKernel(ctx), proj.Services...); err != nil {
+		return Preview{}, err
+	}
 	planner, err := m.planner()
 	if err != nil {
 		return Preview{}, err
@@ -1388,6 +1393,7 @@ func (m *Manager) List(ctx context.Context) ([]View, error) {
 	if dockerErr == nil {
 		imageIDs = m.localImageIDs(ctx, projects)
 	}
+	kernel := m.HostKernel(ctx)
 	views := make([]View, 0, len(projects))
 	for _, p := range projects {
 		st := deriveStatus(p, containers, imageIDs)
@@ -1397,6 +1403,7 @@ func (m *Manager) List(ctx context.Context) ([]View, error) {
 		if w := m.venvWarning(p); w != "" {
 			st.Warnings = append(st.Warnings, w)
 		}
+		st.Warnings = append(st.Warnings, m.kernelWarnings(p, kernel)...)
 		st.Warnings = append(st.Warnings, m.oomWarnings(p.ID)...)
 		m.addHealth(p, &st)
 		st.Operation = m.progress.active(p.ID)
@@ -1426,6 +1433,7 @@ func (m *Manager) Get(ctx context.Context, id string) (View, error) {
 	if w := m.venvWarning(p); w != "" {
 		st.Warnings = append(st.Warnings, w)
 	}
+	st.Warnings = append(st.Warnings, m.kernelWarnings(p, m.HostKernel(ctx))...)
 	st.Warnings = append(st.Warnings, m.oomWarnings(p.ID)...)
 	m.addHealth(p, &st)
 	st.Operation = m.progress.active(p.ID)
