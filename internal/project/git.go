@@ -356,12 +356,51 @@ func (m *Manager) SetGit(ctx context.Context, id string, req GitRequest) (GitSta
 	if err != nil {
 		return GitStatus{}, err
 	}
+	if err := m.syncOrigin(ctx, proj, cfg); err != nil {
+		return GitStatus{}, err
+	}
 	if err := m.store.Projects.UpdateGit(ctx, id, cfg); err != nil {
 		return GitStatus{}, err
 	}
 	m.audit.Log(ctx, audit.ActionProjectUpdated, "project", id, map[string]any{"name": proj.Name, "changes": map[string]any{"git": redactURL(cfg.URL), "branch": cfg.Branch}})
 	proj.Git = cfg
 	return m.gitStatus(ctx, proj), nil
+}
+
+// syncOrigin points an existing checkout's origin at a changed repository URL, so pull
+// and the status use the repository that is configured. The URL never carries
+// credentials (see ValidateGitURL); the token stays in the environment of each git run.
+func (m *Manager) syncOrigin(ctx context.Context, proj store.Project, cfg store.GitConfig) error {
+	if cfg.URL == "" {
+		return nil
+	}
+	paths, err := m.paths()
+	if err != nil {
+		return nil
+	}
+	if _, err := os.Stat(filepath.Join(NewPlanner(paths, m.catalog).ProjectDir(proj), ".git")); err != nil {
+		return nil
+	}
+	proj.Git = cfg
+	res, err := m.runGit(ctx, proj, "remote", "get-url", "origin")
+	if err != nil {
+		return err
+	}
+	args := []string{"remote", "add", "origin", cfg.URL}
+	if res.ExitCode == 0 {
+		if strings.TrimSpace(res.Stdout) == cfg.URL {
+			return nil
+		}
+		args[1] = "set-url"
+	}
+	res, err = m.runGit(ctx, proj, args...)
+	if err != nil {
+		return err
+	}
+	if res.ExitCode != 0 {
+		return fmt.Errorf("%w: could not point the checkout's origin at the new URL: %s", ErrConflict, lastLine(redactOutput(res, cfg)))
+	}
+	return nil
 }
 
 // Clone clones the configured repository into the (empty) project directory.
