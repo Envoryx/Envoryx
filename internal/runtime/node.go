@@ -85,12 +85,39 @@ func NodePresetByKey(key string) (NodePreset, bool) {
 // crash-loop. Nothing is interpolated into it (see Guarded).
 const waitForPackageJSON = `until [ -f package.json ]; do echo 'envoryx: waiting for package.json in /var/www/html - scaffold with a Node template, clone a repository or use the Node terminal'; sleep 5; done`
 
-// Normalize validates the configuration and fills defaults.
-func (c *NodeConfig) Normalize() error {
-	if !c.DevServer {
-		*c = NodeConfig{}
-		return nil
+// Inherit fills the fields an update leaves empty from the stored configuration, so a
+// call that only flips DevServer (API, CLI) keeps the preset, script and port. Script,
+// build script and port depend on the preset and mode and are only taken over while the
+// update keeps both.
+func (c *NodeConfig) Inherit(old NodeConfig) {
+	if strings.TrimSpace(c.PackageManager) == "" {
+		c.PackageManager = old.PackageManager
 	}
+	if c.InspectPort == 0 {
+		c.InspectPort = old.InspectPort
+	}
+	if p := strings.ToLower(strings.TrimSpace(c.Preset)); p != "" && p != old.Preset {
+		return
+	}
+	c.Preset = old.Preset
+	if m := strings.ToLower(strings.TrimSpace(c.Mode)); m != "" && m != old.Mode {
+		return
+	}
+	c.Mode = old.Mode
+	if strings.TrimSpace(c.Script) == "" {
+		c.Script = old.Script
+	}
+	if strings.TrimSpace(c.BuildScript) == "" {
+		c.BuildScript = old.BuildScript
+	}
+	if c.Port == 0 {
+		c.Port = old.Port
+	}
+}
+
+// Normalize validates the configuration and fills defaults. The server settings are kept
+// (and checked) while DevServer is off, so turning it back on restores them.
+func (c *NodeConfig) Normalize() error {
 	c.Mode = strings.ToLower(strings.TrimSpace(c.Mode))
 	switch c.Mode {
 	case "", NodeModeDev:

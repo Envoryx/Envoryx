@@ -64,7 +64,7 @@ func TestNodeDevServer(t *testing.T) {
 		t.Fatalf("primary route with PHP: %+v", r)
 	}
 
-	// Switching the dev server off recreates the idle tooling container and frees the port.
+	// Switching the dev server off recreates the idle tooling container without published ports.
 	if _, err := e.m.Update(ctx, v.Project.ID, UpdateRequest{Node: &NodeUpdate{Enabled: true, Version: "24"}}); err != nil {
 		t.Fatal(err)
 	}
@@ -97,6 +97,56 @@ func TestNodeDevServer(t *testing.T) {
 		if _, err := e.m.Update(ctx, v.Project.ID, UpdateRequest{Node: &NodeUpdate{Enabled: true, Version: "24", Config: bad}}); err == nil {
 			t.Fatalf("config %+v must be rejected", bad)
 		}
+	}
+}
+
+// Turning the dev server off and on again through a call that only sends the flag (API,
+// CLI) keeps the preset, script and ports.
+func TestNodeDevServerOffOnKeepsSettings(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	req := phpRequest("Shop", true)
+	req.Node = &NodeRequest{Version: "24", Config: runtime.NodeConfig{DevServer: true, Preset: "next", Script: "dev:app", Port: 3001, PackageManager: "pnpm"}}
+	v, err := e.m.Create(ctx, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stored := func() runtime.NodeConfig {
+		t.Helper()
+		proj, _ := e.m.loadProject(ctx, v.Project.ID)
+		var cfg runtime.NodeConfig
+		if err := json.Unmarshal(proj.Service(store.ServiceNode).Config, &cfg); err != nil {
+			t.Fatal(err)
+		}
+		return cfg
+	}
+	before := stored()
+	if before.HostPort == 0 {
+		t.Fatalf("no host port: %+v", before)
+	}
+	for _, on := range []bool{false, true} {
+		if _, err := e.m.Update(ctx, v.Project.ID, UpdateRequest{Node: &NodeUpdate{Enabled: true, Version: "24", Config: runtime.NodeConfig{DevServer: on}}}); err != nil {
+			t.Fatal(err)
+		}
+		got := stored()
+		if got.DevServer != on || got.Preset != "next" || got.Script != "dev:app" || got.Port != 3001 || got.PackageManager != "pnpm" || got.HostPort != before.HostPort {
+			t.Fatalf("devServer=%v: %+v, want the settings of %+v", on, got, before)
+		}
+	}
+	c, _ := e.engine.Container("envoryx-shop-node")
+	if got := strings.Join(c.Spec.Cmd, " "); got != "pnpm run dev:app -- -H 0.0.0.0 -p 3001" {
+		t.Fatalf("command after re-enable: %s", got)
+	}
+	if len(c.Spec.Ports) != 1 || c.Spec.Ports[0].HostPort != before.HostPort {
+		t.Fatalf("ports after re-enable: %+v", c.Spec.Ports)
+	}
+
+	// A new preset brings its own defaults instead of the old port and script.
+	if _, err := e.m.Update(ctx, v.Project.ID, UpdateRequest{Node: &NodeUpdate{Enabled: true, Version: "24", Config: runtime.NodeConfig{DevServer: true, Preset: "vite"}}}); err != nil {
+		t.Fatal(err)
+	}
+	if got := stored(); got.Preset != "vite" || got.Port != 5173 || got.Script != "dev" || got.PackageManager != "pnpm" {
+		t.Fatalf("after preset change: %+v", got)
 	}
 }
 
