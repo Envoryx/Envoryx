@@ -59,15 +59,22 @@ func (m *Manager) kernelProblem(svc store.ProjectService, kernel string) string 
 
 // kernelWarnings lists the services of a project that cannot start on the kernel. The
 // project stays as it is (it may have been set up on another host or before a kernel
-// update); the warning says what to switch to.
+// update); the warning says the way forward from the version it has.
 func (m *Manager) kernelWarnings(p store.Project, kernel string) []string {
 	var out []string
 	for _, svc := range p.Services {
-		if msg := m.kernelProblem(svc, kernel); msg != "" {
-			out = append(out, msg)
+		if m.kernelProblem(svc, kernel) != "" {
+			out = append(out, m.catalog.KernelProblemInUse(catalogKey(svc), svc.Version, kernel))
 		}
 	}
 	return out
+}
+
+// cannotStartHere reports a service of the project whose version cannot start on the
+// Docker host's kernel.
+func (m *Manager) cannotStartHere(ctx context.Context, p store.Project, kind store.ServiceKind) bool {
+	svc := p.Service(kind)
+	return svc != nil && m.kernelProblem(*svc, m.HostKernel(ctx)) != ""
 }
 
 // checkKernel refuses newly chosen service versions that cannot start on the kernel.

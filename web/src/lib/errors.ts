@@ -109,7 +109,11 @@ const templates = [
   "port {{port}} is out of range",
   "{{file}} connects to an external server, and its password is never in the file; create the project without the manifest and add the connection in Envoryx",
   "cannot start {{version}} on Linux kernel {{kernel}} and newer (this host runs {{host}}); switch to {{other}}",
+  "cannot start {{version}} on Linux kernel {{kernel}} and newer (this host runs {{host}}); upgrade the database to {{other}}, which takes over its data",
+  // Before the plain one below, which would swallow it (both end in a parenthesis).
+  "cannot start {{version}} on Linux kernel {{kernel}} and newer (this host runs {{host}}), and {{other}} cannot take over its data; export it on a host with an older kernel, or remove and re-add the database (its data is lost)",
   "cannot start {{version}} on Linux kernel {{kernel}} and newer (this host runs {{host}})",
+  "the backup holds a copy of {{type}} {{from}} data, which {{service}} {{to}} cannot open",
 ];
 
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

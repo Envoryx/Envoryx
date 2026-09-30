@@ -360,7 +360,8 @@ func init() {
 		CreateDatabase: func(n, _ string) string { return fmt.Sprintf("conn.getDB('%s').createCollection('envoryx_init')", n) },
 		DropDatabase:   func(n string) string { return fmt.Sprintf("conn.getDB('%s').dropDatabase()", n) },
 		AlterPassword:  func(u, p string) string { return fmt.Sprintf("admin.changeUserPassword('%s', '%s')", u, p) },
-		// Major versions must be upgraded one step at a time (feature compatibility version).
+		// A version only opens the data of the one right before it at that one's feature
+		// compatibility version, so the catalogue names each step (UpgradesFrom).
 		MajorUpgradeInPlace: false,
 		// The database tools only accept credentials via --uri/--password; the URI is
 		// therefore visible in the container's process list for the duration of the dump.

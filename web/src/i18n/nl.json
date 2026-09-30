@@ -319,7 +319,6 @@
   "Messenger consumer": "Messenger-consumer",
   "Mode": "Modus",
   "Monday": "Maandag",
-  "MongoDB upgrades one major version at a time; a database backup is taken automatically first.": "MongoDB upgradet één hoofdversie per keer; eerst wordt automatisch een databaseback-up gemaakt.",
   "Most recent security-relevant events. Secrets are never recorded.": "Meest recente beveiligingsrelevante gebeurtenissen. Geheimen worden nooit vastgelegd.",
   "Name": "Naam",
   "Name must contain letters or digits.": "De naam moet letters of cijfers bevatten.",
@@ -2645,5 +2644,15 @@
   "Not available for PHP {{version}} yet": "Nog niet beschikbaar voor PHP {{version}}",
   "Not available for PHP {{version}} yet - switch it off to save": "Nog niet beschikbaar voor PHP {{version}} - schakel het uit om op te slaan",
   "PHP {{version}} does not ship {{extension}} yet; switch it off or choose another PHP version": "PHP {{version}} bevat {{extension}} nog niet; schakel het uit of kies een andere PHP-versie",
-  "PHP {{version}} does not ship {{extensions}} yet; switch them off or choose another PHP version": "PHP {{version}} bevat {{extensions}} nog niet; schakel ze uit of kies een andere PHP-versie"
+  "PHP {{version}} does not ship {{extensions}} yet; switch them off or choose another PHP version": "PHP {{version}} bevat {{extensions}} nog niet; schakel ze uit of kies een andere PHP-versie",
+  "cannot start {{version}} on Linux kernel {{kernel}} and newer (this host runs {{host}}); upgrade the database to {{other}}, which takes over its data": "{{version}} start niet op Linux-kernel {{kernel}} en nieuwer (deze host draait {{host}}); upgrade de database naar {{other}}, dat de gegevens overneemt",
+  "cannot start {{version}} on Linux kernel {{kernel}} and newer (this host runs {{host}}), and {{other}} cannot take over its data; export it on a host with an older kernel, or remove and re-add the database (its data is lost)": "{{version}} start niet op Linux-kernel {{kernel}} en nieuwer (deze host draait {{host}}), en {{other}} kan de gegevens niet overnemen; exporteer ze op een host met een oudere kernel, of verwijder de database en voeg hem opnieuw toe (de gegevens gaan verloren)",
+  "the backup holds a copy of {{type}} {{from}} data, which {{service}} {{to}} cannot open": "De back-up bevat een kopie van {{type}} {{from}}-gegevens, die {{service}} {{to}} niet kan openen",
+  "Copying the data volume of the database {{name}}": "Datavolume van de database {{name}} wordt gekopieerd",
+  "Not starting the container {{name}}: its version cannot run on this host's kernel": "Container {{name}} wordt niet gestart: de versie draait niet op de kernel van deze host",
+  "volume copy": "volumekopie",
+  "The data volume of the database “{{name}}” is replaced by the copy; changes since the backup are lost.": "Het datavolume van de database ‘{{name}}’ wordt vervangen door de kopie; wijzigingen sinds de back-up gaan verloren.",
+  "The data volume of the primary database is replaced by the copy; changes since the backup are lost.": "Het datavolume van de primaire database wordt vervangen door de kopie; wijzigingen sinds de back-up gaan verloren.",
+  "{{versions}} takes over this data in place, and a database backup is taken automatically first. Other versions need an export, remove and re-add.": "{{versions}} neemt deze gegevens ter plekke over, en eerst wordt automatisch een databaseback-up gemaakt. Andere versies vragen om exporteren, verwijderen en opnieuw toevoegen.",
+  "MongoDB cannot move this data to another version in place: export it, remove the database and add it again.": "MongoDB kan deze gegevens niet ter plekke naar een andere versie brengen: exporteer ze, verwijder de database en voeg hem opnieuw toe."
 }

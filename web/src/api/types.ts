@@ -411,6 +411,8 @@ export interface RuntimeVersion {
   unavailableReason?: string;
   /** PHP: extensions (and "xdebug") this version's image does not ship yet. */
   missingExtensions?: string[];
+  /** Versions whose data this one takes over in place, for a database that does not upgrade any older data (MongoDB). */
+  upgradesFrom?: string[];
 }
 
 export interface Runtime {
@@ -1690,6 +1692,8 @@ export interface BackupMeta {
   runtimes: Record<string, string>;
   /** Archives of addon volumes (addon-<name>-<volume>.tar.gz), restored with the database. */
   addonVolumes?: string[];
+  /** Copies of database data volumes, taken instead of a dump when the server cannot start on the host; db is "" or absent for the primary. */
+  databaseVolumes?: { db?: string; type: string; version: string; file: string; bytes: number }[];
 }
 
 export interface Worker {

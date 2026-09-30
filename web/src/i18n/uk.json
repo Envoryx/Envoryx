@@ -319,7 +319,6 @@
   "Messenger consumer": "Споживач Messenger",
   "Mode": "Режим",
   "Monday": "Понеділок",
-  "MongoDB upgrades one major version at a time; a database backup is taken automatically first.": "MongoDB оновлюється на одну мажорну версію за раз; спочатку автоматично створюється резервна копія бази даних.",
   "Most recent security-relevant events. Secrets are never recorded.": "Останні події, пов'язані з безпекою. Секрети ніколи не записуються.",
   "Name": "Назва",
   "Name must contain letters or digits.": "Назва має містити літери або цифри.",
@@ -2693,5 +2692,15 @@
   "Not available for PHP {{version}} yet": "Поки недоступно для PHP {{version}}",
   "Not available for PHP {{version}} yet - switch it off to save": "Поки недоступно для PHP {{version}} - вимкніть, щоб зберегти",
   "PHP {{version}} does not ship {{extension}} yet; switch it off or choose another PHP version": "PHP {{version}} поки не містить {{extension}}; вимкніть його або виберіть іншу версію PHP",
-  "PHP {{version}} does not ship {{extensions}} yet; switch them off or choose another PHP version": "PHP {{version}} поки не містить {{extensions}}; вимкніть їх або виберіть іншу версію PHP"
+  "PHP {{version}} does not ship {{extensions}} yet; switch them off or choose another PHP version": "PHP {{version}} поки не містить {{extensions}}; вимкніть їх або виберіть іншу версію PHP",
+  "cannot start {{version}} on Linux kernel {{kernel}} and newer (this host runs {{host}}); upgrade the database to {{other}}, which takes over its data": "{{version}} не запускається на ядрі Linux {{kernel}} і новіших (на цьому хості {{host}}); оновіть базу даних до {{other}}, яка візьме її дані",
+  "cannot start {{version}} on Linux kernel {{kernel}} and newer (this host runs {{host}}), and {{other}} cannot take over its data; export it on a host with an older kernel, or remove and re-add the database (its data is lost)": "{{version}} не запускається на ядрі Linux {{kernel}} і новіших (на цьому хості {{host}}), а {{other}} не може взяти її дані; експортуйте їх на хості зі старішим ядром або видаліть базу даних і додайте її знову (дані буде втрачено)",
+  "the backup holds a copy of {{type}} {{from}} data, which {{service}} {{to}} cannot open": "Резервна копія містить копію даних {{type}} {{from}}, які {{service}} {{to}} не може відкрити",
+  "Copying the data volume of the database {{name}}": "Копіювання тому даних бази даних {{name}}",
+  "Not starting the container {{name}}: its version cannot run on this host's kernel": "Контейнер {{name}} не запускається: його версія не працює на ядрі цього хоста",
+  "volume copy": "копія тому",
+  "The data volume of the database “{{name}}” is replaced by the copy; changes since the backup are lost.": "Том даних бази даних «{{name}}» замінюється копією; зміни після резервної копії буде втрачено.",
+  "The data volume of the primary database is replaced by the copy; changes since the backup are lost.": "Том даних основної бази даних замінюється копією; зміни після резервної копії буде втрачено.",
+  "{{versions}} takes over this data in place, and a database backup is taken automatically first. Other versions need an export, remove and re-add.": "{{versions}} бере ці дані на місці, а перед цим автоматично створюється резервна копія бази даних. Для інших версій потрібні експорт, видалення й повторне додавання.",
+  "MongoDB cannot move this data to another version in place: export it, remove the database and add it again.": "MongoDB не може перевести ці дані на іншу версію на місці: експортуйте їх, видаліть базу даних і додайте її знову."
 }

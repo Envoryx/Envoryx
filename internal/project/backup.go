@@ -94,6 +94,19 @@ type BackupMeta struct {
 	Runtimes map[string]string `json:"runtimes"`
 	// AddonVolumes are the archives of addon volumes (addon-<name>-<volume>.tar.gz).
 	AddonVolumes []string `json:"addonVolumes,omitempty"`
+	// DatabaseVolumes are copies of database data volumes, taken instead of a dump for a
+	// database whose server cannot start on the host (see createBackupLocked).
+	DatabaseVolumes []VolumeCopyMeta `json:"databaseVolumes,omitempty"`
+}
+
+// VolumeCopyMeta describes the file-level copy of a database's data volume in a backup.
+type VolumeCopyMeta struct {
+	// DB is the database's name in the project, "" for the primary.
+	DB      string `json:"db,omitempty"`
+	Type    string `json:"type"`
+	Version string `json:"version"`
+	File    string `json:"file"`
+	Bytes   int64  `json:"bytes"`
 }
 
 // DumpMeta describes a database dump in a backup.
@@ -118,8 +131,11 @@ func (b BackupMeta) HasDatabase(db string) bool {
 	return ok
 }
 
-// HasAnyDatabase reports whether the backup holds any database dump.
-func (b BackupMeta) HasAnyDatabase() bool { return b.Database != nil || len(b.Databases) > 0 }
+// HasAnyDatabase reports whether the backup holds any database, as a dump or as a copy
+// of the data volume.
+func (b BackupMeta) HasAnyDatabase() bool {
+	return b.Database != nil || len(b.Databases) > 0 || len(b.DatabaseVolumes) > 0
+}
 
 func (b BackupMeta) dump(db string) (DumpMeta, bool) {
 	if db == "" {
@@ -142,6 +158,14 @@ func backupDBFileOf(db string) string {
 		return backupDBFile
 	}
 	return "database-" + db + ".sql.gz"
+}
+
+// backupDBVolumeFileOf is the copy of a database's data volume in a backup directory.
+func backupDBVolumeFileOf(db string) string {
+	if db == "" {
+		return "database.volume.tar.gz"
+	}
+	return "database-" + db + ".volume.tar.gz"
 }
 
 // backupFile is the full content of backup.json (metadata plus the project export).
@@ -439,6 +463,7 @@ func (m *Manager) createBackupLocked(ctx context.Context, p store.Project, opts 
 				kind = backupKind(opts)
 			}
 		} else {
+			kernel := m.HostKernel(ctx)
 			for _, svc := range dbs {
 				db := svc.Kind.DatabaseName()
 				_, cfg, err := databaseOf(p, db)
@@ -448,6 +473,19 @@ func (m *Manager) createBackupLocked(ctx context.Context, p store.Project, opts 
 				label := cfg.Database
 				if db != "" {
 					label = db
+				}
+				if m.kernelProblem(*svc, kernel) != "" {
+					// A dump needs the server running, and this one cannot start on the host's
+					// kernel (MongoDB 8.0 on Linux 6.19). The data directory itself is what can
+					// still be kept, e.g. before an upgrade to a version that opens it.
+					step(ctx, "Copying the data volume of the database {{name}}", "name", label)
+					file := backupDBVolumeFileOf(db)
+					n, err := m.copyDatabaseVolume(ctx, p, svc, filepath.Join(dir, file))
+					if err != nil {
+						return fail("database volume copy", err)
+					}
+					meta.DatabaseVolumes = append(meta.DatabaseVolumes, VolumeCopyMeta{DB: db, Type: svc.Variant, Version: svc.Version, File: file, Bytes: n})
+					continue
 				}
 				step(ctx, "Dumping the database {{name}}", "name", label)
 				n, err := m.dumpDatabase(ctx, p, svc, cfg, filepath.Join(dir, backupDBFileOf(db)))
@@ -921,13 +959,18 @@ func (m *Manager) restoreDatabases(ctx context.Context, p store.Project, meta Ba
 	type target struct {
 		db   string
 		dump DumpMeta
+		// volume is set for a copy of the data volume instead of a dump.
+		volume *VolumeCopyMeta
 	}
 	var targets []target
 	if meta.Database != nil {
-		targets = append(targets, target{"", *meta.Database})
+		targets = append(targets, target{"", *meta.Database, nil})
 	}
 	for _, d := range meta.Databases {
-		targets = append(targets, target{d.DB, d.DumpMeta})
+		targets = append(targets, target{d.DB, d.DumpMeta, nil})
+	}
+	for i, v := range meta.DatabaseVolumes {
+		targets = append(targets, target{v.DB, DumpMeta{Type: v.Type, Version: v.Version}, &meta.DatabaseVolumes[i]})
 	}
 	count := 0
 	for _, t := range targets {
@@ -950,7 +993,11 @@ func (m *Manager) restoreDatabases(ctx context.Context, p store.Project, meta Ba
 		} else {
 			step(ctx, "Restoring the database {{name}}", "name", t.db)
 		}
-		if err := m.restoreDatabase(ctx, p, svc, cfg, filepath.Join(dir, backupDBFileOf(t.db))); err != nil {
+		if t.volume != nil {
+			if err := m.restoreDatabaseVolume(ctx, p, svc, *t.volume, filepath.Join(dir, backupDBVolumeFileOf(t.db))); err != nil {
+				return nil, nil, fmt.Errorf("restore database %s: %w", dbLabel(t.db), err)
+			}
+		} else if err := m.restoreDatabase(ctx, p, svc, cfg, filepath.Join(dir, backupDBFileOf(t.db))); err != nil {
 			return nil, nil, fmt.Errorf("restore database %s: %w", dbLabel(t.db), err)
 		}
 		if t.db != "" {

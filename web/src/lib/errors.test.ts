@@ -48,6 +48,23 @@ describe("translateMessage", () => {
     expect(translateMessage("invalid input: PHP 8.6 does not ship imagick, redis yet; switch them off or choose another PHP version", t)).toBe("Ungültige Eingabe: PHP 8.6 enthält imagick, redis noch nicht; schalte sie aus oder wähle eine andere PHP-Version");
   });
 
+  it("translates the way forward for a database version the kernel cannot start", () => {
+    expect(translateMessage("cannot start MongoDB 8.0 on Linux kernel 6.19 and newer (this host runs 7.0.0-31-generic); upgrade the database to MongoDB 8.2, which takes over its data", t)).toBe(
+      "MongoDB 8.0 startet nicht auf Linux-Kernel 6.19 und neuer (dieser Host hat 7.0.0-31-generic); aktualisiere die Datenbank auf MongoDB 8.2, das ihre Daten übernimmt",
+    );
+    expect(
+      translateMessage(
+        "invalid input: cannot start MongoDB 7.0 on Linux kernel 6.19 and newer (this host runs 7.0.0-31-generic), and MongoDB 8.2 cannot take over its data; export it on a host with an older kernel, or remove and re-add the database (its data is lost)",
+        t,
+      ),
+    ).toBe(
+      "Ungültige Eingabe: MongoDB 7.0 startet nicht auf Linux-Kernel 6.19 und neuer (dieser Host hat 7.0.0-31-generic), und MongoDB 8.2 kann ihre Daten nicht übernehmen; exportiere sie auf einem Host mit älterem Kernel oder entferne die Datenbank und füge sie neu hinzu (ihre Daten gehen verloren)",
+    );
+    expect(translateMessage("restore database the primary database: invalid input: the backup holds a copy of mongodb 7 data, which mongodb 8.2 cannot open", t)).toContain(
+      "Das Backup enthält eine Kopie von Daten aus mongodb 7, die mongodb 8.2 nicht öffnen kann",
+    );
+  });
+
   it("leaves unknown text alone", () => {
     expect(translateMessage("something: quite unexpected", t)).toBe("something: quite unexpected");
     expect(translateMessage("", t)).toBe("");

@@ -248,5 +248,25 @@ describe("DatabaseTab on a kernel MongoDB 8.0 cannot start on", () => {
     expect(option(version, "MongoDB 8.0").disabled).toBe(false);
     expect(option(version, "MongoDB 7.0").disabled).toBe(true);
     expect(option(version, "MongoDB 8.2").disabled).toBe(false);
+    // The hint names what takes the data over, and leaves out the lock of the version it has.
+    expect(screen.getByText(/MongoDB 8\.2 takes over this data in place, and a database backup is taken automatically first/)).toBeInTheDocument();
+    expect(screen.queryByText(/cannot start MongoDB 8\.0/)).not.toBeInTheDocument();
+  });
+
+  it("says when no version takes the data over", async () => {
+    const withMongo = makeProject({
+      services: [...makeProject().services, { kind: "database", variant: "mongodb", version: "7", image: "mongo:7.0", enabled: true, config: { database: "shop", username: "shop", hostPort: 0 } }],
+    });
+    mockApi({
+      ...authedRoutes,
+      "GET /runtimes": () => ({ body: lockedMongoRuntimesFixture }),
+      "GET /settings": () => ({ body: { publicHost: "" } }),
+      [`GET ${P}/database/databases`]: () => ({ body: { databases: ["shop"] } }),
+      [`GET ${P}/database`]: () => ({
+        body: { database: { type: "mongodb", version: "7", image: "mongo:7.0", host: "database", port: 27017, database: "shop", username: "shop", hostPort: 0, injectedEnv: [], state: "exited", volumeName: "v", volumeExists: true } },
+      }),
+    });
+    renderApp(<DatabaseTab project={withMongo} />);
+    expect(await screen.findByText(/MongoDB cannot move this data to another version in place/)).toBeInTheDocument();
   });
 });

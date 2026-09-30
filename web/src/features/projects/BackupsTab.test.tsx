@@ -111,4 +111,24 @@ describe("BackupsTab", () => {
     expect(screen.queryByRole("button", { name: "Restore" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Delete backup" })).not.toBeInTheDocument();
   });
+
+  it("lists and restores the copy of a data volume taken before an upgrade", async () => {
+    const copy = {
+      ...backup,
+      kind: "database",
+      meta: { ...backup.meta, source: "upgrade", database: undefined, files: undefined, databaseVolumes: [{ type: "mongodb", version: "8", file: "database.volume.tar.gz", bytes: 4096 }] },
+    };
+    mockApi({
+      ...authedRoutes,
+      [`GET /projects/${id}/backups`]: () => ({ body: { backups: [copy] } }),
+    });
+    const project = makeProject({ services: [...makeProject().services, { kind: "database", variant: "mongodb", version: "8.2", image: "mongo:8.2", enabled: true, config: {} }] });
+    renderApp(<BackupsTab project={project} />);
+    const user = userEvent.setup();
+
+    expect(await screen.findByText(/mongodb 8 · volume copy · 4/)).toBeInTheDocument();
+    await user.click((await screen.findAllByRole("button", { name: "Restore" }))[0]!);
+    expect(await screen.findByText("The data volume of the primary database is replaced by the copy; changes since the backup are lost.")).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: /^Restore database/ })).toBeEnabled();
+  });
 });

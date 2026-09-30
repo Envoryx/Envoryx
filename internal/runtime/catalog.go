@@ -30,6 +30,10 @@ type Version struct {
 	// start on. Containers share the Docker host's kernel, so such a version cannot be
 	// chosen on an affected host (see KernelProblem).
 	BrokenFromKernel string `json:"brokenFromKernel,omitempty"`
+	// UpgradesFrom lists the versions whose data directory this one takes over in place,
+	// for a database that does not do so across versions in general (see
+	// Dialect.MajorUpgradeInPlace and Catalog.UpgradesInPlace).
+	UpgradesFrom []string `json:"upgradesFrom,omitempty"`
 	// Unavailable and UnavailableReason are set for the Docker host at hand (ForKernel):
 	// the version cannot run there and the UI offers it disabled with the reason.
 	Unavailable       bool   `json:"unavailable,omitempty"`
@@ -244,8 +248,16 @@ func Default() *Catalog {
 		// version", SERVER-121912), which covers current desktop and server kernels. 8.2
 		// carries the fix and is therefore what a new project gets; the older series stay
 		// selectable on older kernels, and projects that have them keep them.
+		//
+		// 8.2 opens an 8.0 data directory as it is: the documented upgrade stops 8.0 and
+		// starts 8.2 on the same dbpath, with the data at featureCompatibilityVersion 8.0,
+		// which every data directory 8.0 creates has
+		// (https://www.mongodb.com/docs/manual/release-notes/8.2-upgrade-standalone/).
+		// 7.0 data cannot skip 8.0. Envoryx leaves the FCV at 8.0 afterwards: raising it
+		// cannot be undone and only unlocks 8.2's new features, so that is for the user
+		// (db.adminCommand({setFeatureCompatibilityVersion: "8.2", confirm: true})).
 		Versions: []Version{
-			{Version: "8.2", Image: "mongo:8.2", Label: "MongoDB 8.2", Default: true},
+			{Version: "8.2", Image: "mongo:8.2", Label: "MongoDB 8.2", Default: true, UpgradesFrom: []string{"8"}},
 			{Version: "8", Image: "mongo:8.0", Label: "MongoDB 8.0", BrokenFromKernel: "6.19"},
 			{Version: "7", Image: "mongo:7.0", Label: "MongoDB 7.0", BrokenFromKernel: "6.19"},
 		},

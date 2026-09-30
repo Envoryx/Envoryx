@@ -12,6 +12,23 @@ import (
 	"github.com/envoryx/envoryx/internal/validate"
 )
 
+func TestBackupMembers(t *testing.T) {
+	for name, want := range map[string]bool{
+		"backup.json":                      true,
+		"database-analytics.sql.gz":        true,
+		"database.volume.tar.gz":           true,
+		"database-analytics.volume.tar.gz": true,
+		"database-.volume.tar.gz":          false,
+		"database-../x.volume.tar.gz":      false,
+		"database.volume.tar":              false,
+		"notes.txt":                        false,
+	} {
+		if got := isBackupMember(name); got != want {
+			t.Errorf("%s: %v", name, got)
+		}
+	}
+}
+
 func TestOffsiteArchiveRoundTrip(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()

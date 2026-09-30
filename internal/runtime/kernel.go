@@ -57,11 +57,42 @@ func (c *Catalog) KernelProblem(key, version, kernel string) string {
 	return ""
 }
 
+// KernelProblemInUse is KernelProblem for a version a project already has. A database
+// has data in that version's format, so the advice is the version that takes it over in
+// place, or, when none does, the honest options.
+func (c *Catalog) KernelProblemInUse(key, version, kernel string) string {
+	r, ok := c.runtimes[key]
+	if !ok {
+		return ""
+	}
+	v, ok := c.version(key, version)
+	if !ok || !v.brokenOn(kernel) {
+		return ""
+	}
+	// Without data of its own, or with a server that upgrades any older data, a version
+	// can simply be switched.
+	if d, isDatabase := DialectFor(key); !isDatabase || d.MajorUpgradeInPlace {
+		return kernelProblem(r, v, kernel)
+	}
+	msg := cannotStart(v, kernel)
+	if to, ok := upgradeTarget(r, v, kernel); ok {
+		return msg + "; upgrade the database to " + to.Label + ", which takes over its data"
+	}
+	if alt, ok := alternative(r, kernel); ok {
+		return msg + ", and " + alt.Label + " cannot take over its data; export it on a host with an older kernel, or remove and re-add the database (its data is lost)"
+	}
+	return msg
+}
+
+func cannotStart(v Version, kernel string) string {
+	return fmt.Sprintf("cannot start %s on Linux kernel %s and newer (this host runs %s)", v.Label, v.BrokenFromKernel, kernel)
+}
+
 func kernelProblem(r Runtime, v Version, kernel string) string {
 	if !v.brokenOn(kernel) {
 		return ""
 	}
-	msg := fmt.Sprintf("cannot start %s on Linux kernel %s and newer (this host runs %s)", v.Label, v.BrokenFromKernel, kernel)
+	msg := cannotStart(v, kernel)
 	if alt, ok := alternative(r, kernel); ok {
 		msg += "; switch to " + alt.Label
 	}

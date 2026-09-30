@@ -632,7 +632,7 @@ func (m *Manager) backupAddonVolumes(ctx context.Context, p store.Project, dir s
 		if err := m.engine.EnsureImage(ctx, addonVolumeTool, m.pullProgress(ctx, p.Slug, addonVolumeTool)); err != nil {
 			return files, err
 		}
-		restart, err := m.stopAddonContainer(ctx, p, svc.Kind)
+		restart, err := m.stopServiceContainer(ctx, p, svc.Kind)
 		if err != nil {
 			return files, err
 		}
@@ -671,7 +671,7 @@ func (m *Manager) restoreAddonVolumes(ctx context.Context, p store.Project, dir 
 		if err := m.engine.EnsureImage(ctx, addonVolumeTool, m.pullProgress(ctx, p.Slug, addonVolumeTool)); err != nil {
 			return restored, err
 		}
-		restart, err := m.stopAddonContainer(ctx, p, svc.Kind)
+		restart, err := m.stopServiceContainer(ctx, p, svc.Kind)
 		if err != nil {
 			return restored, err
 		}
@@ -693,23 +693,28 @@ func (m *Manager) restoreAddonVolumes(ctx context.Context, p store.Project, dir 
 	return restored, nil
 }
 
-// stopAddonContainer stops a running addon container and returns what starts it again.
-func (m *Manager) stopAddonContainer(ctx context.Context, p store.Project, kind store.ServiceKind) (func(), error) {
+// stopServiceContainer stops a service's container while its volumes are read or written
+// and returns what starts it again. A container Docker keeps restarting (its server
+// exits at once) is stopped too, so it leaves the volume alone, but not started again.
+func (m *Manager) stopServiceContainer(ctx context.Context, p store.Project, kind store.ServiceKind) (func(), error) {
 	containers, err := m.engine.ListContainers(ctx, true, p.ID)
 	if err != nil {
 		return nil, err
 	}
 	for _, c := range containers {
-		if c.Service() != string(kind) || c.State != "running" {
+		if c.Service() != string(kind) || (c.State != "running" && c.State != "restarting") {
 			continue
 		}
 		if err := m.engine.StopContainer(ctx, c.ID, 30*time.Second); err != nil {
 			return nil, err
 		}
+		if c.State != "running" {
+			break
+		}
 		id := c.ID
 		return func() {
 			if err := m.engine.StartContainer(context.WithoutCancel(ctx), id); err != nil {
-				m.log.Warn("starting the addon again failed", "project", p.Slug, "addon", kind.AddonName(), "err", err)
+				m.log.Warn("starting the service again failed", "project", p.Slug, "service", kind, "err", err)
 			}
 		}, nil
 	}

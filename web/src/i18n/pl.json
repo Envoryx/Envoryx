@@ -319,7 +319,6 @@
   "Messenger consumer": "Konsument Messengera",
   "Mode": "Tryb",
   "Monday": "Poniedziałek",
-  "MongoDB upgrades one major version at a time; a database backup is taken automatically first.": "MongoDB aktualizuje się o jedną wersję główną na raz; najpierw automatycznie tworzona jest kopia bazy danych.",
   "Most recent security-relevant events. Secrets are never recorded.": "Najnowsze zdarzenia związane z bezpieczeństwem. Sekrety nigdy nie są rejestrowane.",
   "Name": "Nazwa",
   "Name must contain letters or digits.": "Nazwa musi zawierać litery lub cyfry.",
@@ -2693,5 +2692,15 @@
   "Not available for PHP {{version}} yet": "Jeszcze niedostępne dla PHP {{version}}",
   "Not available for PHP {{version}} yet - switch it off to save": "Jeszcze niedostępne dla PHP {{version}} - wyłącz, aby zapisać",
   "PHP {{version}} does not ship {{extension}} yet; switch it off or choose another PHP version": "PHP {{version}} nie zawiera jeszcze {{extension}}; wyłącz je lub wybierz inną wersję PHP",
-  "PHP {{version}} does not ship {{extensions}} yet; switch them off or choose another PHP version": "PHP {{version}} nie zawiera jeszcze {{extensions}}; wyłącz je lub wybierz inną wersję PHP"
+  "PHP {{version}} does not ship {{extensions}} yet; switch them off or choose another PHP version": "PHP {{version}} nie zawiera jeszcze {{extensions}}; wyłącz je lub wybierz inną wersję PHP",
+  "cannot start {{version}} on Linux kernel {{kernel}} and newer (this host runs {{host}}); upgrade the database to {{other}}, which takes over its data": "{{version}} nie uruchamia się na jądrze Linux {{kernel}} i nowszym (ten host ma {{host}}); zaktualizuj bazę danych do {{other}}, która przejmie jej dane",
+  "cannot start {{version}} on Linux kernel {{kernel}} and newer (this host runs {{host}}), and {{other}} cannot take over its data; export it on a host with an older kernel, or remove and re-add the database (its data is lost)": "{{version}} nie uruchamia się na jądrze Linux {{kernel}} i nowszym (ten host ma {{host}}), a {{other}} nie może przejąć jej danych; wyeksportuj je na hoście ze starszym jądrem albo usuń bazę danych i dodaj ją ponownie (jej dane zostaną utracone)",
+  "the backup holds a copy of {{type}} {{from}} data, which {{service}} {{to}} cannot open": "Kopia zawiera dane {{type}} {{from}}, których {{service}} {{to}} nie może otworzyć",
+  "Copying the data volume of the database {{name}}": "Kopiowanie wolumenu danych bazy danych {{name}}",
+  "Not starting the container {{name}}: its version cannot run on this host's kernel": "Kontener {{name}} nie zostanie uruchomiony: jego wersja nie działa na jądrze tego hosta",
+  "volume copy": "kopia wolumenu",
+  "The data volume of the database “{{name}}” is replaced by the copy; changes since the backup are lost.": "Wolumen danych bazy danych „{{name}}” zostanie zastąpiony kopią; zmiany od czasu kopii zapasowej zostaną utracone.",
+  "The data volume of the primary database is replaced by the copy; changes since the backup are lost.": "Wolumen danych głównej bazy danych zostanie zastąpiony kopią; zmiany od czasu kopii zapasowej zostaną utracone.",
+  "{{versions}} takes over this data in place, and a database backup is taken automatically first. Other versions need an export, remove and re-add.": "{{versions}} przejmuje te dane na miejscu, a najpierw automatycznie tworzona jest kopia bazy danych. Inne wersje wymagają eksportu, usunięcia i ponownego dodania.",
+  "MongoDB cannot move this data to another version in place: export it, remove the database and add it again.": "MongoDB nie może przenieść tych danych do innej wersji na miejscu: wyeksportuj je, usuń bazę danych i dodaj ją ponownie."
 }
