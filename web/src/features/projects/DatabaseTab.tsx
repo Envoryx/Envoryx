@@ -40,7 +40,7 @@ export function CopyRow({ label, value, secret = false, mono = true }: { label: 
   const display = secret && !show ? "•".repeat(Math.min(value.length, 24)) : value;
   return (
     <div className="flex items-center justify-between gap-3 py-1.5">
-      <dt className="w-36 shrink-0 text-sm text-muted">{label}</dt>
+      <dt className="w-28 shrink-0 text-sm text-muted sm:w-36">{label}</dt>
       <dd className={`min-w-0 flex-1 truncate text-sm select-all ${mono ? "font-mono text-xs" : ""}`} title={secret && !show ? undefined : value}>
         {display}
       </dd>
@@ -265,7 +265,7 @@ function DatabasePanel({ project, db, onRemoved }: { project: Project; db: strin
       <PublicHostNotice />
       {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader
             title={
@@ -302,8 +302,8 @@ function DatabasePanel({ project, db, onRemoved }: { project: Project; db: strin
               </>
             ) : (
               <div className="flex items-center justify-between gap-3 py-1.5">
-                <dt className="w-36 shrink-0 text-sm text-muted">{t("Password")}</dt>
-                <dd className="flex-1 font-mono text-xs text-subtle">••••••••••••</dd>
+                <dt className="w-28 shrink-0 text-sm text-muted sm:w-36">{t("Password")}</dt>
+                <dd className="min-w-0 flex-1 truncate font-mono text-xs text-subtle">••••••••••••</dd>
                 <Button size="sm" onClick={() => void revealCredentials()} icon={<Eye className="size-3.5" />}>
                   {t("Reveal")}
                 </Button>
@@ -462,8 +462,8 @@ function DatabasePanel({ project, db, onRemoved }: { project: Project; db: strin
           ) : (
             <ul className="divide-y divide-[var(--border)] rounded-md border border-default">
               {list.data.map((name) => (
-                <li key={name} className="flex items-center justify-between px-3 py-2">
-                  <span className="font-mono text-sm">
+                <li key={name} className="flex items-center justify-between gap-2 px-3 py-2">
+                  <span className="min-w-0 font-mono text-sm break-all">
                     {name}
                     {name === d.database && <Badge className="ml-2">{t("primary")}</Badge>}
                   </span>
