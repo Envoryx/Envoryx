@@ -3,12 +3,14 @@ package project
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"slices"
 	"sort"
 	"strconv"
 
+	"github.com/envoryx/envoryx/internal/audit"
 	"github.com/envoryx/envoryx/internal/runtime"
 	"github.com/envoryx/envoryx/internal/store"
 	"github.com/envoryx/envoryx/internal/validate"
@@ -261,11 +263,18 @@ func (m *Manager) syncOpenSearchDashboards(ctx context.Context, id string, want 
 func (m *Manager) applyExtraUpdate(ctx context.Context, p store.Project, kind store.ServiceKind, upd ExtraUpdate, changes map[string]any) (bool, error) {
 	svc := p.Service(kind)
 	name := string(kind)
+	enabled := svc != nil
+	if upd.Enabled != nil {
+		enabled = *upd.Enabled
+	} else if svc == nil {
+		return false, fmt.Errorf("%w: the project has no %s; add it with enabled: true", validate.ErrInvalid, name)
+	}
+	exposeAsked := upd.ExposePort != nil && *upd.ExposePort
 	switch {
-	case !upd.Enabled && svc == nil:
+	case !enabled && svc == nil:
 		return false, nil
 
-	case !upd.Enabled && externalService(svc):
+	case !enabled && externalService(svc):
 		// Envoryx forgets the address; the server is not ours to touch.
 		if err := m.store.Projects.DeleteService(ctx, p.ID, kind); err != nil {
 			return false, err
@@ -273,10 +282,7 @@ func (m *Manager) applyExtraUpdate(ctx context.Context, p store.Project, kind st
 		changes[name] = "removed"
 		return true, nil
 
-	case !upd.Enabled:
-		if extraOwnsVolume(kind) && !upd.RemoveData {
-			return false, fmt.Errorf("%w: removing %s deletes its data volume; confirm with removeData", validate.ErrInvalid, name)
-		}
+	case !enabled:
 		containers, err := m.engine.ListContainers(ctx, true, p.ID)
 		if err != nil {
 			return false, err
@@ -289,8 +295,17 @@ func (m *Manager) applyExtraUpdate(ctx context.Context, p store.Project, kind st
 			}
 		}
 		if extraOwnsVolume(kind) {
-			if err := m.engine.RemoveVolume(ctx, VolumeName(p.Slug, kind)); err != nil {
-				return false, fmt.Errorf("remove %s volume: %w", name, err)
+			if upd.RemoveData {
+				if err := m.removeKeptData(ctx, p, kind); err != nil {
+					return false, err
+				}
+			} else {
+				// The volume stays; so do the credentials its data was initialised with,
+				// which the image applies to an empty volume only.
+				if err := m.store.Projects.KeepService(ctx, store.KeptService{ProjectID: p.ID, Kind: kind, Version: svc.Version, Config: svc.Config}); err != nil {
+					return false, err
+				}
+				changes[name+"Data"] = "kept"
 			}
 		}
 		if err := m.store.Projects.DeleteService(ctx, p.ID, kind); err != nil {
@@ -299,7 +314,7 @@ func (m *Manager) applyExtraUpdate(ctx context.Context, p store.Project, kind st
 		changes[name] = "removed"
 		return true, nil
 
-	case upd.Enabled && svc == nil:
+	case svc == nil:
 		newSvc, err := m.buildExtraService(kind, upd.Version)
 		if err != nil {
 			return false, err
@@ -309,7 +324,7 @@ func (m *Manager) applyExtraUpdate(ctx context.Context, p store.Project, kind st
 			if kind != store.ServiceRedis {
 				return false, fmt.Errorf("%w: only Redis can be an external server", validate.ErrInvalid)
 			}
-			if upd.ExposePort {
+			if exposeAsked {
 				return false, errExternalRedisPort
 			}
 			if err := setExternalRedis(&newSvc, *upd.External, ""); err != nil {
@@ -325,7 +340,7 @@ func (m *Manager) applyExtraUpdate(ctx context.Context, p store.Project, kind st
 			return true, nil
 		}
 		taken := []int{p.HTTPPort}
-		if upd.ExposePort || extraAlwaysPublished(kind) {
+		if exposeAsked || extraAlwaysPublished(kind) {
 			port, err := m.allocatePort(ctx, taken...)
 			if err != nil {
 				return false, err
@@ -352,8 +367,34 @@ func (m *Manager) applyExtraUpdate(ctx context.Context, p store.Project, kind st
 				return false, err
 			}
 		}
+		// Data kept from an earlier removal comes back with the volume name; it answers to
+		// the credentials it was initialised with, not to freshly generated ones.
+		reused := false
+		if extraOwnsVolume(kind) {
+			kept, err := m.store.Projects.KeptService(ctx, p.ID, kind)
+			switch {
+			case err == nil:
+				var old runtime.ServiceConfig
+				_ = json.Unmarshal(kept.Config, &old)
+				if err := editConfig(&newSvc, func(c *runtime.ServiceConfig) error {
+					c.Username, c.Password, c.APIKey = old.Username, old.Password, old.APIKey
+					return nil
+				}); err != nil {
+					return false, err
+				}
+				reused = true
+			case !errors.Is(err, store.ErrNotFound):
+				return false, err
+			}
+		}
 		if err := m.store.Projects.AddService(ctx, newSvc); err != nil {
 			return false, err
+		}
+		if reused {
+			if err := m.store.Projects.ForgetKeptService(ctx, p.ID, kind); err != nil {
+				return false, err
+			}
+			changes[name+"Data"] = "reused"
 		}
 		changes[name] = newSvc.Version
 		return true, nil
@@ -375,7 +416,11 @@ func (m *Manager) applyExtraUpdate(ctx context.Context, p store.Project, kind st
 		}
 		var cfg runtime.ServiceConfig
 		_ = json.Unmarshal(svc.Config, &cfg)
-		expose := upd.ExposePort || extraAlwaysPublished(kind)
+		expose := cfg.HostPort > 0
+		if upd.ExposePort != nil {
+			expose = *upd.ExposePort
+		}
+		expose = expose || extraAlwaysPublished(kind)
 		portChanged := false
 		if expose && cfg.HostPort == 0 {
 			port, err := m.allocatePort(ctx, p.HTTPPort)
@@ -437,7 +482,7 @@ func (m *Manager) applyExtraUpdate(ctx context.Context, p store.Project, kind st
 // updateExternalRedis changes the address of an external Redis (tested before it is
 // stored). The application containers are recreated when it changed.
 func (m *Manager) updateExternalRedis(ctx context.Context, p store.Project, svc *store.ProjectService, upd ExtraUpdate, changes map[string]any) (bool, error) {
-	if upd.ExposePort {
+	if upd.ExposePort != nil && *upd.ExposePort {
 		return false, errExternalRedisPort
 	}
 	if upd.External == nil {
@@ -464,4 +509,113 @@ func (m *Manager) updateExternalRedis(ctx context.Context, p store.Project, svc 
 	_ = json.Unmarshal(updated.Config, &next)
 	changes[string(svc.Kind)+"Connection"] = net.JoinHostPort(next.Host, strconv.Itoa(next.Port))
 	return true, nil
+}
+
+// KeptData lists the data volumes of removed auxiliary services that were kept and still
+// exist. A volume removed by hand (the Docker page) is left out.
+func (m *Manager) KeptData(ctx context.Context, id string) ([]KeptDataInfo, error) {
+	p, err := m.loadProject(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	kept, err := m.store.Projects.KeptServices(ctx, p.ID)
+	if err != nil {
+		return nil, err
+	}
+	out := []KeptDataInfo{}
+	if len(kept) == 0 {
+		return out, nil
+	}
+	volumes, err := m.engine.ListVolumes(ctx, true)
+	if err != nil {
+		return nil, err
+	}
+	exists := map[string]bool{}
+	for _, v := range volumes {
+		exists[v.Name] = true
+	}
+	for _, k := range kept {
+		// A service that is back owns its volume again (the record goes with the add).
+		if p.Service(k.Kind) != nil || !exists[VolumeName(p.Slug, k.Kind)] {
+			continue
+		}
+		out = append(out, KeptDataInfo{Kind: k.Kind, Version: k.Version, VolumeName: VolumeName(p.Slug, k.Kind), KeptAt: k.KeptAt})
+	}
+	return out, nil
+}
+
+// DeleteKeptData deletes the kept data volume of a removed auxiliary service.
+func (m *Manager) DeleteKeptData(ctx context.Context, id string, kind store.ServiceKind) error {
+	if err := validate.UUID(id); err != nil {
+		return ErrNotFound
+	}
+	if !slices.Contains(extraKinds, kind) || !extraOwnsVolume(kind) {
+		return fmt.Errorf("%w: %s keeps no data", validate.ErrInvalid, kind)
+	}
+	unlock, err := m.lock(id)
+	if err != nil {
+		return err
+	}
+	defer unlock()
+	p, err := m.loadProject(ctx, id)
+	if err != nil {
+		return err
+	}
+	if p.Service(kind) != nil {
+		return fmt.Errorf("%w: %s is part of the project; remove it with its data instead", ErrConflict, kind)
+	}
+	if _, err := m.store.Projects.KeptService(ctx, p.ID, kind); err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			return fmt.Errorf("%w: no kept %s data", ErrNotFound, kind)
+		}
+		return err
+	}
+	if err := m.removeKeptData(ctx, p, kind); err != nil {
+		return err
+	}
+	m.audit.Log(ctx, audit.ActionProjectUpdated, "project", id, map[string]any{"name": p.Name, "changes": map[string]any{string(kind) + "Data": "deleted"}})
+	return nil
+}
+
+// removeKeptData deletes a service's data volume and the settings kept with it.
+func (m *Manager) removeKeptData(ctx context.Context, p store.Project, kind store.ServiceKind) error {
+	if err := m.engine.RemoveVolume(ctx, VolumeName(p.Slug, kind)); err != nil {
+		return fmt.Errorf("remove %s volume: %w", kind, err)
+	}
+	return m.store.Projects.ForgetKeptService(ctx, p.ID, kind)
+}
+
+// moveKeptData renames the kept data volumes along with the project: Docker cannot rename
+// a volume, so each is copied to the new name and the old one removed.
+func (m *Manager) moveKeptData(ctx context.Context, proj store.Project, oldSlug string, labels map[string]string) error {
+	kept, err := m.store.Projects.KeptServices(ctx, proj.ID)
+	if err != nil || len(kept) == 0 {
+		return err
+	}
+	web := proj.Service(store.ServiceWeb)
+	if web == nil {
+		return errors.New("no web image to copy the volumes with")
+	}
+	volumes, err := m.engine.ListVolumes(ctx, true)
+	if err != nil {
+		return err
+	}
+	exists := map[string]bool{}
+	for _, v := range volumes {
+		exists[v.Name] = true
+	}
+	for _, k := range kept {
+		from, to := VolumeName(oldSlug, k.Kind), VolumeName(proj.Slug, k.Kind)
+		if from == to || !exists[from] {
+			continue
+		}
+		step(ctx, "Moving the volume {{from}} to {{to}}", "from", from, "to", to)
+		if err := m.copyVolume(ctx, proj, web.Image, from, to, labels); err != nil {
+			return err
+		}
+		if err := m.engine.RemoveVolume(ctx, from); err != nil {
+			return fmt.Errorf("remove volume %s: %w", from, err)
+		}
+	}
+	return nil
 }

@@ -1,9 +1,10 @@
 import { BrainCircuit, ExternalLink, Mail, MemoryStick, Pencil, Plus, Rabbit, Search, Server, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useState } from "react";
-import { useExtraServices, usePublicHost, useRuntimes, useStorage, useUpdateProject } from "@/api/hooks";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useExtraServices, useKeptData, usePublicHost, useRuntimes, useStorage, useUpdateProject } from "@/api/hooks";
 import { api } from "@/api/client";
-import type { ExternalRedis, ExtraServiceInfo, PHPConfig, Project, RabbitMQCredentials, SearchCredentials, UpdateProjectRequest } from "@/api/types";
+import type { ExternalRedis, ExtraServiceInfo, KeptDataInfo, PHPConfig, Project, RabbitMQCredentials, SearchCredentials, UpdateProjectRequest } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Checkbox, Dialog, ErrorState, Field, Input, Select, Spinner, StatusDot } from "@/components/ui";
 import { containerStateTone } from "@/lib/format";
 import { AddStorageCard, StorageCard } from "./StorageCard";
@@ -16,7 +17,9 @@ import { AddonsSection } from "./AddonsSection";
 import { emptyExternalRedis, ExternalRedisFields } from "./ExternalConnection";
 
 type ExtraKind = "redis" | "memcached" | "mailpit" | "rabbitmq" | "meilisearch" | "typesense" | "opensearch" | "ollama";
-const titles: Record<ExtraKind, string> = { redis: "Redis", memcached: "Memcached", mailpit: "Mailpit", rabbitmq: "RabbitMQ", meilisearch: "Meilisearch", typesense: "Typesense", opensearch: "OpenSearch", ollama: "Ollama" };
+// The order of the cards that add a service.
+const extraOrder: ExtraKind[] = ["redis", "memcached", "mailpit", "rabbitmq", "meilisearch", "typesense", "opensearch", "ollama"];
+const titles: Record<ExtraKind, string> ={ redis: "Redis", memcached: "Memcached", mailpit: "Mailpit", rabbitmq: "RabbitMQ", meilisearch: "Meilisearch", typesense: "Typesense", opensearch: "OpenSearch", ollama: "Ollama" };
 // Services whose port is always published because a web UI lives there.
 const alwaysPublished = (kind: string) => kind === "mailpit" || kind === "meilisearch";
 const isSearch = (kind: string): kind is "meilisearch" | "typesense" => kind === "meilisearch" || kind === "typesense";
@@ -43,6 +46,8 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
   const versions = runtimes.data?.runtimes.find((r) => r.key === info.kind)?.versions ?? [];
   const [version, setVersion] = useState(info.version);
   const [removeOpen, setRemoveOpen] = useState(false);
+  // Removing a service with a volume keeps the data unless deleting it is chosen.
+  const [removeData, setRemoveData] = useState(false);
   const [confirm, setConfirm] = useState("");
   const [creds, setCreds] = useState<RabbitMQCredentials | null>(null);
   const [searchCreds, setSearchCreds] = useState<SearchCredentials | null>(null);
@@ -52,6 +57,7 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
   const key = info.kind as ExtraKind;
   const title = titles[key] ?? info.kind;
   const phpFix = phpExtensionUpdate(project, key);
+  const hasData = !!info.volumeName && !info.external;
   const fail = (err: unknown, fallback: string) => onMessage({ tone: "red", text: errorText(err, t, fallback) });
   const reveal = async () => {
     try {
@@ -239,7 +245,7 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
             description={t("Hands the host's NVIDIA GPUs to Ollama. Docker needs the NVIDIA Container Toolkit for it (on Unraid: the Nvidia Driver plugin); Envoryx checks that before switching.")}
             checked={!!info.gpu}
             disabled={update.isPending || !can.admin}
-            onChange={(e) => update.mutate({ ollama: { enabled: true, version: info.version, exposePort: info.hostPort > 0, gpu: e.target.checked } }, { onError: (err) => fail(err, t("Saving failed")) })}
+            onChange={(e) => update.mutate({ ollama: { enabled: true, gpu: e.target.checked } }, { onError: (err) => fail(err, t("Saving failed")) })}
           />
         )}
 
@@ -251,7 +257,7 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
             description={t("Web UI with the Dev Tools console, index management and Discover, on its own port. The image is about 2.6 GB and needs roughly 400 MB of RAM.")}
             checked={!!info.dashboards}
             disabled={update.isPending || !can.admin}
-            onChange={(e) => update.mutate({ opensearch: { enabled: true, version: info.version, exposePort: info.hostPort > 0, dashboards: e.target.checked } }, { onError: (err) => fail(err, t("Saving failed")) })}
+            onChange={(e) => update.mutate({ opensearch: { enabled: true, dashboards: e.target.checked } }, { onError: (err) => fail(err, t("Saving failed")) })}
           />
         )}
 
@@ -272,7 +278,8 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
               loading={update.isPending}
               onClick={() =>
                 update.mutate(
-                  { [key]: { enabled: true, version, exposePort: info.hostPort > 0 } },
+                  // Left out, exposePort keeps the port as it is.
+                  { [key]: { enabled: true, version } },
                   { onSuccess: () => onMessage({ tone: "green", text: t("{{service}} updated to {{version}}.", { service: title, version }) }), onError: (err) => fail(err, t("Version change failed")) },
                 )
               }
@@ -283,8 +290,18 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
         )}
 
         {can.admin && (
-          <Button variant="ghost" size="sm" className="text-red-600 dark:text-red-400" icon={<Trash2 className="size-3.5" />} onClick={() => setRemoveOpen(true)}>
-            {info.external ? t("Remove connection") : info.volumeName ? t("Remove {{service}} and data", { service: title }) : t("Remove {{service}}", { service: title })}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-red-600 dark:text-red-400"
+            icon={<Trash2 className="size-3.5" />}
+            onClick={() => {
+              setRemoveData(false);
+              setConfirm("");
+              setRemoveOpen(true);
+            }}
+          >
+            {info.external ? t("Remove connection") : t("Remove {{service}}", { service: title })}
           </Button>
         )}
       </div>
@@ -323,8 +340,6 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
         description={
           info.external
             ? t("Envoryx forgets the connection to {{address}}; the server and its data are not touched. The application containers are recreated without the {{service}} variables.", { address: `${info.host}:${info.port}`, service: title })
-            : info.volumeName
-            ? t("This removes the container and deletes the volume {{volume}} with all data. The application containers (PHP, Python, Go, Ruby, Java, .NET, Node) are recreated without the {{service}} variables.", { volume: info.volumeName, service: title })
             : info.kind === "ollama"
               ? t("This removes the container. The application containers (PHP, Python, Go, Ruby, Java, .NET, Node) are recreated without the Ollama variables. The models stay in the shared store.")
               : t("This removes the container. The application containers (PHP, Python, Go, Ruby, Java, .NET, Node) are recreated without the {{service}} variables.", { service: title })
@@ -334,12 +349,21 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
             <Button onClick={() => setRemoveOpen(false)}>{t("Cancel")}</Button>
             <Button
               variant="danger"
-              disabled={!!info.volumeName && confirm !== info.kind}
+              disabled={hasData && removeData && confirm !== info.kind}
               loading={update.isPending}
               onClick={() =>
                 update.mutate(
-                  { [key]: { enabled: false, removeData: true } },
-                  { onSuccess: () => { setRemoveOpen(false); onMessage({ tone: "green", text: t("{{service}} removed.", { service: title }) }); }, onError: (err) => { setRemoveOpen(false); fail(err, t("Removing failed")); } },
+                  { [key]: { enabled: false, removeData: hasData && removeData } },
+                  {
+                    onSuccess: () => {
+                      setRemoveOpen(false);
+                      onMessage({ tone: "green", text: hasData && !removeData ? t("{{service}} removed. Its data was kept.", { service: title }) : t("{{service}} removed.", { service: title }) });
+                    },
+                    onError: (err) => {
+                      setRemoveOpen(false);
+                      fail(err, t("Removing failed"));
+                    },
+                  },
                 )
               }
             >
@@ -348,19 +372,50 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
           </>
         }
       >
-        {info.volumeName && (
-          <Field label={t("Type {{slug}} to confirm", { slug: info.kind })} htmlFor="remove-extra">
-            <Input id="remove-extra" value={confirm} onChange={(e) => setConfirm(e.target.value)} autoComplete="off" />
-          </Field>
+        {hasData && (
+          <div className="space-y-3">
+            <div className="space-y-2" role="radiogroup" aria-label={t("Data of {{service}}", { service: title })}>
+              <label className="flex items-start gap-2 text-sm">
+                <input type="radio" name={`remove-${info.kind}-data`} className="mt-1" checked={!removeData} onChange={() => setRemoveData(false)} />
+                <span>
+                  {t("Keep the data")}
+                  <span className="block text-xs text-muted">{t("The volume {{volume}} stays and is used again when {{service}} is added back.", { volume: info.volumeName, service: title })}</span>
+                </span>
+              </label>
+              <label className="flex items-start gap-2 text-sm">
+                <input type="radio" name={`remove-${info.kind}-data`} className="mt-1" checked={removeData} onChange={() => setRemoveData(true)} />
+                <span>
+                  {t("Delete the data")}
+                  <span className="block text-xs text-muted">{t("Deletes the volume {{volume}} with all data.", { volume: info.volumeName })}</span>
+                </span>
+              </label>
+            </div>
+            {removeData && (
+              <Field label={t("Type {{slug}} to confirm", { slug: info.kind })} htmlFor="remove-extra">
+                <Input id="remove-extra" value={confirm} onChange={(e) => setConfirm(e.target.value)} autoComplete="off" />
+              </Field>
+            )}
+          </div>
         )}
       </Dialog>
     </Card>
   );
 }
 
-function AddServiceCard({ project, kind, onMessage }: { project: Project; kind: ExtraKind; onMessage: (m: { tone: "green" | "red"; text: string }) => void }) {
+function AddServiceCard({ project, kind, kept, onMessage }: { project: Project; kind: ExtraKind; kept?: KeptDataInfo | undefined; onMessage: (m: { tone: "green" | "red"; text: string }) => void }) {
   const { t } = useTranslation();
+  const qc = useQueryClient();
   const update = useUpdateProject(project.id);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const deleteKept = useMutation({
+    mutationFn: () => api.projects.deleteKeptData(project.id, kind),
+    onSuccess: () => onMessage({ tone: "green", text: t("Kept {{service}} data deleted.", { service: titles[kind] }) }),
+    onError: (err) => onMessage({ tone: "red", text: errorText(err, t, t("Deleting the data failed")) }),
+    onSettled: () => {
+      setDeleteOpen(false);
+      void qc.invalidateQueries({ queryKey: ["projects", project.id, "extras"] });
+    },
+  });
   const runtimes = useRuntimes();
   const rt = runtimes.data?.runtimes.find((r) => r.key === kind);
   const [version, setVersion] = useState("");
@@ -374,6 +429,16 @@ function AddServiceCard({ project, kind, onMessage }: { project: Project; kind: 
     <Card>
       <CardHeader title={title} description={rt?.description ?? ""} />
       <div className="space-y-4 p-5">
+        {kept && (
+          <Alert tone="blue">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <span>{t("Kept data: {{volume}}. Adding {{service}} again uses it.", { volume: kept.volumeName, service: title })}</span>
+              <Button variant="ghost" size="sm" className="text-red-600 dark:text-red-400" icon={<Trash2 className="size-3.5" />} onClick={() => setDeleteOpen(true)}>
+                {t("Delete kept data")}
+              </Button>
+            </div>
+          </Alert>
+        )}
         {kind === "redis" && (
           <div className="flex flex-wrap gap-4" role="radiogroup" aria-label={t("Where {{service}} runs", { service: title })}>
             <label className="inline-flex items-center gap-2 text-sm">
@@ -410,7 +475,8 @@ function AddServiceCard({ project, kind, onMessage }: { project: Project; kind: 
             update.mutate(
               // The PHP extension its clients need comes along in the same update.
               {
-                [kind]: external ? { enabled: true, external: conn } : { enabled: true, version: version || undefined, exposePort: expose, ...(kind === "opensearch" ? { dashboards } : {}), ...(kind === "ollama" ? { gpu } : {}) },
+                // Mailpit and Meilisearch publish their port anyway and refuse exposePort: false.
+                [kind]: external ? { enabled: true, external: conn } : { enabled: true, version: version || undefined, ...(alwaysPublished(kind) ? {} : { exposePort: expose }), ...(kind === "opensearch" ? { dashboards } : {}), ...(kind === "ollama" ? { gpu } : {}) },
                 ...(phpExtensionUpdate(project, kind) ? { php: phpExtensionUpdate(project, kind)! } : {}),
               },
               { onSuccess: () => onMessage({ tone: "green", text: t("{{service}} added. The application containers were recreated with the new variables.", { service: title }) }), onError: (err) => onMessage({ tone: "red", text: errorText(err, t, t("Adding failed")) }) },
@@ -420,6 +486,22 @@ function AddServiceCard({ project, kind, onMessage }: { project: Project; kind: 
           {t("Add {{service}}", { service: title })}
         </Button>
       </div>
+      {kept && (
+        <Dialog
+          open={deleteOpen}
+          onClose={() => setDeleteOpen(false)}
+          title={t("Delete the kept {{service}} data?", { service: title })}
+          description={t("Deletes the volume {{volume}} with all data.", { volume: kept.volumeName })}
+          footer={
+            <>
+              <Button onClick={() => setDeleteOpen(false)}>{t("Cancel")}</Button>
+              <Button variant="danger" loading={deleteKept.isPending} onClick={() => deleteKept.mutate()}>
+                {t("Delete")}
+              </Button>
+            </>
+          }
+        />
+      )}
     </Card>
   );
 }
@@ -427,6 +509,7 @@ function AddServiceCard({ project, kind, onMessage }: { project: Project; kind: 
 export function ServicesTab({ project }: { project: Project }) {
   const { t } = useTranslation();
   const extras = useExtraServices(project.id);
+  const kept = useKeptData(project.id);
   const storage = useStorage(project.id);
   const [msg, setMsg] = useState<{ tone: "green" | "red"; text: string } | null>(null);
   if (extras.isPending || storage.isPending) return <Spinner />;
@@ -445,14 +528,11 @@ export function ServicesTab({ project }: { project: Project }) {
         ))}
         {canAdd && (
           <>
-            {!has("redis") && <AddServiceCard project={project} kind="redis" onMessage={setMsg} />}
-            {!has("memcached") && <AddServiceCard project={project} kind="memcached" onMessage={setMsg} />}
-            {!has("mailpit") && <AddServiceCard project={project} kind="mailpit" onMessage={setMsg} />}
-            {!has("rabbitmq") && <AddServiceCard project={project} kind="rabbitmq" onMessage={setMsg} />}
-            {!has("meilisearch") && <AddServiceCard project={project} kind="meilisearch" onMessage={setMsg} />}
-            {!has("typesense") && <AddServiceCard project={project} kind="typesense" onMessage={setMsg} />}
-            {!has("opensearch") && <AddServiceCard project={project} kind="opensearch" onMessage={setMsg} />}
-            {!has("ollama") && <AddServiceCard project={project} kind="ollama" onMessage={setMsg} />}
+            {extraOrder
+              .filter((kind) => !has(kind))
+              .map((kind) => (
+                <AddServiceCard key={kind} project={project} kind={kind} kept={kept.data?.find((k) => k.kind === kind)} onMessage={setMsg} />
+              ))}
             {!storage.data && <AddStorageCard project={project} onMessage={setMsg} />}
           </>
         )}

@@ -251,14 +251,14 @@ func TestAutomaticBackupsArePruned(t *testing.T) {
 
 func TestBeforeMigrateHookTakesBackup(t *testing.T) {
 	// Simulate a database one version behind by undoing the newest migration
-	// (0019 adds the services' custom images) and forgetting that it ran.
+	// (0020 adds the table of kept service data) and forgetting that it ran.
 	s, sqlDB := newStore(t)
 	ctx := context.Background()
 	latest := db.LatestVersion()
-	if latest != 19 {
-		t.Fatalf("schema is at %d: this test undoes migration 0019, teach it to undo the newest one", latest)
+	if latest != 20 {
+		t.Fatalf("schema is at %d: this test undoes migration 0020, teach it to undo the newest one", latest)
 	}
-	for _, q := range []string{`ALTER TABLE project_services DROP COLUMN custom_image`} {
+	for _, q := range []string{`DROP TABLE project_kept_services`} {
 		if _, err := sqlDB.Exec(q); err != nil {
 			t.Fatal(err)
 		}

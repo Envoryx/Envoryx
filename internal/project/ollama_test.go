@@ -92,7 +92,7 @@ func TestOllamaGPUSwitch(t *testing.T) {
 	}
 	withGPU := specFingerprint(ol.Spec)
 	off := false
-	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{Ollama: &ExtraUpdate{Enabled: true, GPU: &off}}); err != nil {
+	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{Ollama: &ExtraUpdate{Enabled: new(true), GPU: &off}}); err != nil {
 		t.Fatal(err)
 	}
 	ol, _ = e.engine.Container("envoryx-chat-gpu-ollama")
@@ -104,7 +104,7 @@ func TestOllamaGPUSwitch(t *testing.T) {
 		t.Fatalf("extras after switching off: %+v", extras)
 	}
 	// Leaving GPU out of an update keeps it as it is.
-	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{Ollama: &ExtraUpdate{Enabled: true, ExposePort: true}}); err != nil {
+	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{Ollama: &ExtraUpdate{Enabled: new(true), ExposePort: new(true)}}); err != nil {
 		t.Fatal(err)
 	}
 	ol, _ = e.engine.Container("envoryx-chat-gpu-ollama")
@@ -292,7 +292,7 @@ func TestOllamaGPURefusedWithoutToolkit(t *testing.T) {
 		return docker.ExecResult{}, fmt.Errorf("%w (failed to discover GPU vendor from CDI)", docker.ErrNoGPU)
 	}
 	on := true
-	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{Ollama: &ExtraUpdate{Enabled: true, GPU: &on}}); !errors.Is(err, docker.ErrNoGPU) {
+	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{Ollama: &ExtraUpdate{Enabled: new(true), GPU: &on}}); !errors.Is(err, docker.ErrNoGPU) {
 		t.Fatalf("switching the GPU on without a toolkit: %v", err)
 	}
 	extras, _ := e.m.ExtraServices(ctx, view.Project.ID)

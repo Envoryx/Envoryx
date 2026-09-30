@@ -283,8 +283,15 @@ export function useSetAddon(id: string) {
   });
 }
 
+// Both read the one extras response: the services and the data removed services left behind.
+const extrasQuery = (id: string) => ({ queryKey: ["projects", id, "extras"], queryFn: () => api.projects.extras(id), refetchInterval: LIVE_INTERVAL });
+
 export function useExtraServices(id: string) {
-  return useQuery({ queryKey: ["projects", id, "extras"], queryFn: async () => (await api.projects.extras(id)).services, refetchInterval: LIVE_INTERVAL });
+  return useQuery({ ...extrasQuery(id), select: (d: Awaited<ReturnType<typeof api.projects.extras>>) => d.services });
+}
+
+export function useKeptData(id: string) {
+  return useQuery({ ...extrasQuery(id), select: (d: Awaited<ReturnType<typeof api.projects.extras>>) => d.keptData ?? [] });
 }
 
 /** The shared Ollama store's models and the project's downloads; polled every second while one runs. */

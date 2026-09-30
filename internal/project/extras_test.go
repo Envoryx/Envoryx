@@ -152,11 +152,32 @@ func TestRedisAndMailpitServices(t *testing.T) {
 		t.Fatalf("extras: %+v %v", extras, err)
 	}
 
-	// Removing redis needs confirmation, then removes container + volume and PHP env.
-	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{Redis: &ExtraUpdate{Enabled: false}}); !errors.Is(err, validate.ErrInvalid) {
-		t.Fatalf("redis removal must require removeData, got %v", err)
+	// Removing redis without removeData keeps its volume, listed as kept data; adding it
+	// again takes the volume back.
+	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{Redis: &ExtraUpdate{Enabled: new(false)}}); err != nil {
+		t.Fatal(err)
 	}
-	view, err = e.m.Update(ctx, view.Project.ID, UpdateRequest{Redis: &ExtraUpdate{Enabled: false, RemoveData: true}, Mailpit: &ExtraUpdate{Enabled: false}})
+	if _, ok := e.engine.Container("envoryx-full-redis"); ok {
+		t.Fatal("the redis container must be gone")
+	}
+	if got := strings.Join(e.engine.VolumeNames(), ","); got != "envoryx-full-database,envoryx-full-redis" {
+		t.Fatalf("volumes after removal with the data kept: %s", got)
+	}
+	if kept, err := e.m.KeptData(ctx, view.Project.ID); err != nil || len(kept) != 1 || kept[0].Kind != store.ServiceRedis || kept[0].VolumeName != "envoryx-full-redis" {
+		t.Fatalf("kept data: %+v %v", kept, err)
+	}
+	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{Redis: &ExtraUpdate{Enabled: new(true)}}); err != nil {
+		t.Fatal(err)
+	}
+	if redis, _ := e.engine.Container("envoryx-full-redis"); redis.Spec.Mounts[0].Source != "envoryx-full-redis" {
+		t.Fatalf("re-added redis: %+v", redis.Spec.Mounts)
+	}
+	if kept, _ := e.m.KeptData(ctx, view.Project.ID); len(kept) != 0 {
+		t.Fatalf("data in use again is no longer kept: %+v", kept)
+	}
+
+	// With removeData the volume goes too, and the PHP env loses the variables.
+	view, err = e.m.Update(ctx, view.Project.ID, UpdateRequest{Redis: &ExtraUpdate{Enabled: new(false), RemoveData: true}, Mailpit: &ExtraUpdate{Enabled: new(false)}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -171,7 +192,7 @@ func TestRedisAndMailpitServices(t *testing.T) {
 		t.Fatal("php env must drop service variables")
 	}
 	// Add again later without exposing redis.
-	view, err = e.m.Update(ctx, view.Project.ID, UpdateRequest{Redis: &ExtraUpdate{Enabled: true}})
+	view, err = e.m.Update(ctx, view.Project.ID, UpdateRequest{Redis: &ExtraUpdate{Enabled: new(true)}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -208,7 +229,7 @@ func TestMailpitRoutesPHPMailThroughMsmtp(t *testing.T) {
 	}
 
 	e.engine.Calls = nil
-	if _, err := e.m.Update(ctx, id, UpdateRequest{Mailpit: &ExtraUpdate{Enabled: true}}); err != nil {
+	if _, err := e.m.Update(ctx, id, UpdateRequest{Mailpit: &ExtraUpdate{Enabled: new(true)}}); err != nil {
 		t.Fatal(err)
 	}
 	ini, _ = os.ReadFile(iniPath)
@@ -220,7 +241,7 @@ func TestMailpitRoutesPHPMailThroughMsmtp(t *testing.T) {
 		t.Fatalf("php container must be recreated: %s", calls)
 	}
 
-	if _, err := e.m.Update(ctx, id, UpdateRequest{Mailpit: &ExtraUpdate{Enabled: false}}); err != nil {
+	if _, err := e.m.Update(ctx, id, UpdateRequest{Mailpit: &ExtraUpdate{Enabled: new(false)}}); err != nil {
 		t.Fatal(err)
 	}
 	if ini, _ = os.ReadFile(iniPath); strings.Contains(string(ini), "sendmail_path") {
@@ -297,7 +318,7 @@ func TestRabbitMQService(t *testing.T) {
 	}
 
 	// Unpublishing AMQP keeps the management UI.
-	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{RabbitMQ: &ExtraUpdate{Enabled: true}}); err != nil {
+	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{RabbitMQ: &ExtraUpdate{Enabled: new(true), ExposePort: new(false)}}); err != nil {
 		t.Fatal(err)
 	}
 	rq, _ = e.engine.Container("envoryx-queue-rabbitmq")
@@ -305,11 +326,24 @@ func TestRabbitMQService(t *testing.T) {
 		t.Fatalf("ports after unpublishing AMQP: %+v", rq.Spec.Ports)
 	}
 
-	// Removal needs confirmation and takes the volume and the variables with it.
-	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{RabbitMQ: &ExtraUpdate{Enabled: false}}); !errors.Is(err, validate.ErrInvalid) {
-		t.Fatalf("rabbitmq removal must require removeData, got %v", err)
+	// Removed with its data kept and added again, the broker comes back with the password
+	// its data volume was initialised with: the image applies a new one to an empty
+	// volume only.
+	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{RabbitMQ: &ExtraUpdate{Enabled: new(false)}}); err != nil {
+		t.Fatal(err)
 	}
-	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{RabbitMQ: &ExtraUpdate{Enabled: false, RemoveData: true}}); err != nil {
+	if !strings.Contains(strings.Join(e.engine.VolumeNames(), ","), "envoryx-queue-rabbitmq") {
+		t.Fatalf("the kept volume is gone: %v", e.engine.VolumeNames())
+	}
+	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{RabbitMQ: &ExtraUpdate{Enabled: new(true)}}); err != nil {
+		t.Fatal(err)
+	}
+	if again, _ := e.m.RabbitMQCredentials(ctx, view.Project.ID); again.Password != creds.Password {
+		t.Fatalf("re-added rabbitmq got a new password on its old data: %q", again.Password)
+	}
+
+	// With removeData the volume and the variables go with it.
+	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{RabbitMQ: &ExtraUpdate{Enabled: new(false), RemoveData: true}}); err != nil {
 		t.Fatal(err)
 	}
 	if strings.Contains(strings.Join(e.engine.VolumeNames(), ","), "rabbitmq") {
@@ -324,12 +358,15 @@ func TestRabbitMQService(t *testing.T) {
 	}
 
 	// Added again later: a fresh password and a management UI port, AMQP unpublished.
-	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{RabbitMQ: &ExtraUpdate{Enabled: true}}); err != nil {
+	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{RabbitMQ: &ExtraUpdate{Enabled: new(true)}}); err != nil {
 		t.Fatal(err)
 	}
 	rq, _ = e.engine.Container("envoryx-queue-rabbitmq")
 	if rq.State != "running" || len(rq.Spec.Ports) != 1 || rq.Spec.Ports[0].ContainerPort != 15672 {
 		t.Fatalf("rabbitmq re-added: %+v", rq)
+	}
+	if fresh, _ := e.m.RabbitMQCredentials(ctx, view.Project.ID); fresh.Password == creds.Password {
+		t.Fatal("rabbitmq on an empty volume must get a fresh password")
 	}
 }
 
@@ -365,7 +402,7 @@ func TestMemcachedService(t *testing.T) {
 	if err != nil || len(extras) != 1 || extras[0].Kind != store.ServiceMemcached || extras[0].Port != 11211 || extras[0].HostPort != mc.Spec.Ports[0].HostPort || extras[0].VolumeName != "" {
 		t.Fatalf("extras: %+v %v", extras, err)
 	}
-	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{Memcached: &ExtraUpdate{Enabled: false}}); err != nil {
+	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{Memcached: &ExtraUpdate{Enabled: new(false)}}); err != nil {
 		t.Fatalf("removing memcached needs no confirmation: %v", err)
 	}
 	if _, ok := e.engine.Container("envoryx-cache-memcached"); ok {
@@ -421,17 +458,14 @@ func TestMeilisearchService(t *testing.T) {
 	}
 
 	// The dashboard stays published even when the update does not ask for it.
-	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{Meilisearch: &ExtraUpdate{Enabled: true}}); err != nil {
+	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{Meilisearch: &ExtraUpdate{Enabled: new(true)}}); err != nil {
 		t.Fatal(err)
 	}
 	if ms, _ = e.engine.Container("envoryx-search-meilisearch"); len(ms.Spec.Ports) != 1 {
 		t.Fatalf("ports after update: %+v", ms.Spec.Ports)
 	}
 
-	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{Meilisearch: &ExtraUpdate{Enabled: false}}); !errors.Is(err, validate.ErrInvalid) {
-		t.Fatalf("meilisearch removal must require removeData, got %v", err)
-	}
-	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{Meilisearch: &ExtraUpdate{Enabled: false, RemoveData: true}}); err != nil {
+	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{Meilisearch: &ExtraUpdate{Enabled: new(false), RemoveData: true}}); err != nil {
 		t.Fatal(err)
 	}
 	if len(e.engine.VolumeNames()) != 0 {
@@ -479,7 +513,7 @@ func TestTypesenseService(t *testing.T) {
 		}
 	}
 
-	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{Typesense: &ExtraUpdate{Enabled: true, ExposePort: true}}); err != nil {
+	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{Typesense: &ExtraUpdate{Enabled: new(true), ExposePort: new(true)}}); err != nil {
 		t.Fatal(err)
 	}
 	ts, _ = e.engine.Container("envoryx-search-typesense")
@@ -490,7 +524,7 @@ func TestTypesenseService(t *testing.T) {
 	if err != nil || len(extras) != 1 || extras[0].HostPort != ts.Spec.Ports[0].HostPort || extras[0].WebUIPort != 0 {
 		t.Fatalf("extras: %+v %v", extras, err)
 	}
-	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{Typesense: &ExtraUpdate{Enabled: false, RemoveData: true}}); err != nil {
+	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{Typesense: &ExtraUpdate{Enabled: new(false), RemoveData: true}}); err != nil {
 		t.Fatal(err)
 	}
 	if _, ok := e.engine.Container("envoryx-search-typesense"); ok || len(e.engine.VolumeNames()) != 0 {
@@ -532,7 +566,7 @@ func TestOpenSearchService(t *testing.T) {
 	if strings.Contains(env, "ELASTICSEARCH_") {
 		t.Error("ELASTICSEARCH_* must be left to the application")
 	}
-	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{OpenSearch: &ExtraUpdate{Enabled: true, ExposePort: true}}); err != nil {
+	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{OpenSearch: &ExtraUpdate{Enabled: new(true), ExposePort: new(true)}}); err != nil {
 		t.Fatal(err)
 	}
 	node, _ = e.engine.Container("envoryx-search-opensearch")
@@ -543,10 +577,7 @@ func TestOpenSearchService(t *testing.T) {
 	if err != nil || len(extras) != 1 || extras[0].Kind != store.ServiceOpenSearch || extras[0].HostPort != node.Spec.Ports[0].HostPort || extras[0].VolumeName == "" {
 		t.Fatalf("extras: %+v %v", extras, err)
 	}
-	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{OpenSearch: &ExtraUpdate{Enabled: false}}); !errors.Is(err, validate.ErrInvalid) {
-		t.Fatalf("opensearch removal must require removeData, got %v", err)
-	}
-	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{OpenSearch: &ExtraUpdate{Enabled: false, RemoveData: true}}); err != nil {
+	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{OpenSearch: &ExtraUpdate{Enabled: new(false), RemoveData: true}}); err != nil {
 		t.Fatal(err)
 	}
 	if _, ok := e.engine.Container("envoryx-search-opensearch"); ok || len(e.engine.VolumeNames()) != 0 {
@@ -581,7 +612,7 @@ func TestOpenSearchDashboards(t *testing.T) {
 	}
 
 	// A version change of OpenSearch takes Dashboards along.
-	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{OpenSearch: &ExtraUpdate{Enabled: true, Version: "3.8"}}); err != nil {
+	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{OpenSearch: &ExtraUpdate{Enabled: new(true), Version: "3.8"}}); err != nil {
 		t.Fatal(err)
 	}
 	if dash, _ = e.engine.Container("envoryx-search-opensearch-dashboards"); dash.Spec.Image != "opensearchproject/opensearch-dashboards:3.8.0" {
@@ -590,7 +621,7 @@ func TestOpenSearchDashboards(t *testing.T) {
 
 	// Switched off and on again on its own; OpenSearch stays.
 	off, on := false, true
-	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{OpenSearch: &ExtraUpdate{Enabled: true, Dashboards: &off}}); err != nil {
+	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{OpenSearch: &ExtraUpdate{Enabled: new(true), Dashboards: &off}}); err != nil {
 		t.Fatal(err)
 	}
 	if _, ok := e.engine.Container("envoryx-search-opensearch-dashboards"); ok {
@@ -599,7 +630,7 @@ func TestOpenSearchDashboards(t *testing.T) {
 	if _, ok := e.engine.Container("envoryx-search-opensearch"); !ok {
 		t.Fatal("opensearch must stay")
 	}
-	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{OpenSearch: &ExtraUpdate{Enabled: true, Dashboards: &on}}); err != nil {
+	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{OpenSearch: &ExtraUpdate{Enabled: new(true), Dashboards: &on}}); err != nil {
 		t.Fatal(err)
 	}
 	if dash, ok = e.engine.Container("envoryx-search-opensearch-dashboards"); !ok || len(dash.Spec.Ports) != 1 {
@@ -607,7 +638,7 @@ func TestOpenSearchDashboards(t *testing.T) {
 	}
 
 	// Removing OpenSearch removes Dashboards, even when the request asks to keep it.
-	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{OpenSearch: &ExtraUpdate{Enabled: false, RemoveData: true, Dashboards: &on}}); err != nil {
+	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{OpenSearch: &ExtraUpdate{Enabled: new(false), RemoveData: true, Dashboards: &on}}); err != nil {
 		t.Fatal(err)
 	}
 	p, err := e.m.loadProject(ctx, view.Project.ID)
@@ -619,5 +650,99 @@ func TestOpenSearchDashboards(t *testing.T) {
 	}
 	if _, ok := e.engine.Container("envoryx-search-opensearch-dashboards"); ok {
 		t.Fatal("dashboards container left behind")
+	}
+}
+
+// An update that only names a setting leaves the rest of the service as it is: a missing
+// "enabled" used to read as false and removed the service.
+func TestExtraUpdateKeepsWhatItDoesNotName(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	req := phpRequest("Partial", true)
+	req.Memcached = &ExtraRequest{ExposePort: true}
+	req.RabbitMQ = &ExtraRequest{ExposePort: true}
+	view, err := e.m.Create(ctx, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := view.Project.ID
+
+	if _, err := e.m.Update(ctx, id, UpdateRequest{Memcached: &ExtraUpdate{ExposePort: new(false)}}); err != nil {
+		t.Fatal(err)
+	}
+	mc, ok := e.engine.Container("envoryx-partial-memcached")
+	if !ok || len(mc.Spec.Ports) != 0 {
+		t.Fatalf("memcached must stay, unpublished: ok=%v %+v", ok, mc.Spec.Ports)
+	}
+	// Without exposePort a version change keeps the published AMQP port.
+	before, _ := e.engine.Container("envoryx-partial-rabbitmq")
+	if _, err := e.m.Update(ctx, id, UpdateRequest{RabbitMQ: &ExtraUpdate{Version: "4.2"}}); err != nil {
+		t.Fatal(err)
+	}
+	after, _ := e.engine.Container("envoryx-partial-rabbitmq")
+	if after.Spec.Image != "rabbitmq:4.2-management-alpine" || len(after.Spec.Ports) != 2 || after.Spec.Ports[0].HostPort != before.Spec.Ports[0].HostPort {
+		t.Fatalf("rabbitmq after a version change: %s %+v", after.Spec.Image, after.Spec.Ports)
+	}
+	// A setting for a service the project does not have is refused, not a silent add.
+	if _, err := e.m.Update(ctx, id, UpdateRequest{Redis: &ExtraUpdate{ExposePort: new(true)}}); !errors.Is(err, validate.ErrInvalid) || !strings.Contains(err.Error(), "enabled: true") {
+		t.Fatalf("settings for a missing service: %v", err)
+	}
+	if p, _ := e.m.Get(ctx, id); p.Project.Service(store.ServiceRedis) != nil {
+		t.Fatal("redis must not be added")
+	}
+}
+
+// Kept data follows the project: renamed with it, deletable on its own, and gone with the
+// project.
+func TestKeptServiceDataLifecycle(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	req := phpRequest("Shop", true)
+	req.Redis = &ExtraRequest{}
+	req.Meilisearch = &ExtraRequest{}
+	view, err := e.m.Create(ctx, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := view.Project.ID
+	if _, err := e.m.Update(ctx, id, UpdateRequest{Redis: &ExtraUpdate{Enabled: new(false)}, Meilisearch: &ExtraUpdate{Enabled: new(false)}}); err != nil {
+		t.Fatal(err)
+	}
+	if kept, _ := e.m.KeptData(ctx, id); len(kept) != 2 {
+		t.Fatalf("kept data: %+v", kept)
+	}
+	if err := e.m.DeleteKeptData(ctx, id, store.ServiceMemcached); !errors.Is(err, validate.ErrInvalid) {
+		t.Fatalf("memcached has no data to keep: %v", err)
+	}
+
+	if _, err := e.m.Rename(ctx, id, RenameRequest{Name: "Store", Confirm: "shop"}); err != nil {
+		t.Fatal(err)
+	}
+	vols := strings.Join(e.engine.VolumeNames(), ",")
+	if !strings.Contains(vols, "envoryx-store-redis") || strings.Contains(vols, "envoryx-shop-redis") || !strings.Contains(vols, "envoryx-store-meilisearch") {
+		t.Fatalf("kept volumes must follow the rename: %s", vols)
+	}
+	if kept, _ := e.m.KeptData(ctx, id); len(kept) != 2 || kept[1].VolumeName != "envoryx-store-redis" {
+		t.Fatalf("kept data after the rename: %+v", kept)
+	}
+
+	if err := e.m.DeleteKeptData(ctx, id, store.ServiceMeilisearch); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(strings.Join(e.engine.VolumeNames(), ","), "meilisearch") {
+		t.Fatalf("deleted kept data left its volume: %v", e.engine.VolumeNames())
+	}
+	if err := e.m.DeleteKeptData(ctx, id, store.ServiceMeilisearch); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("deleting it twice: %v", err)
+	}
+
+	if err := e.m.Delete(ctx, id, DeleteOptions{Confirm: "store"}); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(strings.Join(e.engine.VolumeNames(), ","), "redis") {
+		t.Fatalf("the project's kept data must go with it: %v", e.engine.VolumeNames())
+	}
+	if kept, _ := e.store.Projects.KeptServices(ctx, id); len(kept) != 0 {
+		t.Fatalf("kept records outlive the project: %+v", kept)
 	}
 }

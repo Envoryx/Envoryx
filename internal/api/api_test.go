@@ -1819,9 +1819,48 @@ func TestMemcachedEndpoints(t *testing.T) {
 	if r.status != http.StatusOK {
 		t.Fatalf("logs: %d %s", r.status, r.raw)
 	}
+	// Without "enabled" an update changes the setting it names and keeps the service.
+	r = a.do(http.MethodPatch, "/api/v1/projects/"+id, map[string]any{"memcached": map[string]any{"exposePort": false}}, true)
+	if r.status != http.StatusOK {
+		t.Fatalf("unpublish: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodGet, "/api/v1/projects/"+id+"/extras", nil, false)
+	if svcs := r.body["services"].([]any); len(svcs) != 1 || svcs[0].(map[string]any)["hostPort"] != float64(0) {
+		t.Fatalf("memcached after unpublishing: %s", r.raw)
+	}
 	r = a.do(http.MethodPatch, "/api/v1/projects/"+id, map[string]any{"memcached": map[string]any{"enabled": false}}, true)
 	if r.status != http.StatusOK {
 		t.Fatalf("remove: %d %s", r.status, r.raw)
+	}
+}
+
+// Mailpit and Meilisearch always publish their port (their web UI lives there); asking
+// for the opposite is refused instead of quietly ignored.
+func TestAlwaysPublishedPortsRefuseExposePortFalse(t *testing.T) {
+	a := newApp(t)
+	a.setupAndLogin()
+	for _, kind := range []string{"mailpit", "meilisearch"} {
+		create := map[string]any{"name": "No UI", "php": map[string]any{"version": "8.4"}, kind: map[string]any{"exposePort": false}}
+		r := a.do(http.MethodPost, "/api/v1/projects", create, true)
+		if r.status != http.StatusUnprocessableEntity || !strings.Contains(string(r.raw), "always publishes its port") {
+			t.Fatalf("%s create with exposePort false: %d %s", kind, r.status, r.raw)
+		}
+	}
+	create := map[string]any{"name": "Mail", "createStarter": true, "start": true, "php": map[string]any{"version": "8.4"}, "mailpit": map[string]any{"exposePort": true}, "meilisearch": map[string]any{}}
+	r := a.do(http.MethodPost, "/api/v1/projects", create, true)
+	if r.status != http.StatusCreated {
+		t.Fatalf("create: %d %s", r.status, r.raw)
+	}
+	id := r.body["project"].(map[string]any)["id"].(string)
+	for _, kind := range []string{"mailpit", "meilisearch"} {
+		r = a.do(http.MethodPatch, "/api/v1/projects/"+id, map[string]any{kind: map[string]any{"enabled": true, "exposePort": false}}, true)
+		if r.status != http.StatusUnprocessableEntity {
+			t.Fatalf("%s update with exposePort false: %d %s", kind, r.status, r.raw)
+		}
+		r = a.do(http.MethodPatch, "/api/v1/projects/"+id, map[string]any{kind: map[string]any{"enabled": true, "exposePort": true}}, true)
+		if r.status != http.StatusOK {
+			t.Fatalf("%s update with exposePort true: %d %s", kind, r.status, r.raw)
+		}
 	}
 }
 
@@ -1848,13 +1887,24 @@ func TestSearchEndpoints(t *testing.T) {
 		if r.status != http.StatusOK {
 			t.Fatalf("%s logs: %d %s", kind, r.status, r.raw)
 		}
+		// Without removeData the service goes and its volume stays, listed as kept data
+		// until it is deleted on its own.
 		r = a.do(http.MethodPatch, "/api/v1/projects/"+id, map[string]any{kind: map[string]any{"enabled": false}}, true)
-		if r.status != http.StatusUnprocessableEntity {
-			t.Fatalf("%s removal without removeData: %d %s", kind, r.status, r.raw)
-		}
-		r = a.do(http.MethodPatch, "/api/v1/projects/"+id, map[string]any{kind: map[string]any{"enabled": false, "removeData": true}}, true)
 		if r.status != http.StatusOK {
-			t.Fatalf("%s remove: %d %s", kind, r.status, r.raw)
+			t.Fatalf("%s removal keeping the data: %d %s", kind, r.status, r.raw)
+		}
+		r = a.do(http.MethodGet, "/api/v1/projects/"+id+"/extras", nil, false)
+		kept, _ := r.body["keptData"].([]any)
+		if len(kept) != 1 || kept[0].(map[string]any)["kind"] != kind || kept[0].(map[string]any)["volumeName"] != "envoryx-search-"+kind {
+			t.Fatalf("%s kept data: %s", kind, r.raw)
+		}
+		r = a.do(http.MethodDelete, "/api/v1/projects/"+id+"/extras/"+kind+"/data", nil, true)
+		if r.status != http.StatusNoContent {
+			t.Fatalf("%s delete kept data: %d %s", kind, r.status, r.raw)
+		}
+		r = a.do(http.MethodGet, "/api/v1/projects/"+id+"/extras", nil, false)
+		if kept, _ := r.body["keptData"].([]any); len(kept) != 0 {
+			t.Fatalf("%s kept data after deleting it: %s", kind, r.raw)
 		}
 		r = a.do(http.MethodGet, "/api/v1/projects/"+id+"/"+kind+"/credentials", nil, false)
 		if r.status != http.StatusNotFound {

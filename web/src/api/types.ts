@@ -684,9 +684,12 @@ export interface ExtraRequest {
 }
 
 export interface ExtraUpdate {
-  enabled: boolean;
+  /** Left out, the service stays as it is (an update of its settings). */
+  enabled?: boolean;
   version?: string;
+  /** Left out, the port stays as it is. Mailpit and Meilisearch always publish theirs and refuse false. */
   exposePort?: boolean;
+  /** On removal: delete the data volume too; otherwise it is kept for the service's return. */
   removeData?: boolean;
   /** OpenSearch only: switch OpenSearch Dashboards on or off; left out, it stays as it is. */
   dashboards?: boolean;
@@ -716,6 +719,14 @@ export interface ExtraServiceInfo {
   gpu?: boolean;
   /** A server Envoryx does not run (Redis): host and port are its address, there is no container. */
   external?: boolean;
+}
+
+/** The data volume a removed service left behind; adding the service again reuses it. */
+export interface KeptDataInfo {
+  kind: string;
+  version: string;
+  volumeName: string;
+  keptAt: string;
 }
 
 /** A model in the Ollama store every project shares. */

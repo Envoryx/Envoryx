@@ -1964,6 +1964,29 @@ new projects are picked up without a restart. Switching the browser off
 removes the container, its network and the credentials file. The container
 is not touched by *unused image* pruning while enabled.
 
+## Removing a service
+
+Removing Redis, RabbitMQ, Meilisearch, Typesense or OpenSearch in the
+**Services** section keeps its data unless you choose otherwise: the container
+goes, the volume `envoryx-<project>-<service>` stays, and adding the service
+again later picks the data up together with the credentials it was created
+with (RabbitMQ's password, the search engines' keys). Until then the card that
+adds the service names the kept volume and offers *Delete kept data*.
+Choosing *Delete the data* when removing (confirmed by typing the service
+name) deletes the volume right away. Kept data is not part of project
+backups, moves along when the project is renamed and is deleted with the
+project. Memcached, Mailpit and Ollama keep no data of their own (Ollama's
+models live in the store all projects share).
+
+In the API, `PATCH /api/v1/projects/{id}` with `{"redis": {"enabled": false}}`
+keeps the data and `{"enabled": false, "removeData": true}` deletes it;
+`GET /api/v1/projects/{id}/extras` lists kept volumes under `keptData`, and
+`DELETE /api/v1/projects/{id}/extras/{kind}/data` deletes one. An update that
+leaves out `enabled` or `exposePort` keeps that part of the service as it is,
+so `{"memcached": {"exposePort": false}}` only unpublishes the port. Mailpit
+and Meilisearch always publish their port, because the inbox and the
+dashboard live there; `"exposePort": false` is refused for them.
+
 ## Object storage (S3)
 
 Projects can get S3-compatible object storage (the **Services** section, or
