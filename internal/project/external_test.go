@@ -341,3 +341,39 @@ func TestTransientHelpersAreNoStrayServices(t *testing.T) {
 		t.Fatalf("helpers reported as removed services: %v", got.Status.Warnings)
 	}
 }
+
+// Debuggers connect back to an IDE on the Docker host as host.docker.internal (Xdebug's
+// default client_host): the runtimes and workers resolve it without any external
+// service; web and database containers keep their hosts file as it is.
+func TestRuntimeContainersReachTheDockerHost(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	req := phpRequest("Gw", true)
+	req.Node = &NodeRequest{Version: "24"}
+	req.Database = &DatabaseRequest{Type: "mariadb"}
+	v, err := e.m.Create(ctx, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.m.AddWorker(ctx, v.Project.ID, WorkerRequest{Name: "queue", Preset: "laravel:queue", Enabled: true}); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"envoryx-gw-php", "envoryx-gw-node", "envoryx-gw-worker-queue"} {
+		c, ok := e.engine.Container(name)
+		if !ok {
+			t.Fatalf("%s missing", name)
+		}
+		if !slices.Equal(c.Spec.ExtraHosts, []string{"host.docker.internal:host-gateway"}) {
+			t.Fatalf("%s must resolve host.docker.internal: %v", name, c.Spec.ExtraHosts)
+		}
+	}
+	for _, name := range []string{"envoryx-gw-web", "envoryx-gw-database"} {
+		c, ok := e.engine.Container(name)
+		if !ok {
+			t.Fatalf("%s missing", name)
+		}
+		if len(c.Spec.ExtraHosts) != 0 {
+			t.Fatalf("%s gets no host entries without an external service: %v", name, c.Spec.ExtraHosts)
+		}
+	}
+}

@@ -566,8 +566,11 @@ comes next.
   `.venv` and start it yourself (`python -m debugpy --listen
   0.0.0.0:5678 manage.py runserver …`), then attach VS Code (`type:
   debugpy`, `request: attach`). PyCharm's *Python Debug Server* works the
-  other way round (the IDE listens); use its `pydevd-pycharm` snippet with
-  your workstation's address.
+  other way round (the IDE listens). In its `pydevd-pycharm` snippet use
+  `host.docker.internal` when PyCharm runs on the Docker host (the runtime
+  containers resolve that name to the host); otherwise forward the port over
+  SSH (`ssh -R <port>:localhost:<port>` with the project's SSH login, which
+  listens on the container's localhost) and use `localhost`.
 - **Adding or removing Python later.** The Runtime section's Python card has
   an *Enable Python* switch; removing it takes the Python container and the
   Python workers' containers down; files, `.venv` and worker definitions
@@ -2196,7 +2199,11 @@ Runtime → PHP → **Xdebug**: enables step debugging for that project
 (port 9003, mode `debug,develop`, `start_with_request=yes`). Xdebug connects
 back to the machine that made the request (behind Envoryx's proxy that
 address comes from `X-Forwarded-For`) and falls back to the *developer
-machine* set in Settings → Domains & HTTPS → Project links & developer machine (or a per-project override). Map
+machine* set in Settings → Domains & HTTPS → Project links & developer machine (or a per-project override), else
+to `host.docker.internal`, the Docker host. If the IDE runs elsewhere and the
+server cannot reach it, forward the port over SSH
+(`ssh -R 9003:localhost:9003` with the project's SSH login) and set the
+project's Xdebug host to `localhost`. Map
 `/var/www/html` to your project folder in the IDE; the IDE section shows the exact
 PhpStorm/VS Code settings. Turn it off when you are done: it slows PHP down.
 

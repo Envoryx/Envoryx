@@ -1080,7 +1080,9 @@ External services: a database (primary or additional) or Redis whose config carr
 Envoryx does not run. The planner skips its container and volume, points the dbGuard at
 the server and gives every container of the project
 `host.docker.internal:host-gateway` (in the spec fingerprint only when present), so a
-server on the Docker host is reachable on Linux too. `DatabaseEnvFor` injects the
+server on the Docker host is reachable on Linux too. The runtime and worker containers
+(`runtimeContainer`) get that entry in every project: debuggers connect back to an IDE
+on the Docker host there (Xdebug's default `client_host`, PyCharm's debug server). `DatabaseEnvFor` injects the
 server's address and escapes the credentials in `DATABASE_URL` (url.UserPassword;
 generated credentials come out unchanged), `RedisEnv` adds `REDIS_PASSWORD`. The
 dialects log in as root on 127.0.0.1 for the project's own container and as the

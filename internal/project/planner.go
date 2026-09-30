@@ -410,6 +410,12 @@ func (p *Planner) configHostDir(projectID string) string {
 	return filepath.Join(p.paths.ConfigHostDir, "projects", projectID)
 }
 
+// runtimeContainer reports whether a plan container runs the project's code: a runtime
+// service or a worker.
+func runtimeContainer(kind store.ServiceKind) bool {
+	return customImageKinds[kind] || strings.HasPrefix(string(kind), "worker:")
+}
+
 // Plan builds the plan for a project. Disabled services are skipped.
 func (p *Planner) Plan(proj store.Project) (Plan, error) {
 	if p.paths.ProjectsHostDir == "" || p.paths.ConfigHostDir == "" {
@@ -1226,10 +1232,13 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 		plan.Containers = append(plan.Containers, ContainerPlan{Kind: WorkerKind(w), Order: 30, Spec: spec})
 	}
 
-	// An external server may run on the Docker host itself; Linux only resolves
-	// host.docker.internal when the container is told the gateway.
-	if external {
-		for i := range plan.Containers {
+	// Linux only resolves host.docker.internal when the container is told the gateway.
+	// The runtimes and workers always get it: debuggers connect back to the IDE there
+	// (Xdebug's default client_host, PyCharm's debug server) when it runs on the Docker
+	// host. An external server may run on the Docker host, too, so with one every
+	// container gets it.
+	for i := range plan.Containers {
+		if external || runtimeContainer(plan.Containers[i].Kind) {
 			plan.Containers[i].Spec.ExtraHosts = append(plan.Containers[i].Spec.ExtraHosts, hostGatewayEntry)
 		}
 	}
