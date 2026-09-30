@@ -503,8 +503,12 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 			if err := cfg.Normalize(); err != nil {
 				return Plan{}, err
 			}
+			// Toggling Mailpit changes this file together with the container's MAIL_*
+			// variables, so the env in the spec fingerprint recreates the container.
+			mailpit := proj.Service(store.ServiceMailpit)
+			iniOpts := runtime.INIOptions{XdebugClientHost: p.paths.XdebugClientHost, Mailpit: mailpit != nil && mailpit.Enabled}
 			plan.Files = append(plan.Files,
-				FilePlan{Path: filepath.Join(plan.ConfigDir, "php", "zz-envoryx.ini"), Content: cfg.INIWith(svc.Version, runtime.INIOptions{XdebugClientHost: p.paths.XdebugClientHost}), Mode: 0o644},
+				FilePlan{Path: filepath.Join(plan.ConfigDir, "php", "zz-envoryx.ini"), Content: cfg.INIWith(svc.Version, iniOpts), Mode: 0o644},
 				FilePlan{Path: filepath.Join(plan.ConfigDir, "php", "zz-envoryx.conf"), Content: runtime.FPMPool(p.paths.PUID, p.paths.PGID), Mode: 0o644},
 			)
 			phpSpec := docker.ContainerSpec{

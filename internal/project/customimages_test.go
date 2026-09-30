@@ -54,7 +54,7 @@ func TestCustomImageFromRegistry(t *testing.T) {
 		t.Fatal(err)
 	}
 	id := view.Project.ID
-	// An image without socat, Composer and Xdebug, with an entrypoint of its own.
+	// An image without socat, Composer, msmtp and Xdebug, with an entrypoint of its own.
 	ref := "ghcr.io/acme/php:8.4"
 	e.engine.ImageInfos[ref] = docker.ImageInfo{Entrypoint: []string{"/start.sh"}}
 	e.engine.OneShotHandler = func(spec docker.ContainerSpec) (docker.ExecResult, error) {
@@ -70,7 +70,7 @@ func TestCustomImageFromRegistry(t *testing.T) {
 	}
 	svc := view.Project.Service(store.ServicePHP)
 	w := strings.Join(svc.Custom.Warnings, "|")
-	for _, want := range []string{"socat is missing", "composer is missing", "Xdebug", "ENTRYPOINT /start.sh", "extension switches"} {
+	for _, want := range []string{"socat is missing", "composer is missing", "msmtp is missing", "Xdebug", "ENTRYPOINT /start.sh", "extension switches"} {
 		if !strings.Contains(w, want) {
 			t.Errorf("warning %q missing in %q", want, w)
 		}

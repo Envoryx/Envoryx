@@ -140,7 +140,7 @@ The optional services:
 
 - Redis (persistent volume, `REDIS_URL`)
 - Memcached (`MEMCACHED_HOST`/`MEMCACHED_PORT`/`MEMCACHED_URL`)
-- Mailpit, an SMTP catcher with a web inbox (`MAIL_*`/`MAILER_DSN`/`SMTP_HOST`/`SMTP_PORT`)
+- Mailpit, an SMTP catcher with a web inbox (`MAIL_*`/`MAILER_DSN`/`SMTP_HOST`/`SMTP_PORT`; PHP's `mail()` goes there too)
 - RabbitMQ with the management UI and a generated login (`RABBITMQ_*`/`RABBITMQ_URL`)
 - Meilisearch with its web dashboard and a generated master key (`MEILISEARCH_*`)
 - Typesense with a generated API key (`TYPESENSE_*`)

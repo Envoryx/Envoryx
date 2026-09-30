@@ -44,7 +44,9 @@ RUN set -eux; \
     apt-get update; \
     # git/unzip/ssh for actions; socat relays SSH port forwards to the IDE backend on 127.0.0.1;
     # procps + X libs let JetBrains Gateway run its IDE backend here.
-    apt-get install -y --no-install-recommends git unzip openssh-client socat procps libfreetype6 fontconfig libxi6 libxrender1 libxtst6 libxext6; \
+    # msmtp delivers mail() to Mailpit; Envoryx sets sendmail_path only while Mailpit is on.
+    # No msmtp-mta: without Mailpit /usr/sbin/sendmail stays missing and mail() returns false.
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git unzip openssh-client socat procps libfreetype6 fontconfig libxi6 libxrender1 libxtst6 libxext6 msmtp; \
     rm -rf /var/lib/apt/lists/*; \
     php -m
 

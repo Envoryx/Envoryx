@@ -1350,8 +1350,8 @@ message. Either way you fix the Dockerfile and try again.
 it once with `sh -c` and looks for what it relies on - a shell, `git`, `socat` (waiting for
 the database, SSH port forwarding), `ssh`, the runtime itself (`php` and `php-fpm`, `node`
 and `npm`, `python3`, `go`, `ruby` and `bundle`, `java`, `dotnet`) and the runtime's tools
-(Composer and Xdebug; corepack; pip and uv; air, Delve and gotestsum; rdbg; Maven and
-Gradle; netcoredbg and dotnet-ef). An `ENTRYPOINT` other than tini or the official images'
+(Composer, msmtp for `mail()` and Xdebug; corepack; pip and uv; air, Delve and gotestsum;
+rdbg; Maven and Gradle; netcoredbg and dotnet-ef). An `ENTRYPOINT` other than tini or the official images'
 entrypoints is named, as it runs before every command Envoryx starts and has to end with
 `exec "$@"`. The findings show as warnings with what doesn't work without them, for
 example *socat is missing: no waiting for the database at start and SSH port forwarding*.

@@ -3,6 +3,8 @@ package project
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -185,6 +187,44 @@ func TestRedisAndMailpitServices(t *testing.T) {
 		if strings.HasPrefix(c, "volume-remove:") && !strings.HasSuffix(c, "envoryx-full-redis") {
 			t.Fatalf("unexpected volume removal: %s", c)
 		}
+	}
+}
+
+// mail() has no SMTP settings of its own: the php.ini points sendmail_path at msmtp while
+// Mailpit is on, and toggling Mailpit rewrites the ini and recreates the PHP container so
+// the running php-fpm reads it.
+func TestMailpitRoutesPHPMailThroughMsmtp(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	view, err := e.m.Create(ctx, phpRequest("Mailer", true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := view.Project.ID
+	iniPath := filepath.Join(e.cfgDir, "projects", id, "php/zz-envoryx.ini")
+	ini, _ := os.ReadFile(iniPath)
+	if strings.Contains(string(ini), "sendmail_path") {
+		t.Fatalf("without Mailpit the image default must stay:\n%s", ini)
+	}
+
+	e.engine.Calls = nil
+	if _, err := e.m.Update(ctx, id, UpdateRequest{Mailpit: &ExtraUpdate{Enabled: true}}); err != nil {
+		t.Fatal(err)
+	}
+	ini, _ = os.ReadFile(iniPath)
+	if want := `sendmail_path = "/usr/bin/msmtp -t --host=mailpit --port=1025 --auth=off --tls=off --from=php@envoryx.localhost"`; !strings.Contains(string(ini), want) {
+		t.Fatalf("ini missing %s:\n%s", want, ini)
+	}
+	calls := strings.Join(e.engine.Calls, " ")
+	if !strings.Contains(calls, "remove:envoryx-mailer-php") || !strings.Contains(calls, "create:envoryx-mailer-php") {
+		t.Fatalf("php container must be recreated: %s", calls)
+	}
+
+	if _, err := e.m.Update(ctx, id, UpdateRequest{Mailpit: &ExtraUpdate{Enabled: false}}); err != nil {
+		t.Fatal(err)
+	}
+	if ini, _ = os.ReadFile(iniPath); strings.Contains(string(ini), "sendmail_path") {
+		t.Fatalf("sendmail_path must go with Mailpit:\n%s", ini)
 	}
 }
 
