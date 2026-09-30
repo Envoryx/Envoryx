@@ -135,6 +135,15 @@ release). `:main` follows the development branch.
   MCP (e.g. `stop_project`) was told "limited to particular projects"
   instead of "this token has read scope, the operation needs operate",
   as the REST API says. The same applied to the database browser routes.
+- The Go debugging texts (IDE tab, Go server settings, deployment guide)
+  said breakpoints survive every rebuild. When air rebuilds, it restarts
+  Delve and the IDE's debug session ends; the texts now say to attach
+  again, after which the breakpoints are hit as before.
+- The diagnostics check "Wildcard DNS as seen by Envoryx" reported OK for
+  any answer when no host for project links was set, even when the names
+  pointed at another machine. It now asks that address for the probe
+  host and only reports OK when this instance's proxy answers; another
+  server there is a warning, no answer is reported as unverified.
 
 ## [0.17.0] - 2026-09-30
 
