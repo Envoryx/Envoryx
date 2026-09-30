@@ -22,6 +22,19 @@ describe("DatabaseTab", () => {
     expect(await screen.findByRole("button", { name: "Add database" })).toBeInTheDocument();
   });
 
+  it("does not ask for the database browser as a viewer", async () => {
+    const api = mockApi({
+      ...authedRoutes,
+      "GET /runtimes": () => ({ body: runtimesFixture }),
+      "GET /projects/3f0b4a9e-1a2b-4c3d-8e9f-0a1b2c3d4e5f/database": () => ({
+        body: { database: { type: "mariadb", version: "11", image: "mariadb:11", host: "database", port: 3306, database: "acme_shop", username: "acme_shop", hostPort: 0, injectedEnv: [], state: "running", health: "healthy", volumeName: "envoryx-acme-shop-database", volumeExists: true } },
+      }),
+    });
+    renderApp(<DatabaseTab project={makeProject({ ...withDb(), access: "read" })} />);
+    expect(await screen.findByText("healthy")).toBeInTheDocument();
+    expect(api.calls.some((c) => c.url.endsWith("/dbtool"))).toBe(false);
+  });
+
   it("shows connection info, reveals credentials only on request and manages databases", async () => {
     const api = mockApi({
       ...authedRoutes,

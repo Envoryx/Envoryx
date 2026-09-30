@@ -114,6 +114,9 @@ var instanceRoutesForConfined = map[string]bool{
 	"GET /api/v1/projects": true,
 	// Filtered to the principal's projects like the list.
 	"GET /api/v1/operations": true,
+	// Computes the next times of a schedule the caller sends; it touches no data. The cron
+	// editor of a project needs it.
+	"POST /api/v1/cron/preview": true,
 }
 
 // instanceRoutesForConfinedUsers are the further instance routes a confined user's

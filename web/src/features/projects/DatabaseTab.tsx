@@ -219,7 +219,7 @@ function DatabasePanel({ project, db, onRemoved }: { project: Project; db: strin
   const runtimes = useRuntimes();
   const update = useUpdateProject(project.id);
   const { rotate, expose, create, drop } = useDatabaseMutations(project.id, db);
-  const dbTool = useDBTool();
+  const dbTool = useDBTool(can.operate);
   const openTool = useOpenDBTool(project.id);
   const running = info.data?.state === "running";
   // An external server is there whether or not the project runs.
