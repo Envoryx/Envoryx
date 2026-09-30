@@ -2,6 +2,7 @@ package project
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -98,6 +99,12 @@ func UIHostname(base string) string { return UIHostLabel + "." + base }
 // ProbeHostname is the name the diagnostics use to test wildcard DNS and the proxy from a
 // browser; the proxy answers it with a small JSON document.
 func ProbeHostname(base string) string { return "envoryx-diagnostics-probe." + base }
+
+// probeToken identifies this Envoryx process in the probe answer (see proxy.Table).
+var probeToken = rand.Text()
+
+// ProbeToken returns the token the proxy sends in the diagnostics probe answer.
+func ProbeToken() string { return probeToken }
 
 // DevHostname is the host name of a project's Node dev server (kept one label deep so a
 // wildcard certificate for the base domain covers it).
@@ -205,7 +212,7 @@ func (m *Manager) RouteTable(ctx context.Context, opts ProxyOptions) (proxy.Tabl
 	t := proxy.Table{Routes: map[string]proxy.Target{}, UIHosts: map[string]bool{}, ForceHTTPS: m.ForceHTTPS(ctx), HTTPSPort: opts.HTTPSPort, EnvoryxURL: opts.EnvoryxURL}
 	base := m.BaseDomain(ctx)
 	t.UIHosts[UIHostname(base)] = true
-	t.ProbeHost = ProbeHostname(base)
+	t.ProbeHost, t.ProbeToken = ProbeHostname(base), probeToken
 	for _, h := range opts.ExtraUIHosts {
 		if h = validate.NormalizeHostname(h); h != "" {
 			t.UIHosts[h] = true

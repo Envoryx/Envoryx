@@ -51,6 +51,9 @@ type Table struct {
 	// ProbeHost answers the diagnostics probe: a browser that can fetch it has working
 	// wildcard DNS and reaches the proxy (and, over HTTPS, trusts the CA).
 	ProbeHost string
+	// ProbeToken is sent in the probe answer so the server's own DNS check can tell its
+	// proxy from another Envoryx's that the name points at.
+	ProbeToken string
 }
 
 // Source produces the current routing table.
@@ -166,7 +169,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprintf(w, `{"envoryx":"probe","host":%q,"tls":%v}`, host, r.TLS != nil)
+		fmt.Fprintf(w, `{"envoryx":"probe","host":%q,"tls":%v,"instance":%q}`, host, r.TLS != nil, table.ProbeToken)
 		return
 	}
 	target, ok := table.Routes[host]

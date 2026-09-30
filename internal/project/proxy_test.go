@@ -187,6 +187,9 @@ func TestExtraDomainsFollowTheApplication(t *testing.T) {
 	if !table.UIHosts["envoryx.test"] || !table.UIHosts["192.168.1.10"] || table.ProbeHost != "envoryx-diagnostics-probe.test" {
 		t.Fatalf("ui/probe hosts must be unaffected: %+v", table)
 	}
+	if table.ProbeToken == "" || table.ProbeToken != ProbeToken() {
+		t.Fatalf("probe token: %q", table.ProbeToken)
+	}
 	if _, ok := table.Routes["docs-dev.test"]; ok {
 		t.Fatal("static project has no dev route")
 	}
