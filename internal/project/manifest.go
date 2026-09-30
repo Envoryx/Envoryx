@@ -183,10 +183,15 @@ func exportState(p store.Project, domains []store.Domain, jobs []store.CronJob) 
 	if svc := p.Service(store.ServiceNode); svc != nil {
 		var cfg runtime.NodeConfig
 		_ = json.Unmarshal(svc.Config, &cfg)
-		mf.Node = &manifest.Node{
-			Version: svc.Version, DevServer: cfg.DevServer, Mode: cfg.Mode, PackageManager: cfg.PackageManager,
-			Script: cfg.Script, BuildScript: cfg.BuildScript, Port: cfg.Port, Preset: cfg.Preset,
-			Inspect: cfg.Inspect, InspectPort: cfg.InspectPort,
+		mf.Node = &manifest.Node{Version: svc.Version}
+		// The config keeps the server settings while the dev server is off (for turning it
+		// back on); the manifest describes what runs.
+		if cfg.DevServer {
+			mf.Node = &manifest.Node{
+				Version: svc.Version, DevServer: cfg.DevServer, Mode: cfg.Mode, PackageManager: cfg.PackageManager,
+				Script: cfg.Script, BuildScript: cfg.BuildScript, Port: cfg.Port, Preset: cfg.Preset,
+				Inspect: cfg.Inspect, InspectPort: cfg.InspectPort,
+			}
 		}
 	}
 	if svc := p.Service(store.ServicePython); svc != nil {
@@ -737,6 +742,10 @@ func (m *Manager) planManifest(ctx context.Context, id string, mf manifest.Manif
 			add(c)
 			var cfg runtime.NodeConfig
 			_ = json.Unmarshal(want.Service(store.ServiceNode).Config, &cfg)
+			if !cfg.DevServer {
+				// Only the defaults: keep the stored server settings for turning it back on.
+				cfg = runtime.NodeConfig{}
+			}
 			ops.update.Node = &NodeUpdate{Enabled: true, Version: wantMf.Node.Version, Config: cfg}
 		}
 	}

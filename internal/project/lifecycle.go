@@ -1099,19 +1099,23 @@ func (m *Manager) applyNodeUpdate(ctx context.Context, p store.Project, upd Node
 		if err != nil {
 			return err
 		}
-		cfg := upd.Config
-		if err := cfg.Normalize(); err != nil {
-			return err
-		}
 		var old runtime.NodeConfig
 		if svc != nil && len(svc.Config) > 0 {
 			_ = json.Unmarshal(svc.Config, &old)
 		}
-		// Keep the published ports across edits; allocate them when the dev server or the
-		// inspector is enabled.
-		cfg.HostPort, cfg.InspectHostPort = 0, 0
+		cfg := upd.Config
+		cfg.Inherit(old)
+		if err := cfg.Normalize(); err != nil {
+			return err
+		}
+		// Keep the published ports across edits, also while the dev server is off so it
+		// comes back on the same port; allocate them when the dev server or the inspector
+		// is enabled.
+		cfg.HostPort, cfg.InspectHostPort = old.HostPort, 0
+		if cfg.Inspect {
+			cfg.InspectHostPort = old.InspectHostPort
+		}
 		if cfg.DevServer {
-			cfg.HostPort = old.HostPort
 			if cfg.HostPort == 0 {
 				port, err := m.allocatePort(ctx)
 				if err != nil {
@@ -1119,15 +1123,12 @@ func (m *Manager) applyNodeUpdate(ctx context.Context, p store.Project, upd Node
 				}
 				cfg.HostPort = port
 			}
-			if cfg.Inspect {
-				cfg.InspectHostPort = old.InspectHostPort
-				if cfg.InspectHostPort == 0 {
-					port, err := m.allocatePort(ctx, cfg.HostPort)
-					if err != nil {
-						return err
-					}
-					cfg.InspectHostPort = port
+			if cfg.Inspect && cfg.InspectHostPort == 0 {
+				port, err := m.allocatePort(ctx, cfg.HostPort)
+				if err != nil {
+					return err
 				}
+				cfg.InspectHostPort = port
 			}
 		}
 		raw, err := json.Marshal(cfg)
