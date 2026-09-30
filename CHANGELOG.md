@@ -113,11 +113,15 @@ release). `:main` follows the development branch.
   project when it suits you.
 - The Ruby images ship libvips, which Active Storage's default `:vips`
   processor needs for image variants (the images grow by about 180 MB).
-
-### Fixed
 - `rails test` runs in the Tests section show their counts and failed
   tests (name, message, file and line), read from the minitest output;
   before, only the exit code counted.
+- A new cron job ran once right away, in the minute it was created,
+  instead of first at its next scheduled time. Only jobs due in the
+  minute Envoryx starts still run in that minute.
+- A user whose global role is none could not see the schedule preview
+  in a project's cron editor (403). The Database tab no longer asks
+  viewers for the database browser's state, which they may not read.
 
 ## [0.17.0] - 2026-09-30
 
