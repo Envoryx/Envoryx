@@ -45,7 +45,7 @@ func TestRubyServerServesProject(t *testing.T) {
 	if c.Spec.Image != "ghcr.io/envoryx/envoryx-ruby:3.4" || c.Spec.User != "1000:1000" || c.Spec.WorkingDir != "/var/www/html" {
 		t.Fatalf("ruby container: %+v", c.Spec)
 	}
-	for _, want := range []string{"PORT=3000", "RAILS_ENV=development", "RAILS_DEVELOPMENT_HOSTS=.test", "GEM_HOME=/home/envoryx/.gem/ruby", "BUNDLE_APP_CONFIG=/var/www/html/.bundle", "BUNDLE_USER_CACHE=/var/cache/envoryx/bundler"} {
+	for _, want := range []string{"PORT=3000", "RAILS_ENV=development", "RAILS_DEVELOPMENT_HOSTS=.test", "GEM_HOME=/home/envoryx/.gem/ruby/3.4.0", "BUNDLE_APP_CONFIG=/var/www/html/.bundle", "BUNDLE_USER_CACHE=/var/cache/envoryx/bundler"} {
 		if !slices.Contains(c.Spec.Env, want) {
 			t.Fatalf("ruby env lacks %s: %v", want, c.Spec.Env)
 		}
@@ -61,6 +61,11 @@ func TestRubyServerServesProject(t *testing.T) {
 		t.Fatal("no starter page while the Ruby server serves the project")
 	}
 	proj, _ := e.m.loadProject(ctx, v.Project.ID)
+	// ~/.gem exists before any gem install, so RubyGems puts Gem.user_dir (where
+	// --user-install goes) below it, at GEM_HOME, not below ~/.local/share/gem.
+	if fi, err := os.Stat(filepath.Join(e.cfgDir, "projects", proj.ID, "home", ".gem", "ruby", "3.4.0")); err != nil || !fi.IsDir() {
+		t.Fatalf("GEM_HOME not created in the project home: %v", err)
+	}
 	if Serves(proj) != "ruby" {
 		t.Fatalf("Serves = %s", Serves(proj))
 	}
@@ -133,6 +138,10 @@ func TestRubyTemplateWorkersTestsAndManifest(t *testing.T) {
 	for _, s := range e.engine.OneShots {
 		if s.Image == "ghcr.io/envoryx/envoryx-ruby:3.4" {
 			steps = append(steps, s.Cmd)
+			// rails and the bundle land where the server looks for them.
+			if !slices.Contains(s.Env, "GEM_HOME=/home/envoryx/.gem/ruby/3.4.0") || !slices.Contains(s.Env, "HOME=/home/envoryx") {
+				t.Fatalf("template env: %v", s.Env)
+			}
 		}
 	}
 	if len(steps) != 1 || !slices.Contains(steps[0], "--name=blog") || !slices.Contains(steps[0], "--database=sqlite3") || !strings.Contains(steps[0][2], "gem install") {
@@ -153,7 +162,7 @@ func TestRubyTemplateWorkersTestsAndManifest(t *testing.T) {
 	if !ok || w.Spec.Image != "ghcr.io/envoryx/envoryx-ruby:3.4" || !strings.Contains(w.Spec.Cmd[2], "bundle check") || !slices.Equal(w.Spec.Cmd[4:], []string{"bundle", "exec", "sidekiq", "-q", "default", "-q", "mailers"}) {
 		t.Fatalf("ruby worker: %+v", w.Spec)
 	}
-	if !slices.Contains(w.Spec.Env, "RAILS_ENV=development") || !slices.Contains(w.Spec.Env, "GEM_HOME=/home/envoryx/.gem/ruby") {
+	if !slices.Contains(w.Spec.Env, "RAILS_ENV=development") || !slices.Contains(w.Spec.Env, "GEM_HOME=/home/envoryx/.gem/ruby/3.4.0") {
 		t.Fatalf("ruby worker env: %v", w.Spec.Env)
 	}
 	if _, err := e.m.AddWorker(ctx, v.Project.ID, WorkerRequest{Name: "bad", Preset: "rake:task", Arg: "jobs; rm -rf /", Enabled: true}); err == nil {
@@ -228,5 +237,31 @@ func TestRailsNewArguments(t *testing.T) {
 	p := store.Project{Services: []store.ProjectService{{Kind: store.ServiceDatabase, Variant: "mariadb", Enabled: true}}}
 	if got := railsDatabase(p); got != "mariadb-mysql" {
 		t.Fatalf("mariadb: %s", got)
+	}
+}
+
+// GEM_HOME is Gem.user_dir, RbConfig::CONFIG["ruby_version"] of the version: X.Y.0.
+func TestRubyGemHome(t *testing.T) {
+	for version, want := range map[string]string{
+		"4.0":    "/home/envoryx/.gem/ruby/4.0.0",
+		"3.4":    "/home/envoryx/.gem/ruby/3.4.0",
+		"3.3":    "/home/envoryx/.gem/ruby/3.3.0",
+		"3.4.2":  "/home/envoryx/.gem/ruby/3.4.0",
+		"":       "/home/envoryx/.gem/ruby",
+		"latest": "/home/envoryx/.gem/ruby",
+		"3.x":    "/home/envoryx/.gem/ruby",
+	} {
+		if got := rubyGemHome(version); got != want {
+			t.Errorf("rubyGemHome(%q) = %s, want %s", version, got, want)
+		}
+	}
+	env := rubyEnv("3.4")
+	for _, want := range []string{"GEM_HOME=/home/envoryx/.gem/ruby/3.4.0", "GEM_PATH=/home/envoryx/.gem/ruby/3.4.0:/usr/local/bundle"} {
+		if !slices.Contains(env, want) {
+			t.Fatalf("rubyEnv lacks %s: %v", want, env)
+		}
+	}
+	if !slices.ContainsFunc(env, func(v string) bool { return strings.HasPrefix(v, "PATH=/home/envoryx/.gem/ruby/3.4.0/bin:") }) {
+		t.Fatalf("PATH misses GEM_HOME/bin: %v", env)
 	}
 }

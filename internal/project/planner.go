@@ -193,21 +193,65 @@ var goEnv = []string{
 	"PATH=" + goPath + "/bin:/usr/local/go/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin",
 }
 
-// rubyGemHome is GEM_HOME in the persistent home: bundle install and gem install put the
-// project's gems there, so they survive a container recreate and the project directory
-// holds no vendor/bundle. RubyGems keeps compiled extensions per Ruby version, so after a
-// version switch bundle check reports them missing and the bundle guard rebuilds them.
-const rubyGemHome = homeMountTarget + "/.gem/ruby"
+// rubyGemsDir holds the gem directories in the persistent home: bundle install and gem
+// install put the project's gems there, so they survive a container recreate and the
+// project directory holds no vendor/bundle.
+const rubyGemsDir = homeMountTarget + "/.gem/ruby"
+
+// rubyGemHome is GEM_HOME for a Ruby version: rubyGemsDir plus the version's ABI
+// directory (3.4.0 for 3.4), which makes it Gem.user_dir. IDEs install their helper gems
+// with --user-install (RubyMine its debugger gems), and RubyGems only searches
+// Gem.user_dir on its own when GEM_PATH is unset; as GEM_HOME it is always searched. Each
+// Ruby version gets its own directory, so after a version switch the bundle guard installs
+// the bundle once into the new one and the old one is left alone.
+func rubyGemHome(version string) string {
+	if abi := rubyABI(version); abi != "" {
+		return rubyGemsDir + "/" + abi
+	}
+	return rubyGemsDir
+}
+
+// rubyABI is RbConfig::CONFIG["ruby_version"] of a catalogue version ("3.4" or "3.4.2"):
+// all releases of one minor version share the directory X.Y.0. Empty when the version
+// is not of that form.
+func rubyABI(version string) string {
+	parts := strings.SplitN(version, ".", 3)
+	if len(parts) < 2 {
+		return ""
+	}
+	for _, n := range parts[:2] {
+		if n == "" || strings.Trim(n, "0123456789") != "" {
+			return ""
+		}
+	}
+	return parts[0] + "." + parts[1] + ".0"
+}
 
 // rubyEnv gives the Ruby containers their GEM_HOME, a GEM_PATH that still finds the
 // image's gems (rdbg), and a PATH with the gems' executables. BUNDLE_APP_CONFIG goes back
 // to Bundler's default, the project's .bundle/, instead of the image's root-owned
 // /usr/local/bundle.
-var rubyEnv = []string{
-	"GEM_HOME=" + rubyGemHome,
-	"GEM_PATH=" + rubyGemHome + ":/usr/local/bundle",
-	"BUNDLE_APP_CONFIG=" + appMountTarget + "/.bundle",
-	"PATH=" + rubyGemHome + "/bin:/usr/local/bundle/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin",
+func rubyEnv(version string) []string {
+	home := rubyGemHome(version)
+	return []string{
+		"GEM_HOME=" + home,
+		"GEM_PATH=" + home + ":/usr/local/bundle",
+		"BUNDLE_APP_CONFIG=" + appMountTarget + "/.bundle",
+		"PATH=" + home + "/bin:/usr/local/bundle/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin",
+	}
+}
+
+// rubyGemDirs plans GEM_HOME and its parents in the project home. RubyGems puts
+// Gem.user_dir below ~/.gem only when that directory exists (else below
+// ~/.local/share/gem), so a --user-install before the first bundle install needs it.
+func (p *Planner) rubyGemDirs(proj store.Project, version string) []DirPlan {
+	dir := filepath.Join(p.HomeDir(proj), ".gem")
+	dirs := []DirPlan{{Path: dir, UID: p.paths.PUID, GID: p.paths.PGID}}
+	for _, part := range strings.Split(strings.TrimPrefix(rubyGemHome(version), homeMountTarget+"/.gem/"), "/") {
+		dir = filepath.Join(dir, part)
+		dirs = append(dirs, DirPlan{Path: dir, UID: p.paths.PUID, GID: p.paths.PGID})
+	}
+	return dirs
 }
 
 // rubyDatabaseURLs rewrites the PostgreSQL connection strings for Ruby: Envoryx names
@@ -738,7 +782,7 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 				Labels: labels,
 				// Tooling container: idles until actions or the terminal run commands.
 				Cmd:           []string{"sleep", "infinity"},
-				Env:           append(append(rubyDatabaseURLs(env), toolEnv...), rubyEnv...),
+				Env:           append(append(rubyDatabaseURLs(env), toolEnv...), rubyEnv(svc.Version)...),
 				User:          fmt.Sprintf("%d:%d", p.paths.PUID, p.paths.PGID),
 				WorkingDir:    appMountTarget,
 				Network:       plan.NetworkName,
@@ -765,6 +809,7 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 				spec.Ports = append(spec.Ports, docker.PortSpec{HostIP: p.paths.PublishInterface, HostPort: rcfg.DebugHostPort, ContainerPort: rcfg.DebugPort, Protocol: "tcp"})
 			}
 			plan.Containers = append(plan.Containers, ContainerPlan{Kind: store.ServiceRuby, Order: 12, Spec: spec})
+			plan.Dirs = append(plan.Dirs, p.rubyGemDirs(proj, svc.Version)...)
 			images[svc.Image] = true
 
 		case store.ServiceJava:
@@ -1201,7 +1246,7 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 				continue
 			}
 			spec.Image = ruby.Image
-			spec.Env = append(append(append(rubyDatabaseURLs(env), toolEnv...), rubyEnv...), rubyAppEnv...)
+			spec.Env = append(append(append(rubyDatabaseURLs(env), toolEnv...), rubyEnv(ruby.Version)...), rubyAppEnv...)
 			spec.Mounts = append(spec.Mounts, p.HomeMount(proj))
 			// Bundler locks the install, so a worker and the server installing at once
 			// wait for each other instead of clashing.

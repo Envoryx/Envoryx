@@ -90,8 +90,9 @@ var (
 	goScaffoldEnv     = []string{"HOME=/tmp", "GOPATH=/tmp/go", "GOFLAGS=-modcacherw", "PATH=/tmp/go/bin:/usr/local/go/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin"}
 	pythonScaffoldEnv = []string{"HOME=/tmp", "PIP_DISABLE_PIP_VERSION_CHECK=1", "PYTHONUNBUFFERED=1", "VIRTUAL_ENV=" + pythonVenvPath, "PATH=" + pythonVenvPath + "/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin"}
 	// The Ruby scaffolds install into the project's GEM_HOME (the project home is mounted),
-	// so the server finds the bundle complete on its first start.
-	rubyScaffoldEnv = append([]string{"HOME=" + homeMountTarget}, rubyEnv...)
+	// so the server finds the bundle complete on its first start. The GEM_HOME of the
+	// service's Ruby version is added in applyTemplate (rubyEnv).
+	rubyScaffoldEnv = []string{"HOME=" + homeMountTarget}
 	// The Java scaffolds keep the Maven wrapper's download in the project home and the
 	// dependencies in the shared package cache, so the server's first build finds both.
 	javaScaffoldEnv = []string{"HOME=" + homeMountTarget}
@@ -971,6 +972,9 @@ func (m *Manager) applyTemplate(ctx context.Context, proj store.Project, tpl Tem
 	}
 	if tpl.RequiresDatabase && proj.Service(store.ServiceDatabase) == nil {
 		return fmt.Errorf("%w: template %s needs a database service", validate.ErrInvalid, tpl.ID)
+	}
+	if kind == store.ServiceRuby {
+		env = append(append([]string{}, env...), rubyEnv(svc.Version)...)
 	}
 	paths, err := m.paths()
 	if err != nil {

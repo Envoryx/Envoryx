@@ -655,7 +655,8 @@ image `ghcr.io/envoryx/envoryx-ruby:<3.x|4.x>`: the official
 `ruby:<v>-slim-bookworm` image plus the build dependencies of the common
 native gems (pg, mysql2, sqlite3, psych) and the debug gem) runs as
 `PUID:PGID` with the project directory at `/var/www/html` and the project
-home at `/home/envoryx`. Gems go to `GEM_HOME=/home/envoryx/.gem/ruby`, so they
+home at `/home/envoryx`. Gems go to `GEM_HOME=/home/envoryx/.gem/ruby/<X.Y.0>` (`3.4.0` for Ruby 3.4, the
+directory `gem install --user-install` uses, too), so they
 stay across container recreates and the project directory holds no
 `vendor/bundle`, and Bundler's download cache lives in the shared package
 cache. The image has no Node.js: `jsbundling-rails`/`cssbundling-rails`

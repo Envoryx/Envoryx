@@ -30,7 +30,8 @@ export function IdeTab({ project: p }: { project: Project }) {
   const hasNode = p.services.some((x) => x.kind === "node" && x.enabled);
   const hasPython = p.services.some((x) => x.kind === "python" && x.enabled);
   const hasGo = p.services.some((x) => x.kind === "go" && x.enabled);
-  const hasRuby = p.services.some((x) => x.kind === "ruby" && x.enabled);
+  const ruby = p.services.find((x) => x.kind === "ruby" && x.enabled);
+  const hasRuby = !!ruby;
   const hasJava = p.services.some((x) => x.kind === "java" && x.enabled);
   const hasDotnet = p.services.some((x) => x.kind === "dotnet" && x.enabled);
   // The bare SSH user lands in the application container: PHP when present, else Python, Go, Ruby, Java, .NET, Node.
@@ -40,7 +41,7 @@ export function IdeTab({ project: p }: { project: Project }) {
   const nodeCfg = (p.services.find((x) => x.kind === "node" && x.enabled)?.config ?? {}) as unknown as Partial<NodeConfig>;
   const pyCfg = (p.services.find((x) => x.kind === "python" && x.enabled)?.config ?? {}) as unknown as Partial<PythonConfig>;
   const goCfg = (p.services.find((x) => x.kind === "go" && x.enabled)?.config ?? {}) as unknown as Partial<GoConfig>;
-  const rbCfg = (p.services.find((x) => x.kind === "ruby" && x.enabled)?.config ?? {}) as unknown as Partial<RubyConfig>;
+  const rbCfg = (ruby?.config ?? {}) as unknown as Partial<RubyConfig>;
   const jvCfg = (p.services.find((x) => x.kind === "java" && x.enabled)?.config ?? {}) as unknown as Partial<JavaConfig>;
   const hostname = p.hostnames[0] ?? `${p.slug}.test`;
   const ssh = s?.ssh;
@@ -169,7 +170,7 @@ export function IdeTab({ project: p }: { project: Project }) {
               {hasPython && <CopyRow label={t("Python path (without .venv)")} value="/usr/local/bin/python" />}
               {hasGo && <CopyRow label={t("GOROOT")} value="/usr/local/go" />}
               {hasRuby && <CopyRow label={t("Ruby path")} value="/usr/local/bin/ruby" />}
-              {hasRuby && <CopyRow label="GEM_HOME" value="/home/envoryx/.gem/ruby" />}
+              {ruby && <CopyRow label="GEM_HOME" value={rubyGemHome(ruby.version)} />}
               {hasJava && <CopyRow label="JAVA_HOME" value="/opt/java/openjdk" />}
               {hasDotnet && <CopyRow label={t(".NET SDK path")} value="/usr/bin/dotnet" />}
               {hasNode && <CopyRow label={t("Node path")} value="/usr/local/bin/node" />}
@@ -679,4 +680,10 @@ function pythonDebugExamples(port: number): string {
 function pendingUpdate(p: Project): Operation {
   const now = new Date().toISOString();
   return { id: "pending", projectId: p.id, projectSlug: p.slug, projectName: p.name, action: "update", startedAt: now, updatedAt: now };
+}
+
+/** GEM_HOME of a Ruby version as Envoryx sets it: one directory per ABI version (3.4.0 for 3.4), which is also Gem.user_dir. */
+function rubyGemHome(version: string): string {
+  const m = /^(\d+)\.(\d+)(\.|$)/.exec(version);
+  return m ? `/home/envoryx/.gem/ruby/${m[1]}.${m[2]}.0` : "/home/envoryx/.gem/ruby";
 }

@@ -42,6 +42,19 @@ describe("IdeTab", () => {
     expect(screen.getByText(/ssh -R 9003:localhost:9003/)).toBeInTheDocument();
   });
 
+  it("shows the Ruby version's GEM_HOME, which is Gem.user_dir", async () => {
+    mockApi({
+      ...authedRoutes,
+      "GET /settings": () => ({ body: settings }),
+      [`GET /projects/${id}/extras`]: () => ({ body: { services: [] } }),
+    });
+    const rubyService = { kind: "ruby", variant: "ruby", version: "3.4", image: "ghcr.io/envoryx/envoryx-ruby:3.4", enabled: true, config: {} };
+    const project = makeProject({ services: [webService, rubyService], serves: "ruby", appService: "ruby" });
+    renderApp(<IdeTab project={project} />);
+    expect(await screen.findByText("GEM_HOME")).toBeInTheDocument();
+    expect(screen.getByText("/home/envoryx/.gem/ruby/3.4.0")).toBeInTheDocument();
+  });
+
   it("names no session container for a static project", async () => {
     mockApi({
       ...authedRoutes,
