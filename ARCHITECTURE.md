@@ -599,9 +599,13 @@ names the container kind).
   check || bundle install` (retrying every 30 s while it fails; the worker
   containers run it too, and Bundler's process lock keeps concurrent installs
   apart), and the Rails dev server removes its pid file, which a killed
-  container leaves behind. `rubyEnv` sets `GEM_HOME=/home/envoryx/.gem/ruby`
-  (gems persist in the project home; RubyGems keeps compiled extensions per
-  Ruby version, so a version switch rebuilds them through the bundle guard),
+  container leaves behind. `rubyEnv` sets `GEM_HOME=/home/envoryx/.gem/ruby/<X.Y.0>`
+  (gems persist in the project home, one directory per Ruby ABI version, so a
+  version switch installs the bundle once through the bundle guard; the
+  directory is `Gem.user_dir`, so gems an IDE installs with `--user-install`,
+  RubyMine's debugger gems, are found despite the set `GEM_PATH`; the planner
+  creates `~/.gem` up front, without it RubyGems would pick
+  `~/.local/share/gem`),
   `GEM_PATH` with the image's `/usr/local/bundle` (rdbg) and
   `BUNDLE_APP_CONFIG` back at the project's `.bundle`; `packageCacheEnv`
   turns on Bundler's global gem cache in the shared package cache. `Env()`

@@ -42,8 +42,8 @@ func (m *Manager) execEnv(kind store.ServiceKind) (execEnv, error) {
 			e.Env = append(e.Env, pythonEnv...)
 		case store.ServiceGo:
 			e.Env = append(e.Env, goEnv...)
-		case store.ServiceRuby:
-			e.Env = append(e.Env, rubyEnv...)
+			// Ruby's GEM_HOME depends on the Ruby version: an exec inherits it from the
+			// container, which Envoryx created with the rubyEnv of its image's version.
 		}
 	}
 	return e, nil
