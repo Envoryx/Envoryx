@@ -10,6 +10,20 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Changed
+- Orphans without an instance label (created by an older Envoryx, maybe
+  another instance's) are no longer removed automatically; the *Docker*
+  page marks them *older Envoryx* and removes them on request. Orphans
+  an instance labelled itself are still cleared after two passes.
+- Django projects from the template serve their static files in
+  production mode: the settings get `STATIC_ROOT` (`staticfiles/`) and
+  WhiteNoise, so gunicorn no longer answers 404 for `/static/` and the
+  "manage.py collectstatic" action works. Projects created before need
+  `whitenoise` installed and those settings added by hand.
+- The Workers & cron section shows the command a .NET "Project" worker
+  really runs (`dotnet publish`, then `dotnet <dll>`) instead of
+  `dotnet run --project`.
+
 ### Fixed
 - Several Envoryx instances on one Docker host (a test instance next to
   production, two instances on an Unraid server) no longer delete each
@@ -24,12 +38,6 @@ release). `:main` follows the development branch.
   they are next recreated, and the label is not part of the container
   fingerprint. The network pool still steps around every network on the
   host.
-
-### Changed
-- Orphans without an instance label (created by an older Envoryx, maybe
-  another instance's) are no longer removed automatically; the *Docker*
-  page marks them *older Envoryx* and removes them on request. Orphans
-  an instance labelled itself are still cleared after two passes.
 
 ## [0.17.0] - 2026-09-30
 
