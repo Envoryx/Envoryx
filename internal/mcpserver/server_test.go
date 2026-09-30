@@ -458,6 +458,12 @@ func TestTokenScopesOnMCP(t *testing.T) {
 	if res := call(confined, "create_project", map[string]any{"name": "Nope", "phpVersion": "8.4"}); !res.IsError || !strings.Contains(text(res), "needs admin access to the whole instance") {
 		t.Fatalf("confined token creating: error=%v %q", res.IsError, text(res))
 	}
+	// A confined read token is told about its scope, as over REST, not about the
+	// project restriction its own project passes.
+	confinedRead := connect(auth.ScopeRead, shop.ID)
+	if res := call(confinedRead, "stop_project", map[string]any{"project": "shop"}); !res.IsError || !strings.Contains(text(res), "this token has read scope, the operation needs operate") {
+		t.Fatalf("confined read token stopping: error=%v %q", res.IsError, text(res))
+	}
 }
 
 // A project without PHP is created with phpVersion "none"; the Node dev server then

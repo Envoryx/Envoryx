@@ -1171,6 +1171,8 @@
   "this backup contains no files": "Questo backup non contiene file",
   "this backup contains no object storage": "Questo backup non contiene alcun object storage",
   "this token has {{scope}} scope, the operation needs {{needed}}": "Questo token ha ambito {{scope}}, l'operazione richiede {{needed}}",
+  "your role allows at most {{scope}} tokens": "Il tuo ruolo consente al massimo token con ambito {{scope}}",
+  "your role allows no API tokens": "Il tuo ruolo non consente token API",
   "this token is limited to other projects": "Questo token è limitato ad altri progetti",
   "this token is limited to particular projects": "Questo token è limitato a determinati progetti",
   "type restore to confirm": "Digita restore per confermare",

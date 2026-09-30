@@ -1207,6 +1207,8 @@
   "this backup contains no files": "Эта резервная копия не содержит файлов",
   "this backup contains no object storage": "Эта резервная копия не содержит объектного хранилища",
   "this token has {{scope}} scope, the operation needs {{needed}}": "У этого токена область {{scope}}, операции требуется {{needed}}",
+  "your role allows at most {{scope}} tokens": "Ваша роль допускает токены не выше области {{scope}}",
+  "your role allows no API tokens": "Ваша роль не допускает API-токены",
   "this token is limited to other projects": "Этот токен ограничен другими проектами",
   "this token is limited to particular projects": "Этот токен ограничен определёнными проектами",
   "type restore to confirm": "Введите restore для подтверждения",

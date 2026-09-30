@@ -25,6 +25,11 @@ describe("translateMessage", () => {
     expect(translateMessage("Request failed (503)", t)).toBe("Anfrage fehlgeschlagen (503)");
   });
 
+  it("names the token scope a role allows", () => {
+    expect(translateMessage("your role allows at most read tokens", t)).toBe("Deine Rolle erlaubt höchstens Tokens mit dem Scope read");
+    expect(translateMessage("your role allows no API tokens", t)).toBe("Deine Rolle erlaubt keine API-Tokens");
+  });
+
   it("translates the reason inside a health check warning", () => {
     expect(translateMessage("the health check /health has failed since 14:03: HTTP 500 instead of 200", t)).toBe("Der Health Check /health schlägt seit 14:03 fehl: HTTP 500 statt 200");
     expect(translateMessage("the health check /up has failed since 09:15: no answer within 5 s", t)).toBe("Der Health Check /up schlägt seit 09:15 fehl: Keine Antwort innerhalb von 5 s");

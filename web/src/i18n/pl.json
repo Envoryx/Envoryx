@@ -1207,6 +1207,8 @@
   "this backup contains no files": "Ta kopia zapasowa nie zawiera plików",
   "this backup contains no object storage": "Ta kopia zapasowa nie zawiera magazynu obiektów",
   "this token has {{scope}} scope, the operation needs {{needed}}": "Ten token ma zakres {{scope}}, operacja wymaga {{needed}}",
+  "your role allows at most {{scope}} tokens": "Twoja rola pozwala najwyżej na tokeny o zakresie {{scope}}",
+  "your role allows no API tokens": "Twoja rola nie pozwala na tokeny API",
   "this token is limited to other projects": "Ten token jest ograniczony do innych projektów",
   "this token is limited to particular projects": "Ten token jest ograniczony do wybranych projektów",
   "type restore to confirm": "Wpisz restore, aby potwierdzić",
