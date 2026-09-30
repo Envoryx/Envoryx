@@ -10,6 +10,16 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-09-30
+
+Five security fixes (see *Security*), the most serious in the database
+browser, which let anyone who could operate one project open every
+project's database. Several Envoryx instances can now share a Docker host
+without deleting each other's containers. **New object storage buckets
+are private** and removing a service **keeps its data** unless you choose
+otherwise. Ruby projects report an older setup once after the update
+(new database variables); restart them when it suits you.
+
 ### Added
 - Go, Java and .NET projects warn when a project file needs a newer
   version than the service runs, as Python does for a stale `.venv`:
@@ -1491,7 +1501,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.17.0...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.18.0...HEAD
+[0.18.0]: https://github.com/envoryx/envoryx/compare/v0.17.0...v0.18.0
 [0.17.0]: https://github.com/envoryx/envoryx/compare/v0.16.2...v0.17.0
 [0.16.2]: https://github.com/envoryx/envoryx/compare/v0.16.1...v0.16.2
 [0.16.1]: https://github.com/envoryx/envoryx/compare/v0.16.0...v0.16.1
