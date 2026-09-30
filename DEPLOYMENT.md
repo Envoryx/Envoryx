@@ -725,7 +725,7 @@ and needs none.
   `assets:precompile`, `tmp:clear` and `about`. The Tests section runs `bundle
   exec rspec` (with a `spec/` directory and rspec in `Gemfile.lock`; with
   `rspec_junit_formatter` in the bundle failures show per test) and `bin/rails
-  test`, in the test environment and against `<database>_test` on the
+  test` (failures read from its output), in the test environment and against `<database>_test` on the
   project's database server: Active Record merges `DATABASE_URL` into every
   environment, so a test run would otherwise load its fixtures into the
   development database and empty its tables. Envoryx creates the test
@@ -1840,7 +1840,9 @@ one argument, never through a shell, and cannot start with a dash.
 PHPUnit, Pest, Playwright, Cypress and pytest write a JUnit report, which
 Envoryx reads after the run: the counts and every failed test with its
 message, file and line and the full text of the failure. For npm scripts and
-Django the exit code decides. The last 50 runs of a project are kept with
+Django the exit code decides. `rails test` writes no report; Envoryx reads
+its summary line and the failures Rails prints (test, message, file and
+line) from the output instead. The last 50 runs of a project are kept with
 their result and the end of their output (*Recent runs*); cancelling a run or
 closing the tab stops it and records it as cancelled. While tests run, the
 project is busy like during an action.
