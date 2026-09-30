@@ -75,6 +75,41 @@ func TestShopwareGetsMemoryAndItsURL(t *testing.T) {
 	}
 }
 
+// DoctrineBundle does not start without a server version, and the injected DATABASE_URL
+// replaces the .env one that carried it: doctrine.yaml reads DB_SERVER_VERSION instead,
+// with the project database's version in .env as the fallback.
+func TestSymfonyReadsTheServerVersion(t *testing.T) {
+	cases := []struct {
+		db   *DatabaseRequest
+		want string
+	}{
+		{&DatabaseRequest{Type: "postgresql", Version: "17"}, "17"},
+		{&DatabaseRequest{Type: "mariadb", Version: "11.4"}, "mariadb-11.4.0"},
+		{nil, "16"},
+	}
+	for _, c := range cases {
+		e := newEnv(t)
+		var runs []docker.ContainerSpec
+		e.engine.OneShotHandler = func(spec docker.ContainerSpec) (docker.ExecResult, error) {
+			runs = append(runs, spec)
+			return docker.ExecResult{}, nil
+		}
+		if _, err := e.m.Create(context.Background(), CreateRequest{Name: "App", Template: "symfony", PHP: &PHPRequest{Version: "8.4"}, Database: c.db}); err != nil {
+			t.Fatal(err)
+		}
+		if len(runs) != 3 {
+			t.Fatalf("%d steps", len(runs))
+		}
+		cmd := runs[2].Cmd
+		if len(cmd) != 5 || cmd[0] != "php" || cmd[1] != "-r" || cmd[3] != "--" || cmd[4] != c.want {
+			t.Fatalf("%+v: %q", c.db, cmd)
+		}
+		if !strings.Contains(cmd[2], "server_version: '%env(DB_SERVER_VERSION)%'") || !strings.Contains(cmd[2], `"DB_SERVER_VERSION=" . $argv[1]`) {
+			t.Fatalf("script: %s", cmd[2])
+		}
+	}
+}
+
 func TestEnvoryxURLIsInjected(t *testing.T) {
 	e := newEnv(t)
 	planner := NewPlanner(Paths{BaseDomain: "test", ProxyHTTPSPort: 443}, runtime.Default())

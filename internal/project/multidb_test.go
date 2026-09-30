@@ -78,7 +78,8 @@ func TestCreateProjectWithAdditionalDatabase(t *testing.T) {
 	php, _ := e.engine.Container("envoryx-shop-php")
 	env := strings.Join(php.Spec.Env, "\n")
 	for _, want := range []string{"DB_HOST=database", "DB_PORT=3306", "ANALYTICS_DB_HOST=analytics", "ANALYTICS_DB_PORT=5432", "ANALYTICS_DB_CONNECTION=pgsql",
-		"ANALYTICS_DB_PASSWORD=" + cfg.Password, "ANALYTICS_DATABASE_URL=pgsql://shop:" + cfg.Password + "@analytics:5432/shop"} {
+		"ANALYTICS_DB_PASSWORD=" + cfg.Password, "ANALYTICS_DATABASE_URL=pgsql://shop:" + cfg.Password + "@analytics:5432/shop",
+		"DB_SERVER_VERSION=mariadb-" + p.Service(store.ServiceDatabase).Version, "ANALYTICS_DB_SERVER_VERSION=" + extra.Version} {
 		if !strings.Contains(env, want) {
 			t.Errorf("php env misses %q", want)
 		}

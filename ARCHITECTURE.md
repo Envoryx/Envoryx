@@ -971,7 +971,13 @@ stored in `project_services.config` (SQLite under `/config`, mode 0600).
 They are never part of the normal project payload, logs or audit details; the
 explicit `GET /projects/{id}/database/credentials` call is audit-logged.
 `DB_*` and `DATABASE_URL` are injected into application containers, user
-variables override them, `MARIADB_*`/`MYSQL_*` are reserved.
+variables override them, `MARIADB_*`/`MYSQL_*` are reserved. `DB_SERVER_VERSION`
+carries the server version in Doctrine DBAL's form (`18`, `8.4.0`,
+`mariadb-11.4.0`; rolling tags count as their `.0.0` release) for the servers
+Envoryx runs, not for external ones. It is a variable of its own rather than
+`?serverVersion=` on `DATABASE_URL`, because dj-database-url turns unknown URL
+parameters into driver options. The Symfony template points
+`doctrine.dbal.server_version` at it.
 
 Database flavours are described by a `runtime.Dialect` (container env, data
 directory, healthcheck, client argv + password env, admin statements,
