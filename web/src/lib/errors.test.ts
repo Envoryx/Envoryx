@@ -68,6 +68,15 @@ describe("translateMessage", () => {
     );
   });
 
+  it("names a project file that needs a newer runtime", () => {
+    expect(translateMessage("pom.xml needs Java 25 but the project runs Java 21, so the build or the start fails; select a newer version in the settings or lower the requirement in the file", t)).toBe(
+      "pom.xml braucht Java 25, das Projekt läuft aber mit Java 21, deshalb schlägt der Build oder der Start fehl; wähle in den Einstellungen eine neuere Version oder senke die Anforderung in der Datei",
+    );
+    expect(translateMessage("global.json needs .NET SDK 10.0.100 but the project runs .NET 8, so the build or the start fails; select a newer version in the settings or lower the requirement in the file", t)).toContain(
+      "global.json braucht .NET SDK 10.0.100, das Projekt läuft aber mit .NET 8",
+    );
+  });
+
   it("leaves unknown text alone", () => {
     expect(translateMessage("something: quite unexpected", t)).toBe("something: quite unexpected");
     expect(translateMessage("", t)).toBe("");

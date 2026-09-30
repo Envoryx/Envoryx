@@ -10,6 +10,16 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Added
+- Go, Java and .NET projects warn when a project file needs a newer
+  version than the service runs, as Python does for a stale `.venv`:
+  the `go` line of `go.mod`, the Java level in `pom.xml` or
+  `build.gradle(.kts)` (for example the Spring Boot template's Java 25
+  on a project switched to Java 21), and the target framework of the
+  project file or the SDK in `global.json`. Values Envoryx cannot read
+  for sure (variables, parent POMs, `Directory.Build.props`, several
+  target frameworks) give no warning.
+
 ### Changed
 - Orphans without an instance label (created by an older Envoryx, maybe
   another instance's) are no longer removed automatically; the *Docker*

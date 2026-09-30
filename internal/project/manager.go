@@ -1406,6 +1406,7 @@ func (m *Manager) List(ctx context.Context) ([]View, error) {
 		if w := m.venvWarning(p); w != "" {
 			st.Warnings = append(st.Warnings, w)
 		}
+		st.Warnings = append(st.Warnings, m.runtimeVersionWarnings(p)...)
 		st.Warnings = append(st.Warnings, m.kernelWarnings(p, kernel)...)
 		st.Warnings = append(st.Warnings, m.oomWarnings(p.ID)...)
 		m.addHealth(p, &st)
@@ -1436,6 +1437,7 @@ func (m *Manager) Get(ctx context.Context, id string) (View, error) {
 	if w := m.venvWarning(p); w != "" {
 		st.Warnings = append(st.Warnings, w)
 	}
+	st.Warnings = append(st.Warnings, m.runtimeVersionWarnings(p)...)
 	st.Warnings = append(st.Warnings, m.kernelWarnings(p, m.HostKernel(ctx))...)
 	st.Warnings = append(st.Warnings, m.oomWarnings(p.ID)...)
 	m.addHealth(p, &st)
