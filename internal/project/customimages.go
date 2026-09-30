@@ -445,7 +445,7 @@ var probeCommon = []probeTool{
 }
 
 var probeTools = map[store.ServiceKind][]probeTool{
-	store.ServicePHP:    {{bin: "php"}, {bin: "php-fpm"}, {bin: "composer", feature: "Composer installs"}},
+	store.ServicePHP:    {{bin: "php"}, {bin: "php-fpm"}, {bin: "composer", feature: "Composer installs"}, {bin: "msmtp", feature: "mail() to Mailpit"}},
 	store.ServiceNode:   {{bin: "node"}, {bin: "npm"}, {bin: "corepack", feature: "pnpm and Yarn"}},
 	store.ServicePython: {{bin: "python3", alt: "python"}, {bin: "pip", alt: "pip3", feature: "pip installs"}, {bin: "uv", feature: "uv projects"}},
 	store.ServiceGo:     {{bin: "go"}, {bin: "air", feature: "live reload"}, {bin: "dlv", feature: "debugging"}, {bin: "gotestsum", feature: "test reports"}},

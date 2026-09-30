@@ -620,10 +620,14 @@ func MemcachedEnv() map[string]string {
 	return map[string]string{"MEMCACHED_HOST": "memcached", "MEMCACHED_PORT": strconv.Itoa(MemcachedPort), "MEMCACHED_URL": fmt.Sprintf("memcached://memcached:%d", MemcachedPort)}
 }
 
+// MailpitSMTPPort is the port Mailpit accepts mail on.
+const MailpitSMTPPort = 1025
+
 // MailpitEnv returns the variables injected for a Mailpit service: the names Laravel and
 // Symfony read, plus SMTP_HOST and SMTP_PORT, which many Node mail setups use.
 func MailpitEnv() map[string]string {
-	return map[string]string{"MAIL_MAILER": "smtp", "MAIL_HOST": "mailpit", "MAIL_PORT": "1025", "MAIL_ENCRYPTION": "null", "MAILER_DSN": "smtp://mailpit:1025", "SMTP_HOST": "mailpit", "SMTP_PORT": "1025"}
+	port := strconv.Itoa(MailpitSMTPPort)
+	return map[string]string{"MAIL_MAILER": "smtp", "MAIL_HOST": "mailpit", "MAIL_PORT": port, "MAIL_ENCRYPTION": "null", "MAILER_DSN": "smtp://mailpit:" + port, "SMTP_HOST": "mailpit", "SMTP_PORT": port}
 }
 
 // DataDirTarget returns the container path the data volume is mounted at for one version

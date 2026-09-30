@@ -534,7 +534,17 @@ func opcacheBuiltIn(phpVersion string) bool {
 type INIOptions struct {
 	// XdebugClientHost is the debugger host to use when the request doesn't reveal it.
 	XdebugClientHost string
+	// Mailpit routes mail() to the project's Mailpit. Without it sendmail_path keeps the
+	// image default, a sendmail that does not exist, so mail() returns false instead of
+	// pretending to send.
+	Mailpit bool
 }
+
+// MailpitSendmailPath is the sendmail_path that hands mail() to Mailpit through msmtp
+// (installed in images/php/Dockerfile). -t takes the recipients from the headers; --from
+// sets the envelope sender and adds a From header to mails without one. A -f passed to
+// mail() still wins.
+var MailpitSendmailPath = fmt.Sprintf("/usr/bin/msmtp -t --host=mailpit --port=%d --auth=off --tls=off --from=php@envoryx.localhost", MailpitSMTPPort)
 
 // INI renders the project's php.ini for the given PHP version, without INIOptions.
 func (c PHPConfig) INI(phpVersion string) string { return c.INIWith(phpVersion, INIOptions{}) }
@@ -555,6 +565,9 @@ func (c PHPConfig) INIWith(phpVersion string, opts INIOptions) string {
 	fmt.Fprintf(&b, "error_reporting = %s\n", c.ErrorReporting)
 	b.WriteString("log_errors = On\nerror_log = /proc/self/fd/2\n")
 	b.WriteString("date.timezone = UTC\n")
+	if opts.Mailpit {
+		fmt.Fprintf(&b, "sendmail_path = \"%s\"\n", MailpitSendmailPath)
+	}
 	for _, ext := range c.Extensions {
 		if ext == "opcache" {
 			if !opcacheBuiltIn(phpVersion) {

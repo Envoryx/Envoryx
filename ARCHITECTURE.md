@@ -990,7 +990,9 @@ changes are refused (dump/restore required). MongoDB uses the same
 upgrades are refused (one step at a time, FCV).
 
 Redis (volume `envoryx-<slug>-redis`, `REDIS_*` injected) and Mailpit (web
-inbox on an allocated host port, `MAIL_*`/`MAILER_DSN` injected) are
+inbox on an allocated host port, `MAIL_*`/`MAILER_DSN` injected; the php.ini
+points `sendmail_path` at the image's msmtp so `mail()` lands there too, and
+without Mailpit `mail()` fails instead of pretending to send) are
 auxiliary services with a small `{hostPort}` config; env changes recreate the
 application containers while stateful services keep running. Memcached
 (`memcached:1.6-alpine`, no volume, `MEMCACHED_*` injected) is the same minus the
