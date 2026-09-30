@@ -1,8 +1,10 @@
 # Envoryx Ruby runtime image: official ruby image plus the debug gem (rdbg, which
 # RubyMine and VS Code attach to), git and the build dependencies common gems need
-# (pg, mysql2, sqlite3, psych). No Node.js: JavaScript bundling runs in the project's
-# Node service. Runs idle (sleep) as a tooling container; the application server is
-# started as the container's main process when the project enables it.
+# (pg, mysql2, sqlite3, psych), plus libvips, which ruby-vips loads at runtime for the
+# Active Storage variants of Rails' default :vips processor. No Node.js: JavaScript
+# bundling runs in the project's Node service. Runs idle (sleep) as a tooling
+# container; the application server is started as the container's main process when
+# the project enables it.
 #
 # Build: docker build --build-arg BASE_TAG=4.0-slim-bookworm -t ghcr.io/envoryx/envoryx-ruby:4.0 images/ruby
 ARG BASE_TAG=4.0-slim-bookworm
@@ -25,6 +27,7 @@ RUN set -eux; \
         build-essential pkg-config \
         libyaml-dev libffi-dev libssl-dev zlib1g-dev \
         libpq-dev default-libmysqlclient-dev libsqlite3-dev sqlite3 \
+        libvips42 \
         libfreetype6 fontconfig libxi6 libxrender1 libxtst6 libxext6; \
     rm -rf /var/lib/apt/lists/*; \
     gem install --no-document debug -v "${DEBUG_GEM_VERSION}"; \
