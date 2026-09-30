@@ -2177,9 +2177,11 @@ the audit log (`ssh.exec`), failed logins are rate limited per IP.
 
 Gateway runs the complete IDE backend on the server and connects a thin
 client. In Envoryx this is opt-in per project (IDE → *Allow JetBrains
-Gateway*): it enables SSH port forwarding into the container and mounts a
-shared backend cache (`/config/jetbrains`, ~1.5 GB per IDE version,
-downloaded once). The backend runs as the project owner inside the
+Gateway*): it enables SSH port forwarding into the container and shares
+the downloaded IDE backends between projects (`/config/jetbrains/RemoteDev/dist`,
+~1.5 GB per IDE version, downloaded once). Everything else under
+`~/.cache/JetBrains` (index caches, local history, join links) stays in
+each project's home. The backend runs as the project owner inside the
 application container (PHP, else Python, else Go, else Ruby, else Java, else .NET, else
 Node; user `<slug>`, and `<slug>.python` / `<slug>.go` / `<slug>.ruby` / `<slug>.java` /
 `<slug>.dotnet` / `<slug>.node`
