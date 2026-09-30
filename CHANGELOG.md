@@ -83,6 +83,14 @@ release). `:main` follows the development branch.
   opened in it could do over the shared network; it now answers only
   requests that come through Envoryx. An existing container is replaced
   on the next reconcile or open.
+- The project list, a project and the dashboard handed the service
+  credentials to everyone who could see the project, viewers and read
+  tokens included: the object storage access and secret key, the RabbitMQ
+  password, the Meilisearch and Typesense keys and the password of an
+  external Redis. Like database passwords, they now come only from the
+  credentials endpoints, which need operate. A service kind Envoryx adds
+  later shows no settings in these responses until they are known to be
+  free of secrets.
 
 ### Fixed
 - Several Envoryx instances on one Docker host (a test instance next to

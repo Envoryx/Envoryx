@@ -32,6 +32,12 @@ type StorageConfig struct {
 	PublicRead bool   `json:"publicRead"`
 }
 
+// Redacted returns the configuration without the access keys for API responses; the
+// credentials endpoint hands those out.
+func (c StorageConfig) Redacted() map[string]any {
+	return map[string]any{"hostPort": c.HostPort, "consolePort": c.ConsolePort, "bucket": c.Bucket, "publicRead": c.PublicRead}
+}
+
 // NewStorageConfig generates credentials for a fresh service. The bucket is private until
 // public reads are switched on.
 func NewStorageConfig(bucket string) StorageConfig {
