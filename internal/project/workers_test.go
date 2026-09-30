@@ -101,6 +101,45 @@ func TestWorkersRunAsExtraContainers(t *testing.T) {
 	}
 }
 
+// The Messenger consumer sets up its transports first: with the recipe's
+// doctrine://default?auto_setup=0 nothing else creates messenger_messages, and the
+// consumer crash-looped on the missing table. The Workers section still shows the plain
+// command.
+func TestMessengerWorkerSetsUpItsTransports(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	view, err := e.m.Create(ctx, phpRequest("Shop", true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	w, err := e.m.AddWorker(ctx, view.Project.ID, WorkerRequest{Name: "messenger", Preset: "symfony:messenger", Arg: "async,high", Enabled: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, _ := e.engine.Container("envoryx-shop-worker-messenger")
+	consume := []string{"php", "bin/console", "messenger:consume", "async", "high", "--time-limit=3600", "-vv"}
+	if len(c.Spec.Cmd) < 4 || c.Spec.Cmd[0] != "sh" || !slices.Equal(c.Spec.Cmd[4:], consume) {
+		t.Fatalf("cmd: %q", c.Spec.Cmd)
+	}
+	for _, want := range []string{"until php bin/console messenger:setup-transports --no-interaction async; do", "messenger:setup-transports --no-interaction high; do", "sleep 10", `exec "$@"`} {
+		if !strings.Contains(c.Spec.Cmd[2], want) {
+			t.Errorf("guard misses %q: %s", want, c.Spec.Cmd[2])
+		}
+	}
+	if shown, _ := WorkerDisplayCommand(w); !slices.Equal(shown, consume) {
+		t.Errorf("display: %q", shown)
+	}
+
+	// Presets without a guard keep their plain command.
+	if _, err := e.m.AddWorker(ctx, view.Project.ID, WorkerRequest{Name: "schedule", Preset: "symfony:scheduler", Enabled: true}); err != nil {
+		t.Fatal(err)
+	}
+	c, _ = e.engine.Container("envoryx-shop-worker-schedule")
+	if c.Spec.Cmd[0] != "php" {
+		t.Errorf("scheduler cmd: %q", c.Spec.Cmd)
+	}
+}
+
 // A worker runs in the runtime of its preset: PHP presets need the PHP service, Node
 // presets the Node service and its image, with the project home mounted.
 func TestWorkersFollowTheirRuntime(t *testing.T) {

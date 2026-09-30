@@ -303,7 +303,7 @@ var templates = []Template{
 	{
 		ID: "symfony", Name: "Symfony", Description: "symfony/skeleton plus the webapp pack (Twig, Doctrine, forms, security…).",
 		Runtime: "php", Docroot: "public", RecommendedDatabase: "postgresql",
-		Notes: "Envoryx injects DATABASE_URL and DB_SERVER_VERSION, which config/packages/doctrine.yaml reads (for an external database set DB_SERVER_VERSION in the project environment, e.g. 8.4.0 or mariadb-11.4.0). Create the schema with “doctrine:migrations:migrate” (Symfony console action).",
+		Notes: "Envoryx injects DATABASE_URL and DB_SERVER_VERSION, which config/packages/doctrine.yaml reads (for an external database set DB_SERVER_VERSION in the project environment, e.g. 8.4.0 or mariadb-11.4.0). Create the schema with “doctrine:migrations:migrate” (Symfony console action). The Messenger consumer worker sets up its transports itself (messenger:setup-transports creates the messenger_messages table).",
 		steps: []templateStep{
 			{label: "composer create-project", cmd: []string{"composer", "create-project", "symfony/skeleton", ".", composerNoInteraction, "--prefer-dist"}},
 			{label: "composer require webapp", cmd: []string{"composer", "require", "webapp", composerNoInteraction}},

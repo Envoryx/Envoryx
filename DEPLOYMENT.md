@@ -2185,7 +2185,11 @@ php.ini for PHP, the venv `PATH` for Python), restarts automatically
 *Workers & cron* offers only the presets whose runtime the project has.
 `queue:work` stops after an hour (`--max-time`) so code changes
 are picked up on the automatic restart; use `queue:listen` for instant
-reloads. Logs are in the Logs section; up to 10 workers per project.
+reloads. The Symfony Messenger consumer runs `messenger:setup-transports`
+for its transports first, which creates the `messenger_messages` table the
+recipe's `doctrine://default?auto_setup=0` leaves out; while that fails
+(database not reachable yet), it waits and says so in the log. Logs are in
+the Logs section; up to 10 workers per project.
 
 ## IDE integration (PhpStorm, WebStorm, VS Code)
 
