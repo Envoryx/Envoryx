@@ -517,6 +517,10 @@ type Orphan struct {
 	ProjectName string    `json:"projectName"`
 	State       string    `json:"state,omitempty"`
 	Created     time.Time `json:"created,omitempty"`
+	// Unlabelled marks a resource without an instance label: an older Envoryx created it,
+	// perhaps another instance on the same Docker host, so it is never removed
+	// automatically.
+	Unlabelled bool `json:"unlabelled,omitempty"`
 }
 
 // ReconcileReport summarises one reconciliation pass.

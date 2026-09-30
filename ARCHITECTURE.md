@@ -41,8 +41,9 @@ Go API (single binary, single container)
    user wants. Docker holds what actually exists. Envoryx compares both and never
    trusts the database alone for runtime status.
 2. **Label-scoped authority.** Envoryx only ever mutates Docker resources that
-   carry `envoryx.managed=true`. Foreign containers are visible read-only in the
-   diagnostics view and are never touched.
+   carry `envoryx.managed=true` and no other instance's `envoryx.instance` label.
+   Foreign containers, another Envoryx instance's included, are visible read-only in
+   the diagnostics view and are never touched.
 3. **No user-controlled Docker parameters.** The browser sends *intent*
    (`php: 8.4`, `database: mariadb 11`). The backend translates intent into
    container specs from a fixed catalogue. Mounts, capabilities, privileges,
@@ -148,8 +149,9 @@ Go API (single binary, single container)
 - **docker** - the *only* package that imports the moby client. Exposes a
   narrow `Engine` interface (create/start/stop/remove/list/inspect for
   containers, networks, volumes; image pull; stats; ping/info). All list
-  operations used for management are filtered by `envoryx.managed=true`.
-  Every mutating call verifies the label on the target first ("guard").
+  operations used for management are filtered by `envoryx.managed=true` and the
+  instance label (`docker.Owns`, §6.1). Every mutating call verifies the labels on
+  the target first ("guard").
   A `fake` implementation lives in `docker/dockertest` for unit tests.
 - **runtime** - the catalogue of supported runtimes and services. Versions are
   data, not code paths: `runtime.Default()` builds the catalogue, and
@@ -383,7 +385,35 @@ envoryx.project.id=<uuid>
 envoryx.project.name=<slug>
 envoryx.service=<kind>          (containers, volumes)
 envoryx.version=<envoryx version>
+envoryx.instance=<instance id>
 ```
+
+The instance ID (`/config/instance-id`, created at the first start by
+`instance.LoadID`) lets several Envoryx instances share one Docker host. The engine
+stamps it on every container, network and volume it creates (`docker.StampInstance`
+in `CreateContainer`, `RunOneShot*`, `CreateNetwork`, `CreateVolume`), so no creation
+path can miss it. It is added after the planner computed `envoryx.spec`, so it is not
+part of the fingerprint: containers from before instance labels are not reported as
+outdated for lacking it and get it the next time they are recreated anyway.
+
+`docker.Owns(instance, labels)` decides what the engine manages: managed, and either
+this instance's label or none. A resource another instance labelled is to the engine
+what a foreign container is: left out of managed listings (and reported with
+`Managed=false` in unfiltered ones), refused by every guard, and its OOM events are
+dropped. A create whose container, network or volume name (or a volume mount) belongs
+to another instance fails with `docker.ErrOtherInstance` instead of sharing it
+(Docker would hand out an existing volume of the same name as if new). Unfiltered
+listings still show everything, so the network pool steps around other instances'
+subnets and port allocation around their published ports.
+
+Unlabelled resources come from an Envoryx before instance labels. With a project this
+instance knows they are its own (adopted); otherwise they may be an older instance's
+next door (`project.unclaimed`): the reconciler reports them as orphans
+(`Orphan.Unlabelled`) but never removes them on its own, the shutdown stop, share
+expiry and the stats summary (`Manager.OwnContainers`) skip them, and
+`AttachProxyToAll` does not join such networks. Host-wide information (the Docker
+engine's container counts on the dashboard, the foreign list on the Docker page)
+still covers everything.
 
 Containers that depend on an addon definition also carry
 `envoryx.addon.definition=<hash>` (see *Addons*).
@@ -439,9 +469,9 @@ user). The Docker implementation adds hardening: never privileged, `NET_RAW`
 dropped, `no-new-privileges`, and no restart policy unless the spec asks for
 `unless-stopped`.
 
-"Guarded" means: inspect target, verify `envoryx.managed=true` label and, when a
-project ID is supplied, `envoryx.project.id`. Otherwise return
-`ErrNotManaged` and do nothing.
+"Guarded" means: inspect target, verify `envoryx.managed=true` label, no other
+instance's `envoryx.instance` label and, when a project ID is supplied,
+`envoryx.project.id`. Otherwise return `ErrNotManaged` and do nothing.
 
 ### 6.4 Socket proxy readiness
 
@@ -784,7 +814,8 @@ Project containers are independent of the Envoryx container by default
 `BeforeShutdown` hook continues after the drain with
 `Manager.StopAllForShutdown`: every project is stopped under its lock through
 `stopPlan` (projects in parallel, containers in reverse plan order), then any
-managed container still running (database browser, orphans). Desired states
+managed container still running (database browser, orphans this instance
+labelled; unlabelled ones of unknown projects may be another instance's). Desired states
 are untouched, so `Manager.ResumeProjects` at the next start (run before the
 first reconcile) starts exactly the projects with `desired_state=running`
 that are not running (`deriveStatus`), a few at a time through the regular
@@ -814,7 +845,8 @@ creating / deleting   transitional
 
 On startup and every 30 s:
 
-1. List all `envoryx.managed=true` containers/networks/volumes.
+1. List all containers/networks/volumes this instance manages (§6.1: another
+   instance's never appear).
 2. Group by `envoryx.project.id`.
 3. For each DB project compute status (§8.6).
 4. Resources whose project ID is unknown are reported as **orphans**
@@ -822,8 +854,10 @@ On startup and every 30 s:
    (stop, remove) and networks (detach proxy and database browser, remove
    unless a foreign container is attached) once the previous pass already
    listed them and the project lock is free, so a project mid-create or
-   mid-rollback is never mistaken for an orphan. Volumes are never removed
-   automatically; `RemoveOrphan` (`POST /docker/orphans/remove`) removes a
+   mid-rollback is never mistaken for an orphan. It only takes what carries
+   this instance's label: unlabelled orphans (`Orphan.Unlabelled`, from an
+   Envoryx before instance labels, perhaps another instance's) stay listed,
+   as volumes do. `RemoveOrphan` (`POST /docker/orphans/remove`) removes a
    listed orphan on request. Removals are audited as `docker.orphans_removed`.
    Autonomous actions (orphans removed, projects resumed) are also kept in
    memory as `Manager.Activity()` (served in the dashboard payload and shown
@@ -864,6 +898,7 @@ Detailed in SECURITY.md. Summary of the enforced boundaries:
 /config/
   envoryx.db                SQLite (WAL); secrets in it sealed (see Secrets at rest)
   secret.key               key of the sealed secrets, unless ENVORYX_SECRET_KEY is set (0600)
+  instance-id              this instance's ID, stamped on its Docker resources (§6.1)
   projects/<id>/           generated config per project (web server config, php.ini, pool conf)
   backups/<slug>/          project backups (unless /backups is mounted)
   offsite.json             offsite targets with their credentials (0600, sealed)
@@ -884,7 +919,8 @@ shown in Settings).
 
 `internal/instance` backs up the instance itself (database via `VACUUM INTO`,
 `ca/`, `ssh/`, `notify.json`, `projects/<id>/` without `home/` caches, never the
-key files `secret.key*`) into a single tarball under `<backups>/_instance/`;
+key files `secret.key*` or `instance-id`, which a restore keeps as they are) into a
+single tarball under `<backups>/_instance/`;
 `instance.json` records the key ID of the database's secrets (`Meta.KeyID`, read
 from its `secret_check`). One is written automatically
 before the first pending migration (`db.Options.BeforeMigrate`) and before a

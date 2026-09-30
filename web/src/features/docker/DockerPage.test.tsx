@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { DockerPage } from "./DockerPage";
 import { authedRoutes, mockApi, renderApp } from "@/test/utils";
 
-const orphan = { type: "volume", id: "envoryx-ghost-database", name: "envoryx-ghost-database", projectId: "ghost-id", projectName: "Ghost" };
+const orphan = { type: "volume", id: "envoryx-ghost-database", name: "envoryx-ghost-database", projectId: "ghost-id", projectName: "Ghost", unlabelled: true };
 const overview = {
   info: { connected: true, apiVersion: "1.47", serverVersion: "27.0", os: "linux", architecture: "x86_64", containers: 0, running: 0, ncpu: 4, memTotal: 8_000_000_000 },
   containers: [],
@@ -27,6 +27,8 @@ describe("DockerPage", () => {
 
     expect(await screen.findByText(/1 orphaned Envoryx resource/)).toBeInTheDocument();
     expect(screen.getByText(/volume envoryx-ghost-database/)).toBeInTheDocument();
+    // Created before instance labels: may be another instance's, so it is marked.
+    expect(screen.getByText("older Envoryx")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Remove" }));
     await waitFor(() => expect(api.calls.some((c) => c.method === "POST" && c.url.endsWith("/docker/orphans/remove"))).toBe(true));
     expect(api.calls.find((c) => c.method === "POST")!.body).toEqual({ type: "volume", id: "envoryx-ghost-database" });

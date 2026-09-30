@@ -33,6 +33,9 @@ import (
 type MobyEngine struct {
 	cli *client.Client
 	log *slog.Logger
+	// instance is stamped on everything the engine creates; resources labelled with
+	// another instance count as unmanaged (see Owns).
+	instance string
 
 	credsMu sync.Mutex
 	creds   RegistryCredentials
@@ -42,6 +45,32 @@ type MobyEngine struct {
 type Options struct {
 	// Host overrides the Docker endpoint; empty uses DOCKER_HOST or the default socket.
 	Host string
+	// Instance is this Envoryx instance's ID (LabelInstance).
+	Instance string
+}
+
+// owns reports whether a resource with these labels is this instance's to manage.
+func (e *MobyEngine) owns(labels map[string]string) bool { return Owns(e.instance, labels) }
+
+// foreign reports whether another Envoryx instance manages a resource with these labels.
+func (e *MobyEngine) foreign(labels map[string]string) bool {
+	return IsManaged(labels) && !e.owns(labels)
+}
+
+// checkVolumeName fails with ErrOtherInstance when the volume exists and belongs to
+// another Envoryx instance; Docker would otherwise hand it out as if it were new.
+func (e *MobyEngine) checkVolumeName(ctx context.Context, name string) error {
+	res, err := e.cli.VolumeInspect(ctx, name, client.VolumeInspectOptions{})
+	if err != nil {
+		if cerrdefs.IsNotFound(err) {
+			return nil
+		}
+		return wrap(err)
+	}
+	if e.foreign(res.Volume.Labels) {
+		return fmt.Errorf("volume %s: %w", name, ErrOtherInstance)
+	}
+	return nil
 }
 
 // Connect creates a Moby-backed engine. It does not fail if the daemon is unreachable; use
@@ -55,7 +84,7 @@ func Connect(opts Options, log *slog.Logger) (*MobyEngine, error) {
 	if err != nil {
 		return nil, fmt.Errorf("create docker client: %w", err)
 	}
-	return &MobyEngine{cli: cli, log: log}, nil
+	return &MobyEngine{cli: cli, log: log, instance: opts.Instance}, nil
 }
 
 // Close releases the client.
@@ -119,11 +148,19 @@ func (e *MobyEngine) ListContainers(ctx context.Context, managedOnly bool, proje
 	}
 	out := make([]Container, 0, len(res.Items))
 	for _, c := range res.Items {
-		out = append(out, summaryToContainer(c))
+		// Docker's label filter cannot say "this instance or none", so another
+		// instance's containers are dropped here.
+		ct := summaryToContainer(c)
+		ct.Managed = e.owns(ct.Labels)
+		if (managedOnly || projectID != "") && !ct.Managed {
+			continue
+		}
+		out = append(out, ct)
 	}
 	return out, nil
 }
 
+// summaryToContainer converts a listing entry; the caller sets Managed.
 func summaryToContainer(c container.Summary) Container {
 	name := ""
 	if len(c.Names) > 0 {
@@ -155,7 +192,6 @@ func summaryToContainer(c container.Summary) Container {
 		Created: time.Unix(c.Created, 0).UTC(),
 		Labels:  c.Labels,
 		Ports:   ports,
-		Managed: IsManaged(c.Labels),
 		Health:  health,
 	}
 }
@@ -176,7 +212,7 @@ func (e *MobyEngine) guardContainer(ctx context.Context, idOrName string) (conta
 	if err != nil {
 		return container.InspectResponse{}, err
 	}
-	if c.Config == nil || !IsManaged(c.Config.Labels) {
+	if c.Config == nil || !e.owns(c.Config.Labels) {
 		return container.InspectResponse{}, fmt.Errorf("container %s: %w", idOrName, ErrNotManaged)
 	}
 	return c, nil
@@ -281,6 +317,17 @@ func stateString(s *container.State) string {
 func (e *MobyEngine) CreateContainer(ctx context.Context, spec ContainerSpec) (string, error) {
 	if !IsManaged(spec.Labels) {
 		return "", fmt.Errorf("refusing to create container without managed label: %w", ErrNotManaged)
+	}
+	spec.Labels = StampInstance(e.instance, spec.Labels)
+	// A project of another instance with the same name has volumes of the same names;
+	// mounting one would hand this container that project's data.
+	for _, m := range spec.Mounts {
+		if m.Type != "volume" {
+			continue
+		}
+		if err := e.checkVolumeName(ctx, m.Source); err != nil {
+			return "", err
+		}
 	}
 	cfg := &container.Config{
 		Image:      spec.Image,
@@ -391,6 +438,11 @@ func (e *MobyEngine) CreateContainer(ctx context.Context, spec ContainerSpec) (s
 		NetworkingConfig: netCfg,
 	})
 	if err != nil {
+		if cerrdefs.IsConflict(err) && spec.Name != "" {
+			if c, ierr := e.inspectRaw(ctx, spec.Name); ierr == nil && c.Config != nil && e.foreign(c.Config.Labels) {
+				return "", fmt.Errorf("container %s: %w", spec.Name, ErrOtherInstance)
+			}
+		}
 		return "", wrap(err)
 	}
 	for _, w := range res.Warnings {
@@ -508,6 +560,10 @@ func (e *MobyEngine) WatchOOM(ctx context.Context, fn func(OOMEvent)) error {
 			}
 			return wrap(err)
 		case m := <-res.Messages:
+			// The attributes carry the container's labels.
+			if !e.owns(m.Actor.Attributes) {
+				continue
+			}
 			ev := OOMEvent{ContainerID: m.Actor.ID, Name: m.Actor.Attributes["name"], Labels: m.Actor.Attributes, Time: time.Unix(0, m.TimeNano)}
 			if m.TimeNano == 0 {
 				ev.Time = time.Unix(m.Time, 0)
@@ -528,7 +584,7 @@ func (e *MobyEngine) ContainerStats(ctx context.Context, id string) (Stats, erro
 // ListedContainerStats implements Engine: the labels come from the listing, so the guard
 // needs no inspect.
 func (e *MobyEngine) ListedContainerStats(ctx context.Context, c Container) (Stats, error) {
-	if !IsManaged(c.Labels) {
+	if !e.owns(c.Labels) {
 		return Stats{}, fmt.Errorf("container %s: %w", c.ID, ErrNotManaged)
 	}
 	return e.stats(ctx, c.ID)
@@ -579,7 +635,7 @@ func (e *MobyEngine) VolumeSizes(ctx context.Context) ([]VolumeSize, error) {
 	}
 	var out []VolumeSize
 	for _, v := range res.Volumes.Items {
-		if !IsManaged(v.Labels) {
+		if !e.owns(v.Labels) {
 			continue
 		}
 		size := int64(-1)
@@ -1002,7 +1058,11 @@ func (e *MobyEngine) ListNetworks(ctx context.Context, managedOnly bool) ([]Netw
 				subnets = append(subnets, c.Subnet.String())
 			}
 		}
-		out = append(out, Network{ID: n.ID, Name: n.Name, Driver: n.Driver, Labels: n.Labels, Managed: IsManaged(n.Labels), Subnets: subnets})
+		owned := e.owns(n.Labels)
+		if managedOnly && !owned {
+			continue // another instance's
+		}
+		out = append(out, Network{ID: n.ID, Name: n.Name, Driver: n.Driver, Labels: n.Labels, Managed: owned, Subnets: subnets})
 	}
 	return out, nil
 }
@@ -1012,7 +1072,7 @@ func (e *MobyEngine) CreateNetwork(ctx context.Context, name string, labels map[
 	if !IsManaged(labels) {
 		return "", fmt.Errorf("refusing to create network without managed label: %w", ErrNotManaged)
 	}
-	opts := client.NetworkCreateOptions{Driver: "bridge", Labels: labels}
+	opts := client.NetworkCreateOptions{Driver: "bridge", Labels: StampInstance(e.instance, labels)}
 	if subnet != "" {
 		prefix, err := netip.ParsePrefix(subnet)
 		if err != nil {
@@ -1028,6 +1088,9 @@ func (e *MobyEngine) CreateNetwork(ctx context.Context, name string, labels map[
 		case strings.Contains(msg, "fully subnetted"):
 			return "", fmt.Errorf("%w: %v", ErrAddressPoolsExhausted, err)
 		}
+		if n, ierr := e.cli.NetworkInspect(ctx, name, client.NetworkInspectOptions{}); ierr == nil && e.foreign(n.Network.Labels) {
+			return "", fmt.Errorf("network %s: %w", name, ErrOtherInstance)
+		}
 		return "", wrap(err)
 	}
 	return res.ID, nil
@@ -1042,7 +1105,7 @@ func (e *MobyEngine) RemoveNetwork(ctx context.Context, idOrName string) error {
 		}
 		return wrap(err)
 	}
-	if !IsManaged(res.Network.Labels) {
+	if !e.owns(res.Network.Labels) {
 		return fmt.Errorf("network %s: %w", idOrName, ErrNotManaged)
 	}
 	_, err = e.cli.NetworkRemove(ctx, res.Network.ID, client.NetworkRemoveOptions{})
@@ -1058,7 +1121,7 @@ func (e *MobyEngine) ConnectNetwork(ctx context.Context, networkName, containerI
 	if err != nil {
 		return wrap(err)
 	}
-	if !IsManaged(res.Network.Labels) {
+	if !e.owns(res.Network.Labels) {
 		return fmt.Errorf("network %s: %w", networkName, ErrNotManaged)
 	}
 	opts := client.NetworkConnectOptions{Container: containerID}
@@ -1081,7 +1144,7 @@ func (e *MobyEngine) DisconnectNetwork(ctx context.Context, network, containerID
 		}
 		return wrap(err)
 	}
-	if !IsManaged(res.Network.Labels) {
+	if !e.owns(res.Network.Labels) {
 		return fmt.Errorf("network %s: %w", network, ErrNotManaged)
 	}
 	_, err = e.cli.NetworkDisconnect(ctx, res.Network.ID, client.NetworkDisconnectOptions{Container: containerID, Force: true})
@@ -1225,7 +1288,11 @@ func (e *MobyEngine) ListVolumes(ctx context.Context, managedOnly bool) ([]Volum
 	}
 	out := make([]Volume, 0, len(res.Items))
 	for _, v := range res.Items {
-		out = append(out, Volume{Name: v.Name, Driver: v.Driver, Labels: v.Labels, Managed: IsManaged(v.Labels)})
+		owned := e.owns(v.Labels)
+		if managedOnly && !owned {
+			continue // another instance's
+		}
+		out = append(out, Volume{Name: v.Name, Driver: v.Driver, Labels: v.Labels, Managed: owned})
 	}
 	return out, nil
 }
@@ -1235,7 +1302,11 @@ func (e *MobyEngine) CreateVolume(ctx context.Context, name string, labels map[s
 	if !IsManaged(labels) {
 		return fmt.Errorf("refusing to create volume without managed label: %w", ErrNotManaged)
 	}
-	_, err := e.cli.VolumeCreate(ctx, client.VolumeCreateOptions{Name: name, Driver: "local", Labels: labels})
+	// Docker hands back an existing volume of that name as if it had created it.
+	if err := e.checkVolumeName(ctx, name); err != nil {
+		return err
+	}
+	_, err := e.cli.VolumeCreate(ctx, client.VolumeCreateOptions{Name: name, Driver: "local", Labels: StampInstance(e.instance, labels)})
 	return wrap(err)
 }
 
@@ -1248,7 +1319,7 @@ func (e *MobyEngine) RemoveVolume(ctx context.Context, name string) error {
 		}
 		return wrap(err)
 	}
-	if !IsManaged(res.Volume.Labels) {
+	if !e.owns(res.Volume.Labels) {
 		return fmt.Errorf("volume %s: %w", name, ErrNotManaged)
 	}
 	_, err = e.cli.VolumeRemove(ctx, name, client.VolumeRemoveOptions{Force: true})

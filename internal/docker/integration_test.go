@@ -543,3 +543,85 @@ func TestIntegrationNetworkWithSubnet(t *testing.T) {
 		t.Fatalf("overlapping subnet: %v", err)
 	}
 }
+
+// Two instances on one daemon: each stamps its ID, and neither lists, changes or takes
+// over the other's resources.
+func TestIntegrationInstancesLeaveEachOtherAlone(t *testing.T) {
+	base := integrationEngine(t)
+	log := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	a, err := Connect(Options{Instance: "integration-a"}, log)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = a.Close() })
+	b, err := Connect(Options{Instance: "integration-b"}, log)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = b.Close() })
+	ctx := context.Background()
+	labels := ManagedLabels(testProject, "integration", "php", "test")
+	netName, volName, ctName := "envoryx-integration-inst-net", "envoryx-integration-inst-vol", "envoryx-integration-inst-php"
+	cleanup := func() {
+		_ = a.RemoveContainer(ctx, ctName)
+		_ = a.RemoveVolume(ctx, volName)
+		_ = a.RemoveNetwork(ctx, netName)
+	}
+	cleanup()
+	t.Cleanup(cleanup)
+	if err := base.EnsureImage(ctx, "alpine:3.20", nil); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := a.CreateNetwork(ctx, netName, labels, ""); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.CreateVolume(ctx, volName, labels); err != nil {
+		t.Fatal(err)
+	}
+	spec := ContainerSpec{Name: ctName, Image: "alpine:3.20", Labels: labels, Cmd: []string{"sleep", "60"}, Network: netName,
+		Mounts: []MountSpec{{Type: "volume", Source: volName, Target: "/data"}}}
+	if _, err := a.CreateContainer(ctx, spec); err != nil {
+		t.Fatal(err)
+	}
+	details, err := a.InspectContainer(ctx, ctName)
+	if err != nil || details.Labels[LabelInstance] != "integration-a" {
+		t.Fatalf("instance label: %v %v", details.Labels, err)
+	}
+
+	cs, _ := b.ListContainers(ctx, true, "")
+	for _, c := range cs {
+		if c.Name == ctName {
+			t.Fatal("b lists a's container as managed")
+		}
+	}
+	vs, _ := b.ListVolumes(ctx, true)
+	for _, v := range vs {
+		if v.Name == volName {
+			t.Fatal("b lists a's volume as managed")
+		}
+	}
+	if err := b.RemoveContainer(ctx, ctName); !errors.Is(err, ErrNotManaged) {
+		t.Fatalf("b removes a's container: %v", err)
+	}
+	if err := b.RemoveVolume(ctx, volName); !errors.Is(err, ErrNotManaged) {
+		t.Fatalf("b removes a's volume: %v", err)
+	}
+	if err := b.RemoveNetwork(ctx, netName); !errors.Is(err, ErrNotManaged) {
+		t.Fatalf("b removes a's network: %v", err)
+	}
+	if err := b.CreateVolume(ctx, volName, labels); !errors.Is(err, ErrOtherInstance) {
+		t.Fatalf("b takes over a's volume: %v", err)
+	}
+	if _, err := b.CreateNetwork(ctx, netName, labels, ""); !errors.Is(err, ErrOtherInstance) {
+		t.Fatalf("b creates a network of a's name: %v", err)
+	}
+	if _, err := b.CreateContainer(ctx, ContainerSpec{Name: ctName, Image: "alpine:3.20", Labels: labels}); !errors.Is(err, ErrOtherInstance) {
+		t.Fatalf("b creates a container of a's name: %v", err)
+	}
+	if _, err := b.CreateContainer(ctx, ContainerSpec{Name: ctName + "-b", Image: "alpine:3.20", Labels: labels,
+		Mounts: []MountSpec{{Type: "volume", Source: volName, Target: "/data"}}}); !errors.Is(err, ErrOtherInstance) {
+		_ = b.RemoveContainer(ctx, ctName+"-b")
+		t.Fatalf("b mounts a's volume: %v", err)
+	}
+}

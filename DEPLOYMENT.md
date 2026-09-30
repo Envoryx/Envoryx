@@ -1229,6 +1229,57 @@ picks its data up. Every removal shows up on the dashboard (*Envoryx acted
 on its own*), as a notification (`docker.orphans_removed`, on by default)
 and in the audit log.
 
+Only what this instance labelled is removed on its own (see the next section).
+Orphans without an instance label were created by an older Envoryx and
+may belong to another instance on the same Docker host: the *Docker* page marks
+them *older Envoryx* and they stay until you remove them there.
+
+### Several instances on one Docker host
+
+Every Envoryx instance has an ID (`/config/instance-id`, created at the first
+start) and stamps it as the label `envoryx.instance` on every container,
+network and volume it creates. An instance ignores whatever another one
+labelled: it is no orphan, is never stopped, changed or removed, and appears
+among the foreign containers on the *Docker* page. So a test instance can run
+next to production, or two instances on one Unraid server.
+
+Resources created by an older Envoryx carry no instance label. Those of a
+project the instance knows are its own and get the label whenever they are
+recreated anyway (a new image, a changed setup); the missing label alone does
+not make a container count as outdated, so there is no restart wave after the
+update. Unlabelled resources of unknown projects are reported as orphans but
+never removed automatically.
+
+What the instances still share:
+
+- **Names.** Containers, networks and volumes are named after the project
+  slug, so projects on different instances need different names. A name the
+  other instance labelled is refused with *the name is taken by another
+  Envoryx instance on this Docker host*; its unlabelled volumes (from before
+  instance labels) cannot be told apart from this instance's and would be shared.
+- **Host ports.** Envoryx's own ports (`8787`, `80`/`443`, `2222`) need
+  different host ports per instance, and each should get its own
+  `ENVORYX_PORT_RANGE_START`/`_END`: a new project avoids the ports running
+  containers publish, but not those of the other instance's stopped projects.
+- **The network pool.** Both may use the same `ENVORYX_NETWORK_POOL`: a new
+  network takes a /24 that no network on the host uses, whoever created it.
+  Separate ranges only give each instance its full 256 networks.
+- **The database browser** runs as the container `envoryx-dbtool`, so only one
+  instance can have it enabled.
+
+The instance ID is not part of instance backups and a restore keeps the
+current one, like the [secret key](#secret-key): restoring a production backup
+into a test instance does not make it claim production's labelled containers.
+Its projects still have production's names and IDs, though, and production's
+unlabelled resources (from an older Envoryx) belong to projects the copy
+knows, so it takes them for its own. Such a copy is for another host; on the
+same host, do not start or change its projects while production runs them.
+
+If `/config/instance-id` is lost, a new ID is created and the old instance's
+resources count as another instance's (creating their names fails as above);
+put the old ID back from a container's `envoryx.instance` label
+(`docker inspect`) and restart Envoryx.
+
 ### Projects and the Envoryx container
 
 The project containers are independent of the Envoryx container: they carry
@@ -1558,7 +1609,8 @@ are for. A backup is a single `envoryx-<id>.tar.gz` under
 `<backups dir>/_instance/` (`instance.json` with version/schema, `envoryx.db`
 as a consistent `VACUUM INTO` copy, `config/…`). The [secret key](#secret-key)
 is never in it: `instance.json` only records its ID, and the secrets in the
-archive stay encrypted.
+archive stay encrypted. Neither is the instance ID (see *Several instances on
+one Docker host*); a restore keeps the current key and ID.
 
 - **Create** a backup any time (e.g. before an update); **download** it and
   **import** it on another host to move an installation.

@@ -14,6 +14,9 @@ describe("translateMessage", () => {
   it("translates each segment of a wrapped Go error", () => {
     expect(translateMessage("invalid input: project name must be 2-64 characters", t)).toBe("Ungültige Eingabe: Der Projektname muss 2-64 Zeichen lang sein");
     expect(translateMessage("hostname shop.test is already used: conflict", t)).toBe("Der Hostname shop.test wird bereits verwendet: Konflikt");
+    expect(translateMessage("create network: network envoryx-shop: the name is taken by another Envoryx instance on this Docker host", t)).toBe(
+      "create network: network envoryx-shop: der Name gehört einer anderen Envoryx-Instanz auf diesem Docker-Host",
+    );
   });
 
   it("carries values over from templated messages", () => {

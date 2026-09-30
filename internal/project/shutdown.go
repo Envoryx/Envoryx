@@ -41,7 +41,8 @@ func (m *Manager) SetProjectsFollowEnvoryx(ctx context.Context, on bool) error {
 }
 
 // StopAllForShutdown stops the running containers of every project, then every other
-// managed container that is still running (the database browser, orphans). Projects are
+// managed container that is still running (the database browser, orphans this instance
+// labelled). Projects are
 // stopped in parallel, each in the order of its plan. No project's desired state changes:
 // this is Envoryx going down, not the user stopping the project, so ResumeProjects can
 // bring them back. It is meant to run after Shutdown has drained the lifecycle
@@ -81,14 +82,19 @@ func (m *Manager) StopAllForShutdown(ctx context.Context) {
 	}
 	wg.Wait()
 
-	// Whatever managed container still runs is not part of a stoppable project.
+	// Whatever managed container still runs is not part of a stoppable project, except
+	// the unlabelled ones of unknown projects: they may be another instance's.
 	containers, err := m.engine.ListContainers(ctx, true, "")
 	if err != nil {
 		m.log.Warn("stop projects at shutdown: list containers", "err", err)
 		return
 	}
+	known := map[string]bool{}
+	for _, p := range projects {
+		known[p.ID] = true
+	}
 	for _, c := range containers {
-		if c.State != "running" {
+		if c.State != "running" || unclaimed(c.Labels, func(id string) bool { return known[id] }) {
 			continue
 		}
 		wg.Add(1)

@@ -10,6 +10,27 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Fixed
+- Several Envoryx instances on one Docker host (a test instance next to
+  production, two instances on an Unraid server) no longer delete each
+  other's containers and networks as orphans. Every instance now has an
+  ID (`/config/instance-id`, created at the first start, kept out of
+  instance backups like the secret key) and labels everything it creates
+  with it (`envoryx.instance`); what another instance labelled is never
+  listed, stopped, changed or removed, and a project name whose
+  containers, network or volumes the other instance holds is refused
+  instead of shared. Existing containers need no restart: unlabelled
+  ones of known projects stay the instance's own and get the label when
+  they are next recreated, and the label is not part of the container
+  fingerprint. The network pool still steps around every network on the
+  host.
+
+### Changed
+- Orphans without an instance label (created by an older Envoryx, maybe
+  another instance's) are no longer removed automatically; the *Docker*
+  page marks them *older Envoryx* and removes them on request. Orphans
+  an instance labelled itself are still cleared after two passes.
+
 ## [0.17.0] - 2026-09-30
 
 Fixes from a full system test, four of them for security (see
