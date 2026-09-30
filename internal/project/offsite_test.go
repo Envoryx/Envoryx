@@ -21,6 +21,9 @@ func TestBackupMembers(t *testing.T) {
 		"database-.volume.tar.gz":          false,
 		"database-../x.volume.tar.gz":      false,
 		"database.volume.tar":              false,
+		"addon-meili-data.tar.gz":          true,
+		"addon-../x.tar.gz":                false,
+		"addon-.tar.gz":                    false,
 		"notes.txt":                        false,
 	} {
 		if got := isBackupMember(name); got != want {

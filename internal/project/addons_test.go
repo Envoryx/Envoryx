@@ -1,6 +1,7 @@
 package project
 
 import (
+	"archive/tar"
 	"context"
 	"errors"
 	"slices"
@@ -215,6 +216,24 @@ func TestAddonManifestAndBackup(t *testing.T) {
 	}
 	if c, _ := e.engine.Container("envoryx-mfa-addon-widget"); c.State != "running" {
 		t.Fatal("the addon was not started again")
+	}
+	// The download and the offsite copy carry the volume archive too.
+	rc, _, err := e.m.OpenBackupArchive(ctx, id, b.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var members []string
+	tr := tar.NewReader(rc)
+	for {
+		h, err := tr.Next()
+		if err != nil {
+			break
+		}
+		members = append(members, h.Name)
+	}
+	rc.Close()
+	if !slices.ContainsFunc(members, func(n string) bool { return strings.HasSuffix(n, "addon-widget-data.tar.gz") }) {
+		t.Fatalf("download without the addon volume: %v", members)
 	}
 	e.engine.StreamHandler = func(string, []string, []string, []byte) (string, int, error) { return "", 0, nil }
 	if _, err := e.m.RestoreBackup(ctx, id, b.ID, RestoreOptions{Database: true, Confirm: "mfa"}); err != nil {
