@@ -104,6 +104,8 @@ release). `:main` follows the development branch.
   `server_version` from `DB_SERVER_VERSION`, as in the Symfony template,
   unless it sets a version itself. The site's `.env` usually names it in
   `DATABASE_URL`, which the injected URL replaces without one.
+- The Ruby images ship libvips, which Active Storage's default `:vips`
+  processor needs for image variants (the images grow by about 180 MB).
 
 ## [0.17.0] - 2026-09-30
 
