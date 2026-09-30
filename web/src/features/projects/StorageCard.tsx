@@ -198,7 +198,7 @@ export function AddStorageCard({ project, onMessage }: { project: Project; onMes
   const runtimes = useRuntimes();
   const rt = runtimes.data?.runtimes.find((r) => r.key === "rustfs");
   const [version, setVersion] = useState("");
-  const [publicRead, setPublicRead] = useState(true);
+  const [publicRead, setPublicRead] = useState(false);
   return (
     <Card>
       <CardHeader

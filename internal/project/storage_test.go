@@ -87,7 +87,7 @@ func TestObjectStorageLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if svc.Image != "rustfs/rustfs:1.0.0" || cfg.Bucket != "shop" || !cfg.PublicRead || !strings.HasPrefix(cfg.AccessKey, "envoryx") || len(cfg.SecretKey) != 40 {
+	if svc.Image != "rustfs/rustfs:1.0.0" || cfg.Bucket != "shop" || cfg.PublicRead || !strings.HasPrefix(cfg.AccessKey, "envoryx") || len(cfg.SecretKey) != 40 {
 		t.Fatalf("storage config: %+v image=%s", cfg, svc.Image)
 	}
 	if cfg.HostPort == 0 || cfg.ConsolePort == 0 || cfg.HostPort == cfg.ConsolePort || cfg.HostPort == view.Project.HTTPPort {
@@ -101,8 +101,8 @@ func TestObjectStorageLifecycle(t *testing.T) {
 		t.Fatalf("container env: %v", c.Spec.Env)
 	}
 
-	// The bucket was provisioned via the published port (bare metal) with public read.
-	if got := prov.last(); got != "http://127.0.0.1:"+itoa(cfg.HostPort)+" "+cfg.AccessKey+":"+cfg.SecretKey+" shop public" {
+	// The bucket was provisioned via the published port (bare metal), private by default.
+	if got := prov.last(); got != "http://127.0.0.1:"+itoa(cfg.HostPort)+" "+cfg.AccessKey+":"+cfg.SecretKey+" shop private" {
 		t.Fatalf("provisioning call: %q", got)
 	}
 
@@ -144,7 +144,14 @@ func TestObjectStorageLifecycle(t *testing.T) {
 		t.Fatalf("reserved host name accepted: %v", err)
 	}
 
-	// Public read can be switched off; a running server is reconfigured right away.
+	// Public read can be switched on and off; a running server is reconfigured right away.
+	info, err = e.m.SetStoragePublicRead(ctx, id, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !info.PublicRead || !strings.HasSuffix(prov.last(), " shop public") {
+		t.Fatalf("public read on: %+v last=%q", info, prov.last())
+	}
 	info, err = e.m.SetStoragePublicRead(ctx, id, false)
 	if err != nil {
 		t.Fatal(err)

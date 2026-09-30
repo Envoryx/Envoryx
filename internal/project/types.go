@@ -183,7 +183,7 @@ type ExternalRedis struct {
 	Password string
 }
 
-// StorageRequest adds S3-compatible object storage. PublicRead (default true) lets anyone
+// StorageRequest adds S3-compatible object storage. PublicRead (default false) lets anyone
 // read the bucket's objects, as public-read ACLs do on providers that honour them.
 type StorageRequest struct {
 	Version    string

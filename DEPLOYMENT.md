@@ -1987,11 +1987,16 @@ project network. The S3 API and the web console are also published on host
 ports (shown in the Services section) for local tools such as `aws s3 --endpoint-url`.
 
 **Public read.** Real providers honour `public-read` ACLs; RustFS accepts but
-ignores them. Envoryx therefore puts a bucket policy on the bucket that lets
-anyone read every object, switched on by default so `Storage::url()` behaves
-as it would in production. Turn *Anyone may read objects* off in the Services
-section to test that nothing relies on it; then only presigned URLs and
-authenticated requests work.
+ignores them. A new bucket is private: only presigned URLs and authenticated
+requests work. Turn *Anyone may read objects* on (when adding the storage or
+later in the Services section, `"publicRead": true` in the API,
+`storage: {publicRead: true}` in `envoryx.yml`) and Envoryx puts a bucket
+policy on the bucket that lets anyone read every object, so `Storage::url()`
+links work as they would against a public bucket in production. Anyone who
+can reach the project's S3 host name can then read the objects. Buckets
+created by Envoryx 0.17 and earlier were public by default and keep their
+setting; an `envoryx.yml` that does not mention `publicRead` leaves an
+existing bucket as it is.
 
 The console (RustFS's own UI) opens from the Services section; sign in with the
 project's access keys. Removing the object storage deletes the bucket volume
@@ -2635,7 +2640,7 @@ databases:                       # additional databases, reached by their name
   analytics: {type: postgres}    # host analytics, ANALYTICS_DB_* variables
 redis: true                      # or {version: "8", exposePort: true}
 mailpit: true                    # also memcached, rabbitmq, meilisearch, typesense,
-opensearch: {dashboards: true}   # opensearch, storage: {publicRead: false}
+opensearch: {dashboards: true}   # opensearch, storage: {publicRead: true}
 ollama: {gpu: true}              # models are not part of the manifest
 # database: {type: mariadb, external: {host: host.docker.internal, port: 3306,
 #            username: shop, database: shop}}   # never the password

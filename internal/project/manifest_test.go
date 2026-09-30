@@ -400,3 +400,56 @@ func TestManifestLimits(t *testing.T) {
 		t.Fatalf("after pruning: %+v", d.Resources)
 	}
 }
+
+// A manifest's "storage: true" makes a private bucket, but never flips one that exists:
+// files written before the default changed meant a public bucket with it.
+func TestManifestStorageIsPrivateByDefault(t *testing.T) {
+	e := newEnv(t)
+	e.m.SetProvisioner(&fakeProvisioner{})
+	ctx := context.Background()
+	mf := mustManifest(t, shopManifest+"storage: true\n")
+	res, err := e.m.CreateFromManifest(ctx, mf, ManifestCreateRequest{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := res.View.Project.ID
+	if _, cfg, err := storageConfig(res.View.Project); err != nil || cfg.PublicRead {
+		t.Fatalf("a bucket from the manifest must be private: %+v %v", cfg, err)
+	}
+
+	if _, err := e.m.SetStoragePublicRead(ctx, id, true); err != nil {
+		t.Fatal(err)
+	}
+	plan, err := e.m.PlanManifest(ctx, id, mf, ManifestOptions{Prune: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if slices.ContainsFunc(plan.Changes, func(c ManifestChange) bool { return c.Section == "storage" }) {
+		t.Fatalf("a file without publicRead must leave a public bucket alone: %v", changeKeys(plan))
+	}
+	if _, err := e.m.ApplyManifest(ctx, id, mf, ManifestOptions{Prune: true}); err != nil {
+		t.Fatal(err)
+	}
+	info, _ := e.m.StorageInfo(ctx, id, false)
+	if !info.PublicRead {
+		t.Fatal("applying the manifest made the bucket private")
+	}
+
+	// The export names a public bucket, so a copy made from it is public too.
+	exported, err := e.m.ExportManifest(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if exported.Storage == nil || !exported.Storage.IsPublicRead() || exported.Storage.PublicRead == nil {
+		t.Fatalf("export: %+v", exported.Storage)
+	}
+
+	// An explicit publicRead: false still switches it off.
+	off := mustManifest(t, shopManifest+"storage: {publicRead: false}\n")
+	if _, err := e.m.ApplyManifest(ctx, id, off, ManifestOptions{Prune: true}); err != nil {
+		t.Fatal(err)
+	}
+	if info, _ := e.m.StorageInfo(ctx, id, false); info.PublicRead {
+		t.Fatal("publicRead: false must make the bucket private")
+	}
+}

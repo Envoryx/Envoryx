@@ -283,9 +283,9 @@ func exportState(p store.Project, domains []store.Domain, jobs []store.CronJob) 
 		var cfg runtime.StorageConfig
 		_ = json.Unmarshal(svc.Config, &cfg)
 		st := &manifest.Storage{Version: svc.Version}
-		if !cfg.PublicRead {
-			off := false
-			st.PublicRead = &off
+		if cfg.PublicRead {
+			on := true
+			st.PublicRead = &on
 		}
 		mf.Storage = st
 	}
@@ -682,6 +682,12 @@ func (m *Manager) planManifest(ctx context.Context, id string, mf manifest.Manif
 		wantMf.Domains = append(wantMf.Domains, validate.NormalizeHostname(h))
 	}
 	sort.Strings(wantMf.Domains)
+	// A file that does not mention publicRead leaves an existing bucket as it is: leaving
+	// it out used to mean a public bucket and now means a private one, and neither may
+	// flip a bucket that already exists.
+	if mf.Storage != nil && mf.Storage.PublicRead == nil && have.Storage != nil && wantMf.Storage != nil {
+		wantMf.Storage.PublicRead = have.Storage.PublicRead
+	}
 
 	var (
 		plan ManifestPlan
