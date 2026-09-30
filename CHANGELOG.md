@@ -34,6 +34,16 @@ release). `:main` follows the development branch.
   really runs (`dotnet publish`, then `dotnet <dll>`) instead of
   `dotnet run --project`.
 
+### Security
+- An admin API token could show and replace the secret key that decrypts
+  every stored secret. Like user and token management, both now need an
+  admin's browser session; tokens are refused, even with admin scope.
+- Restoring an instance backup brought back the browser sessions the
+  backup held: a cookie from back then worked again, and a logout or a
+  disabled account since was undone for that session. The restore now
+  ends every session. API tokens are the backup's and keep working; a
+  token revoked after the backup was taken has to be revoked again.
+
 ### Fixed
 - Several Envoryx instances on one Docker host (a test instance next to
   production, two instances on an Unraid server) no longer delete each
@@ -70,6 +80,10 @@ release). `:main` follows the development branch.
   prints it.
 - The CLI showed only "an internal error occurred" for server errors and
   dropped the cause the server sends along; it prints the cause now.
+- The single sign-on client secret could not be removed: an empty field
+  keeps the stored one, also when single sign-on is switched off. The
+  settings card has *Remove the stored client secret when saving*, the
+  API takes `"clearSecret": true`.
 
 ## [0.17.0] - 2026-09-30
 

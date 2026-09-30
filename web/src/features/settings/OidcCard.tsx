@@ -16,6 +16,7 @@ interface Form {
   issuer: string;
   clientId: string;
   clientSecret: string;
+  clearSecret: boolean;
   usernameClaim: string;
   groupsClaim: string;
   adminGroups: string;
@@ -32,6 +33,7 @@ function toForm(c: OIDCSettings): Form {
     issuer: c.issuer ?? "",
     clientId: c.clientId ?? "",
     clientSecret: "",
+    clearSecret: false,
     usernameClaim: c.usernameClaim ?? "",
     groupsClaim: c.groupsClaim ?? "",
     adminGroups: join(c.adminGroups),
@@ -48,7 +50,8 @@ function fromForm(f: Form): OIDCSettings {
     name: f.name.trim(),
     issuer: f.issuer.trim(),
     clientId: f.clientId.trim(),
-    clientSecret: f.clientSecret,
+    clientSecret: f.clearSecret ? "" : f.clientSecret,
+    ...(f.clearSecret ? { clearSecret: true } : {}),
     usernameClaim: f.usernameClaim.trim(),
     groupsClaim: f.groupsClaim.trim(),
     adminGroups: list(f.adminGroups),
@@ -120,9 +123,14 @@ export function OidcCard() {
           <Field label={t("Client ID")} htmlFor="oidc-client">
             <Input id="oidc-client" value={form.clientId} onChange={(e) => set({ clientId: e.target.value })} />
           </Field>
-          <Field label={t("Client secret")} htmlFor="oidc-secret" hint={q.data?.hasSecret ? t("Stored; leave empty to keep it.") : undefined}>
-            <Input id="oidc-secret" type="password" autoComplete="off" value={form.clientSecret} onChange={(e) => set({ clientSecret: e.target.value })} />
-          </Field>
+          <div className="space-y-2">
+            <Field label={t("Client secret")} htmlFor="oidc-secret" hint={q.data?.hasSecret && !form.clearSecret ? t("Stored; leave empty to keep it.") : undefined}>
+              <Input id="oidc-secret" type="password" autoComplete="off" value={form.clearSecret ? "" : form.clientSecret} disabled={form.clearSecret} onChange={(e) => set({ clientSecret: e.target.value })} />
+            </Field>
+            {q.data?.hasSecret && (
+              <Checkbox label={t("Remove the stored client secret when saving")} checked={form.clearSecret} onChange={(e) => set({ clearSecret: e.target.checked })} />
+            )}
+          </div>
           <Field label={t("Username claim")} htmlFor="oidc-username" hint={t("Empty: {{n}}", { n: "preferred_username" })}>
             <Input id="oidc-username" value={form.usernameClaim} onChange={(e) => set({ usernameClaim: e.target.value })} />
           </Field>

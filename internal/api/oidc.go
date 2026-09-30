@@ -131,18 +131,22 @@ func (a *API) oidcSettings(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"oidc": a.oidcSettingsOut(r, c)})
 }
 
-// setOIDCSettings stores it: PUT /settings/oidc. An empty client secret keeps the old one.
+// setOIDCSettings stores it: PUT /settings/oidc. An empty client secret keeps the old one;
+// clearSecret removes it.
 func (a *API) setOIDCSettings(w http.ResponseWriter, r *http.Request) {
 	if a.d.OIDC == nil {
 		writeError(w, r, oidc.ErrDisabled)
 		return
 	}
-	var req oidc.Config
+	var req struct {
+		oidc.Config
+		ClearSecret bool `json:"clearSecret"`
+	}
 	if err := decodeJSON(w, r, &req); err != nil {
 		writeError(w, r, err)
 		return
 	}
-	c, err := a.d.OIDC.SetConfig(r.Context(), req)
+	c, err := a.d.OIDC.SetConfig(r.Context(), req.Config, req.ClearSecret)
 	if err != nil {
 		writeError(w, r, err)
 		return

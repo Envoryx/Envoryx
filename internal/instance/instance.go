@@ -652,7 +652,25 @@ func (s *Store) ApplyPendingRestore(ctx context.Context, openDB func(context.Con
 		}
 		return nil, fmt.Errorf("restore %s failed: %w", p.ID, err)
 	}
+	if err := endSessions(ctx, openDB, s.DBPath); err != nil {
+		return nil, fmt.Errorf("restore %s: end the restored sessions: %w", p.ID, err)
+	}
 	return &Applied{Pending: *p, PreRestoreID: safety}, nil
+}
+
+// endSessions deletes the browser sessions the restored database brought back. They were
+// valid when the backup was taken; without this, a cookie from back then would work
+// again, and a logout or a disabled account since would be undone. API tokens stay: they
+// live in scripts and IDE settings outside Envoryx, and the restored set is the
+// backup's state like the accounts and their passwords (DEPLOYMENT.md, Instance backups).
+func endSessions(ctx context.Context, openDB func(context.Context, string) (*sql.DB, error), path string) error {
+	sqlDB, err := openDB(ctx, path)
+	if err != nil {
+		return err
+	}
+	defer sqlDB.Close()
+	_, err = sqlDB.ExecContext(ctx, `DELETE FROM sessions`)
+	return err
 }
 
 // extract replaces the database and the archived parts of the config directory with the

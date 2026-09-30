@@ -120,7 +120,7 @@ func TestSingleSignOn(t *testing.T) {
 		t.Fatalf("disabled: %v", err)
 	}
 	cfg := Config{Enabled: true, Issuer: p.srv.URL, ClientID: "envoryx", ClientSecret: "s3cret", AutoCreate: true, AdminGroups: []string{"envoryx-admins"}, DeveloperGroups: []string{"devs"}}
-	if _, err := s.SetConfig(ctx, cfg); err != nil {
+	if _, err := s.SetConfig(ctx, cfg, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -167,11 +167,24 @@ func TestSingleSignOn(t *testing.T) {
 
 	// Without auto-create only invited users get in.
 	cfg.AutoCreate = false
-	if _, err := s.SetConfig(ctx, Config{Enabled: true, Issuer: p.srv.URL, ClientID: "envoryx", DeveloperGroups: []string{"devs"}}); err != nil {
+	if _, err := s.SetConfig(ctx, Config{Enabled: true, Issuer: p.srv.URL, ClientID: "envoryx", DeveloperGroups: []string{"devs"}}, false); err != nil {
 		t.Fatal(err)
 	}
 	if c, _ := s.Config(ctx); c.ClientSecret != "s3cret" {
 		t.Fatal("an empty secret keeps the stored one")
+	}
+	// Switched off for good, the secret can go; a new one is taken as it comes.
+	if _, err := s.SetConfig(ctx, Config{}, true); err != nil {
+		t.Fatal(err)
+	}
+	if c, _ := s.Config(ctx); c.ClientSecret != "" || c.Enabled {
+		t.Fatalf("cleared: %+v", c)
+	}
+	if _, err := s.SetConfig(ctx, Config{Enabled: true, Issuer: p.srv.URL, ClientID: "envoryx", ClientSecret: "s3cret", DeveloperGroups: []string{"devs"}}, true); err != nil {
+		t.Fatal(err)
+	}
+	if c, _ := s.Config(ctx); c.ClientSecret != "s3cret" {
+		t.Fatal("a secret sent along with clearSecret is stored")
 	}
 	if _, err := p.signIn(t, s, map[string]any{"sub": "u5", "preferred_username": "gina", "groups": []string{"devs"}}); err == nil || !strings.Contains(err.Error(), "ask an admin") {
 		t.Fatalf("no auto-create: %v", err)

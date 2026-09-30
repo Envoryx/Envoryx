@@ -30,6 +30,13 @@ func newStore(t *testing.T) (*Store, *sql.DB) {
 	if _, err := sqlDB.Exec(`INSERT INTO settings(key, value, updated_at) VALUES ('marker', 'before', '2026-01-01')`); err != nil {
 		t.Fatal(err)
 	}
+	// A browser session that exists when the backup is taken.
+	if _, err := sqlDB.Exec(`INSERT INTO users(id, username, password_hash, role, created_at, updated_at) VALUES ('u1', 'admin', 'x', 'admin', '2026-01-01', '2026-01-01')`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := sqlDB.Exec(`INSERT INTO sessions(id, user_id, created_at, expires_at, last_seen_at) VALUES ('s-old', 'u1', '2026-01-01', '2099-01-01', '2026-01-01')`); err != nil {
+		t.Fatal(err)
+	}
 	must := func(rel, content string) {
 		p := filepath.Join(cfgDir, rel)
 		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
@@ -130,6 +137,11 @@ func TestCreateListRestoreRoundTrip(t *testing.T) {
 	var v string
 	if err := sqlDB2.QueryRow(`SELECT value FROM settings WHERE key = 'marker'`).Scan(&v); err != nil || v != "before" {
 		t.Fatalf("marker = %q, %v", v, err)
+	}
+	// Sessions from the backup do not come back to life.
+	var sessions int
+	if err := sqlDB2.QueryRow(`SELECT COUNT(*) FROM sessions`).Scan(&sessions); err != nil || sessions != 0 {
+		t.Fatalf("sessions after restore = %d, %v", sessions, err)
 	}
 	read := func(rel string) string {
 		b, err := os.ReadFile(filepath.Join(s.ConfigDir, rel))
