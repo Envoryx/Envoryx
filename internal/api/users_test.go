@@ -12,7 +12,8 @@ func TestUsersRolesAndInvitations(t *testing.T) {
 	admin := a.cookie
 	create := func(name string) string {
 		t.Helper()
-		r := a.do(http.MethodPost, "/api/v1/projects", map[string]any{"name": name, "php": map[string]any{"version": "8.4"}}, true)
+		r := a.do(http.MethodPost, "/api/v1/projects", map[string]any{"name": name, "php": map[string]any{"version": "8.4"},
+			"env": []map[string]any{{"key": "API_KEY", "value": "key-of-" + name, "isSecret": true}, {"key": "MODE", "value": "dev"}}}, true)
 		if r.status != http.StatusCreated {
 			t.Fatalf("create %s: %d %s", name, r.status, r.raw)
 		}
@@ -58,6 +59,16 @@ func TestUsersRolesAndInvitations(t *testing.T) {
 		if pm["access"] != want {
 			t.Fatalf("access of %s: %v, want %s", pm["name"], pm["access"], want)
 		}
+	}
+	// Secret values reach Dana only where Dana may operate; read reveals no secrets.
+	if strings.Contains(string(r.raw), "key-of-Blog") || !strings.Contains(string(r.raw), "key-of-Shop") || !strings.Contains(string(r.raw), `"value":"dev"`) {
+		t.Fatalf("secret values in the viewer list: %s", r.raw)
+	}
+	if r := a.do(http.MethodGet, "/api/v1/projects/"+blog, nil, false); r.status != http.StatusOK || strings.Contains(string(r.raw), "key-of-Blog") {
+		t.Fatalf("viewer reads Blog's secret: %d %s", r.status, r.raw)
+	}
+	if r := a.do(http.MethodGet, "/api/v1/dashboard", nil, false); r.status != http.StatusOK || strings.Contains(string(r.raw), "key-of-Blog") {
+		t.Fatalf("viewer dashboard shows Blog's secret: %d %s", r.status, r.raw)
 	}
 	if r := a.do(http.MethodPost, "/api/v1/projects/"+shop+"/start", nil, true); r.status != http.StatusOK {
 		t.Fatalf("developer starts Shop: %d %s", r.status, r.raw)

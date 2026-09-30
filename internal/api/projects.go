@@ -661,7 +661,21 @@ func (a *API) project(r *http.Request, v project.View) projectDTO {
 	// What the caller may do here, so the UI can leave out what would be refused.
 	p, _ := auth.PrincipalFrom(r.Context())
 	dto.Access = string(p.ScopeFor(v.Project.ID))
+	hideSecretValues(&dto, p.ScopeFor(v.Project.ID))
 	return dto
+}
+
+// hideSecretValues blanks the values of secret variables for a caller below operate:
+// read reveals no secrets, while operate reaches them in the terminal anyway.
+func hideSecretValues(dto *projectDTO, scope auth.Scope) {
+	if scope.Covers(auth.ScopeOperate) {
+		return
+	}
+	for i := range dto.Env {
+		if dto.Env[i].IsSecret {
+			dto.Env[i].Value = ""
+		}
+	}
 }
 
 func (a *API) listProjects(w http.ResponseWriter, r *http.Request) {
