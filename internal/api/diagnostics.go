@@ -2,12 +2,15 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -319,8 +322,65 @@ func (a *API) checkDNS(ctx context.Context) []Check {
 		c.Hint = "Update the wildcard DNS entry so project domains reach the proxy."
 		return []Check{c}
 	}
-	c.Status, c.Detail = checkOK, fmt.Sprintf("*.%s → %s (DNS: %s)", base, strings.Join(addrs, ", "), resolver)
+	// No address to compare with: ask whoever the name points at for the probe host and
+	// accept only this instance's own proxy.
+	switch probeProxy(ctx, addrs, a.d.Proxy.HTTPPort, name, project.ProbeToken()) {
+	case probeOwn:
+		c.Status, c.Detail = checkOK, fmt.Sprintf("*.%s → %s, answered by this Envoryx's proxy (DNS: %s)", base, strings.Join(addrs, ", "), resolver)
+	case probeOther:
+		c.Status = checkWarning
+		c.Detail = fmt.Sprintf("*.%s resolves to %s, but another server answers there, not this Envoryx (DNS: %s).", base, strings.Join(addrs, ", "), resolver)
+		c.Hint = "Update the wildcard DNS entry so project domains reach the proxy."
+	default:
+		c.Status = checkInfo
+		c.Detail = fmt.Sprintf("*.%s resolves to %s (DNS: %s), unverified: Envoryx could not reach its proxy there, and without a host for project links it has no address to compare.", base, strings.Join(addrs, ", "), resolver)
+		c.Hint = "Set the Docker host's address under Settings → Domains & HTTPS → Host for project links so Envoryx can compare it. The check from this browser above shows whether project domains work."
+	}
 	return []Check{c}
+}
+
+type probeAnswer int
+
+const (
+	probeNone  probeAnswer = iota // nothing answered
+	probeOther                    // something answered, but not this instance's proxy
+	probeOwn                      // this instance's proxy answered
+)
+
+// probeProxy requests the diagnostics probe host from each address on the proxy's HTTP
+// port and reports whether this instance's proxy (its probe token) answered. From inside
+// a container a host port published on the loopback interface only is out of reach, so
+// "nothing answered" does not mean the name is wrong.
+func probeProxy(ctx context.Context, addrs []string, port int, host, token string) probeAnswer {
+	if port == 0 {
+		return probeNone
+	}
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	client := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	answer := probeNone
+	for _, addr := range addrs {
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://"+net.JoinHostPort(addr, strconv.Itoa(port))+"/", nil)
+		if err != nil {
+			continue
+		}
+		req.Host = host
+		res, err := client.Do(req)
+		if err != nil {
+			continue
+		}
+		var body struct {
+			Envoryx  string `json:"envoryx"`
+			Instance string `json:"instance"`
+		}
+		err = json.NewDecoder(io.LimitReader(res.Body, 4096)).Decode(&body)
+		res.Body.Close()
+		if err == nil && body.Envoryx == "probe" && body.Instance == token {
+			return probeOwn
+		}
+		answer = probeOther
+	}
+	return answer
 }
 
 // systemResolvers lists the nameservers of /etc/resolv.conf for the DNS check's detail.

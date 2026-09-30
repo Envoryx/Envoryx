@@ -140,7 +140,10 @@ from your browser (the check that matters: it fetches
 `envoryx-diagnostics-probe.<base domain>` through the proxy, which also proves
 the CA is trusted over HTTPS) and from inside the Envoryx container, whose DNS
 server is often a different one (the router instead of your ad blocker); that
-second result is only a note.
+second result is only a note. It compares the answer with the host for project
+links (or the container's own IP); without either it asks the address for the
+probe host itself and only accepts an answer from this instance's proxy, else
+it reports the name as unverified.
 Findings with a button are fixed in place (for example setting the Docker host
 for project links); the others link to the setting or to this guide. The
 dashboard lists them among its notices while warnings or errors exist. The same data is
