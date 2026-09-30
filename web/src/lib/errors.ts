@@ -114,6 +114,7 @@ const templates = [
   "cannot start {{version}} on Linux kernel {{kernel}} and newer (this host runs {{host}}), and {{other}} cannot take over its data; export it on a host with an older kernel, or remove and re-add the database (its data is lost)",
   "cannot start {{version}} on Linux kernel {{kernel}} and newer (this host runs {{host}})",
   "the backup holds a copy of {{type}} {{from}} data, which {{service}} {{to}} cannot open",
+  "{{file}} needs {{wanted}} but the project runs {{have}}, so the build or the start fails; select a newer version in the settings or lower the requirement in the file",
 ];
 
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
