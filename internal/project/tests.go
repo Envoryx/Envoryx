@@ -489,39 +489,55 @@ func (m *Manager) ensureSiblingDatabase(ctx context.Context, id, suffix, what st
 	return nil
 }
 
-// railsQueueEntry finds a queue database in config/database.yml (Solid Queue's in Rails 8).
-var railsQueueEntry = regexp.MustCompile(`(?m)^[ \t]+queue:[ \t]*$`)
+// railsDatabaseEntries finds the sibling database entries (railsSiblingDatabases) of
+// config/database.yml: an indented "queue:", "cache:" or "cable:" line on its own.
+func railsDatabaseEntries(yml []byte) []string {
+	var found []string
+	for _, sib := range railsSiblingDatabases {
+		if regexp.MustCompile(`(?m)^[ \t]+` + sib.name + `:[ \t]*\r?$`).Match(yml) {
+			found = append(found, sib.name)
+		}
+	}
+	return found
+}
 
-// ensureQueueDatabase creates <database>_queue, which QUEUE_DATABASE_URL names
-// (rubyDatabaseEnv), for an application whose config/database.yml has a queue entry;
-// other applications get no database they never use. Callers hold the lock.
-func (m *Manager) ensureQueueDatabase(ctx context.Context, id string) error {
+// ensureRailsDatabases creates <database>_queue, _cache and _cable, which
+// QUEUE_DATABASE_URL, CACHE_DATABASE_URL and CABLE_DATABASE_URL name (rubyDatabaseEnv),
+// for the entries the application's config/database.yml has; other applications get no
+// database they never use. Callers hold the lock.
+func (m *Manager) ensureRailsDatabases(ctx context.Context, id string) error {
 	p, err := m.loadProject(ctx, id)
 	if err != nil {
 		return err
 	}
-	if !m.hasQueueDatabase(p) {
-		return nil
+	for _, name := range m.railsDatabases(p) {
+		if err := m.ensureSiblingDatabase(ctx, id, "_"+name, name); err != nil {
+			return err
+		}
 	}
-	return m.ensureSiblingDatabase(ctx, id, queueDatabaseSuffix, "queue")
+	return nil
 }
 
-// hasQueueDatabase reports whether the application's config/database.yml has a queue entry.
-func (m *Manager) hasQueueDatabase(p store.Project) bool {
+// railsDatabases lists the sibling database entries of the application's
+// config/database.yml.
+func (m *Manager) railsDatabases(p store.Project) []string {
 	planner, err := m.planner()
 	if err != nil {
-		return false
+		return nil
 	}
 	yml, err := os.ReadFile(filepath.Join(planner.ProjectDir(p), "config", "database.yml"))
-	return err == nil && railsQueueEntry.Match(yml)
+	if err != nil {
+		return nil
+	}
+	return railsDatabaseEntries(yml)
 }
 
-// prepareQueueDatabase creates the queue database of a freshly scaffolded Rails
+// prepareRailsDatabases creates the sibling databases of a freshly scaffolded Rails
 // application once its database server answers, so rails db:prepare works from the
 // terminal too, not only from Actions. It only warns: the Rails actions try again.
-func (m *Manager) prepareQueueDatabase(ctx context.Context, p store.Project) {
+func (m *Manager) prepareRailsDatabases(ctx context.Context, p store.Project) {
 	svc, cfg, err := databaseOf(p, "")
-	if err != nil || svc.Variant == "mongodb" || !m.hasQueueDatabase(p) {
+	if err != nil || svc.Variant == "mongodb" || len(m.railsDatabases(p)) == 0 {
 		return
 	}
 	dialect, err := dialectOf(svc)
@@ -529,11 +545,11 @@ func (m *Manager) prepareQueueDatabase(ctx context.Context, p store.Project) {
 		return
 	}
 	if err := m.waitForDatabase(ctx, p, svc, cfg, dialect); err != nil {
-		m.log.Warn("create the queue database", "project", p.Slug, "err", err)
+		m.log.Warn("create the Rails databases", "project", p.Slug, "err", err)
 		return
 	}
-	if err := m.ensureSiblingDatabase(ctx, p.ID, queueDatabaseSuffix, "queue"); err != nil {
-		m.log.Warn("create the queue database", "project", p.Slug, "err", err)
+	if err := m.ensureRailsDatabases(ctx, p.ID); err != nil {
+		m.log.Warn("create the Rails databases", "project", p.Slug, "err", err)
 	}
 }
 

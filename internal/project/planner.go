@@ -270,30 +270,41 @@ func rubyDatabaseURLs(env []string) []string {
 	return out
 }
 
-// queueDatabaseSuffix names the database Solid Queue keeps its jobs in: <database>_queue
-// on the primary SQL server, which the Rails templates configure as the queue database.
-const queueDatabaseSuffix = "_queue"
+// railsSiblingDatabases are the databases a Rails 8 application keeps next to its primary
+// one, each in <database><suffix> on the primary SQL server: Solid Queue's jobs (which
+// the Rails templates configure in development, too) and Solid Cache's and Solid
+// Cable's entries, which Rails 8 has in production only.
+var railsSiblingDatabases = []struct{ name, suffix string }{
+	{"queue", "_queue"},
+	{"cache", "_cache"},
+	{"cable", "_cable"},
+}
 
-// rubyDatabaseEnv is the environment of the Ruby containers: QUEUE_DATABASE_URL points
-// at <database>_queue on the primary SQL server, and every URL gets the scheme Active
-// Record knows. Active Record merges <NAME>_DATABASE_URL into the database.yml entry of
-// that name in the running environment, so the queue entry of Rails 8 (production, and
-// development in the Rails templates) reaches the server; an application without one
-// ignores it. A QUEUE_DATABASE_URL of the project's own or of an additional database
-// named queue stays.
+// rubyDatabaseEnv is the environment of the Ruby containers: QUEUE_DATABASE_URL,
+// CACHE_DATABASE_URL and CABLE_DATABASE_URL point at <database>_queue, _cache and
+// _cable on the primary SQL server, and every URL gets the scheme Active Record knows.
+// Active Record merges <NAME>_DATABASE_URL into the database.yml entry of that name in
+// the running environment, so the queue, cache and cable entries of Rails 8 reach the
+// server; an application without them ignores the variables. A variable of the
+// project's own or of an additional database of that name stays.
 func rubyDatabaseEnv(proj store.Project, env []string) []string {
-	for _, kv := range env {
-		if strings.HasPrefix(kv, "QUEUE_DATABASE_URL=") {
-			return rubyDatabaseURLs(env)
+	svc, cfg, err := databaseOf(proj, "")
+	if err != nil || svc.Variant == "mongodb" {
+		return rubyDatabaseURLs(env)
+	}
+	out := append([]string{}, env...)
+	for _, sib := range railsSiblingDatabases {
+		key := strings.ToUpper(sib.name) + "_DATABASE_URL="
+		if slices.ContainsFunc(env, func(kv string) bool { return strings.HasPrefix(kv, key) }) {
+			continue
+		}
+		c := cfg
+		c.Database += sib.suffix
+		if u := databaseEnv(svc, c)["DATABASE_URL"]; u != "" && runtime.ValidateDatabaseName(c.Database) == nil {
+			out = append(out, key+u)
 		}
 	}
-	if svc, cfg, err := databaseOf(proj, ""); err == nil && svc.Variant != "mongodb" {
-		cfg.Database += queueDatabaseSuffix
-		if u := databaseEnv(svc, cfg)["DATABASE_URL"]; u != "" && runtime.ValidateDatabaseName(cfg.Database) == nil {
-			env = append(append([]string{}, env...), "QUEUE_DATABASE_URL="+u)
-		}
-	}
-	return rubyDatabaseURLs(env)
+	return rubyDatabaseURLs(out)
 }
 
 // javaEnv adds the names Java frameworks read to the variables every application

@@ -661,13 +661,15 @@ names the container kind).
   `DATABASE_URL` at `<database>_test` (Active Record merges it into any
   environment, so fixtures would otherwise empty the development tables), and
   `ensureTestDatabase` creates that database as the administrator first.
-  `rubyDatabaseEnv` adds `QUEUE_DATABASE_URL` (`<database>_queue`, unless the
-  project sets it or has an additional database named `queue`). Active Record
-  merges `<NAME>_DATABASE_URL` into the entry of that name. The Rails templates
-  add a development `queue` entry for Solid Queue. `ensureQueueDatabase`
-  creates the database for an application whose `database.yml` has a queue
-  entry: after the template ran (`prepareQueueDatabase`, once the server
-  answers) and before every `rails:db-*` action. The Solid Queue worker
+  `rubyDatabaseEnv` adds `QUEUE_DATABASE_URL`, `CACHE_DATABASE_URL` and
+  `CABLE_DATABASE_URL` (`<database>_queue`, `_cache`, `_cable`, each unless
+  the project sets it or has an additional database of that name). Active
+  Record merges `<NAME>_DATABASE_URL` into the entry of that name; Rails 8
+  writes all three for production. The Rails templates add a development
+  `queue` entry for Solid Queue. `ensureRailsDatabases` creates the
+  databases whose entries an application's `database.yml` has: after the
+  template ran (`prepareRailsDatabases`, once the server answers) and before
+  every `rails:db-*` action. The Solid Queue worker
   preset carries a guard that waits for the tables instead of letting
   `bin/jobs` crash-loop.
 - *Java server* (`serves=java`): the same mechanics with the Java container as
@@ -997,7 +999,7 @@ through `instance.Store.Import` and is restored the usual way.
 | project | planner output, create/start/stop/restart/delete, rollback on failure, reconciliation after "restart", container unexpectedly stopped, unmanaged resources untouched | unit tests against the fake Engine |
 | project (no PHP) | `app.go` helpers per shape; Node-only create (web+node, no starter, unpublished web port, wrapped `Cmd`, Vite allow-list); static create (`index.html` starter, published port); SPA fallback rendering and its PHP rejection; routes of `<slug>.<base>` / extra domains / `-dev` following `nodeServesApp` and flipping back to web when the dev server is turned off; injected env in the node container; one-shot image choice for git/templates; SSH user resolution `<slug>` → php → python → node; workers refused without their runtime; `.next/.nuxt/.output/.venv` in backups | unit tests against the fake Engine |
 | project (Python) | `python_test.go`: Python-only create (wait guard on the entry file, venv `PATH`, published server port, unpublished web port, no starter), routes and bare-metal dial, SSH users, production mode + debugpy port kept across edits, server off → static, removal takes the Python workers' containers (definition paused), Python + Node dev server (Python takes the project URL, Vite keeps `-dev`), PHP added on top, template defaults merged into the request; `runtime/python_test.go` pins every preset's argv | unit tests against the fake Engine |
-| project (Ruby) | `ruby_test.go`: Ruby-only create (Gemfile/`bin/rails` wait, bundle guard, `GEM_HOME`, `RAILS_DEVELOPMENT_HOSTS`, published server port, unpublished web port, no starter), route and SSH user, rdbg with ports kept across edits and removal, `pgsql://` → `postgresql://`, the Rails template's `rails new` arguments, Sidekiq worker behind the bundle guard in the server's environment, rspec/rails test suites and the `_test` redirect, manifest; `runtime/ruby_test.go` pins the presets' argv and runs `rdbgScript` against stubs | unit tests against the fake Engine |
+| project (Ruby) | `ruby_test.go`: Ruby-only create (Gemfile/`bin/rails` wait, bundle guard, `GEM_HOME`, `RAILS_DEVELOPMENT_HOSTS`, published server port, unpublished web port, no starter), route and SSH user, rdbg with ports kept across edits and removal, `pgsql://` → `postgresql://`, the Rails template's `rails new` arguments, Sidekiq worker behind the bundle guard in the server's environment, rspec/rails test suites and the `_test` redirect, the Rails queue, cache and cable databases, manifest; `runtime/ruby_test.go` pins the presets' argv and runs `rdbgScript` against stubs | unit tests against the fake Engine |
 | project (Java) | `java_test.go`: Java-only create with PostgreSQL (JDBC, Spring and Quarkus variables, published server port, route and SSH user), the other databases' variables, JDWP ports kept across edits and removal, both templates' download URLs and the Quarkus dev schema step, jar and goal workers, Maven and Gradle actions, the test script's `_test` redirect, exit code and report merge, manifest; `runtime/java_test.go` runs `javaServeScript` against stub mvn, gradle and java | unit tests against the fake Engine |
 | project (.NET) | `dotnet_test.go`: .NET-only create with PostgreSQL (connection string, published server port, route and SSH user), the other databases' connection strings with quoting, preset and version changes keeping the host port, server off and removal, the Web API template's steps and EF Core arguments, project and DLL workers, test suite detection (solution, single test project, Microsoft.Testing.Platform), the test script's `_test` redirect, exit code and TRX merge, `parseTRX`, actions with glob requirements, manifest; `runtime/dotnet_test.go` runs `dotnetServeScript` against a stub dotnet | unit tests against the fake Engine |
 | project (branches) | `branches_test.go`: settings validation, slugs and patterns, an environment created with the git switch and first deploy, a failed deploy command, the scheduler deleting, deploying and creating against a scripted `ls-remote`, the idle stop, the parent's delete guard, the `branches:` manifest section | unit tests against the fake Engine |
