@@ -111,7 +111,9 @@ func (a *API) dashboard(w http.ResponseWriter, r *http.Request) {
 		default:
 			attention++
 		}
-		projects = append(projects, toProject(v))
+		dto := toProject(v)
+		hideSecretValues(&dto, p.ScopeFor(v.Project.ID))
+		projects = append(projects, dto)
 	}
 	sort.Slice(projects, func(i, j int) bool { return projects[i].UpdatedAt.After(projects[j].UpdatedAt) })
 	if len(projects) > 6 {
