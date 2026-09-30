@@ -431,7 +431,7 @@ export function ServicesTab({ project }: { project: Project }) {
     <div className="space-y-6">
       <PublicHostNotice />
       {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {storage.data && <StorageCard project={project} onMessage={setMsg} />}
         {extras.data.map((s) => (
           <ServiceCard key={s.kind} project={project} info={s} onMessage={setMsg} />

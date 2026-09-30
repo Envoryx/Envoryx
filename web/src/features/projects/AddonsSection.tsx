@@ -224,7 +224,7 @@ export function AddonsSection({ project }: { project: Project }) {
         <p className="text-sm text-muted">{t("Services from addon files an admin installed under Settings, Addons.")}</p>
       </div>
       {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {addons.map((a) => (
           <AddonCard key={a.name} project={project} info={a} onMessage={setMsg} />
         ))}
