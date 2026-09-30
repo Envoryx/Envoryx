@@ -149,7 +149,17 @@ export function ImportSiteCard({
       {cfg?.mode === "env" && (
         <p className="text-sm text-muted">
           {t("The DB_* variables and DATABASE_URL Envoryx injects override the values in {{file}}; nothing has to be changed.", { file: cfg.path })}
-          {(a.framework.id === "laravel" || a.framework.id === "symfony" || a.framework.id === "shopware") && (
+          {a.framework.id === "symfony" && (
+            <span className="mt-2 block">
+              <Checkbox
+                label={t("Adapt the configuration to Envoryx")}
+                description={t("Removes the configuration cache the old server left behind (var/cache) and points server_version in config/packages/doctrine.yaml at DB_SERVER_VERSION, as the DATABASE_URL Envoryx injects carries no serverVersion.")}
+                checked={adaptConfig}
+                onChange={(e) => onAdaptConfig(e.target.checked)}
+              />
+            </span>
+          )}
+          {(a.framework.id === "laravel" || a.framework.id === "shopware") && (
             <span className="mt-2 block">
               <Checkbox label={t("Clear the cached configuration")} description={t("Removes the configuration cache the old server left behind (bootstrap/cache/config.php, var/cache).")} checked={adaptConfig} onChange={(e) => onAdaptConfig(e.target.checked)} />
             </span>
