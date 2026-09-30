@@ -52,6 +52,9 @@ type Collector struct {
 	engine docker.Engine
 	log    *slog.Logger
 	ttl    time.Duration
+	// Filter, when set, narrows the managed containers the summary counts, e.g. to drop
+	// unlabelled ones of projects another Envoryx instance on the host may own.
+	Filter func(context.Context, []docker.Container) []docker.Container
 
 	mu      sync.Mutex
 	summary cacheEntry[Summary]
@@ -143,6 +146,9 @@ func (c *Collector) collect(ctx context.Context) (Summary, error) {
 	containers, err := c.engine.ListContainers(ctx, true, "")
 	if err != nil {
 		return s, err
+	}
+	if c.Filter != nil {
+		containers = c.Filter(ctx, containers)
 	}
 	s.Containers = len(containers)
 	samples := c.sample(ctx, containers)

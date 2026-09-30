@@ -278,7 +278,8 @@ func (m *Manager) expireShares(ctx context.Context, now time.Time, log *slog.Log
 	if err != nil {
 		return
 	}
-	for _, c := range containers {
+	// A tunnel of an unknown project may be an older instance's next door.
+	for _, c := range m.OwnContainers(ctx, containers) {
 		if c.Service() != shareService {
 			continue
 		}

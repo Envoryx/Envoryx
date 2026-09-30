@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"maps"
 	"time"
 )
 
@@ -23,6 +24,10 @@ const (
 	// LabelSystem marks instance-wide helper resources that belong to no project (the
 	// database browser); they are managed but never orphans.
 	LabelSystem = "envoryx.system"
+	// LabelInstance names the Envoryx instance that created the resource. Several
+	// instances can share one Docker host; each leaves alone what another one labelled
+	// (see Owns).
+	LabelInstance = "envoryx.instance"
 )
 
 // Labels read outside Envoryx: the Unraid Docker page shows the icon, and the FolderView3
@@ -36,6 +41,10 @@ const (
 
 // ErrNotManaged is returned when an operation targets a resource without the managed label.
 var ErrNotManaged = errors.New("resource is not managed by Envoryx")
+
+// ErrOtherInstance is returned when a name Envoryx wants to create or mount belongs to a
+// resource of another Envoryx instance on the same Docker host.
+var ErrOtherInstance = errors.New("the name is taken by another Envoryx instance on this Docker host")
 
 // ErrNotFound is returned when a resource does not exist.
 var ErrNotFound = errors.New("docker resource not found")
@@ -376,13 +385,15 @@ type ImageInfo struct {
 	User       string
 }
 
-// Engine is the label-scoped Docker abstraction used by Envoryx.
+// Engine is the label-scoped Docker abstraction used by Envoryx. "Managed" means managed
+// by this instance (Owns): an engine stamps its instance label on everything it creates,
+// and a resource labelled by another instance is as unmanaged to it as any foreign one.
 type Engine interface {
 	// Ping checks connectivity and returns engine information.
 	Ping(ctx context.Context) (Info, error)
 
-	// ListContainers lists containers. If managedOnly is true only envoryx.managed=true
-	// containers are returned; projectID additionally filters by project.
+	// ListContainers lists containers. If managedOnly is true only the containers this
+	// instance manages are returned; projectID additionally filters by project.
 	ListContainers(ctx context.Context, managedOnly bool, projectID string) ([]Container, error)
 	// InspectContainer returns details for a managed container by ID or name.
 	InspectContainer(ctx context.Context, idOrName string) (ContainerDetails, error)
@@ -468,7 +479,9 @@ type Engine interface {
 
 	// ListVolumes lists volumes; managedOnly restricts to Envoryx volumes.
 	ListVolumes(ctx context.Context, managedOnly bool) ([]Volume, error)
-	// CreateVolume creates a named local volume with labels.
+	// CreateVolume creates a named local volume with labels. When another instance has a
+	// volume of that name it fails with ErrOtherInstance (as CreateContainer does for a
+	// name or a volume mount, and CreateNetwork for a name).
 	CreateVolume(ctx context.Context, name string, labels map[string]string) error
 	// RemoveVolume removes a managed volume.
 	RemoveVolume(ctx context.Context, name string) error
@@ -526,4 +539,34 @@ func AddUnraidLabels(labels map[string]string, folder string) {
 // IsManaged reports whether a label set carries the managed marker.
 func IsManaged(labels map[string]string) bool {
 	return labels[LabelManaged] == "true"
+}
+
+// Owns reports whether the given instance manages a resource with these labels: it
+// carries the managed marker and either this instance's label or none at all. Resources
+// without one were created before instances labelled theirs; they count as the
+// instance's own here, and the project code decides by their project whether they are
+// (see project.Reconcile). Engines treat everything else as unmanaged, so another
+// instance's resources are never listed as managed, changed or removed.
+func Owns(instance string, labels map[string]string) bool {
+	if !IsManaged(labels) {
+		return false
+	}
+	l := labels[LabelInstance]
+	return l == "" || l == instance
+}
+
+// StampInstance returns a copy of labels with the instance label set; an empty instance
+// leaves them as they are. Engines apply it to every resource they create, so no creation
+// path can miss it, and the spec fingerprint, computed from the labels the planner sets,
+// stays the same.
+func StampInstance(instance string, labels map[string]string) map[string]string {
+	if instance == "" {
+		return labels
+	}
+	out := maps.Clone(labels)
+	if out == nil {
+		out = map[string]string{}
+	}
+	out[LabelInstance] = instance
+	return out
 }

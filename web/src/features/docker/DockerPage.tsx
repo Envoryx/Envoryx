@@ -105,8 +105,9 @@ function ResourceList({ title, rows }: { title: string; rows: { key: string; nam
   );
 }
 
-/** Resources with Envoryx labels but no project. Containers and networks are cleared by
- * the reconciler; volumes hold data and wait for the user. */
+/** Resources with Envoryx labels but no project. Containers and networks this instance
+ * labelled are cleared by the reconciler; volumes hold data and unlabelled resources may
+ * be another instance's, so both wait for the user. */
 function OrphansAlert({ orphans }: { orphans: Orphan[] }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
@@ -123,7 +124,11 @@ function OrphansAlert({ orphans }: { orphans: Orphan[] }) {
   return (
     <div>
       <Alert tone="amber" title={t("{{count}} orphaned Envoryx resources", { count: orphans.length })}>
-        <p>{t("These carry Envoryx labels but belong to no known project (e.g. after restoring an older database). Containers and networks are removed automatically within a minute; volumes hold data and stay until you remove them.")}</p>
+        <p>
+          {t(
+            'These carry Envoryx labels but belong to no known project (e.g. after restoring an older database). Containers and networks this instance created are removed automatically within a minute. Volumes hold data, and resources marked "older Envoryx" may belong to another Envoryx instance on this Docker host; both stay until you remove them.',
+          )}
+        </p>
         {error && <p className="mt-2 text-red-600 dark:text-red-400">{error}</p>}
         <ul className="mt-2 space-y-1 font-mono text-xs">
           {orphans.map((o) => (
@@ -131,6 +136,7 @@ function OrphansAlert({ orphans }: { orphans: Orphan[] }) {
               <span>
                 {o.type} {o.name} <span className="text-subtle">({t("project")} {o.projectName || o.projectId})</span>
               </span>
+              {o.unlabelled && <Badge tone="amber">{t("older Envoryx")}</Badge>}
               <Button
                 size="sm"
                 variant="danger"

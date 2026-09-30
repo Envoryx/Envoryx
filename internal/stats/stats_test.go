@@ -107,3 +107,31 @@ func TestListedContainerStatsRefusesUnmanaged(t *testing.T) {
 		t.Fatal("unmanaged container sampled")
 	}
 }
+
+// The summary counts this instance's containers only: another instance's are not listed
+// as managed, and Filter drops what the project code cannot claim.
+func TestSummaryCountsOwnContainers(t *testing.T) {
+	f := dockertest.New()
+	f.Instance = "a"
+	addContainer(f, "p1", "php", "running")
+	f.AddManagedContainer(docker.ContainerSpec{Name: "other-php", Image: "img",
+		Labels: docker.StampInstance("b", docker.ManagedLabels("p9", "p9", "php", "test"))}, "running")
+	addContainer(f, "gone", "php", "running")
+	c := newCollector(f, time.Minute)
+	c.Filter = func(_ context.Context, cs []docker.Container) []docker.Container {
+		var out []docker.Container
+		for _, ct := range cs {
+			if ct.ProjectID() != "gone" {
+				out = append(out, ct)
+			}
+		}
+		return out
+	}
+	s, err := c.Summary(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Containers != 1 || s.Running != 1 || len(s.PerProject) != 1 {
+		t.Fatalf("summary: %+v", s)
+	}
+}

@@ -203,6 +203,11 @@ func (m *Manager) failInterrupted(ctx context.Context, p *store.Project) (string
 // Reconcile compares the database with Docker, records inconsistencies and orphaned
 // resources, and repairs interrupted lifecycles. The only thing it removes are orphaned
 // containers and networks (see cleanOrphans); volumes and project data are never touched.
+//
+// Resources another Envoryx instance labelled never get here: the engine hides them.
+// Unlabelled ones predate instance labels; with a project this instance knows they are
+// its own (they get the label when next recreated), otherwise they may be an older
+// instance's next door and are only reported.
 func (m *Manager) Reconcile(ctx context.Context) ReconcileReport {
 	report := ReconcileReport{At: time.Now().UTC(), Orphans: []Orphan{}, Issues: []ReconcileIssue{}, States: map[string]Status{}}
 	projects, err := m.loadProjects(ctx)
@@ -264,7 +269,8 @@ func (m *Manager) Reconcile(ctx context.Context) ReconcileReport {
 			continue // instance-wide helpers (database browser) belong to no project
 		}
 		if _, ok := known[c.ProjectID()]; !ok {
-			report.Orphans = append(report.Orphans, Orphan{Type: "container", ID: c.ID, Name: c.Name, ProjectID: c.ProjectID(), ProjectName: c.Labels[docker.LabelProjectName], State: c.State, Created: c.Created})
+			report.Orphans = append(report.Orphans, Orphan{Type: "container", ID: c.ID, Name: c.Name, ProjectID: c.ProjectID(), ProjectName: c.Labels[docker.LabelProjectName], State: c.State, Created: c.Created,
+				Unlabelled: c.Labels[docker.LabelInstance] == ""})
 		}
 	}
 	for _, n := range networks {
@@ -272,16 +278,19 @@ func (m *Manager) Reconcile(ctx context.Context) ReconcileReport {
 			continue
 		}
 		if _, ok := known[n.Labels[docker.LabelProjectID]]; !ok {
-			report.Orphans = append(report.Orphans, Orphan{Type: "network", ID: n.ID, Name: n.Name, ProjectID: n.Labels[docker.LabelProjectID], ProjectName: n.Labels[docker.LabelProjectName]})
+			report.Orphans = append(report.Orphans, Orphan{Type: "network", ID: n.ID, Name: n.Name, ProjectID: n.Labels[docker.LabelProjectID], ProjectName: n.Labels[docker.LabelProjectName],
+				Unlabelled: n.Labels[docker.LabelInstance] == ""})
 		}
 	}
 	for _, v := range volumes {
 		if _, ok := known[v.Labels[docker.LabelProjectID]]; !ok {
-			report.Orphans = append(report.Orphans, Orphan{Type: "volume", ID: v.Name, Name: v.Name, ProjectID: v.Labels[docker.LabelProjectID], ProjectName: v.Labels[docker.LabelProjectName]})
+			report.Orphans = append(report.Orphans, Orphan{Type: "volume", ID: v.Name, Name: v.Name, ProjectID: v.Labels[docker.LabelProjectID], ProjectName: v.Labels[docker.LabelProjectName],
+				Unlabelled: v.Labels[docker.LabelInstance] == ""})
 		}
 	}
-	// Orphaned containers and networks are cleared once they have been seen twice; what
-	// is left (volumes, networks in foreign use, first sightings) stays in the report.
+	// Orphaned containers and networks this instance labelled are cleared once they have
+	// been seen twice; what is left (volumes, unlabelled resources, networks in foreign
+	// use, first sightings) stays in the report.
 	report.Orphans = m.cleanOrphans(ctx, report.Orphans)
 	m.AttachProxyToAll(ctx)
 	for _, issue := range report.Issues {

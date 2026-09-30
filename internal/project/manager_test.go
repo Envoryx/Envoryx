@@ -42,6 +42,8 @@ func newEnv(t *testing.T) *env {
 	t.Cleanup(func() { _ = sqlDB.Close() })
 	st := store.New(sqlDB)
 	e := &env{t: t, engine: dockertest.New(), store: st, cfgDir: t.TempDir(), projDir: t.TempDir()}
+	// Like a real instance, the engine stamps an instance ID on what Envoryx creates.
+	e.engine.Instance = testInstance
 	paths := func() (Paths, error) {
 		if e.pathsErr != nil {
 			return Paths{}, e.pathsErr

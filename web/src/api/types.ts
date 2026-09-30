@@ -1478,6 +1478,9 @@ export interface Orphan {
   projectId: string;
   projectName: string;
   state?: string;
+  /** No instance label: an older Envoryx created it, perhaps another instance on the
+   * host, so it is never removed automatically. */
+  unlabelled?: boolean;
 }
 
 export interface DockerOverview {

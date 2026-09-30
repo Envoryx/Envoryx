@@ -225,8 +225,16 @@ func serve() error {
 	schema, _ := db.SchemaVersion(ctx, sqlDB)
 	log.Info("database ready", "path", cfg.DatabasePath, "schema", schema)
 
-	// 2. Docker.
-	engine, err := docker.Connect(docker.Options{Host: cfg.DockerHost}, log)
+	// 2. Docker. The instance ID marks what this instance creates, so another Envoryx on
+	// the same Docker host leaves it alone and vice versa.
+	instanceID, created, err := instance.LoadID(cfg.ConfigDir)
+	if err != nil {
+		return fmt.Errorf("instance ID: %w", err)
+	}
+	if created {
+		log.Info("created the instance ID", "id", instanceID, "path", filepath.Join(cfg.ConfigDir, instance.IDFile))
+	}
+	engine, err := docker.Connect(docker.Options{Host: cfg.DockerHost, Instance: instanceID}, log)
 	if err != nil {
 		return fmt.Errorf("docker client: %w", err)
 	}
@@ -237,7 +245,7 @@ func serve() error {
 	if pingErr != nil {
 		log.Warn("docker engine not reachable at startup; Envoryx keeps running and retries on demand", "err", pingErr)
 	} else {
-		log.Info("docker engine connected", "api", info.APIVersion, "server", info.ServerVersion, "os", info.OS)
+		log.Info("docker engine connected", "api", info.APIVersion, "server", info.ServerVersion, "os", info.OS, "instance", instanceID)
 	}
 
 	// 3. Host path detection for bind mounts.
@@ -304,6 +312,7 @@ func serve() error {
 	}
 	keyRing.DropOld()
 	collector := stats.New(engine, 5*time.Second, log)
+	collector.Filter = manager.OwnContainers
 	notifier, err := notify.New(cfg.ConfigDir, log)
 	if err != nil {
 		log.Warn("notifications unavailable", "err", err)

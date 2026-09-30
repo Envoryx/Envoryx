@@ -6,16 +6,61 @@ import (
 	"strings"
 
 	"github.com/envoryx/envoryx/internal/audit"
+	"github.com/envoryx/envoryx/internal/docker"
 	"github.com/envoryx/envoryx/internal/validate"
 )
 
 // ErrNotOrphan is returned when a resource to remove is not in the current orphan list.
 var ErrNotOrphan = fmt.Errorf("%w: not an orphaned Envoryx resource", ErrNotFound)
 
+// unclaimed reports whether a managed resource may belong to another Envoryx instance on
+// the same Docker host: it has no instance label, so an older Envoryx created it, and it
+// names no project of this instance. (What another instance labelled, the engine hides
+// already.) Envoryx reports such resources as orphans but never stops or removes them on
+// its own. Instance-wide helpers (LabelSystem) are not claimed by project and count as
+// this instance's.
+func unclaimed(labels map[string]string, known func(projectID string) bool) bool {
+	if labels[docker.LabelInstance] != "" || labels[docker.LabelSystem] != "" {
+		return false
+	}
+	return !known(labels[docker.LabelProjectID])
+}
+
+// OwnContainers drops the managed containers that may be another instance's (see
+// unclaimed), for views that count or sample this instance's containers. When the
+// projects cannot be read, nothing is dropped.
+func (m *Manager) OwnContainers(ctx context.Context, containers []docker.Container) []docker.Container {
+	known, err := m.knownProjects(ctx)
+	if err != nil {
+		return containers
+	}
+	out := containers[:0:0]
+	for _, c := range containers {
+		if !unclaimed(c.Labels, known) {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
+// knownProjects returns a lookup of this instance's project IDs.
+func (m *Manager) knownProjects(ctx context.Context) (func(string) bool, error) {
+	projects, err := m.store.Projects.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	ids := make(map[string]bool, len(projects))
+	for _, p := range projects {
+		ids[p.ID] = true
+	}
+	return func(id string) bool { return ids[id] }, nil
+}
+
 // cleanOrphans removes the orphaned containers and networks that the previous reconcile
 // pass already reported and whose project isn't locked. A resource orphaned only for the
 // moment (a project being created or rolled back) is left alone that way. Volumes hold data and
-// are never removed automatically. It returns what is still orphaned.
+// are never removed automatically, and neither are unlabelled resources, which may be
+// another instance's (see unclaimed). It returns what is still orphaned.
 func (m *Manager) cleanOrphans(ctx context.Context, orphans []Orphan) []Orphan {
 	previous := map[string]bool{}
 	for _, o := range m.LastReport().Orphans {
@@ -27,7 +72,7 @@ func (m *Manager) cleanOrphans(ctx context.Context, orphans []Orphan) []Orphan {
 		if o.Type != "container" {
 			continue
 		}
-		if !previous[o.Type+":"+o.ID] || !m.removeOrphanUnlocked(ctx, o) {
+		if o.Unlabelled || !previous[o.Type+":"+o.ID] || !m.removeOrphanUnlocked(ctx, o) {
 			remaining = append(remaining, o)
 			continue
 		}
@@ -37,7 +82,7 @@ func (m *Manager) cleanOrphans(ctx context.Context, orphans []Orphan) []Orphan {
 		if o.Type == "container" {
 			continue
 		}
-		if o.Type != "network" || !previous[o.Type+":"+o.ID] || !m.removeOrphanUnlocked(ctx, o) {
+		if o.Type != "network" || o.Unlabelled || !previous[o.Type+":"+o.ID] || !m.removeOrphanUnlocked(ctx, o) {
 			remaining = append(remaining, o)
 			continue
 		}

@@ -305,6 +305,9 @@ func (s *Store) skip(path, rel string, isDir bool) bool {
 	if len(parts) == 1 && slices.Contains(secrets.KeyFiles, parts[0]) {
 		return true // the key never goes into a backup, and a restore keeps the current one
 	}
+	if len(parts) == 1 && parts[0] == IDFile {
+		return true // likewise the instance ID (see IDFile)
+	}
 	switch parts[0] {
 	case "backups", "jetbrains", "logs", "cache", pendingMarker:
 		return true

@@ -408,7 +408,14 @@ func (m *Manager) AttachProxyToAll(ctx context.Context) {
 		return
 	}
 	aliases := m.proxyAliases(ctx)
+	known, err := m.knownProjects(ctx)
+	if err != nil {
+		return
+	}
 	for _, n := range networks {
+		if unclaimed(n.Labels, known) {
+			continue // perhaps an older instance's next door
+		}
 		var names []string
 		if n.Labels[docker.LabelSystem] == "" {
 			names = aliases

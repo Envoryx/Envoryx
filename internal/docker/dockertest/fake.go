@@ -116,6 +116,19 @@ type Fake struct {
 
 	// Calls records every mutating operation in order (e.g. "create:name", "start:name").
 	Calls []string
+
+	// Instance is the Envoryx instance the fake works for, as docker.Options.Instance
+	// for the real engine: it is stamped on everything created, and resources labelled
+	// with another instance count as unmanaged.
+	Instance string
+}
+
+// owns reports whether a resource with these labels is the fake's instance's to manage.
+func (f *Fake) owns(labels map[string]string) bool { return docker.Owns(f.Instance, labels) }
+
+// foreign reports whether another Envoryx instance manages a resource with these labels.
+func (f *Fake) foreign(labels map[string]string) bool {
+	return docker.IsManaged(labels) && !f.owns(labels)
 }
 
 // New returns an empty fake engine.
@@ -180,6 +193,13 @@ func (f *Fake) AddNetworkWithSubnet(name string, labels map[string]string, subne
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.networks[name] = docker.Network{ID: f.nextID("n"), Name: name, Driver: "bridge", Labels: labels, Managed: docker.IsManaged(labels), Subnets: []string{subnet}}
+}
+
+// AddVolume simulates an existing volume (managed or not, of this or another instance).
+func (f *Fake) AddVolume(name string, labels map[string]string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.volumes[name] = docker.Volume{Name: name, Driver: "local", Labels: labels, Managed: docker.IsManaged(labels)}
 }
 
 // NetworkSubnets returns the subnets of a network by name.
@@ -344,7 +364,7 @@ func (f *Fake) guard(idOrName string) (*FakeContainer, error) {
 	if !ok {
 		return nil, docker.ErrNotFound
 	}
-	if !docker.IsManaged(c.Spec.Labels) {
+	if !f.owns(c.Spec.Labels) {
 		return nil, fmt.Errorf("container %s: %w", idOrName, docker.ErrNotManaged)
 	}
 	return c, nil
@@ -372,7 +392,7 @@ func (f *Fake) toContainer(c *FakeContainer) docker.Container {
 		Created: c.Created,
 		Labels:  c.Spec.Labels,
 		Ports:   ports,
-		Managed: docker.IsManaged(c.Spec.Labels),
+		Managed: f.owns(c.Spec.Labels),
 	}
 }
 
@@ -401,7 +421,7 @@ func (f *Fake) ListContainers(_ context.Context, managedOnly bool, projectID str
 	}
 	var out []docker.Container
 	for _, c := range f.containers {
-		managed := docker.IsManaged(c.Spec.Labels)
+		managed := f.owns(c.Spec.Labels)
 		if (managedOnly || projectID != "") && !managed {
 			continue
 		}
@@ -470,8 +490,12 @@ func (f *Fake) CreateContainer(_ context.Context, spec docker.ContainerSpec) (st
 		f.record("create-failed:" + spec.Name)
 		return "", err
 	}
+	spec.Labels = docker.StampInstance(f.Instance, spec.Labels)
 	for _, c := range f.containers {
 		if c.Spec.Name == spec.Name {
+			if f.foreign(c.Spec.Labels) {
+				return "", fmt.Errorf("container %s: %w", spec.Name, docker.ErrOtherInstance)
+			}
 			return "", fmt.Errorf("conflict: container name %q already in use", spec.Name)
 		}
 	}
@@ -491,8 +515,12 @@ func (f *Fake) CreateContainer(_ context.Context, spec docker.ContainerSpec) (st
 	}
 	for _, m := range spec.Mounts {
 		if m.Type == "volume" {
-			if _, ok := f.volumes[m.Source]; !ok {
+			v, ok := f.volumes[m.Source]
+			if !ok {
 				return "", fmt.Errorf("volume %s: %w", m.Source, docker.ErrNotFound)
+			}
+			if f.foreign(v.Labels) {
+				return "", fmt.Errorf("volume %s: %w", m.Source, docker.ErrOtherInstance)
 			}
 		}
 	}
@@ -569,7 +597,7 @@ func (f *Fake) RemoveContainer(_ context.Context, id string) error {
 	if !ok {
 		return nil
 	}
-	if !docker.IsManaged(c.Spec.Labels) {
+	if !f.owns(c.Spec.Labels) {
 		return fmt.Errorf("container %s: %w", id, docker.ErrNotManaged)
 	}
 	delete(f.containers, c.ID)
@@ -627,6 +655,10 @@ func (f *Fake) EmitOOM(name string) {
 			ev = docker.OOMEvent{ContainerID: c.ID, Name: name, Labels: c.Spec.Labels, Time: time.Now()}
 		}
 	}
+	if f.foreign(ev.Labels) {
+		f.mu.Unlock()
+		return // the real engine only reports its own instance's containers
+	}
 	watchers := append([]chan docker.OOMEvent(nil), f.oomWatchers...)
 	f.mu.Unlock()
 	for _, ch := range watchers {
@@ -664,7 +696,7 @@ func (f *Fake) ListedContainerStats(_ context.Context, lc docker.Container) (doc
 	if err := f.check(); err != nil {
 		return docker.Stats{}, err
 	}
-	if !docker.IsManaged(lc.Labels) {
+	if !f.owns(lc.Labels) {
 		return docker.Stats{}, fmt.Errorf("container %s: %w", lc.ID, docker.ErrNotManaged)
 	}
 	c, ok := f.containers[lc.ID]
@@ -702,7 +734,7 @@ func (f *Fake) VolumeSizes(context.Context) ([]docker.VolumeSize, error) {
 	}
 	var out []docker.VolumeSize
 	for name, v := range f.volumes {
-		if docker.IsManaged(v.Labels) {
+		if f.owns(v.Labels) {
 			out = append(out, docker.VolumeSize{Name: name, Labels: v.Labels, Bytes: f.VolumeBytes[name]})
 		}
 	}
@@ -796,6 +828,7 @@ func (f *Fake) RunOneShot(_ context.Context, spec docker.ContainerSpec) (docker.
 		f.mu.Unlock()
 		return docker.ExecResult{}, docker.ErrNotManaged
 	}
+	spec.Labels = docker.StampInstance(f.Instance, spec.Labels)
 	f.OneShots = append(f.OneShots, spec)
 	f.record("oneshot:" + spec.Name)
 	handler := f.OneShotHandler
@@ -818,6 +851,7 @@ func (f *Fake) RunOneShotStream(_ context.Context, spec docker.ContainerSpec, op
 		return -1, docker.ErrNotManaged
 	}
 	spec.OpenStdin = opts.Stdin != nil
+	spec.Labels = docker.StampInstance(f.Instance, spec.Labels)
 	f.OneShots = append(f.OneShots, spec)
 	f.record("oneshot:" + spec.Name)
 	handler := f.OneShotStreamHandler
@@ -1012,6 +1046,7 @@ func (f *Fake) ListNetworks(_ context.Context, managedOnly bool) ([]docker.Netwo
 	}
 	var out []docker.Network
 	for _, n := range f.networks {
+		n.Managed = f.owns(n.Labels)
 		if managedOnly && !n.Managed {
 			continue
 		}
@@ -1031,9 +1066,13 @@ func (f *Fake) CreateNetwork(_ context.Context, name string, labels map[string]s
 	if !docker.IsManaged(labels) {
 		return "", docker.ErrNotManaged
 	}
-	if _, ok := f.networks[name]; ok {
+	if n, ok := f.networks[name]; ok {
+		if f.foreign(n.Labels) {
+			return "", fmt.Errorf("network %s: %w", name, docker.ErrOtherInstance)
+		}
 		return "", fmt.Errorf("network %q already exists", name)
 	}
+	labels = docker.StampInstance(f.Instance, labels)
 	var subnets []string
 	if subnet != "" {
 		want, err := netip.ParsePrefix(subnet)
@@ -1065,7 +1104,7 @@ func (f *Fake) RemoveNetwork(_ context.Context, idOrName string) error {
 	}
 	for name, n := range f.networks {
 		if name == idOrName || n.ID == idOrName {
-			if !n.Managed {
+			if !f.owns(n.Labels) {
 				return fmt.Errorf("network %s: %w", name, docker.ErrNotManaged)
 			}
 			for _, c := range f.containers {
@@ -1095,7 +1134,7 @@ func (f *Fake) ConnectNetwork(_ context.Context, network, containerID string, al
 	if !ok {
 		return docker.ErrNotFound
 	}
-	if !n.Managed {
+	if !f.owns(n.Labels) {
 		return fmt.Errorf("network %s: %w", network, docker.ErrNotManaged)
 	}
 	c, ok := f.find(containerID)
@@ -1249,6 +1288,7 @@ func (f *Fake) ListVolumes(_ context.Context, managedOnly bool) ([]docker.Volume
 	}
 	var out []docker.Volume
 	for _, v := range f.volumes {
+		v.Managed = f.owns(v.Labels)
 		if managedOnly && !v.Managed {
 			continue
 		}
@@ -1268,7 +1308,10 @@ func (f *Fake) CreateVolume(_ context.Context, name string, labels map[string]st
 	if !docker.IsManaged(labels) {
 		return docker.ErrNotManaged
 	}
-	f.volumes[name] = docker.Volume{Name: name, Driver: "local", Labels: labels, Managed: true}
+	if v, ok := f.volumes[name]; ok && f.foreign(v.Labels) {
+		return fmt.Errorf("volume %s: %w", name, docker.ErrOtherInstance)
+	}
+	f.volumes[name] = docker.Volume{Name: name, Driver: "local", Labels: docker.StampInstance(f.Instance, labels), Managed: true}
 	f.record("volume-create:" + name)
 	return nil
 }
@@ -1284,7 +1327,7 @@ func (f *Fake) RemoveVolume(_ context.Context, name string) error {
 	if !ok {
 		return nil
 	}
-	if !v.Managed {
+	if !f.owns(v.Labels) {
 		return fmt.Errorf("volume %s: %w", name, docker.ErrNotManaged)
 	}
 	delete(f.volumes, name)
