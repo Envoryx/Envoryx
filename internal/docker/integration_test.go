@@ -98,6 +98,9 @@ func TestIntegrationLifecycleAndGuards(t *testing.T) {
 	if err != nil || st.ContainerID != id {
 		t.Fatalf("stats: %+v %v", st, err)
 	}
+	if st, err := e.ListedContainerStats(ctx, list[0]); err != nil || st.ContainerID != id {
+		t.Fatalf("listed stats: %+v %v", st, err)
+	}
 	eps, err := e.NetworkEndpoints(ctx, netName)
 	if err != nil || len(eps) != 1 || eps[0].ContainerID != id || eps[0].Name != ctName {
 		t.Fatalf("network endpoints: %+v %v", eps, err)

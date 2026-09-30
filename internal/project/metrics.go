@@ -203,7 +203,7 @@ func (m *Manager) sampleMetrics(ctx context.Context, now time.Time) error {
 			defer func() { <-sem }()
 			sctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 			defer cancel()
-			st, err := m.engine.ContainerStats(sctx, c.ID)
+			st, err := m.engine.ListedContainerStats(sctx, c)
 			if err != nil {
 				return
 			}

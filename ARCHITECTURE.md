@@ -220,8 +220,9 @@ Go API (single binary, single container)
 - **logs** - what happens to container output beyond streaming it: the level
   heuristic, the query filter, the error-frequency statistics and the
   persistent history with its collector (see *Logs*).
-- **stats** - one-shot container stats with a short cache, aggregated per
-  project and for the dashboard.
+- **stats** - one-shot container stats with a short cache: `Summary` samples
+  every managed container for the dashboard, `Project` only one project's
+  containers (cached per project) for its stats endpoint.
 - **api** - thin handlers: decode → validate → call manager/store → encode.
   Uniform error envelope `{ "error": { "code", "message", "details" } }`. Every route
   declares its level (`rd`, `op`, `adm`), and `guard` holds the principal to it: in the
@@ -408,6 +409,7 @@ type Engine interface {
     CreateContainer(ctx, ContainerSpec) (id string, error)
     StartContainer / StopContainer / RestartContainer / RemoveContainer (guarded)
     ContainerStats(ctx, id) (Stats, error)
+    ListedContainerStats(ctx, Container) (Stats, error)                  // guard on the listed labels
     // networks / volumes
     ListManagedNetworks / CreateNetwork / RemoveNetwork (guarded)
     ListManagedVolumes / CreateVolume / RemoveVolume (guarded)
@@ -1316,7 +1318,7 @@ for the UI's *Test* button.
 
 ### Resource history
 `Manager.RunMetrics` ticks on the minute. `sampleMetrics` reads
-`ContainerStats` of every running project container (8 at a time) and turns
+`ListedContainerStats` of every running project container (8 at a time) and turns
 the network and block I/O counters into per-second rates against the previous
 sample (a restarted container's first sample only sets the baseline). Rows go
 to `metric_samples` at resolution 60 with `samples = 1`; each pass also rolls

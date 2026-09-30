@@ -521,6 +521,20 @@ func (e *MobyEngine) ContainerStats(ctx context.Context, id string) (Stats, erro
 	if _, err := e.guardContainer(ctx, id); err != nil {
 		return Stats{}, err
 	}
+	return e.stats(ctx, id)
+}
+
+// ListedContainerStats implements Engine: the labels come from the listing, so the guard
+// needs no inspect.
+func (e *MobyEngine) ListedContainerStats(ctx context.Context, c Container) (Stats, error) {
+	if !IsManaged(c.Labels) {
+		return Stats{}, fmt.Errorf("container %s: %w", c.ID, ErrNotManaged)
+	}
+	return e.stats(ctx, c.ID)
+}
+
+// stats takes the reading without a guard; callers check the managed label first.
+func (e *MobyEngine) stats(ctx context.Context, id string) (Stats, error) {
 	res, err := e.cli.ContainerStats(ctx, id, client.ContainerStatsOptions{Stream: false, IncludePreviousSample: true})
 	if err != nil {
 		return Stats{}, wrap(err)

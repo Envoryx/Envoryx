@@ -46,6 +46,8 @@ type Fake struct {
 	dangling   map[string]bool   // image ids that lost their tag to a re-pull but still exist
 	// StatsByName overrides ContainerStats for a container name.
 	StatsByName map[string]docker.Stats
+	// statsCalls and listedStatsCalls count ContainerStats and ListedContainerStats.
+	statsCalls, listedStatsCalls int
 	// VolumeBytes are the sizes VolumeSizes reports.
 	VolumeBytes map[string]int64
 	// oomWatchers receive EmitOOM events.
@@ -641,6 +643,7 @@ func (f *Fake) OOMWatchers() int {
 func (f *Fake) ContainerStats(_ context.Context, id string) (docker.Stats, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	f.statsCalls++
 	if err := f.check(); err != nil {
 		return docker.Stats{}, err
 	}
@@ -648,14 +651,43 @@ func (f *Fake) ContainerStats(_ context.Context, id string) (docker.Stats, error
 	if err != nil {
 		return docker.Stats{}, err
 	}
+	return f.stats(c), nil
+}
+
+// ListedContainerStats implements docker.Engine: like Docker it trusts the listed labels.
+func (f *Fake) ListedContainerStats(_ context.Context, lc docker.Container) (docker.Stats, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.listedStatsCalls++
+	if err := f.check(); err != nil {
+		return docker.Stats{}, err
+	}
+	if !docker.IsManaged(lc.Labels) {
+		return docker.Stats{}, fmt.Errorf("container %s: %w", lc.ID, docker.ErrNotManaged)
+	}
+	c, ok := f.containers[lc.ID]
+	if !ok {
+		return docker.Stats{}, docker.ErrNotFound
+	}
+	return f.stats(c), nil
+}
+
+// StatsCalls reports how often ContainerStats and ListedContainerStats were called.
+func (f *Fake) StatsCalls() (guarded, listed int) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.statsCalls, f.listedStatsCalls
+}
+
+func (f *Fake) stats(c *FakeContainer) docker.Stats {
 	if c.State != "running" {
-		return docker.Stats{ContainerID: c.ID, SampledAt: time.Now().UTC()}, nil
+		return docker.Stats{ContainerID: c.ID, SampledAt: time.Now().UTC()}
 	}
 	if st, ok := f.StatsByName[c.Spec.Name]; ok {
 		st.ContainerID, st.SampledAt = c.ID, time.Now().UTC()
-		return st, nil
+		return st
 	}
-	return docker.Stats{ContainerID: c.ID, CPUPercent: 1.5, MemoryBytes: 32 << 20, MemoryLimit: 8 << 30, SampledAt: time.Now().UTC()}, nil
+	return docker.Stats{ContainerID: c.ID, CPUPercent: 1.5, MemoryBytes: 32 << 20, MemoryLimit: 8 << 30, SampledAt: time.Now().UTC()}
 }
 
 // VolumeSizes implements docker.Engine: the managed volumes with the sizes set in

@@ -1053,12 +1053,12 @@ func (a *API) projectStats(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
-	summary, err := a.d.Stats.Summary(r.Context())
+	sample, err := a.d.Stats.Project(r.Context(), view.Project.ID)
 	if err != nil {
 		writeError(w, r, err)
 		return
 	}
-	usage := summary.PerProject[view.Project.ID]
+	usage := sample.Usage
 	// Each container with the limits it runs under, so usage can be shown against them.
 	type containerDTO struct {
 		stats.ContainerStats
@@ -1076,7 +1076,7 @@ func (a *API) projectStats(w http.ResponseWriter, r *http.Request) {
 		containers = append(containers, containerDTO{ContainerStats: c, Group: project.LimitGroup(kind), CPULimit: set.CPUs, MemLimit: int64(set.MemoryMB) << 20})
 	}
 	usage.PerContainer = nil
-	body := map[string]any{"stats": usage, "containers": containers, "limits": view.Project.Limits, "sampledAt": summary.SampledAt}
+	body := map[string]any{"stats": usage, "containers": containers, "limits": view.Project.Limits, "sampledAt": sample.SampledAt}
 	if info, err := a.d.Engine.Ping(r.Context()); err == nil {
 		body["host"] = map[string]any{"cpus": info.NCPU, "memory": info.MemTotal}
 	}
