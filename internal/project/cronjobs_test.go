@@ -183,7 +183,7 @@ func TestCronScheduler(t *testing.T) {
 		return "", 0, nil
 	}
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	next := map[string]cronNext{}
+	next := &cronSchedulerState{next: map[string]cronNext{}}
 	pass := func(at string) {
 		now, _ := time.ParseInLocation("2006-01-02 15:04:05", at, time.Local)
 		e.m.cronPass(ctx, now, next, log)
@@ -198,12 +198,27 @@ func TestCronScheduler(t *testing.T) {
 		t.Fatalf("fired: %v", fired)
 	}
 
+	// A job added mid-minute waits for the next minute instead of firing at once.
+	if _, err := e.m.AddCronJob(ctx, id, CronJobRequest{Name: "new", Runtime: "php", Schedule: "* * * * *", Command: "echo new", Enabled: true}); err != nil {
+		t.Fatal(err)
+	}
+	fired = nil
+	pass("2026-09-24 10:11:15")
+	pass("2026-09-24 10:11:26")
+	if len(fired) != 0 {
+		t.Fatalf("new job fired in the minute it was added: %v", fired)
+	}
+	pass("2026-09-24 10:12:05")
+	if strings.Join(fired, ",") != "echo new" {
+		t.Fatalf("new job at the next minute: %v", fired)
+	}
+
 	// A stopped project skips its jobs.
 	if _, err := e.m.Stop(ctx, id); err != nil {
 		t.Fatal(err)
 	}
 	pass("2026-09-24 10:15:05")
-	if len(fired) != 2 {
+	if len(fired) != 1 {
 		t.Fatalf("stopped project fired: %v", fired)
 	}
 }

@@ -425,7 +425,7 @@ func (m *Manager) RunCronScheduler(ctx context.Context, interval time.Duration, 
 	} else if n > 0 {
 		log.Info("cron: runs interrupted by the last shutdown", "count", n)
 	}
-	next := map[string]cronNext{}
+	next := &cronSchedulerState{next: map[string]cronNext{}}
 	t := time.NewTicker(interval)
 	defer t.Stop()
 	for {
@@ -444,14 +444,29 @@ type cronNext struct {
 	at       time.Time
 }
 
-// cronPass fires the jobs that are due at now. next carries each job's next fire time
-// between passes.
-func (m *Manager) cronPass(ctx context.Context, now time.Time, next map[string]cronNext, log *slog.Logger) {
+// cronSchedulerState is what the scheduler carries between passes: each job's next fire
+// time and whether the first pass is done.
+type cronSchedulerState struct {
+	next    map[string]cronNext
+	started bool
+}
+
+// cronPass fires the jobs that are due at now.
+func (m *Manager) cronPass(ctx context.Context, now time.Time, st *cronSchedulerState, log *slog.Logger) {
 	jobs, err := m.store.CronJobs.ListEnabled(ctx)
 	if err != nil {
 		log.Warn("cron: listing jobs failed", "err", err)
 		return
 	}
+	// On the first pass after a start the current minute still counts, so a job due in
+	// the minute Envoryx came up runs. A job created, enabled or rescheduled later starts
+	// with the next matching minute: it did not exist when its current minute began.
+	from := now
+	if !st.started {
+		from = now.Truncate(time.Minute).Add(-time.Minute)
+		st.started = true
+	}
+	next := st.next
 	projects := map[string]*store.Project{}
 	seen := map[string]bool{}
 	for _, j := range jobs {
@@ -462,8 +477,7 @@ func (m *Manager) cronPass(ctx context.Context, now time.Time, next map[string]c
 		}
 		n, ok := next[j.ID]
 		if !ok || n.schedule != j.Schedule {
-			// New to the scheduler: the current minute still counts.
-			at, _ := s.Next(now.Truncate(time.Minute).Add(-time.Minute))
+			at, _ := s.Next(from)
 			n = cronNext{schedule: j.Schedule, at: at}
 		}
 		if n.at.IsZero() || now.Before(n.at) {
