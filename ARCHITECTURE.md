@@ -1159,8 +1159,10 @@ backend binds to 127.0.0.1 inside the container, so the tunnel is relayed by
 network namespace (probed once per container id); runtime images without
 socat fall back to dialling `envoryx-<slug>-<kind>:<port>` over the project
 network, which only reaches listeners on 0.0.0.0. The flag also
-mounts `/config/jetbrains` at `~/.cache/JetBrains` so Gateway backends are
-shared across projects. `StopIDEBackend` runs `pkill -f /.cache/JetBrains/`
+mounts `/config/jetbrains/RemoteDev/dist` at `~/.cache/JetBrains/RemoteDev/dist`,
+so the downloaded Gateway backends are shared across projects; the rest of
+`~/.cache/JetBrains` (index caches with source, local history, join links
+with tokens) stays in each project home. `StopIDEBackend` runs `pkill -f /.cache/JetBrains/`
 as the project user.
 
 ### Workers
