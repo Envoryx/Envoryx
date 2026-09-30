@@ -303,7 +303,7 @@ type createProjectIn struct {
 	OpenSearchDash     bool              `json:"opensearchDashboards,omitempty" jsonschema:"Add OpenSearch Dashboards (web UI with Dev Tools console; implies opensearch)."`
 	Ollama             bool              `json:"ollama,omitempty" jsonschema:"Add Ollama (LLM server, OLLAMA_HOST/OLLAMA_BASE_URL/OLLAMA_URL injected). Models live in one store shared by all projects and are pulled from the project's Services section."`
 	OllamaGPU          bool              `json:"ollamaGpu,omitempty" jsonschema:"Hand the host's GPUs to Ollama (implies ollama; needs the NVIDIA Container Toolkit on the host)."`
-	Storage            bool              `json:"storage,omitempty" jsonschema:"Add S3-compatible object storage with a bucket per project (S3_* and AWS_* variables injected)."`
+	Storage            bool              `json:"storage,omitempty" jsonschema:"Add S3-compatible object storage with a bucket per project (S3_* and AWS_* variables injected). The bucket is private; public reads can be switched on in the Services section."`
 	NodeVersion        string            `json:"nodeVersion,omitempty" jsonschema:"Add a Node.js container with this major version (e.g. 24): the project's runtime (dev server) or a toolchain for asset builds."`
 	NodeDevServer      bool              `json:"nodeDevServer,omitempty" jsonschema:"Run the package.json dev script as the project's main process. Without PHP it is reachable at the project URL, always at <slug>-dev.<base domain>. Requires nodeVersion."`
 	NodePreset         string            `json:"nodePreset,omitempty" jsonschema:"Dev-server preset: vite, next, nuxt or generic (default vite). Sets how host/port are passed and the default port."`

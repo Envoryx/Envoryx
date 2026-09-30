@@ -390,7 +390,7 @@ func (a Addon) MarshalYAML() (any, error) {
 }
 
 // Storage is the S3-compatible object storage. In the file it is either "true" or a
-// mapping; PublicRead defaults to true.
+// mapping; PublicRead defaults to false (a private bucket).
 type Storage struct {
 	Version    string `yaml:"version,omitempty"`
 	PublicRead *bool  `yaml:"publicRead,omitempty"`
@@ -436,7 +436,7 @@ func (c CronJob) TimeoutDuration() (time.Duration, error) {
 }
 
 // IsPublicRead returns PublicRead with its default.
-func (s Storage) IsPublicRead() bool { return s.PublicRead == nil || *s.PublicRead }
+func (s Storage) IsPublicRead() bool { return s.PublicRead != nil && *s.PublicRead }
 
 // UnmarshalYAML accepts "redis: true" next to the mapping form. "redis: false" is
 // rejected: leaving the key out is how a service is absent.

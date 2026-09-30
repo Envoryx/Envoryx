@@ -1458,13 +1458,18 @@ func TestObjectStorageEndpoints(t *testing.T) {
 		t.Fatalf("info: %d %s", r.status, r.raw)
 	}
 	info := r.body["storage"].(map[string]any)
-	if info["bucket"] != "shop" || info["publicRead"] != true || info["hostname"] != "shop-s3.test" || info["secretKey"] != nil || info["consolePath"] != "/rustfs/console/" {
+	// A bucket nobody asked to be public is private.
+	if info["bucket"] != "shop" || info["publicRead"] != false || info["hostname"] != "shop-s3.test" || info["secretKey"] != nil || info["consolePath"] != "/rustfs/console/" {
 		t.Fatalf("info: %v", info)
 	}
 	r = a.do(http.MethodGet, "/api/v1/projects/"+id+"/storage/credentials", nil, false)
 	creds := r.body["storage"].(map[string]any)
 	if r.status != http.StatusOK || creds["accessKey"] == nil || creds["secretKey"] == nil {
 		t.Fatalf("credentials: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodPut, "/api/v1/projects/"+id+"/storage/public", map[string]any{"publicRead": true}, true)
+	if r.status != http.StatusOK || r.body["storage"].(map[string]any)["publicRead"] != true {
+		t.Fatalf("public on: %d %s", r.status, r.raw)
 	}
 	r = a.do(http.MethodPut, "/api/v1/projects/"+id+"/storage/public", map[string]any{"publicRead": false}, true)
 	if r.status != http.StatusOK || r.body["storage"].(map[string]any)["publicRead"] != false {

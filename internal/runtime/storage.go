@@ -27,13 +27,15 @@ type StorageConfig struct {
 	SecretKey string `json:"secretKey"`
 	// Bucket is created at start-up. PublicRead puts a policy on it that lets anyone read
 	// every object, which is what a public-read ACL does on providers that honour those.
+	// Always stored, so a bucket keeps its setting whatever the default for new ones.
 	Bucket     string `json:"bucket"`
 	PublicRead bool   `json:"publicRead"`
 }
 
-// NewStorageConfig generates credentials for a fresh service.
+// NewStorageConfig generates credentials for a fresh service. The bucket is private until
+// public reads are switched on.
 func NewStorageConfig(bucket string) StorageConfig {
-	return StorageConfig{AccessKey: "envoryx" + randomToken(12), SecretKey: randomToken(40), Bucket: bucket, PublicRead: true}
+	return StorageConfig{AccessKey: "envoryx" + randomToken(12), SecretKey: randomToken(40), Bucket: bucket}
 }
 
 func randomToken(n int) string {

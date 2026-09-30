@@ -33,6 +33,15 @@ release). `:main` follows the development branch.
 - The Workers & cron section shows the command a .NET "Project" worker
   really runs (`dotnet publish`, then `dotnet <dll>`) instead of
   `dotnet run --project`.
+- **New object storage buckets are private.** `storage: {}` in the API,
+  the *Add object storage* card, the MCP tool and `storage: true` in
+  `envoryx.yml` used to create a bucket anyone could read through the
+  project's S3 host name; now only presigned URLs and authenticated
+  requests work until *Anyone may read objects* is switched on
+  (`"publicRead": true`, `storage: {publicRead: true}`). Existing buckets
+  keep their setting, and an `envoryx.yml` without `publicRead` leaves an
+  existing bucket alone. An exported manifest now names a public bucket
+  with `publicRead: true`.
 
 ### Security
 - An admin API token could show and replace the secret key that decrypts

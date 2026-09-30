@@ -13,15 +13,21 @@ const info = {
 describe("StorageCard", () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  it("offers to add object storage when the project has none", async () => {
-    mockApi({
+  it("offers to add object storage when the project has none, private by default", async () => {
+    const api = mockApi({
       ...authedRoutes,
       "GET /runtimes": () => ({ body: runtimesFixture }),
       [`GET ${P}/extras`]: () => ({ body: { services: [] } }),
       [`GET ${P}/storage`]: () => ({ status: 404, body: { error: { code: "not_found", message: "no storage" } } }),
+      [`PATCH ${P}`]: () => ({ body: { project: makeProject() } }),
     });
     renderApp(<ServicesTab project={makeProject()} />);
-    expect(await screen.findByRole("button", { name: "Add object storage" })).toBeInTheDocument();
+    const user = userEvent.setup();
+    const add = await screen.findByRole("button", { name: "Add object storage" });
+    expect((screen.getByRole("checkbox", { name: /Anyone may read objects/ }) as HTMLInputElement).checked).toBe(false);
+    await user.click(add);
+    await waitFor(() => expect(api.calls.some((c) => c.method === "PATCH")).toBe(true));
+    expect(api.calls.find((c) => c.method === "PATCH")!.body).toMatchObject({ storage: { enabled: true, publicRead: false } });
   });
 
   it("shows the bucket, reveals keys on request and toggles public read", async () => {
