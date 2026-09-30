@@ -10,6 +10,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/envoryx/envoryx/internal/audit"
 	"github.com/envoryx/envoryx/internal/docker"
@@ -243,15 +245,46 @@ func dropClientWarnings(msg string) string {
 // sanitizeSQLError strips secrets from server error messages before they reach logs or the UI.
 func sanitizeSQLError(msg string, cfg runtime.DatabaseConfig) string {
 	for _, secret := range []string{cfg.RootPassword, cfg.Password} {
-		if secret != "" {
-			msg = strings.ReplaceAll(msg, secret, "***")
-		}
+		msg = redactSecret(msg, secret)
 	}
 	if len(msg) > 500 {
 		msg = msg[:500]
 	}
 	return msg
 }
+
+// redactSecret replaces the secret in msg with "***" where it stands as a token of its
+// own. A short password typed by hand also turns up inside ordinary words of an error
+// ("WRONG" in Redis's "WRONGPASS invalid username-password pair"), and replacing those
+// leaves a garbled "***PASS" without hiding anything.
+func redactSecret(msg, secret string) string {
+	if secret == "" {
+		return msg
+	}
+	var b strings.Builder
+	rest := msg
+	for {
+		i := strings.Index(rest, secret)
+		if i < 0 {
+			b.WriteString(rest)
+			return b.String()
+		}
+		end := i + len(secret)
+		before, _ := utf8.DecodeLastRuneInString(rest[:i])
+		after, _ := utf8.DecodeRuneInString(rest[end:])
+		if (i > 0 && isWordRune(before)) || (end < len(rest) && isWordRune(after)) {
+			// Part of a longer word: keep it and look again one byte further.
+			b.WriteString(rest[:i+1])
+			rest = rest[i+1:]
+			continue
+		}
+		b.WriteString(rest[:i])
+		b.WriteString("***")
+		rest = rest[end:]
+	}
+}
+
+func isWordRune(r rune) bool { return unicode.IsLetter(r) || unicode.IsDigit(r) }
 
 // ListDatabases returns the user databases on the server.
 func (m *Manager) ListDatabases(ctx context.Context, id, db string) ([]string, error) {

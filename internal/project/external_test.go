@@ -377,3 +377,37 @@ func TestRuntimeContainersReachTheDockerHost(t *testing.T) {
 		}
 	}
 }
+
+// A short password typed by hand is no reason to garble the server's answer: "WRONG"
+// used to turn Redis's WRONGPASS into "***PASS".
+func TestExternalRedisErrorKeepsWordsThatContainThePassword(t *testing.T) {
+	e := newEnv(t)
+	srv := &externalServer{fail: "AUTH failed: WRONGPASS invalid username-password pair or user is disabled."}
+	srv.install(e)
+	err := e.m.TestExternal(context.Background(), ExternalTest{Kind: "redis", Host: "cache.lan", Password: "WRONG"})
+	if !errors.Is(err, validate.ErrInvalid) || !strings.Contains(err.Error(), "AUTH failed: WRONGPASS invalid username-password pair") || strings.Contains(err.Error(), "***") {
+		t.Fatalf("the error must read as Redis wrote it: %v", err)
+	}
+	srv.fail = "ERR server echoed redis://:WRONG@cache.lan:6379"
+	err = e.m.TestExternal(context.Background(), ExternalTest{Kind: "redis", Host: "cache.lan", Password: "WRONG"})
+	if err == nil || !strings.Contains(err.Error(), "redis://:***@cache.lan:6379") {
+		t.Fatalf("a password the server echoes stays hidden: %v", err)
+	}
+}
+
+func TestRedactSecret(t *testing.T) {
+	for _, c := range []struct{ msg, secret, want string }{
+		{"AUTH failed: WRONGPASS invalid", "WRONG", "AUTH failed: WRONGPASS invalid"},
+		{"redis://:pw@host:6379", "pw", "redis://:***@host:6379"},
+		{"Access denied (using password: YES)", "YES", "Access denied (using password: ***)"},
+		{"password s3cret and s3cret2 and xs3cret", "s3cret", "password *** and s3cret2 and xs3cret"},
+		{"s3cret", "s3cret", "***"},
+		{"ssecret", "secret", "ssecret"},
+		{"anything", "", "anything"},
+		{`user "p@ss" p@ssword`, "p@ss", `user "***" p@ssword`},
+	} {
+		if got := redactSecret(c.msg, c.secret); got != c.want {
+			t.Errorf("redactSecret(%q, %q) = %q, want %q", c.msg, c.secret, got, c.want)
+		}
+	}
+}
