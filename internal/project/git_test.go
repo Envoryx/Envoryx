@@ -197,6 +197,68 @@ func TestPullAndCheckoutAndSSH(t *testing.T) {
 	}
 }
 
+// Changing the URL of a project that already has a checkout moves its origin along, with
+// the token in the environment as for clone and pull, never in the stored remote.
+func TestSetGitMovesTheCheckoutsOrigin(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	remote := "https://github.com/seramos/old.git"
+	var cmds []string
+	var envs []string
+	e.engine.OneShotHandler = func(spec docker.ContainerSpec) (docker.ExecResult, error) {
+		cmd := strings.Join(spec.Cmd, " ")
+		cmds = append(cmds, cmd)
+		envs = append(envs, strings.Join(spec.Env, "\n"))
+		switch {
+		case strings.HasSuffix(cmd, "remote get-url origin"):
+			return docker.ExecResult{Stdout: remote + "\n"}, nil
+		case strings.Contains(cmd, "remote set-url origin "):
+			remote = spec.Cmd[len(spec.Cmd)-1]
+		}
+		return docker.ExecResult{}, nil
+	}
+	view, err := e.m.Create(ctx, phpRequest("Moved", true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := view.Project.ID
+	if _, err := e.m.SetGit(ctx, id, GitRequest{URL: remote}); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(e.projDir, "moved", ".git"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cmds = nil
+	st, err := e.m.SetGit(ctx, id, GitRequest{URL: "https://github.com/seramos/new.git", Token: "s3cret"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(strings.Join(cmds, "\n"), "git -C /var/www/html remote set-url origin https://github.com/seramos/new.git") {
+		t.Fatalf("origin not moved: %v", cmds)
+	}
+	if st.URL != "https://github.com/seramos/new.git" || st.Remote != st.URL {
+		t.Fatalf("status after move: %+v", st)
+	}
+	for i, c := range cmds {
+		if strings.Contains(c, "s3cret") {
+			t.Fatalf("token on the command line: %s", c)
+		}
+		if !strings.Contains(envs[len(envs)-len(cmds)+i], "http.extraHeader") {
+			t.Fatalf("git run without the token header: %s", c)
+		}
+	}
+	// Saving the same URL again leaves the remote alone.
+	cmds = nil
+	if _, err := e.m.SetGit(ctx, id, GitRequest{URL: "https://github.com/seramos/new.git", KeepToken: true}); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range cmds {
+		if strings.Contains(c, "set-url") || strings.Contains(c, "remote add") {
+			t.Fatalf("unchanged URL rewrote the remote: %v", cmds)
+		}
+	}
+}
+
 // Git one-shots run from whichever runtime image the project has: PHP, else Node, else the
 // catalogue's default Node image - so clone and status work for every project shape.
 func TestGitRunsFromTheProjectRuntimeImage(t *testing.T) {
