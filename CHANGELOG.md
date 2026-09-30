@@ -48,6 +48,17 @@ release). `:main` follows the development branch.
   they are next recreated, and the label is not part of the container
   fingerprint. The network pool still steps around every network on the
   host.
+- The project overview and the Docker page listed each published port
+  twice (":28001 → 3000" for IPv4 and for IPv6) when ports are published
+  on all interfaces. Each port is listed once now.
+- Turning the Node dev server off dropped its preset, script and port,
+  and turning it back on through the API or CLI started a Vite server on
+  a new host port. The settings and the host port are now kept while the
+  dev server is off, and an update that leaves fields empty keeps the
+  stored values.
+- Changing a project's repository URL stored the new URL but left the
+  checkout's `origin` on the old one, so pull kept using the old
+  repository. Saving a new URL now moves `origin` along.
 
 ## [0.17.0] - 2026-09-30
 
