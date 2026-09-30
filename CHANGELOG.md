@@ -59,6 +59,11 @@ release). `:main` follows the development branch.
 - Changing a project's repository URL stored the new URL but left the
   checkout's `origin` on the old one, so pull kept using the old
   repository. Saving a new URL now moves `origin` along.
+- Error messages of an external Redis or database no longer garble words
+  that contain the password: a password like `WRONG` turned Redis's
+  `WRONGPASS invalid username-password pair` into `***PASS ...`. The
+  password is still hidden where it appears on its own, e.g. in
+  `redis://:***@host`.
 
 ## [0.17.0] - 2026-09-30
 

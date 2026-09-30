@@ -174,9 +174,9 @@ func (m *Manager) checkExternalRedis(ctx context.Context, p store.Project, svc *
 	}
 	out := strings.Join(strings.Fields(res.Stdout+" "+res.Stderr), " ")
 	if res.ExitCode != 0 || !strings.HasPrefix(out, "PONG") {
-		if cfg.Password != "" {
-			out = strings.ReplaceAll(out, cfg.Password, "***")
-		}
+		// redis-cli reads the password from the environment and never prints it; this only
+		// guards against a server that echoes it back.
+		out = redactSecret(out, cfg.Password)
 		return fmt.Errorf("%w: cannot connect to Redis at %s: %s", validate.ErrInvalid, addr, out)
 	}
 	return nil
