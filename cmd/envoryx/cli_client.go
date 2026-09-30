@@ -198,8 +198,9 @@ func (c *client) dialWS(ctx context.Context, path string, query url.Values) (*we
 func decodeAPIError(resp *http.Response) error {
 	var body struct {
 		Error struct {
-			Code    string `json:"code"`
-			Message string `json:"message"`
+			Code    string          `json:"code"`
+			Message string          `json:"message"`
+			Details json.RawMessage `json:"details"`
 		} `json:"error"`
 	}
 	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 64<<10))
@@ -207,6 +208,14 @@ func decodeAPIError(resp *http.Response) error {
 	err := &apiError{Status: resp.StatusCode, Code: body.Error.Code, Message: body.Error.Message, Body: raw}
 	if err.Message == "" {
 		err.Message = fmt.Sprintf("%s (%s)", strings.ToLower(http.StatusText(resp.StatusCode)), resp.Request.URL.Path)
+	}
+	// An internal error keeps its message generic and puts what went wrong into
+	// details.cause; the operator at the terminal needs that part.
+	var details struct {
+		Cause string `json:"cause"`
+	}
+	if json.Unmarshal(body.Error.Details, &details) == nil && details.Cause != "" {
+		err.Message += ": " + details.Cause
 	}
 	switch resp.StatusCode {
 	case http.StatusUnauthorized:

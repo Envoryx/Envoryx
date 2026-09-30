@@ -64,6 +64,12 @@ release). `:main` follows the development branch.
   `WRONGPASS invalid username-password pair` into `***PASS ...`. The
   password is still hidden where it appears on its own, e.g. in
   `redis://:***@host`.
+- `envoryx project list` and `project show` printed the project URL
+  without the proxy's port (`https://shop.test` where the proxy listens
+  on 18443). Projects in the API now carry their full `url`, and the CLI
+  prints it.
+- The CLI showed only "an internal error occurred" for server errors and
+  dropped the cause the server sends along; it prints the cause now.
 
 ## [0.17.0] - 2026-09-30
 

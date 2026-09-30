@@ -309,6 +309,8 @@ export interface Project {
    * when the project has neither PHP nor a Python, Go, Ruby, Java or .NET server.
    */
   devHostname?: string;
+  /** Where a browser reaches the project, proxy scheme and port included (absent when unknown). */
+  url?: string;
   /** Missing on payloads from a backend that predates it; use servesOf() then. */
   serves?: Serves;
   /** The application container: PHP if present, else Python, Go, Ruby, Java, .NET, Node; absent for static projects. */

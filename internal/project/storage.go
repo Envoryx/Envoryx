@@ -34,6 +34,15 @@ func storageConfig(p store.Project) (*store.ProjectService, runtime.StorageConfi
 	return svc, cfg, nil
 }
 
+// ProjectURL is where a browser on the LAN reaches the project (see Planner.ProjectURL).
+func (m *Manager) ProjectURL(proj store.Project) string {
+	p, err := m.planner()
+	if err != nil {
+		return ""
+	}
+	return p.ProjectURL(proj)
+}
+
 // ProjectURL is where a browser on the LAN reaches the project: its host name behind the
 // proxy (HTTPS when the proxy serves it), else the published HTTP port on the public
 // host. "" when neither is known.
