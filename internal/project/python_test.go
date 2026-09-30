@@ -291,6 +291,29 @@ func TestPythonTemplateMergesServerDefaults(t *testing.T) {
 	}
 }
 
+// gunicorn serves no static files, so without WhiteNoise the admin loses its CSS in
+// production mode, and collectstatic refuses to run without STATIC_ROOT.
+func TestDjangoTemplateServesStaticFiles(t *testing.T) {
+	tpl, ok := TemplateByID("django")
+	if !ok {
+		t.Fatal("django template missing")
+	}
+	var install []string
+	for _, s := range tpl.steps {
+		if s.label == "pip install django" {
+			install = s.cmd
+		}
+	}
+	if !slices.Contains(install, "whitenoise") {
+		t.Fatalf("whitenoise not installed: %q", install)
+	}
+	for _, want := range []string{`STATIC_ROOT = BASE_DIR / "staticfiles"`, `"whitenoise.middleware.WhiteNoiseMiddleware"`, "WHITENOISE_USE_FINDERS = True"} {
+		if !strings.Contains(djangoSettingsPatch, want) {
+			t.Errorf("settings patch lacks %s", want)
+		}
+	}
+}
+
 // The application server must not race the database: it waits for the port instead of
 // crash-looping (or, with Django's runserver, leaving a live parent that serves nothing).
 func TestApplicationServerWaitsForTheDatabase(t *testing.T) {
