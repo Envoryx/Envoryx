@@ -629,7 +629,9 @@ downloaded once for all projects.
 - **Debugging.** *Debug with Delve* runs the server under a headless Delve
   (`dlv exec --headless --accept-multiclient --continue`, port 2345 by
   default) built without optimisations, and publishes that port on a host
-  port; breakpoints survive every rebuild. Attach GoLand (*Run → Edit
+  port. When air rebuilds, it restarts Delve and the IDE's debug session
+  ends (GoLand: "Debugger disconnected unexpectedly"); attach again and
+  the breakpoints you set are hit as before. Attach GoLand (*Run → Edit
   Configurations → Go Remote*) or VS Code (`type: go`, `request: attach`,
   `mode: remote`, `substitutePath` from your folder to `/var/www/html`)
   with the host and port from the IDE section. Without the server only the port

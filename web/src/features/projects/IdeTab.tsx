@@ -367,7 +367,7 @@ export function IdeTab({ project: p }: { project: Project }) {
             description={
               goCfg.debug && goCfg.debugHostPort
                 ? goCfg.server
-                  ? t("The server runs under a headless Delve. Attach from the IDE with the values below; breakpoints survive every rebuild.")
+                  ? t("The server runs under a headless Delve. Attach from the IDE with the values below. A rebuild restarts Delve and ends the debug session; attach again and your breakpoints still apply.")
                   : t("The Delve port is published. Start dlv headless in the Go terminal, then attach from the IDE with the values below.")
                 : t("Not enabled - switch on “Debug with Delve” under Runtime. Values below apply once enabled.")
             }
