@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { useSettings, useUpdateSettings } from "@/api/hooks";
 import { Alert, Button } from "@/components/ui";
-import { isAdmin, useAuth } from "@/features/auth/AuthContext";
+import { useAuth } from "@/features/auth/AuthContext";
 import { settingsHref } from "@/features/settings/links";
 
 /**
@@ -14,7 +14,7 @@ export function PublicHostNotice({ className }: { className?: string }) {
   const { t } = useTranslation();
   const settings = useSettings();
   const update = useUpdateSettings();
-  const admin = isAdmin(useAuth().user);
+  const admin = useAuth().admin;
   if (!settings.data?.publicHostNeeded) return null;
   const suggestion = settings.data.publicHostSuggestion;
   const candidate = suggestion?.ip || suggestion?.hostname || "";

@@ -24,7 +24,7 @@ describe("GitTab", () => {
 
     expect(await screen.findByText("abc123d")).toBeInTheDocument();
     expect(screen.getByText("clean")).toBeInTheDocument();
-    expect(screen.getByText("ssh-ed25519 AAAA envoryx-deploy-key")).toBeInTheDocument();
+    expect(await screen.findByText("ssh-ed25519 AAAA envoryx-deploy-key")).toBeInTheDocument();
 
     await user.clear(screen.getByLabelText("Branch"));
     await user.type(screen.getByLabelText("Branch"), "develop");

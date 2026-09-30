@@ -7,6 +7,7 @@ import type { DuplicateProjectRequest, Project, RenameProjectRequest } from "@/a
 import { Button, Checkbox, Dialog, Field, Input, Alert } from "@/components/ui";
 import { errorText } from "@/lib/errors";
 import { slugify } from "@/lib/format";
+import { projectAccess } from "@/lib/access";
 import { CreateProgress } from "./CreateProgress";
 import { databaseServices } from "./databases";
 
@@ -37,25 +38,25 @@ export function ProjectActionButtons({
   const transitional = state === "creating" || state === "deleting" || !!project.status.operation;
   const run = (a: ProjectAction) =>
     action.mutate({ id: project.id, action: a }, { onError: (err) => onError?.(err) });
-  // A viewer may look, not start or stop.
-  const readOnly = project.access === "read";
+  // A viewer may look, not start or stop: the buttons need operate.
+  const canOperate = projectAccess(project).operate;
   const running = state === "running";
   const { url } = links(project);
   const pending = (a: ProjectAction) => busy && action.variables?.action === a;
 
   return (
     <div className="flex items-center gap-1.5">
-      {running ? (
-        <Button size={size} onClick={() => run("stop")} loading={pending("stop")} disabled={busy || transitional || readOnly} icon={<Square className="size-3.5" />} title={t("Stop")}>
+      {!canOperate ? null : running ? (
+        <Button size={size} onClick={() => run("stop")} loading={pending("stop")} disabled={busy || transitional} icon={<Square className="size-3.5" />} title={t("Stop")}>
           {t("Stop")}
         </Button>
       ) : (
-        <Button size={size} variant="primary" onClick={() => run("start")} loading={pending("start")} disabled={busy || transitional || readOnly} icon={<Play className="size-3.5" />} title={t("Start")}>
+        <Button size={size} variant="primary" onClick={() => run("start")} loading={pending("start")} disabled={busy || transitional} icon={<Play className="size-3.5" />} title={t("Start")}>
           {t("Start")}
         </Button>
       )}
-      {running && (
-        <Button size={size} onClick={() => run("restart")} loading={pending("restart")} disabled={busy || transitional || readOnly} icon={<RotateCw className="size-3.5" />} title={t("Restart - also pulls updated runtime images")}>
+      {canOperate && running && (
+        <Button size={size} onClick={() => run("restart")} loading={pending("restart")} disabled={busy || transitional} icon={<RotateCw className="size-3.5" />} title={t("Restart - also pulls updated runtime images")}>
           {t("Restart")}
         </Button>
       )}

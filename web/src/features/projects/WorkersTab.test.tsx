@@ -49,4 +49,18 @@ describe("WorkersTab", () => {
     await user.click(screen.getByRole("button", { name: "Remove cron" }));
     await waitFor(() => expect(api.calls.some((c) => c.method === "DELETE")).toBe(true));
   });
+
+  it("shows a developer the workers but no way to add, disable or remove them", async () => {
+    const workers = [{ id: "w1", name: "cron", preset: "laravel:schedule", arg: "", enabled: true, command: ["php", "artisan", "schedule:work"], createdAt: "2026-09-18T10:00:00Z" }];
+    mockApi({
+      ...authedRoutes,
+      [`GET /projects/${id}/workers`]: () => ({ body: { workers, presets } }),
+    });
+    renderApp(<WorkersTab project={makeProject({ access: "operate" })} />);
+
+    expect(await screen.findByText("cron")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Disable" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Remove cron" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add worker" })).not.toBeInTheDocument();
+  });
 });

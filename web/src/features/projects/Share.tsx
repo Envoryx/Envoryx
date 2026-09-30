@@ -6,6 +6,7 @@ import { api } from "@/api/client";
 import type { Project, ProjectShare } from "@/api/types";
 import { Alert, Badge, Button, Dialog, Field, Select } from "@/components/ui";
 import { errorText } from "@/lib/errors";
+import { projectAccess } from "@/lib/access";
 import { formatDateTime } from "@/lib/format";
 import { CopyButton } from "./DatabaseTab";
 
@@ -33,6 +34,8 @@ export function ShareDialog({ project, open, onClose }: { project: Project; open
   const qc = useQueryClient();
   const key = ["projects", project.id, "share"];
   const running = project.status.state === "running";
+  // Ending a share needs operate, starting one admin.
+  const canStart = projectAccess(project).admin;
   const q = useShare(project);
   const [minutes, setMinutes] = useState<number>(60);
   const [error, setError] = useState<string | null>(null);
@@ -70,9 +73,11 @@ export function ShareDialog({ project, open, onClose }: { project: Project; open
         ) : (
           <>
             <Button onClick={onClose}>{t("Cancel")}</Button>
-            <Button variant="primary" icon={<Globe className="size-4" />} loading={start.isPending} disabled={!running} onClick={() => { setError(null); start.mutate(); }}>
-              {t("Share publicly")}
-            </Button>
+            {canStart && (
+              <Button variant="primary" icon={<Globe className="size-4" />} loading={start.isPending} disabled={!running} onClick={() => { setError(null); start.mutate(); }}>
+                {t("Share publicly")}
+              </Button>
+            )}
           </>
         )
       }
@@ -96,6 +101,7 @@ export function ShareDialog({ project, open, onClose }: { project: Project; open
             {share.expiresAt && <p className="text-sm text-muted">{t("Public until {{time}}; it also ends when the project stops.", { time: formatDateTime(share.expiresAt) })}</p>}
           </>
         ) : (
+          canStart && (
           <Field label={t("Share for")} htmlFor="share-duration">
             <Select id="share-duration" value={minutes} onChange={(e) => setMinutes(Number(e.target.value))}>
               {durations.map((m) => (
@@ -105,6 +111,7 @@ export function ShareDialog({ project, open, onClose }: { project: Project; open
               ))}
             </Select>
           </Field>
+          )
         )}
         <Alert tone="amber">{t("Anyone who has the address reaches the project from the internet, without signing in. Share work in progress, not data you have to protect.")}</Alert>
       </div>

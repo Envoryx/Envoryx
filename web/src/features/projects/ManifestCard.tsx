@@ -8,6 +8,7 @@ import { keys, useProjectManifest } from "@/api/hooks";
 import type { ManifestChange, ManifestPlan, Project } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Checkbox, Code, Spinner } from "@/components/ui";
 import { copyText } from "@/lib/clipboard";
+import { projectAccess } from "@/lib/access";
 import { errorText, translateMessage } from "@/lib/errors";
 
 /** Product names stay as they are; the rest of the sections is translated. */
@@ -101,6 +102,8 @@ export function ManifestCard({ project }: { project: Project }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
   const manifest = useProjectManifest(project.id);
+  // Writing the file needs operate, applying it to the project admin.
+  const can = projectAccess(project);
   const [busy, setBusy] = useState<"write" | "apply" | null>(null);
   const [prune, setPrune] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -184,9 +187,11 @@ export function ManifestCard({ project }: { project: Project }) {
         ) : !repo?.present ? (
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm text-muted">{t("The project directory has no envoryx.yml yet.")}</p>
-            <Button onClick={() => void write()} loading={busy === "write"} disabled={busy !== null} icon={<Save className="size-4" />}>
-              {t("Save to project directory")}
-            </Button>
+            {can.operate && (
+              <Button onClick={() => void write()} loading={busy === "write"} disabled={busy !== null} icon={<Save className="size-4" />}>
+                {t("Save to project directory")}
+              </Button>
+            )}
           </div>
         ) : repo.error ? (
           <Alert tone="red" title={t("The envoryx.yml in the project directory cannot be used")}>
@@ -204,7 +209,7 @@ export function ManifestCard({ project }: { project: Project }) {
               <span className="text-sm text-muted">{t("Applying the envoryx.yml in the project directory changes:")}</span>
             </div>
             <ManifestChanges plan={plan} />
-            {plan.changes.some((c) => c.skipped === "prune") && (
+            {can.admin && plan.changes.some((c) => c.skipped === "prune") && (
               <Checkbox
                 checked={prune}
                 onChange={(e) => setPrune(e.target.checked)}
@@ -212,8 +217,9 @@ export function ManifestCard({ project }: { project: Project }) {
                 description={t("Removing a database or a service with a volume deletes its data.")}
               />
             )}
+            {can.operate && (
             <div className="flex flex-wrap gap-2">
-              {(pending || destructive) && (
+              {can.admin && (pending || destructive) && (
                 <Button variant={destructive ? "danger" : "primary"} onClick={() => void apply()} loading={busy === "apply"} disabled={busy !== null} icon={<Wand2 className="size-4" />}>
                   {t("Apply to project")}
                 </Button>
@@ -222,6 +228,7 @@ export function ManifestCard({ project }: { project: Project }) {
                 {t("Overwrite the file with the project")}
               </Button>
             </div>
+            )}
           </div>
         ) : null}
         {data && (

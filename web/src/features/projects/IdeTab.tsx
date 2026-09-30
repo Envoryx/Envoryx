@@ -13,6 +13,7 @@ import { CopyButton, CopyRow } from "./DatabaseTab";
 import { databaseServices } from "./databases";
 import { proxyUrl } from "./DomainsTab";
 import { errorText } from "@/lib/errors";
+import { projectAccess } from "@/lib/access";
 
 /** Everything an IDE needs, ready to copy: SFTP deployment, SSH interpreter, Xdebug server, database, mail. */
 export function IdeTab({ project: p }: { project: Project }) {
@@ -21,6 +22,8 @@ export function IdeTab({ project: p }: { project: Project }) {
   const hasDb = databaseServices(p).length > 0;
   const dbs = useDatabases(p.id, hasDb);
   const extras = useExtraServices(p.id);
+  // Allowing Gateway changes the project (admin); stopping its backend needs operate.
+  const can = projectAccess(p);
   const s = settings.data;
   const host = s?.publicHost || window.location.hostname;
   const projectsHost = s?.hostPath ? (s.hostPath.overrides[s.projectsDir] ?? s.hostPath.detected[s.projectsDir]) : undefined;
@@ -212,7 +215,7 @@ export function IdeTab({ project: p }: { project: Project }) {
             label={t("Allow JetBrains Gateway for this project")}
             description={t("Enables SSH port forwarding into the container and mounts a shared IDE backend cache (/config/jetbrains, downloaded once for all projects). Recreates the application containers.")}
             checked={!!p.ideGateway}
-            disabled={update.isPending}
+            disabled={update.isPending || !can.admin}
             onChange={(e) => {
               setGwMsg(null);
               const enable = e.target.checked;
@@ -245,9 +248,11 @@ export function IdeTab({ project: p }: { project: Project }) {
                 <li>{t("Gateway installs the backend into")} <Code>/home/envoryx/.cache/JetBrains/RemoteDev/dist</Code> {t("(shared cache) and opens the thin client.")}</li>
               </ol>
               <p className="text-xs text-subtle">{t("Close the project in Gateway when you are done, or stop the backend here to free memory on the server.")}</p>
-              <Button size="sm" onClick={() => { setGwMsg(null); stopBackend.mutate(); }} loading={stopBackend.isPending}>
-                {t("Stop IDE backend")}
-              </Button>
+              {can.operate && (
+                <Button size="sm" onClick={() => { setGwMsg(null); stopBackend.mutate(); }} loading={stopBackend.isPending}>
+                  {t("Stop IDE backend")}
+                </Button>
+              )}
             </>
           )}
         </div>

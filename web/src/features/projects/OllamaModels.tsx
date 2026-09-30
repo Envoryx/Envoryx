@@ -6,6 +6,7 @@ import type { OllamaModel, OllamaPull, Project } from "@/api/types";
 import { Alert, Badge, Button, Dialog, ErrorState, Field, Input, Spinner } from "@/components/ui";
 import { formatBytes } from "@/lib/format";
 import { errorText } from "@/lib/errors";
+import { projectAccess } from "@/lib/access";
 
 type Message = { tone: "green" | "red"; text: string };
 
@@ -16,7 +17,7 @@ type Message = { tone: "green" | "red"; text: string };
 const MODEL_RE = /^[A-Za-z0-9][A-Za-z0-9._-]*(\/[A-Za-z0-9][A-Za-z0-9._-]*)*(:[A-Za-z0-9][A-Za-z0-9._-]*)?$/;
 
 /** One download: a bar while it runs, the outcome once it ended. */
-function PullRow({ pull, onCancel, cancelling }: { pull: OllamaPull; onCancel: () => void; cancelling: boolean }) {
+function PullRow({ pull, onCancel, cancelling }: { pull: OllamaPull; onCancel?: (() => void) | undefined; cancelling: boolean }) {
   const { t } = useTranslation();
   const percent = pull.total > 0 ? Math.min(100, Math.round((pull.completed / pull.total) * 100)) : 0;
   if (pull.done) {
@@ -31,9 +32,11 @@ function PullRow({ pull, onCancel, cancelling }: { pull: OllamaPull; onCancel: (
     <div className="space-y-1 rounded-md border border-default px-3 py-2" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent} aria-label={t("Download of {{model}}", { model: pull.model })}>
       <div className="flex items-center justify-between gap-2">
         <span className="font-mono text-xs text-fg">{pull.model}</span>
-        <Button variant="ghost" size="sm" icon={<X className="size-3.5" />} loading={cancelling} onClick={onCancel}>
-          {t("Cancel")}
-        </Button>
+        {onCancel && (
+          <Button variant="ghost" size="sm" icon={<X className="size-3.5" />} loading={cancelling} onClick={onCancel}>
+            {t("Cancel")}
+          </Button>
+        )}
       </div>
       <div className="h-1.5 overflow-hidden rounded-full bg-muted">
         <div className="h-full bg-accent-600 transition-[width]" style={{ width: `${percent}%` }} />
@@ -53,6 +56,8 @@ export function OllamaModels({ project, running, onMessage }: { project: Project
   const { t } = useTranslation();
   const models = useOllamaModels(project.id, running);
   const { pull, cancel, remove } = useOllamaMutations(project.id);
+  // Downloading needs operate; deleting from the shared store admin.
+  const can = projectAccess(project);
   const [name, setName] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<OllamaModel | null>(null);
   const fail = (err: unknown, fallback: string) => onMessage({ tone: "red", text: errorText(err, t, fallback) });
@@ -68,6 +73,7 @@ export function OllamaModels({ project, running, onMessage }: { project: Project
         <p className="text-xs text-subtle">{t("One store for all projects: a model is downloaded once, whichever project uses it.")}</p>
       </div>
 
+      {can.operate && (
       <form
         className="flex flex-wrap items-end gap-2"
         onSubmit={(e) => {
@@ -83,6 +89,7 @@ export function OllamaModels({ project, running, onMessage }: { project: Project
           {t("Download")}
         </Button>
       </form>
+      )}
       <a href="https://ollama.com/library" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-accent-600 hover:underline dark:text-accent-300">
         {t("Browse the Ollama library")} <ExternalLink className="size-3" />
       </a>
@@ -94,7 +101,7 @@ export function OllamaModels({ project, running, onMessage }: { project: Project
       ) : (
         <>
           {models.data.pulls.map((p) => (
-            <PullRow key={`${p.model}-${p.startedAt}`} pull={p} cancelling={cancel.isPending && cancel.variables === p.model} onCancel={() => cancel.mutate(p.model, { onError: (err) => fail(err, t("Cancelling failed")) })} />
+            <PullRow key={`${p.model}-${p.startedAt}`} pull={p} cancelling={cancel.isPending && cancel.variables === p.model} onCancel={can.operate ? () => cancel.mutate(p.model, { onError: (err) => fail(err, t("Cancelling failed")) }) : undefined} />
           ))}
           {models.data.models.length === 0 ? (
             <p className="py-2 text-sm text-muted">{t("No models yet.")}</p>
@@ -111,9 +118,11 @@ export function OllamaModels({ project, running, onMessage }: { project: Project
                     </p>
                   </div>
                   <span className="text-xs tabular-nums text-muted">{formatBytes(m.size)}</span>
-                  <Button variant="ghost" size="sm" aria-label={t("Delete {{model}}", { model: m.name })} onClick={() => setDeleteTarget(m)}>
-                    <Trash2 className="size-4" />
-                  </Button>
+                  {can.admin && (
+                    <Button variant="ghost" size="sm" aria-label={t("Delete {{model}}", { model: m.name })} onClick={() => setDeleteTarget(m)}>
+                      <Trash2 className="size-4" />
+                    </Button>
+                  )}
                 </li>
               ))}
             </ul>

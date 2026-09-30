@@ -5,6 +5,12 @@ import type { User } from "@/api/types";
 
 interface AuthState {
   user: User | null;
+  /**
+   * Whether the session may administer the whole instance (the server's "admin" in
+   * /auth/me). Not the same as the user's role: an API token may have less scope than
+   * its owner, and a token limited to projects never administers the instance.
+   */
+  admin: boolean;
   needsSetup: boolean;
   loading: boolean;
   login: (username: string, password: string) => Promise<void>;
@@ -16,6 +22,7 @@ const AuthContext = createContext<AuthState | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [admin, setAdmin] = useState(false);
   const [needsSetup, setNeedsSetup] = useState(false);
   const [loading, setLoading] = useState(true);
   const qc = useQueryClient();
@@ -30,7 +37,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!status.needsSetup) {
           try {
             const me = await api.auth.me(true);
-            if (!cancelled) setUser(me.user);
+            if (!cancelled) {
+              setUser(me.user);
+              setAdmin(me.admin ?? roleIsAdmin(me.user.role));
+            }
           } catch (err) {
             if (!(err instanceof ApiError && err.status === 401)) throw err;
           }
@@ -49,6 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     setUnauthorizedHandler(() => {
       setUser(null);
+      setAdmin(false);
       qc.clear();
     });
     return () => setUnauthorizedHandler(null);
@@ -56,13 +67,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (username: string, password: string) => {
     const res = await api.auth.login(username, password);
+    // A browser session has exactly the user's role.
     setUser(res.user);
+    setAdmin(roleIsAdmin(res.user.role));
   }, []);
 
   const setup = useCallback(async (username: string, password: string) => {
     const res = await api.auth.setup(username, password);
     setNeedsSetup(false);
     setUser(res.user);
+    setAdmin(roleIsAdmin(res.user.role));
   }, []);
 
   const logout = useCallback(async () => {
@@ -70,11 +84,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await api.auth.logout();
     } finally {
       setUser(null);
+      setAdmin(false);
       qc.clear();
     }
   }, [qc]);
 
-  const value = useMemo(() => ({ user, needsSetup, loading, login, setup, logout }), [user, needsSetup, loading, login, setup, logout]);
+  const value = useMemo(() => ({ user, admin, needsSetup, loading, login, setup, logout }), [user, admin, needsSetup, loading, login, setup, logout]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
@@ -84,7 +99,7 @@ export function useAuth(): AuthState {
   return ctx;
 }
 
-/** Whether the signed-in user is an admin of the whole instance (an empty role predates roles and was one). */
-export function isAdmin(user: User | null): boolean {
-  return !!user && (user.role === "admin" || user.role === "");
+/** Whether a user role administers the instance (an empty role predates roles and was one). */
+function roleIsAdmin(role: string): boolean {
+  return role === "admin" || role === "";
 }

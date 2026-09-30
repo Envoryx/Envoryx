@@ -9,6 +9,7 @@ import { databaseServices } from "./databases";
 import { Alert, Badge, Button, Card, CardHeader, Checkbox, Code, Dialog, ErrorState, Field, Input, Select, Spinner } from "@/components/ui";
 import { formatBytes, formatDateTime } from "@/lib/format";
 import { errorText } from "@/lib/errors";
+import { projectAccess } from "@/lib/access";
 import { OffsiteBadges, OffsiteUploadButton, RemoteBackups, uploading } from "@/features/offsite/OffsiteParts";
 
 /** Whether a backup holds a dump of any database. */
@@ -26,6 +27,8 @@ export function BackupsTab({ project }: { project: Project }) {
   const hasData = hasDb || addonData;
   const restorable = (meta: BackupMeta) => (hasDumps(meta) && hasDb) || (meta.addonVolumes?.length ?? 0) > 0;
   const hasStorage = project.services.some((s) => s.kind === "storage" && s.enabled);
+  // Viewers see the list; creating, downloading and offsite copies need operate, restoring and deleting admin.
+  const can = projectAccess(project);
   const list = useQuery({
     queryKey: ["projects", project.id, "backups"],
     queryFn: () => api.backups.list(project.id),
@@ -129,6 +132,7 @@ export function BackupsTab({ project }: { project: Project }) {
     <div className="space-y-6">
       {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
       <ScheduleCard project={project} onSaved={refresh} />
+      {can.operate && (
       <Card>
         <CardHeader
           title={
@@ -171,6 +175,7 @@ export function BackupsTab({ project }: { project: Project }) {
           </div>
         </div>
       </Card>
+      )}
 
       <Card>
         <CardHeader title={t("Backups")} description={t("Newest first. Restoring overwrites the current database and/or files - Envoryx asks for confirmation.")} />
@@ -216,6 +221,7 @@ export function BackupsTab({ project }: { project: Project }) {
                 </div>
                 <span className="text-xs tabular-nums text-muted">{formatBytes(b.sizeBytes)}</span>
                 <div className="flex items-center gap-1.5">
+                  {can.operate && (
                   <a
                     href={`/api/v1/projects/${encodeURIComponent(project.id)}/backups/${encodeURIComponent(b.id)}/download`}
                     className="inline-flex h-8 items-center gap-1.5 rounded-md border border-default bg-elevated px-2.5 text-xs font-medium text-fg hover:bg-muted"
@@ -223,13 +229,18 @@ export function BackupsTab({ project }: { project: Project }) {
                   >
                     <Download className="size-3.5" aria-hidden /> {t("Download")}
                   </a>
-                  {!b.missing && <OffsiteUploadButton targets={targets} copies={list.data?.offsite?.[b.id]} busy={upload.isPending && upload.variables?.id === b.id} onUpload={() => upload.mutate(b)} />}
-                  <Button size="sm" onClick={() => openRestore(b)} disabled={b.missing} icon={<RotateCcw className="size-3.5" />}>
-                    {t("Restore")}
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={() => setDeleteTarget(b)} aria-label={t("Delete backup")}>
-                    <Trash2 className="size-4" />
-                  </Button>
+                  )}
+                  {can.operate && !b.missing && <OffsiteUploadButton targets={targets} copies={list.data?.offsite?.[b.id]} busy={upload.isPending && upload.variables?.id === b.id} onUpload={() => upload.mutate(b)} />}
+                  {can.admin && (
+                    <>
+                      <Button size="sm" onClick={() => openRestore(b)} disabled={b.missing} icon={<RotateCcw className="size-3.5" />}>
+                        {t("Restore")}
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => setDeleteTarget(b)} aria-label={t("Delete backup")}>
+                        <Trash2 className="size-4" />
+                      </Button>
+                    </>
+                  )}
                 </div>
               </li>
             ))}
@@ -237,7 +248,7 @@ export function BackupsTab({ project }: { project: Project }) {
         )}
       </Card>
 
-      {targets.length > 0 && (
+      {can.operate && targets.length > 0 && (
         <Card>
           <CardHeader
             title={
@@ -331,6 +342,7 @@ const weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Frida
 function ScheduleCard({ project, onSaved }: { project: Project; onSaved: () => void }) {
   const { t } = useTranslation();
   const current = project.backupSchedule;
+  const editable = projectAccess(project).admin;
   const [form, setForm] = useState<Omit<BackupSchedule, "lastRun">>({ schedule: current.schedule, hour: current.hour, weekday: current.weekday, keep: current.keep, includeDependencies: current.includeDependencies });
   const [msg, setMsg] = useState<{ tone: "green" | "red"; text: string } | null>(null);
   useEffect(() => {
@@ -357,12 +369,14 @@ function ScheduleCard({ project, onSaved }: { project: Project; onSaved: () => v
         }
         description={current.lastRun ? t("Last automatic backup {{date}}.", { date: formatDateTime(current.lastRun) }) : t("Automatic database, file and object storage backups; the oldest scheduled backups are removed beyond the keep count. Manual backups are never touched.")}
         actions={
-          <Button variant="primary" size="sm" loading={save.isPending} disabled={!dirty || (!!form.schedule && form.keep < 1)} onClick={() => { setMsg(null); save.mutate(); }}>
-            {t("Save")}
-          </Button>
+          editable && (
+            <Button variant="primary" size="sm" loading={save.isPending} disabled={!dirty || (!!form.schedule && form.keep < 1)} onClick={() => { setMsg(null); save.mutate(); }}>
+              {t("Save")}
+            </Button>
+          )
         }
       />
-      <div className="space-y-4 p-5">
+      <fieldset disabled={!editable} className="min-w-0 space-y-4 p-5">
         {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
         <div className="grid gap-4 sm:grid-cols-4">
           <Field label={t("Frequency")} htmlFor="sched-freq">
@@ -397,7 +411,7 @@ function ScheduleCard({ project, onSaved }: { project: Project; onSaved: () => v
           )}
         </div>
         {form.schedule && <Checkbox label={t("Include vendor/, node_modules/ and framework build caches")} description={t("Larger archives; usually not needed since dependencies can be reinstalled.")} checked={form.includeDependencies} onChange={(e) => set({ includeDependencies: e.target.checked })} />}
-      </div>
+      </fieldset>
     </Card>
   );
 }

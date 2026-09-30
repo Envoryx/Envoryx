@@ -1,6 +1,6 @@
 import { Plus, Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { isAdmin, useAuth } from "@/features/auth/AuthContext";
+import { useAuth } from "@/features/auth/AuthContext";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useDashboard, useProjectLinks, useProjects } from "@/api/hooks";
@@ -111,7 +111,7 @@ export function ProjectRow({ project, usage }: { project: Project; usage?: { cpu
 export function ProjectsPage() {
   const { t } = useTranslation();
   // Only an admin of the whole instance creates projects.
-  const admin = isAdmin(useAuth().user);
+  const admin = useAuth().admin;
   const q = useProjects();
   const dash = useDashboard();
   const [filter, setFilter] = useState("");

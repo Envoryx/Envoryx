@@ -11,6 +11,7 @@ import { PublicHostNotice } from "@/components/PublicHostNotice";
 import { errorText } from "@/lib/errors";
 import { CopyRow } from "./DatabaseTab";
 import { OllamaModels } from "./OllamaModels";
+import { projectAccess } from "@/lib/access";
 import { AddonsSection } from "./AddonsSection";
 import { emptyExternalRedis, ExternalRedisFields } from "./ExternalConnection";
 
@@ -35,6 +36,8 @@ function phpExtensionUpdate(project: Project, kind: ExtraKind): UpdateProjectReq
 function ServiceCard({ project, info, onMessage }: { project: Project; info: ExtraServiceInfo; onMessage: (m: { tone: "green" | "red"; text: string }) => void }) {
   const { t } = useTranslation();
   const update = useUpdateProject(project.id);
+  // Credentials need operate; every change goes through PATCH /projects/{id}, which needs admin.
+  const can = projectAccess(project);
   const publicHost = usePublicHost();
   const runtimes = useRuntimes();
   const versions = runtimes.data?.runtimes.find((r) => r.key === info.kind)?.versions ?? [];
@@ -167,7 +170,7 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
           )}
         </dl>
 
-        {info.kind === "rabbitmq" &&
+        {can.operate && info.kind === "rabbitmq" &&
           (creds ? (
             <dl className="divide-y divide-[var(--border)]">
               <CopyRow label={t("Password")} value={creds.password} secret />
@@ -179,7 +182,7 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
             </Button>
           ))}
 
-        {isSearch(info.kind) &&
+        {can.operate && isSearch(info.kind) &&
           (searchCreds ? (
             <dl className="divide-y divide-[var(--border)]">
               <CopyRow label={info.kind === "meilisearch" ? t("Master key") : t("API key")} value={searchCreds.apiKey} secret />
@@ -190,7 +193,7 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
             </Button>
           ))}
 
-        {phpFix && (
+        {can.admin && phpFix && (
           <Alert tone="blue">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <span>{t("PHP clients need the {{ext}} extension, which is off in this project.", { ext: phpExtensions[key] })}</span>
@@ -207,7 +210,7 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
           </Alert>
         )}
 
-        {info.external && (
+        {can.admin && info.external && (
           <Button
             size="sm"
             icon={<Pencil className="size-3.5" />}
@@ -225,7 +228,7 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
             label={t("Publish port on the host")}
             description={info.hostPort ? t("Reachable at {{address}}", { address: `${host}:${info.hostPort}` }) : info.kind === "redis" ? t("For desktop clients like RedisInsight.") : info.kind === "memcached" ? t("For tools on your machine, e.g. telnet or a cache inspector.") : info.kind === "typesense" || info.kind === "opensearch" || info.kind === "ollama" ? t("For clients and dashboards running on your machine.") : t("For AMQP clients running on your machine.")}
             checked={info.hostPort > 0}
-            disabled={update.isPending}
+            disabled={update.isPending || !can.admin}
             onChange={(e) => update.mutate({ [key]: { enabled: true, version: info.version, exposePort: e.target.checked } }, { onError: (err) => fail(err, t("Changing the port failed")) })}
           />
         )}
@@ -235,7 +238,7 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
             label={t("Use the GPU")}
             description={t("Hands the host's NVIDIA GPUs to Ollama. Docker needs the NVIDIA Container Toolkit for it (on Unraid: the Nvidia Driver plugin); Envoryx checks that before switching.")}
             checked={!!info.gpu}
-            disabled={update.isPending}
+            disabled={update.isPending || !can.admin}
             onChange={(e) => update.mutate({ ollama: { enabled: true, version: info.version, exposePort: info.hostPort > 0, gpu: e.target.checked } }, { onError: (err) => fail(err, t("Saving failed")) })}
           />
         )}
@@ -247,12 +250,12 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
             label="OpenSearch Dashboards"
             description={t("Web UI with the Dev Tools console, index management and Discover, on its own port. The image is about 2.6 GB and needs roughly 400 MB of RAM.")}
             checked={!!info.dashboards}
-            disabled={update.isPending}
+            disabled={update.isPending || !can.admin}
             onChange={(e) => update.mutate({ opensearch: { enabled: true, version: info.version, exposePort: info.hostPort > 0, dashboards: e.target.checked } }, { onError: (err) => fail(err, t("Saving failed")) })}
           />
         )}
 
-        {versions.length > 1 && !info.external && (
+        {can.admin && versions.length > 1 && !info.external && (
           <div className="flex items-end gap-2">
             <Field label={t("Version")} htmlFor={`${info.kind}-version`}>
               <Select id={`${info.kind}-version`} value={version} onChange={(e) => setVersion(e.target.value)}>
@@ -279,9 +282,11 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
           </div>
         )}
 
-        <Button variant="ghost" size="sm" className="text-red-600 dark:text-red-400" icon={<Trash2 className="size-3.5" />} onClick={() => setRemoveOpen(true)}>
-          {info.external ? t("Remove connection") : info.volumeName ? t("Remove {{service}} and data", { service: title }) : t("Remove {{service}}", { service: title })}
-        </Button>
+        {can.admin && (
+          <Button variant="ghost" size="sm" className="text-red-600 dark:text-red-400" icon={<Trash2 className="size-3.5" />} onClick={() => setRemoveOpen(true)}>
+            {info.external ? t("Remove connection") : info.volumeName ? t("Remove {{service}} and data", { service: title }) : t("Remove {{service}}", { service: title })}
+          </Button>
+        )}
       </div>
 
       <Dialog
@@ -427,6 +432,8 @@ export function ServicesTab({ project }: { project: Project }) {
   if (extras.isPending || storage.isPending) return <Spinner />;
   if (extras.isError) return <ErrorState message={errorText(extras.error, t)} />;
   const has = (k: string) => extras.data.some((s) => s.kind === k);
+  // Adding a service changes the project, which needs admin in it.
+  const canAdd = projectAccess(project).admin;
   return (
     <div className="space-y-6">
       <PublicHostNotice />
@@ -436,15 +443,19 @@ export function ServicesTab({ project }: { project: Project }) {
         {extras.data.map((s) => (
           <ServiceCard key={s.kind} project={project} info={s} onMessage={setMsg} />
         ))}
-        {!has("redis") && <AddServiceCard project={project} kind="redis" onMessage={setMsg} />}
-        {!has("memcached") && <AddServiceCard project={project} kind="memcached" onMessage={setMsg} />}
-        {!has("mailpit") && <AddServiceCard project={project} kind="mailpit" onMessage={setMsg} />}
-        {!has("rabbitmq") && <AddServiceCard project={project} kind="rabbitmq" onMessage={setMsg} />}
-        {!has("meilisearch") && <AddServiceCard project={project} kind="meilisearch" onMessage={setMsg} />}
-        {!has("typesense") && <AddServiceCard project={project} kind="typesense" onMessage={setMsg} />}
-        {!has("opensearch") && <AddServiceCard project={project} kind="opensearch" onMessage={setMsg} />}
-        {!has("ollama") && <AddServiceCard project={project} kind="ollama" onMessage={setMsg} />}
-        {!storage.data && <AddStorageCard project={project} onMessage={setMsg} />}
+        {canAdd && (
+          <>
+            {!has("redis") && <AddServiceCard project={project} kind="redis" onMessage={setMsg} />}
+            {!has("memcached") && <AddServiceCard project={project} kind="memcached" onMessage={setMsg} />}
+            {!has("mailpit") && <AddServiceCard project={project} kind="mailpit" onMessage={setMsg} />}
+            {!has("rabbitmq") && <AddServiceCard project={project} kind="rabbitmq" onMessage={setMsg} />}
+            {!has("meilisearch") && <AddServiceCard project={project} kind="meilisearch" onMessage={setMsg} />}
+            {!has("typesense") && <AddServiceCard project={project} kind="typesense" onMessage={setMsg} />}
+            {!has("opensearch") && <AddServiceCard project={project} kind="opensearch" onMessage={setMsg} />}
+            {!has("ollama") && <AddServiceCard project={project} kind="ollama" onMessage={setMsg} />}
+            {!storage.data && <AddStorageCard project={project} onMessage={setMsg} />}
+          </>
+        )}
       </div>
       <AddonsSection project={project} />
     </div>

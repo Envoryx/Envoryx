@@ -10,13 +10,14 @@ import { copyText } from "@/lib/clipboard";
 import { formatDateTime } from "@/lib/format";
 import { errorText, translateMessage } from "@/lib/errors";
 import { ManifestCard } from "./ManifestCard";
-import { isAdmin, useAuth } from "@/features/auth/AuthContext";
+import { useAuth } from "@/features/auth/AuthContext";
+import { projectAccess } from "@/lib/access";
 import { settingsHref } from "@/features/settings/links";
 import { Link } from "react-router-dom";
 
+/** The instance's deploy key; reading it needs an instance admin (GET /settings/deploy-key). */
 function DeployKeyCard() {
   const { t } = useTranslation();
-  const admin = isAdmin(useAuth().user);
   const key = useDeployKey();
   const [copied, setCopied] = useState(false);
   return (
@@ -29,11 +30,9 @@ function DeployKeyCard() {
         }
         description={t("Add this public key as a read-only deploy key to your repository (GitHub: Settings → Deploy keys) to clone via SSH.")}
         actions={
-          admin && (
-            <Link to={settingsHref("deploykey")} className="text-xs text-muted underline hover:text-fg">
-              {t("Regenerate in the settings")}
-            </Link>
-          )
+          <Link to={settingsHref("deploykey")} className="text-xs text-muted underline hover:text-fg">
+            {t("Regenerate in the settings")}
+          </Link>
         }
       />
       <div className="p-5">
@@ -63,6 +62,9 @@ function DeployKeyCard() {
 
 export function GitTab({ project }: { project: Project }) {
   const { t } = useTranslation();
+  // The deploy key is an instance setting; the repository and working copy need operate.
+  const instanceAdmin = useAuth().admin;
+  const { operate } = projectAccess(project);
   const qc = useQueryClient();
   const status = useGitStatus(project.id, true);
   const [url, setUrl] = useState(project.git.url);
@@ -140,7 +142,8 @@ export function GitTab({ project }: { project: Project }) {
             }
             description={t("Clone and pull run as the project owner inside a short-lived container from the project's runtime image.")}
           />
-          <form onSubmit={save} className="space-y-4 p-5">
+          <form onSubmit={save} className="p-5">
+            <fieldset disabled={!operate} className="min-w-0 space-y-4">
             <Field label={t("Repository URL")} htmlFor="git-url" hint="https://…, git@host:path.git or ssh://…">
               <Input id="git-url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://github.com/you/project.git" spellCheck={false} />
             </Field>
@@ -163,6 +166,7 @@ export function GitTab({ project }: { project: Project }) {
               </label>
             )}
             {isSSH && <p className="text-xs text-muted">{t("SSH URLs authenticate with the Envoryx deploy key shown on the right.")}</p>}
+            {operate && (
             <div className="flex flex-wrap gap-2">
               <Button type="submit" variant="primary" loading={busy === "save"} icon={<Save className="size-4" />}>
                 {t("Save")}
@@ -173,9 +177,11 @@ export function GitTab({ project }: { project: Project }) {
                 </Button>
               )}
             </div>
+            )}
+            </fieldset>
           </form>
         </Card>
-        <DeployKeyCard />
+        {instanceAdmin && <DeployKeyCard />}
       </div>
 
       <Card>
@@ -188,9 +194,11 @@ export function GitTab({ project }: { project: Project }) {
           actions={
             st?.isRepo ? (
               <>
-                <Button size="sm" onClick={() => void run("pull")} loading={busy === "pull"} disabled={busy !== null} icon={<RefreshCw className="size-3.5" />}>
-                  {t("Pull")}
-                </Button>
+                {operate && (
+                  <Button size="sm" onClick={() => void run("pull")} loading={busy === "pull"} disabled={busy !== null} icon={<RefreshCw className="size-3.5" />}>
+                    {t("Pull")}
+                  </Button>
+                )}
                 <Button size="sm" variant="ghost" onClick={() => status.refetch()} aria-label={t("Refresh status")}>
                   <RefreshCw className="size-3.5" />
                 </Button>
@@ -224,6 +232,7 @@ export function GitTab({ project }: { project: Project }) {
                 <dt className="text-muted">{t("Remote")}</dt>
                 <dd className="font-mono text-xs">{st.remote}</dd>
               </dl>
+              {operate && (
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
@@ -238,6 +247,7 @@ export function GitTab({ project }: { project: Project }) {
                   {t("Checkout")}
                 </Button>
               </form>
+              )}
             </div>
           )}
           {result && (

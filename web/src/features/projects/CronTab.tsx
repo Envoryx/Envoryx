@@ -7,6 +7,7 @@ import type { CronJob, CronJobRequest, CronRun, CronRuntime, Project } from "@/a
 import { Alert, Badge, Button, Card, CardHeader, Dialog, ErrorState, Field, Input, Select, Spinner, type Tone } from "@/components/ui";
 import { formatDateTime, formatRelative } from "@/lib/format";
 import { errorText } from "@/lib/errors";
+import { projectAccess } from "@/lib/access";
 import { defaultSchedule, describeSchedule, everyOptions, fromCron, toCron, weekdayNames, type ScheduleForm, type ScheduleKind } from "./cronSchedule";
 
 const runtimeLabels: Record<CronRuntime, string> = { php: "PHP", node: "Node.js", python: "Python", go: "Go", ruby: "Ruby", java: "Java", dotnet: ".NET" };
@@ -280,6 +281,8 @@ export function CronTab({ project }: { project: Project }) {
   const [editing, setEditing] = useState<string | null>(null);
   const [history, setHistory] = useState<string | null>(null);
   const [removing, setRemoving] = useState<CronJob | null>(null);
+  // Running a job and its run history need operate; adding, changing and removing jobs admin.
+  const can = projectAccess(project);
   const refresh = () => void qc.invalidateQueries({ queryKey: ["projects", project.id, "cron"] });
   const fail = (err: unknown, fallback: string) => setMsg({ tone: "red", text: errorText(err, t, fallback) });
   const run = useMutation({
@@ -357,6 +360,7 @@ export function CronTab({ project }: { project: Project }) {
                       </p>
                     )}
                   </div>
+                  {can.operate && (
                   <div className="flex flex-wrap items-center gap-1.5">
                     <Button size="sm" onClick={() => run.mutate(j)} loading={run.isPending && run.variables?.id === j.id} disabled={j.running || j.runtimeMissing} icon={<Play className="size-3.5" />}>
                       {t("Run now")}
@@ -364,28 +368,33 @@ export function CronTab({ project }: { project: Project }) {
                     <Button size="sm" variant="ghost" onClick={() => setHistory(history === j.id ? null : j.id)} icon={<History className="size-3.5" />} aria-expanded={history === j.id}>
                       {t("History")}
                     </Button>
-                    <Button size="sm" variant="ghost" onClick={() => setEditing(editing === j.id ? null : j.id)} icon={<Pencil className="size-3.5" />}>
-                      {t("Edit")}
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={() => toggle.mutate(j)} loading={toggle.isPending && toggle.variables?.id === j.id}>
-                      {j.enabled ? t("Disable") : t("Enable")}
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={() => setRemoving(j)} icon={<Trash2 className="size-3.5" />} aria-label={t("Remove {{name}}", { name: j.name })}>
-                      {t("Remove")}
-                    </Button>
+                    {can.admin && (
+                      <>
+                        <Button size="sm" variant="ghost" onClick={() => setEditing(editing === j.id ? null : j.id)} icon={<Pencil className="size-3.5" />}>
+                          {t("Edit")}
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => toggle.mutate(j)} loading={toggle.isPending && toggle.variables?.id === j.id}>
+                          {j.enabled ? t("Disable") : t("Enable")}
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => setRemoving(j)} icon={<Trash2 className="size-3.5" />} aria-label={t("Remove {{name}}", { name: j.name })}>
+                          {t("Remove")}
+                        </Button>
+                      </>
+                    )}
                   </div>
+                  )}
                 </div>
-                {editing === j.id && (
+                {can.admin && editing === j.id && (
                   <div className="rounded-md border border-default p-4">
                     <JobForm project={project} job={j} onDone={done} />
                   </div>
                 )}
-                {history === j.id && <RunHistory project={project} job={j} />}
+                {can.operate && history === j.id && <RunHistory project={project} job={j} />}
               </li>
             ))}
           </ul>
         )}
-        {hasRuntime && (
+        {can.admin && hasRuntime && (
           <div className="space-y-4 border-t border-default p-5">
             <p className="text-sm font-medium text-fg">{t("Add cron job")}</p>
             <JobForm key={q.data.jobs.length} project={project} onDone={done} />

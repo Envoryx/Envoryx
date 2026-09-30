@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Boxes, Container, LayoutDashboard, Languages, LogOut, Moon, Settings, Sun, Monitor, Menu, X } from "lucide-react";
 import { useState } from "react";
 import { Link, NavLink, Outlet } from "react-router-dom";
-import { isAdmin, useAuth } from "@/features/auth/AuthContext";
+import { useAuth } from "@/features/auth/AuthContext";
 import { Logo } from "./Logo";
 import { useTheme, type Theme } from "./theme";
 import { useDashboard } from "@/api/hooks";
@@ -49,7 +49,7 @@ export function AppShell() {
         </button>
       </div>
       <ul className="flex-1 space-y-0.5 px-2 py-2">
-        {nav.filter((item) => !("admin" in item) || isAdmin(auth.user)).map((item) => (
+        {nav.filter((item) => !("admin" in item) || auth.admin).map((item) => (
           <li key={item.to}>
             <NavLink
               to={item.to}

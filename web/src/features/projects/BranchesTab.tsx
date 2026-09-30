@@ -9,6 +9,8 @@ import type { BranchSettings, BranchState, Project, RemoteBranch } from "@/api/t
 import { Alert, Badge, Button, Card, CardHeader, Checkbox, Code, ErrorState, Field, Input, Select, Spinner, StatusDot, type Tone } from "@/components/ui";
 import { containerStateTone, formatDateTime, formatRelative } from "@/lib/format";
 import { errorText } from "@/lib/errors";
+import { projectAccess } from "@/lib/access";
+import { useAuth } from "@/features/auth/AuthContext";
 
 const textareaClass = "w-full rounded-md border border-default bg-elevated p-2 font-mono text-xs text-fg focus:border-accent-500 focus:outline-none";
 
@@ -55,6 +57,8 @@ function EnvironmentsCard({ project: p, environments, lastPoll, watching }: { pr
   const [branch, setBranch] = useState("");
   const [msg, setMsg] = useState<{ tone: Tone; text: string } | null>(null);
   const [open, setOpen] = useState<string | null>(null);
+  // An environment is a new project: creating one needs an admin of the whole instance.
+  const instanceAdmin = useAuth().admin;
   const refresh = () => {
     void qc.invalidateQueries({ queryKey: ["projects", p.id, "branches"] });
     void qc.invalidateQueries({ queryKey: keys.projects });
@@ -134,9 +138,11 @@ function EnvironmentsCard({ project: p, environments, lastPoll, watching }: { pr
                           {open === e.id ? t("Hide output") : t("Output")}
                         </Button>
                       )}
-                      <Button size="sm" icon={<RefreshCw className="size-3.5" />} loading={deploy.isPending && deploy.variables === e.id} disabled={e.status.state !== "running" || st?.deployStatus === "running"} onClick={() => deploy.mutate(e.id)}>
-                        {t("Deploy")}
-                      </Button>
+                      {projectAccess(e).operate && (
+                        <Button size="sm" icon={<RefreshCw className="size-3.5" />} loading={deploy.isPending && deploy.variables === e.id} disabled={e.status.state !== "running" || st?.deployStatus === "running"} onClick={() => deploy.mutate(e.id)}>
+                          {t("Deploy")}
+                        </Button>
+                      )}
                     </span>
                   </div>
                   {open === e.id && st?.deployOutput && <pre className="max-h-72 overflow-auto rounded-md bg-muted p-2 font-mono text-[11px]">{st.deployOutput}</pre>}
@@ -145,6 +151,7 @@ function EnvironmentsCard({ project: p, environments, lastPoll, watching }: { pr
             })}
           </ul>
         )}
+        {instanceAdmin && (
         <div className="space-y-3 rounded-md border border-default p-3">
           <p className="text-sm font-medium text-fg">{t("New branch environment")}</p>
           {branches === null ? (
@@ -171,6 +178,7 @@ function EnvironmentsCard({ project: p, environments, lastPoll, watching }: { pr
           )}
           <p className="text-xs text-subtle">{t("Copying takes as long as the project is big. The environment starts right away and is deployed once.")}</p>
         </div>
+        )}
       </div>
     </Card>
   );
@@ -218,18 +226,21 @@ function SettingsCard({ project: p, settings }: { project: Project; settings: Br
     onError: (err) => setMsg({ tone: "red", text: errorText(err, t, t("Saving failed")) }),
   });
   const dirty = JSON.stringify(form) !== stored;
+  const editable = projectAccess(p).admin;
   return (
     <Card>
       <CardHeader
         title={t("Branch settings")}
         description={t("How environments are deployed and, with watching on, kept in step with the repository.")}
         actions={
-          <Button variant="primary" icon={<Save className="size-4" />} loading={save.isPending} disabled={!dirty} onClick={() => save.mutate()}>
-            {t("Save")}
-          </Button>
+          editable && (
+            <Button variant="primary" icon={<Save className="size-4" />} loading={save.isPending} disabled={!dirty} onClick={() => save.mutate()}>
+              {t("Save")}
+            </Button>
+          )
         }
       />
-      <div className="space-y-4 p-5">
+      <fieldset disabled={!editable} className="min-w-0 space-y-4 p-5">
         {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
         <Field label={t("Deploy commands")} htmlFor="branch-deploy" hint={t("One per line, run in the application container as the project owner after the environment was created or pulled; the first failing one stops the deploy. E.g. composer install, php artisan migrate --force, npm ci && npm run build.")}>
           <textarea id="branch-deploy" rows={4} className={textareaClass} value={form.deploy} onChange={(e) => set({ deploy: e.target.value })} placeholder={"composer install\nphp artisan migrate --force"} />
@@ -260,7 +271,7 @@ function SettingsCard({ project: p, settings }: { project: Project; settings: Br
             <Input id="branch-idle" type="number" min={1} max={365} value={form.idleStopDays} onChange={(e) => set({ idleStopDays: e.target.value })} />
           </Field>
         </div>
-      </div>
+      </fieldset>
     </Card>
   );
 }
@@ -289,6 +300,7 @@ function EnvironmentCard({ project: p }: { project: Project }) {
         }
         description={t("A copy of its parent project on one branch. It is deleted with its files and data when the branch is deleted while the parent watches the repository.")}
         actions={
+          projectAccess(p).operate && (
           <div className="flex gap-2">
             <Button size="sm" icon={<Play className="size-3.5" />} disabled={!running || deploy.isPending} onClick={() => deploy.mutate(false)}>
               {t("Run deploy commands")}
@@ -297,6 +309,7 @@ function EnvironmentCard({ project: p }: { project: Project }) {
               {t("Pull and deploy")}
             </Button>
           </div>
+          )
         }
       />
       <div className="space-y-4 p-5 text-sm">

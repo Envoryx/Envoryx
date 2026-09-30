@@ -8,6 +8,7 @@ import type { ContainerUsage, LimitSet, Project, ResourceLimits } from "@/api/ty
 import { Alert, Button, Card, CardHeader, Field, Input, Select, Spinner } from "@/components/ui";
 import { formatBytes } from "@/lib/format";
 import { errorText } from "@/lib/errors";
+import { projectAccess } from "@/lib/access";
 
 const DEFAULT_PIDS = 4096;
 
@@ -87,6 +88,7 @@ export function LimitsCard({ project }: { project: Project }) {
   const qc = useQueryClient();
   const stats = useProjectStats(project.id, true);
   const current = project.limits;
+  const editable = projectAccess(project).admin;
   const [app, setApp] = useState<GroupForm>(toForm(current?.app));
   const [services, setServices] = useState<GroupForm>(toForm(current?.services));
   const [pids, setPids] = useState(current?.pids ? String(current.pids) : "");
@@ -128,12 +130,14 @@ export function LimitsCard({ project }: { project: Project }) {
         }
         description={t("Caps what each container of this project may use, so a runaway worker or Node process cannot take the whole server. Docker limits containers one by one: the numbers apply to each container of the group, not to the project in total.")}
         actions={
-          <Button size="sm" variant="primary" loading={save.isPending} disabled={!dirty} onClick={() => { setMsg(null); save.mutate(); }} icon={<Save className="size-3.5" />}>
-            {t("Save")}
-          </Button>
+          editable && (
+            <Button size="sm" variant="primary" loading={save.isPending} disabled={!dirty} onClick={() => { setMsg(null); save.mutate(); }} icon={<Save className="size-3.5" />}>
+              {t("Save")}
+            </Button>
+          )
         }
       />
-      <div className="space-y-4 p-5">
+      <fieldset disabled={!editable} className="min-w-0 space-y-4 p-5">
         {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
         {host && <p className="text-xs text-muted">{t("This host has {{cpus}} cores and {{memory}} of memory.", { cpus: host.cpus, memory: formatBytes(host.memory) })}</p>}
         <div className="grid gap-4 lg:grid-cols-2">
@@ -178,7 +182,7 @@ export function LimitsCard({ project }: { project: Project }) {
             </ul>
           )}
         </div>
-      </div>
+      </fieldset>
     </Card>
   );
 }
