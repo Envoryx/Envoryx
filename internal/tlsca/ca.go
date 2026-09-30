@@ -258,6 +258,45 @@ func (s *Store) leafPath(host string) string {
 	return filepath.Join(s.dir, certsDir, safe+".pem")
 }
 
+// Prune deletes the cached leaf certificates of host names keep no longer wants (a
+// deleted project's, a removed domain's). Only files this store wrote are touched: a
+// certificate this CA issued for one DNS name, stored under that name. Certificates for
+// IP addresses stay; they are not tied to a project. It returns the removed host names.
+func (s *Store) Prune(keep func(host string) bool) ([]string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	dir := filepath.Join(s.dir, certsDir)
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+	var removed []string
+	for _, e := range entries {
+		if !e.Type().IsRegular() || !strings.HasSuffix(e.Name(), ".pem") {
+			continue
+		}
+		path := filepath.Join(dir, e.Name())
+		data, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+		leaf, err := parseCert(data)
+		if err != nil || len(leaf.DNSNames) != 1 || len(leaf.IPAddresses) != 0 || leaf.CheckSignatureFrom(s.caCert) != nil {
+			continue
+		}
+		host := leaf.DNSNames[0]
+		if s.leafPath(host) != path || keep(host) {
+			continue
+		}
+		if err := os.Remove(path); err != nil {
+			return removed, err
+		}
+		delete(s.leafs, host)
+		removed = append(removed, host)
+	}
+	return removed, nil
+}
+
 func (s *Store) loadLeaf(host string) (*tls.Certificate, error) {
 	data, err := os.ReadFile(s.leafPath(host))
 	if err != nil {

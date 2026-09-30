@@ -54,6 +54,10 @@ release). `:main` follows the development branch.
 - The API refuses `"exposePort": false` for Mailpit and Meilisearch with
   a 422 instead of ignoring it: their port carries the inbox and the
   dashboard and is always published.
+- The documentation of the database browser no longer claims that the
+  database password never reaches the browser: the automatic login puts
+  it into a hidden field of the Adminer login page. The page is only
+  served to an Envoryx session with operate access.
 
 ### Security
 - An admin API token could show and replace the secret key that decrypts
@@ -160,6 +164,11 @@ release). `:main` follows the development branch.
   (e.g. `{"memcached": {"exposePort": false}}`) removed the service; a
   missing `enabled` or `exposePort` now keeps what the service has. A
   version change in the Services section no longer sends the port along.
+- The certificates the local CA issued for a project's host names stayed
+  in `/config/ca/certs` after the project was deleted and went into every
+  instance backup. Deleting a project now removes the certificates of
+  host names nothing routes to any more, and the first start after the
+  update clears those left behind by earlier deletions.
 
 ## [0.17.0] - 2026-09-30
 

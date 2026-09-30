@@ -13,6 +13,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/envoryx/envoryx/internal/addon"
@@ -90,6 +91,9 @@ type Manager struct {
 	// backupHook is told about every backup created (offsite uploads).
 	backupHook func(projectID string, b BackupInfo)
 	unhealthy  map[string]bool // project ids reported as unhealthy (for recovery events)
+	// deletedHook runs after a project is deleted (certificate cleanup). Atomic because
+	// it is installed once the proxy exists, when branch environments may already go.
+	deletedHook atomic.Pointer[func(ctx context.Context, projectID string)]
 
 	cronOnce sync.Once
 	cronRuns *cronState // cron runs in progress (see cronjobs.go)
@@ -133,6 +137,11 @@ func (m *Manager) SetProvisioner(p s3.Provisioner) { m.provisioner = p }
 // SetObjectStoreFactory replaces the object store backups talk to (tests).
 func (m *Manager) SetObjectStoreFactory(f func(endpoint, accessKey, secretKey string) s3.ObjectStore) {
 	m.objectStore = f
+}
+
+// SetDeletedHook registers a function run after every project deletion.
+func (m *Manager) SetDeletedHook(f func(ctx context.Context, projectID string)) {
+	m.deletedHook.Store(&f)
 }
 
 // SetNotifier installs the notification sink; nil switches notifications off.

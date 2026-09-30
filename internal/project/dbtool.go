@@ -22,9 +22,11 @@ import (
 
 // The database browser is one Adminer container shared by every project. It is started on
 // the first use, joins the network of each project database it opens, and is reached
-// through Envoryx's own UI at /dbtool/ so the Envoryx session protects it. Credentials
-// never travel through the browser: Envoryx writes them to a file only the container can
-// read, and a small Adminer plugin logs in with them.
+// through Envoryx's own UI at /dbtool/, so only an Envoryx session with operate access
+// gets to it. Envoryx writes the credentials to a file only the container can read, and a
+// small Adminer plugin logs in with them. The password does reach the browser: the
+// plugin puts it into the hidden login form it submits right away, so whoever may open
+// the page can read it from there.
 const (
 	// SettingDBToolEnabled is the settings key of the opt-in.
 	SettingDBToolEnabled = "dbtool_enabled"
@@ -41,8 +43,8 @@ const (
 )
 
 // dbToolPlugin is the Adminer plugin mounted into the container. When the page is opened
-// with the server/user chosen in Envoryx, it submits the login form with the password from
-// the connections file instead of asking for it.
+// with the server/user chosen in Envoryx, it renders the login form with the password from
+// the connections file in a hidden field and submits it instead of asking.
 const dbToolPlugin = `<?php
 // Envoryx: log in to the project database selected in Envoryx without asking for the
 // password. Credentials are read from a file Envoryx maintains; anything not listed there

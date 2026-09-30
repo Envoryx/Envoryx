@@ -304,7 +304,10 @@ func (s *Server) allowHost(host string) bool {
 	if net.ParseIP(host) != nil {
 		return true
 	}
-	t := s.router.Table(context.Background())
+	return s.allowedIn(s.router.Table(context.Background()), host)
+}
+
+func (s *Server) allowedIn(t Table, host string) bool {
 	if t.UIHosts[host] || (t.ProbeHost != "" && host == t.ProbeHost) {
 		return true
 	}
@@ -312,6 +315,21 @@ func (s *Server) allowHost(host string) bool {
 		return true
 	}
 	return s.extraAllow != nil && s.extraAllow(host)
+}
+
+// PruneCertificates deletes the cached certificates of host names the proxy no longer
+// issues for, such as those of deleted projects, so they neither pile up in /config/ca
+// nor travel along in every instance backup. It reads a fresh routing table and does
+// nothing when that fails: a table missing its projects would wipe their certificates.
+func (s *Server) PruneCertificates(ctx context.Context) ([]string, error) {
+	if s.certs == nil {
+		return nil, nil
+	}
+	t, err := s.router.source(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return s.certs.Prune(func(host string) bool { return s.allowedIn(t, host) })
 }
 
 // Run serves until ctx is cancelled. Listener failures (e.g. port in use) are logged and
