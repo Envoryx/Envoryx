@@ -32,6 +32,44 @@ func TestMongoDialectKeepsPasswordOutOfClientArgv(t *testing.T) {
 	}
 }
 
+// Doctrine DBAL reads the version as serverVersion: MariaDB needs its prefix and three
+// numbers, a rolling tag counts as its first release.
+func TestDatabaseServerVersion(t *testing.T) {
+	cases := []struct{ variant, version, want string }{
+		{"postgresql", "18", "18"},
+		{"postgresql", "16.4", "16.4"},
+		{"mysql", "8.4", "8.4.0"},
+		{"mysql", "9", "9.0.0"},
+		{"mysql", "8.0.39", "8.0.39"},
+		{"mariadb", "11", "mariadb-11.0.0"},
+		{"mariadb", "10.11", "mariadb-10.11.0"},
+		{"mariadb", "11.4.2-noble", "mariadb-11.4.2"},
+		{"mariadb", "latest", ""},
+		{"postgresql", "", ""},
+		{"mongodb", "8", ""},
+	}
+	for _, c := range cases {
+		if got := DatabaseServerVersion(c.variant, c.version); got != c.want {
+			t.Errorf("%s %q: %q, want %q", c.variant, c.version, got, c.want)
+		}
+	}
+	cfg := DatabaseConfig{Database: "shop", Username: "shop", Password: "pw"}
+	if env := DatabaseEnvFor(cfg, "mariadb", "11.4", PrimaryDatabaseHost, ""); env["DB_SERVER_VERSION"] != "mariadb-11.4.0" {
+		t.Fatalf("primary: %v", env)
+	}
+	if env := DatabaseEnvFor(cfg, "postgresql", "17", "reports", "REPORTS"); env["REPORTS_DB_SERVER_VERSION"] != "17" {
+		t.Fatalf("additional: %v", env)
+	}
+	if _, ok := DatabaseEnvFor(cfg, "mongodb", "8", PrimaryDatabaseHost, "")["DB_SERVER_VERSION"]; ok {
+		t.Fatal("MongoDB has no Doctrine server version")
+	}
+	// An external server's version is unknown: the catalogue version was never chosen.
+	cfg.Host, cfg.Port = "db.example.com", 3306
+	if _, ok := DatabaseEnvFor(cfg, "mysql", "8.4", PrimaryDatabaseHost, "")["DB_SERVER_VERSION"]; ok {
+		t.Fatal("external database must not get DB_SERVER_VERSION")
+	}
+}
+
 func TestXdebugINI(t *testing.T) {
 	cfg := DefaultPHPConfig()
 	cfg.Xdebug = true

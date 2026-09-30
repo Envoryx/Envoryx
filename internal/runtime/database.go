@@ -401,7 +401,7 @@ func DialectFor(variant string) (Dialect, bool) {
 // for the primary database (Laravel naming plus a DSN for Symfony/Doctrine). Keys defined
 // by the user win.
 func DatabaseEnv(cfg DatabaseConfig, variant string) map[string]string {
-	return DatabaseEnvFor(cfg, variant, PrimaryDatabaseHost, "")
+	return DatabaseEnvFor(cfg, variant, "", PrimaryDatabaseHost, "")
 }
 
 // PrimaryDatabaseHost is the host name of a project's primary database.
@@ -409,8 +409,9 @@ const PrimaryDatabaseHost = "database"
 
 // DatabaseEnvFor returns the variables of a database reached as host. An additional
 // database carries a prefix on every key (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL,
-// ANALYTICS_MONGODB_URI), so the primary's DB_* stay what frameworks read.
-func DatabaseEnvFor(cfg DatabaseConfig, variant, host, prefix string) map[string]string {
+// ANALYTICS_MONGODB_URI), so the primary's DB_* stay what frameworks read. version is
+// the catalogue version the server runs (see DatabaseServerVersion).
+func DatabaseEnvFor(cfg DatabaseConfig, variant, version, host, prefix string) map[string]string {
 	driver, port := "mysql", 3306
 	d, ok := dialects[variant]
 	if ok {
@@ -434,6 +435,10 @@ func DatabaseEnvFor(cfg DatabaseConfig, variant, host, prefix string) map[string
 	if ok && d.URL != nil {
 		env["DATABASE_URL"] = d.URL(cfg, host)
 	}
+	// Only a server Envoryx runs has a version it knows; an external one is the user's.
+	if sv := DatabaseServerVersion(variant, version); sv != "" && !cfg.External() {
+		env["DB_SERVER_VERSION"] = sv
+	}
 	if ok && d.ExtraEnv != nil {
 		for k, v := range d.ExtraEnv(cfg, host) {
 			env[k] = v
@@ -447,6 +452,38 @@ func DatabaseEnvFor(cfg DatabaseConfig, variant, host, prefix string) map[string
 		out[prefix+"_"+k] = v
 	}
 	return out
+}
+
+var leadingVersion = regexp.MustCompile(`^\d+(\.\d+)*`)
+
+// DatabaseServerVersion is the server version of an SQL database in the form Doctrine
+// DBAL's serverVersion takes: "18" for PostgreSQL, "8.4.0" for MySQL and
+// "mariadb-11.4.0" for MariaDB (the prefix is how DBAL tells MariaDB apart, and it
+// wants all three numbers). A rolling tag counts as its first release ("11" becomes
+// 11.0.0), so DBAL picks a platform the server surely supports. Symfony's
+// DoctrineBundle does not start without a version, and the DATABASE_URL Envoryx
+// injects carries no query: Django's dj-database-url turns unknown parameters into
+// driver options. Empty for other engines and for versions that start with no number.
+func DatabaseServerVersion(variant, version string) string {
+	v := leadingVersion.FindString(version)
+	if v == "" {
+		return ""
+	}
+	switch variant {
+	case "postgresql":
+		return v
+	case "mysql", "mariadb":
+		parts := strings.Split(v, ".")
+		for len(parts) < 3 {
+			parts = append(parts, "0")
+		}
+		v = strings.Join(parts[:3], ".")
+		if variant == "mariadb" {
+			return "mariadb-" + v
+		}
+		return v
+	}
+	return ""
 }
 
 // ServiceConfig is the configuration of auxiliary services (Redis, Memcached, Mailpit,

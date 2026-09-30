@@ -295,10 +295,11 @@ var templates = []Template{
 	{
 		ID: "symfony", Name: "Symfony", Description: "symfony/skeleton plus the webapp pack (Twig, Doctrine, forms, security…).",
 		Runtime: "php", Docroot: "public", RecommendedDatabase: "postgresql",
-		Notes: "DATABASE_URL is injected by Envoryx. Create the schema with “doctrine:migrations:migrate” (Symfony console action).",
+		Notes: "Envoryx injects DATABASE_URL and DB_SERVER_VERSION, which config/packages/doctrine.yaml reads (for an external database set DB_SERVER_VERSION in the project environment, e.g. 8.4.0 or mariadb-11.4.0). Create the schema with “doctrine:migrations:migrate” (Symfony console action).",
 		steps: []templateStep{
 			{label: "composer create-project", cmd: []string{"composer", "create-project", "symfony/skeleton", ".", composerNoInteraction, "--prefer-dist"}},
 			{label: "composer require webapp", cmd: []string{"composer", "require", "webapp", composerNoInteraction}},
+			{label: "set the database server version", cmdFor: symfonyServerVersion},
 		},
 	},
 	{
@@ -883,6 +884,40 @@ $lines = "\n# Added by Envoryx: the project database and address (injected by En
 if (file_put_contents('.env', $lines, FILE_APPEND) === false) { fwrite(STDERR, "writing .env failed\n"); exit(1); }
 echo ".env prepared\n";
 `
+
+// symfonyDoctrine points Doctrine's server_version at DB_SERVER_VERSION: DoctrineBundle
+// refuses to start without a version, and the injected DATABASE_URL replaces the one in
+// .env that carried it (?serverVersion=16). .env gets the version as a fallback for a
+// run without Envoryx's variables ($argv[1]).
+const symfonyDoctrine = `
+$yaml = 'config/packages/doctrine.yaml';
+$s = @file_get_contents($yaml);
+if ($s === false) { fwrite(STDERR, "$yaml is missing\n"); exit(1); }
+if (!str_contains($s, 'DB_SERVER_VERSION')) {
+  $set = "server_version: '%env(DB_SERVER_VERSION)%'";
+  $s = preg_replace('/^([ \t]*)#[ \t]*server_version:.*$/m', '${1}' . $set, $s, 1, $n);
+  if ($n === 0) { $s = preg_replace('/^([ \t]*)url: .*DATABASE_URL.*$/m', '$0' . "\n" . '${1}' . $set, $s, 1, $n); }
+  if ($n === 0 || file_put_contents($yaml, $s) === false) { fwrite(STDERR, "setting server_version in $yaml failed\n"); exit(1); }
+}
+$env = "\n# Added by Envoryx: the database server version config/packages/doctrine.yaml reads.\n"
+  . "# Envoryx injects DB_SERVER_VERSION for the databases it runs.\n"
+  . "DB_SERVER_VERSION=" . $argv[1] . "\n";
+if (file_put_contents('.env', $env, FILE_APPEND) === false) { fwrite(STDERR, "writing .env failed\n"); exit(1); }
+echo "server_version set\n";
+`
+
+// symfonyServerVersion runs symfonyDoctrine with the version of the project's database as
+// the .env fallback; without a server Envoryx runs it is the version the recipe's .env
+// names.
+func symfonyServerVersion(p store.Project) []string {
+	version := "16"
+	if db, cfg, err := databaseOf(p, ""); err == nil && !cfg.External() {
+		if v := runtime.DatabaseServerVersion(db.Variant, db.Version); v != "" {
+			version = v
+		}
+	}
+	return []string{"php", "-r", symfonyDoctrine, "--", version}
+}
 
 // wordpressConfig renders wp-config.php reading the injected DB_* variables at runtime.
 func wordpressConfig() (string, error) {

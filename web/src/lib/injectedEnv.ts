@@ -5,7 +5,7 @@
  * setup (DB_HOST=127.0.0.1) must not do by accident.
  */
 
-const databaseKeys = ["DB_CONNECTION", "DB_HOST", "DB_PORT", "DB_DATABASE", "DB_USERNAME", "DB_PASSWORD", "DATABASE_URL", "MONGODB_URI", "MONGODB_DATABASE"];
+const databaseKeys = ["DB_CONNECTION", "DB_HOST", "DB_PORT", "DB_DATABASE", "DB_USERNAME", "DB_PASSWORD", "DATABASE_URL", "DB_SERVER_VERSION", "MONGODB_URI", "MONGODB_DATABASE"];
 
 const serviceKeys: Record<string, string[]> = {
   redis: ["REDIS_HOST", "REDIS_PORT", "REDIS_URL"],

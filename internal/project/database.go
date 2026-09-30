@@ -60,7 +60,7 @@ func databaseEnvPrefix(name string) string {
 
 // databaseEnv returns the variables injected for a database.
 func databaseEnv(svc *store.ProjectService, cfg runtime.DatabaseConfig) map[string]string {
-	return runtime.DatabaseEnvFor(cfg, svc.Variant, databaseHost(svc), databaseEnvPrefix(svc.Kind.DatabaseName()))
+	return runtime.DatabaseEnvFor(cfg, svc.Variant, svc.Version, databaseHost(svc), databaseEnvPrefix(svc.Kind.DatabaseName()))
 }
 
 func dialectOf(svc *store.ProjectService) (runtime.Dialect, error) {

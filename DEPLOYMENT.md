@@ -1661,7 +1661,7 @@ An additional database named `analytics`:
 | Container | `envoryx-<project>-db-analytics` |
 | Volume | `envoryx-<project>-db-analytics` |
 | Host in the project network | `analytics` |
-| Variables | `ANALYTICS_DB_CONNECTION`, `ANALYTICS_DB_HOST`, `ANALYTICS_DB_PORT`, `ANALYTICS_DB_DATABASE`, `ANALYTICS_DB_USERNAME`, `ANALYTICS_DB_PASSWORD`, `ANALYTICS_DATABASE_URL` (plus `ANALYTICS_MONGODB_URI` for MongoDB) |
+| Variables | `ANALYTICS_DB_CONNECTION`, `ANALYTICS_DB_HOST`, `ANALYTICS_DB_PORT`, `ANALYTICS_DB_DATABASE`, `ANALYTICS_DB_USERNAME`, `ANALYTICS_DB_PASSWORD`, `ANALYTICS_DATABASE_URL`, `ANALYTICS_DB_SERVER_VERSION` (MariaDB, MySQL and PostgreSQL) or `ANALYTICS_MONGODB_URI` (MongoDB) |
 
 Names are 1-24 lowercase letters, digits and dashes starting with a letter
 (dashes become underscores in the variables: `legacy-db` → `LEGACY_DB_DB_HOST`);
