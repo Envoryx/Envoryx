@@ -134,9 +134,9 @@ var instanceRoutesForConfinedUsers = map[string]bool{
 	"GET /api/v1/metrics/overview": true,
 }
 
-// routesForAnyProject serve every project alike and hand out nothing by themselves: the
-// database browser, which only opens a database with credentials from a project's own
-// routes. Holding the level in any project is enough.
+// routesForAnyProject serve every project alike: the database browser's status and the
+// browser itself. Holding the level in any project opens the door; the browser proxy then
+// checks each request's database against the principal's own projects (dbToolProxy).
 var routesForAnyProject = map[string]bool{
 	"GET /api/v1/dbtool":           true,
 	project.DBToolPathPrefix + "/": true,
