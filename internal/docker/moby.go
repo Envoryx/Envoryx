@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"net"
 	"net/netip"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -168,7 +169,10 @@ func summaryToContainer(c container.Summary) Container {
 	}
 	ports := make([]PortMapping, 0, len(c.Ports))
 	for _, p := range c.Ports {
-		if p.PublicPort == 0 {
+		if p.PublicPort == 0 || slices.ContainsFunc(ports, func(m PortMapping) bool {
+			// A binding on all interfaces shows up once for 0.0.0.0 and once for ::.
+			return m.HostPort == int(p.PublicPort) && m.ContainerPort == int(p.PrivatePort) && m.Protocol == p.Type
+		}) {
 			continue
 		}
 		ip := ""
