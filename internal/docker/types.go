@@ -407,6 +407,11 @@ type Engine interface {
 	VolumeSizes(ctx context.Context) ([]VolumeSize, error)
 	// ContainerStats returns one usage sample of a managed container.
 	ContainerStats(ctx context.Context, id string) (Stats, error)
+	// ListedContainerStats is ContainerStats for a container ListContainers just returned.
+	// It checks the managed label on the listed labels instead of inspecting the container
+	// again, which saves a Docker round trip per sample when every running container is
+	// sampled.
+	ListedContainerStats(ctx context.Context, c Container) (Stats, error)
 	// Exec runs a command (argv form, never a shell string) inside a managed container and
 	// waits for it to finish. env entries are KEY=VALUE.
 	Exec(ctx context.Context, id string, cmd []string, env []string) (ExecResult, error)
