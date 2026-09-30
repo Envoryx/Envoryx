@@ -86,7 +86,7 @@ export function GoServerFields({ value, onChange, idPrefix = "go", primary = fal
           label={t("Debug with Delve")}
           description={
             value.server
-              ? t("The server runs under a headless Delve that GoLand or VS Code attach to; breakpoints work after every rebuild. The IDE section has the connection.")
+              ? t("The server runs under a headless Delve that GoLand or VS Code attach to. A rebuild restarts Delve and ends the debug session; attach again and your breakpoints still apply. The IDE section has the connection.")
               : t("Publishes the Delve port for a dlv started in the Go terminal, e.g. dlv test --headless --listen=:2345 ./pkg/... The IDE section has the connection.")
           }
           checked={value.debug}
