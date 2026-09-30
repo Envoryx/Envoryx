@@ -200,6 +200,13 @@ func TestUsersRolesAndInvitations(t *testing.T) {
 	if r.status != http.StatusOK || r.body["orphans"] != float64(0) || strings.Contains(string(r.raw), shop) {
 		t.Fatalf("confined dashboard: %d %s", r.status, r.raw)
 	}
+	// Its usage totals are those of its own projects, not the instance's.
+	st, _ := r.body["stats"].(map[string]any)
+	per, _ := st["perProject"].(map[string]any)
+	blogUsage, _ := per[blog].(map[string]any)
+	if st == nil || len(per) != 1 || blogUsage == nil || st["containers"] != blogUsage["containers"] || st["running"] != blogUsage["running"] {
+		t.Fatalf("confined dashboard totals: %s", r.raw)
+	}
 
 	// Disabling signs Dana out and stops the token.
 	a.cookie = admin
