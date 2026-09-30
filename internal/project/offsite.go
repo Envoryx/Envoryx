@@ -33,9 +33,13 @@ var extraDumpRe = regexp.MustCompile(`^database-([a-z][a-z0-9-]*)\.sql\.gz$`)
 // (database.volume.tar.gz, database-<name>.volume.tar.gz).
 var dbVolumeCopyRe = regexp.MustCompile(`^database(?:-([a-z][a-z0-9-]*))?\.volume\.tar\.gz$`)
 
+// addonVolumeRe matches the archives of addon volumes (addon-<name>-<volume>.tar.gz, see
+// addonBackupFile); addon and volume names are lower case letters, digits and dashes.
+var addonVolumeRe = regexp.MustCompile(`^addon-[a-z][a-z0-9-]*[a-z0-9]\.tar\.gz$`)
+
 // isBackupMember reports a file name that belongs in a backup directory.
 func isBackupMember(name string) bool {
-	if slices.Contains(backupArchiveMembers, name) {
+	if slices.Contains(backupArchiveMembers, name) || addonVolumeRe.MatchString(name) {
 		return true
 	}
 	if m := dbVolumeCopyRe.FindStringSubmatch(name); m != nil {
