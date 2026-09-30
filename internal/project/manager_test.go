@@ -531,6 +531,38 @@ func TestDeleteRefusesWhileForeignContainerUsesNetwork(t *testing.T) {
 	}
 }
 
+// The PHP 8.6 preview image lacks some PECL extensions and Xdebug: a project can neither
+// be created on it with them nor switched to it while they are on, and nothing changes
+// when that is refused.
+func TestPHPVersionRefusesExtensionsItsImageLacks(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	req := phpRequest("Preview", true)
+	req.PHP.Version = "8.6"
+	req.PHP.Config.Extensions = append(slices.Clone(req.PHP.Config.Extensions), "redis")
+	if _, err := e.m.Create(ctx, req); !errors.Is(err, validate.ErrInvalid) || !strings.Contains(err.Error(), "PHP 8.6 does not ship redis yet") {
+		t.Fatalf("create on 8.6 with redis: %v", err)
+	}
+
+	view, err := e.m.Create(ctx, phpRequest("Stable", true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := view.Project.ID
+	cfg := runtime.DefaultPHPConfig()
+	cfg.Xdebug = true
+	if _, err := e.m.Update(ctx, id, UpdateRequest{PHP: &PHPUpdate{Enabled: true, Version: "8.6", Config: cfg}}); !errors.Is(err, validate.ErrInvalid) || !strings.Contains(err.Error(), "PHP 8.6 does not ship Xdebug yet") {
+		t.Fatalf("switch to 8.6 with Xdebug: %v", err)
+	}
+	if got, _ := e.m.Get(ctx, id); got.Project.Service(store.ServicePHP).Version != "8.4" {
+		t.Fatalf("the version must stay: %s", got.Project.Service(store.ServicePHP).Version)
+	}
+	cfg.Xdebug = false
+	if _, err := e.m.Update(ctx, id, UpdateRequest{PHP: &PHPUpdate{Enabled: true, Version: "8.6", Config: cfg}}); err != nil {
+		t.Fatalf("8.6 without what it lacks: %v", err)
+	}
+}
+
 func TestUpdateChangesVersionAndRecreates(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()

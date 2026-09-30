@@ -553,7 +553,7 @@ export function NewProjectPage() {
               {versionOptions(php.versions, t)}
             </Select>
           </Field>
-          <PhpConfigForm value={form.phpConfig} onChange={(c) => set({ phpConfig: c })} extensions={rt.phpExtensions} />
+          <PhpConfigForm value={form.phpConfig} onChange={(c) => set({ phpConfig: c })} extensions={rt.phpExtensions} version={php?.versions.find((v) => v.version === form.phpVersion)} />
           <p className="text-xs text-subtle">{t("Composer ships with the PHP image.")}</p>
         </>
       )}

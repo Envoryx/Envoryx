@@ -6,7 +6,8 @@
 # extension in the UI never requires a rebuild.
 #
 # Build: docker build --build-arg PHP_VERSION=8.4 -t ghcr.io/envoryx/envoryx-php:8.4 images/php
-# Pre-release versions use a different upstream tag, e.g. --build-arg BASE_TAG=8.6-rc.
+# Pre-release versions use a different upstream tag and may lack extensions, e.g.
+# --build-arg BASE_TAG=8.6-rc --build-arg MISSING_EXTENSIONS="mongodb imagick ..." (see below).
 ARG PHP_VERSION=8.4
 ARG BASE_TAG=${PHP_VERSION}
 FROM php:${BASE_TAG}-fpm
@@ -23,18 +24,29 @@ ENV ENVORYX_PHP_EXTENSIONS="mysqli pdo_mysql pdo_pgsql mongodb gd intl zip bcmat
 
 ADD --chmod=0755 https://github.com/mlocati/docker-php-extension-installer/releases/latest/download/install-php-extensions /usr/local/bin/
 
+# The extensions this version's image may lack, from "missingExtensions" in
+# internal/runtime/php_versions.json (php-images.yml passes them). Envoryx refuses to switch
+# those on, so any other extension that fails to build fails the image.
+ARG MISSING_EXTENSIONS=""
+
 # Extensions are installed one by one so a single incompatible extension is identifiable.
-# Stable versions must build every extension; pre-release versions (BASE_TAG *-rc) may skip
-# extensions that don't compile yet; they are listed in /etc/envoryx/missing-extensions.
+# Skipped ones are listed in /etc/envoryx/missing-extensions.
 RUN set -eux; \
     mkdir -p /etc/envoryx; : > /etc/envoryx/missing-extensions; \
+    # Always on (BuiltIn in internal/runtime/catalog.go), but not every upstream image compiles
+    # them in: php:8.6-rc dropped mbstring. First, as pickle (PECL builds) needs mbstring;
+    # libonig-dev by hand, as the installer knows no build dependencies for unreleased versions.
+    if ! php -m | grep -qix mbstring; then apt-get update; apt-get install -y --no-install-recommends libonig-dev; fi; \
+    for ext in mbstring curl pdo_sqlite; do php -m | grep -qix "${ext}" || install-php-extensions "${ext}"; done; \
     for ext in ${ENVORYX_PHP_EXTENSIONS}; do \
         if ! install-php-extensions "${ext}"; then \
             echo "${ext}" >> /etc/envoryx/missing-extensions; \
-            case "${BASE_TAG}" in \
-                *-rc*) echo "WARNING: ${ext} not available for PHP ${PHP_VERSION} (preview), skipping";; \
-                *) echo "ERROR: ${ext} failed to build for PHP ${PHP_VERSION}"; exit 1;; \
+            case " ${MISSING_EXTENSIONS} " in \
+                *" ${ext} "*) echo "WARNING: ${ext} not available for PHP ${PHP_VERSION}, skipping (listed in php_versions.json)";; \
+                *) echo "ERROR: ${ext} failed to build for PHP ${PHP_VERSION}; fix it or add it to missingExtensions in php_versions.json"; exit 1;; \
             esac; \
+        elif case " ${MISSING_EXTENSIONS} " in *" ${ext} "*) true;; *) false;; esac; then \
+            echo "NOTE: ${ext} builds for PHP ${PHP_VERSION} now; drop it from missingExtensions in php_versions.json"; \
         fi; \
     done; \
     # Compiled in, but disabled by default: Envoryx's per-project ini enables what is selected.

@@ -1021,6 +1021,11 @@ func (m *Manager) applyPHPUpdate(ctx context.Context, p store.Project, upd PHPUp
 	if err := cfg.Normalize(); err != nil {
 		return err
 	}
+	// Refused rather than dropped: the application may need what the version lacks, and
+	// switching the extension off is a decision for whoever changes the version.
+	if err := cfg.CheckVersion(v); err != nil {
+		return err
+	}
 	raw, err := json.Marshal(cfg)
 	if err != nil {
 		return err

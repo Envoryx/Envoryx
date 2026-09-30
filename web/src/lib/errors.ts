@@ -67,6 +67,8 @@ const templates = [
   "\"{{name}}\" is the project's primary database; remove the database service instead",
   "refusing to delete {{path}}",
   "preset {{preset}} takes no argument",
+  "PHP {{version}} does not ship {{extension}} yet; switch it off or choose another PHP version",
+  "PHP {{version}} does not ship {{extensions}} yet; switch them off or choose another PHP version",
   "the {{preset}} preset runs from the {{image}} image - this project has no {{runtime}} service",
   "duplicate environment variable {{name}}",
   "environment variable name \"{{name}}\" must match [A-Z_][A-Z0-9_]*",

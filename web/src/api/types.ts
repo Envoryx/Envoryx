@@ -409,6 +409,8 @@ export interface RuntimeVersion {
   /** The Docker host cannot run this version (e.g. its kernel is too new); the reason says why. */
   unavailable?: boolean;
   unavailableReason?: string;
+  /** PHP: extensions (and "xdebug") this version's image does not ship yet. */
+  missingExtensions?: string[];
 }
 
 export interface Runtime {

@@ -412,6 +412,9 @@ func (m *Manager) buildProject(req CreateRequest) (store.Project, error) {
 		if err := cfg.Normalize(); err != nil {
 			return store.Project{}, err
 		}
+		if err := cfg.CheckVersion(v); err != nil {
+			return store.Project{}, err
+		}
 		raw, err := json.Marshal(cfg)
 		if err != nil {
 			return store.Project{}, err

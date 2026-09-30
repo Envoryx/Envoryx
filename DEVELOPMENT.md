@@ -374,7 +374,8 @@ changes:
   2026-11-10) stays in the list, marked `eol`.
 
 In the files, `base` is the upstream tag (`8.6-rc` for pre-releases), `preview`/`eol` drive
-the labels in the UI, and `default` is the newest stable version.
+the labels in the UI, and `default` is the newest stable version. `missingExtensions` (PHP
+only) is the one thing kept by hand, see below.
 
 The web servers, databases and services are defined in `internal/runtime/catalog.go`. The
 frontend reads everything from `/api/v1/runtimes`.
@@ -386,6 +387,18 @@ removes the auto-generated `docker-php-ext-*.ini` files, so nothing is enabled b
 Envoryx's generated `zz-envoryx.ini` adds `extension=…` lines for the extensions selected in
 the UI. To add one, extend `ENVORYX_PHP_EXTENSIONS`, add it to `runtime.PHPExtensions()`
 with `Available: true` and rebuild the images.
+
+The built-in extensions (`BuiltIn: true`: mbstring, curl, pdo_sqlite) are always on. The
+Dockerfile installs any of them the upstream image doesn't compile in (`php:8.6-rc` dropped
+mbstring); a test checks the list there against the catalogue.
+
+A preview often lacks PECL extensions that don't build for it yet. Those go into the
+version's `missingExtensions` in `php_versions.json` (`xdebug` for the Xdebug switch).
+Envoryx refuses to switch them on for that version, the UI greys them out, and
+`php-images.yml` passes the list to the build, which fails when any other extension
+doesn't build and prints a note when a listed one builds again. A Go test makes sure the
+list names only extensions from `ENVORYX_PHP_EXTENSIONS`. Local builds of such a version
+need `--build-arg MISSING_EXTENSIONS="..."`.
 
 ## UI languages
 

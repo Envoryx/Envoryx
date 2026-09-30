@@ -1288,7 +1288,10 @@ newer, its error message names the pre-migrate backup to restore by hand (see
   `internal/runtime/php_versions.json` with endoflife.date and Docker Hub and
   opens a pull request when a version appears, becomes stable or reaches EOL.
   Merging it builds the images and the next Envoryx image shows the version in
-  the wizard. Pre-release versions are marked *preview*.
+  the wizard. Pre-release versions are marked *preview*. A preview may lack
+  extensions that don't build for it yet (PHP 8.6: mongodb, imagick, redis,
+  memcached, amqp and Xdebug); they are greyed out for that version and a
+  project using them can't switch to it until they are off.
 
 Node.js images (`envoryx-node:*`) follow the same scheme with `node_versions.json`,
 Python images (`envoryx-python:*`, official `python:<v>-slim-bookworm` plus uv,

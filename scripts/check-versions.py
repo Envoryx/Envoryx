@@ -129,6 +129,8 @@ def main() -> int:
         return 0
 
     out = {"image": current["image"], "default": stable[0]["version"], "versions": []}
+    # Hand-maintained (see php_versions.json): kept as they are for versions that stay.
+    missing = {v["version"]: v["missingExtensions"] for v in current["versions"] if v.get("missingExtensions")}
     for v in versions:
         entry = {"version": v["version"], "base": v["base"]}
         if PRODUCT["label"] == "node":
@@ -137,6 +139,8 @@ def main() -> int:
             entry["preview"] = True
         if v["eol"]:
             entry["eol"] = True
+        if v["version"] in missing:
+            entry["missingExtensions"] = missing[v["version"]]
         out["versions"].append(entry)
 
     changed = out != current
