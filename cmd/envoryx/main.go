@@ -517,6 +517,22 @@ func serve() error {
 		}
 		ps := proxy.NewServer(handler, router, certs, cfg.ProxyHTTP, httpsAddr, nil, log)
 		manager.SetShareProxy(cfg.ProxyHTTP)
+		if certs != nil {
+			// Certificates of host names nothing routes to any more go once at start
+			// (projects deleted before this cleanup existed) and after every deletion.
+			pruneCerts := func(ctx context.Context) {
+				removed, err := ps.PruneCertificates(ctx)
+				if err != nil {
+					log.Warn("certificate cleanup skipped", "err", err)
+					return
+				}
+				if len(removed) > 0 {
+					log.Info("removed certificates of host names no longer in use", "hosts", removed)
+				}
+			}
+			manager.SetDeletedHook(func(ctx context.Context, _ string) { pruneCerts(ctx) })
+			background("certificate cleanup", pruneCerts)
+		}
 		background("proxy", func(ctx context.Context) {
 			if err := ps.Run(ctx); err != nil {
 				log.Warn("embedded proxy disabled", "err", err)

@@ -95,3 +95,52 @@ func TestCustomCertificateWinsForCoveredNames(t *testing.T) {
 		t.Fatal("clearing the custom certificate failed")
 	}
 }
+
+func TestPruneRemovesOnlyUnwantedLeavesOfThisCA(t *testing.T) {
+	dir := t.TempDir()
+	s, err := Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	blog, err := s.Certificate("blog.test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, h := range []string{"shop.test", "192.168.1.10"} {
+		if _, err := s.Certificate(h); err != nil {
+			t.Fatal(err)
+		}
+	}
+	certs := filepath.Join(dir, "certs")
+	blogPEM, _ := os.ReadFile(s.leafPath("blog.test"))
+	other, _ := Open(t.TempDir())
+	if _, err := other.Certificate("gone.test"); err != nil {
+		t.Fatal(err)
+	}
+	foreignPEM, _ := os.ReadFile(other.leafPath("gone.test"))
+	// Files Prune must leave alone: not a certificate, another CA's leaf, a leaf under
+	// another name than its own.
+	for name, data := range map[string][]byte{"notes.pem": []byte("hello"), "gone.test.pem": foreignPEM, "copy.pem": blogPEM} {
+		if err := os.WriteFile(filepath.Join(certs, name), data, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	removed, err := s.Prune(func(h string) bool { return h == "shop.test" })
+	if err != nil || len(removed) != 1 || removed[0] != "blog.test" {
+		t.Fatalf("removed = %v, %v", removed, err)
+	}
+	for _, name := range []string{"shop.test.pem", "192.168.1.10.pem", "notes.pem", "gone.test.pem", "copy.pem"} {
+		if _, err := os.Stat(filepath.Join(certs, name)); err != nil {
+			t.Errorf("%s must stay: %v", name, err)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(certs, "blog.test.pem")); !os.IsNotExist(err) {
+		t.Fatalf("blog.test.pem must be gone: %v", err)
+	}
+	// The memory cache forgets it too: the next visit gets a fresh certificate.
+	again, err := s.Certificate("blog.test")
+	if err != nil || again.Leaf.SerialNumber.Cmp(blog.Leaf.SerialNumber) == 0 {
+		t.Fatalf("blog.test after prune: %v", err)
+	}
+}

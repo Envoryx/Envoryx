@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -10,6 +11,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/envoryx/envoryx/internal/tlsca"
 )
 
 func TestRoutingByHost(t *testing.T) {
@@ -118,5 +121,37 @@ func TestRouterCachesAndInvalidates(t *testing.T) {
 	r.Table(context.Background())
 	if calls != 2 {
 		t.Fatalf("expected refresh after invalidate, got %d", calls)
+	}
+}
+
+func TestPruneCertificatesKeepsWhatTheProxyServes(t *testing.T) {
+	certs, err := tlsca.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fail error
+	table := Table{
+		Routes:    map[string]Target{"shop.test": {}, "gone.test": {}},
+		UIHosts:   map[string]bool{"envoryx.test": true},
+		ProbeHost: "probe.envoryx.test",
+	}
+	source := func(context.Context) (Table, error) { return table, fail }
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	s := NewServer(nil, NewRouter(source, time.Hour, log), certs, "", "", func(h string) bool { return h == "extra.test" }, log)
+	for _, h := range []string{"shop.test", "gone.test", "envoryx.test", "probe.envoryx.test", "extra.test", "10.0.0.5"} {
+		if _, err := certs.Certificate(h); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// The project behind gone.test is deleted; while the table cannot be read, nothing goes.
+	table.Routes = map[string]Target{"shop.test": {}}
+	fail = errors.New("docker down")
+	if removed, err := s.PruneCertificates(context.Background()); err == nil || len(removed) != 0 {
+		t.Fatalf("prune without a table: %v %v", removed, err)
+	}
+	fail = nil
+	removed, err := s.PruneCertificates(context.Background())
+	if err != nil || strings.Join(removed, ",") != "gone.test" {
+		t.Fatalf("removed = %v, %v", removed, err)
 	}
 }

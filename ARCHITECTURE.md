@@ -778,9 +778,11 @@ also joins. `OpenDBTool` starts it on demand, rewrites
 `/config/dbtool/connections.json` from every project's database config
 (atomic rename, mounted as a directory), connects the container to the
 project network and returns `/dbtool/?server=…&username=…&db=…`. A plugin
-mounted into `plugins-enabled/` submits Adminer's login form with the password
-from that file (`loginForm` hook), so the browser never sees the credentials.
-The API serves `/dbtool/` through a session-protected reverse proxy that
+mounted into `plugins-enabled/` renders Adminer's login form with the password
+from that file in a hidden field and submits it (`loginForm` hook): the user
+is not asked, but the password is part of that page, so it is exactly as
+private as the page. The API serves `/dbtool/` through a session-protected
+reverse proxy (operate level) that
 strips the prefix (Adminer's links are relative) and prefixes absolute
 `Location` headers; the UI's CSP is not applied there because Adminer sends
 its own nonce-based policy. Project deletion detaches the tool before removing

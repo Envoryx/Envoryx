@@ -1808,6 +1808,9 @@ func (m *Manager) delete(ctx context.Context, id string, opts DeleteOptions) err
 		m.log.Warn("remove resource history", "project", id, "err", err)
 	}
 	m.audit.Log(ctx, audit.ActionProjectDeleted, "project", id, map[string]any{"name": proj.Name, "slug": proj.Slug, "deletedFiles": opts.DeleteFiles})
+	if hook := m.deletedHook.Load(); hook != nil {
+		(*hook)(ctx, id)
+	}
 	return nil
 }
 

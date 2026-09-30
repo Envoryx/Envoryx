@@ -309,11 +309,17 @@ func TestDeleteProjectRemovesDatabaseVolume(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	var deleted string
+	e.m.SetDeletedHook(func(_ context.Context, id string) { deleted = id })
 	if err := e.m.Delete(ctx, view.Project.ID, DeleteOptions{Confirm: "gone"}); err != nil {
 		t.Fatal(err)
 	}
 	if len(e.engine.VolumeNames()) != 0 || len(e.engine.ContainerNames()) != 0 {
 		t.Fatalf("leftovers: %v %v", e.engine.VolumeNames(), e.engine.ContainerNames())
+	}
+	// The hook (certificate cleanup) hears about the deletion.
+	if deleted != view.Project.ID {
+		t.Fatalf("deleted hook got %q", deleted)
 	}
 }
 
