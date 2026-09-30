@@ -246,6 +246,9 @@ func (m *Manager) create(ctx context.Context, req CreateRequest) (View, error) {
 		if failed, err := m.startProvisioned(ctx, proj, plan, j); err != nil {
 			return fail(failed, err)
 		}
+		if tpl, ok := TemplateByID(req.Template); ok && tpl.Runtime == "ruby" && proj.Git.URL == "" {
+			m.prepareQueueDatabase(ctx, proj)
+		}
 	}
 	if req.Import != nil && staged.DumpFile() != "" {
 		if err := m.importDump(ctx, proj, staged.DumpFile()); err != nil {

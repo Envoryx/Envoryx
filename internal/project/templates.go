@@ -456,18 +456,20 @@ var templates = []Template{
 		ID: "rails", Name: "Rails", Description: "rails new with Hotwire and importmap (no Node.js needed), on the project database.",
 		Runtime: "ruby", Docroot: "", RecommendedDatabase: "postgresql",
 		Ruby:  &runtime.RubyConfig{Server: true, Preset: "rails", Port: 3000},
-		Notes: "Run “rails db:prepare” from Actions, then open the site. DATABASE_URL is injected by Envoryx and Rails merges it into config/database.yml; without a database Rails uses SQLite. Rails reloads code on every request in dev mode. Production mode needs config/master.key (rails new wrote one) and the assets built with “rails assets:precompile”.",
+		Notes: "Run “rails db:prepare” from Actions, then open the site. DATABASE_URL is injected by Envoryx and Rails merges it into config/database.yml; without a database Rails uses SQLite. Jobs go to Solid Queue in a queue database of their own (QUEUE_DATABASE_URL): add the Solid Queue worker under Workers to run them. Rails reloads code on every request in dev mode. Production mode needs config/master.key (rails new wrote one) and the assets built with “rails assets:precompile”.",
 		steps: []templateStep{
 			{label: "gem install rails, rails new", cmdFor: railsNew()},
+			{label: "configure the queue database", cmd: []string{"ruby", "-e", railsQueueDatabase}},
 		},
 	},
 	{
 		ID: "rails-api", Name: "Rails (API only)", Description: "rails new --api: a JSON backend without views and assets, on the project database.",
 		Runtime: "ruby", Docroot: "", RecommendedDatabase: "postgresql",
 		Ruby:  &runtime.RubyConfig{Server: true, Preset: "rails", Port: 3000},
-		Notes: "Run “rails db:prepare” from Actions, then generate resources in the Ruby terminal (bin/rails generate scaffold …). DATABASE_URL is injected by Envoryx; without a database Rails uses SQLite.",
+		Notes: "Run “rails db:prepare” from Actions, then generate resources in the Ruby terminal (bin/rails generate scaffold …). DATABASE_URL is injected by Envoryx; without a database Rails uses SQLite. Jobs go to Solid Queue in a queue database of their own (QUEUE_DATABASE_URL): add the Solid Queue worker under Workers to run them.",
 		steps: []templateStep{
 			{label: "gem install rails, rails new --api", cmdFor: railsNew("--api")},
+			{label: "configure the queue database", cmd: []string{"ruby", "-e", railsQueueDatabase}},
 		},
 	},
 	{
@@ -759,6 +761,51 @@ public static class AppDatabase
 CS
 sed -i -e 's/^var builder = WebApplication\.CreateBuilder(args);\(\r\?\)$/&\nbuilder.AddAppDatabase();\1/' -e 's/^app\.Run();\(\r\?\)$/app.MapTodos();\1\n\1\n&/' Program.cs
 grep -q '^builder\.AddAppDatabase();' Program.cs && grep -q '^app\.MapTodos();' Program.cs`
+
+// railsQueueDatabase gives Solid Queue its own database in development, as Rails 8 does
+// in production only: without it bin/jobs looks for its tables in the primary database
+// and crash-loops. database.yml's development entry becomes primary + queue (loaded
+// from db/queue_schema.rb by rails db:prepare; SQLite gets a file of its own), and
+// development.rb sends the jobs there. Envoryx points the queue entry at its server with
+// QUEUE_DATABASE_URL (rubyDatabaseEnv), which Active Record merges into it. An
+// application without Solid Queue (config/queue.yml) is left alone.
+const railsQueueDatabase = `
+require "yaml"
+require "erb"
+unless File.exist?("config/queue.yml")
+  puts "no Solid Queue, nothing to change"
+  exit
+end
+path = "config/database.yml"
+yml = File.read(path)
+m = yml.match(/^development:\n((?:[ \t]+\S.*\n|[ \t]*\n)*)/) or abort "#{path}: no development entry"
+body = m[1]
+unless body.match?(/^[ \t]+queue:/)
+  db = body[/^[ \t]+database:[ \t]*(\S+)/, 1] or abort "#{path}: the development database has no name"
+  queue = db.sub(/(\.sqlite3)?\z/) { "_queue#{$1}" }
+  tail = body[/\n*\z/][1..].to_s
+  primary = body.rstrip.gsub(/^(?=.)/, "  ")
+  entry = "  primary:\n#{primary}\n\n  queue:\n    <<: *default\n    database: #{queue}\n    migrations_paths: db/queue_migrate\n#{tail}"
+  yml = yml.sub("development:\n#{body}") { "development:\n#{entry}" }
+  cfg = YAML.safe_load(ERB.new(yml).result, aliases: true)
+  cfg.dig("development", "queue", "database") == queue or abort "#{path}: the queue entry did not come out right"
+  File.write(path, yml)
+end
+env = "config/environments/development.rb"
+rb = File.read(env)
+unless rb.include?("solid_queue")
+  block = <<~RUBY.gsub(/^(?=.)/, "  ")
+
+    # Added by Envoryx: jobs go to Solid Queue in a database of its own, as in production.
+    # The Solid Queue worker (bin/jobs) runs them; Envoryx injects QUEUE_DATABASE_URL.
+    config.active_job.queue_adapter = :solid_queue
+    config.solid_queue.connects_to = { database: { writing: :queue } }
+  RUBY
+  rb.sub!(/^end\s*\z/) { "#{block}end\n" } or abort "#{env}: no closing end"
+  File.write(env, rb)
+end
+puts "queue database configured"
+`
 
 // railsNew installs rails into the project's GEM_HOME and generates the application in
 // the project directory: named after the project, for its database (SQLite without one),

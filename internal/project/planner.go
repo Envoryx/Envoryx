@@ -270,6 +270,32 @@ func rubyDatabaseURLs(env []string) []string {
 	return out
 }
 
+// queueDatabaseSuffix names the database Solid Queue keeps its jobs in: <database>_queue
+// on the primary SQL server, which the Rails templates configure as the queue database.
+const queueDatabaseSuffix = "_queue"
+
+// rubyDatabaseEnv is the environment of the Ruby containers: QUEUE_DATABASE_URL points
+// at <database>_queue on the primary SQL server, and every URL gets the scheme Active
+// Record knows. Active Record merges <NAME>_DATABASE_URL into the database.yml entry of
+// that name in the running environment, so the queue entry of Rails 8 (production, and
+// development in the Rails templates) reaches the server; an application without one
+// ignores it. A QUEUE_DATABASE_URL of the project's own or of an additional database
+// named queue stays.
+func rubyDatabaseEnv(proj store.Project, env []string) []string {
+	for _, kv := range env {
+		if strings.HasPrefix(kv, "QUEUE_DATABASE_URL=") {
+			return rubyDatabaseURLs(env)
+		}
+	}
+	if svc, cfg, err := databaseOf(proj, ""); err == nil && svc.Variant != "mongodb" {
+		cfg.Database += queueDatabaseSuffix
+		if u := databaseEnv(svc, cfg)["DATABASE_URL"]; u != "" && runtime.ValidateDatabaseName(cfg.Database) == nil {
+			env = append(append([]string{}, env...), "QUEUE_DATABASE_URL="+u)
+		}
+	}
+	return rubyDatabaseURLs(env)
+}
+
 // javaEnv adds the names Java frameworks read to the variables every application
 // container gets: Spring Boot's SPRING_DATASOURCE_* and Quarkus's QUARKUS_DATASOURCE_*
 // for the primary SQL database, a JDBC_URL for it and <NAME>_JDBC_URL for every
@@ -782,7 +808,7 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 				Labels: labels,
 				// Tooling container: idles until actions or the terminal run commands.
 				Cmd:           []string{"sleep", "infinity"},
-				Env:           append(append(rubyDatabaseURLs(env), toolEnv...), rubyEnv(svc.Version)...),
+				Env:           append(append(rubyDatabaseEnv(proj, env), toolEnv...), rubyEnv(svc.Version)...),
 				User:          fmt.Sprintf("%d:%d", p.paths.PUID, p.paths.PGID),
 				WorkingDir:    appMountTarget,
 				Network:       plan.NetworkName,
@@ -1246,11 +1272,11 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 				continue
 			}
 			spec.Image = ruby.Image
-			spec.Env = append(append(append(rubyDatabaseURLs(env), toolEnv...), rubyEnv(ruby.Version)...), rubyAppEnv...)
+			spec.Env = append(append(append(rubyDatabaseEnv(proj, env), toolEnv...), rubyEnv(ruby.Version)...), rubyAppEnv...)
 			spec.Mounts = append(spec.Mounts, p.HomeMount(proj))
 			// Bundler locks the install, so a worker and the server installing at once
 			// wait for each other instead of clashing.
-			spec.Cmd = runtime.Guarded(cmd, "envoryx-worker", runtime.BundleGuard)
+			spec.Cmd = runtime.Guarded(cmd, "envoryx-worker", runtime.BundleGuard, preset.guard)
 		case WorkerRuntimeJava:
 			if java == nil || !java.Enabled {
 				continue

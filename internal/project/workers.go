@@ -33,7 +33,15 @@ type WorkerPreset struct {
 	display func(arg string) []string
 	// validateArg checks the argument; nil means no argument is accepted.
 	validateArg func(arg string) error
+	// guard is a shell check run before the command (after the bundle install for Ruby);
+	// it waits with a message instead of letting the worker crash-loop.
+	guard string
 }
+
+// solidQueueGuard waits until the Solid Queue tables exist. Without them bin/jobs crashes
+// right away and Docker restarts it over and over; they come from rails db:prepare, which
+// loads db/queue_schema.rb into the queue database.
+const solidQueueGuard = `until bin/rails runner 'begin; exit(SolidQueue::Job.table_exists? ? 0 : 1); rescue StandardError => e; warn e.message; exit 1; end'; do echo 'envoryx: the Solid Queue tables are missing - run "rails db:prepare" from Actions (config/database.yml needs the queue database), checking again in 30 s'; sleep 30; done`
 
 var (
 	queueNameRe  = regexp.MustCompile(`^[A-Za-z0-9_.-]{1,64}(,[A-Za-z0-9_.-]{1,64})*$`)
@@ -229,7 +237,7 @@ var workerPresets = []WorkerPreset{
 // planner puts the bundle install in front of each, like in front of the server.
 var rubyWorkerPresets = []WorkerPreset{
 	{ID: "solidqueue:start", Group: "Solid Queue", Label: "Solid Queue", Description: "bin/jobs start - the Solid Queue supervisor with its workers, dispatchers and recurring tasks (Rails 8)", Requires: []string{"bin/jobs"}, Runtime: WorkerRuntimeRuby,
-		build: func(string) []string { return []string{"bin/jobs", "start"} }},
+		build: func(string) []string { return []string{"bin/jobs", "start"} }, guard: solidQueueGuard},
 	{ID: "goodjob:start", Group: "GoodJob", Label: "GoodJob", Description: "good_job start - processes the jobs GoodJob keeps in PostgreSQL", ArgLabel: "Queues", ArgHint: "e.g. default,mailers (empty = all)", Requires: []string{"Gemfile"}, Runtime: WorkerRuntimeRuby,
 		validateArg: queueArg,
 		build: func(arg string) []string {

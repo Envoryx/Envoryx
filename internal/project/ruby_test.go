@@ -2,6 +2,7 @@ package project
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -9,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/envoryx/envoryx/internal/docker"
 	"github.com/envoryx/envoryx/internal/manifest"
 	"github.com/envoryx/envoryx/internal/runtime"
 	"github.com/envoryx/envoryx/internal/store"
@@ -144,8 +146,11 @@ func TestRubyTemplateWorkersTestsAndManifest(t *testing.T) {
 			}
 		}
 	}
-	if len(steps) != 1 || !slices.Contains(steps[0], "--name=blog") || !slices.Contains(steps[0], "--database=sqlite3") || !strings.Contains(steps[0][2], "gem install") {
+	if len(steps) != 2 || !slices.Contains(steps[0], "--name=blog") || !slices.Contains(steps[0], "--database=sqlite3") || !strings.Contains(steps[0][2], "gem install") {
 		t.Fatalf("template steps: %q", steps)
+	}
+	if !slices.Equal(steps[1], []string{"ruby", "-e", railsQueueDatabase}) {
+		t.Fatalf("queue database step: %q", steps[1])
 	}
 	proj, _ := e.m.loadProject(ctx, v.Project.ID)
 	cfg, _ := rubyConfig(proj)
@@ -225,6 +230,106 @@ func TestRubyTestScript(t *testing.T) {
 		if err != nil || string(out) != want {
 			t.Fatalf("%q: got %q, err %v", in, out, err)
 		}
+	}
+}
+
+// Solid Queue keeps its jobs in <database>_queue: the Ruby containers get its URL, the
+// Solid Queue worker waits for its tables, and Envoryx creates it for an application
+// whose database.yml has a queue entry (MySQL's project login may not).
+func TestRailsQueueDatabase(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	var sql []string
+	e.engine.ExecHandler = func(container string, cmd []string, env []string) (docker.ExecResult, error) {
+		if container == "envoryx-blog-database" {
+			sql = append(sql, strings.Join(cmd, " "))
+			return docker.ExecResult{Stdout: "blog\n"}, nil
+		}
+		return docker.ExecResult{}, nil
+	}
+	// rails new writes the Rails 8 database.yml with a queue entry.
+	e.engine.OneShotHandler = func(spec docker.ContainerSpec) (docker.ExecResult, error) {
+		if spec.Cmd[0] == "sh" {
+			writeProjectFiles(t, filepath.Join(e.projDir, "blog"), map[string]string{"bin/rails": "", "config/database.yml": "production:\n  queue:\n    database: blog_production_queue\n"})
+		}
+		return docker.ExecResult{}, nil
+	}
+	req := CreateRequest{Name: "Blog", Ruby: &RubyRequest{Version: "3.4"}, Template: "rails", Database: &DatabaseRequest{Type: "postgresql"}, Start: true}
+	v, err := e.m.Create(ctx, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	created := func() int {
+		n := 0
+		for _, s := range sql {
+			if strings.Contains(s, `CREATE DATABASE "blog_queue"`) {
+				n++
+			}
+		}
+		return n
+	}
+	if created() != 1 {
+		t.Fatalf("the template must create the queue database: %q", sql)
+	}
+	var cfg runtime.DatabaseConfig
+	_ = json.Unmarshal(v.Project.Service(store.ServiceDatabase).Config, &cfg)
+	c, _ := e.engine.Container("envoryx-blog-ruby")
+	if want := "QUEUE_DATABASE_URL=postgresql://blog:" + cfg.Password + "@database:5432/blog_queue"; !slices.Contains(c.Spec.Env, want) {
+		t.Fatalf("ruby env lacks %s: %v", want, c.Spec.Env)
+	}
+
+	// The Rails database actions create it again when it went missing.
+	sql = nil
+	if _, _, release, err := e.m.RunAction(ctx, v.Project.ID, "rails:db-prepare", 0, 0); err != nil {
+		t.Fatal(err)
+	} else {
+		release()
+	}
+	if created() != 1 {
+		t.Fatalf("rails db:prepare must create the queue database: %q", sql)
+	}
+	// Not for an application without a queue entry.
+	writeProjectFiles(t, filepath.Join(e.projDir, "blog"), map[string]string{"config/database.yml": "development:\n  database: blog\n"})
+	sql = nil
+	if _, _, release, err := e.m.RunAction(ctx, v.Project.ID, "rails:db-migrate", 0, 0); err != nil {
+		t.Fatal(err)
+	} else {
+		release()
+	}
+	if len(sql) != 0 {
+		t.Fatalf("no queue database without a queue entry: %q", sql)
+	}
+
+	// The Solid Queue worker waits for its tables instead of crash-looping.
+	if _, err := e.m.AddWorker(ctx, v.Project.ID, WorkerRequest{Name: "jobs", Preset: "solidqueue:start", Enabled: true}); err != nil {
+		t.Fatal(err)
+	}
+	w, _ := e.engine.Container("envoryx-blog-worker-jobs")
+	if !strings.Contains(w.Spec.Cmd[2], "bundle check") || !strings.Contains(w.Spec.Cmd[2], "SolidQueue::Job.table_exists?") || !slices.Equal(w.Spec.Cmd[4:], []string{"bin/jobs", "start"}) {
+		t.Fatalf("solid queue worker: %q", w.Spec.Cmd)
+	}
+	if !slices.ContainsFunc(w.Spec.Env, func(kv string) bool { return strings.HasPrefix(kv, "QUEUE_DATABASE_URL=postgresql://") }) {
+		t.Fatalf("worker env: %v", w.Spec.Env)
+	}
+}
+
+// The project's own QUEUE_DATABASE_URL wins; MongoDB has no queue database.
+func TestRubyQueueDatabaseURL(t *testing.T) {
+	pg := store.ProjectService{Kind: store.ServiceDatabase, Variant: "postgresql", Enabled: true, Config: json.RawMessage(`{"database":"shop","username":"shop","password":"pw"}`)}
+	got := rubyDatabaseEnv(store.Project{Services: []store.ProjectService{pg}}, []string{"DATABASE_URL=pgsql://shop:pw@database:5432/shop"})
+	if !slices.Contains(got, "QUEUE_DATABASE_URL=postgresql://shop:pw@database:5432/shop_queue") {
+		t.Fatalf("postgres: %v", got)
+	}
+	own := []string{"QUEUE_DATABASE_URL=postgresql://elsewhere/q"}
+	if got := rubyDatabaseEnv(store.Project{Services: []store.ProjectService{pg}}, own); !slices.Equal(got, own) {
+		t.Fatalf("own URL: %v", got)
+	}
+	mongo := store.ProjectService{Kind: store.ServiceDatabase, Variant: "mongodb", Enabled: true, Config: json.RawMessage(`{"database":"shop"}`)}
+	if got := rubyDatabaseEnv(store.Project{Services: []store.ProjectService{mongo}}, nil); len(got) != 0 {
+		t.Fatalf("mongodb: %v", got)
+	}
+	if got := rubyDatabaseEnv(store.Project{}, nil); len(got) != 0 {
+		t.Fatalf("no database: %v", got)
 	}
 }
 
