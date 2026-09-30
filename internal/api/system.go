@@ -134,6 +134,17 @@ func (a *API) dashboard(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		s.PerProject = per
+		if p.Confined() {
+			// The totals are the instance's; a caller confined to some projects gets
+			// the sums of those.
+			s.Containers, s.Running, s.CPUPercent, s.MemoryBytes = 0, 0, 0, 0
+			for _, u := range per {
+				s.Containers += u.Containers
+				s.Running += u.Running
+				s.CPUPercent += u.CPUPercent
+				s.MemoryBytes += u.MemoryBytes
+			}
+		}
 		statsOut = s
 	}
 	// Reconcile issues name their project; orphans belong to no project and are
