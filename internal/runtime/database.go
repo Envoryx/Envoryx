@@ -514,6 +514,25 @@ type ServiceConfig struct {
 // External reports whether the service is a server Envoryx does not run (Redis only).
 func (c ServiceConfig) External() bool { return c.Host != "" }
 
+// Redacted returns the configuration without secrets (password, API key) for API
+// responses; the credentials endpoints hand those out.
+func (c ServiceConfig) Redacted() map[string]any {
+	out := map[string]any{"hostPort": c.HostPort}
+	if c.WebUIPort != 0 {
+		out["webUiPort"] = c.WebUIPort
+	}
+	if c.Username != "" {
+		out["username"] = c.Username
+	}
+	if c.GPU {
+		out["gpu"] = c.GPU
+	}
+	if c.External() {
+		out["host"], out["port"] = c.Host, c.Port
+	}
+	return out
+}
+
 // RabbitMQ ports and the user Envoryx creates. Generated passwords need no escaping in
 // the AMQP URL (see passwordAlphabet).
 const (

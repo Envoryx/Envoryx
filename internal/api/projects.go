@@ -151,38 +151,56 @@ func toStatus(st project.Status) statusDTO {
 	return out
 }
 
-// redactedConfig returns a service configuration safe for API responses: database
-// credentials are stripped, everything else is passed through.
+// redactedConfig returns a service configuration safe for API responses, whatever the
+// caller's scope: the credentials endpoints (operate) are the only way to secrets. It
+// is an allowlist: runtime settings pass through (they hold none and the UI edits them
+// as a whole), services with credentials show their non-secret fields, and a kind not
+// listed here shows nothing, so a new service's key cannot leak before someone decides.
 func redactedConfig(s store.ProjectService) json.RawMessage {
-	if s.Kind.IsDatabase() {
-		var cfg runtime.DatabaseConfig
-		if err := json.Unmarshal(s.Config, &cfg); err == nil {
-			if b, err := json.Marshal(cfg.Redacted()); err == nil {
-				return b
-			}
+	empty := json.RawMessage("{}")
+	redact := func(cfg any, view func() any) json.RawMessage {
+		if err := json.Unmarshal(s.Config, cfg); err != nil {
+			return empty
 		}
-		return json.RawMessage("{}")
+		b, err := json.Marshal(view())
+		if err != nil {
+			return empty
+		}
+		return b
 	}
-	if s.Kind.IsAddon() {
+	if len(s.Config) == 0 {
+		return empty
+	}
+	switch {
+	case s.Kind.IsDatabase():
+		var cfg runtime.DatabaseConfig
+		return redact(&cfg, func() any { return cfg.Redacted() })
+	case s.Kind.IsAddon():
 		// The generated secrets stay out; the addons endpoint shows the credentials.
 		var cfg project.AddonConfig
-		if err := json.Unmarshal(s.Config, &cfg); err == nil {
+		return redact(&cfg, func() any {
 			backed := 0
 			for _, v := range cfg.Definition.Volumes {
 				if !v.NoBackup {
 					backed++
 				}
 			}
-			if b, err := json.Marshal(map[string]any{"hostPort": cfg.HostPort, "title": cfg.Definition.Title, "backupVolumes": backed}); err == nil {
-				return b
-			}
-		}
-		return json.RawMessage("{}")
+			return map[string]any{"hostPort": cfg.HostPort, "title": cfg.Definition.Title, "backupVolumes": backed}
+		})
 	}
-	if len(s.Config) == 0 {
-		return json.RawMessage("{}")
+	switch s.Kind {
+	case store.ServiceWeb, store.ServicePHP, store.ServiceNode, store.ServicePython, store.ServiceGo,
+		store.ServiceRuby, store.ServiceJava, store.ServiceDotnet:
+		return s.Config
+	case store.ServiceRedis, store.ServiceMemcached, store.ServiceMailpit, store.ServiceRabbitMQ, store.ServiceMeilisearch,
+		store.ServiceTypesense, store.ServiceOpenSearch, store.ServiceOpenSearchDashboards, store.ServiceOllama:
+		var cfg runtime.ServiceConfig
+		return redact(&cfg, func() any { return cfg.Redacted() })
+	case store.ServiceStorage:
+		var cfg runtime.StorageConfig
+		return redact(&cfg, func() any { return cfg.Redacted() })
 	}
-	return s.Config
+	return empty
 }
 
 func toProject(v project.View) projectDTO {
