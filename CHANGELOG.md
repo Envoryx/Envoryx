@@ -10,6 +10,19 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Added
+- PHP's `mail()` reaches Mailpit: the PHP images ship msmtp, and while
+  Mailpit is on, `sendmail_path` sends through it. Without Mailpit
+  `mail()` returns false as before.
+- Envoryx sets `DB_SERVER_VERSION` for the MariaDB, MySQL and PostgreSQL
+  servers it runs, in the form Doctrine expects (`18`, `8.4.0`,
+  `mariadb-11.4.0`); additional servers get it with their prefix.
+- A MongoDB 8.0 database can move to 8.2 in place, which MongoDB
+  supports; 8.2 takes over the data as it is (the feature compatibility
+  version stays at 8.0). On Docker hosts where the old version cannot
+  start, the backup taken first is a copy of the data volume instead of
+  a dump; restore, download and offsite copies handle it.
+
 ### Changed
 - New project networks get a /24 out of `ENVORYX_NETWORK_POOL`
   (`10.213.0.0/16` unless set, 256 projects) instead of one of Docker's
@@ -24,6 +37,35 @@ release). `:main` follows the development branch.
   instance restore; a restart now recreates them. **After this update the
   dashboard reports every running container once** as running with an
   older setup; restart each project when it suits you.
+- `GEM_HOME` in Ruby containers now names the Ruby version
+  (`~/.gem/ruby/3.4.0`), the directory RubyGems uses for user installs.
+  RubyMine's debugger gems are found without a `GEM_PATH` workaround, and
+  gems built for one Ruby version no longer meet another. Existing Ruby
+  projects install their bundle once more after the restart; the old
+  contents of `~/.gem/ruby` in a project home can be deleted.
+- Runtime and worker containers always resolve `host.docker.internal` to
+  the Docker host, not only with an external service. Xdebug's default
+  and PyCharm's debug server work when the IDE runs on the Docker host;
+  the IDE section explains `ssh -R` for an IDE on another machine.
+- The interface leaves out what your role may not do in a project:
+  viewers see no start, restore or delete buttons, and forms they may
+  only read are shown read-only. `/docker` and `/projects/new` send
+  non-admins to the project list. Whether you are an admin now comes
+  from the server, so a session with a limited API token shows the right
+  controls.
+- The Rails template gives Solid Queue its own database in development,
+  as Rails does in production: `database.yml` gets a `queue` entry,
+  Envoryx creates `<database>_queue` and sets `QUEUE_DATABASE_URL`, which
+  also reaches the production `queue` entry. A Solid Queue worker whose
+  tables are missing waits with a hint instead of restarting in a loop.
+- PHP 8.6 (preview): extensions that don't build for it yet (redis,
+  imagick, memcached, amqp, mongodb, Xdebug) are greyed out and refused
+  instead of offered and silently missing. mbstring, which the upstream
+  8.6 image no longer compiles in, is installed in every PHP image.
+- MongoDB 8.0 and 7.0 cannot be chosen on Docker hosts with Linux 6.19 or
+  newer, where they don't start. Existing projects with such a database
+  get a hint (8.0: upgrade to 8.2; 7.0 has no way to 8.2 on such a host)
+  and start without that database instead of restarting it in a loop.
 
 ### Security
 - With JetBrains Gateway on, every project mounted the whole shared
@@ -42,6 +84,9 @@ release). `:main` follows the development branch.
 - The resource comparison (`GET /metrics/overview`, the dashboard's
   resource card) listed every project's name and usage to users who have
   a role in only some projects; it now shows only theirs.
+- Viewers and read-only API tokens received the values of secret
+  environment variables in the project list, the project view and the
+  dashboard. Below operate these values are now left out.
 
 ### Fixed
 - The diagnostics check "Project domains from this browser" could never
@@ -77,6 +122,18 @@ release). `:main` follows the development branch.
   text didn't say RubyMine's debugger needs *Allow JetBrains Gateway*.
 - `gradle test` output in the Tests section ended in console control
   sequences.
+- Backup downloads, offsite copies and archive imports left out the
+  archives of addon volumes, so a backup restored from a download or
+  from offsite brought back no addon data.
+- Symfony's Doctrine migrations failed with "Invalid platform version"
+  because the injected `DATABASE_URL` carries no server version; the
+  template now reads `DB_SERVER_VERSION` in `doctrine.yaml`. Existing
+  Symfony projects can add `server_version: '%env(DB_SERVER_VERSION)%'`
+  under `doctrine.dbal` themselves.
+- A project's stats took up to 18 s with many containers on the host,
+  because every container on the host was sampled. Only the project's
+  containers are sampled now.
+- On a phone the project's database card was wider than the screen.
 
 ## [0.16.2] - 2026-09-29
 
