@@ -254,11 +254,13 @@ func (p *Planner) rubyGemDirs(proj store.Project, version string) []DirPlan {
 	return dirs
 }
 
-// rubyDatabaseURLs rewrites the PostgreSQL connection strings for Ruby: Envoryx names
-// the scheme pgsql (as PHP frameworks expect), which Active Record doesn't know: it
-// maps postgres and postgresql to its adapter. Every *DATABASE_URL is rewritten, so an
-// additional database reaches Rails' multi-database setup under its own name, too.
-func rubyDatabaseURLs(env []string) []string {
+// postgresURLs rewrites the PostgreSQL connection strings for every runtime but PHP:
+// Envoryx names the scheme pgsql (as Laravel's DB_CONNECTION and Doctrine know it), which
+// only PHP understands. Active Record, SQLAlchemy, Prisma, pgx and lib/pq want postgresql
+// (dj-database-url and node-postgres take both). Every *DATABASE_URL is rewritten, so an
+// additional database reaches Rails' multi-database setup under its own name, too, and a
+// URL the user set to pgsql:// in the project environment is fixed the same way.
+func postgresURLs(env []string) []string {
 	out := make([]string, len(env))
 	for i, kv := range env {
 		k, v, _ := strings.Cut(kv, "=")
@@ -290,7 +292,7 @@ var railsSiblingDatabases = []struct{ name, suffix string }{
 func rubyDatabaseEnv(proj store.Project, env []string) []string {
 	svc, cfg, err := databaseOf(proj, "")
 	if err != nil || svc.Variant == "mongodb" {
-		return rubyDatabaseURLs(env)
+		return postgresURLs(env)
 	}
 	out := append([]string{}, env...)
 	for _, sib := range railsSiblingDatabases {
@@ -304,7 +306,7 @@ func rubyDatabaseEnv(proj store.Project, env []string) []string {
 			out = append(out, key+u)
 		}
 	}
-	return rubyDatabaseURLs(out)
+	return postgresURLs(out)
 }
 
 // javaEnv adds the names Java frameworks read to the variables every application
@@ -532,6 +534,8 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 	if err != nil {
 		return Plan{}, err
 	}
+	// PHP keeps env as it is; the other runtimes get the PostgreSQL URLs their drivers parse.
+	appEnv := postgresURLs(env)
 	images := map[string]bool{}
 
 	// An application server that opens its connections at boot (Django checks migrations,
@@ -673,7 +677,7 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 				Labels: labels,
 				// Tooling container: idles until actions or the terminal run commands.
 				Cmd:           []string{"sleep", "infinity"},
-				Env:           append(append(append([]string{}, env...), toolEnv...), "NODE_ENV=development"),
+				Env:           append(append(append([]string{}, appEnv...), toolEnv...), "NODE_ENV=development"),
 				User:          fmt.Sprintf("%d:%d", p.paths.PUID, p.paths.PGID),
 				WorkingDir:    appMountTarget,
 				Network:       plan.NetworkName,
@@ -724,7 +728,7 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 				Labels: labels,
 				// Tooling container: idles until actions or the terminal run commands.
 				Cmd:           []string{"sleep", "infinity"},
-				Env:           append(append(append([]string{}, env...), toolEnv...), pythonEnv...),
+				Env:           append(append(append([]string{}, appEnv...), toolEnv...), pythonEnv...),
 				User:          fmt.Sprintf("%d:%d", p.paths.PUID, p.paths.PGID),
 				WorkingDir:    appMountTarget,
 				Network:       plan.NetworkName,
@@ -773,7 +777,7 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 				Labels: labels,
 				// Tooling container: idles until actions or the terminal run commands.
 				Cmd:           []string{"sleep", "infinity"},
-				Env:           append(append(append([]string{}, env...), toolEnv...), goEnv...),
+				Env:           append(append(append([]string{}, appEnv...), toolEnv...), goEnv...),
 				User:          fmt.Sprintf("%d:%d", p.paths.PUID, p.paths.PGID),
 				WorkingDir:    appMountTarget,
 				Network:       plan.NetworkName,
@@ -819,7 +823,7 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 				Labels: labels,
 				// Tooling container: idles until actions or the terminal run commands.
 				Cmd:           []string{"sleep", "infinity"},
-				Env:           append(append(rubyDatabaseEnv(proj, env), toolEnv...), rubyEnv(svc.Version)...),
+				Env:           append(append(rubyDatabaseEnv(proj, appEnv), toolEnv...), rubyEnv(svc.Version)...),
 				User:          fmt.Sprintf("%d:%d", p.paths.PUID, p.paths.PGID),
 				WorkingDir:    appMountTarget,
 				Network:       plan.NetworkName,
@@ -865,7 +869,7 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 				Labels: labels,
 				// Tooling container: idles until actions or the terminal run commands.
 				Cmd:           []string{"sleep", "infinity"},
-				Env:           append(javaEnv(proj, env), toolEnv...),
+				Env:           append(javaEnv(proj, appEnv), toolEnv...),
 				User:          fmt.Sprintf("%d:%d", p.paths.PUID, p.paths.PGID),
 				WorkingDir:    appMountTarget,
 				Network:       plan.NetworkName,
@@ -910,7 +914,7 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 				Labels: labels,
 				// Tooling container: idles until actions or the terminal run commands.
 				Cmd:           []string{"sleep", "infinity"},
-				Env:           append(dotnetEnv(proj, env), toolEnv...),
+				Env:           append(dotnetEnv(proj, appEnv), toolEnv...),
 				User:          fmt.Sprintf("%d:%d", p.paths.PUID, p.paths.PGID),
 				WorkingDir:    appMountTarget,
 				Network:       plan.NetworkName,
@@ -1262,28 +1266,28 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 				continue
 			}
 			spec.Image = node.Image
-			spec.Env = append(append(append([]string{}, env...), toolEnv...), "NODE_ENV=development")
+			spec.Env = append(append(append([]string{}, appEnv...), toolEnv...), "NODE_ENV=development")
 			spec.Mounts = append(spec.Mounts, p.HomeMount(proj))
 		case WorkerRuntimePython:
 			if python == nil || !python.Enabled {
 				continue
 			}
 			spec.Image = python.Image
-			spec.Env = append(append(append([]string{}, env...), toolEnv...), pythonEnv...)
+			spec.Env = append(append(append([]string{}, appEnv...), toolEnv...), pythonEnv...)
 			spec.Mounts = append(spec.Mounts, p.HomeMount(proj))
 		case WorkerRuntimeGo:
 			if golang == nil || !golang.Enabled {
 				continue
 			}
 			spec.Image = golang.Image
-			spec.Env = append(append(append([]string{}, env...), toolEnv...), goEnv...)
+			spec.Env = append(append(append([]string{}, appEnv...), toolEnv...), goEnv...)
 			spec.Mounts = append(spec.Mounts, p.HomeMount(proj))
 		case WorkerRuntimeRuby:
 			if ruby == nil || !ruby.Enabled {
 				continue
 			}
 			spec.Image = ruby.Image
-			spec.Env = append(append(append(rubyDatabaseEnv(proj, env), toolEnv...), rubyEnv(ruby.Version)...), rubyAppEnv...)
+			spec.Env = append(append(append(rubyDatabaseEnv(proj, appEnv), toolEnv...), rubyEnv(ruby.Version)...), rubyAppEnv...)
 			spec.Mounts = append(spec.Mounts, p.HomeMount(proj))
 			// Bundler locks the install, so a worker and the server installing at once
 			// wait for each other instead of clashing.
@@ -1293,14 +1297,14 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 				continue
 			}
 			spec.Image = java.Image
-			spec.Env = append(javaEnv(proj, env), toolEnv...)
+			spec.Env = append(javaEnv(proj, appEnv), toolEnv...)
 			spec.Mounts = append(spec.Mounts, p.HomeMount(proj))
 		case WorkerRuntimeDotnet:
 			if dotnet == nil || !dotnet.Enabled {
 				continue
 			}
 			spec.Image = dotnet.Image
-			spec.Env = append(dotnetEnv(proj, env), toolEnv...)
+			spec.Env = append(dotnetEnv(proj, appEnv), toolEnv...)
 			spec.Mounts = append(spec.Mounts, p.HomeMount(proj))
 		default:
 			if php == nil || !php.Enabled {
