@@ -388,7 +388,7 @@ Envoryx's generated `zz-envoryx.ini` adds `extension=…` lines for the extensio
 the UI. To add one, extend `ENVORYX_PHP_EXTENSIONS`, add it to `runtime.PHPExtensions()`
 with `Available: true` and rebuild the images.
 
-The built-in extensions (`BuiltIn: true`: mbstring, curl, pdo_sqlite) are always on. The
+The built-in extensions (`BuiltIn: true`: mbstring, curl, pdo_sqlite, exif) are always on. The
 Dockerfile installs any of them the upstream image doesn't compile in (`php:8.6-rc` dropped
 mbstring); a test checks the list there against the catalogue.
 

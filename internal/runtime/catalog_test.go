@@ -57,7 +57,7 @@ func TestPHPConfigNormalizeAndINI(t *testing.T) {
 		t.Fatalf("extensions not normalised: %v", cfg.Extensions)
 	}
 	ini := cfg.INI("8.4")
-	for _, want := range []string{"memory_limit = 256M", "extension=gd", "extension=pdo_mysql", "zend_extension=opcache", "display_errors = On"} {
+	for _, want := range []string{"memory_limit = 256M", "extension=gd", "extension=pdo_mysql", "zend_extension=opcache", "display_errors = On", "max_input_vars = 5000", "opcache.max_accelerated_files=32531", "opcache.interned_strings_buffer=32"} {
 		if !strings.Contains(ini, want) {
 			t.Errorf("ini missing %q:\n%s", want, ini)
 		}

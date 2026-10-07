@@ -1394,6 +1394,15 @@ releases only) with `dotnet_versions.json`. You change a project's Node, Python,
 Go, Ruby, Java or .NET version on
 the Runtime section, like the PHP version.
 
+Besides PHP and its extensions, the PHP images bring the tools CMSs and
+frameworks expect on a server: Composer, WP-CLI (`wp`), ImageMagick (TYPO3
+processes images with its binaries), the MariaDB and PostgreSQL clients
+(`drush sql:*`, `wp db`, `artisan db`), a few common UTF-8 locales (en, de,
+fr, es, it, nl, pt_BR, pl) and `exif`. Every runtime image has rsync for
+`rsync -e ssh`. The Node images have no C/C++ compiler: native modules need a
+prebuilt binary for the Node version (current better-sqlite3 and sharp ship
+them); for one that has to compile, use a custom image.
+
 ## Custom runtime images
 
 A runtime (PHP, Node.js, Python, Go, Ruby, Java, .NET) can run an image of your own
