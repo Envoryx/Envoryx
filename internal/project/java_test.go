@@ -179,7 +179,7 @@ func TestJavaTemplateWorkersTestsAndManifest(t *testing.T) {
 			steps = append(steps, s.Cmd)
 		}
 	}
-	if len(steps) != 2 || steps[0][2] != javaScaffoldScript || !strings.Contains(steps[1][2], "mvnw") {
+	if len(steps) != 3 || steps[0][2] != javaScaffoldScript || !strings.Contains(steps[1][2], "ddl-auto=update") || !strings.Contains(steps[2][2], "mvnw") {
 		t.Fatalf("template steps: %q", steps)
 	}
 	u, err := url.Parse(steps[0][4])

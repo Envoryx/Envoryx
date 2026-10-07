@@ -616,6 +616,34 @@ func (m *Manager) prepareRailsDatabases(ctx context.Context, p store.Project) {
 	}
 }
 
+// railsDBPrepare runs rails db:prepare once in the new project's Ruby container, before
+// anyone opened the site: the development server's first request creates an empty
+// schema_migrations table in the queue database, after which db:prepare would no longer
+// load db/queue_schema.rb. The server waits for the same database, so it is up by now.
+// Best effort: a failure is logged, and the Rails actions are there to run it again.
+func (m *Manager) railsDBPrepare(ctx context.Context, p store.Project, tpl Template) {
+	c, err := m.ServiceContainer(ctx, p.ID, store.ServiceRuby)
+	if err != nil || c.State != "running" {
+		m.log.Warn("rails db:prepare after the template", "project", p.Slug, "err", err)
+		return
+	}
+	env, err := m.execEnv(store.ServiceRuby)
+	if err != nil {
+		return
+	}
+	step(ctx, "Scaffolding the {{template}} template: {{step}}", "template", tpl.Name, "step", "rails db:prepare")
+	m.ensurePasswdEntry(ctx, c.ID, c.Name, env.User)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer cancel()
+	var out bytes.Buffer
+	code, err := m.engine.ExecStream(ctx, c.ID, docker.ExecStreamOptions{
+		Cmd: []string{"bin/rails", "db:prepare"}, Env: append(env.Env, "CI=1"), User: env.User, WorkingDir: env.WorkingDir, Stdout: &out, Stderr: &out,
+	})
+	if err != nil || code != 0 {
+		m.log.Warn("rails db:prepare after the template failed - run it from Actions", "project", p.Slug, "exit", code, "err", err, "output", tailLines(out.String(), 20))
+	}
+}
+
 func firstExisting(exists func(string) bool, names ...string) string {
 	for _, n := range names {
 		if exists(n) {

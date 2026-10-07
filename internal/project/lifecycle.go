@@ -272,6 +272,9 @@ func (m *Manager) create(ctx context.Context, req CreateRequest) (View, error) {
 		}
 		if tpl, ok := TemplateByID(req.Template); ok && tpl.Runtime == "ruby" && proj.Git.URL == "" {
 			m.prepareRailsDatabases(ctx, proj)
+			if tpl.Ruby != nil && tpl.Ruby.Preset == "rails" {
+				m.railsDBPrepare(ctx, proj, tpl)
+			}
 		}
 	}
 	if req.Import != nil && staged.DumpFile() != "" {
