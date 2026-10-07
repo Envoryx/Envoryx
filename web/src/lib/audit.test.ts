@@ -17,4 +17,12 @@ describe("audit helpers", () => {
     expect(auditDetails(entry({ action: "project.started", targetType: "project", targetId: "3f0b4a9e-1a2b", details: { name: "Shop" } }), t)).toBe("Shop");
     expect(auditDetails(entry({ action: "settings.changed", details: { publicHost: "nas", forceHttps: true } }), t)).toBe("publicHost, forceHttps");
   });
+
+  it("labels every account action and names users instead of showing their id", () => {
+    for (const a of ["user.invited", "user.joined", "user.updated", "user.deleted"]) expect(auditActionLabel(a, t)).not.toBe(a);
+    expect(auditDetails(entry({ action: "user.invited", targetType: "user", targetId: "b673e09e-77", details: { username: "mia", role: "developer" } }), t)).toBe("mia");
+    expect(auditDetails(entry({ action: "terminal.opened", targetType: "project", targetId: "7cabed54-11", details: { service: "php" } }), t)).toBe("project 7cabed54");
+    expect(auditDetails(entry({ action: "auth.login_failed", targetType: "user", details: { reason: "invalid credentials" } }), t)).toBe("invalid credentials");
+    expect(auditDetails(entry({ action: "auth.logout", targetType: "user", details: {} }), t)).toBe("-");
+  });
 });

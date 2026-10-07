@@ -59,6 +59,22 @@ export const auditActionLabels: Record<string, string> = {
   "git.checkout": "Branch checked out",
   "token.created": "API token created",
   "token.revoked": "API token revoked",
+  "user.invited": "User invited",
+  "user.joined": "Invitation accepted",
+  "user.updated": "User updated",
+  "user.deleted": "User deleted",
+  "project.custom_image_changed": "Custom image changed",
+  "settings.secret_key_revealed": "Secret key shown",
+  "settings.secret_key_rotated": "Secret key replaced",
+  "settings.registries_changed": "Registry logins changed",
+  "addon.installed": "Addon installed",
+  "addon.removed": "Addon removed",
+  "branch.deployed": "Branch deployed",
+  "ssh.login": "SSH login",
+  "ssh.exec": "SSH command run",
+  "ssh.sftp": "SFTP session opened",
+  "ssh.forward": "SSH port forwarded",
+  "ssh.remote_forward": "SSH remote port forwarded",
 };
 
 export function auditActionLabel(action: string, t: TFunction): string {
@@ -96,8 +112,13 @@ export function auditDetails(e: AuditEntry, t: TFunction): string {
       const keys = changes && typeof changes === "object" ? Object.keys(changes as object).join(", ") : "";
       return typeof d["name"] === "string" ? (keys ? `${d["name"]} · ${keys}` : String(d["name"])) : keys;
     }
+    case "auth.login_failed":
+      return typeof d["reason"] === "string" ? d["reason"] : "-";
     default:
-      if (typeof d["name"] === "string") return String(d["name"]);
-      return e.targetType ? `${e.targetType} ${e.targetId.slice(0, 8)}` : "-";
+      // Envoryx stores the target's name with the entry (users under "username"); older
+      // entries of since deleted objects only have the id.
+      if (typeof d["name"] === "string") return d["name"];
+      if (typeof d["username"] === "string") return d["username"];
+      return e.targetType && e.targetId ? `${e.targetType} ${e.targetId.slice(0, 8)}` : "-";
   }
 }
