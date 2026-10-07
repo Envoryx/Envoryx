@@ -293,6 +293,18 @@ func TestNodeProductionModeAndInspector(t *testing.T) {
 		t.Fatalf("published ports: %v (config %+v)", ports, cfg)
 	}
 
+	// An API call that leaves "inspect" out keeps the inspector and its port.
+	partial := runtime.NodeConfig{DevServer: true}
+	if _, err := e.m.Update(ctx, id, UpdateRequest{Node: &NodeUpdate{Enabled: true, Version: "24", Config: partial, KeepInspect: true}}); err != nil {
+		t.Fatal(err)
+	}
+	kv, _ := e.m.Get(ctx, id)
+	var kept runtime.NodeConfig
+	_ = json.Unmarshal(kv.Project.Service(store.ServiceNode).Config, &kept)
+	if !kept.Inspect || kept.InspectHostPort != cfg.InspectHostPort {
+		t.Fatalf("inspector after an update without inspect: %+v", kept)
+	}
+
 	// Turning the inspector off frees its port; turning it on again keeps the dev port.
 	cfg.Inspect = false
 	if _, err := e.m.Update(ctx, id, UpdateRequest{Node: &NodeUpdate{Enabled: true, Version: "24", Config: cfg}}); err != nil {

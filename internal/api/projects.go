@@ -272,6 +272,9 @@ func (n nodeRequestDTO) config() runtime.NodeConfig {
 type nodeUpdateDTO struct {
 	Enabled bool `json:"enabled"`
 	nodeRequestDTO
+	// Inspect shadows the request's flag to tell "false" from "left out", which keeps
+	// the stored value like the other fields NodeConfig.Inherit fills.
+	Inspect *bool `json:"inspect"`
 }
 
 type pythonRequestDTO struct {
@@ -887,7 +890,11 @@ func (a *API) updateProject(w http.ResponseWriter, r *http.Request) {
 	}
 	upd.IDEGateway = req.IDEGateway
 	if req.Node != nil {
-		upd.Node = &project.NodeUpdate{Enabled: req.Node.Enabled, Version: req.Node.Version, Config: req.Node.config()}
+		cfg := req.Node.config()
+		if req.Node.Inspect != nil {
+			cfg.Inspect = *req.Node.Inspect
+		}
+		upd.Node = &project.NodeUpdate{Enabled: req.Node.Enabled, Version: req.Node.Version, Config: cfg, KeepInspect: req.Node.Inspect == nil}
 	}
 	if req.Python != nil {
 		upd.Python = &project.PythonUpdate{Enabled: req.Python.Enabled, Version: req.Python.Version, Config: req.Python.config()}
