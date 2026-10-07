@@ -87,7 +87,7 @@ export function IdeTab({ project: p }: { project: Project }) {
 
   return (
     <div className="space-y-6">
-      {ssh?.enabled && ssh.port > 0 && app && (
+      {ssh?.enabled && ssh.port > 0 && (
         <Card>
           <CardHeader
             title={
@@ -106,6 +106,9 @@ export function IdeTab({ project: p }: { project: Project }) {
               <CopyRow label={t("Password")} value={t("<API token from Settings → API tokens & MCP>")} mono={false} />
               <CopyRow label={t("Root path")} value="/var/www/html" />
               {s?.proxy?.enabled && proxyUrl(hostname, s.proxy) && <CopyRow label={t("Web server URL")} value={proxyUrl(hostname, s.proxy)} />}
+              {/* A static site has no interpreter section below, which otherwise shows the host key. */}
+              {!app && <CopyRow label={t("Host key")} value={ssh.fingerprint} />}
+              {!app && ssh.fingerprintMd5 && <CopyRow label={t("Host key (MD5)")} value={ssh.fingerprintMd5} />}
             </dl>
             <p className="mt-3 text-xs text-subtle">{t("The steps are PhpStorm's and WebStorm's. GoLand, PyCharm, RubyMine, IntelliJ IDEA and Rider have no “New Project from Existing Files”: open or clone the code locally and follow “Code already on your machine” below.")}</p>
             <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-muted">
@@ -154,7 +157,7 @@ export function IdeTab({ project: p }: { project: Project }) {
           ) : ssh.port === 0 ? (
             <Alert tone="amber">{t("The SSH port 2222 is not published on the host - add a port mapping 2222:2222 to the Envoryx container.")}</Alert>
           ) : !app ? (
-            <Alert tone="gray">{t("This project has no application container - SSH sessions need PHP, Python, Go, Ruby, Java, .NET or Node.js.")}</Alert>
+            <Alert tone="gray">{t("This project has no application container, so there is no shell or remote interpreter - SSH sessions need PHP, Python, Go, Ruby, Java, .NET or Node.js. Its files are available over SFTP (above).")}</Alert>
           ) : (
             <dl>
               <CopyRow label={t("Host")} value={sshHost} />

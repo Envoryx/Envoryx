@@ -98,7 +98,16 @@ func newEnv(t *testing.T) *env {
 
 func (e *env) dial(t *testing.T, user string, authMethods ...ssh.AuthMethod) (*ssh.Client, error) {
 	t.Helper()
-	return ssh.Dial("tcp", e.addr, &ssh.ClientConfig{User: user, Auth: authMethods, HostKeyCallback: ssh.InsecureIgnoreHostKey(), Timeout: 5 * time.Second})
+	return e.dialAs(t, user, "", authMethods...)
+}
+
+// jetBrainsClient is how PhpStorm 2026.2 announces itself.
+const jetBrainsClient = "SSH-2.0-IntelliJ__PhpStorm_PS-262.10968.76__SSHJ_0.38.1_SNAPSHOT"
+
+// dialAs connects with the given client version string ("" is Go's default).
+func (e *env) dialAs(t *testing.T, user, clientVersion string, authMethods ...ssh.AuthMethod) (*ssh.Client, error) {
+	t.Helper()
+	return ssh.Dial("tcp", e.addr, &ssh.ClientConfig{User: user, Auth: authMethods, ClientVersion: clientVersion, HostKeyCallback: ssh.InsecureIgnoreHostKey(), Timeout: 5 * time.Second})
 }
 
 func TestExecAndAuth(t *testing.T) {
@@ -649,7 +658,8 @@ func TestSFTPServesTheContainerOutsideTheMounts(t *testing.T) {
 		}
 		return ""
 	}
-	client, err := e.dial(t, "shop", ssh.Password(e.token))
+	// As PhpStorm: JetBrains clients start in the tool home.
+	client, err := e.dialAs(t, "shop", jetBrainsClient, ssh.Password(e.token))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -888,5 +898,182 @@ func TestRemoteForwardingReachesTheClient(t *testing.T) {
 	}
 	if err := ln0.Close(); err != nil {
 		t.Fatalf("cancel of a port-0 forward: %v", err)
+	}
+}
+
+// halfCloser ends the client's side of a channel the way OpenSSH does when sftp or scp is
+// done: EOF on stdin, then wait for the server's exit status.
+type halfCloser struct{ ssh.Channel }
+
+func (h halfCloser) Close() error { return h.CloseWrite() }
+
+// scp in SFTP mode (OpenSSH 9) reports a copy as failed unless the subsystem ends with an
+// exit status.
+func TestSFTPSendsExitStatus(t *testing.T) {
+	e := newEnv(t)
+	client, err := e.dial(t, "shop", ssh.Password(e.token))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer client.Close()
+	ch, reqs, err := client.OpenChannel("session", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ok, err := ch.SendRequest("subsystem", true, ssh.Marshal(struct{ Name string }{"sftp"})); err != nil || !ok {
+		t.Fatalf("subsystem: %v %v", ok, err)
+	}
+	sc, err := sftp.NewClientPipe(ch, halfCloser{ch})
+	if err != nil {
+		t.Fatal(err)
+	}
+	w, err := sc.Create("/var/www/html/up.php")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _ = w.Write([]byte("<?php"))
+	_ = w.Close()
+	_ = sc.Close()
+	status := -1
+	for req := range reqs {
+		if req.Type == "exit-status" && len(req.Payload) == 4 {
+			status = int(req.Payload[3])
+		}
+	}
+	if status != 0 {
+		t.Fatalf("exit status: %d", status)
+	}
+	if _, err := os.Stat(filepath.Join(e.projDir, "shop", "up.php")); err != nil {
+		t.Fatalf("uploaded file: %v", err)
+	}
+}
+
+// sftp and scp start where an ssh login does, in the project directory; JetBrains IDEs
+// keep the tool home, where they put their helpers.
+func TestSFTPStartsInTheProject(t *testing.T) {
+	e := newEnv(t)
+	for _, c := range []struct{ version, want string }{{"", "/var/www/html"}, {"SSH-2.0-OpenSSH_9.6p1", "/var/www/html"}, {jetBrainsClient, "/home/envoryx"}} {
+		client, err := e.dialAs(t, "shop", c.version, ssh.Password(e.token))
+		if err != nil {
+			t.Fatal(err)
+		}
+		sc, err := sftp.NewClient(client)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if wd, err := sc.Getwd(); err != nil || wd != c.want {
+			t.Errorf("%q: start directory %q %v, want %s", c.version, wd, err, c.want)
+		}
+		if c.version == "" {
+			// Relative paths land in the project, absolute ones where they say.
+			if _, err := sc.Create("public/rel.php"); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := os.Stat(filepath.Join(e.projDir, "shop", "public", "rel.php")); err != nil {
+				t.Fatalf("relative upload: %v", err)
+			}
+			if _, err := sc.Create("/home/envoryx/abs.txt"); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := os.Stat(filepath.Join(e.cfgDir, "projects", e.proj.Project.ID, "home", "abs.txt")); err != nil {
+				t.Fatalf("absolute upload: %v", err)
+			}
+		}
+		sc.Close()
+		client.Close()
+	}
+}
+
+// Only guesses count towards the lockout: refused keys, empty passwords and valid tokens
+// for the wrong project do not. A lockout hits that address and project only, refuses
+// correct tokens too and tells the client why.
+func TestLoginLockout(t *testing.T) {
+	e := newEnv(t)
+	if _, err := e.manager.Create(context.Background(), project.CreateRequest{Name: "Blog", PHP: &project.PHPRequest{Version: "8.4"}, CreateStarter: true, Start: true}); err != nil {
+		t.Fatal(err)
+	}
+	stranger, err := ssh.NewSignerFromKey(mustKey(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for range 15 {
+		if _, err := e.dial(t, "shop", ssh.PublicKeys(stranger), ssh.Password("")); err == nil {
+			t.Fatal("unknown key and empty password must be refused")
+		}
+		if _, err := e.dial(t, "nope", ssh.Password(e.token)); err == nil {
+			t.Fatal("unknown project must be refused")
+		}
+	}
+	c, err := e.dial(t, "shop", ssh.Password(e.token))
+	if err != nil {
+		t.Fatalf("no guess was made, yet the login is refused: %v", err)
+	}
+	c.Close()
+
+	for range 10 {
+		_, _ = e.dial(t, "shop", ssh.Password("stq_wrong"))
+	}
+	var banner string
+	_, err = ssh.Dial("tcp", e.addr, &ssh.ClientConfig{
+		User: "shop", Auth: []ssh.AuthMethod{ssh.Password(e.token)}, HostKeyCallback: ssh.InsecureIgnoreHostKey(), Timeout: 5 * time.Second,
+		BannerCallback: func(msg string) error { banner += msg; return nil },
+	})
+	if err == nil {
+		t.Fatal("a locked out project must refuse the correct token too")
+	}
+	if !strings.Contains(banner, "too many failed logins") {
+		t.Fatalf("banner: %q", banner)
+	}
+	c, err = e.dial(t, "blog", ssh.Password(e.token))
+	if err != nil {
+		t.Fatalf("another project from the same address: %v", err)
+	}
+	c.Close()
+}
+
+// A static site has no container: SFTP serves its files, a command explains why there is
+// no shell.
+func TestStaticSiteGetsSFTP(t *testing.T) {
+	e := newEnv(t)
+	if _, err := e.manager.Create(context.Background(), project.CreateRequest{Name: "Docs", CreateStarter: true, Start: true}); err != nil {
+		t.Fatal(err)
+	}
+	client, err := e.dial(t, "docs", ssh.Password(e.token))
+	if err != nil {
+		t.Fatalf("static site login: %v", err)
+	}
+	defer client.Close()
+	sc, err := sftp.NewClient(client)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if wd, _ := sc.Getwd(); wd != "/var/www/html" {
+		t.Fatalf("start directory: %q", wd)
+	}
+	w, err := sc.Create("about.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _ = w.Write([]byte("<h1>About</h1>"))
+	_ = w.Close()
+	if b, err := os.ReadFile(filepath.Join(e.projDir, "docs", "about.html")); err != nil || string(b) != "<h1>About</h1>" {
+		t.Fatalf("uploaded file: %v %q", err, b)
+	}
+	sc.Close()
+
+	sess, err := client.NewSession()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var stderr bytes.Buffer
+	sess.Stderr = &stderr
+	if err := sess.Run("ls"); err == nil {
+		t.Fatal("a static site has no shell")
+	}
+	if !strings.Contains(stderr.String(), "static site") {
+		t.Fatalf("stderr: %q", stderr.String())
+	}
+	if _, err := e.dial(t, "docs.php", ssh.Password(e.token)); err == nil {
+		t.Fatal("an explicit runtime the project lacks must be refused")
 	}
 }

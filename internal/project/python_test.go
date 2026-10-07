@@ -198,8 +198,8 @@ func TestPythonServerServesProject(t *testing.T) {
 	if !paused || len(view.Project.Workers) != 1 {
 		t.Fatalf("worker must survive as paused: %+v", view.Status.Services)
 	}
-	if _, err := e.m.ResolveSSHUser(ctx, "api"); err == nil {
-		t.Fatal("no application container after removing Python")
+	if target, err := e.m.ResolveSSHUser(ctx, "api"); err != nil || !target.Static {
+		t.Fatalf("no application container after removing Python, only files: %+v %v", target, err)
 	}
 
 	// Invalid input is rejected before anything changes.
