@@ -24,7 +24,7 @@ ARG NETCOREDBG_SHA256_ARM64=065ff49badec8a695dbea2de6ab6a330c774a191e426a217ab8c
 RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
-        git openssh-client ca-certificates curl unzip socat procps tini; \
+        git openssh-client rsync ca-certificates curl unzip socat procps tini; \
     rm -rf /var/lib/apt/lists/*; \
     case "${TARGETARCH:-amd64}" in \
         amd64) sum="${NETCOREDBG_SHA256_AMD64}" ;; \

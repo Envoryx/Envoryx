@@ -465,6 +465,7 @@ var probeCommon = []probeTool{
 	{bin: "git", feature: "git in the terminal and packages installed from git repositories"},
 	{bin: "socat", feature: "waiting for the database at start and SSH port forwarding"},
 	{bin: "ssh", feature: "git over SSH (deploy keys)"},
+	{bin: "rsync", feature: "rsync over SSH"},
 }
 
 var probeTools = map[store.ServiceKind][]probeTool{
