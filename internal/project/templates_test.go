@@ -170,8 +170,12 @@ func TestNodeTemplatesScaffoldFromTheNodeImage(t *testing.T) {
 	if cfg.Port != 4000 || cfg.Preset != "next" {
 		t.Fatalf("request port must win: %+v", cfg)
 	}
-	if len(runs) != 1 || strings.Join(runs[0].Cmd, " ") != "npx --yes create-next-app@latest . --yes --ts --app --use-npm --disable-git" {
+	if len(runs) != 2 || strings.Join(runs[0].Cmd, " ") != "npx --yes create-next-app@latest . --yes --ts --app --use-npm --disable-git" {
 		t.Fatalf("next step: %+v", runs)
+	}
+	// Fast Refresh only answers origins in allowedDevOrigins: the base domain's wildcard.
+	if c := runs[1].Cmd; len(c) < 4 || c[0] != "node" || c[3] != "*.test" {
+		t.Fatalf("next dev origins step: %q", c)
 	}
 
 	// Nuxt: nuxi must not prompt (no TTY answers) and leaves the install to the next step.

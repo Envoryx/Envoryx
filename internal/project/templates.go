@@ -73,6 +73,9 @@ type templateStep struct {
 	cmd   []string
 	// cmdFor replaces cmd when the command depends on the project (its name, its database).
 	cmdFor func(p store.Project) []string
+	// cmdHosts replaces cmd when the command needs the host names the browser uses for
+	// the project: a wildcard for the base domain, then the extra domains.
+	cmdHosts func(hosts []string) []string
 	// files are written by Envoryx after the command (relative path → content generator).
 	files map[string]func() (string, error)
 }
@@ -108,8 +111,8 @@ var (
 const (
 	// djangoSettingsPatch makes the generated settings work behind Envoryx's proxy: every
 	// host name is allowed (the proxy decides), TLS termination is trusted and the
-	// injected DATABASE_URL is used when present (dj-database-url). WhiteNoise serves the
-	// static files, which gunicorn in production mode does not.
+	// injected DATABASE_URL is used when present (dj-database-url), and so is Mailpit.
+	// WhiteNoise serves the static files, which gunicorn in production mode does not.
 	djangoSettingsPatch = `
 import pathlib
 p = pathlib.Path("config/settings.py")
@@ -130,6 +133,24 @@ DEBUG = os.environ.get("DJANGO_DEBUG", "1") == "1"
 CSRF_TRUSTED_ORIGINS = [o for o in os.environ.get("CSRF_TRUSTED_ORIGINS", "").split(",") if o]
 if os.environ.get("DATABASE_URL"):
     DATABASES["default"] = dj_database_url.config(conn_max_age=60)
+"""
+# Mail goes to Mailpit when the project has it (Envoryx injects SMTP_HOST and SMTP_PORT
+# then). Django 6.1 configures mail in MAILERS and refuses the old EMAIL_HOST next to it.
+if "MAILERS" in s:
+    s += """
+# Mail goes to Mailpit when the project has it (Envoryx injects SMTP_HOST and SMTP_PORT).
+if os.environ.get("SMTP_HOST"):
+    MAILERS = {"default": {"BACKEND": "django.core.mail.backends.smtp.EmailBackend", "OPTIONS": {"host": os.environ["SMTP_HOST"], "port": int(os.environ.get("SMTP_PORT", "25"))}}}
+"""
+else:
+    s += """
+# Mail goes to Mailpit when the project has it (Envoryx injects SMTP_HOST and SMTP_PORT).
+if os.environ.get("SMTP_HOST"):
+    EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+    EMAIL_HOST = os.environ["SMTP_HOST"]
+    EMAIL_PORT = int(os.environ.get("SMTP_PORT", "25"))
+"""
+s += """
 
 # Target of "manage.py collectstatic". gunicorn (production mode) serves no static files
 # itself, WhiteNoise does; it also finds them in the apps without a collectstatic run.
@@ -175,8 +196,10 @@ import (
 
 func main() {
 	r := gin.Default()
-	// The proxy in front of the project sets X-Forwarded-For.
-	_ = r.SetTrustedProxies(nil)
+	// Requests come through the Envoryx proxy, which sets X-Forwarded-For: trust it from
+	// the private address ranges Docker networks use, so c.ClientIP() is the browser's
+	// address and not the proxy's.
+	_ = r.SetTrustedProxies([]string{"10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"})
 	r.GET("/", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"message": "Hello from Gin on Envoryx!"})
 	})
@@ -247,8 +270,12 @@ end
 `
 
 	flaskApp = `from flask import Flask
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 app = Flask(__name__)
+# The Envoryx proxy terminates HTTPS and sends X-Forwarded-For/-Proto/-Host: with
+# ProxyFix, url_for(_external=True) and redirects stay on https://<project>.test.
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
 
 @app.get("/")
@@ -265,6 +292,38 @@ def index():
     return {"message": "FastAPI on Envoryx - edit main.py, uvicorn reloads on save. Docs at /docs."}
 `
 )
+
+// nextDevOriginsScript adds allowedDevOrigins to the generated next.config: Next.js 16
+// serves HMR and its other dev resources only to the origins listed there, and the
+// browser opens the project through the proxy under its own host name. Without it Fast
+// Refresh never connects.
+const nextDevOriginsScript = `const fs = require("fs");
+const file = ["next.config.ts", "next.config.mjs", "next.config.js"].find((f) => fs.existsSync(f));
+if (!file) { console.error("envoryx: create-next-app wrote no next.config"); process.exit(1); }
+let s = fs.readFileSync(file, "utf8");
+if (s.includes("allowedDevOrigins")) { console.log(file + " already sets allowedDevOrigins"); process.exit(0); }
+const re = /(const nextConfig[^=]*=\s*\{)/;
+if (!re.test(s)) { console.error("envoryx: " + file + " has no nextConfig object"); process.exit(1); }
+const hosts = JSON.stringify(process.argv.slice(1)).replace(/,/g, ", ");
+s = s.replace(re, "$1\n  // Added by Envoryx: the dev server only serves Fast Refresh to these origins, and the\n  // browser opens the project through the Envoryx proxy. Add domains you attach later.\n  allowedDevOrigins: " + hosts + ",");
+fs.writeFileSync(file, s);
+console.log(file + ": allowedDevOrigins " + hosts);`
+
+func nextDevOrigins(hosts []string) []string {
+	return append([]string{"node", "-e", nextDevOriginsScript}, hosts...)
+}
+
+// The .gitignore of the Python templates: the venv, the bytecode caches and, for Django,
+// collectstatic's output, the uploads and the SQLite file without a database service.
+const (
+	pythonGitignore = ".venv/\n__pycache__/\n*.py[cod]\n"
+	djangoGitignore = "staticfiles/\nmedia/\ndb.sqlite3\n"
+)
+
+// fixedFile is a template file whose content never changes.
+func fixedFile(content string) func() (string, error) {
+	return func() (string, error) { return content, nil }
+}
 
 // nodeScaffoldMount is where Node scaffolds see the project directory. create-next-app
 // refuses to run unless the parent of the target directory is writable, and /var/www is
@@ -374,14 +433,17 @@ var templates = []Template{
 		ID: "next", Name: "Next.js (App Router, TypeScript)", Description: "create-next-app with the App Router and TypeScript.",
 		Runtime: "node", Docroot: "",
 		Node:  &runtime.NodeConfig{DevServer: true, Preset: "next", Port: 3000, Script: "dev"},
-		Notes: "create-next-app installs dependencies. For a production-like run: “npm run build”, then set the dev-server script to “start”.",
-		steps: []templateStep{{label: "create-next-app", cmd: []string{"npx", "--yes", "create-next-app@latest", ".", "--yes", "--ts", "--app", "--use-npm", "--disable-git"}}},
+		Notes: "create-next-app installs dependencies. next.config.ts lists the project's host names in allowedDevOrigins, which Fast Refresh needs behind the proxy: add a domain you attach later there, too. For a production-like run switch the Runtime mode to “Production build”.",
+		steps: []templateStep{
+			{label: "create-next-app", cmd: []string{"npx", "--yes", "create-next-app@latest", ".", "--yes", "--ts", "--app", "--use-npm", "--disable-git"}},
+			{label: "allow the project hosts as dev origins", cmdHosts: nextDevOrigins},
+		},
 	},
 	{
 		ID: "nuxt", Name: "Nuxt", Description: "Nuxt starter (minimal template) created by nuxi.",
 		Runtime: "node", Docroot: "",
 		Node:  &runtime.NodeConfig{DevServer: true, Preset: "nuxt", Port: 3000, Script: "dev"},
-		Notes: "For a production-like run: “npm run build”, then set the dev-server script to “preview”.",
+		Notes: "For a production-like run switch the Runtime mode to “Production build”: every start builds the app, then serves it with “nuxt preview”.",
 		steps: []templateStep{
 			{label: "nuxi init", cmd: []string{"npx", "--yes", "nuxi@latest", "init", ".", "--template", "minimal", "--packageManager", "npm", "--no-install", "--no-gitInit", "--force"}},
 			{label: "npm install", cmd: []string{"npm", "install"}},
@@ -400,7 +462,7 @@ var templates = []Template{
 			{label: "pip install django", cmd: []string{"pip", "install", "django", "dj-database-url", "gunicorn", "whitenoise", "psycopg[binary]", "mysqlclient"}},
 			{label: "django-admin startproject", cmd: []string{"django-admin", "startproject", "config", "."}},
 			{label: "prepare settings", cmd: []string{"python", "-c", djangoSettingsPatch}},
-			{label: "pip freeze", cmd: []string{"sh", "-c", "pip freeze > requirements.txt", "envoryx-freeze"}},
+			{label: "pip freeze", cmd: []string{"sh", "-c", "pip freeze > requirements.txt", "envoryx-freeze"}, files: map[string]func() (string, error){".gitignore": fixedFile(pythonGitignore + djangoGitignore)}},
 		},
 	},
 	{
@@ -411,7 +473,7 @@ var templates = []Template{
 		steps: []templateStep{
 			{label: "python -m venv", cmd: []string{"python", "-m", "venv", pythonVenvPath}},
 			{label: "pip install flask", cmd: []string{"pip", "install", "flask", "gunicorn", "python-dotenv"}},
-			{label: "pip freeze, write app.py", cmd: []string{"sh", "-c", "pip freeze > requirements.txt", "envoryx-freeze"}, files: map[string]func() (string, error){"app.py": func() (string, error) { return flaskApp, nil }}},
+			{label: "pip freeze, write app.py", cmd: []string{"sh", "-c", "pip freeze > requirements.txt", "envoryx-freeze"}, files: map[string]func() (string, error){"app.py": fixedFile(flaskApp), ".gitignore": fixedFile(pythonGitignore)}},
 		},
 	},
 	{
@@ -422,7 +484,7 @@ var templates = []Template{
 		steps: []templateStep{
 			{label: "python -m venv", cmd: []string{"python", "-m", "venv", pythonVenvPath}},
 			{label: "pip install fastapi", cmd: []string{"pip", "install", "fastapi", "uvicorn[standard]"}},
-			{label: "pip freeze, write main.py", cmd: []string{"sh", "-c", "pip freeze > requirements.txt", "envoryx-freeze"}, files: map[string]func() (string, error){"main.py": func() (string, error) { return fastapiApp, nil }}},
+			{label: "pip freeze, write main.py", cmd: []string{"sh", "-c", "pip freeze > requirements.txt", "envoryx-freeze"}, files: map[string]func() (string, error){"main.py": fixedFile(fastapiApp), ".gitignore": fixedFile(pythonGitignore)}},
 		},
 	},
 	// The Go scaffolds run from the Envoryx Go image: go mod init, the program, then the
@@ -464,20 +526,20 @@ var templates = []Template{
 		ID: "rails", Name: "Rails", Description: "rails new with Hotwire and importmap (no Node.js needed), on the project database.",
 		Runtime: "ruby", Docroot: "", RecommendedDatabase: "postgresql",
 		Ruby:  &runtime.RubyConfig{Server: true, Preset: "rails", Port: 3000},
-		Notes: "Run “rails db:prepare” from Actions, then open the site. DATABASE_URL is injected by Envoryx and Rails merges it into config/database.yml; without a database Rails uses SQLite. Jobs go to Solid Queue in a queue database of their own (QUEUE_DATABASE_URL): add the Solid Queue worker under Workers to run them. Rails reloads code on every request in dev mode. Production mode needs config/master.key (rails new wrote one) and the assets built with “rails assets:precompile”.",
+		Notes: "Envoryx runs “rails db:prepare” when it starts the new project (created stopped, run it from Actions before you open the site). DATABASE_URL is injected by Envoryx and Rails merges it into config/database.yml; without a database Rails uses SQLite. Jobs go to Solid Queue and Action Cable broadcasts to Solid Cable, each in a database of its own (QUEUE_DATABASE_URL, CABLE_DATABASE_URL): add the Solid Queue worker under Workers to run the jobs. With Mailpit, Action Mailer delivers to it. Rails reloads code on every request in dev mode. Production mode needs config/master.key (rails new wrote one) and the assets built with “rails assets:precompile”.",
 		steps: []templateStep{
 			{label: "gem install rails, rails new", cmdFor: railsNew()},
-			{label: "configure the queue database", cmd: []string{"ruby", "-e", railsQueueDatabase}},
+			{label: "configure development", cmd: []string{"ruby", "-e", railsQueueDatabase}, files: railsFiles},
 		},
 	},
 	{
 		ID: "rails-api", Name: "Rails (API only)", Description: "rails new --api: a JSON backend without views and assets, on the project database.",
 		Runtime: "ruby", Docroot: "", RecommendedDatabase: "postgresql",
 		Ruby:  &runtime.RubyConfig{Server: true, Preset: "rails", Port: 3000},
-		Notes: "Run “rails db:prepare” from Actions, then generate resources in the Ruby terminal (bin/rails generate scaffold …). DATABASE_URL is injected by Envoryx; without a database Rails uses SQLite. Jobs go to Solid Queue in a queue database of their own (QUEUE_DATABASE_URL): add the Solid Queue worker under Workers to run them.",
+		Notes: "Envoryx runs “rails db:prepare” when it starts the new project (created stopped, run it from Actions). Generate resources in the Ruby terminal (bin/rails generate scaffold …). DATABASE_URL is injected by Envoryx; without a database Rails uses SQLite. Jobs go to Solid Queue in a queue database of their own (QUEUE_DATABASE_URL): add the Solid Queue worker under Workers to run them. With Mailpit, Action Mailer delivers to it.",
 		steps: []templateStep{
 			{label: "gem install rails, rails new --api", cmdFor: railsNew("--api")},
-			{label: "configure the queue database", cmd: []string{"ruby", "-e", railsQueueDatabase}},
+			{label: "configure development", cmd: []string{"ruby", "-e", railsQueueDatabase}, files: railsFiles},
 		},
 	},
 	{
@@ -504,9 +566,10 @@ var javaTemplates = []Template{
 		ID: "spring-boot", Name: "Spring Boot", Description: "Spring Boot with Spring Web, Actuator and DevTools from start.spring.io; JPA and the driver of the project database when it has one.",
 		Runtime: "java", Docroot: "", RecommendedDatabase: "postgresql",
 		Java:  &runtime.JavaConfig{Server: true, Preset: "spring-boot", Port: 8080},
-		Notes: "Envoryx injects SPRING_DATASOURCE_* for the project database. DevTools restarts the application when compiled classes change: run “mvn compile” in the Java terminal (or let your IDE build over SSH) after editing. /actuator/health is a ready-made health check path.",
+		Notes: "Envoryx injects SPRING_DATASOURCE_* for the project database; with a database, Hibernate creates and updates the tables (spring.jpa.hibernate.ddl-auto=update in application.properties). DevTools restarts the application when compiled classes change: run “mvn compile” in the Java terminal (or let your IDE build over SSH) after editing. /actuator/health is a ready-made health check path.",
 		steps: []templateStep{
 			{label: "download from start.spring.io", cmdFor: javaScaffold(springInitializrURL)},
+			{label: "configure Hibernate", cmd: springSchema},
 			{label: "mvn package", cmd: javaPrebuild},
 		},
 	},
@@ -539,8 +602,16 @@ cp -a "$src"/. .`
 // quarkusDevSchema lets Hibernate create and update the tables in dev mode. Quarkus only
 // does that on its own with Dev Services, which Envoryx switches off in favour of the
 // project database; "update" keeps the data across live reloads, where the Dev Services
-// default (drop-and-create) would empty the database every time.
-var quarkusDevSchema = []string{"sh", "-c", `if grep -q quarkus-hibernate-orm pom.xml; then printf '%s\n' '' '# Added by Envoryx: Hibernate creates and updates the tables in dev mode.' '%dev.quarkus.hibernate-orm.schema-management.strategy=update' >> src/main/resources/application.properties; fi`}
+// default (drop-and-create) would empty the database every time. Tests run against
+// <database>_test (javaTestScript), which starts empty: there drop-and-create builds the
+// tables for every run.
+var quarkusDevSchema = []string{"sh", "-c", `if grep -q quarkus-hibernate-orm pom.xml; then printf '%s\n' '' '# Added by Envoryx: Hibernate creates and updates the tables in dev mode.' '%dev.quarkus.hibernate-orm.schema-management.strategy=update' '%test.quarkus.hibernate-orm.schema-management.strategy=drop-and-create' >> src/main/resources/application.properties; fi`}
+
+// springSchema lets Hibernate create and update the tables of the project database. Spring
+// Boot only does that on its own for embedded databases, so the first @Entity a user adds
+// would end in "relation does not exist". Flyway or Liquibase take over once the project
+// adds one of them; then set ddl-auto to validate or none.
+var springSchema = []string{"sh", "-c", `if grep -q spring-boot-starter-data-jpa pom.xml; then printf '%s\n' '' '# Added by Envoryx: Hibernate creates and updates the tables. Switch to validate or none' '# once Flyway or Liquibase manage the schema.' 'spring.jpa.hibernate.ddl-auto=update' >> src/main/resources/application.properties; fi`}
 
 // javaPrebuild builds the fresh project once with its own Maven wrapper.
 var javaPrebuild = []string{"sh", "-c", `exec sh ./mvnw -B -q -DskipTests package`}
@@ -637,7 +708,7 @@ var dotnetTemplates = []Template{
 		ID: "aspnet-webapi", Name: "ASP.NET Core Web API", Description: "Minimal API with OpenAPI (dotnet new webapi); EF Core with a sample /todos endpoint on the project database when it is PostgreSQL, MySQL or MariaDB.",
 		Runtime: "dotnet", Docroot: "", RecommendedDatabase: "postgresql",
 		Dotnet: &runtime.DotnetConfig{Server: true, Preset: "aspnetcore", Port: 8080},
-		Notes:  "dotnet watch applies code changes with hot reload and restarts the application when it can't. Envoryx injects ConnectionStrings__DefaultConnection for the project database; AppDatabase.cs creates the tables with EnsureCreated - switch to migrations (dotnet ef migrations add Initial, then the \"dotnet ef database update\" action) once the model settles.",
+		Notes:  "dotnet watch applies code changes with hot reload and restarts the application when it can't. Envoryx injects ConnectionStrings__DefaultConnection for the project database; AppDatabase.cs creates the tables with EnsureCreated. To switch to migrations once the model settles, replace EnsureCreated with Migrate in AppDatabase.cs, run “dotnet ef migrations add Initial” in the terminal and drop the tables EnsureCreated made (or start from an empty database), then run the \"dotnet ef database update\" action: a migration can't create tables that already exist.",
 		steps: []templateStep{
 			{label: "dotnet new webapi", cmdFor: dotnetNew("webapi")},
 			{label: "EF Core for the project database", cmdFor: dotnetEFCore},
@@ -770,50 +841,147 @@ CS
 sed -i -e 's/^var builder = WebApplication\.CreateBuilder(args);\(\r\?\)$/&\nbuilder.AddAppDatabase();\1/' -e 's/^app\.Run();\(\r\?\)$/app.MapTodos();\1\n\1\n&/' Program.cs
 grep -q '^builder\.AddAppDatabase();' Program.cs && grep -q '^app\.MapTodos();' Program.cs`
 
-// railsQueueDatabase gives Solid Queue its own database in development, as Rails 8 does
-// in production only: without it bin/jobs looks for its tables in the primary database
-// and crash-loops. database.yml's development entry becomes primary + queue (loaded
-// from db/queue_schema.rb by rails db:prepare; SQLite gets a file of its own), and
-// development.rb sends the jobs there. Envoryx points the queue entry at its server with
-// QUEUE_DATABASE_URL (rubyDatabaseEnv), which Active Record merges into it. An
-// application without Solid Queue (config/queue.yml) is left alone.
+// railsQueueDatabase sets up the development environment of a fresh Rails application
+// for running under Envoryx. Solid Queue and Solid Cable get databases of their own, as
+// Rails 8 does in production only: without the queue entry bin/jobs looks for its tables
+// in the primary database and crash-loops, and with Action Cable's async adapter a
+// broadcast from a job (Turbo's broadcasts_to) never leaves the worker process.
+// database.yml's development entry becomes primary + queue + cable (loaded from
+// db/queue_schema.rb and db/cable_schema.rb by rails db:prepare; SQLite gets files of its
+// own), cable.yml's development entry uses Solid Cable, and development.rb sends the jobs
+// to the queue database. Envoryx points the entries at its server with
+// QUEUE_DATABASE_URL and CABLE_DATABASE_URL (rubyDatabaseEnv), which Active Record merges
+// into them. development.rb also sends mail to Mailpit (SMTP_HOST), logs to stdout for
+// the Logs section and lets web-console answer the proxy. A Gemfile with Solid Queue but
+// no config/queue.yml means rails new stopped halfway, which fails the template.
 const railsQueueDatabase = `
 require "yaml"
 require "erb"
-unless File.exist?("config/queue.yml")
-  puts "no Solid Queue, nothing to change"
-  exit
+gemfile = File.exist?("Gemfile") ? File.read("Gemfile") : ""
+if gemfile.match?(/^\s*gem ["']solid_queue["']/) && !File.exist?("config/queue.yml")
+  abort "envoryx: rails new did not finish (the Gemfile has solid_queue, but config/queue.yml is missing) - see the output of the step before"
 end
+queue = File.exist?("config/queue.yml")
+cable = File.exist?("config/cable.yml") && File.read("config/cable.yml").include?("solid_cable") && File.exist?("db/cable_schema.rb")
+wanted = []
+wanted << ["queue", "db/queue_migrate"] if queue
+wanted << ["cable", "db/cable_migrate"] if cable
 path = "config/database.yml"
 yml = File.read(path)
 m = yml.match(/^development:\n((?:[ \t]+\S.*\n|[ \t]*\n)*)/) or abort "#{path}: no development entry"
 body = m[1]
-unless body.match?(/^[ \t]+queue:/)
+missing = wanted.reject { |name, _| body.match?(/^[ \t]+#{name}:/) }
+unless missing.empty?
   db = body[/^[ \t]+database:[ \t]*(\S+)/, 1] or abort "#{path}: the development database has no name"
-  queue = db.sub(/(\.sqlite3)?\z/) { "_queue#{$1}" }
   tail = body[/\n*\z/][1..].to_s
-  primary = body.rstrip.gsub(/^(?=.)/, "  ")
-  entry = "  primary:\n#{primary}\n\n  queue:\n    <<: *default\n    database: #{queue}\n    migrations_paths: db/queue_migrate\n#{tail}"
-  yml = yml.sub("development:\n#{body}") { "development:\n#{entry}" }
+  entry = body.match?(/^[ \t]+primary:/) ? body.rstrip : "  primary:\n" + body.rstrip.gsub(/^(?=.)/, "  ")
+  names = {}
+  missing.each do |name, migrations|
+    names[name] = db.sub(/(\.sqlite3)?\z/) { "_#{name}#{$1}" }
+    entry += "\n\n  #{name}:\n    <<: *default\n    database: #{names[name]}\n    migrations_paths: #{migrations}"
+  end
+  yml = yml.sub("development:\n#{body}") { "development:\n#{entry}\n#{tail}" }
   cfg = YAML.safe_load(ERB.new(yml).result, aliases: true)
-  cfg.dig("development", "queue", "database") == queue or abort "#{path}: the queue entry did not come out right"
+  names.each do |name, database|
+    cfg.dig("development", name, "database") == database or abort "#{path}: the #{name} entry did not come out right"
+  end
   File.write(path, yml)
+end
+if cable
+  cable_path = "config/cable.yml"
+  cable_yml = File.read(cable_path)
+  solid = "development:\n  adapter: solid_cable\n  connects_to:\n    database:\n      writing: cable\n  polling_interval: 0.1.seconds\n  message_retention: 1.day\n"
+  if cable_yml.sub!(/^development:\n[ \t]+adapter:[ \t]*async[ \t]*\n/) { solid }
+    YAML.safe_load(ERB.new(cable_yml).result, aliases: true).dig("development", "adapter") == "solid_cable" or abort "#{cable_path}: the development entry did not come out right"
+    File.write(cable_path, cable_yml)
+  end
 end
 env = "config/environments/development.rb"
 rb = File.read(env)
-unless rb.include?("solid_queue")
-  block = <<~RUBY.gsub(/^(?=.)/, "  ")
-
+blocks = []
+if queue && !rb.include?("solid_queue")
+  blocks << <<~'RUBY'
     # Added by Envoryx: jobs go to Solid Queue in a database of its own, as in production.
     # The Solid Queue worker (bin/jobs) runs them; Envoryx injects QUEUE_DATABASE_URL.
     config.active_job.queue_adapter = :solid_queue
     config.solid_queue.connects_to = { database: { writing: :queue } }
   RUBY
+end
+if rb.include?("config.action_mailer") && !rb.include?("SMTP_HOST")
+  blocks << <<~'RUBY'
+    # Added by Envoryx: mail goes to Mailpit when the project has it (Envoryx injects
+    # SMTP_HOST and SMTP_PORT then). Without it Rails tries localhost:25 and, with
+    # raise_delivery_errors off, drops every mail without a word.
+    if ENV["SMTP_HOST"].present?
+      config.action_mailer.delivery_method = :smtp
+      config.action_mailer.smtp_settings = { address: ENV["SMTP_HOST"], port: ENV.fetch("SMTP_PORT", "1025").to_i }
+    end
+  RUBY
+end
+unless rb.include?("ENVORYX_PROJECT")
+  blocks << <<~'RUBY'
+    # Added by Envoryx: the server and the workers Envoryx runs (no terminal attached) log
+    # to stdout as well, so the Logs section shows them. log/development.log stays.
+    if ENV["ENVORYX_PROJECT"] && !$stdout.tty?
+      $stdout.sync = true
+      config.logger = ActiveSupport::BroadcastLogger.new(ActiveSupport::Logger.new(config.default_log_file), ActiveSupport::Logger.new($stdout))
+    end
+  RUBY
+end
+if gemfile.include?("web-console") && !rb.include?("web_console.allowed_ips")
+  blocks << <<~'RUBY'
+    # Added by Envoryx: requests come from the Envoryx proxy on the project network, and
+    # web-console only opens its console for addresses it trusts. These are the networks
+    # of this container, not the LAN in front of the direct host port.
+    if defined?(WebConsole)
+      require "socket"
+      config.web_console.allowed_ips = Socket.getifaddrs.filter_map { |i| "#{i.addr.ip_address}/#{i.netmask.ip_address}" if i.addr&.ipv4? && !i.addr.ipv4_loopback? && i.netmask }
+    end
+  RUBY
+end
+unless blocks.empty?
+  block = blocks.map { |b| "\n" + b }.join.gsub(/^(?=.)/, "  ")
   rb.sub!(/^end\s*\z/) { "#{block}end\n" } or abort "#{env}: no closing end"
   File.write(env, rb)
 end
-puts "queue database configured"
+puts "development configured"
 `
+
+// railsFiles are written next to the generated application.
+var railsFiles = map[string]func() (string, error){"lib/tasks/envoryx.rake": fixedFile(railsSchemaTask)}
+
+// railsSchemaTask makes rails db:prepare load db/queue_schema.rb and db/cable_schema.rb
+// into a database that holds nothing but Rails' bookkeeping tables. The development
+// server's pending-migration check creates schema_migrations in every database of the
+// environment, so opening the site before the first db:prepare made db:prepare take the
+// queue database as set up and skip its schema: Solid Queue had no tables.
+const railsSchemaTask = `# Added by Envoryx: the development server's pending-migration check creates an empty
+# schema_migrations table in every database of the environment. If the site was opened
+# before the first db:prepare, db:prepare takes the queue and cable databases as set up
+# and never loads their schema. This loads it into such a database while it has no
+# tables of its own yet.
+Rake::Task["db:prepare"].enhance do
+  ActiveRecord::Tasks::DatabaseTasks.with_temporary_pool_for_each(env: Rails.env) do |pool|
+    config = pool.db_config
+    next if config.name == "primary" || !config.database_tasks?
+    schema = ActiveRecord::Tasks::DatabaseTasks.schema_dump_path(config)
+    next unless schema && File.exist?(schema)
+    tables = pool.lease_connection.tables - %w[schema_migrations ar_internal_metadata]
+    ActiveRecord::Tasks::DatabaseTasks.load_schema(config) if tables.empty?
+  end
+end
+`
+
+// railsNewScript installs rails into the project's GEM_HOME and runs rails new ("$@").
+// rails new exits 0 even when its bundle install failed (no network, a gem that does not
+// build); every generator after it fails then, too, and leaves half an application.
+// bundle check tells, and the step fails with the reason.
+const railsNewScript = `gem install --no-document rails || exit 1
+"$@" || exit 1
+if ! bundle check >/dev/null 2>&1; then
+  echo "envoryx: rails new did not finish - its bundle install failed (see the errors above), so the generators after it did not run either" >&2
+  exit 1
+fi`
 
 // railsNew installs rails into the project's GEM_HOME and generates the application in
 // the project directory: named after the project, for its database (SQLite without one),
@@ -823,7 +991,7 @@ func railsNew(extra ...string) func(p store.Project) []string {
 	return func(p store.Project) []string {
 		args := []string{"rails", "new", ".", "--name=" + railsAppName(p.Slug), "--database=" + railsDatabase(p), "--skip-git"}
 		args = append(args, extra...)
-		return append([]string{"sh", "-c", `gem install --no-document rails && exec "$@"`, "envoryx-rails-new"}, args...)
+		return append([]string{"sh", "-c", railsNewScript, "envoryx-rails-new"}, args...)
 	}
 }
 
@@ -1086,6 +1254,16 @@ func (m *Manager) applyTemplate(ctx context.Context, proj store.Project, tpl Tem
 		if ts.cmdFor != nil {
 			spec.Cmd = ts.cmdFor(proj)
 		}
+		if ts.cmdHosts != nil {
+			hosts, err := m.ProjectHostnames(ctx, proj)
+			if err != nil {
+				return err
+			}
+			// The default host name gives way to the wildcard for the base domain, which
+			// also covers <slug>-dev and a later rename.
+			hosts[0] = "*." + m.BaseDomain(ctx)
+			spec.Cmd = ts.cmdHosts(hosts)
+		}
 		if kind == store.ServiceRuby || kind == store.ServiceJava || kind == store.ServiceDotnet {
 			spec.Mounts = append(spec.Mounts, planner.HomeMount(proj))
 		}
@@ -1114,6 +1292,10 @@ func (m *Manager) applyTemplate(ctx context.Context, proj store.Project, tpl Tem
 			path, err := validate.ResolveUnder(dir, rel)
 			if err != nil {
 				return err
+			}
+			// chownTree below hands a directory made here to the project owner.
+			if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+				return fmt.Errorf("write %s: %w", rel, err)
 			}
 			if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 				return fmt.Errorf("write %s: %w", rel, err)

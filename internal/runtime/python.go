@@ -239,7 +239,10 @@ func (c PythonConfig) WrappedCommand(guards ...string) []string {
 // its error pages - the Django template wires DEBUG to DJANGO_DEBUG, and a project that
 // does not read it simply ignores the variable.
 func (c PythonConfig) Env() []string {
-	env := []string{"HOST=0.0.0.0", "PORT=" + strconv.Itoa(c.Port)}
+	// uvicorn and gunicorn only trust X-Forwarded-Proto/-For from 127.0.0.1 by default.
+	// Requests come through the Envoryx proxy on the project network, so without this
+	// FastAPI builds http:// URLs and its trailing-slash redirect leaves HTTPS.
+	env := []string{"HOST=0.0.0.0", "PORT=" + strconv.Itoa(c.Port), "FORWARDED_ALLOW_IPS=*"}
 	if c.Production() {
 		return append(env, "FLASK_DEBUG=0", "DJANGO_DEBUG=0")
 	}
