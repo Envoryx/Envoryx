@@ -223,6 +223,17 @@ func (m *Manager) create(ctx context.Context, req CreateRequest) (View, error) {
 	if err := writePlanFiles(plan); err != nil {
 		return fail("write configuration", err)
 	}
+	// A new project gets the images the registry has now, not an older build of the same
+	// tag left on the host by another project. They are pulled before a template runs in
+	// them. A build tag waits for provision: its Dockerfile may come with the clone.
+	for _, img := range plan.Images {
+		if isBuildRef(img) {
+			continue
+		}
+		if err := m.refreshImage(ctx, proj, img); err != nil {
+			return fail("pull image "+img, err)
+		}
+	}
 	if proj.Git.URL != "" {
 		step(ctx, "Cloning {{url}}", "url", proj.Git.URL)
 		if _, err := m.clone(ctx, proj); err != nil {
@@ -380,18 +391,12 @@ func (m *Manager) Stop(ctx context.Context, id string) (View, error) {
 // containers whose image changed are recreated.
 func (m *Manager) Restart(ctx context.Context, id string) (View, error) {
 	return m.transition(ctx, id, limitProvision, "restart", audit.ActionProjectRestarted, func(ctx context.Context, proj store.Project, plan Plan) error {
+		// The images are pulled (or, from the project's Dockerfile, built) before the
+		// containers stop, so a broken Dockerfile leaves the project running. A registry
+		// hiccup doesn't prevent a restart with the local image.
 		for _, img := range plan.Images {
-			if isBuildRef(img) {
-				// Built from the project's Dockerfile: a changed one has a new tag, built here
-				// before the containers stop, so a broken Dockerfile leaves the project running.
-				if err := m.ensureImage(ctx, proj, img); err != nil {
-					return err
-				}
-				continue
-			}
-			if err := m.engine.PullImage(ctx, img, m.pullProgress(ctx, proj.Slug, img)); err != nil {
-				// A registry hiccup must not prevent a restart with the local image.
-				m.log.Warn("image refresh failed, using local image", "image", img, "err", err)
+			if err := m.refreshImage(ctx, proj, img); err != nil {
+				return err
 			}
 		}
 		if err := m.stopPlan(ctx, proj, plan); err != nil {
@@ -461,12 +466,16 @@ func (m *Manager) startPlan(ctx context.Context, proj store.Project, plan Plan) 
 	if err := m.ensureProjectDir(planner, proj, false, false); err != nil {
 		return err
 	}
-	return m.ensurePlan(ctx, proj, plan, true)
+	return m.ensurePlan(ctx, proj, plan, true, true)
 }
 
 // ensurePlan writes config files, ensures the network and all planned containers exist
-// (recreating containers whose image changed) and optionally starts them in order.
-func (m *Manager) ensurePlan(ctx context.Context, proj store.Project, plan Plan, start bool) error {
+// (recreating containers whose image or spec changed) and optionally starts them in order.
+// applyImageUpdates says whether a container whose tag has moved on to a newer image (a
+// restart of this or another project pulled it) is recreated with that image. Only a start
+// or restart does that; any other change leaves such a container alone, so adding a
+// worker doesn't restart the database, and the status keeps saying "restart to apply".
+func (m *Manager) ensurePlan(ctx context.Context, proj store.Project, plan Plan, start, applyImageUpdates bool) error {
 	if err := writePlanFiles(plan); err != nil {
 		return err
 	}
@@ -533,10 +542,13 @@ func (m *Manager) ensurePlan(ctx context.Context, proj store.Project, plan Plan,
 				return fmt.Errorf("inspect image %s: %w", c.Spec.Image, err)
 			}
 			specChanged := cur.Labels[docker.LabelSpec] != c.Spec.Labels[docker.LabelSpec]
-			if cur.Image != c.Spec.Image || (cur.ImageID != "" && cur.ImageID != localID) || specChanged {
-				// Runtime version changed, the image tag was rebuilt upstream, or the
-				// container's command/mounts/ports differ from the plan: recreate.
-				m.log.Info("recreating container", "container", cur.Name, "from", cur.Image, "to", c.Spec.Image, "spec_changed", specChanged)
+			imageChanged := m.containerImageRef(ctx, cur) != c.Spec.Image
+			imageUpdated := cur.ImageID != "" && cur.ImageID != localID
+			if imageChanged || specChanged || (imageUpdated && applyImageUpdates) {
+				// Runtime version changed, the container's command/mounts/ports differ from
+				// the plan, or (on a start or restart) the image tag was rebuilt upstream:
+				// recreate.
+				m.log.Info("recreating container", "container", cur.Name, "from", cur.Image, "to", c.Spec.Image, "spec_changed", specChanged, "image_updated", imageUpdated)
 				step(ctx, "Recreating the container {{name}}", "name", cur.Name)
 				// Record (and tag) the rollback target while the old container still
 				// references its image: the containerd image store garbage-collects an
@@ -605,6 +617,20 @@ func (m *Manager) ensurePlan(ctx context.Context, proj store.Project, plan Plan,
 		}
 	}
 	return nil
+}
+
+// containerImageRef is the image reference a container was created from. Docker lists the
+// image id instead once the tag has moved on to a newer image; the reference is then read
+// from the container's configuration, so a moved tag is not mistaken for a changed one.
+func (m *Manager) containerImageRef(ctx context.Context, c docker.Container) string {
+	if c.Image != c.ImageID && !strings.HasPrefix(c.Image, "sha256:") {
+		return c.Image
+	}
+	d, err := m.engine.InspectContainer(ctx, c.ID)
+	if err != nil || d.Image == "" {
+		return c.Image
+	}
+	return d.Image
 }
 
 // workUser is the uid:gid Envoryx works as in a container: the one it runs as, or, for
@@ -721,6 +747,16 @@ func (m *Manager) update(ctx context.Context, id string, req UpdateRequest) (Vie
 	changes := map[string]any{}
 	// The settings as they were, for the audit entry's before and after.
 	before, haveBefore := m.auditState(ctx, id)
+	// The images the project used so far: one the change brings in (another runtime
+	// version, a new service) is pulled fresh, as on create.
+	oldImages := map[string]bool{}
+	if planner, err := m.planner(); err == nil {
+		if old, err := planner.Plan(proj); err == nil {
+			for _, img := range old.Images {
+				oldImages[img] = true
+			}
+		}
+	}
 
 	name, docroot := proj.Name, proj.Docroot
 	if req.Name != nil {
@@ -950,6 +986,14 @@ func (m *Manager) update(ctx context.Context, id string, req UpdateRequest) (Vie
 	if err := m.ensureProjectDir(planner, proj, false, false); err != nil {
 		return View{}, err
 	}
+	for _, img := range plan.Images {
+		if !oldImages[img] {
+			if err := m.refreshImage(ctx, proj, img); err != nil {
+				_ = m.store.Projects.UpdateState(context.WithoutCancel(ctx), id, proj.DesiredState, proj.Lifecycle, err.Error())
+				return View{}, err
+			}
+		}
+	}
 	if err := writePlanFiles(plan); err != nil {
 		return View{}, err
 	}
@@ -981,7 +1025,7 @@ func (m *Manager) update(ctx context.Context, id string, req UpdateRequest) (Vie
 			return View{}, err
 		}
 	}
-	if err := m.ensurePlan(ctx, proj, plan, running); err != nil {
+	if err := m.ensurePlan(ctx, proj, plan, running, false); err != nil {
 		_ = m.store.Projects.UpdateState(context.WithoutCancel(ctx), id, proj.DesiredState, proj.Lifecycle, err.Error())
 		return View{}, err
 	}

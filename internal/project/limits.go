@@ -147,7 +147,7 @@ func (m *Manager) applyResources(ctx context.Context, p store.Project) error {
 	if len(containers) == 0 {
 		return nil // nothing created yet; the first start applies them
 	}
-	return m.ensurePlan(ctx, p, plan, p.DesiredState == store.DesiredRunning)
+	return m.ensurePlan(ctx, p, plan, p.DesiredState == store.DesiredRunning, false)
 }
 
 // syncResources updates a container whose limits differ from the plan and reports

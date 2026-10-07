@@ -537,7 +537,7 @@ func (m *Manager) recreateContainers(ctx context.Context, id string, kinds ...st
 			}
 		}
 	}
-	if err := m.ensurePlan(ctx, proj, plan, proj.DesiredState == store.DesiredRunning); err != nil {
+	if err := m.ensurePlan(ctx, proj, plan, proj.DesiredState == store.DesiredRunning, false); err != nil {
 		_ = m.store.Projects.UpdateState(context.WithoutCancel(ctx), id, proj.DesiredState, proj.Lifecycle, err.Error())
 		return err
 	}
