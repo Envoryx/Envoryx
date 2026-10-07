@@ -374,13 +374,18 @@ func (m *Manager) notifyHealth(ctx context.Context, projects []store.Project, is
 			continue
 		}
 		delete(m.unhealthy, id)
-		name := id
+		m.notifier.Clear("project.unhealthy|" + id)
+		name := ""
 		for _, p := range projects {
 			if p.ID == id {
 				name = p.Name
 			}
 		}
-		m.notifier.Clear("project.unhealthy|" + id)
+		if name == "" {
+			// The project was deleted (a branch environment whose branch is gone, say):
+			// it did not recover, it is gone.
+			continue
+		}
 		events = append(events, notify.Event{Kind: "project.unhealthy", Level: notify.Info, Project: name, Title: name + " recovered", Message: "The project is running again.", Key: "project.recovered|" + id})
 	}
 	m.reportMu.Unlock()
