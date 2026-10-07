@@ -83,7 +83,8 @@ func toRecord(l docker.LogLine) record {
 }
 
 func (r record) line() docker.LogLine {
-	l := docker.LogLine{Time: r.T, Stream: "stdout", Text: r.M}
+	// History written before the log reader stripped colour codes may still hold them.
+	l := docker.LogLine{Time: r.T, Stream: "stdout", Text: docker.StripANSI(r.M)}
 	if r.S == "e" {
 		l.Stream = "stderr"
 	}
