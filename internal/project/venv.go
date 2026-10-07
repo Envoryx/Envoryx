@@ -20,8 +20,8 @@ import (
 // happened and names the action that rebuilds it.
 
 // venvPythonVersion returns the major.minor a virtual environment was built for, read
-// from .venv/pyvenv.cfg. ok is false when the file is missing, unreadable or has no
-// version line.
+// from .venv/pyvenv.cfg ("version", or "version_info" in a venv made by uv). ok is false
+// when the file is missing, unreadable or has no version line.
 func venvPythonVersion(projectDir string) (string, bool) {
 	raw, err := os.ReadFile(filepath.Join(projectDir, runtime.PythonVenv, "pyvenv.cfg"))
 	if err != nil {
@@ -29,7 +29,7 @@ func venvPythonVersion(projectDir string) (string, bool) {
 	}
 	for _, line := range strings.Split(string(raw), "\n") {
 		key, value, ok := strings.Cut(line, "=")
-		if !ok || strings.TrimSpace(key) != "version" {
+		if k := strings.TrimSpace(key); !ok || (k != "version" && k != "version_info") {
 			continue
 		}
 		return majorMinor(strings.TrimSpace(value)), true
@@ -79,5 +79,5 @@ func (m *Manager) venvWarning(p store.Project) string {
 	if !ok || built == majorMinor(svc.Version) {
 		return ""
 	}
-	return fmt.Sprintf("the virtual environment was built for Python %s but the container runs %s - its packages are invisible to the new interpreter; %s", built, majorMinor(svc.Version), rebuildHint(dir))
+	return fmt.Sprintf("the virtual environment was built for Python %s but the container runs %s - its packages are invisible to the new interpreter, so the application server and the workers wait; %s", built, majorMinor(svc.Version), rebuildHint(dir))
 }

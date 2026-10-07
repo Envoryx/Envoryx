@@ -676,8 +676,11 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 				Image:  svc.Image,
 				Labels: labels,
 				// Tooling container: idles until actions or the terminal run commands.
-				Cmd:           []string{"sleep", "infinity"},
-				Env:           append(append(append([]string{}, appEnv...), toolEnv...), "NODE_ENV=development"),
+				Cmd: []string{"sleep", "infinity"},
+				// No NODE_ENV on the container: actions, cron jobs and the terminal inherit
+				// it, and a build under NODE_ENV=development ships a development bundle.
+				// The dev server sets it for itself (NodeConfig.WrappedCommand).
+				Env:           append(append([]string{}, appEnv...), toolEnv...),
 				User:          fmt.Sprintf("%d:%d", p.paths.PUID, p.paths.PGID),
 				WorkingDir:    appMountTarget,
 				Network:       plan.NetworkName,
@@ -689,13 +692,11 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 			p.withPackageCache(&spec)
 			if ncfg.DevServer {
 				// Dev-server mode: the script is the main process; the proxy routes
-				// <slug>-dev.<base> to it and the host port publishes it directly.
-				spec.Cmd = runtime.Guarded(ncfg.Command(), "envoryx-dev", dbGuard)
-				if _, ok := nodeServesApp(proj); ok {
-					// The project URL points here too and a blank project has no
-					// package.json yet: wait for it instead of crash-looping.
-					spec.Cmd = ncfg.WrappedCommand(dbGuard)
-				}
+				// <slug>-dev.<base> to it and the host port publishes it directly. Next to
+				// PHP as well as on its own, it waits for package.json and the
+				// dependencies instead of crash-looping: a crash-looping container refuses
+				// the npm install action and the terminal that would fix it.
+				spec.Cmd = ncfg.WrappedCommand(dbGuard)
 				// One leading-dot entry: Vite suffix-matches it, so <slug>.<base>,
 				// <slug>-dev.<base> and every extra domain under the base domain pass
 				// without the planner knowing the domain table. Vite < 8.3 reads the
@@ -741,7 +742,9 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 			if pcfg.Server {
 				// Server mode: the application server is the main process, published on a
 				// host port; without PHP the proxy routes the project URL to it.
-				spec.Cmd = runtime.Guarded(pcfg.Command(), "envoryx-serve", dbGuard)
+				// The venv guard holds in both roles: after a version switch the server
+				// would crash-loop and lock out the pip install action that fixes it.
+				spec.Cmd = runtime.Guarded(pcfg.Command(), "envoryx-serve", runtime.VenvGuard, dbGuard)
 				if _, ok := pythonServesApp(proj); ok {
 					// A blank project has nothing to run yet: wait for the entry file
 					// instead of crash-looping.
@@ -1266,8 +1269,9 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 				continue
 			}
 			spec.Image = node.Image
-			spec.Env = append(append(append([]string{}, appEnv...), toolEnv...), "NODE_ENV=development")
+			spec.Env = append(append(append([]string{}, appEnv...), toolEnv...), nodeWorkerEnv(proj))
 			spec.Mounts = append(spec.Mounts, p.HomeMount(proj))
+			spec.Cmd = runtime.Guarded(cmd, "envoryx-worker", runtime.NodeDepsWaitGuard, workerGuard(preset, w))
 		case WorkerRuntimePython:
 			if python == nil || !python.Enabled {
 				continue
@@ -1275,6 +1279,7 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 			spec.Image = python.Image
 			spec.Env = append(append(append([]string{}, appEnv...), toolEnv...), pythonEnv...)
 			spec.Mounts = append(spec.Mounts, p.HomeMount(proj))
+			spec.Cmd = runtime.Guarded(cmd, "envoryx-worker", runtime.VenvGuard, workerGuard(preset, w))
 		case WorkerRuntimeGo:
 			if golang == nil || !golang.Enabled {
 				continue

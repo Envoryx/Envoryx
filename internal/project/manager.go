@@ -1415,6 +1415,9 @@ func (m *Manager) List(ctx context.Context) ([]View, error) {
 		if w := m.venvWarning(p); w != "" {
 			st.Warnings = append(st.Warnings, w)
 		}
+		if w := m.nodeModulesWarning(p); w != "" {
+			st.Warnings = append(st.Warnings, w)
+		}
 		st.Warnings = append(st.Warnings, m.runtimeVersionWarnings(p)...)
 		st.Warnings = append(st.Warnings, m.kernelWarnings(p, kernel)...)
 		st.Warnings = append(st.Warnings, m.oomWarnings(p.ID)...)
@@ -1444,6 +1447,9 @@ func (m *Manager) Get(ctx context.Context, id string) (View, error) {
 		st.Warnings = append(st.Warnings, "Docker engine unavailable: "+dockerErr.Error())
 	}
 	if w := m.venvWarning(p); w != "" {
+		st.Warnings = append(st.Warnings, w)
+	}
+	if w := m.nodeModulesWarning(p); w != "" {
 		st.Warnings = append(st.Warnings, w)
 	}
 	st.Warnings = append(st.Warnings, m.runtimeVersionWarnings(p)...)

@@ -216,11 +216,21 @@ func (c PythonConfig) entryGuard() string {
 	return fmt.Sprintf(`until %s; do echo 'envoryx: waiting for %s in /var/www/html - scaffold with a Python template, clone a repository or use the Python terminal'; sleep 5; done`, test, what)
 }
 
-// WrappedCommand returns Command() behind the entry-file guard, for containers whose
-// server is the project's application. Further guards (the database wait the planner
-// builds) run after it.
+// VenvGuard waits while .venv was built for another Python minor than the one the
+// container runs - after a version switch. Its packages are invisible to the new
+// interpreter, so the server would die on its first import and crash-loop, and a
+// crash-looping container refuses the very action that rebuilds the venv. "python" is the
+// venv's interpreter (PATH), i.e. what the server would run. pyvenv.cfg says "version"
+// (venv, virtualenv) or "version_info" (uv). A constant: nothing is interpolated.
+const VenvGuard = `v=$(python -c 'import sys; print("%d.%d" % sys.version_info[:2])' 2>/dev/null); ` +
+	`while b=$(sed -nE 's/^version(_info)? *= *([0-9]+[.][0-9]+).*/\2/p' ` + PythonVenv + `/pyvenv.cfg 2>/dev/null | head -n 1); [ -n "$b" ] && [ "$b" != "$v" ]; do ` +
+	`echo "envoryx: .venv was built for Python $b but this container runs $v - run \"pip install -r requirements.txt\" or \"uv sync\" from Actions to rebuild it"; sleep 5; done`
+
+// WrappedCommand returns Command() behind the entry-file and venv guards, for containers
+// whose server is the project's application. Further guards (the database wait the
+// planner builds) run after them.
 func (c PythonConfig) WrappedCommand(guards ...string) []string {
-	return Guarded(c.Command(), "envoryx-serve", append([]string{c.entryGuard()}, guards...)...)
+	return Guarded(c.Command(), "envoryx-serve", append([]string{c.entryGuard(), VenvGuard}, guards...)...)
 }
 
 // Env returns the variables that tell the application where to listen: HOST and PORT are

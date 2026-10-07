@@ -173,7 +173,7 @@ func TestPythonServerServesProject(t *testing.T) {
 		t.Fatal(err)
 	}
 	w, ok := e.engine.Container("envoryx-api-worker-tasks")
-	if !ok || strings.Join(w.Spec.Cmd, " ") != "celery -A config worker --loglevel=info" || w.Spec.Image != "ghcr.io/envoryx/envoryx-python:3.13" {
+	if !ok || strings.Join(w.Spec.Cmd[4:], " ") != "celery -A config worker --loglevel=info" || !strings.Contains(w.Spec.Cmd[2], "pyvenv.cfg") || w.Spec.Image != "ghcr.io/envoryx/envoryx-python:3.13" {
 		t.Fatalf("celery worker: %+v", w.Spec)
 	}
 	if _, err := e.m.AddWorker(ctx, id, WorkerRequest{Name: "queue", Preset: "laravel:queue", Enabled: true}); err == nil {
@@ -241,9 +241,8 @@ func TestPythonWithNodeFrontend(t *testing.T) {
 	if len(py.Spec.Ports) != 1 || len(node.Spec.Ports) != 1 || len(web.Spec.Ports) != 0 || py.Spec.Ports[0].HostPort == node.Spec.Ports[0].HostPort {
 		t.Fatalf("ports: py=%+v node=%+v web=%+v", py.Spec.Ports, node.Spec.Ports, web.Spec.Ports)
 	}
-	// The Node container keeps the plain dev command: only the container that answers the
-	// project URL gets the wait guard.
-	if node.Spec.Cmd[0] != "npm" {
+	// The Node dev server waits for package.json and its dependencies in this role too.
+	if node.Spec.Cmd[0] != "sh" || node.Spec.Cmd[4] != "npm" {
 		t.Fatalf("node command: %q", node.Spec.Cmd)
 	}
 	if strings.Join(py.Spec.Cmd[4:], " ") != "python manage.py runserver 0.0.0.0:8000" {
@@ -264,7 +263,8 @@ func TestPythonWithNodeFrontend(t *testing.T) {
 		t.Fatalf("with PHP the web server serves: %+v", r)
 	}
 	py, _ = e.engine.Container("envoryx-shop-python")
-	if py.Spec.Cmd[0] != "python" || len(py.Spec.Ports) != 1 {
+	// Next to PHP only the venv guard: no entry-file wait, the project URL isn't its own.
+	if py.Spec.Cmd[4] != "python" || strings.Contains(py.Spec.Cmd[2], "manage.py") || len(py.Spec.Ports) != 1 {
 		t.Fatalf("python container with PHP: cmd=%q ports=%+v", py.Spec.Cmd, py.Spec.Ports)
 	}
 }
@@ -341,10 +341,9 @@ func TestApplicationServerWaitsForTheDatabase(t *testing.T) {
 	if strings.Contains(script, "uvicorn") {
 		t.Fatalf("argv must stay in $@: %q", script)
 	}
-	// The Node dev server next to it waits as well. It does not serve the project URL here,
-	// so it keeps no package.json guard - only the container behind the URL gets that one.
+	// The Node dev server next to it waits as well, after its own package.json guard.
 	node, _ := e.engine.Container("envoryx-waiter-node")
-	if !strings.Contains(node.Spec.Cmd[2], "TCP:database:5432") || strings.Contains(node.Spec.Cmd[2], "package.json") {
+	if pkg, db := strings.Index(node.Spec.Cmd[2], "package.json"), strings.Index(node.Spec.Cmd[2], "TCP:database:5432"); pkg < 0 || db < pkg {
 		t.Fatalf("node guards: %q", node.Spec.Cmd[2])
 	}
 

@@ -180,9 +180,15 @@ printf '\nControl panel: %s/admin  User: admin  Password: %s\n' "$ENVORYX_URL" "
 // pipInstallScript installs requirements.txt into the venv. It creates the venv when it is
 // missing and rebuilds it (venv --clear) when it was made for another Python minor: after a
 // version change the old one still has a working bin/python link but no pip and none of the
-// packages for the new interpreter. A constant: nothing from the request is interpolated.
+// packages for the new interpreter. Before the rebuild it lists what the old venv held, so
+// packages installed by hand and never added to requirements.txt can be put back. uv
+// writes "version_info" instead of "version" into pyvenv.cfg. A constant: nothing from
+// the request is interpolated.
 const pipInstallScript = `v=$(python -c 'import sys; print("%d.%d" % sys.version_info[:2])'); ` +
-	`grep -Eq "^version *= *$v([.]|$)" ` + pythonVenvPath + `/pyvenv.cfg 2>/dev/null || python -m venv --clear ` + pythonVenvPath + `; ` +
+	`if ! grep -Eq "^version(_info)? *= *$v([.]|$)" ` + pythonVenvPath + `/pyvenv.cfg 2>/dev/null; then ` +
+	`old=$(ls -d ` + pythonVenvPath + `/lib/python*/site-packages/*.dist-info 2>/dev/null | sed -E 's|.*/||; s|-([^-]+)[.]dist-info$|==\1|' | grep -v '^pip==' | sort -f); ` +
+	`if [ -n "$old" ]; then echo "envoryx: rebuilding .venv for Python $v. The old one had these packages - whatever requirements.txt doesn't list has to be installed again:"; echo "$old" | sed 's/^/  /'; echo; fi; ` +
+	`python -m venv --clear ` + pythonVenvPath + `; fi; ` +
 	`exec ` + pythonVenvPath + `/bin/pip install -r requirements.txt`
 
 func findAction(id string) (Action, bool) {
@@ -210,9 +216,11 @@ func (m *Manager) ListActions(ctx context.Context, id string) ([]ActionInfo, err
 	dir := planner.ProjectDir(view.Project)
 	running := map[store.ServiceKind]bool{}
 	present := map[store.ServiceKind]bool{}
+	restarting := map[store.ServiceKind]bool{}
 	for _, s := range view.Status.Services {
 		present[s.Kind] = true
 		running[s.Kind] = s.Running
+		restarting[s.Kind] = s.State == "restarting"
 	}
 	out := make([]ActionInfo, 0, len(actionCatalog))
 	for _, a := range actionCatalog {
@@ -221,6 +229,9 @@ func (m *Manager) ListActions(ctx context.Context, id string) ([]ActionInfo, err
 		}
 		info := ActionInfo{Action: a, Available: true}
 		switch {
+		case !running[a.Service] && restarting[a.Service]:
+			// A crash-looping server: name the way out, the logs and the server switch.
+			info.Available, info.Reason = false, fmt.Sprintf("%s container keeps restarting - its main process exits, the logs say why; switch its server off to run commands in it", a.Service)
 		case !running[a.Service]:
 			info.Available, info.Reason = false, fmt.Sprintf("%s container is not running", a.Service)
 		default:
