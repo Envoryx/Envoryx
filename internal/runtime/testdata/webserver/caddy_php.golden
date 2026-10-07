@@ -15,6 +15,16 @@
 		not path /.well-known/*
 	}
 	respond @dot 404
+	@https header X-Forwarded-Proto https
+	map {http.request.port} {envoryx_https_port} {
+		~^(\d+)$ ${1}
+		default 443
+	}
+	php_fastcgi @https php:9000 {
+		env HTTPS on
+		env REQUEST_SCHEME https
+		env SERVER_PORT {envoryx_https_port}
+	}
 	php_fastcgi php:9000
 	file_server
 	log {
