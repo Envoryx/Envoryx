@@ -10,6 +10,72 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-10-08
+
+The rest of the fixes from the application test round. The templates work
+behind the proxy out of the box (WordPress, Drupal, TYPO3, Rails, Django,
+Flask, FastAPI, Next.js, Spring Boot, Quarkus), Shopware and Craft get worker
+presets, and the **SSH lockout** no longer locks a whole office out after a
+few offered keys. **SFTP and scp now start in the project directory**
+instead of the tool home (JetBrains IDEs keep the home for their helpers).
+
+### Added
+- Worker presets for Shopware's message queue and scheduled tasks and for
+  Craft's queue. The add form starts with the preset of the project's
+  framework instead of Laravel's queue worker.
+- Static sites get SFTP for their files; a shell explains why there is none.
+
+### Changed
+- SSH lockout: only guesses count (a wrong or unknown API token), not
+  offered keys or empty passwords; failures expire after ten minutes; the
+  lockout is per address and project, with a looser limit for the whole
+  address. A locked-out client gets a banner saying why.
+- SFTP and scp start in the project directory, like an ssh login.
+- New WordPress, Drupal and TYPO3 projects and imported sites of these get
+  configuration that follows the project: WordPress takes its address from
+  the request (or the project URL) and finds the project's Redis, Drupal
+  gets `trusted_host_patterns` and a `drush/drush.yml` with the project URL,
+  TYPO3 trusts the proxy, has a sender address and mails to Mailpit.
+- New Rails projects run `db:prepare` once they're up, use Solid Cable in
+  development, mail to Mailpit, log to stdout and let web-console answer
+  through the proxy. Django mails to Mailpit, Flask uses ProxyFix, Next.js
+  lists the project's host names in `allowedDevOrigins`, Spring Boot creates
+  its tables (`ddl-auto=update`), Quarkus builds the test database's tables,
+  Gin trusts the proxy, and the Python templates write a `.gitignore`.
+- uvicorn and gunicorn trust the proxy's forwarded headers
+  (`FORWARDED_ALLOW_IPS=*`).
+- The IDE section's debugpy examples start debugpy in the reloader's child
+  process, so they work next to the running app server.
+- Audit entries keep the target's name, so they read right after the target
+  is gone, and every action has a label.
+- Docker resources of another instance on the same host, or from before
+  0.18, are counted apart from this instance's orphans and no longer show a
+  warning.
+
+### Fixed
+- A duplicated WordPress sent wp-admin to the original's address.
+- `drush uli` printed `http://default/...` links.
+- `db:prepare` left the Rails queue database empty when the site had been
+  opened first, and a `rails new` whose `bundle install` failed was reported
+  as ready.
+- Turbo broadcasts from Rails jobs never reached the browser in development.
+- Next.js Fast Refresh never connected behind the proxy.
+- FastAPI's redirects left HTTPS.
+- The Composer script worker preset stopped after 300 seconds.
+- scp copied the file but exited with 1.
+- Viewers saw Start/Stop/Restart on the dashboard.
+- A branch environment couldn't be given to a developer after it was created.
+- The site import failed on `GRANT` and `CREATE USER` lines in MySQL dumps.
+- Deleting an unhealthy project sent a "recovered" notice with its id.
+- A new cron job skipped the minute the UI showed when it was saved.
+- Restoring a backup failed on read-only files when Envoryx doesn't run as
+  root.
+- Updating the Node service without `inspect` unpublished the inspector.
+- The IDE section showed `<projects share>` instead of the host path on bare
+  metal.
+- The Tests page grew wider than the window.
+- Container logs showed raw terminal colour codes.
+
 ## [0.19.0] - 2026-10-07
 
 More fixes from the application test round. New projects get the current
@@ -1580,7 +1646,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.19.0...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.20.0...HEAD
+[0.20.0]: https://github.com/envoryx/envoryx/compare/v0.19.0...v0.20.0
 [0.19.0]: https://github.com/envoryx/envoryx/compare/v0.18.1...v0.19.0
 [0.18.1]: https://github.com/envoryx/envoryx/compare/v0.18.0...v0.18.1
 [0.18.0]: https://github.com/envoryx/envoryx/compare/v0.17.0...v0.18.0
