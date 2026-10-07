@@ -20,7 +20,7 @@ COPY --from=ghcr.io/astral-sh/uv:0.12 /uv /uvx /usr/local/bin/
 RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
-        git openssh-client ca-certificates socat procps \
+        git openssh-client rsync ca-certificates socat procps \
         build-essential pkg-config \
         libpq-dev default-libmysqlclient-dev \
         libjpeg62-turbo-dev zlib1g-dev libffi-dev libssl-dev \

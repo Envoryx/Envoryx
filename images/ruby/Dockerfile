@@ -23,7 +23,7 @@ ARG DEBUG_GEM_VERSION="~> 1.11"
 RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
-        git openssh-client ca-certificates curl socat procps tini tzdata \
+        git openssh-client rsync ca-certificates curl socat procps tini tzdata \
         build-essential pkg-config \
         libyaml-dev libffi-dev libssl-dev zlib1g-dev \
         libpq-dev default-libmysqlclient-dev libsqlite3-dev sqlite3 \

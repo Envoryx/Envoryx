@@ -24,7 +24,7 @@ ARG GRADLE_SHA256=bafd5ce9cfaea0fbccfdc8439a1ac42fbd4cd9c89dc9a988228d8a2639a58e
 RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
-        git openssh-client ca-certificates curl unzip socat procps tini \
+        git openssh-client rsync ca-certificates curl unzip socat procps tini \
         libfreetype6 fontconfig libxi6 libxrender1 libxtst6 libxext6; \
     rm -rf /var/lib/apt/lists/*; \
     curl -fsSL -o /tmp/maven.tar.gz "https://archive.apache.org/dist/maven/maven-3/${MAVEN_VERSION}/binaries/apache-maven-${MAVEN_VERSION}-bin.tar.gz"; \

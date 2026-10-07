@@ -22,7 +22,7 @@ ARG DELVE_VERSION=v1.27
 ARG GOTESTSUM_VERSION=v1.13
 RUN set -eux; \
     apt-get update; \
-    apt-get install -y --no-install-recommends git openssh-client ca-certificates socat procps tini \
+    apt-get install -y --no-install-recommends git openssh-client rsync ca-certificates socat procps tini \
         libfreetype6 fontconfig libxi6 libxrender1 libxtst6 libxext6; \
     rm -rf /var/lib/apt/lists/*; \
     GOBIN=/usr/local/bin go install "github.com/air-verse/air@${AIR_VERSION}"; \
