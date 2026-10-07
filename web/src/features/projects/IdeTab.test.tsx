@@ -67,7 +67,8 @@ describe("IdeTab", () => {
     expect(await screen.findByText(/no application container/)).toBeInTheDocument();
     expect(screen.queryByText(/envoryx-acme-shop-php/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Sessions run as the project owner/)).not.toBeInTheDocument();
-    expect(screen.queryByText("Project files (SFTP)")).not.toBeInTheDocument();
+    // Its files are still reachable over SFTP.
+    expect(screen.getByText("Project files (SFTP)")).toBeInTheDocument();
   });
 
   it("explains opening the project as an SFTP deployment", async () => {

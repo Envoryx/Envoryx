@@ -4,8 +4,8 @@
 // host. The user name selects the project and container: "<slug>" is the application
 // container (PHP, else Python, Go, Ruby, Java, .NET, Node), and "<slug>.php",
 // "<slug>.python", "<slug>.go", "<slug>.ruby", "<slug>.java", "<slug>.dotnet" or
-// "<slug>.node" pick one explicitly. The password is an Envoryx API token, or a public key
-// from the settings is used.
+// "<slug>.node" pick one explicitly. A static site has no container: "<slug>" gets SFTP
+// only. The password is an Envoryx API token, or a public key from the settings is used.
 package sshd
 
 import (
@@ -133,40 +133,67 @@ func dirOf(p string) string {
 
 // ---- Authentication ------------------------------------------------------------------
 
+// errLocked is what a client gets while its address is locked out. The banner tells the
+// person at an ssh prompt why, instead of a bare "Permission denied".
+func errLocked(until time.Time) error {
+	mins := int(time.Until(until).Minutes()) + 1
+	return &ssh.BannerError{
+		Err:     errors.New("too many failed logins"),
+		Message: fmt.Sprintf("Envoryx: too many failed logins from your address - try again in %d min.\r\n", mins),
+	}
+}
+
+// locked refuses the attempt when ip and user are locked out.
+func (s *Server) locked(conn ssh.ConnMetadata, ip string) error {
+	until := s.limiter.lockedUntil(ip, conn.User())
+	if until.IsZero() {
+		return nil
+	}
+	s.d.Log.Info("ssh login refused: locked out", "user", conn.User(), "remote", ip, "until", until.Format(time.RFC3339))
+	return errLocked(until)
+}
+
 func (s *Server) passwordAuth(conn ssh.ConnMetadata, password []byte) (*ssh.Permissions, error) {
 	ip := remoteIP(conn.RemoteAddr())
-	if !s.limiter.allow(ip) {
-		return nil, errors.New("too many failed attempts")
+	if err := s.locked(conn, ip); err != nil {
+		return nil, err
+	}
+	// OpenSSH sends an empty password when it cannot prompt (no tty, no askpass): nothing
+	// was guessed.
+	if len(password) == 0 {
+		return nil, errors.New("empty password")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	p, err := s.d.Auth.ValidateAPIToken(ctx, string(password))
 	if err != nil {
-		s.fail(ip)
+		s.fail(conn, ip)
 		s.d.Log.Info("ssh password rejected", "user", conn.User(), "remote", ip)
 		return nil, errors.New("invalid token")
 	}
+	// From here on the token is valid: a refusal is about permissions, not a guess, and
+	// does not count towards the lockout.
 	target, err := s.d.Projects.ResolveSSHUser(ctx, conn.User())
 	if err != nil {
-		s.fail(ip)
 		s.d.Log.Info("ssh unknown project", "user", conn.User(), "remote", ip, "err", err)
 		return nil, errors.New("unknown project")
 	}
 	// A shell in the container is "operate"; a token confined to other projects must not
 	// even learn that this one exists.
 	if err := p.Require(auth.ScopeOperate, target.Project.ID); err != nil {
-		s.fail(ip)
 		s.d.Log.Info("ssh token not permitted", "user", conn.User(), "token", p.TokenName, "remote", ip, "err", err)
 		return nil, errors.New("token not permitted for this project")
 	}
-	s.limiter.reset(ip)
+	s.limiter.reset(ip, conn.User())
 	return &ssh.Permissions{Extensions: map[string]string{"envoryx-user": p.Username, "envoryx-token": p.TokenName}}, nil
 }
 
+// publicKeyAuth never counts towards the lockout: clients routinely offer every key in
+// their agent before the password, and keys cannot be guessed.
 func (s *Server) publicKeyAuth(conn ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, error) {
 	ip := remoteIP(conn.RemoteAddr())
-	if !s.limiter.allow(ip) {
-		return nil, errors.New("too many failed attempts")
+	if err := s.locked(conn, ip); err != nil {
+		return nil, err
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -183,11 +210,10 @@ func (s *Server) publicKeyAuth(conn ssh.ConnMetadata, key ssh.PublicKey) (*ssh.P
 		}
 		if string(pk.Marshal()) == string(want) {
 			if _, err := s.d.Projects.ResolveSSHUser(ctx, conn.User()); err != nil {
-				s.fail(ip)
 				s.d.Log.Info("ssh unknown project", "user", conn.User(), "remote", ip, "err", err)
 				return nil, errors.New("unknown project")
 			}
-			s.limiter.reset(ip)
+			s.limiter.reset(ip, conn.User())
 			return &ssh.Permissions{Extensions: map[string]string{"envoryx-user": "ssh-key", "envoryx-token": comment}}, nil
 		}
 	}
@@ -203,20 +229,16 @@ func (s *Server) publicKeyAuth(conn ssh.ConnMetadata, key ssh.PublicKey) (*ssh.P
 		}
 		target, err := s.d.Projects.ResolveSSHUser(ctx, conn.User())
 		if err != nil {
-			s.fail(ip)
 			s.d.Log.Info("ssh unknown project", "user", conn.User(), "remote", ip, "err", err)
 			return nil, errors.New("unknown project")
 		}
 		if err := p.Require(auth.ScopeOperate, target.Project.ID); err != nil {
-			s.fail(ip)
 			s.d.Log.Info("ssh key not permitted", "user", conn.User(), "owner", u.Username, "remote", ip, "err", err)
 			return nil, errors.New("key not permitted for this project")
 		}
-		s.limiter.reset(ip)
+		s.limiter.reset(ip, conn.User())
 		return &ssh.Permissions{Extensions: map[string]string{"envoryx-user": u.Username, "envoryx-token": "ssh key"}}, nil
 	}
-	// Not a failed attempt in the brute-force sense: clients routinely offer every key in
-	// their agent before trying the password, and keys cannot be guessed.
 	return nil, errors.New("unknown key")
 }
 
@@ -234,11 +256,18 @@ func keyListed(list string, want []byte) bool {
 	return false
 }
 
-// fail counts an authentication failure and logs when the address gets locked out.
-func (s *Server) fail(ip string) {
-	if s.limiter.fail(ip) {
-		s.d.Log.Warn("ssh lockout: too many failed attempts", "remote", ip, "minutes", 5)
+// fail counts a failed guess and logs when it starts a lockout.
+func (s *Server) fail(conn ssh.ConnMetadata, ip string) {
+	lo := s.limiter.fail(ip, conn.User())
+	if lo == nil {
+		return
 	}
+	scope := "user"
+	if lo.perAddress {
+		scope = "address"
+	}
+	s.d.Log.Warn("ssh lockout: too many failed logins, all logins refused until the lockout ends",
+		"remote", ip, "user", conn.User(), "scope", scope, "failures", lo.failures, "window", failWindow.String(), "until", lo.until.Format(time.RFC3339))
 }
 
 func remoteIP(a net.Addr) string {
@@ -246,50 +275,6 @@ func remoteIP(a net.Addr) string {
 		return h
 	}
 	return a.String()
-}
-
-// failLimiter delays repeated failures per IP (10 failures → 5 minutes lockout).
-type failLimiter struct {
-	mu    sync.Mutex
-	fails map[string]struct {
-		n     int
-		until time.Time
-	}
-}
-
-func newFailLimiter() *failLimiter {
-	return &failLimiter{fails: map[string]struct {
-		n     int
-		until time.Time
-	}{}}
-}
-
-func (l *failLimiter) allow(ip string) bool {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	e := l.fails[ip]
-	return e.until.IsZero() || time.Now().After(e.until)
-}
-
-// fail records a failure and reports whether it started a lockout.
-func (l *failLimiter) fail(ip string) bool {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	e := l.fails[ip]
-	e.n++
-	locked := e.n >= 10
-	if locked {
-		e.until = time.Now().Add(5 * time.Minute)
-		e.n = 0
-	}
-	l.fails[ip] = e
-	return locked
-}
-
-func (l *failLimiter) reset(ip string) {
-	l.mu.Lock()
-	delete(l.fails, ip)
-	l.mu.Unlock()
 }
 
 // ---- Serving -------------------------------------------------------------------------
@@ -360,7 +345,7 @@ func (s *Server) handleConn(ctx context.Context, nc net.Conn) {
 		if err != nil {
 			continue
 		}
-		go s.handleSession(actx, channel, requests, target)
+		go s.handleSession(actx, channel, requests, target, string(sc.ClientVersion()))
 	}
 }
 
@@ -371,7 +356,7 @@ type session struct {
 	term       docker.Terminal
 }
 
-func (s *Server) handleSession(ctx context.Context, ch ssh.Channel, reqs <-chan *ssh.Request, target project.ExecTarget) {
+func (s *Server) handleSession(ctx context.Context, ch ssh.Channel, reqs <-chan *ssh.Request, target project.ExecTarget, clientVersion string) {
 	defer ch.Close()
 	st := &session{cols: 120, rows: 40}
 	var mu sync.Mutex
@@ -420,8 +405,7 @@ func (s *Server) handleSession(ctx context.Context, ch ssh.Channel, reqs <-chan 
 				continue
 			}
 			_ = req.Reply(true, nil)
-			s.serveSFTP(ctx, ch, target)
-			sendExit(ch, 0)
+			s.serveSFTP(ctx, ch, target, clientVersion)
 			return
 		default:
 			s.d.Log.Debug("ssh session request not supported", "type", req.Type)
@@ -440,6 +424,10 @@ func allowedEnv(k string) bool {
 
 // run executes a command in the target container, wiring the SSH channel to it.
 func (s *Server) run(ctx context.Context, ch ssh.Channel, st *session, mu *sync.Mutex, target project.ExecTarget, cmd []string, kind string) int {
+	if target.Static {
+		fmt.Fprintf(ch.Stderr(), "Envoryx: %s is a static site without an application container, so there is no shell - use SFTP (sftp, scp) for its files.\r\n", target.Project.Name)
+		return 1
+	}
 	if target.ContainerID == "" || !target.Running {
 		fmt.Fprintf(ch.Stderr(), "Envoryx: project %s is not running - start it in the Envoryx UI first.\r\n", target.Project.Name)
 		return 1
@@ -540,19 +528,38 @@ func (c *countingWriter) Write(p []byte) (int, error) {
 	return n, err
 }
 
-func (s *Server) serveSFTP(ctx context.Context, ch ssh.Channel, target project.ExecTarget) {
+func (s *Server) serveSFTP(ctx context.Context, ch ssh.Channel, target project.ExecTarget, clientVersion string) {
 	s.d.Audit.Log(ctx, "ssh.sftp", "project", target.Project.ID, map[string]any{"name": target.Project.Name})
 	fs := newProjectFS(target)
 	if target.Running && target.ContainerID != "" {
 		fs.outside = &containerOps{ctx: ctx, engine: s.d.Engine, containerID: target.ContainerID, user: target.User}
 	}
-	// Relative paths start in the tool home, as with a real SSH server: IDEs upload their
-	// helpers to ~/.phpstorm_helpers and friends, and "/" is not writable.
-	srv := sftp.NewRequestServer(ch, sftp.Handlers{FileGet: fs, FilePut: fs, FileCmd: fs, FileList: fs}, sftp.WithStartDirectory(target.HomeMount))
+	srv := sftp.NewRequestServer(ch, sftp.Handlers{FileGet: fs, FilePut: fs, FileCmd: fs, FileList: fs}, sftp.WithStartDirectory(sftpStartDir(target, clientVersion)))
+	code := 0
 	if err := srv.Serve(); err != nil && !errors.Is(err, io.EOF) {
 		s.d.Log.Debug("sftp session ended", "err", err)
+		code = 1
 	}
+	// The exit status has to go out before srv.Close, which closes the channel: scp in
+	// SFTP mode (OpenSSH 9) reports a successful copy as failed without it.
+	sendExit(ch, code)
 	_ = srv.Close()
+}
+
+// sftpStartDir is where relative SFTP paths start. People (sftp, scp, FileZilla, IDE
+// deployments) expect the folder an ssh login starts in, the project directory.
+// JetBrains IDEs take the start directory for the home, though, and put their helpers
+// there (~/.phpstorm_helpers, ~/.pycharm_helpers): they keep the tool home, so the helpers
+// stay out of the project. JetBrains clients announce themselves as "SSH-2.0-IntelliJ__…"
+// (also Gateway and every other IDE on the IntelliJ platform).
+func sftpStartDir(target project.ExecTarget, clientVersion string) string {
+	if strings.HasPrefix(clientVersion, "SSH-2.0-IntelliJ") && target.HomeMount != "" {
+		return target.HomeMount
+	}
+	if target.WorkingDir != "" {
+		return target.WorkingDir
+	}
+	return target.AppMount
 }
 
 func sendExit(ch ssh.Channel, code int) {

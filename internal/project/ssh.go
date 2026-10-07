@@ -35,6 +35,9 @@ type ExecTarget struct {
 	ContainerName string
 	// Gateway is true when port forwarding into the container is allowed.
 	Gateway bool
+	// Static is true for a static site: no application container, so only SFTP works
+	// (ContainerID and Kind are empty).
+	Static bool
 }
 
 // StopIDEBackend kills JetBrains IDE backend processes (started by Gateway) in the
@@ -78,7 +81,7 @@ func isAppKind(kind store.ServiceKind) bool {
 
 // ResolveSSHUser maps an SSH user name to a project and application container:
 // "<slug>" → the project's application container (PHP, else Python, Go, Ruby, Java,
-// .NET, Node); "<slug>.php" / "<slug>.python" / "<slug>.go" / "<slug>.ruby" /
+// .NET, Node, else a files-only target for a static site); "<slug>.php" / "<slug>.python" / "<slug>.go" / "<slug>.ruby" /
 // "<slug>.java" / "<slug>.dotnet" / "<slug>.node" select explicitly.
 func (m *Manager) ResolveSSHUser(ctx context.Context, user string) (ExecTarget, error) {
 	slug, kind := user, store.ServiceKind("")
@@ -100,11 +103,15 @@ func (m *Manager) ResolveSSHUser(ctx context.Context, user string) (ExecTarget, 
 			continue
 		}
 		var svc *store.ProjectService
+		static := false
 		if kind == "" {
+			// A static site has no container to run commands in, but its files are on disk:
+			// SFTP serves them, a shell explains why there is none.
 			if svc = appService(p); svc == nil {
-				return ExecTarget{}, fmt.Errorf("%w: project %s has no application container", store.ErrNotFound, slug)
+				static = true
+			} else {
+				kind = svc.Kind
 			}
-			kind = svc.Kind
 		} else if svc = p.Service(kind); svc == nil || !svc.Enabled {
 			return ExecTarget{}, fmt.Errorf("%w: project %s has no %s service", store.ErrNotFound, slug, kind)
 		}
@@ -120,11 +127,18 @@ func (m *Manager) ResolveSSHUser(ctx context.Context, user string) (ExecTarget, 
 			Env:        append([]string{"LANG=C.UTF-8", "TERM=xterm-256color", "SHELL=/bin/sh"}, toolEnv...),
 			WorkingDir: appMountTarget, ProjectDir: planner.ProjectDir(p), HomeDir: planner.HomeDir(p),
 			AppMount: appMountTarget, HomeMount: homeMountTarget,
-			ContainerName: ContainerName(p.Slug, kind), Gateway: p.IDEGateway,
+			ContainerName: ContainerName(p.Slug, kind), Gateway: p.IDEGateway && !static,
+			Static: static,
+		}
+		if static {
+			t.ContainerName = ""
 		}
 		t.Mounts = map[string]string{t.AppMount: t.ProjectDir, t.HomeMount: t.HomeDir}
-		if p.IDEGateway {
+		if t.Gateway {
 			t.Mounts[homeMountTarget+"/.cache/JetBrains/"+filepath.ToSlash(gatewayDistDir)] = filepath.Join(paths.ConfigDir, jetbrainsCacheDir, gatewayDistDir)
+		}
+		if static {
+			return t, nil
 		}
 		containers, err := m.engine.ListContainers(ctx, true, p.ID)
 		if err != nil {

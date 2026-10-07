@@ -44,13 +44,13 @@ func TestResolveSSHUserPicksTheApplicationContainer(t *testing.T) {
 	if _, err := e.m.ResolveSSHUser(ctx, "front.php"); !errors.Is(err, store.ErrNotFound) || !strings.Contains(err.Error(), "no php service") {
 		t.Fatalf("front.php: %v", err)
 	}
-	for _, user := range []string{"site", "site.php", "site.node"} {
-		_, err := e.m.ResolveSSHUser(ctx, user)
-		if !errors.Is(err, store.ErrNotFound) {
+	// A static site gets a files-only target (SFTP), but no explicit runtime.
+	if target, err := e.m.ResolveSSHUser(ctx, "site"); err != nil || !target.Static || target.Kind != "" || target.ContainerID != "" || target.Gateway || target.Mounts[appMountTarget] == "" {
+		t.Fatalf("static project: %+v %v", target, err)
+	}
+	for _, user := range []string{"site.php", "site.node"} {
+		if _, err := e.m.ResolveSSHUser(ctx, user); !errors.Is(err, store.ErrNotFound) {
 			t.Fatalf("%s: %v", user, err)
-		}
-		if user == "site" && !strings.Contains(err.Error(), "no application container") {
-			t.Fatalf("static project: %v", err)
 		}
 	}
 	for _, user := range []string{"nope", "Shop", "shop.web", "../x"} {
