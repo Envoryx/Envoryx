@@ -18,6 +18,8 @@ var (
 	ErrBusy          = errors.New("project is busy with another operation")
 	ErrDockerDown    = docker.ErrUnavailable
 	ErrNotConfigured = errors.New("envoryx is not fully configured")
+	// ErrRestoreIncomplete is a restore that stopped after changing part of the project.
+	ErrRestoreIncomplete = errors.New("the restore did not finish")
 )
 
 // CreateRequest is the validated intent to create a project.

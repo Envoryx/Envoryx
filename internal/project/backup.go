@@ -927,12 +927,15 @@ func (m *Manager) restoreBackup(ctx context.Context, id, backupID string, opts R
 		target := NewPlanner(paths, m.catalog).ProjectDir(p)
 		if opts.WipeFiles {
 			if err := wipeDir(target); err != nil {
-				return BackupInfo{}, fmt.Errorf("wipe project directory: %w", err)
+				return BackupInfo{}, restoreIncomplete(restored, "emptying the project directory", target, err)
 			}
 		}
 		step(ctx, "Restoring the project files")
 		if err := extractArchive(filepath.Join(dir, backupFilesFile), target, paths.PUID, paths.PGID); err != nil {
-			return BackupInfo{}, fmt.Errorf("restore files: %w", err)
+			if errors.Is(err, validate.ErrInvalid) {
+				return BackupInfo{}, fmt.Errorf("restore files: %w", err)
+			}
+			return BackupInfo{}, restoreIncomplete(restored, "restoring the files", target, err)
 		}
 		restored["files"] = true
 		restored["wiped"] = opts.WipeFiles
@@ -950,6 +953,24 @@ func (m *Manager) restoreBackup(ctx context.Context, id, backupID string, opts R
 	}
 	m.audit.Log(ctx, audit.ActionBackupRestored, "project", id, restored)
 	return BackupInfo{ID: b.ID, Dir: b.Filename, Kind: b.Kind, SizeBytes: b.SizeBytes, CreatedAt: b.CreatedAt, Meta: meta}, nil
+}
+
+// restoreIncomplete explains a restore that stopped on the way: which step failed and
+// on which file (relative to the project), and what was restored before, since that is
+// not rolled back.
+func restoreIncomplete(restored map[string]any, what, dir string, err error) error {
+	var pe *fs.PathError
+	if errors.As(err, &pe) {
+		if rel, rerr := filepath.Rel(dir, pe.Path); rerr == nil && !strings.HasPrefix(rel, "..") {
+			err = fmt.Errorf("%s %s: %w", pe.Op, rel, pe.Err)
+		}
+	}
+	msg := fmt.Sprintf("%s failed: %v", what, err)
+	if restored["database"] == true {
+		msg += ". The database was already restored"
+	}
+	msg += ". The files are only partly restored; fix the cause (file permissions, say) and restore the files again"
+	return fmt.Errorf("%w: %s", ErrRestoreIncomplete, msg)
 }
 
 // restoreDatabases puts the dumps of a backup back: every database the backup and the
@@ -1068,11 +1089,30 @@ func wipeDir(dir string) error {
 		return err
 	}
 	for _, e := range entries {
-		if err := os.RemoveAll(filepath.Join(dir, e.Name())); err != nil {
+		if err := removeAll(filepath.Join(dir, e.Name())); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// removeAll is os.RemoveAll that also gets through read-only directories (Drupal makes
+// sites/default 0555): Envoryx not running as root may not delete from them until it
+// gives itself write access.
+func removeAll(path string) error {
+	err := os.RemoveAll(path)
+	if err == nil || !errors.Is(err, fs.ErrPermission) {
+		return err
+	}
+	_ = filepath.WalkDir(path, func(p string, d fs.DirEntry, err error) error {
+		if err == nil && d.IsDir() {
+			if info, err := d.Info(); err == nil && info.Mode().Perm()&0o700 != 0o700 {
+				_ = os.Chmod(p, info.Mode().Perm()|0o700)
+			}
+		}
+		return nil
+	})
+	return os.RemoveAll(path)
 }
 
 // extractArchive unpacks a gzip tarball into target with tar-slip protection: entry names
@@ -1105,6 +1145,33 @@ func extractArchive(archive, target string, uid, gid int) error {
 		rel, err := filepath.Rel(realTarget, path)
 		return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 	}
+	// Read-only directories (Drupal's sites/default is 0555) get write access while
+	// files go into them; afterwards every directory gets its mode back: the one from
+	// the archive, or the one it had before for a directory the archive does not hold.
+	dirModes := map[string]fs.FileMode{}
+	var dirOrder []string
+	keepMode := func(dir string, mode fs.FileMode) {
+		if _, ok := dirModes[dir]; !ok {
+			dirOrder = append(dirOrder, dir)
+		}
+		dirModes[dir] = mode
+	}
+	writable := func(dir string) {
+		info, err := os.Lstat(dir)
+		if err != nil || !info.IsDir() || info.Mode().Perm()&0o700 == 0o700 {
+			return
+		}
+		if _, ok := dirModes[dir]; !ok {
+			keepMode(dir, info.Mode().Perm())
+		}
+		_ = os.Chmod(dir, info.Mode().Perm()|0o700)
+	}
+	defer func() {
+		// Deepest first, so a parent made read-only again does not block its children.
+		for i := len(dirOrder) - 1; i >= 0; i-- {
+			_ = os.Chmod(dirOrder[i], dirModes[dirOrder[i]])
+		}
+	}()
 	for {
 		hdr, err := tr.Next()
 		if errors.Is(err, io.EOF) {
@@ -1132,11 +1199,17 @@ func extractArchive(archive, target string, uid, gid int) error {
 		if !inside(parent) {
 			return fmt.Errorf("%w: archive entry %q escapes the project directory", validate.ErrInvalid, hdr.Name)
 		}
+		writable(parent)
 		switch hdr.Typeflag {
 		case tar.TypeDir:
-			if err := os.MkdirAll(dest, os.FileMode(hdr.Mode)&0o777|0o700); err != nil {
+			mode := os.FileMode(hdr.Mode) & 0o777
+			if err := os.MkdirAll(dest, mode|0o700); err != nil {
 				return err
 			}
+			if err := os.Chmod(dest, mode|0o700); err != nil {
+				return err
+			}
+			keepMode(dest, mode)
 			chown(dest)
 		case tar.TypeSymlink:
 			linkDest := hdr.Linkname
@@ -1155,10 +1228,19 @@ func extractArchive(archive, target string, uid, gid int) error {
 			if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
 				return err
 			}
-			if info, err := os.Lstat(dest); err == nil && info.Mode()&os.ModeSymlink != 0 {
-				_ = os.Remove(dest) // never write through an existing symlink
+			writable(filepath.Dir(dest))
+			if info, err := os.Lstat(dest); err == nil {
+				switch {
+				case info.Mode()&os.ModeSymlink != 0:
+					_ = os.Remove(dest) // never write through an existing symlink
+				case info.Mode().IsRegular() && info.Mode().Perm()&0o200 == 0:
+					// A read-only file (Drupal's settings.php is 0444) is replaced all
+					// the same; it gets the archive's mode back below.
+					_ = os.Chmod(dest, info.Mode().Perm()|0o200)
+				}
 			}
-			out, err := os.OpenFile(dest, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.FileMode(hdr.Mode)&0o777|0o600)
+			mode := os.FileMode(hdr.Mode) & 0o777
+			out, err := os.OpenFile(dest, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, mode|0o600)
 			if err != nil {
 				return err
 			}
@@ -1167,6 +1249,9 @@ func extractArchive(archive, target string, uid, gid int) error {
 				return err
 			}
 			if err := out.Close(); err != nil {
+				return err
+			}
+			if err := os.Chmod(dest, mode); err != nil {
 				return err
 			}
 			chown(dest)
