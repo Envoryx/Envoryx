@@ -417,7 +417,7 @@ func TestDatabaseEnvReachesNodeApplication(t *testing.T) {
 	_ = json.Unmarshal(view.Project.Service(store.ServiceDatabase).Config, &cfg)
 	node, _ := e.engine.Container("envoryx-shop-node")
 	env := strings.Join(node.Spec.Env, "\n")
-	for _, want := range []string{"DB_HOST=database", "DB_PORT=5432", "DB_DATABASE=shop", "DATABASE_URL=pgsql://shop:" + cfg.Password + "@database:5432/shop"} {
+	for _, want := range []string{"DB_HOST=database", "DB_PORT=5432", "DB_DATABASE=shop", "DATABASE_URL=postgresql://shop:" + cfg.Password + "@database:5432/shop"} {
 		if !strings.Contains(env, want) {
 			t.Errorf("node env missing %q", want)
 		}

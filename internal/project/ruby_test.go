@@ -93,9 +93,9 @@ func TestRubyServerServesProject(t *testing.T) {
 	}
 }
 
-// Active Record does not know the pgsql scheme: the Ruby containers get postgresql://.
-func TestRubyDatabaseURLs(t *testing.T) {
-	env := rubyDatabaseURLs([]string{"DATABASE_URL=pgsql://u:p@database:5432/shop", "ANALYTICS_DATABASE_URL=pgsql://u:p@analytics:5432/a", "DB_CONNECTION=pgsql", "OTHER=pgsql://x"})
+// Only PHP knows the pgsql scheme: every other runtime gets postgresql://.
+func TestPostgresURLs(t *testing.T) {
+	env := postgresURLs([]string{"DATABASE_URL=pgsql://u:p@database:5432/shop", "ANALYTICS_DATABASE_URL=pgsql://u:p@analytics:5432/a", "DB_CONNECTION=pgsql", "OTHER=pgsql://x"})
 	want := []string{"DATABASE_URL=postgresql://u:p@database:5432/shop", "ANALYTICS_DATABASE_URL=postgresql://u:p@analytics:5432/a", "DB_CONNECTION=pgsql", "OTHER=pgsql://x"}
 	if !slices.Equal(env, want) {
 		t.Fatalf("got %q", env)

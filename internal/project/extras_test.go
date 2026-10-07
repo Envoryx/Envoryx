@@ -30,6 +30,29 @@ func TestPostgres18MountsTheWholeDataDirectory(t *testing.T) {
 	}
 }
 
+// Only PHP reads the pgsql scheme; Python, Node and Go drivers (SQLAlchemy, Prisma, pgx)
+// reject it, so their containers get postgresql:// for the same database.
+func TestPostgresURLSchemePerRuntime(t *testing.T) {
+	e := newEnv(t)
+	req := phpRequest("Mixed PG", true)
+	req.Database = &DatabaseRequest{Type: "postgresql", Version: "17"}
+	req.Node = &NodeRequest{Version: "24"}
+	req.Python = &PythonRequest{Version: "3.13"}
+	req.Go = &GoRequest{Version: "1.27"}
+	if _, err := e.m.Create(context.Background(), req); err != nil {
+		t.Fatal(err)
+	}
+	for kind, scheme := range map[string]string{"php": "pgsql://", "node": "postgresql://", "python": "postgresql://", "go": "postgresql://"} {
+		c, ok := e.engine.Container("envoryx-mixed-pg-" + kind)
+		if !ok {
+			t.Fatalf("no %s container", kind)
+		}
+		if env := strings.Join(c.Spec.Env, "\n"); !strings.Contains(env, "DATABASE_URL="+scheme+"mixed_pg:") || !strings.Contains(env, "DB_CONNECTION=pgsql") {
+			t.Fatalf("%s env: %v", kind, c.Spec.Env)
+		}
+	}
+}
+
 func TestPostgresAndMySQLDialects(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
