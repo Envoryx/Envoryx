@@ -155,9 +155,18 @@ func (a *API) dashboard(w http.ResponseWriter, r *http.Request) {
 			issues = append(issues, is)
 		}
 	}
-	orphans := 0
+	// Unlabelled orphans may be another instance's or from before 0.18 (see
+	// project.Orphan); they are counted apart so the dashboard doesn't call them this
+	// instance's leftovers.
+	orphans, unclaimed := 0, 0
 	if p.Allows(auth.ScopeAdmin) {
-		orphans = len(report.Orphans)
+		for _, o := range report.Orphans {
+			if o.Unlabelled {
+				unclaimed++
+			} else {
+				orphans++
+			}
+		}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"projects":   map[string]int{"total": len(views), "running": running, "stopped": stopped, "attention": attention},
@@ -166,6 +175,7 @@ func (a *API) dashboard(w http.ResponseWriter, r *http.Request) {
 		"recent":     projects,
 		"issues":     issues,
 		"orphans":    orphans,
+		"unclaimed":  unclaimed,
 		"activity":   a.d.Projects.Activity(),
 		"hostPath":   a.d.HostPath.Status(),
 		"storage":    disk.Check(a.d.Config.ConfigDir, a.d.Config.ProjectsDir, a.d.Config.BackupsDir),

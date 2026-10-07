@@ -201,12 +201,13 @@ func TestUsersRolesAndInvitations(t *testing.T) {
 		t.Fatalf("reconcile: %d %s", r.status, r.raw)
 	}
 	r = a.do(http.MethodGet, "/api/v1/dashboard", nil, false)
-	if r.body["orphans"] != float64(1) || !strings.Contains(string(r.raw), shop) {
+	// The fake engine's leftover carries no instance label, so it counts as unclaimed.
+	if r.body["orphans"].(float64)+r.body["unclaimed"].(float64) != 1 || !strings.Contains(string(r.raw), shop) {
 		t.Fatalf("admin dashboard: %s", r.raw)
 	}
 	a.cookie = dana
 	r = a.do(http.MethodGet, "/api/v1/dashboard", nil, false)
-	if r.status != http.StatusOK || r.body["orphans"] != float64(0) || strings.Contains(string(r.raw), shop) {
+	if r.status != http.StatusOK || r.body["orphans"] != float64(0) || r.body["unclaimed"] != float64(0) || strings.Contains(string(r.raw), shop) {
 		t.Fatalf("confined dashboard: %d %s", r.status, r.raw)
 	}
 	// Its usage totals are those of its own projects, not the instance's.
