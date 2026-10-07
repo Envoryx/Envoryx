@@ -98,6 +98,8 @@ func writeError(w http.ResponseWriter, r *http.Request, err error) {
 		ae = newError(http.StatusConflict, "gpu_unavailable", docker.ErrNoGPU.Error())
 	case errors.Is(err, docker.ErrUnavailable):
 		ae = newError(http.StatusServiceUnavailable, "docker_unavailable", "the Docker engine is not reachable")
+	case errors.Is(err, project.ErrRestoreIncomplete):
+		ae = newError(http.StatusInternalServerError, "restore_incomplete", err.Error())
 	case errors.Is(err, project.ErrNotConfigured):
 		ae = newError(http.StatusServiceUnavailable, "not_configured", err.Error())
 	case errors.Is(err, auth.ErrInvalidCredentials):

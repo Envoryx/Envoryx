@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -182,6 +183,70 @@ func TestExtractArchiveRejectsTarSlip(t *testing.T) {
 		t.Fatal("file written through symlink outside the target")
 	}
 	_ = err
+}
+
+func TestExtractArchiveOverReadOnlyFiles(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root writes read-only files anyway")
+	}
+	// Drupal makes sites/default 0555 and settings.php 0444.
+	src := t.TempDir()
+	site := filepath.Join(src, "sites", "default")
+	if err := os.MkdirAll(site, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(site, "settings.php"), []byte("backup"), 0o444); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(site, 0o555); err != nil {
+		t.Fatal(err)
+	}
+	archive := filepath.Join(t.TempDir(), "files.tar.gz")
+	if _, _, err := archiveDir(src, archive, false); err != nil {
+		t.Fatal(err)
+	}
+	target := t.TempDir()
+	t.Cleanup(func() { _ = removeAll(target); _ = removeAll(src) })
+	if err := extractArchive(archive, target, os.Getuid(), os.Getgid()); err != nil {
+		t.Fatal(err)
+	}
+	// Changed since the backup, plus a new file in the read-only directory: both are
+	// replaced or kept by a second restore over them.
+	dest := filepath.Join(target, "sites", "default")
+	_ = os.Chmod(dest, 0o755)
+	_ = os.Chmod(filepath.Join(dest, "settings.php"), 0o644)
+	if err := os.WriteFile(filepath.Join(dest, "settings.php"), []byte("changed"), 0o444); err != nil {
+		t.Fatal(err)
+	}
+	_ = os.Chmod(filepath.Join(dest, "settings.php"), 0o444)
+	_ = os.WriteFile(filepath.Join(dest, "extra.txt"), []byte("x"), 0o644)
+	_ = os.Chmod(dest, 0o555)
+	if err := extractArchive(archive, target, os.Getuid(), os.Getgid()); err != nil {
+		t.Fatalf("restore over read-only files: %v", err)
+	}
+	if got, _ := os.ReadFile(filepath.Join(dest, "settings.php")); string(got) != "backup" {
+		t.Fatalf("settings.php = %q", got)
+	}
+	if fi, _ := os.Stat(filepath.Join(dest, "settings.php")); fi.Mode().Perm() != 0o444 {
+		t.Fatalf("settings.php mode %v, want the backup's 0444", fi.Mode().Perm())
+	}
+	if fi, _ := os.Stat(dest); fi.Mode().Perm() != 0o555 {
+		t.Fatalf("sites/default mode %v, want the backup's 0555", fi.Mode().Perm())
+	}
+	if err := wipeDir(target); err != nil {
+		t.Fatalf("wipe a read-only tree: %v", err)
+	}
+	if entries, _ := os.ReadDir(target); len(entries) != 0 {
+		t.Fatalf("left after wipe: %v", entries)
+	}
+}
+
+func TestRestoreIncompleteNamesTheFile(t *testing.T) {
+	err := restoreIncomplete(map[string]any{"database": true}, "restoring the files", "/p/site",
+		&fs.PathError{Op: "open", Path: "/p/site/config/sync/.htaccess", Err: fs.ErrPermission})
+	if !errors.Is(err, ErrRestoreIncomplete) || !strings.Contains(err.Error(), "open config/sync/.htaccess: permission denied") || !strings.Contains(err.Error(), "database was already restored") {
+		t.Fatalf("message: %v", err)
+	}
 }
 
 func tarNames(t *testing.T, path string) []string {
