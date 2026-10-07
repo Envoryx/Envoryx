@@ -164,6 +164,11 @@ func TestPythonServerServesProject(t *testing.T) {
 	if _, err := e.m.Update(ctx, id, UpdateRequest{Python: &PythonUpdate{Enabled: true, Version: "3.13", Config: runtime.PythonConfig{Server: true, Preset: "asgi"}}}); err != nil {
 		t.Fatal(err)
 	}
+	// The server comes back on the host port it had before it was switched off.
+	c, _ = e.engine.Container("envoryx-api-python")
+	if len(c.Spec.Ports) != 1 || c.Spec.Ports[0].HostPort != 20001 {
+		t.Fatalf("server port after switching back on: %+v", c.Spec.Ports)
+	}
 	if _, err := e.m.AddWorker(ctx, id, WorkerRequest{Name: "tasks", Preset: "celery:worker", Arg: "config", Enabled: true}); err != nil {
 		t.Fatal(err)
 	}

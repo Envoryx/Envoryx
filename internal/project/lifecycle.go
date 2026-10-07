@@ -1213,11 +1213,12 @@ func (m *Manager) applyPythonUpdate(ctx context.Context, p store.Project, upd Py
 		if svc != nil && len(svc.Config) > 0 {
 			_ = json.Unmarshal(svc.Config, &old)
 		}
-		// Keep the published ports across edits; allocate them when the server or debugpy
-		// is enabled. The two are independent: a tooling container can publish debugpy.
-		cfg.HostPort, cfg.DebugHostPort = 0, 0
+		// Keep the published ports across edits, also while the server is off so it
+		// comes back on the same port (bookmarks, IDE run configurations); allocate them when
+		// the server or debugpy is enabled. The two are independent: a tooling container can
+		// publish debugpy.
+		cfg.HostPort, cfg.DebugHostPort = old.HostPort, 0
 		if cfg.Server {
-			cfg.HostPort = old.HostPort
 			if cfg.HostPort == 0 {
 				port, err := m.allocatePort(ctx)
 				if err != nil {
@@ -1318,11 +1319,12 @@ func (m *Manager) applyGoUpdate(ctx context.Context, p store.Project, upd GoUpda
 		if svc != nil && len(svc.Config) > 0 {
 			_ = json.Unmarshal(svc.Config, &old)
 		}
-		// Keep the published ports across edits; allocate them when the server or Delve is
-		// enabled. The two are independent: a tooling container can publish Delve.
-		cfg.HostPort, cfg.DebugHostPort = 0, 0
+		// Keep the published ports across edits, also while the server is off so it
+		// comes back on the same port (bookmarks, IDE run configurations); allocate them when
+		// the server or Delve is enabled. The two are independent: a tooling container can
+		// publish Delve.
+		cfg.HostPort, cfg.DebugHostPort = old.HostPort, 0
 		if cfg.Server {
-			cfg.HostPort = old.HostPort
 			if cfg.HostPort == 0 {
 				port, err := m.allocatePort(ctx)
 				if err != nil {
@@ -1423,11 +1425,12 @@ func (m *Manager) applyRubyUpdate(ctx context.Context, p store.Project, upd Ruby
 		if svc != nil && len(svc.Config) > 0 {
 			_ = json.Unmarshal(svc.Config, &old)
 		}
-		// Keep the published ports across edits; allocate them when the server or rdbg is
-		// enabled. The two are independent: a tooling container can publish rdbg.
-		cfg.HostPort, cfg.DebugHostPort = 0, 0
+		// Keep the published ports across edits, also while the server is off so it
+		// comes back on the same port (bookmarks, IDE run configurations); allocate them when
+		// the server or rdbg is enabled. The two are independent: a tooling container can
+		// publish rdbg.
+		cfg.HostPort, cfg.DebugHostPort = old.HostPort, 0
 		if cfg.Server {
-			cfg.HostPort = old.HostPort
 			if cfg.HostPort == 0 {
 				port, err := m.allocatePort(ctx)
 				if err != nil {
@@ -1528,11 +1531,12 @@ func (m *Manager) applyJavaUpdate(ctx context.Context, p store.Project, upd Java
 		if svc != nil && len(svc.Config) > 0 {
 			_ = json.Unmarshal(svc.Config, &old)
 		}
-		// Keep the published ports across edits; allocate them when the server or JDWP is
-		// enabled. The two are independent: a tooling container can publish JDWP.
-		cfg.HostPort, cfg.DebugHostPort = 0, 0
+		// Keep the published ports across edits, also while the server is off so it
+		// comes back on the same port (bookmarks, IDE run configurations); allocate them when
+		// the server or JDWP is enabled. The two are independent: a tooling container can
+		// publish JDWP.
+		cfg.HostPort, cfg.DebugHostPort = old.HostPort, 0
 		if cfg.Server {
-			cfg.HostPort = old.HostPort
 			if cfg.HostPort == 0 {
 				port, err := m.allocatePort(ctx)
 				if err != nil {
@@ -1633,10 +1637,10 @@ func (m *Manager) applyDotnetUpdate(ctx context.Context, p store.Project, upd Do
 		if svc != nil && len(svc.Config) > 0 {
 			_ = json.Unmarshal(svc.Config, &old)
 		}
-		// Keep the published port across edits; allocate it when the server is enabled.
-		cfg.HostPort = 0
+		// Keep the published port across edits, also while the server is off so it comes back
+		// on the same port; allocate it when the server is enabled.
+		cfg.HostPort = old.HostPort
 		if cfg.Server {
-			cfg.HostPort = old.HostPort
 			if cfg.HostPort == 0 {
 				port, err := m.allocatePort(ctx)
 				if err != nil {
