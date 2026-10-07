@@ -409,6 +409,7 @@ func PHPExtensions() []PHPExtension {
 		{Name: "mbstring", Description: "Multibyte strings", BuiltIn: true, Available: true},
 		{Name: "curl", Description: "cURL", BuiltIn: true, Available: true},
 		{Name: "pdo_sqlite", Description: "PDO SQLite", BuiltIn: true, Available: true},
+		{Name: "exif", Description: "Image metadata (EXIF)", BuiltIn: true, Available: true},
 		{Name: "opcache", Description: "Opcode cache", Available: true},
 		{Name: "pdo_mysql", Description: "PDO MySQL/MariaDB", Available: true},
 		{Name: "mongodb", Description: "MongoDB driver", Available: true},
@@ -628,6 +629,9 @@ func (c PHPConfig) INIWith(phpVersion string, opts INIOptions) string {
 	fmt.Fprintf(&b, "upload_max_filesize = %s\n", c.UploadMaxFilesize)
 	fmt.Fprintf(&b, "post_max_size = %s\n", c.PostMaxSize)
 	fmt.Fprintf(&b, "max_execution_time = %d\n", c.MaxExecutionTime)
+	// PHP's 1000 cuts off big backend forms (TYPO3 asks for 1500, shop and page builder
+	// forms need more) without an error, so the missing fields just aren't saved.
+	b.WriteString("max_input_vars = 5000\n")
 	if c.DisplayErrors {
 		b.WriteString("display_errors = On\ndisplay_startup_errors = On\n")
 	} else {
@@ -648,6 +652,9 @@ func (c PHPConfig) INIWith(phpVersion string, opts INIOptions) string {
 				b.WriteString("zend_extension=opcache\n")
 			}
 			b.WriteString("opcache.enable=1\nopcache.enable_cli=0\nopcache.validate_timestamps=1\nopcache.revalidate_freq=0\n")
+			// PHP's defaults (128 MB, 8 MB strings, 10000 files) are full with a Shopware or
+			// Magento vendor directory, and OPcache then recompiles on every request.
+			b.WriteString("opcache.memory_consumption=256\nopcache.interned_strings_buffer=32\nopcache.max_accelerated_files=32531\n")
 			continue
 		}
 		fmt.Fprintf(&b, "extension=%s\n", ext)

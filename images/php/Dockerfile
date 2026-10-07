@@ -34,10 +34,11 @@ ARG MISSING_EXTENSIONS=""
 RUN set -eux; \
     mkdir -p /etc/envoryx; : > /etc/envoryx/missing-extensions; \
     # Always on (BuiltIn in internal/runtime/catalog.go), but not every upstream image compiles
-    # them in: php:8.6-rc dropped mbstring. First, as pickle (PECL builds) needs mbstring;
+    # them in: php:8.6-rc dropped mbstring, and none has exif (WordPress, Drupal and TYPO3 read
+    # photo orientation with it). First, as pickle (PECL builds) needs mbstring;
     # libonig-dev by hand, as the installer knows no build dependencies for unreleased versions.
     if ! php -m | grep -qix mbstring; then apt-get update; apt-get install -y --no-install-recommends libonig-dev; fi; \
-    for ext in mbstring curl pdo_sqlite; do php -m | grep -qix "${ext}" || install-php-extensions "${ext}"; done; \
+    for ext in mbstring curl pdo_sqlite exif; do php -m | grep -qix "${ext}" || install-php-extensions "${ext}"; done; \
     for ext in ${ENVORYX_PHP_EXTENSIONS}; do \
         if ! install-php-extensions "${ext}"; then \
             echo "${ext}" >> /etc/envoryx/missing-extensions; \
@@ -62,6 +63,36 @@ RUN set -eux; \
     rm -rf /var/lib/apt/lists/*; \
     php -m
 
+# Tools CMSs and frameworks expect on the server.
+# - imagemagick: TYPO3 resizes and crops through the convert/magick binaries, not the imagick
+#   extension.
+# - Locales: TYPO3 site configs set e.g. locale: en_US.UTF-8, and setlocale() fails for anything
+#   the image does not have. A few common ones, all would be over 200 MB.
+# - Database clients for drush sql:*, artisan db, wp db and deploy scripts. pg_dump refuses
+#   servers newer than itself, so psql comes from the PostgreSQL apt repository (newest major);
+#   images whose Debian that repository no longer serves get the distribution's client.
+# - rsync for rsync over SSH.
+RUN set -eux; \
+    apt-get update; \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends imagemagick locales default-mysql-client rsync; \
+    printf '%s UTF-8\n' en_US.UTF-8 en_GB.UTF-8 de_DE.UTF-8 de_AT.UTF-8 de_CH.UTF-8 fr_FR.UTF-8 es_ES.UTF-8 it_IT.UTF-8 nl_NL.UTF-8 pt_BR.UTF-8 pl_PL.UTF-8 > /etc/locale.gen; \
+    locale-gen; \
+    . /etc/os-release; \
+    curl -fsSL -o /usr/share/keyrings/pgdg.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc; \
+    echo "deb [signed-by=/usr/share/keyrings/pgdg.asc] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" > /etc/apt/sources.list.d/pgdg.list; \
+    if apt-get update && pg=$(apt-cache search --names-only '^postgresql-client-[0-9]+$' | sed 's/ .*//' | sort -t- -k3 -n | tail -n1) && [ -n "${pg}" ]; then \
+        apt-get install -y --no-install-recommends "${pg}"; \
+    else \
+        rm /etc/apt/sources.list.d/pgdg.list; apt-get update; apt-get install -y --no-install-recommends postgresql-client; \
+    fi; \
+    # The MariaDB client checks server certificates by default, which fails against MySQL's and
+    # MariaDB's self-signed ones. The database sits on the project's own network.
+    mkdir -p /etc/mysql/conf.d; printf '[client]\nssl-verify-server-cert = off\n' > /etc/mysql/conf.d/zz-envoryx.cnf; \
+    rm -rf /var/lib/apt/lists/*; \
+    convert -version; psql --version; mysql --version; mysqldump --version; rsync --version | head -n1; php -m | grep -ix exif
+
 COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
+# WP-CLI as wp; the weekly image build picks up new releases.
+ADD --chmod=0755 https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar /usr/local/bin/wp
 
 WORKDIR /var/www/html
