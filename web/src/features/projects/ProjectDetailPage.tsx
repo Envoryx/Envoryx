@@ -727,7 +727,7 @@ function NodeCard({ project: p }: { project: Project }) {
             ) : (
               <span className="text-xs text-subtle">{t("no port")}</span>
             )}
-            {stored.hostPort ? <span className="font-mono text-xs text-subtle">{t("host port {{port}}", { port: stored.hostPort })}</span> : null}
+            {stored.devServer && stored.hostPort ? <span className="font-mono text-xs text-subtle">{t("host port {{port}}", { port: stored.hostPort })}</span> : null}
             {stored.mode === "production" && <Badge tone="blue">{t("production build")}</Badge>}
             {stored.inspect && stored.inspectHostPort ? <span className="font-mono text-xs text-subtle">{t("inspector on host port {{port}}", { port: stored.inspectHostPort })}</span> : null}
           </div>
@@ -782,7 +782,7 @@ function PythonCard({ project: p }: { project: Project }) {
   const dirty = enabled !== !!svc || (enabled && (version !== (svc?.version ?? "") || JSON.stringify(server) !== JSON.stringify(fromStored())));
   const pythonStatus = p.status.services.find((s) => s.kind === "python");
   // The server answers on the project URL when Python is the application; next to PHP only its host port is published.
-  const url = serves === "python" ? links(p).url : stored.hostPort ? links({ httpPort: stored.hostPort, hostnames: [], serves: "static", services: [] }).direct : "";
+  const url = serves === "python" ? links(p).url : stored.server && stored.hostPort ? links({ httpPort: stored.hostPort, hostnames: [], serves: "static", services: [] }).direct : "";
 
   return (
     <Card>
@@ -832,7 +832,7 @@ function PythonCard({ project: p }: { project: Project }) {
             ) : (
               <span className="text-xs text-subtle">{t("no port")}</span>
             )}
-            {stored.hostPort ? <span className="font-mono text-xs text-subtle">{t("host port {{port}}", { port: stored.hostPort })}</span> : null}
+            {stored.server && stored.hostPort ? <span className="font-mono text-xs text-subtle">{t("host port {{port}}", { port: stored.hostPort })}</span> : null}
             {stored.mode === "production" && <Badge tone="blue">{t("production server")}</Badge>}
             {stored.debug && stored.debugHostPort ? <span className="font-mono text-xs text-subtle">{t("debugpy on host port {{port}}", { port: stored.debugHostPort })}</span> : null}
           </div>
@@ -886,7 +886,7 @@ function GoCard({ project: p }: { project: Project }) {
   const dirty = enabled !== !!svc || (enabled && (version !== (svc?.version ?? "") || JSON.stringify(server) !== JSON.stringify(fromStored())));
   const goStatus = p.status.services.find((s) => s.kind === "go");
   // The server answers on the project URL when Go is the application; otherwise only its host port is published.
-  const url = serves === "go" ? links(p).url : stored.hostPort ? links({ httpPort: stored.hostPort, hostnames: [], serves: "static", services: [] }).direct : "";
+  const url = serves === "go" ? links(p).url : stored.server && stored.hostPort ? links({ httpPort: stored.hostPort, hostnames: [], serves: "static", services: [] }).direct : "";
 
   return (
     <Card>
@@ -991,7 +991,7 @@ function RubyCard({ project: p }: { project: Project }) {
   const dirty = enabled !== !!svc || (enabled && (version !== (svc?.version ?? "") || JSON.stringify(server) !== JSON.stringify(fromStored())));
   const rubyStatus = p.status.services.find((s) => s.kind === "ruby");
   // The server answers on the project URL when Ruby is the application; otherwise only its host port is published.
-  const url = serves === "ruby" ? links(p).url : stored.hostPort ? links({ httpPort: stored.hostPort, hostnames: [], serves: "static", services: [] }).direct : "";
+  const url = serves === "ruby" ? links(p).url : stored.server && stored.hostPort ? links({ httpPort: stored.hostPort, hostnames: [], serves: "static", services: [] }).direct : "";
 
   return (
     <Card>
@@ -1097,7 +1097,7 @@ function JavaCard({ project: p }: { project: Project }) {
   const dirty = enabled !== !!svc || (enabled && (version !== (svc?.version ?? "") || JSON.stringify(server) !== JSON.stringify(fromStored())));
   const javaStatus = p.status.services.find((s) => s.kind === "java");
   // The server answers on the project URL when Java is the application; otherwise only its host port is published.
-  const url = serves === "java" ? links(p).url : stored.hostPort ? links({ httpPort: stored.hostPort, hostnames: [], serves: "static", services: [] }).direct : "";
+  const url = serves === "java" ? links(p).url : stored.server && stored.hostPort ? links({ httpPort: stored.hostPort, hostnames: [], serves: "static", services: [] }).direct : "";
 
   return (
     <Card>
@@ -1202,7 +1202,7 @@ function DotnetCard({ project: p }: { project: Project }) {
   const dirty = enabled !== !!svc || (enabled && (version !== (svc?.version ?? "") || JSON.stringify(server) !== JSON.stringify(fromStored())));
   const dotnetStatus = p.status.services.find((s) => s.kind === "dotnet");
   // The server answers on the project URL when .NET is the application; otherwise only its host port is published.
-  const url = serves === "dotnet" ? links(p).url : stored.hostPort ? links({ httpPort: stored.hostPort, hostnames: [], serves: "static", services: [] }).direct : "";
+  const url = serves === "dotnet" ? links(p).url : stored.server && stored.hostPort ? links({ httpPort: stored.hostPort, hostnames: [], serves: "static", services: [] }).direct : "";
   const isApp = serves !== "php" && serves !== "python" && serves !== "go" && serves !== "ruby" && serves !== "java";
 
   return (
@@ -1253,7 +1253,7 @@ function DotnetCard({ project: p }: { project: Project }) {
             ) : (
               <span className="text-xs text-subtle">{t("no port")}</span>
             )}
-            {stored.hostPort ? <span className="font-mono text-xs text-subtle">{t("host port {{port}}", { port: stored.hostPort })}</span> : null}
+            {stored.server && stored.hostPort ? <span className="font-mono text-xs text-subtle">{t("host port {{port}}", { port: stored.hostPort })}</span> : null}
             {stored.mode === "production" && <Badge tone="blue">{t("production server")}</Badge>}
           </div>
         )}
