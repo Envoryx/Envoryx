@@ -3,7 +3,9 @@ package project
 import (
 	"context"
 	"fmt"
+	"os"
 	"path"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -62,6 +64,9 @@ func messengerGuard(transports []string) string {
 	}
 	return b.String()
 }
+
+// shopwareTransports are the Messenger transports Shopware sends its messages to.
+var shopwareTransports = []string{"async", "low_priority"}
 
 // messengerTransports is the transport list of the Messenger preset's argument.
 func messengerTransports(arg string) []string {
@@ -162,7 +167,7 @@ var workerPresets = []WorkerPreset{
 			return append(cmd, "--time-limit=3600", "-vv")
 		},
 		guard: func(arg string) string { return messengerGuard(messengerTransports(arg)) }},
-	{ID: "symfony:scheduler", Group: "Symfony", Label: "Scheduler", Description: "bin/console messenger:consume scheduler_default - Symfony Scheduler", ArgLabel: "Schedule name", ArgHint: "empty = default", Requires: []string{"bin/console"},
+	{ID: "symfony:scheduler", Group: "Symfony", Label: "Symfony Scheduler", Description: "bin/console messenger:consume scheduler_default - Symfony Scheduler", ArgLabel: "Schedule name", ArgHint: "empty = default", Requires: []string{"bin/console"},
 		validateArg: func(arg string) error {
 			if arg != "" && !scriptNameRe.MatchString(arg) {
 				return fmt.Errorf("%w: invalid schedule name", validate.ErrInvalid)
@@ -175,6 +180,19 @@ var workerPresets = []WorkerPreset{
 			}
 			return []string{"php", "bin/console", "messenger:consume", "scheduler_" + arg, "--time-limit=3600", "-vv"}
 		}},
+	// Shopware runs on Symfony Messenger, with its own transport names and its own task
+	// scheduler (not Symfony Scheduler).
+	{ID: "shopware:queue", Group: "Shopware", Label: "Message queue", Description: "bin/console messenger:consume async low_priority - processes Shopware's message queue (restarts hourly)", Requires: []string{"bin/console", "vendor/shopware/core"},
+		build: func(string) []string {
+			return []string{"php", "bin/console", "messenger:consume", "async", "low_priority", "--time-limit=3600", "--memory-limit=512M", "-v"}
+		},
+		guard: func(string) string { return messengerGuard(shopwareTransports) }},
+	{ID: "shopware:scheduled-tasks", Group: "Shopware", Label: "Scheduled tasks", Description: "bin/console scheduled-task:run - runs Shopware's scheduled tasks when they are due (restarts hourly)", Requires: []string{"bin/console", "vendor/shopware/core"},
+		build: func(string) []string {
+			return []string{"php", "bin/console", "scheduled-task:run", "--time-limit=3600", "--memory-limit=512M"}
+		}},
+	{ID: "craft:queue", Group: "Craft CMS", Label: "Craft queue", Description: "php craft queue/listen - runs Craft's queue jobs as they come in, without a control panel page open", Requires: []string{"craft"},
+		build: func(string) []string { return []string{"php", "craft", "queue/listen", "--verbose"} }},
 	{ID: "php:script", Group: "PHP", Label: "PHP script", Description: "php <file> - any long-running script in the project directory", ArgLabel: "Script path", ArgHint: "relative to the project, e.g. bin/worker.php",
 		validateArg: func(arg string) error {
 			if arg == "" {
@@ -191,7 +209,10 @@ var workerPresets = []WorkerPreset{
 			}
 			return nil
 		},
-		build: func(arg string) []string { return []string{"composer", "run-script", "--no-interaction", "--", arg} }},
+		// Composer stops a script after 300 s by default; a worker runs until it is stopped.
+		build: func(arg string) []string {
+			return []string{"composer", "run-script", "--timeout=0", "--no-interaction", "--", arg}
+		}},
 	{ID: "node:script", Group: "Node.js", Label: "npm script", Description: "npm run <name> - a long-running script from package.json (queue consumer, scheduler, bot …)", ArgLabel: "Script name", ArgHint: "e.g. worker", Requires: []string{"package.json"}, Runtime: WorkerRuntimeNode,
 		validateArg: func(arg string) error {
 			if !scriptNameRe.MatchString(arg) {
@@ -445,6 +466,52 @@ func WorkerPresets() []WorkerPreset {
 	out := make([]WorkerPreset, len(workerPresets))
 	copy(out, workerPresets)
 	return out
+}
+
+// workerSuggestions name the preset a project of a framework most likely wants, the most
+// specific framework first (Shopware and Craft also have bin/console or composer.json).
+var workerSuggestions = []struct {
+	preset string
+	files  []string
+}{
+	{"shopware:queue", []string{"bin/console", "vendor/shopware/core"}},
+	{"craft:queue", []string{"craft", "vendor/craftcms/cms"}},
+	{"laravel:queue", []string{"artisan"}},
+	{"symfony:messenger", []string{"bin/console", "vendor/symfony/messenger"}},
+}
+
+// SuggestedWorkerPreset returns the preset the add form starts with for a project: the
+// one of its framework, else the first whose files the project has, else none (the form
+// then takes the first it offers). Only presets the project's runtimes can run count.
+func (m *Manager) SuggestedWorkerPreset(p store.Project) string {
+	paths, err := m.paths()
+	if err != nil {
+		return ""
+	}
+	dir := NewPlanner(paths, m.catalog).ProjectDir(p)
+	has := func(files []string) bool {
+		for _, f := range files {
+			if _, err := os.Stat(filepath.Join(dir, filepath.FromSlash(f))); err != nil {
+				return false
+			}
+		}
+		return true
+	}
+	usable := func(id string) bool {
+		preset, ok := workerPreset(id)
+		return ok && workerRuntimeAvailable(p, preset) == nil
+	}
+	for _, s := range workerSuggestions {
+		if usable(s.preset) && has(s.files) {
+			return s.preset
+		}
+	}
+	for _, preset := range workerPresets {
+		if len(preset.Requires) > 0 && usable(preset.ID) && has(preset.Requires) {
+			return preset.ID
+		}
+	}
+	return ""
 }
 
 func workerPreset(id string) (WorkerPreset, bool) {

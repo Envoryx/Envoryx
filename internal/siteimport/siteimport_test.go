@@ -467,7 +467,7 @@ func TestOpenDumpForImportLongLines(t *testing.T) {
 
 func TestAdaptWordPress(t *testing.T) {
 	dir := t.TempDir()
-	orig := "<?php\ndefine( 'DB_NAME', 'old_db' );\ndefine('DB_USER', \"old\");\ndefine('DB_PASSWORD', 'p@ss);w');\ndefine('DB_HOST', 'mysql.example.com');\ndefine('WP_HOME', 'https://old.example.com');\n$table_prefix = 'wp_';\n/* That's all, stop editing! Happy publishing. */\nrequire_once ABSPATH . 'wp-settings.php';\n"
+	orig := "<?php\ndefine( 'DB_NAME', 'old_db' );\ndefine('DB_USER', \"old\");\ndefine('DB_PASSWORD', 'p@ss);w');\ndefine('DB_HOST', 'mysql.example.com');\ndefine('WP_HOME', 'https://old.example.com');\ndefine('WP_REDIS_HOST', '10.0.0.9');\n$table_prefix = 'wp_';\n/* That's all, stop editing! Happy publishing. */\nrequire_once ABSPATH . 'wp-settings.php';\n"
 	if err := os.WriteFile(filepath.Join(dir, "wp-config.php"), []byte(orig), 0o640); err != nil {
 		t.Fatal(err)
 	}
@@ -478,12 +478,12 @@ func TestAdaptWordPress(t *testing.T) {
 	}
 	got, _ := os.ReadFile(filepath.Join(dir, "wp-config.php"))
 	s := string(got)
-	for _, want := range []string{"define('DB_NAME', getenv('DB_DATABASE'));", "define('DB_HOST', getenv('DB_HOST') . ':' . getenv('DB_PORT'));", "define('WP_HOME', (", "$table_prefix = 'wp_';"} {
+	for _, want := range []string{"define('DB_NAME', getenv('DB_DATABASE'));", "define('DB_HOST', getenv('DB_HOST') . ':' . getenv('DB_PORT'));", "define('WP_HOME', (", "define('WP_HOME', getenv('ENVORYX_URL'));", "define('WP_REDIS_HOST', getenv('REDIS_HOST'));", "$table_prefix = 'wp_';"} {
 		if !strings.Contains(s, want) {
 			t.Errorf("wp-config.php misses %q:\n%s", want, s)
 		}
 	}
-	for _, gone := range []string{"old_db", "mysql.example.com", "old.example.com", "p@ss"} {
+	for _, gone := range []string{"old_db", "mysql.example.com", "old.example.com", "p@ss", "10.0.0.9"} {
 		if strings.Contains(s, gone) {
 			t.Errorf("wp-config.php still holds %q", gone)
 		}
@@ -530,8 +530,11 @@ func TestAdaptDrupalTypo3Laravel(t *testing.T) {
 		t.Fatal(err)
 	}
 	got, _ := os.ReadFile(filepath.Join(dir, "web/sites/default/settings.php"))
-	if !strings.Contains(string(got), "'driver' => 'pgsql'") || !strings.Contains(string(got), "getenv('DB_DATABASE')") {
+	if !strings.Contains(string(got), "'driver' => 'pgsql'") || !strings.Contains(string(got), "getenv('DB_DATABASE')") || !strings.Contains(string(got), "$settings['trusted_host_patterns'] = ") {
 		t.Errorf("settings.php = %s", got)
+	}
+	if yml, _ := os.ReadFile(filepath.Join(dir, "drush/drush.yml")); string(yml) != DrushYML {
+		t.Errorf("drush/drush.yml = %q", yml)
 	}
 	if info, _ := os.Stat(filepath.Join(dir, "web/sites/default")); info.Mode().Perm() != 0o555 {
 		t.Errorf("sites/default must be read-only again, is %v", info.Mode().Perm())
@@ -546,7 +549,7 @@ func TestAdaptDrupalTypo3Laravel(t *testing.T) {
 		t.Fatal(err)
 	}
 	got, _ = os.ReadFile(filepath.Join(dir, "typo3conf/AdditionalConfiguration.php"))
-	if !strings.HasPrefix(string(got), "<?php") || !strings.Contains(string(got), "'driver' => 'mysqli'") || len(res.Originals) != 0 {
+	if !strings.HasPrefix(string(got), "<?php") || !strings.Contains(string(got), "'driver' => 'mysqli'") || !strings.Contains(string(got), "['MAIL']['defaultMailFromAddress'] = ") || !strings.Contains(string(got), "['SYS']['reverseProxySSL'] = ") || len(res.Originals) != 0 {
 		t.Errorf("AdditionalConfiguration.php = %s, result %+v", got, res)
 	}
 

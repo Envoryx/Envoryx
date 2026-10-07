@@ -58,9 +58,24 @@ func Adapt(dir string, a Analysis, db Database, uid, gid int) (Adapted, error) {
 				driver = "pgsql"
 			}
 			if err := w.edit(a.Config.Path, func(src string) (string, error) {
-				return appendPHP(src, drupalBlock(driver)), nil
+				return appendPHP(src, drupalBlock(driver)+"\n"+DrupalTrustedHosts), nil
 			}); err != nil {
 				return out, err
+			}
+			// A Composer-based site (web/sites/default/settings.php) runs Drush 9 or later,
+			// which reads drush/drush.yml next to composer.json; one the site brings stays.
+			if root, ok := strings.CutSuffix(a.Config.Path, "/sites/default/settings.php"); ok && root != "" && !strings.Contains(root, "/") {
+				if err := w.mkdir("drush"); err != nil {
+					return out, err
+				}
+				if err := w.patch("drush/drush.yml", func(src string) (string, error) {
+					if src != "" {
+						return src, nil
+					}
+					return DrushYML, nil
+				}); err != nil {
+					return out, err
+				}
 			}
 		}
 	case "typo3":
@@ -77,7 +92,7 @@ func Adapt(dir string, a Analysis, db Database, uid, gid int) (Adapted, error) {
 				if src == "" {
 					src = "<?php\n"
 				}
-				return appendPHP(src, typo3Block(driver)), nil
+				return appendPHP(src, typo3Block(driver)+TYPO3ProxyAndMail), nil
 			}); err != nil {
 				return out, err
 			}
@@ -225,6 +240,24 @@ func (w writer) write(p, content string, mode fs.FileMode) error {
 	return nil
 }
 
+// mkdir creates a directory of the site when it is missing.
+func (w writer) mkdir(rel string) error {
+	p, err := w.resolve(rel)
+	if err != nil {
+		return err
+	}
+	if _, err := os.Lstat(p); err == nil {
+		return nil
+	}
+	if err := os.Mkdir(p, 0o755); err != nil {
+		return err
+	}
+	if os.Geteuid() == 0 {
+		_ = os.Lchown(p, w.uid, w.gid)
+	}
+	return nil
+}
+
 func (w writer) remove(rel string) error {
 	p, err := w.resolve(rel)
 	if err != nil {
@@ -276,7 +309,7 @@ $GLOBALS['TYPO3_CONF_VARS']['DB']['Connections']['Default'] = array_merge($GLOBA
 }
 
 var (
-	wpDefineRe = regexp.MustCompile(`(?m)^[ \t]*define\s*\(\s*['"](DB_NAME|DB_USER|DB_PASSWORD|DB_HOST|WP_HOME|WP_SITEURL)['"]\s*,.*?\)\s*;[^\n]*\n?`)
+	wpDefineRe = regexp.MustCompile(`(?m)^[ \t]*define\s*\(\s*['"](DB_NAME|DB_USER|DB_PASSWORD|DB_HOST|WP_HOME|WP_SITEURL|WP_REDIS_HOST|WP_REDIS_PORT|WP_REDIS_PASSWORD)['"]\s*,.*?\)\s*;[^\n]*\n?`)
 	wpAnchorRe = regexp.MustCompile(`(?m)^.*(That's all, stop editing|require_once\s*\(?\s*ABSPATH\s*\.\s*['"]wp-settings\.php).*$`)
 )
 
@@ -287,20 +320,9 @@ var wpDatabase = map[string]string{
 	"DB_HOST":     "define('DB_HOST', getenv('DB_HOST') . ':' . getenv('DB_PORT'));\n",
 }
 
-const wpAddress = `// Added by Envoryx: the site answers on the address it is opened with, and the proxy
-// in front of it terminates HTTPS.
-if (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {
-    $_SERVER['HTTPS'] = 'on';
-}
-if (!empty($_SERVER['HTTP_HOST'])) {
-    define('WP_HOME', (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https' : 'http') . '://' . $_SERVER['HTTP_HOST']);
-    define('WP_SITEURL', WP_HOME);
-}
-
-`
-
-// adaptWordPress points the DB_* constants at the injected variables and lets the site
-// follow the address it is opened with (the old WP_HOME/WP_SITEURL go).
+// adaptWordPress points the DB_* constants at the injected variables, lets the site
+// follow the address it is opened with and uses the project's Redis (the old server's
+// WP_HOME, WP_SITEURL and WP_REDIS_* go).
 func adaptWordPress(src string) (string, error) {
 	seen := map[string]bool{}
 	out := wpDefineRe.ReplaceAllStringFunc(src, func(m string) string {
@@ -309,7 +331,7 @@ func adaptWordPress(src string) (string, error) {
 			return ""
 		}
 		seen[name] = true
-		return wpDatabase[name] // "" for WP_HOME and WP_SITEURL
+		return wpDatabase[name] // "" for the address and Redis, which the added block sets
 	})
 	var missing strings.Builder
 	for _, k := range []string{"DB_NAME", "DB_USER", "DB_PASSWORD", "DB_HOST"} {
@@ -317,7 +339,7 @@ func adaptWordPress(src string) (string, error) {
 			missing.WriteString(wpDatabase[k])
 		}
 	}
-	insert := missing.String() + wpAddress
+	insert := missing.String() + WordPressAddress + WordPressRedis + "\n"
 	if loc := wpAnchorRe.FindStringIndex(out); loc != nil {
 		return out[:loc[0]] + insert + out[loc[0]:], nil
 	}

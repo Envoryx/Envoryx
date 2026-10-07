@@ -23,7 +23,9 @@ export function WorkersTab({ project }: { project: Project }) {
   const [msg, setMsg] = useState<{ tone: "green" | "red"; text: string } | null>(null);
   const fail = (err: unknown, fallback: string) => setMsg({ tone: "red", text: errorText(err, t, fallback) });
   const [name, setName] = useState("");
-  const [preset, setPreset] = useState("laravel:queue");
+  // null until the user picks one: the form starts with the preset the server suggests
+  // for the project's framework.
+  const [preset, setPreset] = useState<string | null>(null);
   const [arg, setArg] = useState("");
   const add = useMutation({
     mutationFn: () => api.projects.workers.add(project.id, { name: name.trim(), preset: selectedId(), arg: arg.trim(), enabled: true }),
@@ -50,8 +52,9 @@ export function WorkersTab({ project }: { project: Project }) {
   // stored choice may name a preset that is filtered out, so the first offered one stands in.
   const available = (p: WorkerPreset) => has(p.runtime ?? "php");
   const presets = (q.data?.presets ?? []).filter(available);
-  const selected = presets.find((p) => p.id === preset) ?? presets[0];
-  const selectedId = () => selected?.id ?? preset;
+  const wanted = preset ?? q.data?.suggestedPreset;
+  const selected = presets.find((p) => p.id === wanted) ?? presets[0];
+  const selectedId = () => selected?.id ?? wanted ?? "";
 
   if (q.isPending) return <Spinner />;
   if (q.isError) return <ErrorState message={errorText(q.error, t)} />;

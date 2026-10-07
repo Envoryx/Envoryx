@@ -50,6 +50,18 @@ describe("WorkersTab", () => {
     await waitFor(() => expect(api.calls.some((c) => c.method === "DELETE")).toBe(true));
   });
 
+  it("starts the form with the preset the server suggests for the project", async () => {
+    const withCraft = [...presets, { id: "craft:queue", group: "Craft CMS", label: "Queue listener", description: "queue/listen" }];
+    mockApi({
+      ...authedRoutes,
+      [`GET /projects/${id}/workers`]: () => ({ body: { workers: [], presets: withCraft, suggestedPreset: "craft:queue" } }),
+    });
+    renderApp(<WorkersTab project={makeProject()} />);
+
+    await waitFor(() => expect(screen.getByLabelText("Preset")).toHaveValue("craft:queue"));
+    expect(screen.queryByLabelText("Queues")).not.toBeInTheDocument();
+  });
+
   it("shows a developer the workers but no way to add, disable or remove them", async () => {
     const workers = [{ id: "w1", name: "cron", preset: "laravel:schedule", arg: "", enabled: true, command: ["php", "artisan", "schedule:work"], createdAt: "2026-09-18T10:00:00Z" }];
     mockApi({
