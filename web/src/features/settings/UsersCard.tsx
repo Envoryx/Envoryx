@@ -224,7 +224,7 @@ export function UsersCard() {
                           </li>
                         ))}
                       </ul>
-                      <p className="text-xs text-subtle">{t("Branch environments get the roles of their parent when they are created.")}</p>
+                      <p className="text-xs text-subtle">{t("Branch environments always have the roles of their parent project.")}</p>
                     </div>
                   )}
                 </li>

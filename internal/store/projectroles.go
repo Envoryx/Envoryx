@@ -16,9 +16,14 @@ type ProjectRole struct {
 	Role      string
 }
 
-// ByUser returns a user's project roles by project id.
+// ByUser returns a user's project roles by project id. A branch environment has no
+// roles of its own: it gets the user's role in its parent, so a role given later or a
+// new team member reaches the environments that already exist.
 func (r *ProjectRoles) ByUser(ctx context.Context, userID string) (map[string]string, error) {
-	rows, err := r.db.QueryContext(ctx, `SELECT project_id, role FROM project_roles WHERE user_id = ?`, userID)
+	rows, err := r.db.QueryContext(ctx, `SELECT p.id, r.role FROM project_roles r
+		JOIN projects top ON top.id = r.project_id AND top.parent_id = ''
+		JOIN projects p ON p.id = top.id OR p.parent_id = top.id
+		WHERE r.user_id = ?`, userID)
 	if err != nil {
 		return nil, fmt.Errorf("select project roles: %w", err)
 	}
@@ -68,17 +73,6 @@ func (r *ProjectRoles) Set(ctx context.Context, userID, projectID, role string) 
 			return fmt.Errorf("project role: %w", ErrNotFound)
 		}
 		return fmt.Errorf("set project role: %w", err)
-	}
-	return nil
-}
-
-// Copy gives every user with a role in one project the same role in another (a branch
-// environment inherits its parent's).
-func (r *ProjectRoles) Copy(ctx context.Context, fromProject, toProject string) error {
-	_, err := r.db.ExecContext(ctx, `INSERT OR REPLACE INTO project_roles (user_id, project_id, role)
-		SELECT user_id, ?, role FROM project_roles WHERE project_id = ?`, toProject, fromProject)
-	if err != nil {
-		return fmt.Errorf("copy project roles: %w", err)
 	}
 	return nil
 }

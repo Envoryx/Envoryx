@@ -2485,7 +2485,7 @@
   "A role here replaces the user's role in that project; “from the role” leaves the global role.": "Rola tutaj zastępuje rolę użytkownika w tym projekcie; „z roli” pozostawia rolę globalną.",
   "Role of {{name}} in {{project}}": "Rola {{name}} w {{project}}",
   "from the role": "z roli",
-  "Branch environments get the roles of their parent when they are created.": "Środowiska gałęzi przy tworzeniu dostają role projektu nadrzędnego.",
+  "Branch environments always have the roles of their parent project.": "Środowiska gałęzi zawsze mają role projektu nadrzędnego.",
   "Single sign-on saved.": "Logowanie jednokrotne zapisane.",
   "The provider answers.": "Dostawca odpowiada.",
   "The provider does not answer: {{error}}": "Dostawca nie odpowiada: {{error}}",

@@ -2485,7 +2485,7 @@
   "A role here replaces the user's role in that project; “from the role” leaves the global role.": "Роль здесь заменяет роль пользователя в этом проекте; «по роли» оставляет глобальную роль.",
   "Role of {{name}} in {{project}}": "Роль {{name}} в {{project}}",
   "from the role": "по роли",
-  "Branch environments get the roles of their parent when they are created.": "Окружения веток при создании получают роли родителя.",
+  "Branch environments always have the roles of their parent project.": "Окружения веток всегда получают роли родительского проекта.",
   "Single sign-on saved.": "Единый вход сохранён.",
   "The provider answers.": "Провайдер отвечает.",
   "The provider does not answer: {{error}}": "Провайдер не отвечает: {{error}}",

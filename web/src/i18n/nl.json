@@ -2443,7 +2443,7 @@
   "A role here replaces the user's role in that project; “from the role” leaves the global role.": "Een rol hier vervangt de rol van de gebruiker in dat project; „uit de rol” laat de globale rol gelden.",
   "Role of {{name}} in {{project}}": "Rol van {{name}} in {{project}}",
   "from the role": "uit de rol",
-  "Branch environments get the roles of their parent when they are created.": "Branch-omgevingen krijgen bij het aanmaken de rollen van hun bovenliggende project.",
+  "Branch environments always have the roles of their parent project.": "Branch-omgevingen hebben altijd de rollen van hun bovenliggende project.",
   "Single sign-on saved.": "Single sign-on opgeslagen.",
   "The provider answers.": "De provider antwoordt.",
   "The provider does not answer: {{error}}": "De provider antwoordt niet: {{error}}",

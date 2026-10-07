@@ -2443,7 +2443,7 @@
   "A role here replaces the user's role in that project; “from the role” leaves the global role.": "Eine Rolle hier ersetzt die Rolle des Benutzers in diesem Projekt; „aus der Rolle“ lässt die globale Rolle gelten.",
   "Role of {{name}} in {{project}}": "Rolle von {{name}} in {{project}}",
   "from the role": "aus der Rolle",
-  "Branch environments get the roles of their parent when they are created.": "Branch-Umgebungen übernehmen beim Anlegen die Rollen ihres Eltern-Projekts.",
+  "Branch environments always have the roles of their parent project.": "Branch-Umgebungen haben immer die Rollen ihres Eltern-Projekts.",
   "Single sign-on saved.": "Single Sign-on gespeichert.",
   "The provider answers.": "Der Anbieter antwortet.",
   "The provider does not answer: {{error}}": "Der Anbieter antwortet nicht: {{error}}",

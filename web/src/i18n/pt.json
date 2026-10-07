@@ -2443,7 +2443,7 @@
   "A role here replaces the user's role in that project; “from the role” leaves the global role.": "Um papel aqui substitui o papel do utilizador nesse projeto; “do papel” mantém o papel global.",
   "Role of {{name}} in {{project}}": "Papel de {{name}} em {{project}}",
   "from the role": "do papel",
-  "Branch environments get the roles of their parent when they are created.": "Os ambientes de branch recebem os papéis do pai quando são criados.",
+  "Branch environments always have the roles of their parent project.": "Os ambientes de branch têm sempre os papéis do projeto pai.",
   "Single sign-on saved.": "Início de sessão único guardado.",
   "The provider answers.": "O fornecedor responde.",
   "The provider does not answer: {{error}}": "O fornecedor não responde: {{error}}",

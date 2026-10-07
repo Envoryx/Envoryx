@@ -2443,7 +2443,7 @@
   "A role here replaces the user's role in that project; “from the role” leaves the global role.": "Un rôle ici remplace le rôle de l’utilisateur dans ce projet ; « selon le rôle » laisse le rôle global.",
   "Role of {{name}} in {{project}}": "Rôle de {{name}} dans {{project}}",
   "from the role": "selon le rôle",
-  "Branch environments get the roles of their parent when they are created.": "Les environnements de branche reprennent les rôles de leur parent à leur création.",
+  "Branch environments always have the roles of their parent project.": "Les environnements de branche ont toujours les rôles de leur projet parent.",
   "Single sign-on saved.": "Authentification unique enregistrée.",
   "The provider answers.": "Le fournisseur répond.",
   "The provider does not answer: {{error}}": "Le fournisseur ne répond pas : {{error}}",

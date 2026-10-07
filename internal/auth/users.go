@@ -200,5 +200,8 @@ func (s *Service) SetProjectRole(ctx context.Context, userID, projectID string, 
 	if _, err := s.store.Users.ByID(ctx, userID); err != nil {
 		return err
 	}
+	if p, err := s.store.Projects.Get(ctx, projectID); err == nil && p.ParentID != "" {
+		return fmt.Errorf("%w: a branch environment has the roles of its parent project; set the role there", validate.ErrInvalid)
+	}
 	return s.store.Roles.Set(ctx, userID, projectID, string(role))
 }
