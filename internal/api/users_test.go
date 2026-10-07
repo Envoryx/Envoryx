@@ -73,6 +73,15 @@ func TestUsersRolesAndInvitations(t *testing.T) {
 	if r := a.do(http.MethodGet, "/api/v1/dashboard", nil, false); r.status != http.StatusOK || strings.Contains(string(r.raw), "key-of-Blog") {
 		t.Fatalf("viewer dashboard shows Blog's secret: %d %s", r.status, r.raw)
 	}
+	// The dashboard cards carry the access too, or the UI shows buttons the server refuses.
+	r = a.do(http.MethodGet, "/api/v1/dashboard", nil, false)
+	for _, p := range r.body["recent"].([]any) {
+		pm := p.(map[string]any)
+		want := map[string]string{shop: "operate", blog: "read"}[pm["id"].(string)]
+		if pm["access"] != want {
+			t.Fatalf("dashboard access of %s: %v, want %s", pm["name"], pm["access"], want)
+		}
+	}
 	if r := a.do(http.MethodPost, "/api/v1/projects/"+shop+"/start", nil, true); r.status != http.StatusOK {
 		t.Fatalf("developer starts Shop: %d %s", r.status, r.raw)
 	}

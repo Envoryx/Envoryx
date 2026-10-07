@@ -114,9 +114,8 @@ func (a *API) dashboard(w http.ResponseWriter, r *http.Request) {
 		default:
 			attention++
 		}
-		dto := toProject(v)
-		hideSecretValues(&dto, p.ScopeFor(v.Project.ID))
-		projects = append(projects, dto)
+		// a.project sets the caller's access, so the cards leave out what would be refused.
+		projects = append(projects, a.project(r, v))
 	}
 	sort.Slice(projects, func(i, j int) bool { return projects[i].UpdatedAt.After(projects[j].UpdatedAt) })
 	if len(projects) > 6 {
