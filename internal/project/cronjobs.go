@@ -380,6 +380,11 @@ func (m *Manager) execCron(ctx context.Context, p store.Project, j store.CronJob
 	if err != nil {
 		return fail("%v", err)
 	}
+	if kind == store.ServiceNode {
+		// The Node container has no NODE_ENV of its own (actions build with the tools'
+		// defaults); cron jobs follow the dev server's mode like the workers.
+		env.Env = append(env.Env, nodeWorkerEnv(p))
+	}
 	m.ensurePasswdEntry(ctx, c.ID, c.Name, env.User)
 	secs := int(j.Timeout / time.Second)
 	// timeout(1) ends the command inside the container; the context only guards against

@@ -264,6 +264,19 @@ func nodeServesApp(p store.Project) (runtime.NodeConfig, bool) {
 	return cfg, true
 }
 
+// nodeWorkerEnv is the NODE_ENV of the project's Node workers and cron jobs: production
+// while the dev server runs a production build, else development.
+func nodeWorkerEnv(p store.Project) string {
+	cfg, ok := nodeDevConfig(p)
+	if ok && cfg.Normalize() != nil {
+		ok = false
+	}
+	if !ok {
+		return runtime.NodeConfig{}.WorkerEnv()
+	}
+	return cfg.WorkerEnv()
+}
+
 // appServesDirectly reports whether an application container answers the project URL
 // itself (Python, Go, Ruby, Java or .NET server, Node dev server). The web container's
 // port then stays unpublished so the docroot (often the project root with .env and

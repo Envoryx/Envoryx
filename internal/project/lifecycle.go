@@ -239,6 +239,19 @@ func (m *Manager) create(ctx context.Context, req CreateRequest) (View, error) {
 		if _, err := m.clone(ctx, proj); err != nil {
 			return fail("clone repository", err)
 		}
+		// The wizard chose the dev server's script before it could see the repository.
+		changed, err := m.fitClonedNode(ctx, planner, &proj)
+		if err != nil {
+			return fail("configure the dev server", err)
+		}
+		if changed {
+			if plan, err = planner.Plan(proj); err != nil {
+				return fail("configure the dev server", err)
+			}
+			if err := writePlanFiles(plan); err != nil {
+				return fail("write configuration", err)
+			}
+		}
 	} else if req.Template != "" {
 		tpl, _ := TemplateByID(req.Template)
 		step(ctx, "Scaffolding the {{template}} template", "template", tpl.Name)

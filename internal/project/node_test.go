@@ -28,9 +28,9 @@ func TestNodeDevServer(t *testing.T) {
 	if !ok {
 		t.Fatal("node container missing")
 	}
-	// Exact argv, no wait wrapper: PHP+Node containers keep their spec fingerprint so
-	// existing projects are not recreated by the Node-only feature.
-	if got := strings.Join(c.Spec.Cmd, " "); got != "npm run dev -- --host 0.0.0.0 --port 5173 --strictPort" {
+	// Next to PHP the dev server waits for package.json and node_modules as well: a
+	// crash-looping container would refuse the npm install action that fixes it.
+	if got := strings.Join(c.Spec.Cmd[4:], " "); c.Spec.Cmd[0] != "sh" || !strings.Contains(c.Spec.Cmd[2], "node_modules") || got != "npm run dev -- --host 0.0.0.0 --port 5173 --strictPort" {
 		t.Fatalf("dev server command: %s", got)
 	}
 	if len(c.Spec.Ports) != 1 || c.Spec.Ports[0].ContainerPort != 5173 || c.Spec.Ports[0].HostPort != 20001 {
@@ -82,7 +82,7 @@ func TestNodeDevServer(t *testing.T) {
 		t.Fatal(err)
 	}
 	c, _ = e.engine.Container("envoryx-shop-node")
-	if got := strings.Join(c.Spec.Cmd, " "); got != "pnpm run dev -- -H 0.0.0.0 -p 3000" {
+	if got := strings.Join(c.Spec.Cmd[4:], " "); got != "pnpm run dev -- -H 0.0.0.0 -p 3000" {
 		t.Fatalf("next command: %s", got)
 	}
 	proj, _ := e.m.loadProject(ctx, v.Project.ID)
@@ -134,7 +134,7 @@ func TestNodeDevServerOffOnKeepsSettings(t *testing.T) {
 		}
 	}
 	c, _ := e.engine.Container("envoryx-shop-node")
-	if got := strings.Join(c.Spec.Cmd, " "); got != "pnpm run dev:app -- -H 0.0.0.0 -p 3001" {
+	if got := strings.Join(c.Spec.Cmd[4:], " "); got != "pnpm run dev:app -- -H 0.0.0.0 -p 3001" {
 		t.Fatalf("command after re-enable: %s", got)
 	}
 	if len(c.Spec.Ports) != 1 || c.Spec.Ports[0].HostPort != before.HostPort {

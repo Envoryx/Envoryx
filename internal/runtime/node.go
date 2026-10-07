@@ -80,10 +80,42 @@ func NodePresetByKey(key string) (NodePreset, bool) {
 	return NodePreset{}, false
 }
 
-// waitForPackageJSON guards the dev-server command when the Node container is the
-// project's application: a blank project has no package.json yet and "npm run dev" would
-// crash-loop. Nothing is interpolated into it (see Guarded).
+// waitForPackageJSON guards the dev-server command: a blank project has no package.json
+// yet and "npm run dev" would crash-loop, and a crash-looping container locks the user out
+// of the terminal and of the actions that would fix it. Nothing is interpolated into the
+// guards (see Guarded).
 const waitForPackageJSON = `until [ -f package.json ]; do echo 'envoryx: waiting for package.json in /var/www/html - scaffold with a Node template, clone a repository or use the Node terminal'; sleep 5; done`
+
+// nodeDepsMissing is true when package.json declares dependencies and nothing has
+// installed them yet (no node_modules, no Yarn Plug'n'Play loader). A package.json without
+// dependencies never gets a node_modules, so it must not be waited for.
+const nodeDepsMissing = `[ ! -d node_modules ] && [ ! -f .pnp.cjs ] && node -e 'const p=require("./package.json");process.exit(Object.keys({...p.dependencies,...p.devDependencies}).length?0:1)' 2>/dev/null`
+
+// nodeDepsWait blocks until an install has finished. It looks for the files npm, pnpm and
+// Yarn write at the end of an install rather than for node_modules itself, which appears
+// as soon as an install starts.
+const nodeDepsWait = `until [ -f node_modules/.package-lock.json ] || [ -f node_modules/.modules.yaml ] || [ -f node_modules/.yarn-integrity ] || [ -f node_modules/.yarn-state.yml ] || [ -f .pnp.cjs ]; do echo 'envoryx: waiting for node_modules - run "npm install" (or pnpm / yarn install) from Actions'; sleep 5; done`
+
+// NodeDepsGuard installs the dependencies of a fresh checkout before the dev server starts,
+// like the Ruby containers run bundle install. It only installs from a lockfile and in
+// frozen mode, so it reproduces what the repository pins and never writes to the user's
+// files; without a lockfile, or when the install fails, it waits for an install from
+// Actions instead of letting the server crash-loop.
+const NodeDepsGuard = `if ` + nodeDepsMissing + `; then ` +
+	`if [ -f package-lock.json ]; then echo 'envoryx: no node_modules - running "npm ci"'; npm ci; ` +
+	`elif [ -f pnpm-lock.yaml ]; then echo 'envoryx: no node_modules - running "pnpm install --frozen-lockfile"'; pnpm install --frozen-lockfile; ` +
+	`elif [ -f yarn.lock ]; then echo 'envoryx: no node_modules - running "yarn install --frozen-lockfile"'; yarn install --frozen-lockfile; ` +
+	`else false; fi || ` + nodeDepsWait + `; fi`
+
+// NodeDepsWaitGuard only waits for the dependencies. The Node workers use it, so they
+// don't install into node_modules at the same time as the dev server.
+const NodeDepsWaitGuard = `if ` + nodeDepsMissing + `; then ` + nodeDepsWait + `; fi`
+
+// nodeDevEnv gives the dev server NODE_ENV=development unless the project sets its own.
+// Only the dev server: set on the container it reaches every action and terminal command,
+// and "npm run build" then ships development bundles (React's jsxDEV, a dev-mode
+// process.env.NODE_ENV) or fails outright (next build).
+const nodeDevEnv = `export NODE_ENV="${NODE_ENV:-development}"`
 
 // Inherit fills the fields an update leaves empty from the stored configuration, so a
 // call that only flips DevServer (API, CLI) keeps the preset, script and port. Script,
@@ -225,9 +257,8 @@ func (c NodeConfig) serveCommand() []string {
 // Command returns the argv of the container's main process. In production mode the build
 // script runs first on every start, and the build and the serve process get
 // NODE_ENV=production - only those two, so "npm install" from the terminal still installs
-// devDependencies. Next.js fails to build under the container's NODE_ENV=development. Script
-// names are validated against scriptRe, so interpolating them into the shell line is safe;
-// the serve argv is passed through "$@" untouched.
+// devDependencies. Script names are validated against scriptRe, so interpolating them into
+// the shell line is safe; the serve argv is passed through "$@" untouched.
 func (c NodeConfig) Command() []string {
 	serve := c.serveCommand()
 	if !c.Production() {
@@ -238,11 +269,26 @@ func (c NodeConfig) Command() []string {
 	return append([]string{"sh", "-c", script, "envoryx-start"}, serve...)
 }
 
-// WrappedCommand returns Command() behind the package.json wait guard, for containers
-// whose dev server is the project's application. Further guards (the database wait the
-// planner builds) run after it.
+// WrappedCommand returns Command() behind the guards that keep a dev server from
+// crash-looping - it waits for package.json and installs or waits for the dependencies -
+// and, in dev mode, with NODE_ENV=development. Further guards (the database wait the
+// planner builds) run after them.
 func (c NodeConfig) WrappedCommand(guards ...string) []string {
-	return Guarded(c.Command(), "envoryx-dev", append([]string{waitForPackageJSON}, guards...)...)
+	own := []string{waitForPackageJSON, NodeDepsGuard}
+	if !c.Production() {
+		own = append(own, nodeDevEnv)
+	}
+	return Guarded(c.Command(), "envoryx-dev", append(own, guards...)...)
+}
+
+// WorkerEnv is the NODE_ENV of the Node workers and cron jobs: they follow the dev
+// server's mode, so a project that serves a production build doesn't run its queue
+// consumers in development.
+func (c NodeConfig) WorkerEnv() string {
+	if c.DevServer && c.Production() {
+		return "NODE_ENV=production"
+	}
+	return "NODE_ENV=development"
 }
 
 // Env returns the variables that make common dev servers listen on all interfaces and

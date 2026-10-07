@@ -168,7 +168,7 @@ func TestWorkersFollowTheirRuntime(t *testing.T) {
 	if !ok || c.State != "running" {
 		t.Fatalf("node worker container: %+v", c)
 	}
-	if c.Spec.Image != "ghcr.io/envoryx/envoryx-node:24" || strings.Join(c.Spec.Cmd, " ") != "npm run worker" {
+	if c.Spec.Image != "ghcr.io/envoryx/envoryx-node:24" || strings.Join(c.Spec.Cmd[4:], " ") != "npm run worker" || !strings.Contains(c.Spec.Cmd[2], "node_modules") {
 		t.Fatalf("node worker spec: image=%s cmd=%v", c.Spec.Image, c.Spec.Cmd)
 	}
 	home := false
