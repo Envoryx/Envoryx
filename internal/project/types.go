@@ -96,6 +96,9 @@ type NodeUpdate struct {
 	Enabled bool
 	Version string
 	Config  runtime.NodeConfig
+	// KeepInspect takes Inspect over from the stored configuration: an API call that
+	// leaves "inspect" out would otherwise unpublish the inspector port.
+	KeepInspect bool
 }
 
 // PythonRequest selects the Python container and optional application server.

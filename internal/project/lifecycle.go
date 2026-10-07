@@ -1165,6 +1165,9 @@ func (m *Manager) applyNodeUpdate(ctx context.Context, p store.Project, upd Node
 		}
 		cfg := upd.Config
 		cfg.Inherit(old)
+		if upd.KeepInspect {
+			cfg.Inspect = old.Inspect
+		}
 		if err := cfg.Normalize(); err != nil {
 			return err
 		}
