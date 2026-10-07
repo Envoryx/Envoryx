@@ -140,10 +140,19 @@ func majorOf(v string) int {
 }
 
 // Statements that tie a dump to the server it came from: the database it was taken
-// from (mysqldump --databases, pg_dump --create) and roles that do not exist here.
+// from (mysqldump --databases, pg_dump --create) and users, roles and grants that do
+// not exist here (hosting panels and phpMyAdmin often export the grants of the old user).
 var (
-	mysqlDropRe = regexp.MustCompile("(?i)^(CREATE DATABASE\\b|USE\\s+`?[^`;]+`?\\s*;)")
-	pgDropRe    = regexp.MustCompile(`(?i)^(CREATE DATABASE\b|ALTER DATABASE\b|DROP DATABASE\b|\\connect\b|\\c\s|ALTER\s+.+\s+OWNER TO\s|GRANT\s|REVOKE\s|SET\s+ROLE\b|SET\s+SESSION\s+AUTHORIZATION\b|CREATE\s+ROLE\b|ALTER\s+ROLE\b|COMMENT ON EXTENSION\b)`)
+	mysqlDropRe = regexp.MustCompile("(?i)^(CREATE DATABASE\\b|USE\\s+`?[^`;]+`?\\s*;|GRANT\\s|REVOKE\\s|(CREATE|ALTER|DROP|RENAME)\\s+(USER|ROLE)\\b|SET\\s+(PASSWORD|DEFAULT\\s+ROLE)\\b|FLUSH\\s+PRIVILEGES\\b)")
+	pgDropRe    = regexp.MustCompile(`(?i)^(CREATE DATABASE\b|ALTER DATABASE\b|DROP DATABASE\b|\\connect\b|\\c\s|ALTER\s+.+\s+OWNER TO\s|GRANT\s|REVOKE\s|ALTER\s+DEFAULT\s+PRIVILEGES\b|SET\s+ROLE\b|SET\s+SESSION\s+AUTHORIZATION\b|CREATE\s+ROLE\b|ALTER\s+ROLE\b|COMMENT ON EXTENSION\b)`)
+
+	// A view, trigger, routine or event names the user it runs as. That user exists
+	// only on the old server: MySQL creates the object but refuses to run it (ERROR
+	// 1449), and an external server refuses to create it for a plain user. Without the
+	// clause the object belongs to the user that imports the dump. Only lines that
+	// start a definition are rewritten, never table data.
+	mysqlDefinerLineRe = regexp.MustCompile(`(?i)^(/\*!\d+\s+(CREATE|DEFINER)\b|CREATE\s|ALTER\s)`)
+	mysqlDefinerRe     = regexp.MustCompile("(?i)\\bDEFINER\\s*=\\s*(`[^`]*`|'[^']*'|\"[^\"]*\"|[^\\s@*/]+)\\s*@\\s*(`[^`]*`|'[^']*'|\"[^\"]*\"|[^\\s*/]+)\\s*")
 )
 
 // OpenDumpForImport returns the dump as the database client should read it: unpacked,
@@ -183,6 +192,8 @@ func OpenDumpForImport(file, variant string) (io.ReadCloser, error) {
 					inCopy = true
 				case drop.Match(trimmed):
 					keep = false
+				case variant != "postgresql" && mysqlDefinerLineRe.Match(trimmed):
+					line = mysqlDefinerRe.ReplaceAll(line, nil)
 				}
 			}
 			if keep && len(line) > 0 {

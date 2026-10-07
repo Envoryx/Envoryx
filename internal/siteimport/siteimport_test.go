@@ -449,6 +449,58 @@ func TestOpenDumpForImportDropsServerStatements(t *testing.T) {
 	}
 }
 
+func TestOpenDumpForImportDropsUsersAndDefiners(t *testing.T) {
+	in := strings.Join([]string{
+		"CREATE TABLE t (x text);",
+		"INSERT INTO t VALUES ('GRANT ALL; DEFINER=`a`@`b`');",
+		"GRANT ALL PRIVILEGES ON oldshop_db.* TO 'oldshop_user'@'localhost';",
+		"REVOKE ALL ON *.* FROM 'x'@'%';",
+		"CREATE USER IF NOT EXISTS 'oldshop_user'@'localhost' IDENTIFIED BY 'pw';",
+		"ALTER USER 'oldshop_user'@'localhost' IDENTIFIED BY 'pw';",
+		"DROP USER 'gone'@'%';",
+		"SET PASSWORD FOR 'oldshop_user'@'localhost' = 'x';",
+		"FLUSH PRIVILEGES;",
+		"/*!50001 CREATE ALGORITHM=UNDEFINED */",
+		"/*!50013 DEFINER=`oldshop_user`@`localhost` SQL SECURITY DEFINER */",
+		"/*!50001 VIEW `v` AS select `t`.`x` AS `x` from `t` */;",
+		"/*!50003 CREATE*/ /*!50017 DEFINER=`oldshop_user`@`%`*/ /*!50003 TRIGGER tr BEFORE INSERT ON t FOR EACH ROW SET NEW.x = 'y' */;;",
+		"CREATE DEFINER='root'@'localhost' PROCEDURE p() SELECT 1;",
+		"CREATE ALGORITHM=UNDEFINED DEFINER=`u`@`localhost` SQL SECURITY DEFINER VIEW `w` AS SELECT 1;",
+		"",
+	}, "\n")
+	r, err := OpenDumpForImport(writeFile(t, "d.sql", in), "mysql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, _ := io.ReadAll(r)
+	_ = r.Close()
+	want := strings.Join([]string{
+		"CREATE TABLE t (x text);",
+		"INSERT INTO t VALUES ('GRANT ALL; DEFINER=`a`@`b`');",
+		"/*!50001 CREATE ALGORITHM=UNDEFINED */",
+		"/*!50013 SQL SECURITY DEFINER */",
+		"/*!50001 VIEW `v` AS select `t`.`x` AS `x` from `t` */;",
+		"/*!50003 CREATE*/ /*!50017 */ /*!50003 TRIGGER tr BEFORE INSERT ON t FOR EACH ROW SET NEW.x = 'y' */;;",
+		"CREATE PROCEDURE p() SELECT 1;",
+		"CREATE ALGORITHM=UNDEFINED SQL SECURITY DEFINER VIEW `w` AS SELECT 1;",
+		"",
+	}, "\n")
+	if string(got) != want {
+		t.Errorf("mysql dump =\n%s\nwant\n%s", got, want)
+	}
+
+	pg := "CREATE TABLE public.t (x text);\nALTER DEFAULT PRIVILEGES FOR ROLE olduser IN SCHEMA public GRANT ALL ON TABLES TO app;\n"
+	r, err = OpenDumpForImport(writeFile(t, "d.sql", pg), "postgresql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, _ = io.ReadAll(r)
+	_ = r.Close()
+	if string(got) != "CREATE TABLE public.t (x text);\n" {
+		t.Errorf("postgres dump = %q", got)
+	}
+}
+
 func TestOpenDumpForImportLongLines(t *testing.T) {
 	// The reader hands out 256 KiB at a time: the tail of a longer line starts a chunk
 	// of its own and must not be taken for a statement.
