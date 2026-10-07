@@ -2671,5 +2671,14 @@
   "Deleting the data failed": "Löschen der Daten fehlgeschlagen",
   "Kept data: {{volume}}. Adding {{service}} again uses it.": "Behaltene Daten: {{volume}}. Wird {{service}} wieder hinzugefügt, verwendet es sie.",
   "Delete kept data": "Behaltene Daten löschen",
-  "Delete the kept {{service}} data?": "Behaltene Daten von {{service}} löschen?"
+  "Delete the kept {{service}} data?": "Behaltene Daten von {{service}} löschen?",
+  "Symfony Scheduler": "Symfony Scheduler",
+  "Message queue": "Message Queue",
+  "bin/console messenger:consume async low_priority - processes Shopware's message queue (restarts hourly)": "bin/console messenger:consume async low_priority - verarbeitet die Message Queue von Shopware (stündlicher Neustart)",
+  "Scheduled tasks": "Geplante Aufgaben",
+  "bin/console scheduled-task:run - runs Shopware's scheduled tasks when they are due (restarts hourly)": "bin/console scheduled-task:run - führt die geplanten Aufgaben von Shopware aus, wenn sie fällig sind (stündlicher Neustart)",
+  "php craft queue/listen - runs Craft's queue jobs as they come in, without a control panel page open": "php craft queue/listen - führt die Queue-Jobs von Craft aus, sobald sie anstehen, ohne dass eine Seite im Control Panel offen sein muss",
+  "TYPO3 scheduler": "TYPO3-Scheduler",
+  "Drupal cron": "Drupal-Cron",
+  "Craft queue": "Craft-Queue"
 }

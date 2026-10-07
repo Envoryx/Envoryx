@@ -2671,5 +2671,14 @@
   "Deleting the data failed": "Verwijderen van de gegevens mislukt",
   "Kept data: {{volume}}. Adding {{service}} again uses it.": "Bewaarde gegevens: {{volume}}. Als je {{service}} weer toevoegt, worden ze gebruikt.",
   "Delete kept data": "Bewaarde gegevens verwijderen",
-  "Delete the kept {{service}} data?": "Bewaarde gegevens van {{service}} verwijderen?"
+  "Delete the kept {{service}} data?": "Bewaarde gegevens van {{service}} verwijderen?",
+  "Symfony Scheduler": "Symfony Scheduler",
+  "Message queue": "Berichtenwachtrij",
+  "bin/console messenger:consume async low_priority - processes Shopware's message queue (restarts hourly)": "bin/console messenger:consume async low_priority - verwerkt de berichtenwachtrij van Shopware (herstart elk uur)",
+  "Scheduled tasks": "Geplande taken",
+  "bin/console scheduled-task:run - runs Shopware's scheduled tasks when they are due (restarts hourly)": "bin/console scheduled-task:run - voert de geplande taken van Shopware uit wanneer ze aan de beurt zijn (herstart elk uur)",
+  "php craft queue/listen - runs Craft's queue jobs as they come in, without a control panel page open": "php craft queue/listen - voert de queue-jobs van Craft uit zodra ze binnenkomen, zonder dat er een pagina van het control panel open is",
+  "TYPO3 scheduler": "TYPO3-scheduler",
+  "Drupal cron": "Drupal-cron",
+  "Craft queue": "Craft-wachtrij"
 }

@@ -382,7 +382,7 @@ export const api = {
       request<void>(`/projects/${encodeURIComponent(id)}`, { method: "DELETE", body: { confirm, deleteFiles } }),
     stopIDEBackend: (id: string) => request<{ stopped: number }>(`/projects/${encodeURIComponent(id)}/ide/stop-backend`, { method: "POST" }),
     workers: {
-      list: (id: string) => request<{ workers: Worker[]; presets: WorkerPreset[] }>(`/projects/${encodeURIComponent(id)}/workers`),
+      list: (id: string) => request<{ workers: Worker[]; presets: WorkerPreset[]; suggestedPreset?: string }>(`/projects/${encodeURIComponent(id)}/workers`),
       add: (id: string, body: WorkerRequest) => request<{ worker: Worker }>(`/projects/${encodeURIComponent(id)}/workers`, { method: "POST", body }),
       update: (id: string, workerId: string, body: WorkerRequest) =>
         request<{ worker: Worker }>(`/projects/${encodeURIComponent(id)}/workers/${encodeURIComponent(workerId)}`, { method: "PUT", body }),

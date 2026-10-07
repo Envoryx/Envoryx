@@ -2671,5 +2671,14 @@
   "Deleting the data failed": "La suppression des données a échoué",
   "Kept data: {{volume}}. Adding {{service}} again uses it.": "Données conservées : {{volume}}. Ajouter de nouveau {{service}} les réutilise.",
   "Delete kept data": "Supprimer les données conservées",
-  "Delete the kept {{service}} data?": "Supprimer les données conservées de {{service}} ?"
+  "Delete the kept {{service}} data?": "Supprimer les données conservées de {{service}} ?",
+  "Symfony Scheduler": "Symfony Scheduler",
+  "Message queue": "File de messages",
+  "bin/console messenger:consume async low_priority - processes Shopware's message queue (restarts hourly)": "bin/console messenger:consume async low_priority - traite la file de messages de Shopware (redémarre toutes les heures)",
+  "Scheduled tasks": "Tâches planifiées",
+  "bin/console scheduled-task:run - runs Shopware's scheduled tasks when they are due (restarts hourly)": "bin/console scheduled-task:run - exécute les tâches planifiées de Shopware quand elles sont dues (redémarre toutes les heures)",
+  "php craft queue/listen - runs Craft's queue jobs as they come in, without a control panel page open": "php craft queue/listen - exécute les jobs de la file de Craft dès qu'ils arrivent, sans page du panneau de contrôle ouverte",
+  "TYPO3 scheduler": "Planificateur TYPO3",
+  "Drupal cron": "Cron Drupal",
+  "Craft queue": "File d’attente Craft"
 }

@@ -39,7 +39,7 @@ func (a *API) listWorkers(w http.ResponseWriter, r *http.Request) {
 	for _, wk := range view.Project.Workers {
 		out = append(out, toWorker(wk))
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"workers": out, "presets": project.WorkerPresets()})
+	writeJSON(w, http.StatusOK, map[string]any{"workers": out, "presets": project.WorkerPresets(), "suggestedPreset": a.d.Projects.SuggestedWorkerPreset(view.Project)})
 }
 
 type workerRequest struct {

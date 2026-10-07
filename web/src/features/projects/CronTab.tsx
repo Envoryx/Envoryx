@@ -19,6 +19,8 @@ const statusLabel: Record<CronRun["status"], string> = { running: "running", suc
 const templates: { label: string; runtime: CronRuntime; name: string; command: string; schedule: string }[] = [
   { label: "Laravel scheduler", runtime: "php", name: "scheduler", command: "php artisan schedule:run", schedule: "* * * * *" },
   { label: "Symfony command", runtime: "php", name: "command", command: "php bin/console app:my-command", schedule: "0 3 * * *" },
+  { label: "TYPO3 scheduler", runtime: "php", name: "scheduler", command: "vendor/bin/typo3 scheduler:run", schedule: "* * * * *" },
+  { label: "Drupal cron", runtime: "php", name: "cron", command: "vendor/bin/drush cron", schedule: "*/15 * * * *" },
   { label: "PHP script", runtime: "php", name: "script", command: "php scripts/cleanup.php", schedule: "0 * * * *" },
   { label: "npm script", runtime: "node", name: "script", command: "npm run cleanup", schedule: "0 * * * *" },
   { label: "Django command", runtime: "python", name: "command", command: "python manage.py clearsessions", schedule: "0 3 * * *" },

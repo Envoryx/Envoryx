@@ -17,6 +17,7 @@ import (
 	"github.com/envoryx/envoryx/internal/audit"
 	"github.com/envoryx/envoryx/internal/docker"
 	"github.com/envoryx/envoryx/internal/runtime"
+	"github.com/envoryx/envoryx/internal/siteimport"
 	"github.com/envoryx/envoryx/internal/store"
 	"github.com/envoryx/envoryx/internal/validate"
 )
@@ -877,7 +878,8 @@ func TemplateByID(id string) (Template, bool) {
 
 // drupalSettings copies default.settings.php and appends the connection to the project
 // database (read from the injected variables at runtime), a hash salt and the config
-// sync directory; the proxy in front terminates HTTPS.
+// sync directory, the host names the site answers to (the proxy in front terminates
+// HTTPS), and Drush learns the site's address from drush/drush.yml.
 const drupalSettings = `
 $dir = getcwd() . '/web/sites/default';
 if (!is_file("$dir/settings.php") && !copy("$dir/default.settings.php", "$dir/settings.php")) { fwrite(STDERR, "copy default.settings.php failed\n"); exit(1); }
@@ -899,14 +901,19 @@ $settings['hash_salt'] = '%SALT%';
 $settings['config_sync_directory'] = '../config/sync';
 $settings['reverse_proxy'] = TRUE;
 $settings['reverse_proxy_addresses'] = [$_SERVER['REMOTE_ADDR'] ?? '127.0.0.1'];
-EOT;
+` + siteimport.DrupalTrustedHosts + `EOT;
 file_put_contents("$dir/settings.php", str_replace('%SALT%', $salt, $block), FILE_APPEND);
 @mkdir("$dir/files", 0775, true);
 @mkdir(getcwd() . '/config/sync', 0775, true);
+$drush = <<<'EOT'
+` + siteimport.DrushYML + `EOT;
+@mkdir(getcwd() . '/drush', 0775, true);
+if (!is_file('drush/drush.yml') && file_put_contents('drush/drush.yml', $drush) === false) { fwrite(STDERR, "writing drush/drush.yml failed\n"); exit(1); }
 echo "settings.php prepared\n";
 `
 
-// typo3Settings enables the web installer and points TYPO3 at the project database.
+// typo3Settings enables the web installer, points TYPO3 at the project database and
+// sets what TYPO3 needs behind the proxy and for mail.
 const typo3Settings = `
 @mkdir('config/system', 0775, true);
 $block = <<<'EOT'
@@ -920,7 +927,7 @@ $GLOBALS['TYPO3_CONF_VARS']['DB']['Connections']['Default'] = array_merge($GLOBA
     'host' => getenv('DB_HOST'),
     'port' => (int) getenv('DB_PORT'),
 ]);
-EOT;
+` + siteimport.TYPO3ProxyAndMail + `EOT;
 if (file_put_contents('config/system/additional.php', $block) === false || !touch('public/FIRST_INSTALL')) { fwrite(STDERR, "writing the configuration failed\n"); exit(1); }
 echo "installer enabled\n";
 `
@@ -996,8 +1003,8 @@ func wordpressConfig() (string, error) {
 		fmt.Fprintf(&b, "define('%s', '%s');\n", n, salts[i])
 	}
 	b.WriteString("\n$table_prefix = 'wp_';\ndefine('WP_DEBUG', true);\ndefine('WP_DEBUG_DISPLAY', true);\ndefine('FS_METHOD', 'direct');\n")
-	b.WriteString("// Behind Envoryx's proxy the TLS connection is terminated upstream.\n")
-	b.WriteString("if (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') { $_SERVER['HTTPS'] = 'on'; }\n")
+	b.WriteString(siteimport.WordPressAddress)
+	b.WriteString(siteimport.WordPressRedis)
 	b.WriteString("if (!defined('ABSPATH')) { define('ABSPATH', __DIR__ . '/'); }\nrequire_once ABSPATH . 'wp-settings.php';\n")
 	return b.String(), nil
 }
