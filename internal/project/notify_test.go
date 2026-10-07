@@ -66,6 +66,18 @@ func TestNotificationsForHealthAndFailures(t *testing.T) {
 		t.Fatalf("recovery events: %v cleared=%v", got, sender.cleared)
 	}
 
+	// A project deleted while unhealthy did not recover: no event, the warning is cleared.
+	e.engine.SetState("envoryx-crashy-php", "exited")
+	e.m.Reconcile(ctx)
+	if err := e.m.Delete(ctx, view.Project.ID, DeleteOptions{Confirm: view.Project.Slug}); err != nil {
+		t.Fatal(err)
+	}
+	before := len(sender.kinds())
+	e.m.Reconcile(ctx)
+	if got := sender.kinds(); len(got) != before || len(sender.cleared) != 2 {
+		t.Fatalf("events after deleting an unhealthy project: %v cleared=%v", got[before:], sender.cleared)
+	}
+
 	// Creation failures notify with the failing step.
 	e.engine.FailCreate = map[string]error{"envoryx-broken-web": docker.ErrUnavailable}
 	if _, err := e.m.Create(ctx, phpRequest("Broken", true)); err == nil {
