@@ -74,13 +74,12 @@ func caddyfile(docroot string, o WebOptions) string {
 	// respond, so an existing dotfile keeps its path and is still refused.
 	handlers := "\t@dot {\n\t\tpath_regexp (^|/)\\.\n\t\tnot path /.well-known/*\n\t}\n\trespond @dot 404\n"
 	if o.PHP {
-		handlers += "\tphp_fastcgi php:9000\n"
+		handlers += caddyPHP
 	} else if o.SPAFallback {
 		handlers += "\ttry_files {path} /index.html\n"
 	}
 	// The project is reached through Envoryx's proxy from a private address; trusting it
-	// keeps its X-Forwarded-Proto, which php_fastcgi would otherwise reset to http, so
-	// apps behind https (TYPO3, Shopware) do not build http links and redirects.
+	// keeps its X-Forwarded-Proto and X-Forwarded-For for the application (and Xdebug).
 	return generatedHeader + fmt.Sprintf(`{
 	admin off
 	auto_https off
@@ -101,6 +100,27 @@ func caddyfile(docroot string, o WebOptions) string {
 `, webRoot(docroot), handlers)
 }
 
+// caddyPHP hands PHP requests to PHP-FPM. php_fastcgi sets HTTPS only for TLS on Caddy's
+// own listener, but TLS ends at Envoryx's proxy, so a request that came in over https
+// would look like http to PHP: Laravel, Symfony, Shopware and TYPO3 then build http://
+// links and redirects unless they are told to trust proxies. Requests the proxy marks
+// as https get HTTPS=on, REQUEST_SCHEME=https and the port the browser used (443 when
+// the Host header carries none), as if PHP sat right behind the TLS endpoint. Plain http
+// keeps Caddy's own values, with HTTPS unset rather than empty, since some apps only
+// check isset($_SERVER['HTTPS']).
+const caddyPHP = `	@https header X-Forwarded-Proto https
+	map {http.request.port} {envoryx_https_port} {
+		~^(\d+)$ ${1}
+		default 443
+	}
+	php_fastcgi @https php:9000 {
+		env HTTPS on
+		env REQUEST_SCHEME https
+		env SERVER_PORT {envoryx_https_port}
+	}
+	php_fastcgi php:9000
+`
+
 // NginxConf renders the nginx server block. The stock nginx.conf of the official image
 // includes conf.d/*.conf, so only the server block is generated.
 func NginxConf(docroot string, php bool) string { return nginxConf(docroot, WebOptions{PHP: php}) }
@@ -108,7 +128,7 @@ func NginxConf(docroot string, php bool) string { return nginxConf(docroot, WebO
 func nginxConf(docroot string, o WebOptions) string {
 	fallback := "=404"
 	index := "index.html"
-	fastcgi := ""
+	fastcgi, maps := "", ""
 	if o.SPAFallback && !o.PHP {
 		fallback = "/index.html"
 	}
@@ -123,11 +143,15 @@ func nginxConf(docroot string, o WebOptions) string {
 		fastcgi_index index.php;
 		include fastcgi_params;
 		fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+		fastcgi_param HTTPS $envoryx_https if_not_empty;
+		fastcgi_param REQUEST_SCHEME $envoryx_scheme;
+		fastcgi_param SERVER_PORT $envoryx_port;
 		fastcgi_read_timeout 3600;
 	}
 `
+		maps = nginxPHPMaps
 	}
-	return generatedHeader + fmt.Sprintf(`server {
+	return generatedHeader + maps + fmt.Sprintf(`server {
 	listen 80;
 	server_name _;
 	root %s;
@@ -150,6 +174,26 @@ func nginxConf(docroot string, o WebOptions) string {
 }
 `, webRoot(docroot), index, fallback, fastcgi)
 }
+
+// nginxPHPMaps derive what PHP is told about the request from the proxy's
+// X-Forwarded-Proto, for the reason given at caddyPHP. The fastcgi_param lines using
+// them come after fastcgi_params, and PHP-FPM keeps the last value of a repeated param.
+// Plain http keeps nginx's own values.
+const nginxPHPMaps = `map $http_x_forwarded_proto $envoryx_https {
+	https on;
+	default $https;
+}
+map $http_x_forwarded_proto $envoryx_scheme {
+	https https;
+	default $scheme;
+}
+map "$http_x_forwarded_proto:$http_host" $envoryx_port {
+	"~^https:.*:([0-9]+)$" $1;
+	"~^https:" 443;
+	default $server_port;
+}
+
+`
 
 // HTTPDConf renders a complete httpd.conf for the official httpd image. The stock file
 // ships with mod_rewrite and mod_proxy_fcgi disabled, so it is replaced rather than
@@ -180,10 +224,15 @@ func httpdConf(docroot string, o WebOptions) string {
 	}
 	if o.PHP {
 		index = "index.php index.html"
+		// For the reason given at caddyPHP. Apache already takes SERVER_PORT from the Host
+		// header, so it only needs fixing when the header carries no port.
 		fastcgi = `
 <FilesMatch "\.php$">
 	SetHandler "proxy:fcgi://php:9000"
 </FilesMatch>
+ProxyFCGISetEnvIf "%{HTTP:X-Forwarded-Proto} == 'https'" HTTPS on
+ProxyFCGISetEnvIf "%{HTTP:X-Forwarded-Proto} == 'https'" REQUEST_SCHEME https
+ProxyFCGISetEnvIf "%{HTTP:X-Forwarded-Proto} == 'https' && ! %{HTTP_HOST} =~ /:[0-9]+$/" SERVER_PORT 443
 # Generous so requests paused in the debugger are not cut off.
 ProxyTimeout 3600
 `

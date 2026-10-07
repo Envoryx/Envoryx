@@ -275,6 +275,14 @@ ones; Envoryx reads its own port bindings and adjusts links accordingly).
 When neither port is published, Settings → *Domains & HTTPS* shows a warning
 and project links keep using the direct port.
 
+TLS ends at the proxy, which tells the project's web server with
+`X-Forwarded-Proto`. For PHP the generated Caddy, Nginx and Apache configs turn
+that into what PHP would see behind its own TLS endpoint: `HTTPS=on`,
+`REQUEST_SCHEME=https` and the port the browser used (443 when the host name
+carries none). Laravel, Symfony, Shopware, TYPO3 and WordPress then build
+`https://` links and redirects without any trusted-proxy setup. Plain http and
+the direct port keep the web server's own values.
+
 **Own IP (Unraid `br0`, macvlan/ipvlan) or host networking:** there is no
 port mapping; the proxy is reachable directly on the container's address
 (`http(s)://<envoryx-ip>`). Envoryx detects this and shows the address in the

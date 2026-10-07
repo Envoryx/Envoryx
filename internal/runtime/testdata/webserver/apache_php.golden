@@ -61,5 +61,8 @@ DirectoryIndex index.php index.html
 <FilesMatch "\.php$">
 	SetHandler "proxy:fcgi://php:9000"
 </FilesMatch>
+ProxyFCGISetEnvIf "%{HTTP:X-Forwarded-Proto} == 'https'" HTTPS on
+ProxyFCGISetEnvIf "%{HTTP:X-Forwarded-Proto} == 'https'" REQUEST_SCHEME https
+ProxyFCGISetEnvIf "%{HTTP:X-Forwarded-Proto} == 'https' && ! %{HTTP_HOST} =~ /:[0-9]+$/" SERVER_PORT 443
 # Generous so requests paused in the debugger are not cut off.
 ProxyTimeout 3600
