@@ -348,6 +348,26 @@ func (m *Manager) ensureImage(ctx context.Context, proj store.Project, ref strin
 	return m.buildImage(ctx, proj, ref, false)
 }
 
+// refreshImage asks the registry for the current image of ref, so a project gets the image
+// a tag points to now and not whatever older build of it is on the host (a new release
+// may need tools that only the rebuilt runtime image has). Offline, or when the registry
+// fails, the local image is used if there is one. A build tag is built when missing, as
+// ensureImage does.
+func (m *Manager) refreshImage(ctx context.Context, proj store.Project, ref string) error {
+	if isBuildRef(ref) {
+		return m.ensureImage(ctx, proj, ref)
+	}
+	err := m.engine.PullImage(ctx, ref, m.pullProgress(ctx, proj.Slug, ref))
+	if err == nil || ctx.Err() != nil {
+		return err
+	}
+	if exists, exErr := m.engine.ImageExists(ctx, ref); exErr == nil && exists {
+		m.log.Warn("image refresh failed, using local image", "image", ref, "err", err)
+		return nil
+	}
+	return err
+}
+
 // buildImage builds a build tag from its spec and records the output (and, after a
 // success, the check of the new image) on the project's service. fresh pulls the base
 // images again and ignores the build cache.

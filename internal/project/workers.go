@@ -678,5 +678,5 @@ func (m *Manager) applyWorkers(ctx context.Context, id string) error {
 	if proj.Lifecycle != store.LifecycleReady {
 		return nil
 	}
-	return m.ensurePlan(ctx, proj, plan, proj.DesiredState == store.DesiredRunning)
+	return m.ensurePlan(ctx, proj, plan, proj.DesiredState == store.DesiredRunning, false)
 }
