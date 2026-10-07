@@ -14,6 +14,7 @@ import { databaseServices } from "./databases";
 import { proxyUrl } from "./DomainsTab";
 import { errorText } from "@/lib/errors";
 import { projectAccess } from "@/lib/access";
+import { hostPathOf } from "@/lib/hostPath";
 
 /** Everything an IDE needs, ready to copy: SFTP deployment, SSH interpreter, Xdebug server, database, mail. */
 export function IdeTab({ project: p }: { project: Project }) {
@@ -26,7 +27,7 @@ export function IdeTab({ project: p }: { project: Project }) {
   const can = projectAccess(p);
   const s = settings.data;
   const host = s?.publicHost || window.location.hostname;
-  const projectsHost = s?.hostPath ? (s.hostPath.overrides[s.projectsDir] ?? s.hostPath.detected[s.projectsDir]) : undefined;
+  const projectsHost = hostPathOf(s, s?.projectsDir);
   const hostDir = projectsHost ? `${projectsHost}/${p.path}` : "<projects share>/" + p.path;
   const php = p.services.find((x) => x.kind === "php" && x.enabled);
   const hasPhp = !!php;

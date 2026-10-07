@@ -41,6 +41,7 @@ import { PhpConfigForm } from "./PhpConfigForm";
 import { webServerHint } from "./webServers";
 import { AuditLog } from "@/features/audit/AuditLog";
 import { errorText, translateMessage } from "@/lib/errors";
+import { hostPathOf } from "@/lib/hostPath";
 
 type Tab = "Overview" | "Terminal" | "Actions" | "Tests" | "IDE" | "Git" | "Branches" | "Runtime" | "Environment" | "Domains" | "Workers" | "Database" | "Services" | "Backups" | "Logs" | "Resources" | "History";
 
@@ -490,7 +491,7 @@ function PhpCard({ project: p }: { project: Project }) {
   const [version, setVersion] = useState(svc?.version ?? "");
   const [config, setConfig] = useState<PHPConfig | null>((svc?.config as unknown as PHPConfig) ?? null);
   const settings = useSettings();
-  const projectsHost = settings.data?.hostPath ? (settings.data.hostPath.overrides[settings.data.projectsDir] ?? settings.data.hostPath.detected[settings.data.projectsDir]) : undefined;
+  const projectsHost = hostPathOf(settings.data, settings.data?.projectsDir);
   const hostDir = projectsHost ? `${projectsHost}/${p.path}` : undefined;
   // A project without PHP starts from the catalogue defaults once PHP is switched on.
   useEffect(() => {

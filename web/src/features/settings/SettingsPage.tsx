@@ -32,6 +32,7 @@ import { UnraidCard } from "./UnraidCard";
 import { errorText } from "@/lib/errors";
 import { SectionLayout, type SectionGroup } from "@/components/SectionNav";
 import { settingsHref, type SettingsTab } from "./links";
+import { hostPathOf } from "@/lib/hostPath";
 
 function PasswordForm() {
   const { t } = useTranslation();
@@ -278,8 +279,8 @@ function InstanceCard() {
         <Row label={t("Schema version")} value={String(s.data.schemaVersion)} />
         <Row label={t("Config directory")} value={s.data.configDir} mono />
         <Row label={t("Projects directory")} value={s.data.projectsDir} mono />
-        <Row label={t("Host path (projects)")} value={s.data.hostPath.overrides[s.data.projectsDir] ?? s.data.hostPath.detected[s.data.projectsDir] ?? t("unresolved")} mono />
-        <Row label={t("Host path (config)")} value={s.data.hostPath.overrides[s.data.configDir] ?? s.data.hostPath.detected[s.data.configDir] ?? t("unresolved")} mono />
+        <Row label={t("Host path (projects)")} value={hostPathOf(s.data, s.data.projectsDir) ?? t("unresolved")} mono />
+        <Row label={t("Host path (config)")} value={hostPathOf(s.data, s.data.configDir) ?? t("unresolved")} mono />
         <Row label={t("Project port range")} value={`${s.data.portRange.start}-${s.data.portRange.end}`} />
         <Row label={t("Container user (PUID:PGID)")} value={`${s.data.puid}:${s.data.pgid}`} />
         <Row label={t("Docker host")} value={s.data.dockerHost || t("default socket")} mono />
