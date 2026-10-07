@@ -166,3 +166,47 @@ func TestSettingsAndAudit(t *testing.T) {
 		t.Fatalf("audit: %v %+v", err, entries)
 	}
 }
+
+func TestBranchEnvironmentsFollowTheParentsRoles(t *testing.T) {
+	st := newStore(t)
+	ctx := context.Background()
+	u, err := st.Users.Create(ctx, "dana", "hash", "none")
+	if err != nil {
+		t.Fatal(err)
+	}
+	parent := &store.Project{Name: "Notes", Slug: "notes", Path: "notes"}
+	if err := st.Projects.Create(ctx, parent); err != nil {
+		t.Fatal(err)
+	}
+	env := &store.Project{Name: "Notes (feature)", Slug: "notes-feature", Path: "notes-feature", ParentID: parent.ID}
+	if err := st.Projects.Create(ctx, env); err != nil {
+		t.Fatal(err)
+	}
+	// A role given after the environment exists reaches it.
+	if err := st.Roles.Set(ctx, u.ID, parent.ID, "developer"); err != nil {
+		t.Fatal(err)
+	}
+	roles, err := st.Roles.ByUser(ctx, u.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if roles[parent.ID] != "developer" || roles[env.ID] != "developer" {
+		t.Fatalf("roles: %v", roles)
+	}
+	// A row of the environment's own (left from the copy at creation) is ignored.
+	if err := st.Roles.Set(ctx, u.ID, env.ID, "admin"); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.Roles.Set(ctx, u.ID, parent.ID, "viewer"); err != nil {
+		t.Fatal(err)
+	}
+	if roles, _ := st.Roles.ByUser(ctx, u.ID); roles[env.ID] != "viewer" || len(roles) != 2 {
+		t.Fatalf("roles after the change: %v", roles)
+	}
+	if err := st.Roles.Set(ctx, u.ID, parent.ID, ""); err != nil {
+		t.Fatal(err)
+	}
+	if roles, _ := st.Roles.ByUser(ctx, u.ID); len(roles) != 0 {
+		t.Fatalf("roles after removal: %v", roles)
+	}
+}
