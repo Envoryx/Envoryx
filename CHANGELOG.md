@@ -10,6 +10,36 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.18.1] - 2026-10-07
+
+Fixes from the application test round. The important one: **running PHPUnit
+from the Tests section in a Laravel project emptied the development
+database.** PHP projects behind the proxy now know they're on HTTPS, and
+Node, Python, Go, Java and .NET get a PostgreSQL URL their drivers accept.
+Restart running projects so their containers pick the changes up.
+
+### Fixed
+- Tests no longer run against the development database. The `DB_*`
+  variables Envoryx injects beat the `<env>` entries of `phpunit.xml`, so
+  Laravel's `RefreshDatabase` ran `migrate:fresh` on your data. PHPUnit and
+  Pest now run against `<database>_test`, which Envoryx creates as the
+  administrator before the run; Symfony, whose Doctrine recipe adds `_test`
+  itself, ends at the same database instead of failing with error 1044 on
+  MySQL and MariaDB. Django's runner and pytest-django get `test_<database>`
+  created up front for the same reason. Java runs with a database URL that
+  has parameters (`?useSSL=false`) used the development database too.
+- PHP sees requests that came in over HTTPS as HTTPS. TLS ends at the
+  proxy, and PHP-FPM saw plain http: Laravel's login form posted to http,
+  Symfony's toolbar and redirects were blocked as mixed content, the
+  Shopware installer and the TYPO3 backend redirected to http. The
+  generated Caddy, Nginx and Apache configs now set `HTTPS=on`,
+  `REQUEST_SCHEME=https` and the browser's port for requests the proxy
+  marks as https, so no trusted-proxy setup is needed.
+- Node, Python, Go, Java and .NET containers get PostgreSQL URLs as
+  `postgresql://`, which SQLAlchemy, Prisma, pgx and lib/pq accept, instead
+  of `pgsql://`. PHP keeps `pgsql://` for Laravel and Doctrine, and
+  `DB_CONNECTION` stays `pgsql` everywhere.
+
 ## [0.18.0] - 2026-09-30
 
 Five security fixes (see *Security*), the most serious in the database
@@ -1501,7 +1531,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.18.0...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.18.1...HEAD
+[0.18.1]: https://github.com/envoryx/envoryx/compare/v0.18.0...v0.18.1
 [0.18.0]: https://github.com/envoryx/envoryx/compare/v0.17.0...v0.18.0
 [0.17.0]: https://github.com/envoryx/envoryx/compare/v0.16.2...v0.17.0
 [0.16.2]: https://github.com/envoryx/envoryx/compare/v0.16.1...v0.16.2
