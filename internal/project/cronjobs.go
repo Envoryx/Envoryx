@@ -64,13 +64,16 @@ type CronJobInfo struct {
 type cronState struct {
 	mu      sync.Mutex
 	running map[string]bool // job id -> a run is in progress
-	sem     chan struct{}
-	wg      sync.WaitGroup
+	// saved is when a job was last added or changed, until the scheduler picks it up:
+	// its first run is the one after that moment, the one the UI showed on save.
+	saved map[string]time.Time
+	sem   chan struct{}
+	wg    sync.WaitGroup
 }
 
 func (m *Manager) cron() *cronState {
 	m.cronOnce.Do(func() {
-		m.cronRuns = &cronState{running: map[string]bool{}, sem: make(chan struct{}, cronMaxParallelRuns)}
+		m.cronRuns = &cronState{running: map[string]bool{}, saved: map[string]time.Time{}, sem: make(chan struct{}, cronMaxParallelRuns)}
 	})
 	return m.cronRuns
 }
@@ -142,6 +145,17 @@ func (m *Manager) cronInfo(p store.Project, j store.CronJob, now time.Time) Cron
 	return info
 }
 
+// cronSaved notes that a job was just added or changed and returns that moment, from
+// which both the UI's next run and the scheduler's first run are counted.
+func (m *Manager) cronSaved(jobID string) time.Time {
+	now := time.Now()
+	st := m.cron()
+	st.mu.Lock()
+	st.saved[jobID] = now
+	st.mu.Unlock()
+	return now
+}
+
 // CronJobs lists a project's cron jobs.
 func (m *Manager) CronJobs(ctx context.Context, id string) ([]CronJobInfo, error) {
 	p, err := m.loadProject(ctx, id)
@@ -185,7 +199,7 @@ func (m *Manager) AddCronJob(ctx context.Context, id string, req CronJobRequest)
 		return CronJobInfo{}, err
 	}
 	m.audit.Log(ctx, audit.ActionProjectUpdated, "project", p.ID, map[string]any{"name": p.Name, "changes": map[string]any{"cronJobAdded": j.Name, "schedule": j.Schedule, "command": truncateCmd(j.Command, 200)}})
-	return m.cronInfo(p, j, time.Now()), nil
+	return m.cronInfo(p, j, m.cronSaved(j.ID)), nil
 }
 
 // UpdateCronJob replaces a cron job's definition. A run in progress finishes with the
@@ -214,7 +228,7 @@ func (m *Manager) UpdateCronJob(ctx context.Context, id, jobID string, req CronJ
 		return CronJobInfo{}, err
 	}
 	m.audit.Log(ctx, audit.ActionProjectUpdated, "project", p.ID, map[string]any{"name": p.Name, "changes": map[string]any{"cronJobUpdated": j.Name, "enabled": j.Enabled, "schedule": j.Schedule, "command": truncateCmd(j.Command, 200)}})
-	return m.cronInfo(p, j, time.Now()), nil
+	return m.cronInfo(p, j, m.cronSaved(j.ID)), nil
 }
 
 // RemoveCronJob deletes a cron job and its run history. A run in progress is left to
@@ -465,12 +479,25 @@ func (m *Manager) cronPass(ctx context.Context, now time.Time, st *cronScheduler
 	}
 	// On the first pass after a start the current minute still counts, so a job due in
 	// the minute Envoryx came up runs. A job created, enabled or rescheduled later starts
-	// with the next matching minute: it did not exist when its current minute began.
+	// with the next matching minute after it was saved: it did not exist when its
+	// current minute began, but a minute that began between the save and this pass
+	// (passes are 15 s apart) is the one the UI promised.
 	from := now
 	if !st.started {
 		from = now.Truncate(time.Minute).Add(-time.Minute)
 		st.started = true
 	}
+	// A save is noted after it is stored, so one noted up to now is in the list below.
+	cs := m.cron()
+	cs.mu.Lock()
+	saved := make(map[string]time.Time, len(cs.saved))
+	for id, t := range cs.saved {
+		if !t.After(now) {
+			saved[id] = t
+			delete(cs.saved, id)
+		}
+	}
+	cs.mu.Unlock()
 	next := st.next
 	projects := map[string]*store.Project{}
 	seen := map[string]bool{}
@@ -482,7 +509,11 @@ func (m *Manager) cronPass(ctx context.Context, now time.Time, st *cronScheduler
 		}
 		n, ok := next[j.ID]
 		if !ok || n.schedule != j.Schedule {
-			at, _ := s.Next(from)
+			jobFrom := from
+			if t, ok := saved[j.ID]; ok && t.Before(jobFrom) {
+				jobFrom = t
+			}
+			at, _ := s.Next(jobFrom)
 			n = cronNext{schedule: j.Schedule, at: at}
 		}
 		if n.at.IsZero() || now.Before(n.at) {

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -213,12 +214,29 @@ func TestCronScheduler(t *testing.T) {
 		t.Fatalf("new job at the next minute: %v", fired)
 	}
 
+	// A job saved shortly before a minute boundary and first seen by a pass after it
+	// runs in that minute: the one the UI showed when it was saved.
+	late, err := e.m.AddCronJob(ctx, id, CronJobRequest{Name: "late", Runtime: "php", Schedule: "* * * * *", Command: "echo late", Enabled: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	savedAt, _ := time.ParseInLocation("2006-01-02 15:04:05", "2026-09-24 10:12:54", time.Local)
+	e.m.cron().mu.Lock()
+	e.m.cron().saved[late.ID] = savedAt
+	e.m.cron().mu.Unlock()
+	fired = nil
+	pass("2026-09-24 10:13:05")
+	if slices.Sort(fired); strings.Join(fired, ",") != "echo late,echo new" {
+		t.Fatalf("job saved at 10:12:54: %v", fired)
+	}
+	fired = nil
+
 	// A stopped project skips its jobs.
 	if _, err := e.m.Stop(ctx, id); err != nil {
 		t.Fatal(err)
 	}
 	pass("2026-09-24 10:15:05")
-	if len(fired) != 1 {
+	if len(fired) != 0 {
 		t.Fatalf("stopped project fired: %v", fired)
 	}
 }
