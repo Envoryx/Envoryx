@@ -12,13 +12,13 @@ import { formatDateTime } from "@/lib/format";
 
 /** The filter's categories: groups of action prefixes. */
 export const auditCategories: { key: string; label: string; prefixes: string[] }[] = [
-  { key: "auth", label: "Sign-ins and accounts", prefixes: ["auth.", "token."] },
+  { key: "auth", label: "Sign-ins and accounts", prefixes: ["auth.", "token.", "user."] },
   { key: "projects", label: "Projects", prefixes: ["project."] },
   { key: "databases", label: "Databases", prefixes: ["database."] },
   { key: "backups", label: "Backups", prefixes: ["backup.", "instance."] },
-  { key: "commands", label: "Commands and terminals", prefixes: ["terminal.", "project.exec", "action.run", "test.run", "cron.run"] },
-  { key: "git", label: "Git", prefixes: ["git."] },
-  { key: "system", label: "Settings and system", prefixes: ["settings.", "docker.", "logs.", "cache.", "ollama."] },
+  { key: "commands", label: "Commands and terminals", prefixes: ["terminal.", "project.exec", "action.run", "test.run", "cron.run", "ssh."] },
+  { key: "git", label: "Git", prefixes: ["git.", "branch."] },
+  { key: "system", label: "Settings and system", prefixes: ["settings.", "docker.", "logs.", "cache.", "ollama.", "addon."] },
 ];
 
 /** The value the search box settles on once typing pauses. */
