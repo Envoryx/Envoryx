@@ -458,28 +458,48 @@ func (a *API) checkUpdate(context.Context) []Check {
 func (a *API) checkReconcile(context.Context) []Check {
 	c := Check{ID: "maintenance.reconcile", Category: catMaintenance, Title: "Projects vs. Docker"}
 	r := a.d.Projects.LastReport()
+	unclaimed := 0
+	for _, o := range r.Orphans {
+		if o.Unlabelled {
+			unclaimed++
+		}
+	}
+	own := len(r.Orphans) - unclaimed
 	switch {
 	case r.At.IsZero():
 		c.Status, c.Detail = checkInfo, "No reconcile run yet."
 	case r.Error != "":
 		c.Status, c.Detail = checkWarning, r.Error
 		c.Hint = "The comparison between the database and Docker failed; usually the engine was unreachable. It runs again every 30 seconds."
-	case len(r.Issues) > 0 || len(r.Orphans) > 0:
+	case len(r.Issues) > 0 || own > 0:
 		c.Status = checkWarning
 		var parts []string
 		for _, i := range r.Issues {
 			parts = append(parts, i.ProjectName+": "+i.Message)
 		}
-		if len(r.Orphans) > 0 {
-			parts = append(parts, fmt.Sprintf("%d orphaned Docker resources carry Envoryx labels but belong to no project", len(r.Orphans)))
+		if own > 0 {
+			parts = append(parts, fmt.Sprintf("%d orphaned Docker resources of this instance belong to no project", own))
+		}
+		if unclaimed > 0 {
+			parts = append(parts, unclaimedDetail(unclaimed))
 		}
 		c.Detail = strings.Join(parts, " · ")
 		c.Hint = "Open the affected projects. Orphaned containers and networks are removed automatically within a minute; orphaned volumes are listed on the Docker page and can be removed there."
+		c.Action = &CheckAction{Kind: "link", Value: "/docker", Label: "Open Docker page"}
+	case unclaimed > 0:
+		// Another instance on the same Docker host, or an Envoryx before 0.18 that did not
+		// label its resources yet: nothing this instance has to clean up, so no warning.
+		c.Status, c.Detail = checkInfo, fmt.Sprintf("%d projects consistent with Docker (checked %s) · %s", r.Projects, r.At.Format("15:04:05"), unclaimedDetail(unclaimed))
+		c.Hint = "Resources without an instance label that name none of these projects were created by another Envoryx on this Docker host or by an Envoryx before 0.18. They are never removed automatically; the Docker page lists them in case you want to remove them by hand."
 		c.Action = &CheckAction{Kind: "link", Value: "/docker", Label: "Open Docker page"}
 	default:
 		c.Status, c.Detail = checkOK, fmt.Sprintf("%d projects consistent with Docker (checked %s)", r.Projects, r.At.Format("15:04:05"))
 	}
 	return []Check{c}
+}
+
+func unclaimedDetail(n int) string {
+	return fmt.Sprintf("%d Docker resources are from another instance or from before 0.18", n)
 }
 
 func (a *API) checkNotifications(context.Context) []Check {
