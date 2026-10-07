@@ -691,8 +691,8 @@ and needs none.
   retries every 30 seconds. The workers do the same before they start.
 - **Database.** Envoryx injects `DATABASE_URL`, and Rails merges it into
   `config/database.yml`. For PostgreSQL the Ruby containers get it as
-  `postgresql://` (Envoryx names the scheme `pgsql` elsewhere, which Active
-  Record does not know). An additional database `analytics` arrives as
+  `postgresql://` (only PHP gets `pgsql://`, which Active Record does not
+  know). An additional database `analytics` arrives as
   `ANALYTICS_DATABASE_URL`, which Rails' multi-database setup picks up for a
   database named `analytics` in `database.yml`.
 - **Solid Queue.** The Ruby containers also get `QUEUE_DATABASE_URL`, which
@@ -1745,6 +1745,13 @@ version for a legacy part of the application. Add them in the wizard
 (*Project & services → Additional databases*) or later in the Database section
 (*Add database*); the section switches between the databases of the project.
 
+The scheme of a PostgreSQL `DATABASE_URL` (and of every `<NAME>_DATABASE_URL`)
+depends on the container: PHP gets `pgsql://`, which Laravel and Doctrine
+read, every other runtime (Node, Python, Go, Ruby, Java, .NET, their workers
+and cron jobs) gets `postgresql://`, which SQLAlchemy, Prisma, pgx, lib/pq and
+Active Record want. `DB_CONNECTION` stays `pgsql` everywhere. MariaDB and MySQL
+URLs are `mysql://` in every container.
+
 An additional database named `analytics`:
 
 | | |
@@ -1842,6 +1849,25 @@ with the output live like an action:
 A suite that `composer.json` asks for but that is not installed yet is listed
 with the hint to run `composer install`. The filter is handed to the runner as
 one argument, never through a shell, and cannot start with a dash.
+
+PHPUnit and Pest in a project with an SQL database run against
+`<database>_test` on the same server, never against the development
+database: the injected `DB_*` variables beat the `<env>` entries of
+`phpunit.xml`, so Laravel's `RefreshDatabase` would otherwise run
+`migrate:fresh` on your data. `DB_DATABASE`, `DB_URL` and `DATABASE_URL` get
+`_test` for the run (with `DB_CONNECTION=sqlite` set in the project
+environment `DB_DATABASE` stays). Symfony's Doctrine recipe adds `_test` to
+the database name itself (`dbname_suffix` under `when@test` in
+`config/packages/doctrine.yaml`); then `DATABASE_URL` stays as it is and ends
+at the same database. Envoryx creates `<database>_test` as the administrator
+before the run (the MySQL/MariaDB project login may not create databases);
+the schema is the tests' job (`RefreshDatabase`, or
+`bin/console doctrine:schema:create --env=test` once for Symfony). Ruby, Java
+and .NET runs do the same, see their sections. Django's test runner and
+pytest-django make `test_<database>` themselves; Envoryx creates it first,
+with a grant for the project login, so this works on MySQL and MariaDB too.
+npm scripts, Playwright, Cypress, plain pytest and `go test` run with the
+project's variables as they are.
 
 PHPUnit, Pest, Playwright, Cypress and pytest write a JUnit report, which
 Envoryx reads after the run: the counts and every failed test with its

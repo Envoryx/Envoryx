@@ -256,14 +256,15 @@ func TestJavaTemplateWorkersTestsAndManifest(t *testing.T) {
 }
 
 // TestJavaTestScript runs the test script against a stand-in mvn: every database URL
-// gains _test before the run, and the per-class reports end up in one file.
+// gains _test before the run (before the parameters of one that has them), and the
+// per-class reports end up in one file.
 func TestJavaTestScript(t *testing.T) {
 	bin, dir := t.TempDir(), t.TempDir()
 	mvn := `#!/bin/sh
 mkdir -p target/surefire-reports
 printf '<?xml version="1.0"?>\n<testsuite name="A"><testcase name="a"/></testsuite>\n' > target/surefire-reports/TEST-A.xml
 printf '<?xml version="1.0"?>\n<testsuite name="B"><testcase name="b"/></testsuite>\n' > target/surefire-reports/TEST-B.xml
-printf '%s|%s|%s\n' "$*" "$SPRING_DATASOURCE_URL" "$DATABASE_URL"
+printf '%s|%s|%s|%s\n' "$*" "$SPRING_DATASOURCE_URL" "$JDBC_URL" "$DATABASE_URL"
 exit 3
 `
 	if err := os.WriteFile(filepath.Join(bin, "mvn"), []byte(mvn), 0o755); err != nil {
@@ -275,12 +276,12 @@ exit 3
 	report := filepath.Join(dir, "report.xml")
 	cmd := exec.Command("sh", "-c", javaTestScript, "envoryx-maven-test", "maven", report, "OrderTest")
 	cmd.Dir = dir
-	cmd.Env = []string{"PATH=" + bin + ":/usr/bin:/bin", "SPRING_DATASOURCE_URL=jdbc:postgresql://database:5432/shop", "DATABASE_URL=mongodb://u:p@database/shop?authSource=admin"}
+	cmd.Env = []string{"PATH=" + bin + ":/usr/bin:/bin", "SPRING_DATASOURCE_URL=jdbc:postgresql://database:5432/shop", "JDBC_URL=jdbc:mysql://database:3306/shop?useSSL=false&allowPublicKeyRetrieval=true", "DATABASE_URL=mongodb://u:p@database/shop?authSource=admin"}
 	out, err := cmd.Output()
 	if exit, ok := err.(*exec.ExitError); !ok || exit.ExitCode() != 3 {
 		t.Fatalf("the test run's exit code must come through: %v", err)
 	}
-	if want := "-B test -Dtest=OrderTest -Dsurefire.failIfNoSpecifiedTests=false|jdbc:postgresql://database:5432/shop_test|mongodb://u:p@database/shop?authSource=admin\n"; string(out) != want {
+	if want := "-B test -Dtest=OrderTest -Dsurefire.failIfNoSpecifiedTests=false|jdbc:postgresql://database:5432/shop_test|jdbc:mysql://database:3306/shop_test?useSSL=false&allowPublicKeyRetrieval=true|mongodb://u:p@database/shop?authSource=admin\n"; string(out) != want {
 		t.Fatalf("got %q", out)
 	}
 	merged, _ := os.ReadFile(report)

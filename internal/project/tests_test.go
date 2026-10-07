@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -186,5 +187,112 @@ func TestRunTestsRecordsTheReport(t *testing.T) {
 	s.Release()
 	if run.Status != store.TestCancelled || run.Result.Report {
 		t.Fatalf("cancelled run: %+v", run)
+	}
+}
+
+// A PHP test run must never reach the development database: Laravel's RefreshDatabase
+// runs migrate:fresh. DB_DATABASE, DB_URL and DATABASE_URL gain _test (before a query),
+// except DATABASE_URL where Doctrine adds the suffix itself and DB_DATABASE of SQLite.
+func TestPHPTestScript(t *testing.T) {
+	run := func(keep string, env ...string) string {
+		t.Helper()
+		cmd := exec.Command("sh", "-c", phpTestScript, "envoryx-phpunit", keep, "sh", "-c", `printf '%s|%s|%s' "$DB_DATABASE" "${DB_URL-unset}" "$DATABASE_URL"`)
+		cmd.Env = append([]string{"PATH=/usr/bin:/bin"}, env...)
+		out, err := cmd.Output()
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(out)
+	}
+	if got := run("0", "DB_CONNECTION=pgsql", "DB_DATABASE=shop", "DATABASE_URL=pgsql://u:p@database:5432/shop"); got != "shop_test|unset|pgsql://u:p@database:5432/shop_test" {
+		t.Fatalf("laravel: %q", got)
+	}
+	if got := run("0", "DB_DATABASE=shop", "DB_URL=mysql://u:p@database:3306/shop?charset=utf8mb4", "DATABASE_URL=mysql://u:p@database:3306/shop?serverVersion=8.4&charset=utf8mb4"); got != "shop_test|mysql://u:p@database:3306/shop_test?charset=utf8mb4|mysql://u:p@database:3306/shop_test?serverVersion=8.4&charset=utf8mb4" {
+		t.Fatalf("urls with a query: %q", got)
+	}
+	if got := run("1", "DB_DATABASE=shop", "DATABASE_URL=mysql://u:p@database:3306/shop"); got != "shop_test|unset|mysql://u:p@database:3306/shop" {
+		t.Fatalf("doctrine suffix: %q", got)
+	}
+	if got := run("0", "DB_CONNECTION=sqlite", "DB_DATABASE=database/database.sqlite"); got != "database/database.sqlite|unset|" {
+		t.Fatalf("sqlite: %q", got)
+	}
+}
+
+// With an SQL database PHPUnit runs behind phpTestScript, which keeps DATABASE_URL when
+// Symfony's Doctrine config adds _test itself, and the run creates <database>_test first.
+func TestPHPTestsUseTheTestDatabase(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	var sql []string
+	e.engine.ExecHandler = func(container string, cmd []string, env []string) (docker.ExecResult, error) {
+		if container == "envoryx-shop-database" {
+			sql = append(sql, cmd[len(cmd)-1])
+			return docker.ExecResult{Stdout: "shop\n"}, nil
+		}
+		return docker.ExecResult{}, nil
+	}
+	req := phpRequest("Shop", true)
+	req.CreateStarter = false
+	req.Database = &DatabaseRequest{Type: "mariadb", Version: "11"}
+	view, err := e.m.Create(ctx, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := view.Project.ID
+	writeProjectFiles(t, filepath.Join(e.projDir, "shop"), map[string]string{
+		"bin/phpunit":                   "",
+		"config/packages/doctrine.yaml": "when@test:\n    doctrine:\n        dbal:\n            dbname_suffix: '_test%env(default::TEST_TOKEN)%'\n",
+	})
+	s, err := e.m.RunTests(ctx, id, "phpunit", "", 0, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.Release()
+	term := e.engine.Terminals()[len(e.engine.Terminals())-1]
+	if term.Opts.Cmd[2] != phpTestScript || strings.Join(term.Opts.Cmd[4:7], " ") != "1 php bin/phpunit" {
+		t.Fatalf("argv: %q", term.Opts.Cmd)
+	}
+	if !slices.ContainsFunc(sql, func(s string) bool { return strings.HasPrefix(s, "CREATE DATABASE `shop_test`") }) {
+		t.Fatalf("the test database must be created: %q", sql)
+	}
+
+	// Laravel: no Doctrine suffix, so DATABASE_URL is redirected too.
+	_ = os.Remove(filepath.Join(e.projDir, "shop", "config", "packages", "doctrine.yaml"))
+	suites, _ := e.m.TestSuites(ctx, id)
+	if argv, _ := suites[0].build("", "/tmp/r.xml"); argv[4] != "0" {
+		t.Fatalf("laravel argv: %q", argv)
+	}
+}
+
+// Django's test runner and pytest-django create test_<database>, which MySQL's project
+// login may not: Envoryx creates it with a grant first.
+func TestDjangoTestDatabase(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	var sql []string
+	e.engine.ExecHandler = func(container string, cmd []string, env []string) (docker.ExecResult, error) {
+		if container == "envoryx-api-database" {
+			sql = append(sql, cmd[len(cmd)-1])
+			return docker.ExecResult{Stdout: "api\n"}, nil
+		}
+		return docker.ExecResult{}, nil
+	}
+	req := pythonRequest("Api", true)
+	req.Database = &DatabaseRequest{Type: "mysql", Version: "8.4"}
+	view, err := e.m.Create(ctx, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeProjectFiles(t, filepath.Join(e.projDir, "api"), map[string]string{"manage.py": "", "pytest.ini": ""})
+	for _, suite := range []string{"django", "pytest"} {
+		sql = nil
+		s, err := e.m.RunTests(ctx, view.Project.ID, suite, "", 0, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		s.Release()
+		if !slices.ContainsFunc(sql, func(s string) bool { return strings.Contains(s, "GRANT ALL PRIVILEGES ON `test_api`.* TO 'api'") }) {
+			t.Fatalf("%s: test_api must be created with a grant: %q", suite, sql)
+		}
 	}
 }

@@ -45,6 +45,9 @@ type TestSuite struct {
 	build func(filter, report string) (argv, env []string)
 	// trx marks a report in the TRX format of dotnet test instead of JUnit.
 	trx bool
+	// djangoDB marks a run that creates Django's test_<database> (manage.py test, pytest
+	// next to a manage.py, which is pytest-django's case).
+	djangoDB bool
 	// parseOutput reads the result from what a runner without a report printed; ok is
 	// false when the output says nothing it knows.
 	parseOutput func(text, root string) (res TestResult, ok bool)
@@ -119,9 +122,21 @@ func detectTestSuites(dir string, p store.Project) []TestSuite {
 		}
 		_ = json.Unmarshal(read("composer.json"), &composer)
 		wants := func(pkg string) bool { _, a := composer.Require[pkg]; _, b := composer.RequireDev[pkg]; return a || b }
+		// Doctrine's test configuration (the Symfony recipe's when@test) adds _test to the
+		// database name of DATABASE_URL itself; that URL then stays as it is.
+		// Without an SQL database there is no test database to go to (ensureTestDatabase
+		// only makes SQL ones), and the runner starts as it is.
+		var wrap []string
+		if svc, _, err := databaseOf(p, ""); err == nil && svc.Variant != "mongodb" {
+			keepURL := "0"
+			if doctrineTestSuffixRe.Match(read("config/packages/doctrine.yaml")) {
+				keepURL = "1"
+			}
+			wrap = []string{"sh", "-c", phpTestScript, "envoryx-phpunit", keepURL}
+		}
 		phpunitReport := func(bin ...string) func(string, string) ([]string, []string) {
 			return func(filter, report string) ([]string, []string) {
-				argv := append(append([]string{}, bin...), "--colors=always", "--log-junit", report)
+				argv := append(append(append([]string{}, wrap...), bin...), "--colors=always", "--log-junit", report)
 				if filter != "" {
 					argv = append(argv, "--filter", filter)
 				}
@@ -221,7 +236,7 @@ func detectTestSuites(dir string, p store.Project) []TestSuite {
 			bytes.Contains(read("pyproject.toml"), []byte("[tool.pytest")) || bytes.Contains(read("setup.cfg"), []byte("[tool:pytest]")) ||
 			bytes.Contains(read("requirements.txt"), []byte("pytest")) || bytes.Contains(read("requirements-dev.txt"), []byte("pytest"))
 		if pytest {
-			out = append(out, TestSuite{ID: "pytest", Framework: "pytest", Label: "pytest", Service: store.ServicePython, Cmd: []string{"python", "-m", "pytest"}, Report: true, FilterHint: "-k", Available: true,
+			out = append(out, TestSuite{ID: "pytest", Framework: "pytest", Label: "pytest", Service: store.ServicePython, Cmd: []string{"python", "-m", "pytest"}, Report: true, FilterHint: "-k", Available: true, djangoDB: exists("manage.py"),
 				build: func(filter, report string) ([]string, []string) {
 					argv := []string{"python", "-m", "pytest", "--color=yes", "--junitxml=" + report}
 					if filter != "" {
@@ -231,7 +246,7 @@ func detectTestSuites(dir string, p store.Project) []TestSuite {
 				}})
 		}
 		if exists("manage.py") {
-			out = append(out, TestSuite{ID: "django", Framework: "django", Label: "manage.py test", Service: store.ServicePython, Cmd: []string{"python", "manage.py", "test"}, FilterHint: "test label", Available: true,
+			out = append(out, TestSuite{ID: "django", Framework: "django", Label: "manage.py test", Service: store.ServicePython, Cmd: []string{"python", "manage.py", "test"}, FilterHint: "test label", Available: true, djangoDB: true,
 				build: func(filter, _ string) ([]string, []string) {
 					argv := []string{"python", "manage.py", "test", "--no-input"}
 					if filter != "" {
@@ -315,12 +330,14 @@ func javaTestSuite(tool string) TestSuite {
 // filter (may be empty). Like rubyTestScript it points every JDBC and database URL at
 // <database>_test first: Spring Boot and Quarkus read the injected URLs in tests too, and
 // a test with ddl-auto create-drop would otherwise empty the development database.
+// A URL with parameters (?useSSL=false) gets _test before them (testURLShell).
 // Surefire and Gradle write one JUnit file per test class, so the old ones go before the
 // run and the new ones are joined into the single report the Tests section reads.
-const javaTestScript = `tool=$1 report=$2 filter=$3
+const javaTestScript = testURLShell + `
+tool=$1 report=$2 filter=$3
 for v in SPRING_DATASOURCE_URL QUARKUS_DATASOURCE_JDBC_URL JDBC_URL DATABASE_URL; do
   eval "u=\${$v:-}"
-  case "$u" in *'?'*|'') ;; *) export "$v=${u}_test" ;; esac
+  [ -n "$u" ] && export "$v=$(envoryx_test_url "$u")"
 done
 rm -f target/surefire-reports/TEST-*.xml build/test-results/test/TEST-*.xml
 if [ "$tool" = maven ]; then
@@ -430,6 +447,39 @@ rc=$?
   echo '</trx>'; } > "$report"
 exit $rc`
 
+// testURLShell defines envoryx_test_url, which prints a database URL pointed at
+// <database>_test: the suffix goes on the path, before a query (?useSSL=false,
+// ?serverVersion=16) rather than after it, where it would leave the development
+// database in place. A MongoDB URL stays as it is: its query names where the login
+// lives (authSource), and nothing creates a MongoDB test database for it.
+const testURLShell = `envoryx_test_url() {
+  case "$1" in
+    mongodb://*|mongodb+srv://*) printf '%s' "$1" ;;
+    *[?]*) printf '%s_test?%s' "${1%%[?]*}" "${1#*[?]}" ;;
+    *) printf '%s_test' "$1" ;;
+  esac
+}`
+
+// phpTestScript points the run at <database>_test before PHPUnit or Pest start: $1 is 1
+// when Doctrine adds the _test suffix to DATABASE_URL itself, the rest is the runner's
+// command. The variables Envoryx injects beat phpunit.xml's <env> entries (PHPUnit only
+// sets those that are missing), so without this Laravel's RefreshDatabase would run
+// migrate:fresh on the development database. DB_DATABASE is what Laravel reads, DB_URL
+// (Laravel 11+) and DATABASE_URL (Laravel 10, Symfony) win over it when set. A project
+// that switched DB_CONNECTION to sqlite keeps its file name.
+// ensureTestDatabase creates the database; the schema is the tests' job (RefreshDatabase,
+// doctrine:schema:create --env=test).
+const phpTestScript = testURLShell + `
+keep_url=$1; shift
+[ -n "${DB_DATABASE:-}" ] && [ "${DB_CONNECTION:-}" != sqlite ] && export DB_DATABASE="${DB_DATABASE}_test"
+[ -n "${DB_URL:-}" ] && export DB_URL="$(envoryx_test_url "$DB_URL")"
+[ "$keep_url" != 1 ] && [ -n "${DATABASE_URL:-}" ] && export DATABASE_URL="$(envoryx_test_url "$DATABASE_URL")"
+exec "$@"`
+
+// doctrineTestSuffixRe finds the dbname_suffix that Symfony's Doctrine recipe sets for the
+// test environment ('_test%env(default::TEST_TOKEN)%').
+var doctrineTestSuffixRe = regexp.MustCompile(`(?m)^\s+dbname_suffix:\s*['"]?_test`)
+
 // rubyTestEnv runs Rails and Rack test suites in the test environment.
 var rubyTestEnv = []string{"RAILS_ENV=test", "RACK_ENV=test", "APP_ENV=test", "HANAMI_ENV=test"}
 
@@ -450,12 +500,20 @@ exec "$@"`
 // project without an SQL database has nothing to prepare; a server that cannot be asked
 // (stopped, unreachable) is left to the test run's own error.
 func (m *Manager) ensureTestDatabase(ctx context.Context, id string) error {
-	return m.ensureSiblingDatabase(ctx, id, "_test", "test")
+	return m.ensureSiblingDatabase(ctx, id, func(db string) string { return db + "_test" }, "test")
 }
 
-// ensureSiblingDatabase creates <database><suffix> next to the primary SQL database like
-// ensureTestDatabase; what names it in log and error messages.
-func (m *Manager) ensureSiblingDatabase(ctx context.Context, id, suffix, what string) error {
+// ensureDjangoTestDatabase creates test_<database>, the name Django's test runner and
+// pytest-django give the test database. Django creates it itself, which PostgreSQL's
+// project login may, but MySQL's and MariaDB's may not (error 1044). With the grant on
+// that name the login can drop and create it again, as every test run does.
+func (m *Manager) ensureDjangoTestDatabase(ctx context.Context, id string) error {
+	return m.ensureSiblingDatabase(ctx, id, func(db string) string { return "test_" + db }, "Django test")
+}
+
+// ensureSiblingDatabase creates the database name(<database>) next to the primary SQL
+// database like ensureTestDatabase; what names it in log and error messages.
+func (m *Manager) ensureSiblingDatabase(ctx context.Context, id string, name func(string) string, what string) error {
 	p, err := m.loadProject(ctx, id)
 	if err != nil {
 		return err
@@ -468,8 +526,8 @@ func (m *Manager) ensureSiblingDatabase(ctx context.Context, id, suffix, what st
 	if err != nil {
 		return nil
 	}
-	name := cfg.Database + suffix
-	if runtime.ValidateDatabaseName(name) != nil {
+	sibling := name(cfg.Database)
+	if runtime.ValidateDatabaseName(sibling) != nil {
 		return nil
 	}
 	out, err := m.runSQL(ctx, p, svc, cfg, dialect.ListDatabases)
@@ -478,18 +536,18 @@ func (m *Manager) ensureSiblingDatabase(ctx context.Context, id, suffix, what st
 		return nil
 	}
 	for _, line := range strings.Split(out, "\n") {
-		if strings.TrimSpace(line) == name {
+		if strings.TrimSpace(line) == sibling {
 			return nil
 		}
 	}
-	stmt := dialect.CreateDatabase(name, cfg.Username)
+	stmt := dialect.CreateDatabase(sibling, cfg.Username)
 	if cfg.External() && dialect.HasRoot {
-		stmt = fmt.Sprintf("CREATE DATABASE `%s` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci", name)
+		stmt = fmt.Sprintf("CREATE DATABASE `%s` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci", sibling)
 	}
 	if _, err := m.runSQL(ctx, p, svc, cfg, stmt); err != nil {
-		return fmt.Errorf("create the %s database %s: %w", what, name, err)
+		return fmt.Errorf("create the %s database %s: %w", what, sibling, err)
 	}
-	m.audit.Log(ctx, audit.ActionDBCreated, "project", id, auditDB(map[string]any{"name": p.Name, "database": name}, ""))
+	m.audit.Log(ctx, audit.ActionDBCreated, "project", id, auditDB(map[string]any{"name": p.Name, "database": sibling}, ""))
 	return nil
 }
 
@@ -515,7 +573,8 @@ func (m *Manager) ensureRailsDatabases(ctx context.Context, id string) error {
 		return err
 	}
 	for _, name := range m.railsDatabases(p) {
-		if err := m.ensureSiblingDatabase(ctx, id, "_"+name, name); err != nil {
+		suffix := "_" + name
+		if err := m.ensureSiblingDatabase(ctx, id, func(db string) string { return db + suffix }, name); err != nil {
 			return err
 		}
 	}
@@ -640,10 +699,16 @@ func (m *Manager) RunTests(ctx context.Context, id, suiteID, filter string, cols
 	if err != nil {
 		return nil, err
 	}
-	if suite.Service == store.ServiceRuby || suite.Service == store.ServiceJava || suite.Service == store.ServiceDotnet {
-		// rubyTestScript, javaTestScript and dotnetTestScript point the run at
-		// <database>_test, which neither Rails, Spring Boot, Quarkus nor EF Core create.
+	if suite.Service == store.ServicePHP || suite.Service == store.ServiceRuby || suite.Service == store.ServiceJava || suite.Service == store.ServiceDotnet {
+		// phpTestScript, rubyTestScript, javaTestScript and dotnetTestScript point the run
+		// at <database>_test, which neither Laravel, Doctrine, Rails, Spring Boot, Quarkus
+		// nor EF Core create (and MySQL's project login may not).
 		if err := m.ensureTestDatabase(ctx, id); err != nil {
+			return nil, err
+		}
+	}
+	if suite.djangoDB {
+		if err := m.ensureDjangoTestDatabase(ctx, id); err != nil {
 			return nil, err
 		}
 	}

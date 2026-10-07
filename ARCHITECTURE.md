@@ -655,9 +655,15 @@ names the container kind).
   mode (the Ruby workers get these, too), `RAILS_DEVELOPMENT_HOSTS=.<base>` in
   dev mode (Rails' host authorization; the leading dot allows every name
   under the base domain) and `RAILS_SERVE_STATIC_FILES` in production.
-  `rubyDatabaseURLs` rewrites every `*DATABASE_URL` from `pgsql://` to
-  `postgresql://` for the Ruby containers, because Active Record maps `postgres`,
-  `postgresql` and `mysql` to its adapters, not `pgsql`. The test suites
+  `postgresURLs` rewrites every `*DATABASE_URL` from `pgsql://` to
+  `postgresql://` for every container but PHP's (the planner's `appEnv`),
+  because Active Record, SQLAlchemy, Prisma, pgx and lib/pq know `postgres` and
+  `postgresql`, not `pgsql`. PHP keeps `pgsql://` for Laravel and Doctrine. PHPUnit
+  and Pest run behind `phpTestScript`, which points `DB_DATABASE`, `DB_URL` and
+  `DATABASE_URL` at `<database>_test` (not `DATABASE_URL` when
+  `config/packages/doctrine.yaml` has Doctrine's own `dbname_suffix: '_test…'`),
+  and `ensureDjangoTestDatabase` creates `test_<database>` with a grant before
+  `manage.py test` or pytest next to a `manage.py`. The test suites
   (`rspec`, `rails test`) run behind `rubyTestScript`, which points
   `DATABASE_URL` at `<database>_test` (Active Record merges it into any
   environment, so fixtures would otherwise empty the development tables), and
@@ -695,7 +701,8 @@ names the container kind).
   for MongoDB, Redis and Mailpit; `packageCacheEnv` moves Maven's repository
   and `GRADLE_USER_HOME` into the shared package cache. The test suites
   (`mvn test`, `gradle test`) run behind `javaTestScript`, which points
-  every JDBC and database URL at `<database>_test` and joins the per-class
+  every JDBC and database URL at `<database>_test` (`testURLShell`: before the
+  query of a URL that has one, a MongoDB URL left alone) and joins the per-class
   JUnit files into the one report the Tests section reads.
 - *.NET server* (`serves=dotnet`): the same mechanics with the .NET container
   as the upstream (`envoryx-<slug>-dotnet:<port>`). `runtime.DotnetConfig`
