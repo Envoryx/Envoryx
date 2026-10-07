@@ -575,6 +575,7 @@ func (a *API) auditLog(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
+	a.d.Store.Audit.NameTargets(r.Context(), entries)
 	out := make([]auditEntryDTO, 0, len(entries))
 	for _, e := range entries {
 		out = append(out, toAuditDTO(e))

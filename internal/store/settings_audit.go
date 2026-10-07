@@ -96,6 +96,7 @@ func (r *Audit) Append(ctx context.Context, e AuditEntry) error {
 	if len(e.Details) == 0 {
 		e.Details = json.RawMessage("{}")
 	}
+	e.Details = r.withTargetName(ctx, e, nil)
 	_, err := r.db.ExecContext(ctx,
 		`INSERT INTO audit_log (id, created_at, user_id, username, action, target_type, target_id, details, ip)
 		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -253,6 +254,68 @@ func (r *Audit) Each(ctx context.Context, q AuditQuery, fn func(AuditEntry) erro
 		}
 	}
 	return rows.Err()
+}
+
+// auditTargetNames says, per target type, where the target's name lives and under which
+// key the entry's details keep it.
+var auditTargetNames = map[string]struct{ query, key string }{
+	"project": {`SELECT name FROM projects WHERE id = ?`, "name"},
+	"user":    {`SELECT username FROM users WHERE id = ?`, "username"},
+	"token":   {`SELECT name FROM api_tokens WHERE id = ?`, "name"},
+}
+
+// withTargetName returns e's details with the target's current name added, unless they
+// name it already or the target is unknown. Append stores it so an entry stays readable
+// after the project, user or token is gone; NameTargets fills it in for older entries
+// whose target still exists. cache (may be nil) remembers lookups across entries.
+func (r *Audit) withTargetName(ctx context.Context, e AuditEntry, cache map[string]string) json.RawMessage {
+	t, ok := auditTargetNames[e.TargetType]
+	if !ok || e.TargetID == "" {
+		return e.Details
+	}
+	var d map[string]json.RawMessage
+	if len(e.Details) > 0 {
+		if err := json.Unmarshal(e.Details, &d); err != nil {
+			return e.Details
+		}
+	}
+	if _, ok := d["name"]; ok {
+		return e.Details
+	}
+	if _, ok := d[t.key]; ok {
+		return e.Details
+	}
+	ck := e.TargetType + "/" + e.TargetID
+	name, ok := cache[ck]
+	if !ok {
+		if err := r.db.QueryRowContext(ctx, t.query, e.TargetID).Scan(&name); err != nil {
+			name = ""
+		}
+		if cache != nil {
+			cache[ck] = name
+		}
+	}
+	if name == "" {
+		return e.Details
+	}
+	if d == nil {
+		d = map[string]json.RawMessage{}
+	}
+	d[t.key], _ = json.Marshal(name)
+	b, err := json.Marshal(d)
+	if err != nil {
+		return e.Details
+	}
+	return b
+}
+
+// NameTargets adds the target's name to entries written before Append stored it, as far
+// as the target still exists. The stored entries are not changed.
+func (r *Audit) NameTargets(ctx context.Context, entries []AuditEntry) {
+	cache := map[string]string{}
+	for i := range entries {
+		entries[i].Details = r.withTargetName(ctx, entries[i], cache)
+	}
 }
 
 func scanAudit(rows *sql.Rows) (AuditEntry, string, error) {
