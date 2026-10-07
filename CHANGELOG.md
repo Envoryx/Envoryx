@@ -10,6 +10,55 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-10-07
+
+More fixes from the application test round. New projects get the current
+runtime images, the PHP images bring the tools CMSs expect, and a dev server
+that can't start yet waits instead of crash-looping and locking you out of
+the actions that would fix it. **The Node container no longer sets
+`NODE_ENV=development`** for everything, only for the dev server, and the dev
+server **installs from your lockfile** when `node_modules` is missing.
+
+### Added
+- The PHP images bring ImageMagick (TYPO3 processes images with it), the
+  MariaDB and PostgreSQL clients (`drush sql:*`, `wp db`, `artisan db`),
+  WP-CLI as `wp`, common UTF-8 locales and the `exif` extension. PHP 8.5
+  grows from 1.07 to 1.24 GB.
+- Every runtime image has rsync, so `rsync -e ssh` works.
+- The Node dev server installs the dependencies of a fresh checkout before it
+  starts: `npm ci`, `pnpm install --frozen-lockfile` or
+  `yarn install --frozen-lockfile`, whichever lockfile the project has.
+  Without a lockfile it waits for an install from Actions.
+
+### Changed
+- `NODE_ENV=development` is set only for the Node dev server, no longer for
+  the whole container. Builds from Actions, the terminal and cron jobs run
+  without it; workers and cron jobs follow the dev server's mode.
+- The generated php.ini sets `max_input_vars = 5000` (PHP's 1000 silently
+  drops fields of big backend forms) and sizes OPcache for large vendor
+  directories.
+- A project cloned from a repository takes the dev server script and preset
+  from its package.json instead of guessing `dev` with Vite.
+
+### Fixed
+- New projects, runtime version switches and new services pulled no image,
+  so they used whatever older build of the tag was on the host: PHP without
+  msmtp (`mail()` failed), Ruby without libvips. They now get the current
+  image; offline the local one is still used.
+- Adding a worker or changing a limit recreated every container whose image
+  had been updated meanwhile, which restarted the database and emptied
+  Mailpit. Only start and restart apply image updates now.
+- Switching a Python, Go, Ruby, Java or .NET server off and on gave it a new
+  host port.
+- A dev server that couldn't start crash-looped, and a crash-looping
+  container refused every action, including the install that would fix it.
+  The Node dev server now waits for package.json and node_modules, Python
+  servers and workers wait while `.venv` was built for another Python
+  version, and an action on a restarting container says what's going on.
+  Rebuilding the venv lists the packages the old one had.
+- `npm run build` from Actions failed for Next.js and shipped React's
+  development bundle from Vite because of the container's `NODE_ENV`.
+
 ## [0.18.1] - 2026-10-07
 
 Fixes from the application test round. The important one: **running PHPUnit
@@ -1531,7 +1580,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.18.1...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.19.0...HEAD
+[0.19.0]: https://github.com/envoryx/envoryx/compare/v0.18.1...v0.19.0
 [0.18.1]: https://github.com/envoryx/envoryx/compare/v0.18.0...v0.18.1
 [0.18.0]: https://github.com/envoryx/envoryx/compare/v0.17.0...v0.18.0
 [0.17.0]: https://github.com/envoryx/envoryx/compare/v0.16.2...v0.17.0
