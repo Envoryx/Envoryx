@@ -350,7 +350,7 @@ export function IdeTab({ project: p }: { project: Project }) {
               <CopyRow label={t("Path mapping")} value={`${hostDir} → /var/www/html`} />
             </dl>
             <p className="mt-3 text-xs text-muted">
-              {t("Only the port is published - debugpy has to be started by your application (pip install debugpy in the .venv). Examples:")}
+              {t("Only the port is published - your application starts debugpy (pip install debugpy in the .venv). The app server's reloader runs your code in a child process and restarts it on every change, so start debugpy in that child only, as below; a debugpy in front of the server would compete with it for the port. After a code change attach again.")}
             </p>
             <pre className="mt-1 overflow-x-auto rounded-md bg-muted p-2 font-mono text-[11px]">{pythonDebugExamples(pyCfg.debugPort ?? 5678)}</pre>
             <p className="mt-2 text-xs text-subtle">
@@ -504,6 +504,7 @@ export function IdeTab({ project: p }: { project: Project }) {
             <p className="mt-3 text-xs text-muted">{t("VS Code with the C# extension, launch.json - then pick the application's process (named after the project, not dotnet watch):")}</p>
             <pre className="mt-1 overflow-x-auto rounded-md bg-muted p-2 font-mono text-[11px]">{dotnetLaunchJson(sshHost, ssh?.port, runtimeCount > 1 ? `${p.slug}.dotnet` : p.slug)}</pre>
             <p className="mt-3 text-xs text-muted">{t("Rider: Run → Attach to Remote Process…, add an SSH connection with the values above and pick the application's process; Rider brings its own debugger. Behind JetBrains Gateway, Rider debugs like a local project.")}</p>
+            <p className="mt-3 text-xs text-subtle">{t("Once dotnet watch has applied a change with hot reload, a debugger can no longer attach to that process (error 0x80131c69). Restart the project, or save a change hot reload can't apply so dotnet watch restarts the app, then attach.")}</p>
           </div>
         </Card>
       )}
@@ -676,13 +677,20 @@ function javaLaunchJson(host: string, port?: number): string {
   return JSON.stringify({ type: "java", name: "Attach to Envoryx", request: "attach", hostName: host, port: port ?? "<port>" }, null, 2);
 }
 
-/** Command lines that start debugpy in front of the usual servers. */
+/** Snippets that start debugpy in the reloader's child process of the usual dev servers. */
 function pythonDebugExamples(port: number): string {
   return [
-    `python -m debugpy --listen 0.0.0.0:${port} manage.py runserver 0.0.0.0:8000   # Django`,
-    `python -m debugpy --listen 0.0.0.0:${port} -m flask --app app:app run --host 0.0.0.0 --port 5000   # Flask`,
-    `python -m debugpy --listen 0.0.0.0:${port} -m uvicorn main:app --host 0.0.0.0 --port 8000   # FastAPI / ASGI`,
-    `import debugpy; debugpy.listen(("0.0.0.0", ${port}))   # in code, e.g. at the top of manage.py or main.py`,
+    `# Django: in manage.py, before execute_from_command_line(...)`,
+    `if os.environ.get("RUN_MAIN") == "true":`,
+    `    import debugpy; debugpy.listen(("0.0.0.0", ${port}))`,
+    ``,
+    `# Flask: at the top of app.py`,
+    `import os`,
+    `if os.environ.get("WERKZEUG_RUN_MAIN") == "true":`,
+    `    import debugpy; debugpy.listen(("0.0.0.0", ${port}))`,
+    ``,
+    `# FastAPI / uvicorn --reload: at the top of main.py (only the worker imports it)`,
+    `import debugpy; debugpy.listen(("0.0.0.0", ${port}))`,
   ].join("\n");
 }
 

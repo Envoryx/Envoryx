@@ -119,7 +119,7 @@ export function TestsTab({ project }: { project: Project }) {
   const shown = selected ?? current?.result ?? null;
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[22rem_1fr]">
+    <div className="grid gap-6 lg:grid-cols-[22rem_minmax(0,1fr)]">
       <div className="space-y-6 self-start">
         <Card>
           <CardHeader
@@ -194,7 +194,7 @@ export function TestsTab({ project }: { project: Project }) {
         )}
       </div>
 
-      <div className="space-y-6">
+      <div className="min-w-0 space-y-6">
         <Card className="flex h-[55vh] min-h-[20rem] flex-col overflow-hidden">
           <div className="flex items-center gap-2 border-b border-default px-3 py-2 text-xs">
             {current ? (
