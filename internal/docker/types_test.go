@@ -30,3 +30,18 @@ func TestOwnsAndStampInstance(t *testing.T) {
 		t.Fatalf("nil labels: %v", got)
 	}
 }
+
+func TestStripANSI(t *testing.T) {
+	for in, want := range map[string]string{
+		"plain line": "plain line",
+		"2026/10/07 \x1b[34mINFO\x1b[0m\tadmin started": "2026/10/07 INFO\tadmin started",
+		"\x1b[1;31mERROR\x1b[39;49m boom":               "ERROR boom",
+		"\x1b]8;;http://x\x07link\x1b]8;;\x07 done":     "link done",
+		"\x1b(Bcharset \x1b[?25lcursor":                 "charset cursor",
+		"\x1b[2K\x1b[1Gprogress":                        "progress",
+	} {
+		if got := StripANSI(in); got != want {
+			t.Errorf("StripANSI(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

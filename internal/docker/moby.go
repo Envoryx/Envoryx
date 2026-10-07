@@ -967,7 +967,7 @@ func (w *lineWriter) emitLine(raw []byte) {
 			line = line[i+1:]
 		}
 	}
-	w.emit(LogLine{Time: ts, Stream: w.stream, Text: line})
+	w.emit(LogLine{Time: ts, Stream: w.stream, Text: StripANSI(line)})
 }
 
 // ExecStream implements Engine.

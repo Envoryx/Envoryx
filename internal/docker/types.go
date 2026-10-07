@@ -8,6 +8,8 @@ import (
 	"errors"
 	"io"
 	"maps"
+	"regexp"
+	"strings"
 	"time"
 )
 
@@ -330,6 +332,20 @@ type LogLine struct {
 	Time   time.Time `json:"time"`
 	Stream string    `json:"stream"` // stdout | stderr
 	Text   string    `json:"text"`
+}
+
+// ansiEscape matches terminal control sequences: colours and cursor moves (CSI), window
+// titles and links (OSC) and character set switches.
+var ansiEscape = regexp.MustCompile(`\x1b\[[0-9;?]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b[()][A-Za-z0-9]`)
+
+// StripANSI removes terminal control sequences from a log line. Tools like Caddy colour
+// their output when they think they write to a terminal; the log views show plain text,
+// and the codes would also get in the way of search and level detection.
+func StripANSI(s string) string {
+	if !strings.Contains(s, "\x1b") {
+		return s
+	}
+	return ansiEscape.ReplaceAllString(s, "")
 }
 
 // LogOptions control log streaming.
