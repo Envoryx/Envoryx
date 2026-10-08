@@ -10,6 +10,18 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-10-08
+
+A **security fix** (see *Security*): PHP files that got into an upload
+directory (WordPress' `wp-content/uploads`, Drupal's `sites/*/files` and
+the like) could be run in the browser; restart your PHP projects after the
+update to apply the new web server rules. The PHP images now ship
+**Node.js**, so Shopware's administration and storefront build in the PHP
+container. A restore empties the project's Redis, new Laravel projects run
+their migrations, and Envoryx no longer hands out host ports that a program
+on the host already uses. Crash-looping workers show as restarting and can
+be restarted on their own.
+
 ### Added
 - Restoring a backup empties the project's Redis afterwards: sessions,
   object and page caches and queued jobs referred to the data from before
@@ -1698,7 +1710,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.20.0...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.21.0...HEAD
+[0.21.0]: https://github.com/envoryx/envoryx/compare/v0.20.0...v0.21.0
 [0.20.0]: https://github.com/envoryx/envoryx/compare/v0.19.0...v0.20.0
 [0.19.0]: https://github.com/envoryx/envoryx/compare/v0.18.1...v0.19.0
 [0.18.1]: https://github.com/envoryx/envoryx/compare/v0.18.0...v0.18.1
