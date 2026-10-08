@@ -13,6 +13,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/envoryx/envoryx/internal/docker"
 	"github.com/envoryx/envoryx/internal/validate"
 )
 
@@ -304,5 +305,64 @@ func TestBackupsInSeparateDirectory(t *testing.T) {
 	list, err := e.m.ListBackups(ctx, view.Project.ID)
 	if err != nil || len(list) != 1 || list[0].Missing {
 		t.Fatalf("backup must be listed from the configured directory: %+v err=%v", list, err)
+	}
+}
+
+// A restore empties the project's Redis unless told not to: its sessions and caches point
+// at data the restore replaced. A stopped Redis is started for it and stopped again.
+func TestRestoreFlushesRedis(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	e.engine.ExecHandler = func(container string, cmd []string, env []string) (docker.ExecResult, error) {
+		if container == "envoryx-shop-redis" {
+			return docker.ExecResult{Stdout: "OK\n"}, nil
+		}
+		return docker.ExecResult{}, nil
+	}
+	req := phpRequest("Shop", true)
+	req.Redis = &ExtraRequest{}
+	view, err := e.m.Create(ctx, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := view.Project.ID
+	info, err := e.m.CreateBackup(ctx, id, BackupOptions{Files: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	flushes := func() int {
+		n := 0
+		for _, x := range e.engine.Execs {
+			if x == "envoryx-shop-redis: redis-cli FLUSHALL" {
+				n++
+			}
+		}
+		return n
+	}
+
+	if _, err := e.m.RestoreBackup(ctx, id, info.ID, RestoreOptions{Files: true, Confirm: "shop"}); err != nil {
+		t.Fatal(err)
+	}
+	if flushes() != 0 {
+		t.Fatal("without FlushRedis Redis must be left alone")
+	}
+	if _, err := e.m.RestoreBackup(ctx, id, info.ID, RestoreOptions{Files: true, FlushRedis: true, Confirm: "shop"}); err != nil {
+		t.Fatal(err)
+	}
+	if flushes() != 1 {
+		t.Fatalf("running Redis must be emptied: %q", e.engine.Execs)
+	}
+
+	if _, err := e.m.Stop(ctx, id); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.m.RestoreBackup(ctx, id, info.ID, RestoreOptions{Files: true, FlushRedis: true, Confirm: "shop"}); err != nil {
+		t.Fatal(err)
+	}
+	if flushes() != 2 {
+		t.Fatalf("stopped Redis must be emptied too: %q", e.engine.Execs)
+	}
+	if c, _ := e.engine.Container("envoryx-shop-redis"); c.State == "running" {
+		t.Fatal("a stopped Redis must be stopped again")
 	}
 }

@@ -847,6 +847,8 @@
   "snippet": "snippet",
   "Automatic database, file and object storage backups; the oldest scheduled backups are removed beyond the keep count. Manual backups are never touched.": "Automatische back-ups van database, bestanden en objectopslag; de oudste geplande back-ups worden verwijderd boven het bewaaraantal. Handmatige back-ups worden nooit aangeraakt.",
   "Empty the bucket first": "Bucket eerst leegmaken",
+  "Empty Redis afterwards": "Redis daarna leegmaken",
+  "Sessions, caches and queued jobs in Redis refer to the data from before the restore.": "Sessies, caches en wachtende jobs in Redis verwijzen naar de gegevens van vóór het herstel.",
   "Every object of the bucket, as plain files in an archive": "Elk object van de bucket, als gewone bestanden in een archief",
   "Makes the bucket match the backup exactly.": "Maakt de bucket exact gelijk aan de back-up.",
   "Object storage": "Objectopslag",

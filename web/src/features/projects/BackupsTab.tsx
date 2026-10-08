@@ -27,6 +27,8 @@ export function BackupsTab({ project }: { project: Project }) {
   const hasData = hasDb || addonData;
   const restorable = (meta: BackupMeta) => (hasDumps(meta) && hasDb) || (meta.addonVolumes?.length ?? 0) > 0;
   const hasStorage = project.services.some((s) => s.kind === "storage" && s.enabled);
+  // Only a Redis Envoryx runs is emptied after a restore; an external one has a host.
+  const hasRedis = project.services.some((s) => s.kind === "redis" && s.enabled && !s.config?.host);
   // Viewers see the list; creating, downloading and offsite copies need operate, restoring and deleting admin.
   const can = projectAccess(project);
   const list = useQuery({
@@ -69,11 +71,12 @@ export function BackupsTab({ project }: { project: Project }) {
   const [rFiles, setRFiles] = useState(true);
   const [rStorage, setRStorage] = useState(true);
   const [rWipeStorage, setRWipeStorage] = useState(false);
+  const [rFlushRedis, setRFlushRedis] = useState(true);
   const [rWipe, setRWipe] = useState(false);
   const [rConfirm, setRConfirm] = useState("");
   const restore = useMutation({
     mutationFn: (b: BackupInfo) =>
-      api.backups.restore(project.id, b.id, { database: rDb && restorable(b.meta), files: rFiles && !!b.meta.files, storage: rStorage && !!b.meta.storage && hasStorage, wipeFiles: rWipe, wipeStorage: rWipeStorage, confirm: rConfirm }),
+      api.backups.restore(project.id, b.id, { database: rDb && restorable(b.meta), files: rFiles && !!b.meta.files, storage: rStorage && !!b.meta.storage && hasStorage, wipeFiles: rWipe, wipeStorage: rWipeStorage, flushRedis: hasRedis && rFlushRedis, confirm: rConfirm }),
     onSuccess: () => {
       setRestoreTarget(null);
       setMsg({ tone: "green", text: t("Backup restored.") });
@@ -123,6 +126,7 @@ export function BackupsTab({ project }: { project: Project }) {
     setRFiles(!!b.meta.files);
     setRStorage(!!b.meta.storage && hasStorage);
     setRWipeStorage(false);
+    setRFlushRedis(true);
     setRWipe(false);
     setRConfirm("");
     setRestoreTarget(b);
@@ -319,6 +323,7 @@ export function BackupsTab({ project }: { project: Project }) {
             {rFiles && <Checkbox label={t("Empty the project directory first")} description={t("Makes the directory match the backup exactly (also removes vendor/, node_modules/ and build caches if they were not included).")} checked={rWipe} onChange={(e) => setRWipe(e.target.checked)} />}
             <Checkbox label={t("Restore object storage")} checked={rStorage} disabled={!restoreTarget.meta.storage || !hasStorage} onChange={(e) => setRStorage(e.target.checked)} description={!restoreTarget.meta.storage ? t("not in this backup") : !hasStorage ? t("project has no object storage") : undefined} />
             {rStorage && <Checkbox label={t("Empty the bucket first")} description={t("Makes the bucket match the backup exactly.")} checked={rWipeStorage} onChange={(e) => setRWipeStorage(e.target.checked)} />}
+            {hasRedis && (rDb || rFiles) && <Checkbox label={t("Empty Redis afterwards")} description={t("Sessions, caches and queued jobs in Redis refer to the data from before the restore.")} checked={rFlushRedis} onChange={(e) => setRFlushRedis(e.target.checked)} />}
             <Field label={t("Type {{slug}} to confirm", { slug: project.slug })} htmlFor="restore-confirm">
               <Input id="restore-confirm" value={rConfirm} onChange={(e) => setRConfirm(e.target.value)} autoComplete="off" />
             </Field>

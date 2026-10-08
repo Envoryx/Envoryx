@@ -474,7 +474,7 @@ export const api = {
       request<{ backup: BackupInfo }>(`/projects/${encodeURIComponent(id)}/offsite/${encodeURIComponent(targetId)}/fetch`, { method: "POST", body: { key } }),
     remove: (id: string, backupId: string) =>
       request<void>(`/projects/${encodeURIComponent(id)}/backups/${encodeURIComponent(backupId)}`, { method: "DELETE" }),
-    restore: (id: string, backupId: string, body: { database: boolean; files: boolean; storage: boolean; wipeFiles: boolean; wipeStorage: boolean; confirm: string }) =>
+    restore: (id: string, backupId: string, body: { database: boolean; files: boolean; storage: boolean; wipeFiles: boolean; wipeStorage: boolean; flushRedis?: boolean; confirm: string }) =>
       request<{ backup: BackupInfo }>(`/projects/${encodeURIComponent(id)}/backups/${encodeURIComponent(backupId)}/restore`, { method: "POST", body }),
     setSchedule: (id: string, body: Omit<BackupSchedule, "lastRun">) =>
       request<{ schedule: BackupSchedule }>(`/projects/${encodeURIComponent(id)}/backups/schedule`, { method: "PUT", body }),

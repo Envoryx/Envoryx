@@ -12,11 +12,13 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
 	"github.com/envoryx/envoryx/internal/audit"
 	"github.com/envoryx/envoryx/internal/disk"
+	"github.com/envoryx/envoryx/internal/docker"
 	"github.com/envoryx/envoryx/internal/notify"
 	"github.com/envoryx/envoryx/internal/runtime"
 	"github.com/envoryx/envoryx/internal/secrets"
@@ -64,7 +66,12 @@ type RestoreOptions struct {
 	// bucket before uploading.
 	WipeFiles   bool
 	WipeStorage bool
-	Confirm     string
+	// FlushRedis empties the project's Redis once the database or the files are back:
+	// sessions, caches and queued jobs written since the backup point at data that is gone
+	// (WordPress' object cache, Shopware's HTTP cache, Laravel sessions). Only Redis that
+	// Envoryx runs; an external one is left alone.
+	FlushRedis bool
+	Confirm    string
 }
 
 // BackupMeta is written to backup.json and returned by the API (without the export).
@@ -951,6 +958,15 @@ func (m *Manager) restoreBackup(ctx context.Context, id, backupID string, opts R
 		restored["storage"] = true
 		restored["storageWiped"] = opts.WipeStorage
 	}
+	if opts.FlushRedis && (restored["database"] == true || opts.Files) {
+		flushed, err := m.flushRedis(ctx, p)
+		if err != nil {
+			m.log.Warn("emptying Redis after the restore failed", "project", p.Slug, "err", err)
+			restored["redisFlushFailed"] = err.Error()
+		} else if flushed {
+			restored["redisFlushed"] = true
+		}
+	}
 	m.audit.Log(ctx, audit.ActionBackupRestored, "project", id, restored)
 	return BackupInfo{ID: b.ID, Dir: b.Filename, Kind: b.Kind, SizeBytes: b.SizeBytes, CreatedAt: b.CreatedAt, Meta: meta}, nil
 }
@@ -1327,4 +1343,62 @@ func (m *Manager) ResealBackups(ctx context.Context) (int, error) {
 		changed++
 	}
 	return changed, nil
+}
+
+// flushRedis empties the Redis that Envoryx runs for the project. A stopped Redis keeps
+// its data on the volume, so it is started for the flush and stopped again. It reports
+// whether there was one to empty.
+func (m *Manager) flushRedis(ctx context.Context, p store.Project) (bool, error) {
+	svc := p.Service(store.ServiceRedis)
+	if svc == nil || !svc.Enabled {
+		return false, nil
+	}
+	var cfg runtime.ServiceConfig
+	if len(svc.Config) > 0 {
+		if err := json.Unmarshal(svc.Config, &cfg); err != nil {
+			return false, err
+		}
+	}
+	if cfg.External() {
+		return false, nil
+	}
+	containers, err := m.engine.ListContainers(ctx, true, p.ID)
+	if err != nil {
+		return false, err
+	}
+	i := slices.IndexFunc(containers, func(c docker.Container) bool { return c.Service() == string(store.ServiceRedis) })
+	if i < 0 {
+		return false, nil // never started: nothing cached
+	}
+	c := containers[i]
+	step(ctx, "Emptying Redis")
+	if c.State != "running" {
+		if err := m.engine.StartContainer(ctx, c.ID); err != nil {
+			return false, err
+		}
+		defer func() {
+			if err := m.engine.StopContainer(context.WithoutCancel(ctx), c.ID, 10*time.Second); err != nil {
+				m.log.Warn("stopping Redis again failed", "project", p.Slug, "err", err)
+			}
+		}()
+	}
+	// A Redis that was just started loads its append-only file first and answers LOADING.
+	deadline := time.Now().Add(30 * time.Second)
+	for {
+		res, err := m.engine.Exec(ctx, c.ID, []string{"redis-cli", "FLUSHALL"}, nil)
+		if err == nil && res.ExitCode == 0 && strings.TrimSpace(res.Stdout) == "OK" {
+			return true, nil
+		}
+		if time.Now().After(deadline) {
+			if err == nil {
+				err = fmt.Errorf("redis-cli FLUSHALL: %s", strings.TrimSpace(res.Stdout+" "+res.Stderr))
+			}
+			return false, err
+		}
+		select {
+		case <-ctx.Done():
+			return false, ctx.Err()
+		case <-time.After(500 * time.Millisecond):
+		}
+	}
 }

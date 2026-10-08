@@ -847,6 +847,8 @@
   "snippet": "fragmento",
   "Automatic database, file and object storage backups; the oldest scheduled backups are removed beyond the keep count. Manual backups are never touched.": "Copias automáticas de base de datos, archivos y almacenamiento de objetos; las copias programadas más antiguas se eliminan al superar el número a conservar. Las copias manuales nunca se tocan.",
   "Empty the bucket first": "Vaciar antes el bucket",
+  "Empty Redis afterwards": "Vaciar Redis después",
+  "Sessions, caches and queued jobs in Redis refer to the data from before the restore.": "Las sesiones, cachés y trabajos pendientes en Redis se refieren a los datos de antes de la restauración.",
   "Every object of the bucket, as plain files in an archive": "Todos los objetos del bucket, como archivos normales dentro de un archivo comprimido",
   "Makes the bucket match the backup exactly.": "Deja el bucket exactamente igual que la copia de seguridad.",
   "Object storage": "Almacenamiento de objetos",
