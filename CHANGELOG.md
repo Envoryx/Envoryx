@@ -10,6 +10,19 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Security
+- PHP files in upload directories ran like application code: a script
+  that got into `wp-content/uploads` or Drupal's `sites/default/files`
+  through an upload form could be called in the browser. The generated
+  Caddy, Nginx and Apache configs now refuse PHP below the upload and
+  cache directories of WordPress (also Bedrock and subdirectory
+  installs), Drupal, TYPO3, Shopware, Magento and Laravel and below
+  `/uploads`, as the hardening guides of these CMSs recommend. Everything
+  else there is served as before, Drupal's image styles included. After the
+  update every running project with a web server reports an older setup
+  for its web container once; restart it to apply the rules. From now on
+  a changed web server config always asks for that restart.
+
 ## [0.20.0] - 2026-10-08
 
 The rest of the fixes from the application test round. The templates work

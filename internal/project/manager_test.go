@@ -982,6 +982,39 @@ func TestSPAFallback(t *testing.T) {
 	}
 }
 
+// The web servers read their config only at start, so a changed config must change the
+// web container's fingerprint: a running project then asks for the restart that applies
+// it (an Envoryx update with new rules), and a change made here recreates the container.
+func TestWebConfigFingerprint(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+
+	view, err := e.m.Create(ctx, staticRequest("Spa", true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := view.Project.ID
+	web, _ := e.engine.Container("envoryx-spa-web")
+	if web.Spec.Labels[labelWebConfig] == "" {
+		t.Fatalf("web config hash missing: %v", web.Spec.Labels)
+	}
+	if _, err := e.m.Restart(ctx, id); err != nil {
+		t.Fatal(err)
+	}
+	if again, _ := e.engine.Container("envoryx-spa-web"); again.ID != web.ID {
+		t.Fatal("an unchanged config must not recreate the web container")
+	}
+
+	on := true
+	if _, err := e.m.Update(ctx, id, UpdateRequest{Web: &WebRequest{SPAFallback: &on}}); err != nil {
+		t.Fatal(err)
+	}
+	c, _ := e.engine.Container("envoryx-spa-web")
+	if c.ID == web.ID || c.Spec.Labels[docker.LabelSpec] == web.Spec.Labels[docker.LabelSpec] || c.State != "running" {
+		t.Fatalf("a changed config must recreate the web container: %+v", c)
+	}
+}
+
 func TestTemplateRuntimeGating(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()

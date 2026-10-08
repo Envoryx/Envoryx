@@ -30,6 +30,10 @@ server {
 		try_files $uri $uri/ /index.php?$query_string;
 	}
 
+	location ~ "(?i)(?:/wp-content/uploads|/app/uploads|/sites/[^/]+/files|/fileadmin|/typo3temp|^/(?:uploads|media|thumbnail|storage))/.*\.php(?:/|$)" {
+		deny all;
+	}
+
 	location ~ \.php$ {
 		try_files $uri =404;
 		fastcgi_pass php:9000;

@@ -61,6 +61,9 @@ DirectoryIndex index.php index.html
 <FilesMatch "\.php$">
 	SetHandler "proxy:fcgi://php:9000"
 </FilesMatch>
+<LocationMatch "(?i)(?:/wp-content/uploads|/app/uploads|/sites/[^/]+/files|/fileadmin|/typo3temp|^/(?:uploads|media|thumbnail|storage))/.*\.php(?:/|$)">
+	Require all denied
+</LocationMatch>
 ProxyFCGISetEnvIf "%{HTTP:X-Forwarded-Proto} == 'https'" HTTPS on
 ProxyFCGISetEnvIf "%{HTTP:X-Forwarded-Proto} == 'https'" REQUEST_SCHEME https
 ProxyFCGISetEnvIf "%{HTTP:X-Forwarded-Proto} == 'https' && ! %{HTTP_HOST} =~ /:[0-9]+$/" SERVER_PORT 443

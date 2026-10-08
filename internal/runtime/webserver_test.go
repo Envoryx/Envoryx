@@ -3,6 +3,7 @@ package runtime
 import (
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -60,21 +61,21 @@ func TestWebServerConfig(t *testing.T) {
 		{
 			variant: "caddy", file: "Caddyfile", target: "/etc/caddy/Caddyfile",
 			contains: []string{"root * /var/www/html/public", "file_server"},
-			phpOnly:  []string{"php_fastcgi php:9000", "@https header X-Forwarded-Proto https", "env HTTPS on", "env SERVER_PORT {envoryx_https_port}"},
+			phpOnly:  []string{"php_fastcgi php:9000", "@uploadphp path_regexp " + uploadPHP, "respond @uploadphp 403", "file {path}index.php", "@https header X-Forwarded-Proto https", "env HTTPS on", "env SERVER_PORT {envoryx_https_port}"},
 			static:   []string{"path_regexp (^|/)\\.", "not path /.well-known/*", "respond @dot 404", "trusted_proxies static private_ranges"},
 			spa:      []string{"try_files {path} /index.html"},
 		},
 		{
 			variant: "apache", file: "httpd.conf", target: "/usr/local/apache2/conf/httpd.conf",
 			contains: []string{`DocumentRoot "/var/www/html/public"`, "AllowOverride All", "mod_rewrite.so", "mod_access_compat.so", "mod_proxy_fcgi.so", `LogFormat "%h %l %u %t \"%r\" %>s %b" common`},
-			phpOnly:  []string{`SetHandler "proxy:fcgi://php:9000"`, "index.php", `<Files ".ht*">`, `ProxyFCGISetEnvIf "%{HTTP:X-Forwarded-Proto} == 'https'" HTTPS on`},
+			phpOnly:  []string{`SetHandler "proxy:fcgi://php:9000"`, `<LocationMatch "` + uploadPHP + `">`, "index.php", `<Files ".ht*">`, `ProxyFCGISetEnvIf "%{HTTP:X-Forwarded-Proto} == 'https'" HTTPS on`},
 			static:   []string{`<FilesMatch "^\.">`, `<DirectoryMatch "/\.">`, "DirectoryIndex index.html"},
 			spa:      []string{"FallbackResource /index.html"},
 		},
 		{
 			variant: "nginx", file: "default.conf", target: "/etc/nginx/conf.d/default.conf",
 			contains: []string{"root /var/www/html/public;", "try_files $uri $uri/"},
-			phpOnly:  []string{"fastcgi_pass php:9000;", "/index.php?$query_string", "SCRIPT_FILENAME $document_root$fastcgi_script_name", "map $http_x_forwarded_proto $envoryx_https", "fastcgi_param HTTPS $envoryx_https if_not_empty;"},
+			phpOnly:  []string{"fastcgi_pass php:9000;", `location ~ "` + uploadPHP + `"`, "/index.php?$query_string", "SCRIPT_FILENAME $document_root$fastcgi_script_name", "map $http_x_forwarded_proto $envoryx_https", "fastcgi_param HTTPS $envoryx_https if_not_empty;"},
 			static:   []string{"index index.html;", `location ~ /\.(?!well-known)`},
 			noSPA:    []string{"try_files $uri $uri/ =404;"},
 			spa:      []string{"try_files $uri $uri/ /index.html;"},
@@ -142,5 +143,32 @@ func TestWebServerConfig(t *testing.T) {
 	}
 	if !IsWebServer("apache") || IsWebServer("php") {
 		t.Fatal("IsWebServer")
+	}
+}
+
+func TestUploadPHP(t *testing.T) {
+	re := regexp.MustCompile(uploadPHP)
+	for _, p := range []string{
+		"/wp-content/uploads/2026/10/shell.php", "/wp-content/uploads/a.php/x", "/wp-content/uploads/A.PHP",
+		"/blog/wp-content/uploads/a.php", "/app/uploads/a.php", "/sites/default/files/a.php",
+		"/sites/example.com/files/x/a.php", "/fileadmin/a.php", "/typo3temp/a.php", "/uploads/a.php",
+		"/media/a.php", "/thumbnail/a.php", "/storage/a.php",
+	} {
+		if !re.MatchString(p) {
+			t.Errorf("%s must be refused", p)
+		}
+	}
+	for _, p := range []string{
+		"/index.php", "/wp-admin/admin-ajax.php", "/wp-content/plugins/x/a.php", "/wp-content/uploads/a.php.jpg",
+		"/sites/default/files/styles/thumb/public/a.jpg", "/core/install.php", "/shop/media/a.php",
+		"/typo3/index.php", "/media/a.phpx", "/wp-content/uploads/pic.jpg",
+	} {
+		if re.MatchString(p) {
+			t.Errorf("%s must stay reachable", p)
+		}
+	}
+	nginx := nginxConf("public", WebOptions{PHP: true})
+	if strings.Index(nginx, uploadPHP) > strings.Index(nginx, `location ~ \.php$`) {
+		t.Error("nginx takes the first matching regex location: the upload rule must come first")
 	}
 }

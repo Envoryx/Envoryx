@@ -15,6 +15,13 @@
 		not path /.well-known/*
 	}
 	respond @dot 404
+	@uploadphp path_regexp (?i)(?:/wp-content/uploads|/app/uploads|/sites/[^/]+/files|/fileadmin|/typo3temp|^/(?:uploads|media|thumbnail|storage))/.*\.php(?:/|$)
+	respond @uploadphp 403
+	@uploadindex {
+		path_regexp (?i)(?:/wp-content/uploads|/app/uploads|/sites/[^/]+/files|/fileadmin|/typo3temp|^/(?:uploads|media|thumbnail|storage))/(?:.*/)?$
+		file {path}index.php
+	}
+	respond @uploadindex 403
 	@https header X-Forwarded-Proto https
 	map {http.request.port} {envoryx_https_port} {
 		~^(\d+)$ ${1}
