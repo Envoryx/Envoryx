@@ -1123,3 +1123,48 @@ func TestGatewaySharesOnlyTheBackends(t *testing.T) {
 		t.Fatalf("cache mounts: %v", targets)
 	}
 }
+
+// A port a program on the Docker host listens on (an IDE backend) is not handed out:
+// publishing it would fail the project's start.
+func TestAllocatePortSkipsHostListeners(t *testing.T) {
+	e := newEnv(t)
+	e.engine.HostPorts = map[int]bool{20000: true, 20001: true}
+	view, err := e.m.Create(context.Background(), phpRequest("Shop", true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if view.Project.HTTPPort != 20002 {
+		t.Fatalf("port %d, want 20002 past the host's listeners", view.Project.HTTPPort)
+	}
+}
+
+// A program on the host that takes a stopped project's HTTP port moves the project to a
+// free one at its next start; a running project keeps its port, which it holds itself.
+func TestStartMovesBusyHTTPPort(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	view, err := e.m.Create(ctx, phpRequest("Shop", true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	id, port := view.Project.ID, view.Project.HTTPPort
+	e.engine.HostPorts = map[int]bool{port: true}
+	e.m.hostPorts = hostPortCache{}
+	if view, err = e.m.Restart(ctx, id); err != nil || view.Project.HTTPPort != port {
+		t.Fatalf("a running project keeps its port: %d %v", view.Project.HTTPPort, err)
+	}
+	if _, err := e.m.Stop(ctx, id); err != nil {
+		t.Fatal(err)
+	}
+	if view, err = e.m.Start(ctx, id); err != nil {
+		t.Fatal(err)
+	}
+	moved := view.Project.HTTPPort
+	if moved == port || moved == 0 {
+		t.Fatalf("port %d must move off %d", moved, port)
+	}
+	c, _ := e.engine.Container("envoryx-shop-web")
+	if len(c.Spec.Ports) != 1 || c.Spec.Ports[0].HostPort != moved {
+		t.Fatalf("web container publishes %+v, want %d", c.Spec.Ports, moved)
+	}
+}

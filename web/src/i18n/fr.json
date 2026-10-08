@@ -2700,5 +2700,6 @@
   "Drupal cron": "Cron Drupal",
   "Craft queue": "File d’attente Craft",
   "Once dotnet watch has applied a change with hot reload, a debugger can no longer attach to that process (error 0x80131c69). Restart the project, or save a change hot reload can't apply so dotnet watch restarts the app, then attach.": "Dès que dotnet watch a appliqué une modification par hot reload, aucun débogueur ne peut plus s'attacher à ce processus (erreur 0x80131c69). Redémarre le projet, ou enregistre une modification que le hot reload ne peut pas appliquer pour que dotnet watch redémarre l'application, puis attache-toi.",
-  "Emptying Redis": "Vidage de Redis"
+  "Emptying Redis": "Vidage de Redis",
+  "Port {{old}} is in use on the host, the project now uses port {{port}}": "Le port {{old}} est occupé sur l'hôte, le projet utilise maintenant le port {{port}}"
 }

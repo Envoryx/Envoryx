@@ -50,6 +50,8 @@ type PathsProvider func() (Paths, error)
 type Manager struct {
 	// branches is the branch scheduler's memory (visits, polls, failed branches).
 	branches branchTracker
+	// hostPorts remembers the ports the Docker host's own programs listen on.
+	hostPorts hostPortCache
 
 	store  *store.Store
 	engine docker.Engine
@@ -1000,7 +1002,47 @@ func (m *Manager) collectUsedPorts(ctx context.Context, used map[int]bool) error
 			used[p.HostPort] = true
 		}
 	}
+	for port := range m.hostListeningPorts(ctx, hostPortCacheTTL) {
+		used[port] = true
+	}
 	return nil
+}
+
+// hostPortCache keeps the host's listening ports for a few seconds: creating a project
+// hands out several ports in a row, each of which would otherwise start a probe.
+type hostPortCache struct {
+	mu    sync.Mutex
+	at    time.Time
+	ports map[int]bool
+}
+
+const hostPortCacheTTL = 10 * time.Second
+
+// hostListeningPorts returns the ports programs on the Docker host listen on, when the
+// engine can tell, from a probe at most maxAge old. Best effort: without them a port may
+// still be taken, which the start then reports, so a failed probe only costs that check.
+func (m *Manager) hostListeningPorts(ctx context.Context, maxAge time.Duration) map[int]bool {
+	lister, ok := m.engine.(docker.HostPortLister)
+	if !ok {
+		return nil
+	}
+	c := &m.hostPorts
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.ports != nil && time.Since(c.at) < maxAge {
+		return c.ports
+	}
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	ports, err := lister.HostListeningPorts(ctx)
+	if err != nil {
+		// Remembered as empty, so a host without the probe image does not wait for the
+		// pull with every port.
+		m.log.Warn("listing the host's ports failed; ports in use by programs on the host are not skipped", "err", err)
+		ports = map[int]bool{}
+	}
+	c.ports, c.at = ports, time.Now()
+	return ports
 }
 
 // assignServicePorts allocates host ports for services the request wants published

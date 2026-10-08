@@ -2700,5 +2700,6 @@
   "Drupal cron": "Drupal-cron",
   "Craft queue": "Craft-wachtrij",
   "Once dotnet watch has applied a change with hot reload, a debugger can no longer attach to that process (error 0x80131c69). Restart the project, or save a change hot reload can't apply so dotnet watch restarts the app, then attach.": "Zodra dotnet watch een wijziging met hot reload heeft toegepast, kan geen debugger zich meer aan dat proces koppelen (fout 0x80131c69). Herstart het project, of sla een wijziging op die hot reload niet kan toepassen zodat dotnet watch de app herstart, en koppel dan.",
-  "Emptying Redis": "Redis wordt leeggemaakt"
+  "Emptying Redis": "Redis wordt leeggemaakt",
+  "Port {{old}} is in use on the host, the project now uses port {{port}}": "Poort {{old}} is op de host in gebruik, het project gebruikt nu poort {{port}}"
 }

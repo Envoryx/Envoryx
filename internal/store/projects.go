@@ -436,6 +436,18 @@ func (r *Projects) SetIDEGateway(ctx context.Context, id string, on bool) error 
 	return nil
 }
 
+// SetHTTPPort moves the project's web server to another host port.
+func (r *Projects) SetHTTPPort(ctx context.Context, id string, port int) error {
+	res, err := r.db.ExecContext(ctx, `UPDATE projects SET http_port = ?, updated_at = ? WHERE id = ?`, port, formatTime(now()), id)
+	if err != nil {
+		return fmt.Errorf("set http port: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 // SetBackupLastRun records when the schedule last ran.
 func (r *Projects) SetBackupLastRun(ctx context.Context, id string, at time.Time) error {
 	if _, err := r.db.ExecContext(ctx, `UPDATE projects SET backup_last_run = ? WHERE id = ?`, formatTime(at), id); err != nil {
