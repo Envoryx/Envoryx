@@ -17,6 +17,13 @@ release). `:main` follows the development branch.
   restore dialog has a box for it, ticked by default; a stopped project's
   Redis is started for it and stopped again. An external Redis is left
   alone. API: `flushRedis`, default true.
+- The PHP images ship Node.js 24 LTS with npm and yarn (pnpm through
+  Corepack on first use). Shopware's `bin/build-administration.sh` and
+  `bin/build-storefront.sh`, which call php and npm in turn, run in the PHP
+  container now, and so do the npm builds of Laravel's Vite, Drupal and
+  TYPO3 themes or WordPress blocks from the PHP terminal. Shopware projects
+  get both build scripts as actions. A Node service still runs dev servers.
+  The images grow by about 150 MB.
 
 ### Changed
 - New Laravel projects run `artisan migrate` once they're up, as Rails

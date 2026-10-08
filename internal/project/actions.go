@@ -56,6 +56,10 @@ var actionCatalog = []Action{
 	{ID: "drush:cache-rebuild", Group: "Drupal", Label: "drush cache:rebuild", Description: "Rebuild all Drupal caches", Service: store.ServicePHP, Cmd: []string{"vendor/bin/drush", "cache:rebuild"}, Requires: []string{"vendor/bin/drush"}},
 
 	{ID: "shopware:install", Group: "Shopware", Label: "system:install --basic-setup", Description: "Create the tables, a sales channel for APP_URL and the administrator admin / shopware", Service: store.ServicePHP, Cmd: []string{"php", "bin/console", "system:install", "--basic-setup", "--force", "--no-interaction"}, Requires: []string{"bin/console", "vendor/shopware/core"}, Destructive: true},
+	// Shopware's build scripts call php and npm in turn, so they run in the PHP container,
+	// which has Node.js for them.
+	{ID: "shopware:build-administration", Group: "Shopware", Label: "build-administration.sh", Description: "Build the administration (npm install and build of the admin and its plugins); after installing or changing an admin plugin", Service: store.ServicePHP, Cmd: []string{"bin/build-administration.sh"}, Requires: []string{"bin/build-administration.sh"}},
+	{ID: "shopware:build-storefront", Group: "Shopware", Label: "build-storefront.sh", Description: "Build the storefront JavaScript and compile the themes; after installing or changing a storefront plugin or theme", Service: store.ServicePHP, Cmd: []string{"bin/build-storefront.sh"}, Requires: []string{"bin/build-storefront.sh"}},
 
 	{ID: "typo3:setup", Group: "TYPO3", Label: "typo3 setup", Description: "Set TYPO3 up in the project database with a site for the project URL; prints the admin password", Service: store.ServicePHP, Cmd: []string{"sh", "-c", typo3SetupScript, "envoryx-typo3"}, Requires: []string{"vendor/bin/typo3"}, Destructive: true},
 	{ID: "craft:install", Group: "Craft CMS", Label: "craft install", Description: "Install Craft into the project database with a site for the project URL; prints the admin password", Service: store.ServicePHP, Cmd: []string{"sh", "-c", craftInstallScript, "envoryx-craft"}, Requires: []string{"craft", "vendor/craftcms/cms"}, Destructive: true},

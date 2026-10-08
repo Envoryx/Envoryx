@@ -412,7 +412,7 @@ var templates = []Template{
 	{
 		ID: "shopware", Name: "Shopware", Description: "shopware/production - Shopware 6 with APP_URL following the project address.",
 		Runtime: "php", Docroot: "public", RequiresDatabase: true, RecommendedDatabase: "mariadb", PHPMemoryLimit: "1G",
-		Notes: "Run “Shopware system:install” from Actions once the project is running: it creates the tables, a sales channel for the project URL and the administrator admin / shopware (change the password in the admin at /admin).",
+		Notes: "Run “Shopware system:install” from Actions once the project is running: it creates the tables, a sales channel for the project URL and the administrator admin / shopware (change the password in the admin at /admin). After adding plugins or themes, rebuild with “build-administration.sh” and “build-storefront.sh” from Actions; the PHP container has Node.js for them.",
 		steps: []templateStep{
 			{label: "composer create-project", cmd: []string{"composer", "create-project", "shopware/production", ".", composerNoInteraction, "--prefer-dist"}, files: map[string]func() (string, error){".env.local": func() (string, error) { return shopwareEnvLocal, nil }}},
 		},
