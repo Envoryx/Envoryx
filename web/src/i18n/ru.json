@@ -867,6 +867,8 @@
   "snippet": "фрагмент",
   "Automatic database, file and object storage backups; the oldest scheduled backups are removed beyond the keep count. Manual backups are never touched.": "Автоматические резервные копии базы данных, файлов и объектного хранилища; самые старые запланированные копии удаляются сверх заданного количества. Ручные копии никогда не затрагиваются.",
   "Empty the bucket first": "Сначала очистить бакет",
+  "Empty Redis afterwards": "Очистить Redis после",
+  "Sessions, caches and queued jobs in Redis refer to the data from before the restore.": "Сессии, кэши и ожидающие задания в Redis относятся к данным до восстановления.",
   "Every object of the bucket, as plain files in an archive": "Каждый объект бакета в виде обычных файлов в архиве",
   "Makes the bucket match the backup exactly.": "Приводит бакет в точное соответствие с резервной копией.",
   "Object storage": "Объектное хранилище",

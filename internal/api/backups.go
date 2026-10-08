@@ -72,12 +72,14 @@ func (a *API) deleteBackup(w http.ResponseWriter, r *http.Request) {
 }
 
 type restoreBackupRequest struct {
-	Database    bool   `json:"database"`
-	Files       bool   `json:"files"`
-	Storage     bool   `json:"storage"`
-	WipeFiles   bool   `json:"wipeFiles"`
-	WipeStorage bool   `json:"wipeStorage"`
-	Confirm     string `json:"confirm"`
+	Database    bool `json:"database"`
+	Files       bool `json:"files"`
+	Storage     bool `json:"storage"`
+	WipeFiles   bool `json:"wipeFiles"`
+	WipeStorage bool `json:"wipeStorage"`
+	// FlushRedis empties the project's Redis after the restore; absent means yes.
+	FlushRedis *bool  `json:"flushRedis"`
+	Confirm    string `json:"confirm"`
 }
 
 func (a *API) restoreBackup(w http.ResponseWriter, r *http.Request) {
@@ -86,7 +88,7 @@ func (a *API) restoreBackup(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
-	info, err := a.d.Projects.RestoreBackup(r.Context(), r.PathValue("id"), r.PathValue("backup"), project.RestoreOptions{Database: req.Database, Files: req.Files, Storage: req.Storage, WipeFiles: req.WipeFiles, WipeStorage: req.WipeStorage, Confirm: req.Confirm})
+	info, err := a.d.Projects.RestoreBackup(r.Context(), r.PathValue("id"), r.PathValue("backup"), project.RestoreOptions{Database: req.Database, Files: req.Files, Storage: req.Storage, WipeFiles: req.WipeFiles, WipeStorage: req.WipeStorage, FlushRedis: req.FlushRedis == nil || *req.FlushRedis, Confirm: req.Confirm})
 	if err != nil {
 		writeError(w, r, err)
 		return

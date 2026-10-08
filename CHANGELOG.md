@@ -10,6 +10,14 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Added
+- Restoring a backup empties the project's Redis afterwards: sessions,
+  object and page caches and queued jobs referred to the data from before
+  the restore (WordPress' object cache, Shopware's HTTP cache). The
+  restore dialog has a box for it, ticked by default; a stopped project's
+  Redis is started for it and stopped again. An external Redis is left
+  alone. API: `flushRedis`, default true.
+
 ### Changed
 - New Laravel projects run `artisan migrate` once they're up, as Rails
   projects run `db:prepare`: the sessions, cache and jobs tables are there

@@ -55,7 +55,32 @@ describe("BackupsTab", () => {
     await waitFor(() => expect(dialogButton()).not.toBeDisabled());
     await user.click(dialogButton());
     await waitFor(() => expect(api.calls.some((c) => c.url.endsWith("/restore"))).toBe(true));
-    expect(api.calls.find((c) => c.url.endsWith("/restore"))!.body).toEqual({ database: true, files: true, storage: false, wipeFiles: false, wipeStorage: false, confirm: "acme-shop" });
+    expect(api.calls.find((c) => c.url.endsWith("/restore"))!.body).toEqual({ database: true, files: true, storage: false, wipeFiles: false, wipeStorage: false, flushRedis: false, confirm: "acme-shop" });
+    expect(screen.queryByRole("checkbox", { name: /Empty Redis afterwards/ })).not.toBeInTheDocument();
+  });
+
+  it("empties the project's Redis after a restore unless unticked, but never an external one", async () => {
+    const api = mockApi({
+      ...authedRoutes,
+      [`GET /projects/${id}/backups`]: () => ({ body: { backups: [backup] } }),
+      [`POST /projects/${id}/backups/b1/restore`]: () => ({ body: { backup } }),
+    });
+    const redis = (config: Record<string, unknown>) => ({ kind: "redis", variant: "redis", version: "8", image: "redis:8", enabled: true, config });
+    const database = { kind: "database", variant: "mariadb", version: "11", image: "mariadb:11", enabled: true, config: {} };
+    const view = renderApp(<BackupsTab project={makeProject({ services: [...makeProject().services, database, redis({})] })} />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Restore" }));
+    expect(screen.getByRole("checkbox", { name: /Empty Redis afterwards/ })).toBeChecked();
+    await user.click(screen.getByRole("checkbox", { name: /Empty Redis afterwards/ }));
+    await user.type(screen.getByLabelText("Type acme-shop to confirm"), "acme-shop");
+    await user.click(screen.getAllByRole("button", { name: "Restore" }).at(-1)!);
+    await waitFor(() => expect(api.calls.some((c) => c.url.endsWith("/restore"))).toBe(true));
+    expect((api.calls.find((c) => c.url.endsWith("/restore"))!.body as Record<string, unknown>).flushRedis).toBe(false);
+    view.unmount();
+
+    renderApp(<BackupsTab project={makeProject({ services: [...makeProject().services, database, redis({ host: "cache.lan" })] })} />);
+    await user.click(await screen.findByRole("button", { name: "Restore" }));
+    expect(screen.queryByRole("checkbox", { name: /Empty Redis afterwards/ })).not.toBeInTheDocument();
   });
 
   it("backs up and restores addon volumes in a project without a database", async () => {

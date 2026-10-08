@@ -847,6 +847,8 @@
   "snippet": "trecho",
   "Automatic database, file and object storage backups; the oldest scheduled backups are removed beyond the keep count. Manual backups are never touched.": "Backups automáticos de banco de dados, arquivos e armazenamento de objetos; os backups agendados mais antigos são removidos além da quantidade mantida. Backups manuais nunca são alterados.",
   "Empty the bucket first": "Esvaziar o bucket primeiro",
+  "Empty Redis afterwards": "Esvaziar o Redis depois",
+  "Sessions, caches and queued jobs in Redis refer to the data from before the restore.": "Sessões, caches e tarefas em fila no Redis referem-se aos dados de antes do restauro.",
   "Every object of the bucket, as plain files in an archive": "Todos os objetos do bucket, como arquivos simples em um arquivo compactado",
   "Makes the bucket match the backup exactly.": "Faz o bucket corresponder exatamente ao backup.",
   "Object storage": "Armazenamento de objetos",

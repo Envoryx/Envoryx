@@ -847,6 +847,8 @@
   "snippet": "extrait",
   "Automatic database, file and object storage backups; the oldest scheduled backups are removed beyond the keep count. Manual backups are never touched.": "Sauvegardes automatiques de la base de données, des fichiers et du stockage d'objets ; les sauvegardes planifiées les plus anciennes sont supprimées au-delà du nombre à conserver. Les sauvegardes manuelles ne sont jamais touchées.",
   "Empty the bucket first": "Vider d'abord le bucket",
+  "Empty Redis afterwards": "Vider Redis ensuite",
+  "Sessions, caches and queued jobs in Redis refer to the data from before the restore.": "Les sessions, caches et tâches en attente dans Redis renvoient aux données d'avant la restauration.",
   "Every object of the bucket, as plain files in an archive": "Chaque objet du bucket, sous forme de fichiers simples dans une archive",
   "Makes the bucket match the backup exactly.": "Rend le bucket strictement identique à la sauvegarde.",
   "Object storage": "Stockage d'objets",
