@@ -93,3 +93,12 @@ func (a *API) stopIDEBackend(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"stopped": n})
 }
+
+// restartWorker restarts one worker's container: POST /projects/{id}/workers/{worker}/restart.
+func (a *API) restartWorker(w http.ResponseWriter, r *http.Request) {
+	if err := a.d.Projects.RestartWorker(r.Context(), r.PathValue("id"), r.PathValue("worker")); err != nil {
+		writeError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}

@@ -160,10 +160,24 @@ func (e *MobyEngine) ListContainers(ctx context.Context, managedOnly bool, proje
 		if (managedOnly || projectID != "") && !ct.Managed {
 			continue
 		}
+		// The listing has no restart count. A process that exits after a few seconds
+		// (a worker without its tables) is running most of the time Docker is asked, so
+		// only the count tells a crash loop from a fresh start.
+		if ct.Managed && ct.State == "running" && upUnderAMinute(ct.Status) {
+			if raw, err := e.inspectRaw(ctx, ct.ID); err == nil {
+				ct.Restarts = raw.RestartCount
+			}
+		}
 		out = append(out, ct)
 	}
 	return out, nil
 }
+
+// upSeconds matches the listing's status of a container that has been up for seconds:
+// "Up Less than a second", "Up 1 second", "Up 42 seconds (healthy)".
+var upSeconds = regexp.MustCompile(`^Up (Less than a second|\d+ seconds?)\b`)
+
+func upUnderAMinute(status string) bool { return upSeconds.MatchString(status) }
 
 // summaryToContainer converts a listing entry; the caller sets Managed.
 func summaryToContainer(c container.Summary) Container {

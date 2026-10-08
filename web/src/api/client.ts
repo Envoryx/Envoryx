@@ -387,6 +387,7 @@ export const api = {
       update: (id: string, workerId: string, body: WorkerRequest) =>
         request<{ worker: Worker }>(`/projects/${encodeURIComponent(id)}/workers/${encodeURIComponent(workerId)}`, { method: "PUT", body }),
       remove: (id: string, workerId: string) => request<void>(`/projects/${encodeURIComponent(id)}/workers/${encodeURIComponent(workerId)}`, { method: "DELETE" }),
+      restart: (id: string, workerId: string) => request<void>(`/projects/${encodeURIComponent(id)}/workers/${encodeURIComponent(workerId)}/restart`, { method: "POST" }),
     },
     cron: {
       list: (id: string) => request<{ jobs: CronJob[]; timezone: string }>(`/projects/${encodeURIComponent(id)}/cron`),

@@ -98,6 +98,10 @@ type Container struct {
 	Managed bool
 	// Health is "healthy", "unhealthy", "starting" or "" when the image defines no check.
 	Health string
+	// Restarts counts the restarts by the restart policy since the container was last
+	// started by hand. Only filled for a container that came up less than a minute ago:
+	// with restarts it is crash-looping, although the listing says running.
+	Restarts int
 }
 
 // ProjectID returns the project label of a container.

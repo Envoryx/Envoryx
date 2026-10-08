@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/envoryx/envoryx/internal/audit"
 	"github.com/envoryx/envoryx/internal/runtime"
@@ -746,4 +747,44 @@ func (m *Manager) applyWorkers(ctx context.Context, id string) error {
 		return nil
 	}
 	return m.ensurePlan(ctx, proj, plan, proj.DesiredState == store.DesiredRunning, false)
+}
+
+// RestartWorker restarts one worker's container: a queue worker keeps the code it loaded
+// at its start, and a crash-looping one gets a fresh start once its cause is fixed (Docker
+// waits longer between its own attempts each time). The rest of the project keeps running.
+func (m *Manager) RestartWorker(ctx context.Context, id, workerID string) error {
+	if err := validate.UUID(id); err != nil {
+		return ErrNotFound
+	}
+	if err := validate.UUID(workerID); err != nil {
+		return ErrNotFound
+	}
+	unlock, err := m.lock(id)
+	if err != nil {
+		return err
+	}
+	defer unlock()
+	p, err := m.loadProject(ctx, id)
+	if err != nil {
+		return err
+	}
+	w, err := m.store.Workers.Get(ctx, id, workerID)
+	if err != nil {
+		return err
+	}
+	if !w.Enabled {
+		return fmt.Errorf("%w: the worker %s is switched off", ErrConflict, w.Name)
+	}
+	c, err := m.ServiceContainer(ctx, id, WorkerKind(w))
+	if err != nil {
+		return err
+	}
+	if p.DesiredState != store.DesiredRunning {
+		return fmt.Errorf("%w: the project is stopped; start it to run its workers", ErrConflict)
+	}
+	if err := m.engine.RestartContainer(ctx, c.ID, 30*time.Second); err != nil {
+		return err
+	}
+	m.audit.Log(ctx, audit.ActionWorkerRestarted, "project", id, map[string]any{"name": p.Name, "worker": w.Name})
+	return nil
 }

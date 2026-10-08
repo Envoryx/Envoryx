@@ -2701,5 +2701,10 @@
   "Craft queue": "Fila do Craft",
   "Once dotnet watch has applied a change with hot reload, a debugger can no longer attach to that process (error 0x80131c69). Restart the project, or save a change hot reload can't apply so dotnet watch restarts the app, then attach.": "Depois de o dotnet watch aplicar uma alteração com hot reload, nenhum depurador consegue ligar-se a esse processo (erro 0x80131c69). Reinicia o projeto, ou guarda uma alteração que o hot reload não consiga aplicar para o dotnet watch reiniciar a app, e depois liga-te.",
   "Emptying Redis": "A esvaziar o Redis",
-  "Port {{old}} is in use on the host, the project now uses port {{port}}": "A porta {{old}} está ocupada no host, o projeto usa agora a porta {{port}}"
+  "Port {{old}} is in use on the host, the project now uses port {{port}}": "A porta {{old}} está ocupada no host, o projeto usa agora a porta {{port}}",
+  "Worker \"{{name}}\" restarted.": "Worker \"{{name}}\" reiniciado.",
+  "Restarting the worker failed": "Falha ao reiniciar o worker",
+  "Keeps restarting: its process exits shortly after each start. The logs say why; restart it once the cause is fixed.": "Reinicia sem parar: o processo termina pouco depois de cada arranque. Os logs dizem porquê; reinicie-o quando a causa estiver corrigida.",
+  "Restart {{name}}": "Reiniciar {{name}}",
+  "Worker restarted": "Worker reiniciado"
 }

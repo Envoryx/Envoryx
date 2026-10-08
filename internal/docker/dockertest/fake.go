@@ -33,6 +33,9 @@ type FakeContainer struct {
 	Aliases map[string][]string
 	// OOMKilled is what inspect reports for the last exit.
 	OOMKilled bool
+	// Restarts simulates restarts by the restart policy (a crash loop); a start by hand
+	// resets it as Docker does.
+	Restarts int
 }
 
 // Fake is an in-memory Engine with failure injection.
@@ -280,6 +283,19 @@ func (f *Fake) SetState(name, state string) bool {
 	return false
 }
 
+// SetRestarts simulates a container Docker keeps restarting.
+func (f *Fake) SetRestarts(name string, n int) bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for _, c := range f.containers {
+		if c.Spec.Name == name {
+			c.Restarts = n
+			return true
+		}
+	}
+	return false
+}
+
 // SetLabel changes a label of an existing container, e.g. to make it look like one an
 // older Envoryx created with another spec.
 func (f *Fake) SetLabel(name, key, value string) bool {
@@ -390,16 +406,17 @@ func (f *Fake) toContainer(c *FakeContainer) docker.Container {
 		image = c.ImageID
 	}
 	return docker.Container{
-		ID:      c.ID,
-		Name:    c.Spec.Name,
-		Image:   image,
-		ImageID: c.ImageID,
-		State:   c.State,
-		Status:  c.State,
-		Created: c.Created,
-		Labels:  c.Spec.Labels,
-		Ports:   ports,
-		Managed: f.owns(c.Spec.Labels),
+		ID:       c.ID,
+		Name:     c.Spec.Name,
+		Image:    image,
+		ImageID:  c.ImageID,
+		State:    c.State,
+		Status:   c.State,
+		Created:  c.Created,
+		Labels:   c.Spec.Labels,
+		Ports:    ports,
+		Managed:  f.owns(c.Spec.Labels),
+		Restarts: c.Restarts,
 	}
 }
 
@@ -557,6 +574,7 @@ func (f *Fake) StartContainer(_ context.Context, id string) error {
 		return err
 	}
 	c.State = "running"
+	c.Restarts = 0
 	f.record("start:" + c.Spec.Name)
 	return nil
 }
@@ -589,6 +607,7 @@ func (f *Fake) RestartContainer(_ context.Context, id string, _ time.Duration) e
 		return err
 	}
 	c.State = "running"
+	c.Restarts = 0
 	f.record("restart:" + c.Spec.Name)
 	return nil
 }

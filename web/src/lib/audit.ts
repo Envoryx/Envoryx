@@ -18,6 +18,7 @@ export const auditActionLabels: Record<string, string> = {
   "project.started": "Project started",
   "project.stopped": "Project stopped",
   "project.restarted": "Project restarted",
+  "project.worker_restarted": "Worker restarted",
   "project.duplicated": "Project duplicated",
   "project.renamed": "Project renamed",
   "project.deleted": "Project deleted",
@@ -112,6 +113,8 @@ export function auditDetails(e: AuditEntry, t: TFunction): string {
       const keys = changes && typeof changes === "object" ? Object.keys(changes as object).join(", ") : "";
       return typeof d["name"] === "string" ? (keys ? `${d["name"]} · ${keys}` : String(d["name"])) : keys;
     }
+    case "project.worker_restarted":
+      return [d["name"], d["worker"]].filter((v) => typeof v === "string").join(" · ");
     case "auth.login_failed":
       return typeof d["reason"] === "string" ? d["reason"] : "-";
     default:
