@@ -10,6 +10,13 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Changed
+- New Laravel projects run `artisan migrate` once they're up, as Rails
+  projects run `db:prepare`: the sessions, cache and jobs tables are there
+  before the first request, and the queue worker no longer restarts in a
+  loop until someone ran the migration. A project created stopped still
+  gets it from Actions.
+
 ### Security
 - PHP files in upload directories ran like application code: a script
   that got into `wp-content/uploads` or Drupal's `sites/default/files`

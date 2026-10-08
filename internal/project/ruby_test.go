@@ -281,6 +281,9 @@ func TestRailsQueueDatabase(t *testing.T) {
 	if created() != 1 {
 		t.Fatalf("the template must create the queue database: %q", sql)
 	}
+	if !slices.Contains(e.engine.Execs, "envoryx-blog-ruby: bin/rails db:prepare") {
+		t.Fatalf("the template must run db:prepare after the start: %q", e.engine.Execs)
+	}
 	var cfg runtime.DatabaseConfig
 	_ = json.Unmarshal(v.Project.Service(store.ServiceDatabase).Config, &cfg)
 	c, _ := e.engine.Container("envoryx-blog-ruby")

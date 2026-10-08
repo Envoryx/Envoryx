@@ -620,27 +620,41 @@ func (m *Manager) prepareRailsDatabases(ctx context.Context, p store.Project) {
 // anyone opened the site: the development server's first request creates an empty
 // schema_migrations table in the queue database, after which db:prepare would no longer
 // load db/queue_schema.rb. The server waits for the same database, so it is up by now.
-// Best effort: a failure is logged, and the Rails actions are there to run it again.
-func (m *Manager) railsDBPrepare(ctx context.Context, p store.Project, tpl Template) {
-	c, err := m.ServiceContainer(ctx, p.ID, store.ServiceRuby)
+var railsDBPrepare = &templateAfterStart{service: store.ServiceRuby, cmd: []string{"bin/rails", "db:prepare"}}
+
+// runAfterStart runs the template's afterStart command in the new project's container
+// once the database answers. Best effort: a failure is logged, and the framework's
+// actions are there to run it again.
+func (m *Manager) runAfterStart(ctx context.Context, p store.Project, tpl Template) {
+	after := tpl.afterStart
+	label := strings.Join(after.cmd, " ")
+	if svc, cfg, err := databaseOf(p, ""); err == nil && svc.Variant != "mongodb" {
+		if dialect, err := dialectOf(svc); err == nil {
+			if err := m.waitForDatabase(ctx, p, svc, cfg, dialect); err != nil {
+				m.log.Warn(label+" after the template: the database does not answer - run it from Actions", "project", p.Slug, "err", err)
+				return
+			}
+		}
+	}
+	c, err := m.ServiceContainer(ctx, p.ID, after.service)
 	if err != nil || c.State != "running" {
-		m.log.Warn("rails db:prepare after the template", "project", p.Slug, "err", err)
+		m.log.Warn(label+" after the template", "project", p.Slug, "err", err)
 		return
 	}
-	env, err := m.execEnv(store.ServiceRuby)
+	env, err := m.execEnv(after.service)
 	if err != nil {
 		return
 	}
-	step(ctx, "Scaffolding the {{template}} template: {{step}}", "template", tpl.Name, "step", "rails db:prepare")
+	step(ctx, "Scaffolding the {{template}} template: {{step}}", "template", tpl.Name, "step", label)
 	m.ensurePasswdEntry(ctx, c.ID, c.Name, env.User)
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 	var out bytes.Buffer
 	code, err := m.engine.ExecStream(ctx, c.ID, docker.ExecStreamOptions{
-		Cmd: []string{"bin/rails", "db:prepare"}, Env: append(env.Env, "CI=1"), User: env.User, WorkingDir: env.WorkingDir, Stdout: &out, Stderr: &out,
+		Cmd: after.cmd, Env: append(env.Env, "CI=1"), User: env.User, WorkingDir: env.WorkingDir, Stdout: &out, Stderr: &out,
 	})
 	if err != nil || code != 0 {
-		m.log.Warn("rails db:prepare after the template failed - run it from Actions", "project", p.Slug, "exit", code, "err", err, "output", tailLines(out.String(), 20))
+		m.log.Warn(label+" after the template failed - run it from Actions", "project", p.Slug, "exit", code, "err", err, "output", tailLines(out.String(), 20))
 	}
 }
 
