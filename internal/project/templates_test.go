@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -285,6 +286,33 @@ func TestFailureLineFindsTheCause(t *testing.T) {
 	} {
 		if got := failureLine(tc.out); got != tc.want {
 			t.Errorf("%s: got %q, want %q", name, got, tc.want)
+		}
+	}
+}
+
+// A new Laravel project gets its tables before the first request and the queue worker,
+// which otherwise restarts until someone runs artisan migrate; created stopped, it waits
+// for the action.
+func TestLaravelMigratesAfterStart(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	e.engine.OneShotHandler = func(spec docker.ContainerSpec) (docker.ExecResult, error) {
+		return docker.ExecResult{}, nil
+	}
+	migrated := func(slug string) bool {
+		return slices.Contains(e.engine.Execs, "envoryx-"+slug+"-php: php artisan migrate --no-interaction --force")
+	}
+	for _, start := range []bool{false, true} {
+		name := "Stopped"
+		if start {
+			name = "Started"
+		}
+		req := CreateRequest{Name: name, Template: "laravel", PHP: &PHPRequest{Version: "8.4"}, Database: &DatabaseRequest{Type: "mariadb"}, Start: start}
+		if _, err := e.m.Create(ctx, req); err != nil {
+			t.Fatal(err)
+		}
+		if got := migrated(strings.ToLower(name)); got != start {
+			t.Fatalf("%s: migrated = %v, execs %q", name, got, e.engine.Execs)
 		}
 	}
 }

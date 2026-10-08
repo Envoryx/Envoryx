@@ -270,10 +270,12 @@ func (m *Manager) create(ctx context.Context, req CreateRequest) (View, error) {
 		if failed, err := m.startProvisioned(ctx, proj, plan, j); err != nil {
 			return fail(failed, err)
 		}
-		if tpl, ok := TemplateByID(req.Template); ok && tpl.Runtime == "ruby" && proj.Git.URL == "" {
-			m.prepareRailsDatabases(ctx, proj)
-			if tpl.Ruby != nil && tpl.Ruby.Preset == "rails" {
-				m.railsDBPrepare(ctx, proj, tpl)
+		if tpl, ok := TemplateByID(req.Template); ok && proj.Git.URL == "" {
+			if tpl.Runtime == "ruby" {
+				m.prepareRailsDatabases(ctx, proj)
+			}
+			if tpl.afterStart != nil {
+				m.runAfterStart(ctx, proj, tpl)
 			}
 		}
 	}

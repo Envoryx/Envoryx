@@ -66,6 +66,16 @@ type Template struct {
 	Notes string `json:"notes,omitempty"`
 
 	steps []templateStep
+	// afterStart runs once in the new project's runtime container after its first start,
+	// with the database up: the schema step the application's first request or worker
+	// would otherwise trip over.
+	afterStart *templateAfterStart
+}
+
+// templateAfterStart is a command run once after a template project's first start.
+type templateAfterStart struct {
+	service store.ServiceKind
+	cmd     []string
 }
 
 type templateStep struct {
@@ -357,8 +367,9 @@ var templates = []Template{
 	{
 		ID: "laravel", Name: "Laravel", Description: "composer create-project laravel/laravel - ready to run with the project database.",
 		Runtime: "php", Docroot: "public", RecommendedDatabase: "mariadb",
-		Notes: "Run “artisan migrate” from Actions. Envoryx injects DB_* and REDIS_*/MAIL_* variables; they override .env.",
-		steps: []templateStep{{label: "composer create-project", cmd: []string{"composer", "create-project", "laravel/laravel", ".", composerNoInteraction, "--prefer-dist"}}},
+		Notes:      "Envoryx runs “artisan migrate” when it starts the new project (created stopped, run it from Actions), so the sessions, cache and jobs tables are there before the first request and the queue worker. Envoryx injects DB_* and REDIS_*/MAIL_* variables; they override .env.",
+		steps:      []templateStep{{label: "composer create-project", cmd: []string{"composer", "create-project", "laravel/laravel", ".", composerNoInteraction, "--prefer-dist"}}},
+		afterStart: &templateAfterStart{service: store.ServicePHP, cmd: []string{"php", "artisan", "migrate", composerNoInteraction, "--force"}},
 	},
 	{
 		ID: "symfony", Name: "Symfony", Description: "symfony/skeleton plus the webapp pack (Twig, Doctrine, forms, security…).",
@@ -531,6 +542,7 @@ var templates = []Template{
 			{label: "gem install rails, rails new", cmdFor: railsNew()},
 			{label: "configure development", cmd: []string{"ruby", "-e", railsQueueDatabase}, files: railsFiles},
 		},
+		afterStart: railsDBPrepare,
 	},
 	{
 		ID: "rails-api", Name: "Rails (API only)", Description: "rails new --api: a JSON backend without views and assets, on the project database.",
@@ -541,6 +553,7 @@ var templates = []Template{
 			{label: "gem install rails, rails new --api", cmdFor: railsNew("--api")},
 			{label: "configure development", cmd: []string{"ruby", "-e", railsQueueDatabase}, files: railsFiles},
 		},
+		afterStart: railsDBPrepare,
 	},
 	{
 		ID: "sinatra", Name: "Sinatra", Description: "A minimal Sinatra application (app.rb, config.ru) on Puma with a JSON route and a health check.",
