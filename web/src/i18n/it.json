@@ -2699,5 +2699,6 @@
   "TYPO3 scheduler": "Scheduler di TYPO3",
   "Drupal cron": "Cron di Drupal",
   "Craft queue": "Coda Craft",
-  "Once dotnet watch has applied a change with hot reload, a debugger can no longer attach to that process (error 0x80131c69). Restart the project, or save a change hot reload can't apply so dotnet watch restarts the app, then attach.": "Dopo che dotnet watch ha applicato una modifica con hot reload, nessun debugger può più collegarsi a quel processo (errore 0x80131c69). Riavvia il progetto, oppure salva una modifica che l'hot reload non può applicare così dotnet watch riavvia l'app, poi collegati."
+  "Once dotnet watch has applied a change with hot reload, a debugger can no longer attach to that process (error 0x80131c69). Restart the project, or save a change hot reload can't apply so dotnet watch restarts the app, then attach.": "Dopo che dotnet watch ha applicato una modifica con hot reload, nessun debugger può più collegarsi a quel processo (errore 0x80131c69). Riavvia il progetto, oppure salva una modifica che l'hot reload non può applicare così dotnet watch riavvia l'app, poi collegati.",
+  "Emptying Redis": "Svuotamento di Redis"
 }
