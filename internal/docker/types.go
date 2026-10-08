@@ -54,6 +54,10 @@ var ErrNotFound = errors.New("docker resource not found")
 // ErrUnavailable is returned when the Docker Engine cannot be reached.
 var ErrUnavailable = errors.New("docker engine unavailable")
 
+// ErrPortInUse is returned when a container cannot publish a host port because something
+// else on the Docker host holds it.
+var ErrPortInUse = errors.New("host port in use")
+
 // ErrNoGPU is returned when a container asks for GPUs Docker cannot hand over.
 // ErrSubnetInUse means the subnet asked for overlaps a network or route Docker already has.
 var ErrSubnetInUse = errors.New("the subnet overlaps an existing network")

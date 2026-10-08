@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"maps"
 	"net/netip"
 	"slices"
 	"sort"
@@ -37,6 +38,9 @@ type FakeContainer struct {
 // Fake is an in-memory Engine with failure injection.
 type Fake struct {
 	mu sync.Mutex
+
+	// HostPorts are the ports programs on the fake Docker host listen on.
+	HostPorts map[int]bool
 
 	seq        int
 	containers map[string]*FakeContainer
@@ -1593,4 +1597,11 @@ func (f *Fake) PullImage(ctx context.Context, ref string, progress docker.PullPr
 	f.record("pull:" + ref)
 	f.mu.Unlock()
 	return nil
+}
+
+// HostListeningPorts implements docker.HostPortLister.
+func (f *Fake) HostListeningPorts(_ context.Context) (map[int]bool, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return maps.Clone(f.HostPorts), nil
 }

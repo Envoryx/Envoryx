@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -450,6 +451,9 @@ func (m *Manager) transitionLocked(ctx context.Context, id, action string, op fu
 	if proj.Lifecycle == store.LifecycleDeleting {
 		return View{}, fmt.Errorf("%w: project is being deleted", ErrConflict)
 	}
+	if desired == store.DesiredRunning {
+		m.moveBusyHTTPPort(ctx, &proj)
+	}
 	planner, err := m.planner()
 	if err != nil {
 		return View{}, err
@@ -470,6 +474,38 @@ func (m *Manager) transitionLocked(ctx context.Context, id, action string, op fu
 	}
 	m.audit.Log(ctx, action, "project", id, map[string]any{"name": proj.Name})
 	return m.Get(ctx, id)
+}
+
+// moveBusyHTTPPort gives a project another HTTP port when a program on the Docker host
+// took its port while the project was stopped: an IDE backend or a database installed on
+// the host, started after Envoryx had handed the port out. The web server could not
+// publish it and the start would fail, and the HTTP port cannot be changed by hand. The
+// project is reached through the proxy anyway; only the direct address changes. A
+// running web container holds the port itself, so it is left alone.
+func (m *Manager) moveBusyHTTPPort(ctx context.Context, proj *store.Project) {
+	if proj.HTTPPort == 0 {
+		return
+	}
+	if c, err := m.ServiceContainer(ctx, proj.ID, store.ServiceWeb); err == nil && c.State == "running" {
+		return
+	}
+	// A fresh look: the port may have been taken a moment ago.
+	if !m.hostListeningPorts(ctx, 0)[proj.HTTPPort] {
+		return
+	}
+	port, err := m.allocatePort(ctx, proj.HTTPPort)
+	if err != nil {
+		m.log.Warn("the project's HTTP port is in use on the host and no other is free", "project", proj.Slug, "port", proj.HTTPPort, "err", err)
+		return
+	}
+	if err := m.store.Projects.SetHTTPPort(ctx, proj.ID, port); err != nil {
+		m.log.Warn("moving the project to another HTTP port failed", "project", proj.Slug, "err", err)
+		return
+	}
+	step(ctx, "Port {{old}} is in use on the host, the project now uses port {{port}}", "old", strconv.Itoa(proj.HTTPPort), "port", strconv.Itoa(port))
+	m.log.Info("HTTP port in use on the host, moved", "project", proj.Slug, "old", proj.HTTPPort, "port", port)
+	m.audit.Log(ctx, audit.ActionProjectUpdated, "project", proj.ID, map[string]any{"name": proj.Name, "httpPort": map[string]int{"old": proj.HTTPPort, "new": port}})
+	proj.HTTPPort = port
 }
 
 // startPlan ensures config files, network and containers exist and starts them in order.

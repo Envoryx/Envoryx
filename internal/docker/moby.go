@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"net"
 	"net/netip"
+	"regexp"
 	"slices"
 	"sort"
 	"strconv"
@@ -429,7 +430,9 @@ func (e *MobyEngine) CreateContainer(ctx context.Context, spec ContainerSpec) (s
 	}
 
 	var netCfg *network.NetworkingConfig
-	if spec.Network != "" {
+	if spec.Network == "host" {
+		host.NetworkMode = container.NetworkMode(spec.Network)
+	} else if spec.Network != "" {
 		host.NetworkMode = container.NetworkMode(spec.Network)
 		netCfg = &network.NetworkingConfig{
 			EndpointsConfig: map[string]*network.EndpointSettings{
@@ -464,7 +467,25 @@ func (e *MobyEngine) StartContainer(ctx context.Context, id string) error {
 		return err
 	}
 	_, err := e.cli.ContainerStart(ctx, id, client.ContainerStartOptions{})
-	return gpuError(wrap(err))
+	return portError(gpuError(wrap(err)))
+}
+
+// busyPort finds the host port in Docker's "Bind for 0.0.0.0:30001 failed: port is
+// already allocated", "failed to bind host port 0.0.0.0:30001/tcp: address already in use"
+// and "listen tcp4 127.0.0.1:30001: bind: address already in use".
+var busyPort = regexp.MustCompile(`:(\d+)(?:/tcp)?(?: failed: port is already allocated|: bind: address already in use|: address already in use)`)
+
+// portError names the port when a start failed because something on the host holds a
+// port the container publishes: a port given out while it was free, which a program
+// started since (an IDE, a database installed on the host) or another container took.
+func portError(err error) error {
+	if err == nil {
+		return nil
+	}
+	if m := busyPort.FindStringSubmatch(err.Error()); m != nil {
+		return fmt.Errorf("%w: %s is taken by another program or container on the Docker host - stop it or give the service another port (%v)", ErrPortInUse, m[1], err)
+	}
+	return err
 }
 
 // gpuError names the reason when a start failed because Docker has no way to hand over

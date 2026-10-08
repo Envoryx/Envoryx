@@ -94,6 +94,8 @@ func writeError(w http.ResponseWriter, r *http.Request, err error) {
 		ae = newError(http.StatusInsufficientStorage, "insufficient_storage", err.Error())
 	case errors.Is(err, docker.ErrOtherInstance):
 		ae = newError(http.StatusConflict, "other_instance", err.Error())
+	case errors.Is(err, docker.ErrPortInUse):
+		ae = newError(http.StatusConflict, "port_in_use", err.Error())
 	case errors.Is(err, docker.ErrNoGPU):
 		ae = newError(http.StatusConflict, "gpu_unavailable", docker.ErrNoGPU.Error())
 	case errors.Is(err, docker.ErrUnavailable):

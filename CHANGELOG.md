@@ -32,6 +32,15 @@ release). `:main` follows the development branch.
   loop until someone ran the migration. A project created stopped still
   gets it from Actions.
 
+### Fixed
+- Envoryx handed out host ports that a program on the Docker host already
+  listened on (a JetBrains IDE on 30000 and 30001, a database installed on
+  the host), and the project's start failed in Docker. Envoryx now looks at
+  the host's listening ports through a short-lived container in the host
+  network and skips them. A stopped project whose HTTP port was taken
+  since moves to a free one at its next start; any other port in use is
+  named in the error instead of Docker's raw message.
+
 ### Security
 - PHP files in upload directories ran like application code: a script
   that got into `wp-content/uploads` or Drupal's `sites/default/files`
