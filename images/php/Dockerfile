@@ -10,6 +10,10 @@
 # --build-arg BASE_TAG=8.6-rc --build-arg MISSING_EXTENSIONS="mongodb imagick ..." (see below).
 ARG PHP_VERSION=8.4
 ARG BASE_TAG=${PHP_VERSION}
+# Node.js LTS for the build steps PHP applications run next to PHP (see below).
+ARG NODE_VERSION=24
+FROM node:${NODE_VERSION}-bookworm-slim AS node
+
 FROM php:${BASE_TAG}-fpm
 
 ARG PHP_VERSION
@@ -72,9 +76,10 @@ RUN set -eux; \
 #   servers newer than itself, so psql comes from the PostgreSQL apt repository (newest major);
 #   images whose Debian that repository no longer serves get the distribution's client.
 # - rsync for rsync over SSH.
+# - jq: Shopware's build scripts read the plugins' package requirements with it.
 RUN set -eux; \
     apt-get update; \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends imagemagick locales default-mysql-client rsync; \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends imagemagick locales default-mysql-client rsync jq; \
     printf '%s UTF-8\n' en_US.UTF-8 en_GB.UTF-8 de_DE.UTF-8 de_AT.UTF-8 de_CH.UTF-8 fr_FR.UTF-8 es_ES.UTF-8 it_IT.UTF-8 nl_NL.UTF-8 pt_BR.UTF-8 pl_PL.UTF-8 > /etc/locale.gen; \
     locale-gen; \
     . /etc/os-release; \
@@ -89,9 +94,32 @@ RUN set -eux; \
     # MariaDB's self-signed ones. The database sits on the project's own network.
     mkdir -p /etc/mysql/conf.d; printf '[client]\nssl-verify-server-cert = off\n' > /etc/mysql/conf.d/zz-envoryx.cnf; \
     rm -rf /var/lib/apt/lists/*; \
-    convert -version; psql --version; mysql --version; mysqldump --version; rsync --version | head -n1; php -m | grep -ix exif
+    convert -version; psql --version; mysql --version; mysqldump --version; rsync --version | head -n1; jq --version; php -m | grep -ix exif
 
 COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
+
+# Node.js with npm, pnpm and yarn: Shopware builds its administration and storefront with
+# bin/build-*.sh and bin/watch-*.sh, which call php and npm in the same container, and
+# Laravel's Vite, Drupal and TYPO3 themes or WordPress block builds run npm in the project
+# directory. A Node service of the project still runs dev servers; this is for the
+# terminal and the actions. The official image's binaries are the nodejs.org builds, which
+# run on any of the PHP images' Debian releases. Corepack as in the Node image, but only
+# yarn is fetched up front (4 MB): pnpm's native binary would add 60 MB to every PHP image
+# for what the PHP stacks rarely use, and Corepack fetches it on its first run.
+COPY --from=node /usr/local/bin/node /usr/local/bin/node
+COPY --from=node /usr/local/lib/node_modules /usr/local/lib/node_modules
+ENV COREPACK_HOME=/usr/local/lib/corepack \
+    COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
+    NPM_CONFIG_UPDATE_NOTIFIER=false
+RUN set -eux; \
+    ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm; \
+    ln -s ../lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx; \
+    npm install -g corepack@latest; \
+    corepack enable; \
+    corepack prepare yarn@stable --activate; \
+    node --version; npm --version; yarn --version; \
+    chmod -R a+rwX "$COREPACK_HOME"; \
+    rm -rf /root/.npm
 # WP-CLI as wp; the weekly image build picks up new releases.
 ADD --chmod=0755 https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar /usr/local/bin/wp
 
