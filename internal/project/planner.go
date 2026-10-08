@@ -637,6 +637,7 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 			plan.Files = append(plan.Files,
 				FilePlan{Path: filepath.Join(plan.ConfigDir, "web", cfg.FileName), Content: cfg.Content, Mode: 0o644},
 			)
+			labels[labelWebConfig] = hashJSON(cfg.Content)
 			spec := docker.ContainerSpec{
 				Name:         ContainerName(proj.Slug, store.ServiceWeb),
 				Image:        svc.Image,
@@ -1596,6 +1597,12 @@ func (p *Planner) envStrings(proj store.Project) ([]string, error) {
 	return out, nil
 }
 
+// labelWebConfig carries a hash of the web server's generated configuration. The servers
+// read it only when they start, and the file is rewritten in place, so a running web
+// container keeps the old rules after an Envoryx update; as part of the spec fingerprint
+// the label makes the dashboard ask for a restart, which recreates the container.
+const labelWebConfig = "envoryx.web.config"
+
 // specFingerprint hashes the parts of a spec that are baked into a container and are not
 // secrets: command, working dir, user, mounts, ports, aliases and healthcheck.
 func specFingerprint(spec docker.ContainerSpec) string {
@@ -1617,6 +1624,9 @@ func specFingerprint(spec docker.ContainerSpec) string {
 	}
 	if d := spec.Labels[labelAddonDefinition]; d != "" {
 		fields["addon"] = d
+	}
+	if c := spec.Labels[labelWebConfig]; c != "" {
+		fields["webconfig"] = c
 	}
 	if len(spec.ExtraHosts) > 0 {
 		fields["hosts"] = spec.ExtraHosts
