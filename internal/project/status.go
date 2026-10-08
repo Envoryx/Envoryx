@@ -12,6 +12,22 @@ import (
 	"github.com/envoryx/envoryx/internal/store"
 )
 
+// crashLoopRestarts is how often Docker must have restarted a container that came up
+// less than a minute ago for it to count as crash-looping. A single restart is no loop:
+// a broker or database may exit once while it initialises its volume on a slow host.
+const crashLoopRestarts = 3
+
+// containerState is the container's state as the project shows it: one that runs but
+// was restarted by Docker again and again, the last time within the last minute, is
+// crash-looping, which the listing reports as running for as long as the process lives
+// each round.
+func containerState(c docker.Container) string {
+	if c.State == "running" && c.Restarts >= crashLoopRestarts {
+		return "restarting"
+	}
+	return c.State
+}
+
 // deriveStatus computes the observed state of a project from the managed container list.
 // imageIDs (optional) maps image references to their current local id so containers built
 // from an older build of the same tag can be flagged.
@@ -43,11 +59,11 @@ func deriveStatus(p store.Project, containers []docker.Container, imageIDs map[s
 			existing++
 			ss.Exists = true
 			ss.ContainerID = c.ID
-			ss.State = c.State
+			ss.State = containerState(c)
 			ss.Status = c.Status
 			ss.Health = c.Health
 			ss.Ports = c.Ports
-			if c.State == "running" {
+			if ss.State == "running" {
 				running++
 				ss.Running = true
 			}
@@ -96,8 +112,8 @@ func deriveStatus(p store.Project, containers []docker.Container, imageIDs map[s
 		ss.Image = rt.Image
 		if c, ok := byKind[string(WorkerKind(w))]; ok {
 			existing++
-			ss.Exists, ss.ContainerID, ss.State, ss.Status, ss.Health, ss.Ports = true, c.ID, c.State, c.Status, c.Health, c.Ports
-			if c.State == "running" {
+			ss.Exists, ss.ContainerID, ss.State, ss.Status, ss.Health, ss.Ports = true, c.ID, containerState(c), c.Status, c.Health, c.Ports
+			if ss.State == "running" {
 				running++
 				ss.Running = true
 			}

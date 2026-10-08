@@ -1,4 +1,4 @@
-import { Cog, Plus, Trash2 } from "lucide-react";
+import { Cog, Plus, RotateCw, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -16,6 +16,8 @@ export function WorkersTab({ project }: { project: Project }) {
   const q = useQuery({ queryKey: ["projects", project.id, "workers"], queryFn: () => api.projects.workers.list(project.id) });
   // Adding, changing and removing workers needs admin in the project.
   const editable = projectAccess(project).admin;
+  // Restarting one needs operate, like starting and stopping the project.
+  const operable = projectAccess(project).operate;
   const refresh = () => {
     void qc.invalidateQueries({ queryKey: ["projects", project.id, "workers"] });
     void qc.invalidateQueries({ queryKey: keys.project(project.id) });
@@ -41,6 +43,14 @@ export function WorkersTab({ project }: { project: Project }) {
     mutationFn: (w: Worker) => api.projects.workers.update(project.id, w.id, { name: w.name, preset: w.preset, arg: w.arg, enabled: !w.enabled }),
     onSuccess: refresh,
     onError: (err) => fail(err, t("Updating the worker failed")),
+  });
+  const restart = useMutation({
+    mutationFn: (w: Worker) => api.projects.workers.restart(project.id, w.id),
+    onSuccess: (_r, w) => {
+      setMsg({ tone: "green", text: t('Worker "{{name}}" restarted.', { name: w.name }) });
+      refresh();
+    },
+    onError: (err) => fail(err, t("Restarting the worker failed")),
   });
   const remove = useMutation({
     mutationFn: (w: Worker) => api.projects.workers.remove(project.id, w.id),
@@ -103,15 +113,25 @@ export function WorkersTab({ project }: { project: Project }) {
                       )}
                     </p>
                     <p className="mt-0.5 font-mono text-[11px] text-subtle">{w.command.join(" ")}</p>
+                    {w.enabled && st?.state === "restarting" && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{t("Keeps restarting: its process exits shortly after each start. The logs say why; restart it once the cause is fixed.")}</p>}
                   </div>
-                  {editable && (
+                  {(editable || operable) && (
                   <div className="flex items-center gap-1.5">
+                    {operable && w.enabled && st?.exists && project.desiredState === "running" && (
+                      <Button size="sm" variant="ghost" onClick={() => restart.mutate(w)} loading={restart.isPending && restart.variables?.id === w.id} icon={<RotateCw className="size-3.5" />} aria-label={t("Restart {{name}}", { name: w.name })}>
+                        {t("Restart")}
+                      </Button>
+                    )}
+                    {editable && (
+                      <>
                     <Button size="sm" onClick={() => toggle.mutate(w)} loading={toggle.isPending && toggle.variables?.id === w.id}>
                       {w.enabled ? t("Disable") : t("Enable")}
                     </Button>
                     <Button size="sm" variant="ghost" onClick={() => remove.mutate(w)} loading={remove.isPending && remove.variables?.id === w.id} icon={<Trash2 className="size-3.5" />} aria-label={t("Remove {{name}}", { name: w.name })}>
                       {t("Remove")}
                     </Button>
+                      </>
+                    )}
                   </div>
                   )}
                 </li>

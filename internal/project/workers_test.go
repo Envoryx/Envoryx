@@ -243,3 +243,58 @@ func TestWorkersFollowTheRuntimeModeOnRestart(t *testing.T) {
 		t.Fatal("the restart must give the worker the production environment")
 	}
 }
+
+// A worker Docker keeps restarting is shown as restarting although the listing says
+// running, and it can be restarted on its own; the restart resets Docker's count.
+func TestCrashLoopingWorkerAndRestart(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	view, err := e.m.Create(ctx, phpRequest("Shop", true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := view.Project.ID
+	q, err := e.m.AddWorker(ctx, id, WorkerRequest{Name: "queue", Preset: "laravel:queue", Enabled: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	workerState := func() (string, bool, State) {
+		v, _ := e.m.Get(ctx, id)
+		for _, s := range v.Status.Services {
+			if s.WorkerID == q.ID {
+				return s.State, s.Running, v.Status.State
+			}
+		}
+		return "", false, v.Status.State
+	}
+	// One restart while it comes up is no loop.
+	e.engine.SetRestarts("envoryx-shop-worker-queue", 1)
+	if state, running, _ := workerState(); state != "running" || !running {
+		t.Fatalf("a single restart: worker %s running=%v", state, running)
+	}
+	e.engine.SetRestarts("envoryx-shop-worker-queue", 4)
+	if state, running, project := workerState(); state != "restarting" || running || project != StatePartial {
+		t.Fatalf("crash loop: worker %s running=%v, project %s", state, running, project)
+	}
+	before, _ := e.engine.Container("envoryx-shop-worker-queue")
+	web, _ := e.engine.Container("envoryx-shop-web")
+	if err := e.m.RestartWorker(ctx, id, q.ID); err != nil {
+		t.Fatal(err)
+	}
+	if state, running, _ := workerState(); state != "running" || !running {
+		t.Fatalf("after the restart: %s running=%v", state, running)
+	}
+	if c, _ := e.engine.Container("envoryx-shop-worker-queue"); c.ID != before.ID {
+		t.Fatal("a restart keeps the container")
+	}
+	if c, _ := e.engine.Container("envoryx-shop-web"); c.ID != web.ID || c.State != "running" {
+		t.Fatal("the rest of the project keeps running")
+	}
+
+	if _, err := e.m.Stop(ctx, id); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.m.RestartWorker(ctx, id, q.ID); !errors.Is(err, ErrConflict) {
+		t.Fatalf("a stopped project's worker is not restarted: %v", err)
+	}
+}

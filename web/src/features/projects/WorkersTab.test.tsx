@@ -75,4 +75,23 @@ describe("WorkersTab", () => {
     expect(screen.queryByRole("button", { name: "Remove cron" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Add worker" })).not.toBeInTheDocument();
   });
+
+  it("flags a crash-looping worker and restarts it on its own, also for developers", async () => {
+    const workers = [{ id: "w1", name: "queue", preset: "laravel:queue", arg: "", enabled: true, command: ["php", "artisan", "queue:work"], createdAt: "2026-09-18T10:00:00Z" }];
+    const api = mockApi({
+      ...authedRoutes,
+      [`GET /projects/${id}/workers`]: () => ({ body: { workers, presets } }),
+      [`POST /projects/${id}/workers/w1/restart`]: () => ({ status: 204 }),
+    });
+    const project = makeProject({ access: "operate" });
+    project.status.services.push({ kind: "worker", variant: "queue", version: "laravel:queue", image: "x", containerName: "envoryx-acme-shop-worker-queue", exists: true, running: false, state: "restarting", ports: [], workerId: "w1", imagePrevious: false, imagePinned: false });
+    renderApp(<WorkersTab project={project} />);
+    const user = userEvent.setup();
+
+    expect(await screen.findByText(/Keeps restarting/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Disable" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Restart queue" }));
+    await waitFor(() => expect(api.calls.some((c) => c.url.endsWith("/workers/w1/restart"))).toBe(true));
+    expect(await screen.findByText('Worker "queue" restarted.')).toBeInTheDocument();
+  });
 });

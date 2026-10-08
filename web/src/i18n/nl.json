@@ -2701,5 +2701,10 @@
   "Craft queue": "Craft-wachtrij",
   "Once dotnet watch has applied a change with hot reload, a debugger can no longer attach to that process (error 0x80131c69). Restart the project, or save a change hot reload can't apply so dotnet watch restarts the app, then attach.": "Zodra dotnet watch een wijziging met hot reload heeft toegepast, kan geen debugger zich meer aan dat proces koppelen (fout 0x80131c69). Herstart het project, of sla een wijziging op die hot reload niet kan toepassen zodat dotnet watch de app herstart, en koppel dan.",
   "Emptying Redis": "Redis wordt leeggemaakt",
-  "Port {{old}} is in use on the host, the project now uses port {{port}}": "Poort {{old}} is op de host in gebruik, het project gebruikt nu poort {{port}}"
+  "Port {{old}} is in use on the host, the project now uses port {{port}}": "Poort {{old}} is op de host in gebruik, het project gebruikt nu poort {{port}}",
+  "Worker \"{{name}}\" restarted.": "Worker \"{{name}}\" herstart.",
+  "Restarting the worker failed": "Herstarten van de worker mislukt",
+  "Keeps restarting: its process exits shortly after each start. The logs say why; restart it once the cause is fixed.": "Blijft herstarten: het proces stopt kort na elke start. De logs zeggen waarom; herstart hem zodra de oorzaak is opgelost.",
+  "Restart {{name}}": "{{name}} herstarten",
+  "Worker restarted": "Worker herstart"
 }

@@ -2749,5 +2749,10 @@
   "Craft queue": "Очередь Craft",
   "Once dotnet watch has applied a change with hot reload, a debugger can no longer attach to that process (error 0x80131c69). Restart the project, or save a change hot reload can't apply so dotnet watch restarts the app, then attach.": "Как только dotnet watch применил изменение через hot reload, отладчик больше не может подключиться к этому процессу (ошибка 0x80131c69). Перезапусти проект или сохрани изменение, которое hot reload не может применить, чтобы dotnet watch перезапустил приложение, и затем подключайся.",
   "Emptying Redis": "Очистка Redis",
-  "Port {{old}} is in use on the host, the project now uses port {{port}}": "Порт {{old}} занят на хосте, проект теперь использует порт {{port}}"
+  "Port {{old}} is in use on the host, the project now uses port {{port}}": "Порт {{old}} занят на хосте, проект теперь использует порт {{port}}",
+  "Worker \"{{name}}\" restarted.": "Воркер «{{name}}» перезапущен.",
+  "Restarting the worker failed": "Не удалось перезапустить воркер",
+  "Keeps restarting: its process exits shortly after each start. The logs say why; restart it once the cause is fixed.": "Постоянно перезапускается: его процесс завершается вскоре после каждого старта. Причина видна в логах; перезапустите его, когда она устранена.",
+  "Restart {{name}}": "Перезапустить {{name}}",
+  "Worker restarted": "Воркер перезапущен"
 }

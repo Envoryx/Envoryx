@@ -24,6 +24,9 @@ release). `:main` follows the development branch.
   TYPO3 themes or WordPress blocks from the PHP terminal. Shopware projects
   get both build scripts as actions. A Node service still runs dev servers.
   The images grow by about 150 MB.
+- Workers can be restarted on their own from the Workers section (a queue
+  worker keeps the code it loaded at its start), also by developers. The
+  rest of the project keeps running.
 
 ### Changed
 - New Laravel projects run `artisan migrate` once they're up, as Rails
@@ -40,6 +43,11 @@ release). `:main` follows the development branch.
   network and skips them. A stopped project whose HTTP port was taken
   since moves to a free one at its next start; any other port in use is
   named in the error instead of Docker's raw message.
+- A worker or service whose process exited a few seconds after each start
+  showed as running, since Docker lists it as running between its
+  restarts. Containers Docker restarted three times or more, the last time
+  within the last minute, now show as restarting, the project as partly
+  running, and the worker says to look at the logs.
 
 ### Security
 - PHP files in upload directories ran like application code: a script

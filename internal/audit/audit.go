@@ -28,6 +28,7 @@ const (
 	ActionProjectStarted    = "project.started"
 	ActionProjectStopped    = "project.stopped"
 	ActionProjectRestarted  = "project.restarted"
+	ActionWorkerRestarted   = "project.worker_restarted"
 	ActionProjectDuplicated = "project.duplicated"
 	ActionProjectRenamed    = "project.renamed"
 	// ActionProjectShared is written when a project goes out on a public tunnel address,
