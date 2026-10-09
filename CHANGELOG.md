@@ -10,6 +10,15 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Security
+- Built with Go 1.27.2, which fixes eleven vulnerabilities in Go 1.27.1's
+  standard library that Envoryx's code reaches, most of them in the
+  HTTP/2 server (crashes, memory and CPU exhaustion) and HTTP/1
+  connection handling. CI now runs govulncheck on every change and
+  weekly, and `make vulncheck` runs it locally.
+- SECURITY.md lists `BUILD` among the socket proxy groups that project
+  Dockerfiles need, and says plainly what a socket proxy can't prevent.
+
 ## [0.22.0] - 2026-10-09
 
 Fixes from the October test round. Saving a setting such as Xdebug no

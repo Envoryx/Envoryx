@@ -23,6 +23,12 @@ jobs:
         run: go vet ./...
       - name: Format check
         run: test -z "$(gofmt -l cmd internal)"
+      - name: Vulnerability check
+        # Fails when code that actually runs calls a known vulnerable function, in our
+        # modules or in the standard library. The weekly run catches advisories published
+        # after the last commit; a standard-library one is fixed by raising the go line
+        # in go.mod.
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
       - name: Unit tests
         run: go test -race ./...
       - name: Docker integration tests
