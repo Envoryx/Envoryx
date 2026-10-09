@@ -69,3 +69,21 @@ Expected: 3
 		t.Fatalf("long backtrace: %d", len(res.Failed[0].Details))
 	}
 }
+
+// Rails 8.1 prints two blank lines between a failure and the command that runs it again;
+// the error, which names no location of its own, gets it from that command.
+func TestParseMinitestRails81(t *testing.T) {
+	raw, err := os.ReadFile("testdata/minitest/rails-8.1-blank-lines.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, ok := parseMinitest(string(raw), appMountTarget)
+	if !ok || res.Tests != 3 || res.Failures != 1 || res.Errors != 1 || len(res.Failed) != 2 {
+		t.Fatalf("%+v", res)
+	}
+	for _, c := range res.Failed {
+		if c.File != "test/models/post_test.rb" || (c.Name == "test_raises" && c.Line != 12) || (c.Name == "test_fails_on_purpose" && c.Line != 8) {
+			t.Errorf("location of %s: %s:%d", c.Name, c.File, c.Line)
+		}
+	}
+}

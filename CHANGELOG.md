@@ -10,7 +10,20 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Added
+- The Tests section reads the results of RSpec without
+  `rspec_junit_formatter`, Django's `manage.py test` and Vitest or Jest
+  behind a package.json test script from their output: counts, failed
+  tests with file and line, and the message. Before, only the exit code
+  counted. RSpec runs with the JUnit formatter get the line of each
+  failed example as well.
+- Every run in the Tests section shows its output, past runs included
+  (folded when the report explains the failure).
+
 ### Fixed
+- `rails test` on Rails 8.1 showed failed tests without the line they
+  start on (and errors without any location): Rails 8.1 prints two blank
+  lines before the command that runs a test again.
 - Yarn 2 and later and pnpm downloaded every package again in each
   project. Yarn's global cache now lives in the shared package cache
   (`YARN_GLOBAL_FOLDER`), and pnpm's store too: the project home gets

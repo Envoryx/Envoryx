@@ -78,12 +78,17 @@ describe("TestsTab", () => {
     const api = mockApi({
       ...authedRoutes,
       [`GET /projects/${id}/tests`]: () => ({ body: { suites, runs: [{ ...failedRun, result: { ...failedRun.result, output: "" } }] } }),
-      [`GET /projects/${id}/test-runs/${failedRun.id}`]: () => ({ body: { run: failedRun } }),
+      [`GET /projects/${id}/test-runs/${failedRun.id}`]: () => ({ body: { run: { ...failedRun, result: { ...failedRun.result, output: "PHPUnit 12 by Sebastian Bergmann" } } } }),
     });
     renderApp(<TestsTab project={makeProject()} />);
     const user = userEvent.setup();
     await user.click(await screen.findByText("· CartTest"));
     expect(await screen.findByText("Failed asserting that 41 matches expected 42.")).toBeInTheDocument();
     expect(api.calls.some((c) => c.url.endsWith(`/test-runs/${failedRun.id}`))).toBe(true);
+    // The run's output is there too, folded since the report explains the failure.
+    const output = screen.getByText("Output");
+    expect(output.closest("details")).not.toHaveAttribute("open");
+    await user.click(output);
+    expect(screen.getByText("PHPUnit 12 by Sebastian Bergmann")).toBeVisible();
   });
 });

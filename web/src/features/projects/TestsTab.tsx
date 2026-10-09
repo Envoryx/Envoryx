@@ -77,7 +77,13 @@ function RunDetails({ run, suites }: { run: TestRun; suites: TestSuite[] }) {
         </p>
       )}
       <Failures run={run} />
-      {!r.report && run.status === "failed" && r.output && <pre className="max-h-72 overflow-auto rounded-md bg-muted p-2 font-mono text-[11px] whitespace-pre-wrap">{r.output}</pre>}
+      {r.output && (
+        // Open when nothing else explains the failure; a past run's output is only here.
+        <details key={run.id} open={!r.report && run.status === "failed"} className="text-xs">
+          <summary className="cursor-pointer text-muted select-none">{t("Output")}</summary>
+          <pre className="mt-1 max-h-96 overflow-auto rounded-md bg-muted p-2 font-mono text-[11px] whitespace-pre-wrap">{r.output}</pre>
+        </details>
+      )}
     </div>
   );
 }

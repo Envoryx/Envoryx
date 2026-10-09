@@ -23,8 +23,10 @@ type TestCase struct {
 	Details string `json:"details,omitempty"`
 }
 
-// TestResult is what a run's JUnit report says, or for rails test its output. Report is
-// false when there is neither (npm scripts, Django): then only the exit code counts.
+// TestResult is what a run's JUnit report says, or what the runner printed for rails
+// test, RSpec without the JUnit formatter, Django and Vitest or Jest behind an npm script
+// (testoutput.go). Report is false when neither says anything (another npm script): then
+// only the exit code counts.
 type TestResult struct {
 	Report   bool       `json:"report"`
 	Tests    int        `json:"tests"`
