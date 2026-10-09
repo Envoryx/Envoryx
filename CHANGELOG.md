@@ -26,6 +26,16 @@ release). `:main` follows the development branch.
   between projects* brings the shared cache back where everyone is
   trusted. Projects with Gateway download their backend once more after
   the update; `/config/jetbrains` can be deleted unless you share again.
+- The package cache (Composer, npm, Yarn, pnpm, pip, uv, Go, Bundler,
+  Maven, Gradle, NuGet) was one directory for all projects and writable
+  from each. Composer, pip, Maven and others take a cached package
+  without checking it against the lock file, so a developer of one
+  project could plant code another project installs. Each project now has
+  its own cache; *Settings → Package cache → Share the package cache
+  between projects* brings the shared one back where everyone is trusted.
+  The first install in each project after the update downloads again, and
+  the sizes on that page add up all projects. Emptying the cache there
+  also empties the old `/config/cache`.
 
 ## [0.22.1] - 2026-10-09
 

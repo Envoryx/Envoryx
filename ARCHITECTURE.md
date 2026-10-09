@@ -624,7 +624,7 @@ names the container kind).
   published. All values reach the container as argv after `$0`. The wait
   guard tests for `go.mod`. `goEnv` sets `GOPATH=/home/envoryx/go` and puts
   its `bin` on `PATH`; `packageCacheEnv` points `GOMODCACHE` and `GOCACHE`
-  into the shared package cache. `Env()` adds `HOST`, `PORT` and `GIN_MODE`.
+  into the package cache. `Env()` adds `HOST`, `PORT` and `GIN_MODE`.
   Next to PHP or a Python server the Go server keeps only its host port.
 - *Ruby server* (`serves=ruby`): the same mechanics with the Ruby container as
   the upstream (`envoryx-<slug>-ruby:<port>`). `runtime.RubyConfig`
@@ -650,7 +650,7 @@ names the container kind).
   `~/.local/share/gem`),
   `GEM_PATH` with the image's `/usr/local/bundle` (rdbg) and
   `BUNDLE_APP_CONFIG` back at the project's `.bundle`; `packageCacheEnv`
-  turns on Bundler's global gem cache in the shared package cache. `Env()`
+  turns on Bundler's global gem cache in the package cache. `Env()`
   adds `HOST`, `PORT`, `RAILS_ENV`/`RACK_ENV`/`APP_ENV`/`HANAMI_ENV` after the
   mode (the Ruby workers get these, too), `RAILS_DEVELOPMENT_HOSTS=.<base>` in
   dev mode (Rails' host authorization; the leading dot allows every name
@@ -699,7 +699,7 @@ names the container kind).
   for the primary SQL database (JDBC wants `jdbc:<driver>://host:port/db`),
   `<NAME>_JDBC_URL` for each additional one and the Spring/Quarkus variables
   for MongoDB, Redis and Mailpit; `packageCacheEnv` moves Maven's repository
-  and `GRADLE_USER_HOME` into the shared package cache. The test suites
+  and `GRADLE_USER_HOME` into the package cache. The test suites
   (`mvn test`, `gradle test`) run behind `javaTestScript`, which points
   every JDBC and database URL at `<database>_test` (`testURLShell`: before the
   query of a URL that has one, a MongoDB URL left alone) and joins the per-class
@@ -724,7 +724,7 @@ names the container kind).
   ADO.NET form (`adoConnectionString` quotes values with separators),
   `ConnectionStrings__<name>` for each additional one and
   `ConnectionStrings__MongoDB`/`__Redis`; `packageCacheEnv` moves NuGet's
-  global packages folder and HTTP cache into the shared package cache. The
+  global packages folder and HTTP cache into the package cache. The
   test suite runs `dotnet test` with the trx logger behind
   `dotnetTestScript`, which points `DefaultConnection` at `<database>_test`
   and joins the TRX files; `parseTRX` (`trx.go`) reads them into the same

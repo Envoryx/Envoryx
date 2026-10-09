@@ -210,9 +210,10 @@ monthly or a cron expression) in the PHP, Python, Go, Ruby, Java, .NET or Node.j
 project owner, with a timeout and no overlapping runs. You can "run now", see the last 20
 runs with their output and get a notification on failure.
 
-Composer, npm, Yarn, pip, uv, Go and Bundler share one package cache, so a package is
-downloaded once for all projects (templates included); its size and a way to clear it are
-under *Settings → Package cache*.
+Composer, npm, Yarn, pip, uv, Go and Bundler keep their downloads in a package cache per
+project (templates included). Where everyone is trusted, all projects can share one, so a
+package is downloaded once; that switch, the sizes and a way to clear them are under
+*Settings → Package cache*.
 
 ### Changing a project later
 

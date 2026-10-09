@@ -130,11 +130,13 @@ lives in `/config/ssh/host_ed25519` (0600). Only the `env` requests `LANG`, `LC_
 `TERM`, `XDEBUG_*`, `PHP_IDE_CONFIG`, `APP_ENV` and `CI` are forwarded, and sessions and
 commands are audit-logged.
 
-JetBrains Gateway keeps the IDE backend it downloads in the project's home, so nothing a
-project runs comes from another project. Sharing the backends between projects
+JetBrains Gateway keeps the IDE backend it downloads in the project's home, and each
+project has its own package cache (Composer, npm, pip, Maven …), so nothing a project
+installs or runs comes from another project. Sharing either between projects
 (*Settings → Package cache*) is an admin's opt-in: the shared directory is writable from
-every project with Gateway, so turn it on only when everyone who works on a project here
-is trusted with all of them.
+every project, and most package managers take a cached package without checking it, so
+turn it on only when everyone who works on a project here is trusted with all of them.
+The Ollama model store stays shared; a model is data, not code the projects run.
 
 ## CSRF / CORS
 
