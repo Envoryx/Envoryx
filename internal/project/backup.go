@@ -14,6 +14,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/envoryx/envoryx/internal/audit"
@@ -649,6 +650,14 @@ func archiveDir(root, target string, skipDeps bool) (int64, int, error) {
 	if err != nil {
 		return 0, 0, err
 	}
+	// Files are read through the tree's os.Root: the project's owner can swap an entry
+	// for a link to Envoryx's own files while the walk runs.
+	tree, err := os.OpenRoot(root)
+	if err != nil {
+		_ = f.Close()
+		return 0, 0, err
+	}
+	defer tree.Close()
 	gz := gzip.NewWriter(f)
 	tw := tar.NewWriter(gz)
 	entries := 0
@@ -692,11 +701,11 @@ func archiveDir(root, target string, skipDeps bool) (int64, int, error) {
 		}
 		entries++
 		if info.Mode().IsRegular() {
-			src, err := os.Open(path)
+			src, _, err := openProjectFile(tree, rel)
 			if err != nil {
 				return err
 			}
-			_, err = io.Copy(tw, src)
+			_, err = io.CopyN(tw, src, hdr.Size)
 			_ = src.Close()
 			if err != nil {
 				return err
@@ -1152,9 +1161,18 @@ func extractArchive(archive, target string, uid, gid int) error {
 	}
 	defer gz.Close()
 	tr := tar.NewReader(gz)
-	chown := func(path string) {
+	// Everything goes through an os.Root of the target: the project's owner may have put
+	// a symbolic link into the directory a restore without wiping writes into (d ->
+	// /config), and Envoryx, running as root, must not create, chmod or chown anything
+	// through it outside the project.
+	root, err := os.OpenRoot(realTarget)
+	if err != nil {
+		return err
+	}
+	defer root.Close()
+	chown := func(rel string) {
 		if os.Geteuid() == 0 {
-			_ = os.Lchown(path, uid, gid)
+			_ = root.Lchown(rel, uid, gid)
 		}
 	}
 	inside := func(path string) bool {
@@ -1173,19 +1191,19 @@ func extractArchive(archive, target string, uid, gid int) error {
 		dirModes[dir] = mode
 	}
 	writable := func(dir string) {
-		info, err := os.Lstat(dir)
+		info, err := root.Lstat(dir)
 		if err != nil || !info.IsDir() || info.Mode().Perm()&0o700 == 0o700 {
 			return
 		}
 		if _, ok := dirModes[dir]; !ok {
 			keepMode(dir, info.Mode().Perm())
 		}
-		_ = os.Chmod(dir, info.Mode().Perm()|0o700)
+		_ = root.Chmod(dir, info.Mode().Perm()|0o700)
 	}
 	defer func() {
 		// Deepest first, so a parent made read-only again does not block its children.
 		for i := len(dirOrder) - 1; i >= 0; i-- {
-			_ = os.Chmod(dirOrder[i], dirModes[dirOrder[i]])
+			_ = root.Chmod(dirOrder[i], dirModes[dirOrder[i]])
 		}
 	}()
 	for {
@@ -1197,66 +1215,54 @@ func extractArchive(archive, target string, uid, gid int) error {
 			return err
 		}
 		name := filepath.Clean(filepath.FromSlash(hdr.Name))
-		if filepath.IsAbs(name) || name == ".." || strings.HasPrefix(name, ".."+string(filepath.Separator)) {
+		if !filepath.IsLocal(name) {
 			return fmt.Errorf("%w: archive entry %q escapes the project directory", validate.ErrInvalid, hdr.Name)
 		}
-		dest := filepath.Join(realTarget, name)
-		// The parent must resolve inside the target even if an earlier symlink was extracted.
-		parent, err := filepath.EvalSymlinks(filepath.Dir(dest))
-		if err != nil {
-			if !errors.Is(err, os.ErrNotExist) {
-				return err
+		parent := filepath.Dir(name)
+		if err := root.MkdirAll(parent, 0o755); err != nil {
+			if strings.Contains(err.Error(), "path escapes") {
+				return fmt.Errorf("%w: archive entry %q escapes the project directory", validate.ErrInvalid, hdr.Name)
 			}
-			if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
-				return err
-			}
-			parent = filepath.Dir(dest)
-		}
-		if !inside(parent) {
-			return fmt.Errorf("%w: archive entry %q escapes the project directory", validate.ErrInvalid, hdr.Name)
+			return err
 		}
 		writable(parent)
 		switch hdr.Typeflag {
 		case tar.TypeDir:
 			mode := os.FileMode(hdr.Mode) & 0o777
-			if err := os.MkdirAll(dest, mode|0o700); err != nil {
+			if err := root.MkdirAll(name, mode|0o700); err != nil {
 				return err
 			}
-			if err := os.Chmod(dest, mode|0o700); err != nil {
+			if err := root.Chmod(name, mode|0o700); err != nil {
 				return err
 			}
-			keepMode(dest, mode)
-			chown(dest)
+			keepMode(name, mode)
+			chown(name)
 		case tar.TypeSymlink:
 			linkDest := hdr.Linkname
 			if !filepath.IsAbs(linkDest) {
-				linkDest = filepath.Join(filepath.Dir(dest), linkDest)
+				linkDest = filepath.Join(realTarget, parent, linkDest)
 			}
 			if !inside(filepath.Clean(linkDest)) {
 				continue // skip links pointing outside the project
 			}
-			_ = os.RemoveAll(dest)
-			if err := os.Symlink(hdr.Linkname, dest); err != nil {
+			_ = root.RemoveAll(name)
+			if err := root.Symlink(hdr.Linkname, name); err != nil {
 				return err
 			}
-			chown(dest)
+			chown(name)
 		case tar.TypeReg:
-			if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
-				return err
-			}
-			writable(filepath.Dir(dest))
-			if info, err := os.Lstat(dest); err == nil {
+			if info, err := root.Lstat(name); err == nil {
 				switch {
 				case info.Mode()&os.ModeSymlink != 0:
-					_ = os.Remove(dest) // never write through an existing symlink
+					_ = root.Remove(name) // never write through an existing symlink
 				case info.Mode().IsRegular() && info.Mode().Perm()&0o200 == 0:
 					// A read-only file (Drupal's settings.php is 0444) is replaced all
 					// the same; it gets the archive's mode back below.
-					_ = os.Chmod(dest, info.Mode().Perm()|0o200)
+					_ = root.Chmod(name, info.Mode().Perm()|0o200)
 				}
 			}
 			mode := os.FileMode(hdr.Mode) & 0o777
-			out, err := os.OpenFile(dest, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, mode|0o600)
+			out, err := root.OpenFile(name, os.O_CREATE|os.O_WRONLY|os.O_TRUNC|syscall.O_NOFOLLOW, mode|0o600)
 			if err != nil {
 				return err
 			}
@@ -1264,13 +1270,14 @@ func extractArchive(archive, target string, uid, gid int) error {
 				_ = out.Close()
 				return err
 			}
+			if err := out.Chmod(mode); err != nil {
+				_ = out.Close()
+				return err
+			}
 			if err := out.Close(); err != nil {
 				return err
 			}
-			if err := os.Chmod(dest, mode); err != nil {
-				return err
-			}
-			chown(dest)
+			chown(name)
 		default:
 			// hard links, devices, fifos: not restored
 		}

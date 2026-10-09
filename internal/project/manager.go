@@ -14,6 +14,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	"github.com/envoryx/envoryx/internal/addon"
@@ -1531,35 +1532,102 @@ func (m *Manager) PlanFor(ctx context.Context, id string) (Preview, error) {
 // Files
 // ---------------------------------------------------------------------------
 
+// writePlanFiles creates the plan's directories and writes its files below the config
+// directory. Some of them lie in trees the project's containers write to (the project
+// home, the package cache), where the project's owner may have put a symbolic link
+// (~/.config -> /config): Envoryx runs as root, and following it would hand any directory
+// to the project user or write a file there. So nothing below the config directory is
+// followed: a link on the way is an error that names it.
 func writePlanFiles(plan Plan) error {
+	if plan.BaseDir == "" {
+		return errors.New("the plan names no config directory")
+	}
+	base, err := os.OpenRoot(plan.BaseDir)
+	if err != nil {
+		return err
+	}
+	defer base.Close()
+	rel := func(path string) (string, error) {
+		r, err := filepath.Rel(plan.BaseDir, path)
+		if err != nil || !filepath.IsLocal(r) {
+			return "", fmt.Errorf("%s is outside %s", path, plan.BaseDir)
+		}
+		return r, nil
+	}
 	for _, d := range plan.Dirs {
-		if err := os.MkdirAll(d.Path, 0o755); err != nil {
+		r, err := rel(d.Path)
+		if err != nil {
+			return err
+		}
+		if err := mkdirNoLinks(base, r); err != nil {
 			return fmt.Errorf("create directory %s: %w", d.Path, err)
 		}
-		_ = os.Chown(d.Path, d.UID, d.GID)
+		_ = base.Lchown(r, d.UID, d.GID)
 	}
 	for _, f := range plan.Files {
-		if f.Seed {
-			if _, err := os.Lstat(f.Path); err == nil {
+		r, err := rel(f.Path)
+		if err != nil {
+			return err
+		}
+		if err := mkdirNoLinks(base, filepath.Dir(r)); err != nil {
+			return fmt.Errorf("create config directory: %w", err)
+		}
+		if info, err := base.Lstat(r); err == nil {
+			if f.Seed {
 				continue
 			}
-		}
-		if err := os.MkdirAll(filepath.Dir(f.Path), 0o755); err != nil {
-			return fmt.Errorf("create config directory: %w", err)
+			if info.Mode()&os.ModeSymlink != 0 {
+				return fmt.Errorf("write %s: it is a symbolic link; remove it", f.Path)
+			}
 		}
 		mode := os.FileMode(f.Mode)
 		if mode == 0 {
 			mode = 0o644
 		}
-		if err := os.WriteFile(f.Path, []byte(f.Content), mode); err != nil {
+		out, err := base.OpenFile(r, os.O_WRONLY|os.O_CREATE|os.O_TRUNC|syscall.O_NOFOLLOW, mode)
+		if err != nil {
 			return fmt.Errorf("write %s: %w", f.Path, err)
 		}
-		// WriteFile honours umask; enforce the mode so read-only mounts work for any uid.
-		if err := os.Chmod(f.Path, mode); err != nil {
-			return fmt.Errorf("chmod %s: %w", f.Path, err)
+		_, err = out.WriteString(f.Content)
+		// The open honours umask; enforce the mode so read-only mounts work for any uid.
+		if err == nil {
+			err = out.Chmod(mode)
 		}
-		if f.Seed {
-			_ = os.Chown(f.Path, f.UID, f.GID)
+		if err == nil && f.Seed {
+			_ = out.Chown(f.UID, f.GID)
+		}
+		if cerr := out.Close(); err == nil {
+			err = cerr
+		}
+		if err != nil {
+			return fmt.Errorf("write %s: %w", f.Path, err)
+		}
+	}
+	return nil
+}
+
+// mkdirNoLinks creates rel below root level by level, like os.MkdirAll, and fails on a
+// symbolic link or a file on the way instead of following it.
+func mkdirNoLinks(root *os.Root, rel string) error {
+	if rel == "." {
+		return nil
+	}
+	cur := ""
+	for _, part := range strings.Split(filepath.Clean(rel), string(filepath.Separator)) {
+		cur = filepath.Join(cur, part)
+		info, err := root.Lstat(cur)
+		switch {
+		case errors.Is(err, os.ErrNotExist):
+			if err := root.Mkdir(cur, 0o755); err != nil && !errors.Is(err, os.ErrExist) {
+				return err
+			}
+			continue
+		case err != nil:
+			return err
+		case info.Mode()&os.ModeSymlink != 0:
+			return fmt.Errorf("%s is a symbolic link; remove it", cur)
+		case !info.IsDir():
+			return fmt.Errorf("%s is not a directory", cur)
 		}
 	}
 	return nil

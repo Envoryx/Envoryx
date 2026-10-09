@@ -70,7 +70,7 @@ var goDirective = regexp.MustCompile(`(?m)^go[ \t]+(\d+)\.(\d+)`)
 // its release, which is not known here. The toolchain line is a preference the local
 // toolchain ignores, so it is not checked.
 func goVersionWarnings(dir, version string) []string {
-	raw, err := os.ReadFile(filepath.Join(dir, "go.mod"))
+	raw, err := readProjectFile(dir, "go.mod", maxProjectFile)
 	if err != nil {
 		return nil
 	}
@@ -127,7 +127,7 @@ func javaVersionWarnings(dir, version string) []string {
 	if err != nil {
 		return nil
 	}
-	if raw, err := os.ReadFile(filepath.Join(dir, "pom.xml")); err == nil {
+	if raw, err := readProjectFile(dir, "pom.xml", maxProjectFile); err == nil {
 		text := xmlComment.ReplaceAllString(string(raw), "")
 		var levels []int
 		for _, m := range pomJavaVersion.FindAllStringSubmatch(text, -1) {
@@ -141,7 +141,7 @@ func javaVersionWarnings(dir, version string) []string {
 		return nil
 	}
 	for _, name := range []string{"build.gradle.kts", "build.gradle"} {
-		raw, err := os.ReadFile(filepath.Join(dir, name))
+		raw, err := readProjectFile(dir, name, maxProjectFile)
 		if err != nil {
 			continue
 		}
@@ -167,7 +167,7 @@ func javaVersionWarnings(dir, version string) []string {
 
 func gradleProvisionsJDKs(dir string) bool {
 	for _, name := range []string{"settings.gradle.kts", "settings.gradle"} {
-		raw, err := os.ReadFile(filepath.Join(dir, name))
+		raw, err := readProjectFile(dir, name, maxProjectFile)
 		if err != nil {
 			continue
 		}
@@ -217,7 +217,7 @@ func dotnetVersionWarnings(dir, version, project string) []string {
 		return nil
 	}
 	var out []string
-	if raw, err := os.ReadFile(filepath.Join(dir, "global.json")); err == nil {
+	if raw, err := readProjectFile(dir, "global.json", maxProjectFile); err == nil {
 		var g struct {
 			SDK struct {
 				Version string `json:"version"`
@@ -236,7 +236,7 @@ func dotnetVersionWarnings(dir, version, project string) []string {
 	if project == "" {
 		return out
 	}
-	raw, err := os.ReadFile(filepath.Join(dir, filepath.FromSlash(project)))
+	raw, err := readProjectFile(dir, project, maxProjectFile)
 	if err != nil {
 		return out
 	}

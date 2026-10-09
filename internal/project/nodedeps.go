@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
 
 	"github.com/envoryx/envoryx/internal/runtime"
@@ -19,7 +18,7 @@ type packageJSON struct {
 }
 
 func readPackageJSON(dir string) (packageJSON, bool) {
-	raw, err := os.ReadFile(filepath.Join(dir, "package.json"))
+	raw, err := readProjectFile(dir, "package.json", maxProjectFile)
 	if err != nil {
 		return packageJSON{}, false
 	}

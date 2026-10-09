@@ -23,7 +23,7 @@ import (
 // from .venv/pyvenv.cfg ("version", or "version_info" in a venv made by uv). ok is false
 // when the file is missing, unreadable or has no version line.
 func venvPythonVersion(projectDir string) (string, bool) {
-	raw, err := os.ReadFile(filepath.Join(projectDir, runtime.PythonVenv, "pyvenv.cfg"))
+	raw, err := readProjectFile(projectDir, runtime.PythonVenv+"/pyvenv.cfg", maxProjectFile)
 	if err != nil {
 		return "", false
 	}

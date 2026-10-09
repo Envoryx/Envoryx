@@ -106,10 +106,7 @@ func detectTestSuites(dir string, p store.Project) []TestSuite {
 		return err == nil
 	}
 	read := func(rel string) []byte {
-		b, _ := os.ReadFile(filepath.Join(dir, filepath.FromSlash(rel)))
-		if len(b) > 1<<20 {
-			return nil
-		}
+		b, _ := readProjectFile(dir, rel, maxProjectFile)
 		return b
 	}
 	has := func(kind store.ServiceKind) bool { s := p.Service(kind); return s != nil && s.Enabled }
@@ -384,7 +381,7 @@ func dotnetTestSuite(dir string, globalJSON []byte) (TestSuite, bool) {
 		if ext != ".csproj" && ext != ".fsproj" && ext != ".vbproj" {
 			return nil
 		}
-		if b, err := os.ReadFile(path); err == nil && len(b) < 1<<20 && dotnetTestProjectRe.Match(b) {
+		if b, err := readProjectFile(dir, rel, maxProjectFile); err == nil && dotnetTestProjectRe.Match(b) {
 			tests = append(tests, filepath.ToSlash(rel))
 		}
 		return nil
@@ -588,7 +585,7 @@ func (m *Manager) railsDatabases(p store.Project) []string {
 	if err != nil {
 		return nil
 	}
-	yml, err := os.ReadFile(filepath.Join(planner.ProjectDir(p), "config", "database.yml"))
+	yml, err := readProjectFile(planner.ProjectDir(p), "config/database.yml", maxProjectFile)
 	if err != nil {
 		return nil
 	}
