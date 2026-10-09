@@ -11,6 +11,13 @@ release). `:main` follows the development branch.
 ## [Unreleased]
 
 ### Fixed
+- Xdebug breakpoints in PhpStorm were ignored for requests over the proxy
+  ("Cannot bind file … to the web server project"): PhpStorm matches the
+  server by host and port, the `php.xml` from the IDE tab had no port, so
+  the server was taken as port 80 while the browser used 443. PHP
+  containers now set `PHP_IDE_CONFIG=serverName=<project host>`, which
+  names the server for browser requests and the command line alike, and
+  the IDE tab shows the server port and writes it into `php.xml`.
 - Quarkus' Dev UI answered only `localhost` and refused the project's
   address with "Only localhost is allowed". A Java server now gets
   `QUARKUS_DEV_UI_HOSTS` with the project's host name, a pattern for the
