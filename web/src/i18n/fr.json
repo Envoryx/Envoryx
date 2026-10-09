@@ -8,7 +8,6 @@
   "(project root)": "(racine du projet)",
   "(renewed automatically 30 days before)": "(renouvelé automatiquement 30 jours avant)",
   "(server + mapping; adjust $PROJECT_DIR$ if the IDE project is not the project root):": "(serveur + mapping ; adaptez $PROJECT_DIR$ si le projet IDE n'est pas la racine du projet) :",
-  "(shared cache) and opens the thin client.": "(cache partagé) et ouvre le client léger.",
   "0 = default for the security mode": "0 = valeur par défaut du mode de sécurité",
   "<API token from Settings → API tokens & MCP>": "<jeton API depuis Paramètres → Jetons API & MCP>",
   "<Database → Credentials>": "<Base de données → Identifiants>",
@@ -197,7 +196,6 @@
   "Enable PHP": "Activer PHP",
   "Enable notifications": "Activer les notifications",
   "Enabled ({{mode}}). PhpStorm: Settings → PHP → Servers.": "Activé ({{mode}}). PhpStorm : Settings → PHP → Servers.",
-  "Enables SSH port forwarding into the container and mounts a shared IDE backend cache (/config/jetbrains, downloaded once for all projects). Recreates the application containers.": "Active la redirection de ports SSH vers le conteneur et monte un cache partagé du backend IDE (/config/jetbrains, téléchargé une fois pour tous les projets). Recrée les conteneurs d'application.",
   "Engine": "Moteur",
   "Environment": "Environnement",
   "Environment saved. Containers were recreated with the new variables.": "Environnement enregistré. Les conteneurs ont été recréés avec les nouvelles variables.",
@@ -2709,5 +2707,11 @@
   "Worker restarted": "Worker redémarré",
   "Restarting the container {{name}}": "Redémarrage du conteneur {{name}}",
   "Server port": "Port du serveur",
-  "The PHP container sets PHP_IDE_CONFIG=serverName={{name}}, so PhpStorm uses this server for browser requests and for the command line (artisan, drush, tests) alike; keep the server's name as it is.": "Le conteneur PHP définit PHP_IDE_CONFIG=serverName={{name}}, ainsi PhpStorm utilise ce serveur pour les requêtes du navigateur comme pour la ligne de commande (artisan, drush, tests) ; gardez le nom du serveur tel quel."
+  "The PHP container sets PHP_IDE_CONFIG=serverName={{name}}, so PhpStorm uses this server for browser requests and for the command line (artisan, drush, tests) alike; keep the server's name as it is.": "Le conteneur PHP définit PHP_IDE_CONFIG=serverName={{name}}, ainsi PhpStorm utilise ce serveur pour les requêtes du navigateur comme pour la ligne de commande (artisan, drush, tests) ; gardez le nom du serveur tel quel.",
+  "JetBrains backends": "Backends JetBrains",
+  "JetBrains Gateway downloads an IDE backend of about 1 GB into a project the first time you open it there. Each project keeps its own; shared, a backend is downloaded once for all projects.": "JetBrains Gateway télécharge un backend d'IDE d'environ 1 Go dans un projet la première fois que vous l'y ouvrez. Chaque projet garde le sien ; partagé, un backend n'est téléchargé qu'une fois pour tous les projets.",
+  "Share the IDE backends between projects": "Partager les backends d'IDE entre les projets",
+  "Only when you trust everyone who works on a project here: every project with Gateway can change the shared backends, so a developer of one project could change the IDE another project runs. Projects with Gateway pick the change up when they are restarted.": "Seulement si vous faites confiance à tous ceux qui travaillent ici sur un projet : chaque projet avec Gateway peut modifier les backends partagés, un développeur d'un projet pourrait donc modifier l'IDE qu'exécute un autre projet. Les projets avec Gateway prennent en compte le changement à leur prochain redémarrage.",
+  "and opens the thin client.": "et ouvre le client léger.",
+  "Enables SSH port forwarding into the container. The IDE backend Gateway downloads stays in the project home, unless Settings → Package cache shares the backends between projects. Recreates the application containers.": "Active la redirection de port SSH vers le conteneur. Le backend d'IDE que Gateway télécharge reste dans le home du projet, sauf si Paramètres → Cache des paquets partage les backends entre les projets. Recrée les conteneurs de l'application."
 }

@@ -554,6 +554,9 @@ func TestAgentKeyProbesDoNotLockOut(t *testing.T) {
 // sees them. The rest of the shared directory is not: it could hold other projects' caches.
 func TestSFTPShowsJetBrainsCacheWithGateway(t *testing.T) {
 	e := newEnv(t)
+	if err := e.st.Settings.Set(context.Background(), project.SettingSharedIDEBackends, "true"); err != nil {
+		t.Fatal(err)
+	}
 	on := true
 	if _, err := e.manager.Update(context.Background(), e.proj.Project.ID, project.UpdateRequest{IDEGateway: &on}); err != nil {
 		t.Fatal(err)

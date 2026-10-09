@@ -8,7 +8,6 @@
   "(project root)": "(katalog główny projektu)",
   "(renewed automatically 30 days before)": "(odnawiany automatycznie 30 dni wcześniej)",
   "(server + mapping; adjust $PROJECT_DIR$ if the IDE project is not the project root):": "(serwer + mapowanie; dostosuj $PROJECT_DIR$, jeśli projekt IDE nie jest katalogiem głównym projektu):",
-  "(shared cache) and opens the thin client.": "(współdzielony cache) i otwiera cienkiego klienta.",
   "0 = default for the security mode": "0 = wartość domyślna dla trybu bezpieczeństwa",
   "<API token from Settings → API tokens & MCP>": "<token API z Ustawienia → Tokeny API i MCP>",
   "<Database → Credentials>": "<Baza danych → Dane logowania>",
@@ -197,7 +196,6 @@
   "Enable PHP": "Włącz PHP",
   "Enable notifications": "Włącz powiadomienia",
   "Enabled ({{mode}}). PhpStorm: Settings → PHP → Servers.": "Włączone ({{mode}}). PhpStorm: Settings → PHP → Servers.",
-  "Enables SSH port forwarding into the container and mounts a shared IDE backend cache (/config/jetbrains, downloaded once for all projects). Recreates the application containers.": "Włącza przekierowanie portów SSH do kontenera i montuje wspólną pamięć podręczną backendu IDE (/config/jetbrains, pobieraną raz dla wszystkich projektów). Odtwarza kontenery aplikacji.",
   "Engine": "Silnik",
   "Environment": "Środowisko",
   "Environment saved. Containers were recreated with the new variables.": "Środowisko zapisano. Kontenery odtworzono z nowymi zmiennymi.",
@@ -2757,5 +2755,11 @@
   "Worker restarted": "Worker uruchomiony ponownie",
   "Restarting the container {{name}}": "Ponowne uruchamianie kontenera {{name}}",
   "Server port": "Port serwera",
-  "The PHP container sets PHP_IDE_CONFIG=serverName={{name}}, so PhpStorm uses this server for browser requests and for the command line (artisan, drush, tests) alike; keep the server's name as it is.": "Kontener PHP ustawia PHP_IDE_CONFIG=serverName={{name}}, dzięki czemu PhpStorm używa tego serwera zarówno dla żądań z przeglądarki, jak i dla wiersza poleceń (artisan, drush, testy); nie zmieniaj nazwy serwera."
+  "The PHP container sets PHP_IDE_CONFIG=serverName={{name}}, so PhpStorm uses this server for browser requests and for the command line (artisan, drush, tests) alike; keep the server's name as it is.": "Kontener PHP ustawia PHP_IDE_CONFIG=serverName={{name}}, dzięki czemu PhpStorm używa tego serwera zarówno dla żądań z przeglądarki, jak i dla wiersza poleceń (artisan, drush, testy); nie zmieniaj nazwy serwera.",
+  "JetBrains backends": "Backendy JetBrains",
+  "JetBrains Gateway downloads an IDE backend of about 1 GB into a project the first time you open it there. Each project keeps its own; shared, a backend is downloaded once for all projects.": "JetBrains Gateway przy pierwszym otwarciu w projekcie pobiera do niego backend IDE o rozmiarze około 1 GB. Każdy projekt ma własny; po udostępnieniu backend jest pobierany raz dla wszystkich projektów.",
+  "Share the IDE backends between projects": "Udostępniaj backendy IDE między projektami",
+  "Only when you trust everyone who works on a project here: every project with Gateway can change the shared backends, so a developer of one project could change the IDE another project runs. Projects with Gateway pick the change up when they are restarted.": "Tylko jeśli ufasz wszystkim, którzy pracują tu nad projektem: każdy projekt z Gateway może zmieniać udostępnione backendy, więc deweloper jednego projektu mógłby zmienić IDE uruchamiane w innym. Projekty z Gateway uwzględnią zmianę po ponownym uruchomieniu.",
+  "and opens the thin client.": "i otwiera cienkiego klienta.",
+  "Enables SSH port forwarding into the container. The IDE backend Gateway downloads stays in the project home, unless Settings → Package cache shares the backends between projects. Recreates the application containers.": "Włącza przekierowanie portów SSH do kontenera. Backend IDE pobrany przez Gateway zostaje w katalogu domowym projektu, chyba że Ustawienia → Pamięć podręczna pakietów udostępnia backendy między projektami. Tworzy kontenery aplikacji od nowa."
 }

@@ -8,7 +8,6 @@
   "(project root)": "(projectroot)",
   "(renewed automatically 30 days before)": "(wordt 30 dagen van tevoren automatisch vernieuwd)",
   "(server + mapping; adjust $PROJECT_DIR$ if the IDE project is not the project root):": "(server + mapping; pas $PROJECT_DIR$ aan als het IDE-project niet de projectroot is):",
-  "(shared cache) and opens the thin client.": "(gedeelde cache) en opent de thin client.",
   "0 = default for the security mode": "0 = standaard voor de beveiligingsmodus",
   "<API token from Settings → API tokens & MCP>": "<API-token uit Instellingen → API-tokens & MCP>",
   "<Database → Credentials>": "<Database → Inloggegevens>",
@@ -197,7 +196,6 @@
   "Enable PHP": "PHP inschakelen",
   "Enable notifications": "Meldingen inschakelen",
   "Enabled ({{mode}}). PhpStorm: Settings → PHP → Servers.": "Ingeschakeld ({{mode}}). PhpStorm: Settings → PHP → Servers.",
-  "Enables SSH port forwarding into the container and mounts a shared IDE backend cache (/config/jetbrains, downloaded once for all projects). Recreates the application containers.": "Schakelt SSH-poortdoorsturing naar de container in en koppelt een gedeelde IDE-backendcache (/config/jetbrains, één keer gedownload voor alle projecten). Maakt de applicatiecontainers opnieuw aan.",
   "Engine": "Engine",
   "Environment": "Omgeving",
   "Environment saved. Containers were recreated with the new variables.": "Omgeving opgeslagen. De containers zijn opnieuw aangemaakt met de nieuwe variabelen.",
@@ -2709,5 +2707,11 @@
   "Worker restarted": "Worker herstart",
   "Restarting the container {{name}}": "Container {{name}} wordt herstart",
   "Server port": "Serverpoort",
-  "The PHP container sets PHP_IDE_CONFIG=serverName={{name}}, so PhpStorm uses this server for browser requests and for the command line (artisan, drush, tests) alike; keep the server's name as it is.": "De PHP-container zet PHP_IDE_CONFIG=serverName={{name}}, zodat PhpStorm deze server gebruikt voor browserverzoeken én voor de opdrachtregel (artisan, drush, tests); laat de naam van de server zoals hij is."
+  "The PHP container sets PHP_IDE_CONFIG=serverName={{name}}, so PhpStorm uses this server for browser requests and for the command line (artisan, drush, tests) alike; keep the server's name as it is.": "De PHP-container zet PHP_IDE_CONFIG=serverName={{name}}, zodat PhpStorm deze server gebruikt voor browserverzoeken én voor de opdrachtregel (artisan, drush, tests); laat de naam van de server zoals hij is.",
+  "JetBrains backends": "JetBrains-backends",
+  "JetBrains Gateway downloads an IDE backend of about 1 GB into a project the first time you open it there. Each project keeps its own; shared, a backend is downloaded once for all projects.": "JetBrains Gateway downloadt de eerste keer dat je een project opent een IDE-backend van ongeveer 1 GB in dat project. Elk project houdt zijn eigen; gedeeld wordt een backend één keer voor alle projecten gedownload.",
+  "Share the IDE backends between projects": "IDE-backends delen tussen projecten",
+  "Only when you trust everyone who works on a project here: every project with Gateway can change the shared backends, so a developer of one project could change the IDE another project runs. Projects with Gateway pick the change up when they are restarted.": "Alleen als je iedereen vertrouwt die hier aan een project werkt: elk project met Gateway kan de gedeelde backends wijzigen, dus een developer van het ene project kan de IDE wijzigen die een ander project draait. Projecten met Gateway nemen de wijziging over bij hun volgende herstart.",
+  "and opens the thin client.": "en opent de thin client.",
+  "Enables SSH port forwarding into the container. The IDE backend Gateway downloads stays in the project home, unless Settings → Package cache shares the backends between projects. Recreates the application containers.": "Schakelt SSH-poortdoorsturing naar de container in. De IDE-backend die Gateway downloadt blijft in de home van het project, tenzij Instellingen → Pakketcache de backends tussen projecten deelt. Maakt de applicatiecontainers opnieuw aan."
 }

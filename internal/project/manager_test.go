@@ -1187,16 +1187,36 @@ func TestGatewaySharesOnlyTheBackends(t *testing.T) {
 	if _, err := e.m.Update(ctx, v.Project.ID, UpdateRequest{IDEGateway: &on}); err != nil {
 		t.Fatal(err)
 	}
-	c, ok := e.engine.Container("envoryx-gate-php")
-	if !ok {
-		t.Fatal("php container missing")
-	}
-	var targets []string
-	for _, m := range c.Spec.Mounts {
-		if strings.Contains(m.Target, ".cache") {
-			targets = append(targets, m.Target+" <- "+m.Source)
+	cacheMounts := func() []string {
+		t.Helper()
+		c, ok := e.engine.Container("envoryx-gate-php")
+		if !ok {
+			t.Fatal("php container missing")
 		}
+		var targets []string
+		for _, m := range c.Spec.Mounts {
+			if strings.Contains(m.Target, ".cache") {
+				targets = append(targets, m.Target+" <- "+m.Source)
+			}
+		}
+		return targets
 	}
+	// By default the backends stay in the project home: a shared cache is writable from
+	// every project.
+	if targets := cacheMounts(); len(targets) != 0 {
+		t.Fatalf("cache mounts without sharing: %v", targets)
+	}
+	if _, err := os.Stat(filepath.Join(e.cfgDir, "projects", v.Project.ID, "home", ".cache", "JetBrains", "RemoteDev", "dist")); err != nil {
+		t.Fatalf("backend directory in the home: %v", err)
+	}
+	// Shared on request, which takes effect when the containers are recreated.
+	if err := e.m.SetSharedIDEBackends(ctx, true); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.m.Restart(ctx, v.Project.ID); err != nil {
+		t.Fatal(err)
+	}
+	targets := cacheMounts()
 	if len(targets) != 1 || !strings.HasPrefix(targets[0], "/home/envoryx/.cache/JetBrains/RemoteDev/dist <- ") || !strings.HasSuffix(targets[0], "/jetbrains/RemoteDev/dist") {
 		t.Fatalf("cache mounts: %v", targets)
 	}

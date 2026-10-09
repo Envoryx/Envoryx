@@ -335,6 +335,8 @@ type updateSettingsRequest struct {
 	// ProjectsFollowEnvoryx stops the project containers with Envoryx and resumes them
 	// when it comes back.
 	ProjectsFollowEnvoryx *bool `json:"projectsFollowEnvoryx"`
+	// SharedIDEBackends shares the JetBrains Gateway backends between projects.
+	SharedIDEBackends *bool `json:"sharedIdeBackends"`
 	// XdebugClientHost is the developer machine Xdebug connects back to.
 	XdebugClientHost *string `json:"xdebugClientHost"`
 	// FolderViewFolder is the FolderView3 folder the containers are labelled for.
@@ -405,6 +407,12 @@ func (a *API) updateSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.ProjectsFollowEnvoryx != nil {
 		if err := a.d.Projects.SetProjectsFollowEnvoryx(r.Context(), *req.ProjectsFollowEnvoryx); err != nil {
+			writeError(w, r, err)
+			return
+		}
+	}
+	if req.SharedIDEBackends != nil {
+		if err := a.d.Projects.SetSharedIDEBackends(r.Context(), *req.SharedIDEBackends); err != nil {
 			writeError(w, r, err)
 			return
 		}
@@ -501,6 +509,7 @@ func (a *API) settings(w http.ResponseWriter, r *http.Request) {
 		"baseDomain":            a.d.Projects.BaseDomain(r.Context()),
 		"forceHttps":            a.d.Projects.ForceHTTPS(r.Context()),
 		"projectsFollowEnvoryx": a.d.Projects.ProjectsFollowEnvoryx(r.Context()),
+		"sharedIdeBackends":     a.d.Projects.SharedIDEBackends(r.Context()),
 		"logHistory":            a.d.Projects.LogHistoryInfo(r.Context()),
 		"metrics":               a.d.Projects.MetricsInfo(r.Context()),
 		"xdebugClientHost":      a.d.Projects.XdebugClientHost(r.Context()),

@@ -311,7 +311,8 @@ type UpdateRequest struct {
 	// Addons adds, changes or removes (Enabled false) installed addons by name.
 	Addons map[string]AddonUpdate
 	Env    *[]EnvVarRequest
-	// IDEGateway toggles JetBrains Gateway support (port forwarding + shared IDE cache).
+	// IDEGateway toggles JetBrains Gateway support (port forwarding, and the shared IDE
+	// backend cache when SharedIDEBackends is on).
 	IDEGateway *bool
 }
 
