@@ -218,13 +218,19 @@ func (c JavaConfig) WrappedCommand(guards ...string) []string {
 // Spring Boot (SERVER_*), Quarkus (QUARKUS_HTTP_*) and Micronaut read, plus HOST and PORT
 // for everything else. Quarkus's Dev Services are switched off: they start databases
 // through Docker, which the container has no access to, and the project's own services
-// are injected anyway.
-func (c JavaConfig) Env() []string {
+// are injected anyway. devUIHosts are the host names the browser uses for the project:
+// Quarkus's Dev UI answers only localhost unless the Host and Origin are in this list
+// (exact names, or Java regular expressions since Quarkus 3.16).
+func (c JavaConfig) Env(devUIHosts []string) []string {
 	port := strconv.Itoa(c.Port)
-	return []string{
+	env := []string{
 		"HOST=0.0.0.0", "PORT=" + port,
 		"SERVER_ADDRESS=0.0.0.0", "SERVER_PORT=" + port,
 		"QUARKUS_HTTP_HOST=0.0.0.0", "QUARKUS_HTTP_PORT=" + port, "QUARKUS_DEVSERVICES_ENABLED=false",
 		"MICRONAUT_SERVER_HOST=0.0.0.0", "MICRONAUT_SERVER_PORT=" + port,
 	}
+	if len(devUIHosts) > 0 {
+		env = append(env, "QUARKUS_DEV_UI_HOSTS="+strings.Join(devUIHosts, ","))
+	}
+	return env
 }

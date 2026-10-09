@@ -80,8 +80,11 @@ func TestJavaCommandsAndEnv(t *testing.T) {
 			t.Fatalf("guards lack %q: %s", want, wrapped[2])
 		}
 	}
-	env := dev.Env()
-	for _, want := range []string{"SERVER_PORT=8080", "SERVER_ADDRESS=0.0.0.0", "QUARKUS_HTTP_HOST=0.0.0.0", "QUARKUS_HTTP_PORT=8080", "QUARKUS_DEVSERVICES_ENABLED=false", "MICRONAUT_SERVER_PORT=8080", "PORT=8080"} {
+	if env := dev.Env(nil); slices.ContainsFunc(env, func(v string) bool { return strings.HasPrefix(v, "QUARKUS_DEV_UI_HOSTS=") }) {
+		t.Fatalf("no hosts, no Dev UI list: %v", env)
+	}
+	env := dev.Env([]string{"shop.test", ".*[.]test"})
+	for _, want := range []string{"QUARKUS_DEV_UI_HOSTS=shop.test,.*[.]test", "SERVER_PORT=8080", "SERVER_ADDRESS=0.0.0.0", "QUARKUS_HTTP_HOST=0.0.0.0", "QUARKUS_HTTP_PORT=8080", "QUARKUS_DEVSERVICES_ENABLED=false", "MICRONAUT_SERVER_PORT=8080", "PORT=8080"} {
 		if !slices.Contains(env, want) {
 			t.Fatalf("env lacks %s: %v", want, env)
 		}

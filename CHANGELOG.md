@@ -11,6 +11,12 @@ release). `:main` follows the development branch.
 ## [Unreleased]
 
 ### Fixed
+- Quarkus' Dev UI answered only `localhost` and refused the project's
+  address with "Only localhost is allowed". A Java server now gets
+  `QUARKUS_DEV_UI_HOSTS` with the project's host name, a pattern for the
+  other names under the base domain and the public host, so
+  `/q/dev-ui` opens at the project URL (patterns need Quarkus 3.16 or
+  later).
 - Links in mails and anything else a Laravel or Symfony project built
   outside a request (queue workers, the scheduler, console commands)
   pointed at `http://localhost`. The Laravel template now sets
