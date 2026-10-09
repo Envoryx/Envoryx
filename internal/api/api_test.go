@@ -1088,6 +1088,22 @@ func TestDatabaseSnapshotAndCloneEndpoints(t *testing.T) {
 	if r.status != http.StatusUnprocessableEntity {
 		t.Fatalf("clone without confirmation: %d %s", r.status, r.raw)
 	}
+	// The source needs access of its own: an admin token confined to local can't pull
+	// staging's data into it.
+	imported = nil
+	tok := a.do(http.MethodPost, "/api/v1/tokens", map[string]any{"name": "local-only", "scope": "admin", "projects": []string{local}}, true)
+	body, _ := json.Marshal(map[string]any{"source": staging, "confirm": "local"})
+	req, _ := http.NewRequest(http.MethodPost, a.srv.URL+"/api/v1/projects/"+local+"/database/clone", bytes.NewReader(body))
+	req.Header.Set("Authorization", "Bearer "+tok.body["secret"].(string))
+	req.Header.Set("Content-Type", "application/json")
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res.Body.Close()
+	if res.StatusCode != http.StatusNotFound || len(imported) != 0 {
+		t.Fatalf("clone from a project the token can't reach: %d, imported %v", res.StatusCode, imported)
+	}
 	imported = nil
 	r = a.do(http.MethodPost, "/api/v1/projects/"+local+"/database/clone", map[string]any{"source": staging, "confirm": "local"}, true)
 	if r.status != http.StatusOK {

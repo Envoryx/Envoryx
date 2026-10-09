@@ -3,6 +3,7 @@ package api
 import (
 	"net/http"
 
+	"github.com/envoryx/envoryx/internal/auth"
 	"github.com/envoryx/envoryx/internal/project"
 	"github.com/envoryx/envoryx/internal/store"
 )
@@ -277,6 +278,12 @@ func (a *API) databaseClone(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.SourceDB != nil && *req.SourceDB != "" && project.ValidateDatabaseServiceName(*req.SourceDB) != nil {
 		writeError(w, r, newError(http.StatusNotFound, "not_found", "unknown source database"))
+		return
+	}
+	// The route checks the target; the source's data ends up readable there, so the
+	// source needs as much as reading its credentials does.
+	if p, _ := auth.PrincipalFrom(r.Context()); p.Require(auth.ScopeOperate, req.Source) != nil {
+		writeError(w, r, newError(http.StatusNotFound, "not_found", "unknown source project"))
 		return
 	}
 	snapshot := req.Snapshot == nil || *req.Snapshot
