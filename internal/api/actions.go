@@ -31,6 +31,9 @@ func (a *API) actionWS(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, store.ErrNotFound)
 		return
 	}
+	if !a.wsRequest(w, r) {
+		return
+	}
 	term, action, release, err := a.d.Projects.RunAction(r.Context(), id, r.PathValue("action"), sizeParam(r, "cols", 120), sizeParam(r, "rows", 40))
 	if err != nil {
 		writeError(w, r, err)
