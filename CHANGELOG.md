@@ -10,6 +10,13 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-10-10
+
+The Spring Boot and Quarkus templates can now set a project up with
+Gradle (Kotlin DSL, with the wrapper) instead of Maven. Gradle keeps its
+dependencies in the project home, also when the package cache is
+shared, since its cache locks don't work across containers.
+
 ### Added
 - The Spring Boot and Quarkus templates can set the project up with
   Gradle (Kotlin DSL, `build.gradle.kts`, with the Gradle wrapper)
@@ -1881,7 +1888,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.23.1...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.24.0...HEAD
+[0.24.0]: https://github.com/envoryx/envoryx/compare/v0.23.1...v0.24.0
 [0.23.1]: https://github.com/envoryx/envoryx/compare/v0.23.0...v0.23.1
 [0.23.0]: https://github.com/envoryx/envoryx/compare/v0.22.1...v0.23.0
 [0.22.1]: https://github.com/envoryx/envoryx/compare/v0.22.0...v0.22.1
