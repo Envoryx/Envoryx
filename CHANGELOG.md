@@ -10,6 +10,23 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Security
+- Single sign-on linked a provider account to an Envoryx account of the
+  same name while that account had an open invitation, a password reset
+  included. Where the provider sends no username, the name is the part of
+  the e-mail address before the @, so `bob@anywhere.example` could take
+  over `bob` during a reset. Only the invitation link itself connects an
+  account now: its page offers single sign-on (also for a reset), and the
+  provider's account is linked to the invited one whatever it is called
+  there. Signing in from the login page never links by name.
+- The JetBrains backends downloaded for Gateway were shared by every
+  project and writable from each, so a developer of one project could
+  change the IDE backend another project runs. Each project now keeps its
+  own in its home; *Settings → Package cache → Share the IDE backends
+  between projects* brings the shared cache back where everyone is
+  trusted. Projects with Gateway download their backend once more after
+  the update; `/config/jetbrains` can be deleted unless you share again.
+
 ## [0.22.1] - 2026-10-09
 
 A security release; update soon if more than one person works on your

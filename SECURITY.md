@@ -89,8 +89,9 @@ trust with the projects' containers.
 - Single sign-on (OpenID Connect) uses the authorization code flow with PKCE, a state bound
   to the browser by a short-lived `HttpOnly` cookie, and a nonce; the ID token is verified
   against the provider's published keys, issuer and client ID. Accounts are linked by the
-  provider's subject, never by name: an existing Envoryx account is only linked while an
-  admin's invitation for it is open. The client secret is never sent back to the browser.
+  provider's subject, never by name: an existing Envoryx account is only linked when the
+  sign-in starts from its invitation link (also a password reset link), which proves the
+  admin's go-ahead. The client secret is never sent back to the browser.
 
 ## API tokens and MCP
 
@@ -124,9 +125,16 @@ already grants.
 SFTP is a virtual view of exactly two directories (project and persistent home), served
 from Envoryx's side of the bind mounts through `os.Root`: symbolic links are followed only
 while they stay inside that directory, whoever made them (the container, a git checkout or
-the SFTP client), so a link to `/` doesn't reach Envoryx's own files. The Ed25519 host key lives in `/config/ssh/host_ed25519` (0600). Only the `env`
-requests `LANG`, `LC_*`, `TERM`, `XDEBUG_*`, `PHP_IDE_CONFIG`, `APP_ENV` and `CI` are
-forwarded, and sessions and commands are audit-logged.
+the SFTP client), so a link to `/` doesn't reach Envoryx's own files. The Ed25519 host key
+lives in `/config/ssh/host_ed25519` (0600). Only the `env` requests `LANG`, `LC_*`,
+`TERM`, `XDEBUG_*`, `PHP_IDE_CONFIG`, `APP_ENV` and `CI` are forwarded, and sessions and
+commands are audit-logged.
+
+JetBrains Gateway keeps the IDE backend it downloads in the project's home, so nothing a
+project runs comes from another project. Sharing the backends between projects
+(*Settings → Package cache*) is an admin's opt-in: the shared directory is writable from
+every project with Gateway, so turn it on only when everyone who works on a project here
+is trusted with all of them.
 
 ## CSRF / CORS
 
