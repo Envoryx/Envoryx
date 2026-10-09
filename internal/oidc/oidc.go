@@ -126,7 +126,9 @@ func (c Config) normalize() (Config, error) {
 // pending is a sign-in between the redirect to the provider and its return.
 type pending struct {
 	verifier, nonce, redirect, returnTo string
-	expires                             time.Time
+	// invite is the invitation token when the sign-in started from an invitation link.
+	invite  string
+	expires time.Time
 }
 
 // Service runs the sign-in.
@@ -230,14 +232,21 @@ var ErrDisabled = errors.New("single sign-on is not set up")
 
 // Start begins a sign-in: it returns the provider's authorization URL and the state,
 // which the caller binds to the browser (a cookie). redirect is Envoryx's callback URL as
-// the browser reaches it; returnTo is where the UI continues afterwards.
-func (s *Service) Start(ctx context.Context, redirect, returnTo string) (authURL, state string, err error) {
+// the browser reaches it; returnTo is where the UI continues afterwards. invite is the
+// token of the invitation link the sign-in started from, or "": only that link connects
+// an existing Envoryx account to the provider's account.
+func (s *Service) Start(ctx context.Context, redirect, returnTo, invite string) (authURL, state string, err error) {
 	c, err := s.Config(ctx)
 	if err != nil {
 		return "", "", err
 	}
 	if !c.Enabled {
 		return "", "", ErrDisabled
+	}
+	if invite != "" {
+		if _, err := s.auth.Invitation(ctx, invite); err != nil {
+			return "", "", err
+		}
 	}
 	p, err := s.providerFor(ctx, c.Issuer)
 	if err != nil {
@@ -263,7 +272,7 @@ func (s *Service) Start(ctx context.Context, redirect, returnTo string) (authURL
 		s.mu.Unlock()
 		return "", "", errors.New("too many sign-ins in progress, try again in a few minutes")
 	}
-	s.pending[state] = pending{verifier: verifier, nonce: nonce, redirect: redirect, returnTo: returnTo, expires: now.Add(10 * time.Minute)}
+	s.pending[state] = pending{verifier: verifier, nonce: nonce, redirect: redirect, returnTo: returnTo, invite: invite, expires: now.Add(10 * time.Minute)}
 	s.mu.Unlock()
 	oc := s.oauth(c, p, redirect)
 	return oc.AuthCodeURL(state, gooidc.Nonce(nonce), oauth2.S256ChallengeOption(verifier)), state, nil
@@ -328,7 +337,7 @@ func (s *Service) Finish(ctx context.Context, state, code string) (store.User, s
 			}
 		}
 	}
-	u, err := s.resolveUser(ctx, c, idt.Issuer+"|"+idt.Subject, claims)
+	u, err := s.resolveUser(ctx, c, idt.Issuer+"|"+idt.Subject, claims, pend.invite)
 	if err != nil {
 		return store.User{}, "", err
 	}
@@ -394,10 +403,13 @@ func stringList(v any) []string {
 	return nil
 }
 
-// resolveUser finds the Envoryx user of an account: by its subject, else an invited user
-// of the same name (an open invitation is the admin's go-ahead to link), else a new user
-// when AutoCreate is on. With groups mapped, the role follows them at every sign-in.
-func (s *Service) resolveUser(ctx context.Context, c Config, subject string, claims map[string]any) (store.User, error) {
+// resolveUser finds the Envoryx user of an account: by its subject, else the user whose
+// invitation link the sign-in started from (the admin's go-ahead to link), else a new
+// user when AutoCreate is on. A name never links an account: the provider's username can
+// be anybody's choice (the part of any e-mail address before the @, a self-chosen
+// nickname), and an invitation is also open while a password is reset. With groups
+// mapped, the role follows them at every sign-in.
+func (s *Service) resolveUser(ctx context.Context, c Config, subject string, claims map[string]any, invite string) (store.User, error) {
 	username := usernameFrom(c, claims)
 	role := roleFor(c, stringList(claims[c.groupsClaim()]))
 	if !c.mapsGroups() {
@@ -406,21 +418,32 @@ func (s *Service) resolveUser(ctx context.Context, c Config, subject string, cla
 	u, err := s.store.Users.ByOIDCSubject(ctx, subject)
 	switch {
 	case err == nil:
+	case errors.Is(err, store.ErrNotFound) && invite != "":
+		local, err := s.auth.Invitation(ctx, invite)
+		if err != nil {
+			return store.User{}, err
+		}
+		if local.OIDCSubject != "" {
+			return store.User{}, fmt.Errorf("the Envoryx account %s is connected to another single sign-on account already", local.Username)
+		}
+		if err := s.store.Users.SetOIDCSubject(ctx, local.ID, subject); err != nil {
+			return store.User{}, err
+		}
+		_ = s.store.Users.SetInvite(ctx, local.ID, "", time.Time{})
+		// Like a password set through the link: whoever was signed in before is out.
+		if err := s.store.Sessions.DeleteByUser(ctx, local.ID); err != nil {
+			return store.User{}, err
+		}
+		local.OIDCSubject, local.InviteHash = subject, ""
+		u = local
 	case errors.Is(err, store.ErrNotFound):
 		if err := validate.Username(username); err != nil {
 			return store.User{}, fmt.Errorf("the provider's %s claim %q is no usable username: %w", c.usernameClaim(), username, err)
 		}
-		local, lerr := s.store.Users.ByUsername(ctx, username)
+		_, lerr := s.store.Users.ByUsername(ctx, username)
 		switch {
-		case lerr == nil && local.OIDCSubject == "" && local.InviteHash != "" && s.now().Before(local.InviteExpiresAt):
-			if err := s.store.Users.SetOIDCSubject(ctx, local.ID, subject); err != nil {
-				return store.User{}, err
-			}
-			_ = s.store.Users.SetInvite(ctx, local.ID, "", time.Time{})
-			local.OIDCSubject, local.InviteHash = subject, ""
-			u = local
 		case lerr == nil:
-			return store.User{}, fmt.Errorf("an Envoryx account named %s exists already; an admin can send it an invitation link to connect it to single sign-on", username)
+			return store.User{}, fmt.Errorf("an Envoryx account named %s exists already; to connect it to single sign-on, open its invitation link from an admin and sign in from there", username)
 		case !errors.Is(lerr, store.ErrNotFound):
 			return store.User{}, lerr
 		case !c.AutoCreate:

@@ -49,14 +49,15 @@ func ssoFailed(w http.ResponseWriter, r *http.Request, reason string) {
 	http.Redirect(w, r, "/login?sso_error="+url.QueryEscape(reason), http.StatusFound)
 }
 
-// oidcStart sends the browser to the provider: GET /auth/oidc/start?return=/path.
+// oidcStart sends the browser to the provider: GET /auth/oidc/start?return=/path, plus
+// &invite=<token> from an invitation page, which connects that account.
 func (a *API) oidcStart(w http.ResponseWriter, r *http.Request) {
 	if a.d.OIDC == nil {
 		ssoFailed(w, r, oidc.ErrDisabled.Error())
 		return
 	}
 	redirect := baseURL(r) + "/api/v1/auth/oidc/callback"
-	authURL, state, err := a.d.OIDC.Start(r.Context(), redirect, safeReturn(r.URL.Query().Get("return")))
+	authURL, state, err := a.d.OIDC.Start(r.Context(), redirect, safeReturn(r.URL.Query().Get("return")), r.URL.Query().Get("invite"))
 	if err != nil {
 		a.d.Log.Warn("single sign-on could not start", "err", err)
 		ssoFailed(w, r, err.Error())

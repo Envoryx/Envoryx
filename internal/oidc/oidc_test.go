@@ -76,9 +76,15 @@ func newProvider(t *testing.T) *provider {
 // signIn runs a sign-in whose ID token carries the claims (the nonce is filled in).
 func (p *provider) signIn(t *testing.T, s *Service, claims map[string]any) (store.User, error) {
 	t.Helper()
-	authURL, state, err := s.Start(context.Background(), "http://envoryx.test/api/v1/auth/oidc/callback", "/projects")
+	return p.signInFrom(t, s, claims, "")
+}
+
+// signInFrom signs in from the invitation link with this token.
+func (p *provider) signInFrom(t *testing.T, s *Service, claims map[string]any, invite string) (store.User, error) {
+	t.Helper()
+	authURL, state, err := s.Start(context.Background(), "http://envoryx.test/api/v1/auth/oidc/callback", "/projects", invite)
 	if err != nil {
-		t.Fatal(err)
+		return store.User{}, err
 	}
 	u, _ := url.Parse(authURL)
 	if u.Query().Get("state") != state || u.Query().Get("code_challenge_method") != "S256" {
@@ -116,7 +122,7 @@ func TestSingleSignOn(t *testing.T) {
 	if _, err := st.Users.Create(ctx, "root", "x", "admin"); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := s.Start(ctx, "http://x/cb", "/"); err != ErrDisabled {
+	if _, _, err := s.Start(ctx, "http://x/cb", "/", ""); err != ErrDisabled {
 		t.Fatalf("disabled: %v", err)
 	}
 	cfg := Config{Enabled: true, Issuer: p.srv.URL, ClientID: "envoryx", ClientSecret: "s3cret", AutoCreate: true, AdminGroups: []string{"envoryx-admins"}, DeveloperGroups: []string{"devs"}}
@@ -152,17 +158,32 @@ func TestSingleSignOn(t *testing.T) {
 	if _, err := p.signIn(t, s, map[string]any{"sub": "u3", "preferred_username": "root", "groups": []string{"envoryx-admins"}}); err == nil || !strings.Contains(err.Error(), "exists already") {
 		t.Fatalf("takeover: %v", err)
 	}
-	// … unless an admin sent it an invitation, which links it.
-	_, invited, err := a.InviteUser(ctx, "frank", auth.RoleViewer)
+	// … not even while it has an open invitation: the name alone links nothing (anyone
+	// can be frank@ somewhere, and a password reset is an open invitation too) …
+	token, invited, err := a.InviteUser(ctx, "frank", auth.RoleViewer)
 	if err != nil {
 		t.Fatal(err)
 	}
-	u, err = p.signIn(t, s, map[string]any{"sub": "u4", "preferred_username": "frank", "groups": []string{"devs"}})
+	if _, err := p.signIn(t, s, map[string]any{"sub": "u4", "email": "frank@elsewhere.example", "groups": []string{"devs"}}); err == nil || !strings.Contains(err.Error(), "exists already") {
+		t.Fatalf("linked by name: %v", err)
+	}
+	if got, _ := st.Users.ByID(ctx, invited.ID); got.OIDCSubject != "" || got.InviteHash == "" {
+		t.Fatalf("linked by name: %+v", got)
+	}
+	// … only the invitation link does, whatever the provider calls the account.
+	if _, err := p.signInFrom(t, s, map[string]any{"sub": "u4"}, "not-the-token"); err == nil {
+		t.Fatal("a wrong invitation token starts a sign-in")
+	}
+	u, err = p.signInFrom(t, s, map[string]any{"sub": "u4", "preferred_username": "frank.f", "groups": []string{"devs"}}, token)
 	if err != nil || u.ID != invited.ID || u.Role != "developer" {
 		t.Fatalf("invited: %+v %v", u, err)
 	}
 	if got, _ := st.Users.ByID(ctx, invited.ID); got.OIDCSubject == "" || got.InviteHash != "" {
 		t.Fatalf("link: %+v", got)
+	}
+	// The link is used up.
+	if _, err := p.signInFrom(t, s, map[string]any{"sub": "u9", "preferred_username": "x"}, token); err == nil {
+		t.Fatal("an invitation links twice")
 	}
 
 	// Without auto-create only invited users get in.
@@ -191,7 +212,7 @@ func TestSingleSignOn(t *testing.T) {
 	}
 
 	// A token for another client, a replayed state or a wrong nonce do not get in.
-	authURL, state, _ := s.Start(ctx, "http://x/cb", "/")
+	authURL, state, _ := s.Start(ctx, "http://x/cb", "/", "")
 	_ = authURL
 	p.mu.Lock()
 	p.codes["forged"] = map[string]any{"sub": "u1", "preferred_username": "dana", "nonce": "wrong"}

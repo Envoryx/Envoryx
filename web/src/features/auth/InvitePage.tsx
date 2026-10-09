@@ -69,8 +69,10 @@ export function InvitePage() {
               <Button type="submit" variant="primary" className="w-full" loading={busy}>
                 {invite.reset ? t("Save password") : t("Create account")}
               </Button>
-              {sso?.enabled && !invite.reset && (
-                <a href="/api/v1/auth/oidc/start" className="flex w-full items-center justify-center rounded-md border border-default px-3 py-2 text-sm font-medium text-fg hover:bg-muted">
+              {/* Only this link connects the account to single sign-on: the provider's
+                  account is linked to the invited one, whatever its name there. */}
+              {sso?.enabled && (
+                <a href={`/api/v1/auth/oidc/start?invite=${encodeURIComponent(token)}`} className="flex w-full items-center justify-center rounded-md border border-default px-3 py-2 text-sm font-medium text-fg hover:bg-muted">
                   {t("Sign in with {{name}} instead", { name: sso.name ?? "SSO" })}
                 </a>
               )}
