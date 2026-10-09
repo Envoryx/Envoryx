@@ -11,6 +11,12 @@ release). `:main` follows the development branch.
 ## [Unreleased]
 
 ### Fixed
+- Links in mails and anything else a Laravel or Symfony project built
+  outside a request (queue workers, the scheduler, console commands)
+  pointed at `http://localhost`. The Laravel template now sets
+  `APP_URL=${ENVORYX_URL}` in `.env`, the Symfony template
+  `DEFAULT_URI=${ENVORYX_URL}` in `.env.local`, so both follow the project
+  address. Existing projects can add the same line.
 - Saving project settings stopped and started every container of a running
   project, the database and OpenSearch included, even when only Xdebug or
   another PHP setting changed. Envoryx now recreates just the containers

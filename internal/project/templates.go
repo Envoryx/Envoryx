@@ -367,17 +367,20 @@ var templates = []Template{
 	{
 		ID: "laravel", Name: "Laravel", Description: "composer create-project laravel/laravel - ready to run with the project database.",
 		Runtime: "php", Docroot: "public", RecommendedDatabase: "mariadb",
-		Notes:      "Envoryx runs “artisan migrate” when it starts the new project (created stopped, run it from Actions), so the sessions, cache and jobs tables are there before the first request and the queue worker. Envoryx injects DB_* and REDIS_*/MAIL_* variables; they override .env.",
-		steps:      []templateStep{{label: "composer create-project", cmd: []string{"composer", "create-project", "laravel/laravel", ".", composerNoInteraction, "--prefer-dist"}}},
+		Notes: "Envoryx runs “artisan migrate” when it starts the new project (created stopped, run it from Actions), so the sessions, cache and jobs tables are there before the first request and the queue worker. Envoryx injects DB_* and REDIS_*/MAIL_* variables; they override .env. APP_URL in .env follows the project address (ENVORYX_URL).",
+		steps: []templateStep{
+			{label: "composer create-project", cmd: []string{"composer", "create-project", "laravel/laravel", ".", composerNoInteraction, "--prefer-dist"}},
+			{label: "point APP_URL at the project address", cmd: []string{"php", "-r", laravelAppURL}},
+		},
 		afterStart: &templateAfterStart{service: store.ServicePHP, cmd: []string{"php", "artisan", "migrate", composerNoInteraction, "--force"}},
 	},
 	{
 		ID: "symfony", Name: "Symfony", Description: "symfony/skeleton plus the webapp pack (Twig, Doctrine, forms, security…).",
 		Runtime: "php", Docroot: "public", RecommendedDatabase: "postgresql",
-		Notes: "Envoryx injects DATABASE_URL and DB_SERVER_VERSION, which config/packages/doctrine.yaml reads (for an external database set DB_SERVER_VERSION in the project environment, e.g. 8.4.0 or mariadb-11.4.0). Create the schema with “doctrine:migrations:migrate” (Symfony console action). The Messenger consumer worker sets up its transports itself (messenger:setup-transports creates the messenger_messages table).",
+		Notes: "Envoryx injects DATABASE_URL and DB_SERVER_VERSION, which config/packages/doctrine.yaml reads (for an external database set DB_SERVER_VERSION in the project environment, e.g. 8.4.0 or mariadb-11.4.0). Create the schema with “doctrine:migrations:migrate” (Symfony console action). The Messenger consumer worker sets up its transports itself (messenger:setup-transports creates the messenger_messages table). DEFAULT_URI in .env.local follows the project address (ENVORYX_URL).",
 		steps: []templateStep{
 			{label: "composer create-project", cmd: []string{"composer", "create-project", "symfony/skeleton", ".", composerNoInteraction, "--prefer-dist"}},
-			{label: "composer require webapp", cmd: []string{"composer", "require", "webapp", composerNoInteraction}},
+			{label: "composer require webapp", cmd: []string{"composer", "require", "webapp", composerNoInteraction}, files: map[string]func() (string, error){".env.local": func() (string, error) { return symfonyEnvLocal, nil }}},
 			{label: "set the database server version", cmdFor: symfonyServerVersion},
 		},
 	},
@@ -1116,6 +1119,23 @@ echo "installer enabled\n";
 // shopwareEnvLocal lets APP_URL follow the project address (Symfony's Dotenv resolves
 // the injected ENVORYX_URL).
 const shopwareEnvLocal = "# Added by Envoryx: the address the project answers at.\nAPP_URL=${ENVORYX_URL}\n"
+
+// laravelAppURL lets APP_URL follow the project address: links in mails and anything else
+// built outside a request (queue, scheduler, artisan) pointed at http://localhost.
+// phpdotenv resolves the injected ENVORYX_URL.
+const laravelAppURL = `
+$s = @file_get_contents('.env');
+if ($s === false) { fwrite(STDERR, ".env is missing\n"); exit(1); }
+$line = "APP_URL=\${ENVORYX_URL}";
+$s = preg_replace_callback('/^APP_URL=.*$/m', fn () => $line, $s, 1, $n);
+if ($n === 0) { $s .= "\n" . $line . "\n"; }
+if (file_put_contents('.env', $s) === false) { fwrite(STDERR, "writing .env failed\n"); exit(1); }
+echo "APP_URL set\n";
+`
+
+// symfonyEnvLocal lets DEFAULT_URI, the address the router uses outside a request (mails,
+// console commands), follow the project address.
+const symfonyEnvLocal = "# Added by Envoryx: the address the project answers at.\nDEFAULT_URI=${ENVORYX_URL}\n"
 
 // craftEnv appends the connection and the site URL to Craft's .env; phpdotenv resolves
 // the references to the injected variables when Craft starts.
