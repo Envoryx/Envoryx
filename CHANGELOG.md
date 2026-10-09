@@ -10,6 +10,16 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.23.1] - 2026-10-10
+
+Envoryx runs as root and works in directories that belong to whoever
+works in a project. A link or a named pipe put there could make it hang,
+fill its memory, or change files outside the project when the project
+started or a backup was restored. It now treats what it finds in a
+project as untrusted. A project whose home holds a symbolic link where
+Envoryx creates its directories (`~/.config`, `~/.cache`) stops with an
+error naming the link until it is removed.
+
 ### Security
 - Envoryx reads some of a project's files itself (composer.json,
   package.json, go.mod, pom.xml, a .csproj, config/database.yml,
@@ -1855,7 +1865,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.23.0...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.23.1...HEAD
+[0.23.1]: https://github.com/envoryx/envoryx/compare/v0.23.0...v0.23.1
 [0.23.0]: https://github.com/envoryx/envoryx/compare/v0.22.1...v0.23.0
 [0.22.1]: https://github.com/envoryx/envoryx/compare/v0.22.0...v0.22.1
 [0.22.0]: https://github.com/envoryx/envoryx/compare/v0.21.0...v0.22.0
