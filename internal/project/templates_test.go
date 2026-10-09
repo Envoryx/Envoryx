@@ -41,8 +41,11 @@ func TestTemplatesScaffoldThroughOneShotContainers(t *testing.T) {
 	if v.Project.Docroot != "public" {
 		t.Fatalf("docroot: %q", v.Project.Docroot)
 	}
-	if len(runs) != 1 || strings.Join(runs[0].Cmd, " ") != "composer create-project laravel/laravel . --no-interaction --prefer-dist" || !runsAsProjectUser(runs[0], 1000, 1000) || runs[0].Labels["envoryx.service"] != "template" {
+	if len(runs) != 2 || strings.Join(runs[0].Cmd, " ") != "composer create-project laravel/laravel . --no-interaction --prefer-dist" || !runsAsProjectUser(runs[0], 1000, 1000) || runs[0].Labels["envoryx.service"] != "template" {
 		t.Fatalf("laravel step: %+v", runs)
+	}
+	if !strings.Contains(strings.Join(runs[1].Cmd, " "), "APP_URL=\\${ENVORYX_URL}") {
+		t.Fatalf("laravel APP_URL step: %q", runs[1].Cmd)
 	}
 	if _, err := os.Stat(filepath.Join(e.projDir, "shop", "public", "index.php")); err == nil {
 		t.Fatal("starter page must not be written when a template scaffolds")
@@ -90,6 +93,9 @@ func TestTemplatesScaffoldThroughOneShotContainers(t *testing.T) {
 	e.engine.OneShotHandler = nil
 	if _, err := e.m.Create(ctx, CreateRequest{Name: "Broken", Template: "symfony", PHP: &PHPRequest{Version: "8.4"}}); err != nil {
 		t.Fatalf("retry after a failed template: %v", err)
+	}
+	if b, _ := os.ReadFile(filepath.Join(e.projDir, "broken", ".env.local")); !strings.Contains(string(b), "DEFAULT_URI=${ENVORYX_URL}") {
+		t.Fatalf("symfony .env.local: %q", b)
 	}
 	if _, err := e.m.Create(ctx, CreateRequest{Name: "X", Template: "nope", PHP: &PHPRequest{Version: "8.4"}}); !errors.Is(err, validate.ErrInvalid) {
 		t.Fatalf("unknown template: %v", err)
