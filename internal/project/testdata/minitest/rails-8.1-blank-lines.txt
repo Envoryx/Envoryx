@@ -1,0 +1,29 @@
+Running 3 tests in a single process (parallelization threshold is 50)
+Run options: --seed 33095
+
+# Running:
+
+F
+
+Failure:
+PostTest#test_fails_on_purpose [test/models/post_test.rb:9]:
+Expected: 1
+  Actual: 2
+
+
+bin/rails test test/models/post_test.rb:8
+
+.E
+
+Error:
+PostTest#test_raises:
+RuntimeError: boom
+    test/models/post_test.rb:13:in 'block in <class:PostTest>'
+
+
+bin/rails test test/models/post_test.rb:12
+
+
+
+Finished in 0.011314s, 265.1692 runs/s, 176.7795 assertions/s.
+3 runs, 2 assertions, 1 failures, 1 errors, 0 skips

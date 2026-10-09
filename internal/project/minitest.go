@@ -55,10 +55,15 @@ func parseMinitest(text, root string) (res TestResult, ok bool) {
 		for i += 2; i < len(lines) && strings.TrimSpace(lines[i]) != ""; i++ {
 			body = append(body, strings.TrimRight(lines[i], " \t"))
 		}
-		if i+1 < len(lines) {
-			if r := minitestRerun.FindStringSubmatch(strings.TrimSpace(lines[i+1])); r != nil {
+		// Rails 8.1 leaves two blank lines before the rerun command, earlier versions one.
+		next := i + 1
+		for next < len(lines) && next <= i+2 && strings.TrimSpace(lines[next]) == "" {
+			next++
+		}
+		if next < len(lines) {
+			if r := minitestRerun.FindStringSubmatch(strings.TrimSpace(lines[next])); r != nil {
 				tc.File, tc.Line = relativeTo(r[1], root), num(r[2])
-				i++
+				i = next
 			}
 		}
 		if len(body) > 0 {

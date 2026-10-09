@@ -1,0 +1,28 @@
+Found 4 test(s).
+Creating test database for alias 'default'...
+Got an error creating the test database: database "test_dj" already exists
+Destroying old test database for alias 'default'...
+System check identified no issues (0 silenced).
+F.Es
+======================================================================
+ERROR: test_raises (blog.tests.PostTests.test_raises)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/var/www/html/blog/tests.py", line 13, in test_raises
+    raise RuntimeError("boom")
+RuntimeError: boom
+
+======================================================================
+FAIL: test_fails (blog.tests.PostTests.test_fails)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/var/www/html/blog/tests.py", line 10, in test_fails
+    self.assertEqual(1, 2)
+    ~~~~~~~~~~~~~~~~^^^^^^
+AssertionError: 1 != 2
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.002s
+
+FAILED (failures=1, errors=1, skipped=1)
+Destroying test database for alias 'default'...

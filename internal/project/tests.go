@@ -188,7 +188,7 @@ func detectTestSuites(dir string, p store.Project) []TestSuite {
 			}
 			out = append(out, TestSuite{
 				ID: "npm:" + name, Framework: "npm", Label: strings.Join(base, " "), Service: store.ServiceNode, Cmd: base,
-				FilterHint: "passed on to the script", Available: true,
+				FilterHint: "passed on to the script", Available: true, parseOutput: parseJSTests,
 				build: func(filter, _ string) ([]string, []string) {
 					argv := append([]string{}, base...)
 					if filter != "" {
@@ -246,7 +246,7 @@ func detectTestSuites(dir string, p store.Project) []TestSuite {
 				}})
 		}
 		if exists("manage.py") {
-			out = append(out, TestSuite{ID: "django", Framework: "django", Label: "manage.py test", Service: store.ServicePython, Cmd: []string{"python", "manage.py", "test"}, FilterHint: "test label", Available: true, djangoDB: true,
+			out = append(out, TestSuite{ID: "django", Framework: "django", Label: "manage.py test", Service: store.ServicePython, Cmd: []string{"python", "manage.py", "test"}, FilterHint: "test label", Available: true, djangoDB: true, parseOutput: parseDjango,
 				build: func(filter, _ string) ([]string, []string) {
 					argv := []string{"python", "manage.py", "test", "--no-input"}
 					if filter != "" {
@@ -283,10 +283,10 @@ func detectTestSuites(dir string, p store.Project) []TestSuite {
 	if has(store.ServiceRuby) && exists("Gemfile") {
 		lock := read("Gemfile.lock")
 		if exists("spec") && bytes.Contains(lock, []byte(" rspec-core ")) {
-			// A JUnit report needs rspec_junit_formatter in the bundle; without it only the
-			// exit code counts.
+			// A JUnit report needs rspec_junit_formatter in the bundle; without it the
+			// result is read from the progress output.
 			junit := bytes.Contains(lock, []byte(" rspec_junit_formatter "))
-			out = append(out, TestSuite{ID: "rspec", Framework: "rspec", Label: "rspec", Service: store.ServiceRuby, Cmd: []string{"bundle", "exec", "rspec"}, Report: junit, FilterHint: "-e (example name)", Available: true,
+			out = append(out, TestSuite{ID: "rspec", Framework: "rspec", Label: "rspec", Service: store.ServiceRuby, Cmd: []string{"bundle", "exec", "rspec"}, Report: junit, FilterHint: "-e (example name)", Available: true, parseOutput: parseRSpec,
 				build: func(filter, report string) ([]string, []string) {
 					argv := []string{"sh", "-c", rubyTestScript, "envoryx-rspec", "bundle", "exec", "rspec", "--force-color"}
 					if junit {
@@ -808,6 +808,10 @@ func (m *Manager) FinishTestRun(ctx context.Context, s *TestSession, exitCode in
 		_, _ = m.engine.Exec(ctx, s.containerID, []string{"rm", "-f", s.report}, nil)
 	}
 	text := ansiCodes.ReplaceAllString(string(output), "")
+	if res.Report && s.Suite.Framework == "rspec" {
+		// rspec_junit_formatter names the file only; the line comes from the output.
+		locateRSpec(&res, text, appMountTarget)
+	}
 	if !res.Report && s.Suite.parseOutput != nil {
 		if parsed, ok := s.Suite.parseOutput(text, appMountTarget); ok {
 			res = parsed
