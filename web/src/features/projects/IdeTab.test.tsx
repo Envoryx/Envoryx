@@ -42,6 +42,17 @@ describe("IdeTab", () => {
     expect(screen.getByText(/ssh -R 9003:localhost:9003/)).toBeInTheDocument();
   });
 
+  it("gives php.xml the port the browser uses and names PHP_IDE_CONFIG", async () => {
+    mockApi({
+      ...authedRoutes,
+      "GET /settings": () => ({ body: settings }),
+      [`GET /projects/${id}/extras`]: () => ({ body: { services: [] } }),
+    });
+    renderApp(<IdeTab project={makeProject({ hostnames: ["acme-shop.test"], url: "https://acme-shop.test" })} />);
+    expect(await screen.findByText(/<server host="acme-shop\.test" port="443" id="envoryx-acme-shop"/)).toBeInTheDocument();
+    expect(screen.getByText(/PHP_IDE_CONFIG=serverName=acme-shop\.test/)).toBeInTheDocument();
+  });
+
   it("shows the Ruby version's GEM_HOME, which is Gem.user_dir", async () => {
     mockApi({
       ...authedRoutes,

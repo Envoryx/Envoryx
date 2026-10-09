@@ -2755,5 +2755,7 @@
   "Keeps restarting: its process exits shortly after each start. The logs say why; restart it once the cause is fixed.": "Постоянно перезапускается: его процесс завершается вскоре после каждого старта. Причина видна в логах; перезапустите его, когда она устранена.",
   "Restart {{name}}": "Перезапустить {{name}}",
   "Worker restarted": "Воркер перезапущен",
-  "Restarting the container {{name}}": "Перезапуск контейнера {{name}}"
+  "Restarting the container {{name}}": "Перезапуск контейнера {{name}}",
+  "Server port": "Порт сервера",
+  "The PHP container sets PHP_IDE_CONFIG=serverName={{name}}, so PhpStorm uses this server for browser requests and for the command line (artisan, drush, tests) alike; keep the server's name as it is.": "Контейнер PHP задаёт PHP_IDE_CONFIG=serverName={{name}}, поэтому PhpStorm использует этот сервер и для запросов из браузера, и для командной строки (artisan, drush, тесты); не меняйте имя сервера."
 }

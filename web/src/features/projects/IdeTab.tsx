@@ -61,11 +61,22 @@ export function IdeTab({ project: p }: { project: Project }) {
     onError: (err) => setGwMsg({ tone: "red", text: errorText(err, t, t("Request failed")) }),
   });
 
+  // The port the browser uses for the project's host name (the proxy's, usually 443): PhpStorm
+  // matches a web request's server by host and port when PHP_IDE_CONFIG does not name it.
+  const serverPort = (() => {
+    try {
+      const u = new URL(p.url ?? "");
+      if (u.hostname === hostname) return u.port || (u.protocol === "https:" ? "443" : "80");
+    } catch {
+      // no URL known
+    }
+    return "80";
+  })();
   const phpXml = `<?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="PhpProjectServersManager">
     <servers>
-      <server host="${hostname}" id="envoryx-${p.slug}" name="${hostname}" use_path_mappings="true">
+      <server host="${hostname}"${serverPort === "80" ? "" : ` port="${serverPort}"`} id="envoryx-${p.slug}" name="${hostname}" use_path_mappings="true">
         <path_mappings>
           <mapping local-root="$PROJECT_DIR$" remote-root="/var/www/html" />
         </path_mappings>
@@ -276,6 +287,7 @@ export function IdeTab({ project: p }: { project: Project }) {
             <dl>
               <CopyRow label={t("Server name")} value={hostname} />
               <CopyRow label={t("Server host")} value={hostname} />
+              <CopyRow label={t("Server port")} value={serverPort} />
               <CopyRow label={t("Debug port")} value="9003" />
               <CopyRow label={t("IDE key")} value={phpCfg.xdebugIdeKey || "PHPSTORM"} />
               <CopyRow label={t("Path mapping")} value={`${hostDir} → /var/www/html`} />
@@ -287,6 +299,9 @@ export function IdeTab({ project: p }: { project: Project }) {
               </div>
               <pre className="mt-1 overflow-x-auto rounded-md bg-muted p-2 font-mono text-[11px]">{phpXml}</pre>
             </div>
+            <p className="mt-3 text-xs text-subtle">
+              {t("The PHP container sets PHP_IDE_CONFIG=serverName={{name}}, so PhpStorm uses this server for browser requests and for the command line (artisan, drush, tests) alike; keep the server's name as it is.", { name: hostname })}
+            </p>
             <p className="mt-3 text-xs text-subtle">
               {t("Xdebug connects to the browser's address first, then to {{host}}. host.docker.internal is the Docker host, not your workstation: if PhpStorm runs elsewhere and the server cannot reach it, forward the port over SSH (ssh -R 9003:localhost:9003 with the SSH login from above) and set the Xdebug host under Runtime to localhost.", {
                 host: phpCfg.xdebugClientHost || s?.xdebugClientHost || "host.docker.internal",

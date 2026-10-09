@@ -1502,6 +1502,12 @@ func (p *Planner) envStrings(proj store.Project) ([]string, error) {
 	if u := p.ProjectURL(proj); u != "" {
 		set("ENVORYX_URL", u)
 	}
+	// PhpStorm picks the server (and its path mappings) for a debug session by this
+	// name. Without it, it matches host and port, and behind the proxy the port is the
+	// proxy's (443), not the 80 a server entry defaults to; the CLI has neither.
+	if php := proj.Service(store.ServicePHP); php != nil && php.Enabled && p.paths.BaseDomain != "" {
+		set("PHP_IDE_CONFIG", "serverName="+DefaultHostname(proj.Slug, p.paths.BaseDomain))
+	}
 	for _, db := range proj.Databases() {
 		var cfg runtime.DatabaseConfig
 		if err := json.Unmarshal(db.Config, &cfg); err != nil {

@@ -2707,5 +2707,7 @@
   "Keeps restarting: its process exits shortly after each start. The logs say why; restart it once the cause is fixed.": "Startet immer wieder neu: Sein Prozess endet kurz nach jedem Start. Die Logs sagen warum; starte ihn neu, sobald die Ursache behoben ist.",
   "Restart {{name}}": "{{name}} neu starten",
   "Worker restarted": "Worker neu gestartet",
-  "Restarting the container {{name}}": "Container {{name}} wird neu gestartet"
+  "Restarting the container {{name}}": "Container {{name}} wird neu gestartet",
+  "Server port": "Server-Port",
+  "The PHP container sets PHP_IDE_CONFIG=serverName={{name}}, so PhpStorm uses this server for browser requests and for the command line (artisan, drush, tests) alike; keep the server's name as it is.": "Der PHP-Container setzt PHP_IDE_CONFIG=serverName={{name}}, damit PhpStorm diesen Server für Browser-Anfragen und für die Kommandozeile (artisan, drush, Tests) gleichermaßen nutzt; lass den Namen des Servers so, wie er ist."
 }

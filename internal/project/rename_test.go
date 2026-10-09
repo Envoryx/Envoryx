@@ -99,7 +99,7 @@ func TestRenameProjectMovesEverythingDerivedFromTheIdentifier(t *testing.T) {
 	// The application containers see the new connection details.
 	php, _ := e.engine.Container("envoryx-acme-blog-php")
 	env := strings.Join(php.Spec.Env, "\n")
-	if !strings.Contains(env, "DB_DATABASE=acme_blog") || !strings.Contains(env, "ENVORYX_PROJECT=acme-blog") {
+	if !strings.Contains(env, "DB_DATABASE=acme_blog") || !strings.Contains(env, "ENVORYX_PROJECT=acme-blog") || !strings.Contains(env, "PHP_IDE_CONFIG=serverName=acme-blog.test") {
 		t.Fatalf("injected env: %v", php.Spec.Env)
 	}
 }
