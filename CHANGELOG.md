@@ -10,6 +10,22 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Added
+- The Spring Boot and Quarkus templates can set the project up with
+  Gradle (Kotlin DSL, `build.gradle.kts`, with the Gradle wrapper)
+  instead of Maven: the wizard has a *Build tool* field for them, the API
+  takes `templateBuildTool` (`maven` or `gradle`).
+
+### Changed
+- Gradle keeps its home (dependencies, wrapper distributions) in the
+  project home, `~/.gradle`, instead of the package cache, and stays
+  there when the package cache is shared. Gradle hands its cache locks
+  over through a message on localhost, which doesn't reach another
+  container: with a shared cache and a Gradle server running in one
+  project, Gradle in every other project failed after a minute with
+  "Timeout waiting to lock journal cache". The old `gradle` folder in
+  the package cache can be emptied under *Settings → Package cache*.
+
 ## [0.23.1] - 2026-10-10
 
 Envoryx runs as root and works in directories that belong to whoever

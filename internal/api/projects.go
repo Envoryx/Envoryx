@@ -479,22 +479,24 @@ type createProjectRequest struct {
 	Dotnet   *dotnetRequestDTO   `json:"dotnet"`
 	Database *databaseRequestDTO `json:"database"`
 	// Databases are additional databases, each with a name.
-	Databases     []namedDatabaseDTO `json:"databases"`
-	Redis         *extraRequestDTO   `json:"redis"`
-	Mailpit       *extraRequestDTO   `json:"mailpit"`
-	RabbitMQ      *extraRequestDTO   `json:"rabbitmq"`
-	Memcached     *extraRequestDTO   `json:"memcached"`
-	Meilisearch   *extraRequestDTO   `json:"meilisearch"`
-	Typesense     *extraRequestDTO   `json:"typesense"`
-	Ollama        *extraRequestDTO   `json:"ollama"`
-	OpenSearch    *extraRequestDTO   `json:"opensearch"`
-	Storage       *storageRequestDTO `json:"storage"`
-	Git           *gitRequestDTO     `json:"git"`
-	Web           *webRequestDTO     `json:"web"`
-	Env           []envDTO           `json:"env"`
-	Template      string             `json:"template"`
-	CreateStarter bool               `json:"createStarter"`
-	Start         bool               `json:"start"`
+	Databases   []namedDatabaseDTO `json:"databases"`
+	Redis       *extraRequestDTO   `json:"redis"`
+	Mailpit     *extraRequestDTO   `json:"mailpit"`
+	RabbitMQ    *extraRequestDTO   `json:"rabbitmq"`
+	Memcached   *extraRequestDTO   `json:"memcached"`
+	Meilisearch *extraRequestDTO   `json:"meilisearch"`
+	Typesense   *extraRequestDTO   `json:"typesense"`
+	Ollama      *extraRequestDTO   `json:"ollama"`
+	OpenSearch  *extraRequestDTO   `json:"opensearch"`
+	Storage     *storageRequestDTO `json:"storage"`
+	Git         *gitRequestDTO     `json:"git"`
+	Web         *webRequestDTO     `json:"web"`
+	Env         []envDTO           `json:"env"`
+	Template    string             `json:"template"`
+	// TemplateBuildTool is maven or gradle for the Java templates.
+	TemplateBuildTool string `json:"templateBuildTool"`
+	CreateStarter     bool   `json:"createStarter"`
+	Start             bool   `json:"start"`
 	// UseManifest applies the envoryx.yml the cloned repository brings (it wins over the
 	// services chosen here). Only with git.
 	UseManifest bool `json:"useManifest"`
@@ -540,7 +542,7 @@ func (r createProjectRequest) checkPorts() error {
 }
 
 func (r createProjectRequest) toDomain() project.CreateRequest {
-	req := project.CreateRequest{Name: r.Name, Path: r.Path, Docroot: r.Docroot, Template: strings.TrimSpace(r.Template), CreateStarter: r.CreateStarter, Start: r.Start}
+	req := project.CreateRequest{Name: r.Name, Path: r.Path, Docroot: r.Docroot, Template: strings.TrimSpace(r.Template), TemplateBuildTool: strings.TrimSpace(r.TemplateBuildTool), CreateStarter: r.CreateStarter, Start: r.Start}
 	if r.PHP != nil {
 		req.PHP = &project.PHPRequest{Version: r.PHP.Version, Config: r.PHP.Config}
 	}

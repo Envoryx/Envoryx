@@ -56,6 +56,9 @@ type CreateRequest struct {
 	Env         []EnvVarRequest
 	// Template scaffolds an application into the new directory (see Templates()).
 	Template string
+	// TemplateBuildTool picks the build tool of a template that offers several (the Java
+	// templates: maven, the default, or gradle).
+	TemplateBuildTool string
 	// Import fills the new directory from an uploaded website (see CreateFromImport).
 	Import *ImportRequest
 	// CreateStarter writes a starter page (index.php with PHP, index.html otherwise) when

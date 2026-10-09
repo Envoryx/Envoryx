@@ -699,7 +699,9 @@ names the container kind).
   for the primary SQL database (JDBC wants `jdbc:<driver>://host:port/db`),
   `<NAME>_JDBC_URL` for each additional one and the Spring/Quarkus variables
   for MongoDB, Redis and Mailpit; `packageCacheEnv` moves Maven's repository
-  and `GRADLE_USER_HOME` into the package cache. The test suites
+  into the package cache, `toolEnv` sets `GRADLE_USER_HOME` to `~/.gradle` in
+  the project home (Gradle's lock handover is a localhost message, which
+  doesn't cross containers, so it never shares). The test suites
   (`mvn test`, `gradle test`) run behind `javaTestScript`, which points
   every JDBC and database URL at `<database>_test` (`testURLShell`: before the
   query of a URL that has one, a MongoDB URL left alone) and joins the per-class

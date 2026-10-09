@@ -780,8 +780,10 @@ or a repository (or enable Java on any project under Runtime). The Java containe
 image `ghcr.io/envoryx/envoryx-java:<17|21|25>`: Eclipse Temurin
 `<v>-jdk-noble` plus Maven, Gradle, git and socat; only the LTS releases) runs
 as `PUID:PGID` with the project directory at `/var/www/html` and the project
-home at `/home/envoryx`. Maven's repository and Gradle's caches live in the
-package cache (see [Package cache](#package-cache)).
+home at `/home/envoryx`. Maven's repository lives in the package cache (see
+[Package cache](#package-cache)); Gradle's home (dependencies, wrapper
+distributions) is `~/.gradle` in the project home, also when the package cache
+is shared, since Gradle's cache locks don't work across containers.
 
 - **Build tool.** A `pom.xml` means Maven, else a `build.gradle` or
   `build.gradle.kts` means Gradle. The project's wrapper (`mvnw`, `gradlew`)
@@ -1943,8 +1945,8 @@ The API: `GET /projects/{id}/share`, `POST /projects/{id}/share`
 
 ## Package cache
 
-Composer, npm, Yarn, pnpm, pip, uv, Go (modules and build cache), Bundler, Maven, Gradle and
-NuGet keep their downloads in a package cache, mounted at `/var/cache/envoryx` into the
+Composer, npm, Yarn, pnpm, pip, uv, Go (modules and build cache), Bundler, Maven and NuGet
+keep their downloads in a package cache, mounted at `/var/cache/envoryx` into the
 PHP, Node, Python, Go, Ruby, Java and .NET containers, the workers and the one-shot
 containers that scaffold a template. Each project has its own
 (`/config/projects/<id>/cache`), so a project's dependencies stay its own business. The

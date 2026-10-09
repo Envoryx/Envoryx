@@ -110,18 +110,26 @@ const (
 )
 
 // toolEnv are the variables that point tools at the persistent home. The package
-// managers' download caches go to the package cache instead (packageCacheEnv).
-var toolEnv = []string{"HOME=" + homeMountTarget, "COMPOSER_HOME=" + homeMountTarget + "/.composer", "COMPOSER_NO_INTERACTION=1"}
+// managers' download caches go to the package cache instead (packageCacheEnv), except
+// Gradle's (see there). Gradle finds its home through Java's user.home, which comes from
+// the image's passwd entry and not from HOME, so it is named here.
+var toolEnv = []string{"HOME=" + homeMountTarget, "COMPOSER_HOME=" + homeMountTarget + "/.composer", "COMPOSER_NO_INTERACTION=1", gradleHome}
 
-// The package cache is where Composer, npm, Yarn, pnpm, pip, uv, Go, Bundler, Maven,
-// Gradle and NuGet keep their downloads. Each project has its own
-// (/config/projects/<id>/cache on the Envoryx side): a shared one is writable from every
-// project, and most of these tools take a cached package without checking it against the
-// lock file, so a developer of one project could plant code another project installs.
-// With SharedPackageCache on, all projects use one directory (/config/cache) and a
-// package is downloaded once whichever project asks for it next. Every container a
-// package manager runs in has it mounted: the application containers, the workers and
-// the one-shots that scaffold a template.
+// gradleHome keeps Gradle's caches and wrapper distributions in the project home.
+const gradleHome = "GRADLE_USER_HOME=" + homeMountTarget + "/.gradle"
+
+// The package cache is where Composer, npm, Yarn, pnpm, pip, uv, Go, Bundler, Maven and
+// NuGet keep their downloads. Each project has its own (/config/projects/<id>/cache on
+// the Envoryx side): a shared one is writable from every project, and most of these tools
+// take a cached package without checking it against the lock file, so a developer of one
+// project could plant code another project installs. With SharedPackageCache on, all
+// projects use one directory (/config/cache) and a package is downloaded once whichever
+// project asks for it next. Gradle stays out even then: it hands its cache locks over by
+// a message to the owning process on localhost, which never reaches another container,
+// so a Gradle server running in one project made every other project's Gradle time out.
+// Its home is in the project home instead (gradleHome). Every container a package manager
+// runs in has the cache mounted: the application containers, the workers and the
+// one-shots that scaffold a template.
 const (
 	packageCacheDir    = "cache"
 	packageCacheTarget = "/var/cache/envoryx"
@@ -148,10 +156,8 @@ var packageCacheEnv = []string{
 	// cache for every project when the global gem cache is on.
 	"BUNDLE_USER_CACHE=" + packageCacheTarget + "/bundler",
 	"BUNDLE_GLOBAL_GEM_CACHE=true",
-	// Maven's local repository and Gradle's user home (dependencies, wrapper
-	// distributions) are safe to share: both lock what they write.
+	// Maven's local repository is safe to share: Maven locks what it writes.
 	"MAVEN_OPTS=-Dmaven.repo.local=" + packageCacheTarget + "/maven",
-	"GRADLE_USER_HOME=" + packageCacheTarget + "/gradle",
 	// NuGet's global packages folder holds every package version once, extracted, and
 	// restores lock it; the HTTP cache keeps the downloads.
 	"NUGET_PACKAGES=" + packageCacheTarget + "/nuget/packages",

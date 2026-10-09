@@ -105,7 +105,7 @@ and/or a Node.js container. Your files are bind-mounted from `/projects/<name>` 
   when it's incomplete, and takes the project URL when there's no PHP. Optional `rdbg` works
   with VS Code, and RubyMine uses the SSH remote interpreter.
 - **Java** (Eclipse Temurin 17, 21 or 25 with Maven and Gradle; the project's wrapper wins,
-  and the Maven and Gradle caches are shared by all projects) runs Spring Boot
+  Maven's repository in the package cache, Gradle's home in the project home) runs Spring Boot
   (`spring-boot:run`/`bootRun` with DevTools), Quarkus (`quarkus:dev` with live reload) or any
   jar, builds once and runs the jar in production mode, and takes the project URL when
   there's no PHP. `SPRING_DATASOURCE_*`, `QUARKUS_DATASOURCE_*` and `JDBC_URL` point at the

@@ -255,6 +255,7 @@ func (m *Manager) create(ctx context.Context, req CreateRequest) (View, error) {
 		}
 	} else if req.Template != "" {
 		tpl, _ := TemplateByID(req.Template)
+		tpl = tpl.WithBuildTool(req.TemplateBuildTool)
 		step(ctx, "Scaffolding the {{template}} template", "template", tpl.Name)
 		if err := m.applyTemplate(ctx, proj, tpl); err != nil {
 			return fail("apply template "+tpl.ID, err)

@@ -2,6 +2,7 @@ package project
 
 import (
 	"context"
+	"errors"
 	"net/url"
 	"os"
 	"os/exec"
@@ -13,6 +14,7 @@ import (
 	"github.com/envoryx/envoryx/internal/manifest"
 	"github.com/envoryx/envoryx/internal/runtime"
 	"github.com/envoryx/envoryx/internal/store"
+	"github.com/envoryx/envoryx/internal/validate"
 )
 
 // javaRequest is a project without PHP whose Spring Boot server is the application, on
@@ -65,10 +67,14 @@ func TestJavaServerServesProject(t *testing.T) {
 	if envValue(env, "SPRING_DATASOURCE_USERNAME") != envValue(env, "DB_USERNAME") || envValue(env, "SPRING_DATASOURCE_PASSWORD") == "" || envValue(env, "QUARKUS_DATASOURCE_DB_KIND") != "postgresql" {
 		t.Fatalf("datasource credentials: %v", env)
 	}
-	for _, want := range []string{"SERVER_PORT=8080", "QUARKUS_DEVSERVICES_ENABLED=false", "MAVEN_OPTS=-Dmaven.repo.local=/var/cache/envoryx/maven", "GRADLE_USER_HOME=/var/cache/envoryx/gradle", "HOME=/home/envoryx"} {
+	for _, want := range []string{"SERVER_PORT=8080", "QUARKUS_DEVSERVICES_ENABLED=false", "MAVEN_OPTS=-Dmaven.repo.local=/var/cache/envoryx/maven", "HOME=/home/envoryx"} {
 		if !slices.Contains(env, want) {
 			t.Fatalf("java env lacks %s: %v", want, env)
 		}
+	}
+	// Gradle's home stays in the project home: its locks don't work across containers.
+	if envValue(env, "GRADLE_USER_HOME") != "/home/envoryx/.gradle" {
+		t.Fatalf("GRADLE_USER_HOME must not point into the shared cache: %v", env)
 	}
 	if len(c.Spec.Ports) != 1 || c.Spec.Ports[0].ContainerPort != 8080 {
 		t.Fatalf("server port: %+v", c.Spec.Ports)
@@ -160,6 +166,47 @@ func TestJavaDebugAndUpdate(t *testing.T) {
 	}
 	if _, ok := e.engine.Container("envoryx-dbg-java"); ok {
 		t.Fatal("java container must be gone")
+	}
+}
+
+// With Gradle the Java templates ask for a Kotlin DSL project and build it with the
+// Gradle wrapper; a build tool a template does not offer is refused.
+func TestJavaTemplatesWithGradle(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	for _, c := range []struct{ tpl, host, param, want string }{
+		{"spring-boot", "start.spring.io", "type", "gradle-project-kotlin"},
+		{"quarkus", "code.quarkus.io", "b", "GRADLE_KOTLIN_DSL"},
+	} {
+		e.engine.OneShots = nil
+		req := javaRequest("App "+c.tpl, false)
+		req.Java.Config = runtime.JavaConfig{}
+		req.Template, req.TemplateBuildTool = c.tpl, "gradle"
+		if _, err := e.m.Create(ctx, req); err != nil {
+			t.Fatal(err)
+		}
+		var steps [][]string
+		for _, s := range e.engine.OneShots {
+			if s.Image == "ghcr.io/envoryx/envoryx-java:25" {
+				steps = append(steps, s.Cmd)
+			}
+		}
+		if len(steps) != 3 || !strings.Contains(steps[1][2], "build.gradle.kts") || !strings.Contains(steps[2][2], "./gradlew --no-daemon") {
+			t.Fatalf("%s steps: %q", c.tpl, steps)
+		}
+		u, err := url.Parse(steps[0][4])
+		if err != nil || u.Host != c.host || u.Query().Get(c.param) != c.want {
+			t.Fatalf("%s scaffold url: %q", c.tpl, steps[0][4])
+		}
+	}
+	req := javaRequest("Other", false)
+	req.Template, req.TemplateBuildTool = "spring-boot", "ant"
+	if _, err := e.m.Create(ctx, req); !errors.Is(err, validate.ErrInvalid) {
+		t.Fatalf("an unknown build tool must be refused: %v", err)
+	}
+	req = CreateRequest{Name: "Php", Template: "laravel", TemplateBuildTool: "gradle", PHP: &PHPRequest{Version: "8.4"}}
+	if _, err := e.m.Create(ctx, req); !errors.Is(err, validate.ErrInvalid) {
+		t.Fatalf("a template without build tools takes none: %v", err)
 	}
 }
 

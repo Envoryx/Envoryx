@@ -107,6 +107,7 @@ interface Form {
   ollamaGpu: boolean;
   storage: boolean;
   template: string; // "" = blank
+  buildTool: string; // "" = the template's default
   gitUrl: string;
   gitBranch: string;
   gitUsername: string;
@@ -218,6 +219,7 @@ export function NewProjectPage() {
         ollamaGpu: false,
         storage: false,
         template: "",
+        buildTool: "",
         gitUrl: "",
         gitBranch: "",
         gitUsername: "",
@@ -277,7 +279,11 @@ export function NewProjectPage() {
       req.createStarter = false;
       return req;
     }
-    if (form.source === "template" && form.template) req.template = form.template;
+    if (form.source === "template" && form.template) {
+      req.template = form.template;
+      const tools = runtimes.data?.templates?.find((x) => x.id === form.template)?.buildTools;
+      if (form.buildTool && tools?.includes(form.buildTool)) req.templateBuildTool = form.buildTool;
+    }
     if (form.source === "git" && form.gitUrl.trim()) {
       const git: NonNullable<CreateProjectRequest["git"]> = { url: form.gitUrl.trim(), branch: form.gitBranch.trim(), username: form.gitUsername.trim() };
       if (form.gitToken) git.token = form.gitToken;
@@ -286,7 +292,7 @@ export function NewProjectPage() {
       if (form.useManifest) req.useManifest = true;
     }
     return req;
-  }, [form]);
+  }, [form, runtimes.data]);
 
   // Keyed on the serialised request: a response (or error) for a request that is no longer
   // current is dropped, so e.g. the error of a template the user has since deselected never shows.
@@ -638,8 +644,19 @@ export function NewProjectPage() {
               {versionOptions(java.versions, t)}
             </Select>
           </Field>
+          {form.source === "template" && selectedTemplate?.buildTools && selectedTemplate.buildTools.length > 1 && (
+            <Field label={t("Build tool")} htmlFor="java-build-tool" hint={t("The template's project is generated for it, with its wrapper (mvnw or gradlew). Gradle uses the Kotlin DSL (build.gradle.kts).")}>
+              <Select id="java-build-tool" value={form.buildTool || selectedTemplate.buildTools[0]} onChange={(e) => set({ buildTool: e.target.value })}>
+                {selectedTemplate.buildTools.map((b) => (
+                  <option key={b} value={b}>
+                    {b === "maven" ? "Maven" : b === "gradle" ? "Gradle" : b}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          )}
           <JavaServerFields value={form.javaServer} onChange={(javaServer) => set({ javaServer })} idPrefix="wizard-java" presets={javaPresets} primary={!form.phpEnabled && !(form.pythonEnabled && form.pythonServer.server) && !(form.goEnabled && form.goServer.server) && !(form.rubyEnabled && form.rubyServer.server)} />
-          <p className="text-xs text-subtle">{t("Maven and Gradle download each dependency once for all projects; the shared package cache keeps them.")}</p>
+          <p className="text-xs text-subtle">{t("Maven keeps the dependencies in the package cache. Gradle keeps its own in the project home, even when the package cache is shared: its locks don't work across containers.")}</p>
         </>
       )}
     </div>

@@ -64,8 +64,13 @@ type Template struct {
 	PHPMemoryLimit string `json:"phpMemoryLimit,omitempty"`
 	// Notes are shown after creation (next steps).
 	Notes string `json:"notes,omitempty"`
+	// BuildTools are the build tools the template can set the project up with, the first
+	// one the default (the Java templates: maven, gradle).
+	BuildTools []string `json:"buildTools,omitempty"`
 
 	steps []templateStep
+	// gradleSteps replace steps when the project is created with Gradle.
+	gradleSteps []templateStep
 	// afterStart runs once in the new project's runtime container after its first start,
 	// with the database up: the schema step the application's first request or worker
 	// would otherwise trip over.
@@ -107,9 +112,10 @@ var (
 	// so the server finds the bundle complete on its first start. The GEM_HOME of the
 	// service's Ruby version is added in applyTemplate (rubyEnv).
 	rubyScaffoldEnv = []string{"HOME=" + homeMountTarget}
-	// The Java scaffolds keep the Maven wrapper's download in the project home and the
-	// dependencies in the package cache, so the server's first build finds both.
-	javaScaffoldEnv = []string{"HOME=" + homeMountTarget}
+	// The Java scaffolds keep the Maven wrapper's download and Gradle's home in the project
+	// home and Maven's dependencies in the package cache, so the server's first build
+	// finds them.
+	javaScaffoldEnv = []string{"HOME=" + homeMountTarget, gradleHome}
 	// The .NET scaffolds keep dotnet's first-run state and template cache in the project
 	// home and the packages in the package cache, so the server's first build
 	// restores nothing.
@@ -575,29 +581,40 @@ var templates = []Template{
 }
 
 // The Java scaffolds download the generated project from start.spring.io or
-// code.quarkus.io (the same projects their web pages hand out, Maven wrapper included) and
-// build it once, so the dependencies are in the cache and a broken setup shows up here.
+// code.quarkus.io (the same projects their web pages hand out, Maven or Gradle wrapper
+// included) and build it once, so the dependencies are in the cache and a broken setup
+// shows up here. Gradle projects use the Kotlin DSL (build.gradle.kts).
 var javaTemplates = []Template{
 	{
 		ID: "spring-boot", Name: "Spring Boot", Description: "Spring Boot with Spring Web, Actuator and DevTools from start.spring.io; JPA and the driver of the project database when it has one.",
-		Runtime: "java", Docroot: "", RecommendedDatabase: "postgresql",
+		Runtime: "java", Docroot: "", RecommendedDatabase: "postgresql", BuildTools: []string{"maven", "gradle"},
 		Java:  &runtime.JavaConfig{Server: true, Preset: "spring-boot", Port: 8080},
-		Notes: "Envoryx injects SPRING_DATASOURCE_* for the project database; with a database, Hibernate creates and updates the tables (spring.jpa.hibernate.ddl-auto=update in application.properties). DevTools restarts the application when compiled classes change: run “mvn compile” in the Java terminal (or let your IDE build over SSH) after editing. /actuator/health is a ready-made health check path.",
+		Notes: "Envoryx injects SPRING_DATASOURCE_* for the project database; with a database, Hibernate creates and updates the tables (spring.jpa.hibernate.ddl-auto=update in application.properties). DevTools restarts the application when compiled classes change: run “mvn compile” or “gradle classes” in the Java terminal (or let your IDE build over SSH) after editing. /actuator/health is a ready-made health check path.",
 		steps: []templateStep{
-			{label: "download from start.spring.io", cmdFor: javaScaffold(springInitializrURL)},
+			{label: "download from start.spring.io", cmdFor: javaScaffold(springInitializrURL("maven-project"))},
 			{label: "configure Hibernate", cmd: springSchema},
 			{label: "mvn package", cmd: javaPrebuild},
+		},
+		gradleSteps: []templateStep{
+			{label: "download from start.spring.io", cmdFor: javaScaffold(springInitializrURL("gradle-project-kotlin"))},
+			{label: "configure Hibernate", cmd: springSchema},
+			{label: "gradle build", cmd: gradlePrebuild},
 		},
 	},
 	{
 		ID: "quarkus", Name: "Quarkus REST", Description: "Quarkus with REST (Jackson) and SmallRye Health from code.quarkus.io; Hibernate ORM with Panache and the driver of the project database when it has one.",
-		Runtime: "java", Docroot: "", RecommendedDatabase: "postgresql",
+		Runtime: "java", Docroot: "", RecommendedDatabase: "postgresql", BuildTools: []string{"maven", "gradle"},
 		Java:  &runtime.JavaConfig{Server: true, Preset: "quarkus", Port: 8080},
 		Notes: "Quarkus dev mode recompiles on the next request after a change. Envoryx injects QUARKUS_DATASOURCE_* for the project database and switches Dev Services off; with a database, Hibernate creates and updates the tables in dev mode (application.properties). /q/health is a ready-made health check path.",
 		steps: []templateStep{
-			{label: "download from code.quarkus.io", cmdFor: javaScaffold(quarkusCodeURL)},
+			{label: "download from code.quarkus.io", cmdFor: javaScaffold(quarkusCodeURL("MAVEN"))},
 			{label: "configure Hibernate for dev mode", cmd: quarkusDevSchema},
 			{label: "mvn package", cmd: javaPrebuild},
+		},
+		gradleSteps: []templateStep{
+			{label: "download from code.quarkus.io", cmdFor: javaScaffold(quarkusCodeURL("GRADLE_KOTLIN_DSL"))},
+			{label: "configure Hibernate for dev mode", cmd: quarkusDevSchema},
+			{label: "gradle build", cmd: gradlePrebuild},
 		},
 	},
 }
@@ -621,16 +638,20 @@ cp -a "$src"/. .`
 // default (drop-and-create) would empty the database every time. Tests run against
 // <database>_test (javaTestScript), which starts empty: there drop-and-create builds the
 // tables for every run.
-var quarkusDevSchema = []string{"sh", "-c", `if grep -q quarkus-hibernate-orm pom.xml; then printf '%s\n' '' '# Added by Envoryx: Hibernate creates and updates the tables in dev mode.' '%dev.quarkus.hibernate-orm.schema-management.strategy=update' '%test.quarkus.hibernate-orm.schema-management.strategy=drop-and-create' >> src/main/resources/application.properties; fi`}
+var quarkusDevSchema = []string{"sh", "-c", `if grep -qs quarkus-hibernate-orm pom.xml build.gradle.kts; then printf '%s\n' '' '# Added by Envoryx: Hibernate creates and updates the tables in dev mode.' '%dev.quarkus.hibernate-orm.schema-management.strategy=update' '%test.quarkus.hibernate-orm.schema-management.strategy=drop-and-create' >> src/main/resources/application.properties; fi`}
 
 // springSchema lets Hibernate create and update the tables of the project database. Spring
 // Boot only does that on its own for embedded databases, so the first @Entity a user adds
 // would end in "relation does not exist". Flyway or Liquibase take over once the project
 // adds one of them; then set ddl-auto to validate or none.
-var springSchema = []string{"sh", "-c", `if grep -q spring-boot-starter-data-jpa pom.xml; then printf '%s\n' '' '# Added by Envoryx: Hibernate creates and updates the tables. Switch to validate or none' '# once Flyway or Liquibase manage the schema.' 'spring.jpa.hibernate.ddl-auto=update' >> src/main/resources/application.properties; fi`}
+var springSchema = []string{"sh", "-c", `if grep -qs spring-boot-starter-data-jpa pom.xml build.gradle.kts; then printf '%s\n' '' '# Added by Envoryx: Hibernate creates and updates the tables. Switch to validate or none' '# once Flyway or Liquibase manage the schema.' 'spring.jpa.hibernate.ddl-auto=update' >> src/main/resources/application.properties; fi`}
 
 // javaPrebuild builds the fresh project once with its own Maven wrapper.
 var javaPrebuild = []string{"sh", "-c", `exec sh ./mvnw -B -q -DskipTests package`}
+
+// gradlePrebuild does the same with the Gradle wrapper, without a daemon that would
+// outlive the one-shot container.
+var gradlePrebuild = []string{"sh", "-c", `exec sh ./gradlew --no-daemon -q build -x test`}
 
 // javaScaffold returns the scaffold step for a download URL built from the project.
 func javaScaffold(download func(store.Project) string) func(store.Project) []string {
@@ -639,10 +660,15 @@ func javaScaffold(download func(store.Project) string) func(store.Project) []str
 	}
 }
 
-// springInitializrURL asks start.spring.io for a Maven project on the project's JDK,
-// named after the project, with JPA and the driver when it has a SQL database (JPA
-// without a data source would stop the application from starting) or Spring Data MongoDB.
-func springInitializrURL(p store.Project) string {
+// springInitializrURL asks start.spring.io for a project of the given type (maven-project,
+// gradle-project-kotlin) on the project's JDK, named after the project, with JPA and the
+// driver when it has a SQL database (JPA without a data source would stop the application
+// from starting) or Spring Data MongoDB.
+func springInitializrURL(kind string) func(store.Project) string {
+	return func(p store.Project) string { return springInitializrURLFor(p, kind) }
+}
+
+func springInitializrURLFor(p store.Project, kind string) string {
 	deps := []string{"web", "actuator", "devtools"}
 	switch v := primaryDBVariant(p); v {
 	case "mariadb", "mysql", "postgresql":
@@ -651,7 +677,7 @@ func springInitializrURL(p store.Project) string {
 		deps = append(deps, "data-mongodb")
 	}
 	q := url.Values{}
-	q.Set("type", "maven-project")
+	q.Set("type", kind)
 	q.Set("language", "java")
 	q.Set("javaVersion", javaMajor(p))
 	q.Set("groupId", "com.example")
@@ -663,10 +689,14 @@ func springInitializrURL(p store.Project) string {
 	return "https://start.spring.io/starter.zip?" + q.Encode()
 }
 
-// quarkusCodeURL asks code.quarkus.io for a Maven project on the project's JDK with REST
-// and health checks, plus Hibernate ORM with Panache and the JDBC driver (or MongoDB with
-// Panache) for the project database.
-func quarkusCodeURL(p store.Project) string {
+// quarkusCodeURL asks code.quarkus.io for a project built with the given tool (MAVEN,
+// GRADLE_KOTLIN_DSL) on the project's JDK with REST and health checks, plus Hibernate ORM
+// with Panache and the JDBC driver (or MongoDB with Panache) for the project database.
+func quarkusCodeURL(tool string) func(store.Project) string {
+	return func(p store.Project) string { return quarkusCodeURLFor(p, tool) }
+}
+
+func quarkusCodeURLFor(p store.Project, tool string) string {
 	ext := []string{"rest-jackson", "smallrye-health"}
 	switch v := primaryDBVariant(p); v {
 	case "mariadb", "mysql", "postgresql":
@@ -678,7 +708,7 @@ func quarkusCodeURL(p store.Project) string {
 	q.Set("g", "com.example")
 	q.Set("a", p.Slug)
 	q.Set("j", javaMajor(p))
-	q.Set("b", "MAVEN")
+	q.Set("b", tool)
 	for _, e := range ext {
 		q.Add("e", e)
 	}
@@ -1048,6 +1078,15 @@ func Templates() []Template {
 	copy(out, templates)
 	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
 	return out
+}
+
+// WithBuildTool returns the template set up for a build tool: gradle switches the Java
+// templates to their Gradle steps, maven and "" keep the default ones.
+func (t Template) WithBuildTool(tool string) Template {
+	if tool == "gradle" && t.gradleSteps != nil {
+		t.steps = t.gradleSteps
+	}
+	return t
 }
 
 // TemplateByID finds a template.
