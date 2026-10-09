@@ -3,7 +3,7 @@ GO      ?= go
 NPM     ?= npm
 IMAGE   ?= ghcr.io/envoryx/envoryx
 
-.PHONY: all build web backend run test test-go test-web test-integration test-e2e lint docker clean
+.PHONY: all build web backend run test test-go test-web test-integration test-e2e lint vulncheck docker clean
 
 all: build
 
@@ -42,6 +42,10 @@ test-e2e:
 
 lint:
 	gofmt -l . && $(GO) vet ./...
+
+## Known vulnerabilities in the code paths that actually run (as CI checks)
+vulncheck:
+	$(GO) run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
 
 docker:
 	docker build --build-arg VERSION=$(VERSION) -t $(IMAGE):$(VERSION) -t $(IMAGE):latest .

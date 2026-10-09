@@ -44,12 +44,22 @@ variables; Envoryx needs these:
 | `EVENTS` | OOM kills (on by default in the proxy) |
 | `SYSTEM` | disk usage of the volumes (`/system/df`) for the resource history |
 | `POST` | every request that isn't a GET: create, start, stop, remove, … |
+| `BUILD` | custom runtime images built from a project Dockerfile |
 
 Without `SYSTEM` everything else keeps working; the resource history just shows no volume
-sizes. `SWARM`, `NODES`, `SERVICES`, `TASKS`, `SECRETS`, `CONFIGS`, `PLUGINS`, `BUILD`,
-`COMMIT`, `DISTRIBUTION`, `AUTH`, `SESSION` and `GRPC` can stay disabled. `SYSTEM` only
-opens `/system/…`, where Envoryx reads the disk usage; the prune endpoints belong to the
-other groups, and Envoryx doesn't call them.
+sizes. Without `BUILD` only custom images from a project Dockerfile fail; registry images
+and the Envoryx images keep working. `SWARM`, `NODES`, `SERVICES`, `TASKS`, `SECRETS`,
+`CONFIGS`, `PLUGINS`, `COMMIT`, `DISTRIBUTION`, `AUTH`, `SESSION` and `GRPC` can stay
+disabled. `SYSTEM` only opens `/system/…`, where Envoryx reads the disk usage; the prune
+endpoints belong to the other groups, and Envoryx doesn't call them.
+
+Know what a socket proxy can't do: it filters by endpoint, not by the request body. With
+`CONTAINERS` and `POST` open, whoever controls Envoryx can still create a privileged
+container with `/` mounted, so the proxy doesn't turn a compromised Envoryx into anything
+less than root on the host. It does take away whole areas (Swarm, secrets, plugins, image
+commits) and stops a bug from reaching them. The real protection is keeping Envoryx itself
+out of reach: HTTPS, no exposure to the open internet, and accounts only for people you
+trust with the projects' containers.
 
 ## Authentication and sessions
 
