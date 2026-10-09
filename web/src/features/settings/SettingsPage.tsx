@@ -12,6 +12,7 @@ import { DomainsCard } from "./DomainsCard";
 import { TokensCard } from "./TokensCard";
 import { DBToolCard } from "./DBToolCard";
 import { PackageCacheCard } from "./PackageCacheCard";
+import { IdeBackendsCard } from "./IdeBackendsCard";
 import { NotificationsCard } from "./NotificationsCard";
 import { InstanceBackupsCard } from "./InstanceBackupsCard";
 import { OffsiteTargetsCard } from "@/features/offsite/OffsiteTargetsCard";
@@ -419,7 +420,12 @@ export function SettingsPage() {
           )}
           {tab === "addons" && <AddonsCard />}
           {tab === "dbtool" && <DBToolCard />}
-          {tab === "packagecache" && <PackageCacheCard />}
+          {tab === "packagecache" && (
+            <>
+              <PackageCacheCard />
+              <IdeBackendsCard />
+            </>
+          )}
           {tab === "registries" && <RegistriesCard />}
         </div>
       </SectionLayout>

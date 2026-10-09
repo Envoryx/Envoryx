@@ -8,7 +8,6 @@
   "(project root)": "(корень проекта)",
   "(renewed automatically 30 days before)": "(продлевается автоматически за 30 дней до истечения)",
   "(server + mapping; adjust $PROJECT_DIR$ if the IDE project is not the project root):": "(сервер + сопоставление; измените $PROJECT_DIR$, если проект IDE не является корнем проекта):",
-  "(shared cache) and opens the thin client.": "(общий кэш) и открывает тонкий клиент.",
   "0 = default for the security mode": "0 = значение по умолчанию для режима безопасности",
   "<API token from Settings → API tokens & MCP>": "<API-токен из Настройки → API-токены и MCP>",
   "<Database → Credentials>": "<База данных → Учётные данные>",
@@ -197,7 +196,6 @@
   "Enable PHP": "Включить PHP",
   "Enable notifications": "Включить уведомления",
   "Enabled ({{mode}}). PhpStorm: Settings → PHP → Servers.": "Включено ({{mode}}). PhpStorm: Settings → PHP → Servers.",
-  "Enables SSH port forwarding into the container and mounts a shared IDE backend cache (/config/jetbrains, downloaded once for all projects). Recreates the application containers.": "Включает проброс портов SSH в контейнер и монтирует общий кэш бэкенда IDE (/config/jetbrains, загружается один раз для всех проектов). Пересоздаёт контейнеры приложения.",
   "Engine": "Движок",
   "Environment": "Окружение",
   "Environment saved. Containers were recreated with the new variables.": "Окружение сохранено. Контейнеры пересозданы с новыми переменными.",
@@ -2757,5 +2755,11 @@
   "Worker restarted": "Воркер перезапущен",
   "Restarting the container {{name}}": "Перезапуск контейнера {{name}}",
   "Server port": "Порт сервера",
-  "The PHP container sets PHP_IDE_CONFIG=serverName={{name}}, so PhpStorm uses this server for browser requests and for the command line (artisan, drush, tests) alike; keep the server's name as it is.": "Контейнер PHP задаёт PHP_IDE_CONFIG=serverName={{name}}, поэтому PhpStorm использует этот сервер и для запросов из браузера, и для командной строки (artisan, drush, тесты); не меняйте имя сервера."
+  "The PHP container sets PHP_IDE_CONFIG=serverName={{name}}, so PhpStorm uses this server for browser requests and for the command line (artisan, drush, tests) alike; keep the server's name as it is.": "Контейнер PHP задаёт PHP_IDE_CONFIG=serverName={{name}}, поэтому PhpStorm использует этот сервер и для запросов из браузера, и для командной строки (artisan, drush, тесты); не меняйте имя сервера.",
+  "JetBrains backends": "Бэкенды JetBrains",
+  "JetBrains Gateway downloads an IDE backend of about 1 GB into a project the first time you open it there. Each project keeps its own; shared, a backend is downloaded once for all projects.": "JetBrains Gateway при первом открытии в проекте загружает в него бэкенд IDE размером около 1 ГБ. У каждого проекта свой; при общем доступе бэкенд загружается один раз для всех проектов.",
+  "Share the IDE backends between projects": "Использовать бэкенды IDE совместно для всех проектов",
+  "Only when you trust everyone who works on a project here: every project with Gateway can change the shared backends, so a developer of one project could change the IDE another project runs. Projects with Gateway pick the change up when they are restarted.": "Только если вы доверяете всем, кто работает здесь над проектами: каждый проект с Gateway может изменять общие бэкенды, поэтому разработчик одного проекта может изменить IDE, которая работает в другом. Проекты с Gateway применят изменение после перезапуска.",
+  "and opens the thin client.": "и открывает тонкий клиент.",
+  "Enables SSH port forwarding into the container. The IDE backend Gateway downloads stays in the project home, unless Settings → Package cache shares the backends between projects. Recreates the application containers.": "Включает проброс портов SSH в контейнер. Бэкенд IDE, который загружает Gateway, остаётся в домашнем каталоге проекта, если только Настройки → Кэш пакетов не делает бэкенды общими для проектов. Пересоздаёт контейнеры приложения."
 }

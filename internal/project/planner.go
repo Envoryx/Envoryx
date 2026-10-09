@@ -47,6 +47,9 @@ type Paths struct {
 	// FolderViewFolder is the FolderView3 folder the containers are labelled for; empty
 	// for none.
 	FolderViewFolder string
+	// SharedIDEBackends mounts one JetBrains backend cache into every project with
+	// Gateway instead of keeping one per project.
+	SharedIDEBackends bool
 	// PublicHost and the proxy's host-side ports let the planner build URLs that a
 	// browser on the LAN can reach (object storage public URL). Zero values mean unknown.
 	PublicHost     string
@@ -449,13 +452,16 @@ func adoConnectionString(kv ...string) string {
 	return strings.Join(parts, ";")
 }
 
-// jetbrainsCacheDir is the shared, host-wide cache for JetBrains Gateway IDE backends
+// jetbrainsCacheDir is the shared, host-wide cache for JetBrains Gateway IDE backends,
+// used when SharedIDEBackends is on
 // (~1.5 GB per IDE version) so it is downloaded once for all projects.
 const jetbrainsCacheDir = "jetbrains"
 
 // gatewayDistDir is the part of ~/.cache/JetBrains that holds the downloaded backends. Only
-// it is shared: the rest of that directory keeps per-project data (index caches with the
-// source, local history, join links with their tokens), which stays in the project home.
+// it can be shared: the rest of that directory keeps per-project data (index caches with
+// the source, local history, join links with their tokens), which stays in the project
+// home. Sharing is opt-in: every project with Gateway can write the shared backends, so a
+// developer of one project could change the IDE backend another project runs.
 var gatewayDistDir = filepath.Join("RemoteDev", "dist")
 
 // BackupsRoot is the directory that holds one sub-directory of backups per project.
@@ -466,9 +472,10 @@ func (p Paths) BackupsRoot() string {
 	return filepath.Join(p.ConfigDir, "backups")
 }
 
-// gatewayMounts returns the extra mounts for JetBrains Gateway sessions.
+// gatewayMounts returns the extra mounts for JetBrains Gateway sessions: the shared
+// backend cache when it is on, else none (the backends stay in the project home).
 func (p *Planner) gatewayMounts(proj store.Project) []docker.MountSpec {
-	if !proj.IDEGateway {
+	if !proj.IDEGateway || !p.paths.SharedIDEBackends {
 		return nil
 	}
 	return []docker.MountSpec{{Type: "bind", Source: filepath.Join(p.paths.ConfigHostDir, jetbrainsCacheDir, gatewayDistDir), Target: homeMountTarget + "/.cache/JetBrains/" + filepath.ToSlash(gatewayDistDir)}}
@@ -547,15 +554,19 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 		// Every level is planned, so each belongs to the project user: the directories are
 		// created here rather than by Docker (which would make the mount point root's), and
 		// only a planned directory gets its owner set.
-		for _, dir := range []string{
-			filepath.Join(p.paths.ConfigDir, jetbrainsCacheDir),
-			filepath.Join(p.paths.ConfigDir, jetbrainsCacheDir, "RemoteDev"),
-			filepath.Join(p.paths.ConfigDir, jetbrainsCacheDir, gatewayDistDir),
+		dirs := []string{
 			filepath.Join(p.HomeDir(proj), ".cache"),
 			filepath.Join(p.HomeDir(proj), ".cache", "JetBrains"),
 			filepath.Join(p.HomeDir(proj), ".cache", "JetBrains", "RemoteDev"),
 			filepath.Join(p.HomeDir(proj), ".cache", "JetBrains", gatewayDistDir),
-		} {
+		}
+		if p.paths.SharedIDEBackends {
+			dirs = append(dirs,
+				filepath.Join(p.paths.ConfigDir, jetbrainsCacheDir),
+				filepath.Join(p.paths.ConfigDir, jetbrainsCacheDir, "RemoteDev"),
+				filepath.Join(p.paths.ConfigDir, jetbrainsCacheDir, gatewayDistDir))
+		}
+		for _, dir := range dirs {
 			plan.Dirs = append(plan.Dirs, DirPlan{Path: dir, UID: p.paths.PUID, GID: p.paths.PGID})
 		}
 	}

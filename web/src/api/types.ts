@@ -1565,6 +1565,7 @@ export interface UpdateSettingsRequest {
   baseDomain?: string;
   forceHttps?: boolean;
   projectsFollowEnvoryx?: boolean;
+  sharedIdeBackends?: boolean;
   folderViewFolder?: string;
   logHistory?: { enabled?: boolean; retentionDays?: number; maxMb?: number };
   metricsRetentionDays?: number;
@@ -1613,6 +1614,8 @@ export interface Settings {
   forceHttps: boolean;
   /** Project containers stop with the Envoryx container and resume when it comes back. */
   projectsFollowEnvoryx?: boolean;
+  /** Projects with JetBrains Gateway share one backend cache instead of one each. */
+  sharedIdeBackends?: boolean;
   /** FolderView3 folder (Unraid plugin) the containers are labelled for; "" for none. */
   folderViewFolder?: string;
   logHistory?: LogHistoryInfo;

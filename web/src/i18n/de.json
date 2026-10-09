@@ -8,7 +8,6 @@
   "(project root)": "(Projektwurzel)",
   "(renewed automatically 30 days before)": "(wird 30 Tage vorher automatisch erneuert)",
   "(server + mapping; adjust $PROJECT_DIR$ if the IDE project is not the project root):": "(Server + Mapping; $PROJECT_DIR$ anpassen, falls das IDE-Projekt nicht die Projektwurzel ist):",
-  "(shared cache) and opens the thin client.": "(gemeinsamer Cache) und öffnet den Thin Client.",
   "0 = default for the security mode": "0 = Standard für den Sicherheitsmodus",
   "<API token from Settings → API tokens & MCP>": "<API-Token aus Einstellungen → API-Tokens & MCP>",
   "<Database → Credentials>": "<Datenbank → Zugangsdaten>",
@@ -197,7 +196,6 @@
   "Enable PHP": "PHP aktivieren",
   "Enable notifications": "Benachrichtigungen aktivieren",
   "Enabled ({{mode}}). PhpStorm: Settings → PHP → Servers.": "Aktiviert ({{mode}}). PhpStorm: Settings → PHP → Servers.",
-  "Enables SSH port forwarding into the container and mounts a shared IDE backend cache (/config/jetbrains, downloaded once for all projects). Recreates the application containers.": "Erlaubt SSH-Port-Weiterleitung in den Container und bindet einen gemeinsamen IDE-Backend-Cache ein (/config/jetbrains, einmal für alle Projekte geladen). Erstellt die Anwendungscontainer neu.",
   "Engine": "Engine",
   "Environment": "Umgebung",
   "Environment saved. Containers were recreated with the new variables.": "Umgebung gespeichert. Die Container wurden mit den neuen Variablen neu erstellt.",
@@ -2709,5 +2707,11 @@
   "Worker restarted": "Worker neu gestartet",
   "Restarting the container {{name}}": "Container {{name}} wird neu gestartet",
   "Server port": "Server-Port",
-  "The PHP container sets PHP_IDE_CONFIG=serverName={{name}}, so PhpStorm uses this server for browser requests and for the command line (artisan, drush, tests) alike; keep the server's name as it is.": "Der PHP-Container setzt PHP_IDE_CONFIG=serverName={{name}}, damit PhpStorm diesen Server für Browser-Anfragen und für die Kommandozeile (artisan, drush, Tests) gleichermaßen nutzt; lass den Namen des Servers so, wie er ist."
+  "The PHP container sets PHP_IDE_CONFIG=serverName={{name}}, so PhpStorm uses this server for browser requests and for the command line (artisan, drush, tests) alike; keep the server's name as it is.": "Der PHP-Container setzt PHP_IDE_CONFIG=serverName={{name}}, damit PhpStorm diesen Server für Browser-Anfragen und für die Kommandozeile (artisan, drush, Tests) gleichermaßen nutzt; lass den Namen des Servers so, wie er ist.",
+  "JetBrains backends": "JetBrains-Backends",
+  "JetBrains Gateway downloads an IDE backend of about 1 GB into a project the first time you open it there. Each project keeps its own; shared, a backend is downloaded once for all projects.": "JetBrains Gateway lädt beim ersten Öffnen in einem Projekt ein IDE-Backend von etwa 1 GB in dieses Projekt. Jedes Projekt behält sein eigenes; geteilt wird ein Backend einmal für alle Projekte geladen.",
+  "Share the IDE backends between projects": "IDE-Backends zwischen Projekten teilen",
+  "Only when you trust everyone who works on a project here: every project with Gateway can change the shared backends, so a developer of one project could change the IDE another project runs. Projects with Gateway pick the change up when they are restarted.": "Nur wenn du allen vertraust, die hier an einem Projekt arbeiten: Jedes Projekt mit Gateway kann die geteilten Backends verändern, ein Developer eines Projekts könnte also die IDE verändern, die in einem anderen läuft. Projekte mit Gateway übernehmen die Änderung beim nächsten Neustart.",
+  "and opens the thin client.": "und öffnet den Thin Client.",
+  "Enables SSH port forwarding into the container. The IDE backend Gateway downloads stays in the project home, unless Settings → Package cache shares the backends between projects. Recreates the application containers.": "Schaltet SSH-Portweiterleitung in den Container ein. Das IDE-Backend, das Gateway lädt, bleibt im Home des Projekts, außer Einstellungen → Paket-Cache teilt die Backends zwischen den Projekten. Erstellt die Anwendungscontainer neu."
 }

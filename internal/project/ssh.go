@@ -134,7 +134,7 @@ func (m *Manager) ResolveSSHUser(ctx context.Context, user string) (ExecTarget, 
 			t.ContainerName = ""
 		}
 		t.Mounts = map[string]string{t.AppMount: t.ProjectDir, t.HomeMount: t.HomeDir}
-		if t.Gateway {
+		if t.Gateway && m.SharedIDEBackends(ctx) {
 			t.Mounts[homeMountTarget+"/.cache/JetBrains/"+filepath.ToSlash(gatewayDistDir)] = filepath.Join(paths.ConfigDir, jetbrainsCacheDir, gatewayDistDir)
 		}
 		if static {

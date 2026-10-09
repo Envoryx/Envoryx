@@ -228,7 +228,7 @@ export function IdeTab({ project: p }: { project: Project }) {
           {gwMsg && <Alert tone={gwMsg.tone}>{gwMsg.text}</Alert>}
           <Checkbox
             label={t("Allow JetBrains Gateway for this project")}
-            description={t("Enables SSH port forwarding into the container and mounts a shared IDE backend cache (/config/jetbrains, downloaded once for all projects). Recreates the application containers.")}
+            description={t("Enables SSH port forwarding into the container. The IDE backend Gateway downloads stays in the project home, unless Settings → Package cache shares the backends between projects. Recreates the application containers.")}
             checked={!!p.ideGateway}
             disabled={update.isPending || !can.admin}
             onChange={(e) => {
@@ -260,7 +260,7 @@ export function IdeTab({ project: p }: { project: Project }) {
                   )}{" "}
                   {t("project directory")} <Code>/var/www/html</Code>.
                 </li>
-                <li>{t("Gateway installs the backend into")} <Code>/home/envoryx/.cache/JetBrains/RemoteDev/dist</Code> {t("(shared cache) and opens the thin client.")}</li>
+                <li>{t("Gateway installs the backend into")} <Code>/home/envoryx/.cache/JetBrains/RemoteDev/dist</Code> {t("and opens the thin client.")}</li>
               </ol>
               <p className="text-xs text-subtle">{t("Close the project in Gateway when you are done, or stop the backend here to free memory on the server.")}</p>
               {can.operate && (
