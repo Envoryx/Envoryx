@@ -10,6 +10,24 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Security
+- Envoryx reads some of a project's files itself (composer.json,
+  package.json, go.mod, pom.xml, a .csproj, config/database.yml,
+  .venv/pyvenv.cfg) and could be made to read without end: a link to
+  `/dev/zero` in the project filled its memory, a named pipe hung the
+  request. These files are now opened inside the project only, without
+  blocking, and read only when they are plain files of at most 1 MB.
+- A symbolic link in the project home (`~/.config -> /config`) made
+  Envoryx, which runs as root, hand the directory it pointed to to the
+  project user and create files in it when the project started. Envoryx
+  now follows no link when it creates the project's directories and
+  configuration files; it stops with an error that names the link.
+- A restore without wiping first followed a directory link the project's
+  owner had put into the project (`d -> /config`) and changed the mode of
+  the directory it pointed to. Restores, file backups and project copies
+  now work through an `os.Root` of the project, so nothing outside it is
+  read, written or changed.
+
 ## [0.23.0] - 2026-10-10
 
 Projects no longer share what one of them could tamper with. Each

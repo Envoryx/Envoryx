@@ -90,6 +90,8 @@ type Plan struct {
 	Files       []FilePlan
 	Images      []string
 	ConfigDir   string // per-project config dir inside the Envoryx container
+	// BaseDir is Envoryx's config directory, which holds every planned directory and file.
+	BaseDir string
 	// Dirs are directories created (owned by PUID:PGID) before containers start.
 	Dirs []DirPlan
 }
@@ -572,6 +574,7 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 		NetworkName: NetworkName(proj.Slug),
 		Labels:      docker.ManagedLabels(proj.ID, proj.Slug, "", p.paths.EnvoryxVersion),
 		ConfigDir:   p.ProjectConfigDir(proj.ID),
+		BaseDir:     p.paths.ConfigDir,
 	}
 	appHost := p.projectHostDir(proj)
 	cfgHost := p.configHostDir(proj.ID)

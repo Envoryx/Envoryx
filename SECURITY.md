@@ -179,6 +179,17 @@ container on the server.
   sends only the action id, the argv is fixed on the server, it runs inside the project
   container as the project owner, and the project lock is held while it runs.
 
+## Files in the project
+
+The project directory and the project home belong to whoever works in the project, so
+Envoryx treats what it finds there as untrusted even though it runs as root. It reads
+project files (composer.json, go.mod …) through an `os.Root` of the project, without
+blocking, and only plain files of at most 1 MB. File backups, restores and project copies
+read and write through an `os.Root` of the project as well, so a symbolic link or an entry
+swapped for one mid-walk never reaches outside it. Creating the project's directories and
+configuration files below `/config` follows no link at all and stops with an error naming
+it.
+
 ## Destructive operations
 
 - Deleting a project requires typing the project identifier as confirmation, and project

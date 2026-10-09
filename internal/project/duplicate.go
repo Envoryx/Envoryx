@@ -470,6 +470,13 @@ func copyTree(src, dst string, skipDeps bool, uid, gid int) error {
 			_ = os.Lchown(path, uid, gid)
 		}
 	}
+	// Files are read through the tree's os.Root: an entry swapped for a link while the
+	// walk runs can't copy Envoryx's own files into the new project.
+	tree, err := os.OpenRoot(root)
+	if err != nil {
+		return err
+	}
+	defer tree.Close()
 	return filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -503,7 +510,7 @@ func copyTree(src, dst string, skipDeps bool, uid, gid int) error {
 				return err
 			}
 		case info.Mode().IsRegular():
-			if err := copyFile(path, target, info.Mode().Perm()|0o600); err != nil {
+			if err := copyFile(tree, rel, target, info.Mode().Perm()|0o600); err != nil {
 				return err
 			}
 		default:
@@ -514,8 +521,8 @@ func copyTree(src, dst string, skipDeps bool, uid, gid int) error {
 	})
 }
 
-func copyFile(src, dst string, mode os.FileMode) error {
-	in, err := os.Open(src)
+func copyFile(tree *os.Root, rel, dst string, mode os.FileMode) error {
+	in, _, err := openProjectFile(tree, rel)
 	if err != nil {
 		return err
 	}
