@@ -41,6 +41,13 @@ jobs:
           echo "Upgrading from $from"
 
       - uses: docker/setup-buildx-action@v4
+        with:
+          # Docker Hub throttles the shared runners (429) and has outages; Google's
+          # mirror of its library images answers instead, and BuildKit falls back to
+          # Docker Hub for anything the mirror doesn't have.
+          buildkitd-config-inline: |
+            [registry."docker.io"]
+              mirrors = ["mirror.gcr.io"]
 
       - name: Build candidate image
         uses: docker/build-push-action@v7
