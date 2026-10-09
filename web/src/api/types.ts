@@ -1074,6 +1074,8 @@ export interface TestRun {
 /** The package cache shared by all projects (Composer, npm, Yarn, pip, uv, Go, Bundler). */
 export interface PackageCache {
   path: string;
+  /** All projects use one cache; else each has its own and the sizes are summed up. */
+  shared: boolean;
   bytes: number;
   entries: { tool: string; bytes: number }[];
 }
@@ -1566,6 +1568,7 @@ export interface UpdateSettingsRequest {
   forceHttps?: boolean;
   projectsFollowEnvoryx?: boolean;
   sharedIdeBackends?: boolean;
+  sharedPackageCache?: boolean;
   folderViewFolder?: string;
   logHistory?: { enabled?: boolean; retentionDays?: number; maxMb?: number };
   metricsRetentionDays?: number;
@@ -1616,6 +1619,8 @@ export interface Settings {
   projectsFollowEnvoryx?: boolean;
   /** Projects with JetBrains Gateway share one backend cache instead of one each. */
   sharedIdeBackends?: boolean;
+  /** All projects share one package cache instead of one each. */
+  sharedPackageCache?: boolean;
   /** FolderView3 folder (Unraid plugin) the containers are labelled for; "" for none. */
   folderViewFolder?: string;
   logHistory?: LogHistoryInfo;

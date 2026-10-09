@@ -176,6 +176,7 @@ func (m *Manager) planner() (*Planner, error) {
 	p.XdebugClientHost = m.XdebugClientHost(context.Background())
 	p.FolderViewFolder = m.FolderViewFolder(context.Background())
 	p.SharedIDEBackends = m.SharedIDEBackends(context.Background())
+	p.SharedPackageCache = m.SharedPackageCache(context.Background())
 	if m.links != nil {
 		p.PublicHost, p.ProxyHTTPPort, p.ProxyHTTPSPort = m.links(context.Background())
 	}

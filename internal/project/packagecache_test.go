@@ -12,13 +12,13 @@ import (
 	"github.com/envoryx/envoryx/internal/docker"
 )
 
-func hasCacheMount(spec docker.ContainerSpec) bool {
+func hasCacheMount(spec docker.ContainerSpec, source string) bool {
 	return slices.ContainsFunc(spec.Mounts, func(m docker.MountSpec) bool {
-		return m.Source == "/host/appdata/envoryx/cache" && m.Target == packageCacheTarget
+		return m.Source == source && m.Target == packageCacheTarget
 	})
 }
 
-func TestEveryPackageManagerContainerSharesTheCache(t *testing.T) {
+func TestEveryPackageManagerContainerGetsTheCache(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 	req := phpRequest("Shop", true)
@@ -28,6 +28,7 @@ func TestEveryPackageManagerContainerSharesTheCache(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	own := "/host/appdata/envoryx/projects/" + view.Project.ID + "/cache"
 	if _, err := e.m.AddWorker(ctx, view.Project.ID, WorkerRequest{Name: "queue", Preset: "laravel:queue", Enabled: true}); err != nil {
 		t.Fatal(err)
 	}
@@ -37,17 +38,30 @@ func TestEveryPackageManagerContainerSharesTheCache(t *testing.T) {
 			t.Fatalf("%s missing: %v", name, e.engine.ContainerNames())
 		}
 		env := strings.Join(c.Spec.Env, "\n")
-		if !hasCacheMount(c.Spec) || !strings.Contains(env, "COMPOSER_CACHE_DIR="+packageCacheTarget+"/composer") || !strings.Contains(env, "npm_config_cache="+packageCacheTarget+"/npm") || !strings.Contains(env, "PIP_CACHE_DIR="+packageCacheTarget+"/pip") {
+		if !hasCacheMount(c.Spec, own) || !strings.Contains(env, "COMPOSER_CACHE_DIR="+packageCacheTarget+"/composer") || !strings.Contains(env, "npm_config_cache="+packageCacheTarget+"/npm") || !strings.Contains(env, "PIP_CACHE_DIR="+packageCacheTarget+"/pip") {
 			t.Fatalf("%s: mounts %+v env %v", name, c.Spec.Mounts, c.Spec.Env)
 		}
 	}
 	// The web server runs no package manager.
-	if web, _ := e.engine.Container("envoryx-shop-web"); hasCacheMount(web.Spec) {
+	if web, _ := e.engine.Container("envoryx-shop-web"); hasCacheMount(web.Spec, own) {
 		t.Fatal("the web container must not get the cache")
 	}
-	// The directory exists and belongs to the project user's side.
-	if info, err := os.Stat(filepath.Join(e.cfgDir, "cache")); err != nil || !info.IsDir() {
+	// Each project has its own: a shared one is writable from all of them.
+	if info, err := os.Stat(filepath.Join(e.cfgDir, "projects", view.Project.ID, "cache")); err != nil || !info.IsDir() {
 		t.Fatalf("cache dir: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(e.cfgDir, "cache")); err == nil {
+		t.Fatal("the shared cache exists without sharing")
+	}
+	// Shared on request, once the containers are recreated.
+	if err := e.m.SetSharedPackageCache(ctx, true); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.m.Restart(ctx, view.Project.ID); err != nil {
+		t.Fatal(err)
+	}
+	if c, _ := e.engine.Container("envoryx-shop-php"); !hasCacheMount(c.Spec, "/host/appdata/envoryx/cache") {
+		t.Fatalf("shared: mounts %+v", c.Spec.Mounts)
 	}
 	// Commands run with the tool environment must not point npm back at the project home.
 	if slices.ContainsFunc(toolEnv, func(v string) bool { return strings.HasPrefix(v, "npm_config_cache=") }) {
@@ -55,6 +69,8 @@ func TestEveryPackageManagerContainerSharesTheCache(t *testing.T) {
 	}
 }
 
+// The sizes add up the projects' own caches and the shared one, per tool; clearing
+// empties all of them.
 func TestPackageCacheSizeAndClear(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
@@ -62,13 +78,19 @@ func TestPackageCacheSizeAndClear(t *testing.T) {
 	if err != nil || c.Bytes != 0 || len(c.Entries) != 0 {
 		t.Fatalf("empty cache: %+v %v", c, err)
 	}
-	dir := filepath.Join(e.cfgDir, "cache")
-	for tool, size := range map[string]int{"npm": 3000, "composer": 1000} {
+	view, err := e.m.Create(ctx, phpRequest("Shop", false))
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := filepath.Join(e.cfgDir, "projects", view.Project.ID, "cache")
+	for tool, size := range map[string]int{"npm": 2000, "composer": 1000} {
 		_ = os.MkdirAll(filepath.Join(dir, tool, "sub"), 0o755)
 		_ = os.WriteFile(filepath.Join(dir, tool, "sub", "blob"), make([]byte, size), 0o644)
 	}
+	_ = os.MkdirAll(filepath.Join(e.cfgDir, "cache", "npm"), 0o755)
+	_ = os.WriteFile(filepath.Join(e.cfgDir, "cache", "npm", "old"), make([]byte, 1000), 0o644)
 	c, err = e.m.PackageCache(ctx)
-	if err != nil || c.Bytes != 4000 || len(c.Entries) != 2 || c.Entries[0].Tool != "npm" {
+	if err != nil || c.Bytes != 4000 || len(c.Entries) != 2 || c.Entries[0].Tool != "npm" || c.Entries[0].Bytes != 3000 || c.Shared {
 		t.Fatalf("cache: %+v %v", c, err)
 	}
 	c, err = e.m.ClearPackageCache(ctx, "npm")
@@ -80,6 +102,9 @@ func TestPackageCacheSizeAndClear(t *testing.T) {
 	}
 	if _, err := e.m.ClearPackageCache(ctx, "../etc"); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("an unknown tool: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(e.cfgDir, "cache", "npm", "old")); err == nil {
+		t.Fatal("the shared cache was not cleared")
 	}
 	if c, err := e.m.ClearPackageCache(ctx, ""); err != nil || c.Bytes != 0 {
 		t.Fatalf("after clearing all: %+v %v", c, err)

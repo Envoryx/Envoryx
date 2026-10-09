@@ -337,6 +337,8 @@ type updateSettingsRequest struct {
 	ProjectsFollowEnvoryx *bool `json:"projectsFollowEnvoryx"`
 	// SharedIDEBackends shares the JetBrains Gateway backends between projects.
 	SharedIDEBackends *bool `json:"sharedIdeBackends"`
+	// SharedPackageCache gives all projects one package cache.
+	SharedPackageCache *bool `json:"sharedPackageCache"`
 	// XdebugClientHost is the developer machine Xdebug connects back to.
 	XdebugClientHost *string `json:"xdebugClientHost"`
 	// FolderViewFolder is the FolderView3 folder the containers are labelled for.
@@ -407,6 +409,12 @@ func (a *API) updateSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.ProjectsFollowEnvoryx != nil {
 		if err := a.d.Projects.SetProjectsFollowEnvoryx(r.Context(), *req.ProjectsFollowEnvoryx); err != nil {
+			writeError(w, r, err)
+			return
+		}
+	}
+	if req.SharedPackageCache != nil {
+		if err := a.d.Projects.SetSharedPackageCache(r.Context(), *req.SharedPackageCache); err != nil {
 			writeError(w, r, err)
 			return
 		}
@@ -510,6 +518,7 @@ func (a *API) settings(w http.ResponseWriter, r *http.Request) {
 		"forceHttps":            a.d.Projects.ForceHTTPS(r.Context()),
 		"projectsFollowEnvoryx": a.d.Projects.ProjectsFollowEnvoryx(r.Context()),
 		"sharedIdeBackends":     a.d.Projects.SharedIDEBackends(r.Context()),
+		"sharedPackageCache":    a.d.Projects.SharedPackageCache(r.Context()),
 		"logHistory":            a.d.Projects.LogHistoryInfo(r.Context()),
 		"metrics":               a.d.Projects.MetricsInfo(r.Context()),
 		"xdebugClientHost":      a.d.Projects.XdebugClientHost(r.Context()),
@@ -727,7 +736,7 @@ func (a *API) clearLogHistory(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"logHistory": a.d.Projects.LogHistoryInfo(r.Context())})
 }
 
-// packageCache reports the size of the shared package cache per tool.
+// packageCache reports the size of the package caches per tool.
 func (a *API) packageCache(w http.ResponseWriter, r *http.Request) {
 	c, err := a.d.Projects.PackageCache(r.Context())
 	if err != nil {
@@ -737,7 +746,7 @@ func (a *API) packageCache(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"cache": c})
 }
 
-// clearPackageCache empties the shared package cache, or one tool's part (?tool=npm).
+// clearPackageCache empties the package caches, or one tool's part (?tool=npm).
 func (a *API) clearPackageCache(w http.ResponseWriter, r *http.Request) {
 	c, err := a.d.Projects.ClearPackageCache(r.Context(), r.URL.Query().Get("tool"))
 	if err != nil {

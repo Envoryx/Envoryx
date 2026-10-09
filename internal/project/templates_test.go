@@ -133,9 +133,9 @@ func TestNodeTemplatesScaffoldFromTheNodeImage(t *testing.T) {
 			t.Fatalf("scaffold container: %+v", r)
 		}
 		// create-next-app needs a writable parent directory; /var/www is root-owned.
-		// The project directory, and the shared package cache the downloads land in.
+		// The project directory, and the project's package cache the downloads land in.
 		if r.WorkingDir != "/tmp/shop" || len(r.Mounts) != 2 || r.Mounts[0].Target != "/tmp/shop" || r.Mounts[0].Source != "/host/development/shop" ||
-			r.Mounts[1].Source != "/host/appdata/envoryx/cache" || r.Mounts[1].Target != "/var/cache/envoryx" {
+			!strings.HasPrefix(r.Mounts[1].Source, "/host/appdata/envoryx/projects/") || !strings.HasSuffix(r.Mounts[1].Source, "/cache") || r.Mounts[1].Target != "/var/cache/envoryx" {
 			t.Fatalf("scaffold mount: %+v", r)
 		}
 		env := strings.Join(r.Env, "\n")

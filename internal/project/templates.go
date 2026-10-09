@@ -108,10 +108,10 @@ var (
 	// service's Ruby version is added in applyTemplate (rubyEnv).
 	rubyScaffoldEnv = []string{"HOME=" + homeMountTarget}
 	// The Java scaffolds keep the Maven wrapper's download in the project home and the
-	// dependencies in the shared package cache, so the server's first build finds both.
+	// dependencies in the package cache, so the server's first build finds both.
 	javaScaffoldEnv = []string{"HOME=" + homeMountTarget}
 	// The .NET scaffolds keep dotnet's first-run state and template cache in the project
-	// home and the packages in the shared package cache, so the server's first build
+	// home and the packages in the package cache, so the server's first build
 	// restores nothing.
 	dotnetScaffoldEnv = []string{"HOME=" + homeMountTarget}
 )
@@ -1242,6 +1242,7 @@ func (m *Manager) applyTemplate(ctx context.Context, proj store.Project, tpl Tem
 	if err != nil {
 		return fmt.Errorf("%w: %v", ErrNotConfigured, err)
 	}
+	paths.SharedPackageCache = m.SharedPackageCache(ctx)
 	planner := NewPlanner(paths, m.catalog)
 	dir := planner.ProjectDir(proj)
 	entries, err := os.ReadDir(dir)
@@ -1257,12 +1258,12 @@ func (m *Manager) applyTemplate(ctx context.Context, proj store.Project, tpl Tem
 	if err := m.engine.EnsureImage(ctx, image, m.pullProgress(ctx, proj.Slug, image)); err != nil {
 		return err
 	}
-	// The downloads land in the shared package cache, which the project's plan has not
-	// created yet at this point.
-	if err := os.MkdirAll(planner.PackageCacheDir(), 0o755); err != nil {
+	// The downloads land in the package cache, which the project's plan has not created
+	// yet at this point.
+	if err := os.MkdirAll(planner.PackageCacheDir(proj), 0o755); err != nil {
 		return fmt.Errorf("create the package cache: %w", err)
 	}
-	_ = os.Chown(planner.PackageCacheDir(), paths.PUID, paths.PGID)
+	_ = os.Chown(planner.PackageCacheDir(proj), paths.PUID, paths.PGID)
 	if kind == store.ServiceRuby || kind == store.ServiceJava || kind == store.ServiceDotnet {
 		// The gems, the Maven wrapper and dotnet's first-run state go to the project home,
 		// which the plan has not created yet either.
@@ -1301,7 +1302,7 @@ func (m *Manager) applyTemplate(ctx context.Context, proj store.Project, tpl Tem
 			spec.Mounts = append(spec.Mounts, planner.HomeMount(proj))
 		}
 		spec.Env = append([]string{}, spec.Env...)
-		planner.withPackageCache(&spec)
+		planner.withPackageCache(proj, &spec)
 		if kind == store.ServicePHP {
 			// The project's php.ini: the extensions the application's composer.json
 			// asks for (gd for Drupal, intl for Shopware …) are switched on there.
