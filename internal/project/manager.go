@@ -1537,6 +1537,11 @@ func writePlanFiles(plan Plan) error {
 		_ = os.Chown(d.Path, d.UID, d.GID)
 	}
 	for _, f := range plan.Files {
+		if f.Seed {
+			if _, err := os.Lstat(f.Path); err == nil {
+				continue
+			}
+		}
 		if err := os.MkdirAll(filepath.Dir(f.Path), 0o755); err != nil {
 			return fmt.Errorf("create config directory: %w", err)
 		}
@@ -1550,6 +1555,9 @@ func writePlanFiles(plan Plan) error {
 		// WriteFile honours umask; enforce the mode so read-only mounts work for any uid.
 		if err := os.Chmod(f.Path, mode); err != nil {
 			return fmt.Errorf("chmod %s: %w", f.Path, err)
+		}
+		if f.Seed {
+			_ = os.Chown(f.Path, f.UID, f.GID)
 		}
 	}
 	return nil

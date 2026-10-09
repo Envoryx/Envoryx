@@ -59,6 +59,10 @@ type FilePlan struct {
 	Path    string // absolute path inside the Envoryx container
 	Content string
 	Mode    uint32
+	// Seed files are written only when missing and then belong to the project user,
+	// who may change them (configuration in the project home).
+	Seed     bool
+	UID, GID int
 }
 
 // ContainerPlan is a planned container.
@@ -103,11 +107,9 @@ var toolEnv = []string{"HOME=" + homeMountTarget, "COMPOSER_HOME=" + homeMountTa
 
 // The package cache is one directory for all projects (/config/cache on the Envoryx
 // side), so a package is downloaded once whichever project asks for it next: Composer,
-// npm, Yarn, pip, uv, Go, Bundler, Maven, Gradle and NuGet keep their caches below it.
-// pnpm is left out: its store is only configurable as npm_config_store_dir, which makes
-// every npm command warn. Every
-// container a package manager runs in has it mounted: the application containers, the
-// workers and the one-shots that scaffold a template.
+// npm, Yarn, pnpm, pip, uv, Go, Bundler, Maven, Gradle and NuGet keep their caches below
+// it. Every container a package manager runs in has it mounted: the application
+// containers, the workers and the one-shots that scaffold a template.
 const (
 	packageCacheDir    = "cache"
 	packageCacheTarget = "/var/cache/envoryx"
@@ -120,6 +122,10 @@ var packageCacheEnv = []string{
 	"COMPOSER_CACHE_DIR=" + packageCacheTarget + "/composer",
 	"npm_config_cache=" + packageCacheTarget + "/npm",
 	"YARN_CACHE_FOLDER=" + packageCacheTarget + "/yarn",
+	// Yarn 2 and later use the cache folder only with the global cache switched off; by
+	// default they keep it in the global folder. A global "yarn global add" (Yarn 1)
+	// lands there as well.
+	"YARN_GLOBAL_FOLDER=" + packageCacheTarget + "/yarn-global",
 	"PIP_CACHE_DIR=" + packageCacheTarget + "/pip",
 	"UV_CACHE_DIR=" + packageCacheTarget + "/uv",
 	// Go's module cache is read-only once written (Go marks it so): shared it saves the
@@ -139,6 +145,28 @@ var packageCacheEnv = []string{
 	"NUGET_PACKAGES=" + packageCacheTarget + "/nuget/packages",
 	"NUGET_HTTP_CACHE_PATH=" + packageCacheTarget + "/nuget/http",
 	"UV_LINK_MODE=copy",
+}
+
+// pnpmStoreTarget is pnpm's store in the shared package cache. pnpm reads the store
+// directory from no variable but npm_config_store_dir, which makes every npm command warn,
+// and a default store (under PNPM_HOME or the home) on another mount than the project is
+// replaced by a .pnpm-store directory in the project itself, since pnpm links from the
+// store. Named explicitly it is used as it is, and pnpm copies across mounts; so the
+// project home gets pnpm's own configuration file with the store directory, which npm
+// doesn't read.
+const pnpmStoreTarget = packageCacheTarget + "/pnpm-store"
+
+// seedPnpmStore plans ~/.config/pnpm/rc in the project home, unless one is there.
+func (p *Planner) seedPnpmStore(proj store.Project, plan *Plan) {
+	cfg := filepath.Join(p.HomeDir(proj), ".config")
+	for _, dir := range []string{cfg, filepath.Join(cfg, "pnpm")} {
+		plan.Dirs = append(plan.Dirs, DirPlan{Path: dir, UID: p.paths.PUID, GID: p.paths.PGID})
+	}
+	plan.Files = append(plan.Files, FilePlan{
+		Path:    filepath.Join(cfg, "pnpm", "rc"),
+		Content: "# Added by Envoryx: pnpm's store in the package cache all projects share.\nstore-dir=" + pnpmStoreTarget + "\n",
+		Mode:    0o644, Seed: true, UID: p.paths.PUID, GID: p.paths.PGID,
+	})
 }
 
 // PackageCacheDir is the shared package cache on the Envoryx side.
@@ -514,6 +542,7 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 	appHost := p.projectHostDir(proj)
 	cfgHost := p.configHostDir(proj.ID)
 	plan.Dirs = append(plan.Dirs, DirPlan{Path: p.HomeDir(proj), UID: p.paths.PUID, GID: p.paths.PGID}, DirPlan{Path: p.PackageCacheDir(), UID: p.paths.PUID, GID: p.paths.PGID})
+	p.seedPnpmStore(proj, &plan)
 	if proj.IDEGateway {
 		// Every level is planned, so each belongs to the project user: the directories are
 		// created here rather than by Docker (which would make the mount point root's), and
