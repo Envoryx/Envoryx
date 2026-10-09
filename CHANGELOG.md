@@ -10,6 +10,17 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.22.0] - 2026-10-09
+
+Fixes from the October test round. Saving a setting such as Xdebug no
+longer restarts the whole project, only the containers it concerns, and
+PhpStorm now hits breakpoints behind the proxy. The Tests section reads
+RSpec, Django, Vitest and Jest results instead of going by the exit code
+alone, Yarn 2+ and pnpm use the shared package cache, Quarkus' Dev UI
+opens at the project URL, and the Laravel and Symfony templates point
+their app URL at the project. PHP projects ask for one restart after the
+update.
+
 ### Added
 - The Tests section reads the results of RSpec without
   `rspec_junit_formatter`, Django's `manage.py test` and Vitest or Jest
@@ -54,9 +65,8 @@ release). `:main` follows the development branch.
   another PHP setting changed. Envoryx now recreates just the containers
   the change concerns: a PHP setting restarts the PHP container, the PHP
   workers and the web server, the database and the other services keep
-  running. PHP projects
-  ask for a restart once after the update, and a changed Xdebug host in the
-  settings now does the same.
+  running. PHP projects ask for a restart once after the update, and a
+  changed Xdebug host in the settings now does the same.
 
 ## [0.21.0] - 2026-10-08
 
@@ -1758,7 +1768,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.21.0...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.22.0...HEAD
+[0.22.0]: https://github.com/envoryx/envoryx/compare/v0.21.0...v0.22.0
 [0.21.0]: https://github.com/envoryx/envoryx/compare/v0.20.0...v0.21.0
 [0.20.0]: https://github.com/envoryx/envoryx/compare/v0.19.0...v0.20.0
 [0.19.0]: https://github.com/envoryx/envoryx/compare/v0.18.1...v0.19.0
