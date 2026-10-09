@@ -281,7 +281,7 @@ Java, else .NET, else Node);
 `<project>.dotnet` / `<project>.node` pick one explicitly. The IDE section has the Xdebug server
 and path mapping, `.idea/php.xml`, Node inspector, debugpy, Delve, rdbg and JDWP details, a
 VS Code `launch.json` for netcoredbg and JDBC URLs, and JetBrains Gateway is optional
-(backend in the container, shared cache).
+(backend in the container, kept per project unless you share it).
 
 Notifications (ntfy, Discord, Slack, Telegram, e-mail, generic webhook) tell you about
 unhealthy projects and their recovery, failed project creation, failed backups and

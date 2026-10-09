@@ -1226,11 +1226,13 @@ backend binds to 127.0.0.1 inside the container, so the tunnel is relayed by
 `socat STDIO TCP:127.0.0.1:<port>` run via docker exec in the container's own
 network namespace (probed once per container id); runtime images without
 socat fall back to dialling `envoryx-<slug>-<kind>:<port>` over the project
-network, which only reaches listeners on 0.0.0.0. The flag also
-mounts `/config/jetbrains/RemoteDev/dist` at `~/.cache/JetBrains/RemoteDev/dist`,
-so the downloaded Gateway backends are shared across projects; the rest of
-`~/.cache/JetBrains` (index caches with source, local history, join links
-with tokens) stays in each project home. `StopIDEBackend` runs `pkill -f /.cache/JetBrains/`
+network, which only reaches listeners on 0.0.0.0. The downloaded Gateway
+backends stay in the project home by default. With the instance setting
+`shared_ide_backends` (`Paths.SharedIDEBackends`) the flag also mounts
+`/config/jetbrains/RemoteDev/dist` at `~/.cache/JetBrains/RemoteDev/dist`, so
+they are shared across projects; that directory is writable from each of them,
+hence opt-in. The rest of `~/.cache/JetBrains` (index caches with source, local
+history, join links with tokens) stays in each project home. `StopIDEBackend` runs `pkill -f /.cache/JetBrains/`
 as the project user.
 
 ### Workers
