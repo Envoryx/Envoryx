@@ -2706,5 +2706,6 @@
   "Restarting the worker failed": "Falha ao reiniciar o worker",
   "Keeps restarting: its process exits shortly after each start. The logs say why; restart it once the cause is fixed.": "Reinicia sem parar: o processo termina pouco depois de cada arranque. Os logs dizem porquê; reinicie-o quando a causa estiver corrigida.",
   "Restart {{name}}": "Reiniciar {{name}}",
-  "Worker restarted": "Worker reiniciado"
+  "Worker restarted": "Worker reiniciado",
+  "Restarting the container {{name}}": "Reiniciando o contêiner {{name}}"
 }

@@ -555,6 +555,9 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 		}
 	}
 	external := false
+	// phpConfig is the hash of the PHP ini and pool files, for the PHP container and the
+	// PHP workers that mount them.
+	phpConfig := ""
 	for _, svc := range proj.Services {
 		if !svc.Enabled {
 			continue
@@ -598,10 +601,13 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 			// variables, so the env in the spec fingerprint recreates the container.
 			mailpit := proj.Service(store.ServiceMailpit)
 			iniOpts := runtime.INIOptions{XdebugClientHost: p.paths.XdebugClientHost, Mailpit: mailpit != nil && mailpit.Enabled}
+			ini, pool := cfg.INIWith(svc.Version, iniOpts), runtime.FPMPool(p.paths.PUID, p.paths.PGID)
 			plan.Files = append(plan.Files,
-				FilePlan{Path: filepath.Join(plan.ConfigDir, "php", "zz-envoryx.ini"), Content: cfg.INIWith(svc.Version, iniOpts), Mode: 0o644},
-				FilePlan{Path: filepath.Join(plan.ConfigDir, "php", "zz-envoryx.conf"), Content: runtime.FPMPool(p.paths.PUID, p.paths.PGID), Mode: 0o644},
+				FilePlan{Path: filepath.Join(plan.ConfigDir, "php", "zz-envoryx.ini"), Content: ini, Mode: 0o644},
+				FilePlan{Path: filepath.Join(plan.ConfigDir, "php", "zz-envoryx.conf"), Content: pool, Mode: 0o644},
 			)
+			phpConfig = hashJSON([]string{ini, pool})
+			labels[labelPHPConfig] = phpConfig
 			phpSpec := docker.ContainerSpec{
 				Name:         ContainerName(proj.Slug, store.ServicePHP),
 				Image:        svc.Image,
@@ -1320,6 +1326,7 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 			spec.Env = append(append([]string{}, env...), "HOME=/tmp", "COMPOSER_HOME=/tmp/composer")
 			spec.Cmd = runtime.Guarded(cmd, "envoryx-worker", workerGuard(preset, w))
 			spec.Mounts = append(spec.Mounts, docker.MountSpec{Type: "bind", Source: filepath.Join(cfgHost, "php", "zz-envoryx.ini"), Target: phpIniTarget, ReadOnly: true})
+			spec.Labels[labelPHPConfig] = phpConfig
 		}
 		p.withPackageCache(&spec)
 		plan.Containers = append(plan.Containers, ContainerPlan{Kind: WorkerKind(w), Order: 30, Spec: spec})
@@ -1603,6 +1610,12 @@ func (p *Planner) envStrings(proj store.Project) ([]string, error) {
 // the label makes the dashboard ask for a restart, which recreates the container.
 const labelWebConfig = "envoryx.web.config"
 
+// labelPHPConfig carries a hash of the generated PHP ini and FPM pool. PHP reads them only
+// when it starts, so a changed setting (Xdebug, memory limit, extensions, the global
+// Xdebug host) recreates the PHP container and the PHP workers through the spec
+// fingerprint, and nothing else of the project.
+const labelPHPConfig = "envoryx.php.config"
+
 // specFingerprint hashes the parts of a spec that are baked into a container and are not
 // secrets: command, working dir, user, mounts, ports, aliases and healthcheck.
 func specFingerprint(spec docker.ContainerSpec) string {
@@ -1627,6 +1640,9 @@ func specFingerprint(spec docker.ContainerSpec) string {
 	}
 	if c := spec.Labels[labelWebConfig]; c != "" {
 		fields["webconfig"] = c
+	}
+	if c := spec.Labels[labelPHPConfig]; c != "" {
+		fields["phpconfig"] = c
 	}
 	if len(spec.ExtraHosts) > 0 {
 		fields["hosts"] = spec.ExtraHosts

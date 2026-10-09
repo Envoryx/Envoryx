@@ -579,6 +579,10 @@ func (m *Manager) ensurePlan(ctx context.Context, proj store.Project, plan Plan,
 	for _, c := range existing {
 		byKind[c.Service()] = c
 	}
+	// phpStarted says the PHP container was created or started in this pass. nginx and
+	// Apache resolve "php" once when they start, and a new PHP container may get another
+	// address, so a web server that keeps running is restarted after it (PHP starts first).
+	phpStarted := false
 	for _, c := range plan.Containers {
 		// A rollback pins the containers of an image reference to the previous image id;
 		// Docker accepts the id wherever a tag goes.
@@ -656,6 +660,12 @@ func (m *Manager) ensurePlan(ctx context.Context, proj store.Project, plan Plan,
 			step(ctx, "Starting the container {{name}}", "name", c.Spec.Name)
 			if err := m.engine.StartContainer(ctx, id); err != nil {
 				return fmt.Errorf("start container %s: %w", c.Spec.Name, err)
+			}
+			phpStarted = phpStarted || c.Kind == store.ServicePHP
+		} else if start && phpStarted && c.Kind == store.ServiceWeb {
+			step(ctx, "Restarting the container {{name}}", "name", c.Spec.Name)
+			if err := m.engine.RestartContainer(ctx, id, m.cfg.StopTimeout); err != nil {
+				return fmt.Errorf("restart container %s: %w", c.Spec.Name, err)
 			}
 		}
 		if start {
@@ -773,8 +783,8 @@ func (m *Manager) stopPlan(ctx context.Context, proj store.Project, plan Plan) e
 	return errors.Join(errs...)
 }
 
-// Update changes project settings and, if the project is running, restarts it so the new
-// configuration takes effect.
+// Update changes project settings and, if the project is running, recreates the containers
+// the change concerns so the new configuration takes effect.
 func (m *Manager) Update(ctx context.Context, id string, req UpdateRequest) (View, error) {
 	if err := validate.UUID(id); err != nil {
 		return View{}, ErrNotFound
@@ -1073,12 +1083,11 @@ func (m *Manager) update(ctx context.Context, id string, req UpdateRequest) (Vie
 				return View{}, fmt.Errorf("recreate container %s: %w", c.Name, err)
 			}
 		}
-	} else if running {
-		// Config file changes need a restart to take effect.
-		if err := m.stopPlan(ctx, proj, plan); err != nil {
-			return View{}, err
-		}
 	}
+	// Everything else a setting changes is part of a container's spec fingerprint (the
+	// generated PHP and web server configs through their hash labels), so ensurePlan
+	// recreates just the containers concerned; the database and the other services keep
+	// running.
 	if err := m.ensurePlan(ctx, proj, plan, running, false); err != nil {
 		_ = m.store.Projects.UpdateState(context.WithoutCancel(ctx), id, proj.DesiredState, proj.Lifecycle, err.Error())
 		return View{}, err

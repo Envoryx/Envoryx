@@ -1015,6 +1015,59 @@ func TestWebConfigFingerprint(t *testing.T) {
 	}
 }
 
+// PHP reads its ini only at start. Switching Xdebug recreates the PHP container and the
+// PHP workers, which mount the ini, and leaves the database and the web server running.
+func TestPHPConfigRecreatesOnlyPHP(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+
+	req := phpRequest("Shop", true)
+	req.Database = &DatabaseRequest{Type: "mariadb", Version: "11"}
+	view, err := e.m.Create(ctx, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := view.Project.ID
+	if _, err := e.m.AddWorker(ctx, id, WorkerRequest{Name: "queue", Preset: "laravel:queue", Enabled: true}); err != nil {
+		t.Fatal(err)
+	}
+	names := []string{"envoryx-shop-php", "envoryx-shop-worker-queue", "envoryx-shop-web", "envoryx-shop-database"}
+	before := map[string]string{}
+	for _, n := range names {
+		c, ok := e.engine.Container(n)
+		if !ok {
+			t.Fatalf("container %s missing: %v", n, e.engine.ContainerNames())
+		}
+		before[n] = c.ID
+	}
+	if php, _ := e.engine.Container("envoryx-shop-php"); php.Spec.Labels[labelPHPConfig] == "" {
+		t.Fatalf("php config hash missing: %v", php.Spec.Labels)
+	}
+
+	cfg := runtime.DefaultPHPConfig()
+	cfg.Xdebug = true
+	e.engine.Calls = nil
+	if _, err := e.m.Update(ctx, id, UpdateRequest{PHP: &PHPUpdate{Enabled: true, Version: "8.4", Config: cfg}}); err != nil {
+		t.Fatal(err)
+	}
+	for _, n := range names {
+		c, _ := e.engine.Container(n)
+		recreated := c.ID != before[n]
+		if want := strings.Contains(n, "php") || strings.Contains(n, "worker"); recreated != want || c.State != "running" {
+			t.Errorf("%s: recreated %v, want %v (state %s)", n, recreated, want, c.State)
+		}
+	}
+	for _, call := range e.engine.Calls {
+		if call == "stop:envoryx-shop-database" || call == "stop:envoryx-shop-web" {
+			t.Errorf("Xdebug toggle stopped another service: %s", call)
+		}
+	}
+	// nginx and Apache resolve the PHP container's address only at start.
+	if !slices.Contains(e.engine.Calls, "restart:envoryx-shop-web") {
+		t.Errorf("the web server must be restarted after a new PHP container: %v", e.engine.Calls)
+	}
+}
+
 func TestTemplateRuntimeGating(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()

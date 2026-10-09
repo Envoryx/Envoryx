@@ -2706,5 +2706,6 @@
   "Restarting the worker failed": "Neustart des Workers fehlgeschlagen",
   "Keeps restarting: its process exits shortly after each start. The logs say why; restart it once the cause is fixed.": "Startet immer wieder neu: Sein Prozess endet kurz nach jedem Start. Die Logs sagen warum; starte ihn neu, sobald die Ursache behoben ist.",
   "Restart {{name}}": "{{name}} neu starten",
-  "Worker restarted": "Worker neu gestartet"
+  "Worker restarted": "Worker neu gestartet",
+  "Restarting the container {{name}}": "Container {{name}} wird neu gestartet"
 }

@@ -10,6 +10,16 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Fixed
+- Saving project settings stopped and started every container of a running
+  project, the database and OpenSearch included, even when only Xdebug or
+  another PHP setting changed. Envoryx now recreates just the containers
+  the change concerns: a PHP setting restarts the PHP container, the PHP
+  workers and the web server, the database and the other services keep
+  running. PHP projects
+  ask for a restart once after the update, and a changed Xdebug host in the
+  settings now does the same.
+
 ## [0.21.0] - 2026-10-08
 
 A **security fix** (see *Security*): PHP files that got into an upload

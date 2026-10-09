@@ -2706,5 +2706,6 @@
   "Restarting the worker failed": "Herstarten van de worker mislukt",
   "Keeps restarting: its process exits shortly after each start. The logs say why; restart it once the cause is fixed.": "Blijft herstarten: het proces stopt kort na elke start. De logs zeggen waarom; herstart hem zodra de oorzaak is opgelost.",
   "Restart {{name}}": "{{name}} herstarten",
-  "Worker restarted": "Worker herstart"
+  "Worker restarted": "Worker herstart",
+  "Restarting the container {{name}}": "Container {{name}} wordt herstart"
 }

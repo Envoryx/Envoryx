@@ -2706,5 +2706,6 @@
   "Restarting the worker failed": "Le redémarrage du worker a échoué",
   "Keeps restarting: its process exits shortly after each start. The logs say why; restart it once the cause is fixed.": "Redémarre sans cesse : son processus se termine peu après chaque démarrage. Les logs indiquent pourquoi ; redémarrez-le une fois la cause corrigée.",
   "Restart {{name}}": "Redémarrer {{name}}",
-  "Worker restarted": "Worker redémarré"
+  "Worker restarted": "Worker redémarré",
+  "Restarting the container {{name}}": "Redémarrage du conteneur {{name}}"
 }
