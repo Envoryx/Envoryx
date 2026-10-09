@@ -1068,6 +1068,31 @@ func TestPHPConfigRecreatesOnlyPHP(t *testing.T) {
 	}
 }
 
+// pnpm's store lives in the shared package cache through ~/.config/pnpm/rc in the project
+// home, written once: a file the user changed stays as it is.
+func TestPnpmStoreSeededOnce(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	view, err := e.m.Create(ctx, nodeRequest("Shop", true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	rc := filepath.Join(e.cfgDir, "projects", view.Project.ID, "home", ".config", "pnpm", "rc")
+	b, err := os.ReadFile(rc)
+	if err != nil || !strings.Contains(string(b), "store-dir=/var/cache/envoryx/pnpm-store") {
+		t.Fatalf("pnpm rc: %q %v", b, err)
+	}
+	if err := os.WriteFile(rc, []byte("store-dir=/elsewhere\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.m.Restart(ctx, view.Project.ID); err != nil {
+		t.Fatal(err)
+	}
+	if b, _ := os.ReadFile(rc); string(b) != "store-dir=/elsewhere\n" {
+		t.Fatalf("a changed rc must stay: %q", b)
+	}
+}
+
 func TestTemplateRuntimeGating(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()

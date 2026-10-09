@@ -11,6 +11,12 @@ release). `:main` follows the development branch.
 ## [Unreleased]
 
 ### Fixed
+- Yarn 2 and later and pnpm downloaded every package again in each
+  project. Yarn's global cache now lives in the shared package cache
+  (`YARN_GLOBAL_FOLDER`), and pnpm's store too: the project home gets
+  `~/.config/pnpm/rc` with `store-dir` (written once, yours to change),
+  since pnpm reads its store from no variable npm leaves alone. pnpm no
+  longer creates a `.pnpm-store` directory inside the project either.
 - Xdebug breakpoints in PhpStorm were ignored for requests over the proxy
   ("Cannot bind file … to the web server project"): PhpStorm matches the
   server by host and port, the `php.xml` from the IDE tab had no port, so
