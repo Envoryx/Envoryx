@@ -895,7 +895,7 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 				// proxy routes the project URL to it. A blank project has nothing to build
 				// yet, so it waits for pom.xml or build.gradle.
 				spec.Cmd = jcfg.WrappedCommand(dbGuard)
-				spec.Env = append(spec.Env, jcfg.Env()...)
+				spec.Env = append(spec.Env, jcfg.Env(p.devUIHosts(proj))...)
 				if jcfg.HostPort > 0 {
 					spec.Ports = []docker.PortSpec{{HostIP: p.paths.PublishInterface, HostPort: jcfg.HostPort, ContainerPort: jcfg.Port, Protocol: "tcp"}}
 				}
@@ -1468,6 +1468,21 @@ func (p *Planner) Preview(proj store.Project, plan Plan) Preview {
 // VolumeName returns the volume name for a project service.
 func VolumeName(slug string, kind store.ServiceKind) string {
 	return fmt.Sprintf("envoryx-%s-%s", slug, kind)
+}
+
+// devUIHosts are the host names a browser reaches the project under: its name under the
+// base domain, a pattern for every other name there (the -dev name, extra domains under
+// the base) and the public host for the published port. The pattern is a Java regular
+// expression without backslashes, which the config's list syntax would eat.
+func (p *Planner) devUIHosts(proj store.Project) []string {
+	var hosts []string
+	if base := p.paths.BaseDomain; base != "" {
+		hosts = append(hosts, DefaultHostname(proj.Slug, base), ".*[.]"+strings.ReplaceAll(base, ".", "[.]"))
+	}
+	if p.paths.PublicHost != "" {
+		hosts = append(hosts, p.paths.PublicHost)
+	}
+	return hosts
 }
 
 // envStrings builds the environment for application containers: Envoryx defaults, then
