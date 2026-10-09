@@ -11,6 +11,20 @@ release). `:main` follows the development branch.
 ## [Unreleased]
 
 ### Security
+- SFTP followed symbolic links out of the project: a link to `/` made in
+  the container (or committed to the repository) let any developer of a
+  project read and write Envoryx's own files over SFTP, the secret key and
+  the database included, and from there take over the instance. SFTP now
+  serves the project and home directories through `os.Root`, so links
+  are followed only while they stay inside.
+- Cloning a database checked access to the target project only, so a
+  project admin (or an admin token confined to one project) could copy
+  any other project's database into their own and read it. The source
+  now needs operate access too.
+- A page on another site could start a project action or test run by
+  sending the browser to its WebSocket address, since the run began
+  before the origin was checked. WebSocket routes now refuse anything
+  but a WebSocket upgrade from Envoryx's own origin before they start.
 - Built with Go 1.27.2, which fixes eleven vulnerabilities in Go 1.27.1's
   standard library that Envoryx's code reaches, most of them in the
   HTTP/2 server (crashes, memory and CPU exhaustion) and HTTP/1

@@ -122,8 +122,9 @@ failures lock an IP for five minutes. The exec command line goes to
 already grants.
 
 SFTP is a virtual view of exactly two directories (project and persistent home), served
-from Envoryx's side of the bind mounts with lexical containment; symlinks may not point
-outside. The Ed25519 host key lives in `/config/ssh/host_ed25519` (0600). Only the `env`
+from Envoryx's side of the bind mounts through `os.Root`: symbolic links are followed only
+while they stay inside that directory, whoever made them (the container, a git checkout or
+the SFTP client), so a link to `/` doesn't reach Envoryx's own files. The Ed25519 host key lives in `/config/ssh/host_ed25519` (0600). Only the `env`
 requests `LANG`, `LC_*`, `TERM`, `XDEBUG_*`, `PHP_IDE_CONFIG`, `APP_ENV` and `CI` are
 forwarded, and sessions and commands are audit-logged.
 
@@ -140,9 +141,10 @@ State-changing API requests must:
 Together with `SameSite=Lax` cookies this blocks CSRF from other origins. CORS headers are
 only sent for the configured dev origin.
 
-WebSockets (log streaming, terminal) go through the same session middleware: the cookie is
-checked before the upgrade, and the upgrade itself is refused for any `Origin` other than
-the request host (plus the dev-server origin in `ENVORYX_DEV` mode). Container IDs never
+WebSockets (log streaming, terminal, actions, test runs) go through the same session
+middleware: the cookie is checked before the upgrade, and a request that isn't a WebSocket
+upgrade from the request host (plus the dev-server origin in `ENVORYX_DEV` mode) is refused
+before anything starts, so navigating a browser to such a route doesn't run an action. Container IDs never
 come from the client; WebSocket routes address `project + service kind` and resolve the
 container on the server.
 
