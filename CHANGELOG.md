@@ -10,6 +10,16 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-10-10
+
+Projects no longer share what one of them could tamper with. Each
+project now has its own package cache and its own JetBrains Gateway
+backends, so a developer of one project can't plant code that another
+project installs or runs; where everyone is trusted, *Settings → Package
+cache* shares both again. The first install and the first Gateway start
+in each project download once more. Single sign-on connects an existing
+account only through its invitation link, never by name.
+
 ### Security
 - Single sign-on linked a provider account to an Envoryx account of the
   same name while that account had an open invitation, a password reset
@@ -1827,7 +1837,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.22.1...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.23.0...HEAD
+[0.23.0]: https://github.com/envoryx/envoryx/compare/v0.22.1...v0.23.0
 [0.22.1]: https://github.com/envoryx/envoryx/compare/v0.22.0...v0.22.1
 [0.22.0]: https://github.com/envoryx/envoryx/compare/v0.21.0...v0.22.0
 [0.21.0]: https://github.com/envoryx/envoryx/compare/v0.20.0...v0.21.0
