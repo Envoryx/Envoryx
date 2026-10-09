@@ -31,6 +31,15 @@ jobs:
         run: go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
       - name: Unit tests
         run: go test -race ./...
+      - name: Pull Docker Hub images through a mirror
+        # Docker Hub throttles the shared runners (429) and has outages; the daemon asks
+        # Google's mirror first and falls back to Docker Hub.
+        run: |
+          cfg=/etc/docker/daemon.json
+          { sudo cat "$cfg" 2>/dev/null || echo '{}'; } | jq '. + {"registry-mirrors": ["https://mirror.gcr.io"]}' | sudo tee "$cfg.new" >/dev/null
+          sudo mv "$cfg.new" "$cfg"
+          sudo systemctl restart docker
+          docker info --format '{{.RegistryConfig.Mirrors}}'
       - name: Docker integration tests
         # internal/project starts the stateful services (database, Redis, Memcached,
         # Mailpit, RabbitMQ, Meilisearch, Typesense, OpenSearch) with the catalogue's
@@ -75,6 +84,15 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: web/package-lock.json
+      - name: Pull Docker Hub images through a mirror
+        # Docker Hub throttles the shared runners (429) and has outages; the daemon asks
+        # Google's mirror first and falls back to Docker Hub.
+        run: |
+          cfg=/etc/docker/daemon.json
+          { sudo cat "$cfg" 2>/dev/null || echo '{}'; } | jq '. + {"registry-mirrors": ["https://mirror.gcr.io"]}' | sudo tee "$cfg.new" >/dev/null
+          sudo mv "$cfg.new" "$cfg"
+          sudo systemctl restart docker
+          docker info --format '{{.RegistryConfig.Mirrors}}'
       - name: Build
         run: make build
       - name: Install Playwright browser
