@@ -2706,5 +2706,6 @@
   "Restarting the worker failed": "Riavvio del worker non riuscito",
   "Keeps restarting: its process exits shortly after each start. The logs say why; restart it once the cause is fixed.": "Continua a riavviarsi: il suo processo termina poco dopo ogni avvio. I log dicono perché; riavvialo una volta risolta la causa.",
   "Restart {{name}}": "Riavvia {{name}}",
-  "Worker restarted": "Worker riavviato"
+  "Worker restarted": "Worker riavviato",
+  "Restarting the container {{name}}": "Riavvio del container {{name}}"
 }

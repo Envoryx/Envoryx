@@ -2754,5 +2754,6 @@
   "Restarting the worker failed": "Ponowne uruchomienie workera nie powiodło się",
   "Keeps restarting: its process exits shortly after each start. The logs say why; restart it once the cause is fixed.": "Ciągle się restartuje: jego proces kończy się krótko po każdym starcie. Logi mówią dlaczego; uruchom go ponownie po usunięciu przyczyny.",
   "Restart {{name}}": "Uruchom ponownie {{name}}",
-  "Worker restarted": "Worker uruchomiony ponownie"
+  "Worker restarted": "Worker uruchomiony ponownie",
+  "Restarting the container {{name}}": "Ponowne uruchamianie kontenera {{name}}"
 }

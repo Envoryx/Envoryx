@@ -2754,5 +2754,6 @@
   "Restarting the worker failed": "Не удалось перезапустить воркер",
   "Keeps restarting: its process exits shortly after each start. The logs say why; restart it once the cause is fixed.": "Постоянно перезапускается: его процесс завершается вскоре после каждого старта. Причина видна в логах; перезапустите его, когда она устранена.",
   "Restart {{name}}": "Перезапустить {{name}}",
-  "Worker restarted": "Воркер перезапущен"
+  "Worker restarted": "Воркер перезапущен",
+  "Restarting the container {{name}}": "Перезапуск контейнера {{name}}"
 }
