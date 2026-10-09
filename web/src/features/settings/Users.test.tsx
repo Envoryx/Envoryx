@@ -112,6 +112,21 @@ describe("Invitations and sign-in", () => {
     vi.unstubAllGlobals();
   });
 
+  it("connects single sign-on only through the invitation link, a reset included", async () => {
+    mockApi({
+      "GET /auth/oidc": () => ({ body: { enabled: true, name: "Authentik" } }),
+      "GET /invites/tok123": () => ({ body: { username: "dana", expiresAt: "2026-09-30T10:00:00Z", reset: true } }),
+    });
+    renderApp(
+      <Routes>
+        <Route path="/invite/:token" element={<InvitePage />} />
+      </Routes>,
+      { route: "/invite/tok123" },
+    );
+    const link = await screen.findByRole("link", { name: "Sign in with Authentik instead" });
+    expect(link).toHaveAttribute("href", "/api/v1/auth/oidc/start?invite=tok123");
+  });
+
   it("offers single sign-on on the login page and shows why it failed", async () => {
     mockApi({
       "GET /setup": () => ({ body: { needsSetup: false } }),
