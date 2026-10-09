@@ -37,6 +37,9 @@ func (a *API) terminalWS(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, store.ErrNotFound)
 		return
 	}
+	if !a.wsRequest(w, r) {
+		return
+	}
 	// Open the session before upgrading so failures are ordinary HTTP errors.
 	term, err := a.d.Projects.OpenTerminal(r.Context(), id, kind, sizeParam(r, "cols", 120), sizeParam(r, "rows", 40))
 	if err != nil {

@@ -47,6 +47,9 @@ func (a *API) testWS(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, store.ErrNotFound)
 		return
 	}
+	if !a.wsRequest(w, r) {
+		return
+	}
 	s, err := a.d.Projects.RunTests(r.Context(), id, r.PathValue("suite"), r.URL.Query().Get("filter"), sizeParam(r, "cols", 120), sizeParam(r, "rows", 40))
 	if err != nil {
 		writeError(w, r, err)

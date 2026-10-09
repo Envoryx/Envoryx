@@ -211,6 +211,9 @@ func (a *API) serviceLogsWS(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, store.ErrNotFound)
 		return
 	}
+	if !a.wsRequest(w, r) {
+		return
+	}
 	// Resolve before upgrading so errors arrive as ordinary HTTP responses.
 	if _, err := a.d.Projects.ServiceContainer(r.Context(), id, kind); err != nil {
 		writeError(w, r, err)
