@@ -10,6 +10,15 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.22.1] - 2026-10-09
+
+A security release; update soon if more than one person works on your
+instance. Over SFTP a developer of any project could reach Envoryx's own
+files through a symbolic link, and with them the whole instance. A
+project admin could copy another project's database into their own, and
+a page on another site could start a project action in a signed-in
+browser. Envoryx is now built with Go 1.27.2.
+
 ### Security
 - SFTP followed symbolic links out of the project: a link to `/` made in
   the container (or committed to the repository) let any developer of a
@@ -1791,7 +1800,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.22.0...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.22.1...HEAD
+[0.22.1]: https://github.com/envoryx/envoryx/compare/v0.22.0...v0.22.1
 [0.22.0]: https://github.com/envoryx/envoryx/compare/v0.21.0...v0.22.0
 [0.21.0]: https://github.com/envoryx/envoryx/compare/v0.20.0...v0.21.0
 [0.20.0]: https://github.com/envoryx/envoryx/compare/v0.19.0...v0.20.0
