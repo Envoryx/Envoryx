@@ -726,6 +726,30 @@ describe("NewProjectPage wizard", () => {
     expect(body.java).toMatchObject({ version: "25", server: true, preset: "jar", jar: "target/api.jar", port: 8080 });
   });
 
+  it("creates a Java template project with Gradle", async () => {
+    const templates = [{ id: "spring-boot", name: "Spring Boot", description: "", runtime: "java" as const, java: { server: true, preset: "spring-boot", port: 8080 }, docroot: "", requiresDatabase: false, recommendedDatabase: "postgresql", buildTools: ["maven", "gradle"] }];
+    const api = mockApi({
+      ...authedRoutes,
+      "GET /runtimes": () => ({ body: { ...runtimesFixture, templates } }),
+      "POST /projects/preview": previewRoute(() => {}),
+      "POST /projects": () => ({ status: 201, body: { project: makeProject() } }),
+    });
+    renderWizard();
+    const user = userEvent.setup();
+    await pickTemplate(user, /^Spring Boot/);
+    await cont(user);
+    await nameIt(user, "Acme API");
+    await openAdvanced(user);
+    expect(screen.getByLabelText("Build tool")).toHaveValue("maven");
+    await user.selectOptions(screen.getByLabelText("Build tool"), "gradle");
+    await toCreate(user);
+    await user.click(await screen.findByRole("button", { name: "Create project" }));
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Detail" })).toBeInTheDocument());
+    const body = api.calls.find((c) => c.method === "POST" && c.url.endsWith("/projects"))?.body as Record<string, unknown>;
+    expect(body.template).toBe("spring-boot");
+    expect(body.templateBuildTool).toBe("gradle");
+  });
+
   it("creates a .NET project from a template: server on, no php key, no starter", async () => {
     const templates = [{ id: "aspnet-webapi", name: "ASP.NET Core Web API", description: "", runtime: "dotnet" as const, dotnet: { server: true, preset: "aspnetcore", port: 8080 }, docroot: "", requiresDatabase: false, recommendedDatabase: "postgresql" }];
     const api = mockApi({

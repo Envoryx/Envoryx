@@ -458,6 +458,8 @@ export interface ProjectTemplate {
   java?: JavaConfig;
   /** Server defaults of a .NET template (preset, port). */
   dotnet?: DotnetConfig;
+  /** Build tools the template can set the project up with, the first the default (Java: maven, gradle). */
+  buildTools?: string[];
 }
 
 /** Framework preset of the Node dev server with the port the framework listens on by default. */
@@ -973,6 +975,8 @@ export interface CreateProjectRequest {
   web?: WebRequest;
   env?: EnvVar[];
   template?: string;
+  /** maven or gradle for a template that lists buildTools. */
+  templateBuildTool?: string;
   createStarter?: boolean;
   start?: boolean;
   /** Apply the envoryx.yml the cloned repository brings (it wins over the services chosen here); git only. */

@@ -8,7 +8,7 @@ import { Alert, Button, Card, CardHeader, Checkbox, Code, ErrorState, Spinner } 
 import { errorText } from "@/lib/errors";
 import { formatBytes } from "@/lib/format";
 
-const toolNames: Record<string, string> = { composer: "Composer", npm: "npm", yarn: "Yarn", pnpm: "pnpm", pip: "pip", uv: "uv", gomod: "Go modules", gobuild: "Go build cache", bundler: "Bundler", maven: "Maven", gradle: "Gradle", nuget: "NuGet" };
+const toolNames: Record<string, string> = { composer: "Composer", npm: "npm", yarn: "Yarn", "yarn-global": "Yarn 2+", pnpm: "pnpm", "pnpm-store": "pnpm", pip: "pip", uv: "uv", gomod: "Go modules", gobuild: "Go build cache", bundler: "Bundler", maven: "Maven", gradle: "Gradle", nuget: "NuGet" };
 
 /** The package cache every project shares: what each tool keeps there, and emptying it. */
 export function PackageCacheCard() {
@@ -37,7 +37,7 @@ export function PackageCacheCard() {
             {t("Package cache")}
           </span>
         }
-        description={t("Composer, npm, Yarn, pip, uv, Go, Bundler, Maven, Gradle and NuGet keep their downloads in a package cache. Each project has its own; shared, a package is downloaded once for all projects. Caches fill up over time; emptying them only means the next install downloads again.")}
+        description={t("Composer, npm, Yarn, pnpm, pip, uv, Go, Bundler, Maven and NuGet keep their downloads in a package cache. Each project has its own; shared, a package is downloaded once for all projects. Caches fill up over time; emptying them only means the next install downloads again.")}
       />
       <div className="space-y-4 p-5">
         {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}

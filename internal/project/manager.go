@@ -223,6 +223,9 @@ func (m *Manager) buildProject(req CreateRequest) (store.Project, error) {
 		if !ok {
 			return store.Project{}, fmt.Errorf("%w: unknown template %q", validate.ErrInvalid, req.Template)
 		}
+		if req.TemplateBuildTool != "" && !slices.Contains(tpl.BuildTools, req.TemplateBuildTool) {
+			return store.Project{}, fmt.Errorf("%w: template %s cannot be set up with %q", validate.ErrInvalid, tpl.ID, req.TemplateBuildTool)
+		}
 		switch tpl.Runtime {
 		case "node":
 			if req.Node == nil {
