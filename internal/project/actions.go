@@ -129,7 +129,7 @@ var actionCatalog = []Action{
 
 	// The dotnet commands take the one solution or project file at the top of the project.
 	{ID: "dotnet:info", Group: ".NET", Label: "dotnet --info", Description: "Show the SDK, the runtimes and the environment", Service: store.ServiceDotnet, Cmd: []string{"dotnet", "--info"}},
-	{ID: "dotnet:restore", Group: ".NET", Label: "dotnet restore", Description: "Restore the NuGet packages into the shared package cache", Service: store.ServiceDotnet, Cmd: []string{"dotnet", "restore"}, Requires: []string{dotnetBuildFiles}},
+	{ID: "dotnet:restore", Group: ".NET", Label: "dotnet restore", Description: "Restore the NuGet packages into the package cache", Service: store.ServiceDotnet, Cmd: []string{"dotnet", "restore"}, Requires: []string{dotnetBuildFiles}},
 	{ID: "dotnet:build", Group: ".NET", Label: "dotnet build", Description: "Compile the solution or project", Service: store.ServiceDotnet, Cmd: []string{"dotnet", "build"}, Requires: []string{dotnetBuildFiles}},
 	{ID: "dotnet:clean", Group: ".NET", Label: "dotnet clean", Description: "Delete the build output", Service: store.ServiceDotnet, Cmd: []string{"dotnet", "clean"}, Requires: []string{dotnetBuildFiles}},
 	{ID: "dotnet:format", Group: ".NET", Label: "dotnet format", Description: "Format the code by the .editorconfig rules", Service: store.ServiceDotnet, Cmd: []string{"dotnet", "format"}, Requires: []string{dotnetBuildFiles}},

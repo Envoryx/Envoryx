@@ -1068,7 +1068,7 @@ func TestPHPConfigRecreatesOnlyPHP(t *testing.T) {
 	}
 }
 
-// pnpm's store lives in the shared package cache through ~/.config/pnpm/rc in the project
+// pnpm's store lives in the package cache through ~/.config/pnpm/rc in the project
 // home, written once: a file the user changed stays as it is.
 func TestPnpmStoreSeededOnce(t *testing.T) {
 	e := newEnv(t)

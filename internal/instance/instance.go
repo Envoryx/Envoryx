@@ -312,11 +312,16 @@ func (s *Store) skip(path, rel string, isDir bool) bool {
 	case "backups", "jetbrains", "logs", "cache", pendingMarker:
 		return true
 	case "projects":
-		// projects/<id>/home holds composer/npm caches of the project user.
-		return isDir && len(parts) == 3 && parts[2] == "home"
+		// projects/<id>/home holds caches of the project user, projects/<id>/cache the
+		// project's package cache.
+		return isDir && len(parts) == 3 && (parts[2] == "home" || parts[2] == packageCacheDir)
 	}
 	return false
 }
+
+// packageCacheDir is a project's package cache below projects/<id> (see the project
+// package's planner).
+const packageCacheDir = "cache"
 
 func within(path, root string) bool {
 	rel, err := filepath.Rel(root, path)
@@ -759,7 +764,8 @@ func (s *Store) clearRestorable() error {
 			continue
 		}
 		if e.Name() == "projects" && e.IsDir() {
-			// Per-project directories: drop the generated files, keep the home caches.
+			// Per-project directories: drop the generated files, keep the home and the
+			// package cache.
 			projects, err := os.ReadDir(path)
 			if err != nil {
 				return err
@@ -775,7 +781,7 @@ func (s *Store) clearRestorable() error {
 				}
 				keep := false
 				for _, it := range items {
-					if it.IsDir() && it.Name() == "home" {
+					if it.IsDir() && (it.Name() == "home" || it.Name() == packageCacheDir) {
 						keep = true
 						continue
 					}

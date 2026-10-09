@@ -50,6 +50,9 @@ type Paths struct {
 	// SharedIDEBackends mounts one JetBrains backend cache into every project with
 	// Gateway instead of keeping one per project.
 	SharedIDEBackends bool
+	// SharedPackageCache mounts one package cache into every project instead of one
+	// per project.
+	SharedPackageCache bool
 	// PublicHost and the proxy's host-side ports let the planner build URLs that a
 	// browser on the LAN can reach (object storage public URL). Zero values mean unknown.
 	PublicHost     string
@@ -105,14 +108,18 @@ const (
 )
 
 // toolEnv are the variables that point tools at the persistent home. The package
-// managers' download caches are shared by every project instead (packageCacheEnv).
+// managers' download caches go to the package cache instead (packageCacheEnv).
 var toolEnv = []string{"HOME=" + homeMountTarget, "COMPOSER_HOME=" + homeMountTarget + "/.composer", "COMPOSER_NO_INTERACTION=1"}
 
-// The package cache is one directory for all projects (/config/cache on the Envoryx
-// side), so a package is downloaded once whichever project asks for it next: Composer,
-// npm, Yarn, pnpm, pip, uv, Go, Bundler, Maven, Gradle and NuGet keep their caches below
-// it. Every container a package manager runs in has it mounted: the application
-// containers, the workers and the one-shots that scaffold a template.
+// The package cache is where Composer, npm, Yarn, pnpm, pip, uv, Go, Bundler, Maven,
+// Gradle and NuGet keep their downloads. Each project has its own
+// (/config/projects/<id>/cache on the Envoryx side): a shared one is writable from every
+// project, and most of these tools take a cached package without checking it against the
+// lock file, so a developer of one project could plant code another project installs.
+// With SharedPackageCache on, all projects use one directory (/config/cache) and a
+// package is downloaded once whichever project asks for it next. Every container a
+// package manager runs in has it mounted: the application containers, the workers and
+// the one-shots that scaffold a template.
 const (
 	packageCacheDir    = "cache"
 	packageCacheTarget = "/var/cache/envoryx"
@@ -150,7 +157,7 @@ var packageCacheEnv = []string{
 	"UV_LINK_MODE=copy",
 }
 
-// pnpmStoreTarget is pnpm's store in the shared package cache. pnpm reads the store
+// pnpmStoreTarget is pnpm's store in the package cache. pnpm reads the store
 // directory from no variable but npm_config_store_dir, which makes every npm command warn,
 // and a default store (under PNPM_HOME or the home) on another mount than the project is
 // replaced by a .pnpm-store directory in the project itself, since pnpm links from the
@@ -167,24 +174,44 @@ func (p *Planner) seedPnpmStore(proj store.Project, plan *Plan) {
 	}
 	plan.Files = append(plan.Files, FilePlan{
 		Path:    filepath.Join(cfg, "pnpm", "rc"),
-		Content: "# Added by Envoryx: pnpm's store in the package cache all projects share.\nstore-dir=" + pnpmStoreTarget + "\n",
+		Content: "# Added by Envoryx: pnpm's store in the package cache.\nstore-dir=" + pnpmStoreTarget + "\n",
 		Mode:    0o644, Seed: true, UID: p.paths.PUID, GID: p.paths.PGID,
 	})
 }
 
-// PackageCacheDir is the shared package cache on the Envoryx side.
-func (p *Planner) PackageCacheDir() string { return filepath.Join(p.paths.ConfigDir, packageCacheDir) }
-
-// packageCacheMount is the bind mount of the shared package cache.
-func (p *Planner) packageCacheMount() docker.MountSpec {
-	return docker.MountSpec{Type: "bind", Source: filepath.Join(p.paths.ConfigHostDir, packageCacheDir), Target: packageCacheTarget}
+// SharedPackageCacheDir is the package cache all projects share when SharedPackageCache
+// is on, on the Envoryx side.
+func (p *Planner) SharedPackageCacheDir() string {
+	return filepath.Join(p.paths.ConfigDir, packageCacheDir)
 }
 
-// withPackageCache gives a container the shared package cache: the mount and the
+// ProjectPackageCacheDir is a project's own package cache on the Envoryx side.
+func (p *Planner) ProjectPackageCacheDir(projectID string) string {
+	return filepath.Join(p.ProjectConfigDir(projectID), packageCacheDir)
+}
+
+// PackageCacheDir is the package cache the project uses, on the Envoryx side.
+func (p *Planner) PackageCacheDir(proj store.Project) string {
+	if p.paths.SharedPackageCache {
+		return p.SharedPackageCacheDir()
+	}
+	return p.ProjectPackageCacheDir(proj.ID)
+}
+
+// packageCacheMount is the bind mount of the project's package cache.
+func (p *Planner) packageCacheMount(proj store.Project) docker.MountSpec {
+	source := filepath.Join(p.configHostDir(proj.ID), packageCacheDir)
+	if p.paths.SharedPackageCache {
+		source = filepath.Join(p.paths.ConfigHostDir, packageCacheDir)
+	}
+	return docker.MountSpec{Type: "bind", Source: source, Target: packageCacheTarget}
+}
+
+// withPackageCache gives a container the project's package cache: the mount and the
 // variables that point the package managers at it.
-func (p *Planner) withPackageCache(spec *docker.ContainerSpec) {
+func (p *Planner) withPackageCache(proj store.Project, spec *docker.ContainerSpec) {
 	spec.Env = append(spec.Env, packageCacheEnv...)
-	spec.Mounts = append(spec.Mounts, p.packageCacheMount())
+	spec.Mounts = append(spec.Mounts, p.packageCacheMount(proj))
 }
 
 // The Ollama model store is one directory for all projects (/config/ollama on the
@@ -548,7 +575,7 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 	}
 	appHost := p.projectHostDir(proj)
 	cfgHost := p.configHostDir(proj.ID)
-	plan.Dirs = append(plan.Dirs, DirPlan{Path: p.HomeDir(proj), UID: p.paths.PUID, GID: p.paths.PGID}, DirPlan{Path: p.PackageCacheDir(), UID: p.paths.PUID, GID: p.paths.PGID})
+	plan.Dirs = append(plan.Dirs, DirPlan{Path: p.HomeDir(proj), UID: p.paths.PUID, GID: p.paths.PGID}, DirPlan{Path: p.PackageCacheDir(proj), UID: p.paths.PUID, GID: p.paths.PGID})
 	p.seedPnpmStore(proj, &plan)
 	if proj.IDEGateway {
 		// Every level is planned, so each belongs to the project user: the directories are
@@ -665,7 +692,7 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 				RestartPolicy: "unless-stopped",
 				StopTimeout:   stopTimeoutSec,
 			}
-			p.withPackageCache(&phpSpec)
+			p.withPackageCache(proj, &phpSpec)
 			plan.Containers = append(plan.Containers, ContainerPlan{Kind: store.ServicePHP, Order: 10, Spec: phpSpec})
 			images[svc.Image] = true
 
@@ -736,7 +763,7 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 				RestartPolicy: "unless-stopped",
 				StopTimeout:   5,
 			}
-			p.withPackageCache(&spec)
+			p.withPackageCache(proj, &spec)
 			if ncfg.DevServer {
 				// Dev-server mode: the script is the main process; the proxy routes
 				// <slug>-dev.<base> to it and the host port publishes it directly. Next to
@@ -785,7 +812,7 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 				RestartPolicy: "unless-stopped",
 				StopTimeout:   stopTimeoutSec,
 			}
-			p.withPackageCache(&spec)
+			p.withPackageCache(proj, &spec)
 			if pcfg.Server {
 				// Server mode: the application server is the main process, published on a
 				// host port; without PHP the proxy routes the project URL to it.
@@ -836,7 +863,7 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 				RestartPolicy: "unless-stopped",
 				StopTimeout:   stopTimeoutSec,
 			}
-			p.withPackageCache(&spec)
+			p.withPackageCache(proj, &spec)
 			if gcfg.Server {
 				// Server mode: the build and the binary (under air in dev mode) are the main
 				// process, published on a host port; without PHP or a Python server the proxy
@@ -882,7 +909,7 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 				RestartPolicy: "unless-stopped",
 				StopTimeout:   stopTimeoutSec,
 			}
-			p.withPackageCache(&spec)
+			p.withPackageCache(proj, &spec)
 			if rcfg.Server {
 				// Server mode: the preset's server is the main process, published on a host
 				// port; without PHP or a Python or Go server the proxy routes the project URL
@@ -928,7 +955,7 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 				RestartPolicy: "unless-stopped",
 				StopTimeout:   stopTimeoutSec,
 			}
-			p.withPackageCache(&spec)
+			p.withPackageCache(proj, &spec)
 			if jcfg.Server {
 				// Server mode: the framework's dev goal or the built jar is the main process,
 				// published on a host port; without PHP or a Python, Go or Ruby server the
@@ -973,7 +1000,7 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 				RestartPolicy: "unless-stopped",
 				StopTimeout:   stopTimeoutSec,
 			}
-			p.withPackageCache(&spec)
+			p.withPackageCache(proj, &spec)
 			if dcfg.Server {
 				// Server mode: dotnet watch or the published DLL is the main process,
 				// published on a host port; without PHP or a Python, Go, Ruby or Java
@@ -1368,7 +1395,7 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 			spec.Mounts = append(spec.Mounts, docker.MountSpec{Type: "bind", Source: filepath.Join(cfgHost, "php", "zz-envoryx.ini"), Target: phpIniTarget, ReadOnly: true})
 			spec.Labels[labelPHPConfig] = phpConfig
 		}
-		p.withPackageCache(&spec)
+		p.withPackageCache(proj, &spec)
 		plan.Containers = append(plan.Containers, ContainerPlan{Kind: WorkerKind(w), Order: 30, Spec: spec})
 	}
 
