@@ -600,8 +600,8 @@ Delve and gotestsum, `GOTOOLCHAIN=local`) runs as `PUID:PGID` with the
 project directory at `/var/www/html` and the project home at
 `/home/envoryx` (`GOPATH=/home/envoryx/go`, so tools installed with `go
 install` stay and are on `PATH`). The module cache (`GOMODCACHE`) and the
-build cache (`GOCACHE`) live in the shared package cache, so a module is
-downloaded once for all projects.
+build cache (`GOCACHE`) live in the package cache (see
+[Package cache](#package-cache)).
 
 - **Server.** *Build and run the server* makes the container build the
   main package (`.` or a path like `./cmd/server`) and run it as its main
@@ -781,7 +781,7 @@ image `ghcr.io/envoryx/envoryx-java:<17|21|25>`: Eclipse Temurin
 `<v>-jdk-noble` plus Maven, Gradle, git and socat; only the LTS releases) runs
 as `PUID:PGID` with the project directory at `/var/www/html` and the project
 home at `/home/envoryx`. Maven's repository and Gradle's caches live in the
-shared package cache, so a dependency is downloaded once for every project.
+package cache (see [Package cache](#package-cache)).
 
 - **Build tool.** A `pom.xml` means Maven, else a `build.gradle` or
   `build.gradle.kts` means Gradle. The project's wrapper (`mvnw`, `gradlew`)
@@ -866,8 +866,8 @@ image `ghcr.io/envoryx/envoryx-dotnet:<8|10>`: the official SDK image
 debugger, git and socat; only the LTS releases, and .NET 8 reaches its end of
 support on 2026-11-10) runs as `PUID:PGID` with the project directory at
 `/var/www/html` and the project home at `/home/envoryx`. NuGet's packages
-folder and HTTP cache live in the shared package cache, so a package is
-downloaded once for every project.
+folder and HTTP cache live in the package cache (see
+[Package cache](#package-cache)).
 
 - **Which project.** The server runs the project file you set (a relative
   path such as `src/Shop/Shop.csproj`). Left empty, it takes the one `.csproj`,
@@ -1943,21 +1943,27 @@ The API: `GET /projects/{id}/share`, `POST /projects/{id}/share`
 
 ## Package cache
 
-Composer, npm, Yarn, pip, uv, Go (modules and build cache), Bundler, Maven, Gradle and NuGet keep their
-downloads in one cache that every project shares: `/config/cache`, mounted at
-`/var/cache/envoryx` into the PHP, Node, Python, Go, Ruby, Java and .NET containers, the
-workers and the one-shot containers that scaffold a template. A package is
-downloaded once, whichever project asks for it next, so the second Laravel
-project is created in a fraction of the time of the first. The variables that
-point the tools there (`COMPOSER_CACHE_DIR`, `npm_config_cache`,
+Composer, npm, Yarn, pnpm, pip, uv, Go (modules and build cache), Bundler, Maven, Gradle and
+NuGet keep their downloads in a package cache, mounted at `/var/cache/envoryx` into the
+PHP, Node, Python, Go, Ruby, Java and .NET containers, the workers and the one-shot
+containers that scaffold a template. Each project has its own
+(`/config/projects/<id>/cache`), so a project's dependencies stay its own business. The
+variables that point the tools there (`COMPOSER_CACHE_DIR`, `npm_config_cache`,
 `YARN_CACHE_FOLDER`, `PIP_CACHE_DIR`, `UV_CACHE_DIR`, `GOMODCACHE`, `GOCACHE`,
 `BUNDLE_USER_CACHE`, `NUGET_PACKAGES`, `NUGET_HTTP_CACHE_PATH`) can be
-overridden per project like any other. pnpm keeps its store in the project
-home.
+overridden per project like any other.
 
-The cache only grows. *Settings → Package cache* shows what each tool
-keeps there and empties one tool's part or all of it; the next install
-downloads again. Instance backups leave it out. On Unraid the cache lives with
+*Settings → Package cache → Share the package cache between projects* gives all
+projects one cache instead (`/config/cache`): a package is downloaded once, whichever
+project asks for it next, so the second Laravel project is created in a fraction of the
+time of the first. Turn it on only when you trust everyone who works on a project here.
+Every project can write the shared cache, and Composer, pip, Maven and others take a
+cached package without checking it against the lock file, so a developer of one project
+could plant code another project installs. Projects switch over when they are restarted.
+
+The caches only grow. *Settings → Package cache* shows what each tool keeps
+there, summed up over all projects, and empties one tool's part or all of it; the next
+install downloads again. Instance backups leave them out. On Unraid the cache lives with
 `/config` on the appdata share, usually on the SSD pool.
 
 ## Local LLMs (Ollama)
