@@ -273,6 +273,80 @@ func TestSFTPMapsProjectAndHome(t *testing.T) {
 	}
 }
 
+// A symbolic link in the project that points out of it (made in the container or brought
+// by a git checkout) must not hand out Envoryx's own files: SFTP serves the mounts from
+// Envoryx's side, as root.
+func TestSFTPDoesNotFollowLinksOutOfTheMounts(t *testing.T) {
+	e := newEnv(t)
+	secret := filepath.Join(t.TempDir(), "secret.key")
+	if err := os.WriteFile(secret, []byte("top secret"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	shop := filepath.Join(e.projDir, "shop")
+	if err := os.Symlink(filepath.Dir(secret), filepath.Join(shop, "out")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("../"+filepath.Base(e.projDir), filepath.Join(shop, "up")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(shop, "public", "index.php"), []byte("<?php"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("public/index.php", filepath.Join(shop, "inside.php")); err != nil {
+		t.Fatal(err)
+	}
+	client, err := e.dial(t, "shop", ssh.Password(e.token))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer client.Close()
+	sc, err := sftp.NewClient(client)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer sc.Close()
+
+	if f, err := sc.Open("/var/www/html/out/secret.key"); err == nil {
+		b, _ := io.ReadAll(f)
+		f.Close()
+		t.Fatalf("read through an outward link: %q", b)
+	}
+	if f, err := sc.Create("/var/www/html/out/planted"); err == nil {
+		f.Close()
+	}
+	if _, err := os.Stat(filepath.Join(filepath.Dir(secret), "planted")); err == nil {
+		t.Fatal("wrote through an outward link")
+	}
+	if _, err := sc.ReadDir("/var/www/html/out"); err == nil {
+		t.Fatal("listed through an outward link")
+	}
+	if _, err := sc.Stat("/var/www/html/up"); err == nil {
+		t.Fatal("stat through a relative link leaving the project")
+	}
+	if err := sc.Chmod("/var/www/html/out/secret.key", 0o666); err == nil {
+		t.Fatal("chmod through an outward link")
+	}
+	if err := sc.Rename("/var/www/html/out/secret.key", "/var/www/html/stolen"); err == nil {
+		t.Fatal("rename through an outward link")
+	}
+	if b, err := os.ReadFile(secret); err != nil || string(b) != "top secret" {
+		t.Fatalf("secret changed: %q %v", b, err)
+	}
+	// Links that stay inside the project keep working, and Lstat still sees the link.
+	f, err := sc.Open("/var/www/html/inside.php")
+	if err != nil {
+		t.Fatalf("link inside the project: %v", err)
+	}
+	b, _ := io.ReadAll(f)
+	f.Close()
+	if string(b) != "<?php" {
+		t.Fatalf("link inside the project: %q", b)
+	}
+	if info, err := sc.Lstat("/var/www/html/out"); err != nil || info.Mode()&os.ModeSymlink == 0 {
+		t.Fatalf("lstat of the link itself: %v %v", info, err)
+	}
+}
+
 func TestPublicKeyAuth(t *testing.T) {
 	e := newEnv(t)
 	signer, err := ssh.NewSignerFromKey(mustKey(t))

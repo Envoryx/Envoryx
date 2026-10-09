@@ -56,26 +56,47 @@ func newProjectFS(t project.ExecTarget) *projectFS {
 
 var errOutside = sftp.ErrSSHFxPermissionDenied
 
-// resolve maps a container path to an Envoryx-side path. It returns ok=false for the
-// virtual directories above the roots ("/", "/var", "/var/www", "/home").
-func (f *projectFS) resolve(p string) (local string, ok bool, err error) {
+// local is a file below one of the roots: the Envoryx-side root directory and the path
+// relative to it.
+type local struct {
+	root string
+	rel  string
+}
+
+// open opens the local's root. Every file operation goes through it, so symbolic links
+// are followed only while they stay inside the root: a link the container made (or a
+// git checkout brought) pointing at / must not hand out Envoryx's own files, which this
+// process reads and writes as root.
+func (l local) open() (*os.Root, error) { return os.OpenRoot(l.root) }
+
+// do runs fn with the opened root and the relative path.
+func (l local) do(fn func(r *os.Root, rel string) error) error {
+	r, err := l.open()
+	if err != nil {
+		return err
+	}
+	defer r.Close()
+	return fn(r, l.rel)
+}
+
+// resolve maps a container path to a file below one of the roots. It returns ok=false
+// for the virtual directories above the roots ("/", "/var", "/var/www", "/home").
+func (f *projectFS) resolve(p string) (l local, ok bool, err error) {
 	clean := path.Clean("/" + p)
 	for _, prefix := range f.prefixes {
 		root := f.roots[prefix]
 		if clean == prefix {
-			return root, true, nil
+			return local{root: root, rel: "."}, true, nil
 		}
 		if strings.HasPrefix(clean, prefix+"/") {
-			rel := strings.TrimPrefix(clean, prefix+"/")
-			local = filepath.Join(root, filepath.FromSlash(rel))
-			// Lexical containment (symlinks are resolved by the OS inside the project tree).
-			if r, err := filepath.Rel(root, local); err != nil || r == ".." || strings.HasPrefix(r, "../") {
-				return "", false, errOutside
+			rel := filepath.FromSlash(strings.TrimPrefix(clean, prefix+"/"))
+			if !filepath.IsLocal(rel) {
+				return local{}, false, errOutside
 			}
-			return local, true, nil
+			return local{root: root, rel: rel}, true, nil
 		}
 	}
-	return "", false, nil
+	return local{}, false, nil
 }
 
 // mountsBelow returns the names of mount points that are direct children of dir.
@@ -148,7 +169,7 @@ func clientErr(err error) error {
 
 // Fileread implements sftp.FileReader.
 func (f *projectFS) Fileread(r *sftp.Request) (io.ReaderAt, error) {
-	local, ok, err := f.resolve(r.Filepath)
+	l, ok, err := f.resolve(r.Filepath)
 	if err != nil {
 		return nil, errOutside
 	}
@@ -158,7 +179,11 @@ func (f *projectFS) Fileread(r *sftp.Request) (io.ReaderAt, error) {
 		}
 		return nil, errOutside
 	}
-	file, err := os.Open(local)
+	var file *os.File
+	err = l.do(func(root *os.Root, rel string) (err error) {
+		file, err = root.Open(rel)
+		return err
+	})
 	if err != nil {
 		return nil, clientErr(err)
 	}
@@ -167,7 +192,7 @@ func (f *projectFS) Fileread(r *sftp.Request) (io.ReaderAt, error) {
 
 // Filewrite implements sftp.FileWriter.
 func (f *projectFS) Filewrite(r *sftp.Request) (io.WriterAt, error) {
-	local, ok, err := f.resolve(r.Filepath)
+	l, ok, err := f.resolve(r.Filepath)
 	if err != nil {
 		return nil, errOutside
 	}
@@ -188,7 +213,11 @@ func (f *projectFS) Filewrite(r *sftp.Request) (io.WriterAt, error) {
 	if pf.Excl {
 		flags |= os.O_EXCL
 	}
-	file, err := os.OpenFile(local, flags, 0o644)
+	var file *os.File
+	err = l.do(func(root *os.Root, rel string) (err error) {
+		file, err = root.OpenFile(rel, flags, 0o644)
+		return err
+	})
 	if err != nil {
 		return nil, clientErr(err)
 	}
@@ -200,7 +229,7 @@ func (f *projectFS) Filewrite(r *sftp.Request) (io.WriterAt, error) {
 func (f *projectFS) Filecmd(r *sftp.Request) error { return clientErr(f.filecmd(r)) }
 
 func (f *projectFS) filecmd(r *sftp.Request) error {
-	local, ok, err := f.resolve(r.Filepath)
+	l, ok, err := f.resolve(r.Filepath)
 	if err != nil {
 		return errOutside
 	}
@@ -211,53 +240,65 @@ func (f *projectFS) filecmd(r *sftp.Request) error {
 		}
 		return f.outsideCmd(r, p)
 	}
-	switch r.Method {
-	case "Mkdir":
-		if err := os.Mkdir(local, 0o755); err != nil {
-			return err
-		}
-		return os.Chown(local, f.uid, f.gid)
-	case "Rmdir":
-		return os.Remove(local)
-	case "Remove":
-		if st, err := os.Lstat(local); err == nil && st.IsDir() {
-			return syscall.EISDIR
-		}
-		return os.Remove(local)
-	case "Rename":
+	if r.Method == "Rename" {
 		target, ok, err := f.resolve(r.Target)
-		if err != nil || !ok {
+		if err != nil || !ok || target.root != l.root {
+			// Within one root only: os.Root can't move a file between two of them.
 			return errOutside
 		}
-		return os.Rename(local, target)
-	case "Symlink":
-		// Only relative links that stay inside the same tree are allowed.
-		if path.IsAbs(r.Target) || strings.Contains(r.Target, "..") {
-			return errOutside
-		}
-		return os.Symlink(r.Target, local)
-	case "Setstat":
-		attrs := r.Attributes()
-		flags := r.AttrFlags()
-		if flags.Permissions {
-			if err := os.Chmod(local, os.FileMode(attrs.Mode)&os.ModePerm); err != nil {
-				return err
-			}
-		}
-		if flags.Size {
-			if err := os.Truncate(local, int64(attrs.Size)); err != nil {
-				return err
-			}
-		}
-		if flags.Acmodtime {
-			t := time.Unix(int64(attrs.Mtime), 0)
-			if err := os.Chtimes(local, time.Unix(int64(attrs.Atime), 0), t); err != nil {
-				return err
-			}
-		}
-		return nil
+		return l.do(func(root *os.Root, rel string) error { return root.Rename(rel, target.rel) })
 	}
-	return sftp.ErrSSHFxOpUnsupported
+	return l.do(func(root *os.Root, rel string) error {
+		switch r.Method {
+		case "Mkdir":
+			if err := root.Mkdir(rel, 0o755); err != nil {
+				return err
+			}
+			return root.Lchown(rel, f.uid, f.gid)
+		case "Rmdir":
+			return root.Remove(rel)
+		case "Remove":
+			if st, err := root.Lstat(rel); err == nil && st.IsDir() {
+				return syscall.EISDIR
+			}
+			return root.Remove(rel)
+		case "Symlink":
+			// Only relative links that stay inside the same tree are allowed.
+			if path.IsAbs(r.Target) || strings.Contains(r.Target, "..") {
+				return errOutside
+			}
+			return root.Symlink(r.Target, rel)
+		case "Setstat":
+			attrs := r.Attributes()
+			flags := r.AttrFlags()
+			if flags.Permissions {
+				if err := root.Chmod(rel, os.FileMode(attrs.Mode)&os.ModePerm); err != nil {
+					return err
+				}
+			}
+			if flags.Size {
+				file, err := root.OpenFile(rel, os.O_WRONLY, 0)
+				if err != nil {
+					return err
+				}
+				err = file.Truncate(int64(attrs.Size))
+				if cerr := file.Close(); err == nil {
+					err = cerr
+				}
+				if err != nil {
+					return err
+				}
+			}
+			if flags.Acmodtime {
+				t := time.Unix(int64(attrs.Mtime), 0)
+				if err := root.Chtimes(rel, time.Unix(int64(attrs.Atime), 0), t); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+		return sftp.ErrSSHFxOpUnsupported
+	})
 }
 
 // outsideCmd runs a file command outside the mounts in the container.
@@ -295,7 +336,7 @@ func (f *projectFS) Filelist(r *sftp.Request) (sftp.ListerAt, error) {
 
 func (f *projectFS) filelist(r *sftp.Request) (sftp.ListerAt, error) {
 	clean := path.Clean("/" + r.Filepath)
-	local, ok, err := f.resolve(clean)
+	l, ok, err := f.resolve(clean)
 	if err != nil {
 		return nil, err
 	}
@@ -331,18 +372,32 @@ func (f *projectFS) filelist(r *sftp.Request) (sftp.ListerAt, error) {
 			}
 			return listerAt(infos), nil
 		}
-		entries, err := os.ReadDir(local)
+		var infos []os.FileInfo
+		err := l.do(func(root *os.Root, rel string) error {
+			dir, err := root.Open(rel)
+			if err != nil {
+				return err
+			}
+			defer dir.Close()
+			names, err := dir.Readdirnames(-1)
+			if err != nil {
+				return err
+			}
+			sort.Strings(names)
+			for _, n := range names {
+				if info, err := root.Lstat(filepath.Join(rel, n)); err == nil {
+					infos = append(infos, info)
+				}
+			}
+			return nil
+		})
 		mounts := f.mountsBelow(clean)
 		if err != nil && !(len(mounts) > 0 && os.IsNotExist(err)) {
 			return nil, err
 		}
-		infos := make([]os.FileInfo, 0, len(entries)+len(mounts))
 		seen := map[string]bool{}
-		for _, e := range entries {
-			if info, err := e.Info(); err == nil {
-				infos = append(infos, info)
-				seen[info.Name()] = true
-			}
+		for _, info := range infos {
+			seen[info.Name()] = true
 		}
 		// Nested mounts (e.g. /home/envoryx/.cache/JetBrains) are not files of the parent
 		// directory on the Envoryx side; show them the way the container sees them.
@@ -367,11 +422,14 @@ func (f *projectFS) filelist(r *sftp.Request) (sftp.ListerAt, error) {
 			return listerAt{info}, nil
 		}
 		var info os.FileInfo
-		if r.Method == "Lstat" {
-			info, err = os.Lstat(local)
-		} else {
-			info, err = os.Stat(local)
-		}
+		err = l.do(func(root *os.Root, rel string) (err error) {
+			if r.Method == "Lstat" {
+				info, err = root.Lstat(rel)
+			} else {
+				info, err = root.Stat(rel)
+			}
+			return err
+		})
 		if err != nil {
 			return nil, err
 		}
@@ -388,7 +446,11 @@ func (f *projectFS) filelist(r *sftp.Request) (sftp.ListerAt, error) {
 			}
 			return listerAt{virtualInfo{name: target}}, nil
 		}
-		target, err := os.Readlink(local)
+		var target string
+		err = l.do(func(root *os.Root, rel string) (err error) {
+			target, err = root.Readlink(rel)
+			return err
+		})
 		if err != nil {
 			return nil, err
 		}
