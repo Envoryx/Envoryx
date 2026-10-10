@@ -10,6 +10,12 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.25.0] - 2026-10-10
+
+A backup can now be restored into a new project, next to the old one or
+in place of a deleted project: Envoryx sets the project up as it was when
+the backup was made and imports the parts you tick.
+
 ### Added
 - A backup can be restored into a new project instead of over its own:
   *Restore into a new project* next to each backup creates a project with
@@ -1909,7 +1915,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.24.0...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.25.0...HEAD
+[0.25.0]: https://github.com/envoryx/envoryx/compare/v0.24.0...v0.25.0
 [0.24.0]: https://github.com/envoryx/envoryx/compare/v0.23.1...v0.24.0
 [0.23.1]: https://github.com/envoryx/envoryx/compare/v0.23.0...v0.23.1
 [0.23.0]: https://github.com/envoryx/envoryx/compare/v0.22.1...v0.23.0
