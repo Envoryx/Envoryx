@@ -196,11 +196,11 @@ func (m *Manager) measureDisk(ctx context.Context) error {
 	return nil
 }
 
-// RunDiskUsage measures the disk space of the projects every interval while the plan
-// limits it.
+// RunDiskUsage measures the disk space of the projects every interval while the
+// instance has a plan.
 func (m *Manager) RunDiskUsage(ctx context.Context, interval time.Duration) {
 	for {
-		if m.Plan().DiskBytes() > 0 {
+		if m.Plan() != nil {
 			if err := m.measureDisk(ctx); err != nil {
 				m.log.Debug("plan: measuring disk space", "err", err)
 			}

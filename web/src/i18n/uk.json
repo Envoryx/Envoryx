@@ -2822,5 +2822,9 @@
   "this instance has reached the plan's user limit ({{max}}); disable a user first": "цей екземпляр досяг ліміту користувачів за тарифом ({{max}}); спершу вимкніть користувача",
   "the projects take {{used}} of the {{limit}} disk space in the plan; free some space (old backups, unused projects) first": "проєкти займають {{used}} з {{limit}} дискового простору за тарифом; спершу звільніть місце (старі бекапи, невикористані проєкти)",
   "the runtime {{runtime}} is not available on this instance; the plan includes {{list}}": "середовище {{runtime}} недоступне на цьому екземплярі; тариф включає {{list}}",
-  "the setting {{key}} is fixed by the hoster": "налаштування {{key}} задано хостером"
+  "the setting {{key}} is fixed by the hoster": "налаштування {{key}} задано хостером",
+  "not connected": "не підключено",
+  "Managed by your hoster": "Керується вашим хостером",
+  "Managed by your hoster as {{name}}": "Керується вашим хостером як {{name}}",
+  "last contact {{time}}": "останній контакт {{time}}"
 }

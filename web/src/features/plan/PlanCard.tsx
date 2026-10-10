@@ -1,9 +1,10 @@
 import type { ReactNode } from "react";
 import { Lock, Package } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import type { PlanFeature } from "@/api/types";
+import type { FleetInfo, PlanFeature } from "@/api/types";
 import { usePlan, usePlanAllows } from "@/api/hooks";
-import { Alert, Badge, Card, CardHeader } from "@/components/ui";
+import { Alert, Badge, Card, CardHeader, StatusDot } from "@/components/ui";
+import { translateMessage } from "@/lib/errors";
 import { formatBytes, formatDateTime } from "@/lib/format";
 
 /** Display names of the features a plan can switch off (translated where shown). */
@@ -26,7 +27,8 @@ export function PlanCard() {
   const { t } = useTranslation();
   const q = usePlan();
   const plan = q.data?.plan;
-  if (!plan) return null;
+  const fleet = q.data?.fleet;
+  if (!plan) return fleet ? <Card><div className="p-5"><FleetLine fleet={fleet} /></div></Card> : null;
   const usage = q.data?.usage;
   const diskLimit = (plan.limits.diskGb ?? 0) * 2 ** 30;
   return (
@@ -42,6 +44,7 @@ export function PlanCard() {
         description={t("Your hoster sets what this instance includes. To get more, ask them for another plan.")}
       />
       <div className="space-y-5 p-5">
+        {fleet && <FleetLine fleet={fleet} />}
         <div className="grid gap-5 sm:grid-cols-3">
           <Quota label={t("Projects")} used={usage?.projects ?? 0} limit={plan.limits.projects ?? 0} format={String} />
           <Quota label={t("Users")} used={usage?.users ?? 0} limit={plan.limits.users ?? 0} format={String} />
@@ -76,6 +79,23 @@ export function PlanCard() {
         </dl>
       </div>
     </Card>
+  );
+}
+
+/** Which fleet manager runs the instance and whether it is in touch. */
+function FleetLine({ fleet }: { fleet: FleetInfo }) {
+  const { t } = useTranslation();
+  return (
+    <div className="space-y-2">
+      <p className="flex flex-wrap items-center gap-2 text-sm">
+        <StatusDot tone={fleet.connected ? "green" : "amber"} />
+        <span className="text-fg">{fleet.name ? t("Managed by your hoster as {{name}}", { name: fleet.name }) : t("Managed by your hoster")}</span>
+        <span className="font-mono text-xs text-subtle">{fleet.url}</span>
+        <Badge tone={fleet.connected ? "green" : "amber"}>{fleet.connected ? t("connected") : t("not connected")}</Badge>
+        {!fleet.connected && fleet.lastContact && <span className="text-xs text-muted">{t("last contact {{time}}", { time: formatDateTime(fleet.lastContact) })}</span>}
+      </p>
+      {fleet.error && <Alert tone="amber">{translateMessage(fleet.error, t)}</Alert>}
+    </div>
   );
 }
 

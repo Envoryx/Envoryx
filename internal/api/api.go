@@ -13,6 +13,7 @@ import (
 	"github.com/envoryx/envoryx/internal/auth"
 	"github.com/envoryx/envoryx/internal/config"
 	"github.com/envoryx/envoryx/internal/docker"
+	"github.com/envoryx/envoryx/internal/fleet"
 	"github.com/envoryx/envoryx/internal/hostpath"
 	"github.com/envoryx/envoryx/internal/instance"
 	"github.com/envoryx/envoryx/internal/notify"
@@ -49,6 +50,8 @@ type Deps struct {
 	Instance *instance.Store
 	// Offsite copies backups to S3, SFTP or WebDAV targets; nil disables it.
 	Offsite *offsite.Syncer
+	// Fleet is the connection to the hoster's fleet manager; nil when not managed.
+	Fleet *fleet.Agent
 	// DB is the live database, used for instance backups.
 	DB *sql.DB
 	// Restart asks the server to shut down and start again (e.g. to apply a restore).
