@@ -2822,5 +2822,9 @@
   "this instance has reached the plan's user limit ({{max}}); disable a user first": "ta instancja osiągnęła limit użytkowników planu ({{max}}); najpierw wyłącz użytkownika",
   "the projects take {{used}} of the {{limit}} disk space in the plan; free some space (old backups, unused projects) first": "projekty zajmują {{used}} z {{limit}} miejsca na dysku w planie; najpierw zwolnij miejsce (stare kopie zapasowe, nieużywane projekty)",
   "the runtime {{runtime}} is not available on this instance; the plan includes {{list}}": "środowisko {{runtime}} nie jest dostępne na tej instancji; plan obejmuje {{list}}",
-  "the setting {{key}} is fixed by the hoster": "ustawienie {{key}} jest ustalone przez hosting"
+  "the setting {{key}} is fixed by the hoster": "ustawienie {{key}} jest ustalone przez hosting",
+  "not connected": "brak połączenia",
+  "Managed by your hoster": "Zarządzane przez twój hosting",
+  "Managed by your hoster as {{name}}": "Zarządzane przez twój hosting jako {{name}}",
+  "last contact {{time}}": "ostatni kontakt {{time}}"
 }

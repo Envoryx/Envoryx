@@ -1666,10 +1666,20 @@ export interface PlanUsage {
   diskMeasuredAt?: string;
 }
 
-/** The instance's plan; plan is null on an instance without one. */
+/** The connection to the hoster's fleet manager. */
+export interface FleetInfo {
+  url: string;
+  name?: string;
+  connected: boolean;
+  lastContact?: string;
+  error?: string;
+}
+
+/** The instance's plan; plan is null on an instance without one, fleet on one no fleet manages. */
 export interface PlanStatus {
   plan: Plan | null;
   usage?: PlanUsage;
+  fleet?: FleetInfo | null;
 }
 
 /** One difference between a project and its envoryx.yml. */

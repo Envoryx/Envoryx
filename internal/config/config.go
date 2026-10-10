@@ -91,6 +91,11 @@ type Config struct {
 	// the browser's address bar.
 	PublicHost string
 
+	// FleetURL is the fleet manager of the instance's hoster, FleetToken the one-time
+	// token it enrolls with (see internal/fleet). Empty: not managed by a fleet.
+	FleetURL   string
+	FleetToken string
+
 	// DevMode relaxes a few things for local development (e.g. text logs, CORS for the Vite dev server).
 	DevMode bool
 	// AllowNetworkFS lets Envoryx start with /config on NFS/SMB (not recommended).
@@ -126,6 +131,8 @@ func Load() (Config, error) {
 		LogLevel:               strings.ToLower(env("ENVORYX_LOG_LEVEL", "info")),
 		LogFormat:              strings.ToLower(env("ENVORYX_LOG_FORMAT", "json")),
 		DevMode:                envBool("ENVORYX_DEV", false),
+		FleetURL:               env("ENVORYX_FLEET_URL", ""),
+		FleetToken:             env("ENVORYX_FLEET_TOKEN", ""),
 		AllowNetworkFS:         envBool("ENVORYX_ALLOW_NETWORK_FS", false),
 		DevOrigin:              env("ENVORYX_DEV_ORIGIN", "http://localhost:5173"),
 	}

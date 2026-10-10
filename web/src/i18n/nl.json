@@ -2774,5 +2774,9 @@
   "this instance has reached the plan's user limit ({{max}}); disable a user first": "deze instantie heeft de gebruikerslimiet van het abonnement bereikt ({{max}}); schakel eerst een gebruiker uit",
   "the projects take {{used}} of the {{limit}} disk space in the plan; free some space (old backups, unused projects) first": "de projecten nemen {{used}} van de {{limit}} schijfruimte in het abonnement in; maak eerst ruimte vrij (oude back-ups, ongebruikte projecten)",
   "the runtime {{runtime}} is not available on this instance; the plan includes {{list}}": "de runtime {{runtime}} is niet beschikbaar op deze instantie; het abonnement bevat {{list}}",
-  "the setting {{key}} is fixed by the hoster": "de instelling {{key}} is vastgelegd door de hoster"
+  "the setting {{key}} is fixed by the hoster": "de instelling {{key}} is vastgelegd door de hoster",
+  "not connected": "niet verbonden",
+  "Managed by your hoster": "Beheerd door je hoster",
+  "Managed by your hoster as {{name}}": "Beheerd door je hoster als {{name}}",
+  "last contact {{time}}": "laatste contact {{time}}"
 }

@@ -22,7 +22,7 @@ type planUsage struct {
 func (a *API) planStatus(w http.ResponseWriter, r *http.Request) {
 	pl := a.d.Projects.Plan()
 	if pl == nil {
-		writeJSON(w, http.StatusOK, map[string]any{"plan": nil})
+		writeJSON(w, http.StatusOK, map[string]any{"plan": nil, "fleet": a.d.Fleet.Info()})
 		return
 	}
 	var u planUsage
@@ -36,7 +36,7 @@ func (a *API) planStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	u.DiskBytes, u.DiskMeasuredAt = a.d.Projects.DiskUsage()
-	writeJSON(w, http.StatusOK, map[string]any{"plan": planDTO(pl), "usage": u})
+	writeJSON(w, http.StatusOK, map[string]any{"plan": planDTO(pl), "usage": u, "fleet": a.d.Fleet.Info()})
 }
 
 // planDTO is a plan with its lists never null.
