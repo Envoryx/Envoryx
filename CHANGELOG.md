@@ -10,6 +10,23 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Fixed
+- Restoring a backup into a new project, duplicating a project and
+  creating a branch environment dropped the resource limits and the health
+  check; the new project now gets them, as 0.25.0 said it would.
+- The restore into a new project says when a backup is from before 0.25,
+  which carried no workers, cron jobs, limits, health check or proxy rules,
+  instead of promising them.
+- A project that can't be created because its name, identifier, directory
+  or port is taken says which one and by which project.
+- A backup whose project settings are unreadable is refused as such instead
+  of failing with an internal error; one sealed with another instance's key
+  says so in one sentence.
+- *Backups of deleted projects* shows the additional databases of a backup
+  too; the project wizard hides its summary while an uploaded Envoryx
+  backup is open; a backup fetched from an offsite target keeps the size of
+  its copy instead of showing 0 B as the target's last upload.
+
 ## [0.27.0] - 2026-10-10
 
 Project backups on an offsite target come back as new projects, also of
