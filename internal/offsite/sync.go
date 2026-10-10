@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"path"
 	"regexp"
 	"sort"
 	"strings"
@@ -531,27 +532,35 @@ func (s *Syncer) listDir(ctx context.Context, targetID, dir string) ([]RemoteBac
 	return out, err
 }
 
-// open fetches a copy and decrypts it when needed.
-func (s *Syncer) open(ctx context.Context, t Target, key string) (io.Reader, func(), error) {
+// open fetches a copy and decrypts it when needed. size is the copy's size on the target
+// (0 when the listing doesn't show it), recorded like the size of an upload.
+func (s *Syncer) open(ctx context.Context, t Target, key string) (r io.Reader, size int64, done func(), err error) {
 	b, err := s.dial(ctx, t)
 	if err != nil {
-		return nil, nil, err
+		return nil, 0, nil, err
+	}
+	if objs, err := b.List(ctx, path.Dir(key)); err == nil {
+		for _, o := range objs {
+			if o.Key == key {
+				size = o.Size
+			}
+		}
 	}
 	rc, err := b.Get(ctx, key)
 	if err != nil {
 		b.Close()
-		return nil, nil, err
+		return nil, 0, nil, err
 	}
-	done := func() { rc.Close(); b.Close() }
-	var r io.Reader = rc
+	done = func() { rc.Close(); b.Close() }
+	r = rc
 	if strings.HasSuffix(key, encryptedSuffix) {
 		r, err = unseal(rc, t.Passphrase)
 		if err != nil {
 			done()
-			return nil, nil, err
+			return nil, 0, nil, err
 		}
 	}
-	return r, done, nil
+	return r, size, done, nil
 }
 
 // checkKey accepts only names this package writes, below the expected directory.
@@ -577,7 +586,7 @@ func (s *Syncer) FetchProject(ctx context.Context, targetID, projectID, key stri
 	if err != nil {
 		return project.BackupInfo{}, err
 	}
-	r, done, err := s.open(ctx, t, key)
+	r, size, done, err := s.open(ctx, t, key)
 	if err != nil {
 		return project.BackupInfo{}, err
 	}
@@ -587,7 +596,7 @@ func (s *Syncer) FetchProject(ctx context.Context, targetID, projectID, key stri
 		return project.BackupInfo{}, err
 	}
 	m := projectKeyRe.FindStringSubmatch(name)
-	_ = s.Store.Offsite.Record(ctx, store.OffsiteUpload{TargetID: t.ID, Scope: store.OffsiteProject, ProjectID: projectID, BackupID: info.ID, Source: m[3], RemoteKey: key})
+	_ = s.Store.Offsite.Record(ctx, store.OffsiteUpload{TargetID: t.ID, Scope: store.OffsiteProject, ProjectID: projectID, BackupID: info.ID, Source: m[3], RemoteKey: key, SizeBytes: size})
 	return info, nil
 }
 
@@ -608,7 +617,7 @@ func (s *Syncer) FetchAnyProject(ctx context.Context, targetID, key string) (pro
 	if err != nil {
 		return project.UploadedBackup{}, err
 	}
-	r, done, err := s.open(ctx, t, key)
+	r, size, done, err := s.open(ctx, t, key)
 	if err != nil {
 		return project.UploadedBackup{}, err
 	}
@@ -618,7 +627,7 @@ func (s *Syncer) FetchAnyProject(ctx context.Context, targetID, key string) (pro
 		return project.UploadedBackup{}, err
 	}
 	m := projectKeyRe.FindStringSubmatch(name)
-	_ = s.Store.Offsite.Record(ctx, store.OffsiteUpload{TargetID: t.ID, Scope: store.OffsiteProject, ProjectID: up.ProjectID, BackupID: up.Backup.ID, Source: m[3], RemoteKey: key})
+	_ = s.Store.Offsite.Record(ctx, store.OffsiteUpload{TargetID: t.ID, Scope: store.OffsiteProject, ProjectID: up.ProjectID, BackupID: up.Backup.ID, Source: m[3], RemoteKey: key, SizeBytes: size})
 	return up, nil
 }
 
@@ -632,7 +641,7 @@ func (s *Syncer) FetchInstance(ctx context.Context, targetID, key string) (insta
 	if err != nil {
 		return instance.Info{}, err
 	}
-	r, done, err := s.open(ctx, t, key)
+	r, size, done, err := s.open(ctx, t, key)
 	if err != nil {
 		return instance.Info{}, err
 	}
@@ -641,7 +650,7 @@ func (s *Syncer) FetchInstance(ctx context.Context, targetID, key string) (insta
 	if err != nil {
 		return instance.Info{}, err
 	}
-	_ = s.Store.Offsite.Record(ctx, store.OffsiteUpload{TargetID: t.ID, Scope: store.OffsiteInstance, BackupID: info.ID, Source: "manual", RemoteKey: key})
+	_ = s.Store.Offsite.Record(ctx, store.OffsiteUpload{TargetID: t.ID, Scope: store.OffsiteInstance, BackupID: info.ID, Source: "manual", RemoteKey: key, SizeBytes: size})
 	return info, nil
 }
 
