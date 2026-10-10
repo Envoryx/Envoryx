@@ -29,6 +29,18 @@ describe("PlanCard", () => {
     expect(screen.getByText("Base domain")).toBeInTheDocument();
   });
 
+  it("shows the fleet manager the instance belongs to", async () => {
+    mockApi({
+      ...authedRoutes,
+      "GET /plan": () => ({ body: { plan, usage: { projects: 0, users: 1, diskBytes: 0 }, fleet: { url: "https://fleet.example.net", name: "Kunde 1", connected: false, lastContact: "2026-10-10T08:00:00Z", error: "fleet manager connection: EOF" } } }),
+    });
+    renderApp(<PlanCard />);
+
+    expect(await screen.findByText("Managed by your hoster as Kunde 1")).toBeInTheDocument();
+    expect(screen.getByText("not connected")).toBeInTheDocument();
+    expect(screen.getByText("fleet manager connection: EOF")).toBeInTheDocument();
+  });
+
   it("shows nothing on an instance without a plan", async () => {
     const api = mockApi({ ...authedRoutes, "GET /plan": () => ({ body: { plan: null } }) });
     const { container } = renderApp(<PlanCard />);
