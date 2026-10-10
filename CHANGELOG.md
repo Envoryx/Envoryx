@@ -10,6 +10,15 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Added
+- A backup downloaded from Envoryx can be uploaded again: *New project →
+  Existing website* recognises it (the `.tar`, also gzipped) instead of
+  analysing it as a website, keeps it as a backup of its project, or with
+  the backups of deleted projects when that project is gone, and restores
+  it into a new project. `envoryx import <backup>.tar` does the same. On
+  another Envoryx this works when it has the same secret key, since the
+  project settings in a backup are sealed with it.
+
 ## [0.25.0] - 2026-10-10
 
 A backup can now be restored into a new project, next to the old one or

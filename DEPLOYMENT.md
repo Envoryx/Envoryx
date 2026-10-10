@@ -1058,6 +1058,8 @@ project of it. Upload the files as a ZIP or tar.gz archive (a single folder
 around them such as `public_html/` or `httpdocs/` is left out) and, optionally,
 a database dump (`.sql` or `.sql.gz`). Envoryx reads the archive and fills the
 rest of the wizard with what it recognised; everything stays editable.
+A backup Envoryx made is restored into a new project instead (see
+[Restore into a new project](#backups)).
 
 | Site | Recognised by | Suggestion |
 |------|---------------|------------|
@@ -1124,7 +1126,9 @@ The project directory must be empty or not exist yet. The API behind it:
 `POST /site-imports` (multipart, fields `site` and `database`) returns the
 analysis, `GET`/`DELETE /site-imports/{id}`, and `POST /projects` with
 `"import": {"id": "…", "adaptConfig": true}` creates the project; both need an
-`admin` token. From the command line:
+`admin` token. An Envoryx backup as `site` is answered with `{"backup": {…}}`
+instead (`projectId`, `backup.id`, `projectExists`), the IDs for
+`POST /backups/{project}/{backup}/restore-new`. From the command line:
 
 ```sh
 envoryx import ./old-blog "Old Blog" --db old-blog.sql.gz --start
@@ -1649,6 +1653,14 @@ repository but not the workers, cron jobs, limits, health check, proxy rules
 and custom images; a project restored from one starts without those. The
 project settings in a backup are sealed with the instance key, so a backup
 restores into a new project only on an instance with that key.
+
+A backup downloaded with *Download* (the `.tar`, also gzipped) comes back
+through *New project → Existing website*: Envoryx recognises it there instead of
+analysing it as a website, keeps it as a backup of its project (or, when that
+project is gone, with the backups of deleted projects) and offers to restore it
+into a new project. That is also how a project moves to another Envoryx with
+the same instance key. `envoryx import <backup>.tar` does the same from the
+command line.
 
 ### Instance backups
 
@@ -2672,6 +2684,7 @@ envoryx project show shop                             # services, versions, port
 envoryx project create "Shop" --php 8.4 --database mariadb --template laravel --start
 envoryx project duplicate shop "Shop Test"            # config, files and database
 envoryx import ./old-site "Old Site" --db dump.sql    # an existing website as a project
+envoryx import shop-20261010-084321-4ed7a89e.tar      # a downloaded backup as a new project
 envoryx project rename shop "Acme Blog" --yes         # identifier, URL and data follow
 envoryx project start|stop|restart shop
 envoryx project delete shop --yes [--delete-files]
