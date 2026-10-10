@@ -19,6 +19,10 @@ release). `:main` follows the development branch.
   runs, refuses what goes beyond the plan with a clear message, hides what
   the plan leaves out and shows the plan with its use under Settings →
   General. Without the file nothing changes. See DEPLOYMENT.md, *Plans*.
+- The fleet manager of a hoster: with `ENVORYX_FLEET_URL` and a one-time
+  `ENVORYX_FLEET_TOKEN` the instance enrolls, keeps a connection to the
+  manager open (it dials out, no open port needed), takes over the plan the
+  manager sends and reports its version and use every minute.
 
 ### Changed
 - Restoring an instance backup never takes the secret key, the instance ID
