@@ -1,7 +1,7 @@
 import { Boxes, Hammer, Save } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useEffect, useState } from "react";
-import { useCustomImage } from "@/api/hooks";
+import { useCustomImage, usePlanAllows } from "@/api/hooks";
 import type { Project, ProjectService } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Code, Field, Input, Select, type Tone } from "@/components/ui";
 import { formatDateTime, serviceLabel } from "@/lib/format";
@@ -131,8 +131,10 @@ function RuntimeImage({ project: p, svc }: { project: Project; svc: ProjectServi
 /** Custom images of a project's runtimes: an image from a registry or a Dockerfile in the project. Workers and cron jobs follow their runtime. */
 export function CustomImagesCard({ project: p }: { project: Project }) {
   const { t } = useTranslation();
+  const allowed = usePlanAllows("customImages");
   const services = p.services.filter((s) => s.enabled && (customImageKinds as readonly string[]).includes(s.kind));
-  if (services.length === 0) return null;
+  // Without custom images in the plan only one set before can still go back to the catalogue.
+  if (services.length === 0 || (!allowed && !services.some((s) => s.customImage?.image || s.customImage?.dockerfile))) return null;
   return (
     <Card>
       <CardHeader

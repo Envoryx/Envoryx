@@ -1,10 +1,11 @@
 import { clsx } from "clsx";
 import { useTranslation } from "react-i18next";
+import { IfPlanAllows } from "@/features/plan/PlanCard";
 import { ArrowLeft, ArrowRight, Check, ChevronDown, FilePlus, GitBranch, Plus, Rocket, Trash2, Upload } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/api/client";
-import { useCreateProject, useProjectLinks, useRuntimes, useSettings } from "@/api/hooks";
+import { useCreateProject, usePlan, useProjectLinks, useRuntimes, useSettings } from "@/api/hooks";
 import { NodeDevServerFields, defaultDevServerForm, devServerRequest, type DevServerForm } from "./NodeDevServerFields";
 import { PythonServerFields, defaultPythonServerForm, pythonServerRequest, type PythonServerForm } from "./PythonServerFields";
 import { GoServerFields, defaultGoServerForm, goServerRequest, type GoServerForm } from "./GoServerFields";
@@ -137,6 +138,9 @@ function servesOfForm(f: Form): Serves {
 export function NewProjectPage() {
   const { t } = useTranslation();
   const runtimes = useRuntimes();
+  // A hoster's plan can leave runtimes out; those aren't offered.
+  const planRuntimes = usePlan().data?.plan?.runtimes ?? [];
+  const runtimeAllowed = (k: string) => k === "static" || planRuntimes.length === 0 || planRuntimes.includes(k);
   const create = useCreateProject();
   const links = useProjectLinks();
   const settings = useSettings();
@@ -698,7 +702,7 @@ export function NewProjectPage() {
           <ChevronDown className={clsx("size-4 transition-transform", (moreRuntimes || toolsOn) && "rotate-180")} aria-hidden />
           {t("More runtimes as tools")}
         </button>
-        {(moreRuntimes || toolsOn) && tools.map((k) => k && cardsByKind[k])}
+        {(moreRuntimes || toolsOn) && tools.map((k) => k && runtimeAllowed(k) && cardsByKind[k])}
       </div>
     </>
   );
@@ -782,10 +786,12 @@ export function NewProjectPage() {
                 <input type="radio" name="db-where" checked={!form.dbExternal} onChange={() => set({ dbExternal: false })} />
                 {t("In a container of the project")}
               </label>
-              <label className="inline-flex items-center gap-2 text-sm">
-                <input type="radio" name="db-where" checked={form.dbExternal} onChange={() => set({ dbExternal: true })} />
-                {t("On an external server")}
-              </label>
+              <IfPlanAllows feature="externalServices">
+                <label className="inline-flex items-center gap-2 text-sm">
+                  <input type="radio" name="db-where" checked={form.dbExternal} onChange={() => set({ dbExternal: true })} />
+                  {t("On an external server")}
+                </label>
+              </IfPlanAllows>
             </div>
           )}
           <Field
@@ -879,10 +885,12 @@ export function NewProjectPage() {
                   <input type="radio" name="redis-where" checked={!form.redisExternal} onChange={() => set({ redisExternal: false })} />
                   {t("In a container of the project")}
                 </label>
-                <label className="inline-flex items-center gap-2 text-sm">
-                  <input type="radio" name="redis-where" checked={form.redisExternal} onChange={() => set({ redisExternal: true })} />
-                  {t("On an external server")}
-                </label>
+                <IfPlanAllows feature="externalServices">
+                  <label className="inline-flex items-center gap-2 text-sm">
+                    <input type="radio" name="redis-where" checked={form.redisExternal} onChange={() => set({ redisExternal: true })} />
+                    {t("On an external server")}
+                  </label>
+                </IfPlanAllows>
               </div>
             )}
             {form.redis && form.redisExternal && (
@@ -1205,7 +1213,7 @@ export function NewProjectPage() {
     <fieldset className="space-y-2">
       <legend className="text-sm font-medium text-fg">{form.source === "git" ? t("What does the repository run?") : t("Runtime")}</legend>
       <div className="grid gap-2 sm:grid-cols-2">
-        {stacks.map((s) => (
+        {stacks.filter((s) => runtimeAllowed(s.id)).map((s) => (
           <label key={s.id} className={clsx("flex cursor-pointer gap-3 rounded-md border p-3 text-sm", form.stack === s.id ? "border-accent-500 bg-accent-500/5" : "border-default hover:bg-muted")}>
             <input type="radio" name="stack" className="mt-0.5 accent-accent-600" aria-label={t(s.name)} checked={form.stack === s.id} onChange={() => chooseStack(s.id)} />
             <span>
@@ -1317,7 +1325,7 @@ export function NewProjectPage() {
                   <h2 className="text-base font-semibold text-fg">{t("Start from a template")}</h2>
                   <p className="text-sm text-muted">{t("A ready project with the right runtime and, where it needs one, a database. You can change everything in the next step.")}</p>
                 </div>
-                <TemplateGallery templates={rt.templates ?? []} selected={form.source === "template" ? form.template : ""} onSelect={pickTemplate} />
+                <TemplateGallery templates={(rt.templates ?? []).filter((x) => runtimeAllowed(x.runtime ?? "php"))} selected={form.source === "template" ? form.template : ""} onSelect={pickTemplate} />
               </section>
               <section className="space-y-3">
                 <h2 className="text-base font-semibold text-fg">{t("Or start from")}</h2>

@@ -1,6 +1,6 @@
 import { useInfiniteQuery, useIsMutating, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "./client";
-import { servesOf, type AddonUpdate, type AuditFilter, type CreateProjectRequest, type DuplicateProjectRequest, type RenameProjectRequest, type RestoreNewRequest, type NodeConfig, type Project, type PythonConfig, type GoConfig, type RubyConfig, type JavaConfig, type DotnetConfig, type UpdateProjectRequest, type UpdateSettingsRequest } from "./types";
+import { servesOf, type AddonUpdate, type AuditFilter, type CreateProjectRequest, type DuplicateProjectRequest, type RenameProjectRequest, type RestoreNewRequest, type NodeConfig, type Project, type PythonConfig, type GoConfig, type RubyConfig, type JavaConfig, type DotnetConfig, type UpdateProjectRequest, type UpdateSettingsRequest, type PlanFeature } from "./types";
 import { projectUrl } from "@/lib/format";
 
 export const keys = {
@@ -11,6 +11,7 @@ export const keys = {
   runtimes: ["runtimes"] as const,
   docker: ["docker"] as const,
   settings: ["settings"] as const,
+  plan: ["plan"] as const,
   audit: ["audit"] as const,
   projects: ["projects"] as const,
   project: (id: string) => ["projects", id] as const,
@@ -52,6 +53,26 @@ export function useDockerOverview() {
 
 export function useSettings() {
   return useQuery({ queryKey: keys.settings, queryFn: api.settings });
+}
+
+/**
+ * The hoster's plan of a managed instance (null without one) and how much of it is used.
+ * Everyone signed in may read it: the pages hide what the plan leaves out.
+ */
+export function usePlan() {
+  return useQuery({ queryKey: keys.plan, queryFn: api.plan, staleTime: 60 * 1000 });
+}
+
+/** Whether the plan includes a feature; true while loading and on instances without a plan. */
+export function usePlanAllows(feature: PlanFeature): boolean {
+  const q = usePlan();
+  return !q.data?.plan?.disabled.includes(feature);
+}
+
+/** Whether the hoster's plan fixes an instance setting. */
+export function useSettingLocked(key: keyof UpdateSettingsRequest): boolean {
+  const q = useSettings();
+  return q.data?.lockedSettings?.includes(key) ?? false;
 }
 
 /** Host used for project links; falls back to the browser address bar while loading. */

@@ -3,7 +3,8 @@ import { useTranslation } from "react-i18next";
 import { useEffect, useState, type FormEvent } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/client";
-import { useSettings, useTLSInfo, useUpdateSettings } from "@/api/hooks";
+import { useSettingLocked, useSettings, useTLSInfo, useUpdateSettings } from "@/api/hooks";
+import { LockedHint } from "@/features/plan/PlanCard";
 import type { TLSInfo } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Checkbox, Code, Field, Input, Spinner } from "@/components/ui";
 import { formatDateTime } from "@/lib/format";
@@ -74,13 +75,17 @@ function BaseDomainForm({ baseDomain, forceHttps, tlsAvailable }: { baseDomain: 
     );
   }
   const dirty = base.trim() !== baseDomain || force !== forceHttps;
+  const baseLocked = useSettingLocked("baseDomain");
+  const forceLocked = useSettingLocked("forceHttps");
   return (
     <form onSubmit={submit} className="space-y-4">
       {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
       <Field label={t("Base domain")} htmlFor="base-domain" hint={t("Projects are reachable at <slug>.{{base}}, the Envoryx UI at envoryx.{{base}}. Point *.{{base}} at this host in your DNS (Pi-hole, AdGuard, dnsmasq) or add entries to your hosts file.", { base: base.trim() || "test" })}>
-        <Input id="base-domain" value={base} onChange={(e) => setBase(e.target.value)} placeholder="test" spellCheck={false} autoCapitalize="none" />
+        <Input id="base-domain" value={base} onChange={(e) => setBase(e.target.value)} placeholder="test" spellCheck={false} autoCapitalize="none" disabled={baseLocked} />
+        {baseLocked && <LockedHint />}
       </Field>
-      <Checkbox label={t("Force HTTPS")} description={tlsAvailable ? t("Redirect plain HTTP requests for project and UI domains to HTTPS.") : t("Requires the HTTPS listener to be published.")} checked={force} onChange={(e) => setForce(e.target.checked)} disabled={!tlsAvailable} />
+      <Checkbox label={t("Force HTTPS")} description={tlsAvailable ? t("Redirect plain HTTP requests for project and UI domains to HTTPS.") : t("Requires the HTTPS listener to be published.")} checked={force} onChange={(e) => setForce(e.target.checked)} disabled={!tlsAvailable || forceLocked} />
+      {forceLocked && <LockedHint />}
       <Button type="submit" variant="primary" loading={update.isPending} disabled={!dirty} icon={<Save className="size-4" />}>
         {t("Save")}
       </Button>

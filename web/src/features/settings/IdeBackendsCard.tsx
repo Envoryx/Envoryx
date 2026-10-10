@@ -1,7 +1,8 @@
 import { MonitorCog } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useSettings, useUpdateSettings } from "@/api/hooks";
+import { useSettingLocked, useSettings, useUpdateSettings } from "@/api/hooks";
+import { LockedHint } from "@/features/plan/PlanCard";
 import { Alert, Badge, Card, CardHeader, Checkbox, ErrorState, Spinner } from "@/components/ui";
 import { errorText } from "@/lib/errors";
 
@@ -10,6 +11,7 @@ export function IdeBackendsCard() {
   const { t } = useTranslation();
   const s = useSettings();
   const update = useUpdateSettings();
+  const locked = useSettingLocked("sharedIdeBackends");
   const [error, setError] = useState<string | null>(null);
 
   return (
@@ -36,12 +38,13 @@ export function IdeBackendsCard() {
               label={t("Share the IDE backends between projects")}
               description={t("Only when you trust everyone who works on a project here: every project with Gateway can change the shared backends, so a developer of one project could change the IDE another project runs. Projects with Gateway pick the change up when they are restarted.")}
               checked={s.data.sharedIdeBackends ?? false}
-              disabled={update.isPending}
+              disabled={update.isPending || locked}
               onChange={(e) => {
                 setError(null);
                 update.mutate({ sharedIdeBackends: e.target.checked }, { onError: (err) => setError(errorText(err, t, t("Saving failed"))) });
               }}
             />
+            {locked && <LockedHint />}
           </>
         )}
       </div>

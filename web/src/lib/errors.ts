@@ -115,6 +115,11 @@ const templates = [
   "cannot start {{version}} on Linux kernel {{kernel}} and newer (this host runs {{host}})",
   "the backup holds a copy of {{type}} {{from}} data, which {{service}} {{to}} cannot open",
   "{{file}} needs {{wanted}} but the project runs {{have}}, so the build or the start fails; select a newer version in the settings or lower the requirement in the file",
+  "this instance has reached the plan's project limit ({{max}})",
+  "this instance has reached the plan's user limit ({{max}}); disable a user first",
+  "the projects take {{used}} of the {{limit}} disk space in the plan; free some space (old backups, unused projects) first",
+  "the runtime {{runtime}} is not available on this instance; the plan includes {{list}}",
+  "the setting {{key}} is fixed by the hoster",
 ];
 
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

@@ -1,7 +1,8 @@
 import { Power } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useSettings, useUpdateSettings } from "@/api/hooks";
+import { useSettingLocked, useSettings, useUpdateSettings } from "@/api/hooks";
+import { LockedHint } from "@/features/plan/PlanCard";
 import { Alert, Badge, Card, CardHeader, Checkbox, ErrorState, Spinner } from "@/components/ui";
 import { errorText } from "@/lib/errors";
 
@@ -10,6 +11,7 @@ export function LifecycleCard() {
   const { t } = useTranslation();
   const s = useSettings();
   const update = useUpdateSettings();
+  const locked = useSettingLocked("projectsFollowEnvoryx");
   const [error, setError] = useState<string | null>(null);
 
   return (
@@ -36,12 +38,13 @@ export function LifecycleCard() {
               label={t("Stop projects with Envoryx and start them again when it comes back")}
               description={t("When the Envoryx container is stopped, every running project is stopped as well (a restart from within Envoryx does not). On the next start, the projects that were running come back automatically - also after a reboot of the host. Give the Envoryx container a stop timeout that covers all projects.")}
               checked={s.data.projectsFollowEnvoryx ?? false}
-              disabled={update.isPending}
+              disabled={update.isPending || locked}
               onChange={(e) => {
                 setError(null);
                 update.mutate({ projectsFollowEnvoryx: e.target.checked }, { onError: (err) => setError(errorText(err, t, t("Saving failed"))) });
               }}
             />
+            {locked && <LockedHint />}
           </>
         )}
       </div>

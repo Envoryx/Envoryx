@@ -1,5 +1,6 @@
 import { BrainCircuit, ExternalLink, Mail, MemoryStick, Pencil, Plus, Rabbit, Search, Server, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { IfPlanAllows } from "@/features/plan/PlanCard";
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useExtraServices, useKeptData, usePublicHost, useRuntimes, useStorage, useUpdateProject } from "@/api/hooks";
@@ -445,10 +446,12 @@ function AddServiceCard({ project, kind, kept, onMessage }: { project: Project; 
               <input type="radio" name="add-redis-where" checked={!external} onChange={() => setExternal(false)} />
               {t("In a container of the project")}
             </label>
-            <label className="inline-flex items-center gap-2 text-sm">
-              <input type="radio" name="add-redis-where" checked={external} onChange={() => setExternal(true)} />
-              {t("On an external server")}
-            </label>
+            <IfPlanAllows feature="externalServices">
+              <label className="inline-flex items-center gap-2 text-sm">
+                <input type="radio" name="add-redis-where" checked={external} onChange={() => setExternal(true)} />
+                {t("On an external server")}
+              </label>
+            </IfPlanAllows>
           </div>
         )}
         {external && <ExternalRedisFields id="add-redis-ext" value={conn} onChange={setConn} />}

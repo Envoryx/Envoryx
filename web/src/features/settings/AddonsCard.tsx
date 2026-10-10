@@ -3,6 +3,8 @@ import { useTranslation } from "react-i18next";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/client";
+import { usePlanAllows } from "@/api/hooks";
+import { NotInPlan } from "@/features/plan/PlanCard";
 import type { ExampleAddon, InstalledAddon } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Dialog, ErrorState, Field, Input, Spinner, type Tone } from "@/components/ui";
 import { errorText } from "@/lib/errors";
@@ -30,6 +32,7 @@ inject:
 /** Installed addon files, the examples Envoryx ships, and installing from a file or URL. Admins only. */
 export function AddonsCard() {
   const { t } = useTranslation();
+  const allowed = usePlanAllows("addons");
   const qc = useQueryClient();
   const q = useQuery({ queryKey: ["addons"], queryFn: () => api.addons.list() });
   const [msg, setMsg] = useState<{ tone: Tone; text: string } | null>(null);
@@ -65,6 +68,16 @@ export function AddonsCard() {
   if (q.isPending) return <Spinner />;
   if (q.isError) return <ErrorState message={errorText(q.error, t)} />;
   const installed = new Set(q.data.addons.map((a) => a.name));
+  if (!allowed) {
+    return (
+      <Card>
+        <CardHeader title={t("Addons")} />
+        <div className="p-5">
+          <NotInPlan feature="addons" />
+        </div>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-6">

@@ -100,6 +100,7 @@ import type {
   ExternalTest,
   AuditFilter,
   AuditPage,
+  PlanStatus,
 } from "./types";
 
 /** Query string of the log endpoints; empty filter fields are left out. */
@@ -333,6 +334,7 @@ export const api = {
   pruneImages: () => request<{ result: PruneResult }>("/docker/images/prune", { method: "POST" }),
   removeOrphan: (type: string, id: string) => request<{ orphans: Orphan[] }>("/docker/orphans/remove", { method: "POST", body: { type, id } }),
   settings: () => request<Settings>("/settings"),
+  plan: () => request<PlanStatus>("/plan"),
   updateSettings: (body: UpdateSettingsRequest) => request<Settings>("/settings", { method: "PATCH", body }),
   clearLogHistory: () => request<{ logHistory: LogHistoryInfo }>("/settings/log-history", { method: "DELETE" }),
   clearMetrics: () => request<{ metrics: MetricsInfo }>("/settings/metrics", { method: "DELETE" }),

@@ -1,10 +1,11 @@
 import { GitBranch, GitCommitHorizontal, Play, Plus, RefreshCw, Save } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { NotInPlan } from "@/features/plan/PlanCard";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/client";
-import { keys, useBranchEnvironments, useProject, useProjectLinks } from "@/api/hooks";
+import { keys, useBranchEnvironments, useProject, useProjectLinks, usePlanAllows } from "@/api/hooks";
 import type { BranchSettings, BranchState, Project, RemoteBranch } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Checkbox, Code, ErrorState, Field, Input, Select, Spinner, StatusDot, type Tone } from "@/components/ui";
 import { containerStateTone, formatDateTime, formatRelative } from "@/lib/format";
@@ -36,6 +37,16 @@ export function BranchesTab({ project }: { project: Project }) {
 function ParentView({ project: p }: { project: Project }) {
   const { t } = useTranslation();
   const q = useBranchEnvironments(p.id);
+  const allowed = usePlanAllows("branchEnvironments");
+  if (!allowed) {
+    // Environments made before the plan stay listed, so they can be deleted.
+    return (
+      <div className="space-y-6">
+        <NotInPlan feature="branchEnvironments" />
+        {q.data && q.data.environments.length > 0 && <EnvironmentsCard project={p} environments={q.data.environments} lastPoll={q.data.lastPoll} watching={false} />}
+      </div>
+    );
+  }
   if (!p.git.url) {
     return <Alert tone="amber">{t("Branch environments are copies of this project on other branches of its repository. Set a repository under Git first.")}</Alert>;
   }

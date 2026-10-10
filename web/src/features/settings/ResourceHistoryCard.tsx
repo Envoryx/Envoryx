@@ -3,7 +3,8 @@ import { Activity, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "@/api/client";
-import { keys, useSettings, useUpdateSettings } from "@/api/hooks";
+import { keys, useSettingLocked, useSettings, useUpdateSettings } from "@/api/hooks";
+import { LockedHint } from "@/features/plan/PlanCard";
 import type { Settings } from "@/api/types";
 import { Alert, Button, Card, CardHeader, Dialog, ErrorState, Field, Select, Spinner } from "@/components/ui";
 import { errorText } from "@/lib/errors";
@@ -15,6 +16,7 @@ export function ResourceHistoryCard() {
   const { t } = useTranslation();
   const s = useSettings();
   const update = useUpdateSettings();
+  const locked = useSettingLocked("metricsRetentionDays");
   const qc = useQueryClient();
   const info = s.data?.metrics;
   const [error, setError] = useState<string | null>(null);
@@ -62,7 +64,7 @@ export function ResourceHistoryCard() {
                 <Select
                   id="rh-days"
                   value={String(info.retentionDays)}
-                  disabled={update.isPending}
+                  disabled={update.isPending || locked}
                   onChange={(e) => {
                     setError(null);
                     setSaved(false);
@@ -75,6 +77,7 @@ export function ResourceHistoryCard() {
                     </option>
                   ))}
                 </Select>
+                {locked && <LockedHint />}
               </Field>
             </div>
             {saved && <p className="text-xs text-emerald-600 dark:text-emerald-400">{t("Saved.")}</p>}
