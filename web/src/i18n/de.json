@@ -2717,5 +2717,20 @@
   "Build tool": "Build-Tool",
   "The template's project is generated for it, with its wrapper (mvnw or gradlew). Gradle uses the Kotlin DSL (build.gradle.kts).": "Das Projekt des Templates wird dafür erzeugt, mit seinem Wrapper (mvnw oder gradlew). Gradle nutzt die Kotlin-DSL (build.gradle.kts).",
   "Composer, npm, Yarn, pnpm, pip, uv, Go, Bundler, Maven and NuGet keep their downloads in a package cache. Each project has its own; shared, a package is downloaded once for all projects. Caches fill up over time; emptying them only means the next install downloads again.": "Composer, npm, Yarn, pnpm, pip, uv, Go, Bundler, Maven und NuGet legen ihre Downloads in einem Paket-Cache ab. Jedes Projekt hat seinen eigenen; geteilt wird ein Paket einmal für alle Projekte geladen. Caches wachsen mit der Zeit; sie zu leeren heißt nur, dass die nächste Installation neu lädt.",
-  "Maven keeps the dependencies in the package cache. Gradle keeps its own in the project home, even when the package cache is shared: its locks don't work across containers.": "Maven legt die Abhängigkeiten im Paket-Cache ab. Gradle behält seine im Projekt-Home, auch wenn der Paket-Cache geteilt ist: Seine Sperren funktionieren nicht über Container hinweg."
+  "Maven keeps the dependencies in the package cache. Gradle keeps its own in the project home, even when the package cache is shared: its locks don't work across containers.": "Maven legt die Abhängigkeiten im Paket-Cache ab. Gradle behält seine im Projekt-Home, auch wenn der Paket-Cache geteilt ist: Seine Sperren funktionieren nicht über Container hinweg.",
+  "{{name}} Restored": "{{name}} wiederhergestellt",
+  "Restoring failed": "Wiederherstellen fehlgeschlagen",
+  "Restore into a new project": "In neues Projekt wiederherstellen",
+  "The backup of {{name}} from {{date}}. The new project gets the services, variables, workers, cron jobs and repository the backup was made with, and its own directory, host ports and containers.": "Das Backup von {{name}} vom {{date}}. Das neue Projekt bekommt die Dienste, Variablen, Worker, Cronjobs und das Repository, mit denen das Backup gemacht wurde, und ein eigenes Verzeichnis, eigene Host-Ports und Container.",
+  "Name of the new project": "Name des neuen Projekts",
+  "Start the project when it is ready": "Projekt starten, sobald es bereit ist",
+  "Restoring the backup…": "Backup wird wiederhergestellt…",
+  "The files and the database are restored into the new project; big backups take a moment.": "Die Dateien und die Datenbank werden ins neue Projekt wiederhergestellt; große Backups brauchen einen Moment.",
+  "Backups of deleted projects": "Backups gelöschter Projekte",
+  "Deleting a project keeps its backups. Restore one into a new project to bring the project back, or delete the backups you no longer need.": "Beim Löschen eines Projekts bleiben seine Backups erhalten. Stell eines in ein neues Projekt wieder her, um das Projekt zurückzuholen, oder lösch die Backups, die du nicht mehr brauchst.",
+  "No backups of deleted projects.": "Keine Backups gelöschter Projekte.",
+  "The backup of {{name}} from {{date}} is removed for good; copies on offsite targets stay there.": "Das Backup von {{name}} vom {{date}} wird endgültig entfernt; Kopien auf Offsite-Zielen bleiben dort.",
+  "Restoring a backup into {{name}}": "Backup wird in {{name}} wiederhergestellt",
+  "{{name}} restored from the backup": "{{name}} aus dem Backup wiederhergestellt",
+  "Backup restored into a new project": "Backup in neues Projekt wiederhergestellt"
 }

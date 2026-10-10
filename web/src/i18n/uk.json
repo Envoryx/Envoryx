@@ -2765,5 +2765,20 @@
   "Build tool": "Інструмент збирання",
   "The template's project is generated for it, with its wrapper (mvnw or gradlew). Gradle uses the Kotlin DSL (build.gradle.kts).": "Проєкт шаблону створюється під цей інструмент, разом з його обгорткою (mvnw або gradlew). Gradle використовує Kotlin DSL (build.gradle.kts).",
   "Composer, npm, Yarn, pnpm, pip, uv, Go, Bundler, Maven and NuGet keep their downloads in a package cache. Each project has its own; shared, a package is downloaded once for all projects. Caches fill up over time; emptying them only means the next install downloads again.": "Composer, npm, Yarn, pnpm, pip, uv, Go, Bundler, Maven і NuGet зберігають завантаження в кеші пакетів. Кожен проєкт має власний; у спільному режимі пакет завантажується один раз для всіх проєктів. Кеші з часом ростуть; очищення означає лише, що наступне встановлення завантажить усе знову.",
-  "Maven keeps the dependencies in the package cache. Gradle keeps its own in the project home, even when the package cache is shared: its locks don't work across containers.": "Maven зберігає залежності в кеші пакетів. Gradle зберігає свої в домашньому каталозі проєкту, навіть коли кеш пакетів спільний: його блокування не працюють між контейнерами."
+  "Maven keeps the dependencies in the package cache. Gradle keeps its own in the project home, even when the package cache is shared: its locks don't work across containers.": "Maven зберігає залежності в кеші пакетів. Gradle зберігає свої в домашньому каталозі проєкту, навіть коли кеш пакетів спільний: його блокування не працюють між контейнерами.",
+  "{{name}} Restored": "{{name}} відновлено",
+  "Restoring failed": "Не вдалося відновити",
+  "Restore into a new project": "Відновити в новий проєкт",
+  "The backup of {{name}} from {{date}}. The new project gets the services, variables, workers, cron jobs and repository the backup was made with, and its own directory, host ports and containers.": "Резервна копія {{name}} від {{date}}. Новий проєкт отримує сервіси, змінні, воркери, завдання cron і репозиторій, з якими було зроблено копію, а також власний каталог, порти хоста й контейнери.",
+  "Name of the new project": "Назва нового проєкту",
+  "Start the project when it is ready": "Запустити проєкт, коли він буде готовий",
+  "Restoring the backup…": "Відновлення резервної копії…",
+  "The files and the database are restored into the new project; big backups take a moment.": "Файли й база даних відновлюються в новий проєкт; великі копії займають трохи часу.",
+  "Backups of deleted projects": "Резервні копії видалених проєктів",
+  "Deleting a project keeps its backups. Restore one into a new project to bring the project back, or delete the backups you no longer need.": "Під час видалення проєкту його резервні копії зберігаються. Відновіть одну в новий проєкт, щоб повернути проєкт, або видаліть копії, які вам більше не потрібні.",
+  "No backups of deleted projects.": "Немає резервних копій видалених проєктів.",
+  "The backup of {{name}} from {{date}} is removed for good; copies on offsite targets stay there.": "Резервну копію {{name}} від {{date}} буде видалено назавжди; копії у зовнішніх сховищах залишаються там.",
+  "Restoring a backup into {{name}}": "Відновлення резервної копії в {{name}}",
+  "{{name}} restored from the backup": "{{name}} відновлено з резервної копії",
+  "Backup restored into a new project": "Резервну копію відновлено в новий проєкт"
 }

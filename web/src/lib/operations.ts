@@ -18,6 +18,7 @@ export function operationTitle(op: Operation, t: TFunction): string {
     snapshot: t("Snapshotting the database of {{name}}", { name }),
     "clone-database": t("Cloning a database into {{name}}", { name }),
     restore: t("Restoring {{name}}", { name }),
+    "restore-new": t("Restoring a backup into {{name}}", { name }),
   };
   return titles[op.action] ?? `${op.action} ${name}`;
 }
@@ -39,6 +40,7 @@ export function operationDone(op: Operation, t: TFunction): string {
     snapshot: t("Database of {{name}} snapshotted", { name }),
     "clone-database": t("Database cloned into {{name}}", { name }),
     restore: t("{{name}} restored", { name }),
+    "restore-new": t("{{name}} restored from the backup", { name }),
   };
   return titles[op.action] ?? `${op.action} ${name}`;
 }
@@ -59,6 +61,7 @@ export function operationVerb(action: OperationAction, t: TFunction): string {
     snapshot: t("Snapshotting…"),
     "clone-database": t("Cloning the database…"),
     restore: t("Restoring…"),
+    "restore-new": t("Restoring…"),
   };
   return verbs[action] ?? action;
 }

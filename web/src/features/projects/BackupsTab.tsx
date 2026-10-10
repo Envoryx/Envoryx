@@ -1,4 +1,4 @@
-import { Archive, CalendarClock, CloudDownload, Download, RotateCcw, Trash2 } from "lucide-react";
+import { Archive, ArchiveRestore, CalendarClock, CloudDownload, Download, RotateCcw, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -11,6 +11,8 @@ import { formatBytes, formatDateTime } from "@/lib/format";
 import { errorText } from "@/lib/errors";
 import { projectAccess } from "@/lib/access";
 import { OffsiteBadges, OffsiteUploadButton, RemoteBackups, uploading } from "@/features/offsite/OffsiteParts";
+import { useAuth } from "@/features/auth/AuthContext";
+import { RestoreNewDialog } from "./RestoreNewDialog";
 
 /** Whether a backup holds any database: a dump, or a copy of its data volume. */
 function hasDumps(meta: BackupMeta): boolean {
@@ -31,6 +33,9 @@ export function BackupsTab({ project }: { project: Project }) {
   const hasRedis = project.services.some((s) => s.kind === "redis" && s.enabled && !s.config?.host);
   // Viewers see the list; creating, downloading and offsite copies need operate, restoring and deleting admin.
   const can = projectAccess(project);
+  // A restore into a new project makes a project, which needs an instance admin.
+  const { admin: instanceAdmin } = useAuth();
+  const [restoreNewTarget, setRestoreNewTarget] = useState<BackupInfo | null>(null);
   const list = useQuery({
     queryKey: ["projects", project.id, "backups"],
     queryFn: () => api.backups.list(project.id),
@@ -246,6 +251,11 @@ export function BackupsTab({ project }: { project: Project }) {
                       <Button size="sm" onClick={() => openRestore(b)} disabled={b.missing} icon={<RotateCcw className="size-3.5" />}>
                         {t("Restore")}
                       </Button>
+                      {instanceAdmin && (
+                        <Button size="sm" variant="ghost" onClick={() => setRestoreNewTarget(b)} disabled={b.missing} aria-label={t("Restore into a new project")} title={t("Restore into a new project")}>
+                          <ArchiveRestore className="size-4" />
+                        </Button>
+                      )}
                       <Button size="sm" variant="ghost" onClick={() => setDeleteTarget(b)} aria-label={t("Delete backup")}>
                         <Trash2 className="size-4" />
                       </Button>
@@ -280,6 +290,8 @@ export function BackupsTab({ project }: { project: Project }) {
           </div>
         </Card>
       )}
+
+      <RestoreNewDialog projectId={project.id} projectName={project.name} backup={restoreNewTarget} onClose={() => setRestoreNewTarget(null)} />
 
       <Dialog
         open={restoreTarget !== null}

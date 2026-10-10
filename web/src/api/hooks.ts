@@ -1,6 +1,6 @@
 import { useInfiniteQuery, useIsMutating, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "./client";
-import { servesOf, type AddonUpdate, type AuditFilter, type CreateProjectRequest, type DuplicateProjectRequest, type RenameProjectRequest, type NodeConfig, type Project, type PythonConfig, type GoConfig, type RubyConfig, type JavaConfig, type DotnetConfig, type UpdateProjectRequest, type UpdateSettingsRequest } from "./types";
+import { servesOf, type AddonUpdate, type AuditFilter, type CreateProjectRequest, type DuplicateProjectRequest, type RenameProjectRequest, type RestoreNewRequest, type NodeConfig, type Project, type PythonConfig, type GoConfig, type RubyConfig, type JavaConfig, type DotnetConfig, type UpdateProjectRequest, type UpdateSettingsRequest } from "./types";
 import { projectUrl } from "@/lib/format";
 
 export const keys = {
@@ -247,6 +247,19 @@ export function useDuplicateProject() {
   return useMutation({
     mutationFn: async ({ id, body }: { id: string; body: DuplicateProjectRequest }) => (await api.projects.duplicate(id, body)).project,
     onSuccess: (project) => invalidate(project),
+  });
+}
+
+/** Restores a backup into a new project; the answer is the new project. */
+export function useRestoreNewProject() {
+  const invalidate = useProjectInvalidation();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ projectId, backupId, body }: { projectId: string; backupId: string; body: RestoreNewRequest }) => (await api.backups.restoreNew(projectId, backupId, body)).project,
+    onSuccess: (project) => {
+      invalidate(project);
+      void qc.invalidateQueries({ queryKey: ["backups", "orphaned"] });
+    },
   });
 }
 

@@ -2717,5 +2717,20 @@
   "Build tool": "Outil de build",
   "The template's project is generated for it, with its wrapper (mvnw or gradlew). Gradle uses the Kotlin DSL (build.gradle.kts).": "Le projet du modèle est généré pour cet outil, avec son wrapper (mvnw ou gradlew). Gradle utilise le DSL Kotlin (build.gradle.kts).",
   "Composer, npm, Yarn, pnpm, pip, uv, Go, Bundler, Maven and NuGet keep their downloads in a package cache. Each project has its own; shared, a package is downloaded once for all projects. Caches fill up over time; emptying them only means the next install downloads again.": "Composer, npm, Yarn, pnpm, pip, uv, Go, Bundler, Maven et NuGet gardent leurs téléchargements dans un cache de paquets. Chaque projet a le sien ; partagé, un paquet n'est téléchargé qu'une fois pour tous les projets. Les caches grossissent avec le temps ; les vider signifie seulement que la prochaine installation télécharge à nouveau.",
-  "Maven keeps the dependencies in the package cache. Gradle keeps its own in the project home, even when the package cache is shared: its locks don't work across containers.": "Maven garde les dépendances dans le cache des paquets. Gradle garde les siennes dans le home du projet, même quand le cache des paquets est partagé : ses verrous ne fonctionnent pas entre conteneurs."
+  "Maven keeps the dependencies in the package cache. Gradle keeps its own in the project home, even when the package cache is shared: its locks don't work across containers.": "Maven garde les dépendances dans le cache des paquets. Gradle garde les siennes dans le home du projet, même quand le cache des paquets est partagé : ses verrous ne fonctionnent pas entre conteneurs.",
+  "{{name}} Restored": "{{name}} restauré",
+  "Restoring failed": "Échec de la restauration",
+  "Restore into a new project": "Restaurer dans un nouveau projet",
+  "The backup of {{name}} from {{date}}. The new project gets the services, variables, workers, cron jobs and repository the backup was made with, and its own directory, host ports and containers.": "La sauvegarde de {{name}} du {{date}}. Le nouveau projet reçoit les services, variables, workers, tâches cron et le dépôt avec lesquels la sauvegarde a été faite, ainsi que son propre répertoire, ses ports hôte et ses conteneurs.",
+  "Name of the new project": "Nom du nouveau projet",
+  "Start the project when it is ready": "Démarrer le projet quand il est prêt",
+  "Restoring the backup…": "Restauration de la sauvegarde…",
+  "The files and the database are restored into the new project; big backups take a moment.": "Les fichiers et la base de données sont restaurés dans le nouveau projet ; les grosses sauvegardes prennent un moment.",
+  "Backups of deleted projects": "Sauvegardes des projets supprimés",
+  "Deleting a project keeps its backups. Restore one into a new project to bring the project back, or delete the backups you no longer need.": "La suppression d'un projet conserve ses sauvegardes. Restaurez-en une dans un nouveau projet pour récupérer le projet, ou supprimez les sauvegardes dont vous n'avez plus besoin.",
+  "No backups of deleted projects.": "Aucune sauvegarde de projet supprimé.",
+  "The backup of {{name}} from {{date}} is removed for good; copies on offsite targets stay there.": "La sauvegarde de {{name}} du {{date}} est supprimée définitivement ; les copies sur les cibles hors site y restent.",
+  "Restoring a backup into {{name}}": "Restauration d'une sauvegarde dans {{name}}",
+  "{{name}} restored from the backup": "{{name}} restauré depuis la sauvegarde",
+  "Backup restored into a new project": "Sauvegarde restaurée dans un nouveau projet"
 }

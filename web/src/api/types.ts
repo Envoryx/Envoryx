@@ -106,7 +106,7 @@ export interface Operation {
   error?: string;
 }
 
-export type OperationAction = "create" | "duplicate" | "rename" | "start" | "stop" | "restart" | "update" | "delete" | "image" | "backup" | "snapshot" | "clone-database" | "restore";
+export type OperationAction = "create" | "duplicate" | "rename" | "start" | "stop" | "restart" | "update" | "delete" | "image" | "backup" | "snapshot" | "clone-database" | "restore" | "restore-new";
 
 export interface ProjectStatus {
   state: ProjectState;
@@ -1811,6 +1811,24 @@ export interface BackupInfo {
   createdAt: string;
   meta: BackupMeta;
   missing: boolean;
+}
+
+/** Restores a backup into a new project; database, files and storage default to on. */
+export interface RestoreNewRequest {
+  name: string;
+  path?: string;
+  database?: boolean;
+  files?: boolean;
+  storage?: boolean;
+  start?: boolean;
+}
+
+/** A backup whose project was deleted. */
+export interface OrphanedBackup {
+  projectId: string;
+  projectName: string;
+  slug: string;
+  backup: BackupInfo;
 }
 
 /** What a database clone did: where the data came from and the snapshot taken beforehand. */
