@@ -10,6 +10,13 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.27.1] - 2026-10-10
+
+Fixes from a test round of every restore path, upgraded from 0.24.0: a
+project restored from a backup, duplicated or branched keeps its resource
+limits and health check again, and the restore says what an old backup
+leaves out.
+
 ### Fixed
 - Restoring a backup into a new project, duplicating a project and
   creating a branch environment dropped the resource limits and the health
@@ -1982,7 +1989,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.27.0...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.27.1...HEAD
+[0.27.1]: https://github.com/envoryx/envoryx/compare/v0.27.0...v0.27.1
 [0.27.0]: https://github.com/envoryx/envoryx/compare/v0.26.1...v0.27.0
 [0.26.1]: https://github.com/envoryx/envoryx/compare/v0.26.0...v0.26.1
 [0.26.0]: https://github.com/envoryx/envoryx/compare/v0.25.0...v0.26.0
