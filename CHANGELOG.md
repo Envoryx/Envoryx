@@ -10,6 +10,16 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Added
+- Project backups on an offsite target come back as new projects, also of
+  projects this Envoryx doesn't have (a lost host, a project made after the
+  last instance backup): *Settings → Backups → Backups of deleted projects
+  → From an offsite target* lists every project on the target, and
+  *Restore into a new project* fetches the backup and restores it with the
+  settings it was made with. `envoryx backup recover` does the same from
+  the command line; the API is `GET /api/v1/offsite/targets/{target}/projects`
+  and `POST /api/v1/offsite/targets/{target}/projects/fetch`.
+
 ## [0.26.1] - 2026-10-10
 
 Debugging .NET from VS Code and Rider works as the IDE section describes
