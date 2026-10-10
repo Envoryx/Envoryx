@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ArchiveRestore, FileArchive, RotateCcw, Upload } from "lucide-react";
 import { api } from "@/api/client";
@@ -23,12 +23,15 @@ export function ImportSiteCard({
   onDiscard,
   adaptConfig,
   onAdaptConfig,
+  onBackup,
 }: {
   value: SiteImport | null;
   onUploaded: (imp: SiteImport) => void;
   onDiscard: () => void;
   adaptConfig: boolean;
   onAdaptConfig: (on: boolean) => void;
+  /** Told whether the upload turned out to be an Envoryx backup. */
+  onBackup?: (isBackup: boolean) => void;
 }) {
   const { t } = useTranslation();
   const [site, setSite] = useState<File | null>(null);
@@ -37,6 +40,8 @@ export function ImportSiteCard({
   const [error, setError] = useState<string | null>(null);
   const [backup, setBackup] = useState<UploadedBackup | null>(null);
   const [restoring, setRestoring] = useState(false);
+  // Leaving the card (another source in the wizard) leaves no backup behind it.
+  useEffect(() => () => onBackup?.(false), [onBackup]);
 
   const upload = () => {
     if (!site) return;
@@ -48,6 +53,7 @@ export function ImportSiteCard({
         setProgress(null);
         if (r.backup) {
           setBackup(r.backup);
+          onBackup?.(true);
           setRestoring(true);
         } else if (r.import) {
           onUploaded(r.import);
@@ -73,7 +79,7 @@ export function ImportSiteCard({
               </p>
             </div>
           </div>
-          <Button variant="ghost" onClick={() => { setBackup(null); setSite(null); }} icon={<RotateCcw className="size-4" />}>
+          <Button variant="ghost" onClick={() => { setBackup(null); setSite(null); onBackup?.(false); }} icon={<RotateCcw className="size-4" />}>
             {t("Other files")}
           </Button>
         </div>
