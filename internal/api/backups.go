@@ -141,3 +141,53 @@ func (a *API) setBackupSchedule(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"schedule": toSchedule(b)})
 }
+
+type restoreNewRequest struct {
+	Name     string `json:"name"`
+	Path     string `json:"path"`
+	Database *bool  `json:"database"`
+	Files    *bool  `json:"files"`
+	Storage  *bool  `json:"storage"`
+	Start    bool   `json:"start"`
+}
+
+// restoreBackupNew restores a backup into a new project: POST
+// /backups/{project}/{backup}/restore-new. The backup's project may be gone, so the route
+// isn't one of the project's; making a project takes admin access to the whole instance.
+func (a *API) restoreBackupNew(w http.ResponseWriter, r *http.Request) {
+	var req restoreNewRequest
+	if err := decodeJSON(w, r, &req); err != nil {
+		writeError(w, r, err)
+		return
+	}
+	on := func(b *bool) bool { return b == nil || *b }
+	view, err := a.d.Projects.RestoreIntoNewProject(r.Context(), r.PathValue("project"), r.PathValue("backup"), project.RestoreNewRequest{
+		Name: req.Name, Path: req.Path, Database: on(req.Database), Files: on(req.Files), Storage: on(req.Storage), Start: req.Start,
+	})
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	a.invalidateProxy()
+	writeJSON(w, http.StatusCreated, map[string]any{"project": a.project(r, view)})
+}
+
+// listOrphanedBackups lists the backups of deleted projects: GET /backups/orphaned.
+func (a *API) listOrphanedBackups(w http.ResponseWriter, r *http.Request) {
+	backups, err := a.d.Projects.OrphanedBackups(r.Context())
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"backups": backups})
+}
+
+// deleteOrphanedBackup removes a backup of a deleted project: DELETE
+// /backups/orphaned/{project}/{backup}.
+func (a *API) deleteOrphanedBackup(w http.ResponseWriter, r *http.Request) {
+	if err := a.d.Projects.DeleteOrphanedBackup(r.Context(), r.PathValue("project"), r.PathValue("backup")); err != nil {
+		writeError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}

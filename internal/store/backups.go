@@ -96,3 +96,21 @@ func (r *Backups) Delete(ctx context.Context, projectID, id string) error {
 	}
 	return nil
 }
+
+// ListOrphaned returns the backups of projects that no longer exist, newest first.
+func (r *Backups) ListOrphaned(ctx context.Context) ([]Backup, error) {
+	rows, err := r.db.QueryContext(ctx, `SELECT `+backupColumns+` FROM backups WHERE project_id NOT IN (SELECT id FROM projects) ORDER BY created_at DESC`)
+	if err != nil {
+		return nil, fmt.Errorf("list orphaned backups: %w", err)
+	}
+	defer rows.Close()
+	var out []Backup
+	for rows.Next() {
+		b, err := scanBackup(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, b)
+	}
+	return out, rows.Err()
+}
