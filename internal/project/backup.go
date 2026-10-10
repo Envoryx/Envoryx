@@ -186,8 +186,8 @@ type backupFile struct {
 }
 
 // newBackupFile builds backup.json's content, the export sealed.
-func newBackupFile(meta BackupMeta, p store.Project) (backupFile, error) {
-	export := exportProject(p)
+func newBackupFile(meta BackupMeta, p store.Project, jobs []store.CronJob) (backupFile, error) {
+	export := exportProject(p, jobs)
 	if secrets.Default() == nil {
 		return backupFile{BackupMeta: meta, Export: &export}, nil
 	}
@@ -203,23 +203,49 @@ func newBackupFile(meta BackupMeta, p store.Project) (backupFile, error) {
 }
 
 // projectExport is the desired state of a project, including secrets. It enables a full
-// rebuild (also into a new project later); backup.json keeps it sealed (see backupFile).
+// rebuild into a new project (RestoreIntoNewProject); backup.json keeps it sealed (see
+// backupFile). Backups from before 0.25 lack the fields marked omitempty, and a project
+// restored from one starts without them.
 type projectExport struct {
-	Name     string            `json:"name"`
-	Slug     string            `json:"slug"`
-	Path     string            `json:"path"`
-	Docroot  string            `json:"docroot"`
-	HTTPPort int               `json:"httpPort"`
-	Services []exportedService `json:"services"`
-	Env      []exportedEnv     `json:"env"`
-	Git      exportedGit       `json:"git"`
+	Name        string                `json:"name"`
+	Slug        string                `json:"slug"`
+	Path        string                `json:"path"`
+	Docroot     string                `json:"docroot"`
+	HTTPPort    int                   `json:"httpPort"`
+	Services    []exportedService     `json:"services"`
+	Env         []exportedEnv         `json:"env"`
+	Git         exportedGit           `json:"git"`
+	IDEGateway  bool                  `json:"ideGateway,omitempty"`
+	Limits      *store.ResourceLimits `json:"limits,omitempty"`
+	HealthCheck *store.HealthCheck    `json:"healthCheck,omitempty"`
+	ProxyRules  *store.ProxyRules     `json:"proxyRules,omitempty"`
+	Workers     []exportedWorker      `json:"workers,omitempty"`
+	CronJobs    []exportedCronJob     `json:"cronJobs,omitempty"`
 }
 
 type exportedService struct {
-	Kind    string          `json:"kind"`
-	Variant string          `json:"variant"`
-	Version string          `json:"version"`
-	Config  json.RawMessage `json:"config"`
+	Kind     string             `json:"kind"`
+	Variant  string             `json:"variant"`
+	Version  string             `json:"version"`
+	Config   json.RawMessage    `json:"config"`
+	Position int                `json:"position,omitempty"`
+	Custom   *store.CustomImage `json:"custom,omitempty"`
+}
+
+type exportedWorker struct {
+	Name    string   `json:"name"`
+	Preset  string   `json:"preset"`
+	Args    []string `json:"args,omitempty"`
+	Enabled bool     `json:"enabled"`
+}
+
+type exportedCronJob struct {
+	Name     string        `json:"name"`
+	Runtime  string        `json:"runtime"`
+	Schedule string        `json:"schedule"`
+	Command  string        `json:"command"`
+	Timeout  time.Duration `json:"timeout,omitempty"`
+	Enabled  bool          `json:"enabled"`
 }
 
 type exportedEnv struct {
@@ -254,16 +280,38 @@ func (m *Manager) backupRoot(slug string) (string, error) {
 	return filepath.Join(p.BackupsRoot(), slug), nil
 }
 
-func exportProject(p store.Project) projectExport {
+func exportProject(p store.Project, jobs []store.CronJob) projectExport {
 	ex := projectExport{Name: p.Name, Slug: p.Slug, Path: p.Path, Docroot: p.Docroot, HTTPPort: p.HTTPPort,
-		Git: exportedGit{URL: p.Git.URL, Branch: p.Git.Branch, Username: p.Git.Username, Token: p.Git.Token}}
+		Git:        exportedGit{URL: p.Git.URL, Branch: p.Git.Branch, Username: p.Git.Username, Token: p.Git.Token},
+		IDEGateway: p.IDEGateway}
+	if p.Limits != (store.ResourceLimits{}) {
+		ex.Limits = &p.Limits
+	}
+	if p.HealthCheck != (store.HealthCheck{}) {
+		ex.HealthCheck = &p.HealthCheck
+	}
+	if raw, _ := json.Marshal(p.ProxyRules); string(raw) != "{}" {
+		rules := p.ProxyRules
+		ex.ProxyRules = &rules
+	}
 	for _, s := range p.Services {
 		if s.Enabled {
-			ex.Services = append(ex.Services, exportedService{Kind: string(s.Kind), Variant: s.Variant, Version: s.Version, Config: s.Config})
+			es := exportedService{Kind: string(s.Kind), Variant: s.Variant, Version: s.Version, Config: s.Config, Position: s.Position}
+			if s.Custom.Image != "" || s.Custom.Dockerfile != "" {
+				custom := store.CustomImage{Image: s.Custom.Image, Dockerfile: s.Custom.Dockerfile}
+				es.Custom = &custom
+			}
+			ex.Services = append(ex.Services, es)
 		}
 	}
 	for _, e := range p.Env {
 		ex.Env = append(ex.Env, exportedEnv{Key: e.Key, Value: e.Value, IsSecret: e.IsSecret})
+	}
+	for _, w := range p.Workers {
+		ex.Workers = append(ex.Workers, exportedWorker{Name: w.Name, Preset: w.Preset, Args: w.Args, Enabled: w.Enabled})
+	}
+	for _, j := range jobs {
+		ex.CronJobs = append(ex.CronJobs, exportedCronJob{Name: j.Name, Runtime: j.Runtime, Schedule: j.Schedule, Command: j.Command, Timeout: j.Timeout, Enabled: j.Enabled})
 	}
 	return ex
 }
@@ -542,7 +590,11 @@ func (m *Manager) createBackupLocked(ctx context.Context, p store.Project, opts 
 		}{Bucket: scfg.Bucket, Objects: objects, Bytes: n}
 	}
 
-	bf, err := newBackupFile(meta, p)
+	jobs, err := m.store.CronJobs.ListByProject(ctx, p.ID)
+	if err != nil {
+		return fail("read the cron jobs", err)
+	}
+	bf, err := newBackupFile(meta, p, jobs)
 	if err != nil {
 		return fail("write metadata", err)
 	}
@@ -1092,16 +1144,23 @@ func (m *Manager) restoreDatabase(ctx context.Context, p store.Project, svc *sto
 		return fmt.Errorf("read dump: %w", err)
 	}
 	defer gz.Close()
-	var stderr strings.Builder
-	argv, env := dialect.Restore(cfg)
-	code, err := m.dbStream(ctx, dbEnd{p, svc, cfg}, argv, env, gz, nil, &limitedBuilder{b: &stderr})
-	if err != nil {
-		return err
-	}
-	if code != 0 {
-		return fmt.Errorf("import failed (exit %d): %s", code, sanitizeSQLError(strings.TrimSpace(stderr.String()), cfg))
-	}
-	return nil
+	// A stopped project's database is started for the import and stopped again, and a
+	// just created one (a restore into a new project) is waited for.
+	return m.withServiceRunning(ctx, p, svc.Kind, func(ctx context.Context) error {
+		if err := m.waitForDatabase(ctx, p, svc, cfg, dialect); err != nil {
+			return err
+		}
+		var stderr strings.Builder
+		argv, env := dialect.Restore(cfg)
+		code, err := m.dbStream(ctx, dbEnd{p, svc, cfg}, argv, env, gz, nil, &limitedBuilder{b: &stderr})
+		if err != nil {
+			return err
+		}
+		if code != 0 {
+			return fmt.Errorf("import failed (exit %d): %s", code, sanitizeSQLError(strings.TrimSpace(stderr.String()), cfg))
+		}
+		return nil
+	})
 }
 
 // wipeDir removes the contents of dir but keeps the directory itself.

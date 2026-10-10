@@ -70,7 +70,9 @@ const (
 
 	ActionBackupCreated  = "backup.created"
 	ActionBackupRestored = "backup.restored"
-	ActionBackupDeleted  = "backup.deleted"
+	// ActionBackupRestoredNew is a backup restored into a new project.
+	ActionBackupRestoredNew = "backup.restored_new"
+	ActionBackupDeleted     = "backup.deleted"
 
 	ActionInstanceBackupCreated  = "instance.backup_created"
 	ActionInstanceBackupUploaded = "instance.backup_uploaded"
