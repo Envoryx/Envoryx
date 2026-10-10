@@ -2739,5 +2739,6 @@
   "Envoryx made this backup. It is listed under Settings → Backups → Backups of deleted projects now and is restored into a new project with the settings it was made with.": "Envoryx heeft deze back-up gemaakt. Hij staat nu onder Instellingen → Back-ups → Back-ups van verwijderde projecten en wordt in een nieuw project hersteld met de instellingen waarmee hij is gemaakt.",
   "The project backups on the target, also of projects this Envoryx doesn't have. One is fetched and restored into a new project; it needs the same secret key as the Envoryx that made it.": "De projectback-ups op de bestemming, ook van projecten die deze Envoryx niet heeft. Eén wordt opgehaald en in een nieuw project hersteld; daarvoor is dezelfde geheime sleutel nodig als bij de Envoryx die hem maakte.",
   "Show projects on {{name}}": "Projecten op {{name}} tonen",
-  "No project backups on this target.": "Geen projectback-ups op deze bestemming."
+  "No project backups on this target.": "Geen projectback-ups op deze bestemming.",
+  "Envoryx {{version}} made this backup, before backups carried the workers, cron jobs, resource limits, health check and proxy rules. The new project starts without them; add them again afterwards.": "Envoryx {{version}} heeft deze back-up gemaakt voordat back-ups de workers, cronjobs, resourcelimieten, de health check en de proxyregels bevatten. Het nieuwe project start zonder; voeg ze daarna weer toe."
 }

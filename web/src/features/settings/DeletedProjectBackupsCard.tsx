@@ -68,6 +68,11 @@ export function DeletedProjectBackupsCard() {
                 </p>
                 <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-subtle">
                   {o.backup.meta.database && <Badge tone="amber">{o.backup.meta.database.type} {o.backup.meta.database.version}</Badge>}
+                  {o.backup.meta.databases?.map((d) => (
+                    <Badge key={d.db} tone="amber">
+                      {d.db}: {d.type} {d.version}
+                    </Badge>
+                  ))}
                   {o.backup.meta.files && <Badge>{t("{{count}} files", { count: o.backup.meta.files.entries })}</Badge>}
                   {o.backup.meta.storage && <Badge tone="blue">{t("{{count}} objects", { count: o.backup.meta.storage.objects })}</Badge>}
                   {o.backup.missing && <Badge tone="red">{t("files missing")}</Badge>}

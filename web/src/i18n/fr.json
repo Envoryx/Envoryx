@@ -2739,5 +2739,6 @@
   "Envoryx made this backup. It is listed under Settings → Backups → Backups of deleted projects now and is restored into a new project with the settings it was made with.": "Envoryx a créé cette sauvegarde. Elle figure désormais sous Paramètres → Sauvegardes → Sauvegardes des projets supprimés et est restaurée dans un nouveau projet avec les paramètres de sa création.",
   "The project backups on the target, also of projects this Envoryx doesn't have. One is fetched and restored into a new project; it needs the same secret key as the Envoryx that made it.": "Les sauvegardes de projets sur la cible, y compris de projets que cet Envoryx n'a pas. L'une est récupérée et restaurée dans un nouveau projet ; il faut la même clé secrète que l'Envoryx qui l'a créée.",
   "Show projects on {{name}}": "Afficher les projets sur {{name}}",
-  "No project backups on this target.": "Aucune sauvegarde de projet sur cette cible."
+  "No project backups on this target.": "Aucune sauvegarde de projet sur cette cible.",
+  "Envoryx {{version}} made this backup, before backups carried the workers, cron jobs, resource limits, health check and proxy rules. The new project starts without them; add them again afterwards.": "Envoryx {{version}} a créé cette sauvegarde avant que les sauvegardes contiennent les workers, les tâches cron, les limites de ressources, le contrôle de santé et les règles de proxy. Le nouveau projet démarre sans eux ; ajoutez-les ensuite."
 }

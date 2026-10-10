@@ -14,6 +14,14 @@ function hasDatabase(meta: BackupMeta): boolean {
   return !!meta.database || (meta.databases?.length ?? 0) > 0 || (meta.databaseVolumes?.length ?? 0) > 0 || (meta.addonVolumes?.length ?? 0) > 0;
 }
 
+/** Whether a backup was made before backups carried workers, cron jobs, limits, health check and proxy rules (0.25). */
+export function madeBefore025(meta: BackupMeta): string | null {
+  const m = /^v?(\d+)\.(\d+)\./.exec(meta.envoryx ?? "");
+  if (!m) return null;
+  const [major, minor] = [Number(m[1]), Number(m[2])];
+  return major === 0 && minor < 25 ? `${major}.${minor}` : null;
+}
+
 /**
  * Restores a backup into a new project: the settings the backup was made with (services,
  * variables, workers, cron jobs, repository) and, as ticked, its database, files and
@@ -87,6 +95,9 @@ export function RestoreNewDialog({ projectId, projectName, backup, onClose }: { 
       {backup && (
         <div className="space-y-4">
           {error && <Alert tone="red">{error}</Alert>}
+          {madeBefore025(backup.meta) && (
+            <Alert tone="amber">{t("Envoryx {{version}} made this backup, before backups carried the workers, cron jobs, resource limits, health check and proxy rules. The new project starts without them; add them again afterwards.", { version: madeBefore025(backup.meta) })}</Alert>
+          )}
           <Field label={t("Name of the new project")} htmlFor="restore-new-name" hint={t("Identifier: {{slug}}", { slug: slug || "-" })}>
             <Input id="restore-new-name" value={name} onChange={(e) => setName(e.target.value)} placeholder={suggestion} autoComplete="off" spellCheck={false} />
           </Field>

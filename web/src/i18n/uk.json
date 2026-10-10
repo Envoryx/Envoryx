@@ -2787,5 +2787,6 @@
   "Envoryx made this backup. It is listed under Settings → Backups → Backups of deleted projects now and is restored into a new project with the settings it was made with.": "Цю резервну копію створив Envoryx. Тепер вона є в Налаштування → Резервні копії → Резервні копії видалених проєктів і відновлюється в новий проєкт із налаштуваннями, з якими її було створено.",
   "The project backups on the target, also of projects this Envoryx doesn't have. One is fetched and restored into a new project; it needs the same secret key as the Envoryx that made it.": "Резервні копії проєктів у сховищі, також проєктів, яких немає в цьому Envoryx. Одну буде завантажено й відновлено в новий проєкт; потрібен той самий секретний ключ, що й у Envoryx, який її створив.",
   "Show projects on {{name}}": "Показати проєкти в {{name}}",
-  "No project backups on this target.": "У цьому сховищі немає резервних копій проєктів."
+  "No project backups on this target.": "У цьому сховищі немає резервних копій проєктів.",
+  "Envoryx {{version}} made this backup, before backups carried the workers, cron jobs, resource limits, health check and proxy rules. The new project starts without them; add them again afterwards.": "Envoryx {{version}} створив цю резервну копію до того, як у копії почали входити воркери, cron-завдання, ліміти ресурсів, перевірка працездатності та правила проксі. Новий проєкт запуститься без них; додайте їх потім знову."
 }

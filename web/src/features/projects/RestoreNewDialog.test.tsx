@@ -15,7 +15,7 @@ const backup: BackupInfo = {
   sizeBytes: 2048,
   createdAt: "2026-10-09T10:00:00Z",
   missing: false,
-  meta: { format: 1, envoryx: "0.24.0", projectId: pid, projectName: "Acme Shop", slug: "acme-shop", createdAt: "2026-10-09T10:00:00Z", runtimes: {}, database: { type: "mariadb", version: "11", name: "acme_shop", bytes: 1024 }, files: { bytes: 1024, entries: 3, includeDependencies: false } },
+  meta: { format: 1, envoryx: "v0.27.0", projectId: pid, projectName: "Acme Shop", slug: "acme-shop", createdAt: "2026-10-09T10:00:00Z", runtimes: {}, database: { type: "mariadb", version: "11", name: "acme_shop", bytes: 1024 }, files: { bytes: 1024, entries: 3, includeDependencies: false } },
 } as unknown as BackupInfo;
 
 describe("RestoreNewDialog", () => {
@@ -34,6 +34,21 @@ describe("RestoreNewDialog", () => {
 
     await waitFor(() => expect(api.calls.some((c) => c.url.endsWith("/restore-new"))).toBe(true));
     expect(api.calls.find((c) => c.url.endsWith("/restore-new"))!.body).toEqual({ name: "Acme Shop Restored", database: false, files: true, storage: false, start: false });
+  });
+});
+
+describe("RestoreNewDialog for an old backup", () => {
+  it("says what a backup from before 0.25 leaves out", async () => {
+    mockApi({ ...authedRoutes });
+    const old = { ...backup, meta: { ...backup.meta, envoryx: "v0.24.0" } } as BackupInfo;
+    renderApp(<RestoreNewDialog projectId={pid} projectName="Acme Shop" backup={old} onClose={() => {}} />);
+    expect(await screen.findByText(/Envoryx 0\.24 made this backup/)).toBeInTheDocument();
+  });
+  it("says nothing for a current one", async () => {
+    mockApi({ ...authedRoutes });
+    renderApp(<RestoreNewDialog projectId={pid} projectName="Acme Shop" backup={backup} onClose={() => {}} />);
+    expect(await screen.findByPlaceholderText("Acme Shop Restored")).toBeInTheDocument();
+    expect(screen.queryByText(/made this backup, before/)).not.toBeInTheDocument();
   });
 });
 

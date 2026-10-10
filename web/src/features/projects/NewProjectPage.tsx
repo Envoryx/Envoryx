@@ -146,6 +146,9 @@ export function NewProjectPage() {
   const [preview, setPreview] = useState<Preview | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  // An Envoryx backup uploaded as the website: it is restored from its own dialog, so the
+  // wizard's settings (and their summary) don't apply.
+  const [importedBackup, setImportedBackup] = useState(false);
   const [advanced, setAdvanced] = useState(false);
   const [moreRuntimes, setMoreRuntimes] = useState(false);
 
@@ -1340,7 +1343,7 @@ export function NewProjectPage() {
                     {stackPicker}
                   </div>
                 )}
-                {form.source === "import" && <ImportSiteCard value={form.importSite} onUploaded={applyImport} onDiscard={discardImport} adaptConfig={form.adaptConfig} onAdaptConfig={(adaptConfig) => set({ adaptConfig })} />}
+                {form.source === "import" && <ImportSiteCard value={form.importSite} onUploaded={applyImport} onDiscard={discardImport} adaptConfig={form.adaptConfig} onAdaptConfig={(adaptConfig) => set({ adaptConfig })} onBackup={setImportedBackup} />}
                 {form.source === "blank" && <div className="rounded-md border border-default p-4">{stackPicker}</div>}
               </section>
             </div>
@@ -1415,7 +1418,7 @@ export function NewProjectPage() {
             )}
           </div>
         </Card>
-        <WizardSummary rows={summary} onJump={jump} />
+        {!(form.source === "import" && importedBackup) && <WizardSummary rows={summary} onJump={jump} />}
       </div>
     </div>
   );
