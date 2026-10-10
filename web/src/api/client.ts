@@ -33,6 +33,7 @@ import type {
   ProjectShare,
   SiteImport,
   UploadedBackup,
+  RemoteProject,
   SiteImportResult,
   TestRun,
   TestSuite,
@@ -466,6 +467,8 @@ export const api = {
     remoteInstance: (id: string) => request<{ backups: RemoteBackup[] }>(`/offsite/targets/${encodeURIComponent(id)}/instance`),
     fetchInstance: (id: string, key: string) => request<{ backup: InstanceBackup }>(`/offsite/targets/${encodeURIComponent(id)}/instance/fetch`, { method: "POST", body: { key } }),
     removeRemote: (id: string, key: string) => request<void>(`/offsite/targets/${encodeURIComponent(id)}/remove`, { method: "POST", body: { key } }),
+    remoteProjects: (id: string) => request<{ projects: RemoteProject[] }>(`/offsite/targets/${encodeURIComponent(id)}/projects`),
+    fetchProject: (id: string, key: string) => request<{ backup: UploadedBackup }>(`/offsite/targets/${encodeURIComponent(id)}/projects/fetch`, { method: "POST", body: { key } }),
   },
 
   backups: {

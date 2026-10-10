@@ -247,7 +247,7 @@ export function InstanceBackupsCard() {
         {targets.length > 0 && (
           <div className="space-y-2 border-t border-default pt-4">
             <p className="text-sm font-medium text-fg">{t("From an offsite target")}</p>
-            <p className="text-xs text-muted">{t("After losing the host: set up a fresh Envoryx, add the same target with the same passphrase, fetch the newest instance backup here and restore it. Then fetch each project's backup in its Backups section.")}</p>
+            <p className="text-xs text-muted">{t("After losing the host: set up a fresh Envoryx, add the same target with the same passphrase, fetch the newest instance backup here and restore it. Then fetch each project's backup in its Backups section. A project this Envoryx doesn't have comes back under Backups of deleted projects → From an offsite target.")}</p>
             <RemoteBackups
               targets={targets}
               queryKey={["instance-backups", "remote"]}
