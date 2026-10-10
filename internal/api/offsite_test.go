@@ -49,6 +49,22 @@ func (m *memTarget) List(_ context.Context, dir string) ([]offsite.Object, error
 	return out, nil
 }
 
+func (m *memTarget) Dirs(_ context.Context, dir string) ([]string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	seen := map[string]bool{}
+	var out []string
+	for k := range m.files {
+		if rest, ok := strings.CutPrefix(k, dir+"/"); ok {
+			if name, _, nested := strings.Cut(rest, "/"); nested && !seen[name] {
+				seen[name] = true
+				out = append(out, name)
+			}
+		}
+	}
+	return out, nil
+}
+
 func (m *memTarget) Delete(_ context.Context, key string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -130,6 +146,36 @@ func TestOffsiteEndpoints(t *testing.T) {
 	r = a.do(http.MethodGet, "/api/v1/projects/"+id+"/backups", nil, false)
 	if list := r.body["backups"].([]any); len(list) != 1 || list[0].(map[string]any)["missing"] != false {
 		t.Fatalf("after fetch: %s", r.raw)
+	}
+
+	// The project is gone for good, here and its local backups too: the target still lists
+	// it, and its backup comes back as one of a deleted project, restorable into a new one.
+	if r := a.do(http.MethodDelete, "/api/v1/projects/"+id, map[string]any{"confirm": "shop", "deleteFiles": true}, true); r.status != http.StatusNoContent && r.status != http.StatusOK {
+		t.Fatalf("delete project: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodGet, "/api/v1/backups/orphaned", nil, false)
+	for _, o := range r.body["backups"].([]any) {
+		b := o.(map[string]any)["backup"].(map[string]any)["id"].(string)
+		if r := a.do(http.MethodDelete, "/api/v1/backups/orphaned/"+id+"/"+b, nil, true); r.status != http.StatusNoContent {
+			t.Fatalf("delete orphan: %d %s", r.status, r.raw)
+		}
+	}
+	r = a.do(http.MethodGet, "/api/v1/offsite/targets/"+targetID+"/projects", nil, false)
+	projects := r.body["projects"].([]any)
+	if r.status != http.StatusOK || len(projects) != 1 || projects[0].(map[string]any)["slug"] != "shop" {
+		t.Fatalf("remote projects: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodPost, "/api/v1/offsite/targets/"+targetID+"/projects/fetch", map[string]any{"key": key}, true)
+	if r.status != http.StatusCreated || r.body["backup"].(map[string]any)["projectExists"] != false {
+		t.Fatalf("fetch of a deleted project's backup: %d %s", r.status, r.raw)
+	}
+	fetched := r.body["backup"].(map[string]any)["backup"].(map[string]any)["id"].(string)
+	r = a.do(http.MethodPost, "/api/v1/backups/"+id+"/"+fetched+"/restore-new", map[string]any{"name": "Shop"}, true)
+	if r.status != http.StatusCreated || r.body["project"].(map[string]any)["slug"] != "shop" {
+		t.Fatalf("restore into a new project: %d %s", r.status, r.raw)
+	}
+	if r := a.do(http.MethodPost, "/api/v1/offsite/targets/"+targetID+"/projects/fetch", map[string]any{"key": "instance/x.tar.gz"}, true); r.status != http.StatusUnprocessableEntity {
+		t.Fatalf("a key outside projects/: %d %s", r.status, r.raw)
 	}
 
 	// Instance backups: upload by hand, list and fetch from the target.

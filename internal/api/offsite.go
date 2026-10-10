@@ -242,6 +242,41 @@ func (a *API) fetchRemoteInstanceBackup(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, http.StatusCreated, map[string]any{"backup": info})
 }
 
+// listRemoteProjects handles GET /offsite/targets/{target}/projects: every project
+// directory on the target with its backups, also of projects this Envoryx doesn't have.
+func (a *API) listRemoteProjects(w http.ResponseWriter, r *http.Request) {
+	s, ok := a.syncer(w, r)
+	if !ok {
+		return
+	}
+	list, err := s.ListProjects(r.Context(), r.PathValue("target"))
+	if err != nil {
+		offsiteError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"projects": list})
+}
+
+// fetchRemoteProjectBackup handles POST /offsite/targets/{target}/projects/fetch: it copies
+// a project backup back without naming its project, ready to be restored into a new one.
+func (a *API) fetchRemoteProjectBackup(w http.ResponseWriter, r *http.Request) {
+	s, ok := a.syncer(w, r)
+	if !ok {
+		return
+	}
+	var req remoteKeyRequest
+	if err := decodeJSON(w, r, &req); err != nil {
+		writeError(w, r, err)
+		return
+	}
+	backup, err := s.FetchAnyProject(r.Context(), r.PathValue("target"), req.Key)
+	if err != nil {
+		offsiteError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, map[string]any{"backup": backup})
+}
+
 // deleteRemoteBackup: POST /offsite/targets/{target}/remove.
 func (a *API) deleteRemoteBackup(w http.ResponseWriter, r *http.Request) {
 	s, ok := a.syncer(w, r)

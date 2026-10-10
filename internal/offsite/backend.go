@@ -32,6 +32,8 @@ type Backend interface {
 	Get(ctx context.Context, key string) (io.ReadCloser, error)
 	// List returns the objects below dir (one level; dir without trailing slash).
 	List(ctx context.Context, dir string) ([]Object, error)
+	// Dirs returns the names of the directories right below dir.
+	Dirs(ctx context.Context, dir string) ([]string, error)
 	// Delete removes an object; a missing one is not an error.
 	Delete(ctx context.Context, key string) error
 	// Close releases connections.
@@ -113,6 +115,24 @@ func (b *s3Backend) List(ctx context.Context, dir string) ([]Object, error) {
 			continue
 		}
 		out = append(out, Object{Key: dir + "/" + rest, Size: o.Size, Modified: o.LastModified})
+	}
+	return out, nil
+}
+
+func (b *s3Backend) Dirs(ctx context.Context, dir string) ([]string, error) {
+	prefix := b.key(dir) + "/"
+	objs, err := b.c.ListPrefix(ctx, b.bucket, prefix)
+	if err != nil {
+		return nil, err
+	}
+	seen := map[string]bool{}
+	var out []string
+	for _, o := range objs {
+		name, _, nested := strings.Cut(strings.TrimPrefix(o.Key, prefix), "/")
+		if nested && name != "" && !seen[name] {
+			seen[name] = true
+			out = append(out, name)
+		}
 	}
 	return out, nil
 }
@@ -239,7 +259,15 @@ type multistatus struct {
 	} `xml:"response"`
 }
 
-func (b *webdavBackend) List(ctx context.Context, dir string) ([]Object, error) {
+// davEntry is a member of a WebDAV collection.
+type davEntry struct {
+	name string
+	dir  bool
+	obj  Object
+}
+
+// propfind lists the members of the collection dir (not dir itself).
+func (b *webdavBackend) propfind(ctx context.Context, dir string) ([]davEntry, error) {
 	body := `<?xml version="1.0" encoding="utf-8"?><propfind xmlns="DAV:"><prop><getcontentlength/><getlastmodified/><resourcetype/></prop></propfind>`
 	res, err := b.request(ctx, "PROPFIND", b.prefix+"/"+dir+"/", strings.NewReader(body), map[string]string{"Depth": "1", "Content-Type": "application/xml"})
 	if err != nil {
@@ -257,34 +285,59 @@ func (b *webdavBackend) List(ctx context.Context, dir string) ([]Object, error) 
 	if err := xml.NewDecoder(io.LimitReader(res.Body, 16<<20)).Decode(&ms); err != nil {
 		return nil, fmt.Errorf("webdav PROPFIND: %w", err)
 	}
-	var out []Object
+	// The collection answers for itself too; hrefs may be paths or full URLs.
+	hrefPath := func(h string) string {
+		if u, err := url.Parse(h); err == nil {
+			h = u.Path
+		}
+		h, _ = url.PathUnescape(h)
+		return strings.TrimRight(path.Clean("/"+h), "/")
+	}
+	self := hrefPath(b.url(b.prefix + "/" + dir + "/"))
+	var out []davEntry
 	for _, r := range ms.Responses {
 		href, err := url.PathUnescape(r.Href)
-		if err != nil {
+		if err != nil || hrefPath(r.Href) == self {
 			continue
 		}
-		name := path.Base(strings.TrimRight(href, "/"))
-		if strings.HasSuffix(href, "/") {
-			continue
-		}
-		o := Object{Key: dir + "/" + name}
+		e := davEntry{name: path.Base(strings.TrimRight(href, "/")), dir: strings.HasSuffix(href, "/")}
+		e.obj.Key = dir + "/" + e.name
 		for _, ps := range r.Props {
 			if ps.Prop.ResourceType.Collection != nil {
-				o.Key = ""
-				break
+				e.dir = true
 			}
 			if ps.Prop.Length > 0 {
-				o.Size = ps.Prop.Length
+				e.obj.Size = ps.Prop.Length
 			}
 			if t, err := http.ParseTime(ps.Prop.LastModified); err == nil {
-				o.Modified = t
+				e.obj.Modified = t
 			}
 		}
-		if o.Key != "" {
-			out = append(out, o)
-		}
+		out = append(out, e)
 	}
 	return out, nil
+}
+
+func (b *webdavBackend) List(ctx context.Context, dir string) ([]Object, error) {
+	entries, err := b.propfind(ctx, dir)
+	var out []Object
+	for _, e := range entries {
+		if !e.dir {
+			out = append(out, e.obj)
+		}
+	}
+	return out, err
+}
+
+func (b *webdavBackend) Dirs(ctx context.Context, dir string) ([]string, error) {
+	entries, err := b.propfind(ctx, dir)
+	var out []string
+	for _, e := range entries {
+		if e.dir {
+			out = append(out, e.name)
+		}
+	}
+	return out, err
 }
 
 func (b *webdavBackend) Delete(ctx context.Context, key string) error {

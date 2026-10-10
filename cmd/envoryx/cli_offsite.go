@@ -240,3 +240,88 @@ func (c *cli) backupFetch(ctx context.Context, args []string) error {
 	c.printf("Fetched as backup %s of %s (%s, %s). Restore it with: envoryx backup restore %s %s --yes\n", out.Backup.ID, p.Slug, out.Backup.contents(), humanSize(out.Backup.SizeBytes), p.Slug, out.Backup.ID)
 	return nil
 }
+
+// backupRecover lists every project's backups on an offsite target, or fetches one and
+// restores it into a new project: the way back for projects this Envoryx doesn't have.
+func (c *cli) backupRecover(ctx context.Context, args []string) error {
+	fs := c.newFlags("backup recover")
+	target := fs.String("target", "", "offsite target name or id")
+	path := fs.String("path", "", "directory of the new project")
+	start := fs.Bool("start", false, "start the new project")
+	pos, err := parse(fs, args)
+	if err != nil {
+		return err
+	}
+	api, err := c.connect()
+	if err != nil {
+		return err
+	}
+	ctx, cancel := c.context(ctx)
+	defer cancel()
+	var targets struct {
+		Targets []offsiteTarget `json:"targets"`
+	}
+	if err := api.get(ctx, "/api/v1/offsite", nil, &targets); err != nil {
+		return err
+	}
+	t, err := offsiteTargetFor(targets.Targets, *target)
+	if err != nil {
+		return err
+	}
+	var remote struct {
+		Projects []struct {
+			Slug    string         `json:"slug"`
+			Backups []remoteBackup `json:"backups"`
+		} `json:"projects"`
+	}
+	if err := api.get(ctx, "/api/v1/offsite/targets/"+t.ID+"/projects", nil, &remote); err != nil {
+		return err
+	}
+	want := arg(pos, 0)
+	if want == "" {
+		if c.json {
+			return c.printJSON(remote.Projects)
+		}
+		var rows [][]string
+		for _, p := range remote.Projects {
+			for _, b := range p.Backups {
+				enc := ""
+				if b.Encrypted {
+					enc = "encrypted"
+				}
+				rows = append(rows, []string{p.Slug + "/" + b.ID, b.CreatedAt.Local().Format("2006-01-02 15:04"), b.Kind, humanSize(b.SizeBytes), b.Source, enc})
+			}
+		}
+		if len(rows) == 0 {
+			c.printf("No project backups on %s.\n", t.Name)
+			return nil
+		}
+		c.table([]string{"BACKUP", "CREATED", "CONTENTS", "SIZE", "SOURCE", ""}, rows)
+		return nil
+	}
+	slug, id, _ := strings.Cut(want, "/")
+	key := ""
+	for _, p := range remote.Projects {
+		if p.Slug != slug {
+			continue
+		}
+		for _, b := range p.Backups {
+			if b.ID == id || (id == "" && key == "") {
+				key = b.Key
+			}
+		}
+	}
+	if key == "" {
+		return fmt.Errorf("no backup %q on %s (envoryx backup recover shows them)", want, t.Name)
+	}
+	var fetched struct {
+		Backup uploadedBackup `json:"backup"`
+	}
+	if err := api.post(ctx, "/api/v1/offsite/targets/"+t.ID+"/projects/fetch", map[string]string{"key": key}, &fetched); err != nil {
+		return err
+	}
+	if fetched.Backup.ProjectName == "" {
+		fetched.Backup.ProjectName = slug
+	}
+	return c.restoreUploadedBackup(ctx, api, fetched.Backup, arg(pos, 1), *path, *start, false)
+}
