@@ -9,16 +9,16 @@ import (
 	"time"
 
 	"github.com/envoryx/envoryx/internal/acme"
-	"github.com/envoryx/envoryx/internal/notify"
-
 	"github.com/envoryx/envoryx/internal/audit"
 	"github.com/envoryx/envoryx/internal/auth"
 	"github.com/envoryx/envoryx/internal/config"
 	"github.com/envoryx/envoryx/internal/docker"
 	"github.com/envoryx/envoryx/internal/hostpath"
 	"github.com/envoryx/envoryx/internal/instance"
+	"github.com/envoryx/envoryx/internal/notify"
 	"github.com/envoryx/envoryx/internal/offsite"
 	"github.com/envoryx/envoryx/internal/oidc"
+	"github.com/envoryx/envoryx/internal/plan"
 	"github.com/envoryx/envoryx/internal/project"
 	"github.com/envoryx/envoryx/internal/runtime"
 	"github.com/envoryx/envoryx/internal/stats"
@@ -164,6 +164,10 @@ func (a *API) guard(need auth.Scope, pattern string, h http.HandlerFunc) http.Ha
 		default:
 			err = p.Require(need, "")
 		}
+		if err == nil && (r.Method == http.MethodPost || r.Method == http.MethodPut) && strings.Contains(pattern, "/offsite") {
+			// Without offsite targets in the plan nothing is sent to or fetched from one.
+			err = a.d.Projects.Plan().RequireFeature(plan.FeatureOffsite)
+		}
 		if err != nil {
 			writeError(w, r, err)
 			return
@@ -210,6 +214,7 @@ func (a *API) Mount(mux *http.ServeMux, protect func(http.Handler) http.Handler)
 	adm("POST /api/v1/docker/images/prune", a.pruneImages)
 	adm("POST /api/v1/docker/orphans/remove", a.removeOrphan)
 	rd("GET /api/v1/settings", a.settings)
+	rd("GET /api/v1/plan", a.planStatus)
 	adm("PATCH /api/v1/settings", a.updateSettings)
 	adm("GET /api/v1/settings/oidc", a.oidcSettings)
 	adm("PUT /api/v1/settings/oidc", a.setOIDCSettings)

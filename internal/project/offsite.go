@@ -142,6 +142,9 @@ type backupOwner struct{ ID, Slug, Name string }
 // storeBackupArchive unpacks a backup tar, lets owner decide whose backup it becomes,
 // and records it below that project's backup directory.
 func (m *Manager) storeBackupArchive(ctx context.Context, r io.Reader, owner func(backupFile) (backupOwner, error)) (BackupInfo, error) {
+	if err := m.checkDiskQuota(); err != nil {
+		return BackupInfo{}, err
+	}
 	paths, err := m.paths()
 	if err != nil {
 		return BackupInfo{}, fmt.Errorf("%w: %v", ErrNotConfigured, err)

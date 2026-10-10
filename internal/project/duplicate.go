@@ -123,6 +123,10 @@ func (m *Manager) duplicate(ctx context.Context, id string, req DuplicateRequest
 		m.createMu.Unlock()
 		return View{}, err
 	}
+	if err := m.checkNewProject(ctx, proj); err != nil {
+		m.createMu.Unlock()
+		return View{}, err
+	}
 	if err := m.store.Projects.Create(ctx, &proj); err != nil {
 		m.createMu.Unlock()
 		return View{}, err

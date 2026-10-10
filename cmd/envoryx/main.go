@@ -51,6 +51,7 @@ import (
 	"github.com/envoryx/envoryx/internal/notify"
 	"github.com/envoryx/envoryx/internal/offsite"
 	"github.com/envoryx/envoryx/internal/oidc"
+	"github.com/envoryx/envoryx/internal/plan"
 	"github.com/envoryx/envoryx/internal/project"
 	"github.com/envoryx/envoryx/internal/proxy"
 	"github.com/envoryx/envoryx/internal/runtime"
@@ -276,6 +277,15 @@ func serve() error {
 	if err := bootstrapAdmin(ctx, cfg, sessions, auditLog, log); err != nil {
 		return err
 	}
+	// A hoster's plan limits a managed instance; without the file nothing is limited.
+	plans, err := plan.Open(filepath.Join(cfg.ConfigDir, plan.File), log)
+	if err != nil {
+		return fmt.Errorf("plan: %w", err)
+	}
+	if pl := plans.Get(); pl != nil {
+		log.Info("plan loaded", "name", pl.Name)
+	}
+	sessions.SetPlan(plans)
 
 	catalog := runtime.Default()
 	paths := func() (project.Paths, error) {
@@ -300,6 +310,7 @@ func serve() error {
 		ConfigDir: cfg.ConfigDir, BackupsDir: cfg.BackupsDir,
 	}, log)
 	manager.SetSecretKeySource(keySource)
+	manager.SetPlan(plans)
 	// Plain values from before encryption and values of an older key get the current key;
 	// only then are the key files of a rotation or restore gone.
 	if rep, err := manager.ResealAll(ctx); err != nil {
@@ -332,6 +343,7 @@ func serve() error {
 		if notifier != nil {
 			syncer.Notify = notifier
 		}
+		syncer.Allowed = func() bool { return plans.Get().Allows(plan.FeatureOffsite) }
 		manager.SetBackupHook(syncer.OnProjectBackup)
 	}
 
@@ -368,6 +380,7 @@ func serve() error {
 		manager.SetLogStore(logStore)
 		background("log history", func(ctx context.Context) { manager.RunLogHistory(ctx, 5*time.Second, log) })
 	}
+	background("plan disk usage", func(ctx context.Context) { manager.RunDiskUsage(ctx, 5*time.Minute) })
 	background("disk space monitor", func(ctx context.Context) {
 		disk.Monitor(ctx, 5*time.Minute, notifier, log, cfg.ConfigDir, cfg.ProjectsDir, cfg.BackupsDir)
 	})
@@ -462,6 +475,16 @@ func serve() error {
 		MCP: mcpSrv.Handler(), SSH: sshInfo, Log: log, StartedAt: time.Now(), Updates: updates, OIDC: oidc.New(st, sessions, log),
 		Instance: backups, DB: sqlDB, Restart: requestRestart, Warnings: warnings, Offsite: syncer,
 	})
+	// What the plan fixes applies now and whenever the plan changes.
+	if err := a.ApplyPlanSettings(ctx); err != nil {
+		log.Warn("plan: settings not applied", "err", err)
+	}
+	plans.OnChange(func(*plan.Plan) {
+		if err := a.ApplyPlanSettings(ctx); err != nil {
+			log.Warn("plan: settings not applied", "err", err)
+		}
+	})
+	background("plan", func(ctx context.Context) { plans.Run(ctx, 30*time.Second) })
 	var origins []string
 	if cfg.DevMode {
 		origins = append(origins, cfg.DevOrigin)

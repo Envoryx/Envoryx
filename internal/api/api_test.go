@@ -31,6 +31,7 @@ import (
 	"github.com/envoryx/envoryx/internal/mcpserver"
 	"github.com/envoryx/envoryx/internal/notify"
 	"github.com/envoryx/envoryx/internal/offsite"
+	"github.com/envoryx/envoryx/internal/plan"
 	"github.com/envoryx/envoryx/internal/project"
 	"github.com/envoryx/envoryx/internal/runtime"
 	"github.com/envoryx/envoryx/internal/s3"
@@ -58,6 +59,8 @@ type testApp struct {
 	// offsite copies backups into offsiteMem (Pass runs the queue).
 	offsite    *offsite.Syncer
 	offsiteMem *memTarget
+	// plans is the instance's plan, from <cfgDir>/plan.json (setPlan).
+	plans *plan.Holder
 }
 
 func newApp(t *testing.T) *testApp {
@@ -117,9 +120,21 @@ func newApp(t *testing.T) *testApp {
 			return app.offsiteMem, nil
 		}}
 	manager.SetBackupHook(app.offsite.OnProjectBackup)
+	app.plans, err = plan.Open(filepath.Join(cfgDir, plan.File), log)
+	if err != nil {
+		t.Fatal(err)
+	}
+	manager.SetPlan(app.plans)
+	sessions.SetPlan(app.plans)
+	app.offsite.Allowed = func() bool { return app.plans.Get().Allows(plan.FeatureOffsite) }
 	a := api.New(api.Deps{Config: cfg, Version: "test", Store: st, Auth: sessions, Audit: auditLog, Engine: engine, Projects: manager, Updates: update.Disabled("test"),
 		Catalog: runtime.Default(), Stats: stats.New(engine, time.Second, log), HostPath: resolver, Certs: certs, ACME: acmeMgr, Notify: notifier, Proxy: proxyInfo, MCP: mcpSrv.Handler(), Log: log, StartedAt: time.Now(),
 		Instance: backups, DB: sqlDB, Restart: func() { app.restarts++ }, Offsite: app.offsite})
+	app.plans.OnChange(func(*plan.Plan) {
+		if err := a.ApplyPlanSettings(context.Background()); err != nil {
+			t.Errorf("plan settings: %v", err)
+		}
+	})
 	s := server.New(server.Options{Addr: ":0", Log: log, MCP: mcpSrv.Handler()}, a, sessions, nil)
 	handler := serverHandler(s)
 	srv := httptest.NewServer(handler)

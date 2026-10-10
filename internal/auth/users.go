@@ -45,6 +45,9 @@ func (s *Service) InviteUser(ctx context.Context, username string, role Role) (s
 	if _, err := ParseRole(string(role)); err != nil {
 		return "", store.User{}, fmt.Errorf("%w: %v", validate.ErrInvalid, err)
 	}
+	if err := s.CheckUserQuota(ctx); err != nil {
+		return "", store.User{}, err
+	}
 	token, hash, err := newInvite()
 	if err != nil {
 		return "", store.User{}, err
@@ -163,6 +166,10 @@ func (s *Service) SetUserDisabled(ctx context.Context, id string, disabled bool)
 	}
 	if disabled {
 		if err := s.keepsAnAdmin(ctx, u); err != nil {
+			return store.User{}, err
+		}
+	} else if u.Disabled {
+		if err := s.CheckUserQuota(ctx); err != nil {
 			return store.User{}, err
 		}
 	}

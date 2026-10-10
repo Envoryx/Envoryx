@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/envoryx/envoryx/internal/plan"
 	"github.com/envoryx/envoryx/internal/store"
 )
 
@@ -61,6 +62,28 @@ type Service struct {
 	now   func() time.Time
 
 	limiter *loginLimiter
+	// plan is the hoster's plan of a managed instance; it caps the active users.
+	plan *plan.Holder
+}
+
+// SetPlan hands the service the instance's plan.
+func (s *Service) SetPlan(h *plan.Holder) { s.plan = h }
+
+// CheckUserQuota refuses one more active user when the plan's users are taken.
+func (s *Service) CheckUserQuota(ctx context.Context) error {
+	pl := s.plan.Get()
+	if pl == nil || pl.Limits.Users == 0 {
+		return nil
+	}
+	max := pl.Limits.Users
+	n, err := s.store.Users.CountActive(ctx)
+	if err != nil {
+		return err
+	}
+	if n >= max {
+		return plan.Quota("this instance has reached the plan's user limit (%d); disable a user first", max)
+	}
+	return nil
 }
 
 // NewService creates a session service.

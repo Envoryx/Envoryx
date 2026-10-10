@@ -22,6 +22,7 @@ import (
 	"github.com/envoryx/envoryx/internal/docker"
 	"github.com/envoryx/envoryx/internal/logs"
 	"github.com/envoryx/envoryx/internal/notify"
+	"github.com/envoryx/envoryx/internal/plan"
 	"github.com/envoryx/envoryx/internal/runtime"
 	"github.com/envoryx/envoryx/internal/s3"
 	"github.com/envoryx/envoryx/internal/secrets"
@@ -56,6 +57,10 @@ type Manager struct {
 
 	store  *store.Store
 	engine docker.Engine
+	// plan is the hoster's plan of a managed instance, usage what it is checked against
+	// (plan.go).
+	plan  *plan.Holder
+	usage planUsage
 	// custom holds the build specs and context hashes of custom images (customimages.go).
 	custom customImages
 	// addons are the installed addon files (addons.go).

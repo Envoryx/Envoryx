@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/envoryx/envoryx/internal/audit"
+	"github.com/envoryx/envoryx/internal/plan"
 	"github.com/envoryx/envoryx/internal/store"
 	"github.com/envoryx/envoryx/internal/validate"
 )
@@ -127,7 +128,7 @@ func (m *Manager) ResolveSSHUser(ctx context.Context, user string) (ExecTarget, 
 			Env:        append([]string{"LANG=C.UTF-8", "TERM=xterm-256color", "SHELL=/bin/sh"}, toolEnv...),
 			WorkingDir: appMountTarget, ProjectDir: planner.ProjectDir(p), HomeDir: planner.HomeDir(p),
 			AppMount: appMountTarget, HomeMount: homeMountTarget,
-			ContainerName: ContainerName(p.Slug, kind), Gateway: p.IDEGateway && !static,
+			ContainerName: ContainerName(p.Slug, kind), Gateway: p.IDEGateway && !static && m.Plan().Allows(plan.FeatureIDEGateway),
 			Static: static,
 		}
 		if static {

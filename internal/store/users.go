@@ -38,6 +38,15 @@ func (r *Users) Count(ctx context.Context) (int, error) {
 	return n, nil
 }
 
+// CountActive returns the number of users who aren't disabled.
+func (r *Users) CountActive(ctx context.Context) (int, error) {
+	var n int
+	if err := r.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM users WHERE disabled = 0`).Scan(&n); err != nil {
+		return 0, fmt.Errorf("count users: %w", err)
+	}
+	return n, nil
+}
+
 // Create inserts a new user. The caller supplies an already hashed password.
 func (r *Users) Create(ctx context.Context, username, passwordHash, role string) (User, error) {
 	return r.Insert(ctx, User{Username: username, PasswordHash: passwordHash, Role: role})

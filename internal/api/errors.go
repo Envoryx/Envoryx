@@ -15,6 +15,7 @@ import (
 	"github.com/envoryx/envoryx/internal/disk"
 	"github.com/envoryx/envoryx/internal/docker"
 	"github.com/envoryx/envoryx/internal/instance"
+	"github.com/envoryx/envoryx/internal/plan"
 	"github.com/envoryx/envoryx/internal/project"
 	"github.com/envoryx/envoryx/internal/store"
 	"github.com/envoryx/envoryx/internal/validate"
@@ -72,6 +73,8 @@ func writeError(w http.ResponseWriter, r *http.Request, err error) {
 		ae = newError(http.StatusConflict, "last_admin", err.Error())
 	case errors.Is(err, validate.ErrInvalid), errors.Is(err, auth.ErrWeakPassword), errors.Is(err, auth.ErrInvalidScope):
 		ae = newError(http.StatusUnprocessableEntity, "validation_failed", err.Error())
+	case errors.Is(err, plan.ErrQuota):
+		ae = newError(http.StatusForbidden, "plan_limit", err.Error())
 	case errors.Is(err, auth.ErrForbidden):
 		ae = newError(http.StatusForbidden, "forbidden", strings.TrimPrefix(err.Error(), auth.ErrForbidden.Error()+": "))
 	case errors.Is(err, store.ErrNotFound), errors.Is(err, docker.ErrNotFound), errors.Is(err, instance.ErrNotFound):
