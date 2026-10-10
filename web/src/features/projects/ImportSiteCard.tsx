@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { FileArchive, RotateCcw, Upload } from "lucide-react";
+import { ArchiveRestore, FileArchive, RotateCcw, Upload } from "lucide-react";
 import { api } from "@/api/client";
-import type { SiteImport } from "@/api/types";
+import type { SiteImport, UploadedBackup } from "@/api/types";
 import { Alert, Button, Checkbox, Code, Field, Input } from "@/components/ui";
 import { errorText } from "@/lib/errors";
-import { formatBytes } from "@/lib/format";
+import { formatBytes, formatDateTime } from "@/lib/format";
+import { RestoreNewDialog } from "./RestoreNewDialog";
 
 const runtimeNames: Record<string, string> = { php: "PHP", static: "Static site", node: "Node.js", python: "Python", go: "Go", ruby: "Ruby", java: "Java", dotnet: ".NET" };
 const databaseNames: Record<string, string> = { mariadb: "MariaDB", mysql: "MySQL", postgresql: "PostgreSQL" };
@@ -14,6 +15,7 @@ const webNames: Record<string, string> = { apache: "Apache", caddy: "Caddy", ngi
 /**
  * The "existing website" source of the project wizard: uploads the site's files (and a
  * database dump), shows what Envoryx recognised and whether it adapts the configuration.
+ * A backup Envoryx made is stored as a backup instead and restored into a new project.
  */
 export function ImportSiteCard({
   value,
@@ -33,6 +35,8 @@ export function ImportSiteCard({
   const [dump, setDump] = useState<File | null>(null);
   const [progress, setProgress] = useState<{ loaded: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [backup, setBackup] = useState<UploadedBackup | null>(null);
+  const [restoring, setRestoring] = useState(false);
 
   const upload = () => {
     if (!site) return;
@@ -42,7 +46,12 @@ export function ImportSiteCard({
       .upload(site, dump, (loaded, total) => setProgress({ loaded, total }))
       .then((r) => {
         setProgress(null);
-        onUploaded(r.import);
+        if (r.backup) {
+          setBackup(r.backup);
+          setRestoring(true);
+        } else if (r.import) {
+          onUploaded(r.import);
+        }
       })
       .catch((err: unknown) => {
         setProgress(null);
@@ -50,13 +59,44 @@ export function ImportSiteCard({
       });
   };
 
+  if (backup) {
+    const name = backup.projectName || backup.slug;
+    return (
+      <div className="space-y-4 rounded-md border border-default p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <ArchiveRestore className="mt-0.5 size-5 shrink-0 text-accent-600" />
+            <div>
+              <p className="text-sm font-medium text-fg">{t("Recognised: a backup of {{name}} from {{date}}", { name, date: formatDateTime(backup.backup.createdAt) })}</p>
+              <p className="text-xs text-subtle">
+                {site?.name} · {formatBytes(backup.backup.sizeBytes)}
+              </p>
+            </div>
+          </div>
+          <Button variant="ghost" onClick={() => { setBackup(null); setSite(null); }} icon={<RotateCcw className="size-4" />}>
+            {t("Other files")}
+          </Button>
+        </div>
+        <p className="text-sm text-muted">
+          {backup.projectExists
+            ? t("Envoryx made this backup. It is one of the backups of {{name}} now and is restored into a new project with the settings it was made with.", { name })
+            : t("Envoryx made this backup. It is listed under Settings → Backups → Backups of deleted projects now and is restored into a new project with the settings it was made with.")}
+        </p>
+        <Button variant="primary" onClick={() => setRestoring(true)} icon={<ArchiveRestore className="size-4" />}>
+          {t("Restore into a new project")}
+        </Button>
+        <RestoreNewDialog projectId={backup.projectId} projectName={name} backup={restoring ? backup.backup : null} onClose={() => setRestoring(false)} />
+      </div>
+    );
+  }
+
   if (!value) {
     const busy = progress !== null;
     const percent = progress && progress.total > 0 ? Math.min(100, Math.round((progress.loaded / progress.total) * 100)) : 0;
     return (
       <div className="space-y-4 rounded-md border border-default p-4">
         <p className="text-sm text-muted">{t("Upload the files of the site as the old host or your FTP client packs them. Envoryx recognises WordPress, Laravel, Symfony, Drupal, TYPO3, Joomla and plain PHP or HTML sites and suggests the settings of the next steps.")}</p>
-        <Field label={t("Website archive")} htmlFor="import-site" hint={t("ZIP or tar.gz of the site's files. A single folder around them (public_html, httpdocs…) is left out.")}>
+        <Field label={t("Website archive")} htmlFor="import-site" hint={t("ZIP or tar.gz of the site's files. A single folder around them (public_html, httpdocs…) is left out. A backup downloaded from Envoryx is restored into a new project.")}>
           <Input id="import-site" type="file" accept=".zip,.tar,.tar.gz,.tgz,application/zip,application/gzip,application/x-tar" disabled={busy} onChange={(e) => setSite(e.target.files?.[0] ?? null)} />
         </Field>
         <Field label={t("Database dump (optional)")} htmlFor="import-dump" hint={t(".sql or .sql.gz, e.g. an export from phpMyAdmin, mysqldump or pg_dump. It is imported into the project database.")}>

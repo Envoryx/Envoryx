@@ -1955,7 +1955,7 @@
   "The files are unpacked into the project directory.": "Pliki zostaną rozpakowane do katalogu projektu.",
   "Upload the files of the site as the old host or your FTP client packs them. Envoryx recognises WordPress, Laravel, Symfony, Drupal, TYPO3, Joomla and plain PHP or HTML sites and suggests the settings of the next steps.": "Prześlij pliki strony w takiej postaci, w jakiej pakuje je stary hosting lub klient FTP. Envoryx rozpoznaje WordPress, Laravel, Symfony, Drupal, TYPO3, Joomla oraz proste strony PHP i HTML i proponuje ustawienia kolejnych kroków.",
   "Website archive": "Archiwum strony",
-  "ZIP or tar.gz of the site's files. A single folder around them (public_html, httpdocs…) is left out.": "ZIP lub tar.gz z plikami strony. Pojedynczy folder wokół nich (public_html, httpdocs…) zostaje pominięty.",
+  "ZIP or tar.gz of the site's files. A single folder around them (public_html, httpdocs…) is left out. A backup downloaded from Envoryx is restored into a new project.": "ZIP lub tar.gz z plikami strony. Pojedynczy folder wokół nich (public_html, httpdocs…) zostaje pominięty. Kopia zapasowa pobrana z Envoryx zostaje przywrócona do nowego projektu.",
   "Database dump (optional)": "Zrzut bazy danych (opcjonalnie)",
   ".sql or .sql.gz, e.g. an export from phpMyAdmin, mysqldump or pg_dump. It is imported into the project database.": ".sql lub .sql.gz, np. eksport z phpMyAdmin, mysqldump lub pg_dump. Zostanie zaimportowany do bazy danych projektu.",
   "Upload progress": "Postęp przesyłania",
@@ -2780,5 +2780,8 @@
   "The backup of {{name}} from {{date}} is removed for good; copies on offsite targets stay there.": "Kopia zapasowa {{name}} z {{date}} zostanie usunięta na stałe; kopie w miejscach zewnętrznych tam zostają.",
   "Restoring a backup into {{name}}": "Przywracanie kopii zapasowej do {{name}}",
   "{{name}} restored from the backup": "{{name}} przywrócony z kopii zapasowej",
-  "Backup restored into a new project": "Kopia zapasowa przywrócona do nowego projektu"
+  "Backup restored into a new project": "Kopia zapasowa przywrócona do nowego projektu",
+  "Recognised: a backup of {{name}} from {{date}}": "Rozpoznano: kopia zapasowa {{name}} z {{date}}",
+  "Envoryx made this backup. It is one of the backups of {{name}} now and is restored into a new project with the settings it was made with.": "Envoryx utworzył tę kopię zapasową. Należy teraz do kopii zapasowych {{name}} i zostaje przywrócona do nowego projektu z ustawieniami, z którymi została utworzona.",
+  "Envoryx made this backup. It is listed under Settings → Backups → Backups of deleted projects now and is restored into a new project with the settings it was made with.": "Envoryx utworzył tę kopię zapasową. Jest teraz widoczna w Ustawienia → Kopie zapasowe → Kopie zapasowe usuniętych projektów i zostaje przywrócona do nowego projektu z ustawieniami, z którymi została utworzona."
 }

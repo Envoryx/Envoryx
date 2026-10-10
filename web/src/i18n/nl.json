@@ -1919,7 +1919,7 @@
   "The files are unpacked into the project directory.": "De bestanden worden in de projectmap uitgepakt.",
   "Upload the files of the site as the old host or your FTP client packs them. Envoryx recognises WordPress, Laravel, Symfony, Drupal, TYPO3, Joomla and plain PHP or HTML sites and suggests the settings of the next steps.": "Upload de bestanden van de site zoals de oude host of je FTP-programma ze inpakt. Envoryx herkent WordPress, Laravel, Symfony, Drupal, TYPO3, Joomla en eenvoudige PHP- of HTML-sites en stelt de instellingen van de volgende stappen voor.",
   "Website archive": "Websitearchief",
-  "ZIP or tar.gz of the site's files. A single folder around them (public_html, httpdocs…) is left out.": "ZIP of tar.gz met de bestanden van de site. Eén map eromheen (public_html, httpdocs…) wordt weggelaten.",
+  "ZIP or tar.gz of the site's files. A single folder around them (public_html, httpdocs…) is left out. A backup downloaded from Envoryx is restored into a new project.": "ZIP of tar.gz met de bestanden van de site. Eén map eromheen (public_html, httpdocs…) wordt weggelaten. Een uit Envoryx gedownloade back-up wordt in een nieuw project hersteld.",
   "Database dump (optional)": "Databasedump (optioneel)",
   ".sql or .sql.gz, e.g. an export from phpMyAdmin, mysqldump or pg_dump. It is imported into the project database.": ".sql of .sql.gz, bijv. een export uit phpMyAdmin, mysqldump of pg_dump. Deze wordt in de projectdatabase geïmporteerd.",
   "Upload progress": "Uploadvoortgang",
@@ -2732,5 +2732,8 @@
   "The backup of {{name}} from {{date}} is removed for good; copies on offsite targets stay there.": "De back-up van {{name}} van {{date}} wordt definitief verwijderd; kopieën op offsite-doelen blijven daar.",
   "Restoring a backup into {{name}}": "Back-up wordt hersteld in {{name}}",
   "{{name}} restored from the backup": "{{name}} hersteld uit de back-up",
-  "Backup restored into a new project": "Back-up hersteld in een nieuw project"
+  "Backup restored into a new project": "Back-up hersteld in een nieuw project",
+  "Recognised: a backup of {{name}} from {{date}}": "Herkend: een back-up van {{name}} van {{date}}",
+  "Envoryx made this backup. It is one of the backups of {{name}} now and is restored into a new project with the settings it was made with.": "Envoryx heeft deze back-up gemaakt. Hij hoort nu bij de back-ups van {{name}} en wordt in een nieuw project hersteld met de instellingen waarmee hij is gemaakt.",
+  "Envoryx made this backup. It is listed under Settings → Backups → Backups of deleted projects now and is restored into a new project with the settings it was made with.": "Envoryx heeft deze back-up gemaakt. Hij staat nu onder Instellingen → Back-ups → Back-ups van verwijderde projecten en wordt in een nieuw project hersteld met de instellingen waarmee hij is gemaakt."
 }

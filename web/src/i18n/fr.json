@@ -1919,7 +1919,7 @@
   "The files are unpacked into the project directory.": "Les fichiers sont décompressés dans le répertoire du projet.",
   "Upload the files of the site as the old host or your FTP client packs them. Envoryx recognises WordPress, Laravel, Symfony, Drupal, TYPO3, Joomla and plain PHP or HTML sites and suggests the settings of the next steps.": "Téléversez les fichiers du site tels que l'ancien hébergeur ou votre client FTP les archive. Envoryx reconnaît WordPress, Laravel, Symfony, Drupal, TYPO3, Joomla ainsi que les sites PHP ou HTML simples et propose les réglages des étapes suivantes.",
   "Website archive": "Archive du site",
-  "ZIP or tar.gz of the site's files. A single folder around them (public_html, httpdocs…) is left out.": "ZIP ou tar.gz des fichiers du site. Un dossier unique qui les englobe (public_html, httpdocs…) est ignoré.",
+  "ZIP or tar.gz of the site's files. A single folder around them (public_html, httpdocs…) is left out. A backup downloaded from Envoryx is restored into a new project.": "ZIP ou tar.gz des fichiers du site. Un dossier unique qui les englobe (public_html, httpdocs…) est ignoré. Une sauvegarde téléchargée depuis Envoryx est restaurée dans un nouveau projet.",
   "Database dump (optional)": "Dump de base de données (facultatif)",
   ".sql or .sql.gz, e.g. an export from phpMyAdmin, mysqldump or pg_dump. It is imported into the project database.": ".sql ou .sql.gz, p. ex. un export de phpMyAdmin, mysqldump ou pg_dump. Il est importé dans la base de données du projet.",
   "Upload progress": "Progression du téléversement",
@@ -2732,5 +2732,8 @@
   "The backup of {{name}} from {{date}} is removed for good; copies on offsite targets stay there.": "La sauvegarde de {{name}} du {{date}} est supprimée définitivement ; les copies sur les cibles hors site y restent.",
   "Restoring a backup into {{name}}": "Restauration d'une sauvegarde dans {{name}}",
   "{{name}} restored from the backup": "{{name}} restauré depuis la sauvegarde",
-  "Backup restored into a new project": "Sauvegarde restaurée dans un nouveau projet"
+  "Backup restored into a new project": "Sauvegarde restaurée dans un nouveau projet",
+  "Recognised: a backup of {{name}} from {{date}}": "Reconnu : une sauvegarde de {{name}} du {{date}}",
+  "Envoryx made this backup. It is one of the backups of {{name}} now and is restored into a new project with the settings it was made with.": "Envoryx a créé cette sauvegarde. Elle fait désormais partie des sauvegardes de {{name}} et est restaurée dans un nouveau projet avec les paramètres de sa création.",
+  "Envoryx made this backup. It is listed under Settings → Backups → Backups of deleted projects now and is restored into a new project with the settings it was made with.": "Envoryx a créé cette sauvegarde. Elle figure désormais sous Paramètres → Sauvegardes → Sauvegardes des projets supprimés et est restaurée dans un nouveau projet avec les paramètres de sa création."
 }
