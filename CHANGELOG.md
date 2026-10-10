@@ -10,6 +10,11 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.26.1] - 2026-10-10
+
+Debugging .NET from VS Code and Rider works as the IDE section describes
+it: VS Code with Microsoft's vsdbg, Rider with port forwarding switched on.
+
 ### Fixed
 - Debugging .NET from VS Code: the `launch.json` in the IDE section used
   netcoredbg, which ignores `sourceFileMap`, so breakpoints set in the files
@@ -1944,7 +1949,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.26.0...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.26.1...HEAD
+[0.26.1]: https://github.com/envoryx/envoryx/compare/v0.26.0...v0.26.1
 [0.26.0]: https://github.com/envoryx/envoryx/compare/v0.25.0...v0.26.0
 [0.25.0]: https://github.com/envoryx/envoryx/compare/v0.24.0...v0.25.0
 [0.24.0]: https://github.com/envoryx/envoryx/compare/v0.23.1...v0.24.0
