@@ -946,11 +946,18 @@ folder and HTTP cache live in the package cache (see
 - **Debugging.** There's no debug port. The IDEs start a debugger inside the
   container over the SSH user `<project>.dotnet` and attach to the running
   application (under `dotnet watch` it's the process named after the project,
-  not `dotnet watch` itself). VS Code with the C# extension uses netcoredbg
-  (`/usr/local/bin/netcoredbg`) through `pipeTransport`; Microsoft's own
-  `vsdbg` may only be used from Microsoft's IDEs, so the image doesn't ship
-  it. Store your public key under *Settings → SSH keys* first, since the pipe
-  can't answer a password prompt. A `.vscode/launch.json`:
+  not `dotnet watch` itself). VS Code with the C# extension debugs with
+  Microsoft's `vsdbg` through `pipeTransport`. `vsdbg` may only be used with
+  Microsoft's tools, so the image doesn't ship it: install it once in the
+  .NET terminal, where it stays in the project home,
+
+  ```sh
+  curl -sSL https://aka.ms/getvsdbgsh | sh /dev/stdin -v latest -l ~/.vsdbg
+  ```
+
+  The C# extension also needs a .NET SDK on your computer, or it refuses to
+  debug. Store your public key under *Settings → SSH keys* first, since the
+  pipe can't answer a password prompt. A `.vscode/launch.json`:
 
   ```json
   {
@@ -963,18 +970,28 @@ folder and HTTP cache live in the package cache (see
         "processId": "${command:pickRemoteProcess}",
         "pipeTransport": {
           "pipeProgram": "ssh",
-          "pipeArgs": ["-p", "2222", "shop.dotnet@<host>"],
+          "pipeArgs": ["-T", "-p", "2222", "shop.dotnet@<host>"],
           "pipeCwd": "${workspaceFolder}",
-          "debuggerPath": "/usr/local/bin/netcoredbg"
+          "debuggerPath": "/home/envoryx/.vsdbg/vsdbg"
         },
-        "sourceFileMap": { "/var/www/html": "${workspaceFolder}" }
+        "sourceFileMap": { "/var/www/html": "${workspaceFolder}" },
+        "requireExactSource": false
       }
     ]
   }
   ```
 
-  Rider and Visual Studio attach through *Attach to Remote Process* over an
-  SSH connection to the same user.
+  `requireExactSource` is off because `vsdbg` otherwise refuses every
+  breakpoint in a file opened from your computer ("Incorrect breakpoint
+  request format"). Rider and Visual Studio attach through *Attach to Remote
+  Process* over an SSH connection to the same user. Rider's debugger talks to
+  the IDE through SSH port forwarding, so switch on *Allow JetBrains Gateway
+  for this project* in the IDE section first; without it Rider shows the
+  session as connected but never stops, and the application hangs until the
+  session ends. netcoredbg stays in the image (`/usr/local/bin/netcoredbg`)
+  for other editors (nvim-dap, Emacs); it has no path mapping, so its
+  breakpoints only bind when the editor opens the files under
+  `/var/www/html`, for instance over Remote-SSH.
 - **Adding or removing .NET later.** The Runtime section's .NET card has an
   *Enable .NET* switch; removing it takes the .NET container and the .NET
   workers' containers down, while files and worker definitions stay. Over the

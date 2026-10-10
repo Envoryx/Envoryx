@@ -10,6 +10,20 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Fixed
+- Debugging .NET from VS Code: the `launch.json` in the IDE section used
+  netcoredbg, which ignores `sourceFileMap`, so breakpoints set in the files
+  on your computer never bound. It now uses Microsoft's `vsdbg`, which you
+  install once in the .NET terminal (the IDE section has the command; the
+  image can't ship it under its licence), with `requireExactSource` off,
+  since `vsdbg` refuses the breakpoints of a remote file otherwise.
+  netcoredbg stays in the image for other editors.
+- Rider's *Attach to Remote Process* needs SSH port forwarding: the IDE
+  section now says to switch on *Allow JetBrains Gateway for this project*
+  first. Without it Rider showed the session as connected while the
+  application hung. Switching it on now also counts for an SSH connection
+  that is already open, so the IDE doesn't have to log in again.
+
 ## [0.26.0] - 2026-10-10
 
 A backup downloaded from Envoryx can be uploaded again under *New project
