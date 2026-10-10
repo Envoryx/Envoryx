@@ -150,12 +150,15 @@ func (bf backupFile) export() (projectExport, error) {
 	switch {
 	case bf.SealedExport != "":
 		plain, err := secrets.Open(bf.SealedExport)
+		if errors.Is(err, secrets.ErrUnknownKey) {
+			return projectExport{}, fmt.Errorf("%w: the backup's project settings are sealed with the secret key of another Envoryx; start this one with that key (ENVORYX_SECRET_KEY or /config/secret.key)", validate.ErrInvalid)
+		}
 		if err != nil {
-			return projectExport{}, fmt.Errorf("%w: the backup's project settings are sealed with a key this instance doesn't have (%v); start Envoryx with the secret key of the instance that made the backup (ENVORYX_SECRET_KEY or /config/secret.key)", validate.ErrInvalid, err)
+			return projectExport{}, fmt.Errorf("%w: the backup's project settings can't be opened: %v", validate.ErrInvalid, err)
 		}
 		var ex projectExport
 		if err := json.Unmarshal([]byte(plain), &ex); err != nil {
-			return projectExport{}, fmt.Errorf("read the project settings: %w", err)
+			return projectExport{}, fmt.Errorf("%w: the backup's project settings are unreadable: %v", validate.ErrInvalid, err)
 		}
 		return ex, nil
 	case bf.Export != nil:

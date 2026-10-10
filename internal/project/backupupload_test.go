@@ -1,13 +1,16 @@
 package project
 
 import (
+	"archive/tar"
 	"bytes"
 	"compress/gzip"
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/envoryx/envoryx/internal/validate"
@@ -85,5 +88,32 @@ func TestImportBackupFile(t *testing.T) {
 
 	if _, err := e.m.ImportBackupFile(ctx, site); !errors.Is(err, validate.ErrInvalid) {
 		t.Fatalf("not a backup: %v", err)
+	}
+}
+
+// A backup whose project settings can't be read here is refused with the reason, not as
+// an internal error.
+func TestImportBackupFileRefusesUnreadableSettings(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	archive := func(sealed string) string {
+		var buf bytes.Buffer
+		tw := tar.NewWriter(&buf)
+		meta, _ := json.Marshal(map[string]any{"format": 1, "projectId": "3f0b4a9e-1a2b-4c3d-8e9f-0a1b2c3d4e5f", "projectName": "Gone", "slug": "gone", "sealedProject": sealed})
+		_ = tw.WriteHeader(&tar.Header{Name: "gone-20261010-010203-abcdef01/backup.json", Mode: 0o600, Size: int64(len(meta)), Typeflag: tar.TypeReg})
+		_, _ = tw.Write(meta)
+		_ = tw.Close()
+		f := filepath.Join(t.TempDir(), "gone.tar")
+		_ = os.WriteFile(f, buf.Bytes(), 0o600)
+		return f
+	}
+	for sealed, want := range map[string]string{
+		"envoryx:v1:deadbeef:AAAA": "secret key of another Envoryx",
+		"{not json":                "unreadable",
+	} {
+		_, err := e.m.ImportBackupFile(ctx, archive(sealed))
+		if !errors.Is(err, validate.ErrInvalid) || !strings.Contains(err.Error(), want) {
+			t.Fatalf("%s: %v", sealed, err)
+		}
 	}
 }
