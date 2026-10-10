@@ -142,11 +142,16 @@ func readExport(dir string) (projectExport, error) {
 	if err := json.Unmarshal(raw, &bf); err != nil {
 		return projectExport{}, fmt.Errorf("read %s: %w", backupMetaFile, err)
 	}
+	return bf.export()
+}
+
+// export returns the project export of backup.json, unsealed.
+func (bf backupFile) export() (projectExport, error) {
 	switch {
 	case bf.SealedExport != "":
 		plain, err := secrets.Open(bf.SealedExport)
 		if err != nil {
-			return projectExport{}, fmt.Errorf("%w: the backup's project settings are sealed with a key this instance doesn't have (%v)", validate.ErrInvalid, err)
+			return projectExport{}, fmt.Errorf("%w: the backup's project settings are sealed with a key this instance doesn't have (%v); start Envoryx with the secret key of the instance that made the backup (ENVORYX_SECRET_KEY or /config/secret.key)", validate.ErrInvalid, err)
 		}
 		var ex projectExport
 		if err := json.Unmarshal([]byte(plain), &ex); err != nil {

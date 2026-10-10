@@ -49,3 +49,47 @@ func TestRestoreBackupIntoNewProjectEndpoints(t *testing.T) {
 		t.Fatalf("read token: %d", res.StatusCode)
 	}
 }
+
+// A downloaded backup uploaded to the site import is stored as a backup of the deleted
+// project instead of being analysed as a website.
+func TestSiteImportTakesABackupArchive(t *testing.T) {
+	a := newApp(t)
+	a.setupAndLogin()
+	r := a.do(http.MethodPost, "/api/v1/projects", map[string]any{"name": "Shop", "php": map[string]any{"version": "8.4"}}, true)
+	if r.status != http.StatusCreated {
+		t.Fatalf("create: %d %s", r.status, r.raw)
+	}
+	id := r.body["project"].(map[string]any)["id"].(string)
+	r = a.do(http.MethodPost, "/api/v1/projects/"+id+"/backups", map[string]any{"files": true}, true)
+	if r.status != http.StatusCreated {
+		t.Fatalf("backup: %d %s", r.status, r.raw)
+	}
+	backup := r.body["backup"].(map[string]any)["id"].(string)
+	dl := a.do(http.MethodGet, "/api/v1/projects/"+id+"/backups/"+backup+"/download", nil, false)
+	if dl.status != http.StatusOK {
+		t.Fatalf("download: %d", dl.status)
+	}
+	if r := a.do(http.MethodDelete, "/api/v1/projects/"+id, map[string]any{"confirm": "shop", "deleteFiles": true}, true); r.status != http.StatusNoContent && r.status != http.StatusOK {
+		t.Fatalf("delete: %d %s", r.status, r.raw)
+	}
+	if r := a.do(http.MethodDelete, "/api/v1/backups/orphaned/"+id+"/"+backup, nil, true); r.status != http.StatusNoContent {
+		t.Fatalf("delete orphan: %d %s", r.status, r.raw)
+	}
+
+	if r := uploadSite(t, a, dl.raw, "SELECT 1;"); r.status != http.StatusUnprocessableEntity {
+		t.Fatalf("backup with a dump: %d %s", r.status, r.raw)
+	}
+	r = uploadSite(t, a, dl.raw, "")
+	if r.status != http.StatusCreated || r.body["import"] != nil {
+		t.Fatalf("upload: %d %s", r.status, r.raw)
+	}
+	up := r.body["backup"].(map[string]any)
+	if up["projectId"] != id || up["projectExists"] != false || up["slug"] != "shop" {
+		t.Fatalf("uploaded backup: %v", up)
+	}
+	newID := up["backup"].(map[string]any)["id"].(string)
+	r = a.do(http.MethodPost, "/api/v1/backups/"+id+"/"+newID+"/restore-new", map[string]any{"name": "Shop"}, true)
+	if r.status != http.StatusCreated || r.body["project"].(map[string]any)["slug"] != "shop" {
+		t.Fatalf("restore: %d %s", r.status, r.raw)
+	}
+}

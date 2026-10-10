@@ -29,6 +29,10 @@ recognises WordPress, Laravel, Symfony, Drupal, TYPO3, Joomla and plain PHP or H
 sites and picks PHP version, extensions, document root, web server and database;
 the flags below override what it suggests. The name defaults to the folder's.
 
+A backup downloaded from Envoryx (the .tar of a project backup) is restored into a new
+project with the settings it was made with; the name defaults to the backup's project,
+and only --path and --start apply.
+
   --db FILE            SQL dump (.sql or .sql.gz) to import into the project database
   --no-adapt           leave the site's configuration files exactly as uploaded
                        (otherwise wp-config.php & co. are wired to the project database)
@@ -74,6 +78,17 @@ type siteImport struct {
 	Analysis siteAnalysis `json:"analysis"`
 }
 
+// uploadedBackup is a backup archive the server recognised in the upload.
+type uploadedBackup struct {
+	ProjectID     string `json:"projectId"`
+	ProjectName   string `json:"projectName"`
+	ProjectExists bool   `json:"projectExists"`
+	Backup        struct {
+		ID        string `json:"id"`
+		CreatedAt string `json:"createdAt"`
+	} `json:"backup"`
+}
+
 type importSpec struct {
 	ID          string `json:"id"`
 	AdaptConfig bool   `json:"adaptConfig"`
@@ -111,7 +126,8 @@ func (c *cli) importSite(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	name := arg(pos, 1)
+	givenName := arg(pos, 1)
+	name := givenName
 	if name == "" {
 		abs, _ := filepath.Abs(source)
 		name = strings.TrimSpace(regexp.MustCompile(`(?i)\.(zip|tgz|tar\.gz|tar)$`).ReplaceAllString(filepath.Base(abs), ""))
@@ -134,9 +150,12 @@ func (c *cli) importSite(ctx context.Context, args []string) error {
 	} else {
 		fmt.Fprintf(c.errOut, "Uploading %s (%s)…\n", source, humanSize(info.Size()))
 	}
-	staged, err := uploadSite(ctx, api, source, info.IsDir(), *dump)
+	staged, backup, err := uploadSite(ctx, api, source, info.IsDir(), *dump)
 	if err != nil {
 		return err
+	}
+	if backup != nil {
+		return c.restoreUploadedBackup(ctx, api, *backup, givenName, *path, *start, *dryRun)
 	}
 	a := staged.Analysis
 	discard := func() {
@@ -293,9 +312,48 @@ func orDefault(v string) string {
 	return v
 }
 
+// restoreUploadedBackup restores a backup the server recognised in the upload into a new
+// project. The server keeps the backup either way: with its project, or with the backups
+// of deleted projects.
+func (c *cli) restoreUploadedBackup(ctx context.Context, api *client, b uploadedBackup, name, path string, start, dryRun bool) error {
+	if name == "" {
+		name = b.ProjectName
+	}
+	if dryRun {
+		if c.json {
+			return c.printJSON(map[string]any{"backup": b})
+		}
+		c.printf("Recognised a backup of %s from %s\n", b.ProjectName, b.Backup.CreatedAt)
+		c.printf("Dry run: no project was created; the backup is kept on the server.\n")
+		return nil
+	}
+	var body struct {
+		Project projectSummary `json:"project"`
+	}
+	req := map[string]any{"name": name, "start": start}
+	if path != "" {
+		req["path"] = path
+	}
+	if err := api.post(ctx, "/api/v1/backups/"+b.ProjectID+"/"+b.Backup.ID+"/restore-new", req, &body); err != nil {
+		return err
+	}
+	if c.json {
+		return c.printJSON(body)
+	}
+	c.printf("Restored the backup of %s from %s as %s (%s)\n", b.ProjectName, b.Backup.CreatedAt, body.Project.Name, body.Project.Slug)
+	if u := body.Project.URL(); u != "" {
+		c.printf("  %s\n", u)
+	}
+	if !start {
+		c.printf("  Start it with: envoryx project start %s\n", body.Project.Slug)
+	}
+	return nil
+}
+
 // uploadSite streams the site (a folder packed on the fly, or an archive as it is) and
-// the dump to the server as one multipart request; nothing is written to disk here.
-func uploadSite(ctx context.Context, api *client, source string, isDir bool, dump string) (siteImport, error) {
+// the dump to the server as one multipart request; nothing is written to disk here. A
+// backup Envoryx made comes back as such instead of a staged site.
+func uploadSite(ctx context.Context, api *client, source string, isDir bool, dump string) (siteImport, *uploadedBackup, error) {
 	pr, pw := io.Pipe()
 	mw := multipart.NewWriter(pw)
 	go func() {
@@ -330,11 +388,12 @@ func uploadSite(ctx context.Context, api *client, source string, isDir bool, dum
 		_ = pw.CloseWithError(err)
 	}()
 	var out struct {
-		Import siteImport `json:"import"`
+		Import siteImport      `json:"import"`
+		Backup *uploadedBackup `json:"backup"`
 	}
 	err := api.upload(ctx, "/api/v1/site-imports", mw.FormDataContentType(), pr, &out)
 	_ = pr.Close()
-	return out.Import, err
+	return out.Import, out.Backup, err
 }
 
 func copyFile(name string, w io.Writer) error {
