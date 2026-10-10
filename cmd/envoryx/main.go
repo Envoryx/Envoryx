@@ -44,6 +44,7 @@ import (
 	"github.com/envoryx/envoryx/internal/db"
 	"github.com/envoryx/envoryx/internal/disk"
 	"github.com/envoryx/envoryx/internal/docker"
+	"github.com/envoryx/envoryx/internal/fleet"
 	"github.com/envoryx/envoryx/internal/hostpath"
 	"github.com/envoryx/envoryx/internal/instance"
 	"github.com/envoryx/envoryx/internal/logs"
@@ -51,6 +52,7 @@ import (
 	"github.com/envoryx/envoryx/internal/notify"
 	"github.com/envoryx/envoryx/internal/offsite"
 	"github.com/envoryx/envoryx/internal/oidc"
+	"github.com/envoryx/envoryx/internal/plan"
 	"github.com/envoryx/envoryx/internal/project"
 	"github.com/envoryx/envoryx/internal/proxy"
 	"github.com/envoryx/envoryx/internal/runtime"
@@ -276,6 +278,15 @@ func serve() error {
 	if err := bootstrapAdmin(ctx, cfg, sessions, auditLog, log); err != nil {
 		return err
 	}
+	// A hoster's plan limits a managed instance; without the file nothing is limited.
+	plans, err := plan.Open(filepath.Join(cfg.ConfigDir, plan.File), log)
+	if err != nil {
+		return fmt.Errorf("plan: %w", err)
+	}
+	if pl := plans.Get(); pl != nil {
+		log.Info("plan loaded", "name", pl.Name)
+	}
+	sessions.SetPlan(plans)
 
 	catalog := runtime.Default()
 	paths := func() (project.Paths, error) {
@@ -300,6 +311,7 @@ func serve() error {
 		ConfigDir: cfg.ConfigDir, BackupsDir: cfg.BackupsDir,
 	}, log)
 	manager.SetSecretKeySource(keySource)
+	manager.SetPlan(plans)
 	// Plain values from before encryption and values of an older key get the current key;
 	// only then are the key files of a rotation or restore gone.
 	if rep, err := manager.ResealAll(ctx); err != nil {
@@ -332,6 +344,7 @@ func serve() error {
 		if notifier != nil {
 			syncer.Notify = notifier
 		}
+		syncer.Allowed = func() bool { return plans.Get().Allows(plan.FeatureOffsite) }
 		manager.SetBackupHook(syncer.OnProjectBackup)
 	}
 
@@ -368,6 +381,7 @@ func serve() error {
 		manager.SetLogStore(logStore)
 		background("log history", func(ctx context.Context) { manager.RunLogHistory(ctx, 5*time.Second, log) })
 	}
+	background("plan disk usage", func(ctx context.Context) { manager.RunDiskUsage(ctx, 5*time.Minute) })
 	background("disk space monitor", func(ctx context.Context) {
 		disk.Monitor(ctx, 5*time.Minute, notifier, log, cfg.ConfigDir, cfg.ProjectsDir, cfg.BackupsDir)
 	})
@@ -456,12 +470,31 @@ func serve() error {
 	if cfg.UpdateCheck {
 		updates = update.New(version, "", log)
 	}
+	// A hoster's fleet manager pushes the plan and gets the instance's state back.
+	fleetAgent, err := fleet.New(fleet.Config{URL: cfg.FleetURL, Token: cfg.FleetToken, ConfigDir: cfg.ConfigDir, Plan: plans, Log: log,
+		Status: func(ctx context.Context) fleet.Status { return fleetStatus(ctx, st, manager, version, instanceID) }})
+	if err != nil {
+		return fmt.Errorf("fleet: %w", err)
+	}
+	if fleetAgent != nil {
+		background("fleet", fleetAgent.Run)
+	}
 	a := api.New(api.Deps{
 		Config: cfg, Version: version, Store: st, Auth: sessions, Audit: auditLog, Engine: engine,
 		Projects: manager, Catalog: catalog, Stats: collector, HostPath: resolver, Certs: certs, ACME: acmeMgr, Notify: notifier, Proxy: proxyInfo,
 		MCP: mcpSrv.Handler(), SSH: sshInfo, Log: log, StartedAt: time.Now(), Updates: updates, OIDC: oidc.New(st, sessions, log),
-		Instance: backups, DB: sqlDB, Restart: requestRestart, Warnings: warnings, Offsite: syncer,
+		Instance: backups, DB: sqlDB, Restart: requestRestart, Warnings: warnings, Offsite: syncer, Fleet: fleetAgent,
 	})
+	// What the plan fixes applies now and whenever the plan changes.
+	if err := a.ApplyPlanSettings(ctx); err != nil {
+		log.Warn("plan: settings not applied", "err", err)
+	}
+	plans.OnChange(func(*plan.Plan) {
+		if err := a.ApplyPlanSettings(ctx); err != nil {
+			log.Warn("plan: settings not applied", "err", err)
+		}
+	})
+	background("plan", func(ctx context.Context) { plans.Run(ctx, 30*time.Second) })
 	var origins []string
 	if cfg.DevMode {
 		origins = append(origins, cfg.DevOrigin)
@@ -784,4 +817,23 @@ func warnStrandedBackups(cfg config.Config, log *slog.Logger) {
 	}
 	log.Warn("backups directory moved but the old location is not empty; move its contents to the new directory to make those backups visible",
 		"old", old, "new", cfg.BackupsDir)
+}
+
+// fleetStatus is what the instance reports to its fleet manager.
+func fleetStatus(ctx context.Context, st *store.Store, m *project.Manager, version, instanceID string) fleet.Status {
+	s := fleet.Status{Version: version, InstanceID: instanceID}
+	if projects, err := st.Projects.List(ctx); err == nil {
+		s.Usage.Projects = len(projects)
+		for _, p := range projects {
+			if p.DesiredState == store.DesiredRunning {
+				s.Usage.RunningProjects++
+			}
+			if p.Lifecycle == store.LifecycleFailed {
+				s.Warnings = append(s.Warnings, fmt.Sprintf("project %s failed: %s", p.Name, p.LastError))
+			}
+		}
+	}
+	s.Usage.Users, _ = st.Users.CountActive(ctx)
+	s.Usage.DiskBytes, _ = m.DiskUsage()
+	return s
 }

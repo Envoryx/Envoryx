@@ -1,7 +1,8 @@
 import { Folder, Save } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
-import { useSettings, useUpdateSettings } from "@/api/hooks";
+import { useSettingLocked, useSettings, useUpdateSettings } from "@/api/hooks";
+import { LockedHint } from "@/features/plan/PlanCard";
 import { Alert, Button, Card, CardHeader, ErrorState, Field, Input, Spinner } from "@/components/ui";
 import { errorText } from "@/lib/errors";
 
@@ -10,6 +11,7 @@ export function UnraidCard() {
   const { t } = useTranslation();
   const s = useSettings();
   const update = useUpdateSettings();
+  const locked = useSettingLocked("folderViewFolder");
   const current = s.data?.folderViewFolder ?? "";
   const [folder, setFolder] = useState(current);
   const [msg, setMsg] = useState<{ tone: "green" | "red"; text: string } | null>(null);
@@ -50,7 +52,8 @@ export function UnraidCard() {
         <form onSubmit={submit} className="space-y-4 p-5">
           {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
           <Field label={t("FolderView3 folder")} htmlFor="folderview-folder" hint={t("Create a folder with exactly this name in FolderView3 first. Leave empty for no label - a folder with the regex ^envoryx- collects the containers as well.")}>
-            <Input id="folderview-folder" value={folder} onChange={(e) => setFolder(e.target.value)} placeholder="Envoryx" maxLength={64} spellCheck={false} />
+            <Input id="folderview-folder" value={folder} onChange={(e) => setFolder(e.target.value)} placeholder="Envoryx" maxLength={64} spellCheck={false} disabled={locked} />
+            {locked && <LockedHint />}
           </Field>
           <Button type="submit" variant="primary" loading={update.isPending} disabled={folder.trim() === current} icon={<Save className="size-4" />}>
             {t("Save")}

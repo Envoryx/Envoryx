@@ -3,7 +3,8 @@ import { useTranslation } from "react-i18next";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/client";
-import { useSettings, useUpdateSettings } from "@/api/hooks";
+import { useSettingLocked, useSettings, useUpdateSettings } from "@/api/hooks";
+import { LockedHint } from "@/features/plan/PlanCard";
 import { Alert, Button, Card, CardHeader, Checkbox, Code, ErrorState, Spinner } from "@/components/ui";
 import { errorText } from "@/lib/errors";
 import { formatBytes } from "@/lib/format";
@@ -18,6 +19,7 @@ export function PackageCacheCard() {
   const [msg, setMsg] = useState<{ tone: "green" | "red"; text: string } | null>(null);
   const settings = useSettings();
   const update = useUpdateSettings();
+  const locked = useSettingLocked("sharedPackageCache");
   const clear = useMutation({
     mutationFn: async (tool: string) => (await api.packageCache.clear(tool)).cache,
     onSuccess: (cache, tool) => {
@@ -51,7 +53,7 @@ export function PackageCacheCard() {
               label={t("Share the package cache between projects")}
               description={t("Only when you trust everyone who works on a project here: every project can change the shared cache, and Composer, pip, Maven and others take a cached package without checking it, so a developer of one project could plant code another project installs. Projects pick the change up when they are restarted.")}
               checked={settings.data?.sharedPackageCache ?? q.data.shared}
-              disabled={update.isPending || !settings.data}
+              disabled={update.isPending || !settings.data || locked}
               onChange={(e) => {
                 setMsg(null);
                 update.mutate(
@@ -63,6 +65,7 @@ export function PackageCacheCard() {
                 );
               }}
             />
+            {locked && <LockedHint />}
             <p className="text-sm">
               {t("In use: {{size}}", { size: formatBytes(q.data.bytes) })} <span className="text-xs text-subtle">· <Code>{q.data.path}</Code></span>
             </p>

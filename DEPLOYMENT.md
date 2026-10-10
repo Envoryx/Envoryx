@@ -76,6 +76,7 @@ docker build -t ghcr.io/envoryx/envoryx:dev --build-arg VERSION=dev .
 | `ENVORYX_ADMIN_USER` / `ENVORYX_ADMIN_PASSWORD` | - | Create the first admin non-interactively |
 | `ENVORYX_SECRET_KEY` | - | Key that encrypts the stored secrets (base64 of 32 bytes or 64 hex digits, e.g. `openssl rand -base64 32`); without it Envoryx keeps one in `/config/secret.key`, see [Secret key](#secret-key) |
 | `ENVORYX_SECRET_KEY_OLD` | - | The previous key, for one start after changing `ENVORYX_SECRET_KEY` |
+| `ENVORYX_FLEET_URL` / `ENVORYX_FLEET_TOKEN` | - | The hoster's fleet manager and the one-time token the instance enrolls with, see [Plans](#plans-managed-instances) |
 | `ENVORYX_SESSION_IDLE_TIMEOUT` | `12h` | Sliding session expiry |
 | `ENVORYX_SESSION_ABSOLUTE_TIMEOUT` | `168h` | Hard session expiry |
 | `ENVORYX_SECURE_COOKIES` | `false` | Mark cookies `Secure` (enable behind HTTPS) |
@@ -2557,6 +2558,84 @@ something goes wrong, the login page says why.
 The settings API: `GET/PUT /api/v1/settings/oidc` (admin; the answer has `hasSecret`
 instead of the secret) and `POST /api/v1/settings/oidc/test`. The public
 `GET /api/v1/auth/oidc` tells the login page whether to show the button.
+
+## Plans (managed instances)
+
+A hoster who rents out machines with Envoryx can limit each instance with a
+plan: the file `/config/plan.json`. Without the file nothing is limited and
+Envoryx behaves as it always did. The hoster's fleet manager writes the file
+(see below); without one, the hoster puts it there (cloud-init, configuration
+management).
+
+```json
+{
+  "name": "Starter",
+  "limits": { "projects": 5, "users": 3, "diskGb": 50 },
+  "runtimes": ["php", "node"],
+  "disabled": ["customImages", "ideGateway"],
+  "settings": { "baseDomain": "c1042.example.net", "forceHttps": true }
+}
+```
+
+- **limits**: projects (branch environments count as projects), active users
+  and the disk space of the projects: their directories, volumes and backups.
+  The disk space is measured every five minutes; once it is used up, new
+  projects and backups are refused until there is room again. 0 or a missing
+  value means no limit. CPU and memory are what the machine has.
+- **runtimes**: the runtimes new projects may use (`php`, `node`, `python`,
+  `go`, `ruby`, `java`, `dotnet`); empty or missing for all. A static site
+  needs no runtime and is always possible.
+- **disabled**: features the plan switches off: `addons`, `customImages`,
+  `branchEnvironments`, `externalServices`, `offsite` (no targets, nothing is
+  sent or fetched) and `ideGateway` (no port forwarding over SSH).
+- **settings**: instance settings the hoster fixes, by their name in
+  `PATCH /api/v1/settings`: `publicHost`, `baseDomain`, `forceHttps`,
+  `projectsFollowEnvoryx`, `sharedIdeBackends`, `sharedPackageCache`,
+  `xdebugClientHost`, `folderViewFolder`, `metricsRetentionDays`. They are
+  applied when the plan is read, and the admins of the instance see them
+  locked.
+
+Envoryx reads the file at the start and checks it for changes every 30
+seconds. A file it can't read stops the start (an instance that should be
+limited must not run without its limits); a broken change keeps the plan it
+had and says so in the log. The plan only limits what comes next: projects,
+users and features that exist when it arrives or shrinks stay, so a smaller
+plan doesn't take anything away, it only refuses more.
+
+The plan stays out of instance backups, and a restored backup never brings
+one along, like the secret key and the instance ID.
+
+Settings → General shows the plan and how much of it is used; everyone signed
+in can read it at `GET /api/v1/plan`. A refusal comes back as HTTP 403 with the
+code `plan_limit`.
+
+### The fleet manager
+
+With a fleet manager the hoster keeps the plans in one place. The manager
+gives a new instance a one-time token; the instance starts with
+
+```
+ENVORYX_FLEET_URL=https://fleet.example.net
+ENVORYX_FLEET_TOKEN=…
+```
+
+enrolls with a key of its own on its first start (kept in
+`/config/fleet.json`, never in instance backups) and keeps a connection to
+the manager open from then on; the token is used up and can stay set or go.
+The instance dials out, so it needs no open port. Over the connection the
+manager sends the plan, which the instance writes to `/config/plan.json` and
+takes over at once, and the instance reports its version, projects, users and
+disk space every minute. A plan the instance can't read is not taken over and
+the manager hears why.
+
+Settings → General shows the manager and whether the instance is in touch.
+When the hoster removes the instance from the fleet, it stops connecting and
+keeps its last plan. To move an instance to another machine, the manager
+issues a new token; enrolling with it replaces the old key.
+
+A plan only binds those who can't change the file: the customers of a hoster
+get Envoryx (the web UI, SSH into the project containers, SFTP, the API), but
+no shell on the machine and no access to the Docker socket.
 
 ## AI assistants (MCP)
 

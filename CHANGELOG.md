@@ -10,6 +10,24 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Added
+- Plans for managed instances: a hoster who rents out machines with Envoryx
+  limits each instance with `/config/plan.json` - the number of projects and
+  users, the disk space, the runtimes, the features (addons, custom images,
+  branch environments, external services, offsite targets, IDE gateway) and
+  instance settings it fixes. Envoryx picks up changes to the file while it
+  runs, refuses what goes beyond the plan with a clear message, hides what
+  the plan leaves out and shows the plan with its use under Settings →
+  General. Without the file nothing changes. See DEPLOYMENT.md, *Plans*.
+- The fleet manager of a hoster: with `ENVORYX_FLEET_URL` and a one-time
+  `ENVORYX_FLEET_TOKEN` the instance enrolls, keeps a connection to the
+  manager open (it dials out, no open port needed), takes over the plan the
+  manager sends and reports its version and use every minute.
+
+### Changed
+- Restoring an instance backup never takes the secret key, the instance ID
+  or the plan from the archive, also from one that carries them.
+
 ## [0.27.1] - 2026-10-10
 
 Fixes from a test round of every restore path, upgraded from 0.24.0: a

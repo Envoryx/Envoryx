@@ -1642,6 +1642,44 @@ export interface Settings {
   dockerHost: string;
   session: { idleTimeout: string; absoluteTimeout: string };
   secureCookies: boolean;
+  /** The settings the hoster's plan fixes, by their name in UpdateSettingsRequest. */
+  lockedSettings?: string[];
+}
+
+/** A part of Envoryx a hoster's plan can switch off. */
+export type PlanFeature = "addons" | "customImages" | "branchEnvironments" | "externalServices" | "offsite" | "ideGateway";
+
+/** What a hoster allows a managed instance; zero limits mean no limit. */
+export interface Plan {
+  name: string;
+  limits: { projects?: number; users?: number; diskGb?: number };
+  /** The runtimes new projects may use; empty for all. */
+  runtimes: string[];
+  disabled: PlanFeature[];
+  lockedSettings: string[];
+}
+
+export interface PlanUsage {
+  projects: number;
+  users: number;
+  diskBytes: number;
+  diskMeasuredAt?: string;
+}
+
+/** The connection to the hoster's fleet manager. */
+export interface FleetInfo {
+  url: string;
+  name?: string;
+  connected: boolean;
+  lastContact?: string;
+  error?: string;
+}
+
+/** The instance's plan; plan is null on an instance without one, fleet on one no fleet manages. */
+export interface PlanStatus {
+  plan: Plan | null;
+  usage?: PlanUsage;
+  fleet?: FleetInfo | null;
 }
 
 /** One difference between a project and its envoryx.yml. */

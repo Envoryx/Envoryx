@@ -458,6 +458,9 @@ func (m *Manager) createBackup(ctx context.Context, id string, opts BackupOption
 // createBackupLocked does the work of createBackup for callers that already hold the
 // project lock (e.g. a database upgrade that must back up first).
 func (m *Manager) createBackupLocked(ctx context.Context, p store.Project, opts BackupOptions) (BackupInfo, error) {
+	if err := m.checkDiskQuota(); err != nil {
+		return BackupInfo{}, err
+	}
 	paths, err := m.paths()
 	if err != nil {
 		return BackupInfo{}, fmt.Errorf("%w: %v", ErrNotConfigured, err)
