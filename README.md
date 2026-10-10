@@ -114,8 +114,8 @@ and/or a Node.js container. Your files are bind-mounted from `/projects/<name>` 
   ASP.NET Core under `dotnet watch` with hot reload, publishes once and runs the DLL in
   production mode, runs any other published application (worker services, console hosts),
   and takes the project URL when there's no PHP. `ConnectionStrings__DefaultConnection`
-  points at the project database. There's no debug port: VS Code starts `netcoredbg` in the
-  container over SSH, Rider attaches over SSH.
+  points at the project database. There's no debug port: VS Code starts Microsoft's `vsdbg`
+  in the container over SSH (installed once by you), Rider attaches over SSH.
 
 Each runtime's version is selectable, and you can add one to a project later. A runtime can
 also run an image of your own: one from a (private) registry, or a Dockerfile in the project
@@ -281,7 +281,7 @@ Java, else .NET, else Node);
 `<project>.php` / `<project>.python` / `<project>.go` / `<project>.ruby` / `<project>.java` /
 `<project>.dotnet` / `<project>.node` pick one explicitly. The IDE section has the Xdebug server
 and path mapping, `.idea/php.xml`, Node inspector, debugpy, Delve, rdbg and JDWP details, a
-VS Code `launch.json` for netcoredbg and JDBC URLs, and JetBrains Gateway is optional
+VS Code `launch.json` for .NET and JDBC URLs, and JetBrains Gateway is optional
 (backend in the container, kept per project unless you share it).
 
 Notifications (ntfy, Discord, Slack, Telegram, e-mail, generic webhook) tell you about
