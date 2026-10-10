@@ -10,6 +10,12 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.26.0] - 2026-10-10
+
+A backup downloaded from Envoryx can be uploaded again under *New project
+→ Existing website* and is restored into a new project from there, also
+on another Envoryx with the same secret key.
+
 ### Added
 - A backup downloaded from Envoryx can be uploaded again: *New project →
   Existing website* recognises it (the `.tar`, also gzipped) instead of
@@ -1924,7 +1930,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.25.0...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.26.0...HEAD
+[0.26.0]: https://github.com/envoryx/envoryx/compare/v0.25.0...v0.26.0
 [0.25.0]: https://github.com/envoryx/envoryx/compare/v0.24.0...v0.25.0
 [0.24.0]: https://github.com/envoryx/envoryx/compare/v0.23.1...v0.24.0
 [0.23.1]: https://github.com/envoryx/envoryx/compare/v0.23.0...v0.23.1
