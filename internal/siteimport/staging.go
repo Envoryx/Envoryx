@@ -106,6 +106,15 @@ func (u *Upload) Site(r io.Reader, filename string) error {
 	return u.save("site", r)
 }
 
+// SiteFile is where Site stored the archive.
+func (u *Upload) SiteFile() string { return filepath.Join(u.dir, "site") }
+
+// SiteName is the cleaned name of the stored archive, "" before Site.
+func (u *Upload) SiteName() string { return u.siteName }
+
+// HasDump reports whether a database dump was stored.
+func (u *Upload) HasDump() bool { return u.dumpName != "" }
+
 // Dump stores the database dump.
 func (u *Upload) Dump(r io.Reader, filename string) error {
 	u.dumpName = cleanUploadName(filename)

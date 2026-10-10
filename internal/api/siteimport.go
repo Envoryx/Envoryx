@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/envoryx/envoryx/internal/auth"
+	"github.com/envoryx/envoryx/internal/project"
 	"github.com/envoryx/envoryx/internal/validate"
 )
 
@@ -16,7 +17,9 @@ const maxSiteUpload = 20 << 30
 
 // uploadSite stages a website for import: POST /site-imports with the multipart fields
 // "site" (ZIP or tar archive) and optionally "database" (.sql or .sql.gz). The answer
-// is the analysis the project wizard is filled from.
+// is the analysis the project wizard is filled from. A backup Envoryx made, downloaded
+// as a tar, is stored as a backup instead and answered as {"backup": ...}: the wizard
+// restores it into a new project.
 func (a *API) uploadSite(w http.ResponseWriter, r *http.Request) {
 	if p, _ := auth.PrincipalFrom(r.Context()); !p.Allows(auth.ScopeAdmin) {
 		writeError(w, r, fmt.Errorf("%w: creating projects needs admin access to the whole instance", auth.ErrForbidden))
@@ -65,6 +68,20 @@ func (a *API) uploadSite(w http.ResponseWriter, r *http.Request) {
 			fail(err)
 			return
 		}
+	}
+	if up.SiteName() != "" && project.IsBackupArchive(up.SiteFile()) {
+		defer up.Abort()
+		if up.HasDump() {
+			writeError(w, r, fmt.Errorf("%w: an Envoryx backup brings its own database; leave the dump out", validate.ErrInvalid))
+			return
+		}
+		backup, err := a.d.Projects.ImportBackupFile(r.Context(), up.SiteFile())
+		if err != nil {
+			writeError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusCreated, map[string]any{"backup": backup})
+		return
 	}
 	staged, err := up.Finish(a.d.Projects.SiteImportOptions())
 	if err != nil {

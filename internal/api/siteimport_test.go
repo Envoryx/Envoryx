@@ -16,28 +16,7 @@ func TestSiteImport(t *testing.T) {
 
 	upload := func(site []byte, dump string) resp {
 		t.Helper()
-		var form bytes.Buffer
-		mw := multipart.NewWriter(&form)
-		fw, _ := mw.CreateFormFile("site", "site.zip")
-		_, _ = fw.Write(site)
-		if dump != "" {
-			dw, _ := mw.CreateFormFile("database", "dump.sql")
-			_, _ = dw.Write([]byte(dump))
-		}
-		_ = mw.Close()
-		req, _ := http.NewRequest(http.MethodPost, a.srv.URL+"/api/v1/site-imports", &form)
-		req.Header.Set("Content-Type", mw.FormDataContentType())
-		req.Header.Set("X-Requested-With", "Envoryx")
-		req.AddCookie(a.cookie)
-		res, err := http.DefaultClient.Do(req)
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer res.Body.Close()
-		raw, _ := io.ReadAll(res.Body)
-		out := resp{status: res.StatusCode, raw: raw}
-		_ = json.Unmarshal(raw, &out.body)
-		return out
+		return uploadSite(t, a, site, dump)
 	}
 
 	if r := upload([]byte("not an archive"), ""); r.status != http.StatusUnprocessableEntity {
@@ -84,4 +63,31 @@ func TestSiteImport(t *testing.T) {
 	if r := a.do(http.MethodGet, "/api/v1/site-imports/"+id, nil, false); r.status != http.StatusNotFound {
 		t.Fatalf("get after delete = %d", r.status)
 	}
+}
+
+// uploadSite posts a site archive (and a dump) to the site import.
+func uploadSite(t *testing.T, a *testApp, site []byte, dump string) resp {
+	t.Helper()
+	var form bytes.Buffer
+	mw := multipart.NewWriter(&form)
+	fw, _ := mw.CreateFormFile("site", "site.zip")
+	_, _ = fw.Write(site)
+	if dump != "" {
+		dw, _ := mw.CreateFormFile("database", "dump.sql")
+		_, _ = dw.Write([]byte(dump))
+	}
+	_ = mw.Close()
+	req, _ := http.NewRequest(http.MethodPost, a.srv.URL+"/api/v1/site-imports", &form)
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+	req.Header.Set("X-Requested-With", "Envoryx")
+	req.AddCookie(a.cookie)
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	raw, _ := io.ReadAll(res.Body)
+	out := resp{status: res.StatusCode, raw: raw}
+	_ = json.Unmarshal(raw, &out.body)
+	return out
 }

@@ -146,3 +146,34 @@ func TestImportDryRunDiscardsTheUpload(t *testing.T) {
 		t.Fatalf("output: %s", out)
 	}
 }
+
+func TestImportRestoresAnUploadedBackup(t *testing.T) {
+	archive := filepath.Join(t.TempDir(), "shop-20261010-084321-4ed7a89e.tar")
+	_ = os.WriteFile(archive, []byte("tar"), 0o644)
+	const restoreURL = "/api/v1/backups/66666666-6666-4666-8666-666666666666/77777777-7777-4777-8777-777777777777/restore-new"
+	srv := newFakeServer(t, map[string]func(http.ResponseWriter, *http.Request){
+		"POST /api/v1/site-imports": func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusCreated)
+			writeJSON(w, map[string]any{"backup": map[string]any{
+				"projectId": "66666666-6666-4666-8666-666666666666", "projectName": "Shop", "slug": "shop", "projectExists": false,
+				"backup": map[string]any{"id": "77777777-7777-4777-8777-777777777777", "createdAt": "2026-10-10T08:43:21Z"},
+			}})
+		},
+		"POST " + restoreURL: func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusCreated)
+			writeJSON(w, map[string]any{"project": map[string]any{"id": "88888888-8888-4888-8888-888888888888", "name": "Shop", "slug": "shop"}})
+		},
+	})
+	c, out, _ := newTestCLI(t, srv, "")
+	if err := c.run(context.Background(), []string{"import", archive, "--start"}); err != nil {
+		t.Fatal(err)
+	}
+	var restored map[string]any
+	_ = json.Unmarshal(srv.bodies[restoreURL], &restored)
+	if restored["name"] != "Shop" || restored["start"] != true {
+		t.Fatalf("restore request: %v", restored)
+	}
+	if !strings.Contains(out.String(), "Restored the backup of Shop") {
+		t.Fatalf("output: %s", out.String())
+	}
+}
