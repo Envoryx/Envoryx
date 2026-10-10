@@ -505,7 +505,7 @@ export function IdeTab({ project: p }: { project: Project }) {
           <CardHeader
             title={
               <span className="flex items-center gap-2">
-                <Bug className="size-4 text-accent-500" aria-hidden /> {t(".NET debugging (netcoredbg)")}
+                <Bug className="size-4 text-accent-500" aria-hidden /> {t(".NET debugging")}
               </span>
             }
             description={t("No debug port: the debugger runs inside the container and talks to your IDE over the Envoryx SSH connection, which must be able to log in without a password prompt - add your public key under Settings → SSH keys.")}
@@ -513,12 +513,14 @@ export function IdeTab({ project: p }: { project: Project }) {
           <div className="p-5">
             <dl>
               <CopyRow label={t("SSH user")} value={runtimeCount > 1 ? `${p.slug}.dotnet` : p.slug} />
-              <CopyRow label={t("Debugger path")} value="/usr/local/bin/netcoredbg" />
               <CopyRow label={t("Path mapping")} value={`${hostDir} → /var/www/html`} />
             </dl>
-            <p className="mt-3 text-xs text-muted">{t("VS Code with the C# extension, launch.json - then pick the application's process (named after the project, not dotnet watch):")}</p>
+            <p className="mt-3 text-xs text-muted">{t("VS Code with the C# extension (it needs a .NET SDK on your computer) debugs with Microsoft's vsdbg, which may only be used with Microsoft's tools, so Envoryx doesn't ship it. Install it once in the .NET terminal; it stays in the project home:")}</p>
+            <pre className="mt-1 overflow-x-auto rounded-md bg-muted p-2 font-mono text-[11px]">{dotnetVsdbgInstall}</pre>
+            <p className="mt-3 text-xs text-muted">{t("Then this launch.json, and pick the application's process (named after the project, not dotnet watch). requireExactSource is off, since vsdbg otherwise refuses breakpoints in the files on your computer:")}</p>
             <pre className="mt-1 overflow-x-auto rounded-md bg-muted p-2 font-mono text-[11px]">{dotnetLaunchJson(sshHost, ssh?.port, runtimeCount > 1 ? `${p.slug}.dotnet` : p.slug)}</pre>
-            <p className="mt-3 text-xs text-muted">{t("Rider: Run → Attach to Remote Process…, add an SSH connection with the values above and pick the application's process; Rider brings its own debugger. Behind JetBrains Gateway, Rider debugs like a local project.")}</p>
+            <p className="mt-3 text-xs text-muted">{t("Rider: switch on “Allow JetBrains Gateway for this project” first, since Rider's debugger talks to the IDE through SSH port forwarding. Then Run → Attach to Remote Process…, add an SSH connection with the values above and pick the application's process; Rider brings its own debugger. Behind JetBrains Gateway, Rider debugs like a local project.")}</p>
+            <p className="mt-3 text-xs text-muted">{t("Other editors (nvim-dap, Emacs …) can start netcoredbg at /usr/local/bin/netcoredbg the same way. It has no path mapping, so breakpoints only bind when the editor opens the files under /var/www/html, for instance over Remote-SSH.")}</p>
             <p className="mt-3 text-xs text-subtle">{t("Once dotnet watch has applied a change with hot reload, a debugger can no longer attach to that process (error 0x80131c69). Restart the project, or save a change hot reload can't apply so dotnet watch restarts the app, then attach.")}</p>
           </div>
         </Card>
@@ -657,7 +659,10 @@ function rdbgLaunchJson(host: string, port?: number): string {
   );
 }
 
-/** The VS Code attach configuration that starts netcoredbg in the container over SSH. */
+/** Installs vsdbg into the project home; Microsoft's script, run by the user. */
+const dotnetVsdbgInstall = "curl -sSL https://aka.ms/getvsdbgsh | sh /dev/stdin -v latest -l ~/.vsdbg";
+
+/** The VS Code attach configuration that starts vsdbg in the container over SSH. */
 function dotnetLaunchJson(host: string, port: number | undefined, user: string): string {
   return JSON.stringify(
     {
@@ -669,9 +674,10 @@ function dotnetLaunchJson(host: string, port: number | undefined, user: string):
         pipeCwd: "${workspaceFolder}",
         pipeProgram: "ssh",
         pipeArgs: ["-T", "-p", String(port ?? 2222), `${user}@${host}`],
-        debuggerPath: "/usr/local/bin/netcoredbg",
+        debuggerPath: "/home/envoryx/.vsdbg/vsdbg",
       },
       sourceFileMap: { "/var/www/html": "${workspaceFolder}" },
+      requireExactSource: false,
     },
     null,
     2,

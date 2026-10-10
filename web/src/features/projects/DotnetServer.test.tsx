@@ -94,7 +94,7 @@ describe(".NET card", () => {
 });
 
 describe("IDE tab for .NET", () => {
-  it("names the .NET SSH user and shows the netcoredbg launch configuration", async () => {
+  it("names the .NET SSH user and shows the vsdbg launch configuration", async () => {
     const project = makeProject({
       slug: "acme-api",
       serves: "dotnet",
@@ -111,11 +111,13 @@ describe("IDE tab for .NET", () => {
       [`GET /projects/${id}/extras`]: () => ({ body: { services: [] } }),
     });
     renderApp(<IdeTab project={project} />);
-    expect(await screen.findByText(".NET debugging (netcoredbg)")).toBeInTheDocument();
+    expect(await screen.findByText(".NET debugging")).toBeInTheDocument();
     expect(screen.getAllByText("acme-api.dotnet").length).toBeGreaterThan(0);
     // Once the settings are in, the pipe connects to the SSH address as the .NET user.
     const launch = await screen.findByText(/"acme-api\.dotnet@192\.168\.1\.10"/);
     expect(launch.textContent).toContain('"pipeProgram": "ssh"');
-    expect(launch.textContent).toContain('"debuggerPath": "/usr/local/bin/netcoredbg"');
+    expect(launch.textContent).toContain('"debuggerPath": "/home/envoryx/.vsdbg/vsdbg"');
+    expect(launch.textContent).toContain('"requireExactSource": false');
+    expect(screen.getByText(/getvsdbgsh/)).toBeInTheDocument();
   });
 });
