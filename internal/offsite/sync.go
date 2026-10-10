@@ -54,6 +54,7 @@ type RemoteBackup struct {
 type ProjectBackups interface {
 	OpenOffsiteArchive(ctx context.Context, projectID, backupID string) (project.OffsiteArchive, error)
 	ImportBackupArchive(ctx context.Context, projectID string, r io.Reader) (project.BackupInfo, error)
+	ImportBackupStream(ctx context.Context, r io.Reader) (project.UploadedBackup, error)
 	ProjectSlug(ctx context.Context, projectID string) (string, error)
 }
 
@@ -469,6 +470,45 @@ func (s *Syncer) ListProject(ctx context.Context, targetID, projectID string) ([
 	return s.listDir(ctx, targetID, "projects/"+slug)
 }
 
+// RemoteProject is a project directory on a target with the backups in it.
+type RemoteProject struct {
+	Slug    string         `json:"slug"`
+	Backups []RemoteBackup `json:"backups"`
+}
+
+// ListProjects lists every project directory on a target, also of projects this
+// Envoryx doesn't know (a lost host, a deleted project), by identifier.
+func (s *Syncer) ListProjects(ctx context.Context, targetID string) ([]RemoteProject, error) {
+	t, err := s.Config.Get(targetID)
+	if err != nil {
+		return nil, err
+	}
+	b, err := s.dial(ctx, t)
+	if err != nil {
+		return nil, err
+	}
+	defer b.Close()
+	slugs, err := b.Dirs(ctx, "projects")
+	if err != nil {
+		return nil, err
+	}
+	sort.Strings(slugs)
+	out := []RemoteProject{}
+	for _, slug := range slugs {
+		if !slugRe.MatchString(slug) {
+			continue
+		}
+		backups, err := s.list(ctx, b, "projects/"+slug)
+		if err != nil {
+			return nil, err
+		}
+		if len(backups) > 0 {
+			out = append(out, RemoteProject{Slug: slug, Backups: backups})
+		}
+	}
+	return out, nil
+}
+
 // ListInstance lists the instance backups on a target.
 func (s *Syncer) ListInstance(ctx context.Context, targetID string) ([]RemoteBackup, error) {
 	return s.listDir(ctx, targetID, "instance")
@@ -549,6 +589,37 @@ func (s *Syncer) FetchProject(ctx context.Context, targetID, projectID, key stri
 	m := projectKeyRe.FindStringSubmatch(name)
 	_ = s.Store.Offsite.Record(ctx, store.OffsiteUpload{TargetID: t.ID, Scope: store.OffsiteProject, ProjectID: projectID, BackupID: info.ID, Source: m[3], RemoteKey: key})
 	return info, nil
+}
+
+// FetchAnyProject copies a project backup from a target into the local backups without
+// knowing its project first: it becomes a backup of the project it was made of when that
+// is here, otherwise one of the backups of deleted projects, ready to be restored into a
+// new project.
+func (s *Syncer) FetchAnyProject(ctx context.Context, targetID, key string) (project.UploadedBackup, error) {
+	slug, _, _ := strings.Cut(strings.TrimPrefix(key, "projects/"), "/")
+	if !slugRe.MatchString(slug) {
+		return project.UploadedBackup{}, fmt.Errorf("%w: %q is not a backup on this target", validate.ErrInvalid, key)
+	}
+	name, err := checkKey(key, "projects/"+slug, projectKeyRe)
+	if err != nil {
+		return project.UploadedBackup{}, err
+	}
+	t, err := s.Config.Get(targetID)
+	if err != nil {
+		return project.UploadedBackup{}, err
+	}
+	r, done, err := s.open(ctx, t, key)
+	if err != nil {
+		return project.UploadedBackup{}, err
+	}
+	defer done()
+	up, err := s.Projects.ImportBackupStream(ctx, r)
+	if err != nil {
+		return project.UploadedBackup{}, err
+	}
+	m := projectKeyRe.FindStringSubmatch(name)
+	_ = s.Store.Offsite.Record(ctx, store.OffsiteUpload{TargetID: t.ID, Scope: store.OffsiteProject, ProjectID: up.ProjectID, BackupID: up.Backup.ID, Source: m[3], RemoteKey: key})
+	return up, nil
 }
 
 // FetchInstance copies an instance backup from a target into the local instance

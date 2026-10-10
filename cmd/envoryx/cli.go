@@ -66,6 +66,12 @@ Backups:
   backup remote <project>               the project's backups on an offsite target
   backup fetch <project> <backup>       copy one back, then restore it as usual
                                         (--target NAME when there are several)
+  backup recover                        every project's backups on an offsite target,
+                                        also of projects this Envoryx doesn't have
+  backup recover <slug>[/<backup>] [name]
+                                        fetch one (the newest without <backup>) and
+                                        restore it into a new project (--path DIR,
+                                        --start; needs an admin token)
 
 Databases:
   db snapshot <project> [--note TEXT]   dump the database and nothing else

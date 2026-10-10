@@ -87,6 +87,8 @@ func (c *cli) backupCommand(ctx context.Context, args []string) error {
 		return c.backupRemote(ctx, rest)
 	case "fetch":
 		return c.backupFetch(ctx, rest)
+	case "recover":
+		return c.backupRecover(ctx, rest)
 	default:
 		return usagef("unknown backup command %q", cmd)
 	}

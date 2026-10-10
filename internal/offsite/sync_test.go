@@ -65,6 +65,22 @@ func (m *memBackend) List(_ context.Context, dir string) ([]Object, error) {
 	return out, nil
 }
 
+func (m *memBackend) Dirs(_ context.Context, dir string) ([]string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	seen := map[string]bool{}
+	var out []string
+	for k := range m.files {
+		if rest, ok := strings.CutPrefix(k, dir+"/"); ok {
+			if name, _, nested := strings.Cut(rest, "/"); nested && !seen[name] {
+				seen[name] = true
+				out = append(out, name)
+			}
+		}
+	}
+	return out, nil
+}
+
 func (m *memBackend) Delete(_ context.Context, key string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -108,6 +124,17 @@ func (f *fakeProjects) ImportBackupArchive(_ context.Context, _ string, r io.Rea
 	}
 	f.imported = append(f.imported, b)
 	return project.BackupInfo{ID: store.NewID()}, nil
+}
+
+func (f *fakeProjects) ImportBackupStream(_ context.Context, r io.Reader) (project.UploadedBackup, error) {
+	b, err := io.ReadAll(r)
+	if err != nil {
+		return project.UploadedBackup{}, err
+	}
+	f.imported = append(f.imported, b)
+	up := project.UploadedBackup{}
+	up.ProjectID, up.Slug, up.Backup.ID = "gone-project", "blog", store.NewID()
+	return up, nil
 }
 
 func (f *fakeProjects) ProjectSlug(context.Context, string) (string, error) { return "shop", nil }
@@ -246,6 +273,35 @@ func TestScheduledBackupsGoUpEncryptedAndRotate(t *testing.T) {
 	ups, _ := h.st.Offsite.ByBackups(ctx, store.OffsiteProject, []string{ids[2].ID})
 	if len(ups) != 1 || ups[0].Status != store.OffsiteDone || ups[0].SizeBytes == 0 {
 		t.Fatalf("upload record: %+v", ups)
+	}
+}
+
+// The project directories on a target are listed also for projects this Envoryx doesn't
+// have, and their backups are fetched without naming a project.
+func TestRemoteProjectsOfUnknownProjects(t *testing.T) {
+	h := newHarness(t, Target{Name: "box", Type: TypeWebDAV, Enabled: true, URL: "https://dav.example.com"})
+	ctx := context.Background()
+	target := h.s.Config.Targets()[0].ID
+	h.mem.files["projects/blog/20260921-020000-bbbbbbbb.full.manual.tar"] = []byte("tar of blog")
+	h.mem.files["projects/blog/notes.txt"] = []byte("not a backup")
+	h.mem.files["projects/shop/20260920-020000-aaaaaaaa.database.scheduled.tar"] = []byte("tar of shop")
+	h.mem.files["projects/Not_A_Slug/20260920-020000-aaaaaaaa.full.manual.tar"] = []byte("x")
+	h.mem.files["projects/empty/readme"] = []byte("x")
+	list, err := h.s.ListProjects(ctx, target)
+	if err != nil || len(list) != 2 || list[0].Slug != "blog" || len(list[0].Backups) != 1 || list[1].Slug != "shop" || list[1].Backups[0].Kind != "database" {
+		t.Fatalf("projects: %+v %v", list, err)
+	}
+	up, err := h.s.FetchAnyProject(ctx, target, list[0].Backups[0].Key)
+	if err != nil || up.Slug != "blog" || string(h.proj.imported[0]) != "tar of blog" {
+		t.Fatalf("fetch: %+v %v", up, err)
+	}
+	if u, err := h.st.Offsite.Find(ctx, target, store.OffsiteProject, up.Backup.ID); err != nil || u.ProjectID != "gone-project" || u.RemoteKey != list[0].Backups[0].Key {
+		t.Fatalf("offsite record: %+v %v", u, err)
+	}
+	for _, key := range []string{"projects/blog/notes.txt", "projects/../instance/x.tar.gz", "instance/manual-20260920-020000-abcd.tar.gz", "projects/blog/../shop/20260920-020000-aaaaaaaa.database.scheduled.tar"} {
+		if _, err := h.s.FetchAnyProject(ctx, target, key); !errors.Is(err, validate.ErrInvalid) {
+			t.Fatalf("%s must be refused: %v", key, err)
+		}
 	}
 }
 

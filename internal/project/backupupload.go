@@ -61,10 +61,8 @@ func openMaybeGzip(r io.Reader) (io.Reader, func(), error) {
 	return br, func() {}, nil
 }
 
-// ImportBackupFile stores an uploaded backup archive as a backup of its project: of the
-// project it was made of when that is on this instance, otherwise of the deleted project,
-// whose backups can be restored into a new project as well. Its project settings must be
-// readable here, since a restore into a new project is made from them.
+// ImportBackupFile stores an uploaded backup archive (a tar, possibly gzipped) as a
+// backup of its project; see ImportBackupStream.
 func (m *Manager) ImportBackupFile(ctx context.Context, file string) (UploadedBackup, error) {
 	f, err := os.Open(file)
 	if err != nil {
@@ -76,6 +74,14 @@ func (m *Manager) ImportBackupFile(ctx context.Context, file string) (UploadedBa
 		return UploadedBackup{}, err
 	}
 	defer closeR()
+	return m.ImportBackupStream(ctx, r)
+}
+
+// ImportBackupStream stores a backup tar as a backup of its project: of the project it
+// was made of when that is on this instance, otherwise of the deleted project, whose
+// backups can be restored into a new project as well. Its project settings must be
+// readable here, since a restore into a new project is made from them.
+func (m *Manager) ImportBackupStream(ctx context.Context, r io.Reader) (UploadedBackup, error) {
 	var out UploadedBackup
 	info, err := m.storeBackupArchive(ctx, r, func(bf backupFile) (backupOwner, error) {
 		if validate.UUID(bf.ProjectID) != nil || validate.Slug(bf.Slug) != nil {

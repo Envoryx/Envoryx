@@ -136,6 +136,23 @@ func (b *sftpBackend) List(_ context.Context, dir string) ([]Object, error) {
 	return out, nil
 }
 
+func (b *sftpBackend) Dirs(_ context.Context, dir string) ([]string, error) {
+	entries, err := b.c.ReadDir(b.path(dir))
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var out []string
+	for _, e := range entries {
+		if e.IsDir() {
+			out = append(out, e.Name())
+		}
+	}
+	return out, nil
+}
+
 func (b *sftpBackend) Delete(_ context.Context, key string) error {
 	err := b.c.Remove(b.path(key))
 	if errors.Is(err, fs.ErrNotExist) {

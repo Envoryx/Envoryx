@@ -43,6 +43,14 @@ func exercise(t *testing.T, b Backend, big []byte) {
 	if len(list) != 2 || list[0].Key != "projects/shop/a.tar" || list[0].Size != int64(len(big)) || list[1].Key != "projects/shop/b.tar" {
 		t.Fatalf("list: %+v", list)
 	}
+	dirs, err := b.Dirs(ctx, "projects")
+	sort.Strings(dirs)
+	if err != nil || len(dirs) != 2 || dirs[0] != "other" || dirs[1] != "shop" {
+		t.Fatalf("dirs: %v %v", dirs, err)
+	}
+	if none, err := b.Dirs(ctx, "nothing"); err != nil || len(none) != 0 {
+		t.Fatalf("dirs of a missing directory: %v %v", none, err)
+	}
 	if empty, err := b.List(ctx, "projects/none"); err != nil || len(empty) != 0 {
 		t.Fatalf("missing directory: %v %v", empty, err)
 	}

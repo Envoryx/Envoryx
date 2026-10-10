@@ -177,3 +177,46 @@ func TestImportRestoresAnUploadedBackup(t *testing.T) {
 		t.Fatalf("output: %s", out.String())
 	}
 }
+
+func TestBackupRecoverRestoresFromAnOffsiteTarget(t *testing.T) {
+	const restoreURL = "/api/v1/backups/66666666-6666-4666-8666-666666666666/77777777-7777-4777-8777-777777777777/restore-new"
+	srv := newFakeServer(t, map[string]func(http.ResponseWriter, *http.Request){
+		"GET /api/v1/offsite": func(w http.ResponseWriter, r *http.Request) {
+			writeJSON(w, map[string]any{"targets": []map[string]any{{"id": "t1", "name": "B2", "enabled": true}}})
+		},
+		"GET /api/v1/offsite/targets/t1/projects": func(w http.ResponseWriter, r *http.Request) {
+			writeJSON(w, map[string]any{"projects": []map[string]any{{"slug": "blog", "backups": []map[string]any{
+				{"key": "projects/blog/20261010-020000-bbbbbbbb.full.scheduled.tar", "id": "20261010-020000-bbbbbbbb", "createdAt": "2026-10-10T02:00:00Z", "kind": "full"},
+				{"key": "projects/blog/20261009-020000-aaaaaaaa.full.scheduled.tar", "id": "20261009-020000-aaaaaaaa", "createdAt": "2026-10-09T02:00:00Z", "kind": "full"},
+			}}}})
+		},
+		"POST /api/v1/offsite/targets/t1/projects/fetch": func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusCreated)
+			writeJSON(w, map[string]any{"backup": map[string]any{"projectId": "66666666-6666-4666-8666-666666666666", "projectName": "Blog", "slug": "blog",
+				"backup": map[string]any{"id": "77777777-7777-4777-8777-777777777777", "createdAt": "2026-10-10T02:00:00Z"}}})
+		},
+		"POST " + restoreURL: func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusCreated)
+			writeJSON(w, map[string]any{"project": map[string]any{"id": "88888888-8888-4888-8888-888888888888", "name": "Blog", "slug": "blog"}})
+		},
+	})
+	c, out, _ := newTestCLI(t, srv, "")
+	if err := c.run(context.Background(), []string{"backup", "recover"}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "blog/20261009-020000-aaaaaaaa") {
+		t.Fatalf("listing: %s", out.String())
+	}
+	if err := c.run(context.Background(), []string{"backup", "recover", "blog", "--start"}); err != nil {
+		t.Fatal(err)
+	}
+	var fetched, restored map[string]any
+	_ = json.Unmarshal(srv.bodies["/api/v1/offsite/targets/t1/projects/fetch"], &fetched)
+	_ = json.Unmarshal(srv.bodies[restoreURL], &restored)
+	if fetched["key"] != "projects/blog/20261010-020000-bbbbbbbb.full.scheduled.tar" || restored["name"] != "Blog" || restored["start"] != true {
+		t.Fatalf("fetch %v, restore %v", fetched, restored)
+	}
+	if err := c.run(context.Background(), []string{"backup", "recover", "shop/x"}); err == nil {
+		t.Fatal("an unknown backup must fail")
+	}
+}
