@@ -57,6 +57,26 @@ func scanProject(row interface{ Scan(...any) error }) (Project, error) {
 	return p, nil
 }
 
+// projectConflict names what a new project collides with: its name, identifier,
+// directory or port belongs to another project already.
+func projectConflict(ctx context.Context, tx *sql.Tx, p *Project) error {
+	var other string
+	taken := func(query string, arg any) bool {
+		return tx.QueryRowContext(ctx, `SELECT name FROM projects WHERE `+query, arg).Scan(&other) == nil
+	}
+	switch {
+	case taken(`name = ? COLLATE NOCASE`, p.Name):
+		return fmt.Errorf("a project named %q exists already: %w", other, ErrConflict)
+	case taken(`slug = ?`, p.Slug):
+		return fmt.Errorf("the identifier %q belongs to project %q already: %w", p.Slug, other, ErrConflict)
+	case taken(`path = ?`, p.Path):
+		return fmt.Errorf("the directory %q belongs to project %q already: %w", p.Path, other, ErrConflict)
+	case p.HTTPPort != 0 && taken(`http_port = ?`, p.HTTPPort):
+		return fmt.Errorf("port %d belongs to project %q already: %w", p.HTTPPort, other, ErrConflict)
+	}
+	return fmt.Errorf("project name, slug, path or port already in use: %w", ErrConflict)
+}
+
 // Create inserts the project with all services and env vars in one transaction.
 func (r *Projects) Create(ctx context.Context, p *Project) error {
 	if p.ID == "" {
@@ -99,7 +119,7 @@ func (r *Projects) Create(ctx context.Context, p *Project) error {
 		formatTime(p.CreatedAt), formatTime(p.UpdatedAt))
 	if err != nil {
 		if isUniqueViolation(err) {
-			return fmt.Errorf("project name, slug, path or port already in use: %w", ErrConflict)
+			return projectConflict(ctx, tx, p)
 		}
 		return fmt.Errorf("insert project: %w", err)
 	}
