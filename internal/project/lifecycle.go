@@ -163,6 +163,10 @@ func (m *Manager) create(ctx context.Context, req CreateRequest) (View, error) {
 		m.createMu.Unlock()
 		return View{}, err
 	}
+	if err := m.checkNewProject(ctx, proj); err != nil {
+		m.createMu.Unlock()
+		return View{}, err
+	}
 	if err := m.store.Projects.Create(ctx, &proj); err != nil {
 		m.createMu.Unlock()
 		return View{}, err
@@ -808,6 +812,9 @@ func (m *Manager) update(ctx context.Context, id string, req UpdateRequest) (Vie
 	}
 	if proj.Lifecycle != store.LifecycleReady {
 		return View{}, fmt.Errorf("%w: project is not in a ready state", ErrConflict)
+	}
+	if err := m.checkUpdatePlan(proj, req); err != nil {
+		return View{}, err
 	}
 	changes := map[string]any{}
 	// The settings as they were, for the audit entry's before and after.

@@ -18,6 +18,7 @@ import (
 	"github.com/envoryx/envoryx/internal/addon"
 	"github.com/envoryx/envoryx/internal/audit"
 	"github.com/envoryx/envoryx/internal/docker"
+	"github.com/envoryx/envoryx/internal/plan"
 	"github.com/envoryx/envoryx/internal/runtime"
 	"github.com/envoryx/envoryx/internal/store"
 	"github.com/envoryx/envoryx/internal/validate"
@@ -412,6 +413,9 @@ func (m *Manager) applyAddonUpdate(ctx context.Context, p store.Project, name st
 // installed one), then updates the copy every project using it keeps. Their containers
 // follow at the next start.
 func (m *Manager) InstallAddon(ctx context.Context, raw []byte) (addon.Definition, error) {
+	if err := m.requirePlanFeature(plan.FeatureAddons); err != nil {
+		return addon.Definition{}, err
+	}
 	d, err := m.addons.Save(raw)
 	if err != nil {
 		return addon.Definition{}, err
@@ -466,6 +470,9 @@ func (m *Manager) InstallAddon(ctx context.Context, raw []byte) (addon.Definitio
 
 // InstallAddonFromURL downloads an addon file and installs it.
 func (m *Manager) InstallAddonFromURL(ctx context.Context, url string) (addon.Definition, error) {
+	if err := m.requirePlanFeature(plan.FeatureAddons); err != nil {
+		return addon.Definition{}, err
+	}
 	raw, err := m.addons.Fetch(ctx, url)
 	if err != nil {
 		return addon.Definition{}, err

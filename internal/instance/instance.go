@@ -38,6 +38,7 @@ import (
 	"time"
 
 	"github.com/envoryx/envoryx/internal/disk"
+	"github.com/envoryx/envoryx/internal/plan"
 	"github.com/envoryx/envoryx/internal/secrets"
 	"github.com/envoryx/envoryx/internal/validate"
 )
@@ -305,8 +306,10 @@ func (s *Store) skip(path, rel string, isDir bool) bool {
 	if len(parts) == 1 && slices.Contains(secrets.KeyFiles, parts[0]) {
 		return true // the key never goes into a backup, and a restore keeps the current one
 	}
-	if len(parts) == 1 && parts[0] == IDFile {
-		return true // likewise the instance ID (see IDFile)
+	if len(parts) == 1 && (parts[0] == IDFile || parts[0] == plan.File) {
+		// likewise the instance ID (see IDFile) and the hoster's plan, which belongs to
+		// the instance rather than to its data
+		return true
 	}
 	switch parts[0] {
 	case "backups", "jetbrains", "logs", "cache", pendingMarker:
@@ -729,6 +732,11 @@ func (s *Store) extract(id string) error {
 				return fmt.Errorf("archive entry %q escapes the config directory", hdr.Name)
 			}
 			dest := filepath.Join(realRoot, rel)
+			if s.skip(dest, rel, false) {
+				// Never from an archive: the key, the instance ID and the hoster's plan stay
+				// those of this instance, whatever an uploaded archive carries.
+				continue
+			}
 			// The parent must resolve inside the root even through pre-existing symlinks.
 			if parent, err := filepath.EvalSymlinks(filepath.Dir(dest)); err == nil && !within(parent, realRoot) {
 				return fmt.Errorf("archive entry %q escapes the config directory", hdr.Name)

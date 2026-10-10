@@ -20,6 +20,7 @@ import (
 
 	"github.com/envoryx/envoryx/internal/audit"
 	"github.com/envoryx/envoryx/internal/docker"
+	"github.com/envoryx/envoryx/internal/plan"
 	"github.com/envoryx/envoryx/internal/store"
 	"github.com/envoryx/envoryx/internal/validate"
 )
@@ -588,6 +589,11 @@ func (m *Manager) SetCustomImage(ctx context.Context, id string, kind store.Serv
 	req.Image, req.Dockerfile = strings.TrimSpace(req.Image), strings.TrimSpace(req.Dockerfile)
 	if !customImageKinds[kind] {
 		return View{}, fmt.Errorf("%w: only runtime services (PHP, Node.js, Python, Go, Ruby, Java, .NET) can run a custom image", validate.ErrInvalid)
+	}
+	if req.Image != "" || req.Dockerfile != "" {
+		if err := m.requirePlanFeature(plan.FeatureCustomImages); err != nil {
+			return View{}, err
+		}
 	}
 	switch {
 	case req.Image != "" && req.Dockerfile != "":
