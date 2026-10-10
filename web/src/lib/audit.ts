@@ -35,6 +35,7 @@ export const auditActionLabels: Record<string, string> = {
   "ollama.model_deleted": "Ollama model deleted",
   "backup.created": "Backup created",
   "backup.restored": "Backup restored",
+  "backup.restored_new": "Backup restored into a new project",
   "backup.deleted": "Backup deleted",
   "instance.backup_created": "Instance backup created",
   "instance.backup_uploaded": "Instance backup uploaded",

@@ -15,6 +15,7 @@ import { PackageCacheCard } from "./PackageCacheCard";
 import { IdeBackendsCard } from "./IdeBackendsCard";
 import { NotificationsCard } from "./NotificationsCard";
 import { InstanceBackupsCard } from "./InstanceBackupsCard";
+import { DeletedProjectBackupsCard } from "./DeletedProjectBackupsCard";
 import { OffsiteTargetsCard } from "@/features/offsite/OffsiteTargetsCard";
 import { DiagnosticsTab } from "./DiagnosticsTab";
 import { UsersCard } from "./UsersCard";
@@ -400,6 +401,7 @@ export function SettingsPage() {
             <>
               <OffsiteTargetsCard />
               <InstanceBackupsCard />
+              <DeletedProjectBackupsCard />
             </>
           )}
           {tab === "notifications" && <NotificationsCard />}

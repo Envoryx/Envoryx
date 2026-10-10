@@ -6,6 +6,8 @@ import type {
   BackupInfo,
   BackupSchedule,
   BackupsResponse,
+  OrphanedBackup,
+  RestoreNewRequest,
   CloneDatabaseResult,
   CreateProjectRequest,
   DuplicateProjectRequest,
@@ -466,6 +468,12 @@ export const api = {
 
   backups: {
     list: (id: string) => request<BackupsResponse>(`/projects/${encodeURIComponent(id)}/backups`),
+    /** Restores a backup, of this project or of a deleted one, into a new project. */
+    restoreNew: (projectId: string, backupId: string, body: RestoreNewRequest) =>
+      request<{ project: Project }>(`/backups/${encodeURIComponent(projectId)}/${encodeURIComponent(backupId)}/restore-new`, { method: "POST", body }),
+    orphaned: () => request<{ backups: OrphanedBackup[] }>("/backups/orphaned"),
+    removeOrphaned: (projectId: string, backupId: string) =>
+      request<void>(`/backups/orphaned/${encodeURIComponent(projectId)}/${encodeURIComponent(backupId)}`, { method: "DELETE" }),
     create: (id: string, body: { database: boolean; files: boolean; storage: boolean; includeDependencies: boolean; note: string; offsite?: boolean }) =>
       request<{ backup: BackupInfo; offsite?: OffsiteUpload[]; offsiteError?: string }>(`/projects/${encodeURIComponent(id)}/backups`, { method: "POST", body }),
     uploadOffsite: (id: string, backupId: string, targets: string[] = []) =>

@@ -1,0 +1,56 @@
+import { screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { RestoreNewDialog } from "./RestoreNewDialog";
+import { DeletedProjectBackupsCard } from "@/features/settings/DeletedProjectBackupsCard";
+import { authedRoutes, makeProject, mockApi, renderApp } from "@/test/utils";
+import type { BackupInfo } from "@/api/types";
+
+const pid = "3f0b4a9e-1a2b-4c3d-8e9f-0a1b2c3d4e5f";
+const backup: BackupInfo = {
+  id: "9a8b7c6d-1a2b-4c3d-8e9f-0a1b2c3d4e5f",
+  dir: "20261010-010203-abcdef01",
+  kind: "full",
+  sizeBytes: 2048,
+  createdAt: "2026-10-09T10:00:00Z",
+  missing: false,
+  meta: { format: 1, envoryx: "0.24.0", projectId: pid, projectName: "Acme Shop", slug: "acme-shop", createdAt: "2026-10-09T10:00:00Z", runtimes: {}, database: { type: "mariadb", version: "11", name: "acme_shop", bytes: 1024 }, files: { bytes: 1024, entries: 3, includeDependencies: false } },
+} as unknown as BackupInfo;
+
+describe("RestoreNewDialog", () => {
+  it("restores everything the backup holds under a suggested name", async () => {
+    const api = mockApi({
+      ...authedRoutes,
+      [`POST /backups/${pid}/${backup.id}/restore-new`]: () => ({ status: 201, body: { project: makeProject({ id: "new-id", name: "Acme Shop Restored", slug: "acme-shop-restored" }) } }),
+    });
+    renderApp(<RestoreNewDialog projectId={pid} projectName="Acme Shop" backup={backup} onClose={() => {}} />);
+    const user = userEvent.setup();
+
+    expect(await screen.findByPlaceholderText("Acme Shop Restored")).toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: /Restore object storage/ })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("checkbox", { name: /Restore database/ }));
+    await user.click(screen.getByRole("button", { name: "Restore into a new project" }));
+
+    await waitFor(() => expect(api.calls.some((c) => c.url.endsWith("/restore-new"))).toBe(true));
+    expect(api.calls.find((c) => c.url.endsWith("/restore-new"))!.body).toEqual({ name: "Acme Shop Restored", database: false, files: true, storage: false, start: false });
+  });
+});
+
+describe("DeletedProjectBackupsCard", () => {
+  it("lists the backups of deleted projects and restores one into a new project", async () => {
+    const api = mockApi({
+      ...authedRoutes,
+      "GET /backups/orphaned": () => ({ body: { backups: [{ projectId: pid, projectName: "Old Blog", slug: "old-blog", backup }] } }),
+      [`POST /backups/${pid}/${backup.id}/restore-new`]: () => ({ status: 201, body: { project: makeProject({ id: "new-id", name: "Old Blog" }) } }),
+    });
+    renderApp(<DeletedProjectBackupsCard />);
+    const user = userEvent.setup();
+
+    expect(await screen.findByText("Old Blog")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Restore into a new project" }));
+    const name = await screen.findByLabelText("Name of the new project");
+    await user.type(name, "Old Blog");
+    await user.click(screen.getAllByRole("button", { name: "Restore into a new project" }).at(-1)!);
+    await waitFor(() => expect(api.calls.some((c) => c.url.endsWith("/restore-new"))).toBe(true));
+    expect(api.calls.find((c) => c.url.endsWith("/restore-new"))!.body).toMatchObject({ name: "Old Blog", database: true, files: true });
+  });
+});
