@@ -333,7 +333,7 @@ func (s *Server) handleConn(ctx context.Context, nc net.Conn) {
 
 	for ch := range chans {
 		if ch.ChannelType() == "direct-tcpip" {
-			go s.handleForward(actx, ch, target)
+			go s.handleForward(actx, ch, sc.User(), target)
 			continue
 		}
 		if ch.ChannelType() != "session" {
@@ -571,7 +571,7 @@ func sendExit(ch ssh.Channel, code int) {
 // handleForward serves a direct-tcpip channel (ssh -L / IDE tunnels). Forwarding is only
 // allowed for projects with JetBrains Gateway enabled and only to "localhost" ports of
 // the target container, which Envoryx reaches over the project network.
-func (s *Server) handleForward(ctx context.Context, ch ssh.NewChannel, target project.ExecTarget) {
+func (s *Server) handleForward(ctx context.Context, ch ssh.NewChannel, user string, target project.ExecTarget) {
 	host, port, ok := parseForward(ch.ExtraData())
 	if !ok {
 		_ = ch.Reject(ssh.ConnectionFailed, "bad request")
@@ -580,6 +580,13 @@ func (s *Server) handleForward(ctx context.Context, ch ssh.NewChannel, target pr
 	reject := func(reason ssh.RejectionReason, msg string) {
 		s.d.Log.Warn("ssh forward rejected", "project", target.Project.Slug, "target", net.JoinHostPort(host, strconv.Itoa(int(port))), "reason", msg)
 		_ = ch.Reject(reason, msg)
+	}
+	if !target.Gateway {
+		// IDEs keep their connection open (Rider retries its debugger tunnel on it), so
+		// forwarding switched on since the login counts without logging in again.
+		if t, err := s.d.Projects.ResolveSSHUser(ctx, user); err == nil {
+			target = t
+		}
 	}
 	if !target.Gateway {
 		reject(ssh.Prohibited, "port forwarding is disabled for this project (enable JetBrains Gateway in the IDE section)")
