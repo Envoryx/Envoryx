@@ -344,6 +344,23 @@ describe("NewProjectPage wizard", () => {
     expect(previewBody).toMatchObject({ template: "fastapi", python: { server: true, preset: "asgi", port: 8000, app: "main:app" } });
   });
 
+  it("offers only the runtimes and templates of the hoster's plan", async () => {
+    mockApi({
+      ...authedRoutes,
+      "GET /runtimes": () => ({ body: nodeRuntimesFixture }),
+      "GET /plan": () => ({ body: { plan: { name: "Starter", limits: {}, runtimes: ["php"], disabled: [], lockedSettings: [] }, usage: { projects: 0, users: 1, diskBytes: 0 } } }),
+    });
+    renderWizard();
+    const user = userEvent.setup();
+    await screen.findByRole("button", { name: "Continue" });
+    await waitFor(() => expect(screen.queryByRole("button", { name: /^Vite \+ React/ })).not.toBeInTheDocument());
+    expect(screen.queryByRole("button", { name: /^Show all \d+ templates/ })).not.toBeInTheDocument();
+    await startEmpty(user);
+    expect(screen.getByRole("radio", { name: "PHP application" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Static site" })).toBeInTheDocument();
+    expect(screen.queryByRole("radio", { name: "Node.js application" })).not.toBeInTheDocument();
+  });
+
   it("a Node template presets the dev server and docroot from its defaults", async () => {
     let previewBody: Record<string, unknown> | undefined;
     mockApi({

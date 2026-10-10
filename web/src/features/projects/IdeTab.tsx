@@ -1,10 +1,11 @@
 import { Bug, Database, FolderSync, KeyRound, Mail, MonitorSmartphone, Rabbit, Search, TerminalSquare } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { NotInPlan } from "@/features/plan/PlanCard";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import { api } from "@/api/client";
-import { useDatabases, useExtraServices, useSettings, useUpdateProject } from "@/api/hooks";
+import { useDatabases, useExtraServices, useSettings, useUpdateProject, usePlanAllows } from "@/api/hooks";
 import { OperationHint } from "@/components/OperationsTray";
 import { settingsHref } from "@/features/settings/links";
 import { appKindOf, type DatabaseInfo, type NodeConfig, type Operation, type PHPConfig, type Project, type PythonConfig, type GoConfig, type RubyConfig, type JavaConfig } from "@/api/types";
@@ -55,6 +56,7 @@ export function IdeTab({ project: p }: { project: Project }) {
   const searchEngines = extras.data?.filter((e) => e.kind === "meilisearch" || e.kind === "typesense" || e.kind === "opensearch") ?? [];
   const update = useUpdateProject(p.id);
   const [gwMsg, setGwMsg] = useState<{ tone: "green" | "red"; text: string } | null>(null);
+  const gwAllowed = usePlanAllows("ideGateway");
   const stopBackend = useMutation({
     mutationFn: () => api.projects.stopIDEBackend(p.id),
     onSuccess: (r) => setGwMsg({ tone: "green", text: r.stopped > 0 ? t("IDE backend stopped.") : t("No IDE backend was running.") }),
@@ -226,11 +228,12 @@ export function IdeTab({ project: p }: { project: Project }) {
         />
         <div className="space-y-3 p-5">
           {gwMsg && <Alert tone={gwMsg.tone}>{gwMsg.text}</Alert>}
+          {!gwAllowed && <NotInPlan feature="ideGateway" />}
           <Checkbox
             label={t("Allow JetBrains Gateway for this project")}
             description={t("Enables SSH port forwarding into the container. The IDE backend Gateway downloads stays in the project home, unless Settings → Package cache shares the backends between projects. Recreates the application containers.")}
             checked={!!p.ideGateway}
-            disabled={update.isPending || !can.admin}
+            disabled={update.isPending || !can.admin || (!gwAllowed && !p.ideGateway)}
             onChange={(e) => {
               setGwMsg(null);
               const enable = e.target.checked;
@@ -244,7 +247,7 @@ export function IdeTab({ project: p }: { project: Project }) {
             }}
           />
           {update.isPending && <OperationHint op={p.status.operation ?? pendingUpdate(p)} />}
-          {p.ideGateway && ssh?.enabled && ssh.port > 0 && (
+          {p.ideGateway && gwAllowed && ssh?.enabled && ssh.port > 0 && (
             <>
               <ol className="list-decimal space-y-1 pl-5 text-sm text-muted">
                 <li>Gateway → <span className="text-fg">SSH → New connection</span>: {t("host")} <Code>{sshHost}</Code>, {t("port")} <Code>{ssh.port}</Code>, {t("user")} <Code>{p.slug}</Code>, {t("password = API token (or key).")}</li>

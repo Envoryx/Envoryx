@@ -1,6 +1,7 @@
 import { clsx } from "clsx";
 import { Check, Copy, Database, Eye, EyeOff, ExternalLink, KeyRound, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { IfPlanAllows } from "@/features/plan/PlanCard";
 import { useState, type FormEvent } from "react";
 import { api } from "@/api/client";
 import { useDatabaseInfo, useDatabaseList, useDatabaseMutations, useDBTool, useOpenDBTool, usePublicHost, useRuntimes, useUpdateProject } from "@/api/hooks";
@@ -111,10 +112,12 @@ function AddDatabaseCard({ project, onAdded, onCancel }: { project: Project; onA
             <input type="radio" name="add-db-where" checked={!external} onChange={() => setExternal(false)} />
             {t("In a container of the project")}
           </label>
-          <label className="inline-flex items-center gap-2 text-sm">
-            <input type="radio" name="add-db-where" checked={external} onChange={() => { setExternal(true); if (!externalDatabaseTypes.includes(type)) setType("mariadb"); }} />
-            {t("On an external server")}
-          </label>
+          <IfPlanAllows feature="externalServices">
+            <label className="inline-flex items-center gap-2 text-sm">
+              <input type="radio" name="add-db-where" checked={external} onChange={() => { setExternal(true); if (!externalDatabaseTypes.includes(type)) setType("mariadb"); }} />
+              {t("On an external server")}
+            </label>
+          </IfPlanAllows>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label={t("Type")} htmlFor="add-db-type">
