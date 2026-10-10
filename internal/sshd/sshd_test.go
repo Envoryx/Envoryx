@@ -453,13 +453,8 @@ func TestPortForwardingRequiresGateway(t *testing.T) {
 	if _, err := e.manager.Update(context.Background(), e.proj.Project.ID, project.UpdateRequest{IDEGateway: &on}); err != nil {
 		t.Fatal(err)
 	}
-	// New target state is read per connection.
-	client2, err := e.dial(t, "shop", ssh.Password(e.token))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer client2.Close()
-	conn, err := client2.Dial("tcp", "localhost:5990")
+	// Switched on, it works on the connection that was refused, as IDEs keep theirs open.
+	conn, err := client.Dial("tcp", "localhost:5990")
 	if err != nil {
 		t.Fatalf("forward: %v", err)
 	}
@@ -472,7 +467,7 @@ func TestPortForwardingRequiresGateway(t *testing.T) {
 	if dialed != "envoryx-shop-php:5990" {
 		t.Fatalf("dial target: %s", dialed)
 	}
-	if _, err := client2.Dial("tcp", "example.com:80"); err == nil {
+	if _, err := client.Dial("tcp", "example.com:80"); err == nil {
 		t.Fatal("foreign hosts must be rejected")
 	}
 }
