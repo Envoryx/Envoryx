@@ -76,6 +76,7 @@ docker build -t ghcr.io/envoryx/envoryx:dev --build-arg VERSION=dev .
 | `ENVORYX_ADMIN_USER` / `ENVORYX_ADMIN_PASSWORD` | - | Create the first admin non-interactively |
 | `ENVORYX_SECRET_KEY` | - | Key that encrypts the stored secrets (base64 of 32 bytes or 64 hex digits, e.g. `openssl rand -base64 32`); without it Envoryx keeps one in `/config/secret.key`, see [Secret key](#secret-key) |
 | `ENVORYX_SECRET_KEY_OLD` | - | The previous key, for one start after changing `ENVORYX_SECRET_KEY` |
+| `ENVORYX_FLEET_URL` / `ENVORYX_FLEET_TOKEN` | - | The hoster's fleet manager and the one-time token the instance enrolls with, see [Plans](#plans-managed-instances) |
 | `ENVORYX_SESSION_IDLE_TIMEOUT` | `12h` | Sliding session expiry |
 | `ENVORYX_SESSION_ABSOLUTE_TIMEOUT` | `168h` | Hard session expiry |
 | `ENVORYX_SECURE_COOKIES` | `false` | Mark cookies `Secure` (enable behind HTTPS) |
@@ -2562,8 +2563,9 @@ instead of the secret) and `POST /api/v1/settings/oidc/test`. The public
 
 A hoster who rents out machines with Envoryx can limit each instance with a
 plan: the file `/config/plan.json`. Without the file nothing is limited and
-Envoryx behaves as it always did. The fleet manager will write the file later
-on; for now the hoster puts it there (cloud-init, configuration management).
+Envoryx behaves as it always did. The hoster's fleet manager writes the file
+(see below); without one, the hoster puts it there (cloud-init, configuration
+management).
 
 ```json
 {
@@ -2606,6 +2608,30 @@ one along, like the secret key and the instance ID.
 Settings → General shows the plan and how much of it is used; everyone signed
 in can read it at `GET /api/v1/plan`. A refusal comes back as HTTP 403 with the
 code `plan_limit`.
+
+### The fleet manager
+
+With a fleet manager the hoster keeps the plans in one place. The manager
+gives a new instance a one-time token; the instance starts with
+
+```
+ENVORYX_FLEET_URL=https://fleet.example.net
+ENVORYX_FLEET_TOKEN=…
+```
+
+enrolls with a key of its own on its first start (kept in
+`/config/fleet.json`, never in instance backups) and keeps a connection to
+the manager open from then on; the token is used up and can stay set or go.
+The instance dials out, so it needs no open port. Over the connection the
+manager sends the plan, which the instance writes to `/config/plan.json` and
+takes over at once, and the instance reports its version, projects, users and
+disk space every minute. A plan the instance can't read is not taken over and
+the manager hears why.
+
+Settings → General shows the manager and whether the instance is in touch.
+When the hoster removes the instance from the fleet, it stops connecting and
+keeps its last plan. To move an instance to another machine, the manager
+issues a new token; enrolling with it replaces the old key.
 
 A plan only binds those who can't change the file: the customers of a hoster
 get Envoryx (the web UI, SSH into the project containers, SFTP, the API), but
