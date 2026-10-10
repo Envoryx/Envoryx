@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"encoding/csv"
 	"encoding/json"
@@ -8,6 +9,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"reflect"
 	"sort"
 	"strconv"
 	"strings"
@@ -19,6 +21,7 @@ import (
 	"github.com/envoryx/envoryx/internal/db"
 	"github.com/envoryx/envoryx/internal/disk"
 	"github.com/envoryx/envoryx/internal/docker"
+	"github.com/envoryx/envoryx/internal/plan"
 	"github.com/envoryx/envoryx/internal/project"
 	"github.com/envoryx/envoryx/internal/runtime"
 	"github.com/envoryx/envoryx/internal/sshd"
@@ -352,95 +355,144 @@ type updateSettingsRequest struct {
 }
 
 func (a *API) updateSettings(w http.ResponseWriter, r *http.Request) {
-	var req updateSettingsRequest
-	if err := decodeJSON(w, r, &req); err != nil {
+	var raw map[string]json.RawMessage
+	if err := decodeJSON(w, r, &raw); err != nil {
 		writeError(w, r, err)
 		return
 	}
+	// What the hoster's plan fixes can't be changed; sending the fixed value is fine, so
+	// a form can send all its fields.
+	pl := a.d.Projects.Plan()
+	for key, v := range raw {
+		if fixed, ok := pl.Locked(key); ok && !sameJSON(fixed, v) {
+			writeError(w, r, plan.Quota("the setting %s is fixed by the hoster", key))
+			return
+		}
+	}
+	var req updateSettingsRequest
+	if err := strictJSON(raw, &req); err != nil {
+		writeError(w, r, err)
+		return
+	}
+	changes, err := a.applySettings(r.Context(), req)
+	if len(changes) > 0 {
+		a.d.Audit.Log(r.Context(), audit.ActionSettingsChanged, "settings", "", changes)
+	}
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	a.settings(w, r)
+}
+
+// ApplyPlanSettings sets what the plan fixes (at start and whenever the plan changes).
+func (a *API) ApplyPlanSettings(ctx context.Context) error {
+	pl := a.d.Projects.Plan()
+	if pl == nil || len(pl.Settings) == 0 {
+		return nil
+	}
+	var req updateSettingsRequest
+	if err := strictJSON(pl.Settings, &req); err != nil {
+		return err
+	}
+	_, err := a.applySettings(ctx, req)
+	return err
+}
+
+// strictJSON decodes a JSON object given as its fields into v, refusing unknown ones.
+func strictJSON(fields map[string]json.RawMessage, v any) error {
+	b, err := json.Marshal(fields)
+	if err != nil {
+		return err
+	}
+	dec := json.NewDecoder(bytes.NewReader(b))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(v); err != nil {
+		return newError(http.StatusBadRequest, "bad_request", fmt.Sprintf("invalid JSON body: %v", err))
+	}
+	return nil
+}
+
+// sameJSON reports whether two JSON values are equal.
+func sameJSON(x, y json.RawMessage) bool {
+	var a, b any
+	if json.Unmarshal(x, &a) != nil || json.Unmarshal(y, &b) != nil {
+		return false
+	}
+	return reflect.DeepEqual(a, b)
+}
+
+// applySettings stores the instance settings a request carries and returns what it
+// changed for the audit log.
+func (a *API) applySettings(ctx context.Context, req updateSettingsRequest) (map[string]any, error) {
 	changes := map[string]any{}
 	if req.PublicHost != nil {
 		host := strings.TrimSpace(*req.PublicHost)
 		if host != "" && !config.ValidHost(host) {
-			writeError(w, r, fmt.Errorf("%w: host must be a host name or IP address without scheme or port", validate.ErrInvalid))
-			return
+			return changes, fmt.Errorf("%w: host must be a host name or IP address without scheme or port", validate.ErrInvalid)
 		}
-		if err := a.d.Store.Settings.Set(r.Context(), SettingPublicHost, host); err != nil {
-			writeError(w, r, err)
-			return
+		if err := a.d.Store.Settings.Set(ctx, SettingPublicHost, host); err != nil {
+			return changes, err
 		}
 		changes["publicHost"] = host
 	}
 	if req.BaseDomain != nil {
-		if err := a.d.Projects.SetBaseDomain(r.Context(), *req.BaseDomain); err != nil {
-			writeError(w, r, err)
-			return
+		if err := a.d.Projects.SetBaseDomain(ctx, *req.BaseDomain); err != nil {
+			return changes, err
 		}
 		a.invalidateProxy()
 	}
 	if req.SSHAuthorizedKeys != nil {
 		if err := validateAuthorizedKeys(*req.SSHAuthorizedKeys); err != nil {
-			writeError(w, r, newError(http.StatusUnprocessableEntity, "validation_failed", err.Error()))
-			return
+			return changes, newError(http.StatusUnprocessableEntity, "validation_failed", err.Error())
 		}
-		if err := a.d.Store.Settings.Set(r.Context(), sshd.SettingAuthorizedKeys, strings.TrimSpace(*req.SSHAuthorizedKeys)); err != nil {
-			writeError(w, r, err)
-			return
+		if err := a.d.Store.Settings.Set(ctx, sshd.SettingAuthorizedKeys, strings.TrimSpace(*req.SSHAuthorizedKeys)); err != nil {
+			return changes, err
 		}
 		changes["sshAuthorizedKeys"] = strings.Count(strings.TrimSpace(*req.SSHAuthorizedKeys), "\n") + 1
 	}
 	if req.XdebugClientHost != nil {
-		if err := a.d.Projects.SetXdebugClientHost(r.Context(), *req.XdebugClientHost); err != nil {
-			writeError(w, r, err)
-			return
+		if err := a.d.Projects.SetXdebugClientHost(ctx, *req.XdebugClientHost); err != nil {
+			return changes, err
 		}
 	}
 	if req.FolderViewFolder != nil {
-		if err := a.d.Projects.SetFolderViewFolder(r.Context(), *req.FolderViewFolder); err != nil {
-			writeError(w, r, err)
-			return
+		if err := a.d.Projects.SetFolderViewFolder(ctx, *req.FolderViewFolder); err != nil {
+			return changes, err
 		}
 	}
 	if req.ForceHTTPS != nil {
-		if err := a.d.Projects.SetForceHTTPS(r.Context(), *req.ForceHTTPS); err != nil {
-			writeError(w, r, err)
-			return
+		if err := a.d.Projects.SetForceHTTPS(ctx, *req.ForceHTTPS); err != nil {
+			return changes, err
 		}
 		a.invalidateProxy()
 	}
 	if req.ProjectsFollowEnvoryx != nil {
-		if err := a.d.Projects.SetProjectsFollowEnvoryx(r.Context(), *req.ProjectsFollowEnvoryx); err != nil {
-			writeError(w, r, err)
-			return
+		if err := a.d.Projects.SetProjectsFollowEnvoryx(ctx, *req.ProjectsFollowEnvoryx); err != nil {
+			return changes, err
 		}
 	}
 	if req.SharedPackageCache != nil {
-		if err := a.d.Projects.SetSharedPackageCache(r.Context(), *req.SharedPackageCache); err != nil {
-			writeError(w, r, err)
-			return
+		if err := a.d.Projects.SetSharedPackageCache(ctx, *req.SharedPackageCache); err != nil {
+			return changes, err
 		}
 	}
 	if req.SharedIDEBackends != nil {
-		if err := a.d.Projects.SetSharedIDEBackends(r.Context(), *req.SharedIDEBackends); err != nil {
-			writeError(w, r, err)
-			return
+		if err := a.d.Projects.SetSharedIDEBackends(ctx, *req.SharedIDEBackends); err != nil {
+			return changes, err
 		}
 	}
 	if req.LogHistory != nil {
-		if _, err := a.d.Projects.SetLogHistory(r.Context(), *req.LogHistory); err != nil {
-			writeError(w, r, err)
-			return
+		if _, err := a.d.Projects.SetLogHistory(ctx, *req.LogHistory); err != nil {
+			return changes, err
 		}
 	}
 	if req.MetricsRetentionDays != nil {
-		if _, err := a.d.Projects.SetMetricsRetention(r.Context(), *req.MetricsRetentionDays); err != nil {
-			writeError(w, r, err)
-			return
+		if _, err := a.d.Projects.SetMetricsRetention(ctx, *req.MetricsRetentionDays); err != nil {
+			return changes, err
 		}
 	}
-	if len(changes) > 0 {
-		a.d.Audit.Log(r.Context(), audit.ActionSettingsChanged, "settings", "", changes)
-	}
-	a.settings(w, r)
+	return changes, nil
 }
 
 func (a *API) unusedImages(w http.ResponseWriter, r *http.Request) {
@@ -505,6 +557,7 @@ func (a *API) settings(w http.ResponseWriter, r *http.Request) {
 			"version":          a.d.Version,
 			"projectsDir":      c.ProjectsDir,
 			"hostPath":         a.d.HostPath.Status(),
+			"lockedSettings":   a.d.Projects.Plan().LockedKeys(),
 		})
 		return
 	}
@@ -512,6 +565,7 @@ func (a *API) settings(w http.ResponseWriter, r *http.Request) {
 	needed, suggestion := a.publicHostAdvice(r.Context())
 	writeJSON(w, http.StatusOK, map[string]any{
 		"publicHost":            a.publicHost(r.Context()),
+		"lockedSettings":        a.d.Projects.Plan().LockedKeys(),
 		"publicHostNeeded":      needed,
 		"publicHostSuggestion":  suggestion,
 		"baseDomain":            a.d.Projects.BaseDomain(r.Context()),

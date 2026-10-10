@@ -8,6 +8,7 @@ import (
 	"github.com/envoryx/envoryx/internal/audit"
 	"github.com/envoryx/envoryx/internal/instance"
 	"github.com/envoryx/envoryx/internal/offsite"
+	"github.com/envoryx/envoryx/internal/plan"
 	"github.com/envoryx/envoryx/internal/project"
 	"github.com/envoryx/envoryx/internal/store"
 	"github.com/envoryx/envoryx/internal/validate"
@@ -33,7 +34,7 @@ func offsiteError(w http.ResponseWriter, r *http.Request, err error) {
 	case errors.Is(err, offsite.ErrPassphrase):
 		writeError(w, r, newError(http.StatusUnprocessableEntity, "wrong_passphrase", err.Error()))
 	case errors.Is(err, validate.ErrInvalid), errors.Is(err, store.ErrNotFound), errors.Is(err, store.ErrConflict),
-		errors.Is(err, instance.ErrNotFound), errors.Is(err, project.ErrNotFound), errors.Is(err, project.ErrBusy):
+		errors.Is(err, instance.ErrNotFound), errors.Is(err, project.ErrNotFound), errors.Is(err, project.ErrBusy), errors.Is(err, plan.ErrQuota):
 		writeError(w, r, err)
 	default:
 		writeError(w, r, newError(http.StatusBadGateway, "offsite_failed", err.Error()))

@@ -456,6 +456,9 @@ func (s *Service) resolveUser(ctx context.Context, c Config, subject string, cla
 			if newRole == RoleDeny {
 				return store.User{}, fmt.Errorf("%s is in none of the groups that may use Envoryx", username)
 			}
+			if err := s.auth.CheckUserQuota(ctx); err != nil {
+				return store.User{}, err
+			}
 			created, err := s.store.Users.Insert(ctx, store.User{Username: username, Role: newRole, OIDCSubject: subject})
 			if err != nil {
 				return store.User{}, err

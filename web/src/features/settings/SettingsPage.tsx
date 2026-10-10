@@ -2,7 +2,8 @@ import { Archive, Bell, Container, Database, FolderGit2, Globe, Hourglass, Key, 
 import { useTranslation } from "react-i18next";
 import { useEffect, useState, type FormEvent } from "react";
 import { api } from "@/api/client";
-import { useAuditSettings, useDeployKey, useDiagnostics, useSettings, useUpdateSettings } from "@/api/hooks";
+import { useAuditSettings, useDeployKey, useDiagnostics, useSettingLocked, useSettings, useUpdateSettings } from "@/api/hooks";
+import { LockedHint, PlanCard } from "@/features/plan/PlanCard";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { Alert, Badge, Button, Card, CardHeader, ErrorState, Field, Input, PageHeader, Select, Spinner } from "@/components/ui";
@@ -94,6 +95,8 @@ function PublicHostForm({ current, xdebugHost }: { current: string; xdebugHost: 
   const update = useUpdateSettings();
   const [host, setHost] = useState(current);
   const [xhost, setXhost] = useState(xdebugHost);
+  const hostLocked = useSettingLocked("publicHost");
+  const xhostLocked = useSettingLocked("xdebugClientHost");
   const [msg, setMsg] = useState<{ tone: "green" | "red"; text: string } | null>(null);
   useEffect(() => setHost(current), [current]);
   useEffect(() => setXhost(xdebugHost), [xdebugHost]);
@@ -120,10 +123,12 @@ function PublicHostForm({ current, xdebugHost }: { current: string; xdebugHost: 
         <PublicHostNotice />
         {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
         <Field label={t("Host for project links")} htmlFor="public-host" hint={t("Leave empty to use the browser address bar (currently {{host}}). Host name or IP only, no port.", { host: window.location.hostname })}>
-          <Input id="public-host" value={host} onChange={(e) => setHost(e.target.value)} placeholder="192.168.1.10" spellCheck={false} />
+          <Input id="public-host" value={host} onChange={(e) => setHost(e.target.value)} placeholder="192.168.1.10" spellCheck={false} disabled={hostLocked} />
+          {hostLocked && <LockedHint />}
         </Field>
         <Field label={t("Developer machine for Xdebug")} htmlFor="xdebug-host" hint={t("Fallback IP/host Xdebug connects back to when the request does not reveal it. Projects can override it.")}>
-          <Input id="xdebug-host" value={xhost} onChange={(e) => setXhost(e.target.value)} placeholder="192.168.1.20" spellCheck={false} />
+          <Input id="xdebug-host" value={xhost} onChange={(e) => setXhost(e.target.value)} placeholder="192.168.1.20" spellCheck={false} disabled={xhostLocked} />
+          {xhostLocked && <LockedHint />}
         </Field>
         <Button type="submit" variant="primary" loading={update.isPending} disabled={host.trim() === current && xhost.trim() === xdebugHost} icon={<Save className="size-4" />}>
           {t("Save")}
@@ -377,6 +382,7 @@ export function SettingsPage() {
           {tab === "diagnostics" && <DiagnosticsTab onSwitchTab={(next) => navigate(tabHref((renamed[next] ?? next) as Tab))} />}
           {tab === "general" && (
             <>
+              <PlanCard />
               <InstanceCard />
               <LifecycleCard />
               <UnraidCard />

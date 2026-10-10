@@ -72,11 +72,16 @@ type Syncer struct {
 	Log                  *slog.Logger
 	// Dial opens a target (Dial by default; tests use an in-memory backend).
 	Dial Dialer
+	// Allowed reports whether the instance's plan includes offsite targets; nil means
+	// it does. Without them nothing is queued or sent.
+	Allowed func() bool
 
 	now  func() time.Time
 	wake chan struct{}
 	pass sync.Mutex
 }
+
+func (s *Syncer) allowed() bool { return s.Allowed == nil || s.Allowed() }
 
 func (s *Syncer) clock() time.Time {
 	if s.now != nil {
@@ -109,7 +114,7 @@ func (s *Syncer) poke() {
 
 // OnProjectBackup queues a scheduled project backup for every automatic target.
 func (s *Syncer) OnProjectBackup(projectID string, b project.BackupInfo) {
-	if b.Meta.Source != "scheduled" {
+	if b.Meta.Source != "scheduled" || !s.allowed() {
 		return
 	}
 	ctx := context.Background()
@@ -213,6 +218,9 @@ func (s *Syncer) Run(ctx context.Context, interval time.Duration) {
 
 // Pass takes a due instance backup and works through the queue once.
 func (s *Syncer) Pass(ctx context.Context) {
+	if !s.allowed() {
+		return
+	}
 	s.pass.Lock()
 	defer s.pass.Unlock()
 	s.scheduleInstance(ctx)

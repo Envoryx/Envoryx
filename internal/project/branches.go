@@ -16,6 +16,7 @@ import (
 
 	"github.com/envoryx/envoryx/internal/audit"
 	"github.com/envoryx/envoryx/internal/notify"
+	"github.com/envoryx/envoryx/internal/plan"
 	"github.com/envoryx/envoryx/internal/store"
 	"github.com/envoryx/envoryx/internal/validate"
 )
@@ -161,6 +162,11 @@ func (m *Manager) SetBranchSettings(ctx context.Context, id string, req BranchSe
 	if err != nil {
 		return store.BranchSettings{}, err
 	}
+	if b.Watch && !p.Branches.Watch {
+		if err := m.requirePlanFeature(plan.FeatureBranchEnvs); err != nil {
+			return store.BranchSettings{}, err
+		}
+	}
 	if b.Watch && p.Git.URL == "" {
 		return store.BranchSettings{}, fmt.Errorf("%w: watching branches needs a repository; set one under Git", validate.ErrInvalid)
 	}
@@ -278,6 +284,9 @@ func (m *Manager) CreateBranchEnvironment(ctx context.Context, id, branch string
 	}
 	if p.Git.URL == "" {
 		return View{}, fmt.Errorf("%w: branch environments need a repository; set one under Git", validate.ErrInvalid)
+	}
+	if err := m.requirePlanFeature(plan.FeatureBranchEnvs); err != nil {
+		return View{}, err
 	}
 	paths, err := m.paths()
 	if err != nil {
