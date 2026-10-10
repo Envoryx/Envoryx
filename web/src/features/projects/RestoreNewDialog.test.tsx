@@ -1,6 +1,8 @@
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { ImportSiteCard } from "./ImportSiteCard";
 import { RestoreNewDialog } from "./RestoreNewDialog";
+import { api as client } from "@/api/client";
 import { DeletedProjectBackupsCard } from "@/features/settings/DeletedProjectBackupsCard";
 import { authedRoutes, makeProject, mockApi, renderApp } from "@/test/utils";
 import type { BackupInfo } from "@/api/types";
@@ -52,5 +54,26 @@ describe("DeletedProjectBackupsCard", () => {
     await user.click(screen.getAllByRole("button", { name: "Restore into a new project" }).at(-1)!);
     await waitFor(() => expect(api.calls.some((c) => c.url.endsWith("/restore-new"))).toBe(true));
     expect(api.calls.find((c) => c.url.endsWith("/restore-new"))!.body).toMatchObject({ name: "Old Blog", database: true, files: true });
+  });
+});
+
+describe("ImportSiteCard", () => {
+  it("restores an uploaded Envoryx backup into a new project instead of analysing it", async () => {
+    mockApi({
+      ...authedRoutes,
+      [`POST /backups/${pid}/${backup.id}/restore-new`]: () => ({ status: 201, body: { project: makeProject({ id: "new-id", name: "Acme Shop" }) } }),
+    });
+    const upload = vi.spyOn(client.siteImports, "upload").mockResolvedValue({ backup: { projectId: pid, projectName: "Acme Shop", slug: "acme-shop", backup, projectExists: false } });
+    const onUploaded = vi.fn();
+    renderApp(<ImportSiteCard value={null} onUploaded={onUploaded} onDiscard={() => {}} adaptConfig onAdaptConfig={() => {}} />);
+    const user = userEvent.setup();
+
+    await user.upload(await screen.findByLabelText("Website archive"), new File(["tar"], "acme-shop-20261010-010203-abcdef01.tar"));
+    await user.click(screen.getByRole("button", { name: "Upload and analyse" }));
+
+    expect(await screen.findByText(/Recognised: a backup of Acme Shop/)).toBeInTheDocument();
+    expect(await screen.findByLabelText("Name of the new project")).toBeInTheDocument();
+    expect(onUploaded).not.toHaveBeenCalled();
+    upload.mockRestore();
   });
 });

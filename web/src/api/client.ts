@@ -32,6 +32,7 @@ import type {
   PackageCache,
   ProjectShare,
   SiteImport,
+  UploadedBackup,
   SiteImportResult,
   TestRun,
   TestSuite,
@@ -208,9 +209,10 @@ async function upload<T>(path: string, field: string, file: File): Promise<T> {
 
 /**
  * Uploads a website (and optionally its database dump) for import. XMLHttpRequest rather
- * than fetch, because only it reports upload progress, and a site can be gigabytes.
+ * than fetch, because only it reports upload progress, and a site can be gigabytes. A
+ * backup Envoryx made comes back as `backup` instead of `import`.
  */
-function uploadSite(site: File, dump: File | null, onProgress?: (loaded: number, total: number) => void): Promise<{ import: SiteImport }> {
+function uploadSite(site: File, dump: File | null, onProgress?: (loaded: number, total: number) => void): Promise<{ import?: SiteImport; backup?: UploadedBackup }> {
   const form = new FormData();
   form.append("site", site, site.name);
   if (dump) form.append("database", dump, dump.name);
@@ -230,7 +232,7 @@ function uploadSite(site: File, dump: File | null, onProgress?: (loaded: number,
         payload = null;
       }
       if (xhr.status >= 200 && xhr.status < 300) {
-        resolve(payload as { import: SiteImport });
+        resolve(payload as { import?: SiteImport; backup?: UploadedBackup });
         return;
       }
       const err = (payload as { error?: { code?: string; message?: string; details?: unknown } } | null)?.error;

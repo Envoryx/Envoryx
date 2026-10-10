@@ -1831,6 +1831,11 @@ export interface OrphanedBackup {
   backup: BackupInfo;
 }
 
+/** A backup archive uploaded to the site import, now a backup of its (possibly deleted) project. */
+export interface UploadedBackup extends OrphanedBackup {
+  projectExists: boolean;
+}
+
 /** What a database clone did: where the data came from and the snapshot taken beforehand. */
 export interface CloneDatabaseResult {
   source: string;
