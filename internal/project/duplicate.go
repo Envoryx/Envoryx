@@ -294,6 +294,8 @@ func duplicateProject(src store.Project, req DuplicateRequest) (store.Project, e
 		Lifecycle:    store.LifecycleCreating,
 		IDEGateway:   src.IDEGateway,
 		ProxyRules:   src.ProxyRules,
+		Limits:       src.Limits,
+		HealthCheck:  src.HealthCheck,
 	}
 	if req.Start {
 		dst.DesiredState = store.DesiredRunning
