@@ -1938,6 +1938,12 @@ export interface OffsiteTargetName {
 }
 
 /** A backup found on a target. */
+/** A project directory on an offsite target, also of a project this Envoryx doesn't have. */
+export interface RemoteProject {
+  slug: string;
+  backups: RemoteBackup[];
+}
+
 export interface RemoteBackup {
   key: string;
   /** Backup directory (project) or instance backup id. */

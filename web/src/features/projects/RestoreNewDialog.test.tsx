@@ -57,6 +57,29 @@ describe("DeletedProjectBackupsCard", () => {
   });
 });
 
+describe("DeletedProjectBackupsCard offsite", () => {
+  it("fetches a project backup from an offsite target and opens the restore", async () => {
+    const api = mockApi({
+      ...authedRoutes,
+      "GET /backups/orphaned": () => ({ body: { backups: [] } }),
+      "GET /offsite/targets/t1/projects": () => ({
+        body: { projects: [{ slug: "old-blog", backups: [{ key: "projects/old-blog/20261010-010203-abcdef01.full.manual.tar.age", id: "20261010-010203-abcdef01", createdAt: "2026-10-10T01:02:03Z", kind: "full", source: "manual", sizeBytes: 4096, encrypted: true }] }] },
+      }),
+      "POST /offsite/targets/t1/projects/fetch": () => ({ status: 201, body: { backup: { projectId: pid, projectName: "Old Blog", slug: "old-blog", backup, projectExists: false } } }),
+      // Routes match by prefix, so the target list comes after the routes it is a prefix of.
+      "GET /offsite": () => ({ body: { targets: [{ id: "t1", name: "Backblaze", type: "s3", enabled: true }] } }),
+    });
+    renderApp(<DeletedProjectBackupsCard />);
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole("button", { name: "Show projects on Backblaze" }));
+    expect(await screen.findByText("old-blog")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Restore into a new project" }));
+    expect(await screen.findByLabelText("Name of the new project")).toBeInTheDocument();
+    expect(api.calls.find((c) => c.url.endsWith("/projects/fetch"))!.body).toEqual({ key: "projects/old-blog/20261010-010203-abcdef01.full.manual.tar.age" });
+  });
+});
+
 describe("ImportSiteCard", () => {
   it("restores an uploaded Envoryx backup into a new project instead of analysing it", async () => {
     mockApi({
