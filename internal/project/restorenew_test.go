@@ -40,6 +40,12 @@ func TestRestoreBackupIntoNewProject(t *testing.T) {
 	if _, err := e.m.AddCronJob(ctx, id, CronJobRequest{Name: "report", Runtime: "php", Schedule: "0 3 * * *", Command: "php report.php", Enabled: true}); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := e.m.SetLimits(ctx, id, store.ResourceLimits{App: store.LimitSet{MemoryMB: 768}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.m.SetHealthCheck(ctx, id, store.HealthCheck{Path: "/up", Status: 200, IntervalSec: 30, TimeoutSec: 5, Failures: 3}); err != nil {
+		t.Fatal(err)
+	}
 	_ = os.WriteFile(filepath.Join(e.projDir, "shop", "public", "index.php"), []byte("v1"), 0o644)
 	backup, err := e.m.CreateBackup(ctx, id, BackupOptions{Database: true, Files: true})
 	if err != nil {
@@ -70,6 +76,9 @@ func TestRestoreBackupIntoNewProject(t *testing.T) {
 	}
 	if len(full.Env) != 1 || full.Env[0].Value != "s3cret" || !full.Env[0].IsSecret {
 		t.Fatalf("env: %+v", full.Env)
+	}
+	if full.Limits.App.MemoryMB != 768 || full.HealthCheck.Path != "/up" {
+		t.Fatalf("limits %+v, health check %+v", full.Limits, full.HealthCheck)
 	}
 	if jobs, _ := e.store.CronJobs.ListByProject(ctx, restored.ID); len(jobs) != 1 || jobs[0].Command != "php report.php" {
 		t.Fatalf("cron jobs: %+v", jobs)
