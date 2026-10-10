@@ -1634,6 +1634,22 @@ including `vendor/`, `node_modules/` and the framework build caches
 (`.next/`, `.nuxt/`, `.output/`), which are skipped by default because they
 are large and reproducible. Failures raise a notification.
 
+**Restore into a new project**: next to *Restore*, each backup can be restored
+into a new project instead of over the one it belongs to. The new project gets
+the settings the backup was made with (services and versions, variables with
+their secrets, workers, cron jobs, the repository binding, limits, health check
+and proxy rules), a name, directory and host ports of its own, and, as ticked,
+the databases (with the addon volumes), the files and the objects of the bucket.
+An external database or Redis becomes one of Envoryx's own, as in a duplicate.
+Deleting a project keeps its backups: *Settings → Backups → Backups of deleted
+projects* lists them, restores one into a new project (also under the old
+name) or deletes it. Restoring into a new project needs admin access to the
+whole instance. Backups made before 0.25 carry the services, variables and
+repository but not the workers, cron jobs, limits, health check, proxy rules
+and custom images; a project restored from one starts without those. The
+project settings in a backup are sealed with the instance key, so a backup
+restores into a new project only on an instance with that key.
+
 ### Instance backups
 
 *Settings → Backups → Instance backups* snapshots Envoryx itself: the SQLite database
