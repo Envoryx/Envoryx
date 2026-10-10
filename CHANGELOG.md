@@ -10,6 +10,27 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Added
+- A backup can be restored into a new project instead of over its own:
+  *Restore into a new project* next to each backup creates a project with
+  the settings the backup was made with (services, versions, variables
+  with secrets, workers, cron jobs, repository) and, as ticked, its
+  databases, files and objects, under a name, directory and host ports of
+  its own. Deleting a project keeps its backups, and *Settings → Backups
+  → Backups of deleted projects* now lists them, so a deleted project
+  comes back the same way, also under its old name. The API is
+  `POST /api/v1/backups/{project}/{backup}/restore-new`,
+  `GET /api/v1/backups/orphaned` and
+  `DELETE /api/v1/backups/orphaned/{project}/{backup}`; all need admin
+  access to the whole instance.
+- Backups now also record the workers, cron jobs, resource limits, health
+  check, proxy rules and custom images of the project, so a project
+  restored from them gets those back too.
+
+### Changed
+- Restoring a database dump into a stopped project starts its database
+  for the import and stops it again, instead of failing.
+
 ## [0.24.0] - 2026-10-10
 
 The Spring Boot and Quarkus templates can now set a project up with

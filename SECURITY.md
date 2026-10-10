@@ -288,6 +288,9 @@ the same care. Instance backups hold the encrypted database and never the key.
 Restores are confirmed with the project identifier, only ever write inside the project
 directory (path traversal and symlink escapes are rejected) and only import a dump whose
 flavour matches the project's database.
+Restoring a backup into a new project, and listing or deleting the backups of deleted
+projects, needs admin access to the whole instance: the new project gets the backup's
+secrets, and a backup outlives the roles in the project it came from.
 
 ## Reverse proxy and local CA
 
