@@ -295,7 +295,7 @@ func TestRemoteProjectsOfUnknownProjects(t *testing.T) {
 	if err != nil || up.Slug != "blog" || string(h.proj.imported[0]) != "tar of blog" {
 		t.Fatalf("fetch: %+v %v", up, err)
 	}
-	if u, err := h.st.Offsite.Find(ctx, target, store.OffsiteProject, up.Backup.ID); err != nil || u.ProjectID != "gone-project" || u.RemoteKey != list[0].Backups[0].Key {
+	if u, err := h.st.Offsite.Find(ctx, target, store.OffsiteProject, up.Backup.ID); err != nil || u.ProjectID != "gone-project" || u.RemoteKey != list[0].Backups[0].Key || u.SizeBytes != int64(len("tar of blog")) {
 		t.Fatalf("offsite record: %+v %v", u, err)
 	}
 	for _, key := range []string{"projects/blog/notes.txt", "projects/../instance/x.tar.gz", "instance/manual-20260920-020000-abcd.tar.gz", "projects/blog/../shop/20260920-020000-aaaaaaaa.database.scheduled.tar"} {
