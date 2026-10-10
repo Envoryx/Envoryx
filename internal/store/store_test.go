@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/envoryx/envoryx/internal/db"
@@ -88,12 +89,16 @@ func TestProjectsCRUD(t *testing.T) {
 	}
 
 	dup := &store.Project{Name: "acme shop", Slug: "other", Path: "other"}
-	if err := st.Projects.Create(ctx, dup); !errors.Is(err, store.ErrConflict) {
+	if err := st.Projects.Create(ctx, dup); !errors.Is(err, store.ErrConflict) || !strings.Contains(err.Error(), `a project named "Acme Shop" exists already`) {
 		t.Fatalf("expected name conflict, got %v", err)
 	}
 	dupPort := &store.Project{Name: "Other", Slug: "other", Path: "other", HTTPPort: 20000}
-	if err := st.Projects.Create(ctx, dupPort); !errors.Is(err, store.ErrConflict) {
+	if err := st.Projects.Create(ctx, dupPort); !errors.Is(err, store.ErrConflict) || !strings.Contains(err.Error(), "port 20000") {
 		t.Fatalf("expected port conflict, got %v", err)
+	}
+	dupPath := &store.Project{Name: "Other", Slug: "other", Path: p.Path}
+	if err := st.Projects.Create(ctx, dupPath); !errors.Is(err, store.ErrConflict) || !strings.Contains(err.Error(), "the directory") {
+		t.Fatalf("expected directory conflict, got %v", err)
 	}
 
 	got, err := st.Projects.Get(ctx, p.ID)
