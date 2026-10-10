@@ -10,6 +10,12 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.27.0] - 2026-10-10
+
+Project backups on an offsite target come back as new projects, also of
+projects this Envoryx doesn't have: after losing the host, every project
+on the target can be restored, with or without an instance backup.
+
 ### Added
 - Project backups on an offsite target come back as new projects, also of
   projects this Envoryx doesn't have (a lost host, a project made after the
@@ -1959,7 +1965,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.26.1...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.27.0...HEAD
+[0.27.0]: https://github.com/envoryx/envoryx/compare/v0.26.1...v0.27.0
 [0.26.1]: https://github.com/envoryx/envoryx/compare/v0.26.0...v0.26.1
 [0.26.0]: https://github.com/envoryx/envoryx/compare/v0.25.0...v0.26.0
 [0.25.0]: https://github.com/envoryx/envoryx/compare/v0.24.0...v0.25.0
