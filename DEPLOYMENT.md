@@ -1799,6 +1799,19 @@ line).
 4. For each project: *Backups → Offsite copies → Fetch*, then restore
    database, files and bucket. Starting the project recreates its containers.
 
+A project the instance backup doesn't know (created after it, or there is no
+instance backup at all) comes back without one: *Settings → Backups → Backups
+of deleted projects → From an offsite target* lists every project directory on
+the target, and *Restore into a new project* fetches the backup and restores it
+with the settings it was made with (`envoryx backup recover` lists them,
+`envoryx backup recover <slug>[/<backup>] [name]` restores one). The project
+settings in a backup are sealed with the instance key, so this needs the old
+key (`ENVORYX_SECRET_KEY` or `/config/secret.key`). The API is
+`GET /api/v1/offsite/targets/{target}/projects` and
+`POST /api/v1/offsite/targets/{target}/projects/fetch` with `{"key": "…"}`,
+which answers like the site import of a backup (`{"backup": {…}}`); both need
+admin access to the whole instance.
+
 ## Several databases
 
 A project isn't limited to one database. Next to the first one (the
