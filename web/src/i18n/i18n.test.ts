@@ -12,6 +12,11 @@ import uk from "./uk.json";
 const translations: Record<string, Record<string, string>> = { de, fr, es, it: itIT, nl, pl, pt, ru, uk };
 const plural = /_(one|few|many|other)$/;
 
+// The UI source, to check that every literal t("...") key has translations. Proper names that
+// read the same in every language go through t() only for consistency and are left out.
+const sources = import.meta.glob(["../**/*.{ts,tsx}", "!../**/*.test.{ts,tsx}"], { query: "?raw", import: "default", eager: true }) as Record<string, string>;
+const untranslated = new Set(["GOROOT", "Go", "Python", "Ruby", "Java"]);
+
 describe("i18n", () => {
   afterEach(() => void i18n.changeLanguage("en"));
 
@@ -43,6 +48,19 @@ describe("i18n", () => {
       const missing = [...keys].filter((k) => !have.has(k));
       expect(missing, lang).toEqual([]);
     }
+  });
+
+  it("has a translation for every literal t() key in the source", () => {
+    const keys = new Set(Object.keys(de).map((k) => k.replace(plural, "")));
+    const literal = /\bt\(\s*"((?:[^"\\]|\\.)*)"/g;
+    const missing: string[] = [];
+    for (const [file, text] of Object.entries(sources)) {
+      for (const m of text.matchAll(literal)) {
+        const key = JSON.parse(`"${m[1]}"`) as string;
+        if (!keys.has(key) && !untranslated.has(key)) missing.push(`${file}: ${key}`);
+      }
+    }
+    expect(missing).toEqual([]);
   });
 
   it("uses the four Slavic plural forms", async () => {

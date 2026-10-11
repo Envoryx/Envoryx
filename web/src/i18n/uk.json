@@ -2859,5 +2859,8 @@
   "from your hoster": "від вашого хостера",
   "Recognised: an instance backup from {{date}}": "Розпізнано: резервна копія екземпляра від {{date}}",
   "This backup holds a whole Envoryx instance, not one project. It is listed under Settings → Backups → Instance backups now. Restoring it there replaces this instance's database and configuration.": "Ця резервна копія містить цілий екземпляр Envoryx, а не один проєкт. Тепер вона в Налаштування → Резервні копії → Резервні копії екземпляра. Відновлення там замінює базу даних і конфігурацію цього екземпляра.",
-  "Open the instance backups": "Відкрити копії екземпляра"
+  "Open the instance backups": "Відкрити копії екземпляра",
+  "No environment variables. They are injected into every project container.": "Немає змінних середовища. Вони передаються в кожен контейнер проєкту.",
+  "Envoryx could not start, or a background task crashed and was restarted": "Envoryx не зміг запуститися, або фонове завдання впало й було перезапущене",
+  "Free disk space under /config, /projects or /backups is running out (and when it recovers)": "Закінчується вільне місце на диску в /config, /projects або /backups (і коли його знову достатньо)"
 }

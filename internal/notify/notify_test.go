@@ -15,6 +15,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/envoryx/envoryx/internal/i18ntest"
 )
 
 type received struct {
@@ -270,4 +272,13 @@ func TestNewKindsFollowTheirDefault(t *testing.T) {
 	if got := old.effectiveKinds(); !slices.Contains(got, "project.down") || !slices.Contains(got, "acme.failed") || slices.Contains(got, "acme.renewed") {
 		t.Fatalf("effective: %v", got)
 	}
+}
+
+// The settings page runs every event description through t(), so each needs a translation.
+func TestKindDescriptionsAreTranslated(t *testing.T) {
+	texts := make([]string, 0, len(Kinds))
+	for _, k := range Kinds {
+		texts = append(texts, k.Description)
+	}
+	i18ntest.RequireTranslated(t, texts...)
 }

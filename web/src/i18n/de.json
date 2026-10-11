@@ -2811,5 +2811,8 @@
   "from your hoster": "von deinem Hoster",
   "Recognised: an instance backup from {{date}}": "Erkannt: ein Instanz-Backup vom {{date}}",
   "This backup holds a whole Envoryx instance, not one project. It is listed under Settings → Backups → Instance backups now. Restoring it there replaces this instance's database and configuration.": "Dieses Backup enthält eine ganze Envoryx-Instanz, kein einzelnes Projekt. Es steht jetzt unter Einstellungen → Backups → Instanz-Backups. Wenn du es dort wiederherstellst, ersetzt es die Datenbank und Konfiguration dieser Instanz.",
-  "Open the instance backups": "Instanz-Backups öffnen"
+  "Open the instance backups": "Instanz-Backups öffnen",
+  "No environment variables. They are injected into every project container.": "Keine Umgebungsvariablen. Sie werden in jeden Container des Projekts übergeben.",
+  "Envoryx could not start, or a background task crashed and was restarted": "Envoryx konnte nicht starten, oder eine Hintergrundaufgabe ist abgestürzt und wurde neu gestartet",
+  "Free disk space under /config, /projects or /backups is running out (and when it recovers)": "Der freie Speicherplatz unter /config, /projects oder /backups wird knapp (und wenn er wieder reicht)"
 }

@@ -2811,5 +2811,8 @@
   "from your hoster": "de ton hébergeur",
   "Recognised: an instance backup from {{date}}": "Reconnu : une sauvegarde d'instance du {{date}}",
   "This backup holds a whole Envoryx instance, not one project. It is listed under Settings → Backups → Instance backups now. Restoring it there replaces this instance's database and configuration.": "Cette sauvegarde contient toute une instance Envoryx, pas un seul projet. Elle figure maintenant sous Paramètres → Sauvegardes → Sauvegardes de l'instance. La restaurer là-bas remplace la base de données et la configuration de cette instance.",
-  "Open the instance backups": "Ouvrir les sauvegardes de l'instance"
+  "Open the instance backups": "Ouvrir les sauvegardes de l'instance",
+  "No environment variables. They are injected into every project container.": "Aucune variable d'environnement. Elles sont injectées dans chaque conteneur du projet.",
+  "Envoryx could not start, or a background task crashed and was restarted": "Envoryx n'a pas pu démarrer, ou une tâche d'arrière-plan a planté et a été relancée",
+  "Free disk space under /config, /projects or /backups is running out (and when it recovers)": "L'espace disque libre sous /config, /projects ou /backups s'épuise (et quand il redevient suffisant)"
 }

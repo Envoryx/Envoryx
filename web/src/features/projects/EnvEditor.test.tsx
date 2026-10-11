@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { EnvEditor } from "./EnvEditor";
 import type { EnvVar } from "@/api/types";
 import { authedRoutes, mockApi, renderApp } from "@/test/utils";
+import i18n from "@/i18n";
 
 const dotenv = [
   "APP_NAME=Shop",
@@ -75,5 +76,16 @@ describe("EnvEditor .env import and export", () => {
     expect(text).toContain('APP_KEY="two words"\n');
     expect(text.startsWith("# Environment of shop")).toBe(true);
     click.mockRestore();
+  });
+
+  it("translates the empty state", async () => {
+    mockApi({ ...authedRoutes });
+    await i18n.changeLanguage("de");
+    try {
+      renderApp(<EnvEditor value={[]} onChange={() => {}} />);
+      expect(screen.getByText(/^Keine Umgebungsvariablen/)).toBeInTheDocument();
+    } finally {
+      await i18n.changeLanguage("en");
+    }
   });
 });
