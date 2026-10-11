@@ -1,6 +1,7 @@
 package project
 
 import (
+	"archive/zip"
 	"context"
 	"errors"
 	"net/url"
@@ -364,5 +365,44 @@ func TestJavaPackageNameAndActions(t *testing.T) {
 	}
 	if r := avail["maven:package"]; r != "pom.xml not found in project" {
 		t.Fatalf("maven:package without pom.xml: %q", r)
+	}
+}
+
+// start.spring.io's zip carries the wrappers without their executable bit; the scaffold
+// restores it so ./mvnw works in the terminal.
+func TestJavaScaffoldMakesWrappersExecutable(t *testing.T) {
+	for _, tool := range []string{"curl", "unzip"} {
+		if _, err := exec.LookPath(tool); err != nil {
+			t.Skip(tool + " not installed")
+		}
+	}
+	archive := filepath.Join(t.TempDir(), "starter.zip")
+	f, err := os.Create(archive)
+	if err != nil {
+		t.Fatal(err)
+	}
+	zw := zip.NewWriter(f)
+	for _, name := range []string{"mvnw", "gradlew", "pom.xml"} {
+		w, err := zw.CreateHeader(&zip.FileHeader{Name: name, Method: zip.Deflate})
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, _ = w.Write([]byte("#!/bin/sh\n"))
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	_ = f.Close()
+	dir := t.TempDir()
+	cmd := exec.Command("sh", "-c", javaScaffoldScript, "envoryx-java-scaffold", "file://"+archive)
+	cmd.Dir = dir
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("%s: %v", out, err)
+	}
+	for _, name := range []string{"mvnw", "gradlew"} {
+		info, err := os.Stat(filepath.Join(dir, name))
+		if err != nil || info.Mode()&0o100 == 0 {
+			t.Fatalf("%s: %v %v", name, info.Mode(), err)
+		}
 	}
 }

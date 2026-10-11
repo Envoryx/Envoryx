@@ -627,6 +627,8 @@ func init() { templates = append(templates, javaTemplates...) }
 
 // javaScaffoldScript downloads the zip at $1 and unpacks it into the project directory;
 // a zip that wraps the project in one folder (code.quarkus.io) is unpacked from inside it.
+// start.spring.io's zip loses the wrappers' executable bit, and "./mvnw" in the terminal
+// would then be refused.
 const javaScaffoldScript = `set -e
 curl -fsSL --retry 2 -o /tmp/envoryx-scaffold.zip "$1"
 rm -rf /tmp/envoryx-scaffold && mkdir /tmp/envoryx-scaffold
@@ -634,7 +636,8 @@ unzip -q /tmp/envoryx-scaffold.zip -d /tmp/envoryx-scaffold
 src=/tmp/envoryx-scaffold
 set -- /tmp/envoryx-scaffold/*
 if [ $# -eq 1 ] && [ -d "$1" ]; then src=$1; fi
-cp -a "$src"/. .`
+cp -a "$src"/. .
+for w in mvnw gradlew; do if [ -f "$w" ]; then chmod +x "$w"; fi; done`
 
 // quarkusDevSchema lets Hibernate create and update the tables in dev mode. Quarkus only
 // does that on its own with Dev Services, which Envoryx switches off in favour of the
