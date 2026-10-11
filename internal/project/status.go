@@ -250,6 +250,7 @@ func (m *Manager) Reconcile(ctx context.Context) ReconcileReport {
 	m.retireOutdatedDBTool(ctx, containers)
 	// Without host paths there is no plan; the outdated-container check is skipped then.
 	planner, planErr := m.planner()
+	busy := map[string]bool{}
 
 	for _, p := range projects {
 		// A restart in the middle of create/delete leaves a transitional lifecycle behind.
@@ -263,6 +264,16 @@ func (m *Manager) Reconcile(ctx context.Context) ReconcileReport {
 		}
 		st := deriveStatus(p, containers, m.localImageIDs(ctx, projects))
 		report.States[p.ID] = st
+		if p.Lifecycle == store.LifecycleReady {
+			cur, settled := m.settled(ctx, p)
+			if !settled {
+				// A start, stop or restart is under way: a project half stopped is what a
+				// stop looks like for the seconds a container takes to exit, not a fault.
+				busy[p.ID] = true
+				continue
+			}
+			p = cur
+		}
 		if p.DesiredState == store.DesiredRunning && st.State != StateRunning && p.Lifecycle == store.LifecycleReady {
 			report.Issues = append(report.Issues, ReconcileIssue{ProjectID: p.ID, ProjectName: p.Name, Severity: "warning",
 				Message: fmt.Sprintf("expected running but observed %s", st.State)})
@@ -279,7 +290,7 @@ func (m *Manager) Reconcile(ctx context.Context) ReconcileReport {
 		}
 	}
 
-	m.notifyHealth(ctx, projects, report.Issues)
+	m.notifyHealth(ctx, projects, report.Issues, busy)
 
 	for _, c := range containers {
 		if c.Labels[docker.LabelSystem] != "" {
@@ -318,6 +329,22 @@ func (m *Manager) Reconcile(ctx context.Context) ReconcileReport {
 	}
 	m.setReport(report)
 	return report
+}
+
+// settled reports whether no lifecycle operation runs for the project and returns it as
+// stored now. The project list and the containers were read before; an operation that
+// ran meanwhile has either finished, and the fresh record says what is wanted now, or
+// still runs. The project lock is not taken for this: a start clicked in that moment
+// would be refused as busy.
+func (m *Manager) settled(ctx context.Context, p store.Project) (store.Project, bool) {
+	if m.progress.active(p.ID) != nil {
+		return p, false
+	}
+	cur, err := m.store.Projects.Get(ctx, p.ID)
+	if err != nil {
+		return p, true
+	}
+	return cur, true
 }
 
 // localImageIDs looks up the local ids of all images used by the given projects.
@@ -360,7 +387,8 @@ func (m *Manager) LastReport() ReconcileReport {
 }
 
 // notifyHealth sends one event when a project becomes unhealthy and one when it recovers.
-func (m *Manager) notifyHealth(ctx context.Context, projects []store.Project, issues []ReconcileIssue) {
+// Busy projects (a lifecycle operation is running) keep whatever state they had.
+func (m *Manager) notifyHealth(ctx context.Context, projects []store.Project, issues []ReconcileIssue, busy map[string]bool) {
 	if m.notifier == nil {
 		return
 	}
@@ -386,7 +414,7 @@ func (m *Manager) notifyHealth(ctx context.Context, projects []store.Project, is
 		}
 	}
 	for id := range m.unhealthy {
-		if _, still := current[id]; still {
+		if _, still := current[id]; still || busy[id] {
 			continue
 		}
 		delete(m.unhealthy, id)
