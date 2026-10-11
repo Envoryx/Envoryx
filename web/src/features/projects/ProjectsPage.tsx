@@ -8,6 +8,7 @@ import { appKindOf, type Project } from "@/api/types";
 import { Alert, Badge, Button, Card, EmptyState, ErrorState, Input, LinkButton, PageHeader, Spinner, StatusDot } from "@/components/ui";
 import { formatBytes, formatPercent, serviceLabel, stateMeta } from "@/lib/format";
 import { ProjectActionButtons, useActionError } from "./ProjectActions";
+import { NewProjectButton } from "./NewProjectButton";
 import { OperationHint } from "@/components/OperationsTray";
 import { errorText, translateMessage } from "@/lib/errors";
 
@@ -128,13 +129,7 @@ export function ProjectsPage() {
       <PageHeader
         title={t("Projects")}
         description={t("Each project runs in its own isolated set of containers.")}
-        actions={
-          admin ? (
-            <LinkButton to="/projects/new" variant="primary" icon={<Plus className="size-4" />}>
-              {t("New project")}
-            </LinkButton>
-          ) : undefined
-        }
+        actions={admin ? <NewProjectButton /> : undefined}
       />
       {q.isPending ? (
         <Spinner />

@@ -69,6 +69,19 @@ export function usePlanAllows(feature: PlanFeature): boolean {
   return !q.data?.plan?.disabled.includes(feature);
 }
 
+/** Whether the plan lets projects use a runtime; all of them while loading and without a plan. */
+export function usePlanRuntimes(): (runtime: string) => boolean {
+  const runtimes = usePlan().data?.plan?.runtimes ?? [];
+  return (runtime) => runtimes.length === 0 || runtimes.includes(runtime);
+}
+
+/** Whether the instance has used up the plan's projects or users; false without a limit. */
+export function usePlanLimitReached(limit: "projects" | "users"): boolean {
+  const q = usePlan();
+  const max = q.data?.plan?.limits[limit] ?? 0;
+  return max > 0 && (q.data?.usage?.[limit] ?? 0) >= max;
+}
+
 /** Whether the hoster's plan fixes an instance setting. */
 export function useSettingLocked(key: keyof UpdateSettingsRequest): boolean {
   const q = useSettings();
@@ -211,6 +224,8 @@ function useProjectInvalidation() {
     void qc.invalidateQueries({ queryKey: keys.dashboard });
     void qc.invalidateQueries({ queryKey: keys.docker });
     void qc.invalidateQueries({ queryKey: keys.operations });
+    // The plan's usage counts the projects.
+    void qc.invalidateQueries({ queryKey: keys.plan });
     if (project) {
       qc.setQueryData(keys.project(project.id), project);
     }

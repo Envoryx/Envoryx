@@ -3069,5 +3069,10 @@
   "extracting ({{done}} of {{total}} layers done)": "Rozpakowywanie (gotowe warstwy: {{done}} z {{total}})",
   "Not injected": "Niewstrzyknięte",
   "Envoryx or the project's own variables set these already; an addon doesn't override them.": "Envoryx lub własne zmienne projektu już je ustawiają; dodatek ich nie nadpisuje.",
-  "The hoster's support can't change this: accounts, passwords, sign-in and keys stay with the instance's admins.": "Wsparcie hostera nie może tego zmienić: konta, hasła, logowanie i klucze pozostają w rękach administratorów instancji."
+  "The hoster's support can't change this: accounts, passwords, sign-in and keys stay with the instance's admins.": "Wsparcie hostera nie może tego zmienić: konta, hasła, logowanie i klucze pozostają w rękach administratorów instancji.",
+  "The plan's project limit is reached.": "Osiągnięto limit projektów planu.",
+  "Delete a project or ask your hoster for a larger plan.": "Usuń projekt albo poproś hosting o większy plan.",
+  "More runtimes aren't included in your plan. Your hoster can include them.": "Twój plan nie obejmuje innych środowisk uruchomieniowych. Twój hosting może je dodać.",
+  "The plan's user limit is reached.": "Osiągnięto limit użytkowników planu.",
+  "Disable or delete a user, or ask your hoster for a larger plan.": "Wyłącz lub usuń użytkownika albo poproś hosting o większy plan."
 }

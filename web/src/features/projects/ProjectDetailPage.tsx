@@ -5,7 +5,7 @@ import { Activity, Archive, Blocks, Clock, CodeXml, Copy, Database, Ellipsis, Ex
 import { lazy, Suspense, useEffect, useState, type ReactElement } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { ApiError } from "@/api/client";
-import { useDevServerLink, useImageChoice, useProject, useProjectLinks, useProjectPlan, useProjectStats, useRuntimes, useSettings, useUpdateProject } from "@/api/hooks";
+import { useDevServerLink, useImageChoice, usePlanRuntimes, useProject, useProjectLinks, useProjectPlan, useProjectStats, useRuntimes, useSettings, useUpdateProject } from "@/api/hooks";
 import { appKindOf, defaultNodePresets, defaultPythonPresets, defaultRubyPresets, defaultJavaPresets, defaultDotnetPresets, servesOf, type EnvVar, type NodeConfig, type PHPConfig, type Project, type PythonConfig, type GoConfig, type RubyConfig, type JavaConfig, type DotnetConfig, type UpdateProjectRequest, type WebServerConfig } from "@/api/types";
 import { NodeDevServerFields, defaultScript, devServerRequest, type DevServerForm } from "./NodeDevServerFields";
 import { PythonServerFields, defaultPythonServerForm, pythonServerRequest, type PythonServerForm } from "./PythonServerFields";
@@ -100,6 +100,7 @@ export function ProjectDetailPage() {
   const q = useProject(id);
   const links = useProjectLinks();
   const devLink = useDevServerLink();
+  const runtimeInPlan = usePlanRuntimes();
   const [params] = useSearchParams();
   const [deleting, setDeleting] = useState(false);
   const [sharing, setSharing] = useState(false);
@@ -241,11 +242,15 @@ export function ProjectDetailPage() {
               // servers, PHP last unless it's the application).
               const order: Kind[] = ["node", "python", "go", "ruby", "java", "dotnet", "php"];
               const [first, ...rest]: Kind[] = app && app !== "php" ? [app, ...order.filter((k) => k !== app)] : ["php", "node", "python", "go", "ruby", "java", "dotnet"];
+              // A runtime the hoster's plan leaves out isn't offered; one the project has stays.
+              const shown = (k: Kind) => runtimeInPlan(k) || p.services.some((s) => s.kind === k && s.enabled);
+              const hidden = [first, ...rest].some((k) => k && !shown(k));
               return (
                 <>
-                  {first && cards[first]}
+                  {first && shown(first) && cards[first]}
                   <WebServerCard project={p} />
-                  {rest.map((k) => cards[k])}
+                  {rest.filter(shown).map((k) => cards[k])}
+                  {hidden && <p className="text-xs text-muted">{t("More runtimes aren't included in your plan. Your hoster can include them.")}</p>}
                 </>
               );
             })()}
