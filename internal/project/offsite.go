@@ -42,6 +42,11 @@ func isBackupMember(name string) bool {
 	if slices.Contains(backupArchiveMembers, name) || addonVolumeRe.MatchString(name) {
 		return true
 	}
+	for _, sib := range railsSiblingDatabases {
+		if name == backupSiblingFileOf(sib.suffix) {
+			return true
+		}
+	}
 	if m := dbVolumeCopyRe.FindStringSubmatch(name); m != nil {
 		return m[1] == "" || ValidateDatabaseServiceName(m[1]) == nil
 	}

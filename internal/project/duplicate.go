@@ -239,6 +239,11 @@ func (m *Manager) duplicate(ctx context.Context, id string, req DuplicateRequest
 			if err := m.copyDatabaseOf(ctx, src, db, proj, db); err != nil {
 				return fail("copy the database "+label, err)
 			}
+			if db == "" {
+				if err := m.copySiblings(ctx, src, proj); err != nil {
+					return fail("copy the database "+label, err)
+				}
+			}
 		}
 	}
 	if req.Storage {
@@ -616,6 +621,50 @@ func (m *Manager) copyDatabaseOf(ctx context.Context, src store.Project, srcDB s
 				return err
 			}
 			return m.streamDump(ctx, dialect, dbEnd{src, srcSvc, srcCfg}, dbEnd{dst, dstSvc, dstCfg})
+		})
+	})
+}
+
+// copySiblings copies the Rails sibling databases of the original's primary database
+// (railsSiblings) into the copy, creating them there first: without them every request
+// of the copy fails on the missing queue database.
+func (m *Manager) copySiblings(ctx context.Context, src, dst store.Project) error {
+	srcSvc, srcCfg, err := databaseOf(src, "")
+	if err != nil {
+		return nil
+	}
+	dstSvc, dstCfg, err := databaseOf(dst, "")
+	if err != nil || srcSvc.Variant != dstSvc.Variant {
+		return nil
+	}
+	dialect, err := dialectOf(dstSvc)
+	if err != nil {
+		return nil
+	}
+	return m.withServiceRunning(ctx, src, srcSvc.Kind, func(ctx context.Context) error {
+		if err := m.waitForDatabase(ctx, src, srcSvc, srcCfg, dialect); err != nil {
+			return err
+		}
+		sibs, err := m.railsSiblings(ctx, src)
+		if err != nil || len(sibs) == 0 {
+			return err
+		}
+		return m.withServiceRunning(ctx, dst, dstSvc.Kind, func(ctx context.Context) error {
+			if err := m.waitForDatabase(ctx, dst, dstSvc, dstCfg, dialect); err != nil {
+				return err
+			}
+			for _, sib := range sibs {
+				to := dstCfg
+				to.Database += sib.suffix
+				step(ctx, "Copying the database {{name}}", "name", to.Database)
+				if err := m.ensureSiblingDatabase(ctx, dst.ID, func(db string) string { return db + sib.suffix }, siblingName(sib.suffix)); err != nil {
+					return err
+				}
+				if err := m.streamDump(ctx, dialect, dbEnd{src, srcSvc, sib.cfg}, dbEnd{dst, dstSvc, to}); err != nil {
+					return fmt.Errorf("%s: %w", to.Database, err)
+				}
+			}
+			return nil
 		})
 	})
 }
