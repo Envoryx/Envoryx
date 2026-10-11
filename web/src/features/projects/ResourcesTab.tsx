@@ -16,7 +16,7 @@ export function RangePicker({ value, onChange, ranges = metricRanges, wrap = tru
   const { t } = useTranslation();
   const labels: Record<MetricRange, string> = { "1h": t("1 hour"), "6h": t("6 hours"), "24h": t("24 hours"), "7d": t("7 days"), "30d": t("30 days"), "90d": t("90 days"), "365d": t("1 year") };
   return (
-    <div className={`inline-flex shrink-0 ${wrap ? "flex-wrap" : ""} gap-1 rounded-md border border-default bg-elevated p-0.5`} role="radiogroup" aria-label={t("Time range")}>
+    <div className={`inline-flex ${wrap ? "max-w-full flex-wrap" : "shrink-0"} gap-1 rounded-md border border-default bg-elevated p-0.5`} role="radiogroup" aria-label={t("Time range")}>
       {ranges.map((r) => (
         <button
           key={r}
@@ -33,7 +33,12 @@ export function RangePicker({ value, onChange, ranges = metricRanges, wrap = tru
   );
 }
 
-const cores = (v: number) => (v >= 10 ? v.toFixed(0) : v >= 1 ? v.toFixed(1) : v.toFixed(2));
+/**
+ * Cores with as many decimals as the value needs: an idle project's axis steps by a few
+ * thousandths of a core, which two fixed decimals would all print as 0.00 or 0.01.
+ */
+export const formatCores = (v: number) => (v >= 10 ? v.toFixed(0) : v >= 1 ? v.toFixed(1) : v === 0 ? "0" : String(Number(v.toPrecision(2))));
+const cores = formatCores;
 const rateFmt = (v: number) => `${formatBytes(v)}/s`;
 
 /** At most eight series: the busiest seven keep their own line, the rest become "Other". */
@@ -146,7 +151,7 @@ export function ResourcesTab({ project }: { project: Project }) {
       ) : (
         charts &&
         m && (
-          <div className={q.isFetching && q.isPlaceholderData ? "grid gap-6 opacity-60 xl:grid-cols-2" : "grid gap-6 xl:grid-cols-2"}>
+          <div className={q.isFetching && q.isPlaceholderData ? "grid grid-cols-1 gap-6 opacity-60 xl:grid-cols-2" : "grid grid-cols-1 gap-6 xl:grid-cols-2"}>
             <ChartCard title={t("CPU")} description={t("Cores used per container (1 = one core fully busy)")} table={<SeriesTable series={charts.cpu} format={cores} />}>
               <LineChart series={charts.cpu} from={m.from} to={now} step={m.res} format={cores} label={t("CPU")} />
             </ChartCard>
