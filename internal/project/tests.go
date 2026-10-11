@@ -335,6 +335,7 @@ func javaTestSuite(tool string) TestSuite {
 // A URL with parameters (?useSSL=false) gets _test before them (testURLShell).
 // Surefire and Gradle write one JUnit file per test class, so the old ones go before the
 // run and the new ones are joined into the single report the Tests section reads.
+// Classes a newer JDK compiled go first, as before the server starts.
 const javaTestScript = testURLShell + `
 tool=$1 report=$2 filter=$3
 for v in SPRING_DATASOURCE_URL QUARKUS_DATASOURCE_JDBC_URL JDBC_URL DATABASE_URL; do
@@ -342,6 +343,7 @@ for v in SPRING_DATASOURCE_URL QUARKUS_DATASOURCE_JDBC_URL JDBC_URL DATABASE_URL
   [ -n "$u" ] && export "$v=$(envoryx_test_url "$u")"
 done
 rm -f target/surefire-reports/TEST-*.xml build/test-results/test/TEST-*.xml
+` + runtime.JavaStaleClasses + `
 if [ "$tool" = maven ]; then
   mvn=mvn; [ -f ./mvnw ] && mvn="sh ./mvnw"
   if [ -n "$filter" ]; then $mvn -B test "-Dtest=$filter" -Dsurefire.failIfNoSpecifiedTests=false; else $mvn -B test; fi
