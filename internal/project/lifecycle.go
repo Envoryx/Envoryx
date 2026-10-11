@@ -423,6 +423,13 @@ func (m *Manager) Restart(ctx context.Context, id string) (View, error) {
 				return err
 			}
 		}
+		// A registry image whose pull failed when it was set was never checked; now that
+		// it is here, the check runs, so its card shows the result.
+		for _, svc := range proj.Services {
+			if c := svc.Custom; customImageKinds[svc.Kind] && c.Image != "" && c.CheckedImage != c.Image {
+				m.checkCustomImage(ctx, proj.ID, svc.Kind, c.Image)
+			}
+		}
 		if err := m.stopPlan(ctx, proj, plan); err != nil {
 			return err
 		}

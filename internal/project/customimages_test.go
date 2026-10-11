@@ -342,3 +342,53 @@ func TestCustomImageClearsTheErrorOfAnEarlierStart(t *testing.T) {
 		t.Fatalf("the old error stayed: %q", got.LastError)
 	}
 }
+
+// Saving the same registry image again after its pull failed (a login was missing)
+// pulls, checks and applies it now; a second save of a working image changes nothing.
+func TestCustomImageSavedAgainAfterAFailedPull(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	view, err := e.m.Create(ctx, phpRequest("Reg", true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := view.Project.ID
+	ref := "registry.example.org/acme/php:8.4"
+	e.engine.OneShotHandler = probeAll
+	e.engine.FailPull[ref] = errors.New("unauthorized: authentication required")
+	if _, err := e.m.SetCustomImage(ctx, id, store.ServicePHP, CustomImageRequest{Image: ref}); !errors.Is(err, validate.ErrInvalid) || !strings.Contains(err.Error(), "Private registries") {
+		t.Fatalf("failed pull: %v", err)
+	}
+	delete(e.engine.FailPull, ref)
+	view, err = e.m.SetCustomImage(ctx, id, store.ServicePHP, CustomImageRequest{Image: ref})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c, _ := e.engine.Container("envoryx-reg-php"); c.Spec.Image != ref {
+		t.Fatalf("the running project must use the image now: %s", c.Spec.Image)
+	}
+	if svc := view.Project.Service(store.ServicePHP); svc.Custom.CheckedImage != ref {
+		t.Fatalf("the image must be checked: %+v", svc.Custom)
+	}
+	c, _ := e.engine.Container("envoryx-reg-php")
+	if _, err := e.m.SetCustomImage(ctx, id, store.ServicePHP, CustomImageRequest{Image: ref}); err != nil {
+		t.Fatal(err)
+	}
+	if again, _ := e.engine.Container("envoryx-reg-php"); again.ID != c.ID {
+		t.Fatal("saving a working image again must not recreate the container")
+	}
+
+	// A restart after the login was added checks the image as well.
+	other := "registry.example.org/acme/php:8.5"
+	e.engine.FailPull[other] = errors.New("unauthorized: authentication required")
+	if _, err := e.m.SetCustomImage(ctx, id, store.ServicePHP, CustomImageRequest{Image: other}); err == nil {
+		t.Fatal("the pull must fail")
+	}
+	delete(e.engine.FailPull, other)
+	if view, err = e.m.Restart(ctx, id); err != nil {
+		t.Fatal(err)
+	}
+	if svc := view.Project.Service(store.ServicePHP); svc.Custom.CheckedImage != other {
+		t.Fatalf("the restart must check the image: %+v", svc.Custom)
+	}
+}
