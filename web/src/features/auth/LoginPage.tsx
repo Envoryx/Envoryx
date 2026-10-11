@@ -71,7 +71,7 @@ export function LoginPage({ mode }: { mode: "login" | "setup" }) {
     <div className="flex min-h-full items-center justify-center bg-app px-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center gap-3">
-          <LogoFull className="w-64" />
+          <LogoFull className="w-96 max-w-full" />
           <div className="text-center">
             <h1 className="text-lg font-semibold text-fg">{mode === "setup" ? t("Welcome to Envoryx") : t("Sign in to Envoryx")}</h1>
             <p className="mt-1 text-sm text-muted">

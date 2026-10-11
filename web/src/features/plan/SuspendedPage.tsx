@@ -20,7 +20,7 @@ export function SuspendedPage({ suspension }: { suspension: Suspension }) {
     <div className="flex min-h-full items-center justify-center bg-app px-4">
       <div className="w-full max-w-lg">
         <div className="mb-8 flex justify-center">
-          <LogoFull className="w-64" />
+          <LogoFull className="w-96 max-w-full" />
         </div>
         <div className="space-y-4 rounded-xl border border-default bg-elevated p-6 shadow-sm">
           <h1 className="flex items-center gap-2 text-lg font-semibold text-fg">
