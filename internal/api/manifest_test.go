@@ -49,8 +49,9 @@ func TestManifestEndpoints(t *testing.T) {
 	if r.status != http.StatusOK {
 		t.Fatalf("plan: %d %s", r.status, r.raw)
 	}
+	// Redis goes, Memcached comes, and PHP swaps their client extensions.
 	changes := r.body["plan"].(map[string]any)["changes"].([]any)
-	if len(changes) != 2 {
+	if len(changes) != 3 {
 		t.Fatalf("plan: %s", r.raw)
 	}
 	r = a.do(http.MethodPost, "/api/v1/projects/"+id+"/manifest/apply", map[string]any{"yaml": next, "prune": true}, true)

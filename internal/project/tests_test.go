@@ -309,3 +309,31 @@ func TestDjangoTestDatabase(t *testing.T) {
 		}
 	}
 }
+
+// phpunit.xml's <env> entries reach the run: the container's variables (QUEUE_CONNECTION
+// from the project, MAIL_MAILER from Envoryx) would otherwise beat them and the tests
+// would use the development queue and inbox.
+func TestPHPUnitEnv(t *testing.T) {
+	laravel := []byte(`<?xml version="1.0"?><phpunit><php>
+        <env name="APP_ENV" value="testing"/>
+        <env name="QUEUE_CONNECTION" value="sync"/>
+        <env name="MAIL_MAILER" value="array"/>
+        <env name="DB_DATABASE" value="testing"/>
+    </php></phpunit>`)
+	if got := phpunitEnv(nil, laravel); !slices.Equal(got, []string{"APP_ENV=testing", "QUEUE_CONNECTION=sync", "MAIL_MAILER=array"}) {
+		t.Fatalf("laravel: %v", got)
+	}
+	sqlite := []byte(`<phpunit><php><env name="DB_CONNECTION" value="sqlite"/><env name="DB_DATABASE" value=":memory:"/></php></phpunit>`)
+	if got := phpunitEnv(sqlite, laravel); !slices.Equal(got, []string{"DB_CONNECTION=sqlite", "DB_DATABASE=:memory:"}) {
+		t.Fatalf("phpunit.xml before phpunit.xml.dist, sqlite keeps its database: %v", got)
+	}
+	if got := phpunitEnv([]byte("not xml"), laravel); got != nil {
+		t.Fatalf("broken config: %v", got)
+	}
+	dir := t.TempDir()
+	writeProjectFiles(t, dir, map[string]string{"vendor/bin/pest": "", "phpunit.xml": string(laravel)})
+	suites := detectTestSuites(dir, store.Project{Services: []store.ProjectService{{Kind: store.ServicePHP, Enabled: true}}})
+	if _, env := suites[0].build("", "/tmp/r.xml"); !slices.Contains(env, "QUEUE_CONNECTION=sync") {
+		t.Fatalf("pest run env: %v", env)
+	}
+}

@@ -4,9 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"reflect"
+	"slices"
 	"testing"
 
 	"github.com/envoryx/envoryx/internal/manifest"
+	"github.com/envoryx/envoryx/internal/runtime"
+	"github.com/envoryx/envoryx/internal/store"
 )
 
 func TestManifestDiff(t *testing.T) {
@@ -69,8 +72,29 @@ func TestUpdateAuditsBeforeAndAfter(t *testing.T) {
 			break
 		}
 	}
-	want := []AuditChange{{Section: "docroot", From: "public", To: "web"}, {Section: "redis", To: "version: 8"}}
+	// Redis brings PHP's redis extension along.
+	want := []AuditChange{
+		{Section: "docroot", From: "public", To: "web"},
+		{Section: "php", From: "extensions: [bcmath, gd, intl, opcache, pdo_mysql, zip]", To: "extensions: [bcmath, gd, intl, opcache, pdo_mysql, redis, zip]"},
+		{Section: "redis", To: "version: 8"},
+	}
 	if !reflect.DeepEqual(diff, want) {
 		t.Fatalf("audit diff: %+v", diff)
+	}
+}
+
+// A project created with Redis and RabbitMQ gets their PHP client extensions.
+func TestCreateEnablesClientExtensions(t *testing.T) {
+	e := newEnv(t)
+	req := phpRequest("Queue", false)
+	req.Redis, req.RabbitMQ = &ExtraRequest{}, &ExtraRequest{}
+	view, err := e.m.Create(context.Background(), req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var cfg runtime.PHPConfig
+	_ = json.Unmarshal(view.Project.Service(store.ServicePHP).Config, &cfg)
+	if !slices.Contains(cfg.Extensions, "redis") || !slices.Contains(cfg.Extensions, "amqp") || slices.Contains(cfg.Extensions, "memcached") {
+		t.Fatalf("extensions: %v", cfg.Extensions)
 	}
 }

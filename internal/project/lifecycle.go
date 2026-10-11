@@ -986,6 +986,16 @@ func (m *Manager) update(ctx context.Context, id string, req UpdateRequest) (Vie
 		}
 		recreateApp = recreateApp || r
 	}
+	// A newly added Redis, Memcached or RabbitMQ brings PHP's client extension along, as a
+	// PostgreSQL database brings pdo_pgsql: Laravel's phpredis default, the cache
+	// drivers and Symfony Messenger's AMQP transport fail without it.
+	if req.Redis != nil || req.Memcached != nil || req.RabbitMQ != nil {
+		r, err := m.enableClientExtensions(ctx, proj, changes)
+		if err != nil {
+			return View{}, err
+		}
+		recreateApp = recreateApp || r
+	}
 	if req.Meilisearch != nil {
 		r, err := m.applyExtraUpdate(ctx, proj, store.ServiceMeilisearch, *req.Meilisearch, changes)
 		if err != nil {

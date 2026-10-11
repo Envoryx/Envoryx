@@ -682,7 +682,7 @@ func (m *Manager) applyDatabaseUpdate(ctx context.Context, p store.Project, kind
 		p.Services = append(p.Services, newSvc)
 		if php := p.Service(store.ServicePHP); php != nil {
 			before := string(php.Config)
-			if err := enableDriverExtensions(&p); err != nil {
+			if err := enableDriverExtensions(&p, false); err != nil {
 				return false, err
 			}
 			if string(php.Config) != before {
@@ -792,29 +792,85 @@ func (m *Manager) applyDatabaseUpdate(ctx context.Context, p store.Project, kind
 // enableDriverExtensions switches on the PHP extension a project database needs:
 // pdo_pgsql for PostgreSQL (pdo_mysql is on by default, MongoDB's driver is chosen by
 // hand). Without it Doctrine, Laravel and Drupal find no driver for the database the
-// project was created with.
-func enableDriverExtensions(p *store.Project) error {
+// project was created with. With clients, a new project also gets the client extensions
+// of its Redis, Memcached and RabbitMQ (clientExtensions).
+func enableDriverExtensions(p *store.Project, clients bool) error {
 	php := p.Service(store.ServicePHP)
 	if php == nil || !php.Enabled {
 		return nil
 	}
-	needPg := false
+	var need []string
 	for _, db := range p.Databases() {
-		needPg = needPg || db.Variant == "postgresql"
+		if db.Variant == "postgresql" && !slices.Contains(need, "pdo_pgsql") {
+			need = append(need, "pdo_pgsql")
+		}
 	}
-	if !needPg {
+	if clients {
+		for _, ce := range clientExtensions {
+			if svc := p.Service(ce.kind); svc != nil && svc.Enabled {
+				need = append(need, ce.ext)
+			}
+		}
+	}
+	if len(need) == 0 {
 		return nil
 	}
 	return editConfig(php, func(c *runtime.PHPConfig) error {
 		if c.Extensions == nil {
 			c.Extensions = runtime.DefaultPHPConfig().Extensions
 		}
-		if !slices.Contains(c.Extensions, "pdo_pgsql") {
-			c.Extensions = append(slices.Clone(c.Extensions), "pdo_pgsql")
-			sort.Strings(c.Extensions)
+		for _, ext := range need {
+			if !slices.Contains(c.Extensions, ext) {
+				c.Extensions = append(slices.Clone(c.Extensions), ext)
+			}
 		}
+		sort.Strings(c.Extensions)
 		return nil
 	})
+}
+
+// clientExtensions are the PHP extensions a service's clients need.
+var clientExtensions = []struct {
+	kind store.ServiceKind
+	ext  string
+}{{store.ServiceRedis, "redis"}, {store.ServiceMemcached, "memcached"}, {store.ServiceRabbitMQ, "amqp"}}
+
+// enableClientExtensions switches on the PHP client extension of each Redis, Memcached
+// or RabbitMQ the update added (before is the project as it was): Laravel's phpredis
+// default, the Memcached cache drivers and Symfony Messenger's AMQP transport fail with
+// "class not found" without it, as Doctrine does without pdo_pgsql. An extension the
+// user turned off for a service the project already had stays off.
+func (m *Manager) enableClientExtensions(ctx context.Context, before store.Project, changes map[string]any) (bool, error) {
+	p, err := m.loadProject(ctx, before.ID)
+	if err != nil {
+		return false, err
+	}
+	php := p.Service(store.ServicePHP)
+	if php == nil || !php.Enabled {
+		return false, nil
+	}
+	var added []string
+	err = editConfig(php, func(c *runtime.PHPConfig) error {
+		if c.Extensions == nil {
+			c.Extensions = runtime.DefaultPHPConfig().Extensions
+		}
+		for _, ce := range clientExtensions {
+			if before.Service(ce.kind) == nil && p.Service(ce.kind) != nil && !slices.Contains(c.Extensions, ce.ext) {
+				c.Extensions = append(slices.Clone(c.Extensions), ce.ext)
+				added = append(added, ce.ext)
+			}
+		}
+		sort.Strings(c.Extensions)
+		return nil
+	})
+	if err != nil || len(added) == 0 {
+		return false, err
+	}
+	if err := m.store.Projects.UpdateServiceConfig(ctx, p.ID, store.ServicePHP, php.Version, php.Image, php.Config); err != nil {
+		return false, err
+	}
+	changes["phpExtensions"] = strings.Join(added, ",")
+	return true, nil
 }
 
 // Names an additional database cannot have: the host names of the project's other
