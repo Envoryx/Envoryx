@@ -412,10 +412,13 @@ var templates = []Template{
 	},
 	{
 		ID: "typo3", Name: "TYPO3", Description: "typo3/cms-base-distribution with the installer enabled and the connection to the project database prepared.",
-		Runtime: "php", Docroot: "public", RequiresDatabase: true, RecommendedDatabase: "mariadb", PHPExtensions: []string{"mysqli"},
-		Notes: "Run “typo3 setup” from Actions once the project is running: it creates the tables, a site for the project URL and the administrator, and prints the password. The web installer on the site works too; the connection comes from config/system/additional.php.",
+		// The install tool asks for a memory_limit of 512M.
+		Runtime: "php", Docroot: "public", RequiresDatabase: true, RecommendedDatabase: "mariadb", PHPExtensions: []string{"mysqli"}, PHPMemoryLimit: "512M",
+		Notes: "Run “typo3 setup” from Actions once the project is running: it creates the tables, a site for the project URL and the administrator, and prints the password. The web installer on the site works too; the connection comes from config/system/additional.php. The scheduler extension is installed, for the “TYPO3 scheduler” cron job.",
 		steps: []templateStep{
 			{label: "composer create-project", cmd: []string{"composer", "create-project", "typo3/cms-base-distribution", ".", composerNoInteraction, "--prefer-dist"}},
+			// The base distribution leaves the scheduler out; the cron preset runs it.
+			{label: "composer require typo3/cms-scheduler", cmd: []string{"composer", "require", "typo3/cms-scheduler", composerNoInteraction}},
 			{label: "enable the installer", cmd: []string{"php", "-r", typo3Settings}},
 		},
 	},

@@ -61,7 +61,7 @@ DirectoryIndex index.php index.html
 <FilesMatch "\.php$">
 	SetHandler "proxy:fcgi://php:9000"
 </FilesMatch>
-<LocationMatch "(?i)(?:/wp-content/uploads|/app/uploads|/sites/[^/]+/files|/fileadmin|/typo3temp|^/(?:uploads|media|thumbnail|storage))/.*\.php(?:/|$)">
+<LocationMatch "(?i)(?:/wp-content/uploads|/app/uploads|/sites/[^/]+/files|/fileadmin|/typo3temp|/cpresources|^/(?:uploads|media|thumbnail|storage|assets|images))/.*\.php(?:/|$)">
 	Require all denied
 </LocationMatch>
 ProxyFCGISetEnvIf "%{HTTP:X-Forwarded-Proto} == 'https'" HTTPS on
