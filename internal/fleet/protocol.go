@@ -46,8 +46,10 @@ type enrollResponse struct {
 // message is every frame on the WebSocket; Type decides which fields are set.
 //
 //	manager → instance: challenge (Nonce), welcome (Name), plan (Plan, null for none),
-//	                    suspension (Suspension, null for none)
-//	instance → manager: auth (Signature over the nonce), status (Status)
+//	                    suspension (Suspension, null for none), supportLogin (ID, Name of
+//	                    the hoster's user)
+//	instance → manager: auth (Signature over the nonce), status (Status), supportLogin
+//	                    (ID, URL or Error)
 type message struct {
 	Type       string          `json:"type"`
 	Nonce      []byte          `json:"nonce,omitempty"`
@@ -56,6 +58,10 @@ type message struct {
 	Plan       json.RawMessage `json:"plan,omitempty"`
 	Suspension json.RawMessage `json:"suspension,omitempty"`
 	Status     *Status         `json:"status,omitempty"`
+	// ID pairs a request with its answer.
+	ID    string `json:"id,omitempty"`
+	URL   string `json:"url,omitempty"`
+	Error string `json:"error,omitempty"`
 }
 
 // Status is what an instance reports about itself, at connect and every minute.
@@ -70,9 +76,19 @@ type Status struct {
 	// SuspendedSince is when the suspension the instance follows began; zero when it
 	// is not suspended.
 	SuspendedSince time.Time `json:"suspendedSince,omitzero"`
-	Usage          Usage     `json:"usage"`
+	// Support is set while the instance's admins allow the hoster's support in.
+	Support *SupportAccess `json:"support,omitempty"`
+	// UIURL is the address of the instance's web UI, where a support login link leads.
+	UIURL string `json:"uiUrl,omitempty"`
+	Usage Usage  `json:"usage"`
 	// Warnings are the instance's open problems (failing projects, low disk space).
 	Warnings []string `json:"warnings,omitempty"`
+}
+
+// SupportAccess is the admins' consent to the hoster's support.
+type SupportAccess struct {
+	// Until is when the consent ends; zero while it holds until revoked.
+	Until time.Time `json:"until,omitzero"`
 }
 
 // Usage is how much of its plan an instance uses.

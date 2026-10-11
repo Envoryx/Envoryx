@@ -61,6 +61,8 @@ type testApp struct {
 	offsiteMem *memTarget
 	// plans is the instance's plan, from <cfgDir>/plan.json (setPlan).
 	plans *plan.Holder
+	// auth is the session service (support logins).
+	auth *auth.Service
 }
 
 func newApp(t *testing.T) *testApp {
@@ -104,7 +106,7 @@ func newApp(t *testing.T) *testApp {
 	invalidations := 0
 	proxyInfo := &api.ProxyInfo{Enabled: true, HTTPPort: 80, HTTPSPort: 443, InDocker: true, Invalidate: func() { invalidations++ }}
 	mcpSrv := mcpserver.New(mcpserver.Deps{Projects: manager, Catalog: runtime.Default(), Auth: sessions, Version: "test", Log: log})
-	app := &testApp{t: t, engine: engine, proxy: proxyInfo, projDir: projDir, cfgDir: cfgDir, logs: logStore, offsiteMem: &memTarget{files: map[string][]byte{}}}
+	app := &testApp{t: t, auth: sessions, engine: engine, proxy: proxyInfo, projDir: projDir, cfgDir: cfgDir, logs: logStore, offsiteMem: &memTarget{files: map[string][]byte{}}}
 	// As in main: the proxy's host-side ports make the project and addon URLs.
 	manager.SetLinks(func(context.Context) (string, int, int) { return "", proxyInfo.HTTPPort, proxyInfo.HTTPSPort })
 	backups := &instance.Store{ConfigDir: cfgDir, DBPath: filepath.Join(cfgDir, "envoryx.db"), Dir: filepath.Join(t.TempDir(), "_instance"), Version: "test", LatestSchema: db.LatestVersion(), Log: log}

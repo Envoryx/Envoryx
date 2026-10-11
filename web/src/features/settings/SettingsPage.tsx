@@ -27,6 +27,7 @@ import { SecretKeyCard } from "./SecretKeyCard";
 import { MySshKeysCard } from "./MySshKeysCard";
 import { useAuth } from "@/features/auth/AuthContext";
 import { AppearanceCard } from "./AppearanceCard";
+import { SupportAccessCard } from "./SupportAccessCard";
 import { AuditLog } from "@/features/audit/AuditLog";
 import { LifecycleCard } from "./LifecycleCard";
 import { LogHistoryCard } from "./LogHistoryCard";
@@ -340,7 +341,7 @@ function AuditRetentionCard() {
 
 export function SettingsPage() {
   const { t } = useTranslation();
-  const { admin } = useAuth();
+  const { admin, support } = useAuth();
   const s = useSettings();
   const diagnostics = useDiagnostics(admin);
   const [params] = useSearchParams();
@@ -383,6 +384,7 @@ export function SettingsPage() {
           {tab === "general" && (
             <>
               <PlanCard />
+              {admin && !support && <SupportAccessCard />}
               <InstanceCard />
               <LifecycleCard />
               <UnraidCard />

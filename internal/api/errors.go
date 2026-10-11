@@ -73,6 +73,10 @@ func writeError(w http.ResponseWriter, r *http.Request, err error) {
 		ae = newError(http.StatusConflict, "last_admin", err.Error())
 	case errors.Is(err, validate.ErrInvalid), errors.Is(err, auth.ErrWeakPassword), errors.Is(err, auth.ErrInvalidScope):
 		ae = newError(http.StatusUnprocessableEntity, "validation_failed", err.Error())
+	case errors.Is(err, auth.ErrSupportNotAllowed):
+		ae = newError(http.StatusForbidden, "support_not_allowed", err.Error())
+	case errors.Is(err, auth.ErrSupportTicket):
+		ae = newError(http.StatusGone, "support_link_invalid", err.Error())
 	case errors.Is(err, plan.ErrSuspended):
 		ae = newError(http.StatusForbidden, "suspended", err.Error())
 	case errors.Is(err, plan.ErrQuota):

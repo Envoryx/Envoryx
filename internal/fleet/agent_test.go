@@ -31,6 +31,9 @@ type fakeManager struct {
 	plan string
 	// suspension is sent after the plan unless empty.
 	suspension string
+	// askSupport sends a support login request after the plan; replies holds the answers.
+	askSupport bool
+	replies    []message
 	statuses   []Status
 	revoked    bool
 	conns      int
@@ -104,16 +107,22 @@ func (f *fakeManager) handler() http.Handler {
 		if susp != "" {
 			_ = wsjson.Write(ctx, conn, message{Type: "suspension", Suspension: json.RawMessage(susp)})
 		}
+		if f.askSupport {
+			_ = wsjson.Write(ctx, conn, message{Type: "supportLogin", ID: "r1", Name: "hoster"})
+		}
 		for {
 			var m message
 			if err := wsjson.Read(ctx, conn, &m); err != nil {
 				return
 			}
-			if m.Type == "status" && m.Status != nil {
-				f.mu.Lock()
+			f.mu.Lock()
+			switch {
+			case m.Type == "status" && m.Status != nil:
 				f.statuses = append(f.statuses, *m.Status)
-				f.mu.Unlock()
+			case m.Type == "supportLogin":
+				f.replies = append(f.replies, m)
 			}
+			f.mu.Unlock()
 		}
 	})
 	return mux
@@ -247,5 +256,34 @@ func TestAgentWithoutFleet(t *testing.T) {
 	}
 	if _, err := New(Config{URL: "ftp://x", ConfigDir: t.TempDir()}); err == nil {
 		t.Error("ftp URL accepted")
+	}
+}
+
+func TestAgentAnswersSupportLogins(t *testing.T) {
+	f := &fakeManager{t: t, token: "tok", plan: "null", askSupport: true}
+	srv := httptest.NewServer(f.handler())
+	defer srv.Close()
+	dir := t.TempDir()
+	holder, err := plan.Open(filepath.Join(dir, plan.File), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var asked string
+	a, _ := New(Config{URL: srv.URL, Token: "tok", ConfigDir: dir, Plan: holder, Log: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		SupportLogin: func(_ context.Context, hoster string) (string, error) {
+			asked = hoster
+			return "https://envoryx.c1.example.net/api/v1/auth/support/abc", nil
+		}})
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { a.Run(ctx); close(done) }()
+	defer func() { cancel(); <-done }()
+
+	waitFor(t, "the answer", func() bool { f.mu.Lock(); defer f.mu.Unlock(); return len(f.replies) == 1 })
+	f.mu.Lock()
+	r := f.replies[0]
+	f.mu.Unlock()
+	if r.ID != "r1" || r.URL != "https://envoryx.c1.example.net/api/v1/auth/support/abc" || r.Error != "" || asked != "hoster" {
+		t.Fatalf("reply = %+v, asked %q", r, asked)
 	}
 }

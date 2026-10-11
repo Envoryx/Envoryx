@@ -2833,5 +2833,20 @@
   "Suspended since {{time}}": "Заблокирован с {{time}}",
   "Instance suspended": "Экземпляр заблокирован",
   "Suspension lifted": "Блокировка снята",
-  "this instance is suspended by its hoster": "Этот экземпляр заблокирован хостером"
+  "this instance is suspended by its hoster": "Этот экземпляр заблокирован хостером",
+  "Until revoked": "До отзыва",
+  "Support access": "Доступ поддержки",
+  "allowed": "разрешён",
+  "Take back": "Отозвать",
+  "For": "На",
+  "Allow support access": "Разрешить доступ поддержки",
+  "Lets your hoster's support sign in as an admin, e.g. to help with a problem. Every support login is in the audit log; taking the access back ends it at once.": "Позволяет поддержке вашего хостера войти как администратор, например чтобы помочь с проблемой. Каждый вход поддержки есть в журнале аудита; отзыв доступа сразу его завершает.",
+  "Your hoster's support may sign in until {{time}}.": "Поддержка вашего хостера может входить до {{time}}.",
+  "Your hoster's support may sign in until you take the access back.": "Поддержка вашего хостера может входить, пока вы не отзовёте доступ.",
+  "You are signed in as the hoster's support. The admins of this instance allowed it; what you do is in the audit log.": "Вы вошли как поддержка хостера. Администраторы этого экземпляра это разрешили; ваши действия записываются в журнал аудита.",
+  "Support login": "Вход поддержки",
+  "Support access changed": "Доступ поддержки изменён",
+  "the admins of this instance don't allow support access": "Администраторы этого экземпляра не разрешают доступ поддержки",
+  "the support login link is unknown, used or expired; open a new one from the fleet manager": "Ссылка для входа поддержки неизвестна, использована или истекла; откройте новую из fleet manager",
+  "the hoster's support can't do this": "Поддержка хостера не может это сделать"
 }

@@ -25,7 +25,9 @@ type User struct {
 	// Disabled users can neither sign in nor use their API tokens.
 	Disabled bool
 	// SSHKeys are the user's public keys for the SSH server, authorized_keys format.
-	SSHKeys   string
+	SSHKeys string
+	// Support marks the user the hoster's support signs in as (Users.Support).
+	Support   bool
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }

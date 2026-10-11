@@ -12,6 +12,8 @@ interface AuthState {
    * its owner, and a token limited to projects never administers the instance.
    */
   admin: boolean;
+  /** Whether the session is the hoster's support, signed in with the admins' consent. */
+  support: boolean;
   needsSetup: boolean;
   loading: boolean;
   login: (username: string, password: string) => Promise<void>;
@@ -24,6 +26,7 @@ const AuthContext = createContext<AuthState | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [admin, setAdmin] = useState(false);
+  const [support, setSupport] = useState(false);
   const [needsSetup, setNeedsSetup] = useState(false);
   const [loading, setLoading] = useState(true);
   const qc = useQueryClient();
@@ -41,6 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             if (!cancelled) {
               setUser(me.user);
               setAdmin(me.admin ?? roleIsAdmin(me.user.role));
+              setSupport(me.support ?? false);
             }
           } catch (err) {
             if (!(err instanceof ApiError && err.status === 401)) throw err;
@@ -96,7 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [qc]);
 
-  const value = useMemo(() => ({ user, admin, needsSetup, loading, login, setup, logout }), [user, admin, needsSetup, loading, login, setup, logout]);
+  const value = useMemo(() => ({ user, admin, support, needsSetup, loading, login, setup, logout }), [user, admin, support, needsSetup, loading, login, setup, logout]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

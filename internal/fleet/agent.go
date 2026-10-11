@@ -55,7 +55,10 @@ type Config struct {
 	Plan      *plan.Holder
 	// Status reports the instance's state for the manager.
 	Status func(ctx context.Context) Status
-	Log    *slog.Logger
+	// SupportLogin returns a one-time login link for the hoster's support, named hoster,
+	// or why there is none (the admins don't allow it).
+	SupportLogin func(ctx context.Context, hoster string) (string, error)
+	Log          *slog.Logger
 	// HTTPClient enrolls (http.DefaultClient when nil).
 	HTTPClient *http.Client
 }
@@ -79,6 +82,8 @@ type Agent struct {
 	contact   time.Time
 	err       string
 	planErr   string
+	// nudge asks for a status report now (Nudge).
+	nudge chan struct{}
 }
 
 // New returns the agent of an instance that is or shall be managed: one with
@@ -87,7 +92,7 @@ func New(cfg Config) (*Agent, error) {
 	if cfg.HTTPClient == nil {
 		cfg.HTTPClient = http.DefaultClient
 	}
-	a := &Agent{cfg: cfg}
+	a := &Agent{cfg: cfg, nudge: make(chan struct{}, 1)}
 	st, err := readState(filepath.Join(cfg.ConfigDir, StateFile))
 	if err != nil {
 		return nil, err
@@ -138,6 +143,18 @@ func writeFileAtomic(path string, b []byte) error {
 		return err
 	}
 	return os.Rename(tmp.Name(), path)
+}
+
+// Nudge has a connected agent report the instance's state now, after a change the
+// manager should see at once (the support access).
+func (a *Agent) Nudge() {
+	if a == nil {
+		return
+	}
+	select {
+	case a.nudge <- struct{}{}:
+	default:
+	}
 }
 
 // Info returns the state of the connection.
@@ -362,6 +379,9 @@ func (a *Agent) connect(ctx context.Context, st *state) error {
 			switch m.Type {
 			case "plan":
 				a.applyPlan(m.Plan)
+			case "supportLogin":
+				go a.answerSupportLogin(ctx, conn, m)
+				continue
 			case "suspension":
 				a.applySuspension(m.Suspension)
 				// Stopping the projects takes a moment; the manager hears the result too.
@@ -391,6 +411,10 @@ func (a *Agent) connect(ctx context.Context, st *state) error {
 			return closeErr(err, "")
 		case <-planned:
 			// The manager sees right away whether the plan or suspension was taken over.
+			if err := sendStatus(); err != nil {
+				return closeErr(err, "")
+			}
+		case <-a.nudge:
 			if err := sendStatus(); err != nil {
 				return closeErr(err, "")
 			}
@@ -484,4 +508,21 @@ func (a *Agent) applySuspension(raw json.RawMessage) {
 		return
 	}
 	a.cfg.Plan.Reload()
+}
+
+// answerSupportLogin answers the manager's request for a support login link. Writes on
+// the connection may run concurrently.
+func (a *Agent) answerSupportLogin(ctx context.Context, conn *websocket.Conn, req message) {
+	reply := message{Type: "supportLogin", ID: req.ID}
+	if a.cfg.SupportLogin == nil {
+		reply.Error = "this instance offers no support login"
+	} else if url, err := a.cfg.SupportLogin(ctx, req.Name); err != nil {
+		reply.Error = err.Error()
+	} else {
+		reply.URL = url
+	}
+	a.cfg.Log.Info("fleet: support login requested", "hoster", req.Name, "granted", reply.Error == "")
+	wctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	_ = wsjson.Write(wctx, conn, reply)
 }

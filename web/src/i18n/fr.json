@@ -2785,5 +2785,20 @@
   "Suspended since {{time}}": "Suspendue depuis {{time}}",
   "Instance suspended": "Instance suspendue",
   "Suspension lifted": "Suspension levée",
-  "this instance is suspended by its hoster": "Cette instance est suspendue par son hébergeur"
+  "this instance is suspended by its hoster": "Cette instance est suspendue par son hébergeur",
+  "Until revoked": "Jusqu'à révocation",
+  "Support access": "Accès du support",
+  "allowed": "autorisé",
+  "Take back": "Retirer",
+  "For": "Pour",
+  "Allow support access": "Autoriser l'accès du support",
+  "Lets your hoster's support sign in as an admin, e.g. to help with a problem. Every support login is in the audit log; taking the access back ends it at once.": "Permet au support de ton hébergeur de se connecter en tant qu'admin, par exemple pour aider à résoudre un problème. Chaque connexion du support figure dans le journal d'audit ; retirer l'accès y met fin immédiatement.",
+  "Your hoster's support may sign in until {{time}}.": "Le support de ton hébergeur peut se connecter jusqu'au {{time}}.",
+  "Your hoster's support may sign in until you take the access back.": "Le support de ton hébergeur peut se connecter jusqu'à ce que tu retires l'accès.",
+  "You are signed in as the hoster's support. The admins of this instance allowed it; what you do is in the audit log.": "Tu es connecté en tant que support de l'hébergeur. Les admins de cette instance l'ont autorisé ; ce que tu fais figure dans le journal d'audit.",
+  "Support login": "Connexion du support",
+  "Support access changed": "Accès du support modifié",
+  "the admins of this instance don't allow support access": "Les admins de cette instance n'autorisent pas l'accès du support",
+  "the support login link is unknown, used or expired; open a new one from the fleet manager": "Le lien de connexion du support est inconnu, déjà utilisé ou expiré ; ouvres-en un nouveau depuis le fleet manager",
+  "the hoster's support can't do this": "Le support de l'hébergeur ne peut pas faire cela"
 }

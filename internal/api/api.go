@@ -176,6 +176,9 @@ func (a *API) guard(need auth.Scope, pattern string, h http.HandlerFunc) http.Ha
 		default:
 			err = p.Require(need, "")
 		}
+		if err == nil && p.Support && supportRefused[pattern] {
+			err = fmt.Errorf("%w: the hoster's support can't do this", auth.ErrForbidden)
+		}
 		if err == nil && !routesWhileSuspended[pattern] {
 			// A suspended instance shows its users the hoster's message and nothing else.
 			err = a.d.Projects.Suspension().Err()
@@ -207,6 +210,8 @@ func (a *API) Mount(mux *http.ServeMux, protect func(http.Handler) http.Handler)
 	// An invitation link is its own credential.
 	mux.HandleFunc("GET /api/v1/invites/{token}", a.invitation)
 	mux.HandleFunc("POST /api/v1/invites/{token}", a.acceptInvitation)
+	// The hoster's support signs in with a one-time link from the fleet manager.
+	mux.HandleFunc("GET /api/v1/auth/support/{token}", a.supportLogin)
 
 	// Every protected route declares the token scope it needs: rd (read), op (operate)
 	// or adm (admin). Browser sessions pass all of them; see guard for the project
@@ -232,6 +237,8 @@ func (a *API) Mount(mux *http.ServeMux, protect func(http.Handler) http.Handler)
 	rd("GET /api/v1/settings", a.settings)
 	rd("GET /api/v1/plan", a.planStatus)
 	adm("PATCH /api/v1/settings", a.updateSettings)
+	adm("GET /api/v1/settings/support-access", a.supportAccess)
+	adm("PUT /api/v1/settings/support-access", a.setSupportAccess)
 	adm("GET /api/v1/settings/oidc", a.oidcSettings)
 	adm("PUT /api/v1/settings/oidc", a.setOIDCSettings)
 	adm("POST /api/v1/settings/oidc/test", a.testOIDCSettings)

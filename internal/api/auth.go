@@ -114,7 +114,7 @@ func (a *API) me(w http.ResponseWriter, r *http.Request) {
 	for id, r := range p.ProjectRoles {
 		roles[id] = string(r)
 	}
-	out := map[string]any{"user": userDTO{ID: p.UserID, Username: p.Username, Role: p.Role}, "projectRoles": roles, "admin": p.Allows(auth.ScopeAdmin)}
+	out := map[string]any{"user": userDTO{ID: p.UserID, Username: p.Username, Role: p.Role}, "projectRoles": roles, "admin": p.Allows(auth.ScopeAdmin), "support": p.Support}
 	if p.TokenName != "" {
 		projects := p.Projects
 		if projects == nil {

@@ -2134,3 +2134,15 @@ export interface Diagnostics {
   summary: { ok: number; info: number; warning: number; error: number };
   at: string;
 }
+
+/** The admins' consent to the hoster's support; no until while it holds until revoked. */
+export interface SupportAccess {
+  allowed: boolean;
+  until?: string;
+}
+
+export interface SupportAccessStatus {
+  access: SupportAccess;
+  /** Whether a hoster's fleet manager manages the instance. */
+  managed: boolean;
+}

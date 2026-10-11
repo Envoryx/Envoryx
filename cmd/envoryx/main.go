@@ -471,9 +471,47 @@ func serve() error {
 	if cfg.UpdateCheck {
 		updates = update.New(version, "", log)
 	}
-	// A hoster's fleet manager pushes the plan and gets the instance's state back.
+	// uiURL is the address of the web UI behind the embedded proxy (envoryx.<base>), or
+	// the public host and listen port without it.
+	uiURL := func(ctx context.Context) string {
+		if !proxyInfo.Enabled {
+			_, port, _ := net.SplitHostPort(cfg.ListenAddr)
+			host := publicHost(ctx)
+			if host == "" {
+				host = "localhost"
+			}
+			return "http://" + net.JoinHostPort(host, port)
+		}
+		base := manager.BaseDomain(ctx)
+		u := "http://" + project.UIHostname(base)
+		if certs != nil && proxyInfo.HTTPSPort > 0 {
+			u = "https://" + project.UIHostname(base)
+			if proxyInfo.HTTPSPort != 443 {
+				u += fmt.Sprintf(":%d", proxyInfo.HTTPSPort)
+			}
+		} else if proxyInfo.HTTPPort > 0 && proxyInfo.HTTPPort != 80 {
+			u += fmt.Sprintf(":%d", proxyInfo.HTTPPort)
+		}
+		return u
+	}
+	// A hoster's fleet manager pushes the plan and gets the instance's state back; with
+	// the admins' consent its support signs in through a one-time link.
 	fleetAgent, err := fleet.New(fleet.Config{URL: cfg.FleetURL, Token: cfg.FleetToken, ConfigDir: cfg.ConfigDir, Plan: plans, Log: log,
-		Status: func(ctx context.Context) fleet.Status { return fleetStatus(ctx, st, manager, version, instanceID) }})
+		Status: func(ctx context.Context) fleet.Status {
+			s := fleetStatus(ctx, st, manager, version, instanceID)
+			s.UIURL = uiURL(ctx)
+			if acc, err := sessions.SupportAccess(ctx); err == nil && acc.Allowed {
+				s.Support = &fleet.SupportAccess{Until: acc.Until}
+			}
+			return s
+		},
+		SupportLogin: func(ctx context.Context, hoster string) (string, error) {
+			token, err := sessions.IssueSupportLogin(ctx, hoster)
+			if err != nil {
+				return "", err
+			}
+			return uiURL(ctx) + "/api/v1/auth/support/" + token, nil
+		}})
 	if err != nil {
 		return fmt.Errorf("fleet: %w", err)
 	}
@@ -529,17 +567,7 @@ func serve() error {
 	// 8. Embedded reverse proxy (host-name routing + HTTPS for projects and the UI).
 	if proxyInfo.Enabled {
 		source := func(ctx context.Context) (proxy.Table, error) {
-			base := manager.BaseDomain(ctx)
-			envoryxURL := "http://" + project.UIHostname(base)
-			if certs != nil && proxyInfo.HTTPSPort > 0 {
-				envoryxURL = "https://" + project.UIHostname(base)
-				if proxyInfo.HTTPSPort != 443 {
-					envoryxURL += fmt.Sprintf(":%d", proxyInfo.HTTPSPort)
-				}
-			} else if proxyInfo.HTTPPort > 0 && proxyInfo.HTTPPort != 80 {
-				envoryxURL += fmt.Sprintf(":%d", proxyInfo.HTTPPort)
-			}
-			return manager.RouteTable(ctx, project.ProxyOptions{HTTPSPort: proxyInfo.HTTPSPort, EnvoryxURL: envoryxURL, ExtraUIHosts: []string{publicHost(ctx)}})
+			return manager.RouteTable(ctx, project.ProxyOptions{HTTPSPort: proxyInfo.HTTPSPort, EnvoryxURL: uiURL(ctx), ExtraUIHosts: []string{publicHost(ctx)}})
 		}
 		router := proxy.NewRouter(source, 2*time.Second, log)
 		proxyInfo.Invalidate = router.Invalidate
