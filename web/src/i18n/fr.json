@@ -2943,7 +2943,7 @@
   "Create the tables, a sales channel for APP_URL and the administrator admin / shopware": "Créer les tables, un canal de vente pour APP_URL et l’administrateur admin / shopware",
   "Build the administration (npm install and build of the admin and its plugins); after installing or changing an admin plugin": "Compiler l’administration (npm install et build de l’administration et de ses plugins) ; après l’installation ou la modification d’un plugin d’administration",
   "Build the storefront JavaScript and compile the themes; after installing or changing a storefront plugin or theme": "Compiler le JavaScript du storefront et les thèmes ; après l’installation ou la modification d’un plugin ou thème du storefront",
-  "Set TYPO3 up in the project database with a site for the project URL; prints the admin password": "Installer TYPO3 dans la base de données du projet avec un site pour l’URL du projet ; affiche le mot de passe administrateur",
+  "Empty the project database and set TYPO3 up in it with a site for the project URL; prints the admin password": "Vider la base de données du projet et y installer TYPO3 avec un site pour l'URL du projet ; affiche le mot de passe administrateur",
   "Install Craft into the project database with a site for the project URL; prints the admin password": "Installer Craft dans la base de données du projet avec un site pour l’URL du projet ; affiche le mot de passe administrateur",
   "Show the PHP version and loaded extensions": "Afficher la version de PHP et les extensions chargées",
   "List loaded PHP extensions": "Lister les extensions PHP chargées",
