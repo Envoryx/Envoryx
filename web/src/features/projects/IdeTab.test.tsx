@@ -64,6 +64,11 @@ describe("IdeTab", () => {
     renderApp(<IdeTab project={project} />);
     expect(await screen.findByText("GEM_HOME")).toBeInTheDocument();
     expect(screen.getByText("/home/envoryx/.gem/ruby/3.4.0")).toBeInTheDocument();
+    // The SFTP card speaks of no PHP tools in a Ruby project.
+    expect(screen.getByText(/^Work on the project in your IDE without a network share/)).toBeInTheDocument();
+    expect(screen.getByText(/installed packages, generated code/)).toBeInTheDocument();
+    expect(screen.queryByText(/PhpStorm, WebStorm & co\./)).not.toBeInTheDocument();
+    expect(screen.queryByText(/composer install/)).not.toBeInTheDocument();
   });
 
   it("names no session container for a static project", async () => {
