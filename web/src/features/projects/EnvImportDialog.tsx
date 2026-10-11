@@ -7,7 +7,7 @@ import { looksSecret, parseDotenv } from "@/lib/dotenv";
 import { injectedEnv, reservedEnvKey } from "@/lib/injectedEnv";
 import { serviceLabel } from "@/lib/format";
 
-type Status = "new" | "changed" | "same" | "injected" | "invalid";
+type Status = "new" | "changed" | "same" | "injected" | "reference" | "invalid";
 
 interface Row {
   key: string;
@@ -71,6 +71,11 @@ export function EnvImportDialog({
         const kind = injected.get(e.key)!;
         const svc = services.find((s) => s.kind === kind);
         reason = serviceLabel(kind, undefined, svc?.variant);
+      } else if (unresolvedRefs(e.value).length > 0) {
+        // ${OTHER} that the file itself doesn't define: phpdotenv or Symfony's Dotenv
+        // resolve it when the app reads .env, a container variable stays this text.
+        status = "reference";
+        reason = unresolvedRefs(e.value).join(", ");
       }
       const defaults = { include: status === "new" || status === "changed", secret: existing?.isSecret || looksSecret(e.key, e.value) };
       const p = picked[e.key] ?? {};
@@ -106,6 +111,8 @@ export function EnvImportDialog({
         return <Badge>{t("unchanged")}</Badge>;
       case "injected":
         return <Badge tone="blue">{t("set by Envoryx ({{service}})", { service: r.reason ?? "" })}</Badge>;
+      case "reference":
+        return <Badge tone="amber">{t("refers to {{names}}", { names: r.reason ?? "" })}</Badge>;
       default:
         return <Badge tone="red">{r.reason}</Badge>;
     }
@@ -194,6 +201,11 @@ export function EnvImportDialog({
             ))}
           </ul>
         )}
+        {rows.some((r) => r.status === "reference") && (
+          <p className="text-xs text-muted">
+            {t("Variables marked “refers to” use ${…} references the file doesn't define. Only the application's .env loader resolves them; a project variable would reach the containers as that text. Leave them in .env.")}
+          </p>
+        )}
         {rows.some((r) => r.status === "injected") && (
           <p className="text-xs text-muted">
             {t("Variables marked “set by Envoryx” are injected for the project's services and point at them. Importing one replaces that value - leave them out unless the application really has to reach something else.")}
@@ -202,4 +214,9 @@ export function EnvImportDialog({
       </div>
     </Dialog>
   );
+}
+
+/** The ${NAME} and $NAME references a value still holds after parseDotenv resolved the file's own. */
+function unresolvedRefs(value: string): string[] {
+  return [...value.matchAll(/\$\{([A-Za-z_][A-Za-z0-9_]*)\}|\$([A-Za-z_][A-Za-z0-9_]*)/g)].map((m) => m[1] ?? m[2] ?? "");
 }
