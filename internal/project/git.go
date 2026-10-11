@@ -458,7 +458,9 @@ func (m *Manager) Pull(ctx context.Context, id string) (GitResult, error) {
 	return m.gitOp(ctx, id, audit.ActionGitPull, "pull", "--ff-only", "--progress")
 }
 
-// Checkout switches to a branch (validated ref name).
+// Checkout switches to a branch (validated ref name, which can't start with "-"). git
+// switch takes only branches and creates a local one that tracks origin's of that name;
+// "checkout -- <ref>" read the name as a path and never switched.
 func (m *Manager) Checkout(ctx context.Context, id, ref string) (GitResult, error) {
 	if ref == "" {
 		return GitResult{}, fmt.Errorf("%w: branch name is empty", validate.ErrInvalid)
@@ -466,7 +468,7 @@ func (m *Manager) Checkout(ctx context.Context, id, ref string) (GitResult, erro
 	if err := ValidateRef(ref); err != nil {
 		return GitResult{}, err
 	}
-	return m.gitOp(ctx, id, audit.ActionGitCheckout, "checkout", "--", ref)
+	return m.gitOp(ctx, id, audit.ActionGitCheckout, "switch", ref)
 }
 
 func (m *Manager) gitOp(ctx context.Context, id, action string, args ...string) (GitResult, error) {
