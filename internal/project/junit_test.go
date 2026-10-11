@@ -85,6 +85,19 @@ func TestParseJUnitPlaywrightLocation(t *testing.T) {
 	}
 }
 
+// gotestsum's failure message is always "Failed"; the message, file and line come from
+// what t.Errorf printed.
+func TestParseJUnitGotestsum(t *testing.T) {
+	report := `<testsuites><testsuite name="app" tests="1" failures="1"><testcase classname="app" name="TestDeliberateFail" time="0.000"><failure message="Failed" type="">=== RUN   TestDeliberateFail&#xA;    main_test.go:24: expected failure for the runner: want 1, got 2&#xA;--- FAIL: TestDeliberateFail (0.00s)&#xA;</failure></testcase></testsuite></testsuites>`
+	res, err := parseJUnit(strings.NewReader(report), "/var/www/html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f := res.Failed[0]; f.Message != "expected failure for the runner: want 1, got 2" || f.File != "main_test.go" || f.Line != 24 || !strings.Contains(f.Details, "--- FAIL") {
+		t.Fatalf("failure: %+v", f)
+	}
+}
+
 func TestParseJUnitCapsFailures(t *testing.T) {
 	var b strings.Builder
 	b.WriteString("<testsuite>")
