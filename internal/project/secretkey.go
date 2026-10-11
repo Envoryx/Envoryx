@@ -112,8 +112,11 @@ func (m *Manager) ResealAtStart(ctx context.Context) (ResealReport, error) {
 
 // RotateSecretKey replaces the key file's key with a new one and reseals everything. The
 // new key waits in secret.key.next until all is resealed, so a crash on the way leaves
-// both keys at hand for the next start. Instance backups made before keep needing the
-// old key.
+// both keys at hand for the next start. Instance backups made before and the copies of
+// project backups already on offsite targets keep needing the old key: a target holds
+// them encrypted with its own passphrase, and fetching, resealing and uploading every
+// copy again would turn a rotation into hours of transfers that fail half way when a
+// target is down.
 func (m *Manager) RotateSecretKey(ctx context.Context) (SecretKeyInfo, ResealReport, error) {
 	info := m.SecretKeyInfo()
 	if !info.CanRotate {

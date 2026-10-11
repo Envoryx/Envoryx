@@ -108,7 +108,7 @@ func TestImportBackupFileRefusesUnreadableSettings(t *testing.T) {
 		return f
 	}
 	for sealed, want := range map[string]string{
-		"envoryx:v1:deadbeef:AAAA": "secret key of another Envoryx",
+		"envoryx:v1:deadbeef:AAAA": "sealed with secret key deadbeef, which this Envoryx does not hold",
 		"{not json":                "unreadable",
 	} {
 		_, err := e.m.ImportBackupFile(ctx, archive(sealed))

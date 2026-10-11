@@ -108,7 +108,7 @@ export function SecretKeyCard() {
         }
       >
         <p className="text-sm">
-          {t("Envoryx creates a new key and re-encrypts every secret and every project backup with it. Instance backups made before keep needing the current key {{id}}: keep a copy of it as long as you may restore one of them.", { id: info.keyId })}
+          {t("Envoryx creates a new key and re-encrypts every secret and every local project backup with it. Instance backups made before, and the copies already on offsite targets, keep needing the current key {{id}}: keep a copy of it as long as you may restore one of them.", { id: info.keyId })}
         </p>
       </Dialog>
     </Card>
