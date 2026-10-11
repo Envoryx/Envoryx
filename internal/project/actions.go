@@ -2,6 +2,7 @@ package project
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/envoryx/envoryx/internal/audit"
 	"github.com/envoryx/envoryx/internal/docker"
+	"github.com/envoryx/envoryx/internal/runtime"
 	"github.com/envoryx/envoryx/internal/store"
 	"github.com/envoryx/envoryx/internal/validate"
 )
@@ -226,12 +228,25 @@ func (m *Manager) ListActions(ctx context.Context, id string) ([]ActionInfo, err
 		running[s.Kind] = s.Running
 		restarting[s.Kind] = s.State == "restarting"
 	}
+	// A fresh pnpm or Yarn project has no lockfile yet: its install and build actions only
+	// need package.json when the project's package manager is that one.
+	var packageManager string
+	if svc := view.Project.Service(store.ServiceNode); svc != nil && len(svc.Config) > 0 {
+		var cfg runtime.NodeConfig
+		if json.Unmarshal(svc.Config, &cfg) == nil {
+			packageManager = cfg.PackageManager
+		}
+	}
 	out := make([]ActionInfo, 0, len(actionCatalog))
 	for _, a := range actionCatalog {
 		if !present[a.Service] {
 			continue
 		}
 		info := ActionInfo{Action: a, Available: true}
+		requires := a.Requires
+		if a.Service == store.ServiceNode && a.Group == packageManager && (a.Group == "pnpm" || a.Group == "yarn") {
+			requires = []string{"package.json"}
+		}
 		switch {
 		case !running[a.Service] && restarting[a.Service]:
 			// A crash-looping server: name the way out, the logs and the server switch.
@@ -241,7 +256,7 @@ func (m *Manager) ListActions(ctx context.Context, id string) ([]ActionInfo, err
 		default:
 			// An entry may name alternatives ("build.gradle|build.gradle.kts") and
 			// patterns ("*.csproj"); one match is enough.
-			for _, f := range a.Requires {
+			for _, f := range requires {
 				found := false
 				for _, alt := range strings.Split(f, "|") {
 					if strings.ContainsAny(alt, "*?[") {
@@ -331,7 +346,7 @@ func (m *Manager) RunAction(ctx context.Context, id, actionID string, cols, rows
 		Rows:       rows,
 		WorkingDir: appMountTarget,
 		User:       fmt.Sprintf("%d:%d", paths.PUID, paths.PGID),
-		Env:        append([]string{"TERM=xterm-256color", "COLORTERM=truecolor", "LANG=C.UTF-8", "CI=1"}, toolEnv...),
+		Env:        append(append([]string{"TERM=xterm-256color", "COLORTERM=truecolor", "LANG=C.UTF-8"}, nonInteractiveEnv...), toolEnv...),
 	}
 	m.ensurePasswdEntry(ctx, c.ID, c.Name, opts.User)
 	term, err = m.engine.OpenTerminal(ctx, c.ID, opts)

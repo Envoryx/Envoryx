@@ -69,6 +69,22 @@ func TestParseJUnitPytest(t *testing.T) {
 	}
 }
 
+// Playwright's report has no file or line attribute; the stack names the spec.
+func TestParseJUnitPlaywrightLocation(t *testing.T) {
+	report := `<testsuites><testsuite name="api.spec.ts" tests="1" failures="1"><testcase name="api works" classname="api.spec.ts"><failure message="api.spec.ts:8:5 api works" type="FAILURE">  Error: expect(received).toBe(expected)
+
+      at /var/www/html/node_modules/playwright/lib/x.js:1:2
+      at /var/www/html/e2e/api.spec.ts:10:53
+</failure></testcase></testsuite></testsuites>`
+	res, err := parseJUnit(strings.NewReader(report), "/var/www/html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f := res.Failed[0]; f.File != "e2e/api.spec.ts" || f.Line != 10 {
+		t.Fatalf("failure: %+v", f)
+	}
+}
+
 func TestParseJUnitCapsFailures(t *testing.T) {
 	var b strings.Builder
 	b.WriteString("<testsuite>")

@@ -50,6 +50,9 @@ func TestNodeCommand(t *testing.T) {
 		{NodeConfig{DevServer: true, Preset: "vite"}, []string{"npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173", "--strictPort"}},
 		{NodeConfig{DevServer: true, Preset: "next"}, []string{"npm", "run", "dev", "--", "-H", "0.0.0.0", "-p", "3000"}},
 		{NodeConfig{DevServer: true, Preset: "nuxt"}, []string{"npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "3000"}},
+		// pnpm and Yarn hand a "--" on to the script, and Vite would ignore what follows.
+		{NodeConfig{DevServer: true, Preset: "vite", PackageManager: "pnpm"}, []string{"pnpm", "run", "dev", "--host", "0.0.0.0", "--port", "5173", "--strictPort"}},
+		{NodeConfig{DevServer: true, Preset: "next", PackageManager: "yarn"}, []string{"yarn", "dev", "-H", "0.0.0.0", "-p", "3000"}},
 		{NodeConfig{DevServer: true, Preset: "generic", PackageManager: "yarn", Script: "start"}, []string{"yarn", "start"}},
 	}
 	for _, tc := range cases {

@@ -21,6 +21,21 @@ release). `:main` follows the development branch.
   that list it under `[dependency-groups]` or only in `uv.lock`.
 - A started project whose server isn't up says it is starting or keeps
   crashing instead of telling you to start it.
+- With pnpm or Yarn the Vite, Next.js and Nuxt dev servers listen on all
+  interfaces again: Envoryx put a `--` before their host and port flags,
+  which pnpm and Yarn 2+ hand on to the script, so Vite listened on
+  localhost only and the project URL gave 502.
+- pnpm 11 and newer use the package cache too (they read
+  `~/.config/pnpm/config.yaml`, no longer `rc`).
+- An API update that leaves a runtime's version out keeps the project's
+  version instead of switching to the default.
+- A fresh pnpm or Yarn project offers its install and build actions before
+  there is a lockfile, and `yarn install` from Actions or `envoryx project
+  exec` may write `yarn.lock` (CI=1 made Yarn 4 refuse).
+- Node workers and cron jobs keep a `NODE_ENV` the project sets itself in
+  development, like the dev server.
+- The Next.js debugging example in the IDE section puts the server process
+  on the published port; Playwright failures name their file and line.
 - The debugpy hint under Runtime no longer suggests starting the server
   under debugpy, which the IDE section warns against; the German, Russian
   and Ukrainian IDE text said the opposite of the English one.

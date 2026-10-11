@@ -44,6 +44,23 @@ func TestListActionsOmitsAbsentServices(t *testing.T) {
 			t.Fatalf("npm:install with package.json: %+v", a)
 		}
 	}
+	// pnpm and yarn need their lockfile, unless they are the project's package manager:
+	// a fresh project has none yet.
+	pn := nodeRequest("Pn", true)
+	pn.Node.Config.PackageManager = "pnpm"
+	pnv, err := e.m.Create(ctx, pn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(e.projDir, "pn", "package.json"), []byte("{}"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	infos, _ = e.m.ListActions(ctx, pnv.Project.ID)
+	for _, a := range infos {
+		if want := a.ID == "pnpm:install" || a.ID == "pnpm:build" || strings.HasPrefix(a.ID, "npm:") && a.ID != "npm:ci" || a.ID == "node:version"; a.Available != want {
+			t.Errorf("%s in a pnpm project without a lockfile: available %v", a.ID, a.Available)
+		}
+	}
 	if _, _, _, err := e.m.RunAction(ctx, front.Project.ID, "composer:install", 0, 0); !errors.Is(err, ErrConflict) || !strings.Contains(err.Error(), "no php service") {
 		t.Fatalf("action of an absent service: %v", err)
 	}

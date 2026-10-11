@@ -174,7 +174,8 @@ var packageCacheEnv = []string{
 // doesn't read.
 const pnpmStoreTarget = packageCacheTarget + "/pnpm-store"
 
-// seedPnpmStore plans ~/.config/pnpm/rc in the project home, unless one is there.
+// seedPnpmStore plans pnpm's configuration in the project home, each file unless it is
+// there: rc up to pnpm 10, config.yaml from pnpm 11 on, which no longer reads rc.
 func (p *Planner) seedPnpmStore(proj store.Project, plan *Plan) {
 	cfg := filepath.Join(p.HomeDir(proj), ".config")
 	for _, dir := range []string{cfg, filepath.Join(cfg, "pnpm")} {
@@ -183,6 +184,10 @@ func (p *Planner) seedPnpmStore(proj store.Project, plan *Plan) {
 	plan.Files = append(plan.Files, FilePlan{
 		Path:    filepath.Join(cfg, "pnpm", "rc"),
 		Content: "# Added by Envoryx: pnpm's store in the package cache.\nstore-dir=" + pnpmStoreTarget + "\n",
+		Mode:    0o644, Seed: true, UID: p.paths.PUID, GID: p.paths.PGID,
+	}, FilePlan{
+		Path:    filepath.Join(cfg, "pnpm", "config.yaml"),
+		Content: "# Added by Envoryx: pnpm's store in the package cache.\nstoreDir: " + pnpmStoreTarget + "\n",
 		Mode:    0o644, Seed: true, UID: p.paths.PUID, GID: p.paths.PGID,
 	})
 }
@@ -1352,7 +1357,7 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 				continue
 			}
 			spec.Image = node.Image
-			spec.Env = append(append(append([]string{}, appEnv...), toolEnv...), nodeWorkerEnv(proj))
+			spec.Env = withNodeWorkerEnv(append(append([]string{}, appEnv...), toolEnv...), proj)
 			spec.Mounts = append(spec.Mounts, p.HomeMount(proj))
 			spec.Cmd = runtime.Guarded(cmd, "envoryx-worker", runtime.NodeDepsWaitGuard, workerGuard(preset, w))
 		case WorkerRuntimePython:
