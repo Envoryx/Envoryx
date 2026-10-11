@@ -558,19 +558,36 @@ func serve() error {
 	if fleetAgent != nil {
 		background("fleet", fleetAgent.Run)
 	}
+	// reportUpdate logs a finished self-update nobody logged yet and tells the fleet
+	// manager; it reports whether it found one or can't look.
+	reportUpdate := func(ctx context.Context) bool {
+		r, err := selfupdate.TakeUnreported(cfg.ConfigDir)
+		if err != nil {
+			log.Warn("update: reading the last result", "err", err)
+			return true
+		}
+		if r == nil {
+			return false
+		}
+		action := audit.ActionInstanceUpdated
+		if !r.OK {
+			action = audit.ActionInstanceUpdateFailed
+		}
+		auditLog.Log(ctx, action, "instance", "", map[string]any{"from": r.From, "to": r.To, "error": r.Error, "rolledBack": r.RolledBack})
+		return true
+	}
+	// An update that ends while this process runs failed: the old version stays, the
+	// result is logged here and the fleet manager learns of it at once.
+	updater.Failed = func() {
+		updating.Store(false)
+		reportUpdate(ctx)
+		fleetAgent.Nudge()
+	}
 	// How a self-update went goes into the audit log of the version that runs afterwards.
 	// The helper finishes only once this process is healthy, so it is looked for a while.
 	background("update result", func(ctx context.Context) {
 		for range 60 {
-			if r, err := selfupdate.TakeUnreported(cfg.ConfigDir); err != nil {
-				log.Warn("update: reading the last result", "err", err)
-				return
-			} else if r != nil {
-				action := audit.ActionInstanceUpdated
-				if !r.OK {
-					action = audit.ActionInstanceUpdateFailed
-				}
-				auditLog.Log(ctx, action, "instance", "", map[string]any{"from": r.From, "to": r.To, "error": r.Error, "rolledBack": r.RolledBack})
+			if reportUpdate(ctx) {
 				fleetAgent.Nudge()
 				return
 			}

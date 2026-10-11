@@ -6,7 +6,9 @@ import (
 	"io"
 	"log/slog"
 	"slices"
+	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -20,6 +22,8 @@ type fakeEngine struct {
 	local    bool
 	started  []string
 	startErr error
+	// exit is how the helper ends; nil while it is at work (it would stop this process).
+	exit *docker.UpdaterExit
 }
 
 func (f *fakeEngine) SelfImage(context.Context, string) (string, error) { return f.image, nil }
@@ -27,11 +31,15 @@ func (f *fakeEngine) ImageExists(context.Context, string) (bool, error) { return
 func (f *fakeEngine) PullImage(context.Context, string, docker.PullProgress) error {
 	return f.pullErr
 }
-func (f *fakeEngine) StartUpdater(_ context.Context, _, image string, cmd []string) error {
+func (f *fakeEngine) StartUpdater(_ context.Context, _, image string, cmd []string) (<-chan docker.UpdaterExit, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.started = append([]string{image}, cmd...)
-	return f.startErr
+	ch := make(chan docker.UpdaterExit, 1)
+	if f.exit != nil {
+		ch <- *f.exit
+	}
+	return ch, f.startErr
 }
 
 func (f *fakeEngine) helper() []string {
@@ -42,7 +50,7 @@ func (f *fakeEngine) helper() []string {
 
 func newUpdater(t *testing.T, f *fakeEngine, self string) (*Updater, *bool) {
 	stopped := false
-	return &Updater{Engine: f, SelfID: func() string { return self }, ConfigDir: t.TempDir(), Version: "0.27.1",
+	return &Updater{Engine: f, SelfID: func() string { return self }, ConfigDir: t.TempDir(), Version: "v0.27.1",
 		BeforeStop: func() { stopped = true }, Log: slog.New(slog.NewTextHandler(io.Discard, nil))}, &stopped
 }
 
@@ -72,7 +80,11 @@ func TestUpdaterHandsOverToTheHelper(t *testing.T) {
 	if err := u.Start(context.Background(), "v0.28.0"); err != nil {
 		t.Fatal(err)
 	}
-	waitDone(t, u)
+	// The helper at work stops this process: the update stays running until then.
+	deadline := time.Now().Add(5 * time.Second)
+	for f.helper() == nil && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+	}
 	want := []string{"ghcr.io/envoryx/envoryx:0.28.0", "self-update", "--container", "abc123", "--image", "ghcr.io/envoryx/envoryx:0.28.0"}
 	if got := f.helper(); !slices.Equal(got, want) || !*stopped {
 		t.Fatalf("helper %v, before stop %v", got, *stopped)
@@ -97,19 +109,38 @@ func TestUpdaterRefuses(t *testing.T) {
 
 	f := &fakeEngine{image: "ghcr.io/envoryx/envoryx:latest", pullErr: errors.New("manifest unknown")}
 	u, stopped := newUpdater(t, f, "abc123")
+	// Every update that ends while the process runs failed and is passed on at once.
+	var failed atomic.Int32
+	u.Failed = func() { failed.Add(1) }
+	waitFailed := func(n int32) {
+		for i := 0; failed.Load() < n && i < 500; i++ {
+			time.Sleep(10 * time.Millisecond)
+		}
+		if failed.Load() != n {
+			t.Fatalf("failed %d times, want %d", failed.Load(), n)
+		}
+	}
 	if err := u.Start(context.Background(), "9.9.9"); err != nil {
 		t.Fatal(err)
 	}
 	if s := waitDone(t, u); s.LastError == "" || f.helper() != nil || *stopped {
 		t.Fatalf("a failed pull: %+v", s)
 	}
-	// An image that is there already does without the pull.
+	waitFailed(1)
+	// An image that is there already does without the pull. This one can't run the
+	// helper: it ends at once, and the update is recorded as failed.
 	f.local = true
+	f.exit = &docker.UpdaterExit{Code: 3, Output: "starting\nboom"}
 	if err := u.Start(context.Background(), "9.9.9"); err != nil {
 		t.Fatal(err)
 	}
-	if s := waitDone(t, u); s.LastError != "" || f.helper() == nil {
+	s := waitDone(t, u)
+	waitFailed(2)
+	if s.LastError != "" || f.helper() == nil || s.Running {
 		t.Fatalf("a local image: %+v", s)
+	}
+	if r, _ := TakeUnreported(u.ConfigDir); r == nil || r.OK || r.FinishedAt.IsZero() || r.From != "0.27.1" || !strings.Contains(r.Error, "exit code 3") || !strings.Contains(r.Error, "starting / boom") {
+		t.Fatalf("a helper that couldn't run: %+v", r)
 	}
 	if err := u.Start(context.Background(), "not a version!"); err == nil {
 		t.Error("a bad version passed")

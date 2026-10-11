@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/distribution/reference"
@@ -54,17 +55,31 @@ func ImageForVersion(image, version string) (string, error) {
 
 var tagRe = regexp.MustCompile(`^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$`)
 
+// UpdaterExit is how the helper container ended: its exit code and the end of its output,
+// or Err when the wait for it broke off.
+type UpdaterExit struct {
+	Code   int64
+	Output string
+	Err    error
+}
+
+// updaterOutputTail is how much of the helper's output UpdaterExit keeps: enough for the
+// error of a helper that couldn't run.
+const updaterOutputTail = 2 << 10
+
 // StartUpdater starts the helper container that replaces the container self with one of
 // image: it runs image with cmd, the mounts, environment and networks of self (so it
 // reaches the Docker daemon and the configuration like self does) and removes itself
-// when done.
-func (e *MobyEngine) StartUpdater(ctx context.Context, self, image string, cmd []string) error {
+// when done. The channel reports the helper's end. A helper that does its work stops
+// self first, so a process that still learns of the end knows the helper gave up, or
+// could not even run (an image that doesn't run Envoryx).
+func (e *MobyEngine) StartUpdater(ctx context.Context, self, image string, cmd []string) (<-chan UpdaterExit, error) {
 	c, err := e.inspectRaw(ctx, self)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if c.Config == nil || c.HostConfig == nil {
-		return errors.New("the container has no configuration")
+		return nil, errors.New("the container has no configuration")
 	}
 	name := strings.TrimPrefix(c.Name, "/") + "-updater"
 	// No labels: nothing Envoryx cleans up or stops may take the helper for its own.
@@ -77,13 +92,80 @@ func (e *MobyEngine) StartUpdater(ctx context.Context, self, image string, cmd [
 	_, _ = e.cli.ContainerRemove(ctx, name, client.ContainerRemoveOptions{Force: true})
 	res, err := e.cli.ContainerCreate(ctx, client.ContainerCreateOptions{Name: name, Config: cfg, HostConfig: host})
 	if err != nil {
-		return wrap(err)
+		return nil, wrap(err)
 	}
+	// The output and the wait are taken before the start, so neither is missed of a helper
+	// that ends at once; it removes itself, so the wait is for its removal.
+	var out *client.ContainerAttachResult
+	if a, err := e.cli.ContainerAttach(ctx, res.ID, client.ContainerAttachOptions{Stream: true, Stdout: true, Stderr: true}); err == nil {
+		out = &a
+	}
+	wait := e.cli.ContainerWait(ctx, res.ID, client.ContainerWaitOptions{Condition: container.WaitConditionRemoved})
 	if _, err := e.cli.ContainerStart(ctx, res.ID, client.ContainerStartOptions{}); err != nil {
+		if out != nil {
+			out.Close()
+		}
 		_, _ = e.cli.ContainerRemove(ctx, res.ID, client.ContainerRemoveOptions{Force: true})
-		return wrap(err)
+		return nil, wrap(err)
 	}
-	return nil
+	tail := &tailWriter{max: updaterOutputTail}
+	copied := make(chan struct{})
+	go func() {
+		defer close(copied)
+		if out != nil {
+			_, _ = stdcopy.StdCopy(tail, tail, out.Reader)
+		}
+	}()
+	exited := make(chan UpdaterExit, 1)
+	go func() {
+		var x UpdaterExit
+		select {
+		case r := <-wait.Result:
+			x.Code = r.StatusCode
+			if r.Error != nil && r.Error.Message != "" {
+				x.Err = errors.New(r.Error.Message)
+			}
+		case err := <-wait.Error:
+			x.Err = wrap(err)
+		case <-ctx.Done():
+			x.Err = ctx.Err()
+		}
+		// The output ends with the container; a stream that hangs on is cut off.
+		select {
+		case <-copied:
+		case <-time.After(2 * time.Second):
+		}
+		if out != nil {
+			out.Close()
+		}
+		<-copied
+		x.Output = tail.String()
+		exited <- x
+	}()
+	return exited, nil
+}
+
+// tailWriter keeps the last max bytes written to it.
+type tailWriter struct {
+	mu  sync.Mutex
+	max int
+	buf []byte
+}
+
+func (t *tailWriter) Write(p []byte) (int, error) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.buf = append(t.buf, p...)
+	if over := len(t.buf) - t.max; over > 0 {
+		t.buf = slices.Clone(t.buf[over:])
+	}
+	return len(p), nil
+}
+
+func (t *tailWriter) String() string {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return strings.TrimSpace(string(t.buf))
 }
 
 // ReplaceOptions tune ReplaceContainer.

@@ -83,7 +83,7 @@ type Engine interface {
 	SelfImage(ctx context.Context, id string) (string, error)
 	ImageExists(ctx context.Context, ref string) (bool, error)
 	PullImage(ctx context.Context, ref string, progress docker.PullProgress) error
-	StartUpdater(ctx context.Context, self, image string, cmd []string) error
+	StartUpdater(ctx context.Context, self, image string, cmd []string) (<-chan docker.UpdaterExit, error)
 }
 
 // Updater starts updates of the running Envoryx.
@@ -96,7 +96,11 @@ type Updater struct {
 	// BeforeStop runs before the helper starts: the container is about to be stopped
 	// for the update (a restart, not a shutdown of the projects).
 	BeforeStop func()
-	Log        *slog.Logger
+	// Failed runs when an update ended while this process still runs: it didn't start,
+	// or the helper gave up without replacing the container. The result is recorded by
+	// then (unreported, when there is one to log).
+	Failed func()
+	Log    *slog.Logger
 
 	mu      sync.Mutex
 	running bool
@@ -181,6 +185,11 @@ func (u *Updater) Start(ctx context.Context, version string) error {
 		if err != nil {
 			u.Log.Warn("update: not started", "image", target, "err", err)
 		}
+		// A successful update ends this process before run returns: whatever returns
+		// here, the update didn't happen, and the fleet manager should hear it now.
+		if u.Failed != nil {
+			u.Failed()
+		}
 	}()
 	return nil
 }
@@ -194,7 +203,7 @@ func (u *Updater) run(ctx context.Context, target, to string) error {
 		}
 		u.Log.Warn("update: pull failed, using the local image", "image", target, "err", err)
 	}
-	r := Result{From: u.Version, To: to, Image: target, StartedAt: time.Now().UTC()}
+	r := Result{From: strings.TrimPrefix(u.Version, "v"), To: to, Image: target, StartedAt: time.Now().UTC()}
 	if err := writeResult(u.ConfigDir, r); err != nil {
 		return err
 	}
@@ -204,13 +213,51 @@ func (u *Updater) run(ctx context.Context, target, to string) error {
 	self := u.SelfID()
 	cmd := []string{"self-update", "--container", self, "--image", target}
 	u.Log.Info("update: handing over to the helper container", "image", target)
-	if err := u.Engine.StartUpdater(ctx, self, target, cmd); err != nil {
+	exited, err := u.Engine.StartUpdater(ctx, self, target, cmd)
+	if err != nil {
 		r.FinishedAt, r.Error = time.Now().UTC(), "the helper container didn't start: "+err.Error()
 		r.Reported = true
 		_ = writeResult(u.ConfigDir, r)
 		return errors.New(r.Error)
 	}
-	return nil
+	// The helper stops this container before it ends, so hearing of its end means it gave
+	// up first: the new image can't run it, or it failed before the swap.
+	var x docker.UpdaterExit
+	select {
+	case x = <-exited:
+	case <-ctx.Done():
+		x.Err = ctx.Err()
+	}
+	if x.Err != nil {
+		// No verdict: the helper may still be at work. Status treats the update as running
+		// for a while and the result file tells the rest.
+		u.Log.Warn("update: lost sight of the helper container", "err", x.Err)
+		return nil
+	}
+	if last, err := ReadResult(u.ConfigDir); err == nil && last != nil && last.Image == r.Image && last.StartedAt.Equal(r.StartedAt) && !last.FinishedAt.IsZero() {
+		// The helper recorded why it gave up.
+		u.Log.Warn("update: the helper container gave up", "image", target, "err", last.Error)
+		return nil
+	}
+	r.FinishedAt = time.Now().UTC()
+	r.Error = fmt.Sprintf("the helper container of %s ended without replacing Envoryx (exit code %d)", target, x.Code)
+	if x.Output != "" {
+		r.Error += ": " + lastLines(x.Output, 3)
+	}
+	u.Log.Warn("update: failed, Envoryx keeps running the old version", "image", target, "err", r.Error)
+	return writeResult(u.ConfigDir, r)
+}
+
+// lastLines returns the last n lines of s, joined by " / ".
+func lastLines(s string, n int) string {
+	lines := strings.Split(strings.TrimSpace(s), "\n")
+	if len(lines) > n {
+		lines = lines[len(lines)-n:]
+	}
+	for i := range lines {
+		lines[i] = strings.TrimSpace(lines[i])
+	}
+	return strings.Join(lines, " / ")
 }
 
 // Replacer is what the helper needs from Docker.
