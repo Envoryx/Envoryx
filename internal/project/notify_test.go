@@ -88,3 +88,36 @@ func TestNotificationsForHealthAndFailures(t *testing.T) {
 		t.Fatalf("failure event: %v", got)
 	}
 }
+
+// A stop takes as long as its slowest container needs to exit; the half-stopped project
+// seen meanwhile must not raise an alarm, nor end one that was raised before.
+func TestNoHealthNotificationWhileAnOperationRuns(t *testing.T) {
+	e := newEnv(t)
+	sender := &fakeSender{}
+	e.m.SetNotifier(sender)
+	ctx := context.Background()
+
+	view, err := e.m.Create(ctx, phpRequest("Slow", true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, h := e.m.progress.begin(ctx, Operation{Action: "stop", ProjectID: view.Project.ID})
+	e.engine.SetState("envoryx-slow-php", "exited")
+	e.m.Reconcile(ctx)
+	if got := sender.kinds(); len(got) != 0 {
+		t.Fatalf("a running stop must not notify: %v", got)
+	}
+	h.end(nil)
+	e.m.Reconcile(ctx)
+	if got := sender.kinds(); len(got) != 1 || got[0] != "project.unhealthy:Slow needs attention" {
+		t.Fatalf("unhealthy events: %v", got)
+	}
+
+	// Unhealthy and busy: it has not recovered yet.
+	_, h = e.m.progress.begin(ctx, Operation{Action: "restart", ProjectID: view.Project.ID})
+	e.m.Reconcile(ctx)
+	h.end(nil)
+	if got := sender.kinds(); len(got) != 1 {
+		t.Fatalf("a running restart must not report a recovery: %v", got)
+	}
+}
