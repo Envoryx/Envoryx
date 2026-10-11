@@ -51,9 +51,10 @@ func TestBranchSettingsAndNames(t *testing.T) {
 // commit of the branch the environment is on, everything else succeeds. It records the
 // commands with the directory they ran in.
 type gitRemote struct {
-	mu    sync.Mutex
-	heads map[string]string
-	calls []string
+	mu        sync.Mutex
+	heads     map[string]string
+	calls     []string
+	pullFails bool
 }
 
 func (g *gitRemote) handle(spec docker.ContainerSpec) (docker.ExecResult, error) {
@@ -71,6 +72,10 @@ func (g *gitRemote) handle(spec docker.ContainerSpec) (docker.ExecResult, error)
 		return docker.ExecResult{Stdout: out.String()}, nil
 	case "rev-parse":
 		return docker.ExecResult{Stdout: "c0ffee\n"}, nil
+	case "pull":
+		if g.pullFails {
+			return docker.ExecResult{ExitCode: 128, Stderr: "fatal: Not possible to fast-forward, aborting."}, nil
+		}
 	}
 	return docker.ExecResult{}, nil
 }
@@ -226,6 +231,51 @@ func TestBranchSchedulerFollowsTheRepository(t *testing.T) {
 	e.m.runBranchPass(ctx, time.Now(), log)
 	if len(git.calls) != calls {
 		t.Fatalf("polled again within the interval: %q", git.calls[calls:])
+	}
+}
+
+// A pull that fails (a diverged branch) is not redeployed on every poll for the same
+// commit; the next commit is tried again.
+func TestBranchSchedulerDoesNotRetryAFailedPull(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	git := &gitRemote{}
+	e.engine.OneShotHandler = git.handle
+	parent := branchParent(t, e)
+	if _, err := e.m.CreateBranchEnvironment(ctx, parent.ID, "feature/login"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.m.SetBranchSettings(ctx, parent.ID, store.BranchSettings{Watch: true, Patterns: []string{"feature/*"}}); err != nil {
+		t.Fatal(err)
+	}
+	git.pullFails = true
+	pulls := func() int {
+		git.mu.Lock()
+		defer git.mu.Unlock()
+		n := 0
+		for _, c := range git.calls {
+			if strings.HasPrefix(c, "shop-feature-login: pull") {
+				n++
+			}
+		}
+		return n
+	}
+	log := slog.New(slog.DiscardHandler)
+	poll := func(commit string) {
+		t.Helper()
+		git.heads = map[string]string{"main": "aaa", "feature/login": commit}
+		parentNow, _ := e.m.loadProject(ctx, parent.ID)
+		projects, _ := e.m.store.Projects.List(ctx)
+		_ = e.m.pollBranches(ctx, parentNow, projects, log)
+	}
+	poll("d00d")
+	poll("d00d")
+	if n := pulls(); n != 1 {
+		t.Fatalf("pulls of the same commit: %d", n)
+	}
+	poll("f00d")
+	if n := pulls(); n != 2 {
+		t.Fatalf("a new commit must be tried: %d pulls", n)
 	}
 }
 

@@ -124,8 +124,9 @@ func (c *cli) projectDeploy(ctx context.Context, args []string) error {
 		return c.printJSON(body.Project)
 	}
 	if err != nil {
-		// A failed deploy still recorded its output; show it before the error.
-		if e, gerr := c.findProject(ctx, p.ID); gerr == nil {
+		// A failed deploy still recorded its output; show it before the error. Only a
+		// recorded failure: until it is written the project still shows the deploy before.
+		if e, gerr := c.findProject(ctx, p.ID); gerr == nil && e.BranchState != nil && e.BranchState.DeployStatus == "failed" {
 			c.printDeploy(e)
 		}
 		return err

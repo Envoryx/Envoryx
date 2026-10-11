@@ -184,7 +184,7 @@ func TestPullAndCheckoutAndSSH(t *testing.T) {
 	}
 	found := false
 	for _, c := range cmds {
-		if c == "git -C /var/www/html checkout -- release/2.0" {
+		if c == "git -C /var/www/html switch release/2.0" {
 			found = true
 		}
 	}

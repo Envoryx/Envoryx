@@ -450,8 +450,9 @@ func (m *Manager) deploy(ctx context.Context, p store.Project, commands []string
 }
 
 // branchTracker keeps the scheduler's view in memory: the last visit of each project
-// (from the proxy or a start), the last poll of each parent and the branches whose
-// environment could not be created, by the commit that failed.
+// (from the proxy or a start), the last poll of each parent, and by the commit that failed
+// the branches whose environment could not be created (key parent id + NUL + branch) and
+// the environments whose deploy failed (key: their project id).
 type branchTracker struct {
 	mu     sync.Mutex
 	visits map[string]time.Time
@@ -608,12 +609,28 @@ func (m *Manager) pollBranches(ctx context.Context, parent store.Project, projec
 			count--
 			m.notify(ctx, notify.Event{Kind: "branch.changed", Level: notify.Info, Project: p.Name, Title: fmt.Sprintf("%s deleted", p.Name), Message: fmt.Sprintf("The branch %s is gone from the repository.", p.Git.Branch)})
 		case commit != p.BranchState.Commit && p.DesiredState == store.DesiredRunning && p.Lifecycle == store.LifecycleReady && p.BranchState.DeployStatus != store.DeployRunning:
-			// A failed deploy of this very commit is not retried on every pass.
-			if p.BranchState.DeployStatus == store.DeployFailed && p.BranchState.Commit == commit {
+			// A failed deploy of this very commit is not retried on every pass. A pull that
+			// failed leaves the old commit checked out, so the commit that was tried is
+			// remembered here as well.
+			m.branches.mu.Lock()
+			triedAndFailed := m.branches.failed[p.ID] == commit
+			m.branches.mu.Unlock()
+			if triedAndFailed || p.BranchState.DeployStatus == store.DeployFailed && p.BranchState.Commit == commit {
 				continue
 			}
 			log.Info("branch moved, deploying", "project", p.Slug, "branch", p.Git.Branch, "commit", commit)
-			if _, err := m.Deploy(ctx, p.ID, true); err != nil {
+			_, err := m.Deploy(ctx, p.ID, true)
+			m.branches.mu.Lock()
+			if m.branches.failed == nil {
+				m.branches.failed = map[string]string{}
+			}
+			if err != nil {
+				m.branches.failed[p.ID] = commit
+			} else {
+				delete(m.branches.failed, p.ID)
+			}
+			m.branches.mu.Unlock()
+			if err != nil {
 				log.Warn("branch scheduler: deploy", "project", p.Slug, "err", err)
 			}
 		}
