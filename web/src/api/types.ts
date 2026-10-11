@@ -443,6 +443,8 @@ export interface ProjectTemplate {
   requiresDatabase: boolean;
   recommendedDatabase?: string;
   phpExtensions?: string[];
+  /** memory_limit the application needs when it's above the default. */
+  phpMemoryLimit?: string;
   notes?: string;
   /** The runtime the template scaffolds for and runs in; older backends omit it (PHP). */
   runtime?: AppKind;
