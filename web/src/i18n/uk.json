@@ -2865,5 +2865,8 @@
   "Theme: system": "Тема: системна",
   "Theme: light": "Тема: світла",
   "Theme: dark": "Тема: темна",
-  "Envoryx - The spatial foundry": "Envoryx - Просторова ливарня"
+  "Envoryx - The spatial foundry": "Envoryx - Просторова ливарня",
+  "This invitation link cannot be used": "Це посилання-запрошення не можна використати",
+  "It is unknown, was already used or has expired. Ask an admin of this Envoryx for a new link.": "Воно невідоме, вже використане або прострочене. Попросіть адміністратора цього Envoryx про нове посилання.",
+  "Go to sign-in": "Перейти до входу"
 }

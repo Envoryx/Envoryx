@@ -2817,5 +2817,8 @@
   "Theme: system": "Tema: del sistema",
   "Theme: light": "Tema: claro",
   "Theme: dark": "Tema: oscuro",
-  "Envoryx - The spatial foundry": "Envoryx - La fundición espacial"
+  "Envoryx - The spatial foundry": "Envoryx - La fundición espacial",
+  "This invitation link cannot be used": "Este enlace de invitación no se puede usar",
+  "It is unknown, was already used or has expired. Ask an admin of this Envoryx for a new link.": "Es desconocido, ya se usó o ha caducado. Pide un enlace nuevo a un administrador de este Envoryx.",
+  "Go to sign-in": "Ir al inicio de sesión"
 }

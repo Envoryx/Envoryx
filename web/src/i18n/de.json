@@ -2817,5 +2817,8 @@
   "Theme: system": "Design: wie das System",
   "Theme: light": "Design: hell",
   "Theme: dark": "Design: dunkel",
-  "Envoryx - The spatial foundry": "Envoryx - Die räumliche Fabrik"
+  "Envoryx - The spatial foundry": "Envoryx - Die räumliche Fabrik",
+  "This invitation link cannot be used": "Dieser Einladungslink ist nicht nutzbar",
+  "It is unknown, was already used or has expired. Ask an admin of this Envoryx for a new link.": "Er ist unbekannt, wurde schon benutzt oder ist abgelaufen. Bitte einen Admin dieses Envoryx um einen neuen Link.",
+  "Go to sign-in": "Zur Anmeldung"
 }
