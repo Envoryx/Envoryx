@@ -610,7 +610,10 @@ func (m *Manager) SetCustomImage(ctx context.Context, id string, kind store.Serv
 	return m.runView(ctx, limitProvision, Operation{Action: "image", ProjectID: id}, func(ctx context.Context) (View, error) {
 		return m.customImageLocked(ctx, id, kind, func(ctx context.Context, svc *store.ProjectService) (bool, error) {
 			if svc.Custom.Image == req.Image && svc.Custom.Dockerfile == req.Dockerfile {
-				return false, nil
+				// Saving the same registry image again retries it when its pull failed
+				// before (a login was missing, the registry was down), which left it
+				// unchecked. Anything else is no change.
+				return req.Image != "" && svc.Custom.CheckedImage != req.Image, nil
 			}
 			svc.Custom = store.CustomImage{Image: req.Image, Dockerfile: req.Dockerfile}
 			return true, m.store.Projects.SetCustomImage(ctx, id, kind, svc.Custom)
@@ -658,10 +661,13 @@ func (m *Manager) customImageLocked(ctx context.Context, id string, kind store.S
 	if !changed {
 		return m.Get(context.WithoutCancel(ctx), id)
 	}
-	m.audit.Log(ctx, audit.ActionCustomImageChanged, "project", id, map[string]any{
-		"name": proj.Name, "service": string(kind), "image": svc.Custom.Image, "dockerfile": svc.Custom.Dockerfile,
-		"previousImage": before.Image, "previousDockerfile": before.Dockerfile, "rebuild": rebuild,
-	})
+	// A retry of the same image is no change to log.
+	if rebuild || svc.Custom.Image != before.Image || svc.Custom.Dockerfile != before.Dockerfile {
+		m.audit.Log(ctx, audit.ActionCustomImageChanged, "project", id, map[string]any{
+			"name": proj.Name, "service": string(kind), "image": svc.Custom.Image, "dockerfile": svc.Custom.Dockerfile,
+			"previousImage": before.Image, "previousDockerfile": before.Dockerfile, "rebuild": rebuild,
+		})
+	}
 	if proj, err = m.loadProject(ctx, id); err != nil {
 		return View{}, err
 	}
