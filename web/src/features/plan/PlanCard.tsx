@@ -17,6 +17,9 @@ export const planFeatureLabels: Record<PlanFeature, string> = {
   ideGateway: "IDE gateway",
 };
 
+/** Bytes with binary unit names (GiB): the plan's disk space is counted in them. */
+export const formatBinaryBytes = (bytes: number) => formatBytes(bytes).replace(/ ([KMGT])B$/, " $1iB");
+
 const runtimeLabels: Record<string, string> = { php: "PHP", node: "Node.js", python: "Python", go: "Go", ruby: "Ruby", java: "Java", dotnet: ".NET" };
 
 /**
@@ -52,7 +55,7 @@ export function PlanCard() {
             label={t("Disk space")}
             used={usage?.diskBytes ?? 0}
             limit={diskLimit}
-            format={formatBytes}
+            format={formatBinaryBytes}
             note={usage?.diskMeasuredAt ? t("measured {{time}}", { time: formatDateTime(usage.diskMeasuredAt) }) : diskLimit > 0 ? t("not measured yet") : undefined}
           />
         </div>
