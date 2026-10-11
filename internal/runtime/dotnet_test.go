@@ -100,6 +100,7 @@ func TestDotnetCommandsAndEnv(t *testing.T) {
 func TestDotnetServeScript(t *testing.T) {
 	bin := t.TempDir()
 	stub := `#!/bin/sh
+[ "$1" = watch ] && printf 'DOTNET_WATCH_SUPPRESS_BROWSER_REFRESH=%s ' "$DOTNET_WATCH_SUPPRESS_BROWSER_REFRESH"
 printf 'dotnet'; printf ' %s' "$@"; printf '\n'
 if [ "$1" = publish ]; then
   out=; while [ $# -gt 0 ]; do [ "$1" = -o ] && out=$2; shift; done
@@ -135,7 +136,7 @@ exit 0
 
 	t.Run("dev watches the one project at the top", func(t *testing.T) {
 		out, err := run(project(map[string]string{"Shop.csproj": web}), nil, "aspnetcore", "dev", "", "", "8080")
-		if want := "dotnet watch --non-interactive --project ./Shop.csproj run -- --urls http://0.0.0.0:8080"; err != nil || out != want {
+		if want := "DOTNET_WATCH_SUPPRESS_BROWSER_REFRESH=1 dotnet watch --non-interactive --project ./Shop.csproj run -- --urls http://0.0.0.0:8080"; err != nil || out != want {
 			t.Fatalf("got %q (%v), want %q", out, err, want)
 		}
 	})
@@ -145,7 +146,7 @@ exit 0
 			"tests/Shop.Tests/Shop.Tests.csproj": lib, "src/Shop/bin/Debug/Copy.csproj": web,
 		})
 		out, err := run(dir, nil, "aspnetcore", "dev", "", "", "5000")
-		if want := "dotnet watch --non-interactive --project ./src/Shop/Shop.csproj run -- --urls http://0.0.0.0:5000"; err != nil || out != want {
+		if want := "DOTNET_WATCH_SUPPRESS_BROWSER_REFRESH=1 dotnet watch --non-interactive --project ./src/Shop/Shop.csproj run -- --urls http://0.0.0.0:5000"; err != nil || out != want {
 			t.Fatalf("got %q (%v), want %q", out, err, want)
 		}
 	})
