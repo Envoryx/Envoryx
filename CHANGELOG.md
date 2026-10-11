@@ -10,6 +10,21 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Fixed
+- The Python server waits until the venv has its server package and no
+  pip or uv run is filling it. After a version switch the documented
+  `pip install` action was killed half-way when the server started against
+  the half-built venv, and a project without a venv crash-looped and locked
+  out the actions that would install it.
+- pytest failures in the Tests section are readable (no escaped colour
+  codes) and name the file and line; pytest is also found in uv projects
+  that list it under `[dependency-groups]` or only in `uv.lock`.
+- A started project whose server isn't up says it is starting or keeps
+  crashing instead of telling you to start it.
+- The debugpy hint under Runtime no longer suggests starting the server
+  under debugpy, which the IDE section warns against; the German, Russian
+  and Ukrainian IDE text said the opposite of the English one.
+
 ## [0.29.1] - 2026-10-11
 
 The new logo: Envoryx's mark is now ASCII art, the same as in the Foundry

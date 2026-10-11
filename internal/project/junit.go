@@ -4,6 +4,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -113,8 +114,8 @@ func failedCase(tc, f junitNode, root string) TestCase {
 	if class == "" {
 		class = tc.attr("class")
 	}
-	details := strings.TrimSpace(f.Text)
-	msg := strings.TrimSpace(f.attr("message"))
+	details := strings.TrimSpace(stripEscapedANSI(f.Text))
+	msg := strings.TrimSpace(stripEscapedANSI(f.attr("message")))
 	if msg == "" {
 		// PHPUnit writes no message attribute and starts the text with the test's id
 		// (Class::method); the assertion follows on the next line.
@@ -132,12 +133,32 @@ func failedCase(tc, f junitNode, root string) TestCase {
 	if details == msg {
 		details = ""
 	}
+	file := tc.attr("file")
 	line, _ := strconv.Atoi(tc.attr("line"))
+	if file == "" {
+		// pytest's report has neither: its traceback ends with "path.py:LINE: Error".
+		if m := pytestLocation.FindAllStringSubmatch(details, -1); m != nil {
+			last := m[len(m)-1]
+			file = last[1]
+			line, _ = strconv.Atoi(last[2])
+		}
+	}
 	return TestCase{
-		Name: tc.attr("name"), Class: class, File: relativeTo(tc.attr("file"), root), Line: line,
+		Name: tc.attr("name"), Class: class, File: relativeTo(file, root), Line: line,
 		Kind: f.XMLName.Local, Message: relativeTo(msg, root), Details: strings.ReplaceAll(details, root+"/", ""),
 	}
 }
+
+// pytestLocation is the "file.py:LINE: SomeError" line pytest ends a failure with.
+var pytestLocation = regexp.MustCompile(`(?m)^([^\s:]+\.py):(\d+): \w`)
+
+// stripEscapedANSI removes colour codes from report text: pytest --color=yes writes them
+// into the JUnit XML as "#x1B[...m", which XML can't carry as a control character.
+func stripEscapedANSI(s string) string {
+	return escapedANSI.ReplaceAllString(ansiCodes.ReplaceAllString(s, ""), "")
+}
+
+var escapedANSI = regexp.MustCompile(`#x1B\[[0-9;?]*[A-Za-z]`)
 
 // relativeTo cuts the project's mount point from a path the report names.
 func relativeTo(p, root string) string {

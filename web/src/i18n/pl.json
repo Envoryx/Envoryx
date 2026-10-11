@@ -1410,7 +1410,7 @@
   "Command run": "Polecenie wykonane",
   "Runs from the project directory with .venv/bin first on PATH.": "Uruchamiane z katalogu projektu z .venv/bin na początku PATH.",
   "Publish the debugpy port": "Opublikuj port debugpy",
-  "For attaching a debugger from PyCharm or VS Code. Only the port is published: start debugpy in your application, e.g. python -m debugpy --listen 0.0.0.0:5678 manage.py runserver. The IDE section has the details.": "Do podłączenia debuggera z PyCharm lub VS Code. Publikowany jest tylko port: uruchom debugpy w swojej aplikacji, np. python -m debugpy --listen 0.0.0.0:5678 manage.py runserver. Szczegóły w sekcji IDE.",
+  "For attaching a debugger from PyCharm or VS Code. Only the port is published: your application starts debugpy itself, in the process the reloader runs. The IDE section shows how.": "Do podłączenia debuggera z PyCharm lub VS Code. Publikowany jest tylko port: debugpy uruchamia sama Twoja aplikacja, w procesie uruchamianym przez reloader. Sekcja IDE pokazuje, jak to zrobić.",
   "debugpy port inside the container": "Port debugpy w kontenerze",
   "debugpy's default is 5678": "Domyślnie debugpy używa 5678",
   "Application runtime of this project: run Django, Flask, FastAPI or any WSGI/ASGI app here. Removing it only removes the container; the .venv stays in the project directory.": "Środowisko aplikacji tego projektu: uruchamiaj tu Django, Flask, FastAPI lub dowolną aplikację WSGI/ASGI. Usunięcie kasuje tylko kontener; .venv zostaje w katalogu projektu.",

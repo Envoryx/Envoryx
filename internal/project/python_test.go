@@ -338,8 +338,8 @@ func TestApplicationServerWaitsForTheDatabase(t *testing.T) {
 	if entry < 0 || db < entry || !strings.Contains(script, `; exec "$@"`) {
 		t.Fatalf("python guards: %q", script)
 	}
-	if strings.Contains(script, "uvicorn") {
-		t.Fatalf("argv must stay in $@: %q", script)
+	if strings.Contains(script, "uvicorn --host") || strings.Join(py.Spec.Cmd[4:], " ") != "uvicorn main:app --host 0.0.0.0 --port 8000 --reload" {
+		t.Fatalf("argv must stay in $@: %q", py.Spec.Cmd)
 	}
 	// The Node dev server next to it waits as well, after its own package.json guard.
 	node, _ := e.engine.Container("envoryx-waiter-node")

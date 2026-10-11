@@ -28,6 +28,9 @@ type Target struct {
 	Dial string
 	// Running is false when the project's web container is not up.
 	Running bool
+	// Started says the project is meant to run: when it isn't Running, its server is
+	// starting or keeps crashing rather than switched off.
+	Started bool
 	// Rules are the project's redirects, headers, CORS and access rules, nil if it has
 	// none.
 	Rules *Rules
@@ -197,6 +200,11 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if target.Share {
 		r = r.WithContext(context.WithValue(r.Context(), shareKey{}, true))
+	}
+	if (!target.Running || target.Dial == "") && target.Started {
+		h.errorPage(w, http.StatusServiceUnavailable, target.ProjectName+" isn't up",
+			fmt.Sprintf("The project <strong>%s</strong> is started, but its server isn't up yet: it is starting or keeps crashing. Its logs in Envoryx say why.", html.EscapeString(target.ProjectName)), table.EnvoryxURL)
+		return
 	}
 	if !target.Running || target.Dial == "" {
 		h.errorPage(w, http.StatusServiceUnavailable, target.ProjectName+" is stopped",

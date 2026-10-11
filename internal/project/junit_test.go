@@ -27,7 +27,7 @@ Error: Call to undefined method Cart::discount()</error>
 const pytestReport = `<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="1" skipped="1" tests="3" time="0.1">
 <testcase classname="tests.test_app" name="test_ok" time="0.01"/>
 <testcase classname="tests.test_app" name="test_skip" time="0.0"><skipped type="pytest.skip" message="later">tests/test_app.py:9: later</skipped></testcase>
-<testcase classname="tests.test_app" name="test_bad" time="0.02"><failure message="assert 1 == 2">def test_bad():
+<testcase classname="tests.test_app" name="test_bad" time="0.02"><failure message="assert 1 == 2">#x1B[0m#x1B[94mdef#x1B[39;49;00m#x1B[90m #x1B[39;49;00m#x1B[92mtest_bad#x1B[39;49;00m():
 &gt;       assert 1 == 2
 E       assert 1 == 2
 
@@ -62,7 +62,9 @@ func TestParseJUnitPytest(t *testing.T) {
 	if res.Tests != 3 || res.Failures != 1 || res.Skipped != 1 || len(res.Failed) != 1 {
 		t.Fatalf("totals: %+v", res)
 	}
-	if f := res.Failed[0]; f.Message != "assert 1 == 2" || !strings.Contains(f.Details, "tests/test_app.py:12: AssertionError") {
+	// --color=yes leaves escaped colour codes in the report; the location comes from the
+	// traceback's last line.
+	if f := res.Failed[0]; f.Message != "assert 1 == 2" || !strings.HasPrefix(f.Details, "def test_bad():") || f.File != "tests/test_app.py" || f.Line != 12 {
 		t.Fatalf("failure: %+v", f)
 	}
 }

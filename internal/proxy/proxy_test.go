@@ -29,6 +29,7 @@ func TestRoutingByHost(t *testing.T) {
 			Routes: map[string]Target{
 				"shop.test":    {ProjectName: "Shop", Slug: "shop", Dial: dial, Running: true},
 				"stopped.test": {ProjectName: "Stopped", Slug: "stopped", Dial: dial, Running: false},
+				"crashy.test":  {ProjectName: "Crashy", Slug: "crashy", Dial: dial, Running: false, Started: true},
 			},
 			UIHosts:    map[string]bool{"envoryx.test": true},
 			EnvoryxURL: "http://envoryx.test",
@@ -63,6 +64,11 @@ func TestRoutingByHost(t *testing.T) {
 	res, body = get("stopped.test", "/")
 	if res.StatusCode != http.StatusServiceUnavailable || !strings.Contains(body, "is not running") {
 		t.Fatalf("stopped: %d %q", res.StatusCode, body)
+	}
+	// Started but not up: starting or crash-looping, not "start it".
+	res, body = get("crashy.test", "/")
+	if res.StatusCode != http.StatusServiceUnavailable || !strings.Contains(body, "keeps crashing") || strings.Contains(body, "Start it") {
+		t.Fatalf("crash-looping: %d %q", res.StatusCode, body)
 	}
 	res, body = get("unknown.test", "/")
 	if res.StatusCode != http.StatusNotFound || !strings.Contains(body, "unknown.test") || strings.Contains(body, "<script") {
