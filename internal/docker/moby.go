@@ -1128,7 +1128,7 @@ func (e *MobyEngine) ListNetworks(ctx context.Context, managedOnly bool) ([]Netw
 		if managedOnly && !owned {
 			continue // another instance's
 		}
-		out = append(out, Network{ID: n.ID, Name: n.Name, Driver: n.Driver, Labels: n.Labels, Managed: owned, Subnets: subnets})
+		out = append(out, Network{ID: n.ID, Name: n.Name, Driver: n.Driver, Labels: n.Labels, Managed: owned, Subnets: subnets, Created: n.Created})
 	}
 	return out, nil
 }
@@ -1358,7 +1358,9 @@ func (e *MobyEngine) ListVolumes(ctx context.Context, managedOnly bool) ([]Volum
 		if managedOnly && !owned {
 			continue // another instance's
 		}
-		out = append(out, Volume{Name: v.Name, Driver: v.Driver, Labels: v.Labels, Managed: owned})
+		// Docker gives the time as RFC 3339 text.
+		created, _ := time.Parse(time.RFC3339, v.CreatedAt)
+		out = append(out, Volume{Name: v.Name, Driver: v.Driver, Labels: v.Labels, Managed: owned, Created: created})
 	}
 	return out, nil
 }

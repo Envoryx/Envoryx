@@ -535,7 +535,7 @@ func TestIntegrationNetworkWithSubnet(t *testing.T) {
 	}
 	found := false
 	for _, n := range nets {
-		if n.Name == a && len(n.Subnets) == 1 && n.Subnets[0] == "10.254.253.0/24" {
+		if n.Name == a && len(n.Subnets) == 1 && n.Subnets[0] == "10.254.253.0/24" && time.Since(n.Created) < time.Minute {
 			found = true
 		}
 	}
@@ -603,6 +603,12 @@ func TestIntegrationInstancesLeaveEachOtherAlone(t *testing.T) {
 	for _, v := range vs {
 		if v.Name == volName {
 			t.Fatal("b lists a's volume as managed")
+		}
+	}
+	vs, _ = a.ListVolumes(ctx, true)
+	for _, v := range vs {
+		if v.Name == volName && time.Since(v.Created) > time.Minute {
+			t.Fatalf("volume creation time: %v", v.Created)
 		}
 	}
 	if err := b.RemoveContainer(ctx, ctName); !errors.Is(err, ErrNotManaged) {

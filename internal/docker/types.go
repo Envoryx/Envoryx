@@ -152,6 +152,7 @@ type Network struct {
 	Managed bool
 	// Subnets are the network's IPv4 and IPv6 prefixes (e.g. 10.213.0.0/24).
 	Subnets []string
+	Created time.Time `json:",omitzero"`
 }
 
 // Endpoint is a container attached to a network.
@@ -177,6 +178,8 @@ type Volume struct {
 	Driver  string
 	Labels  map[string]string
 	Managed bool
+	// Created is zero when the volume driver doesn't report it.
+	Created time.Time `json:",omitzero"`
 }
 
 // MountSpec is a mount requested by the planner. Only bind mounts of paths derived from

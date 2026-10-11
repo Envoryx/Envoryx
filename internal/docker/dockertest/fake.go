@@ -195,21 +195,21 @@ func (f *Fake) AddManagedContainer(spec docker.ContainerSpec, state string) stri
 func (f *Fake) AddNetwork(name string, labels map[string]string) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.networks[name] = docker.Network{ID: f.nextID("n"), Name: name, Driver: "bridge", Labels: labels, Managed: docker.IsManaged(labels)}
+	f.networks[name] = docker.Network{ID: f.nextID("n"), Name: name, Driver: "bridge", Labels: labels, Managed: docker.IsManaged(labels), Created: time.Now().UTC()}
 }
 
 // AddNetworkWithSubnet adds a network (foreign or managed) that holds an address range.
 func (f *Fake) AddNetworkWithSubnet(name string, labels map[string]string, subnet string) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.networks[name] = docker.Network{ID: f.nextID("n"), Name: name, Driver: "bridge", Labels: labels, Managed: docker.IsManaged(labels), Subnets: []string{subnet}}
+	f.networks[name] = docker.Network{ID: f.nextID("n"), Name: name, Driver: "bridge", Labels: labels, Managed: docker.IsManaged(labels), Subnets: []string{subnet}, Created: time.Now().UTC()}
 }
 
 // AddVolume simulates an existing volume (managed or not, of this or another instance).
 func (f *Fake) AddVolume(name string, labels map[string]string) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.volumes[name] = docker.Volume{Name: name, Driver: "local", Labels: labels, Managed: docker.IsManaged(labels)}
+	f.volumes[name] = docker.Volume{Name: name, Driver: "local", Labels: labels, Managed: docker.IsManaged(labels), Created: time.Now().UTC()}
 }
 
 // NetworkSubnets returns the subnets of a network by name.
@@ -1116,7 +1116,7 @@ func (f *Fake) CreateNetwork(_ context.Context, name string, labels map[string]s
 		subnets = []string{subnet}
 	}
 	id := f.nextID("n")
-	f.networks[name] = docker.Network{ID: id, Name: name, Driver: "bridge", Labels: labels, Managed: true, Subnets: subnets}
+	f.networks[name] = docker.Network{ID: id, Name: name, Driver: "bridge", Labels: labels, Managed: true, Subnets: subnets, Created: time.Now().UTC()}
 	f.record("network-create:" + name)
 	return id, nil
 }
@@ -1337,7 +1337,7 @@ func (f *Fake) CreateVolume(_ context.Context, name string, labels map[string]st
 	if v, ok := f.volumes[name]; ok && f.foreign(v.Labels) {
 		return fmt.Errorf("volume %s: %w", name, docker.ErrOtherInstance)
 	}
-	f.volumes[name] = docker.Volume{Name: name, Driver: "local", Labels: docker.StampInstance(f.Instance, labels), Managed: true}
+	f.volumes[name] = docker.Volume{Name: name, Driver: "local", Labels: docker.StampInstance(f.Instance, labels), Managed: true, Created: time.Now().UTC()}
 	f.record("volume-create:" + name)
 	return nil
 }
