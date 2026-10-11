@@ -547,6 +547,8 @@
   "Sign out": "Cerrar sesión",
   "Slack app → Incoming Webhooks → Add new webhook → copy URL.": "App de Slack → Incoming Webhooks → Añadir webhook → copiar URL.",
   "Slack incoming webhook": "Webhook entrante de Slack",
+  "This page ran into an error": "Esta página ha encontrado un error",
+  "Reload the page": "Recargar la página",
   "Something went wrong": "Algo salió mal",
   "Envoryx POSTs JSON {kind, level, title, message, project, time} to the URL.": "Envoryx envía por POST el JSON {kind, level, title, message, project, time} a la URL.",
   "Envoryx containers": "Contenedores de Envoryx",

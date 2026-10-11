@@ -243,3 +243,23 @@ func TestAddonManifestAndBackup(t *testing.T) {
 		t.Fatalf("restore: %v", unpacked)
 	}
 }
+
+// An addon that injects nothing lists an empty array, not null: the UI reads its length.
+func TestAddonWithoutInjectListsEmpty(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	if _, err := e.m.InstallAddon(ctx, []byte("name: plain\ntitle: Plain\nversions:\n  - version: \"1\"\n    image: acme/plain:1\n    default: true\nport: 80\n")); err != nil {
+		t.Fatal(err)
+	}
+	view, err := e.m.Create(ctx, phpRequest("Gadget", true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.m.Update(ctx, view.Project.ID, UpdateRequest{Addons: map[string]AddonUpdate{"plain": {Enabled: true}}}); err != nil {
+		t.Fatal(err)
+	}
+	infos, err := e.m.ProjectAddons(ctx, view.Project.ID)
+	if err != nil || len(infos) != 1 || infos[0].InjectedEnv == nil {
+		t.Fatalf("infos: %+v %v", infos, err)
+	}
+}

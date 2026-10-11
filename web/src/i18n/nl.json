@@ -547,6 +547,8 @@
   "Sign out": "Uitloggen",
   "Slack app → Incoming Webhooks → Add new webhook → copy URL.": "Slack-app → Incoming Webhooks → Nieuwe webhook toevoegen → URL kopiëren.",
   "Slack incoming webhook": "Slack incoming webhook",
+  "This page ran into an error": "Deze pagina liep tegen een fout aan",
+  "Reload the page": "Pagina opnieuw laden",
   "Something went wrong": "Er is iets misgegaan",
   "Envoryx POSTs JSON {kind, level, title, message, project, time} to the URL.": "Envoryx POST JSON {kind, level, title, message, project, time} naar de URL.",
   "Envoryx containers": "Envoryx-containers",

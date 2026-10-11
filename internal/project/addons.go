@@ -566,7 +566,7 @@ func (m *Manager) ProjectAddons(ctx context.Context, id string) ([]AddonInfo, er
 			Name: d.Name, Title: d.Title, Description: d.Description, Homepage: d.Homepage,
 			Version: svc.Version, Image: svc.Image, Host: d.HostnameOrName(), Port: d.Port,
 			HostPort: cfg.HostPort, PublishPort: d.PublishPort, State: "missing",
-			InjectedEnv: slices.Sorted(maps.Keys(d.Inject)), Credentials: []AddonCredential{}, Volumes: []string{},
+			InjectedEnv: append([]string{}, slices.Sorted(maps.Keys(d.Inject))...), Credentials: []AddonCredential{}, Volumes: []string{},
 			Installed: installed[d.Name],
 		}
 		for _, v := range d.Versions {

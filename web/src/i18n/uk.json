@@ -547,6 +547,8 @@
   "Sign out": "Вийти",
   "Slack app → Incoming Webhooks → Add new webhook → copy URL.": "Застосунок Slack → Incoming Webhooks → Додати вебхук → скопіювати URL.",
   "Slack incoming webhook": "Вхідний вебхук Slack",
+  "This page ran into an error": "На цій сторінці сталася помилка",
+  "Reload the page": "Перезавантажити сторінку",
   "Something went wrong": "Щось пішло не так",
   "Envoryx POSTs JSON {kind, level, title, message, project, time} to the URL.": "Envoryx надсилає POST із JSON {kind, level, title, message, project, time} на URL.",
   "Envoryx containers": "Контейнери Envoryx",
