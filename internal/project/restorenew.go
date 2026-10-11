@@ -151,7 +151,9 @@ func (bf backupFile) export() (projectExport, error) {
 	case bf.SealedExport != "":
 		plain, err := secrets.Open(bf.SealedExport)
 		if errors.Is(err, secrets.ErrUnknownKey) {
-			return projectExport{}, fmt.Errorf("%w: the backup's project settings are sealed with the secret key of another Envoryx; start this one with that key (ENVORYX_SECRET_KEY or /config/secret.key)", validate.ErrInvalid)
+			// After a rotation this is this very Envoryx's retired key: copies already on an
+			// offsite target keep the key they were made with.
+			return projectExport{}, fmt.Errorf("%w: the backup's project settings are sealed with secret key %s, which this Envoryx does not hold (a key replaced by a rotation, or the key of another Envoryx); to use this backup, run Envoryx with that key (ENVORYX_SECRET_KEY or /config/secret.key)", validate.ErrInvalid, secrets.KeyIDOf(bf.SealedExport))
 		}
 		if err != nil {
 			return projectExport{}, fmt.Errorf("%w: the backup's project settings can't be opened: %v", validate.ErrInvalid, err)
