@@ -10,6 +10,8 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.30.0] - 2026-10-11
+
 What a full test round with real projects in every stack found: a
 security gap in the hoster's support access, restores that left newer
 tables behind, test runs that reached the development queue, and many
@@ -2205,7 +2207,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.29.1...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.30.0...HEAD
+[0.30.0]: https://github.com/envoryx/envoryx/compare/v0.29.1...v0.30.0
 [0.29.1]: https://github.com/envoryx/envoryx/compare/v0.29.0...v0.29.1
 [0.29.0]: https://github.com/envoryx/envoryx/compare/v0.28.0...v0.29.0
 [0.28.0]: https://github.com/envoryx/envoryx/compare/v0.27.1...v0.28.0
