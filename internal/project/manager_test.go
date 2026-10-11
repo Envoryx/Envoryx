@@ -1270,3 +1270,24 @@ func TestStartMovesBusyHTTPPort(t *testing.T) {
 		t.Fatalf("web container publishes %+v, want %d", c.Spec.Ports, moved)
 	}
 }
+
+// A start that fails keeps the port the project had: what held it may be the project's
+// own container, one of an earlier instance ID that the start could not replace.
+func TestFailedStartKeepsTheHTTPPort(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	view, err := e.m.Create(ctx, phpRequest("Shop", false))
+	if err != nil {
+		t.Fatal(err)
+	}
+	id, port := view.Project.ID, view.Project.HTTPPort
+	e.engine.HostPorts = map[int]bool{port: true}
+	e.m.hostPorts = hostPortCache{}
+	e.engine.FailStart = map[string]error{"envoryx-shop-web": docker.ErrOtherInstance}
+	if _, err := e.m.Start(ctx, id); err == nil {
+		t.Fatal("start must fail")
+	}
+	if p, _ := e.store.Projects.Get(ctx, id); p.HTTPPort != port {
+		t.Fatalf("a failed start moved the port from %d to %d", port, p.HTTPPort)
+	}
+}

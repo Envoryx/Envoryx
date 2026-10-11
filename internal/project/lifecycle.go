@@ -456,18 +456,30 @@ func (m *Manager) transitionLocked(ctx context.Context, id, action string, op fu
 	if proj.Lifecycle == store.LifecycleDeleting {
 		return View{}, fmt.Errorf("%w: project is being deleted", ErrConflict)
 	}
+	movedFrom := 0
 	if desired == store.DesiredRunning {
-		m.moveBusyHTTPPort(ctx, &proj)
+		movedFrom = m.moveBusyHTTPPort(ctx, &proj)
+	}
+	// A start that fails keeps the port the project had: what held it may be the
+	// project's own container that the start could not replace (one of an earlier
+	// instance ID, say), and the next attempt looks again.
+	restorePort := func() {
+		if movedFrom != 0 {
+			_ = m.store.Projects.SetHTTPPort(context.WithoutCancel(ctx), id, movedFrom)
+		}
 	}
 	planner, err := m.planner()
 	if err != nil {
+		restorePort()
 		return View{}, err
 	}
 	plan, err := planner.Plan(proj)
 	if err != nil {
+		restorePort()
 		return View{}, err
 	}
 	if err := op(ctx, proj, plan); err != nil {
+		restorePort()
 		err = opError(ctx, err)
 		_ = m.store.Projects.UpdateState(context.WithoutCancel(ctx), id, proj.DesiredState, proj.Lifecycle, err.Error())
 		return View{}, err
@@ -476,6 +488,10 @@ func (m *Manager) transitionLocked(ctx context.Context, id, action string, op fu
 	ctx = context.WithoutCancel(ctx)
 	if err := m.store.Projects.UpdateState(ctx, id, desired, store.LifecycleReady, ""); err != nil {
 		return View{}, err
+	}
+	if movedFrom != 0 {
+		m.log.Info("HTTP port in use on the host, moved", "project", proj.Slug, "old", movedFrom, "port", proj.HTTPPort)
+		m.audit.Log(ctx, audit.ActionProjectUpdated, "project", proj.ID, map[string]any{"name": proj.Name, "httpPort": map[string]int{"old": movedFrom, "new": proj.HTTPPort}})
 	}
 	m.audit.Log(ctx, action, "project", id, map[string]any{"name": proj.Name})
 	return m.Get(ctx, id)
@@ -486,31 +502,32 @@ func (m *Manager) transitionLocked(ctx context.Context, id, action string, op fu
 // the host, started after Envoryx had handed the port out. The web server could not
 // publish it and the start would fail, and the HTTP port cannot be changed by hand. The
 // project is reached through the proxy anyway; only the direct address changes. A
-// running web container holds the port itself, so it is left alone.
-func (m *Manager) moveBusyHTTPPort(ctx context.Context, proj *store.Project) {
+// running web container holds the port itself, so it is left alone. It returns the old
+// port when it moved the project, else 0.
+func (m *Manager) moveBusyHTTPPort(ctx context.Context, proj *store.Project) int {
 	if proj.HTTPPort == 0 {
-		return
+		return 0
 	}
 	if c, err := m.ServiceContainer(ctx, proj.ID, store.ServiceWeb); err == nil && c.State == "running" {
-		return
+		return 0
 	}
 	// A fresh look: the port may have been taken a moment ago.
 	if !m.hostListeningPorts(ctx, 0)[proj.HTTPPort] {
-		return
+		return 0
 	}
 	port, err := m.allocatePort(ctx, proj.HTTPPort)
 	if err != nil {
 		m.log.Warn("the project's HTTP port is in use on the host and no other is free", "project", proj.Slug, "port", proj.HTTPPort, "err", err)
-		return
+		return 0
 	}
 	if err := m.store.Projects.SetHTTPPort(ctx, proj.ID, port); err != nil {
 		m.log.Warn("moving the project to another HTTP port failed", "project", proj.Slug, "err", err)
-		return
+		return 0
 	}
 	step(ctx, "Port {{old}} is in use on the host, the project now uses port {{port}}", "old", strconv.Itoa(proj.HTTPPort), "port", strconv.Itoa(port))
-	m.log.Info("HTTP port in use on the host, moved", "project", proj.Slug, "old", proj.HTTPPort, "port", port)
-	m.audit.Log(ctx, audit.ActionProjectUpdated, "project", proj.ID, map[string]any{"name": proj.Name, "httpPort": map[string]int{"old": proj.HTTPPort, "new": port}})
+	old := proj.HTTPPort
 	proj.HTTPPort = port
+	return old
 }
 
 // startPlan ensures config files, network and containers exist and starts them in order.
