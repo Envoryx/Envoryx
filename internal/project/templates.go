@@ -904,8 +904,9 @@ grep -q '^builder\.AddAppDatabase();' Program.cs && grep -q '^app\.MapTodos();' 
 // own), cable.yml's development entry uses Solid Cable, and development.rb sends the jobs
 // to the queue database. Envoryx points the entries at its server with
 // QUEUE_DATABASE_URL and CABLE_DATABASE_URL (rubyDatabaseEnv), which Active Record merges
-// into them. development.rb also sends mail to Mailpit (SMTP_HOST), logs to stdout for
-// the Logs section and lets web-console answer the proxy. A Gemfile with Solid Queue but
+// into them. development.rb also sends mail to Mailpit (SMTP_HOST) with links to the
+// project address (ENVORYX_URL), logs to stdout for the Logs section and lets
+// web-console answer the proxy. A Gemfile with Solid Queue but
 // no config/queue.yml means rails new stopped halfway, which fails the template.
 const railsQueueDatabase = `
 require "yaml"
@@ -968,6 +969,16 @@ if rb.include?("config.action_mailer") && !rb.include?("SMTP_HOST")
     if ENV["SMTP_HOST"].present?
       config.action_mailer.delivery_method = :smtp
       config.action_mailer.smtp_settings = { address: ENV["SMTP_HOST"], port: ENV.fetch("SMTP_PORT", "1025").to_i }
+    end
+  RUBY
+end
+if rb.include?("config.action_mailer") && !rb.include?("ENVORYX_URL")
+  blocks << <<~'RUBY'
+    # Added by Envoryx: links in mail (post_url in a mailer view) point at the project
+    # address Envoryx injects as ENVORYX_URL, not at localhost:3000.
+    if ENV["ENVORYX_URL"].present?
+      envoryx_url = URI(ENV["ENVORYX_URL"])
+      config.action_mailer.default_url_options = { host: envoryx_url.host, protocol: envoryx_url.scheme, port: (envoryx_url.port unless envoryx_url.port == envoryx_url.default_port) }.compact
     end
   RUBY
 end

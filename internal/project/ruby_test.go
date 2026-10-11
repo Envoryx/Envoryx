@@ -152,6 +152,10 @@ func TestRubyTemplateWorkersTestsAndManifest(t *testing.T) {
 	if !slices.Equal(steps[1], []string{"ruby", "-e", railsQueueDatabase}) {
 		t.Fatalf("queue database step: %q", steps[1])
 	}
+	// Mail links follow the project address instead of Rails' localhost:3000.
+	if !strings.Contains(railsQueueDatabase, `config.action_mailer.default_url_options = { host: envoryx_url.host`) {
+		t.Fatal("development.rb must take the mail links' host from ENVORYX_URL")
+	}
 	proj, _ := e.m.loadProject(ctx, v.Project.ID)
 	cfg, _ := rubyConfig(proj)
 	if !cfg.Server || cfg.Preset != "rails" || cfg.Port != 3000 {
