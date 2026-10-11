@@ -136,12 +136,7 @@ func failedCase(tc, f junitNode, root string) TestCase {
 	file := tc.attr("file")
 	line, _ := strconv.Atoi(tc.attr("line"))
 	if file == "" {
-		// pytest's report has neither: its traceback ends with "path.py:LINE: Error".
-		if m := pytestLocation.FindAllStringSubmatch(details, -1); m != nil {
-			last := m[len(m)-1]
-			file = last[1]
-			line, _ = strconv.Atoi(last[2])
-		}
+		file, line = locationIn(details)
 	}
 	return TestCase{
 		Name: tc.attr("name"), Class: class, File: relativeTo(file, root), Line: line,
@@ -149,8 +144,28 @@ func failedCase(tc, f junitNode, root string) TestCase {
 	}
 }
 
-// pytestLocation is the "file.py:LINE: SomeError" line pytest ends a failure with.
-var pytestLocation = regexp.MustCompile(`(?m)^([^\s:]+\.py):(\d+): \w`)
+// locationIn finds the test's file and line in a failure text, for reports that carry
+// neither as attributes: pytest ends its traceback with "path.py:LINE: SomeError",
+// Playwright's stack names the spec as "at e2e/x.spec.ts:10:53".
+func locationIn(details string) (string, int) {
+	if m := pytestLocation.FindAllStringSubmatch(details, -1); m != nil {
+		last := m[len(m)-1]
+		line, _ := strconv.Atoi(last[2])
+		return last[1], line
+	}
+	for _, m := range stackLocation.FindAllStringSubmatch(details, -1) {
+		if !strings.Contains(m[1], "node_modules/") {
+			line, _ := strconv.Atoi(m[2])
+			return m[1], line
+		}
+	}
+	return "", 0
+}
+
+var (
+	pytestLocation = regexp.MustCompile(`(?m)^([^\s:]+\.py):(\d+): \w`)
+	stackLocation  = regexp.MustCompile(`(?m)^\s*at (?:.*\()?([^\s():]+\.[cm]?[jt]sx?):(\d+):\d+\)?\s*$`)
+)
 
 // stripEscapedANSI removes colour codes from report text: pytest --color=yes writes them
 // into the JUnit XML as "#x1B[...m", which XML can't carry as a control character.

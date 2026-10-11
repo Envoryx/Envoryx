@@ -3,6 +3,8 @@ package project
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
+	"strings"
 
 	"github.com/envoryx/envoryx/internal/runtime"
 	"github.com/envoryx/envoryx/internal/store"
@@ -275,6 +277,16 @@ func nodeWorkerEnv(p store.Project) string {
 		return runtime.NodeConfig{}.WorkerEnv()
 	}
 	return cfg.WorkerEnv()
+}
+
+// withNodeWorkerEnv adds nodeWorkerEnv to a worker's or cron job's environment. In
+// development a NODE_ENV the project sets itself wins, as it does for the dev server.
+func withNodeWorkerEnv(env []string, p store.Project) []string {
+	nodeEnv := nodeWorkerEnv(p)
+	if nodeEnv == "NODE_ENV=development" && slices.ContainsFunc(env, func(v string) bool { return strings.HasPrefix(v, "NODE_ENV=") }) {
+		return env
+	}
+	return append(env, nodeEnv)
 }
 
 // appServesDirectly reports whether an application container answers the project URL

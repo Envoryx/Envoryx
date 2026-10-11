@@ -238,20 +238,27 @@ func (c NodeConfig) runScript(script string) []string {
 // preset's host/port flags. In production mode "nuxt preview" takes no flags - Nitro reads
 // NITRO_HOST/NITRO_PORT from Env() - while "vite preview" and "next start" accept the
 // same flags as their dev servers.
+//
+// Only npm needs "--" before arguments for the script; pnpm and Yarn 2+ pass a "--" on to
+// it, and Vite then ignores the flags behind it and listens on localhost only.
 func (c NodeConfig) serveCommand() []string {
-	cmd := c.runScript(c.Script)
 	port := strconv.Itoa(c.Port)
+	var flags []string
 	switch c.Preset {
 	case "vite":
-		cmd = append(cmd, "--", "--host", "0.0.0.0", "--port", port, "--strictPort")
+		flags = []string{"--host", "0.0.0.0", "--port", port, "--strictPort"}
 	case "next":
-		cmd = append(cmd, "--", "-H", "0.0.0.0", "-p", port)
+		flags = []string{"-H", "0.0.0.0", "-p", port}
 	case "nuxt":
 		if !c.Production() {
-			cmd = append(cmd, "--", "--host", "0.0.0.0", "--port", port)
+			flags = []string{"--host", "0.0.0.0", "--port", port}
 		}
 	}
-	return cmd
+	cmd := c.runScript(c.Script)
+	if len(flags) > 0 && c.PackageManager != "pnpm" && c.PackageManager != "yarn" {
+		cmd = append(cmd, "--")
+	}
+	return append(cmd, flags...)
 }
 
 // Command returns the argv of the container's main process. In production mode the build

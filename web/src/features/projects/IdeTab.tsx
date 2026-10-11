@@ -340,7 +340,7 @@ export function IdeTab({ project: p }: { project: Project }) {
             </p>
             <pre className="mt-1 overflow-x-auto rounded-md bg-muted p-2 font-mono text-[11px]">{nodeDebugExamples(nodeCfg.inspectPort ?? 9229, nodeCfg.script || "dev")}</pre>
             <p className="mt-2 text-xs text-subtle">
-              {t("WebStorm: Run → Edit Configurations → Attach to Node.js/Chrome with host and port from above. VS Code: a launch.json entry of type node with request attach, address and port from above, localRoot/remoteRoot as the path mapping. Next.js opens the inspector of its server process one port higher (9230): publish that port instead when debugging server code.")}
+              {t("WebStorm: Run → Edit Configurations → Attach to Node.js/Chrome with host and port from above. VS Code: a launch.json entry of type node with request attach, address and port from above, localRoot/remoteRoot as the path mapping. Next.js opens the inspector of its server process one port above the one in --inspect, so its example starts one below the published port and the server code lands on the published one.")}
             </p>
           </div>
         </Card>
@@ -629,7 +629,7 @@ const gatewayIde: Record<string, string> = { python: "PyCharm", go: "GoLand", ru
 /** package.json snippets that start the inspector for the common setups, under the script Envoryx runs. */
 function nodeDebugExamples(port: number, script: string): string {
   return [
-    `"${script}": "NODE_OPTIONS='--inspect=0.0.0.0:${port}' next dev"        // Next.js (server code listens on ${port + 1})`,
+    `"${script}": "NODE_OPTIONS='--inspect=0.0.0.0:${port - 1}' next dev"        // Next.js (its server process listens on ${port})`,
     `"${script}": "node --inspect=0.0.0.0:${port} node_modules/vite/bin/vite.js"   // Vite`,
     `"${script}": "NODE_OPTIONS='--inspect=0.0.0.0:${port}' nuxt dev"        // Nuxt`,
     `"${script}": "node --inspect=0.0.0.0:${port} server.js"              // plain Node`,

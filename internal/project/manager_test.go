@@ -1068,7 +1068,7 @@ func TestPHPConfigRecreatesOnlyPHP(t *testing.T) {
 	}
 }
 
-// pnpm's store lives in the package cache through ~/.config/pnpm/rc in the project
+// pnpm's store lives in the package cache through ~/.config/pnpm/{rc,config.yaml} in the project
 // home, written once: a file the user changed stays as it is.
 func TestPnpmStoreSeededOnce(t *testing.T) {
 	e := newEnv(t)
@@ -1081,6 +1081,10 @@ func TestPnpmStoreSeededOnce(t *testing.T) {
 	b, err := os.ReadFile(rc)
 	if err != nil || !strings.Contains(string(b), "store-dir=/var/cache/envoryx/pnpm-store") {
 		t.Fatalf("pnpm rc: %q %v", b, err)
+	}
+	// pnpm 11 and newer read config.yaml instead.
+	if b, err := os.ReadFile(filepath.Join(filepath.Dir(rc), "config.yaml")); err != nil || !strings.Contains(string(b), "storeDir: /var/cache/envoryx/pnpm-store") {
+		t.Fatalf("pnpm config.yaml: %q %v", b, err)
 	}
 	if err := os.WriteFile(rc, []byte("store-dir=/elsewhere\n"), 0o644); err != nil {
 		t.Fatal(err)

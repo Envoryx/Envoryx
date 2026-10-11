@@ -298,3 +298,15 @@ func TestCrashLoopingWorkerAndRestart(t *testing.T) {
 		t.Fatalf("a stopped project's worker is not restarted: %v", err)
 	}
 }
+
+// In development a NODE_ENV the project sets itself reaches the workers and cron jobs, as
+// it reaches the dev server.
+func TestNodeWorkerEnvKeepsProjectNodeEnv(t *testing.T) {
+	var p store.Project
+	if got := withNodeWorkerEnv([]string{"A=1"}, p); !slices.Equal(got, []string{"A=1", "NODE_ENV=development"}) {
+		t.Fatalf("default: %v", got)
+	}
+	if got := withNodeWorkerEnv([]string{"NODE_ENV=staging"}, p); !slices.Equal(got, []string{"NODE_ENV=staging"}) {
+		t.Fatalf("own NODE_ENV: %v", got)
+	}
+}

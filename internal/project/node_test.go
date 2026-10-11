@@ -82,7 +82,7 @@ func TestNodeDevServer(t *testing.T) {
 		t.Fatal(err)
 	}
 	c, _ = e.engine.Container("envoryx-shop-node")
-	if got := strings.Join(c.Spec.Cmd[4:], " "); got != "pnpm run dev -- -H 0.0.0.0 -p 3000" {
+	if got := strings.Join(c.Spec.Cmd[4:], " "); got != "pnpm run dev -H 0.0.0.0 -p 3000" {
 		t.Fatalf("next command: %s", got)
 	}
 	proj, _ := e.m.loadProject(ctx, v.Project.ID)
@@ -134,7 +134,7 @@ func TestNodeDevServerOffOnKeepsSettings(t *testing.T) {
 		}
 	}
 	c, _ := e.engine.Container("envoryx-shop-node")
-	if got := strings.Join(c.Spec.Cmd[4:], " "); got != "pnpm run dev:app -- -H 0.0.0.0 -p 3001" {
+	if got := strings.Join(c.Spec.Cmd[4:], " "); got != "pnpm run dev:app -H 0.0.0.0 -p 3001" {
 		t.Fatalf("command after re-enable: %s", got)
 	}
 	if len(c.Spec.Ports) != 1 || c.Spec.Ports[0].HostPort != before.HostPort {
@@ -412,5 +412,25 @@ func TestAddAndRemovePHP(t *testing.T) {
 	}
 	if v, _ := e.m.Get(ctx, id); v.Status.State != StateRunning {
 		t.Fatalf("project state after removing PHP: %s", v.Status.State)
+	}
+}
+
+// An update that leaves the version out keeps the project's version instead of falling
+// back to the default; that holds for every runtime (keptVersion).
+func TestRuntimeUpdateKeepsVersion(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	req := nodeRequest("Shop", false)
+	req.Node.Version = "22"
+	v, err := e.m.Create(ctx, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.m.Update(ctx, v.Project.ID, UpdateRequest{Node: &NodeUpdate{Enabled: true, Config: runtime.NodeConfig{DevServer: true, Mode: runtime.NodeModeProduction}}}); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := e.m.Get(ctx, v.Project.ID)
+	if svc := got.Project.Service(store.ServiceNode); svc.Version != "22" {
+		t.Fatalf("version after an update without one: %q", svc.Version)
 	}
 }

@@ -81,14 +81,14 @@ func (m *Manager) Exec(ctx context.Context, id string, kind store.ServiceKind, o
 	}
 	m.ensurePasswdEntry(ctx, c.ID, c.Name, env.User)
 	// CI=1 keeps composer, npm and friends from asking questions nobody can answer here;
-	// the catalogue actions run with the same marker.
+	// the catalogue actions run with the same marker (nonInteractiveEnv).
 	m.audit.Log(ctx, audit.ActionExec, "project", id, map[string]any{
 		"service": string(kind),
 		"command": truncateCmd(strings.Join(opts.Cmd, " "), 200),
 	})
 	return m.engine.ExecStream(ctx, c.ID, docker.ExecStreamOptions{
 		Cmd:        opts.Cmd,
-		Env:        append(env.Env, "CI=1"),
+		Env:        append(env.Env, nonInteractiveEnv...),
 		User:       env.User,
 		WorkingDir: env.WorkingDir,
 		Stdin:      opts.Stdin,
@@ -103,3 +103,8 @@ func truncateCmd(s string, n int) string {
 	}
 	return s[:n] + "…"
 }
+
+// nonInteractiveEnv is what commands run without a terminal get. CI=1 alone also makes
+// Yarn 2+ refuse to change yarn.lock and pnpm refuse an outdated pnpm-lock.yaml, which
+// would leave "yarn install" unable to add a dependency; npm doesn't do that.
+var nonInteractiveEnv = []string{"CI=1", "YARN_ENABLE_IMMUTABLE_INSTALLS=false", "pnpm_config_frozen_lockfile=false"}
