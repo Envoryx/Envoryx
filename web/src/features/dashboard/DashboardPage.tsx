@@ -11,6 +11,7 @@ import { formatBytes, formatPercent } from "@/lib/format";
 import type { Dashboard } from "@/api/types";
 import type { ReactNode } from "react";
 import { ProjectRow } from "@/features/projects/ProjectsPage";
+import { NewProjectButton } from "@/features/projects/NewProjectButton";
 import { diagnosticsSummary } from "@/features/settings/DiagnosticsTab";
 import { errorText, translateMessage } from "@/lib/errors";
 
@@ -160,13 +161,7 @@ export function DashboardPage() {
       <PageHeader
         title={t("Dashboard")}
         description={t("Overview of your development environments.")}
-        actions={
-          admin ? (
-            <LinkButton to="/projects/new" variant="primary" icon={<Plus className="size-4" />}>
-              {t("New project")}
-            </LinkButton>
-          ) : undefined
-        }
+        actions={admin ? <NewProjectButton /> : undefined}
       />
 
       <DashboardNotices d={d} admin={admin} />

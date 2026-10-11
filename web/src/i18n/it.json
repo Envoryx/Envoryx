@@ -3021,5 +3021,10 @@
   "extracting ({{done}} of {{total}} layers done)": "Estrazione ({{done}} di {{total}} layer completati)",
   "Not injected": "Non iniettato",
   "Envoryx or the project's own variables set these already; an addon doesn't override them.": "Envoryx o le variabili proprie del progetto le impostano già; un addon non le sovrascrive.",
-  "The hoster's support can't change this: accounts, passwords, sign-in and keys stay with the instance's admins.": "Il supporto dell'hoster non può modificarlo: account, password, accesso e chiavi restano agli amministratori dell'istanza."
+  "The hoster's support can't change this: accounts, passwords, sign-in and keys stay with the instance's admins.": "Il supporto dell'hoster non può modificarlo: account, password, accesso e chiavi restano agli amministratori dell'istanza.",
+  "The plan's project limit is reached.": "Il limite di progetti del piano è raggiunto.",
+  "Delete a project or ask your hoster for a larger plan.": "Elimina un progetto o chiedi al tuo hoster un piano più grande.",
+  "More runtimes aren't included in your plan. Your hoster can include them.": "Il tuo piano non include altri runtime. Il tuo hoster può aggiungerli.",
+  "The plan's user limit is reached.": "Il limite di utenti del piano è raggiunto.",
+  "Disable or delete a user, or ask your hoster for a larger plan.": "Disattiva o elimina un utente, oppure chiedi al tuo hoster un piano più grande."
 }

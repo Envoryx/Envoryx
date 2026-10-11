@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/client";
-import { useProjects } from "@/api/hooks";
+import { usePlanLimitReached, useProjects } from "@/api/hooks";
 import type { InviteResult, Role, UserAdmin } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, ErrorState, Field, Input, Select, Spinner, type Tone } from "@/components/ui";
 import { copyText } from "@/lib/clipboard";
@@ -71,7 +71,12 @@ export function UsersCard({ readOnly = false }: { readOnly?: boolean }) {
   const [role, setRole] = useState<Role>("developer");
   const [open, setOpen] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
-  const refresh = () => void qc.invalidateQueries({ queryKey: ["users"] });
+  // The plan's usage counts the users that may sign in.
+  const full = usePlanLimitReached("users");
+  const refresh = () => {
+    void qc.invalidateQueries({ queryKey: ["users"] });
+    void qc.invalidateQueries({ queryKey: ["plan"] });
+  };
   const fail = (fallback: string) => (err: unknown) => setMsg({ tone: "red", text: errorText(err, t, fallback) });
 
   const create = useMutation({
@@ -122,11 +127,19 @@ export function UsersCard({ readOnly = false }: { readOnly?: boolean }) {
         }
         description={t("Everyone who may sign in, with a role for the whole instance and, where needed, another role in particular projects. A user without access to a project does not see it. API tokens never do more than their owner.")}
         actions={
-          !readOnly && (
+          !readOnly &&
+          (full ? (
+            <span className="flex flex-wrap items-center justify-end gap-2">
+              <span className="text-xs text-muted">{t("The plan's user limit is reached.")}</span>
+              <Button variant="primary" icon={<UserPlus className="size-4" />} disabled title={t("Disable or delete a user, or ask your hoster for a larger plan.")}>
+                {t("Invite user")}
+              </Button>
+            </span>
+          ) : (
             <Button variant="primary" icon={<UserPlus className="size-4" />} onClick={() => setAdding(true)}>
               {t("Invite user")}
             </Button>
-          )
+          ))
         }
       />
       <div className="space-y-4 p-5">

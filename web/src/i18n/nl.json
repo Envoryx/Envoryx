@@ -3021,5 +3021,10 @@
   "extracting ({{done}} of {{total}} layers done)": "Uitpakken ({{done}} van {{total}} lagen klaar)",
   "Not injected": "Niet geïnjecteerd",
   "Envoryx or the project's own variables set these already; an addon doesn't override them.": "Envoryx of de eigen variabelen van het project stellen deze al in; een addon overschrijft ze niet.",
-  "The hoster's support can't change this: accounts, passwords, sign-in and keys stay with the instance's admins.": "De support van de hoster kan dit niet wijzigen: accounts, wachtwoorden, aanmelding en sleutels blijven bij de beheerders van de instantie."
+  "The hoster's support can't change this: accounts, passwords, sign-in and keys stay with the instance's admins.": "De support van de hoster kan dit niet wijzigen: accounts, wachtwoorden, aanmelding en sleutels blijven bij de beheerders van de instantie.",
+  "The plan's project limit is reached.": "Het projectlimiet van het abonnement is bereikt.",
+  "Delete a project or ask your hoster for a larger plan.": "Verwijder een project of vraag je hoster om een groter abonnement.",
+  "More runtimes aren't included in your plan. Your hoster can include them.": "Je abonnement bevat geen andere runtimes. Je hoster kan ze toevoegen.",
+  "The plan's user limit is reached.": "Het gebruikerslimiet van het abonnement is bereikt.",
+  "Disable or delete a user, or ask your hoster for a larger plan.": "Schakel een gebruiker uit of verwijder er een, of vraag je hoster om een groter abonnement."
 }

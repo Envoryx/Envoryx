@@ -5,7 +5,7 @@ import { ArrowLeft, ArrowRight, Check, ChevronDown, FilePlus, GitBranch, Plus, R
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/api/client";
-import { useCreateProject, usePlan, useProjectLinks, useRuntimes, useSettings } from "@/api/hooks";
+import { useCreateProject, usePlan, usePlanLimitReached, useProjectLinks, useRuntimes, useSettings } from "@/api/hooks";
 import { NodeDevServerFields, defaultDevServerForm, devServerRequest, type DevServerForm } from "./NodeDevServerFields";
 import { PythonServerFields, defaultPythonServerForm, pythonServerRequest, type PythonServerForm } from "./PythonServerFields";
 import { GoServerFields, defaultGoServerForm, goServerRequest, type GoServerForm } from "./GoServerFields";
@@ -141,6 +141,7 @@ export function NewProjectPage() {
   // A hoster's plan can leave runtimes out; those aren't offered.
   const planRuntimes = usePlan().data?.plan?.runtimes ?? [];
   const runtimeAllowed = (k: string) => k === "static" || planRuntimes.length === 0 || planRuntimes.includes(k);
+  const atLimit = usePlanLimitReached("projects");
   const create = useCreateProject();
   const links = useProjectLinks();
   const settings = useSettings();
@@ -1298,6 +1299,13 @@ export function NewProjectPage() {
   return (
     <div>
       <PageHeader title={t("New project")} description={t("Envoryx creates an isolated Docker environment for your project.")} />
+      {atLimit && (
+        <div className="mb-6">
+          <Alert tone="amber" title={t("The plan's project limit is reached.")}>
+            {t("Delete a project or ask your hoster for a larger plan.")}
+          </Alert>
+        </div>
+      )}
       <ol className="mb-6 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm" aria-label={t("Steps")}>
         {steps.map((label, i) => (
           <li key={label} className="flex items-center gap-2">
