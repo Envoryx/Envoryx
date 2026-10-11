@@ -1,5 +1,6 @@
 import i18n, { detectLanguage, languages } from "@/i18n";
 import de from "./de.json";
+import en from "./en.json";
 import es from "./es.json";
 import fr from "./fr.json";
 import itIT from "./it.json";
@@ -61,6 +62,11 @@ describe("i18n", () => {
       }
     }
     expect(missing).toEqual([]);
+  });
+
+  it("keeps no English override for a key the other languages no longer have", () => {
+    const keys = new Set(Object.keys(de).map((k) => k.replace(plural, "")));
+    expect(Object.keys(en).filter((k) => !keys.has(k.replace(plural, "")))).toEqual([]);
   });
 
   it("uses the four Slavic plural forms", async () => {
