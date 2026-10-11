@@ -162,3 +162,59 @@ func TestOOMKillsBecomeWarningsAndNotifications(t *testing.T) {
 		t.Fatalf("notifications: %+v", events)
 	}
 }
+
+// Some Docker versions deliver no "oom" event; the sampler then finds the kills in the
+// container's counter. A kill both sources see is reported once.
+func TestOOMKillsFromTheCounterWithoutEvents(t *testing.T) {
+	e := newEnv(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	rec := &oomRecorder{}
+	e.m.SetNotifier(rec)
+	v, err := e.m.Create(ctx, phpRequest("Shop", true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.m.SetLimits(ctx, v.Project.ID, store.ResourceLimits{App: store.LimitSet{MemoryMB: 64}}); err != nil {
+		t.Fatal(err)
+	}
+	kills := func(n uint64) {
+		e.engine.StatsByName = map[string]docker.Stats{"envoryx-shop-php": {MemoryBytes: 60 << 20, OOMKills: n}}
+	}
+	now := time.Now()
+	kills(5) // older kills: only the baseline
+	e.m.MetricsPass(ctx, now)
+	kills(7)
+	e.m.MetricsPass(ctx, now.Add(time.Minute))
+	view, _ := e.m.Get(ctx, v.Project.ID)
+	if w := view.Status.Warnings; len(w) != 1 || !strings.HasPrefix(w[0], "php ran out of memory 2 times") || !strings.Contains(w[0], "limit 64 MiB") {
+		t.Fatalf("warnings: %v", w)
+	}
+	if n := len(rec.all()); n != 1 {
+		t.Fatalf("%d notifications, want 1", n)
+	}
+
+	// An event first, then the counter: one kill. The counter first, then the event: one.
+	go e.m.RunOOMWatcher(ctx, e.m.log)
+	for e.engine.OOMWatchers() == 0 {
+		time.Sleep(5 * time.Millisecond)
+	}
+	e.engine.EmitOOM("envoryx-shop-php")
+	deadline := time.Now().Add(2 * time.Second)
+	for len(rec.all()) < 2 && time.Now().Before(deadline) {
+		time.Sleep(5 * time.Millisecond)
+	}
+	kills(8)
+	e.m.MetricsPass(ctx, now.Add(2*time.Minute))
+	kills(9)
+	e.m.MetricsPass(ctx, now.Add(3*time.Minute))
+	e.engine.EmitOOM("envoryx-shop-php")
+	time.Sleep(50 * time.Millisecond)
+	view, _ = e.m.Get(ctx, v.Project.ID)
+	if w := view.Status.Warnings; len(w) != 1 || !strings.HasPrefix(w[0], "php ran out of memory 4 times") {
+		t.Fatalf("warnings: %v", w)
+	}
+	if n := len(rec.all()); n != 3 {
+		t.Fatalf("%d notifications, want 3", n)
+	}
+}

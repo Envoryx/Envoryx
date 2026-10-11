@@ -18,7 +18,10 @@ import (
 // be the main process (the container restarts) or just a child (a php-fpm worker, a
 // Node child, a queue job) while the container keeps running, which is easy to miss.
 // Docker reports both as an "oom" event; the watcher turns them into a project warning
-// for a day and a notification.
+// for a day and a notification. Not every Docker delivers that event reliably (the
+// event and State.OOMKilled come from the same containerd notification), so the
+// resource history sampler also reads each container's kill counter from its cgroup and
+// reports the kills no event announced.
 
 // oomWarningFor is how long an OOM kill stays on the project as a warning.
 const oomWarningFor = 24 * time.Hour
@@ -34,18 +37,61 @@ type oomLog struct {
 	mu sync.Mutex
 	// byProject maps project id → container name → the latest kill.
 	byProject map[string]map[string]*oomRecord
+	// balance per container id: kills reported by events minus kills counted by the
+	// sampler. Whichever source sees a kill first records it; the other one only settles
+	// the balance, so a kill seen by both is reported once.
+	balance map[string]int
 }
 
 func (m *Manager) ooms() *oomLog {
-	m.oomOnce.Do(func() { m.oom = &oomLog{byProject: map[string]map[string]*oomRecord{}} })
+	m.oomOnce.Do(func() {
+		m.oom = &oomLog{byProject: map[string]map[string]*oomRecord{}, balance: map[string]int{}}
+	})
 	return m.oom
+}
+
+// oomFromEvent handles one Docker OOM event: a kill the sampler already counted is not
+// reported again.
+func (m *Manager) oomFromEvent(ctx context.Context, ev docker.OOMEvent) {
+	l := m.ooms()
+	l.mu.Lock()
+	known := l.balance[ev.ContainerID] < 0
+	l.balance[ev.ContainerID]++
+	l.mu.Unlock()
+	if !known {
+		m.recordOOM(ctx, ev, 1)
+	}
+}
+
+// oomFromCounter handles kills the sampler found in a container's counter since its
+// previous reading; the ones already reported by events are left out.
+func (m *Manager) oomFromCounter(ctx context.Context, c docker.Container, kills int, at time.Time) {
+	if kills <= 0 {
+		return
+	}
+	l := m.ooms()
+	l.mu.Lock()
+	reported := min(max(l.balance[c.ID], 0), kills)
+	l.balance[c.ID] -= kills
+	l.mu.Unlock()
+	if kills > reported {
+		m.recordOOM(ctx, docker.OOMEvent{ContainerID: c.ID, Name: c.Name, Labels: c.Labels, Time: at}, kills-reported)
+	}
+}
+
+// forgetOOMBalance drops the balance of a container the sampler no longer sees.
+func (m *Manager) forgetOOMBalance(containerID string) {
+	l := m.ooms()
+	l.mu.Lock()
+	delete(l.balance, containerID)
+	l.mu.Unlock()
 }
 
 // RunOOMWatcher follows Docker's OOM events until ctx ends, reconnecting when the event
 // stream breaks.
 func (m *Manager) RunOOMWatcher(ctx context.Context, log *slog.Logger) {
 	for {
-		err := m.engine.WatchOOM(ctx, func(ev docker.OOMEvent) { m.recordOOM(ctx, ev) })
+		err := m.engine.WatchOOM(ctx, func(ev docker.OOMEvent) { m.oomFromEvent(ctx, ev) })
 		if ctx.Err() != nil {
 			return
 		}
@@ -72,7 +118,8 @@ func oomName(slug string, ev docker.OOMEvent) string {
 	return svc
 }
 
-func (m *Manager) recordOOM(ctx context.Context, ev docker.OOMEvent) {
+// recordOOM turns kills in one container into the project warning and a notification.
+func (m *Manager) recordOOM(ctx context.Context, ev docker.OOMEvent, kills int) {
 	projectID := ev.Labels[docker.LabelProjectID]
 	if projectID == "" {
 		return
@@ -101,10 +148,10 @@ func (m *Manager) recordOOM(ctx context.Context, ev docker.OOMEvent) {
 		recs[name] = rec
 	}
 	rec.at, rec.limitMB = at, limit
-	rec.count++
+	rec.count += kills
 	l.mu.Unlock()
 
-	m.log.Warn("out of memory: the kernel killed a process", "project", p.Slug, "container", name, "limit_mb", limit)
+	m.log.Warn("out of memory: the kernel killed a process", "project", p.Slug, "container", name, "kills", kills, "limit_mb", limit)
 	msg := fmt.Sprintf("The kernel killed a process in %s of %s because it ran out of memory", name, p.Name)
 	if limit > 0 {
 		msg += fmt.Sprintf(" (limit %d MiB). Raise the memory limit of the %s under Advanced → Resource limits, or find what uses that much.", limit, map[string]string{"app": "application containers", "services": "services"}[LimitGroup(store.ServiceKind(svc))])

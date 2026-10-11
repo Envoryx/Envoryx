@@ -329,7 +329,11 @@ type Stats struct {
 	NetTxBytes   uint64
 	BlockRead    uint64
 	BlockWritten uint64
-	SampledAt    time.Time
+	// OOMKills counts the processes the kernel killed in the container because it reached
+	// its memory limit, from the cgroup's memory.events. Docker reports it as failcnt; on
+	// cgroup v1 failcnt counts every time the limit was hit instead, so it stays 0 there.
+	OOMKills  uint64
+	SampledAt time.Time
 }
 
 // VolumeSize is the disk space a managed volume takes.

@@ -448,6 +448,10 @@ func TestIntegrationResourcesAndOOM(t *testing.T) {
 	if d, _ := e.InspectContainer(ctx, id); !d.Running {
 		t.Fatal("only the child was killed; the container must still run")
 	}
+	// The kill counter shows it too, for a Docker that sends no event.
+	if st, err := e.ContainerStats(ctx, id); err != nil || st.OOMKills != 1 {
+		t.Fatalf("stats: %d OOM kills (%v), want 1", st.OOMKills, err)
+	}
 }
 
 // The stats carry cumulative block I/O counters and VolumeSizes finds a managed volume
