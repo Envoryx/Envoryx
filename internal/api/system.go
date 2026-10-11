@@ -438,10 +438,13 @@ func (a *API) applySettings(ctx context.Context, req updateSettingsRequest) (map
 		if host != "" && !config.ValidHost(host) {
 			return changes, fmt.Errorf("%w: host must be a host name or IP address without scheme or port", validate.ErrInvalid)
 		}
-		if err := a.d.Store.Settings.Set(ctx, SettingPublicHost, host); err != nil {
-			return changes, err
+		// Only a real change is set and logged: the plan applies its fixed value often.
+		if cur, err := a.d.Store.Settings.Get(ctx, SettingPublicHost); err != nil || cur != host {
+			if err := a.d.Store.Settings.Set(ctx, SettingPublicHost, host); err != nil {
+				return changes, err
+			}
+			changes["publicHost"] = host
 		}
-		changes["publicHost"] = host
 	}
 	if req.BaseDomain != nil {
 		if err := a.d.Projects.SetBaseDomain(ctx, *req.BaseDomain); err != nil {

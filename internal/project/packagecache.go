@@ -27,10 +27,13 @@ func (m *Manager) SharedPackageCache(ctx context.Context) bool {
 // SetSharedPackageCache stores the preference. Projects pick it up when their containers
 // are recreated.
 func (m *Manager) SetSharedPackageCache(ctx context.Context, on bool) error {
-	if err := m.store.Settings.Set(ctx, SettingSharedPackageCache, strconv.FormatBool(on)); err != nil {
+	changed, err := m.changeSetting(ctx, SettingSharedPackageCache, strconv.FormatBool(on))
+	if err != nil {
 		return err
 	}
-	m.audit.Log(ctx, audit.ActionSettingsChanged, "settings", "", map[string]any{"sharedPackageCache": on})
+	if changed {
+		m.audit.Log(ctx, audit.ActionSettingsChanged, "settings", "", map[string]any{"sharedPackageCache": on})
+	}
 	return nil
 }
 

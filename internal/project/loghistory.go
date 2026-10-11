@@ -111,6 +111,19 @@ func (m *Manager) intSetting(ctx context.Context, key string, def, lo, hi int) i
 	return n
 }
 
+// changeSetting stores a setting and reports whether its value changed, so the audit
+// log holds real changes only: the hoster's plan sets its fixed settings at every
+// start and plan push, and a form may send what is set already.
+func (m *Manager) changeSetting(ctx context.Context, key, value string) (bool, error) {
+	if v, err := m.store.Settings.Get(ctx, key); err == nil && v == value {
+		return false, nil
+	}
+	if err := m.store.Settings.Set(ctx, key, value); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 // LogHistory returns the log history settings.
 func (m *Manager) LogHistory(ctx context.Context) LogHistorySettings {
 	v, err := m.store.Settings.Get(ctx, SettingLogHistory)
@@ -128,25 +141,28 @@ func (m *Manager) SetLogHistory(ctx context.Context, upd LogHistoryUpdate) (LogH
 		if *upd.RetentionDays < 1 || *upd.RetentionDays > MaxLogHistoryDays {
 			return LogHistorySettings{}, fmt.Errorf("%w: keep the log history for 1 to %d days", validate.ErrInvalid, MaxLogHistoryDays)
 		}
-		if err := m.store.Settings.Set(ctx, SettingLogHistoryDays, strconv.Itoa(*upd.RetentionDays)); err != nil {
+		if changed, err := m.changeSetting(ctx, SettingLogHistoryDays, strconv.Itoa(*upd.RetentionDays)); err != nil {
 			return LogHistorySettings{}, err
+		} else if changed {
+			changes["logHistoryDays"] = *upd.RetentionDays
 		}
-		changes["logHistoryDays"] = *upd.RetentionDays
 	}
 	if upd.MaxMB != nil {
 		if *upd.MaxMB < MinLogHistoryMaxMB || *upd.MaxMB > MaxLogHistoryMaxMB {
 			return LogHistorySettings{}, fmt.Errorf("%w: the log history may use %d MB to %d MB", validate.ErrInvalid, MinLogHistoryMaxMB, MaxLogHistoryMaxMB)
 		}
-		if err := m.store.Settings.Set(ctx, SettingLogHistoryMaxMB, strconv.Itoa(*upd.MaxMB)); err != nil {
+		if changed, err := m.changeSetting(ctx, SettingLogHistoryMaxMB, strconv.Itoa(*upd.MaxMB)); err != nil {
 			return LogHistorySettings{}, err
+		} else if changed {
+			changes["logHistoryMaxMb"] = *upd.MaxMB
 		}
-		changes["logHistoryMaxMb"] = *upd.MaxMB
 	}
 	if upd.Enabled != nil {
-		if err := m.store.Settings.Set(ctx, SettingLogHistory, strconv.FormatBool(*upd.Enabled)); err != nil {
+		if changed, err := m.changeSetting(ctx, SettingLogHistory, strconv.FormatBool(*upd.Enabled)); err != nil {
 			return LogHistorySettings{}, err
+		} else if changed {
+			changes["logHistory"] = *upd.Enabled
 		}
-		changes["logHistory"] = *upd.Enabled
 	}
 	if len(changes) > 0 {
 		m.audit.Log(ctx, audit.ActionSettingsChanged, "settings", "", changes)

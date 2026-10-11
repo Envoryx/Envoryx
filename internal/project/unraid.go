@@ -34,9 +34,12 @@ func (m *Manager) SetFolderViewFolder(ctx context.Context, folder string) error 
 	if !utf8.ValidString(folder) || utf8.RuneCountInString(folder) > maxFolderViewFolder || strings.IndexFunc(folder, unicode.IsControl) >= 0 {
 		return fmt.Errorf("%w: folder name must be at most %d characters without control characters", validate.ErrInvalid, maxFolderViewFolder)
 	}
-	if err := m.store.Settings.Set(ctx, SettingFolderViewFolder, folder); err != nil {
+	changed, err := m.changeSetting(ctx, SettingFolderViewFolder, folder)
+	if err != nil {
 		return err
 	}
-	m.audit.Log(ctx, audit.ActionSettingsChanged, "settings", "", map[string]any{"folderViewFolder": folder})
+	if changed {
+		m.audit.Log(ctx, audit.ActionSettingsChanged, "settings", "", map[string]any{"folderViewFolder": folder})
+	}
 	return nil
 }

@@ -33,10 +33,13 @@ func (m *Manager) ProjectsFollowEnvoryx(ctx context.Context) bool {
 
 // SetProjectsFollowEnvoryx stores the preference.
 func (m *Manager) SetProjectsFollowEnvoryx(ctx context.Context, on bool) error {
-	if err := m.store.Settings.Set(ctx, SettingProjectsFollowEnvoryx, strconv.FormatBool(on)); err != nil {
+	changed, err := m.changeSetting(ctx, SettingProjectsFollowEnvoryx, strconv.FormatBool(on))
+	if err != nil {
 		return err
 	}
-	m.audit.Log(ctx, audit.ActionSettingsChanged, "settings", "", map[string]any{"projectsFollowEnvoryx": on})
+	if changed {
+		m.audit.Log(ctx, audit.ActionSettingsChanged, "settings", "", map[string]any{"projectsFollowEnvoryx": on})
+	}
 	return nil
 }
 

@@ -22,9 +22,12 @@ func (m *Manager) SharedIDEBackends(ctx context.Context) bool {
 // SetSharedIDEBackends stores the preference. Projects with Gateway pick it up when their
 // containers are recreated.
 func (m *Manager) SetSharedIDEBackends(ctx context.Context, on bool) error {
-	if err := m.store.Settings.Set(ctx, SettingSharedIDEBackends, strconv.FormatBool(on)); err != nil {
+	changed, err := m.changeSetting(ctx, SettingSharedIDEBackends, strconv.FormatBool(on))
+	if err != nil {
 		return err
 	}
-	m.audit.Log(ctx, audit.ActionSettingsChanged, "settings", "", map[string]any{"sharedIdeBackends": on})
+	if changed {
+		m.audit.Log(ctx, audit.ActionSettingsChanged, "settings", "", map[string]any{"sharedIdeBackends": on})
+	}
 	return nil
 }

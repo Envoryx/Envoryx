@@ -73,10 +73,13 @@ func (m *Manager) SetMetricsRetention(ctx context.Context, days int) (MetricsSet
 	if days < 1 || days > MaxMetricsDays {
 		return MetricsSettings{}, fmt.Errorf("%w: keep the resource history for 1 to %d days", validate.ErrInvalid, MaxMetricsDays)
 	}
-	if err := m.store.Settings.Set(ctx, SettingMetricsDays, strconv.Itoa(days)); err != nil {
+	changed, err := m.changeSetting(ctx, SettingMetricsDays, strconv.Itoa(days))
+	if err != nil {
 		return MetricsSettings{}, err
 	}
-	m.audit.Log(ctx, audit.ActionSettingsChanged, "settings", "", map[string]any{"metricsRetentionDays": days})
+	if changed {
+		m.audit.Log(ctx, audit.ActionSettingsChanged, "settings", "", map[string]any{"metricsRetentionDays": days})
+	}
 	st := m.metricsState()
 	st.mu.Lock()
 	st.lastPrune = time.Time{}

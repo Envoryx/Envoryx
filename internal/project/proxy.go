@@ -55,10 +55,13 @@ func (m *Manager) SetXdebugClientHost(ctx context.Context, host string) error {
 			return fmt.Errorf("%w: host name or IP expected", validate.ErrInvalid)
 		}
 	}
-	if err := m.store.Settings.Set(ctx, SettingXdebugClientHost, host); err != nil {
+	changed, err := m.changeSetting(ctx, SettingXdebugClientHost, host)
+	if err != nil {
 		return err
 	}
-	m.audit.Log(ctx, audit.ActionSettingsChanged, "settings", "", map[string]any{"xdebugClientHost": host})
+	if changed {
+		m.audit.Log(ctx, audit.ActionSettingsChanged, "settings", "", map[string]any{"xdebugClientHost": host})
+	}
 	return nil
 }
 
@@ -74,20 +77,26 @@ func (m *Manager) SetBaseDomain(ctx context.Context, base string) error {
 	if err := validate.Hostname(base); err != nil {
 		return err
 	}
-	if err := m.store.Settings.Set(ctx, SettingBaseDomain, base); err != nil {
+	changed, err := m.changeSetting(ctx, SettingBaseDomain, base)
+	if err != nil {
 		return err
 	}
-	m.audit.Log(ctx, audit.ActionSettingsChanged, "settings", "", map[string]any{"baseDomain": base})
-	m.spreadProxyAliases(ctx)
+	if changed {
+		m.audit.Log(ctx, audit.ActionSettingsChanged, "settings", "", map[string]any{"baseDomain": base})
+		m.spreadProxyAliases(ctx)
+	}
 	return nil
 }
 
 // SetForceHTTPS stores the redirect preference.
 func (m *Manager) SetForceHTTPS(ctx context.Context, on bool) error {
-	if err := m.store.Settings.Set(ctx, SettingForceHTTPS, strconv.FormatBool(on)); err != nil {
+	changed, err := m.changeSetting(ctx, SettingForceHTTPS, strconv.FormatBool(on))
+	if err != nil {
 		return err
 	}
-	m.audit.Log(ctx, audit.ActionSettingsChanged, "settings", "", map[string]any{"forceHttps": on})
+	if changed {
+		m.audit.Log(ctx, audit.ActionSettingsChanged, "settings", "", map[string]any{"forceHttps": on})
+	}
 	return nil
 }
 
