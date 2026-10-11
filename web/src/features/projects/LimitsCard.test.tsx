@@ -34,7 +34,7 @@ describe("LimitsCard", () => {
     expect(cpus[0]).toHaveValue("1.5");
     expect(memory[0]).toHaveValue("1");
     expect(screen.getByText("CPU 0.75 of 1.5 cores")).toBeInTheDocument();
-    expect(screen.getByText("Memory 200 MB (no limit)")).toBeInTheDocument();
+    expect(screen.getByText("Memory 200 MiB (no limit)")).toBeInTheDocument();
 
     const save = screen.getByRole("button", { name: "Save" });
     expect(save).toBeDisabled();

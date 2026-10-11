@@ -28,7 +28,7 @@ describe("LogHistoryCard", () => {
     renderApp(<LogHistoryCard />);
     const user = userEvent.setup();
 
-    expect(await screen.findByText("5.0 MB in 12 files", { exact: false })).toBeInTheDocument();
+    expect(await screen.findByText("5.0 MiB in 12 files", { exact: false })).toBeInTheDocument();
     expect(screen.getByText("Reading 3 containers now", { exact: false })).toBeInTheDocument();
     expect(screen.getByText("on")).toBeInTheDocument();
 
