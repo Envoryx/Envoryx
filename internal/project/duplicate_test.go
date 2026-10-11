@@ -112,6 +112,48 @@ func TestDuplicateProjectCopiesConfigFilesAndDatabase(t *testing.T) {
 	}
 }
 
+// A copy that is started comes up once its database is in: workers started before the
+// import ran against empty tables and crash-looped.
+func TestDuplicateProjectStartsTheCopyAfterTheImport(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	imported := -1
+	e.engine.StreamHandler = func(container string, cmd []string, _ []string, _ []byte) (string, int, error) {
+		switch {
+		case strings.HasSuffix(cmd[0], "-dump"), cmd[0] == "mysqldump":
+			return "CREATE TABLE orders (id int);\n", 0, nil
+		case container == "envoryx-shop-test-database" && !(len(cmd) == 3 && strings.Contains(cmd[2], "getent passwd")):
+			imported = len(e.engine.Calls)
+		}
+		return "", 0, nil
+	}
+	view, err := e.m.Create(ctx, dbRequest("Shop", false))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.m.AddWorker(ctx, view.Project.ID, WorkerRequest{Name: "queue", Preset: "laravel:queue", Enabled: true}); err != nil {
+		t.Fatal(err)
+	}
+	req := allParts("Shop Test")
+	req.Start = true
+	cp, err := e.m.Duplicate(ctx, view.Project.ID, req)
+	if err != nil {
+		t.Fatalf("duplicate: %v", err)
+	}
+	if imported < 0 {
+		t.Fatal("the database was not imported")
+	}
+	for _, name := range []string{"envoryx-shop-test-worker-queue", "envoryx-shop-test-php"} {
+		at := slices.Index(e.engine.Calls, "start:"+name)
+		if at < imported {
+			t.Errorf("%s started at %d, the import ran at %d: %v", name, at, imported, e.engine.Calls)
+		}
+	}
+	if cp.Status.State != StateRunning {
+		t.Errorf("the copy must run: %s %v", cp.Status.State, cp.Status.Warnings)
+	}
+}
+
 func TestDuplicateProjectWithoutFilesOrDatabase(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
