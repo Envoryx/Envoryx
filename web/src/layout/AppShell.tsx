@@ -109,6 +109,11 @@ export function AppShell() {
             {t("Docker engine is not reachable. Project operations are unavailable until the connection is restored.")}
           </div>
         )}
+        {auth.support && (
+          <div className="border-b border-amber-500/30 bg-amber-500/10 px-4 py-2 text-sm text-amber-700 dark:text-amber-400" role="status">
+            {t("You are signed in as the hoster's support. The admins of this instance allowed it; what you do is in the audit log.")}
+          </div>
+        )}
         <main className="mx-auto w-full flex-1 px-4 py-6 sm:px-6 lg:px-8 [:root[data-layout=boxed]_&]:max-w-6xl">
           <Outlet />
         </main>

@@ -28,6 +28,12 @@ release). `:main` follows the development branch.
   is refused, the web UI shows the users only the hoster's message, and the
   API, MCP, SSH and SFTP refuse. Lifting it opens the instance again without
   starting anything. See DEPLOYMENT.md, *Suspension*.
+- Support access for the hoster: an instance's admins can let the hoster's
+  support sign in (for an hour, a day, a week or until taken back, under
+  Settings → General). The fleet manager then opens a one-time login link;
+  the support user counts towards no limit, can't create tokens or keys, and
+  its sessions end with the consent. Every support login is in the audit log.
+  See DEPLOYMENT.md, *Support access*.
 
 ### Changed
 - Restoring an instance backup never takes the secret key, the instance ID,

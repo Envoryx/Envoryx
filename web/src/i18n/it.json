@@ -2785,5 +2785,20 @@
   "Suspended since {{time}}": "Sospesa dal {{time}}",
   "Instance suspended": "Istanza sospesa",
   "Suspension lifted": "Sospensione revocata",
-  "this instance is suspended by its hoster": "Questa istanza è sospesa dal suo hoster"
+  "this instance is suspended by its hoster": "Questa istanza è sospesa dal suo hoster",
+  "Until revoked": "Fino a revoca",
+  "Support access": "Accesso del supporto",
+  "allowed": "consentito",
+  "Take back": "Revoca",
+  "For": "Per",
+  "Allow support access": "Consenti l'accesso del supporto",
+  "Lets your hoster's support sign in as an admin, e.g. to help with a problem. Every support login is in the audit log; taking the access back ends it at once.": "Consente al supporto del tuo hoster di accedere come admin, ad esempio per aiutare con un problema. Ogni accesso del supporto è nel registro di audit; revocare l'accesso lo termina subito.",
+  "Your hoster's support may sign in until {{time}}.": "Il supporto del tuo hoster può accedere fino al {{time}}.",
+  "Your hoster's support may sign in until you take the access back.": "Il supporto del tuo hoster può accedere finché non revochi l'accesso.",
+  "You are signed in as the hoster's support. The admins of this instance allowed it; what you do is in the audit log.": "Hai effettuato l'accesso come supporto dell'hoster. Gli admin di questa istanza lo hanno consentito; ciò che fai è nel registro di audit.",
+  "Support login": "Accesso del supporto",
+  "Support access changed": "Accesso del supporto modificato",
+  "the admins of this instance don't allow support access": "Gli admin di questa istanza non consentono l'accesso del supporto",
+  "the support login link is unknown, used or expired; open a new one from the fleet manager": "Il link di accesso del supporto è sconosciuto, già usato o scaduto; aprine uno nuovo dal fleet manager",
+  "the hoster's support can't do this": "Il supporto dell'hoster non può farlo"
 }

@@ -2633,6 +2633,25 @@ When the hoster removes the instance from the fleet, it stops connecting and
 keeps its last plan. To move an instance to another machine, the manager
 issues a new token; enrolling with it replaces the old key.
 
+### Support access
+
+The hoster's support can sign in to an instance, but only while its admins allow
+it: Settings → General → *Support access*, for an hour, a day, a week or until
+taken back. The fleet manager then offers *Support login* on the instance's
+page; it asks the instance for a one-time link (valid two minutes) to its web
+UI, which signs the hoster's browser in as the user "Hoster support", an admin.
+The UI shows that user a note at the top.
+
+The support user is not one of the instance's users: it doesn't count towards
+the plan's users, isn't listed and can't sign in with a password. It can't
+create API tokens, store SSH keys, set a password or change the consent, so
+nothing it does outlasts the consent. Taking the access back, or its end,
+ends its sessions at once. Every support login (with the name of the hoster's
+user who asked for it) and every change of the consent is in the audit log
+(`auth.support_login`, `settings.support_access`). The link leads to the
+address of the web UI the instance knows: `envoryx.<base domain>` behind the
+embedded proxy, otherwise the public host and the listen port.
+
 ### Suspension
 
 The hoster can suspend an instance, an unpaid invoice for example. The manager

@@ -11,19 +11,20 @@ import (
 // Users is the repository for login accounts.
 type Users struct{ db *sql.DB }
 
-const userColumns = `id, username, password_hash, role, invite_hash, invite_expires_at, oidc_subject, disabled, ssh_keys, created_at, updated_at`
+const userColumns = `id, username, password_hash, role, invite_hash, invite_expires_at, oidc_subject, disabled, ssh_keys, support, created_at, updated_at`
 
 func scanUser(row interface{ Scan(...any) error }) (User, error) {
 	var u User
 	var created, updated, inviteExpires string
-	var disabled int
-	if err := row.Scan(&u.ID, &u.Username, &u.PasswordHash, &u.Role, &u.InviteHash, &inviteExpires, &u.OIDCSubject, &disabled, &u.SSHKeys, &created, &updated); err != nil {
+	var disabled, support int
+	if err := row.Scan(&u.ID, &u.Username, &u.PasswordHash, &u.Role, &u.InviteHash, &inviteExpires, &u.OIDCSubject, &disabled, &u.SSHKeys, &support, &created, &updated); err != nil {
 		return User{}, err
 	}
 	if inviteExpires != "" {
 		u.InviteExpiresAt = parseTime(inviteExpires)
 	}
 	u.Disabled = disabled == 1
+	u.Support = support == 1
 	u.CreatedAt = parseTime(created)
 	u.UpdatedAt = parseTime(updated)
 	return u, nil
@@ -32,7 +33,7 @@ func scanUser(row interface{ Scan(...any) error }) (User, error) {
 // Count returns the number of users.
 func (r *Users) Count(ctx context.Context) (int, error) {
 	var n int
-	if err := r.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM users`).Scan(&n); err != nil {
+	if err := r.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM users WHERE support = 0`).Scan(&n); err != nil {
 		return 0, fmt.Errorf("count users: %w", err)
 	}
 	return n, nil
@@ -41,7 +42,7 @@ func (r *Users) Count(ctx context.Context) (int, error) {
 // CountActive returns the number of users who aren't disabled.
 func (r *Users) CountActive(ctx context.Context) (int, error) {
 	var n int
-	if err := r.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM users WHERE disabled = 0`).Scan(&n); err != nil {
+	if err := r.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM users WHERE disabled = 0 AND support = 0`).Scan(&n); err != nil {
 		return 0, fmt.Errorf("count users: %w", err)
 	}
 	return n, nil
@@ -62,8 +63,8 @@ func (r *Users) Insert(ctx context.Context, u User) (User, error) {
 	if !u.InviteExpiresAt.IsZero() {
 		expires = formatTime(u.InviteExpiresAt)
 	}
-	_, err := r.db.ExecContext(ctx, `INSERT INTO users (`+userColumns+`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		u.ID, u.Username, u.PasswordHash, u.Role, u.InviteHash, expires, u.OIDCSubject, boolInt(u.Disabled), u.SSHKeys, formatTime(u.CreatedAt), formatTime(u.UpdatedAt))
+	_, err := r.db.ExecContext(ctx, `INSERT INTO users (`+userColumns+`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		u.ID, u.Username, u.PasswordHash, u.Role, u.InviteHash, expires, u.OIDCSubject, boolInt(u.Disabled), u.SSHKeys, boolInt(u.Support), formatTime(u.CreatedAt), formatTime(u.UpdatedAt))
 	if err != nil {
 		if isUniqueViolation(err) {
 			return User{}, fmt.Errorf("username %q: %w", u.Username, ErrConflict)
@@ -161,7 +162,7 @@ func (r *Users) Delete(ctx context.Context, id string) error {
 // CountActiveAdmins counts the admins who can still sign in.
 func (r *Users) CountActiveAdmins(ctx context.Context) (int, error) {
 	var n int
-	if err := r.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM users WHERE role = 'admin' AND disabled = 0`).Scan(&n); err != nil {
+	if err := r.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM users WHERE role = 'admin' AND disabled = 0 AND support = 0`).Scan(&n); err != nil {
 		return 0, fmt.Errorf("count admins: %w", err)
 	}
 	return n, nil
@@ -169,7 +170,7 @@ func (r *Users) CountActiveAdmins(ctx context.Context) (int, error) {
 
 // ByUsername looks a user up by (case-insensitive) username.
 func (r *Users) ByUsername(ctx context.Context, username string) (User, error) {
-	u, err := scanUser(r.db.QueryRowContext(ctx, `SELECT `+userColumns+` FROM users WHERE username = ?`, username))
+	u, err := scanUser(r.db.QueryRowContext(ctx, `SELECT `+userColumns+` FROM users WHERE username = ? AND support = 0`, username))
 	if errors.Is(err, sql.ErrNoRows) {
 		return User{}, ErrNotFound
 	}
@@ -206,7 +207,7 @@ func (r *Users) UpdatePassword(ctx context.Context, id, passwordHash string) err
 
 // List returns every account, oldest first.
 func (r *Users) List(ctx context.Context) ([]User, error) {
-	rows, err := r.db.QueryContext(ctx, `SELECT `+userColumns+` FROM users ORDER BY created_at, username`)
+	rows, err := r.db.QueryContext(ctx, `SELECT `+userColumns+` FROM users WHERE support = 0 ORDER BY created_at, username`)
 	if err != nil {
 		return nil, fmt.Errorf("select users: %w", err)
 	}
@@ -220,6 +221,22 @@ func (r *Users) List(ctx context.Context) ([]User, error) {
 		out = append(out, u)
 	}
 	return out, rows.Err()
+}
+
+// SupportUsername is the support user's name. It is no valid username, so no account
+// can take it.
+const SupportUsername = "Hoster support"
+
+// Support returns the user the hoster's support signs in as, creating it on first use.
+func (r *Users) Support(ctx context.Context) (User, error) {
+	u, err := scanUser(r.db.QueryRowContext(ctx, `SELECT `+userColumns+` FROM users WHERE support = 1`))
+	if err == nil {
+		return u, nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return User{}, fmt.Errorf("select support user: %w", err)
+	}
+	return r.Insert(ctx, User{Username: SupportUsername, Role: "admin", Support: true})
 }
 
 // DeleteAll removes every account; sessions and API tokens go with them (ON DELETE

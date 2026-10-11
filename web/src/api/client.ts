@@ -101,6 +101,8 @@ import type {
   AuditFilter,
   AuditPage,
   PlanStatus,
+  SupportAccess,
+  SupportAccessStatus,
 } from "./types";
 
 /** Query string of the log endpoints; empty filter fields are left out. */
@@ -290,7 +292,7 @@ export const api = {
     logout: () => request<void>("/auth/logout", { method: "POST" }),
     /** admin: the session may administer the instance; projectRoles: the user's role per project id where it differs. */
     me: (silent401 = false) =>
-      request<{ user: User; admin?: boolean; projectRoles?: Record<string, string>; token?: { name: string; scope: string; projects: string[] } }>("/auth/me", { silent401 }),
+      request<{ user: User; admin?: boolean; support?: boolean; projectRoles?: Record<string, string>; token?: { name: string; scope: string; projects: string[] } }>("/auth/me", { silent401 }),
     changePassword: (currentPassword: string, newPassword: string) =>
       request<void>("/auth/password", { method: "POST", body: { currentPassword, newPassword } }),
     sshKeys: () => request<{ keys: string }>("/auth/ssh-keys"),
@@ -319,6 +321,11 @@ export const api = {
       request<{ project: Project }>(`/projects/${encodeURIComponent(id)}/addons/${encodeURIComponent(name)}`, { method: "PUT", body }),
   },
 
+  /** The admins' consent to the hoster's support signing in. */
+  supportAccess: {
+    get: () => request<SupportAccessStatus>("/settings/support-access"),
+    set: (body: SupportAccess) => request<SupportAccessStatus>("/settings/support-access", { method: "PUT", body }),
+  },
   secretKey: {
     get: () => request<{ secretKey: SecretKeyInfo }>("/settings/secret-key"),
     reveal: () => request<{ key: string }>("/settings/secret-key/reveal", { method: "POST" }),

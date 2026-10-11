@@ -12,9 +12,13 @@ import (
 
 // Actions recorded by Envoryx.
 const (
-	ActionLogin          = "auth.login"
-	ActionLoginFailed    = "auth.login_failed"
-	ActionLogout         = "auth.logout"
+	ActionLogin       = "auth.login"
+	ActionLoginFailed = "auth.login_failed"
+	ActionLogout      = "auth.logout"
+	// ActionSupportLogin is the hoster's support signing in through the fleet manager;
+	// ActionSupportAccess a change of the admins' consent to it.
+	ActionSupportLogin   = "auth.support_login"
+	ActionSupportAccess  = "settings.support_access"
 	ActionSetup          = "auth.setup"
 	ActionPasswordChange = "auth.password_changed"
 	// Rescue CLI (envoryx admin …), run from a shell inside the container.

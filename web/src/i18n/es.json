@@ -2785,5 +2785,20 @@
   "Suspended since {{time}}": "Suspendida desde {{time}}",
   "Instance suspended": "Instancia suspendida",
   "Suspension lifted": "Suspensión levantada",
-  "this instance is suspended by its hoster": "Esta instancia está suspendida por su proveedor de hosting"
+  "this instance is suspended by its hoster": "Esta instancia está suspendida por su proveedor de hosting",
+  "Until revoked": "Hasta que se revoque",
+  "Support access": "Acceso de soporte",
+  "allowed": "permitido",
+  "Take back": "Retirar",
+  "For": "Durante",
+  "Allow support access": "Permitir acceso de soporte",
+  "Lets your hoster's support sign in as an admin, e.g. to help with a problem. Every support login is in the audit log; taking the access back ends it at once.": "Permite que el soporte de tu proveedor de hosting inicie sesión como admin, por ejemplo para ayudar con un problema. Cada inicio de sesión del soporte queda en el registro de auditoría; retirar el acceso lo termina al instante.",
+  "Your hoster's support may sign in until {{time}}.": "El soporte de tu proveedor puede iniciar sesión hasta {{time}}.",
+  "Your hoster's support may sign in until you take the access back.": "El soporte de tu proveedor puede iniciar sesión hasta que retires el acceso.",
+  "You are signed in as the hoster's support. The admins of this instance allowed it; what you do is in the audit log.": "Has iniciado sesión como soporte del proveedor. Los admins de esta instancia lo han permitido; lo que hagas queda en el registro de auditoría.",
+  "Support login": "Inicio de sesión del soporte",
+  "Support access changed": "Acceso de soporte cambiado",
+  "the admins of this instance don't allow support access": "Los admins de esta instancia no permiten el acceso de soporte",
+  "the support login link is unknown, used or expired; open a new one from the fleet manager": "El enlace de inicio de sesión del soporte es desconocido, ya se usó o caducó; abre uno nuevo desde el fleet manager",
+  "the hoster's support can't do this": "El soporte del proveedor no puede hacer esto"
 }

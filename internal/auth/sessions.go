@@ -45,6 +45,9 @@ type Principal struct {
 	// ProjectRoles are the user's roles in particular projects, which replace the
 	// global Role there.
 	ProjectRoles map[string]Role
+	// Support is set for the hoster's support (support.go): an admin while the admins
+	// allow it, who can't give itself access that outlasts their consent.
+	Support bool
 }
 
 // Options configure the session service.
@@ -64,6 +67,10 @@ type Service struct {
 	limiter *loginLimiter
 	// plan is the hoster's plan of a managed instance; it caps the active users.
 	plan *plan.Holder
+
+	// supportTickets are the open support login links by token hash (support.go).
+	supportMu      sync.Mutex
+	supportTickets map[string]supportTicket
 }
 
 // SetPlan hands the service the instance's plan.
@@ -202,7 +209,7 @@ func (s *Service) principal(ctx context.Context, user store.User) (Principal, er
 	if err != nil {
 		return Principal{}, err
 	}
-	p := Principal{UserID: user.ID, Username: user.Username, Role: user.Role}
+	p := Principal{UserID: user.ID, Username: user.Username, Role: user.Role, Support: user.Support}
 	if len(roles) > 0 {
 		p.ProjectRoles = make(map[string]Role, len(roles))
 		for id, r := range roles {
@@ -241,6 +248,13 @@ func (s *Service) Validate(ctx context.Context, token string) (Principal, error)
 	if user.Disabled {
 		_ = s.store.Sessions.Delete(ctx, id)
 		return Principal{}, ErrUnauthenticated
+	}
+	if user.Support {
+		// The support's session ends with the admins' consent.
+		if a, err := s.SupportAccess(ctx); err != nil || !a.Active(ts) {
+			_ = s.store.Sessions.Delete(ctx, id)
+			return Principal{}, ErrUnauthenticated
+		}
 	}
 	// Only touch the row every minute to avoid a write per request.
 	if ts.Sub(sess.LastSeenAt) > time.Minute {
