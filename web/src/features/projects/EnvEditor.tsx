@@ -51,7 +51,7 @@ export function EnvEditor({
 
   return (
     <div className="space-y-2">
-      {value.length === 0 && <p className="text-sm text-subtle">No environment variables. They are injected into every project container.</p>}
+      {value.length === 0 && <p className="text-sm text-subtle">{t("No environment variables. They are injected into every project container.")}</p>}
       {value.map((e, i) => (
         <div key={i} className="flex items-center gap-2">
           <Input

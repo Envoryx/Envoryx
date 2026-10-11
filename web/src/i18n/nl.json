@@ -2811,5 +2811,8 @@
   "from your hoster": "van je hoster",
   "Recognised: an instance backup from {{date}}": "Herkend: een instantieback-up van {{date}}",
   "This backup holds a whole Envoryx instance, not one project. It is listed under Settings → Backups → Instance backups now. Restoring it there replaces this instance's database and configuration.": "Deze back-up bevat een hele Envoryx-instantie, niet één project. Hij staat nu onder Instellingen → Back-ups → Instantieback-ups. Als je hem daar terugzet, vervangt hij de database en configuratie van deze instantie.",
-  "Open the instance backups": "Instantieback-ups openen"
+  "Open the instance backups": "Instantieback-ups openen",
+  "No environment variables. They are injected into every project container.": "Geen omgevingsvariabelen. Ze worden in elke container van het project geïnjecteerd.",
+  "Envoryx could not start, or a background task crashed and was restarted": "Envoryx kon niet starten, of een achtergrondtaak is gecrasht en opnieuw gestart",
+  "Free disk space under /config, /projects or /backups is running out (and when it recovers)": "De vrije schijfruimte onder /config, /projects of /backups raakt op (en wanneer die weer voldoende is)"
 }
