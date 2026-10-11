@@ -219,11 +219,6 @@ func (m *Manager) duplicate(ctx context.Context, id string, req DuplicateRequest
 	if failed, err := m.provision(ctx, plan, &j); err != nil {
 		return fail(failed, err)
 	}
-	if req.Start {
-		if failed, err := m.startProvisioned(ctx, proj, plan, j); err != nil {
-			return fail(failed, err)
-		}
-	}
 	if req.Database {
 		for _, svc := range proj.Databases() {
 			db := svc.Kind.DatabaseName()
@@ -252,6 +247,15 @@ func (m *Manager) duplicate(ctx context.Context, id string, req DuplicateRequest
 			if err := m.copyStorage(ctx, src, proj); err != nil {
 				return fail("copy the object storage", err)
 			}
+		}
+	}
+	// The copy starts once its data is in: workers and application servers started
+	// before the import ran against an empty database (a scheduled-task worker
+	// crash-looped on missing tables, a queue worker set its transports up there). The
+	// copies start the database and the storage for the transfer and stop them again.
+	if req.Start {
+		if failed, err := m.startProvisioned(ctx, proj, plan, j); err != nil {
+			return fail(failed, err)
 		}
 	}
 	step(ctx, "Finishing up")
