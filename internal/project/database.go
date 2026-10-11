@@ -603,6 +603,7 @@ func (m *Manager) updateExternalDatabase(ctx context.Context, p store.Project, s
 // the primary or an additional one). Callers hold the project lock. It returns whether
 // application containers must be recreated.
 func (m *Manager) applyDatabaseUpdate(ctx context.Context, p store.Project, kind store.ServiceKind, upd DatabaseUpdate, changes map[string]any) (recreateApp bool, err error) {
+	upd.Type = canonicalDBType(upd.Type)
 	svc := p.Service(kind)
 	// The keys of the audit details; an additional database's carry its name.
 	key := func(k string) string {

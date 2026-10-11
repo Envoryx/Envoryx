@@ -235,9 +235,15 @@ func TestBackupSnapshotAndCloneOfAdditionalDatabases(t *testing.T) {
 	}
 
 	// A second project takes analytics' data; flavours must match.
-	other, err := e.m.Create(ctx, CreateRequest{Name: "Report", Databases: []NamedDatabaseRequest{{Name: "analytics", DatabaseRequest: DatabaseRequest{Type: "postgresql"}}}, Start: true})
+	other, err := e.m.Create(ctx, CreateRequest{Name: "Report", Databases: []NamedDatabaseRequest{{Name: "analytics", DatabaseRequest: DatabaseRequest{Type: "postgres"}}}, Start: true}) // "postgres" as in envoryx.yml
 	if err != nil {
 		t.Fatal(err)
+	}
+	if svc := other.Project.Service(store.DatabaseKind("analytics")); svc == nil || svc.Variant != "postgresql" {
+		t.Fatalf("postgres must be PostgreSQL: %+v", svc)
+	}
+	if _, err := e.m.Update(ctx, other.Project.ID, UpdateRequest{Databases: map[string]DatabaseUpdate{"analytics": {Enabled: true, Type: "postgres"}}}); err != nil {
+		t.Fatalf("the same type under its other name is no change of type: %v", err)
 	}
 	rec.restored = nil
 	res, err := e.m.CloneDatabase(ctx, other.Project.ID, CloneDatabaseRequest{Source: p.ID, DB: "analytics", Confirm: "report"})
