@@ -85,6 +85,18 @@ func (r *Backups) Get(ctx context.Context, projectID, id string) (Backup, error)
 	return b, nil
 }
 
+// SetMetadata replaces a backup record's metadata.
+func (r *Backups) SetMetadata(ctx context.Context, projectID, id string, meta json.RawMessage) error {
+	res, err := r.db.ExecContext(ctx, `UPDATE backups SET metadata = ? WHERE id = ? AND project_id = ?`, string(meta), id, projectID)
+	if err != nil {
+		return fmt.Errorf("update backup: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 // Delete removes a backup record.
 func (r *Backups) Delete(ctx context.Context, projectID, id string) error {
 	res, err := r.db.ExecContext(ctx, `DELETE FROM backups WHERE id = ? AND project_id = ?`, id, projectID)

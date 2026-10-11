@@ -84,6 +84,15 @@ func TestRenameProjectMovesEverythingDerivedFromTheIdentifier(t *testing.T) {
 	if err != nil || len(backups) != 1 || backups[0].Missing {
 		t.Fatalf("the backup must still be readable: %+v %v", backups, err)
 	}
+	// They carry the new name, in the record and in the file, so after a delete they are
+	// listed under the name the project had last.
+	if m := backups[0].Meta; m.ProjectName != "Acme Blog" || m.Slug != "acme-blog" {
+		t.Fatalf("backup meta: %+v", m)
+	}
+	raw, _ := os.ReadFile(filepath.Join(e.cfgDir, "backups", "acme-blog", backups[0].Dir, backupMetaFile))
+	if !strings.Contains(string(raw), `"projectName": "Acme Blog"`) || !strings.Contains(string(raw), `"runtimes"`) {
+		t.Fatalf("backup.json: %s", raw)
+	}
 	// The database moved through a dump into the new name, and the login was renamed.
 	creds, err := e.m.DatabaseCredentials(ctx, id, "")
 	if err != nil || creds.Database != "acme_blog" || creds.Username != "acme_blog" {
