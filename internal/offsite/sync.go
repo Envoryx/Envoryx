@@ -58,6 +58,7 @@ type ProjectBackups interface {
 	ImportBackupArchive(ctx context.Context, projectID string, r io.Reader) (project.BackupInfo, error)
 	ImportBackupStream(ctx context.Context, r io.Reader) (project.UploadedBackup, error)
 	ProjectSlug(ctx context.Context, projectID string) (string, error)
+	OffsiteProjectName(ctx context.Context, projectID, backupID string) string
 }
 
 // Syncer uploads queued backups, takes the daily instance backup for targets that want
@@ -278,7 +279,10 @@ func (s *Syncer) scheduleInstance(ctx context.Context) {
 		info, err := s.CreateInstanceBackup(ctx, instance.KindScheduled)
 		if err != nil {
 			s.Log.Warn("offsite: daily instance backup failed", "err", err)
-			s.notifyFailure(ctx, "instance", "the daily instance backup could not be taken: "+err.Error())
+			if s.Notify != nil {
+				s.Notify.Notify(ctx, notify.Event{Kind: "backup.failed", Level: notify.Error, Title: "Offsite backup failed", Key: "offsite:instance",
+					Message: "the daily instance backup could not be taken: " + err.Error()})
+			}
 			return
 		}
 		s.Log.Info("offsite: daily instance backup taken", "backup", info.ID)
@@ -317,7 +321,7 @@ func (s *Syncer) process(ctx context.Context, u store.OffsiteUpload) {
 		msg := strings.TrimPrefix(err.Error(), errPermanent.Error()+": ")
 		_ = s.Store.Offsite.MarkFailed(ctx, u.ID, msg, next)
 		s.Log.Warn("offsite: upload failed", "target", t.Name, "scope", u.Scope, "backup", u.BackupID, "attempt", u.Attempts+1, "err", msg)
-		s.notifyFailure(ctx, t.ID, fmt.Sprintf("Copying a backup to %s failed: %s", t.Name, msg))
+		s.notifyFailure(ctx, t, u, msg)
 		return
 	}
 	if err := s.Store.Offsite.MarkDone(ctx, u.ID, key, size); err != nil {
@@ -443,11 +447,23 @@ func (s *Syncer) rotate(ctx context.Context, t Target, u store.OffsiteUpload) {
 	}
 }
 
-func (s *Syncer) notifyFailure(ctx context.Context, key, message string) {
+// notifyFailure reports a failed upload, naming the project for a project backup. The
+// key stays per target: a target that is down fails every upload, and one alert says so.
+func (s *Syncer) notifyFailure(ctx context.Context, t Target, u store.OffsiteUpload, msg string) {
 	if s.Notify == nil {
 		return
 	}
-	s.Notify.Notify(ctx, notify.Event{Kind: "backup.failed", Level: notify.Error, Title: "Offsite backup failed", Message: message, Key: "offsite:" + key})
+	e := notify.Event{Kind: "backup.failed", Level: notify.Error, Title: "Offsite backup failed", Key: "offsite:" + t.ID,
+		Message: fmt.Sprintf("Copying the instance backup %s to %s failed: %s", u.BackupID, t.Name, msg)}
+	if u.Scope == store.OffsiteProject {
+		e.Project = s.Projects.OffsiteProjectName(ctx, u.ProjectID, u.BackupID)
+		name := e.Project
+		if name == "" {
+			name = "a project"
+		}
+		e.Message = fmt.Sprintf("Copying a backup of %s to %s failed: %s", name, t.Name, msg)
+	}
+	s.Notify.Notify(ctx, e)
 }
 
 // list parses a directory of a target, newest first.

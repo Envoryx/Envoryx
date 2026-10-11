@@ -140,6 +140,8 @@ func (f *fakeProjects) ImportBackupStream(_ context.Context, r io.Reader) (proje
 
 func (f *fakeProjects) ProjectSlug(context.Context, string) (string, error) { return "shop", nil }
 
+func (f *fakeProjects) OffsiteProjectName(context.Context, string, string) string { return "Shop" }
+
 type recorder struct {
 	mu     sync.Mutex
 	events []notify.Event
@@ -317,7 +319,8 @@ func TestFailedUploadsRetryAndNotify(t *testing.T) {
 	if u.Status != store.OffsiteFailed || u.Attempts != 1 || !strings.Contains(u.Error, "connection refused") || u.NextAttemptAt.IsZero() {
 		t.Fatalf("after a failure: %+v", u)
 	}
-	if len(h.notes.events) != 1 || h.notes.events[0].Kind != "backup.failed" {
+	if len(h.notes.events) != 1 || h.notes.events[0].Kind != "backup.failed" || h.notes.events[0].Project != "Shop" ||
+		h.notes.events[0].Message != "Copying a backup of Shop to box failed: connection refused" {
 		t.Fatalf("notifications: %+v", h.notes.events)
 	}
 	// Not before the retry delay; afterwards it goes through.
