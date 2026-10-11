@@ -404,3 +404,87 @@ func TestRubyGemHome(t *testing.T) {
 		t.Fatalf("PATH misses GEM_HOME/bin: %v", env)
 	}
 }
+
+// The queue, cache and cable databases a Rails application keeps next to its primary
+// one go into the backup and come back with it, also into a new project, and a duplicate
+// copies them: without them every request of the copy fails.
+func TestRailsSiblingDatabasesTravel(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	var sql []string
+	created := map[string]bool{}
+	e.engine.ExecHandler = func(container string, cmd []string, env []string) (docker.ExecResult, error) {
+		if !strings.HasSuffix(container, "-database") {
+			return docker.ExecResult{}, nil
+		}
+		stmt := cmd[len(cmd)-1]
+		sql = append(sql, container+": "+stmt)
+		if strings.Contains(stmt, "pg_database") {
+			out := "postgres\n"
+			if container == "envoryx-blog-database" {
+				out += "blog\nblog_queue\nblog_cache\n"
+			}
+			for name := range created {
+				if c, db, _ := strings.Cut(name, ": "); c == container {
+					out += db + "\n"
+				}
+			}
+			return docker.ExecResult{Stdout: out}, nil
+		}
+		if name, ok := strings.CutPrefix(stmt, `CREATE DATABASE "`); ok {
+			created[container+": "+name[:strings.Index(name, `"`)]] = true
+		}
+		return docker.ExecResult{}, nil
+	}
+	var streams []string
+	e.engine.StreamHandler = func(container string, cmd []string, env []string, stdin []byte) (string, int, error) {
+		db := cmd[len(cmd)-1]
+		switch cmd[0] {
+		case "pg_dump":
+			streams = append(streams, "dump "+db)
+			return "-- dump of " + db + "\n", 0, nil
+		case "psql":
+			streams = append(streams, "restore "+db+" <- "+strings.TrimSpace(string(stdin)))
+			return "", 0, nil
+		}
+		return "", 1, nil
+	}
+	req := rubyRequest("Blog", true)
+	req.Database = &DatabaseRequest{Type: "postgresql"}
+	v, err := e.m.Create(ctx, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := v.Project.ID
+
+	info, err := e.m.CreateBackup(ctx, id, BackupOptions{Database: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(info.Meta.Siblings) != 2 || info.Meta.Siblings[0].Suffix != "_queue" || info.Meta.Siblings[1].Name != "blog_cache" {
+		t.Fatalf("siblings: %+v", info.Meta.Siblings)
+	}
+	dir := filepath.Join(e.cfgDir, "backups", "blog", info.Dir)
+	for _, f := range []string{"database_queue.sql.gz", "database_cache.sql.gz"} {
+		if _, err := os.Stat(filepath.Join(dir, f)); err != nil || !isBackupMember(f) {
+			t.Fatalf("%s: %v", f, err)
+		}
+	}
+
+	streams = nil
+	if _, err := e.m.RestoreIntoNewProject(ctx, id, info.ID, RestoreNewRequest{Name: "Blog Restored", Database: true}); err != nil {
+		t.Fatal(err)
+	}
+	// The new project keeps the backup's database names, on its own server.
+	if !created["envoryx-blog-restored-database: blog_queue"] || !slices.Contains(streams, "restore blog_queue <- -- dump of blog_queue") || !slices.Contains(streams, "restore blog_cache <- -- dump of blog_cache") {
+		t.Fatalf("restore into a new project: created %v, streams %q", created, streams)
+	}
+
+	streams = nil
+	if _, err := e.m.Duplicate(ctx, id, DuplicateRequest{Name: "Blog Copy", Database: true}); err != nil {
+		t.Fatal(err)
+	}
+	if !created["envoryx-blog-copy-database: blog_queue"] || !created["envoryx-blog-copy-database: blog_cache"] || created["envoryx-blog-copy-database: blog_cable"] || !slices.Contains(streams, "restore blog_queue <- -- dump of blog_queue") {
+		t.Fatalf("duplicate: created %v, streams %q", created, streams)
+	}
+}

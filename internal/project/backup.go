@@ -32,6 +32,8 @@ import (
 //	backup.json      metadata + project export (services, env, credentials)
 //	database.sql.gz  logical dump of the primary database (optional)
 //	database-<name>.sql.gz  dump of an additional database (optional, one each)
+//	database_queue.sql.gz  dump of a Rails sibling of the primary database (optional;
+//	                 _queue, _cache, _cable)
 //	files.tar.gz     project directory (optional)
 //	storage.tar.gz   objects of the project's bucket (optional)
 const (
@@ -89,7 +91,10 @@ type BackupMeta struct {
 	Database *DumpMeta `json:"database,omitempty"`
 	// Databases are the dumps of additional databases.
 	Databases []ExtraDumpMeta `json:"databases,omitempty"`
-	Files     *struct {
+	// Siblings are the dumps of the databases a Rails application keeps next to the
+	// primary one; they go and come back with it.
+	Siblings []SiblingDumpMeta `json:"siblings,omitempty"`
+	Files    *struct {
 		Bytes               int64 `json:"bytes"`
 		Entries             int   `json:"entries"`
 		IncludeDependencies bool  `json:"includeDependencies"`
@@ -132,6 +137,14 @@ type ExtraDumpMeta struct {
 	DumpMeta
 }
 
+// SiblingDumpMeta is the dump of a database next to the primary one on its server:
+// Rails 8's <database>_queue, _cache and _cable (railsSiblingDatabases), which Envoryx
+// creates for the application. Suffix says which.
+type SiblingDumpMeta struct {
+	Suffix string `json:"suffix"`
+	DumpMeta
+}
+
 // HasDatabase reports whether the backup holds a dump of the database named db ("" for
 // the primary).
 func (b BackupMeta) HasDatabase(db string) bool {
@@ -166,6 +179,11 @@ func backupDBFileOf(db string) string {
 		return backupDBFile
 	}
 	return "database-" + db + ".sql.gz"
+}
+
+// backupSiblingFileOf is the dump file of a sibling of the primary database.
+func backupSiblingFileOf(suffix string) string {
+	return "database" + suffix + ".sql.gz"
 }
 
 // backupDBVolumeFileOf is the copy of a database's data volume in a backup directory.
@@ -554,6 +572,18 @@ func (m *Manager) createBackupLocked(ctx context.Context, p store.Project, opts 
 				dm := DumpMeta{Type: svc.Variant, Version: svc.Version, Name: cfg.Database, Bytes: n}
 				if db == "" {
 					meta.Database = &dm
+					sibs, err := m.railsSiblings(ctx, p)
+					if err != nil {
+						return fail("database", err)
+					}
+					for _, sib := range sibs {
+						step(ctx, "Dumping the database {{name}}", "name", sib.cfg.Database)
+						n, err := m.dumpDatabase(ctx, p, svc, sib.cfg, filepath.Join(dir, backupSiblingFileOf(sib.suffix)))
+						if err != nil {
+							return fail("database dump", err)
+						}
+						meta.Siblings = append(meta.Siblings, SiblingDumpMeta{Suffix: sib.suffix, DumpMeta: DumpMeta{Type: svc.Variant, Version: svc.Version, Name: sib.cfg.Database, Bytes: n}})
+					}
 				} else {
 					meta.Databases = append(meta.Databases, ExtraDumpMeta{DB: db, DumpMeta: dm})
 				}
@@ -1108,6 +1138,11 @@ func (m *Manager) restoreDatabases(ctx context.Context, p store.Project, meta Ba
 		} else if err := m.restoreDatabase(ctx, p, svc, cfg, filepath.Join(dir, backupDBFileOf(t.db))); err != nil {
 			return nil, nil, fmt.Errorf("restore database %s: %w", dbLabel(t.db), err)
 		}
+		if t.db == "" && t.volume == nil {
+			if err := m.restoreSiblings(ctx, p, svc, cfg, meta.Siblings, dir); err != nil {
+				return nil, nil, err
+			}
+		}
 		if t.db != "" {
 			restored = append(restored, t.db)
 		}
@@ -1524,4 +1559,86 @@ func (m *Manager) flushRedis(ctx context.Context, p store.Project) (bool, error)
 		case <-time.After(500 * time.Millisecond):
 		}
 	}
+}
+
+// siblingDB is a database next to the primary one on its server (railsSiblingDatabases).
+type siblingDB struct {
+	suffix string
+	cfg    runtime.DatabaseConfig
+}
+
+// railsSiblings lists the Rails sibling databases (<database>_queue, _cache, _cable) that
+// exist on the server of a Ruby project's primary SQL database, each with the
+// configuration that reaches it. The database server must be running.
+func (m *Manager) railsSiblings(ctx context.Context, p store.Project) ([]siblingDB, error) {
+	if p.Service(store.ServiceRuby) == nil {
+		return nil, nil
+	}
+	svc, cfg, err := databaseOf(p, "")
+	if err != nil || svc.Variant == "mongodb" {
+		return nil, nil
+	}
+	dialect, err := dialectOf(svc)
+	if err != nil {
+		return nil, nil
+	}
+	out, err := m.runSQL(ctx, p, svc, cfg, dialect.ListDatabases)
+	if err != nil {
+		return nil, fmt.Errorf("list the databases: %w", err)
+	}
+	have := map[string]bool{}
+	for _, line := range strings.Split(out, "\n") {
+		have[strings.TrimSpace(line)] = true
+	}
+	var sibs []siblingDB
+	for _, sib := range railsSiblingDatabases {
+		c := cfg
+		c.Database += sib.suffix
+		if have[c.Database] {
+			sibs = append(sibs, siblingDB{sib.suffix, c})
+		}
+	}
+	return sibs, nil
+}
+
+// siblingName is the database.yml entry of a sibling's suffix, "" for an unknown one.
+func siblingName(suffix string) string {
+	for _, sib := range railsSiblingDatabases {
+		if sib.suffix == suffix {
+			return sib.name
+		}
+	}
+	return ""
+}
+
+// restoreSiblings puts the dumps of the primary database's siblings back, creating the
+// databases first: a project restored into or copied to has none yet. Suffixes other
+// than railsSiblingDatabases' (a hand-edited backup.json) are not touched.
+func (m *Manager) restoreSiblings(ctx context.Context, p store.Project, svc *store.ProjectService, cfg runtime.DatabaseConfig, sibs []SiblingDumpMeta, dir string) error {
+	dialect, err := dialectOf(svc)
+	if err != nil {
+		return err
+	}
+	for _, sib := range sibs {
+		name := siblingName(sib.Suffix)
+		if name == "" || checkDumpType(sib.Type, svc) != nil {
+			continue
+		}
+		c := cfg
+		c.Database += sib.Suffix
+		step(ctx, "Restoring the database {{name}}", "name", c.Database)
+		err := m.withServiceRunning(ctx, p, svc.Kind, func(ctx context.Context) error {
+			if err := m.waitForDatabase(ctx, p, svc, cfg, dialect); err != nil {
+				return err
+			}
+			if err := m.ensureSiblingDatabase(ctx, p.ID, func(db string) string { return db + sib.Suffix }, name); err != nil {
+				return err
+			}
+			return m.restoreDatabase(ctx, p, svc, c, filepath.Join(dir, backupSiblingFileOf(sib.Suffix)))
+		})
+		if err != nil {
+			return fmt.Errorf("restore database %s: %w", c.Database, err)
+		}
+	}
+	return nil
 }
