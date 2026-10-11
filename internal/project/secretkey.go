@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/envoryx/envoryx/internal/audit"
 	"github.com/envoryx/envoryx/internal/secrets"
@@ -84,6 +85,28 @@ func (m *Manager) ResealAll(ctx context.Context) (ResealReport, error) {
 	if rep.Backups, err = m.ResealBackups(ctx); err != nil {
 		return rep, err
 	}
+	return rep, nil
+}
+
+// ResealAtStart seals everything with the current key when Envoryx starts. With an old
+// key at hand (ENVORYX_SECRET_KEY_OLD, the key file after a switch to the variable, a
+// rotation cut short) that is a key rotation and is audited like one from Settings;
+// plain values of an older Envoryx getting sealed are not.
+func (m *Manager) ResealAtStart(ctx context.Context) (ResealReport, error) {
+	r := secrets.Default()
+	if r == nil {
+		return ResealReport{}, nil
+	}
+	old := r.OldIDs()
+	rep, err := m.ResealAll(ctx)
+	if err != nil || len(old) == 0 || rep == (ResealReport{}) {
+		return rep, err
+	}
+	details := map[string]any{"from": strings.Join(old, ","), "to": r.Current().ID(), "atStart": true, "database": rep.Database, "files": rep.Files, "backups": rep.Backups}
+	if m.keySource.Kind != "" {
+		details["source"] = m.keySource.Kind
+	}
+	m.audit.Log(ctx, audit.ActionSecretKeyRotated, "settings", "", details)
 	return rep, nil
 }
 

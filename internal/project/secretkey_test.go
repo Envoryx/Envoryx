@@ -99,3 +99,40 @@ func TestSecretKeyRotation(t *testing.T) {
 		t.Fatalf("env rotation: %v", err)
 	}
 }
+
+// A start with an old key at hand (ENVORYX_SECRET_KEY_OLD) reseals and is audited as a
+// rotation; a start that only finds everything sealed already is not.
+func TestResealAtStartAuditsTheRotation(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	defer secrets.SetDefault(nil)
+	oldKey, _ := secrets.GenerateKey()
+	secrets.SetDefault(secrets.NewRing(oldKey))
+	req := phpRequest("Rot", false)
+	req.Env = append(req.Env, EnvVarRequest{Key: "STRIPE_KEY", Value: "sk_live", IsSecret: true})
+	if _, err := e.m.Create(ctx, req); err != nil {
+		t.Fatal(err)
+	}
+
+	newKey, _ := secrets.GenerateKey()
+	ring := secrets.NewRing(newKey, oldKey)
+	secrets.SetDefault(ring)
+	rep, err := e.m.ResealAtStart(ctx)
+	if err != nil || rep.Database == 0 {
+		t.Fatalf("reseal: %+v %v", rep, err)
+	}
+	ring.DropOld()
+	if _, err := e.m.ResealAtStart(ctx); err != nil {
+		t.Fatal(err)
+	}
+	entries, _ := e.store.Audit.Recent(ctx, 50)
+	var rotated []string
+	for _, a := range entries {
+		if a.Action == "settings.secret_key_rotated" {
+			rotated = append(rotated, string(a.Details))
+		}
+	}
+	if len(rotated) != 1 || !strings.Contains(rotated[0], `"from":"`+oldKey.ID()+`"`) || !strings.Contains(rotated[0], `"to":"`+newKey.ID()+`"`) {
+		t.Fatalf("audit entries: %v", rotated)
+	}
+}
