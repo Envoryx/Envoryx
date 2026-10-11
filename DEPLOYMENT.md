@@ -351,6 +351,16 @@ trusted on the client:
 2. Install it as a trusted root (instructions per OS are shown next to the
    button; Firefox has its own store).
 
+The project containers trust the CA without any installation: an
+application that calls its own `https://<slug>.test` (webhooks, its own API,
+cache warmers) gets through. Envoryx writes `/config/ca-trust/` on every
+start (the CA and a bundle of its system CAs plus the CA), mounts it
+read-only at `/etc/envoryx/ca` into the application and worker containers
+(actions, cron jobs and the terminal run there) and sets `SSL_CERT_FILE`, `REQUESTS_CA_BUNDLE`, `CURL_CA_BUNDLE`
+and `NODE_EXTRA_CA_CERTS`; PHP gets `openssl.cafile` and `curl.cainfo` in the
+generated php.ini. A variable the project sets itself wins. Java keeps its own
+keystore and is not covered.
+
 **Force HTTPS** redirects `http://` requests for known names to HTTPS.
 
 ### Let's Encrypt instead of the local CA (no installation on clients)

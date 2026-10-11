@@ -366,6 +366,21 @@ func serve() error {
 		manager.SetBackupHook(syncer.OnProjectBackup)
 	}
 
+	// Local CA for the embedded proxy. Opened before the reconciler starts any project: the
+	// containers that run project code trust it through the files in ca-trust, and a plan
+	// made without them would recreate the containers again once they are there.
+	var certs *tlsca.Store
+	if cfg.ProxyHTTPS != "" {
+		certs, err = tlsca.Open(filepath.Join(cfg.ConfigDir, "ca"))
+		if err != nil {
+			log.Warn("local certificate authority unavailable; HTTPS for projects is disabled", "err", err)
+		} else if err := certs.WriteTrust(filepath.Join(cfg.ConfigDir, project.CATrustDir)); err != nil {
+			log.Warn("project containers won't trust the local CA", "err", err)
+		} else {
+			manager.SetCATrust(true)
+		}
+	}
+
 	// 5. Clear the remains of backups a crash interrupted, then reconcile desired vs.
 	// actual state and keep doing so in the background.
 	backups.Sweep()
@@ -417,14 +432,7 @@ func serve() error {
 		}
 	})
 
-	// 6. Local CA for the embedded proxy.
-	var certs *tlsca.Store
-	if cfg.ProxyHTTPS != "" {
-		certs, err = tlsca.Open(filepath.Join(cfg.ConfigDir, "ca"))
-		if err != nil {
-			log.Warn("local certificate authority unavailable; HTTPS for projects is disabled", "err", err)
-		}
-	}
+	// 6. Let's Encrypt for the embedded proxy (the local CA is opened before the reconciler).
 	var acmeMgr *acme.Manager
 	if certs != nil {
 		acmeMgr, err = acme.New(filepath.Join(cfg.ConfigDir, "ca"), certs, log)

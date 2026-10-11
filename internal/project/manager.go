@@ -88,6 +88,8 @@ type Manager struct {
 	activity []Activity // autonomous actions since start, newest first (see activity.go)
 
 	notifier notify.Sender
+	// caTrust: the local CA is in use and its trust files are written (see catrust.go).
+	caTrust bool
 	// metrics holds the resource history's sampling state (see metrics.go).
 	metrics     *metricsState
 	metricsOnce sync.Once
@@ -158,6 +160,10 @@ func (m *Manager) SetDeletedHook(f func(ctx context.Context, projectID string)) 
 // SetNotifier installs the notification sink; nil switches notifications off.
 func (m *Manager) SetNotifier(n notify.Sender) { m.notifier = n }
 
+// SetCATrust tells the planner that the local CA's trust files are in <config>/ca-trust,
+// for the containers that run project code. Called once at startup, before the reconciler.
+func (m *Manager) SetCATrust(on bool) { m.caTrust = on }
+
 // notify delivers an event when a notifier is installed.
 func (m *Manager) notify(ctx context.Context, e notify.Event) {
 	if m.notifier != nil {
@@ -186,6 +192,7 @@ func (m *Manager) planner() (*Planner, error) {
 	p.FolderViewFolder = m.FolderViewFolder(context.Background())
 	p.SharedIDEBackends = m.SharedIDEBackends(context.Background())
 	p.SharedPackageCache = m.SharedPackageCache(context.Background())
+	p.CATrust = m.caTrust
 	if m.links != nil {
 		p.PublicHost, p.ProxyHTTPPort, p.ProxyHTTPSPort = m.links(context.Background())
 	}

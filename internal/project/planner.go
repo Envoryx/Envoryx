@@ -58,6 +58,9 @@ type Paths struct {
 	PublicHost     string
 	ProxyHTTPPort  int
 	ProxyHTTPSPort int
+	// CATrust means the local CA is in use and its trust files are in CATrustDir: the
+	// containers that run project code get them (see withCATrust).
+	CATrust bool
 }
 
 // FilePlan is a generated configuration file.
@@ -681,7 +684,7 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 			// Toggling Mailpit changes this file together with the container's MAIL_*
 			// variables, so the env in the spec fingerprint recreates the container.
 			mailpit := proj.Service(store.ServiceMailpit)
-			iniOpts := runtime.INIOptions{XdebugClientHost: p.paths.XdebugClientHost, Mailpit: mailpit != nil && mailpit.Enabled}
+			iniOpts := runtime.INIOptions{XdebugClientHost: p.paths.XdebugClientHost, Mailpit: mailpit != nil && mailpit.Enabled, CAFile: p.phpCAFile()}
 			ini, pool := cfg.INIWith(svc.Version, iniOpts), runtime.FPMPool(p.paths.PUID, p.paths.PGID)
 			plan.Files = append(plan.Files,
 				FilePlan{Path: filepath.Join(plan.ConfigDir, "php", "zz-envoryx.ini"), Content: ini, Mode: 0o644},
@@ -1427,6 +1430,9 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 	for i := range plan.Containers {
 		if external || runtimeContainer(plan.Containers[i].Kind) {
 			plan.Containers[i].Spec.ExtraHosts = append(plan.Containers[i].Spec.ExtraHosts, hostGatewayEntry)
+		}
+		if runtimeContainer(plan.Containers[i].Kind) {
+			p.withCATrust(&plan.Containers[i].Spec)
 		}
 	}
 	p.labelAddonDefinitions(proj, plan.Containers)
