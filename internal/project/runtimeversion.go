@@ -28,9 +28,17 @@ func runtimeVersionWarning(file, wanted, have string) string {
 	return fmt.Sprintf("%s needs %s but the project runs %s, so the build or the start fails; select a newer version in the settings or lower the requirement in the file", file, wanted, have)
 }
 
+// olderRuntimeWarning is the text for a .NET project that targets an older version than
+// the project runs: unlike Go and Java, a .NET image only carries its own runtime and
+// SDK. dotnet watch does not notice a changed project file while the app never started,
+// hence the restart.
+func olderRuntimeWarning(file, wanted, have string) string {
+	return fmt.Sprintf("%s targets %s but the project runs %s, which does not include it, so the build or the start fails; select that version in the settings, or raise it in the file and restart the project", file, wanted, have)
+}
+
 // runtimeVersionWarnings reports project files that need a newer Go, Java or .NET than
-// the project's service runs. A custom image is skipped: its version is not the
-// catalogue's.
+// the project's service runs, or for .NET an older one. A custom image is skipped: its
+// version is not the catalogue's.
 func (m *Manager) runtimeVersionWarnings(p store.Project) []string {
 	var out []string
 	dir := ""
@@ -204,13 +212,19 @@ func minInt(xs []int) (int, bool) {
 	return lowest, true
 }
 
+// rollForward matches a project file that lets the app run on a newer major runtime.
+var rollForward = regexp.MustCompile(`<RollForward>\s*(Major|LatestMajor)\s*</RollForward>`)
+
 var targetFramework = regexp.MustCompile(`<TargetFramework>\s*net(\d+)\.\d+[^<]*</TargetFramework>`)
 
 // dotnetVersionWarnings compares global.json's SDK and the project file's target
 // framework with the selected SDK ("8"). An SDK builds its own framework and older ones,
-// and global.json never rolls back to an older major. The project file is the configured
-// one, else the one at the top of the project; a project with TargetFrameworks (several)
-// or none of its own (Directory.Build.props) is skipped.
+// and global.json never rolls back to an older major. Running is stricter: the image has
+// only its own runtime, so an app that targets an older one does not start unless it
+// rolls forward (RollForward in the project file), and an SDK pinned to an older major
+// is not found unless global.json allows a newer major. The project file is the
+// configured one, else the one at the top of the project; a project with
+// TargetFrameworks (several) or none of its own (Directory.Build.props) is skipped.
 func dotnetVersionWarnings(dir, version, project string) []string {
 	have, err := strconv.Atoi(version)
 	if err != nil {
@@ -220,13 +234,19 @@ func dotnetVersionWarnings(dir, version, project string) []string {
 	if raw, err := readProjectFile(dir, "global.json", maxProjectFile); err == nil {
 		var g struct {
 			SDK struct {
-				Version string `json:"version"`
+				Version     string `json:"version"`
+				RollForward string `json:"rollForward"`
 			} `json:"sdk"`
 		}
 		if json.Unmarshal(raw, &g) == nil {
 			major, _, _ := strings.Cut(g.SDK.Version, ".")
-			if n, err := strconv.Atoi(major); err == nil && n > have {
+			n, err := strconv.Atoi(major)
+			switch {
+			case err != nil:
+			case n > have:
 				out = append(out, runtimeVersionWarning("global.json", ".NET SDK "+g.SDK.Version, ".NET "+version))
+			case n < have && g.SDK.RollForward != "major" && g.SDK.RollForward != "latestMajor":
+				out = append(out, olderRuntimeWarning("global.json", ".NET SDK "+g.SDK.Version, ".NET "+version))
 			}
 		}
 	}
@@ -245,8 +265,13 @@ func dotnetVersionWarnings(dir, version, project string) []string {
 	if len(m) != 1 {
 		return out
 	}
-	if n, err := strconv.Atoi(m[0][1]); err == nil && n > have {
+	n, err := strconv.Atoi(m[0][1])
+	switch {
+	case err != nil:
+	case n > have:
 		out = append(out, runtimeVersionWarning(project, fmt.Sprintf(".NET %d", n), ".NET "+version))
+	case n < have && !rollForward.MatchString(text):
+		out = append(out, olderRuntimeWarning(project, fmt.Sprintf(".NET %d", n), ".NET "+version))
 	}
 	return out
 }

@@ -115,6 +115,7 @@ const templates = [
   "cannot start {{version}} on Linux kernel {{kernel}} and newer (this host runs {{host}})",
   "the backup holds a copy of {{type}} {{from}} data, which {{service}} {{to}} cannot open",
   "{{file}} needs {{wanted}} but the project runs {{have}}, so the build or the start fails; select a newer version in the settings or lower the requirement in the file",
+  "{{file}} targets {{wanted}} but the project runs {{have}}, which does not include it, so the build or the start fails; select that version in the settings, or raise it in the file and restart the project",
   "this instance has reached the plan's project limit ({{max}})",
   "this instance has reached the plan's user limit ({{max}}); disable a user first",
   "the projects take {{used}} of the {{limit}} disk space in the plan; free some space (old backups, unused projects) first",
