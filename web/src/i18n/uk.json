@@ -594,7 +594,6 @@
   "The server could not be reached.": "Не вдалося зв'язатися із сервером.",
   "The web server port published on the Docker host. Works without DNS or the proxy.": "Порт вебсервера, опублікований на хості Docker. Працює без DNS і проксі.",
   "The {{service}} container is not running. Start the project to open a shell.": "Контейнер {{service}} не запущено. Запустіть проєкт, щоб відкрити оболонку.",
-  "Theme: {{theme}}": "Тема: {{theme}}",
   "These carry Envoryx labels but belong to no known project (e.g. after restoring an older database). Containers and networks this instance created are removed automatically within a minute. Volumes hold data, and resources marked \"older Envoryx\" may belong to another Envoryx instance on this Docker host; both stay until you remove them.": "Вони мають мітки Envoryx, але не належать жодному відомому проєкту (наприклад, після відновлення старішої бази даних). Контейнери та мережі, створені цим екземпляром, видаляються автоматично протягом хвилини. Томи містять дані, а ресурси з позначкою \"старий Envoryx\" можуть належати іншому екземпляру Envoryx на цьому Docker-хості; і ті, й інші залишаються, доки ви їх не видалите.",
   "older Envoryx": "старий Envoryx",
   "the name is taken by another Envoryx instance on this Docker host": "ім'я зайняте іншим екземпляром Envoryx на цьому Docker-хості",
@@ -2862,5 +2861,9 @@
   "Open the instance backups": "Відкрити копії екземпляра",
   "No environment variables. They are injected into every project container.": "Немає змінних середовища. Вони передаються в кожен контейнер проєкту.",
   "Envoryx could not start, or a background task crashed and was restarted": "Envoryx не зміг запуститися, або фонове завдання впало й було перезапущене",
-  "Free disk space under /config, /projects or /backups is running out (and when it recovers)": "Закінчується вільне місце на диску в /config, /projects або /backups (і коли його знову достатньо)"
+  "Free disk space under /config, /projects or /backups is running out (and when it recovers)": "Закінчується вільне місце на диску в /config, /projects або /backups (і коли його знову достатньо)",
+  "Theme: system": "Тема: системна",
+  "Theme: light": "Тема: світла",
+  "Theme: dark": "Тема: темна",
+  "Envoryx - The spatial foundry": "Envoryx - Просторова ливарня"
 }

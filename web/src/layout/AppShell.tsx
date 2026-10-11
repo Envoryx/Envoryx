@@ -1,7 +1,7 @@
 import { clsx } from "clsx";
 import { useTranslation } from "react-i18next";
 import { Boxes, Container, LayoutDashboard, Languages, LogOut, Moon, Settings, Sun, Monitor, Menu, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import { PageErrorBoundary } from "@/components/PageErrorBoundary";
 import { useAuth } from "@/features/auth/AuthContext";
@@ -22,6 +22,8 @@ const nav = [
 ];
 
 const themeOrder: Theme[] = ["system", "light", "dark"];
+// Whole labels rather than "Theme: {{theme}}", so each language words the value itself.
+const themeLabels: Record<Theme, string> = { system: "Theme: system", light: "Theme: light", dark: "Theme: dark" };
 
 export function AppShell() {
   const { t } = useTranslation();
@@ -34,10 +36,21 @@ export function AppShell() {
 
   const ThemeIcon = theme === "dark" ? Moon : theme === "light" ? Sun : Monitor;
   const cycleTheme = () => setTheme(themeOrder[(themeOrder.indexOf(theme) + 1) % themeOrder.length] ?? "system");
+  const themeLabel = t(themeLabels[theme]);
+
+  // The mobile drawer closes on Escape, like the dialogs and the header menu.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
 
   // The logo leads to the ASCII short film, like a home page.
   const brand = (
-    <Link to="/foundry" className="rounded-md" aria-label="Envoryx" title="Envoryx - The spatial foundry" onClick={() => setOpen(false)}>
+    <Link to="/foundry" className="rounded-md" aria-label="Envoryx" title={t("Envoryx - The spatial foundry")} onClick={() => setOpen(false)}>
       <Logo withText />
     </Link>
   );
@@ -78,7 +91,7 @@ export function AppShell() {
         <div className="mt-2 flex items-center justify-between gap-1">
           <LanguageButton />
           <div className="flex items-center gap-1">
-            <Button variant="ghost" size="sm" onClick={cycleTheme} aria-label={t("Theme: {{theme}}", { theme })} title={t("Theme: {{theme}}", { theme })}>
+            <Button variant="ghost" size="sm" onClick={cycleTheme} aria-label={themeLabel} title={themeLabel}>
               <ThemeIcon className="size-4" />
             </Button>
             <Button variant="ghost" size="sm" onClick={() => void auth.logout()} aria-label={t("Sign out")} title={t("Sign out")}>

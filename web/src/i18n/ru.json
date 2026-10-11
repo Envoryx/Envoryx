@@ -594,7 +594,6 @@
   "The server could not be reached.": "Не удалось связаться с сервером.",
   "The web server port published on the Docker host. Works without DNS or the proxy.": "Порт веб-сервера, опубликованный на хосте Docker. Работает без DNS и прокси.",
   "The {{service}} container is not running. Start the project to open a shell.": "Контейнер {{service}} не запущен. Запустите проект, чтобы открыть оболочку.",
-  "Theme: {{theme}}": "Тема: {{theme}}",
   "These carry Envoryx labels but belong to no known project (e.g. after restoring an older database). Containers and networks this instance created are removed automatically within a minute. Volumes hold data, and resources marked \"older Envoryx\" may belong to another Envoryx instance on this Docker host; both stay until you remove them.": "Они имеют метки Envoryx, но не принадлежат ни одному известному проекту (например, после восстановления более старой базы данных). Контейнеры и сети, созданные этим экземпляром, удаляются автоматически в течение минуты. Тома содержат данные, а ресурсы с пометкой \"старый Envoryx\" могут принадлежать другому экземпляру Envoryx на этом Docker-хосте; и те и другие остаются, пока вы их не удалите.",
   "older Envoryx": "старый Envoryx",
   "the name is taken by another Envoryx instance on this Docker host": "имя занято другим экземпляром Envoryx на этом Docker-хосте",
@@ -2862,5 +2861,9 @@
   "Open the instance backups": "Открыть копии экземпляра",
   "No environment variables. They are injected into every project container.": "Нет переменных окружения. Они передаются в каждый контейнер проекта.",
   "Envoryx could not start, or a background task crashed and was restarted": "Envoryx не смог запуститься, или фоновая задача упала и была перезапущена",
-  "Free disk space under /config, /projects or /backups is running out (and when it recovers)": "Заканчивается свободное место на диске в /config, /projects или /backups (и когда его снова достаточно)"
+  "Free disk space under /config, /projects or /backups is running out (and when it recovers)": "Заканчивается свободное место на диске в /config, /projects или /backups (и когда его снова достаточно)",
+  "Theme: system": "Тема: системная",
+  "Theme: light": "Тема: светлая",
+  "Theme: dark": "Тема: тёмная",
+  "Envoryx - The spatial foundry": "Envoryx - Пространственная литейная"
 }
