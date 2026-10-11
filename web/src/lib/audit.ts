@@ -1,4 +1,4 @@
-import { formatBytes } from "@/lib/format";
+import { formatBytes, serviceLabel } from "@/lib/format";
 import type { TFunction } from "i18next";
 import type { AuditEntry } from "@/api/types";
 
@@ -94,6 +94,76 @@ export function auditActor(e: AuditEntry, t: TFunction): string {
   return t("Envoryx (automatic)");
 }
 
+/** English labels for the keys a project update records under "changes". */
+const changeLabels: Record<string, string> = {
+  name: "Name",
+  docroot: "Document root",
+  spaFallback: "SPA fallback",
+  web: "Web server",
+  env: "Environment variables",
+  ideGateway: "IDE gateway",
+  ideBackendStopped: "IDE backend stopped",
+  phpExtensions: "PHP extensions",
+  logHistory: "Log history",
+  logHistoryDays: "Log history",
+  logHistoryMaxMb: "Log history",
+  storagePublicRead: "Public bucket access",
+  domainAdded: "Domain added",
+  domainRemoved: "Domain removed",
+  cronJobAdded: "Cron job added",
+  cronJobUpdated: "Cron job changed",
+  cronJobRemoved: "Cron job removed",
+  workerAdded: "Worker added",
+  workerUpdated: "Worker changed",
+  workerRemoved: "Worker removed",
+  healthCheck: "Health check",
+  git: "Git repository",
+  backupSchedule: "Backup schedule",
+  proxyRules: "Redirects and headers",
+  limits: "Resource limits",
+  branches: "Branch environments",
+};
+
+// Keys that only detail the main change next to them (a cron job's schedule and command).
+const detailKeys = new Set(["schedule", "command", "enabled", "preset", "keep", "branch"]);
+
+// Suffixes of per-service keys ("redisHostPort", "databaseVersion"), longest first.
+const changeSuffixes: [string, string][] = [
+  ["DevServer", "{{service}} dev server"],
+  ["Server", "{{service}} server settings"],
+  ["HostPort", "{{service}} host port"],
+  ["Connection", "{{service}} connection"],
+  ["Version", "{{service}} version"],
+  ["Backup", "{{service}} backup"],
+  ["Data", "{{service}} data deleted"],
+  ["GPU", "{{service}} GPU"],
+];
+
+const serviceKinds = new Set(["php", "node", "python", "go", "ruby", "java", "dotnet", "database", "redis", "memcached", "mailpit", "rabbitmq", "meilisearch", "typesense", "opensearch", "opensearch-dashboards", "ollama", "storage"]);
+
+/**
+ * A readable label for one key of a project update's changes: "domainAdded" becomes
+ * "Domain added", "redisHostPort" "Redis host port", "databaseVersion:analytics" "Database
+ * version (analytics)" and "addon:phpmyadmin" "Addon phpmyadmin". Unknown keys stay as they are.
+ */
+export function auditChangeLabel(key: string, t: TFunction): string {
+  const colon = key.indexOf(":");
+  if (colon > 0 && key.slice(0, colon) === "addon") {
+    const rest = key.slice(colon + 1);
+    return rest.endsWith("HostPort") ? t("Addon {{name}} host port", { name: rest.slice(0, -"HostPort".length) }) : t("Addon {{name}}", { name: rest });
+  }
+  const base = colon > 0 ? key.slice(0, colon) : key;
+  // An additional database's keys carry its name after the colon.
+  const label = (text: string) => (colon > 0 ? `${text} (${key.slice(colon + 1)})` : text);
+  if (changeLabels[base]) return label(t(changeLabels[base]));
+  if (serviceKinds.has(base)) return label(serviceLabel(base));
+  for (const [suffix, tpl] of changeSuffixes) {
+    const kind = base.slice(0, -suffix.length);
+    if (base.endsWith(suffix) && serviceKinds.has(kind)) return label(t(tpl, { service: serviceLabel(kind) }));
+  }
+  return key;
+}
+
 /** A short, readable summary of an entry's details; falls back to the target. */
 export function auditDetails(e: AuditEntry, t: TFunction): string {
   const d = e.details ?? {};
@@ -115,7 +185,9 @@ export function auditDetails(e: AuditEntry, t: TFunction): string {
       return [typeof d["tool"] === "string" ? d["tool"] : "", t("{{size}} freed", { size: formatBytes(Number(d["freed"] ?? 0)) })].filter(Boolean).join(" · ");
     case "project.updated": {
       const changes = d["changes"];
-      const keys = changes && typeof changes === "object" ? Object.keys(changes as object).join(", ") : "";
+      const all = changes && typeof changes === "object" ? Object.keys(changes as object) : [];
+      const main = all.filter((k) => !detailKeys.has(k));
+      const keys = [...new Set((main.length > 0 ? main : all).map((k) => auditChangeLabel(k, t)))].join(", ");
       return typeof d["name"] === "string" ? (keys ? `${d["name"]} · ${keys}` : String(d["name"])) : keys;
     }
     case "project.worker_restarted":
