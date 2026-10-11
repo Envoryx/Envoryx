@@ -152,7 +152,7 @@ func TestUploadPHP(t *testing.T) {
 		"/wp-content/uploads/2026/10/shell.php", "/wp-content/uploads/a.php/x", "/wp-content/uploads/A.PHP",
 		"/blog/wp-content/uploads/a.php", "/app/uploads/a.php", "/sites/default/files/a.php",
 		"/sites/example.com/files/x/a.php", "/fileadmin/a.php", "/typo3temp/a.php", "/uploads/a.php",
-		"/media/a.php", "/thumbnail/a.php", "/storage/a.php",
+		"/media/a.php", "/thumbnail/a.php", "/storage/a.php", "/cpresources/1a2b/a.php", "/assets/a.php", "/images/x/a.php",
 	} {
 		if !re.MatchString(p) {
 			t.Errorf("%s must be refused", p)
@@ -161,7 +161,7 @@ func TestUploadPHP(t *testing.T) {
 	for _, p := range []string{
 		"/index.php", "/wp-admin/admin-ajax.php", "/wp-content/plugins/x/a.php", "/wp-content/uploads/a.php.jpg",
 		"/sites/default/files/styles/thumb/public/a.jpg", "/core/install.php", "/shop/media/a.php",
-		"/typo3/index.php", "/media/a.phpx", "/wp-content/uploads/pic.jpg",
+		"/typo3/index.php", "/media/a.phpx", "/wp-content/uploads/pic.jpg", "/shop/assets/a.php",
 	} {
 		if re.MatchString(p) {
 			t.Errorf("%s must stay reachable", p)

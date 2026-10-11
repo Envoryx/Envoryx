@@ -21,7 +21,7 @@ func TestCMSTemplatesScaffoldWithThePHPConfiguration(t *testing.T) {
 		steps            int
 	}{
 		{"drupal", "drupal/recommended-project", "web", 3},
-		{"typo3", "typo3/cms-base-distribution", "public", 2},
+		{"typo3", "typo3/cms-base-distribution", "public", 3},
 		{"shopware", "shopware/production", "public", 1},
 		{"craft", "craftcms/craft", "web", 2},
 	}
