@@ -594,7 +594,6 @@
   "The server could not be reached.": "No se pudo contactar con el servidor.",
   "The web server port published on the Docker host. Works without DNS or the proxy.": "El puerto del servidor web publicado en el host Docker. Funciona sin DNS ni proxy.",
   "The {{service}} container is not running. Start the project to open a shell.": "El contenedor {{service}} no está en ejecución. Inicia el proyecto para abrir una shell.",
-  "Theme: {{theme}}": "Tema: {{theme}}",
   "These carry Envoryx labels but belong to no known project (e.g. after restoring an older database). Containers and networks this instance created are removed automatically within a minute. Volumes hold data, and resources marked \"older Envoryx\" may belong to another Envoryx instance on this Docker host; both stay until you remove them.": "Llevan etiquetas de Envoryx pero no pertenecen a ningún proyecto conocido (p. ej. tras restaurar una base de datos anterior). Los contenedores y redes que creó esta instancia se eliminan automáticamente en un minuto. Los volúmenes contienen datos, y los recursos marcados como \"Envoryx anterior\" pueden pertenecer a otra instancia de Envoryx en este host Docker; ambos permanecen hasta que los elimines.",
   "older Envoryx": "Envoryx anterior",
   "the name is taken by another Envoryx instance on this Docker host": "el nombre lo usa otra instancia de Envoryx en este host Docker",
@@ -2814,5 +2813,9 @@
   "Open the instance backups": "Abrir las copias de la instancia",
   "No environment variables. They are injected into every project container.": "No hay variables de entorno. Se inyectan en cada contenedor del proyecto.",
   "Envoryx could not start, or a background task crashed and was restarted": "Envoryx no pudo iniciarse, o una tarea en segundo plano falló y se reinició",
-  "Free disk space under /config, /projects or /backups is running out (and when it recovers)": "El espacio libre en disco en /config, /projects o /backups se está agotando (y cuando se recupera)"
+  "Free disk space under /config, /projects or /backups is running out (and when it recovers)": "El espacio libre en disco en /config, /projects o /backups se está agotando (y cuando se recupera)",
+  "Theme: system": "Tema: del sistema",
+  "Theme: light": "Tema: claro",
+  "Theme: dark": "Tema: oscuro",
+  "Envoryx - The spatial foundry": "Envoryx - La fundición espacial"
 }

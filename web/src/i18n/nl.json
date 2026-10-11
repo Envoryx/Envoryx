@@ -594,7 +594,6 @@
   "The server could not be reached.": "De server kon niet worden bereikt.",
   "The web server port published on the Docker host. Works without DNS or the proxy.": "De webserverpoort die op de Docker-host is gepubliceerd. Werkt zonder DNS of proxy.",
   "The {{service}} container is not running. Start the project to open a shell.": "De {{service}}-container draait niet. Start het project om een shell te openen.",
-  "Theme: {{theme}}": "Thema: {{theme}}",
   "These carry Envoryx labels but belong to no known project (e.g. after restoring an older database). Containers and networks this instance created are removed automatically within a minute. Volumes hold data, and resources marked \"older Envoryx\" may belong to another Envoryx instance on this Docker host; both stay until you remove them.": "Deze dragen Envoryx-labels maar horen bij geen bekend project (bijv. na het herstellen van een oudere database). Containers en netwerken die deze instantie heeft aangemaakt, worden binnen een minuut automatisch verwijderd. Volumes bevatten gegevens, en resources gemarkeerd als \"ouder Envoryx\" kunnen bij een andere Envoryx-instantie op deze Docker-host horen; beide blijven tot je ze verwijdert.",
   "older Envoryx": "ouder Envoryx",
   "the name is taken by another Envoryx instance on this Docker host": "de naam is in gebruik door een andere Envoryx-instantie op deze Docker-host",
@@ -2814,5 +2813,9 @@
   "Open the instance backups": "Instantieback-ups openen",
   "No environment variables. They are injected into every project container.": "Geen omgevingsvariabelen. Ze worden in elke container van het project geïnjecteerd.",
   "Envoryx could not start, or a background task crashed and was restarted": "Envoryx kon niet starten, of een achtergrondtaak is gecrasht en opnieuw gestart",
-  "Free disk space under /config, /projects or /backups is running out (and when it recovers)": "De vrije schijfruimte onder /config, /projects of /backups raakt op (en wanneer die weer voldoende is)"
+  "Free disk space under /config, /projects or /backups is running out (and when it recovers)": "De vrije schijfruimte onder /config, /projects of /backups raakt op (en wanneer die weer voldoende is)",
+  "Theme: system": "Thema: systeem",
+  "Theme: light": "Thema: licht",
+  "Theme: dark": "Thema: donker",
+  "Envoryx - The spatial foundry": "Envoryx - De ruimtelijke gieterij"
 }

@@ -594,7 +594,6 @@
   "The server could not be reached.": "Nie udało się połączyć z serwerem.",
   "The web server port published on the Docker host. Works without DNS or the proxy.": "Port serwera WWW opublikowany na hoście Dockera. Działa bez DNS i proxy.",
   "The {{service}} container is not running. Start the project to open a shell.": "Kontener {{service}} nie jest uruchomiony. Uruchom projekt, aby otworzyć powłokę.",
-  "Theme: {{theme}}": "Motyw: {{theme}}",
   "These carry Envoryx labels but belong to no known project (e.g. after restoring an older database). Containers and networks this instance created are removed automatically within a minute. Volumes hold data, and resources marked \"older Envoryx\" may belong to another Envoryx instance on this Docker host; both stay until you remove them.": "Mają etykiety Envoryx, ale nie należą do żadnego znanego projektu (np. po przywróceniu starszej bazy danych). Kontenery i sieci utworzone przez tę instancję są usuwane automatycznie w ciągu minuty. Wolumeny zawierają dane, a zasoby oznaczone jako \"starszy Envoryx\" mogą należeć do innej instancji Envoryx na tym hoście Docker; jedne i drugie pozostają, dopóki ich nie usuniesz.",
   "older Envoryx": "starszy Envoryx",
   "the name is taken by another Envoryx instance on this Docker host": "nazwa jest zajęta przez inną instancję Envoryx na tym hoście Docker",
@@ -2862,5 +2861,9 @@
   "Open the instance backups": "Otwórz kopie instancji",
   "No environment variables. They are injected into every project container.": "Brak zmiennych środowiskowych. Są wstrzykiwane do każdego kontenera projektu.",
   "Envoryx could not start, or a background task crashed and was restarted": "Envoryx nie mógł się uruchomić albo zadanie w tle uległo awarii i zostało ponownie uruchomione",
-  "Free disk space under /config, /projects or /backups is running out (and when it recovers)": "Kończy się wolne miejsce na dysku w /config, /projects lub /backups (oraz gdy znów jest go dość)"
+  "Free disk space under /config, /projects or /backups is running out (and when it recovers)": "Kończy się wolne miejsce na dysku w /config, /projects lub /backups (oraz gdy znów jest go dość)",
+  "Theme: system": "Motyw: systemowy",
+  "Theme: light": "Motyw: jasny",
+  "Theme: dark": "Motyw: ciemny",
+  "Envoryx - The spatial foundry": "Envoryx - Przestrzenna odlewnia"
 }
