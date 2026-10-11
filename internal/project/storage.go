@@ -66,6 +66,26 @@ func (p *Planner) ProjectURL(proj store.Project) string {
 	return ""
 }
 
+// ProjectDevURL is the address of the project's Node dev server through the proxy
+// (<slug>-dev.<base>), or "" without the proxy.
+func (p *Planner) ProjectDevURL(proj store.Project) string {
+	if p.paths.BaseDomain == "" {
+		return ""
+	}
+	host := DevHostname(proj.Slug, p.paths.BaseDomain)
+	switch {
+	case p.paths.ProxyHTTPSPort == 443:
+		return "https://" + host
+	case p.paths.ProxyHTTPSPort > 0:
+		return fmt.Sprintf("https://%s:%d", host, p.paths.ProxyHTTPSPort)
+	case p.paths.ProxyHTTPPort == 80:
+		return "http://" + host
+	case p.paths.ProxyHTTPPort > 0:
+		return fmt.Sprintf("http://%s:%d", host, p.paths.ProxyHTTPPort)
+	}
+	return ""
+}
+
 // storagePublicURL is the browser-reachable URL of the bucket: through the proxy when it
 // runs, otherwise the published host port. The scheme follows the proxy's TLS setup.
 func (p *Planner) storagePublicURL(slug string, cfg runtime.StorageConfig) string {
