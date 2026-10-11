@@ -230,7 +230,10 @@ func detectTestSuites(dir string, p store.Project) []TestSuite {
 
 	if has(store.ServicePython) {
 		pytest := exists("pytest.ini") || exists("conftest.py") || exists("tests/conftest.py") ||
-			bytes.Contains(read("pyproject.toml"), []byte("[tool.pytest")) || bytes.Contains(read("setup.cfg"), []byte("[tool:pytest]")) ||
+			// pyproject.toml names it in [tool.pytest], a dependency list or uv's
+			// [dependency-groups]; uv.lock has it as a package.
+			bytes.Contains(read("pyproject.toml"), []byte("pytest")) || bytes.Contains(read("uv.lock"), []byte(`name = "pytest"`)) ||
+			bytes.Contains(read("setup.cfg"), []byte("[tool:pytest]")) ||
 			bytes.Contains(read("requirements.txt"), []byte("pytest")) || bytes.Contains(read("requirements-dev.txt"), []byte("pytest"))
 		if pytest {
 			out = append(out, TestSuite{ID: "pytest", Framework: "pytest", Label: "pytest", Service: store.ServicePython, Cmd: []string{"python", "-m", "pytest"}, Report: true, FilterHint: "-k", Available: true, djangoDB: exists("manage.py"),

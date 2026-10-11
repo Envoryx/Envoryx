@@ -88,6 +88,19 @@ func TestDetectTestSuites(t *testing.T) {
 		t.Fatalf("npm: %v", argv)
 	}
 
+	// A uv project lists pytest in [dependency-groups] or only in uv.lock.
+	python := store.Project{Services: []store.ProjectService{{Kind: store.ServicePython, Enabled: true}}}
+	for _, files := range []map[string]string{
+		{"pyproject.toml": "[dependency-groups]\ndev = [\n    \"pytest>=8\",\n]\n"},
+		{"uv.lock": "[[package]]\nname = \"pytest\"\nversion = \"8.4.2\"\n"},
+	} {
+		dir = t.TempDir()
+		writeProjectFiles(t, dir, files)
+		if got := suiteIDs(detectTestSuites(dir, python)); !slices.Equal(got, []string{"pytest"}) {
+			t.Fatalf("%v: suites %v", files, got)
+		}
+	}
+
 	// PHPUnit asked for in composer.json but not installed: listed, with the way out.
 	dir = t.TempDir()
 	writeProjectFiles(t, dir, map[string]string{"composer.json": `{"require-dev": {"phpunit/phpunit": "^11"}}`})

@@ -827,7 +827,7 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 				// host port; without PHP the proxy routes the project URL to it.
 				// The venv guard holds in both roles: after a version switch the server
 				// would crash-loop and lock out the pip install action that fixes it.
-				spec.Cmd = runtime.Guarded(pcfg.Command(), "envoryx-serve", runtime.VenvGuard, dbGuard)
+				spec.Cmd = runtime.Guarded(pcfg.Command(), "envoryx-serve", runtime.VenvGuard, pcfg.DepsGuard(), dbGuard)
 				if _, ok := pythonServesApp(proj); ok {
 					// A blank project has nothing to run yet: wait for the entry file
 					// instead of crash-looping.

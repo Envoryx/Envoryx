@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -98,6 +99,30 @@ func TestPythonCommands(t *testing.T) {
 	_ = d.Normalize()
 	if w := d.WrappedCommand(); !strings.Contains(w[2], "[ -e manage.py ]") {
 		t.Fatalf("django wait guard: %q", w)
+	}
+	// The dependency guard waits for the server's package and for a running install.
+	if !strings.Contains(w[2], "import uvicorn") || !strings.Contains(d.DepsGuard(), "import django") {
+		t.Fatalf("deps guard: %q / %q", w[2], d.DepsGuard())
+	}
+	if g := (PythonConfig{Preset: "flask", Mode: PythonModeProduction}).DepsGuard(); !strings.Contains(g, "import gunicorn") {
+		t.Fatalf("production deps guard: %q", g)
+	}
+	if g := (PythonConfig{Preset: "module", Mode: PythonModeProduction}).DepsGuard(); strings.Contains(g, "import") {
+		t.Fatalf("module deps guard: %q", g)
+	}
+	// pgrep -f sees the guard's own sh -c line: the pattern must not match it, but must
+	// match the installs the actions run.
+	pattern := regexp.MustCompile(`(/|-m )pip[0-9.]* install|(^|/)uv (sync|add|pip)`)
+	if !strings.Contains(pythonInstalling, pattern.String()) {
+		t.Fatalf("pattern out of sync with pythonInstalling: %s", pythonInstalling)
+	}
+	if pattern.MatchString(strings.Join(w, " ")) {
+		t.Fatalf("install pattern matches the guard itself: %q", w[2])
+	}
+	for _, cmd := range []string{"/var/www/html/.venv/bin/python /var/www/html/.venv/bin/pip install -r requirements.txt", "python -m pip install -e .", "uv sync", "/usr/local/bin/uv pip install x"} {
+		if !pattern.MatchString(cmd) {
+			t.Errorf("install pattern misses %q", cmd)
+		}
 	}
 	if env := strings.Join(c.Env(), " "); !strings.Contains(env, "PORT=8000") || !strings.Contains(env, "FLASK_DEBUG=1") || !strings.Contains(env, "DJANGO_DEBUG=1") {
 		t.Fatalf("env: %v", c.Env())

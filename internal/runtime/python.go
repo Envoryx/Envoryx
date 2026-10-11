@@ -226,11 +226,46 @@ const VenvGuard = `v=$(python -c 'import sys; print("%d.%d" % sys.version_info[:
 	`while b=$(sed -nE 's/^version(_info)? *= *([0-9]+[.][0-9]+).*/\2/p' ` + PythonVenv + `/pyvenv.cfg 2>/dev/null | head -n 1); [ -n "$b" ] && [ "$b" != "$v" ]; do ` +
 	`echo "envoryx: .venv was built for Python $b but this container runs $v - run \"pip install -r requirements.txt\" or \"uv sync\" from Actions to rebuild it"; sleep 5; done`
 
-// WrappedCommand returns Command() behind the entry-file and venv guards, for containers
-// whose server is the project's application. Further guards (the database wait the
-// planner builds) run after them.
+// pythonInstalling matches a pip or uv run that changes the venv: "pip install" through
+// the venv's pip script or "python -m pip", and "uv sync/add/pip". Written so that it
+// doesn't match itself or the guard's own echo text in the shell's command line.
+const pythonInstalling = `pgrep -f '(/|-m )pip[0-9.]* install|(^|/)uv (sync|add|pip)' >/dev/null`
+
+// serverModule is the package the server command needs from the venv; the "module"
+// preset runs the project's own code, so there is nothing to look for.
+func (c PythonConfig) serverModule() string {
+	if c.Production() && (c.Preset == "django" || c.Preset == "flask") {
+		return "gunicorn"
+	}
+	switch c.Preset {
+	case "django", "flask":
+		return c.Preset
+	case "asgi":
+		return "uvicorn"
+	case "wsgi":
+		return "gunicorn"
+	}
+	return ""
+}
+
+// DepsGuard waits until the venv has the server's package and no pip or uv run is still
+// filling it. Without it a fresh checkout, or a venv being rebuilt after a version
+// switch, would start the server against missing packages: it dies, the container
+// restarts and takes the running install with it. Only the fixed module names from
+// serverModule are interpolated.
+func (c PythonConfig) DepsGuard() string {
+	mod := c.serverModule()
+	if mod == "" {
+		return `while ` + pythonInstalling + `; do echo 'envoryx: waiting for pip / uv to finish'; sleep 3; done`
+	}
+	return fmt.Sprintf(`until python -c 'import %s' 2>/dev/null && ! %s; do echo 'envoryx: waiting for %s in .venv - run "pip install -r requirements.txt" or "uv sync" from Actions'; sleep 3; done`, mod, pythonInstalling, mod)
+}
+
+// WrappedCommand returns Command() behind the entry-file, venv and dependency guards, for
+// containers whose server is the project's application. Further guards (the database
+// wait the planner builds) run after them.
 func (c PythonConfig) WrappedCommand(guards ...string) []string {
-	return Guarded(c.Command(), "envoryx-serve", append([]string{c.entryGuard(), VenvGuard}, guards...)...)
+	return Guarded(c.Command(), "envoryx-serve", append([]string{c.entryGuard(), VenvGuard, c.DepsGuard()}, guards...)...)
 }
 
 // Env returns the variables that tell the application where to listen: HOST and PORT are
