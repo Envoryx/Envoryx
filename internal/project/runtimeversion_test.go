@@ -103,13 +103,16 @@ func TestDotnetVersionWarnings(t *testing.T) {
 	}{
 		{"newer framework", map[string]string{"Shop.csproj": csproj("<TargetFramework>net10.0</TargetFramework>")}, "", "8", []string{"Shop.csproj needs .NET 10 but the project runs .NET 8"}},
 		{"same framework", map[string]string{"Shop.csproj": csproj("<TargetFramework>net8.0</TargetFramework>")}, "", "8", nil},
-		{"older framework", map[string]string{"Shop.csproj": csproj("<TargetFramework>net8.0</TargetFramework>")}, "", "10", nil},
+		{"older framework", map[string]string{"Shop.csproj": csproj("<TargetFramework>net8.0</TargetFramework>")}, "", "10", []string{"Shop.csproj targets .NET 8 but the project runs .NET 10, which does not include it"}},
+		{"older framework rolling forward", map[string]string{"Shop.csproj": csproj("<TargetFramework>net8.0</TargetFramework><RollForward>Major</RollForward>")}, "", "10", nil},
 		{"platform suffix", map[string]string{"Shop.csproj": csproj("<TargetFramework>net10.0-windows</TargetFramework>")}, "", "8", []string{"needs .NET 10"}},
 		{"several frameworks", map[string]string{"Shop.csproj": csproj("<TargetFrameworks>net8.0;net10.0</TargetFrameworks>")}, "", "8", nil},
 		{"framework elsewhere", map[string]string{"Shop.csproj": csproj(""), "Directory.Build.props": "<TargetFramework>net10.0</TargetFramework>"}, "", "8", nil},
 		{"two project files at the top", map[string]string{"A.csproj": csproj("<TargetFramework>net10.0</TargetFramework>"), "B.csproj": csproj("<TargetFramework>net10.0</TargetFramework>")}, "", "8", nil},
 		{"configured project", map[string]string{"src/Shop/Shop.csproj": csproj("<TargetFramework>net10.0</TargetFramework>")}, "src/Shop/Shop.csproj", "8", []string{"src/Shop/Shop.csproj needs .NET 10"}},
 		{"global.json", map[string]string{"global.json": `{"sdk": {"version": "10.0.100", "rollForward": "latestFeature"}}`}, "", "8", []string{"global.json needs .NET SDK 10.0.100 but the project runs .NET 8"}},
+		{"older global.json", map[string]string{"global.json": `{"sdk": {"version": "8.0.400"}}`}, "", "10", []string{"global.json targets .NET SDK 8.0.400 but the project runs .NET 10"}},
+		{"older global.json rolling forward", map[string]string{"global.json": `{"sdk": {"version": "8.0.400", "rollForward": "latestMajor"}}`}, "", "10", nil},
 		{"global.json matches", map[string]string{"global.json": `{"sdk": {"version": "8.0.400"}}`}, "", "8", nil},
 		{"global.json without sdk", map[string]string{"global.json": `{"test": {"runner": "Microsoft.Testing.Platform"}}`}, "", "8", nil},
 	} {
