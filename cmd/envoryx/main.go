@@ -471,6 +471,8 @@ func serve() error {
 	if cfg.UpdateCheck {
 		updates = update.New(version, "", log)
 	}
+	// planOffsiteErr is why the plan's offsite target isn't used; the manager hears it.
+	var planOffsiteErr atomic.Pointer[string]
 	// uiURL is the address of the web UI behind the embedded proxy (envoryx.<base>), or
 	// the public host and listen port without it.
 	uiURL := func(ctx context.Context) string {
@@ -496,10 +498,15 @@ func serve() error {
 	}
 	// A hoster's fleet manager pushes the plan and gets the instance's state back; with
 	// the admins' consent its support signs in through a one-time link.
+	remote := &remoteBackups{backups: backups, db: sqlDB, st: st, syncer: syncer, log: log}
 	fleetAgent, err := fleet.New(fleet.Config{URL: cfg.FleetURL, Token: cfg.FleetToken, ConfigDir: cfg.ConfigDir, Plan: plans, Log: log,
 		Status: func(ctx context.Context) fleet.Status {
 			s := fleetStatus(ctx, st, manager, version, instanceID)
 			s.UIURL = uiURL(ctx)
+			if msg := planOffsiteErr.Load(); msg != nil {
+				s.Warnings = append(s.Warnings, *msg)
+			}
+			s.Backups = remote.Status(ctx)
 			if acc, err := sessions.SupportAccess(ctx); err == nil && acc.Allowed {
 				s.Support = &fleet.SupportAccess{Until: acc.Until}
 			}
@@ -511,10 +518,12 @@ func serve() error {
 				return "", err
 			}
 			return uiURL(ctx) + "/api/v1/auth/support/" + token, nil
-		}})
+		},
+		Backup: remote.Start})
 	if err != nil {
 		return fmt.Errorf("fleet: %w", err)
 	}
+	remote.done = fleetAgent.Nudge
 	if fleetAgent != nil {
 		background("fleet", fleetAgent.Run)
 	}
@@ -533,6 +542,28 @@ func serve() error {
 			log.Warn("plan: settings not applied", "err", err)
 		}
 	})
+	// The plan's offsite target is the hoster's: it joins the admins' own targets.
+	applyPlanOffsite := func(p *plan.Plan) {
+		if syncer == nil {
+			return
+		}
+		planOffsiteErr.Store(nil)
+		if p == nil || p.Offsite == nil {
+			syncer.Config.SetManaged(nil)
+			return
+		}
+		t, err := offsite.FromPlan(p.Offsite, instanceID)
+		if err != nil {
+			log.Warn("plan: offsite target not used", "err", err)
+			msg := err.Error()
+			planOffsiteErr.Store(&msg)
+			syncer.Config.SetManaged(nil)
+			return
+		}
+		syncer.Config.SetManaged(&t)
+	}
+	applyPlanOffsite(plans.Get())
+	plans.OnChange(applyPlanOffsite)
 	background("plan", func(ctx context.Context) { plans.Run(ctx, 30*time.Second) })
 	var origins []string
 	if cfg.DevMode {

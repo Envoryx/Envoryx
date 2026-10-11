@@ -17,6 +17,7 @@ import (
 	"github.com/envoryx/envoryx/internal/db"
 	"github.com/envoryx/envoryx/internal/instance"
 	"github.com/envoryx/envoryx/internal/notify"
+	"github.com/envoryx/envoryx/internal/plan"
 	"github.com/envoryx/envoryx/internal/project"
 	"github.com/envoryx/envoryx/internal/store"
 	"github.com/envoryx/envoryx/internal/validate"
@@ -452,5 +453,42 @@ func TestCrypt(t *testing.T) {
 	}
 	if _, err := unseal(bytes.NewReader(buf.Bytes()), "wrong passphrase!"); !errors.Is(err, ErrPassphrase) {
 		t.Fatalf("wrong passphrase: %v", err)
+	}
+}
+
+func TestHostersTarget(t *testing.T) {
+	h := newHarness(t)
+	ctx := context.Background()
+	tg, err := FromPlan(&plan.OffsiteTarget{Type: TypeS3, Endpoint: "https://s3.example.net", Bucket: "hoster-backups", AccessKey: "k", SecretKey: "s", InstanceHour: 3, Prefix: "customers/"}, "inst-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tg.Prefix != "customers/inst-1" || !tg.Managed || tg.ID != ManagedID {
+		t.Fatalf("target from the plan: %+v", tg)
+	}
+	h.s.Config.SetManaged(&tg)
+	// The plan switches the admins' own targets off; the hoster's still works.
+	h.s.Allowed = func() bool { return false }
+	h.s.Pass(ctx)
+	if keys := h.mem.keys(); len(keys) != 1 || !strings.HasPrefix(keys[0], "instance/") {
+		t.Fatalf("uploaded: %v", keys)
+	}
+
+	if _, err := h.s.Config.Prepare(Target{ID: ManagedID, Name: "mine", Type: TypeWebDAV, URL: "https://dav.example.net"}); !errors.Is(err, ErrManaged) {
+		t.Fatalf("changing the hoster's target: %v", err)
+	}
+	if err := h.s.Config.Delete(ManagedID); !errors.Is(err, ErrManaged) {
+		t.Fatalf("deleting the hoster's target: %v", err)
+	}
+	if err := h.s.DeleteRemote(ctx, ManagedID, h.mem.keys()[0]); !errors.Is(err, ErrManaged) {
+		t.Fatalf("deleting a copy on the hoster's target: %v", err)
+	}
+	// It is never written into the admins' configuration.
+	reopened, err := OpenConfig(h.s.Config.dir)
+	if err != nil || len(reopened.Targets()) != 0 {
+		t.Fatalf("stored targets: %+v %v", reopened.Targets(), err)
+	}
+	if _, err := FromPlan(&plan.OffsiteTarget{Type: TypeS3}, "inst-1"); err == nil {
+		t.Error("an S3 target without a bucket passed")
 	}
 }

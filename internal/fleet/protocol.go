@@ -47,9 +47,9 @@ type enrollResponse struct {
 //
 //	manager → instance: challenge (Nonce), welcome (Name), plan (Plan, null for none),
 //	                    suspension (Suspension, null for none), supportLogin (ID, Name of
-//	                    the hoster's user)
+//	                    the hoster's user), backup (ID)
 //	instance → manager: auth (Signature over the nonce), status (Status), supportLogin
-//	                    (ID, URL or Error)
+//	                    (ID, URL or Error), backup (ID, Error when it doesn't start)
 type message struct {
 	Type       string          `json:"type"`
 	Nonce      []byte          `json:"nonce,omitempty"`
@@ -80,9 +80,38 @@ type Status struct {
 	Support *SupportAccess `json:"support,omitempty"`
 	// UIURL is the address of the instance's web UI, where a support login link leads.
 	UIURL string `json:"uiUrl,omitempty"`
-	Usage Usage  `json:"usage"`
+	// Backups are the instance backups.
+	Backups *BackupStatus `json:"backups,omitempty"`
+	Usage   Usage         `json:"usage"`
 	// Warnings are the instance's open problems (failing projects, low disk space).
 	Warnings []string `json:"warnings,omitempty"`
+}
+
+// BackupStatus is what the manager learns about the instance backups.
+type BackupStatus struct {
+	// Latest are the newest instance backups, newest first (at most MaxReportedBackups).
+	Latest []InstanceBackup `json:"latest"`
+	// OffsiteAt is when the newest backup that reached the hoster's offsite target was
+	// taken; OffsiteError why the last copy there failed.
+	OffsiteAt    time.Time `json:"offsiteAt,omitzero"`
+	OffsiteError string    `json:"offsiteError,omitempty"`
+	// Running is set while a backup the manager asked for is being taken; LastError is
+	// why the last one failed.
+	Running   bool   `json:"running,omitempty"`
+	LastError string `json:"lastError,omitempty"`
+}
+
+// MaxReportedBackups is how many instance backups a status lists.
+const MaxReportedBackups = 10
+
+// InstanceBackup is one instance backup.
+type InstanceBackup struct {
+	ID        string    `json:"id"`
+	Kind      string    `json:"kind"`
+	SizeBytes int64     `json:"sizeBytes"`
+	CreatedAt time.Time `json:"createdAt"`
+	// Offsite is set once it reached the hoster's offsite target.
+	Offsite bool `json:"offsite,omitempty"`
 }
 
 // SupportAccess is the admins' consent to the hoster's support.

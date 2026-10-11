@@ -2594,6 +2594,10 @@ management).
   `xdebugClientHost`, `folderViewFolder`, `metricsRetentionDays`. They are
   applied when the plan is read, and the admins of the instance see them
   locked.
+- **offsite**: the hoster's offsite target, with the fields of an offsite
+  target (`type` `s3`, `sftp` or `webdav` and its connection details,
+  `instanceHour`, `instanceKeep`, `projects` and `keep` for the scheduled
+  project backups, `encrypt` and `passphrase`). See *Backups for the hoster*.
 
 Envoryx reads the file at the start and checks it for changes every 30
 seconds. A file it can't read stops the start (an instance that should be
@@ -2632,6 +2636,25 @@ Settings → General shows the manager and whether the instance is in touch.
 When the hoster removes the instance from the fleet, it stops connecting and
 keeps its last plan. To move an instance to another machine, the manager
 issues a new token; enrolling with it replaces the old key.
+
+### Backups for the hoster
+
+A plan can name an offsite target of the hoster (`offsite` above). Every
+instance with the plan takes its daily instance backup at `instanceHour` and
+copies it there, into a folder of its own: `<prefix>/<instance ID>`. With
+`projects` the scheduled project backups go there too. The target works even
+when the plan switches the admins' own offsite targets off. The admins see it
+under Settings → Backups as *from your hoster* and can fetch copies from it,
+but can't change or remove it, nor delete copies on it. Its credentials are in
+`/config/plan.json` on the instance; use a key that only reaches the
+instance's folder where the storage allows it, and `encrypt` so the copies are
+sealed before they leave the instance. A target the instance can't use (a
+missing bucket, say) is reported to the manager as a warning.
+
+The fleet manager can also take an instance backup on request; it is copied
+to the hoster's target right away. Every status names the ten newest instance
+backups, which of them reached the hoster's target and why the last copy
+failed, so the manager can warn about an instance whose last backup is old.
 
 ### Support access
 

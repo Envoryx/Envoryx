@@ -1924,6 +1924,8 @@ export type OffsiteType = "s3" | "sftp" | "webdav";
 /** An offsite target as stored; secrets are only reported as present. */
 export interface OffsiteTarget {
   id: string;
+  /** The hoster's target from the plan: shown, but not changed or removed here. */
+  managed?: boolean;
   name: string;
   type: OffsiteType;
   enabled: boolean;

@@ -24,6 +24,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/envoryx/envoryx/internal/plan"
 	"github.com/envoryx/envoryx/internal/secrets"
 	"github.com/envoryx/envoryx/internal/validate"
 )
@@ -38,7 +39,10 @@ const (
 // Target is one place backups are copied to. Secret fields are never returned by the API
 // (see Public); an update that leaves them empty keeps the stored value.
 type Target struct {
-	ID      string `json:"id"`
+	ID string `json:"id"`
+	// Managed marks the hoster's target from the plan (ManagedID): used like the others,
+	// but the instance's admins can't change or remove it.
+	Managed bool   `json:"managed,omitempty"`
 	Name    string `json:"name"`
 	Type    string `json:"type"`
 	Enabled bool   `json:"enabled"`
@@ -210,12 +214,52 @@ const configFile = "offsite.json"
 // ErrNotFound is returned for unknown target ids.
 var ErrNotFound = errors.New("offsite target not found")
 
-// Config holds the targets in <config>/offsite.json (mode 0600: it carries credentials).
+// ErrManaged is returned for changes to the hoster's target.
+var ErrManaged = fmt.Errorf("%w: the hoster's offsite target comes with the plan and can't be changed here", validate.ErrInvalid)
+
+// ManagedID is the id of the hoster's target.
+const ManagedID = "hoster"
+
+// Config holds the targets in <config>/offsite.json (mode 0600: it carries credentials),
+// and the hoster's target from the plan, which is never written there.
 type Config struct {
 	dir string
 	mu  sync.Mutex
 	// targets in the order they were added.
 	targets []Target
+	managed *Target
+}
+
+// SetManaged sets the hoster's target (nil for none). An SFTP host key seen before
+// stays pinned while the target keeps its host.
+func (c *Config) SetManaged(t *Target) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if t != nil {
+		t.ID, t.Managed = ManagedID, true
+		if old := c.managed; old != nil && t.HostKey == "" && old.Host == t.Host && old.Port == t.Port {
+			t.HostKey = old.HostKey
+		}
+	}
+	c.managed = t
+}
+
+// FromPlan turns the plan's offsite target into a target that writes below a folder of
+// the instance's own.
+func FromPlan(p *plan.OffsiteTarget, instanceID string) (Target, error) {
+	prefix := strings.Trim(strings.TrimSpace(p.Prefix), "/")
+	if prefix == "" {
+		prefix = "envoryx"
+	}
+	t := Target{ID: ManagedID, Managed: true, Name: "Hoster", Type: p.Type, Enabled: true, Auto: p.Projects, Instance: true,
+		InstanceHour: p.InstanceHour, InstanceKeep: p.InstanceKeep, Keep: p.Keep, Prefix: prefix + "/" + instanceID,
+		Encrypt: p.Encrypt, Passphrase: p.Passphrase, Endpoint: p.Endpoint, Region: p.Region, Bucket: p.Bucket,
+		AccessKey: p.AccessKey, SecretKey: p.SecretKey, Host: p.Host, Port: p.Port, User: p.User, Password: p.Password,
+		PrivateKey: p.PrivateKey, HostKey: p.HostKey, URL: p.URL}
+	if err := t.normalize(); err != nil {
+		return Target{}, fmt.Errorf("the hoster's offsite target: %w", err)
+	}
+	return t, nil
 }
 
 // OpenConfig loads the targets from dir.
@@ -234,10 +278,13 @@ func OpenConfig(dir string) (*Config, error) {
 	return c, nil
 }
 
-// Targets returns a copy of every target, secrets included.
+// Targets returns a copy of every target, secrets included, the hoster's first.
 func (c *Config) Targets() []Target {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	if c.managed != nil {
+		return append([]Target{*c.managed}, c.targets...)
+	}
 	return slices.Clone(c.targets)
 }
 
@@ -245,6 +292,9 @@ func (c *Config) Targets() []Target {
 func (c *Config) Get(id string) (Target, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	if c.managed != nil && id == ManagedID {
+		return *c.managed, nil
+	}
 	for _, t := range c.targets {
 		if t.ID == id {
 			return t, nil
@@ -256,6 +306,10 @@ func (c *Config) Get(id string) (Target, error) {
 // Prepare merges a submitted target with the stored one (empty secrets keep the stored
 // values) and validates it, without saving. The id is kept or generated.
 func (c *Config) Prepare(t Target) (Target, error) {
+	if t.ID == ManagedID {
+		return Target{}, ErrManaged
+	}
+	t.Managed = false
 	if t.ID != "" {
 		old, err := c.Get(t.ID)
 		if err != nil {
@@ -306,6 +360,9 @@ func (c *Config) Save(t Target) error {
 
 // Delete removes a target from the configuration; what it holds stays where it is.
 func (c *Config) Delete(id string) error {
+	if id == ManagedID {
+		return ErrManaged
+	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	i := slices.IndexFunc(c.targets, func(x Target) bool { return x.ID == id })
@@ -324,6 +381,13 @@ func (c *Config) Delete(id string) error {
 func (c *Config) PinHostKey(id, fingerprint string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	if id == ManagedID && c.managed != nil {
+		// Kept in memory: the hoster's target isn't stored here.
+		if c.managed.HostKey == "" {
+			c.managed.HostKey = fingerprint
+		}
+		return nil
+	}
 	next := slices.Clone(c.targets)
 	for i := range next {
 		if next[i].ID == id && next[i].HostKey == "" {

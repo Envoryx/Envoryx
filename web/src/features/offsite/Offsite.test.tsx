@@ -17,6 +17,17 @@ const names = [{ id: "t1", name: "Backblaze", type: "s3", enabled: true, encrypt
 describe("OffsiteTargetsCard", () => {
   afterEach(() => vi.unstubAllGlobals());
 
+  it("shows the hoster's target without edit or delete", async () => {
+    mockApi({
+      ...authedRoutes,
+      "GET /offsite": () => ({ body: { targets: [{ ...stored, id: "hoster", name: "Hoster", managed: true, last: undefined }] } }),
+    });
+    renderApp(<OffsiteTargetsCard />);
+    expect(await screen.findByText("from your hoster")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Delete Hoster" })).not.toBeInTheDocument();
+  });
+
   it("adds an SFTP target after a test that records the server key", async () => {
     const api = mockApi({
       ...authedRoutes,

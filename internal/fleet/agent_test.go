@@ -109,6 +109,7 @@ func (f *fakeManager) handler() http.Handler {
 		}
 		if f.askSupport {
 			_ = wsjson.Write(ctx, conn, message{Type: "supportLogin", ID: "r1", Name: "hoster"})
+			_ = wsjson.Write(ctx, conn, message{Type: "backup", ID: "r2"})
 		}
 		for {
 			var m message
@@ -119,7 +120,7 @@ func (f *fakeManager) handler() http.Handler {
 			switch {
 			case m.Type == "status" && m.Status != nil:
 				f.statuses = append(f.statuses, *m.Status)
-			case m.Type == "supportLogin":
+			case m.Type == "supportLogin" || m.Type == "backup":
 				f.replies = append(f.replies, m)
 			}
 			f.mu.Unlock()
@@ -259,7 +260,7 @@ func TestAgentWithoutFleet(t *testing.T) {
 	}
 }
 
-func TestAgentAnswersSupportLogins(t *testing.T) {
+func TestAgentAnswersSupportLoginsAndBackups(t *testing.T) {
 	f := &fakeManager{t: t, token: "tok", plan: "null", askSupport: true}
 	srv := httptest.NewServer(f.handler())
 	defer srv.Close()
@@ -269,19 +270,25 @@ func TestAgentAnswersSupportLogins(t *testing.T) {
 		t.Fatal(err)
 	}
 	var asked string
+	started := make(chan struct{}, 1)
 	a, _ := New(Config{URL: srv.URL, Token: "tok", ConfigDir: dir, Plan: holder, Log: slog.New(slog.NewTextHandler(io.Discard, nil)),
 		SupportLogin: func(_ context.Context, hoster string) (string, error) {
 			asked = hoster
 			return "https://envoryx.c1.example.net/api/v1/auth/support/abc", nil
-		}})
+		},
+		Backup: func(context.Context) error { started <- struct{}{}; return nil }})
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() { a.Run(ctx); close(done) }()
 	defer func() { cancel(); <-done }()
 
-	waitFor(t, "the answer", func() bool { f.mu.Lock(); defer f.mu.Unlock(); return len(f.replies) == 1 })
+	waitFor(t, "the answers", func() bool { f.mu.Lock(); defer f.mu.Unlock(); return len(f.replies) == 2 })
+	<-started
 	f.mu.Lock()
 	r := f.replies[0]
+	if r.Type != "supportLogin" {
+		r = f.replies[1]
+	}
 	f.mu.Unlock()
 	if r.ID != "r1" || r.URL != "https://envoryx.c1.example.net/api/v1/auth/support/abc" || r.Error != "" || asked != "hoster" {
 		t.Fatalf("reply = %+v, asked %q", r, asked)

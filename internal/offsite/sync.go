@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"path"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -83,6 +84,10 @@ type Syncer struct {
 
 func (s *Syncer) allowed() bool { return s.Allowed == nil || s.Allowed() }
 
+// usable reports whether a target may be used: the hoster's always, the admins' own
+// while the plan includes offsite targets.
+func (s *Syncer) usable(t Target) bool { return t.Managed || s.allowed() }
+
 func (s *Syncer) clock() time.Time {
 	if s.now != nil {
 		return s.now()
@@ -114,13 +119,13 @@ func (s *Syncer) poke() {
 
 // OnProjectBackup queues a scheduled project backup for every automatic target.
 func (s *Syncer) OnProjectBackup(projectID string, b project.BackupInfo) {
-	if b.Meta.Source != "scheduled" || !s.allowed() {
+	if b.Meta.Source != "scheduled" {
 		return
 	}
 	ctx := context.Background()
 	queued := false
 	for _, t := range s.Config.Targets() {
-		if !t.Enabled || !t.Auto {
+		if !t.Enabled || !t.Auto || !s.usable(t) {
 			continue
 		}
 		if err := s.Store.Offsite.EnqueueIfAbsent(ctx, store.OffsiteUpload{TargetID: t.ID, Scope: store.OffsiteProject, ProjectID: projectID, BackupID: b.ID, Source: "scheduled"}); err != nil {
@@ -140,7 +145,7 @@ func (s *Syncer) targetsFor(ids []string) ([]Target, error) {
 	var out []Target
 	if len(ids) == 0 {
 		for _, t := range s.Config.Targets() {
-			if t.Enabled {
+			if t.Enabled && s.usable(t) {
 				out = append(out, t)
 			}
 		}
@@ -154,7 +159,7 @@ func (s *Syncer) targetsFor(ids []string) ([]Target, error) {
 		if err != nil {
 			return nil, err
 		}
-		if !t.Enabled {
+		if !t.Enabled || !s.usable(t) {
 			return nil, fmt.Errorf("%w: the target %s is switched off", validate.ErrInvalid, t.Name)
 		}
 		out = append(out, t)
@@ -218,7 +223,7 @@ func (s *Syncer) Run(ctx context.Context, interval time.Duration) {
 
 // Pass takes a due instance backup and works through the queue once.
 func (s *Syncer) Pass(ctx context.Context) {
-	if !s.allowed() {
+	if !s.allowed() && !slices.ContainsFunc(s.Config.Targets(), func(t Target) bool { return t.Managed }) {
 		return
 	}
 	s.pass.Lock()
@@ -248,7 +253,7 @@ func (s *Syncer) scheduleInstance(ctx context.Context) {
 	now := s.clock()
 	var due []Target
 	for _, t := range s.Config.Targets() {
-		if t.Enabled && t.Instance && now.Hour() >= t.InstanceHour {
+		if t.Enabled && t.Instance && now.Hour() >= t.InstanceHour && s.usable(t) {
 			due = append(due, t)
 		}
 	}
@@ -289,7 +294,7 @@ func (s *Syncer) scheduleInstance(ctx context.Context) {
 // process uploads one queued backup and records the outcome.
 func (s *Syncer) process(ctx context.Context, u store.OffsiteUpload) {
 	t, err := s.Config.Get(u.TargetID)
-	if err != nil || !t.Enabled {
+	if err != nil || !t.Enabled || !s.usable(t) {
 		// The target went away or was switched off: nothing to do until it is back.
 		_ = s.Store.Offsite.MarkFailed(ctx, u.ID, "the target is removed or switched off", time.Time{})
 		return
@@ -677,6 +682,10 @@ func (s *Syncer) DeleteRemote(ctx context.Context, targetID, key string) error {
 	t, err := s.Config.Get(targetID)
 	if err != nil {
 		return err
+	}
+	if t.Managed {
+		// What the hoster keeps is the hoster's to remove.
+		return ErrManaged
 	}
 	b, err := s.dial(ctx, t)
 	if err != nil {

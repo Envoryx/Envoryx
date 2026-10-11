@@ -2800,5 +2800,6 @@
   "Support access changed": "Support-Zugang geändert",
   "the admins of this instance don't allow support access": "Die Admins dieser Instanz erlauben keinen Support-Zugang",
   "the support login link is unknown, used or expired; open a new one from the fleet manager": "Der Support-Anmeldelink ist unbekannt, benutzt oder abgelaufen; öffne einen neuen aus dem Fleet Manager",
-  "the hoster's support can't do this": "Der Support des Hosters kann das nicht"
+  "the hoster's support can't do this": "Der Support des Hosters kann das nicht",
+  "from your hoster": "von deinem Hoster"
 }

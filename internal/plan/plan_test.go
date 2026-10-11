@@ -28,7 +28,7 @@ func TestParse(t *testing.T) {
 		t.Errorf("Locked = %q %v", v, ok)
 	}
 
-	for _, bad := range []string{`{"limits":{"projects":-1}}`, `{"disabled":["rockets"]}`, `{"unknown":1}`, `{`, `{"settings":{"sshAuthorizedKeys":"x"}}`} {
+	for _, bad := range []string{`{"limits":{"projects":-1}}`, `{"disabled":["rockets"]}`, `{"unknown":1}`, `{`, `{"settings":{"sshAuthorizedKeys":"x"}}`, `{"offsite":{"type":"ftp"}}`, `{"offsite":{"type":"s3","instanceHour":24}}`, `{"offsite":{"type":"s3","encrypt":true}}`} {
 		if _, err := Parse([]byte(bad)); err == nil {
 			t.Errorf("Parse(%s) passed", bad)
 		}
