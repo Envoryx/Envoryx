@@ -348,8 +348,11 @@ export function useOllamaMutations(id: string) {
   return { pull, cancel, remove };
 }
 
-/** The project's object storage; null when it has none (404). */
-export function useStorage(id: string) {
+/**
+ * The project's object storage; null when it has none (404). Pass enabled=false when the
+ * project's services already say there is none, so the browser doesn't log the 404.
+ */
+export function useStorage(id: string, enabled = true) {
   return useQuery({
     queryKey: ["projects", id, "storage"],
     queryFn: async () => {
@@ -360,6 +363,7 @@ export function useStorage(id: string) {
         throw err;
       }
     },
+    enabled,
     refetchInterval: LIVE_INTERVAL,
   });
 }

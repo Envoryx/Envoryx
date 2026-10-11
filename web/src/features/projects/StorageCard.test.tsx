@@ -10,6 +10,11 @@ const info = {
   volumeName: "envoryx-acme-shop-storage", hostname: "acme-shop-s3.test",
 };
 
+function projectWithStorage() {
+  const p = makeProject();
+  return { ...p, services: [...p.services, { kind: "storage" as const, variant: "rustfs", version: "1.0", image: info.image, enabled: true, config: {} }] };
+}
+
 describe("StorageCard", () => {
   afterEach(() => vi.unstubAllGlobals());
 
@@ -28,6 +33,8 @@ describe("StorageCard", () => {
     await user.click(add);
     await waitFor(() => expect(api.calls.some((c) => c.method === "PATCH")).toBe(true));
     expect(api.calls.find((c) => c.method === "PATCH")!.body).toMatchObject({ storage: { enabled: true, publicRead: false } });
+    // The project's services already say there is no storage: no request that can only 404.
+    expect(api.calls.some((c) => c.url.endsWith("/storage"))).toBe(false);
   });
 
   it("shows the bucket, reveals keys on request and toggles public read", async () => {
@@ -45,7 +52,7 @@ describe("StorageCard", () => {
         return { body: { storage: { ...info, publicRead } } };
       },
     });
-    renderApp(<ServicesTab project={makeProject()} />);
+    renderApp(<ServicesTab project={projectWithStorage()} />);
     const user = userEvent.setup();
 
     expect(await screen.findByText("acme-shop", { selector: "dd" })).toBeInTheDocument();
