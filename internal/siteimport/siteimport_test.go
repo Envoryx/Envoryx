@@ -294,6 +294,22 @@ func TestAnalyzeComposerConstraintOutOfRange(t *testing.T) {
 	}
 }
 
+// The file with the credentials written into it is the one to edit, not a shallower one
+// that reads them from the environment already.
+func TestAnalyzePlainPHPPrefersTheHardCodedConfig(t *testing.T) {
+	site := writeZip(t,
+		member{name: "htdocs/index.php", body: "<?php $db = new mysqli(getenv('DB_HOST'), getenv('DB_USERNAME'), getenv('DB_PASSWORD'), getenv('DB_DATABASE'));"},
+		member{name: "htdocs/inc/db.php", body: "<?php $db = new mysqli('localhost', 'shop_user', 'oldpw', 'shopdb');"},
+	)
+	a, err := Analyze(site, "", testOptions)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(a.ConfigCandidates, []string{"inc/db.php", "index.php"}) || a.Config == nil || a.Config.Path != "inc/db.php" {
+		t.Errorf("candidates = %v, config %+v", a.ConfigCandidates, a.Config)
+	}
+}
+
 func TestAnalyzePlainPHP(t *testing.T) {
 	site := writeZip(t,
 		member{name: "htdocs/index.php", body: "<?php include 'inc/config.php';"},

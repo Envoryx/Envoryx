@@ -95,6 +95,8 @@ var libraryDirs = []string{"vendor/", "node_modules/", "wp-includes/", "wp-admin
 
 var (
 	dbCallRe = regexp.MustCompile(`\b(mysqli_connect|mysql_p?connect|pg_p?connect)\s*\(|new\s+(mysqli|PDO)\s*\(`)
+	// envReadRe finds code that takes its settings from the environment already.
+	envReadRe = regexp.MustCompile(`\bgetenv\s*\(|\$_ENV\s*\[|\$_SERVER\s*\[\s*['"]DB_`)
 	// Removed in PHP 7: the old MySQL extension and POSIX regular expressions.
 	php5Re = regexp.MustCompile(`\b(mysql_(p?connect|query|select_db|fetch_array|fetch_assoc)|eregi?(_replace)?)\s*\(`)
 	// Removed in PHP 8.
@@ -117,10 +119,11 @@ type scan struct {
 	files    map[string]int64
 	dirs     map[string]bool
 	contents map[string][]byte
-	dbCalls  []string // PHP files opening a database connection
-	pgCalls  bool     // … one of them with pg_connect
-	php5     []string // PHP files calling functions PHP 7 removed
-	php7     []string // … functions PHP 8 removed
+	dbCalls  []string        // PHP files opening a database connection
+	pgCalls  bool            // … one of them with pg_connect
+	envCalls map[string]bool // … the ones that read the environment (getenv)
+	php5     []string        // PHP files calling functions PHP 7 removed
+	php7     []string        // … functions PHP 8 removed
 	phpFiles int
 	bytes    int64
 }
@@ -135,7 +138,7 @@ func isLibrary(name string) bool {
 }
 
 func collect(file string, format Format) (*scan, error) {
-	s := &scan{files: map[string]int64{}, dirs: map[string]bool{}, contents: map[string][]byte{}}
+	s := &scan{files: map[string]int64{}, dirs: map[string]bool{}, contents: map[string][]byte{}, envCalls: map[string]bool{}}
 	err := walk(file, format, func(e entry) error {
 		s.names = append(s.names, e.Name)
 		switch e.Kind {
@@ -187,6 +190,9 @@ func collect(file string, format Format) (*scan, error) {
 			if m := dbCallRe.FindSubmatch(data); m != nil {
 				s.dbCalls = append(s.dbCalls, e.Name)
 				s.pgCalls = s.pgCalls || strings.HasPrefix(string(m[1]), "pg_")
+				if envReadRe.Match(data) {
+					s.envCalls[e.Name] = true
+				}
 			}
 			if php5Re.Match(data) {
 				s.php5 = append(s.php5, e.Name)
@@ -526,10 +532,15 @@ func (s site) envConfig() *ConfigFile {
 	return nil
 }
 
-// plainPHPConfig lists the files of a hand-written site that open a connection.
+// plainPHPConfig lists the files of a hand-written site that open a connection. The
+// one to edit comes first: a file with the credentials written into it before one that
+// reads them from the environment already, then the shallower one.
 func (a *Analysis) plainPHPConfig(s site) {
 	calls := slices.Clone(s.dbCalls)
 	sort.Slice(calls, func(i, j int) bool {
+		if ei, ej := s.envCalls[calls[i]], s.envCalls[calls[j]]; ei != ej {
+			return ej
+		}
 		di, dj := strings.Count(calls[i], "/"), strings.Count(calls[j], "/")
 		if di != dj {
 			return di < dj
