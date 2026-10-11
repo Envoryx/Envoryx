@@ -236,6 +236,7 @@ func (m *Manager) renameProject(ctx context.Context, id string, req RenameReques
 	if err := m.moveBackups(planner, proj.Slug, slug); err != nil {
 		return fail(err, "move the backups")
 	}
+	m.renameBackupMeta(ctx, planner, proj.ID, name, slug)
 
 	newPlan, err := planner.Plan(renamed)
 	if err != nil {
@@ -365,6 +366,44 @@ func moveProjectDir(planner *Planner, from, to string) error {
 		return err
 	}
 	return os.Rename(src, dst)
+}
+
+// renameBackupMeta gives the project's backups its new name, in the records and in
+// their backup.json, so once the project is deleted its backups are listed under the
+// name it had last. What the backup holds (the project's settings) stays as it was.
+// Failures are logged: the backups stay usable under the old name.
+func (m *Manager) renameBackupMeta(ctx context.Context, planner *Planner, projectID, name, slug string) {
+	// Only the two fields change; whatever else the JSON holds is kept as it is.
+	rename := func(raw []byte) ([]byte, error) {
+		var doc map[string]json.RawMessage
+		if err := json.Unmarshal(raw, &doc); err != nil {
+			return nil, err
+		}
+		doc["projectName"], _ = json.Marshal(name)
+		doc["slug"], _ = json.Marshal(slug)
+		return json.MarshalIndent(doc, "", "  ")
+	}
+	backups, err := m.store.Backups.ListByProject(ctx, projectID)
+	if err != nil {
+		m.log.Warn("renaming the backups' metadata failed", "project", slug, "err", err)
+		return
+	}
+	for _, b := range backups {
+		meta, err := rename(b.Metadata)
+		if err == nil {
+			err = m.store.Backups.SetMetadata(ctx, projectID, b.ID, meta)
+		}
+		file := filepath.Join(planner.paths.BackupsRoot(), slug, b.Filename, backupMetaFile)
+		if raw, rerr := os.ReadFile(file); rerr == nil && err == nil {
+			// An offsite-only backup has no file here, which is fine.
+			if raw, err = rename(raw); err == nil {
+				err = os.WriteFile(file, raw, 0o600)
+			}
+		}
+		if err != nil {
+			m.log.Warn("renaming a backup's metadata failed", "project", slug, "backup", b.ID, "err", err)
+		}
+	}
 }
 
 // moveBackups takes the project's backup directory along; nothing to move is fine.
