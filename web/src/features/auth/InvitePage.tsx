@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
-import { useParams } from "react-router-dom";
-import { api } from "@/api/client";
+import { Link, useParams } from "react-router-dom";
+import { ApiError, api } from "@/api/client";
 import { Alert, Button, Field, Input, Spinner } from "@/components/ui";
 import { LogoFull } from "@/layout/Logo";
 import { errorText } from "@/lib/errors";
@@ -13,6 +13,8 @@ export function InvitePage() {
   const [invite, setInvite] = useState<{ username: string; reset: boolean } | null>(null);
   const [sso, setSso] = useState<{ enabled: boolean; name?: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Set when the link itself cannot be used (unknown, used or expired).
+  const [gone, setGone] = useState(false);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);
@@ -21,7 +23,11 @@ export function InvitePage() {
     let live = true;
     api.auth.invitation(token).then(
       (i) => live && setInvite(i),
-      (err) => live && setError(errorText(err, t)),
+      (err) => {
+        if (!live) return;
+        if (isInviteInvalid(err)) setGone(true);
+        else setError(errorText(err, t));
+      },
     );
     api.auth.oidcStatus().then((s) => live && setSso(s), () => undefined);
     return () => {
@@ -42,7 +48,11 @@ export function InvitePage() {
       // A full load picks up the new session everywhere.
       window.location.assign("/");
     } catch (err) {
-      setError(errorText(err, t));
+      // The link may have expired, or been used elsewhere, since the page was opened.
+      if (isInviteInvalid(err)) {
+        setInvite(null);
+        setGone(true);
+      } else setError(errorText(err, t));
       setBusy(false);
     }
   }
@@ -52,11 +62,19 @@ export function InvitePage() {
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center gap-3">
           <LogoFull className="w-96 max-w-full" />
-          <h1 className="text-lg font-semibold text-fg">{invite?.reset ? t("Set a new password") : t("Welcome to Envoryx")}</h1>
+          <h1 className="text-lg font-semibold text-fg">{gone ? t("This invitation link cannot be used") : invite?.reset ? t("Set a new password") : t("Welcome to Envoryx")}</h1>
         </div>
         <div className="space-y-4 rounded-xl border border-default bg-elevated p-6 shadow-sm">
           {error && <Alert tone="red">{error}</Alert>}
-          {!invite && !error && <Spinner />}
+          {gone && (
+            <>
+              <p className="text-sm text-muted">{t("It is unknown, was already used or has expired. Ask an admin of this Envoryx for a new link.")}</p>
+              <Link to="/login" className="flex w-full items-center justify-center rounded-md border border-default px-3 py-2 text-sm font-medium text-fg hover:bg-muted">
+                {t("Go to sign-in")}
+              </Link>
+            </>
+          )}
+          {!invite && !error && !gone && <Spinner />}
           {invite && (
             <form onSubmit={onSubmit} className="space-y-4" noValidate>
               <p className="text-sm text-muted">{t("Choose the password for {{name}}.", { name: invite.username })}</p>
@@ -83,3 +101,5 @@ export function InvitePage() {
     </div>
   );
 }
+
+const isInviteInvalid = (err: unknown) => err instanceof ApiError && err.code === "invite_invalid";

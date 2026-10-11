@@ -2817,5 +2817,8 @@
   "Theme: system": "Thema: systeem",
   "Theme: light": "Thema: licht",
   "Theme: dark": "Thema: donker",
-  "Envoryx - The spatial foundry": "Envoryx - De ruimtelijke gieterij"
+  "Envoryx - The spatial foundry": "Envoryx - De ruimtelijke gieterij",
+  "This invitation link cannot be used": "Deze uitnodigingslink kan niet worden gebruikt",
+  "It is unknown, was already used or has expired. Ask an admin of this Envoryx for a new link.": "Hij is onbekend, al gebruikt of verlopen. Vraag een beheerder van deze Envoryx om een nieuwe link.",
+  "Go to sign-in": "Naar aanmelden"
 }

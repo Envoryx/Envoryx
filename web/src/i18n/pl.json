@@ -2865,5 +2865,8 @@
   "Theme: system": "Motyw: systemowy",
   "Theme: light": "Motyw: jasny",
   "Theme: dark": "Motyw: ciemny",
-  "Envoryx - The spatial foundry": "Envoryx - Przestrzenna odlewnia"
+  "Envoryx - The spatial foundry": "Envoryx - Przestrzenna odlewnia",
+  "This invitation link cannot be used": "Tego linku z zaproszeniem nie można użyć",
+  "It is unknown, was already used or has expired. Ask an admin of this Envoryx for a new link.": "Jest nieznany, został już użyty lub wygasł. Poproś administratora tego Envoryx o nowy link.",
+  "Go to sign-in": "Przejdź do logowania"
 }
