@@ -10,6 +10,11 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Added
+- An instance backup uploaded under *New project → Existing website* (or with
+  `envoryx import`) is recognised and kept with the instance backups, where it
+  can be restored, instead of being analysed as a website.
+
 ## [0.28.0] - 2026-10-11
 
 Managed instances: a hoster who rents out machines with Envoryx limits each

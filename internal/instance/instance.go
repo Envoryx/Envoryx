@@ -456,6 +456,22 @@ func readMeta(path string) (Meta, error) {
 	return meta, nil
 }
 
+// IsArchive reports whether file is an instance backup as the download writes it.
+func IsArchive(file string) bool {
+	_, err := readMeta(file)
+	return err == nil
+}
+
+// ImportFile stores the instance backup in file as an uploaded one (Import).
+func (s *Store) ImportFile(file string) (Info, error) {
+	f, err := os.Open(file)
+	if err != nil {
+		return Info{}, err
+	}
+	defer f.Close()
+	return s.Import(f)
+}
+
 // Open returns the archive for download.
 func (s *Store) Open(id string) (io.ReadCloser, string, int64, error) {
 	path, err := s.path(id)

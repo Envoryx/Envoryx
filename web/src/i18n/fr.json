@@ -2801,5 +2801,8 @@
   "the admins of this instance don't allow support access": "Les admins de cette instance n'autorisent pas l'accès du support",
   "the support login link is unknown, used or expired; open a new one from the fleet manager": "Le lien de connexion du support est inconnu, déjà utilisé ou expiré ; ouvres-en un nouveau depuis le fleet manager",
   "the hoster's support can't do this": "Le support de l'hébergeur ne peut pas faire cela",
-  "from your hoster": "de ton hébergeur"
+  "from your hoster": "de ton hébergeur",
+  "Recognised: an instance backup from {{date}}": "Reconnu : une sauvegarde d'instance du {{date}}",
+  "This backup holds a whole Envoryx instance, not one project. It is listed under Settings → Backups → Instance backups now. Restoring it there replaces this instance's database and configuration.": "Cette sauvegarde contient toute une instance Envoryx, pas un seul projet. Elle figure maintenant sous Paramètres → Sauvegardes → Sauvegardes de l'instance. La restaurer là-bas remplace la base de données et la configuration de cette instance.",
+  "Open the instance backups": "Ouvrir les sauvegardes de l'instance"
 }

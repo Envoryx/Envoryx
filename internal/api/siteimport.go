@@ -7,7 +7,9 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/envoryx/envoryx/internal/audit"
 	"github.com/envoryx/envoryx/internal/auth"
+	"github.com/envoryx/envoryx/internal/instance"
 	"github.com/envoryx/envoryx/internal/project"
 	"github.com/envoryx/envoryx/internal/validate"
 )
@@ -19,7 +21,8 @@ const maxSiteUpload = 20 << 30
 // "site" (ZIP or tar archive) and optionally "database" (.sql or .sql.gz). The answer
 // is the analysis the project wizard is filled from. A backup Envoryx made, downloaded
 // as a tar, is stored as a backup instead and answered as {"backup": ...}: the wizard
-// restores it into a new project.
+// restores it into a new project. An instance backup is stored with the instance backups
+// and answered as {"instanceBackup": ...}.
 func (a *API) uploadSite(w http.ResponseWriter, r *http.Request) {
 	if p, _ := auth.PrincipalFrom(r.Context()); !p.Allows(auth.ScopeAdmin) {
 		writeError(w, r, fmt.Errorf("%w: creating projects needs admin access to the whole instance", auth.ErrForbidden))
@@ -81,6 +84,23 @@ func (a *API) uploadSite(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		writeJSON(w, http.StatusCreated, map[string]any{"backup": backup})
+		return
+	}
+	// A backup of the whole instance is no website either: it is kept with the instance
+	// backups, where it can be restored (which replaces this instance's database).
+	if up.SiteName() != "" && a.d.Instance != nil && instance.IsArchive(up.SiteFile()) {
+		defer up.Abort()
+		if up.HasDump() {
+			writeError(w, r, fmt.Errorf("%w: an Envoryx backup brings its own database; leave the dump out", validate.ErrInvalid))
+			return
+		}
+		info, err := a.d.Instance.ImportFile(up.SiteFile())
+		if err != nil {
+			writeError(w, r, err)
+			return
+		}
+		a.d.Audit.Log(r.Context(), audit.ActionInstanceBackupUploaded, "instance", info.ID, map[string]any{"bytes": info.SizeBytes, "envoryx": info.Meta.Envoryx, "via": "site import"})
+		writeJSON(w, http.StatusCreated, map[string]any{"instanceBackup": info})
 		return
 	}
 	staged, err := up.Finish(a.d.Projects.SiteImportOptions())

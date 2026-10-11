@@ -91,3 +91,38 @@ func uploadSite(t *testing.T, a *testApp, site []byte, dump string) resp {
 	_ = json.Unmarshal(raw, &out.body)
 	return out
 }
+
+// An instance backup uploaded as a website is kept with the instance backups.
+func TestSiteImportKeepsInstanceBackups(t *testing.T) {
+	a := newApp(t)
+	a.setupAndLogin()
+	r := a.do(http.MethodPost, "/api/v1/instance/backups", map[string]string{"note": "old machine"}, true)
+	if r.status != http.StatusCreated {
+		t.Fatalf("create = %d %s", r.status, r.raw)
+	}
+	id := r.body["backup"].(map[string]any)["id"].(string)
+	req, _ := http.NewRequest(http.MethodGet, a.srv.URL+"/api/v1/instance/backups/"+id+"/download", nil)
+	req.AddCookie(a.cookie)
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	archive, _ := io.ReadAll(res.Body)
+	_ = res.Body.Close()
+
+	if r := uploadSite(t, a, archive, "select 1;"); r.status != http.StatusUnprocessableEntity {
+		t.Fatalf("with a dump = %d %s", r.status, r.raw)
+	}
+	r = uploadSite(t, a, archive, "")
+	if r.status != http.StatusCreated {
+		t.Fatalf("upload = %d %s", r.status, r.raw)
+	}
+	b, ok := r.body["instanceBackup"].(map[string]any)
+	if !ok || b["kind"] != "upload" || r.body["import"] != nil {
+		t.Fatalf("answer = %s", r.raw)
+	}
+	r = a.do(http.MethodGet, "/api/v1/instance/backups", nil, false)
+	if n := len(r.body["backups"].([]any)); n != 2 {
+		t.Fatalf("instance backups = %d", n)
+	}
+}
