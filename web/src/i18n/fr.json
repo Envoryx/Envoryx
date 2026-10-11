@@ -3018,5 +3018,7 @@
   "contacting the registry": "Contact du registre",
   "downloading {{percent}}% ({{done}} of {{total}})": "Téléchargement {{percent}}% ({{done}} sur {{total}})",
   "downloading ({{size}} so far, {{done}} of {{total}} layers done)": "Téléchargement ({{size}} jusqu’ici, {{done}} couches sur {{total}} terminées)",
-  "extracting ({{done}} of {{total}} layers done)": "Extraction ({{done}} couches sur {{total}} terminées)"
+  "extracting ({{done}} of {{total}} layers done)": "Extraction ({{done}} couches sur {{total}} terminées)",
+  "Not injected": "Non injecté",
+  "Envoryx or the project's own variables set these already; an addon doesn't override them.": "Envoryx ou les variables propres au projet les définissent déjà ; un addon ne les remplace pas."
 }

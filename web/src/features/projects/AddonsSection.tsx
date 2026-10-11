@@ -75,6 +75,15 @@ function AddonCard({ project, info, onMessage }: { project: Project; info: Proje
               <dd className="font-mono text-xs">{info.injectedEnv.join(", ")}</dd>
             </>
           )}
+          {info.shadowedEnv && info.shadowedEnv.length > 0 && (
+            <>
+              <dt className="text-muted">{t("Not injected")}</dt>
+              <dd className="text-xs">
+                <span className="font-mono">{info.shadowedEnv.join(", ")}</span>
+                <span className="block text-subtle">{t("Envoryx or the project's own variables set these already; an addon doesn't override them.")}</span>
+              </dd>
+            </>
+          )}
           {info.volumes.length > 0 && (
             <>
               <dt className="text-muted">{t("Volumes")}</dt>

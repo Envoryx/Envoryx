@@ -17,6 +17,7 @@ const keycloak: ProjectAddon = {
   hostPort: 20003,
   url: "http://acme-shop-keycloak.envoryx.test",
   injectedEnv: ["KEYCLOAK_URL"],
+  shadowedEnv: ["DB_HOST"],
   credentials: [
     { label: "Admin user", value: "admin" },
     { label: "Admin password", value: "s3cret-pass", secret: true },
@@ -43,6 +44,8 @@ describe("AddonsSection", () => {
     expect(await screen.findByText("Keycloak 26")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /acme-shop-keycloak/ })).toHaveAttribute("href", keycloak.url);
     expect(screen.getByText("KEYCLOAK_URL")).toBeInTheDocument();
+    // A variable Envoryx sets itself isn't claimed as the addon's.
+    expect(screen.getByText("Not injected").nextElementSibling).toHaveTextContent("DB_HOST");
     expect(screen.queryByText("s3cret-pass")).not.toBeInTheDocument();
 
     await user.selectOptions(screen.getByLabelText("Version"), "8");

@@ -67,8 +67,11 @@ type AddonInfo struct {
 	HostPort    int      `json:"hostPort,omitempty"`
 	PublishPort bool     `json:"publishPort,omitempty"`
 	// URL is the web UI through the proxy ("" without one).
-	URL         string            `json:"url,omitempty"`
+	URL string `json:"url,omitempty"`
+	// InjectedEnv are the addon's variables the application gets; ShadowedEnv the ones
+	// it doesn't, because Envoryx, the project's own variables or another addon set them.
 	InjectedEnv []string          `json:"injectedEnv"`
+	ShadowedEnv []string          `json:"shadowedEnv,omitempty"`
 	Credentials []AddonCredential `json:"credentials"`
 	Volumes     []string          `json:"volumes"`
 	State       string            `json:"state"`
@@ -554,6 +557,18 @@ func (m *Manager) ProjectAddons(ctx context.Context, id string) ([]AddonInfo, er
 			installed[a.Name] = a.Error == ""
 		}
 	}
+	// The variables the application has without addons: an addon never overrides them
+	// (see addonEnv), so of its own only the others reach the application.
+	var taken map[string]bool
+	base := p
+	base.Services = slices.DeleteFunc(slices.Clone(p.Services), func(s store.ProjectService) bool { return s.Kind.IsAddon() })
+	if env, err := planner.envStrings(base); err == nil {
+		taken = map[string]bool{}
+		for _, kv := range env {
+			k, _, _ := strings.Cut(kv, "=")
+			taken[k] = true
+		}
+	}
 	out := []AddonInfo{}
 	for _, svc := range p.Addons() {
 		cfg, err := addonConfig(svc)
@@ -566,8 +581,21 @@ func (m *Manager) ProjectAddons(ctx context.Context, id string) ([]AddonInfo, er
 			Name: d.Name, Title: d.Title, Description: d.Description, Homepage: d.Homepage,
 			Version: svc.Version, Image: svc.Image, Host: d.HostnameOrName(), Port: d.Port,
 			HostPort: cfg.HostPort, PublishPort: d.PublishPort, State: "missing",
-			InjectedEnv: append([]string{}, slices.Sorted(maps.Keys(d.Inject))...), Credentials: []AddonCredential{}, Volumes: []string{},
+			InjectedEnv: []string{}, Credentials: []AddonCredential{}, Volumes: []string{},
 			Installed: installed[d.Name],
+		}
+		for _, k := range slices.Sorted(maps.Keys(d.Inject)) {
+			if taken[k] {
+				info.ShadowedEnv = append(info.ShadowedEnv, k)
+			} else {
+				info.InjectedEnv = append(info.InjectedEnv, k)
+			}
+		}
+		// Of two addons with the same variable the first one's wins, as in addonEnv.
+		if svc.Enabled && taken != nil {
+			for _, k := range info.InjectedEnv {
+				taken[k] = true
+			}
 		}
 		for _, v := range d.Versions {
 			info.Versions = append(info.Versions, v.Version)
