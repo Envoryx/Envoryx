@@ -178,6 +178,24 @@ func TestImportRestoresAnUploadedBackup(t *testing.T) {
 	}
 }
 
+func TestImportKeepsAnInstanceBackup(t *testing.T) {
+	archive := filepath.Join(t.TempDir(), "manual-20261011-120000-ab12.tar.gz")
+	_ = os.WriteFile(archive, []byte("tgz"), 0o644)
+	srv := newFakeServer(t, map[string]func(http.ResponseWriter, *http.Request){
+		"POST /api/v1/site-imports": func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusCreated)
+			writeJSON(w, map[string]any{"instanceBackup": map[string]any{"id": "upload-20261011-120001-cd34", "createdAt": "2026-10-11T12:00:00Z", "sizeBytes": 3}})
+		},
+	})
+	c, out, _ := newTestCLI(t, srv, "")
+	if err := c.run(context.Background(), []string{"import", archive}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "Recognised an instance backup") || !strings.Contains(out.String(), "upload-20261011-120001-cd34") {
+		t.Fatalf("output: %s", out.String())
+	}
+}
+
 func TestBackupRecoverRestoresFromAnOffsiteTarget(t *testing.T) {
 	const restoreURL = "/api/v1/backups/66666666-6666-4666-8666-666666666666/77777777-7777-4777-8777-777777777777/restore-new"
 	srv := newFakeServer(t, map[string]func(http.ResponseWriter, *http.Request){

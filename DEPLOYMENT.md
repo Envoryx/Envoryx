@@ -1146,7 +1146,8 @@ analysis, `GET`/`DELETE /site-imports/{id}`, and `POST /projects` with
 `"import": {"id": "…", "adaptConfig": true}` creates the project; both need an
 `admin` token. An Envoryx backup as `site` is answered with `{"backup": {…}}`
 instead (`projectId`, `backup.id`, `projectExists`), the IDs for
-`POST /backups/{project}/{backup}/restore-new`. From the command line:
+`POST /backups/{project}/{backup}/restore-new`. An instance backup is kept with
+the instance backups and answered with `{"instanceBackup": {…}}`. From the command line:
 
 ```sh
 envoryx import ./old-blog "Old Blog" --db old-blog.sql.gz --start
@@ -1679,6 +1680,9 @@ project is gone, with the backups of deleted projects) and offers to restore it
 into a new project. That is also how a project moves to another Envoryx with
 the same instance key. `envoryx import <backup>.tar` does the same from the
 command line.
+
+An instance backup uploaded there by mistake isn't taken for a website either:
+it lands with the instance backups (below), where it can be restored.
 
 ### Instance backups
 

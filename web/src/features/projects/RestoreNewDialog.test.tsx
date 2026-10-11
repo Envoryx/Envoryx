@@ -114,4 +114,21 @@ describe("ImportSiteCard", () => {
     expect(onUploaded).not.toHaveBeenCalled();
     upload.mockRestore();
   });
+
+  it("hands an uploaded instance backup to the instance backups", async () => {
+    mockApi({ ...authedRoutes });
+    const instanceBackup = { id: "upload-20261011-120000-ab12", kind: "upload", sizeBytes: 4096, createdAt: "2026-10-11T12:00:00Z", meta: {} };
+    const upload = vi.spyOn(client.siteImports, "upload").mockResolvedValue({ instanceBackup } as never);
+    const onUploaded = vi.fn();
+    renderApp(<ImportSiteCard value={null} onUploaded={onUploaded} onDiscard={() => {}} adaptConfig onAdaptConfig={() => {}} />);
+    const user = userEvent.setup();
+
+    await user.upload(await screen.findByLabelText("Website archive"), new File(["tgz"], "manual-20261011-120000-ab12.tar.gz"));
+    await user.click(screen.getByRole("button", { name: "Upload and analyse" }));
+
+    expect(await screen.findByText(/Recognised: an instance backup/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open the instance backups" })).toHaveAttribute("href", "/settings?tab=backups");
+    expect(onUploaded).not.toHaveBeenCalled();
+    upload.mockRestore();
+  });
 });

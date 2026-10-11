@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router-dom";
 import { ArchiveRestore, FileArchive, RotateCcw, Upload } from "lucide-react";
 import { api } from "@/api/client";
-import type { SiteImport, UploadedBackup } from "@/api/types";
+import type { InstanceBackup, SiteImport, UploadedBackup } from "@/api/types";
 import { Alert, Button, Checkbox, Code, Field, Input } from "@/components/ui";
 import { errorText } from "@/lib/errors";
 import { formatBytes, formatDateTime } from "@/lib/format";
 import { RestoreNewDialog } from "./RestoreNewDialog";
+import { settingsHref } from "@/features/settings/links";
 
 const runtimeNames: Record<string, string> = { php: "PHP", static: "Static site", node: "Node.js", python: "Python", go: "Go", ruby: "Ruby", java: "Java", dotnet: ".NET" };
 const databaseNames: Record<string, string> = { mariadb: "MariaDB", mysql: "MySQL", postgresql: "PostgreSQL" };
@@ -40,6 +42,7 @@ export function ImportSiteCard({
   const [error, setError] = useState<string | null>(null);
   const [backup, setBackup] = useState<UploadedBackup | null>(null);
   const [restoring, setRestoring] = useState(false);
+  const [instanceBackup, setInstanceBackup] = useState<InstanceBackup | null>(null);
   // Leaving the card (another source in the wizard) leaves no backup behind it.
   useEffect(() => () => onBackup?.(false), [onBackup]);
 
@@ -55,6 +58,9 @@ export function ImportSiteCard({
           setBackup(r.backup);
           onBackup?.(true);
           setRestoring(true);
+        } else if (r.instanceBackup) {
+          setInstanceBackup(r.instanceBackup);
+          onBackup?.(true);
         } else if (r.import) {
           onUploaded(r.import);
         }
@@ -64,6 +70,33 @@ export function ImportSiteCard({
         setError(errorText(err, t, t("Upload failed")));
       });
   };
+
+  if (instanceBackup) {
+    return (
+      <div className="space-y-4 rounded-md border border-default p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <ArchiveRestore className="mt-0.5 size-5 shrink-0 text-accent-600" />
+            <div>
+              <p className="text-sm font-medium text-fg">{t("Recognised: an instance backup from {{date}}", { date: formatDateTime(instanceBackup.createdAt) })}</p>
+              <p className="text-xs text-subtle">
+                {site?.name} · {formatBytes(instanceBackup.sizeBytes)}
+              </p>
+            </div>
+          </div>
+          <Button variant="ghost" onClick={() => { setInstanceBackup(null); setSite(null); onBackup?.(false); }} icon={<RotateCcw className="size-4" />}>
+            {t("Other files")}
+          </Button>
+        </div>
+        <p className="text-sm text-muted">
+          {t("This backup holds a whole Envoryx instance, not one project. It is listed under Settings → Backups → Instance backups now. Restoring it there replaces this instance's database and configuration.")}
+        </p>
+        <Link to={settingsHref("backups")} className="inline-flex text-sm font-medium text-accent-600 underline">
+          {t("Open the instance backups")}
+        </Link>
+      </div>
+    );
+  }
 
   if (backup) {
     const name = backup.projectName || backup.slug;

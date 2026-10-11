@@ -2849,5 +2849,8 @@
   "the admins of this instance don't allow support access": "Администраторы этого экземпляра не разрешают доступ поддержки",
   "the support login link is unknown, used or expired; open a new one from the fleet manager": "Ссылка для входа поддержки неизвестна, использована или истекла; откройте новую из fleet manager",
   "the hoster's support can't do this": "Поддержка хостера не может это сделать",
-  "from your hoster": "от вашего хостера"
+  "from your hoster": "от вашего хостера",
+  "Recognised: an instance backup from {{date}}": "Распознано: резервная копия экземпляра от {{date}}",
+  "This backup holds a whole Envoryx instance, not one project. It is listed under Settings → Backups → Instance backups now. Restoring it there replaces this instance's database and configuration.": "Эта резервная копия содержит целый экземпляр Envoryx, а не один проект. Теперь она в Настройки → Резервные копии → Резервные копии экземпляра. Восстановление там заменяет базу данных и конфигурацию этого экземпляра.",
+  "Open the instance backups": "Открыть копии экземпляра"
 }

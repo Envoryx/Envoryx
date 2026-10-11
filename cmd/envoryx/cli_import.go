@@ -150,9 +150,17 @@ func (c *cli) importSite(ctx context.Context, args []string) error {
 	} else {
 		fmt.Fprintf(c.errOut, "Uploading %s (%s)…\n", source, humanSize(info.Size()))
 	}
-	staged, backup, err := uploadSite(ctx, api, source, info.IsDir(), *dump)
+	staged, backup, inst, err := uploadSite(ctx, api, source, info.IsDir(), *dump)
 	if err != nil {
 		return err
+	}
+	if inst != nil {
+		if c.json {
+			return c.printJSON(map[string]any{"instanceBackup": inst})
+		}
+		c.printf("Recognised an instance backup from %s: a whole Envoryx, not one project.\n", inst.CreatedAt)
+		c.printf("It is kept as %s under Settings → Backups → Instance backups, where it can be restored.\n", inst.ID)
+		return nil
 	}
 	if backup != nil {
 		return c.restoreUploadedBackup(ctx, api, *backup, givenName, *path, *start, *dryRun)
@@ -352,8 +360,9 @@ func (c *cli) restoreUploadedBackup(ctx context.Context, api *client, b uploaded
 
 // uploadSite streams the site (a folder packed on the fly, or an archive as it is) and
 // the dump to the server as one multipart request; nothing is written to disk here. A
-// backup Envoryx made comes back as such instead of a staged site.
-func uploadSite(ctx context.Context, api *client, source string, isDir bool, dump string) (siteImport, *uploadedBackup, error) {
+// backup Envoryx made comes back as such instead of a staged site, a project's or the
+// whole instance's.
+func uploadSite(ctx context.Context, api *client, source string, isDir bool, dump string) (siteImport, *uploadedBackup, *uploadedInstanceBackup, error) {
 	pr, pw := io.Pipe()
 	mw := multipart.NewWriter(pw)
 	go func() {
@@ -388,12 +397,21 @@ func uploadSite(ctx context.Context, api *client, source string, isDir bool, dum
 		_ = pw.CloseWithError(err)
 	}()
 	var out struct {
-		Import siteImport      `json:"import"`
-		Backup *uploadedBackup `json:"backup"`
+		Import         siteImport              `json:"import"`
+		Backup         *uploadedBackup         `json:"backup"`
+		InstanceBackup *uploadedInstanceBackup `json:"instanceBackup"`
 	}
 	err := api.upload(ctx, "/api/v1/site-imports", mw.FormDataContentType(), pr, &out)
 	_ = pr.Close()
-	return out.Import, out.Backup, err
+	return out.Import, out.Backup, out.InstanceBackup, err
+}
+
+// uploadedInstanceBackup is an instance backup the server recognised in the upload and
+// keeps with the instance backups.
+type uploadedInstanceBackup struct {
+	ID        string `json:"id"`
+	CreatedAt string `json:"createdAt"`
+	SizeBytes int64  `json:"sizeBytes"`
 }
 
 func copyFile(name string, w io.Writer) error {
