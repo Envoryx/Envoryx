@@ -38,11 +38,58 @@ type Error struct {
 }
 
 func (e *Error) Error() string {
+	code, msg := e.Code(), ""
+	if code != "" {
+		var parsed struct {
+			Message string `xml:"Message"`
+		}
+		_ = xml.Unmarshal([]byte(e.Body), &parsed)
+		msg = strings.TrimSpace(parsed.Message)
+	}
+	if text, ok := errorTexts[code]; ok {
+		return fmt.Sprintf("s3: %s (HTTP %d %s)", text, e.Status, code)
+	}
+	if code != "" {
+		if len(msg) > 200 {
+			msg = msg[:200] + "..."
+		}
+		return strings.TrimSuffix(fmt.Sprintf("s3: HTTP %d %s: %s", e.Status, code, msg), ": ")
+	}
+	// A HEAD answer has no body to explain it, and some servers answer with HTML.
+	switch e.Status {
+	case http.StatusForbidden:
+		return "s3: access denied; check the access key, the secret key and the key's rights on the bucket (HTTP 403)"
+	case http.StatusNotFound:
+		return "s3: not found (HTTP 404)"
+	}
 	body := strings.TrimSpace(e.Body)
 	if len(body) > 200 {
-		body = body[:200] + "…"
+		body = body[:200] + "..."
 	}
-	return fmt.Sprintf("s3: HTTP %d: %s", e.Status, body)
+	return strings.TrimSuffix(fmt.Sprintf("s3: HTTP %d: %s", e.Status, body), ": ")
+}
+
+// Code is the S3 error code of the answer (NoSuchBucket, AccessDenied...), if it has one.
+func (e *Error) Code() string {
+	var parsed struct {
+		Code string `xml:"Code"`
+	}
+	if xml.Unmarshal([]byte(e.Body), &parsed) != nil {
+		return ""
+	}
+	return strings.TrimSpace(parsed.Code)
+}
+
+// errorTexts says what the common S3 error codes mean for the person setting up a
+// target; the raw XML answer cut off after 200 characters said it in AWS terms.
+var errorTexts = map[string]string{
+	"SignatureDoesNotMatch":        "the secret key is wrong",
+	"InvalidAccessKeyId":           "the access key is unknown to the server",
+	"AccessDenied":                 "access denied; the key lacks the rights for this bucket",
+	"NoSuchBucket":                 "the bucket does not exist",
+	"InvalidBucketName":            "the bucket name is not valid",
+	"AuthorizationHeaderMalformed": "the region does not match the server's",
+	"RequestTimeTooSkewed":         "the clocks of Envoryx and the server differ too much",
 }
 
 // Provisioner is what the project manager needs from object storage; the real client

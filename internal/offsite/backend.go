@@ -96,7 +96,8 @@ func (b *s3Backend) Put(ctx context.Context, key string, r io.Reader) (int64, er
 func (b *s3Backend) Get(ctx context.Context, key string) (io.ReadCloser, error) {
 	rc, _, err := b.c.GetObject(ctx, b.bucket, b.key(key))
 	var se *s3.Error
-	if errors.As(err, &se) && se.Status == http.StatusNotFound {
+	// A missing bucket is a broken target, not a missing copy.
+	if errors.As(err, &se) && se.Status == http.StatusNotFound && se.Code() != "NoSuchBucket" {
 		return nil, ErrObjectNotFound
 	}
 	return rc, err

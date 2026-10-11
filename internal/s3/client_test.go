@@ -105,3 +105,24 @@ func TestEnsureBucketAgainstFakeServer(t *testing.T) {
 		t.Fatalf("403 must surface immediately: %v", err)
 	}
 }
+
+func TestErrorNamesTheCause(t *testing.T) {
+	cases := []struct {
+		err  Error
+		want string
+	}{
+		{Error{403, `<?xml version="1.0" encoding="UTF-8"?><Error><Code>SignatureDoesNotMatch</Code><Message>The request signature we calculated does not match the signature you provided. Check your AWS secret access key and signing method.</Message></Error>`},
+			"s3: the secret key is wrong (HTTP 403 SignatureDoesNotMatch)"},
+		{Error{404, `<Error><Code>NoSuchBucket</Code><Message>The specified bucket does not exist</Message><BucketName>b</BucketName></Error>`},
+			"s3: the bucket does not exist (HTTP 404 NoSuchBucket)"},
+		{Error{400, `<Error><Code>SlowDown</Code><Message>Please reduce your request rate.</Message></Error>`},
+			"s3: HTTP 400 SlowDown: Please reduce your request rate."},
+		{Error{403, ""}, "s3: access denied; check the access key, the secret key and the key's rights on the bucket (HTTP 403)"},
+		{Error{502, "bad gateway"}, "s3: HTTP 502: bad gateway"},
+	}
+	for _, c := range cases {
+		if got := c.err.Error(); got != c.want {
+			t.Errorf("got %q, want %q", got, c.want)
+		}
+	}
+}
