@@ -233,11 +233,12 @@ func (c *cli) projectDelete(ctx context.Context, args []string) error {
 		return err
 	}
 	if !*yes {
-		what := "its containers, database and backups"
+		// Backups stay: they are listed as backups of a deleted project and can be restored.
+		what := "its containers and database"
 		if *files {
-			what = "its containers, database, backups and the files in " + p.Path
+			what = "its containers, database and the files in " + p.Path
 		}
-		return fmt.Errorf("deleting %s removes %s; confirm with --yes", p.Slug, what)
+		return usagef("deleting %s removes %s (its backups are kept); confirm with --yes", p.Slug, what)
 	}
 	api, err := c.connect()
 	if err != nil {
@@ -405,7 +406,7 @@ func (c *cli) projectRename(ctx context.Context, args []string) error {
 		if *keepData {
 			what = "its containers, network, volumes, directory and backups"
 		}
-		return fmt.Errorf("renaming %s moves %s and recreates the containers; confirm with --yes", p.Slug, what)
+		return usagef("renaming %s moves %s and recreates the containers; confirm with --yes", p.Slug, what)
 	}
 	api, err := c.connect()
 	if err != nil {

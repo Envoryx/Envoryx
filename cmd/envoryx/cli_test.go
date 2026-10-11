@@ -211,7 +211,7 @@ func TestProjectDeleteNeedsConfirmation(t *testing.T) {
 		},
 	})
 	c, _, _ := newTestCLI(t, srv, "")
-	if err := c.run(context.Background(), []string{"project", "delete", "acme-shop"}); err == nil || !strings.Contains(err.Error(), "--yes") {
+	if err := c.run(context.Background(), []string{"project", "delete", "acme-shop"}); !errors.Is(err, errCLIUsage) || !strings.Contains(err.Error(), "--yes") || !strings.Contains(err.Error(), "backups are kept") {
 		t.Fatalf("delete without --yes: %v", err)
 	}
 	if deleted {
@@ -407,7 +407,7 @@ func TestDatabaseSnapshotsAndClone(t *testing.T) {
 	}
 
 	c, _, _ = newTestCLI(t, srv, "")
-	if err := c.run(context.Background(), []string{"db", "restore", "acme-shop", "44444444-4444-4444-8444-444444444444"}); err == nil || !strings.Contains(err.Error(), "--yes") {
+	if err := c.run(context.Background(), []string{"db", "restore", "acme-shop", "44444444-4444-4444-8444-444444444444"}); !errors.Is(err, errCLIUsage) || !strings.Contains(err.Error(), "--yes") {
 		t.Fatalf("restore without --yes: %v", err)
 	}
 	if restored {
