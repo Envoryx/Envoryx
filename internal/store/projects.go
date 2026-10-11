@@ -320,6 +320,15 @@ func (r *Projects) UpdateState(ctx context.Context, id string, desired DesiredSt
 	return nil
 }
 
+// ClearError removes the project's last error if it is still the given one; an error a
+// newer operation stored meanwhile stays.
+func (r *Projects) ClearError(ctx context.Context, id, lastError string) error {
+	if _, err := r.db.ExecContext(ctx, `UPDATE projects SET last_error = '' WHERE id = ? AND last_error = ?`, id, lastError); err != nil {
+		return fmt.Errorf("clear project error: %w", err)
+	}
+	return nil
+}
+
 // UpdateSettings changes user-editable project fields (name, docroot).
 func (r *Projects) UpdateSettings(ctx context.Context, id, name, docroot string) error {
 	res, err := r.db.ExecContext(ctx,
