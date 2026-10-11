@@ -2640,6 +2640,11 @@ ENVORYX_FLEET_TOKEN=…
 enrolls with a key of its own on its first start (kept in
 `/config/fleet.json`, never in instance backups) and keeps a connection to
 the manager open from then on; the token is used up and can stay set or go.
+A token the instance hasn't used yet enrolls it again on the next start, also
+with `/config/fleet.json` in place: that is how an instance the manager
+removed joins again, or one whose key the manager lost (*New enrollment
+token* on its page). A token the manager refuses is noted and the instance
+stays as it is.
 The instance dials out, so it needs no open port. Over the connection the
 manager sends the plan, which the instance writes to `/config/plan.json` and
 takes over at once, and the instance reports its version, projects, users and

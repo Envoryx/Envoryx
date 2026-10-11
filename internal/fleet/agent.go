@@ -5,6 +5,8 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -43,6 +45,16 @@ type state struct {
 	Name string `json:"name,omitempty"`
 	// Key is the Ed25519 seed of the instance's key.
 	Key []byte `json:"key"`
+	// TokenHash is the hash of the last enrollment token the instance used or tried: a
+	// token in ENVORYX_FLEET_TOKEN with another hash is new and enrolls the instance
+	// again (after it was removed, or with a new key), one with this hash is left alone.
+	TokenHash string `json:"tokenHash,omitempty"`
+}
+
+// tokenHash is the hash of an enrollment token as the state keeps it.
+func tokenHash(token string) string {
+	sum := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(sum[:])
 }
 
 // Config wires an Agent.
@@ -191,7 +203,7 @@ func (a *Agent) setErr(err error) {
 }
 
 // errRevoked ends Run: the manager removed the instance.
-var errRevoked = errors.New("the fleet manager removed this instance; it keeps its last plan")
+var errRevoked = errors.New("the fleet manager removed this instance; it keeps its last plan. To join again, set a new enrollment token in ENVORYX_FLEET_TOKEN and restart Envoryx")
 
 // Run enrolls the instance when needed and keeps it connected until ctx ends or the
 // manager removes it.
@@ -228,13 +240,37 @@ func (a *Agent) runOnce(ctx context.Context) error {
 }
 
 // ensureEnrolled returns the instance's state, enrolling with the token first when the
-// instance has none or ENVORYX_FLEET_URL points at another manager.
+// instance has none, ENVORYX_FLEET_URL points at another manager or ENVORYX_FLEET_TOKEN
+// holds a token the instance hasn't tried yet.
 func (a *Agent) ensureEnrolled(ctx context.Context) (*state, error) {
 	a.mu.Lock()
 	st := a.st
 	a.mu.Unlock()
-	if st != nil && (a.cfg.URL == "" || sameManager(st.URL, a.cfg.URL)) {
+	same := st != nil && (a.cfg.URL == "" || sameManager(st.URL, a.cfg.URL))
+	newToken := a.cfg.URL != "" && a.cfg.Token != "" && (st == nil || st.TokenHash != tokenHash(a.cfg.Token))
+	if same && !newToken {
 		return st, nil
+	}
+	if same {
+		// An enrolled instance with a new token: it joins again (removed by the manager,
+		// or with a new key). A token the manager refuses, such as the one the instance
+		// enrolled with that stayed set, is noted and the instance stays as it is.
+		next, err := a.enroll(ctx)
+		var refused *enrollRefused
+		switch {
+		case errors.As(err, &refused):
+			a.cfg.Log.Info("fleet: ENVORYX_FLEET_TOKEN not used, the instance stays enrolled", "id", st.ID, "reason", refused.msg)
+			kept := *st
+			kept.TokenHash = tokenHash(a.cfg.Token)
+			if err := a.saveState(&kept); err != nil {
+				return nil, err
+			}
+			return &kept, nil
+		case err != nil:
+			// The manager is out of reach: the next attempt tries the token again.
+			return nil, err
+		}
+		return next, nil
 	}
 	if a.cfg.Token == "" {
 		if st != nil {
@@ -243,6 +279,22 @@ func (a *Agent) ensureEnrolled(ctx context.Context) (*state, error) {
 		}
 		return nil, errors.New("set ENVORYX_FLEET_TOKEN to the enrollment token from the fleet manager")
 	}
+	return a.enroll(ctx)
+}
+
+// enrollRefused is the manager's no to an enrollment token.
+type enrollRefused struct {
+	status int
+	msg    string
+}
+
+func (e *enrollRefused) Error() string {
+	return fmt.Sprintf("the fleet manager refused the enrollment (HTTP %d): %s", e.status, e.msg)
+}
+
+// enroll trades ENVORYX_FLEET_TOKEN for the manager's trust in a new key and saves the
+// state.
+func (a *Agent) enroll(ctx context.Context) (*state, error) {
 	pub, priv, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		return nil, err
@@ -265,22 +317,33 @@ func (a *Agent) ensureEnrolled(ctx context.Context) (*state, error) {
 	defer res.Body.Close()
 	raw, _ := io.ReadAll(io.LimitReader(res.Body, 64<<10))
 	if res.StatusCode != http.StatusOK {
+		if res.StatusCode >= 400 && res.StatusCode < 500 {
+			return nil, &enrollRefused{status: res.StatusCode, msg: apiMessage(raw)}
+		}
 		return nil, fmt.Errorf("the fleet manager refused the enrollment (HTTP %d): %s", res.StatusCode, apiMessage(raw))
 	}
 	var out enrollResponse
 	if err := json.Unmarshal(raw, &out); err != nil || out.ID == "" {
 		return nil, errors.New("the fleet manager's answer to the enrollment is unreadable")
 	}
-	st = &state{URL: strings.TrimRight(a.cfg.URL, "/"), ID: out.ID, Name: out.Name, Key: priv.Seed()}
+	st := &state{URL: strings.TrimRight(a.cfg.URL, "/"), ID: out.ID, Name: out.Name, Key: priv.Seed(), TokenHash: tokenHash(a.cfg.Token)}
+	if err := a.saveState(st); err != nil {
+		return nil, err
+	}
+	a.cfg.Log.Info("fleet: enrolled", "url", st.URL, "id", st.ID, "name", st.Name)
+	return st, nil
+}
+
+// saveState writes the state file and makes st the agent's state.
+func (a *Agent) saveState(st *state) error {
 	b, _ := json.MarshalIndent(st, "", "  ")
 	if err := writeFileAtomic(filepath.Join(a.cfg.ConfigDir, StateFile), b); err != nil {
-		return nil, fmt.Errorf("saving the fleet enrollment: %w", err)
+		return fmt.Errorf("saving the fleet enrollment: %w", err)
 	}
 	a.mu.Lock()
 	a.st = st
 	a.mu.Unlock()
-	a.cfg.Log.Info("fleet: enrolled", "url", st.URL, "id", st.ID, "name", st.Name)
-	return st, nil
+	return nil
 }
 
 func sameManager(a, b string) bool { return strings.TrimRight(a, "/") == strings.TrimRight(b, "/") }

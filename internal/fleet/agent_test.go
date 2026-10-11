@@ -37,6 +37,7 @@ type fakeManager struct {
 	statuses   []Status
 	revoked    bool
 	conns      int
+	enrolls    int
 	conn       *websocket.Conn
 }
 
@@ -56,6 +57,9 @@ func (f *fakeManager) handler() http.Handler {
 	mux.HandleFunc("POST "+enrollPath, func(w http.ResponseWriter, r *http.Request) {
 		var req enrollRequest
 		_ = json.NewDecoder(r.Body).Decode(&req)
+		f.mu.Lock()
+		f.enrolls++
+		f.mu.Unlock()
 		if req.Token != f.token {
 			w.WriteHeader(http.StatusUnauthorized)
 			_, _ = io.WriteString(w, `{"error":{"code":"invalid_token","message":"the token is unknown or used"}}`)
@@ -244,6 +248,69 @@ func TestAgentRefusesABrokenPlanAndStopsWhenRemoved(t *testing.T) {
 	}
 	if in := a.Info(); in.Error == "" {
 		t.Error("no error after removal")
+	}
+
+	// Added again with a new token: the instance enrolls again although its state file
+	// names the same manager.
+	f.mu.Lock()
+	f.token, f.revoked, f.enrolls = "tok2", false, 0
+	f.mu.Unlock()
+	run := func(token string) (*Agent, func()) {
+		a, err := New(Config{URL: srv.URL, Token: token, ConfigDir: dir, Plan: holder, Log: log})
+		if err != nil {
+			t.Fatal(err)
+		}
+		ctx, cancel := context.WithCancel(context.Background())
+		done := make(chan struct{})
+		go func() { a.Run(ctx); close(done) }()
+		return a, func() { cancel(); <-done }
+	}
+	a, stop := run("tok2")
+	waitFor(t, "connected after the new token", func() bool { return a.Info().Connected })
+	stop()
+	// The used token that stays set enrolls nothing on the next start.
+	a, stop = run("tok2")
+	waitFor(t, "connected with the used token", func() bool { return a.Info().Connected })
+	stop()
+	f.mu.Lock()
+	enrolls := f.enrolls
+	f.mu.Unlock()
+	if enrolls != 1 {
+		t.Errorf("%d enrollments, want 1", enrolls)
+	}
+}
+
+// A state file from before the token hash, with the used token still set: the one try
+// the manager refuses is noted, and the instance stays enrolled.
+func TestAgentKeepsItsEnrollmentWhenTheTokenIsRefused(t *testing.T) {
+	f := &fakeManager{t: t, token: "tok", plan: `{"name":"Starter"}`}
+	srv := httptest.NewServer(f.handler())
+	defer srv.Close()
+	dir := t.TempDir()
+	holder, err := plan.Open(filepath.Join(dir, plan.File), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	pub, priv, _ := ed25519.GenerateKey(nil)
+	f.key, f.token = pub, ""
+	b, _ := json.Marshal(state{URL: srv.URL, ID: "inst-1", Key: priv.Seed()})
+	if err := os.WriteFile(filepath.Join(dir, StateFile), b, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for range 2 {
+		a, _ := New(Config{URL: srv.URL, Token: "tok", ConfigDir: dir, Plan: holder, Log: log})
+		ctx, cancel := context.WithCancel(context.Background())
+		done := make(chan struct{})
+		go func() { a.Run(ctx); close(done) }()
+		waitFor(t, "connected with the old key", func() bool { return a.Info().Connected })
+		cancel()
+		<-done
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.enrolls != 1 {
+		t.Errorf("%d enrollments, want 1", f.enrolls)
 	}
 }
 
