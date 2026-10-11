@@ -57,6 +57,7 @@ import (
 	"github.com/envoryx/envoryx/internal/proxy"
 	"github.com/envoryx/envoryx/internal/runtime"
 	"github.com/envoryx/envoryx/internal/secrets"
+	"github.com/envoryx/envoryx/internal/selfupdate"
 	"github.com/envoryx/envoryx/internal/server"
 	"github.com/envoryx/envoryx/internal/sshd"
 	"github.com/envoryx/envoryx/internal/stats"
@@ -99,6 +100,8 @@ func main() {
 		}
 	case "healthcheck":
 		os.Exit(healthcheck())
+	case "self-update":
+		os.Exit(selfUpdateHelper(os.Args[2:]))
 	case "admin":
 		os.Exit(adminCommand(os.Args[2:]))
 	case "version":
@@ -147,6 +150,9 @@ func serve() error {
 	ctx, shutdown := context.WithCancel(ctx)
 	defer shutdown()
 	var restart atomic.Bool
+	// updating is set once a self-update hands over to its helper: the stop that follows
+	// is a restart under a new version, not a shutdown the projects follow.
+	var updating atomic.Bool
 	requestRestart := func() {
 		if restart.CompareAndSwap(false, true) {
 			log.Info("restart requested")
@@ -499,6 +505,8 @@ func serve() error {
 	// A hoster's fleet manager pushes the plan and gets the instance's state back; with
 	// the admins' consent its support signs in through a one-time link.
 	remote := &remoteBackups{backups: backups, db: sqlDB, st: st, syncer: syncer, log: log}
+	updater := &selfupdate.Updater{Engine: engine, SelfID: resolver.SelfContainerID, ConfigDir: cfg.ConfigDir, Version: version, Log: log,
+		BeforeStop: func() { updating.Store(true) }}
 	fleetAgent, err := fleet.New(fleet.Config{URL: cfg.FleetURL, Token: cfg.FleetToken, ConfigDir: cfg.ConfigDir, Plan: plans, Log: log,
 		Status: func(ctx context.Context) fleet.Status {
 			s := fleetStatus(ctx, st, manager, version, instanceID)
@@ -507,6 +515,8 @@ func serve() error {
 				s.Warnings = append(s.Warnings, *msg)
 			}
 			s.Backups = remote.Status(ctx)
+			us := updater.Status(ctx)
+			s.Update = &us
 			if acc, err := sessions.SupportAccess(ctx); err == nil && acc.Allowed {
 				s.Support = &fleet.SupportAccess{Until: acc.Until}
 			}
@@ -519,7 +529,8 @@ func serve() error {
 			}
 			return uiURL(ctx) + "/api/v1/auth/support/" + token, nil
 		},
-		Backup: remote.Start})
+		Backup: remote.Start,
+		Update: updater.Start})
 	if err != nil {
 		return fmt.Errorf("fleet: %w", err)
 	}
@@ -527,6 +538,29 @@ func serve() error {
 	if fleetAgent != nil {
 		background("fleet", fleetAgent.Run)
 	}
+	// How a self-update went goes into the audit log of the version that runs afterwards.
+	// The helper finishes only once this process is healthy, so it is looked for a while.
+	background("update result", func(ctx context.Context) {
+		for range 60 {
+			if r, err := selfupdate.TakeUnreported(cfg.ConfigDir); err != nil {
+				log.Warn("update: reading the last result", "err", err)
+				return
+			} else if r != nil {
+				action := audit.ActionInstanceUpdated
+				if !r.OK {
+					action = audit.ActionInstanceUpdateFailed
+				}
+				auditLog.Log(ctx, action, "instance", "", map[string]any{"from": r.From, "to": r.To, "error": r.Error, "rolledBack": r.RolledBack})
+				fleetAgent.Nudge()
+				return
+			}
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(15 * time.Second):
+			}
+		}
+	})
 	a := api.New(api.Deps{
 		Config: cfg, Version: version, Store: st, Auth: sessions, Audit: auditLog, Engine: engine,
 		Projects: manager, Catalog: catalog, Stats: collector, HostPath: resolver, Certs: certs, ACME: acmeMgr, Notify: notifier, Proxy: proxyInfo,
@@ -585,7 +619,7 @@ func serve() error {
 		}
 		stopCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 		defer cancel()
-		if !restart.Load() && manager.ProjectsFollowEnvoryx(stopCtx) {
+		if !restart.Load() && !updating.Load() && manager.ProjectsFollowEnvoryx(stopCtx) {
 			begin := time.Now()
 			log.Info("stopping project containers with Envoryx")
 			manager.StopAllForShutdown(stopCtx)
