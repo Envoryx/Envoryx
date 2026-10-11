@@ -10,6 +10,16 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.29.1] - 2026-10-11
+
+The new logo: Envoryx's mark is now ASCII art, the same as in the Foundry
+film, in two colours that follow the accent colour.
+
+### Changed
+- The logo on the sign-in, invitation and suspension pages, in the sidebar,
+  the favicon and the home screen icon is now ASCII art in the accent colour
+  and white.
+
 ## [0.29.0] - 2026-10-11
 
 A small one: the site import recognises an instance backup, Python 3.10 is
@@ -2055,7 +2065,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.29.0...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.29.1...HEAD
+[0.29.1]: https://github.com/envoryx/envoryx/compare/v0.29.0...v0.29.1
 [0.29.0]: https://github.com/envoryx/envoryx/compare/v0.28.0...v0.29.0
 [0.28.0]: https://github.com/envoryx/envoryx/compare/v0.27.1...v0.28.0
 [0.27.1]: https://github.com/envoryx/envoryx/compare/v0.27.0...v0.27.1
