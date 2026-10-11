@@ -179,3 +179,18 @@ func TestInstallScriptsAreValidShell(t *testing.T) {
 		}
 	}
 }
+
+// typo3 setup is destructive like drush site:install: TYPO3 refuses a database with
+// tables, so the action empties it first, and flushes the caches of an earlier install
+// after. The PHP that empties it sits in single quotes for sh.
+func TestTypo3SetupStartsOver(t *testing.T) {
+	if strings.Contains(emptyDatabasePHP, "'") {
+		t.Fatal("the PHP code must not contain a single quote")
+	}
+	empty := strings.Index(typo3SetupScript, emptyDatabasePHP)
+	setup := strings.Index(typo3SetupScript, "vendor/bin/typo3 setup")
+	flush := strings.Index(typo3SetupScript, "vendor/bin/typo3 cache:flush")
+	if empty < 0 || setup < empty || flush < setup {
+		t.Fatalf("empty %d, setup %d, flush %d:\n%s", empty, setup, flush, typo3SetupScript)
+	}
+}

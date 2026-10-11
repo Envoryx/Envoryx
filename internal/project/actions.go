@@ -63,7 +63,7 @@ var actionCatalog = []Action{
 	{ID: "shopware:build-administration", Group: "Shopware", Label: "build-administration.sh", Description: "Build the administration (npm install and build of the admin and its plugins); after installing or changing an admin plugin", Service: store.ServicePHP, Cmd: []string{"bin/build-administration.sh"}, Requires: []string{"bin/build-administration.sh"}},
 	{ID: "shopware:build-storefront", Group: "Shopware", Label: "build-storefront.sh", Description: "Build the storefront JavaScript and compile the themes; after installing or changing a storefront plugin or theme", Service: store.ServicePHP, Cmd: []string{"bin/build-storefront.sh"}, Requires: []string{"bin/build-storefront.sh"}},
 
-	{ID: "typo3:setup", Group: "TYPO3", Label: "typo3 setup", Description: "Set TYPO3 up in the project database with a site for the project URL; prints the admin password", Service: store.ServicePHP, Cmd: []string{"sh", "-c", typo3SetupScript, "envoryx-typo3"}, Requires: []string{"vendor/bin/typo3"}, Destructive: true},
+	{ID: "typo3:setup", Group: "TYPO3", Label: "typo3 setup", Description: "Empty the project database and set TYPO3 up in it with a site for the project URL; prints the admin password", Service: store.ServicePHP, Cmd: []string{"sh", "-c", typo3SetupScript, "envoryx-typo3"}, Requires: []string{"vendor/bin/typo3"}, Destructive: true},
 	{ID: "craft:install", Group: "Craft CMS", Label: "craft install", Description: "Install Craft into the project database with a site for the project URL; prints the admin password", Service: store.ServicePHP, Cmd: []string{"sh", "-c", craftInstallScript, "envoryx-craft"}, Requires: []string{"craft", "vendor/craftcms/cms"}, Destructive: true},
 
 	{ID: "php:version", Group: "PHP", Label: "php -v", Description: "Show the PHP version and loaded extensions", Service: store.ServicePHP, Cmd: []string{"php", "-v"}},
@@ -170,12 +170,38 @@ const (
 
 	drushInstallScript = `DRUSH_OPTIONS_URI="$ENVORYX_URL" exec vendor/bin/drush site:install standard --yes --site-name="$ENVORYX_PROJECT"`
 
+	// TYPO3's setup refuses a database that has tables, and a site configuration cached
+	// from an earlier install hides the new one; like drush site:install, the action
+	// starts over: it empties the database first and flushes the caches after.
 	typo3SetupScript = adminPassword + `
 driver=mysqli; [ "$DB_CONNECTION" = pgsql ] && driver=postgres
+php -r '` + emptyDatabasePHP + `' || exit
+rm -rf var/cache
 vendor/bin/typo3 setup --force --no-interaction --driver="$driver" --host="$DB_HOST" --port="$DB_PORT" --dbname="$DB_DATABASE" \
   --username="$DB_USERNAME" --password="$DB_PASSWORD" --admin-username=admin --admin-user-password="$pw" \
   --admin-email=admin@example.com --project-name="$ENVORYX_PROJECT" --server-type=other --create-site="$ENVORYX_URL" || exit
+vendor/bin/typo3 cache:flush || exit
 printf '\nBackend: %s/typo3  User: admin  Password: %s\n' "$ENVORYX_URL" "$pw"`
+
+	// emptyDatabasePHP drops every table and view of the project database, for the
+	// typo3 setup action. PHP code in single quotes for sh: no single quote in it, and the
+	// MySQL identifier quote is chr(96) because a Go raw string can't hold a backtick.
+	// mysqli and pdo_pgsql are the extensions TYPO3 itself connects with.
+	emptyDatabasePHP = `$n = 0;
+if (getenv("DB_CONNECTION") === "pgsql") {
+  $c = new PDO("pgsql:host=" . getenv("DB_HOST") . ";port=" . getenv("DB_PORT") . ";dbname=" . getenv("DB_DATABASE"), getenv("DB_USERNAME"), getenv("DB_PASSWORD"), [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+  foreach ($c->query("SELECT table_name, table_type FROM information_schema.tables WHERE table_schema = current_schema()")->fetchAll(PDO::FETCH_NUM) as [$t, $k]) {
+    $c->exec(($k === "VIEW" ? "DROP VIEW IF EXISTS " : "DROP TABLE IF EXISTS ") . "\"" . str_replace("\"", "\"\"", $t) . "\" CASCADE"); $n++;
+  }
+} else {
+  mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
+  $c = new mysqli(getenv("DB_HOST"), getenv("DB_USERNAME"), getenv("DB_PASSWORD"), getenv("DB_DATABASE"), (int) getenv("DB_PORT"));
+  $c->query("SET FOREIGN_KEY_CHECKS = 0"); $q = chr(96);
+  foreach ($c->query("SHOW FULL TABLES")->fetch_all() as [$t, $k]) {
+    $c->query(($k === "VIEW" ? "DROP VIEW IF EXISTS " : "DROP TABLE IF EXISTS ") . $q . str_replace($q, $q . $q, $t) . $q); $n++;
+  }
+}
+if ($n > 0) { echo "Emptied the database: dropped $n tables.\n"; }`
 
 	craftInstallScript = adminPassword + `
 php craft install --interactive=0 --username=admin --email=admin@example.com --password="$pw" \
