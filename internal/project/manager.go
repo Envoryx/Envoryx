@@ -677,7 +677,7 @@ func (m *Manager) buildProject(req CreateRequest) (store.Project, error) {
 	}
 	proj.Env = env
 	sort.SliceStable(proj.Services, func(i, j int) bool { return proj.Services[i].Position < proj.Services[j].Position })
-	if err := enableDriverExtensions(&proj); err != nil {
+	if err := enableDriverExtensions(&proj, true); err != nil {
 		return store.Project{}, err
 	}
 	return proj, nil

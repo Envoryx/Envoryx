@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"encoding/xml"
 	"fmt"
 	"io/fs"
 	"os"
@@ -131,13 +132,14 @@ func detectTestSuites(dir string, p store.Project) []TestSuite {
 			}
 			wrap = []string{"sh", "-c", phpTestScript, "envoryx-phpunit", keepURL}
 		}
+		testEnv := phpunitEnv(read("phpunit.xml"), read("phpunit.xml.dist"))
 		phpunitReport := func(bin ...string) func(string, string) ([]string, []string) {
 			return func(filter, report string) ([]string, []string) {
 				argv := append(append(append([]string{}, wrap...), bin...), "--colors=always", "--log-junit", report)
 				if filter != "" {
 					argv = append(argv, "--filter", filter)
 				}
-				return argv, nil
+				return argv, testEnv
 			}
 		}
 		switch {
@@ -459,6 +461,54 @@ const testURLShell = `envoryx_test_url() {
     *) printf '%s_test' "$1" ;;
   esac
 }`
+
+// phpunitEnv returns the <env> entries of the project's PHPUnit configuration (phpunit.xml
+// wins over phpunit.xml.dist, as with PHPUnit) as variables for the run. PHPUnit only sets
+// those the environment doesn't have yet, and every container variable - the project's
+// own, like QUEUE_CONNECTION=redis, and what Envoryx injects, like MAIL_MAILER - is
+// already there. Without this the tests dispatched onto the development queue and mailed
+// into the development inbox; with it they run as on a laptop, where .env sets nothing
+// in the environment. The database variables phpTestScript adjusts come after.
+func phpunitEnv(configs ...[]byte) []string {
+	for _, b := range configs {
+		if len(b) == 0 {
+			continue
+		}
+		var cfg struct {
+			Env []struct {
+				Name  string `xml:"name,attr"`
+				Value string `xml:"value,attr"`
+			} `xml:"php>env"`
+		}
+		if xml.Unmarshal(b, &cfg) != nil {
+			return nil
+		}
+		vars := map[string]string{}
+		var names []string
+		for _, e := range cfg.Env {
+			if envNameRe.MatchString(e.Name) {
+				vars[e.Name] = e.Value
+				names = append(names, e.Name)
+			}
+		}
+		var env []string
+		for _, name := range names {
+			// The test database stays Envoryx's <database>_test unless the tests use
+			// SQLite instead.
+			switch name {
+			case "DB_DATABASE", "DB_URL", "DATABASE_URL":
+				if vars["DB_CONNECTION"] != "sqlite" {
+					continue
+				}
+			}
+			env = append(env, name+"="+vars[name])
+		}
+		return env
+	}
+	return nil
+}
+
+var envNameRe = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 
 // phpTestScript points the run at <database>_test before PHPUnit or Pest start: $1 is 1
 // when Doctrine adds the _test suffix to DATABASE_URL itself, the rest is the runner's
