@@ -127,16 +127,23 @@ func failedCase(tc, f junitNode, root string) TestCase {
 			}
 		}
 	}
+	// Pest glues the test's name in front of the message ("failingFailed asserting…").
+	if name := tc.attr("name"); name != "" && strings.HasPrefix(msg, name) && len(msg) > len(name) {
+		msg = strings.TrimSpace(msg[len(name):])
+	}
 	if len(details) > maxDetails {
 		details = details[:maxDetails] + "\n…"
 	}
 	if details == msg {
 		details = ""
 	}
-	file := tc.attr("file")
+	// Pest's file attribute is "path::test name".
+	file, _, _ := strings.Cut(tc.attr("file"), "::")
 	line, _ := strconv.Atoi(tc.attr("line"))
-	if file == "" {
-		file, line = locationIn(details)
+	if file == "" || line == 0 {
+		if f, l := locationIn(details); f != "" && (file == "" || strings.HasSuffix(f, file) || strings.HasSuffix(file, f)) {
+			file, line = f, l
+		}
 	}
 	return TestCase{
 		Name: tc.attr("name"), Class: class, File: relativeTo(file, root), Line: line,
@@ -146,7 +153,8 @@ func failedCase(tc, f junitNode, root string) TestCase {
 
 // locationIn finds the test's file and line in a failure text, for reports that carry
 // neither as attributes: pytest ends its traceback with "path.py:LINE: SomeError",
-// Playwright's stack names the spec as "at e2e/x.spec.ts:10:53".
+// Playwright's stack names the spec as "at e2e/x.spec.ts:10:53", Pest the test as
+// "at tests/Feature/X.php:14".
 func locationIn(details string) (string, int) {
 	if m := pytestLocation.FindAllStringSubmatch(details, -1); m != nil {
 		last := m[len(m)-1]
@@ -159,11 +167,18 @@ func locationIn(details string) (string, int) {
 			return m[1], line
 		}
 	}
+	for _, m := range phpLocation.FindAllStringSubmatch(details, -1) {
+		if !strings.HasPrefix(m[1], "vendor/") {
+			line, _ := strconv.Atoi(m[2])
+			return m[1], line
+		}
+	}
 	return "", 0
 }
 
 var (
 	pytestLocation = regexp.MustCompile(`(?m)^([^\s:]+\.py):(\d+): \w`)
+	phpLocation    = regexp.MustCompile(`(?m)^\s*at ([^\s:]+\.php):(\d+)\s*$`)
 	stackLocation  = regexp.MustCompile(`(?m)^\s*at (?:.*\()?([^\s():]+\.[cm]?[jt]sx?):(\d+):\d+\)?\s*$`)
 )
 

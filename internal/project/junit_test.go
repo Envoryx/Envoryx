@@ -100,3 +100,20 @@ func TestParseJUnitCapsFailures(t *testing.T) {
 		t.Fatal("garbage must be an error")
 	}
 }
+
+// Pest (captured from Pest 4): the name glued in front of the message, "path::name" as
+// the file, the line only in the text.
+func TestParseJUnitPest(t *testing.T) {
+	report := `<?xml version="1.0" encoding="UTF-8"?>
+<testsuites><testsuite name="/var/www/html/phpunit.xml" tests="1" failures="1">
+<testcase name="deliberately failing" file="tests/Feature/PingTest.php::deliberately failing" class="Tests\Feature\PingTest" classname="Tests.Feature.PingTest" assertions="1" time="0.06">
+<failure type="PHPUnit\Framework\ExpectationFailedException">deliberately failingFailed asserting that 2 is identical to 3.
+at tests/Feature/PingTest.php:14</failure></testcase></testsuite></testsuites>`
+	res, err := parseJUnit(strings.NewReader(report), "/var/www/html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f := res.Failed[0]; f.Message != "Failed asserting that 2 is identical to 3." || f.File != "tests/Feature/PingTest.php" || f.Line != 14 {
+		t.Fatalf("failure: %+v", f)
+	}
+}
