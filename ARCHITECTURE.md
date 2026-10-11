@@ -1621,7 +1621,10 @@ TLS (`internal/tlsca`): an ECDSA P-256 CA under `/config/ca` (`ca.key`
 0600), leaf certificates issued lazily per SNI name and cached on disk
 (`certs/<host>.pem`, 397 days), `GetCertificate` restricted to names in the
 routing table. An operator-supplied certificate (`custom.crt/key`) wins for
-the names it covers. `force_https` (settings) redirects HTTP → HTTPS except
+the names it covers. `WriteTrust` writes `/config/ca-trust` at start (the CA
+and the Envoryx image's system bundle plus the CA); the planner mounts it into
+the runtime and worker containers with `SSL_CERT_FILE` and friends and names
+it in the PHP ini (`internal/project/catrust.go`). `force_https` (settings) redirects HTTP → HTTPS except
 for bare IPs. `internal/acme` optionally obtains a public wildcard
 certificate through Let's Encrypt (dns-01 via a `DNSProvider` interface for
 Cloudflare, Hetzner Cloud API, netcup CCP, Route 53, DigitalOcean and Porkbun,

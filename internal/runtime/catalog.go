@@ -607,6 +607,9 @@ type INIOptions struct {
 	// image default, a sendmail that does not exist, so mail() returns false instead of
 	// pretending to send.
 	Mailpit bool
+	// CAFile is the CA bundle OpenSSL and curl verify against, for the proxy's
+	// certificates of the local CA; "" keeps the image's system store.
+	CAFile string
 }
 
 // MailpitSendmailPath is the sendmail_path that hands mail() to Mailpit through msmtp
@@ -640,6 +643,9 @@ func (c PHPConfig) INIWith(phpVersion string, opts INIOptions) string {
 	fmt.Fprintf(&b, "error_reporting = %s\n", c.ErrorReporting)
 	b.WriteString("log_errors = On\nerror_log = /proc/self/fd/2\n")
 	b.WriteString("date.timezone = UTC\n")
+	if opts.CAFile != "" {
+		fmt.Fprintf(&b, "openssl.cafile = \"%s\"\ncurl.cainfo = \"%s\"\n", opts.CAFile, opts.CAFile)
+	}
 	if opts.Mailpit {
 		fmt.Fprintf(&b, "sendmail_path = \"%s\"\n", MailpitSendmailPath)
 	}

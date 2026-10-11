@@ -1393,6 +1393,8 @@ func (m *Manager) applyTemplate(ctx context.Context, proj store.Project, tpl Tem
 			// asks for (gd for Drupal, intl for Shopware …) are switched on there.
 			spec.Mounts = append(spec.Mounts, docker.MountSpec{Type: "bind", Source: filepath.Join(planner.configHostDir(proj.ID), "php", "zz-envoryx.ini"), Target: phpIniTarget, ReadOnly: true})
 		}
+		// That php.ini names the trust bundle, which has to be there.
+		planner.withCATrust(&spec)
 		runAsProjectUser(&spec, paths.PUID, paths.PGID)
 		res, err := m.engine.RunOneShot(ctx, spec)
 		if err != nil {
