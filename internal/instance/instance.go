@@ -292,8 +292,12 @@ func (s *Store) configFiles() ([]string, error) {
 	return out, err
 }
 
-// fleetStateFile is fleet.StateFile (the fleet package depends on more than this one should).
-const fleetStateFile = "fleet.json"
+// fleetStateFile is fleet.StateFile and updateResultFile selfupdate.ResultFile (both
+// packages depend on more than this one should).
+const (
+	fleetStateFile   = "fleet.json"
+	updateResultFile = "update.json"
+)
 
 // skip decides what stays out of the archive: the database files (copied separately),
 // caches, project backups, the log history, the instance backups themselves and the
@@ -309,10 +313,11 @@ func (s *Store) skip(path, rel string, isDir bool) bool {
 	if len(parts) == 1 && slices.Contains(secrets.KeyFiles, parts[0]) {
 		return true // the key never goes into a backup, and a restore keeps the current one
 	}
-	if len(parts) == 1 && (parts[0] == IDFile || parts[0] == plan.File || parts[0] == plan.SuspensionFile || parts[0] == fleetStateFile) {
-		// likewise the instance ID (see IDFile), the hoster's plan and suspension and the
-		// enrollment in the hoster's fleet, which belong to the instance rather than to
-		// its data
+	if len(parts) == 1 && (parts[0] == IDFile || parts[0] == plan.File || parts[0] == plan.SuspensionFile || parts[0] == fleetStateFile || parts[0] == updateResultFile) {
+		// likewise the instance ID (see IDFile), the hoster's plan and suspension, the
+		// enrollment in the hoster's fleet and the last self-update, which belong to the
+		// instance rather than to its data (an update's rollback restores a backup and
+		// must not lose its own result)
 		return true
 	}
 	switch parts[0] {

@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/envoryx/envoryx/internal/db"
+	"github.com/envoryx/envoryx/internal/plan"
 	"github.com/envoryx/envoryx/internal/secrets"
 	"github.com/envoryx/envoryx/internal/validate"
 )
@@ -396,6 +397,39 @@ func TestSecretKeyStaysOutOfBackups(t *testing.T) {
 		k, perr := secrets.ParseKey(string(raw))
 		if err != nil || perr != nil || k.ID() != want {
 			t.Errorf("%s after restore: %v %v", name, err, perr)
+		}
+	}
+}
+
+// What belongs to the instance rather than to its data survives a restore unchanged: a
+// self-update's rollback restores a backup and must keep its own result.
+func TestInstanceFilesStayOutOfBackups(t *testing.T) {
+	s, sqlDB := newStore(t)
+	ctx := context.Background()
+	files := []string{IDFile, plan.File, plan.SuspensionFile, fleetStateFile, updateResultFile}
+	write := func(content string) {
+		for _, f := range files {
+			if err := os.WriteFile(filepath.Join(s.ConfigDir, f), []byte(content), 0o600); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	write("before")
+	info, err := s.Create(ctx, sqlDB, KindManual, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	write("after")
+	if err := s.ScheduleRestore(info.ID, "admin", ""); err != nil {
+		t.Fatal(err)
+	}
+	openRaw := func(ctx context.Context, path string) (*sql.DB, error) { return db.OpenRaw(ctx, path, s.Log) }
+	if _, err := s.ApplyPendingRestore(ctx, openRaw); err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range files {
+		if b, _ := os.ReadFile(filepath.Join(s.ConfigDir, f)); string(b) != "after" {
+			t.Errorf("%s after the restore: %q", f, b)
 		}
 	}
 }
