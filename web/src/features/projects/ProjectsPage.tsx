@@ -37,7 +37,7 @@ function ServiceBadges({ project }: { project: Project }) {
 // dashboard's column) stacks them: name and state, then the stack, then the actions
 // in a row of their own, so three buttons never squeeze the name; resources join the
 // state there. The list is the @container.
-const rowGrid = "grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-2 @3xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1.7fr)_6.5rem_6rem_auto] @3xl:items-center @3xl:gap-x-5";
+const rowGrid = "grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-2 @4xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1.7fr)_6.5rem_6rem_auto] @4xl:items-center @4xl:gap-x-5";
 
 /** The address without its scheme: the list is tight and every project is https anyway. */
 function shortUrl(url: string): string {
@@ -68,15 +68,15 @@ export function ProjectRow({ project, usage }: { project: Project; usage?: { cpu
             {project.status.operation && <OperationHint op={project.status.operation} className="max-w-full" />}
           </div>
         </div>
-        <div className="col-start-1 row-start-2 min-w-0 pl-[22px] @3xl:col-start-2 @3xl:row-start-1 @3xl:pl-0">
+        <div className="col-start-1 row-start-2 min-w-0 pl-[22px] @4xl:col-start-2 @4xl:row-start-1 @4xl:pl-0">
           <ServiceBadges project={project} />
         </div>
-        <div className="col-start-2 row-start-1 self-start text-right text-xs text-muted @3xl:col-start-3 @3xl:self-center @3xl:row-start-1 @3xl:text-left">
+        <div className="col-start-2 row-start-1 self-start text-right text-xs text-muted @4xl:col-start-3 @4xl:self-center @4xl:row-start-1 @4xl:text-left">
           <span className="block font-medium text-fg">{t(meta.label)}</span>
           <span className="block">{t("{{running}}/{{total}} containers", { running, total })}</span>
-          {usage && <span className="block tabular-nums @3xl:hidden">{`CPU ${formatPercent(usage.cpuPercent)} · RAM ${formatBytes(usage.memoryBytes)}`}</span>}
+          {usage && <span className="block tabular-nums @4xl:hidden">{`CPU ${formatPercent(usage.cpuPercent)} · RAM ${formatBytes(usage.memoryBytes)}`}</span>}
         </div>
-        <div className="hidden text-xs tabular-nums text-muted @3xl:block">
+        <div className="hidden text-xs tabular-nums text-muted @4xl:block">
           {usage ? (
             <>
               <span className="block">CPU {formatPercent(usage.cpuPercent)}</span>
@@ -86,7 +86,7 @@ export function ProjectRow({ project, usage }: { project: Project; usage?: { cpu
             <span className="block text-subtle">-</span>
           )}
         </div>
-        <div className="col-span-2 row-start-3 pl-[22px] @3xl:col-span-1 @3xl:col-start-5 @3xl:row-start-1 @3xl:justify-self-end @3xl:pl-0">
+        <div className="col-span-2 row-start-3 pl-[22px] @4xl:col-span-1 @4xl:col-start-5 @4xl:row-start-1 @4xl:justify-self-end @4xl:pl-0">
           <ProjectActionButtons project={project} onError={capture} />
         </div>
       </div>
