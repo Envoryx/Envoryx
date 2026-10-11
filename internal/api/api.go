@@ -183,7 +183,7 @@ func (a *API) guard(need auth.Scope, pattern string, h http.HandlerFunc) http.Ha
 			// A suspended instance shows its users the hoster's message and nothing else.
 			err = a.d.Projects.Suspension().Err()
 		}
-		if err == nil && (r.Method == http.MethodPost || r.Method == http.MethodPut) && strings.Contains(pattern, "/offsite") {
+		if err == nil && (r.Method == http.MethodPost || r.Method == http.MethodPut) && strings.Contains(pattern, "/offsite") && !hosterOffsite(pattern, r) {
 			// Without offsite targets in the plan nothing is sent to or fetched from one.
 			err = a.d.Projects.Plan().RequireFeature(plan.FeatureOffsite)
 		}
@@ -193,6 +193,13 @@ func (a *API) guard(need auth.Scope, pattern string, h http.HandlerFunc) http.Ha
 		}
 		h(w, r)
 	}
+}
+
+// hosterOffsite reports whether an offsite request stays with the hoster's target, which
+// works whatever the plan says about the admins' own targets: fetching from it, and
+// sending a backup offsite, where the syncer then only uses the targets the plan allows.
+func hosterOffsite(pattern string, r *http.Request) bool {
+	return r.PathValue("target") == offsite.ManagedID || strings.HasSuffix(pattern, "/offsite")
 }
 
 // Mount registers all routes on mux. protect wraps handlers that require a session.
