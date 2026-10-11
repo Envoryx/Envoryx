@@ -550,13 +550,14 @@ type PreviewContainer struct {
 
 // Orphan is a managed Docker resource whose project is unknown to the database.
 type Orphan struct {
-	Type        string    `json:"type"` // container | network | volume
-	ID          string    `json:"id"`
-	Name        string    `json:"name"`
-	ProjectID   string    `json:"projectId"`
-	ProjectName string    `json:"projectName"`
-	State       string    `json:"state,omitempty"`
-	Created     time.Time `json:"created,omitempty"`
+	Type        string `json:"type"` // container | network | volume
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	ProjectID   string `json:"projectId"`
+	ProjectName string `json:"projectName"`
+	State       string `json:"state,omitempty"`
+	// Created is left out when Docker doesn't report it (a volume driver may not).
+	Created time.Time `json:"created,omitzero"`
 	// Unlabelled marks a resource without an instance label: an older Envoryx created it,
 	// perhaps another instance on the same Docker host, so it is never removed
 	// automatically.

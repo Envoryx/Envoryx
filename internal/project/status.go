@@ -317,13 +317,13 @@ func (m *Manager) Reconcile(ctx context.Context) ReconcileReport {
 			continue
 		}
 		if _, ok := known[n.Labels[docker.LabelProjectID]]; !ok {
-			report.Orphans = append(report.Orphans, Orphan{Type: "network", ID: n.ID, Name: n.Name, ProjectID: n.Labels[docker.LabelProjectID], ProjectName: n.Labels[docker.LabelProjectName],
+			report.Orphans = append(report.Orphans, Orphan{Type: "network", ID: n.ID, Name: n.Name, ProjectID: n.Labels[docker.LabelProjectID], ProjectName: n.Labels[docker.LabelProjectName], Created: n.Created,
 				Unlabelled: n.Labels[docker.LabelInstance] == ""})
 		}
 	}
 	for _, v := range volumes {
 		if _, ok := known[v.Labels[docker.LabelProjectID]]; !ok {
-			report.Orphans = append(report.Orphans, Orphan{Type: "volume", ID: v.Name, Name: v.Name, ProjectID: v.Labels[docker.LabelProjectID], ProjectName: v.Labels[docker.LabelProjectName],
+			report.Orphans = append(report.Orphans, Orphan{Type: "volume", ID: v.Name, Name: v.Name, ProjectID: v.Labels[docker.LabelProjectID], ProjectName: v.Labels[docker.LabelProjectName], Created: v.Created,
 				Unlabelled: v.Labels[docker.LabelInstance] == ""})
 		}
 	}

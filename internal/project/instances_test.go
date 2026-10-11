@@ -146,6 +146,10 @@ func TestUnlabelledOrphansAreReportedButKept(t *testing.T) {
 		if !o.Unlabelled {
 			t.Fatalf("not marked unlabelled: %+v", o)
 		}
+		// Networks and volumes carry Docker's creation time like containers.
+		if o.Created.IsZero() {
+			t.Fatalf("no creation time: %+v", o)
+		}
 	}
 	e.m.StopAllForShutdown(ctx)
 	for _, call := range e.engine.Calls {
