@@ -100,7 +100,7 @@ export function PhpConfigForm({
                 <span>
                   <span className="block font-mono text-xs text-fg">{ext.name}</span>
                   <span className="block text-[11px] text-subtle">
-                    {ext.description}
+                    {t(ext.description)}
                     {ext.builtIn ? t(" · built-in") : !ext.available ? t(" · not available") : ""}
                   </span>
                   {lacking && <span className={`block text-[11px] ${checked ? "text-amber-700 dark:text-amber-400" : "text-subtle"}`}>{checked ? switchOff : notYet}</span>}

@@ -7,7 +7,7 @@ import { useDiagnostics, useSettings, useUpdateSettings } from "@/api/hooks";
 import type { DiagnosticCheck, Settings } from "@/api/types";
 import { Button, Card, CardHeader, ErrorState, Spinner } from "@/components/ui";
 import { formatDateTime } from "@/lib/format";
-import { errorText } from "@/lib/errors";
+import { errorText, translateMessage } from "@/lib/errors";
 
 const categoryTitle: Record<DiagnosticCheck["category"], string> = {
   runtime: "Docker & storage",
@@ -127,7 +127,7 @@ function CheckRow({ check, onAction, busy }: { check: DiagnosticCheck; onAction:
       <StatusIcon status={check.status} />
       <div className="min-w-0 flex-1">
         <p className="text-sm font-medium">{t(check.title)}</p>
-        {check.detail && <p className="mt-0.5 break-words text-xs text-muted">{check.detail}</p>}
+        {check.detail && <p className="mt-0.5 break-words text-xs text-muted">{translateMessage(check.detail, t)}</p>}
         {check.hint && (needsAttention || check.status === "info") && <p className={`mt-1 text-xs ${needsAttention ? "text-fg" : "text-subtle"}`}>{t(check.hint)}</p>}
         {(check.action || check.docs) && (
           <div className="mt-2 flex flex-wrap items-center gap-3">

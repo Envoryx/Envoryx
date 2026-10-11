@@ -2,6 +2,7 @@ import { act, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { OperationsTray, OperationHint } from "./OperationsTray";
 import type { Operation } from "@/api/types";
+import i18n from "@/i18n";
 import { authedRoutes, mockApi, renderApp } from "@/test/utils";
 
 const now = new Date().toISOString();
@@ -59,5 +60,17 @@ describe("OperationsTray", () => {
   it("renders the inline hint with verb and translated step", () => {
     renderApp(<OperationHint op={{ ...base, action: "update", step: "Recreating the container {{name}}", stepArgs: { name: "envoryx-acme-shop-php" } }} />);
     expect(screen.getByTestId("operation-hint")).toHaveTextContent("Applying settings… · Recreating the container envoryx-acme-shop-php");
+  });
+
+  it("translates the progress of an image pull inside the step", async () => {
+    await i18n.changeLanguage("de");
+    try {
+      renderApp(<OperationHint op={{ ...base, step: "Pulling the image {{image}}: {{status}}", stepArgs: { image: "caddy:2-alpine", status: "contacting the registry" } }} />);
+      const hint = screen.getByTestId("operation-hint");
+      expect(hint).toHaveTextContent(i18n.t("contacting the registry"));
+      expect(hint).not.toHaveTextContent("contacting the registry");
+    } finally {
+      await i18n.changeLanguage("en");
+    }
   });
 });

@@ -121,6 +121,20 @@ const templates = [
   "the projects take {{used}} of the {{limit}} disk space in the plan; free some space (old backups, unused projects) first",
   "the runtime {{runtime}} is not available on this instance; the plan includes {{list}}",
   "the setting {{key}} is fixed by the hoster",
+  "a project named \"{{name}}\" exists already",
+  "a project named \"{{name}}\" already exists",
+  "the identifier \"{{slug}}\" belongs to project \"{{project}}\" already",
+  "the directory \"{{path}}\" belongs to project \"{{project}}\" already",
+  "port {{port}} belongs to project \"{{project}}\" already",
+  "{{path}} already exists and is not empty",
+  // Why an action can't run (ActionsTab), after "the {{service}} container is not running".
+  "{{file}} not found in project",
+  "{{service}} container is not running",
+  "{{service}} container keeps restarting - its main process exits, the logs say why; switch its server off to run commands in it",
+  // Image pull progress, the {{status}} of the "Pulling the image" step.
+  "downloading {{percent}}% ({{done}} of {{total}})",
+  "downloading ({{size}} so far, {{done}} of {{total}} layers done)",
+  "extracting ({{done}} of {{total}} layers done)",
 ];
 
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -151,9 +165,19 @@ export function translateMessage(msg: string | undefined | null, t: TFunction): 
   if (!msg) return "";
   const whole = translateSegment(msg, t);
   if (whole !== undefined) return whole;
-  const parts = msg.split(": ");
-  return parts.length > 1 ? parts.map((p) => translateSegment(p, t) ?? p).join(": ") : msg;
+  const parts = msg.split(": ").map((p) => ({ p, tr: translateSegment(p, t) }));
+  // The bare kind of error ("conflict: …", "…: not found") adds nothing to the message that
+  // explains it. Next to a part that stays English it would only glue a translated word to
+  // an English sentence ("Konflikt: a project named …"), so it is left out then.
+  const mixed = parts.some(({ p, tr }) => tr === undefined && !sentinels.has(p));
+  return parts
+    .filter(({ p }) => !mixed || !sentinels.has(p))
+    .map(({ p, tr }) => tr ?? p)
+    .join(": ");
 }
+
+const sentinels = new Set(["conflict", "not found", "invalid input"]);
+
 
 /**
  * Text for an error caught from the API client: the server's message, translated, or the

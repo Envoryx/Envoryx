@@ -25,6 +25,13 @@ describe("translateMessage", () => {
     expect(translateMessage("Request failed (503)", t)).toBe("Anfrage fehlgeschlagen (503)");
   });
 
+  it("leaves out the bare kind of error next to a part that stays English", () => {
+    expect(translateMessage("conflict: the branch feature-x already has the environment shop-feature-x", t)).toBe("the branch feature-x already has the environment shop-feature-x");
+    expect(translateMessage("something unknown: not found", t)).toBe("something unknown");
+    expect(translateMessage('the directory "shop" belongs to project "Shop" already: conflict', t)).toBe(t('the directory "{{path}}" belongs to project "{{project}}" already', { path: "shop", project: "Shop" }) + ": Konflikt");
+    expect(translateMessage('conflict: a project named "Shop" already exists', t)).toBe("Konflikt: " + t('a project named "{{name}}" already exists', { name: "Shop" }));
+  });
+
   it("names the token scope a role allows", () => {
     expect(translateMessage("your role allows at most read tokens", t)).toBe("Deine Rolle erlaubt höchstens Tokens mit dem Scope read");
     expect(translateMessage("your role allows no API tokens", t)).toBe("Deine Rolle erlaubt keine API-Tokens");

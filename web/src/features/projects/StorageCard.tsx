@@ -208,7 +208,7 @@ export function AddStorageCard({ project, onMessage }: { project: Project; onMes
             {t("Object storage (S3)")}
           </span>
         }
-        description={rt?.description ?? t("S3-compatible object storage with a bucket for this project and a web console.")}
+        description={rt?.description ? t(rt.description) : t("S3-compatible object storage with a bucket for this project and a web console.")}
       />
       <div className="space-y-4 p-5">
         {rt && rt.versions.length > 1 && (

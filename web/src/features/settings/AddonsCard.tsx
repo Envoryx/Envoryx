@@ -107,7 +107,7 @@ export function AddonsCard() {
                     <span className="font-mono text-xs text-subtle">{a.name}</span>
                     {a.error ? <Badge tone="red">{t("invalid")}</Badge> : <Badge tone="gray">{a.versions.map((v) => v.version).join(", ")}</Badge>}
                   </div>
-                  {a.error ? <p className="text-xs text-red-600 dark:text-red-400">{a.error}</p> : a.description && <p className="text-xs text-muted">{a.description}</p>}
+                  {a.error ? <p className="text-xs text-red-600 dark:text-red-400">{a.error}</p> : a.description && <p className="text-xs text-muted">{t(a.description)}</p>}
                   {a.projects.length > 0 && <p className="text-xs text-subtle">{t("Used by {{projects}}", { projects: a.projects.join(", ") })}</p>}
                 </div>
                 <div className="flex gap-2">
@@ -146,7 +146,7 @@ export function AddonsCard() {
             <li key={ex.name} className="flex flex-wrap items-center justify-between gap-3 py-2">
               <div className="min-w-0">
                 <span className="font-medium">{ex.title}</span> <span className="font-mono text-xs text-subtle">{ex.name}</span>
-                {ex.description && <p className="text-xs text-muted">{ex.description}</p>}
+                {ex.description && <p className="text-xs text-muted">{t(ex.description)}</p>}
               </div>
               <div className="flex gap-2">
                 <Button size="sm" icon={<Pencil className="size-4" />} onClick={() => setEditor({ title: t("New addon"), source: ex.source })}>
