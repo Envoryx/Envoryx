@@ -2991,7 +2991,7 @@
   "Create the tables, a sales channel for APP_URL and the administrator admin / shopware": "Utwórz tabele, kanał sprzedaży dla APP_URL i administratora admin / shopware",
   "Build the administration (npm install and build of the admin and its plugins); after installing or changing an admin plugin": "Zbuduj panel administracyjny (npm install i build panelu oraz jego wtyczek); po instalacji lub zmianie wtyczki administracyjnej",
   "Build the storefront JavaScript and compile the themes; after installing or changing a storefront plugin or theme": "Zbuduj JavaScript storefrontu i skompiluj motywy; po instalacji lub zmianie wtyczki lub motywu storefrontu",
-  "Set TYPO3 up in the project database with a site for the project URL; prints the admin password": "Skonfiguruj TYPO3 w bazie danych projektu ze stroną dla adresu URL projektu; wypisuje hasło administratora",
+  "Empty the project database and set TYPO3 up in it with a site for the project URL; prints the admin password": "Opróżnić bazę danych projektu i zainstalować w niej TYPO3 ze stroną dla adresu URL projektu; wypisuje hasło administratora",
   "Install Craft into the project database with a site for the project URL; prints the admin password": "Zainstaluj Craft w bazie danych projektu ze stroną dla adresu URL projektu; wypisuje hasło administratora",
   "Show the PHP version and loaded extensions": "Pokaż wersję PHP i załadowane rozszerzenia",
   "List loaded PHP extensions": "Wyświetl załadowane rozszerzenia PHP",

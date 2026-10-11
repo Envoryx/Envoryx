@@ -2991,7 +2991,7 @@
   "Create the tables, a sales channel for APP_URL and the administrator admin / shopware": "Створити таблиці, канал продажу для APP_URL і адміністратора admin / shopware",
   "Build the administration (npm install and build of the admin and its plugins); after installing or changing an admin plugin": "Зібрати адміністрування (npm install і збирання адмінки та її плагінів); після встановлення чи зміни плагіна адмінки",
   "Build the storefront JavaScript and compile the themes; after installing or changing a storefront plugin or theme": "Зібрати JavaScript вітрини й скомпілювати теми; після встановлення чи зміни плагіна або теми вітрини",
-  "Set TYPO3 up in the project database with a site for the project URL; prints the admin password": "Розгорнути TYPO3 у базі даних проєкту із сайтом для URL проєкту; виводить пароль адміністратора",
+  "Empty the project database and set TYPO3 up in it with a site for the project URL; prints the admin password": "Очистити базу даних проєкту й встановити в неї TYPO3 із сайтом для URL проєкту; виводить пароль адміністратора",
   "Install Craft into the project database with a site for the project URL; prints the admin password": "Встановити Craft у базу даних проєкту із сайтом для URL проєкту; виводить пароль адміністратора",
   "Show the PHP version and loaded extensions": "Показати версію PHP і завантажені розширення",
   "List loaded PHP extensions": "Вивести список завантажених розширень PHP",
