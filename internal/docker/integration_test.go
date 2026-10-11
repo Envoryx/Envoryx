@@ -635,3 +635,37 @@ func TestIntegrationInstancesLeaveEachOtherAlone(t *testing.T) {
 		t.Fatalf("b mounts a's volume: %v", err)
 	}
 }
+
+// A helper whose image can't run it ends at once; StartUpdater reports the end with the
+// exit code and the output, although the helper removes itself.
+func TestIntegrationUpdaterExitIsReported(t *testing.T) {
+	e := integrationEngine(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	if err := e.EnsureImage(ctx, "alpine:3.20", nil); err != nil {
+		t.Fatal(err)
+	}
+	id, err := e.CreateContainer(ctx, ContainerSpec{
+		Name:          "envoryx-integration-self",
+		Image:         "alpine:3.20",
+		Labels:        ManagedLabels(testProject, "integration", "self", "test"),
+		Cmd:           []string{"sleep", "60"},
+		RestartPolicy: "no",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = e.RemoveContainer(context.Background(), id) })
+	exited, err := e.StartUpdater(ctx, id, "alpine:3.20", []string{"sh", "-c", "echo starting; echo boom >&2; exit 3"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case x := <-exited:
+		if x.Err != nil || x.Code != 3 || !strings.Contains(x.Output, "boom") {
+			t.Fatalf("exit %+v", x)
+		}
+	case <-time.After(time.Minute):
+		t.Fatal("the helper's end wasn't reported")
+	}
+}
