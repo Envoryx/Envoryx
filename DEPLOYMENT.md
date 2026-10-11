@@ -2592,8 +2592,8 @@ management).
 ```
 
 - **limits**: projects (branch environments count as projects), active users
-  and the disk space of the projects: their directories, volumes and backups.
-  The disk space is measured every five minutes; once it is used up, new
+  and the disk space of the projects: their directories, volumes and backups,
+  in GiB (`diskGb`, 1 GiB = 1024³ bytes). The disk space is measured every five minutes; once it is used up, new
   projects and backups are refused until there is room again. 0 or a missing
   value means no limit. CPU and memory are what the machine has.
 - **runtimes**: the runtimes new projects may use (`php`, `node`, `python`,

@@ -98,7 +98,8 @@ type Limits struct {
 	Users    int `json:"users,omitempty"`
 	// DiskGB caps what the projects take: their directories, volumes and backups. It is
 	// measured every few minutes, so it stops new projects and backups once reached
-	// rather than any write at the byte.
+	// rather than any write at the byte. The unit is the GiB (2^30 bytes), as the
+	// instance shows it; the JSON name stays diskGb.
 	DiskGB float64 `json:"diskGb,omitempty"`
 }
 

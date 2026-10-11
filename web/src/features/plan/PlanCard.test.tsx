@@ -23,6 +23,7 @@ describe("PlanCard", () => {
     expect(await screen.findByText("Starter")).toBeInTheDocument();
     expect(screen.getByText("3 of 3")).toBeInTheDocument();
     expect(screen.getByText("1 of 2")).toBeInTheDocument();
+    expect(screen.getByText("2.0 GiB of 10 GiB")).toBeInTheDocument();
     expect(screen.getByText("PHP, Node.js")).toBeInTheDocument();
     expect(screen.getByText("Offsite targets")).toBeInTheDocument();
     expect(screen.getByText("IDE gateway")).toBeInTheDocument();
