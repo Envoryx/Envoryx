@@ -415,7 +415,26 @@ func TestTokenScopesOnMCP(t *testing.T) {
 		return res
 	}
 
+	// The tool list offers what the token can call.
+	listed := func(s *mcp.ClientSession) map[string]bool {
+		t.Helper()
+		tools, err := s.ListTools(ctx, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		out := map[string]bool{}
+		for _, tool := range tools.Tools {
+			out[tool.Name] = true
+		}
+		return out
+	}
 	rd := connect(auth.ScopeRead)
+	if l := listed(rd); !l["list_projects"] || !l["get_logs"] || l["restart_project"] || l["create_project"] {
+		t.Fatalf("tools offered to a read token: %v", l)
+	}
+	if l := listed(connect(auth.ScopeOperate)); !l["restart_project"] || l["create_project"] {
+		t.Fatalf("tools offered to an operate token: %v", l)
+	}
 	if res := call(rd, "list_projects", nil); res.IsError {
 		t.Fatalf("read token must list: %s", text(res))
 	}
