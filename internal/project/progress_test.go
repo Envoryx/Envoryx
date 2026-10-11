@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/envoryx/envoryx/internal/auth"
 )
 
 // A create shows up as a running operation with its current step while the image pull
@@ -78,5 +80,22 @@ func TestOperationsReportStepsAndOutcome(t *testing.T) {
 	ops = e.m.Operations()
 	if len(ops) != 1 || ops[0].Action != "restart" {
 		t.Fatalf("expected only the failed restart to remain: %+v", ops)
+	}
+}
+
+// An operation remembers the account that started it, so each browser announces only its
+// user's own; what Envoryx starts by itself has no user.
+func TestOperationsRecordWhoStartedThem(t *testing.T) {
+	p := newProgress()
+	_, h := p.begin(auth.WithPrincipal(context.Background(), auth.Principal{UserID: "u1", Username: "dev"}), Operation{Action: "start"})
+	h.end(nil)
+	_, h = p.begin(context.Background(), Operation{Action: "backup"})
+	h.end(nil)
+	byAction := map[string]string{}
+	for _, op := range p.list() {
+		byAction[op.Action] = op.UserID
+	}
+	if byAction["start"] != "u1" || byAction["backup"] != "" {
+		t.Fatalf("starters: %v", byAction)
 	}
 }

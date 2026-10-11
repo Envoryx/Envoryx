@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/envoryx/envoryx/internal/auth"
 	"github.com/envoryx/envoryx/internal/store"
 )
 
@@ -19,6 +20,9 @@ type Operation struct {
 	ProjectSlug string `json:"projectSlug"`
 	ProjectName string `json:"projectName"`
 	Action      string `json:"action"` // create, start, stop, restart, update, delete, image, backup, restore
+	// UserID is the account that started the operation; empty for what Envoryx does on its
+	// own (schedules, resuming projects). The UI announces only a user's own operations.
+	UserID string `json:"userId,omitempty"`
 	// Step is an English sentence with {{placeholders}} that StepArgs fills in; the UI
 	// translates the template like any other interface text.
 	Step       string            `json:"step,omitempty"`
@@ -61,6 +65,9 @@ func (p *progress) begin(ctx context.Context, op Operation) (context.Context, *o
 	now := p.now()
 	op.ID = store.NewID()
 	op.StartedAt, op.UpdatedAt = now, now
+	if pr, ok := auth.PrincipalFrom(ctx); ok {
+		op.UserID = pr.UserID
+	}
 	p.mu.Lock()
 	p.ops[op.ID] = &op
 	p.mu.Unlock()
