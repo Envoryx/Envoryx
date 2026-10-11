@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -214,7 +215,7 @@ func TestCustomImageFromDockerfile(t *testing.T) {
 		opts.Output("Step 2/2 : RUN false")
 		return errors.New("The command '/bin/sh -c false' returned a non-zero code: 1")
 	}
-	if _, err := e.m.Restart(ctx, id); err == nil || !strings.Contains(err.Error(), "non-zero code") {
+	if _, err := e.m.Restart(ctx, id); !errors.Is(err, validate.ErrInvalid) || !strings.Contains(err.Error(), "non-zero code") {
 		t.Fatalf("failed build: %v", err)
 	}
 	// The build ran before the containers stopped: the project keeps running.
@@ -230,7 +231,7 @@ func TestCustomImageFromDockerfile(t *testing.T) {
 	if err := os.Remove(filepath.Join(dir, "php.Dockerfile")); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := e.m.Restart(ctx, id); err == nil || !strings.Contains(err.Error(), "does not exist") {
+	if _, err := e.m.Restart(ctx, id); !errors.Is(err, validate.ErrInvalid) || !strings.Contains(err.Error(), "does not exist") {
 		t.Fatalf("missing Dockerfile: %v", err)
 	}
 }
@@ -384,11 +385,46 @@ func TestCustomImageSavedAgainAfterAFailedPull(t *testing.T) {
 	if _, err := e.m.SetCustomImage(ctx, id, store.ServicePHP, CustomImageRequest{Image: other}); err == nil {
 		t.Fatal("the pull must fail")
 	}
+	// A restart that can't pull it is the user's to fix: an input error naming the login.
+	if _, err := e.m.Restart(ctx, id); !errors.Is(err, validate.ErrInvalid) || !strings.Contains(err.Error(), "Private registries") {
+		t.Fatalf("restart with a failing pull: %v", err)
+	}
 	delete(e.engine.FailPull, other)
 	if view, err = e.m.Restart(ctx, id); err != nil {
 		t.Fatal(err)
 	}
 	if svc := view.Project.Service(store.ServicePHP); svc.Custom.CheckedImage != other {
 		t.Fatalf("the restart must check the image: %+v", svc.Custom)
+	}
+}
+
+// A context that is too large is named, and the advice to give the Dockerfile a
+// directory of its own only comes when it sits at the top of the project.
+func TestCustomImageContextTooLarge(t *testing.T) {
+	if err := contextTooLarge(".envoryx/php.Dockerfile"); !errors.Is(err, validate.ErrInvalid) || !strings.Contains(err.Error(), "build context .envoryx/ (the Dockerfile's directory)") || strings.Contains(err.Error(), "like .envoryx/") {
+		t.Fatalf("Dockerfile in .envoryx/: %v", err)
+	}
+	if err := contextTooLarge("Dockerfile"); !strings.Contains(err.Error(), "whole project directory") || !strings.Contains(err.Error(), "like .envoryx/") {
+		t.Fatalf("Dockerfile at the top: %v", err)
+	}
+
+	e := newEnv(t)
+	ctx := context.Background()
+	e.engine.OneShotHandler = probeAll
+	view, err := e.m.Create(ctx, phpRequest("Big", true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := filepath.Join(e.projDir, view.Project.Path, ".envoryx")
+	if err := os.MkdirAll(filepath.Join(dir, "many"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	_ = os.WriteFile(filepath.Join(dir, "php.Dockerfile"), []byte("FROM ghcr.io/envoryx/envoryx-php:8.4\n"), 0o644)
+	for i := range maxBuildContextFiles + 1 {
+		_ = os.WriteFile(filepath.Join(dir, "many", strconv.Itoa(i)), nil, 0o644)
+	}
+	_, err = e.m.SetCustomImage(ctx, view.Project.ID, store.ServicePHP, CustomImageRequest{Dockerfile: ".envoryx/php.Dockerfile"})
+	if !errors.Is(err, validate.ErrInvalid) || !strings.Contains(err.Error(), "build context .envoryx/") {
+		t.Fatalf("too large: %v", err)
 	}
 }

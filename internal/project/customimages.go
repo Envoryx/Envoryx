@@ -152,6 +152,9 @@ func (m *Manager) resolveCustomImage(p store.Project, svc *store.ProjectService)
 		spec.dir, spec.dockerfile = dir, path.Base(svc.Custom.Dockerfile)
 		var sum string
 		sum, err = m.contextHash(dir, spec.dockerfile)
+		if errors.Is(err, errContextTooLarge) {
+			err = contextTooLarge(svc.Custom.Dockerfile)
+		}
 		if err == nil {
 			tag = buildRepoPrefix + string(svc.Kind) + ":" + sum[:16]
 		}
@@ -204,6 +207,21 @@ type contextFile struct {
 	info fs.FileInfo
 }
 
+// errContextTooLarge is a build context above maxBuildContextFiles or
+// maxBuildContextBytes; contextTooLarge words it for the Dockerfile's place.
+var errContextTooLarge = fmt.Errorf("too large (more than %d files or %d MB)", maxBuildContextFiles, maxBuildContextBytes>>20)
+
+// contextTooLarge says which directory is too large for a Dockerfile (rel, inside the
+// project) and what to do: a Dockerfile at the top of the project sends all of it, one in
+// a directory of its own only that directory.
+func contextTooLarge(rel string) error {
+	dir := path.Dir(rel)
+	if dir == "." {
+		return fmt.Errorf("%w: the build context, the whole project directory, is %v: put the Dockerfile in a directory of its own, like .envoryx/, with just the files the image needs", validate.ErrInvalid, errContextTooLarge)
+	}
+	return fmt.Errorf("%w: the build context %s/ (the Dockerfile's directory) is %v: keep only the files the image needs in it", validate.ErrInvalid, dir, errContextTooLarge)
+}
+
 // walkContext lists the regular files and directories of a build context. It goes through
 // an os.Root, so a symlink cannot reach outside the context; symlinks are left out.
 func walkContext(dir string) (*os.Root, []contextFile, error) {
@@ -230,7 +248,7 @@ func walkContext(dir string) (*os.Root, []contextFile, error) {
 		files = append(files, contextFile{rel: rel, info: info})
 		total += info.Size()
 		if len(files) > maxBuildContextFiles || total > maxBuildContextBytes {
-			return fmt.Errorf("the build context %s is too large (more than %d files or %d MB): put the Dockerfile in a directory of its own, like .envoryx/", dir, maxBuildContextFiles, maxBuildContextBytes>>20)
+			return errContextTooLarge
 		}
 		return nil
 	})
@@ -340,13 +358,33 @@ func contextTar(dir string) (io.ReadCloser, error) {
 // is pulled when missing. Of proj only the ID and slug are used.
 func (m *Manager) ensureImage(ctx context.Context, proj store.Project, ref string) error {
 	if !isBuildRef(ref) {
-		return m.engine.EnsureImage(ctx, ref, m.pullProgress(ctx, proj.Slug, ref))
+		return m.userImageError(ctx, proj.ID, ref, m.engine.EnsureImage(ctx, ref, m.pullProgress(ctx, proj.Slug, ref)))
 	}
 	exists, err := m.engine.ImageExists(ctx, ref)
 	if err != nil || exists {
 		return err
 	}
-	return m.buildImage(ctx, proj, ref, false)
+	return m.userImageError(ctx, proj.ID, ref, m.buildImage(ctx, proj, ref, false))
+}
+
+// userImageError makes a failed build or pull of an image the user chose (a Dockerfile,
+// a registry image) an input error with the reason as its message, the way setting the
+// image reports it; a catalogue image that fails stays an internal error.
+func (m *Manager) userImageError(ctx context.Context, projectID, ref string, err error) error {
+	if err == nil {
+		return nil
+	}
+	if isBuildRef(ref) {
+		return imageError(ref, err)
+	}
+	if p, gerr := m.store.Projects.Get(context.WithoutCancel(ctx), projectID); gerr == nil {
+		for _, svc := range p.Services {
+			if customImageKinds[svc.Kind] && svc.Custom.Image == ref {
+				return imageError(ref, err)
+			}
+		}
+	}
+	return err
 }
 
 // refreshImage asks the registry for the current image of ref, so a project gets the image
@@ -366,7 +404,7 @@ func (m *Manager) refreshImage(ctx context.Context, proj store.Project, ref stri
 		m.log.Warn("image refresh failed, using local image", "image", ref, "err", err)
 		return nil
 	}
-	return err
+	return m.userImageError(ctx, proj.ID, ref, err)
 }
 
 // buildImage builds a build tag from its spec and records the output (and, after a
@@ -392,6 +430,9 @@ func (m *Manager) buildImage(ctx context.Context, proj store.Project, ref string
 		}
 	}
 	tarball, err := contextTar(spec.dir)
+	if errors.Is(err, errContextTooLarge) {
+		err = contextTooLarge(spec.rel)
+	}
 	if err != nil {
 		m.recordBuild(ctx, proj, spec.kind, ref, err.Error(), true)
 		return err
