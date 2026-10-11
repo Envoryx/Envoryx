@@ -63,6 +63,17 @@ func TestPlanEndpointAndQuotas(t *testing.T) {
 	if r := a.do(http.MethodGet, "/api/v1/offsite", nil, false); r.status != http.StatusOK {
 		t.Fatalf("offsite list: %d %s", r.status, r.raw)
 	}
+	// The hoster's target keeps working without the feature: fetching from it, and
+	// sending a backup offsite (the syncer then only uses the hoster's target).
+	key := map[string]any{"key": "instance/x.tar.gz"}
+	if r := a.do(http.MethodPost, "/api/v1/offsite/targets/nas/instance/fetch", key, true); errCode(r) != "plan_limit" {
+		t.Fatalf("fetch from an own target: %d %s", r.status, r.raw)
+	}
+	for _, path := range []string{"/api/v1/offsite/targets/hoster/instance/fetch", "/api/v1/offsite/targets/hoster/projects/fetch", "/api/v1/instance/backups/x/offsite"} {
+		if r := a.do(http.MethodPost, path, key, true); errCode(r) == "plan_limit" {
+			t.Fatalf("%s: %d %s", path, r.status, r.raw)
+		}
+	}
 }
 
 func TestPlanFixesSettings(t *testing.T) {
