@@ -2778,5 +2778,12 @@
   "not connected": "nicht verbunden",
   "Managed by your hoster": "Von deinem Hoster verwaltet",
   "Managed by your hoster as {{name}}": "Von deinem Hoster verwaltet als {{name}}",
-  "last contact {{time}}": "letzter Kontakt {{time}}"
+  "last contact {{time}}": "letzter Kontakt {{time}}",
+  "This instance is suspended": "Diese Instanz ist gesperrt",
+  "Your hoster has suspended this instance. Please contact them.": "Dein Hoster hat diese Instanz gesperrt. Bitte wende dich an ihn.",
+  "Your projects are stopped and your data is kept. Once the suspension is lifted, you can start the projects again.": "Deine Projekte sind gestoppt, deine Daten bleiben erhalten. Sobald die Sperre aufgehoben ist, kannst du die Projekte wieder starten.",
+  "Suspended since {{time}}": "Gesperrt seit {{time}}",
+  "Instance suspended": "Instanz gesperrt",
+  "Suspension lifted": "Sperre aufgehoben",
+  "this instance is suspended by its hoster": "Diese Instanz ist von ihrem Hoster gesperrt"
 }

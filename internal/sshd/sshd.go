@@ -33,6 +33,7 @@ import (
 	"github.com/envoryx/envoryx/internal/audit"
 	"github.com/envoryx/envoryx/internal/auth"
 	"github.com/envoryx/envoryx/internal/docker"
+	"github.com/envoryx/envoryx/internal/plan"
 	"github.com/envoryx/envoryx/internal/project"
 	"github.com/envoryx/envoryx/internal/store"
 )
@@ -143,6 +144,18 @@ func errLocked(until time.Time) error {
 	}
 }
 
+// suspended refuses every login while the hoster suspends the instance, with the reason
+// shown to the client.
+func (s *Server) suspended() error {
+	if s.d.Projects.Suspension() == nil {
+		return nil
+	}
+	return &ssh.BannerError{
+		Err:     plan.ErrSuspended,
+		Message: "Envoryx: this instance is suspended by its hoster; sign in to the web interface for details.\r\n",
+	}
+}
+
 // locked refuses the attempt when ip and user are locked out.
 func (s *Server) locked(conn ssh.ConnMetadata, ip string) error {
 	until := s.limiter.lockedUntil(ip, conn.User())
@@ -156,6 +169,9 @@ func (s *Server) locked(conn ssh.ConnMetadata, ip string) error {
 func (s *Server) passwordAuth(conn ssh.ConnMetadata, password []byte) (*ssh.Permissions, error) {
 	ip := remoteIP(conn.RemoteAddr())
 	if err := s.locked(conn, ip); err != nil {
+		return nil, err
+	}
+	if err := s.suspended(); err != nil {
 		return nil, err
 	}
 	// OpenSSH sends an empty password when it cannot prompt (no tty, no askpass): nothing
@@ -193,6 +209,9 @@ func (s *Server) passwordAuth(conn ssh.ConnMetadata, password []byte) (*ssh.Perm
 func (s *Server) publicKeyAuth(conn ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, error) {
 	ip := remoteIP(conn.RemoteAddr())
 	if err := s.locked(conn, ip); err != nil {
+		return nil, err
+	}
+	if err := s.suspended(); err != nil {
 		return nil, err
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

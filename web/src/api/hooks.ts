@@ -59,8 +59,8 @@ export function useSettings() {
  * The hoster's plan of a managed instance (null without one) and how much of it is used.
  * Everyone signed in may read it: the pages hide what the plan leaves out.
  */
-export function usePlan() {
-  return useQuery({ queryKey: keys.plan, queryFn: api.plan, staleTime: 60 * 1000 });
+export function usePlan(refetchInterval?: number) {
+  return useQuery({ queryKey: keys.plan, queryFn: api.plan, staleTime: 60 * 1000, refetchInterval: refetchInterval ?? false });
 }
 
 /** Whether the plan includes a feature; true while loading and on instances without a plan. */

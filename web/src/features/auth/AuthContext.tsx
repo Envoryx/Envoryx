@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { api, ApiError, setUnauthorizedHandler } from "@/api/client";
+import { api, ApiError, setSuspendedHandler, setUnauthorizedHandler } from "@/api/client";
+import { keys } from "@/api/hooks";
 import type { User } from "@/api/types";
 
 interface AuthState {
@@ -63,6 +64,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       qc.clear();
     });
     return () => setUnauthorizedHandler(null);
+  }, [qc]);
+
+  // A refusal for a suspension reloads the plan, which carries it: the lock page follows.
+  useEffect(() => {
+    setSuspendedHandler(() => void qc.invalidateQueries({ queryKey: keys.plan }));
+    return () => setSuspendedHandler(null);
   }, [qc]);
 
   const login = useCallback(async (username: string, password: string) => {

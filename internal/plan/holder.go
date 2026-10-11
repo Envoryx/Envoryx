@@ -5,15 +5,18 @@ import (
 	"context"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 )
 
-// Holder keeps the current plan and picks up changes to its file. The zero Holder and a
-// nil *Holder hold no plan.
+// Holder keeps the current plan and suspension and picks up changes to their files. The
+// zero Holder and a nil *Holder hold no plan and no suspension.
 type Holder struct {
 	path string
-	log  *slog.Logger
+	// suspPath is SuspensionFile next to the plan.
+	suspPath string
+	log      *slog.Logger
 
 	mu   sync.RWMutex
 	plan *Plan
@@ -22,6 +25,19 @@ type Holder struct {
 	err error
 	// onChange are called after the plan changed.
 	onChange []func(*Plan)
+
+	susp    *Suspension
+	suspRaw []byte
+	// onSuspend are called after the instance was suspended or the suspension lifted.
+	onSuspend []func(*Suspension)
+}
+
+// OnSuspend registers fn to be called with the new suspension (nil once lifted) whenever
+// it changes. Register before Run.
+func (h *Holder) OnSuspend(fn func(*Suspension)) {
+	if h != nil {
+		h.onSuspend = append(h.onSuspend, fn)
+	}
 }
 
 // OnChange registers fn to be called with the new plan whenever it changes. Register
@@ -32,10 +48,10 @@ func (h *Holder) OnChange(fn func(*Plan)) {
 	}
 }
 
-// Open loads the plan file at path. A broken file at start is an error: an instance
-// that should be limited must not run without its limits.
+// Open loads the plan file at path and the suspension next to it. A broken file at start
+// is an error: an instance that should be limited must not run without its limits.
 func Open(path string, log *slog.Logger) (*Holder, error) {
-	h := &Holder{path: path, log: log}
+	h := &Holder{path: path, suspPath: filepath.Join(filepath.Dir(path), SuspensionFile), log: log}
 	b, err := os.ReadFile(path)
 	if err != nil && !os.IsNotExist(err) {
 		return nil, err
@@ -46,6 +62,17 @@ func Open(path string, log *slog.Logger) (*Holder, error) {
 			return nil, err
 		}
 		h.plan, h.raw = p, b
+	}
+	b, err = os.ReadFile(h.suspPath)
+	if err != nil && !os.IsNotExist(err) {
+		return nil, err
+	}
+	if len(b) > 0 {
+		s, err := ParseSuspension(b)
+		if err != nil {
+			return nil, err
+		}
+		h.susp, h.suspRaw = s, b
 	}
 	return h, nil
 }
@@ -63,6 +90,27 @@ func (h *Holder) Get() *Plan {
 	return h.plan
 }
 
+// Suspension returns the hoster's suspension; nil when the instance is not suspended.
+func (h *Holder) Suspension() *Suspension {
+	if h == nil {
+		return nil
+	}
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return h.susp
+}
+
+// SetSuspension suspends the instance or lifts the suspension (tests; the files are what
+// a running instance follows).
+func (h *Holder) SetSuspension(s *Suspension) {
+	h.mu.Lock()
+	h.susp = s
+	h.mu.Unlock()
+	for _, fn := range h.onSuspend {
+		fn(s)
+	}
+}
+
 // Err returns why the last change to the file was not taken over.
 func (h *Holder) Err() error {
 	if h == nil {
@@ -73,12 +121,18 @@ func (h *Holder) Err() error {
 	return h.err
 }
 
-// Reload reads the file again. A removed file removes the plan; a broken one keeps the
-// previous plan and is reported by Err.
+// Reload reads the files again. A removed file removes the plan or lifts the suspension;
+// a broken plan keeps the previous plan and is reported by Err, a broken suspension keeps
+// the previous state.
 func (h *Holder) Reload() {
 	if h == nil || h.path == "" {
 		return
 	}
+	h.reloadSuspension()
+	h.reloadPlan()
+}
+
+func (h *Holder) reloadPlan() {
 	b, err := os.ReadFile(h.path)
 	if err != nil && !os.IsNotExist(err) {
 		h.setErr(err)
@@ -122,7 +176,49 @@ func (h *Holder) setErr(err error) {
 	}
 }
 
-// Run checks the file for changes every interval until ctx ends.
+func (h *Holder) reloadSuspension() {
+	b, err := os.ReadFile(h.suspPath)
+	if err != nil && !os.IsNotExist(err) {
+		if h.log != nil {
+			h.log.Warn("suspension file not readable; the previous state stays", "path", h.suspPath, "err", err)
+		}
+		return
+	}
+	h.mu.RLock()
+	same := bytes.Equal(b, h.suspRaw)
+	h.mu.RUnlock()
+	if same {
+		return
+	}
+	var s *Suspension
+	if len(b) > 0 {
+		if s, err = ParseSuspension(b); err != nil {
+			// Remembered as seen, so the warning comes once per broken version.
+			h.mu.Lock()
+			h.suspRaw = b
+			h.mu.Unlock()
+			if h.log != nil {
+				h.log.Warn("suspension file not taken over; the previous state stays", "path", h.suspPath, "err", err)
+			}
+			return
+		}
+	}
+	h.mu.Lock()
+	h.susp, h.suspRaw = s, b
+	h.mu.Unlock()
+	if h.log != nil {
+		if s == nil {
+			h.log.Info("the hoster lifted the suspension")
+		} else {
+			h.log.Warn("the hoster suspended this instance; its projects are stopped", "since", s.Since)
+		}
+	}
+	for _, fn := range h.onSuspend {
+		fn(s)
+	}
+}
+
+// Run checks the files for changes every interval until ctx ends.
 func (h *Holder) Run(ctx context.Context, interval time.Duration) {
 	t := time.NewTicker(interval)
 	defer t.Stop()

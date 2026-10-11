@@ -17,6 +17,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/envoryx/envoryx/internal/auth"
+	"github.com/envoryx/envoryx/internal/plan"
 	"github.com/envoryx/envoryx/internal/project"
 	"github.com/envoryx/envoryx/internal/runtime"
 	"github.com/envoryx/envoryx/internal/store"
@@ -125,6 +126,12 @@ func (s *Server) Handler() http.Handler {
 				s.d.Log.Error("api token validation failed", "err", err)
 			}
 			unauthorized(w, "invalid token")
+			return
+		}
+		if s.d.Projects.Suspension() != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusForbidden)
+			fmt.Fprintf(w, `{"error":{"code":"suspended","message":%q}}`, plan.ErrSuspended.Error())
 			return
 		}
 		transport.ServeHTTP(w, r.WithContext(auth.WithPrincipal(r.Context(), p)))

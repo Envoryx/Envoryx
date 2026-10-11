@@ -25,8 +25,11 @@ type planUsage struct {
 	measuredAt time.Time
 }
 
-// SetPlan hands the Manager the instance's plan.
-func (m *Manager) SetPlan(h *plan.Holder) { m.plan = h }
+// SetPlan hands the Manager the instance's plan and suspension.
+func (m *Manager) SetPlan(h *plan.Holder) {
+	m.plan = h
+	h.OnSuspend(m.suspensionChanged)
+}
 
 // Plan returns the instance's plan; nil when it has none.
 func (m *Manager) Plan() *plan.Plan { return m.plan.Get() }

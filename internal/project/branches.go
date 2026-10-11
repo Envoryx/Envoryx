@@ -511,6 +511,9 @@ func (m *Manager) RunBranchScheduler(ctx context.Context, interval time.Duration
 // runBranchPass is one scheduler pass: the visits recorded since the last pass are stored,
 // idle environments stopped and every watched repository that is due polled.
 func (m *Manager) runBranchPass(ctx context.Context, now time.Time, log *slog.Logger) {
+	if m.Suspension() != nil {
+		return
+	}
 	projects, err := m.store.Projects.List(ctx)
 	if err != nil {
 		log.Warn("branch scheduler: list projects", "err", err)

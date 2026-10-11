@@ -61,6 +61,9 @@ type Manager struct {
 	// (plan.go).
 	plan  *plan.Holder
 	usage planUsage
+	// suspendKick wakes RunSuspension when the hoster suspends the instance
+	// (suspension.go).
+	suspendKick chan struct{}
 	// custom holds the build specs and context hashes of custom images (customimages.go).
 	custom customImages
 	// addons are the installed addon files (addons.go).
@@ -167,7 +170,7 @@ func NewManager(st *store.Store, engine docker.Engine, catalog *runtime.Catalog,
 	if cfg.StopTimeout == 0 {
 		cfg.StopTimeout = 10 * time.Second
 	}
-	m := &Manager{store: st, engine: engine, catalog: catalog, paths: paths, audit: auditLog, log: log, cfg: cfg, ops: newOps(), progress: newProgress()}
+	m := &Manager{store: st, engine: engine, catalog: catalog, paths: paths, audit: auditLog, log: log, cfg: cfg, ops: newOps(), progress: newProgress(), suspendKick: make(chan struct{}, 1)}
 	engine.SetRegistryCredentials(m.registryCredentials)
 	m.addons = addon.NewRegistry(m.addonsDir)
 	return m

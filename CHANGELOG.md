@@ -23,10 +23,16 @@ release). `:main` follows the development branch.
   `ENVORYX_FLEET_TOKEN` the instance enrolls, keeps a connection to the
   manager open (it dials out, no open port needed), takes over the plan the
   manager sends and reports its version and use every minute.
+- Suspension of a managed instance: the hoster's fleet manager can suspend an
+  instance with an optional message. Its projects stop, every other operation
+  is refused, the web UI shows the users only the hoster's message, and the
+  API, MCP, SSH and SFTP refuse. Lifting it opens the instance again without
+  starting anything. See DEPLOYMENT.md, *Suspension*.
 
 ### Changed
-- Restoring an instance backup never takes the secret key, the instance ID
-  or the plan from the archive, also from one that carries them.
+- Restoring an instance backup never takes the secret key, the instance ID,
+  the plan or the suspension from the archive, also from one that carries
+  them.
 
 ## [0.27.1] - 2026-10-10
 

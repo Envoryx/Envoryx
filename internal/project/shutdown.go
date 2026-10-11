@@ -82,17 +82,22 @@ func (m *Manager) StopAllForShutdown(ctx context.Context) {
 	}
 	wg.Wait()
 
-	// Whatever managed container still runs is not part of a stoppable project, except
-	// the unlabelled ones of unknown projects: they may be another instance's.
+	m.stopManagedContainers(ctx, projects)
+}
+
+// stopManagedContainers stops whatever managed container still runs, except the
+// unlabelled ones of unknown projects: they may be another instance's.
+func (m *Manager) stopManagedContainers(ctx context.Context, projects []store.Project) {
 	containers, err := m.engine.ListContainers(ctx, true, "")
 	if err != nil {
-		m.log.Warn("stop projects at shutdown: list containers", "err", err)
+		m.log.Warn("stop managed containers: list containers", "err", err)
 		return
 	}
 	known := map[string]bool{}
 	for _, p := range projects {
 		known[p.ID] = true
 	}
+	var wg sync.WaitGroup
 	for _, c := range containers {
 		if c.State != "running" || unclaimed(c.Labels, func(id string) bool { return known[id] }) {
 			continue
@@ -101,7 +106,7 @@ func (m *Manager) StopAllForShutdown(ctx context.Context) {
 		go func(c docker.Container) {
 			defer wg.Done()
 			if err := m.engine.StopContainer(ctx, c.ID, m.cfg.StopTimeout); err != nil {
-				m.log.Warn("stop container at shutdown", "container", c.Name, "err", err)
+				m.log.Warn("stop managed container", "container", c.Name, "err", err)
 			}
 		}(c)
 	}
@@ -114,6 +119,9 @@ func (m *Manager) StopAllForShutdown(ctx context.Context) {
 // lifecycle are left to the reconciler. Failures are recorded on the project like any
 // other start; a shutdown meanwhile interrupts the starts through Manager.run.
 func (m *Manager) ResumeProjects(ctx context.Context, log *slog.Logger) {
+	if m.Suspension() != nil {
+		return
+	}
 	projects, err := m.loadProjects(ctx)
 	if err != nil {
 		log.Warn("resume projects: load projects", "err", err)

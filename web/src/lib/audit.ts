@@ -42,6 +42,8 @@ export const auditActionLabels: Record<string, string> = {
   "instance.backup_deleted": "Instance backup deleted",
   "instance.restore_scheduled": "Instance restore scheduled",
   "instance.restored": "Instance restored",
+  "instance.suspended": "Instance suspended",
+  "instance.unsuspended": "Suspension lifted",
   "database.credentials_viewed": "Database credentials viewed",
   "database.password_rotated": "Database password rotated",
   "database.created": "Database created",

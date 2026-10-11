@@ -32,6 +32,10 @@ const StateFile = "fleet.json"
 // statusInterval is how often a connected instance reports its state.
 const statusInterval = time.Minute
 
+// suspensionReport is when the state goes out again after a suspension: once the
+// projects are stopped.
+const suspensionReport = 10 * time.Second
+
 // state is the content of StateFile.
 type state struct {
 	URL  string `json:"url"`
@@ -355,12 +359,24 @@ func (a *Agent) connect(ctx context.Context, st *state) error {
 			a.mu.Lock()
 			a.contact = time.Now()
 			a.mu.Unlock()
-			if m.Type == "plan" {
+			switch m.Type {
+			case "plan":
 				a.applyPlan(m.Plan)
-				select {
-				case planned <- struct{}{}:
-				default:
-				}
+			case "suspension":
+				a.applySuspension(m.Suspension)
+				// Stopping the projects takes a moment; the manager hears the result too.
+				time.AfterFunc(suspensionReport, func() {
+					select {
+					case planned <- struct{}{}:
+					default:
+					}
+				})
+			default:
+				continue
+			}
+			select {
+			case planned <- struct{}{}:
+			default:
 			}
 		}
 	}()
@@ -374,7 +390,7 @@ func (a *Agent) connect(ctx context.Context, st *state) error {
 		case err := <-readErr:
 			return closeErr(err, "")
 		case <-planned:
-			// The manager sees right away whether the plan was taken over.
+			// The manager sees right away whether the plan or suspension was taken over.
 			if err := sendStatus(); err != nil {
 				return closeErr(err, "")
 			}
@@ -411,6 +427,9 @@ func (a *Agent) status(ctx context.Context) Status {
 	if p := a.cfg.Plan.Get(); p != nil {
 		s.PlanName = p.Name
 	}
+	if susp := a.cfg.Plan.Suspension(); susp != nil {
+		s.SuspendedSince = susp.Since
+	}
 	a.mu.Lock()
 	s.PlanError = a.planErr
 	a.mu.Unlock()
@@ -444,6 +463,24 @@ func (a *Agent) applyPlan(raw json.RawMessage) {
 	a.mu.Unlock()
 	if err != nil {
 		a.cfg.Log.Warn("fleet: plan not taken over", "err", err)
+		return
+	}
+	a.cfg.Plan.Reload()
+}
+
+// applySuspension writes the suspension the manager sent (null lifts it) and has it read.
+func (a *Agent) applySuspension(raw json.RawMessage) {
+	path := filepath.Join(a.cfg.ConfigDir, plan.SuspensionFile)
+	var err error
+	if len(raw) == 0 || string(raw) == "null" {
+		if err = os.Remove(path); errors.Is(err, os.ErrNotExist) {
+			err = nil
+		}
+	} else if _, err = plan.ParseSuspension(raw); err == nil {
+		err = writeFileAtomic(path, raw)
+	}
+	if err != nil {
+		a.cfg.Log.Warn("fleet: suspension not taken over", "err", err)
 		return
 	}
 	a.cfg.Plan.Reload()

@@ -124,10 +124,12 @@ var instanceRoutesForConfined = map[string]bool{
 
 // instanceRoutesForConfinedUsers are the further instance routes a confined user's
 // browser session needs to use the UI: the dashboard (filtered), the settings the
-// project pages read (trimmed for non-admins), and the own password and tokens.
+// project pages read (trimmed for non-admins), the plan (what the pages hide, and a
+// suspension) and the own password and tokens.
 var instanceRoutesForConfinedUsers = map[string]bool{
 	"GET /api/v1/dashboard":        true,
 	"GET /api/v1/settings":         true,
+	"GET /api/v1/plan":             true,
 	"POST /api/v1/auth/password":   true,
 	"GET /api/v1/auth/ssh-keys":    true,
 	"PUT /api/v1/auth/ssh-keys":    true,
@@ -147,6 +149,13 @@ var routesForAnyProject = map[string]bool{
 
 // guard enforces the principal's access for one route: the user's role (in the project
 // for project routes) and, for an API token, its scope and project list as well.
+// routesWhileSuspended are what a suspended instance still answers: who is signed in and
+// the plan, which carries the hoster's message.
+var routesWhileSuspended = map[string]bool{
+	"GET /api/v1/auth/me": true,
+	"GET /api/v1/plan":    true,
+}
+
 // Instance-wide routes are closed to confined principals except for the few listed above.
 func (a *API) guard(need auth.Scope, pattern string, h http.HandlerFunc) http.HandlerFunc {
 	perProject := strings.Contains(pattern, "/projects/{id}")
@@ -166,6 +175,10 @@ func (a *API) guard(need auth.Scope, pattern string, h http.HandlerFunc) http.Ha
 			}
 		default:
 			err = p.Require(need, "")
+		}
+		if err == nil && !routesWhileSuspended[pattern] {
+			// A suspended instance shows its users the hoster's message and nothing else.
+			err = a.d.Projects.Suspension().Err()
 		}
 		if err == nil && (r.Method == http.MethodPost || r.Method == http.MethodPut) && strings.Contains(pattern, "/offsite") {
 			// Without offsite targets in the plan nothing is sent to or fetched from one.

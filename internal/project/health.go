@@ -332,6 +332,9 @@ func (m *Manager) RunHealthChecks(ctx context.Context, tick time.Duration, log *
 
 // HealthPass starts the checks that are due at now and waits for them.
 func (m *Manager) HealthPass(ctx context.Context, now time.Time) {
+	if m.Suspension() != nil {
+		return
+	}
 	projects, err := m.store.Projects.List(ctx)
 	if err != nil {
 		return

@@ -1,6 +1,6 @@
 import { screen } from "@testing-library/react";
 import { Route, Routes } from "react-router-dom";
-import { RequireAdmin } from "./App";
+import { RequireAdmin, Unsuspended } from "./App";
 import { mockApi, renderApp } from "@/test/utils";
 
 function routes() {
@@ -41,5 +41,32 @@ describe("RequireAdmin", () => {
     mockApi(me({ user: { id: "u1", username: "admin", role: "admin" }, admin: false, projectRoles: {}, token: { name: "ci", scope: "operate", projects: [] } }));
     renderApp(routes(), { route: "/docker" });
     expect(await screen.findByRole("heading", { name: "Projects" })).toBeInTheDocument();
+  });
+});
+
+describe("Unsuspended", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  const page = (
+    <Unsuspended>
+      <h1>Dashboard</h1>
+    </Unsuspended>
+  );
+
+  it("shows the hoster's message instead of the pages of a suspended instance", async () => {
+    mockApi({
+      ...me({ user: { id: "u1", username: "admin", role: "admin" }, admin: true }),
+      "GET /plan": () => ({ body: { plan: null, suspension: { since: "2026-10-11T08:00:00Z", message: "Invoice 1234 is open" } } }),
+    });
+    renderApp(page);
+    expect(await screen.findByRole("heading", { name: "This instance is suspended" })).toBeInTheDocument();
+    expect(screen.getByText("Invoice 1234 is open")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Dashboard" })).not.toBeInTheDocument();
+  });
+
+  it("shows the pages otherwise", async () => {
+    mockApi({ ...me({ user: { id: "u1", username: "admin", role: "admin" }, admin: true }), "GET /plan": () => ({ body: { plan: null } }) });
+    renderApp(page);
+    expect(await screen.findByRole("heading", { name: "Dashboard" })).toBeInTheDocument();
   });
 });
