@@ -244,11 +244,40 @@ type phpRequestDTO struct {
 	Config  runtime.PHPConfig `json:"config"`
 }
 
+// UnmarshalJSON starts from the development defaults the wizard offers, so what a
+// client leaves out (the whole config, or display_errors, which as false can't be told
+// from "not given") gets the default rather than off.
+func (d *phpRequestDTO) UnmarshalJSON(b []byte) error {
+	type plain phpRequestDTO
+	v := plain{Config: runtime.DefaultPHPConfig()}
+	if err := json.Unmarshal(b, &v); err != nil {
+		return err
+	}
+	*d = phpRequestDTO(v)
+	return nil
+}
+
 // phpUpdateDTO changes the PHP service; "enabled" (default true) adds PHP to a project
 // without it or, when false, removes the PHP container (workers' containers go with it).
 type phpUpdateDTO struct {
 	Enabled *bool `json:"enabled"`
 	phpRequestDTO
+}
+
+// UnmarshalJSON takes the defaults of phpRequestDTO (whose method the embedding would
+// otherwise use for the whole value and lose "enabled").
+func (d *phpUpdateDTO) UnmarshalJSON(b []byte) error {
+	var en struct {
+		Enabled *bool `json:"enabled"`
+	}
+	if err := json.Unmarshal(b, &en); err != nil {
+		return err
+	}
+	if err := d.phpRequestDTO.UnmarshalJSON(b); err != nil {
+		return err
+	}
+	d.Enabled = en.Enabled
+	return nil
 }
 
 type nodeRequestDTO struct {
