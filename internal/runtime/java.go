@@ -148,6 +148,25 @@ func (c *JavaConfig) normalizeDebug() error {
 // Production reports whether the project is built once and the jar runs.
 func (c JavaConfig) Production() bool { return c.Mode == JavaModeProduction }
 
+// JavaStaleClasses removes compiled classes this JDK cannot load. After a switch to an
+// older Java version, the classes the newer one compiled make every start fail with
+// UnsupportedClassVersionError, and neither Maven nor the frameworks' dev modes compile
+// them again: the sources did not change. The class file version of one class per
+// directory says which JDK it was compiled for (major 44 + the Java version); without
+// the directory the next build compiles everything for this JDK.
+const JavaStaleClasses = `jdk=$(java -version 2>&1 | sed -n '1s/^[^"]*"\([0-9]*\).*/\1/p')
+if [ -n "$jdk" ]; then
+  for d in target/classes target/test-classes build/classes; do
+    c=$(find "$d" -name '*.class' -print -quit 2>/dev/null || true)
+    [ -n "$c" ] || continue
+    major=$(od -An -j6 -N2 -tu1 "$c" | awk '{print $1*256+$2}')
+    if [ "${major:-0}" -gt $((jdk + 44)) ]; then
+      echo "envoryx: $d was compiled for Java $((major - 44)) - removing it so the build compiles it again for Java $jdk"
+      rm -rf "$d"
+    fi
+  done
+fi`
+
 // javaServeScript starts the server: $1 is the preset, $2 the mode, $3 the JDWP port (0
 // when off) and $4 the jar of the "jar" preset (may be empty). The build tool follows
 // the project: pom.xml means Maven, else Gradle, and a wrapper (mvnw, gradlew) wins over
@@ -157,6 +176,7 @@ func (c JavaConfig) Production() bool { return c.Mode == JavaModeProduction }
 // gets the stop signal directly.
 const javaServeScript = `set -e
 preset=$1 mode=$2 dport=$3 jar=$4
+` + JavaStaleClasses + `
 mvn=mvn; [ -f ./mvnw ] && mvn="sh ./mvnw"
 gradle=gradle; [ -f ./gradlew ] && gradle="sh ./gradlew"
 tool=gradle; [ -f pom.xml ] && tool=maven

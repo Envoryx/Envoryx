@@ -180,4 +180,34 @@ func TestJavaServeScript(t *testing.T) {
 			t.Fatalf("got %q (%v)", out, err)
 		}
 	})
+	t.Run("classes a newer JDK compiled go", func(t *testing.T) {
+		// A java that reports version 21 to -version, like the image's.
+		jdk := t.TempDir()
+		stub := "#!/bin/sh\nif [ \"$1\" = -version ]; then echo 'openjdk version \"21.0.8\" 2025-07-15 LTS' >&2; exit 0; fi\necho java \"$@\"\n"
+		if err := os.WriteFile(filepath.Join(jdk, "java"), []byte(stub), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		dir := project("pom.xml")
+		class := func(path string, major byte) {
+			p := filepath.Join(dir, path)
+			_ = os.MkdirAll(filepath.Dir(p), 0o755)
+			if err := os.WriteFile(p, []byte{0xca, 0xfe, 0xba, 0xbe, 0, 0, 0, major}, 0o644); err != nil {
+				t.Fatal(err)
+			}
+		}
+		class("target/classes/com/example/App.class", 69)    // Java 25
+		class("target/test-classes/com/example/T.class", 65) // Java 21
+		cmd := exec.Command("sh", "-c", javaServeScript, "envoryx-java", "spring-boot", "dev", "0", "")
+		cmd.Dir, cmd.Env = dir, []string{"PATH=" + jdk + ":" + bin + ":/usr/bin:/bin"}
+		out, err := cmd.CombinedOutput()
+		if err != nil || !strings.Contains(string(out), "target/classes was compiled for Java 25") {
+			t.Fatalf("got %q (%v)", out, err)
+		}
+		if _, err := os.Stat(filepath.Join(dir, "target/classes")); !os.IsNotExist(err) {
+			t.Fatal("target/classes compiled by Java 25 must go")
+		}
+		if _, err := os.Stat(filepath.Join(dir, "target/test-classes")); err != nil {
+			t.Fatal("classes this JDK can load must stay")
+		}
+	})
 }
