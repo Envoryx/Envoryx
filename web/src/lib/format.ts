@@ -16,9 +16,10 @@ export function slugify(name: string): string {
     .slice(0, 40);
 }
 
+/** Sizes in powers of 1024, named as such (GiB, not GB), as Diagnostics and the server do. */
 export function formatBytes(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
-  const units = ["B", "KB", "MB", "GB", "TB"];
+  const units = ["B", "KiB", "MiB", "GiB", "TiB"];
   let i = 0;
   let v = bytes;
   while (v >= 1024 && i < units.length - 1) {
