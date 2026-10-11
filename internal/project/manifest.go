@@ -391,8 +391,9 @@ func hasExternal(mf manifest.Manifest) bool {
 	return false
 }
 
-// manifestDBType maps what people write to the catalogue's key.
-func manifestDBType(t string) string {
+// canonicalDBType maps what people write to the catalogue's key: "postgres", which
+// envoryx.yml and the docs use, is PostgreSQL.
+func canonicalDBType(t string) string {
 	if t == "postgres" {
 		return "postgresql"
 	}
@@ -458,11 +459,11 @@ func manifestRequest(mf manifest.Manifest, name string) CreateRequest {
 		return &ExternalDatabase{Host: e.Host, Port: e.Port, Username: e.Username, Database: e.Database}
 	}
 	if mf.Database != nil {
-		req.Database = &DatabaseRequest{Type: manifestDBType(mf.Database.Type), Version: mf.Database.Version, ExposePort: mf.Database.ExposePort, External: external(mf.Database.External)}
+		req.Database = &DatabaseRequest{Type: canonicalDBType(mf.Database.Type), Version: mf.Database.Version, ExposePort: mf.Database.ExposePort, External: external(mf.Database.External)}
 	}
 	for _, name := range slices.Sorted(maps.Keys(mf.Databases)) {
 		d := mf.Databases[name]
-		req.Databases = append(req.Databases, NamedDatabaseRequest{Name: name, DatabaseRequest: DatabaseRequest{Type: manifestDBType(d.Type), Version: d.Version, ExposePort: d.ExposePort, External: external(d.External)}})
+		req.Databases = append(req.Databases, NamedDatabaseRequest{Name: name, DatabaseRequest: DatabaseRequest{Type: canonicalDBType(d.Type), Version: d.Version, ExposePort: d.ExposePort, External: external(d.External)}})
 	}
 	extra := func(s *manifest.Service) *ExtraRequest {
 		if s == nil {

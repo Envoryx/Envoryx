@@ -714,6 +714,7 @@ func (m *Manager) buildWebService(webType, version string, spa bool) (store.Proj
 // buildDatabaseService validates the database selection and generates credentials, or
 // takes those of an external server (whose reachability create and update check).
 func (m *Manager) buildDatabaseService(slug, dbType, version string, ext *ExternalDatabase) (store.ProjectService, error) {
+	dbType = canonicalDBType(dbType)
 	if dbType == "" {
 		dbType = "mariadb"
 	}
