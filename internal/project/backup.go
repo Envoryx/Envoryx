@@ -1137,6 +1137,11 @@ func (m *Manager) restoreDatabase(ctx context.Context, p store.Project, svc *sto
 	if err != nil {
 		return err
 	}
+	// The database is emptied before the import, so a dump that can't be read whole
+	// must not get that far.
+	if err := checkGzip(dump); err != nil {
+		return fmt.Errorf("read dump: %w", err)
+	}
 	f, err := os.Open(dump)
 	if err != nil {
 		return err
@@ -1153,6 +1158,9 @@ func (m *Manager) restoreDatabase(ctx context.Context, p store.Project, svc *sto
 		if err := m.waitForDatabase(ctx, p, svc, cfg, dialect); err != nil {
 			return err
 		}
+		if err := m.emptyDatabase(ctx, p, svc, cfg, dialect); err != nil {
+			return fmt.Errorf("empty the database before the import: %w", err)
+		}
 		var stderr strings.Builder
 		argv, env := dialect.Restore(cfg)
 		code, err := m.dbStream(ctx, dbEnd{p, svc, cfg}, argv, env, gz, nil, &limitedBuilder{b: &stderr})
@@ -1164,6 +1172,45 @@ func (m *Manager) restoreDatabase(ctx context.Context, p store.Project, svc *sto
 		}
 		return nil
 	})
+}
+
+// checkGzip reads a gzip file to its end, which verifies its checksum.
+func checkGzip(path string) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	gz, err := gzip.NewReader(f)
+	if err != nil {
+		return err
+	}
+	defer gz.Close()
+	_, err = io.Copy(io.Discard, gz)
+	return err
+}
+
+// emptyDatabase drops and recreates a database Envoryx runs before a dump goes into it.
+// A dump only drops what it contains itself, so tables created after it was taken would
+// survive the restore and break the next migration. A database on an external server is
+// left as it is: Envoryx doesn't drop databases there.
+func (m *Manager) emptyDatabase(ctx context.Context, p store.Project, svc *store.ProjectService, cfg runtime.DatabaseConfig, dialect runtime.Dialect) error {
+	if cfg.External() {
+		return nil
+	}
+	drop := dialect.DropDatabase(cfg.Database)
+	if dialect.Variant == "postgresql" {
+		// The project's own server and workers hold connections to it.
+		drop += " WITH (FORCE)"
+	}
+	if _, err := m.runSQL(ctx, p, svc, cfg, drop); err != nil {
+		return err
+	}
+	if dialect.DumpFormat == "archive" {
+		return nil // MongoDB creates the database with the first collection the restore writes
+	}
+	_, err := m.runSQL(ctx, p, svc, cfg, dialect.CreateDatabase(cfg.Database, cfg.Username))
+	return err
 }
 
 // wipeDir removes the contents of dir but keeps the directory itself.

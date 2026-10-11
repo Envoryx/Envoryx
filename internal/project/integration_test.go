@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -380,12 +381,18 @@ func snapshotAndClone(t *testing.T, engine string) {
 		t.Fatalf("the clone must replace the target's rows, got %q", rows)
 	}
 
+	// A table created after the snapshot (a later migration) must not survive its
+	// restore: the dump only drops what it holds itself.
+	sqlIn(t, m, target.ID, "CREATE TABLE later (id int);")
 	if _, err := m.RestoreSnapshot(ctx, target.ID, "", snapshot.ID, target.Slug); err != nil {
 		t.Fatalf("restore snapshot: %v", err)
 	}
 	rows = sqlIn(t, m, target.ID, "SELECT note FROM orders;")
 	if !strings.Contains(rows, "from-target") || strings.Contains(rows, "from-source") {
 		t.Fatalf("the snapshot must bring the state before the clone back, got %q", rows)
+	}
+	if rows := sqlIn(t, m, target.ID, "SELECT count(*) FROM information_schema.tables WHERE table_name = 'later';"); !regexp.MustCompile(`(?m)^\s*0\s*$`).MatchString(rows) {
+		t.Fatalf("a table newer than the snapshot survived its restore: %q", rows)
 	}
 
 	// Two snapshots of the target (one taken by hand, one by the clone), none of the
