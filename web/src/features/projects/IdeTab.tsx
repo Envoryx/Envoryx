@@ -109,7 +109,11 @@ export function IdeTab({ project: p }: { project: Project }) {
                 <FolderSync className="size-4 text-accent-500" aria-hidden /> {t("Project files (SFTP)")}
               </span>
             }
-            description={t("Open the project in PhpStorm, WebStorm & co. without a network share: the SSH server also speaks SFTP, with the container's paths. The IDE keeps a local copy and uploads every change on save - this works while the project is stopped, too.")}
+            description={
+              !app || app === "php" || app === "node"
+                ? t("Open the project in PhpStorm, WebStorm & co. without a network share: the SSH server also speaks SFTP, with the container's paths. The IDE keeps a local copy and uploads every change on save - this works while the project is stopped, too.")
+                : t("Work on the project in your IDE without a network share: the SSH server also speaks SFTP, with the container's paths. The IDE keeps a local copy and uploads every change on save - this works while the project is stopped, too.")
+            }
           />
           <div className="p-5">
             <dl>
@@ -130,7 +134,11 @@ export function IdeTab({ project: p }: { project: Project }) {
               <li>{t("Project name and an empty local folder for the copy. Deployment options “Custom”, then on the next page set “Upload changed files automatically to the default server” to “Always”.")}</li>
               <li>{t("Add Remote Server: type SFTP. “…” next to SSH configuration, then “+”: host, port and username from above, authentication type “Password” (the API token) or “Key pair”. Root path and web server URL as above.")}</li>
               <li>{t("Choose Remote Path: select the server entry and click “Project Root”, leave the web path empty, Create. The IDE downloads the files.")}</li>
-              <li>{t("Files changed inside the container (composer install, npm install, generated code) come back with a right click on the project folder → Deployment → Download from … - download vendor once for code completion.")}</li>
+              <li>
+                {app === "php"
+                  ? t("Files changed inside the container (composer install, npm install, generated code) come back with a right click on the project folder → Deployment → Download from … - download vendor once for code completion.")
+                  : t("Files changed inside the container (installed packages, generated code) come back with a right click on the project folder → Deployment → Download from ….")}
+              </li>
             </ol>
             <p className="mt-3 text-xs text-subtle">
               {t("Code already on your machine (e.g. a Git clone)? Settings → Build, Execution, Deployment → Deployment → + → SFTP with the same values, “Use as Default”, then Tools → Deployment → Automatic Upload.")}
