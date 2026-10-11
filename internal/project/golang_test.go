@@ -2,6 +2,7 @@ package project
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"slices"
@@ -194,5 +195,50 @@ func TestGoWorkerDisplayCommand(t *testing.T) {
 	}
 	if cmd, _ := WorkerDisplayCommand(store.Worker{Preset: "laravel:schedule"}); strings.Join(cmd, " ") != "php artisan schedule:work" {
 		t.Fatalf("other presets keep their command: %q", cmd)
+	}
+}
+
+// An update that only carries the fields the caller sent (the API's PATCH) keeps the rest
+// of the stored server configuration: a version switch alone leaves the server running.
+func TestRuntimePatchKeepsWhatItLeavesOut(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	v, err := e.m.Create(ctx, goRequest("Patch", false))
+	if err != nil {
+		t.Fatal(err)
+	}
+	stored := func(kind store.ServiceKind, cfg any) {
+		t.Helper()
+		view, err := e.m.Get(ctx, v.Project.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := json.Unmarshal(view.Project.Service(kind).Config, cfg); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var before runtime.GoConfig
+	stored(store.ServiceGo, &before)
+	patch := json.RawMessage(`{"enabled":true,"version":"1.26","hostPort":1}`)
+	if _, err := e.m.Update(ctx, v.Project.ID, UpdateRequest{Go: &GoUpdate{Enabled: true, Version: "1.26", Patch: patch}}); err != nil {
+		t.Fatal(err)
+	}
+	var after runtime.GoConfig
+	stored(store.ServiceGo, &after)
+	if after != before || !after.Server || after.Package != "./cmd/server" || after.HostPort == 0 {
+		t.Fatalf("version-only patch changed the config: %+v -> %+v", before, after)
+	}
+
+	// A new preset brings its own port and application unless the patch sets them.
+	if _, err := e.m.Update(ctx, v.Project.ID, UpdateRequest{Python: &PythonUpdate{Enabled: true, Version: "3.13", Config: runtime.PythonConfig{Server: true, Preset: "django", Port: 8001, Debug: true}}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.m.Update(ctx, v.Project.ID, UpdateRequest{Python: &PythonUpdate{Enabled: true, Patch: json.RawMessage(`{"enabled":true,"preset":"asgi"}`)}}); err != nil {
+		t.Fatal(err)
+	}
+	var py runtime.PythonConfig
+	stored(store.ServicePython, &py)
+	if !py.Server || !py.Debug || py.Preset != "asgi" || py.Port != 8000 || py.App != "main:app" {
+		t.Fatalf("preset patch: %+v", py)
 	}
 }

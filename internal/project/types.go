@@ -3,6 +3,7 @@
 package project
 
 import (
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -104,6 +105,8 @@ type NodeUpdate struct {
 	// KeepInspect takes Inspect over from the stored configuration: an API call that
 	// leaves "inspect" out would otherwise unpublish the inspector port.
 	KeepInspect bool
+	// KeepDevServer does the same for DevServer.
+	KeepDevServer bool
 }
 
 // PythonRequest selects the Python container and optional application server.
@@ -117,6 +120,9 @@ type PythonUpdate struct {
 	Enabled bool
 	Version string
 	Config  runtime.PythonConfig
+	// Patch, when set, replaces Config: the JSON object of the fields the caller sent,
+	// applied on top of the stored configuration so that what it leaves out stays as it is.
+	Patch json.RawMessage
 }
 
 // GoRequest selects the Go container and optional application server.
@@ -130,6 +136,9 @@ type GoUpdate struct {
 	Enabled bool
 	Version string
 	Config  runtime.GoConfig
+	// Patch, when set, replaces Config: the JSON object of the fields the caller sent,
+	// applied on top of the stored configuration so that what it leaves out stays as it is.
+	Patch json.RawMessage
 }
 
 // RubyRequest selects the Ruby container and optional application server.
@@ -143,6 +152,9 @@ type RubyUpdate struct {
 	Enabled bool
 	Version string
 	Config  runtime.RubyConfig
+	// Patch, when set, replaces Config: the JSON object of the fields the caller sent,
+	// applied on top of the stored configuration so that what it leaves out stays as it is.
+	Patch json.RawMessage
 }
 
 // JavaRequest selects the Java container and optional application server.
@@ -156,6 +168,9 @@ type JavaUpdate struct {
 	Enabled bool
 	Version string
 	Config  runtime.JavaConfig
+	// Patch, when set, replaces Config: the JSON object of the fields the caller sent,
+	// applied on top of the stored configuration so that what it leaves out stays as it is.
+	Patch json.RawMessage
 }
 
 // DotnetRequest selects the .NET container and optional application server.
@@ -169,6 +184,9 @@ type DotnetUpdate struct {
 	Enabled bool
 	Version string
 	Config  runtime.DotnetConfig
+	// Patch, when set, replaces Config: the JSON object of the fields the caller sent,
+	// applied on top of the stored configuration so that what it leaves out stays as it is.
+	Patch json.RawMessage
 }
 
 // ExtraRequest selects an auxiliary service (Redis, Memcached, Mailpit, RabbitMQ,

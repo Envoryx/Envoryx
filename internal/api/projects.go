@@ -272,9 +272,27 @@ func (n nodeRequestDTO) config() runtime.NodeConfig {
 type nodeUpdateDTO struct {
 	Enabled bool `json:"enabled"`
 	nodeRequestDTO
-	// Inspect shadows the request's flag to tell "false" from "left out", which keeps
-	// the stored value like the other fields NodeConfig.Inherit fills.
-	Inspect *bool `json:"inspect"`
+	// Inspect and DevServer shadow the request's flags to tell "false" from "left out",
+	// which keeps the stored value like the other fields NodeConfig.Inherit fills.
+	Inspect   *bool `json:"inspect"`
+	DevServer *bool `json:"devServer"`
+	// The host ports the API returns in the config, accepted (and ignored) so that a
+	// configuration fetched with GET can be sent back as it is.
+	HostPort        int `json:"hostPort"`
+	InspectHostPort int `json:"inspectHostPort"`
+}
+
+// hostPortDTO accepts the host port the API returns in a service's config, so that a
+// configuration fetched with GET can be sent back as it is. Envoryx assigns it; a value
+// sent here is ignored.
+type hostPortDTO struct {
+	HostPort int `json:"hostPort"`
+}
+
+// serverPortsDTO is hostPortDTO for the runtimes that also publish a debugger port.
+type serverPortsDTO struct {
+	hostPortDTO
+	DebugHostPort int `json:"debugHostPort"`
 }
 
 type pythonRequestDTO struct {
@@ -296,6 +314,15 @@ func (n pythonRequestDTO) config() runtime.PythonConfig {
 type pythonUpdateDTO struct {
 	Enabled bool `json:"enabled"`
 	pythonRequestDTO
+	serverPortsDTO
+	// patch is the object as sent: the update applies only the fields it carries.
+	patch json.RawMessage
+}
+
+func (d *pythonUpdateDTO) UnmarshalJSON(b []byte) error {
+	type plain pythonUpdateDTO
+	d.patch = append(json.RawMessage(nil), b...)
+	return decodeStrict(b, (*plain)(d))
 }
 
 type goRequestDTO struct {
@@ -316,6 +343,15 @@ func (n goRequestDTO) config() runtime.GoConfig {
 type goUpdateDTO struct {
 	Enabled bool `json:"enabled"`
 	goRequestDTO
+	serverPortsDTO
+	// patch is the object as sent: the update applies only the fields it carries.
+	patch json.RawMessage
+}
+
+func (d *goUpdateDTO) UnmarshalJSON(b []byte) error {
+	type plain goUpdateDTO
+	d.patch = append(json.RawMessage(nil), b...)
+	return decodeStrict(b, (*plain)(d))
 }
 
 type rubyRequestDTO struct {
@@ -336,6 +372,15 @@ func (n rubyRequestDTO) config() runtime.RubyConfig {
 type rubyUpdateDTO struct {
 	Enabled bool `json:"enabled"`
 	rubyRequestDTO
+	serverPortsDTO
+	// patch is the object as sent: the update applies only the fields it carries.
+	patch json.RawMessage
+}
+
+func (d *rubyUpdateDTO) UnmarshalJSON(b []byte) error {
+	type plain rubyUpdateDTO
+	d.patch = append(json.RawMessage(nil), b...)
+	return decodeStrict(b, (*plain)(d))
 }
 
 type javaRequestDTO struct {
@@ -357,6 +402,15 @@ func (n javaRequestDTO) config() runtime.JavaConfig {
 type javaUpdateDTO struct {
 	Enabled bool `json:"enabled"`
 	javaRequestDTO
+	serverPortsDTO
+	// patch is the object as sent: the update applies only the fields it carries.
+	patch json.RawMessage
+}
+
+func (d *javaUpdateDTO) UnmarshalJSON(b []byte) error {
+	type plain javaUpdateDTO
+	d.patch = append(json.RawMessage(nil), b...)
+	return decodeStrict(b, (*plain)(d))
 }
 
 type dotnetRequestDTO struct {
@@ -377,6 +431,15 @@ func (n dotnetRequestDTO) config() runtime.DotnetConfig {
 type dotnetUpdateDTO struct {
 	Enabled bool `json:"enabled"`
 	dotnetRequestDTO
+	hostPortDTO
+	// patch is the object as sent: the update applies only the fields it carries.
+	patch json.RawMessage
+}
+
+func (d *dotnetUpdateDTO) UnmarshalJSON(b []byte) error {
+	type plain dotnetUpdateDTO
+	d.patch = append(json.RawMessage(nil), b...)
+	return decodeStrict(b, (*plain)(d))
 }
 
 type extraRequestDTO struct {
@@ -896,22 +959,25 @@ func (a *API) updateProject(w http.ResponseWriter, r *http.Request) {
 		if req.Node.Inspect != nil {
 			cfg.Inspect = *req.Node.Inspect
 		}
-		upd.Node = &project.NodeUpdate{Enabled: req.Node.Enabled, Version: req.Node.Version, Config: cfg, KeepInspect: req.Node.Inspect == nil}
+		if req.Node.DevServer != nil {
+			cfg.DevServer = *req.Node.DevServer
+		}
+		upd.Node = &project.NodeUpdate{Enabled: req.Node.Enabled, Version: req.Node.Version, Config: cfg, KeepInspect: req.Node.Inspect == nil, KeepDevServer: req.Node.DevServer == nil}
 	}
 	if req.Python != nil {
-		upd.Python = &project.PythonUpdate{Enabled: req.Python.Enabled, Version: req.Python.Version, Config: req.Python.config()}
+		upd.Python = &project.PythonUpdate{Enabled: req.Python.Enabled, Version: req.Python.Version, Patch: req.Python.patch}
 	}
 	if req.Go != nil {
-		upd.Go = &project.GoUpdate{Enabled: req.Go.Enabled, Version: req.Go.Version, Config: req.Go.config()}
+		upd.Go = &project.GoUpdate{Enabled: req.Go.Enabled, Version: req.Go.Version, Patch: req.Go.patch}
 	}
 	if req.Ruby != nil {
-		upd.Ruby = &project.RubyUpdate{Enabled: req.Ruby.Enabled, Version: req.Ruby.Version, Config: req.Ruby.config()}
+		upd.Ruby = &project.RubyUpdate{Enabled: req.Ruby.Enabled, Version: req.Ruby.Version, Patch: req.Ruby.patch}
 	}
 	if req.Java != nil {
-		upd.Java = &project.JavaUpdate{Enabled: req.Java.Enabled, Version: req.Java.Version, Config: req.Java.config()}
+		upd.Java = &project.JavaUpdate{Enabled: req.Java.Enabled, Version: req.Java.Version, Patch: req.Java.patch}
 	}
 	if req.Dotnet != nil {
-		upd.Dotnet = &project.DotnetUpdate{Enabled: req.Dotnet.Enabled, Version: req.Dotnet.Version, Config: req.Dotnet.config()}
+		upd.Dotnet = &project.DotnetUpdate{Enabled: req.Dotnet.Enabled, Version: req.Dotnet.Version, Patch: req.Dotnet.patch}
 	}
 	if req.Redis != nil {
 		upd.Redis = &project.ExtraUpdate{Enabled: req.Redis.Enabled, Version: req.Redis.Version, ExposePort: req.Redis.ExposePort, RemoveData: req.Redis.RemoveData, External: req.Redis.External.toDomain()}

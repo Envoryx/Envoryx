@@ -2,6 +2,7 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -157,4 +158,13 @@ func decodeJSON(w http.ResponseWriter, r *http.Request, v any) error {
 		return newError(http.StatusBadRequest, "bad_request", "unexpected data after JSON body")
 	}
 	return nil
+}
+
+// decodeStrict decodes one JSON value refusing unknown fields, as decodeJSON does for a
+// whole body. A request type with its own UnmarshalJSON needs it: the body's decoder
+// doesn't pass DisallowUnknownFields on to it.
+func decodeStrict(b []byte, v any) error {
+	dec := json.NewDecoder(bytes.NewReader(b))
+	dec.DisallowUnknownFields()
+	return dec.Decode(v)
 }
