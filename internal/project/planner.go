@@ -1583,6 +1583,13 @@ func (p *Planner) envStrings(proj store.Project) ([]string, error) {
 	if u := p.ProjectURL(proj); u != "" {
 		set("ENVORYX_URL", u)
 	}
+	// The Node dev server's own address, for a backend page that loads its assets from
+	// there (Laravel's Vite plugin writes it into public/hot as server.origin).
+	if _, ok := nodeDevConfig(proj); ok {
+		if u := p.ProjectDevURL(proj); u != "" {
+			set("ENVORYX_DEV_URL", u)
+		}
+	}
 	// PhpStorm picks the server (and its path mappings) for a debug session by this
 	// name. Without it, it matches host and port, and behind the proxy the port is the
 	// proxy's (443), not the 80 a server entry defaults to; the CLI has neither.

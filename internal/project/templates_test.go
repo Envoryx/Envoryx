@@ -41,11 +41,14 @@ func TestTemplatesScaffoldThroughOneShotContainers(t *testing.T) {
 	if v.Project.Docroot != "public" {
 		t.Fatalf("docroot: %q", v.Project.Docroot)
 	}
-	if len(runs) != 2 || strings.Join(runs[0].Cmd, " ") != "composer create-project laravel/laravel . --no-interaction --prefer-dist" || !runsAsProjectUser(runs[0], 1000, 1000) || runs[0].Labels["envoryx.service"] != "template" {
+	if len(runs) != 3 || strings.Join(runs[0].Cmd, " ") != "composer create-project laravel/laravel . --no-interaction --prefer-dist" || !runsAsProjectUser(runs[0], 1000, 1000) || runs[0].Labels["envoryx.service"] != "template" {
 		t.Fatalf("laravel step: %+v", runs)
 	}
 	if !strings.Contains(strings.Join(runs[1].Cmd, " "), "APP_URL=\\${ENVORYX_URL}") {
 		t.Fatalf("laravel APP_URL step: %q", runs[1].Cmd)
+	}
+	if !strings.Contains(strings.Join(runs[2].Cmd, " "), "process.env.ENVORYX_DEV_URL") {
+		t.Fatalf("laravel Vite origin step: %q", runs[2].Cmd)
 	}
 	if _, err := os.Stat(filepath.Join(e.projDir, "shop", "public", "index.php")); err == nil {
 		t.Fatal("starter page must not be written when a template scaffolds")

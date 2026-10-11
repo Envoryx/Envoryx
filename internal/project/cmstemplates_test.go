@@ -124,6 +124,16 @@ func TestEnvoryxURLIsInjected(t *testing.T) {
 	if u := planner.ProjectURL(store.Project{Slug: "shop", HTTPPort: 20000}); u != "http://192.168.1.5:20000" {
 		t.Fatalf("url: %q", u)
 	}
+	// With a Node dev server the dev address comes along, for Laravel's vite.config.js.
+	planner = NewPlanner(Paths{BaseDomain: "test", ProxyHTTPSPort: 443}, runtime.Default())
+	node, _ := json.Marshal(runtime.NodeConfig{DevServer: true, Preset: "vite"})
+	env, err := planner.envStrings(store.Project{Slug: "shop", Services: []store.ProjectService{{Kind: store.ServiceNode, Enabled: true, Config: node}}})
+	if err != nil || !slices.Contains(env, "ENVORYX_DEV_URL=https://shop-dev.test") {
+		t.Fatalf("env: %v %v", env, err)
+	}
+	if env, _ := planner.envStrings(store.Project{Slug: "shop"}); slices.ContainsFunc(env, func(v string) bool { return strings.HasPrefix(v, "ENVORYX_DEV_URL=") }) {
+		t.Fatalf("no dev server, no dev address: %v", env)
+	}
 	_ = e
 }
 

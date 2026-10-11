@@ -377,6 +377,7 @@ var templates = []Template{
 		steps: []templateStep{
 			{label: "composer create-project", cmd: []string{"composer", "create-project", "laravel/laravel", ".", composerNoInteraction, "--prefer-dist"}},
 			{label: "point APP_URL at the project address", cmd: []string{"php", "-r", laravelAppURL}},
+			{label: "serve Vite's assets through the project's dev address", cmd: []string{"php", "-r", laravelViteOrigin}},
 		},
 		afterStart: &templateAfterStart{service: store.ServicePHP, cmd: []string{"php", "artisan", "migrate", composerNoInteraction, "--force"}},
 	},
@@ -1170,6 +1171,34 @@ $s = preg_replace_callback('/^APP_URL=.*$/m', fn () => $line, $s, 1, $n);
 if ($n === 0) { $s .= "\n" . $line . "\n"; }
 if (file_put_contents('.env', $s) === false) { fwrite(STDERR, "writing .env failed\n"); exit(1); }
 echo "APP_URL set\n";
+`
+
+// laravelViteOrigin makes the Vite dev server work behind the proxy: without an origin
+// laravel-vite-plugin writes http://0.0.0.0:5173 into public/hot, which the browser can't
+// load from an HTTPS page. With ENVORYX_DEV_URL (set while the Node dev server runs) the
+// assets and the HMR socket go through <slug>-dev.<base>; without it nothing changes.
+const laravelViteOrigin = `
+$f = 'vite.config.js';
+$s = @file_get_contents($f);
+if ($s === false) { echo "no vite.config.js\n"; exit(0); }
+if (str_contains($s, 'ENVORYX_DEV_URL')) { exit(0); }
+$add = <<<'JS'
+        // Added by Envoryx: assets and hot reload through the project's -dev address
+        // while the Node dev server runs there.
+        ...(process.env.ENVORYX_DEV_URL ? (() => {
+            const dev = new URL(process.env.ENVORYX_DEV_URL);
+            const tls = dev.protocol === 'https:';
+            return { origin: dev.origin, cors: true, hmr: { host: dev.hostname, protocol: tls ? 'wss' : 'ws', clientPort: Number(dev.port) || (tls ? 443 : 80) } };
+        })() : {}),
+JS;
+if (preg_match('/^(\s*)server:\s*\{\n/m', $s)) {
+    $s = preg_replace('/^(\s*)server:\s*\{\n/m', "$0" . $add . "\n", $s, 1);
+} else {
+    $s = preg_replace('/\n\}\);\s*$/', "\n    server: {\n" . $add . "\n    },\n});\n", $s, 1, $n);
+    if ($n === 0) { fwrite(STDERR, "vite.config.js has an unexpected shape, left as it is\n"); exit(0); }
+}
+if (file_put_contents($f, $s) === false) { fwrite(STDERR, "writing vite.config.js failed\n"); exit(1); }
+echo "vite.config.js follows ENVORYX_DEV_URL\n";
 `
 
 // symfonyEnvLocal lets DEFAULT_URI, the address the router uses outside a request (mails,
