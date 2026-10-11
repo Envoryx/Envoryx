@@ -3066,5 +3066,7 @@
   "contacting the registry": "Łączenie z rejestrem",
   "downloading {{percent}}% ({{done}} of {{total}})": "Pobieranie {{percent}}% ({{done}} z {{total}})",
   "downloading ({{size}} so far, {{done}} of {{total}} layers done)": "Pobieranie ({{size}} do tej pory, gotowe warstwy: {{done}} z {{total}})",
-  "extracting ({{done}} of {{total}} layers done)": "Rozpakowywanie (gotowe warstwy: {{done}} z {{total}})"
+  "extracting ({{done}} of {{total}} layers done)": "Rozpakowywanie (gotowe warstwy: {{done}} z {{total}})",
+  "Not injected": "Niewstrzyknięte",
+  "Envoryx or the project's own variables set these already; an addon doesn't override them.": "Envoryx lub własne zmienne projektu już je ustawiają; dodatek ich nie nadpisuje."
 }

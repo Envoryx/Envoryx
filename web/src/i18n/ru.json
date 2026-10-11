@@ -3066,5 +3066,7 @@
   "contacting the registry": "Подключение к реестру",
   "downloading {{percent}}% ({{done}} of {{total}})": "Загрузка {{percent}}% ({{done}} из {{total}})",
   "downloading ({{size}} so far, {{done}} of {{total}} layers done)": "Загрузка ({{size}} пока, готово слоёв: {{done}} из {{total}})",
-  "extracting ({{done}} of {{total}} layers done)": "Распаковка (готово слоёв: {{done}} из {{total}})"
+  "extracting ({{done}} of {{total}} layers done)": "Распаковка (готово слоёв: {{done}} из {{total}})",
+  "Not injected": "Не внедрено",
+  "Envoryx or the project's own variables set these already; an addon doesn't override them.": "Envoryx или собственные переменные проекта уже задают их; дополнение их не переопределяет."
 }

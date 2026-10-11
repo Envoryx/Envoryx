@@ -102,7 +102,8 @@ func TestAddonLifecycle(t *testing.T) {
 	if err != nil || len(infos) != 1 {
 		t.Fatalf("infos: %+v %v", infos, err)
 	}
-	if in := infos[0]; in.Credentials[0].Value != pw || !in.Installed || in.State != "running" || len(in.Volumes) != 2 || !slices.Equal(in.InjectedEnv, []string{"ENVORYX_PROJECT", "WIDGET_URL"}) {
+	// ENVORYX_PROJECT is Envoryx's own: the card says the addon's value doesn't reach the app.
+	if in := infos[0]; in.Credentials[0].Value != pw || !in.Installed || in.State != "running" || len(in.Volumes) != 2 || !slices.Equal(in.InjectedEnv, []string{"WIDGET_URL"}) || !slices.Equal(in.ShadowedEnv, []string{"ENVORYX_PROJECT"}) {
 		t.Fatalf("info: %+v", in)
 	}
 

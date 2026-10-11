@@ -3018,5 +3018,7 @@
   "contacting the registry": "Registry wordt benaderd",
   "downloading {{percent}}% ({{done}} of {{total}})": "Downloaden {{percent}}% ({{done}} van {{total}})",
   "downloading ({{size}} so far, {{done}} of {{total}} layers done)": "Downloaden ({{size}} tot nu toe, {{done}} van {{total}} lagen klaar)",
-  "extracting ({{done}} of {{total}} layers done)": "Uitpakken ({{done}} van {{total}} lagen klaar)"
+  "extracting ({{done}} of {{total}} layers done)": "Uitpakken ({{done}} van {{total}} lagen klaar)",
+  "Not injected": "Niet geïnjecteerd",
+  "Envoryx or the project's own variables set these already; an addon doesn't override them.": "Envoryx of de eigen variabelen van het project stellen deze al in; een addon overschrijft ze niet."
 }

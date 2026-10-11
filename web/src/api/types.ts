@@ -232,6 +232,9 @@ export interface ProjectAddon {
   publishPort?: boolean;
   url?: string;
   injectedEnv: string[];
+  /** The addon's variables the application doesn't get: Envoryx, the project's own
+   * variables or another addon set them already. */
+  shadowedEnv?: string[];
   credentials: { label: string; value: string; secret?: boolean }[];
   volumes: string[];
   state: string;
