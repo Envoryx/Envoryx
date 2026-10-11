@@ -10,10 +10,21 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.29.0] - 2026-10-11
+
+A small one: the site import recognises an instance backup, Python 3.10 is
+marked end of life, and the Go and web dependencies are up to date.
+
 ### Added
 - An instance backup uploaded under *New project → Existing website* (or with
   `envoryx import`) is recognised and kept with the instance backups, where it
   can be restored, instead of being analysed as a website.
+
+### Changed
+- Python 3.10 reached its end of life and is marked as such in the version
+  choice; projects on it keep running.
+- Updated Go dependencies (Docker client, SQLite, go-jose) and web
+  dependencies (React Query, Vite, Vitest, lucide).
 
 ## [0.28.0] - 2026-10-11
 
@@ -2044,7 +2055,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.28.0...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.29.0...HEAD
+[0.29.0]: https://github.com/envoryx/envoryx/compare/v0.28.0...v0.29.0
 [0.28.0]: https://github.com/envoryx/envoryx/compare/v0.27.1...v0.28.0
 [0.27.1]: https://github.com/envoryx/envoryx/compare/v0.27.0...v0.27.1
 [0.27.0]: https://github.com/envoryx/envoryx/compare/v0.26.1...v0.27.0
