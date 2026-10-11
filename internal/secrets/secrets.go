@@ -156,6 +156,17 @@ func (r *Ring) Add(k *Key) {
 	r.old = append(r.old, k)
 }
 
+// OldIDs lists the ids of the keys the ring opens values with but does not seal with.
+func (r *Ring) OldIDs() []string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	ids := make([]string, 0, len(r.old))
+	for _, k := range r.old {
+		ids = append(ids, k.id)
+	}
+	return ids
+}
+
 // DropOld forgets every key but the current one (after everything was resealed).
 func (r *Ring) DropOld() {
 	r.mu.Lock()

@@ -320,7 +320,7 @@ func serve() error {
 	manager.SetPlan(plans)
 	// Plain values from before encryption and values of an older key get the current key;
 	// only then are the key files of a rotation or restore gone.
-	if rep, err := manager.ResealAll(ctx); err != nil {
+	if rep, err := manager.ResealAtStart(ctx); err != nil {
 		return fmt.Errorf("seal secrets: %w", err)
 	} else if rep != (project.ResealReport{}) {
 		log.Info("secrets sealed with the current key", "keyId", keyRing.Current().ID(), "database", rep.Database, "files", rep.Files, "backups", rep.Backups)
