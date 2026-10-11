@@ -192,7 +192,7 @@ func main() {
 		fmt.Fprintln(w, "Hello from Go on Envoryx!")
 	})
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusNoContent)
+		fmt.Fprintln(w, "ok")
 	})
 
 	// Envoryx injects HOST and PORT; the proxy sends the project URL here.
@@ -219,7 +219,7 @@ func main() {
 	r.GET("/", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"message": "Hello from Gin on Envoryx!"})
 	})
-	r.GET("/healthz", func(c *gin.Context) { c.Status(http.StatusNoContent) })
+	r.GET("/healthz", func(c *gin.Context) { c.String(http.StatusOK, "ok") })
 
 	// Envoryx injects HOST and PORT (and GIN_MODE, which follows the runtime mode).
 	_ = r.Run(os.Getenv("HOST") + ":" + os.Getenv("PORT"))
@@ -241,7 +241,7 @@ func main() {
 	e.GET("/", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, map[string]string{"message": "Hello from Echo on Envoryx!"})
 	})
-	e.GET("/healthz", func(c echo.Context) error { return c.NoContent(http.StatusNoContent) })
+	e.GET("/healthz", func(c echo.Context) error { return c.String(http.StatusOK, "ok") })
 
 	// Envoryx injects HOST and PORT; the proxy sends the project URL here.
 	e.Logger.Fatal(e.Start(os.Getenv("HOST") + ":" + os.Getenv("PORT")))
@@ -280,7 +280,7 @@ class App < Sinatra::Base
   end
 
   get "/healthz" do
-    204
+    "ok"
   end
 end
 `

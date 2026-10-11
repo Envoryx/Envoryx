@@ -325,3 +325,13 @@ func TestLaravelMigratesAfterStart(t *testing.T) {
 		}
 	}
 }
+
+// The health check expects 200 unless told otherwise, and the docs point it at the
+// templates' /healthz: those must answer 200, not 204.
+func TestTemplateHealthzAnswers200(t *testing.T) {
+	for name, src := range map[string]string{"net/http": goHTTPApp, "gin": goGinApp, "echo": goEchoApp, "sinatra": sinatraApp} {
+		if !strings.Contains(src, "/healthz") || strings.Contains(src, "NoContent") || strings.Contains(src, "204") {
+			t.Errorf("%s: /healthz must answer 200", name)
+		}
+	}
+}
