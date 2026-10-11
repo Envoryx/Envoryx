@@ -8,6 +8,7 @@ import (
 
 	"github.com/envoryx/envoryx/internal/docker"
 	"github.com/envoryx/envoryx/internal/notify"
+	"github.com/envoryx/envoryx/internal/store"
 )
 
 type fakeSender struct {
@@ -119,5 +120,34 @@ func TestNoHealthNotificationWhileAnOperationRuns(t *testing.T) {
 	h.end(nil)
 	if got := sender.kinds(); len(got) != 1 {
 		t.Fatalf("a running restart must not report a recovery: %v", got)
+	}
+}
+
+// A project that runs again without a start through Envoryx (its containers came back
+// after the instance ID was put right) drops the error of the start that failed before;
+// a stopped project keeps it, it says why the last start did not work.
+func TestReconcileClearsAStaleErrorOfARunningProject(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	running, err := e.m.Create(ctx, phpRequest("Back", true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	stopped, err := e.m.Create(ctx, phpRequest("Down", false))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := e.store.Projects.UpdateState(ctx, running.Project.ID, store.DesiredRunning, store.LifecycleReady, "create network: taken"); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.store.Projects.UpdateState(ctx, stopped.Project.ID, store.DesiredStopped, store.LifecycleReady, "create network: taken"); err != nil {
+		t.Fatal(err)
+	}
+	e.m.Reconcile(ctx)
+	if p, _ := e.store.Projects.Get(ctx, running.Project.ID); p.LastError != "" {
+		t.Fatalf("running project kept its error: %q", p.LastError)
+	}
+	if p, _ := e.store.Projects.Get(ctx, stopped.Project.ID); p.LastError == "" {
+		t.Fatal("stopped project lost the error of its failed start")
 	}
 }

@@ -273,6 +273,17 @@ func (m *Manager) Reconcile(ctx context.Context) ReconcileReport {
 				continue
 			}
 			p = cur
+			if p.LastError != "" && p.DesiredState == store.DesiredRunning && st.State == StateRunning {
+				// The project runs as it should again (its containers came back without a
+				// start through Envoryx, say, once the instance ID was put right): the
+				// error of the operation that failed before is history. A stopped project
+				// keeps its error, it says why the last start did not work.
+				if err := m.store.Projects.ClearError(ctx, p.ID, p.LastError); err == nil {
+					p.LastError = ""
+					st = deriveStatus(p, containers, m.localImageIDs(ctx, projects))
+					report.States[p.ID] = st
+				}
+			}
 		}
 		if p.DesiredState == store.DesiredRunning && st.State != StateRunning && p.Lifecycle == store.LifecycleReady {
 			report.Issues = append(report.Issues, ReconcileIssue{ProjectID: p.ID, ProjectName: p.Name, Severity: "warning",
