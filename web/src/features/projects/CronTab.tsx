@@ -320,7 +320,9 @@ export function CronTab({ project }: { project: Project }) {
 
   if (q.isPending) return <Spinner />;
   if (q.isError) return <ErrorState message={errorText(q.error, t)} />;
-  const running = project.status.state === "running";
+  // The scheduler runs the jobs of a started project, also while one of its containers
+  // is down ("partial").
+  const running = project.desiredState === "running" && project.lifecycle === "ready";
 
   return (
     <div className="space-y-6">
