@@ -2848,5 +2848,6 @@
   "Support access changed": "Доступ поддержки изменён",
   "the admins of this instance don't allow support access": "Администраторы этого экземпляра не разрешают доступ поддержки",
   "the support login link is unknown, used or expired; open a new one from the fleet manager": "Ссылка для входа поддержки неизвестна, использована или истекла; откройте новую из fleet manager",
-  "the hoster's support can't do this": "Поддержка хостера не может это сделать"
+  "the hoster's support can't do this": "Поддержка хостера не может это сделать",
+  "from your hoster": "от вашего хостера"
 }

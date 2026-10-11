@@ -50,6 +50,45 @@ type Plan struct {
 	// (LockableSettings): they apply with these values and the instance's admins see them
 	// but can't change them.
 	Settings map[string]json.RawMessage `json:"settings,omitempty"`
+	// Offsite is the hoster's offsite target: the daily instance backup (and with
+	// Projects the scheduled project backups) go there, into a folder of the instance's
+	// own below Prefix. The instance's admins see it but can't change it.
+	Offsite *OffsiteTarget `json:"offsite,omitempty"`
+}
+
+// OffsiteTarget is an offsite target in a plan, with the field names of Envoryx's
+// offsite targets. The instance checks the details when it takes the plan over.
+type OffsiteTarget struct {
+	// Type is s3, sftp or webdav.
+	Type string `json:"type"`
+	// Prefix is the folder below which every instance gets its own (default envoryx).
+	Prefix string `json:"prefix,omitempty"`
+	// InstanceHour is the hour of the daily instance backup, InstanceKeep how many of
+	// them stay on the target (0 keeps all).
+	InstanceHour int `json:"instanceHour,omitempty"`
+	InstanceKeep int `json:"instanceKeep,omitempty"`
+	// Projects copies every scheduled project backup too; Keep is how many per project
+	// stay (0 keeps all).
+	Projects bool `json:"projects,omitempty"`
+	Keep     int  `json:"keep,omitempty"`
+	// Encrypt seals the archives with Passphrase (age) before they leave the instance.
+	Encrypt    bool   `json:"encrypt,omitempty"`
+	Passphrase string `json:"passphrase,omitempty"`
+
+	Endpoint  string `json:"endpoint,omitempty"`
+	Region    string `json:"region,omitempty"`
+	Bucket    string `json:"bucket,omitempty"`
+	AccessKey string `json:"accessKey,omitempty"`
+	SecretKey string `json:"secretKey,omitempty"`
+
+	Host       string `json:"host,omitempty"`
+	Port       int    `json:"port,omitempty"`
+	User       string `json:"user,omitempty"`
+	Password   string `json:"password,omitempty"`
+	PrivateKey string `json:"privateKey,omitempty"`
+	HostKey    string `json:"hostKey,omitempty"`
+
+	URL string `json:"url,omitempty"`
 }
 
 // Limits are the plan's quotas. Zero means unlimited. CPU and memory are what the
@@ -112,6 +151,17 @@ func (p *Plan) Validate() error {
 		}
 		if !json.Valid(v) {
 			return fmt.Errorf("plan: the setting %q has no valid value", k)
+		}
+	}
+	if o := p.Offsite; o != nil {
+		if o.Type != "s3" && o.Type != "sftp" && o.Type != "webdav" {
+			return fmt.Errorf("plan: unknown offsite target type %q (s3, sftp or webdav)", o.Type)
+		}
+		if o.InstanceHour < 0 || o.InstanceHour > 23 || o.InstanceKeep < 0 || o.Keep < 0 {
+			return errors.New("plan: the offsite target needs an hour from 0 to 23 and counts that aren't negative")
+		}
+		if o.Encrypt && o.Passphrase == "" {
+			return errors.New("plan: an encrypted offsite target needs a passphrase")
 		}
 	}
 	for _, f := range p.Disabled {

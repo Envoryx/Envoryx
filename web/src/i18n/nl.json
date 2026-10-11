@@ -2800,5 +2800,6 @@
   "Support access changed": "Supporttoegang gewijzigd",
   "the admins of this instance don't allow support access": "De admins van deze instantie staan geen supporttoegang toe",
   "the support login link is unknown, used or expired; open a new one from the fleet manager": "De supportloginlink is onbekend, gebruikt of verlopen; open een nieuwe vanuit de fleet manager",
-  "the hoster's support can't do this": "De support van de hoster kan dit niet"
+  "the hoster's support can't do this": "De support van de hoster kan dit niet",
+  "from your hoster": "van je hoster"
 }

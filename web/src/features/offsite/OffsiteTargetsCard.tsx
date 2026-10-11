@@ -103,6 +103,7 @@ export function OffsiteTargetsCard() {
                   <p className="flex flex-wrap items-center gap-2 font-medium">
                     {x.name}
                     <Badge>{typeLabel[x.type]}</Badge>
+                    {x.managed && <Badge tone="blue">{t("from your hoster")}</Badge>}
                     {!x.enabled && <Badge tone="gray">{t("off")}</Badge>}
                     {x.enabled && x.auto && <Badge tone="blue">{t("scheduled project backups")}</Badge>}
                     {x.enabled && x.instance && <Badge tone="blue">{t("instance daily {{hour}}:00", { hour: String(x.instanceHour).padStart(2, "0") })}</Badge>}
@@ -117,14 +118,16 @@ export function OffsiteTargetsCard() {
                     </p>
                   )}
                 </div>
-                <div className="flex items-center gap-1">
-                  <Button size="sm" variant="ghost" onClick={() => setEditing({ input: fromTarget(x), stored: x })} icon={<Pencil className="size-3.5" />}>
-                    {t("Edit")}
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={() => setDeleting(x)} aria-label={t("Delete {{name}}", { name: x.name })}>
-                    <Trash2 className="size-4" />
-                  </Button>
-                </div>
+                {!x.managed && (
+                  <div className="flex items-center gap-1">
+                    <Button size="sm" variant="ghost" onClick={() => setEditing({ input: fromTarget(x), stored: x })} icon={<Pencil className="size-3.5" />}>
+                      {t("Edit")}
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setDeleting(x)} aria-label={t("Delete {{name}}", { name: x.name })}>
+                      <Trash2 className="size-4" />
+                    </Button>
+                  </div>
+                )}
               </li>
             ))}
           </ul>

@@ -34,6 +34,12 @@ release). `:main` follows the development branch.
   the support user counts towards no limit, can't create tokens or keys, and
   its sessions end with the consent. Every support login is in the audit log.
   See DEPLOYMENT.md, *Support access*.
+- Backups for the hoster: a plan can name the hoster's offsite target, which
+  gets every instance's daily instance backup (and optionally the scheduled
+  project backups) in a folder per instance; the admins see it but can't
+  change it. The fleet manager can take an instance backup on request and
+  sees the newest instance backups and their copies. See DEPLOYMENT.md,
+  *Backups for the hoster*.
 
 ### Changed
 - Restoring an instance backup never takes the secret key, the instance ID,

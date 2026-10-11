@@ -58,7 +58,10 @@ type Config struct {
 	// SupportLogin returns a one-time login link for the hoster's support, named hoster,
 	// or why there is none (the admins don't allow it).
 	SupportLogin func(ctx context.Context, hoster string) (string, error)
-	Log          *slog.Logger
+	// Backup starts an instance backup the manager asked for and returns at once; the
+	// result shows in the status. It fails when one is running already.
+	Backup func(ctx context.Context) error
+	Log    *slog.Logger
 	// HTTPClient enrolls (http.DefaultClient when nil).
 	HTTPClient *http.Client
 }
@@ -382,6 +385,9 @@ func (a *Agent) connect(ctx context.Context, st *state) error {
 			case "supportLogin":
 				go a.answerSupportLogin(ctx, conn, m)
 				continue
+			case "backup":
+				go a.answerBackup(ctx, conn, m)
+				continue
 			case "suspension":
 				a.applySuspension(m.Suspension)
 				// Stopping the projects takes a moment; the manager hears the result too.
@@ -525,4 +531,20 @@ func (a *Agent) answerSupportLogin(ctx context.Context, conn *websocket.Conn, re
 	wctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	_ = wsjson.Write(wctx, conn, reply)
+}
+
+// answerBackup starts the instance backup the manager asked for and says whether it
+// started; the status tells how it went.
+func (a *Agent) answerBackup(ctx context.Context, conn *websocket.Conn, req message) {
+	reply := message{Type: "backup", ID: req.ID}
+	if a.cfg.Backup == nil {
+		reply.Error = "this instance takes no backups on request"
+	} else if err := a.cfg.Backup(ctx); err != nil {
+		reply.Error = err.Error()
+	}
+	a.cfg.Log.Info("fleet: instance backup requested", "started", reply.Error == "")
+	wctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	_ = wsjson.Write(wctx, conn, reply)
+	a.Nudge()
 }
