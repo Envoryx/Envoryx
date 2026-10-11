@@ -211,7 +211,7 @@ func (c *cli) backupRestore(ctx context.Context, args []string) error {
 		return usagef("which backup? envoryx backup list %s shows them", p.Slug)
 	}
 	if !*yes {
-		return fmt.Errorf("restoring overwrites the current state of %s; confirm with --yes", p.Slug)
+		return usagef("restoring overwrites the current state of %s; confirm with --yes", p.Slug)
 	}
 	// Restore what this backup actually holds: asking for a part it does not contain is
 	// refused, and nobody wants to spell out the contents of an archive they just listed.
@@ -305,7 +305,7 @@ func (c *cli) backupDelete(ctx context.Context, args []string) error {
 		return usagef("which backup? envoryx backup list %s shows them", p.Slug)
 	}
 	if !*yes {
-		return fmt.Errorf("deleting backup %s cannot be undone; confirm with --yes", backup)
+		return usagef("deleting backup %s cannot be undone; confirm with --yes", backup)
 	}
 	if err := api.do(ctx, http.MethodDelete, projectPath(p.ID, "backups", backup), nil, nil, nil); err != nil {
 		return err

@@ -6,7 +6,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"net/url"
 )
@@ -130,7 +129,7 @@ func (c *cli) dbRestore(ctx context.Context, args []string) error {
 		return usagef("which snapshot? envoryx db snapshots %s shows them", p.Slug)
 	}
 	if !*yes {
-		return fmt.Errorf("restoring replaces %s and everything written since; confirm with --yes", dbOf(p.Slug, *db))
+		return usagef("restoring replaces %s and everything written since; confirm with --yes", dbOf(p.Slug, *db))
 	}
 	var out struct {
 		Snapshot backupInfo `json:"snapshot"`
@@ -175,7 +174,7 @@ func (c *cli) dbClone(ctx context.Context, args []string) error {
 		return err
 	}
 	if !*yes {
-		return fmt.Errorf("cloning replaces %s with the one of %s; confirm with --yes", dbOf(target.Slug, *db), src.Slug)
+		return usagef("cloning replaces %s with the one of %s; confirm with --yes", dbOf(target.Slug, *db), src.Slug)
 	}
 	var out struct {
 		Clone struct {
