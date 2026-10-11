@@ -97,6 +97,8 @@ export interface Operation {
   projectSlug: string;
   projectName: string;
   action: OperationAction;
+  /** The account that started it; absent for what Envoryx does on its own. */
+  userId?: string;
   /** English template with {{placeholders}}; translate with t(step, stepArgs). */
   step?: string;
   stepArgs?: Record<string, string>;

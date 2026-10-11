@@ -7,6 +7,7 @@ import { keys, useOperations } from "@/api/hooks";
 import type { Operation } from "@/api/types";
 import { elapsedSeconds, operationDone, operationStep, operationTitle, operationVerb } from "@/lib/operations";
 import { translateMessage } from "@/lib/errors";
+import { useAuth } from "@/features/auth/AuthContext";
 
 const SUCCESS_VISIBLE_MS = 8000;
 
@@ -14,11 +15,14 @@ const SUCCESS_VISIBLE_MS = 8000;
  * Bottom-right stack of what Envoryx is doing right now: every running project operation
  * with its current step, and the outcome once it finished. Successes fade after a few
  * seconds, failures stay until dismissed. Operations that were already over when the page
- * loaded are not announced again.
+ * loaded are not announced again. Each user sees only the operations they started (in any
+ * browser); what Envoryx does on its own goes to the instance admins. Other users' work
+ * still shows on the project itself (OperationHint).
  */
 export function OperationsTray() {
   const { t } = useTranslation();
   const ops = useOperations();
+  const auth = useAuth();
   const [dismissed, setDismissed] = useState<Set<string>>(() => new Set());
   const seeded = useRef(false);
   const [, tick] = useState(0);
@@ -66,7 +70,8 @@ export function OperationsTray() {
     return () => timers.forEach((id) => window.clearTimeout(id));
   }, [ops.data, dismissed]);
 
-  const visible = (ops.data ?? []).filter((o) => !dismissed.has(o.id));
+  const mine = (o: Operation) => (o.userId ? o.userId === auth.user?.id : auth.admin);
+  const visible = (ops.data ?? []).filter((o) => mine(o) && !dismissed.has(o.id));
   if (visible.length === 0) return null;
 
   return (
