@@ -51,7 +51,7 @@ export function InvitePage() {
     <div className="flex min-h-full items-center justify-center bg-app px-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center gap-3">
-          <LogoFull className="w-64" />
+          <LogoFull className="w-96 max-w-full" />
           <h1 className="text-lg font-semibold text-fg">{invite?.reset ? t("Set a new password") : t("Welcome to Envoryx")}</h1>
         </div>
         <div className="space-y-4 rounded-xl border border-default bg-elevated p-6 shadow-sm">

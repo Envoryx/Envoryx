@@ -142,9 +142,8 @@
   --fg: #16181d;
   --fg-muted: #5f6673;
   --fg-subtle: #8b92a0;
-  /* The logo follows the accent: a mid tone on light, the bright brand tone on dark. */
-  --logo-accent: var(--color-accent-500);
-  --logo-fg: var(--fg);
+  /* The logo sits on its own dark ground in both themes: the accent's bright tone and white. */
+  --logo-accent: var(--color-accent-400);
   /* Chart series (categorical, fixed order - validated against the card surface in both
      modes) and chart chrome. */
   --series-1: #2a78d6;
@@ -168,7 +167,6 @@
   --fg: #e6e8ee;
   --fg-muted: #9aa1ae;
   --fg-subtle: #6b7280;
-  --logo-accent: var(--color-accent-400);
   --series-1: #3987e5;
   --series-2: #d95926;
   --series-3: #199e70;
