@@ -83,27 +83,40 @@ func TestProxyAliasesResolveProjectHostsInsideProjectNetworks(t *testing.T) {
 		t.Fatalf("the proxy must answer the project's and the UI's names on the project network: %v", aliases)
 	}
 
-	if _, err := e.m.Create(ctx, phpRequest("Shop", true)); err != nil {
+	shop, err := e.m.Create(ctx, phpRequest("Shop", true))
+	if err != nil {
 		t.Fatal(err)
 	}
 	aliases, _ = e.engine.NetworkAliases(ctx, "envoryx-shop", selfID)
 	if strings.Join(aliases, ",") != "envoryx.test,shop.test,web.test" {
 		t.Fatalf("a new project must reach the existing ones: %v", aliases)
 	}
-	// Reconciliation only attaches missing networks: it never cuts a running project's
-	// connections to hand it new names.
+	// The running project gets the new name right away (Docker fixes aliases at connect
+	// time, so the proxy is reconnected to its network).
+	aliases, _ = e.engine.NetworkAliases(ctx, "envoryx-web", selfID)
+	if strings.Join(aliases, ",") != "envoryx.test,shop.test,web.test" {
+		t.Fatalf("a running project must reach a project created after its start: %v", aliases)
+	}
+	// So does an extra domain.
+	if _, err := e.m.AddDomain(ctx, web.Project.ID, "www.example.org"); err != nil {
+		t.Fatal(err)
+	}
+	aliases, _ = e.engine.NetworkAliases(ctx, "envoryx-shop", selfID)
+	if !strings.Contains(strings.Join(aliases, ","), "www.example.org") {
+		t.Fatalf("a domain added later must resolve in the other projects: %v", aliases)
+	}
+	// Nothing new: reconciliation doesn't cut a running project's connections.
 	e.engine.Calls = nil
 	e.m.Reconcile(ctx)
 	for _, c := range e.engine.Calls {
-		if strings.HasPrefix(c, "network-disconnect:envoryx-web") {
-			t.Fatalf("reconcile must not reconnect a project network: %v", e.engine.Calls)
+		if strings.HasPrefix(c, "network-disconnect:") {
+			t.Fatalf("reconcile must not reconnect a project network without new names: %v", e.engine.Calls)
 		}
 	}
-	aliases, _ = e.engine.NetworkAliases(ctx, "envoryx-web", selfID)
-	if strings.Join(aliases, ",") != "envoryx.test,web.test" {
-		t.Fatalf("aliases must stay until the next start: %v", aliases)
+	// A deleted project's name stays until the next start, which drops it.
+	if err := e.m.Delete(ctx, shop.Project.ID, DeleteOptions{Confirm: "shop"}); err != nil {
+		t.Fatal(err)
 	}
-	// The next start picks up the names added meanwhile.
 	if _, err := e.m.Stop(ctx, web.Project.ID); err != nil {
 		t.Fatal(err)
 	}
@@ -111,7 +124,7 @@ func TestProxyAliasesResolveProjectHostsInsideProjectNetworks(t *testing.T) {
 		t.Fatal(err)
 	}
 	aliases, _ = e.engine.NetworkAliases(ctx, "envoryx-web", selfID)
-	if strings.Join(aliases, ",") != "envoryx.test,shop.test,web.test" {
+	if strings.Join(aliases, ",") != "envoryx.test,web.test,www.example.org" {
 		t.Fatalf("a start must refresh the aliases: %v", aliases)
 	}
 }

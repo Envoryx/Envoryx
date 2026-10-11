@@ -267,6 +267,7 @@ func (m *Manager) duplicate(ctx context.Context, id string, req DuplicateRequest
 		"source": src.Name, "sourceId": src.ID,
 		"files": req.Files, "database": req.Database, "storage": req.Storage, "workers": req.Workers,
 	})
+	m.spreadProxyAliases(ctx)
 	return m.Get(ctx, proj.ID)
 }
 

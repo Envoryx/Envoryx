@@ -422,7 +422,7 @@ func (m *Manager) ensureDBTool(ctx context.Context) error {
 			return fmt.Errorf("create network: %w", err)
 		}
 	}
-	if err := m.attachProxy(ctx, name, nil, false); err != nil {
+	if err := m.attachProxy(ctx, name, nil, aliasesKeep); err != nil {
 		m.log.Warn("proxy attach failed", "network", name, "err", err)
 	}
 	if c == nil {
