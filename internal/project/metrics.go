@@ -35,6 +35,7 @@ const (
 type counters struct {
 	at                    time.Time
 	rx, tx, read, written uint64
+	oomKills              uint64
 }
 
 type metricsState struct {
@@ -214,16 +215,25 @@ func (m *Manager) sampleMetrics(ctx context.Context, now time.Time) error {
 	}
 	wg.Wait()
 
+	type kill struct {
+		c docker.Container
+		n int
+	}
+	var kills []kill
 	state := m.metricsState()
 	state.mu.Lock()
-	defer state.mu.Unlock()
 	ts := bucket(now.Unix(), store.MetricRes1m)
 	seen := map[string]bool{}
 	var samples []store.MetricSample
 	for _, r := range results {
 		seen[r.c.ID] = true
-		cur := counters{at: now, rx: r.st.NetRxBytes, tx: r.st.NetTxBytes, read: r.st.BlockRead, written: r.st.BlockWritten}
+		cur := counters{at: now, rx: r.st.NetRxBytes, tx: r.st.NetTxBytes, read: r.st.BlockRead, written: r.st.BlockWritten, oomKills: r.st.OOMKills}
 		prev, had := state.last[r.c.ID]
+		// The first reading of a container is only the baseline: its kills may be older
+		// than this Envoryx and were reported before.
+		if had && cur.oomKills > prev.oomKills {
+			kills = append(kills, kill{r.c, int(cur.oomKills - prev.oomKills)})
+		}
 		state.last[r.c.ID] = cur
 		s := store.MetricSample{ProjectID: r.c.ProjectID(), Container: metricName(slugs[r.c.ProjectID()], r.c), Res: store.MetricRes1m, TS: ts,
 			CPU: r.st.CPUPercent, CPUMax: r.st.CPUPercent, Mem: r.st.MemoryBytes, MemMax: r.st.MemoryBytes, Samples: 1}
@@ -234,10 +244,19 @@ func (m *Manager) sampleMetrics(ctx context.Context, now time.Time) error {
 		}
 		samples = append(samples, s)
 	}
+	var gone []string
 	for id := range state.last {
 		if !seen[id] {
 			delete(state.last, id)
+			gone = append(gone, id)
 		}
+	}
+	state.mu.Unlock()
+	for _, id := range gone {
+		m.forgetOOMBalance(id)
+	}
+	for _, k := range kills {
+		m.oomFromCounter(ctx, k.c, k.n, now)
 	}
 	return m.store.Metrics.AddSamples(ctx, samples)
 }

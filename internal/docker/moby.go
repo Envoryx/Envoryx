@@ -661,6 +661,7 @@ func (e *MobyEngine) stats(ctx context.Context, id string) (Stats, error) {
 		CPUPercent:  cpuPercent(s),
 		MemoryBytes: memoryUsage(s),
 		MemoryLimit: int64(s.MemoryStats.Limit),
+		OOMKills:    oomKills(s),
 		SampledAt:   s.Read,
 	}
 	for _, n := range s.Networks {
@@ -713,6 +714,19 @@ func cpuPercent(s container.StatsResponse) float64 {
 		return 0
 	}
 	return (cpuDelta / sysDelta) * cpus * 100
+}
+
+// oomKills is the cgroup v2 OOM kill counter. Docker fills failcnt from memory.events
+// there; cgroup v1 (recognised by its "total_" counters) reports how often the limit was
+// hit, which happens without any kill as the page cache is reclaimed.
+func oomKills(s container.StatsResponse) uint64 {
+	if _, v2 := s.MemoryStats.Stats["anon"]; !v2 {
+		return 0
+	}
+	if _, v1 := s.MemoryStats.Stats["total_rss"]; v1 {
+		return 0
+	}
+	return s.MemoryStats.Failcnt
 }
 
 func memoryUsage(s container.StatsResponse) int64 {
