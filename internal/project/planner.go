@@ -1350,6 +1350,12 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 			Mounts:        []docker.MountSpec{{Type: "bind", Source: appHost, Target: appMountTarget}},
 			RestartPolicy: "unless-stopped",
 			StopTimeout:   30,
+			// The worker runs as PID 1 of an image made for another main process: the
+			// PHP image's stop signal is SIGQUIT, which php-fpm handles and a queue
+			// consumer without pcntl ignores, so every stop waited the 30 s for SIGKILL.
+			// Docker's init passes on a SIGTERM, which ends any of them.
+			Init:       true,
+			StopSignal: "SIGTERM",
 		}
 		switch preset.Runtime {
 		case WorkerRuntimeNode:
@@ -1743,6 +1749,12 @@ func specFingerprint(spec docker.ContainerSpec) string {
 	}
 	if spec.GPUs {
 		fields["gpu"] = true
+	}
+	if spec.Init {
+		fields["init"] = true
+	}
+	if spec.StopSignal != "" {
+		fields["stopsignal"] = spec.StopSignal
 	}
 	if d := spec.Labels[labelAddonDefinition]; d != "" {
 		fields["addon"] = d

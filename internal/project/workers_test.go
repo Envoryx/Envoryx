@@ -186,6 +186,10 @@ func TestWorkersFollowTheirRuntime(t *testing.T) {
 	if !slices.Contains(c.Spec.Env, "NODE_ENV=development") {
 		t.Fatalf("node worker env: %v", c.Spec.Env)
 	}
+	// Docker's init passes a SIGTERM on, so a stop doesn't wait for the kill.
+	if !c.Spec.Init || c.Spec.StopSignal != "SIGTERM" {
+		t.Fatalf("worker stop handling: init %v, signal %q", c.Spec.Init, c.Spec.StopSignal)
+	}
 	if _, err := e.m.UpdateWorker(ctx, id, w.ID, WorkerRequest{Name: "jobs", Preset: "php:script", Arg: "bin/w.php", Enabled: true}); !errors.Is(err, ErrConflict) {
 		t.Fatalf("switching a worker to a runtime the project lacks must fail: %v", err)
 	}

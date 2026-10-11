@@ -233,6 +233,11 @@ type ContainerSpec struct {
 	// OpenStdin keeps the process's stdin open for one attached client (RunOneShotStream
 	// sets it when it has input to feed).
 	OpenStdin bool
+	// Init runs Docker's tiny init as PID 1, which forwards signals and reaps children:
+	// a process that is PID 1 itself ignores a stop signal it has no handler for.
+	Init bool
+	// StopSignal replaces the image's stop signal ("" keeps it).
+	StopSignal string
 	// GPUs hands every GPU to the container, as `docker run --gpus all` does. Docker
 	// needs the NVIDIA Container Toolkit (or a CDI spec) for it, otherwise creating the
 	// container fails.

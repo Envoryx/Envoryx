@@ -367,6 +367,7 @@ func (e *MobyEngine) CreateContainer(ctx context.Context, spec ContainerSpec) (s
 		t := spec.StopTimeout
 		cfg.StopTimeout = &t
 	}
+	cfg.StopSignal = spec.StopSignal
 	if spec.Healthcheck != nil && len(spec.Healthcheck.Test) > 0 {
 		cfg.Healthcheck = &container.HealthConfig{
 			Test:        append([]string{"CMD"}, spec.Healthcheck.Test...),
@@ -389,6 +390,10 @@ func (e *MobyEngine) CreateContainer(ctx context.Context, spec ContainerSpec) (s
 	}
 	if spec.RestartPolicy == "unless-stopped" {
 		host.RestartPolicy = container.RestartPolicy{Name: container.RestartPolicyUnlessStopped}
+	}
+	if spec.Init {
+		on := true
+		host.Init = &on
 	}
 	if r := spec.Resources; r != nil {
 		host.Resources = container.Resources{NanoCPUs: r.NanoCPUs, Memory: r.MemoryBytes}
