@@ -131,6 +131,11 @@ func failedCase(tc, f junitNode, root string) TestCase {
 	if name := tc.attr("name"); name != "" && strings.HasPrefix(msg, name) && len(msg) > len(name) {
 		msg = strings.TrimSpace(msg[len(name):])
 	}
+	if m := goLocation.FindStringSubmatch(details); m != nil && (msg == "" || msg == "Failed") {
+		// gotestsum's message is always "Failed"; what the test reported is in the output,
+		// behind the file and line t.Errorf prints.
+		msg = strings.TrimSpace(m[3])
+	}
 	if len(details) > maxDetails {
 		details = details[:maxDetails] + "\n…"
 	}
@@ -154,8 +159,14 @@ func failedCase(tc, f junitNode, root string) TestCase {
 // locationIn finds the test's file and line in a failure text, for reports that carry
 // neither as attributes: pytest ends its traceback with "path.py:LINE: SomeError",
 // Playwright's stack names the spec as "at e2e/x.spec.ts:10:53", Pest the test as
-// "at tests/Feature/X.php:14".
+// "at tests/Feature/X.php:14", and go test (through gotestsum) indents
+// "x_test.go:LINE: message" under "=== RUN". Go prints only the file's name, not its
+// package directory.
 func locationIn(details string) (string, int) {
+	if m := goLocation.FindStringSubmatch(details); m != nil {
+		line, _ := strconv.Atoi(m[2])
+		return m[1], line
+	}
 	if m := pytestLocation.FindAllStringSubmatch(details, -1); m != nil {
 		last := m[len(m)-1]
 		line, _ := strconv.Atoi(last[2])
@@ -179,6 +190,7 @@ func locationIn(details string) (string, int) {
 var (
 	pytestLocation = regexp.MustCompile(`(?m)^([^\s:]+\.py):(\d+): \w`)
 	phpLocation    = regexp.MustCompile(`(?m)^\s*at ([^\s:]+\.php):(\d+)\s*$`)
+	goLocation     = regexp.MustCompile(`(?m)^\s+([\w.-]+\.go):(\d+): (.*)$`)
 	stackLocation  = regexp.MustCompile(`(?m)^\s*at (?:.*\()?([^\s():]+\.[cm]?[jt]sx?):(\d+):\d+\)?\s*$`)
 )
 
