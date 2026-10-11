@@ -162,12 +162,14 @@ fi`
 // without the compiler server that would otherwise linger next to the application, and
 // exec dotnet from the output directory (the content root, where wwwroot and the
 // appsettings files are), so the application is the container's main process and gets
-// the stop signal directly.
+// the stop signal directly. dotnet watch's browser refresh is switched off: the script it
+// injects into every page connects to a WebSocket on the container's localhost, which no
+// browser reaches, and only left an error in the console. Hot reload itself goes on.
 const dotnetServeScript = `set -e
 preset=$1 mode=$2 proj=$3 dll=$4 port=$5
 ` + dotnetFindProject + `
 if [ "$mode" = dev ] && [ "$preset" = aspnetcore ]; then
-  exec dotnet watch --non-interactive --project "$proj" run -- --urls "http://0.0.0.0:$port"
+  DOTNET_WATCH_SUPPRESS_BROWSER_REFRESH=1 exec dotnet watch --non-interactive --project "$proj" run -- --urls "http://0.0.0.0:$port"
 fi
 out=` + DotnetPublishDir + `
 rm -rf "$out"
