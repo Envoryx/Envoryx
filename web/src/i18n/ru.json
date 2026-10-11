@@ -2021,6 +2021,8 @@
   "new": "новая",
   "replaces the current value": "заменяет текущее значение",
   "unchanged": "без изменений",
+  "refers to {{names}}": "ссылается на {{names}}",
+  "Variables marked “refers to” use ${…} references the file doesn't define. Only the application's .env loader resolves them; a project variable would reach the containers as that text. Leave them in .env.": "Переменные с пометкой «ссылается на» используют ссылки ${…}, которые файл сам не определяет. Их разрешает только загрузчик .env приложения; как переменная проекта этот текст попал бы в контейнеры как есть. Оставь их в .env.",
   "set by Envoryx ({{service}})": "задаётся Envoryx ({{service}})",
   "Import a .env file": "Импорт файла .env",
   "Paste the file or choose it. Nothing is saved until you save the variables.": "Вставьте файл или выберите его. Ничего не сохраняется, пока вы не сохраните переменные.",

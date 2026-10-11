@@ -1985,6 +1985,8 @@
   "new": "nuevo",
   "replaces the current value": "sustituye el valor actual",
   "unchanged": "sin cambios",
+  "refers to {{names}}": "hace referencia a {{names}}",
+  "Variables marked “refers to” use ${…} references the file doesn't define. Only the application's .env loader resolves them; a project variable would reach the containers as that text. Leave them in .env.": "Las variables marcadas con «hace referencia a» usan referencias ${…} que el archivo no define. Solo el cargador .env de la aplicación las resuelve; como variable del proyecto llegarían a los contenedores como ese texto. Déjalas en el .env.",
   "set by Envoryx ({{service}})": "definido por Envoryx ({{service}})",
   "Import a .env file": "Importar un archivo .env",
   "Paste the file or choose it. Nothing is saved until you save the variables.": "Pega el archivo o elígelo. No se guarda nada hasta que guardes las variables.",

@@ -1985,6 +1985,8 @@
   "new": "nieuw",
   "replaces the current value": "vervangt de huidige waarde",
   "unchanged": "ongewijzigd",
+  "refers to {{names}}": "verwijst naar {{names}}",
+  "Variables marked “refers to” use ${…} references the file doesn't define. Only the application's .env loader resolves them; a project variable would reach the containers as that text. Leave them in .env.": "Variabelen gemarkeerd met „verwijst naar” gebruiken ${…}-verwijzingen die het bestand zelf niet definieert. Alleen de .env-loader van de applicatie lost ze op; als projectvariabele zou die tekst zo in de containers aankomen. Laat ze in de .env.",
   "set by Envoryx ({{service}})": "ingesteld door Envoryx ({{service}})",
   "Import a .env file": ".env-bestand importeren",
   "Paste the file or choose it. Nothing is saved until you save the variables.": "Plak het bestand of kies het. Er wordt niets opgeslagen tot je de variabelen opslaat.",
