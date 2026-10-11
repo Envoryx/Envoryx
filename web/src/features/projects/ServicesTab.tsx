@@ -513,9 +513,10 @@ export function ServicesTab({ project }: { project: Project }) {
   const { t } = useTranslation();
   const extras = useExtraServices(project.id);
   const kept = useKeptData(project.id);
-  const storage = useStorage(project.id);
+  const hasStorage = project.services.some((s) => s.kind === "storage" && s.enabled);
+  const storage = useStorage(project.id, hasStorage);
   const [msg, setMsg] = useState<{ tone: "green" | "red"; text: string } | null>(null);
-  if (extras.isPending || storage.isPending) return <Spinner />;
+  if (extras.isPending || (hasStorage && storage.isPending)) return <Spinner />;
   if (extras.isError) return <ErrorState message={errorText(extras.error, t)} />;
   const has = (k: string) => extras.data.some((s) => s.kind === k);
   // Adding a service changes the project, which needs admin in it.
@@ -525,7 +526,7 @@ export function ServicesTab({ project }: { project: Project }) {
       <PublicHostNotice />
       {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {storage.data && <StorageCard project={project} onMessage={setMsg} />}
+        {hasStorage && storage.data && <StorageCard project={project} onMessage={setMsg} />}
         {extras.data.map((s) => (
           <ServiceCard key={s.kind} project={project} info={s} onMessage={setMsg} />
         ))}
@@ -536,7 +537,7 @@ export function ServicesTab({ project }: { project: Project }) {
               .map((kind) => (
                 <AddServiceCard key={kind} project={project} kind={kind} kept={kept.data?.find((k) => k.kind === kind)} onMessage={setMsg} />
               ))}
-            {!storage.data && <AddStorageCard project={project} onMessage={setMsg} />}
+            {!(hasStorage && storage.data) && <AddStorageCard project={project} onMessage={setMsg} />}
           </>
         )}
       </div>
