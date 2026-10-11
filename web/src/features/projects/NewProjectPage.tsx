@@ -499,6 +499,8 @@ export function NewProjectPage() {
         }
         default:
           patch.phpEnabled = true;
+          // The server raises a default memory_limit to what the template needs; show it.
+          if (tpl.phpMemoryLimit && form.phpConfig.memoryLimit === rt.phpDefaults.memoryLimit) patch.phpConfig = { ...form.phpConfig, memoryLimit: tpl.phpMemoryLimit };
       }
     }
     set(patch);
