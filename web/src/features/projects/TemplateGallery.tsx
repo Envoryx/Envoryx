@@ -29,7 +29,7 @@ export function TemplateGallery({ templates, selected, onSelect }: { templates: 
   const kinds = runtimeOrder.filter((k) => templates.some((tpl) => templateRuntime(tpl) === k));
   const q = query.trim().toLowerCase();
   const matches = templates
-    .filter((tpl) => (!filter || templateRuntime(tpl) === filter) && (!q || tpl.name.toLowerCase().includes(q) || tpl.description.toLowerCase().includes(q) || runtimeNames[templateRuntime(tpl)].toLowerCase().includes(q)))
+    .filter((tpl) => (!filter || templateRuntime(tpl) === filter) && (!q || tpl.name.toLowerCase().includes(q) || tpl.description.toLowerCase().includes(q) || t(tpl.description).toLowerCase().includes(q) || runtimeNames[templateRuntime(tpl)].toLowerCase().includes(q)))
     .sort((a, b) => rank(a) - rank(b));
   // Narrowed by a filter or search, everything that matches shows; otherwise the popular ones
   // (plus the chosen template, wherever it sits) until the user asks for all.
@@ -75,7 +75,7 @@ export function TemplateGallery({ templates, selected, onSelect }: { templates: 
                 <Badge tone="blue">{runtimeNames[templateRuntime(tpl)]}</Badge>
                 {(tpl.requiresDatabase || tpl.recommendedDatabase) && <Badge tone="amber">{t("Database")}</Badge>}
               </span>
-              <span className="line-clamp-2 text-xs text-muted">{tpl.description}</span>
+              <span className="line-clamp-2 text-xs text-muted">{t(tpl.description)}</span>
             </button>
           ))}
         </div>

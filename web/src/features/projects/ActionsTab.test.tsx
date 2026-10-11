@@ -1,6 +1,7 @@
 import { screen, waitFor, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ActionsTab } from "./ActionsTab";
+import i18n from "@/i18n";
 import { authedRoutes, makeProject, mockApi, renderApp } from "@/test/utils";
 
 class FakeSocket {
@@ -60,5 +61,24 @@ describe("ActionsTab", () => {
     act(() => ws.onmessage?.({ data: JSON.stringify({ type: "exit", code: 0 }) }));
     expect(await screen.findByText("finished")).toBeInTheDocument();
     expect(install).not.toBeDisabled();
+  });
+
+  it("words the catalogue's descriptions and the reasons in the chosen language", async () => {
+    const catalogue = [
+      { ...actions[0]!, description: "Install dependencies from composer.lock" },
+      { ...actions[1]!, reason: "composer.json not found in project" },
+    ];
+    mockApi({ ...authedRoutes, "GET /projects/3f0b4a9e-1a2b-4c3d-8e9f-0a1b2c3d4e5f/actions": () => ({ body: { actions: catalogue } }) });
+    await i18n.changeLanguage("de");
+    try {
+      renderApp(<ActionsTab project={makeProject()} />);
+      await screen.findByRole("button", { name: /composer install/ });
+      expect(screen.getByText(i18n.t("Install dependencies from composer.lock"))).toBeInTheDocument();
+      expect(i18n.t("Install dependencies from composer.lock")).not.toBe("Install dependencies from composer.lock");
+      expect(screen.getByText(i18n.t("{{file}} not found in project", { file: "composer.json" }))).toBeInTheDocument();
+      expect(screen.queryByText("composer.json not found in project")).not.toBeInTheDocument();
+    } finally {
+      await i18n.changeLanguage("en");
+    }
   });
 });

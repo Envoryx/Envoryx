@@ -764,7 +764,7 @@ export function NewProjectPage() {
             <label
               key={d.key}
               className={clsx("flex items-center gap-2.5 rounded-md border px-3 py-2 text-sm", !d.available ? "border-default opacity-60" : form.dbType === d.key ? "border-accent-500 bg-accent-500/5 cursor-pointer" : "border-default hover:bg-muted cursor-pointer")}
-              title={d.description}
+              title={t(d.description)}
             >
               <input
                 type="radio"
@@ -1065,7 +1065,7 @@ export function NewProjectPage() {
                 <dt className="text-muted">{t("Template")}</dt>
                 <dd className="text-xs">
                   {selectedTemplate.name}
-                  <span className="block text-subtle">{selectedTemplate.description}</span>
+                  <span className="block text-subtle">{t(selectedTemplate.description)}</span>
                   {selectedTemplate.notes && <span className="block text-subtle">{selectedTemplate.notes}</span>}
                 </dd>
               </>

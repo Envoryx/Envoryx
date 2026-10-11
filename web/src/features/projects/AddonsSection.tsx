@@ -31,7 +31,7 @@ function AddonCard({ project, info, onMessage }: { project: Project; info: Proje
             <Package className="size-4 text-accent-500" aria-hidden /> {info.title} {info.version}
           </span>
         }
-        description={info.description}
+        description={info.description ? t(info.description) : undefined}
         actions={
           <span className="inline-flex items-center gap-1.5 text-xs">
             <StatusDot tone={containerStateTone(info.state)} />
@@ -178,7 +178,7 @@ function AddAddonCard({ project, addon, onMessage }: { project: Project; addon: 
             <Package className="size-4 text-subtle" aria-hidden /> {addon.title}
           </span>
         }
-        description={addon.description}
+        description={addon.description ? t(addon.description) : undefined}
       />
       <div className="flex flex-wrap items-end gap-3 p-5">
         {addon.versions.length > 1 && (

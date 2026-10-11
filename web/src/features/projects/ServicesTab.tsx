@@ -428,7 +428,7 @@ function AddServiceCard({ project, kind, kept, onMessage }: { project: Project; 
   const title = titles[kind];
   return (
     <Card>
-      <CardHeader title={title} description={rt?.description ?? ""} />
+      <CardHeader title={title} description={rt?.description ? t(rt.description) : ""} />
       <div className="space-y-4 p-5">
         {kept && (
           <Alert tone="blue">

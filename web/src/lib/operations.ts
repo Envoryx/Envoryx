@@ -1,5 +1,6 @@
 import type { TFunction } from "i18next";
 import type { Operation, OperationAction } from "@/api/types";
+import { translateMessage } from "@/lib/errors";
 
 /** "Starting Acme Shop": what an operation is doing, for trays and headers. */
 export function operationTitle(op: Operation, t: TFunction): string {
@@ -68,7 +69,11 @@ export function operationVerb(action: OperationAction, t: TFunction): string {
 
 /** The current step, translated; empty when the operation reports none. */
 export function operationStep(op: Operation, t: TFunction): string {
-  return op.step ? t(op.step, op.stepArgs ?? {}) : "";
+  if (!op.step) return "";
+  const args = { ...op.stepArgs };
+  // A pull's {{status}} is a progress message of its own ("downloading 42% (…)").
+  if (args.status) args.status = translateMessage(args.status, t);
+  return t(op.step, args);
 }
 
 /** Seconds since the operation started, for an elapsed-time hint. */

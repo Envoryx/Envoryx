@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { useProjectActions } from "@/api/hooks";
 import type { ActionInfo, Project } from "@/api/types";
 import { Badge, Button, Card, CardHeader, Code, Dialog, ErrorState, Spinner } from "@/components/ui";
-import { errorText } from "@/lib/errors";
+import { errorText, translateMessage } from "@/lib/errors";
 import { useLiveRun } from "./useLiveRun";
 
 /** The live runner with the action it runs. */
@@ -58,7 +58,7 @@ export function ActionsTab({ project }: { project: Project }) {
                       <button
                         onClick={() => launch(a)}
                         disabled={!a.available || run?.state === "running"}
-                        title={a.available ? a.description : a.reason}
+                        title={a.available ? t(a.description) : translateMessage(a.reason, t)}
                         className={clsx(
                           "flex w-full items-center gap-2 rounded-md px-1.5 py-1.5 text-left text-sm",
                           a.available ? "text-fg hover:bg-muted" : "cursor-not-allowed text-subtle",
@@ -68,7 +68,7 @@ export function ActionsTab({ project }: { project: Project }) {
                         <Play className="size-3.5 shrink-0" aria-hidden />
                         <span className="min-w-0 flex-1">
                           <span className="block truncate font-mono text-xs">{a.label}</span>
-                          <span className="block truncate text-[11px] text-subtle">{a.available ? a.description : a.reason}</span>
+                          <span className="block truncate text-[11px] text-subtle">{a.available ? t(a.description) : translateMessage(a.reason, t)}</span>
                         </span>
                         {a.destructive && <AlertTriangle className="size-3.5 shrink-0 text-amber-500" aria-label={t("destructive")} />}
                       </button>
@@ -107,7 +107,7 @@ export function ActionsTab({ project }: { project: Project }) {
         open={confirm !== null}
         onClose={() => setConfirm(null)}
         title={t("Run {{label}}?", { label: confirm?.label ?? "" })}
-        description={confirm?.description}
+        description={confirm ? t(confirm.description) : undefined}
         footer={
           <>
             <Button onClick={() => setConfirm(null)}>{t("Cancel")}</Button>
