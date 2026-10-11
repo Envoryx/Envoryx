@@ -177,7 +177,7 @@ func (a *API) guard(need auth.Scope, pattern string, h http.HandlerFunc) http.Ha
 			err = p.Require(need, "")
 		}
 		if err == nil && p.Support && supportRefused[pattern] {
-			err = fmt.Errorf("%w: the hoster's support can't do this", auth.ErrForbidden)
+			err = errSupportRefused
 		}
 		if err == nil && !routesWhileSuspended[pattern] {
 			// A suspended instance shows its users the hoster's message and nothing else.

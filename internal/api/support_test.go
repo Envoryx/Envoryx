@@ -90,3 +90,55 @@ func TestSupportLoginNeedsTheAdminsConsent(t *testing.T) {
 		t.Fatalf("past end: %d %s", r.status, r.raw)
 	}
 }
+
+// The hoster's support manages no accounts and opens no other way in: whatever it did
+// would outlast the admins' consent.
+func TestSupportCantGrantAccess(t *testing.T) {
+	a := newApp(t)
+	a.setupAndLogin()
+	r := a.do(http.MethodGet, "/api/v1/users", nil, false)
+	users, _ := r.body["users"].([]any)
+	if r.status != http.StatusOK || len(users) == 0 {
+		t.Fatalf("users: %d %s", r.status, r.raw)
+	}
+	adminID := users[0].(map[string]any)["id"].(string)
+	if r = a.do(http.MethodPut, "/api/v1/settings/support-access", map[string]any{"allowed": true}, true); r.status != http.StatusOK {
+		t.Fatalf("allow: %d %s", r.status, r.raw)
+	}
+	token, err := a.auth.IssueSupportLogin(context.Background(), "hoster")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cookie, _ := a.supportLogin(token)
+	if cookie == nil {
+		t.Fatal("no support session")
+	}
+	a.cookie = cookie
+
+	for _, c := range []struct {
+		method, path string
+		body         any
+	}{
+		{http.MethodPost, "/api/v1/users", map[string]any{"username": "helper", "role": "admin"}},
+		{http.MethodPatch, "/api/v1/users/" + adminID, map[string]any{"role": "viewer"}},
+		{http.MethodDelete, "/api/v1/users/" + adminID, nil},
+		{http.MethodPost, "/api/v1/users/" + adminID + "/invite", map[string]any{}},
+		{http.MethodPut, "/api/v1/users/" + adminID + "/projects/shop", map[string]any{"role": "admin"}},
+		{http.MethodPut, "/api/v1/settings/oidc", map[string]any{"enabled": true}},
+		{http.MethodPost, "/api/v1/settings/oidc/test", map[string]any{}},
+		{http.MethodPatch, "/api/v1/settings", map[string]any{"sshAuthorizedKeys": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGv1t9rJ8o3b7h2y0aZ3kq3Yl0b1vXcXgk7oQyM5c4Zt support"}},
+		{http.MethodPost, "/api/v1/instance/backups/x/restore", map[string]any{"confirm": "restore"}},
+		{http.MethodPost, "/api/v1/tokens", map[string]any{"name": "keep", "scope": "admin"}},
+		{http.MethodPut, "/api/v1/auth/ssh-keys", map[string]any{"keys": ""}},
+		{http.MethodPost, "/api/v1/auth/password", map[string]any{"current": "x", "new": "y"}},
+	} {
+		r := a.do(c.method, c.path, c.body, true)
+		if r.status != http.StatusForbidden || !strings.Contains(string(r.raw), "support") {
+			t.Errorf("%s %s as support: %d %s", c.method, c.path, r.status, r.raw)
+		}
+	}
+	// Other settings stay open to the support.
+	if r = a.do(http.MethodPatch, "/api/v1/settings", map[string]any{"xdebugClientHost": "192.168.1.20"}, true); r.status != http.StatusOK {
+		t.Fatalf("settings as support: %d %s", r.status, r.raw)
+	}
+}

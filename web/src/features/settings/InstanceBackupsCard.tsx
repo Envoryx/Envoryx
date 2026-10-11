@@ -7,6 +7,7 @@ import type { InstanceBackup } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Code, Dialog, Field, Input, Spinner } from "@/components/ui";
 import { formatBytes, formatDateTime } from "@/lib/format";
 import { errorText } from "@/lib/errors";
+import { useAuth } from "@/features/auth/AuthContext";
 import { OffsiteBadges, OffsiteUploadButton, RemoteBackups, uploading } from "@/features/offsite/OffsiteParts";
 
 const key = ["instance-backups"] as const;
@@ -52,6 +53,8 @@ function useWaitForRestart(active: boolean) {
 export function InstanceBackupsCard() {
   const { t } = useTranslation();
   const qc = useQueryClient();
+  // A restore brings back the backup's accounts and tokens: not for the hoster's support.
+  const { support } = useAuth();
   const q = useQuery({ queryKey: key, queryFn: api.instanceBackups.list, refetchInterval: (q) => (uploading(q.state.data?.offsite) ? 3000 : false) });
   const targets = q.data?.offsiteTargets ?? [];
   const [note, setNote] = useState("");
@@ -214,9 +217,11 @@ export function InstanceBackupsCard() {
                     <Download className="size-3.5" aria-hidden />
                     {t("Download")}
                   </a>
-                  <Button size="sm" variant="ghost" onClick={() => setRestoreTarget(b)} icon={<RotateCcw className="size-3.5" />} aria-label={t("Restore {{id}}", { id: b.id })}>
-                    {t("Restore")}
-                  </Button>
+                  {!support && (
+                    <Button size="sm" variant="ghost" onClick={() => setRestoreTarget(b)} icon={<RotateCcw className="size-3.5" />} aria-label={t("Restore {{id}}", { id: b.id })}>
+                      {t("Restore")}
+                    </Button>
+                  )}
                   <Button size="sm" variant="ghost" onClick={() => setDeleteTarget(b)} icon={<Trash2 className="size-3.5" />} aria-label={t("Delete {{id}}", { id: b.id })}>
                     {t("Delete")}
                   </Button>

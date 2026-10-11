@@ -3068,5 +3068,6 @@
   "downloading ({{size}} so far, {{done}} of {{total}} layers done)": "Завантаження ({{size}} поки що, готово шарів: {{done}} з {{total}})",
   "extracting ({{done}} of {{total}} layers done)": "Розпакування (готово шарів: {{done}} з {{total}})",
   "Not injected": "Не впроваджено",
-  "Envoryx or the project's own variables set these already; an addon doesn't override them.": "Envoryx або власні змінні проєкту вже задають їх; доповнення їх не перевизначає."
+  "Envoryx or the project's own variables set these already; an addon doesn't override them.": "Envoryx або власні змінні проєкту вже задають їх; доповнення їх не перевизначає.",
+  "The hoster's support can't change this: accounts, passwords, sign-in and keys stay with the instance's admins.": "Підтримка хостера не може це змінити: облікові записи, паролі, вхід і ключі залишаються за адміністраторами екземпляра."
 }

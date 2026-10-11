@@ -3068,5 +3068,6 @@
   "downloading ({{size}} so far, {{done}} of {{total}} layers done)": "Pobieranie ({{size}} do tej pory, gotowe warstwy: {{done}} z {{total}})",
   "extracting ({{done}} of {{total}} layers done)": "Rozpakowywanie (gotowe warstwy: {{done}} z {{total}})",
   "Not injected": "Niewstrzyknięte",
-  "Envoryx or the project's own variables set these already; an addon doesn't override them.": "Envoryx lub własne zmienne projektu już je ustawiają; dodatek ich nie nadpisuje."
+  "Envoryx or the project's own variables set these already; an addon doesn't override them.": "Envoryx lub własne zmienne projektu już je ustawiają; dodatek ich nie nadpisuje.",
+  "The hoster's support can't change this: accounts, passwords, sign-in and keys stay with the instance's admins.": "Wsparcie hostera nie może tego zmienić: konta, hasła, logowanie i klucze pozostają w rękach administratorów instancji."
 }

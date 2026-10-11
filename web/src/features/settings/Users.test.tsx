@@ -48,6 +48,31 @@ describe("UsersCard", () => {
   });
 });
 
+describe("UsersCard and OidcCard for the hoster's support", () => {
+  it("shows users and single sign-on read-only", async () => {
+    mockApi({
+      ...authedRoutes,
+      "GET /projects": () => ({ body: { projects: [shop] } }),
+      "GET /users": () => ({ body: { users: [dana] } }),
+      "GET /settings/oidc": () => ({ body: { oidc: { enabled: false, name: "SSO", issuer: "https://auth.lan", clientId: "", defaultRole: "deny", autoCreate: false, hasSecret: false, redirectUrl: "https://envoryx.lan/api/v1/auth/oidc/callback" } } }),
+    });
+    renderApp(
+      <>
+        <UsersCard readOnly />
+        <OidcCard readOnly />
+      </>,
+    );
+    const row = (await screen.findByText("dana")).closest("li") as HTMLElement;
+    expect(within(row).getByLabelText("Role of dana")).toBeDisabled();
+    expect(within(row).queryByRole("button", { name: "Reset password" })).not.toBeInTheDocument();
+    expect(within(row).queryByRole("button", { name: "Disable" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Invite user" })).not.toBeInTheDocument();
+    expect(await screen.findByLabelText("Issuer URL")).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+    expect(screen.getAllByText(/The hoster's support can't change this/)).toHaveLength(2);
+  });
+});
+
 describe("OidcCard", () => {
   it("shows the redirect URL, keeps the secret out and saves group names as lists", async () => {
     const api = mockApi({

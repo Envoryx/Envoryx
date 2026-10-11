@@ -82,3 +82,12 @@ export function SupportAccessCard() {
     </Card>
   );
 }
+
+/**
+ * Shown to the hoster's support where the instance's admins keep the say: accounts,
+ * passwords, sign-in and keys. Whatever the support set there would outlast the consent.
+ */
+export function SupportRefusedNote() {
+  const { t } = useTranslation();
+  return <Alert tone="blue">{t("The hoster's support can't change this: accounts, passwords, sign-in and keys stay with the instance's admins.")}</Alert>;
+}
