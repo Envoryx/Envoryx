@@ -113,3 +113,34 @@ func TestStartRecreatesAMissingProjectDirectory(t *testing.T) {
 		t.Fatalf("the project directory must exist before the containers mount it: %v", err)
 	}
 }
+
+// A deleted project keeps its backups, and an upload of one still waiting for a retry
+// must still find it.
+func TestOffsiteArchiveOfADeletedProject(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	v, err := e.m.Create(ctx, phpRequest("Shop", false))
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := v.Project.ID
+	b, err := e.m.CreateBackup(ctx, id, BackupOptions{Files: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := e.m.Delete(ctx, id, DeleteOptions{Confirm: "shop", DeleteFiles: true}); err != nil {
+		t.Fatal(err)
+	}
+	a, err := e.m.OpenOffsiteArchive(ctx, id, b.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := io.ReadAll(a.Body)
+	a.Body.Close()
+	if a.Slug != "shop" || a.Dir != b.Dir || len(raw) == 0 {
+		t.Fatalf("archive: %+v, %d bytes", a, len(raw))
+	}
+	if name := e.m.OffsiteProjectName(ctx, id, b.ID); name != "Shop" {
+		t.Fatalf("project name: %q", name)
+	}
+}

@@ -879,12 +879,19 @@ func (m *Manager) OpenBackupArchive(ctx context.Context, id, backupID string) (i
 	if _, err := os.Stat(filepath.Join(dir, backupMetaFile)); err != nil {
 		return nil, "", fmt.Errorf("%w: backup files are missing", store.ErrNotFound)
 	}
+	name := p.Slug + "-" + b.Filename
+	return streamBackupDir(dir, name), name + ".tar", nil
+}
+
+// streamBackupDir writes the members of a backup directory as a tar whose entries sit
+// below name/.
+func streamBackupDir(dir, name string) io.ReadCloser {
 	pr, pw := io.Pipe()
 	go func() {
 		tw := tar.NewWriter(pw)
 		var werr error
-		for _, name := range backupMembersIn(dir) {
-			path := filepath.Join(dir, name)
+		for _, member := range backupMembersIn(dir) {
+			path := filepath.Join(dir, member)
 			info, err := os.Stat(path)
 			if err != nil {
 				continue
@@ -894,7 +901,7 @@ func (m *Manager) OpenBackupArchive(ctx context.Context, id, backupID string) (i
 				werr = err
 				break
 			}
-			hdr.Name = p.Slug + "-" + b.Filename + "/" + name
+			hdr.Name = name + "/" + member
 			if err := tw.WriteHeader(hdr); err != nil {
 				werr = err
 				break
@@ -916,7 +923,7 @@ func (m *Manager) OpenBackupArchive(ctx context.Context, id, backupID string) (i
 		}
 		pw.CloseWithError(werr)
 	}()
-	return pr, p.Slug + "-" + b.Filename + ".tar", nil
+	return pr
 }
 
 // RestoreBackup restores the database and/or files of a backup into the project.

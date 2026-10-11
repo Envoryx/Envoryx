@@ -78,29 +78,50 @@ type OffsiteArchive struct {
 	Body   io.ReadCloser
 }
 
-// OpenOffsiteArchive streams a backup for an upload.
+// OpenOffsiteArchive streams a backup for an upload. The project may have been deleted
+// since the backup was queued: its backups stay, and so does their way offsite.
 func (m *Manager) OpenOffsiteArchive(ctx context.Context, projectID, backupID string) (OffsiteArchive, error) {
-	rc, _, err := m.OpenBackupArchive(ctx, projectID, backupID)
-	if err != nil {
-		return OffsiteArchive{}, err
-	}
-	p, err := m.store.Projects.Get(ctx, projectID)
-	if err != nil {
-		rc.Close()
-		return OffsiteArchive{}, err
+	if validate.UUID(projectID) != nil || validate.UUID(backupID) != nil {
+		return OffsiteArchive{}, ErrNotFound
 	}
 	b, err := m.store.Backups.Get(ctx, projectID, backupID)
 	if err != nil {
-		rc.Close()
 		return OffsiteArchive{}, err
 	}
 	var meta BackupMeta
 	_ = json.Unmarshal(b.Metadata, &meta)
+	slug := meta.Slug
+	if p, err := m.store.Projects.Get(ctx, projectID); err == nil {
+		slug = p.Slug
+	}
+	if slug == "" {
+		return OffsiteArchive{}, fmt.Errorf("%w: the backup names no project", ErrNotFound)
+	}
+	dir, err := m.locateBackup(ctx, b, meta)
+	if err != nil {
+		return OffsiteArchive{}, err
+	}
 	source := meta.Source
 	if source == "" {
 		source = "manual"
 	}
-	return OffsiteArchive{Slug: p.Slug, Dir: b.Filename, Kind: b.Kind, Source: source, Body: rc}, nil
+	return OffsiteArchive{Slug: slug, Dir: b.Filename, Kind: b.Kind, Source: source, Body: streamBackupDir(dir, slug+"-"+b.Filename)}, nil
+}
+
+// OffsiteProjectName is the name of the project a queued upload belongs to, for the
+// messages about it: the project's, or the one its backup was made under once it is
+// deleted.
+func (m *Manager) OffsiteProjectName(ctx context.Context, projectID, backupID string) string {
+	if p, err := m.store.Projects.Get(ctx, projectID); err == nil {
+		return p.Name
+	}
+	b, err := m.store.Backups.Get(ctx, projectID, backupID)
+	if err != nil {
+		return ""
+	}
+	var meta BackupMeta
+	_ = json.Unmarshal(b.Metadata, &meta)
+	return meta.ProjectName
 }
 
 // ProjectSlug returns the identifier offsite copies of a project are filed under.
