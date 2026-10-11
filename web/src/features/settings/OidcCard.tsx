@@ -111,7 +111,7 @@ export function OidcCard() {
         {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
         <Checkbox label={t("Offer single sign-on on the login page")} checked={form.enabled} onChange={(e) => set({ enabled: e.target.checked })} />
         <p className="text-xs text-muted">
-          {t("Register Envoryx at the provider as a confidential client with this redirect URL:")} <Code>{q.data?.redirectUrl}</Code>
+          {t("Register Envoryx at the provider as a confidential client with this redirect URL:")} <Code className="break-all">{q.data?.redirectUrl}</Code>
         </p>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label={t("Issuer URL")} htmlFor="oidc-issuer" hint={t("e.g. https://auth.example.com/application/o/envoryx/")}>
