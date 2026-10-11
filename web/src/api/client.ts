@@ -133,6 +133,13 @@ export function setUnauthorizedHandler(handler: UnauthorizedHandler | null): voi
   onUnauthorized = handler;
 }
 
+let onSuspended: (() => void) | null = null;
+
+/** Registers a callback invoked whenever the API refuses because the hoster suspended the instance. */
+export function setSuspendedHandler(handler: (() => void) | null): void {
+  onSuspended = handler;
+}
+
 interface RequestOptions {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   body?: unknown;
@@ -176,6 +183,9 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
     const err = (payload as { error?: { code?: string; message?: string; details?: unknown } } | null)?.error;
     if (res.status === 401 && !opts.silent401) {
       onUnauthorized?.();
+    }
+    if (res.status === 403 && err?.code === "suspended") {
+      onSuspended?.();
     }
     throw new ApiError(res.status, err?.code ?? "http_error", err?.message ?? `Request failed (${res.status})`, err?.details);
   }

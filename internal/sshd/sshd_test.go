@@ -25,6 +25,7 @@ import (
 	"github.com/envoryx/envoryx/internal/db"
 	"github.com/envoryx/envoryx/internal/docker"
 	"github.com/envoryx/envoryx/internal/docker/dockertest"
+	"github.com/envoryx/envoryx/internal/plan"
 	"github.com/envoryx/envoryx/internal/project"
 	"github.com/envoryx/envoryx/internal/runtime"
 	"github.com/envoryx/envoryx/internal/sshd"
@@ -1148,4 +1149,20 @@ func TestStaticSiteGetsSFTP(t *testing.T) {
 	if _, err := e.dial(t, "docs.php", ssh.Password(e.token)); err == nil {
 		t.Fatal("an explicit runtime the project lacks must be refused")
 	}
+}
+
+func TestSuspendedInstanceRefusesLogins(t *testing.T) {
+	e := newEnv(t)
+	holder := plan.Static(nil)
+	e.manager.SetPlan(holder)
+	holder.SetSuspension(&plan.Suspension{Since: time.Now()})
+	if _, err := e.dial(t, "shop", ssh.Password(e.token)); err == nil {
+		t.Fatal("a suspended instance let a token in")
+	}
+	holder.SetSuspension(nil)
+	client, err := e.dial(t, "shop", ssh.Password(e.token))
+	if err != nil {
+		t.Fatalf("after lifting: %v", err)
+	}
+	client.Close()
 }

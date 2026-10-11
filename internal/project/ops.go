@@ -61,6 +61,11 @@ func (m *Manager) run(ctx context.Context, limit time.Duration, op Operation, fn
 		o.mu.Unlock()
 		return ErrShuttingDown
 	}
+	// A suspended instance only stops what still runs (suspension.go).
+	if s := m.Suspension(); s != nil && op.Action != "stop" {
+		o.mu.Unlock()
+		return s.Err()
+	}
 	o.wg.Add(1)
 	o.mu.Unlock()
 	defer o.wg.Done()

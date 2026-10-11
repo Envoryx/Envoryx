@@ -82,6 +82,10 @@ const (
 	// restore_scheduled entry lives in the database that the restore replaced, so this is
 	// the only trace that survives in the restored database.
 	ActionInstanceRestored = "instance.restored"
+	// ActionInstanceSuspended and ActionInstanceUnsuspended record the hoster's suspension
+	// of a managed instance and its end.
+	ActionInstanceSuspended   = "instance.suspended"
+	ActionInstanceUnsuspended = "instance.unsuspended"
 
 	ActionDBCredentialsViewed = "database.credentials_viewed"
 	ActionDBPasswordRotated   = "database.password_rotated"

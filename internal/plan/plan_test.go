@@ -85,3 +85,53 @@ func TestHolderReload(t *testing.T) {
 		t.Error("Open of a broken file passed")
 	}
 }
+
+func TestHolderSuspension(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, SuspensionFile)
+	h, err := Open(filepath.Join(dir, File), nil)
+	if err != nil || h.Suspension() != nil {
+		t.Fatalf("missing file: %v %v", h.Suspension(), err)
+	}
+	var seen []*Suspension
+	h.OnSuspend(func(s *Suspension) { seen = append(seen, s) })
+	if err := os.WriteFile(path, []byte(`{"since":"2026-10-11T08:00:00Z","message":"Invoice 1234 is open"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	h.Reload()
+	if s := h.Suspension(); s == nil || s.Message != "Invoice 1234 is open" || !errors.Is(s.Err(), ErrSuspended) {
+		t.Fatalf("after write: %+v", s)
+	}
+	h.Reload()
+	if len(seen) != 1 {
+		t.Fatalf("callbacks after an unchanged reload: %d", len(seen))
+	}
+	// A broken file keeps the suspension.
+	if err := os.WriteFile(path, []byte(`{"message":"no since"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	h.Reload()
+	if h.Suspension() == nil || len(seen) != 1 {
+		t.Fatal("a broken file lifted the suspension")
+	}
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+	h.Reload()
+	if h.Suspension() != nil || len(seen) != 2 || seen[1] != nil {
+		t.Fatalf("removed file: %+v, %d callbacks", h.Suspension(), len(seen))
+	}
+	// A suspended instance comes up suspended; a broken file refuses to start.
+	if err := os.WriteFile(path, []byte(`{"since":"2026-10-11T08:00:00Z"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if h, err := Open(filepath.Join(dir, File), nil); err != nil || h.Suspension() == nil {
+		t.Fatalf("Open of a suspended instance: %v", err)
+	}
+	if err := os.WriteFile(path, []byte(`{`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Open(filepath.Join(dir, File), nil); err == nil {
+		t.Error("Open with a broken suspension passed")
+	}
+}

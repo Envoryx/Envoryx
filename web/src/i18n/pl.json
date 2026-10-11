@@ -2826,5 +2826,12 @@
   "not connected": "brak połączenia",
   "Managed by your hoster": "Zarządzane przez twój hosting",
   "Managed by your hoster as {{name}}": "Zarządzane przez twój hosting jako {{name}}",
-  "last contact {{time}}": "ostatni kontakt {{time}}"
+  "last contact {{time}}": "ostatni kontakt {{time}}",
+  "This instance is suspended": "Ta instancja jest zawieszona",
+  "Your hoster has suspended this instance. Please contact them.": "Twój hosting zawiesił tę instancję. Skontaktuj się z nim.",
+  "Your projects are stopped and your data is kept. Once the suspension is lifted, you can start the projects again.": "Twoje projekty są zatrzymane, a dane zachowane. Po zniesieniu zawieszenia możesz ponownie uruchomić projekty.",
+  "Suspended since {{time}}": "Zawieszona od {{time}}",
+  "Instance suspended": "Instancja zawieszona",
+  "Suspension lifted": "Zawieszenie zniesione",
+  "this instance is suspended by its hoster": "Ta instancja jest zawieszona przez jej hosting"
 }

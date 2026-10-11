@@ -77,6 +77,9 @@ func (m *Manager) RunBackupScheduler(ctx context.Context, interval time.Duration
 
 // runScheduledBackups performs one scheduler pass.
 func (m *Manager) runScheduledBackups(ctx context.Context, now time.Time, log *slog.Logger) {
+	if m.Suspension() != nil {
+		return
+	}
 	projects, err := m.store.Projects.List(ctx)
 	if err != nil {
 		log.Warn("backup scheduler: list projects", "err", err)

@@ -2778,5 +2778,12 @@
   "not connected": "niet verbonden",
   "Managed by your hoster": "Beheerd door je hoster",
   "Managed by your hoster as {{name}}": "Beheerd door je hoster als {{name}}",
-  "last contact {{time}}": "laatste contact {{time}}"
+  "last contact {{time}}": "laatste contact {{time}}",
+  "This instance is suspended": "Deze instantie is geblokkeerd",
+  "Your hoster has suspended this instance. Please contact them.": "Je hoster heeft deze instantie geblokkeerd. Neem contact met hem op.",
+  "Your projects are stopped and your data is kept. Once the suspension is lifted, you can start the projects again.": "Je projecten zijn gestopt en je gegevens blijven bewaard. Zodra de blokkade is opgeheven, kun je de projecten weer starten.",
+  "Suspended since {{time}}": "Geblokkeerd sinds {{time}}",
+  "Instance suspended": "Instantie geblokkeerd",
+  "Suspension lifted": "Blokkade opgeheven",
+  "this instance is suspended by its hoster": "Deze instantie is door haar hoster geblokkeerd"
 }

@@ -1675,11 +1675,19 @@ export interface FleetInfo {
   error?: string;
 }
 
+/** The hoster's lock on a managed instance: projects stopped, nothing but this message shown. */
+export interface Suspension {
+  since: string;
+  /** The hoster's text for the customer; a default stands in without it. */
+  message?: string;
+}
+
 /** The instance's plan; plan is null on an instance without one, fleet on one no fleet manages. */
 export interface PlanStatus {
   plan: Plan | null;
   usage?: PlanUsage;
   fleet?: FleetInfo | null;
+  suspension?: Suspension | null;
 }
 
 /** One difference between a project and its envoryx.yml. */

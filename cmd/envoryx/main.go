@@ -382,6 +382,7 @@ func serve() error {
 		background("log history", func(ctx context.Context) { manager.RunLogHistory(ctx, 5*time.Second, log) })
 	}
 	background("plan disk usage", func(ctx context.Context) { manager.RunDiskUsage(ctx, 5*time.Minute) })
+	background("suspension", func(ctx context.Context) { manager.RunSuspension(ctx, 30*time.Second, log) })
 	background("disk space monitor", func(ctx context.Context) {
 		disk.Monitor(ctx, 5*time.Minute, notifier, log, cfg.ConfigDir, cfg.ProjectsDir, cfg.BackupsDir)
 	})

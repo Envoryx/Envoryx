@@ -10,6 +10,7 @@ package fleet
 import (
 	"crypto/ed25519"
 	"encoding/json"
+	"time"
 )
 
 // Paths of the manager's agent API.
@@ -44,15 +45,17 @@ type enrollResponse struct {
 
 // message is every frame on the WebSocket; Type decides which fields are set.
 //
-//	manager → instance: challenge (Nonce), welcome (Name), plan (Plan, null for none)
+//	manager → instance: challenge (Nonce), welcome (Name), plan (Plan, null for none),
+//	                    suspension (Suspension, null for none)
 //	instance → manager: auth (Signature over the nonce), status (Status)
 type message struct {
-	Type      string          `json:"type"`
-	Nonce     []byte          `json:"nonce,omitempty"`
-	Signature []byte          `json:"signature,omitempty"`
-	Name      string          `json:"name,omitempty"`
-	Plan      json.RawMessage `json:"plan,omitempty"`
-	Status    *Status         `json:"status,omitempty"`
+	Type       string          `json:"type"`
+	Nonce      []byte          `json:"nonce,omitempty"`
+	Signature  []byte          `json:"signature,omitempty"`
+	Name       string          `json:"name,omitempty"`
+	Plan       json.RawMessage `json:"plan,omitempty"`
+	Suspension json.RawMessage `json:"suspension,omitempty"`
+	Status     *Status         `json:"status,omitempty"`
 }
 
 // Status is what an instance reports about itself, at connect and every minute.
@@ -64,7 +67,10 @@ type Status struct {
 	// the manager was not taken over.
 	PlanName  string `json:"planName,omitempty"`
 	PlanError string `json:"planError,omitempty"`
-	Usage     Usage  `json:"usage"`
+	// SuspendedSince is when the suspension the instance follows began; zero when it
+	// is not suspended.
+	SuspendedSince time.Time `json:"suspendedSince,omitzero"`
+	Usage          Usage     `json:"usage"`
 	// Warnings are the instance's open problems (failing projects, low disk space).
 	Warnings []string `json:"warnings,omitempty"`
 }

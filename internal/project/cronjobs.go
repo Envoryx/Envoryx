@@ -472,6 +472,9 @@ type cronSchedulerState struct {
 
 // cronPass fires the jobs that are due at now.
 func (m *Manager) cronPass(ctx context.Context, now time.Time, st *cronSchedulerState, log *slog.Logger) {
+	if m.Suspension() != nil {
+		return
+	}
 	jobs, err := m.store.CronJobs.ListEnabled(ctx)
 	if err != nil {
 		log.Warn("cron: listing jobs failed", "err", err)

@@ -95,3 +95,55 @@ func TestPlanFixesSettings(t *testing.T) {
 		t.Fatalf("after the plan: %d %s", r.status, r.raw)
 	}
 }
+
+func TestSuspendedInstanceAnswersOnlyWhoAndWhy(t *testing.T) {
+	a := newApp(t)
+	a.setupAndLogin()
+	r := a.do(http.MethodPost, "/api/v1/tokens", map[string]any{"name": "CI", "scope": "admin"}, true)
+	if r.status != http.StatusCreated {
+		t.Fatalf("token: %d %s", r.status, r.raw)
+	}
+	secret := r.body["secret"].(string)
+
+	if err := os.WriteFile(filepath.Join(a.cfgDir, plan.SuspensionFile), []byte(`{"since":"2026-10-11T08:00:00Z","message":"Invoice 1234 is open"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	a.plans.Reload()
+
+	r = a.do(http.MethodGet, "/api/v1/plan", nil, false)
+	s, _ := r.body["suspension"].(map[string]any)
+	if r.status != http.StatusOK || s["message"] != "Invoice 1234 is open" {
+		t.Fatalf("plan: %d %s", r.status, r.raw)
+	}
+	if r = a.do(http.MethodGet, "/api/v1/auth/me", nil, false); r.status != http.StatusOK {
+		t.Fatalf("me: %d %s", r.status, r.raw)
+	}
+	for _, path := range []string{"/api/v1/projects", "/api/v1/settings", "/api/v1/dashboard"} {
+		if r = a.do(http.MethodGet, path, nil, false); r.status != http.StatusForbidden || errCode(r) != "suspended" {
+			t.Errorf("%s: %d %s", path, r.status, r.raw)
+		}
+	}
+	for _, path := range []string{"/api/v1/projects", "/mcp"} {
+		req, _ := http.NewRequest(http.MethodGet, a.srv.URL+path, nil)
+		req.Header.Set("Authorization", "Bearer "+secret)
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		res.Body.Close()
+		if res.StatusCode != http.StatusForbidden {
+			t.Errorf("token on %s: %d", path, res.StatusCode)
+		}
+	}
+
+	if err := os.Remove(filepath.Join(a.cfgDir, plan.SuspensionFile)); err != nil {
+		t.Fatal(err)
+	}
+	a.plans.Reload()
+	if r = a.do(http.MethodGet, "/api/v1/projects", nil, false); r.status != http.StatusOK {
+		t.Fatalf("after lifting: %d %s", r.status, r.raw)
+	}
+	if r = a.do(http.MethodGet, "/api/v1/plan", nil, false); r.body["suspension"] != nil {
+		t.Fatalf("plan after lifting: %s", r.raw)
+	}
+}

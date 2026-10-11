@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/envoryx/envoryx/internal/auth"
 	"github.com/envoryx/envoryx/internal/plan"
 )
 
@@ -18,11 +19,21 @@ type planUsage struct {
 }
 
 // planStatus returns the hoster's plan of a managed instance (null for an instance
-// without one) and how much of it is used.
+// without one), how much of it is used and the hoster's suspension (null for none).
 func (a *API) planStatus(w http.ResponseWriter, r *http.Request) {
-	pl := a.d.Projects.Plan()
+	pl, susp := a.d.Projects.Plan(), a.d.Projects.Suspension()
+	if p, _ := auth.PrincipalFrom(r.Context()); p.Confined() {
+		// A user limited to particular projects learns what the pages hide, not how
+		// much the whole instance uses.
+		var dto map[string]any
+		if pl != nil {
+			dto = planDTO(pl)
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"plan": dto, "suspension": susp})
+		return
+	}
 	if pl == nil {
-		writeJSON(w, http.StatusOK, map[string]any{"plan": nil, "fleet": a.d.Fleet.Info()})
+		writeJSON(w, http.StatusOK, map[string]any{"plan": nil, "fleet": a.d.Fleet.Info(), "suspension": susp})
 		return
 	}
 	var u planUsage
@@ -36,7 +47,7 @@ func (a *API) planStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	u.DiskBytes, u.DiskMeasuredAt = a.d.Projects.DiskUsage()
-	writeJSON(w, http.StatusOK, map[string]any{"plan": planDTO(pl), "usage": u, "fleet": a.d.Fleet.Info()})
+	writeJSON(w, http.StatusOK, map[string]any{"plan": planDTO(pl), "usage": u, "fleet": a.d.Fleet.Info(), "suspension": susp})
 }
 
 // planDTO is a plan with its lists never null.

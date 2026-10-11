@@ -20,18 +20,21 @@ import (
 	"github.com/envoryx/envoryx/internal/plan"
 )
 
-// fakeManager is the manager's side of the protocol: one token, one plan to push.
+// fakeManager is the manager's side of the protocol: one token, one plan and one
+// suspension to push.
 type fakeManager struct {
 	t     *testing.T
 	token string
 
-	mu       sync.Mutex
-	key      ed25519.PublicKey
-	plan     string
-	statuses []Status
-	revoked  bool
-	conns    int
-	conn     *websocket.Conn
+	mu   sync.Mutex
+	key  ed25519.PublicKey
+	plan string
+	// suspension is sent after the plan unless empty.
+	suspension string
+	statuses   []Status
+	revoked    bool
+	conns      int
+	conn       *websocket.Conn
 }
 
 // revoke removes the instance as the manager does: the open connection is closed with
@@ -94,10 +97,13 @@ func (f *fakeManager) handler() http.Handler {
 		}
 		_ = wsjson.Write(ctx, conn, message{Type: "welcome", Name: "Kunde 1"})
 		f.mu.Lock()
-		p := f.plan
+		p, susp := f.plan, f.suspension
 		f.conn = conn
 		f.mu.Unlock()
 		_ = wsjson.Write(ctx, conn, message{Type: "plan", Plan: json.RawMessage(p)})
+		if susp != "" {
+			_ = wsjson.Write(ctx, conn, message{Type: "suspension", Suspension: json.RawMessage(susp)})
+		}
 		for {
 			var m message
 			if err := wsjson.Read(ctx, conn, &m); err != nil {
@@ -134,7 +140,8 @@ func waitFor(t *testing.T, what string, cond func() bool) {
 }
 
 func TestAgentEnrollsTakesThePlanAndReports(t *testing.T) {
-	f := &fakeManager{t: t, token: "tok", plan: `{"name":"Starter","limits":{"projects":2}}`}
+	f := &fakeManager{t: t, token: "tok", plan: `{"name":"Starter","limits":{"projects":2}}`,
+		suspension: `{"since":"2026-10-11T08:00:00Z","message":"Invoice 1234 is open"}`}
 	srv := httptest.NewServer(f.handler())
 	defer srv.Close()
 	dir := t.TempDir()
@@ -157,6 +164,10 @@ func TestAgentEnrollsTakesThePlanAndReports(t *testing.T) {
 
 	waitFor(t, "the plan", func() bool { p := holder.Get(); return p != nil && p.Name == "Starter" })
 	waitFor(t, "a status with the plan", func() bool { s, _ := f.lastStatus(); return s.PlanName == "Starter" })
+	waitFor(t, "the suspension reported", func() bool { s, _ := f.lastStatus(); return !s.SuspendedSince.IsZero() })
+	if s := holder.Suspension(); s == nil || s.Message != "Invoice 1234 is open" {
+		t.Errorf("suspension = %+v", s)
+	}
 	if s, _ := f.lastStatus(); s.Version != "v0.28.0" || s.Usage.Projects != 1 {
 		t.Errorf("status = %+v", s)
 	}
@@ -171,7 +182,7 @@ func TestAgentEnrollsTakesThePlanAndReports(t *testing.T) {
 		t.Fatalf("state file: %v %v", fi, err)
 	}
 	f.mu.Lock()
-	f.plan = "null"
+	f.plan, f.suspension = "null", "null"
 	f.mu.Unlock()
 	cfg.Token = ""
 	a, err = New(cfg)
@@ -182,6 +193,10 @@ func TestAgentEnrollsTakesThePlanAndReports(t *testing.T) {
 	done = make(chan struct{})
 	go func() { a.Run(ctx); close(done) }()
 	waitFor(t, "the plan removed", func() bool { return holder.Get() == nil })
+	waitFor(t, "the suspension lifted", func() bool { return holder.Suspension() == nil })
+	if _, err := os.Stat(filepath.Join(dir, plan.SuspensionFile)); !os.IsNotExist(err) {
+		t.Errorf("suspension file after lifting: %v", err)
+	}
 	cancel()
 	<-done
 }

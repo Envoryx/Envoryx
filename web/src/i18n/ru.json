@@ -2826,5 +2826,12 @@
   "not connected": "не подключено",
   "Managed by your hoster": "Управляется вашим хостером",
   "Managed by your hoster as {{name}}": "Управляется вашим хостером как {{name}}",
-  "last contact {{time}}": "последний контакт {{time}}"
+  "last contact {{time}}": "последний контакт {{time}}",
+  "This instance is suspended": "Этот экземпляр заблокирован",
+  "Your hoster has suspended this instance. Please contact them.": "Ваш хостер заблокировал этот экземпляр. Пожалуйста, свяжитесь с ним.",
+  "Your projects are stopped and your data is kept. Once the suspension is lifted, you can start the projects again.": "Ваши проекты остановлены, данные сохранены. После снятия блокировки вы сможете снова запустить проекты.",
+  "Suspended since {{time}}": "Заблокирован с {{time}}",
+  "Instance suspended": "Экземпляр заблокирован",
+  "Suspension lifted": "Блокировка снята",
+  "this instance is suspended by its hoster": "Этот экземпляр заблокирован хостером"
 }

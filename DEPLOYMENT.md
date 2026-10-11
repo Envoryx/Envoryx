@@ -2633,6 +2633,29 @@ When the hoster removes the instance from the fleet, it stops connecting and
 keeps its last plan. To move an instance to another machine, the manager
 issues a new token; enrolling with it replaces the old key.
 
+### Suspension
+
+The hoster can suspend an instance, an unpaid invoice for example. The manager
+sends the suspension with an optional message for the customer; the instance
+writes it to `/config/suspension.json` (like the plan, never part of an
+instance backup) and then:
+
+- stops every project, as if its users had stopped them, and the database
+  browser; the data stays as it is,
+- refuses every other project operation and pauses scheduled backups, cron
+  jobs, branch polling and health checks,
+- shows signed-in users only the hoster's message (or a default text) and a
+  sign-out button; the API answers everything except `GET /api/v1/auth/me` and
+  `GET /api/v1/plan` with HTTP 403 and the code `suspended`, the MCP endpoint
+  likewise, and SSH and SFTP refuse every login.
+
+A suspended instance comes back suspended after a restart, and losing the
+connection to the manager changes nothing. Lifting the suspension removes
+the file and opens the instance again, but starts no project: the customer
+starts them. Removing a suspended instance from the fleet keeps it
+suspended; lift the suspension first. The start and the end of a suspension
+are in the audit log (`instance.suspended`, `instance.unsuspended`).
+
 A plan only binds those who can't change the file: the customers of a hoster
 get Envoryx (the web UI, SSH into the project containers, SFTP, the API), but
 no shell on the machine and no access to the Docker socket.

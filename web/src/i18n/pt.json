@@ -2778,5 +2778,12 @@
   "not connected": "sem ligação",
   "Managed by your hoster": "Gerido pelo teu fornecedor",
   "Managed by your hoster as {{name}}": "Gerido pelo teu fornecedor como {{name}}",
-  "last contact {{time}}": "último contacto {{time}}"
+  "last contact {{time}}": "último contacto {{time}}",
+  "This instance is suspended": "Esta instância está suspensa",
+  "Your hoster has suspended this instance. Please contact them.": "O teu fornecedor de alojamento suspendeu esta instância. Contacta-o.",
+  "Your projects are stopped and your data is kept. Once the suspension is lifted, you can start the projects again.": "Os teus projetos estão parados e os teus dados mantêm-se. Quando a suspensão for levantada, podes voltar a iniciar os projetos.",
+  "Suspended since {{time}}": "Suspensa desde {{time}}",
+  "Instance suspended": "Instância suspensa",
+  "Suspension lifted": "Suspensão levantada",
+  "this instance is suspended by its hoster": "Esta instância está suspensa pelo seu fornecedor de alojamento"
 }

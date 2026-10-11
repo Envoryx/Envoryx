@@ -12,6 +12,8 @@ import { DockerPage } from "./features/docker/DockerPage";
 import { SettingsPage } from "./features/settings/SettingsPage";
 import { FoundryPage } from "./features/foundry/FoundryPage";
 import { Spinner } from "./components/ui";
+import { usePlan } from "./api/hooks";
+import { SuspendedPage } from "./features/plan/SuspendedPage";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { t } = useTranslation();
@@ -20,6 +22,13 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   if (auth.loading) return <Spinner label={t("Starting Envoryx…")} />;
   if (auth.needsSetup) return <Navigate to="/setup" replace />;
   if (!auth.user) return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  return <Unsuspended>{children}</Unsuspended>;
+}
+
+/** A suspended instance shows its signed-in users the hoster's message and nothing else. */
+export function Unsuspended({ children }: { children: React.ReactNode }) {
+  const suspension = usePlan().data?.suspension;
+  if (suspension) return <SuspendedPage suspension={suspension} />;
   return <>{children}</>;
 }
 
