@@ -107,6 +107,31 @@ func TestPlanFixesSettings(t *testing.T) {
 	}
 }
 
+// The plan sets its fixed settings at every start and push; only a real change is in
+// the audit log.
+func TestPlanSettingsAuditOnlyChanges(t *testing.T) {
+	a := newApp(t)
+	a.setupAndLogin()
+	changes := func() int {
+		r := a.do(http.MethodGet, "/api/v1/audit?action=settings.changed", nil, false)
+		entries, _ := r.body["entries"].([]any)
+		return len(entries)
+	}
+	a.setPlan(`{"name":"Starter","settings":{"metricsRetentionDays":7,"forceHttps":true,"publicHost":"c1.example.net"}}`)
+	first := changes()
+	if first == 0 {
+		t.Fatal("the plan's settings weren't logged")
+	}
+	a.setPlan(`{"name":"Starter","limits":{"projects":3},"settings":{"metricsRetentionDays":7,"forceHttps":true,"publicHost":"c1.example.net"}}`)
+	if n := changes(); n != first {
+		t.Fatalf("%d settings.changed entries after a plan push that changed no setting, want %d", n, first)
+	}
+	a.setPlan(`{"name":"Starter","settings":{"metricsRetentionDays":14,"forceHttps":true,"publicHost":"c1.example.net"}}`)
+	if n := changes(); n != first+1 {
+		t.Fatalf("%d settings.changed entries after one change, want %d", n, first+1)
+	}
+}
+
 func TestSuspendedInstanceAnswersOnlyWhoAndWhy(t *testing.T) {
 	a := newApp(t)
 	a.setupAndLogin()
