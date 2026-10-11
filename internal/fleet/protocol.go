@@ -11,6 +11,8 @@ import (
 	"crypto/ed25519"
 	"encoding/json"
 	"time"
+
+	"github.com/envoryx/envoryx/internal/selfupdate"
 )
 
 // Paths of the manager's agent API.
@@ -47,9 +49,10 @@ type enrollResponse struct {
 //
 //	manager → instance: challenge (Nonce), welcome (Name), plan (Plan, null for none),
 //	                    suspension (Suspension, null for none), supportLogin (ID, Name of
-//	                    the hoster's user), backup (ID)
+//	                    the hoster's user), backup (ID), update (ID, Version)
 //	instance → manager: auth (Signature over the nonce), status (Status), supportLogin
-//	                    (ID, URL or Error), backup (ID, Error when it doesn't start)
+//	                    (ID, URL or Error), backup and update (ID, Error when it doesn't
+//	                    start)
 type message struct {
 	Type       string          `json:"type"`
 	Nonce      []byte          `json:"nonce,omitempty"`
@@ -59,9 +62,10 @@ type message struct {
 	Suspension json.RawMessage `json:"suspension,omitempty"`
 	Status     *Status         `json:"status,omitempty"`
 	// ID pairs a request with its answer.
-	ID    string `json:"id,omitempty"`
-	URL   string `json:"url,omitempty"`
-	Error string `json:"error,omitempty"`
+	ID      string `json:"id,omitempty"`
+	Version string `json:"version,omitempty"`
+	URL     string `json:"url,omitempty"`
+	Error   string `json:"error,omitempty"`
 }
 
 // Status is what an instance reports about itself, at connect and every minute.
@@ -82,7 +86,9 @@ type Status struct {
 	UIURL string `json:"uiUrl,omitempty"`
 	// Backups are the instance backups.
 	Backups *BackupStatus `json:"backups,omitempty"`
-	Usage   Usage         `json:"usage"`
+	// Update says whether the instance can update itself and how the last update went.
+	Update *selfupdate.Status `json:"update,omitempty"`
+	Usage  Usage              `json:"usage"`
 	// Warnings are the instance's open problems (failing projects, low disk space).
 	Warnings []string `json:"warnings,omitempty"`
 }

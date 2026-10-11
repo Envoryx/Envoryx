@@ -40,6 +40,12 @@ release). `:main` follows the development branch.
   change it. The fleet manager can take an instance backup on request and
   sees the newest instance backups and their copies. See DEPLOYMENT.md,
   *Backups for the hoster*.
+- Updates from the fleet manager: an instance pulls the requested version and
+  replaces its own container through a short-lived helper container, which
+  waits for the new version's health check and otherwise brings the old one
+  back (restoring a database the new version already migrated). The result
+  goes into the audit log. See DEPLOYMENT.md, *Updates from the fleet
+  manager*.
 
 ### Changed
 - Restoring an instance backup never takes the secret key, the instance ID,

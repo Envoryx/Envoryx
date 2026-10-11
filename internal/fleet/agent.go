@@ -61,6 +61,9 @@ type Config struct {
 	// Backup starts an instance backup the manager asked for and returns at once; the
 	// result shows in the status. It fails when one is running already.
 	Backup func(ctx context.Context) error
+	// Update starts the update to a version and returns once it began; the status tells
+	// how it goes.
+	Update func(ctx context.Context, version string) error
 	Log    *slog.Logger
 	// HTTPClient enrolls (http.DefaultClient when nil).
 	HTTPClient *http.Client
@@ -388,6 +391,9 @@ func (a *Agent) connect(ctx context.Context, st *state) error {
 			case "backup":
 				go a.answerBackup(ctx, conn, m)
 				continue
+			case "update":
+				go a.answerUpdate(ctx, conn, m)
+				continue
 			case "suspension":
 				a.applySuspension(m.Suspension)
 				// Stopping the projects takes a moment; the manager hears the result too.
@@ -543,6 +549,21 @@ func (a *Agent) answerBackup(ctx context.Context, conn *websocket.Conn, req mess
 		reply.Error = err.Error()
 	}
 	a.cfg.Log.Info("fleet: instance backup requested", "started", reply.Error == "")
+	wctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	_ = wsjson.Write(wctx, conn, reply)
+	a.Nudge()
+}
+
+// answerUpdate starts the update the manager asked for and says whether it started.
+func (a *Agent) answerUpdate(ctx context.Context, conn *websocket.Conn, req message) {
+	reply := message{Type: "update", ID: req.ID}
+	if a.cfg.Update == nil {
+		reply.Error = "this instance doesn't update itself"
+	} else if err := a.cfg.Update(ctx, req.Version); err != nil {
+		reply.Error = err.Error()
+	}
+	a.cfg.Log.Info("fleet: update requested", "version", req.Version, "started", reply.Error == "")
 	wctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	_ = wsjson.Write(wctx, conn, reply)

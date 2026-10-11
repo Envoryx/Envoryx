@@ -90,6 +90,10 @@ const (
 	// of a managed instance and its end.
 	ActionInstanceSuspended   = "instance.suspended"
 	ActionInstanceUnsuspended = "instance.unsuspended"
+	// ActionInstanceUpdated and ActionInstanceUpdateFailed record a self-update on the
+	// hoster's request, written by the version that runs afterwards.
+	ActionInstanceUpdated      = "instance.updated"
+	ActionInstanceUpdateFailed = "instance.update_failed"
 
 	ActionDBCredentialsViewed = "database.credentials_viewed"
 	ActionDBPasswordRotated   = "database.password_rotated"
