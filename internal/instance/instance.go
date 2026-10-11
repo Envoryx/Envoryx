@@ -86,6 +86,10 @@ type Meta struct {
 	// KeyID names the key the database's secrets are sealed with ("" for a database
 	// from before encryption). The key itself is never in the archive.
 	KeyID string `json:"keyId,omitempty"`
+	// InstanceID is the ID of the instance the backup was made on. A restore does not
+	// take it over (see IDFile); it is the hint that lets a start after a restore adopt
+	// it when that instance's containers are left on this Docker host (AdoptableID).
+	InstanceID string `json:"instanceId,omitempty"`
 }
 
 // Info is a backup as listed by the API.
@@ -112,6 +116,9 @@ type Applied struct {
 	// PreRestoreID is the safety backup of the state that was replaced, empty when there
 	// was no database yet.
 	PreRestoreID string
+	// InstanceID is the ID of the instance the restored backup was made on ("" for a
+	// backup made before backups recorded it).
+	InstanceID string
 }
 
 // Store manages the instance backups in Dir.
@@ -162,7 +169,7 @@ func (s *Store) Create(ctx context.Context, sqlDB *sql.DB, kind, note string) (I
 		return Info{}, fmt.Errorf("copy database: %w", err)
 	}
 
-	meta := Meta{Format: format, Envoryx: s.Version, Schema: schema, CreatedAt: time.Now().UTC(), Kind: kind, Note: note}
+	meta := Meta{Format: format, Envoryx: s.Version, Schema: schema, CreatedAt: time.Now().UTC(), Kind: kind, Note: note, InstanceID: readID(s.ConfigDir)}
 	var check string
 	if sqlDB.QueryRowContext(ctx, `SELECT value FROM settings WHERE key = 'secret_check'`).Scan(&check) == nil {
 		meta.KeyID = secrets.KeyIDOf(check)
@@ -688,7 +695,7 @@ func (s *Store) ApplyPendingRestore(ctx context.Context, openDB func(context.Con
 	if err := endSessions(ctx, openDB, s.DBPath); err != nil {
 		return nil, fmt.Errorf("restore %s: end the restored sessions: %w", p.ID, err)
 	}
-	return &Applied{Pending: *p, PreRestoreID: safety}, nil
+	return &Applied{Pending: *p, PreRestoreID: safety, InstanceID: info.Meta.InstanceID}, nil
 }
 
 // endSessions deletes the browser sessions the restored database brought back. They were

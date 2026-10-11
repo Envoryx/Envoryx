@@ -433,3 +433,32 @@ func TestInstanceFilesStayOutOfBackups(t *testing.T) {
 		}
 	}
 }
+
+// The backup names the instance it was made on; the restore hands that on and keeps
+// the current ID file (whether to adopt it is decided at the start, AdoptableID).
+func TestRestoreReportsTheBackupsInstanceID(t *testing.T) {
+	s, sqlDB := newStore(t)
+	ctx := context.Background()
+	const before, after = "9f9cdd0123456789abcdef0123456789", "ed83960123456789abcdef0123456789"
+	if err := WriteID(s.ConfigDir, before); err != nil {
+		t.Fatal(err)
+	}
+	info, err := s.Create(ctx, sqlDB, KindManual, "")
+	if err != nil || info.Meta.InstanceID != before {
+		t.Fatalf("meta: %+v %v", info.Meta, err)
+	}
+	if err := WriteID(s.ConfigDir, after); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.ScheduleRestore(info.ID, "admin", ""); err != nil {
+		t.Fatal(err)
+	}
+	openRaw := func(ctx context.Context, path string) (*sql.DB, error) { return db.OpenRaw(ctx, path, s.Log) }
+	applied, err := s.ApplyPendingRestore(ctx, openRaw)
+	if err != nil || applied.InstanceID != before {
+		t.Fatalf("applied: %+v %v", applied, err)
+	}
+	if id := readID(s.ConfigDir); id != after {
+		t.Fatalf("the restore replaced the ID file: %q", id)
+	}
+}

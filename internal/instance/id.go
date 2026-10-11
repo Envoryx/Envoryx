@@ -19,7 +19,9 @@ import (
 // Instance backups leave the file out and a restore keeps the current one, as with the
 // secret key: a backup of one instance restored into a second instance on the same host
 // must not make the second claim the first one's containers. The ID lives only in this
-// file for the same reason; a copy in the database would travel with every backup.
+// file for the same reason; a copy in the database would travel with every backup. The
+// backup's metadata names it, and the start after a restore adopts it only when the
+// containers left on the host can be nobody else's (see AdoptableID).
 const IDFile = "instance-id"
 
 var validID = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{7,63}$`)
@@ -46,12 +48,7 @@ func LoadID(configDir string) (id string, created bool, err error) {
 		return "", false, err
 	}
 	id = hex.EncodeToString(b)
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, []byte(id+"\n"), 0o644); err != nil {
-		return "", false, err
-	}
-	if err := os.Rename(tmp, path); err != nil {
-		_ = os.Remove(tmp)
+	if err := WriteID(configDir, id); err != nil {
 		return "", false, err
 	}
 	return id, true, nil
