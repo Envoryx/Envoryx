@@ -2063,3 +2063,47 @@ func TestCronJobsOverHTTP(t *testing.T) {
 		t.Fatalf("runs after delete: %d %s", r.status, r.raw)
 	}
 }
+
+// A runtime PATCH changes only the fields it sends, and the config GET returns can be
+// sent back as it is (its host ports are accepted and ignored).
+func TestRuntimePatchOverHTTP(t *testing.T) {
+	a := newApp(t)
+	a.setupAndLogin()
+	r := a.do(http.MethodPost, "/api/v1/projects", map[string]any{
+		"name": "Gopher", "go": map[string]any{"version": "1.27", "server": true, "package": "./cmd/server"},
+		"node": map[string]any{"version": "24", "devServer": true, "preset": "vite"},
+	}, true)
+	if r.status != http.StatusCreated {
+		t.Fatalf("create: %d %s", r.status, r.raw)
+	}
+	id := r.body["project"].(map[string]any)["id"].(string)
+	config := func(p map[string]any, kind string) map[string]any {
+		for _, s := range p["services"].([]any) {
+			if svc := s.(map[string]any); svc["kind"] == kind {
+				return svc["config"].(map[string]any)
+			}
+		}
+		t.Fatalf("no %s service", kind)
+		return nil
+	}
+	r = a.do(http.MethodPatch, "/api/v1/projects/"+id, map[string]any{"go": map[string]any{"enabled": true, "version": "1.26"}, "node": map[string]any{"enabled": true}}, true)
+	if r.status != http.StatusOK {
+		t.Fatalf("version patch: %d %s", r.status, r.raw)
+	}
+	p := r.body["project"].(map[string]any)
+	goCfg := config(p, "go")
+	if goCfg["server"] != true || goCfg["package"] != "./cmd/server" || goCfg["hostPort"] == nil {
+		t.Fatalf("go config after a version-only patch: %v", goCfg)
+	}
+	if config(p, "node")["devServer"] != true {
+		t.Fatalf("node dev server dropped: %v", config(p, "node"))
+	}
+	goCfg["enabled"], goCfg["mode"] = true, "production"
+	r = a.do(http.MethodPatch, "/api/v1/projects/"+id, map[string]any{"go": goCfg}, true)
+	if r.status != http.StatusOK || config(r.body["project"].(map[string]any), "go")["mode"] != "production" {
+		t.Fatalf("round trip: %d %s", r.status, r.raw)
+	}
+	if r = a.do(http.MethodPatch, "/api/v1/projects/"+id, map[string]any{"go": map[string]any{"enabled": true, "nope": 1}}, true); r.status != http.StatusBadRequest {
+		t.Fatalf("unknown field: %d %s", r.status, r.raw)
+	}
+}
