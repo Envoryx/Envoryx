@@ -194,6 +194,9 @@ func (m *Manager) renameProject(ctx context.Context, id string, req RenameReques
 			if err := m.saveDatabaseConfig(ctx, proj, svc, newCfg); err != nil {
 				return undoDir(err, "record the database name")
 			}
+			if err := m.renameSiblingDatabases(ctx, proj, svc, cfg.Database, newCfg); err != nil {
+				return undoDir(err, "rename the database")
+			}
 			setServiceConfig(&renamed, svc.Kind, newCfg)
 			if svc.Kind == store.ServiceDatabase {
 				result.Database, result.Username = newCfg.Database, newCfg.Username
@@ -549,6 +552,53 @@ func (m *Manager) renameDatabase(ctx context.Context, p store.Project, svc *stor
 		}
 		return nil
 	})
+}
+
+// renameSiblingDatabases moves the databases Envoryx keeps next to a primary one along
+// with it: <database>_test of the test runner and Rails' _queue, _cache and _cable.
+// Left behind they would be orphans under the old name, and the renamed project would
+// start over with empty ones. to is the primary's new configuration, its login already
+// renamed; a sibling that doesn't exist is skipped.
+func (m *Manager) renameSiblingDatabases(ctx context.Context, p store.Project, svc *store.ProjectService, from string, to runtime.DatabaseConfig) error {
+	if svc.Variant == "mongodb" || from == to.Database {
+		return nil
+	}
+	dialect, err := dialectOf(svc)
+	if err != nil {
+		return err
+	}
+	var out string
+	err = m.withServiceRunning(ctx, p, svc.Kind, func(ctx context.Context) error {
+		if err := m.waitForDatabase(ctx, p, svc, to, dialect); err != nil {
+			return err
+		}
+		var err error
+		out, err = m.runSQL(ctx, p, svc, to, dialect.ListDatabases)
+		return err
+	})
+	if err != nil {
+		return fmt.Errorf("list the databases: %w", err)
+	}
+	have := map[string]bool{}
+	for _, line := range strings.Split(out, "\n") {
+		have[strings.TrimSpace(line)] = true
+	}
+	suffixes := []string{"_test"}
+	for _, sib := range railsSiblingDatabases {
+		suffixes = append(suffixes, sib.suffix)
+	}
+	for _, suffix := range suffixes {
+		if !have[from+suffix] || have[to.Database+suffix] {
+			continue
+		}
+		old, next := to, to
+		old.Database, next.Database = from+suffix, to.Database+suffix
+		step(ctx, "Renaming the database to {{name}}", "name", next.Database)
+		if err := m.renameDatabase(ctx, p, svc, old, next); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // helperLogin creates the short-lived administrator of a rename (see Dialect.HelperLogin)
