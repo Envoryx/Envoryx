@@ -2,7 +2,8 @@ import { clsx } from "clsx";
 import { useTranslation } from "react-i18next";
 import { Boxes, Container, LayoutDashboard, Languages, LogOut, Moon, Settings, Sun, Monitor, Menu, X } from "lucide-react";
 import { useState } from "react";
-import { Link, NavLink, Outlet } from "react-router-dom";
+import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
+import { PageErrorBoundary } from "@/components/PageErrorBoundary";
 import { useAuth } from "@/features/auth/AuthContext";
 import { Logo } from "./Logo";
 import { useTheme, type Theme } from "./theme";
@@ -27,6 +28,7 @@ export function AppShell() {
   const auth = useAuth();
   const [theme, setTheme] = useTheme();
   const [open, setOpen] = useState(false);
+  const location = useLocation();
   const dashboard = useDashboard();
   const dockerDown = dashboard.data ? !dashboard.data.docker.connected : false;
 
@@ -115,7 +117,9 @@ export function AppShell() {
           </div>
         )}
         <main className="mx-auto w-full flex-1 px-4 py-6 sm:px-6 lg:px-8 [:root[data-layout=boxed]_&]:max-w-6xl">
-          <Outlet />
+          <PageErrorBoundary key={location.pathname}>
+            <Outlet />
+          </PageErrorBoundary>
         </main>
       </div>
       <OperationsTray />
