@@ -267,14 +267,26 @@ func serve() error {
 		}
 	}
 	logHostPaths(log, resolver, cfg)
+	if restored != nil && pingErr != nil && restored.InstanceID != "" && restored.InstanceID != instanceID {
+		log.Warn("Docker is not reachable, so the restored backup's instance ID was not checked; if this Envoryx lost its /config and its project containers are still on the host, write that ID into the instance ID file", "backupInstanceId", restored.InstanceID, "file", filepath.Join(cfg.ConfigDir, instance.IDFile))
+	}
+	adoptedID := ""
+	if restored != nil && pingErr == nil {
+		if adoptedID = adoptRestoredInstanceID(ctx, cfg.ConfigDir, restored.InstanceID, instanceID, engine, st, resolver.SelfContainerID(), log); adoptedID != "" {
+			instanceID = adoptedID
+		}
+	}
 
 	// 4. Services.
 	auditLog := audit.New(st.Audit, log)
 	if restored != nil {
 		// The restore_scheduled entry went into the database that was just replaced;
 		// record the outcome in the restored one so the audit trail explains the jump.
-		auditLog.LogAs(ctx, restored.RequestedBy, audit.ActionInstanceRestored, "instance", restored.ID,
-			map[string]any{"preRestore": restored.PreRestoreID, "requestedAt": restored.RequestedAt})
+		details := map[string]any{"preRestore": restored.PreRestoreID, "requestedAt": restored.RequestedAt}
+		if adoptedID != "" {
+			details["adoptedInstanceId"] = adoptedID
+		}
+		auditLog.LogAs(ctx, restored.RequestedBy, audit.ActionInstanceRestored, "instance", restored.ID, details)
 	}
 	sessions := auth.NewService(st, auth.Options{
 		IdleTimeout:     cfg.SessionIdleTimeout,
@@ -930,4 +942,43 @@ func fleetStatus(ctx context.Context, st *store.Store, m *project.Manager, versi
 	s.Usage.Users, _ = st.Users.CountActive(ctx)
 	s.Usage.DiskBytes, _ = m.DiskUsage()
 	return s
+}
+
+// adoptRestoredInstanceID takes over the instance ID a restored instance backup was made
+// under when its project containers are left on this Docker host and nothing else can
+// claim them (instance.AdoptableID): the start after /config was lost and the backup
+// restored. It returns the adopted ID, or "" when the instance keeps its own.
+func adoptRestoredInstanceID(ctx context.Context, configDir, hint, current string, engine *docker.MobyEngine, st *store.Store, self string, log *slog.Logger) string {
+	if hint == "" || hint == current {
+		return ""
+	}
+	containers, err := engine.ListContainers(ctx, false, "")
+	if err != nil {
+		log.Warn("could not list the containers to check the restored instance ID", "err", err)
+		return ""
+	}
+	list, err := st.Projects.List(ctx)
+	if err != nil {
+		log.Warn("could not list the projects to check the restored instance ID", "err", err)
+		return ""
+	}
+	projects := map[string]bool{}
+	for _, p := range list {
+		projects[p.ID] = true
+	}
+	ok, reason := instance.AdoptableID(hint, current, containers, projects, self)
+	if !ok {
+		if reason != "" {
+			log.Warn("the restored projects' containers on this Docker host carry the ID of the instance the backup was made on; this instance keeps its own ID, so they count as another instance's and the projects cannot start. If they are this Envoryx's own (its /config was lost), stop Envoryx, write that ID into the instance ID file and start it again",
+				"backupInstanceId", hint, "instanceId", current, "file", filepath.Join(configDir, instance.IDFile), "reason", reason)
+		}
+		return ""
+	}
+	if err := instance.WriteID(configDir, hint); err != nil {
+		log.Warn("could not adopt the restored instance ID", "id", hint, "err", err)
+		return ""
+	}
+	engine.SetInstance(hint)
+	log.Info("adopted the instance ID of the restored backup: its project containers are on this Docker host and no other Envoryx is", "id", hint, "previous", current)
+	return hint
 }

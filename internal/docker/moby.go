@@ -54,6 +54,11 @@ type Options struct {
 // InstanceID implements Engine.
 func (e *MobyEngine) InstanceID() string { return e.instance }
 
+// SetInstance switches the engine to another instance ID. Only for the start, before
+// anything else uses the engine: it adopts the ID of a restored instance backup (see
+// instance.AdoptableID).
+func (e *MobyEngine) SetInstance(id string) { e.instance = id }
+
 // owns reports whether a resource with these labels is this instance's to manage.
 func (e *MobyEngine) owns(labels map[string]string) bool { return Owns(e.instance, labels) }
 
