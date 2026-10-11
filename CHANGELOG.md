@@ -10,35 +10,145 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+What a full test round with real projects in every stack found: a
+security gap in the hoster's support access, restores that left newer
+tables behind, test runs that reached the development queue, and many
+smaller things across the runtimes, backups and the interface.
+
+### Security
+- The hoster's support could make a user an admin and create invitation
+  and password-reset links, which kept working after the admins took
+  their consent back. Support now can't create or change accounts, roles,
+  invitation or password links, single sign-on, the instance's SSH keys
+  or restore an instance backup; it sees those areas read-only.
+
+### Added
+- Project containers trust Envoryx's local CA, so an application can call
+  its own `https://<project>.test` (webhooks, its own API): the runtimes
+  get `SSL_CERT_FILE`, `REQUESTS_CA_BUNDLE`, `CURL_CA_BUNDLE` and
+  `NODE_EXTRA_CA_CERTS`, PHP `openssl.cafile` and `curl.cainfo`. A
+  variable the project sets itself wins; Java keeps its own keystore.
+- `ENVORYX_DEV_URL`, the address of a project's Node dev server; the
+  Laravel template's `vite.config.js` takes its origin and hot reload
+  socket from it, so Laravel with the Vite dev server works behind the
+  proxy.
+- Adding Redis, Memcached or RabbitMQ switches on PHP's `redis`,
+  `memcached` or `amqp` extension, as PostgreSQL does `pdo_pgsql`.
+- Instance backups record the instance ID; the first start after a
+  restore onto a wiped `/config` takes it over when the backup's
+  containers are on the host and no other Envoryx runs there, so the
+  projects are found again.
+- A warning when a .NET project targets an older version than it runs.
+- Backups, restores and copies of a Rails project include its `_queue`,
+  `_cache` and `_cable` databases.
+- The interface translates template, action, service, addon and
+  diagnostics texts, and the audit log names project changes in words.
+
+### Changed
+- A dump is restored into an emptied database (for the databases Envoryx
+  runs): a snapshot or backup restore left tables created after it in
+  place, and the next migration failed on them.
+- PHPUnit and Pest runs get the `<env>` entries of `phpunit.xml`: the
+  project's and Envoryx's variables beat them before, so a test run
+  dispatched onto the development queue and mailed into its inbox.
+- Workers run under Docker's init and stop on SIGTERM: a PHP worker
+  ignored the image's SIGQUIT and every stop waited 30 s for the kill.
+- A runtime update through the API keeps every setting it leaves out, for
+  all runtimes; the read-only host ports of a fetched configuration are
+  accepted when it is sent back.
+- The operations tray shows your own operations (and Envoryx's own to
+  admins), not every user's.
+- An MCP client sees only the tools its token may call.
+- CLI commands that need `--yes` exit with 2 without it.
+- The TYPO3 template installs the scheduler extension and gives PHP 512M;
+  `typo3 setup` empties the database and flushes the caches first.
+- Sizes are shown in KiB, MiB, GiB and TiB, the plan's disk space too.
+- A removed managed instance joins its fleet manager again with a new
+  `ENVORYX_FLEET_TOKEN`.
+
 ### Fixed
-- The Python server waits until the venv has its server package and no
-  pip or uv run is filling it. After a version switch the documented
-  `pip install` action was killed half-way when the server started against
-  the half-built venv, and a project without a venv crash-looped and locked
-  out the actions that would install it.
-- pytest failures in the Tests section are readable (no escaped colour
-  codes) and name the file and line; pytest is also found in uv projects
-  that list it under `[dependency-groups]` or only in `uv.lock`.
-- A started project whose server isn't up says it is starting or keeps
-  crashing instead of telling you to start it.
-- With pnpm or Yarn the Vite, Next.js and Nuxt dev servers listen on all
-  interfaces again: Envoryx put a `--` before their host and port flags,
-  which pnpm and Yarn 2+ hand on to the script, so Vite listened on
-  localhost only and the project URL gave 502.
-- pnpm 11 and newer use the package cache too (they read
-  `~/.config/pnpm/config.yaml`, no longer `rc`).
-- An API update that leaves a runtime's version out keeps the project's
-  version instead of switching to the default.
-- A fresh pnpm or Yarn project offers its install and build actions before
-  there is a lockfile, and `yarn install` from Actions or `envoryx project
-  exec` may write `yarn.lock` (CI=1 made Yarn 4 refuse).
-- Node workers and cron jobs keep a `NODE_ENV` the project sets itself in
-  development, like the dev server.
-- The Next.js debugging example in the IDE section puts the server process
-  on the published port; Playwright failures name their file and line.
-- The debugpy hint under Runtime no longer suggests starting the server
-  under debugpy, which the IDE section warns against; the German, Russian
-  and Ukrainian IDE text said the opposite of the English one.
+- Projects and platform:
+  - Switching a project's Git branch never worked (`git checkout --`
+    read the branch as a path).
+  - A branch environment whose pull failed was deployed and notified
+    again on every poll.
+  - Renaming a project left its `_test` and Rails databases and its
+    backups under the old name.
+  - Host names of projects and domains added after a project started
+    didn't resolve inside it.
+  - Memory-limit kills went unreported on Docker hosts that send no `oom`
+    event.
+  - Saving a registry image again after adding its login didn't pull it.
+  - Build and pull errors of your own image came back as internal errors.
+  - A duplicated project started before its data was copied in, and a
+    failed start could move a project's HTTP port.
+  - The API refused `postgres` as a database type and created PHP
+    projects with `display_errors` off.
+  - An addon that injects no variables turned the project's pages white;
+    the pages now show an error instead of going blank anywhere, and the
+    addon card lists only variables that reach the application.
+- Backups and operations:
+  - Stopping a slow project raised a false "needs attention".
+  - An offsite copy of a deleted project's backup was given up; its
+    failure didn't name the project.
+  - S3 errors showed raw XML; an old start error stayed on the dashboard.
+  - A backup sealed with a rotated key now names the key it needs, and a
+    rotation at start is in the audit log.
+  - Orphaned networks and volumes showed 0001-01-01 as their date.
+- Runtimes:
+  - PHP files ran in Craft's `cpresources` and in `assets/` and `images/`;
+    TYPO3 on nginx answered every page with 500 (SERVER_NAME was `_`).
+  - The `.env` import saved unresolved `${...}` references such as the
+    Laravel template's `APP_URL=${ENVORYX_URL}` as text.
+  - The wizard showed the default memory_limit for Shopware and TYPO3.
+  - A Java version switch left classes a newer JDK compiled, so the server
+    crash-looped; `mvnw` and `gradlew` of the Spring Boot template weren't
+    executable.
+  - The Go and Sinatra templates' `/healthz` answered 204, the health
+    check expects 200.
+  - The Rails template's mails linked to localhost:3000.
+  - dotnet watch injected a browser refresh that couldn't connect.
+  - Go and Pest failures in the Tests section had no file and line.
+  - The SFTP card of non-PHP projects talked about PhpStorm and composer.
+- Managed instances:
+  - The hoster's offsite target stopped working for the customer when the
+    plan left offsite targets out.
+  - An update to an image that couldn't even start was never reported as
+    failed.
+  - The interface showed runtimes the plan leaves out and offered "New
+    project" and "Invite user" at the limit.
+  - Every plan load wrote settings changes into the audit log.
+- Interface: the Resources section scrolled sideways on phones and
+  repeated axis labels, Settings → Users was too wide, project names were
+  cut at tablet width, the mobile menu ignored Escape, an invalid
+  invitation link explained nothing, and some texts weren't translated.
+- Python and Node.js:
+  - The Python server waits until the venv has its server package and no
+    pip or uv run is filling it. After a version switch the documented
+    `pip install` action was killed half-way when the server started against
+    the half-built venv, and a project without a venv crash-looped and locked
+    out the actions that would install it.
+  - pytest failures in the Tests section are readable (no escaped colour
+    codes) and name the file and line; pytest is also found in uv projects
+    that list it under `[dependency-groups]` or only in `uv.lock`.
+  - A started project whose server isn't up says it is starting or keeps
+    crashing instead of telling you to start it.
+  - With pnpm or Yarn the Vite, Next.js and Nuxt dev servers listen on all
+    interfaces again: Envoryx put a `--` before their host and port flags,
+    which pnpm and Yarn 2+ hand on to the script, so Vite listened on
+    localhost only and the project URL gave 502.
+  - pnpm 11 and newer use the package cache too (they read
+    `~/.config/pnpm/config.yaml`, no longer `rc`).
+  - A fresh pnpm or Yarn project offers its install and build actions before
+    there is a lockfile, and `yarn install` from Actions or `envoryx project
+    exec` may write `yarn.lock` (CI=1 made Yarn 4 refuse).
+  - Node workers and cron jobs keep a `NODE_ENV` the project sets itself in
+    development, like the dev server.
+  - The Next.js debugging example in the IDE section puts the server process
+    on the published port; Playwright failures name their file and line.
+  - The debugpy hint under Runtime no longer suggests starting the server
+    under debugpy, which the IDE section warns against; the German, Russian
+    and Ukrainian IDE text said the opposite of the English one.
 
 ## [0.29.1] - 2026-10-11
 
