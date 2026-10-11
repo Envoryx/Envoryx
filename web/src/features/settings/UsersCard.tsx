@@ -10,6 +10,7 @@ import { copyText } from "@/lib/clipboard";
 import { formatDateTime } from "@/lib/format";
 import { errorText } from "@/lib/errors";
 import { useAuth } from "@/features/auth/AuthContext";
+import { SupportRefusedNote } from "./SupportAccessCard";
 
 /** The roles with what they allow, most powerful first. */
 export function useRoleLabels() {
@@ -51,8 +52,11 @@ function InviteLink({ invite, onClose }: { invite: InviteResult; onClose: () => 
   );
 }
 
-/** Users, their roles and roles in particular projects. Admins only. */
-export function UsersCard() {
+/**
+ * Users, their roles and roles in particular projects. Admins only; the hoster's support
+ * sees them read-only, as it manages no accounts.
+ */
+export function UsersCard({ readOnly = false }: { readOnly?: boolean }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
   const { user: me } = useAuth();
@@ -118,12 +122,15 @@ export function UsersCard() {
         }
         description={t("Everyone who may sign in, with a role for the whole instance and, where needed, another role in particular projects. A user without access to a project does not see it. API tokens never do more than their owner.")}
         actions={
-          <Button variant="primary" icon={<UserPlus className="size-4" />} onClick={() => setAdding(true)}>
-            {t("Invite user")}
-          </Button>
+          !readOnly && (
+            <Button variant="primary" icon={<UserPlus className="size-4" />} onClick={() => setAdding(true)}>
+              {t("Invite user")}
+            </Button>
+          )
         }
       />
       <div className="space-y-4 p-5">
+        {readOnly && <SupportRefusedNote />}
         {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
         {invite && <InviteLink invite={invite} onClose={() => setInvite(null)} />}
         {adding && (
@@ -168,7 +175,7 @@ export function UsersCard() {
                     {roles.length > 0 && <span className="text-xs text-subtle">{t("{{count}} project roles", { count: roles.length })}</span>}
                     <span className="ml-auto flex flex-wrap items-center gap-2">
                       <div className="w-40">
-                        <Select aria-label={t("Role of {{name}}", { name: u.username })} value={u.role} onChange={(e) => update.mutate({ id: u.id, body: { role: e.target.value as Role } })}>
+                        <Select aria-label={t("Role of {{name}}", { name: u.username })} value={u.role} disabled={readOnly} onChange={(e) => update.mutate({ id: u.id, body: { role: e.target.value as Role } })}>
                           {(Object.keys(short) as Role[]).map((r) => (
                             <option key={r} value={r}>
                               {short[r]}
@@ -179,15 +186,18 @@ export function UsersCard() {
                       <Button size="sm" variant="ghost" onClick={() => setOpen(open === u.id ? null : u.id)}>
                         {t("Projects")}
                       </Button>
-                      <Button size="sm" variant="ghost" icon={<Link2 className="size-3.5" />} loading={renew.isPending && renew.variables === u.id} onClick={() => renew.mutate(u.id)} title={t("A new link to set the password - also for a forgotten one")}>
-                        {u.invited ? t("New invitation") : t("Reset password")}
-                      </Button>
-                      {!self && (
+                      {!readOnly && (
+                        <Button size="sm" variant="ghost" icon={<Link2 className="size-3.5" />} loading={renew.isPending && renew.variables === u.id} onClick={() => renew.mutate(u.id)} title={t("A new link to set the password - also for a forgotten one")}>
+                          {u.invited ? t("New invitation") : t("Reset password")}
+                        </Button>
+                      )}
+                      {!self && !readOnly && (
                         <Button size="sm" variant="ghost" onClick={() => update.mutate({ id: u.id, body: { disabled: !u.disabled } })}>
                           {u.disabled ? t("Enable") : t("Disable")}
                         </Button>
                       )}
                       {!self &&
+                        !readOnly &&
                         (confirmDelete === u.id ? (
                           <Button size="sm" variant="danger" loading={remove.isPending} onClick={() => remove.mutate(u.id)}>
                             {t("Delete {{name}}", { name: u.username })}
@@ -211,6 +221,7 @@ export function UsersCard() {
                               <Select
                                 aria-label={t("Role of {{name}} in {{project}}", { name: u.username, project: p.name })}
                                 value={u.projectRoles[p.id] ?? ""}
+                                disabled={readOnly}
                                 onChange={(e) => setProjectRole.mutate({ id: u.id, project: p.id, role: e.target.value as Role | "" })}
                               >
                                 <option value="">{t("from the role")}</option>

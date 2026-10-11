@@ -27,7 +27,7 @@ import { SecretKeyCard } from "./SecretKeyCard";
 import { MySshKeysCard } from "./MySshKeysCard";
 import { useAuth } from "@/features/auth/AuthContext";
 import { AppearanceCard } from "./AppearanceCard";
-import { SupportAccessCard } from "./SupportAccessCard";
+import { SupportAccessCard, SupportRefusedNote } from "./SupportAccessCard";
 import { AuditLog } from "@/features/audit/AuditLog";
 import { LifecycleCard } from "./LifecycleCard";
 import { LogHistoryCard } from "./LogHistoryCard";
@@ -139,7 +139,8 @@ function PublicHostForm({ current, xdebugHost }: { current: string; xdebugHost: 
   );
 }
 
-function SshCard({ keys, ssh }: { keys: string; ssh: { enabled: boolean; port: number; fingerprint: string } | undefined }) {
+/** The instance's SSH keys; read-only for the hoster's support, as the keys are a way in. */
+function SshCard({ keys, ssh, readOnly }: { keys: string; ssh: { enabled: boolean; port: number; fingerprint: string } | undefined; readOnly: boolean }) {
   const { t } = useTranslation();
   const update = useUpdateSettings();
   const [text, setText] = useState(keys);
@@ -165,13 +166,14 @@ function SshCard({ keys, ssh }: { keys: string; ssh: { enabled: boolean; port: n
           </dl>
         )}
         {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
+        {readOnly && <SupportRefusedNote />}
         <Field label={t("Admin keys")} htmlFor="ssh-keys" hint={t("These keys open every project, like an admin. Keys that should follow a user's roles belong under My SSH keys of that user.")}>
-          <textarea id="ssh-keys" value={text} onChange={(e) => setText(e.target.value)} rows={4} spellCheck={false} className="w-full rounded-md border border-default bg-elevated p-2 font-mono text-[11px] text-fg focus:border-accent-500 focus:outline-none" placeholder="ssh-ed25519 AAAA… you@laptop" />
+          <textarea id="ssh-keys" value={text} readOnly={readOnly} onChange={(e) => setText(e.target.value)} rows={4} spellCheck={false} className="w-full rounded-md border border-default bg-elevated p-2 font-mono text-[11px] text-fg focus:border-accent-500 focus:outline-none" placeholder="ssh-ed25519 AAAA… you@laptop" />
         </Field>
         <Button
           variant="primary"
           loading={update.isPending}
-          disabled={text.trim() === keys.trim()}
+          disabled={readOnly || text.trim() === keys.trim()}
           icon={<Save className="size-4" />}
           onClick={() => {
             setMsg(null);
@@ -375,11 +377,11 @@ export function SettingsPage() {
           {tab === "profile" && (
             <>
               <AppearanceCard />
-              <PasswordForm />
+              {support ? <SupportRefusedNote /> : <PasswordForm />}
             </>
           )}
-          {tab === "tokens" && <TokensCard />}
-          {tab === "sshkeys" && <MySshKeysCard />}
+          {tab === "tokens" && (support ? <SupportRefusedNote /> : <TokensCard />)}
+          {tab === "sshkeys" && (support ? <SupportRefusedNote /> : <MySshKeysCard />)}
           {tab === "diagnostics" && <DiagnosticsTab onSwitchTab={(next) => navigate(tabHref((renamed[next] ?? next) as Tab))} />}
           {tab === "general" && (
             <>
@@ -398,11 +400,11 @@ export function SettingsPage() {
           )}
           {tab === "users" && (
             <>
-              <UsersCard />
-              <OidcCard />
+              <UsersCard readOnly={support} />
+              <OidcCard readOnly={support} />
             </>
           )}
-          {tab === "ssh" && s.data && <SshCard keys={s.data.sshAuthorizedKeys ?? ""} ssh={s.data.ssh} />}
+          {tab === "ssh" && s.data && <SshCard keys={s.data.sshAuthorizedKeys ?? ""} ssh={s.data.ssh} readOnly={support} />}
           {tab === "deploykey" && <DeployKeyCard />}
           {tab === "secretkey" && <SecretKeyCard />}
           {tab === "backups" && (

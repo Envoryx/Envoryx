@@ -2707,9 +2707,13 @@ UI, which signs the hoster's browser in as the user "Hoster support", an admin.
 The UI shows that user a note at the top.
 
 The support user is not one of the instance's users: it doesn't count towards
-the plan's users, isn't listed and can't sign in with a password. It can't
-create API tokens, store SSH keys, set a password or change the consent, so
-nothing it does outlasts the consent. Taking the access back, or its end,
+the plan's users, isn't listed and can't sign in with a password. It manages
+no accounts and opens no other way in: it can't invite, change or delete users
+or their project roles, create password links (*Reset password*), change the
+single sign-on, create API tokens, store SSH keys (its own or the instance's),
+set a password, restore an instance backup (which brings back that backup's
+accounts) or change the consent, so nothing it does outlasts the consent. The
+UI shows these parts read-only to it. Taking the access back, or its end,
 ends its sessions at once. Every support login (with the name of the hoster's
 user who asked for it) and every change of the consent is in the audit log
 (`auth.support_login`, `settings.support_access`). The link leads to the

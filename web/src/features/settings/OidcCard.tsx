@@ -6,6 +6,7 @@ import { api } from "@/api/client";
 import type { OIDCSettings } from "@/api/types";
 import { Alert, Button, Card, CardHeader, Checkbox, Code, ErrorState, Field, Input, Select, Spinner, type Tone } from "@/components/ui";
 import { errorText } from "@/lib/errors";
+import { SupportRefusedNote } from "./SupportAccessCard";
 
 const list = (s: string) => s.split(/[\n,]/).map((v) => v.trim()).filter(Boolean);
 const join = (l?: string[]) => (l ?? []).join(", ");
@@ -62,8 +63,11 @@ function fromForm(f: Form): OIDCSettings {
   };
 }
 
-/** Single sign-on through an OpenID Connect provider. Admins only. */
-export function OidcCard() {
+/**
+ * Single sign-on through an OpenID Connect provider. Admins only; the hoster's support
+ * sees it read-only, as the sign-in is a way in.
+ */
+export function OidcCard({ readOnly = false }: { readOnly?: boolean }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
   const q = useQuery({ queryKey: ["oidc"], queryFn: async () => (await api.oidc.get()).oidc });
@@ -97,17 +101,20 @@ export function OidcCard() {
         }
         description={t("Sign in through Authentik, Keycloak, Authelia, Google or any other OpenID Connect provider. Users keep their Envoryx roles; groups from the provider can set them.")}
         actions={
-          <div className="flex gap-2">
-            <Button icon={<Wifi className="size-4" />} loading={test.isPending} disabled={!form.issuer.trim()} onClick={() => test.mutate(form)}>
-              {t("Test")}
-            </Button>
-            <Button variant="primary" icon={<Save className="size-4" />} loading={save.isPending} onClick={() => save.mutate(form)}>
-              {t("Save")}
-            </Button>
-          </div>
+          !readOnly && (
+            <div className="flex gap-2">
+              <Button icon={<Wifi className="size-4" />} loading={test.isPending} disabled={!form.issuer.trim()} onClick={() => test.mutate(form)}>
+                {t("Test")}
+              </Button>
+              <Button variant="primary" icon={<Save className="size-4" />} loading={save.isPending} onClick={() => save.mutate(form)}>
+                {t("Save")}
+              </Button>
+            </div>
+          )
         }
       />
-      <div className="space-y-4 p-5">
+      <fieldset disabled={readOnly} className="min-w-0 space-y-4 p-5">
+        {readOnly && <SupportRefusedNote />}
         {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
         <Checkbox label={t("Offer single sign-on on the login page")} checked={form.enabled} onChange={(e) => set({ enabled: e.target.checked })} />
         <p className="text-xs text-muted">
@@ -167,7 +174,7 @@ export function OidcCard() {
           checked={form.autoCreate}
           onChange={(e) => set({ autoCreate: e.target.checked })}
         />
-      </div>
+      </fieldset>
     </Card>
   );
 }

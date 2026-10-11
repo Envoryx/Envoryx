@@ -1,6 +1,7 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/envoryx/envoryx/internal/audit"
@@ -54,12 +55,26 @@ func (a *API) supportLogin(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusFound)
 }
 
-// supportRefused are the routes the hoster's support can't use: what would give it
-// access beyond the admins' consent (tokens, SSH keys, a password) or change that
-// consent.
+// supportRefused are the routes the hoster's support can't use: everything that would
+// give someone a way in that outlasts the admins' consent, or change that consent. The
+// support manages no accounts: it can't invite, change, remove or re-invite users (a new
+// invite link sets the password of an existing account), change their project roles or
+// the single sign-on, create tokens or store SSH keys, set a password or restore an
+// instance backup (which brings back that backup's accounts and tokens). The instance's SSH keys in PATCH /settings are refused in updateSettings.
 var supportRefused = map[string]bool{
-	"POST /api/v1/tokens":                 true,
-	"PUT /api/v1/auth/ssh-keys":           true,
-	"POST /api/v1/auth/password":          true,
-	"PUT /api/v1/settings/support-access": true,
+	"POST /api/v1/tokens":                        true,
+	"PUT /api/v1/auth/ssh-keys":                  true,
+	"POST /api/v1/auth/password":                 true,
+	"PUT /api/v1/settings/support-access":        true,
+	"POST /api/v1/users":                         true,
+	"PATCH /api/v1/users/{id}":                   true,
+	"DELETE /api/v1/users/{id}":                  true,
+	"POST /api/v1/users/{id}/invite":             true,
+	"PUT /api/v1/users/{id}/projects/{project}":  true,
+	"PUT /api/v1/settings/oidc":                  true,
+	"POST /api/v1/settings/oidc/test":            true,
+	"POST /api/v1/instance/backups/{id}/restore": true,
 }
+
+// errSupportRefused answers what the hoster's support can't do.
+var errSupportRefused = fmt.Errorf("%w: the hoster's support can't do this", auth.ErrForbidden)
