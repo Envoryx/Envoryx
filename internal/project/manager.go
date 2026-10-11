@@ -98,6 +98,8 @@ type Manager struct {
 	// oom remembers recent OOM kills for the project warnings (see oom.go).
 	oom     *oomLog
 	oomOnce sync.Once
+	// proxyAttachMu serialises connecting Envoryx's container to project networks.
+	proxyAttachMu sync.Mutex
 	// healthSt holds the application health checks (see health.go).
 	healthSt   *healthState
 	healthOnce sync.Once

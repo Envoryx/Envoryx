@@ -78,6 +78,7 @@ func (m *Manager) SetBaseDomain(ctx context.Context, base string) error {
 		return err
 	}
 	m.audit.Log(ctx, audit.ActionSettingsChanged, "settings", "", map[string]any{"baseDomain": base})
+	m.spreadProxyAliases(ctx)
 	return nil
 }
 
@@ -175,6 +176,7 @@ func (m *Manager) AddDomain(ctx context.Context, id, hostname string) (store.Dom
 		return store.Domain{}, err
 	}
 	m.audit.Log(ctx, audit.ActionProjectUpdated, "project", id, map[string]any{"name": p.Name, "changes": map[string]any{"domainAdded": hostname}})
+	m.spreadProxyAliases(ctx)
 	return d, nil
 }
 
@@ -328,31 +330,56 @@ func (m *Manager) dialForApp(selfID string, p store.Project, kind store.ServiceK
 	return net.JoinHostPort(ContainerName(p.Slug, kind), strconv.Itoa(port))
 }
 
+// aliasMode says what attachProxy does with an attachment that already exists.
+type aliasMode int
+
+const (
+	// aliasesKeep leaves an existing attachment as it is.
+	aliasesKeep aliasMode = iota
+	// aliasesExact reconnects an attachment whose aliases differ (a start, where cutting
+	// the proxy's open connections to the project does not matter).
+	aliasesExact
+	// aliasesAdd reconnects an attachment that lacks one of the aliases (a project or a
+	// domain was added while the project ran). Names that went away stay until the next
+	// start: they only lead to the proxy, which no longer routes them.
+	aliasesAdd
+)
+
 // attachProxy connects Envoryx's own container to a project network so the embedded proxy
 // can reach the web container by name. The aliases make the proxy's host names resolve to
 // Envoryx on that network, so a project container reaches http://<slug>.<base> without any
-// DNS entry and without a detour through the host. Aliases are fixed at connect time: with
-// refresh, an attachment whose aliases differ is reconnected (a start, where cutting the
-// proxy's open connections to the project does not matter). No-op on bare metal.
-func (m *Manager) attachProxy(ctx context.Context, network string, aliases []string, refresh bool) error {
+// DNS entry and without a detour through the host. Docker fixes aliases at connect time,
+// so mode decides when an existing attachment is reconnected to change them; that cuts
+// the proxy's open connections into the project for a moment. No-op on bare metal.
+func (m *Manager) attachProxy(ctx context.Context, network string, aliases []string, mode aliasMode) error {
 	paths, err := m.paths()
 	if err != nil || paths.SelfContainerID == "" {
 		return nil
 	}
+	// A start and the alias refresh may both reconnect the same network.
+	m.proxyAttachMu.Lock()
+	defer m.proxyAttachMu.Unlock()
 	nets, err := m.engine.ContainerNetworks(ctx, paths.SelfContainerID)
 	if err != nil {
 		return err
 	}
 	if slices.Contains(nets, network) {
-		if !refresh {
+		if mode == aliasesKeep {
 			return nil
 		}
 		have, err := m.engine.NetworkAliases(ctx, network, paths.SelfContainerID)
 		if err != nil {
 			return err
 		}
-		if slices.Equal(sortedCopy(have), sortedCopy(aliases)) {
-			return nil
+		switch mode {
+		case aliasesExact:
+			if slices.Equal(sortedCopy(have), sortedCopy(aliases)) {
+				return nil
+			}
+		case aliasesAdd:
+			if !slices.ContainsFunc(aliases, func(a string) bool { return !slices.Contains(have, a) }) {
+				return nil
+			}
 		}
 		if err := m.engine.DisconnectNetwork(ctx, network, paths.SelfContainerID); err != nil {
 			return fmt.Errorf("detach proxy from %s: %w", network, err)
@@ -391,12 +418,21 @@ func sortedCopy(s []string) []string {
 	return out
 }
 
+// spreadProxyAliases hands host names that were just added (a new project, a domain) to
+// the projects already running, so they resolve there right away and not only after the
+// next reconciliation.
+func (m *Manager) spreadProxyAliases(ctx context.Context) {
+	m.AttachProxyToAll(context.WithoutCancel(ctx))
+}
+
 // detachProxy disconnects Envoryx's container from a project network (before removal).
 func (m *Manager) detachProxy(ctx context.Context, network string) error {
 	paths, err := m.paths()
 	if err != nil || paths.SelfContainerID == "" {
 		return nil
 	}
+	m.proxyAttachMu.Lock()
+	defer m.proxyAttachMu.Unlock()
 	if err := m.engine.DisconnectNetwork(ctx, network, paths.SelfContainerID); err != nil && !strings.Contains(err.Error(), "not found") {
 		return err
 	}
@@ -404,7 +440,9 @@ func (m *Manager) detachProxy(ctx context.Context, network string) error {
 }
 
 // AttachProxyToAll attaches the proxy to every existing project network (startup and
-// reconciliation). Failures are logged, not fatal.
+// reconciliation) and gives the running attachments the host names added since they
+// were made, so a project reaches a project or domain created after its start. Failures
+// are logged, not fatal.
 func (m *Manager) AttachProxyToAll(ctx context.Context) {
 	paths, err := m.paths()
 	if err != nil || paths.SelfContainerID == "" {
@@ -424,10 +462,11 @@ func (m *Manager) AttachProxyToAll(ctx context.Context) {
 			continue // perhaps an older instance's next door
 		}
 		var names []string
+		mode := aliasesKeep
 		if n.Labels[docker.LabelSystem] == "" {
-			names = aliases
+			names, mode = aliases, aliasesAdd
 		}
-		if err := m.attachProxy(ctx, n.Name, names, false); err != nil {
+		if err := m.attachProxy(ctx, n.Name, names, mode); err != nil {
 			m.log.Warn("proxy attach failed", "network", n.Name, "err", err)
 		}
 	}

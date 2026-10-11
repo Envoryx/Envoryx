@@ -275,6 +275,7 @@ func (m *Manager) renameProject(ctx context.Context, id string, req RenameReques
 		"name": name, "slug": slug, "path": path, "from": proj.Slug, "fromName": proj.Name,
 		"database": result.Database, "bucket": result.Bucket,
 	})
+	m.spreadProxyAliases(ctx)
 	view, err := m.Get(ctx, id)
 	result.View = view
 	return result, err
