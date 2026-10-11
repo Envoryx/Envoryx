@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -68,10 +69,25 @@ func New(d Deps) *Server {
 // enforceScope refuses tool calls the principal cannot make anywhere: neither on the
 // instance nor in any of its projects. The level a tool needs travels on in the context,
 // and resolve holds the principal to it in the project the call names. The refusal is a
-// tool result, not a protocol error, so the model learns what the token may do. Listing
-// tools stays unrestricted: the client sees the full catalogue and gets told on use.
+// tool result, not a protocol error, so the model learns what the token may do. The tool
+// list leaves out what the token can't call anywhere, so an assistant with a read token
+// isn't offered create_project.
 func (s *Server) enforceScope(next mcp.MethodHandler) mcp.MethodHandler {
 	return func(ctx context.Context, method string, req mcp.Request) (mcp.Result, error) {
+		if method == "tools/list" {
+			res, err := next(ctx, method, req)
+			if list, ok := res.(*mcp.ListToolsResult); ok && err == nil {
+				p, _ := auth.PrincipalFrom(ctx)
+				list.Tools = slices.DeleteFunc(list.Tools, func(t *mcp.Tool) bool {
+					need, known := s.scopes[t.Name]
+					if !known {
+						need = auth.ScopeAdmin
+					}
+					return !p.Allows(need) && !p.MaxScope().Covers(need)
+				})
+			}
+			return res, err
+		}
 		if call, ok := req.(*mcp.CallToolRequest); ok && method == "tools/call" {
 			p, _ := auth.PrincipalFrom(ctx)
 			need, known := s.scopes[call.Params.Name]
