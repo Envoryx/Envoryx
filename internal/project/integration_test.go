@@ -442,6 +442,10 @@ func TestIntegrationRenameWithAdditionalDatabase(t *testing.T) {
 	}
 	sqlInDB(t, m, id, "", "CREATE TABLE orders (note varchar(32)); INSERT INTO orders VALUES ('primary');")
 	sqlInDB(t, m, id, "analytics", "CREATE TABLE visits (note varchar(32)); INSERT INTO visits VALUES ('analytics');")
+	// The test runner's database next to the primary moves along.
+	if err := m.CreateDatabase(ctx, id, "", "envoryx_rename_source_test"); err != nil {
+		t.Fatalf("create the test database: %v", err)
+	}
 
 	res, err := m.Rename(ctx, id, RenameRequest{Name: "Envoryx Rename Target", Confirm: slug})
 	if err != nil {
@@ -460,6 +464,9 @@ func TestIntegrationRenameWithAdditionalDatabase(t *testing.T) {
 		if err != nil || cfg.Database != "envoryx_rename_target" || cfg.Username != "envoryx_rename_target" {
 			t.Fatalf("database %q after the rename: %+v %v", db, cfg, err)
 		}
+	}
+	if dbs, err := m.ListDatabases(ctx, id, ""); err != nil || !slices.Contains(dbs, "envoryx_rename_target_test") || slices.Contains(dbs, "envoryx_rename_source_test") {
+		t.Fatalf("databases after the rename: %v %v", dbs, err)
 	}
 	if rows := sqlInDB(t, m, id, "", "SELECT note FROM orders;"); !strings.Contains(rows, "primary") {
 		t.Fatalf("primary rows: %q", rows)
