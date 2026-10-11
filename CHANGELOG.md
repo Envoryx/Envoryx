@@ -10,7 +10,25 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.28.0] - 2026-10-11
+
+Managed instances: a hoster who rents out machines with Envoryx limits each
+instance with a plan and runs them from a fleet manager, which pushes the
+plans, suspends an instance, signs in as support with the admins' consent,
+takes and collects backups and updates instances with a rollback. Without a
+plan or a fleet manager nothing changes.
+
 ### Added
+- Backups for the hoster: a plan can name the hoster's offsite target, which
+  gets every instance's daily instance backup (and optionally the scheduled
+  project backups) in a folder per instance; the admins see it but can't
+  change it. The fleet manager can take an instance backup on request and
+  sees the newest instance backups and their copies. See DEPLOYMENT.md,
+  *Backups for the hoster*.
+- The fleet manager of a hoster: with `ENVORYX_FLEET_URL` and a one-time
+  `ENVORYX_FLEET_TOKEN` the instance enrolls, keeps a connection to the
+  manager open (it dials out, no open port needed), takes over the plan the
+  manager sends and reports its version and use every minute.
 - Plans for managed instances: a hoster who rents out machines with Envoryx
   limits each instance with `/config/plan.json` - the number of projects and
   users, the disk space, the runtimes, the features (addons, custom images,
@@ -19,27 +37,17 @@ release). `:main` follows the development branch.
   runs, refuses what goes beyond the plan with a clear message, hides what
   the plan leaves out and shows the plan with its use under Settings →
   General. Without the file nothing changes. See DEPLOYMENT.md, *Plans*.
-- The fleet manager of a hoster: with `ENVORYX_FLEET_URL` and a one-time
-  `ENVORYX_FLEET_TOKEN` the instance enrolls, keeps a connection to the
-  manager open (it dials out, no open port needed), takes over the plan the
-  manager sends and reports its version and use every minute.
-- Suspension of a managed instance: the hoster's fleet manager can suspend an
-  instance with an optional message. Its projects stop, every other operation
-  is refused, the web UI shows the users only the hoster's message, and the
-  API, MCP, SSH and SFTP refuse. Lifting it opens the instance again without
-  starting anything. See DEPLOYMENT.md, *Suspension*.
 - Support access for the hoster: an instance's admins can let the hoster's
   support sign in (for an hour, a day, a week or until taken back, under
   Settings → General). The fleet manager then opens a one-time login link;
   the support user counts towards no limit, can't create tokens or keys, and
   its sessions end with the consent. Every support login is in the audit log.
   See DEPLOYMENT.md, *Support access*.
-- Backups for the hoster: a plan can name the hoster's offsite target, which
-  gets every instance's daily instance backup (and optionally the scheduled
-  project backups) in a folder per instance; the admins see it but can't
-  change it. The fleet manager can take an instance backup on request and
-  sees the newest instance backups and their copies. See DEPLOYMENT.md,
-  *Backups for the hoster*.
+- Suspension of a managed instance: the hoster's fleet manager can suspend an
+  instance with an optional message. Its projects stop, every other operation
+  is refused, the web UI shows the users only the hoster's message, and the
+  API, MCP, SSH and SFTP refuse. Lifting it opens the instance again without
+  starting anything. See DEPLOYMENT.md, *Suspension*.
 - Updates from the fleet manager: an instance pulls the requested version and
   replaces its own container through a short-lived helper container, which
   waits for the new version's health check and otherwise brings the old one
@@ -49,8 +57,8 @@ release). `:main` follows the development branch.
 
 ### Changed
 - Restoring an instance backup never takes the secret key, the instance ID,
-  the plan or the suspension from the archive, also from one that carries
-  them.
+  the plan, the suspension, the fleet enrollment or the result of the last
+  update from the archive, also from one that carries them.
 
 ## [0.27.1] - 2026-10-10
 
@@ -2031,7 +2039,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.27.1...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.28.0...HEAD
+[0.28.0]: https://github.com/envoryx/envoryx/compare/v0.27.1...v0.28.0
 [0.27.1]: https://github.com/envoryx/envoryx/compare/v0.27.0...v0.27.1
 [0.27.0]: https://github.com/envoryx/envoryx/compare/v0.26.1...v0.27.0
 [0.26.1]: https://github.com/envoryx/envoryx/compare/v0.26.0...v0.26.1
