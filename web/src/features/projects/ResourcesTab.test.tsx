@@ -1,6 +1,6 @@
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { ResourcesTab } from "./ResourcesTab";
+import { ResourcesTab, formatCores } from "./ResourcesTab";
 import { ResourceOverviewCard } from "@/features/dashboard/ResourceOverviewCard";
 import { authedRoutes, makeProject, mockApi, renderApp } from "@/test/utils";
 
@@ -48,6 +48,22 @@ describe("ResourcesTab", () => {
     await user.click(screen.getByRole("radio", { name: "1 hour" }));
     await waitFor(() => expect(api.calls.some((c) => c.url.includes("range=1h"))).toBe(true));
     expect(await screen.findByText("One value per minute")).toBeInTheDocument();
+  });
+
+  it("labels every y-axis tick of an idle project's CPU chart differently", async () => {
+    mockApi({
+      ...authedRoutes,
+      [`GET /projects/${id}/metrics`]: () => ({
+        body: { metrics: { from: now - 3600, to: now, res: 300, containers: [{ name: "php", group: "app", points: [pt(now - 120, 0.3, 1 << 20), pt(now - 60, 0.9, 1 << 20)] }], sizes: [] } },
+      }),
+      [`GET /projects/${id}/stats`]: () => ({ body: { stats: { cpuPercent: 0, memoryBytes: 0, running: 0, containers: 0 }, sampledAt: "", containers: [] } }),
+    });
+    renderApp(<ResourcesTab project={makeProject({ id })} />);
+    const chart = await screen.findByRole("img", { name: "CPU" });
+    const ticks = [...chart.querySelectorAll("g > text")].map((el) => el.textContent);
+    expect(ticks).toEqual(["0", "0.0025", "0.005", "0.0075", "0.01"]);
+    expect(formatCores(0.01234)).toBe("0.012");
+    expect(formatCores(1.5)).toBe("1.5");
   });
 
   it("says so when nothing is recorded yet", async () => {
