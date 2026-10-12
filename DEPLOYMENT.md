@@ -298,7 +298,8 @@ not at the Unraid IP (which is where the direct project ports live).
 - Base domain, default `test` (Settings → Domains & HTTPS). Every project is
   `<slug>.<base>` (`shop.test`), the UI is `envoryx.<base>`.
 - Additional names per project in its **Domains** section (`shop.local`,
-  `api.shop.test`, …). Each name must be unique across projects.
+  `api.shop.test`, …), or `envoryx domain add|remove|list <project> <name>`.
+  Each name must be unique across projects.
 - The names must resolve to the Envoryx host on every client. Because Envoryx
   runs on a server, one **wildcard entry** in the DNS server of your network
   does it for every project, present and future. *Settings → Domains & HTTPS →
@@ -2962,6 +2963,9 @@ envoryx diagnostics [--all] [--strict]                # the set-up check, exit 1
 envoryx docker images|orphans                         # unused images, what projects left behind
 envoryx docker prune --yes                            # remove the unused images
 envoryx docker remove volume envoryx-old-database --yes
+envoryx settings                                      # the instance settings below
+envoryx settings set public-host=192.168.1.5 force-https=on log-history-days=14
+envoryx domain list|add|remove shop [www.shop.test]   # a project's extra domains
 envoryx audit --user stefan --action project. --since 2026-10-01 [--export csv]
 envoryx db snapshot shop --note "before a migration"  # the database alone
 envoryx db snapshots shop                             # what there is to go back to
@@ -2993,6 +2997,15 @@ its name or its id. `worker edit` and `cron edit` change only what is given
 and keep the rest. A cron job runs in the project's application runtime unless
 `--runtime` names another one, `--max-time` stops a run after that long
 (default 10 minutes), and `cron run --wait` exits with the command's exit code.
+
+`envoryx settings set` changes several settings in one go: `public-host`,
+`base-domain`, `force-https`, `projects-follow-envoryx`, `shared-ide-backends`,
+`shared-package-cache`, `xdebug-client-host`, `folderview-folder`,
+`log-history`, `log-history-days`, `log-history-max-mb`, `metrics-days` and
+`ssh-keys` (`ssh-keys=@file.pub` reads a file and replaces every key). On/off
+settings take `on` or `off`; an empty value clears a text setting. What a
+hoster's plan fixes is marked and refused, as in the web interface.
+
 `--json` hands the API's
 own answer to `jq` instead of a table; `--service` picks a container other
 than the project's application container (`php`, `python`, `go`, `ruby`,
