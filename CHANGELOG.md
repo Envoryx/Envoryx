@@ -10,6 +10,13 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Added
+- `envoryx worker …` and `envoryx cron …` in the command line: list, add,
+  edit, enable, disable and remove workers and cron jobs, restart a worker,
+  see a job's runs and their output, and run a job now. `cron run --wait`
+  prints the output and exits with the command's exit code, so a script
+  or a CI job can wait for it.
+
 ## [0.30.0] - 2026-10-11
 
 What a full test round with real projects in every stack found: a

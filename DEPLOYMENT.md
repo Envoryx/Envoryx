@@ -2873,7 +2873,8 @@ cookie is also sent. Tokens created before scopes existed keep full access
 ## Command line
 
 The Envoryx binary is also its own client. `envoryx project …`,
-`envoryx backup …`, `envoryx db …`, `envoryx git …` and `envoryx import` talk to
+`envoryx backup …`, `envoryx db …`, `envoryx worker …`, `envoryx cron …`,
+`envoryx git …` and `envoryx import` talk to
 a running server over the REST API with an API token, which makes them equally
 at home in an SSH session, a cron job or a CI pipeline. On the host the
 container's own binary does the job:
@@ -2924,13 +2925,30 @@ envoryx db clone local --from staging --yes           # staging's data into loca
 envoryx db snapshot shop --db analytics               # an additional database (all db commands)
 envoryx project create "Shop" --database mariadb --add-database analytics=postgres
 envoryx project share shop --for 2h                  # a temporary public address
+envoryx worker list shop                              # its workers and their state
+envoryx worker presets shop                           # what a worker can run
+envoryx worker add shop queue --preset laravel:queue --arg default,emails
+envoryx worker edit|enable|disable|restart shop queue
+envoryx worker remove shop queue --yes
+envoryx cron list shop                                # its cron jobs, next and last run
+envoryx cron add shop backup --schedule "0 3 * * *" -- php artisan backup:run
+envoryx cron edit shop backup --schedule @hourly      # or a new command after --
+envoryx cron run shop backup --wait                   # now, with output and exit code
+envoryx cron runs shop backup [--output]              # the recent runs
+envoryx cron enable|disable shop backup
+envoryx cron remove shop backup --yes
 envoryx git status|pull shop                          # and: git checkout shop main
 envoryx project branches shop                         # its branch environments
 envoryx project branch shop feature/login             # a copy of shop on that branch
 envoryx project deploy shop-feature-login [--no-pull] # pull and run the deploy commands
 ```
 
-A project is named by its name, its slug or its id. `--json` hands the API's
+A project is named by its name, its slug or its id, a worker or cron job by
+its name or its id. `worker edit` and `cron edit` change only what is given
+and keep the rest. A cron job runs in the project's application runtime unless
+`--runtime` names another one, `--max-time` stops a run after that long
+(default 10 minutes), and `cron run --wait` exits with the command's exit code.
+`--json` hands the API's
 own answer to `jq` instead of a table; `--service` picks a container other
 than the project's application container (`php`, `python`, `go`, `ruby`,
 `java`, `dotnet`, `node`, `web`, `database`, `redis`, `memcached`, `mailpit`, `rabbitmq`,
@@ -2949,8 +2967,9 @@ place the browser terminal starts in. For an interactive shell or a large
 pipe, use SSH: `ssh shop@<host> -p 2222` (see *IDE integration*).
 
 What the token may do, the CLI may do: a `read` token lists and follows logs, an
-`operate` token also starts, stops and runs commands, and creating or deleting
-projects needs `admin`. Refusals arrive as the API wrote them (`this token has
+`operate` token also starts, stops and runs commands (a worker restart, a cron
+run and the cron runs' output included), and creating or deleting projects,
+workers and cron jobs, or changing them, needs `admin`. Refusals arrive as the API wrote them (`this token has
 read scope, the operation needs operate`), and every command lands in the audit
 log with the token's name.
 
