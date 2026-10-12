@@ -122,6 +122,14 @@ Git:
   git pull <project>
   git checkout <project> <branch>
 
+Instance (admin token):
+  diagnostics [--all] [--strict]        what Settings → Diagnostics finds; fails on
+                                        errors (--strict: on warnings too)
+  audit [filters]                       the audit log, newest first: --user, --action
+                                        PREFIX, --project, --since, --until, --search,
+                                        --limit; --export csv|jsonl [-o FILE] writes
+                                        every matching entry
+
 Access:
   login [--url URL] [--token TOKEN]     remember the server and the token
   logout                                forget them again
@@ -256,6 +264,10 @@ func (c *cli) run(ctx context.Context, args []string) error {
 		return c.cronCommand(ctx, rest)
 	case "instance":
 		return c.instanceCommand(ctx, rest)
+	case "diagnostics", "diag":
+		return c.diagnostics(ctx, rest)
+	case "audit":
+		return c.audit(ctx, rest)
 	default:
 		return usagef("unknown command %q", cmd)
 	}
