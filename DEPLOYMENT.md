@@ -2901,6 +2901,21 @@ wants. `envoryx whoami` shows whose token it is and what it may do, and
 and `ENVORYX_TOKEN` work just as well, which is handy in CI, where nothing should be
 written to disk.
 
+API tokens can't create, list or revoke tokens over the API, so a leaked one
+can't mint its successors. A script that sets up a CI job or an assistant
+creates its token from a shell in the container instead:
+
+```sh
+docker exec envoryx envoryx admin create-token --name ci --scope read --project shop --quiet
+docker exec envoryx envoryx admin tokens                 # owner, scope, projects, last use
+docker exec envoryx envoryx admin revoke-token ci         # by name, id or prefix (stq_…)
+```
+
+`create-token` acts for the only account unless `--user NAME` names another
+one, and never gives a token more than that account's role allows. The scope
+is `operate` unless `--scope` says otherwise, `--project` (repeatable) confines
+it to projects, and `--quiet` prints nothing but the secret.
+
 ### What it can do
 
 ```sh
@@ -3125,6 +3140,7 @@ docker exec -it envoryx envoryx admin reset-password   # new password, printed o
 docker exec -it envoryx envoryx admin reset-password --user stefan --password 'my new password'
 docker exec -it envoryx envoryx admin logout-all       # end every browser session
 docker exec -it envoryx envoryx admin revoke-tokens    # delete every API token (MCP, SSH/SFTP, scripts)
+docker exec -it envoryx envoryx admin revoke-token ci  # delete one (see Command line for tokens)
 docker exec -it envoryx envoryx admin reset --yes      # remove all accounts → the setup page returns
 ```
 

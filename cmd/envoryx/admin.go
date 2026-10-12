@@ -31,11 +31,21 @@ import (
 // effect immediately without a restart.
 const adminUsage = `Usage: envoryx admin <command> [flags]
 
-Recover access to the web interface when the credentials are lost. Run inside the
-container: docker exec -it envoryx envoryx admin <command>
+Recover access to the web interface when the credentials are lost, and manage API
+tokens from a shell. Run inside the container:
+docker exec -it envoryx envoryx admin <command>
 
 Commands:
   users                       list the accounts
+  tokens [--user NAME]        list the API tokens with owner, scope and last use
+  create-token --name NAME [flags]
+                              create an API token; the secret is printed once
+      --user NAME             the account it acts for (default: the only account)
+      --scope S               read, operate (default) or admin
+      --project P             confine it to a project (name, slug or id; repeatable)
+      --quiet                 print nothing but the secret, for scripts
+  revoke-token <token>        revoke one token, named by its id, its prefix (stq_…)
+                              or its name (--user NAME when names repeat)
   reset-password [flags]      set a new password for an account and end its sessions
       --user NAME             account to change (default: the only account)
       --password PW           the new password (default: a generated one, printed once)
@@ -121,7 +131,56 @@ func (c *adminCLI) run(ctx context.Context, args []string) error {
 		return c.resetPassword(ctx, *user, *password)
 	case "logout-all":
 		return c.logoutAll(ctx)
+	case "tokens":
+		fs := flag.NewFlagSet("tokens", flag.ContinueOnError)
+		fs.SetOutput(io.Discard)
+		user := fs.String("user", "", "only this account's tokens")
+		if err := fs.Parse(rest); err != nil || fs.NArg() > 0 {
+			return errAdminUsage
+		}
+		return c.tokens(ctx, *user)
+	case "create-token":
+		fs := flag.NewFlagSet("create-token", flag.ContinueOnError)
+		fs.SetOutput(io.Discard)
+		var spec tokenRequest
+		fs.StringVar(&spec.name, "name", "", "token name")
+		fs.StringVar(&spec.user, "user", "", "account")
+		fs.StringVar(&spec.scope, "scope", string(auth.ScopeOperate), "read, operate or admin")
+		fs.Func("project", "confine the token to a project", func(v string) error {
+			spec.projects = append(spec.projects, v)
+			return nil
+		})
+		fs.BoolVar(&spec.quiet, "quiet", false, "print only the secret")
+		if err := fs.Parse(rest); err != nil || fs.NArg() > 0 || spec.name == "" {
+			return errAdminUsage
+		}
+		return c.createToken(ctx, spec)
+	case "revoke-token":
+		fs := flag.NewFlagSet("revoke-token", flag.ContinueOnError)
+		fs.SetOutput(io.Discard)
+		user := fs.String("user", "", "account owning the token")
+		// The token may stand before or after --user.
+		var want []string
+		args := rest
+		for {
+			if err := fs.Parse(args); err != nil {
+				return errAdminUsage
+			}
+			if fs.NArg() == 0 {
+				break
+			}
+			want = append(want, fs.Arg(0))
+			args = fs.Args()[1:]
+		}
+		if len(want) != 1 {
+			return errAdminUsage
+		}
+		return c.revokeToken(ctx, want[0], *user)
 	case "revoke-tokens":
+		// Revoking everything takes no arguments: "revoke-tokens ci" meant revoke-token.
+		if len(rest) > 0 {
+			return fmt.Errorf("revoke-tokens revokes every token and takes no arguments; one token is revoked with revoke-token <token>")
+		}
 		return c.revokeTokens(ctx)
 	case "reset":
 		fs := flag.NewFlagSet("reset", flag.ContinueOnError)
