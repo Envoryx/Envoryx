@@ -82,6 +82,25 @@ Databases:
                                         (every db command takes --db NAME for an
                                         additional database; clone also --source-db)
 
+Workers and cron jobs:
+  worker list <project>                 its workers with their state and command
+  worker presets <project>              what a worker can run, the suggested one marked
+  worker add <project> <name> --preset ID [--arg VALUE] [--disabled]
+  worker edit <project> <worker>        change --name, --preset or --arg
+  worker enable|disable|restart <project> <worker>
+  worker remove <project> <worker> --yes
+  cron list <project>                   its cron jobs with the next and the last run
+  cron add <project> <name> --schedule "0 3 * * *" -- <command…>
+                                        runs in the application's runtime unless
+                                        --runtime says otherwise; --max-time 10m
+  cron edit <project> <job>             change --name, --schedule, --runtime,
+                                        --max-time, or the command after --
+  cron enable|disable <project> <job>
+  cron run <project> <job> [--wait]     run it now; --wait prints the output and
+                                        exits with the command's exit code
+  cron runs <project> <job> [--output]  the recent runs, --output the newest one's
+  cron remove <project> <job> --yes
+
 Git:
   git status <project>
   git clone <project>                   clone the configured repository
@@ -216,6 +235,10 @@ func (c *cli) run(ctx context.Context, args []string) error {
 		return c.dbCommand(ctx, rest)
 	case "git":
 		return c.gitCommand(ctx, rest)
+	case "worker", "workers":
+		return c.workerCommand(ctx, rest)
+	case "cron":
+		return c.cronCommand(ctx, rest)
 	default:
 		return usagef("unknown command %q", cmd)
 	}
@@ -469,7 +492,9 @@ type projectSummary struct {
 			State   string `json:"state"`
 			Running bool   `json:"running"`
 			Health  string `json:"health"`
-			Ports   []struct {
+			// WorkerID names the worker a "worker" service belongs to.
+			WorkerID string `json:"workerId"`
+			Ports    []struct {
 				HostIP        string `json:"hostIp"`
 				HostPort      int    `json:"hostPort"`
 				ContainerPort int    `json:"containerPort"`
