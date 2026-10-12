@@ -148,7 +148,10 @@ it reports the name as unverified.
 Findings with a button are fixed in place (for example setting the Docker host
 for project links); the others link to the setting or to this guide. The
 dashboard lists them among its notices while warnings or errors exist. The same data is
-available as `GET /api/v1/system/diagnostics` (admin scope).
+available as `GET /api/v1/system/diagnostics` (admin scope), and as
+`envoryx diagnostics` on the command line: it lists what isn't fine (`--all`
+everything) and exits with 1 when a check is in error (`--strict`: also on a
+warning), so a monitoring job can run it as it is.
 
 ## Project links and the Envoryx container's own IP
 
@@ -2949,6 +2952,8 @@ envoryx project run shop                              # list the catalogue actio
 envoryx project run shop artisan:migrate              # run one, with live output
 envoryx backup list|create|restore|download|delete shop
 envoryx instance backups|backup|download|upload|restore … # Envoryx itself (see Instance backups)
+envoryx diagnostics [--all] [--strict]                # the set-up check, exit 1 on errors
+envoryx audit --user stefan --action project. --since 2026-10-01 [--export csv]
 envoryx db snapshot shop --note "before a migration"  # the database alone
 envoryx db snapshots shop                             # what there is to go back to
 envoryx db restore shop <snapshot> --yes              # put one back
@@ -3137,7 +3142,9 @@ secret was added or removed.
 *CSV* and *JSON Lines* export exactly the entries the filters show (the API:
 `GET /api/v1/audit/export?format=csv&action=project.&since=2026-09-01`, with
 the same parameters as `GET /api/v1/audit`: `q`, `user`, `action` (a prefix,
-repeatable), `project`, `since`, `until`, `after`, `limit`). Cells a
+repeatable), `project`, `since`, `until`, `after`, `limit`). On the command
+line: `envoryx audit --project shop --action backup. --since 2026-10-01` shows
+the newest entries, `--export csv -o audit.csv` writes every matching one. Cells a
 spreadsheet would run as a formula are prefixed with `'`.
 
 *Retention* keeps the log for 30 days up to two years, or forever (the

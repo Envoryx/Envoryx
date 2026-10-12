@@ -10,6 +10,14 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Added
+- `envoryx diagnostics` prints what *Settings → Diagnostics* finds and
+  exits with 1 when a check is in error (`--strict`: also on a warning),
+  for monitoring jobs.
+- `envoryx audit` lists the audit log with the web interface's filters
+  (`--user`, `--action`, `--project`, `--since`, `--until`, `--search`)
+  and `--export csv|jsonl` writes every matching entry.
+
 ## [0.31.0] - 2026-10-12
 
 More of Envoryx from the command line: workers and cron jobs, API tokens
