@@ -20,6 +20,7 @@ ARG PHP_VERSION
 ARG BASE_TAG
 LABEL org.opencontainers.image.title="Envoryx PHP ${PHP_VERSION}" \
       org.opencontainers.image.source="https://github.com/envoryx/envoryx" \
+      org.opencontainers.image.documentation="https://github.com/envoryx/envoryx/blob/main/images/SOURCES.md" \
       envoryx.runtime="php" \
       envoryx.runtime.version="${PHP_VERSION}"
 

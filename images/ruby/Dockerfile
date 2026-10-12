@@ -13,6 +13,7 @@ FROM ruby:${BASE_TAG}
 ARG RUBY_VERSION_LABEL
 LABEL org.opencontainers.image.title="Envoryx Ruby ${RUBY_VERSION_LABEL}" \
       org.opencontainers.image.source="https://github.com/envoryx/envoryx" \
+      org.opencontainers.image.documentation="https://github.com/envoryx/envoryx/blob/main/images/SOURCES.md" \
       envoryx.runtime="ruby" \
       envoryx.runtime.version="${RUBY_VERSION_LABEL}"
 

@@ -482,3 +482,18 @@ hand, in `Dockerfile` and `ci.yml` together.
 The **runtime images** (PHP, Node, Python, Go, Ruby, Java, .NET) aren't covered by Dependabot: their
 base tags follow `internal/runtime/*_versions.json`, which the `Runtime version check`
 workflow updates from upstream releases (see "Adding a runtime version").
+
+## Third-party licences
+
+The licence texts of everything built into the envoryx program are written at build time:
+the Vite plugin in `web/licenses.ts` lists the npm packages that end up in the bundle
+(`web/dist/third-party-licenses-web.txt`), and `go run ./scripts/licenses` (`make licenses`,
+part of `make build` and the `Dockerfile`) adds the Go standard library and the Go modules of
+the target platform into `web/dist/third-party-licenses.txt`. The binary embeds and serves it
+(*Third-party licenses* on the logo's page); the image also has it in `/usr/share/doc/envoryx/`.
+Both fail the build when a package ships no licence file: add its text by hand then, and
+check that the licence is compatible with the AGPL-3.0 before adding a dependency at all.
+
+When an image gets new software (a tool in a runtime image, a different base), update
+[`images/SOURCES.md`](images/SOURCES.md), the place the images point to for the sources of
+their GPL parts.

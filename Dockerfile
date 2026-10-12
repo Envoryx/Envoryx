@@ -19,6 +19,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 COPY --from=web /src/web/dist ./web/dist
+RUN go run ./scripts/licenses -goos "${TARGETOS}" -goarch "${TARGETARCH}"
 RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o /out/envoryx ./cmd/envoryx
 
 # ---- Runtime --------------------------------------------------------------
@@ -26,12 +27,15 @@ FROM alpine:3.24
 LABEL org.opencontainers.image.title="Envoryx" \
       org.opencontainers.image.description="Docker-native development environments for Unraid and Linux" \
       org.opencontainers.image.source="https://github.com/envoryx/envoryx" \
+      org.opencontainers.image.documentation="https://github.com/envoryx/envoryx/blob/main/images/SOURCES.md" \
       org.opencontainers.image.licenses="AGPL-3.0-only"
 
 RUN apk add --no-cache ca-certificates tzdata \
  && mkdir -p /config /projects
 
 COPY --from=build /out/envoryx /usr/local/bin/envoryx
+COPY LICENSE /usr/share/doc/envoryx/LICENSE
+COPY --from=build /src/web/dist/third-party-licenses.txt /usr/share/doc/envoryx/third-party-licenses.txt
 
 ENV ENVORYX_LISTEN=:8787 \
     ENVORYX_CONFIG_DIR=/config \

@@ -3081,5 +3081,6 @@
   "Update vsdbg": "Обновить vsdbg",
   "Install vsdbg": "Установить vsdbg",
   "Or in the .NET terminal:": "Или в терминале .NET:",
-  "Download Microsoft's debugger for VS Code into the project home (licensed for Microsoft's tools only)": "Скачать отладчик Microsoft для VS Code в домашний каталог проекта (лицензия только для инструментов Microsoft)"
+  "Download Microsoft's debugger for VS Code into the project home (licensed for Microsoft's tools only)": "Скачать отладчик Microsoft для VS Code в домашний каталог проекта (лицензия только для инструментов Microsoft)",
+  "Third-party licenses": "Лицензии сторонних компонентов"
 }

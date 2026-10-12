@@ -10,6 +10,7 @@ FROM golang:${BASE_TAG}
 ARG GO_VERSION
 LABEL org.opencontainers.image.title="Envoryx Go ${GO_VERSION}" \
       org.opencontainers.image.source="https://github.com/envoryx/envoryx" \
+      org.opencontainers.image.documentation="https://github.com/envoryx/envoryx/blob/main/images/SOURCES.md" \
       envoryx.runtime="go" \
       envoryx.runtime.version="${GO_VERSION}"
 

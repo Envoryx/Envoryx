@@ -10,6 +10,7 @@ FROM python:${BASE_TAG}
 ARG PYTHON_VERSION
 LABEL org.opencontainers.image.title="Envoryx Python ${PYTHON_VERSION}" \
       org.opencontainers.image.source="https://github.com/envoryx/envoryx" \
+      org.opencontainers.image.documentation="https://github.com/envoryx/envoryx/blob/main/images/SOURCES.md" \
       envoryx.runtime="python" \
       envoryx.runtime.version="${PYTHON_VERSION}"
 
