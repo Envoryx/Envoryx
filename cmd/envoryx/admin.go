@@ -22,6 +22,7 @@ import (
 	"github.com/envoryx/envoryx/internal/auth"
 	"github.com/envoryx/envoryx/internal/config"
 	"github.com/envoryx/envoryx/internal/db"
+	"github.com/envoryx/envoryx/internal/secrets"
 	"github.com/envoryx/envoryx/internal/store"
 )
 
@@ -100,6 +101,14 @@ func adminCommand(args []string) int {
 		fmt.Fprintf(os.Stderr, "envoryx admin: database schema %d, this build expects %d - start the server once so it migrates the database, then retry\n", schema, db.LatestVersion())
 		return 1
 	}
+	// The project configs hold sealed secrets; listing projects opens them. A key that
+	// isn't there yet (a fresh /config) is not written from here.
+	keyRing, _, err := secrets.Load(cfg.ConfigDir, os.Getenv)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "envoryx admin: secret key:", err)
+		return 1
+	}
+	secrets.SetDefault(keyRing)
 	st := store.New(sqlDB)
 	cli := &adminCLI{store: st, audit: audit.New(st.Audit, log), out: os.Stdout, now: func() time.Time { return time.Now().UTC() }}
 	if err := cli.run(ctx, args); err != nil {

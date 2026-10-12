@@ -24,7 +24,8 @@ func workerRoutes() map[string]func(http.ResponseWriter, *http.Request) {
 					"command": []string{"php", "artisan", "queue:work", "--queue=default,emails"}}},
 				"presets": []map[string]any{
 					{"id": "laravel:queue", "description": "php artisan queue:work", "argLabel": "Queues", "argHint": "e.g. default,emails"},
-					{"id": "laravel:schedule", "description": "php artisan schedule:work"},
+					{"id": "laravel:schedule", "description": "php artisan schedule:work", "runtime": "php"},
+					{"id": "node:script", "description": "npm run <name>", "runtime": "node"},
 				},
 				"suggestedPreset": "laravel:queue",
 			})
@@ -64,6 +65,18 @@ func TestWorkerListAndPresets(t *testing.T) {
 		if !strings.Contains(out.String(), want) {
 			t.Fatalf("missing %q in:\n%s", want, out.String())
 		}
+	}
+	// The Node service of acme-shop is switched off: its presets aren't offered.
+	if strings.Contains(out.String(), "node:script") {
+		t.Fatalf("offers a preset for a runtime the project lacks:\n%s", out.String())
+	}
+	out.Reset()
+	// blog has only Node: no PHP preset, and the PHP suggestion isn't mentioned.
+	if err := c.run(context.Background(), []string{"worker", "presets", "blog"}); err != nil {
+		t.Fatal(err)
+	}
+	if got := out.String(); !strings.Contains(got, "node:script") || strings.Contains(got, "laravel:") || strings.Contains(got, "suggested") {
+		t.Fatalf("presets for blog:\n%s", got)
 	}
 }
 

@@ -30,9 +30,10 @@ func newFakeServer(t *testing.T, routes map[string]func(w http.ResponseWriter, r
 		writeJSON(w, map[string]any{"projects": []map[string]any{
 			{"id": "11111111-1111-4111-8111-111111111111", "name": "Acme Shop", "slug": "acme-shop", "path": "acme-shop",
 				"appService": "php", "hostnames": []string{"acme-shop.test"},
+				"services":  []map[string]any{{"kind": "php", "enabled": true}, {"kind": "node", "enabled": false}},
 				"lifecycle": "ready", "status": map[string]any{"state": "running"}},
 			{"id": "22222222-2222-4222-8222-222222222222", "name": "Blog", "slug": "blog", "path": "blog",
-				"appService": "node", "hostnames": []string{"blog.test"}, "url": "https://blog.test:18443", "lifecycle": "ready", "status": map[string]any{"state": "stopped", "warnings": []string{"image changed"}}},
+				"appService": "node", "hostnames": []string{"blog.test"}, "services": []map[string]any{{"kind": "node", "enabled": true}}, "url": "https://blog.test:18443", "lifecycle": "ready", "status": map[string]any{"state": "stopped", "warnings": []string{"image changed"}}},
 		}})
 	})
 	for pattern, h := range routes {
@@ -67,6 +68,23 @@ func newTestCLI(t *testing.T, srv *fakeServer, stdin string) (*cli, *bytes.Buffe
 	t.Setenv("ENVORYX_TOKEN", "stq_testtoken")
 	var out, errOut bytes.Buffer
 	return &cli{out: &out, errOut: &errOut, stdin: strings.NewReader(stdin)}, &out, &errOut
+}
+
+// Global flags work before the command as well as after it.
+func TestGlobalFlagsBeforeTheCommand(t *testing.T) {
+	srv := newFakeServer(t, nil)
+	c, out, _ := newTestCLI(t, srv, "")
+	if err := c.run(context.Background(), []string{"--json", "project", "list"}); err != nil {
+		t.Fatal(err)
+	}
+	var list []map[string]any
+	if err := json.Unmarshal(out.Bytes(), &list); err != nil || len(list) != 2 {
+		t.Fatalf("want the JSON list, got %v:\n%s", err, out.String())
+	}
+	var usage *usageError
+	if err := c.run(context.Background(), []string{"--nonsense", "project", "list"}); !errors.As(err, &usage) {
+		t.Fatalf("unknown flag: %v", err)
+	}
 }
 
 func TestProjectListPrintsATable(t *testing.T) {

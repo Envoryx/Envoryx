@@ -10,6 +10,15 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Fixed
+- `envoryx admin tokens` (and `create-token --project`, `revoke-token`) failed with "the
+  value was encrypted with a key Envoryx does not have" once a project stored a secret: the
+  admin commands now load the secret key like the server.
+- `envoryx worker presets` offered the presets of every runtime; it lists only those the
+  project can run, like the web interface.
+- Global flags before the command (`envoryx --json project list`) were refused as an
+  unknown command.
+
 ## [0.34.0] - 2026-10-12
 
 ### Added
