@@ -1295,6 +1295,12 @@ Orphans without an instance label were created by an older Envoryx and
 may belong to another instance on the same Docker host: the *Docker* page marks
 them *older Envoryx* and they stay until you remove them there.
 
+On the command line (admin token), `envoryx docker orphans` lists them
+(`--refresh` looks again instead of using the last pass; unlabelled ones are
+marked) and `envoryx docker remove volume <name> --yes` removes one.
+`envoryx docker images` lists the Envoryx images no project uses and
+`envoryx docker prune --yes` removes them, like *Remove unused images*.
+
 ### Several instances on one Docker host
 
 Every Envoryx instance has an ID (`/config/instance-id`, created at the first
@@ -2953,6 +2959,9 @@ envoryx project run shop artisan:migrate              # run one, with live outpu
 envoryx backup list|create|restore|download|delete shop
 envoryx instance backups|backup|download|upload|restore … # Envoryx itself (see Instance backups)
 envoryx diagnostics [--all] [--strict]                # the set-up check, exit 1 on errors
+envoryx docker images|orphans                         # unused images, what projects left behind
+envoryx docker prune --yes                            # remove the unused images
+envoryx docker remove volume envoryx-old-database --yes
 envoryx audit --user stefan --action project. --since 2026-10-01 [--export csv]
 envoryx db snapshot shop --note "before a migration"  # the database alone
 envoryx db snapshots shop                             # what there is to go back to

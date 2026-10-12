@@ -17,6 +17,9 @@ release). `:main` follows the development branch.
 - `envoryx audit` lists the audit log with the web interface's filters
   (`--user`, `--action`, `--project`, `--since`, `--until`, `--search`)
   and `--export csv|jsonl` writes every matching entry.
+- `envoryx docker images` and `docker prune` list and remove the Envoryx
+  images no project uses; `docker orphans` and `docker remove` do the
+  same for containers, networks and volumes projects left behind.
 
 ## [0.31.0] - 2026-10-12
 
