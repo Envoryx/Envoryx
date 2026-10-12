@@ -4,9 +4,11 @@ import { configDefaults } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { fileURLToPath, URL } from "node:url";
+import { thirdPartyLicenses } from "./licenses";
 
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  // The Go side (scripts/licenses) adds this to third-party-licenses.txt.
+  plugins: [react(), tailwindcss(), thirdPartyLicenses("third-party-licenses-web.txt", ["tailwindcss"])],
   resolve: {
     alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
   },

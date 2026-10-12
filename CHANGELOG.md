@@ -10,6 +10,11 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Added
+- The licence texts of the third-party software in Envoryx: *Third-party licenses* on the
+  logo's page, and `/usr/share/doc/envoryx/` in the image. `images/SOURCES.md` says where
+  the sources of the images' GPL parts are.
+
 ## [0.33.1] - 2026-10-12
 
 ### Changed

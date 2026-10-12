@@ -3,16 +3,20 @@ GO      ?= go
 NPM     ?= npm
 IMAGE   ?= ghcr.io/envoryx/envoryx
 
-.PHONY: all build web backend run test test-go test-web test-integration test-e2e lint vulncheck docker clean
+.PHONY: all build web licenses backend run test test-go test-web test-integration test-e2e lint vulncheck docker clean
 
 all: build
 
 ## Build frontend + backend into ./bin/envoryx
-build: web backend
+build: web licenses backend
 
 web:
 	cd web && $(NPM) ci --no-audit --no-fund && $(NPM) run build
 	@touch web/dist/.gitkeep
+
+## The third-party licence texts, embedded with the frontend (needs `make web` first)
+licenses:
+	$(GO) run ./scripts/licenses
 
 backend:
 	CGO_ENABLED=0 $(GO) build -trimpath -ldflags "-s -w -X main.version=$(VERSION)" -o bin/envoryx ./cmd/envoryx

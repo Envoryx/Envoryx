@@ -11,6 +11,7 @@ ARG DOTNET_VERSION=10
 ARG TARGETARCH
 LABEL org.opencontainers.image.title="Envoryx .NET ${DOTNET_VERSION}" \
       org.opencontainers.image.source="https://github.com/envoryx/envoryx" \
+      org.opencontainers.image.documentation="https://github.com/envoryx/envoryx/blob/main/images/SOURCES.md" \
       envoryx.runtime="dotnet" \
       envoryx.runtime.version="${DOTNET_VERSION}"
 

@@ -29,6 +29,8 @@ function About() {
     { label: t("Release notes"), href: s.data?.update?.url ?? `${REPO}/blob/main/CHANGELOG.md` },
     { label: t("Source code"), href: REPO },
     { label: t("License"), href: `${REPO}/blob/main/LICENSE` },
+    // Written by the build (scripts/licenses) and embedded with the web interface.
+    { label: t("Third-party licenses"), href: "/third-party-licenses.txt" },
   ];
   return (
     <div className="mt-4 flex flex-wrap items-center justify-between gap-x-6 gap-y-2 px-1 text-xs text-muted">

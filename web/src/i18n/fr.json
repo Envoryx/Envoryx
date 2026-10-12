@@ -3033,5 +3033,6 @@
   "Update vsdbg": "Mettre à jour vsdbg",
   "Install vsdbg": "Installer vsdbg",
   "Or in the .NET terminal:": "Ou dans le terminal .NET :",
-  "Download Microsoft's debugger for VS Code into the project home (licensed for Microsoft's tools only)": "Télécharger le débogueur de Microsoft pour VS Code dans le dossier personnel du projet (licence limitée aux outils de Microsoft)"
+  "Download Microsoft's debugger for VS Code into the project home (licensed for Microsoft's tools only)": "Télécharger le débogueur de Microsoft pour VS Code dans le dossier personnel du projet (licence limitée aux outils de Microsoft)",
+  "Third-party licenses": "Licences tierces"
 }

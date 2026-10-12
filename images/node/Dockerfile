@@ -9,6 +9,7 @@ FROM node:${BASE_TAG}
 ARG NODE_VERSION
 LABEL org.opencontainers.image.title="Envoryx Node ${NODE_VERSION}" \
       org.opencontainers.image.source="https://github.com/envoryx/envoryx" \
+      org.opencontainers.image.documentation="https://github.com/envoryx/envoryx/blob/main/images/SOURCES.md" \
       envoryx.runtime="node" \
       envoryx.runtime.version="${NODE_VERSION}"
 

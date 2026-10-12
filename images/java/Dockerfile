@@ -10,6 +10,7 @@ FROM eclipse-temurin:${BASE_TAG}
 ARG JAVA_VERSION
 LABEL org.opencontainers.image.title="Envoryx Java ${JAVA_VERSION}" \
       org.opencontainers.image.source="https://github.com/envoryx/envoryx" \
+      org.opencontainers.image.documentation="https://github.com/envoryx/envoryx/blob/main/images/SOURCES.md" \
       envoryx.runtime="java" \
       envoryx.runtime.version="${JAVA_VERSION}"
 
