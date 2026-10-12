@@ -10,6 +10,13 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.33.1] - 2026-10-12
+
+### Changed
+- Updated dependencies: the Docker client library (moby client 0.6.2) and
+  the web interface's libraries (TanStack Query, Lucide icons,
+  react-i18next, Vite). No change in behaviour.
+
 ## [0.33.0] - 2026-10-12
 
 ### Added
@@ -2260,7 +2267,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.33.0...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.33.1...HEAD
+[0.33.1]: https://github.com/envoryx/envoryx/compare/v0.33.0...v0.33.1
 [0.33.0]: https://github.com/envoryx/envoryx/compare/v0.32.0...v0.33.0
 [0.32.0]: https://github.com/envoryx/envoryx/compare/v0.31.0...v0.32.0
 [0.31.0]: https://github.com/envoryx/envoryx/compare/v0.30.0...v0.31.0
