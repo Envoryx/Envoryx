@@ -963,8 +963,13 @@ folder and HTTP cache live in the package cache (see
   application (under `dotnet watch` it's the process named after the project,
   not `dotnet watch` itself). VS Code with the C# extension debugs with
   Microsoft's `vsdbg` through `pipeTransport`. `vsdbg` may only be used with
-  Microsoft's tools, so the image doesn't ship it: install it once in the
-  .NET terminal, where it stays in the project home,
+  Microsoft's tools, so the image doesn't ship it. *Install vsdbg* in the
+  project's IDE section (or the action `dotnet:vsdbg`, `envoryx project run
+  shop dotnet:vsdbg`) runs Microsoft's install script in the .NET container,
+  which downloads it from Microsoft into the project home (about 200 MB),
+  where it stays; run again, it updates it. The IDE section shows the
+  installed version (`GET /api/v1/projects/{id}/ide/vsdbg`). By hand, in the
+  .NET terminal:
 
   ```sh
   curl -sSL https://aka.ms/getvsdbgsh | sh /dev/stdin -v latest -l ~/.vsdbg

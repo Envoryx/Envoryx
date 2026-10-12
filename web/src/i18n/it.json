@@ -2378,7 +2378,6 @@
   "The server becomes the container's main process (restarted automatically) on a direct host port; the project URL keeps reaching PHP, Python, Go, Ruby or Java.": "Il server diventa il processo principale del container (riavviato automaticamente) su una porta host diretta; l'URL del progetto continua a raggiungere PHP, Python, Go, Ruby o Java.",
   "Tooling container (dotnet, dotnet-ef), optionally running a .NET server on its own port. Removing it only removes the container; the code stays in the project directory.": "Container di strumenti (dotnet, dotnet-ef), facoltativamente con un server .NET sulla propria porta. Rimuoverlo rimuove solo il container; il codice resta nella cartella del progetto.",
   "User (.NET)": "Utente (.NET)",
-  "VS Code with the C# extension (it needs a .NET SDK on your computer) debugs with Microsoft's vsdbg, which may only be used with Microsoft's tools, so Envoryx doesn't ship it. Install it once in the .NET terminal; it stays in the project home:": "VS Code con l'estensione C# (richiede un SDK .NET sul tuo computer) esegue il debug con vsdbg di Microsoft, che può essere usato solo con gli strumenti Microsoft, perciò Envoryx non lo include. Installalo una volta nel terminale .NET; resta nella home del progetto:",
   "Then this launch.json, and pick the application's process (named after the project, not dotnet watch). requireExactSource is off, since vsdbg otherwise refuses breakpoints in the files on your computer:": "Poi questo launch.json, e scegli il processo dell'applicazione (con il nome del progetto, non dotnet watch). requireExactSource è disattivato, perché altrimenti vsdbg rifiuta i breakpoint nei file sul tuo computer:",
   "Work on the project inside its .NET container from your IDE. Rider: File → Remote Development → SSH (JetBrains Gateway) with the values below opens the project at /var/www/html with the container's SDK. VS Code: Remote-SSH, then C# Dev Kit. Plain terminal: ssh.": "Lavora sul progetto nel suo container .NET dal tuo IDE. Rider: File → Remote Development → SSH (JetBrains Gateway) con i valori qui sotto apre il progetto in /var/www/html con l'SDK del container. VS Code: Remote-SSH, poi C# Dev Kit. Terminale semplice: ssh.",
   "dotnet watch: code changes are applied with hot reload, the application restarts when they can't be.": "dotnet watch: le modifiche al codice vengono applicate con hot reload; l'applicazione si riavvia quando non è possibile.",
@@ -3026,5 +3025,13 @@
   "Delete a project or ask your hoster for a larger plan.": "Elimina un progetto o chiedi al tuo hoster un piano più grande.",
   "More runtimes aren't included in your plan. Your hoster can include them.": "Il tuo piano non include altri runtime. Il tuo hoster può aggiungerli.",
   "The plan's user limit is reached.": "Il limite di utenti del piano è raggiunto.",
-  "Disable or delete a user, or ask your hoster for a larger plan.": "Disattiva o elimina un utente, oppure chiedi al tuo hoster un piano più grande."
+  "Disable or delete a user, or ask your hoster for a larger plan.": "Disattiva o elimina un utente, oppure chiedi al tuo hoster un piano più grande.",
+  "VS Code with the C# extension (it needs a .NET SDK on your computer) debugs with Microsoft's vsdbg. Its licence allows it only with Microsoft's tools, so Envoryx doesn't ship it; the button downloads it from Microsoft into the project home, where it stays.": "VS Code con l'estensione C# (richiede un SDK .NET sul tuo computer) esegue il debug con vsdbg di Microsoft. La sua licenza lo consente solo con gli strumenti di Microsoft, quindi Envoryx non lo include; il pulsante lo scarica da Microsoft nella home del progetto, dove resta.",
+  "vsdbg {{version}} installed": "vsdbg {{version}} installato",
+  "vsdbg not installed": "vsdbg non installato",
+  "Downloading…": "Download in corso…",
+  "Update vsdbg": "Aggiorna vsdbg",
+  "Install vsdbg": "Installa vsdbg",
+  "Or in the .NET terminal:": "Oppure nel terminale .NET:",
+  "Download Microsoft's debugger for VS Code into the project home (licensed for Microsoft's tools only)": "Scarica il debugger di Microsoft per VS Code nella home del progetto (licenza solo per gli strumenti di Microsoft)"
 }

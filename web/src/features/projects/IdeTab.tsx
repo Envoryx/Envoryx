@@ -16,6 +16,7 @@ import { proxyUrl } from "./DomainsTab";
 import { errorText } from "@/lib/errors";
 import { projectAccess } from "@/lib/access";
 import { hostPathOf } from "@/lib/hostPath";
+import { VsdbgInstall } from "./Vsdbg";
 
 /** Everything an IDE needs, ready to copy: SFTP deployment, SSH interpreter, Xdebug server, database, mail. */
 export function IdeTab({ project: p }: { project: Project }) {
@@ -526,8 +527,7 @@ export function IdeTab({ project: p }: { project: Project }) {
               <CopyRow label={t("SSH user")} value={runtimeCount > 1 ? `${p.slug}.dotnet` : p.slug} />
               <CopyRow label={t("Path mapping")} value={`${hostDir} → /var/www/html`} />
             </dl>
-            <p className="mt-3 text-xs text-muted">{t("VS Code with the C# extension (it needs a .NET SDK on your computer) debugs with Microsoft's vsdbg, which may only be used with Microsoft's tools, so Envoryx doesn't ship it. Install it once in the .NET terminal; it stays in the project home:")}</p>
-            <pre className="mt-1 overflow-x-auto rounded-md bg-muted p-2 font-mono text-[11px]">{dotnetVsdbgInstall}</pre>
+            <VsdbgInstall project={p} manualCommand={dotnetVsdbgInstall} />
             <p className="mt-3 text-xs text-muted">{t("Then this launch.json, and pick the application's process (named after the project, not dotnet watch). requireExactSource is off, since vsdbg otherwise refuses breakpoints in the files on your computer:")}</p>
             <pre className="mt-1 overflow-x-auto rounded-md bg-muted p-2 font-mono text-[11px]">{dotnetLaunchJson(sshHost, ssh?.port, runtimeCount > 1 ? `${p.slug}.dotnet` : p.slug)}</pre>
             <p className="mt-3 text-xs text-muted">{t("Rider: switch on “Allow JetBrains Gateway for this project” first, since Rider's debugger talks to the IDE through SSH port forwarding. Then Run → Attach to Remote Process…, add an SSH connection with the values above and pick the application's process; Rider brings its own debugger. Behind JetBrains Gateway, Rider debugs like a local project.")}</p>

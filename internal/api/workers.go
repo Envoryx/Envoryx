@@ -102,3 +102,13 @@ func (a *API) restartWorker(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
+
+// vsdbg reports the vsdbg version in the project home: GET /projects/{id}/ide/vsdbg.
+func (a *API) vsdbg(w http.ResponseWriter, r *http.Request) {
+	v, err := a.d.Projects.VsdbgVersion(r.Context(), r.PathValue("id"))
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"version": v})
+}

@@ -94,6 +94,11 @@ describe(".NET card", () => {
 });
 
 describe("IDE tab for .NET", () => {
+  beforeEach(() => {
+    vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
   it("names the .NET SSH user and shows the vsdbg launch configuration", async () => {
     const project = makeProject({
       slug: "acme-api",
@@ -109,9 +114,14 @@ describe("IDE tab for .NET", () => {
       ...authedRoutes,
       "GET /settings": () => ({ body: { publicHost: "192.168.1.10", baseDomain: "test", forceHttps: false, proxy: { ...proxy, address: "192.168.1.10" }, ssh: { enabled: true, port: 2222, fingerprint: "SHA256:abc", fingerprintMd5: "MD5:a4:14" }, projectsDir: "/projects", hostPath: { overrides: {}, detected: {}, bareMetal: false } } }),
       [`GET /projects/${id}/extras`]: () => ({ body: { services: [] } }),
+      [`GET /projects/${id}/ide/vsdbg`]: () => ({ body: { version: "" } }),
+      [`GET /projects/${id}/actions`]: () => ({ body: { actions: [{ id: "dotnet:vsdbg", group: ".NET", label: "Install vsdbg", description: "", service: "dotnet", cmd: ["sh"], requires: [], destructive: false, available: true }] } }),
     });
     renderApp(<IdeTab project={project} />);
     expect(await screen.findByText(".NET debugging")).toBeInTheDocument();
+    // Not installed yet: the button downloads it.
+    expect(await screen.findByText("vsdbg not installed")).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Install vsdbg" })).toBeEnabled();
     expect(screen.getAllByText("acme-api.dotnet").length).toBeGreaterThan(0);
     // Once the settings are in, the pipe connects to the SSH address as the .NET user.
     const launch = await screen.findByText(/"acme-api\.dotnet@192\.168\.1\.10"/);
@@ -119,5 +129,25 @@ describe("IDE tab for .NET", () => {
     expect(launch.textContent).toContain('"debuggerPath": "/home/envoryx/.vsdbg/vsdbg"');
     expect(launch.textContent).toContain('"requireExactSource": false');
     expect(screen.getByText(/getvsdbgsh/)).toBeInTheDocument();
+  });
+
+  it("shows an installed vsdbg and offers the update", async () => {
+    const project = makeProject({
+      serves: "dotnet",
+      appService: "dotnet",
+      services: [{ kind: "dotnet", variant: "dotnet", version: "10", image: "ghcr.io/envoryx/envoryx-dotnet:10", enabled: true, config: { server: true } }],
+    });
+    mockApi({
+      ...authedRoutes,
+      "GET /settings": () => ({ body: { baseDomain: "test", forceHttps: false, proxy, ssh: { enabled: true, port: 2222 }, projectsDir: "/projects", hostPath: { overrides: {}, detected: {}, bareMetal: false } } }),
+      [`GET /projects/${id}/extras`]: () => ({ body: { services: [] } }),
+      [`GET /projects/${id}/ide/vsdbg`]: () => ({ body: { version: "18.10.10709.3" } }),
+      [`GET /projects/${id}/actions`]: () => ({ body: { actions: [{ id: "dotnet:vsdbg", group: ".NET", label: "Install vsdbg", description: "", service: "dotnet", cmd: ["sh"], requires: [], destructive: false, available: false, reason: "the dotnet container is not running" }] } }),
+    });
+    renderApp(<IdeTab project={project} />);
+    expect(await screen.findByText("vsdbg 18.10.10709.3 installed")).toBeInTheDocument();
+    // The container isn't running: the button waits and says why.
+    expect(await screen.findByRole("button", { name: "Update vsdbg" })).toBeDisabled();
+    expect(screen.getByText("the dotnet container is not running")).toBeInTheDocument();
   });
 });
