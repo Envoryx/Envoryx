@@ -10,12 +10,12 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.31.0] - 2026-10-12
+
+More of Envoryx from the command line: workers and cron jobs, API tokens
+and instance backups.
+
 ### Added
-- `envoryx worker …` and `envoryx cron …` in the command line: list, add,
-  edit, enable, disable and remove workers and cron jobs, restart a worker,
-  see a job's runs and their output, and run a job now. `cron run --wait`
-  prints the output and exits with the command's exit code, so a script
-  or a CI job can wait for it.
 - `envoryx admin tokens`, `admin create-token` and `admin revoke-token`
   list, create and revoke API tokens from a shell in the container, for
   scripts that set up a CI job or an assistant. API tokens still can't
@@ -24,6 +24,11 @@ release). `:main` follows the development branch.
   list, create, download, upload, delete, restore (with `--wait` until
   Envoryx is back, and `--key-file` for a backup made with another key),
   cancel a scheduled restore, and copy them to and from offsite targets.
+- `envoryx worker …` and `envoryx cron …` in the command line: list, add,
+  edit, enable, disable and remove workers and cron jobs, restart a worker,
+  see a job's runs and their output, and run a job now. `cron run --wait`
+  prints the output and exits with the command's exit code, so a script
+  or a CI job can wait for it.
 
 ### Fixed
 - `envoryx admin revoke-tokens` refuses arguments: `revoke-tokens ci`
@@ -2226,7 +2231,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.30.0...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.31.0...HEAD
+[0.31.0]: https://github.com/envoryx/envoryx/compare/v0.30.0...v0.31.0
 [0.30.0]: https://github.com/envoryx/envoryx/compare/v0.29.1...v0.30.0
 [0.29.1]: https://github.com/envoryx/envoryx/compare/v0.29.0...v0.29.1
 [0.29.0]: https://github.com/envoryx/envoryx/compare/v0.28.0...v0.29.0
