@@ -10,6 +10,8 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.34.1] - 2026-10-12
+
 ### Fixed
 - `envoryx admin tokens` (and `create-token --project`, `revoke-token`) failed with "the
   value was encrypted with a key Envoryx does not have" once a project stored a secret: the
@@ -2283,7 +2285,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.34.0...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.34.1...HEAD
+[0.34.1]: https://github.com/envoryx/envoryx/compare/v0.34.0...v0.34.1
 [0.34.0]: https://github.com/envoryx/envoryx/compare/v0.33.1...v0.34.0
 [0.33.1]: https://github.com/envoryx/envoryx/compare/v0.33.0...v0.33.1
 [0.33.0]: https://github.com/envoryx/envoryx/compare/v0.32.0...v0.33.0
