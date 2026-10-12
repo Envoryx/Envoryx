@@ -16,6 +16,14 @@ release). `:main` follows the development branch.
   see a job's runs and their output, and run a job now. `cron run --wait`
   prints the output and exits with the command's exit code, so a script
   or a CI job can wait for it.
+- `envoryx admin tokens`, `admin create-token` and `admin revoke-token`
+  list, create and revoke API tokens from a shell in the container, for
+  scripts that set up a CI job or an assistant. API tokens still can't
+  manage tokens over the API.
+
+### Fixed
+- `envoryx admin revoke-tokens` refuses arguments: `revoke-tokens ci`
+  revoked every token instead of the one named.
 
 ## [0.30.0] - 2026-10-11
 
