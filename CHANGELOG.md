@@ -10,6 +10,8 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.34.0] - 2026-10-12
+
 ### Added
 - The licence texts of the third-party software in Envoryx: *Third-party licenses* on the
   logo's page, and `/usr/share/doc/envoryx/` in the image. `images/SOURCES.md` says where
@@ -2272,7 +2274,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.33.1...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.34.0...HEAD
+[0.34.0]: https://github.com/envoryx/envoryx/compare/v0.33.1...v0.34.0
 [0.33.1]: https://github.com/envoryx/envoryx/compare/v0.33.0...v0.33.1
 [0.33.0]: https://github.com/envoryx/envoryx/compare/v0.32.0...v0.33.0
 [0.32.0]: https://github.com/envoryx/envoryx/compare/v0.31.0...v0.32.0
