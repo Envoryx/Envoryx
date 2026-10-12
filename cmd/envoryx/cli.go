@@ -97,6 +97,11 @@ Databases:
                                         (every db command takes --db NAME for an
                                         additional database; clone also --source-db)
 
+Domains (beyond <slug>.<base domain>):
+  domain list <project>
+  domain add <project> <hostname>
+  domain remove <project> <hostname>
+
 Workers and cron jobs:
   worker list <project>                 its workers with their state and command
   worker presets <project>              what a worker can run, the suggested one marked
@@ -134,6 +139,8 @@ Instance (admin token):
   docker orphans [--refresh]            containers, networks and volumes projects
                                         left behind
   docker remove <type> <name> --yes     remove one of them
+  settings                              the instance settings the CLI can change
+  settings set NAME=VALUE …             change them ("settings set" lists the names)
 
 Access:
   login [--url URL] [--token TOKEN]     remember the server and the token
@@ -275,6 +282,10 @@ func (c *cli) run(ctx context.Context, args []string) error {
 		return c.audit(ctx, rest)
 	case "docker":
 		return c.dockerCommand(ctx, rest)
+	case "settings":
+		return c.settingsCommand(ctx, rest)
+	case "domain", "domains":
+		return c.domainCommand(ctx, rest)
 	default:
 		return usagef("unknown command %q", cmd)
 	}

@@ -20,6 +20,10 @@ release). `:main` follows the development branch.
 - `envoryx docker images` and `docker prune` list and remove the Envoryx
   images no project uses; `docker orphans` and `docker remove` do the
   same for containers, networks and volumes projects left behind.
+- `envoryx settings` shows the instance settings and `settings set
+  NAME=VALUE …` changes them (host for project links, base domain, HTTPS
+  redirect, retention, the SSH server's keys and more); `envoryx domain
+  list|add|remove` manages a project's extra domains.
 
 ## [0.31.0] - 2026-10-12
 
