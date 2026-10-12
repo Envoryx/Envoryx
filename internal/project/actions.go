@@ -136,6 +136,11 @@ var actionCatalog = []Action{
 	{ID: "dotnet:clean", Group: ".NET", Label: "dotnet clean", Description: "Delete the build output", Service: store.ServiceDotnet, Cmd: []string{"dotnet", "clean"}, Requires: []string{dotnetBuildFiles}},
 	{ID: "dotnet:format", Group: ".NET", Label: "dotnet format", Description: "Format the code by the .editorconfig rules", Service: store.ServiceDotnet, Cmd: []string{"dotnet", "format"}, Requires: []string{dotnetBuildFiles}},
 	{ID: "dotnet:outdated", Group: ".NET", Label: "dotnet list package --outdated", Description: "List the NuGet packages with newer versions", Service: store.ServiceDotnet, Cmd: []string{"dotnet", "list", "package", "--outdated"}, Requires: []string{dotnetBuildFiles}},
+	// vsdbg may only be used with Microsoft's tools, so the image doesn't ship it; this runs
+	// Microsoft's own install script, which downloads it from Microsoft into the project
+	// home. Run again, it updates an older version.
+	{ID: VsdbgAction, Group: ".NET", Label: "Install vsdbg", Description: "Download Microsoft's debugger for VS Code into the project home (licensed for Microsoft's tools only)", Service: store.ServiceDotnet,
+		Cmd: []string{"sh", "-c", "curl -sSfL https://aka.ms/getvsdbgsh | sh /dev/stdin -v latest -l " + vsdbgDir}},
 	// dotnet-ef ships in the image; the project needs Microsoft.EntityFrameworkCore.Design.
 	{ID: "ef:database-update", Group: "Entity Framework", Label: "dotnet ef database update", Description: "Apply pending migrations to the project database", Service: store.ServiceDotnet, Cmd: []string{"dotnet", "ef", "database", "update"}, Requires: []string{dotnetProjectFiles}},
 	{ID: "ef:migrations-list", Group: "Entity Framework", Label: "dotnet ef migrations list", Description: "List the migrations and whether they are applied", Service: store.ServiceDotnet, Cmd: []string{"dotnet", "ef", "migrations", "list"}, Requires: []string{dotnetProjectFiles}},

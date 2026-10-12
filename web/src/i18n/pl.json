@@ -2420,7 +2420,6 @@
   "The server becomes the container's main process (restarted automatically) on a direct host port; the project URL keeps reaching PHP, Python, Go, Ruby or Java.": "Serwer staje się głównym procesem kontenera (restartowanym automatycznie) na bezpośrednim porcie hosta; URL projektu nadal prowadzi do PHP, Pythona, Go, Ruby lub Javy.",
   "Tooling container (dotnet, dotnet-ef), optionally running a .NET server on its own port. Removing it only removes the container; the code stays in the project directory.": "Kontener narzędzi (dotnet, dotnet-ef), opcjonalnie z serwerem .NET na własnym porcie. Usunięcie usuwa tylko kontener; kod zostaje w folderze projektu.",
   "User (.NET)": "Użytkownik (.NET)",
-  "VS Code with the C# extension (it needs a .NET SDK on your computer) debugs with Microsoft's vsdbg, which may only be used with Microsoft's tools, so Envoryx doesn't ship it. Install it once in the .NET terminal; it stays in the project home:": "VS Code z rozszerzeniem C# (wymaga zestawu .NET SDK na twoim komputerze) debuguje za pomocą vsdbg Microsoftu, którego wolno używać tylko z narzędziami Microsoftu, dlatego Envoryx go nie dołącza. Zainstaluj go raz w terminalu .NET; zostaje w katalogu domowym projektu:",
   "Then this launch.json, and pick the application's process (named after the project, not dotnet watch). requireExactSource is off, since vsdbg otherwise refuses breakpoints in the files on your computer:": "Potem ten launch.json i wybierz proces aplikacji (nazwany jak projekt, nie dotnet watch). requireExactSource jest wyłączone, bo inaczej vsdbg odrzuca punkty przerwania w plikach na twoim komputerze:",
   "Work on the project inside its .NET container from your IDE. Rider: File → Remote Development → SSH (JetBrains Gateway) with the values below opens the project at /var/www/html with the container's SDK. VS Code: Remote-SSH, then C# Dev Kit. Plain terminal: ssh.": "Pracuj nad projektem w jego kontenerze .NET z poziomu IDE. Rider: File → Remote Development → SSH (JetBrains Gateway) z poniższymi wartościami otwiera projekt w /var/www/html z SDK kontenera. VS Code: Remote-SSH, potem C# Dev Kit. Zwykły terminal: ssh.",
   "dotnet watch: code changes are applied with hot reload, the application restarts when they can't be.": "dotnet watch: zmiany w kodzie są nanoszone przez hot reload; gdy się nie da, aplikacja się restartuje.",
@@ -3074,5 +3073,13 @@
   "Delete a project or ask your hoster for a larger plan.": "Usuń projekt albo poproś hosting o większy plan.",
   "More runtimes aren't included in your plan. Your hoster can include them.": "Twój plan nie obejmuje innych środowisk uruchomieniowych. Twój hosting może je dodać.",
   "The plan's user limit is reached.": "Osiągnięto limit użytkowników planu.",
-  "Disable or delete a user, or ask your hoster for a larger plan.": "Wyłącz lub usuń użytkownika albo poproś hosting o większy plan."
+  "Disable or delete a user, or ask your hoster for a larger plan.": "Wyłącz lub usuń użytkownika albo poproś hosting o większy plan.",
+  "VS Code with the C# extension (it needs a .NET SDK on your computer) debugs with Microsoft's vsdbg. Its licence allows it only with Microsoft's tools, so Envoryx doesn't ship it; the button downloads it from Microsoft into the project home, where it stays.": "VS Code z rozszerzeniem C# (potrzebuje .NET SDK na twoim komputerze) debuguje za pomocą vsdbg od Microsoftu. Jego licencja pozwala na to tylko z narzędziami Microsoftu, dlatego Envoryx go nie dołącza; przycisk pobiera go od Microsoftu do katalogu domowego projektu, gdzie zostaje.",
+  "vsdbg {{version}} installed": "vsdbg {{version}} zainstalowany",
+  "vsdbg not installed": "vsdbg nie jest zainstalowany",
+  "Downloading…": "Pobieranie…",
+  "Update vsdbg": "Zaktualizuj vsdbg",
+  "Install vsdbg": "Zainstaluj vsdbg",
+  "Or in the .NET terminal:": "Albo w terminalu .NET:",
+  "Download Microsoft's debugger for VS Code into the project home (licensed for Microsoft's tools only)": "Pobierz debuger Microsoftu dla VS Code do katalogu domowego projektu (licencja tylko dla narzędzi Microsoftu)"
 }

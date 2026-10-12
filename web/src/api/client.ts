@@ -409,6 +409,7 @@ export const api = {
     remove: (id: string, confirm: string, deleteFiles: boolean) =>
       request<void>(`/projects/${encodeURIComponent(id)}`, { method: "DELETE", body: { confirm, deleteFiles } }),
     stopIDEBackend: (id: string) => request<{ stopped: number }>(`/projects/${encodeURIComponent(id)}/ide/stop-backend`, { method: "POST" }),
+    vsdbg: (id: string) => request<{ version: string }>(`/projects/${encodeURIComponent(id)}/ide/vsdbg`),
     workers: {
       list: (id: string) => request<{ workers: Worker[]; presets: WorkerPreset[]; suggestedPreset?: string }>(`/projects/${encodeURIComponent(id)}/workers`),
       add: (id: string, body: WorkerRequest) => request<{ worker: Worker }>(`/projects/${encodeURIComponent(id)}/workers`, { method: "POST", body }),

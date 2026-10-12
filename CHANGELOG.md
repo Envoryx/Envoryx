@@ -10,6 +10,13 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Added
+- *Install vsdbg* in a .NET project's IDE section downloads Microsoft's
+  debugger for VS Code into the project home with Microsoft's own script,
+  shows its output and then the installed version; run again, it updates
+  it. Also as the action `dotnet:vsdbg`. Envoryx still doesn't ship
+  vsdbg, whose licence allows it only with Microsoft's tools.
+
 ## [0.32.0] - 2026-10-12
 
 The rest of the administration on the command line: diagnostics, the

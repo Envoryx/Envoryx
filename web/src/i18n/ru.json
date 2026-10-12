@@ -2420,7 +2420,6 @@
   "The server becomes the container's main process (restarted automatically) on a direct host port; the project URL keeps reaching PHP, Python, Go, Ruby or Java.": "Сервер становится основным процессом контейнера (перезапускается автоматически) на прямом порту хоста; URL проекта по-прежнему ведёт к PHP, Python, Go, Ruby или Java.",
   "Tooling container (dotnet, dotnet-ef), optionally running a .NET server on its own port. Removing it only removes the container; the code stays in the project directory.": "Контейнер инструментов (dotnet, dotnet-ef), при желании с сервером .NET на отдельном порту. Удаление убирает только контейнер; код остаётся в папке проекта.",
   "User (.NET)": "Пользователь (.NET)",
-  "VS Code with the C# extension (it needs a .NET SDK on your computer) debugs with Microsoft's vsdbg, which may only be used with Microsoft's tools, so Envoryx doesn't ship it. Install it once in the .NET terminal; it stays in the project home:": "VS Code с расширением C# (ему нужен .NET SDK на вашем компьютере) отлаживает с помощью vsdbg от Microsoft, который можно использовать только с инструментами Microsoft, поэтому Envoryx его не поставляет. Установите его один раз в терминале .NET; он останется в домашнем каталоге проекта:",
   "Then this launch.json, and pick the application's process (named after the project, not dotnet watch). requireExactSource is off, since vsdbg otherwise refuses breakpoints in the files on your computer:": "Затем этот launch.json, и выберите процесс приложения (назван по проекту, не dotnet watch). requireExactSource выключен, потому что иначе vsdbg отклоняет точки останова в файлах на вашем компьютере:",
   "Work on the project inside its .NET container from your IDE. Rider: File → Remote Development → SSH (JetBrains Gateway) with the values below opens the project at /var/www/html with the container's SDK. VS Code: Remote-SSH, then C# Dev Kit. Plain terminal: ssh.": "Работайте над проектом внутри его контейнера .NET из своей IDE. Rider: File → Remote Development → SSH (JetBrains Gateway) с данными ниже открывает проект в /var/www/html с SDK контейнера. VS Code: Remote-SSH, затем C# Dev Kit. Обычный терминал: ssh.",
   "dotnet watch: code changes are applied with hot reload, the application restarts when they can't be.": "dotnet watch: изменения кода применяются через hot reload; если это невозможно, приложение перезапускается.",
@@ -3074,5 +3073,13 @@
   "Delete a project or ask your hoster for a larger plan.": "Удалите проект или попросите хостера о тарифе побольше.",
   "More runtimes aren't included in your plan. Your hoster can include them.": "Другие среды выполнения не входят в ваш тариф. Хостер может их добавить.",
   "The plan's user limit is reached.": "Достигнут лимит пользователей тарифа.",
-  "Disable or delete a user, or ask your hoster for a larger plan.": "Отключите или удалите пользователя либо попросите хостера о тарифе побольше."
+  "Disable or delete a user, or ask your hoster for a larger plan.": "Отключите или удалите пользователя либо попросите хостера о тарифе побольше.",
+  "VS Code with the C# extension (it needs a .NET SDK on your computer) debugs with Microsoft's vsdbg. Its licence allows it only with Microsoft's tools, so Envoryx doesn't ship it; the button downloads it from Microsoft into the project home, where it stays.": "VS Code с расширением C# (ему нужен .NET SDK на вашем компьютере) отлаживает с помощью vsdbg от Microsoft. Его лицензия разрешает это только с инструментами Microsoft, поэтому Envoryx его не поставляет; кнопка скачивает его у Microsoft в домашний каталог проекта, где он и остаётся.",
+  "vsdbg {{version}} installed": "vsdbg {{version}} установлен",
+  "vsdbg not installed": "vsdbg не установлен",
+  "Downloading…": "Загрузка…",
+  "Update vsdbg": "Обновить vsdbg",
+  "Install vsdbg": "Установить vsdbg",
+  "Or in the .NET terminal:": "Или в терминале .NET:",
+  "Download Microsoft's debugger for VS Code into the project home (licensed for Microsoft's tools only)": "Скачать отладчик Microsoft для VS Code в домашний каталог проекта (лицензия только для инструментов Microsoft)"
 }
