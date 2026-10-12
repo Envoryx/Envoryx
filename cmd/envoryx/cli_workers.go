@@ -170,11 +170,22 @@ func (c *cli) workerPresets(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
+	// A preset runs in the runtime it names; only those the project has are offered, as
+	// in the web interface.
 	rows := make([][]string, 0, len(list.Presets))
+	suggested := false
 	for _, pr := range list.Presets {
+		runtime := pr.Runtime
+		if runtime == "" {
+			runtime = "php"
+		}
+		if !p.hasService(runtime) {
+			continue
+		}
 		id := pr.ID
 		if pr.ID == list.SuggestedPreset {
 			id += " *"
+			suggested = true
 		}
 		argument := ""
 		if pr.ArgLabel != "" {
@@ -185,8 +196,12 @@ func (c *cli) workerPresets(ctx context.Context, args []string) error {
 		}
 		rows = append(rows, []string{id, pr.Description, argument})
 	}
+	if len(rows) == 0 {
+		c.printf("No preset fits %s: it has no runtime a worker can run in.\n", p.Slug)
+		return nil
+	}
 	c.table([]string{"PRESET", "RUNS", "--ARG"}, rows)
-	if list.SuggestedPreset != "" {
+	if suggested {
 		c.printf("\n* suggested for %s\n", p.Slug)
 	}
 	return nil

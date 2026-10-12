@@ -247,6 +247,15 @@ func cliCommand(ctx context.Context, args []string) int {
 }
 
 func (c *cli) run(ctx context.Context, args []string) error {
+	// Global flags may also come before the command.
+	fs := c.newFlags("envoryx")
+	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return errCLIUsage
+		}
+		return usagef("%v", err)
+	}
+	args = fs.Args()
 	if len(args) == 0 {
 		return errCLIUsage
 	}
@@ -294,16 +303,28 @@ func (c *cli) run(ctx context.Context, args []string) error {
 // ---- flags and configuration -------------------------------------------------
 
 // newFlags returns a flag set carrying the global flags; every command adds its own.
+// newFlags returns a flag set with the global flags. Their defaults are the values so far,
+// so flags given before the command ("envoryx --json project list") stay in force.
 func (c *cli) newFlags(name string) *flag.FlagSet {
 	fs := flag.NewFlagSet(name, flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
-	fs.StringVar(&c.flags.URL, "url", "", "Envoryx address")
-	fs.StringVar(&c.flags.Token, "token", "", "API token")
-	fs.StringVar(&c.flags.CACert, "ca-cert", "", "certificate authority to trust")
-	fs.BoolVar(&c.flags.Insecure, "insecure", false, "do not verify the server certificate")
-	fs.BoolVar(&c.json, "json", false, "print JSON")
-	fs.DurationVar(&c.timeout, "timeout", 0, "give up after this long")
+	fs.StringVar(&c.flags.URL, "url", c.flags.URL, "Envoryx address")
+	fs.StringVar(&c.flags.Token, "token", c.flags.Token, "API token")
+	fs.StringVar(&c.flags.CACert, "ca-cert", c.flags.CACert, "certificate authority to trust")
+	fs.BoolVar(&c.flags.Insecure, "insecure", c.flags.Insecure, "do not verify the server certificate")
+	fs.BoolVar(&c.json, "json", c.json, "print JSON")
+	fs.DurationVar(&c.timeout, "timeout", c.timeout, "give up after this long")
 	return fs
+}
+
+// hasService tells whether the project has a service of this kind switched on.
+func (p projectSummary) hasService(kind string) bool {
+	for _, s := range p.Services {
+		if s.Kind == kind && s.Enabled {
+			return true
+		}
+	}
+	return false
 }
 
 // parse reads flags that may stand before, between or after the positional arguments,
@@ -529,7 +550,12 @@ type projectSummary struct {
 	Hostnames    []string `json:"hostnames"`
 	DevHostname  string   `json:"devHostname"`
 	Address      string   `json:"url"`
-	Status       struct {
+	// Services are the configured services; Status.Services are the containers.
+	Services []struct {
+		Kind    string `json:"kind"`
+		Enabled bool   `json:"enabled"`
+	} `json:"services"`
+	Status struct {
 		State    string   `json:"state"`
 		Warnings []string `json:"warnings"`
 		Services []struct {
