@@ -10,13 +10,18 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.32.0] - 2026-10-12
+
+The rest of the administration on the command line: diagnostics, the
+audit log, Docker clean-up, instance settings and project domains.
+
 ### Added
-- `envoryx diagnostics` prints what *Settings → Diagnostics* finds and
-  exits with 1 when a check is in error (`--strict`: also on a warning),
-  for monitoring jobs.
 - `envoryx audit` lists the audit log with the web interface's filters
   (`--user`, `--action`, `--project`, `--since`, `--until`, `--search`)
   and `--export csv|jsonl` writes every matching entry.
+- `envoryx diagnostics` prints what *Settings → Diagnostics* finds and
+  exits with 1 when a check is in error (`--strict`: also on a warning),
+  for monitoring jobs.
 - `envoryx docker images` and `docker prune` list and remove the Envoryx
   images no project uses; `docker orphans` and `docker remove` do the
   same for containers, networks and volumes projects left behind.
@@ -2246,7 +2251,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.31.0...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.32.0...HEAD
+[0.32.0]: https://github.com/envoryx/envoryx/compare/v0.31.0...v0.32.0
 [0.31.0]: https://github.com/envoryx/envoryx/compare/v0.30.0...v0.31.0
 [0.30.0]: https://github.com/envoryx/envoryx/compare/v0.29.1...v0.30.0
 [0.29.1]: https://github.com/envoryx/envoryx/compare/v0.29.0...v0.29.1
