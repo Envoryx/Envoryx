@@ -1743,6 +1743,21 @@ container, unpack the archive (`envoryx.db` to `/config/envoryx.db`, deleting
 again. If the backup was made with another key, give that key for this start
 as `ENVORYX_SECRET_KEY_OLD` (see [Secret key](#secret-key)).
 
+From the command line (admin token):
+
+```sh
+envoryx instance backup --note "before the update" [--offsite]
+envoryx instance backups                             # with offsite state and a scheduled restore
+envoryx instance download <backup> [-o FILE]         # written with mode 0600
+envoryx instance upload envoryx-<backup>.tar.gz      # on the new host
+envoryx instance restore <backup> --yes --wait       # --key-file FILE for another key
+envoryx instance cancel-restore
+envoryx instance offsite|remote|fetch …              # like envoryx backup
+```
+
+`restore --wait` returns when a new Envoryx process answers. The restored
+database brings its own tokens, so the one that asked may not work any more.
+
 Still include `/config`, `/projects` and the backups directory in your regular
 off-machine backup (e.g. the Unraid Appdata Backup plugin or an rsync job), or
 set up an offsite target.
@@ -2933,6 +2948,7 @@ envoryx project exec shop -- composer install         # any command, any contain
 envoryx project run shop                              # list the catalogue actions
 envoryx project run shop artisan:migrate              # run one, with live output
 envoryx backup list|create|restore|download|delete shop
+envoryx instance backups|backup|download|upload|restore … # Envoryx itself (see Instance backups)
 envoryx db snapshot shop --note "before a migration"  # the database alone
 envoryx db snapshots shop                             # what there is to go back to
 envoryx db restore shop <snapshot> --yes              # put one back

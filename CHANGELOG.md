@@ -20,6 +20,10 @@ release). `:main` follows the development branch.
   list, create and revoke API tokens from a shell in the container, for
   scripts that set up a CI job or an assistant. API tokens still can't
   manage tokens over the API.
+- `envoryx instance …` handles instance backups from the command line:
+  list, create, download, upload, delete, restore (with `--wait` until
+  Envoryx is back, and `--key-file` for a backup made with another key),
+  cancel a scheduled restore, and copy them to and from offsite targets.
 
 ### Fixed
 - `envoryx admin revoke-tokens` refuses arguments: `revoke-tokens ci`

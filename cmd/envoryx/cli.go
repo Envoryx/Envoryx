@@ -73,6 +73,21 @@ Backups:
                                         restore it into a new project (--path DIR,
                                         --start; needs an admin token)
 
+Instance backups (Envoryx's own database and configuration; admin token):
+  instance backups                      the instance backups and a scheduled restore
+  instance backup [--note TEXT]         create one (--offsite copies it right away)
+  instance download <backup> [-o FILE]
+  instance upload <file>                add a downloaded one to the list
+  instance restore <backup> --yes       restore it; Envoryx restarts to apply it
+                                        (--wait waits for it, --key-file FILE when it
+                                        was made with another secret key)
+  instance cancel-restore               drop a scheduled restore
+  instance delete <backup> --yes
+  instance offsite <backup>             copy it to the offsite targets
+  instance remote                       the instance backups on an offsite target
+  instance fetch <backup>               copy one back (--target NAME when there
+                                        are several)
+
 Databases:
   db snapshot <project> [--note TEXT]   dump the database and nothing else
   db snapshots <project>                the snapshots there are
@@ -239,6 +254,8 @@ func (c *cli) run(ctx context.Context, args []string) error {
 		return c.workerCommand(ctx, rest)
 	case "cron":
 		return c.cronCommand(ctx, rest)
+	case "instance":
+		return c.instanceCommand(ctx, rest)
 	default:
 		return usagef("unknown command %q", cmd)
 	}
