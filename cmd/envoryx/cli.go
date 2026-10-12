@@ -129,6 +129,11 @@ Instance (admin token):
                                         PREFIX, --project, --since, --until, --search,
                                         --limit; --export csv|jsonl [-o FILE] writes
                                         every matching entry
+  docker images                         Envoryx images no project uses any more
+  docker prune --yes                    remove them
+  docker orphans [--refresh]            containers, networks and volumes projects
+                                        left behind
+  docker remove <type> <name> --yes     remove one of them
 
 Access:
   login [--url URL] [--token TOKEN]     remember the server and the token
@@ -268,6 +273,8 @@ func (c *cli) run(ctx context.Context, args []string) error {
 		return c.diagnostics(ctx, rest)
 	case "audit":
 		return c.audit(ctx, rest)
+	case "docker":
+		return c.dockerCommand(ctx, rest)
 	default:
 		return usagef("unknown command %q", cmd)
 	}
