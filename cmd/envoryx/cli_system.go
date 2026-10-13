@@ -8,10 +8,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -128,7 +126,7 @@ func (c *cli) audit(ctx context.Context, args []string) error {
 	until := fs.String("until", "", "up to and including this date, or up to this time")
 	limit := fs.Int("limit", 50, "how many entries (at most 1000)")
 	export := fs.String("export", "", "every matching entry as csv or jsonl")
-	output := fs.String("o", "", "file for --export (default: its name from the server; \"-\" is stdout)")
+	output := fs.String("o", "", "file for --export (default: its name from the server, not over an existing file; \"-\" is stdout)")
 	pos, err := parse(fs, args)
 	if err != nil {
 		return err
@@ -204,26 +202,7 @@ func (c *cli) auditExport(ctx context.Context, api *client, q url.Values, target
 		return err
 	}
 	defer resp.Body.Close()
-	if target == "" {
-		target = filenameFromResponse(resp.Header.Get("Content-Disposition"), "envoryx-audit."+q.Get("format"))
-	}
-	if target == "-" {
-		_, err := io.Copy(c.out, resp.Body)
-		return err
-	}
-	f, err := os.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
-	if err != nil {
-		return err
-	}
-	written, err := io.Copy(f, resp.Body)
-	if cerr := f.Close(); err == nil {
-		err = cerr
-	}
-	if err != nil {
-		return err
-	}
-	c.printf("Wrote %s (%s)\n", target, humanSize(written))
-	return nil
+	return c.saveDownload(resp, target, "envoryx-audit."+q.Get("format"), 0o600)
 }
 
 // looksLikeID tells an id (a UUID) from a name.

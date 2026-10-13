@@ -25,6 +25,11 @@ release). `:main` follows the development branch.
   instance's keys under *Settings → SSH*. `envoryx admin revoke-tokens` and
   `admin reset` point out that the instance's SSH keys and the single sign-on
   stay as they are.
+- `envoryx backup download`, `instance download` and `audit --export` without
+  `-o` wrote to whatever name the server suggested, `.bashrc` say, and
+  replaced a file of that name. They now take only a plain file name from the
+  server (else a default one) and refuse to replace an existing file; `-o`
+  still writes where it is told.
 - The hoster's support could show and replace the secret key. The hoster has
   the instance backups on its offsite target, and with the key it could read
   every secret in them, beyond what the admins agreed to. Support now sees

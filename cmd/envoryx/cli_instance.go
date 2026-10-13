@@ -174,7 +174,7 @@ func (c *cli) instanceCreate(ctx context.Context, args []string) error {
 
 func (c *cli) instanceDownload(ctx context.Context, args []string) error {
 	fs := c.newFlags("instance download")
-	out := fs.String("o", "", "file to write (default: the archive's name; \"-\" is stdout)")
+	out := fs.String("o", "", "file to write (default: the archive's name, not over an existing file; \"-\" is stdout)")
 	fs.StringVar(out, "output", "", "file to write")
 	pos, err := parse(fs, args)
 	if err != nil {
@@ -194,28 +194,8 @@ func (c *cli) instanceDownload(ctx context.Context, args []string) error {
 		return err
 	}
 	defer resp.Body.Close()
-	target := *out
-	if target == "" {
-		target = filenameFromResponse(resp.Header.Get("Content-Disposition"), "envoryx-"+pos[0]+".tar.gz")
-	}
-	if target == "-" {
-		_, err := io.Copy(c.out, resp.Body)
-		return err
-	}
 	// The archive holds the instance's database: keep it to its owner.
-	f, err := os.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
-	if err != nil {
-		return err
-	}
-	written, err := io.Copy(f, resp.Body)
-	if cerr := f.Close(); err == nil {
-		err = cerr
-	}
-	if err != nil {
-		return err
-	}
-	c.printf("Wrote %s (%s)\n", target, humanSize(written))
-	return nil
+	return c.saveDownload(resp, *out, "envoryx-"+pos[0]+".tar.gz", 0o600)
 }
 
 func (c *cli) instanceUpload(ctx context.Context, args []string) error {

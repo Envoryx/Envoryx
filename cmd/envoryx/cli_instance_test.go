@@ -119,3 +119,52 @@ func TestInstanceDownloadAndUpload(t *testing.T) {
 		t.Fatalf("upload body: %q", sent)
 	}
 }
+
+// A download without -o takes the name the server suggests only when it is a plain file
+// name, and never writes over a file that is there.
+func TestDownloadNames(t *testing.T) {
+	for disposition, want := range map[string]string{
+		`attachment; filename="envoryx-20261012.tar.gz"`:          "envoryx-20261012.tar.gz",
+		`attachment; filename=".bashrc"`:                          "fallback.tar",
+		`attachment; filename="../../etc/passwd"`:                 "fallback.tar",
+		`attachment; filename="/tmp/x"`:                           "fallback.tar",
+		`attachment; filename="a b.tar"`:                          "fallback.tar",
+		`attachment; filename="-rf"`:                              "fallback.tar",
+		`attachment; filename="` + strings.Repeat("a", 202) + `"`: "fallback.tar",
+		`attachment`: "fallback.tar",
+		``:           "fallback.tar",
+	} {
+		if got := filenameFromResponse(disposition, "fallback.tar"); got != want {
+			t.Errorf("%s: %q, want %q", disposition, got, want)
+		}
+	}
+
+	srv := newFakeServer(t, instanceRoutes(new(atomic.Bool)))
+	c, out, _ := newTestCLI(t, srv, "")
+	dir := t.TempDir()
+	t.Chdir(dir)
+	name := "envoryx-" + instBackup + ".tar.gz"
+	if err := c.run(context.Background(), []string{"instance", "download", instBackup}); err != nil {
+		t.Fatal(err)
+	}
+	if b, err := os.ReadFile(filepath.Join(dir, name)); err != nil || string(b) != "archive" {
+		t.Fatalf("download: %q %v (%s)", b, err, out.String())
+	}
+	// Again: the file is there, and only -o writes over it.
+	if err := os.WriteFile(name, []byte("mine"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	err := c.run(context.Background(), []string{"instance", "download", instBackup})
+	if err == nil || !strings.Contains(err.Error(), "exists already") {
+		t.Fatalf("over an existing file: %v", err)
+	}
+	if b, _ := os.ReadFile(name); string(b) != "mine" {
+		t.Fatalf("the existing file was changed: %q", b)
+	}
+	if err := c.run(context.Background(), []string{"instance", "download", instBackup, "-o", name}); err != nil {
+		t.Fatal(err)
+	}
+	if b, _ := os.ReadFile(name); string(b) != "archive" {
+		t.Fatalf("-o: %q", b)
+	}
+}
