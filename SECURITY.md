@@ -119,6 +119,12 @@ by TLS alone. The address must therefore be `https://`; plain `http://` is refus
 for this machine (`localhost`, `127.0.0.0/8`, `::1`) or with `ENVORYX_FLEET_INSECURE=1`,
 which is logged as a warning at every start.
 
+A manager is trusted with what the plan, suspension, backup, update and support login
+requests allow, not with the instance's resources: it answers one request of each kind at
+a time (the rest hear "busy"), keeps at most five support login links open, clips the
+hoster's name it logs to 100 characters, and waits at least five seconds before it
+reconnects after a connection the manager ended at once.
+
 ## SSH server
 
 The embedded SSH server (port 2222) never gives access to the Envoryx container or the

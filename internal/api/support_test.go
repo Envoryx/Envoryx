@@ -142,3 +142,36 @@ func TestSupportCantGrantAccess(t *testing.T) {
 		t.Fatalf("settings as support: %d %s", r.status, r.raw)
 	}
 }
+
+// The fleet manager can't fill the memory with support login links: a few may be open at
+// once, and the hoster's name they keep for the audit log is short.
+func TestSupportLoginLinksAreLimited(t *testing.T) {
+	a := newApp(t)
+	a.setupAndLogin()
+	ctx := context.Background()
+	if r := a.do(http.MethodPut, "/api/v1/settings/support-access", map[string]any{"allowed": true}, true); r.status != http.StatusOK {
+		t.Fatalf("allow: %d %s", r.status, r.raw)
+	}
+	var tokens []string
+	for i := range 5 {
+		token, err := a.auth.IssueSupportLogin(ctx, strings.Repeat("x", 1<<20))
+		if err != nil {
+			t.Fatalf("link %d: %v", i+1, err)
+		}
+		tokens = append(tokens, token)
+	}
+	if _, err := a.auth.IssueSupportLogin(ctx, "hoster"); !errors.Is(err, auth.ErrSupportTickets) {
+		t.Fatalf("sixth link: %v", err)
+	}
+	// A used link makes room for the next.
+	_, _, hoster, err := a.auth.RedeemSupportLogin(ctx, tokens[0], "127.0.0.1", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(hoster) != 100 {
+		t.Errorf("the hoster's name kept %d characters", len(hoster))
+	}
+	if _, err := a.auth.IssueSupportLogin(ctx, "hoster"); err != nil {
+		t.Fatalf("after one was used: %v", err)
+	}
+}

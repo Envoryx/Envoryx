@@ -4,12 +4,14 @@ import (
 	"context"
 	"crypto/ed25519"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -414,4 +416,103 @@ func TestAgentWantsHTTPS(t *testing.T) {
 	if _, err := New(Config{URL: "https://other.example.net", Token: "tok", ConfigDir: dir}); err != nil {
 		t.Errorf("a new manager with a token: %v", err)
 	}
+}
+
+func TestReconnectDelay(t *testing.T) {
+	// A connection that held for a while: back at once.
+	if d := reconnectDelay(time.Minute, 10*time.Minute); d != time.Second {
+		t.Errorf("after a long connection: %v", d)
+	}
+	// One the manager dropped right away: never under minReconnect, and the growth so far
+	// is kept.
+	if d := reconnectDelay(time.Second, 100*time.Millisecond); d != minReconnect {
+		t.Errorf("after a quick drop: %v", d)
+	}
+	if d := reconnectDelay(40*time.Second, 100*time.Millisecond); d != 40*time.Second {
+		t.Errorf("after quick drops in a row: %v", d)
+	}
+}
+
+func TestClipName(t *testing.T) {
+	long := strings.Repeat("ä", 1<<20)
+	if got := clipName(long); len([]rune(got)) != maxHosterName {
+		t.Errorf("clipped to %d characters", len([]rune(got)))
+	}
+	if got := clipName("  Jane Doe "); got != "Jane Doe" {
+		t.Errorf("clipName = %q", got)
+	}
+}
+
+// A manager that floods the instance with requests gets one answered at a time per kind;
+// the rest hear "busy" at once instead of piling up.
+func TestAgentAnswersOneRequestOfAKindAtATime(t *testing.T) {
+	got := make(chan message, 16)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := websocket.Accept(w, r, nil)
+		if err != nil {
+			return
+		}
+		defer conn.CloseNow()
+		for {
+			var m message
+			if err := wsjson.Read(r.Context(), conn, &m); err != nil {
+				return
+			}
+			got <- m
+		}
+	}))
+	defer srv.Close()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	conn, _, err := websocket.Dial(ctx, "ws"+strings.TrimPrefix(srv.URL, "http"), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.CloseNow()
+
+	a, err := New(Config{URL: "https://fleet.example.net", ConfigDir: t.TempDir(), Log: slog.New(slog.NewTextHandler(io.Discard, nil))})
+	if err != nil {
+		t.Fatal(err)
+	}
+	release := make(chan struct{})
+	var calls sync.WaitGroup
+	var n int
+	var mu sync.Mutex
+	handle := func(_ context.Context, c *websocket.Conn, req message) {
+		mu.Lock()
+		n++
+		mu.Unlock()
+		<-release
+		_ = wsjson.Write(ctx, c, message{Type: req.Type, ID: req.ID})
+		calls.Done()
+	}
+	calls.Add(2)
+	a.answer(ctx, conn, message{Type: "update", ID: "u1"}, handle)
+	for i := range 3 {
+		a.answer(ctx, conn, message{Type: "update", ID: fmt.Sprintf("u%d", i+2)}, handle)
+	}
+	// Another kind is not held up by it.
+	a.answer(ctx, conn, message{Type: "backup", ID: "b1"}, handle)
+	for range 3 {
+		select {
+		case m := <-got:
+			if m.Type != "update" || m.Error == "" {
+				t.Fatalf("expected busy, got %+v", m)
+			}
+		case <-time.After(5 * time.Second):
+			t.Fatal("no busy answer")
+		}
+	}
+	close(release)
+	calls.Wait()
+	mu.Lock()
+	if n != 2 {
+		t.Errorf("%d requests handled, want 2", n)
+	}
+	mu.Unlock()
+	// Once answered, the next request of the kind is taken again.
+	waitFor(t, "the update to be done", func() bool { a.mu.Lock(); defer a.mu.Unlock(); return !a.busy["update"] })
+	calls.Add(1)
+	a.answer(ctx, conn, message{Type: "update", ID: "u9"}, handle)
+	calls.Wait()
 }
