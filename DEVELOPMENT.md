@@ -130,6 +130,19 @@ walks an invitation through to a confined user and a disabled one over HTTP,
 `internal/oidc/oidc_test.go` runs the whole sign-in against an in-process provider that
 signs real ID tokens (PKCE, nonce, groups, linking, username fallbacks).
 
+Who may call which route is written down in `internal/api/testdata/access.txt`, one line
+per route registered on the server's mux, with every column spelled out: the level, API
+tokens, the hoster's support, principals confined to particular projects, a suspended
+instance and the plan's offsite feature (the file's header explains each value). Adding a
+route means adding its line there and deciding each column; there are no defaults.
+`TestAccessTableCoversEveryRoute` fails for a route without a line and for a line without
+a route, and `TestAccessMatrix` sends every route as anonymous, viewer, developer, admin, a
+confined user, read, operate and admin tokens, a confined admin token, the support session
+and an admin of a suspended instance or of a plan without offsite targets, and checks that
+what the line refuses is refused and that GET routes it allows get past the checks. When
+the right answer for a column needs a new policy (another `supportRefused` entry, a
+`sessionOnly` check), change the code and the line together.
+
 Frontend tests (Vitest + Testing Library) cover the login/setup flow, the project list
 with actions, the complete wizard including preview and validation errors for the PHP,
 Node.js, Python and static stacks, and the project sections per runtime shape.
