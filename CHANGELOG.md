@@ -10,6 +10,22 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Added
+- Two-factor authentication: an authenticator app (TOTP) or passkeys, set up under
+  *Settings → Two-factor authentication*, with ten recovery codes. After the password
+  the sign-in asks for the code or the passkey. A passkey also signs in on its own,
+  without user name and password (the web interface must be opened over https with a
+  host name, or at localhost).
+- *Settings → Users → Two-factor authentication* requires a second factor of the admins
+  or of everyone; whoever is covered and has none sets one up right after signing in.
+  Single sign-on is left to the identity provider. An admin resets a user's factors
+  (*Reset 2FA*) when a device is lost, and `envoryx admin reset-2fa` does it from the
+  container's shell.
+
+### Fixed
+- A wrong current password when changing the password signed the user out of the web
+  interface; it now just says the password is wrong.
+
 ## [0.37.0] - 2026-10-13
 
 ### Security

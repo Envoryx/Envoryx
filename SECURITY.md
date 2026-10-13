@@ -74,6 +74,18 @@ trust with the projects' containers.
 - Login attempts are rate-limited per IP **and** per username, with exponential back-off
   after 5 failures.
 - Changing the password revokes all other sessions.
+- A second factor protects the password sign-in: TOTP (RFC 6238, the secret sealed with the
+  secret key, each time step accepted once, one step of clock drift) or a WebAuthn passkey
+  (user verification required, discoverable, bound to the host name the UI was opened at;
+  a counter that goes back refuses the sign-in), with ten one-time recovery codes of 50
+  bits each (only hashes are stored). The password step hands out a ticket, not a session:
+  256 bits, five minutes, five wrong codes, on top of the sign-in limiter. A password
+  reset link doesn't stand in for the second factor. Adding or removing a factor, and new
+  recovery codes, take the password again; a wrong one answers 403 and leaves the session
+  alone. The admins can require a second factor of the admins or of everyone; a covered
+  session without one may only set one up. Single sign-on is left to the identity
+  provider, and API tokens and SSH keys are separate credentials. An admin (not the
+  hoster's support) resets another user's factors, never their own.
 - The first admin is created through a one-time setup page (or from
   `ENVORYX_ADMIN_USER`/`ENVORYX_ADMIN_PASSWORD`). Setup is refused once any user exists, and
   generated passwords never end up in logs.

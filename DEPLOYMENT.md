@@ -2559,7 +2559,7 @@ branch environments takes an admin of the whole instance; a branch environment s
 the project roles of its parent.
 
 Users who aren't admins see a smaller interface: *Settings* has only *My account*
-(profile with appearance and password, API tokens & MCP, SSH keys), the Docker page and *New project* are
+(profile with appearance and password, two-factor authentication, API tokens & MCP, SSH keys), the Docker page and *New project* are
 gone, viewers can't start or stop projects and don't get the *Terminal* and *Actions* sections,
 and *History* and the *Docker plan* are for admins. The server checks every request on its own,
 so hiding is a courtesy, not the protection.
@@ -2575,6 +2575,51 @@ The API for scripts that know what they're doing: `GET/POST /api/v1/users`,
 (a new link) and `PUT /api/v1/users/{id}/projects/{project}` with `{"role": "developer"}`
 (`""` removes it). They need an admin's browser session; API tokens can't manage users.
 The command line deliberately has no user management.
+
+### Two-factor authentication
+
+Everyone with a password can protect it with a second factor under *Settings →
+Two-factor authentication*:
+
+- an **authenticator app** (TOTP, RFC 6238: 6 digits, 30 seconds, SHA-1, as Aegis,
+  Google Authenticator, 1Password or Bitwarden expect it). Scan the QR code, type the
+  first code. A code works once.
+- **passkeys** (WebAuthn): on the device (Windows Hello, Touch ID, Android, a password
+  manager) or a security key. A passkey asks for its PIN or fingerprint, so it also signs
+  in on its own: *Sign in with a passkey* on the sign-in page needs no user name and no
+  password. Browsers only offer passkeys when the web interface is opened over **https
+  with a host name** (or at `localhost`), not at `http://192.168.1.10:8787`. A passkey
+  belongs to the address it was created at; under another address Envoryx asks for the
+  app code instead.
+
+The first factor comes with ten **recovery codes**, shown once: each signs in once
+without app or passkey (*New codes* replaces them). Adding or removing a factor and new
+codes take the password again, so a session left open isn't enough.
+
+After the password, the sign-in asks for the code, the passkey or a recovery code; a
+password reset link asks for it too. Five wrong codes end the attempt, and the limiter
+of the sign-in applies.
+
+*Settings → Users → Two-factor authentication* sets whom a second factor is **required**
+of: nobody (the default), the admins, or everyone. Whoever is covered and has none yet
+sees only the setup page after signing in, and the server answers nothing else until a
+factor is set up; their last factor can't be removed then. Sign-ins through single
+sign-on are left to the identity provider: require two factors there. The hoster's
+support signs in with the admins' consent and isn't covered. Only an admin's browser
+session changes the requirement (not an API token, not the support); the setting is
+`twoFactorRequired` (`off`, `admins`, `all`) in `PATCH /api/v1/settings`.
+
+A user who lost their device and their recovery codes asks an admin: *Reset 2FA* in the
+user list removes their app, passkeys and codes, and the password alone signs in again
+(admins can't reset their own; that goes through their account page with the password).
+Without an admin, `envoryx admin reset-2fa` does it from the container's shell (see
+*Lost access*). The audit log records `auth.totp_enabled`, `auth.totp_disabled`,
+`auth.passkey_added`, `auth.passkey_removed`, `auth.recovery_codes_renewed`,
+`auth.recovery_code_used` and `auth.two_factor_reset`, and every sign-in with its
+`method` (`password`, `totp`, `passkey`, `recovery`, `oidc`).
+
+API tokens and SSH keys are separate credentials and don't ask for a second factor:
+they are created in a signed-in session and are revoked like before.
 
 ### Single sign-on (OpenID Connect)
 
@@ -3243,6 +3288,7 @@ is needed:
 docker exec -it envoryx envoryx admin users            # which accounts exist
 docker exec -it envoryx envoryx admin reset-password   # new password, printed once
 docker exec -it envoryx envoryx admin reset-password --user stefan  # the same for one of several accounts
+docker exec -it envoryx envoryx admin reset-2fa --user stefan       # remove the second factors (lost device)
 docker exec -it envoryx envoryx admin logout-all       # end every browser session
 docker exec -it envoryx envoryx admin revoke-tokens    # delete every API token (MCP, SSH/SFTP, scripts)
 docker exec -it envoryx envoryx admin revoke-token ci  # delete one (see Command line for tokens)
@@ -3252,7 +3298,9 @@ docker exec -it envoryx envoryx admin reset --yes      # remove all accounts →
 `reset-password` picks the only account when there is just one, prints a
 generated password and ends its sessions. `--password PW` sets one of your
 choice, but it ends up in the shell history and in the process list (`ps`):
-prefer the generated one and change it after signing in. `reset` deletes
+prefer the generated one and change it after signing in. `reset-2fa` removes an
+account's authenticator app, passkeys and recovery codes; `users` shows who has
+a second factor. `reset` deletes
 accounts, sessions and API tokens but leaves projects, settings and backups
 alone. Open the web interface afterwards and
 create the administrator account again. `revoke-tokens` and `reset` leave the
