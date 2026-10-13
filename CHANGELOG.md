@@ -10,6 +10,8 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.37.0] - 2026-10-13
+
 ### Security
 - Updates from the hoster's fleet manager now check the new image's build
   provenance first: GitHub must keep an attestation for the image's digest,
@@ -2359,7 +2361,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.36.0...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.37.0...HEAD
+[0.37.0]: https://github.com/envoryx/envoryx/compare/v0.36.0...v0.37.0
 [0.36.0]: https://github.com/envoryx/envoryx/compare/v0.35.0...v0.36.0
 [0.35.0]: https://github.com/envoryx/envoryx/compare/v0.34.1...v0.35.0
 [0.34.1]: https://github.com/envoryx/envoryx/compare/v0.34.0...v0.34.1
