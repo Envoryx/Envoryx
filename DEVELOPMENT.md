@@ -155,6 +155,23 @@ Node.js, Python and static stacks, and the project sections per runtime shape.
 `src/i18n/i18n.test.ts` checks that every German key exists in every other dictionary with
 matching placeholders.
 
+### Fuzz tests
+
+The code that reads input from outside has fuzz tests: unpacking backups and uploaded
+websites (`FuzzExtractArchive`, `FuzzUnpackBackupArchive`, `FuzzExtract`, with archives
+described as text by `internal/archivetest`, which also checks that nothing landed
+outside the target and no symlink leads out of it), the readers of test output and JUnit
+or TRX reports, the manifest (what it accepts must survive Marshal and Parse again),
+cron expressions and the CLI's download names. `go test` runs their seeds;
+
+```
+make fuzz                 # every fuzzer for 30s
+make fuzz FUZZTIME=5m
+```
+
+lets them search. The weekly *Fuzz* workflow does the same for four minutes each and
+uploads a failing input; it belongs into the package's `testdata/fuzz` with the fix.
+
 ### Browser end-to-end tests
 
 `web/e2e` holds Playwright specs that drive the built binary in a real browser against a

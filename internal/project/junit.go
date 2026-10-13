@@ -4,6 +4,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
+	"math"
 	"regexp"
 	"strconv"
 	"strings"
@@ -83,9 +84,7 @@ func parseJUnit(r io.Reader, root string) (TestResult, error) {
 			return
 		}
 		res.Tests++
-		if s, err := strconv.ParseFloat(n.attr("time"), 64); err == nil {
-			res.Seconds += s
-		}
+		res.Seconds += parseSeconds(n.attr("time"))
 		for _, c := range n.Children {
 			switch c.XMLName.Local {
 			case "skipped":
@@ -105,8 +104,28 @@ func parseJUnit(r io.Reader, root string) (TestResult, error) {
 		}
 	}
 	walk(doc)
-	res.Seconds = float64(int(res.Seconds*1000)) / 1000
+	res.Seconds = roundSeconds(res.Seconds)
 	return res, nil
+}
+
+// parseSeconds reads a duration in seconds as a report or a runner prints it; anything
+// that is not a finite, non-negative number (NaN, -1, more digits than a float holds)
+// counts as 0, since the result has to go into JSON.
+func parseSeconds(s string) float64 {
+	v, err := strconv.ParseFloat(strings.TrimSpace(s), 64)
+	if err != nil || math.IsNaN(v) || math.IsInf(v, 0) || v < 0 {
+		return 0
+	}
+	return v
+}
+
+// roundSeconds rounds a sum of durations to milliseconds; one too large for a float is
+// dropped like an unreadable one.
+func roundSeconds(v float64) float64 {
+	if math.IsInf(v, 0) || math.IsNaN(v) || v < 0 {
+		return 0
+	}
+	return math.Round(v*1000) / 1000
 }
 
 func failedCase(tc, f junitNode, root string) TestCase {
@@ -145,6 +164,7 @@ func failedCase(tc, f junitNode, root string) TestCase {
 	// Pest's file attribute is "path::test name".
 	file, _, _ := strings.Cut(tc.attr("file"), "::")
 	line, _ := strconv.Atoi(tc.attr("line"))
+	line = max(line, 0)
 	if file == "" || line == 0 {
 		if f, l := locationIn(details); f != "" && (file == "" || strings.HasSuffix(f, file) || strings.HasSuffix(file, f)) {
 			file, line = f, l

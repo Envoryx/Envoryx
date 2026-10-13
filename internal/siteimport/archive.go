@@ -269,6 +269,13 @@ func Extract(file, target, strip string, uid, gid int) error {
 		rel, err := filepath.Rel(realTarget, p)
 		return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 	}
+	root, err := os.OpenRoot(realTarget)
+	if err != nil {
+		return err
+	}
+	defer root.Close()
+	var links []string
+	defer func() { DropEscapingLinks(root, realTarget, links) }()
 	budget := MaxExtractBytes
 	return walk(file, format, func(e entry) error {
 		rel, ok := strings.CutPrefix(e.Name, strip)
@@ -313,6 +320,7 @@ func Extract(file, target, strip string, uid, gid int) error {
 			if err := os.Symlink(e.Link, dest); err != nil {
 				return err
 			}
+			links = append(links, filepath.FromSlash(rel))
 			chown(dest)
 		case entryFile:
 			if info, err := os.Lstat(dest); err == nil && info.Mode()&os.ModeSymlink != 0 {
@@ -341,6 +349,32 @@ func Extract(file, target, strip string, uid, gid int) error {
 		}
 		return nil
 	})
+}
+
+// DropEscapingLinks removes the symlinks among links (names below root, the directory
+// base) that lead out of it once all of them are in place. Each was checked on its own
+// when it was made, but only by its text: a -> b/.. stays inside by the text, yet leaves
+// once b -> . exists, since the kernel resolves b before going up. An absolute link must
+// name a path below base without any "..".
+func DropEscapingLinks(root *os.Root, base string, links []string) {
+	for _, name := range links {
+		dest, err := root.Readlink(name)
+		if err != nil {
+			continue // replaced by a later entry
+		}
+		check := name
+		if filepath.IsAbs(dest) {
+			rel, err := filepath.Rel(base, dest)
+			if err != nil || dest != filepath.Clean(dest) || !filepath.IsLocal(rel) {
+				_ = root.Remove(name)
+				continue
+			}
+			check = rel
+		}
+		if _, err := root.Stat(check); err != nil && strings.Contains(err.Error(), "path escapes") {
+			_ = root.Remove(name)
+		}
+	}
 }
 
 // mkdirAll creates dir and its missing parents below root, owned like the files.

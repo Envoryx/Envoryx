@@ -35,7 +35,7 @@ func parseMinitest(text, root string) (res TestResult, ok bool) {
 	num := func(s string) int { n, _ := strconv.Atoi(s); return n }
 	res = TestResult{Report: true, Tests: num(sum[1]), Failures: num(sum[2]), Errors: num(sum[3]), Skipped: num(sum[4]), Failed: []TestCase{}}
 	if m := minitestSeconds.FindAllStringSubmatch(text, -1); len(m) > 0 {
-		res.Seconds, _ = strconv.ParseFloat(m[len(m)-1][1], 64)
+		res.Seconds = parseSeconds(m[len(m)-1][1])
 	}
 	lines := strings.Split(text, "\n")
 	for i := 0; i < len(lines); i++ {

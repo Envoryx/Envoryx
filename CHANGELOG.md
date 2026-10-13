@@ -16,6 +16,14 @@ release). `:main` follows the development branch.
   ones. `envoryx admin create-token --expires DAYS` sets it from the shell, and
   `envoryx admin tokens` shows it. Tokens created before keep working without expiry.
 
+### Fixed
+- Restoring a project backup or importing a website could leave a symbolic link that
+  leads out of the project directory, made of two links that each stay inside on their
+  own (`a -> b/..` and `b -> .`). Such links are now removed after unpacking. Found by
+  the new fuzz tests (`make fuzz`, weekly *Fuzz* workflow).
+- A test report or runner output with an unusable duration (negative, NaN, more digits
+  than a number holds) or a negative line number no longer spoils the run's result.
+
 ## [0.38.0] - 2026-10-13
 
 ### Added

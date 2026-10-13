@@ -34,7 +34,7 @@ func parseRSpec(text, root string) (res TestResult, ok bool) {
 	sum := sums[len(sums)-1]
 	res = TestResult{Report: true, Tests: atoi(sum[1]), Skipped: atoi(sum[3]), Failed: []TestCase{}}
 	if m := rspecSeconds.FindAllStringSubmatch(text, -1); len(m) > 0 {
-		res.Seconds, _ = strconv.ParseFloat(m[len(m)-1][1], 64)
+		res.Seconds = parseSeconds(m[len(m)-1][1])
 	}
 	failures := atoi(sum[2])
 	lines := strings.Split(text, "\n")
@@ -152,7 +152,7 @@ func parseDjango(text, root string) (res TestResult, ok bool) {
 	}
 	last := ran[len(ran)-1]
 	res = TestResult{Report: true, Tests: atoi(last[1]), Failed: []TestCase{}}
-	res.Seconds, _ = strconv.ParseFloat(last[2], 64)
+	res.Seconds = parseSeconds(last[2])
 	if out := djangoOutcome.FindAllStringSubmatch(text, -1); len(out) > 0 {
 		for _, c := range djangoCount.FindAllStringSubmatch(out[len(out)-1][2], -1) {
 			switch c[1] {
@@ -250,7 +250,7 @@ func parseVitest(text, root string) (res TestResult, ok bool) {
 	res = TestResult{Report: true, Tests: atoi(sum[2]), Failed: []TestCase{}}
 	jsCounts(&res, sum[1])
 	if d := vitestDuration.FindAllStringSubmatch(text, -1); len(d) > 0 {
-		v, _ := strconv.ParseFloat(d[len(d)-1][1], 64)
+		v := parseSeconds(d[len(d)-1][1])
 		if d[len(d)-1][2] == "ms" {
 			v /= 1000
 		}
@@ -301,7 +301,7 @@ func parseJest(text, root string) (res TestResult, ok bool) {
 	res = TestResult{Report: true, Tests: atoi(sum[2]), Failed: []TestCase{}}
 	jsCounts(&res, sum[1])
 	if t := jestTime.FindAllStringSubmatch(text, -1); len(t) > 0 {
-		res.Seconds, _ = strconv.ParseFloat(t[len(t)-1][1], 64)
+		res.Seconds = parseSeconds(t[len(t)-1][1])
 	}
 	lines := strings.Split(text, "\n")
 	for i := 0; i < len(lines); i++ {

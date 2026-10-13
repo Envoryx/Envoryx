@@ -43,7 +43,7 @@ func parseTRX(r io.Reader, root string) (TestResult, error) {
 	walk(doc)
 	for _, n := range results {
 		res.Tests++
-		if d, err := parseTRXDuration(n.attr("duration")); err == nil {
+		if d, err := parseTRXDuration(n.attr("duration")); err == nil && d > 0 {
 			res.Seconds += d.Seconds()
 		}
 		switch n.attr("outcome") {
@@ -63,7 +63,7 @@ func parseTRX(r io.Reader, root string) (TestResult, error) {
 		}
 		res.Failed = append(res.Failed, trxFailedCase(n, classes[n.attr("testId")], root))
 	}
-	res.Seconds = float64(int(res.Seconds*1000)) / 1000
+	res.Seconds = roundSeconds(res.Seconds)
 	return res, nil
 }
 
@@ -129,6 +129,10 @@ func parseTRXDuration(s string) (time.Duration, error) {
 	var sec float64
 	if _, err := fmt.Sscanf(s, "%d:%d:%f", &h, &m, &sec); err != nil {
 		return 0, err
+	}
+	// A day's worth bounds each part, so the sum can't overflow a Duration.
+	if h < 0 || h > 24*365 || m < 0 || m > 59 || !(sec >= 0 && sec < 60) {
+		return 0, fmt.Errorf("duration %q out of range", s)
 	}
 	return time.Duration(h)*time.Hour + time.Duration(m)*time.Minute + time.Duration(sec*float64(time.Second)), nil
 }
