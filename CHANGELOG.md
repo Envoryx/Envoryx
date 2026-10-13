@@ -10,6 +10,8 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.36.0] - 2026-10-13
+
 ### Security
 - An admin API token could restore any instance backup, also one it had
   uploaded itself: an archive of its own making with accounts and tokens of its
@@ -2346,7 +2348,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.35.0...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.36.0...HEAD
+[0.36.0]: https://github.com/envoryx/envoryx/compare/v0.35.0...v0.36.0
 [0.35.0]: https://github.com/envoryx/envoryx/compare/v0.34.1...v0.35.0
 [0.34.1]: https://github.com/envoryx/envoryx/compare/v0.34.0...v0.34.1
 [0.34.0]: https://github.com/envoryx/envoryx/compare/v0.33.1...v0.34.0
