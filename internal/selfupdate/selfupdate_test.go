@@ -203,3 +203,40 @@ func sha(c string) string {
 	}
 	return string(b)
 }
+
+func TestCheckTarget(t *testing.T) {
+	for _, c := range []struct {
+		running, target string
+		ok              bool
+	}{
+		{"v0.27.1", "0.28.0", true},
+		{"0.27.1", "v0.27.2", true},
+		{"v0.27.1", "1.0.0", true},
+		// No way back to an older release, nor a reinstall of the running one.
+		{"v0.27.1", "0.27.1", false},
+		{"v0.27.1", "0.26.9", false},
+		// Tags that are no release.
+		{"v0.27.1", "latest", false},
+		{"v0.27.1", "main", false},
+		{"v0.27.1", "0.28.0-rc1", false},
+		{"v0.27.1", "0.28", false},
+		{"v0.27.1", "", false},
+		// A build that is no release takes any release, none else.
+		{"dev", "0.20.0", true},
+		{"v0.27.1-3-g73304d6", "0.27.1", true},
+		{"dev", "latest", false},
+	} {
+		if err := CheckTarget(c.running, c.target); (err == nil) != c.ok {
+			t.Errorf("%s -> %q: %v", c.running, c.target, err)
+		}
+	}
+	// Start refuses before it touches Docker.
+	f := &fakeEngine{image: "ghcr.io/envoryx/envoryx:latest"}
+	u, _ := newUpdater(t, f, "abc123")
+	if err := u.Start(context.Background(), "0.27.0"); err == nil || !strings.Contains(err.Error(), "newer release") {
+		t.Fatalf("a downgrade: %v", err)
+	}
+	if f.helper() != nil {
+		t.Fatal("the helper started")
+	}
+}

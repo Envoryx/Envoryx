@@ -21,6 +21,7 @@ import (
 
 	"github.com/envoryx/envoryx/internal/docker"
 	"github.com/envoryx/envoryx/internal/instance"
+	"github.com/envoryx/envoryx/internal/update"
 )
 
 // ResultFile records the last update in the configuration directory.
@@ -154,8 +155,12 @@ func (u *Updater) image(ctx context.Context) (image, reason string) {
 }
 
 // Start pulls the image of version and starts the helper that replaces the container; it
-// returns once the pull began. The result shows in Status.
+// returns once the pull began. The result shows in Status. Only a release newer than the
+// running one is taken (see CheckTarget).
 func (u *Updater) Start(ctx context.Context, version string) error {
+	if err := CheckTarget(u.Version, version); err != nil {
+		return err
+	}
 	image, reason := u.image(ctx)
 	if reason != "" {
 		return errors.New(reason)
@@ -191,6 +196,22 @@ func (u *Updater) Start(ctx context.Context, version string) error {
 			u.Failed()
 		}
 	}()
+	return nil
+}
+
+// CheckTarget says why the fleet manager may not update an Envoryx of version running to
+// version target. The manager is trusted with updates, not with picking any image tag:
+// it gets a release (X.Y.Z) newer than the running one, never an older release with
+// known holes or a tag such as latest or main. A build that is no release (dev, main-<sha>)
+// takes any release.
+func CheckTarget(running, target string) error {
+	if !update.IsRelease(target) {
+		return fmt.Errorf("%q is no release version (X.Y.Z)", strings.TrimSpace(target))
+	}
+	if update.IsRelease(running) && !update.Newer(target, running) {
+		return fmt.Errorf("Envoryx %s runs already; it updates only to a newer release, not to %s",
+			strings.TrimPrefix(strings.TrimSpace(running), "v"), strings.TrimPrefix(strings.TrimSpace(target), "v"))
+	}
 	return nil
 }
 

@@ -2707,8 +2707,11 @@ failed, so the manager can warn about an instance whose last backup is old.
 
 ### Updates from the fleet manager
 
-The fleet manager can update an instance to another version (or every
-instance that runs another version at once). The instance pulls the image of
+The fleet manager can update an instance to a newer release (or every
+instance that runs an older one at once). The instance takes only a release
+version (`0.28.0`, also `v0.28.0`) newer than the one it runs: no older
+release and no tag such as `latest` or `main`. A build that is no release
+(`dev`, a build of `main`) takes any release. The instance pulls the image of
 that version from the repository of the image it runs
 (`ghcr.io/envoryx/envoryx:latest` becomes `ghcr.io/envoryx/envoryx:0.28.0`;
 an image that is there already will do when the pull fails) and starts a
