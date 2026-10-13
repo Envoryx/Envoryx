@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -100,7 +101,21 @@ type SSHInfo struct {
 // API holds handlers.
 type API struct {
 	d Deps
+	// routes are the patterns Mount registered, in order.
+	routes []Route
 }
+
+// Route is a registered pattern with the access it declares: "public", the scope it needs
+// (read, operate, admin), or "token" for the MCP endpoint the server adds, which takes API
+// tokens only. The access matrix test holds every route to its line in
+// testdata/access.txt.
+type Route struct {
+	Pattern string
+	Kind    string
+}
+
+// Routes returns the routes Mount registered.
+func (a *API) Routes() []Route { return slices.Clone(a.routes) }
 
 // New creates the API.
 func New(d Deps) *API { return &API{d: d} }
@@ -205,25 +220,30 @@ func hosterOffsite(pattern string, r *http.Request) bool {
 // Mount registers all routes on mux. protect wraps handlers that require a session.
 func (a *API) Mount(mux *http.ServeMux, protect func(http.Handler) http.Handler) {
 	// Public endpoints.
-	mux.HandleFunc("GET /api/v1/health", a.health)
-	mux.HandleFunc("GET /api/v1/setup", a.setupStatus)
-	mux.HandleFunc("POST /api/v1/setup", a.setup)
-	mux.HandleFunc("POST /api/v1/auth/login", a.login)
-	mux.HandleFunc("POST /api/v1/auth/logout", a.logout)
+	public := func(pattern string, h http.HandlerFunc) {
+		a.routes = append(a.routes, Route{Pattern: pattern, Kind: "public"})
+		mux.HandleFunc(pattern, h)
+	}
+	public("GET /api/v1/health", a.health)
+	public("GET /api/v1/setup", a.setupStatus)
+	public("POST /api/v1/setup", a.setup)
+	public("POST /api/v1/auth/login", a.login)
+	public("POST /api/v1/auth/logout", a.logout)
 	// Single sign-on: whether to offer it, and the round trip through the provider.
-	mux.HandleFunc("GET /api/v1/auth/oidc", a.oidcStatus)
-	mux.HandleFunc("GET /api/v1/auth/oidc/start", a.oidcStart)
-	mux.HandleFunc("GET /api/v1/auth/oidc/callback", a.oidcCallback)
+	public("GET /api/v1/auth/oidc", a.oidcStatus)
+	public("GET /api/v1/auth/oidc/start", a.oidcStart)
+	public("GET /api/v1/auth/oidc/callback", a.oidcCallback)
 	// An invitation link is its own credential.
-	mux.HandleFunc("GET /api/v1/invites/{token}", a.invitation)
-	mux.HandleFunc("POST /api/v1/invites/{token}", a.acceptInvitation)
+	public("GET /api/v1/invites/{token}", a.invitation)
+	public("POST /api/v1/invites/{token}", a.acceptInvitation)
 	// The hoster's support signs in with a one-time link from the fleet manager.
-	mux.HandleFunc("GET /api/v1/auth/support/{token}", a.supportLogin)
+	public("GET /api/v1/auth/support/{token}", a.supportLogin)
 
 	// Every protected route declares the token scope it needs: rd (read), op (operate)
 	// or adm (admin). Browser sessions pass all of them; see guard for the project
 	// restriction of confined tokens.
 	route := func(need auth.Scope, pattern string, h http.HandlerFunc) {
+		a.routes = append(a.routes, Route{Pattern: pattern, Kind: string(need)})
 		mux.Handle(pattern, protect(a.guard(need, pattern, h)))
 	}
 	rd := func(pattern string, h http.HandlerFunc) { route(auth.ScopeRead, pattern, h) }
@@ -361,7 +381,7 @@ func (a *API) Mount(mux *http.ServeMux, protect func(http.Handler) http.Handler)
 	adm("PUT /api/v1/dbtool", a.setDBTool)
 	op("POST /api/v1/projects/{id}/dbtool", a.openDBTool)
 	// The database browser lives inside the UI origin so the session protects it.
-	mux.Handle(project.DBToolPathPrefix+"/", protect(a.guard(auth.ScopeOperate, project.DBToolPathPrefix+"/", newDBToolProxy(a.d.Projects).ServeHTTP)))
+	op(project.DBToolPathPrefix+"/", newDBToolProxy(a.d.Projects).ServeHTTP)
 	rd("GET /api/v1/projects/{id}/services", a.projectServices)
 	rd("GET /api/v1/projects/{id}/plan", a.projectPlan)
 	rd("GET /api/v1/projects/{id}/stats", a.projectStats)
@@ -431,7 +451,7 @@ func (a *API) Mount(mux *http.ServeMux, protect func(http.Handler) http.Handler)
 	adm("POST /api/v1/projects/{id}/database/snapshots/{snapshot}/restore", a.databaseSnapshotRestore)
 	adm("POST /api/v1/projects/{id}/database/clone", a.databaseClone)
 
-	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
+	public("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, newError(http.StatusNotFound, "not_found", "unknown API route"))
 	})
 }

@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"slices"
 	"strings"
 	"time"
 
@@ -44,6 +45,7 @@ type Server struct {
 	http           *http.Server
 	log            *slog.Logger
 	beforeShutdown func()
+	routes         []api.Route
 }
 
 // New builds the handler chain. dist is the embedded frontend (may be nil).
@@ -53,10 +55,14 @@ func New(opts Options, a *api.API, sessions *auth.Service, dist fs.FS) *Server {
 		return sessions.Middleware(http.HandlerFunc(unauthorizedJSON))(next)
 	}
 	a.Mount(mux, protect)
+	routes := a.Routes()
 	if opts.MCP != nil {
+		// The MCP endpoint takes API tokens only, and its tools check their own level.
 		mux.Handle("/mcp", opts.MCP)
+		routes = append(routes, api.Route{Pattern: "/mcp", Kind: "token"})
 	}
 	mux.Handle("/", spaHandler(dist))
+	routes = append(routes, api.Route{Pattern: "/", Kind: "public"})
 
 	var handler http.Handler = mux
 	handler = csrfMiddleware(opts.AllowedOrigins)(handler)
@@ -77,8 +83,13 @@ func New(opts Options, a *api.API, sessions *auth.Service, dist fs.FS) *Server {
 		},
 		log:            opts.Log,
 		beforeShutdown: opts.BeforeShutdown,
+		routes:         routes,
 	}
 }
+
+// Routes returns every pattern registered on the server's mux with its access: the API's
+// and the MCP endpoint and frontend around them (used by the access matrix test).
+func (s *Server) Routes() []api.Route { return slices.Clone(s.routes) }
 
 // Handler returns the fully wrapped HTTP handler (used by tests).
 func (s *Server) Handler() http.Handler { return s.http.Handler }
