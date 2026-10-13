@@ -18,6 +18,14 @@ release). `:main` follows the development branch.
   address an instance enrolled at) must now be `https://`; `http://` is taken
   only for the same machine or with the new `ENVORYX_FLEET_INSECURE=1`, which
   is logged as a warning.
+- A fleet manager could tie up an instance's memory and CPU: every support
+  login, backup and update request started a task of its own, every
+  suspension a timer, support login links piled up, the hoster's name went
+  into the logs at any length, and a manager that dropped the connection at
+  once got a new one every second. The instance now answers one request of
+  each kind at a time (the rest hear "busy"), keeps at most five support
+  login links open, keeps 100 characters of the hoster's name and waits at
+  least five seconds before it reconnects after such a drop.
 - The hoster's fleet manager could update an instance to any tag of its image:
   an older release with known holes, or `latest` or `main`. An instance now
   takes only a release version newer than the one it runs; a build that is no

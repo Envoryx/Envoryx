@@ -25,6 +25,17 @@ const SettingSupportAccess = "support_access"
 // supportTicketTTL is how long a support login link works.
 const supportTicketTTL = 2 * time.Minute
 
+// maxSupportTickets is how many support login links may be open at once. A link is asked
+// for right before it is used, so a few are plenty; more would let the fleet manager fill
+// the memory with links.
+const maxSupportTickets = 5
+
+// maxSupportHoster is how much of the hoster's name a link keeps for the audit log.
+const maxSupportHoster = 100
+
+// ErrSupportTickets is returned when maxSupportTickets links are open already.
+var ErrSupportTickets = errors.New("too many support login links are open; use one or wait two minutes until they expire")
+
 // ErrSupportNotAllowed is returned when the admins did not allow support access.
 var ErrSupportNotAllowed = errors.New("the admins of this instance don't allow support access")
 
@@ -108,6 +119,9 @@ func (s *Service) IssueSupportLogin(ctx context.Context, hoster string) (string,
 	if !a.Active(s.now()) {
 		return "", ErrSupportNotAllowed
 	}
+	if r := []rune(hoster); len(r) > maxSupportHoster {
+		hoster = string(r[:maxSupportHoster])
+	}
 	raw := make([]byte, 32)
 	if _, err := rand.Read(raw); err != nil {
 		return "", err
@@ -123,6 +137,9 @@ func (s *Service) IssueSupportLogin(ctx context.Context, hoster string) (string,
 		if now.After(t.expires) {
 			delete(s.supportTickets, k)
 		}
+	}
+	if len(s.supportTickets) >= maxSupportTickets {
+		return "", ErrSupportTickets
 	}
 	s.supportTickets[hashToken(token)] = supportTicket{hoster: hoster, expires: now.Add(supportTicketTTL)}
 	return token, nil

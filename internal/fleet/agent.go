@@ -35,6 +35,17 @@ const StateFile = "fleet.json"
 // statusInterval is how often a connected instance reports its state.
 const statusInterval = time.Minute
 
+// stableConnection is how long a connection must have held for Run to reconnect at once
+// after it broke; minReconnect is the least Run waits after a shorter one.
+const (
+	stableConnection = time.Minute
+	minReconnect     = 5 * time.Second
+)
+
+// maxHosterName is how much of the name of the hoster's user who asks for a support
+// login is kept (log and audit log).
+const maxHosterName = 100
+
 // suspensionReport is when the state goes out again after a suspension: once the
 // projects are stopped.
 const suspensionReport = 10 * time.Second
@@ -106,6 +117,12 @@ type Agent struct {
 	planErr   string
 	// nudge asks for a status report now (Nudge).
 	nudge chan struct{}
+	// busy holds the request types (supportLogin, backup, update) being answered: one of
+	// each at a time, so a manager that floods the instance gets "busy", not a goroutine
+	// per request.
+	busy map[string]bool
+	// connectedAt is when the last connection was accepted (Run's reconnect delay).
+	connectedAt time.Time
 }
 
 // New returns the agent of an instance that is or shall be managed: one with
@@ -114,7 +131,7 @@ func New(cfg Config) (*Agent, error) {
 	if cfg.HTTPClient == nil {
 		cfg.HTTPClient = http.DefaultClient
 	}
-	a := &Agent{cfg: cfg, nudge: make(chan struct{}, 1)}
+	a := &Agent{cfg: cfg, nudge: make(chan struct{}, 1), busy: map[string]bool{}}
 	st, err := readState(filepath.Join(cfg.ConfigDir, StateFile))
 	if err != nil {
 		return nil, err
@@ -256,6 +273,7 @@ var errRevoked = errors.New("the fleet manager removed this instance; it keeps i
 func (a *Agent) Run(ctx context.Context) {
 	backoff := time.Second
 	for ctx.Err() == nil {
+		attempt := time.Now()
 		err := a.runOnce(ctx)
 		if errors.Is(err, errRevoked) {
 			a.setErr(err)
@@ -265,8 +283,11 @@ func (a *Agent) Run(ctx context.Context) {
 			return
 		}
 		a.setErr(err)
-		if a.Info().LastContact.After(time.Now().Add(-time.Minute)) {
-			backoff = time.Second
+		a.mu.Lock()
+		since := a.connectedAt
+		a.mu.Unlock()
+		if since.After(attempt) {
+			backoff = reconnectDelay(backoff, time.Since(since))
 		}
 		select {
 		case <-ctx.Done():
@@ -275,6 +296,17 @@ func (a *Agent) Run(ctx context.Context) {
 		}
 		backoff = min(backoff*2, 2*time.Minute)
 	}
+}
+
+// reconnectDelay is how long Run waits after a connection that held for held broke. One
+// that held for a while is tried again soon. One the manager ended right away waits at
+// least minReconnect, and longer each time, so a manager that accepts and drops at once
+// doesn't get a connection a second.
+func reconnectDelay(backoff, held time.Duration) time.Duration {
+	if held >= stableConnection {
+		return time.Second
+	}
+	return max(backoff, minReconnect)
 }
 
 func (a *Agent) runOnce(ctx context.Context) error {
@@ -454,6 +486,7 @@ func (a *Agent) connect(ctx context.Context, st *state) error {
 	cancel()
 	a.mu.Lock()
 	a.connected, a.contact, a.err = true, time.Now(), ""
+	a.connectedAt = a.contact
 	if welcome.Name != "" && st.Name != welcome.Name {
 		st.Name = welcome.Name
 		if b, err := json.MarshalIndent(st, "", "  "); err == nil {
@@ -482,6 +515,13 @@ func (a *Agent) connect(ctx context.Context, st *state) error {
 	readErr := make(chan error, 1)
 	planned := make(chan struct{}, 1)
 	go func() {
+		// One timer for the report after a suspension, however many the manager sends.
+		var suspended *time.Timer
+		defer func() {
+			if suspended != nil {
+				suspended.Stop()
+			}
+		}()
 		for {
 			var m message
 			if err := wsjson.Read(ctx, conn, &m); err != nil {
@@ -495,23 +535,27 @@ func (a *Agent) connect(ctx context.Context, st *state) error {
 			case "plan":
 				a.applyPlan(m.Plan)
 			case "supportLogin":
-				go a.answerSupportLogin(ctx, conn, m)
+				a.answer(ctx, conn, m, a.answerSupportLogin)
 				continue
 			case "backup":
-				go a.answerBackup(ctx, conn, m)
+				a.answer(ctx, conn, m, a.answerBackup)
 				continue
 			case "update":
-				go a.answerUpdate(ctx, conn, m)
+				a.answer(ctx, conn, m, a.answerUpdate)
 				continue
 			case "suspension":
 				a.applySuspension(m.Suspension)
 				// Stopping the projects takes a moment; the manager hears the result too.
-				time.AfterFunc(suspensionReport, func() {
-					select {
-					case planned <- struct{}{}:
-					default:
-					}
-				})
+				if suspended == nil {
+					suspended = time.AfterFunc(suspensionReport, func() {
+						select {
+						case planned <- struct{}{}:
+						default:
+						}
+					})
+				} else {
+					suspended.Reset(suspensionReport)
+				}
 			default:
 				continue
 			}
@@ -631,18 +675,52 @@ func (a *Agent) applySuspension(raw json.RawMessage) {
 	a.cfg.Plan.Reload()
 }
 
-// answerSupportLogin answers the manager's request for a support login link. Writes on
-// the connection may run concurrently.
+// answer runs handle for the manager's request in the background, unless a request of its
+// type is being answered still: that one gets "busy" at once. Writes on the connection may
+// run concurrently.
+func (a *Agent) answer(ctx context.Context, conn *websocket.Conn, req message, handle func(context.Context, *websocket.Conn, message)) {
+	a.mu.Lock()
+	busy := a.busy[req.Type]
+	a.busy[req.Type] = true
+	a.mu.Unlock()
+	if busy {
+		wctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		defer cancel()
+		_ = wsjson.Write(wctx, conn, message{Type: req.Type, ID: req.ID, Error: "the instance is still answering the last request of this kind; try again in a moment"})
+		return
+	}
+	go func() {
+		defer func() {
+			a.mu.Lock()
+			delete(a.busy, req.Type)
+			a.mu.Unlock()
+		}()
+		handle(ctx, conn, req)
+	}()
+}
+
+// clipName shortens a name the manager sent (the hoster's, a version) to maxHosterName
+// characters for the logs.
+func clipName(s string) string {
+	s = strings.TrimSpace(s)
+	if r := []rune(s); len(r) > maxHosterName {
+		return string(r[:maxHosterName])
+	}
+	return s
+}
+
+// answerSupportLogin answers the manager's request for a support login link.
 func (a *Agent) answerSupportLogin(ctx context.Context, conn *websocket.Conn, req message) {
 	reply := message{Type: "supportLogin", ID: req.ID}
+	hoster := clipName(req.Name)
 	if a.cfg.SupportLogin == nil {
 		reply.Error = "this instance offers no support login"
-	} else if url, err := a.cfg.SupportLogin(ctx, req.Name); err != nil {
+	} else if url, err := a.cfg.SupportLogin(ctx, hoster); err != nil {
 		reply.Error = err.Error()
 	} else {
 		reply.URL = url
 	}
-	a.cfg.Log.Info("fleet: support login requested", "hoster", req.Name, "granted", reply.Error == "")
+	a.cfg.Log.Info("fleet: support login requested", "hoster", hoster, "granted", reply.Error == "")
 	wctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	_ = wsjson.Write(wctx, conn, reply)
@@ -672,7 +750,7 @@ func (a *Agent) answerUpdate(ctx context.Context, conn *websocket.Conn, req mess
 	} else if err := a.cfg.Update(ctx, req.Version); err != nil {
 		reply.Error = err.Error()
 	}
-	a.cfg.Log.Info("fleet: update requested", "version", req.Version, "started", reply.Error == "")
+	a.cfg.Log.Info("fleet: update requested", "version", clipName(req.Version), "started", reply.Error == "")
 	wctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	_ = wsjson.Write(wctx, conn, reply)

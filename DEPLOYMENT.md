@@ -2749,8 +2749,8 @@ which keeps its template in step.
 The hoster's support can sign in to an instance, but only while its admins allow
 it: Settings → General → *Support access*, for an hour, a day, a week or until
 taken back. The fleet manager then offers *Support login* on the instance's
-page; it asks the instance for a one-time link (valid two minutes) to its web
-UI, which signs the hoster's browser in as the user "Hoster support", an admin.
+page; it asks the instance for a one-time link (valid two minutes, at most
+five open at once) to its web UI, which signs the hoster's browser in as the user "Hoster support", an admin.
 The UI shows that user a note at the top.
 
 The support user is not one of the instance's users: it doesn't count towards
