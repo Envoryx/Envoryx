@@ -1,10 +1,14 @@
 package api
 
 import (
+	"errors"
+	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
+	"github.com/envoryx/envoryx/internal/auth"
 	"github.com/envoryx/envoryx/internal/project"
 	"github.com/envoryx/envoryx/internal/store"
 )
@@ -161,9 +165,17 @@ func (a *API) restoreBackupNew(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	on := func(b *bool) bool { return b == nil || *b }
+	p, _ := auth.PrincipalFrom(r.Context())
 	view, err := a.d.Projects.RestoreIntoNewProject(r.Context(), r.PathValue("project"), r.PathValue("backup"), project.RestoreNewRequest{
 		Name: req.Name, Path: req.Path, Database: on(req.Database), Files: on(req.Files), Storage: on(req.Storage), Start: req.Start,
+		// The support may not set a custom image, so it may not restore one either: the
+		// backup may be an upload, or of a project an admin has since moved off it.
+		NoCustomImages: p.Support,
 	})
+	if errors.Is(err, project.ErrCustomImageRefused) {
+		_, why, _ := strings.Cut(err.Error(), ": ")
+		err = fmt.Errorf("%w: the hoster's support can't restore this backup: %s; the instance's admins can", auth.ErrForbidden, why)
+	}
 	if err != nil {
 		writeError(w, r, err)
 		return

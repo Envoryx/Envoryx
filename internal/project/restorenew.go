@@ -35,6 +35,9 @@ type RestoreNewRequest struct {
 	Storage  bool
 	// Start starts the new project when it is ready.
 	Start bool
+	// NoCustomImages refuses a backup whose project ran a runtime on a custom image
+	// (ErrCustomImageRefused): the hoster's support may not bring one onto the instance.
+	NoCustomImages bool
 }
 
 // OrphanedBackup is a backup of a project that no longer exists.
@@ -205,6 +208,10 @@ func projectFromExport(ex projectExport) store.Project {
 	return p
 }
 
+// ErrCustomImageRefused is returned by RestoreIntoNewProject with NoCustomImages for a
+// backup whose project ran a custom image.
+var ErrCustomImageRefused = errors.New("custom images refused")
+
 // RestoreIntoNewProject creates a project from a backup: the settings it was made with
 // and, as asked, its databases, files and objects. Like Duplicate it runs detached from
 // ctx's cancellation and rolls everything back when a step fails.
@@ -233,6 +240,17 @@ func (m *Manager) restoreIntoNew(ctx context.Context, projectID, backupID string
 		return View{}, err
 	}
 	src := projectFromExport(ex)
+	if req.NoCustomImages {
+		for _, s := range src.Services {
+			if c := s.Custom; c.Image != "" || c.Dockerfile != "" {
+				what := c.Image
+				if what == "" {
+					what = "the Dockerfile " + c.Dockerfile
+				}
+				return View{}, fmt.Errorf("%w: the backup's project runs %s on a custom image (%s)", ErrCustomImageRefused, s.Kind, what)
+			}
+		}
+	}
 	proj, err := duplicateProject(src, DuplicateRequest{Name: req.Name, Path: req.Path, Workers: true, Git: true, Start: req.Start})
 	if err != nil {
 		return View{}, err

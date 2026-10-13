@@ -212,3 +212,57 @@ func TestSupportLoginLinksAreLimited(t *testing.T) {
 		t.Fatalf("after one was used: %v", err)
 	}
 }
+
+// The support can't set a custom image, so it can't restore a backup that brings one
+// into a new project either; an admin can, and the support restores backups without one.
+func TestSupportRestoresNoCustomImage(t *testing.T) {
+	a := newApp(t)
+	a.setupAndLogin()
+	backup := func(name string, image string) (string, string) {
+		r := a.do(http.MethodPost, "/api/v1/projects", map[string]any{"name": name, "php": map[string]any{"version": "8.4"}}, true)
+		if r.status != http.StatusCreated {
+			t.Fatalf("create %s: %d %s", name, r.status, r.raw)
+		}
+		id := r.body["project"].(map[string]any)["id"].(string)
+		if image != "" {
+			if r := a.do(http.MethodPut, "/api/v1/projects/"+id+"/services/php/image", map[string]any{"image": image}, true); r.status != http.StatusOK {
+				t.Fatalf("custom image: %d %s", r.status, r.raw)
+			}
+		}
+		r = a.do(http.MethodPost, "/api/v1/projects/"+id+"/backups", map[string]any{"files": true}, true)
+		if r.status != http.StatusCreated {
+			t.Fatalf("backup %s: %d %s", name, r.status, r.raw)
+		}
+		return id, r.body["backup"].(map[string]any)["id"].(string)
+	}
+	customID, customBackup := backup("Custom", "ghcr.io/acme/php:8.4")
+	plainID, plainBackup := backup("Plain", "")
+	admin := a.cookie
+
+	if r := a.do(http.MethodPut, "/api/v1/settings/support-access", map[string]any{"allowed": true}, true); r.status != http.StatusOK {
+		t.Fatalf("allow: %d %s", r.status, r.raw)
+	}
+	token, err := a.auth.IssueSupportLogin(context.Background(), "hoster")
+	if err != nil {
+		t.Fatal(err)
+	}
+	support, _ := a.supportLogin(token)
+	if support == nil {
+		t.Fatal("no support session")
+	}
+	a.cookie = support
+	r := a.do(http.MethodPost, "/api/v1/backups/"+customID+"/"+customBackup+"/restore-new", map[string]any{"name": "Custom Again"}, true)
+	if r.status != http.StatusForbidden || !strings.Contains(string(r.raw), "support") || !strings.Contains(string(r.raw), "ghcr.io/acme/php:8.4") {
+		t.Fatalf("support restores a custom image: %d %s", r.status, r.raw)
+	}
+	if r := a.do(http.MethodGet, "/api/v1/projects", nil, false); strings.Contains(string(r.raw), "Custom Again") {
+		t.Fatal("the refused restore left a project")
+	}
+	if r := a.do(http.MethodPost, "/api/v1/backups/"+plainID+"/"+plainBackup+"/restore-new", map[string]any{"name": "Plain Again"}, true); r.status != http.StatusCreated {
+		t.Fatalf("support restores a plain backup: %d %s", r.status, r.raw)
+	}
+	a.cookie = admin
+	if r := a.do(http.MethodPost, "/api/v1/backups/"+customID+"/"+customBackup+"/restore-new", map[string]any{"name": "Custom Again"}, true); r.status != http.StatusCreated {
+		t.Fatalf("admin restores a custom image: %d %s", r.status, r.raw)
+	}
+}
