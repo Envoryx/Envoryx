@@ -125,7 +125,8 @@ func (a *API) SetAllowedOriginHosts(hosts []string) { a.d.AllowedOriginHosts = h
 
 // instanceRoutesForConfined are the routes without a project id that a principal
 // confined to particular projects (a token with a project list, a user whose global role
-// is none) may still call; lists filter by its projects. All of them only read.
+// is none) may still call; lists filter by its projects. All of them only read, and
+// TestGuardListsHoldOnlyReadRoutes keeps it so for these lists.
 var instanceRoutesForConfined = map[string]bool{
 	"GET /api/v1/auth/me":  true,
 	"GET /api/v1/runtimes": true,
