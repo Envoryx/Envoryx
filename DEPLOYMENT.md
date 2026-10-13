@@ -3020,10 +3020,12 @@ and keep the rest. A cron job runs in the project's application runtime unless
 `envoryx settings set` changes several settings in one go: `public-host`,
 `base-domain`, `force-https`, `projects-follow-envoryx`, `shared-ide-backends`,
 `shared-package-cache`, `xdebug-client-host`, `folderview-folder`,
-`log-history`, `log-history-days`, `log-history-max-mb`, `metrics-days` and
-`ssh-keys` (`ssh-keys=@file.pub` reads a file and replaces every key). On/off
-settings take `on` or `off`; an empty value clears a text setting. What a
-hoster's plan fixes is marked and refused, as in the web interface.
+`log-history`, `log-history-days`, `log-history-max-mb` and `metrics-days`.
+On/off settings take `on` or `off`; an empty value clears a text setting. What
+a hoster's plan fixes is marked and refused, as in the web interface. The
+instance's SSH keys, single sign-on and support access are not among them:
+they would outlast the API token the CLI uses, so the API takes them from a
+browser session only (the web interface).
 
 `--json` hands the API's
 own answer to `jq` instead of a table; `--service` picks a container other
@@ -3211,8 +3213,11 @@ docker exec -it envoryx envoryx admin reset --yes      # remove all accounts →
 `reset-password` picks the only account when there is just one and ends its
 sessions; `reset` deletes accounts, sessions and API tokens but leaves
 projects, settings and backups alone. Open the web interface afterwards and
-create the administrator account again. Every command is written to the audit
-log with the user `cli`. On Unraid the container's console (*Docker →
+create the administrator account again. `revoke-tokens` and `reset` leave the
+instance's SSH keys (*Settings → SSH*) and the single sign-on (*Settings →
+Users*) as they are and say so: when you reset because someone else had
+access, check both, since they still let in whoever set them. Every command is
+written to the audit log with the user `cli`. On Unraid the container's console (*Docker →
 Envoryx → Console*) is the same shell.
 
 Failed sign-in attempts are rate-limited per address for up to

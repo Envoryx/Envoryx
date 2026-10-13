@@ -22,6 +22,10 @@ func (a *API) supportAccess(w http.ResponseWriter, r *http.Request) {
 // setSupportAccess stores the consent: {"allowed": false} takes it back and ends the
 // support's sessions, {"allowed": true} allows until revoked, with "until" until then.
 func (a *API) setSupportAccess(w http.ResponseWriter, r *http.Request) {
+	// The consent lets the hoster in as an admin: an API token can't give it.
+	if !sessionOnly(w, r, errAccessNeedsSession) {
+		return
+	}
 	var req auth.SupportAccess
 	if err := decodeJSON(w, r, &req); err != nil {
 		writeError(w, r, err)

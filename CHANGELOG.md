@@ -18,6 +18,13 @@ release). `:main` follows the development branch.
   address an instance enrolled at) must now be `https://`; `http://` is taken
   only for the same machine or with the new `ENVORYX_FLEET_INSECURE=1`, which
   is logged as a warning.
+- An admin API token could open ways in that outlast it: set the instance's
+  SSH keys (a shell in every project), the single sign-on or the hoster's
+  support access. These now need an admin's browser session, like the secret
+  key. `envoryx settings set` therefore no longer offers `ssh-keys`; set the
+  instance's keys under *Settings → SSH*. `envoryx admin revoke-tokens` and
+  `admin reset` point out that the instance's SSH keys and the single sign-on
+  stay as they are.
 - The hoster's support could show and replace the secret key. The hoster has
   the instance backups on its offsite target, and with the key it could read
   every secret in them, beyond what the admins agreed to. Support now sees

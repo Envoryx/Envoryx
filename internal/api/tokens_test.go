@@ -103,6 +103,23 @@ func TestAPITokensAndMCPEndpoint(t *testing.T) {
 			t.Fatalf("bearer must not use %s: %d", path, res.StatusCode)
 		}
 	}
+	// Nor can a token open ways in that outlast it: the instance's SSH keys, the single
+	// sign-on and the hoster's support access.
+	sshKey := "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGv1t9rJ8o3b7h2y0aZ3kq3Yl0b1vXcXgk7oQyM5c4Zt token"
+	for _, c := range []struct{ method, path, body string }{
+		{http.MethodPatch, "/api/v1/settings", `{"sshAuthorizedKeys":"` + sshKey + `"}`},
+		{http.MethodPatch, "/api/v1/settings", `{"sshAuthorizedKeys":""}`},
+		{http.MethodPut, "/api/v1/settings/oidc", `{"enabled":true,"issuer":"https://idp.example.net","clientId":"envoryx"}`},
+		{http.MethodPost, "/api/v1/settings/oidc/test", `{"issuer":"https://idp.example.net"}`},
+		{http.MethodPut, "/api/v1/settings/support-access", `{"allowed":true}`},
+	} {
+		if res := bearer(c.method, c.path, c.body); res.StatusCode != http.StatusForbidden {
+			t.Fatalf("bearer must not use %s %s: %d", c.method, c.path, res.StatusCode)
+		}
+	}
+	if r := a.do(http.MethodPatch, "/api/v1/settings", map[string]any{"sshAuthorizedKeys": sshKey}, true); r.status != http.StatusOK {
+		t.Fatalf("session sets the instance's SSH keys: %d %s", r.status, r.raw)
+	}
 	// The session gets past the check (the test instance has no key loaded).
 	if r := a.do(http.MethodPost, "/api/v1/settings/secret-key/reveal", nil, true); r.status == http.StatusForbidden {
 		t.Fatalf("session reveal: %d %s", r.status, r.raw)

@@ -42,8 +42,11 @@ var settingKeys = []settingKey{
 	{name: "log-history-days", field: "logHistory", nested: "retentionDays", kind: "int", help: "days of output to keep"},
 	{name: "log-history-max-mb", field: "logHistory", nested: "maxMb", kind: "int", help: "size limit of the kept output"},
 	{name: "metrics-days", field: "metrics", nested: "retentionDays", kind: "int", help: "days of resource history to keep"},
-	{name: "ssh-keys", field: "sshAuthorizedKeys", kind: "string", help: "public keys for the SSH server, replaced as a whole (@FILE reads a file)"},
 }
+
+// The instance's SSH keys are left out on purpose: they open a shell in every project and
+// would outlast the API token the CLI signs in with, so the API takes them from a browser
+// session only (Settings → SSH in the web interface).
 
 func settingByName(name string) (settingKey, bool) {
 	for _, k := range settingKeys {
@@ -84,10 +87,6 @@ func settingValue(body map[string]json.RawMessage, k settingKey) string {
 	}
 	switch v := v.(type) {
 	case string:
-		if k.name == "ssh-keys" && v != "" {
-			n := strings.Count(strings.TrimSpace(v), "\n") + 1
-			return fmt.Sprintf("%d key%s", n, plural(n))
-		}
 		return v
 	case bool:
 		return map[bool]string{true: "on", false: "off"}[v]
@@ -182,13 +181,6 @@ func (c *cli) settingsSet(ctx context.Context, args []string) error {
 			}
 			v = n
 		default:
-			if strings.HasPrefix(value, "@") {
-				b, err := c.readFileOrStdin(strings.TrimPrefix(value, "@"))
-				if err != nil {
-					return err
-				}
-				value = string(b)
-			}
 			v = value
 		}
 		if k.nested != "" {

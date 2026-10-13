@@ -133,8 +133,12 @@ func (a *API) oidcSettings(w http.ResponseWriter, r *http.Request) {
 }
 
 // setOIDCSettings stores it: PUT /settings/oidc. An empty client secret keeps the old one;
-// clearSecret removes it.
+// clearSecret removes it. Browser sessions only: a provider of a token's choosing would
+// sign accounts in long after the token is gone.
 func (a *API) setOIDCSettings(w http.ResponseWriter, r *http.Request) {
+	if !sessionOnly(w, r, errAccessNeedsSession) {
+		return
+	}
 	if a.d.OIDC == nil {
 		writeError(w, r, oidc.ErrDisabled)
 		return
@@ -156,8 +160,12 @@ func (a *API) setOIDCSettings(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"oidc": a.oidcSettingsOut(r, c)})
 }
 
-// testOIDCSettings checks that the issuer answers: POST /settings/oidc/test.
+// testOIDCSettings checks that the issuer answers: POST /settings/oidc/test. Browser
+// sessions only, like setOIDCSettings.
 func (a *API) testOIDCSettings(w http.ResponseWriter, r *http.Request) {
+	if !sessionOnly(w, r, errAccessNeedsSession) {
+		return
+	}
 	if a.d.OIDC == nil {
 		writeError(w, r, oidc.ErrDisabled)
 		return

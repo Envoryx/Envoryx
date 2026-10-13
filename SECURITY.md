@@ -84,8 +84,9 @@ trust with the projects' containers.
   keys.
 - Every request is checked against the user's role (viewer, developer, admin, or none) and,
   for a project, against their role in that project; a project without access is left out
-  of every list. Only an admin's browser session manages users or shows and replaces the
-  secret key, and the last active admin can't be demoted, disabled or deleted.
+  of every list. Only an admin's browser session manages users, sets the instance's SSH
+  keys, the single sign-on and the support access, or shows and replaces the secret key,
+  and the last active admin can't be demoted, disabled or deleted.
 - Single sign-on (OpenID Connect) uses the authorization code flow with PKCE, a state bound
   to the browser by a short-lived `HttpOnly` cookie, and a nonce; the ID token is verified
   against the provider's published keys, issuer and client ID. Accounts are linked by the
@@ -98,6 +99,11 @@ trust with the projects' containers.
 - The MCP endpoint (`/mcp`) authenticates **only** with bearer tokens created in Settings.
   It ignores session cookies, so a web page can never call tools with ambient credentials,
   and tokens can't mint tokens.
+- A token can't open a way in that would outlast it either: it can't set the instance's
+  SSH keys, the single sign-on or the hoster's support access, nor reveal or rotate the
+  secret key; those need an admin's browser session. (The CLI, which always uses a token,
+  therefore doesn't set the instance's SSH keys.) `envoryx admin revoke-tokens` and
+  `admin reset` leave the instance's SSH keys and the single sign-on alone and say so.
 - Tokens are 256-bit random values with the prefix `stq_`; only their SHA-256 hash is
   stored. You see the plain value once, and revoking takes effect immediately.
 - Tools reuse the project manager, so all validation (slugs, paths, hostnames, database

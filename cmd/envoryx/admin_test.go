@@ -132,18 +132,27 @@ func TestAdminLogoutAllRevokeTokensAndReset(t *testing.T) {
 	if !strings.Contains(out.String(), "2 session(s) ended") {
 		t.Fatalf("unexpected output %q", out.String())
 	}
+	out.Reset()
 	if err := cli.run(ctx, []string{"revoke-tokens"}); err != nil {
 		t.Fatal(err)
 	}
 	if toks, _ := st.Tokens.List(ctx); len(toks) != 0 {
 		t.Fatalf("tokens still present: %+v", toks)
 	}
+	// What a token holder may have opened besides is named, not cleared.
+	if !strings.Contains(out.String(), "SSH keys") || !strings.Contains(out.String(), "single sign-on") {
+		t.Fatalf("revoke-tokens names no SSH keys and single sign-on: %q", out.String())
+	}
 
 	if err := cli.run(ctx, []string{"reset"}); err == nil || !strings.Contains(err.Error(), "--yes") {
 		t.Fatalf("reset without --yes must refuse, got %v", err)
 	}
+	out.Reset()
 	if err := cli.run(ctx, []string{"reset", "--yes"}); err != nil {
 		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "SSH keys") || !strings.Contains(out.String(), "single sign-on") {
+		t.Fatalf("reset names no SSH keys and single sign-on: %q", out.String())
 	}
 	if n, _ := st.Users.Count(ctx); n != 0 {
 		t.Fatalf("expected no users, got %d", n)
