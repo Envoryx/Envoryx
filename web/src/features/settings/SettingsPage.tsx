@@ -406,7 +406,7 @@ export function SettingsPage() {
           )}
           {tab === "ssh" && s.data && <SshCard keys={s.data.sshAuthorizedKeys ?? ""} ssh={s.data.ssh} readOnly={support} />}
           {tab === "deploykey" && <DeployKeyCard />}
-          {tab === "secretkey" && <SecretKeyCard />}
+          {tab === "secretkey" && <SecretKeyCard readOnly={support} />}
           {tab === "backups" && (
             <>
               <OffsiteTargetsCard />

@@ -18,6 +18,10 @@ release). `:main` follows the development branch.
   address an instance enrolled at) must now be `https://`; `http://` is taken
   only for the same machine or with the new `ENVORYX_FLEET_INSECURE=1`, which
   is logged as a warning.
+- The hoster's support could show and replace the secret key. The hoster has
+  the instance backups on its offsite target, and with the key it could read
+  every secret in them, beyond what the admins agreed to. Support now sees
+  only where the key comes from.
 - A fleet manager could tie up an instance's memory and CPU: every support
   login, backup and update request started a task of its own, every
   suspension a timer, support login links piled up, the hoster's name went

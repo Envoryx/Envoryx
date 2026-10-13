@@ -119,6 +119,11 @@ by TLS alone. The address must therefore be `https://`; plain `http://` is refus
 for this machine (`localhost`, `127.0.0.0/8`, `::1`) or with `ENVORYX_FLEET_INSECURE=1`,
 which is logged as a warning at every start.
 
+The hoster's support signs in only with the admins' consent and can't do what would
+outlast it (accounts, passwords, tokens, SSH keys, single sign-on, restoring an instance
+backup). It can't show or replace the secret key either: the hoster has the instance
+backups on its offsite target already, and the key would open every secret in them.
+
 A manager is trusted with what the plan, suspension, backup, update and support login
 requests allow, not with the instance's resources: it answers one request of each kind at
 a time (the rest hear "busy"), keeps at most five support login links open, clips the
