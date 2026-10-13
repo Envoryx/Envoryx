@@ -184,3 +184,16 @@ func TestAdminUsageErrors(t *testing.T) {
 		}
 	}
 }
+
+// Secrets on the command line end up in the shell history and the process list: the
+// usage texts say so where they take one.
+func TestUsageWarnsOfSecretsOnTheCommandLine(t *testing.T) {
+	for name, text := range map[string]string{"admin": adminUsage, "cli": cliUsage} {
+		if !strings.Contains(text, "shell history") || !strings.Contains(text, "ps") {
+			t.Errorf("%s usage doesn't warn of secrets on the command line", name)
+		}
+	}
+	if !strings.Contains(cliUsage, `prefer "-"`) || !strings.Contains(adminUsage, "prefer the generated one") {
+		t.Error("the usage texts recommend no way around it")
+	}
+}

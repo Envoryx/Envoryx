@@ -2938,13 +2938,15 @@ needed. From a workstation or a build agent, name the server once:
 
 ```sh
 envoryx login --url https://envoryx.example.com      # asks for the token, then stores it
-envoryx login --url https://envoryx.example.com --token "$ENVORYX_TOKEN"
+envoryx login --url https://envoryx.example.com --token - < token.txt
 ```
 
 `login` checks the token against the server before writing
 `~/.config/envoryx/cli.json` (mode 0600; `ENVORYX_CLI_CONFIG` points somewhere
 else). `--token -` reads it from stdin, which is what a provisioning script
-wants. `envoryx whoami` shows whose token it is and what it may do, and
+wants; with `ENVORYX_TOKEN` set, `login` takes it from there. Avoid
+`--token stq_…`: the token ends up in the shell history and, while the command
+runs, in the process list (`ps`) of everyone on the machine. `envoryx whoami` shows whose token it is and what it may do, and
 `envoryx logout` forgets it again (the token itself is revoked under
 *API tokens & MCP* in the settings). Without a stored configuration, `ENVORYX_URL`
 and `ENVORYX_TOKEN` work just as well, which is handy in CI, where nothing should be
@@ -3208,16 +3210,19 @@ is needed:
 ```sh
 docker exec -it envoryx envoryx admin users            # which accounts exist
 docker exec -it envoryx envoryx admin reset-password   # new password, printed once
-docker exec -it envoryx envoryx admin reset-password --user stefan --password 'my new password'
+docker exec -it envoryx envoryx admin reset-password --user stefan  # the same for one of several accounts
 docker exec -it envoryx envoryx admin logout-all       # end every browser session
 docker exec -it envoryx envoryx admin revoke-tokens    # delete every API token (MCP, SSH/SFTP, scripts)
 docker exec -it envoryx envoryx admin revoke-token ci  # delete one (see Command line for tokens)
 docker exec -it envoryx envoryx admin reset --yes      # remove all accounts → the setup page returns
 ```
 
-`reset-password` picks the only account when there is just one and ends its
-sessions; `reset` deletes accounts, sessions and API tokens but leaves
-projects, settings and backups alone. Open the web interface afterwards and
+`reset-password` picks the only account when there is just one, prints a
+generated password and ends its sessions. `--password PW` sets one of your
+choice, but it ends up in the shell history and in the process list (`ps`):
+prefer the generated one and change it after signing in. `reset` deletes
+accounts, sessions and API tokens but leaves projects, settings and backups
+alone. Open the web interface afterwards and
 create the administrator account again. `revoke-tokens` and `reset` leave the
 instance's SSH keys (*Settings → SSH*) and the single sign-on (*Settings →
 Users*) as they are and say so: when you reset because someone else had

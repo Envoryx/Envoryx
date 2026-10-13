@@ -49,7 +49,9 @@ Commands:
                               or its name (--user NAME when names repeat)
   reset-password [flags]      set a new password for an account and end its sessions
       --user NAME             account to change (default: the only account)
-      --password PW           the new password (default: a generated one, printed once)
+      --password PW           the new password (default: a generated one, printed once).
+                              A password given here ends up in the shell history and
+                              in ps: prefer the generated one and change it later
   logout-all                  end every browser session (everyone has to sign in again)
   revoke-tokens               delete every API token (MCP, SSH/SFTP, scripts)
   reset --yes                 delete all accounts, sessions and tokens; the setup page

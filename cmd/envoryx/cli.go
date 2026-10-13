@@ -152,7 +152,9 @@ Server (run on the host or inside the container):
 
 Global flags:
   --url URL        Envoryx address, e.g. https://envoryx.example.com (ENVORYX_URL)
-  --token TOKEN    API token (ENVORYX_TOKEN); "-" reads it from stdin
+  --token TOKEN    API token (ENVORYX_TOKEN); "-" reads it from stdin. A token given
+                   here ends up in the shell history and in ps: prefer "-",
+                   ENVORYX_TOKEN or "envoryx login", which asks for it
   --ca-cert FILE   trust this certificate authority (ENVORYX_CA_CERT)
   --insecure       do not verify the server certificate (ENVORYX_INSECURE)
   --json           print the API's JSON instead of tables
@@ -309,7 +311,7 @@ func (c *cli) newFlags(name string) *flag.FlagSet {
 	fs := flag.NewFlagSet(name, flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
 	fs.StringVar(&c.flags.URL, "url", c.flags.URL, "Envoryx address")
-	fs.StringVar(&c.flags.Token, "token", c.flags.Token, "API token")
+	fs.StringVar(&c.flags.Token, "token", c.flags.Token, "API token; \"-\" reads it from stdin (a value here lands in the shell history and ps)")
 	fs.StringVar(&c.flags.CACert, "ca-cert", c.flags.CACert, "certificate authority to trust")
 	fs.BoolVar(&c.flags.Insecure, "insecure", c.flags.Insecure, "do not verify the server certificate")
 	fs.BoolVar(&c.json, "json", c.json, "print JSON")
