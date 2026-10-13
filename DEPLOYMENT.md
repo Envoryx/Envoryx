@@ -2769,13 +2769,22 @@ no accounts and opens no other way in: it can't invite, change or delete users
 or their project roles, create password links (*Reset password*), change the
 single sign-on, create API tokens, store SSH keys (its own or the instance's),
 set a password, restore an instance backup (which brings back that backup's
-accounts) or change the consent, so nothing it does outlasts the consent. Nor
-can it show or replace the secret key: the hoster has the instance backups on
-its offsite target, and with the key it could read every secret in them. The
-UI shows these parts read-only to it. Taking the access back, or its end,
-ends its sessions at once. Every support login (with the name of the hoster's
-user who asked for it) and every change of the consent is in the audit log
-(`auth.support_login`, `settings.support_access`). The link leads to the
+accounts) or change the consent. Nor can it show or replace the secret key:
+the hoster has the instance backups on its offsite target, and with the key it
+could read every secret in them. It brings no code of its own choosing to stay
+on the instance: it can't install or edit addons, give a runtime a custom image
+(also not through a manifest) or store registry logins. And it leaves the
+record of its visit alone: it can't shorten the audit log's retention, switch
+off or clear the log history. The UI shows these parts read-only to it.
+
+What the support can still set up that outlasts the consent is what any admin
+works with inside the projects: workers, cron jobs, actions and the project
+files (through the terminal, SFTP or git), and projects themselves. Review
+those after a visit. Everything the support does is in the audit log under the
+user "Hoster support" (filter the audit log by that user), and every support
+login names the hoster's user who asked for it (`auth.support_login`), as does
+every change of the consent (`settings.support_access`). Taking the access
+back, or its end, ends its sessions at once. The link leads to the
 address of the web UI the instance knows: `envoryx.<base domain>` behind the
 embedded proxy, otherwise the public host and the listen port.
 

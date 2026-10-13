@@ -32,7 +32,9 @@ var accessColumns = map[string][]string{
 // sensitiveBodies are what a route with tokens=body or support=body refuses: the body
 // carrying the way in.
 var sensitiveBodies = map[string]string{
-	"PATCH /api/v1/settings": `{"sshAuthorizedKeys":""}`,
+	"PATCH /api/v1/settings":                    `{"sshAuthorizedKeys":""}`,
+	"POST /api/v1/projects/from-manifest":       `{"name":"Custom","yaml":"version: 1\nphp:\n  version: \"8.4\"\n  image: example/php:1\n"}`,
+	"POST /api/v1/projects/{id}/manifest/apply": `{"yaml":"version: 1\nphp:\n  version: \"8.4\"\n  image: example/php:1\n"}`,
 }
 
 // accessLine is one route of the access matrix.

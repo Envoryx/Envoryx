@@ -7,6 +7,8 @@ import { Alert, Badge, Button, Card, CardHeader, Code, Field, Input, Select, typ
 import { formatDateTime, serviceLabel } from "@/lib/format";
 import { errorText } from "@/lib/errors";
 import { projectAccess } from "@/lib/access";
+import { useAuth } from "@/features/auth/AuthContext";
+import { SupportRefusedNote } from "@/features/settings/SupportAccessCard";
 
 /** The runtimes that can run an image of the user's; databases, services and web servers keep the vetted images. */
 export const customImageKinds = ["php", "node", "python", "go", "ruby", "java", "dotnet"] as const;
@@ -21,6 +23,8 @@ function RuntimeImage({ project: p, svc }: { project: Project; svc: ProjectServi
   const { t } = useTranslation();
   const mutation = useCustomImage(p.id);
   const can = projectAccess(p);
+  // The hoster's support brings no image of its own choosing; going back to the catalogue stays with the admins too.
+  const { support } = useAuth();
   const c = svc.customImage;
   const [source, setSource] = useState<Source>(sourceOf(svc));
   const [image, setImage] = useState(c?.image ?? "");
@@ -63,7 +67,8 @@ function RuntimeImage({ project: p, svc }: { project: Project; svc: ProjectServi
         <Code className="truncate text-xs">{svc.image}</Code>
       </div>
       {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
-      {can.admin && (
+      {can.admin && support && <SupportRefusedNote about="code" />}
+      {can.admin && !support && (
         <div className="grid items-end gap-3 sm:grid-cols-[12rem_1fr_auto]">
           <Field label={t("Image")} htmlFor={`img-src-${svc.kind}`}>
             <Select id={`img-src-${svc.kind}`} value={source} onChange={(e) => setSource(e.target.value as Source)}>
@@ -88,7 +93,7 @@ function RuntimeImage({ project: p, svc }: { project: Project; svc: ProjectServi
           </Button>
         </div>
       )}
-      {source === "dockerfile" && can.admin && (
+      {source === "dockerfile" && can.admin && !support && (
         <p className="text-xs text-muted">
           {t("Relative to the project directory. Its directory is the build context, so keep it in a directory of its own. Envoryx builds it again whenever a file there changes. Start from an Envoryx image to keep every feature, for example:")}{" "}
           <Code>FROM {svc.image.startsWith("ghcr.io/envoryx/") ? svc.image : `ghcr.io/envoryx/envoryx-${svc.kind}:${svc.version}`}</Code>

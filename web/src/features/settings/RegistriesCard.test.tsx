@@ -32,4 +32,18 @@ describe("RegistriesCard", () => {
     });
     expect(await screen.findByText("Registry logins saved.")).toBeInTheDocument();
   });
+
+  it("is read-only for the hoster's support", async () => {
+    mockApi({
+      ...authedRoutes,
+      "GET /auth/me": () => ({ body: { user: { id: "s1", username: "Hoster support", role: "admin" }, admin: true, support: true } }),
+      "GET /settings/registries": () => ({ body: { registries: [{ host: "ghcr.io", username: "me", hasPassword: true }] } }),
+    });
+    renderApp(<RegistriesCard />);
+
+    expect(await screen.findByText("The hoster's support can't change this: addons, custom images and registry logins stay with the instance's admins.")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("ghcr.io")).toHaveAttribute("readonly");
+    expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add login" })).not.toBeInTheDocument();
+  });
 });

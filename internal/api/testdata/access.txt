@@ -21,7 +21,9 @@
 #              fetched from offsite (instance backup restore); the test sends it an
 #              uploaded one.
 # support=     the hoster's support session (an admin): yes, no (supportRefused in
-#              support.go), or body as for tokens.
+#              support.go), or body: refused when the body carries what it may not set
+#              (the instance's SSH keys or the log history in PATCH /settings, a custom
+#              image in a manifest).
 # confined=    a principal limited to particular projects (a token with a project list,
 #              a user whose global role is none). project: its level in the path's
 #              project decides. any: its level in any of its projects opens the route
@@ -68,10 +70,10 @@ POST   /api/v1/settings/secret-key/reveal                            scope=admin
 POST   /api/v1/settings/secret-key/rotate                            scope=admin   tokens=no    support=no   confined=no      suspended=no  plan=none
 GET    /api/v1/settings/registries                                   scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
 GET    /api/v1/addons                                                scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
-POST   /api/v1/addons                                                scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
+POST   /api/v1/addons                                                scope=admin   tokens=yes   support=no   confined=no      suspended=no  plan=none
 GET    /api/v1/addons/{name}                                         scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
 DELETE /api/v1/addons/{name}                                         scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
-PUT    /api/v1/settings/registries                                   scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
+PUT    /api/v1/settings/registries                                   scope=admin   tokens=yes   support=no   confined=no      suspended=no  plan=none
 GET    /api/v1/users                                                 scope=admin   tokens=no    support=yes  confined=no      suspended=no  plan=none
 POST   /api/v1/users                                                 scope=admin   tokens=no    support=no   confined=no      suspended=no  plan=none
 PATCH  /api/v1/users/{id}                                            scope=admin   tokens=no    support=no   confined=no      suspended=no  plan=none
@@ -81,7 +83,7 @@ PUT    /api/v1/users/{id}/projects/{project}                         scope=admin
 GET    /api/v1/tokens                                                scope=read    tokens=no    support=yes  confined=users   suspended=no  plan=none
 POST   /api/v1/tokens                                                scope=read    tokens=no    support=no   confined=users   suspended=no  plan=none
 DELETE /api/v1/tokens/{id}                                           scope=read    tokens=no    support=yes  confined=users   suspended=no  plan=none
-DELETE /api/v1/settings/log-history                                  scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
+DELETE /api/v1/settings/log-history                                  scope=admin   tokens=yes   support=no   confined=no      suspended=no  plan=none
 DELETE /api/v1/settings/metrics                                      scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
 GET    /api/v1/metrics/overview                                      scope=read    tokens=yes   support=yes  confined=users   suspended=no  plan=none
 GET    /api/v1/settings/tls                                          scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
@@ -114,7 +116,7 @@ GET    /api/v1/audit                                                 scope=admin
 GET    /api/v1/audit/export                                          scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
 GET    /api/v1/audit/users                                           scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
 GET    /api/v1/audit/settings                                        scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
-PUT    /api/v1/audit/settings                                        scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
+PUT    /api/v1/audit/settings                                        scope=admin   tokens=yes   support=no   confined=no      suspended=no  plan=none
 GET    /api/v1/instance/backups                                      scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
 POST   /api/v1/instance/backups                                      scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
 POST   /api/v1/instance/backups/upload                               scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
@@ -140,14 +142,14 @@ GET    /api/v1/projects                                              scope=read 
 GET    /api/v1/operations                                            scope=read    tokens=yes   support=yes  confined=yes     suspended=no  plan=none
 POST   /api/v1/projects                                              scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
 POST   /api/v1/projects/preview                                      scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
-POST   /api/v1/projects/from-manifest                                scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
+POST   /api/v1/projects/from-manifest                                scope=admin   tokens=yes   support=body confined=no      suspended=no  plan=none
 POST   /api/v1/site-imports                                          scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
 GET    /api/v1/site-imports/{id}                                     scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
 DELETE /api/v1/site-imports/{id}                                     scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
 GET    /api/v1/projects/{id}/manifest                                scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none
 PUT    /api/v1/projects/{id}/manifest/file                           scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none
 POST   /api/v1/projects/{id}/manifest/plan                           scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none
-POST   /api/v1/projects/{id}/manifest/apply                          scope=admin   tokens=yes   support=yes  confined=project suspended=no  plan=none
+POST   /api/v1/projects/{id}/manifest/apply                          scope=admin   tokens=yes   support=body confined=project suspended=no  plan=none
 GET    /api/v1/projects/{id}                                         scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none
 PATCH  /api/v1/projects/{id}                                         scope=admin   tokens=yes   support=yes  confined=project suspended=no  plan=none
 DELETE /api/v1/projects/{id}                                         scope=admin   tokens=yes   support=yes  confined=project suspended=no  plan=none
@@ -163,7 +165,7 @@ POST   /api/v1/projects/{id}/stop                                    scope=opera
 POST   /api/v1/projects/{id}/restart                                 scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none
 POST   /api/v1/projects/{id}/workers/{worker}/restart                scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none
 POST   /api/v1/projects/{id}/images                                  scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none
-PUT    /api/v1/projects/{id}/services/{kind}/image                   scope=admin   tokens=yes   support=yes  confined=project suspended=no  plan=none
+PUT    /api/v1/projects/{id}/services/{kind}/image                   scope=admin   tokens=yes   support=no   confined=project suspended=no  plan=none
 GET    /api/v1/projects/{id}/addons                                  scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none
 PUT    /api/v1/projects/{id}/addons/{name}                           scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none
 DELETE /api/v1/projects/{id}/services/{kind}/image                   scope=admin   tokens=yes   support=yes  confined=project suspended=no  plan=none

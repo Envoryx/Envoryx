@@ -6,6 +6,8 @@ import (
 
 	"github.com/envoryx/envoryx/internal/audit"
 	"github.com/envoryx/envoryx/internal/auth"
+	"github.com/envoryx/envoryx/internal/manifest"
+	"github.com/envoryx/envoryx/internal/store"
 )
 
 // supportAccess returns the admins' consent to the hoster's support and whether a
@@ -66,24 +68,58 @@ func (a *API) supportLogin(w http.ResponseWriter, r *http.Request) {
 // the single sign-on, create tokens or store SSH keys, set a password or restore an
 // instance backup (which brings back that backup's accounts and tokens). Nor can it show
 // or replace the secret key: the hoster gets the instance backups through its offsite
-// target already, and with the key it could read every secret in them, beyond the
-// consent. The instance's SSH keys in PATCH /settings are refused in updateSettings.
+// target already, and with the key it could read every secret in them. It brings no
+// code of its own choosing to stay on the instance either: no addons, no custom images
+// and no registry credentials for them. And it leaves the record of its visit alone: it
+// can't shorten the audit log's retention or clear the log history.
+//
+// Refused in the handlers by what the body carries: the instance's SSH keys and the log
+// history in PATCH /settings (updateSettings), and a custom image in a manifest
+// (supportManifestImages). What the support can still set up that outlasts the consent is
+// what any admin works with in a project: workers, cron jobs and the project's files; the
+// audit log records all of it under the support user.
 var supportRefused = map[string]bool{
-	"POST /api/v1/tokens":                        true,
-	"PUT /api/v1/auth/ssh-keys":                  true,
-	"POST /api/v1/auth/password":                 true,
-	"PUT /api/v1/settings/support-access":        true,
-	"POST /api/v1/users":                         true,
-	"PATCH /api/v1/users/{id}":                   true,
-	"DELETE /api/v1/users/{id}":                  true,
-	"POST /api/v1/users/{id}/invite":             true,
-	"PUT /api/v1/users/{id}/projects/{project}":  true,
-	"PUT /api/v1/settings/oidc":                  true,
-	"POST /api/v1/settings/oidc/test":            true,
-	"POST /api/v1/instance/backups/{id}/restore": true,
-	"POST /api/v1/settings/secret-key/reveal":    true,
-	"POST /api/v1/settings/secret-key/rotate":    true,
+	"POST /api/v1/tokens":                             true,
+	"PUT /api/v1/auth/ssh-keys":                       true,
+	"POST /api/v1/auth/password":                      true,
+	"PUT /api/v1/settings/support-access":             true,
+	"POST /api/v1/users":                              true,
+	"PATCH /api/v1/users/{id}":                        true,
+	"DELETE /api/v1/users/{id}":                       true,
+	"POST /api/v1/users/{id}/invite":                  true,
+	"PUT /api/v1/users/{id}/projects/{project}":       true,
+	"PUT /api/v1/settings/oidc":                       true,
+	"POST /api/v1/settings/oidc/test":                 true,
+	"POST /api/v1/instance/backups/{id}/restore":      true,
+	"POST /api/v1/settings/secret-key/reveal":         true,
+	"POST /api/v1/settings/secret-key/rotate":         true,
+	"POST /api/v1/addons":                             true,
+	"PUT /api/v1/projects/{id}/services/{kind}/image": true,
+	"PUT /api/v1/settings/registries":                 true,
+	"PUT /api/v1/audit/settings":                      true,
+	"DELETE /api/v1/settings/log-history":             true,
 }
 
 // errSupportRefused answers what the hoster's support can't do.
 var errSupportRefused = fmt.Errorf("%w: the hoster's support can't do this", auth.ErrForbidden)
+
+// supportManifestImages refuses the hoster's support a manifest that gives a runtime a
+// custom image other than the one it has (current is nil for a new project), as
+// PUT /projects/{id}/services/{kind}/image is refused to it.
+func supportManifestImages(r *http.Request, mf manifest.Manifest, current *store.Project) error {
+	if p, _ := auth.PrincipalFrom(r.Context()); !p.Support {
+		return nil
+	}
+	for name, c := range mf.CustomImages() {
+		if c.Image == "" && c.Dockerfile == "" {
+			continue
+		}
+		if current != nil {
+			if svc := current.Service(store.ServiceKind(name)); svc != nil && svc.Custom.Image == c.Image && svc.Custom.Dockerfile == c.Dockerfile {
+				continue
+			}
+		}
+		return errSupportRefused
+	}
+	return nil
+}
