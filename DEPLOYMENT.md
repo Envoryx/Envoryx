@@ -1771,6 +1771,11 @@ envoryx instance cancel-restore
 envoryx instance offsite|remote|fetch …              # like envoryx backup
 ```
 
+Without `-o`, `instance download`, `backup download` and `audit --export` write
+to the name the server suggests in the current directory (a plain file name,
+otherwise a default one) and refuse to replace a file of that name; `-o` names
+the file to write, also over an existing one, and `-o -` writes to stdout.
+
 `restore --wait` returns when a new Envoryx process answers. The restored
 database brings its own tokens, so the one that asked may not work any more.
 

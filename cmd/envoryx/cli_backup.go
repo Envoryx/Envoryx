@@ -6,12 +6,13 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"mime"
 	"net/http"
 	"os"
-	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -242,7 +243,7 @@ func (c *cli) backupRestore(ctx context.Context, args []string) error {
 
 func (c *cli) backupDownload(ctx context.Context, args []string) error {
 	fs := c.newFlags("backup download")
-	out := fs.String("o", "", "file to write (default: the archive's name; \"-\" is stdout)")
+	out := fs.String("o", "", "file to write (default: the archive's name, not over an existing file; \"-\" is stdout)")
 	fs.StringVar(out, "output", "", "file to write")
 	pos, err := parse(fs, args)
 	if err != nil {
@@ -264,27 +265,7 @@ func (c *cli) backupDownload(ctx context.Context, args []string) error {
 	}
 	defer resp.Body.Close()
 
-	target := *out
-	if target == "" {
-		target = filenameFromResponse(resp.Header.Get("Content-Disposition"), p.Slug+"-"+backup+".tar")
-	}
-	if target == "-" {
-		_, err := io.Copy(c.out, resp.Body)
-		return err
-	}
-	f, err := os.Create(target)
-	if err != nil {
-		return err
-	}
-	written, err := io.Copy(f, resp.Body)
-	if cerr := f.Close(); err == nil {
-		err = cerr
-	}
-	if err != nil {
-		return err
-	}
-	c.printf("Wrote %s (%s)\n", target, humanSize(written))
-	return nil
+	return c.saveDownload(resp, *out, p.Slug+"-"+backup+".tar", 0o666)
 }
 
 func (c *cli) backupDelete(ctx context.Context, args []string) error {
@@ -346,15 +327,51 @@ func (c *cli) projectAndClient(ctx context.Context, want string) (projectSummary
 	return p, api, nil
 }
 
-// filenameFromResponse reads the name the server suggests for a download.
+// downloadName is what a name the server suggests must look like: a plain file name, no
+// path, no dot file (.bashrc), nothing a shell or terminal treats specially.
+var downloadName = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,200}$`)
+
+// filenameFromResponse reads the name the server suggests for a download, or fallback
+// when there is none or it isn't a plain file name.
 func filenameFromResponse(disposition, fallback string) string {
 	_, params, err := mime.ParseMediaType(disposition)
 	if err == nil {
-		if name := filepath.Base(params["filename"]); name != "" && name != "." && name != string(filepath.Separator) {
+		if name := params["filename"]; downloadName.MatchString(name) {
 			return name
 		}
 	}
 	return fallback
+}
+
+// saveDownload writes a download to target, "-" for stdout. Without one it goes to the
+// name the server suggests (filenameFromResponse) in the current directory, but never
+// over a file that is there: only a target the user named is overwritten.
+func (c *cli) saveDownload(resp *http.Response, target, fallback string, perm os.FileMode) error {
+	if target == "-" {
+		_, err := io.Copy(c.out, resp.Body)
+		return err
+	}
+	flags := os.O_WRONLY | os.O_CREATE | os.O_TRUNC
+	if target == "" {
+		target = filenameFromResponse(resp.Header.Get("Content-Disposition"), fallback)
+		flags = os.O_WRONLY | os.O_CREATE | os.O_EXCL
+	}
+	f, err := os.OpenFile(target, flags, perm)
+	if errors.Is(err, os.ErrExist) {
+		return fmt.Errorf("%s exists already; remove it or name the file to write with -o", target)
+	}
+	if err != nil {
+		return err
+	}
+	written, err := io.Copy(f, resp.Body)
+	if cerr := f.Close(); err == nil {
+		err = cerr
+	}
+	if err != nil {
+		return err
+	}
+	c.printf("Wrote %s (%s)\n", target, humanSize(written))
+	return nil
 }
 
 func humanSize(n int64) string {
