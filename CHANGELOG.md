@@ -30,6 +30,9 @@ release). `:main` follows the development branch.
   replaced a file of that name. They now take only a plain file name from the
   server (else a default one) and refuse to replace an existing file; `-o`
   still writes where it is told.
+- `envoryx login` saved the token in `~/.config/envoryx/cli.json` with mode
+  0600 only when it created the file; one that was there kept its mode, 0644
+  say. The file is now replaced by a new one with mode 0600 at every save.
 - The hoster's support could show and replace the secret key. The hoster has
   the instance backups on its offsite target, and with the key it could read
   every secret in them, beyond what the admins agreed to. Support now sees
