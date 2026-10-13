@@ -16,7 +16,10 @@
 # tokens=      yes: an API token passes within its scope. no: the handler refuses every
 #              token (sessionOnly and the like). admin: a token needs admin scope here
 #              although a session needs less. body: refused for a token when the body
-#              carries a way in (sshAuthorizedKeys in PATCH /settings).
+#              carries a way in (sshAuthorizedKeys in PATCH /settings). own: a token may
+#              only act on what the instance made itself, not on an upload or an archive
+#              fetched from offsite (instance backup restore); the test sends it an
+#              uploaded one.
 # support=     the hoster's support session (an admin): yes, no (supportRefused in
 #              support.go), or body as for tokens.
 # confined=    a principal limited to particular projects (a token with a project list,
@@ -117,7 +120,7 @@ POST   /api/v1/instance/backups                                      scope=admin
 POST   /api/v1/instance/backups/upload                               scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
 DELETE /api/v1/instance/backups/{id}                                 scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
 GET    /api/v1/instance/backups/{id}/download                        scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
-POST   /api/v1/instance/backups/{id}/restore                         scope=admin   tokens=yes   support=no   confined=no      suspended=no  plan=none
+POST   /api/v1/instance/backups/{id}/restore                         scope=admin   tokens=own   support=no   confined=no      suspended=no  plan=none
 POST   /api/v1/instance/backups/{id}/offsite                         scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
 GET    /api/v1/offsite                                               scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
 POST   /api/v1/offsite/targets                                       scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=offsite

@@ -1744,6 +1744,11 @@ one Docker host*); a restore keeps the current key and ID.
   restored database starts with an `instance.restored` audit entry naming the
   backup, the `pre-restore` safety copy and who requested it. The audit rows
   written after the backup was taken are gone with the old database.
+- An **API token** (and so the CLI) restores only the backups the instance
+  made itself (manual, daily, `pre-migrate`, `pre-restore`). An uploaded one,
+  or one fetched from an offsite target, can carry accounts and tokens of
+  anyone's choosing, so it needs an admin's browser session: restore it in
+  *Settings → Backups → Instance backups*.
 - A backup from a **newer** Envoryx (higher schema version) is refused; an
   older one is migrated forward on start (with its own `pre-migrate` backup).
 - A backup whose secrets are encrypted with **another key** (another host, or a
@@ -1765,8 +1770,8 @@ From the command line (admin token):
 envoryx instance backup --note "before the update" [--offsite]
 envoryx instance backups                             # with offsite state and a scheduled restore
 envoryx instance download <backup> [-o FILE]         # written with mode 0600
-envoryx instance upload envoryx-<backup>.tar.gz      # on the new host
-envoryx instance restore <backup> --yes --wait       # --key-file FILE for another key
+envoryx instance upload envoryx-<backup>.tar.gz      # on the new host; restore it in the web UI
+envoryx instance restore <backup> --yes --wait       # own backups only; --key-file FILE for another key
 envoryx instance cancel-restore
 envoryx instance offsite|remote|fetch …              # like envoryx backup
 ```
