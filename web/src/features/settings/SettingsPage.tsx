@@ -304,7 +304,8 @@ function InstanceCard() {
 
 const retentionChoices = [0, 30, 90, 180, 365, 730];
 
-function AuditRetentionCard() {
+/** How long the audit log keeps its entries; read-only for the hoster's support, whose visit it records. */
+function AuditRetentionCard({ readOnly }: { readOnly: boolean }) {
   const { t } = useTranslation();
   const { query, save } = useAuditSettings();
   const [msg, setMsg] = useState<{ tone: "green" | "red"; text: string } | null>(null);
@@ -316,12 +317,13 @@ function AuditRetentionCard() {
     <Card>
       <CardHeader title={t("Audit log")} description={t("How long the audit log keeps its entries. Older ones are deleted every hour.")} />
       <div className="space-y-3 p-5">
+        {readOnly && <SupportRefusedNote about="record" />}
         {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
         <Field label={t("Keep entries")} htmlFor="audit-retention">
           <Select
             id="audit-retention"
             value={days}
-            disabled={save.isPending}
+            disabled={readOnly || save.isPending}
             onChange={(e) =>
               save.mutate(Number(e.target.value), {
                 onSuccess: () => setMsg({ tone: "green", text: t("Retention saved.") }),
@@ -419,7 +421,7 @@ export function SettingsPage() {
             <>
               <LogHistoryCard />
               <ResourceHistoryCard />
-              <AuditRetentionCard />
+              <AuditRetentionCard readOnly={support} />
             </>
           )}
           {tab === "audit" && (

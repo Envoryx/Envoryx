@@ -8,10 +8,13 @@ import type { Settings } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Checkbox, Code, Dialog, ErrorState, Field, Input, Spinner } from "@/components/ui";
 import { errorText } from "@/lib/errors";
 import { formatBytes } from "@/lib/format";
+import { useAuth } from "@/features/auth/AuthContext";
+import { SupportRefusedNote } from "./SupportAccessCard";
 
-/** Keeps container output beyond the containers: on/off, retention and the space it uses. */
+/** Keeps container output beyond the containers: on/off, retention and the space it uses. Read-only for the hoster's support. */
 export function LogHistoryCard() {
   const { t } = useTranslation();
+  const { support } = useAuth();
   const s = useSettings();
   const update = useUpdateSettings();
   const qc = useQueryClient();
@@ -70,13 +73,14 @@ export function LogHistoryCard() {
           <ErrorState message={errorText(s.error, t)} />
         ) : !info ? null : (
           <>
+            {support && <SupportRefusedNote about="record" />}
             {error && <Alert tone="red">{error}</Alert>}
             {!info.available && <Alert tone="amber">{t("The log history directory could not be opened; see the Envoryx log. The Logs section reads the containers only.")}</Alert>}
             <Checkbox
               label={t("Keep the output of the project containers")}
               description={t("When off, nothing new is stored and the Logs section reads what Docker still holds for the current container (10 MB × 3 per container). What is stored stays until retention removes it.")}
               checked={info.enabled}
-              disabled={update.isPending || !info.available}
+              disabled={support || update.isPending || !info.available}
               onChange={(e) => {
                 setError(null);
                 update.mutate({ logHistory: { enabled: e.target.checked } }, { onError: (err) => setError(errorText(err, t, t("Saving failed"))) });
@@ -84,12 +88,12 @@ export function LogHistoryCard() {
             />
             <form onSubmit={save} className="grid gap-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
               <Field label={t("Keep for (days)")} htmlFor="lh-days" hint={t("1 to 365")}>
-                <Input id="lh-days" type="number" min={1} max={365} value={days} onChange={(e) => setDays(e.target.value)} required />
+                <Input id="lh-days" readOnly={support} type="number" min={1} max={365} value={days} onChange={(e) => setDays(e.target.value)} required />
               </Field>
               <Field label={t("At most (MB)")} htmlFor="lh-max" hint={t("All projects together; the oldest days go first")}>
-                <Input id="lh-max" type="number" min={50} value={maxMb} onChange={(e) => setMaxMb(e.target.value)} required />
+                <Input id="lh-max" readOnly={support} type="number" min={50} value={maxMb} onChange={(e) => setMaxMb(e.target.value)} required />
               </Field>
-              <Button type="submit" loading={update.isPending} icon={<Save className="size-4" />} className="sm:mb-5">
+              <Button type="submit" disabled={support} loading={update.isPending} icon={<Save className="size-4" />} className="sm:mb-5">
                 {t("Save")}
               </Button>
             </form>
@@ -110,9 +114,11 @@ export function LogHistoryCard() {
                   )}
                 </p>
               </div>
-              <Button variant="ghost" size="sm" onClick={() => setConfirmClear(true)} disabled={info.usage.files === 0} icon={<Trash2 className="size-3.5" />}>
-                {t("Delete stored logs")}
-              </Button>
+              {!support && (
+                <Button variant="ghost" size="sm" onClick={() => setConfirmClear(true)} disabled={info.usage.files === 0} icon={<Trash2 className="size-3.5" />}>
+                  {t("Delete stored logs")}
+                </Button>
+              )}
             </div>
           </>
         )}

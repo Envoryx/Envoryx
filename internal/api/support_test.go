@@ -133,6 +133,13 @@ func TestSupportCantGrantAccess(t *testing.T) {
 		{http.MethodPost, "/api/v1/auth/password", map[string]any{"current": "x", "new": "y"}},
 		{http.MethodPost, "/api/v1/settings/secret-key/reveal", nil},
 		{http.MethodPost, "/api/v1/settings/secret-key/rotate", nil},
+		// No code of its own choosing that stays, and the record of its visit stays too.
+		{http.MethodPost, "/api/v1/addons", map[string]any{"url": "https://example.com/addon.yml"}},
+		{http.MethodPut, "/api/v1/settings/registries", map[string]any{"registries": []any{}}},
+		{http.MethodPut, "/api/v1/audit/settings", map[string]any{"retentionDays": 1}},
+		{http.MethodDelete, "/api/v1/settings/log-history", nil},
+		{http.MethodPatch, "/api/v1/settings", map[string]any{"logHistory": map[string]any{"enabled": false}}},
+		{http.MethodPost, "/api/v1/projects/from-manifest", map[string]any{"name": "Custom", "yaml": "version: 1\nphp:\n  version: \"8.4\"\n  image: example/php:1\n"}},
 	} {
 		r := a.do(c.method, c.path, c.body, true)
 		if r.status != http.StatusForbidden || !strings.Contains(string(r.raw), "support") {
@@ -142,6 +149,34 @@ func TestSupportCantGrantAccess(t *testing.T) {
 	// Other settings stay open to the support.
 	if r = a.do(http.MethodPatch, "/api/v1/settings", map[string]any{"xdebugClientHost": "192.168.1.20"}, true); r.status != http.StatusOK {
 		t.Fatalf("settings as support: %d %s", r.status, r.raw)
+	}
+}
+
+// The support works with projects, also through a manifest, as long as the manifest
+// brings no custom image: that is refused as PUT .../services/{kind}/image is.
+func TestSupportManifestWithoutCustomImages(t *testing.T) {
+	a := newApp(t)
+	a.setupAndLogin()
+	if r := a.do(http.MethodPut, "/api/v1/settings/support-access", map[string]any{"allowed": true}, true); r.status != http.StatusOK {
+		t.Fatalf("allow: %d %s", r.status, r.raw)
+	}
+	token, err := a.auth.IssueSupportLogin(context.Background(), "hoster")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cookie, _ := a.supportLogin(token)
+	if cookie == nil {
+		t.Fatal("no support session")
+	}
+	a.cookie = cookie
+	r := a.do(http.MethodPost, "/api/v1/projects/from-manifest", map[string]any{"name": "Plain", "yaml": "version: 1\nphp:\n  version: \"8.4\"\n"}, true)
+	if r.status != http.StatusCreated {
+		t.Fatalf("manifest without an image: %d %s", r.status, r.raw)
+	}
+	id := r.body["project"].(map[string]any)["id"].(string)
+	r = a.do(http.MethodPost, "/api/v1/projects/"+id+"/manifest/apply", map[string]any{"yaml": "version: 1\nphp:\n  version: \"8.4\"\n  image: example/php:1\n"}, true)
+	if r.status != http.StatusForbidden || !strings.Contains(string(r.raw), "support") {
+		t.Fatalf("manifest with an image: %d %s", r.status, r.raw)
 	}
 }
 

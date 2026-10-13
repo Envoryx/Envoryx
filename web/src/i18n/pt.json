@@ -3034,5 +3034,7 @@
   "Install vsdbg": "Instalar vsdbg",
   "Or in the .NET terminal:": "Ou no terminal .NET:",
   "Download Microsoft's debugger for VS Code into the project home (licensed for Microsoft's tools only)": "Descarregar o depurador da Microsoft para o VS Code para a pasta pessoal do projeto (licenciado só para ferramentas da Microsoft)",
-  "Third-party licenses": "Licenças de terceiros"
+  "Third-party licenses": "Licenças de terceiros",
+  "The hoster's support can't change this: addons, custom images and registry logins stay with the instance's admins.": "O suporte do provedor não pode alterar isto: complementos, imagens próprias e acessos a registos ficam com os administradores da instância.",
+  "The hoster's support can't change this: the audit log and the log history are the admins' record of its visit.": "O suporte do provedor não pode alterar isto: o registo de auditoria e o histórico de logs são o registo da sua visita para os administradores."
 }

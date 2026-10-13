@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/envoryx/envoryx/internal/auth"
 	"github.com/envoryx/envoryx/internal/manifest"
 	"github.com/envoryx/envoryx/internal/project"
 	"github.com/envoryx/envoryx/internal/validate"
@@ -117,6 +118,17 @@ func (a *API) applyManifest(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
+	if p, _ := auth.PrincipalFrom(r.Context()); p.Support {
+		view, err := a.d.Projects.Get(r.Context(), id)
+		if err != nil {
+			writeError(w, r, err)
+			return
+		}
+		if err := supportManifestImages(r, mf, &view.Project); err != nil {
+			writeError(w, r, err)
+			return
+		}
+	}
 	res, err := a.d.Projects.ApplyManifest(r.Context(), id, mf, project.ManifestOptions{Prune: req.Prune, Secrets: req.Secrets, Start: req.Start})
 	a.invalidateProxy() // domains may have changed before a later step failed
 	if err != nil {
@@ -144,6 +156,10 @@ func (a *API) createFromManifest(w http.ResponseWriter, r *http.Request) {
 	}
 	mf, err := manifest.Parse([]byte(req.YAML))
 	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	if err := supportManifestImages(r, mf, nil); err != nil {
 		writeError(w, r, err)
 		return
 	}

@@ -3082,5 +3082,7 @@
   "Install vsdbg": "Встановити vsdbg",
   "Or in the .NET terminal:": "Або в терміналі .NET:",
   "Download Microsoft's debugger for VS Code into the project home (licensed for Microsoft's tools only)": "Завантажити налагоджувач Microsoft для VS Code у домашній каталог проєкту (ліцензія лише для інструментів Microsoft)",
-  "Third-party licenses": "Ліцензії сторонніх компонентів"
+  "Third-party licenses": "Ліцензії сторонніх компонентів",
+  "The hoster's support can't change this: addons, custom images and registry logins stay with the instance's admins.": "Підтримка хостера не може це змінити: доповнення, власні образи та доступи до реєстрів залишаються за адміністраторами екземпляра.",
+  "The hoster's support can't change this: the audit log and the log history are the admins' record of its visit.": "Підтримка хостера не може це змінити: журнал аудиту та історія логів є для адміністраторів записом її візиту."
 }

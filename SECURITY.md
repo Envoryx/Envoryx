@@ -129,8 +129,13 @@ which is logged as a warning at every start.
 
 The hoster's support signs in only with the admins' consent and can't do what would
 outlast it (accounts, passwords, tokens, SSH keys, single sign-on, restoring an instance
-backup). It can't show or replace the secret key either: the hoster has the instance
-backups on its offsite target already, and the key would open every secret in them.
+backup, addons, custom images and registry logins), nor shorten the audit log's retention
+or clear the log history. It can't show or replace the secret key either: the hoster has
+the instance backups on its offsite target already, and the key would open every secret
+in them. What it can still leave behind is what any admin works with inside the projects:
+workers, cron jobs, actions and project files. The audit log records everything it does
+under the user "Hoster support", and each support login with the hoster's user who asked
+for it.
 
 A manager is trusted with what the plan, suspension, backup, update and support login
 requests allow, not with the instance's resources: it answers one request of each kind at

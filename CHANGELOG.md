@@ -17,6 +17,13 @@ release). `:main` follows the development branch.
   restore`) now restores only the backups the instance made itself; an uploaded
   backup, or one fetched from an offsite target, is restored from an admin's
   browser session (*Settings → Backups → Instance backups*). The CLI says so.
+- The hoster's support could leave code of its own choosing on the instance
+  and cover its tracks. It can no longer install or edit addons, give a runtime
+  a custom image (also not through a manifest), store registry logins, shorten
+  the audit log's retention, or switch off or clear the log history; the UI
+  shows these parts read-only to it. It still works with workers, cron jobs
+  and project files, which DEPLOYMENT.md now names; the audit log records all
+  of it under the user "Hoster support".
 
 ## [0.35.0] - 2026-10-13
 

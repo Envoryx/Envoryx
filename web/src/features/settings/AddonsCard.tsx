@@ -8,6 +8,8 @@ import { NotInPlan } from "@/features/plan/PlanCard";
 import type { ExampleAddon, InstalledAddon } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Dialog, ErrorState, Field, Input, Spinner, type Tone } from "@/components/ui";
 import { errorText } from "@/lib/errors";
+import { useAuth } from "@/features/auth/AuthContext";
+import { SupportRefusedNote } from "./SupportAccessCard";
 
 /** A starting point for a new addon file. */
 const template = `name: my-addon
@@ -29,9 +31,10 @@ inject:
   MY_ADDON_URL: "http://{{host}}:{{port}}"
 `;
 
-/** Installed addon files, the examples Envoryx ships, and installing from a file or URL. Admins only. */
+/** Installed addon files, the examples Envoryx ships, and installing from a file or URL. Admins only; the hoster's support may only remove one. */
 export function AddonsCard() {
   const { t } = useTranslation();
+  const { support } = useAuth();
   const allowed = usePlanAllows("addons");
   const qc = useQueryClient();
   const q = useQuery({ queryKey: ["addons"], queryFn: () => api.addons.list() });
@@ -90,12 +93,15 @@ export function AddonsCard() {
           }
           description={t("Addons add services described in a YAML file: one container per project with its image, variables, volumes and an optional web UI. Addons get no host directories, host network or privileges. Projects add installed addons in their Services section.")}
           actions={
-            <Button variant="primary" icon={<Plus className="size-4" />} onClick={() => setEditor({ title: t("New addon"), source: template })}>
-              {t("New addon")}
-            </Button>
+            !support && (
+              <Button variant="primary" icon={<Plus className="size-4" />} onClick={() => setEditor({ title: t("New addon"), source: template })}>
+                {t("New addon")}
+              </Button>
+            )
           }
         />
         <div className="space-y-4 p-5">
+          {support && <SupportRefusedNote about="code" />}
           {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
           {q.data.addons.length === 0 && <p className="text-sm text-muted">{t("No addons installed yet. Start from an example below, write a file or install one from a URL.")}</p>}
           <ul className="divide-y divide-[var(--border)]">
@@ -111,9 +117,11 @@ export function AddonsCard() {
                   {a.projects.length > 0 && <p className="text-xs text-subtle">{t("Used by {{projects}}", { projects: a.projects.join(", ") })}</p>}
                 </div>
                 <div className="flex gap-2">
-                  <Button size="sm" icon={<Pencil className="size-4" />} onClick={() => void edit(a)}>
-                    {t("Edit")}
-                  </Button>
+                  {!support && (
+                    <Button size="sm" icon={<Pencil className="size-4" />} onClick={() => void edit(a)}>
+                      {t("Edit")}
+                    </Button>
+                  )}
                   <Button
                     size="sm"
                     variant="ghost"
@@ -128,14 +136,16 @@ export function AddonsCard() {
               </li>
             ))}
           </ul>
-          <div className="flex flex-wrap items-end gap-3">
-            <Field label={t("Install from a URL")} htmlFor="addon-url" hint={t("An addon file over http(s), e.g. a raw GitHub link.")}>
-              <Input id="addon-url" className="min-w-80" value={url} placeholder="https://raw.githubusercontent.com/…/addon.yml" onChange={(e) => setUrl(e.target.value)} />
-            </Field>
-            <Button icon={<Download className="size-4" />} disabled={!url.trim()} loading={install.isPending && !!install.variables?.url} onClick={() => install.mutate({ url: url.trim() })}>
-              {t("Install")}
-            </Button>
-          </div>
+          {!support && (
+            <div className="flex flex-wrap items-end gap-3">
+              <Field label={t("Install from a URL")} htmlFor="addon-url" hint={t("An addon file over http(s), e.g. a raw GitHub link.")}>
+                <Input id="addon-url" className="min-w-80" value={url} placeholder="https://raw.githubusercontent.com/…/addon.yml" onChange={(e) => setUrl(e.target.value)} />
+              </Field>
+              <Button icon={<Download className="size-4" />} disabled={!url.trim()} loading={install.isPending && !!install.variables?.url} onClick={() => install.mutate({ url: url.trim() })}>
+                {t("Install")}
+              </Button>
+            </div>
+          )}
         </div>
       </Card>
 
@@ -148,14 +158,16 @@ export function AddonsCard() {
                 <span className="font-medium">{ex.title}</span> <span className="font-mono text-xs text-subtle">{ex.name}</span>
                 {ex.description && <p className="text-xs text-muted">{t(ex.description)}</p>}
               </div>
-              <div className="flex gap-2">
-                <Button size="sm" icon={<Pencil className="size-4" />} onClick={() => setEditor({ title: t("New addon"), source: ex.source })}>
-                  {t("Adjust")}
-                </Button>
-                <Button size="sm" icon={<Upload className="size-4" />} loading={install.isPending && install.variables?.source === ex.source} onClick={() => install.mutate({ source: ex.source })}>
-                  {installed.has(ex.name) ? t("Reinstall") : t("Install")}
-                </Button>
-              </div>
+              {!support && (
+                <div className="flex gap-2">
+                  <Button size="sm" icon={<Pencil className="size-4" />} onClick={() => setEditor({ title: t("New addon"), source: ex.source })}>
+                    {t("Adjust")}
+                  </Button>
+                  <Button size="sm" icon={<Upload className="size-4" />} loading={install.isPending && install.variables?.source === ex.source} onClick={() => install.mutate({ source: ex.source })}>
+                    {installed.has(ex.name) ? t("Reinstall") : t("Install")}
+                  </Button>
+                </div>
+              )}
             </li>
           ))}
         </ul>
