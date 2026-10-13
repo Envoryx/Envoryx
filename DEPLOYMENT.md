@@ -2759,7 +2759,9 @@ no accounts and opens no other way in: it can't invite, change or delete users
 or their project roles, create password links (*Reset password*), change the
 single sign-on, create API tokens, store SSH keys (its own or the instance's),
 set a password, restore an instance backup (which brings back that backup's
-accounts) or change the consent, so nothing it does outlasts the consent. The
+accounts) or change the consent, so nothing it does outlasts the consent. Nor
+can it show or replace the secret key: the hoster has the instance backups on
+its offsite target, and with the key it could read every secret in them. The
 UI shows these parts read-only to it. Taking the access back, or its end,
 ends its sessions at once. Every support login (with the name of the hoster's
 user who asked for it) and every change of the consent is in the audit log

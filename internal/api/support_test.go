@@ -131,6 +131,8 @@ func TestSupportCantGrantAccess(t *testing.T) {
 		{http.MethodPost, "/api/v1/tokens", map[string]any{"name": "keep", "scope": "admin"}},
 		{http.MethodPut, "/api/v1/auth/ssh-keys", map[string]any{"keys": ""}},
 		{http.MethodPost, "/api/v1/auth/password", map[string]any{"current": "x", "new": "y"}},
+		{http.MethodPost, "/api/v1/settings/secret-key/reveal", nil},
+		{http.MethodPost, "/api/v1/settings/secret-key/rotate", nil},
 	} {
 		r := a.do(c.method, c.path, c.body, true)
 		if r.status != http.StatusForbidden || !strings.Contains(string(r.raw), "support") {

@@ -33,4 +33,13 @@ describe("SecretKeyCard", () => {
     expect(await screen.findByText(/set a new one as ENVORYX_SECRET_KEY and the current one as ENVORYX_SECRET_KEY_OLD/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Replace the key" })).not.toBeInTheDocument();
   });
+
+  it("shows the hoster's support where the key comes from, not the key", async () => {
+    mockApi({ ...authedRoutes, "GET /settings/secret-key": () => ({ body: { secretKey: fileKey } }) });
+    renderApp(<SecretKeyCard readOnly />);
+    expect(await screen.findByText("aaaa1111")).toBeInTheDocument();
+    expect(screen.getByText(/The hoster's support can't change this/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Show key" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Replace the key" })).not.toBeInTheDocument();
+  });
 });

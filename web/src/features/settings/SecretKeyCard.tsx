@@ -6,9 +6,13 @@ import { api } from "@/api/client";
 import { Alert, Button, Card, CardHeader, Code, Dialog, ErrorState, Spinner, type Tone } from "@/components/ui";
 import { errorText } from "@/lib/errors";
 import { CopyRow } from "@/features/projects/DatabaseTab";
+import { SupportRefusedNote } from "./SupportAccessCard";
 
-/** The key that encrypts the secrets at rest: where it comes from, showing it for safekeeping and replacing it. Admins only. */
-export function SecretKeyCard() {
+/**
+ * The key that encrypts the secrets at rest: where it comes from, showing it for safekeeping and replacing it. Admins only;
+ * the hoster's support (readOnly) sees where it comes from but can't show or replace it, as the key opens every stored secret.
+ */
+export function SecretKeyCard({ readOnly = false }: { readOnly?: boolean }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
   const q = useQuery({ queryKey: ["secretKey"], queryFn: async () => (await api.secretKey.get()).secretKey });
@@ -68,7 +72,9 @@ export function SecretKeyCard() {
             )}
           </dd>
         </dl>
-        {key ? (
+        {readOnly ? (
+          <SupportRefusedNote />
+        ) : key ? (
           <dl className="divide-y divide-[var(--border)]">
             <CopyRow label={t("Key")} value={key} secret />
           </dl>
@@ -82,7 +88,7 @@ export function SecretKeyCard() {
             {t("To keep the key out of /config (and out of appdata backups of it), set it as {{env}} in the container; Envoryx takes it from there and removes the key file at the next start.", { env: info.envKey })}
           </p>
         )}
-        {info.canRotate ? (
+        {readOnly ? null : info.canRotate ? (
           <Button size="sm" variant="danger" icon={<RefreshCw className="size-4" />} onClick={() => setRotateOpen(true)}>
             {t("Replace the key")}
           </Button>

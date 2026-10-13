@@ -60,7 +60,10 @@ func (a *API) supportLogin(w http.ResponseWriter, r *http.Request) {
 // support manages no accounts: it can't invite, change, remove or re-invite users (a new
 // invite link sets the password of an existing account), change their project roles or
 // the single sign-on, create tokens or store SSH keys, set a password or restore an
-// instance backup (which brings back that backup's accounts and tokens). The instance's SSH keys in PATCH /settings are refused in updateSettings.
+// instance backup (which brings back that backup's accounts and tokens). Nor can it show
+// or replace the secret key: the hoster gets the instance backups through its offsite
+// target already, and with the key it could read every secret in them, beyond the
+// consent. The instance's SSH keys in PATCH /settings are refused in updateSettings.
 var supportRefused = map[string]bool{
 	"POST /api/v1/tokens":                        true,
 	"PUT /api/v1/auth/ssh-keys":                  true,
@@ -74,6 +77,8 @@ var supportRefused = map[string]bool{
 	"PUT /api/v1/settings/oidc":                  true,
 	"POST /api/v1/settings/oidc/test":            true,
 	"POST /api/v1/instance/backups/{id}/restore": true,
+	"POST /api/v1/settings/secret-key/reveal":    true,
+	"POST /api/v1/settings/secret-key/rotate":    true,
 }
 
 // errSupportRefused answers what the hoster's support can't do.
