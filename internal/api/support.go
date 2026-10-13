@@ -75,7 +75,8 @@ func (a *API) supportLogin(w http.ResponseWriter, r *http.Request) {
 //
 // Refused in the handlers by what the body carries: the instance's SSH keys and the log
 // history in PATCH /settings (updateSettings), and a custom image in a manifest
-// (supportManifestImages). What the support can still set up that outlasts the consent is
+// (supportManifestImages); by what the backup holds: a project with a custom image in
+// POST /backups/{project}/{backup}/restore-new (restoreBackupNew). What the support can still set up that outlasts the consent is
 // what any admin works with in a project: workers, cron jobs and the project's files; the
 // audit log records all of it under the support user.
 var supportRefused = map[string]bool{

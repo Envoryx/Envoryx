@@ -23,7 +23,9 @@
 # support=     the hoster's support session (an admin): yes, no (supportRefused in
 #              support.go), or body: refused when the body carries what it may not set
 #              (the instance's SSH keys or the log history in PATCH /settings, a custom
-#              image in a manifest).
+#              image in a manifest). Refused by what a backup holds rather than the body,
+#              and so not tried here: restore-new of a backup with a custom image
+#              (TestSupportRestoresNoCustomImage).
 # confined=    a principal limited to particular projects (a token with a project list,
 #              a user whose global role is none). project: its level in the path's
 #              project decides. any: its level in any of its projects opens the route

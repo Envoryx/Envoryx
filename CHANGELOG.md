@@ -10,6 +10,12 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Security
+- The hoster's support could bring a custom image onto the instance by restoring a
+  backup into a new project (*Restore into a new project*, also of an uploaded backup),
+  although it can't set one otherwise. Such a restore is now refused to it with the image
+  it would bring; the instance's admins can still do it.
+
 ## [0.39.0] - 2026-10-13
 
 ### Added
