@@ -153,6 +153,16 @@ var instanceRoutesForConfinedUsers = map[string]bool{
 	"POST /api/v1/tokens":          true,
 	"DELETE /api/v1/tokens/{id}":   true,
 	"GET /api/v1/metrics/overview": true,
+	// The own second factors.
+	"GET /api/v1/auth/2fa":                       true,
+	"POST /api/v1/auth/2fa/totp/setup":           true,
+	"POST /api/v1/auth/2fa/totp":                 true,
+	"DELETE /api/v1/auth/2fa/totp":               true,
+	"POST /api/v1/auth/2fa/passkeys/options":     true,
+	"POST /api/v1/auth/2fa/passkeys":             true,
+	"PATCH /api/v1/auth/2fa/passkeys/{passkey}":  true,
+	"DELETE /api/v1/auth/2fa/passkeys/{passkey}": true,
+	"POST /api/v1/auth/2fa/recovery-codes":       true,
 }
 
 // routesForAnyProject serve every project alike: the database browser's status and the
@@ -192,6 +202,9 @@ func (a *API) guard(need auth.Scope, pattern string, h http.HandlerFunc) http.Ha
 		default:
 			err = p.Require(need, "")
 		}
+		if err == nil && p.TwoFactorSetup && !routesWhileTwoFactorSetup[pattern] {
+			err = errTwoFactorSetup
+		}
 		if err == nil && p.Support && supportRefused[pattern] {
 			err = errSupportRefused
 		}
@@ -229,6 +242,11 @@ func (a *API) Mount(mux *http.ServeMux, protect func(http.Handler) http.Handler)
 	public("GET /api/v1/setup", a.setupStatus)
 	public("POST /api/v1/setup", a.setup)
 	public("POST /api/v1/auth/login", a.login)
+	// The second step of a password sign-in, and the sign-in with a passkey (alone, or as
+	// the second step with the ticket).
+	public("POST /api/v1/auth/login/code", a.secondFactor)
+	public("POST /api/v1/auth/passkey/options", a.passkeyOptions)
+	public("POST /api/v1/auth/passkey", a.passkeyLogin)
 	public("POST /api/v1/auth/logout", a.logout)
 	// Single sign-on: whether to offer it, and the round trip through the provider.
 	public("GET /api/v1/auth/oidc", a.oidcStatus)
@@ -254,6 +272,15 @@ func (a *API) Mount(mux *http.ServeMux, protect func(http.Handler) http.Handler)
 	rd("POST /api/v1/auth/password", a.changePassword)
 	rd("GET /api/v1/auth/ssh-keys", a.mySSHKeys)
 	rd("PUT /api/v1/auth/ssh-keys", a.setMySSHKeys)
+	rd("GET /api/v1/auth/2fa", a.twoFactorStatus)
+	rd("POST /api/v1/auth/2fa/totp/setup", a.beginTOTP)
+	rd("POST /api/v1/auth/2fa/totp", a.confirmTOTP)
+	rd("DELETE /api/v1/auth/2fa/totp", a.removeTOTP)
+	rd("POST /api/v1/auth/2fa/passkeys/options", a.passkeyRegistrationOptions)
+	rd("POST /api/v1/auth/2fa/passkeys", a.addPasskey)
+	rd("PATCH /api/v1/auth/2fa/passkeys/{passkey}", a.renamePasskey)
+	rd("DELETE /api/v1/auth/2fa/passkeys/{passkey}", a.removePasskey)
+	rd("POST /api/v1/auth/2fa/recovery-codes", a.regenerateRecoveryCodes)
 
 	rd("GET /api/v1/dashboard", a.dashboard)
 	rd("GET /api/v1/runtimes", a.runtimes)
@@ -285,6 +312,7 @@ func (a *API) Mount(mux *http.ServeMux, protect func(http.Handler) http.Handler)
 	adm("DELETE /api/v1/users/{id}", a.deleteUser)
 	adm("POST /api/v1/users/{id}/invite", a.renewInvite)
 	adm("PUT /api/v1/users/{id}/projects/{project}", a.setProjectRole)
+	adm("DELETE /api/v1/users/{id}/two-factor", a.resetTwoFactor)
 	rd("GET /api/v1/tokens", a.listTokens)
 	rd("POST /api/v1/tokens", a.createToken)
 	rd("DELETE /api/v1/tokens/{id}", a.deleteToken)

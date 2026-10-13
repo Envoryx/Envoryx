@@ -28,7 +28,9 @@ type userAdminDTO struct {
 	Invited         bool       `json:"invited"`
 	InviteExpiresAt *time.Time `json:"inviteExpiresAt,omitempty"`
 	// SSO is set for a user linked to an OpenID Connect account.
-	SSO          bool              `json:"sso"`
+	SSO bool `json:"sso"`
+	// TwoFactor is set when the user has a second factor (TOTP or a passkey).
+	TwoFactor    bool              `json:"twoFactor"`
 	ProjectRoles map[string]string `json:"projectRoles"`
 	CreatedAt    time.Time         `json:"createdAt"`
 }
@@ -41,6 +43,9 @@ func (a *API) userAdmin(r *http.Request, u store.User) userAdminDTO {
 	}
 	if roles, err := a.d.Store.Roles.ByUser(r.Context(), u.ID); err == nil {
 		d.ProjectRoles = roles
+	}
+	if f, err := a.d.Store.MFA.Factors(r.Context(), u.ID); err == nil {
+		d.TwoFactor = f.Any()
 	}
 	return d
 }
@@ -252,7 +257,18 @@ func (a *API) acceptInvitation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.d.Audit.LogAs(r.Context(), u.Username, audit.ActionUserJoined, "user", u.ID, nil)
-	token, err := a.d.Auth.StartSession(r.Context(), u, auth.ClientIP(r), r.UserAgent())
+	// A password reset link doesn't stand in for the second factor: whoever got hold of
+	// the link still has to prove it.
+	step, err := a.d.Auth.SecondStepFor(r.Context(), u)
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	if step != nil {
+		writeJSON(w, http.StatusOK, map[string]any{"secondFactor": step})
+		return
+	}
+	token, err := a.d.Auth.StartSession(r.Context(), u, auth.MethodInvite, auth.ClientIP(r), r.UserAgent())
 	if err != nil {
 		writeError(w, r, err)
 		return

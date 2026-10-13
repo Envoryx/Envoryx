@@ -11,12 +11,12 @@ import (
 // Sessions is the repository for login sessions.
 type Sessions struct{ db *sql.DB }
 
-const sessionColumns = `id, user_id, created_at, expires_at, last_seen_at, ip, user_agent`
+const sessionColumns = `id, user_id, created_at, expires_at, last_seen_at, ip, user_agent, method`
 
 // Create stores a new session. ID must already be the hashed token.
 func (r *Sessions) Create(ctx context.Context, s Session) error {
-	_, err := r.db.ExecContext(ctx, `INSERT INTO sessions (`+sessionColumns+`) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		s.ID, s.UserID, formatTime(s.CreatedAt), formatTime(s.ExpiresAt), formatTime(s.LastSeenAt), s.IP, s.UserAgent)
+	_, err := r.db.ExecContext(ctx, `INSERT INTO sessions (`+sessionColumns+`) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		s.ID, s.UserID, formatTime(s.CreatedAt), formatTime(s.ExpiresAt), formatTime(s.LastSeenAt), s.IP, s.UserAgent, s.Method)
 	if err != nil {
 		return fmt.Errorf("insert session: %w", err)
 	}
@@ -28,7 +28,7 @@ func (r *Sessions) Get(ctx context.Context, id string) (Session, error) {
 	var s Session
 	var created, expires, seen string
 	err := r.db.QueryRowContext(ctx, `SELECT `+sessionColumns+` FROM sessions WHERE id = ?`, id).
-		Scan(&s.ID, &s.UserID, &created, &expires, &seen, &s.IP, &s.UserAgent)
+		Scan(&s.ID, &s.UserID, &created, &expires, &seen, &s.IP, &s.UserAgent, &s.Method)
 	if errors.Is(err, sql.ErrNoRows) {
 		return Session{}, ErrNotFound
 	}

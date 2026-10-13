@@ -348,6 +348,8 @@ type updateSettingsRequest struct {
 	FolderViewFolder *string `json:"folderViewFolder"`
 	// SSHAuthorizedKeys replaces the public keys accepted by the SSH server.
 	SSHAuthorizedKeys *string `json:"sshAuthorizedKeys"`
+	// TwoFactorRequired is whom a second factor is required of: off, admins or all.
+	TwoFactorRequired *string `json:"twoFactorRequired"`
 	// LogHistory switches the log history and sets its retention.
 	LogHistory *project.LogHistoryUpdate `json:"logHistory"`
 	// MetricsRetentionDays is how long the resource history is kept.
@@ -379,6 +381,17 @@ func (a *API) updateSettings(w http.ResponseWriter, r *http.Request) {
 	// The instance's SSH keys are a way in: the hoster's support can't set them, nor can
 	// an API token (the keys would outlast it).
 	if _, ok := raw["sshAuthorizedKeys"]; ok {
+		if p, _ := auth.PrincipalFrom(r.Context()); p.Support {
+			writeError(w, r, errSupportRefused)
+			return
+		}
+		if !sessionOnly(w, r, errAccessNeedsSession) {
+			return
+		}
+	}
+	// Who has to prove a second factor guards every sign-in: the support can't change
+	// it, nor can an API token.
+	if _, ok := raw["twoFactorRequired"]; ok {
 		if p, _ := auth.PrincipalFrom(r.Context()); p.Support {
 			writeError(w, r, errSupportRefused)
 			return
@@ -462,6 +475,16 @@ func (a *API) applySettings(ctx context.Context, req updateSettingsRequest) (map
 			return changes, err
 		}
 		a.invalidateProxy()
+	}
+	if req.TwoFactorRequired != nil {
+		level, err := auth.ParseRequirement(*req.TwoFactorRequired)
+		if err != nil {
+			return changes, err
+		}
+		if err := a.d.Auth.SetRequirement(ctx, level); err != nil {
+			return changes, err
+		}
+		changes["twoFactorRequired"] = string(level)
 	}
 	if req.SSHAuthorizedKeys != nil {
 		if err := validateAuthorizedKeys(*req.SSHAuthorizedKeys); err != nil {
@@ -599,6 +622,7 @@ func (a *API) settings(w http.ResponseWriter, r *http.Request) {
 		"xdebugClientHost":      a.d.Projects.XdebugClientHost(r.Context()),
 		"folderViewFolder":      a.d.Projects.FolderViewFolder(r.Context()),
 		"sshAuthorizedKeys":     a.setting(r.Context(), sshd.SettingAuthorizedKeys),
+		"twoFactorRequired":     a.twoFactorRequirement(r),
 		"ssh":                   a.sshDTO(),
 		"proxy":                 a.proxyDTO(),
 		"version":               a.d.Version,
@@ -829,4 +853,13 @@ func (a *API) clearPackageCache(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"cache": c})
+}
+
+// twoFactorRequirement is whom a second factor is required of, for the settings.
+func (a *API) twoFactorRequirement(r *http.Request) string {
+	req, err := a.d.Auth.Requirement(r.Context())
+	if err != nil {
+		return string(auth.RequireNobody)
+	}
+	return string(req)
 }

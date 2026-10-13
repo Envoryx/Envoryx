@@ -98,6 +98,17 @@ var supportRefused = map[string]bool{
 	"PUT /api/v1/settings/registries":                 true,
 	"PUT /api/v1/audit/settings":                      true,
 	"DELETE /api/v1/settings/log-history":             true,
+	// Second factors: the support has no password to protect, and resetting a user's
+	// would open their account to whoever knows the password.
+	"POST /api/v1/auth/2fa/totp/setup":           true,
+	"POST /api/v1/auth/2fa/totp":                 true,
+	"DELETE /api/v1/auth/2fa/totp":               true,
+	"POST /api/v1/auth/2fa/passkeys/options":     true,
+	"POST /api/v1/auth/2fa/passkeys":             true,
+	"PATCH /api/v1/auth/2fa/passkeys/{passkey}":  true,
+	"DELETE /api/v1/auth/2fa/passkeys/{passkey}": true,
+	"POST /api/v1/auth/2fa/recovery-codes":       true,
+	"DELETE /api/v1/users/{id}/two-factor":       true,
 }
 
 // errSupportRefused answers what the hoster's support can't do.

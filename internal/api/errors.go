@@ -114,6 +114,16 @@ func writeError(w http.ResponseWriter, r *http.Request, err error) {
 		ae = newError(http.StatusInternalServerError, "restore_incomplete", err.Error())
 	case errors.Is(err, project.ErrNotConfigured):
 		ae = newError(http.StatusServiceUnavailable, "not_configured", err.Error())
+	case errors.Is(err, auth.ErrWrongPassword):
+		ae = newError(http.StatusForbidden, "wrong_password", err.Error())
+	case errors.Is(err, auth.ErrInvalidCode):
+		ae = newError(http.StatusUnauthorized, "invalid_code", err.Error())
+	case errors.Is(err, auth.ErrTicket):
+		ae = newError(http.StatusUnauthorized, "second_factor_expired", err.Error())
+	case errors.Is(err, auth.ErrPasskey):
+		ae = newError(http.StatusUnauthorized, "passkey_rejected", err.Error())
+	case errors.Is(err, auth.ErrSecondFactor):
+		ae = newError(http.StatusUnauthorized, "second_factor_required", err.Error())
 	case errors.Is(err, auth.ErrInvalidCredentials):
 		ae = newError(http.StatusUnauthorized, "invalid_credentials", "invalid username or password")
 	case errors.Is(err, auth.ErrTooManyAttempts):

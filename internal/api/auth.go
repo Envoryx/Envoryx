@@ -80,7 +80,7 @@ func (a *API) login(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, auth.ErrInvalidCredentials)
 		return
 	}
-	token, user, err := a.d.Auth.Login(r.Context(), req.Username, req.Password, auth.ClientIP(r), r.UserAgent())
+	token, user, step, err := a.d.Auth.PasswordLogin(r.Context(), req.Username, req.Password, auth.ClientIP(r), r.UserAgent())
 	if err != nil {
 		if errors.Is(err, auth.ErrInvalidCredentials) || errors.Is(err, auth.ErrTooManyAttempts) {
 			a.d.Audit.LogAs(r.Context(), req.Username, audit.ActionLoginFailed, "user", "", map[string]string{"reason": err.Error()})
@@ -88,10 +88,13 @@ func (a *API) login(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
-	http.SetCookie(w, a.d.Auth.Cookie(token))
-	ctx := auth.WithPrincipal(r.Context(), auth.Principal{UserID: user.ID, Username: user.Username, Role: user.Role})
-	a.d.Audit.Log(ctx, audit.ActionLogin, "user", user.ID, nil)
-	writeJSON(w, http.StatusOK, map[string]any{"user": userDTO{ID: user.ID, Username: user.Username, Role: user.Role}})
+	if step != nil {
+		// The password is right; the second factor comes next (POST /auth/login/code or
+		// the passkey sign-in with the ticket).
+		writeJSON(w, http.StatusOK, map[string]any{"secondFactor": step})
+		return
+	}
+	a.signedIn(w, r, token, userDTO{ID: user.ID, Username: user.Username, Role: user.Role}, auth.MethodPassword)
 }
 
 func (a *API) logout(w http.ResponseWriter, r *http.Request) {
@@ -114,7 +117,7 @@ func (a *API) me(w http.ResponseWriter, r *http.Request) {
 	for id, r := range p.ProjectRoles {
 		roles[id] = string(r)
 	}
-	out := map[string]any{"user": userDTO{ID: p.UserID, Username: p.Username, Role: p.Role}, "projectRoles": roles, "admin": p.Allows(auth.ScopeAdmin), "support": p.Support}
+	out := map[string]any{"user": userDTO{ID: p.UserID, Username: p.Username, Role: p.Role}, "projectRoles": roles, "admin": p.Allows(auth.ScopeAdmin), "support": p.Support, "twoFactorSetup": p.TwoFactorSetup}
 	if p.TokenName != "" {
 		projects := p.Projects
 		if projects == nil {
@@ -146,8 +149,14 @@ func (a *API) changePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.d.Audit.Log(r.Context(), audit.ActionPasswordChange, "user", p.UserID, nil)
-	// All sessions were revoked; issue a fresh one so the current browser stays logged in.
-	token, _, err := a.d.Auth.Login(r.Context(), p.Username, req.NewPassword, auth.ClientIP(r), r.UserAgent())
+	// All sessions were revoked; issue a fresh one so the current browser stays logged in,
+	// started like the one it replaces.
+	user, err := a.d.Store.Users.ByID(r.Context(), p.UserID)
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	token, err := a.d.Auth.StartSession(r.Context(), user, p.SessionMethod, auth.ClientIP(r), r.UserAgent())
 	if err != nil {
 		writeError(w, r, err)
 		return

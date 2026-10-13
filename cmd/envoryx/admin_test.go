@@ -197,3 +197,28 @@ func TestUsageWarnsOfSecretsOnTheCommandLine(t *testing.T) {
 		t.Error("the usage texts recommend no way around it")
 	}
 }
+
+func TestAdminResetTwoFactor(t *testing.T) {
+	cli, st, out := newAdminCLI(t)
+	ctx := context.Background()
+	u := seedUser(t, st, "stefan", "old-password-1")
+	if err := st.MFA.SetTOTP(ctx, u.ID, "JBSWY3DPEHPK3PXP", 1); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.MFA.SetRecoveryCodes(ctx, u.ID, []string{"h1", "h2"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := cli.run(ctx, []string{"users"}); err != nil || !strings.Contains(out.String(), "2FA") || !strings.Contains(out.String(), "yes") {
+		t.Fatalf("users: %v\n%s", err, out.String())
+	}
+	if err := cli.run(ctx, []string{"reset-2fa", "--user", "stefan"}); err != nil {
+		t.Fatal(err)
+	}
+	if f, _ := st.MFA.Factors(ctx, u.ID); f.Any() || f.RecoveryCodes != 0 {
+		t.Fatalf("factors after the reset: %+v", f)
+	}
+	entries, _ := st.Audit.Recent(ctx, 5)
+	if len(entries) != 1 || entries[0].Action != audit.ActionTwoFactorReset || entries[0].Username != "cli" {
+		t.Fatalf("audit: %+v", entries)
+	}
+}

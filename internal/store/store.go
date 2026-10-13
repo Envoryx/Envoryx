@@ -34,6 +34,7 @@ type Store struct {
 	Metrics  *Metrics
 	Images   *ProjectImages
 	Roles    *ProjectRoles
+	MFA      *TwoFactor
 }
 
 // New creates the repositories.
@@ -55,6 +56,7 @@ func New(db *sql.DB) *Store {
 		Metrics:  &Metrics{db: db},
 		Images:   &ProjectImages{db: db},
 		Roles:    &ProjectRoles{db: db},
+		MFA:      &TwoFactor{db: db},
 	}
 }
 
