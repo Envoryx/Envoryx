@@ -10,6 +10,8 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.35.0] - 2026-10-13
+
 ### Security
 - An instance took a fleet manager at a plain `http://` address. The manager is
   proven to the instance by TLS alone, so anyone on the network between could
@@ -2329,7 +2331,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.34.1...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.35.0...HEAD
+[0.35.0]: https://github.com/envoryx/envoryx/compare/v0.34.1...v0.35.0
 [0.34.1]: https://github.com/envoryx/envoryx/compare/v0.34.0...v0.34.1
 [0.34.0]: https://github.com/envoryx/envoryx/compare/v0.33.1...v0.34.0
 [0.33.1]: https://github.com/envoryx/envoryx/compare/v0.33.0...v0.33.1
