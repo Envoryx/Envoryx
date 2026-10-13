@@ -338,7 +338,7 @@ func (s *Store) skip(path, rel string, isDir bool) bool {
 		return true
 	}
 	switch parts[0] {
-	case "backups", "jetbrains", "logs", "cache", pendingMarker:
+	case "backups", "jetbrains", "logs", "cache", "sigstore", pendingMarker:
 		return true
 	case "projects":
 		// projects/<id>/home holds caches of the project user, projects/<id>/cache the

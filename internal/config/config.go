@@ -97,6 +97,9 @@ type Config struct {
 	FleetToken string
 	// FleetInsecure allows a fleet manager at a plain http address off this machine.
 	FleetInsecure bool
+	// UpdateUnverified lets the fleet manager's updates take an image whose build
+	// provenance isn't checked (own builds, air-gapped hosts).
+	UpdateUnverified bool
 
 	// DevMode relaxes a few things for local development (e.g. text logs, CORS for the Vite dev server).
 	DevMode bool
@@ -136,6 +139,7 @@ func Load() (Config, error) {
 		FleetURL:               env("ENVORYX_FLEET_URL", ""),
 		FleetToken:             env("ENVORYX_FLEET_TOKEN", ""),
 		FleetInsecure:          envBool("ENVORYX_FLEET_INSECURE", false),
+		UpdateUnverified:       envBool("ENVORYX_UPDATE_UNVERIFIED", false),
 		AllowNetworkFS:         envBool("ENVORYX_ALLOW_NETWORK_FS", false),
 		DevOrigin:              env("ENVORYX_DEV_ORIGIN", "http://localhost:5173"),
 	}

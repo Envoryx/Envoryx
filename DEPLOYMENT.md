@@ -78,6 +78,7 @@ docker build -t ghcr.io/envoryx/envoryx:dev --build-arg VERSION=dev .
 | `ENVORYX_SECRET_KEY_OLD` | - | The previous key, for one start after changing `ENVORYX_SECRET_KEY` |
 | `ENVORYX_FLEET_URL` / `ENVORYX_FLEET_TOKEN` | - | The hoster's fleet manager and the one-time token the instance enrolls with, see [Plans](#plans-managed-instances) |
 | `ENVORYX_FLEET_INSECURE` | `false` | Allow `ENVORYX_FLEET_URL` at plain `http://` off this machine (logged as a warning); see [The fleet manager](#the-fleet-manager) |
+| `ENVORYX_UPDATE_UNVERIFIED` | `false` | Let updates from the fleet manager take an image without checking its build provenance (own builds, hosts without internet access; logged as a warning); see [Updates from the fleet manager](#updates-from-the-fleet-manager) |
 | `ENVORYX_SESSION_IDLE_TIMEOUT` | `12h` | Sliding session expiry |
 | `ENVORYX_SESSION_ABSOLUTE_TIMEOUT` | `168h` | Hard session expiry |
 | `ENVORYX_SECURE_COOKIES` | `false` | Mark cookies `Secure` (enable behind HTTPS) |
@@ -2735,7 +2736,24 @@ that version from the repository of the image it runs
 (`ghcr.io/envoryx/envoryx:latest` becomes `ghcr.io/envoryx/envoryx:0.28.0`;
 an image that is there already will do when the pull fails) and starts a
 short-lived helper container of it, `<name>-updater`, with its own mounts,
-environment and network. The helper:
+environment and network.
+
+Before that, the instance checks where the image comes from: GitHub must keep a
+build provenance attestation for the image's digest, signed (Sigstore) with a
+certificate that names the release workflow of `Envoryx/Envoryx`
+(`.github/workflows/docker.yml`) on the tag of that version, run on GitHub's
+own runners. An image without one (an own build, a repository that was
+tampered with, a tag pointing at another version's image) is refused and the
+manager shows why. The check asks `api.github.com` and Sigstore's TUF
+repository (`tuf-repo-cdn.sigstore.dev`, cached in `/config/sigstore`); a host
+that can't reach them, or runs its own builds, sets
+`ENVORYX_UPDATE_UNVERIFIED=1`. The same check by hand:
+
+```sh
+gh attestation verify oci://ghcr.io/envoryx/envoryx:0.37.0 --repo Envoryx/Envoryx
+```
+
+The helper:
 
 1. stops the Envoryx container (the projects keep running, as on a restart)
    and renames it to `<name>-previous`,
