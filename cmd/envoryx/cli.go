@@ -397,8 +397,26 @@ func saveCLIConfig(cfg cliConfig) error {
 	if err != nil {
 		return err
 	}
-	// The file holds a token: keep it readable by its owner only.
-	return os.WriteFile(path, append(b, '\n'), 0o600)
+	// The file holds a token: keep it readable by its owner only. os.WriteFile keeps the
+	// mode of a file that is there (an older one, 0644), so a new file with 0600 replaces
+	// it instead.
+	tmp, err := os.CreateTemp(filepath.Dir(path), "."+filepath.Base(path)+".*")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tmp.Name())
+	if err := tmp.Chmod(0o600); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if _, err := tmp.Write(append(b, '\n')); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	return os.Rename(tmp.Name(), path)
 }
 
 // resolveConfig merges the stored configuration with the environment and the flags.

@@ -541,3 +541,35 @@ func TestProjectCreateMapsPostgresToTheCatalogueKey(t *testing.T) {
 		t.Fatalf("other types stay as they are: %+v", db)
 	}
 }
+
+// The configuration holds a token: an older file readable by others is made the owner's
+// own when it is saved again.
+func TestSaveCLIConfigKeepsTheTokenPrivate(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "envoryx", "cli.json")
+	t.Setenv("ENVORYX_CLI_CONFIG", path)
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(`{"url":"https://old.example.net"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(path, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := saveCLIConfig(cliConfig{URL: "https://envoryx.example.net", Token: "stq_secret"}); err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode().Perm() != 0o600 {
+		t.Fatalf("mode %v", info.Mode().Perm())
+	}
+	if cfg := loadCLIConfig(); cfg.Token != "stq_secret" || cfg.URL != "https://envoryx.example.net" {
+		t.Fatalf("saved %+v", cfg)
+	}
+	if entries, _ := os.ReadDir(filepath.Dir(path)); len(entries) != 1 {
+		t.Fatalf("left behind: %v", entries)
+	}
+}
