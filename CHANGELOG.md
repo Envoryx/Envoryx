@@ -10,6 +10,8 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.38.0] - 2026-10-13
+
 ### Added
 - Two-factor authentication: an authenticator app (TOTP) or passkeys, set up under
   *Settings → Two-factor authentication*, with ten recovery codes. After the password
@@ -2377,7 +2379,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.37.0...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.38.0...HEAD
+[0.38.0]: https://github.com/envoryx/envoryx/compare/v0.37.0...v0.38.0
 [0.37.0]: https://github.com/envoryx/envoryx/compare/v0.36.0...v0.37.0
 [0.36.0]: https://github.com/envoryx/envoryx/compare/v0.35.0...v0.36.0
 [0.35.0]: https://github.com/envoryx/envoryx/compare/v0.34.1...v0.35.0
