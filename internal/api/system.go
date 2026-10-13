@@ -369,10 +369,14 @@ func (a *API) updateSettings(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	// The instance's SSH keys are a way in: the hoster's support can't set them.
+	// The instance's SSH keys are a way in: the hoster's support can't set them, nor can
+	// an API token (the keys would outlast it).
 	if _, ok := raw["sshAuthorizedKeys"]; ok {
 		if p, _ := auth.PrincipalFrom(r.Context()); p.Support {
 			writeError(w, r, errSupportRefused)
+			return
+		}
+		if !sessionOnly(w, r, errAccessNeedsSession) {
 			return
 		}
 	}

@@ -10,6 +10,11 @@ import (
 // that decrypts every stored secret; only an admin's browser session may.
 var errSecretKeyNeedsSession = newError(http.StatusForbidden, "forbidden", "API tokens cannot reveal or rotate the secret key; sign in with a browser session")
 
+// errAccessNeedsSession keeps an API token from opening ways in that outlast it: the
+// instance's SSH keys (a shell in every project), the single sign-on and the hoster's
+// support access. A token can't mint a successor, neither directly nor through these.
+var errAccessNeedsSession = newError(http.StatusForbidden, "forbidden", "API tokens cannot change the instance's SSH keys, single sign-on or support access; sign in with a browser session")
+
 // sessionOnly refuses token principals with err; the route itself sets the level.
 func sessionOnly(w http.ResponseWriter, r *http.Request, err *apiError) bool {
 	if p, _ := auth.PrincipalFrom(r.Context()); p.TokenName != "" {

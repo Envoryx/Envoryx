@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -40,13 +38,14 @@ func TestSettingsShow(t *testing.T) {
 	if err := c.run(context.Background(), []string{"settings"}); err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"public-host", "192.168.1.5", "fixed by the hoster", "force-https", "off", "log-history-days", "14", "metrics-days", "30", "2 keys"} {
+	for _, want := range []string{"public-host", "192.168.1.5", "fixed by the hoster", "force-https", "off", "log-history-days", "14", "metrics-days", "30"} {
 		if !strings.Contains(out.String(), want) {
 			t.Fatalf("missing %q in:\n%s", want, out.String())
 		}
 	}
-	if strings.Contains(out.String(), "AAA") {
-		t.Fatal("the keys themselves are printed")
+	// The instance's SSH keys are the web interface's business only.
+	if strings.Contains(out.String(), "AAA") || strings.Contains(out.String(), "ssh-keys") {
+		t.Fatal("the instance's SSH keys are shown")
 	}
 }
 
@@ -54,11 +53,7 @@ func TestSettingsShow(t *testing.T) {
 func TestSettingsSetBuildsOnePatch(t *testing.T) {
 	srv := newFakeServer(t, settingsRoutes())
 	c, _, _ := newTestCLI(t, srv, "")
-	keys := filepath.Join(t.TempDir(), "keys.pub")
-	if err := os.WriteFile(keys, []byte("ssh-ed25519 CCC c\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	err := c.run(context.Background(), []string{"settings", "set", "force-https=on", "public-host=", "log-history-days=7", "log-history=off", "metrics-days=60", "ssh-keys=@" + keys})
+	err := c.run(context.Background(), []string{"settings", "set", "force-https=on", "public-host=", "log-history-days=7", "log-history=off", "metrics-days=60", "xdebug-client-host=@laptop"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -68,10 +63,11 @@ func TestSettingsSetBuildsOnePatch(t *testing.T) {
 	}
 	lh, _ := sent["logHistory"].(map[string]any)
 	if sent["forceHttps"] != true || sent["publicHost"] != "" || sent["metricsRetentionDays"] != float64(60) ||
-		lh["retentionDays"] != float64(7) || lh["enabled"] != false || sent["sshAuthorizedKeys"] != "ssh-ed25519 CCC c\n" || sent["metrics"] != nil {
+		lh["retentionDays"] != float64(7) || lh["enabled"] != false || sent["xdebugClientHost"] != "@laptop" || sent["metrics"] != nil {
 		t.Fatalf("sent %v", sent)
 	}
-	for _, bad := range [][]string{{"settings", "set", "nope=1"}, {"settings", "set", "force-https=maybe"}, {"settings", "set", "metrics-days=x"}, {"settings", "set", "force-https"}} {
+	// The instance's SSH keys are set in the web interface only (the API refuses tokens).
+	for _, bad := range [][]string{{"settings", "set", "ssh-keys=ssh-ed25519 CCC c"}, {"settings", "set", "nope=1"}, {"settings", "set", "force-https=maybe"}, {"settings", "set", "metrics-days=x"}, {"settings", "set", "force-https"}} {
 		if err := c.run(context.Background(), bad); !errors.Is(err, errCLIUsage) {
 			t.Fatalf("%v: %v", bad, err)
 		}

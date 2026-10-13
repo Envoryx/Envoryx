@@ -55,6 +55,9 @@ Commands:
   reset --yes                 delete all accounts, sessions and tokens; the setup page
                               appears again on the next visit. Projects are untouched.
 
+revoke-tokens and reset leave the instance's SSH keys and the single sign-on as they
+are: check them in the web interface afterwards.
+
 Every command is recorded in the audit log as "cli".
 `
 
@@ -292,6 +295,13 @@ func (c *adminCLI) logoutAll(ctx context.Context) error {
 	return nil
 }
 
+// untouchedAccess is what revoke-tokens and reset leave alone although it lets people in:
+// whoever had a token or an account may have set it.
+const untouchedAccess = `Not touched: the instance's SSH keys (Settings → SSH, a shell in every project) and
+the single sign-on (Settings → Users). Check both in the web interface; whoever set them
+can still get in through them.
+`
+
 func (c *adminCLI) revokeTokens(ctx context.Context) error {
 	n, err := c.store.Tokens.DeleteAll(ctx)
 	if err != nil {
@@ -299,6 +309,7 @@ func (c *adminCLI) revokeTokens(ctx context.Context) error {
 	}
 	c.audit.LogAs(ctx, "cli", audit.ActionTokensRevoked, "token", "", map[string]any{"count": n})
 	fmt.Fprintf(c.out, "%d API token(s) revoked.\n", n)
+	fmt.Fprint(c.out, untouchedAccess)
 	return nil
 }
 
@@ -317,6 +328,7 @@ func (c *adminCLI) reset(ctx context.Context) error {
 	}
 	c.audit.LogAs(ctx, "cli", audit.ActionAccountsReset, "user", "", map[string]any{"count": n, "usernames": names})
 	fmt.Fprintf(c.out, "%d account(s) deleted with their sessions and API tokens. Open the web interface to create the administrator account again.\n", n)
+	fmt.Fprint(c.out, untouchedAccess)
 	return nil
 }
 
