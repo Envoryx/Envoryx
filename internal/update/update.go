@@ -184,6 +184,9 @@ func parseVersion(v string) []int {
 	return out
 }
 
+// IsRelease reports whether v is a release version: X.Y.Z, with or without a leading v.
+func IsRelease(v string) bool { return parseVersion(v) != nil }
+
 // Newer reports whether release a is a higher version than b. Non-release strings are
 // never newer and nothing is newer than them.
 func Newer(a, b string) bool {

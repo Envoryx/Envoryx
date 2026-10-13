@@ -10,6 +10,12 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Security
+- The hoster's fleet manager could update an instance to any tag of its image:
+  an older release with known holes, or `latest` or `main`. An instance now
+  takes only a release version newer than the one it runs; a build that is no
+  release takes any release.
+
 ## [0.34.1] - 2026-10-12
 
 ### Fixed
