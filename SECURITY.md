@@ -143,6 +143,23 @@ a time (the rest hear "busy"), keeps at most five support login links open, clip
 hoster's name it logs to 100 characters, and waits at least five seconds before it
 reconnects after a connection the manager ended at once.
 
+## Release images
+
+The release workflow builds `ghcr.io/envoryx/envoryx` with an SBOM and the BuildKit
+provenance in the image index. GitHub signs a SLSA build provenance attestation for its
+digest and for those of the runtime images (`envoryx-php`, `-node`, ...): Sigstore,
+keyless, the certificate names the workflow and the git ref it ran for.
+Check an image with `gh attestation verify oci://<image>:<tag> --repo Envoryx/Envoryx`.
+All GitHub Actions in the workflows are pinned to commit SHAs (Dependabot moves them).
+
+An update from the fleet manager takes only an image whose attestation verifies for the
+version asked for (`internal/provenance`): the hoster, or someone who got hold of the
+registry, can't slip in an image the workflow didn't build for that tag.
+`ENVORYX_UPDATE_UNVERIFIED=1` switches the check off for own builds and hosts without
+internet access, with a warning in the log at every update. Envoryx doesn't check the
+runtime images it pulls for projects, nor what Unraid or another tool pulls when it
+updates the Envoryx container itself.
+
 ## SSH server
 
 The embedded SSH server (port 2222) never gives access to the Envoryx container or the

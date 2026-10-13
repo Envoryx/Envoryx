@@ -39,6 +39,34 @@ func (e *MobyEngine) SelfImage(ctx context.Context, id string) (string, error) {
 	return c.Config.Image, nil
 }
 
+// RepoDigest returns the digest the registry gave the local image ref when it was pulled
+// (sha256:<hex>, the manifest list's for a multi-platform image), so the update can check
+// what it is about to run. An image that was built here and never pulled has none.
+func (e *MobyEngine) RepoDigest(ctx context.Context, ref string) (string, error) {
+	named, err := reference.ParseNormalizedNamed(ref)
+	if err != nil {
+		return "", err
+	}
+	res, err := e.cli.ImageInspect(ctx, ref)
+	if err != nil {
+		return "", wrap(err)
+	}
+	return repoDigest(named.Name(), res.RepoDigests)
+}
+
+func repoDigest(name string, repoDigests []string) (string, error) {
+	for _, rd := range repoDigests {
+		d, err := reference.ParseNormalizedNamed(rd)
+		if err != nil {
+			continue
+		}
+		if c, ok := d.(reference.Canonical); ok && d.Name() == name {
+			return c.Digest().String(), nil
+		}
+	}
+	return "", fmt.Errorf("the image has no digest from %s: it wasn't pulled from there", name)
+}
+
 // ImageForVersion is the image of another version from the same repository as image:
 // ghcr.io/envoryx/envoryx:latest and 0.28.0 give ghcr.io/envoryx/envoryx:0.28.0.
 func ImageForVersion(image, version string) (string, error) {

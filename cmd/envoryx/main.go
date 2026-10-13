@@ -54,6 +54,7 @@ import (
 	"github.com/envoryx/envoryx/internal/oidc"
 	"github.com/envoryx/envoryx/internal/plan"
 	"github.com/envoryx/envoryx/internal/project"
+	"github.com/envoryx/envoryx/internal/provenance"
 	"github.com/envoryx/envoryx/internal/proxy"
 	"github.com/envoryx/envoryx/internal/runtime"
 	"github.com/envoryx/envoryx/internal/secrets"
@@ -527,6 +528,11 @@ func serve() error {
 	remote := &remoteBackups{backups: backups, db: sqlDB, st: st, syncer: syncer, log: log}
 	updater := &selfupdate.Updater{Engine: engine, SelfID: resolver.SelfContainerID, ConfigDir: cfg.ConfigDir, Version: version, Log: log,
 		BeforeStop: func() { updating.Store(true) }}
+	if !cfg.UpdateUnverified {
+		// Updates take only images the release workflow attested for that version.
+		v := &provenance.Verifier{CacheDir: filepath.Join(cfg.ConfigDir, "sigstore")}
+		updater.Verify = v.Verify
+	}
 	fleetAgent, err := fleet.New(fleet.Config{URL: cfg.FleetURL, Token: cfg.FleetToken, Insecure: cfg.FleetInsecure, ConfigDir: cfg.ConfigDir, Plan: plans, Log: log,
 		Status: func(ctx context.Context) fleet.Status {
 			s := fleetStatus(ctx, st, manager, version, instanceID)

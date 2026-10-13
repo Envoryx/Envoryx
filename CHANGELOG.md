@@ -10,6 +10,17 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Security
+- Updates from the hoster's fleet manager now check the new image's build
+  provenance first: GitHub must keep an attestation for the image's digest,
+  signed by Envoryx's release workflow for exactly that version. An image
+  without one is refused. Hosts without internet access, or with their own
+  builds, set `ENVORYX_UPDATE_UNVERIFIED=1`.
+- The Envoryx image carries an SBOM and its build provenance, and GitHub signs
+  a provenance attestation for it and for the runtime images; check one with
+  `gh attestation verify oci://ghcr.io/envoryx/envoryx:<version> --repo
+  Envoryx/Envoryx`. The CI workflows pin every action to a commit SHA.
+
 ## [0.36.0] - 2026-10-13
 
 ### Security

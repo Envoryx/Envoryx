@@ -22,6 +22,7 @@ type fakeEngine struct {
 	local    bool
 	started  []string
 	startErr error
+	digest   string
 	// exit is how the helper ends; nil while it is at work (it would stop this process).
 	exit *docker.UpdaterExit
 }
@@ -30,6 +31,12 @@ func (f *fakeEngine) SelfImage(context.Context, string) (string, error) { return
 func (f *fakeEngine) ImageExists(context.Context, string) (bool, error) { return f.local, nil }
 func (f *fakeEngine) PullImage(context.Context, string, docker.PullProgress) error {
 	return f.pullErr
+}
+func (f *fakeEngine) RepoDigest(context.Context, string) (string, error) {
+	if f.digest == "" {
+		return "", errors.New("no digest")
+	}
+	return f.digest, nil
 }
 func (f *fakeEngine) StartUpdater(_ context.Context, _, image string, cmd []string) (<-chan docker.UpdaterExit, error) {
 	f.mu.Lock()
@@ -238,5 +245,57 @@ func TestCheckTarget(t *testing.T) {
 	}
 	if f.helper() != nil {
 		t.Fatal("the helper started")
+	}
+}
+
+func TestUpdaterVerifiesTheImage(t *testing.T) {
+	const digest = "sha256:4ffadc0002b2581327e06101fc8c06cd189232baf79fe561fac9caeb76f5e807"
+	var checked []string
+	verify := func(_ context.Context, d, version string) error {
+		checked = append(checked, d+" "+version)
+		if version == "0.29.0" {
+			return errors.New("no attestation")
+		}
+		return nil
+	}
+
+	// Refused: not built by the release workflow for that version.
+	f := &fakeEngine{image: "ghcr.io/envoryx/envoryx:latest", digest: digest}
+	u, stopped := newUpdater(t, f, "abc123")
+	u.Verify = verify
+	if err := u.Start(context.Background(), "0.29.0"); err != nil {
+		t.Fatal(err)
+	}
+	if s := waitDone(t, u); !strings.Contains(s.LastError, "refused") || f.helper() != nil || *stopped {
+		t.Fatalf("an image without provenance: %+v", s)
+	}
+
+	// No digest: built here, never pulled.
+	f.digest = ""
+	if err := u.Start(context.Background(), "0.28.0"); err != nil {
+		t.Fatal(err)
+	}
+	if s := waitDone(t, u); !strings.Contains(s.LastError, "can't be verified") || f.helper() != nil {
+		t.Fatalf("an image without a digest: %+v", s)
+	}
+
+	// Verified: handed over, and the result says so.
+	f.digest = digest
+	if err := u.Start(context.Background(), "v0.28.0"); err != nil {
+		t.Fatal(err)
+	}
+	deadline := time.Now().Add(5 * time.Second)
+	for f.helper() == nil && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+	}
+	if f.helper() == nil {
+		t.Fatal("a verified image wasn't handed over")
+	}
+	r, _ := ReadResult(u.ConfigDir)
+	if r == nil || !r.Verified || r.Digest != digest {
+		t.Fatalf("result: %+v", r)
+	}
+	if want := []string{digest + " 0.29.0", digest + " 0.28.0"}; !slices.Equal(checked, want) {
+		t.Errorf("checked %v, want %v", checked, want)
 	}
 }

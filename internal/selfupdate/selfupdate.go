@@ -41,6 +41,10 @@ type Result struct {
 	Error      string `json:"error,omitempty"`
 	// Reported is set once the Envoryx that runs afterwards logged the result.
 	Reported bool `json:"reported,omitempty"`
+	// Digest is the image's registry digest; Verified is set when its build provenance
+	// was checked (see Updater.Verify).
+	Digest   string `json:"digest,omitempty"`
+	Verified bool   `json:"verified,omitempty"`
 }
 
 // ReadResult returns the last update; nil when there was none.
@@ -84,6 +88,7 @@ type Engine interface {
 	SelfImage(ctx context.Context, id string) (string, error)
 	ImageExists(ctx context.Context, ref string) (bool, error)
 	PullImage(ctx context.Context, ref string, progress docker.PullProgress) error
+	RepoDigest(ctx context.Context, ref string) (string, error)
 	StartUpdater(ctx context.Context, self, image string, cmd []string) (<-chan docker.UpdaterExit, error)
 }
 
@@ -94,6 +99,10 @@ type Updater struct {
 	SelfID    func() string
 	ConfigDir string
 	Version   string
+	// Verify checks that the image of digest was built by the Envoryx release workflow
+	// for version (provenance.Verifier); an image it refuses is not taken. Nil takes any
+	// image (ENVORYX_UPDATE_UNVERIFIED, for own builds).
+	Verify func(ctx context.Context, digest, version string) error
 	// BeforeStop runs before the helper starts: the container is about to be stopped
 	// for the update (a restart, not a shutdown of the projects).
 	BeforeStop func()
@@ -224,7 +233,21 @@ func (u *Updater) run(ctx context.Context, target, to string) error {
 		}
 		u.Log.Warn("update: pull failed, using the local image", "image", target, "err", err)
 	}
-	r := Result{From: strings.TrimPrefix(u.Version, "v"), To: to, Image: target, StartedAt: time.Now().UTC()}
+	r := Result{From: strings.TrimPrefix(u.Version, "v"), To: to, Image: target}
+	if u.Verify != nil {
+		digest, err := u.Engine.RepoDigest(ctx, target)
+		if err != nil {
+			return fmt.Errorf("the image %s can't be verified: %w (ENVORYX_UPDATE_UNVERIFIED=1 takes it unverified)", target, err)
+		}
+		if err := u.Verify(ctx, digest, to); err != nil {
+			return fmt.Errorf("the image %s is refused: %w (ENVORYX_UPDATE_UNVERIFIED=1 takes it unverified)", target, err)
+		}
+		u.Log.Info("update: the image's build provenance is verified", "image", target, "digest", digest)
+		r.Digest, r.Verified = digest, true
+	} else {
+		u.Log.Warn("update: the image is taken without checking its build provenance (ENVORYX_UPDATE_UNVERIFIED)", "image", target)
+	}
+	r.StartedAt = time.Now().UTC()
 	if err := writeResult(u.ConfigDir, r); err != nil {
 		return err
 	}

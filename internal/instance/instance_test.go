@@ -55,6 +55,7 @@ func newStore(t *testing.T) (*Store, *sql.DB) {
 	must("projects/p1/home/.composer/cache/big", "cache")
 	must("projects/p1/cache/npm/big", "cache")
 	must("jetbrains/cache", "cache")
+	must("sigstore/tuf-repo-cdn.sigstore.dev/root.json", "{}")
 	must("logs/p1/php/2026-09-24.jsonl", `{"m":"line"}`)
 	must("backups/old/backup.json", "{}")
 	return s, sqlDB
