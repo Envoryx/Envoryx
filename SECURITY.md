@@ -111,6 +111,14 @@ trust with the projects' containers.
   token loses what its owner loses. Prefer HTTPS (`https://envoryx.<base>`) for the MCP URL when
   clients connect over the network.
 
+## Fleet manager
+
+An instance managed by a hoster (`ENVORYX_FLEET_URL`, see DEPLOYMENT.md) dials out to the
+fleet manager and proves itself with an Ed25519 key; the manager is proven to the instance
+by TLS alone. The address must therefore be `https://`; plain `http://` is refused except
+for this machine (`localhost`, `127.0.0.0/8`, `::1`) or with `ENVORYX_FLEET_INSECURE=1`,
+which is logged as a warning at every start.
+
 ## SSH server
 
 The embedded SSH server (port 2222) never gives access to the Envoryx container or the

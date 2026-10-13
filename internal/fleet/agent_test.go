@@ -361,3 +361,57 @@ func TestAgentAnswersSupportLoginsAndBackups(t *testing.T) {
 		t.Fatalf("reply = %+v, asked %q", r, asked)
 	}
 }
+
+func TestAgentWantsHTTPS(t *testing.T) {
+	for raw, want := range map[string]string{
+		"https://fleet.example.net":     "ok",
+		"http://localhost:8080":         "ok",
+		"http://127.0.0.1:8080":         "ok",
+		"http://127.1.2.3":              "ok",
+		"http://[::1]:8080":             "ok",
+		"http://fleet.example.net":      "refused",
+		"http://10.0.0.5:8080":          "refused",
+		"http://localhost.evil.example": "refused",
+		"ftp://fleet.example.net":       "refused",
+		"https://":                      "refused",
+	} {
+		warn, err := checkURL(raw, false)
+		if got := map[bool]string{true: "refused", false: "ok"}[err != nil]; got != want || warn {
+			t.Errorf("%s: %v, warn %v", raw, err, warn)
+		}
+	}
+	// ENVORYX_FLEET_INSECURE lets plain http through, with a warning; nothing else.
+	if warn, err := checkURL("http://fleet.example.net", true); err != nil || !warn {
+		t.Errorf("insecure: %v, warn %v", err, warn)
+	}
+	if _, err := checkURL("ftp://fleet.example.net", true); err == nil {
+		t.Error("insecure let ftp through")
+	}
+	if warn, _ := checkURL("https://fleet.example.net", true); warn {
+		t.Error("a warning for https")
+	}
+
+	if _, err := New(Config{URL: "http://fleet.example.net", ConfigDir: t.TempDir()}); err == nil {
+		t.Error("New took plain http")
+	}
+	if a, err := New(Config{URL: "http://fleet.example.net", Insecure: true, ConfigDir: t.TempDir(), Log: slog.New(slog.NewTextHandler(io.Discard, nil))}); err != nil || a == nil {
+		t.Errorf("New with ENVORYX_FLEET_INSECURE: %v", err)
+	}
+	// An instance enrolled at plain http by an older version doesn't keep dialing it.
+	dir := t.TempDir()
+	_, priv, _ := ed25519.GenerateKey(nil)
+	b, _ := json.Marshal(state{URL: "http://fleet.example.net", ID: "inst-1", Key: priv.Seed()})
+	if err := os.WriteFile(filepath.Join(dir, StateFile), b, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := New(Config{ConfigDir: dir}); err == nil {
+		t.Error("New took the enrolled plain http address")
+	}
+	if _, err := New(Config{URL: "https://other.example.net", ConfigDir: dir}); err == nil {
+		t.Error("New took the enrolled plain http address without a token for the new manager")
+	}
+	// A token for another manager replaces the enrollment.
+	if _, err := New(Config{URL: "https://other.example.net", Token: "tok", ConfigDir: dir}); err != nil {
+		t.Errorf("a new manager with a token: %v", err)
+	}
+}

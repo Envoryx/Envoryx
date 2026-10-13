@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -62,6 +63,9 @@ type Config struct {
 	// URL and Token come from ENVORYX_FLEET_URL and ENVORYX_FLEET_TOKEN. The token is only
 	// needed until the instance is enrolled.
 	URL, Token string
+	// Insecure (ENVORYX_FLEET_INSECURE) allows a manager at a plain http address that is
+	// not on this machine; see checkURL.
+	Insecure bool
 	// ConfigDir holds StateFile and the plan file.
 	ConfigDir string
 	Plan      *plan.Holder
@@ -119,13 +123,55 @@ func New(cfg Config) (*Agent, error) {
 	if cfg.URL == "" && st == nil {
 		return nil, nil
 	}
-	if cfg.URL != "" {
-		u, err := url.Parse(cfg.URL)
-		if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" {
-			return nil, fmt.Errorf("ENVORYX_FLEET_URL must be an http(s) address, got %q", cfg.URL)
+	// Both addresses the instance may dial are checked: the configured one and the one it
+	// enrolled at (which may stem from a version that took http). The latter stays in use
+	// when ENVORYX_FLEET_URL is unset, or names another manager without a token to join it
+	// (ensureEnrolled); otherwise it is ENVORYX_FLEET_URL, or gets replaced.
+	enrolledURL := ""
+	if st != nil && (cfg.URL == "" || (cfg.Token == "" && !sameManager(st.URL, cfg.URL))) {
+		enrolledURL = st.URL
+	}
+	for _, c := range []struct{ addr, what string }{{cfg.URL, "ENVORYX_FLEET_URL"}, {enrolledURL, filepath.Join(cfg.ConfigDir, StateFile)}} {
+		if c.addr == "" {
+			continue
+		}
+		insecure, err := checkURL(c.addr, cfg.Insecure)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", c.what, err)
+		}
+		if insecure && cfg.Log != nil {
+			cfg.Log.Warn("fleet: the manager is reached over plain http (ENVORYX_FLEET_INSECURE): anyone on the network between can pose as it", "url", c.addr)
 		}
 	}
 	return a, nil
+}
+
+// checkURL checks the manager's address. Only TLS proves the manager to the instance:
+// whoever answers at a plain http address gets to push plans (with an offsite target of
+// its own), suspend and update the instance and ask for support logins. So it must be
+// https; http only to this machine (localhost, 127.0.0.0/8, ::1) or with insecure set,
+// which checkURL reports for a warning.
+func checkURL(raw string, insecure bool) (warn bool, err error) {
+	u, err := url.Parse(raw)
+	if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" {
+		return false, fmt.Errorf("the fleet manager's address must be an https address, got %q", raw)
+	}
+	if u.Scheme == "https" || isLoopback(u.Hostname()) {
+		return false, nil
+	}
+	if !insecure {
+		return false, fmt.Errorf("the fleet manager's address %q must use https: over plain http anyone on the network can pose as the manager (set ENVORYX_FLEET_INSECURE=1 to allow it anyway)", raw)
+	}
+	return true, nil
+}
+
+// isLoopback reports whether host names this machine.
+func isLoopback(host string) bool {
+	if strings.EqualFold(host, "localhost") {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }
 
 func readState(path string) (*state, error) {

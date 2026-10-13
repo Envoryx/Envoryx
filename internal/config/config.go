@@ -95,6 +95,8 @@ type Config struct {
 	// token it enrolls with (see internal/fleet). Empty: not managed by a fleet.
 	FleetURL   string
 	FleetToken string
+	// FleetInsecure allows a fleet manager at a plain http address off this machine.
+	FleetInsecure bool
 
 	// DevMode relaxes a few things for local development (e.g. text logs, CORS for the Vite dev server).
 	DevMode bool
@@ -133,6 +135,7 @@ func Load() (Config, error) {
 		DevMode:                envBool("ENVORYX_DEV", false),
 		FleetURL:               env("ENVORYX_FLEET_URL", ""),
 		FleetToken:             env("ENVORYX_FLEET_TOKEN", ""),
+		FleetInsecure:          envBool("ENVORYX_FLEET_INSECURE", false),
 		AllowNetworkFS:         envBool("ENVORYX_ALLOW_NETWORK_FS", false),
 		DevOrigin:              env("ENVORYX_DEV_ORIGIN", "http://localhost:5173"),
 	}

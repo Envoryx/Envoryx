@@ -77,6 +77,7 @@ docker build -t ghcr.io/envoryx/envoryx:dev --build-arg VERSION=dev .
 | `ENVORYX_SECRET_KEY` | - | Key that encrypts the stored secrets (base64 of 32 bytes or 64 hex digits, e.g. `openssl rand -base64 32`); without it Envoryx keeps one in `/config/secret.key`, see [Secret key](#secret-key) |
 | `ENVORYX_SECRET_KEY_OLD` | - | The previous key, for one start after changing `ENVORYX_SECRET_KEY` |
 | `ENVORYX_FLEET_URL` / `ENVORYX_FLEET_TOKEN` | - | The hoster's fleet manager and the one-time token the instance enrolls with, see [Plans](#plans-managed-instances) |
+| `ENVORYX_FLEET_INSECURE` | `false` | Allow `ENVORYX_FLEET_URL` at plain `http://` off this machine (logged as a warning); see [The fleet manager](#the-fleet-manager) |
 | `ENVORYX_SESSION_IDLE_TIMEOUT` | `12h` | Sliding session expiry |
 | `ENVORYX_SESSION_ABSOLUTE_TIMEOUT` | `168h` | Hard session expiry |
 | `ENVORYX_SECURE_COOKIES` | `false` | Mark cookies `Secure` (enable behind HTTPS) |
@@ -2675,6 +2676,14 @@ with `/config/fleet.json` in place: that is how an instance the manager
 removed joins again, or one whose key the manager lost (*New enrollment
 token* on its page). A token the manager refuses is noted and the instance
 stays as it is.
+The address must be `https://`: only TLS proves to the instance that it talks
+to its hoster's manager, and whoever poses as the manager can push plans with
+an offsite target of their own, suspend and update the instance and ask for
+support logins. Plain `http://` is taken only for the same machine
+(`localhost`, `127.0.0.0/8`, `::1`) or with `ENVORYX_FLEET_INSECURE=1`, which
+the log warns about at every start. The same goes for the address in
+`/config/fleet.json`: an instance enrolled at `http://` doesn't start until it
+is allowed or enrolled again at `https://`.
 The instance dials out, so it needs no open port. Over the connection the
 manager sends the plan, which the instance writes to `/config/plan.json` and
 takes over at once, and the instance reports its version, projects, users and
