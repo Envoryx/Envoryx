@@ -3,7 +3,7 @@ GO      ?= go
 NPM     ?= npm
 IMAGE   ?= ghcr.io/envoryx/envoryx
 
-.PHONY: all build web licenses backend run test test-go test-web test-integration test-e2e lint vulncheck docker clean
+.PHONY: all build web licenses backend run test test-go test-web test-integration test-e2e lint vulncheck fuzz docker clean
 
 all: build
 
@@ -50,6 +50,19 @@ lint:
 ## Known vulnerabilities in the code paths that actually run (as CI checks)
 vulncheck:
 	$(GO) run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
+
+## Run every fuzz test for FUZZTIME each (go test runs only their seeds). A failing
+## input lands in the package's testdata/fuzz; commit it with the fix.
+FUZZTIME ?= 30s
+FUZZ_TARGETS = ./internal/project:FuzzExtractArchive ./internal/project:FuzzUnpackBackupArchive \
+	./internal/project:FuzzParseTestOutput ./internal/project:FuzzParseReports \
+	./internal/siteimport:FuzzExtract ./internal/manifest:FuzzParseMarshal \
+	./internal/cron:FuzzParse ./cmd/envoryx:FuzzFilenameFromResponse
+fuzz:
+	@for t in $(FUZZ_TARGETS); do \
+		echo "== $$t"; \
+		$(GO) test $${t%%:*} -run '^$$' -fuzz "^$${t##*:}$$" -fuzztime $(FUZZTIME) || exit 1; \
+	done
 
 docker:
 	docker build --build-arg VERSION=$(VERSION) -t $(IMAGE):$(VERSION) -t $(IMAGE):latest .

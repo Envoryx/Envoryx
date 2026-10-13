@@ -23,6 +23,7 @@ import (
 	"github.com/envoryx/envoryx/internal/notify"
 	"github.com/envoryx/envoryx/internal/runtime"
 	"github.com/envoryx/envoryx/internal/secrets"
+	"github.com/envoryx/envoryx/internal/siteimport"
 	"github.com/envoryx/envoryx/internal/store"
 	"github.com/envoryx/envoryx/internal/validate"
 )
@@ -1357,6 +1358,8 @@ func extractArchive(archive, target string, uid, gid int) error {
 			_ = root.Chmod(dirOrder[i], dirModes[dirOrder[i]])
 		}
 	}()
+	var links []string
+	defer func() { siteimport.DropEscapingLinks(root, realTarget, links) }()
 	for {
 		hdr, err := tr.Next()
 		if errors.Is(err, io.EOF) {
@@ -1400,6 +1403,7 @@ func extractArchive(archive, target string, uid, gid int) error {
 			if err := root.Symlink(hdr.Linkname, name); err != nil {
 				return err
 			}
+			links = append(links, name)
 			chown(name)
 		case tar.TypeReg:
 			if info, err := root.Lstat(name); err == nil {

@@ -1,0 +1,44 @@
+name: Fuzz
+
+# The fuzz tests' seeds run with every go test; this lets each fuzzer search for a few
+# minutes once a week: archive extraction (backups, site import), the readers of test
+# output and reports, the manifest, cron expressions and download names. A failing input
+# is uploaded; put it into the package's testdata/fuzz with the fix.
+on:
+  schedule:
+    - cron: "0 5 * * 2"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fuzz:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - ./internal/project:FuzzExtractArchive
+          - ./internal/project:FuzzUnpackBackupArchive
+          - ./internal/project:FuzzParseTestOutput
+          - ./internal/project:FuzzParseReports
+          - ./internal/siteimport:FuzzExtract
+          - ./internal/manifest:FuzzParseMarshal
+          - ./internal/cron:FuzzParse
+          - ./cmd/envoryx:FuzzFilenameFromResponse
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Fuzz
+        env:
+          TARGET: ${{ matrix.target }}
+        run: go test "${TARGET%%:*}" -run '^$' -fuzz "^${TARGET##*:}\$" -fuzztime 4m
+      - name: Keep the failing input
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: fuzz-${{ strategy.job-index }}
+          path: "**/testdata/fuzz/**"
