@@ -63,6 +63,8 @@ type testApp struct {
 	plans *plan.Holder
 	// auth is the session service (support logins).
 	auth *auth.Service
+	// routes are the patterns registered on the server's mux (the access matrix).
+	routes []api.Route
 }
 
 func newApp(t *testing.T) *testApp {
@@ -138,6 +140,7 @@ func newApp(t *testing.T) *testApp {
 		}
 	})
 	s := server.New(server.Options{Addr: ":0", Log: log, MCP: mcpSrv.Handler()}, a, sessions, nil)
+	app.routes = s.Routes()
 	handler := serverHandler(s)
 	srv := httptest.NewServer(handler)
 	t.Cleanup(srv.Close)
