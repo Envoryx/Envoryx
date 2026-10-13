@@ -1,4 +1,4 @@
-import { Archive, Bell, Container, Database, FolderGit2, Globe, Hourglass, Key, KeyRound, LockKeyhole, Package, Puzzle, RefreshCw, Save, ScrollText, SlidersHorizontal, SquareTerminal, Stethoscope, UserRound, Users } from "lucide-react";
+import { Archive, Bell, Container, Database, FolderGit2, Globe, Hourglass, Key, KeyRound, LockKeyhole, Package, Puzzle, RefreshCw, Save, ScrollText, ShieldCheck, SlidersHorizontal, SquareTerminal, Stethoscope, UserRound, Users } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useEffect, useState, type FormEvent } from "react";
 import { api } from "@/api/client";
@@ -25,6 +25,8 @@ import { RegistriesCard } from "./RegistriesCard";
 import { AddonsCard } from "./AddonsCard";
 import { SecretKeyCard } from "./SecretKeyCard";
 import { MySshKeysCard } from "./MySshKeysCard";
+import { TwoFactorCard } from "./TwoFactorCard";
+import { TwoFactorPolicyCard } from "./TwoFactorPolicyCard";
 import { useAuth } from "@/features/auth/AuthContext";
 import { AppearanceCard } from "./AppearanceCard";
 import { SupportAccessCard, SupportRefusedNote } from "./SupportAccessCard";
@@ -231,6 +233,7 @@ const accountGroup: SectionGroup<Tab> = {
   group: "My account",
   items: [
     { id: "profile", label: "Profile", icon: UserRound },
+    { id: "twofactor", label: "Two-factor authentication", icon: ShieldCheck },
     { id: "tokens", label: "API tokens & MCP", icon: KeyRound },
     { id: "sshkeys", label: "SSH keys", icon: Key },
   ],
@@ -382,6 +385,7 @@ export function SettingsPage() {
               {support ? <SupportRefusedNote /> : <PasswordForm />}
             </>
           )}
+          {tab === "twofactor" && (support ? <SupportRefusedNote /> : <TwoFactorCard />)}
           {tab === "tokens" && (support ? <SupportRefusedNote /> : <TokensCard />)}
           {tab === "sshkeys" && (support ? <SupportRefusedNote /> : <MySshKeysCard />)}
           {tab === "diagnostics" && <DiagnosticsTab onSwitchTab={(next) => navigate(tabHref((renamed[next] ?? next) as Tab))} />}
@@ -403,6 +407,7 @@ export function SettingsPage() {
           {tab === "users" && (
             <>
               <UsersCard readOnly={support} />
+              <TwoFactorPolicyCard readOnly={support} />
               <OidcCard readOnly={support} />
             </>
           )}

@@ -180,7 +180,7 @@ describe("Roles in the UI", () => {
     // An old link to the admins' Access tab lands on the user's own tokens.
     renderApp(<SettingsPage />, { route: "/settings?tab=access" });
     const nav = await screen.findByRole("navigation", { name: "Settings sections" });
-    expect(within(nav).getAllByRole("link").map((l) => l.textContent)).toEqual(["Profile", "API tokens & MCP", "SSH keys"]);
+    expect(within(nav).getAllByRole("link").map((l) => l.textContent)).toEqual(["Profile", "Two-factor authentication", "API tokens & MCP", "SSH keys"]);
     expect(within(nav).getByRole("link", { name: "API tokens & MCP" })).toHaveAttribute("aria-current", "page");
     await userEvent.setup().click(within(nav).getByRole("link", { name: "SSH keys" }));
     expect(await screen.findByText("My SSH keys")).toBeInTheDocument();

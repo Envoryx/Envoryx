@@ -51,5 +51,7 @@
   "Show all {{count}} templates_one": "Show {{count}} template",
   "Show all {{count}} templates_other": "Show all {{count}} templates",
   "{{count}} variables_one": "{{count}} variable",
-  "{{count}} variables_other": "{{count}} variables"
+  "{{count}} variables_other": "{{count}} variables",
+  "{{count}} left_one": "{{count}} left",
+  "{{count}} left_other": "{{count}} left"
 }

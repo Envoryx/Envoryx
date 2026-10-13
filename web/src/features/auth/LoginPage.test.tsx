@@ -80,3 +80,65 @@ describe("LoginPage", () => {
     expect(screen.getByLabelText("Confirm password")).toBeInTheDocument();
   });
 });
+
+describe("LoginPage second factor", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("asks for the code after the password, and takes a recovery code instead", async () => {
+    const api = mockApi({
+      "GET /setup": () => ({ body: { needsSetup: false } }),
+      "GET /auth/me": () => ({ status: 401, body: { error: { code: "unauthenticated", message: "authentication required" } } }),
+      // More specific first: the mock matches by prefix.
+      "POST /auth/login/code": (_url, init) => {
+        const body = JSON.parse(init.body as string);
+        if (body.ticket === "t1" && (body.code === "123456" || body.recoveryCode === "abcde-fghij")) return { body: { user: { id: "u1", username: "admin", role: "admin" } } };
+        return { status: 401, body: { error: { code: "invalid_code", message: "the code is wrong or was used already" } } };
+      },
+      "POST /auth/login": () => ({ body: { secondFactor: { ticket: "t1", methods: ["totp", "recovery"] } } }),
+    });
+    renderApp(
+      <Routes>
+        <Route path="/login" element={<LoginPage mode="login" />} />
+        <Route path="/" element={<Home />} />
+      </Routes>,
+      { route: "/login" },
+    );
+    const user = userEvent.setup();
+    await user.type(await screen.findByLabelText("Username"), "admin");
+    await user.type(screen.getByLabelText("Password"), "supersecret123");
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
+
+    expect(await screen.findByText("Enter the 6-digit code from your authenticator app.")).toBeInTheDocument();
+    await user.type(screen.getByLabelText("Code"), "000000");
+    await user.click(screen.getByRole("button", { name: "Verify" }));
+    expect(await screen.findByText("The code is wrong or was used already.")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Use a recovery code" }));
+    await user.type(screen.getByLabelText("Recovery code"), "abcde-fghij");
+    await user.click(screen.getByRole("button", { name: "Verify" }));
+    expect(await screen.findByRole("heading", { name: "Home" })).toBeInTheDocument();
+    const sent = api.calls.filter((c) => c.url.endsWith("/auth/login/code")).map((c) => c.body);
+    expect(sent).toEqual([
+      { ticket: "t1", code: "000000" },
+      { ticket: "t1", recoveryCode: "abcde-fghij" },
+    ]);
+  });
+
+  it("starts over when the ticket expired", async () => {
+    mockApi({
+      "GET /setup": () => ({ body: { needsSetup: false } }),
+      "GET /auth/me": () => ({ status: 401, body: { error: { code: "unauthenticated", message: "authentication required" } } }),
+      "POST /auth/login/code": () => ({ status: 401, body: { error: { code: "second_factor_expired", message: "expired" } } }),
+      "POST /auth/login": () => ({ body: { secondFactor: { ticket: "t1", methods: ["totp"] } } }),
+    });
+    renderApp(<LoginPage mode="login" />, { route: "/login" });
+    const user = userEvent.setup();
+    await user.type(await screen.findByLabelText("Username"), "admin");
+    await user.type(screen.getByLabelText("Password"), "supersecret123");
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
+    await user.type(await screen.findByLabelText("Code"), "123456");
+    await user.click(screen.getByRole("button", { name: "Verify" }));
+    expect(await screen.findByText("The sign-in took too long or failed too often; sign in again.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sign in" })).toBeInTheDocument();
+  });
+});

@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { ApiError, api } from "@/api/client";
 import { Alert, Button, Field, Input, Spinner } from "@/components/ui";
 import { LogoFull } from "@/layout/Logo";
@@ -10,6 +10,7 @@ import { errorText } from "@/lib/errors";
 export function InvitePage() {
   const { t } = useTranslation();
   const { token = "" } = useParams();
+  const navigate = useNavigate();
   const [invite, setInvite] = useState<{ username: string; reset: boolean } | null>(null);
   const [sso, setSso] = useState<{ enabled: boolean; name?: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -44,7 +45,12 @@ export function InvitePage() {
     setBusy(true);
     setError(null);
     try {
-      await api.auth.acceptInvitation(token, password);
+      const res = await api.auth.acceptInvitation(token, password);
+      // The password is set; an account with a second factor still proves it.
+      if (res.secondFactor) {
+        navigate("/login", { replace: true, state: { secondFactor: res.secondFactor, passwordSet: true } });
+        return;
+      }
       // A full load picks up the new session everywhere.
       window.location.assign("/");
     } catch (err) {

@@ -57,6 +57,9 @@ import type {
   InstalledAddon,
   ProjectAddon,
   Role,
+  SignInResult,
+  TwoFactorStatus,
+  PasskeyInfo,
   UserAdmin,
   BranchEnvironments,
   BranchSettings,
@@ -142,6 +145,13 @@ export function setSuspendedHandler(handler: (() => void) | null): void {
   onSuspended = handler;
 }
 
+let onTwoFactorSetup: (() => void) | null = null;
+
+/** Registers a callback invoked when the API refuses until a required second factor is set up. */
+export function setTwoFactorSetupHandler(handler: (() => void) | null): void {
+  onTwoFactorSetup = handler;
+}
+
 interface RequestOptions {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   body?: unknown;
@@ -188,6 +198,9 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
     }
     if (res.status === 403 && err?.code === "suspended") {
       onSuspended?.();
+    }
+    if (res.status === 403 && err?.code === "two_factor_setup") {
+      onTwoFactorSetup?.();
     }
     throw new ApiError(res.status, err?.code ?? "http_error", err?.message ?? `Request failed (${res.status})`, err?.details);
   }
@@ -292,18 +305,39 @@ export const api = {
     setup: (username: string, password: string) =>
       request<{ user: User }>("/setup", { method: "POST", body: { username, password } }),
     login: (username: string, password: string) =>
-      request<{ user: User }>("/auth/login", { method: "POST", body: { username, password }, silent401: true }),
+      request<SignInResult>("/auth/login", { method: "POST", body: { username, password }, silent401: true }),
+    /** The second step with a TOTP code or a recovery code. */
+    loginCode: (ticket: string, code: { code?: string; recoveryCode?: string }) =>
+      request<{ user: User }>("/auth/login/code", { method: "POST", body: { ticket, ...code }, silent401: true }),
+    /** A sign-in with a passkey: alone, or the second step with the ticket. */
+    passkeyOptions: (ticket?: string) =>
+      request<{ id: string; publicKey: PublicKeyCredentialRequestOptionsJSON }>("/auth/passkey/options", { method: "POST", body: { ticket: ticket ?? "" }, silent401: true }),
+    passkeyLogin: (id: string, credential: unknown) => request<{ user: User }>("/auth/passkey", { method: "POST", body: { id, credential }, silent401: true }),
     logout: () => request<void>("/auth/logout", { method: "POST" }),
     /** admin: the session may administer the instance; projectRoles: the user's role per project id where it differs. */
     me: (silent401 = false) =>
-      request<{ user: User; admin?: boolean; support?: boolean; projectRoles?: Record<string, string>; token?: { name: string; scope: string; projects: string[] } }>("/auth/me", { silent401 }),
+      request<{ user: User; admin?: boolean; support?: boolean; twoFactorSetup?: boolean; projectRoles?: Record<string, string>; token?: { name: string; scope: string; projects: string[] } }>("/auth/me", { silent401 }),
     changePassword: (currentPassword: string, newPassword: string) =>
       request<void>("/auth/password", { method: "POST", body: { currentPassword, newPassword } }),
     sshKeys: () => request<{ keys: string }>("/auth/ssh-keys"),
     setSshKeys: (keys: string) => request<{ keys: string }>("/auth/ssh-keys", { method: "PUT", body: { keys } }),
     oidcStatus: () => request<{ enabled: boolean; name?: string }>("/auth/oidc", { silent401: true }),
     invitation: (token: string) => request<{ username: string; expiresAt: string; reset: boolean }>(`/invites/${encodeURIComponent(token)}`, { silent401: true }),
-    acceptInvitation: (token: string, password: string) => request<{ user: User }>(`/invites/${encodeURIComponent(token)}`, { method: "POST", body: { password }, silent401: true }),
+    acceptInvitation: (token: string, password: string) => request<SignInResult>(`/invites/${encodeURIComponent(token)}`, { method: "POST", body: { password }, silent401: true }),
+  },
+
+  /** The signed-in user's own second factors. Changes take the password. */
+  twoFactor: {
+    status: () => request<TwoFactorStatus>("/auth/2fa"),
+    totpSetup: (password: string) => request<{ secret: string; uri: string; qr: string }>("/auth/2fa/totp/setup", { method: "POST", body: { password } }),
+    totpConfirm: (code: string) => request<{ recoveryCodes: string[] | null }>("/auth/2fa/totp", { method: "POST", body: { code } }),
+    totpRemove: (password: string) => request<void>("/auth/2fa/totp", { method: "DELETE", body: { password } }),
+    passkeyOptions: (password: string) => request<{ id: string; publicKey: PublicKeyCredentialCreationOptionsJSON }>("/auth/2fa/passkeys/options", { method: "POST", body: { password } }),
+    passkeyAdd: (id: string, name: string, credential: unknown) =>
+      request<{ passkey: PasskeyInfo; recoveryCodes: string[] | null }>("/auth/2fa/passkeys", { method: "POST", body: { id, name, credential } }),
+    passkeyRename: (id: string, name: string) => request<void>(`/auth/2fa/passkeys/${encodeURIComponent(id)}`, { method: "PATCH", body: { name } }),
+    passkeyRemove: (id: string, password: string) => request<void>(`/auth/2fa/passkeys/${encodeURIComponent(id)}`, { method: "DELETE", body: { password } }),
+    recoveryCodes: (password: string) => request<{ recoveryCodes: string[] }>("/auth/2fa/recovery-codes", { method: "POST", body: { password } }),
   },
 
   users: {
@@ -312,6 +346,7 @@ export const api = {
     update: (id: string, body: { role?: Role; disabled?: boolean }) => request<{ user: UserAdmin }>(`/users/${encodeURIComponent(id)}`, { method: "PATCH", body }),
     remove: (id: string) => request<void>(`/users/${encodeURIComponent(id)}`, { method: "DELETE" }),
     renewInvite: (id: string) => request<InviteResult>(`/users/${encodeURIComponent(id)}/invite`, { method: "POST" }),
+    resetTwoFactor: (id: string) => request<void>(`/users/${encodeURIComponent(id)}/two-factor`, { method: "DELETE" }),
     setProjectRole: (id: string, projectId: string, role: Role | "") => request<{ user: UserAdmin }>(`/users/${encodeURIComponent(id)}/projects/${encodeURIComponent(projectId)}`, { method: "PUT", body: { role } }),
   },
 
