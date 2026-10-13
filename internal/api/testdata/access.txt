@@ -34,214 +34,229 @@
 #              (routesWhileSuspended); no: refused then.
 # plan=        offsite: refused unless the plan has offsite targets, except for the
 #              hoster's own target; none: the plan doesn't gate the route.
+# twofactor=   yes: still answered to a session that has to set up a second factor
+#              first (routesWhileTwoFactorSetup); no: refused to it.
 
-GET    /api/v1/health                                                scope=public  tokens=yes   support=yes  confined=yes     suspended=yes plan=none
-GET    /api/v1/setup                                                 scope=public  tokens=yes   support=yes  confined=yes     suspended=yes plan=none
-POST   /api/v1/setup                                                 scope=public  tokens=yes   support=yes  confined=yes     suspended=yes plan=none
-POST   /api/v1/auth/login                                            scope=public  tokens=yes   support=yes  confined=yes     suspended=yes plan=none
-POST   /api/v1/auth/logout                                           scope=public  tokens=yes   support=yes  confined=yes     suspended=yes plan=none
-GET    /api/v1/auth/oidc                                             scope=public  tokens=yes   support=yes  confined=yes     suspended=yes plan=none
-GET    /api/v1/auth/oidc/start                                       scope=public  tokens=yes   support=yes  confined=yes     suspended=yes plan=none
-GET    /api/v1/auth/oidc/callback                                    scope=public  tokens=yes   support=yes  confined=yes     suspended=yes plan=none
-GET    /api/v1/invites/{token}                                       scope=public  tokens=yes   support=yes  confined=yes     suspended=yes plan=none
-POST   /api/v1/invites/{token}                                       scope=public  tokens=yes   support=yes  confined=yes     suspended=yes plan=none
-GET    /api/v1/auth/support/{token}                                  scope=public  tokens=yes   support=yes  confined=yes     suspended=yes plan=none
-GET    /api/v1/auth/me                                               scope=read    tokens=yes   support=yes  confined=yes     suspended=yes plan=none
-POST   /api/v1/auth/password                                         scope=read    tokens=no    support=no   confined=users   suspended=no  plan=none
-GET    /api/v1/auth/ssh-keys                                         scope=read    tokens=no    support=yes  confined=users   suspended=no  plan=none
-PUT    /api/v1/auth/ssh-keys                                         scope=read    tokens=no    support=no   confined=users   suspended=no  plan=none
-GET    /api/v1/dashboard                                             scope=read    tokens=admin support=yes  confined=users   suspended=no  plan=none
-GET    /api/v1/runtimes                                              scope=read    tokens=yes   support=yes  confined=yes     suspended=no  plan=none
-POST   /api/v1/cron/preview                                          scope=read    tokens=yes   support=yes  confined=yes     suspended=no  plan=none
-GET    /api/v1/docker                                                scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
-GET    /api/v1/docker/images/unused                                  scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
-POST   /api/v1/docker/images/prune                                   scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
-POST   /api/v1/docker/orphans/remove                                 scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
-GET    /api/v1/settings                                              scope=read    tokens=admin support=yes  confined=users   suspended=no  plan=none
-GET    /api/v1/plan                                                  scope=read    tokens=yes   support=yes  confined=users   suspended=yes plan=none
-PATCH  /api/v1/settings                                              scope=admin   tokens=body  support=body confined=no      suspended=no  plan=none
-GET    /api/v1/settings/support-access                               scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
-PUT    /api/v1/settings/support-access                               scope=admin   tokens=no    support=no   confined=no      suspended=no  plan=none
-GET    /api/v1/settings/oidc                                         scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
-PUT    /api/v1/settings/oidc                                         scope=admin   tokens=no    support=no   confined=no      suspended=no  plan=none
-POST   /api/v1/settings/oidc/test                                    scope=admin   tokens=no    support=no   confined=no      suspended=no  plan=none
-GET    /api/v1/settings/secret-key                                   scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
-POST   /api/v1/settings/secret-key/reveal                            scope=admin   tokens=no    support=no   confined=no      suspended=no  plan=none
-POST   /api/v1/settings/secret-key/rotate                            scope=admin   tokens=no    support=no   confined=no      suspended=no  plan=none
-GET    /api/v1/settings/registries                                   scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
-GET    /api/v1/addons                                                scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
-POST   /api/v1/addons                                                scope=admin   tokens=yes   support=no   confined=no      suspended=no  plan=none
-GET    /api/v1/addons/{name}                                         scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
-DELETE /api/v1/addons/{name}                                         scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
-PUT    /api/v1/settings/registries                                   scope=admin   tokens=yes   support=no   confined=no      suspended=no  plan=none
-GET    /api/v1/users                                                 scope=admin   tokens=no    support=yes  confined=no      suspended=no  plan=none
-POST   /api/v1/users                                                 scope=admin   tokens=no    support=no   confined=no      suspended=no  plan=none
-PATCH  /api/v1/users/{id}                                            scope=admin   tokens=no    support=no   confined=no      suspended=no  plan=none
-DELETE /api/v1/users/{id}                                            scope=admin   tokens=no    support=no   confined=no      suspended=no  plan=none
-POST   /api/v1/users/{id}/invite                                     scope=admin   tokens=no    support=no   confined=no      suspended=no  plan=none
-PUT    /api/v1/users/{id}/projects/{project}                         scope=admin   tokens=no    support=no   confined=no      suspended=no  plan=none
-GET    /api/v1/tokens                                                scope=read    tokens=no    support=yes  confined=users   suspended=no  plan=none
-POST   /api/v1/tokens                                                scope=read    tokens=no    support=no   confined=users   suspended=no  plan=none
-DELETE /api/v1/tokens/{id}                                           scope=read    tokens=no    support=yes  confined=users   suspended=no  plan=none
-DELETE /api/v1/settings/log-history                                  scope=admin   tokens=yes   support=no   confined=no      suspended=no  plan=none
-DELETE /api/v1/settings/metrics                                      scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
-GET    /api/v1/metrics/overview                                      scope=read    tokens=yes   support=yes  confined=users   suspended=no  plan=none
-GET    /api/v1/settings/tls                                          scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
-GET    /api/v1/settings/notifications                                scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
-PUT    /api/v1/settings/notifications                                scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
-POST   /api/v1/settings/notifications/test                           scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
-GET    /api/v1/settings/tls/acme                                     scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
-PUT    /api/v1/settings/tls/acme                                     scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
-DELETE /api/v1/settings/tls/acme                                     scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
-POST   /api/v1/settings/tls/acme/issue                               scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
-GET    /api/v1/settings/tls/ca.crt                                   scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
-PUT    /api/v1/settings/tls/custom                                   scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
-DELETE /api/v1/settings/tls/custom                                   scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
-POST   /api/v1/projects/{id}/ide/stop-backend                        scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none
-GET    /api/v1/projects/{id}/ide/vsdbg                               scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none
-GET    /api/v1/projects/{id}/workers                                 scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none
-POST   /api/v1/projects/{id}/workers                                 scope=admin   tokens=yes   support=yes  confined=project suspended=no  plan=none
-PUT    /api/v1/projects/{id}/workers/{worker}                        scope=admin   tokens=yes   support=yes  confined=project suspended=no  plan=none
-DELETE /api/v1/projects/{id}/workers/{worker}                        scope=admin   tokens=yes   support=yes  confined=project suspended=no  plan=none
-GET    /api/v1/projects/{id}/cron                                    scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none
-POST   /api/v1/projects/{id}/cron                                    scope=admin   tokens=yes   support=yes  confined=project suspended=no  plan=none
-PUT    /api/v1/projects/{id}/cron/{job}                              scope=admin   tokens=yes   support=yes  confined=project suspended=no  plan=none
-DELETE /api/v1/projects/{id}/cron/{job}                              scope=admin   tokens=yes   support=yes  confined=project suspended=no  plan=none
-POST   /api/v1/projects/{id}/cron/{job}/run                          scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none
-GET    /api/v1/projects/{id}/cron/{job}/runs                         scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none
-GET    /api/v1/projects/{id}/domains                                 scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none
-POST   /api/v1/projects/{id}/domains                                 scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none
-DELETE /api/v1/projects/{id}/domains/{domain}                        scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none
-GET    /api/v1/audit                                                 scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
-GET    /api/v1/audit/export                                          scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
-GET    /api/v1/audit/users                                           scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
-GET    /api/v1/audit/settings                                        scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
-PUT    /api/v1/audit/settings                                        scope=admin   tokens=yes   support=no   confined=no      suspended=no  plan=none
-GET    /api/v1/instance/backups                                      scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
-POST   /api/v1/instance/backups                                      scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
-POST   /api/v1/instance/backups/upload                               scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
-DELETE /api/v1/instance/backups/{id}                                 scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
-GET    /api/v1/instance/backups/{id}/download                        scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
-POST   /api/v1/instance/backups/{id}/restore                         scope=admin   tokens=own   support=no   confined=no      suspended=no  plan=none
-POST   /api/v1/instance/backups/{id}/offsite                         scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
-GET    /api/v1/offsite                                               scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
-POST   /api/v1/offsite/targets                                       scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=offsite
-PUT    /api/v1/offsite/targets/{target}                              scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=offsite
-DELETE /api/v1/offsite/targets/{target}                              scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
-POST   /api/v1/offsite/test                                          scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=offsite
-GET    /api/v1/offsite/targets/{target}/instance                     scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
-POST   /api/v1/offsite/targets/{target}/instance/fetch               scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=offsite
-GET    /api/v1/offsite/targets/{target}/projects                     scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
-POST   /api/v1/offsite/targets/{target}/projects/fetch               scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=offsite
-POST   /api/v1/offsite/targets/{target}/remove                       scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=offsite
-DELETE /api/v1/instance/restore                                      scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
-GET    /api/v1/system/reconcile                                      scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
-GET    /api/v1/system/diagnostics                                    scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
-POST   /api/v1/system/reconcile                                      scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
-GET    /api/v1/projects                                              scope=read    tokens=yes   support=yes  confined=yes     suspended=no  plan=none
-GET    /api/v1/operations                                            scope=read    tokens=yes   support=yes  confined=yes     suspended=no  plan=none
-POST   /api/v1/projects                                              scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
-POST   /api/v1/projects/preview                                      scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
-POST   /api/v1/projects/from-manifest                                scope=admin   tokens=yes   support=body confined=no      suspended=no  plan=none
-POST   /api/v1/site-imports                                          scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
-GET    /api/v1/site-imports/{id}                                     scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
-DELETE /api/v1/site-imports/{id}                                     scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
-GET    /api/v1/projects/{id}/manifest                                scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none
-PUT    /api/v1/projects/{id}/manifest/file                           scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none
-POST   /api/v1/projects/{id}/manifest/plan                           scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none
-POST   /api/v1/projects/{id}/manifest/apply                          scope=admin   tokens=yes   support=body confined=project suspended=no  plan=none
-GET    /api/v1/projects/{id}                                         scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none
-PATCH  /api/v1/projects/{id}                                         scope=admin   tokens=yes   support=yes  confined=project suspended=no  plan=none
-DELETE /api/v1/projects/{id}                                         scope=admin   tokens=yes   support=yes  confined=project suspended=no  plan=none
-POST   /api/v1/projects/{id}/duplicate                               scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
-POST   /api/v1/projects/{id}/rename                                  scope=admin   tokens=yes   support=yes  confined=project suspended=no  plan=none
-GET    /api/v1/projects/{id}/branches                                scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none
-PUT    /api/v1/projects/{id}/branches/settings                       scope=admin   tokens=yes   support=yes  confined=project suspended=no  plan=none
-GET    /api/v1/projects/{id}/branches/remote                         scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none
-POST   /api/v1/projects/{id}/branches                                scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
-POST   /api/v1/projects/{id}/deploy                                  scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none
-POST   /api/v1/projects/{id}/start                                   scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none
-POST   /api/v1/projects/{id}/stop                                    scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none
-POST   /api/v1/projects/{id}/restart                                 scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none
-POST   /api/v1/projects/{id}/workers/{worker}/restart                scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none
-POST   /api/v1/projects/{id}/images                                  scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none
-PUT    /api/v1/projects/{id}/services/{kind}/image                   scope=admin   tokens=yes   support=no   confined=project suspended=no  plan=none
-GET    /api/v1/projects/{id}/addons                                  scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none
-PUT    /api/v1/projects/{id}/addons/{name}                           scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none
-DELETE /api/v1/projects/{id}/services/{kind}/image                   scope=admin   tokens=yes   support=yes  confined=project suspended=no  plan=none
-POST   /api/v1/projects/{id}/services/{kind}/image/build             scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none
-GET    /api/v1/package-cache                                         scope=read    tokens=yes   support=yes  confined=no      suspended=no  plan=none
-DELETE /api/v1/package-cache                                         scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
-GET    /api/v1/dbtool                                                scope=operate tokens=yes   support=yes  confined=any     suspended=no  plan=none
-PUT    /api/v1/dbtool                                                scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
-POST   /api/v1/projects/{id}/dbtool                                  scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none
-ANY    /dbtool/                                                      scope=operate tokens=yes   support=yes  confined=any     suspended=no  plan=none
-GET    /api/v1/projects/{id}/services                                scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none
-GET    /api/v1/projects/{id}/plan                                    scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none
-GET    /api/v1/projects/{id}/stats                                   scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none
-PUT    /api/v1/projects/{id}/limits                                  scope=admin   tokens=yes   support=yes  confined=project suspended=no  plan=none
-PUT    /api/v1/projects/{id}/health-check                            scope=admin   tokens=yes   support=yes  confined=project suspended=no  plan=none
-PUT    /api/v1/projects/{id}/proxy-rules                             scope=admin   tokens=yes   support=yes  confined=project suspended=no  plan=none
-POST   /api/v1/projects/{id}/health-check/test                       scope=admin   tokens=yes   support=yes  confined=project suspended=no  plan=none
-GET    /api/v1/projects/{id}/metrics                                 scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none
-GET    /api/v1/projects/{id}/services/{kind}/logs                    scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none
-GET    /api/v1/projects/{id}/services/{kind}/logs/ws                 scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none
-GET    /api/v1/projects/{id}/services/{kind}/logs/stats              scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none
-GET    /api/v1/projects/{id}/services/{kind}/logs/download           scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none
-GET    /api/v1/projects/{id}/services/{kind}/terminal/ws             scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none
-POST   /api/v1/projects/{id}/services/{kind}/exec                    scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none
-GET    /api/v1/projects/{id}/git                                     scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none
-PUT    /api/v1/projects/{id}/git                                     scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none
-POST   /api/v1/projects/{id}/git/clone                               scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none
-POST   /api/v1/projects/{id}/git/pull                                scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none
-POST   /api/v1/projects/{id}/git/checkout                            scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none
-GET    /api/v1/settings/deploy-key                                   scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
-POST   /api/v1/settings/deploy-key/regenerate                        scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
-GET    /api/v1/projects/{id}/actions                                 scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none
-GET    /api/v1/projects/{id}/actions/{action}/ws                     scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none
-GET    /api/v1/projects/{id}/share                                   scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none
-POST   /api/v1/projects/{id}/share                                   scope=admin   tokens=yes   support=yes  confined=project suspended=no  plan=none
-DELETE /api/v1/projects/{id}/share                                   scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none
-GET    /api/v1/projects/{id}/tests                                   scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none
-GET    /api/v1/projects/{id}/test-runs/{run}                         scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none
-GET    /api/v1/projects/{id}/tests/{suite}/ws                        scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none
-GET    /api/v1/projects/{id}/backups                                 scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none
-POST   /api/v1/projects/{id}/backups/{backup}/offsite                scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none
-GET    /api/v1/projects/{id}/offsite/{target}                        scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none
-POST   /api/v1/projects/{id}/offsite/{target}/fetch                  scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=offsite
-PUT    /api/v1/projects/{id}/backups/schedule                        scope=admin   tokens=yes   support=yes  confined=project suspended=no  plan=none
-POST   /api/v1/projects/{id}/backups                                 scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none
-DELETE /api/v1/projects/{id}/backups/{backup}                        scope=admin   tokens=yes   support=yes  confined=project suspended=no  plan=none
-POST   /api/v1/projects/{id}/backups/{backup}/restore                scope=admin   tokens=yes   support=yes  confined=project suspended=no  plan=none
-POST   /api/v1/backups/{project}/{backup}/restore-new                scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
-GET    /api/v1/backups/orphaned                                      scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
-DELETE /api/v1/backups/orphaned/{project}/{backup}                   scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
-GET    /api/v1/projects/{id}/backups/{backup}/download               scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none
-GET    /api/v1/projects/{id}/extras                                  scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none
-DELETE /api/v1/projects/{id}/extras/{kind}/data                      scope=admin   tokens=yes   support=yes  confined=project suspended=no  plan=none
-GET    /api/v1/projects/{id}/rabbitmq/credentials                    scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none
-GET    /api/v1/projects/{id}/meilisearch/credentials                 scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none
-GET    /api/v1/projects/{id}/typesense/credentials                   scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none
-POST   /api/v1/external/test                                         scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none
-GET    /api/v1/projects/{id}/ollama/models                           scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none
-POST   /api/v1/projects/{id}/ollama/models                           scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none
-DELETE /api/v1/projects/{id}/ollama/models/{model...}                scope=admin   tokens=yes   support=yes  confined=project suspended=no  plan=none
-DELETE /api/v1/projects/{id}/ollama/pulls/{model...}                 scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none
-GET    /api/v1/projects/{id}/storage                                 scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none
-GET    /api/v1/projects/{id}/storage/credentials                     scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none
-PUT    /api/v1/projects/{id}/storage/public                          scope=admin   tokens=yes   support=yes  confined=project suspended=no  plan=none
-GET    /api/v1/projects/{id}/databases                               scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none
-GET    /api/v1/projects/{id}/database                                scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none
-GET    /api/v1/projects/{id}/database/credentials                    scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none
-POST   /api/v1/projects/{id}/database/rotate                         scope=admin   tokens=yes   support=yes  confined=project suspended=no  plan=none
-POST   /api/v1/projects/{id}/database/expose                         scope=admin   tokens=yes   support=yes  confined=project suspended=no  plan=none
-GET    /api/v1/projects/{id}/database/databases                      scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none
-POST   /api/v1/projects/{id}/database/databases                      scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none
-DELETE /api/v1/projects/{id}/database/databases/{name}               scope=admin   tokens=yes   support=yes  confined=project suspended=no  plan=none
-GET    /api/v1/projects/{id}/database/snapshots                      scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none
-POST   /api/v1/projects/{id}/database/snapshots                      scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none
-POST   /api/v1/projects/{id}/database/snapshots/{snapshot}/restore   scope=admin   tokens=yes   support=yes  confined=project suspended=no  plan=none
-POST   /api/v1/projects/{id}/database/clone                          scope=admin   tokens=yes   support=yes  confined=project suspended=no  plan=none
-ANY    /api/                                                         scope=public  tokens=yes   support=yes  confined=yes     suspended=yes plan=none
-ANY    /mcp                                                          scope=token   tokens=yes   support=no   confined=yes     suspended=no  plan=none
-ANY    /                                                             scope=public  tokens=yes   support=yes  confined=yes     suspended=yes plan=none
+GET    /api/v1/health                                                scope=public  tokens=yes   support=yes  confined=yes     suspended=yes plan=none twofactor=yes
+GET    /api/v1/setup                                                 scope=public  tokens=yes   support=yes  confined=yes     suspended=yes plan=none twofactor=yes
+POST   /api/v1/setup                                                 scope=public  tokens=yes   support=yes  confined=yes     suspended=yes plan=none twofactor=yes
+POST   /api/v1/auth/login                                            scope=public  tokens=yes   support=yes  confined=yes     suspended=yes plan=none twofactor=yes
+POST   /api/v1/auth/login/code                                       scope=public  tokens=yes   support=yes  confined=yes     suspended=yes plan=none twofactor=yes
+POST   /api/v1/auth/passkey/options                                  scope=public  tokens=yes   support=yes  confined=yes     suspended=yes plan=none twofactor=yes
+POST   /api/v1/auth/passkey                                          scope=public  tokens=yes   support=yes  confined=yes     suspended=yes plan=none twofactor=yes
+POST   /api/v1/auth/logout                                           scope=public  tokens=yes   support=yes  confined=yes     suspended=yes plan=none twofactor=yes
+GET    /api/v1/auth/oidc                                             scope=public  tokens=yes   support=yes  confined=yes     suspended=yes plan=none twofactor=yes
+GET    /api/v1/auth/oidc/start                                       scope=public  tokens=yes   support=yes  confined=yes     suspended=yes plan=none twofactor=yes
+GET    /api/v1/auth/oidc/callback                                    scope=public  tokens=yes   support=yes  confined=yes     suspended=yes plan=none twofactor=yes
+GET    /api/v1/invites/{token}                                       scope=public  tokens=yes   support=yes  confined=yes     suspended=yes plan=none twofactor=yes
+POST   /api/v1/invites/{token}                                       scope=public  tokens=yes   support=yes  confined=yes     suspended=yes plan=none twofactor=yes
+GET    /api/v1/auth/support/{token}                                  scope=public  tokens=yes   support=yes  confined=yes     suspended=yes plan=none twofactor=yes
+GET    /api/v1/auth/me                                               scope=read    tokens=yes   support=yes  confined=yes     suspended=yes plan=none twofactor=yes
+POST   /api/v1/auth/password                                         scope=read    tokens=no    support=no   confined=users   suspended=no  plan=none twofactor=no
+GET    /api/v1/auth/ssh-keys                                         scope=read    tokens=no    support=yes  confined=users   suspended=no  plan=none twofactor=no
+PUT    /api/v1/auth/ssh-keys                                         scope=read    tokens=no    support=no   confined=users   suspended=no  plan=none twofactor=no
+GET    /api/v1/auth/2fa                                              scope=read    tokens=no    support=yes  confined=users   suspended=no  plan=none twofactor=yes
+POST   /api/v1/auth/2fa/totp/setup                                   scope=read    tokens=no    support=no   confined=users   suspended=no  plan=none twofactor=yes
+POST   /api/v1/auth/2fa/totp                                         scope=read    tokens=no    support=no   confined=users   suspended=no  plan=none twofactor=yes
+DELETE /api/v1/auth/2fa/totp                                         scope=read    tokens=no    support=no   confined=users   suspended=no  plan=none twofactor=no
+POST   /api/v1/auth/2fa/passkeys/options                             scope=read    tokens=no    support=no   confined=users   suspended=no  plan=none twofactor=yes
+POST   /api/v1/auth/2fa/passkeys                                     scope=read    tokens=no    support=no   confined=users   suspended=no  plan=none twofactor=yes
+PATCH  /api/v1/auth/2fa/passkeys/{passkey}                           scope=read    tokens=no    support=no   confined=users   suspended=no  plan=none twofactor=no
+DELETE /api/v1/auth/2fa/passkeys/{passkey}                           scope=read    tokens=no    support=no   confined=users   suspended=no  plan=none twofactor=no
+POST   /api/v1/auth/2fa/recovery-codes                               scope=read    tokens=no    support=no   confined=users   suspended=no  plan=none twofactor=no
+GET    /api/v1/dashboard                                             scope=read    tokens=admin support=yes  confined=users   suspended=no  plan=none twofactor=no
+GET    /api/v1/runtimes                                              scope=read    tokens=yes   support=yes  confined=yes     suspended=no  plan=none twofactor=no
+POST   /api/v1/cron/preview                                          scope=read    tokens=yes   support=yes  confined=yes     suspended=no  plan=none twofactor=no
+GET    /api/v1/docker                                                scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none twofactor=no
+GET    /api/v1/docker/images/unused                                  scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none twofactor=no
+POST   /api/v1/docker/images/prune                                   scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none twofactor=no
+POST   /api/v1/docker/orphans/remove                                 scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none twofactor=no
+GET    /api/v1/settings                                              scope=read    tokens=admin support=yes  confined=users   suspended=no  plan=none twofactor=no
+GET    /api/v1/plan                                                  scope=read    tokens=yes   support=yes  confined=users   suspended=yes plan=none twofactor=yes
+PATCH  /api/v1/settings                                              scope=admin   tokens=body  support=body confined=no      suspended=no  plan=none twofactor=no
+GET    /api/v1/settings/support-access                               scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none twofactor=no
+PUT    /api/v1/settings/support-access                               scope=admin   tokens=no    support=no   confined=no      suspended=no  plan=none twofactor=no
+GET    /api/v1/settings/oidc                                         scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none twofactor=no
+PUT    /api/v1/settings/oidc                                         scope=admin   tokens=no    support=no   confined=no      suspended=no  plan=none twofactor=no
+POST   /api/v1/settings/oidc/test                                    scope=admin   tokens=no    support=no   confined=no      suspended=no  plan=none twofactor=no
+GET    /api/v1/settings/secret-key                                   scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none twofactor=no
+POST   /api/v1/settings/secret-key/reveal                            scope=admin   tokens=no    support=no   confined=no      suspended=no  plan=none twofactor=no
+POST   /api/v1/settings/secret-key/rotate                            scope=admin   tokens=no    support=no   confined=no      suspended=no  plan=none twofactor=no
+GET    /api/v1/settings/registries                                   scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none twofactor=no
+GET    /api/v1/addons                                                scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none twofactor=no
+POST   /api/v1/addons                                                scope=admin   tokens=yes   support=no   confined=no      suspended=no  plan=none twofactor=no
+GET    /api/v1/addons/{name}                                         scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none twofactor=no
+DELETE /api/v1/addons/{name}                                         scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none twofactor=no
+PUT    /api/v1/settings/registries                                   scope=admin   tokens=yes   support=no   confined=no      suspended=no  plan=none twofactor=no
+GET    /api/v1/users                                                 scope=admin   tokens=no    support=yes  confined=no      suspended=no  plan=none twofactor=no
+POST   /api/v1/users                                                 scope=admin   tokens=no    support=no   confined=no      suspended=no  plan=none twofactor=no
+PATCH  /api/v1/users/{id}                                            scope=admin   tokens=no    support=no   confined=no      suspended=no  plan=none twofactor=no
+DELETE /api/v1/users/{id}                                            scope=admin   tokens=no    support=no   confined=no      suspended=no  plan=none twofactor=no
+POST   /api/v1/users/{id}/invite                                     scope=admin   tokens=no    support=no   confined=no      suspended=no  plan=none twofactor=no
+PUT    /api/v1/users/{id}/projects/{project}                         scope=admin   tokens=no    support=no   confined=no      suspended=no  plan=none twofactor=no
+DELETE /api/v1/users/{id}/two-factor                                 scope=admin   tokens=no    support=no   confined=no      suspended=no  plan=none twofactor=no
+GET    /api/v1/tokens                                                scope=read    tokens=no    support=yes  confined=users   suspended=no  plan=none twofactor=no
+POST   /api/v1/tokens                                                scope=read    tokens=no    support=no   confined=users   suspended=no  plan=none twofactor=no
+DELETE /api/v1/tokens/{id}                                           scope=read    tokens=no    support=yes  confined=users   suspended=no  plan=none twofactor=no
+DELETE /api/v1/settings/log-history                                  scope=admin   tokens=yes   support=no   confined=no      suspended=no  plan=none twofactor=no
+DELETE /api/v1/settings/metrics                                      scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none twofactor=no
+GET    /api/v1/metrics/overview                                      scope=read    tokens=yes   support=yes  confined=users   suspended=no  plan=none twofactor=no
+GET    /api/v1/settings/tls                                          scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none twofactor=no
+GET    /api/v1/settings/notifications                                scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none twofactor=no
+PUT    /api/v1/settings/notifications                                scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none twofactor=no
+POST   /api/v1/settings/notifications/test                           scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none twofactor=no
+GET    /api/v1/settings/tls/acme                                     scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none twofactor=no
+PUT    /api/v1/settings/tls/acme                                     scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none twofactor=no
+DELETE /api/v1/settings/tls/acme                                     scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none twofactor=no
+POST   /api/v1/settings/tls/acme/issue                               scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none twofactor=no
+GET    /api/v1/settings/tls/ca.crt                                   scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none twofactor=no
+PUT    /api/v1/settings/tls/custom                                   scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none twofactor=no
+DELETE /api/v1/settings/tls/custom                                   scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none twofactor=no
+POST   /api/v1/projects/{id}/ide/stop-backend                        scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+GET    /api/v1/projects/{id}/ide/vsdbg                               scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+GET    /api/v1/projects/{id}/workers                                 scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+POST   /api/v1/projects/{id}/workers                                 scope=admin   tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+PUT    /api/v1/projects/{id}/workers/{worker}                        scope=admin   tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+DELETE /api/v1/projects/{id}/workers/{worker}                        scope=admin   tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+GET    /api/v1/projects/{id}/cron                                    scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+POST   /api/v1/projects/{id}/cron                                    scope=admin   tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+PUT    /api/v1/projects/{id}/cron/{job}                              scope=admin   tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+DELETE /api/v1/projects/{id}/cron/{job}                              scope=admin   tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+POST   /api/v1/projects/{id}/cron/{job}/run                          scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+GET    /api/v1/projects/{id}/cron/{job}/runs                         scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+GET    /api/v1/projects/{id}/domains                                 scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+POST   /api/v1/projects/{id}/domains                                 scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+DELETE /api/v1/projects/{id}/domains/{domain}                        scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+GET    /api/v1/audit                                                 scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none twofactor=no
+GET    /api/v1/audit/export                                          scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none twofactor=no
+GET    /api/v1/audit/users                                           scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none twofactor=no
+GET    /api/v1/audit/settings                                        scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none twofactor=no
+PUT    /api/v1/audit/settings                                        scope=admin   tokens=yes   support=no   confined=no      suspended=no  plan=none twofactor=no
+GET    /api/v1/instance/backups                                      scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none twofactor=no
+POST   /api/v1/instance/backups                                      scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none twofactor=no
+POST   /api/v1/instance/backups/upload                               scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none twofactor=no
+DELETE /api/v1/instance/backups/{id}                                 scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none twofactor=no
+GET    /api/v1/instance/backups/{id}/download                        scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none twofactor=no
+POST   /api/v1/instance/backups/{id}/restore                         scope=admin   tokens=own   support=no   confined=no      suspended=no  plan=none twofactor=no
+POST   /api/v1/instance/backups/{id}/offsite                         scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none twofactor=no
+GET    /api/v1/offsite                                               scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none twofactor=no
+POST   /api/v1/offsite/targets                                       scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=offsite twofactor=no
+PUT    /api/v1/offsite/targets/{target}                              scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=offsite twofactor=no
+DELETE /api/v1/offsite/targets/{target}                              scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none twofactor=no
+POST   /api/v1/offsite/test                                          scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=offsite twofactor=no
+GET    /api/v1/offsite/targets/{target}/instance                     scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none twofactor=no
+POST   /api/v1/offsite/targets/{target}/instance/fetch               scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=offsite twofactor=no
+GET    /api/v1/offsite/targets/{target}/projects                     scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none twofactor=no
+POST   /api/v1/offsite/targets/{target}/projects/fetch               scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=offsite twofactor=no
+POST   /api/v1/offsite/targets/{target}/remove                       scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=offsite twofactor=no
+DELETE /api/v1/instance/restore                                      scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none twofactor=no
+GET    /api/v1/system/reconcile                                      scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none twofactor=no
+GET    /api/v1/system/diagnostics                                    scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none twofactor=no
+POST   /api/v1/system/reconcile                                      scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none twofactor=no
+GET    /api/v1/projects                                              scope=read    tokens=yes   support=yes  confined=yes     suspended=no  plan=none twofactor=no
+GET    /api/v1/operations                                            scope=read    tokens=yes   support=yes  confined=yes     suspended=no  plan=none twofactor=no
+POST   /api/v1/projects                                              scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none twofactor=no
+POST   /api/v1/projects/preview                                      scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none twofactor=no
+POST   /api/v1/projects/from-manifest                                scope=admin   tokens=yes   support=body confined=no      suspended=no  plan=none twofactor=no
+POST   /api/v1/site-imports                                          scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none twofactor=no
+GET    /api/v1/site-imports/{id}                                     scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none twofactor=no
+DELETE /api/v1/site-imports/{id}                                     scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none twofactor=no
+GET    /api/v1/projects/{id}/manifest                                scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+PUT    /api/v1/projects/{id}/manifest/file                           scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+POST   /api/v1/projects/{id}/manifest/plan                           scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+POST   /api/v1/projects/{id}/manifest/apply                          scope=admin   tokens=yes   support=body confined=project suspended=no  plan=none twofactor=no
+GET    /api/v1/projects/{id}                                         scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+PATCH  /api/v1/projects/{id}                                         scope=admin   tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+DELETE /api/v1/projects/{id}                                         scope=admin   tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+POST   /api/v1/projects/{id}/duplicate                               scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none twofactor=no
+POST   /api/v1/projects/{id}/rename                                  scope=admin   tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+GET    /api/v1/projects/{id}/branches                                scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+PUT    /api/v1/projects/{id}/branches/settings                       scope=admin   tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+GET    /api/v1/projects/{id}/branches/remote                         scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+POST   /api/v1/projects/{id}/branches                                scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none twofactor=no
+POST   /api/v1/projects/{id}/deploy                                  scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+POST   /api/v1/projects/{id}/start                                   scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+POST   /api/v1/projects/{id}/stop                                    scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+POST   /api/v1/projects/{id}/restart                                 scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+POST   /api/v1/projects/{id}/workers/{worker}/restart                scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+POST   /api/v1/projects/{id}/images                                  scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+PUT    /api/v1/projects/{id}/services/{kind}/image                   scope=admin   tokens=yes   support=no   confined=project suspended=no  plan=none twofactor=no
+GET    /api/v1/projects/{id}/addons                                  scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+PUT    /api/v1/projects/{id}/addons/{name}                           scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+DELETE /api/v1/projects/{id}/services/{kind}/image                   scope=admin   tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+POST   /api/v1/projects/{id}/services/{kind}/image/build             scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+GET    /api/v1/package-cache                                         scope=read    tokens=yes   support=yes  confined=no      suspended=no  plan=none twofactor=no
+DELETE /api/v1/package-cache                                         scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none twofactor=no
+GET    /api/v1/dbtool                                                scope=operate tokens=yes   support=yes  confined=any     suspended=no  plan=none twofactor=no
+PUT    /api/v1/dbtool                                                scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none twofactor=no
+POST   /api/v1/projects/{id}/dbtool                                  scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+ANY    /dbtool/                                                      scope=operate tokens=yes   support=yes  confined=any     suspended=no  plan=none twofactor=no
+GET    /api/v1/projects/{id}/services                                scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+GET    /api/v1/projects/{id}/plan                                    scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+GET    /api/v1/projects/{id}/stats                                   scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+PUT    /api/v1/projects/{id}/limits                                  scope=admin   tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+PUT    /api/v1/projects/{id}/health-check                            scope=admin   tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+PUT    /api/v1/projects/{id}/proxy-rules                             scope=admin   tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+POST   /api/v1/projects/{id}/health-check/test                       scope=admin   tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+GET    /api/v1/projects/{id}/metrics                                 scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+GET    /api/v1/projects/{id}/services/{kind}/logs                    scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+GET    /api/v1/projects/{id}/services/{kind}/logs/ws                 scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+GET    /api/v1/projects/{id}/services/{kind}/logs/stats              scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+GET    /api/v1/projects/{id}/services/{kind}/logs/download           scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+GET    /api/v1/projects/{id}/services/{kind}/terminal/ws             scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+POST   /api/v1/projects/{id}/services/{kind}/exec                    scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+GET    /api/v1/projects/{id}/git                                     scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+PUT    /api/v1/projects/{id}/git                                     scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+POST   /api/v1/projects/{id}/git/clone                               scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+POST   /api/v1/projects/{id}/git/pull                                scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+POST   /api/v1/projects/{id}/git/checkout                            scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+GET    /api/v1/settings/deploy-key                                   scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none twofactor=no
+POST   /api/v1/settings/deploy-key/regenerate                        scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none twofactor=no
+GET    /api/v1/projects/{id}/actions                                 scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+GET    /api/v1/projects/{id}/actions/{action}/ws                     scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+GET    /api/v1/projects/{id}/share                                   scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+POST   /api/v1/projects/{id}/share                                   scope=admin   tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+DELETE /api/v1/projects/{id}/share                                   scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+GET    /api/v1/projects/{id}/tests                                   scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+GET    /api/v1/projects/{id}/test-runs/{run}                         scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+GET    /api/v1/projects/{id}/tests/{suite}/ws                        scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+GET    /api/v1/projects/{id}/backups                                 scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+POST   /api/v1/projects/{id}/backups/{backup}/offsite                scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+GET    /api/v1/projects/{id}/offsite/{target}                        scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+POST   /api/v1/projects/{id}/offsite/{target}/fetch                  scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=offsite twofactor=no
+PUT    /api/v1/projects/{id}/backups/schedule                        scope=admin   tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+POST   /api/v1/projects/{id}/backups                                 scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+DELETE /api/v1/projects/{id}/backups/{backup}                        scope=admin   tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+POST   /api/v1/projects/{id}/backups/{backup}/restore                scope=admin   tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+POST   /api/v1/backups/{project}/{backup}/restore-new                scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none twofactor=no
+GET    /api/v1/backups/orphaned                                      scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none twofactor=no
+DELETE /api/v1/backups/orphaned/{project}/{backup}                   scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none twofactor=no
+GET    /api/v1/projects/{id}/backups/{backup}/download               scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+GET    /api/v1/projects/{id}/extras                                  scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+DELETE /api/v1/projects/{id}/extras/{kind}/data                      scope=admin   tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+GET    /api/v1/projects/{id}/rabbitmq/credentials                    scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+GET    /api/v1/projects/{id}/meilisearch/credentials                 scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+GET    /api/v1/projects/{id}/typesense/credentials                   scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+POST   /api/v1/external/test                                         scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none twofactor=no
+GET    /api/v1/projects/{id}/ollama/models                           scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+POST   /api/v1/projects/{id}/ollama/models                           scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+DELETE /api/v1/projects/{id}/ollama/models/{model...}                scope=admin   tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+DELETE /api/v1/projects/{id}/ollama/pulls/{model...}                 scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+GET    /api/v1/projects/{id}/storage                                 scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+GET    /api/v1/projects/{id}/storage/credentials                     scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+PUT    /api/v1/projects/{id}/storage/public                          scope=admin   tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+GET    /api/v1/projects/{id}/databases                               scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+GET    /api/v1/projects/{id}/database                                scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+GET    /api/v1/projects/{id}/database/credentials                    scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+POST   /api/v1/projects/{id}/database/rotate                         scope=admin   tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+POST   /api/v1/projects/{id}/database/expose                         scope=admin   tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+GET    /api/v1/projects/{id}/database/databases                      scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+POST   /api/v1/projects/{id}/database/databases                      scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+DELETE /api/v1/projects/{id}/database/databases/{name}               scope=admin   tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+GET    /api/v1/projects/{id}/database/snapshots                      scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+POST   /api/v1/projects/{id}/database/snapshots                      scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+POST   /api/v1/projects/{id}/database/snapshots/{snapshot}/restore   scope=admin   tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+POST   /api/v1/projects/{id}/database/clone                          scope=admin   tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+ANY    /api/                                                         scope=public  tokens=yes   support=yes  confined=yes     suspended=yes plan=none twofactor=yes
+ANY    /mcp                                                          scope=token   tokens=yes   support=no   confined=yes     suspended=no  plan=none twofactor=no
+ANY    /                                                             scope=public  tokens=yes   support=yes  confined=yes     suspended=yes plan=none twofactor=yes

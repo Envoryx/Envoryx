@@ -41,6 +41,9 @@ type Session struct {
 	LastSeenAt time.Time
 	IP         string
 	UserAgent  string
+	// Method is how the session was started (auth.Method*); empty for sessions from
+	// before it was recorded.
+	Method string
 }
 
 // DesiredState is what the user wants a project to be.

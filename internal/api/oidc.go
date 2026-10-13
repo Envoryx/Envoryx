@@ -94,7 +94,7 @@ func (a *API) oidcCallback(w http.ResponseWriter, r *http.Request) {
 		ssoFailed(w, r, err.Error())
 		return
 	}
-	token, err := a.d.Auth.StartSession(r.Context(), user, auth.ClientIP(r), r.UserAgent())
+	token, err := a.d.Auth.StartSession(r.Context(), user, auth.MethodOIDC, auth.ClientIP(r), r.UserAgent())
 	if err != nil {
 		ssoFailed(w, r, err.Error())
 		return

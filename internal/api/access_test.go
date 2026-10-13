@@ -27,6 +27,7 @@ var accessColumns = map[string][]string{
 	"confined":  {"project", "any", "yes", "users", "no"},
 	"suspended": {"yes", "no"},
 	"plan":      {"offsite", "none"},
+	"twofactor": {"yes", "no"},
 }
 
 // sensitiveBodies are what a route with tokens=body or support=body refuses: the body
@@ -82,8 +83,8 @@ func readAccessTable(t *testing.T) []accessLine {
 			}
 			l.col[k] = v
 		}
-		if l.col["scope"] == "public" && (l.col["tokens"] != "yes" || l.col["support"] != "yes" || l.col["confined"] != "yes" || l.col["suspended"] != "yes" || l.col["plan"] != "none") {
-			t.Fatalf("%s:%d: a public route checks nobody: tokens, support, confined and suspended are yes, plan is none", accessFile, n)
+		if l.col["scope"] == "public" && (l.col["tokens"] != "yes" || l.col["support"] != "yes" || l.col["confined"] != "yes" || l.col["suspended"] != "yes" || l.col["plan"] != "none" || l.col["twofactor"] != "yes") {
+			t.Fatalf("%s:%d: a public route checks nobody: tokens, support, confined, suspended and twofactor are yes, plan is none", accessFile, n)
 		}
 		if (l.col["tokens"] == "body" || l.col["support"] == "body") && sensitiveBodies[l.pattern()] == "" {
 			t.Fatalf("%s:%d: a route that refuses by the body needs that body in sensitiveBodies", accessFile, n)
@@ -147,6 +148,8 @@ type caller struct {
 	support    bool
 	suspended  bool
 	noOffsite  bool
+	// twoFactorSetup is a session that has to set up a second factor first.
+	twoFactorSetup bool
 }
 
 func (c caller) anonymous() bool { return c.cookie == nil && c.bearer == "" }
@@ -199,6 +202,9 @@ func (l accessLine) allows(c caller, inA bool) bool {
 		return false
 	}
 	if c.suspended && l.col["suspended"] != "yes" {
+		return false
+	}
+	if c.twoFactorSetup && l.col["twofactor"] != "yes" {
 		return false
 	}
 	return !c.noOffsite || l.col["plan"] != "offsite"
@@ -385,6 +391,17 @@ func TestAccessMatrix(t *testing.T) {
 		t.Fatal(err)
 	}
 	a.plans.Reload()
+
+	// The instance requires a second factor of everyone, and the admin has none yet: the
+	// session can only set one up. A token goes on as before.
+	if err := a.auth.SetRequirement(context.Background(), auth.RequireAll); err != nil {
+		t.Fatal(err)
+	}
+	check(caller{name: "admin without a required second factor", cookie: admin, level: auth.ScopeAdmin, twoFactorSetup: true})
+	check(caller{name: "admin token while a second factor is required", bearer: adminToken, level: auth.ScopeAdmin})
+	if err := a.auth.SetRequirement(context.Background(), auth.RequireNobody); err != nil {
+		t.Fatal(err)
+	}
 
 	// A plan without offsite targets.
 	a.setPlan(`{"name":"Test","disabled":["offsite"]}`)

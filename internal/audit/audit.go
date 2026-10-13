@@ -21,6 +21,15 @@ const (
 	ActionSupportAccess  = "settings.support_access"
 	ActionSetup          = "auth.setup"
 	ActionPasswordChange = "auth.password_changed"
+	// Two-factor authentication: the own factors, and an admin (or the rescue CLI)
+	// resetting a user's.
+	ActionTOTPEnabled          = "auth.totp_enabled"
+	ActionTOTPDisabled         = "auth.totp_disabled"
+	ActionPasskeyAdded         = "auth.passkey_added"
+	ActionPasskeyRemoved       = "auth.passkey_removed"
+	ActionRecoveryCodesRenewed = "auth.recovery_codes_renewed"
+	ActionRecoveryCodeUsed     = "auth.recovery_code_used"
+	ActionTwoFactorReset       = "auth.two_factor_reset"
 	// Rescue CLI (envoryx admin …), run from a shell inside the container.
 	ActionPasswordReset   = "auth.password_reset"
 	ActionSessionsRevoked = "auth.sessions_revoked"

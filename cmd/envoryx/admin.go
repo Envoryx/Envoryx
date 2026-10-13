@@ -52,6 +52,9 @@ Commands:
       --password PW           the new password (default: a generated one, printed once).
                               A password given here ends up in the shell history and
                               in ps: prefer the generated one and change it later
+  reset-2fa [--user NAME]     remove an account's second factors (TOTP, passkeys,
+                              recovery codes) when its device is lost; the password
+                              alone signs in again
   logout-all                  end every browser session (everyone has to sign in again)
   revoke-tokens               delete every API token (MCP, SSH/SFTP, scripts)
   reset --yes                 delete all accounts, sessions and tokens; the setup page
@@ -143,6 +146,14 @@ func (c *adminCLI) run(ctx context.Context, args []string) error {
 			return errAdminUsage
 		}
 		return c.resetPassword(ctx, *user, *password)
+	case "reset-2fa":
+		fs := flag.NewFlagSet("reset-2fa", flag.ContinueOnError)
+		fs.SetOutput(io.Discard)
+		user := fs.String("user", "", "account name")
+		if err := fs.Parse(rest); err != nil || fs.NArg() > 0 {
+			return errAdminUsage
+		}
+		return c.resetTwoFactor(ctx, *user)
 	case "logout-all":
 		return c.logoutAll(ctx)
 	case "tokens":
@@ -221,12 +232,35 @@ func (c *adminCLI) users(ctx context.Context) error {
 		fmt.Fprintln(c.out, "No accounts - the setup page is shown on the next visit.")
 		return nil
 	}
+	withFactors, err := c.store.MFA.WithFactors(ctx)
+	if err != nil {
+		return err
+	}
 	tw := tabwriter.NewWriter(c.out, 0, 8, 2, ' ', 0)
-	fmt.Fprintln(tw, "USERNAME\tROLE\tCREATED\tPASSWORD CHANGED (UTC)")
+	fmt.Fprintln(tw, "USERNAME\tROLE\t2FA\tCREATED\tPASSWORD CHANGED (UTC)")
 	for _, u := range users {
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", u.Username, u.Role, u.CreatedAt.Format("2006-01-02"), u.UpdatedAt.Format("2006-01-02 15:04"))
+		fa := "-"
+		if withFactors[u.ID] {
+			fa = "yes"
+		}
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n", u.Username, u.Role, fa, u.CreatedAt.Format("2006-01-02"), u.UpdatedAt.Format("2006-01-02 15:04"))
 	}
 	return tw.Flush()
+}
+
+// resetTwoFactor removes an account's second factors, for a lost device without
+// recovery codes (an admin does it for others in the web interface).
+func (c *adminCLI) resetTwoFactor(ctx context.Context, username string) error {
+	user, err := c.pickUser(ctx, username)
+	if err != nil {
+		return err
+	}
+	if err := c.store.MFA.Reset(ctx, user.ID); err != nil {
+		return err
+	}
+	c.audit.LogAs(ctx, "cli", audit.ActionTwoFactorReset, "user", user.ID, map[string]any{"username": user.Username})
+	fmt.Fprintf(c.out, "The second factors of %s were removed: the password alone signs in again. When the instance requires two-factor authentication, %s sets up a new factor right after signing in.\n", user.Username, user.Username)
+	return nil
 }
 
 func (c *adminCLI) resetPassword(ctx context.Context, username, password string) error {

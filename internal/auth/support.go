@@ -166,6 +166,6 @@ func (s *Service) RedeemSupportLogin(ctx context.Context, token, ip, userAgent s
 	if err != nil {
 		return "", store.User{}, "", err
 	}
-	session, err := s.StartSession(ctx, u, ip, userAgent)
+	session, err := s.StartSession(ctx, u, MethodSupport, ip, userAgent)
 	return session, u, t.hoster, err
 }

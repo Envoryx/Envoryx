@@ -23,6 +23,10 @@ const CookieName = "envoryx_session"
 // ErrInvalidCredentials is returned for unknown users or wrong passwords.
 var ErrInvalidCredentials = errors.New("invalid credentials")
 
+// ErrWrongPassword is returned when a signed-in user confirms a change with a wrong
+// password. Unlike ErrInvalidCredentials it doesn't mean the session is gone.
+var ErrWrongPassword = errors.New("the current password is wrong")
+
 // ErrTooManyAttempts is returned when login rate limiting kicks in.
 var ErrTooManyAttempts = errors.New("too many failed login attempts, try again later")
 
@@ -48,6 +52,11 @@ type Principal struct {
 	// Support is set for the hoster's support (support.go): an admin while the admins
 	// allow it, who can't give itself access that outlasts their consent.
 	Support bool
+	// SessionMethod is how the browser session was started (Method*).
+	SessionMethod string
+	// TwoFactorSetup is set for a session that may only set up a second factor: the
+	// instance requires one of the user, who has none yet (twofactor.go).
+	TwoFactorSetup bool
 }
 
 // Options configure the session service.
@@ -71,6 +80,12 @@ type Service struct {
 	// supportTickets are the open support login links by token hash (support.go).
 	supportMu      sync.Mutex
 	supportTickets map[string]supportTicket
+
+	// mfaPending holds the second-factor tickets and setups (twofactor.go), ceremonies
+	// the passkey ceremonies under way (passkey.go).
+	mfaOnce    sync.Once
+	mfaPending *mfaState
+	ceremonies ceremonies
 }
 
 // SetPlan hands the service the instance's plan.
@@ -130,10 +145,21 @@ func (s *Service) CreateInitialAdmin(ctx context.Context, username, password str
 }
 
 // Login validates credentials and creates a session. The returned token is the raw
-// cookie value; only its hash is persisted.
+// cookie value; only its hash is persisted. A user with a second factor gets
+// ErrSecondFactor: the sign-in form goes through PasswordLogin.
 func (s *Service) Login(ctx context.Context, username, password, ip, userAgent string) (token string, user store.User, err error) {
+	token, user, step, err := s.PasswordLogin(ctx, username, password, ip, userAgent)
+	if err == nil && step != nil {
+		s.endTicket(step.Ticket)
+		return "", store.User{}, ErrSecondFactor
+	}
+	return token, user, err
+}
+
+// checkPassword checks a user's password, with the brute-force limiter.
+func (s *Service) checkPassword(ctx context.Context, username, password, ip string) (user store.User, err error) {
 	if !s.limiter.allow(ip, username, s.now()) {
-		return "", store.User{}, ErrTooManyAttempts
+		return store.User{}, ErrTooManyAttempts
 	}
 	user, err = s.store.Users.ByUsername(ctx, username)
 	if err != nil {
@@ -141,36 +167,32 @@ func (s *Service) Login(ctx context.Context, username, password, ip, userAgent s
 			// Burn comparable time so user enumeration via timing is harder.
 			_, _ = VerifyPassword(dummyHash, password)
 			s.limiter.fail(ip, username, s.now())
-			return "", store.User{}, ErrInvalidCredentials
+			return store.User{}, ErrInvalidCredentials
 		}
-		return "", store.User{}, err
+		return store.User{}, err
 	}
 	// An invited user has no password yet, one who signs in through OpenID Connect may
 	// have none at all; a disabled one may not sign in. All look like a wrong password.
 	if user.PasswordHash == "" || user.Disabled {
 		_, _ = VerifyPassword(dummyHash, password)
 		s.limiter.fail(ip, username, s.now())
-		return "", store.User{}, ErrInvalidCredentials
+		return store.User{}, ErrInvalidCredentials
 	}
 	ok, err := VerifyPassword(user.PasswordHash, password)
 	if err != nil {
-		return "", store.User{}, fmt.Errorf("verify password: %w", err)
+		return store.User{}, fmt.Errorf("verify password: %w", err)
 	}
 	if !ok {
 		s.limiter.fail(ip, username, s.now())
-		return "", store.User{}, ErrInvalidCredentials
+		return store.User{}, ErrInvalidCredentials
 	}
 	s.limiter.reset(ip, username)
-	token, err = s.StartSession(ctx, user, ip, userAgent)
-	if err != nil {
-		return "", store.User{}, err
-	}
-	return token, user, nil
+	return user, nil
 }
 
 // StartSession opens a session for a user who has proven who they are (password, OpenID
-// Connect) and returns its raw token.
-func (s *Service) StartSession(ctx context.Context, user store.User, ip, userAgent string) (token string, err error) {
+// Connect) and returns its raw token. method says how (Method*).
+func (s *Service) StartSession(ctx context.Context, user store.User, method, ip, userAgent string) (token string, err error) {
 	if user.Disabled {
 		return "", ErrInvalidCredentials
 	}
@@ -188,6 +210,7 @@ func (s *Service) StartSession(ctx context.Context, user store.User, ip, userAge
 		LastSeenAt: ts,
 		IP:         ip,
 		UserAgent:  truncate(userAgent, 256),
+		Method:     method,
 	}
 	if err := s.store.Sessions.Create(ctx, sess); err != nil {
 		return "", err
@@ -267,6 +290,10 @@ func (s *Service) Validate(ctx context.Context, token string) (Principal, error)
 		return Principal{}, err
 	}
 	p.SessionID = id
+	p.SessionMethod = sess.Method
+	if p.TwoFactorSetup, err = s.needsSetup(ctx, user, sess.Method); err != nil {
+		return Principal{}, err
+	}
 	return p, nil
 }
 
@@ -289,7 +316,7 @@ func (s *Service) ChangePassword(ctx context.Context, p Principal, current, next
 		return err
 	}
 	if !ok {
-		return ErrInvalidCredentials
+		return ErrWrongPassword
 	}
 	hash, err := HashPassword(next)
 	if err != nil {
@@ -373,6 +400,9 @@ func newLoginLimiter() *loginLimiter {
 }
 
 func (l *loginLimiter) keys(ip, user string) []string {
+	if ip == "" {
+		return []string{"user:" + user}
+	}
 	return []string{"ip:" + ip, "user:" + user}
 }
 

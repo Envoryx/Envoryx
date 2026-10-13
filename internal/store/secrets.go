@@ -93,6 +93,9 @@ func (s *Store) ResealSecrets(ctx context.Context) (int, error) {
 	if err := reseal(`SELECT id, config FROM project_kept_services`, `UPDATE project_kept_services SET config = ? WHERE id = ?`); err != nil {
 		return 0, fmt.Errorf("reseal kept service configs: %w", err)
 	}
+	if err := reseal(`SELECT user_id, secret FROM user_totp`, `UPDATE user_totp SET secret = ? WHERE user_id = ?`); err != nil {
+		return 0, fmt.Errorf("reseal totp secrets: %w", err)
+	}
 	for key := range SecretSettings {
 		if err := reseal(`SELECT key, value FROM settings WHERE key = ?`, `UPDATE settings SET value = ? WHERE key = ?`, key); err != nil {
 			return 0, fmt.Errorf("reseal setting %s: %w", key, err)
