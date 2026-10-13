@@ -10,6 +10,8 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.39.0] - 2026-10-13
+
 ### Added
 - API tokens can expire. *Settings → API tokens & MCP* offers 7, 30, 90 or 365 days or
   never, preselecting 90 days; the list shows when a token expires and marks expired
@@ -2393,7 +2395,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.38.0...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.39.0...HEAD
+[0.39.0]: https://github.com/envoryx/envoryx/compare/v0.38.0...v0.39.0
 [0.38.0]: https://github.com/envoryx/envoryx/compare/v0.37.0...v0.38.0
 [0.37.0]: https://github.com/envoryx/envoryx/compare/v0.36.0...v0.37.0
 [0.36.0]: https://github.com/envoryx/envoryx/compare/v0.35.0...v0.36.0
