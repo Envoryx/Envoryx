@@ -254,14 +254,14 @@ func TestAutomaticBackupsArePruned(t *testing.T) {
 
 func TestBeforeMigrateHookTakesBackup(t *testing.T) {
 	// Simulate a database one version behind by undoing the newest migration
-	// (0022 adds the second factors and the sessions' method) and forgetting that it ran.
+	// (0023 adds the API tokens' expiry) and forgetting that it ran.
 	s, sqlDB := newStore(t)
 	ctx := context.Background()
 	latest := db.LatestVersion()
-	if latest != 22 {
-		t.Fatalf("schema is at %d: this test undoes migration 0022, teach it to undo the newest one", latest)
+	if latest != 23 {
+		t.Fatalf("schema is at %d: this test undoes migration 0023, teach it to undo the newest one", latest)
 	}
-	for _, q := range []string{`DROP TABLE user_totp`, `DROP TABLE user_passkeys`, `DROP TABLE user_recovery_codes`, `ALTER TABLE sessions DROP COLUMN method`} {
+	for _, q := range []string{`ALTER TABLE api_tokens DROP COLUMN expires_at`} {
 		if _, err := sqlDB.Exec(q); err != nil {
 			t.Fatal(err)
 		}

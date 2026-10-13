@@ -401,7 +401,7 @@ export const api = {
   },
   tokens: {
     list: () => request<{ tokens: APIToken[]; mcpUrl: string }>("/tokens"),
-    create: (body: { name: string; scope: TokenScope; projects: string[] }) => request<{ token: APIToken; secret: string; mcpUrl: string }>("/tokens", { method: "POST", body }),
+    create: (body: { name: string; scope: TokenScope; projects: string[]; expiresInDays?: number }) => request<{ token: APIToken; secret: string; mcpUrl: string }>("/tokens", { method: "POST", body }),
     revoke: (id: string) => request<void>(`/tokens/${encodeURIComponent(id)}`, { method: "DELETE" }),
   },
   tls: {

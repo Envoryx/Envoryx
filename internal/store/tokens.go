@@ -23,12 +23,19 @@ type APIToken struct {
 	ProjectIDs []string
 	CreatedAt  time.Time
 	LastUsedAt *time.Time
+	// ExpiresAt is when the token stops working; nil means never.
+	ExpiresAt *time.Time
+}
+
+// Expired reports whether the token no longer works at the given time.
+func (t APIToken) Expired(at time.Time) bool {
+	return t.ExpiresAt != nil && !at.Before(*t.ExpiresAt)
 }
 
 // APITokens is the repository for API tokens.
 type APITokens struct{ db *sql.DB }
 
-const tokenColumns = `id, user_id, name, token_hash, prefix, scope, project_ids, created_at, last_used_at`
+const tokenColumns = `id, user_id, name, token_hash, prefix, scope, project_ids, created_at, last_used_at, expires_at`
 
 // Create stores a token.
 func (r *APITokens) Create(ctx context.Context, t APIToken) error {
@@ -36,8 +43,12 @@ func (r *APITokens) Create(ctx context.Context, t APIToken) error {
 	if err != nil {
 		return fmt.Errorf("encode project ids: %w", err)
 	}
-	_, err = r.db.ExecContext(ctx, `INSERT INTO api_tokens (`+tokenColumns+`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
-		t.ID, t.UserID, t.Name, t.TokenHash, t.Prefix, t.Scope, string(projects), formatTime(t.CreatedAt))
+	var expires any
+	if t.ExpiresAt != nil {
+		expires = formatTime(*t.ExpiresAt)
+	}
+	_, err = r.db.ExecContext(ctx, `INSERT INTO api_tokens (`+tokenColumns+`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)`,
+		t.ID, t.UserID, t.Name, t.TokenHash, t.Prefix, t.Scope, string(projects), formatTime(t.CreatedAt), expires)
 	if err != nil {
 		if isUniqueViolation(err) {
 			return fmt.Errorf("token already exists: %w", ErrConflict)
@@ -71,8 +82,8 @@ func (r *APITokens) one(ctx context.Context, query string, arg any) (APIToken, e
 func scanToken(row interface{ Scan(...any) error }) (APIToken, error) {
 	var t APIToken
 	var created, projects string
-	var used sql.NullString
-	if err := row.Scan(&t.ID, &t.UserID, &t.Name, &t.TokenHash, &t.Prefix, &t.Scope, &projects, &created, &used); err != nil {
+	var used, expires sql.NullString
+	if err := row.Scan(&t.ID, &t.UserID, &t.Name, &t.TokenHash, &t.Prefix, &t.Scope, &projects, &created, &used, &expires); err != nil {
 		return APIToken{}, err
 	}
 	if err := json.Unmarshal([]byte(projects), &t.ProjectIDs); err != nil {
@@ -83,6 +94,10 @@ func scanToken(row interface{ Scan(...any) error }) (APIToken, error) {
 	if used.Valid {
 		u := parseTime(used.String)
 		t.LastUsedAt = &u
+	}
+	if expires.Valid {
+		e := parseTime(expires.String)
+		t.ExpiresAt = &e
 	}
 	return t, nil
 }

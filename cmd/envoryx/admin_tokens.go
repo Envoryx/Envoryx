@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"strings"
 	"text/tabwriter"
+	"time"
 
 	"github.com/envoryx/envoryx/internal/auth"
 	"github.com/envoryx/envoryx/internal/store"
@@ -24,6 +25,8 @@ type tokenRequest struct {
 	name, user, scope string
 	projects          []string
 	quiet             bool
+	// expiresDays is the token's lifetime in days; 0 means it never expires.
+	expiresDays int
 }
 
 func (c *adminCLI) tokens(ctx context.Context, username string) error {
@@ -57,7 +60,8 @@ func (c *adminCLI) tokens(ctx context.Context, username string) error {
 		return nil
 	}
 	tw := tabwriter.NewWriter(c.out, 0, 8, 2, ' ', 0)
-	fmt.Fprintln(tw, "NAME\tOWNER\tSCOPE\tPROJECTS\tPREFIX\tCREATED\tLAST USED (UTC)\tID")
+	fmt.Fprintln(tw, "NAME\tOWNER\tSCOPE\tPROJECTS\tPREFIX\tCREATED\tEXPIRES\tLAST USED (UTC)\tID")
+	now := time.Now()
 	for _, t := range tokens {
 		scoped := "all"
 		if len(t.ProjectIDs) > 0 {
@@ -74,7 +78,14 @@ func (c *adminCLI) tokens(ctx context.Context, username string) error {
 		if t.LastUsedAt != nil {
 			used = t.LastUsedAt.Format("2006-01-02 15:04")
 		}
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s…\t%s\t%s\t%s\n", t.Name, users[t.UserID], t.Scope, scoped, t.Prefix, t.CreatedAt.Format("2006-01-02"), used, t.ID)
+		expires := "never"
+		if t.ExpiresAt != nil {
+			expires = t.ExpiresAt.Format("2006-01-02")
+			if t.Expired(now) {
+				expires = "expired " + expires
+			}
+		}
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s…\t%s\t%s\t%s\t%s\n", t.Name, users[t.UserID], t.Scope, scoped, t.Prefix, t.CreatedAt.Format("2006-01-02"), expires, used, t.ID)
 	}
 	return tw.Flush()
 }
@@ -116,19 +127,27 @@ func (c *adminCLI) createToken(ctx context.Context, req tokenRequest) error {
 		}
 		ids = append(ids, proj.ID)
 	}
-	secret, t, err := svc.CreateAPIToken(ctx, p, auth.TokenSpec{Name: req.name, Scope: scope, Projects: ids})
+	if req.expiresDays < 0 || req.expiresDays > 3650 {
+		return errors.New("--expires must be 1 to 3650 days")
+	}
+	spec := auth.TokenSpec{Name: req.name, Scope: scope, Projects: ids, ExpiresIn: time.Duration(req.expiresDays) * 24 * time.Hour}
+	secret, t, err := svc.CreateAPIToken(ctx, p, spec)
 	if err != nil {
 		if errors.Is(err, auth.ErrInvalidTokenName) {
 			return errors.New("the name must be 1-64 characters without control characters")
 		}
 		return err
 	}
-	c.audit.LogAs(ctx, "cli", "token.created", "token", t.ID, map[string]any{"name": t.Name, "scope": t.Scope, "projects": t.ProjectIDs, "owner": user.Username})
+	c.audit.LogAs(ctx, "cli", "token.created", "token", t.ID, map[string]any{"name": t.Name, "scope": t.Scope, "projects": t.ProjectIDs, "owner": user.Username, "expiresAt": t.ExpiresAt})
 	if req.quiet {
 		fmt.Fprintln(c.out, secret)
 		return nil
 	}
-	fmt.Fprintf(c.out, "API token %q for %s (%s scope), shown once:\n\n  %s\n\n", t.Name, user.Username, t.Scope, secret)
+	lifetime := "never expires"
+	if t.ExpiresAt != nil {
+		lifetime = "expires " + t.ExpiresAt.UTC().Format("2006-01-02 15:04") + " UTC"
+	}
+	fmt.Fprintf(c.out, "API token %q for %s (%s scope, %s), shown once:\n\n  %s\n\n", t.Name, user.Username, t.Scope, lifetime, secret)
 	fmt.Fprintln(c.out, "Use it with envoryx login --token -, or as ENVORYX_TOKEN.")
 	return nil
 }

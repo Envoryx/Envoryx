@@ -3121,5 +3121,12 @@
   "this instance requires two-factor authentication: set up a second factor first": "esta instancia exige la autenticación de dos factores: configura primero un segundo factor",
   "{{count}} left_one": "queda {{count}}",
   "{{count}} left_other": "quedan {{count}}",
-  "the current password is wrong": "la contraseña actual es incorrecta"
+  "the current password is wrong": "la contraseña actual es incorrecta",
+  "Never": "Nunca",
+  "Expired": "Caducado",
+  "expired {{date}}": "caducó el {{date}}",
+  "expires {{date}}": "caduca el {{date}}",
+  "never expires": "no caduca nunca",
+  "Expires after": "Caduca después de",
+  "An expired token stops working; create a new one then. A token that never expires stays valid until it is revoked.": "Un token caducado deja de funcionar; crea entonces uno nuevo. Un token que no caduca nunca sigue siendo válido hasta que se revoca."
 }

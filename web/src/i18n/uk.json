@@ -3171,5 +3171,12 @@
   "{{count}} left_few": "залишилося {{count}}",
   "{{count}} left_many": "залишилося {{count}}",
   "{{count}} left_other": "залишилося {{count}}",
-  "the current password is wrong": "поточний пароль неправильний"
+  "the current password is wrong": "поточний пароль неправильний",
+  "Never": "Ніколи",
+  "Expired": "Сплив",
+  "expired {{date}}": "сплив {{date}}",
+  "expires {{date}}": "спливає {{date}}",
+  "never expires": "безстроковий",
+  "Expires after": "Спливає через",
+  "An expired token stops working; create a new one then. A token that never expires stays valid until it is revoked.": "Токен, що сплив, перестає працювати; тоді створіть новий. Безстроковий токен діє, доки його не відкличуть."
 }

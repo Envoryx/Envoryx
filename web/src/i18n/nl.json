@@ -3121,5 +3121,12 @@
   "this instance requires two-factor authentication: set up a second factor first": "deze instantie vereist tweestapsverificatie: stel eerst een tweede factor in",
   "{{count}} left_one": "nog {{count}}",
   "{{count}} left_other": "nog {{count}}",
-  "the current password is wrong": "het huidige wachtwoord is onjuist"
+  "the current password is wrong": "het huidige wachtwoord is onjuist",
+  "Never": "Nooit",
+  "Expired": "Verlopen",
+  "expired {{date}}": "verlopen op {{date}}",
+  "expires {{date}}": "verloopt op {{date}}",
+  "never expires": "verloopt nooit",
+  "Expires after": "Verloopt na",
+  "An expired token stops working; create a new one then. A token that never expires stays valid until it is revoked.": "Een verlopen token werkt niet meer; maak dan een nieuwe aan. Een token dat nooit verloopt, blijft geldig tot het wordt ingetrokken."
 }

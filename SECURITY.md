@@ -120,6 +120,10 @@ trust with the projects' containers.
   `admin reset` leave the instance's SSH keys and the single sign-on alone and say so.
 - Tokens are 256-bit random values with the prefix `stq_`; only their SHA-256 hash is
   stored. You see the plain value once, and revoking takes effect immediately.
+- A token can expire: the web interface offers 7, 30, 90 (the default) or 365 days or
+  never, `envoryx admin create-token --expires DAYS` 1 to 3650 days. Past its expiry it
+  no longer signs in anywhere (REST API, MCP, SSH/SFTP); an SSH session it opened before
+  runs on, like after revoking. Tokens created before 0.39 never expire.
 - Tools reuse the project manager, so all validation (slugs, paths, hostnames, database
   names, versions), the `envoryx.managed` label guards and the per-project locks apply.
   `run_action` only runs entries of the closed action catalogue (argv arrays, no shell).

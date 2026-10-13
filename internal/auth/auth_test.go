@@ -274,3 +274,50 @@ func TestRolesAndScopes(t *testing.T) {
 		t.Fatal("unknown roles are refused")
 	}
 }
+
+// A token with an expiry stops signing in once it is reached; one without works on.
+func TestAPITokenExpiry(t *testing.T) {
+	svc, _ := testService(t)
+	ctx := context.Background()
+	now := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
+	svc.now = func() time.Time { return now }
+	if _, err := svc.CreateInitialAdmin(ctx, "admin", "supersecret123"); err != nil {
+		t.Fatal(err)
+	}
+	session, _, err := svc.Login(ctx, "admin", "supersecret123", "127.0.0.1", "ua")
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := svc.Validate(ctx, session)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, bad := range []time.Duration{-time.Hour, time.Minute, MaxTokenLifetime + time.Hour} {
+		if _, _, err := svc.CreateAPIToken(ctx, p, TokenSpec{Name: "x", Scope: ScopeRead, ExpiresIn: bad}); !errors.Is(err, ErrInvalidTokenExpiry) {
+			t.Fatalf("expiry %v = %v", bad, err)
+		}
+	}
+	short, tok, err := svc.CreateAPIToken(ctx, p, TokenSpec{Name: "ci", Scope: ScopeRead, ExpiresIn: 30 * 24 * time.Hour})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tok.ExpiresAt == nil || !tok.ExpiresAt.Equal(now.Add(30*24*time.Hour)) {
+		t.Fatalf("expires at %v", tok.ExpiresAt)
+	}
+	forever, _, err := svc.CreateAPIToken(ctx, p, TokenSpec{Name: "cron", Scope: ScopeRead})
+	if err != nil {
+		t.Fatal(err)
+	}
+	now = now.Add(30*24*time.Hour - time.Second)
+	if _, err := svc.ValidateAPIToken(ctx, short); err != nil {
+		t.Fatalf("token before its expiry: %v", err)
+	}
+	now = now.Add(time.Second)
+	if _, err := svc.ValidateAPIToken(ctx, short); !errors.Is(err, ErrUnauthenticated) {
+		t.Fatalf("expired token = %v", err)
+	}
+	now = now.Add(5 * 365 * 24 * time.Hour)
+	if _, err := svc.ValidateAPIToken(ctx, forever); err != nil {
+		t.Fatalf("token without expiry: %v", err)
+	}
+}

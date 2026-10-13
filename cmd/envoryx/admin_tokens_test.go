@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/envoryx/envoryx/internal/auth"
 	"github.com/envoryx/envoryx/internal/store"
@@ -34,13 +35,24 @@ func TestAdminCreateTokenWorksForTheAPI(t *testing.T) {
 	if err := cli.run(ctx, []string{"tokens"}); err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"ci", "stefan", "read", "acme-shop"} {
+	for _, want := range []string{"ci", "stefan", "read", "acme-shop", "never"} {
 		if !strings.Contains(out.String(), want) {
 			t.Fatalf("missing %q in:\n%s", want, out.String())
 		}
 	}
 	if strings.Contains(out.String(), secret) {
 		t.Fatal("the list shows the secret")
+	}
+
+	out.Reset()
+	if err := cli.run(ctx, []string{"create-token", "--name", "short", "--expires", "7"}); err != nil {
+		t.Fatal(err)
+	}
+	if want := time.Now().UTC().Add(7 * 24 * time.Hour).Format("2006-01-02"); !strings.Contains(out.String(), "expires "+want) {
+		t.Fatalf("expiry not shown:\n%s", out.String())
+	}
+	if err := cli.run(ctx, []string{"create-token", "--name", "long", "--expires", "4000"}); err == nil || !strings.Contains(err.Error(), "3650") {
+		t.Fatalf("too long an expiry = %v", err)
 	}
 }
 

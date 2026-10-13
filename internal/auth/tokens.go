@@ -20,6 +20,13 @@ const TokenPrefix = "stq_"
 // ErrInvalidTokenName is returned for unusable token names.
 var ErrInvalidTokenName = errors.New("token name must be 1-64 printable characters")
 
+// ErrInvalidTokenExpiry is returned for an expiry in the past or too far ahead.
+var ErrInvalidTokenExpiry = errors.New("a token expires in 1 to 3650 days")
+
+// MaxTokenLifetime bounds the expiry a token can be given; a token that should outlive
+// it is created without one.
+const MaxTokenLifetime = 3650 * 24 * time.Hour
+
 // scopeAboveRole refuses a scope beyond the owner's role. It counts as ErrInvalidScope
 // (a validation error) but reads on its own: prefixed with that message it sounded as if
 // the scope name itself were wrong.
@@ -41,6 +48,8 @@ type TokenSpec struct {
 	// Projects confines the token to these project ids (validated by the caller); empty
 	// means all projects.
 	Projects []string
+	// ExpiresIn is how long the token works; zero means it never expires.
+	ExpiresIn time.Duration
 }
 
 // CreateAPIToken issues a new bearer token for the principal's user. The plain token is
@@ -58,6 +67,9 @@ func (s *Service) CreateAPIToken(ctx context.Context, p Principal, spec TokenSpe
 	// reach is refused up front rather than silently not working.
 	if !p.MaxScope().Covers(scope) {
 		return "", store.APIToken{}, scopeAboveRole{max: p.MaxScope()}
+	}
+	if spec.ExpiresIn < 0 || spec.ExpiresIn > MaxTokenLifetime || (spec.ExpiresIn > 0 && spec.ExpiresIn < time.Hour) {
+		return "", store.APIToken{}, ErrInvalidTokenExpiry
 	}
 	projects := slices.Clone(spec.Projects)
 	slices.Sort(projects)
@@ -77,6 +89,10 @@ func (s *Service) CreateAPIToken(ctx context.Context, p Principal, spec TokenSpe
 		ProjectIDs: projects,
 		CreatedAt:  s.now(),
 	}
+	if spec.ExpiresIn > 0 {
+		at := t.CreatedAt.Add(spec.ExpiresIn)
+		t.ExpiresAt = &at
+	}
 	if err := s.store.Tokens.Create(ctx, t); err != nil {
 		return "", store.APIToken{}, err
 	}
@@ -95,6 +111,9 @@ func (s *Service) ValidateAPIToken(ctx context.Context, token string) (Principal
 			return Principal{}, ErrUnauthenticated
 		}
 		return Principal{}, err
+	}
+	if t.Expired(s.now()) {
+		return Principal{}, ErrUnauthenticated
 	}
 	user, err := s.store.Users.ByID(ctx, t.UserID)
 	if err != nil {

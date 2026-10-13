@@ -10,6 +10,12 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Added
+- API tokens can expire. *Settings → API tokens & MCP* offers 7, 30, 90 or 365 days or
+  never, preselecting 90 days; the list shows when a token expires and marks expired
+  ones. `envoryx admin create-token --expires DAYS` sets it from the shell, and
+  `envoryx admin tokens` shows it. Tokens created before keep working without expiry.
+
 ## [0.38.0] - 2026-10-13
 
 ### Added
