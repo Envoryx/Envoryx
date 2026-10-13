@@ -11,6 +11,13 @@ release). `:main` follows the development branch.
 ## [Unreleased]
 
 ### Security
+- An instance took a fleet manager at a plain `http://` address. The manager is
+  proven to the instance by TLS alone, so anyone on the network between could
+  pose as it: push a plan with an offsite target of their own, suspend or
+  update the instance and ask for support logins. `ENVORYX_FLEET_URL` (and the
+  address an instance enrolled at) must now be `https://`; `http://` is taken
+  only for the same machine or with the new `ENVORYX_FLEET_INSECURE=1`, which
+  is logged as a warning.
 - The hoster's fleet manager could update an instance to any tag of its image:
   an older release with known holes, or `latest` or `main`. An instance now
   takes only a release version newer than the one it runs; a build that is no

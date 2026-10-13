@@ -527,7 +527,7 @@ func serve() error {
 	remote := &remoteBackups{backups: backups, db: sqlDB, st: st, syncer: syncer, log: log}
 	updater := &selfupdate.Updater{Engine: engine, SelfID: resolver.SelfContainerID, ConfigDir: cfg.ConfigDir, Version: version, Log: log,
 		BeforeStop: func() { updating.Store(true) }}
-	fleetAgent, err := fleet.New(fleet.Config{URL: cfg.FleetURL, Token: cfg.FleetToken, ConfigDir: cfg.ConfigDir, Plan: plans, Log: log,
+	fleetAgent, err := fleet.New(fleet.Config{URL: cfg.FleetURL, Token: cfg.FleetToken, Insecure: cfg.FleetInsecure, ConfigDir: cfg.ConfigDir, Plan: plans, Log: log,
 		Status: func(ctx context.Context) fleet.Status {
 			s := fleetStatus(ctx, st, manager, version, instanceID)
 			s.UIURL = uiURL(ctx)
