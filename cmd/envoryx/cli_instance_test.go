@@ -28,6 +28,11 @@ func instanceRoutes(restarted *atomic.Bool) map[string]func(http.ResponseWriter,
 			})
 		},
 		"POST /api/v1/instance/backups/{id}/restore": func(w http.ResponseWriter, r *http.Request) {
+			if strings.HasPrefix(r.PathValue("id"), "upload-") {
+				w.WriteHeader(http.StatusForbidden)
+				writeJSON(w, map[string]any{"error": map[string]any{"code": "session_required", "message": "API tokens can only restore instance backups this instance made"}})
+				return
+			}
 			restarted.Store(true)
 			w.WriteHeader(http.StatusAccepted)
 			writeJSON(w, map[string]any{"scheduled": r.PathValue("id"), "restarting": true})
@@ -88,6 +93,16 @@ func TestInstanceRestoreSendsTheKeyAndWaits(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "Envoryx 0.30.0 is back") {
 		t.Fatalf("output: %s", out.String())
+	}
+}
+
+// An uploaded backup is restored from a browser session; the CLI says where.
+func TestInstanceRestoreOfAnUploadPointsToTheBrowser(t *testing.T) {
+	srv := newFakeServer(t, instanceRoutes(new(atomic.Bool)))
+	c, _, _ := newTestCLI(t, srv, "")
+	err := c.run(context.Background(), []string{"instance", "restore", "upload-20261012-080000-cd34", "--yes"})
+	if err == nil || !strings.Contains(err.Error(), "sign in to the web UI and restore it there") {
+		t.Fatalf("restore of an upload: %v", err)
 	}
 }
 

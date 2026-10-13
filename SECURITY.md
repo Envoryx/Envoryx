@@ -101,7 +101,9 @@ trust with the projects' containers.
   and tokens can't mint tokens.
 - A token can't open a way in that would outlast it either: it can't set the instance's
   SSH keys, the single sign-on or the hoster's support access, nor reveal or rotate the
-  secret key; those need an admin's browser session. (The CLI, which always uses a token,
+  secret key, nor restore an instance backup the instance didn't make itself (an upload
+  or one fetched from an offsite target could bring accounts and tokens of anyone's
+  choosing); those need an admin's browser session. (The CLI, which always uses a token,
   therefore doesn't set the instance's SSH keys.) `envoryx admin revoke-tokens` and
   `admin reset` leave the instance's SSH keys and the single sign-on alone and say so.
 - Tokens are 256-bit random values with the prefix `stq_`; only their SHA-256 hash is

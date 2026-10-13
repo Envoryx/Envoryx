@@ -242,8 +242,8 @@ func (c *cli) instanceUpload(ctx context.Context, args []string) error {
 	if c.json {
 		return c.printJSON(out.Backup)
 	}
-	c.printf("Uploaded as instance backup %s (Envoryx %s, %s). Restore it with: envoryx instance restore %s --yes\n",
-		out.Backup.ID, out.Backup.Meta.Envoryx, humanSize(out.Backup.SizeBytes), out.Backup.ID)
+	c.printf("Uploaded as instance backup %s (Envoryx %s, %s). %s\n",
+		out.Backup.ID, out.Backup.Meta.Envoryx, humanSize(out.Backup.SizeBytes), restoreInBrowser)
 	return nil
 }
 
@@ -272,6 +272,10 @@ func (c *cli) instanceDelete(ctx context.Context, args []string) error {
 	c.printf("Deleted the instance backup %s.\n", pos[0])
 	return nil
 }
+
+// restoreInBrowser is where an uploaded or fetched instance backup is restored: the
+// CLI's token may only restore the backups the instance made itself.
+const restoreInBrowser = "Restore it in the web UI (Settings, Backups, Instance backups): an API token can't restore a backup from elsewhere."
 
 // instanceRestore schedules a restore; the server restarts to apply it. --wait waits
 // until a new server process answers.
@@ -311,6 +315,10 @@ func (c *cli) instanceRestore(ctx context.Context, args []string) error {
 	if err := api.post(ctx, instanceBackups+"/"+url.PathEscape(pos[0])+"/restore", map[string]string{"confirm": "restore", "key": key}, &out); err != nil {
 		if strings.Contains(err.Error(), "give that key") {
 			return fmt.Errorf("%w (pass it with --key-file)", err)
+		}
+		var apiErr *apiError
+		if errors.As(err, &apiErr) && apiErr.Code == "session_required" {
+			return fmt.Errorf("%s was uploaded or fetched from an offsite target, and API tokens can't restore such a backup: sign in to the web UI and restore it there (Settings, Backups, Instance backups)", pos[0])
 		}
 		return err
 	}
@@ -517,6 +525,6 @@ func (c *cli) instanceFetch(ctx context.Context, args []string) error {
 	if c.json {
 		return c.printJSON(out.Backup)
 	}
-	c.printf("Fetched as instance backup %s (%s). Restore it with: envoryx instance restore %s --yes\n", out.Backup.ID, humanSize(out.Backup.SizeBytes), out.Backup.ID)
+	c.printf("Fetched as instance backup %s (%s). %s\n", out.Backup.ID, humanSize(out.Backup.SizeBytes), restoreInBrowser)
 	return nil
 }

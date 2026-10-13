@@ -46,11 +46,13 @@ type dockerExecResult = docker.ExecResult
 type dockerSpec = docker.ContainerSpec
 
 type testApp struct {
-	t        *testing.T
-	srv      *httptest.Server
-	engine   *dockertest.Fake
-	proxy    *api.ProxyInfo
-	cookie   *http.Cookie
+	t      *testing.T
+	srv    *httptest.Server
+	engine *dockertest.Fake
+	proxy  *api.ProxyInfo
+	cookie *http.Cookie
+	// bearer is an API token do sends instead of the cookie when set.
+	bearer   string
 	projDir  string
 	cfgDir   string
 	restarts int
@@ -177,6 +179,9 @@ func (a *testApp) do(method, path string, body any, withCSRF bool) resp {
 	}
 	if a.cookie != nil {
 		req.AddCookie(a.cookie)
+	}
+	if a.bearer != "" {
+		req.Header.Set("Authorization", "Bearer "+a.bearer)
 	}
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {

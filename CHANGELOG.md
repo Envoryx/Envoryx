@@ -10,6 +10,14 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Security
+- An admin API token could restore any instance backup, also one it had
+  uploaded itself: an archive of its own making with accounts and tokens of its
+  choosing, a way in that outlasts the token. A token (and so `envoryx instance
+  restore`) now restores only the backups the instance made itself; an uploaded
+  backup, or one fetched from an offsite target, is restored from an admin's
+  browser session (*Settings → Backups → Instance backups*). The CLI says so.
+
 ## [0.35.0] - 2026-10-13
 
 ### Security

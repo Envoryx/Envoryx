@@ -154,10 +154,26 @@ func (a *API) downloadInstanceBackup(w http.ResponseWriter, r *http.Request) {
 
 // restoreInstanceBackup schedules the restore and restarts Envoryx to apply it. The
 // response goes out before the restart; the UI waits for the server to come back.
+// errRestoreNeedsSession keeps an API token from restoring an instance backup the
+// instance didn't make itself: an uploaded or fetched archive can carry accounts and
+// tokens of anyone's choosing, a way in that would outlast the token.
+var errRestoreNeedsSession = newError(http.StatusForbidden, "session_required", "API tokens can only restore instance backups this instance made; restore an uploaded or fetched one from a browser session")
+
 func (a *API) restoreInstanceBackup(w http.ResponseWriter, r *http.Request) {
 	s, ok := a.instanceStore(w, r)
 	if !ok {
 		return
+	}
+	if p, _ := auth.PrincipalFrom(r.Context()); p.TokenName != "" {
+		info, err := s.Get(r.PathValue("id"))
+		if err != nil {
+			writeError(w, r, err)
+			return
+		}
+		if !info.Own() {
+			writeError(w, r, errRestoreNeedsSession)
+			return
+		}
 	}
 	var req struct {
 		Confirm string `json:"confirm"`

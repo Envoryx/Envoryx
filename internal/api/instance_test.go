@@ -111,3 +111,76 @@ func TestInstanceBackupLifecycle(t *testing.T) {
 		t.Fatalf("traversal = %d", r.status)
 	}
 }
+
+// ownAndUploadedInstanceBackups makes an instance backup and uploads its download again:
+// one the instance made itself and one from elsewhere.
+func (a *testApp) ownAndUploadedInstanceBackups() (own, uploaded string) {
+	a.t.Helper()
+	r := a.do(http.MethodPost, "/api/v1/instance/backups", map[string]string{}, true)
+	if r.status != http.StatusCreated {
+		a.t.Fatalf("create = %d %s", r.status, r.raw)
+	}
+	own = r.body["backup"].(map[string]any)["id"].(string)
+	req, _ := http.NewRequest(http.MethodGet, a.srv.URL+"/api/v1/instance/backups/"+own+"/download", nil)
+	req.AddCookie(a.cookie)
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		a.t.Fatal(err)
+	}
+	archive, _ := io.ReadAll(res.Body)
+	_ = res.Body.Close()
+	var form bytes.Buffer
+	mw := multipart.NewWriter(&form)
+	fw, _ := mw.CreateFormFile("file", "envoryx.tar.gz")
+	_, _ = fw.Write(archive)
+	_ = mw.Close()
+	req, _ = http.NewRequest(http.MethodPost, a.srv.URL+"/api/v1/instance/backups/upload", &form)
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+	req.Header.Set("X-Requested-With", "Envoryx")
+	req.AddCookie(a.cookie)
+	res, err = http.DefaultClient.Do(req)
+	if err != nil {
+		a.t.Fatal(err)
+	}
+	defer res.Body.Close()
+	var out struct {
+		Backup struct {
+			ID string `json:"id"`
+		} `json:"backup"`
+	}
+	if err := json.NewDecoder(res.Body).Decode(&out); err != nil || res.StatusCode != http.StatusCreated {
+		a.t.Fatalf("upload = %d %v", res.StatusCode, err)
+	}
+	return own, out.Backup.ID
+}
+
+// An API token restores only what the instance made itself: an uploaded archive could
+// bring accounts and tokens of anyone's choosing, which would outlast the token.
+func TestTokenRestoresOnlyOwnInstanceBackups(t *testing.T) {
+	a := newApp(t)
+	a.setupAndLogin()
+	own, uploaded := a.ownAndUploadedInstanceBackups()
+	r := a.do(http.MethodPost, "/api/v1/tokens", map[string]any{"name": "ops", "scope": "admin"}, true)
+	if r.status != http.StatusCreated {
+		t.Fatalf("token: %d %s", r.status, r.raw)
+	}
+	session := a.cookie
+	a.cookie = nil
+	a.bearer = r.body["secret"].(string)
+	r = a.do(http.MethodPost, "/api/v1/instance/backups/"+uploaded+"/restore", map[string]string{"confirm": "restore"}, true)
+	if r.status != http.StatusForbidden || errCode(r) != "session_required" {
+		t.Fatalf("token restores an upload: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodPost, "/api/v1/instance/backups/"+own+"/restore", map[string]string{"confirm": "restore"}, true)
+	if r.status != http.StatusAccepted {
+		t.Fatalf("token restores its own: %d %s", r.status, r.raw)
+	}
+	if r := a.do(http.MethodDelete, "/api/v1/instance/restore", nil, true); r.status != http.StatusNoContent {
+		t.Fatalf("cancel = %d %s", r.status, r.raw)
+	}
+	a.bearer, a.cookie = "", session
+	r = a.do(http.MethodPost, "/api/v1/instance/backups/"+uploaded+"/restore", map[string]string{"confirm": "restore"}, true)
+	if r.status != http.StatusAccepted {
+		t.Fatalf("session restores an upload: %d %s", r.status, r.raw)
+	}
+}

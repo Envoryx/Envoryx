@@ -101,6 +101,16 @@ type Info struct {
 	Meta      Meta      `json:"meta"`
 }
 
+// Own reports whether the instance made the backup itself, rather than taking in an
+// archive from elsewhere (an upload, or one fetched from an offsite target).
+func (i Info) Own() bool {
+	switch i.Kind {
+	case KindManual, KindScheduled, KindPreMigrate, KindPreRestore:
+		return true
+	}
+	return false
+}
+
 // Pending describes a scheduled restore.
 type Pending struct {
 	ID          string    `json:"id"`

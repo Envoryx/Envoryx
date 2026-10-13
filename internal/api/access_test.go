@@ -22,7 +22,7 @@ const accessFile = "testdata/access.txt"
 // accessColumns are the columns every line of accessFile has, with their values.
 var accessColumns = map[string][]string{
 	"scope":     {"public", "read", "operate", "admin", "token"},
-	"tokens":    {"yes", "no", "admin", "body"},
+	"tokens":    {"yes", "no", "admin", "body", "own"},
 	"support":   {"yes", "no", "body"},
 	"confined":  {"project", "any", "yes", "users", "no"},
 	"suspended": {"yes", "no"},
@@ -185,7 +185,7 @@ func (l accessLine) allows(c caller, inA bool) bool {
 	}
 	if c.token() {
 		switch l.col["tokens"] {
-		case "no", "body":
+		case "no", "body", "own":
 			return false
 		case "admin":
 			if c.confined || !c.level.Covers(auth.ScopeAdmin) {
@@ -278,6 +278,8 @@ func TestAccessMatrix(t *testing.T) {
 		t.Fatal("no support session")
 	}
 	adminToken := mint("admin", "admin")
+	// A tokens=own route is sent what a token may not touch: an uploaded backup.
+	_, uploaded := a.ownAndUploadedInstanceBackups()
 
 	callers := []caller{
 		{name: "anonymous"},
@@ -306,7 +308,11 @@ func TestAccessMatrix(t *testing.T) {
 				body = b
 			}
 		}
-		req, err := http.NewRequest(method, a.srv.URL+accessPath(l.path, project), strings.NewReader(body))
+		path := l.path
+		if l.col["tokens"] == "own" {
+			path = strings.ReplaceAll(path, "{id}", uploaded)
+		}
+		req, err := http.NewRequest(method, a.srv.URL+accessPath(path, project), strings.NewReader(body))
 		if err != nil {
 			t.Fatal(err)
 		}
