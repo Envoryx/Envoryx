@@ -19,6 +19,8 @@ type tokenDTO struct {
 	Projects   []string   `json:"projects"`
 	CreatedAt  time.Time  `json:"createdAt"`
 	LastUsedAt *time.Time `json:"lastUsedAt"`
+	// ExpiresAt is when the token stops working; null for a token that never expires.
+	ExpiresAt *time.Time `json:"expiresAt"`
 	// Owner is the user the token acts for; it never does more than that user may.
 	Owner string `json:"owner,omitempty"`
 }
@@ -28,7 +30,7 @@ func toToken(t store.APIToken) tokenDTO {
 	if projects == nil {
 		projects = []string{}
 	}
-	return tokenDTO{ID: t.ID, Name: t.Name, Prefix: t.Prefix, Scope: t.Scope, Projects: projects, CreatedAt: t.CreatedAt, LastUsedAt: t.LastUsedAt}
+	return tokenDTO{ID: t.ID, Name: t.Name, Prefix: t.Prefix, Scope: t.Scope, Projects: projects, CreatedAt: t.CreatedAt, LastUsedAt: t.LastUsedAt, ExpiresAt: t.ExpiresAt}
 }
 
 // listTokens returns the caller's tokens; an admin sees everyone's, with the owner.
@@ -68,6 +70,9 @@ type createTokenRequest struct {
 	// with existing projects; admin must be chosen deliberately.
 	Scope    string   `json:"scope"`
 	Projects []string `json:"projects"`
+	// ExpiresInDays is how long the token works, 1 to 3650 days; 0 or absent creates
+	// one that never expires.
+	ExpiresInDays int `json:"expiresInDays"`
 }
 
 // errTokenManagesTokens keeps a leaked API token from minting or revoking tokens; only a
@@ -108,16 +113,21 @@ func (a *API) createToken(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	token, t, err := a.d.Auth.CreateAPIToken(r.Context(), p, auth.TokenSpec{Name: req.Name, Scope: auth.Scope(req.Scope), Projects: req.Projects})
+	if req.ExpiresInDays < 0 || req.ExpiresInDays > 3650 {
+		writeError(w, r, newError(http.StatusUnprocessableEntity, "validation_failed", auth.ErrInvalidTokenExpiry.Error()))
+		return
+	}
+	spec := auth.TokenSpec{Name: req.Name, Scope: auth.Scope(req.Scope), Projects: req.Projects, ExpiresIn: time.Duration(req.ExpiresInDays) * 24 * time.Hour}
+	token, t, err := a.d.Auth.CreateAPIToken(r.Context(), p, spec)
 	if err != nil {
-		if errors.Is(err, auth.ErrInvalidTokenName) {
+		if errors.Is(err, auth.ErrInvalidTokenName) || errors.Is(err, auth.ErrInvalidTokenExpiry) {
 			writeError(w, r, newError(http.StatusUnprocessableEntity, "validation_failed", err.Error()))
 			return
 		}
 		writeError(w, r, err)
 		return
 	}
-	a.d.Audit.Log(r.Context(), "token.created", "token", t.ID, map[string]any{"name": t.Name, "scope": t.Scope, "projects": t.ProjectIDs})
+	a.d.Audit.Log(r.Context(), "token.created", "token", t.ID, map[string]any{"name": t.Name, "scope": t.Scope, "projects": t.ProjectIDs, "expiresAt": t.ExpiresAt})
 	// The plain token is returned exactly once.
 	writeJSON(w, http.StatusCreated, map[string]any{"token": toToken(t), "secret": token, "mcpUrl": a.mcpURL(r)})
 }

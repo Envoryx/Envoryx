@@ -3171,5 +3171,12 @@
   "{{count}} left_few": "осталось {{count}}",
   "{{count}} left_many": "осталось {{count}}",
   "{{count}} left_other": "осталось {{count}}",
-  "the current password is wrong": "текущий пароль неверен"
+  "the current password is wrong": "текущий пароль неверен",
+  "Never": "Никогда",
+  "Expired": "Истёк",
+  "expired {{date}}": "истёк {{date}}",
+  "expires {{date}}": "истекает {{date}}",
+  "never expires": "бессрочный",
+  "Expires after": "Истекает через",
+  "An expired token stops working; create a new one then. A token that never expires stays valid until it is revoked.": "Истёкший токен перестаёт работать; тогда создайте новый. Бессрочный токен действует, пока его не отзовут."
 }

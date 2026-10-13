@@ -44,6 +44,7 @@ Commands:
       --user NAME             the account it acts for (default: the only account)
       --scope S               read, operate (default) or admin
       --project P             confine it to a project (name, slug or id; repeatable)
+      --expires DAYS          let it expire after 1 to 3650 days (default: never)
       --quiet                 print nothing but the secret, for scripts
   revoke-token <token>        revoke one token, named by its id, its prefix (stq_…)
                               or its name (--user NAME when names repeat)
@@ -176,6 +177,7 @@ func (c *adminCLI) run(ctx context.Context, args []string) error {
 			return nil
 		})
 		fs.BoolVar(&spec.quiet, "quiet", false, "print only the secret")
+		fs.IntVar(&spec.expiresDays, "expires", 0, "days until the token expires")
 		if err := fs.Parse(rest); err != nil || fs.NArg() > 0 || spec.name == "" {
 			return errAdminUsage
 		}

@@ -3171,5 +3171,12 @@
   "{{count}} left_few": "pozostały {{count}}",
   "{{count}} left_many": "pozostało {{count}}",
   "{{count}} left_other": "pozostało {{count}}",
-  "the current password is wrong": "obecne hasło jest nieprawidłowe"
+  "the current password is wrong": "obecne hasło jest nieprawidłowe",
+  "Never": "Nigdy",
+  "Expired": "Wygasł",
+  "expired {{date}}": "wygasł {{date}}",
+  "expires {{date}}": "wygasa {{date}}",
+  "never expires": "nigdy nie wygasa",
+  "Expires after": "Wygasa po",
+  "An expired token stops working; create a new one then. A token that never expires stays valid until it is revoked.": "Wygasły token przestaje działać; utwórz wtedy nowy. Token, który nigdy nie wygasa, jest ważny do czasu unieważnienia."
 }

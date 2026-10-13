@@ -3034,15 +3034,16 @@ can't mint its successors. A script that sets up a CI job or an assistant
 creates its token from a shell in the container instead:
 
 ```sh
-docker exec envoryx envoryx admin create-token --name ci --scope read --project shop --quiet
-docker exec envoryx envoryx admin tokens                 # owner, scope, projects, last use
+docker exec envoryx envoryx admin create-token --name ci --scope read --project shop --expires 90 --quiet
+docker exec envoryx envoryx admin tokens                 # owner, scope, projects, expiry, last use
 docker exec envoryx envoryx admin revoke-token ci         # by name, id or prefix (stq_…)
 ```
 
 `create-token` acts for the only account unless `--user NAME` names another
 one, and never gives a token more than that account's role allows. The scope
 is `operate` unless `--scope` says otherwise, `--project` (repeatable) confines
-it to projects, and `--quiet` prints nothing but the secret.
+it to projects, `--expires DAYS` (1 to 3650) lets it expire, without it it never
+does, and `--quiet` prints nothing but the secret.
 
 ### What it can do
 

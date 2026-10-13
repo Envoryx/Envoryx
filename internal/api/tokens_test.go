@@ -19,12 +19,24 @@ func TestAPITokensAndMCPEndpoint(t *testing.T) {
 	if r.status != http.StatusUnprocessableEntity {
 		t.Fatalf("empty name: %d %s", r.status, r.raw)
 	}
+	r = a.do(http.MethodPost, "/api/v1/tokens", map[string]any{"name": "x", "expiresInDays": 3651}, true)
+	if r.status != http.StatusUnprocessableEntity {
+		t.Fatalf("expiry beyond ten years: %d %s", r.status, r.raw)
+	}
+	r = a.do(http.MethodPost, "/api/v1/tokens", map[string]any{"name": "ci", "expiresInDays": 90}, true)
+	if r.status != http.StatusCreated || r.body["token"].(map[string]any)["expiresAt"] == nil {
+		t.Fatalf("token with expiry: %d %s", r.status, r.raw)
+	}
+	a.do(http.MethodDelete, "/api/v1/tokens/"+r.body["token"].(map[string]any)["id"].(string), nil, true)
 	r = a.do(http.MethodPost, "/api/v1/tokens", map[string]any{"name": "Claude Code", "scope": "admin"}, true)
 	if r.status != http.StatusCreated {
 		t.Fatalf("create: %d %s", r.status, r.raw)
 	}
 	if got := r.body["token"].(map[string]any)["scope"]; got != "admin" {
 		t.Fatalf("scope in response = %v", got)
+	}
+	if got, ok := r.body["token"].(map[string]any)["expiresAt"]; !ok || got != nil {
+		t.Fatalf("a token without expiry has expiresAt %v", got)
 	}
 	secret := r.body["secret"].(string)
 	id := r.body["token"].(map[string]any)["id"].(string)

@@ -6,7 +6,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/client";
 import { useProjects } from "@/api/hooks";
 import type { TokenScope } from "@/api/types";
-import { Alert, Badge, Button, Card, CardHeader, Checkbox, Code, Field, Input, Spinner, type Tone } from "@/components/ui";
+import { Alert, Badge, Button, Card, CardHeader, Checkbox, Code, Field, Input, Select, Spinner, type Tone } from "@/components/ui";
 import { copyText } from "@/lib/clipboard";
 import { formatDateTime } from "@/lib/format";
 import { errorText } from "@/lib/errors";
@@ -14,6 +14,9 @@ import { errorText } from "@/lib/errors";
 const key = ["tokens"] as const;
 
 const scopeTone: Record<TokenScope, Tone> = { read: "gray", operate: "blue", admin: "amber" };
+
+/** Lifetimes offered for a new token, in days; 0 never expires. */
+const lifetimes = [7, 30, 90, 365, 0] as const;
 
 function mcpConfig(url: string, secret: string): string {
   return JSON.stringify({ mcpServers: { envoryx: { type: "http", url, headers: { Authorization: `Bearer ${secret}` } } } }, null, 2);
@@ -29,12 +32,13 @@ export function TokensCard() {
   const [scope, setScope] = useState<TokenScope>("operate");
   const [confine, setConfine] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
+  const [lifetime, setLifetime] = useState<number>(90);
   const [created, setCreated] = useState<{ secret: string; url: string; name: string } | null>(null);
   const [msg, setMsg] = useState<{ tone: "green" | "red"; text: string } | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
 
   const create = useMutation({
-    mutationFn: (body: { name: string; scope: TokenScope; projects: string[] }) => api.tokens.create(body),
+    mutationFn: (body: { name: string; scope: TokenScope; projects: string[]; expiresInDays: number }) => api.tokens.create(body),
     onSuccess: (r) => {
       setCreated({ secret: r.secret, url: r.mcpUrl, name: r.token.name });
       setName("");
@@ -59,7 +63,7 @@ export function TokensCard() {
     e.preventDefault();
     setMsg(null);
     setCreated(null);
-    create.mutate({ name: name.trim(), scope, projects: confine ? selected : [] });
+    create.mutate({ name: name.trim(), scope, projects: confine ? selected : [], expiresInDays: lifetime });
   }
 
   const scopes: { value: TokenScope; label: string; description: string }[] = [
@@ -69,6 +73,8 @@ export function TokensCard() {
   ];
   const projectName = (id: string) => projects.data?.find((p) => p.id === id)?.name ?? id.slice(0, 8);
   const scopeLabel = (s: TokenScope) => scopes.find((x) => x.value === s)?.label ?? s;
+  const lifetimeLabel = (days: number) => (days === 0 ? t("Never") : days === 365 ? t("1 year") : t("{{count}} days", { count: days }));
+  const now = Date.now();
 
   return (
     <Card>
@@ -117,6 +123,7 @@ export function TokensCard() {
                       {tok.name}
                       <Badge tone={scopeTone[tok.scope] ?? "gray"}>{scopeLabel(tok.scope)}</Badge>
                       {tok.owner && tok.owner !== user?.username && <span className="text-xs font-normal text-subtle">{t("of {{name}}", { name: tok.owner })}</span>}
+                      {tok.expiresAt && Date.parse(tok.expiresAt) <= now && <Badge tone="red">{t("Expired")}</Badge>}
                       {tok.projects.length > 0 && (
                         <Badge tone="gray" className="font-normal">
                           {t("only")} {tok.projects.map(projectName).join(", ")}
@@ -124,7 +131,7 @@ export function TokensCard() {
                       )}
                     </p>
                     <p className="font-mono text-[11px] text-subtle">
-                      {tok.prefix}… · {t("created {{date}}", { date: formatDateTime(tok.createdAt) })} · {tok.lastUsedAt ? t("last used {{date}}", { date: formatDateTime(tok.lastUsedAt) }) : t("never used")}
+                      {tok.prefix}… · {t("created {{date}}", { date: formatDateTime(tok.createdAt) })} · {tok.expiresAt ? (Date.parse(tok.expiresAt) <= now ? t("expired {{date}}", { date: formatDateTime(tok.expiresAt) }) : t("expires {{date}}", { date: formatDateTime(tok.expiresAt) })) : t("never expires")} · {tok.lastUsedAt ? t("last used {{date}}", { date: formatDateTime(tok.lastUsedAt) }) : t("never used")}
                     </p>
                   </div>
                 </div>
@@ -153,6 +160,15 @@ export function TokensCard() {
               ))}
             </div>
           </fieldset>
+          <Field label={t("Expires after")} htmlFor="token-lifetime" hint={t("An expired token stops working; create a new one then. A token that never expires stays valid until it is revoked.")}>
+            <Select id="token-lifetime" value={String(lifetime)} onChange={(e) => setLifetime(Number(e.target.value))} className="sm:w-56">
+              {lifetimes.map((d) => (
+                <option key={d} value={d}>
+                  {lifetimeLabel(d)}
+                </option>
+              ))}
+            </Select>
+          </Field>
           <div className="space-y-2">
             <Checkbox label={t("Limit to particular projects")} description={t("The token then sees and touches only these projects and cannot create new ones.")} checked={confine} onChange={(e) => setConfine(e.target.checked)} />
             {confine && (

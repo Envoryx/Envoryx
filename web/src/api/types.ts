@@ -1580,6 +1580,8 @@ export interface APIToken {
   projects: string[];
   createdAt: string;
   lastUsedAt: string | null;
+  /** When the token stops working; null for one that never expires. */
+  expiresAt: string | null;
   /** The user the token acts for; it never does more than that user. */
   owner?: string;
 }
