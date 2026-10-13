@@ -19,9 +19,44 @@ export interface UserAdmin {
   inviteExpiresAt?: string;
   /** Linked to a single sign-on account. */
   sso: boolean;
+  /** Has a second factor (TOTP or a passkey). */
+  twoFactor: boolean;
   /** Roles in particular projects, by project id. */
   projectRoles: Record<string, Role>;
   createdAt: string;
+}
+
+/** A password sign-in that waits for the second factor. */
+export interface SecondStep {
+  ticket: string;
+  methods: ("totp" | "passkey" | "recovery")[];
+}
+
+/** What a sign-in answers: the user, or the second step it waits for. */
+export type SignInResult = { user: User; secondFactor?: undefined } | { user?: undefined; secondFactor: SecondStep };
+
+/** Whom the instance requires a second factor of. */
+export type TwoFactorRequirement = "off" | "admins" | "all";
+
+/** A passkey of the signed-in user. */
+export interface PasskeyInfo {
+  id: string;
+  name: string;
+  /** The host name it was registered at; it only works there. */
+  rpId: string;
+  createdAt: string;
+  lastUsedAt?: string;
+}
+
+/** The signed-in user's second factors. */
+export interface TwoFactorStatus {
+  /** False for an account without a password (single sign-on). */
+  available: boolean;
+  totp: boolean;
+  passkeys: PasskeyInfo[];
+  recoveryCodes: number;
+  /** The instance requires a second factor of this account. */
+  required: boolean;
 }
 
 export interface InviteResult {
@@ -1575,6 +1610,7 @@ export interface UpdateSettingsRequest {
   publicHost?: string;
   xdebugClientHost?: string;
   sshAuthorizedKeys?: string;
+  twoFactorRequired?: TwoFactorRequirement;
   baseDomain?: string;
   forceHttps?: boolean;
   projectsFollowEnvoryx?: boolean;
@@ -1623,6 +1659,8 @@ export interface Settings {
   warnings: string[];
   xdebugClientHost?: string;
   sshAuthorizedKeys?: string;
+  /** Whom a second factor is required of (admins only). */
+  twoFactorRequired?: TwoFactorRequirement;
   ssh?: SSHInfo;
   baseDomain: string;
   forceHttps: boolean;

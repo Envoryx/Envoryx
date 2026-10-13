@@ -1,6 +1,7 @@
 /** The sections of the settings page; `?tab=` names one. */
 export type SettingsTab =
   | "profile"
+  | "twofactor"
   | "tokens"
   | "sshkeys"
   | "diagnostics"

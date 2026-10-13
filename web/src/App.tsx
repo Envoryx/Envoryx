@@ -2,6 +2,7 @@ import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "./features/auth/AuthContext";
 import { InvitePage } from "@/features/auth/InvitePage";
+import { TwoFactorSetupPage } from "@/features/auth/TwoFactorSetupPage";
 import { LoginPage } from "./features/auth/LoginPage";
 import { AppShell } from "./layout/AppShell";
 import { DashboardPage } from "./features/dashboard/DashboardPage";
@@ -22,6 +23,7 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   if (auth.loading) return <Spinner label={t("Starting Envoryx…")} />;
   if (auth.needsSetup) return <Navigate to="/setup" replace />;
   if (!auth.user) return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  if (auth.twoFactorSetup) return <TwoFactorSetupPage />;
   return <Unsuspended>{children}</Unsuspended>;
 }
 

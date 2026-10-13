@@ -1,4 +1,4 @@
-import { Check, Copy, Link2, Trash2, UserPlus, Users } from "lucide-react";
+import { Check, Copy, Link2, ShieldOff, Trash2, UserPlus, Users } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -71,6 +71,7 @@ export function UsersCard({ readOnly = false }: { readOnly?: boolean }) {
   const [role, setRole] = useState<Role>("developer");
   const [open, setOpen] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [confirmReset, setConfirmReset] = useState<string | null>(null);
   // The plan's usage counts the users that may sign in.
   const full = usePlanLimitReached("users");
   const refresh = () => {
@@ -110,6 +111,16 @@ export function UsersCard({ readOnly = false }: { readOnly?: boolean }) {
       refresh();
     },
     onError: fail(t("Deleting failed")),
+  });
+  const resetTwoFactor = useMutation({
+    mutationFn: (id: string) => api.users.resetTwoFactor(id),
+    onSuccess: (_, id) => {
+      setConfirmReset(null);
+      const name = users.data?.find((u) => u.id === id)?.username ?? "";
+      setMsg({ tone: "green", text: t("The second factors of {{name}} are removed: the password alone signs in again.", { name }) });
+      refresh();
+    },
+    onError: fail(t("Resetting failed")),
   });
   const setProjectRole = useMutation({
     mutationFn: ({ id, project, role }: { id: string; project: string; role: Role | "" }) => api.users.setProjectRole(id, project, role),
@@ -183,6 +194,7 @@ export function UsersCard({ readOnly = false }: { readOnly?: boolean }) {
                     <span className="font-medium text-fg">{u.username}</span>
                     {self && <Badge>{t("you")}</Badge>}
                     {u.sso && <Badge tone="blue">SSO</Badge>}
+                    {u.twoFactor && <Badge tone="green">{t("2FA")}</Badge>}
                     {u.invited && <Badge tone="amber">{t("invited")}</Badge>}
                     {u.disabled && <Badge tone="red">{t("disabled")}</Badge>}
                     {roles.length > 0 && <span className="text-xs text-subtle">{t("{{count}} project roles", { count: roles.length })}</span>}
@@ -204,6 +216,18 @@ export function UsersCard({ readOnly = false }: { readOnly?: boolean }) {
                           {u.invited ? t("New invitation") : t("Reset password")}
                         </Button>
                       )}
+                      {!self &&
+                        !readOnly &&
+                        u.twoFactor &&
+                        (confirmReset === u.id ? (
+                          <Button size="sm" variant="danger" loading={resetTwoFactor.isPending} onClick={() => resetTwoFactor.mutate(u.id)}>
+                            {t("Reset 2FA of {{name}}", { name: u.username })}
+                          </Button>
+                        ) : (
+                          <Button size="sm" variant="ghost" icon={<ShieldOff className="size-3.5" />} title={t("For a lost device: removes the user's authenticator app, passkeys and recovery codes")} onClick={() => setConfirmReset(u.id)}>
+                            {t("Reset 2FA")}
+                          </Button>
+                        ))}
                       {!self && !readOnly && (
                         <Button size="sm" variant="ghost" onClick={() => update.mutate({ id: u.id, body: { disabled: !u.disabled } })}>
                           {u.disabled ? t("Enable") : t("Disable")}
