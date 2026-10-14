@@ -10,6 +10,8 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.39.1] - 2026-10-14
+
 ### Security
 - The hoster's support could bring a custom image onto the instance by restoring a
   backup into a new project (*Restore into a new project*, also of an uploaded backup),
@@ -2401,7 +2403,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.39.0...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.39.1...HEAD
+[0.39.1]: https://github.com/envoryx/envoryx/compare/v0.39.0...v0.39.1
 [0.39.0]: https://github.com/envoryx/envoryx/compare/v0.38.0...v0.39.0
 [0.38.0]: https://github.com/envoryx/envoryx/compare/v0.37.0...v0.38.0
 [0.37.0]: https://github.com/envoryx/envoryx/compare/v0.36.0...v0.37.0
