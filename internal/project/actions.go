@@ -186,6 +186,7 @@ vendor/bin/typo3 setup --force --no-interaction --driver="$driver" --host="$DB_H
   --username="$DB_USERNAME" --password="$DB_PASSWORD" --admin-username=admin --admin-user-password="$pw" \
   --admin-email=admin@example.com --project-name="$ENVORYX_PROJECT" --server-type=other --create-site="$ENVORYX_URL" || exit
 vendor/bin/typo3 cache:flush || exit
+rm -f public/FIRST_INSTALL
 printf '\nBackend: %s/typo3  User: admin  Password: %s\n' "$ENVORYX_URL" "$pw"`
 
 	// emptyDatabasePHP drops every table and view of the project database, for the

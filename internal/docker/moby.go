@@ -1190,10 +1190,11 @@ func (e *MobyEngine) ConnectNetwork(ctx context.Context, networkName, containerI
 	if !e.owns(res.Network.Labels) {
 		return fmt.Errorf("network %s: %w", networkName, ErrNotManaged)
 	}
-	opts := client.NetworkConnectOptions{Container: containerID}
-	if len(aliases) > 0 {
-		opts.EndpointConfig = &network.EndpointSettings{Aliases: aliases}
-	}
+	// A negative gateway priority keeps the container's default route (and with it the
+	// path of its published ports) on the network it was started with: Docker otherwise
+	// picks the gateway by network name, and the Envoryx container joining a project
+	// network sorted before its own would cut its own connections for a moment.
+	opts := client.NetworkConnectOptions{Container: containerID, EndpointConfig: &network.EndpointSettings{Aliases: aliases, GwPriority: -1}}
 	_, err = e.cli.NetworkConnect(ctx, res.Network.ID, opts)
 	if err != nil && strings.Contains(err.Error(), "already exists") {
 		return nil

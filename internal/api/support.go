@@ -94,6 +94,7 @@ var supportRefused = map[string]bool{
 	"POST /api/v1/instance/backups/{id}/restore":      true,
 	"POST /api/v1/settings/secret-key/reveal":         true,
 	"POST /api/v1/settings/secret-key/rotate":         true,
+	"POST /api/v1/settings/deploy-key/regenerate":     true,
 	"POST /api/v1/addons":                             true,
 	"PUT /api/v1/projects/{id}/services/{kind}/image": true,
 	"PUT /api/v1/settings/registries":                 true,

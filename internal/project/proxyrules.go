@@ -311,3 +311,15 @@ func proxyRules(p store.Project) *proxy.Rules {
 	}
 	return out
 }
+
+// accessRules are the parts of a project's rules that guard who gets in (the address
+// allowlist and the login), for the routes of its addon web UIs: an addon such as
+// phpMyAdmin is signed in to the project's database, so it must not be more open than
+// the project. Redirects, headers and CORS belong to the application and stay off.
+func accessRules(p store.Project) *proxy.Rules {
+	r := proxyRules(p)
+	if r == nil || (len(r.Allow) == 0 && r.BasicAuth == nil) {
+		return nil
+	}
+	return &proxy.Rules{Allow: r.Allow, BasicAuth: r.BasicAuth}
+}

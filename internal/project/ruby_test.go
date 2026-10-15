@@ -236,7 +236,8 @@ func TestRubyTestScript(t *testing.T) {
 	for in, want := range map[string]string{
 		"postgresql://u:p@database:5432/shop": "postgresql://u:p@database:5432/shop_test",
 		"":                                    "",
-		"mongodb://u:p@database:27017/shop?authSource=a": "mongodb://u:p@database:27017/shop?authSource=a",
+		"mysql2://u:p@database:3306/shop?pool=10&encoding=utf8mb4": "mysql2://u:p@database:3306/shop_test?pool=10&encoding=utf8mb4",
+		"mongodb://u:p@database:27017/shop?authSource=a":           "mongodb://u:p@database:27017/shop?authSource=a",
 	} {
 		cmd := exec.Command("sh", "-c", rubyTestScript, "envoryx-test", "sh", "-c", `printf %s "$DATABASE_URL"`)
 		cmd.Env = []string{"PATH=/usr/bin:/bin", "DATABASE_URL=" + in}

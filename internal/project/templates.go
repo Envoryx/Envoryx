@@ -1328,6 +1328,7 @@ func (m *Manager) applyTemplate(ctx context.Context, proj store.Project, tpl Tem
 		return fmt.Errorf("%w: %v", ErrNotConfigured, err)
 	}
 	paths.SharedPackageCache = m.SharedPackageCache(ctx)
+	paths.CATrust = m.caTrust
 	planner := NewPlanner(paths, m.catalog)
 	dir := planner.ProjectDir(proj)
 	entries, err := os.ReadDir(dir)
