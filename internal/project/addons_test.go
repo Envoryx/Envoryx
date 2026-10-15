@@ -98,6 +98,14 @@ func TestAddonLifecycle(t *testing.T) {
 	if _, ok := table.Routes[AddonHostname("gadget", "widget", DefaultBaseDomain)]; !ok {
 		t.Fatalf("route missing: %v", table.Routes)
 	}
+	// It is guarded like the project: allowlist and login, not the redirects.
+	if _, err := e.m.SetProxyRules(ctx, id, ProxyRulesRequest{AllowIPs: []string{"10.1.2.3"}, BasicAuth: &BasicAuthRequest{User: "client", Password: "s3cret"}}); err != nil {
+		t.Fatal(err)
+	}
+	table, _ = e.m.RouteTable(ctx, ProxyOptions{})
+	if r := table.Routes[AddonHostname("gadget", "widget", DefaultBaseDomain)].Rules; r == nil || len(r.Allow) != 1 || r.BasicAuth == nil || len(r.Redirects) != 0 {
+		t.Fatalf("addon route rules: %+v", r)
+	}
 	infos, err := e.m.ProjectAddons(ctx, id)
 	if err != nil || len(infos) != 1 {
 		t.Fatalf("infos: %+v %v", infos, err)

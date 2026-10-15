@@ -213,7 +213,7 @@ POST   /api/v1/projects/{id}/git/clone                               scope=opera
 POST   /api/v1/projects/{id}/git/pull                                scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
 POST   /api/v1/projects/{id}/git/checkout                            scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
 GET    /api/v1/settings/deploy-key                                   scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none twofactor=no
-POST   /api/v1/settings/deploy-key/regenerate                        scope=admin   tokens=yes   support=yes  confined=no      suspended=no  plan=none twofactor=no
+POST   /api/v1/settings/deploy-key/regenerate                        scope=admin   tokens=yes   support=no   confined=no      suspended=no  plan=none twofactor=no
 GET    /api/v1/projects/{id}/actions                                 scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
 GET    /api/v1/projects/{id}/actions/{action}/ws                     scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
 GET    /api/v1/projects/{id}/share                                   scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no

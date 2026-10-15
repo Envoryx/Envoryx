@@ -538,10 +538,12 @@ var rubyTestEnv = []string{"RAILS_ENV=test", "RACK_ENV=test", "APP_ENV=test", "H
 // rubyTestScript points DATABASE_URL at <database>_test on the same server before the
 // runner starts. Active Record merges DATABASE_URL into whatever environment runs, so the
 // test run would otherwise load its fixtures into the development database and empty its
-// tables. A URL with a query (MongoDB's authSource) is left alone. ensureTestDatabase
-// creates the database; loading the schema is Rails' job (maintain_test_schema).
+// tables. A query (?pool=10) stays behind the database name; MongoDB is left alone.
+// ensureTestDatabase creates the database; loading the schema is Rails' job
+// (maintain_test_schema).
 const rubyTestScript = `case "$DATABASE_URL" in
-  *'?'*|'') ;;
+  ''|mongodb*) ;;
+  *'?'*) export DATABASE_URL="${DATABASE_URL%%\?*}_test?${DATABASE_URL#*\?}" ;;
   *) export DATABASE_URL="${DATABASE_URL}_test" ;;
 esac
 exec "$@"`

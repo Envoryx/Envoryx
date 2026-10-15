@@ -276,6 +276,7 @@ func (m *Manager) RouteTable(ctx context.Context, opts ProxyOptions) (proxy.Tabl
 			t.Routes[AddonHostname(p.Slug, cfg.Definition.Name, base)] = proxy.Target{
 				ProjectID: p.ID, ProjectName: p.Name + " (" + cfg.Definition.Title + ")", Slug: p.Slug,
 				Running: running[string(svc.Kind)][p.ID], Dial: m.dialForApp(paths.SelfContainerID, p, svc.Kind, cfg.HostPort, cfg.Definition.Port),
+				Rules: accessRules(p),
 			}
 		}
 	}

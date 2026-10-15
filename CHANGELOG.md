@@ -10,6 +10,18 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Security
+
+- The *typo3 setup* action removes `public/FIRST_INSTALL`. The template creates it for the web installer, and left behind after the setup it let anyone who reached the project create a backend admin.
+- The web UIs of addons (such as phpMyAdmin) on the proxy get the project's address allowlist and password. Before, they stayed open while the project answered 403.
+- The hoster's support can no longer restore a backup into a new project when the project uses an addon whose definition differs from the one installed, and can no longer regenerate the instance's Git deploy key.
+
+### Fixed
+
+- The WordPress and Symfony templates failed since 0.30.0 ("Error setting certificate file"): the template steps now get the local CA like every other container.
+- An Envoryx container on its own Docker network (the Compose default) lost its connections for a moment whenever a project was created or deleted: joining a project network no longer moves its default gateway.
+- Ruby test runs used the development database when `DATABASE_URL` had a query string such as `?pool=10`; `_test` now goes before the query.
+
 ## [0.39.1] - 2026-10-14
 
 ### Security

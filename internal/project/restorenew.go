@@ -250,6 +250,17 @@ func (m *Manager) restoreIntoNew(ctx context.Context, projectID, backupID string
 				return View{}, fmt.Errorf("%w: the backup's project runs %s on a custom image (%s)", ErrCustomImageRefused, s.Kind, what)
 			}
 		}
+		// An addon carries its definition (image, command, volumes) in the project; one
+		// that differs from the definition installed here would bring code the support
+		// may not install (POST /addons is refused for it).
+		for _, s := range src.Services {
+			if !s.Kind.IsAddon() {
+				continue
+			}
+			if !m.addonMatchesInstalled(s) {
+				return View{}, fmt.Errorf("%w: the backup's project uses the addon %s, which is not installed here in the same version", ErrCustomImageRefused, s.Kind.AddonName())
+			}
+		}
 	}
 	proj, err := duplicateProject(src, DuplicateRequest{Name: req.Name, Path: req.Path, Workers: true, Git: true, Start: req.Start})
 	if err != nil {
@@ -427,4 +438,20 @@ func (m *Manager) restoreIntoNew(ctx context.Context, projectID, backupID string
 	}
 	m.audit.Log(ctx, audit.ActionBackupRestoredNew, "project", proj.ID, details)
 	return m.Get(ctx, proj.ID)
+}
+
+// addonMatchesInstalled reports whether an addon service's definition is the one
+// installed on this instance.
+func (m *Manager) addonMatchesInstalled(s store.ProjectService) bool {
+	cfg, err := addonConfig(&s)
+	if err != nil || m.addons == nil {
+		return false
+	}
+	installed, _, err := m.addons.Get(cfg.Definition.Name)
+	if err != nil {
+		return false
+	}
+	a, err1 := json.Marshal(cfg.Definition)
+	b, err2 := json.Marshal(installed)
+	return err1 == nil && err2 == nil && string(a) == string(b)
 }
