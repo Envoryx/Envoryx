@@ -8,6 +8,19 @@ import (
 	"testing"
 )
 
+// A folder without its trailing slash must redirect to https behind the HTTPS proxy, with
+// and without PHP: nginx answers with a relative Location, Apache's own rule says https.
+func TestWebServerFolderRedirectKeepsHTTPS(t *testing.T) {
+	for _, php := range []bool{false, true} {
+		if c := NginxConf("public", php); !strings.Contains(c, "absolute_redirect off;") {
+			t.Errorf("nginx php=%v: no absolute_redirect off", php)
+		}
+		if c := HTTPDConf("public", php); !strings.Contains(c, "RewriteCond %{HTTP:X-Forwarded-Proto} =https") || !strings.Contains(c, "RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI}/ [R=301,L]") {
+			t.Errorf("apache php=%v: no https folder redirect", php)
+		}
+	}
+}
+
 // The PHP renderings are pinned byte for byte (testdata/webserver/*_php.golden was captured
 // before the static branch was added): a change there recreates every PHP project's web
 // config, so it has to be deliberate.

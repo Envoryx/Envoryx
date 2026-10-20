@@ -194,6 +194,11 @@ func nginxConf(docroot string, o WebOptions) string {
 	root %s;
 	index %s;
 
+	# A folder without its trailing slash redirects with a relative Location, so the
+	# browser keeps the scheme and host it used: an absolute one would say http:// behind
+	# the HTTPS proxy, and the container's port.
+	absolute_redirect off;
+
 	client_max_body_size 0;
 	gzip on;
 	gzip_types text/plain text/css text/xml application/json application/javascript application/xml image/svg+xml;
@@ -335,5 +340,15 @@ DocumentRoot "%s"
 %s
 
 DirectoryIndex %s
+
+# mod_dir answers a folder without its trailing slash with an absolute redirect, and
+# Apache knows no X-Forwarded-Proto: behind the HTTPS proxy it would send the browser to
+# http://. That redirect is made here first, with https. Server-context rules run before
+# any .htaccess, whose own RewriteEngine does not switch them off.
+RewriteEngine On
+RewriteCond %%{HTTP:X-Forwarded-Proto} =https
+RewriteCond %%{REQUEST_URI} !/$
+RewriteCond %%{DOCUMENT_ROOT}%%{REQUEST_URI} -d
+RewriteRule ^ https://%%{HTTP_HOST}%%{REQUEST_URI}/ [R=301,L]
 %s`, root, root, access, index, fastcgi)
 }
