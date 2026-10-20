@@ -21,7 +21,8 @@ describe("TwoFactorCard", () => {
         if (JSON.parse(init.body as string).password !== "alice-secret-123") return { status: 403, body: { error: { code: "wrong_password", message: "the current password is wrong" } } };
         return { body: { secret: "JBSWY3DPEHPK3PXP", uri: "otpauth://totp/Envoryx:alice?secret=JBSWY3DPEHPK3PXP", qr: "<svg></svg>" } };
       },
-      "POST /auth/2fa/totp": () => {
+      "POST /auth/2fa/totp": (_url, init) => {
+        if (JSON.parse(init.body as string).code !== "123456") return { status: 422, body: { error: { code: "invalid_code", message: "the code is wrong or was used already" } } };
         totp = true;
         return { body: { recoveryCodes: ["aaaaa-bbbbb", "ccccc-ddddd"] } };
       },
@@ -38,6 +39,12 @@ describe("TwoFactorCard", () => {
     await user.click(within(dialog).getByRole("button", { name: "Continue" }));
 
     expect(await screen.findByText("JBSWY3DPEHPK3PXP")).toBeInTheDocument();
+    // A wrong code is reported in place; the setup stays open.
+    await user.type(screen.getByLabelText("Code"), "000000");
+    await user.click(screen.getByRole("button", { name: "Verify" }));
+    expect(await screen.findByText("The code is wrong or was used already.")).toBeInTheDocument();
+    expect(screen.getByText("JBSWY3DPEHPK3PXP")).toBeInTheDocument();
+    await user.clear(screen.getByLabelText("Code"));
     await user.type(screen.getByLabelText("Code"), "123456");
     await user.click(screen.getByRole("button", { name: "Verify" }));
     expect(await screen.findByText("aaaaa-bbbbb")).toBeInTheDocument();
@@ -45,7 +52,7 @@ describe("TwoFactorCard", () => {
     expect(onChanged).not.toHaveBeenCalled();
     await user.click(screen.getByRole("button", { name: "I saved them" }));
     expect(onChanged).toHaveBeenCalledTimes(1);
-    expect(api.calls.find((c) => c.url.endsWith("/auth/2fa/totp") && c.method === "POST")?.body).toEqual({ code: "123456" });
+    expect(api.calls.filter((c) => c.url.endsWith("/auth/2fa/totp") && c.method === "POST").map((c) => c.body)).toEqual([{ code: "000000" }, { code: "123456" }]);
   });
 
   it("points a single sign-on account to its identity provider", async () => {

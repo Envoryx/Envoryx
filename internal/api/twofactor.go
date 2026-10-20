@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -149,6 +150,19 @@ func ownFactors(w http.ResponseWriter, r *http.Request) (auth.Principal, bool) {
 	return p, true
 }
 
+// setupError words a rejected code or passkey while setting up a factor. The caller is
+// signed in, so it is a 422 and not the 401 the sign-in answers with: the web UI treats
+// any 401 as an ended session and would throw the user out of the setup.
+func setupError(err error) error {
+	switch {
+	case errors.Is(err, auth.ErrInvalidCode):
+		return newError(http.StatusUnprocessableEntity, "invalid_code", err.Error())
+	case errors.Is(err, auth.ErrPasskey):
+		return newError(http.StatusUnprocessableEntity, "passkey_rejected", err.Error())
+	}
+	return err
+}
+
 // twoFactorStatus answers what the caller has set up: GET /auth/2fa.
 func (a *API) twoFactorStatus(w http.ResponseWriter, r *http.Request) {
 	p, ok := ownFactors(w, r)
@@ -201,7 +215,7 @@ func (a *API) confirmTOTP(w http.ResponseWriter, r *http.Request) {
 	}
 	codes, err := a.d.Auth.ConfirmTOTP(r.Context(), p, req.Code)
 	if err != nil {
-		writeError(w, r, err)
+		writeError(w, r, setupError(err))
 		return
 	}
 	a.d.Audit.Log(r.Context(), audit.ActionTOTPEnabled, "user", p.UserID, nil)
@@ -270,7 +284,7 @@ func (a *API) addPasskey(w http.ResponseWriter, r *http.Request) {
 	}
 	key, codes, err := a.d.Auth.FinishPasskeyRegistration(r.Context(), p, req.ID, req.Name, req.Credential)
 	if err != nil {
-		writeError(w, r, err)
+		writeError(w, r, setupError(err))
 		return
 	}
 	a.d.Audit.Log(r.Context(), audit.ActionPasskeyAdded, "user", p.UserID, map[string]string{"passkey": key.Name, "host": key.RPID})
