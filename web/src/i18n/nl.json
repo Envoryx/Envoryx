@@ -3153,5 +3153,6 @@
   "on the host": "op de host",
   "The scheduled backup failed": "De geplande back-up is mislukt",
   "Failed runs in a row: {{number}}": "Mislukte runs op rij: {{number}}",
-  "Last automatic backup attempt {{date}} failed.": "De laatste automatische back-uppoging {{date}} is mislukt."
+  "Last automatic backup attempt {{date}} failed.": "De laatste automatische back-uppoging {{date}} is mislukt.",
+  "User created by single sign-on": "Gebruiker aangemaakt via single sign-on"
 }

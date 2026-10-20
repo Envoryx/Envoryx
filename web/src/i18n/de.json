@@ -3153,5 +3153,6 @@
   "on the host": "auf dem Host",
   "The scheduled backup failed": "Das geplante Backup ist fehlgeschlagen",
   "Failed runs in a row: {{number}}": "Fehlgeschlagene Läufe in Folge: {{number}}",
-  "Last automatic backup attempt {{date}} failed.": "Der letzte automatische Backup-Versuch {{date}} ist fehlgeschlagen."
+  "Last automatic backup attempt {{date}} failed.": "Der letzte automatische Backup-Versuch {{date}} ist fehlgeschlagen.",
+  "User created by single sign-on": "Benutzer per Single Sign-on angelegt"
 }

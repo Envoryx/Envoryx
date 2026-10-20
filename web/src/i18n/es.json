@@ -3153,5 +3153,6 @@
   "on the host": "en el host",
   "The scheduled backup failed": "La copia programada ha fallado",
   "Failed runs in a row: {{number}}": "Ejecuciones fallidas seguidas: {{number}}",
-  "Last automatic backup attempt {{date}} failed.": "El último intento de copia automática {{date}} ha fallado."
+  "Last automatic backup attempt {{date}} failed.": "El último intento de copia automática {{date}} ha fallado.",
+  "User created by single sign-on": "Usuario creado por inicio de sesión único"
 }

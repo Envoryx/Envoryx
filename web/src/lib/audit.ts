@@ -75,6 +75,7 @@ export const auditActionLabels: Record<string, string> = {
   "token.revoked": "API token revoked",
   "user.invited": "User invited",
   "user.joined": "Invitation accepted",
+  "user.sso_created": "User created by single sign-on",
   "user.updated": "User updated",
   "user.deleted": "User deleted",
   "project.custom_image_changed": "Custom image changed",

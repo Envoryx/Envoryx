@@ -3203,5 +3203,6 @@
   "on the host": "na hoście",
   "The scheduled backup failed": "Zaplanowana kopia nie powiodła się",
   "Failed runs in a row: {{number}}": "Nieudane uruchomienia z rzędu: {{number}}",
-  "Last automatic backup attempt {{date}} failed.": "Ostatnia próba automatycznej kopii {{date}} nie powiodła się."
+  "Last automatic backup attempt {{date}} failed.": "Ostatnia próba automatycznej kopii {{date}} nie powiodła się.",
+  "User created by single sign-on": "Użytkownik utworzony przez logowanie jednokrotne"
 }

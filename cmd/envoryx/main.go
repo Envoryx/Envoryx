@@ -604,10 +604,12 @@ func serve() error {
 			}
 		}
 	})
+	sso := oidc.New(st, sessions, log)
+	sso.Audit = auditLog
 	a := api.New(api.Deps{
 		Config: cfg, Version: version, Store: st, Auth: sessions, Audit: auditLog, Engine: engine,
 		Projects: manager, Catalog: catalog, Stats: collector, HostPath: resolver, Certs: certs, ACME: acmeMgr, Notify: notifier, Proxy: proxyInfo,
-		MCP: mcpSrv.Handler(), SSH: sshInfo, Log: log, StartedAt: time.Now(), Updates: updates, OIDC: oidc.New(st, sessions, log),
+		MCP: mcpSrv.Handler(), SSH: sshInfo, Log: log, StartedAt: time.Now(), Updates: updates, OIDC: sso,
 		Instance: backups, DB: sqlDB, Restart: requestRestart, Warnings: warnings, Offsite: syncer, Fleet: fleetAgent,
 	})
 	// What the plan fixes applies now and whenever the plan changes.
