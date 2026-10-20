@@ -61,7 +61,18 @@ type Collector struct {
 	// projects caches Project per project id, so a project page samples only its own
 	// containers instead of every managed container on the host.
 	projects map[string]*cacheEntry[ProjectUsage]
+
+	// lastGood keeps each container's latest successful reading, so one that times out
+	// (a busy daemon) shows its recent figures instead of nothing.
+	lastMu   sync.Mutex
+	lastGood map[string]docker.Stats
 }
+
+// refreshTimeout bounds one refresh: the listing plus the samples, 8 at a time.
+const refreshTimeout = 30 * time.Second
+
+// lastGoodMaxAge is how old a reading may be to stand in for a failed one.
+const lastGoodMaxAge = 2 * time.Minute
 
 // cacheEntry is one cached sample and the refresh in flight, if any.
 type cacheEntry[T any] struct {
@@ -128,7 +139,13 @@ func cached[T any](ctx context.Context, c *Collector, e *cacheEntry[T], fetch fu
 	e.inFly = true
 	c.mu.Unlock()
 
-	v, err := fetch(ctx)
+	// The sample is shared by every caller within the TTL, so it must not end with the
+	// request that happened to start it: a page left before the reading came back
+	// cancelled every container's sample and cached zeros for all (each sample has its
+	// own timeout).
+	fctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), refreshTimeout)
+	v, err := fetch(fctx)
+	cancel()
 
 	c.mu.Lock()
 	e.val, e.err, e.sampledAt = v, err, time.Now()
@@ -207,11 +224,49 @@ func (c *Collector) sample(ctx context.Context, containers []docker.Container) [
 			if err != nil {
 				c.log.Debug("container stats failed", "container", ct.Name, "err", err)
 			}
-			out[i] = sample{stats: st, err: err}
+			out[i] = c.remember(ct.ID, sample{stats: st, err: err})
 		}(i, ct)
 	}
 	wg.Wait()
+	c.forget(containers)
 	return out
+}
+
+// remember keeps a successful reading and puts a recent one in for a failed reading.
+func (c *Collector) remember(id string, s sample) sample {
+	c.lastMu.Lock()
+	defer c.lastMu.Unlock()
+	if s.err == nil {
+		if c.lastGood == nil {
+			c.lastGood = map[string]docker.Stats{}
+		}
+		if s.stats.SampledAt.IsZero() {
+			s.stats.SampledAt = time.Now().UTC()
+		}
+		c.lastGood[id] = s.stats
+		return s
+	}
+	if prev, ok := c.lastGood[id]; ok && time.Since(prev.SampledAt) < lastGoodMaxAge {
+		return sample{stats: prev}
+	}
+	return s
+}
+
+// forget drops the readings of containers that are no longer running. A listing of one
+// project's containers only forgets among those.
+func (c *Collector) forget(listed []docker.Container) {
+	c.lastMu.Lock()
+	defer c.lastMu.Unlock()
+	for _, ct := range listed {
+		if ct.State != "running" {
+			delete(c.lastGood, ct.ID)
+		}
+	}
+	for id, st := range c.lastGood {
+		if time.Since(st.SampledAt) >= lastGoodMaxAge {
+			delete(c.lastGood, id)
+		}
+	}
 }
 
 // add counts one container and its sample into u.

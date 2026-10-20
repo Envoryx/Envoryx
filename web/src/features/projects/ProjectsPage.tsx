@@ -45,8 +45,10 @@ function shortUrl(url: string): string {
   return url.replace(/^https?:\/\//, "");
 }
 
-export function ProjectRow({ project, usage }: { project: Project; usage?: { cpuPercent: number; memoryBytes: number } | undefined }) {
+export function ProjectRow({ project, usage: sampled }: { project: Project; usage?: { cpuPercent: number; memoryBytes: number; running?: number } | undefined }) {
   const { t } = useTranslation();
+  // A project without running containers uses nothing: "-" rather than CPU 0 % and RAM 0 B.
+  const usage = sampled && (sampled.running ?? 1) > 0 ? sampled : undefined;
   const meta = stateMeta[project.status.state];
   const links = useProjectLinks();
   const { url } = links(project);

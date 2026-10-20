@@ -100,6 +100,52 @@ func TestSummaryCoversAllProjects(t *testing.T) {
 	}
 }
 
+// The cached sample is shared, so the request that starts it must not take it down when
+// it goes away: that cached zeros for everyone (CPU 0, RAM 0 B in the UI).
+func TestCancelledCallerDoesNotCacheZeros(t *testing.T) {
+	f := dockertest.New()
+	addContainer(f, "p1", "php", "running")
+	f.StatsByName = map[string]docker.Stats{"p1-php": {CPUPercent: 10, MemoryBytes: 100}}
+	c := newCollector(f, time.Minute)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, _ = c.Project(ctx, "p1")
+	p, err := c.Project(context.Background(), "p1")
+	if err != nil || p.MemoryBytes != 100 || p.CPUPercent != 10 {
+		t.Fatalf("usage after a cancelled first caller: %+v %v", p, err)
+	}
+	if s, err := c.Summary(ctx); err != nil || s.MemoryBytes != 100 {
+		t.Fatalf("summary for a cancelled caller: %+v %v", s, err)
+	}
+}
+
+// A container whose reading fails keeps its recent figures for a while.
+func TestFailedReadingFallsBackToTheLastGoodOne(t *testing.T) {
+	f := dockertest.New()
+	addContainer(f, "p1", "php", "running")
+	f.StatsByName = map[string]docker.Stats{"p1-php": {CPUPercent: 10, MemoryBytes: 100}}
+	c := newCollector(f, 10*time.Millisecond)
+	if p, _ := c.Project(context.Background(), "p1"); p.MemoryBytes != 100 {
+		t.Fatalf("first reading: %+v", p)
+	}
+	f.StatsErrByName = map[string]error{"p1-php": context.DeadlineExceeded}
+	time.Sleep(20 * time.Millisecond)
+	if p, _ := c.Project(context.Background(), "p1"); p.MemoryBytes != 100 || len(p.PerContainer) != 1 {
+		t.Fatalf("a failed reading must show the last good one: %+v", p)
+	}
+	// A stopped container's figures are gone.
+	f.SetState("p1-php", "exited")
+	time.Sleep(20 * time.Millisecond)
+	if p, _ := c.Project(context.Background(), "p1"); p.MemoryBytes != 0 || p.Running != 0 {
+		t.Fatalf("stopped container: %+v", p)
+	}
+	f.SetState("p1-php", "running")
+	time.Sleep(20 * time.Millisecond)
+	if p, _ := c.Project(context.Background(), "p1"); p.MemoryBytes != 0 || len(p.PerContainer) != 0 {
+		t.Fatalf("no stale reading after a restart: %+v", p)
+	}
+}
+
 func TestListedContainerStatsRefusesUnmanaged(t *testing.T) {
 	f := dockertest.New()
 	id := f.AddForeignContainer("other", "img", "running")
