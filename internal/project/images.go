@@ -160,9 +160,10 @@ func imageRepo(ref string) string {
 // a project's Dockerfile and are not used by any container on the host (Envoryx's or
 // anyone else's). Images from other sources are never reported, so nothing foreign can be
 // removed through Envoryx. Neither are the rollback targets of another Envoryx instance on
-// the same Docker daemon: its rollback history is in its own database, so a tag for a
-// project that is not one of ours is kept (project slugs are unique on a daemon, as the
-// container names carry them).
+// the same Docker daemon: its rollback history is in its own database, so a rollback tag
+// is kept while another instance's containers carry the project slug it names (slugs are
+// unique on a daemon, as the container names carry them). A tag of a project nobody runs
+// any more is a leftover and can go.
 func (m *Manager) UnusedImages(ctx context.Context) ([]UnusedImage, error) {
 	images, err := m.engine.ListImages(ctx)
 	if err != nil {
@@ -173,9 +174,13 @@ func (m *Manager) UnusedImages(ctx context.Context) ([]UnusedImage, error) {
 		return nil, err
 	}
 	inUse := map[string]bool{}
+	foreignSlugs := map[string]bool{}
 	for _, c := range containers {
 		inUse[c.ImageID] = true
 		inUse[c.Image] = true
+		if docker.IsManaged(c.Labels) && !c.Managed {
+			foreignSlugs[c.Labels[docker.LabelProjectName]] = true
+		}
 	}
 	// Images a project can still roll back to (or return to from a rollback) are kept.
 	history, err := m.store.Images.List(ctx)
@@ -190,14 +195,6 @@ func (m *Manager) UnusedImages(ctx context.Context) ([]UnusedImage, error) {
 			inUse[h.CurrentID] = true
 		}
 	}
-	projects, err := m.store.Projects.List(ctx)
-	if err != nil {
-		return nil, err
-	}
-	ownSlugs := map[string]bool{}
-	for _, p := range projects {
-		ownSlugs[p.Slug] = true
-	}
 	repos := m.catalogueRepos()
 	var out []UnusedImage
 	for _, img := range images {
@@ -206,7 +203,7 @@ func (m *Manager) UnusedImages(ctx context.Context) ([]UnusedImage, error) {
 		}
 		ours, used := false, false
 		for _, t := range img.Tags {
-			if isRollbackRef(t) && !ownSlugs[rollbackSlug(t)] {
+			if isRollbackRef(t) && foreignSlugs[rollbackSlug(t)] {
 				used = true // another instance's rollback target
 			}
 			if repos[imageRepo(t)] || isRollbackRef(t) || isBuildRef(t) {
