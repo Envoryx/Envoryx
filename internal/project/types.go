@@ -488,6 +488,9 @@ type ServiceStatus struct {
 	State         string            `json:"state"`
 	Status        string            `json:"status,omitempty"`
 	Health        string            `json:"health,omitempty"`
+	// Up says the container's process runs right now, also between the restarts of a
+	// crash loop, where State says "restarting".
+	Up bool `json:"-"`
 	// WorkerID is set for worker containers (Kind "worker", Variant = worker name).
 	WorkerID string `json:"workerId,omitempty"`
 	Ports    []docker.PortMapping

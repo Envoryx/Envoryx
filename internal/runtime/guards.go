@@ -31,6 +31,79 @@ func Guarded(argv []string, name string, guards ...string) []string {
 	return append([]string{"sh", "-c", script, name}, argv...)
 }
 
+// WaitingFile is where a guard notes, while it waits, a problem only the user can solve:
+// one of the Wait* keys. The server's health check fails while the file has content, so
+// the status shows the service as waiting instead of green (see ServerHealthTest), and
+// Supervised removes the file before the server starts. It lives in the container's own
+// /tmp, which a recreated container starts without.
+const WaitingFile = "/tmp/envoryx-waiting"
+
+// The keys a guard writes to WaitingFile. The status turns them into a message; the
+// Python one is followed by ":" and the module the server waits for.
+const (
+	WaitBundle       = "bundle-failed"
+	WaitNodeDeps     = "node-deps"
+	WaitVenv         = "python-venv"
+	WaitPythonDeps   = "python-deps"
+	WaitServerExited = "server-exited"
+)
+
+// The shell commands that record a key in WaitingFile, constants for the constant guards.
+const (
+	noteBundle       = "echo " + WaitBundle + " >" + WaitingFile
+	noteNodeDeps     = "echo " + WaitNodeDeps + " >" + WaitingFile
+	noteVenv         = "echo " + WaitVenv + " >" + WaitingFile
+	noteServerExited = "echo " + WaitServerExited + " >" + WaitingFile
+)
+
+// ActionEnv marks the processes of an action: RunAction sets it, and Supervised looks for
+// it in /proc to tell whether one is still running in the container.
+const ActionEnv = "ENVORYX_ACTION"
+
+// actionRunning succeeds while a process of an action runs in the container. Actions run
+// as the same user as the server, so their environment is readable; the shell itself and
+// grep don't have the variable.
+const actionRunning = `grep -qsz '^` + ActionEnv + `=' /proc/[0-9]*/environ`
+
+// supervise runs "$@" as a child of the shell instead of replacing it, and passes a stop
+// on. When the server exits, the shell stays for serverRestartDelay seconds and as long
+// as an action is running, then exits with the server's status, so Docker restarts the
+// container as before. The container's main process ending would take a running action
+// with it: pip install after an import the server could not load yet, typically - the
+// server crashes on the import, and the install that fixes it is killed. Holding on also
+// keeps a crash-looping container up: having run 10 seconds, Docker restarts it right
+// away instead of with an ever longer delay, so the action that fixes the crash can be
+// started in it at all. While an action holds it, the waiting note says the server is
+// down.
+const supervise = `rm -f ` + WaitingFile + `; "$@" & envoryx_pid=$!; ` +
+	`trap 'envoryx_stop=1; kill -TERM $envoryx_pid 2>/dev/null' TERM INT; ` +
+	`while :; do wait $envoryx_pid; envoryx_rc=$?; kill -0 $envoryx_pid 2>/dev/null || break; done; ` +
+	`if [ -z "$envoryx_stop" ]; then echo "envoryx: the server exited (status $envoryx_rc) - it starts again in ` + serverRestartDelay + ` s, or once a running action has finished"; envoryx_i=0; ` +
+	`while [ -z "$envoryx_stop" ]; do if ` + actionRunning + `; then ` + noteServerExited + `; elif [ $envoryx_i -ge ` + serverRestartDelay + ` ]; then break; fi; sleep 1; envoryx_i=$((envoryx_i+1)); done; fi; ` +
+	`exit $envoryx_rc`
+
+// serverRestartDelay is how many seconds a server's container stays up after the server
+// exited: 10, the run time after which Docker resets its restart delay.
+const serverRestartDelay = "10"
+
+// Supervised is Guarded for the containers whose main process is the project's server:
+// the guards run in order, then the shell starts argv and stays as its supervisor (see
+// supervise). A note a guard left from before a restart is cleared first.
+func Supervised(argv []string, name string, guards ...string) []string {
+	kept := []string{"rm -f " + WaitingFile}
+	for _, g := range guards {
+		if strings.TrimSpace(g) != "" {
+			kept = append(kept, g)
+		}
+	}
+	script := strings.Join(kept, "; ") + "; " + supervise
+	return append([]string{"sh", "-c", script, name}, argv...)
+}
+
+// ServerHealthTest is the health check of a server container: it fails, printing the
+// key, while a guard notes a problem in WaitingFile.
+var ServerHealthTest = []string{"sh", "-c", `[ ! -s ` + WaitingFile + ` ] || { cat ` + WaitingFile + `; exit 1; }`}
+
 // WaitForTCP is a guard that blocks until host:port accepts a connection. socat ships in
 // every Envoryx runtime image. Putting host into the shell line is safe: it's either one
 // of our fixed network aliases or an external address that passed

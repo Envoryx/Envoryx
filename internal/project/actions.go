@@ -259,6 +259,12 @@ func (m *Manager) ListActions(ctx context.Context, id string) ([]ActionInfo, err
 		present[s.Kind] = true
 		running[s.Kind] = s.Running
 		restarting[s.Kind] = s.State == "restarting"
+		if s.State == "restarting" && s.Kind != store.ServicePHP && s.Up {
+			// A crash-looping server of a runtime container that is up right now: its
+			// supervisor keeps the container up while an action runs (see
+			// runtime.Supervised), so the install that fixes the crash can run.
+			running[s.Kind] = true
+		}
 	}
 	// A fresh pnpm or Yarn project has no lockfile yet: its install and build actions only
 	// need package.json when the project's package manager is that one.
@@ -378,7 +384,9 @@ func (m *Manager) RunAction(ctx context.Context, id, actionID string, cols, rows
 		Rows:       rows,
 		WorkingDir: appMountTarget,
 		User:       fmt.Sprintf("%d:%d", paths.PUID, paths.PGID),
-		Env:        append(append([]string{"TERM=xterm-256color", "COLORTERM=truecolor", "LANG=C.UTF-8"}, nonInteractiveEnv...), toolEnv...),
+		// The marker keeps a server that exits meanwhile from taking the action down with
+		// its container (see runtime.Supervised).
+		Env: append(append([]string{"TERM=xterm-256color", "COLORTERM=truecolor", "LANG=C.UTF-8", runtime.ActionEnv + "=" + action.ID}, nonInteractiveEnv...), toolEnv...),
 	}
 	m.ensurePasswdEntry(ctx, c.ID, c.Name, opts.User)
 	term, err = m.engine.OpenTerminal(ctx, c.ID, opts)

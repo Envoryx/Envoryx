@@ -203,7 +203,7 @@ func (c DotnetConfig) entryGuard() string {
 // server is the project's application. Further guards (the database wait the planner
 // builds) run after it.
 func (c DotnetConfig) WrappedCommand(guards ...string) []string {
-	return Guarded(c.Command(), "envoryx-serve", append([]string{c.entryGuard()}, guards...)...)
+	return Supervised(c.Command(), "envoryx-serve", append([]string{c.entryGuard()}, guards...)...)
 }
 
 // Env returns the variables that tell the application where to listen and in which

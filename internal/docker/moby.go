@@ -168,9 +168,17 @@ func (e *MobyEngine) ListContainers(ctx context.Context, managedOnly bool, proje
 		// The listing has no restart count. A process that exits after a few seconds
 		// (a worker without its tables) is running most of the time Docker is asked, so
 		// only the count tells a crash loop from a fresh start.
-		if ct.Managed && ct.State == "running" && upUnderAMinute(ct.Status) {
+		if ct.Managed && ct.State == "running" && upWithin(ct.Status, CrashLoopWindow) {
 			if raw, err := e.inspectRaw(ctx, ct.ID); err == nil {
 				ct.Restarts = raw.RestartCount
+			}
+		}
+		// Why it is unhealthy: the servers' check prints what their start waits for.
+		if ct.Managed && ct.Health == "unhealthy" {
+			if raw, err := e.inspectRaw(ctx, ct.ID); err == nil && raw.State != nil && raw.State.Health != nil {
+				if n := len(raw.State.Health.Log); n > 0 && raw.State.Health.Log[n-1] != nil {
+					ct.HealthOutput = strings.TrimSpace(raw.State.Health.Log[n-1].Output)
+				}
 			}
 		}
 		out = append(out, ct)
@@ -180,9 +188,21 @@ func (e *MobyEngine) ListContainers(ctx context.Context, managedOnly bool, proje
 
 // upSeconds matches the listing's status of a container that has been up for seconds:
 // "Up Less than a second", "Up 1 second", "Up 42 seconds (healthy)".
-var upSeconds = regexp.MustCompile(`^Up (Less than a second|\d+ seconds?)\b`)
+var upSeconds = regexp.MustCompile(`^Up (Less than a second|(\d+) seconds?)\b`)
 
-func upUnderAMinute(status string) bool { return upSeconds.MatchString(status) }
+// upWithin reports whether the listing's status says the container came up less than d
+// ago (d under a minute: longer uptimes are listed in minutes).
+func upWithin(status string, d time.Duration) bool {
+	m := upSeconds.FindStringSubmatch(status)
+	if m == nil {
+		return false
+	}
+	if m[2] == "" {
+		return true // less than a second
+	}
+	n, err := strconv.Atoi(m[2])
+	return err == nil && time.Duration(n)*time.Second < d
+}
 
 // summaryToContainer converts a listing entry; the caller sets Managed.
 func summaryToContainer(c container.Summary) Container {

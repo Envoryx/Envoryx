@@ -788,6 +788,7 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 				// dependencies instead of crash-looping: a crash-looping container refuses
 				// the npm install action and the terminal that would fix it.
 				spec.Cmd = ncfg.WrappedCommand(dbGuard)
+				spec.Healthcheck = serverHealth()
 				// One leading-dot entry: Vite suffix-matches it, so <slug>.<base>,
 				// <slug>-dev.<base> and every extra domain under the base domain pass
 				// without the planner knowing the domain table. Vite < 8.3 reads the
@@ -835,7 +836,8 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 				// host port; without PHP the proxy routes the project URL to it.
 				// The venv guard holds in both roles: after a version switch the server
 				// would crash-loop and lock out the pip install action that fixes it.
-				spec.Cmd = runtime.Guarded(pcfg.Command(), "envoryx-serve", runtime.VenvGuard, pcfg.DepsGuard(), dbGuard)
+				spec.Cmd = runtime.Supervised(pcfg.Command(), "envoryx-serve", runtime.VenvGuard, pcfg.DepsGuard(), dbGuard)
+				spec.Healthcheck = serverHealth()
 				if _, ok := pythonServesApp(proj); ok {
 					// A blank project has nothing to run yet: wait for the entry file
 					// instead of crash-looping.
@@ -888,6 +890,7 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 				// A blank project has nothing to build yet: wait for go.mod instead of
 				// crash-looping, next to PHP or Python too.
 				spec.Cmd = gcfg.WrappedCommand(dbGuard)
+				spec.Healthcheck = serverHealth()
 				spec.Env = append(spec.Env, gcfg.Env()...)
 				if gcfg.HostPort > 0 {
 					spec.Ports = []docker.PortSpec{{HostIP: p.paths.PublishInterface, HostPort: gcfg.HostPort, ContainerPort: gcfg.Port, Protocol: "tcp"}}
@@ -933,6 +936,7 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 				// to it. It waits for the Gemfile and installs the bundle first, so a fresh
 				// clone comes up without a manual bundle install.
 				spec.Cmd = rcfg.WrappedCommand(dbGuard)
+				spec.Healthcheck = serverHealth()
 				spec.Env = append(spec.Env, rcfg.Env("."+p.paths.BaseDomain)...)
 				if rcfg.HostPort > 0 {
 					spec.Ports = []docker.PortSpec{{HostIP: p.paths.PublishInterface, HostPort: rcfg.HostPort, ContainerPort: rcfg.Port, Protocol: "tcp"}}
@@ -979,6 +983,7 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 				// proxy routes the project URL to it. A blank project has nothing to build
 				// yet, so it waits for pom.xml or build.gradle.
 				spec.Cmd = jcfg.WrappedCommand(dbGuard)
+				spec.Healthcheck = serverHealth()
 				spec.Env = append(spec.Env, jcfg.Env(p.devUIHosts(proj))...)
 				if jcfg.HostPort > 0 {
 					spec.Ports = []docker.PortSpec{{HostIP: p.paths.PublishInterface, HostPort: jcfg.HostPort, ContainerPort: jcfg.Port, Protocol: "tcp"}}
@@ -1024,6 +1029,7 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 				// server the proxy routes the project URL to it. A blank project has nothing
 				// to build yet, so it waits for a project file.
 				spec.Cmd = dcfg.WrappedCommand(dbGuard)
+				spec.Healthcheck = serverHealth()
 				spec.Env = append(spec.Env, dcfg.Env()...)
 				if dcfg.HostPort > 0 {
 					spec.Ports = []docker.PortSpec{{HostIP: p.paths.PublishInterface, HostPort: dcfg.HostPort, ContainerPort: dcfg.Port, Protocol: "tcp"}}
@@ -1494,6 +1500,16 @@ func (p *Planner) databaseContainer(proj store.Project, svc store.ProjectService
 		spec.Ports = []docker.PortSpec{{HostIP: p.paths.PublishInterface, HostPort: cfg.HostPort, ContainerPort: dialect.Port, Protocol: "tcp"}}
 	}
 	return ContainerPlan{Kind: svc.Kind, Order: 5, Spec: spec}, volume, nil
+}
+
+// serverHealth is the health check of a container whose main process is the project's
+// server: unhealthy while a guard waits on something the user has to fix (a failed bundle
+// install, a package missing from the .venv) or the server is down until an action ends,
+// so the project does not look fine meanwhile. One failed check counts: the guard only
+// writes its note once it is really stuck. The start period only makes Docker check every
+// second at first, so a fresh container is not listed as "starting" for a whole interval.
+func serverHealth() *docker.HealthSpec {
+	return &docker.HealthSpec{Test: runtime.ServerHealthTest, Interval: 10 * time.Second, Timeout: 3 * time.Second, StartPeriod: 5 * time.Second, Retries: 1}
 }
 
 // webServiceConfig reads the web service's options; an empty or "{}" config (every project

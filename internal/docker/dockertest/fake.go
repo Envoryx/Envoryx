@@ -36,6 +36,8 @@ type FakeContainer struct {
 	// Restarts simulates restarts by the restart policy (a crash loop); a start by hand
 	// resets it as Docker does.
 	Restarts int
+	// Health and HealthOutput are what the listing reports of the health check.
+	Health, HealthOutput string
 }
 
 // Fake is an in-memory Engine with failure injection.
@@ -296,6 +298,19 @@ func (f *Fake) SetRestarts(name string, n int) bool {
 	return false
 }
 
+// SetHealth simulates the result of a container's health check.
+func (f *Fake) SetHealth(name, health, output string) bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for _, c := range f.containers {
+		if c.Spec.Name == name {
+			c.Health, c.HealthOutput = health, output
+			return true
+		}
+	}
+	return false
+}
+
 // SetLabel changes a label of an existing container, e.g. to make it look like one an
 // older Envoryx created with another spec.
 func (f *Fake) SetLabel(name, key, value string) bool {
@@ -417,6 +432,9 @@ func (f *Fake) toContainer(c *FakeContainer) docker.Container {
 		Ports:    ports,
 		Managed:  f.owns(c.Spec.Labels),
 		Restarts: c.Restarts,
+		Health:   c.Health,
+		// Like the engine, the output only of an unhealthy container.
+		HealthOutput: map[bool]string{true: c.HealthOutput}[c.Health == "unhealthy"],
 	}
 }
 

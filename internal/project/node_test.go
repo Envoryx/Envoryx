@@ -277,7 +277,7 @@ func TestNodeProductionModeAndInspector(t *testing.T) {
 	}
 	cmd := strings.Join(c.Spec.Cmd, " ")
 	// Blank project: the package.json guard wraps the production wrapper.
-	if !strings.HasPrefix(cmd, "sh -c until [ -f package.json ]") || !strings.Contains(cmd, `npm run build && NODE_ENV=production exec "$@" envoryx-start npm run start -- -H 0.0.0.0 -p 3000`) {
+	if !strings.HasPrefix(cmd, "sh -c rm -f "+runtime.WaitingFile+"; until [ -f package.json ]") || !strings.Contains(cmd, `npm run build && NODE_ENV=production exec "$@" envoryx-start npm run start -- -H 0.0.0.0 -p 3000`) {
 		t.Fatalf("production command: %s", cmd)
 	}
 	for _, env := range c.Spec.Env {

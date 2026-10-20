@@ -167,7 +167,7 @@ func (c RubyConfig) entryGuard() string {
 // BundleGuard installs the bundle when it is not complete - after a clone, a changed
 // Gemfile or a Ruby upgrade - and waits instead of crash-looping while that fails. Shared
 // with the worker containers; a script without a Gemfile starts right away.
-const BundleGuard = `if [ -e Gemfile ]; then until bundle check >/dev/null 2>&1 || bundle install; do echo 'envoryx: bundle install failed - fix the Gemfile (see above), retrying in 30 s'; sleep 30; done; fi`
+const BundleGuard = `if [ -e Gemfile ]; then until bundle check >/dev/null 2>&1 || bundle install; do ` + noteBundle + `; echo 'envoryx: bundle install failed - fix the Gemfile (see above), retrying in 30 s'; sleep 30; done; fi`
 
 // WrappedCommand returns Command() behind the entry-file guard and the bundle install,
 // for containers whose server is the project's application. Further guards (the database
@@ -177,7 +177,7 @@ func (c RubyConfig) WrappedCommand(guards ...string) []string {
 	if c.Preset == "rails" && !c.Production() {
 		own = append(own, "rm -f "+railsPidFile)
 	}
-	return Guarded(c.Command(), "envoryx-serve", append(own, guards...)...)
+	return Supervised(c.Command(), "envoryx-serve", append(own, guards...)...)
 }
 
 // Env returns the variables that tell the application where to listen and in which
