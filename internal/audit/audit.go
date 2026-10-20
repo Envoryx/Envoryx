@@ -129,6 +129,8 @@ const (
 	ActionUserJoined  = "user.joined"
 	ActionUserUpdated = "user.updated"
 	ActionUserDeleted = "user.deleted"
+	// ActionUserSSOCreated is a user single sign-on created at its first sign-in.
+	ActionUserSSOCreated = "user.sso_created"
 )
 
 type ipKey struct{}

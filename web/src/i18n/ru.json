@@ -3203,5 +3203,6 @@
   "on the host": "на хосте",
   "The scheduled backup failed": "Плановая копия не удалась",
   "Failed runs in a row: {{number}}": "Неудачных запусков подряд: {{number}}",
-  "Last automatic backup attempt {{date}} failed.": "Последняя попытка автоматической копии {{date}} не удалась."
+  "Last automatic backup attempt {{date}} failed.": "Последняя попытка автоматической копии {{date}} не удалась.",
+  "User created by single sign-on": "Пользователь создан через единый вход"
 }

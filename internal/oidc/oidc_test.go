@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -17,6 +18,7 @@ import (
 	jose "github.com/go-jose/go-jose/v4"
 	"github.com/go-jose/go-jose/v4/jwt"
 
+	"github.com/envoryx/envoryx/internal/audit"
 	"github.com/envoryx/envoryx/internal/auth"
 	"github.com/envoryx/envoryx/internal/db"
 	"github.com/envoryx/envoryx/internal/store"
@@ -112,7 +114,9 @@ func newService(t *testing.T) (*Service, *store.Store, *auth.Service) {
 	t.Cleanup(func() { _ = sqlDB.Close() })
 	st := store.New(sqlDB)
 	a := auth.NewService(st, auth.Options{IdleTimeout: time.Hour, AbsoluteTimeout: time.Hour}, log)
-	return New(st, a, log), st, a
+	s := New(st, a, log)
+	s.Audit = audit.New(st.Audit, log)
+	return s, st, a
 }
 
 func TestSingleSignOn(t *testing.T) {
@@ -180,6 +184,15 @@ func TestSingleSignOn(t *testing.T) {
 	}
 	if got, _ := st.Users.ByID(ctx, invited.ID); got.OIDCSubject == "" || got.InviteHash != "" {
 		t.Fatalf("link: %+v", got)
+	}
+	// What the sign-ins changed is in the audit log, in the name of the account.
+	entries, _ := st.Audit.Recent(ctx, 20)
+	var got []string
+	for i := len(entries) - 1; i >= 0; i-- {
+		got = append(got, entries[i].Action+":"+entries[i].Username)
+	}
+	if want := []string{"user.sso_created:dana", "user.updated:dana", "user.joined:frank", "user.updated:frank"}; !slices.Equal(got, want) {
+		t.Fatalf("audit: %v, want %v", got, want)
 	}
 	// The link is used up.
 	if _, err := p.signInFrom(t, s, map[string]any{"sub": "u9", "preferred_username": "x"}, token); err == nil {

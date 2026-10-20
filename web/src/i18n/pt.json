@@ -3153,5 +3153,6 @@
   "on the host": "no host",
   "The scheduled backup failed": "O backup agendado falhou",
   "Failed runs in a row: {{number}}": "Execuções com falha seguidas: {{number}}",
-  "Last automatic backup attempt {{date}} failed.": "A última tentativa de backup automático {{date}} falhou."
+  "Last automatic backup attempt {{date}} failed.": "A última tentativa de backup automático {{date}} falhou.",
+  "User created by single sign-on": "Utilizador criado por início de sessão único"
 }

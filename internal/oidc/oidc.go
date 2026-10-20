@@ -21,6 +21,7 @@ import (
 	gooidc "github.com/coreos/go-oidc/v3/oidc"
 	"golang.org/x/oauth2"
 
+	"github.com/envoryx/envoryx/internal/audit"
 	"github.com/envoryx/envoryx/internal/auth"
 	"github.com/envoryx/envoryx/internal/store"
 	"github.com/envoryx/envoryx/internal/validate"
@@ -137,6 +138,9 @@ type Service struct {
 	auth  *auth.Service
 	log   *slog.Logger
 	now   func() time.Time
+	// Audit, when set, records what a sign-in changed on the accounts: a user created,
+	// an invitation taken up, a role following the groups.
+	Audit *audit.Logger
 
 	mu       sync.Mutex
 	pending  map[string]pending
@@ -436,6 +440,7 @@ func (s *Service) resolveUser(ctx context.Context, c Config, subject string, cla
 		}
 		local.OIDCSubject, local.InviteHash = subject, ""
 		u = local
+		s.audit(ctx, u.Username, audit.ActionUserJoined, u.ID, map[string]any{"username": u.Username, "via": "sso"})
 	case errors.Is(err, store.ErrNotFound):
 		if err := validate.Username(username); err != nil {
 			return store.User{}, fmt.Errorf("the provider's %s claim %q is no usable username: %w", c.usernameClaim(), username, err)
@@ -464,6 +469,11 @@ func (s *Service) resolveUser(ctx context.Context, c Config, subject string, cla
 				return store.User{}, err
 			}
 			s.log.Info("single sign-on created a user", "username", username, "role", newRole)
+			details := map[string]any{"username": username, "role": newRole, "via": "sso"}
+			if role != "" {
+				details["fromGroups"] = true
+			}
+			s.audit(ctx, username, audit.ActionUserSSOCreated, created.ID, details)
 			return created, nil
 		}
 	default:
@@ -484,7 +494,15 @@ func (s *Service) resolveUser(ctx context.Context, c Config, subject string, cla
 		if err != nil {
 			return store.User{}, err
 		}
+		s.audit(ctx, u.Username, audit.ActionUserUpdated, u.ID, map[string]any{"username": u.Username, "role": role, "previousRole": u.Role, "via": "sso groups"})
 		u = updated
 	}
 	return u, nil
+}
+
+// audit records an account change a sign-in made, in the name of the user signing in.
+func (s *Service) audit(ctx context.Context, username, action, userID string, details map[string]any) {
+	if s.Audit != nil {
+		s.Audit.LogAs(ctx, username, action, "user", userID, details)
+	}
 }

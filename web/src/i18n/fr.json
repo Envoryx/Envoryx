@@ -3153,5 +3153,6 @@
   "on the host": "sur l'hôte",
   "The scheduled backup failed": "La sauvegarde planifiée a échoué",
   "Failed runs in a row: {{number}}": "Exécutions échouées d'affilée : {{number}}",
-  "Last automatic backup attempt {{date}} failed.": "La dernière tentative de sauvegarde automatique {{date}} a échoué."
+  "Last automatic backup attempt {{date}} failed.": "La dernière tentative de sauvegarde automatique {{date}} a échoué.",
+  "User created by single sign-on": "Utilisateur créé par authentification unique"
 }
