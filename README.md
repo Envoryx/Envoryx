@@ -63,7 +63,7 @@ where it makes sense, a dev server with live reload and a debugger port:
 |---|---|---|
 | PHP | 8.2 - 8.5 | Composer, Xdebug, extensions to pick; Caddy, Apache or Nginx in front |
 | Node.js | 22, 24, 26 | npm, pnpm, Yarn; dev server with HMR, inspector |
-| Python | 3.11 - 3.14 | pip, uv, venv; runserver, uvicorn or gunicorn, debugpy |
+| Python | 3.11 - 3.15 | pip, uv, venv; runserver, uvicorn or gunicorn, debugpy |
 | Go | 1.26, 1.27 | air live reload, Delve, gotestsum |
 | Ruby | 3.3 - 4.0 | Bundler, Puma, rdbg |
 | Java | 17, 21, 25 | Maven, Gradle, Spring Boot DevTools, Quarkus dev mode, JDWP |
