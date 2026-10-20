@@ -35,6 +35,21 @@ describe("CustomImagesCard", () => {
     expect(await screen.findByText(/Saved and applied/)).toBeInTheDocument();
   });
 
+  it("saves a registry image whose pull failed again, after a registry login was added", async () => {
+    const ref = "registry.example.com/acme/php:8.4";
+    const api = mockApi({
+      ...authedRoutes,
+      [`PUT /projects/${id}/services/php/image`]: () => ({ body: { project: withPhp({ image: ref, checkedImage: ref }, ref) } }),
+    });
+    // Stored, but never checked: the first pull was refused.
+    renderApp(<CustomImagesCard project={withPhp({ image: ref }, ref)} />);
+    const user = userEvent.setup();
+    expect(await screen.findByText(/has not been pulled yet/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(api.calls.some((c) => c.method === "PUT")).toBe(true));
+    expect(api.calls.find((c) => c.method === "PUT")!.body).toEqual({ image: ref });
+  });
+
   it("shows warnings, a failed build and rebuilds a Dockerfile", async () => {
     const tag = "envoryx-build/php:0123456789abcdef";
     const api = mockApi({

@@ -3204,5 +3204,6 @@
   "The scheduled backup failed": "Запланована копія не вдалася",
   "Failed runs in a row: {{number}}": "Невдалих запусків поспіль: {{number}}",
   "Last automatic backup attempt {{date}} failed.": "Остання спроба автоматичної копії {{date}} не вдалася.",
-  "User created by single sign-on": "Користувача створено через єдиний вхід"
+  "User created by single sign-on": "Користувача створено через єдиний вхід",
+  "The image has not been pulled yet. Once the registry login is in place under Settings, save it again to retry.": "Образ ще не завантажено. Коли вхід до реєстру буде вказано в налаштуваннях, збережіть його знову, щоб повторити спробу."
 }

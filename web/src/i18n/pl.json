@@ -3204,5 +3204,6 @@
   "The scheduled backup failed": "Zaplanowana kopia nie powiodła się",
   "Failed runs in a row: {{number}}": "Nieudane uruchomienia z rzędu: {{number}}",
   "Last automatic backup attempt {{date}} failed.": "Ostatnia próba automatycznej kopii {{date}} nie powiodła się.",
-  "User created by single sign-on": "Użytkownik utworzony przez logowanie jednokrotne"
+  "User created by single sign-on": "Użytkownik utworzony przez logowanie jednokrotne",
+  "The image has not been pulled yet. Once the registry login is in place under Settings, save it again to retry.": "Obraz nie został jeszcze pobrany. Gdy logowanie do rejestru będzie ustawione w Ustawieniach, zapisz go ponownie, aby spróbować jeszcze raz."
 }

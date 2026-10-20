@@ -37,6 +37,9 @@ function RuntimeImage({ project: p, svc }: { project: Project; svc: ProjectServi
   }, [svc]);
   const stored = sourceOf(svc);
   const dirty = source !== stored || (source === "image" && image.trim() !== (c?.image ?? "")) || (source === "dockerfile" && dockerfile.trim() !== (c?.dockerfile ?? ""));
+  // A registry image whose pull failed (a login was missing, the registry was down) is
+  // stored but never checked: saving it unchanged tries the pull again.
+  const retry = !dirty && stored === "image" && !!c?.image && c.checkedImage !== c.image;
   const running = p.status.state === "running";
   const run = (vars: { image?: string; dockerfile?: string; rebuild?: boolean }, done: string) => {
     setMsg(null);
@@ -88,11 +91,12 @@ function RuntimeImage({ project: p, svc }: { project: Project; svc: ProjectServi
           ) : (
             <div />
           )}
-          <Button variant="primary" icon={<Save className="size-4" />} loading={mutation.isPending && !mutation.variables?.rebuild} disabled={!dirty || mutation.isPending} onClick={save}>
+          <Button variant="primary" icon={<Save className="size-4" />} loading={mutation.isPending && !mutation.variables?.rebuild} disabled={!(dirty || retry) || mutation.isPending} onClick={save}>
             {t("Save")}
           </Button>
         </div>
       )}
+      {retry && can.admin && !support && <p className="text-xs text-muted">{t("The image has not been pulled yet. Once the registry login is in place under Settings, save it again to retry.")}</p>}
       {source === "dockerfile" && can.admin && !support && (
         <p className="text-xs text-muted">
           {t("Relative to the project directory. Its directory is the build context, so keep it in a directory of its own. Envoryx builds it again whenever a file there changes. Start from an Envoryx image to keep every feature, for example:")}{" "}

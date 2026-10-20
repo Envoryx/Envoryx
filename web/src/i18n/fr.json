@@ -3154,5 +3154,6 @@
   "The scheduled backup failed": "La sauvegarde planifiée a échoué",
   "Failed runs in a row: {{number}}": "Exécutions échouées d'affilée : {{number}}",
   "Last automatic backup attempt {{date}} failed.": "La dernière tentative de sauvegarde automatique {{date}} a échoué.",
-  "User created by single sign-on": "Utilisateur créé par authentification unique"
+  "User created by single sign-on": "Utilisateur créé par authentification unique",
+  "The image has not been pulled yet. Once the registry login is in place under Settings, save it again to retry.": "L'image n'a pas encore été récupérée. Une fois l'identifiant du registre ajouté dans les Paramètres, enregistrez-la à nouveau pour réessayer."
 }

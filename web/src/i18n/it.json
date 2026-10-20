@@ -3154,5 +3154,6 @@
   "The scheduled backup failed": "Il backup pianificato non è riuscito",
   "Failed runs in a row: {{number}}": "Esecuzioni fallite di fila: {{number}}",
   "Last automatic backup attempt {{date}} failed.": "L'ultimo tentativo di backup automatico {{date}} non è riuscito.",
-  "User created by single sign-on": "Utente creato tramite single sign-on"
+  "User created by single sign-on": "Utente creato tramite single sign-on",
+  "The image has not been pulled yet. Once the registry login is in place under Settings, save it again to retry.": "L'immagine non è ancora stata scaricata. Quando l'accesso al registry è impostato in Impostazioni, salvala di nuovo per riprovare."
 }

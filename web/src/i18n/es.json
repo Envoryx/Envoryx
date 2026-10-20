@@ -3154,5 +3154,6 @@
   "The scheduled backup failed": "La copia programada ha fallado",
   "Failed runs in a row: {{number}}": "Ejecuciones fallidas seguidas: {{number}}",
   "Last automatic backup attempt {{date}} failed.": "El último intento de copia automática {{date}} ha fallado.",
-  "User created by single sign-on": "Usuario creado por inicio de sesión único"
+  "User created by single sign-on": "Usuario creado por inicio de sesión único",
+  "The image has not been pulled yet. Once the registry login is in place under Settings, save it again to retry.": "La imagen aún no se ha descargado. Cuando el inicio de sesión del registro esté en Ajustes, guárdala de nuevo para reintentarlo."
 }
