@@ -10,6 +10,94 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Added
+- The PHP images include the `pcntl` extension (Laravel Horizon, queue worker timeouts,
+  Symfony Messenger signals).
+- Single sign-on writes the accounts it creates, invitations taken up through it and
+  roles that follow the provider's groups to the audit log.
+- Every failed scheduled backup is recorded: the Backups tab shows the last error and
+  how many runs failed in a row, the audit log has a *Backup failed* entry per attempt,
+  and each failed run sends a notification.
+
+### Changed
+- The server containers of all runtimes keep running for a moment when their server
+  exits: 10 seconds, and as long as an action runs in them. A crashing server therefore
+  restarts about 10 seconds later, and an action such as *pip install* can be run in a
+  container that keeps crashing. Every server container is recreated once on its next
+  start; server rows show a health badge.
+- Creating, starting and restarting a project report back once the database and the
+  other services pass their health check (at most two minutes).
+- Yarn projects created from the Vite and Next.js templates use a `node_modules` folder
+  (`nodeLinker: node-modules`) instead of Yarn's Plug'n'Play.
+- CLI: `--help` prints to stdout and exits 0 everywhere; wrong flags, timeouts and
+  answers that don't come from Envoryx get readable messages, and the usage text lists
+  the flags of `project logs`, `project exec`, `backup create`/`restore` and `db clone`.
+
+### Fixed
+- A dev server that crashes while *pip install*, *npm install*, *bundle install* or
+  another action runs no longer takes the action down with its container.
+- The project status names the service that keeps restarting or whose server waits on
+  something (a failed *bundle install*, missing `node_modules`, a package missing from
+  `.venv`) and links to its logs, instead of only "partially running". A server that
+  was repaired after a crash loop shows as running again after 20 seconds instead of a
+  minute.
+- The Vite, Next.js and Nuxt templates scaffold and install with the package manager
+  chosen for the project (npm, pnpm or Yarn) instead of always npm, so the project gets
+  only that manager's lockfile and Yarn 4 projects no longer crash-loop. Nuxt with pnpm
+  no longer fails with `ERR_PNPM_IGNORED_BUILDS`.
+- The dev server's first install uses the lockfile of the project's package manager
+  first, so a stale `package-lock.json` no longer makes a pnpm or Yarn project install
+  with npm.
+- Cron jobs in Node projects see a `NODE_ENV` the project sets itself, as the workers
+  and the dev server already did.
+- The Shopware actions *build-administration.sh* and *build-storefront.sh* build the
+  plugins in `custom/plugins` again; they ran with `CI` set, which makes Shopware skip
+  every plugin not installed through Composer.
+- Changing a project through the API keeps what the request leaves out: a new PHP
+  version keeps the PHP settings and extensions, a runtime, database or storage object
+  without `enabled` keeps the service, a database without `exposePort` keeps its
+  published port, and the web server keeps its type and version.
+- Renaming a Craft CMS or Shopware project moves the site to the new address: a
+  `PRIMARY_SITE_URL` in `.env` holding the old address follows the project address, and
+  Shopware's sales channel domains are rewritten, also when the project is stopped.
+- The *craft install* action shows the admin password only when it really installed
+  Craft, refuses when Craft is already installed, and creates the site with
+  `$PRIMARY_SITE_URL` so it follows later renames.
+- Folder URLs without a trailing slash keep https behind the Envoryx proxy under Apache
+  and nginx instead of redirecting to `http://`.
+- Laravel pages no longer load their assets from a stopped Vite dev server: Envoryx
+  removes `public/hot` when it stops the dev server.
+- The *rails db:rollback* action works in applications with several databases (also
+  Rails 8's queue, cache and cable databases): it rolls back the primary database and
+  names the tasks for the others.
+- The .NET actions and `dotnet test` name the solution or project file, so a solution
+  next to the `.csproj` no longer stops them. The Entity Framework actions find the
+  projects in a `src/` and `tests/` layout: the startup project is the server's project
+  from the .NET settings or the one web project, the migrations project the one that
+  holds the migrations.
+- Worker logs of Go, Ruby, Java and .NET projects no longer start with tini's "not
+  running as PID 1" warning.
+- Backups of stopped projects work: the database and object storage are started for the
+  dump and stopped again. Scheduled backups no longer fail for every stopped project,
+  and a database upgrade of a stopped project can take its backup.
+- A wrong code or a rejected passkey while setting up two-factor authentication shows an
+  error in place instead of signing you out and losing the setup.
+- CPU and memory no longer show 0 % and 0 B for running projects when a page was left
+  while the figures were being read; projects without running containers show "-".
+- The Backups tab names the real backup directory (and the host directory behind it)
+  instead of always `/config/backups`.
+- `envoryx docker prune` and the Docker cleanup in the settings no longer remove the
+  rollback images of another Envoryx instance on the same Docker host.
+- A registry image whose pull failed (for example before the registry login was added)
+  can be saved again to retry the pull.
+- `envoryx cron add/edit ... -- <command>` keeps the quoting of the command's arguments.
+- Translated: the Python venv warning, the missing `node_modules` warning, the reasons
+  why a test suite can't run, the live diagnostics details and the "no access"
+  messages. The settings no longer scroll sideways on a phone.
+- A fixed setting from the hoster's plan that the instance can't apply (wrong type or out
+  of range) no longer keeps the plan's other settings from applying, and is reported to
+  the fleet manager as a warning instead of only being logged.
+
 ## [0.39.3] - 2026-10-20
 
 ### Changed
