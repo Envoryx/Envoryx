@@ -71,6 +71,9 @@ type Template struct {
 	steps []templateStep
 	// gradleSteps replace steps when the project is created with Gradle.
 	gradleSteps []templateStep
+	// nodeSteps returns the steps for the project's package manager (npm, pnpm, yarn);
+	// steps holds its npm steps.
+	nodeSteps func(packageManager string) []templateStep
 	// afterStart runs once in the new project's runtime container after its first start,
 	// with the database up: the schema step the application's first request or worker
 	// would otherwise trip over.
@@ -101,7 +104,10 @@ const composerNoInteraction = "--no-interaction"
 // container has no TTY and nobody answers.
 var (
 	composerScaffoldEnv = []string{"HOME=/tmp", "COMPOSER_HOME=/tmp/composer", "COMPOSER_NO_INTERACTION=1", "COMPOSER_MEMORY_LIMIT=-1"}
-	nodeScaffoldEnv     = []string{"HOME=/tmp", "npm_config_yes=true", "CI=1", "COREPACK_ENABLE_DOWNLOAD_PROMPT=0", "NPM_CONFIG_UPDATE_NOTIFIER=false"}
+	// pnpm takes the store from pnpm_config_store_dir here: the scaffolds run without the
+	// project home and its pnpm config, and a default store on another mount than the
+	// project would land in the project directory as .pnpm-store.
+	nodeScaffoldEnv = []string{"HOME=/tmp", "npm_config_yes=true", "CI=1", "COREPACK_ENABLE_DOWNLOAD_PROMPT=0", "NPM_CONFIG_UPDATE_NOTIFIER=false", "pnpm_config_store_dir=" + pnpmStoreTarget}
 	// Python scaffolds create the project's .venv first; the steps after it run through
 	// its bin/ (PATH), so pip installs into the venv, never into the image.
 	// The Go scaffolds use the shared module and build caches (withPackageCache) and a
@@ -329,6 +335,69 @@ func nextDevOrigins(hosts []string) []string {
 	return append([]string{"node", "-e", nextDevOriginsScript}, hosts...)
 }
 
+// yarnNodeModules keeps Yarn 2+ on a node_modules folder. Its default Plug'n'Play linker
+// leaves none, which Next.js (Turbopack), Nuxt and the IDEs attached through Envoryx
+// cannot resolve modules from without extra setup. nuxi writes the same setting itself.
+const yarnNodeModules = "# Added by Envoryx: a node_modules folder instead of Yarn's Plug'n'Play, which\n# Turbopack, Nuxt and most IDEs cannot resolve modules from.\nnodeLinker: node-modules\n"
+
+// nuxtPnpmBuilds approves the build scripts of the Nuxt starter's dependencies. pnpm runs
+// no dependency's build script unless it is approved, and pnpm 12 fails the install
+// (ERR_PNPM_IGNORED_BUILDS) when one is left undecided. esbuild's script checks its
+// platform binary, @parcel/watcher's (pulled in by some Nuxt modules) picks its build.
+// create-next-app writes its own decisions (sharp, unrs-resolver: false), create-vite's
+// dependencies have no build scripts.
+const nuxtPnpmBuilds = "# Added by Envoryx: dependencies whose build scripts pnpm may run (\"pnpm approve-builds\" adds more).\nallowBuilds:\n  esbuild: true\n  '@parcel/watcher': true\n"
+
+// nodeInstall is the install step of a Node scaffold. The scaffolds run with CI=1, which
+// makes Yarn 2+ refuse to write the lockfile a fresh project needs.
+func nodeInstall(packageManager string) templateStep {
+	switch packageManager {
+	case "pnpm":
+		return templateStep{label: "pnpm install", cmd: []string{"pnpm", "install"}}
+	case "yarn":
+		return templateStep{label: "yarn install", cmd: []string{"yarn", "install", "--no-immutable"}}
+	}
+	return templateStep{label: "npm install", cmd: []string{"npm", "install"}}
+}
+
+// viteSteps scaffolds the Vite template with a package manager. Only npm needs "--"
+// before the arguments for create-vite.
+func viteSteps(packageManager string) []templateStep {
+	create := templateStep{label: "npm create vite", cmd: []string{"npm", "create", "vite@latest", ".", "--", "--template", "react-ts"}}
+	switch packageManager {
+	case "pnpm":
+		create = templateStep{label: "pnpm create vite", cmd: []string{"pnpm", "create", "vite@latest", ".", "--template", "react-ts"}}
+	case "yarn":
+		create = templateStep{label: "yarn create vite", cmd: []string{"yarn", "create", "vite@latest", ".", "--template", "react-ts"},
+			files: map[string]func() (string, error){".yarnrc.yml": fixedFile(yarnNodeModules)}}
+	}
+	return []templateStep{create, nodeInstall(packageManager)}
+}
+
+// nextSteps scaffolds the Next.js template with a package manager. create-next-app
+// installs with npm and pnpm itself (and decides pnpm's build approvals); for Yarn it
+// skips the install, so the node_modules linker is set before the first one.
+func nextSteps(packageManager string) []templateStep {
+	cmd := []string{"npx", "--yes", "create-next-app@latest", ".", "--yes", "--ts", "--app", "--use-" + packageManager, "--disable-git"}
+	steps := []templateStep{{label: "create-next-app", cmd: cmd}}
+	if packageManager == "yarn" {
+		steps[0].cmd = append(cmd, "--skip-install")
+		steps[0].files = map[string]func() (string, error){".yarnrc.yml": fixedFile(yarnNodeModules)}
+		steps = append(steps, nodeInstall(packageManager))
+	}
+	return append(steps, templateStep{label: "allow the project hosts as dev origins", cmdHosts: nextDevOrigins})
+}
+
+// nuxtSteps scaffolds the Nuxt template with a package manager. nuxi writes the Yarn
+// linker setting itself; pnpm gets the build approvals before the install.
+func nuxtSteps(packageManager string) []templateStep {
+	scaffold := templateStep{label: "nuxi init", cmd: []string{"npx", "--yes", "nuxi@latest", "init", ".", "--template", "minimal", "--packageManager", packageManager, "--no-install", "--no-gitInit", "--force"}}
+	if packageManager == "pnpm" {
+		scaffold.files = map[string]func() (string, error){"pnpm-workspace.yaml": fixedFile(nuxtPnpmBuilds)}
+	}
+	return []templateStep{scaffold, nodeInstall(packageManager)}
+}
+
 // The .gitignore of the Python templates: the venv, the bytecode caches and, for Django,
 // collectstatic's output, the uploads and the SQLite file without a database service.
 const (
@@ -442,36 +511,32 @@ var templates = []Template{
 	// The Node scaffolds are verified non-interactively against the Envoryx Node image
 	// (DEVELOPMENT.md, "scaffold smoke"): create-vite honours --template with CI=1,
 	// create-next-app --yes skips every prompt and installs, nuxi (citty) needs
-	// --template when no TTY answers and --no-gitInit (never --gitInit false).
+	// --template when no TTY answers and --no-gitInit (never --gitInit false). Each one
+	// scaffolds with the project's package manager (nodeSteps), so only that manager's
+	// lockfile is written and the dev server installs with the manager it runs.
 	{
 		ID: "vite", Name: "Vite + React (TypeScript)", Description: "Vite scaffold with React and TypeScript - dev server with HMR on the project URL.",
 		Runtime: "node", Docroot: "dist",
-		Node:  &runtime.NodeConfig{DevServer: true, Preset: "vite", Port: 5173, Script: "dev"},
-		Notes: "The dev server answers on the project URL. Turn the dev server off and run “npm run build” to serve dist/ statically (enable the SPA fallback for client-side routing).",
-		steps: []templateStep{
-			{label: "npm create vite", cmd: []string{"npm", "create", "vite@latest", ".", "--", "--template", "react-ts"}},
-			{label: "npm install", cmd: []string{"npm", "install"}},
-		},
+		Node:      &runtime.NodeConfig{DevServer: true, Preset: "vite", Port: 5173, Script: "dev"},
+		Notes:     "The dev server answers on the project URL. Turn the dev server off and run the build script (“npm run build”, “pnpm build” or “yarn build”) to serve dist/ statically (enable the SPA fallback for client-side routing).",
+		steps:     viteSteps("npm"),
+		nodeSteps: viteSteps,
 	},
 	{
 		ID: "next", Name: "Next.js (App Router, TypeScript)", Description: "create-next-app with the App Router and TypeScript.",
 		Runtime: "node", Docroot: "",
-		Node:  &runtime.NodeConfig{DevServer: true, Preset: "next", Port: 3000, Script: "dev"},
-		Notes: "create-next-app installs dependencies. next.config.ts lists the project's host names in allowedDevOrigins, which Fast Refresh needs behind the proxy: add a domain you attach later there, too. For a production-like run switch the Runtime mode to “Production build”.",
-		steps: []templateStep{
-			{label: "create-next-app", cmd: []string{"npx", "--yes", "create-next-app@latest", ".", "--yes", "--ts", "--app", "--use-npm", "--disable-git"}},
-			{label: "allow the project hosts as dev origins", cmdHosts: nextDevOrigins},
-		},
+		Node:      &runtime.NodeConfig{DevServer: true, Preset: "next", Port: 3000, Script: "dev"},
+		Notes:     "next.config.ts lists the project's host names in allowedDevOrigins, which Fast Refresh needs behind the proxy: add a domain you attach later there, too. For a production-like run switch the Runtime mode to “Production build”.",
+		steps:     nextSteps("npm"),
+		nodeSteps: nextSteps,
 	},
 	{
 		ID: "nuxt", Name: "Nuxt", Description: "Nuxt starter (minimal template) created by nuxi.",
 		Runtime: "node", Docroot: "",
-		Node:  &runtime.NodeConfig{DevServer: true, Preset: "nuxt", Port: 3000, Script: "dev"},
-		Notes: "For a production-like run switch the Runtime mode to “Production build”: every start builds the app, then serves it with “nuxt preview”.",
-		steps: []templateStep{
-			{label: "nuxi init", cmd: []string{"npx", "--yes", "nuxi@latest", "init", ".", "--template", "minimal", "--packageManager", "npm", "--no-install", "--no-gitInit", "--force"}},
-			{label: "npm install", cmd: []string{"npm", "install"}},
-		},
+		Node:      &runtime.NodeConfig{DevServer: true, Preset: "nuxt", Port: 3000, Script: "dev"},
+		Notes:     "For a production-like run switch the Runtime mode to “Production build”: every start builds the app, then serves it with “nuxt preview”.",
+		steps:     nuxtSteps("npm"),
+		nodeSteps: nuxtSteps,
 	},
 	// The Python scaffolds run from the Envoryx Python image: the venv is created in
 	// the project directory, requirements are pinned with pip freeze so the Actions section's
@@ -1103,6 +1168,16 @@ func Templates() []Template {
 func (t Template) WithBuildTool(tool string) Template {
 	if tool == "gradle" && t.gradleSteps != nil {
 		t.steps = t.gradleSteps
+	}
+	return t
+}
+
+// WithPackageManager returns the template set up for the project's Node package manager:
+// the Node templates scaffold and install with it, so the project gets that manager's
+// lockfile only. npm and "" keep the default steps.
+func (t Template) WithPackageManager(packageManager string) Template {
+	if t.nodeSteps != nil && packageManager != "" {
+		t.steps = t.nodeSteps(packageManager)
 	}
 	return t
 }
