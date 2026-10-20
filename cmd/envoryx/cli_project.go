@@ -18,7 +18,7 @@ func (c *cli) projectCommand(ctx context.Context, args []string) error {
 	cmd, rest := splitCommand(args)
 	switch cmd {
 	case "help", "-h", "--help":
-		return errCLIUsage
+		return errCLIHelp
 	case "", "list", "ls":
 		return c.projectList(ctx, rest)
 	case "show", "info":
@@ -289,7 +289,7 @@ Extra domains and the backup schedule are never copied.
 
 func (c *cli) projectDuplicate(ctx context.Context, args []string) error {
 	if slices.Contains(args, "--help") || slices.Contains(args, "-h") {
-		fmt.Fprint(c.errOut, duplicateUsage)
+		fmt.Fprint(c.out, duplicateUsage)
 		return nil
 	}
 	fs := c.newFlags("project duplicate")
@@ -374,7 +374,7 @@ running again if it was running.
 
 func (c *cli) projectRename(ctx context.Context, args []string) error {
 	if slices.Contains(args, "--help") || slices.Contains(args, "-h") {
-		fmt.Fprint(c.errOut, renameUsage)
+		fmt.Fprint(c.out, renameUsage)
 		return nil
 	}
 	fs := c.newFlags("project rename")
@@ -603,7 +603,7 @@ The runtime versions Envoryx offers are listed by GET /api/v1/runtimes.
 
 func (c *cli) projectCreate(ctx context.Context, args []string) error {
 	if slices.Contains(args, "--help") || slices.Contains(args, "-h") {
-		fmt.Fprint(c.errOut, createUsage)
+		fmt.Fprint(c.out, createUsage)
 		return nil
 	}
 	fs := c.newFlags("project create")

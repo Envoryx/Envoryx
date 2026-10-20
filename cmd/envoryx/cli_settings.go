@@ -61,7 +61,7 @@ func (c *cli) settingsCommand(ctx context.Context, args []string) error {
 	cmd, rest := splitCommand(args)
 	switch cmd {
 	case "help", "-h", "--help":
-		return errCLIUsage
+		return errCLIHelp
 	case "", "show", "list":
 		return c.settingsShow(ctx, rest)
 	case "set":
@@ -160,7 +160,7 @@ func (c *cli) settingsSet(ctx context.Context, args []string) error {
 	for _, a := range pos {
 		name, value, ok := strings.Cut(a, "=")
 		if !ok {
-			return usagef("%q is no NAME=VALUE", a)
+			return usagef("settings set expects NAME=VALUE, got %q", a)
 		}
 		k, ok := settingByName(name)
 		if !ok {
@@ -248,7 +248,7 @@ func (c *cli) domainCommand(ctx context.Context, args []string) error {
 	cmd, rest := splitCommand(args)
 	switch cmd {
 	case "help", "-h", "--help":
-		return errCLIUsage
+		return errCLIHelp
 	case "", "list", "ls":
 		return c.domainList(ctx, rest)
 	case "add":

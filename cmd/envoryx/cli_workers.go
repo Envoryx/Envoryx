@@ -47,7 +47,7 @@ func (c *cli) workerCommand(ctx context.Context, args []string) error {
 	cmd, rest := splitCommand(args)
 	switch cmd {
 	case "help", "-h", "--help":
-		return errCLIUsage
+		return errCLIHelp
 	case "", "list", "ls":
 		return c.workerList(ctx, rest)
 	case "presets":
@@ -423,7 +423,7 @@ func (c *cli) cronCommand(ctx context.Context, args []string) error {
 	cmd, rest := splitCommand(args)
 	switch cmd {
 	case "help", "-h", "--help":
-		return errCLIUsage
+		return errCLIHelp
 	case "", "list", "ls":
 		return c.cronList(ctx, rest)
 	case "add", "create":
@@ -603,7 +603,7 @@ func (c *cli) cronEdit(ctx context.Context, args []string, enabled *bool) error 
 		if enabled != nil {
 			return usagef("usage: envoryx %s <project> <job>", name)
 		}
-		return usagef("usage: envoryx cron edit <project> <job> [--name] [--schedule] [--runtime] [--max-time] [-- <command…>]")
+		return usagef(`usage: envoryx cron edit <project> <job> [--name NAME] [--schedule "0 3 * * *"] [--runtime NAME] [--max-time 10m] [-- <command…>]`)
 	}
 	set := flagsSet(fs)
 	changesCommand := set["command"] || len(after) > 0

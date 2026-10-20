@@ -31,7 +31,7 @@ func (c *cli) dbCommand(ctx context.Context, args []string) error {
 	cmd, rest := splitCommand(args)
 	switch cmd {
 	case "help", "-h", "--help":
-		return errCLIUsage
+		return errCLIHelp
 	case "", "snapshots":
 		return c.dbSnapshots(ctx, rest)
 	case "snapshot":

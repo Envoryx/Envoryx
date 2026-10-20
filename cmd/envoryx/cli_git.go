@@ -37,7 +37,7 @@ func (c *cli) gitCommand(ctx context.Context, args []string) error {
 	cmd, rest := splitCommand(args)
 	switch cmd {
 	case "help", "-h", "--help":
-		return errCLIUsage
+		return errCLIHelp
 	case "", "status":
 		return c.gitStatus(ctx, rest)
 	case "clone":

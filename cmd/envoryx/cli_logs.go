@@ -47,7 +47,7 @@ func (c *cli) projectLogs(ctx context.Context, args []string) error {
 		return err
 	}
 	if *follow && (*until != "" || *output != "") {
-		return errors.New("--until and -o cannot be combined with --follow")
+		return usagef("--until and -o cannot be combined with --follow")
 	}
 	ctx, cancel := c.context(ctx)
 	defer cancel()
@@ -104,7 +104,7 @@ func (c *cli) projectLogs(ctx context.Context, args []string) error {
 			if errors.Is(err, context.Canceled) || websocket.CloseStatus(err) == websocket.StatusNormalClosure {
 				return nil
 			}
-			return err
+			return streamEnded(api.base, err)
 		}
 		var msg struct {
 			Type    string `json:"type"`

@@ -352,6 +352,37 @@ func TestParseAllowsFlagsAnywhere(t *testing.T) {
 	}
 }
 
+// Flag mistakes name the flag as it is typed and say what it expects, not the flag
+// package's "flag provided but not defined: -nope".
+func TestFlagErrorsAreReadable(t *testing.T) {
+	for args, want := range map[string]string{
+		"--nope":          "unknown flag --nope",
+		"--url":           "--url needs a value",
+		"--timeout=soon":  `--timeout expects a duration such as 30s, 10m or 2h, not "soon"`,
+		"--limit=many":    `--limit expects a whole number, not "many"`,
+		"--confirm=maybe": `--confirm takes no value (or =true, =false), not "maybe"`,
+	} {
+		c := &cli{}
+		fs := c.newFlags("test")
+		fs.Int("limit", 0, "")
+		fs.Bool("confirm", false, "")
+		_, err := parse(fs, []string{args})
+		if !errors.Is(err, errCLIUsage) || err.Error() != want {
+			t.Errorf("%s: %v, want %q", args, err, want)
+		}
+	}
+}
+
+// An explicit --help or "help" is an answer, not a usage error: it exits 0.
+func TestHelpIsNotAUsageError(t *testing.T) {
+	for _, args := range [][]string{{"help"}, {"--help"}, {"project", "--help"}, {"backup", "help"}, {"project", "list", "--help"}, {"whoami", "-h"}} {
+		c := &cli{}
+		if err := c.run(context.Background(), args); !errors.Is(err, errCLIHelp) || errors.Is(err, errCLIUsage) {
+			t.Errorf("%v: %v", args, err)
+		}
+	}
+}
+
 // Everything after "--" belongs to the command, flags included.
 func TestSplitAtDashDash(t *testing.T) {
 	own, cmd := splitAtDashDash([]string{"shop", "--service", "php", "--", "ls", "-la", "--json"})

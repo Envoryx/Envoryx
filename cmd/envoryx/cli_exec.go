@@ -218,10 +218,7 @@ func (c *cli) projectRun(ctx context.Context, args []string) error {
 			if websocket.CloseStatus(err) == websocket.StatusNormalClosure {
 				break
 			}
-			if errors.Is(err, context.Canceled) {
-				return err
-			}
-			return err
+			return streamEnded(api.base, err)
 		}
 		if typ == websocket.MessageBinary {
 			// Action output comes from a pseudo-terminal, carriage returns and all.

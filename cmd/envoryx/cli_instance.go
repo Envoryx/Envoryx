@@ -48,7 +48,7 @@ func (c *cli) instanceCommand(ctx context.Context, args []string) error {
 	cmd, rest := splitCommand(args)
 	switch cmd {
 	case "help", "-h", "--help":
-		return errCLIUsage
+		return errCLIHelp
 	case "", "backups", "list", "ls":
 		return c.instanceList(ctx, rest)
 	case "backup", "create":
@@ -208,7 +208,7 @@ func (c *cli) instanceUpload(ctx context.Context, args []string) error {
 		return usagef("usage: envoryx instance upload <file.tar.gz>")
 	}
 	if _, err := os.Stat(pos[0]); err != nil {
-		return err
+		return fileError(err)
 	}
 	ctx, cancel := c.context(ctx)
 	defer cancel()
