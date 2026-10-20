@@ -404,5 +404,6 @@ export function Kbd({ children }: { children: ReactNode }) {
 }
 
 export function Code({ children, className }: { children: ReactNode; className?: string }) {
-  return <code className={clsx("rounded bg-muted px-1.5 py-0.5 font-mono text-[12px] text-fg", className)}>{children}</code>;
+  // Paths and references break where they must on a narrow screen instead of widening the page.
+  return <code className={clsx("rounded bg-muted px-1.5 py-0.5 font-mono text-[12px] text-fg [overflow-wrap:anywhere]", className)}>{children}</code>;
 }

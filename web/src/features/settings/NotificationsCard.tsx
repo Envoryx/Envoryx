@@ -142,7 +142,7 @@ export function NotificationsCard() {
         <p className="text-xs text-subtle">
           {t("Repeated events are throttled (unhealthy project: once per 6 h until it recovers, failed renewal: once per day). Secrets are stored in /config/notify.json and never returned.")}
         </p>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button type="submit" variant="primary" loading={save.isPending} icon={<Save className="size-4" />}>
             {t("Save")}
           </Button>

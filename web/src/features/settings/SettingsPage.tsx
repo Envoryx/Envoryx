@@ -454,9 +454,11 @@ export function SettingsPage() {
 
 function Row({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
   return (
-    <div className="flex justify-between gap-4">
+    <div className="flex min-w-0 justify-between gap-4">
       <dt className="text-muted">{label}</dt>
-      <dd className={mono ? "truncate font-mono text-xs" : ""}>{value}</dd>
+      <dd className={mono ? "min-w-0 truncate font-mono text-xs" : "min-w-0 text-right [overflow-wrap:anywhere]"} title={mono ? value : undefined}>
+        {value}
+      </dd>
     </div>
   );
 }
