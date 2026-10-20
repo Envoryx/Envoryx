@@ -119,6 +119,14 @@ function BrowserProbeRow({ probe, onSwitchTab }: { probe: ProbeState; onSwitchTa
   );
 }
 
+/** A check's detail, translated; several findings come joined by " · ", each its own message. */
+export function detailText(detail: string, t: TFunction): string {
+  return detail
+    .split(" · ")
+    .map((part) => translateMessage(part, t))
+    .join(" · ");
+}
+
 function CheckRow({ check, onAction, busy }: { check: DiagnosticCheck; onAction: (c: DiagnosticCheck) => void; busy: boolean }) {
   const { t } = useTranslation();
   const needsAttention = check.status === "warning" || check.status === "error";
@@ -127,7 +135,7 @@ function CheckRow({ check, onAction, busy }: { check: DiagnosticCheck; onAction:
       <StatusIcon status={check.status} />
       <div className="min-w-0 flex-1">
         <p className="text-sm font-medium">{t(check.title)}</p>
-        {check.detail && <p className="mt-0.5 break-words text-xs text-muted">{translateMessage(check.detail, t)}</p>}
+        {check.detail && <p className="mt-0.5 break-words text-xs text-muted">{detailText(check.detail, t)}</p>}
         {check.hint && (needsAttention || check.status === "info") && <p className={`mt-1 text-xs ${needsAttention ? "text-fg" : "text-subtle"}`}>{t(check.hint)}</p>}
         {(check.action || check.docs) && (
           <div className="mt-2 flex flex-wrap items-center gap-3">

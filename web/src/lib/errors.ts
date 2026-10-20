@@ -147,6 +147,28 @@ const templates = [
   "the {{service}} server waits because .venv was built for another Python version - run pip install -r requirements.txt or uv sync from Actions to rebuild it",
   "the {{service}} server waits for {{module}} in .venv - run pip install -r requirements.txt or uv sync from Actions",
   "the {{service}} server exited while an action was running - it starts again once the action has finished; its logs say why it exited",
+  // Details of the diagnostics checks (DiagnosticsTab). The answered-by-the-proxy line
+  // comes before the plain one, which would swallow it.
+  "Docker {{version}} (API {{api}}) on {{os}}, {{running}} containers running",
+  "Envoryx has its own IP ({{address}}) but no host for project links is set; links to published ports (project URLs, Mailpit, object storage console, database ports) point at Envoryx instead of the Docker host.",
+  "Links use {{host}}",
+  "Reachable directly at {{address}} (ports 80/443)",
+  "Published on host ports {{http}} (HTTP) and {{https}} (HTTPS)",
+  "*.{{domain}} does not resolve from inside the Envoryx container (its DNS: {{dns}}). Your devices may use a different DNS server - the check from this browser above is what counts.",
+  "*.{{domain}} → {{addresses}}, answered by this Envoryx's proxy (DNS: {{dns}})",
+  "*.{{domain}} → {{address}} (DNS: {{dns}})",
+  "*.{{domain}} resolves to {{addresses}}, but the proxy is at {{proxy}} (DNS: {{dns}}).",
+  "*.{{domain}} resolves to {{addresses}}, but another server answers there, not this Envoryx (DNS: {{dns}}).",
+  "*.{{domain}} resolves to {{addresses}} (DNS: {{dns}}), unverified: Envoryx could not reach its proxy there, and without a host for project links it has no address to compare.",
+  "Port {{port}}, fingerprint {{fingerprint}}",
+  "{{version}} - update check disabled",
+  "{{version}} - the release check has not succeeded yet: {{error}}",
+  "{{version}} is the newest release",
+  "{{version}} (development build)",
+  "{{provider}}: last delivery failed - {{error}}",
+  "{{provider}}, last sent {{time}}",
+  // A refused request (the 403 "no access" answers).
+  "your role does not allow this (it needs {{scope}} access)",
   // Image pull progress, the {{status}} of the "Pulling the image" step.
   "downloading {{percent}}% ({{done}} of {{total}})",
   "downloading ({{size}} so far, {{done}} of {{total}} layers done)",
