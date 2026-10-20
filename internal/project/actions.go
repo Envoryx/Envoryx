@@ -28,6 +28,24 @@ type Action struct {
 	Requires []string `json:"requires"`
 	// Destructive actions ask for confirmation in the UI.
 	Destructive bool `json:"destructive"`
+	// WithoutCI leaves CI out of the environment for tools that change what they do under
+	// it, not only whether they ask: Shopware's build scripts switch to bin/ci, which only
+	// knows Composer plugins and skips everything in custom/plugins.
+	WithoutCI bool `json:"-"`
+}
+
+// env is the environment the action runs with.
+func (a Action) env() []string {
+	// The marker keeps a server that exits meanwhile from taking the action down with
+	// its container (see runtime.Supervised).
+	env := []string{"TERM=xterm-256color", "COLORTERM=truecolor", "LANG=C.UTF-8", runtime.ActionEnv + "=" + a.ID}
+	for _, kv := range nonInteractiveEnv {
+		if a.WithoutCI && strings.HasPrefix(kv, "CI=") {
+			continue
+		}
+		env = append(env, kv)
+	}
+	return append(env, toolEnv...)
 }
 
 // ActionInfo is an Action with availability for a specific project.
@@ -59,9 +77,10 @@ var actionCatalog = []Action{
 
 	{ID: "shopware:install", Group: "Shopware", Label: "system:install --basic-setup", Description: "Create the tables, a sales channel for APP_URL and the administrator admin / shopware", Service: store.ServicePHP, Cmd: []string{"php", "bin/console", "system:install", "--basic-setup", "--force", "--no-interaction"}, Requires: []string{"bin/console", "vendor/shopware/core"}, Destructive: true},
 	// Shopware's build scripts call php and npm in turn, so they run in the PHP container,
-	// which has Node.js for them.
-	{ID: "shopware:build-administration", Group: "Shopware", Label: "build-administration.sh", Description: "Build the administration (npm install and build of the admin and its plugins); after installing or changing an admin plugin", Service: store.ServicePHP, Cmd: []string{"bin/build-administration.sh"}, Requires: []string{"bin/build-administration.sh"}},
-	{ID: "shopware:build-storefront", Group: "Shopware", Label: "build-storefront.sh", Description: "Build the storefront JavaScript and compile the themes; after installing or changing a storefront plugin or theme", Service: store.ServicePHP, Cmd: []string{"bin/build-storefront.sh"}, Requires: []string{"bin/build-storefront.sh"}},
+	// which has Node.js for them. They run without CI so they use bin/console, which reads
+	// the active plugins from the database, custom/plugins included.
+	{ID: "shopware:build-administration", Group: "Shopware", Label: "build-administration.sh", Description: "Build the administration (npm install and build of the admin and its plugins); after installing or changing an admin plugin", Service: store.ServicePHP, Cmd: []string{"bin/build-administration.sh"}, Requires: []string{"bin/build-administration.sh"}, WithoutCI: true},
+	{ID: "shopware:build-storefront", Group: "Shopware", Label: "build-storefront.sh", Description: "Build the storefront JavaScript and compile the themes; after installing or changing a storefront plugin or theme", Service: store.ServicePHP, Cmd: []string{"bin/build-storefront.sh"}, Requires: []string{"bin/build-storefront.sh"}, WithoutCI: true},
 
 	{ID: "typo3:setup", Group: "TYPO3", Label: "typo3 setup", Description: "Empty the project database and set TYPO3 up in it with a site for the project URL; prints the admin password", Service: store.ServicePHP, Cmd: []string{"sh", "-c", typo3SetupScript, "envoryx-typo3"}, Requires: []string{"vendor/bin/typo3"}, Destructive: true},
 	{ID: "craft:install", Group: "Craft CMS", Label: "craft install", Description: "Install Craft into the project database with a site for the project URL; prints the admin password", Service: store.ServicePHP, Cmd: []string{"sh", "-c", craftInstallScript, "envoryx-craft"}, Requires: []string{"craft", "vendor/craftcms/cms"}, Destructive: true},
@@ -384,9 +403,7 @@ func (m *Manager) RunAction(ctx context.Context, id, actionID string, cols, rows
 		Rows:       rows,
 		WorkingDir: appMountTarget,
 		User:       fmt.Sprintf("%d:%d", paths.PUID, paths.PGID),
-		// The marker keeps a server that exits meanwhile from taking the action down with
-		// its container (see runtime.Supervised).
-		Env: append(append([]string{"TERM=xterm-256color", "COLORTERM=truecolor", "LANG=C.UTF-8", runtime.ActionEnv + "=" + action.ID}, nonInteractiveEnv...), toolEnv...),
+		Env:        action.env(),
 	}
 	m.ensurePasswdEntry(ctx, c.ID, c.Name, opts.User)
 	term, err = m.engine.OpenTerminal(ctx, c.ID, opts)

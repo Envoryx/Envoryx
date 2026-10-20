@@ -9,6 +9,27 @@ import (
 	"testing"
 )
 
+// Shopware's build scripts switch to bin/ci under CI, which only loads Composer plugins:
+// the plugins in custom/plugins would be left out of the build. Every other action keeps
+// CI=1 so composer and npm never ask.
+func TestActionEnvCI(t *testing.T) {
+	for _, id := range []string{"shopware:build-administration", "shopware:build-storefront", "composer:install"} {
+		a, ok := findAction(id)
+		if !ok {
+			t.Fatalf("%s missing", id)
+		}
+		hasCI := false
+		for _, kv := range a.env() {
+			if strings.HasPrefix(kv, "CI=") {
+				hasCI = true
+			}
+		}
+		if want := !strings.HasPrefix(id, "shopware:"); hasCI != want {
+			t.Fatalf("%s: CI set %v, want %v", id, hasCI, want)
+		}
+	}
+}
+
 // The catalogue is filtered to the services a project has: a Node-only project sees no
 // composer/artisan/php entries, a PHP-only project no npm entries.
 func TestListActionsOmitsAbsentServices(t *testing.T) {
