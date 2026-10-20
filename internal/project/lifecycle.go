@@ -404,6 +404,10 @@ func (m *Manager) Start(ctx context.Context, id string) (View, error) {
 	// stopped again on the scheduler's next pass.
 	m.touch(id)
 	return m.transition(ctx, id, limitProvision, "start", audit.ActionProjectStarted, func(ctx context.Context, proj store.Project, plan Plan) error {
+		// Without a dev server a hot file is a leftover; with one, Vite writes it anew.
+		if _, ok := nodeDevConfig(proj); !ok {
+			m.clearViteHot(proj)
+		}
 		return m.startPlan(ctx, proj, plan)
 	}, store.DesiredRunning)
 }
@@ -416,7 +420,11 @@ func (m *Manager) Stop(ctx context.Context, id string) (View, error) {
 			return err
 		}
 		m.cancelOllamaPulls(proj.ID)
-		return m.stopPlan(ctx, proj, plan)
+		if err := m.stopPlan(ctx, proj, plan); err != nil {
+			return err
+		}
+		m.clearViteHot(proj)
+		return nil
 	}, store.DesiredStopped)
 }
 
@@ -443,6 +451,7 @@ func (m *Manager) Restart(ctx context.Context, id string) (View, error) {
 		if err := m.stopPlan(ctx, proj, plan); err != nil {
 			return err
 		}
+		m.clearViteHot(proj)
 		return m.startPlan(ctx, proj, plan)
 	}, store.DesiredRunning)
 }
@@ -1023,6 +1032,10 @@ func (m *Manager) update(ctx context.Context, id string, req UpdateRequest) (Vie
 	if req.Node != nil {
 		if err := m.applyNodeUpdate(ctx, proj, *req.Node, changes); err != nil {
 			return View{}, err
+		}
+		// The dev server's container went: removed, or to be recreated with new settings.
+		if _, recreated := changes["nodeDevServer"]; recreated || changes["node"] == "removed" {
+			m.clearViteHot(proj)
 		}
 	}
 	if req.Python != nil {
