@@ -361,13 +361,13 @@ rc=$?
 exit $rc`
 
 // dotnetTestSuite finds the test projects (xUnit, NUnit, MSTest, TUnit, anything with the
-// test SDK) up to four levels down. dotnet test runs the solution at the top, else the one
-// test project; several test projects without a solution file cannot be run as one. A
+// test SDK) up to four levels down. dotnet test runs the solution at the top, named because
+// a project file next to it would make dotnet ask which one, else the one test project;
+// several test projects without a solution file cannot be run as one. A
 // project on Microsoft.Testing.Platform (chosen in global.json) runs without the trx
 // logger and filter, which that platform spells per test framework.
 func dotnetTestSuite(dir string, globalJSON []byte) (TestSuite, bool) {
-	var tests []string
-	top := false
+	var tests, solutions []string
 	_ = filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return nil
@@ -383,7 +383,7 @@ func dotnetTestSuite(dir string, globalJSON []byte) (TestSuite, bool) {
 		}
 		ext := filepath.Ext(d.Name())
 		if depth == 0 && (ext == ".sln" || ext == ".slnx") {
-			top = true
+			solutions = append(solutions, d.Name())
 		}
 		if ext != ".csproj" && ext != ".fsproj" && ext != ".vbproj" {
 			return nil
@@ -396,8 +396,12 @@ func dotnetTestSuite(dir string, globalJSON []byte) (TestSuite, bool) {
 	if len(tests) == 0 {
 		return TestSuite{}, false
 	}
-	target := ""
-	if !top {
+	target, err := dotnetSolution(solutions)
+	if err != nil {
+		return TestSuite{ID: "dotnet", Framework: "dotnet", Label: "dotnet test", Service: store.ServiceDotnet, Cmd: []string{"dotnet", "test"}, Reason: err.Error()}, true
+	}
+	target = dotnetArg(target)
+	if target == "" {
 		if len(tests) > 1 {
 			return TestSuite{ID: "dotnet", Framework: "dotnet", Label: "dotnet test", Service: store.ServiceDotnet, Cmd: []string{"dotnet", "test"},
 				Reason: fmt.Sprintf("%d test projects and no solution file at the top of the project - add one (dotnet new sln, dotnet sln add)", len(tests))}, true

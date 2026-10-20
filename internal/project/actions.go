@@ -32,6 +32,9 @@ type Action struct {
 	// it, not only whether they ask: Shopware's build scripts switch to bin/ci, which only
 	// knows Composer plugins and skips everything in custom/plugins.
 	WithoutCI bool `json:"-"`
+	// resolve builds the command from the project's files when Cmd alone can't say what
+	// it works on; an error makes the action unavailable with it as the reason.
+	resolve func(dir string, p store.Project) ([]string, error)
 }
 
 // env is the environment the action runs with.
@@ -148,21 +151,24 @@ var actionCatalog = []Action{
 	{ID: "gradle:dependencies", Group: "Gradle", Label: "gradle dependencies", Description: "Show the resolved dependencies", Service: store.ServiceJava, Cmd: gradleCmd("dependencies"), Requires: []string{"build.gradle|build.gradle.kts"}},
 	{ID: "gradle:tasks", Group: "Gradle", Label: "gradle tasks", Description: "List the tasks the build offers", Service: store.ServiceJava, Cmd: gradleCmd("tasks"), Requires: []string{"build.gradle|build.gradle.kts"}},
 
-	// The dotnet commands take the one solution or project file at the top of the project.
+	// The dotnet commands name the solution at the top of the project, else the one
+	// project file there (see dotnetBuildTarget).
 	{ID: "dotnet:info", Group: ".NET", Label: "dotnet --info", Description: "Show the SDK, the runtimes and the environment", Service: store.ServiceDotnet, Cmd: []string{"dotnet", "--info"}},
-	{ID: "dotnet:restore", Group: ".NET", Label: "dotnet restore", Description: "Restore the NuGet packages into the package cache", Service: store.ServiceDotnet, Cmd: []string{"dotnet", "restore"}, Requires: []string{dotnetBuildFiles}},
-	{ID: "dotnet:build", Group: ".NET", Label: "dotnet build", Description: "Compile the solution or project", Service: store.ServiceDotnet, Cmd: []string{"dotnet", "build"}, Requires: []string{dotnetBuildFiles}},
-	{ID: "dotnet:clean", Group: ".NET", Label: "dotnet clean", Description: "Delete the build output", Service: store.ServiceDotnet, Cmd: []string{"dotnet", "clean"}, Requires: []string{dotnetBuildFiles}},
-	{ID: "dotnet:format", Group: ".NET", Label: "dotnet format", Description: "Format the code by the .editorconfig rules", Service: store.ServiceDotnet, Cmd: []string{"dotnet", "format"}, Requires: []string{dotnetBuildFiles}},
-	{ID: "dotnet:outdated", Group: ".NET", Label: "dotnet list package --outdated", Description: "List the NuGet packages with newer versions", Service: store.ServiceDotnet, Cmd: []string{"dotnet", "list", "package", "--outdated"}, Requires: []string{dotnetBuildFiles}},
+	{ID: "dotnet:restore", Group: ".NET", Label: "dotnet restore", Description: "Restore the NuGet packages into the package cache", Service: store.ServiceDotnet, Cmd: []string{"dotnet", "restore"}, Requires: []string{dotnetBuildFiles}, resolve: dotnetOn("restore")},
+	{ID: "dotnet:build", Group: ".NET", Label: "dotnet build", Description: "Compile the solution or project", Service: store.ServiceDotnet, Cmd: []string{"dotnet", "build"}, Requires: []string{dotnetBuildFiles}, resolve: dotnetOn("build")},
+	{ID: "dotnet:clean", Group: ".NET", Label: "dotnet clean", Description: "Delete the build output", Service: store.ServiceDotnet, Cmd: []string{"dotnet", "clean"}, Requires: []string{dotnetBuildFiles}, resolve: dotnetOn("clean")},
+	{ID: "dotnet:format", Group: ".NET", Label: "dotnet format", Description: "Format the code by the .editorconfig rules", Service: store.ServiceDotnet, Cmd: []string{"dotnet", "format"}, Requires: []string{dotnetBuildFiles}, resolve: dotnetOn("format")},
+	{ID: "dotnet:outdated", Group: ".NET", Label: "dotnet list package --outdated", Description: "List the NuGet packages with newer versions", Service: store.ServiceDotnet, Cmd: []string{"dotnet", "list", "package", "--outdated"}, Requires: []string{dotnetBuildFiles}, resolve: dotnetOn("list", "package", "--outdated")},
 	// vsdbg may only be used with Microsoft's tools, so the image doesn't ship it; this runs
 	// Microsoft's own install script, which downloads it from Microsoft into the project
 	// home. Run again, it updates an older version.
 	{ID: VsdbgAction, Group: ".NET", Label: "Install vsdbg", Description: "Download Microsoft's debugger for VS Code into the project home (licensed for Microsoft's tools only)", Service: store.ServiceDotnet,
 		Cmd: []string{"sh", "-c", "curl -sSfL https://aka.ms/getvsdbgsh | sh /dev/stdin -v latest -l " + vsdbgDir}},
 	// dotnet-ef ships in the image; the project needs Microsoft.EntityFrameworkCore.Design.
-	{ID: "ef:database-update", Group: "Entity Framework", Label: "dotnet ef database update", Description: "Apply pending migrations to the project database", Service: store.ServiceDotnet, Cmd: []string{"dotnet", "ef", "database", "update"}, Requires: []string{dotnetProjectFiles}},
-	{ID: "ef:migrations-list", Group: "Entity Framework", Label: "dotnet ef migrations list", Description: "List the migrations and whether they are applied", Service: store.ServiceDotnet, Cmd: []string{"dotnet", "ef", "migrations", "list"}, Requires: []string{dotnetProjectFiles}},
+	// The projects are found below the top too, as in a src/ and tests/ layout (see
+	// dotnetEFTargets).
+	{ID: "ef:database-update", Group: "Entity Framework", Label: "dotnet ef database update", Description: "Apply pending migrations to the project database", Service: store.ServiceDotnet, Cmd: []string{"dotnet", "ef", "database", "update"}, resolve: dotnetEF("database", "update")},
+	{ID: "ef:migrations-list", Group: "Entity Framework", Label: "dotnet ef migrations list", Description: "List the migrations and whether they are applied", Service: store.ServiceDotnet, Cmd: []string{"dotnet", "ef", "migrations", "list"}, resolve: dotnetEF("migrations", "list")},
 }
 
 // The files a dotnet command finds on its own at the top of the project.
@@ -170,6 +176,37 @@ const (
 	dotnetProjectFiles = "*.csproj|*.fsproj|*.vbproj"
 	dotnetBuildFiles   = "*.sln|*.slnx|" + dotnetProjectFiles
 )
+
+// dotnetOn runs dotnet <command> on the project's build target, which goes right after
+// the command ("dotnet list App.sln package --outdated").
+func dotnetOn(command string, rest ...string) func(string, store.Project) ([]string, error) {
+	return func(dir string, _ store.Project) ([]string, error) {
+		target, err := dotnetBuildTarget(dir)
+		if err != nil {
+			return nil, err
+		}
+		return append([]string{"dotnet", command, target}, rest...), nil
+	}
+}
+
+// dotnetEF runs dotnet ef with the migrations and the startup project named.
+func dotnetEF(args ...string) func(string, store.Project) ([]string, error) {
+	return func(dir string, p store.Project) ([]string, error) {
+		var configured string
+		if svc := p.Service(store.ServiceDotnet); svc != nil && len(svc.Config) > 0 {
+			var cfg runtime.DotnetConfig
+			if json.Unmarshal(svc.Config, &cfg) == nil {
+				configured = cfg.Project
+			}
+		}
+		project, startup, err := dotnetEFTargets(dir, configured)
+		if err != nil {
+			return nil, err
+		}
+		cmd := append([]string{"dotnet", "ef"}, args...)
+		return append(cmd, "--project", project, "--startup-project", startup), nil
+	}
+}
 
 // mavenCmd runs Maven through the project's wrapper (mvnw) when there is one, else the
 // image's mvn, in batch mode. The goals are constants of the catalogue.
@@ -364,6 +401,14 @@ func (m *Manager) ListActions(ctx context.Context, id string) ([]ActionInfo, err
 					break
 				}
 			}
+			if info.Available && a.resolve != nil {
+				cmd, err := a.resolve(dir, view.Project)
+				if err != nil {
+					info.Available, info.Reason = false, err.Error()
+				} else {
+					info.Cmd = cmd
+				}
+			}
 		}
 		out = append(out, info)
 	}
@@ -403,6 +448,7 @@ func (m *Manager) RunAction(ctx context.Context, id, actionID string, cols, rows
 		if !info.Available {
 			return nil, Action{}, nil, fmt.Errorf("%w: %s", ErrConflict, info.Reason)
 		}
+		action = info.Action // with the command resolved for the project
 	}
 	if !listed {
 		return nil, Action{}, nil, fmt.Errorf("%w: project has no %s service", ErrConflict, action.Service)

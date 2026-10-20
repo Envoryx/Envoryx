@@ -267,8 +267,17 @@ func TestDotnetTestSuiteDetection(t *testing.T) {
 		t.Fatal("no test project, no suite")
 	}
 	s, ok := dotnetTestSuite(project(map[string]string{"Shop.slnx": "", "tests/A/A.csproj": test, "tests/B/B.csproj": test}), nil)
-	if !ok || !s.Available || !slices.Equal(s.Cmd, []string{"dotnet", "test"}) {
+	if !ok || !s.Available || !slices.Equal(s.Cmd, []string{"dotnet", "test", "Shop.slnx"}) {
 		t.Fatalf("a solution runs every test project: %+v", s)
+	}
+	// A project file next to the solution would make dotnet ask which one to test.
+	s, ok = dotnetTestSuite(project(map[string]string{"Shop.sln": "", "App.csproj": `<Project Sdk="Microsoft.NET.Sdk.Web"/>`, "Shop.Tests/Shop.Tests.csproj": test}), nil)
+	if argv, _ := s.build("", "/tmp/r.xml"); !ok || !s.Available || argv[len(argv)-1] != "Shop.sln" {
+		t.Fatalf("solution next to a project: %+v", s)
+	}
+	s, ok = dotnetTestSuite(project(map[string]string{"A.sln": "", "B.slnx": "", "tests/A/A.csproj": test}), nil)
+	if !ok || s.Available || !strings.Contains(s.Reason, "several solution files") {
+		t.Fatalf("two solutions: %+v", s)
 	}
 	s, ok = dotnetTestSuite(project(map[string]string{"tests/A/A.csproj": test, "tests/B/B.csproj": test}), nil)
 	if !ok || s.Available || !strings.Contains(s.Reason, "no solution file") {
@@ -283,7 +292,7 @@ func TestDotnetTestSuiteDetection(t *testing.T) {
 		t.Fatalf("Microsoft.Testing.Platform runs without report and filter: %+v", s)
 	}
 	argv, _ := s.build("ignored", "/tmp/r.xml")
-	if !slices.Equal(argv[4:], []string{"mtp", "/tmp/r.xml", "", ""}) {
+	if !slices.Equal(argv[4:], []string{"mtp", "/tmp/r.xml", "", "Shop.sln"}) {
 		t.Fatalf("mtp argv %q", argv)
 	}
 }
@@ -386,5 +395,75 @@ func TestDotnetActions(t *testing.T) {
 	}
 	if r := reason("ef:database-update"); r == "" {
 		t.Fatal("dotnet ef needs a project file at the top, a solution isn't enough")
+	}
+}
+
+func TestDotnetActionTargets(t *testing.T) {
+	project := func(files map[string]string) string {
+		dir := t.TempDir()
+		for f, content := range files {
+			p := filepath.Join(dir, filepath.FromSlash(f))
+			_ = os.MkdirAll(filepath.Dir(p), 0o755)
+			_ = os.WriteFile(p, []byte(content), 0o644)
+		}
+		return dir
+	}
+	web := `<Project Sdk="Microsoft.NET.Sdk.Web"/>`
+	lib := `<Project Sdk="Microsoft.NET.Sdk"/>`
+	test := `<Project Sdk="Microsoft.NET.Sdk"><ItemGroup><PackageReference Include="xunit" /></ItemGroup></Project>`
+	build := func(files map[string]string) (string, error) { return dotnetBuildTarget(project(files)) }
+
+	for _, tc := range []struct {
+		files map[string]string
+		want  string
+		err   string
+	}{
+		{files: map[string]string{"App.csproj": web}, want: "App.csproj"},
+		{files: map[string]string{"Shop.slnx": "", "App.csproj": web}, want: "Shop.slnx"},
+		{files: map[string]string{"App.sln": "", "App.slnx": "", "App.csproj": web}, want: "App.sln"},
+		{files: map[string]string{"A.sln": "", "B.sln": ""}, err: "several solution files"},
+		{files: map[string]string{"A.csproj": web, "B.csproj": lib}, err: "several project files"},
+		{files: map[string]string{"src/App/App.csproj": web}, err: "not found in project"},
+	} {
+		got, err := build(tc.files)
+		if tc.err != "" {
+			if err == nil || !strings.Contains(err.Error(), tc.err) {
+				t.Errorf("%v: err %v, want %q", tc.files, err, tc.err)
+			}
+		} else if err != nil || got != tc.want {
+			t.Errorf("%v: %q %v, want %q", tc.files, got, err, tc.want)
+		}
+	}
+	a, _ := findAction("dotnet:outdated")
+	if argv, err := a.resolve(project(map[string]string{"Shop.sln": "", "App.csproj": web}), store.Project{}); err != nil || !slices.Equal(argv, []string{"dotnet", "list", "Shop.sln", "package", "--outdated"}) {
+		t.Fatalf("outdated argv %q %v", argv, err)
+	}
+
+	for _, tc := range []struct {
+		name             string
+		files            map[string]string
+		configured       string
+		project, startup string
+		err              string
+	}{
+		{name: "one project at the top", files: map[string]string{"App.csproj": web, "App.sln": ""}, project: "App.csproj", startup: "App.csproj"},
+		{name: "src and tests", files: map[string]string{"App.sln": "", "src/App/App.csproj": web, "tests/App.Tests/App.Tests.csproj": test}, project: "src/App/App.csproj", startup: "src/App/App.csproj"},
+		{name: "migrations in a library", files: map[string]string{"src/App/App.csproj": web, "src/App.Data/App.Data.csproj": lib, "src/App.Data/Migrations/AppDbContextModelSnapshot.cs": "", "tests/App.Tests/App.Tests.csproj": test},
+			project: "src/App.Data/App.Data.csproj", startup: "src/App/App.csproj"},
+		{name: "configured server project", files: map[string]string{"src/Api/Api.csproj": web, "src/Admin/Admin.csproj": web}, configured: "src/Admin/Admin.csproj", project: "src/Admin/Admin.csproj", startup: "src/Admin/Admin.csproj"},
+		{name: "two web projects", files: map[string]string{"src/Api/Api.csproj": web, "src/Admin/Admin.csproj": web}, err: "found 2 web or worker projects"},
+		{name: "one console project", files: map[string]string{"src/Tool/Tool.csproj": lib, "tests/T/T.csproj": test}, project: "src/Tool/Tool.csproj", startup: "src/Tool/Tool.csproj"},
+		{name: "only tests", files: map[string]string{"tests/T/T.csproj": test}, err: "not found in project"},
+	} {
+		proj, startup, err := dotnetEFTargets(project(tc.files), tc.configured)
+		if tc.err != "" {
+			if err == nil || !strings.Contains(err.Error(), tc.err) {
+				t.Errorf("%s: err %v, want %q", tc.name, err, tc.err)
+			}
+			continue
+		}
+		if err != nil || proj != tc.project || startup != tc.startup {
+			t.Errorf("%s: %q %q %v, want %q %q", tc.name, proj, startup, err, tc.project, tc.startup)
+		}
 	}
 }
