@@ -215,6 +215,7 @@ D=$(mktemp -d); chmod 777 "$D"
 run() { docker run --rm -i --user 1000:1000 -w /tmp/my-shop -v "$D:/tmp/my-shop" \
   -e HOME=/tmp -e npm_config_cache=/tmp/.npm -e npm_config_yes=true -e CI=1 \
   -e COREPACK_ENABLE_DOWNLOAD_PROMPT=0 -e NPM_CONFIG_UPDATE_NOTIFIER=false \
+  -e pnpm_config_store_dir=/tmp/.pnpm-store \
   --entrypoint sh ghcr.io/envoryx/envoryx-node:24 -c '"$@" </dev/null' -- "$@"; }
 
 # vite
@@ -224,6 +225,21 @@ run npx --yes create-next-app@latest . --yes --ts --app --use-npm --disable-git
 # nuxt (empty $D again first)
 run npx --yes nuxi@latest init . --template minimal --packageManager npm --no-install --no-gitInit --force && run npm install
 ```
+
+The templates scaffold with the project's package manager (`viteSteps`, `nextSteps`,
+`nuxtSteps`); repeat the smoke for pnpm and Yarn when you touch them. With pnpm:
+`pnpm create vite@latest . --template react-ts` plus `pnpm install`, `--use-pnpm` for
+create-next-app (it installs and writes its own `allowBuilds`), and
+`--packageManager pnpm` for nuxi with the template's `pnpm-workspace.yaml` written before
+`pnpm install`: pnpm 12 fails the install with `ERR_PNPM_IGNORED_BUILDS` while a
+dependency's build script (esbuild) is neither approved nor denied. With Yarn 4:
+`yarn create vite@latest . --template react-ts`, `--use-yarn --skip-install` for
+create-next-app, `--packageManager yarn` for nuxi, each followed by
+`yarn install --no-immutable` (CI=1 makes Yarn refuse to write a new lockfile) and, for
+Vite and Next, a `.yarnrc.yml` with `nodeLinker: node-modules` before it (nuxi writes it
+itself). Only that manager's lockfile may exist afterwards. pnpm needs the store
+variable: without it the store of `pnpm create` lands in the project directory and
+create-vite stops because the directory is not empty.
 
 The project directory is mounted under `/tmp/<slug>` rather than `/var/www/html` because
 `create-next-app` refuses a target whose parent directory isn't writable (`/var/www` is
