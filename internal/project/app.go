@@ -280,11 +280,21 @@ func nodeWorkerEnv(p store.Project) string {
 }
 
 // withNodeWorkerEnv adds nodeWorkerEnv to a worker's or cron job's environment. In
-// development a NODE_ENV the project sets itself wins, as it does for the dev server.
+// development a NODE_ENV the project sets itself wins, as it does for the dev server. A
+// worker's env holds the project variables; a cron job's exec env holds only the tool
+// variables and inherits the project's from the Node container, where the NODE_ENV added
+// here would hide them - so the project's own variables count as well.
 func withNodeWorkerEnv(env []string, p store.Project) []string {
 	nodeEnv := nodeWorkerEnv(p)
-	if nodeEnv == "NODE_ENV=development" && slices.ContainsFunc(env, func(v string) bool { return strings.HasPrefix(v, "NODE_ENV=") }) {
-		return env
+	if nodeEnv == "NODE_ENV=development" {
+		if slices.ContainsFunc(env, func(v string) bool { return strings.HasPrefix(v, "NODE_ENV=") }) {
+			return env
+		}
+		for _, e := range p.Env {
+			if e.Key == "NODE_ENV" {
+				return append(env, "NODE_ENV="+e.Value)
+			}
+		}
 	}
 	return append(env, nodeEnv)
 }
