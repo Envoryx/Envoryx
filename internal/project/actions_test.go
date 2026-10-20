@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -26,6 +27,55 @@ func TestActionEnvCI(t *testing.T) {
 		}
 		if want := !strings.HasPrefix(id, "shopware:"); hasCI != want {
 			t.Fatalf("%s: CI set %v, want %v", id, hasCI, want)
+		}
+	}
+}
+
+// craft install exits 0 without installing anything when Craft is already there: the
+// action shows a password only when install/check says the install happened. Run with
+// a php stub that plays Craft.
+func TestCraftInstallScriptShowsPasswordOnlyAfterInstall(t *testing.T) {
+	if _, err := exec.LookPath("sh"); err != nil {
+		t.Skip("no sh")
+	}
+	bin := t.TempDir()
+	// INSTALLED says whether install/check succeeds before; AFTER whether it does after.
+	stub := `#!/bin/sh
+case "$1 $2" in
+  "-r "*) echo abc ;;
+  "craft install/check") if [ -f "$STATE" ]; then exit 0; fi; exit 1 ;;
+  "craft install") echo "site-url: $(printf '%s' "$*" | sed -n 's/.*--site-url=\([^ ]*\).*/\1/p')"; if [ "$AFTER" = 1 ]; then touch "$STATE"; fi ;;
+esac
+`
+	if err := os.WriteFile(filepath.Join(bin, "php"), []byte(stub), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	run := func(installed, after bool) (string, error) {
+		work := t.TempDir()
+		state := filepath.Join(work, "installed")
+		if installed {
+			_ = os.WriteFile(state, nil, 0o644)
+		}
+		_ = os.WriteFile(filepath.Join(work, ".env"), []byte("PRIMARY_SITE_URL=\nX=1\n"), 0o644)
+		cmd := exec.Command("sh", "-c", craftInstallScript, "envoryx-craft")
+		cmd.Dir = work
+		a := "0"
+		if after {
+			a = "1"
+		}
+		cmd.Env = append(os.Environ(), "PATH="+bin+":"+os.Getenv("PATH"), "STATE="+state, "AFTER="+a, "ENVORYX_URL=https://blog.test", "ENVORYX_PROJECT=Blog")
+		out, err := cmd.CombinedOutput()
+		env, _ := os.ReadFile(filepath.Join(work, ".env"))
+		return string(out) + "\n.env:\n" + string(env), err
+	}
+	out, err := run(false, true)
+	if err != nil || !strings.Contains(out, "Password: Envoryx-abc!") || !strings.Contains(out, "site-url: $PRIMARY_SITE_URL") || !strings.Contains(out, "PRIMARY_SITE_URL=${ENVORYX_URL}\nX=1") {
+		t.Fatalf("fresh install: %v\n%s", err, out)
+	}
+	for _, tc := range []struct{ installed, after bool }{{true, true}, {false, false}} {
+		out, err := run(tc.installed, tc.after)
+		if err == nil || strings.Contains(out, "Password:") {
+			t.Fatalf("installed=%v after=%v: %v\n%s", tc.installed, tc.after, err, out)
 		}
 	}
 }

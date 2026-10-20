@@ -228,9 +228,29 @@ if (getenv("DB_CONNECTION") === "pgsql") {
 }
 if ($n > 0) { echo "Emptied the database: dropped $n tables.\n"; }`
 
+	// craft install exits 0 without doing anything when Craft is already installed, so
+	// install/check decides before and after whether there is a password to show. The
+	// site URL is the reference $PRIMARY_SITE_URL, which .env points at ENVORYX_URL: given
+	// the address itself, Craft stores it in the project config and a rename leaves the
+	// site on the old one.
 	craftInstallScript = adminPassword + `
+if php craft install/check >/dev/null 2>&1; then
+  echo "Craft is already installed in the project database; nothing was changed." >&2
+  echo "Log in with the existing account, or empty the database to install from scratch." >&2
+  exit 1
+fi
+touch .env || exit
+if grep -q '^PRIMARY_SITE_URL=' .env; then
+  sed -i 's|^PRIMARY_SITE_URL=.*|PRIMARY_SITE_URL=${ENVORYX_URL}|' .env || exit
+else
+  printf '\n# Added by Envoryx: the address the project answers at.\nPRIMARY_SITE_URL=${ENVORYX_URL}\n' >> .env || exit
+fi
 php craft install --interactive=0 --username=admin --email=admin@example.com --password="$pw" \
-  --site-name="$ENVORYX_PROJECT" --site-url="$ENVORYX_URL" --language=en-US || exit
+  --site-name="$ENVORYX_PROJECT" --site-url='$PRIMARY_SITE_URL' --language=en-US || exit
+if ! php craft install/check >/dev/null 2>&1; then
+  echo "craft install finished, but Craft is still not installed; see the output above." >&2
+  exit 1
+fi
 printf '\nControl panel: %s/admin  User: admin  Password: %s\n' "$ENVORYX_URL" "$pw"`
 )
 
