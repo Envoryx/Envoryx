@@ -94,7 +94,7 @@ const nodeDepsMissing = `[ ! -d node_modules ] && [ ! -f .pnp.cjs ] && node -e '
 // nodeDepsWait blocks until an install has finished. It looks for the files npm, pnpm and
 // Yarn write at the end of an install rather than for node_modules itself, which appears
 // as soon as an install starts.
-const nodeDepsWait = `until [ -f node_modules/.package-lock.json ] || [ -f node_modules/.modules.yaml ] || [ -f node_modules/.yarn-integrity ] || [ -f node_modules/.yarn-state.yml ] || [ -f .pnp.cjs ]; do echo 'envoryx: waiting for node_modules - run "npm install" (or pnpm / yarn install) from Actions'; sleep 5; done`
+const nodeDepsWait = `until [ -f node_modules/.package-lock.json ] || [ -f node_modules/.modules.yaml ] || [ -f node_modules/.yarn-integrity ] || [ -f node_modules/.yarn-state.yml ] || [ -f .pnp.cjs ]; do ` + noteNodeDeps + `; echo 'envoryx: waiting for node_modules - run "npm install" (or pnpm / yarn install) from Actions'; sleep 5; done`
 
 // NodeDepsGuard installs the dependencies of a fresh checkout before the dev server starts,
 // like the Ruby containers run bundle install. It only installs from a lockfile and in
@@ -285,7 +285,7 @@ func (c NodeConfig) WrappedCommand(guards ...string) []string {
 	if !c.Production() {
 		own = append(own, nodeDevEnv)
 	}
-	return Guarded(c.Command(), "envoryx-dev", append(own, guards...)...)
+	return Supervised(c.Command(), "envoryx-dev", append(own, guards...)...)
 }
 
 // WorkerEnv is the NODE_ENV of the Node workers and cron jobs: they follow the dev

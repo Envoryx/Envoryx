@@ -9,6 +9,7 @@ import (
 
 	"github.com/envoryx/envoryx/internal/docker"
 	"github.com/envoryx/envoryx/internal/notify"
+	"github.com/envoryx/envoryx/internal/runtime"
 	"github.com/envoryx/envoryx/internal/store"
 )
 
@@ -28,6 +29,35 @@ func containerState(c docker.Container) string {
 	return c.State
 }
 
+// serviceProblem says what is wrong with a container that exists, for the status
+// warnings: a crash loop, or the note of a server guard that waits on the user (the
+// server health check prints it, see runtime.WaitingFile). "" when nothing is.
+func serviceProblem(name string, c docker.Container) string {
+	if containerState(c) == "restarting" {
+		return name + " keeps restarting - its main process exits shortly after each start; its logs say why"
+	}
+	if c.Health != "unhealthy" {
+		return ""
+	}
+	note, _, _ := strings.Cut(c.HealthOutput, "\n")
+	key, module, _ := strings.Cut(strings.TrimSpace(note), ":")
+	switch key {
+	case runtime.WaitBundle:
+		return "the " + name + " server waits because bundle install failed - its logs show the error; it tries again every 30 seconds"
+	case runtime.WaitNodeDeps:
+		return "the " + name + " dev server waits for node_modules - run npm install (or pnpm / yarn install) from Actions"
+	case runtime.WaitVenv:
+		return "the " + name + " server waits because .venv was built for another Python version - run pip install -r requirements.txt or uv sync from Actions to rebuild it"
+	case runtime.WaitPythonDeps:
+		if module != "" {
+			return "the " + name + " server waits for " + module + " in .venv - run pip install -r requirements.txt or uv sync from Actions"
+		}
+	case runtime.WaitServerExited:
+		return "the " + name + " server exited while an action was running - it starts again once the action has finished; its logs say why it exited"
+	}
+	return ""
+}
+
 // deriveStatus computes the observed state of a project from the managed container list.
 // imageIDs (optional) maps image references to their current local id so containers built
 // from an older build of the same tag can be flagged.
@@ -40,6 +70,17 @@ func deriveStatus(p store.Project, containers []docker.Container, imageIDs map[s
 		}
 	}
 	enabled, running, existing := 0, 0, 0
+	// problems are the warnings that name a service and its trouble; with one, the generic
+	// "should be running" says nothing more.
+	problems := 0
+	problem := func(name string, c docker.Container) bool {
+		if w := serviceProblem(name, c); w != "" {
+			st.Warnings = append(st.Warnings, w)
+			problems++
+			return true
+		}
+		return false
+	}
 	for _, svc := range p.Services {
 		if !svc.Enabled {
 			continue
@@ -63,9 +104,14 @@ func deriveStatus(p store.Project, containers []docker.Container, imageIDs map[s
 			ss.Status = c.Status
 			ss.Health = c.Health
 			ss.Ports = c.Ports
+			ss.Up = c.State == "running"
+			// A server that waits on the user doesn't count towards a running project;
+			// its container still runs the actions and the terminal that fix it.
 			if ss.State == "running" {
-				running++
 				ss.Running = true
+			}
+			if !problem(string(svc.Kind), c) && ss.Running {
+				running++
 			}
 			rec := p.ImageRecord(svc.Image)
 			switch {
@@ -114,8 +160,10 @@ func deriveStatus(p store.Project, containers []docker.Container, imageIDs map[s
 			existing++
 			ss.Exists, ss.ContainerID, ss.State, ss.Status, ss.Health, ss.Ports = true, c.ID, containerState(c), c.Status, c.Health, c.Ports
 			if ss.State == "running" {
-				running++
 				ss.Running = true
+			}
+			if !problem("worker "+w.Name, c) && ss.Running {
+				running++
 			}
 		}
 		st.Services = append(st.Services, ss)
@@ -156,7 +204,7 @@ func deriveStatus(p store.Project, containers []docker.Container, imageIDs map[s
 	if p.LastError != "" {
 		st.Warnings = append(st.Warnings, p.LastError)
 	}
-	if p.DesiredState == store.DesiredRunning && st.State != StateRunning && p.Lifecycle == store.LifecycleReady {
+	if p.DesiredState == store.DesiredRunning && st.State != StateRunning && p.Lifecycle == store.LifecycleReady && problems == 0 {
 		st.Warnings = append(st.Warnings, "project should be running but is "+string(st.State))
 	}
 	return st

@@ -79,7 +79,7 @@ func TestRubyCommands(t *testing.T) {
 	if strings.Index(script, "bundle check") > strings.Index(script, "until db") {
 		t.Fatalf("the bundle comes before the database wait: %s", script)
 	}
-	if w := prod.WrappedCommand(); strings.Contains(w[2], "rm -f") {
+	if w := prod.WrappedCommand(); strings.Contains(w[2], railsPidFile) {
 		t.Fatalf("Puma writes no pid file of its own: %s", w[2])
 	}
 	if w := rack.WrappedCommand(); !strings.Contains(w[2], "[ -e config.ru ]") {

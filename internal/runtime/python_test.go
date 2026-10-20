@@ -92,7 +92,7 @@ func TestPythonCommands(t *testing.T) {
 	c := PythonConfig{Server: true, Preset: "asgi", App: "api.main:app"}
 	_ = c.Normalize()
 	w := c.WrappedCommand()
-	if w[0] != "sh" || w[1] != "-c" || !strings.Contains(w[2], "[ -e api.py ] || [ -d api ]") || !strings.HasSuffix(w[2], `exec "$@"`) || strings.Join(w[4:], " ") != strings.Join(c.Command(), " ") {
+	if w[0] != "sh" || w[1] != "-c" || !strings.Contains(w[2], "[ -e api.py ] || [ -d api ]") || !strings.HasSuffix(w[2], supervise) || strings.Join(w[4:], " ") != strings.Join(c.Command(), " ") {
 		t.Fatalf("wrapped: %q", w)
 	}
 	d := PythonConfig{Server: true, Preset: "django"}

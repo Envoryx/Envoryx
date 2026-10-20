@@ -224,7 +224,7 @@ func (c PythonConfig) entryGuard() string {
 // (venv, virtualenv) or "version_info" (uv). A constant: nothing is interpolated.
 const VenvGuard = `v=$(python -c 'import sys; print("%d.%d" % sys.version_info[:2])' 2>/dev/null); ` +
 	`while b=$(sed -nE 's/^version(_info)? *= *([0-9]+[.][0-9]+).*/\2/p' ` + PythonVenv + `/pyvenv.cfg 2>/dev/null | head -n 1); [ -n "$b" ] && [ "$b" != "$v" ]; do ` +
-	`echo "envoryx: .venv was built for Python $b but this container runs $v - run \"pip install -r requirements.txt\" or \"uv sync\" from Actions to rebuild it"; sleep 5; done`
+	noteVenv + `; echo "envoryx: .venv was built for Python $b but this container runs $v - run \"pip install -r requirements.txt\" or \"uv sync\" from Actions to rebuild it"; sleep 5; done`
 
 // pythonInstalling matches a pip or uv run that changes the venv: "pip install" through
 // the venv's pip script or "python -m pip", and "uv sync/add/pip". Written so that it
@@ -258,14 +258,16 @@ func (c PythonConfig) DepsGuard() string {
 	if mod == "" {
 		return `while ` + pythonInstalling + `; do echo 'envoryx: waiting for pip / uv to finish'; sleep 3; done`
 	}
-	return fmt.Sprintf(`until python -c 'import %s' 2>/dev/null && ! %s; do echo 'envoryx: waiting for %s in .venv - run "pip install -r requirements.txt" or "uv sync" from Actions'; sleep 3; done`, mod, pythonInstalling, mod)
+	// Only a missing package is the user's to fix; a running install just takes its time.
+	note := fmt.Sprintf(`if %s; then rm -f %s; else %s; fi`, pythonInstalling, WaitingFile, "echo "+WaitPythonDeps+":"+mod+" >"+WaitingFile)
+	return fmt.Sprintf(`until python -c 'import %s' 2>/dev/null && ! %s; do %s; echo 'envoryx: waiting for %s in .venv - run "pip install -r requirements.txt" or "uv sync" from Actions'; sleep 3; done`, mod, pythonInstalling, note, mod)
 }
 
 // WrappedCommand returns Command() behind the entry-file, venv and dependency guards, for
 // containers whose server is the project's application. Further guards (the database
 // wait the planner builds) run after them.
 func (c PythonConfig) WrappedCommand(guards ...string) []string {
-	return Guarded(c.Command(), "envoryx-serve", append([]string{c.entryGuard(), VenvGuard, c.DepsGuard()}, guards...)...)
+	return Supervised(c.Command(), "envoryx-serve", append([]string{c.entryGuard(), VenvGuard, c.DepsGuard()}, guards...)...)
 }
 
 // Env returns the variables that tell the application where to listen: HOST and PORT are

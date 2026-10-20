@@ -99,10 +99,20 @@ type Container struct {
 	// Health is "healthy", "unhealthy", "starting" or "" when the image defines no check.
 	Health string
 	// Restarts counts the restarts by the restart policy since the container was last
-	// started by hand. Only filled for a container that came up less than a minute ago:
-	// with restarts it is crash-looping, although the listing says running.
+	// started by hand. Only filled for a container that came up less than CrashLoopWindow
+	// ago: with restarts it is crash-looping, although the listing says running.
 	Restarts int
+	// HealthOutput is what the last health check printed, filled for an unhealthy
+	// container only.
+	HealthOutput string
 }
+
+// CrashLoopWindow is how long a container restarted by Docker must have been up again
+// to count as stable. Docker itself resets its restart delay once a container has run
+// for 10 seconds, and a server that dies sooner shows as restarting for most of its
+// cycle anyway; waiting longer would leave a repaired server marked as crash-looping
+// for no reason.
+const CrashLoopWindow = 20 * time.Second
 
 // ProjectID returns the project label of a container.
 func (c Container) ProjectID() string { return c.Labels[LabelProjectID] }

@@ -215,7 +215,7 @@ func (c GoConfig) entryGuard() string {
 // is the project's application. Further guards (the database wait the planner builds)
 // run after it.
 func (c GoConfig) WrappedCommand(guards ...string) []string {
-	return Guarded(c.Command(), "envoryx-serve", append([]string{c.entryGuard()}, guards...)...)
+	return Supervised(c.Command(), "envoryx-serve", append([]string{c.entryGuard()}, guards...)...)
 }
 
 // Env returns the variables that tell the application where to listen - HOST and PORT -

@@ -280,6 +280,10 @@ func TestCrashLoopingWorkerAndRestart(t *testing.T) {
 	if state, running, project := workerState(); state != "restarting" || running || project != StatePartial {
 		t.Fatalf("crash loop: worker %s running=%v, project %s", state, running, project)
 	}
+	// The warning names the worker and where to look, not just "partial".
+	if v, _ := e.m.Get(ctx, id); !slices.Contains(v.Status.Warnings, "worker queue keeps restarting - its main process exits shortly after each start; its logs say why") || slices.ContainsFunc(v.Status.Warnings, func(w string) bool { return strings.Contains(w, "should be running") }) {
+		t.Fatalf("crash loop warnings: %q", v.Status.Warnings)
+	}
 	before, _ := e.engine.Container("envoryx-shop-worker-queue")
 	web, _ := e.engine.Container("envoryx-shop-web")
 	if err := e.m.RestartWorker(ctx, id, q.ID); err != nil {

@@ -335,7 +335,7 @@ func TestApplicationServerWaitsForTheDatabase(t *testing.T) {
 	script := py.Spec.Cmd[2]
 	// Entry file first (cheap and local), then the database, then the server.
 	entry, db := strings.Index(script, "main.py"), strings.Index(script, "TCP:database:5432")
-	if entry < 0 || db < entry || !strings.Contains(script, `; exec "$@"`) {
+	if entry < 0 || db < entry || !strings.Contains(script, `; "$@" &`) {
 		t.Fatalf("python guards: %q", script)
 	}
 	if strings.Contains(script, "uvicorn --host") || strings.Join(py.Spec.Cmd[4:], " ") != "uvicorn main:app --host 0.0.0.0 --port 8000 --reload" {
