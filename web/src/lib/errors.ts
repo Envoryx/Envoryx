@@ -131,6 +131,15 @@ const templates = [
   "{{file}} not found in project",
   "{{service}} container is not running",
   "{{service}} container keeps restarting - its main process exits, the logs say why; switch its server off to run commands in it",
+  "several solution files at the top of the project ({{list}}) - keep one, or run dotnet with the one you want in the terminal",
+  "found {{n}} web or worker projects - choose the server's project in the .NET settings, or run dotnet ef with --startup-project in the terminal",
+  "several projects hold EF Core migrations ({{list}}) - run dotnet ef with --project in the terminal",
+  // Why a test suite can't run (TestsTab).
+  "{{n}} test projects and no solution file at the top of the project - add one (dotnet new sln, dotnet sln add)",
+  "{{file}} not found - run {{command}}",
+  // Project status warnings (venv.go, nodedeps.go); the {{reason}} names the way out.
+  "the virtual environment was built for Python {{built}} but the container runs {{running}} - its packages are invisible to the new interpreter, so the application server and the workers wait; {{reason}}",
+  "node_modules is missing - the dev server runs \"{{install}}\" before it starts; if that fails, it waits until you run \"npm install\" (or pnpm / yarn install) from Actions",
   // A service's trouble in the project status (status.go serviceProblem).
   "{{service}} keeps restarting - its main process exits shortly after each start; its logs say why",
   "the {{service}} server waits because bundle install failed - its logs show the error; it tries again every 30 seconds",

@@ -3136,5 +3136,18 @@
   "the {{service}} server waits because .venv was built for another Python version - run pip install -r requirements.txt or uv sync from Actions to rebuild it": "De server van {{service}} wacht omdat .venv voor een andere Python-versie is gebouwd - voer pip install -r requirements.txt of uv sync uit via Acties om het opnieuw op te bouwen",
   "the {{service}} server waits for {{module}} in .venv - run pip install -r requirements.txt or uv sync from Actions": "De server van {{service}} wacht op {{module}} in .venv - voer pip install -r requirements.txt of uv sync uit via Acties",
   "the {{service}} server exited while an action was running - it starts again once the action has finished; its logs say why it exited": "De server van {{service}} is gestopt terwijl er een actie liep - hij start opnieuw zodra de actie klaar is; de logs vertellen waarom hij stopte",
-  "Waiting for {{name}} to be ready": "Wachten tot {{name}} klaar is"
+  "Waiting for {{name}} to be ready": "Wachten tot {{name}} klaar is",
+  "Revert the last migration (of the primary database when there are several)": "Laatste migratie terugdraaien (die van de primaire database als er meerdere zijn)",
+  "several solution files at the top of the project ({{list}}) - keep one, or run dotnet with the one you want in the terminal": "meerdere solution-bestanden bovenin het project ({{list}}) - houd er één, of voer dotnet in de terminal uit met het gewenste bestand",
+  "several project files and no solution file at the top of the project - add one (dotnet new sln, dotnet sln add)": "meerdere projectbestanden en geen solution-bestand bovenin het project - voeg er een toe (dotnet new sln, dotnet sln add)",
+  "found {{n}} web or worker projects - choose the server's project in the .NET settings, or run dotnet ef with --startup-project in the terminal": "{{n}} web- of workerprojecten gevonden - kies het project van de server in de .NET-instellingen, of voer dotnet ef met --startup-project uit in de terminal",
+  "several projects hold EF Core migrations ({{list}}) - run dotnet ef with --project in the terminal": "meerdere projecten bevatten EF Core-migraties ({{list}}) - voer dotnet ef met --project uit in de terminal",
+  "the virtual environment was built for Python {{built}} but the container runs {{running}} - its packages are invisible to the new interpreter, so the application server and the workers wait; {{reason}}": "de virtuele omgeving is gebouwd voor Python {{built}}, maar de container draait {{running}} - de nieuwe interpreter ziet de pakketten niet, dus de applicatieserver en de workers wachten; {{reason}}",
+  "run \"uv sync\" from Actions": "voer \"uv sync\" uit via Acties",
+  "run \"pip install -r requirements.txt\" from Actions": "voer \"pip install -r requirements.txt\" uit via Acties",
+  "delete .venv and install the dependencies again from the Python terminal": "verwijder .venv en installeer de afhankelijkheden opnieuw vanuit de Python-terminal",
+  "node_modules is missing - the dev server runs \"{{install}}\" before it starts; if that fails, it waits until you run \"npm install\" (or pnpm / yarn install) from Actions": "node_modules ontbreekt - de devserver voert \"{{install}}\" uit voordat hij start; mislukt dat, dan wacht hij tot je \"npm install\" (of pnpm / yarn install) uitvoert via Acties",
+  "Docker engine unavailable": "Docker-engine niet beschikbaar",
+  "{{file}} not found - run {{command}}": "{{file}} niet gevonden - voer {{command}} uit",
+  "{{n}} test projects and no solution file at the top of the project - add one (dotnet new sln, dotnet sln add)": "{{n}} testprojecten en geen solution-bestand bovenin het project - voeg er een toe (dotnet new sln, dotnet sln add)"
 }
