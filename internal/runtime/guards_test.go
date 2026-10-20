@@ -96,7 +96,7 @@ func TestSupervisedForwardsAStop(t *testing.T) {
 }
 
 func TestGuardsNoteWhatTheyWaitFor(t *testing.T) {
-	for name, g := range map[string]string{"bundle": BundleGuard, "node": NodeDepsGuard, "venv": VenvGuard, "deps": PythonConfig{Preset: "flask"}.DepsGuard()} {
+	for name, g := range map[string]string{"bundle": BundleGuard, "node": NodeConfig{}.DepsGuard(), "venv": VenvGuard, "deps": PythonConfig{Preset: "flask"}.DepsGuard()} {
 		if !strings.Contains(g, " >"+WaitingFile) {
 			t.Errorf("%s guard writes no note: %s", name, g)
 		}
