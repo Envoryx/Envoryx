@@ -268,6 +268,7 @@ func (m *Manager) renameProject(ctx context.Context, id string, req RenameReques
 		}
 	}
 	m.retagRollbackImages(ctx, proj, slug)
+	m.followAddress(ctx, renamed, m.ProjectURL(proj), m.ProjectURL(renamed))
 
 	if err := m.store.Projects.UpdateState(ctx, id, proj.DesiredState, store.LifecycleReady, ""); err != nil {
 		return fail(err, "finalise the rename")
