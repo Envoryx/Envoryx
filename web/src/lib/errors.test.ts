@@ -47,6 +47,20 @@ describe("translateMessage", () => {
     expect(translateMessage("a newer php image was pulled; restart to apply", t)).toBe("Ein neueres php-Image wurde geladen; zum Übernehmen neu starten");
     expect(translateMessage('container for removed service "redis" still exists', t)).toBe("Ein Container für den entfernten Dienst „redis“ existiert noch");
     expect(translateMessage("the database container runs with an older setup; restart the project to update it", t)).toBe("Der database-Container läuft noch mit einer älteren Einrichtung; starte das Projekt neu, um ihn zu aktualisieren");
+    expect(
+      translateMessage(
+        'the virtual environment was built for Python 3.13 but the container runs 3.14 - its packages are invisible to the new interpreter, so the application server and the workers wait; run "uv sync" from Actions',
+        t,
+      ),
+    ).toBe("Die virtuelle Umgebung wurde für Python 3.13 gebaut, der Container läuft aber mit 3.14 - der neue Interpreter sieht ihre Pakete nicht, daher warten Anwendungsserver und Worker; führe \"uv sync\" unter Aktionen aus");
+    expect(translateMessage("Docker engine unavailable: Cannot connect to the Docker daemon", t)).toBe("Docker-Engine nicht erreichbar: Cannot connect to the Docker daemon");
+  });
+
+  it("translates why a .NET action or test suite can't run", () => {
+    expect(translateMessage("several projects hold EF Core migrations (src/A/A.csproj, src/B/B.csproj) - run dotnet ef with --project in the terminal", t)).toBe(
+      "mehrere Projekte enthalten EF-Core-Migrationen (src/A/A.csproj, src/B/B.csproj) - führe dotnet ef im Terminal mit --project aus",
+    );
+    expect(translateMessage("vendor/bin/pest not found - run composer install", t)).toBe("vendor/bin/pest nicht gefunden - führe composer install aus");
   });
 
   it("translates a version the host kernel cannot start", () => {

@@ -3186,5 +3186,18 @@
   "the {{service}} server waits because .venv was built for another Python version - run pip install -r requirements.txt or uv sync from Actions to rebuild it": "Serwer {{service}} czeka, bo .venv zbudowano dla innej wersji Pythona - uruchom pip install -r requirements.txt lub uv sync w Akcjach, aby je odbudować",
   "the {{service}} server waits for {{module}} in .venv - run pip install -r requirements.txt or uv sync from Actions": "Serwer {{service}} czeka na {{module}} w .venv - uruchom pip install -r requirements.txt lub uv sync w Akcjach",
   "the {{service}} server exited while an action was running - it starts again once the action has finished; its logs say why it exited": "Serwer {{service}} zakończył działanie podczas wykonywania akcji - uruchomi się ponownie, gdy akcja się zakończy; logi mówią, dlaczego się zakończył",
-  "Waiting for {{name}} to be ready": "Oczekiwanie, aż {{name}} będzie gotowy"
+  "Waiting for {{name}} to be ready": "Oczekiwanie, aż {{name}} będzie gotowy",
+  "Revert the last migration (of the primary database when there are several)": "Cofnij ostatnią migrację (przy kilku bazach - bazy głównej)",
+  "several solution files at the top of the project ({{list}}) - keep one, or run dotnet with the one you want in the terminal": "kilka plików rozwiązania w katalogu głównym projektu ({{list}}) - zostaw jeden albo uruchom w terminalu dotnet z wybranym",
+  "several project files and no solution file at the top of the project - add one (dotnet new sln, dotnet sln add)": "kilka plików projektu i brak pliku rozwiązania w katalogu głównym projektu - dodaj go (dotnet new sln, dotnet sln add)",
+  "found {{n}} web or worker projects - choose the server's project in the .NET settings, or run dotnet ef with --startup-project in the terminal": "znaleziono projekty web lub worker: {{n}} - wybierz projekt serwera w ustawieniach .NET albo uruchom w terminalu dotnet ef z --startup-project",
+  "several projects hold EF Core migrations ({{list}}) - run dotnet ef with --project in the terminal": "kilka projektów zawiera migracje EF Core ({{list}}) - uruchom w terminalu dotnet ef z --project",
+  "the virtual environment was built for Python {{built}} but the container runs {{running}} - its packages are invisible to the new interpreter, so the application server and the workers wait; {{reason}}": "środowisko wirtualne zbudowano dla Pythona {{built}}, a kontener uruchamia {{running}} - nowy interpreter nie widzi jego pakietów, więc serwer aplikacji i workery czekają; {{reason}}",
+  "run \"uv sync\" from Actions": "uruchom \"uv sync\" w Akcjach",
+  "run \"pip install -r requirements.txt\" from Actions": "uruchom \"pip install -r requirements.txt\" w Akcjach",
+  "delete .venv and install the dependencies again from the Python terminal": "usuń .venv i zainstaluj zależności ponownie w terminalu Pythona",
+  "node_modules is missing - the dev server runs \"{{install}}\" before it starts; if that fails, it waits until you run \"npm install\" (or pnpm / yarn install) from Actions": "brak node_modules - serwer deweloperski uruchamia \"{{install}}\" przed startem; jeśli to się nie uda, czeka, aż uruchomisz \"npm install\" (lub pnpm / yarn install) w Akcjach",
+  "Docker engine unavailable": "Silnik Dockera niedostępny",
+  "{{file}} not found - run {{command}}": "nie znaleziono {{file}} - uruchom {{command}}",
+  "{{n}} test projects and no solution file at the top of the project - add one (dotnet new sln, dotnet sln add)": "projekty testowe: {{n}}, brak pliku rozwiązania w katalogu głównym projektu - dodaj go (dotnet new sln, dotnet sln add)"
 }
