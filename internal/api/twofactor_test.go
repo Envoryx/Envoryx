@@ -36,6 +36,11 @@ func (a *testApp) enableTOTP(password string) (string, []any) {
 		a.t.Fatalf("totp setup: %d %s", r.status, r.raw)
 	}
 	secret := r.body["secret"].(string)
+	// A wrong code is a 422, not a 401: the session is fine and the UI must stay in the
+	// setup instead of signing the user out. The setup goes on afterwards.
+	if r := a.do(http.MethodPost, "/api/v1/auth/2fa/totp", map[string]string{"code": "000000"}, true); r.status != http.StatusUnprocessableEntity || errCode(r) != "invalid_code" {
+		a.t.Fatalf("wrong code during the setup: %d %s", r.status, r.raw)
+	}
 	// The previous step: the test signs in with the current one right after.
 	r = a.do(http.MethodPost, "/api/v1/auth/2fa/totp", map[string]string{"code": totpNow(a.t, secret, -1)}, true)
 	if r.status != http.StatusOK {
