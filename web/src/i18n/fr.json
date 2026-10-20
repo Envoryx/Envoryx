@@ -3128,5 +3128,12 @@
   "expires {{date}}": "expire le {{date}}",
   "never expires": "n'expire jamais",
   "Expires after": "Expire après",
-  "An expired token stops working; create a new one then. A token that never expires stays valid until it is revoked.": "Un jeton expiré cesse de fonctionner ; créez-en alors un nouveau. Un jeton qui n'expire jamais reste valable jusqu'à sa révocation."
+  "An expired token stops working; create a new one then. A token that never expires stays valid until it is revoked.": "Un jeton expiré cesse de fonctionner ; créez-en alors un nouveau. Un jeton qui n'expire jamais reste valable jusqu'à sa révocation.",
+  "{{service}} keeps restarting - its main process exits shortly after each start; its logs say why": "{{service}} redémarre sans cesse - son processus principal s'arrête peu après chaque démarrage ; ses logs disent pourquoi",
+  "the {{service}} server waits because bundle install failed - its logs show the error; it tries again every 30 seconds": "Le serveur {{service}} attend car bundle install a échoué - ses logs montrent l'erreur ; il réessaie toutes les 30 secondes",
+  "the {{service}} dev server waits for node_modules - run npm install (or pnpm / yarn install) from Actions": "Le serveur de développement {{service}} attend node_modules - exécutez npm install (ou pnpm / yarn install) depuis la section Actions",
+  "the {{service}} server waits because .venv was built for another Python version - run pip install -r requirements.txt or uv sync from Actions to rebuild it": "Le serveur {{service}} attend car .venv a été créé pour une autre version de Python - exécutez pip install -r requirements.txt ou uv sync depuis la section Actions pour le reconstruire",
+  "the {{service}} server waits for {{module}} in .venv - run pip install -r requirements.txt or uv sync from Actions": "Le serveur {{service}} attend {{module}} dans .venv - exécutez pip install -r requirements.txt ou uv sync depuis la section Actions",
+  "the {{service}} server exited while an action was running - it starts again once the action has finished; its logs say why it exited": "Le serveur {{service}} s'est arrêté pendant qu'une action s'exécutait - il redémarre dès que l'action est terminée ; ses logs disent pourquoi il s'est arrêté",
+  "Waiting for {{name}} to be ready": "En attente que {{name}} soit prêt"
 }

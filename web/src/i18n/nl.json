@@ -3128,5 +3128,12 @@
   "expires {{date}}": "verloopt op {{date}}",
   "never expires": "verloopt nooit",
   "Expires after": "Verloopt na",
-  "An expired token stops working; create a new one then. A token that never expires stays valid until it is revoked.": "Een verlopen token werkt niet meer; maak dan een nieuwe aan. Een token dat nooit verloopt, blijft geldig tot het wordt ingetrokken."
+  "An expired token stops working; create a new one then. A token that never expires stays valid until it is revoked.": "Een verlopen token werkt niet meer; maak dan een nieuwe aan. Een token dat nooit verloopt, blijft geldig tot het wordt ingetrokken.",
+  "{{service}} keeps restarting - its main process exits shortly after each start; its logs say why": "{{service}} start steeds opnieuw - het hoofdproces stopt kort na elke start; de logs vertellen waarom",
+  "the {{service}} server waits because bundle install failed - its logs show the error; it tries again every 30 seconds": "De server van {{service}} wacht omdat bundle install is mislukt - de logs tonen de fout; hij probeert het elke 30 seconden opnieuw",
+  "the {{service}} dev server waits for node_modules - run npm install (or pnpm / yarn install) from Actions": "De dev-server van {{service}} wacht op node_modules - voer npm install (of pnpm / yarn install) uit via Acties",
+  "the {{service}} server waits because .venv was built for another Python version - run pip install -r requirements.txt or uv sync from Actions to rebuild it": "De server van {{service}} wacht omdat .venv voor een andere Python-versie is gebouwd - voer pip install -r requirements.txt of uv sync uit via Acties om het opnieuw op te bouwen",
+  "the {{service}} server waits for {{module}} in .venv - run pip install -r requirements.txt or uv sync from Actions": "De server van {{service}} wacht op {{module}} in .venv - voer pip install -r requirements.txt of uv sync uit via Acties",
+  "the {{service}} server exited while an action was running - it starts again once the action has finished; its logs say why it exited": "De server van {{service}} is gestopt terwijl er een actie liep - hij start opnieuw zodra de actie klaar is; de logs vertellen waarom hij stopte",
+  "Waiting for {{name}} to be ready": "Wachten tot {{name}} klaar is"
 }

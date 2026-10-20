@@ -66,6 +66,13 @@ describe("LogsTab", () => {
     expect(screen.getByText("No output yet.")).toBeInTheDocument();
   });
 
+  it("opens the service named in the address", async () => {
+    mockApi({ ...authedRoutes });
+    renderApp(<LogsTab project={makeProject()} />, { route: "/projects/x?tab=Logs&service=web" });
+    await waitFor(() => expect(FakeSocket.instances).toHaveLength(1));
+    expect(FakeSocket.instances[0]!.url).toContain("/services/web/logs/ws");
+  });
+
   it("colours levels and filters the live buffer by level", async () => {
     mockApi({ ...authedRoutes });
     renderApp(<LogsTab project={makeProject()} />);
