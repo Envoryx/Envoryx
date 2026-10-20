@@ -317,4 +317,9 @@ func TestNodeWorkerEnvKeepsProjectNodeEnv(t *testing.T) {
 	if got := withNodeWorkerEnv([]string{"NODE_ENV=staging"}, p); !slices.Equal(got, []string{"NODE_ENV=staging"}) {
 		t.Fatalf("own NODE_ENV: %v", got)
 	}
+	// A cron job's exec env has no project variables: the NODE_ENV comes from the project.
+	p.Env = []store.EnvVar{{Key: "A", Value: "1"}, {Key: "NODE_ENV", Value: "staging"}}
+	if got := withNodeWorkerEnv([]string{"LANG=C.UTF-8"}, p); !slices.Equal(got, []string{"LANG=C.UTF-8", "NODE_ENV=staging"}) {
+		t.Fatalf("cron job with the project's NODE_ENV: %v", got)
+	}
 }
