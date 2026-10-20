@@ -213,6 +213,64 @@ func TestNodeTemplatesScaffoldFromTheNodeImage(t *testing.T) {
 	}
 }
 
+// The Node templates scaffold and install with the project's package manager, so the
+// project gets that manager's lockfile only, Yarn a node_modules linker and pnpm the
+// build approvals its install needs.
+func TestNodeTemplatesUseThePackageManager(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	var runs []string
+	e.engine.OneShotHandler = func(spec docker.ContainerSpec) (docker.ExecResult, error) {
+		if !slices.Contains(spec.Env, "pnpm_config_store_dir=/var/cache/envoryx/pnpm-store") {
+			t.Errorf("scaffold env without the pnpm store: %v", spec.Env)
+		}
+		runs = append(runs, strings.Join(spec.Cmd, " "))
+		return docker.ExecResult{ExitCode: 0, Stdout: "ok"}, nil
+	}
+	cases := []struct {
+		name, template, pm string
+		want               []string
+		files              map[string]string
+	}{
+		{"Vp", "vite", "pnpm", []string{"pnpm create vite@latest . --template react-ts", "pnpm install"}, nil},
+		{"Vy", "vite", "yarn", []string{"yarn create vite@latest . --template react-ts", "yarn install --no-immutable"}, map[string]string{".yarnrc.yml": "nodeLinker: node-modules"}},
+		{"Np", "next", "pnpm", []string{"npx --yes create-next-app@latest . --yes --ts --app --use-pnpm --disable-git"}, nil},
+		{"Ny", "next", "yarn", []string{"npx --yes create-next-app@latest . --yes --ts --app --use-yarn --disable-git --skip-install", "yarn install --no-immutable"}, map[string]string{".yarnrc.yml": "nodeLinker: node-modules"}},
+		{"Xp", "nuxt", "pnpm", []string{"npx --yes nuxi@latest init . --template minimal --packageManager pnpm --no-install --no-gitInit --force", "pnpm install"}, map[string]string{"pnpm-workspace.yaml": "  esbuild: true"}},
+		{"Xy", "nuxt", "yarn", []string{"npx --yes nuxi@latest init . --template minimal --packageManager yarn --no-install --no-gitInit --force", "yarn install --no-immutable"}, nil},
+	}
+	for _, tc := range cases {
+		runs = nil
+		// A script without a preset leaves the dev server off: the test range has too
+		// few ports for six of them.
+		if _, err := e.m.Create(ctx, CreateRequest{Name: tc.name, Template: tc.template, Node: &NodeRequest{Version: "24", Config: runtime.NodeConfig{PackageManager: tc.pm, Script: "dev"}}}); err != nil {
+			t.Fatalf("%s: %v", tc.name, err)
+		}
+		if tc.template == "next" {
+			// The dev origins step follows the scaffold.
+			if len(runs) == 0 || !strings.HasPrefix(runs[len(runs)-1], "node -e") {
+				t.Fatalf("%s: no dev origins step: %q", tc.name, runs)
+			}
+			runs = runs[:len(runs)-1]
+		}
+		if !slices.Equal(runs, tc.want) {
+			t.Fatalf("%s steps:\n got %q\nwant %q", tc.name, runs, tc.want)
+		}
+		dir := filepath.Join(e.projDir, strings.ToLower(tc.name))
+		for rel, want := range tc.files {
+			if raw, err := os.ReadFile(filepath.Join(dir, rel)); err != nil || !strings.Contains(string(raw), want) {
+				t.Fatalf("%s: %s lacks %q: %v %s", tc.name, rel, want, err, raw)
+			}
+		}
+		// Nuxt writes Yarn's linker setting itself.
+		if tc.template == "nuxt" && tc.pm == "yarn" {
+			if _, err := os.Stat(filepath.Join(dir, ".yarnrc.yml")); err == nil {
+				t.Fatalf("%s: .yarnrc.yml written over nuxi's", tc.name)
+			}
+		}
+	}
+}
+
 func TestTemplatesCarryTheirRuntime(t *testing.T) {
 	b, err := json.Marshal(Templates())
 	if err != nil {
