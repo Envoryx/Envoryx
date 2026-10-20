@@ -35,18 +35,11 @@ func (p packageJSON) has(dep string) bool {
 	return a || b
 }
 
-// nodeLockfiles maps each lockfile to the install the dev server runs from it
-// (runtime.NodeDepsGuard), in the guard's order.
-var nodeLockfiles = []struct{ file, install string }{
-	{"package-lock.json", "npm ci"},
-	{"pnpm-lock.yaml", "pnpm install --frozen-lockfile"},
-	{"yarn.lock", "yarn install --frozen-lockfile"},
-}
-
 // nodeModulesWarning reports a dev server that waits for its dependencies: package.json
-// lists some and nothing has installed them (runtime.NodeDepsGuard).
+// lists some and nothing has installed them (runtime.NodeConfig.DepsGuard).
 func (m *Manager) nodeModulesWarning(p store.Project) string {
-	if _, ok := nodeDevConfig(p); !ok {
+	cfg, ok := nodeDevConfig(p)
+	if !ok {
 		return ""
 	}
 	planner, err := m.planner()
@@ -61,9 +54,9 @@ func (m *Manager) nodeModulesWarning(p store.Project) string {
 	if !ok || len(pkg.Dependencies)+len(pkg.DevDependencies) == 0 {
 		return ""
 	}
-	for _, l := range nodeLockfiles {
-		if exists(filepath.Join(dir, l.file)) {
-			return fmt.Sprintf(`node_modules is missing - the dev server runs "%s" before it starts; if that fails, it waits until you run "npm install" (or pnpm / yarn install) from Actions`, l.install)
+	for _, l := range runtime.NodeLockfiles(cfg.PackageManager) {
+		if exists(filepath.Join(dir, l.File)) {
+			return fmt.Sprintf(`node_modules is missing - the dev server runs "%s" before it starts; if that fails, it waits until you run "npm install" (or pnpm / yarn install) from Actions`, l.Install)
 		}
 	}
 	return `node_modules is missing and there is no lockfile - the dev server waits until you run "npm install" (or pnpm / yarn install) from Actions`

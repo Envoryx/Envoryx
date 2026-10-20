@@ -96,16 +96,57 @@ const nodeDepsMissing = `[ ! -d node_modules ] && [ ! -f .pnp.cjs ] && node -e '
 // as soon as an install starts.
 const nodeDepsWait = `until [ -f node_modules/.package-lock.json ] || [ -f node_modules/.modules.yaml ] || [ -f node_modules/.yarn-integrity ] || [ -f node_modules/.yarn-state.yml ] || [ -f .pnp.cjs ]; do ` + noteNodeDeps + `; echo 'envoryx: waiting for node_modules - run "npm install" (or pnpm / yarn install) from Actions'; sleep 5; done`
 
-// NodeDepsGuard installs the dependencies of a fresh checkout before the dev server starts,
+// NodeLockfile is a lockfile and the frozen install the dev server runs from it.
+type NodeLockfile struct {
+	File    string
+	Install string
+	// Manager is the package manager that writes the lockfile.
+	Manager string
+}
+
+var nodeLockfiles = []NodeLockfile{
+	{File: "package-lock.json", Install: "npm ci", Manager: "npm"},
+	{File: "pnpm-lock.yaml", Install: "pnpm install --frozen-lockfile", Manager: "pnpm"},
+	{File: "yarn.lock", Install: "yarn install --frozen-lockfile", Manager: "yarn"},
+}
+
+// NodeLockfiles lists the lockfiles in the order the dev server looks for them: the
+// configured package manager's first, so a repository that carries a stale
+// package-lock.json next to its pnpm or Yarn lockfile is installed with the manager the
+// project runs, then the others.
+func NodeLockfiles(packageManager string) []NodeLockfile {
+	out := make([]NodeLockfile, 0, len(nodeLockfiles))
+	for _, l := range nodeLockfiles {
+		if l.Manager == packageManager {
+			out = append(out, l)
+		}
+	}
+	for _, l := range nodeLockfiles {
+		if l.Manager != packageManager {
+			out = append(out, l)
+		}
+	}
+	return out
+}
+
+// DepsGuard installs the dependencies of a fresh checkout before the dev server starts,
 // like the Ruby containers run bundle install. It only installs from a lockfile and in
 // frozen mode, so it reproduces what the repository pins and never writes to the user's
 // files; without a lockfile, or when the install fails, it waits for an install from
-// Actions instead of letting the server crash-loop.
-const NodeDepsGuard = `if ` + nodeDepsMissing + `; then ` +
-	`if [ -f package-lock.json ]; then echo 'envoryx: no node_modules - running "npm ci"'; npm ci; ` +
-	`elif [ -f pnpm-lock.yaml ]; then echo 'envoryx: no node_modules - running "pnpm install --frozen-lockfile"'; pnpm install --frozen-lockfile; ` +
-	`elif [ -f yarn.lock ]; then echo 'envoryx: no node_modules - running "yarn install --frozen-lockfile"'; yarn install --frozen-lockfile; ` +
-	`else false; fi || ` + nodeDepsWait + `; fi`
+// Actions instead of letting the server crash-loop. The lockfiles are tried in the order
+// of NodeLockfiles; nothing but those fixed strings goes into the shell line.
+func (c NodeConfig) DepsGuard() string {
+	var b strings.Builder
+	b.WriteString(`if ` + nodeDepsMissing + `; then `)
+	for i, l := range NodeLockfiles(c.PackageManager) {
+		if i > 0 {
+			b.WriteString(`el`)
+		}
+		fmt.Fprintf(&b, `if [ -f %s ]; then echo 'envoryx: no node_modules - running "%s"'; %s; `, l.File, l.Install, l.Install)
+	}
+	b.WriteString(`else false; fi || ` + nodeDepsWait + `; fi`)
+	return b.String()
+}
 
 // NodeDepsWaitGuard only waits for the dependencies. The Node workers use it, so they
 // don't install into node_modules at the same time as the dev server.
@@ -281,7 +322,7 @@ func (c NodeConfig) Command() []string {
 // and, in dev mode, with NODE_ENV=development. Further guards (the database wait the
 // planner builds) run after them.
 func (c NodeConfig) WrappedCommand(guards ...string) []string {
-	own := []string{waitForPackageJSON, NodeDepsGuard}
+	own := []string{waitForPackageJSON, c.DepsGuard()}
 	if !c.Production() {
 		own = append(own, nodeDevEnv)
 	}

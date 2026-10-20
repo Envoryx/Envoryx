@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"os/exec"
 	"reflect"
 	"testing"
 )
@@ -71,7 +72,7 @@ func TestNodeWrappedCommand(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := c.WrappedCommand()
-	want := append([]string{"sh", "-c", "rm -f " + WaitingFile + "; " + waitForPackageJSON + "; " + NodeDepsGuard + "; " + nodeDevEnv + "; " + supervise, "envoryx-dev"}, c.Command()...)
+	want := append([]string{"sh", "-c", "rm -f " + WaitingFile + "; " + waitForPackageJSON + "; " + c.DepsGuard() + "; " + nodeDevEnv + "; " + supervise, "envoryx-dev"}, c.Command()...)
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %q, want %q", got, want)
 	}
@@ -192,5 +193,33 @@ func TestNodeProductionAndInspector(t *testing.T) {
 	}
 	if off.InspectPort != 0 || off.InspectHostPort != 0 {
 		t.Fatalf("inspector ports must be cleared when Inspect is off: %+v", off)
+	}
+}
+
+// The dev server installs from the configured package manager's lockfile first: a
+// repository with a stale package-lock.json next to its pnpm or Yarn lockfile must not be
+// installed with npm.
+func TestNodeDepsGuardPrefersPackageManager(t *testing.T) {
+	for pm, first := range map[string]string{"npm": "package-lock.json", "pnpm": "pnpm-lock.yaml", "yarn": "yarn.lock"} {
+		c := NodeConfig{DevServer: true, PackageManager: pm}
+		if err := c.Normalize(); err != nil {
+			t.Fatal(err)
+		}
+		locks := NodeLockfiles(c.PackageManager)
+		if len(locks) != 3 || locks[0].File != first {
+			t.Fatalf("%s: lockfile order %v", pm, locks)
+		}
+		g := c.DepsGuard()
+		if !contains(g, "if [ -f "+first+" ]") {
+			t.Fatalf("%s: the guard must test %s first: %s", pm, first, g)
+		}
+		for _, l := range locks[1:] {
+			if !contains(g, "elif [ -f "+l.File+" ]") || indexOf(g, l.File) < indexOf(g, first) {
+				t.Fatalf("%s: %s must come after %s: %s", pm, l.File, first, g)
+			}
+		}
+		if out, err := exec.Command("sh", "-n", "-c", g).CombinedOutput(); err != nil {
+			t.Fatalf("%s: guard is no valid shell: %v %s", pm, err, out)
+		}
 	}
 }
