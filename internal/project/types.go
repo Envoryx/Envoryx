@@ -89,6 +89,10 @@ type PHPUpdate struct {
 	Enabled bool
 	Version string
 	Config  runtime.PHPConfig
+	// Patch, when set, replaces Config: the JSON object of the settings the caller sent,
+	// applied on top of the stored configuration (the defaults when PHP is added) so that
+	// what it leaves out stays as it is.
+	Patch json.RawMessage
 }
 
 // NodeRequest selects the Node.js toolchain container and optional dev server.
@@ -281,6 +285,10 @@ type DatabaseUpdate struct {
 	Type       string
 	Version    string
 	ExposePort bool
+	// KeepExposePort ignores ExposePort for an existing database and keeps its port as
+	// published or not: an API call that leaves "exposePort" out would otherwise
+	// unpublish it.
+	KeepExposePort bool
 	// RemoveData must be true to remove a database together with its volume.
 	RemoveData bool
 	// External adds an external database, or changes the connection of one (an empty

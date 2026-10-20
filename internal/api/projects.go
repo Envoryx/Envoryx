@@ -259,16 +259,20 @@ func (d *phpRequestDTO) UnmarshalJSON(b []byte) error {
 
 // phpUpdateDTO changes the PHP service; "enabled" (default true) adds PHP to a project
 // without it or, when false, removes the PHP container (workers' containers go with it).
+// The config fields it leaves out keep their stored values.
 type phpUpdateDTO struct {
 	Enabled *bool `json:"enabled"`
 	phpRequestDTO
+	// patch is the "config" object as sent ({} when there is none).
+	patch json.RawMessage
 }
 
 // UnmarshalJSON takes the defaults of phpRequestDTO (whose method the embedding would
 // otherwise use for the whole value and lose "enabled").
 func (d *phpUpdateDTO) UnmarshalJSON(b []byte) error {
 	var en struct {
-		Enabled *bool `json:"enabled"`
+		Enabled *bool           `json:"enabled"`
+		Config  json.RawMessage `json:"config"`
 	}
 	if err := json.Unmarshal(b, &en); err != nil {
 		return err
@@ -277,8 +281,16 @@ func (d *phpUpdateDTO) UnmarshalJSON(b []byte) error {
 		return err
 	}
 	d.Enabled = en.Enabled
+	d.patch = json.RawMessage("{}")
+	if len(en.Config) > 0 && string(en.Config) != "null" {
+		d.patch = append(json.RawMessage(nil), en.Config...)
+	}
 	return nil
 }
+
+// enabledOr is an update's "enabled": left out, it means the service is wanted, so an
+// update of its settings keeps it (and one for a project without it adds it).
+func enabledOr(b *bool) bool { return b == nil || *b }
 
 type nodeRequestDTO struct {
 	Version string `json:"version"`
@@ -299,7 +311,7 @@ func (n nodeRequestDTO) config() runtime.NodeConfig {
 }
 
 type nodeUpdateDTO struct {
-	Enabled bool `json:"enabled"`
+	Enabled *bool `json:"enabled"`
 	nodeRequestDTO
 	// Inspect and DevServer shadow the request's flags to tell "false" from "left out",
 	// which keeps the stored value like the other fields NodeConfig.Inherit fills.
@@ -341,7 +353,7 @@ func (n pythonRequestDTO) config() runtime.PythonConfig {
 }
 
 type pythonUpdateDTO struct {
-	Enabled bool `json:"enabled"`
+	Enabled *bool `json:"enabled"`
 	pythonRequestDTO
 	serverPortsDTO
 	// patch is the object as sent: the update applies only the fields it carries.
@@ -370,7 +382,7 @@ func (n goRequestDTO) config() runtime.GoConfig {
 }
 
 type goUpdateDTO struct {
-	Enabled bool `json:"enabled"`
+	Enabled *bool `json:"enabled"`
 	goRequestDTO
 	serverPortsDTO
 	// patch is the object as sent: the update applies only the fields it carries.
@@ -399,7 +411,7 @@ func (n rubyRequestDTO) config() runtime.RubyConfig {
 }
 
 type rubyUpdateDTO struct {
-	Enabled bool `json:"enabled"`
+	Enabled *bool `json:"enabled"`
 	rubyRequestDTO
 	serverPortsDTO
 	// patch is the object as sent: the update applies only the fields it carries.
@@ -429,7 +441,7 @@ func (n javaRequestDTO) config() runtime.JavaConfig {
 }
 
 type javaUpdateDTO struct {
-	Enabled bool `json:"enabled"`
+	Enabled *bool `json:"enabled"`
 	javaRequestDTO
 	serverPortsDTO
 	// patch is the object as sent: the update applies only the fields it carries.
@@ -458,7 +470,7 @@ func (n dotnetRequestDTO) config() runtime.DotnetConfig {
 }
 
 type dotnetUpdateDTO struct {
-	Enabled bool `json:"enabled"`
+	Enabled *bool `json:"enabled"`
 	dotnetRequestDTO
 	hostPortDTO
 	// patch is the object as sent: the update applies only the fields it carries.
@@ -549,13 +561,23 @@ type namedDatabaseDTO struct {
 	databaseRequestDTO
 }
 
+// databaseUpdateDTO changes a database; "enabled" and "exposePort" left out keep what the
+// database has.
 type databaseUpdateDTO struct {
-	Enabled    bool                 `json:"enabled"`
+	Enabled    *bool                `json:"enabled"`
 	Type       string               `json:"type"`
 	Version    string               `json:"version"`
-	ExposePort bool                 `json:"exposePort"`
+	ExposePort *bool                `json:"exposePort"`
 	RemoveData bool                 `json:"removeData"`
 	External   *externalDatabaseDTO `json:"external"`
+}
+
+func (d databaseUpdateDTO) toDomain() project.DatabaseUpdate {
+	return project.DatabaseUpdate{
+		Enabled: enabledOr(d.Enabled), Type: d.Type, Version: d.Version,
+		ExposePort: isTrue(d.ExposePort), KeepExposePort: d.ExposePort == nil,
+		RemoveData: d.RemoveData, External: d.External.toDomain(),
+	}
 }
 
 type createProjectRequest struct {
@@ -615,7 +637,7 @@ type storageRequestDTO struct {
 }
 
 type storageUpdateDTO struct {
-	Enabled    bool   `json:"enabled"`
+	Enabled    *bool  `json:"enabled"`
 	Version    string `json:"version"`
 	PublicRead *bool  `json:"publicRead"`
 	RemoveData bool   `json:"removeData"`
@@ -980,7 +1002,7 @@ func (a *API) updateProject(w http.ResponseWriter, r *http.Request) {
 		upd.Web = &project.WebRequest{Type: req.Web.Type, Version: req.Web.Version, SPAFallback: req.Web.SPAFallback}
 	}
 	if req.PHP != nil {
-		upd.PHP = &project.PHPUpdate{Enabled: req.PHP.Enabled == nil || *req.PHP.Enabled, Version: req.PHP.Version, Config: req.PHP.Config}
+		upd.PHP = &project.PHPUpdate{Enabled: enabledOr(req.PHP.Enabled), Version: req.PHP.Version, Config: req.PHP.Config, Patch: req.PHP.patch}
 	}
 	upd.IDEGateway = req.IDEGateway
 	if req.Node != nil {
@@ -991,28 +1013,28 @@ func (a *API) updateProject(w http.ResponseWriter, r *http.Request) {
 		if req.Node.DevServer != nil {
 			cfg.DevServer = *req.Node.DevServer
 		}
-		upd.Node = &project.NodeUpdate{Enabled: req.Node.Enabled, Version: req.Node.Version, Config: cfg, KeepInspect: req.Node.Inspect == nil, KeepDevServer: req.Node.DevServer == nil}
+		upd.Node = &project.NodeUpdate{Enabled: enabledOr(req.Node.Enabled), Version: req.Node.Version, Config: cfg, KeepInspect: req.Node.Inspect == nil, KeepDevServer: req.Node.DevServer == nil}
 	}
 	if req.Python != nil {
-		upd.Python = &project.PythonUpdate{Enabled: req.Python.Enabled, Version: req.Python.Version, Patch: req.Python.patch}
+		upd.Python = &project.PythonUpdate{Enabled: enabledOr(req.Python.Enabled), Version: req.Python.Version, Patch: req.Python.patch}
 	}
 	if req.Go != nil {
-		upd.Go = &project.GoUpdate{Enabled: req.Go.Enabled, Version: req.Go.Version, Patch: req.Go.patch}
+		upd.Go = &project.GoUpdate{Enabled: enabledOr(req.Go.Enabled), Version: req.Go.Version, Patch: req.Go.patch}
 	}
 	if req.Ruby != nil {
-		upd.Ruby = &project.RubyUpdate{Enabled: req.Ruby.Enabled, Version: req.Ruby.Version, Patch: req.Ruby.patch}
+		upd.Ruby = &project.RubyUpdate{Enabled: enabledOr(req.Ruby.Enabled), Version: req.Ruby.Version, Patch: req.Ruby.patch}
 	}
 	if req.Java != nil {
-		upd.Java = &project.JavaUpdate{Enabled: req.Java.Enabled, Version: req.Java.Version, Patch: req.Java.patch}
+		upd.Java = &project.JavaUpdate{Enabled: enabledOr(req.Java.Enabled), Version: req.Java.Version, Patch: req.Java.patch}
 	}
 	if req.Dotnet != nil {
-		upd.Dotnet = &project.DotnetUpdate{Enabled: req.Dotnet.Enabled, Version: req.Dotnet.Version, Patch: req.Dotnet.patch}
+		upd.Dotnet = &project.DotnetUpdate{Enabled: enabledOr(req.Dotnet.Enabled), Version: req.Dotnet.Version, Patch: req.Dotnet.patch}
 	}
 	if req.Redis != nil {
 		upd.Redis = &project.ExtraUpdate{Enabled: req.Redis.Enabled, Version: req.Redis.Version, ExposePort: req.Redis.ExposePort, RemoveData: req.Redis.RemoveData, External: req.Redis.External.toDomain()}
 	}
 	if req.Storage != nil {
-		upd.Storage = &project.StorageUpdate{Enabled: req.Storage.Enabled, Version: req.Storage.Version, PublicRead: req.Storage.PublicRead, RemoveData: req.Storage.RemoveData}
+		upd.Storage = &project.StorageUpdate{Enabled: enabledOr(req.Storage.Enabled), Version: req.Storage.Version, PublicRead: req.Storage.PublicRead, RemoveData: req.Storage.RemoveData}
 	}
 	if req.Mailpit != nil {
 		if err := refuseUnpublished("Mailpit", req.Mailpit.ExposePort); err != nil {
@@ -1044,13 +1066,13 @@ func (a *API) updateProject(w http.ResponseWriter, r *http.Request) {
 		upd.Ollama = &project.ExtraUpdate{Enabled: req.Ollama.Enabled, Version: req.Ollama.Version, ExposePort: req.Ollama.ExposePort, GPU: req.Ollama.GPU}
 	}
 	if req.Database != nil {
-		upd.Database = &project.DatabaseUpdate{Enabled: req.Database.Enabled, Type: req.Database.Type, Version: req.Database.Version, ExposePort: req.Database.ExposePort, RemoveData: req.Database.RemoveData, External: req.Database.External.toDomain()}
+		upd.Database = new(req.Database.toDomain())
 	}
 	for name, d := range req.Databases {
 		if upd.Databases == nil {
 			upd.Databases = map[string]project.DatabaseUpdate{}
 		}
-		upd.Databases[name] = project.DatabaseUpdate{Enabled: d.Enabled, Type: d.Type, Version: d.Version, ExposePort: d.ExposePort, RemoveData: d.RemoveData, External: d.External.toDomain()}
+		upd.Databases[name] = d.toDomain()
 	}
 	if req.Env != nil {
 		env := make([]project.EnvVarRequest, 0, len(*req.Env))
