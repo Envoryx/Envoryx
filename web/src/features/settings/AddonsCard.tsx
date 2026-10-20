@@ -138,9 +138,11 @@ export function AddonsCard() {
           </ul>
           {!support && (
             <div className="flex flex-wrap items-end gap-3">
-              <Field label={t("Install from a URL")} htmlFor="addon-url" hint={t("An addon file over http(s), e.g. a raw GitHub link.")}>
-                <Input id="addon-url" className="min-w-80" value={url} placeholder="https://raw.githubusercontent.com/…/addon.yml" onChange={(e) => setUrl(e.target.value)} />
-              </Field>
+              <div className="w-full sm:w-auto">
+                <Field label={t("Install from a URL")} htmlFor="addon-url" hint={t("An addon file over http(s), e.g. a raw GitHub link.")}>
+                  <Input id="addon-url" className="sm:min-w-80" value={url} placeholder="https://raw.githubusercontent.com/…/addon.yml" onChange={(e) => setUrl(e.target.value)} />
+                </Field>
+              </div>
               <Button icon={<Download className="size-4" />} disabled={!url.trim()} loading={install.isPending && !!install.variables?.url} onClick={() => install.mutate({ url: url.trim() })}>
                 {t("Install")}
               </Button>
