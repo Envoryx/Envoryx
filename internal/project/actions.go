@@ -130,7 +130,7 @@ var actionCatalog = []Action{
 
 	{ID: "rails:db-prepare", Group: "Rails", Label: "rails db:prepare", Description: "Create the database if needed, load the schema or run pending migrations, seed a new database", Service: store.ServiceRuby, Cmd: []string{"bin/rails", "db:prepare"}, Requires: []string{"bin/rails"}},
 	{ID: "rails:db-migrate", Group: "Rails", Label: "rails db:migrate", Description: "Apply pending database migrations", Service: store.ServiceRuby, Cmd: []string{"bin/rails", "db:migrate"}, Requires: []string{"bin/rails"}},
-	{ID: "rails:db-rollback", Group: "Rails", Label: "rails db:rollback", Description: "Revert the last migration", Service: store.ServiceRuby, Cmd: []string{"bin/rails", "db:rollback"}, Requires: []string{"bin/rails"}, Destructive: true},
+	{ID: "rails:db-rollback", Group: "Rails", Label: "rails db:rollback", Description: "Revert the last migration (of the primary database when there are several)", Service: store.ServiceRuby, Cmd: []string{"sh", "-c", railsRollbackScript, "envoryx-rails-rollback"}, Requires: []string{"bin/rails"}, Destructive: true},
 	{ID: "rails:db-seed", Group: "Rails", Label: "rails db:seed", Description: "Load db/seeds.rb", Service: store.ServiceRuby, Cmd: []string{"bin/rails", "db:seed"}, Requires: []string{"bin/rails"}},
 	{ID: "rails:routes", Group: "Rails", Label: "rails routes", Description: "List the application's routes", Service: store.ServiceRuby, Cmd: []string{"bin/rails", "routes"}, Requires: []string{"bin/rails"}},
 	{ID: "rails:assets-precompile", Group: "Rails", Label: "rails assets:precompile", Description: "Build the assets into public/assets - what production mode serves", Service: store.ServiceRuby, Cmd: []string{"bin/rails", "assets:precompile"}, Requires: []string{"bin/rails"}},
@@ -253,6 +253,19 @@ if ! php craft install/check >/dev/null 2>&1; then
 fi
 printf '\nControl panel: %s/admin  User: admin  Password: %s\n' "$ENVORYX_URL" "$pw"`
 )
+
+// railsRollbackScript reverts the last migration. An application with several databases
+// in the environment (Rails' multi-database setup, the queue, cache and cable databases of
+// Rails 8 among them) has no plain db:rollback, only one task per database: the script
+// asks Rails for the databases and rolls back the primary one, which holds the
+// application's own migrations. A constant: nothing from the request is interpolated.
+const railsRollbackScript = `out=$(bin/rails runner 'ActiveRecord::Base.configurations.configs_for(env_name: Rails.env).each { |c| puts "envoryx-db:#{c.name}" }') || exit
+set -- $(printf '%s\n' "$out" | sed -n 's/^envoryx-db://p')
+if [ $# -le 1 ]; then exec bin/rails db:rollback; fi
+db=$1
+for n in "$@"; do [ "$n" = primary ] && db=primary; done
+echo "envoryx: the application has several databases ($*); rolling back $db. For another one run bin/rails db:rollback:<name> in the terminal."
+exec bin/rails "db:rollback:$db"`
 
 // pipInstallScript installs requirements.txt into the venv. It creates the venv when it is
 // missing and rebuilds it (venv --clear) when it was made for another Python minor: after a
