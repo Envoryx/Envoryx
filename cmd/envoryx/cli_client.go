@@ -129,7 +129,7 @@ func (c *client) do(ctx context.Context, method, path string, query url.Values, 
 		return nil
 	}
 	if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
-		return fmt.Errorf("unreadable response from %s: %w", c.base.Host, err)
+		return unreadable(c.base, err)
 	}
 	return nil
 }
@@ -155,9 +155,35 @@ func (c *client) upload(ctx context.Context, path, contentType string, body io.R
 		return decodeAPIError(resp)
 	}
 	if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
-		return fmt.Errorf("unreadable response from %s: %w", c.base.Host, err)
+		return unreadable(c.base, err)
 	}
 	return nil
+}
+
+// unreadable explains an answer that is not the JSON the API sends: an empty one (a bare
+// "EOF" otherwise) or a page from something else listening at that address.
+func unreadable(base *url.URL, err error) error {
+	switch {
+	case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
+		return err
+	case errors.Is(err, io.EOF):
+		return fmt.Errorf("%s sent an empty answer - is that address an Envoryx server?", base.Host)
+	case errors.Is(err, io.ErrUnexpectedEOF):
+		return fmt.Errorf("the answer from %s broke off before it was complete", base.Host)
+	}
+	var syntax *json.SyntaxError
+	if errors.As(err, &syntax) {
+		return fmt.Errorf("%s did not answer with JSON - is that address an Envoryx server?", base.Host)
+	}
+	return fmt.Errorf("unreadable response from %s: %w", base.Host, err)
+}
+
+// streamEnded explains a WebSocket stream that broke off instead of closing normally.
+func streamEnded(base *url.URL, err error) error {
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return err
+	}
+	return fmt.Errorf("the connection to %s broke off: %w", base.Host, err)
 }
 
 func (c *client) get(ctx context.Context, path string, query url.Values, out any) error {

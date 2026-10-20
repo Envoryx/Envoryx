@@ -98,7 +98,7 @@ var placeholderRe = regexp.MustCompile(`\{\{(\w+)\}\}`)
 
 func (c *cli) importSite(ctx context.Context, args []string) error {
 	if slices.Contains(args, "--help") || slices.Contains(args, "-h") {
-		fmt.Fprint(c.errOut, importUsage)
+		fmt.Fprint(c.out, importUsage)
 		return nil
 	}
 	fs := c.newFlags("import")
@@ -124,7 +124,7 @@ func (c *cli) importSite(ctx context.Context, args []string) error {
 	}
 	info, err := os.Stat(source)
 	if err != nil {
-		return err
+		return fileError(err)
 	}
 	givenName := arg(pos, 1)
 	name := givenName
@@ -134,7 +134,7 @@ func (c *cli) importSite(ctx context.Context, args []string) error {
 	}
 	if *dump != "" {
 		if _, err := os.Stat(*dump); err != nil {
-			return err
+			return fileError(err)
 		}
 	}
 

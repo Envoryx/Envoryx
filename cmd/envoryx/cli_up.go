@@ -49,7 +49,7 @@ project is started.
 
 func (c *cli) up(ctx context.Context, args []string) error {
 	if slices.Contains(args, "--help") || slices.Contains(args, "-h") {
-		fmt.Fprint(c.errOut, upUsage)
+		fmt.Fprint(c.out, upUsage)
 		return nil
 	}
 	fs := c.newFlags("up")
@@ -340,7 +340,7 @@ func findManifest(file string) (string, error) {
 			return "", err
 		}
 		if _, err := os.Stat(abs); err != nil {
-			return "", err
+			return "", fileError(err)
 		}
 		return abs, nil
 	}
@@ -396,7 +396,7 @@ same project up again.
 // projectManifest exports a project's manifest.
 func (c *cli) projectManifest(ctx context.Context, args []string) error {
 	if slices.Contains(args, "--help") || slices.Contains(args, "-h") {
-		fmt.Fprint(c.errOut, manifestUsage)
+		fmt.Fprint(c.out, manifestUsage)
 		return nil
 	}
 	fs := c.newFlags("project manifest")

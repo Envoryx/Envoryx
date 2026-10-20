@@ -71,7 +71,7 @@ func (c *cli) backupCommand(ctx context.Context, args []string) error {
 	cmd, rest := splitCommand(args)
 	switch cmd {
 	case "help", "-h", "--help":
-		return errCLIUsage
+		return errCLIHelp
 	case "", "list", "ls":
 		return c.backupList(ctx, rest)
 	case "create", "new":

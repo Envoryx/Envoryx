@@ -44,7 +44,9 @@ type reconcileReport struct {
 func (c *cli) dockerCommand(ctx context.Context, args []string) error {
 	cmd, rest := splitCommand(args)
 	switch cmd {
-	case "help", "-h", "--help", "":
+	case "help", "-h", "--help":
+		return errCLIHelp
+	case "":
 		return errCLIUsage
 	case "images":
 		return c.dockerImages(ctx, rest)

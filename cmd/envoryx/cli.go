@@ -30,7 +30,8 @@ from "envoryx login", from the environment or from the flags below.
 Manifest:
   up [flags]                            create or update the project described by
                                         envoryx.yml in this repository ("up --help")
-  project manifest <project> [-o FILE]  the project as an envoryx.yml
+  project manifest <project> [-o FILE]  the project as an envoryx.yml (--write saves it
+                                        in the project directory on the server)
 
 Existing websites:
   import <folder|archive> [name]        create a project from a site's files and,
@@ -38,18 +39,25 @@ Existing websites:
 
 Projects:
   project list                          every project with its state and URL
-  project show <project>                services, ports, git and backups
+  project show <project>                state, address, git, health and the services
+                                        with their ports
   project create <name> [flags]         create a project ("project create --help")
   project duplicate <project> <name>    copy it with config, files and database
+                                        ("project duplicate --help")
   project rename <project> <name> --yes rename it and everything derived from it
+                                        ("project rename --help")
   project share <project> [--for 2h]    a temporary public https address (Cloudflare
                                         quick tunnel); --status shows it, --stop ends it
   project start|stop|restart <project>
   project delete <project> --yes        remove it (--delete-files removes the files too)
-  project logs <project> [flags]        recent output, --follow keeps reading,
-                                        --since/--grep/--level filter, -o FILE saves all
-  project exec <project> -- <cmd…>      run a command in a container
-  project run <project> [action]        run a catalogue action (composer install …)
+  project logs <project> [flags]        recent output (--tail N lines, default 200),
+                                        --follow keeps reading, --since/--until/--grep/
+                                        --level filter, --timestamps, -o FILE saves all;
+                                        --service NAME for another container
+  project exec <project> -- <cmd…>      run a command in the application container
+                                        (--service NAME for another, --no-stdin)
+  project run <project> [action]        run a catalogue action (composer install …);
+                                        without one, list what the project offers
   project branches <project>            its branch environments with their deploy state
   project branch <project> <branch>     a branch environment: a copy on that branch
   project deploy <environment>          pull a branch environment and run the deploy
@@ -57,8 +65,14 @@ Projects:
 
 Backups:
   backup list <project>
-  backup create <project> [flags]       database + files by default
+  backup create <project> [flags]       database, files and storage by default; leave
+                                        parts out with --no-database, --no-files,
+                                        --no-storage; --dependencies keeps vendor/ and
+                                        node_modules/, --note TEXT
   backup restore <project> <backup> --yes
+                                        --no-database, --no-files and --no-storage skip
+                                        a part, --wipe-files/--wipe-storage empty the
+                                        directory or the bucket first
   backup download <project> <backup> [-o FILE]
   backup delete <project> <backup> --yes
   backup offsite <project> <backup>     copy it to the offsite targets (create --offsite
@@ -77,7 +91,7 @@ Instance backups (Envoryx's own database and configuration; admin token):
   instance backups                      the instance backups and a scheduled restore
   instance backup [--note TEXT]         create one (--offsite copies it right away)
   instance download <backup> [-o FILE]
-  instance upload <file>                add a downloaded one to the list
+  instance upload <file.tar.gz>         add a downloaded one to the list
   instance restore <backup> --yes       restore it; Envoryx restarts to apply it
                                         (--wait waits for it, --key-file FILE when it
                                         was made with another secret key)
@@ -93,9 +107,10 @@ Databases:
   db snapshots <project>                the snapshots there are
   db restore <project> <snapshot> --yes put one back
   db clone <project> --from <project> --yes
-                                        replace its database with another's
-                                        (every db command takes --db NAME for an
-                                        additional database; clone also --source-db)
+                                        replace its database with another's, after a
+                                        snapshot of it (--no-snapshot skips that);
+                                        every db command takes --db NAME for an
+                                        additional database, clone also --source-db
 
 Domains (beyond <slug>.<base domain>):
   domain list <project>
@@ -167,6 +182,10 @@ failure and 2 on a usage error; "project exec" passes the command's own exit cod
 // errCLIUsage asks the caller to print the usage text and exit with 2.
 var errCLIUsage = errors.New("usage")
 
+// errCLIHelp is an explicit --help or "help": the usage text on stdout, exit 0, so it can
+// be paged or grepped.
+var errCLIHelp = errors.New("help")
+
 // usageError is a usage error with something more specific to say than the whole usage
 // text, such as a missing argument or an unknown subcommand.
 type usageError struct{ msg string }
@@ -221,6 +240,9 @@ func cliCommand(ctx context.Context, args []string) int {
 	switch {
 	case err == nil:
 		return 0
+	case errors.Is(err, errCLIHelp):
+		fmt.Fprint(c.out, cliUsage)
+		return 0
 	case errors.As(err, &exit):
 		// An exit code the engine could not determine (-1) must not become a process
 		// exit code of its own; plain failure is the honest answer.
@@ -242,6 +264,11 @@ func cliCommand(ctx context.Context, args []string) int {
 	case errors.Is(err, context.Canceled):
 		fmt.Fprintln(c.errOut, "envoryx: cancelled")
 		return 1
+	case errors.Is(err, context.DeadlineExceeded) && c.timeout > 0:
+		// The raw message names the request and "context deadline exceeded"; what the
+		// reader needs is that --timeout struck and that the server may carry on.
+		fmt.Fprintf(c.errOut, "envoryx: gave up after %s (--timeout); the server may still be working on it\n", c.timeout)
+		return 1
 	default:
 		fmt.Fprintln(c.errOut, "envoryx:", err)
 		return 1
@@ -253,9 +280,9 @@ func (c *cli) run(ctx context.Context, args []string) error {
 	fs := c.newFlags("envoryx")
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
-			return errCLIUsage
+			return errCLIHelp
 		}
-		return usagef("%v", err)
+		return flagError(fs, err)
 	}
 	args = fs.Args()
 	if len(args) == 0 {
@@ -263,6 +290,8 @@ func (c *cli) run(ctx context.Context, args []string) error {
 	}
 	cmd, rest := args[0], args[1:]
 	switch cmd {
+	case "help":
+		return errCLIHelp
 	case "login":
 		return c.login(ctx, rest)
 	case "logout":
@@ -304,9 +333,9 @@ func (c *cli) run(ctx context.Context, args []string) error {
 
 // ---- flags and configuration -------------------------------------------------
 
-// newFlags returns a flag set carrying the global flags; every command adds its own.
-// newFlags returns a flag set with the global flags. Their defaults are the values so far,
-// so flags given before the command ("envoryx --json project list") stay in force.
+// newFlags returns a flag set with the global flags; every command adds its own. Their
+// defaults are the values so far, so flags given before the command ("envoryx --json
+// project list") stay in force.
 func (c *cli) newFlags(name string) *flag.FlagSet {
 	fs := flag.NewFlagSet(name, flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
@@ -336,9 +365,9 @@ func parse(fs *flag.FlagSet, args []string) ([]string, error) {
 	for {
 		if err := fs.Parse(args); err != nil {
 			if errors.Is(err, flag.ErrHelp) {
-				return nil, errCLIUsage
+				return nil, errCLIHelp
 			}
-			return nil, usagef("%v", err)
+			return nil, flagError(fs, err)
 		}
 		rest := fs.Args()
 		if len(rest) == 0 {
@@ -347,6 +376,63 @@ func parse(fs *flag.FlagSet, args []string) ([]string, error) {
 		positional = append(positional, rest[0])
 		args = rest[1:]
 	}
+}
+
+// flagError rewords the flag package's complaints ("flag provided but not defined: -nope",
+// "invalid value "x" for flag -for: parse error") so they name the flag the way it is
+// typed and say what was expected.
+func flagError(fs *flag.FlagSet, err error) error {
+	msg := err.Error()
+	if name, ok := strings.CutPrefix(msg, "flag provided but not defined: -"); ok {
+		return usagef("unknown flag %s", flagName(name))
+	}
+	if name, ok := strings.CutPrefix(msg, "flag needs an argument: -"); ok {
+		return usagef("%s needs a value", flagName(name))
+	}
+	// invalid value "x" for flag -name: cause, or invalid boolean value "x" for -name: cause
+	if rest, ok := strings.CutPrefix(msg, "invalid "); ok {
+		_, rest, _ = strings.Cut(rest, "value ")
+		value, rest, ok := strings.Cut(rest, " for ")
+		if ok {
+			name, cause, _ := strings.Cut(strings.TrimPrefix(strings.TrimPrefix(rest, "flag "), "-"), ": ")
+			expected := ""
+			if f := fs.Lookup(name); f != nil {
+				if g, ok := f.Value.(flag.Getter); ok {
+					switch g.Get().(type) {
+					case time.Duration:
+						expected = "expects a duration such as 30s, 10m or 2h"
+					case int, int64, uint, uint64:
+						expected = "expects a whole number"
+					case bool:
+						expected = "takes no value (or =true, =false)"
+					}
+				}
+			}
+			if expected == "" {
+				return usagef("%s: %s (got %s)", flagName(name), cause, value)
+			}
+			return usagef("%s %s, not %s", flagName(name), expected, value)
+		}
+	}
+	return usagef("%v", err)
+}
+
+// flagName is a flag as people type it: -o for one letter, --name otherwise.
+func flagName(name string) string {
+	if len(name) == 1 {
+		return "-" + name
+	}
+	return "--" + name
+}
+
+// fileError drops the system call from a file error: "stat x: no such file or directory"
+// becomes "x: no such file or directory".
+func fileError(err error) error {
+	var pe *os.PathError
+	if errors.As(err, &pe) {
+		return fmt.Errorf("%s: %w", pe.Path, pe.Err)
+	}
+	return err
 }
 
 // splitCommand takes the subcommand off the front of a group's arguments.
