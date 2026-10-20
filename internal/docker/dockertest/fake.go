@@ -55,6 +55,8 @@ type Fake struct {
 	dangling   map[string]bool   // image ids that lost their tag to a re-pull but still exist
 	// StatsByName overrides ContainerStats for a container name.
 	StatsByName map[string]docker.Stats
+	// StatsErrByName makes ListedContainerStats fail for a container name.
+	StatsErrByName map[string]error
 	// statsCalls and listedStatsCalls count ContainerStats and ListedContainerStats.
 	statsCalls, listedStatsCalls int
 	// VolumeBytes are the sizes VolumeSizes reports.
@@ -733,11 +735,18 @@ func (f *Fake) ContainerStats(_ context.Context, id string) (docker.Stats, error
 }
 
 // ListedContainerStats implements docker.Engine: like Docker it trusts the listed labels.
-func (f *Fake) ListedContainerStats(_ context.Context, lc docker.Container) (docker.Stats, error) {
+func (f *Fake) ListedContainerStats(ctx context.Context, lc docker.Container) (docker.Stats, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.listedStatsCalls++
 	if err := f.check(); err != nil {
+		return docker.Stats{}, err
+	}
+	// The daemon's reading takes a second; a cancelled caller never gets it.
+	if err := ctx.Err(); err != nil {
+		return docker.Stats{}, err
+	}
+	if err := f.StatsErrByName[lc.Name]; err != nil {
 		return docker.Stats{}, err
 	}
 	if !f.owns(lc.Labels) {

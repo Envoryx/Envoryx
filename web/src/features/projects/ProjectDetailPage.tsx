@@ -375,11 +375,11 @@ function OverviewTab({ project: p }: { project: Project }) {
           <dl className="grid grid-cols-2 gap-4 px-5 py-4 text-sm">
             <div>
               <dt className="text-xs text-subtle">{t("CPU")}</dt>
-              <dd className="text-lg font-semibold tabular-nums">{stats.data ? formatPercent(stats.data.stats.cpuPercent) : "-"}</dd>
+              <dd className="text-lg font-semibold tabular-nums">{stats.data && stats.data.stats.running > 0 ? formatPercent(stats.data.stats.cpuPercent) : "-"}</dd>
             </div>
             <div>
               <dt className="text-xs text-subtle">{t("Memory")}</dt>
-              <dd className="text-lg font-semibold tabular-nums">{stats.data ? formatBytes(stats.data.stats.memoryBytes) : "-"}</dd>
+              <dd className="text-lg font-semibold tabular-nums">{stats.data && stats.data.stats.running > 0 ? formatBytes(stats.data.stats.memoryBytes) : "-"}</dd>
             </div>
           </dl>
         </Card>
