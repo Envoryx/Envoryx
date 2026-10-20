@@ -55,6 +55,32 @@ func TestUnusedImagesOnlyTouchCatalogueImages(t *testing.T) {
 	}
 }
 
+// Another Envoryx instance on the same Docker daemon keeps its rollback history in its
+// own database: a rollback tag for a project that is not ours is never pruned, a stale
+// one of our own projects is.
+func TestPruneKeepsOtherInstancesRollbackTargets(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	if _, err := e.m.Create(ctx, phpRequest("Mine", true)); err != nil {
+		t.Fatal(err)
+	}
+	e.engine.AddImage("envoryx-rollback/theirs:ghcr.io-envoryx-envoryx-php-8.4")
+	e.engine.AddImage("envoryx-rollback/mine:ghcr.io-envoryx-envoryx-node-22")
+	unused, err := e.m.UnusedImages(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(unused) != 1 || unused[0].Tags[0] != "envoryx-rollback/mine:ghcr.io-envoryx-envoryx-node-22" {
+		t.Fatalf("unused: %+v", unused)
+	}
+	if _, err := e.m.PruneImages(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if ok, _ := e.engine.ImageExists(ctx, "envoryx-rollback/theirs:ghcr.io-envoryx-envoryx-php-8.4"); !ok {
+		t.Fatal("another instance's rollback target must survive the prune")
+	}
+}
+
 // After an upstream rebuild of the same tag the previous image stays known, is protected
 // from pruning and the project can be rolled back to it - and forward again.
 func TestImageRollback(t *testing.T) {
