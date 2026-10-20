@@ -500,6 +500,9 @@ func serve() error {
 	}
 	// planOffsiteErr is why the plan's offsite target isn't used; the manager hears it.
 	var planOffsiteErr atomic.Pointer[string]
+	// planSettingsErr names the plan's fixed settings the instance could not apply; the
+	// manager hears it too.
+	var planSettingsErr atomic.Pointer[string]
 	// uiURL is the address of the web UI behind the embedded proxy (envoryx.<base>), or
 	// the public host and listen port without it.
 	uiURL := func(ctx context.Context) string {
@@ -538,6 +541,9 @@ func serve() error {
 			s := fleetStatus(ctx, st, manager, version, instanceID)
 			s.UIURL = uiURL(ctx)
 			if msg := planOffsiteErr.Load(); msg != nil {
+				s.Warnings = append(s.Warnings, *msg)
+			}
+			if msg := planSettingsErr.Load(); msg != nil {
 				s.Warnings = append(s.Warnings, *msg)
 			}
 			s.Backups = remote.Status(ctx)
@@ -613,14 +619,17 @@ func serve() error {
 		Instance: backups, DB: sqlDB, Restart: requestRestart, Warnings: warnings, Offsite: syncer, Fleet: fleetAgent,
 	})
 	// What the plan fixes applies now and whenever the plan changes.
-	if err := a.ApplyPlanSettings(ctx); err != nil {
-		log.Warn("plan: settings not applied", "err", err)
-	}
-	plans.OnChange(func(*plan.Plan) {
+	applyPlanSettings := func() {
 		if err := a.ApplyPlanSettings(ctx); err != nil {
 			log.Warn("plan: settings not applied", "err", err)
+			msg := err.Error()
+			planSettingsErr.Store(&msg)
+			return
 		}
-	})
+		planSettingsErr.Store(nil)
+	}
+	applyPlanSettings()
+	plans.OnChange(func(*plan.Plan) { applyPlanSettings() })
 	// The plan's offsite target is the hoster's: it joins the admins' own targets.
 	applyPlanOffsite := func(p *plan.Plan) {
 		if syncer == nil {

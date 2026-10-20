@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/envoryx/envoryx/internal/plan"
@@ -18,6 +19,9 @@ func (a *testApp) setPlan(content string) {
 	a.plans.Reload()
 	if err := a.plans.Err(); err != nil {
 		a.t.Fatal(err)
+	}
+	if a.planSettingsErr != nil {
+		a.t.Fatalf("plan settings: %v", a.planSettingsErr)
 	}
 }
 
@@ -105,6 +109,43 @@ func TestPlanFixesSettings(t *testing.T) {
 	if r.status != http.StatusOK || r.body["baseDomain"] != "mine.test" {
 		t.Fatalf("after the plan: %d %s", r.status, r.raw)
 	}
+}
+
+// A fixed setting the instance can't take is named in the error (the manager hears it as
+// a warning), and the plan's other settings still apply.
+func TestPlanSettingWithWrongTypeIsReported(t *testing.T) {
+	a := newApp(t)
+	a.setupAndLogin()
+	if err := os.WriteFile(filepath.Join(a.cfgDir, plan.File), []byte(`{"settings":{"metricsRetentionDays":"30","forceHttps":true,"sharedIdeBackends":null}}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	a.plans.Reload()
+	if a.planSettingsErr == nil {
+		t.Fatal("a string for a number of days was applied without an error")
+	}
+	msg := a.planSettingsErr.Error()
+	for _, want := range []string{"metricsRetentionDays (needs a number, not a string)", "sharedIdeBackends (has no value)"} {
+		if !strings.Contains(msg, want) {
+			t.Errorf("error %q doesn't contain %q", msg, want)
+		}
+	}
+	if strings.Contains(msg, "forceHttps") {
+		t.Errorf("error %q names a setting that applied", msg)
+	}
+	r := a.do(http.MethodGet, "/api/v1/settings", nil, false)
+	if r.body["forceHttps"] != true {
+		t.Fatalf("the plan's good setting didn't apply: %s", r.raw)
+	}
+
+	// Out of range is named the same way; a fixed plan clears the error.
+	if err := os.WriteFile(filepath.Join(a.cfgDir, plan.File), []byte(`{"settings":{"metricsRetentionDays":0}}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	a.plans.Reload()
+	if a.planSettingsErr == nil || !strings.Contains(a.planSettingsErr.Error(), "metricsRetentionDays (") {
+		t.Fatalf("0 days: %v", a.planSettingsErr)
+	}
+	a.setPlan(`{"settings":{"metricsRetentionDays":30}}`)
 }
 
 // The plan sets its fixed settings at every start and push; only a real change is in
