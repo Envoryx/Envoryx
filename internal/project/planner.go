@@ -1424,6 +1424,10 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 			spec.Mounts = append(spec.Mounts, docker.MountSpec{Type: "bind", Source: filepath.Join(cfgHost, "php", "zz-envoryx.ini"), Target: phpIniTarget, ReadOnly: true})
 			spec.Labels[labelPHPConfig] = phpConfig
 		}
+		// The Go, Ruby, Java and .NET images start everything through their own tini,
+		// which below Docker's init is no longer PID 1 and warned about it at the top of
+		// every worker log. As a child subreaper it still reaps what the worker orphans.
+		spec.Env = append(spec.Env, "TINI_SUBREAPER=1")
 		p.withPackageCache(proj, &spec)
 		plan.Containers = append(plan.Containers, ContainerPlan{Kind: WorkerKind(w), Order: 30, Spec: spec})
 	}
