@@ -525,12 +525,40 @@ func firstLine(s string) string {
 	return s
 }
 
-// cronCommandArg takes the command from --command or from everything after "--".
+// cronCommandArg takes the command from --command or from everything after "--". A cron
+// job's command is a shell command line. One word after "--" is taken as that line (a
+// quoted `-- "php artisan x && php artisan y"`); several are the words the local shell
+// split, so each one is quoted again where needed: `-- php x "a b"` stays three words.
 func cronCommandArg(flagValue string, after []string) string {
-	if len(after) > 0 {
-		return strings.Join(after, " ")
+	switch len(after) {
+	case 0:
+		return flagValue
+	case 1:
+		return after[0]
 	}
-	return flagValue
+	words := make([]string, len(after))
+	for i, w := range after {
+		words[i] = shellQuote(w)
+	}
+	return strings.Join(words, " ")
+}
+
+// shellQuote quotes a word for a POSIX shell when it holds anything but plain characters.
+func shellQuote(w string) string {
+	if w == "" {
+		return "''"
+	}
+	plain := true
+	for _, r := range w {
+		if !(r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || strings.ContainsRune("_-.,:/@%+=", r)) {
+			plain = false
+			break
+		}
+	}
+	if plain {
+		return w
+	}
+	return "'" + strings.ReplaceAll(w, "'", `'\''`) + "'"
 }
 
 func (c *cli) cronAdd(ctx context.Context, args []string) error {

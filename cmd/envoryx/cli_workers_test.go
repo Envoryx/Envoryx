@@ -212,6 +212,27 @@ func TestCronAddTakesTheCommandAfterDashDash(t *testing.T) {
 	}
 }
 
+// The words after "--" come split by the local shell; the job's command is a shell line,
+// so each word keeps its quoting. A single word is a whole command line.
+func TestCronCommandKeepsTheWords(t *testing.T) {
+	for _, tc := range []struct {
+		after []string
+		want  string
+	}{
+		{[]string{"php", "artisan", "report", "--json"}, "php artisan report --json"},
+		{[]string{"php", "bin/console", "app:mail", "--subject=Daily report", "it's"}, `php bin/console app:mail '--subject=Daily report' 'it'\''s'`},
+		{[]string{"echo", "", "$HOME", "a&&b"}, `echo '' '$HOME' 'a&&b'`},
+		{[]string{"php artisan schedule:run && php artisan queue:prune"}, "php artisan schedule:run && php artisan queue:prune"},
+	} {
+		if got := cronCommandArg("", tc.after); got != tc.want {
+			t.Errorf("%q: got %s, want %s", tc.after, got, tc.want)
+		}
+	}
+	if got := cronCommandArg("from the flag", nil); got != "from the flag" {
+		t.Errorf("--command: %q", got)
+	}
+}
+
 func TestCronEditKeepsTheRest(t *testing.T) {
 	srv := newFakeServer(t, cronRoutes(nil))
 	c, _, _ := newTestCLI(t, srv, "")
