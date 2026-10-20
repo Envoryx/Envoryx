@@ -190,6 +190,10 @@ func TestWorkersFollowTheirRuntime(t *testing.T) {
 	if !c.Spec.Init || c.Spec.StopSignal != "SIGTERM" {
 		t.Fatalf("worker stop handling: init %v, signal %q", c.Spec.Init, c.Spec.StopSignal)
 	}
+	// An image's own tini below Docker's init registers as a subreaper instead of warning.
+	if !slices.Contains(c.Spec.Env, "TINI_SUBREAPER=1") {
+		t.Fatalf("worker env without TINI_SUBREAPER: %v", c.Spec.Env)
+	}
 	if _, err := e.m.UpdateWorker(ctx, id, w.ID, WorkerRequest{Name: "jobs", Preset: "php:script", Arg: "bin/w.php", Enabled: true}); !errors.Is(err, ErrConflict) {
 		t.Fatalf("switching a worker to a runtime the project lacks must fail: %v", err)
 	}
