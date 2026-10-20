@@ -593,11 +593,16 @@ comes next.
 - **Debugging.** *Publish the debugpy port* (Runtime; with or without
   the server, for a script or test run started in the terminal) publishes
   port 5678 on a host port; the IDE section shows host, port and path
-  mapping plus command lines that start debugpy in front of the usual
-  servers. Only the port is published: `pip install debugpy` in the
-  `.venv` and start it yourself (`python -m debugpy --listen
-  0.0.0.0:5678 manage.py runserver …`), then attach VS Code (`type:
-  debugpy`, `request: attach`). PyCharm's *Python Debug Server* works the
+  mapping plus snippets for the usual servers. Only the port is published:
+  `pip install debugpy` in the `.venv` and start it in the process the
+  reloader runs, not in front of the server (`python -m debugpy …
+  manage.py runserver` would sit in the parent and compete with the child
+  for the port). Django: in `manage.py` when `RUN_MAIN` is `true`; Flask:
+  in `app.py` when `WERKZEUG_RUN_MAIN` is `true`; uvicorn `--reload`: at
+  the top of `main.py`, which only the worker imports. Each runs
+  `debugpy.listen(("0.0.0.0", 5678))`. Then attach VS Code (`type:
+  debugpy`, `request: attach`); every code change restarts the child and
+  ends the session. PyCharm's *Python Debug Server* works the
   other way round (the IDE listens). In its `pydevd-pycharm` snippet use
   `host.docker.internal` when PyCharm runs on the Docker host (the runtime
   containers resolve that name to the host); otherwise forward the port over
