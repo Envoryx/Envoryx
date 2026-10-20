@@ -147,3 +147,39 @@ func TestListActionsOmitsAbsentServices(t *testing.T) {
 		}
 	}
 }
+
+// db:rollback refuses an application with several databases; the action rolls back the
+// primary one then. Run with a bin/rails stub that plays Rails.
+func TestRailsRollbackScript(t *testing.T) {
+	if _, err := exec.LookPath("sh"); err != nil {
+		t.Skip("no sh")
+	}
+	run := func(dbs string) string {
+		work := t.TempDir()
+		_ = os.MkdirAll(filepath.Join(work, "bin"), 0o755)
+		stub := `#!/bin/sh
+if [ "$1" = runner ]; then echo "noise from an initializer"; for d in $DBS; do echo "envoryx-db:$d"; done; exit 0; fi
+echo "task: $*"
+`
+		if err := os.WriteFile(filepath.Join(work, "bin", "rails"), []byte(stub), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		cmd := exec.Command("sh", "-c", railsRollbackScript, "envoryx-rails-rollback")
+		cmd.Dir = work
+		cmd.Env = append(os.Environ(), "DBS="+dbs)
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("%s: %v\n%s", dbs, err, out)
+		}
+		return string(out)
+	}
+	if out := run("primary"); !strings.Contains(out, "task: db:rollback\n") {
+		t.Fatalf("one database: %s", out)
+	}
+	if out := run("cache primary queue cable"); !strings.Contains(out, "task: db:rollback:primary\n") || !strings.Contains(out, "several databases") {
+		t.Fatalf("several databases: %s", out)
+	}
+	if out := run("main archive"); !strings.Contains(out, "task: db:rollback:main\n") {
+		t.Fatalf("no database named primary: %s", out)
+	}
+}
