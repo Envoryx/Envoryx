@@ -3154,5 +3154,6 @@
   "The scheduled backup failed": "De geplande back-up is mislukt",
   "Failed runs in a row: {{number}}": "Mislukte runs op rij: {{number}}",
   "Last automatic backup attempt {{date}} failed.": "De laatste automatische back-uppoging {{date}} is mislukt.",
-  "User created by single sign-on": "Gebruiker aangemaakt via single sign-on"
+  "User created by single sign-on": "Gebruiker aangemaakt via single sign-on",
+  "The image has not been pulled yet. Once the registry login is in place under Settings, save it again to retry.": "De image is nog niet opgehaald. Zodra de registry-login onder Instellingen staat, sla je hem opnieuw op om het nog eens te proberen."
 }
