@@ -59,6 +59,12 @@ func isRollbackRef(ref string) bool {
 	return strings.HasPrefix(ref, rollbackRepoPrefix)
 }
 
+// rollbackSlug is the project slug a rollback tag was made for.
+func rollbackSlug(ref string) string {
+	slug, _, _ := strings.Cut(strings.TrimPrefix(ref, rollbackRepoPrefix), ":")
+	return slug
+}
+
 // protectRollbackTarget tags the rollback target of one history record. A target that
 // has left the host (`docker rmi`, a prune before the tag existed) cannot come back, so
 // the record forgets it. Otherwise every reconcile would retry the tag and warn again.
@@ -153,7 +159,10 @@ func imageRepo(ref string) string {
 // UnusedImages lists local images that come from the Envoryx catalogue or were built from
 // a project's Dockerfile and are not used by any container on the host (Envoryx's or
 // anyone else's). Images from other sources are never reported, so nothing foreign can be
-// removed through Envoryx.
+// removed through Envoryx. Neither are the rollback targets of another Envoryx instance on
+// the same Docker daemon: its rollback history is in its own database, so a tag for a
+// project that is not one of ours is kept (project slugs are unique on a daemon, as the
+// container names carry them).
 func (m *Manager) UnusedImages(ctx context.Context) ([]UnusedImage, error) {
 	images, err := m.engine.ListImages(ctx)
 	if err != nil {
@@ -181,6 +190,14 @@ func (m *Manager) UnusedImages(ctx context.Context) ([]UnusedImage, error) {
 			inUse[h.CurrentID] = true
 		}
 	}
+	projects, err := m.store.Projects.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	ownSlugs := map[string]bool{}
+	for _, p := range projects {
+		ownSlugs[p.Slug] = true
+	}
 	repos := m.catalogueRepos()
 	var out []UnusedImage
 	for _, img := range images {
@@ -189,6 +206,9 @@ func (m *Manager) UnusedImages(ctx context.Context) ([]UnusedImage, error) {
 		}
 		ours, used := false, false
 		for _, t := range img.Tags {
+			if isRollbackRef(t) && !ownSlugs[rollbackSlug(t)] {
+				used = true // another instance's rollback target
+			}
 			if repos[imageRepo(t)] || isRollbackRef(t) || isBuildRef(t) {
 				ours = true
 			}
