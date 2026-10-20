@@ -63,6 +63,8 @@ type testApp struct {
 	offsiteMem *memTarget
 	// plans is the instance's plan, from <cfgDir>/plan.json (setPlan).
 	plans *plan.Holder
+	// planSettingsErr is what ApplyPlanSettings returned for the last plan.
+	planSettingsErr error
 	// auth is the session service (support logins).
 	auth *auth.Service
 	// routes are the patterns registered on the server's mux (the access matrix).
@@ -137,9 +139,7 @@ func newApp(t *testing.T) *testApp {
 		Catalog: runtime.Default(), Stats: stats.New(engine, time.Second, log), HostPath: resolver, Certs: certs, ACME: acmeMgr, Notify: notifier, Proxy: proxyInfo, MCP: mcpSrv.Handler(), Log: log, StartedAt: time.Now(),
 		Instance: backups, DB: sqlDB, Restart: func() { app.restarts++ }, Offsite: app.offsite})
 	app.plans.OnChange(func(*plan.Plan) {
-		if err := a.ApplyPlanSettings(context.Background()); err != nil {
-			t.Errorf("plan settings: %v", err)
-		}
+		app.planSettingsErr = a.ApplyPlanSettings(context.Background())
 	})
 	s := server.New(server.Options{Addr: ":0", Log: log, MCP: mcpSrv.Handler()}, a, sessions, nil)
 	app.routes = s.Routes()

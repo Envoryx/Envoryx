@@ -417,17 +417,63 @@ func (a *API) updateSettings(w http.ResponseWriter, r *http.Request) {
 }
 
 // ApplyPlanSettings sets what the plan fixes (at start and whenever the plan changes).
+// Each setting applies on its own, so one the instance can't take (a value of the wrong
+// type or out of range) doesn't hold up the others; the error names every one that
+// didn't apply, and the manager hears it.
 func (a *API) ApplyPlanSettings(ctx context.Context) error {
 	pl := a.d.Projects.Plan()
 	if pl == nil || len(pl.Settings) == 0 {
 		return nil
 	}
-	var req updateSettingsRequest
-	if err := strictJSON(pl.Settings, &req); err != nil {
+	var failed []string
+	for _, key := range pl.LockedKeys() {
+		if err := a.applyPlanSetting(ctx, key, pl.Settings[key]); err != nil {
+			failed = append(failed, fmt.Sprintf("%s (%s)", key, err))
+		}
+	}
+	if len(failed) > 0 {
+		return fmt.Errorf("plan settings not applied: %s", strings.Join(failed, "; "))
+	}
+	return nil
+}
+
+// applyPlanSetting sets one setting the plan fixes.
+func (a *API) applyPlanSetting(ctx context.Context, key string, v json.RawMessage) error {
+	if string(bytes.TrimSpace(v)) == "null" {
+		return errors.New("has no value")
+	}
+	b, err := json.Marshal(map[string]json.RawMessage{key: v})
+	if err != nil {
 		return err
 	}
-	_, err := a.applySettings(ctx, req)
+	var req updateSettingsRequest
+	dec := json.NewDecoder(bytes.NewReader(b))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&req); err != nil {
+		var te *json.UnmarshalTypeError
+		if errors.As(err, &te) {
+			return fmt.Errorf("needs %s, not a %s", jsonKind(te.Type), te.Value)
+		}
+		if strings.Contains(err.Error(), "unknown field") {
+			return errors.New("unknown to this version of Envoryx")
+		}
+		return err
+	}
+	_, err = a.applySettings(ctx, req)
 	return err
+}
+
+// jsonKind names the JSON value a Go type takes, for an error message.
+func jsonKind(t reflect.Type) string {
+	switch t.Kind() {
+	case reflect.Bool:
+		return "true or false"
+	case reflect.String:
+		return "a text"
+	case reflect.Int, reflect.Int64, reflect.Float64:
+		return "a number"
+	}
+	return "another kind of value"
 }
 
 // strictJSON decodes a JSON object given as its fields into v, refusing unknown ones.
