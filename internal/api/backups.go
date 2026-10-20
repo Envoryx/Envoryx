@@ -28,7 +28,18 @@ func (a *API) listBackups(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"backups": list, "offsite": a.uploadDTOs(rows), "offsiteTargets": a.offsiteTargetNames()})
+	body := map[string]any{"backups": list, "offsite": a.uploadDTOs(rows), "offsiteTargets": a.offsiteTargetNames()}
+	// Where the backups really are: the configured directory, and the host directory
+	// behind it when Envoryx runs in a container with that directory mounted.
+	if loc, err := a.d.Projects.BackupLocation(r.Context(), r.PathValue("id")); err == nil {
+		body["location"] = loc
+		if a.d.HostPath != nil {
+			if host, err := a.d.HostPath.Resolve(loc); err == nil && host != loc {
+				body["hostLocation"] = host
+			}
+		}
+	}
+	writeJSON(w, http.StatusOK, body)
 }
 
 type createBackupRequest struct {
@@ -121,10 +132,13 @@ type backupScheduleDTO struct {
 	Keep                int        `json:"keep"`
 	IncludeDependencies bool       `json:"includeDependencies"`
 	LastRun             *time.Time `json:"lastRun,omitempty"`
+	// Failures and LastError describe scheduled runs that failed in a row (read only).
+	Failures  int    `json:"failures,omitempty"`
+	LastError string `json:"lastError,omitempty"`
 }
 
 func toSchedule(b store.BackupSchedule) backupScheduleDTO {
-	dto := backupScheduleDTO{Schedule: b.Schedule, Hour: b.Hour, Weekday: b.Weekday, Keep: b.Keep, IncludeDependencies: b.IncludeDependencies}
+	dto := backupScheduleDTO{Schedule: b.Schedule, Hour: b.Hour, Weekday: b.Weekday, Keep: b.Keep, IncludeDependencies: b.IncludeDependencies, Failures: b.Failures, LastError: b.LastError}
 	if !b.LastRun.IsZero() {
 		lr := b.LastRun
 		dto.LastRun = &lr

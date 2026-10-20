@@ -1894,6 +1894,9 @@ export interface BackupSchedule {
   keep: number;
   includeDependencies: boolean;
   lastRun?: string;
+  /** Scheduled runs that failed in a row, with the latest one's message; absent after a success. */
+  failures?: number;
+  lastError?: string;
 }
 
 export interface BackupInfo {
@@ -2054,6 +2057,9 @@ export interface BackupsResponse {
   backups: BackupInfo[];
   offsite?: Record<string, OffsiteUpload[]>;
   offsiteTargets?: OffsiteTargetName[];
+  /** The project's backup directory as Envoryx sees it, and the host directory behind it when that differs. */
+  location?: string;
+  hostLocation?: string;
 }
 
 export interface ActionInfo {

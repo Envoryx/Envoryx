@@ -268,15 +268,30 @@ func TestAddChangeAndRemoveDatabase(t *testing.T) {
 	if err != nil || len(backups) != 1 || backups[0].Meta.Source != "upgrade" || backups[0].Kind != "database" || !strings.Contains(backups[0].Meta.Note, "10.11 → 11") {
 		t.Fatalf("upgrade backup: %+v, %v", backups, err)
 	}
-	// Without a running database container no dump is possible - then no upgrade either.
+	// Without a dump no upgrade.
 	if _, err := e.m.Stop(ctx, id); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := e.m.Update(ctx, id, UpdateRequest{Database: &DatabaseUpdate{Enabled: true, Version: "11.4", ExposePort: true}}); !errors.Is(err, ErrConflict) || !strings.Contains(err.Error(), "upgrade refused") {
-		t.Fatalf("upgrade of a stopped database must be refused, got %v", err)
+	e.engine.StreamHandler = func(container string, cmd []string, env []string, stdin []byte) (string, int, error) {
+		return "", 1, nil
+	}
+	if _, err := e.m.Update(ctx, id, UpdateRequest{Database: &DatabaseUpdate{Enabled: true, Version: "11.4", ExposePort: true}}); err == nil || !strings.Contains(err.Error(), "upgrade refused") {
+		t.Fatalf("upgrade without a dump must be refused, got %v", err)
 	}
 	if view, _ := e.m.Get(ctx, id); view.Project.Service(store.ServiceDatabase).Version != "11" {
 		t.Fatal("refused upgrade must not change the recorded version")
+	}
+	// A stopped database is started for the dump and stopped again, so the upgrade of a
+	// stopped project goes ahead.
+	e.engine.StreamHandler = nil
+	if _, err := e.m.Update(ctx, id, UpdateRequest{Database: &DatabaseUpdate{Enabled: true, Version: "11.4", ExposePort: true}}); err != nil {
+		t.Fatalf("upgrade of a stopped database: %v", err)
+	}
+	if view, _ := e.m.Get(ctx, id); view.Project.Service(store.ServiceDatabase).Version != "11.4" {
+		t.Fatal("the upgrade must record the new version")
+	}
+	if c, ok := e.engine.Container("envoryx-grow-database"); ok && c.State == "running" {
+		t.Fatal("the database must be stopped again after the upgrade dump")
 	}
 	if _, err := e.m.Start(ctx, id); err != nil {
 		t.Fatal(err)

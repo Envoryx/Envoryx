@@ -44,6 +44,7 @@ export const auditActionLabels: Record<string, string> = {
   "backup.restored": "Backup restored",
   "backup.restored_new": "Backup restored into a new project",
   "backup.deleted": "Backup deleted",
+  "backup.failed": "Backup failed",
   "instance.backup_created": "Instance backup created",
   "instance.backup_uploaded": "Instance backup uploaded",
   "instance.backup_deleted": "Instance backup deleted",
@@ -201,6 +202,8 @@ export function auditDetails(e: AuditEntry, t: TFunction): string {
       return [d["name"], d["worker"]].filter((v) => typeof v === "string").join(" · ");
     case "auth.login_failed":
       return typeof d["reason"] === "string" ? d["reason"] : "-";
+    case "backup.failed":
+      return [d["name"], d["source"] === "scheduled" ? t("scheduled") : "", d["error"]].filter((v) => typeof v === "string" && v !== "").join(" · ");
     default:
       // Envoryx stores the target's name with the entry (users under "username"); older
       // entries of since deleted objects only have the id.

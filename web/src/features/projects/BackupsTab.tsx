@@ -151,7 +151,19 @@ export function BackupsTab({ project }: { project: Project }) {
           }
           description={
             <>
-              {t("Stored under")} <Code>/config/backups/{project.slug}/</Code>. {t("The database is dumped inside its container; files and bucket objects are archived by Envoryx.")}
+              {list.data?.location && (
+                <>
+                  {t("Stored under")} <Code className="break-all">{list.data.location}/</Code>
+                  {list.data.hostLocation && (
+                    <>
+                      {" "}
+                      ({t("on the host")} <Code className="break-all">{list.data.hostLocation}/</Code>)
+                    </>
+                  )}
+                  .{" "}
+                </>
+              )}
+              {t("The database is dumped inside its container; files and bucket objects are archived by Envoryx.")}
             </>
           }
         />
@@ -391,7 +403,7 @@ function ScheduleCard({ project, onSaved }: { project: Project; onSaved: () => v
             <CalendarClock className="size-4 text-accent-500" aria-hidden /> {t("Scheduled backups")}
           </span>
         }
-        description={current.lastRun ? t("Last automatic backup {{date}}.", { date: formatDateTime(current.lastRun) }) : t("Automatic database, file and object storage backups; the oldest scheduled backups are removed beyond the keep count. Manual backups are never touched.")}
+        description={current.lastRun ? ((current.failures ?? 0) > 0 ? t("Last automatic backup attempt {{date}} failed.", { date: formatDateTime(current.lastRun) }) : t("Last automatic backup {{date}}.", { date: formatDateTime(current.lastRun) })) : t("Automatic database, file and object storage backups; the oldest scheduled backups are removed beyond the keep count. Manual backups are never touched.")}
         actions={
           editable && (
             <Button variant="primary" size="sm" loading={save.isPending} disabled={!dirty || (!!form.schedule && form.keep < 1)} onClick={() => { setMsg(null); save.mutate(); }}>
@@ -402,6 +414,12 @@ function ScheduleCard({ project, onSaved }: { project: Project; onSaved: () => v
       />
       <fieldset disabled={!editable} className="min-w-0 space-y-4 p-5">
         {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
+        {(current.failures ?? 0) > 0 && current.lastError && (
+          <Alert tone="red" title={t("The scheduled backup failed")}>
+            <p className="break-words">{current.lastError}</p>
+            {(current.failures ?? 0) > 1 && <p className="mt-1">{t("Failed runs in a row: {{number}}", { number: current.failures })}</p>}
+          </Alert>
+        )}
         <div className="grid gap-4 sm:grid-cols-4">
           <Field label={t("Frequency")} htmlFor="sched-freq">
             <Select id="sched-freq" value={form.schedule} onChange={(e) => set({ schedule: e.target.value as BackupSchedule["schedule"] })}>

@@ -407,14 +407,26 @@ func TestBackupIncludesObjectStorage(t *testing.T) {
 	if _, _, ok := mem.get("shop", "extra.txt"); ok {
 		t.Fatal("wipe must remove objects that are not in the backup")
 	}
-	// A backup without storage cannot restore it; a stopped storage container refuses.
+	// A backup without storage cannot restore it.
 	filesOnly, _ := e.m.CreateBackup(ctx, id, BackupOptions{Files: true})
 	if _, err := e.m.RestoreBackup(ctx, id, filesOnly.ID, RestoreOptions{Storage: true, Confirm: "shop"}); !errors.Is(err, validate.ErrInvalid) {
 		t.Fatalf("restore storage from files-only backup = %v", err)
 	}
+	// A stopped storage container is started for the backup and the restore, and stopped
+	// again afterwards.
 	e.engine.SetState("envoryx-shop-storage", "exited")
-	if _, err := e.m.CreateBackup(ctx, id, BackupOptions{Storage: true}); !errors.Is(err, ErrConflict) {
-		t.Fatalf("backup with stopped storage = %v", err)
+	stopped, err := e.m.CreateBackup(ctx, id, BackupOptions{Storage: true})
+	if err != nil || stopped.Meta.Storage == nil || stopped.Meta.Storage.Objects != 3 {
+		t.Fatalf("backup with stopped storage: %+v %v", stopped.Meta.Storage, err)
+	}
+	if c, _ := e.engine.Container("envoryx-shop-storage"); c.State == "running" {
+		t.Fatal("the storage container must be stopped again after the backup")
+	}
+	if _, err := e.m.RestoreBackup(ctx, id, stopped.ID, RestoreOptions{Storage: true, Confirm: "shop"}); err != nil {
+		t.Fatalf("restore into stopped storage: %v", err)
+	}
+	if c, _ := e.engine.Container("envoryx-shop-storage"); c.State == "running" {
+		t.Fatal("the storage container must be stopped again after the restore")
 	}
 }
 

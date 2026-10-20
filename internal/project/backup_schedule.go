@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/envoryx/envoryx/internal/audit"
+	"github.com/envoryx/envoryx/internal/notify"
 	"github.com/envoryx/envoryx/internal/store"
 	"github.com/envoryx/envoryx/internal/validate"
 )
@@ -39,7 +40,7 @@ func (m *Manager) SetBackupSchedule(ctx context.Context, id string, b store.Back
 		return store.BackupSchedule{}, err
 	}
 	m.audit.Log(ctx, audit.ActionProjectUpdated, "project", id, map[string]any{"name": p.Name, "changes": map[string]any{"backupSchedule": b.Schedule, "keep": b.Keep}})
-	b.LastRun = p.Backup.LastRun
+	b.LastRun, b.Failures, b.LastError = p.Backup.LastRun, p.Backup.Failures, p.Backup.LastError
 	return b, nil
 }
 
@@ -98,11 +99,38 @@ func (m *Manager) runScheduledBackups(ctx context.Context, now time.Time, log *s
 		info, err := m.CreateBackup(ctx, p.ID, BackupOptions{Database: true, Files: true, Storage: true, IncludeDependencies: p.Backup.IncludeDependencies, Note: "scheduled " + p.Backup.Schedule, Source: "scheduled"})
 		if err != nil {
 			log.Warn("scheduled backup failed", "project", p.Slug, "err", err)
+			m.scheduledBackupFailed(ctx, p, due, err, log)
 			continue
+		}
+		if err := m.store.Projects.SetBackupOutcome(ctx, p.ID, ""); err != nil {
+			log.Warn("backup scheduler: record outcome", "project", p.Slug, "err", err)
 		}
 		log.Info("scheduled backup created", "project", p.Slug, "backup", info.ID, "bytes", info.SizeBytes)
 		m.applyRetention(ctx, p, log)
 	}
+}
+
+// scheduledBackupFailed records a failed scheduled run on the project and notifies about
+// it. Every failed run notifies: a schedule runs at most once a day, so that is never a
+// flood, and a backup that silently stays missing for days is the worse outcome. The
+// message counts the failures in a row so a repeat does not read like a duplicate.
+func (m *Manager) scheduledBackupFailed(ctx context.Context, p store.Project, due time.Time, cause error, log *slog.Logger) {
+	if err := m.store.Projects.SetBackupOutcome(ctx, p.ID, cause.Error()); err != nil {
+		log.Warn("backup scheduler: record outcome", "project", p.Slug, "err", err)
+	}
+	failures := p.Backup.Failures + 1
+	if cur, err := m.store.Projects.Get(ctx, p.ID); err == nil {
+		failures = cur.Backup.Failures
+	}
+	m.audit.Log(ctx, audit.ActionBackupFailed, "project", p.ID, map[string]any{"name": p.Name, "source": "scheduled", "error": cause.Error(), "failures": failures})
+	msg := cause.Error()
+	if failures > 1 {
+		msg = fmt.Sprintf("%s (the scheduled backup failed %d times in a row)", msg, failures)
+	}
+	// One key per scheduled slot: the cooldown that holds back repeated manual attempts
+	// must not swallow the next day's run.
+	m.notify(ctx, notify.Event{Kind: "backup.failed", Level: notify.Error, Project: p.Name, Title: "Scheduled backup of " + p.Name + " failed", Message: msg,
+		Key: "backup.failed|" + p.ID + "|" + due.UTC().Format(time.RFC3339)})
 }
 
 // applyRetention deletes the oldest scheduled backups beyond the project's keep count.

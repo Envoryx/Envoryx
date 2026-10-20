@@ -365,8 +365,12 @@ type BackupSchedule struct {
 	Keep int
 	// IncludeDependencies keeps vendor/ and node_modules/ in the file archive.
 	IncludeDependencies bool
-	// LastRun is when the schedule last produced a backup, zero if it never has.
+	// LastRun is when the schedule last ran, zero if it never has.
 	LastRun time.Time
+	// Failures counts the scheduled runs that failed in a row; LastError is the message
+	// of the latest of them. A successful run resets both.
+	Failures  int
+	LastError string
 }
 
 // GitConfig is the optional repository binding of a project. Token is a secret and must

@@ -3149,5 +3149,9 @@
   "node_modules is missing - the dev server runs \"{{install}}\" before it starts; if that fails, it waits until you run \"npm install\" (or pnpm / yarn install) from Actions": "manca node_modules - il server di sviluppo esegue \"{{install}}\" prima di avviarsi; se non riesce, attende finché non esegui \"npm install\" (o pnpm / yarn install) da Azioni",
   "Docker engine unavailable": "Motore Docker non disponibile",
   "{{file}} not found - run {{command}}": "{{file}} non trovato - esegui {{command}}",
-  "{{n}} test projects and no solution file at the top of the project - add one (dotnet new sln, dotnet sln add)": "{{n}} progetti di test e nessun file di soluzione nella radice del progetto - aggiungine uno (dotnet new sln, dotnet sln add)"
+  "{{n}} test projects and no solution file at the top of the project - add one (dotnet new sln, dotnet sln add)": "{{n}} progetti di test e nessun file di soluzione nella radice del progetto - aggiungine uno (dotnet new sln, dotnet sln add)",
+  "on the host": "sull'host",
+  "The scheduled backup failed": "Il backup pianificato non è riuscito",
+  "Failed runs in a row: {{number}}": "Esecuzioni fallite di fila: {{number}}",
+  "Last automatic backup attempt {{date}} failed.": "L'ultimo tentativo di backup automatico {{date}} non è riuscito."
 }

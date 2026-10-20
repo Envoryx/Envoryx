@@ -16,13 +16,18 @@ type Projects struct{ db *sql.DB }
 
 const projectColumns = `id, name, slug, path, docroot, desired_state, http_port, lifecycle, last_error, git_url, git_branch, git_username, git_token, backup_schedule, backup_hour, backup_weekday, backup_keep, backup_include_deps, backup_last_run, ide_gateway, limits, health_check, proxy_rules, parent_id, branch_settings, branch_state, created_at, updated_at`
 
+// projectSelectColumns are read but never inserted: the outcome of the scheduled backups
+// starts out at the columns' defaults.
+const projectSelectColumns = projectColumns + `, backup_failures, backup_last_error`
+
 func scanProject(row interface{ Scan(...any) error }) (Project, error) {
 	var p Project
 	var port sql.NullInt64
 	var created, updated, desired, lifecycle, lastRun, limits, health, rules, branches, branchState string
 	var includeDeps, gateway int
 	if err := row.Scan(&p.ID, &p.Name, &p.Slug, &p.Path, &p.Docroot, &desired, &port, &lifecycle, &p.LastError, &p.Git.URL, &p.Git.Branch, &p.Git.Username, &p.Git.Token,
-		&p.Backup.Schedule, &p.Backup.Hour, &p.Backup.Weekday, &p.Backup.Keep, &includeDeps, &lastRun, &gateway, &limits, &health, &rules, &p.ParentID, &branches, &branchState, &created, &updated); err != nil {
+		&p.Backup.Schedule, &p.Backup.Hour, &p.Backup.Weekday, &p.Backup.Keep, &includeDeps, &lastRun, &gateway, &limits, &health, &rules, &p.ParentID, &branches, &branchState, &created, &updated,
+		&p.Backup.Failures, &p.Backup.LastError); err != nil {
 		return Project{}, err
 	}
 	token, err := secrets.Open(p.Git.Token)
@@ -190,7 +195,7 @@ func insertEnv(ctx context.Context, q querier, e EnvVar) error {
 
 // Get loads a project including services and env vars.
 func (r *Projects) Get(ctx context.Context, id string) (Project, error) {
-	p, err := scanProject(r.db.QueryRowContext(ctx, `SELECT `+projectColumns+` FROM projects WHERE id = ?`, id))
+	p, err := scanProject(r.db.QueryRowContext(ctx, `SELECT `+projectSelectColumns+` FROM projects WHERE id = ?`, id))
 	if errors.Is(err, sql.ErrNoRows) {
 		return Project{}, ErrNotFound
 	}
@@ -205,7 +210,7 @@ func (r *Projects) Get(ctx context.Context, id string) (Project, error) {
 
 // List returns all projects with their services, ordered by name.
 func (r *Projects) List(ctx context.Context) ([]Project, error) {
-	rows, err := r.db.QueryContext(ctx, `SELECT `+projectColumns+` FROM projects ORDER BY name COLLATE NOCASE`)
+	rows, err := r.db.QueryContext(ctx, `SELECT `+projectSelectColumns+` FROM projects ORDER BY name COLLATE NOCASE`)
 	if err != nil {
 		return nil, fmt.Errorf("select projects: %w", err)
 	}
@@ -481,6 +486,21 @@ func (r *Projects) SetHTTPPort(ctx context.Context, id string, port int) error {
 func (r *Projects) SetBackupLastRun(ctx context.Context, id string, at time.Time) error {
 	if _, err := r.db.ExecContext(ctx, `UPDATE projects SET backup_last_run = ? WHERE id = ?`, formatTime(at), id); err != nil {
 		return fmt.Errorf("set backup last run: %w", err)
+	}
+	return nil
+}
+
+// SetBackupOutcome records how the last scheduled run ended: an empty message clears the
+// failure count, a failure adds one to it and keeps its message.
+func (r *Projects) SetBackupOutcome(ctx context.Context, id, failure string) error {
+	q := `UPDATE projects SET backup_failures = 0, backup_last_error = '' WHERE id = ?`
+	args := []any{id}
+	if failure != "" {
+		q = `UPDATE projects SET backup_failures = backup_failures + 1, backup_last_error = ? WHERE id = ?`
+		args = []any{failure, id}
+	}
+	if _, err := r.db.ExecContext(ctx, q, args...); err != nil {
+		return fmt.Errorf("set backup outcome: %w", err)
 	}
 	return nil
 }
