@@ -10,6 +10,15 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.39.3] - 2026-10-20
+
+### Changed
+- Python 3.15 is a regular version now instead of a preview (image on
+  `python:3.15-slim-bookworm`). New projects still default to Python 3.14.
+- Updated dependencies: Go libraries (go-jose, golang.org/x/crypto, term,
+  sys, text, sync) and the web interface's libraries (React 19.3, TanStack
+  Query, i18next, Lucide icons, Vitest, Playwright). No change in behaviour.
+
 ## [0.39.2] - 2026-10-15
 
 ### Security
@@ -2417,7 +2426,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.39.2...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.39.3...HEAD
+[0.39.3]: https://github.com/envoryx/envoryx/compare/v0.39.2...v0.39.3
 [0.39.2]: https://github.com/envoryx/envoryx/compare/v0.39.1...v0.39.2
 [0.39.1]: https://github.com/envoryx/envoryx/compare/v0.39.0...v0.39.1
 [0.39.0]: https://github.com/envoryx/envoryx/compare/v0.38.0...v0.39.0
