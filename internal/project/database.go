@@ -744,6 +744,9 @@ func (m *Manager) applyDatabaseUpdate(ctx context.Context, p store.Project, kind
 		if err := json.Unmarshal(svc.Config, &cfg); err != nil {
 			return false, err
 		}
+		if upd.KeepExposePort {
+			upd.ExposePort = cfg.HostPort > 0
+		}
 		if upd.ExposePort && cfg.HostPort == 0 {
 			port, err := m.allocatePort(ctx, p.HTTPPort)
 			if err != nil {

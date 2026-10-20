@@ -969,7 +969,16 @@ func (m *Manager) update(ctx context.Context, id string, req UpdateRequest) (Vie
 				changes["spaFallback"] = wcfg.SPAFallback
 			}
 		}
-		web, err := m.buildWebService(req.Web.Type, req.Web.Version, wcfg.SPAFallback)
+		// The server and version left out stay as they are; a new server without a
+		// version gets its default one.
+		webType, webVersion := req.Web.Type, req.Web.Version
+		if webType == "" {
+			webType = cur.Variant
+		}
+		if webType == cur.Variant {
+			webVersion = keptVersion(cur, webVersion)
+		}
+		web, err := m.buildWebService(webType, webVersion, wcfg.SPAFallback)
 		if err != nil {
 			return View{}, err
 		}
@@ -1305,6 +1314,18 @@ func (m *Manager) applyPHPUpdate(ctx context.Context, p store.Project, upd PHPUp
 		return err
 	}
 	cfg := upd.Config
+	if upd.Patch != nil {
+		base := runtime.DefaultPHPConfig()
+		if svc != nil && len(svc.Config) > 0 {
+			base = runtime.PHPConfig{}
+			if err := json.Unmarshal(svc.Config, &base); err != nil {
+				return err
+			}
+		}
+		if cfg, _, err = patchConfig(base, upd.Patch); err != nil {
+			return err
+		}
+	}
 	if err := cfg.Normalize(); err != nil {
 		return err
 	}

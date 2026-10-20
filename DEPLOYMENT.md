@@ -522,7 +522,11 @@ over MCP/REST), and the dev server *is* the project:
   the workers come back with PHP) and hands the project back to the dev
   server or the static document root. Over the API: `PATCH
   /api/v1/projects/{id}` with `{"php": {"version": "8.4", "config": …}}`
-  adds, `{"php": {"enabled": false}}` removes.
+  adds, `{"php": {"enabled": false}}` removes. Like every part of that
+  PATCH, what the request leaves out stays as it is: `{"php": {"version":
+  "8.3"}}` keeps the PHP settings and extensions, `{"php": {"config":
+  {"memoryLimit": "1G"}}}` only changes the memory limit, and a runtime
+  or database object without `enabled` keeps the service.
 - **Existing Node-only dev-server projects** (created before this feature
   via the unticked "Enable PHP" box or MCP `"none"`): the node and web
   containers are recreated once at the next start (new command wrapper,
