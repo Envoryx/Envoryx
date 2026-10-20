@@ -40,10 +40,11 @@ RUN set -eux; \
     mkdir -p /etc/envoryx; : > /etc/envoryx/missing-extensions; \
     # Always on (BuiltIn in internal/runtime/catalog.go), but not every upstream image compiles
     # them in: php:8.6-rc dropped mbstring, and none has exif (WordPress, Drupal and TYPO3 read
-    # photo orientation with it). First, as pickle (PECL builds) needs mbstring;
+    # photo orientation with it), nor pcntl (Laravel's queue:work timeouts, Horizon and
+    # Symfony Messenger's signal handling). First, as pickle (PECL builds) needs mbstring;
     # libonig-dev by hand, as the installer knows no build dependencies for unreleased versions.
     if ! php -m | grep -qix mbstring; then apt-get update; apt-get install -y --no-install-recommends libonig-dev; fi; \
-    for ext in mbstring curl pdo_sqlite exif; do php -m | grep -qix "${ext}" || install-php-extensions "${ext}"; done; \
+    for ext in mbstring curl pdo_sqlite exif pcntl; do php -m | grep -qix "${ext}" || install-php-extensions "${ext}"; done; \
     for ext in ${ENVORYX_PHP_EXTENSIONS}; do \
         if ! install-php-extensions "${ext}"; then \
             echo "${ext}" >> /etc/envoryx/missing-extensions; \
@@ -95,7 +96,7 @@ RUN set -eux; \
     # MariaDB's self-signed ones. The database sits on the project's own network.
     mkdir -p /etc/mysql/conf.d; printf '[client]\nssl-verify-server-cert = off\n' > /etc/mysql/conf.d/zz-envoryx.cnf; \
     rm -rf /var/lib/apt/lists/*; \
-    convert -version; psql --version; mysql --version; mysqldump --version; rsync --version | head -n1; jq --version; php -m | grep -ix exif
+    convert -version; psql --version; mysql --version; mysqldump --version; rsync --version | head -n1; jq --version; php -m | grep -ix exif; php -m | grep -ix pcntl
 
 COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
 

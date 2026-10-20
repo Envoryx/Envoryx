@@ -410,6 +410,7 @@ func PHPExtensions() []PHPExtension {
 		{Name: "curl", Description: "cURL", BuiltIn: true, Available: true},
 		{Name: "pdo_sqlite", Description: "PDO SQLite", BuiltIn: true, Available: true},
 		{Name: "exif", Description: "Image metadata (EXIF)", BuiltIn: true, Available: true},
+		{Name: "pcntl", Description: "Process control (queue workers, Horizon)", BuiltIn: true, Available: true},
 		{Name: "opcache", Description: "Opcode cache", Available: true},
 		{Name: "pdo_mysql", Description: "PDO MySQL/MariaDB", Available: true},
 		{Name: "mongodb", Description: "MongoDB driver", Available: true},
