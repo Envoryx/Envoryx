@@ -3128,5 +3128,12 @@
   "expires {{date}}": "läuft ab {{date}}",
   "never expires": "läuft nie ab",
   "Expires after": "Läuft ab nach",
-  "An expired token stops working; create a new one then. A token that never expires stays valid until it is revoked.": "Ein abgelaufener Token funktioniert nicht mehr; erstelle dann einen neuen. Ein Token, der nie abläuft, gilt, bis er widerrufen wird."
+  "An expired token stops working; create a new one then. A token that never expires stays valid until it is revoked.": "Ein abgelaufener Token funktioniert nicht mehr; erstelle dann einen neuen. Ein Token, der nie abläuft, gilt, bis er widerrufen wird.",
+  "{{service}} keeps restarting - its main process exits shortly after each start; its logs say why": "{{service}} startet ständig neu - sein Hauptprozess endet kurz nach jedem Start; seine Logs sagen warum",
+  "the {{service}} server waits because bundle install failed - its logs show the error; it tries again every 30 seconds": "Der Server von {{service}} wartet, weil bundle install fehlgeschlagen ist - seine Logs zeigen den Fehler; er versucht es alle 30 Sekunden erneut",
+  "the {{service}} dev server waits for node_modules - run npm install (or pnpm / yarn install) from Actions": "Der Dev-Server von {{service}} wartet auf node_modules - führe npm install (oder pnpm / yarn install) unter Aktionen aus",
+  "the {{service}} server waits because .venv was built for another Python version - run pip install -r requirements.txt or uv sync from Actions to rebuild it": "Der Server von {{service}} wartet, weil .venv für eine andere Python-Version gebaut wurde - führe pip install -r requirements.txt oder uv sync unter Aktionen aus, um es neu aufzubauen",
+  "the {{service}} server waits for {{module}} in .venv - run pip install -r requirements.txt or uv sync from Actions": "Der Server von {{service}} wartet auf {{module}} im .venv - führe pip install -r requirements.txt oder uv sync unter Aktionen aus",
+  "the {{service}} server exited while an action was running - it starts again once the action has finished; its logs say why it exited": "Der Server von {{service}} hat sich beendet, während eine Aktion lief - er startet wieder, sobald die Aktion fertig ist; seine Logs sagen, warum er sich beendet hat",
+  "Waiting for {{name}} to be ready": "Warten, bis {{name}} bereit ist"
 }

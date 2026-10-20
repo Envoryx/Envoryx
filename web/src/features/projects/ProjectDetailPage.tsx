@@ -333,6 +333,13 @@ function OverviewTab({ project: p }: { project: Project }) {
               </div>
               <Badge tone={containerStateTone(s.state)}>{s.exists || s.state === "external" ? s.state : t("missing")}</Badge>
               {s.health && <Badge tone={s.health === "healthy" ? "green" : s.health === "starting" ? "blue" : "red"}>{s.health}</Badge>}
+              {/* A crash loop or a server stuck before its start: the logs say why. */}
+              {s.exists && (s.state === "restarting" || s.health === "unhealthy") && (
+                <Link to={`?tab=Logs&service=${encodeURIComponent(s.kind === "worker" ? `worker:${s.workerId}` : s.kind)}`} className="inline-flex items-center gap-1 text-xs font-medium text-accent-600 hover:underline dark:text-accent-300">
+                  <ScrollText className="size-3.5" />
+                  {t("Logs")}
+                </Link>
+              )}
               <span className="font-mono text-xs text-muted">{s.image}</span>
               {s.ports.map((port) => (
                 <span key={port.hostPort} className="font-mono text-xs text-muted">

@@ -3178,5 +3178,12 @@
   "expires {{date}}": "wygasa {{date}}",
   "never expires": "nigdy nie wygasa",
   "Expires after": "Wygasa po",
-  "An expired token stops working; create a new one then. A token that never expires stays valid until it is revoked.": "Wygasły token przestaje działać; utwórz wtedy nowy. Token, który nigdy nie wygasa, jest ważny do czasu unieważnienia."
+  "An expired token stops working; create a new one then. A token that never expires stays valid until it is revoked.": "Wygasły token przestaje działać; utwórz wtedy nowy. Token, który nigdy nie wygasa, jest ważny do czasu unieważnienia.",
+  "{{service}} keeps restarting - its main process exits shortly after each start; its logs say why": "{{service}} ciągle się restartuje - jego główny proces kończy się wkrótce po każdym starcie; logi mówią dlaczego",
+  "the {{service}} server waits because bundle install failed - its logs show the error; it tries again every 30 seconds": "Serwer {{service}} czeka, bo bundle install się nie powiódł - logi pokazują błąd; ponawia próbę co 30 sekund",
+  "the {{service}} dev server waits for node_modules - run npm install (or pnpm / yarn install) from Actions": "Serwer deweloperski {{service}} czeka na node_modules - uruchom npm install (lub pnpm / yarn install) w Akcjach",
+  "the {{service}} server waits because .venv was built for another Python version - run pip install -r requirements.txt or uv sync from Actions to rebuild it": "Serwer {{service}} czeka, bo .venv zbudowano dla innej wersji Pythona - uruchom pip install -r requirements.txt lub uv sync w Akcjach, aby je odbudować",
+  "the {{service}} server waits for {{module}} in .venv - run pip install -r requirements.txt or uv sync from Actions": "Serwer {{service}} czeka na {{module}} w .venv - uruchom pip install -r requirements.txt lub uv sync w Akcjach",
+  "the {{service}} server exited while an action was running - it starts again once the action has finished; its logs say why it exited": "Serwer {{service}} zakończył działanie podczas wykonywania akcji - uruchomi się ponownie, gdy akcja się zakończy; logi mówią, dlaczego się zakończył",
+  "Waiting for {{name}} to be ready": "Oczekiwanie, aż {{name}} będzie gotowy"
 }

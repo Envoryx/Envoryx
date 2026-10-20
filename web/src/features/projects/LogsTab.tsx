@@ -2,6 +2,7 @@ import { clsx } from "clsx";
 import { useTranslation } from "react-i18next";
 import { ArrowDownToLine, Download, Eraser, History, Pause, Play, Radio, Search } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { api } from "@/api/client";
 import type { LogLevel, Project } from "@/api/types";
 import { Badge, Button, Card, Input, Select } from "@/components/ui";
@@ -107,7 +108,10 @@ export function LogsTab({ project }: { project: Project }) {
     ...project.services.filter((s) => s.enabled && !external.has(s.kind)).map((s) => ({ kind: s.kind, label: serviceLabel(s.kind, s.version, s.variant) })),
     ...project.status.services.filter((s) => s.kind === "worker" && s.workerId).map((s) => ({ kind: `worker:${s.workerId}`, label: t("Worker {{name}}", { name: s.variant }) })),
   ];
-  const [kind, setKind] = useState<string | null>(services[0]?.kind ?? null);
+  // ?service= opens the log of one service (the overview links a crash-looping one here).
+  const [params] = useSearchParams();
+  const wanted = params.get("service");
+  const [kind, setKind] = useState<string | null>(services.find((s) => s.kind === wanted)?.kind ?? services[0]?.kind ?? null);
   const [mode, setMode] = useState<"live" | "history">("live");
 
   if (services.length === 0 || !kind) {
