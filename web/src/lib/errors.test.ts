@@ -32,6 +32,18 @@ describe("translateMessage", () => {
     expect(translateMessage('conflict: a project named "Shop" already exists', t)).toBe("Konflikt: " + t('a project named "{{name}}" already exists', { name: "Shop" }));
   });
 
+  it("translates the refusals of a request without access", () => {
+    expect(translateMessage("no access to this project", t)).toBe("Kein Zugriff auf dieses Projekt");
+    expect(translateMessage("your role does not allow this (it needs operate access)", t)).toBe("Deine Rolle erlaubt das nicht (es braucht operate-Zugriff)");
+  });
+
+  it("translates the live details of the diagnostics", () => {
+    expect(translateMessage("Docker 29.9.0 (API 1.56) on linux, 4 containers running", t)).toBe("Docker 29.9.0 (API 1.56) auf linux, 4 Container laufen");
+    expect(translateMessage("*.dev.lan → 192.168.1.5, answered by this Envoryx's proxy (DNS: 127.0.0.11)", t)).toBe("*.dev.lan → 192.168.1.5, beantwortet vom Proxy dieses Envoryx (DNS: 127.0.0.11)");
+    expect(translateMessage("0.40.0 is the newest release", t)).toBe("0.40.0 ist das neueste Release");
+    expect(translateMessage("ntfy: last delivery failed - HTTP 500", t)).toBe("ntfy: letzte Zustellung fehlgeschlagen - HTTP 500");
+  });
+
   it("names the token scope a role allows", () => {
     expect(translateMessage("your role allows at most read tokens", t)).toBe("Deine Rolle erlaubt höchstens Tokens mit dem Scope read");
     expect(translateMessage("your role allows no API tokens", t)).toBe("Deine Rolle erlaubt keine API-Tokens");
