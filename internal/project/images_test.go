@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/envoryx/envoryx/internal/docker"
 	"github.com/envoryx/envoryx/internal/runtime"
 	"github.com/envoryx/envoryx/internal/store"
 	"github.com/envoryx/envoryx/internal/validate"
@@ -56,14 +57,17 @@ func TestUnusedImagesOnlyTouchCatalogueImages(t *testing.T) {
 }
 
 // Another Envoryx instance on the same Docker daemon keeps its rollback history in its
-// own database: a rollback tag for a project that is not ours is never pruned, a stale
-// one of our own projects is.
+// own database: a rollback tag for one of its projects is never pruned, a stale one of a
+// project of ours is.
 func TestPruneKeepsOtherInstancesRollbackTargets(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
+	e.engine.Instance = "a"
 	if _, err := e.m.Create(ctx, phpRequest("Mine", true)); err != nil {
 		t.Fatal(err)
 	}
+	e.engine.AddManagedContainer(docker.ContainerSpec{Name: "envoryx-theirs-php", Image: "ghcr.io/envoryx/envoryx-php:8.4",
+		Labels: docker.StampInstance("b", docker.ManagedLabels("p9", "theirs", "php", "test"))}, "exited")
 	e.engine.AddImage("envoryx-rollback/theirs:ghcr.io-envoryx-envoryx-php-8.4")
 	e.engine.AddImage("envoryx-rollback/mine:ghcr.io-envoryx-envoryx-node-22")
 	unused, err := e.m.UnusedImages(ctx)
