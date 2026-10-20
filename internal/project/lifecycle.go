@@ -350,6 +350,7 @@ func (m *Manager) provision(ctx context.Context, plan Plan, j *journal) (string,
 // startProvisioned starts the containers provision just created, in plan order, and
 // creates the bucket of a project with object storage.
 func (m *Manager) startProvisioned(ctx context.Context, proj store.Project, plan Plan, j journal) (string, error) {
+	var started []readyCheck
 	for i, id := range j.containers {
 		c := plan.Containers[i]
 		if m.cannotStartHere(ctx, proj, c.Kind) { // a copy of a project that has such a version
@@ -361,7 +362,9 @@ func (m *Manager) startProvisioned(ctx context.Context, proj store.Project, plan
 			return "start container", err
 		}
 		m.ensurePasswdEntry(ctx, id, c.Spec.Name, m.workUser(c.Kind, c.Spec.User))
+		started = appendReadyCheck(started, id, c.Spec)
 	}
+	m.waitReady(ctx, proj.ID, started)
 	if _, cfg, err := storageConfig(proj); err == nil {
 		step(ctx, "Setting up the object storage bucket")
 		if err := m.provisionBucket(ctx, proj, cfg); err != nil {
@@ -613,6 +616,7 @@ func (m *Manager) ensurePlan(ctx context.Context, proj store.Project, plan Plan,
 	// Apache resolve "php" once when they start, and a new PHP container may get another
 	// address, so a web server that keeps running is restarted after it (PHP starts first).
 	phpStarted := false
+	var started []readyCheck
 	for _, c := range plan.Containers {
 		// A rollback pins the containers of an image reference to the previous image id;
 		// Docker accepts the id wherever a tag goes.
@@ -700,9 +704,11 @@ func (m *Manager) ensurePlan(ctx context.Context, proj store.Project, plan Plan,
 		}
 		if start {
 			m.ensurePasswdEntry(ctx, id, c.Spec.Name, m.workUser(c.Kind, c.Spec.User))
+			started = appendReadyCheck(started, id, c.Spec)
 		}
 	}
 	if start {
+		m.waitReady(ctx, proj.ID, started)
 		if _, cfg, err := storageConfig(proj); err == nil {
 			step(ctx, "Setting up the object storage bucket")
 			if err := m.provisionBucket(ctx, proj, cfg); err != nil {
@@ -711,6 +717,69 @@ func (m *Manager) ensurePlan(ctx context.Context, proj store.Project, plan Plan,
 		}
 	}
 	return nil
+}
+
+// readyTimeout bounds how long a start waits for the services to pass their health check.
+// A service that takes longer (a search engine on a slow disk) keeps starting in the
+// background, and the status shows its health; the start does not fail over it.
+const readyTimeout = 2 * time.Minute
+
+// readyCheck is a started container whose health a start waits for.
+type readyCheck struct{ id, name string }
+
+// appendReadyCheck adds the container to wait for when it has a health check, except the
+// servers' own: theirs fails while the server waits on the user, which no waiting helps.
+func appendReadyCheck(checks []readyCheck, id string, spec docker.ContainerSpec) []readyCheck {
+	if spec.Healthcheck == nil || len(spec.Healthcheck.Test) == 0 || slices.Equal(spec.Healthcheck.Test, runtime.ServerHealthTest) {
+		return checks
+	}
+	return append(checks, readyCheck{id: id, name: spec.Name})
+}
+
+// waitReady waits while Docker reports the started services' health as "starting", so a
+// start or create only reports back once the database and the other services can be
+// used, not while they still initialise. Docker checks every second during the start
+// period (see the engine), so this ends soon after they are ready. Best effort: a service
+// that does not get ready in time, or turns unhealthy, is left to the status.
+func (m *Manager) waitReady(ctx context.Context, projectID string, checks []readyCheck) {
+	if len(checks) == 0 {
+		return
+	}
+	deadline := time.Now().Add(readyTimeout)
+	reported := map[string]bool{}
+	for {
+		list, err := m.engine.ListContainers(ctx, true, projectID)
+		if err != nil {
+			return
+		}
+		health := map[string]string{}
+		for _, c := range list {
+			health[c.ID] = c.Health
+		}
+		waiting := ""
+		for _, c := range checks {
+			if health[c.id] == "starting" {
+				waiting = c.name
+				break
+			}
+		}
+		if waiting == "" {
+			return
+		}
+		if time.Now().After(deadline) {
+			m.log.Warn("service not ready in time", "container", waiting)
+			return
+		}
+		if !reported[waiting] {
+			step(ctx, "Waiting for {{name}} to be ready", "name", waiting)
+			reported[waiting] = true
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(500 * time.Millisecond):
+		}
+	}
 }
 
 // containerImageRef is the image reference a container was created from. Docker lists the

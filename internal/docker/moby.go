@@ -186,6 +186,15 @@ func (e *MobyEngine) ListContainers(ctx context.Context, managedOnly bool, proje
 	return out, nil
 }
 
+// startInterval is the health check interval during a start period: one second, or none
+// without a start period.
+func startInterval(period time.Duration) time.Duration {
+	if period <= 0 {
+		return 0
+	}
+	return time.Second
+}
+
 // upSeconds matches the listing's status of a container that has been up for seconds:
 // "Up Less than a second", "Up 1 second", "Up 42 seconds (healthy)".
 var upSeconds = regexp.MustCompile(`^Up (Less than a second|(\d+) seconds?)\b`)
@@ -399,7 +408,11 @@ func (e *MobyEngine) CreateContainer(ctx context.Context, spec ContainerSpec) (s
 			Interval:    spec.Healthcheck.Interval,
 			Timeout:     spec.Healthcheck.Timeout,
 			StartPeriod: spec.Healthcheck.StartPeriod,
-			Retries:     spec.Healthcheck.Retries,
+			// During the start period Docker checks every second, so a database is
+			// reported healthy (and a start waiting for it ends) right after it is
+			// ready, not an interval later. Engines before API 1.44 check at Interval.
+			StartInterval: startInterval(spec.Healthcheck.StartPeriod),
+			Retries:       spec.Healthcheck.Retries,
 		}
 	}
 
