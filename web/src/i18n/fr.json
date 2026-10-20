@@ -2887,6 +2887,7 @@
   "cURL": "cURL",
   "PDO SQLite": "PDO SQLite",
   "Image metadata (EXIF)": "Métadonnées d’image (EXIF)",
+  "Process control (queue workers, Horizon)": "Contrôle des processus (workers de file d’attente, Horizon)",
   "Opcode cache": "Cache d’opcodes",
   "PDO MySQL/MariaDB": "PDO MySQL/MariaDB",
   "MongoDB driver": "Pilote MongoDB",

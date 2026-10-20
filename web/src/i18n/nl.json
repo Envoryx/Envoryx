@@ -2887,6 +2887,7 @@
   "cURL": "cURL",
   "PDO SQLite": "PDO SQLite",
   "Image metadata (EXIF)": "Afbeeldingsmetadata (EXIF)",
+  "Process control (queue workers, Horizon)": "Procesbeheer (queue-workers, Horizon)",
   "Opcode cache": "Opcode-cache",
   "PDO MySQL/MariaDB": "PDO MySQL/MariaDB",
   "MongoDB driver": "MongoDB-driver",
