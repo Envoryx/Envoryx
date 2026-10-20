@@ -29,6 +29,23 @@ const (
 	paxContentType = "SCHILY.xattr.user.mime_type"
 )
 
+// withStorageRunning runs fn with the project's object storage server up: a stopped
+// project's storage container is started for it (and waited for until it answers) and
+// stopped again afterwards, like the database for a dump.
+func (m *Manager) withStorageRunning(ctx context.Context, p store.Project, fn func(context.Context) error) error {
+	_, cfg, err := storageConfig(p)
+	if err != nil {
+		return err
+	}
+	return m.withServiceRunning(ctx, p, store.ServiceStorage, func(ctx context.Context) error {
+		// Waits for the server to answer; the bucket normally exists already.
+		if err := m.provisionBucket(ctx, p, cfg); err != nil {
+			return err
+		}
+		return fn(ctx)
+	})
+}
+
 // storageStore returns an object store for the project's running storage container.
 func (m *Manager) storageStore(ctx context.Context, p store.Project) (s3.ObjectStore, runtime.StorageConfig, error) {
 	_, cfg, err := storageConfig(p)

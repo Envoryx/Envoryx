@@ -1026,6 +1026,10 @@ func TestBackupEndpoints(t *testing.T) {
 	if r.status != http.StatusOK || len(r.body["backups"].([]any)) != 1 {
 		t.Fatalf("list: %d %s", r.status, r.raw)
 	}
+	// The list names the real backup directory, not a fixed /config/backups.
+	if loc, _ := r.body["location"].(string); !filepath.IsAbs(loc) || filepath.Base(loc) != "bak" {
+		t.Fatalf("backup location: %q", loc)
+	}
 	r = a.do(http.MethodPost, "/api/v1/projects/"+id+"/backups/"+bid+"/restore", map[string]any{"database": true, "confirm": "nope"}, true)
 	if r.status != http.StatusUnprocessableEntity {
 		t.Fatalf("restore without confirmation: %d %s", r.status, r.raw)

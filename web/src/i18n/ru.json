@@ -3199,5 +3199,9 @@
   "node_modules is missing - the dev server runs \"{{install}}\" before it starts; if that fails, it waits until you run \"npm install\" (or pnpm / yarn install) from Actions": "нет node_modules - dev-сервер перед запуском выполняет \"{{install}}\"; если это не удаётся, он ждёт, пока вы не запустите \"npm install\" (или pnpm / yarn install) в разделе Действия",
   "Docker engine unavailable": "Движок Docker недоступен",
   "{{file}} not found - run {{command}}": "{{file}} не найден - запустите {{command}}",
-  "{{n}} test projects and no solution file at the top of the project - add one (dotnet new sln, dotnet sln add)": "тестовых проектов: {{n}}, и нет файла решения в корне проекта - добавьте его (dotnet new sln, dotnet sln add)"
+  "{{n}} test projects and no solution file at the top of the project - add one (dotnet new sln, dotnet sln add)": "тестовых проектов: {{n}}, и нет файла решения в корне проекта - добавьте его (dotnet new sln, dotnet sln add)",
+  "on the host": "на хосте",
+  "The scheduled backup failed": "Плановая копия не удалась",
+  "Failed runs in a row: {{number}}": "Неудачных запусков подряд: {{number}}",
+  "Last automatic backup attempt {{date}} failed.": "Последняя попытка автоматической копии {{date}} не удалась."
 }

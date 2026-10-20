@@ -86,6 +86,9 @@ const (
 	// ActionBackupRestoredNew is a backup restored into a new project.
 	ActionBackupRestoredNew = "backup.restored_new"
 	ActionBackupDeleted     = "backup.deleted"
+	// ActionBackupFailed is written for every backup that could not be created, manual or
+	// scheduled.
+	ActionBackupFailed = "backup.failed"
 
 	ActionInstanceBackupCreated  = "instance.backup_created"
 	ActionInstanceBackupUploaded = "instance.backup_uploaded"

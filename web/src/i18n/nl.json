@@ -3149,5 +3149,9 @@
   "node_modules is missing - the dev server runs \"{{install}}\" before it starts; if that fails, it waits until you run \"npm install\" (or pnpm / yarn install) from Actions": "node_modules ontbreekt - de devserver voert \"{{install}}\" uit voordat hij start; mislukt dat, dan wacht hij tot je \"npm install\" (of pnpm / yarn install) uitvoert via Acties",
   "Docker engine unavailable": "Docker-engine niet beschikbaar",
   "{{file}} not found - run {{command}}": "{{file}} niet gevonden - voer {{command}} uit",
-  "{{n}} test projects and no solution file at the top of the project - add one (dotnet new sln, dotnet sln add)": "{{n}} testprojecten en geen solution-bestand bovenin het project - voeg er een toe (dotnet new sln, dotnet sln add)"
+  "{{n}} test projects and no solution file at the top of the project - add one (dotnet new sln, dotnet sln add)": "{{n}} testprojecten en geen solution-bestand bovenin het project - voeg er een toe (dotnet new sln, dotnet sln add)",
+  "on the host": "op de host",
+  "The scheduled backup failed": "De geplande back-up is mislukt",
+  "Failed runs in a row: {{number}}": "Mislukte runs op rij: {{number}}",
+  "Last automatic backup attempt {{date}} failed.": "De laatste automatische back-uppoging {{date}} is mislukt."
 }

@@ -291,6 +291,19 @@ type BackupInfo struct {
 	Missing   bool       `json:"missing"`
 }
 
+// BackupLocation is the directory a project's backups are stored in, as Envoryx sees it
+// (ENVORYX_BACKUPS_DIR, /backups when mounted, otherwise /config/backups).
+func (m *Manager) BackupLocation(ctx context.Context, id string) (string, error) {
+	if err := validate.UUID(id); err != nil {
+		return "", ErrNotFound
+	}
+	p, err := m.store.Projects.Get(ctx, id)
+	if err != nil {
+		return "", err
+	}
+	return m.backupRoot(p.Slug)
+}
+
 func (m *Manager) backupRoot(slug string) (string, error) {
 	p, err := m.paths()
 	if err != nil {
@@ -442,11 +455,13 @@ func (m *Manager) CreateBackup(ctx context.Context, id string, opts BackupOption
 		info, err = m.createBackup(ctx, id, opts)
 		return err
 	})
-	if err != nil && !errors.Is(err, validate.ErrInvalid) && !errors.Is(err, ErrNotFound) && !errors.Is(err, ErrBusy) {
+	// The scheduler reports its own runs (scheduledBackupFailed), whatever they failed of.
+	if err != nil && opts.Source != "scheduled" && !errors.Is(err, validate.ErrInvalid) && !errors.Is(err, ErrNotFound) && !errors.Is(err, ErrBusy) {
 		name := id
 		if p, perr := m.store.Projects.Get(ctx, id); perr == nil {
 			name = p.Name
 		}
+		m.audit.Log(ctx, audit.ActionBackupFailed, "project", id, map[string]any{"name": name, "error": err.Error()})
 		m.notify(ctx, notify.Event{Kind: "backup.failed", Level: notify.Error, Project: name, Title: "Backup of " + name + " failed", Message: err.Error()})
 	}
 	return info, err
@@ -565,28 +580,46 @@ func (m *Manager) createBackupLocked(ctx context.Context, p store.Project, opts 
 					meta.DatabaseVolumes = append(meta.DatabaseVolumes, VolumeCopyMeta{DB: db, Type: svc.Variant, Version: svc.Version, File: file, Bytes: n})
 					continue
 				}
-				step(ctx, "Dumping the database {{name}}", "name", label)
-				n, err := m.dumpDatabase(ctx, p, svc, cfg, filepath.Join(dir, backupDBFileOf(db)))
-				if err != nil {
-					return fail("database dump", err)
-				}
-				dm := DumpMeta{Type: svc.Variant, Version: svc.Version, Name: cfg.Database, Bytes: n}
-				if db == "" {
+				// A stopped project's database server is started for the dump and stopped
+				// again, so a scheduled backup does not depend on the project running.
+				failedStep := "database"
+				err = m.withServiceRunning(ctx, p, svc.Kind, func(ctx context.Context) error {
+					dialect, err := dialectOf(svc)
+					if err != nil {
+						return err
+					}
+					if err := m.waitForDatabase(ctx, p, svc, cfg, dialect); err != nil {
+						return err
+					}
+					step(ctx, "Dumping the database {{name}}", "name", label)
+					n, err := m.dumpDatabase(ctx, p, svc, cfg, filepath.Join(dir, backupDBFileOf(db)))
+					if err != nil {
+						failedStep = "database dump"
+						return err
+					}
+					dm := DumpMeta{Type: svc.Variant, Version: svc.Version, Name: cfg.Database, Bytes: n}
+					if db != "" {
+						meta.Databases = append(meta.Databases, ExtraDumpMeta{DB: db, DumpMeta: dm})
+						return nil
+					}
 					meta.Database = &dm
 					sibs, err := m.railsSiblings(ctx, p)
 					if err != nil {
-						return fail("database", err)
+						return err
 					}
 					for _, sib := range sibs {
 						step(ctx, "Dumping the database {{name}}", "name", sib.cfg.Database)
 						n, err := m.dumpDatabase(ctx, p, svc, sib.cfg, filepath.Join(dir, backupSiblingFileOf(sib.suffix)))
 						if err != nil {
-							return fail("database dump", err)
+							failedStep = "database dump"
+							return err
 						}
 						meta.Siblings = append(meta.Siblings, SiblingDumpMeta{Suffix: sib.suffix, DumpMeta: DumpMeta{Type: svc.Variant, Version: svc.Version, Name: sib.cfg.Database, Bytes: n}})
 					}
-				} else {
-					meta.Databases = append(meta.Databases, ExtraDumpMeta{DB: db, DumpMeta: dm})
+					return nil
+				})
+				if err != nil {
+					return fail(failedStep, err)
 				}
 			}
 		}
@@ -612,7 +645,12 @@ func (m *Manager) createBackupLocked(ctx context.Context, p store.Project, opts 
 	}
 	if opts.Storage {
 		step(ctx, "Exporting the object storage bucket")
-		objects, n, err := m.dumpStorage(ctx, p, filepath.Join(dir, backupStorageFile))
+		var objects int
+		var n int64
+		err := m.withStorageRunning(ctx, p, func(ctx context.Context) (err error) {
+			objects, n, err = m.dumpStorage(ctx, p, filepath.Join(dir, backupStorageFile))
+			return err
+		})
 		if err != nil {
 			return fail("object storage", err)
 		}
@@ -1054,7 +1092,10 @@ func (m *Manager) restoreBackup(ctx context.Context, id, backupID string, opts R
 			return BackupInfo{}, fmt.Errorf("%w: this backup contains no object storage", validate.ErrInvalid)
 		}
 		step(ctx, "Restoring the object storage bucket")
-		if err := m.restoreStorage(ctx, p, filepath.Join(dir, backupStorageFile), opts.WipeStorage); err != nil {
+		err := m.withStorageRunning(ctx, p, func(ctx context.Context) error {
+			return m.restoreStorage(ctx, p, filepath.Join(dir, backupStorageFile), opts.WipeStorage)
+		})
+		if err != nil {
 			return BackupInfo{}, fmt.Errorf("restore object storage: %w", err)
 		}
 		restored["storage"] = true

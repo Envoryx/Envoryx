@@ -763,7 +763,7 @@ func (m *Manager) applyDatabaseUpdate(ctx context.Context, p store.Project, kind
 			// version and cannot go back, so a dump is taken first: no dump, no upgrade.
 			b, err := m.createBackupLocked(ctx, p, BackupOptions{Database: true, Note: fmt.Sprintf("before upgrading %s %s → %s", svc.Variant, svc.Version, v.Version), Source: "upgrade"})
 			if err != nil {
-				return false, fmt.Errorf("upgrade refused: the database must be backed up first and that failed (%w); start the project and try again", err)
+				return false, fmt.Errorf("upgrade refused: the database must be backed up first and that failed (%w)", err)
 			}
 			changes[key("databaseVersion")] = v.Version
 			changes[key("databaseBackup")] = b.ID
