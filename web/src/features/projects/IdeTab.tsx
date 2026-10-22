@@ -55,6 +55,13 @@ export function IdeTab({ project: p }: { project: Project }) {
   const hostname = p.hostnames[0] ?? `${p.slug}.test`;
   const ssh = s?.ssh;
   const sshHost = s?.proxy?.address || host;
+  // An SSH tunnel to a container of the project by its name there: how a client on the
+  // developer's machine gets in where the published ports only listen on the server.
+  const tunnel = (alias: string, port: number) => (ssh?.enabled && ssh.port > 0 ? `ssh -N -L ${port}:${alias}:${port} -p ${ssh.port} ${p.slug}@${sshHost}` : "");
+  // Where a debugger attaches: the published port, or the local end of that tunnel.
+  const attach = (hostPort: number | undefined, port: number) => (portHost.local ? { host: "localhost", port: String(port) } : { host: portHost.host, port: String(hostPort ?? "") });
+  const rbAttach = attach(rbCfg.debugHostPort, rbCfg.debugPort ?? 12345);
+  const jvAttach = attach(jvCfg.debugHostPort, jvCfg.debugPort ?? 5005);
   const mailpit = extras.data?.find((e) => e.kind === "mailpit");
   const rabbitmq = extras.data?.find((e) => e.kind === "rabbitmq");
   const searchEngines = extras.data?.filter((e) => e.kind === "meilisearch" || e.kind === "typesense" || e.kind === "opensearch") ?? [];
@@ -94,7 +101,15 @@ export function IdeTab({ project: p }: { project: Project }) {
   // Where a workstation reaches a database: an external server at its own address (the
   // Docker host's for host.docker.internal), the project's container through the published port.
   const reach = (d: DatabaseInfo): { host: string; port: number } | null =>
-    d.external ? { host: d.host === "host.docker.internal" ? host : d.host, port: d.port } : d.hostPort ? { host: portHost.host, port: d.hostPort } : null;
+    d.external
+      ? { host: d.host === "host.docker.internal" ? host : d.host, port: d.port }
+      : portHost.local
+        ? tunnel(d.host, d.port)
+          ? { host: "localhost", port: d.port }
+          : null
+        : d.hostPort
+          ? { host: portHost.host, port: d.hostPort }
+          : null;
   const jdbc = (d: DatabaseInfo, r: { host: string; port: number }) =>
     d.type === "postgresql"
       ? `jdbc:postgresql://${r.host}:${r.port}/${d.database}`
@@ -105,7 +120,7 @@ export function IdeTab({ project: p }: { project: Project }) {
 
   return (
     <div className="space-y-6">
-      {portHost.local && <Alert tone="amber">{t("On this instance the published ports only listen on the server itself (127.0.0.1), so debuggers and database clients on your machine can't reach them. Web interfaces open through their addresses.")}</Alert>}
+      {portHost.local && <Alert tone="amber">{t("On this instance the published ports only listen on the server itself (127.0.0.1). Debuggers and database clients on your machine connect through an SSH tunnel instead: start the command shown with the service and connect to localhost. Web interfaces open through their addresses.")}</Alert>}
       {ssh?.enabled && ssh.port > 0 && (
         <Card>
           <CardHeader
@@ -343,8 +358,9 @@ export function IdeTab({ project: p }: { project: Project }) {
           />
           <div className="p-5">
             <dl>
-              <CopyRow label={t("Attach to host")} value={portHost.host} />
-              <CopyRow label={t("Attach to port")} value={String(nodeCfg.inspectHostPort ?? "")} />
+              <CopyRow label={t("Attach to host")} value={attach(nodeCfg.inspectHostPort, nodeCfg.inspectPort ?? 9229).host} />
+              <CopyRow label={t("Attach to port")} value={attach(nodeCfg.inspectHostPort, nodeCfg.inspectPort ?? 9229).port} />
+              {tunnel("node", nodeCfg.inspectPort ?? 9229) && <CopyRow label={t("SSH tunnel")} value={tunnel("node", nodeCfg.inspectPort ?? 9229)} />}
               <CopyRow label={t("Inspector inside the container")} value={`0.0.0.0:${nodeCfg.inspectPort ?? 9229}`} />
               <CopyRow label={t("Path mapping")} value={`${hostDir} → /var/www/html`} />
             </dl>
@@ -375,8 +391,9 @@ export function IdeTab({ project: p }: { project: Project }) {
           />
           <div className="p-5">
             <dl>
-              <CopyRow label={t("Attach to host")} value={portHost.host} />
-              <CopyRow label={t("Attach to port")} value={String(pyCfg.debugHostPort ?? "")} />
+              <CopyRow label={t("Attach to host")} value={attach(pyCfg.debugHostPort, pyCfg.debugPort ?? 5678).host} />
+              <CopyRow label={t("Attach to port")} value={attach(pyCfg.debugHostPort, pyCfg.debugPort ?? 5678).port} />
+              {tunnel("python", pyCfg.debugPort ?? 5678) && <CopyRow label={t("SSH tunnel")} value={tunnel("python", pyCfg.debugPort ?? 5678)} />}
               <CopyRow label={t("debugpy inside the container")} value={`0.0.0.0:${pyCfg.debugPort ?? 5678}`} />
               <CopyRow label={t("Path mapping")} value={`${hostDir} → /var/www/html`} />
             </dl>
@@ -409,8 +426,9 @@ export function IdeTab({ project: p }: { project: Project }) {
           />
           <div className="p-5">
             <dl>
-              <CopyRow label={t("Attach to host")} value={portHost.host} />
-              <CopyRow label={t("Attach to port")} value={String(goCfg.debugHostPort ?? "")} />
+              <CopyRow label={t("Attach to host")} value={attach(goCfg.debugHostPort, goCfg.debugPort ?? 2345).host} />
+              <CopyRow label={t("Attach to port")} value={attach(goCfg.debugHostPort, goCfg.debugPort ?? 2345).port} />
+              {tunnel("go", goCfg.debugPort ?? 2345) && <CopyRow label={t("SSH tunnel")} value={tunnel("go", goCfg.debugPort ?? 2345)} />}
               <CopyRow label={t("Delve inside the container")} value={`:${goCfg.debugPort ?? 2345}`} />
               <CopyRow label={t("Path mapping")} value={`${hostDir} → /var/www/html`} />
             </dl>
@@ -451,11 +469,12 @@ export function IdeTab({ project: p }: { project: Project }) {
           />
           <div className="p-5">
             <dl>
-              <CopyRow label={t("Attach to host")} value={portHost.host} />
-              <CopyRow label={t("Attach to port")} value={String(rbCfg.debugHostPort ?? "")} />
+              <CopyRow label={t("Attach to host")} value={attach(rbCfg.debugHostPort, rbCfg.debugPort ?? 12345).host} />
+              <CopyRow label={t("Attach to port")} value={attach(rbCfg.debugHostPort, rbCfg.debugPort ?? 12345).port} />
+              {tunnel("ruby", rbCfg.debugPort ?? 12345) && <CopyRow label={t("SSH tunnel")} value={tunnel("ruby", rbCfg.debugPort ?? 12345)} />}
               <CopyRow label={t("rdbg inside the container")} value={`0.0.0.0:${rbCfg.debugPort ?? 12345}`} />
               <CopyRow label={t("Path mapping")} value={`${hostDir} → /var/www/html`} />
-              {rbCfg.debugHostPort ? <CopyRow label={t("Terminal")} value={`rdbg -A ${portHost.host} ${rbCfg.debugHostPort}`} /> : null}
+              {rbCfg.debugHostPort ? <CopyRow label={t("Terminal")} value={`rdbg -A ${rbAttach.host} ${rbAttach.port}`} /> : null}
             </dl>
             {!rbCfg.server && (
               <>
@@ -464,7 +483,7 @@ export function IdeTab({ project: p }: { project: Project }) {
               </>
             )}
             <p className="mt-3 text-xs text-muted">{t("VS Code with the vscode-rdbg extension, launch.json:")}</p>
-            <pre className="mt-1 overflow-x-auto rounded-md bg-muted p-2 font-mono text-[11px]">{rdbgLaunchJson(portHost.host, rbCfg.debugHostPort)}</pre>
+            <pre className="mt-1 overflow-x-auto rounded-md bg-muted p-2 font-mono text-[11px]">{rdbgLaunchJson(rbAttach.host, Number(rbAttach.port) || undefined)}</pre>
             <p className="mt-2 text-xs text-subtle">{t("RubyMine does not attach to rdbg: use the remote interpreter above, and RubyMine runs and debugs the application with its own debugger inside the container.")}</p>
             {rbCfg.debug && (
               <div className="mt-3">
@@ -493,8 +512,9 @@ export function IdeTab({ project: p }: { project: Project }) {
           />
           <div className="p-5">
             <dl>
-              <CopyRow label={t("Attach to host")} value={portHost.host} />
-              <CopyRow label={t("Attach to port")} value={String(jvCfg.debugHostPort ?? "")} />
+              <CopyRow label={t("Attach to host")} value={attach(jvCfg.debugHostPort, jvCfg.debugPort ?? 5005).host} />
+              <CopyRow label={t("Attach to port")} value={attach(jvCfg.debugHostPort, jvCfg.debugPort ?? 5005).port} />
+              {tunnel("java", jvCfg.debugPort ?? 5005) && <CopyRow label={t("SSH tunnel")} value={tunnel("java", jvCfg.debugPort ?? 5005)} />}
               <CopyRow label={t("JDWP inside the container")} value={`0.0.0.0:${jvCfg.debugPort ?? 5005}`} />
               <CopyRow label={t("Path mapping")} value={`${hostDir} → /var/www/html`} />
             </dl>
@@ -506,7 +526,7 @@ export function IdeTab({ project: p }: { project: Project }) {
               </>
             )}
             <p className="mt-3 text-xs text-muted">{t("VS Code with the Extension Pack for Java, launch.json:")}</p>
-            <pre className="mt-1 overflow-x-auto rounded-md bg-muted p-2 font-mono text-[11px]">{javaLaunchJson(portHost.host, jvCfg.debugHostPort)}</pre>
+            <pre className="mt-1 overflow-x-auto rounded-md bg-muted p-2 font-mono text-[11px]">{javaLaunchJson(jvAttach.host, Number(jvAttach.port) || undefined)}</pre>
             {jvCfg.debug && (
               <div className="mt-3">
                 <Alert tone="amber">{t("JDWP accepts everyone who reaches the port and can run any code in the JVM. Switch it off when you are not debugging.")}</Alert>
@@ -551,7 +571,7 @@ export function IdeTab({ project: p }: { project: Project }) {
                   {d.name && <span className="font-mono text-sm text-muted">{d.name}</span>}
                 </span>
               }
-              description={d.external ? t("An external server: connect to it directly.") : d.hostPort ? t("Connect from your machine through the published port.") : t("Publish the database port under Database to connect from your machine.")}
+              description={d.external ? t("An external server: connect to it directly.") : portHost.local ? t("Connect from your machine through the SSH tunnel below.") : d.hostPort ? t("Connect from your machine through the published port.") : t("Publish the database port under Database to connect from your machine.")}
             />
             <div className="p-5">
               <dl>
@@ -562,6 +582,7 @@ export function IdeTab({ project: p }: { project: Project }) {
                 <CopyRow label={t("User")} value={d.username} />
                 <CopyRow label={t("Password")} value={t("<Database → Credentials>")} mono={false} />
                 {reach(d) ? <CopyRow label="URL" value={jdbc(d, reach(d)!)} /> : null}
+                {!d.external && tunnel(d.host, d.port) ? <CopyRow label={t("SSH tunnel")} value={tunnel(d.host, d.port)} /> : null}
               </dl>
             </div>
           </Card>
