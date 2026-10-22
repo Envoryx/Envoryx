@@ -3,9 +3,11 @@ package project
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/envoryx/envoryx/internal/plan"
+	"github.com/envoryx/envoryx/internal/runtime"
 	"github.com/envoryx/envoryx/internal/store"
 )
 
@@ -119,5 +121,82 @@ func TestPlanDiskLimit(t *testing.T) {
 	e.m.usage.diskBytes = 1 << 20
 	if _, err := e.m.Create(ctx, phpRequest("Blog", false)); err != nil {
 		t.Errorf("create under the disk limit: %v", err)
+	}
+}
+
+// A plan without end-of-life and preview versions refuses them for new projects, copies
+// and version switches, keeps them where a project runs one already, and says so.
+func TestPlanLeavesOutEOLAndPreviewVersions(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	legacy := phpRequest("Legacy", false)
+	legacy.PHP = &PHPRequest{Version: "8.1", Config: runtime.DefaultPHPConfig()}
+	old, err := e.m.Create(ctx, legacy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cur, err := e.m.Create(ctx, phpRequest("Current", false))
+	if err != nil {
+		t.Fatal(err)
+	}
+	e.m.SetPlan(plan.Static(&plan.Plan{Disabled: []plan.Feature{plan.FeatureEOLVersions, plan.FeaturePreviewVersions}}))
+
+	again := phpRequest("Again", false)
+	again.PHP = &PHPRequest{Version: "8.1", Config: runtime.DefaultPHPConfig()}
+	if _, err := e.m.Create(ctx, again); !errors.Is(err, plan.ErrQuota) || !strings.Contains(err.Error(), "PHP 8.1 has reached its end of life") {
+		t.Errorf("new project on 8.1: %v", err)
+	}
+	preview := phpRequest("Preview", false)
+	preview.PHP = &PHPRequest{Version: "8.6", Config: runtime.DefaultPHPConfig()}
+	if _, err := e.m.Create(ctx, preview); !errors.Is(err, plan.ErrQuota) || !strings.Contains(err.Error(), "preview version") {
+		t.Errorf("new project on 8.6: %v", err)
+	}
+	if _, err := e.m.Duplicate(ctx, old.Project.ID, DuplicateRequest{Name: "Legacy copy"}); !errors.Is(err, plan.ErrQuota) {
+		t.Errorf("copy of an 8.1 project: %v", err)
+	}
+	if _, err := e.m.Update(ctx, cur.Project.ID, UpdateRequest{PHP: &PHPUpdate{Enabled: true, Version: "8.1", Config: runtime.DefaultPHPConfig()}}); !errors.Is(err, plan.ErrQuota) {
+		t.Errorf("switch to 8.1: %v", err)
+	}
+
+	// The project on 8.1 keeps it, changes its settings and may leave it.
+	name := "Legacy shop"
+	if _, err := e.m.Update(ctx, old.Project.ID, UpdateRequest{Name: &name, PHP: &PHPUpdate{Enabled: true, Version: "8.1", Config: runtime.DefaultPHPConfig()}}); err != nil {
+		t.Errorf("an 8.1 project must keep its version: %v", err)
+	}
+	got, err := e.m.Update(ctx, old.Project.ID, UpdateRequest{PHP: &PHPUpdate{Enabled: true, Version: "8.4", Config: runtime.DefaultPHPConfig()}})
+	if err != nil {
+		t.Fatalf("leaving 8.1: %v", err)
+	}
+	if v := got.Project.Service(store.ServicePHP).Version; v != "8.4" {
+		t.Fatalf("version %s", v)
+	}
+	if _, err := e.m.Update(ctx, old.Project.ID, UpdateRequest{PHP: &PHPUpdate{Enabled: true, Version: "8.1", Config: runtime.DefaultPHPConfig()}}); !errors.Is(err, plan.ErrQuota) {
+		t.Errorf("going back to 8.1: %v", err)
+	}
+
+	// Allowed again, everything goes.
+	e.m.SetPlan(plan.Static(&plan.Plan{}))
+	if _, err := e.m.Create(ctx, again); err != nil {
+		t.Errorf("without the switch: %v", err)
+	}
+}
+
+// A project on a preview version the plan leaves out says so.
+func TestPlanPreviewWarning(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	req := phpRequest("Preview", false)
+	req.PHP = &PHPRequest{Version: "8.6", Config: runtime.DefaultPHPConfig()}
+	v, err := e.m.Create(ctx, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hasWarning(v.Status.Warnings, "preview version") {
+		t.Fatalf("no warning while the plan allows previews: %v", v.Status.Warnings)
+	}
+	e.m.SetPlan(plan.Static(&plan.Plan{Disabled: []plan.Feature{plan.FeaturePreviewVersions}}))
+	got, _ := e.m.Get(ctx, v.Project.ID)
+	if !hasWarning(got.Status.Warnings, "PHP 8.6 is a preview version, which this instance's plan doesn't include") {
+		t.Fatalf("the project must say so: %v", got.Status.Warnings)
 	}
 }

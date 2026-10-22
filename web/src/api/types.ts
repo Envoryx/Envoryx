@@ -457,6 +457,8 @@ export interface RuntimeVersion {
   /** The Docker host cannot run this version (e.g. its kernel is too new); the reason says why. */
   unavailable?: boolean;
   unavailableReason?: string;
+  /** The instance's plan leaves the version out (end of life or preview): only a service that runs it keeps it. */
+  notInPlan?: boolean;
   /** PHP: extensions (and "xdebug") this version's image does not ship yet. */
   missingExtensions?: string[];
   /** Versions whose data this one takes over in place, for a database that does not upgrade any older data (MongoDB). */
@@ -1714,7 +1716,7 @@ export interface Settings {
 }
 
 /** A part of Envoryx a hoster's plan can switch off. */
-export type PlanFeature = "addons" | "customImages" | "branchEnvironments" | "externalServices" | "offsite" | "ideGateway";
+export type PlanFeature = "addons" | "customImages" | "branchEnvironments" | "externalServices" | "offsite" | "ideGateway" | "eolVersions" | "previewVersions";
 
 /** What a hoster allows a managed instance; zero limits mean no limit. */
 export interface Plan {

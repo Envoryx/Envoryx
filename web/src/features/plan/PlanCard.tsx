@@ -15,6 +15,8 @@ export const planFeatureLabels: Record<PlanFeature, string> = {
   externalServices: "External services",
   offsite: "Offsite targets",
   ideGateway: "IDE gateway",
+  eolVersions: "End-of-life versions",
+  previewVersions: "Preview versions",
 };
 
 /** Bytes with binary unit names (GiB): the plan's disk space is counted in them. */

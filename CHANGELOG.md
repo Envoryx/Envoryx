@@ -24,6 +24,9 @@ release). `:main` follows the development branch.
   security fixes.
 - A managed instance reports to its fleet manager how many projects wait for a restart to
   run newer images.
+- A hoster's plan can leave out end-of-life versions (`eolVersions`) and preview versions
+  (`previewVersions`). New projects, copies, restores, branch environments and version
+  switches can't pick them then; projects that run one keep it, with a warning.
 
 ### Changed
 - The runtime images (`envoryx-php`, `envoryx-node`, ...) are checked daily and rebuilt the

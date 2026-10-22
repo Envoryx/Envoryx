@@ -8,6 +8,7 @@ import (
 
 	"github.com/envoryx/envoryx/internal/disk"
 	"github.com/envoryx/envoryx/internal/plan"
+	"github.com/envoryx/envoryx/internal/runtime"
 	"github.com/envoryx/envoryx/internal/store"
 )
 
@@ -53,12 +54,16 @@ func (m *Manager) checkNewProject(ctx context.Context, p store.Project) error {
 	if err := m.checkDiskQuota(); err != nil {
 		return err
 	}
-	return checkProjectPlan(pl, p, nil)
+	return checkProjectPlan(pl, p, nil, m.catalogVersion)
 }
 
+// versionLookup finds the catalogue entry of a service's version (Manager.catalogVersion).
+type versionLookup func(svc store.ProjectService) (runtime.Version, runtime.Runtime, bool)
+
 // checkProjectPlan checks what a project brings in compared to prev (nil for a new
-// project): runtimes, addons, external services, custom images, the IDE gateway.
-func checkProjectPlan(pl *plan.Plan, p store.Project, prev *store.Project) error {
+// project): runtimes, addons, external services, custom images, the IDE gateway, and
+// versions past their end of life or not released yet.
+func checkProjectPlan(pl *plan.Plan, p store.Project, prev *store.Project, lookup versionLookup) error {
 	if pl == nil {
 		return nil
 	}
@@ -88,6 +93,11 @@ func checkProjectPlan(pl *plan.Plan, p store.Project, prev *store.Project) error
 		}
 		if svc.Custom.Set() && (old == nil || !old.Custom.Set()) {
 			if err := pl.RequireFeature(plan.FeatureCustomImages); err != nil {
+				return err
+			}
+		}
+		if !svc.Custom.Set() && (old == nil || old.Variant != svc.Variant || old.Version != svc.Version) {
+			if err := checkVersionPlan(pl, *svc, lookup); err != nil {
 				return err
 			}
 		}
@@ -145,6 +155,129 @@ func (m *Manager) checkUpdatePlan(proj store.Project, req UpdateRequest) error {
 	}
 	if req.IDEGateway != nil && *req.IDEGateway && !proj.IDEGateway {
 		if err := pl.RequireFeature(plan.FeatureIDEGateway); err != nil {
+			return err
+		}
+	}
+	return m.checkUpdateVersions(pl, proj, req)
+}
+
+// checkVersionPlan refuses a version the plan leaves out: one past its end of life or a
+// pre-release. Only a version a service is about to get is checked; one it runs already
+// stays.
+func checkVersionPlan(pl *plan.Plan, svc store.ProjectService, lookup versionLookup) error {
+	if pl == nil || lookup == nil {
+		return nil
+	}
+	v, r, ok := lookup(svc)
+	if !ok {
+		return nil
+	}
+	if v.EOL && !pl.Allows(plan.FeatureEOLVersions) {
+		return plan.Quota("%s %s has reached its end of life; this instance's plan includes supported versions only", r.Name, v.Version)
+	}
+	if v.Preview && !pl.Allows(plan.FeaturePreviewVersions) {
+		return plan.Quota("%s %s is a preview version; this instance's plan includes released versions only", r.Name, v.Version)
+	}
+	return nil
+}
+
+// checkUpdateVersions checks the versions an update asks for that the project doesn't
+// run yet: another runtime, web server, database or service version, or a new service.
+func (m *Manager) checkUpdateVersions(pl *plan.Plan, proj store.Project, req UpdateRequest) error {
+	if pl == nil || (pl.Allows(plan.FeatureEOLVersions) && pl.Allows(plan.FeaturePreviewVersions)) {
+		return nil
+	}
+	check := func(kind store.ServiceKind, variant, version string) error {
+		cur := proj.Service(kind)
+		if cur != nil {
+			if variant == "" {
+				variant = cur.Variant
+			}
+			if version == "" && variant == cur.Variant {
+				return nil // kept as it is
+			}
+			if cur.Custom.Set() || (variant == cur.Variant && version == cur.Version) {
+				return nil
+			}
+		}
+		svc := store.ProjectService{Kind: kind, Variant: variant, Version: version}
+		if version == "" {
+			// A new service or another server without a version gets the default one.
+			key := catalogKey(svc)
+			if key == "" {
+				return nil
+			}
+			v, err := m.catalog.Resolve(key, "")
+			if err != nil {
+				return nil
+			}
+			svc.Version = v.Version
+		}
+		return checkVersionPlan(pl, svc, m.catalogVersion)
+	}
+	type want struct {
+		kind    store.ServiceKind
+		version string
+	}
+	var runtimes []want
+	if u := req.PHP; u != nil && u.Enabled {
+		runtimes = append(runtimes, want{store.ServicePHP, u.Version})
+	}
+	if u := req.Node; u != nil && u.Enabled {
+		runtimes = append(runtimes, want{store.ServiceNode, u.Version})
+	}
+	if u := req.Python; u != nil && u.Enabled {
+		runtimes = append(runtimes, want{store.ServicePython, u.Version})
+	}
+	if u := req.Go; u != nil && u.Enabled {
+		runtimes = append(runtimes, want{store.ServiceGo, u.Version})
+	}
+	if u := req.Ruby; u != nil && u.Enabled {
+		runtimes = append(runtimes, want{store.ServiceRuby, u.Version})
+	}
+	if u := req.Java; u != nil && u.Enabled {
+		runtimes = append(runtimes, want{store.ServiceJava, u.Version})
+	}
+	if u := req.Dotnet; u != nil && u.Enabled {
+		runtimes = append(runtimes, want{store.ServiceDotnet, u.Version})
+	}
+	for _, rt := range runtimes {
+		if err := check(rt.kind, "", rt.version); err != nil {
+			return err
+		}
+	}
+	if w := req.Web; w != nil {
+		if err := check(store.ServiceWeb, w.Type, w.Version); err != nil {
+			return err
+		}
+	}
+	if d := req.Database; d != nil && d.Enabled && d.External == nil {
+		if err := check(store.ServiceDatabase, d.Type, d.Version); err != nil {
+			return err
+		}
+	}
+	for name, d := range req.Databases {
+		if d.Enabled && d.External == nil {
+			if err := check(store.DatabaseKind(name), d.Type, d.Version); err != nil {
+				return err
+			}
+		}
+	}
+	extras := map[store.ServiceKind]*ExtraUpdate{
+		store.ServiceRedis: req.Redis, store.ServiceMemcached: req.Memcached, store.ServiceMailpit: req.Mailpit,
+		store.ServiceRabbitMQ: req.RabbitMQ, store.ServiceMeilisearch: req.Meilisearch, store.ServiceTypesense: req.Typesense,
+		store.ServiceOllama: req.Ollama, store.ServiceOpenSearch: req.OpenSearch,
+	}
+	for kind, e := range extras {
+		if e == nil || (e.Enabled != nil && !*e.Enabled) || (e.Enabled == nil && e.Version == "") {
+			continue
+		}
+		if err := check(kind, "", e.Version); err != nil {
+			return err
+		}
+	}
+	if st := req.Storage; st != nil && st.Enabled {
+		if err := check(store.ServiceStorage, "rustfs", st.Version); err != nil {
 			return err
 		}
 	}

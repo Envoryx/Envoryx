@@ -3190,5 +3190,11 @@
   "a newer {{service}} image is available; restart to apply": "Une image {{service}} plus récente est disponible ; redémarrez pour l'appliquer",
   "{{name}} {{version}} has reached its end of life and gets no security fixes; switch to a newer version": "{{name}} {{version}} est en fin de vie et ne reçoit plus de correctifs de sécurité ; passez à une version plus récente",
   "The registry has a newer build of images your projects use (a restart applies it)": "Le registre a une version plus récente d'images utilisées par vos projets (un redémarrage l'applique)",
-  "Projects were restarted at the set hour to apply newer images": "Des projets ont été redémarrés à l'heure choisie pour appliquer des images plus récentes"
+  "Projects were restarted at the set hour to apply newer images": "Des projets ont été redémarrés à l'heure choisie pour appliquer des images plus récentes",
+  "End-of-life versions": "Versions en fin de vie",
+  "Preview versions": "Versions préliminaires",
+  " (not in your plan)": " (pas dans votre offre)",
+  "{{name}} {{version}} is a preview version, which this instance's plan doesn't include; switch to a released version": "{{name}} {{version}} est une version préliminaire que l'offre de cette instance n'inclut pas ; passez à une version publiée",
+  "{{name}} {{version}} has reached its end of life; this instance's plan includes supported versions only": "{{name}} {{version}} est en fin de vie ; l'offre de cette instance n'inclut que des versions prises en charge",
+  "{{name}} {{version}} is a preview version; this instance's plan includes released versions only": "{{name}} {{version}} est une version préliminaire ; l'offre de cette instance n'inclut que des versions publiées"
 }

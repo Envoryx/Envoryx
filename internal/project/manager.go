@@ -1470,7 +1470,7 @@ func (m *Manager) List(ctx context.Context) ([]View, error) {
 		return nil, err
 	}
 	containers, dockerErr := m.engine.ListContainers(ctx, true, "")
-	info := statusInfo{eol: m.eolName}
+	info := statusInfo{eol: m.eolName, previewOutsidePlan: m.previewOutsidePlan}
 	if dockerErr == nil {
 		info = m.statusInfo(ctx, projects)
 	}
@@ -1507,7 +1507,7 @@ func (m *Manager) Get(ctx context.Context, id string) (View, error) {
 		return View{}, err
 	}
 	containers, dockerErr := m.engine.ListContainers(ctx, true, id)
-	info := statusInfo{eol: m.eolName}
+	info := statusInfo{eol: m.eolName, previewOutsidePlan: m.previewOutsidePlan}
 	if dockerErr == nil {
 		info = m.statusInfo(ctx, []store.Project{p})
 	}
