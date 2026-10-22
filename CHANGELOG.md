@@ -10,6 +10,8 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.42.0] - 2026-10-22
+
 ### Added
 - A managed instance takes the wildcard certificate for its domain from its hoster's fleet
   manager, which gets and renews it, so the hoster's DNS token stays off the customers'
@@ -2558,7 +2560,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.41.0...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.42.0...HEAD
+[0.42.0]: https://github.com/envoryx/envoryx/compare/v0.41.0...v0.42.0
 [0.41.0]: https://github.com/envoryx/envoryx/compare/v0.40.1...v0.41.0
 [0.40.1]: https://github.com/envoryx/envoryx/compare/v0.40.0...v0.40.1
 [0.40.0]: https://github.com/envoryx/envoryx/compare/v0.39.3...v0.40.0
