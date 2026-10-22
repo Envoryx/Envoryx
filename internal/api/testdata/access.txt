@@ -220,6 +220,9 @@ GET    /api/v1/projects/{id}/actions/{action}/ws                     scope=opera
 GET    /api/v1/projects/{id}/share                                   scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
 POST   /api/v1/projects/{id}/share                                   scope=admin   tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
 DELETE /api/v1/projects/{id}/share                                   scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+GET    /api/v1/projects/{id}/guest-links                             scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+POST   /api/v1/projects/{id}/guest-links                             scope=admin   tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
+DELETE /api/v1/projects/{id}/guest-links/{link}                      scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
 GET    /api/v1/projects/{id}/tests                                   scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
 GET    /api/v1/projects/{id}/test-runs/{run}                         scope=read    tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no
 GET    /api/v1/projects/{id}/tests/{suite}/ws                        scope=operate tokens=yes   support=yes  confined=project suspended=no  plan=none twofactor=no

@@ -12,6 +12,7 @@ import { useAuth } from "@/features/auth/AuthContext";
 import { projectAccess } from "@/lib/access";
 import { settingsHref } from "@/features/settings/links";
 import { ProxyRulesCard } from "./ProxyRulesCard";
+import { GuestLinksCard } from "./GuestLinksCard";
 
 /** URL of a host name through the proxy, honouring non-standard published ports. */
 export function proxyUrl(host: string, proxy: ProxyInfo): string {
@@ -130,6 +131,8 @@ export function DomainsTab({ project }: { project: Project }) {
       </Card>
 
       <ProxyRulesCard project={project} />
+
+      <GuestLinksCard project={project} />
 
       <Card>
         <CardHeader title={t("Direct access")} description={serves === "node" ? t("The dev server port published on the Docker host. Works without DNS or the proxy.") : serves === "python" || serves === "go" || serves === "ruby" || serves === "java" || serves === "dotnet" ? t("The application server port published on the Docker host. Works without DNS or the proxy.") : t("The web server port published on the Docker host. Works without DNS or the proxy.")} />

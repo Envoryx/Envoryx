@@ -214,6 +214,9 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		case r.URL.Path == GatePath:
 			h.redeemGate(w, r, host, target)
 			return
+		case r.URL.Path == GuestPath:
+			h.redeemGuest(w, r, host, target)
+			return
 		case openPath(r, target.LoginExcept):
 		case r.Header.Get(TokenHeader) != "":
 			if !h.gate.admitToken(r.Context(), r.Header.Get(TokenHeader), target) {

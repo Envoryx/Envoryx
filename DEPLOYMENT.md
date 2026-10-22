@@ -1112,6 +1112,20 @@ not to the directly published port, which bypasses the proxy.
   to the answers, replacing the application's own. With *Allow cookies and
   credentials* the origins have to be listed.
 
+**Guest links** (*Domains → Guest links*) let people without an Envoryx
+account into a project behind the sign-in: the customer who reviews the
+staging site. Name the link after whom it is for and pick how long it works
+(1, 7, 30 or 90 days); the address is shown once, Envoryx keeps only a hash.
+The link opens the project's host names and its dev server, nothing else:
+no addon, no terminal, no files, and it never gets anyone into Envoryx
+itself. The browser keeps it in a cookie of the project's host, so a
+bookmark of the site keeps working (also across an Envoryx restart) until
+the link ends. Revoking it closes the project to that browser within half a
+minute. The list shows who made each link and when it was last used; making
+one takes an admin, revoking one a developer, and both land in the audit log.
+API: `GET`/`POST /projects/{id}/guest-links` (`{"label", "days"}`),
+`DELETE /projects/{id}/guest-links/{link}`.
+
 The order is: allowlist, https redirect, Envoryx sign-in, CORS preflight,
 password, redirects, application. The API: `PUT /projects/{id}/proxy-rules` (`admin`)
 replaces all of a project's rules; the project shows them as `proxyRules`

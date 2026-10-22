@@ -444,6 +444,11 @@ func (a *API) Mount(mux *http.ServeMux, protect func(http.Handler) http.Handler)
 	rd("GET /api/v1/projects/{id}/share", a.getShare)
 	adm("POST /api/v1/projects/{id}/share", a.startShare)
 	op("DELETE /api/v1/projects/{id}/share", a.stopShare)
+	// Guest links open a project behind the Envoryx sign-in to people without an account,
+	// as a share opens it to everyone: admins make them, developers may end them.
+	rd("GET /api/v1/projects/{id}/guest-links", a.guestLinks)
+	adm("POST /api/v1/projects/{id}/guest-links", a.createGuestLink)
+	op("DELETE /api/v1/projects/{id}/guest-links/{link}", a.revokeGuestLink)
 	rd("GET /api/v1/projects/{id}/tests", a.listTests)
 	rd("GET /api/v1/projects/{id}/test-runs/{run}", a.getTestRun)
 	op("GET /api/v1/projects/{id}/tests/{suite}/ws", a.testWS)

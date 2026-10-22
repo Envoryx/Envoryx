@@ -415,6 +415,17 @@ export interface ProxyRules {
   openPaths?: string[];
 }
 
+/** A guest link of a project; url carries the token and only comes with a new link. */
+export interface GuestLink {
+  id: string;
+  label: string;
+  createdBy: string;
+  createdAt: string;
+  expiresAt: string;
+  usedAt?: string;
+  url?: string;
+}
+
 /** A change of the rules; a basic authentication without password keeps the stored one. */
 export interface ProxyRulesRequest extends Omit<ProxyRules, "basicAuth"> {
   basicAuth?: { user: string; password?: string };

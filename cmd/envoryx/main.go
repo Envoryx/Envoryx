@@ -673,6 +673,7 @@ func serve() error {
 			}
 			return p.Require(auth.Scope(need), projectID) == nil
 		})
+		gate.SetGuestCheck(manager.GuestPass)
 		// Scripts, tests and monitoring send an API token instead.
 		gate.SetTokenCheck(func(ctx context.Context, token, projectID, need string) bool {
 			p, err := sessions.ValidateAPIToken(ctx, token)

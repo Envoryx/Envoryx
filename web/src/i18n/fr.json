@@ -3214,5 +3214,19 @@
   "The project's addresses and its dev server only let in users who may see the project; everyone else goes to the Envoryx sign-in first. A share stays open, with the password below.": "Les adresses du projet et son serveur de développement ne laissent entrer que les utilisateurs autorisés à voir le projet ; les autres passent d'abord par la connexion Envoryx. Un partage reste ouvert, avec le mot de passe ci-dessous.",
   "With the Envoryx sign-in it only applies to a share.": "Avec la connexion Envoryx, il ne s'applique qu'à un partage.",
   "Open paths": "Chemins ouverts",
-  "One path per line, or a prefix ending in *, e.g. /webhooks/*. They skip the sign-in, for webhooks and health checks. Scripts and monitoring can send an API token with read access to the project in the header X-Envoryx-Token instead.": "Un chemin par ligne, ou un préfixe terminé par *, p. ex. /webhooks/*. Ils échappent à la connexion, pour les webhooks et les contrôles de santé. Les scripts et la supervision peuvent plutôt envoyer un jeton d'API avec accès en lecture au projet dans l'en-tête X-Envoryx-Token."
+  "One path per line, or a prefix ending in *, e.g. /webhooks/*. They skip the sign-in, for webhooks and health checks. Scripts and monitoring can send an API token with read access to the project in the header X-Envoryx-Token instead.": "Un chemin par ligne, ou un préfixe terminé par *, p. ex. /webhooks/*. Ils échappent à la connexion, pour les webhooks et les contrôles de santé. Les scripts et la supervision peuvent plutôt envoyer un jeton d'API avec accès en lecture au projet dans l'en-tête X-Envoryx-Token.",
+  "Creating the guest link failed": "La création du lien invité a échoué",
+  "Revoking the guest link failed": "La révocation du lien invité a échoué",
+  "Guest links": "Liens invités",
+  "For people without an Envoryx account, such as a customer reviewing the site: the link opens the project's addresses until it ends or you revoke it. Not its addons, terminal or files.": "Pour les personnes sans compte Envoryx, comme un client qui valide le site : le lien ouvre les adresses du projet jusqu'à son expiration ou sa révocation. Pas ses modules, le terminal ni les fichiers.",
+  "The project is open to everyone right now. Guest links only matter once it lets in only people signed in to Envoryx (Rules above).": "Le projet est ouvert à tous pour l'instant. Les liens invités ne comptent qu'une fois qu'il ne laisse entrer que les personnes connectées à Envoryx (Règles ci-dessus).",
+  "Send this address to {{label}}. It is shown only now.": "Envoyez cette adresse à {{label}}. Elle n'est affichée que maintenant.",
+  "guest link": "lien invité",
+  "by {{user}}, until {{time}}": "par {{user}}, jusqu'au {{time}}",
+  "last used {{time}}": "dernière utilisation {{time}}",
+  "not used yet": "pas encore utilisé",
+  "For whom": "Pour qui",
+  "e.g. Acme, review of the new shop": "p. ex. Acme, validation de la nouvelle boutique",
+  "Valid for": "Valable",
+  "Create link": "Créer le lien"
 }

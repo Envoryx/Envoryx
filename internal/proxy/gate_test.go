@@ -353,3 +353,100 @@ func TestOpenPath(t *testing.T) {
 		}
 	}
 }
+
+func TestGuestLink(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { _, _ = io.WriteString(w, "ok") }))
+	defer upstream.Close()
+	dial := strings.TrimPrefix(upstream.URL, "http://")
+	source := func(context.Context) (Table, error) {
+		return Table{Routes: map[string]Target{
+			"shop.test":     {ProjectID: "p1", ProjectName: "Shop", Dial: dial, Running: true, Login: "read", LoginAlso: []string{"shop-dev.test"}},
+			"shop-dev.test": {ProjectID: "p1", ProjectName: "Shop (dev server)", Dial: dial, Running: true, Login: "read"},
+			"shop-pma.test": {ProjectID: "p1", ProjectName: "Shop (phpMyAdmin)", Dial: dial, Running: true, Login: "operate"},
+			"blog.test":     {ProjectID: "p2", ProjectName: "Blog", Dial: dial, Running: true, Login: "read"},
+		}, EnvoryxURL: "http://envoryx.test"}, nil
+	}
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	router := NewRouter(source, time.Second, log)
+	gate := NewGate(func(context.Context, string, string, string) bool {
+		t.Error("a guest pass must not ask about a session")
+		return false
+	})
+	var valid atomic.Bool
+	valid.Store(true)
+	gate.SetGuestCheck(func(_ context.Context, token string) (string, bool) {
+		return "p1", valid.Load() && token == "envg_ok"
+	})
+	now := time.Now()
+	gate.now = func() time.Time { return now }
+	gate.SetRouter(router)
+	h := NewHandler(router, http.NotFoundHandler(), false, log)
+	h.SetGate(gate)
+	srv := httptest.NewServer(h)
+	defer srv.Close()
+	client := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	get := func(host, path, cookie string) *http.Response {
+		req, _ := http.NewRequest(http.MethodGet, srv.URL+path, nil)
+		req.Host = host
+		if cookie != "" {
+			req.Header.Set("Cookie", gateCookie+"="+cookie)
+		}
+		res, err := client.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		res.Body.Close()
+		return res
+	}
+	pass := func(res *http.Response) string {
+		for _, c := range res.Cookies() {
+			if c.Name == gateCookie {
+				return c.Value
+			}
+		}
+		return ""
+	}
+	for host, token := range map[string]string{"shop.test": "envg_bad", "blog.test": "envg_ok", "shop-pma.test": "envg_ok"} {
+		if res := get(host, GuestPath+"?t="+token, ""); res.StatusCode != http.StatusForbidden {
+			t.Errorf("%s with %s: %d", host, token, res.StatusCode)
+		}
+	}
+	res := get("shop.test", GuestPath+"?t=envg_ok", "")
+	appPass := pass(res)
+	hop, _ := url.Parse(res.Header.Get("Location"))
+	if appPass == "" || hop.Host != "shop-dev.test" || hop.Path != GatePath || res.Header.Get("Referrer-Policy") != "no-referrer" {
+		t.Fatalf("guest redeem: %d %s", res.StatusCode, res.Header.Get("Location"))
+	}
+	res = get("shop-dev.test", hop.RequestURI(), "")
+	devPass := pass(res)
+	back, _ := url.Parse(res.Header.Get("Location"))
+	if devPass == "" || back.Host != "shop.test" {
+		t.Fatalf("dev hop: %s", res.Header.Get("Location"))
+	}
+	if res := get("shop.test", back.RequestURI(), ""); res.Header.Get("Location") != "/" {
+		t.Fatalf("back: %s", res.Header.Get("Location"))
+	}
+	if res := get("shop.test", "/", appPass); res.StatusCode != http.StatusOK {
+		t.Fatalf("app with the guest pass: %d", res.StatusCode)
+	}
+	if res := get("shop-dev.test", "/@vite/client", devPass); res.StatusCode != http.StatusOK {
+		t.Fatalf("dev server with the guest pass: %d", res.StatusCode)
+	}
+	// The cookie is the link itself: an Envoryx restart (no passes in memory) keeps the
+	// guest in.
+	if appPass != "envg_ok" {
+		t.Fatalf("guest cookie: %q", appPass)
+	}
+	gate.mu.Lock()
+	clear(gate.passes)
+	gate.mu.Unlock()
+	if res := get("shop.test", "/", appPass); res.StatusCode != http.StatusOK {
+		t.Fatalf("after a restart: %d", res.StatusCode)
+	}
+	// Revoked, the browser is out at the next look.
+	valid.Store(false)
+	now = now.Add(gateRecheck + time.Second)
+	if res := get("shop.test", "/", appPass); res.StatusCode == http.StatusOK {
+		t.Fatal("a revoked guest link must close the project")
+	}
+}

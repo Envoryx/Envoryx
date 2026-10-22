@@ -3214,5 +3214,19 @@
   "The project's addresses and its dev server only let in users who may see the project; everyone else goes to the Envoryx sign-in first. A share stays open, with the password below.": "De adressen van het project en de dev-server laten alleen gebruikers binnen die het project mogen zien; alle anderen gaan eerst naar de Envoryx-aanmelding. Een deellink blijft open, met het wachtwoord hieronder.",
   "With the Envoryx sign-in it only applies to a share.": "Met de Envoryx-aanmelding geldt het alleen voor een deellink.",
   "Open paths": "Open paden",
-  "One path per line, or a prefix ending in *, e.g. /webhooks/*. They skip the sign-in, for webhooks and health checks. Scripts and monitoring can send an API token with read access to the project in the header X-Envoryx-Token instead.": "Eén pad per regel, of een prefix die eindigt op *, bijv. /webhooks/*. Ze slaan de aanmelding over, voor webhooks en health checks. Scripts en monitoring kunnen in plaats daarvan een API-token met leestoegang tot het project meesturen in de header X-Envoryx-Token."
+  "One path per line, or a prefix ending in *, e.g. /webhooks/*. They skip the sign-in, for webhooks and health checks. Scripts and monitoring can send an API token with read access to the project in the header X-Envoryx-Token instead.": "Eén pad per regel, of een prefix die eindigt op *, bijv. /webhooks/*. Ze slaan de aanmelding over, voor webhooks en health checks. Scripts en monitoring kunnen in plaats daarvan een API-token met leestoegang tot het project meesturen in de header X-Envoryx-Token.",
+  "Creating the guest link failed": "Gastlink aanmaken mislukt",
+  "Revoking the guest link failed": "Gastlink intrekken mislukt",
+  "Guest links": "Gastlinks",
+  "For people without an Envoryx account, such as a customer reviewing the site: the link opens the project's addresses until it ends or you revoke it. Not its addons, terminal or files.": "Voor mensen zonder Envoryx-account, zoals een klant die de site beoordeelt: de link opent de adressen van het project tot hij verloopt of je hem intrekt. Niet de add-ons, de terminal of de bestanden.",
+  "The project is open to everyone right now. Guest links only matter once it lets in only people signed in to Envoryx (Rules above).": "Het project staat nu open voor iedereen. Gastlinks tellen pas als het alleen mensen binnenlaat die bij Envoryx zijn aangemeld (Regels hierboven).",
+  "Send this address to {{label}}. It is shown only now.": "Stuur dit adres naar {{label}}. Het wordt alleen nu getoond.",
+  "guest link": "gastlink",
+  "by {{user}}, until {{time}}": "door {{user}}, tot {{time}}",
+  "last used {{time}}": "laatst gebruikt {{time}}",
+  "not used yet": "nog niet gebruikt",
+  "For whom": "Voor wie",
+  "e.g. Acme, review of the new shop": "bijv. Acme, review van de nieuwe shop",
+  "Valid for": "Geldig voor",
+  "Create link": "Link aanmaken"
 }

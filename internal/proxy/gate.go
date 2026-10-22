@@ -31,6 +31,8 @@ const (
 	// gatePassTTL ends a pass even while its session goes on; the next request then
 	// takes the round trip through Envoryx again, which a signed-in user doesn't notice.
 	gatePassTTL = 12 * time.Hour
+	// guestPassTTL is how long a guest's cookie is kept; the link's own end cuts it short.
+	guestPassTTL = 30 * 24 * time.Hour
 	// gateRecheck is how long a pass trusts its last look at the session: signing out,
 	// a disabled user or a lost role close the host within this time.
 	gateRecheck    = 30 * time.Second
@@ -48,6 +50,20 @@ var ErrNotGated = errors.New("this address isn't behind the Envoryx sign-in")
 // "operate") in the project.
 type GateCheck func(ctx context.Context, sessionID, projectID, need string) bool
 
+// GuestPath is where a host of a project takes a guest link; it never reaches the
+// application.
+const GuestPath = "/.envoryx/guest"
+
+// GuestLevel is the only level a guest link opens: a project's own host names, not its
+// addons.
+const GuestLevel = "read"
+
+// GuestTokenPrefix starts every guest link token.
+const GuestTokenPrefix = "envg_"
+
+// GuestCheck resolves a guest token to the project its link opens, while it works.
+type GuestCheck func(ctx context.Context, token string) (projectID string, ok bool)
+
 // TokenCheck reports whether an API token holds need in the project.
 type TokenCheck func(ctx context.Context, token, projectID, need string) bool
 
@@ -55,6 +71,7 @@ type TokenCheck func(ctx context.Context, token, projectID, need string) bool
 type Gate struct {
 	check      GateCheck
 	tokenCheck TokenCheck
+	guestCheck GuestCheck
 	now        func() time.Time
 	// tokens remembers recent token checks, so a page full of requests costs one.
 	tokens map[[32]byte]time.Time
@@ -67,6 +84,8 @@ type Gate struct {
 
 type gateEntry struct {
 	sessionID, host, projectID, need string
+	// guestToken is the guest link a code came from instead of a session.
+	guestToken string
 	// path is where the browser goes once the code is taken, after the hosts in rest,
 	// which get a pass on the way; scheme and port are the address's (codes only).
 	path         string
@@ -79,6 +98,93 @@ type gateEntry struct {
 // NewGate creates a gate that asks check about the sessions behind its passes.
 func NewGate(check GateCheck) *Gate {
 	return &Gate{check: check, now: time.Now, codes: map[string]gateEntry{}, passes: map[[32]byte]*gateEntry{}, tokens: map[[32]byte]time.Time{}}
+}
+
+// SetGuestChecks lets guest links past the gate.
+func (g *Gate) SetGuestCheck(c GuestCheck) { g.guestCheck = c }
+
+// admitGuest reports whether a guest token opens the target. A guest has no session to
+// come back through, so the cookie holds the link's token itself: the browser stays in
+// across an Envoryx restart, and the checks (at most every half minute) end it with
+// the link.
+func (g *Gate) admitGuest(ctx context.Context, token string, t Target) bool {
+	if g.guestCheck == nil || t.Login != GuestLevel {
+		return false
+	}
+	key := sha256.Sum256([]byte("guest\x00" + token + "\x00" + t.ProjectID))
+	now := g.now()
+	g.mu.Lock()
+	until, ok := g.tokens[key]
+	g.mu.Unlock()
+	if ok && now.Before(until) {
+		return true
+	}
+	if projectID, ok := g.guestCheck(ctx, token); !ok || projectID != t.ProjectID {
+		return false
+	}
+	g.mu.Lock()
+	if len(g.tokens) > gateMaxEntries {
+		clear(g.tokens)
+	}
+	g.tokens[key] = now.Add(gateRecheck)
+	g.mu.Unlock()
+	return true
+}
+
+// redeemGuest lets a browser in with a guest link: a pass for this host, and on the way
+// back one for each host its pages load from.
+func (h *Handler) redeemGuest(w http.ResponseWriter, r *http.Request, host string, t Target) {
+	g := h.gate
+	w.Header().Set("Referrer-Policy", "no-referrer")
+	w.Header().Set("Cache-Control", "no-store")
+	token := r.URL.Query().Get("t")
+	if !strings.HasPrefix(token, GuestTokenPrefix) || !g.admitGuest(r.Context(), token, t) {
+		h.errorPage(w, http.StatusForbidden, "Guest link expired", "This guest link has ended or was revoked. Ask whoever sent it for a new one.", "")
+		return
+	}
+	e := gateEntry{guestToken: token, host: host, projectID: t.ProjectID, need: t.Login, path: "/"}
+	if err := h.grantPass(w, r, e); err != nil {
+		h.errorPage(w, http.StatusInternalServerError, "Sign-in failed", "Envoryx could not create the sign-in.", "")
+		return
+	}
+	to := "/"
+	if hops := g.companions(r.Context(), host, t); len(hops) > 0 {
+		e.scheme = "http"
+		if r.TLS != nil {
+			e.scheme = "https"
+		}
+		_, e.port, _ = net.SplitHostPort(r.Host)
+		e.host, e.rest = hops[0], append(hops[1:], host)
+		var err error
+		if to, err = g.issue(e); err != nil {
+			to = "/"
+		}
+	}
+	http.Redirect(w, r, to, http.StatusFound)
+}
+
+// grantPass stores a pass for the entry's host and sets its cookie.
+func (h *Handler) grantPass(w http.ResponseWriter, r *http.Request, e gateEntry) error {
+	g := h.gate
+	cookie := &http.Cookie{Name: gateCookie, Path: "/", HttpOnly: true, Secure: r.TLS != nil, SameSite: http.SameSiteLaxMode}
+	if e.guestToken != "" {
+		// The guest's link itself (see admitGuest), kept across a browser restart.
+		cookie.Value, cookie.MaxAge = e.guestToken, int(guestPassTTL.Seconds())
+		http.SetCookie(w, cookie)
+		return nil
+	}
+	token, err := randomToken()
+	if err != nil {
+		return err
+	}
+	now := g.now()
+	pass := &gateEntry{sessionID: e.sessionID, host: e.host, projectID: e.projectID, need: e.need, checked: now, expires: now.Add(gatePassTTL)}
+	g.mu.Lock()
+	g.passes[sha256.Sum256([]byte(token))] = pass
+	g.mu.Unlock()
+	cookie.Value = token
+	http.SetCookie(w, cookie)
+	return nil
 }
 
 // SetTokenCheck lets API tokens in TokenHeader past the gate.
@@ -236,16 +342,10 @@ func (h *Handler) redeemGate(w http.ResponseWriter, r *http.Request, host string
 			`This sign-in link is used up or too old. <a href="/">Open the page again</a> to get a new one.`, "")
 		return
 	}
-	token, err := randomToken()
-	if err != nil {
+	if err := h.grantPass(w, r, e); err != nil {
 		h.errorPage(w, http.StatusInternalServerError, "Sign-in failed", "Envoryx could not create the sign-in.", "")
 		return
 	}
-	pass := &gateEntry{sessionID: e.sessionID, host: e.host, projectID: e.projectID, need: e.need, checked: now, expires: now.Add(gatePassTTL)}
-	g.mu.Lock()
-	g.passes[sha256.Sum256([]byte(token))] = pass
-	g.mu.Unlock()
-	http.SetCookie(w, &http.Cookie{Name: gateCookie, Value: token, Path: "/", HttpOnly: true, Secure: r.TLS != nil, SameSite: http.SameSiteLaxMode})
 	// The code is in this address; it must not travel on in a Referer.
 	w.Header().Set("Referrer-Policy", "no-referrer")
 	w.Header().Set("Cache-Control", "no-store")
@@ -253,6 +353,7 @@ func (h *Handler) redeemGate(w http.ResponseWriter, r *http.Request, host string
 	if len(e.rest) > 0 {
 		next := e
 		next.host, next.rest = e.rest[0], e.rest[1:]
+		var err error
 		if to, err = g.issue(next); err != nil {
 			h.errorPage(w, http.StatusInternalServerError, "Sign-in failed", "Envoryx could not create the sign-in.", "")
 			return
@@ -267,6 +368,9 @@ func (h *Handler) admitGate(r *http.Request, host string, t Target) bool {
 	c, err := r.Cookie(gateCookie)
 	if err != nil || c.Value == "" {
 		return false
+	}
+	if strings.HasPrefix(c.Value, GuestTokenPrefix) {
+		return g.admitGuest(r.Context(), c.Value, t)
 	}
 	key := sha256.Sum256([]byte(c.Value))
 	now := g.now()
