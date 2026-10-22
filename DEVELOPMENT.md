@@ -405,9 +405,18 @@ PHP, Node, Python, Go, Ruby, Java and .NET versions live in
 `internal/runtime/php_versions.json`, `node_versions.json`, `python_versions.json`,
 `go_versions.json`, `ruby_versions.json`, `java_versions.json` and `dotnet_versions.json`.
 They're the one place those versions are listed: the catalogue embeds them into the binary,
-and the image build matrices (`php-images.yml`, `node-images.yml`, `python-images.yml`,
+and the image builds (`php-images.yml`, `node-images.yml`, `python-images.yml`,
 `go-images.yml`, `ruby-images.yml`, `java-images.yml`, `dotnet-images.yml`) read them with
 `jq`.
+
+Those seven workflows only say when to build and from which upstream images; the build itself
+is `runtime-images.yml`. A push or a manual run builds every version. The daily scheduled run
+uses `scripts/runtime-image-matrix.sh` to build only the versions whose upstream image digest
+differs from the `envoryx.base.digests` label of the published image, or which are six days old
+or older. The build pins the upstream images to those digests, so the label is what the image
+was built from. When a build fails, the workflow opens an issue "<runtime> runtime images failed
+to build" (or comments on the open one) and closes it after the next successful build; the
+failed versions keep their previous image in the meantime.
 
 Normally you never edit them by hand. `.github/workflows/runtime-versions.yml` runs
 `scripts/check-versions.py php|node|python|go|ruby|java|dotnet` weekly and opens a PR when upstream

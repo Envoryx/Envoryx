@@ -1,0 +1,196 @@
+name: Runtime images
+
+# Builds one runtime's images (envoryx-php, envoryx-node, ...) for every version in its
+# internal/runtime/<runtime>_versions.json. Called by php-images.yml, node-images.yml and the
+# others, which only say what to build and when.
+#
+# A push or a manual run builds every version. The daily scheduled run builds the versions
+# whose upstream image changed since their last build, or which are six days old or older
+# (scripts/runtime-image-matrix.sh), so an upstream security fix is in the images the next
+# morning and nothing is rebuilt for nothing.
+
+on:
+  workflow_call:
+    inputs:
+      runtime:
+        description: php, node, python, go, ruby, java or dotnet
+        required: true
+        type: string
+      version-arg:
+        description: The build arg that takes the version (PHP_VERSION)
+        required: true
+        type: string
+      bases:
+        description: The upstream images the Dockerfile builds FROM, space-separated, {base} for the version's base tag
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: runtime-images-${{ inputs.runtime }}
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/envoryx/envoryx-${{ inputs.runtime }}
+
+jobs:
+  matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.read.outputs.matrix }}
+      count: ${{ steps.read.outputs.count }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - id: read
+        run: |
+          mode=all
+          [ "${{ github.event_name }}" = schedule ] && mode=changed
+          # shellcheck disable=SC2086 # the bases are meant to split
+          matrix=$(scripts/runtime-image-matrix.sh "internal/runtime/${{ inputs.runtime }}_versions.json" "$IMAGE" "$mode" ${{ inputs.bases }})
+          echo "matrix=${matrix}" >> "$GITHUB_OUTPUT"
+          echo "count=$(jq '.include | length' <<<"$matrix")" >> "$GITHUB_OUTPUT"
+
+  # One native build per architecture (no QEMU, so extensions and tools compile at full speed).
+  build:
+    name: build (${{ matrix.arch }}, ${{ matrix.version.version }})
+    needs: matrix
+    if: ${{ needs.matrix.outputs.count != '0' }}
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [amd64, arm64]
+        version: ${{ fromJson(needs.matrix.outputs.matrix).include }}
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+        with:
+          # Docker Hub throttles the shared runners (429) and has outages; Google's
+          # mirror of its library images answers instead, and BuildKit falls back to
+          # Docker Hub for anything the mirror doesn't have.
+          buildkitd-config-inline: |
+            [registry."docker.io"]
+              mirrors = ["mirror.gcr.io"]
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      # The upstream images exactly as the matrix resolved them, so the label below is true.
+      # Built here: a job output with name=docker-image://name@digest looks like a URL with a
+      # password to the runner, which then drops the whole matrix.
+      - name: Pin the upstream images
+        id: pin
+        env:
+          BASES: ${{ matrix.version.bases }}
+        run: |
+          {
+            echo "contexts<<EOF"
+            for b in $BASES; do echo "${b%@*}=docker-image://${b}"; done
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: images/${{ inputs.runtime }}
+          platforms: linux/${{ matrix.arch }}
+          build-contexts: ${{ steps.pin.outputs.contexts }}
+          build-args: |
+            ${{ inputs.version-arg }}=${{ matrix.version.version }}
+            BASE_TAG=${{ matrix.version.base }}
+            ${{ inputs.runtime == 'php' && format('MISSING_EXTENSIONS={0}', matrix.version.missing) || '' }}
+          labels: envoryx.base.digests=${{ matrix.version.bases }}
+          outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=${{ inputs.runtime }}-${{ matrix.version.version }}-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=${{ inputs.runtime }}-${{ matrix.version.version }}-${{ matrix.arch }}
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          echo "${{ steps.build.outputs.digest }}" > "/tmp/digests/${{ matrix.version.version }}-${{ matrix.arch }}"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: digest-${{ matrix.version.version }}-${{ matrix.arch }}
+          path: /tmp/digests/*
+          retention-days: 1
+
+  # Combine the per-arch images into one multi-arch tag per version.
+  merge:
+    name: merge (${{ matrix.version.version }})
+    needs: [matrix, build]
+    permissions:
+      contents: read
+      packages: write
+      # Signing the build provenance of the merged image.
+      id-token: write
+      attestations: write
+    # Merge every version whose builds succeeded even if another version failed.
+    if: ${{ !cancelled() && needs.matrix.outputs.count != '0' }}
+    runs-on: ubuntu-latest
+    strategy:
+      # Without this one version's failed merge cancels the others, which is the
+      # opposite of what the comment above promises.
+      fail-fast: false
+      matrix:
+        version: ${{ fromJson(needs.matrix.outputs.matrix).include }}
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          path: /tmp/digests
+          pattern: digest-${{ matrix.version.version }}-*
+          merge-multiple: true
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create manifest
+        id: manifest
+        run: |
+          refs=""
+          count=0
+          for f in /tmp/digests/*; do [ -f "$f" ] || continue; refs="$refs ${IMAGE}@$(cat "$f")"; count=$((count+1)); done
+          if [ "$count" -lt 2 ]; then echo "not all architectures built for ${{ matrix.version.version }}; keeping the previous tag"; exit 1; fi
+          docker buildx imagetools create -t "${IMAGE}:${{ matrix.version.version }}" $refs
+          docker buildx imagetools inspect "${IMAGE}:${{ matrix.version.version }}"
+          echo "digest=$(docker buildx imagetools inspect "${IMAGE}:${{ matrix.version.version }}" --format '{{json .Manifest}}' | jq -r .digest)" >> "$GITHUB_OUTPUT"
+      # A signed statement that this workflow built the tag (checked with `gh attestation
+      # verify oci://<image>:<version> --repo Envoryx/Envoryx`).
+      - name: Attest the build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.manifest.outputs.digest }}
+          push-to-registry: true
+
+  # A failed build keeps the previous image, which nobody notices; an open issue per runtime
+  # says so, collects every further failure and is closed by the next run that builds.
+  report:
+    needs: [matrix, build, merge]
+    if: ${{ !cancelled() }}
+    permissions:
+      issues: write
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TITLE: "${{ inputs.runtime }} runtime images failed to build"
+      RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - run: |
+          open=$(gh issue list --state open --search "in:title \"${TITLE}\"" --json number,title --jq ".[] | select(.title == env.TITLE) | .number" | head -1)
+          if [ "${{ contains(needs.*.result, 'failure') }}" = true ]; then
+            if [ -n "$open" ]; then
+              gh issue comment "$open" --body "Failed again: ${RUN}"
+            else
+              gh issue create --title "$TITLE" --body "$(printf 'The %s images failed to build: %s\n\nThe versions that failed keep their previous image until a build succeeds. This issue closes itself then.' "${{ inputs.runtime }}" "$RUN")"
+            fi
+          elif [ -n "$open" ] && [ "${{ needs.matrix.outputs.count }}" != 0 ]; then
+            gh issue close "$open" --comment "Built again: ${RUN}"
+          fi

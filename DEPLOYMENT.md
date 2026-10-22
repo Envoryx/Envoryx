@@ -1419,7 +1419,8 @@ newer, its error message names the pre-migrate backup to restore by hand (see
 ## Keeping runtimes up to date
 
 - **Patch releases** (e.g. 8.5.3 → 8.5.4): the `envoryx-php` images are rebuilt
-  weekly from the official `php` images. A project **Restart** pulls the tag
+  from the official `php` images on the morning after those change, and at
+  least once a week otherwise. A project **Restart** pulls the tag
   again and recreates the container only if the image actually changed. Until
   then the project keeps running on the previous build; nothing changes
   behind your back.

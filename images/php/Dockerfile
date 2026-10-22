@@ -38,15 +38,26 @@ ARG MISSING_EXTENSIONS=""
 # Skipped ones are listed in /etc/envoryx/missing-extensions.
 RUN set -eux; \
     mkdir -p /etc/envoryx; : > /etc/envoryx/missing-extensions; \
+    # PECL and GitHub time out now and then (pecl.php.net answered 504 on 2026-10-20 and failed
+    # most versions' builds), so a failed download is retried. A failed build isn't.
+    ipe() { \
+        for try in 1 2 3; do \
+            rc=0; install-php-extensions "$@" > /tmp/ipe.log 2>&1 || rc=$?; cat /tmp/ipe.log; \
+            [ "${rc}" = 0 ] && return 0; \
+            grep -qiE 'download failed|cannot download|could not download|could not resolve host|connection timed out|gateway time-?out|HTTP/[0-9.]+ 50[234]' /tmp/ipe.log || return "${rc}"; \
+            [ "${try}" = 3 ] || { echo "Download failed, trying $* again in 30 s"; sleep 30; }; \
+        done; \
+        return "${rc}"; \
+    }; \
     # Always on (BuiltIn in internal/runtime/catalog.go), but not every upstream image compiles
     # them in: php:8.6-rc dropped mbstring, and none has exif (WordPress, Drupal and TYPO3 read
     # photo orientation with it), nor pcntl (Laravel's queue:work timeouts, Horizon and
     # Symfony Messenger's signal handling). First, as pickle (PECL builds) needs mbstring;
     # libonig-dev by hand, as the installer knows no build dependencies for unreleased versions.
     if ! php -m | grep -qix mbstring; then apt-get update; apt-get install -y --no-install-recommends libonig-dev; fi; \
-    for ext in mbstring curl pdo_sqlite exif pcntl; do php -m | grep -qix "${ext}" || install-php-extensions "${ext}"; done; \
+    for ext in mbstring curl pdo_sqlite exif pcntl; do php -m | grep -qix "${ext}" || ipe "${ext}"; done; \
     for ext in ${ENVORYX_PHP_EXTENSIONS}; do \
-        if ! install-php-extensions "${ext}"; then \
+        if ! ipe "${ext}"; then \
             echo "${ext}" >> /etc/envoryx/missing-extensions; \
             case " ${MISSING_EXTENSIONS} " in \
                 *" ${ext} "*) echo "WARNING: ${ext} not available for PHP ${PHP_VERSION}, skipping (listed in php_versions.json)";; \
@@ -66,7 +77,7 @@ RUN set -eux; \
     # msmtp delivers mail() to Mailpit; Envoryx sets sendmail_path only while Mailpit is on.
     # No msmtp-mta: without Mailpit /usr/sbin/sendmail stays missing and mail() returns false.
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git unzip openssh-client socat procps libfreetype6 fontconfig libxi6 libxrender1 libxtst6 libxext6 msmtp; \
-    rm -rf /var/lib/apt/lists/*; \
+    rm -rf /var/lib/apt/lists/* /tmp/ipe.log; \
     php -m
 
 # Tools CMSs and frameworks expect on the server.
