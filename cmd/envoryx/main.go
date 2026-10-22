@@ -415,6 +415,8 @@ func serve() error {
 		manager.SetLogStore(logStore)
 		background("log history", func(ctx context.Context) { manager.RunLogHistory(ctx, 5*time.Second, log) })
 	}
+	// Daily: newer builds of the projects' images, and the restart that applies them.
+	background("image updates", func(ctx context.Context) { manager.RunImageUpdates(ctx, log) })
 	background("plan disk usage", func(ctx context.Context) { manager.RunDiskUsage(ctx, 5*time.Minute) })
 	background("suspension", func(ctx context.Context) { manager.RunSuspension(ctx, 30*time.Second, log) })
 	background("disk space monitor", func(ctx context.Context) {
@@ -981,6 +983,7 @@ func fleetStatus(ctx context.Context, st *store.Store, m *project.Manager, versi
 			}
 		}
 	}
+	s.ImageUpdates = m.ProjectsWithNewerImages()
 	s.Usage.Users, _ = st.Users.CountActive(ctx)
 	s.Usage.DiskBytes, _ = m.DiskUsage()
 	return s

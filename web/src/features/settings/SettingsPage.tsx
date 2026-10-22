@@ -31,6 +31,7 @@ import { useAuth } from "@/features/auth/AuthContext";
 import { AppearanceCard } from "./AppearanceCard";
 import { SupportAccessCard, SupportRefusedNote } from "./SupportAccessCard";
 import { AuditLog } from "@/features/audit/AuditLog";
+import { ImageUpdatesCard } from "./ImageUpdatesCard";
 import { LifecycleCard } from "./LifecycleCard";
 import { LogHistoryCard } from "./LogHistoryCard";
 import { ResourceHistoryCard } from "./ResourceHistoryCard";
@@ -395,6 +396,7 @@ export function SettingsPage() {
               {admin && !support && <SupportAccessCard />}
               <InstanceCard />
               <LifecycleCard />
+              <ImageUpdatesCard />
               <UnraidCard />
             </>
           )}

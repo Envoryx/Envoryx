@@ -64,7 +64,12 @@ type Fake struct {
 	// oomWatchers receive EmitOOM events.
 	oomWatchers []chan docker.OOMEvent
 	// Remote maps image refs to the id a pull would deliver. Unset refs pull as "<ref>@v1".
+	// The id doubles as the registry digest (RemoteDigest, ImageInfo.RepoDigests).
 	Remote map[string]string
+	// FailRemote maps image refs to errors returned from RemoteDigest.
+	FailRemote map[string]error
+	// built are the refs BuildImage tagged; they have no registry digest.
+	built map[string]bool
 	// ImageInfos answers InspectImage per reference; a present image without an entry has
 	// an empty configuration.
 	ImageInfos map[string]docker.ImageInfo
@@ -1499,7 +1504,27 @@ func (f *Fake) InspectImage(_ context.Context, ref string) (docker.ImageInfo, er
 	}
 	info := f.ImageInfos[ref]
 	info.ID = id
+	if info.RepoDigests == nil && !f.built[ref] {
+		info.RepoDigests = []string{ref + "@" + id}
+	}
 	return info, nil
+}
+
+// RemoteDigest implements docker.Engine.
+func (f *Fake) RemoteDigest(_ context.Context, ref string) (string, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if err := f.check(); err != nil {
+		return "", err
+	}
+	if err := f.FailRemote[ref]; err != nil {
+		return "", err
+	}
+	if f.built[ref] {
+		return "", docker.ErrNotFound
+	}
+	f.record("remote:" + ref)
+	return f.remoteID(ref), nil
 }
 
 // BuildImage implements docker.Engine.
@@ -1533,6 +1558,10 @@ func (f *Fake) BuildImage(_ context.Context, opts docker.BuildOptions) error {
 		f.dropIfUnreferenced(old, false)
 	}
 	f.images[opts.Tag] = f.nextID("sha256:")
+	if f.built == nil {
+		f.built = map[string]bool{}
+	}
+	f.built[opts.Tag] = true
 	f.record("build:" + opts.Tag)
 	return nil
 }

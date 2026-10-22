@@ -123,6 +123,10 @@ export interface ServiceStatus {
   imagePrevious: boolean;
   /** The containers run the previous image on purpose (rolled back). */
   imagePinned: boolean;
+  /** A newer build of the image is on the host ("pulled") or in the registry ("available"); a restart applies it. */
+  imageUpdate?: "pulled" | "available";
+  /** The version has reached its end of life and gets no security fixes. */
+  eol?: boolean;
 }
 
 /** A long-running project action (create, start, image pull, backup …) and its current step. */
@@ -1621,6 +1625,21 @@ export interface UpdateSettingsRequest {
   folderViewFolder?: string;
   logHistory?: { enabled?: boolean; retentionDays?: number; maxMb?: number };
   metricsRetentionDays?: number;
+  imageUpdates?: { autoRestart: boolean; hour: number };
+}
+
+/** The daily check for newer builds of the projects' images (Settings → General). */
+export interface ImageUpdatesInfo {
+  /** Restart the running projects with a newer image daily at hour (server local time). */
+  autoRestart: boolean;
+  hour: number;
+  check: {
+    checkedAt?: string;
+    /** The image references with a newer build in their registry. */
+    newer: string[];
+    /** Why some images could not be checked. */
+    error?: string;
+  };
 }
 
 /** Container output kept beyond the containers (Settings → Retention). */
@@ -1675,6 +1694,7 @@ export interface Settings {
   /** FolderView3 folder (Unraid plugin) the containers are labelled for; "" for none. */
   folderViewFolder?: string;
   logHistory?: LogHistoryInfo;
+  imageUpdates?: ImageUpdatesInfo;
   metrics?: MetricsInfo;
   proxy: ProxyInfo;
   version: string;

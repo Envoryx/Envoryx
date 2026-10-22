@@ -424,11 +424,14 @@ type BuildOptions struct {
 
 // ImageInfo is what Envoryx reads from an image's configuration.
 type ImageInfo struct {
-	ID         string
-	Labels     map[string]string
-	Entrypoint []string
-	Cmd        []string
-	User       string
+	ID string
+	// RepoDigests are the registry digests the image was pulled as (repo@sha256:...); an
+	// image built on this host has none.
+	RepoDigests []string
+	Labels      map[string]string
+	Entrypoint  []string
+	Cmd         []string
+	User        string
 }
 
 // Engine is the label-scoped Docker abstraction used by Envoryx. "Managed" means managed
@@ -543,6 +546,9 @@ type Engine interface {
 	ImageExists(ctx context.Context, ref string) (bool, error)
 	// InspectImage returns the configuration of a local image (ErrNotFound if absent).
 	InspectImage(ctx context.Context, ref string) (ImageInfo, error)
+	// RemoteDigest asks the registry for the digest a pull of the tag would get now,
+	// without pulling it.
+	RemoteDigest(ctx context.Context, ref string) (string, error)
 	// BuildImage builds and tags an image. A failed step returns an error whose text ends
 	// with Docker's message; the output up to it went to opts.Output.
 	BuildImage(ctx context.Context, opts BuildOptions) error

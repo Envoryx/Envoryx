@@ -83,6 +83,8 @@ const templates = [
   "{{service}} is rolled back to the previous image but the container runs another one; restart to apply",
   "{{service}} container uses image {{image}} but {{configured}} is configured; restart to apply",
   "a newer {{service}} image was pulled; restart to apply",
+  "a newer {{service}} image is available; restart to apply",
+  "{{name}} {{version}} has reached its end of life and gets no security fixes; switch to a newer version",
   "the {{service}} container runs with an older setup; restart the project to update it",
   "container for removed service \"{{service}}\" still exists",
   "{{lifecycle}} was interrupted by an Envoryx restart; review the project and retry or delete it",

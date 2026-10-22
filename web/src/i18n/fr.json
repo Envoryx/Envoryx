@@ -3180,5 +3180,15 @@
   "creating projects needs admin access to the whole instance": "Créer des projets nécessite un accès administrateur à toute l'instance",
   "the dashboard needs admin scope": "Le tableau de bord nécessite la portée admin",
   "the settings need admin scope": "Les paramètres nécessitent la portée admin",
-  "your role does not allow this (it needs {{scope}} access)": "Votre rôle ne le permet pas (il faut un accès {{scope}})"
+  "your role does not allow this (it needs {{scope}} access)": "Votre rôle ne le permet pas (il faut un accès {{scope}})",
+  "Image updates": "Mises à jour des images",
+  "Once a day Envoryx asks the registries whether the images your projects use have a newer build, a PHP security fix for example. A project shows it and you get a notification; the next restart applies it. Nothing changes until then, unless you let Envoryx restart the projects itself.": "Une fois par jour, Envoryx demande aux registres si les images utilisées par vos projets ont une version plus récente, par exemple un correctif de sécurité PHP. Le projet l'indique et vous recevez une notification ; le prochain redémarrage l'applique. Rien ne change d'ici là, sauf si vous laissez Envoryx redémarrer les projets lui-même.",
+  "Restart the running projects with a newer image daily": "Redémarrer chaque jour les projets en cours dont l'image a une version plus récente",
+  "At the hour below, each running project whose image has a newer build is restarted, one after the other, which interrupts it for a few seconds. Stopped projects and projects rolled back to their previous image stay as they are.": "À l'heure choisie ci-dessous, chaque projet en cours dont l'image a une version plus récente est redémarré, l'un après l'autre, ce qui l'interrompt quelques secondes. Les projets arrêtés et ceux remis sur leur image précédente restent tels quels.",
+  "Last checked {{time}}, images with a newer build: {{n}}": "Dernière vérification {{time}}, images avec une version plus récente : {{n}}",
+  "Not checked yet: the first check runs a few minutes after Envoryx starts.": "Pas encore vérifié : la première vérification a lieu quelques minutes après le démarrage d'Envoryx.",
+  "a newer {{service}} image is available; restart to apply": "Une image {{service}} plus récente est disponible ; redémarrez pour l'appliquer",
+  "{{name}} {{version}} has reached its end of life and gets no security fixes; switch to a newer version": "{{name}} {{version}} est en fin de vie et ne reçoit plus de correctifs de sécurité ; passez à une version plus récente",
+  "The registry has a newer build of images your projects use (a restart applies it)": "Le registre a une version plus récente d'images utilisées par vos projets (un redémarrage l'applique)",
+  "Projects were restarted at the set hour to apply newer images": "Des projets ont été redémarrés à l'heure choisie pour appliquer des images plus récentes"
 }

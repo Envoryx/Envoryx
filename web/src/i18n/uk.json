@@ -3230,5 +3230,15 @@
   "creating projects needs admin access to the whole instance": "Для створення проєктів потрібен доступ адміністратора до всього екземпляра",
   "the dashboard needs admin scope": "Для панелі потрібна область admin",
   "the settings need admin scope": "Для налаштувань потрібна область admin",
-  "your role does not allow this (it needs {{scope}} access)": "Ваша роль цього не дозволяє (потрібен доступ {{scope}})"
+  "your role does not allow this (it needs {{scope}} access)": "Ваша роль цього не дозволяє (потрібен доступ {{scope}})",
+  "Image updates": "Оновлення образів",
+  "Once a day Envoryx asks the registries whether the images your projects use have a newer build, a PHP security fix for example. A project shows it and you get a notification; the next restart applies it. Nothing changes until then, unless you let Envoryx restart the projects itself.": "Раз на день Envoryx питає реєстри, чи є в образів ваших проєктів новіша збірка, наприклад виправлення безпеки PHP. Проєкт показує це, і ви отримуєте сповіщення; наступний перезапуск її застосовує. Доти нічого не змінюється, якщо ви не дозволите Envoryx перезапускати проєкти самому.",
+  "Restart the running projects with a newer image daily": "Щодня перезапускати запущені проєкти з новішим образом",
+  "At the hour below, each running project whose image has a newer build is restarted, one after the other, which interrupts it for a few seconds. Stopped projects and projects rolled back to their previous image stay as they are.": "У вказану нижче годину кожен запущений проєкт, для образу якого є новіша збірка, перезапускається, один за одним, що перериває його на кілька секунд. Зупинені проєкти та проєкти, повернуті до попереднього образу, лишаються як є.",
+  "Last checked {{time}}, images with a newer build: {{n}}": "Остання перевірка {{time}}, образів із новішою збіркою: {{n}}",
+  "Not checked yet: the first check runs a few minutes after Envoryx starts.": "Ще не перевірялося: перша перевірка запускається за кілька хвилин після старту Envoryx.",
+  "a newer {{service}} image is available; restart to apply": "Доступний новіший образ {{service}}; перезапустіть, щоб застосувати",
+  "{{name}} {{version}} has reached its end of life and gets no security fixes; switch to a newer version": "{{name}} {{version}} досяг кінця терміну підтримки й більше не отримує виправлень безпеки; перейдіть на новішу версію",
+  "The registry has a newer build of images your projects use (a restart applies it)": "У реєстрі є новіша збірка образів, які використовують ваші проєкти (перезапуск її застосовує)",
+  "Projects were restarted at the set hour to apply newer images": "Проєкти перезапущено в заданий час, щоб застосувати новіші образи"
 }

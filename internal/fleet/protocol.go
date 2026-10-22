@@ -91,6 +91,9 @@ type Status struct {
 	Usage  Usage              `json:"usage"`
 	// Warnings are the instance's open problems (failing projects, low disk space).
 	Warnings []string `json:"warnings,omitempty"`
+	// ImageUpdates counts the projects whose containers don't run the newest build of
+	// their images; a restart of each applies it.
+	ImageUpdates int `json:"imageUpdates,omitempty"`
 }
 
 // BackupStatus is what the manager learns about the instance backups.

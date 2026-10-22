@@ -508,6 +508,12 @@ type ServiceStatus struct {
 	ImageChangedAt *time.Time `json:"imageChangedAt,omitempty"`
 	ImagePrevious  bool       `json:"imagePrevious"`
 	ImagePinned    bool       `json:"imagePinned"`
+	// ImageUpdate says that the container doesn't run the newest build of its image:
+	// "pulled" when a newer one is on the host already, "available" when the registry has
+	// one (the daily image check). A restart applies it.
+	ImageUpdate string `json:"imageUpdate,omitempty"`
+	// EOL marks a version that has reached its end of life and gets no security fixes.
+	EOL bool `json:"eol,omitempty"`
 }
 
 // Status is the derived state of a project.
