@@ -3228,5 +3228,15 @@
   "For whom": "Para quem",
   "e.g. Acme, review of the new shop": "ex. Acme, revisão da nova loja",
   "Valid for": "Válido por",
-  "Create link": "Criar link"
+  "Create link": "Criar link",
+  "Who sees new projects": "Quem vê os novos projetos",
+  "A project's addresses are open to everyone who knows them, unless its rules let in only people signed in to Envoryx. On a server on the internet, start new projects that way; each project can still change it under Domains → Rules.": "Os endereços de um projeto ficam abertos a quem os conhece, a menos que suas regras só deixem entrar pessoas conectadas ao Envoryx. Num servidor na internet, comece assim os novos projetos; cada projeto ainda pode mudar isso em Domínios → Regras.",
+  "signed-in only": "só conectados",
+  "New projects only let in people signed in to Envoryx": "Novos projetos só deixam entrar pessoas conectadas ao Envoryx",
+  "Others can be let in with a guest link. Projects that exist keep their rules.": "Os outros entram com um link de convidado. Projetos existentes mantêm suas regras.",
+  "Your hoster's plan keeps every project behind the sign-in.": "O plano do seu provedor mantém todo projeto atrás do login.",
+  "Projects open to everyone": "Projetos abertos a todos",
+  "Public shares": "Compartilhamentos públicos",
+  "New projects signed-in only": "Novos projetos só para conectados",
+  "Your hoster's plan leaves out public shares; send a guest link instead": "O plano do seu provedor não inclui compartilhamentos públicos; envie um link de convidado"
 }

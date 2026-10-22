@@ -311,6 +311,11 @@ func serve() error {
 	// The projects' host ports listen on every interface of a machine of one's own. On a
 	// hoster's they stay on the machine itself: its customers reach the projects through
 	// the proxy, and a database or debugger port must not face the internet.
+	// A hoster manages the instance when it has a plan or a fleet manager.
+	managed := func() bool {
+		_, err := os.Stat(filepath.Join(cfg.ConfigDir, fleet.StateFile))
+		return plans.Get() != nil || cfg.FleetURL != "" || err == nil
+	}
 	localPorts := func() bool {
 		switch cfg.HostPorts {
 		case "local":
@@ -318,8 +323,7 @@ func serve() error {
 		case "all":
 			return false
 		}
-		_, err := os.Stat(filepath.Join(cfg.ConfigDir, fleet.StateFile))
-		return plans.Get() != nil || cfg.FleetURL != "" || err == nil
+		return managed()
 	}
 	paths := func() (project.Paths, error) {
 		resolver.EnsureDetected(ctx)
@@ -340,7 +344,7 @@ func serve() error {
 	}
 	manager := project.NewManager(st, engine, catalog, paths, auditLog, project.Config{
 		PortRangeStart: cfg.PortRangeStart, PortRangeEnd: cfg.PortRangeEnd, NetworkPool: cfg.NetworkPool, StopTimeout: 10 * time.Second,
-		ConfigDir: cfg.ConfigDir, BackupsDir: cfg.BackupsDir, LocalPorts: localPorts,
+		ConfigDir: cfg.ConfigDir, BackupsDir: cfg.BackupsDir, LocalPorts: localPorts, Managed: managed,
 	}, log)
 	if localPorts() {
 		log.Info("project ports listen on 127.0.0.1 only; set ENVORYX_HOST_PORTS=all to open them on every interface")

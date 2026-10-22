@@ -5,7 +5,7 @@ import { Activity, Archive, Blocks, Clock, CodeXml, Copy, Database, Ellipsis, Ex
 import { lazy, Suspense, useEffect, useState, type ReactElement } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { ApiError } from "@/api/client";
-import { useDevServerLink, useImageChoice, usePlanRuntimes, useProject, useProjectLinks, useProjectPlan, useProjectStats, useRuntimes, useSettings, useUpdateProject } from "@/api/hooks";
+import { useDevServerLink, useImageChoice, usePlanAllows, usePlanRuntimes, useProject, useProjectLinks, useProjectPlan, useProjectStats, useRuntimes, useSettings, useUpdateProject } from "@/api/hooks";
 import { appKindOf, defaultNodePresets, defaultPythonPresets, defaultRubyPresets, defaultJavaPresets, defaultDotnetPresets, servesOf, type EnvVar, type NodeConfig, type PHPConfig, type Project, type PythonConfig, type GoConfig, type RubyConfig, type JavaConfig, type DotnetConfig, type UpdateProjectRequest, type WebServerConfig } from "@/api/types";
 import { NodeDevServerFields, defaultScript, devServerRequest, type DevServerForm } from "./NodeDevServerFields";
 import { PythonServerFields, defaultPythonServerForm, pythonServerRequest, type PythonServerForm } from "./PythonServerFields";
@@ -1332,11 +1332,12 @@ function EnvTab({ project: p }: { project: Project }) {
 function ProjectMenu({ project: p, projectAdmin, instanceAdmin, onShare, onRename, onDuplicate, onShowPlan, onDelete }: { project: Project; projectAdmin: boolean; instanceAdmin: boolean; onShare: () => void; onRename: () => void; onDuplicate: () => void; onShowPlan: () => void; onDelete: () => void }) {
   const { t } = useTranslation();
   const share = useShare(p);
+  const sharesAllowed = usePlanAllows("publicShares");
   const items: MenuItem[] = [];
   if (projectAdmin) {
     const running = p.status.state === "running";
     const shared = !!share.data?.active;
-    items.push({ label: shared ? t("Shared") : t("Share publicly"), icon: <Globe className="size-4" />, onSelect: onShare, disabled: !running && !shared, title: running || shared ? t("Share on a public address") : t("Project is not running") });
+    items.push({ label: shared ? t("Shared") : t("Share publicly"), icon: <Globe className="size-4" />, onSelect: onShare, disabled: (!running || !sharesAllowed) && !shared, title: !sharesAllowed ? t("Your hoster's plan leaves out public shares; send a guest link instead") : running || shared ? t("Share on a public address") : t("Project is not running") });
     items.push({ label: t("Rename project"), icon: <Pencil className="size-4" />, onSelect: onRename, title: t("Rename project - identifier, URL and containers follow") });
   }
   if (instanceAdmin) {

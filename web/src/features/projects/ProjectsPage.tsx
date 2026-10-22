@@ -1,9 +1,9 @@
-import { Plus, Search } from "lucide-react";
+import { Lock, Plus, Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/features/auth/AuthContext";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { useDashboard, useProjectLinks, useProjects } from "@/api/hooks";
+import { useDashboard, usePlanAllows, useProjectLinks, useProjects } from "@/api/hooks";
 import { appKindOf, type Project } from "@/api/types";
 import { Alert, Badge, Button, Card, EmptyState, ErrorState, Input, LinkButton, PageHeader, Spinner, StatusDot } from "@/components/ui";
 import { formatBytes, formatPercent, serviceLabel, stateMeta } from "@/lib/format";
@@ -55,6 +55,7 @@ export function ProjectRow({ project, usage: sampled }: { project: Project; usag
   const { error, capture } = useActionError();
   const running = project.status.services.filter((s) => s.running).length;
   const total = project.status.services.filter((s) => s.state !== "external").length;
+  const signedInOnly = !!project.proxyRules?.login || !usePlanAllows("publicProjects");
 
   return (
     <li className="px-4 py-3 sm:px-5">
@@ -62,8 +63,9 @@ export function ProjectRow({ project, usage: sampled }: { project: Project; usag
         <div className="flex min-w-0 items-center gap-3">
           <StatusDot tone={meta.tone} pulse={meta.pulse ?? false} />
           <div className="min-w-0">
-            <Link to={`/projects/${project.id}`} className="block truncate text-sm font-semibold text-fg hover:underline">
-              {project.name}
+            <Link to={`/projects/${project.id}`} className="flex items-center gap-1.5 truncate text-sm font-semibold text-fg hover:underline">
+              <span className="truncate">{project.name}</span>
+              {signedInOnly && <Lock className="size-3 shrink-0 text-subtle" aria-label={t("Only people signed in to Envoryx")} />}
             </Link>
             <p className="truncate font-mono text-[11px] text-subtle" title={url}>
               {url ? shortUrl(url) : t("no port")}

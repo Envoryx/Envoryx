@@ -12,6 +12,7 @@ import (
 
 	"github.com/envoryx/envoryx/internal/audit"
 	"github.com/envoryx/envoryx/internal/docker"
+	"github.com/envoryx/envoryx/internal/plan"
 	"github.com/envoryx/envoryx/internal/store"
 	"github.com/envoryx/envoryx/internal/validate"
 )
@@ -116,6 +117,9 @@ var shareErrorRe = regexp.MustCompile(` ERR |failed to|error=`)
 func (m *Manager) StartShare(ctx context.Context, id string, duration time.Duration) (Share, error) {
 	if err := validate.UUID(id); err != nil {
 		return Share{}, ErrNotFound
+	}
+	if err := m.Plan().RequireFeature(plan.FeaturePublicShares); err != nil {
+		return Share{}, err
 	}
 	if duration == 0 {
 		duration = shareDefaultDuration

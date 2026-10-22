@@ -36,10 +36,16 @@ const (
 	// off, no project gets one newly; projects that run one keep it.
 	FeatureEOLVersions     Feature = "eolVersions"
 	FeaturePreviewVersions Feature = "previewVersions"
+	// FeaturePublicProjects are projects open to everyone who knows their address.
+	// Switched off, every project lets in only people signed in to Envoryx (or with a
+	// guest link). FeaturePublicShares are shares on a public tunnel address, which skip
+	// that sign-in on purpose.
+	FeaturePublicProjects Feature = "publicProjects"
+	FeaturePublicShares   Feature = "publicShares"
 )
 
 // Features lists every feature a plan can switch off, in display order.
-var Features = []Feature{FeatureAddons, FeatureCustomImages, FeatureBranchEnvs, FeatureExternalServices, FeatureOffsite, FeatureIDEGateway, FeatureEOLVersions, FeaturePreviewVersions}
+var Features = []Feature{FeatureAddons, FeatureCustomImages, FeatureBranchEnvs, FeatureExternalServices, FeatureOffsite, FeatureIDEGateway, FeatureEOLVersions, FeaturePreviewVersions, FeaturePublicProjects, FeaturePublicShares}
 
 // Plan is what a hoster allows an instance. Zero values mean "no limit".
 type Plan struct {
@@ -109,7 +115,7 @@ type Limits struct {
 }
 
 // LockableSettings are the instance settings a plan can fix.
-var LockableSettings = []string{"publicHost", "baseDomain", "forceHttps", "projectsFollowEnvoryx", "sharedIdeBackends", "sharedPackageCache", "xdebugClientHost", "folderViewFolder", "metricsRetentionDays"}
+var LockableSettings = []string{"publicHost", "baseDomain", "forceHttps", "projectsFollowEnvoryx", "sharedIdeBackends", "sharedPackageCache", "xdebugClientHost", "folderViewFolder", "metricsRetentionDays", "newProjectsPrivate"}
 
 // ErrQuota is returned when an action would go beyond the plan.
 var ErrQuota = errors.New("not included in the plan")
@@ -200,6 +206,8 @@ var featureNoun = map[Feature]string{
 	FeatureIDEGateway:       "IDE gateways",
 	FeatureEOLVersions:      "end-of-life versions",
 	FeaturePreviewVersions:  "preview versions",
+	FeaturePublicProjects:   "projects open to everyone",
+	FeaturePublicShares:     "public shares",
 }
 
 // AllowsRuntime reports whether new projects may use a runtime.

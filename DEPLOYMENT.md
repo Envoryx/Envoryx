@@ -1112,6 +1112,12 @@ not to the directly published port, which bypasses the proxy.
   to the answers, replacing the application's own. With *Allow cookies and
   credentials* the origins have to be listed.
 
+*Settings → Domains & HTTPS → Who sees new projects* decides whether a new
+project starts with *Only people signed in to Envoryx* (`newProjectsPrivate`
+in `PATCH /settings`, `envoryx settings set new-projects-private`). Until an
+admin decides, that is on for an instance a hoster manages and off on a
+machine of your own; projects that exist keep their rules either way.
+
 **Guest links** (*Domains → Guest links*) let people without an Envoryx
 account into a project behind the sign-in: the customer who reviews the
 staging site. Name the link after whom it is for and pick how long it works
@@ -2809,8 +2815,16 @@ management).
 - **disabled**: features the plan switches off: `addons`, `customImages`,
   `branchEnvironments`, `externalServices`, `offsite` (no targets, nothing is
   sent or fetched), `ideGateway` (no port forwarding over SSH, also not to the
-  project's services), `eolVersions`
-  and `previewVersions`. The last two leave out the versions past their end of
+  project's services), `eolVersions`,
+  `previewVersions`, `publicProjects` and `publicShares`. Without
+  `publicProjects` every project only lets in people signed in to Envoryx
+  (or with a guest link), whatever its rules say; without `publicShares`
+  nobody can put a project on a public tunnel address, and a share that runs
+  is no longer routed. Instances before 0.43 refuse a plan naming these two
+  (or fixing `newProjectsPrivate`) and keep their old one; the fleet manager
+  leaves them out for such instances, a hand-written plan needs the update
+  first.
+  `eolVersions` and `previewVersions` leave out the versions past their end of
   life (PHP 8.1) and the pre-releases (PHP 8.6 RC): no new project, copy,
   restore, branch environment or version switch gets one, and the wizard shows
   them as *not in your plan*. A project that runs one already keeps it, may
@@ -2819,7 +2833,8 @@ management).
 - **settings**: instance settings the hoster fixes, by their name in
   `PATCH /api/v1/settings`: `publicHost`, `baseDomain`, `forceHttps`,
   `projectsFollowEnvoryx`, `sharedIdeBackends`, `sharedPackageCache`,
-  `xdebugClientHost`, `folderViewFolder`, `metricsRetentionDays`. They are
+  `xdebugClientHost`, `folderViewFolder`, `metricsRetentionDays`,
+  `newProjectsPrivate`. They are
   applied when the plan is read, and the admins of the instance see them
   locked.
 - **offsite**: the hoster's offsite target, with the fields of an offsite

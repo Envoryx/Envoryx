@@ -46,6 +46,8 @@ type Config struct {
 	// LocalPorts reports whether project ports are published on 127.0.0.1 only (see
 	// Paths.PublishInterface); nil means on every interface.
 	LocalPorts func() bool
+	// Managed reports whether a hoster manages the instance; nil means it doesn't.
+	Managed func() bool
 }
 
 // LocalPorts reports whether project ports are only open on the machine itself.

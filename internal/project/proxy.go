@@ -12,6 +12,7 @@ import (
 
 	"github.com/envoryx/envoryx/internal/audit"
 	"github.com/envoryx/envoryx/internal/docker"
+	"github.com/envoryx/envoryx/internal/plan"
 	"github.com/envoryx/envoryx/internal/proxy"
 	"github.com/envoryx/envoryx/internal/runtime"
 	"github.com/envoryx/envoryx/internal/store"
@@ -262,11 +263,11 @@ func (m *Manager) RouteTable(ctx context.Context, opts ProxyOptions) (proxy.Tabl
 		byProject[p.ID] = p
 		t.Routes[DefaultHostname(p.Slug, base)] = m.appRoute(paths.SelfContainerID, p, running, base)
 		if cfg, ok := nodeDevConfig(p); ok {
-			t.Routes[DevHostname(p.Slug, base)] = withLogin(proxy.Target{ProjectID: p.ID, ProjectName: p.Name + " (dev server)", Slug: p.Slug, Running: nodeRunning[p.ID], Started: p.DesiredState == store.DesiredRunning, Dial: m.dialForDev(paths.SelfContainerID, p, cfg), Rules: proxyRules(p)}, p)
+			t.Routes[DevHostname(p.Slug, base)] = withLogin(proxy.Target{ProjectID: p.ID, ProjectName: p.Name + " (dev server)", Slug: p.Slug, Running: nodeRunning[p.ID], Started: p.DesiredState == store.DesiredRunning, Dial: m.dialForDev(paths.SelfContainerID, p, cfg), Rules: proxyRules(p)}, p, m.signsIn(p))
 		}
 		// A share is the deliberate exception from the sign-in: its address is random and
 		// ends with the share, and the basic authentication still applies there.
-		if host, ok := m.shareHosts.Load(p.ID); ok {
+		if host, ok := m.shareHosts.Load(p.ID); ok && m.Plan().Allows(plan.FeaturePublicShares) {
 			target := m.appTarget(paths.SelfContainerID, p, running)
 			target.Share = true
 			t.Routes[host.(string)] = target
@@ -303,7 +304,7 @@ func (m *Manager) RouteTable(ctx context.Context, opts ProxyOptions) (proxy.Tabl
 // application, behind the Envoryx sign-in when the project asks for it. The dev server's
 // host gets a pass at the same sign-in, since the pages load their scripts from it.
 func (m *Manager) appRoute(selfID string, p store.Project, running map[string]map[string]bool, base string) proxy.Target {
-	t := withLogin(m.appTarget(selfID, p, running), p)
+	t := withLogin(m.appTarget(selfID, p, running), p, m.signsIn(p))
 	if _, ok := nodeDevConfig(p); ok && t.Login != "" {
 		t.LoginAlso = []string{DevHostname(p.Slug, base)}
 	}

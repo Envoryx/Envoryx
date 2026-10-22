@@ -1645,6 +1645,7 @@ export interface UpdateSettingsRequest {
   baseDomain?: string;
   forceHttps?: boolean;
   projectsFollowEnvoryx?: boolean;
+  newProjectsPrivate?: boolean;
   sharedIdeBackends?: boolean;
   sharedPackageCache?: boolean;
   folderViewFolder?: string;
@@ -1712,6 +1713,7 @@ export interface Settings {
   forceHttps: boolean;
   /** Project containers stop with the Envoryx container and resume when it comes back. */
   projectsFollowEnvoryx?: boolean;
+  newProjectsPrivate?: boolean;
   /** Projects with JetBrains Gateway share one backend cache instead of one each. */
   sharedIdeBackends?: boolean;
   /** All projects share one package cache instead of one each. */
@@ -1739,7 +1741,7 @@ export interface Settings {
 }
 
 /** A part of Envoryx a hoster's plan can switch off. */
-export type PlanFeature = "addons" | "customImages" | "branchEnvironments" | "externalServices" | "offsite" | "ideGateway" | "eolVersions" | "previewVersions";
+export type PlanFeature = "addons" | "customImages" | "branchEnvironments" | "externalServices" | "offsite" | "ideGateway" | "eolVersions" | "previewVersions" | "publicProjects" | "publicShares";
 
 /** What a hoster allows a managed instance; zero limits mean no limit. */
 export interface Plan {

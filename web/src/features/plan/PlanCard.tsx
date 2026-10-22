@@ -17,6 +17,8 @@ export const planFeatureLabels: Record<PlanFeature, string> = {
   ideGateway: "IDE gateway",
   eolVersions: "End-of-life versions",
   previewVersions: "Preview versions",
+  publicProjects: "Projects open to everyone",
+  publicShares: "Public shares",
 };
 
 /** Bytes with binary unit names (GiB): the plan's disk space is counted in them. */
@@ -115,6 +117,7 @@ const settingLabels: Record<string, string> = {
   xdebugClientHost: "Xdebug client host",
   folderViewFolder: "FolderView3 folder",
   metricsRetentionDays: "Resource history",
+  newProjectsPrivate: "New projects signed-in only",
 };
 
 function Quota({ label, used, limit, format, note }: { label: string; used: number; limit: number; format: (n: number) => string; note?: string | undefined }) {
