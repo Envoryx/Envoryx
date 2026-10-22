@@ -445,8 +445,31 @@ func serve() error {
 			if notifier != nil {
 				acmeMgr.SetNotifier(notifier)
 			}
-			background("certificate renewal", acmeMgr.Run)
 		}
+	}
+	// The certificate a hoster's fleet manager provides takes the place of Let's Encrypt
+	// and an own certificate while it is there. It is applied before the renewal starts,
+	// which would otherwise get a certificate of its own first.
+	var hosterCertErr atomic.Pointer[string]
+	applyHosterCert := func(c *plan.Certificate) {
+		hosterCertErr.Store(nil)
+		var err error
+		switch {
+		case acmeMgr != nil:
+			err = acmeMgr.SetHoster(c)
+		case c != nil:
+			err = errors.New("this instance serves no HTTPS, so it can't use the hoster's certificate")
+		}
+		if err != nil {
+			log.Warn("the hoster's certificate is not used", "err", err)
+			msg := err.Error()
+			hosterCertErr.Store(&msg)
+		}
+	}
+	applyHosterCert(plans.Certificate())
+	plans.OnCertificate(applyHosterCert)
+	if acmeMgr != nil {
+		background("certificate renewal", acmeMgr.Run)
 	}
 	proxyInfo := detectProxy(ctx, cfg, engine, resolver, certs != nil, log)
 
@@ -547,6 +570,15 @@ func serve() error {
 			}
 			if msg := planSettingsErr.Load(); msg != nil {
 				s.Warnings = append(s.Warnings, *msg)
+			}
+			if h := acmeMgr.HosterStatus(); h != nil {
+				s.Certificate = &fleet.CertificateStatus{Domain: h.Domain, NotAfter: h.NotAfter}
+			}
+			if msg := hosterCertErr.Load(); msg != nil {
+				if s.Certificate == nil {
+					s.Certificate = &fleet.CertificateStatus{}
+				}
+				s.Certificate.Error = *msg
 			}
 			s.Backups = remote.Status(ctx)
 			us := updater.Status(ctx)

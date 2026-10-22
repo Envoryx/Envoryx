@@ -28,9 +28,21 @@ type acmeRequest struct {
 	UseAsBaseDomain bool `json:"useAsBaseDomain"`
 }
 
+// hosterCertificate refuses a change to the certificates while the hoster provides one.
+func (a *API) hosterCertificate(w http.ResponseWriter, r *http.Request) bool {
+	if a.d.ACME.Hoster() {
+		writeError(w, r, acme.ErrHoster)
+		return true
+	}
+	return false
+}
+
 func (a *API) setACME(w http.ResponseWriter, r *http.Request) {
 	if a.d.ACME == nil {
 		writeError(w, r, store.ErrNotFound)
+		return
+	}
+	if a.hosterCertificate(w, r) {
 		return
 	}
 	var req acmeRequest
@@ -63,6 +75,9 @@ func (a *API) clearACME(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, store.ErrNotFound)
 		return
 	}
+	if a.hosterCertificate(w, r) {
+		return
+	}
 	if err := a.d.ACME.Clear(); err != nil {
 		writeError(w, r, err)
 		return
@@ -74,6 +89,9 @@ func (a *API) clearACME(w http.ResponseWriter, r *http.Request) {
 func (a *API) issueACME(w http.ResponseWriter, r *http.Request) {
 	if a.d.ACME == nil {
 		writeError(w, r, store.ErrNotFound)
+		return
+	}
+	if a.hosterCertificate(w, r) {
 		return
 	}
 	if !a.d.ACME.Status().Configured {

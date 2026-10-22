@@ -3196,5 +3196,8 @@
   " (not in your plan)": " (no incluida en tu plan)",
   "{{name}} {{version}} is a preview version, which this instance's plan doesn't include; switch to a released version": "{{name}} {{version}} es una versión preliminar que el plan de esta instancia no incluye; cambia a una versión publicada",
   "{{name}} {{version}} has reached its end of life; this instance's plan includes supported versions only": "{{name}} {{version}} ha llegado al final de su vida útil; el plan de esta instancia solo incluye versiones con soporte",
-  "{{name}} {{version}} is a preview version; this instance's plan includes released versions only": "{{name}} {{version}} es una versión preliminar; el plan de esta instancia solo incluye versiones publicadas"
+  "{{name}} {{version}} is a preview version; this instance's plan includes released versions only": "{{name}} {{version}} es una versión preliminar; el plan de esta instancia solo incluye versiones publicadas",
+  "Certificate from your hoster": "Certificado de tu proveedor",
+  "Your hoster provides the certificate for this instance and renews it in time. Let's Encrypt and an own certificate aren't needed and can't be set up meanwhile.": "Tu proveedor proporciona el certificado de esta instancia y lo renueva a tiempo. Let's Encrypt y un certificado propio no hacen falta y mientras tanto no se pueden configurar.",
+  "the certificate is provided by the hoster": "el certificado lo proporciona el proveedor"
 }

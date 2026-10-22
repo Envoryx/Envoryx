@@ -15,6 +15,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/envoryx/envoryx/internal/plantest"
 )
 
 // The project carries its full URL, the proxy's port included, so clients (the CLI) do
@@ -204,6 +206,40 @@ func TestACMEEndpoints(t *testing.T) {
 	r = a.do(http.MethodDelete, "/api/v1/settings/tls/acme", nil, true)
 	if r.status != http.StatusOK || r.body["status"].(map[string]any)["configured"] != false {
 		t.Fatalf("clear: %d %s", r.status, r.raw)
+	}
+}
+
+// While the hoster provides the certificate, the admins can't set up their own, and the
+// TLS settings say so.
+func TestHosterCertificateLocksTheCertificates(t *testing.T) {
+	a := newApp(t)
+	a.setupAndLogin()
+	c := plantest.Certificate(t, "kunde.envbay.dev")
+	if err := a.acme.SetHoster(&c); err != nil {
+		t.Fatal(err)
+	}
+	certPEM, keyPEM := selfSigned(t, "dev.example.com")
+	for _, req := range []struct {
+		method, path string
+		body         any
+	}{
+		{http.MethodPut, "/api/v1/settings/tls/custom", map[string]any{"certificate": certPEM, "key": keyPEM}},
+		{http.MethodDelete, "/api/v1/settings/tls/custom", nil},
+		{http.MethodPut, "/api/v1/settings/tls/acme", map[string]any{"provider": "cloudflare", "domain": "dev.example.com", "email": "me@example.com", "token": "cf-token"}},
+		{http.MethodDelete, "/api/v1/settings/tls/acme", nil},
+		{http.MethodPost, "/api/v1/settings/tls/acme/issue", nil},
+	} {
+		if r := a.do(req.method, req.path, req.body, true); r.status != http.StatusForbidden || !strings.Contains(string(r.raw), "provided by the hoster") {
+			t.Errorf("%s %s: %d %s", req.method, req.path, r.status, r.raw)
+		}
+	}
+	r := a.do(http.MethodGet, "/api/v1/settings/tls", nil, false)
+	if r.body["hosterCertificate"] != true || !strings.Contains(string(r.raw), "*.kunde.envbay.dev") {
+		t.Fatalf("tls info: %s", r.raw)
+	}
+	r = a.do(http.MethodGet, "/api/v1/settings/tls/acme", nil, false)
+	if r.body["status"].(map[string]any)["hoster"].(map[string]any)["domain"] != "kunde.envbay.dev" {
+		t.Fatalf("acme status: %s", r.raw)
 	}
 }
 

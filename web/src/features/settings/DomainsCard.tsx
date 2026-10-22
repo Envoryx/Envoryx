@@ -171,6 +171,35 @@ function CustomCertForm({ tls }: { tls: TLSInfo }) {
   );
 }
 
+/** The wildcard certificate the hoster's fleet manager provides and renews. */
+function HosterCertificate({ tls }: { tls: TLSInfo }) {
+  const { t } = useTranslation();
+  const custom = tls.ca?.custom ?? null;
+  return (
+    <div className="space-y-3">
+      <p className="text-sm text-muted">
+        {t("Your hoster provides the certificate for this instance and renews it in time. Let's Encrypt and an own certificate aren't needed and can't be set up meanwhile.")}
+      </p>
+      {custom && (
+        <div className="rounded-md border border-default p-3 text-sm">
+          <p className="flex items-center gap-2 font-medium">
+            <ShieldCheck className="size-4 text-emerald-500" aria-hidden /> {custom.subject}
+            {custom.expired && <Badge tone="red">{t("expired")}</Badge>}
+          </p>
+          <dl className="mt-2 grid gap-x-6 gap-y-1 text-xs sm:grid-cols-[8rem_1fr]">
+            <dt className="text-muted">{t("Names")}</dt>
+            <dd className="font-mono">{custom.dnsNames.join(", ")}</dd>
+            <dt className="text-muted">{t("Issuer")}</dt>
+            <dd>{custom.issuer}</dd>
+            <dt className="text-muted">{t("Valid until")}</dt>
+            <dd>{formatDateTime(custom.notAfter)}</dd>
+          </dl>
+        </div>
+      )}
+    </div>
+  );
+}
+
 const trustSteps: { os: string; steps: string }[] = [
   { os: "Windows", steps: "Double-click envoryx-ca.crt → Install Certificate → Local Machine → “Place all certificates in the following store” → Trusted Root Certification Authorities." },
   { os: "macOS", steps: "Open the file in Keychain Access (System keychain), then double-click the certificate → Trust → “Always Trust”." },
@@ -194,7 +223,7 @@ export function DomainsCard() {
       <div className="space-y-6 p-5">
         <ProxyStatus tls={info} />
         <BaseDomainForm baseDomain={settings.data.baseDomain} forceHttps={settings.data.forceHttps} tlsAvailable={tlsAvailable} />
-        {info.proxy.enabled && <DnsGuide baseDomain={settings.data.baseDomain} target={dnsTarget(info.proxy.address, settings.data.publicHost, window.location.hostname)} />}
+        {info.proxy.enabled && !info.hosterCertificate && <DnsGuide baseDomain={settings.data.baseDomain} target={dnsTarget(info.proxy.address, settings.data.publicHost, window.location.hostname)} />}
         {info.enabled && info.ca && (
           <>
             <div className="border-t border-default pt-5">
@@ -224,18 +253,29 @@ export function DomainsCard() {
                 </ul>
               </details>
             </div>
-            <div className="border-t border-default pt-5">
-              <h3 className="text-sm font-semibold">{t("Let's Encrypt (public certificate, no CA installation)")}</h3>
-              <div className="mt-3">
-                <AcmeForm baseDomain={settings.data.baseDomain} />
+            {info.hosterCertificate ? (
+              <div className="border-t border-default pt-5">
+                <h3 className="text-sm font-semibold">{t("Certificate from your hoster")}</h3>
+                <div className="mt-3">
+                  <HosterCertificate tls={info} />
+                </div>
               </div>
-            </div>
-            <div className="border-t border-default pt-5">
-              <h3 className="text-sm font-semibold">{t("Custom certificate")}</h3>
-              <div className="mt-3">
-                <CustomCertForm tls={info} />
-              </div>
-            </div>
+            ) : (
+              <>
+                <div className="border-t border-default pt-5">
+                  <h3 className="text-sm font-semibold">{t("Let's Encrypt (public certificate, no CA installation)")}</h3>
+                  <div className="mt-3">
+                    <AcmeForm baseDomain={settings.data.baseDomain} />
+                  </div>
+                </div>
+                <div className="border-t border-default pt-5">
+                  <h3 className="text-sm font-semibold">{t("Custom certificate")}</h3>
+                  <div className="mt-3">
+                    <CustomCertForm tls={info} />
+                  </div>
+                </div>
+              </>
+            )}
           </>
         )}
       </div>

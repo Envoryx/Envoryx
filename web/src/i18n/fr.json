@@ -3196,5 +3196,8 @@
   " (not in your plan)": " (pas dans votre offre)",
   "{{name}} {{version}} is a preview version, which this instance's plan doesn't include; switch to a released version": "{{name}} {{version}} est une version préliminaire que l'offre de cette instance n'inclut pas ; passez à une version publiée",
   "{{name}} {{version}} has reached its end of life; this instance's plan includes supported versions only": "{{name}} {{version}} est en fin de vie ; l'offre de cette instance n'inclut que des versions prises en charge",
-  "{{name}} {{version}} is a preview version; this instance's plan includes released versions only": "{{name}} {{version}} est une version préliminaire ; l'offre de cette instance n'inclut que des versions publiées"
+  "{{name}} {{version}} is a preview version; this instance's plan includes released versions only": "{{name}} {{version}} est une version préliminaire ; l'offre de cette instance n'inclut que des versions publiées",
+  "Certificate from your hoster": "Certificat de ton hébergeur",
+  "Your hoster provides the certificate for this instance and renews it in time. Let's Encrypt and an own certificate aren't needed and can't be set up meanwhile.": "Ton hébergeur fournit le certificat de cette instance et le renouvelle à temps. Let's Encrypt et un certificat personnel ne sont pas nécessaires et ne peuvent pas être configurés en attendant.",
+  "the certificate is provided by the hoster": "le certificat est fourni par l'hébergeur"
 }

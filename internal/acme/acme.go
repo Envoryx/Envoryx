@@ -25,6 +25,7 @@ import (
 	"golang.org/x/crypto/acme"
 
 	"github.com/envoryx/envoryx/internal/notify"
+	"github.com/envoryx/envoryx/internal/plan"
 	"github.com/envoryx/envoryx/internal/secrets"
 	"github.com/envoryx/envoryx/internal/tlsca"
 	"github.com/envoryx/envoryx/internal/validate"
@@ -74,7 +75,19 @@ type Status struct {
 	// that are stored.
 	Fields  map[string]string `json:"fields,omitempty"`
 	Secrets []string          `json:"secrets,omitempty"`
+	// Hoster is set while the instance's hoster provides the certificate; Let's Encrypt
+	// and an own certificate wait meanwhile.
+	Hoster *HosterCertificate `json:"hoster,omitempty"`
 }
+
+// HosterCertificate is the certificate a hoster's fleet manager provides.
+type HosterCertificate struct {
+	Domain   string    `json:"domain"`
+	NotAfter time.Time `json:"notAfter"`
+}
+
+// ErrHoster is returned for a change to the certificates while the hoster provides one.
+var ErrHoster = plan.Quota("the certificate is provided by the hoster")
 
 // Manager holds the configuration and drives issuance/renewal.
 type Manager struct {
@@ -89,6 +102,8 @@ type Manager struct {
 	lastSuccess *time.Time
 	lastError   string
 	wake        chan struct{}
+	// hoster is the hoster's certificate while it provides one.
+	hoster *HosterCertificate
 
 	notifier notify.Sender
 
@@ -147,12 +162,65 @@ func (m *Manager) Status() Status {
 			}
 		}
 	}
-	if info := m.certs.Info(); info.Custom != nil && m.cfg.Domain != "" && covers(info.Custom.DNSNames, m.cfg.Domain) {
+	if m.hoster != nil {
+		h := *m.hoster
+		st.Hoster = &h
+	}
+	if info := m.certs.Info(); m.hoster == nil && info.Custom != nil && m.cfg.Domain != "" && covers(info.Custom.DNSNames, m.cfg.Domain) {
 		na := info.Custom.NotAfter
 		st.NotAfter = &na
 		st.Names = info.Custom.DNSNames
 	}
 	return st
+}
+
+// SetHoster serves the hoster's certificate (nil: none any more). While it is set, the
+// configured Let's Encrypt certificate is neither obtained nor renewed; once the hoster
+// takes it back, its certificate is removed and Let's Encrypt, if configured, gets one
+// again.
+func (m *Manager) SetHoster(c *plan.Certificate) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if c == nil {
+		if m.hoster == nil {
+			return nil
+		}
+		m.hoster = nil
+		if err := m.certs.SetCustom(nil, nil); err != nil {
+			return err
+		}
+		m.kick()
+		return nil
+	}
+	if err := m.certs.SetCustom([]byte(c.Certificate), []byte(c.Key)); err != nil {
+		return err
+	}
+	m.hoster = &HosterCertificate{Domain: c.Domain, NotAfter: c.NotAfter()}
+	return nil
+}
+
+// HosterStatus returns the hoster's certificate while it provides one.
+func (m *Manager) HosterStatus() *HosterCertificate {
+	if m == nil {
+		return nil
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.hoster == nil {
+		return nil
+	}
+	h := *m.hoster
+	return &h
+}
+
+// Hoster reports whether the hoster provides the certificate.
+func (m *Manager) Hoster() bool {
+	if m == nil {
+		return false
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.hoster != nil
 }
 
 // Config returns a copy of the configuration, secrets included. It's for internal use
@@ -276,7 +344,7 @@ func (m *Manager) NeedsIssue() bool {
 }
 
 func (m *Manager) needsIssueLocked() bool {
-	if m.cfg.Provider == "" {
+	if m.cfg.Provider == "" || m.hoster != nil {
 		return false
 	}
 	info := m.certs.Info()
@@ -336,6 +404,10 @@ func (m *Manager) Issue(ctx context.Context) (err error) {
 		m.mu.Unlock()
 		return errors.New("acme is not configured")
 	}
+	if m.hoster != nil {
+		m.mu.Unlock()
+		return ErrHoster
+	}
 	m.issuing = true
 	ts := m.now()
 	m.lastAttempt = &ts
@@ -343,6 +415,11 @@ func (m *Manager) Issue(ctx context.Context) (err error) {
 	defer func() {
 		m.mu.Lock()
 		m.issuing = false
+		if errors.Is(err, ErrHoster) {
+			// Not a failure: the hoster's certificate took over meanwhile.
+			m.mu.Unlock()
+			return
+		}
 		if err != nil {
 			m.lastError = err.Error()
 		} else {
@@ -480,6 +557,12 @@ func (m *Manager) Issue(ctx context.Context) (err error) {
 		return err
 	}
 	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: keyDER})
+	// The hoster's certificate may have come while this one was on its way; it stays.
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.hoster != nil {
+		return ErrHoster
+	}
 	if err := m.certs.SetCustom(certPEM, keyPEM); err != nil {
 		return fmt.Errorf("store certificate: %w", err)
 	}

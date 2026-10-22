@@ -1523,6 +1523,8 @@ export interface TLSInfo {
   proxy: ProxyInfo;
   baseDomain?: string;
   forceHttps?: boolean;
+  /** Set while the hoster's fleet manager provides the certificate. */
+  hosterCertificate?: boolean;
 }
 
 export interface ContainerSummary {

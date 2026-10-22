@@ -10,6 +10,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -22,6 +23,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/envoryx/envoryx/internal/plantest"
 	"github.com/envoryx/envoryx/internal/tlsca"
 )
 
@@ -298,5 +300,43 @@ func TestIssueObtainsWildcardThroughDNSChallenge(t *testing.T) {
 	}
 	if m2.Status().Configured || certs.Info().Custom != nil {
 		t.Fatal("clear must remove config and certificate")
+	}
+}
+
+// While the hoster provides the certificate, Let's Encrypt waits; taking it back removes
+// the hoster's certificate and lets Let's Encrypt get one again.
+func TestHosterCertificateTakesOver(t *testing.T) {
+	certs, err := tlsca.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := New(t.TempDir(), certs, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := m.SetConfig(Config{Provider: "cloudflare", Domain: "dev.example.com", Email: "me@example.com", Token: "cf-secret"}); err != nil {
+		t.Fatal(err)
+	}
+	c := plantest.Certificate(t, "kunde.envbay.dev")
+	if err := m.SetHoster(&c); err != nil {
+		t.Fatal(err)
+	}
+	if m.NeedsIssue() || !m.Hoster() {
+		t.Fatal("Let's Encrypt must wait while the hoster provides the certificate")
+	}
+	if err := m.Issue(context.Background()); !errors.Is(err, ErrHoster) {
+		t.Fatalf("an issuance meanwhile: %v", err)
+	}
+	if st := m.Status(); st.Hoster == nil || st.Hoster.Domain != "kunde.envbay.dev" || st.Hoster.NotAfter.IsZero() || st.LastError != "" {
+		t.Fatalf("status: %+v", st)
+	}
+	if got, err := certs.Certificate("shop.kunde.envbay.dev"); err != nil || got.Leaf.Subject.CommonName != "kunde.envbay.dev" {
+		t.Fatalf("the hoster's certificate must be served: %v", err)
+	}
+	if err := m.SetHoster(nil); err != nil {
+		t.Fatal(err)
+	}
+	if m.Hoster() || certs.Info().Custom != nil || !m.NeedsIssue() {
+		t.Fatal("taken back, the certificate must go and Let's Encrypt get one again")
 	}
 }

@@ -44,6 +44,22 @@ describe("DomainsCard", () => {
     expect(api.calls.find((c) => c.method === "PUT")!.body).toEqual({ certificate: "CERT", key: "KEY" });
   });
 
+  it("shows the hoster's certificate instead of Let's Encrypt and the upload", async () => {
+    const custom = { subject: "kunde.envbay.dev", dnsNames: ["kunde.envbay.dev", "*.kunde.envbay.dev"], notAfter: "2027-01-20T00:00:00Z", issuer: "R11", expired: false };
+    mockApi({
+      ...authedRoutes,
+      "GET /settings/tls/acme": () => ({ body: acme }),
+      "GET /settings/tls": () => ({ body: { ...tls, hosterCertificate: true, ca: { ...tls.ca, custom } } }),
+      "GET /settings": () => ({ body: { ...settings, baseDomain: "kunde.envbay.dev" } }),
+    });
+    renderApp(<DomainsCard />);
+    expect(await screen.findByText("Certificate from your hoster")).toBeInTheDocument();
+    expect(screen.getByText("kunde.envbay.dev, *.kunde.envbay.dev")).toBeInTheDocument();
+    expect(screen.queryByText("Custom certificate")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Let's Encrypt \(public certificate/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Install certificate" })).not.toBeInTheDocument();
+  });
+
   it("tells macvlan users to point DNS at the container address", async () => {
     const direct = { ...proxy, address: "192.168.1.50" };
     mockApi({

@@ -407,7 +407,7 @@ func TestSecretKeyStaysOutOfBackups(t *testing.T) {
 func TestInstanceFilesStayOutOfBackups(t *testing.T) {
 	s, sqlDB := newStore(t)
 	ctx := context.Background()
-	files := []string{IDFile, plan.File, plan.SuspensionFile, fleetStateFile, updateResultFile}
+	files := []string{IDFile, plan.File, plan.SuspensionFile, plan.CertificateFile, fleetStateFile, updateResultFile}
 	write := func(content string) {
 		for _, f := range files {
 			if err := os.WriteFile(filepath.Join(s.ConfigDir, f), []byte(content), 0o600); err != nil {
