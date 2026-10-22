@@ -3199,5 +3199,9 @@
   "{{name}} {{version}} is a preview version; this instance's plan includes released versions only": "{{name}} {{version}} ist eine Vorabversion; der Tarif dieser Instanz enthält nur veröffentlichte Versionen",
   "Certificate from your hoster": "Zertifikat von deinem Hoster",
   "Your hoster provides the certificate for this instance and renews it in time. Let's Encrypt and an own certificate aren't needed and can't be set up meanwhile.": "Dein Hoster stellt das Zertifikat für diese Instanz bereit und erneuert es rechtzeitig. Let's Encrypt und ein eigenes Zertifikat brauchst du nicht, und solange lassen sie sich auch nicht einrichten.",
-  "the certificate is provided by the hoster": "das Zertifikat stellt der Hoster bereit"
+  "the certificate is provided by the hoster": "das Zertifikat stellt der Hoster bereit",
+  "Opening the page…": "Seite wird geöffnet…",
+  "The page could not be opened.": "Die Seite ließ sich nicht öffnen.",
+  "This address isn't behind the Envoryx sign-in.": "Diese Adresse liegt nicht hinter der Envoryx-Anmeldung.",
+  "Your role in this project doesn't let you open this page.": "Deine Rolle in diesem Projekt erlaubt dir nicht, diese Seite zu öffnen."
 }

@@ -3249,5 +3249,9 @@
   "{{name}} {{version}} is a preview version; this instance's plan includes released versions only": "{{name}} {{version}} - предварительная версия; тариф этого экземпляра включает только выпущенные версии",
   "Certificate from your hoster": "Сертификат от вашего хостера",
   "Your hoster provides the certificate for this instance and renews it in time. Let's Encrypt and an own certificate aren't needed and can't be set up meanwhile.": "Ваш хостер предоставляет сертификат для этого экземпляра и вовремя его обновляет. Let's Encrypt и собственный сертификат не нужны, и пока он предоставляется, их нельзя настроить.",
-  "the certificate is provided by the hoster": "сертификат предоставляет хостер"
+  "the certificate is provided by the hoster": "сертификат предоставляет хостер",
+  "Opening the page…": "Открываем страницу…",
+  "The page could not be opened.": "Не удалось открыть страницу.",
+  "This address isn't behind the Envoryx sign-in.": "Этот адрес не защищён входом в Envoryx.",
+  "Your role in this project doesn't let you open this page.": "Ваша роль в этом проекте не позволяет открыть эту страницу."
 }

@@ -22,6 +22,7 @@ import (
 	"github.com/envoryx/envoryx/internal/oidc"
 	"github.com/envoryx/envoryx/internal/plan"
 	"github.com/envoryx/envoryx/internal/project"
+	"github.com/envoryx/envoryx/internal/proxy"
 	"github.com/envoryx/envoryx/internal/runtime"
 	"github.com/envoryx/envoryx/internal/stats"
 	"github.com/envoryx/envoryx/internal/store"
@@ -65,7 +66,10 @@ type Deps struct {
 	OIDC *oidc.Service
 	// SSH describes the embedded SSH server; nil when it's disabled.
 	SSH *SSHInfo
-	Log *slog.Logger
+	// Gate lets signed-in users into the hosts behind the Envoryx sign-in; nil when the
+	// proxy is off.
+	Gate *proxy.Gate
+	Log  *slog.Logger
 	// StartedAt is used for uptime reporting.
 	StartedAt time.Time
 	// AllowedOriginHosts are extra origins (host[:port]) permitted for WebSocket upgrades,
@@ -163,6 +167,8 @@ var instanceRoutesForConfinedUsers = map[string]bool{
 	"PATCH /api/v1/auth/2fa/passkeys/{passkey}":  true,
 	"DELETE /api/v1/auth/2fa/passkeys/{passkey}": true,
 	"POST /api/v1/auth/2fa/recovery-codes":       true,
+	// Opening an addon of an own project; the handler checks the role there.
+	"POST /api/v1/auth/gate": true,
 }
 
 // routesForAnyProject serve every project alike: the database browser's status and the
@@ -281,6 +287,7 @@ func (a *API) Mount(mux *http.ServeMux, protect func(http.Handler) http.Handler)
 	rd("PATCH /api/v1/auth/2fa/passkeys/{passkey}", a.renamePasskey)
 	rd("DELETE /api/v1/auth/2fa/passkeys/{passkey}", a.removePasskey)
 	rd("POST /api/v1/auth/2fa/recovery-codes", a.regenerateRecoveryCodes)
+	rd("POST /api/v1/auth/gate", a.gate)
 
 	rd("GET /api/v1/dashboard", a.dashboard)
 	rd("GET /api/v1/runtimes", a.runtimes)
