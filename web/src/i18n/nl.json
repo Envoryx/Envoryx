@@ -3196,5 +3196,8 @@
   " (not in your plan)": " (niet in je abonnement)",
   "{{name}} {{version}} is a preview version, which this instance's plan doesn't include; switch to a released version": "{{name}} {{version}} is een previewversie die het abonnement van deze instantie niet bevat; stap over op een uitgebrachte versie",
   "{{name}} {{version}} has reached its end of life; this instance's plan includes supported versions only": "{{name}} {{version}} is end-of-life; het abonnement van deze instantie bevat alleen ondersteunde versies",
-  "{{name}} {{version}} is a preview version; this instance's plan includes released versions only": "{{name}} {{version}} is een previewversie; het abonnement van deze instantie bevat alleen uitgebrachte versies"
+  "{{name}} {{version}} is a preview version; this instance's plan includes released versions only": "{{name}} {{version}} is een previewversie; het abonnement van deze instantie bevat alleen uitgebrachte versies",
+  "Certificate from your hoster": "Certificaat van je hoster",
+  "Your hoster provides the certificate for this instance and renews it in time. Let's Encrypt and an own certificate aren't needed and can't be set up meanwhile.": "Je hoster levert het certificaat voor deze instantie en vernieuwt het op tijd. Let's Encrypt en een eigen certificaat zijn niet nodig en kunnen in de tussentijd niet worden ingesteld.",
+  "the certificate is provided by the hoster": "het certificaat wordt door de hoster geleverd"
 }

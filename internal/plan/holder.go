@@ -30,6 +30,21 @@ type Holder struct {
 	suspRaw []byte
 	// onSuspend are called after the instance was suspended or the suspension lifted.
 	onSuspend []func(*Suspension)
+
+	// certPath is CertificateFile next to the plan.
+	certPath string
+	cert     *Certificate
+	certRaw  []byte
+	// onCertificate are called after the hoster's certificate came, changed or went.
+	onCertificate []func(*Certificate)
+}
+
+// OnCertificate registers fn to be called with the hoster's new certificate (nil once it
+// is gone) whenever it changes. Register before Run.
+func (h *Holder) OnCertificate(fn func(*Certificate)) {
+	if h != nil {
+		h.onCertificate = append(h.onCertificate, fn)
+	}
 }
 
 // OnSuspend registers fn to be called with the new suspension (nil once lifted) whenever
@@ -51,7 +66,7 @@ func (h *Holder) OnChange(fn func(*Plan)) {
 // Open loads the plan file at path and the suspension next to it. A broken file at start
 // is an error: an instance that should be limited must not run without its limits.
 func Open(path string, log *slog.Logger) (*Holder, error) {
-	h := &Holder{path: path, suspPath: filepath.Join(filepath.Dir(path), SuspensionFile), log: log}
+	h := &Holder{path: path, suspPath: filepath.Join(filepath.Dir(path), SuspensionFile), certPath: filepath.Join(filepath.Dir(path), CertificateFile), log: log}
 	b, err := os.ReadFile(path)
 	if err != nil && !os.IsNotExist(err) {
 		return nil, err
@@ -73,6 +88,22 @@ func Open(path string, log *slog.Logger) (*Holder, error) {
 			return nil, err
 		}
 		h.susp, h.suspRaw = s, b
+	}
+	// A broken certificate is only a warning: the instance then falls back to its own
+	// certificates, which is no reason to stay down.
+	b, err = os.ReadFile(h.certPath)
+	if err != nil && !os.IsNotExist(err) {
+		return nil, err
+	}
+	h.certRaw = b
+	if len(b) > 0 {
+		if c, err := ParseCertificate(b); err != nil {
+			if log != nil {
+				log.Warn("the hoster's certificate is not used", "path", h.certPath, "err", err)
+			}
+		} else {
+			h.cert = c
+		}
 	}
 	return h, nil
 }
@@ -98,6 +129,16 @@ func (h *Holder) Suspension() *Suspension {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	return h.susp
+}
+
+// Certificate returns the hoster's certificate; nil when the hoster provides none.
+func (h *Holder) Certificate() *Certificate {
+	if h == nil {
+		return nil
+	}
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return h.cert
 }
 
 // SetSuspension suspends the instance or lifts the suspension (tests; the files are what
@@ -130,6 +171,50 @@ func (h *Holder) Reload() {
 	}
 	h.reloadSuspension()
 	h.reloadPlan()
+	h.reloadCertificate()
+}
+
+// reloadCertificate picks up a new, changed or removed certificate. A broken one keeps
+// the previous one.
+func (h *Holder) reloadCertificate() {
+	b, err := os.ReadFile(h.certPath)
+	if err != nil && !os.IsNotExist(err) {
+		if h.log != nil {
+			h.log.Warn("the hoster's certificate is not readable; the previous state stays", "path", h.certPath, "err", err)
+		}
+		return
+	}
+	h.mu.RLock()
+	same := bytes.Equal(b, h.certRaw)
+	h.mu.RUnlock()
+	if same {
+		return
+	}
+	var c *Certificate
+	if len(b) > 0 {
+		if c, err = ParseCertificate(b); err != nil {
+			h.mu.Lock()
+			h.certRaw = b
+			h.mu.Unlock()
+			if h.log != nil {
+				h.log.Warn("the hoster's certificate is not used; the previous state stays", "path", h.certPath, "err", err)
+			}
+			return
+		}
+	}
+	h.mu.Lock()
+	h.cert, h.certRaw = c, b
+	h.mu.Unlock()
+	if h.log != nil {
+		if c == nil {
+			h.log.Info("the hoster no longer provides the certificate")
+		} else {
+			h.log.Info("certificate from the hoster", "domain", c.Domain, "notAfter", c.NotAfter())
+		}
+	}
+	for _, fn := range h.onCertificate {
+		fn(c)
+	}
 }
 
 func (h *Holder) reloadPlan() {

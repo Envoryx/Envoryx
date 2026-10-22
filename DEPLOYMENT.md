@@ -2786,6 +2786,27 @@ When the hoster removes the instance from the fleet, it stops connecting and
 keeps its last plan. To move an instance to another machine, the manager
 issues a new token; enrolling with it replaces the old key.
 
+### Certificates from the hoster
+
+When every instance has a domain of its own below the hoster's (say
+`kunde.envbay.dev`), getting the wildcard certificate on the instance would
+need a DNS token for the hoster's whole zone on every customer's machine. So
+the fleet manager can get it instead: it holds the DNS token, obtains
+`kunde.envbay.dev` plus `*.kunde.envbay.dev` from Let's Encrypt for each
+instance, renews it 30 days before it expires and sends it down the
+connection. The instance writes it to `/config/certificate.json` (owner-only,
+never in instance backups) and serves it at once; the plan the manager sends
+fixes the base domain to that domain as well.
+
+While the hoster provides the certificate, Settings → Domains & HTTPS shows it
+under *Certificate from your hoster*, and Let's Encrypt and an own certificate
+can be neither set up nor changed (403 `plan_limit`). A Let's Encrypt setup
+from before stays stored but waits. When the hoster takes the certificate
+back, the instance removes it and falls back to Let's Encrypt, if set up, or
+the local CA. A certificate that doesn't fit its key or doesn't cover the
+domain is refused, the previous one stays, and the manager hears why. This
+needs Envoryx 0.42 or newer.
+
 ### Backups for the hoster
 
 A plan can name an offsite target of the hoster (`offsite` above). Every

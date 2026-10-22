@@ -106,7 +106,8 @@ func (a *API) tlsInfo(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{"enabled": false, "proxy": a.proxyDTO()})
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"enabled": true, "ca": a.d.Certs.Info(), "proxy": a.proxyDTO(), "baseDomain": a.d.Projects.BaseDomain(r.Context()), "forceHttps": a.d.Projects.ForceHTTPS(r.Context())})
+	writeJSON(w, http.StatusOK, map[string]any{"enabled": true, "ca": a.d.Certs.Info(), "proxy": a.proxyDTO(), "baseDomain": a.d.Projects.BaseDomain(r.Context()), "forceHttps": a.d.Projects.ForceHTTPS(r.Context()),
+		"hosterCertificate": a.d.ACME.Hoster()})
 }
 
 func (a *API) downloadCA(w http.ResponseWriter, r *http.Request) {
@@ -130,6 +131,9 @@ func (a *API) setCustomCert(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, store.ErrNotFound)
 		return
 	}
+	if a.hosterCertificate(w, r) {
+		return
+	}
 	var req customCertRequest
 	if err := decodeJSON(w, r, &req); err != nil {
 		writeError(w, r, err)
@@ -150,6 +154,9 @@ func (a *API) setCustomCert(w http.ResponseWriter, r *http.Request) {
 func (a *API) clearCustomCert(w http.ResponseWriter, r *http.Request) {
 	if a.d.Certs == nil {
 		writeError(w, r, store.ErrNotFound)
+		return
+	}
+	if a.hosterCertificate(w, r) {
 		return
 	}
 	if err := a.d.Certs.SetCustom(nil, nil); err != nil {

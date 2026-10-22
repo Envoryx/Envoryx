@@ -3246,5 +3246,8 @@
   " (not in your plan)": " (не входить у ваш тариф)",
   "{{name}} {{version}} is a preview version, which this instance's plan doesn't include; switch to a released version": "{{name}} {{version}} - попередня версія, якої тариф цього екземпляра не містить; перейдіть на випущену версію",
   "{{name}} {{version}} has reached its end of life; this instance's plan includes supported versions only": "{{name}} {{version}} досяг кінця терміну підтримки; тариф цього екземпляра містить лише підтримувані версії",
-  "{{name}} {{version}} is a preview version; this instance's plan includes released versions only": "{{name}} {{version}} - попередня версія; тариф цього екземпляра містить лише випущені версії"
+  "{{name}} {{version}} is a preview version; this instance's plan includes released versions only": "{{name}} {{version}} - попередня версія; тариф цього екземпляра містить лише випущені версії",
+  "Certificate from your hoster": "Сертифікат від вашого хостера",
+  "Your hoster provides the certificate for this instance and renews it in time. Let's Encrypt and an own certificate aren't needed and can't be set up meanwhile.": "Ваш хостер надає сертифікат для цього екземпляра і вчасно його оновлює. Let's Encrypt і власний сертифікат не потрібні, і поки він надається, їх не можна налаштувати.",
+  "the certificate is provided by the hoster": "сертифікат надає хостер"
 }

@@ -20,6 +20,7 @@ import (
 	"github.com/coder/websocket/wsjson"
 
 	"github.com/envoryx/envoryx/internal/plan"
+	"github.com/envoryx/envoryx/internal/plantest"
 )
 
 // fakeManager is the manager's side of the protocol: one token, one plan and one
@@ -31,8 +32,9 @@ type fakeManager struct {
 	mu   sync.Mutex
 	key  ed25519.PublicKey
 	plan string
-	// suspension is sent after the plan unless empty.
-	suspension string
+	// suspension and certificate are sent after the plan unless empty.
+	suspension  string
+	certificate string
 	// askSupport sends a support login request after the plan; replies holds the answers.
 	askSupport bool
 	replies    []message
@@ -106,12 +108,15 @@ func (f *fakeManager) handler() http.Handler {
 		}
 		_ = wsjson.Write(ctx, conn, message{Type: "welcome", Name: "Kunde 1"})
 		f.mu.Lock()
-		p, susp := f.plan, f.suspension
+		p, susp, cert := f.plan, f.suspension, f.certificate
 		f.conn = conn
 		f.mu.Unlock()
 		_ = wsjson.Write(ctx, conn, message{Type: "plan", Plan: json.RawMessage(p)})
 		if susp != "" {
 			_ = wsjson.Write(ctx, conn, message{Type: "suspension", Suspension: json.RawMessage(susp)})
+		}
+		if cert != "" {
+			_ = wsjson.Write(ctx, conn, message{Type: "certificate", Certificate: json.RawMessage(cert)})
 		}
 		if f.askSupport {
 			_ = wsjson.Write(ctx, conn, message{Type: "supportLogin", ID: "r1", Name: "hoster"})
@@ -515,4 +520,57 @@ func TestAgentAnswersOneRequestOfAKindAtATime(t *testing.T) {
 	calls.Add(1)
 	a.answer(ctx, conn, message{Type: "update", ID: "u9"}, handle)
 	calls.Wait()
+}
+
+// The hoster's certificate lands in its file, readable by the owner only; one that doesn't
+// fit is refused and reported, and null takes the certificate back.
+func TestAgentTakesTheCertificate(t *testing.T) {
+	cert := plantest.Certificate(t, "kunde.envbay.dev")
+	f := &fakeManager{t: t, token: "tok", plan: "null", certificate: plantest.JSON(t, cert)}
+	srv := httptest.NewServer(f.handler())
+	defer srv.Close()
+	dir := t.TempDir()
+	holder, err := plan.Open(filepath.Join(dir, plan.File), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := Config{URL: srv.URL, Token: "tok", ConfigDir: dir, Plan: holder, Log: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	run := func() func() {
+		a, err := New(cfg)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ctx, cancel := context.WithCancel(context.Background())
+		done := make(chan struct{})
+		go func() { a.Run(ctx); close(done) }()
+		return func() { cancel(); <-done }
+	}
+	stop := run()
+	waitFor(t, "the certificate", func() bool { c := holder.Certificate(); return c != nil && c.Domain == "kunde.envbay.dev" })
+	if fi, err := os.Stat(filepath.Join(dir, plan.CertificateFile)); err != nil || fi.Mode().Perm() != 0o600 {
+		t.Fatalf("certificate file: %v %v", fi, err)
+	}
+	stop()
+
+	cfg.Token = ""
+	other := plantest.Certificate(t, "other.envbay.dev")
+	f.mu.Lock()
+	f.certificate = plantest.JSON(t, plan.Certificate{Domain: "kunde.envbay.dev", Certificate: other.Certificate, Key: other.Key})
+	f.mu.Unlock()
+	stop = run()
+	waitFor(t, "the refusal reported", func() bool {
+		s, _ := f.lastStatus()
+		return s.Certificate != nil && strings.Contains(s.Certificate.Error, "doesn't cover")
+	})
+	if c := holder.Certificate(); c == nil || c.Certificate != cert.Certificate {
+		t.Fatal("a refused certificate replaced the one in use")
+	}
+	stop()
+
+	f.mu.Lock()
+	f.certificate = "null"
+	f.mu.Unlock()
+	stop = run()
+	waitFor(t, "the certificate taken back", func() bool { return holder.Certificate() == nil })
+	stop()
 }

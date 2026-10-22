@@ -48,8 +48,9 @@ type enrollResponse struct {
 // message is every frame on the WebSocket; Type decides which fields are set.
 //
 //	manager → instance: challenge (Nonce), welcome (Name), plan (Plan, null for none),
-//	                    suspension (Suspension, null for none), supportLogin (ID, Name of
-//	                    the hoster's user), backup (ID), update (ID, Version)
+//	                    suspension (Suspension, null for none), certificate (Certificate,
+//	                    null for none), supportLogin (ID, Name of the hoster's user),
+//	                    backup (ID), update (ID, Version)
 //	instance → manager: auth (Signature over the nonce), status (Status), supportLogin
 //	                    (ID, URL or Error), backup and update (ID, Error when it doesn't
 //	                    start)
@@ -60,7 +61,10 @@ type message struct {
 	Name       string          `json:"name,omitempty"`
 	Plan       json.RawMessage `json:"plan,omitempty"`
 	Suspension json.RawMessage `json:"suspension,omitempty"`
-	Status     *Status         `json:"status,omitempty"`
+	// Certificate is the hoster's wildcard certificate for the instance's domain
+	// (plan.Certificate).
+	Certificate json.RawMessage `json:"certificate,omitempty"`
+	Status      *Status         `json:"status,omitempty"`
 	// ID pairs a request with its answer.
 	ID      string `json:"id,omitempty"`
 	Version string `json:"version,omitempty"`
@@ -94,6 +98,16 @@ type Status struct {
 	// ImageUpdates counts the projects whose containers don't run the newest build of
 	// their images; a restart of each applies it.
 	ImageUpdates int `json:"imageUpdates,omitempty"`
+	// Certificate is the hoster's certificate as the instance serves it.
+	Certificate *CertificateStatus `json:"certificate,omitempty"`
+}
+
+// CertificateStatus says which certificate of the hoster the instance serves, or why it
+// serves none.
+type CertificateStatus struct {
+	Domain   string    `json:"domain,omitempty"`
+	NotAfter time.Time `json:"notAfter,omitzero"`
+	Error    string    `json:"error,omitempty"`
 }
 
 // BackupStatus is what the manager learns about the instance backups.

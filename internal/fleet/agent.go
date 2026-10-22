@@ -115,6 +115,8 @@ type Agent struct {
 	contact   time.Time
 	err       string
 	planErr   string
+	// certErr is why the last certificate from the manager was not taken over.
+	certErr string
 	// nudge asks for a status report now (Nudge).
 	nudge chan struct{}
 	// busy holds the request types (supportLogin, backup, update) being answered: one of
@@ -543,6 +545,8 @@ func (a *Agent) connect(ctx context.Context, st *state) error {
 			case "update":
 				a.answer(ctx, conn, m, a.answerUpdate)
 				continue
+			case "certificate":
+				a.applyCertificate(m.Certificate)
 			case "suspension":
 				a.applySuspension(m.Suspension)
 				// Stopping the projects takes a moment; the manager hears the result too.
@@ -621,7 +625,15 @@ func (a *Agent) status(ctx context.Context) Status {
 	}
 	a.mu.Lock()
 	s.PlanError = a.planErr
+	certErr := a.certErr
 	a.mu.Unlock()
+	if certErr != "" {
+		// The previous certificate, if any, stays in use.
+		if s.Certificate == nil {
+			s.Certificate = &CertificateStatus{}
+		}
+		s.Certificate.Error = certErr
+	}
 	if s.PlanError == "" {
 		if err := a.cfg.Plan.Err(); err != nil {
 			s.PlanError = err.Error()
@@ -670,6 +682,31 @@ func (a *Agent) applySuspension(raw json.RawMessage) {
 	}
 	if err != nil {
 		a.cfg.Log.Warn("fleet: suspension not taken over", "err", err)
+		return
+	}
+	a.cfg.Plan.Reload()
+}
+
+// applyCertificate writes the hoster's certificate (null takes it back) and has it read.
+// The file holds the key, so only the owner may read it.
+func (a *Agent) applyCertificate(raw json.RawMessage) {
+	path := filepath.Join(a.cfg.ConfigDir, plan.CertificateFile)
+	var err error
+	if len(raw) == 0 || string(raw) == "null" {
+		if err = os.Remove(path); errors.Is(err, os.ErrNotExist) {
+			err = nil
+		}
+	} else if _, err = plan.ParseCertificate(raw); err == nil {
+		err = writeFileAtomic(path, raw)
+	}
+	a.mu.Lock()
+	a.certErr = ""
+	if err != nil {
+		a.certErr = err.Error()
+	}
+	a.mu.Unlock()
+	if err != nil {
+		a.cfg.Log.Warn("fleet: certificate not taken over", "err", err)
 		return
 	}
 	a.cfg.Plan.Reload()

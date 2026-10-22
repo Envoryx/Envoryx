@@ -10,6 +10,14 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Added
+- A managed instance takes the wildcard certificate for its domain from its hoster's fleet
+  manager, which gets and renews it, so the hoster's DNS token stays off the customers'
+  machines. While the hoster provides it, *Settings → Domains & HTTPS* shows it as
+  *Certificate from your hoster*, the base domain follows it, and Let's Encrypt and an own
+  certificate can't be set up; taken back, the instance falls back to Let's Encrypt or the
+  local CA.
+
 ## [0.41.0] - 2026-10-22
 
 ### Added
