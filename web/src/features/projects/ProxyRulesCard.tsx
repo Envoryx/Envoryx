@@ -12,6 +12,7 @@ import { projectAccess } from "@/lib/access";
 const textareaClass = "w-full rounded-md border border-default bg-elevated p-2 font-mono text-xs text-fg focus:border-accent-500 focus:outline-none";
 
 interface Form {
+  login: boolean;
   allowIPs: string;
   auth: boolean;
   user: string;
@@ -30,6 +31,7 @@ const lines = (s: string) => s.split(/[\n,]/).map((v) => v.trim()).filter(Boolea
 
 function toForm(r: ProxyRules | undefined): Form {
   return {
+    login: !!r?.login,
     allowIPs: (r?.allowIPs ?? []).join("\n"),
     auth: !!r?.basicAuth,
     user: r?.basicAuth?.user ?? "",
@@ -47,6 +49,7 @@ function toForm(r: ProxyRules | undefined): Form {
 
 function fromForm(f: Form): ProxyRulesRequest {
   const req: ProxyRulesRequest = {};
+  if (f.login) req.login = true;
   const ips = lines(f.allowIPs);
   if (ips.length) req.allowIPs = ips;
   if (f.auth) req.basicAuth = f.password ? { user: f.user.trim(), password: f.password } : { user: f.user.trim() };
@@ -107,6 +110,7 @@ export function ProxyRulesCard({ project: p }: { project: Project }) {
   };
 
   const active = [
+    current?.login && t("Envoryx sign-in"),
     current?.allowIPs?.length && t("Allowlist"),
     current?.basicAuth && t("Password"),
     current?.redirects?.length && t("Redirects"),
@@ -131,10 +135,21 @@ export function ProxyRulesCard({ project: p }: { project: Project }) {
 
         <section className="space-y-3">
           <h3 className="text-sm font-semibold text-fg">{t("Access")}</h3>
+          <Checkbox
+            label={t("Only people signed in to Envoryx")}
+            description={t("The project's addresses and its dev server only let in users who may see the project; everyone else goes to the Envoryx sign-in first. A share stays open, with the password below.")}
+            checked={form.login}
+            onChange={(e) => set({ login: e.target.checked })}
+          />
           <Field label={t("Allowed addresses")} htmlFor="pr-allow" hint={t("One address or network per line, e.g. 192.168.1.0/24. Empty: everyone. Behind another reverse proxy, that proxy's address is what counts.")}>
             <textarea id="pr-allow" rows={3} value={form.allowIPs} onChange={(e) => set({ allowIPs: e.target.value })} placeholder={"192.168.1.0/24\n10.8.0.5"} spellCheck={false} className={textareaClass} />
           </Field>
-          <Checkbox label={t("Ask for a user name and password")} description={t("HTTP basic authentication in front of the whole project - for a staging copy or a share.")} checked={form.auth} onChange={(e) => set({ auth: e.target.checked })} />
+          <Checkbox
+            label={t("Ask for a user name and password")}
+            description={form.login ? t("With the Envoryx sign-in it only applies to a share.") : t("HTTP basic authentication in front of the whole project - for a staging copy or a share.")}
+            checked={form.auth}
+            onChange={(e) => set({ auth: e.target.checked })}
+          />
           {form.auth && (
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label={t("User name")} htmlFor="pr-user">

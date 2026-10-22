@@ -3258,5 +3258,9 @@
   "Only on the server itself, at {{address}}": "Лише на самому сервері, за адресою {{address}}",
   "SSH tunnel": "SSH-тунель",
   "Connect from your machine through the SSH tunnel below.": "Підключайтеся зі свого комп'ютера через SSH-тунель нижче.",
-  "On this instance the published ports only listen on the server itself (127.0.0.1). Debuggers and database clients on your machine connect through an SSH tunnel instead: start the command shown with the service and connect to localhost. Web interfaces open through their addresses.": "На цьому екземплярі опубліковані порти слухають лише на самому сервері (127.0.0.1). Налагоджувачі й клієнти баз даних на вашому комп'ютері підключаються через SSH-тунель: запустіть команду, вказану біля сервісу, і підключайтеся до localhost. Вебінтерфейси відкриваються за їхніми адресами."
+  "On this instance the published ports only listen on the server itself (127.0.0.1). Debuggers and database clients on your machine connect through an SSH tunnel instead: start the command shown with the service and connect to localhost. Web interfaces open through their addresses.": "На цьому екземплярі опубліковані порти слухають лише на самому сервері (127.0.0.1). Налагоджувачі й клієнти баз даних на вашому комп'ютері підключаються через SSH-тунель: запустіть команду, вказану біля сервісу, і підключайтеся до localhost. Вебінтерфейси відкриваються за їхніми адресами.",
+  "Envoryx sign-in": "Вхід до Envoryx",
+  "Only people signed in to Envoryx": "Лише для тих, хто увійшов до Envoryx",
+  "The project's addresses and its dev server only let in users who may see the project; everyone else goes to the Envoryx sign-in first. A share stays open, with the password below.": "Адреси проєкту та його dev-сервер пускають лише користувачів, яким можна бачити проєкт; решта спершу потрапляє на вхід до Envoryx. Спільний доступ лишається відкритим, з паролем нижче.",
+  "With the Envoryx sign-in it only applies to a share.": "Із входом через Envoryx він діє лише для спільного доступу."
 }

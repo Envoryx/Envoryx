@@ -40,6 +40,9 @@ type Target struct {
 	// Login keeps the host behind the Envoryx sign-in (gate.go): the level the user
 	// needs in the project, "read" or "operate". Empty leaves the host open.
 	Login string
+	// LoginAlso are hosts the target's pages load from (its dev server), which get a pass
+	// at the same sign-in.
+	LoginAlso []string
 }
 
 // Table is a snapshot of the routing state.

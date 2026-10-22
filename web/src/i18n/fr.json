@@ -3208,5 +3208,9 @@
   "Only on the server itself, at {{address}}": "Uniquement sur le serveur lui-même, à {{address}}",
   "SSH tunnel": "Tunnel SSH",
   "Connect from your machine through the SSH tunnel below.": "Connectez-vous depuis votre machine par le tunnel SSH ci-dessous.",
-  "On this instance the published ports only listen on the server itself (127.0.0.1). Debuggers and database clients on your machine connect through an SSH tunnel instead: start the command shown with the service and connect to localhost. Web interfaces open through their addresses.": "Sur cette instance, les ports publiés n'écoutent que sur le serveur lui-même (127.0.0.1). Les débogueurs et clients de base de données de votre machine passent par un tunnel SSH : lancez la commande indiquée pour le service et connectez-vous à localhost. Les interfaces web s'ouvrent par leurs adresses."
+  "On this instance the published ports only listen on the server itself (127.0.0.1). Debuggers and database clients on your machine connect through an SSH tunnel instead: start the command shown with the service and connect to localhost. Web interfaces open through their addresses.": "Sur cette instance, les ports publiés n'écoutent que sur le serveur lui-même (127.0.0.1). Les débogueurs et clients de base de données de votre machine passent par un tunnel SSH : lancez la commande indiquée pour le service et connectez-vous à localhost. Les interfaces web s'ouvrent par leurs adresses.",
+  "Envoryx sign-in": "Connexion Envoryx",
+  "Only people signed in to Envoryx": "Uniquement les personnes connectées à Envoryx",
+  "The project's addresses and its dev server only let in users who may see the project; everyone else goes to the Envoryx sign-in first. A share stays open, with the password below.": "Les adresses du projet et son serveur de développement ne laissent entrer que les utilisateurs autorisés à voir le projet ; les autres passent d'abord par la connexion Envoryx. Un partage reste ouvert, avec le mot de passe ci-dessous.",
+  "With the Envoryx sign-in it only applies to a share.": "Avec la connexion Envoryx, il ne s'applique qu'à un partage."
 }

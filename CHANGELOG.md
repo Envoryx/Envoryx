@@ -11,6 +11,11 @@ release). `:main` follows the development branch.
 ## [Unreleased]
 
 ### Added
+- *Domains → Rules → Only people signed in to Envoryx* keeps a project's host names, its
+  extra domains and its dev server away from everyone who may not see the project. A
+  browser goes through the Envoryx sign-in once and comes back; the dev server gets its
+  pass on the same trip, so pages that load their scripts from it keep working. A share
+  stays open, with the basic authentication. `login` in `PUT /projects/{id}/proxy-rules`.
 - The web interfaces of the built-in services have addresses through the proxy:
   `<project>-mailpit`, `-rabbitmq`, `-opensearch-dashboards`, `-meilisearch` and
   `-s3-console` under the base domain. Like an addon's web UI they only let in people

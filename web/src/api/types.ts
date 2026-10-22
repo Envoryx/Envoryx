@@ -409,6 +409,8 @@ export interface ProxyRules {
   redirects?: RedirectRule[];
   headers?: HeaderRule[];
   cors?: CORSRule;
+  /** Only people signed in to Envoryx who may see the project get in. */
+  login?: boolean;
 }
 
 /** A change of the rules; a basic authentication without password keeps the stored one. */

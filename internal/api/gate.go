@@ -46,7 +46,7 @@ func (a *API) gate(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
-	next, err := a.d.Gate.Issue(p.SessionID, u, target)
+	next, err := a.d.Gate.Issue(r.Context(), p.SessionID, u, target)
 	if err != nil {
 		writeError(w, r, err)
 		return

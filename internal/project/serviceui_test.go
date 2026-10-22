@@ -92,3 +92,44 @@ func TestPortsPublishedOnTheLocalInterface(t *testing.T) {
 		}
 	}
 }
+
+func TestProjectBehindTheSignIn(t *testing.T) {
+	e := newEnv(t)
+	e.selfID = "envoryx-self"
+	e.engine.AddForeignContainer("envoryx-self", "ghcr.io/envoryx/envoryx", "running")
+	ctx := context.Background()
+	v, err := e.m.Create(ctx, nodeRequest("Shop", true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := v.Project.ID
+	if _, err := e.m.AddDomain(ctx, id, "app.example.test"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.m.SetProxyRules(ctx, id, ProxyRulesRequest{Login: true, BasicAuth: &BasicAuthRequest{User: "client", Password: "s3cret"}, Headers: []store.HeaderRule{{Name: "X-Test", Value: "1"}}}); err != nil {
+		t.Fatal(err)
+	}
+	e.m.shareHosts.Store(id, "random-words.trycloudflare.com")
+	defer e.m.shareHosts.Delete(id)
+	table, err := e.m.RouteTable(ctx, ProxyOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, host := range []string{"shop.test", "app.example.test", "shop-dev.test"} {
+		r := table.Routes[host]
+		if r.Login != LoginApp || r.Rules == nil || r.Rules.BasicAuth != nil || len(r.Rules.Headers) != 1 {
+			t.Fatalf("%s: %+v rules %+v", host, r, r.Rules)
+		}
+	}
+	// The pages load their scripts from the dev server, which gets a pass on the way.
+	if also := table.Routes["app.example.test"].LoginAlso; len(also) != 1 || also[0] != "shop-dev.test" {
+		t.Fatalf("login also: %v", also)
+	}
+	// The share stays open, with the basic authentication.
+	if r := table.Routes["random-words.trycloudflare.com"]; r.Login != "" || r.Rules == nil || r.Rules.BasicAuth == nil {
+		t.Fatalf("share: %+v", r)
+	}
+	if v, _ := e.m.Get(ctx, id); !v.Project.ProxyRules.Login {
+		t.Fatal("login not stored")
+	}
+}

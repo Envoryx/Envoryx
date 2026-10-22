@@ -34,6 +34,8 @@ type ProxyRulesRequest struct {
 	Redirects []store.RedirectRule `json:"redirects"`
 	Headers   []store.HeaderRule   `json:"headers"`
 	CORS      *store.CORSRule      `json:"cors"`
+	// Login keeps the host names behind the Envoryx sign-in (store.ProxyRules.Login).
+	Login bool `json:"login"`
 }
 
 // BasicAuthRequest sets basic authentication. An empty password keeps the one stored.
@@ -95,7 +97,7 @@ func invalid(format string, args ...any) error {
 // normalizeProxyRules checks the rules and brings them into their stored form; prev
 // provides the password hash kept when no new password is given.
 func normalizeProxyRules(req ProxyRulesRequest, prev store.ProxyRules) (store.ProxyRules, error) {
-	var out store.ProxyRules
+	out := store.ProxyRules{Login: req.Login}
 	if len(req.AllowIPs) > maxAllowIPs {
 		return out, invalid("at most %d addresses", maxAllowIPs)
 	}
@@ -316,6 +318,28 @@ func proxyRules(p store.Project) *proxy.Rules {
 // LoginAddon is what an addon's web UI asks of the users it lets in (proxy.Gate): they
 // may work on the project. phpMyAdmin and pgAdmin are signed in to its database.
 const LoginAddon = string(auth.ScopeOperate)
+
+// LoginApp is what a project's own host names ask of the users they let in when the
+// project signs in through Envoryx: they may see it.
+const LoginApp = string(auth.ScopeRead)
+
+// withLogin puts a host of the application behind the Envoryx sign-in when the project
+// asks for it. The basic authentication goes, it would only ask a second time.
+func withLogin(t proxy.Target, p store.Project) proxy.Target {
+	if !p.ProxyRules.Login {
+		return t
+	}
+	t.Login = LoginApp
+	if r := t.Rules; r != nil && r.BasicAuth != nil {
+		out := *r
+		out.BasicAuth = nil
+		t.Rules = &out
+		if out.Empty() {
+			t.Rules = nil
+		}
+	}
+	return t
+}
 
 // accessRules are the parts of a project's rules that guard who gets in, for the routes
 // of its addon web UIs: the address allowlist. The Envoryx sign-in replaces the basic

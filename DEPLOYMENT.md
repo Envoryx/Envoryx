@@ -1069,13 +1069,26 @@ the application sees them. The rules apply to every host name of the project
 (the default name, extra domains, the Node dev server name) and to a share -
 not to the directly published port, which bypasses the proxy.
 
+- **Only people signed in to Envoryx:** the project's host names (the default
+  name, extra domains and the dev server) only let in users who may see the
+  project, viewers included. A browser that isn't signed in there yet goes
+  through the Envoryx sign-in and comes back to the page it asked for; the
+  dev server gets its pass on the same trip, since the pages load their
+  scripts from it. Requests a browser doesn't navigate to (an API client,
+  `curl`, a webhook) get a 401, so a project that receives webhooks needs the
+  basic authentication instead for now. Signing out closes the project again
+  within half a minute. A share stays open on purpose: its address is
+  random, it ends with the share, and the password below still applies
+  there. On a server on the internet this is the setting that keeps a work
+  in progress away from strangers.
 - **Allowed addresses:** one address or network per line
   (`192.168.1.0/24`, `10.8.0.5`, IPv6 too); everybody else gets a 403 page
   naming their address. The address is the one the connection comes from:
   behind another reverse proxy (SWAG, Nginx Proxy Manager) that is the other
   proxy's address. A project with an allowlist cannot be shared.
 - **User name and password:** HTTP basic authentication in front of the whole
-  project, for a staging copy or a share. The password is kept as a bcrypt
+  project, for a staging copy or a share. With the Envoryx sign-in it only
+  applies to a share. The password is kept as a bcrypt
   hash; saving without a new password keeps it. The application does not see
   these credentials.
 - **Redirects:** tried in order, the first match answers (302 unless 301, 307
@@ -1092,8 +1105,8 @@ not to the directly published port, which bypasses the proxy.
   to the answers, replacing the application's own. With *Allow cookies and
   credentials* the origins have to be listed.
 
-The order is: allowlist, https redirect, CORS preflight, password,
-redirects, application. The API: `PUT /projects/{id}/proxy-rules` (`admin`)
+The order is: allowlist, https redirect, Envoryx sign-in, CORS preflight,
+password, redirects, application. The API: `PUT /projects/{id}/proxy-rules` (`admin`)
 replaces all of a project's rules; the project shows them as `proxyRules`
 without the password. Duplicating a project copies them.
 

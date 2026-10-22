@@ -3208,5 +3208,9 @@
   "Only on the server itself, at {{address}}": "Solo sul server stesso, a {{address}}",
   "SSH tunnel": "Tunnel SSH",
   "Connect from your machine through the SSH tunnel below.": "Collegati dal tuo computer tramite il tunnel SSH qui sotto.",
-  "On this instance the published ports only listen on the server itself (127.0.0.1). Debuggers and database clients on your machine connect through an SSH tunnel instead: start the command shown with the service and connect to localhost. Web interfaces open through their addresses.": "Su questa istanza le porte pubblicate ascoltano solo sul server stesso (127.0.0.1). Debugger e client di database sul tuo computer si collegano invece tramite un tunnel SSH: avvia il comando indicato per il servizio e collegati a localhost. Le interfacce web si aprono tramite i loro indirizzi."
+  "On this instance the published ports only listen on the server itself (127.0.0.1). Debuggers and database clients on your machine connect through an SSH tunnel instead: start the command shown with the service and connect to localhost. Web interfaces open through their addresses.": "Su questa istanza le porte pubblicate ascoltano solo sul server stesso (127.0.0.1). Debugger e client di database sul tuo computer si collegano invece tramite un tunnel SSH: avvia il comando indicato per il servizio e collegati a localhost. Le interfacce web si aprono tramite i loro indirizzi.",
+  "Envoryx sign-in": "Accesso Envoryx",
+  "Only people signed in to Envoryx": "Solo chi ha effettuato l'accesso a Envoryx",
+  "The project's addresses and its dev server only let in users who may see the project; everyone else goes to the Envoryx sign-in first. A share stays open, with the password below.": "Gli indirizzi del progetto e il suo dev server fanno entrare solo gli utenti che possono vedere il progetto; tutti gli altri passano prima dall'accesso di Envoryx. Una condivisione resta aperta, con la password qui sotto.",
+  "With the Envoryx sign-in it only applies to a share.": "Con l'accesso di Envoryx vale solo per una condivisione."
 }

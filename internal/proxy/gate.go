@@ -7,8 +7,10 @@ import (
 	"encoding/base64"
 	"errors"
 	"html"
+	"net"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -54,10 +56,13 @@ type Gate struct {
 
 type gateEntry struct {
 	sessionID, host, projectID, need string
-	// path is where the browser goes once the code is taken (codes only).
-	path    string
-	checked time.Time
-	expires time.Time
+	// path is where the browser goes once the code is taken, after the hosts in rest,
+	// which get a pass on the way; scheme and port are the address's (codes only).
+	path         string
+	rest         []string
+	scheme, port string
+	checked      time.Time
+	expires      time.Time
 }
 
 // NewGate creates a gate that asks check about the sessions behind its passes.
@@ -93,11 +98,7 @@ func (g *Gate) Resolve(ctx context.Context, raw string) (*url.URL, Target, error
 
 // Issue gives a session a code for the target at u and returns the address that takes
 // it there. The caller has checked that the session's user may enter.
-func (g *Gate) Issue(sessionID string, u *url.URL, t Target) (string, error) {
-	code, err := randomToken()
-	if err != nil {
-		return "", err
-	}
+func (g *Gate) Issue(ctx context.Context, sessionID string, u *url.URL, t Target) (string, error) {
 	path := u.EscapedPath()
 	if path == "" || !strings.HasPrefix(path, "/") || strings.HasPrefix(path, "//") || path == GatePath {
 		path = "/"
@@ -105,13 +106,54 @@ func (g *Gate) Issue(sessionID string, u *url.URL, t Target) (string, error) {
 	if u.RawQuery != "" {
 		path += "?" + u.RawQuery
 	}
+	host := strings.ToLower(u.Hostname())
+	// The hosts the target's pages load from (its dev server) get a pass on the way, or
+	// their scripts would be refused: the browser passes each of them before it lands.
+	hops := append(g.companions(ctx, host, t), host)
+	e := gateEntry{sessionID: sessionID, host: hops[0], rest: hops[1:], projectID: t.ProjectID, need: t.Login, path: path, scheme: u.Scheme, port: u.Port()}
+	return g.issue(e)
+}
+
+// issue stores a code for the entry's host and returns the address that redeems it.
+func (g *Gate) issue(e gateEntry) (string, error) {
+	code, err := randomToken()
+	if err != nil {
+		return "", err
+	}
 	now := g.now()
+	e.expires = now.Add(gateCodeTTL)
 	g.mu.Lock()
 	g.prune(now)
-	g.codes[code] = gateEntry{sessionID: sessionID, host: strings.ToLower(u.Hostname()), projectID: t.ProjectID, need: t.Login, path: path, expires: now.Add(gateCodeTTL)}
+	g.codes[code] = e
 	g.mu.Unlock()
-	back := url.URL{Scheme: u.Scheme, Host: u.Host, Path: GatePath, RawQuery: url.Values{"code": {code}}.Encode()}
+	host := e.host
+	if e.port != "" {
+		host = net.JoinHostPort(host, e.port)
+	}
+	back := url.URL{Scheme: e.scheme, Host: host, Path: GatePath, RawQuery: url.Values{"code": {code}}.Encode()}
 	return back.String(), nil
+}
+
+// companions are the hosts of t.LoginAlso behind the same gate of the same project.
+func (g *Gate) companions(ctx context.Context, host string, t Target) []string {
+	if len(t.LoginAlso) == 0 {
+		return nil
+	}
+	g.mu.Lock()
+	router := g.router
+	g.mu.Unlock()
+	if router == nil {
+		return nil
+	}
+	routes := router.Table(ctx).Routes
+	var out []string
+	for _, h := range t.LoginAlso {
+		h = strings.ToLower(h)
+		if c, ok := routes[h]; ok && h != host && c.ProjectID == t.ProjectID && c.Login == t.Login && !slices.Contains(out, h) {
+			out = append(out, h)
+		}
+	}
+	return out
 }
 
 // redeemGate swaps the code in the request for a pass of the host and sends the browser on.
@@ -141,7 +183,16 @@ func (h *Handler) redeemGate(w http.ResponseWriter, r *http.Request, host string
 	// The code is in this address; it must not travel on in a Referer.
 	w.Header().Set("Referrer-Policy", "no-referrer")
 	w.Header().Set("Cache-Control", "no-store")
-	http.Redirect(w, r, e.path, http.StatusFound)
+	to := e.path
+	if len(e.rest) > 0 {
+		next := e
+		next.host, next.rest = e.rest[0], e.rest[1:]
+		if to, err = g.issue(next); err != nil {
+			h.errorPage(w, http.StatusInternalServerError, "Sign-in failed", "Envoryx could not create the sign-in.", "")
+			return
+		}
+	}
+	http.Redirect(w, r, to, http.StatusFound)
 }
 
 // admitGate reports whether the request carries a valid pass for the target.

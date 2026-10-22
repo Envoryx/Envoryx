@@ -96,7 +96,7 @@ func TestGate(t *testing.T) {
 	if _, _, err := gate.Resolve(context.Background(), "javascript:alert(1)"); err != ErrNotGated {
 		t.Fatalf("odd address: %v", err)
 	}
-	back, err := gate.Issue("s1", u, target)
+	back, err := gate.Issue(context.Background(), "s1", u, target)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -108,7 +108,7 @@ func TestGate(t *testing.T) {
 	if res, _ := do("blog-pma.test", GatePath+"?"+backURL.RawQuery, nil); res.StatusCode != http.StatusForbidden {
 		t.Fatalf("code on another host: %d", res.StatusCode)
 	}
-	back, _ = gate.Issue("s1", u, target)
+	back, _ = gate.Issue(context.Background(), "s1", u, target)
 	backURL, _ = url.Parse(back)
 	res, _ = do("shop-pma.test", GatePath+"?"+backURL.RawQuery, nil)
 	if res.StatusCode != http.StatusFound || res.Header.Get("Location") != "/index.php?db=shop" {
@@ -160,7 +160,7 @@ func TestGate(t *testing.T) {
 	}
 
 	// An old code is refused.
-	back, _ = gate.Issue("s1", u, target)
+	back, _ = gate.Issue(context.Background(), "s1", u, target)
 	backURL, _ = url.Parse(back)
 	now = now.Add(gateCodeTTL + time.Second)
 	if res, _ := do("shop-pma.test", GatePath+"?"+backURL.RawQuery, nil); res.StatusCode != http.StatusForbidden {
@@ -172,7 +172,7 @@ func TestGateIssueKeepsThePathOnTheHost(t *testing.T) {
 	g := NewGate(nil)
 	for _, raw := range []string{"http://a.test", "http://a.test//evil.example/x", "http://a.test" + GatePath + "?code=x"} {
 		u, _ := url.Parse(raw)
-		back, err := g.Issue("s", u, Target{ProjectID: "p", Login: "read"})
+		back, err := g.Issue(context.Background(), "s", u, Target{ProjectID: "p", Login: "read"})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -196,5 +196,80 @@ func TestGateClosedWithoutGate(t *testing.T) {
 	h.ServeHTTP(rec, req)
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("no gate: %d", rec.Code)
+	}
+}
+
+// A page of the application loads its scripts from the dev server: one sign-in gives
+// both hosts a pass, the dev server's on the way.
+func TestGatePassesTheDevServerOnTheWay(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { _, _ = io.WriteString(w, "ok") }))
+	defer upstream.Close()
+	dial := strings.TrimPrefix(upstream.URL, "http://")
+	source := func(context.Context) (Table, error) {
+		return Table{Routes: map[string]Target{
+			"shop.test":     {ProjectID: "p1", ProjectName: "Shop", Dial: dial, Running: true, Login: "read", LoginAlso: []string{"shop-dev.test", "blog-dev.test"}},
+			"shop-dev.test": {ProjectID: "p1", ProjectName: "Shop (dev server)", Dial: dial, Running: true, Login: "read"},
+			"blog-dev.test": {ProjectID: "p2", ProjectName: "Blog (dev server)", Dial: dial, Running: true, Login: "read"},
+		}, EnvoryxURL: "http://envoryx.test"}, nil
+	}
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	router := NewRouter(source, time.Second, log)
+	gate := NewGate(func(context.Context, string, string, string) bool { return true })
+	gate.SetRouter(router)
+	h := NewHandler(router, http.NotFoundHandler(), false, log)
+	h.SetGate(gate)
+	srv := httptest.NewServer(h)
+	defer srv.Close()
+	client := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	get := func(u *url.URL, cookie string) *http.Response {
+		req, _ := http.NewRequest(http.MethodGet, srv.URL+u.RequestURI(), nil)
+		req.Host = u.Host
+		if cookie != "" {
+			req.Header.Set("Cookie", gateCookie+"="+cookie)
+		}
+		res, err := client.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		res.Body.Close()
+		return res
+	}
+	pass := func(res *http.Response) string {
+		for _, c := range res.Cookies() {
+			if c.Name == gateCookie {
+				return c.Value
+			}
+		}
+		return ""
+	}
+
+	u, target, err := gate.Resolve(context.Background(), "http://shop.test:8080/cart")
+	if err != nil {
+		t.Fatal(err)
+	}
+	back, _ := gate.Issue(context.Background(), "s1", u, target)
+	first, _ := url.Parse(back)
+	if first.Host != "shop-dev.test:8080" {
+		t.Fatalf("first hop: %s", back)
+	}
+	res := get(first, "")
+	devPass := pass(res)
+	second, _ := url.Parse(res.Header.Get("Location"))
+	if devPass == "" || second.Path != GatePath {
+		t.Fatalf("dev hop: %d %s", res.StatusCode, res.Header.Get("Location"))
+	}
+	if second.Host != "shop.test:8080" {
+		t.Fatalf("another project's dev server must not be on the way: %s", second)
+	}
+	res = get(second, "")
+	appPass := pass(res)
+	if appPass == "" || res.Header.Get("Location") != "/cart" {
+		t.Fatalf("last hop: %s", res.Header.Get("Location"))
+	}
+	if res := get(&url.URL{Host: "shop-dev.test", Path: "/@vite/client"}, devPass); res.StatusCode != http.StatusOK {
+		t.Fatalf("dev server with its pass: %d", res.StatusCode)
+	}
+	if res := get(&url.URL{Host: "shop.test", Path: "/"}, appPass); res.StatusCode != http.StatusOK {
+		t.Fatalf("app with its pass: %d", res.StatusCode)
 	}
 }
