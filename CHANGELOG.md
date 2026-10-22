@@ -10,6 +10,8 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.40.1] - 2026-10-22
+
 ### Security
 - Built with Go 1.27.3, which fixes GO-2026-6809 in the standard library: crypto/x509
   still trusted certificates signed by compromised intermediate certificates, which
@@ -2521,7 +2523,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.40.0...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.40.1...HEAD
+[0.40.1]: https://github.com/envoryx/envoryx/compare/v0.40.0...v0.40.1
 [0.40.0]: https://github.com/envoryx/envoryx/compare/v0.39.3...v0.40.0
 [0.39.3]: https://github.com/envoryx/envoryx/compare/v0.39.2...v0.39.3
 [0.39.2]: https://github.com/envoryx/envoryx/compare/v0.39.1...v0.39.2
