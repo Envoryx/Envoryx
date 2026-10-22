@@ -51,9 +51,10 @@ describe("ProxyRulesCard", () => {
 
     await user.click(screen.getByLabelText(/Only people signed in to Envoryx/));
     expect(screen.getByText("With the Envoryx sign-in it only applies to a share.")).toBeInTheDocument();
+    await user.type(screen.getByLabelText("Open paths"), "/webhooks/*{enter}/up");
     await user.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(api.calls.some((c) => c.method === "PUT")).toBe(true));
-    expect(api.calls.find((c) => c.method === "PUT")!.body).toEqual({ login: true });
+    expect(api.calls.find((c) => c.method === "PUT")!.body).toEqual({ login: true, openPaths: ["/webhooks/*", "/up"] });
   });
 
   it("keeps the stored password and sets up CORS", async () => {

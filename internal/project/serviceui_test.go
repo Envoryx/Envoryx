@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/envoryx/envoryx/internal/store"
+	"github.com/envoryx/envoryx/internal/validate"
 )
 
 func TestServiceWebUIsThroughTheProxy(t *testing.T) {
@@ -131,5 +132,19 @@ func TestProjectBehindTheSignIn(t *testing.T) {
 	}
 	if v, _ := e.m.Get(ctx, id); !v.Project.ProxyRules.Login {
 		t.Fatal("login not stored")
+	}
+
+	// Webhooks skip the sign-in.
+	for _, bad := range []string{"webhooks", "/a/../b", "/a b", "/x*y", "/a%2f"} {
+		if _, err := e.m.SetProxyRules(ctx, id, ProxyRulesRequest{Login: true, OpenPaths: []string{bad}}); !errors.Is(err, validate.ErrInvalid) {
+			t.Errorf("%q: %v", bad, err)
+		}
+	}
+	if _, err := e.m.SetProxyRules(ctx, id, ProxyRulesRequest{Login: true, OpenPaths: []string{" /webhooks/* ", "/up", "/up"}}); err != nil {
+		t.Fatal(err)
+	}
+	table, _ = e.m.RouteTable(ctx, ProxyOptions{})
+	if open := table.Routes["shop.test"].LoginExcept; len(open) != 2 || open[0] != "/webhooks/*" {
+		t.Fatalf("open paths: %v", open)
 	}
 }

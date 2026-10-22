@@ -273,3 +273,83 @@ func TestGatePassesTheDevServerOnTheWay(t *testing.T) {
 		t.Fatalf("app with its pass: %d", res.StatusCode)
 	}
 }
+
+func TestGateOpenPathsAndTokens(t *testing.T) {
+	var seen atomic.Value
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seen.Store(r.Header.Get(TokenHeader))
+		_, _ = io.WriteString(w, "app "+r.URL.Path)
+	}))
+	defer upstream.Close()
+	dial := strings.TrimPrefix(upstream.URL, "http://")
+	source := func(context.Context) (Table, error) {
+		return Table{Routes: map[string]Target{
+			"shop.test": {ProjectID: "p1", ProjectName: "Shop", Dial: dial, Running: true, Login: "read", LoginExcept: []string{"/webhooks/*", "/up"}},
+		}, EnvoryxURL: "http://envoryx.test"}, nil
+	}
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	router := NewRouter(source, time.Second, log)
+	gate := NewGate(func(context.Context, string, string, string) bool { return false })
+	checks := 0
+	gate.SetTokenCheck(func(_ context.Context, token, projectID, need string) bool {
+		checks++
+		return token == "envx_good" && projectID == "p1" && need == "read"
+	})
+	h := NewHandler(router, http.NotFoundHandler(), false, log)
+	h.SetGate(gate)
+	srv := httptest.NewServer(h)
+	defer srv.Close()
+	get := func(rawPath string, header map[string]string) int {
+		req, _ := http.NewRequest(http.MethodPost, srv.URL+rawPath, nil)
+		req.Host = "shop.test"
+		for k, v := range header {
+			req.Header.Set(k, v)
+		}
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		res.Body.Close()
+		return res.StatusCode
+	}
+	for path, want := range map[string]int{
+		"/webhooks/stripe":         200,
+		"/up":                      200,
+		"/up/more":                 401,
+		"/admin":                   401,
+		"/webhooks/../admin":       401,
+		"/webhooks/%2e%2e/admin":   401,
+		"/webhooks/x%2F..%2Fadmin": 401,
+		"/webhooks//admin":         401,
+		"/webhooks\\..\\admin":     401,
+	} {
+		if got := get(path, nil); got != want {
+			t.Errorf("%s: %d, want %d", path, got, want)
+		}
+	}
+	if got := get("/admin", map[string]string{TokenHeader: "envx_bad"}); got != 401 {
+		t.Fatalf("bad token: %d", got)
+	}
+	if got := get("/admin", map[string]string{TokenHeader: "envx_good"}); got != 200 || seen.Load().(string) != "" {
+		t.Fatalf("good token: %d, the app saw %q", got, seen.Load())
+	}
+	before := checks
+	get("/admin", map[string]string{TokenHeader: "envx_good"})
+	if checks != before {
+		t.Fatal("a fresh token check must be remembered")
+	}
+}
+
+func TestOpenPath(t *testing.T) {
+	open := []string{"/webhooks/*", "/up"}
+	for raw, want := range map[string]bool{
+		"/webhooks/stripe": true, "/up": true, "/upload": false, "/": false,
+		"/webhooks/../admin": false, "/webhooks/%2e%2e/admin": false, "/webhooks/a%2Fb": false,
+		"/webhooks//x": false, "/webhooks/a\\b": false, "/webhooks/./x": false,
+	} {
+		r := httptest.NewRequest(http.MethodGet, "http://shop.test"+raw, nil)
+		if got := openPath(r, open); got != want {
+			t.Errorf("%s: %v, want %v", raw, got, want)
+		}
+	}
+}

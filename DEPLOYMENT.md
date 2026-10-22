@@ -1075,8 +1075,15 @@ not to the directly published port, which bypasses the proxy.
   through the Envoryx sign-in and comes back to the page it asked for; the
   dev server gets its pass on the same trip, since the pages load their
   scripts from it. Requests a browser doesn't navigate to (an API client,
-  `curl`, a webhook) get a 401, so a project that receives webhooks needs the
-  basic authentication instead for now. Signing out closes the project again
+  `curl`, a webhook) get a 401. *Open paths* let some through anyway, one
+  per line, exact (`/up`) or as a prefix ending in `*` (`/webhooks/*`): the
+  payment provider's webhook, a health check. A path with `..`, `//`, a
+  backslash or an encoded slash or dot never counts as open, so
+  `/webhooks/../admin` stays closed. Scripts, end-to-end tests and
+  monitoring send an API token with read access to the project in the
+  header `X-Envoryx-Token` instead; the application sees neither the header
+  nor the sign-in's cookie, and its own `Authorization` header stays its
+  own. Signing out closes the project again
   within half a minute. A share stays open on purpose: its address is
   random, it ends with the share, and the password below still applies
   there. On a server on the internet this is the setting that keeps a work

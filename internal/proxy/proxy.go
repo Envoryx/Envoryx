@@ -43,6 +43,9 @@ type Target struct {
 	// LoginAlso are hosts the target's pages load from (its dev server), which get a pass
 	// at the same sign-in.
 	LoginAlso []string
+	// LoginExcept are paths (or prefixes ending in "*") that skip the sign-in: webhooks,
+	// a health check.
+	LoginExcept []string
 }
 
 // Table is a snapshot of the routing state.
@@ -211,11 +214,18 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		case r.URL.Path == GatePath:
 			h.redeemGate(w, r, host, target)
 			return
+		case openPath(r, target.LoginExcept):
+		case r.Header.Get(TokenHeader) != "":
+			if !h.gate.admitToken(r.Context(), r.Header.Get(TokenHeader), target) {
+				h.errorPage(w, http.StatusUnauthorized, "Sign in required", fmt.Sprintf("The token doesn't open <strong>%s</strong>: it needs read access to the project.", html.EscapeString(target.ProjectName)), "")
+				return
+			}
 		case !h.admitGate(r, host, target):
 			h.challengeGate(w, r, target, table.EnvoryxURL)
 			return
 		}
 		dropGateCookie(r)
+		r.Header.Del(TokenHeader)
 	}
 	if !rules.Empty() {
 		if h.guard(w, r, rules) {

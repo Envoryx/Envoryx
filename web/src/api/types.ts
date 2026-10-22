@@ -411,6 +411,8 @@ export interface ProxyRules {
   cors?: CORSRule;
   /** Only people signed in to Envoryx who may see the project get in. */
   login?: boolean;
+  /** Paths (or prefixes ending in "*") that skip that sign-in: webhooks, a health check. */
+  openPaths?: string[];
 }
 
 /** A change of the rules; a basic authentication without password keeps the stored one. */

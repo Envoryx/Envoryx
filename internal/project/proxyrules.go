@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/netip"
 	"net/url"
+	"path"
 	"regexp"
 	"slices"
 	"strings"
@@ -25,6 +26,7 @@ const (
 	maxRedirects  = 50
 	maxHeaders    = 30
 	maxCORSValues = 30
+	maxOpenPaths  = 30
 )
 
 // ProxyRulesRequest changes a project's proxy rules; it replaces all of them.
@@ -34,8 +36,10 @@ type ProxyRulesRequest struct {
 	Redirects []store.RedirectRule `json:"redirects"`
 	Headers   []store.HeaderRule   `json:"headers"`
 	CORS      *store.CORSRule      `json:"cors"`
-	// Login keeps the host names behind the Envoryx sign-in (store.ProxyRules.Login).
-	Login bool `json:"login"`
+	// Login keeps the host names behind the Envoryx sign-in (store.ProxyRules.Login);
+	// OpenPaths skip it.
+	Login     bool     `json:"login"`
+	OpenPaths []string `json:"openPaths"`
 }
 
 // BasicAuthRequest sets basic authentication. An empty password keeps the one stored.
@@ -137,6 +141,23 @@ func normalizeProxyRules(req ProxyRulesRequest, prev store.ProxyRules) (store.Pr
 			return out, invalid("basic authentication needs a password")
 		}
 		out.BasicAuth = rule
+	}
+
+	if len(req.OpenPaths) > maxOpenPaths {
+		return out, invalid("at most %d open paths", maxOpenPaths)
+	}
+	for _, p := range req.OpenPaths {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		base := strings.TrimSuffix(p, "*")
+		if !strings.HasPrefix(p, "/") || strings.ContainsAny(p, " ?#%\\") || strings.Contains(base, "*") || cleanPath(base) != base && cleanPath(base)+"/" != base {
+			return out, invalid("%q is no path such as /webhooks/stripe or /webhooks/*", p)
+		}
+		if !slices.Contains(out.OpenPaths, p) {
+			out.OpenPaths = append(out.OpenPaths, p)
+		}
 	}
 
 	if len(req.Redirects) > maxRedirects {
@@ -323,13 +344,16 @@ const LoginAddon = string(auth.ScopeOperate)
 // project signs in through Envoryx: they may see it.
 const LoginApp = string(auth.ScopeRead)
 
+// cleanPath is path.Clean, which keeps "/" for the root.
+func cleanPath(p string) string { return path.Clean(p) }
+
 // withLogin puts a host of the application behind the Envoryx sign-in when the project
 // asks for it. The basic authentication goes, it would only ask a second time.
 func withLogin(t proxy.Target, p store.Project) proxy.Target {
 	if !p.ProxyRules.Login {
 		return t
 	}
-	t.Login = LoginApp
+	t.Login, t.LoginExcept = LoginApp, p.ProxyRules.OpenPaths
 	if r := t.Rules; r != nil && r.BasicAuth != nil {
 		out := *r
 		out.BasicAuth = nil
