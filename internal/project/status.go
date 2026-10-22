@@ -9,6 +9,7 @@ import (
 
 	"github.com/envoryx/envoryx/internal/docker"
 	"github.com/envoryx/envoryx/internal/notify"
+	"github.com/envoryx/envoryx/internal/plan"
 	"github.com/envoryx/envoryx/internal/runtime"
 	"github.com/envoryx/envoryx/internal/store"
 )
@@ -69,6 +70,8 @@ type statusInfo struct {
 	// eol names the runtime or service of a version past its end of life ("PHP"), "" for
 	// one that is supported.
 	eol func(svc store.ProjectService) string
+	// previewOutsidePlan names it for a pre-release the instance's plan leaves out.
+	previewOutsidePlan func(svc store.ProjectService) string
 }
 
 // deriveStatus computes the observed state of a project from the managed container list.
@@ -150,6 +153,11 @@ func deriveStatus(p store.Project, containers []docker.Container, info statusInf
 			if name := info.eol(svc); name != "" {
 				ss.EOL = true
 				st.Warnings = append(st.Warnings, fmt.Sprintf("%s %s has reached its end of life and gets no security fixes; switch to a newer version", name, svc.Version))
+			}
+		}
+		if info.previewOutsidePlan != nil && !svc.Custom.Set() {
+			if name := info.previewOutsidePlan(svc); name != "" {
+				st.Warnings = append(st.Warnings, fmt.Sprintf("%s %s is a preview version, which this instance's plan doesn't include; switch to a released version", name, svc.Version))
 			}
 		}
 		if rec := p.ImageRecord(svc.Image); rec != nil && rec.PreviousID != "" {
@@ -430,7 +438,18 @@ func (m *Manager) settled(ctx context.Context, p store.Project) (store.Project, 
 
 // statusInfo gathers what deriveStatus knows beyond the containers for the given projects.
 func (m *Manager) statusInfo(ctx context.Context, projects []store.Project) statusInfo {
-	return statusInfo{imageIDs: m.localImageIDs(ctx, projects), newer: m.newerImages(), eol: m.eolName}
+	return statusInfo{imageIDs: m.localImageIDs(ctx, projects), newer: m.newerImages(), eol: m.eolName, previewOutsidePlan: m.previewOutsidePlan}
+}
+
+// previewOutsidePlan is statusInfo.previewOutsidePlan from the catalogue and the plan.
+func (m *Manager) previewOutsidePlan(svc store.ProjectService) string {
+	if m.Plan().Allows(plan.FeaturePreviewVersions) {
+		return ""
+	}
+	if v, r, ok := m.catalogVersion(svc); ok && v.Preview {
+		return r.Name
+	}
+	return ""
 }
 
 // eolName is statusInfo.eol from the catalogue.

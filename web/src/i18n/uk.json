@@ -3240,5 +3240,11 @@
   "a newer {{service}} image is available; restart to apply": "Доступний новіший образ {{service}}; перезапустіть, щоб застосувати",
   "{{name}} {{version}} has reached its end of life and gets no security fixes; switch to a newer version": "{{name}} {{version}} досяг кінця терміну підтримки й більше не отримує виправлень безпеки; перейдіть на новішу версію",
   "The registry has a newer build of images your projects use (a restart applies it)": "У реєстрі є новіша збірка образів, які використовують ваші проєкти (перезапуск її застосовує)",
-  "Projects were restarted at the set hour to apply newer images": "Проєкти перезапущено в заданий час, щоб застосувати новіші образи"
+  "Projects were restarted at the set hour to apply newer images": "Проєкти перезапущено в заданий час, щоб застосувати новіші образи",
+  "End-of-life versions": "Версії після завершення підтримки",
+  "Preview versions": "Попередні версії",
+  " (not in your plan)": " (не входить у ваш тариф)",
+  "{{name}} {{version}} is a preview version, which this instance's plan doesn't include; switch to a released version": "{{name}} {{version}} - попередня версія, якої тариф цього екземпляра не містить; перейдіть на випущену версію",
+  "{{name}} {{version}} has reached its end of life; this instance's plan includes supported versions only": "{{name}} {{version}} досяг кінця терміну підтримки; тариф цього екземпляра містить лише підтримувані версії",
+  "{{name}} {{version}} is a preview version; this instance's plan includes released versions only": "{{name}} {{version}} - попередня версія; тариф цього екземпляра містить лише випущені версії"
 }

@@ -31,10 +31,15 @@ const (
 	FeatureExternalServices Feature = "externalServices"
 	FeatureOffsite          Feature = "offsite"
 	FeatureIDEGateway       Feature = "ideGateway"
+	// FeatureEOLVersions are versions past their end of life (PHP 8.1), which get no
+	// security fixes; FeaturePreviewVersions the pre-releases (PHP 8.6 RC). Switched
+	// off, no project gets one newly; projects that run one keep it.
+	FeatureEOLVersions     Feature = "eolVersions"
+	FeaturePreviewVersions Feature = "previewVersions"
 )
 
 // Features lists every feature a plan can switch off, in display order.
-var Features = []Feature{FeatureAddons, FeatureCustomImages, FeatureBranchEnvs, FeatureExternalServices, FeatureOffsite, FeatureIDEGateway}
+var Features = []Feature{FeatureAddons, FeatureCustomImages, FeatureBranchEnvs, FeatureExternalServices, FeatureOffsite, FeatureIDEGateway, FeatureEOLVersions, FeaturePreviewVersions}
 
 // Plan is what a hoster allows an instance. Zero values mean "no limit".
 type Plan struct {
@@ -193,6 +198,8 @@ var featureNoun = map[Feature]string{
 	FeatureExternalServices: "external services",
 	FeatureOffsite:          "offsite targets",
 	FeatureIDEGateway:       "IDE gateways",
+	FeatureEOLVersions:      "end-of-life versions",
+	FeaturePreviewVersions:  "preview versions",
 }
 
 // AllowsRuntime reports whether new projects may use a runtime.

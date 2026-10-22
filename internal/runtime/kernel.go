@@ -131,3 +131,20 @@ func (c *Catalog) ForKernel(kernel string) []Runtime {
 	}
 	return out
 }
+
+// MarkPlan marks the end-of-life versions (unless eol) and the previews (unless preview)
+// as not in the instance's plan.
+func MarkPlan(runtimes []Runtime, eol, preview bool) []Runtime {
+	if eol && preview {
+		return runtimes
+	}
+	for i := range runtimes {
+		for j := range runtimes[i].Versions {
+			v := &runtimes[i].Versions[j]
+			if (v.EOL && !eol) || (v.Preview && !preview) {
+				v.NotInPlan = true
+			}
+		}
+	}
+	return runtimes
+}

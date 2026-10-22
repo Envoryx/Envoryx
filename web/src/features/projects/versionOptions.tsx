@@ -4,18 +4,19 @@ import { translateMessage } from "@/lib/errors";
 
 /**
  * The options of a version select. A version the Docker host cannot run (the server marks
- * it unavailable, e.g. MongoDB 8.0 on Linux 6.19) is disabled, except `keep`: the version a
- * service already has stays selectable so its form still saves. `anyHost` lifts the lock
- * where the version only picks client tools (an external server).
+ * it unavailable, e.g. MongoDB 8.0 on Linux 6.19) or the instance's plan leaves out (an
+ * end-of-life or preview version) is disabled, except `keep`: the version a service already
+ * has stays selectable so its form still saves. `anyHost` lifts the host lock where the
+ * version only picks client tools (an external server).
  */
 export function versionOptions(versions: RuntimeVersion[], t: TFunction, opts: { keep?: string; anyHost?: boolean } = {}) {
   return versions.map((v) => {
     const unavailable = !opts.anyHost && !!v.unavailable;
     return (
-      <option key={v.version} value={v.version} disabled={unavailable && v.version !== opts.keep}>
+      <option key={v.version} value={v.version} disabled={(unavailable || !!v.notInPlan) && v.version !== opts.keep}>
         {v.label}
         {v.eol ? t(" (end of life)") : v.preview ? t(" (preview)") : ""}
-        {unavailable ? t(" (not on this host)") : ""}
+        {unavailable ? t(" (not on this host)") : v.notInPlan ? t(" (not in your plan)") : ""}
       </option>
     );
   });

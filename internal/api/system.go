@@ -190,9 +190,16 @@ func (a *API) dashboard(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// runtimesForInstance is the catalogue as this instance offers it: versions its Docker
+// host can't run and versions its plan leaves out are marked.
+func (a *API) runtimesForInstance(ctx context.Context) []runtime.Runtime {
+	pl := a.d.Projects.Plan()
+	return runtime.MarkPlan(a.d.Catalog.ForKernel(a.d.Projects.HostKernel(ctx)), pl.Allows(plan.FeatureEOLVersions), pl.Allows(plan.FeaturePreviewVersions))
+}
+
 func (a *API) runtimes(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
-		"runtimes":      a.d.Catalog.ForKernel(a.d.Projects.HostKernel(r.Context())),
+		"runtimes":      a.runtimesForInstance(r.Context()),
 		"templates":     project.Templates(),
 		"phpExtensions": runtime.PHPExtensions(),
 		"phpDefaults":   runtime.DefaultPHPConfig(),

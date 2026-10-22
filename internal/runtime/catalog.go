@@ -38,6 +38,9 @@ type Version struct {
 	// the version cannot run there and the UI offers it disabled with the reason.
 	Unavailable       bool   `json:"unavailable,omitempty"`
 	UnavailableReason string `json:"unavailableReason,omitempty"`
+	// NotInPlan is set when the instance's plan leaves the version out (an end-of-life
+	// or preview version, see MarkPlan): a service that runs it keeps it, no other gets it.
+	NotInPlan bool `json:"notInPlan,omitempty"`
 	// MissingExtensions names the PHP extensions (and xdebug) this version's image does
 	// not ship yet, typically PECL extensions that don't build for a preview.
 	MissingExtensions []string `json:"missingExtensions,omitempty"`

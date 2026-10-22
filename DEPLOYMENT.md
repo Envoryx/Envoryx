@@ -2717,7 +2717,13 @@ management).
   needs no runtime and is always possible.
 - **disabled**: features the plan switches off: `addons`, `customImages`,
   `branchEnvironments`, `externalServices`, `offsite` (no targets, nothing is
-  sent or fetched) and `ideGateway` (no port forwarding over SSH).
+  sent or fetched), `ideGateway` (no port forwarding over SSH), `eolVersions`
+  and `previewVersions`. The last two leave out the versions past their end of
+  life (PHP 8.1) and the pre-releases (PHP 8.6 RC): no new project, copy,
+  restore, branch environment or version switch gets one, and the wizard shows
+  them as *not in your plan*. A project that runs one already keeps it, may
+  change everything else, and shows a warning until it moves to a supported
+  version.
 - **settings**: instance settings the hoster fixes, by their name in
   `PATCH /api/v1/settings`: `publicHost`, `baseDomain`, `forceHttps`,
   `projectsFollowEnvoryx`, `sharedIdeBackends`, `sharedPackageCache`,
