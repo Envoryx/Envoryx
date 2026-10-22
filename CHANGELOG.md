@@ -10,6 +10,8 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.43.0] - 2026-10-23
+
 ### Added
 - *Domains → Rules → Only people signed in to Envoryx* keeps a project's host names, its
   extra domains and its dev server away from everyone who may not see the project. A
@@ -28,7 +30,8 @@ release). `:main` follows the development branch.
   manages. A plan can fix the setting, and two new plan features go further: without
   `publicProjects` every project is behind the sign-in, without `publicShares` nobody can
   share a project on a public tunnel address. Older instances refuse a plan naming them;
-  the fleet manager (0.5.0) leaves them out for such instances. The project list marks projects behind the sign-in with a lock.
+  the fleet manager (0.5.0) leaves them out for such instances. The project list marks
+  projects behind the sign-in with a lock.
 - The web interfaces of the built-in services have addresses through the proxy:
   `<project>-mailpit`, `-rabbitmq`, `-opensearch-dashboards`, `-meilisearch` and
   `-s3-console` under the base domain. Like an addon's web UI they only let in people
@@ -2606,7 +2609,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.42.0...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.43.0...HEAD
+[0.43.0]: https://github.com/envoryx/envoryx/compare/v0.42.0...v0.43.0
 [0.42.0]: https://github.com/envoryx/envoryx/compare/v0.41.0...v0.42.0
 [0.41.0]: https://github.com/envoryx/envoryx/compare/v0.40.1...v0.41.0
 [0.40.1]: https://github.com/envoryx/envoryx/compare/v0.40.0...v0.40.1
