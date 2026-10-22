@@ -3258,5 +3258,9 @@
   "Only on the server itself, at {{address}}": "Tylko na samym serwerze, pod {{address}}",
   "SSH tunnel": "Tunel SSH",
   "Connect from your machine through the SSH tunnel below.": "Połącz się ze swojego komputera przez tunel SSH poniżej.",
-  "On this instance the published ports only listen on the server itself (127.0.0.1). Debuggers and database clients on your machine connect through an SSH tunnel instead: start the command shown with the service and connect to localhost. Web interfaces open through their addresses.": "Na tej instancji opublikowane porty nasłuchują tylko na samym serwerze (127.0.0.1). Debugery i klienty baz danych na twoim komputerze łączą się zamiast tego przez tunel SSH: uruchom polecenie podane przy usłudze i połącz się z localhost. Interfejsy webowe otwierasz przez ich adresy."
+  "On this instance the published ports only listen on the server itself (127.0.0.1). Debuggers and database clients on your machine connect through an SSH tunnel instead: start the command shown with the service and connect to localhost. Web interfaces open through their addresses.": "Na tej instancji opublikowane porty nasłuchują tylko na samym serwerze (127.0.0.1). Debugery i klienty baz danych na twoim komputerze łączą się zamiast tego przez tunel SSH: uruchom polecenie podane przy usłudze i połącz się z localhost. Interfejsy webowe otwierasz przez ich adresy.",
+  "Envoryx sign-in": "Logowanie Envoryx",
+  "Only people signed in to Envoryx": "Tylko osoby zalogowane w Envoryx",
+  "The project's addresses and its dev server only let in users who may see the project; everyone else goes to the Envoryx sign-in first. A share stays open, with the password below.": "Adresy projektu i jego serwer deweloperski wpuszczają tylko użytkowników, którzy mogą widzieć projekt; pozostali trafiają najpierw do logowania Envoryx. Udostępnienie pozostaje otwarte, z hasłem poniżej.",
+  "With the Envoryx sign-in it only applies to a share.": "Przy logowaniu Envoryx dotyczy tylko udostępnienia."
 }

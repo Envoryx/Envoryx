@@ -3208,5 +3208,9 @@
   "Only on the server itself, at {{address}}": "Nur auf dem Server selbst, unter {{address}}",
   "SSH tunnel": "SSH-Tunnel",
   "Connect from your machine through the SSH tunnel below.": "Verbinde dich von deinem Rechner über den SSH-Tunnel unten.",
-  "On this instance the published ports only listen on the server itself (127.0.0.1). Debuggers and database clients on your machine connect through an SSH tunnel instead: start the command shown with the service and connect to localhost. Web interfaces open through their addresses.": "Auf dieser Instanz lauschen die veröffentlichten Ports nur auf dem Server selbst (127.0.0.1). Debugger und Datenbank-Clients auf deinem Rechner verbinden sich stattdessen über einen SSH-Tunnel: Starte den Befehl beim jeweiligen Dienst und verbinde dich mit localhost. Weboberflächen öffnest du über ihre Adressen."
+  "On this instance the published ports only listen on the server itself (127.0.0.1). Debuggers and database clients on your machine connect through an SSH tunnel instead: start the command shown with the service and connect to localhost. Web interfaces open through their addresses.": "Auf dieser Instanz lauschen die veröffentlichten Ports nur auf dem Server selbst (127.0.0.1). Debugger und Datenbank-Clients auf deinem Rechner verbinden sich stattdessen über einen SSH-Tunnel: Starte den Befehl beim jeweiligen Dienst und verbinde dich mit localhost. Weboberflächen öffnest du über ihre Adressen.",
+  "Envoryx sign-in": "Envoryx-Anmeldung",
+  "Only people signed in to Envoryx": "Nur bei Envoryx angemeldete Personen",
+  "The project's addresses and its dev server only let in users who may see the project; everyone else goes to the Envoryx sign-in first. A share stays open, with the password below.": "Die Adressen des Projekts und sein Dev-Server lassen nur Nutzer herein, die das Projekt sehen dürfen; alle anderen landen zuerst bei der Envoryx-Anmeldung. Eine Freigabe bleibt offen, mit dem Passwort unten.",
+  "With the Envoryx sign-in it only applies to a share.": "Mit der Envoryx-Anmeldung gilt es nur für eine Freigabe."
 }

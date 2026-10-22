@@ -3208,5 +3208,9 @@
   "Only on the server itself, at {{address}}": "Solo en el propio servidor, en {{address}}",
   "SSH tunnel": "Túnel SSH",
   "Connect from your machine through the SSH tunnel below.": "Conéctate desde tu equipo por el túnel SSH de abajo.",
-  "On this instance the published ports only listen on the server itself (127.0.0.1). Debuggers and database clients on your machine connect through an SSH tunnel instead: start the command shown with the service and connect to localhost. Web interfaces open through their addresses.": "En esta instancia los puertos publicados solo escuchan en el propio servidor (127.0.0.1). Los depuradores y clientes de base de datos de tu equipo se conectan por un túnel SSH: ejecuta el comando indicado en el servicio y conéctate a localhost. Las interfaces web se abren por sus direcciones."
+  "On this instance the published ports only listen on the server itself (127.0.0.1). Debuggers and database clients on your machine connect through an SSH tunnel instead: start the command shown with the service and connect to localhost. Web interfaces open through their addresses.": "En esta instancia los puertos publicados solo escuchan en el propio servidor (127.0.0.1). Los depuradores y clientes de base de datos de tu equipo se conectan por un túnel SSH: ejecuta el comando indicado en el servicio y conéctate a localhost. Las interfaces web se abren por sus direcciones.",
+  "Envoryx sign-in": "Inicio de sesión de Envoryx",
+  "Only people signed in to Envoryx": "Solo personas con sesión en Envoryx",
+  "The project's addresses and its dev server only let in users who may see the project; everyone else goes to the Envoryx sign-in first. A share stays open, with the password below.": "Las direcciones del proyecto y su servidor de desarrollo solo dejan entrar a usuarios que pueden ver el proyecto; los demás pasan primero por el inicio de sesión de Envoryx. Un enlace compartido sigue abierto, con la contraseña de abajo.",
+  "With the Envoryx sign-in it only applies to a share.": "Con el inicio de sesión de Envoryx solo se aplica a un enlace compartido."
 }

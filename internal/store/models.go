@@ -238,6 +238,9 @@ type ProxyRules struct {
 	Headers []HeaderRule `json:"headers,omitempty"`
 	// CORS answers preflight requests and adds the CORS headers for these origins.
 	CORS *CORSRule `json:"cors,omitempty"`
+	// Login opens the project's host names only to people signed in to Envoryx who may
+	// see the project; the basic authentication isn't asked there then.
+	Login bool `json:"login,omitempty"`
 }
 
 // BasicAuthRule is HTTP basic authentication in front of a project.
@@ -278,7 +281,7 @@ type CORSRule struct {
 
 // Empty reports rules that do nothing.
 func (r ProxyRules) Empty() bool {
-	return len(r.AllowIPs) == 0 && r.BasicAuth == nil && len(r.Redirects) == 0 && len(r.Headers) == 0 && r.CORS == nil
+	return len(r.AllowIPs) == 0 && r.BasicAuth == nil && len(r.Redirects) == 0 && len(r.Headers) == 0 && r.CORS == nil && !r.Login
 }
 
 func (r ProxyRules) encode() string {

@@ -3208,5 +3208,9 @@
   "Only on the server itself, at {{address}}": "Alleen op de server zelf, op {{address}}",
   "SSH tunnel": "SSH-tunnel",
   "Connect from your machine through the SSH tunnel below.": "Maak vanaf je computer verbinding via de SSH-tunnel hieronder.",
-  "On this instance the published ports only listen on the server itself (127.0.0.1). Debuggers and database clients on your machine connect through an SSH tunnel instead: start the command shown with the service and connect to localhost. Web interfaces open through their addresses.": "Op deze instantie luisteren de gepubliceerde poorten alleen op de server zelf (127.0.0.1). Debuggers en databaseclients op je computer verbinden in plaats daarvan via een SSH-tunnel: start de opdracht bij de dienst en maak verbinding met localhost. Webinterfaces open je via hun adressen."
+  "On this instance the published ports only listen on the server itself (127.0.0.1). Debuggers and database clients on your machine connect through an SSH tunnel instead: start the command shown with the service and connect to localhost. Web interfaces open through their addresses.": "Op deze instantie luisteren de gepubliceerde poorten alleen op de server zelf (127.0.0.1). Debuggers en databaseclients op je computer verbinden in plaats daarvan via een SSH-tunnel: start de opdracht bij de dienst en maak verbinding met localhost. Webinterfaces open je via hun adressen.",
+  "Envoryx sign-in": "Envoryx-aanmelding",
+  "Only people signed in to Envoryx": "Alleen mensen die bij Envoryx zijn aangemeld",
+  "The project's addresses and its dev server only let in users who may see the project; everyone else goes to the Envoryx sign-in first. A share stays open, with the password below.": "De adressen van het project en de dev-server laten alleen gebruikers binnen die het project mogen zien; alle anderen gaan eerst naar de Envoryx-aanmelding. Een deellink blijft open, met het wachtwoord hieronder.",
+  "With the Envoryx sign-in it only applies to a share.": "Met de Envoryx-aanmelding geldt het alleen voor een deellink."
 }

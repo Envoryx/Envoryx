@@ -260,10 +260,12 @@ func (m *Manager) RouteTable(ctx context.Context, opts ProxyOptions) (proxy.Tabl
 	byProject := map[string]store.Project{}
 	for _, p := range projects {
 		byProject[p.ID] = p
-		t.Routes[DefaultHostname(p.Slug, base)] = m.appTarget(paths.SelfContainerID, p, running)
+		t.Routes[DefaultHostname(p.Slug, base)] = m.appRoute(paths.SelfContainerID, p, running, base)
 		if cfg, ok := nodeDevConfig(p); ok {
-			t.Routes[DevHostname(p.Slug, base)] = proxy.Target{ProjectID: p.ID, ProjectName: p.Name + " (dev server)", Slug: p.Slug, Running: nodeRunning[p.ID], Started: p.DesiredState == store.DesiredRunning, Dial: m.dialForDev(paths.SelfContainerID, p, cfg), Rules: proxyRules(p)}
+			t.Routes[DevHostname(p.Slug, base)] = withLogin(proxy.Target{ProjectID: p.ID, ProjectName: p.Name + " (dev server)", Slug: p.Slug, Running: nodeRunning[p.ID], Started: p.DesiredState == store.DesiredRunning, Dial: m.dialForDev(paths.SelfContainerID, p, cfg), Rules: proxyRules(p)}, p)
 		}
+		// A share is the deliberate exception from the sign-in: its address is random and
+		// ends with the share, and the basic authentication still applies there.
 		if host, ok := m.shareHosts.Load(p.ID); ok {
 			target := m.appTarget(paths.SelfContainerID, p, running)
 			target.Share = true
@@ -291,10 +293,21 @@ func (m *Manager) RouteTable(ctx context.Context, opts ProxyOptions) (proxy.Tabl
 	}
 	for _, d := range domains {
 		if p, ok := byProject[d.ProjectID]; ok {
-			t.Routes[d.Hostname] = m.appTarget(paths.SelfContainerID, p, running)
+			t.Routes[d.Hostname] = m.appRoute(paths.SelfContainerID, p, running, base)
 		}
 	}
 	return t, nil
+}
+
+// appRoute is the target of a project's primary host name and extra domains: the
+// application, behind the Envoryx sign-in when the project asks for it. The dev server's
+// host gets a pass at the same sign-in, since the pages load their scripts from it.
+func (m *Manager) appRoute(selfID string, p store.Project, running map[string]map[string]bool, base string) proxy.Target {
+	t := withLogin(m.appTarget(selfID, p, running), p)
+	if _, ok := nodeDevConfig(p); ok && t.Login != "" {
+		t.LoginAlso = []string{DevHostname(p.Slug, base)}
+	}
+	return t
 }
 
 // appTarget is the upstream of a project's primary host name and extra domains: the web

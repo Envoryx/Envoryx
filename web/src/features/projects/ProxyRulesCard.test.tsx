@@ -41,6 +41,21 @@ describe("ProxyRulesCard", () => {
     expect(await screen.findByText("Saved. The proxy applies the rules within a few seconds.")).toBeInTheDocument();
   });
 
+  it("puts the project behind the Envoryx sign-in", async () => {
+    const api = mockApi({
+      ...authedRoutes,
+      [`PUT /projects/${id}/proxy-rules`]: () => ({ body: { project: makeProject({ id }) } }),
+    });
+    renderApp(<ProxyRulesCard project={makeProject({ id })} />);
+    const user = userEvent.setup();
+
+    await user.click(screen.getByLabelText(/Only people signed in to Envoryx/));
+    expect(screen.getByText("With the Envoryx sign-in it only applies to a share.")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(api.calls.some((c) => c.method === "PUT")).toBe(true));
+    expect(api.calls.find((c) => c.method === "PUT")!.body).toEqual({ login: true });
+  });
+
   it("keeps the stored password and sets up CORS", async () => {
     const api = mockApi({
       ...authedRoutes,
