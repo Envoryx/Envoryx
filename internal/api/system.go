@@ -345,6 +345,8 @@ type updateSettingsRequest struct {
 	// ProjectsFollowEnvoryx stops the project containers with Envoryx and resumes them
 	// when it comes back.
 	ProjectsFollowEnvoryx *bool `json:"projectsFollowEnvoryx"`
+	// NewProjectsPrivate starts new projects behind the Envoryx sign-in.
+	NewProjectsPrivate *bool `json:"newProjectsPrivate"`
 	// SharedIDEBackends shares the JetBrains Gateway backends between projects.
 	SharedIDEBackends *bool `json:"sharedIdeBackends"`
 	// SharedPackageCache gives all projects one package cache.
@@ -571,6 +573,11 @@ func (a *API) applySettings(ctx context.Context, req updateSettingsRequest) (map
 			return changes, err
 		}
 	}
+	if req.NewProjectsPrivate != nil {
+		if err := a.d.Projects.SetNewProjectsPrivate(ctx, *req.NewProjectsPrivate); err != nil {
+			return changes, err
+		}
+	}
 	if req.SharedPackageCache != nil {
 		if err := a.d.Projects.SetSharedPackageCache(ctx, *req.SharedPackageCache); err != nil {
 			return changes, err
@@ -675,6 +682,7 @@ func (a *API) settings(w http.ResponseWriter, r *http.Request) {
 		"baseDomain":            a.d.Projects.BaseDomain(r.Context()),
 		"forceHttps":            a.d.Projects.ForceHTTPS(r.Context()),
 		"projectsFollowEnvoryx": a.d.Projects.ProjectsFollowEnvoryx(r.Context()),
+		"newProjectsPrivate":    a.d.Projects.NewProjectsPrivate(r.Context()),
 		"sharedIdeBackends":     a.d.Projects.SharedIDEBackends(r.Context()),
 		"sharedPackageCache":    a.d.Projects.SharedPackageCache(r.Context()),
 		"logHistory":            a.d.Projects.LogHistoryInfo(r.Context()),

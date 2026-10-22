@@ -33,6 +33,7 @@ import { SupportAccessCard, SupportRefusedNote } from "./SupportAccessCard";
 import { AuditLog } from "@/features/audit/AuditLog";
 import { ImageUpdatesCard } from "./ImageUpdatesCard";
 import { LifecycleCard } from "./LifecycleCard";
+import { NewProjectsAccessCard } from "./NewProjectsAccessCard";
 import { LogHistoryCard } from "./LogHistoryCard";
 import { ResourceHistoryCard } from "./ResourceHistoryCard";
 import { UnraidCard } from "./UnraidCard";
@@ -403,6 +404,7 @@ export function SettingsPage() {
           {tab === "domains" && (
             <>
               <DomainsCard />
+              <NewProjectsAccessCard />
               {s.data && <PublicHostForm current={s.data.publicHost} xdebugHost={s.data.xdebugClientHost ?? ""} />}
             </>
           )}

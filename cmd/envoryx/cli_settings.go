@@ -34,6 +34,7 @@ var settingKeys = []settingKey{
 	{name: "base-domain", field: "baseDomain", kind: "string", help: "projects answer as <slug>.<base domain>"},
 	{name: "force-https", field: "forceHttps", kind: "bool", help: "redirect project addresses to https"},
 	{name: "projects-follow-envoryx", field: "projectsFollowEnvoryx", kind: "bool", help: "stop the projects with Envoryx and start them again"},
+	{name: "new-projects-private", field: "newProjectsPrivate", kind: "bool", help: "new projects only let in people signed in to Envoryx"},
 	{name: "shared-ide-backends", field: "sharedIdeBackends", kind: "bool", help: "one set of JetBrains backends for all projects"},
 	{name: "shared-package-cache", field: "sharedPackageCache", kind: "bool", help: "one package cache for all projects"},
 	{name: "xdebug-client-host", field: "xdebugClientHost", kind: "string", help: "the developer machine Xdebug connects back to"},

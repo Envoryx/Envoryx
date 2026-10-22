@@ -3,7 +3,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/client";
-import { keys } from "@/api/hooks";
+import { keys, usePlanAllows } from "@/api/hooks";
 import type { HeaderRule, Project, ProxyRules, ProxyRulesRequest, RedirectRule } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Checkbox, Field, Input, Select } from "@/components/ui";
 import { errorText } from "@/lib/errors";
@@ -81,6 +81,8 @@ export function ProxyRulesCard({ project: p }: { project: Project }) {
   const qc = useQueryClient();
   const current = p.proxyRules;
   const editable = projectAccess(p).admin;
+  // A plan that leaves out projects open to everyone keeps the sign-in on.
+  const publicAllowed = usePlanAllows("publicProjects");
   const [form, setForm] = useState<Form>(toForm(current));
   const [msg, setMsg] = useState<{ tone: "green" | "red"; text: string } | null>(null);
   const currentKey = JSON.stringify(current ?? {});
@@ -89,7 +91,8 @@ export function ProxyRulesCard({ project: p }: { project: Project }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- compared by content
   }, [currentKey]);
 
-  const body = fromForm(form);
+  const login = form.login || !publicAllowed;
+  const body = fromForm({ ...form, login });
   const dirty = JSON.stringify(body) !== JSON.stringify(fromForm(toForm(current)));
   const needsPassword = form.auth && !current?.basicAuth && !form.password;
   const set = (patch: Partial<Form>) => setForm((f) => ({ ...f, ...patch }));
@@ -141,11 +144,13 @@ export function ProxyRulesCard({ project: p }: { project: Project }) {
           <h3 className="text-sm font-semibold text-fg">{t("Access")}</h3>
           <Checkbox
             label={t("Only people signed in to Envoryx")}
+            disabled={!publicAllowed}
             description={t("The project's addresses and its dev server only let in users who may see the project; everyone else goes to the Envoryx sign-in first. A share stays open, with the password below.")}
-            checked={form.login}
+            checked={login}
             onChange={(e) => set({ login: e.target.checked })}
           />
-          {form.login && (
+          {!publicAllowed && <p className="text-xs text-muted">{t("Your hoster's plan keeps every project behind the sign-in.")}</p>}
+          {login && (
             <Field
               label={t("Open paths")}
               htmlFor="pr-open"
@@ -159,7 +164,7 @@ export function ProxyRulesCard({ project: p }: { project: Project }) {
           </Field>
           <Checkbox
             label={t("Ask for a user name and password")}
-            description={form.login ? t("With the Envoryx sign-in it only applies to a share.") : t("HTTP basic authentication in front of the whole project - for a staging copy or a share.")}
+            description={login ? t("With the Envoryx sign-in it only applies to a share.") : t("HTTP basic authentication in front of the whole project - for a staging copy or a share.")}
             checked={form.auth}
             onChange={(e) => set({ auth: e.target.checked })}
           />

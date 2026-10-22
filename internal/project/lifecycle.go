@@ -108,6 +108,7 @@ func (m *Manager) create(ctx context.Context, req CreateRequest) (View, error) {
 	if err != nil {
 		return View{}, err
 	}
+	proj.ProxyRules.Login = m.NewProjectsPrivate(ctx)
 	planner, err := m.planner()
 	if err != nil {
 		return View{}, err

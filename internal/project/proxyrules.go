@@ -15,6 +15,7 @@ import (
 
 	"github.com/envoryx/envoryx/internal/audit"
 	"github.com/envoryx/envoryx/internal/auth"
+	"github.com/envoryx/envoryx/internal/plan"
 	"github.com/envoryx/envoryx/internal/proxy"
 	"github.com/envoryx/envoryx/internal/store"
 	"github.com/envoryx/envoryx/internal/validate"
@@ -68,6 +69,11 @@ func (m *Manager) SetProxyRules(ctx context.Context, id string, req ProxyRulesRe
 	rules, err := normalizeProxyRules(req, p.ProxyRules)
 	if err != nil {
 		return View{}, err
+	}
+	if !rules.Login {
+		if err := m.Plan().RequireFeature(plan.FeaturePublicProjects); err != nil {
+			return View{}, err
+		}
 	}
 	// A share reaches the proxy from Envoryx itself, so an allowlist cannot restrict it:
 	// the tunnel would stay public, and one naming 127.0.0.1 would let the internet in.
@@ -347,10 +353,10 @@ const LoginApp = string(auth.ScopeRead)
 // cleanPath is path.Clean, which keeps "/" for the root.
 func cleanPath(p string) string { return path.Clean(p) }
 
-// withLogin puts a host of the application behind the Envoryx sign-in when the project
-// asks for it. The basic authentication goes, it would only ask a second time.
-func withLogin(t proxy.Target, p store.Project) proxy.Target {
-	if !p.ProxyRules.Login {
+// withLogin puts a host of the application behind the Envoryx sign-in when on (see
+// Manager.signsIn). The basic authentication goes, it would only ask a second time.
+func withLogin(t proxy.Target, p store.Project, on bool) proxy.Target {
+	if !on {
 		return t
 	}
 	t.Login, t.LoginExcept = LoginApp, p.ProxyRules.OpenPaths

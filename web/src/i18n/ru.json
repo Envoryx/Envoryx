@@ -3278,5 +3278,15 @@
   "For whom": "Для кого",
   "e.g. Acme, review of the new shop": "например Acme, приёмка нового магазина",
   "Valid for": "Действует",
-  "Create link": "Создать ссылку"
+  "Create link": "Создать ссылку",
+  "Who sees new projects": "Кто видит новые проекты",
+  "A project's addresses are open to everyone who knows them, unless its rules let in only people signed in to Envoryx. On a server on the internet, start new projects that way; each project can still change it under Domains → Rules.": "Адреса проекта открыты всем, кто их знает, если только его правила не пускают лишь вошедших в Envoryx. На сервере в интернете начинайте новые проекты так; каждый проект может изменить это в Домены → Правила.",
+  "signed-in only": "только вошедшие",
+  "New projects only let in people signed in to Envoryx": "Новые проекты пускают только вошедших в Envoryx",
+  "Others can be let in with a guest link. Projects that exist keep their rules.": "Остальных можно впустить гостевой ссылкой. Существующие проекты сохраняют свои правила.",
+  "Your hoster's plan keeps every project behind the sign-in.": "Тариф вашего хостера держит каждый проект за входом.",
+  "Projects open to everyone": "Проекты, открытые всем",
+  "Public shares": "Публичный доступ",
+  "New projects signed-in only": "Новые проекты только для вошедших",
+  "Your hoster's plan leaves out public shares; send a guest link instead": "Тариф вашего хостера не включает публичный доступ; отправьте гостевую ссылку"
 }

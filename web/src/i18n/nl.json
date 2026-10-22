@@ -3228,5 +3228,15 @@
   "For whom": "Voor wie",
   "e.g. Acme, review of the new shop": "bijv. Acme, review van de nieuwe shop",
   "Valid for": "Geldig voor",
-  "Create link": "Link aanmaken"
+  "Create link": "Link aanmaken",
+  "Who sees new projects": "Wie nieuwe projecten ziet",
+  "A project's addresses are open to everyone who knows them, unless its rules let in only people signed in to Envoryx. On a server on the internet, start new projects that way; each project can still change it under Domains → Rules.": "De adressen van een project staan open voor iedereen die ze kent, tenzij de regels alleen mensen binnenlaten die bij Envoryx zijn aangemeld. Start op een server op internet nieuwe projecten zo; elk project kan het onder Domeinen → Regels nog wijzigen.",
+  "signed-in only": "alleen aangemeld",
+  "New projects only let in people signed in to Envoryx": "Nieuwe projecten laten alleen mensen binnen die bij Envoryx zijn aangemeld",
+  "Others can be let in with a guest link. Projects that exist keep their rules.": "Anderen laat je binnen met een gastlink. Bestaande projecten houden hun regels.",
+  "Your hoster's plan keeps every project behind the sign-in.": "Het pakket van je hoster houdt elk project achter de aanmelding.",
+  "Projects open to everyone": "Projecten open voor iedereen",
+  "Public shares": "Openbare deellinks",
+  "New projects signed-in only": "Nieuwe projecten alleen aangemeld",
+  "Your hoster's plan leaves out public shares; send a guest link instead": "Het pakket van je hoster bevat geen openbare deellinks; stuur in plaats daarvan een gastlink"
 }
