@@ -10,6 +10,11 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Security
+- Built with Go 1.27.3, which fixes GO-2026-6809 in the standard library: crypto/x509
+  still trusted certificates signed by compromised intermediate certificates, which
+  Envoryx's outgoing HTTPS connections reach.
+
 ## [0.40.0] - 2026-10-20
 
 ### Added
