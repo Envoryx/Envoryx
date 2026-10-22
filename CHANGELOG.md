@@ -10,6 +10,8 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.41.0] - 2026-10-22
+
 ### Added
 - Envoryx checks daily whether the images your projects use have a newer build in their
   registry (a PHP security fix, say), without pulling them. A project with one shows
@@ -2548,7 +2550,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.40.1...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.41.0...HEAD
+[0.41.0]: https://github.com/envoryx/envoryx/compare/v0.40.1...v0.41.0
 [0.40.1]: https://github.com/envoryx/envoryx/compare/v0.40.0...v0.40.1
 [0.40.0]: https://github.com/envoryx/envoryx/compare/v0.39.3...v0.40.0
 [0.39.3]: https://github.com/envoryx/envoryx/compare/v0.39.2...v0.39.3
