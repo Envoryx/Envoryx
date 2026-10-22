@@ -761,6 +761,8 @@ export interface ExtraServiceInfo {
   health?: string;
   volumeName?: string;
   webUiPort?: number;
+  /** The web interface's address through the proxy; preferred over the host port. */
+  webUiUrl?: string;
   /** RabbitMQ login; the password comes from the credentials endpoint. */
   username?: string;
   /** OpenSearch Dashboards, when the OpenSearch service has it; its port is webUiPort. */
@@ -1236,6 +1238,8 @@ export interface StorageInfo {
   hostPort: number;
   consolePort: number;
   consolePath: string;
+  /** The console's address through the proxy; preferred over the host port. */
+  consoleUrl?: string;
   region: string;
   bucket: string;
   publicRead: boolean;
@@ -1449,6 +1453,8 @@ export interface ProxyInfo {
   tls: boolean;
   /** Set when the container has its own IP (macvlan/ipvlan) instead of published ports. */
   address?: string;
+  /** The projects' host ports only listen on the server itself (127.0.0.1). */
+  localPorts?: boolean;
 }
 
 export interface DomainEntry {

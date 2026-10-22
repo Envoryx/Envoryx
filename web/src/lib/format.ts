@@ -93,6 +93,11 @@ export function projectUrl(port: number, publicHost?: string): string {
   return `http://${h}:${port}`;
 }
 
+/** Where a published port is, said so that one only open on the server isn't taken for one on the reader's machine. */
+export function reachable(t: TFunction, address: string, local: boolean): string {
+  return local ? t("Only on the server itself, at {{address}}", { address }) : t("Reachable at {{address}}", { address });
+}
+
 export function serviceLabel(kind: string, version?: string, variant?: string): string {
   const dbNames: Record<string, string> = { mariadb: "MariaDB", mysql: "MySQL", postgresql: "PostgreSQL", mongodb: "MongoDB" };
   const webNames: Record<string, string> = { caddy: "Caddy", apache: "Apache", nginx: "Nginx" };

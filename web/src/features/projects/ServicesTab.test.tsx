@@ -275,3 +275,23 @@ describe("ServicesTab external Redis", () => {
   });
 });
 
+
+describe("ServicesTab on a server whose ports stay local", () => {
+  const mailpit = { kind: "mailpit", version: "1.29", image: "axllent/mailpit:v1.29", host: "mailpit", port: 1025, hostPort: 26020, webUiPort: 26020, injectedEnv: ["MAIL_HOST"], state: "running" };
+  const redis = { kind: "redis", version: "8", image: "redis:8", host: "redis", port: 6379, hostPort: 26021, injectedEnv: ["REDIS_HOST"], state: "running" };
+
+  it("links the inbox through the proxy and says a published port is only on the server", async () => {
+    mockApi({
+      ...authedRoutes,
+      "GET /settings": () => ({ body: { publicHost: "", proxy: { enabled: true, httpPort: 80, httpsPort: 443, inDocker: true, tls: true, localPorts: true } } }),
+      "GET /runtimes": () => ({ body: runtimesFixture }),
+      [`GET ${P}/extras`]: () => ({ body: { services: [{ ...mailpit, webUiUrl: "https://acme-shop-mailpit.test" }, redis] } }),
+      [`GET ${P}/storage`]: () => ({ status: 404, body: { error: { code: "not_found", message: "no storage" } } }),
+    });
+    renderApp(<ServicesTab project={makeProject()} />);
+
+    expect(await screen.findByRole("link", { name: /acme-shop-mailpit\.test/ })).toHaveAttribute("href", "https://acme-shop-mailpit.test");
+    expect(await screen.findByText("Only on the server itself, at 127.0.0.1:26021")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /:26020/ })).not.toBeInTheDocument();
+  });
+});

@@ -68,6 +68,7 @@ docker build -t ghcr.io/envoryx/envoryx:dev --build-arg VERSION=dev .
 | `DOCKER_HOST` | unix socket | Docker endpoint; set to a socket proxy URL if used |
 | `PUID` / `PGID` | `99` / `100` | uid/gid project containers run as and project dirs are owned by |
 | `ENVORYX_PORT_RANGE_START` / `_END` | `20000` / `20999` | Host ports assigned to project web servers |
+| `ENVORYX_HOST_PORTS` | `all`, `local` when managed | Where those ports listen: `all` interfaces, or `local` for the machine itself (127.0.0.1); see [Host ports on a server on the internet](#host-ports-on-a-server-on-the-internet) |
 | `ENVORYX_NETWORK_POOL` | `10.213.0.0/16` | IPv4 range each new project network gets a /24 of (256 projects per /16); `off` leaves the choice to Docker, whose default ranges run out after about 30 networks. Pick a range your LAN and VPN don't use |
 | `ENVORYX_PUBLIC_HOST` | browser address | Host/IP used for project links (see below); also editable in Settings |
 | `ENVORYX_PROXY_HTTP` | `:80` | Listen address of the embedded proxy inside the container; empty disables it |
@@ -169,6 +170,26 @@ When Envoryx detects that it has an IP of its own and no host is set, the
 dashboard, the project sections with such links and the settings show a notice
 with the Docker host as Docker reports it (name, and its IP when the LAN
 resolves the name) and a one-click button to use it.
+
+## Host ports on a server on the internet
+
+At home those ports are handy: a database client or a debugger on your laptop
+connects straight to them. On a server on the internet they're a door for
+everyone, since Mailpit, the OpenSearch Dashboards and the debug ports (Node's
+inspector, debugpy, rdbg, JDWP) ask for no password at all. With
+`ENVORYX_HOST_PORTS=local` they listen on 127.0.0.1 only, and the projects are
+still reached through the embedded proxy by their host names. That's the default
+on an instance a hoster manages (one with a plan or a fleet manager); set
+`ENVORYX_HOST_PORTS=all` there to open them anyway, behind a firewall of your
+own. The web interfaces of the services have proxy addresses for that case:
+`<project>-mailpit`, `-rabbitmq`, `-opensearch-dashboards`, `-meilisearch` and
+`-s3-console` under the base domain. All but Meilisearch (which checks its key
+itself and may be called from the application's pages) only let in people
+signed in to Envoryx who may work on the project, like an addon's web UI.
+
+A change takes effect when a project's containers are created again: running
+projects show *the … container runs with an older setup* until they're
+restarted.
 
 ## Unraid
 

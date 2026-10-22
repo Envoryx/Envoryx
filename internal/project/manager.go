@@ -43,7 +43,13 @@ type Config struct {
 	// resealing, which must not wait for the host paths to be detected. Empty: taken from
 	// the paths.
 	ConfigDir, BackupsDir string
+	// LocalPorts reports whether project ports are published on 127.0.0.1 only (see
+	// Paths.PublishInterface); nil means on every interface.
+	LocalPorts func() bool
 }
+
+// LocalPorts reports whether project ports are only open on the machine itself.
+func (m *Manager) LocalPorts() bool { return m.cfg.LocalPorts != nil && m.cfg.LocalPorts() }
 
 // PathsProvider returns the current planner paths (host paths may be detected lazily).
 type PathsProvider func() (Paths, error)

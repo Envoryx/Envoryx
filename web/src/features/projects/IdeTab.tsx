@@ -5,10 +5,10 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import { api } from "@/api/client";
-import { useDatabases, useExtraServices, useSettings, useUpdateProject, usePlanAllows } from "@/api/hooks";
+import { useDatabases, useExtraServices, usePortHost, useSettings, useUpdateProject, usePlanAllows } from "@/api/hooks";
 import { OperationHint } from "@/components/OperationsTray";
 import { settingsHref } from "@/features/settings/links";
-import { appKindOf, type DatabaseInfo, type NodeConfig, type Operation, type PHPConfig, type Project, type PythonConfig, type GoConfig, type RubyConfig, type JavaConfig } from "@/api/types";
+import { appKindOf, type DatabaseInfo, type ExtraServiceInfo, type NodeConfig, type Operation, type PHPConfig, type Project, type PythonConfig, type GoConfig, type RubyConfig, type JavaConfig } from "@/api/types";
 import { Alert, Button, Card, CardHeader, Checkbox, Code } from "@/components/ui";
 import { CopyButton, CopyRow } from "./DatabaseTab";
 import { databaseServices } from "./databases";
@@ -29,6 +29,9 @@ export function IdeTab({ project: p }: { project: Project }) {
   const can = projectAccess(p);
   const s = settings.data;
   const host = s?.publicHost || window.location.hostname;
+  // The published ports may only listen on the server itself; SSH is at the host anyway.
+  const portHost = usePortHost();
+  const webUI = (e: ExtraServiceInfo) => e.webUiUrl || (e.webUiPort && !portHost.local ? `http://${portHost.host}:${e.webUiPort}` : "");
   const projectsHost = hostPathOf(s, s?.projectsDir);
   const hostDir = projectsHost ? `${projectsHost}/${p.path}` : "<projects share>/" + p.path;
   const php = p.services.find((x) => x.kind === "php" && x.enabled);
@@ -91,7 +94,7 @@ export function IdeTab({ project: p }: { project: Project }) {
   // Where a workstation reaches a database: an external server at its own address (the
   // Docker host's for host.docker.internal), the project's container through the published port.
   const reach = (d: DatabaseInfo): { host: string; port: number } | null =>
-    d.external ? { host: d.host === "host.docker.internal" ? host : d.host, port: d.port } : d.hostPort ? { host, port: d.hostPort } : null;
+    d.external ? { host: d.host === "host.docker.internal" ? host : d.host, port: d.port } : d.hostPort ? { host: portHost.host, port: d.hostPort } : null;
   const jdbc = (d: DatabaseInfo, r: { host: string; port: number }) =>
     d.type === "postgresql"
       ? `jdbc:postgresql://${r.host}:${r.port}/${d.database}`
@@ -102,6 +105,7 @@ export function IdeTab({ project: p }: { project: Project }) {
 
   return (
     <div className="space-y-6">
+      {portHost.local && <Alert tone="amber">{t("On this instance the published ports only listen on the server itself (127.0.0.1), so debuggers and database clients on your machine can't reach them. Web interfaces open through their addresses.")}</Alert>}
       {ssh?.enabled && ssh.port > 0 && (
         <Card>
           <CardHeader
@@ -339,7 +343,7 @@ export function IdeTab({ project: p }: { project: Project }) {
           />
           <div className="p-5">
             <dl>
-              <CopyRow label={t("Attach to host")} value={host} />
+              <CopyRow label={t("Attach to host")} value={portHost.host} />
               <CopyRow label={t("Attach to port")} value={String(nodeCfg.inspectHostPort ?? "")} />
               <CopyRow label={t("Inspector inside the container")} value={`0.0.0.0:${nodeCfg.inspectPort ?? 9229}`} />
               <CopyRow label={t("Path mapping")} value={`${hostDir} → /var/www/html`} />
@@ -371,7 +375,7 @@ export function IdeTab({ project: p }: { project: Project }) {
           />
           <div className="p-5">
             <dl>
-              <CopyRow label={t("Attach to host")} value={host} />
+              <CopyRow label={t("Attach to host")} value={portHost.host} />
               <CopyRow label={t("Attach to port")} value={String(pyCfg.debugHostPort ?? "")} />
               <CopyRow label={t("debugpy inside the container")} value={`0.0.0.0:${pyCfg.debugPort ?? 5678}`} />
               <CopyRow label={t("Path mapping")} value={`${hostDir} → /var/www/html`} />
@@ -405,7 +409,7 @@ export function IdeTab({ project: p }: { project: Project }) {
           />
           <div className="p-5">
             <dl>
-              <CopyRow label={t("Attach to host")} value={host} />
+              <CopyRow label={t("Attach to host")} value={portHost.host} />
               <CopyRow label={t("Attach to port")} value={String(goCfg.debugHostPort ?? "")} />
               <CopyRow label={t("Delve inside the container")} value={`:${goCfg.debugPort ?? 2345}`} />
               <CopyRow label={t("Path mapping")} value={`${hostDir} → /var/www/html`} />
@@ -447,11 +451,11 @@ export function IdeTab({ project: p }: { project: Project }) {
           />
           <div className="p-5">
             <dl>
-              <CopyRow label={t("Attach to host")} value={host} />
+              <CopyRow label={t("Attach to host")} value={portHost.host} />
               <CopyRow label={t("Attach to port")} value={String(rbCfg.debugHostPort ?? "")} />
               <CopyRow label={t("rdbg inside the container")} value={`0.0.0.0:${rbCfg.debugPort ?? 12345}`} />
               <CopyRow label={t("Path mapping")} value={`${hostDir} → /var/www/html`} />
-              {rbCfg.debugHostPort ? <CopyRow label={t("Terminal")} value={`rdbg -A ${host} ${rbCfg.debugHostPort}`} /> : null}
+              {rbCfg.debugHostPort ? <CopyRow label={t("Terminal")} value={`rdbg -A ${portHost.host} ${rbCfg.debugHostPort}`} /> : null}
             </dl>
             {!rbCfg.server && (
               <>
@@ -460,7 +464,7 @@ export function IdeTab({ project: p }: { project: Project }) {
               </>
             )}
             <p className="mt-3 text-xs text-muted">{t("VS Code with the vscode-rdbg extension, launch.json:")}</p>
-            <pre className="mt-1 overflow-x-auto rounded-md bg-muted p-2 font-mono text-[11px]">{rdbgLaunchJson(host, rbCfg.debugHostPort)}</pre>
+            <pre className="mt-1 overflow-x-auto rounded-md bg-muted p-2 font-mono text-[11px]">{rdbgLaunchJson(portHost.host, rbCfg.debugHostPort)}</pre>
             <p className="mt-2 text-xs text-subtle">{t("RubyMine does not attach to rdbg: use the remote interpreter above, and RubyMine runs and debugs the application with its own debugger inside the container.")}</p>
             {rbCfg.debug && (
               <div className="mt-3">
@@ -489,7 +493,7 @@ export function IdeTab({ project: p }: { project: Project }) {
           />
           <div className="p-5">
             <dl>
-              <CopyRow label={t("Attach to host")} value={host} />
+              <CopyRow label={t("Attach to host")} value={portHost.host} />
               <CopyRow label={t("Attach to port")} value={String(jvCfg.debugHostPort ?? "")} />
               <CopyRow label={t("JDWP inside the container")} value={`0.0.0.0:${jvCfg.debugPort ?? 5005}`} />
               <CopyRow label={t("Path mapping")} value={`${hostDir} → /var/www/html`} />
@@ -502,7 +506,7 @@ export function IdeTab({ project: p }: { project: Project }) {
               </>
             )}
             <p className="mt-3 text-xs text-muted">{t("VS Code with the Extension Pack for Java, launch.json:")}</p>
-            <pre className="mt-1 overflow-x-auto rounded-md bg-muted p-2 font-mono text-[11px]">{javaLaunchJson(host, jvCfg.debugHostPort)}</pre>
+            <pre className="mt-1 overflow-x-auto rounded-md bg-muted p-2 font-mono text-[11px]">{javaLaunchJson(portHost.host, jvCfg.debugHostPort)}</pre>
             {jvCfg.debug && (
               <div className="mt-3">
                 <Alert tone="amber">{t("JDWP accepts everyone who reaches the port and can run any code in the JVM. Switch it off when you are not debugging.")}</Alert>
@@ -575,7 +579,7 @@ export function IdeTab({ project: p }: { project: Project }) {
           <div className="p-5">
             <dl>
               <CopyRow label={t("SMTP (from app)")} value="mailpit:1025" />
-              {mailpit.webUiPort ? <CopyRow label={t("Inbox")} value={`http://${host}:${mailpit.webUiPort}`} /> : null}
+              {webUI(mailpit) ? <CopyRow label={t("Inbox")} value={webUI(mailpit)} /> : null}
             </dl>
           </div>
         </Card>
@@ -593,11 +597,11 @@ export function IdeTab({ project: p }: { project: Project }) {
           <div className="p-5">
             <dl>
               <CopyRow label={t("AMQP (from app)")} value="rabbitmq:5672" />
-              <CopyRow label={t("Host")} value={host} />
+              <CopyRow label={t("Host")} value={portHost.host} />
               <CopyRow label={t("Port")} value={rabbitmq.hostPort ? String(rabbitmq.hostPort) : t("not published")} />
               <CopyRow label={t("User")} value={rabbitmq.username ?? ""} />
               <CopyRow label={t("Password")} value={t("<Services → Show password>")} mono={false} />
-              {rabbitmq.webUiPort ? <CopyRow label={t("Management UI")} value={`http://${host}:${rabbitmq.webUiPort}`} /> : null}
+              {webUI(rabbitmq) ? <CopyRow label={t("Management UI")} value={webUI(rabbitmq)} /> : null}
             </dl>
           </div>
         </Card>
@@ -615,8 +619,8 @@ export function IdeTab({ project: p }: { project: Project }) {
           <div className="p-5">
             <dl>
               <CopyRow label={t("URL (from app)")} value={`http://${e.host}:${e.port}`} />
-              <CopyRow label={t("URL (from your machine)")} value={e.hostPort ? `http://${host}:${e.hostPort}` : t("not published")} />
-              {e.kind === "opensearch" && e.webUiPort ? <CopyRow label="OpenSearch Dashboards" value={`http://${host}:${e.webUiPort}`} /> : null}
+              <CopyRow label={t("URL (from your machine)")} value={e.hostPort ? `http://${portHost.host}:${e.hostPort}` : t("not published")} />
+              {e.kind === "opensearch" && webUI(e) ? <CopyRow label="OpenSearch Dashboards" value={webUI(e)} /> : null}
               {e.kind !== "opensearch" && <CopyRow label={e.kind === "meilisearch" ? t("Master key") : t("API key")} value={e.kind === "meilisearch" ? t("<Services → Show master key>") : t("<Services → Show API key>")} mono={false} />}
             </dl>
           </div>

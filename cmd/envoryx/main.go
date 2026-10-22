@@ -308,6 +308,19 @@ func serve() error {
 	sessions.SetPlan(plans)
 
 	catalog := runtime.Default()
+	// The projects' host ports listen on every interface of a machine of one's own. On a
+	// hoster's they stay on the machine itself: its customers reach the projects through
+	// the proxy, and a database or debugger port must not face the internet.
+	localPorts := func() bool {
+		switch cfg.HostPorts {
+		case "local":
+			return true
+		case "all":
+			return false
+		}
+		_, err := os.Stat(filepath.Join(cfg.ConfigDir, fleet.StateFile))
+		return plans.Get() != nil || cfg.FleetURL != "" || err == nil
+	}
 	paths := func() (project.Paths, error) {
 		resolver.EnsureDetected(ctx)
 		projectsHost, err := resolver.Resolve(cfg.ProjectsDir)
@@ -322,13 +335,16 @@ func serve() error {
 			ConfigDir: cfg.ConfigDir, ConfigHostDir: configHost,
 			ProjectsDir: cfg.ProjectsDir, ProjectsHostDir: projectsHost, BackupsDir: cfg.BackupsDir,
 			PUID: cfg.PUID, PGID: cfg.PGID, EnvoryxVersion: version,
-			SelfContainerID: resolver.SelfContainerID(),
+			SelfContainerID: resolver.SelfContainerID(), PublishInterface: publishInterface(localPorts()),
 		}, nil
 	}
 	manager := project.NewManager(st, engine, catalog, paths, auditLog, project.Config{
 		PortRangeStart: cfg.PortRangeStart, PortRangeEnd: cfg.PortRangeEnd, NetworkPool: cfg.NetworkPool, StopTimeout: 10 * time.Second,
-		ConfigDir: cfg.ConfigDir, BackupsDir: cfg.BackupsDir,
+		ConfigDir: cfg.ConfigDir, BackupsDir: cfg.BackupsDir, LocalPorts: localPorts,
 	}, log)
+	if localPorts() {
+		log.Info("project ports listen on 127.0.0.1 only; set ENVORYX_HOST_PORTS=all to open them on every interface")
+	}
 	manager.SetSecretKeySource(keySource)
 	manager.SetPlan(plans)
 	// Plain values from before encryption and values of an older key get the current key;
@@ -782,6 +798,14 @@ func serve() error {
 	}
 	log.Info("Envoryx stopped")
 	return nil
+}
+
+// publishInterface is the host address project ports are published on; "" for all.
+func publishInterface(local bool) string {
+	if local {
+		return "127.0.0.1"
+	}
+	return ""
 }
 
 // supervise runs a background task and keeps it alive: a panic is logged with its stack,

@@ -4,14 +4,14 @@ import { useTranslation } from "react-i18next";
 import { IfPlanAllows } from "@/features/plan/PlanCard";
 import { useState, type FormEvent } from "react";
 import { api } from "@/api/client";
-import { useDatabaseInfo, useDatabaseList, useDatabaseMutations, useDBTool, useOpenDBTool, usePublicHost, useRuntimes, useUpdateProject } from "@/api/hooks";
+import { useDatabaseInfo, useDatabaseList, useDatabaseMutations, useDBTool, useOpenDBTool, usePortHost, usePublicHost, useRuntimes, useUpdateProject } from "@/api/hooks";
 import type { DatabaseCredentials, ExternalDatabase, Project } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Checkbox, Dialog, ErrorState, Field, Input, Select, Spinner, StatusDot } from "@/components/ui";
 import { copyText } from "@/lib/clipboard";
 import { PublicHostNotice } from "@/components/PublicHostNotice";
 import { CloneDatabaseCard, SnapshotsCard } from "./DatabaseSnapshots";
 import { databaseEngineNames, databaseEnvPrefix, databaseNamePattern, databaseServices } from "./databases";
-import { containerStateTone } from "@/lib/format";
+import { containerStateTone, reachable } from "@/lib/format";
 import { errorText } from "@/lib/errors";
 import { projectAccess } from "@/lib/access";
 import { emptyExternalDatabase, externalDatabaseComplete, ExternalDatabaseFields, externalDatabaseTypes } from "./ExternalConnection";
@@ -219,6 +219,7 @@ function DatabasePanel({ project, db, onRemoved }: { project: Project; db: strin
   // changes the server, drops or restores needs admin (internal/api/api.go).
   const can = projectAccess(project);
   const publicHost = usePublicHost();
+  const portHost = usePortHost();
   const runtimes = useRuntimes();
   const update = useUpdateProject(project.id);
   const { rotate, expose, create, drop } = useDatabaseMutations(project.id, db);
@@ -398,7 +399,7 @@ function DatabasePanel({ project, db, onRemoved }: { project: Project; db: strin
               ) : (
                 <Checkbox
                   label={t("Publish port on the host")}
-                  description={d.hostPort ? t("Reachable at {{address}}", { address: `${externalHost}:${d.hostPort}` }) : t("A free port from the project port range is assigned automatically.")}
+                  description={d.hostPort ? reachable(t, `${portHost.host}:${d.hostPort}`, portHost.local) : t("A free port from the project port range is assigned automatically.")}
                   checked={d.hostPort > 0}
                   disabled={expose.isPending || !can.admin}
                   onChange={(e) => {
@@ -409,7 +410,7 @@ function DatabasePanel({ project, db, onRemoved }: { project: Project; db: strin
               )}
               {d.hostPort > 0 && (
                 <dl>
-                  <CopyRow label={t("Host")} value={externalHost} />
+                  <CopyRow label={t("Host")} value={portHost.host} />
                   <CopyRow label={t("Port")} value={String(d.hostPort)} />
                 </dl>
               )}
