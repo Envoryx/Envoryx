@@ -1,5 +1,7 @@
 name: Go runtime images
 
+# The build is runtime-images.yml; this file says what and when.
+
 on:
   push:
     branches: [main]
@@ -7,113 +9,26 @@ on:
       - "images/go/**"
       - "internal/runtime/go_versions.json"
       - ".github/workflows/go-images.yml"
+      - ".github/workflows/runtime-images.yml"
+      - "scripts/runtime-image-matrix.sh"
+  # Daily: rebuilds the versions whose upstream image changed, and each one at least weekly.
   schedule:
-    - cron: "0 6 * * 1"
+    - cron: "0 6 * * *"
   workflow_dispatch:
 
 permissions:
   contents: read
-  packages: write
-
-env:
-  IMAGE: ghcr.io/envoryx/envoryx-go
 
 jobs:
-  matrix:
-    runs-on: ubuntu-latest
-    outputs:
-      matrix: ${{ steps.read.outputs.matrix }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - id: read
-        run: |
-          matrix=$(jq -c '{include: [.versions[] | {version: .version, base: .base}]}' internal/runtime/go_versions.json)
-          echo "matrix=${matrix}" >> "$GITHUB_OUTPUT"
-
-  # One native build per architecture (no QEMU: air, delve and gotestsum compile at full speed).
-  build:
-    needs: matrix
-    strategy:
-      fail-fast: false
-      matrix:
-        arch: [amd64, arm64]
-        version: ${{ fromJson(needs.matrix.outputs.matrix).include }}
-    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
-      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build and push by digest
-        id: build
-        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
-        with:
-          context: images/go
-          platforms: linux/${{ matrix.arch }}
-          build-args: |
-            GO_VERSION=${{ matrix.version.version }}
-            BASE_TAG=${{ matrix.version.base }}
-          outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
-          cache-from: type=gha,scope=go-${{ matrix.version.version }}-${{ matrix.arch }}
-          cache-to: type=gha,mode=max,scope=go-${{ matrix.version.version }}-${{ matrix.arch }}
-      - name: Export digest
-        run: |
-          mkdir -p /tmp/digests
-          echo "${{ steps.build.outputs.digest }}" > "/tmp/digests/${{ matrix.version.version }}-${{ matrix.arch }}"
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: digest-${{ matrix.version.version }}-${{ matrix.arch }}
-          path: /tmp/digests/*
-          retention-days: 1
-
-  # Combine the per-arch images into one multi-arch tag per version.
-  merge:
-    needs: [matrix, build]
+  images:
     permissions:
       contents: read
       packages: write
-      # Signing the build provenance of the merged image.
       id-token: write
       attestations: write
-    # Merge every version whose builds succeeded even if another version failed.
-    if: ${{ !cancelled() }}
-    runs-on: ubuntu-latest
-    strategy:
-      # Without this one version's failed merge cancels the others, which is the
-      # opposite of what the comment above promises.
-      fail-fast: false
-      matrix:
-        version: ${{ fromJson(needs.matrix.outputs.matrix).include }}
-    steps:
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          path: /tmp/digests
-          pattern: digest-${{ matrix.version.version }}-*
-          merge-multiple: true
-      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
-      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Create manifest
-        id: manifest
-        run: |
-          refs=""
-          count=0
-          for f in /tmp/digests/*; do [ -f "$f" ] || continue; refs="$refs ${IMAGE}@$(cat "$f")"; count=$((count+1)); done
-          if [ "$count" -lt 2 ]; then echo "not all architectures built for ${{ matrix.version.version }}; keeping the previous tag"; exit 1; fi
-          docker buildx imagetools create -t "${IMAGE}:${{ matrix.version.version }}" $refs
-          docker buildx imagetools inspect "${IMAGE}:${{ matrix.version.version }}"
-          echo "digest=$(docker buildx imagetools inspect "${IMAGE}:${{ matrix.version.version }}" --format '{{json .Manifest}}' | jq -r .digest)" >> "$GITHUB_OUTPUT"
-      # A signed statement that this workflow built the tag (checked with `gh attestation
-      # verify oci://<image>:<version> --repo Envoryx/Envoryx`).
-      - name: Attest the build provenance
-        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
-        with:
-          subject-name: ${{ env.IMAGE }}
-          subject-digest: ${{ steps.manifest.outputs.digest }}
-          push-to-registry: true
+      issues: write
+    uses: ./.github/workflows/runtime-images.yml
+    with:
+      runtime: go
+      version-arg: GO_VERSION
+      bases: "golang:{base}"

@@ -10,6 +10,13 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Changed
+- The runtime images (`envoryx-php`, `envoryx-node`, ...) are checked daily and rebuilt the
+  morning after their upstream image changes, instead of only on Mondays. A security fix in
+  PHP or Node reaches them within a day; unchanged versions are still rebuilt weekly.
+- Building the PHP images retries an extension whose download fails (PECL timeouts), and a
+  failed image build opens an issue in the repository.
+
 ## [0.40.1] - 2026-10-22
 
 ### Security
