@@ -16,6 +16,10 @@ release). `:main` follows the development branch.
   `-s3-console` under the base domain. Like an addon's web UI they only let in people
   signed in to Envoryx who may work on the project; Meilisearch checks its key itself
   and stays open. The project pages link them instead of the host ports.
+- The SSH login forwards ports to the project's services by their names on the project
+  network, without JetBrains Gateway: `ssh -N -L 3306:database:3306 -p 2222 shop@server`
+  lets a database client in, `node:9229` a debugger. The IDE section shows the command
+  for the databases and debug ports. A plan without `ideGateway` switches it off too.
 - `ENVORYX_HOST_PORTS=local` publishes the projects' host ports on 127.0.0.1 only,
   `all` on every interface. The default is `local` on an instance a hoster manages and
   `all` otherwise.

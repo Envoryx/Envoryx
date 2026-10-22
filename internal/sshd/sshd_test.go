@@ -43,6 +43,8 @@ type env struct {
 	cfgDir  string
 	proj    project.View
 	addr    string
+	// selfID is Envoryx's own container ("" for bare metal), read by the paths.
+	selfID *string
 }
 
 func newEnv(t *testing.T) *env {
@@ -56,8 +58,9 @@ func newEnv(t *testing.T) *env {
 	st := store.New(sqlDB)
 	engine := dockertest.New()
 	cfgDir, projDir := t.TempDir(), t.TempDir()
+	selfID := new(string)
 	paths := func() (project.Paths, error) {
-		return project.Paths{ConfigDir: cfgDir, ConfigHostDir: "/host/config", ProjectsDir: projDir, ProjectsHostDir: "/host/projects", PUID: os.Getuid(), PGID: os.Getgid()}, nil
+		return project.Paths{ConfigDir: cfgDir, ConfigHostDir: "/host/config", ProjectsDir: projDir, ProjectsHostDir: "/host/projects", PUID: os.Getuid(), PGID: os.Getgid(), SelfContainerID: *selfID}, nil
 	}
 	sessions := auth.NewService(st, auth.Options{IdleTimeout: time.Hour, AbsoluteTimeout: time.Hour}, log)
 	auditLog := audit.New(st.Audit, log)
@@ -94,7 +97,7 @@ func newEnv(t *testing.T) *env {
 		}
 	}()
 	t.Cleanup(func() { _ = ln.Close() })
-	return &env{manager: manager, srv: srv, engine: engine, auth: sessions, st: st, token: token, projDir: projDir, cfgDir: cfgDir, proj: view, addr: ln.Addr().String()}
+	return &env{manager: manager, srv: srv, engine: engine, auth: sessions, st: st, token: token, projDir: projDir, cfgDir: cfgDir, proj: view, addr: ln.Addr().String(), selfID: selfID}
 }
 
 func (e *env) dial(t *testing.T, user string, authMethods ...ssh.AuthMethod) (*ssh.Client, error) {
@@ -521,6 +524,72 @@ func TestPortForwardingRelaysInsideContainer(t *testing.T) {
 	// A port nobody listens on is rejected with a reason instead of a dead tunnel.
 	if _, err := client.Dial("tcp", "127.0.0.1:5991"); err == nil || !strings.Contains(err.Error(), "nothing is listening") {
 		t.Fatalf("unbound port: %v", err)
+	}
+}
+
+// A database client on the developer's machine reaches the project's database by its
+// name on the project network, without JetBrains Gateway: on bare metal through socat in
+// the application container, inside Docker over the network Envoryx shares.
+func TestForwardingToTheProjectsServices(t *testing.T) {
+	e := newEnv(t)
+	if _, err := e.manager.Update(context.Background(), e.proj.Project.ID, project.UpdateRequest{Redis: &project.ExtraUpdate{Enabled: new(true)}}); err != nil {
+		t.Fatal(err)
+	}
+	var relayCmd []string
+	e.engine.StreamHandler = func(container string, cmd []string, _ []string, stdin []byte) (string, int, error) {
+		if container != "envoryx-shop-php" {
+			t.Errorf("relay container: %s", container)
+		}
+		relayCmd = cmd
+		return "redis:" + string(stdin), 0, nil
+	}
+	e.srv.SetDialForTest(func(context.Context, string) (net.Conn, error) {
+		t.Error("bare metal must not dial the container itself")
+		return nil, errors.New("no")
+	})
+	client, err := e.dial(t, "shop", ssh.Password(e.token))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer client.Close()
+	conn, err := client.Dial("tcp", "Redis:6379")
+	if err != nil {
+		t.Fatalf("forward: %v", err)
+	}
+	_, _ = conn.Write([]byte("PING"))
+	_ = conn.(interface{ CloseWrite() error }).CloseWrite()
+	if got, _ := io.ReadAll(conn); string(got) != "redis:PING" {
+		t.Fatalf("relayed data: %q", got)
+	}
+	if len(relayCmd) == 0 || relayCmd[len(relayCmd)-1] != "TCP:redis:6379,connect-timeout=5" {
+		t.Fatalf("relay command: %v", relayCmd)
+	}
+	// Only the project's own names; the refusal lists them.
+	if _, err := client.Dial("tcp", "example.com:80"); err == nil || !strings.Contains(err.Error(), "redis") {
+		t.Fatalf("foreign host: %v", err)
+	}
+
+	// Inside Docker Envoryx dials the container by its unique name.
+	*e.selfID = "envoryx-self"
+	var dialed string
+	e.srv.SetDialForTest(func(_ context.Context, addr string) (net.Conn, error) {
+		dialed = addr
+		a, b := net.Pipe()
+		go func() { _, _ = a.Write([]byte("+PONG")); _ = a.Close() }()
+		return b, nil
+	})
+	conn, err = client.Dial("tcp", "redis:6379")
+	if err != nil {
+		t.Fatalf("direct forward: %v", err)
+	}
+	if got, _ := io.ReadAll(conn); string(got) != "+PONG" || dialed != "envoryx-shop-redis:6379" {
+		t.Fatalf("direct: %q via %s", got, dialed)
+	}
+
+	// The plan's switch for port forwarding covers the services too.
+	e.manager.SetPlan(plan.Static(&plan.Plan{Disabled: []plan.Feature{plan.FeatureIDEGateway}}))
+	if _, err := client.Dial("tcp", "redis:6379"); err == nil || !strings.Contains(err.Error(), "switched off") {
+		t.Fatalf("plan without forwarding: %v", err)
 	}
 }
 

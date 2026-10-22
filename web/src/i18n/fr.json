@@ -3206,5 +3206,7 @@
   "Your role in this project doesn't let you open this page.": "Votre rôle dans ce projet ne vous permet pas d'ouvrir cette page.",
   "only on the server itself": "uniquement sur le serveur lui-même",
   "Only on the server itself, at {{address}}": "Uniquement sur le serveur lui-même, à {{address}}",
-  "On this instance the published ports only listen on the server itself (127.0.0.1), so debuggers and database clients on your machine can't reach them. Web interfaces open through their addresses.": "Sur cette instance, les ports publiés n'écoutent que sur le serveur lui-même (127.0.0.1) : les débogueurs et clients de base de données de votre machine ne peuvent pas les joindre. Les interfaces web s'ouvrent par leurs adresses."
+  "SSH tunnel": "Tunnel SSH",
+  "Connect from your machine through the SSH tunnel below.": "Connectez-vous depuis votre machine par le tunnel SSH ci-dessous.",
+  "On this instance the published ports only listen on the server itself (127.0.0.1). Debuggers and database clients on your machine connect through an SSH tunnel instead: start the command shown with the service and connect to localhost. Web interfaces open through their addresses.": "Sur cette instance, les ports publiés n'écoutent que sur le serveur lui-même (127.0.0.1). Les débogueurs et clients de base de données de votre machine passent par un tunnel SSH : lancez la commande indiquée pour le service et connectez-vous à localhost. Les interfaces web s'ouvrent par leurs adresses."
 }

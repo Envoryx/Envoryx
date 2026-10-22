@@ -19,8 +19,10 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"maps"
 	"net"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -587,9 +589,11 @@ func sendExit(ch ssh.Channel, code int) {
 	_, _ = ch.SendRequest("exit-status", false, buf)
 }
 
-// handleForward serves a direct-tcpip channel (ssh -L / IDE tunnels). Forwarding is only
-// allowed for projects with JetBrains Gateway enabled and only to "localhost" ports of
-// the target container, which Envoryx reaches over the project network.
+// handleForward serves a direct-tcpip channel (ssh -L / IDE tunnels). Two kinds of
+// target are allowed: "localhost" ports of the SSH user's container, for projects with
+// JetBrains Gateway enabled (the IDE backend binds 127.0.0.1 there), and the project's
+// other containers by their name on the project network (database, redis, node …), so a
+// database client or a debugger gets in where the host ports aren't open.
 func (s *Server) handleForward(ctx context.Context, ch ssh.NewChannel, user string, target project.ExecTarget) {
 	host, port, ok := parseForward(ch.ExtraData())
 	if !ok {
@@ -600,6 +604,12 @@ func (s *Server) handleForward(ctx context.Context, ch ssh.NewChannel, user stri
 		s.d.Log.Warn("ssh forward rejected", "project", target.Project.Slug, "target", net.JoinHostPort(host, strconv.Itoa(int(port))), "reason", msg)
 		_ = ch.Reject(reason, msg)
 	}
+	switch strings.ToLower(host) {
+	case "", "localhost", "127.0.0.1", "::1":
+	default:
+		s.forwardToService(ctx, ch, strings.ToLower(host), int(port), target, reject)
+		return
+	}
 	if !target.Gateway {
 		// IDEs keep their connection open (Rider retries its debugger tunnel on it), so
 		// forwarding switched on since the login counts without logging in again.
@@ -608,13 +618,7 @@ func (s *Server) handleForward(ctx context.Context, ch ssh.NewChannel, user stri
 		}
 	}
 	if !target.Gateway {
-		reject(ssh.Prohibited, "port forwarding is disabled for this project (enable JetBrains Gateway in the IDE section)")
-		return
-	}
-	switch host {
-	case "", "localhost", "127.0.0.1", "::1":
-	default:
-		reject(ssh.Prohibited, "only localhost ports of the project container can be forwarded")
+		reject(ssh.Prohibited, "forwarding localhost ports is disabled for this project (enable JetBrains Gateway in the IDE section); the project's services can be forwarded by name, such as database:3306")
 		return
 	}
 	if !target.Running {
@@ -646,13 +650,56 @@ func (s *Server) handleForward(ctx context.Context, ch ssh.NewChannel, user stri
 		return
 	}
 	s.d.Log.Info("ssh forward", "project", target.Project.Slug, "port", port, "via", "network")
+	s.d.Audit.Log(ctx, "ssh.forward", "project", target.Project.ID, map[string]any{"name": target.Project.Name, "port": port, "via": "network"})
+	s.pipe(ch, conn)
+}
+
+// forwardToService connects a channel to a container of the project by its name on the
+// project network. Inside Docker Envoryx dials it itself (it shares the network for the
+// proxy); otherwise, or when that fails, socat in the SSH user's container does, which
+// resolves the name as the application does.
+func (s *Server) forwardToService(ctx context.Context, ch ssh.NewChannel, host string, port int, target project.ExecTarget, reject func(ssh.RejectionReason, string)) {
+	fw, err := s.d.Projects.ForwardTargets(target.Project)
+	if err != nil {
+		reject(ssh.Prohibited, err.Error())
+		return
+	}
+	container, ok := fw.Containers[host]
+	if !ok {
+		reject(ssh.Prohibited, fmt.Sprintf("%s is none of this project's services; forward one of them by name (%s) or a localhost port", host, strings.Join(slices.Sorted(maps.Keys(fw.Containers)), ", ")))
+		return
+	}
+	logged := map[string]any{"name": target.Project.Name, "service": host, "port": port}
+	if fw.Direct {
+		if conn, err := s.dial(ctx, net.JoinHostPort(container, strconv.Itoa(port))); err == nil {
+			s.d.Log.Info("ssh forward", "project", target.Project.Slug, "service", host, "port", port, "via", "network")
+			s.d.Audit.Log(ctx, "ssh.forward", "project", target.Project.ID, logged)
+			s.pipe(ch, conn)
+			return
+		}
+	}
+	if target.Static || !target.Running || !s.hasSocat(ctx, target) {
+		reject(ssh.ConnectionFailed, fmt.Sprintf("%s:%d can't be reached: Envoryx doesn't share the project network and the application container can't relay (it isn't running or its image lacks socat)", host, port))
+		return
+	}
+	channel, reqs, err := ch.Accept()
+	if err != nil {
+		return
+	}
+	go ssh.DiscardRequests(reqs)
+	s.d.Log.Info("ssh forward", "project", target.Project.Slug, "service", host, "port", port, "via", "socat")
+	s.d.Audit.Log(ctx, "ssh.forward", "project", target.Project.ID, logged)
+	s.relayExec(ctx, target, "TCP:"+host+":"+strconv.Itoa(port), channel)
+}
+
+// pipe accepts the channel and copies between it and conn until both sides are done.
+func (s *Server) pipe(ch ssh.NewChannel, conn net.Conn) {
 	channel, reqs, err := ch.Accept()
 	if err != nil {
 		_ = conn.Close()
 		return
 	}
 	go ssh.DiscardRequests(reqs)
-	s.d.Audit.Log(ctx, "ssh.forward", "project", target.Project.ID, map[string]any{"name": target.Project.Name, "port": port, "via": "network"})
 	done := make(chan struct{}, 2)
 	go func() {
 		_, _ = io.Copy(conn, channel)

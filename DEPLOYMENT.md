@@ -181,7 +181,9 @@ inspector, debugpy, rdbg, JDWP) ask for no password at all. With
 still reached through the embedded proxy by their host names. That's the default
 on an instance a hoster manages (one with a plan or a fleet manager); set
 `ENVORYX_HOST_PORTS=all` there to open them anyway, behind a firewall of your
-own. The web interfaces of the services have proxy addresses for that case:
+own. Desktop clients and debuggers then reach the services through an SSH tunnel
+(see [Tunnels to the project's services](#tunnels-to-the-projects-services)).
+The web interfaces of the services have proxy addresses for that case:
 `<project>-mailpit`, `-rabbitmq`, `-opensearch-dashboards`, `-meilisearch` and
 `-s3-console` under the base domain. All but Meilisearch (which checks its key
 itself and may be called from the application's pages) only let in people
@@ -2520,6 +2522,25 @@ SSH sessions are refused for it.
 The project must be running for sessions to open. Commands are logged to
 the audit log (`ssh.exec`), failed logins are rate limited per IP.
 
+### Tunnels to the project's services
+
+The same SSH login forwards a port to any container of the project by the name the
+application uses for it, without Gateway:
+
+```
+ssh -N -L 3306:database:3306 -p 2222 shop@your-server
+```
+
+Your database client then connects to `localhost:3306`. Every name of the project
+network works (`database` or the name of a further database, `redis`, `mailpit`,
+`node` for the inspector, `python`, `go`, `ruby` or `java` for their debug port, an
+addon's host name), other hosts are refused with the list of names. That's how desktop
+clients and debuggers get in where the host ports only listen on the server itself
+(`ENVORYX_HOST_PORTS=local`); the IDE section shows the command for each of them. It
+takes the same role as the shell (developer), and a plan that switches off `ideGateway`
+switches these tunnels off too. Inside Docker Envoryx connects to the container itself;
+on bare metal `socat` in the application container does, so the project must be running.
+
 ### JetBrains Gateway (optional)
 
 Gateway runs the complete IDE backend on the server and connects a thin
@@ -2753,7 +2774,8 @@ management).
   needs no runtime and is always possible.
 - **disabled**: features the plan switches off: `addons`, `customImages`,
   `branchEnvironments`, `externalServices`, `offsite` (no targets, nothing is
-  sent or fetched), `ideGateway` (no port forwarding over SSH), `eolVersions`
+  sent or fetched), `ideGateway` (no port forwarding over SSH, also not to the
+  project's services), `eolVersions`
   and `previewVersions`. The last two leave out the versions past their end of
   life (PHP 8.1) and the pre-releases (PHP 8.6 RC): no new project, copy,
   restore, branch environment or version switch gets one, and the wizard shows

@@ -3256,5 +3256,7 @@
   "Your role in this project doesn't let you open this page.": "Ваша роль у цьому проєкті не дозволяє відкрити цю сторінку.",
   "only on the server itself": "лише на самому сервері",
   "Only on the server itself, at {{address}}": "Лише на самому сервері, за адресою {{address}}",
-  "On this instance the published ports only listen on the server itself (127.0.0.1), so debuggers and database clients on your machine can't reach them. Web interfaces open through their addresses.": "На цьому екземплярі опубліковані порти слухають лише на самому сервері (127.0.0.1), тож налагоджувачі й клієнти баз даних на вашому комп'ютері до них не дістануться. Вебінтерфейси відкриваються за їхніми адресами."
+  "SSH tunnel": "SSH-тунель",
+  "Connect from your machine through the SSH tunnel below.": "Підключайтеся зі свого комп'ютера через SSH-тунель нижче.",
+  "On this instance the published ports only listen on the server itself (127.0.0.1). Debuggers and database clients on your machine connect through an SSH tunnel instead: start the command shown with the service and connect to localhost. Web interfaces open through their addresses.": "На цьому екземплярі опубліковані порти слухають лише на самому сервері (127.0.0.1). Налагоджувачі й клієнти баз даних на вашому комп'ютері підключаються через SSH-тунель: запустіть команду, вказану біля сервісу, і підключайтеся до localhost. Вебінтерфейси відкриваються за їхніми адресами."
 }

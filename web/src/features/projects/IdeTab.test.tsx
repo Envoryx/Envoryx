@@ -153,6 +153,20 @@ describe("IdeTab", () => {
     expect(screen.getByText(/PhpProjectServersManager/)).toBeInTheDocument();
   });
 
+  it("connects a database client through an SSH tunnel where the ports stay on the server", async () => {
+    mockApi({
+      ...authedRoutes,
+      "GET /settings": () => ({ body: { ...settings, proxy: { ...settings.proxy, localPorts: true } } }),
+      [`GET /projects/${id}/databases`]: () => ({ body: { databases: [{ name: "", service: "database", type: "mariadb", version: "11", host: "database", port: 3306, database: "acme_shop", username: "acme_shop", hostPort: 20003, injectedEnv: [], state: "running", volumeName: "v", volumeExists: true }] } }),
+      [`GET /projects/${id}/extras`]: () => ({ body: { services: [] } }),
+    });
+    const project = makeProject({ services: [...makeProject().services, { kind: "database", variant: "mariadb", version: "11", image: "mariadb:11", enabled: true, config: {} }] });
+    renderApp(<IdeTab project={project} />);
+    expect(await screen.findByText("ssh -N -L 3306:database:3306 -p 2222 acme-shop@192.168.1.10")).toBeInTheDocument();
+    expect(screen.getByText("jdbc:mariadb://localhost:3306/acme_shop")).toBeInTheDocument();
+    expect(screen.getByText(/connect through an SSH tunnel instead/)).toBeInTheDocument();
+  });
+
   it("lists the RabbitMQ connection without the password", async () => {
     const rabbitmq = { kind: "rabbitmq", version: "4.3", image: "rabbitmq:4.3-management-alpine", host: "rabbitmq", port: 5672, hostPort: 26002, injectedEnv: [], state: "running", webUiPort: 26001, username: "envoryx" };
     mockApi({
