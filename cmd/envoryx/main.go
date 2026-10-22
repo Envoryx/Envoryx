@@ -673,6 +673,14 @@ func serve() error {
 			}
 			return p.Require(auth.Scope(need), projectID) == nil
 		})
+		// Scripts, tests and monitoring send an API token instead.
+		gate.SetTokenCheck(func(ctx context.Context, token, projectID, need string) bool {
+			p, err := sessions.ValidateAPIToken(ctx, token)
+			if err != nil || manager.Suspension().Err() != nil {
+				return false
+			}
+			return p.Require(auth.Scope(need), projectID) == nil
+		})
 	}
 	a := api.New(api.Deps{
 		Gate: gate, Config: cfg, Version: version, Store: st, Auth: sessions, Audit: auditLog, Engine: engine,

@@ -1214,6 +1214,7 @@ type proxyRulesDTO struct {
 	Headers   []store.HeaderRule   `json:"headers,omitempty"`
 	CORS      *store.CORSRule      `json:"cors,omitempty"`
 	Login     bool                 `json:"login,omitempty"`
+	OpenPaths []string             `json:"openPaths,omitempty"`
 }
 
 type basicAuthDTO struct {
@@ -1221,7 +1222,7 @@ type basicAuthDTO struct {
 }
 
 func toProxyRules(r store.ProxyRules) *proxyRulesDTO {
-	dto := &proxyRulesDTO{AllowIPs: r.AllowIPs, Redirects: r.Redirects, Headers: r.Headers, CORS: r.CORS, Login: r.Login}
+	dto := &proxyRulesDTO{AllowIPs: r.AllowIPs, Redirects: r.Redirects, Headers: r.Headers, CORS: r.CORS, Login: r.Login, OpenPaths: r.OpenPaths}
 	if r.BasicAuth != nil {
 		dto.BasicAuth = &basicAuthDTO{User: r.BasicAuth.User}
 	}

@@ -13,6 +13,7 @@ const textareaClass = "w-full rounded-md border border-default bg-elevated p-2 f
 
 interface Form {
   login: boolean;
+  openPaths: string;
   allowIPs: string;
   auth: boolean;
   user: string;
@@ -32,6 +33,7 @@ const lines = (s: string) => s.split(/[\n,]/).map((v) => v.trim()).filter(Boolea
 function toForm(r: ProxyRules | undefined): Form {
   return {
     login: !!r?.login,
+    openPaths: (r?.openPaths ?? []).join("\n"),
     allowIPs: (r?.allowIPs ?? []).join("\n"),
     auth: !!r?.basicAuth,
     user: r?.basicAuth?.user ?? "",
@@ -50,6 +52,8 @@ function toForm(r: ProxyRules | undefined): Form {
 function fromForm(f: Form): ProxyRulesRequest {
   const req: ProxyRulesRequest = {};
   if (f.login) req.login = true;
+  const open = f.login ? lines(f.openPaths) : [];
+  if (open.length) req.openPaths = open;
   const ips = lines(f.allowIPs);
   if (ips.length) req.allowIPs = ips;
   if (f.auth) req.basicAuth = f.password ? { user: f.user.trim(), password: f.password } : { user: f.user.trim() };
@@ -141,6 +145,15 @@ export function ProxyRulesCard({ project: p }: { project: Project }) {
             checked={form.login}
             onChange={(e) => set({ login: e.target.checked })}
           />
+          {form.login && (
+            <Field
+              label={t("Open paths")}
+              htmlFor="pr-open"
+              hint={t("One path per line, or a prefix ending in *, e.g. /webhooks/*. They skip the sign-in, for webhooks and health checks. Scripts and monitoring can send an API token with read access to the project in the header X-Envoryx-Token instead.")}
+            >
+              <textarea id="pr-open" rows={2} value={form.openPaths} onChange={(e) => set({ openPaths: e.target.value })} placeholder={"/webhooks/*\n/up"} spellCheck={false} className={textareaClass} />
+            </Field>
+          )}
           <Field label={t("Allowed addresses")} htmlFor="pr-allow" hint={t("One address or network per line, e.g. 192.168.1.0/24. Empty: everyone. Behind another reverse proxy, that proxy's address is what counts.")}>
             <textarea id="pr-allow" rows={3} value={form.allowIPs} onChange={(e) => set({ allowIPs: e.target.value })} placeholder={"192.168.1.0/24\n10.8.0.5"} spellCheck={false} className={textareaClass} />
           </Field>

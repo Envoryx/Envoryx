@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"path"
 	"slices"
 	"strings"
 	"sync"
@@ -36,6 +37,10 @@ const (
 	gateMaxEntries = 10000
 )
 
+// TokenHeader carries an Envoryx API token past the sign-in, for scripts, tests and
+// monitoring; it never reaches the application. (Authorization stays the application's.)
+const TokenHeader = "X-Envoryx-Token"
+
 // ErrNotGated is returned for an address that isn't behind the gate.
 var ErrNotGated = errors.New("this address isn't behind the Envoryx sign-in")
 
@@ -43,10 +48,16 @@ var ErrNotGated = errors.New("this address isn't behind the Envoryx sign-in")
 // "operate") in the project.
 type GateCheck func(ctx context.Context, sessionID, projectID, need string) bool
 
+// TokenCheck reports whether an API token holds need in the project.
+type TokenCheck func(ctx context.Context, token, projectID, need string) bool
+
 // Gate hands out and checks the passes of the hosts behind the gate.
 type Gate struct {
-	check GateCheck
-	now   func() time.Time
+	check      GateCheck
+	tokenCheck TokenCheck
+	now        func() time.Time
+	// tokens remembers recent token checks, so a page full of requests costs one.
+	tokens map[[32]byte]time.Time
 
 	mu     sync.Mutex
 	router *Router
@@ -67,7 +78,62 @@ type gateEntry struct {
 
 // NewGate creates a gate that asks check about the sessions behind its passes.
 func NewGate(check GateCheck) *Gate {
-	return &Gate{check: check, now: time.Now, codes: map[string]gateEntry{}, passes: map[[32]byte]*gateEntry{}}
+	return &Gate{check: check, now: time.Now, codes: map[string]gateEntry{}, passes: map[[32]byte]*gateEntry{}, tokens: map[[32]byte]time.Time{}}
+}
+
+// SetTokenCheck lets API tokens in TokenHeader past the gate.
+func (g *Gate) SetTokenCheck(c TokenCheck) { g.tokenCheck = c }
+
+// admitToken reports whether the API token holds the target's level in its project.
+func (g *Gate) admitToken(ctx context.Context, token string, t Target) bool {
+	if g.tokenCheck == nil {
+		return false
+	}
+	key := sha256.Sum256([]byte(token + "\x00" + t.ProjectID + "\x00" + t.Login))
+	now := g.now()
+	g.mu.Lock()
+	until, ok := g.tokens[key]
+	g.mu.Unlock()
+	if ok && now.Before(until) {
+		return true
+	}
+	if !g.tokenCheck(ctx, token, t.ProjectID, t.Login) {
+		return false
+	}
+	g.mu.Lock()
+	if len(g.tokens) > gateMaxEntries {
+		clear(g.tokens)
+	}
+	g.tokens[key] = now.Add(gateRecheck)
+	g.mu.Unlock()
+	return true
+}
+
+// openPath reports whether the request is for one of the paths that skip the sign-in.
+// A path with dot segments, doubled or encoded slashes or backslashes never is: the
+// application might resolve /webhooks/../admin to a page the exception doesn't name.
+func openPath(r *http.Request, open []string) bool {
+	if len(open) == 0 {
+		return false
+	}
+	p := r.URL.Path
+	raw := strings.ToLower(r.URL.EscapedPath())
+	if p == "" || strings.Contains(p, "\\") || strings.Contains(p, "//") || strings.Contains(raw, "%2f") || strings.Contains(raw, "%5c") || strings.Contains(raw, "%2e") {
+		return false
+	}
+	if c := path.Clean(p); c != p && c+"/" != p {
+		return false
+	}
+	for _, o := range open {
+		if prefix, wild := strings.CutSuffix(o, "*"); wild {
+			if strings.HasPrefix(p, prefix) {
+				return true
+			}
+		} else if p == o {
+			return true
+		}
+	}
+	return false
 }
 
 // SetRouter hands the gate the routing table it looks addresses up in.

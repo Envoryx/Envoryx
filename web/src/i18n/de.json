@@ -3212,5 +3212,7 @@
   "Envoryx sign-in": "Envoryx-Anmeldung",
   "Only people signed in to Envoryx": "Nur bei Envoryx angemeldete Personen",
   "The project's addresses and its dev server only let in users who may see the project; everyone else goes to the Envoryx sign-in first. A share stays open, with the password below.": "Die Adressen des Projekts und sein Dev-Server lassen nur Nutzer herein, die das Projekt sehen dürfen; alle anderen landen zuerst bei der Envoryx-Anmeldung. Eine Freigabe bleibt offen, mit dem Passwort unten.",
-  "With the Envoryx sign-in it only applies to a share.": "Mit der Envoryx-Anmeldung gilt es nur für eine Freigabe."
+  "With the Envoryx sign-in it only applies to a share.": "Mit der Envoryx-Anmeldung gilt es nur für eine Freigabe.",
+  "Open paths": "Offene Pfade",
+  "One path per line, or a prefix ending in *, e.g. /webhooks/*. They skip the sign-in, for webhooks and health checks. Scripts and monitoring can send an API token with read access to the project in the header X-Envoryx-Token instead.": "Ein Pfad pro Zeile, oder ein Präfix mit * am Ende, z. B. /webhooks/*. Sie überspringen die Anmeldung, für Webhooks und Health Checks. Skripte und Monitoring können stattdessen ein API-Token mit Lesezugriff auf das Projekt im Header X-Envoryx-Token mitschicken."
 }

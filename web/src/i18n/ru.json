@@ -3262,5 +3262,7 @@
   "Envoryx sign-in": "Вход в Envoryx",
   "Only people signed in to Envoryx": "Только для вошедших в Envoryx",
   "The project's addresses and its dev server only let in users who may see the project; everyone else goes to the Envoryx sign-in first. A share stays open, with the password below.": "Адреса проекта и его dev-сервер пускают только пользователей, которым можно видеть проект; остальные сначала попадают на вход в Envoryx. Общий доступ остаётся открытым, с паролем ниже.",
-  "With the Envoryx sign-in it only applies to a share.": "При входе через Envoryx он действует только для общего доступа."
+  "With the Envoryx sign-in it only applies to a share.": "При входе через Envoryx он действует только для общего доступа.",
+  "Open paths": "Открытые пути",
+  "One path per line, or a prefix ending in *, e.g. /webhooks/*. They skip the sign-in, for webhooks and health checks. Scripts and monitoring can send an API token with read access to the project in the header X-Envoryx-Token instead.": "Один путь в строке или префикс со * в конце, например /webhooks/*. Они обходят вход, для вебхуков и проверок работоспособности. Скрипты и мониторинг могут вместо этого передать API-токен с доступом на чтение к проекту в заголовке X-Envoryx-Token."
 }
