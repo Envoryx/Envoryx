@@ -163,6 +163,9 @@ func (m *Manager) StorageInfo(ctx context.Context, id string, secrets bool) (Sto
 		Bucket: cfg.Bucket, PublicRead: cfg.PublicRead, VolumeName: VolumeName(view.Project.Slug, store.ServiceStorage),
 		Hostname: StorageHostname(view.Project.Slug, planner.paths.BaseDomain), State: "missing",
 	}
+	if u := planner.serviceUIURL(view.Project.Slug, "s3-console"); u != "" {
+		info.ConsoleURL = u + runtime.StorageConsolePath
+	}
 	if secrets {
 		info.AccessKey, info.SecretKey = cfg.AccessKey, cfg.SecretKey
 	}

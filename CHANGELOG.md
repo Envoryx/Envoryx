@@ -10,6 +10,16 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Added
+- The web interfaces of the built-in services have addresses through the proxy:
+  `<project>-mailpit`, `-rabbitmq`, `-opensearch-dashboards`, `-meilisearch` and
+  `-s3-console` under the base domain. Like an addon's web UI they only let in people
+  signed in to Envoryx who may work on the project; Meilisearch checks its key itself
+  and stays open. The project pages link them instead of the host ports.
+- `ENVORYX_HOST_PORTS=local` publishes the projects' host ports on 127.0.0.1 only,
+  `all` on every interface. The default is `local` on an instance a hoster manages and
+  `all` otherwise.
+
 ### Changed
 - An addon's web UI (phpMyAdmin, pgAdmin, Keycloak and your own) only lets in people
   signed in to Envoryx who may work on the project. Until now anyone who knew or guessed
@@ -18,6 +28,11 @@ release). `:main` follows the development branch.
   basic authentication no longer applies there, its allowlist still does. An addon the
   application's pages use itself sets the new `public: true` and stays open: the shipped
   Soketi file has it, a Soketi installed from an earlier version needs the line added.
+- **On a managed instance the projects' host ports no longer listen on every interface.**
+  They were open to the internet unless the machine had a firewall, Mailpit and the
+  debug ports without any password. The projects stay reachable through the proxy;
+  desktop clients and debuggers on your own machine can't use those ports there any
+  more. Running projects keep the old binding until they're restarted.
 
 ## [0.42.0] - 2026-10-22
 

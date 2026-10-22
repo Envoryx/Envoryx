@@ -176,7 +176,11 @@ func (m *Manager) AddDomain(ctx context.Context, id, hostname string) (store.Dom
 			}
 			return store.Domain{}, fmt.Errorf("%w: %s is the default host name of project %q", store.ErrConflict, hostname, other.Name)
 		}
-		if DevHostname(other.Slug, base) == hostname || StorageHostname(other.Slug, base) == hostname {
+		reserved := DevHostname(other.Slug, base) == hostname || StorageHostname(other.Slug, base) == hostname
+		for _, name := range serviceUINames {
+			reserved = reserved || ServiceUIHostname(other.Slug, name, base) == hostname
+		}
+		if reserved {
 			return store.Domain{}, fmt.Errorf("%w: %s is reserved for a service of project %q", store.ErrConflict, hostname, other.Name)
 		}
 	}
@@ -268,6 +272,7 @@ func (m *Manager) RouteTable(ctx context.Context, opts ProxyOptions) (proxy.Tabl
 		if _, cfg, err := storageConfig(p); err == nil {
 			t.Routes[StorageHostname(p.Slug, base)] = proxy.Target{ProjectID: p.ID, ProjectName: p.Name + " (object storage)", Slug: p.Slug, Running: storageRunning[p.ID], Dial: m.storageDial(paths.SelfContainerID, p, cfg)}
 		}
+		m.serviceUIRoutes(&t, paths.SelfContainerID, p, base, running)
 		for _, svc := range p.Addons() {
 			cfg, err := addonConfig(svc)
 			if err != nil || !cfg.Definition.WebUI || !svc.Enabled {

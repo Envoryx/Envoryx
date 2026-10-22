@@ -62,6 +62,7 @@ func (m *Manager) ExtraServices(ctx context.Context, id string) ([]ExtraServiceI
 	if err != nil {
 		return nil, err
 	}
+	planner, _ := m.planner()
 	var out []ExtraServiceInfo
 	for _, svc := range view.Project.Services {
 		if !svc.Enabled || !slices.Contains(extraKinds, svc.Kind) {
@@ -123,6 +124,13 @@ func (m *Manager) ExtraServices(ctx context.Context, id string) ([]ExtraServiceI
 			}
 		}
 		sort.Strings(info.InjectedEnv)
+		if info.WebUIPort > 0 && planner != nil {
+			name := string(svc.Kind)
+			if info.Dashboards != nil {
+				name = "opensearch-dashboards"
+			}
+			info.WebUIURL = planner.serviceUIURL(view.Project.Slug, name)
+		}
 		for _, s := range view.Status.Services {
 			if s.Kind == svc.Kind {
 				info.State, info.Health = s.State, s.Health

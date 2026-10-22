@@ -30,6 +30,8 @@ type env struct {
 	backupsDir string
 	pathsErr   error
 	selfID     string
+	// publish is the host address ports are published on ("" for all).
+	publish string
 }
 
 func newEnv(t *testing.T) *env {
@@ -51,7 +53,7 @@ func newEnv(t *testing.T) *env {
 		return Paths{
 			ConfigDir: e.cfgDir, ConfigHostDir: "/host/appdata/envoryx",
 			ProjectsDir: e.projDir, ProjectsHostDir: "/host/development", BackupsDir: e.backupsDir,
-			PUID: 1000, PGID: 1000, EnvoryxVersion: "test", SelfContainerID: e.selfID,
+			PUID: 1000, PGID: 1000, EnvoryxVersion: "test", SelfContainerID: e.selfID, PublishInterface: e.publish,
 		}, nil
 	}
 	e.m = NewManager(st, e.engine, runtime.Default(), paths, audit.New(st.Audit, log), Config{PortRangeStart: 20000, PortRangeEnd: 20005}, log)

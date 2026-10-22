@@ -3253,5 +3253,8 @@
   "Opening the page…": "Otwieranie strony…",
   "The page could not be opened.": "Nie udało się otworzyć strony.",
   "This address isn't behind the Envoryx sign-in.": "Ten adres nie jest chroniony logowaniem Envoryx.",
-  "Your role in this project doesn't let you open this page.": "Twoja rola w tym projekcie nie pozwala otworzyć tej strony."
+  "Your role in this project doesn't let you open this page.": "Twoja rola w tym projekcie nie pozwala otworzyć tej strony.",
+  "only on the server itself": "tylko na samym serwerze",
+  "Only on the server itself, at {{address}}": "Tylko na samym serwerze, pod {{address}}",
+  "On this instance the published ports only listen on the server itself (127.0.0.1), so debuggers and database clients on your machine can't reach them. Web interfaces open through their addresses.": "Na tej instancji opublikowane porty nasłuchują tylko na samym serwerze (127.0.0.1), więc debugery i klienty baz danych na twoim komputerze ich nie osiągną. Interfejsy webowe otwierasz przez ich adresy."
 }

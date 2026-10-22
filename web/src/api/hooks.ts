@@ -94,6 +94,17 @@ export function usePublicHost(): string {
   return q.data?.publicHost ?? "";
 }
 
+/**
+ * The host the projects' published ports are at: the configured public host or the
+ * address bar, or 127.0.0.1 when they only listen on the server itself (local), which
+ * a browser elsewhere can't reach.
+ */
+export function usePortHost(): { host: string; local: boolean } {
+  const q = useQuery({ queryKey: keys.settings, queryFn: api.settings, staleTime: 60 * 1000 });
+  if (q.data?.proxy?.localPorts) return { host: "127.0.0.1", local: true };
+  return { host: q.data?.publicHost || window.location.hostname, local: false };
+}
+
 /** Set-up checks with fixes; refreshed every minute while the page is open. */
 export function useDiagnostics(enabled = true) {
   return useQuery({ queryKey: ["diagnostics"], queryFn: api.diagnostics, enabled, refetchInterval: 60 * 1000, staleTime: 20 * 1000 });
@@ -126,7 +137,8 @@ export function useProjectLinks(): (project: Pick<Project, "httpPort" | "hostnam
   return (project) => {
     const serves = project.serves ?? servesOf(project);
     const app = serves === "node" || serves === "python" || serves === "go" || serves === "ruby" || serves === "java" || serves === "dotnet" ? ((project.services.find((s) => s.kind === serves && s.enabled)?.config ?? {}) as NodeConfig | PythonConfig | GoConfig | RubyConfig | JavaConfig | DotnetConfig) : undefined;
-    const direct = projectUrl(app ? (app.hostPort ?? 0) : project.httpPort, publicHost);
+    // Ports only open on the server itself are no address for a browser.
+    const direct = proxy?.localPorts ? "" : projectUrl(app ? (app.hostPort ?? 0) : project.httpPort, publicHost);
     const host = project.hostnames?.[0];
     if (!proxy?.enabled || !host) return { url: direct, direct };
     if (proxy.tls && proxy.httpsPort > 0) {
@@ -152,7 +164,7 @@ export function useDevServerLink(): (project: Pick<Project, "devHostname" | "ser
       if (proxy.tls && proxy.httpsPort > 0) return `https://${project.devHostname}${proxy.httpsPort === 443 ? "" : `:${proxy.httpsPort}`}`;
       if (proxy.httpPort > 0) return `http://${project.devHostname}${proxy.httpPort === 80 ? "" : `:${proxy.httpPort}`}`;
     }
-    return cfg.hostPort ? projectUrl(cfg.hostPort, publicHost) : "";
+    return cfg.hostPort && !proxy?.localPorts ? projectUrl(cfg.hostPort, publicHost) : "";
   };
 }
 

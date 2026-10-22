@@ -3,11 +3,11 @@ import { useTranslation } from "react-i18next";
 import { IfPlanAllows } from "@/features/plan/PlanCard";
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useExtraServices, useKeptData, usePublicHost, useRuntimes, useStorage, useUpdateProject } from "@/api/hooks";
+import { useExtraServices, useKeptData, usePortHost, useRuntimes, useStorage, useUpdateProject } from "@/api/hooks";
 import { api } from "@/api/client";
 import type { ExternalRedis, ExtraServiceInfo, KeptDataInfo, PHPConfig, Project, RabbitMQCredentials, SearchCredentials, UpdateProjectRequest } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Checkbox, Dialog, ErrorState, Field, Input, Select, Spinner, StatusDot } from "@/components/ui";
-import { containerStateTone } from "@/lib/format";
+import { containerStateTone, reachable } from "@/lib/format";
 import { AddStorageCard, StorageCard } from "./StorageCard";
 import { PublicHostNotice } from "@/components/PublicHostNotice";
 import { errorText } from "@/lib/errors";
@@ -37,12 +37,24 @@ function phpExtensionUpdate(project: Project, kind: ExtraKind): UpdateProjectReq
   return { enabled: true, version: php.version, config: { ...config, extensions: [...(config.extensions ?? []), ext].sort() } };
 }
 
+/** A service's web interface: through the proxy when it has an address there, else at its host port. */
+function WebUILink({ info, host, local }: { info: ExtraServiceInfo; host: string; local: boolean }) {
+  const { t } = useTranslation();
+  const url = info.webUiUrl || (info.webUiPort && !local ? `http://${host}:${info.webUiPort}` : "");
+  if (!url) return <span className="text-xs text-subtle">{info.webUiPort ? t("only on the server itself") : t("no port")}</span>;
+  return (
+    <a href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-mono text-xs text-accent-600 hover:underline dark:text-accent-300">
+      {url} <ExternalLink className="size-3" />
+    </a>
+  );
+}
+
 function ServiceCard({ project, info, onMessage }: { project: Project; info: ExtraServiceInfo; onMessage: (m: { tone: "green" | "red"; text: string }) => void }) {
   const { t } = useTranslation();
   const update = useUpdateProject(project.id);
   // Credentials need operate; every change goes through PATCH /projects/{id}, which needs admin.
   const can = projectAccess(project);
-  const publicHost = usePublicHost();
+  const { host, local } = usePortHost();
   const runtimes = useRuntimes();
   const versions = runtimes.data?.runtimes.find((r) => r.key === info.kind)?.versions ?? [];
   const [version, setVersion] = useState(info.version);
@@ -54,7 +66,6 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
   const [searchCreds, setSearchCreds] = useState<SearchCredentials | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [conn, setConn] = useState<ExternalRedis>(emptyExternalRedis);
-  const host = publicHost || window.location.hostname;
   const key = info.kind as ExtraKind;
   const title = titles[key] ?? info.kind;
   const phpFix = phpExtensionUpdate(project, key);
@@ -104,13 +115,7 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
             <>
               <dt className="text-muted">{t("Inbox")}</dt>
               <dd>
-                {info.webUiPort ? (
-                  <a href={`http://${host}:${info.webUiPort}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-mono text-xs text-accent-600 hover:underline dark:text-accent-300">
-                    http://{host}:{info.webUiPort} <ExternalLink className="size-3" />
-                  </a>
-                ) : (
-                  <span className="text-xs text-subtle">{t("no port")}</span>
-                )}
+                <WebUILink info={info} host={host} local={local} />
               </dd>
             </>
           )}
@@ -118,13 +123,7 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
             <>
               <dt className="text-muted">{t("Management UI")}</dt>
               <dd>
-                {info.webUiPort ? (
-                  <a href={`http://${host}:${info.webUiPort}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-mono text-xs text-accent-600 hover:underline dark:text-accent-300">
-                    http://{host}:{info.webUiPort} <ExternalLink className="size-3" />
-                  </a>
-                ) : (
-                  <span className="text-xs text-subtle">{t("no port")}</span>
-                )}
+                <WebUILink info={info} host={host} local={local} />
               </dd>
               <dt className="text-muted">{t("User")}</dt>
               <dd className="font-mono text-xs">{info.username}</dd>
@@ -134,13 +133,7 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
             <>
               <dt className="text-muted">OpenSearch Dashboards</dt>
               <dd className="flex flex-wrap items-center gap-2">
-                {info.webUiPort ? (
-                  <a href={`http://${host}:${info.webUiPort}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-mono text-xs text-accent-600 hover:underline dark:text-accent-300">
-                    http://{host}:{info.webUiPort} <ExternalLink className="size-3" />
-                  </a>
-                ) : (
-                  <span className="text-xs text-subtle">{t("no port")}</span>
-                )}
+                <WebUILink info={info} host={host} local={local} />
                 <span className="inline-flex items-center gap-1.5 text-xs">
                   <StatusDot tone={containerStateTone(info.dashboards.state)} />
                   {info.dashboards.state}
@@ -165,13 +158,7 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
             <>
               <dt className="text-muted">{t("Dashboard")}</dt>
               <dd>
-                {info.webUiPort ? (
-                  <a href={`http://${host}:${info.webUiPort}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-mono text-xs text-accent-600 hover:underline dark:text-accent-300">
-                    http://{host}:{info.webUiPort} <ExternalLink className="size-3" />
-                  </a>
-                ) : (
-                  <span className="text-xs text-subtle">{t("no port")}</span>
-                )}
+                <WebUILink info={info} host={host} local={local} />
               </dd>
             </>
           )}
@@ -233,7 +220,7 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
         {!alwaysPublished(info.kind) && !info.external && (
           <Checkbox
             label={t("Publish port on the host")}
-            description={info.hostPort ? t("Reachable at {{address}}", { address: `${host}:${info.hostPort}` }) : info.kind === "redis" ? t("For desktop clients like RedisInsight.") : info.kind === "memcached" ? t("For tools on your machine, e.g. telnet or a cache inspector.") : info.kind === "typesense" || info.kind === "opensearch" || info.kind === "ollama" ? t("For clients and dashboards running on your machine.") : t("For AMQP clients running on your machine.")}
+            description={info.hostPort ? reachable(t, `${host}:${info.hostPort}`, local) : info.kind === "redis" ? t("For desktop clients like RedisInsight.") : info.kind === "memcached" ? t("For tools on your machine, e.g. telnet or a cache inspector.") : info.kind === "typesense" || info.kind === "opensearch" || info.kind === "ollama" ? t("For clients and dashboards running on your machine.") : t("For AMQP clients running on your machine.")}
             checked={info.hostPort > 0}
             disabled={update.isPending || !can.admin}
             onChange={(e) => update.mutate({ [key]: { enabled: true, version: info.version, exposePort: e.target.checked } }, { onError: (err) => fail(err, t("Changing the port failed")) })}

@@ -125,7 +125,11 @@ func (p *Planner) addonURL(slug, name string) string {
 	if p.paths.BaseDomain == "" {
 		return ""
 	}
-	host := AddonHostname(slug, name, p.paths.BaseDomain)
+	return p.proxyURL(AddonHostname(slug, name, p.paths.BaseDomain))
+}
+
+// proxyURL is the browser URL of a host name the proxy serves, "" without the proxy.
+func (p *Planner) proxyURL(host string) string {
 	switch {
 	case p.paths.ProxyHTTPSPort == 443:
 		return "https://" + host

@@ -1,7 +1,7 @@
 import { ExternalLink, Package, Plus, Save, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useState } from "react";
-import { useProjectAddons, useSetAddon } from "@/api/hooks";
+import { usePortHost, useProjectAddons, useSetAddon } from "@/api/hooks";
 import type { AvailableAddon, Project, ProjectAddon } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Checkbox, Dialog, ErrorState, Field, Input, Select, Spinner, StatusDot } from "@/components/ui";
 import { containerStateTone } from "@/lib/format";
@@ -21,7 +21,7 @@ function AddonCard({ project, info, onMessage }: { project: Project; info: Proje
   const [confirm, setConfirm] = useState("");
   const dirty = version !== info.version || (info.publishPort && expose !== !!info.hostPort);
   const fail = (err: unknown) => onMessage({ tone: "red", text: errorText(err, t, t("Saving failed")) });
-  const host = window.location.hostname;
+  const { host, local } = usePortHost();
 
   return (
     <Card>
@@ -66,6 +66,7 @@ function AddonCard({ project, info, onMessage }: { project: Project; info: Proje
               <dt className="text-muted">{t("Host port")}</dt>
               <dd className="font-mono text-xs">
                 {host}:{info.hostPort}
+                {local && <span className="ml-2 font-sans text-subtle">{t("only on the server itself")}</span>}
               </dd>
             </>
           ) : null}

@@ -59,6 +59,10 @@ type Config struct {
 	// Port range used for project web servers published on the host.
 	PortRangeStart int
 	PortRangeEnd   int
+	// HostPorts is where those ports listen: "all" interfaces, or "local" for the
+	// machine itself (127.0.0.1). Empty: local on an instance a hoster manages, all
+	// otherwise.
+	HostPorts string
 
 	// NetworkPool is the IPv4 range each new project network gets a /24 of, so Docker's
 	// default ranges (about 30 networks) do not cap the number of projects. Invalid (from
@@ -125,6 +129,7 @@ func Load() (Config, error) {
 		SecureCookies:          envBool("ENVORYX_SECURE_COOKIES", false),
 		PortRangeStart:         envInt("ENVORYX_PORT_RANGE_START", 20000),
 		PortRangeEnd:           envInt("ENVORYX_PORT_RANGE_END", 20999),
+		HostPorts:              strings.ToLower(env("ENVORYX_HOST_PORTS", "")),
 		PUID:                   envInt("PUID", 1000),
 		PGID:                   envInt("PGID", 1000),
 		PublicHost:             env("ENVORYX_PUBLIC_HOST", ""),
@@ -172,6 +177,11 @@ func (c Config) validate() error {
 	}
 	if c.PortRangeStart < 1024 || c.PortRangeEnd > 65535 || c.PortRangeStart > c.PortRangeEnd {
 		errs = append(errs, fmt.Errorf("invalid port range %d-%d", c.PortRangeStart, c.PortRangeEnd))
+	}
+	switch c.HostPorts {
+	case "", "all", "local":
+	default:
+		errs = append(errs, fmt.Errorf("ENVORYX_HOST_PORTS must be all or local, got %q", c.HostPorts))
 	}
 	if _, err := networkPool(env("ENVORYX_NETWORK_POOL", defaultNetworkPool)); err != nil {
 		errs = append(errs, err)

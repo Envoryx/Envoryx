@@ -360,6 +360,8 @@ type ExtraServiceInfo struct {
 	// WebUIPort is the host port of a web interface (Mailpit inbox, RabbitMQ management,
 	// Meilisearch dashboard, OpenSearch Dashboards), 0 otherwise.
 	WebUIPort int `json:"webUiPort,omitempty"`
+	// WebUIURL is the web interface's address through the proxy, "" without the proxy.
+	WebUIURL string `json:"webUiUrl,omitempty"`
 	// Dashboards is the state of OpenSearch Dashboards when the project has it.
 	Dashboards *DashboardsInfo `json:"dashboards,omitempty"`
 	// Username logs in to RabbitMQ (AMQP and management UI); the password only comes from
@@ -409,11 +411,13 @@ type StorageInfo struct {
 	// Endpoint is the S3 URL as seen from application containers; PublicURL the
 	// browser-reachable bucket URL through the embedded proxy; HostEndpoint the
 	// published S3 port on the host (empty when not published).
-	Endpoint    string   `json:"endpoint"`
-	PublicURL   string   `json:"publicUrl"`
-	HostPort    int      `json:"hostPort"`
-	ConsolePort int      `json:"consolePort"`
-	ConsolePath string   `json:"consolePath"`
+	Endpoint    string `json:"endpoint"`
+	PublicURL   string `json:"publicUrl"`
+	HostPort    int    `json:"hostPort"`
+	ConsolePort int    `json:"consolePort"`
+	ConsolePath string `json:"consolePath"`
+	// ConsoleURL is the console's address through the proxy, "" without the proxy.
+	ConsoleURL  string   `json:"consoleUrl,omitempty"`
 	Region      string   `json:"region"`
 	Bucket      string   `json:"bucket"`
 	PublicRead  bool     `json:"publicRead"`

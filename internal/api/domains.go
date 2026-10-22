@@ -92,13 +92,16 @@ type proxyDTO struct {
 	InDocker  bool   `json:"inDocker"`
 	TLS       bool   `json:"tls"`
 	Address   string `json:"address,omitempty"`
+	// LocalPorts says the projects' host ports only listen on the server itself, so the
+	// UI offers no host:port address to a browser elsewhere.
+	LocalPorts bool `json:"localPorts,omitempty"`
 }
 
 func (a *API) proxyDTO() proxyDTO {
 	if a.d.Proxy == nil {
-		return proxyDTO{}
+		return proxyDTO{LocalPorts: a.d.Projects.LocalPorts()}
 	}
-	return proxyDTO{Enabled: a.d.Proxy.Enabled, HTTPPort: a.d.Proxy.HTTPPort, HTTPSPort: a.d.Proxy.HTTPSPort, InDocker: a.d.Proxy.InDocker, TLS: a.d.Certs != nil && a.d.Proxy.HTTPSPort > 0, Address: a.d.Proxy.Address}
+	return proxyDTO{Enabled: a.d.Proxy.Enabled, HTTPPort: a.d.Proxy.HTTPPort, HTTPSPort: a.d.Proxy.HTTPSPort, InDocker: a.d.Proxy.InDocker, TLS: a.d.Certs != nil && a.d.Proxy.HTTPSPort > 0, Address: a.d.Proxy.Address, LocalPorts: a.d.Projects.LocalPorts()}
 }
 
 func (a *API) tlsInfo(w http.ResponseWriter, r *http.Request) {
