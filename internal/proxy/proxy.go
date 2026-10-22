@@ -37,6 +37,9 @@ type Target struct {
 	// Share marks the public address of a share: the request came through the tunnel
 	// over https, so it is neither redirected to https nor a network alias.
 	Share bool
+	// Login keeps the host behind the Envoryx sign-in (gate.go): the level the user
+	// needs in the project, "read" or "operate". Empty leaves the host open.
+	Login string
 }
 
 // Table is a snapshot of the routing state.
@@ -129,6 +132,7 @@ type Handler struct {
 	mu      sync.Mutex
 	proxies map[string]*httputil.ReverseProxy
 	creds   credentialCache
+	gate    *Gate
 
 	// OnVisit, when set, is told about every request that reaches a running project;
 	// the idle stop of branch environments counts from the last one.
@@ -139,6 +143,10 @@ type Handler struct {
 func NewHandler(router *Router, ui http.Handler, tlsEnabled bool, log *slog.Logger) *Handler {
 	return &Handler{router: router, ui: ui, log: log, tls: tlsEnabled, proxies: map[string]*httputil.ReverseProxy{}}
 }
+
+// SetGate hands the handler the gate of the hosts that sign in through Envoryx. Without
+// one those hosts are closed.
+func (h *Handler) SetGate(g *Gate) { h.gate = g }
 
 // hostOf extracts the lower-case host name without port.
 func hostOf(r *http.Request) string {
@@ -191,6 +199,20 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if h.tls && table.ForceHTTPS && r.TLS == nil && !target.Share {
 		redirectHTTPS(w, r, table.HTTPSPort)
 		return
+	}
+	if target.Login != "" {
+		switch {
+		case h.gate == nil:
+			h.errorPage(w, http.StatusUnauthorized, "Sign in required", fmt.Sprintf("<strong>%s</strong> is only open to users signed in to Envoryx.", html.EscapeString(target.ProjectName)), table.EnvoryxURL)
+			return
+		case r.URL.Path == GatePath:
+			h.redeemGate(w, r, host, target)
+			return
+		case !h.admitGate(r, host, target):
+			h.challengeGate(w, r, target, table.EnvoryxURL)
+			return
+		}
+		dropGateCookie(r)
 	}
 	if !rules.Empty() {
 		if h.guard(w, r, rules) {

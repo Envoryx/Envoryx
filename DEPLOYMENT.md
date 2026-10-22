@@ -2300,6 +2300,7 @@ versions:                     # at least one; the default (or the first) when no
 hostname: widget              # name on the project network (defaults to the name)
 port: 8080                    # what it listens on: {{port}}, web UI, host port
 webUI: true                   # https://<slug>-widget.<base domain> through the proxy
+public: true                  # leave the web UI open like the app (see below)
 publishPort: true             # offer "Publish the port on the host" (desktop clients)
 command: ["serve", "--name", "{{project.slug}}"]   # replaces the image's command
 user: "1000:1000"             # inside the container
@@ -2338,6 +2339,20 @@ one creates the container and, if the addon injects variables, recreates the app
 containers with them. The card shows the web UI's address, the internal host and port, the
 host port, the injected variables, the volumes, the image and the credentials. An addon
 with a web UI always gets a host port too, like Mailpit.
+
+**Who reaches the web UI.** An addon's web UI address only lets in people signed in to
+Envoryx who may work on the project (developers and admins): phpMyAdmin is signed in to
+the project's database, and anyone who guessed `shop-phpmyadmin.example.net` could
+otherwise empty it. A browser that isn't signed in there yet goes to Envoryx and comes
+back on its own; if it isn't signed in to Envoryx either, the sign-in page comes first.
+The project's address allowlist still applies, its basic authentication doesn't (the
+sign-in replaces it). Signing out of Envoryx closes it again within half a minute.
+Requests a browser doesn't navigate to, such as `fetch` from another page or a
+WebSocket, get a 401 until the browser has been through the sign-in once.
+An addon the application's own pages use, like Soketi for Laravel Echo, sets
+`public: true`: its address stays open and is guarded like the application (allowlist
+and basic authentication). The shipped Soketi file has it; a Soketi installed from an
+earlier version needs the line added (or the example installed again).
 
 **Changing a file.** A project keeps a copy of the definition it runs, with its generated
 secrets. Saving a new version of an installed file updates that copy in every project

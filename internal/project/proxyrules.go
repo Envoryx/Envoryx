@@ -13,6 +13,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/envoryx/envoryx/internal/audit"
+	"github.com/envoryx/envoryx/internal/auth"
 	"github.com/envoryx/envoryx/internal/proxy"
 	"github.com/envoryx/envoryx/internal/store"
 	"github.com/envoryx/envoryx/internal/validate"
@@ -312,11 +313,25 @@ func proxyRules(p store.Project) *proxy.Rules {
 	return out
 }
 
-// accessRules are the parts of a project's rules that guard who gets in (the address
-// allowlist and the login), for the routes of its addon web UIs: an addon such as
-// phpMyAdmin is signed in to the project's database, so it must not be more open than
-// the project. Redirects, headers and CORS belong to the application and stay off.
+// LoginAddon is what an addon's web UI asks of the users it lets in (proxy.Gate): they
+// may work on the project. phpMyAdmin and pgAdmin are signed in to its database.
+const LoginAddon = string(auth.ScopeOperate)
+
+// accessRules are the parts of a project's rules that guard who gets in, for the routes
+// of its addon web UIs: the address allowlist. The Envoryx sign-in replaces the basic
+// authentication there, and redirects, headers and CORS belong to the application.
 func accessRules(p store.Project) *proxy.Rules {
+	r := proxyRules(p)
+	if r == nil || len(r.Allow) == 0 {
+		return nil
+	}
+	return &proxy.Rules{Allow: r.Allow}
+}
+
+// publicAddonRules guard an addon's web UI that stays open (addon.Definition.Public)
+// like the project: its allowlist and basic authentication, not the redirects, headers
+// and CORS of the application.
+func publicAddonRules(p store.Project) *proxy.Rules {
 	r := proxyRules(p)
 	if r == nil || (len(r.Allow) == 0 && r.BasicAuth == nil) {
 		return nil

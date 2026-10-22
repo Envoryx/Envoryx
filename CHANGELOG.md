@@ -10,6 +10,15 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Changed
+- An addon's web UI (phpMyAdmin, pgAdmin, Keycloak and your own) only lets in people
+  signed in to Envoryx who may work on the project. Until now anyone who knew or guessed
+  the address reached it, and phpMyAdmin is signed in to the project's database. A
+  browser without access goes through the Envoryx sign-in and comes back; the project's
+  basic authentication no longer applies there, its allowlist still does. An addon the
+  application's pages use itself sets the new `public: true` and stays open: the shipped
+  Soketi file has it, a Soketi installed from an earlier version needs the line added.
+
 ## [0.42.0] - 2026-10-22
 
 ### Added

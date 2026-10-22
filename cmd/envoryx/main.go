@@ -646,8 +646,20 @@ func serve() error {
 	})
 	sso := oidc.New(st, sessions, log)
 	sso.Audit = auditLog
+	// Addon web UIs and dev servers open only to users signed in to Envoryx who may use
+	// them; the proxy asks again every few seconds whether that still holds.
+	var gate *proxy.Gate
+	if proxyInfo.Enabled {
+		gate = proxy.NewGate(func(ctx context.Context, sessionID, projectID, need string) bool {
+			p, err := sessions.ValidateSession(ctx, sessionID)
+			if err != nil || p.TwoFactorSetup || manager.Suspension().Err() != nil {
+				return false
+			}
+			return p.Require(auth.Scope(need), projectID) == nil
+		})
+	}
 	a := api.New(api.Deps{
-		Config: cfg, Version: version, Store: st, Auth: sessions, Audit: auditLog, Engine: engine,
+		Gate: gate, Config: cfg, Version: version, Store: st, Auth: sessions, Audit: auditLog, Engine: engine,
 		Projects: manager, Catalog: catalog, Stats: collector, HostPath: resolver, Certs: certs, ACME: acmeMgr, Notify: notifier, Proxy: proxyInfo,
 		MCP: mcpSrv.Handler(), SSH: sshInfo, Log: log, StartedAt: time.Now(), Updates: updates, OIDC: sso,
 		Instance: backups, DB: sqlDB, Restart: requestRestart, Warnings: warnings, Offsite: syncer, Fleet: fleetAgent,
@@ -726,6 +738,8 @@ func serve() error {
 		proxyInfo.Invalidate = router.Invalidate
 		handler := proxy.NewHandler(router, srv.Handler(), certs != nil, log)
 		handler.OnVisit = manager.Visited
+		gate.SetRouter(router)
+		handler.SetGate(gate)
 		httpsAddr := ""
 		if certs != nil {
 			httpsAddr = cfg.ProxyHTTPS

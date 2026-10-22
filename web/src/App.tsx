@@ -4,6 +4,7 @@ import { useAuth } from "./features/auth/AuthContext";
 import { InvitePage } from "@/features/auth/InvitePage";
 import { TwoFactorSetupPage } from "@/features/auth/TwoFactorSetupPage";
 import { LoginPage } from "./features/auth/LoginPage";
+import { GatePage } from "./features/auth/GatePage";
 import { AppShell } from "./layout/AppShell";
 import { DashboardPage } from "./features/dashboard/DashboardPage";
 import { ProjectsPage } from "./features/projects/ProjectsPage";
@@ -22,7 +23,7 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   if (auth.loading) return <Spinner label={t("Starting Envoryx…")} />;
   if (auth.needsSetup) return <Navigate to="/setup" replace />;
-  if (!auth.user) return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  if (!auth.user) return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
   if (auth.twoFactorSetup) return <TwoFactorSetupPage />;
   return <Unsuspended>{children}</Unsuspended>;
 }
@@ -48,6 +49,14 @@ export function App() {
       <Route path="/login" element={<LoginPage mode="login" />} />
       <Route path="/setup" element={<LoginPage mode="setup" />} />
       <Route path="/invite/:token" element={<InvitePage />} />
+      <Route
+        path="/gate"
+        element={
+          <RequireAuth>
+            <GatePage />
+          </RequireAuth>
+        }
+      />
       <Route
         element={
           <RequireAuth>

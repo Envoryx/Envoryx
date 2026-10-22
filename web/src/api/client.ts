@@ -324,6 +324,8 @@ export const api = {
     oidcStatus: () => request<{ enabled: boolean; name?: string }>("/auth/oidc", { silent401: true }),
     invitation: (token: string) => request<{ username: string; expiresAt: string; reset: boolean }>(`/invites/${encodeURIComponent(token)}`, { silent401: true }),
     acceptInvitation: (token: string, password: string) => request<SignInResult>(`/invites/${encodeURIComponent(token)}`, { method: "POST", body: { password }, silent401: true }),
+    /** The address that lets the session into a host behind the Envoryx sign-in (an addon's web UI). */
+    gate: (to: string) => request<{ url: string; name: string }>("/auth/gate", { method: "POST", body: { to } }),
   },
 
   /** The signed-in user's own second factors. Changes take the password. */

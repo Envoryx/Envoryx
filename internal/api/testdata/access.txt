@@ -66,6 +66,7 @@ POST   /api/v1/auth/2fa/passkeys                                     scope=read 
 PATCH  /api/v1/auth/2fa/passkeys/{passkey}                           scope=read    tokens=no    support=no   confined=users   suspended=no  plan=none twofactor=no
 DELETE /api/v1/auth/2fa/passkeys/{passkey}                           scope=read    tokens=no    support=no   confined=users   suspended=no  plan=none twofactor=no
 POST   /api/v1/auth/2fa/recovery-codes                               scope=read    tokens=no    support=no   confined=users   suspended=no  plan=none twofactor=no
+POST   /api/v1/auth/gate                                             scope=read    tokens=no    support=yes  confined=users   suspended=no  plan=none twofactor=no
 GET    /api/v1/dashboard                                             scope=read    tokens=admin support=yes  confined=users   suspended=no  plan=none twofactor=no
 GET    /api/v1/runtimes                                              scope=read    tokens=yes   support=yes  confined=yes     suspended=no  plan=none twofactor=no
 POST   /api/v1/cron/preview                                          scope=read    tokens=yes   support=yes  confined=yes     suspended=no  plan=none twofactor=no

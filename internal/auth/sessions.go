@@ -247,7 +247,15 @@ func (s *Service) Validate(ctx context.Context, token string) (Principal, error)
 	if token == "" {
 		return Principal{}, ErrUnauthenticated
 	}
-	id := hashToken(token)
+	return s.ValidateSession(ctx, hashToken(token))
+}
+
+// ValidateSession is Validate for a session known by its id (Principal.SessionID), as
+// the proxy's gate holds it.
+func (s *Service) ValidateSession(ctx context.Context, id string) (Principal, error) {
+	if id == "" {
+		return Principal{}, ErrUnauthenticated
+	}
 	sess, err := s.store.Sessions.Get(ctx, id)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {

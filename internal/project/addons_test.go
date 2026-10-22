@@ -98,13 +98,15 @@ func TestAddonLifecycle(t *testing.T) {
 	if _, ok := table.Routes[AddonHostname("gadget", "widget", DefaultBaseDomain)]; !ok {
 		t.Fatalf("route missing: %v", table.Routes)
 	}
-	// It is guarded like the project: allowlist and login, not the redirects.
+	// It signs in through Envoryx and keeps the project's allowlist; the basic
+	// authentication and the redirects are the application's.
 	if _, err := e.m.SetProxyRules(ctx, id, ProxyRulesRequest{AllowIPs: []string{"10.1.2.3"}, BasicAuth: &BasicAuthRequest{User: "client", Password: "s3cret"}}); err != nil {
 		t.Fatal(err)
 	}
 	table, _ = e.m.RouteTable(ctx, ProxyOptions{})
-	if r := table.Routes[AddonHostname("gadget", "widget", DefaultBaseDomain)].Rules; r == nil || len(r.Allow) != 1 || r.BasicAuth == nil || len(r.Redirects) != 0 {
-		t.Fatalf("addon route rules: %+v", r)
+	route := table.Routes[AddonHostname("gadget", "widget", DefaultBaseDomain)]
+	if r := route.Rules; route.Login != LoginAddon || r == nil || len(r.Allow) != 1 || r.BasicAuth != nil || len(r.Redirects) != 0 {
+		t.Fatalf("addon route: %+v rules %+v", route, r)
 	}
 	infos, err := e.m.ProjectAddons(ctx, id)
 	if err != nil || len(infos) != 1 {
@@ -270,5 +272,30 @@ func TestAddonWithoutInjectListsEmpty(t *testing.T) {
 	infos, err := e.m.ProjectAddons(ctx, view.Project.ID)
 	if err != nil || len(infos) != 1 || infos[0].InjectedEnv == nil {
 		t.Fatalf("infos: %+v %v", infos, err)
+	}
+}
+
+func TestPublicAddonStaysOpen(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	const ws = "name: ws\nversions:\n  - {version: \"1\", image: acme/ws:1}\nport: 6001\nwebUI: true\npublic: true\n"
+	if _, err := e.m.InstallAddon(ctx, []byte(ws)); err != nil {
+		t.Fatal(err)
+	}
+	view, err := e.m.Create(ctx, phpRequest("Chat", true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := view.Project.ID
+	if _, err := e.m.Update(ctx, id, UpdateRequest{Addons: map[string]AddonUpdate{"ws": {Enabled: true}}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.m.SetProxyRules(ctx, id, ProxyRulesRequest{BasicAuth: &BasicAuthRequest{User: "client", Password: "s3cret"}}); err != nil {
+		t.Fatal(err)
+	}
+	table, _ := e.m.RouteTable(ctx, ProxyOptions{})
+	route := table.Routes[AddonHostname("chat", "ws", DefaultBaseDomain)]
+	if route.Login != "" || route.Rules == nil || route.Rules.BasicAuth == nil {
+		t.Fatalf("a public addon is guarded like the application: %+v", route)
 	}
 }

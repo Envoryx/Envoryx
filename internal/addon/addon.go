@@ -43,6 +43,10 @@ type Definition struct {
 	Port int `yaml:"port,omitempty" json:"port,omitempty"`
 	// WebUI routes <slug>-<name>.<base domain> through the proxy to Port.
 	WebUI bool `yaml:"webUI,omitempty" json:"webUI,omitempty"`
+	// Public leaves the web UI open like the application, for what the application's
+	// pages use themselves (a WebSocket server). Otherwise it's only open to users
+	// signed in to Envoryx who may work on the project.
+	Public bool `yaml:"public,omitempty" json:"public,omitempty"`
 	// PublishPort offers a host port for Port (for desktop clients).
 	PublishPort bool `yaml:"publishPort,omitempty" json:"publishPort,omitempty"`
 	// Command replaces the image's command.
