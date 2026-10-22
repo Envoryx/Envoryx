@@ -19,6 +19,10 @@ release). `:main` follows the development branch.
   sign-in for webhooks and health checks, and scripts or monitoring get past it with an
   API token in the `X-Envoryx-Token` header. `login` and `openPaths` in
   `PUT /projects/{id}/proxy-rules`.
+- Guest links (*Domains → Guest links*) let someone without an Envoryx account into a
+  project behind the sign-in, for 1 to 90 days: the customer reviewing a staging site.
+  They open the project's host names and dev server, not its addons, and can be revoked
+  at any time; the address is shown once and only its hash is kept.
 - The web interfaces of the built-in services have addresses through the proxy:
   `<project>-mailpit`, `-rabbitmq`, `-opensearch-dashboards`, `-meilisearch` and
   `-s3-console` under the base domain. Like an addon's web UI they only let in people

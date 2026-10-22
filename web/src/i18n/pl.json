@@ -3264,5 +3264,19 @@
   "The project's addresses and its dev server only let in users who may see the project; everyone else goes to the Envoryx sign-in first. A share stays open, with the password below.": "Adresy projektu i jego serwer deweloperski wpuszczają tylko użytkowników, którzy mogą widzieć projekt; pozostali trafiają najpierw do logowania Envoryx. Udostępnienie pozostaje otwarte, z hasłem poniżej.",
   "With the Envoryx sign-in it only applies to a share.": "Przy logowaniu Envoryx dotyczy tylko udostępnienia.",
   "Open paths": "Otwarte ścieżki",
-  "One path per line, or a prefix ending in *, e.g. /webhooks/*. They skip the sign-in, for webhooks and health checks. Scripts and monitoring can send an API token with read access to the project in the header X-Envoryx-Token instead.": "Jedna ścieżka w wierszu albo prefiks zakończony *, np. /webhooks/*. Pomijają logowanie, dla webhooków i kontroli stanu. Skrypty i monitoring mogą zamiast tego wysłać token API z dostępem do odczytu projektu w nagłówku X-Envoryx-Token."
+  "One path per line, or a prefix ending in *, e.g. /webhooks/*. They skip the sign-in, for webhooks and health checks. Scripts and monitoring can send an API token with read access to the project in the header X-Envoryx-Token instead.": "Jedna ścieżka w wierszu albo prefiks zakończony *, np. /webhooks/*. Pomijają logowanie, dla webhooków i kontroli stanu. Skrypty i monitoring mogą zamiast tego wysłać token API z dostępem do odczytu projektu w nagłówku X-Envoryx-Token.",
+  "Creating the guest link failed": "Nie udało się utworzyć linku gościa",
+  "Revoking the guest link failed": "Nie udało się unieważnić linku gościa",
+  "Guest links": "Linki dla gości",
+  "For people without an Envoryx account, such as a customer reviewing the site: the link opens the project's addresses until it ends or you revoke it. Not its addons, terminal or files.": "Dla osób bez konta Envoryx, np. klienta odbierającego stronę: link otwiera adresy projektu, aż wygaśnie lub go unieważnisz. Nie jego dodatki, terminal ani pliki.",
+  "The project is open to everyone right now. Guest links only matter once it lets in only people signed in to Envoryx (Rules above).": "Projekt jest teraz otwarty dla wszystkich. Linki dla gości mają znaczenie dopiero, gdy wpuszcza tylko osoby zalogowane w Envoryx (Reguły powyżej).",
+  "Send this address to {{label}}. It is shown only now.": "Wyślij ten adres do {{label}}. Jest pokazywany tylko teraz.",
+  "guest link": "link gościa",
+  "by {{user}}, until {{time}}": "od {{user}}, do {{time}}",
+  "last used {{time}}": "ostatnio użyty {{time}}",
+  "not used yet": "jeszcze nieużyty",
+  "For whom": "Dla kogo",
+  "e.g. Acme, review of the new shop": "np. Acme, odbiór nowego sklepu",
+  "Valid for": "Ważny przez",
+  "Create link": "Utwórz link"
 }

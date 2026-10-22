@@ -3,6 +3,7 @@ import type {
   ACMERequest,
   ActionInfo,
   APIToken,
+  GuestLink,
   BackupInfo,
   BackupSchedule,
   BackupsResponse,
@@ -602,6 +603,12 @@ export const api = {
     get: (id: string) => request<{ share: ProjectShare }>(`/projects/${encodeURIComponent(id)}/share`),
     start: (id: string, minutes: number) => request<{ share: ProjectShare }>(`/projects/${encodeURIComponent(id)}/share`, { method: "POST", body: { minutes } }),
     stop: (id: string) => request<void>(`/projects/${encodeURIComponent(id)}/share`, { method: "DELETE" }),
+  },
+
+  guestLinks: {
+    list: (id: string) => request<{ links: GuestLink[] }>(`/projects/${encodeURIComponent(id)}/guest-links`),
+    create: (id: string, label: string, days: number) => request<{ link: GuestLink }>(`/projects/${encodeURIComponent(id)}/guest-links`, { method: "POST", body: { label, days } }),
+    revoke: (id: string, link: string) => request<void>(`/projects/${encodeURIComponent(id)}/guest-links/${encodeURIComponent(link)}`, { method: "DELETE" }),
   },
 
   tests: {

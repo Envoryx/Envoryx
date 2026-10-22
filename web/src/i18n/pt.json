@@ -3214,5 +3214,19 @@
   "The project's addresses and its dev server only let in users who may see the project; everyone else goes to the Envoryx sign-in first. A share stays open, with the password below.": "Os endereços do projeto e seu servidor de desenvolvimento só deixam entrar usuários que podem ver o projeto; os demais passam primeiro pelo login do Envoryx. Um compartilhamento continua aberto, com a senha abaixo.",
   "With the Envoryx sign-in it only applies to a share.": "Com o login do Envoryx, vale só para um compartilhamento.",
   "Open paths": "Caminhos abertos",
-  "One path per line, or a prefix ending in *, e.g. /webhooks/*. They skip the sign-in, for webhooks and health checks. Scripts and monitoring can send an API token with read access to the project in the header X-Envoryx-Token instead.": "Um caminho por linha, ou um prefixo terminado em *, ex. /webhooks/*. Eles pulam o login, para webhooks e verificações de saúde. Scripts e monitoramento podem enviar em vez disso um token de API com acesso de leitura ao projeto no cabeçalho X-Envoryx-Token."
+  "One path per line, or a prefix ending in *, e.g. /webhooks/*. They skip the sign-in, for webhooks and health checks. Scripts and monitoring can send an API token with read access to the project in the header X-Envoryx-Token instead.": "Um caminho por linha, ou um prefixo terminado em *, ex. /webhooks/*. Eles pulam o login, para webhooks e verificações de saúde. Scripts e monitoramento podem enviar em vez disso um token de API com acesso de leitura ao projeto no cabeçalho X-Envoryx-Token.",
+  "Creating the guest link failed": "Falha ao criar o link de convidado",
+  "Revoking the guest link failed": "Falha ao revogar o link de convidado",
+  "Guest links": "Links de convidado",
+  "For people without an Envoryx account, such as a customer reviewing the site: the link opens the project's addresses until it ends or you revoke it. Not its addons, terminal or files.": "Para pessoas sem conta no Envoryx, como um cliente que revisa o site: o link abre os endereços do projeto até expirar ou você revogá-lo. Não seus complementos, o terminal nem os arquivos.",
+  "The project is open to everyone right now. Guest links only matter once it lets in only people signed in to Envoryx (Rules above).": "O projeto está aberto a todos agora. Links de convidado só contam quando ele deixa entrar apenas pessoas conectadas ao Envoryx (Regras acima).",
+  "Send this address to {{label}}. It is shown only now.": "Envie este endereço para {{label}}. Ele só é mostrado agora.",
+  "guest link": "link de convidado",
+  "by {{user}}, until {{time}}": "por {{user}}, até {{time}}",
+  "last used {{time}}": "último uso {{time}}",
+  "not used yet": "ainda não usado",
+  "For whom": "Para quem",
+  "e.g. Acme, review of the new shop": "ex. Acme, revisão da nova loja",
+  "Valid for": "Válido por",
+  "Create link": "Criar link"
 }

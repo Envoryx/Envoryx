@@ -35,6 +35,44 @@ func (a *API) startShare(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"share": s})
 }
 
+func (a *API) guestLinks(w http.ResponseWriter, r *http.Request) {
+	links, err := a.d.Projects.GuestLinks(r.Context(), r.PathValue("id"))
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"links": links})
+}
+
+type guestLinkRequest struct {
+	Label string `json:"label"`
+	// Days the link works, 1 to 90; 0 means a week.
+	Days int `json:"days"`
+}
+
+// createGuestLink answers the link with its address, which is shown this once.
+func (a *API) createGuestLink(w http.ResponseWriter, r *http.Request) {
+	var req guestLinkRequest
+	if err := decodeJSON(w, r, &req); err != nil {
+		writeError(w, r, err)
+		return
+	}
+	l, err := a.d.Projects.CreateGuestLink(r.Context(), r.PathValue("id"), req.Label, req.Days)
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, map[string]any{"link": l})
+}
+
+func (a *API) revokeGuestLink(w http.ResponseWriter, r *http.Request) {
+	if err := a.d.Projects.RevokeGuestLink(r.Context(), r.PathValue("id"), r.PathValue("link")); err != nil {
+		writeError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (a *API) stopShare(w http.ResponseWriter, r *http.Request) {
 	if err := a.d.Projects.StopShare(r.Context(), r.PathValue("id")); err != nil {
 		writeError(w, r, err)

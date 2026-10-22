@@ -3264,5 +3264,19 @@
   "The project's addresses and its dev server only let in users who may see the project; everyone else goes to the Envoryx sign-in first. A share stays open, with the password below.": "Адреса проекта и его dev-сервер пускают только пользователей, которым можно видеть проект; остальные сначала попадают на вход в Envoryx. Общий доступ остаётся открытым, с паролем ниже.",
   "With the Envoryx sign-in it only applies to a share.": "При входе через Envoryx он действует только для общего доступа.",
   "Open paths": "Открытые пути",
-  "One path per line, or a prefix ending in *, e.g. /webhooks/*. They skip the sign-in, for webhooks and health checks. Scripts and monitoring can send an API token with read access to the project in the header X-Envoryx-Token instead.": "Один путь в строке или префикс со * в конце, например /webhooks/*. Они обходят вход, для вебхуков и проверок работоспособности. Скрипты и мониторинг могут вместо этого передать API-токен с доступом на чтение к проекту в заголовке X-Envoryx-Token."
+  "One path per line, or a prefix ending in *, e.g. /webhooks/*. They skip the sign-in, for webhooks and health checks. Scripts and monitoring can send an API token with read access to the project in the header X-Envoryx-Token instead.": "Один путь в строке или префикс со * в конце, например /webhooks/*. Они обходят вход, для вебхуков и проверок работоспособности. Скрипты и мониторинг могут вместо этого передать API-токен с доступом на чтение к проекту в заголовке X-Envoryx-Token.",
+  "Creating the guest link failed": "Не удалось создать гостевую ссылку",
+  "Revoking the guest link failed": "Не удалось отозвать гостевую ссылку",
+  "Guest links": "Гостевые ссылки",
+  "For people without an Envoryx account, such as a customer reviewing the site: the link opens the project's addresses until it ends or you revoke it. Not its addons, terminal or files.": "Для тех, у кого нет учётной записи Envoryx, например клиента, принимающего сайт: ссылка открывает адреса проекта, пока не истечёт или вы её не отзовёте. Не дополнения, терминал или файлы.",
+  "The project is open to everyone right now. Guest links only matter once it lets in only people signed in to Envoryx (Rules above).": "Сейчас проект открыт для всех. Гостевые ссылки имеют смысл, только когда он пускает лишь вошедших в Envoryx (Правила выше).",
+  "Send this address to {{label}}. It is shown only now.": "Отправьте этот адрес: {{label}}. Он показывается только сейчас.",
+  "guest link": "гостевая ссылка",
+  "by {{user}}, until {{time}}": "от {{user}}, до {{time}}",
+  "last used {{time}}": "последнее использование {{time}}",
+  "not used yet": "ещё не использовалась",
+  "For whom": "Для кого",
+  "e.g. Acme, review of the new shop": "например Acme, приёмка нового магазина",
+  "Valid for": "Действует",
+  "Create link": "Создать ссылку"
 }
