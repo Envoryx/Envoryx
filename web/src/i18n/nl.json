@@ -3180,5 +3180,15 @@
   "creating projects needs admin access to the whole instance": "Projecten aanmaken vereist beheerderstoegang tot de hele instantie",
   "the dashboard needs admin scope": "Het dashboard vereist het bereik admin",
   "the settings need admin scope": "De instellingen vereisen het bereik admin",
-  "your role does not allow this (it needs {{scope}} access)": "Je rol staat dit niet toe (er is {{scope}}-toegang nodig)"
+  "your role does not allow this (it needs {{scope}} access)": "Je rol staat dit niet toe (er is {{scope}}-toegang nodig)",
+  "Image updates": "Image-updates",
+  "Once a day Envoryx asks the registries whether the images your projects use have a newer build, a PHP security fix for example. A project shows it and you get a notification; the next restart applies it. Nothing changes until then, unless you let Envoryx restart the projects itself.": "Eén keer per dag vraagt Envoryx de registries of de images van je projecten een nieuwere build hebben, bijvoorbeeld een beveiligingsfix voor PHP. Het project laat het zien en je krijgt een melding; de volgende herstart past hem toe. Tot die tijd verandert er niets, tenzij je Envoryx de projecten zelf laat herstarten.",
+  "Restart the running projects with a newer image daily": "Draaiende projecten met een nieuwere image dagelijks herstarten",
+  "At the hour below, each running project whose image has a newer build is restarted, one after the other, which interrupts it for a few seconds. Stopped projects and projects rolled back to their previous image stay as they are.": "Op het uur hieronder wordt elk draaiend project waarvan de image een nieuwere build heeft herstart, de een na de ander, wat het een paar seconden onderbreekt. Gestopte projecten en projecten die naar hun vorige image zijn teruggezet blijven zoals ze zijn.",
+  "Last checked {{time}}, images with a newer build: {{n}}": "Laatst gecontroleerd {{time}}, images met een nieuwere build: {{n}}",
+  "Not checked yet: the first check runs a few minutes after Envoryx starts.": "Nog niet gecontroleerd: de eerste controle draait een paar minuten nadat Envoryx is gestart.",
+  "a newer {{service}} image is available; restart to apply": "Er is een nieuwere {{service}}-image beschikbaar; herstart om toe te passen",
+  "{{name}} {{version}} has reached its end of life and gets no security fixes; switch to a newer version": "{{name}} {{version}} is end-of-life en krijgt geen beveiligingsfixes meer; stap over op een nieuwere versie",
+  "The registry has a newer build of images your projects use (a restart applies it)": "De registry heeft een nieuwere build van images die je projecten gebruiken (een herstart past hem toe)",
+  "Projects were restarted at the set hour to apply newer images": "Projecten zijn op het ingestelde uur herstart om nieuwere images toe te passen"
 }

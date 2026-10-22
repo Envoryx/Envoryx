@@ -77,6 +77,8 @@ var Kinds = []struct {
 	{"docker.orphans_removed", "Envoryx removed orphaned containers or networks that belonged to no project", true},
 	{"envoryx.failed", "Envoryx could not start, or a background task crashed and was restarted", true},
 	{"storage.low", "Free disk space under /config, /projects or /backups is running out (and when it recovers)", true},
+	{"images.newer", "The registry has a newer build of images your projects use (a restart applies it)", true},
+	{"images.restarted", "Projects were restarted at the set hour to apply newer images", true},
 }
 
 // Providers lists the supported delivery channels.

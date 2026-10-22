@@ -58,10 +58,22 @@ func serviceProblem(name string, c docker.Container) string {
 	return ""
 }
 
+// statusInfo is what deriveStatus needs to know beyond the containers; the zero value
+// leaves the image and end-of-life warnings out.
+type statusInfo struct {
+	// imageIDs maps image references to their current local id, so containers built from
+	// an older build of the same tag can be flagged.
+	imageIDs map[string]string
+	// newer are the references whose registry has a build the host doesn't.
+	newer map[string]bool
+	// eol names the runtime or service of a version past its end of life ("PHP"), "" for
+	// one that is supported.
+	eol func(svc store.ProjectService) string
+}
+
 // deriveStatus computes the observed state of a project from the managed container list.
-// imageIDs (optional) maps image references to their current local id so containers built
-// from an older build of the same tag can be flagged.
-func deriveStatus(p store.Project, containers []docker.Container, imageIDs map[string]string) Status {
+func deriveStatus(p store.Project, containers []docker.Container, info statusInfo) Status {
+	imageIDs := info.imageIDs
 	st := Status{Services: []ServiceStatus{}, Warnings: []string{}}
 	byKind := map[string]docker.Container{}
 	for _, c := range containers {
@@ -127,7 +139,17 @@ func deriveStatus(p store.Project, containers []docker.Container, imageIDs map[s
 				localID, ok := imageIDs[svc.Image]
 				if c.Image == c.ImageID || (ok && c.ImageID != "" && localID != c.ImageID) {
 					st.Warnings = append(st.Warnings, fmt.Sprintf("a newer %s image was pulled; restart to apply", svc.Kind))
+					ss.ImageUpdate = "pulled"
+				} else if info.newer[svc.Image] {
+					st.Warnings = append(st.Warnings, fmt.Sprintf("a newer %s image is available; restart to apply", svc.Kind))
+					ss.ImageUpdate = "available"
 				}
+			}
+		}
+		if info.eol != nil && !svc.Custom.Set() {
+			if name := info.eol(svc); name != "" {
+				ss.EOL = true
+				st.Warnings = append(st.Warnings, fmt.Sprintf("%s %s has reached its end of life and gets no security fixes; switch to a newer version", name, svc.Version))
 			}
 		}
 		if rec := p.ImageRecord(svc.Image); rec != nil && rec.PreviousID != "" {
@@ -310,7 +332,7 @@ func (m *Manager) Reconcile(ctx context.Context) ReconcileReport {
 				report.Issues = append(report.Issues, ReconcileIssue{ProjectID: p.ID, ProjectName: p.Name, Severity: "error", Message: msg})
 			}
 		}
-		st := deriveStatus(p, containers, m.localImageIDs(ctx, projects))
+		st := deriveStatus(p, containers, m.statusInfo(ctx, projects))
 		report.States[p.ID] = st
 		if p.Lifecycle == store.LifecycleReady {
 			cur, settled := m.settled(ctx, p)
@@ -328,7 +350,7 @@ func (m *Manager) Reconcile(ctx context.Context) ReconcileReport {
 				// keeps its error, it says why the last start did not work.
 				if err := m.store.Projects.ClearError(ctx, p.ID, p.LastError); err == nil {
 					p.LastError = ""
-					st = deriveStatus(p, containers, m.localImageIDs(ctx, projects))
+					st = deriveStatus(p, containers, m.statusInfo(ctx, projects))
 					report.States[p.ID] = st
 				}
 			}
@@ -404,6 +426,37 @@ func (m *Manager) settled(ctx context.Context, p store.Project) (store.Project, 
 		return p, true
 	}
 	return cur, true
+}
+
+// statusInfo gathers what deriveStatus knows beyond the containers for the given projects.
+func (m *Manager) statusInfo(ctx context.Context, projects []store.Project) statusInfo {
+	return statusInfo{imageIDs: m.localImageIDs(ctx, projects), newer: m.newerImages(), eol: m.eolName}
+}
+
+// eolName is statusInfo.eol from the catalogue.
+func (m *Manager) eolName(svc store.ProjectService) string {
+	if v, r, ok := m.catalogVersion(svc); ok && v.EOL {
+		return r.Name
+	}
+	return ""
+}
+
+// catalogVersion looks up the catalogue entry of a service's version.
+func (m *Manager) catalogVersion(svc store.ProjectService) (runtime.Version, runtime.Runtime, bool) {
+	key := catalogKey(svc)
+	if m.catalog == nil || key == "" || svc.Version == "" {
+		return runtime.Version{}, runtime.Runtime{}, false
+	}
+	r, ok := m.catalog.Get(key)
+	if !ok {
+		return runtime.Version{}, runtime.Runtime{}, false
+	}
+	for _, v := range r.Versions {
+		if v.Version == svc.Version {
+			return v, r, true
+		}
+	}
+	return runtime.Version{}, r, false
 }
 
 // localImageIDs looks up the local ids of all images used by the given projects.

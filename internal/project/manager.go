@@ -116,6 +116,9 @@ type Manager struct {
 	ollamaOnce sync.Once
 	ollama     *ollamaPulls // model downloads in progress (see ollama.go)
 
+	// images is the last check for newer images in the registries (see imageupdates.go).
+	images imageUpdates
+
 	// logStore keeps container output beyond the containers. When it's nil, queries read
 	// Docker only (see loghistory.go).
 	logStore     *logs.Store
@@ -1467,14 +1470,14 @@ func (m *Manager) List(ctx context.Context) ([]View, error) {
 		return nil, err
 	}
 	containers, dockerErr := m.engine.ListContainers(ctx, true, "")
-	var imageIDs map[string]string
+	info := statusInfo{eol: m.eolName}
 	if dockerErr == nil {
-		imageIDs = m.localImageIDs(ctx, projects)
+		info = m.statusInfo(ctx, projects)
 	}
 	kernel := m.HostKernel(ctx)
 	views := make([]View, 0, len(projects))
 	for _, p := range projects {
-		st := deriveStatus(p, containers, imageIDs)
+		st := deriveStatus(p, containers, info)
 		if dockerErr != nil {
 			st.Warnings = append(st.Warnings, "Docker engine unavailable: "+dockerErr.Error())
 		}
@@ -1504,11 +1507,11 @@ func (m *Manager) Get(ctx context.Context, id string) (View, error) {
 		return View{}, err
 	}
 	containers, dockerErr := m.engine.ListContainers(ctx, true, id)
-	var imageIDs map[string]string
+	info := statusInfo{eol: m.eolName}
 	if dockerErr == nil {
-		imageIDs = m.localImageIDs(ctx, []store.Project{p})
+		info = m.statusInfo(ctx, []store.Project{p})
 	}
-	st := deriveStatus(p, containers, imageIDs)
+	st := deriveStatus(p, containers, info)
 	if dockerErr != nil {
 		st.Warnings = append(st.Warnings, "Docker engine unavailable: "+dockerErr.Error())
 	}

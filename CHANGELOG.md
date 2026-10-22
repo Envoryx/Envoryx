@@ -10,6 +10,21 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Added
+- Envoryx checks daily whether the images your projects use have a newer build in their
+  registry (a PHP security fix, say), without pulling them. A project with one shows
+  *a newer php image is available; restart to apply*, and the new `images.newer`
+  notification (on by default) names the images and projects once per build. Behind a
+  socket proxy the check needs the `DISTRIBUTION` group.
+- *Settings → General → Image updates* can restart the running projects with a newer image
+  daily at an hour you choose (off by default; 05:00 server time preset). Stopped projects
+  and projects rolled back to their previous image stay as they are; the new
+  `images.restarted` notification reports the outcome.
+- A project on a version past its end of life (PHP 7.4, 8.0, 8.1, ...) warns that it gets no
+  security fixes.
+- A managed instance reports to its fleet manager how many projects wait for a restart to
+  run newer images.
+
 ### Changed
 - The runtime images (`envoryx-php`, `envoryx-node`, ...) are checked daily and rebuilt the
   morning after their upstream image changes, instead of only on Mondays. A security fix in

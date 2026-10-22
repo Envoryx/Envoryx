@@ -352,6 +352,8 @@ type updateSettingsRequest struct {
 	TwoFactorRequired *string `json:"twoFactorRequired"`
 	// LogHistory switches the log history and sets its retention.
 	LogHistory *project.LogHistoryUpdate `json:"logHistory"`
+	// ImageUpdates restarts the projects with a newer image daily at an hour.
+	ImageUpdates *project.ImageUpdateSettings `json:"imageUpdates"`
 	// MetricsRetentionDays is how long the resource history is kept.
 	MetricsRetentionDays *int `json:"metricsRetentionDays"`
 }
@@ -572,6 +574,11 @@ func (a *API) applySettings(ctx context.Context, req updateSettingsRequest) (map
 			return changes, err
 		}
 	}
+	if req.ImageUpdates != nil {
+		if err := a.d.Projects.SetImageUpdates(ctx, *req.ImageUpdates); err != nil {
+			return changes, err
+		}
+	}
 	if req.LogHistory != nil {
 		if _, err := a.d.Projects.SetLogHistory(ctx, *req.LogHistory); err != nil {
 			return changes, err
@@ -664,6 +671,7 @@ func (a *API) settings(w http.ResponseWriter, r *http.Request) {
 		"sharedIdeBackends":     a.d.Projects.SharedIDEBackends(r.Context()),
 		"sharedPackageCache":    a.d.Projects.SharedPackageCache(r.Context()),
 		"logHistory":            a.d.Projects.LogHistoryInfo(r.Context()),
+		"imageUpdates":          a.d.Projects.ImageUpdatesInfo(r.Context()),
 		"metrics":               a.d.Projects.MetricsInfo(r.Context()),
 		"xdebugClientHost":      a.d.Projects.XdebugClientHost(r.Context()),
 		"folderViewFolder":      a.d.Projects.FolderViewFolder(r.Context()),

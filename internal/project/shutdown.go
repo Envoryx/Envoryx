@@ -140,7 +140,7 @@ func (m *Manager) ResumeProjects(ctx context.Context, log *slog.Logger) {
 		if p.DesiredState != store.DesiredRunning || p.Lifecycle != store.LifecycleReady {
 			continue
 		}
-		if deriveStatus(p, containers, nil).State != StateRunning {
+		if deriveStatus(p, containers, statusInfo{}).State != StateRunning {
 			pending = append(pending, p)
 		}
 	}

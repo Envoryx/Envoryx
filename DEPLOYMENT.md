@@ -1424,6 +1424,25 @@ newer, its error message names the pre-migrate backup to restore by hand (see
   again and recreates the container only if the image actually changed. Until
   then the project keeps running on the previous build; nothing changes
   behind your back.
+- **Newer images**: once a day (the first time a few minutes after Envoryx
+  starts) Envoryx asks the registries whether the images the projects use have a
+  newer build than the host, without pulling them. A project with one shows
+  *a newer php image is available; restart to apply*, and an `images.newer`
+  notification (on by default) names the images and projects, once per build.
+  Images built from a project Dockerfile aren't checked. Behind a socket proxy
+  the check needs the `DISTRIBUTION` group; without it *Settings → General →
+  Image updates* says which images couldn't be checked, and everything else
+  works as before.
+- **Restarting for newer images**: in *Settings → General → Image updates* you
+  can let Envoryx restart the running projects with a newer image daily at an
+  hour you choose (server local time, 05:00 by default; off by default). They are
+  restarted one after the other; stopped projects and projects rolled back to
+  their previous image are left alone. A slot missed by more than an hour (Envoryx
+  was down) waits for the next day. An `images.restarted` notification says what
+  was restarted and what failed.
+- **End of life**: a project on a version that no longer gets security fixes
+  (PHP 8.1, say) shows *PHP 8.1 has reached its end of life and gets no security
+  fixes*. Switch the version in its Runtime section, ideally on a duplicate first.
 - **Rolling back**: when a restart replaced containers with a rebuilt image,
   the project's *Overview* shows *image updated <date>* next to the service
   with a **Roll back** button. It recreates the containers from the image

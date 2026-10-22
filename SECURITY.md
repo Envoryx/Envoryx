@@ -45,12 +45,14 @@ variables; Envoryx needs these:
 | `SYSTEM` | disk usage of the volumes (`/system/df`) for the resource history |
 | `POST` | every request that isn't a GET: create, start, stop, remove, … |
 | `BUILD` | custom runtime images built from a project Dockerfile |
+| `DISTRIBUTION` | the daily check for newer builds of the projects' images (`/distribution/…/json`, asks the registry for a digest without pulling) |
 
 Without `SYSTEM` everything else keeps working; the resource history just shows no volume
 sizes. Without `BUILD` only custom images from a project Dockerfile fail; registry images
-and the Envoryx images keep working. `SWARM`, `NODES`, `SERVICES`, `TASKS`, `SECRETS`,
-`CONFIGS`, `PLUGINS`, `COMMIT`, `DISTRIBUTION`, `AUTH`, `SESSION` and `GRPC` can stay
-disabled. `SYSTEM` only opens `/system/…`, where Envoryx reads the disk usage; the prune
+and the Envoryx images keep working. Without `DISTRIBUTION` the projects don't learn about
+newer images until they are restarted, and *Settings → General → Image updates* says so.
+`SWARM`, `NODES`, `SERVICES`, `TASKS`, `SECRETS`, `CONFIGS`, `PLUGINS`, `COMMIT`, `AUTH`,
+`SESSION` and `GRPC` can stay disabled. `SYSTEM` only opens `/system/…`, where Envoryx reads the disk usage; the prune
 endpoints belong to the other groups, and Envoryx doesn't call them.
 
 Know what a socket proxy can't do: it filters by endpoint, not by the request body. With

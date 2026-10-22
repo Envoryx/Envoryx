@@ -1618,11 +1618,20 @@ func (e *MobyEngine) InspectImage(ctx context.Context, ref string) (ImageInfo, e
 	if err != nil {
 		return ImageInfo{}, wrap(err)
 	}
-	info := ImageInfo{ID: res.ID}
+	info := ImageInfo{ID: res.ID, RepoDigests: res.RepoDigests}
 	if cfg := res.Config; cfg != nil {
 		info.Labels, info.Entrypoint, info.Cmd, info.User = cfg.Labels, cfg.Entrypoint, cfg.Cmd, cfg.User
 	}
 	return info, nil
+}
+
+// RemoteDigest implements Engine. Behind a socket proxy it needs the DISTRIBUTION group.
+func (e *MobyEngine) RemoteDigest(ctx context.Context, ref string) (string, error) {
+	res, err := e.cli.DistributionInspect(ctx, ref, client.DistributionInspectOptions{EncodedRegistryAuth: e.pullAuth(ref)})
+	if err != nil {
+		return "", wrap(err)
+	}
+	return res.Descriptor.Digest.String(), nil
 }
 
 // BuildImage implements Engine. It uses the classic builder, which needs no BuildKit

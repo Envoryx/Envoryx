@@ -56,6 +56,10 @@ type serviceStatusDTO struct {
 	ImageChangedAt *time.Time `json:"imageChangedAt,omitempty"`
 	ImagePrevious  bool       `json:"imagePrevious"`
 	ImagePinned    bool       `json:"imagePinned"`
+	// ImageUpdate is "pulled" or "available" when a newer build waits for a restart.
+	ImageUpdate string `json:"imageUpdate,omitempty"`
+	// EOL marks a version past its end of life.
+	EOL bool `json:"eol,omitempty"`
 }
 
 type portDTO struct {
@@ -146,6 +150,7 @@ func toStatus(st project.Status) statusDTO {
 			Kind: string(s.Kind), Variant: s.Variant, Version: s.Version, Image: s.Image, ContainerName: s.ContainerName,
 			ContainerID: s.ContainerID, Exists: s.Exists, Running: s.Running, State: s.State, Status: s.Status, Health: s.Health, Ports: toPorts(s.Ports),
 			WorkerID: s.WorkerID, ImageChangedAt: s.ImageChangedAt, ImagePrevious: s.ImagePrevious, ImagePinned: s.ImagePinned,
+			ImageUpdate: s.ImageUpdate, EOL: s.EOL,
 		})
 	}
 	return out
