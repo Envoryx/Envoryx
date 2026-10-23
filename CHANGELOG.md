@@ -10,6 +10,12 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Fixed
+- Container states and health ("running", "healthy"), backup kinds, the hoster's
+  offsite target, terminal end lines and a few more texts stayed English in a
+  translated UI, as did some server messages (offsite upload, single sign-on test,
+  branch polling, Ollama downloads, parts of the audit log).
+
 ## [0.44.1] - 2026-10-23
 
 ### Changed
