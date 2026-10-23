@@ -25,6 +25,13 @@ describe("translateMessage", () => {
     expect(translateMessage("Request failed (503)", t)).toBe("Anfrage fehlgeschlagen (503)");
   });
 
+  it("keeps the context in front of a templated message", () => {
+    expect(translateMessage("not included in the plan: PHP 8.6 is a preview version; this instance's plan includes released versions only", t)).toBe(
+      "Nicht im Tarif enthalten: PHP 8.6 ist eine Vorabversion; der Tarif dieser Instanz enthält nur veröffentlichte Versionen",
+    );
+    expect(translateMessage("not included in the plan: public shares are switched off for this instance", t)).toBe("Nicht im Tarif enthalten: öffentliche Freigaben sind für diese Instanz abgeschaltet");
+  });
+
   it("leaves out the bare kind of error next to a part that stays English", () => {
     expect(translateMessage("conflict: the branch feature-x already has the environment shop-feature-x", t)).toBe("the branch feature-x already has the environment shop-feature-x");
     expect(translateMessage("something unknown: not found", t)).toBe("something unknown");
