@@ -9,7 +9,7 @@ import { translateMessage } from "@/lib/errors";
  * has stays selectable so its form still saves. `anyHost` lifts the host lock where the
  * version only picks client tools (an external server).
  */
-export function versionOptions(versions: RuntimeVersion[], t: TFunction, opts: { keep?: string; anyHost?: boolean } = {}) {
+export function versionOptions(versions: RuntimeVersion[], t: TFunction, opts: { keep?: string | undefined; anyHost?: boolean } = {}) {
   return versions.map((v) => {
     const unavailable = !opts.anyHost && !!v.unavailable;
     return (
