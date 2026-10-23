@@ -67,7 +67,7 @@ func (r *Users) Insert(ctx context.Context, u User) (User, error) {
 		u.ID, u.Username, u.PasswordHash, u.Role, u.InviteHash, expires, u.OIDCSubject, boolInt(u.Disabled), u.SSHKeys, boolInt(u.Support), formatTime(u.CreatedAt), formatTime(u.UpdatedAt))
 	if err != nil {
 		if isUniqueViolation(err) {
-			return User{}, fmt.Errorf("username %q: %w", u.Username, ErrConflict)
+			return User{}, fmt.Errorf("%w: the username %q is already taken", ErrConflict, u.Username)
 		}
 		return User{}, fmt.Errorf("insert user: %w", err)
 	}

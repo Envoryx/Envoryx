@@ -165,7 +165,7 @@ func (st Staging) Get(id string) (Staged, error) {
 	dir := filepath.Join(st.Dir, id)
 	raw, err := os.ReadFile(filepath.Join(dir, "staged.json"))
 	if err != nil {
-		return Staged{}, fmt.Errorf("%w: the website upload is gone (uploads are kept for %s); upload it again", store.ErrNotFound, TTL)
+		return Staged{}, fmt.Errorf("%w: the website upload is gone (uploads are kept for %d hours); upload it again", store.ErrNotFound, int(TTL.Hours()))
 	}
 	var s Staged
 	if err := json.Unmarshal(raw, &s); err != nil {

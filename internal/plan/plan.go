@@ -241,7 +241,7 @@ var featureNoun = map[Feature]string{
 	FeatureIDEGateway:       "IDE gateways",
 	FeatureEOLVersions:      "end-of-life versions",
 	FeaturePreviewVersions:  "preview versions",
-	FeaturePublicProjects:   "projects open to everyone",
+	FeaturePublicProjects:   "public projects",
 	FeaturePublicShares:     "public shares",
 }
 

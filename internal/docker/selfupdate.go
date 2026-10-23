@@ -72,11 +72,11 @@ func repoDigest(name string, repoDigests []string) (string, error) {
 func ImageForVersion(image, version string) (string, error) {
 	named, err := reference.ParseNormalizedNamed(image)
 	if err != nil {
-		return "", fmt.Errorf("the image %q is no reference to update from: %w", image, err)
+		return "", fmt.Errorf("the image %q is not a reference to update from: %w", image, err)
 	}
 	version = strings.TrimPrefix(strings.TrimSpace(version), "v")
 	if !tagRe.MatchString(version) {
-		return "", fmt.Errorf("%q is no version", version)
+		return "", fmt.Errorf("%q is not a version", version)
 	}
 	return reference.FamiliarString(reference.TrimNamed(named)) + ":" + version, nil
 }

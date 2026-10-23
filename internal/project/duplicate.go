@@ -82,7 +82,7 @@ func (m *Manager) duplicate(ctx context.Context, id string, req DuplicateRequest
 		return View{}, err
 	}
 	if src.Lifecycle != store.LifecycleReady {
-		return View{}, fmt.Errorf("%w: %s is %s and cannot be copied right now", ErrConflict, src.Name, src.Lifecycle)
+		return View{}, fmt.Errorf("%w: %s", ErrConflict, notReady(src, "copied"))
 	}
 	proj, err := duplicateProject(src, req)
 	if err != nil {
@@ -834,4 +834,15 @@ func copyObjects(ctx context.Context, from s3.ObjectStore, fromBucket string, to
 		}
 	}
 	return nil
+}
+
+// notReady says why a project that isn't ready can't be done (copied, renamed) now.
+func notReady(p store.Project, done string) string {
+	switch p.Lifecycle {
+	case store.LifecycleCreating:
+		return fmt.Sprintf("%s is still being set up and can't be %s yet", p.Name, done)
+	case store.LifecycleDeleting:
+		return fmt.Sprintf("%s is being deleted and can't be %s", p.Name, done)
+	}
+	return fmt.Sprintf("%s didn't finish setting up and can't be %s", p.Name, done)
 }

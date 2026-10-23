@@ -85,7 +85,7 @@ func (m *Manager) renameProject(ctx context.Context, id string, req RenameReques
 		return RenameResult{}, err
 	}
 	if proj.Lifecycle != store.LifecycleReady {
-		return RenameResult{}, fmt.Errorf("%w: %s is %s and cannot be renamed right now", ErrConflict, proj.Name, proj.Lifecycle)
+		return RenameResult{}, fmt.Errorf("%w: %s", ErrConflict, notReady(proj, "renamed"))
 	}
 	if req.Confirm != proj.Slug {
 		return RenameResult{}, fmt.Errorf("%w: confirmation must equal the project identifier %q", validate.ErrInvalid, proj.Slug)
@@ -472,7 +472,7 @@ func (m *Manager) moveVolumes(ctx context.Context, proj store.Project, oldPlan, 
 		return errors.New("no web image to copy the volumes with")
 	}
 	if len(oldPlan.Volumes) != len(newPlan.Volumes) {
-		return fmt.Errorf("%w: the project has %d volumes but the renamed plan %d", ErrConflict, len(oldPlan.Volumes), len(newPlan.Volumes))
+		return fmt.Errorf("%w: the project has %d volumes but the renamed plan has %d", ErrConflict, len(oldPlan.Volumes), len(newPlan.Volumes))
 	}
 	for i, from := range oldPlan.Volumes {
 		to := newPlan.Volumes[i]
