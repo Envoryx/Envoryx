@@ -437,6 +437,9 @@ func (m *Manager) clone(ctx context.Context, proj store.Project) (GitResult, err
 		return GitResult{}, fmt.Errorf("%w: the project directory is not empty; clone needs an empty directory", ErrConflict)
 	}
 	args := []string{"clone", "--progress"}
+	if bloblessClone(proj.Git) {
+		args = append(args, "--filter=blob:none")
+	}
 	if proj.Git.Branch != "" {
 		args = append(args, "--branch", proj.Git.Branch)
 	}
@@ -451,6 +454,16 @@ func (m *Manager) clone(ctx context.Context, proj store.Project) (GitResult, err
 		return GitResult{Output: out, ExitCode: res.ExitCode, Status: m.gitStatus(ctx, proj)}, fmt.Errorf("%w: git clone failed: %s", ErrConflict, lastLine(out))
 	}
 	return GitResult{Output: out, ExitCode: 0, Status: m.gitStatus(ctx, proj)}, nil
+}
+
+// bloblessClone says whether a clone fetches the whole history but the file contents of
+// older commits only when something needs them, which saves time and disk on big
+// repositories. That takes a repository anyone may read: the terminal and the IDE run git
+// in the project's containers, which have neither the token nor the deploy key, so the
+// first "git log -p" there would fail on a private one. A server that can't filter sends
+// everything, as before.
+func bloblessClone(g store.GitConfig) bool {
+	return g.Token == "" && !isSSHURL(g.URL)
 }
 
 // Pull fast-forwards the current branch.

@@ -1699,6 +1699,16 @@ project's Git section) into your repository as a read-only deploy key. Private
 HTTPS repositories use an access token per project instead (GitHub:
 fine-grained PAT with *Contents: read*; GitLab: username `oauth2` + token).
 
+A public repository (HTTPS without a token) is cloned with `--filter=blob:none`: the
+whole history and every branch, but the file contents of older commits only when
+something asks for them (`git log -p`, `git blame`, switching to an old commit). On
+big repositories that saves a lot of time and disk. A private one (token or SSH) is
+cloned completely, because the terminal and the IDE run git in the project's
+containers, which have neither the token nor the deploy key and couldn't fetch the
+rest later. A server that can't filter sends everything. `git fetch --refetch` after
+`git config --unset remote.origin.partialclonefilter` turns such a clone into a full
+one.
+
 ## Branch environments
 
 A branch environment is a copy of a project on another branch of its repository, with its

@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/envoryx/envoryx/internal/docker"
+	"github.com/envoryx/envoryx/internal/store"
 	"github.com/envoryx/envoryx/internal/validate"
 )
 
@@ -70,6 +71,8 @@ func TestCreateWithGitClonesInTransientContainer(t *testing.T) {
 	}
 	clone := e.engine.OneShots[0]
 	cmd := strings.Join(clone.Cmd, " ")
+	// With a token the clone is complete: git in the project's containers can't fetch the
+	// rest later.
 	if cmd != "git -C /var/www/html clone --progress --branch main -- https://github.com/seramos/example.git ." {
 		t.Fatalf("clone cmd: %s", cmd)
 	}
@@ -293,7 +296,8 @@ func TestGitRunsFromTheProjectRuntimeImage(t *testing.T) {
 		t.Fatal(err)
 	}
 	clone := e.engine.OneShots[0]
-	if strings.Join(clone.Cmd, " ") != "git -C /var/www/html clone --progress -- https://github.com/seramos/front.git ." {
+	// A public repository comes without the contents of older commits.
+	if strings.Join(clone.Cmd, " ") != "git -C /var/www/html clone --progress --filter=blob:none -- https://github.com/seramos/front.git ." {
 		t.Fatalf("clone cmd: %v", clone.Cmd)
 	}
 	if clone.Image != "ghcr.io/envoryx/envoryx-node:24" || !runsAsProjectUser(clone, 1000, 1000) {
@@ -350,5 +354,23 @@ func TestGitRunsFromTheProjectRuntimeImage(t *testing.T) {
 	}
 	if img := lastGit().Image; img != "ghcr.io/envoryx/envoryx-php:8.4" {
 		t.Fatalf("php git image: %s", img)
+	}
+}
+
+// Only a repository the project's containers can read without credentials is cloned
+// without the contents of older commits.
+func TestBloblessCloneOnlyForPublicRepositories(t *testing.T) {
+	for _, c := range []struct {
+		g    store.GitConfig
+		want bool
+	}{
+		{store.GitConfig{URL: "https://github.com/a/b.git"}, true},
+		{store.GitConfig{URL: "https://github.com/a/b.git", Token: "ghp_x"}, false},
+		{store.GitConfig{URL: "git@github.com:a/b.git"}, false},
+		{store.GitConfig{URL: "ssh://git@host/a/b.git"}, false},
+	} {
+		if got := bloblessClone(c.g); got != c.want {
+			t.Errorf("%+v: %v", c.g, got)
+		}
 	}
 }
