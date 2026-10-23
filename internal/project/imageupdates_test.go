@@ -67,12 +67,16 @@ func TestImageCheckFindsNewerBuilds(t *testing.T) {
 	if _, err := e.m.Restart(ctx, id); err != nil {
 		t.Fatal(err)
 	}
-	if got := e.m.CheckImageUpdates(ctx); len(got.Newer) != 0 {
-		t.Fatalf("after the restart the host has the build: %+v", got)
-	}
+	// Right away, not only after the next daily check.
 	got, _ = e.m.Get(ctx, id)
 	if hasWarning(got.Status.Warnings, "newer php image") {
 		t.Fatalf("no warning after the restart: %v", got.Status.Warnings)
+	}
+	if got := e.m.LastImageCheck(); len(got.Newer) != 0 {
+		t.Fatalf("the pull must clear the found build: %+v", got)
+	}
+	if got := e.m.CheckImageUpdates(ctx); len(got.Newer) != 0 {
+		t.Fatalf("after the restart the host has the build: %+v", got)
 	}
 
 	// The next rebuild is news again.
