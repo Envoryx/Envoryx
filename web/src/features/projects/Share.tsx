@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/client";
 import type { Project, ProjectShare } from "@/api/types";
 import { Alert, Badge, Button, Dialog, Field, Select } from "@/components/ui";
-import { errorText } from "@/lib/errors";
+import { errorText, translateMessage } from "@/lib/errors";
 import { projectAccess } from "@/lib/access";
 import { formatDateTime } from "@/lib/format";
 import { CopyButton } from "./DatabaseTab";
@@ -95,7 +95,7 @@ export function ShareDialog({ project, open, onClose }: { project: Project; open
               </div>
             ) : (
               <p className="text-sm text-muted">
-                <Badge tone={share.state === "stopped" ? "red" : "blue"}>{share.state === "stopped" ? t("tunnel stopped") : t("starting")}</Badge> {share.message}
+                <Badge tone={share.state === "stopped" ? "red" : "blue"}>{share.state === "stopped" ? t("tunnel stopped") : t("starting")}</Badge> {translateMessage(share.message, t)}
               </p>
             )}
             {share.expiresAt && <p className="text-sm text-muted">{t("Public until {{time}}; it also ends when the project stops.", { time: formatDateTime(share.expiresAt) })}</p>}

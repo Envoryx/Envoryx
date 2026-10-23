@@ -178,6 +178,215 @@ const templates = [
   "downloading {{percent}}% ({{done}} of {{total}})",
   "downloading ({{size}} so far, {{done}} of {{total}} layers done)",
   "extracting ({{done}} of {{total}} layers done)",
+  // Projects, copies, renames and their conflicts.
+  "the directory \"{{path}}\" is already used by project \"{{project}}\"",
+  "{{project}} is {{lifecycle}} and cannot be copied right now",
+  "{{project}} is {{lifecycle}} and cannot be renamed right now",
+  "the source runs {{source}}, the target {{target}}",
+  "the backup directory {{path}} already exists",
+  "service {{service}} already exists",
+  "environment variable {{name}} already exists",
+  "network {{network}} is still used by {{users}}",
+  "every /{{bits}} of the network pool {{pool}} is in use; delete projects you no longer need or give ENVORYX_NETWORK_POOL a larger range",
+  "{{port}} is taken by another program or container on the Docker host - stop it or give the service another port ({{error}})",
+  // Branch environments, git, guest links and shares.
+  "at most {{max}} automatic branch environments",
+  "no free identifier for the branch \"{{branch}}\"",
+  "{{project}} is a branch environment itself; create the environment from its parent",
+  "{{project}} has no git checkout to start from; clone the repository first",
+  "the branch {{branch}} already has the environment {{project}}",
+  "{{project}} is not a branch environment",
+  "\"{{command}}\" exited with {{code}}",
+  "invalid branch pattern \"{{pattern}}\"",
+  "at most {{max}} branch patterns",
+  "at most {{max}} deploy commands",
+  "{{project}} still has branch environments ({{list}}); delete them first",
+  "could not point the checkout's origin at the new URL: {{error}}",
+  "a project has at most {{max}} guest links; revoke one first",
+  "the tunnel did not come up: {{error}}",
+  // Databases, dumps and snapshots.
+  "database name \"{{name}}\": 1-24 lowercase letters, digits and dashes, starting with a letter",
+  "\"{{name}}\" is taken by another container of the project; choose another database name",
+  "\"{{name}}\" is a system database",
+  "two databases are named \"{{name}}\"",
+  "the project has no database \"{{name}}\"",
+  "upgrade refused: the database must be backed up first and that failed ({{error}})",
+  "this snapshot holds no dump of {{database}}",
+  "{{project}} has no database {{database}} to copy",
+  "{{source}} runs {{sourceType}}, {{target}} runs {{targetType}} - a dump of one is not a dump of the other",
+  "clone refused: the database of {{project}} could not be snapshotted first ({{error}}); take the snapshot out of the request to clone anyway",
+  "dump failed (exit {{code}}): {{error}}",
+  "import failed (exit {{code}}): {{error}}",
+  // Workers, server settings, PHP settings.
+  "invalid goal, task or property \"{{value}}\"",
+  "the worker {{name}} is switched off",
+  "invalid main package \"{{value}}\" (use . or a path like ./cmd/server)",
+  "invalid jar \"{{value}}\" (use a relative path such as target/app.jar)",
+  "invalid project \"{{value}}\" (use a relative path such as src/Shop/Shop.csproj)",
+  "invalid DLL \"{{value}}\" (use a relative path such as {{dir}}/Worker.dll)",
+  "invalid script name \"{{name}}\"",
+  "invalid build script name \"{{name}}\"",
+  "invalid application path \"{{value}}\" (use module:attribute, e.g. app:app)",
+  "{{runtime}} version \"{{version}}\" is not supported",
+  "invalid size value \"{{value}}\" (use e.g. 256M)",
+  "unknown PHP extension \"{{name}}\"",
+  "PHP extension \"{{name}}\" is not available in this Envoryx version",
+  // Cron jobs; a {{field}} (minute, hour, ...) is translated on its own.
+  "\"{{expression}}\" never fires",
+  "empty entry in the {{field}} field \"{{text}}\"",
+  "step \"{{step}}\" in the {{field}} field must be 1-{{max}}",
+  "range \"{{range}}\" in the {{field}} field runs backwards",
+  "\"{{value}}\" is not a valid {{field}} ({{min}}-{{max}})",
+  "unknown macro \"{{macro}}\" (use @hourly, @daily, @weekly, @monthly or @yearly)",
+  "expected 5 fields (minute hour day-of-month month day-of-week), got {{number}}",
+  "the job runs in the {{container}} container - this project has no {{service}} service",
+  "at most {{max}} cron jobs per project",
+  "this project has no {{service}} service",
+  "the command must be 1-{{max}} characters",
+  "a cron job named \"{{name}}\" already exists",
+  "cron job \"{{name}}\"",
+  // Resource limits and histories.
+  "CPU limit of the application containers is {{cpus}} cores, the host has {{host}}",
+  "CPU limit of the services is {{cpus}} cores, the host has {{host}}",
+  "memory limit of the application containers must be at least {{min}} MiB",
+  "memory limit of the services must be at least {{min}} MiB",
+  "memory limit of the application containers is {{memory}} MiB, the host has {{host}} MiB",
+  "memory limit of the services is {{memory}} MiB, the host has {{host}} MiB",
+  "the process limit must be between {{min}} and {{max}}",
+  "keep the log history for 1 to {{max}} days",
+  "the log history may use {{min}} MB to {{max}} MB",
+  "keep the resource history for 1 to {{max}} days",
+  "keep the audit log for 1 to {{max}} days, or 0 for all of it",
+  "folder name must be at most {{max}} characters without control characters",
+  "{{suite}} takes no filter",
+  // Services of a project.
+  "{{service}} keeps no data",
+  "{{service}} is part of the project; remove it with its data instead",
+  "no kept {{service}} data",
+  "the request to Ollama failed (exit {{code}}): {{error}}",
+  // Website uploads, backups, restores, secret keys, offsite targets.
+  "archive entry \"{{entry}}\" escapes the archive",
+  "the archive unpacks to more than {{size}} GiB",
+  "the upload exceeds {{size}} GiB",
+  "the dump comes from {{source}} and cannot be imported into {{target}}",
+  "an SQL dump cannot be imported into {{database}}",
+  "the dump could not be imported (exit {{code}}): {{error}}",
+  "the project has none of the databases this backup holds ({{list}})",
+  "the dump is for {{dump}} but the database is {{database}}",
+  "the backup belongs to project \"{{backup}}\", not \"{{project}}\"",
+  "a backup directory {{name}} exists already",
+  "the hoster's support can't restore this backup: {{reason}}; the instance's admins can",
+  "the backup's project settings are sealed with secret key {{key}}, which this Envoryx does not hold (a key replaced by a rotation, or the key of another Envoryx); to use this backup, run Envoryx with that key (ENVORYX_SECRET_KEY or /config/secret.key)",
+  "the backup's project runs {{name}} {{version}}, which this Envoryx no longer offers",
+  "the backup's project runs {{service}} on a custom image ({{image}})",
+  "the backup's project uses the addon {{name}}, which is not installed here in the same version",
+  "the backup's secrets are encrypted with key {{key}}; give that key to restore it",
+  "that is key {{key}}, the backup needs key {{needed}}",
+  "not an Envoryx instance backup (first entry is \"{{entry}}\")",
+  "unsupported backup format {{format}}",
+  "the key comes from {{env}}; set a new key there and the old one as {{oldEnv}} for one start",
+  "not a key: expected {{bytes}} bytes as base64 or 64 hex digits (create one with: openssl rand -base64 32)",
+  "a key has {{got}} bytes, not {{want}}",
+  "the target {{name}} is switched off",
+  "\"{{key}}\" is not a backup on this target",
+  "expected {{expected}}, got {{got}} - if the server was replaced on purpose, clear the pinned key in the target",
+  // Addons and the project manifest.
+  "the addon file is larger than {{size}} KB",
+  "addon name \"{{name}}\": 2 to 30 lower-case letters, digits and single dashes, starting with a letter",
+  "addon name \"{{name}}\" is taken by Envoryx",
+  "addon {{name}} has no version \"{{version}}\"",
+  "\"{{url}}\" is not an http(s) URL",
+  "download {{url}}",
+  "the addon {{name}} is not installed",
+  "{{name}} is used by {{projects}}; remove it from those projects first",
+  "{{name}} is not installed on this Envoryx (Settings, Addons)",
+  "the project directory has no {{file}}",
+  "healthcheck.{{key}} \"{{value}}\" is not a duration in whole seconds like 30s or 2m",
+  "memory \"{{value}}\" is not a size like 512M or 2G",
+  "timeout \"{{value}}\" is not a duration like 10m or 1h",
+  "{{file}} is larger than {{size}} KiB",
+  "{{file}} holds more than one document",
+  "the project needs a name - set name in {{file}} or pass one",
+  "{{name}} is not declared under secrets in {{file}}",
+  "the package cache holds nothing of \"{{name}}\"",
+  // Custom images and what their probe finds missing; a {{feature}} is translated on its own.
+  "\"{{ref}}\" is not an image reference (like ghcr.io/acme/php:8.4)",
+  "{{registry}} images are Envoryx's own",
+  "the build context, the whole project directory, is {{reason}}: put the Dockerfile in a directory of its own, like .envoryx/, with just the files the image needs",
+  "the build context {{dir}}/ (the Dockerfile's directory) is {{reason}}: keep only the files the image needs in it",
+  "too large (more than {{files}} files or {{size}} MB)",
+  "the {{service}} service does not build a Dockerfile",
+  // Before the plain one, which would swallow it (both end in a parenthesis).
+  "the image {{image}} could not be pulled; if the registry is private, add a login under Settings, Private registries ({{error}})",
+  "the image {{image}} could not be pulled ({{error}})",
+  "\"{{host}}\" is not a registry host (like ghcr.io or registry.example.com:5000)",
+  "{{host}} is listed twice",
+  "the login for {{host}} needs a username",
+  "the login for {{host}} needs a password or token",
+  "the Dockerfile {{path}} does not exist",
+  "build the {{service}} image from {{path}}",
+  "the image is based on Envoryx's {{runtime}} image, not the {{kind}} one",
+  "the image's ENTRYPOINT {{entrypoint}} runs before every command Envoryx starts; it must end with exec \"$@\"",
+  "{{bin}} is missing; Envoryx needs it",
+  "{{bin}} is missing: no {{feature}}",
+  // Sign-in, single sign-on, passkeys, SSH keys.
+  "the Envoryx account {{name}} is connected to another single sign-on account already",
+  "the provider's {{claim}} claim \"{{value}}\" is no usable username",
+  "an Envoryx account named {{name}} exists already; to connect it to single sign-on, open its invitation link from an admin and sign in from there",
+  "there is no Envoryx account for {{name}}; ask an admin for an invitation",
+  "{{name}} is in none of the groups that may use Envoryx",
+  "reach the OpenID Connect provider {{issuer}}",
+  "the name is longer than {{max}} characters",
+  "a passkey's name has 1 to {{max}} characters",
+  "none of this account's passkeys was registered at {{host}}",
+  "line {{line}} is not a valid public key",
+  "line {{line}} is not a public key",
+  "username \"{{name}}\"",
+  // Diagnostics details.
+  "Docker {{version}} (API {{api}}) on {{os}}, {{running}} containers running - host {{host}}",
+  "{{latest}} available, running {{current}}",
+  "{{number}} orphaned Docker resources of this instance belong to no project",
+  "{{number}} projects consistent with Docker (checked {{time}})",
+  "{{number}} Docker resources are from another instance or from before 0.18",
+  "releases endpoint answered {{status}}",
+  // Let's Encrypt and the DNS providers (after the provider's name: "cloudflare: token rejected ...");
+  // a {{label}} is a field of the provider form, translated on its own.
+  "{{label}} is required for {{provider}}",
+  "token rejected ({{error}}); it needs Zone:Read and Zone:DNS:Edit for the zone",
+  "no zone found for {{domain}} (is the domain on this account and does the token allow Zone:Read?)",
+  "token rejected ({{error}}); it needs Read & Write in the project that holds the zone",
+  "no zone found for {{domain}} in the project of this token",
+  "token rejected ({{error}}); it needs the domain scopes",
+  "no domain found for {{domain}} on this account",
+  "no domain found for {{domain}} on this customer account",
+  "no domain found for {{domain}} (is API access switched on for it?)",
+  "access denied ({{error}}); the IAM user needs the Route 53 permissions listed in the settings",
+  "no public hosted zone found for {{domain}}",
+  "no dns-01 challenge offered for {{domain}}",
+  "TXT record {{record}} did not become visible at the zone's name servers within {{duration}}",
+  "unexpected response ({{status}})",
+  // The fleet manager connection (PlanCard).
+  "the fleet manager refused the enrollment (HTTP {{status}}): {{error}}",
+  "the fleet manager's address must be an https address, got \"{{value}}\"",
+  "the fleet manager's address \"{{value}}\" must use https: over plain http anyone on the network can pose as the manager (set ENVORYX_FLEET_INSECURE=1 to allow it anyway)",
+  "{{path}} is damaged; remove it and enroll again with a new token",
+  // Warnings before a project is created (NewProjectPage) and the image update check.
+  "the dev server runs \"{{command}}\" but nothing creates a package.json - pick a Node template, clone a repository or scaffold from the Node terminal; until then the container waits",
+  "the application server runs \"{{command}}\" but nothing creates the application - pick a Python template, clone a repository or scaffold from the Python terminal; until then the container waits",
+  "the server builds {{package}} but nothing creates a go.mod - pick a Go template, clone a repository or run go mod init in the Go terminal; until then the container waits",
+  "the server runs \"{{command}}\" but nothing creates the application - pick a Ruby template, clone a repository or scaffold from the Ruby terminal; until then the container waits",
+  "the {{preset}} server waits for a pom.xml or build.gradle but nothing creates one - pick a Java template, clone a repository or scaffold from the Java terminal; until then the container waits",
+  "image {{image}} will be pulled on first start",
+  "{{failed}} of {{total}} images could not be checked ({{list}}): {{error}}",
+  // Wide patterns last, so the specific ones above win.
+  "{{path}} already exists",
+  "{{name}} is still running",
+  "{{file}} is empty",
+  "{{label}} is too long",
+  "{{path}}: {{free}} free of {{total}}",
+  "container {{name}}",
+  "network {{name}}",
+  "volume {{name}}",
 ];
 
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -197,6 +406,11 @@ function translateSegment(s: string, t: TFunction): string | undefined {
       const groups: Record<string, string> = { ...m.groups };
       // A {{reason}} is itself a backend message.
       if (groups.reason) groups.reason = translateSegment(groups.reason, t) ?? groups.reason;
+      // A {{label}}, {{feature}} or {{field}} is a fixed phrase of the server's ("API token",
+      // "live reload", "day of month"); anything else (names, paths) stays as it is.
+      for (const name of ["label", "feature", "field"]) {
+        if (groups[name] && i18n.exists(groups[name])) groups[name] = t(groups[name]);
+      }
       return t(tpl, groups);
     }
   }
@@ -211,7 +425,21 @@ export function translateMessage(msg: string | undefined | null, t: TFunction): 
   if (!msg) return "";
   const whole = translateSegment(msg, t);
   if (whole !== undefined) return whole;
-  const parts = msg.split(": ").map((p) => ({ p, tr: translateSegment(p, t) }));
+  // A message may itself contain ": " ("database name "x": 1-24 lowercase letters ..."), so
+  // from each position the longest run of segments that is one known message is taken.
+  const split = msg.split(": ");
+  const parts: { p: string; tr: string | undefined }[] = [];
+  for (let i = 0; i < split.length; ) {
+    let j = split.length;
+    let tr: string | undefined;
+    for (; j > i + 1; j--) {
+      tr = translateSegment(split.slice(i, j).join(": "), t);
+      if (tr !== undefined) break;
+    }
+    if (j === i + 1) tr = translateSegment(split[i]!, t);
+    parts.push({ p: split.slice(i, j).join(": "), tr });
+    i = j;
+  }
   // The bare kind of error ("conflict: …", "…: not found") adds nothing to the message that
   // explains it. Next to a part that stays English it would only glue a translated word to
   // an English sentence ("Konflikt: a project named …"), so it is left out then.

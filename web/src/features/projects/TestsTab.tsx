@@ -206,7 +206,7 @@ export function TestsTab({ project }: { project: Project }) {
             {current ? (
               <>
                 <Code>{current.suite.label}</Code>
-                <Badge tone={running ? "blue" : live.run?.state === "finished" ? "green" : "red"}>{running ? t("running") : live.run?.exitCode !== null && live.run?.exitCode !== undefined ? t("exit {{code}}", { code: live.run.exitCode }) : (live.run?.message ?? t("failed"))}</Badge>
+                <Badge tone={running ? "blue" : live.run?.state === "finished" ? "green" : "red"}>{running ? t("running") : live.run?.exitCode !== null && live.run?.exitCode !== undefined ? t("exit {{code}}", { code: live.run.exitCode }) : (live.run?.message ? translateMessage(live.run.message, t) : t("failed"))}</Badge>
                 {running && (
                   <Button size="sm" variant="ghost" className="ml-auto" onClick={live.cancel} icon={<Square className="size-3.5" />}>
                     {t("Cancel")}

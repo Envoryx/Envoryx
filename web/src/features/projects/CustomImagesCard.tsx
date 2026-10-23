@@ -5,7 +5,7 @@ import { useCustomImage, usePlanAllows } from "@/api/hooks";
 import type { Project, ProjectService } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Code, Field, Input, Select, type Tone } from "@/components/ui";
 import { formatDateTime, serviceLabel } from "@/lib/format";
-import { errorText } from "@/lib/errors";
+import { errorText, translateMessage } from "@/lib/errors";
 import { projectAccess } from "@/lib/access";
 import { useAuth } from "@/features/auth/AuthContext";
 import { SupportRefusedNote } from "@/features/settings/SupportAccessCard";
@@ -118,7 +118,7 @@ function RuntimeImage({ project: p, svc }: { project: Project; svc: ProjectServi
         <Alert tone="amber" title={t("The image lacks what Envoryx expects")}>
           <ul className="list-disc space-y-0.5 pl-4">
             {warnings.map((w) => (
-              <li key={w}>{w}</li>
+              <li key={w}>{translateMessage(w, t)}</li>
             ))}
           </ul>
           <p className="mt-1 text-xs">{t("Envoryx uses the image anyway; the features named here do not work with it.")}</p>

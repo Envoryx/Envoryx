@@ -8,7 +8,7 @@ import type { BackupInfo, BackupMeta, BackupSchedule, Project } from "@/api/type
 import { databaseServices } from "./databases";
 import { Alert, Badge, Button, Card, CardHeader, Checkbox, Code, Dialog, ErrorState, Field, Input, Select, Spinner } from "@/components/ui";
 import { formatBytes, formatDateTime } from "@/lib/format";
-import { errorText } from "@/lib/errors";
+import { errorText, translateMessage } from "@/lib/errors";
 import { projectAccess } from "@/lib/access";
 import { OffsiteBadges, OffsiteUploadButton, RemoteBackups, uploading } from "@/features/offsite/OffsiteParts";
 import { useAuth } from "@/features/auth/AuthContext";
@@ -416,7 +416,7 @@ function ScheduleCard({ project, onSaved }: { project: Project; onSaved: () => v
         {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
         {(current.failures ?? 0) > 0 && current.lastError && (
           <Alert tone="red" title={t("The scheduled backup failed")}>
-            <p className="break-words">{current.lastError}</p>
+            <p className="break-words">{translateMessage(current.lastError, t)}</p>
             {(current.failures ?? 0) > 1 && <p className="mt-1">{t("Failed runs in a row: {{number}}", { number: current.failures })}</p>}
           </Alert>
         )}

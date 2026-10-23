@@ -88,7 +88,7 @@ export function ActionsTab({ project }: { project: Project }) {
             <>
               <Code>{run.action.label}</Code>
               <Badge tone={run.state === "running" ? "blue" : run.state === "finished" ? "green" : run.state === "failed" ? "red" : "gray"}>
-                {run.state === "running" ? t("running") : run.state === "finished" ? t("finished") : run.exitCode !== null ? t("exit {{code}}", { code: run.exitCode }) : (run.message ?? t("failed"))}
+                {run.state === "running" ? t("running") : run.state === "finished" ? t("finished") : run.exitCode !== null ? t("exit {{code}}", { code: run.exitCode }) : (run.message ? translateMessage(run.message, t) : t("failed"))}
               </Badge>
               {run.state === "running" && (
                 <Button size="sm" variant="ghost" className="ml-auto" onClick={cancel} icon={<Square className="size-3.5" />}>
