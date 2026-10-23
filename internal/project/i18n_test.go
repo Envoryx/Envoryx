@@ -18,3 +18,14 @@ func TestTemplateAndActionDescriptionsAreTranslated(t *testing.T) {
 	}
 	i18ntest.RequireTranslated(t, texts...)
 }
+
+// The Workers form runs a preset's description and the label and hint of its argument
+// through t(); the preset labels are mostly product names (Horizon, Sidekiq) and stay as
+// they are where no translation exists.
+func TestWorkerPresetTextsAreTranslated(t *testing.T) {
+	var texts []string
+	for _, p := range WorkerPresets() {
+		texts = append(texts, p.Description, p.ArgLabel, p.ArgHint)
+	}
+	i18ntest.RequireTranslated(t, texts...)
+}

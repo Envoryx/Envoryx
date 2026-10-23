@@ -147,7 +147,7 @@ export function GitTab({ project }: { project: Project }) {
           />
           <form onSubmit={save} className="p-5">
             <fieldset disabled={!operate} className="min-w-0 space-y-4">
-            <Field label={t("Repository URL")} htmlFor="git-url" hint="https://…, git@host:path.git or ssh://…" error={urlProblem && t(urlProblem)}>
+            <Field label={t("Repository URL")} htmlFor="git-url" hint={t("https://…, git@host:path.git or ssh://…")} error={urlProblem && t(urlProblem)}>
               <Input id="git-url" value={url} onChange={(e) => setUrl(e.target.value)} onBlur={() => setUrlLeft(true)} aria-invalid={!!urlProblem} placeholder="https://github.com/you/project.git" spellCheck={false} />
             </Field>
             <Field label={t("Branch")} htmlFor="git-branch" hint={t("Used for clone; leave empty for the default branch.")}>

@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/client";
 import type { OIDCSettings } from "@/api/types";
 import { Alert, Button, Card, CardHeader, Checkbox, Code, ErrorState, Field, Input, Select, Spinner, type Tone } from "@/components/ui";
-import { errorText } from "@/lib/errors";
+import { errorText, translateMessage } from "@/lib/errors";
 import { SupportRefusedNote } from "./SupportAccessCard";
 
 const list = (s: string) => s.split(/[\n,]/).map((v) => v.trim()).filter(Boolean);
@@ -86,7 +86,7 @@ export function OidcCard({ readOnly = false }: { readOnly?: boolean }) {
   });
   const test = useMutation({
     mutationFn: (f: Form) => api.oidc.test(fromForm(f)),
-    onSuccess: (r) => setMsg(r.ok ? { tone: "green", text: t("The provider answers.") } : { tone: "red", text: t("The provider does not answer: {{error}}", { error: r.error ?? "" }) }),
+    onSuccess: (r) => setMsg(r.ok ? { tone: "green", text: t("The provider answers.") } : { tone: "red", text: t("The provider does not answer: {{error}}", { error: translateMessage(r.error, t) }) }),
     onError: (err) => setMsg({ tone: "red", text: errorText(err, t) }),
   });
   if (q.isPending || !form) return q.isError ? <ErrorState message={errorText(q.error, t)} /> : <Spinner />;

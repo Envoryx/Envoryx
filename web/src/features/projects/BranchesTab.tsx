@@ -9,7 +9,7 @@ import { keys, useBranchEnvironments, useProject, useProjectLinks, usePlanAllows
 import type { BranchSettings, BranchState, Project, RemoteBranch } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Checkbox, Code, ErrorState, Field, Input, Select, Spinner, StatusDot, type Tone } from "@/components/ui";
 import { containerStateTone, formatDateTime, formatRelative } from "@/lib/format";
-import { errorText } from "@/lib/errors";
+import { errorText, translateMessage } from "@/lib/errors";
 import { projectAccess } from "@/lib/access";
 import { useAuth } from "@/features/auth/AuthContext";
 
@@ -113,7 +113,7 @@ function EnvironmentsCard({ project: p, environments, lastPoll, watching }: { pr
         {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
         {watching && lastPoll && (
           <p className={`text-xs ${lastPoll.error ? "text-red-600 dark:text-red-300" : "text-muted"}`}>
-            {lastPoll.error ? t("Last check of the repository {{when}} failed: {{error}}", { when: formatRelative(lastPoll.at, t), error: lastPoll.error }) : t("Repository last checked {{when}}.", { when: formatRelative(lastPoll.at, t) })}
+            {lastPoll.error ? t("Last check of the repository {{when}} failed: {{error}}", { when: formatRelative(lastPoll.at, t), error: translateMessage(lastPoll.error, t) }) : t("Repository last checked {{when}}.", { when: formatRelative(lastPoll.at, t) })}
           </p>
         )}
         {environments.length === 0 ? (

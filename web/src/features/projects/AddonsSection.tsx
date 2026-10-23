@@ -4,7 +4,7 @@ import { useState } from "react";
 import { usePortHost, useProjectAddons, useSetAddon } from "@/api/hooks";
 import type { AvailableAddon, Project, ProjectAddon } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Checkbox, Dialog, ErrorState, Field, Input, Select, Spinner, StatusDot } from "@/components/ui";
-import { containerStateTone } from "@/lib/format";
+import { containerStateLabel, containerStateTone, healthLabel } from "@/lib/format";
 import { errorText } from "@/lib/errors";
 import { projectAccess } from "@/lib/access";
 import { CopyRow } from "./DatabaseTab";
@@ -35,8 +35,8 @@ function AddonCard({ project, info, onMessage }: { project: Project; info: Proje
         actions={
           <span className="inline-flex items-center gap-1.5 text-xs">
             <StatusDot tone={containerStateTone(info.state)} />
-            {info.state}
-            {info.health && <Badge tone={info.health === "healthy" ? "green" : info.health === "starting" ? "blue" : "red"}>{info.health}</Badge>}
+            {containerStateLabel(info.state, t)}
+            {info.health && <Badge tone={info.health === "healthy" ? "green" : info.health === "starting" ? "blue" : "red"}>{healthLabel(info.health, t)}</Badge>}
           </span>
         }
       />

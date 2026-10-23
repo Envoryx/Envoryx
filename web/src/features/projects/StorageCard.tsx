@@ -6,7 +6,7 @@ import { api } from "@/api/client";
 import { usePortHost, useRuntimes, useStorage, useUpdateProject } from "@/api/hooks";
 import type { Project, StorageInfo } from "@/api/types";
 import { Badge, Button, Card, CardHeader, Checkbox, Dialog, Field, Input, Select, StatusDot } from "@/components/ui";
-import { containerStateTone } from "@/lib/format";
+import { containerStateLabel, containerStateTone, healthLabel } from "@/lib/format";
 import { CopyButton, CopyRow } from "./DatabaseTab";
 import { versionOptions } from "./versionOptions";
 import { errorText } from "@/lib/errors";
@@ -76,8 +76,8 @@ export function StorageCard({ project, onMessage }: { project: Project; onMessag
         actions={
           <span className="inline-flex items-center gap-1.5 text-xs">
             <StatusDot tone={containerStateTone(live.state)} />
-            {live.state}
-            {live.health && <Badge tone={live.health === "healthy" ? "green" : live.health === "starting" ? "blue" : "red"}>{live.health}</Badge>}
+            {containerStateLabel(live.state, t)}
+            {live.health && <Badge tone={live.health === "healthy" ? "green" : live.health === "starting" ? "blue" : "red"}>{healthLabel(live.health, t)}</Badge>}
           </span>
         }
       />

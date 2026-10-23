@@ -7,7 +7,7 @@ import { api } from "@/api/client";
 import { keys, useDockerOverview } from "@/api/hooks";
 import type { ContainerSummary, Orphan } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, ErrorState, PageHeader, Spinner, StatusDot } from "@/components/ui";
-import { containerStateTone, formatBytes, formatRelative } from "@/lib/format";
+import { containerStateLabel, containerStateTone, formatBytes, formatRelative } from "@/lib/format";
 import { errorText, translateMessage } from "@/lib/errors";
 import { SectionLayout, type SectionGroup } from "@/components/SectionNav";
 import { settingsHref } from "@/features/settings/links";
@@ -62,7 +62,7 @@ function ContainerTable({ rows, managed }: { rows: ContainerSummary[]; managed: 
                 <td className="px-3 py-2">
                   <span className="inline-flex items-center gap-1.5 text-xs">
                     <StatusDot tone={containerStateTone(c.state)} />
-                    {c.state}
+                    {containerStateLabel(c.state, t)}
                   </span>
                 </td>
                 <td className="px-3 py-2 font-mono text-xs text-muted">{c.ports.map((p) => `${p.hostPort}→${p.containerPort}`).join(", ") || "-"}</td>

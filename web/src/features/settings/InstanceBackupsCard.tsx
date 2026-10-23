@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/client";
 import type { InstanceBackup } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Code, Dialog, Field, Input, Spinner } from "@/components/ui";
-import { formatBytes, formatDateTime } from "@/lib/format";
+import { backupKindLabel, formatBytes, formatDateTime } from "@/lib/format";
 import { errorText } from "@/lib/errors";
 import { useAuth } from "@/features/auth/AuthContext";
 import { OffsiteBadges, OffsiteUploadButton, RemoteBackups, uploading } from "@/features/offsite/OffsiteParts";
@@ -198,7 +198,7 @@ export function InstanceBackupsCard() {
                   <div>
                     <p className="flex flex-wrap items-center gap-2 font-medium">
                       {formatDateTime(b.createdAt)}
-                      <Badge tone={kindTone(b.kind)}>{b.kind}</Badge>
+                      <Badge tone={kindTone(b.kind)}>{backupKindLabel(b.kind, t)}</Badge>
                     </p>
                     <p className="font-mono text-[11px] text-subtle">
                       {b.id} · {formatBytes(b.sizeBytes)} · Envoryx {b.meta.envoryx} · {t("schema {{n}}", { n: b.meta.schema })}
