@@ -35,6 +35,11 @@ release). `:main` follows the development branch.
   They are greyed out with *not in your plan* now, as in the wizard.
 - A plan's refusal came out half English in the other languages ("not included
   in the plan: ..."), and four of them had no translation at all.
+- Hundreds of server messages (validation, sign-in, backups, databases, the project
+  status and more) showed up in English in a translated UI; they are translated now,
+  and a few were reworded at the source ("a share lasts between 5 minutes and 24
+  hours" instead of "5m0s and 24h0m0s", a taken username says so). French now
+  addresses the reader as "vous" throughout, Portuguese is Brazilian throughout.
 
 ## [0.43.1] - 2026-10-23
 
