@@ -75,6 +75,17 @@ export function usePlanRuntimes(): (runtime: string) => boolean {
   return (runtime) => runtimes.length === 0 || runtimes.includes(runtime);
 }
 
+/** Whether the plan lets projects add a service or database engine (its catalogue key); all of them while loading and without a plan. */
+export function usePlanServices(): (key: string) => boolean {
+  const services = usePlan().data?.plan?.services ?? [];
+  return (key) => services.length === 0 || services.includes(planServiceName(key));
+}
+
+/** The name a plan gives a catalogue entry: the object storage is "storage", OpenSearch Dashboards come with OpenSearch. */
+export function planServiceName(key: string): string {
+  return key === "rustfs" ? "storage" : key === "opensearch-dashboards" ? "opensearch" : key;
+}
+
 /** Whether the instance has used up the plan's projects or users; false without a limit. */
 export function usePlanLimitReached(limit: "projects" | "users"): boolean {
   const q = usePlan();

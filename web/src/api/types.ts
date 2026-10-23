@@ -487,6 +487,8 @@ export interface Runtime {
   versions: RuntimeVersion[];
   available: boolean;
   description: string;
+  /** The instance's plan leaves this runtime or service out: nothing new gets it. */
+  notInPlan?: boolean;
 }
 
 export interface PHPExtension {
@@ -1720,6 +1722,8 @@ export interface Settings {
   sharedPackageCache?: boolean;
   /** FolderView3 folder (Unraid plugin) the containers are labelled for; "" for none. */
   folderViewFolder?: string;
+  /** The Docker host runs Unraid, whose Docker page shows the FolderView3 folder. */
+  unraid?: boolean;
   logHistory?: LogHistoryInfo;
   imageUpdates?: ImageUpdatesInfo;
   metrics?: MetricsInfo;
@@ -1746,16 +1750,34 @@ export type PlanFeature = "addons" | "customImages" | "branchEnvironments" | "ex
 /** What a hoster allows a managed instance; zero limits mean no limit. */
 export interface Plan {
   name: string;
-  limits: { projects?: number; users?: number; diskGb?: number };
+  limits: {
+    projects?: number;
+    users?: number;
+    diskGb?: number;
+    /** How many projects may run at the same time. */
+    runningProjects?: number;
+    /** The most CPU and memory (MiB) a project may give each container. */
+    container?: PlanContainerLimits;
+    /** What a container without a limit of its own gets. */
+    containerDefault?: PlanContainerLimits;
+  };
   /** The runtimes new projects may use; empty for all. */
   runtimes: string[];
+  /** The services and database engines projects may add (PlanService); empty for all. */
+  services: string[];
   disabled: PlanFeature[];
   lockedSettings: string[];
+}
+
+export interface PlanContainerLimits {
+  cpus?: number;
+  memoryMb?: number;
 }
 
 export interface PlanUsage {
   projects: number;
   users: number;
+  runningProjects: number;
   diskBytes: number;
   diskMeasuredAt?: string;
 }

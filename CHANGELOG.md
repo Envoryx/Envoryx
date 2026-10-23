@@ -10,6 +10,32 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Added
+- A hoster's plan can name the services and database engines projects may add
+  (`services`: no Ollama or OpenSearch on a small machine, say), cap how many
+  projects run at the same time (`limits.runningProjects`) and set CPU and memory
+  per container: `limits.container` is the most a project may set,
+  `limits.containerDefault` what a container gets where its project sets nothing.
+  New container limits reach running containers right away. The wizard and the
+  Services tab only offer what the plan includes, *Resource limits* shows the
+  plan's values, and the plan card lists all of it.
+- A plan can fix who needs a second factor (`twoFactorRequired`), the log history
+  (`logHistory`) and the daily restart for newer images (`imageUpdates`).
+
+### Changed
+- *Settings → General → Unraid Docker page* only shows when the Docker host runs
+  Unraid, or when a FolderView3 folder is set already.
+
+### Fixed
+- A repository URL without `https://`, `ssh://` or `git@host:path` was only
+  refused in the last step of the wizard. The wizard and the Git tab now say so
+  under the field and don't go on until it is fixed.
+- The version selects of a project's runtimes, web server, services and object
+  storage offered versions the plan leaves out, which were then refused on save.
+  They are greyed out with *not in your plan* now, as in the wizard.
+- A plan's refusal came out half English in the other languages ("not included
+  in the plan: ..."), and four of them had no translation at all.
+
 ## [0.43.1] - 2026-10-23
 
 ### Fixed

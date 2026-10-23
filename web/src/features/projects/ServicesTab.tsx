@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { IfPlanAllows } from "@/features/plan/PlanCard";
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useExtraServices, useKeptData, usePortHost, useRuntimes, useStorage, useUpdateProject } from "@/api/hooks";
+import { useExtraServices, useKeptData, usePlanServices, usePortHost, useRuntimes, useStorage, useUpdateProject } from "@/api/hooks";
 import { api } from "@/api/client";
 import type { ExternalRedis, ExtraServiceInfo, KeptDataInfo, PHPConfig, Project, RabbitMQCredentials, SearchCredentials, UpdateProjectRequest } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Checkbox, Dialog, ErrorState, Field, Input, Select, Spinner, StatusDot } from "@/components/ui";
@@ -496,6 +496,8 @@ export function ServicesTab({ project }: { project: Project }) {
   const hasStorage = project.services.some((s) => s.kind === "storage" && s.enabled);
   const storage = useStorage(project.id, hasStorage);
   const [msg, setMsg] = useState<{ tone: "green" | "red"; text: string } | null>(null);
+  // What the hoster's plan leaves out can't be added.
+  const inPlan = usePlanServices();
   if (extras.isPending || (hasStorage && storage.isPending)) return <Spinner />;
   if (extras.isError) return <ErrorState message={errorText(extras.error, t)} />;
   const has = (k: string) => extras.data.some((s) => s.kind === k);
@@ -513,11 +515,11 @@ export function ServicesTab({ project }: { project: Project }) {
         {canAdd && (
           <>
             {extraOrder
-              .filter((kind) => !has(kind))
+              .filter((kind) => !has(kind) && inPlan(kind))
               .map((kind) => (
                 <AddServiceCard key={kind} project={project} kind={kind} kept={kept.data?.find((k) => k.kind === kind)} onMessage={setMsg} />
               ))}
-            {!(hasStorage && storage.data) && <AddStorageCard project={project} onMessage={setMsg} />}
+            {!(hasStorage && storage.data) && inPlan("rustfs") && <AddStorageCard project={project} onMessage={setMsg} />}
           </>
         )}
       </div>

@@ -6,7 +6,10 @@ import { LockedHint } from "@/features/plan/PlanCard";
 import { Alert, Button, Card, CardHeader, ErrorState, Field, Input, Spinner } from "@/components/ui";
 import { errorText } from "@/lib/errors";
 
-/** Folder of the FolderView3 plugin the containers are sorted into on Unraid's Docker page. */
+/**
+ * Folder of the FolderView3 plugin the containers are sorted into on Unraid's Docker page.
+ * Shown on Unraid, and wherever a folder is set already (Envoryx moved to another host).
+ */
 export function UnraidCard() {
   const { t } = useTranslation();
   const s = useSettings();
@@ -16,6 +19,8 @@ export function UnraidCard() {
   const [folder, setFolder] = useState(current);
   const [msg, setMsg] = useState<{ tone: "green" | "red"; text: string } | null>(null);
   useEffect(() => setFolder(current), [current]);
+
+  if (s.data && !s.data.unraid && !current) return null;
 
   function submit(e: FormEvent) {
     e.preventDefault();

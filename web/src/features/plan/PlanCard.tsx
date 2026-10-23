@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
 import { Lock, Package } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import type { FleetInfo, PlanFeature } from "@/api/types";
+import type { TFunction } from "i18next";
+import type { FleetInfo, PlanContainerLimits, PlanFeature } from "@/api/types";
 import { usePlan, usePlanAllows } from "@/api/hooks";
 import { Alert, Badge, Card, CardHeader, StatusDot } from "@/components/ui";
 import { translateMessage } from "@/lib/errors";
@@ -25,6 +26,31 @@ export const planFeatureLabels: Record<PlanFeature, string> = {
 export const formatBinaryBytes = (bytes: number) => formatBytes(bytes).replace(/ ([KMGT])B$/, " $1iB");
 
 const runtimeLabels: Record<string, string> = { php: "PHP", node: "Node.js", python: "Python", go: "Go", ruby: "Ruby", java: "Java", dotnet: ".NET" };
+
+/** Display names of the services a plan can name (translated where shown). */
+export const planServiceLabels: Record<string, string> = {
+  mariadb: "MariaDB",
+  mysql: "MySQL",
+  postgresql: "PostgreSQL",
+  mongodb: "MongoDB",
+  redis: "Redis",
+  memcached: "Memcached",
+  rabbitmq: "RabbitMQ",
+  meilisearch: "Meilisearch",
+  typesense: "Typesense",
+  opensearch: "OpenSearch",
+  ollama: "Ollama",
+  mailpit: "Mailpit",
+  storage: "Object storage (S3)",
+};
+
+/** CPU cores and memory of a container as a short text ("2 cores, 1 GiB"); "" without either. */
+export function containerLimitText(l: PlanContainerLimits | undefined, t: TFunction): string {
+  const parts: string[] = [];
+  if (l?.cpus) parts.push(t("{{count}} cores", { count: l.cpus }));
+  if (l?.memoryMb) parts.push(formatBinaryBytes(l.memoryMb * 2 ** 20));
+  return parts.join(", ");
+}
 
 /**
  * The hoster's plan of a managed instance: what it includes and how much of it is used.
@@ -54,6 +80,7 @@ export function PlanCard() {
         {fleet && <FleetLine fleet={fleet} />}
         <div className="grid gap-5 sm:grid-cols-3">
           <Quota label={t("Projects")} used={usage?.projects ?? 0} limit={plan.limits.projects ?? 0} format={String} />
+          {(plan.limits.runningProjects ?? 0) > 0 && <Quota label={t("Running projects")} used={usage?.runningProjects ?? 0} limit={plan.limits.runningProjects ?? 0} format={String} />}
           <Quota label={t("Users")} used={usage?.users ?? 0} limit={plan.limits.users ?? 0} format={String} />
           <Quota
             label={t("Disk space")}
@@ -66,6 +93,21 @@ export function PlanCard() {
         <dl className="grid gap-x-8 gap-y-3 text-sm sm:grid-cols-[12rem_1fr]">
           <dt className="text-muted">{t("Runtimes")}</dt>
           <dd className="text-fg">{plan.runtimes.length === 0 ? t("All runtimes") : plan.runtimes.map((r) => runtimeLabels[r] ?? r).join(", ")}</dd>
+          <dt className="text-muted">{t("Services")}</dt>
+          <dd className="text-fg">{!plan.services?.length ? t("All services") : plan.services.map((k) => t(planServiceLabels[k] ?? k)).join(", ")}</dd>
+          {(containerLimitText(plan.limits.container, t) || containerLimitText(plan.limits.containerDefault, t)) && (
+            <>
+              <dt className="text-muted">{t("Per container")}</dt>
+              <dd className="text-fg">
+                {[
+                  containerLimitText(plan.limits.container, t) && t("at most {{value}}", { value: containerLimitText(plan.limits.container, t) }),
+                  containerLimitText(plan.limits.containerDefault, t) && t("{{limits}} where the project sets none", { limits: containerLimitText(plan.limits.containerDefault, t) }),
+                ]
+                  .filter(Boolean)
+                  .join("; ")}
+              </dd>
+            </>
+          )}
           <dt className="text-muted">{t("Not included")}</dt>
           <dd className="flex flex-wrap gap-1.5">
             {plan.disabled.length === 0 ? <span className="text-fg">{t("Nothing")}</span> : plan.disabled.map((f) => <Badge key={f}>{t(planFeatureLabels[f])}</Badge>)}
@@ -118,6 +160,9 @@ const settingLabels: Record<string, string> = {
   folderViewFolder: "FolderView3 folder",
   metricsRetentionDays: "Resource history",
   newProjectsPrivate: "New projects signed-in only",
+  twoFactorRequired: "Two-factor authentication",
+  logHistory: "Log history",
+  imageUpdates: "Image updates",
 };
 
 function Quota({ label, used, limit, format, note }: { label: string; used: number; limit: number; format: (n: number) => string; note?: string | undefined }) {

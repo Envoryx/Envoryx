@@ -30,6 +30,24 @@ describe("PlanCard", () => {
     expect(screen.getByText("Base domain")).toBeInTheDocument();
   });
 
+  it("shows the services, the running projects and the container limits", async () => {
+    mockApi({
+      ...authedRoutes,
+      "GET /plan": () => ({
+        body: {
+          plan: { ...plan, services: ["mariadb", "redis", "storage"], limits: { ...plan.limits, runningProjects: 2, container: { cpus: 2, memoryMb: 1024 }, containerDefault: { memoryMb: 512 } } },
+          usage: { projects: 3, users: 1, runningProjects: 1, diskBytes: 0 },
+        },
+      }),
+    });
+    renderApp(<PlanCard />);
+
+    expect(await screen.findByText("MariaDB, Redis, Object storage (S3)")).toBeInTheDocument();
+    expect(screen.getByText("Running projects")).toBeInTheDocument();
+    expect(screen.getAllByText("1 of 2")).toHaveLength(2); // users and running projects
+    expect(screen.getByText("at most 2 cores, 1.0 GiB; 512 MiB where the project sets none")).toBeInTheDocument();
+  });
+
   it("shows the fleet manager the instance belongs to", async () => {
     mockApi({
       ...authedRoutes,

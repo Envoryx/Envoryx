@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/client";
-import { keys, useProjectStats } from "@/api/hooks";
+import { keys, usePlan, useProjectStats } from "@/api/hooks";
 import type { ContainerUsage, LimitSet, Project, ResourceLimits } from "@/api/types";
 import { Alert, Button, Card, CardHeader, Field, Input, Select, Spinner } from "@/components/ui";
 import { formatBytes } from "@/lib/format";
@@ -52,19 +52,31 @@ function Bar({ value, max, label }: { value: number; max: number; label: string 
   );
 }
 
-function GroupFields({ id, title, hint, form, onChange }: { id: string; title: string; hint: string; form: GroupForm; onChange: (f: GroupForm) => void }) {
+/** What an empty field means and the most it may hold, from the hoster's plan. */
+interface PlanBounds {
+  cpus: { empty?: number | undefined; max?: number | undefined };
+  memoryMb: { empty?: number | undefined; max?: number | undefined };
+}
+
+function GroupFields({ id, title, hint, form, onChange, plan }: { id: string; title: string; hint: string; form: GroupForm; onChange: (f: GroupForm) => void; plan: PlanBounds }) {
   const { t } = useTranslation();
+  const cores = (n: number) => t("{{count}} cores", { count: n });
+  const mem = (mb: number) => formatBytes(mb * 2 ** 20);
+  const bounded = (empty: string | undefined, max: string | undefined, none: string) =>
+    [empty ? t("empty: {{value}} from your hoster's plan", { value: empty }) : none, max && t("at most {{value}}", { value: max })].filter(Boolean).join(" - ");
+  const cpuHint = bounded(plan.cpus.empty ? cores(plan.cpus.empty) : undefined, plan.cpus.max ? cores(plan.cpus.max) : undefined, t("e.g. 1.5 - empty: no limit"));
+  const memHint = bounded(plan.memoryMb.empty ? mem(plan.memoryMb.empty) : undefined, plan.memoryMb.max ? mem(plan.memoryMb.max) : undefined, t("empty: no limit"));
   return (
     <fieldset className="space-y-3 rounded-md border border-default p-3">
       <legend className="px-1 text-sm font-medium text-fg">{title}</legend>
       <p className="text-xs text-muted">{hint}</p>
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label={t("CPU cores per container")} htmlFor={`${id}-cpus`} hint={t("e.g. 1.5 - empty: no limit")}>
-          <Input id={`${id}-cpus`} inputMode="decimal" value={form.cpus} onChange={(e) => onChange({ ...form, cpus: e.target.value })} placeholder={t("no limit")} />
+        <Field label={t("CPU cores per container")} htmlFor={`${id}-cpus`} hint={cpuHint}>
+          <Input id={`${id}-cpus`} inputMode="decimal" value={form.cpus} onChange={(e) => onChange({ ...form, cpus: e.target.value })} placeholder={plan.cpus.empty ? String(plan.cpus.empty) : t("no limit")} />
         </Field>
-        <Field label={t("Memory per container")} htmlFor={`${id}-memory`} hint={t("empty: no limit")}>
+        <Field label={t("Memory per container")} htmlFor={`${id}-memory`} hint={memHint}>
           <div className="flex gap-2">
-            <Input id={`${id}-memory`} inputMode="decimal" value={form.memory} onChange={(e) => onChange({ ...form, memory: e.target.value })} placeholder={t("no limit")} />
+            <Input id={`${id}-memory`} inputMode="decimal" value={form.memory} onChange={(e) => onChange({ ...form, memory: e.target.value })} placeholder={plan.memoryMb.empty ? mem(plan.memoryMb.empty) : t("no limit")} />
             <div className="w-24 shrink-0">
               <Select aria-label={t("Unit")} value={form.unit} onChange={(e) => onChange({ ...form, unit: e.target.value as Unit })}>
                 <option value="MiB">MiB</option>
@@ -89,6 +101,14 @@ export function LimitsCard({ project }: { project: Project }) {
   const stats = useProjectStats(project.id, true);
   const current = project.limits;
   const editable = projectAccess(project).admin;
+  // The hoster's plan fills in an empty field and caps every value.
+  const planLimits = usePlan().data?.plan?.limits;
+  const cap = planLimits?.container;
+  const def = planLimits?.containerDefault;
+  const bounds: PlanBounds = {
+    cpus: { empty: def?.cpus || cap?.cpus, max: cap?.cpus },
+    memoryMb: { empty: def?.memoryMb || cap?.memoryMb, max: cap?.memoryMb },
+  };
   const [app, setApp] = useState<GroupForm>(toForm(current?.app));
   const [services, setServices] = useState<GroupForm>(toForm(current?.services));
   const [pids, setPids] = useState(current?.pids ? String(current.pids) : "");
@@ -141,8 +161,8 @@ export function LimitsCard({ project }: { project: Project }) {
         {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
         {host && <p className="text-xs text-muted">{t("This host has {{cpus}} cores and {{memory}} of memory.", { cpus: host.cpus, memory: formatBytes(host.memory) })}</p>}
         <div className="grid gap-4 lg:grid-cols-2">
-          <GroupFields id="limits-app" title={t("Application containers")} hint={t("Web server, PHP, Node.js, Python, Go, Ruby, Java, .NET and every worker.")} form={app} onChange={setApp} />
-          <GroupFields id="limits-services" title={t("Services")} hint={t("Database, Redis, Memcached, Mailpit, RabbitMQ, search engines, object storage. OpenSearch needs at least 1.5 GiB.")} form={services} onChange={setServices} />
+          <GroupFields id="limits-app" title={t("Application containers")} hint={t("Web server, PHP, Node.js, Python, Go, Ruby, Java, .NET and every worker.")} form={app} onChange={setApp} plan={bounds} />
+          <GroupFields id="limits-services" title={t("Services")} hint={t("Database, Redis, Memcached, Mailpit, RabbitMQ, search engines, object storage. OpenSearch needs at least 1.5 GiB.")} form={services} onChange={setServices} plan={bounds} />
         </div>
         <div className="max-w-xs">
           <Field label={t("Processes per container")} htmlFor="limits-pids" hint={t("Stops fork bombs and worker pools that keep spawning. Empty: {{n}}.", { n: DEFAULT_PIDS })}>

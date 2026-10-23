@@ -344,7 +344,9 @@ export function NewProjectPage() {
   const dotnetPresets = rt.dotnetPresets ?? defaultDotnetPresets;
   const webServers = rt.runtimes.filter((r) => r.kind === "webserver" && r.available);
   const web = webServers.find((r) => r.key === form.webType);
-  const databases = rt.runtimes.filter((r) => r.kind === "database");
+  // What the hoster's plan leaves out isn't offered (the server marks it).
+  const databases = rt.runtimes.filter((r) => r.kind === "database" && !r.notInPlan);
+  const serviceInPlan = (key: string) => !rt.runtimes.find((r) => r.key === key)?.notInPlan;
   const dbVersions = databases.find((d) => d.key === form.dbType)?.versions ?? [];
   const services = rt.runtimes.filter((r) => r.kind === "service");
   const selectedTemplate = rt.templates?.find((x) => x.id === form.template);
@@ -868,6 +870,7 @@ export function NewProjectPage() {
         <Button
           size="sm"
           icon={<Plus className="size-3.5" />}
+          disabled={databases.length === 0}
           onClick={() => {
             const pg = databases.find((x) => x.key === "postgresql") ?? databases[0];
             set({ extraDbs: [...form.extraDbs, { name: "", type: pg?.key ?? "postgresql", version: pg?.versions.find((v) => v.default)?.version ?? "" }] });
@@ -880,107 +883,125 @@ export function NewProjectPage() {
         <p className="text-sm font-medium text-fg">{t("Additional services")}</p>
         {/* Two columns while the services are off; one that is on and has options takes the full width. */}
         <div className="grid gap-3 sm:grid-cols-2">
-          <div className={clsx("space-y-3 rounded-md border border-default p-4", form.redis && "sm:col-span-2")}>
-            <Checkbox label="Redis" description={t("Cache and queue backend with a persistent volume. Injects REDIS_HOST, REDIS_PORT and REDIS_URL.")} checked={form.redis} onChange={(e) => set({ redis: e.target.checked })} />
-            {form.redis && (
-              <div className="flex flex-wrap gap-4 pl-7" role="radiogroup" aria-label={t("Where {{service}} runs", { service: "Redis" })}>
-                <label className="inline-flex items-center gap-2 text-sm">
-                  <input type="radio" name="redis-where" checked={!form.redisExternal} onChange={() => set({ redisExternal: false })} />
-                  {t("In a container of the project")}
-                </label>
-                <IfPlanAllows feature="externalServices">
+          {serviceInPlan("redis") && (
+            <div className={clsx("space-y-3 rounded-md border border-default p-4", form.redis && "sm:col-span-2")}>
+              <Checkbox label="Redis" description={t("Cache and queue backend with a persistent volume. Injects REDIS_HOST, REDIS_PORT and REDIS_URL.")} checked={form.redis} onChange={(e) => set({ redis: e.target.checked })} />
+              {form.redis && (
+                <div className="flex flex-wrap gap-4 pl-7" role="radiogroup" aria-label={t("Where {{service}} runs", { service: "Redis" })}>
                   <label className="inline-flex items-center gap-2 text-sm">
-                    <input type="radio" name="redis-where" checked={form.redisExternal} onChange={() => set({ redisExternal: true })} />
-                    {t("On an external server")}
+                    <input type="radio" name="redis-where" checked={!form.redisExternal} onChange={() => set({ redisExternal: false })} />
+                    {t("In a container of the project")}
                   </label>
-                </IfPlanAllows>
-              </div>
-            )}
-            {form.redis && form.redisExternal && (
-              <div className="pl-7">
-                <ExternalRedisFields id="redis-ext" value={form.redisConn} onChange={(redisConn) => set({ redisConn })} />
-              </div>
-            )}
-            {form.redis && !form.redisExternal && (
-              <div className="grid gap-4 pl-7 sm:grid-cols-2">
-                <Field label={t("Redis version")} htmlFor="redis-version">
-                  <Select id="redis-version" value={form.redisVersion} onChange={(e) => set({ redisVersion: e.target.value })}>
-                    {versionOptions(services.find((s) => s.key === "redis")?.versions ?? [], t)}
-                  </Select>
-                </Field>
-                <div className="self-end pb-1">
-                  <Checkbox label={t("Publish port on the host")} description={t("For RedisInsight etc.")} checked={form.redisExpose} onChange={(e) => set({ redisExpose: e.target.checked })} />
+                  <IfPlanAllows feature="externalServices">
+                    <label className="inline-flex items-center gap-2 text-sm">
+                      <input type="radio" name="redis-where" checked={form.redisExternal} onChange={() => set({ redisExternal: true })} />
+                      {t("On an external server")}
+                    </label>
+                  </IfPlanAllows>
                 </div>
-              </div>
-            )}
-          </div>
-          <div className={clsx("space-y-3 rounded-md border border-default p-4", form.memcached && "sm:col-span-2")}>
-            <Checkbox label="Memcached" description={t("In-memory cache without persistence - a restart empties it. Injects MEMCACHED_HOST, MEMCACHED_PORT and MEMCACHED_URL.")} checked={form.memcached} onChange={(e) => set({ memcached: e.target.checked })} />
-            {form.memcached && (
-              <div className="pl-7">
-                <Checkbox label={t("Publish port on the host")} description={t("For tools on your machine, e.g. telnet or a cache inspector.")} checked={form.memcachedExpose} onChange={(e) => set({ memcachedExpose: e.target.checked })} />
-              </div>
-            )}
-          </div>
-          <div className="rounded-md border border-default p-4">
-            <Checkbox label="Mailpit" description={t("Catches all outgoing mail and shows it in a web inbox (published on its own port). Injects MAIL_* and MAILER_DSN.")} checked={form.mailpit} onChange={(e) => set({ mailpit: e.target.checked })} />
-          </div>
-          <div className={clsx("space-y-3 rounded-md border border-default p-4", form.rabbitmq && "sm:col-span-2")}>
-            <Checkbox label="RabbitMQ" description={t("Message broker for queues (Symfony Messenger, Laravel queues, Celery) with a persistent volume and a management UI on its own port. Injects RABBITMQ_* including RABBITMQ_URL.")} checked={form.rabbitmq} onChange={(e) => set({ rabbitmq: e.target.checked })} />
-            {form.rabbitmq && (
-              <div className="grid gap-4 pl-7 sm:grid-cols-2">
-                <Field label={t("RabbitMQ version")} htmlFor="rabbitmq-version">
-                  <Select id="rabbitmq-version" value={form.rabbitmqVersion} onChange={(e) => set({ rabbitmqVersion: e.target.value })}>
-                    {versionOptions(services.find((s) => s.key === "rabbitmq")?.versions ?? [], t)}
-                  </Select>
-                </Field>
-                <div className="self-end pb-1">
-                  <Checkbox label={t("Publish port on the host")} description={t("For AMQP clients running on your machine.")} checked={form.rabbitmqExpose} onChange={(e) => set({ rabbitmqExpose: e.target.checked })} />
+              )}
+              {form.redis && form.redisExternal && (
+                <div className="pl-7">
+                  <ExternalRedisFields id="redis-ext" value={form.redisConn} onChange={(redisConn) => set({ redisConn })} />
                 </div>
-              </div>
-            )}
-          </div>
-          <div className="rounded-md border border-default p-4">
-            <Checkbox label="Meilisearch" description={t("Search engine (Laravel Scout, Symfony) with a persistent volume and a web dashboard on its own port. Injects MEILISEARCH_HOST/KEY and MEILISEARCH_URL/API_KEY; set SCOUT_DRIVER yourself.")} checked={form.meilisearch} onChange={(e) => set({ meilisearch: e.target.checked })} />
-          </div>
-          <div className={clsx("space-y-3 rounded-md border border-default p-4", form.typesense && "sm:col-span-2")}>
-            <Checkbox label="Typesense" description={t("Search engine (Laravel Scout, InstantSearch) with a persistent volume. Injects TYPESENSE_HOST, TYPESENSE_PORT, TYPESENSE_PROTOCOL, TYPESENSE_API_KEY and TYPESENSE_URL; set SCOUT_DRIVER yourself.")} checked={form.typesense} onChange={(e) => set({ typesense: e.target.checked })} />
-            {form.typesense && (
-              <div className="pl-7">
-                <Checkbox label={t("Publish port on the host")} description={t("For clients and dashboards running on your machine.")} checked={form.typesenseExpose} onChange={(e) => set({ typesenseExpose: e.target.checked })} />
-              </div>
-            )}
-          </div>
-          <div className={clsx("space-y-3 rounded-md border border-default p-4", form.opensearch && "sm:col-span-2")}>
-            <Checkbox label="OpenSearch" description={t("Elasticsearch-compatible search engine as a single node with a persistent volume, plain HTTP without login. Injects OPENSEARCH_HOST, OPENSEARCH_PORT, OPENSEARCH_SCHEME and OPENSEARCH_URL. Needs about 1 GB of RAM.")} checked={form.opensearch} onChange={(e) => set({ opensearch: e.target.checked })} />
-            {form.opensearch && (
-              <div className="grid gap-4 pl-7 sm:grid-cols-2">
-                <Field label={t("OpenSearch version")} htmlFor="opensearch-version">
-                  <Select id="opensearch-version" value={form.opensearchVersion} onChange={(e) => set({ opensearchVersion: e.target.value })}>
-                    {versionOptions(services.find((s) => s.key === "opensearch")?.versions ?? [], t)}
-                  </Select>
-                </Field>
-                <div className="self-end pb-1">
-                  <Checkbox label={t("Publish port on the host")} description={t("For clients and dashboards running on your machine.")} checked={form.opensearchExpose} onChange={(e) => set({ opensearchExpose: e.target.checked })} />
+              )}
+              {form.redis && !form.redisExternal && (
+                <div className="grid gap-4 pl-7 sm:grid-cols-2">
+                  <Field label={t("Redis version")} htmlFor="redis-version">
+                    <Select id="redis-version" value={form.redisVersion} onChange={(e) => set({ redisVersion: e.target.value })}>
+                      {versionOptions(services.find((s) => s.key === "redis")?.versions ?? [], t)}
+                    </Select>
+                  </Field>
+                  <div className="self-end pb-1">
+                    <Checkbox label={t("Publish port on the host")} description={t("For RedisInsight etc.")} checked={form.redisExpose} onChange={(e) => set({ redisExpose: e.target.checked })} />
+                  </div>
                 </div>
-                <div className="sm:col-span-2">
-                  <Checkbox label="OpenSearch Dashboards" description={t("Web UI with the Dev Tools console, index management and Discover, on its own port. The image is about 2.6 GB and needs roughly 400 MB of RAM.")} checked={form.opensearchDashboards} onChange={(e) => set({ opensearchDashboards: e.target.checked })} />
+              )}
+            </div>
+          )}
+          {serviceInPlan("memcached") && (
+            <div className={clsx("space-y-3 rounded-md border border-default p-4", form.memcached && "sm:col-span-2")}>
+              <Checkbox label="Memcached" description={t("In-memory cache without persistence - a restart empties it. Injects MEMCACHED_HOST, MEMCACHED_PORT and MEMCACHED_URL.")} checked={form.memcached} onChange={(e) => set({ memcached: e.target.checked })} />
+              {form.memcached && (
+                <div className="pl-7">
+                  <Checkbox label={t("Publish port on the host")} description={t("For tools on your machine, e.g. telnet or a cache inspector.")} checked={form.memcachedExpose} onChange={(e) => set({ memcachedExpose: e.target.checked })} />
                 </div>
-              </div>
-            )}
-          </div>
-          <div className={clsx("space-y-3 rounded-md border border-default p-4", form.ollama && "sm:col-span-2")}>
-            <Checkbox label="Ollama" description={t("Runs language and embedding models locally (Laravel Prism, LangChain, the Ollama libraries). Injects OLLAMA_HOST, OLLAMA_BASE_URL and OLLAMA_URL. Models live in one store shared by all projects; download them in the Services section.")} checked={form.ollama} onChange={(e) => set({ ollama: e.target.checked })} />
-            {form.ollama && (
-              <div className="space-y-3 pl-7">
-                <Checkbox label={t("Use the GPU")} description={t("Hands the host's NVIDIA GPUs to Ollama. Docker needs the NVIDIA Container Toolkit for it (on Unraid: the Nvidia Driver plugin); Envoryx checks that before switching.")} checked={form.ollamaGpu} onChange={(e) => set({ ollamaGpu: e.target.checked })} />
-                <Checkbox label={t("Publish port on the host")} description={t("For clients and dashboards running on your machine.")} checked={form.ollamaExpose} onChange={(e) => set({ ollamaExpose: e.target.checked })} />
-              </div>
-            )}
-          </div>
-          <div className="rounded-md border border-default p-4">
-            <Checkbox label={t("Object storage (S3)")} description={t("S3-compatible object storage with a bucket for this project and a web console. Injects S3_* and the AWS_* variables Laravel and the AWS SDKs read.")} checked={form.storage} onChange={(e) => set({ storage: e.target.checked })} />
-          </div>
+              )}
+            </div>
+          )}
+          {serviceInPlan("mailpit") && (
+            <div className="rounded-md border border-default p-4">
+              <Checkbox label="Mailpit" description={t("Catches all outgoing mail and shows it in a web inbox (published on its own port). Injects MAIL_* and MAILER_DSN.")} checked={form.mailpit} onChange={(e) => set({ mailpit: e.target.checked })} />
+            </div>
+          )}
+          {serviceInPlan("rabbitmq") && (
+            <div className={clsx("space-y-3 rounded-md border border-default p-4", form.rabbitmq && "sm:col-span-2")}>
+              <Checkbox label="RabbitMQ" description={t("Message broker for queues (Symfony Messenger, Laravel queues, Celery) with a persistent volume and a management UI on its own port. Injects RABBITMQ_* including RABBITMQ_URL.")} checked={form.rabbitmq} onChange={(e) => set({ rabbitmq: e.target.checked })} />
+              {form.rabbitmq && (
+                <div className="grid gap-4 pl-7 sm:grid-cols-2">
+                  <Field label={t("RabbitMQ version")} htmlFor="rabbitmq-version">
+                    <Select id="rabbitmq-version" value={form.rabbitmqVersion} onChange={(e) => set({ rabbitmqVersion: e.target.value })}>
+                      {versionOptions(services.find((s) => s.key === "rabbitmq")?.versions ?? [], t)}
+                    </Select>
+                  </Field>
+                  <div className="self-end pb-1">
+                    <Checkbox label={t("Publish port on the host")} description={t("For AMQP clients running on your machine.")} checked={form.rabbitmqExpose} onChange={(e) => set({ rabbitmqExpose: e.target.checked })} />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          {serviceInPlan("meilisearch") && (
+            <div className="rounded-md border border-default p-4">
+              <Checkbox label="Meilisearch" description={t("Search engine (Laravel Scout, Symfony) with a persistent volume and a web dashboard on its own port. Injects MEILISEARCH_HOST/KEY and MEILISEARCH_URL/API_KEY; set SCOUT_DRIVER yourself.")} checked={form.meilisearch} onChange={(e) => set({ meilisearch: e.target.checked })} />
+            </div>
+          )}
+          {serviceInPlan("typesense") && (
+            <div className={clsx("space-y-3 rounded-md border border-default p-4", form.typesense && "sm:col-span-2")}>
+              <Checkbox label="Typesense" description={t("Search engine (Laravel Scout, InstantSearch) with a persistent volume. Injects TYPESENSE_HOST, TYPESENSE_PORT, TYPESENSE_PROTOCOL, TYPESENSE_API_KEY and TYPESENSE_URL; set SCOUT_DRIVER yourself.")} checked={form.typesense} onChange={(e) => set({ typesense: e.target.checked })} />
+              {form.typesense && (
+                <div className="pl-7">
+                  <Checkbox label={t("Publish port on the host")} description={t("For clients and dashboards running on your machine.")} checked={form.typesenseExpose} onChange={(e) => set({ typesenseExpose: e.target.checked })} />
+                </div>
+              )}
+            </div>
+          )}
+          {serviceInPlan("opensearch") && (
+            <div className={clsx("space-y-3 rounded-md border border-default p-4", form.opensearch && "sm:col-span-2")}>
+              <Checkbox label="OpenSearch" description={t("Elasticsearch-compatible search engine as a single node with a persistent volume, plain HTTP without login. Injects OPENSEARCH_HOST, OPENSEARCH_PORT, OPENSEARCH_SCHEME and OPENSEARCH_URL. Needs about 1 GB of RAM.")} checked={form.opensearch} onChange={(e) => set({ opensearch: e.target.checked })} />
+              {form.opensearch && (
+                <div className="grid gap-4 pl-7 sm:grid-cols-2">
+                  <Field label={t("OpenSearch version")} htmlFor="opensearch-version">
+                    <Select id="opensearch-version" value={form.opensearchVersion} onChange={(e) => set({ opensearchVersion: e.target.value })}>
+                      {versionOptions(services.find((s) => s.key === "opensearch")?.versions ?? [], t)}
+                    </Select>
+                  </Field>
+                  <div className="self-end pb-1">
+                    <Checkbox label={t("Publish port on the host")} description={t("For clients and dashboards running on your machine.")} checked={form.opensearchExpose} onChange={(e) => set({ opensearchExpose: e.target.checked })} />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <Checkbox label="OpenSearch Dashboards" description={t("Web UI with the Dev Tools console, index management and Discover, on its own port. The image is about 2.6 GB and needs roughly 400 MB of RAM.")} checked={form.opensearchDashboards} onChange={(e) => set({ opensearchDashboards: e.target.checked })} />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          {serviceInPlan("ollama") && (
+            <div className={clsx("space-y-3 rounded-md border border-default p-4", form.ollama && "sm:col-span-2")}>
+              <Checkbox label="Ollama" description={t("Runs language and embedding models locally (Laravel Prism, LangChain, the Ollama libraries). Injects OLLAMA_HOST, OLLAMA_BASE_URL and OLLAMA_URL. Models live in one store shared by all projects; download them in the Services section.")} checked={form.ollama} onChange={(e) => set({ ollama: e.target.checked })} />
+              {form.ollama && (
+                <div className="space-y-3 pl-7">
+                  <Checkbox label={t("Use the GPU")} description={t("Hands the host's NVIDIA GPUs to Ollama. Docker needs the NVIDIA Container Toolkit for it (on Unraid: the Nvidia Driver plugin); Envoryx checks that before switching.")} checked={form.ollamaGpu} onChange={(e) => set({ ollamaGpu: e.target.checked })} />
+                  <Checkbox label={t("Publish port on the host")} description={t("For clients and dashboards running on your machine.")} checked={form.ollamaExpose} onChange={(e) => set({ ollamaExpose: e.target.checked })} />
+                </div>
+              )}
+            </div>
+          )}
+          {serviceInPlan("rustfs") && (
+            <div className="rounded-md border border-default p-4">
+              <Checkbox label={t("Object storage (S3)")} description={t("S3-compatible object storage with a bucket for this project and a web console. Injects S3_* and the AWS_* variables Laravel and the AWS SDKs read.")} checked={form.storage} onChange={(e) => set({ storage: e.target.checked })} />
+            </div>
+          )}
         </div>
       </div>
     </div>
