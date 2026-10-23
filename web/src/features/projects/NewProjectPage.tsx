@@ -26,6 +26,7 @@ import { webServerHint } from "./webServers";
 import { unavailableHint, versionOptions } from "./versionOptions";
 import { errorText } from "@/lib/errors";
 import { slugify } from "@/lib/format";
+import { gitUrlError } from "@/lib/gitUrl";
 
 const steps = ["Start", "Project & services", "Create"] as const;
 
@@ -147,6 +148,8 @@ export function NewProjectPage() {
   const settings = useSettings();
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
+  // The URL is judged in full once the user left the field; before, only what can't become valid.
+  const [gitUrlLeft, setGitUrlLeft] = useState(false);
   const [form, setForm] = useState<Form | null>(null);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
@@ -353,7 +356,8 @@ export function NewProjectPage() {
     if (form.extraDbs.some((d, j) => j < i && d.name.trim() === n)) return t("The project already has a database of this name.");
     return undefined;
   };
-  const canLeaveStart = form.source === "template" ? !!selectedTemplate : form.source === "git" ? !!form.gitUrl.trim() : form.source === "import" ? !!form.importSite : form.source === "blank";
+  const gitUrlProblem = gitUrlError(form.gitUrl, !gitUrlLeft);
+  const canLeaveStart = form.source === "template" ? !!selectedTemplate : form.source === "git" ? !!form.gitUrl.trim() && !gitUrlError(form.gitUrl) : form.source === "import" ? !!form.importSite : form.source === "blank";
   const canContinue = step === 0 ? canLeaveStart : step === 1 ? form.name.trim().length >= 2 && !nameError && form.extraDbs.every((_, i) => !extraDbError(i)) && (!form.dbType || !form.dbExternal || !externalDatabaseTypes.includes(form.dbType) || externalDatabaseComplete(form.dbConn)) && (!form.redis || !form.redisExternal || !!form.redisConn.host) : true;
   // The services the new project will have, so an imported .env knows what Envoryx sets.
   const wizardServices = [
@@ -1006,8 +1010,8 @@ export function NewProjectPage() {
 
   const gitFields = (
     <>
-      <Field label={t("Repository URL")} htmlFor="git-url" hint={t("Cloned into the empty project directory. https://…, git@host:path.git or ssh://…")}>
-        <Input id="git-url" value={form.gitUrl} onChange={(e) => set({ gitUrl: e.target.value })} placeholder="https://github.com/you/project.git" spellCheck={false} />
+      <Field label={t("Repository URL")} htmlFor="git-url" hint={t("Cloned into the empty project directory. https://…, git@host:path.git or ssh://…")} error={gitUrlProblem && t(gitUrlProblem)}>
+        <Input id="git-url" value={form.gitUrl} onChange={(e) => set({ gitUrl: e.target.value })} onBlur={() => setGitUrlLeft(true)} aria-invalid={!!gitUrlProblem} placeholder="https://github.com/you/project.git" spellCheck={false} />
       </Field>
       {form.gitUrl.trim() && (
         <div className="grid gap-4 sm:grid-cols-3">
