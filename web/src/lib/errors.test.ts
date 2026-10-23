@@ -15,7 +15,7 @@ describe("translateMessage", () => {
     expect(translateMessage("invalid input: project name must be 2-64 characters", t)).toBe("Ungültige Eingabe: Der Projektname muss 2-64 Zeichen lang sein");
     expect(translateMessage("hostname shop.test is already used: conflict", t)).toBe("Der Hostname shop.test wird bereits verwendet: Konflikt");
     expect(translateMessage("create network: network envoryx-shop: the name is taken by another Envoryx instance on this Docker host", t)).toBe(
-      "create network: network envoryx-shop: der Name gehört einer anderen Envoryx-Instanz auf diesem Docker-Host",
+      "create network: Netzwerk envoryx-shop: der Name gehört einer anderen Envoryx-Instanz auf diesem Docker-Host",
     );
   });
 
@@ -33,7 +33,7 @@ describe("translateMessage", () => {
   });
 
   it("leaves out the bare kind of error next to a part that stays English", () => {
-    expect(translateMessage("conflict: the branch feature-x already has the environment shop-feature-x", t)).toBe("the branch feature-x already has the environment shop-feature-x");
+    expect(translateMessage("conflict: the project has 2 volumes but the renamed plan 3", t)).toBe("the project has 2 volumes but the renamed plan 3");
     expect(translateMessage("something unknown: not found", t)).toBe("something unknown");
     expect(translateMessage('the directory "shop" belongs to project "Shop" already: conflict', t)).toBe(t('the directory "{{path}}" belongs to project "{{project}}" already', { path: "shop", project: "Shop" }) + ": Konflikt");
     expect(translateMessage('conflict: a project named "Shop" already exists', t)).toBe("Konflikt: " + t('a project named "{{name}}" already exists', { name: "Shop" }));
@@ -125,6 +125,36 @@ describe("translateMessage", () => {
   it("leaves unknown text alone", () => {
     expect(translateMessage("something: quite unexpected", t)).toBe("something: quite unexpected");
     expect(translateMessage("", t)).toBe("");
+  });
+
+  it("translates validation errors of forms, branch environments and cron jobs", () => {
+    expect(translateMessage("invalid input: server port must be between 1024 and 65535", t)).toBe("Ungültige Eingabe: Der Server-Port muss zwischen 1024 und 65535 liegen");
+    expect(translateMessage("conflict: the branch feature-x already has the environment shop-feature-x", t)).toBe("Konflikt: Der Branch feature-x hat bereits die Umgebung shop-feature-x");
+    // The cron field is a fixed word of the server's and gets translated with the sentence.
+    expect(translateMessage('invalid cron schedule: "25" is not a valid hour (0-23)', t)).toBe("Ungültiger Cron-Zeitplan: „25“ ist kein gültiger Wert für Stunde (0-23)");
+  });
+
+  it("translates the fixed phrases a template carries, but not names", () => {
+    expect(translateMessage("dlv is missing: no debugging", t)).toBe("dlv fehlt; das betrifft: Debugging");
+    expect(translateMessage("invalid input: API token is required for Cloudflare", t)).toBe("Ungültige Eingabe: API-Token ist für Cloudflare erforderlich");
+    expect(translateMessage('invalid input: healthcheck.interval "5x" is not a duration in whole seconds like 30s or 2m', t)).toBe(
+      "Ungültige Eingabe: healthcheck.interval „5x“ ist keine Dauer in ganzen Sekunden wie 30s oder 2m",
+    );
+  });
+
+  it("translates a reason inside a message and prefers the specific template", () => {
+    expect(
+      translateMessage(
+        "invalid input: the build context, the whole project directory, is too large (more than 10000 files or 500 MB): put the Dockerfile in a directory of its own, like .envoryx/, with just the files the image needs",
+        t,
+      ),
+    ).toBe("Ungültige Eingabe: Der Build-Kontext, das ganze Projektverzeichnis, ist zu groß (mehr als 10000 Dateien oder 500 MB): Lege das Dockerfile in ein eigenes Verzeichnis wie .envoryx/, nur mit den Dateien, die das Image braucht");
+    expect(translateMessage("invalid input: the image ghcr.io/acme/php:8.4 could not be pulled; if the registry is private, add a login under Settings, Private registries (denied)", t)).toBe(
+      "Ungültige Eingabe: Das Image ghcr.io/acme/php:8.4 ließ sich nicht laden; ist die Registry privat, füge unter Einstellungen, Private Registries ein Login hinzu (denied)",
+    );
+    expect(translateMessage("cloudflare: token rejected (Invalid API Token); it needs Zone:Read and Zone:DNS:Edit for the zone", t)).toBe(
+      "cloudflare: Token abgelehnt (Invalid API Token); es braucht Zone:Read und Zone:DNS:Edit für die Zone",
+    );
   });
 
   it("returns the raw English text when English is active", async () => {
