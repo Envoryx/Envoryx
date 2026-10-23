@@ -10,6 +10,8 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.44.1] - 2026-10-23
+
 ### Changed
 - A public Git repository (HTTPS without a token) is cloned without the file contents
   of older commits (`--filter=blob:none`): the full history and all branches, older
@@ -2657,7 +2659,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.44.0...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.44.1...HEAD
+[0.44.1]: https://github.com/envoryx/envoryx/compare/v0.44.0...v0.44.1
 [0.44.0]: https://github.com/envoryx/envoryx/compare/v0.43.1...v0.44.0
 [0.43.1]: https://github.com/envoryx/envoryx/compare/v0.43.0...v0.43.1
 [0.43.0]: https://github.com/envoryx/envoryx/compare/v0.42.0...v0.43.0
