@@ -3141,7 +3141,7 @@
   "preview versions are switched off for this instance": "previewversies zijn uitgeschakeld voor deze instantie",
   "projects open to everyone are switched off for this instance": "projecten open voor iedereen zijn uitgeschakeld voor deze instantie",
   "public shares are switched off for this instance": "openbare deellinks zijn uitgeschakeld voor deze instantie",
-  "{{name}} is not available on this instance's plan": "{{name}} zit niet in het abonnement van deze instantie",
+  "{{name}} is not available on this instance": "{{name}} is niet beschikbaar op deze instantie",
   "this instance's plan runs at most {{max}} projects at the same time; stop another project first": "het abonnement van deze instantie laat hoogstens {{max}} projecten tegelijk draaien; stop eerst een ander project",
   "this instance's plan allows at most {{cpus}} CPU cores per container": "het abonnement van deze instantie staat hoogstens {{cpus}} CPU-cores per container toe",
   "this instance's plan allows at most {{max}} MiB of memory per container": "het abonnement van deze instantie staat hoogstens {{max}} MiB geheugen per container toe",

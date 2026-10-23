@@ -87,7 +87,7 @@ const templates = [
   "{{name}} {{version}} is a preview version, which this instance's plan doesn't include; switch to a released version",
   "{{name}} {{version}} has reached its end of life; this instance's plan includes supported versions only",
   "{{name}} {{version}} is a preview version; this instance's plan includes released versions only",
-  "{{name}} is not available on this instance's plan",
+  "{{name}} is not available on this instance",
   "this instance's plan runs at most {{max}} projects at the same time; stop another project first",
   "this instance's plan allows at most {{cpus}} CPU cores per container",
   "this instance's plan allows at most {{max}} MiB of memory per container",

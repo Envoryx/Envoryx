@@ -270,7 +270,7 @@ func (p *Plan) RequireService(name, label string) error {
 	if p.AllowsService(name) {
 		return nil
 	}
-	return Quota("%s is not available on this instance's plan", label)
+	return Quota("%s is not available on this instance", label)
 }
 
 // ContainerLimit is what a container runs with under the plan when its project asks for

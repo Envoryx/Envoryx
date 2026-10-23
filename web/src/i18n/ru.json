@@ -3189,7 +3189,7 @@
   "preview versions are switched off for this instance": "предварительные версии отключены для этого экземпляра",
   "projects open to everyone are switched off for this instance": "проекты, открытые всем, отключены для этого экземпляра",
   "public shares are switched off for this instance": "публичный доступ отключён для этого экземпляра",
-  "{{name}} is not available on this instance's plan": "{{name}} не входит в тариф этого экземпляра",
+  "{{name}} is not available on this instance": "{{name}} недоступен на этом экземпляре",
   "this instance's plan runs at most {{max}} projects at the same time; stop another project first": "тариф этого экземпляра позволяет запускать одновременно не более {{max}} проектов; сначала останови другой проект",
   "this instance's plan allows at most {{cpus}} CPU cores per container": "тариф этого экземпляра позволяет не более {{cpus}} ядер CPU на контейнер",
   "this instance's plan allows at most {{max}} MiB of memory per container": "тариф этого экземпляра позволяет не более {{max}} МиБ памяти на контейнер",

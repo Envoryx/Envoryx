@@ -27,7 +27,7 @@ func TestPlanLimitsServices(t *testing.T) {
 
 	req := phpRequest("AI", false)
 	req.Ollama = &ExtraRequest{}
-	if _, err := e.m.Create(ctx, req); !errors.Is(err, plan.ErrQuota) || !strings.Contains(err.Error(), "Ollama is not available") {
+	if _, err := e.m.Create(ctx, req); !errors.Is(err, plan.ErrQuota) || !strings.Contains(err.Error(), "Ollama is not available on this instance") {
 		t.Errorf("new project with Ollama: %v", err)
 	}
 	pg := phpRequest("Pg", false)

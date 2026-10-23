@@ -3141,7 +3141,7 @@
   "preview versions are switched off for this instance": "Vorabversionen sind für diese Instanz abgeschaltet",
   "projects open to everyone are switched off for this instance": "für alle offenen Projekte sind für diese Instanz abgeschaltet",
   "public shares are switched off for this instance": "öffentliche Freigaben sind für diese Instanz abgeschaltet",
-  "{{name}} is not available on this instance's plan": "{{name}} ist im Tarif dieser Instanz nicht enthalten",
+  "{{name}} is not available on this instance": "{{name}} ist auf dieser Instanz nicht verfügbar",
   "this instance's plan runs at most {{max}} projects at the same time; stop another project first": "der Tarif dieser Instanz lässt höchstens {{max}} Projekte gleichzeitig laufen; stoppe zuerst ein anderes Projekt",
   "this instance's plan allows at most {{cpus}} CPU cores per container": "der Tarif dieser Instanz erlaubt höchstens {{cpus}} CPU-Kerne pro Container",
   "this instance's plan allows at most {{max}} MiB of memory per container": "der Tarif dieser Instanz erlaubt höchstens {{max}} MiB Arbeitsspeicher pro Container",
