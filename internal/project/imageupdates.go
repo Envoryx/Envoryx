@@ -138,6 +138,26 @@ func (m *Manager) newerImages() map[string]bool {
 	return out
 }
 
+// pulledNewerImage forgets the newer build of ref the last check found once a pull brought
+// it to the host, so the projects stop saying "available" until the next daily check.
+func (m *Manager) pulledNewerImage(ctx context.Context, ref string) {
+	m.images.mu.Lock()
+	digest, ok := m.images.newer[ref]
+	m.images.mu.Unlock()
+	if !ok {
+		return
+	}
+	info, err := m.engine.InspectImage(ctx, ref)
+	if err != nil || !hasDigest(info.RepoDigests, digest) {
+		return
+	}
+	m.images.mu.Lock()
+	if m.images.newer[ref] == digest {
+		delete(m.images.newer, ref)
+	}
+	m.images.mu.Unlock()
+}
+
 // RunImageUpdates checks the images daily and restarts the projects in the admin's
 // slot until ctx ends.
 func (m *Manager) RunImageUpdates(ctx context.Context, log *slog.Logger) {

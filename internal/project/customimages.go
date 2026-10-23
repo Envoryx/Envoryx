@@ -397,7 +397,11 @@ func (m *Manager) refreshImage(ctx context.Context, proj store.Project, ref stri
 		return m.ensureImage(ctx, proj, ref)
 	}
 	err := m.engine.PullImage(ctx, ref, m.pullProgress(ctx, proj.Slug, ref))
-	if err == nil || ctx.Err() != nil {
+	if err == nil {
+		m.pulledNewerImage(ctx, ref)
+		return nil
+	}
+	if ctx.Err() != nil {
 		return err
 	}
 	if exists, exErr := m.engine.ImageExists(ctx, ref); exErr == nil && exists {
