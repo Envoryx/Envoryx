@@ -6,9 +6,10 @@ import { api } from "@/api/client";
 import type { OrphanedBackup, RemoteBackup } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Dialog, ErrorState, Select, Spinner } from "@/components/ui";
 import { errorText } from "@/lib/errors";
-import { formatBytes, formatDateTime } from "@/lib/format";
+import { backupKindLabel, formatBytes, formatDateTime } from "@/lib/format";
 import { RestoreNewDialog } from "@/features/projects/RestoreNewDialog";
 import { offsiteKey } from "@/features/offsite/OffsiteTargetsCard";
+import { offsiteTargetName } from "@/features/offsite/OffsiteParts";
 
 /**
  * The backups of deleted projects. Deleting a project leaves its backups behind; from here
@@ -147,7 +148,7 @@ function OffsiteProjects({ onFetched }: { onFetched: (o: OrphanedBackup) => void
             <Select aria-label={t("Offsite target")} value={targetId} onChange={(e) => { setPicked(e.target.value); setError(null); }}>
               {list.map((x) => (
                 <option key={x.id} value={x.id}>
-                  {x.name}
+                  {offsiteTargetName(x, t)}
                 </option>
               ))}
             </Select>
@@ -175,7 +176,7 @@ function OffsiteProjects({ onFetched }: { onFetched: (o: OrphanedBackup) => void
                     <li key={b.key} className="flex flex-wrap items-center justify-between gap-3 px-3 py-2 text-sm">
                       <p className="flex flex-wrap items-center gap-2">
                         {formatDateTime(b.createdAt)}
-                        <Badge>{b.kind}</Badge>
+                        <Badge>{backupKindLabel(b.kind, t)}</Badge>
                         {b.source === "scheduled" && <Badge tone="blue">{t("scheduled")}</Badge>}
                         {b.encrypted && (
                           <span title={t("encrypted")}>

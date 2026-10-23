@@ -19,15 +19,16 @@ const categoryTitle: Record<DiagnosticCheck["category"], string> = {
 const DOCS = "https://github.com/envoryx/envoryx/blob/main/DEPLOYMENT.md";
 
 function StatusIcon({ status }: { status: DiagnosticCheck["status"] }) {
+  const { t } = useTranslation();
   switch (status) {
     case "ok":
-      return <CheckCircle2 className="size-5 shrink-0 text-emerald-600 dark:text-emerald-400" aria-label="ok" />;
+      return <CheckCircle2 className="size-5 shrink-0 text-emerald-600 dark:text-emerald-400" aria-label={t("ok")} />;
     case "info":
-      return <Info className="size-5 shrink-0 text-sky-600 dark:text-sky-400" aria-label="info" />;
+      return <Info className="size-5 shrink-0 text-sky-600 dark:text-sky-400" aria-label={t("info")} />;
     case "warning":
-      return <AlertTriangle className="size-5 shrink-0 text-amber-600 dark:text-amber-400" aria-label="warning" />;
+      return <AlertTriangle className="size-5 shrink-0 text-amber-600 dark:text-amber-400" aria-label={t("warning")} />;
     case "error":
-      return <XCircle className="size-5 shrink-0 text-red-600 dark:text-red-400" aria-label="error" />;
+      return <XCircle className="size-5 shrink-0 text-red-600 dark:text-red-400" aria-label={t("error")} />;
   }
 }
 
@@ -90,7 +91,7 @@ function BrowserProbeRow({ probe, onSwitchTab }: { probe: ProbeState; onSwitchTa
   const status: DiagnosticCheck["status"] = probe.status === "checking" ? "info" : probe.status;
   return (
     <li className="flex gap-3 px-5 py-3">
-      {probe.status === "checking" ? <RefreshCw className="size-5 shrink-0 animate-spin text-muted" aria-label="checking" /> : <StatusIcon status={status} />}
+      {probe.status === "checking" ? <RefreshCw className="size-5 shrink-0 animate-spin text-muted" aria-label={t("checking")} /> : <StatusIcon status={status} />}
       <div className="min-w-0 flex-1">
         <p className="text-sm font-medium">{t("Project domains from this browser")}</p>
         {probe.status === "checking" && <p className="mt-0.5 text-xs text-muted">{t("Contacting {{url}} …", { url: probe.detail ?? "" })}</p>}

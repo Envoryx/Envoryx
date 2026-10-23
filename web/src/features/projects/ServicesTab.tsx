@@ -7,7 +7,7 @@ import { useExtraServices, useKeptData, usePlanServices, usePortHost, useRuntime
 import { api } from "@/api/client";
 import type { ExternalRedis, ExtraServiceInfo, KeptDataInfo, PHPConfig, Project, RabbitMQCredentials, SearchCredentials, UpdateProjectRequest } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Checkbox, Dialog, ErrorState, Field, Input, Select, Spinner, StatusDot } from "@/components/ui";
-import { containerStateTone, reachable } from "@/lib/format";
+import { containerStateLabel, containerStateTone, healthLabel, reachable } from "@/lib/format";
 import { AddStorageCard, StorageCard } from "./StorageCard";
 import { PublicHostNotice } from "@/components/PublicHostNotice";
 import { errorText } from "@/lib/errors";
@@ -93,8 +93,8 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
         actions={
           <span className="inline-flex items-center gap-1.5 text-xs">
             <StatusDot tone={containerStateTone(info.state)} />
-            {info.state}
-            {info.health && <Badge tone={info.health === "healthy" ? "green" : info.health === "starting" ? "blue" : "red"}>{info.health}</Badge>}
+            {containerStateLabel(info.state, t)}
+            {info.health && <Badge tone={info.health === "healthy" ? "green" : info.health === "starting" ? "blue" : "red"}>{healthLabel(info.health, t)}</Badge>}
           </span>
         }
       />
@@ -137,8 +137,8 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
                 <WebUILink info={info} host={host} local={local} />
                 <span className="inline-flex items-center gap-1.5 text-xs">
                   <StatusDot tone={containerStateTone(info.dashboards.state)} />
-                  {info.dashboards.state}
-                  {info.dashboards.health && <Badge tone={info.dashboards.health === "healthy" ? "green" : info.dashboards.health === "starting" ? "blue" : "red"}>{info.dashboards.health}</Badge>}
+                  {containerStateLabel(info.dashboards.state, t)}
+                  {info.dashboards.health && <Badge tone={info.dashboards.health === "healthy" ? "green" : info.dashboards.health === "starting" ? "blue" : "red"}>{healthLabel(info.dashboards.health, t)}</Badge>}
                 </span>
               </dd>
             </>

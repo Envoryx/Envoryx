@@ -64,7 +64,7 @@ export function EnvEditor({
           />
           <Input
             aria-label={t("Variable value")}
-            placeholder="value"
+            placeholder={t("value")}
             type={e.isSecret ? "password" : "text"}
             value={e.value}
             onChange={(ev) => update(i, { value: ev.target.value })}

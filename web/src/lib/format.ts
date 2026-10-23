@@ -82,6 +82,56 @@ export function containerStateTone(state: string): Tone {
 }
 
 /**
+ * English labels of the container states Docker and Envoryx report ("missing" for a
+ * container that does not exist, "external" for a server Envoryx does not run).
+ */
+export const containerStateLabels: Record<string, string> = {
+  created: "created",
+  running: "running",
+  paused: "paused",
+  restarting: "restarting",
+  removing: "removing",
+  exited: "exited",
+  dead: "dead",
+  missing: "missing",
+  external: "external",
+};
+
+/** A container state as people read it; an unknown one stays as it is. */
+export function containerStateLabel(state: string, t: TFunction): string {
+  const label = containerStateLabels[state];
+  return label ? t(label) : state;
+}
+
+/** English labels of a container's health as Docker reports it. */
+export const healthLabels: Record<string, string> = { healthy: "healthy", unhealthy: "unhealthy", starting: "starting" };
+
+/** A container's health as people read it; an unknown one stays as it is. */
+export function healthLabel(health: string, t: TFunction): string {
+  const label = healthLabels[health];
+  return label ? t(label) : health;
+}
+
+/** English labels of the backup kinds: a project backup's parts, an instance backup's origin. */
+export const backupKindLabels: Record<string, string> = {
+  full: "full",
+  database: "database",
+  files: "files",
+  storage: "object storage",
+  manual: "manual",
+  upload: "uploaded",
+  "pre-migrate": "before migration",
+  "pre-restore": "before restore",
+  scheduled: "scheduled",
+};
+
+/** A backup's kind as people read it; an unknown one stays as it is. */
+export function backupKindLabel(kind: string, t: TFunction): string {
+  const label = backupKindLabels[kind];
+  return label ? t(label) : kind;
+}
+
+/**
  * Builds the URL a project is reachable at. Project ports are published on the Docker host,
  * which is not necessarily the address Envoryx itself is reached at (macvlan IP, reverse
  * proxy), so an explicitly configured host wins over the browser's address bar.

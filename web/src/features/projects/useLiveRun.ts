@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
+import i18n from "@/i18n";
 
 export type RunState = "idle" | "running" | "finished" | "failed";
 
@@ -80,7 +81,7 @@ export function useLiveRun(onMessage?: (m: Record<string, unknown>) => void) {
       }
       if (m.type === "exit") {
         const code = typeof m.code === "number" ? m.code : -1;
-        t.writeln(code === 0 ? "\r\n\x1b[32m✔ finished (exit 0)\x1b[0m" : `\r\n\x1b[31m✘ exited with code ${code}\x1b[0m`);
+        t.writeln(code === 0 ? `\r\n\x1b[32m✔ ${i18n.t("finished (exit 0)")}\x1b[0m` : `\r\n\x1b[31m✘ ${i18n.t("exited with code {{code}}", { code })}\x1b[0m`);
         setRun((r) => (r ? { ...r, state: code === 0 ? "finished" : "failed", exitCode: code } : r));
       } else if (m.type === "error") {
         setRun((r) => (r ? { ...r, state: "failed", message: typeof m.message === "string" ? m.message : "error" } : r));

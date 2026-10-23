@@ -1,4 +1,8 @@
 import i18n, { detectLanguage, languages } from "@/i18n";
+import { auditCategories } from "@/features/audit/AuditLog";
+import { planFeatureLabels, planServiceLabels } from "@/features/plan/PlanCard";
+import { auditActionLabels, changeLabels } from "@/lib/audit";
+import { backupKindLabels, containerStateLabels, healthLabels, stateMeta } from "@/lib/format";
 import de from "./de.json";
 import en from "./en.json";
 import es from "./es.json";
@@ -17,6 +21,8 @@ const plural = /_(one|few|many|other)$/;
 // read the same in every language go through t() only for consistency and are left out.
 const sources = import.meta.glob(["../**/*.{ts,tsx}", "!../**/*.test.{ts,tsx}"], { query: "?raw", import: "default", eager: true }) as Record<string, string>;
 const untranslated = new Set(["GOROOT", "Go", "Python", "Ruby", "Java"]);
+// Product names in the label maps, which read the same in every language.
+const properNames = new Set(["MariaDB", "MySQL", "PostgreSQL", "MongoDB", "Redis", "Memcached", "RabbitMQ", "Meilisearch", "Typesense", "OpenSearch", "Ollama", "Mailpit"]);
 
 describe("i18n", () => {
   afterEach(() => void i18n.changeLanguage("en"));
@@ -59,6 +65,30 @@ describe("i18n", () => {
       for (const m of text.matchAll(literal)) {
         const key = JSON.parse(`"${m[1]}"`) as string;
         if (!keys.has(key) && !untranslated.has(key)) missing.push(`${file}: ${key}`);
+      }
+    }
+    expect(missing).toEqual([]);
+  });
+
+  it("has a translation for every value of the label maps the UI runs through t()", () => {
+    // Keys the server sends (states, kinds, audit actions) become English labels through these
+    // maps, so the literal check above never sees them.
+    const keys = new Set(Object.keys(de).map((k) => k.replace(plural, "")));
+    const maps: Record<string, Record<string, string>> = {
+      containerStateLabels,
+      healthLabels,
+      backupKindLabels,
+      auditActionLabels,
+      changeLabels,
+      planFeatureLabels,
+      planServiceLabels,
+      stateMeta: Object.fromEntries(Object.entries(stateMeta).map(([k, m]) => [k, m.label])),
+      auditCategories: Object.fromEntries(auditCategories.map((c) => [c.key, c.label])),
+    };
+    const missing: string[] = [];
+    for (const [name, map] of Object.entries(maps)) {
+      for (const [k, label] of Object.entries(map)) {
+        if (!keys.has(label) && !properNames.has(label)) missing.push(`${name}.${k}: ${label}`);
       }
     }
     expect(missing).toEqual([]);

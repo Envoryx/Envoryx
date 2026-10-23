@@ -116,7 +116,7 @@ export function LogsTab({ project }: { project: Project }) {
   const [mode, setMode] = useState<"live" | "history">("live");
 
   if (services.length === 0 || !kind) {
-    return <p className="text-sm text-muted">This project has no services.</p>;
+    return <p className="text-sm text-muted">{t("This project has no services.")}</p>;
   }
 
   return (

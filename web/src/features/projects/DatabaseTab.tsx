@@ -11,7 +11,7 @@ import { copyText } from "@/lib/clipboard";
 import { PublicHostNotice } from "@/components/PublicHostNotice";
 import { CloneDatabaseCard, SnapshotsCard } from "./DatabaseSnapshots";
 import { databaseEngineNames, databaseEnvPrefix, databaseNamePattern, databaseServices } from "./databases";
-import { containerStateTone, reachable } from "@/lib/format";
+import { containerStateLabel, containerStateTone, healthLabel, reachable } from "@/lib/format";
 import { errorText } from "@/lib/errors";
 import { projectAccess } from "@/lib/access";
 import { emptyExternalDatabase, externalDatabaseComplete, ExternalDatabaseFields, externalDatabaseTypes } from "./ExternalConnection";
@@ -298,8 +298,8 @@ function DatabasePanel({ project, db, onRemoved }: { project: Project; db: strin
             actions={
               <span className="inline-flex items-center gap-1.5 text-xs">
                 <StatusDot tone={containerStateTone(d.state)} />
-                {d.state}
-                {d.health && <Badge tone={d.health === "healthy" ? "green" : d.health === "starting" ? "blue" : "red"}>{d.health}</Badge>}
+                {containerStateLabel(d.state, t)}
+                {d.health && <Badge tone={d.health === "healthy" ? "green" : d.health === "starting" ? "blue" : "red"}>{healthLabel(d.health, t)}</Badge>}
               </span>
             }
           />

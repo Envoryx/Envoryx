@@ -1,6 +1,7 @@
 import { formatBytes, serviceLabel } from "@/lib/format";
 import type { TFunction } from "i18next";
 import type { AuditEntry } from "@/api/types";
+import { translateMessage } from "@/lib/errors";
 
 /** English labels for the backend's audit actions; translated on the client like other keys. */
 export const auditActionLabels: Record<string, string> = {
@@ -54,6 +55,8 @@ export const auditActionLabels: Record<string, string> = {
   "auth.support_login": "Support login",
   "settings.support_access": "Support access changed",
   "instance.unsuspended": "Suspension lifted",
+  "instance.updated": "Envoryx updated",
+  "instance.update_failed": "Envoryx update failed",
   "database.credentials_viewed": "Database credentials viewed",
   "database.password_rotated": "Database password rotated",
   "database.created": "Database created",
@@ -104,7 +107,7 @@ export function auditActor(e: AuditEntry, t: TFunction): string {
 }
 
 /** English labels for the keys a project update records under "changes". */
-const changeLabels: Record<string, string> = {
+export const changeLabels: Record<string, string> = {
   name: "Name",
   docroot: "Document root",
   spaFallback: "SPA fallback",
@@ -202,9 +205,16 @@ export function auditDetails(e: AuditEntry, t: TFunction): string {
     case "project.worker_restarted":
       return [d["name"], d["worker"]].filter((v) => typeof v === "string").join(" · ");
     case "auth.login_failed":
-      return typeof d["reason"] === "string" ? d["reason"] : "-";
+      return typeof d["reason"] === "string" ? translateMessage(d["reason"], t) : "-";
     case "backup.failed":
-      return [d["name"], d["source"] === "scheduled" ? t("scheduled") : "", d["error"]].filter((v) => typeof v === "string" && v !== "").join(" · ");
+      return [d["name"], d["source"] === "scheduled" ? t("scheduled") : "", typeof d["error"] === "string" ? translateMessage(d["error"], t) : ""].filter((v) => typeof v === "string" && v !== "").join(" · ");
+    case "instance.updated":
+    case "instance.update_failed": {
+      // A self-update: the versions, whether it was rolled back, and why it failed.
+      const from = String(d["from"] ?? ""), to = String(d["to"] ?? "");
+      const versions = d["rolledBack"] === true ? t("{{from}} → {{to}}, rolled back", { from, to }) : `${from} → ${to}`;
+      return [versions, typeof d["error"] === "string" ? translateMessage(d["error"], t) : ""].filter(Boolean).join(" · ");
+    }
     default:
       // Envoryx stores the target's name with the entry (users under "username"); older
       // entries of since deleted objects only have the id.

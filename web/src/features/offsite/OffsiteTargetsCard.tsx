@@ -8,7 +8,8 @@ import { NotInPlan } from "@/features/plan/PlanCard";
 import type { OffsiteTarget, OffsiteTargetInput, OffsiteType } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Checkbox, Code, Dialog, Field, Input, Select, Spinner } from "@/components/ui";
 import { formatBytes, formatDateTime } from "@/lib/format";
-import { errorText } from "@/lib/errors";
+import { errorText, translateMessage } from "@/lib/errors";
+import { offsiteTargetName } from "./OffsiteParts";
 
 export const offsiteKey = ["offsite"] as const;
 
@@ -101,7 +102,7 @@ export function OffsiteTargetsCard() {
               <li key={x.id} className="flex flex-wrap items-center justify-between gap-3 px-3 py-2.5 text-sm">
                 <div className="min-w-0 space-y-1">
                   <p className="flex flex-wrap items-center gap-2 font-medium">
-                    {x.name}
+                    {offsiteTargetName(x, t)}
                     <Badge>{typeLabel[x.type]}</Badge>
                     {x.managed && <Badge tone="blue">{t("from your hoster")}</Badge>}
                     {!x.enabled && <Badge tone="gray">{t("off")}</Badge>}
@@ -113,7 +114,7 @@ export function OffsiteTargetsCard() {
                   {x.last && (
                     <p className={x.last.status === "failed" ? "text-xs text-red-600 dark:text-red-400" : "text-xs text-muted"}>
                       {x.last.status === "failed"
-                        ? t("Last upload failed {{date}}: {{error}}", { date: formatDateTime(x.last.updatedAt), error: x.last.error ?? "" })
+                        ? t("Last upload failed {{date}}: {{error}}", { date: formatDateTime(x.last.updatedAt), error: translateMessage(x.last.error, t) })
                         : t("Last upload {{date}} ({{size}})", { date: formatDateTime(x.last.updatedAt), size: formatBytes(x.last.sizeBytes) })}
                     </p>
                   )}

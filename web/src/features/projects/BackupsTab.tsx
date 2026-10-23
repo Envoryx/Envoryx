@@ -10,7 +10,7 @@ import { Alert, Badge, Button, Card, CardHeader, Checkbox, Code, Dialog, ErrorSt
 import { formatBytes, formatDateTime } from "@/lib/format";
 import { errorText, translateMessage } from "@/lib/errors";
 import { projectAccess } from "@/lib/access";
-import { OffsiteBadges, OffsiteUploadButton, RemoteBackups, uploading } from "@/features/offsite/OffsiteParts";
+import { OffsiteBadges, OffsiteUploadButton, RemoteBackups, offsiteTargetName, uploading } from "@/features/offsite/OffsiteParts";
 import { useAuth } from "@/features/auth/AuthContext";
 import { RestoreNewDialog } from "./RestoreNewDialog";
 
@@ -183,7 +183,7 @@ export function BackupsTab({ project }: { project: Project }) {
             {hasStorage && <Checkbox label={t("Object storage")} description={t("Every object of the bucket, as plain files in an archive")} checked={withStorage} onChange={(e) => setWithStorage(e.target.checked)} />}
             <Checkbox label={t("Include dependencies")} description={t("Keep vendor/, node_modules/ and framework build caches (.next, .nuxt, .output)")} checked={withDeps} disabled={!withFiles} onChange={(e) => setWithDeps(e.target.checked)} />
             {enabledTargets.length > 0 && (
-              <Checkbox label={t("Also copy offsite")} description={enabledTargets.map((x) => x.name).join(", ")} checked={withOffsite} onChange={(e) => setWithOffsite(e.target.checked)} />
+              <Checkbox label={t("Also copy offsite")} description={enabledTargets.map((x) => offsiteTargetName(x, t)).join(", ")} checked={withOffsite} onChange={(e) => setWithOffsite(e.target.checked)} />
             )}
           </div>
           <div className="flex items-end gap-2">

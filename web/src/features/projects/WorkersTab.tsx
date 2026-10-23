@@ -6,7 +6,7 @@ import { api } from "@/api/client";
 import { keys } from "@/api/hooks";
 import type { Project, Worker, WorkerPreset } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, ErrorState, Field, Input, Select, Spinner, StatusDot } from "@/components/ui";
-import { containerStateTone } from "@/lib/format";
+import { containerStateLabel, containerStateTone } from "@/lib/format";
 import { errorText } from "@/lib/errors";
 import { projectAccess } from "@/lib/access";
 
@@ -105,7 +105,7 @@ export function WorkersTab({ project }: { project: Project }) {
                       {w.enabled ? (
                         st ? (
                           <span className="inline-flex items-center gap-1.5 text-xs font-normal text-muted" title={st.status === "runtime missing" ? t("The runtime this worker needs (PHP, Python, Go, Ruby, Java, .NET or Node.js) is not part of the project; the worker resumes once it is added.") : undefined}>
-                            <StatusDot tone={containerStateTone(st.state)} /> {st.status === "runtime missing" ? t("paused - runtime missing") : st.state}
+                            <StatusDot tone={containerStateTone(st.state)} /> {st.status === "runtime missing" ? t("paused - runtime missing") : containerStateLabel(st.state, t)}
                           </span>
                         ) : null
                       ) : (

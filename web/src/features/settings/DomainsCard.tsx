@@ -214,7 +214,7 @@ export function DomainsCard() {
   const settings = useSettings();
   const tls = useTLSInfo();
   if (settings.isPending || tls.isPending) return <Card><CardHeader title={t("Domains & HTTPS")} /><Spinner /></Card>;
-  if (settings.isError || tls.isError) return <Card><CardHeader title={t("Domains & HTTPS")} /><div className="p-5"><Alert tone="red">{(settings.error ?? tls.error)?.message}</Alert></div></Card>;
+  if (settings.isError || tls.isError) return <Card><CardHeader title={t("Domains & HTTPS")} /><div className="p-5"><Alert tone="red">{errorText(settings.error ?? tls.error, t)}</Alert></div></Card>;
   const info = tls.data;
   const tlsAvailable = info.enabled && info.proxy.httpsPort > 0;
   return (

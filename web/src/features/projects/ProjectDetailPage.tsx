@@ -14,7 +14,7 @@ import { RubyServerFields, defaultRubyServerForm, rubyServerRequest, type RubySe
 import { JavaServerFields, defaultJavaServerForm, javaServerRequest, type JavaServerForm } from "./JavaServerFields";
 import { DotnetServerFields, defaultDotnetServerForm, dotnetServerRequest, type DotnetServerForm } from "./DotnetServerFields";
 import { Alert, Badge, Button, Card, CardHeader, Checkbox, Code, Dialog, ErrorState, Field, Input, Menu, PageHeader, Select, Spinner, StatusDot, type MenuItem } from "@/components/ui";
-import { containerStateTone, formatBytes, formatDateTime, formatPercent, serviceLabel, stateMeta } from "@/lib/format";
+import { containerStateLabel, containerStateTone, formatBytes, formatDateTime, formatPercent, healthLabel, serviceLabel, stateMeta } from "@/lib/format";
 import { DeleteProjectDialog, DuplicateProjectDialog, ProjectActionButtons, RenameProjectDialog, useActionError } from "./ProjectActions";
 import { OperationHint } from "@/components/OperationsTray";
 import { DatabaseTab } from "./DatabaseTab";
@@ -332,8 +332,8 @@ function OverviewTab({ project: p }: { project: Project }) {
                   {s.containerName && <p className="font-mono text-[11px] text-subtle">{s.containerName}</p>}
                 </div>
               </div>
-              <Badge tone={containerStateTone(s.state)}>{s.exists || s.state === "external" ? s.state : t("missing")}</Badge>
-              {s.health && <Badge tone={s.health === "healthy" ? "green" : s.health === "starting" ? "blue" : "red"}>{s.health}</Badge>}
+              <Badge tone={containerStateTone(s.state)}>{s.exists || s.state === "external" ? containerStateLabel(s.state, t) : t("missing")}</Badge>
+              {s.health && <Badge tone={s.health === "healthy" ? "green" : s.health === "starting" ? "blue" : "red"}>{healthLabel(s.health, t)}</Badge>}
               {/* A crash loop or a server stuck before its start: the logs say why. */}
               {s.exists && (s.state === "restarting" || s.health === "unhealthy") && (
                 <Link to={`?tab=Logs&service=${encodeURIComponent(s.kind === "worker" ? `worker:${s.workerId}` : s.kind)}`} className="inline-flex items-center gap-1 text-xs font-medium text-accent-600 hover:underline dark:text-accent-300">
@@ -722,7 +722,7 @@ function NodeCard({ project: p }: { project: Project }) {
             <span className="text-muted">{t("Dev server")}</span>
             {nodeStatus && (
               <span className="inline-flex items-center gap-1.5 text-xs">
-                <StatusDot tone={containerStateTone(nodeStatus.state)} /> {nodeStatus.state}
+                <StatusDot tone={containerStateTone(nodeStatus.state)} /> {containerStateLabel(nodeStatus.state, t)}
               </span>
             )}
             {url ? (
@@ -822,7 +822,7 @@ function PythonCard({ project: p }: { project: Project }) {
             <span className="text-muted">{t("Application server")}</span>
             {pythonStatus && (
               <span className="inline-flex items-center gap-1.5 text-xs">
-                <StatusDot tone={containerStateTone(pythonStatus.state)} /> {pythonStatus.state}
+                <StatusDot tone={containerStateTone(pythonStatus.state)} /> {containerStateLabel(pythonStatus.state, t)}
               </span>
             )}
             {url ? (
@@ -921,7 +921,7 @@ function GoCard({ project: p }: { project: Project }) {
             <span className="text-muted">{stored.server ? t("Server") : t("Debugger")}</span>
             {goStatus && (
               <span className="inline-flex items-center gap-1.5 text-xs">
-                <StatusDot tone={containerStateTone(goStatus.state)} /> {goStatus.state}
+                <StatusDot tone={containerStateTone(goStatus.state)} /> {containerStateLabel(goStatus.state, t)}
               </span>
             )}
             {stored.server &&
@@ -1021,7 +1021,7 @@ function RubyCard({ project: p }: { project: Project }) {
             <span className="text-muted">{stored.server ? t("Server") : t("Debugger")}</span>
             {rubyStatus && (
               <span className="inline-flex items-center gap-1.5 text-xs">
-                <StatusDot tone={containerStateTone(rubyStatus.state)} /> {rubyStatus.state}
+                <StatusDot tone={containerStateTone(rubyStatus.state)} /> {containerStateLabel(rubyStatus.state, t)}
               </span>
             )}
             {stored.server &&
@@ -1122,7 +1122,7 @@ function JavaCard({ project: p }: { project: Project }) {
             <span className="text-muted">{stored.server ? t("Server") : t("Debugger")}</span>
             {javaStatus && (
               <span className="inline-flex items-center gap-1.5 text-xs">
-                <StatusDot tone={containerStateTone(javaStatus.state)} /> {javaStatus.state}
+                <StatusDot tone={containerStateTone(javaStatus.state)} /> {containerStateLabel(javaStatus.state, t)}
               </span>
             )}
             {stored.server &&
@@ -1223,7 +1223,7 @@ function DotnetCard({ project: p }: { project: Project }) {
             <span className="text-muted">{t("Server")}</span>
             {dotnetStatus && (
               <span className="inline-flex items-center gap-1.5 text-xs">
-                <StatusDot tone={containerStateTone(dotnetStatus.state)} /> {dotnetStatus.state}
+                <StatusDot tone={containerStateTone(dotnetStatus.state)} /> {containerStateLabel(dotnetStatus.state, t)}
               </span>
             )}
             {url ? (

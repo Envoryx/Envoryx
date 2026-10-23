@@ -6,6 +6,7 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import "@xterm/xterm/css/xterm.css";
+import i18n from "@/i18n";
 import type { Project } from "@/api/types";
 import { Button, Card } from "@/components/ui";
 import { translateMessage } from "@/lib/errors";
@@ -79,7 +80,7 @@ function useTerminalSession(projectId: string, kind: string, generation: number)
     ws.onclose = (ev) => {
       setState((s) => (s === "error" ? s : "closed"));
       if (ev.code !== 1000 && ev.reason) setMessage(ev.reason);
-      term.write("\r\n\x1b[90m[session closed]\x1b[0m\r\n");
+      term.write(`\r\n\x1b[90m[${i18n.t("session closed")}]\x1b[0m\r\n`);
     };
 
     const onData = term.onData((data) => {

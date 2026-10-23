@@ -5,7 +5,7 @@ import { useOllamaModels, useOllamaMutations } from "@/api/hooks";
 import type { OllamaModel, OllamaPull, Project } from "@/api/types";
 import { Alert, Badge, Button, Dialog, ErrorState, Field, Input, Spinner } from "@/components/ui";
 import { formatBytes } from "@/lib/format";
-import { errorText } from "@/lib/errors";
+import { errorText, translateMessage } from "@/lib/errors";
 import { projectAccess } from "@/lib/access";
 
 type Message = { tone: "green" | "red"; text: string };
@@ -24,7 +24,7 @@ function PullRow({ pull, onCancel, cancelling }: { pull: OllamaPull; onCancel?: 
     if (pull.status === "success") return null; // the model is in the list now
     return (
       <Alert tone={pull.status === "failed" ? "red" : "amber"}>
-        {pull.status === "failed" ? t("Downloading {{model}} failed: {{error}}", { model: pull.model, error: pull.error ?? "" }) : t("Download of {{model}} cancelled. The next download of it continues where this one stopped.", { model: pull.model })}
+        {pull.status === "failed" ? t("Downloading {{model}} failed: {{error}}", { model: pull.model, error: translateMessage(pull.error, t) }) : t("Download of {{model}} cancelled. The next download of it continues where this one stopped.", { model: pull.model })}
       </Alert>
     );
   }

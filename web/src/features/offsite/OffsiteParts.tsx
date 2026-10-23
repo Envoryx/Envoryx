@@ -1,11 +1,17 @@
 import { CloudDownload, CloudUpload, Lock, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { useQuery } from "@tanstack/react-query";
 import type { OffsiteTargetName, OffsiteUpload, RemoteBackup } from "@/api/types";
 import { Alert, Badge, Button, Select, Spinner } from "@/components/ui";
-import { formatBytes, formatDateTime } from "@/lib/format";
-import { errorText } from "@/lib/errors";
+import { backupKindLabel, formatBytes, formatDateTime } from "@/lib/format";
+import { errorText, translateMessage } from "@/lib/errors";
+
+/** The managed target of a hoster is named "Hoster" by the server; that name is translated. */
+export function offsiteTargetName(target: { id: string; name: string }, t: TFunction): string {
+  return target.id === "hoster" ? t("Hoster") : target.name;
+}
 
 /** Whether any copy is still on its way; lists poll while this is true. */
 export function uploading(copies: Record<string, OffsiteUpload[]> | undefined): boolean {
@@ -20,12 +26,12 @@ export function OffsiteBadges({ copies }: { copies: OffsiteUpload[] | undefined 
     <>
       {copies.map((c) => {
         const retry = c.status === "failed" && c.nextAttemptAt ? t("next attempt {{date}}", { date: formatDateTime(c.nextAttemptAt) }) : "";
-        const title = c.status === "failed" ? [c.error, retry].filter(Boolean).join(" · ") : c.status === "done" ? `${formatBytes(c.sizeBytes)} · ${formatDateTime(c.updatedAt)}` : undefined;
+        const title = c.status === "failed" ? [c.error ? translateMessage(c.error, t) : "", retry].filter(Boolean).join(" · ") : c.status === "done" ? `${formatBytes(c.sizeBytes)} · ${formatDateTime(c.updatedAt)}` : undefined;
         return (
           <span key={c.targetId} title={title}>
             <Badge tone={c.status === "done" ? "green" : c.status === "failed" ? "red" : "amber"}>
               <CloudUpload className="mr-1 inline size-3" aria-hidden />
-              {c.targetName}
+              {offsiteTargetName({ id: c.targetId, name: c.targetName }, t)}
               {" · "}
               {c.status === "done" ? t("copied") : c.status === "failed" ? t("failed") : c.status === "running" ? t("uploading…") : t("queued")}
             </Badge>
@@ -44,7 +50,7 @@ export function OffsiteUploadButton({ targets, copies, onUpload, busy }: { targe
   const done = enabled.every((x) => copies?.some((c) => c.targetId === x.id && (c.status === "done" || c.status === "pending" || c.status === "running")));
   if (done) return null;
   return (
-    <Button size="sm" variant="ghost" loading={busy} onClick={onUpload} icon={<CloudUpload className="size-3.5" />} title={enabled.map((x) => x.name).join(", ")}>
+    <Button size="sm" variant="ghost" loading={busy} onClick={onUpload} icon={<CloudUpload className="size-3.5" />} title={enabled.map((x) => offsiteTargetName(x, t)).join(", ")}>
       {t("Copy offsite")}
     </Button>
   );
@@ -83,14 +89,14 @@ export function RemoteBackups({
             <Select aria-label={t("Offsite target")} value={targetId} onChange={(e) => setTargetId(e.target.value)}>
               {targets.map((x) => (
                 <option key={x.id} value={x.id}>
-                  {x.name}
+                  {offsiteTargetName(x, t)}
                 </option>
               ))}
             </Select>
           </div>
         )}
         <Button size="sm" onClick={() => (open ? void q.refetch() : setOpen(true))} loading={q.isFetching} icon={<RefreshCw className="size-3.5" />}>
-          {open ? t("Refresh") : targets.length > 1 ? t("Show copies") : t("Show copies on {{name}}", { name: targets[0]?.name ?? "" })}
+          {open ? t("Refresh") : targets.length > 1 ? t("Show copies") : t("Show copies on {{name}}", { name: targets[0] ? offsiteTargetName(targets[0], t) : "" })}
         </Button>
       </div>
       {open &&
@@ -109,7 +115,7 @@ export function RemoteBackups({
                   <div>
                     <p className="flex flex-wrap items-center gap-2 font-medium">
                       {formatDateTime(b.createdAt)}
-                      <Badge>{b.kind}</Badge>
+                      <Badge>{backupKindLabel(b.kind, t)}</Badge>
                       {b.source === "scheduled" && <Badge tone="blue">{t("scheduled")}</Badge>}
                       {b.encrypted && (
                         <span title={t("encrypted")}>
