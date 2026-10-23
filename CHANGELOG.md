@@ -10,6 +10,8 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.44.0] - 2026-10-23
+
 ### Added
 - A hoster's plan can name the services and database engines projects may add
   (`services`: no Ollama or OpenSearch on a small machine, say), cap how many
@@ -2647,7 +2649,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.43.1...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.44.0...HEAD
+[0.44.0]: https://github.com/envoryx/envoryx/compare/v0.43.1...v0.44.0
 [0.43.1]: https://github.com/envoryx/envoryx/compare/v0.43.0...v0.43.1
 [0.43.0]: https://github.com/envoryx/envoryx/compare/v0.42.0...v0.43.0
 [0.42.0]: https://github.com/envoryx/envoryx/compare/v0.41.0...v0.42.0
