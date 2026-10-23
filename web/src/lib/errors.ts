@@ -181,9 +181,12 @@ const templates = [
 ];
 
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+// Only an {{error}} or {{reason}} (a wrapped backend message) may span ": ". Any other
+// value stops there, so a template doesn't swallow the context Go put in front of it
+// ("not included in the plan: PHP 8.6 is a preview version; ...").
 const compiled = templates.map((tpl) => ({
   tpl,
-  re: new RegExp("^" + escape(tpl).replace(/\\\{\\\{(\w+)\\\}\\\}/g, "(?<$1>.+?)") + "$"),
+  re: new RegExp("^" + escape(tpl).replace(/\\\{\\\{(\w+)\\\}\\\}/g, (_, name: string) => (name === "error" || name === "reason" ? `(?<${name}>.+?)` : `(?<${name}>(?:(?!: ).)+?)`)) + "$"),
 }));
 
 function translateSegment(s: string, t: TFunction): string | undefined {
