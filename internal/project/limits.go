@@ -9,6 +9,7 @@ import (
 
 	"github.com/envoryx/envoryx/internal/audit"
 	"github.com/envoryx/envoryx/internal/docker"
+	"github.com/envoryx/envoryx/internal/plan"
 	"github.com/envoryx/envoryx/internal/store"
 	"github.com/envoryx/envoryx/internal/validate"
 )
@@ -50,9 +51,13 @@ func limitSet(l store.ResourceLimits, kind store.ServiceKind) store.LimitSet {
 	return l.Services
 }
 
-// containerResources is what a container of kind runs with.
-func containerResources(l store.ResourceLimits, kind store.ServiceKind) *docker.Resources {
+// containerResources is what a container of kind runs with; planLimit (nil without a
+// plan) applies the hoster's caps and defaults.
+func containerResources(l store.ResourceLimits, kind store.ServiceKind, planLimit func(float64, int) (float64, int)) *docker.Resources {
 	set := limitSet(l, kind)
+	if planLimit != nil {
+		set.CPUs, set.MemoryMB = planLimit(set.CPUs, set.MemoryMB)
+	}
 	pids := l.Pids
 	if pids == 0 {
 		pids = DefaultPidsLimit
@@ -89,6 +94,23 @@ func validateLimits(l store.ResourceLimits, hostCPUs int, hostMemory int64) erro
 	return nil
 }
 
+// checkLimitsPlan refuses limits above the plan's caps for each container.
+func checkLimitsPlan(pl *plan.Plan, l store.ResourceLimits) error {
+	if pl == nil {
+		return nil
+	}
+	c := pl.Limits.Container
+	for _, set := range []store.LimitSet{l.App, l.Services} {
+		if c.CPUs > 0 && set.CPUs > c.CPUs {
+			return plan.Quota("this instance's plan allows at most %g CPU cores per container", c.CPUs)
+		}
+		if c.MemoryMB > 0 && set.MemoryMB > c.MemoryMB {
+			return plan.Quota("this instance's plan allows at most %d MiB of memory per container", c.MemoryMB)
+		}
+	}
+	return nil
+}
+
 // SetLimits stores a project's limits and applies them to its containers right away:
 // running ones are updated in place, a lifted limit recreates the container.
 func (m *Manager) SetLimits(ctx context.Context, id string, l store.ResourceLimits) (View, error) {
@@ -103,6 +125,9 @@ func (m *Manager) SetLimits(ctx context.Context, id string, l store.ResourceLimi
 		cpus, mem = info.NCPU, info.MemTotal
 	}
 	if err := validateLimits(l, cpus, mem); err != nil {
+		return View{}, err
+	}
+	if err := checkLimitsPlan(m.Plan(), l); err != nil {
 		return View{}, err
 	}
 	return m.runView(ctx, limitProvision, Operation{Action: "limits", ProjectID: id}, func(ctx context.Context) (View, error) {

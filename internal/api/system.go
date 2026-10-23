@@ -194,7 +194,24 @@ func (a *API) dashboard(w http.ResponseWriter, r *http.Request) {
 // host can't run and versions its plan leaves out are marked.
 func (a *API) runtimesForInstance(ctx context.Context) []runtime.Runtime {
 	pl := a.d.Projects.Plan()
-	return runtime.MarkPlan(a.d.Catalog.ForKernel(a.d.Projects.HostKernel(ctx)), pl.Allows(plan.FeatureEOLVersions), pl.Allows(plan.FeaturePreviewVersions))
+	out := runtime.MarkPlan(a.d.Catalog.ForKernel(a.d.Projects.HostKernel(ctx)), pl.Allows(plan.FeatureEOLVersions), pl.Allows(plan.FeaturePreviewVersions))
+	for i := range out {
+		r := &out[i]
+		switch r.Kind {
+		case "runtime":
+			r.NotInPlan = !pl.AllowsRuntime(r.Key)
+		case "database", "service", "storage":
+			name := r.Key
+			switch name {
+			case "rustfs":
+				name = "storage"
+			case "opensearch-dashboards":
+				name = "opensearch"
+			}
+			r.NotInPlan = !pl.AllowsService(name)
+		}
+	}
+	return out
 }
 
 func (a *API) runtimes(w http.ResponseWriter, r *http.Request) {
@@ -690,23 +707,26 @@ func (a *API) settings(w http.ResponseWriter, r *http.Request) {
 		"metrics":               a.d.Projects.MetricsInfo(r.Context()),
 		"xdebugClientHost":      a.d.Projects.XdebugClientHost(r.Context()),
 		"folderViewFolder":      a.d.Projects.FolderViewFolder(r.Context()),
-		"sshAuthorizedKeys":     a.setting(r.Context(), sshd.SettingAuthorizedKeys),
-		"twoFactorRequired":     a.twoFactorRequirement(r),
-		"ssh":                   a.sshDTO(),
-		"proxy":                 a.proxyDTO(),
-		"version":               a.d.Version,
-		"schemaVersion":         schema,
-		"configDir":             c.ConfigDir,
-		"projectsDir":           c.ProjectsDir,
-		"hostPath":              a.d.HostPath.Status(),
-		"portRange":             map[string]int{"start": c.PortRangeStart, "end": c.PortRangeEnd},
-		"puid":                  c.PUID,
-		"pgid":                  c.PGID,
-		"dockerHost":            c.DockerHost,
-		"session":               map[string]string{"idleTimeout": c.SessionIdleTimeout.String(), "absoluteTimeout": c.SessionAbsoluteTimeout.String()},
-		"secureCookies":         c.SecureCookies,
-		"update":                a.d.Updates.Status(),
-		"warnings":              append([]string{}, a.d.Warnings...),
+		// Unraid's kernels carry its name ("6.12.10-Unraid"); its Docker page is where
+		// the FolderView3 folder shows.
+		"unraid":            strings.Contains(strings.ToLower(a.d.Projects.HostKernel(r.Context())), "unraid"),
+		"sshAuthorizedKeys": a.setting(r.Context(), sshd.SettingAuthorizedKeys),
+		"twoFactorRequired": a.twoFactorRequirement(r),
+		"ssh":               a.sshDTO(),
+		"proxy":             a.proxyDTO(),
+		"version":           a.d.Version,
+		"schemaVersion":     schema,
+		"configDir":         c.ConfigDir,
+		"projectsDir":       c.ProjectsDir,
+		"hostPath":          a.d.HostPath.Status(),
+		"portRange":         map[string]int{"start": c.PortRangeStart, "end": c.PortRangeEnd},
+		"puid":              c.PUID,
+		"pgid":              c.PGID,
+		"dockerHost":        c.DockerHost,
+		"session":           map[string]string{"idleTimeout": c.SessionIdleTimeout.String(), "absoluteTimeout": c.SessionAbsoluteTimeout.String()},
+		"secureCookies":     c.SecureCookies,
+		"update":            a.d.Updates.Status(),
+		"warnings":          append([]string{}, a.d.Warnings...),
 	})
 }
 

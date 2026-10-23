@@ -483,6 +483,11 @@ func (m *Manager) transitionLocked(ctx context.Context, id, action string, op fu
 	if proj.Lifecycle == store.LifecycleDeleting {
 		return View{}, fmt.Errorf("%w: project is being deleted", ErrConflict)
 	}
+	if desired == store.DesiredRunning && proj.DesiredState != store.DesiredRunning {
+		if err := m.checkRunningQuota(ctx, proj.ID); err != nil {
+			return View{}, err
+		}
+	}
 	movedFrom := 0
 	if desired == store.DesiredRunning {
 		movedFrom = m.moveBusyHTTPPort(ctx, &proj)

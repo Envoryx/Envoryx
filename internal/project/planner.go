@@ -538,6 +538,9 @@ func (p *Planner) HomeDir(proj store.Project) string {
 type Planner struct {
 	paths   Paths
 	catalog *runtime.Catalog
+	// containerLimit applies the hoster's plan to a container's CPU and memory limit
+	// (plan.Plan.ContainerLimit); nil leaves them as the project sets them.
+	containerLimit func(cpus float64, memoryMB int) (float64, int)
 }
 
 // NewPlanner creates a planner.
@@ -1451,7 +1454,7 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 	for i := range plan.Containers {
 		docker.AddUnraidLabels(plan.Containers[i].Spec.Labels, p.paths.FolderViewFolder)
 		plan.Containers[i].Spec.Labels[docker.LabelSpec] = specFingerprint(plan.Containers[i].Spec)
-		plan.Containers[i].Spec.Resources = containerResources(proj.Limits, plan.Containers[i].Kind)
+		plan.Containers[i].Spec.Resources = containerResources(proj.Limits, plan.Containers[i].Kind, p.containerLimit)
 	}
 	sort.SliceStable(plan.Containers, func(i, j int) bool { return plan.Containers[i].Order < plan.Containers[j].Order })
 	for img := range images {

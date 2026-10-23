@@ -24,12 +24,57 @@ type planUsage struct {
 	mu         sync.Mutex
 	diskBytes  int64
 	measuredAt time.Time
+	// container are the plan's container limits and defaults last applied.
+	container [2]plan.ContainerLimits
 }
 
 // SetPlan hands the Manager the instance's plan and suspension.
 func (m *Manager) SetPlan(h *plan.Holder) {
 	m.plan = h
 	h.OnSuspend(m.suspensionChanged)
+	// The containers already run with the limits of the plan they started under.
+	if pl := h.Get(); pl != nil {
+		m.usage.container = [2]plan.ContainerLimits{pl.Limits.Container, pl.Limits.ContainerDefault}
+	}
+	h.OnChange(m.planChanged)
+}
+
+// planChanged brings the containers in line with new container limits of the plan, in
+// the background; a project busy with something else gets them on its next start.
+func (m *Manager) planChanged(pl *plan.Plan) {
+	var c, d plan.ContainerLimits
+	if pl != nil {
+		c, d = pl.Limits.Container, pl.Limits.ContainerDefault
+	}
+	m.usage.mu.Lock()
+	same := m.usage.container == [2]plan.ContainerLimits{c, d}
+	m.usage.container = [2]plan.ContainerLimits{c, d}
+	m.usage.mu.Unlock()
+	if same {
+		return
+	}
+	go func() {
+		ctx := context.Background()
+		projects, err := m.store.Projects.List(ctx)
+		if err != nil {
+			return
+		}
+		for _, p := range projects {
+			if p.Lifecycle != store.LifecycleReady {
+				continue
+			}
+			unlock, err := m.lock(p.ID)
+			if err != nil {
+				continue
+			}
+			if p, err := m.loadProject(ctx, p.ID); err == nil {
+				if err := m.applyResources(ctx, p); err != nil {
+					m.log.Warn("plan: container limits not applied", "project", p.Slug, "err", err)
+				}
+			}
+			unlock()
+		}
+	}()
 }
 
 // Plan returns the instance's plan; nil when it has none.
@@ -54,7 +99,93 @@ func (m *Manager) checkNewProject(ctx context.Context, p store.Project) error {
 	if err := m.checkDiskQuota(); err != nil {
 		return err
 	}
+	if p.DesiredState == store.DesiredRunning {
+		if err := m.checkRunningQuota(ctx, p.ID); err != nil {
+			return err
+		}
+	}
+	for _, svc := range p.Services {
+		if err := m.requireService(pl, svc); err != nil {
+			return err
+		}
+	}
 	return checkProjectPlan(pl, p, nil, m.catalogVersion)
+}
+
+// RunningProjects counts the projects meant to run now.
+func (m *Manager) RunningProjects(ctx context.Context) (int, error) {
+	return m.runningProjects(ctx, "")
+}
+
+// runningProjects counts the projects meant to run, other than except.
+func (m *Manager) runningProjects(ctx context.Context, except string) (int, error) {
+	projects, err := m.store.Projects.List(ctx)
+	if err != nil {
+		return 0, err
+	}
+	n := 0
+	for _, p := range projects {
+		if p.ID != except && p.DesiredState == store.DesiredRunning {
+			n++
+		}
+	}
+	return n, nil
+}
+
+// checkRunningQuota refuses to start another project (not id) once the plan's number
+// of running projects is reached.
+func (m *Manager) checkRunningQuota(ctx context.Context, id string) error {
+	pl := m.Plan()
+	if pl == nil || pl.Limits.RunningProjects == 0 {
+		return nil
+	}
+	max := pl.Limits.RunningProjects
+	n, err := m.runningProjects(ctx, id)
+	if err != nil {
+		return err
+	}
+	if n >= max {
+		return plan.Quota("this instance's plan runs at most %d projects at the same time; stop another project first", max)
+	}
+	return nil
+}
+
+// planService is the name a plan's services give a service (plan.ServiceNames), "" for
+// one a plan doesn't restrict (runtimes, the web server, addons).
+func planService(svc store.ProjectService) string {
+	switch {
+	case svc.Kind.IsDatabase():
+		return svc.Variant
+	case svc.Kind == store.ServiceStorage:
+		return "storage"
+	case svc.Kind == store.ServiceOpenSearchDashboards:
+		return "opensearch"
+	}
+	switch svc.Kind {
+	case store.ServiceRedis, store.ServiceMemcached, store.ServiceRabbitMQ, store.ServiceMeilisearch, store.ServiceTypesense, store.ServiceOpenSearch, store.ServiceOllama, store.ServiceMailpit:
+		return string(svc.Kind)
+	}
+	return ""
+}
+
+// requireService is the plan's say on a project getting svc (not run by Envoryx when
+// external).
+func (m *Manager) requireService(pl *plan.Plan, svc store.ProjectService) error {
+	name := planService(svc)
+	if name == "" || pl.AllowsService(name) || externalService(&svc) {
+		return nil
+	}
+	label := name
+	key := name
+	if key == "storage" {
+		key = "rustfs"
+	}
+	if m.catalog != nil {
+		if r, ok := m.catalog.Get(key); ok {
+			label = r.Name
+		}
+	}
+	return pl.RequireService(name, label)
 }
 
 // versionLookup finds the catalogue entry of a service's version (Manager.catalogVersion).
@@ -158,7 +289,59 @@ func (m *Manager) checkUpdatePlan(proj store.Project, req UpdateRequest) error {
 			return err
 		}
 	}
+	if err := m.checkUpdateServices(pl, proj, req); err != nil {
+		return err
+	}
 	return m.checkUpdateVersions(pl, proj, req)
+}
+
+// checkUpdateServices checks the services and database engines an update adds.
+func (m *Manager) checkUpdateServices(pl *plan.Plan, proj store.Project, req UpdateRequest) error {
+	if pl == nil || len(pl.Services) == 0 {
+		return nil
+	}
+	var adds []store.ProjectService
+	db := func(kind store.ServiceKind, d DatabaseUpdate) {
+		if !d.Enabled || d.External != nil {
+			return
+		}
+		cur := proj.Service(kind)
+		typ := d.Type
+		if typ == "" && cur != nil {
+			typ = cur.Variant
+		}
+		if cur == nil || cur.Variant != typ || externalService(cur) {
+			adds = append(adds, store.ProjectService{Kind: kind, Variant: typ})
+		}
+	}
+	if req.Database != nil {
+		db(store.ServiceDatabase, *req.Database)
+	}
+	for name, d := range req.Databases {
+		db(store.DatabaseKind(name), d)
+	}
+	extras := map[store.ServiceKind]*ExtraUpdate{
+		store.ServiceRedis: req.Redis, store.ServiceMemcached: req.Memcached, store.ServiceMailpit: req.Mailpit,
+		store.ServiceRabbitMQ: req.RabbitMQ, store.ServiceMeilisearch: req.Meilisearch, store.ServiceTypesense: req.Typesense,
+		store.ServiceOllama: req.Ollama, store.ServiceOpenSearch: req.OpenSearch,
+	}
+	for kind, e := range extras {
+		if e == nil || e.External != nil || e.Enabled == nil || !*e.Enabled {
+			continue
+		}
+		if cur := proj.Service(kind); cur == nil || externalService(cur) {
+			adds = append(adds, store.ProjectService{Kind: kind})
+		}
+	}
+	if st := req.Storage; st != nil && st.Enabled && proj.Service(store.ServiceStorage) == nil {
+		adds = append(adds, store.ProjectService{Kind: store.ServiceStorage})
+	}
+	for _, svc := range adds {
+		if err := m.requireService(pl, svc); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // checkVersionPlan refuses a version the plan leaves out: one past its end of life or a

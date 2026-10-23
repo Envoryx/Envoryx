@@ -10,9 +10,11 @@ import (
 
 // planUsage is how much of the plan the instance uses.
 type planUsage struct {
-	Projects  int   `json:"projects"`
-	Users     int   `json:"users"`
-	DiskBytes int64 `json:"diskBytes"`
+	Projects int `json:"projects"`
+	Users    int `json:"users"`
+	// RunningProjects are the projects meant to run now.
+	RunningProjects int   `json:"runningProjects"`
+	DiskBytes       int64 `json:"diskBytes"`
 	// DiskMeasuredAt is when the disk space was last measured; zero while the plan
 	// doesn't limit it.
 	DiskMeasuredAt time.Time `json:"diskMeasuredAt,omitzero"`
@@ -46,20 +48,27 @@ func (a *API) planStatus(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
+	if u.RunningProjects, err = a.d.Projects.RunningProjects(r.Context()); err != nil {
+		writeError(w, r, err)
+		return
+	}
 	u.DiskBytes, u.DiskMeasuredAt = a.d.Projects.DiskUsage()
 	writeJSON(w, http.StatusOK, map[string]any{"plan": planDTO(pl), "usage": u, "fleet": a.d.Fleet.Info(), "suspension": susp})
 }
 
 // planDTO is a plan with its lists never null.
 func planDTO(p *plan.Plan) map[string]any {
-	runtimes, disabled := p.Runtimes, p.Disabled
+	runtimes, services, disabled := p.Runtimes, p.Services, p.Disabled
 	if runtimes == nil {
 		runtimes = []string{}
+	}
+	if services == nil {
+		services = []string{}
 	}
 	if disabled == nil {
 		disabled = []plan.Feature{}
 	}
 	return map[string]any{
-		"name": p.Name, "limits": p.Limits, "runtimes": runtimes, "disabled": disabled, "lockedSettings": p.LockedKeys(),
+		"name": p.Name, "limits": p.Limits, "runtimes": runtimes, "services": services, "disabled": disabled, "lockedSettings": p.LockedKeys(),
 	}
 }

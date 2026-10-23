@@ -28,10 +28,32 @@ func TestParse(t *testing.T) {
 		t.Errorf("Locked = %q %v", v, ok)
 	}
 
-	for _, bad := range []string{`{"limits":{"projects":-1}}`, `{"disabled":["rockets"]}`, `{"unknown":1}`, `{`, `{"settings":{"sshAuthorizedKeys":"x"}}`, `{"offsite":{"type":"ftp"}}`, `{"offsite":{"type":"s3","instanceHour":24}}`, `{"offsite":{"type":"s3","encrypt":true}}`} {
+	for _, bad := range []string{`{"limits":{"projects":-1}}`, `{"disabled":["rockets"]}`, `{"unknown":1}`, `{`, `{"settings":{"sshAuthorizedKeys":"x"}}`, `{"offsite":{"type":"ftp"}}`, `{"offsite":{"type":"s3","instanceHour":24}}`, `{"offsite":{"type":"s3","encrypt":true}}`, `{"services":["oracle"]}`, `{"limits":{"runningProjects":-1}}`, `{"limits":{"container":{"memoryMb":32}}}`, `{"limits":{"container":{"cpus":1},"containerDefault":{"cpus":2}}}`} {
 		if _, err := Parse([]byte(bad)); err == nil {
 			t.Errorf("Parse(%s) passed", bad)
 		}
+	}
+}
+
+func TestPlanServicesAndContainerLimits(t *testing.T) {
+	p, err := Parse([]byte(`{"services":["mariadb","redis"],"limits":{"runningProjects":2,"container":{"cpus":2,"memoryMb":1024},"containerDefault":{"memoryMb":512}},"settings":{"twoFactorRequired":"all"}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !p.AllowsService("redis") || p.AllowsService("ollama") || !errors.Is(p.RequireService("ollama", "Ollama"), ErrQuota) {
+		t.Error("services: redis in, ollama out")
+	}
+	for _, c := range []struct {
+		cpus, wantCPUs float64
+		mem, wantMem   int
+	}{{0, 2, 0, 512}, {4, 2, 2048, 1024}, {0.5, 0.5, 256, 256}} {
+		if cpus, mem := p.ContainerLimit(c.cpus, c.mem); cpus != c.wantCPUs || mem != c.wantMem {
+			t.Errorf("ContainerLimit(%g, %d) = %g, %d", c.cpus, c.mem, cpus, mem)
+		}
+	}
+	var none *Plan
+	if cpus, mem := none.ContainerLimit(0, 0); cpus != 0 || mem != 0 || !none.AllowsService("ollama") {
+		t.Error("no plan, no limits")
 	}
 }
 

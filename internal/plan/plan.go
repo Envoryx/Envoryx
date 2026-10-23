@@ -55,6 +55,9 @@ type Plan struct {
 	// Runtimes, when set, are the only runtimes new projects may use (php, node, python,
 	// ruby, go, java, dotnet, static).
 	Runtimes []string `json:"runtimes,omitempty"`
+	// Services, when set, are the only services and database engines projects may add
+	// (ServiceNames). Projects that run another one keep it.
+	Services []string `json:"services,omitempty"`
 	// Disabled are the features the plan switches off.
 	Disabled []Feature `json:"disabled,omitempty"`
 	// Settings are instance settings the hoster fixes, by their name in the settings API
@@ -112,10 +115,29 @@ type Limits struct {
 	// rather than any write at the byte. The unit is the GiB (2^30 bytes), as the
 	// instance shows it; the JSON name stays diskGb.
 	DiskGB float64 `json:"diskGb,omitempty"`
+	// RunningProjects caps the projects that run at the same time; a stopped project
+	// doesn't count.
+	RunningProjects int `json:"runningProjects,omitempty"`
+	// Container caps the CPU and memory of every project container: a project may set
+	// lower limits, never higher ones or none. ContainerDefault is what a container
+	// without a limit of its own gets (Container where it has no value).
+	Container        ContainerLimits `json:"container,omitzero"`
+	ContainerDefault ContainerLimits `json:"containerDefault,omitzero"`
 }
 
+// ContainerLimits are the CPU cores and the memory (MiB) of one container; zero means no
+// limit.
+type ContainerLimits struct {
+	CPUs     float64 `json:"cpus,omitempty"`
+	MemoryMB int     `json:"memoryMb,omitempty"`
+}
+
+// ServiceNames are the services and database engines a plan's Services can name.
+// opensearch includes its dashboards.
+var ServiceNames = []string{"mariadb", "mysql", "postgresql", "mongodb", "redis", "memcached", "rabbitmq", "meilisearch", "typesense", "opensearch", "ollama", "mailpit", "storage"}
+
 // LockableSettings are the instance settings a plan can fix.
-var LockableSettings = []string{"publicHost", "baseDomain", "forceHttps", "projectsFollowEnvoryx", "sharedIdeBackends", "sharedPackageCache", "xdebugClientHost", "folderViewFolder", "metricsRetentionDays", "newProjectsPrivate"}
+var LockableSettings = []string{"publicHost", "baseDomain", "forceHttps", "projectsFollowEnvoryx", "sharedIdeBackends", "sharedPackageCache", "xdebugClientHost", "folderViewFolder", "metricsRetentionDays", "newProjectsPrivate", "twoFactorRequired", "logHistory", "imageUpdates"}
 
 // ErrQuota is returned when an action would go beyond the plan.
 var ErrQuota = errors.New("not included in the plan")
@@ -154,8 +176,21 @@ func Parse(b []byte) (*Plan, error) {
 // Validate checks the values a plan carries.
 func (p *Plan) Validate() error {
 	l := p.Limits
-	if l.Projects < 0 || l.Users < 0 || l.DiskGB < 0 || math.IsNaN(l.DiskGB) || math.IsInf(l.DiskGB, 0) {
+	if l.Projects < 0 || l.Users < 0 || l.RunningProjects < 0 || l.DiskGB < 0 || math.IsNaN(l.DiskGB) || math.IsInf(l.DiskGB, 0) {
 		return errors.New("plan: limits can't be negative")
+	}
+	for _, c := range []ContainerLimits{l.Container, l.ContainerDefault} {
+		if c.CPUs < 0 || math.IsNaN(c.CPUs) || math.IsInf(c.CPUs, 0) || c.MemoryMB < 0 || (c.CPUs > 0 && c.CPUs < 0.1) || (c.MemoryMB > 0 && c.MemoryMB < 64) {
+			return errors.New("plan: container limits need at least 0.1 cores and 64 MiB")
+		}
+	}
+	if (l.Container.CPUs > 0 && l.ContainerDefault.CPUs > l.Container.CPUs) || (l.Container.MemoryMB > 0 && l.ContainerDefault.MemoryMB > l.Container.MemoryMB) {
+		return errors.New("plan: a container default can't be above the container limit")
+	}
+	for _, s := range p.Services {
+		if !slices.Contains(ServiceNames, s) {
+			return fmt.Errorf("plan: unknown service %q (possible: %s)", s, strings.Join(ServiceNames, ", "))
+		}
 	}
 	for k, v := range p.Settings {
 		if !slices.Contains(LockableSettings, k) {
@@ -221,6 +256,43 @@ func (p *Plan) RequireRuntime(rt string) error {
 		return nil
 	}
 	return Quota("the runtime %s is not available on this instance; the plan includes %s", rt, strings.Join(p.Runtimes, ", "))
+}
+
+// AllowsService reports whether projects may add a service or database engine (one of
+// ServiceNames).
+func (p *Plan) AllowsService(name string) bool {
+	return p == nil || len(p.Services) == 0 || slices.Contains(p.Services, name)
+}
+
+// RequireService returns an ErrQuota when the plan leaves the service name out; label is
+// how users know it ("OpenSearch").
+func (p *Plan) RequireService(name, label string) error {
+	if p.AllowsService(name) {
+		return nil
+	}
+	return Quota("%s is not available on this instance's plan", label)
+}
+
+// ContainerLimit is what a container runs with under the plan when its project asks for
+// cpus and memoryMB (0 for no limit): the project's value up to the plan's cap, the
+// plan's default (or cap) where the project sets none.
+func (p *Plan) ContainerLimit(cpus float64, memoryMB int) (float64, int) {
+	if p == nil {
+		return cpus, memoryMB
+	}
+	c, d := p.Limits.Container, p.Limits.ContainerDefault
+	return capped(cpus, d.CPUs, c.CPUs), capped(memoryMB, d.MemoryMB, c.MemoryMB)
+}
+
+// capped is v, or def when v is 0, at most limit (when limit isn't 0).
+func capped[T int | float64](v, def, limit T) T {
+	if v == 0 {
+		v = def
+	}
+	if limit > 0 && (v == 0 || v > limit) {
+		v = limit
+	}
+	return v
 }
 
 // Locked reports whether the plan fixes an instance setting, and its value.

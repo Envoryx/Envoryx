@@ -111,6 +111,23 @@ func TestPlanFixesSettings(t *testing.T) {
 	}
 }
 
+// The hoster can fix who needs a second factor, the log history and the image restart.
+func TestPlanFixesSecurityAndHousekeeping(t *testing.T) {
+	a := newApp(t)
+	a.setupAndLogin()
+	a.setPlan(`{"settings":{"twoFactorRequired":"off","logHistory":{"enabled":true,"retentionDays":7,"maxMb":100},"imageUpdates":{"autoRestart":true,"hour":4}}}`)
+	r := a.do(http.MethodGet, "/api/v1/settings", nil, false)
+	logs, _ := r.body["logHistory"].(map[string]any)
+	images, _ := r.body["imageUpdates"].(map[string]any)
+	if locked, _ := r.body["lockedSettings"].([]any); len(locked) != 3 || r.body["twoFactorRequired"] != "off" || logs["retentionDays"] != float64(7) || images["autoRestart"] != true || images["hour"] != float64(4) {
+		t.Fatalf("settings: %s", r.raw)
+	}
+	r = a.do(http.MethodPatch, "/api/v1/settings", map[string]any{"imageUpdates": map[string]any{"autoRestart": false, "hour": 4}}, true)
+	if r.status != http.StatusForbidden || errCode(r) != "plan_limit" {
+		t.Fatalf("change a fixed setting: %d %s", r.status, r.raw)
+	}
+}
+
 // A fixed setting the instance can't take is named in the error (the manager hears it as
 // a warning), and the plan's other settings still apply.
 func TestPlanSettingWithWrongTypeIsReported(t *testing.T) {
