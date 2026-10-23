@@ -67,14 +67,16 @@ function AddDatabaseCard({ project, onAdded, onCancel }: { project: Project; onA
   // Without a primary the first database becomes it (host "database", DB_*); every further one needs a name.
   const hasPrimary = existing.some((d) => d.name === "");
   const [name, setName] = useState("");
-  const [type, setType] = useState("mariadb");
+  const [chosenType, setType] = useState("mariadb");
   const [version, setVersion] = useState("");
   const [expose, setExpose] = useState(false);
   const [external, setExternal] = useState(false);
   const [conn, setConn] = useState<ExternalDatabase>(emptyExternalDatabase);
   const [error, setError] = useState<string | null>(null);
-  const dbs = runtimes.data?.runtimes.filter((r) => r.kind === "database" && r.available && (!external || externalDatabaseTypes.includes(r.key))) ?? [];
-  const selected = dbs.find((d) => d.key === type);
+  // An engine the hoster's plan leaves out only works as an external server.
+  const dbs = runtimes.data?.runtimes.filter((r) => r.kind === "database" && r.available && (external ? externalDatabaseTypes.includes(r.key) : !r.notInPlan)) ?? [];
+  const selected = dbs.find((d) => d.key === chosenType) ?? dbs[0];
+  const type = selected?.key ?? chosenType;
   const chosenVersion = version || selected?.versions.find((v) => v.default)?.version || "";
   const trimmed = name.trim();
   const nameError =

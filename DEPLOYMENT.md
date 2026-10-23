@@ -272,7 +272,8 @@ folder in either of two ways:
 - **By label:** enter the folder name under *Settings → General → Unraid Docker page*
   in Envoryx and create a folder with exactly that name in FolderView3. Envoryx then
   puts `folder.view3=<name>` on its containers. A label wins over any regex, so the
-  containers stay put even next to a catch-all folder (regex `^`).
+  containers stay put even next to a catch-all folder (regex `^`). The card only
+  shows when the Docker host runs Unraid (or a folder is set already).
 
 Labels are fixed when a container is created. After the folder name changes, a
 project moves the next time it is started (Envoryx recreates its containers for
@@ -2798,8 +2799,13 @@ management).
 ```json
 {
   "name": "Starter",
-  "limits": { "projects": 5, "users": 3, "diskGb": 50 },
+  "limits": {
+    "projects": 5, "users": 3, "diskGb": 50, "runningProjects": 3,
+    "container": { "cpus": 2, "memoryMb": 1024 },
+    "containerDefault": { "memoryMb": 512 }
+  },
   "runtimes": ["php", "node"],
+  "services": ["mariadb", "redis", "mailpit"],
   "disabled": ["customImages", "ideGateway"],
   "settings": { "baseDomain": "c1042.example.net", "forceHttps": true }
 }
@@ -2809,10 +2815,25 @@ management).
   and the disk space of the projects: their directories, volumes and backups,
   in GiB (`diskGb`, 1 GiB = 1024³ bytes). The disk space is measured every five minutes; once it is used up, new
   projects and backups are refused until there is room again. 0 or a missing
-  value means no limit. CPU and memory are what the machine has.
+  value means no limit. `runningProjects` caps the projects that run at the
+  same time: starting, restarting a stopped one or creating one that starts
+  is refused beyond it.
+  `container` caps CPU cores and memory (MiB) of every project container: a
+  project may set lower limits in *Resource limits*, never higher ones or
+  none. `containerDefault` is what a container gets where its project sets
+  no limit (the cap where the default has no value). A change reaches the
+  running containers right away. Without both, CPU and memory are what the
+  machine has.
 - **runtimes**: the runtimes new projects may use (`php`, `node`, `python`,
   `go`, `ruby`, `java`, `dotnet`); empty or missing for all. A static site
   needs no runtime and is always possible.
+- **services**: the services and database engines projects may add:
+  `mariadb`, `mysql`, `postgresql`, `mongodb`, `redis`, `memcached`,
+  `rabbitmq`, `meilisearch`, `typesense`, `opensearch` (with its
+  dashboards), `ollama`, `mailpit` and `storage` (the S3 object storage);
+  empty or missing for all. A project that has one already keeps it; an
+  external database or Redis doesn't count. On a small machine, leaving out
+  `ollama` and `opensearch` keeps one project from taking all the memory.
 - **disabled**: features the plan switches off: `addons`, `customImages`,
   `branchEnvironments`, `externalServices`, `offsite` (no targets, nothing is
   sent or fetched), `ideGateway` (no port forwarding over SSH, also not to the
@@ -2824,7 +2845,9 @@ management).
   is no longer routed. Instances before 0.43 refuse a plan naming these two
   (or fixing `newProjectsPrivate`) and keep their old one; the fleet manager
   leaves them out for such instances, a hand-written plan needs the update
-  first.
+  first. The same goes for `services`, `runningProjects`, `container`,
+  `containerDefault` and the settings `twoFactorRequired`, `logHistory` and
+  `imageUpdates` before 0.44.
   `eolVersions` and `previewVersions` leave out the versions past their end of
   life (PHP 8.1) and the pre-releases (PHP 8.6 RC): no new project, copy,
   restore, branch environment or version switch gets one, and the wizard shows
@@ -2835,7 +2858,9 @@ management).
   `PATCH /api/v1/settings`: `publicHost`, `baseDomain`, `forceHttps`,
   `projectsFollowEnvoryx`, `sharedIdeBackends`, `sharedPackageCache`,
   `xdebugClientHost`, `folderViewFolder`, `metricsRetentionDays`,
-  `newProjectsPrivate`. They are
+  `newProjectsPrivate`, `twoFactorRequired` (`off`, `admins`, `all`),
+  `logHistory` (`{"enabled": true, "retentionDays": 14, "maxMb": 500}`) and
+  `imageUpdates` (`{"autoRestart": true, "hour": 4}`). They are
   applied when the plan is read, and the admins of the instance see them
   locked.
 - **offsite**: the hoster's offsite target, with the fields of an offsite

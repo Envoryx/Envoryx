@@ -1,7 +1,8 @@
 import { ShieldCheck } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useState } from "react";
-import { useSettings, useUpdateSettings } from "@/api/hooks";
+import { useSettingLocked, useSettings, useUpdateSettings } from "@/api/hooks";
+import { LockedHint } from "@/features/plan/PlanCard";
 import type { TwoFactorRequirement } from "@/api/types";
 import { Alert, Card, CardHeader, Field, Select, Spinner, type Tone } from "@/components/ui";
 import { errorText } from "@/lib/errors";
@@ -13,6 +14,7 @@ export function TwoFactorPolicyCard({ readOnly = false }: { readOnly?: boolean }
   const s = useSettings();
   const update = useUpdateSettings();
   const [msg, setMsg] = useState<{ tone: Tone; text: string } | null>(null);
+  const locked = useSettingLocked("twoFactorRequired");
   if (s.isPending) return <Spinner />;
   const current: TwoFactorRequirement = s.data?.twoFactorRequired ?? "off";
   const labels: Record<TwoFactorRequirement, string> = {
@@ -37,7 +39,7 @@ export function TwoFactorPolicyCard({ readOnly = false }: { readOnly?: boolean }
           <Select
             id="two-factor-required"
             value={current}
-            disabled={readOnly || update.isPending}
+            disabled={readOnly || locked || update.isPending}
             onChange={(e) =>
               update.mutate(
                 { twoFactorRequired: e.target.value as TwoFactorRequirement },
@@ -54,6 +56,7 @@ export function TwoFactorPolicyCard({ readOnly = false }: { readOnly?: boolean }
               </option>
             ))}
           </Select>
+          {locked && <LockedHint />}
         </Field>
         {current !== "off" && <p className="text-xs text-muted">{t("Lost a device? An admin resets the user's second factors in the list above; the rescue command envoryx admin reset-2fa does it from the container's shell.")}</p>}
       </div>

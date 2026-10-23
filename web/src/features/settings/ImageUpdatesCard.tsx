@@ -1,7 +1,8 @@
 import { RefreshCw } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useSettings, useUpdateSettings } from "@/api/hooks";
+import { useSettingLocked, useSettings, useUpdateSettings } from "@/api/hooks";
+import { LockedHint } from "@/features/plan/PlanCard";
 import { Alert, Badge, Card, CardHeader, Checkbox, ErrorState, Field, Select, Spinner } from "@/components/ui";
 import { errorText, translateMessage } from "@/lib/errors";
 import { formatDateTime } from "@/lib/format";
@@ -13,6 +14,7 @@ export function ImageUpdatesCard() {
   const update = useUpdateSettings();
   const [error, setError] = useState<string | null>(null);
   const info = s.data?.imageUpdates;
+  const locked = useSettingLocked("imageUpdates");
 
   const save = (next: { autoRestart: boolean; hour: number }) => {
     setError(null);
@@ -43,12 +45,13 @@ export function ImageUpdatesCard() {
               label={t("Restart the running projects with a newer image daily")}
               description={t("At the hour below, each running project whose image has a newer build is restarted, one after the other, which interrupts it for a few seconds. Stopped projects and projects rolled back to their previous image stay as they are.")}
               checked={info.autoRestart}
-              disabled={update.isPending}
+              disabled={update.isPending || locked}
               onChange={(e) => save({ autoRestart: e.target.checked, hour: info.hour })}
             />
+            {locked && <LockedHint />}
             {info.autoRestart && (
               <Field label={t("Time")} htmlFor="image-restart-hour" hint={t("Server local time")}>
-                <Select id="image-restart-hour" value={info.hour} disabled={update.isPending} onChange={(e) => save({ autoRestart: true, hour: Number(e.target.value) })}>
+                <Select id="image-restart-hour" value={info.hour} disabled={update.isPending || locked} onChange={(e) => save({ autoRestart: true, hour: Number(e.target.value) })}>
                   {Array.from({ length: 24 }, (_, h) => (
                     <option key={h} value={h}>{String(h).padStart(2, "0")}:00</option>
                   ))}

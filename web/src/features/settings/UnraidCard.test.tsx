@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { UnraidCard } from "./UnraidCard";
 import { authedRoutes, mockApi, renderApp } from "@/test/utils";
 
-const settings = { publicHost: "", baseDomain: "test", forceHttps: false, folderViewFolder: "", proxy: { enabled: false } };
+const settings = { publicHost: "", baseDomain: "test", forceHttps: false, folderViewFolder: "", unraid: true, proxy: { enabled: false } };
 
 describe("UnraidCard", () => {
   it("stores the FolderView3 folder", async () => {
@@ -25,5 +25,18 @@ describe("UnraidCard", () => {
     expect(api.calls.find((c) => c.method === "PATCH")!.body).toEqual({ folderViewFolder: "Envoryx" });
     expect(await screen.findByText(/move into the folder the next time they are started/)).toBeInTheDocument();
     expect(screen.getByLabelText("FolderView3 folder")).toHaveValue("Envoryx");
+  });
+
+  it("stays away from hosts that aren't Unraid", async () => {
+    mockApi({ ...authedRoutes, "GET /settings": () => ({ body: { ...settings, unraid: false } }) });
+    const { container } = renderApp(<UnraidCard />);
+    await waitFor(() => expect(container).toBeEmptyDOMElement());
+    expect(screen.queryByLabelText("FolderView3 folder")).not.toBeInTheDocument();
+  });
+
+  it("still shows a folder set before", async () => {
+    mockApi({ ...authedRoutes, "GET /settings": () => ({ body: { ...settings, unraid: false, folderViewFolder: "Envoryx" } }) });
+    renderApp(<UnraidCard />);
+    expect(await screen.findByLabelText("FolderView3 folder")).toHaveValue("Envoryx");
   });
 });

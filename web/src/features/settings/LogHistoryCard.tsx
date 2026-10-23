@@ -3,7 +3,8 @@ import { History, Save, Trash2 } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "@/api/client";
-import { keys, useSettings, useUpdateSettings } from "@/api/hooks";
+import { keys, useSettingLocked, useSettings, useUpdateSettings } from "@/api/hooks";
+import { LockedHint } from "@/features/plan/PlanCard";
 import type { Settings } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Checkbox, Code, Dialog, ErrorState, Field, Input, Spinner } from "@/components/ui";
 import { errorText } from "@/lib/errors";
@@ -19,6 +20,9 @@ export function LogHistoryCard() {
   const update = useUpdateSettings();
   const qc = useQueryClient();
   const info = s.data?.logHistory;
+  // The support can't change the record of its own visit; the hoster's plan may fix it.
+  const locked = useSettingLocked("logHistory");
+  const fixed = support || locked;
   const [days, setDays] = useState("");
   const [maxMb, setMaxMb] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -80,7 +84,7 @@ export function LogHistoryCard() {
               label={t("Keep the output of the project containers")}
               description={t("When off, nothing new is stored and the Logs section reads what Docker still holds for the current container (10 MB × 3 per container). What is stored stays until retention removes it.")}
               checked={info.enabled}
-              disabled={support || update.isPending || !info.available}
+              disabled={fixed || update.isPending || !info.available}
               onChange={(e) => {
                 setError(null);
                 update.mutate({ logHistory: { enabled: e.target.checked } }, { onError: (err) => setError(errorText(err, t, t("Saving failed"))) });
@@ -88,15 +92,16 @@ export function LogHistoryCard() {
             />
             <form onSubmit={save} className="grid gap-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
               <Field label={t("Keep for (days)")} htmlFor="lh-days" hint={t("1 to 365")}>
-                <Input id="lh-days" readOnly={support} type="number" min={1} max={365} value={days} onChange={(e) => setDays(e.target.value)} required />
+                <Input id="lh-days" readOnly={fixed} type="number" min={1} max={365} value={days} onChange={(e) => setDays(e.target.value)} required />
               </Field>
               <Field label={t("At most (MB)")} htmlFor="lh-max" hint={t("All projects together; the oldest days go first")}>
-                <Input id="lh-max" readOnly={support} type="number" min={50} value={maxMb} onChange={(e) => setMaxMb(e.target.value)} required />
+                <Input id="lh-max" readOnly={fixed} type="number" min={50} value={maxMb} onChange={(e) => setMaxMb(e.target.value)} required />
               </Field>
-              <Button type="submit" disabled={support} loading={update.isPending} icon={<Save className="size-4" />} className="sm:mb-5">
+              <Button type="submit" disabled={fixed} loading={update.isPending} icon={<Save className="size-4" />} className="sm:mb-5">
                 {t("Save")}
               </Button>
             </form>
+            {locked && <LockedHint />}
             {saved && <p className="text-xs text-emerald-600 dark:text-emerald-400">{t("Saved. Retention is applied within the hour.")}</p>}
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-default px-4 py-3 text-sm">
               <div className="space-y-0.5">
