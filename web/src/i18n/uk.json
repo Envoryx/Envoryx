@@ -3727,5 +3727,6 @@
   "Projects open to everyone": "Проєкти, відкриті всім",
   "Public shares": "Публічний доступ",
   "New projects signed-in only": "Нові проєкти лише для тих, хто увійшов",
-  "Your hoster's plan leaves out public shares; send a guest link instead": "Тариф вашого хостера не містить публічного доступу; надішліть гостьове посилання"
+  "Your hoster's plan leaves out public shares; send a guest link instead": "Тариф вашого хостера не містить публічного доступу; надішліть гостьове посилання",
+  "the server key must be a SHA256 fingerprint (SHA256:…) or a public key as ssh-keyscan prints it (ssh-ed25519 AAAA…)": "Ключ сервера має бути відбитком SHA256 (SHA256:…) або відкритим ключем у тому вигляді, як його виводить ssh-keyscan (ssh-ed25519 AAAA…)"
 }

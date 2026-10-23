@@ -3677,5 +3677,6 @@
   "Projects open to everyone": "Für alle offene Projekte",
   "Public shares": "Öffentliche Freigaben",
   "New projects signed-in only": "Neue Projekte nur angemeldet",
-  "Your hoster's plan leaves out public shares; send a guest link instead": "Der Tarif deines Hosters enthält keine öffentlichen Freigaben; schick stattdessen einen Gast-Link"
+  "Your hoster's plan leaves out public shares; send a guest link instead": "Der Tarif deines Hosters enthält keine öffentlichen Freigaben; schick stattdessen einen Gast-Link",
+  "the server key must be a SHA256 fingerprint (SHA256:…) or a public key as ssh-keyscan prints it (ssh-ed25519 AAAA…)": "Der Server-Schlüssel muss ein SHA256-Fingerabdruck (SHA256:…) oder ein öffentlicher Schlüssel sein, wie ihn ssh-keyscan ausgibt (ssh-ed25519 AAAA…)"
 }

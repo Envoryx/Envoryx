@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"path"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -43,19 +44,55 @@ func dialSFTP(ctx context.Context, t Target, pin func(string)) (Backend, error) 
 	if t.Password != "" {
 		auth = append(auth, ssh.Password(t.Password))
 	}
+	pinned, err := parseHostKey(t.HostKey)
+	if err != nil {
+		return nil, err
+	}
+	if pinned.empty() || pinned.types != nil {
+		return sshConnect(ctx, t, auth, pinned, pinned.algorithms(), pin, nil)
+	}
+	// Only fingerprints, so the key type is unknown: the server's favourite key first, then
+	// each other type it may hold.
+	var seen []ssh.PublicKey
+	b, err := sshConnect(ctx, t, auth, pinned, nil, pin, &seen)
+	if !errors.Is(err, ErrHostKeyChanged) {
+		return b, err
+	}
+	for _, kt := range hostKeyTypes {
+		if slices.ContainsFunc(seen, func(k ssh.PublicKey) bool { return k.Type() == kt }) {
+			continue
+		}
+		b, rerr := sshConnect(ctx, t, auth, pinned, keyAlgorithms(kt), pin, &seen)
+		if rerr == nil {
+			return b, nil
+		}
+		if !errors.Is(rerr, ErrHostKeyChanged) && !strings.Contains(rerr.Error(), "no common algorithm") {
+			return nil, rerr
+		}
+	}
+	return nil, hostKeyMismatch(pinned, seen)
+}
+
+// sshConnect opens the SFTP session, asking for the host key algorithms algos (nil for the
+// defaults). The keys the server showed are added to seen.
+func sshConnect(ctx context.Context, t Target, auth []ssh.AuthMethod, pinned hostKeyPin, algos []string, pin func(string), seen *[]ssh.PublicKey) (Backend, error) {
 	cfg := &ssh.ClientConfig{
-		User: t.User,
-		Auth: auth,
+		User:              t.User,
+		Auth:              auth,
+		HostKeyAlgorithms: algos,
 		HostKeyCallback: func(_ string, _ net.Addr, key ssh.PublicKey) error {
+			if seen != nil {
+				*seen = append(*seen, key)
+			}
 			fp := ssh.FingerprintSHA256(key)
-			if t.HostKey == "" {
+			if pinned.empty() {
 				if pin != nil {
 					pin(fp)
 				}
 				return nil
 			}
-			if fp != t.HostKey {
-				return fmt.Errorf("%w: expected %s, got %s - if the server was replaced on purpose, clear the pinned key in the target", ErrHostKeyChanged, t.HostKey, fp)
+			if !pinned.matches(fp) {
+				return hostKeyMismatch(pinned, []ssh.PublicKey{key})
 			}
 			return nil
 		},
