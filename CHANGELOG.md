@@ -10,6 +10,13 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.43.1] - 2026-10-23
+
+### Fixed
+- After a restart had pulled a newer build of a project's image, the project kept saying
+  "a newer ... image is available; restart to apply" until the next daily image check,
+  however often it was restarted. The restart now clears it.
+
 ## [0.43.0] - 2026-10-23
 
 ### Added
@@ -2609,7 +2616,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.43.0...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.43.1...HEAD
+[0.43.1]: https://github.com/envoryx/envoryx/compare/v0.43.0...v0.43.1
 [0.43.0]: https://github.com/envoryx/envoryx/compare/v0.42.0...v0.43.0
 [0.42.0]: https://github.com/envoryx/envoryx/compare/v0.41.0...v0.42.0
 [0.41.0]: https://github.com/envoryx/envoryx/compare/v0.40.1...v0.41.0
