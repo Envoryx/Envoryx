@@ -72,7 +72,7 @@ func (v *Verifier) Verify(ctx context.Context, digest, version string) error {
 	}
 	version = strings.TrimPrefix(strings.TrimSpace(version), "v")
 	if version == "" || strings.ContainsAny(version, "/@ ") {
-		return fmt.Errorf("%q is no version", version)
+		return fmt.Errorf("%q is not a version", version)
 	}
 	bundles, err := v.fetch(ctx, digest)
 	if err != nil {
@@ -108,7 +108,7 @@ func (v *Verifier) Verify(ctx context.Context, digest, version string) error {
 	for _, b := range bundles {
 		res, err := verifier.Verify(b, policy)
 		if err == nil && (res.Statement == nil || res.Statement.GetPredicateType() != predicateType) {
-			err = errors.New("the attestation is no SLSA build provenance")
+			err = errors.New("the attestation is not an SLSA build provenance")
 		}
 		if err == nil {
 			return nil

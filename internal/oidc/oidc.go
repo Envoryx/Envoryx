@@ -443,7 +443,7 @@ func (s *Service) resolveUser(ctx context.Context, c Config, subject string, cla
 		s.audit(ctx, u.Username, audit.ActionUserJoined, u.ID, map[string]any{"username": u.Username, "via": "sso"})
 	case errors.Is(err, store.ErrNotFound):
 		if err := validate.Username(username); err != nil {
-			return store.User{}, fmt.Errorf("the provider's %s claim %q is no usable username: %w", c.usernameClaim(), username, err)
+			return store.User{}, fmt.Errorf("the provider's %s claim %q is not a usable username: %w", c.usernameClaim(), username, err)
 		}
 		_, lerr := s.store.Users.ByUsername(ctx, username)
 		switch {

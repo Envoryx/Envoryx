@@ -235,7 +235,9 @@ func deriveStatus(p store.Project, containers []docker.Container, info statusInf
 		st.Warnings = append(st.Warnings, p.LastError)
 	}
 	if p.DesiredState == store.DesiredRunning && st.State != StateRunning && p.Lifecycle == store.LifecycleReady && problems == 0 {
-		st.Warnings = append(st.Warnings, "project should be running but is "+string(st.State))
+		if msg, ok := notRunning[st.State]; ok {
+			st.Warnings = append(st.Warnings, msg)
+		}
 	}
 	return st
 }
@@ -582,4 +584,12 @@ func (m *Manager) RunReconciler(ctx context.Context, interval time.Duration, log
 			m.Reconcile(ctx)
 		}
 	}
+}
+
+// notRunning says how a project that should run doesn't, by its state.
+var notRunning = map[State]string{
+	StateStopped: "the project should be running but is stopped",
+	StatePartial: "the project should be running but only some of its containers run",
+	StateMissing: "the project should be running but its containers are missing",
+	StateError:   "the project should be running but has an error",
 }

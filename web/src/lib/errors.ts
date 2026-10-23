@@ -184,8 +184,12 @@ const templates = [
   "extracting ({{done}} of {{total}} layers done)",
   // Projects, copies, renames and their conflicts.
   "the directory \"{{path}}\" is already used by project \"{{project}}\"",
-  "{{project}} is {{lifecycle}} and cannot be copied right now",
-  "{{project}} is {{lifecycle}} and cannot be renamed right now",
+  "{{project}} is still being set up and can't be copied yet",
+  "{{project}} is being deleted and can't be copied",
+  "{{project}} didn't finish setting up and can't be copied",
+  "{{project}} is still being set up and can't be renamed yet",
+  "{{project}} is being deleted and can't be renamed",
+  "{{project}} didn't finish setting up and can't be renamed",
   "the source runs {{source}}, the target {{target}}",
   "the backup directory {{path}} already exists",
   "service {{service}} already exists",
@@ -335,7 +339,7 @@ const templates = [
   "{{bin}} is missing: no {{feature}}",
   // Sign-in, single sign-on, passkeys, SSH keys.
   "the Envoryx account {{name}} is connected to another single sign-on account already",
-  "the provider's {{claim}} claim \"{{value}}\" is no usable username",
+  "the provider's {{claim}} claim \"{{value}}\" is not a usable username",
   "an Envoryx account named {{name}} exists already; to connect it to single sign-on, open its invitation link from an admin and sign in from there",
   "there is no Envoryx account for {{name}}; ask an admin for an invitation",
   "{{name}} is in none of the groups that may use Envoryx",
@@ -346,6 +350,7 @@ const templates = [
   "line {{line}} is not a valid public key",
   "line {{line}} is not a public key",
   "username \"{{name}}\"",
+  "the username \"{{name}}\" is already taken",
   // Diagnostics details.
   "Docker {{version}} (API {{api}}) on {{os}}, {{running}} containers running - host {{host}}",
   "{{latest}} available, running {{current}}",

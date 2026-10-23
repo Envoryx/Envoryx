@@ -125,7 +125,7 @@ func (m *Manager) StartShare(ctx context.Context, id string, duration time.Durat
 		duration = shareDefaultDuration
 	}
 	if duration < shareMinDuration || duration > shareMaxDuration {
-		return Share{}, fmt.Errorf("%w: a share lasts between %s and %s", validate.ErrInvalid, shareMinDuration, shareMaxDuration)
+		return Share{}, fmt.Errorf("%w: a share lasts between %d minutes and %d hours", validate.ErrInvalid, int(shareMinDuration.Minutes()), int(shareMaxDuration.Hours()))
 	}
 	unlock, err := m.lock(id)
 	if err != nil {
