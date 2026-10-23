@@ -130,7 +130,8 @@ func (m *Manager) recordOOM(ctx context.Context, ev docker.OOMEvent, kills int) 
 	}
 	svc := ev.Labels[docker.LabelService]
 	name := oomName(p.Slug, ev)
-	limit := limitSet(p.Limits, store.ServiceKind(svc)).MemoryMB
+	set := limitSet(p.Limits, store.ServiceKind(svc))
+	_, limit := m.Plan().ContainerLimit(set.CPUs, set.MemoryMB)
 	at := ev.Time
 	if at.IsZero() {
 		at = time.Now()

@@ -209,7 +209,9 @@ func (m *Manager) planner() (*Planner, error) {
 	if m.links != nil {
 		p.PublicHost, p.ProxyHTTPPort, p.ProxyHTTPSPort = m.links(context.Background())
 	}
-	return NewPlanner(p, m.catalog), nil
+	planner := NewPlanner(p, m.catalog)
+	planner.containerLimit = m.Plan().ContainerLimit
+	return planner, nil
 }
 
 // lock acquires the per-project lock or returns ErrBusy.

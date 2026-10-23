@@ -54,6 +54,9 @@ type Runtime struct {
 	Versions    []Version `json:"versions"`
 	Available   bool      `json:"available"`   // false = planned, shown disabled in the UI
 	Description string    `json:"description"` // short UI text
+	// NotInPlan marks a runtime or service the instance's plan leaves out: projects that
+	// have it keep it, nothing new gets it.
+	NotInPlan bool `json:"notInPlan,omitempty"`
 }
 
 // Catalog is the full list of runtimes and services.

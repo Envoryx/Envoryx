@@ -141,6 +141,17 @@ func (h *Holder) Certificate() *Certificate {
 	return h.cert
 }
 
+// Set replaces the plan and tells the change handlers (tests; the file is what a running
+// instance follows).
+func (h *Holder) Set(p *Plan) {
+	h.mu.Lock()
+	h.plan = p
+	h.mu.Unlock()
+	for _, fn := range h.onChange {
+		fn(p)
+	}
+}
+
 // SetSuspension suspends the instance or lifts the suspension (tests; the files are what
 // a running instance follows).
 func (h *Holder) SetSuspension(s *Suspension) {
