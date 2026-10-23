@@ -15,6 +15,13 @@ release). `:main` follows the development branch.
   offsite target, terminal end lines and a few more texts stayed English in a
   translated UI, as did some server messages (offsite upload, single sign-on test,
   branch polling, Ollama downloads, parts of the audit log).
+- An SFTP offsite target whose server offers several host keys (RSA, ECDSA and Ed25519,
+  like a Hetzner Storage Box) failed with "the SFTP server's host key changed" when the
+  pinned key wasn't the type the handshake picked. A pinned public key now asks the
+  server for its own type, and a bare fingerprint is checked against each key the server
+  holds. The server key also takes what ssh-keyscan, a known_hosts file or `ssh-keygen -l`
+  print, several keys one per line, and a key in none of these forms is refused when the
+  target is saved.
 
 ## [0.44.1] - 2026-10-23
 

@@ -3677,5 +3677,6 @@
   "Projects open to everyone": "Projecten open voor iedereen",
   "Public shares": "Openbare deellinks",
   "New projects signed-in only": "Nieuwe projecten alleen aangemeld",
-  "Your hoster's plan leaves out public shares; send a guest link instead": "Het pakket van je hoster bevat geen openbare deellinks; stuur in plaats daarvan een gastlink"
+  "Your hoster's plan leaves out public shares; send a guest link instead": "Het pakket van je hoster bevat geen openbare deellinks; stuur in plaats daarvan een gastlink",
+  "the server key must be a SHA256 fingerprint (SHA256:…) or a public key as ssh-keyscan prints it (ssh-ed25519 AAAA…)": "De serversleutel moet een SHA256-vingerafdruk (SHA256:…) zijn of een publieke sleutel zoals ssh-keyscan die toont (ssh-ed25519 AAAA…)"
 }

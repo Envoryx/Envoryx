@@ -72,8 +72,8 @@ type Target struct {
 	AccessKey string `json:"accessKey,omitempty"`
 	SecretKey string `json:"secretKey,omitempty"`
 
-	// SFTP. HostKey pins the server's key (SHA256 fingerprint); the first successful
-	// connection records it.
+	// SFTP. HostKey pins the server's key (SHA256 fingerprints or public keys, one per
+	// line); the first successful connection records its fingerprint.
 	Host       string `json:"host,omitempty"`
 	Port       int    `json:"port,omitempty"`
 	User       string `json:"user,omitempty"`
@@ -176,6 +176,9 @@ func (t *Target) normalize() error {
 		t.Host = strings.TrimSpace(t.Host)
 		t.User = strings.TrimSpace(t.User)
 		t.HostKey = strings.TrimSpace(t.HostKey)
+		if _, err := parseHostKey(t.HostKey); err != nil {
+			return fmt.Errorf("%w: %w", validate.ErrInvalid, err)
+		}
 		if t.Port == 0 {
 			t.Port = 22
 		}

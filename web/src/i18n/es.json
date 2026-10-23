@@ -3677,5 +3677,6 @@
   "Projects open to everyone": "Proyectos abiertos a todos",
   "Public shares": "Enlaces públicos",
   "New projects signed-in only": "Proyectos nuevos solo con sesión",
-  "Your hoster's plan leaves out public shares; send a guest link instead": "El plan de tu proveedor no incluye enlaces públicos; envía un enlace de invitado"
+  "Your hoster's plan leaves out public shares; send a guest link instead": "El plan de tu proveedor no incluye enlaces públicos; envía un enlace de invitado",
+  "the server key must be a SHA256 fingerprint (SHA256:…) or a public key as ssh-keyscan prints it (ssh-ed25519 AAAA…)": "La clave del servidor debe ser una huella SHA256 (SHA256:…) o una clave pública tal como la muestra ssh-keyscan (ssh-ed25519 AAAA…)"
 }
