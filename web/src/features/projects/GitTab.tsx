@@ -9,6 +9,7 @@ import { Alert, Badge, Button, Card, CardHeader, Code, Field, Input, Spinner } f
 import { copyText } from "@/lib/clipboard";
 import { formatDateTime } from "@/lib/format";
 import { errorText, translateMessage } from "@/lib/errors";
+import { gitUrlError } from "@/lib/gitUrl";
 import { ManifestCard } from "./ManifestCard";
 import { useAuth } from "@/features/auth/AuthContext";
 import { projectAccess } from "@/lib/access";
@@ -68,6 +69,7 @@ export function GitTab({ project }: { project: Project }) {
   const qc = useQueryClient();
   const status = useGitStatus(project.id, true);
   const [url, setUrl] = useState(project.git.url);
+  const [urlLeft, setUrlLeft] = useState(false);
   const [branch, setBranch] = useState(project.git.branch);
   const [username, setUsername] = useState(project.git.username);
   const [token, setToken] = useState("");
@@ -128,6 +130,7 @@ export function GitTab({ project }: { project: Project }) {
 
   const st = status.data;
   const isSSH = url.startsWith("git@") || url.startsWith("ssh://");
+  const urlProblem = gitUrlError(url, !urlLeft);
 
   return (
     <div className="space-y-6">
@@ -144,8 +147,8 @@ export function GitTab({ project }: { project: Project }) {
           />
           <form onSubmit={save} className="p-5">
             <fieldset disabled={!operate} className="min-w-0 space-y-4">
-            <Field label={t("Repository URL")} htmlFor="git-url" hint="https://…, git@host:path.git or ssh://…">
-              <Input id="git-url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://github.com/you/project.git" spellCheck={false} />
+            <Field label={t("Repository URL")} htmlFor="git-url" hint="https://…, git@host:path.git or ssh://…" error={urlProblem && t(urlProblem)}>
+              <Input id="git-url" value={url} onChange={(e) => setUrl(e.target.value)} onBlur={() => setUrlLeft(true)} aria-invalid={!!urlProblem} placeholder="https://github.com/you/project.git" spellCheck={false} />
             </Field>
             <Field label={t("Branch")} htmlFor="git-branch" hint={t("Used for clone; leave empty for the default branch.")}>
               <Input id="git-branch" value={branch} onChange={(e) => setBranch(e.target.value)} placeholder="main" spellCheck={false} />
@@ -168,7 +171,7 @@ export function GitTab({ project }: { project: Project }) {
             {isSSH && <p className="text-xs text-muted">{t("SSH URLs authenticate with the Envoryx deploy key shown on the right.")}</p>}
             {operate && (
             <div className="flex flex-wrap gap-2">
-              <Button type="submit" variant="primary" loading={busy === "save"} icon={<Save className="size-4" />}>
+              <Button type="submit" variant="primary" loading={busy === "save"} disabled={!!gitUrlError(url)} icon={<Save className="size-4" />}>
                 {t("Save")}
               </Button>
               {st && !st.isRepo && st.configured && (
