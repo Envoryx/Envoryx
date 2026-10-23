@@ -734,11 +734,7 @@ export function NewProjectPage() {
       </Field>
       <Field label={t("Version")} htmlFor="web-version">
         <Select id="web-version" value={form.webVersion} onChange={(e) => set({ webVersion: e.target.value })}>
-          {web?.versions.map((v) => (
-            <option key={v.version} value={v.version}>
-              {v.label}
-            </option>
-          ))}
+          {versionOptions(web?.versions ?? [], t)}
         </Select>
       </Field>
       <p className="text-sm text-muted">{webServerHint(t, form.webType, serves)}</p>
@@ -909,13 +905,7 @@ export function NewProjectPage() {
               <div className="grid gap-4 pl-7 sm:grid-cols-2">
                 <Field label={t("Redis version")} htmlFor="redis-version">
                   <Select id="redis-version" value={form.redisVersion} onChange={(e) => set({ redisVersion: e.target.value })}>
-                    {services
-                      .find((s) => s.key === "redis")
-                      ?.versions.map((v) => (
-                        <option key={v.version} value={v.version}>
-                          {v.label}
-                        </option>
-                      ))}
+                    {versionOptions(services.find((s) => s.key === "redis")?.versions ?? [], t)}
                   </Select>
                 </Field>
                 <div className="self-end pb-1">
@@ -941,13 +931,7 @@ export function NewProjectPage() {
               <div className="grid gap-4 pl-7 sm:grid-cols-2">
                 <Field label={t("RabbitMQ version")} htmlFor="rabbitmq-version">
                   <Select id="rabbitmq-version" value={form.rabbitmqVersion} onChange={(e) => set({ rabbitmqVersion: e.target.value })}>
-                    {services
-                      .find((s) => s.key === "rabbitmq")
-                      ?.versions.map((v) => (
-                        <option key={v.version} value={v.version}>
-                          {v.label}
-                        </option>
-                      ))}
+                    {versionOptions(services.find((s) => s.key === "rabbitmq")?.versions ?? [], t)}
                   </Select>
                 </Field>
                 <div className="self-end pb-1">
@@ -973,13 +957,7 @@ export function NewProjectPage() {
               <div className="grid gap-4 pl-7 sm:grid-cols-2">
                 <Field label={t("OpenSearch version")} htmlFor="opensearch-version">
                   <Select id="opensearch-version" value={form.opensearchVersion} onChange={(e) => set({ opensearchVersion: e.target.value })}>
-                    {services
-                      .find((s) => s.key === "opensearch")
-                      ?.versions.map((v) => (
-                        <option key={v.version} value={v.version}>
-                          {v.label}
-                        </option>
-                      ))}
+                    {versionOptions(services.find((s) => s.key === "opensearch")?.versions ?? [], t)}
                   </Select>
                 </Field>
                 <div className="self-end pb-1">

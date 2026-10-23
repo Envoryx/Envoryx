@@ -8,6 +8,7 @@ import type { Project, StorageInfo } from "@/api/types";
 import { Badge, Button, Card, CardHeader, Checkbox, Dialog, Field, Input, Select, StatusDot } from "@/components/ui";
 import { containerStateTone } from "@/lib/format";
 import { CopyButton, CopyRow } from "./DatabaseTab";
+import { versionOptions } from "./versionOptions";
 import { errorText } from "@/lib/errors";
 import { projectAccess } from "@/lib/access";
 
@@ -213,11 +214,7 @@ export function AddStorageCard({ project, onMessage }: { project: Project; onMes
         {rt && rt.versions.length > 1 && (
           <Field label={t("Version")} htmlFor="add-storage-version">
             <Select id="add-storage-version" value={version || rt.versions.find((v) => v.default)?.version || ""} onChange={(e) => setVersion(e.target.value)}>
-              {rt.versions.map((v) => (
-                <option key={v.version} value={v.version}>
-                  {v.label}
-                </option>
-              ))}
+              {versionOptions(rt.versions, t)}
             </Select>
           </Field>
         )}

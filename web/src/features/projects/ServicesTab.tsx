@@ -16,6 +16,7 @@ import { OllamaModels } from "./OllamaModels";
 import { projectAccess } from "@/lib/access";
 import { AddonsSection } from "./AddonsSection";
 import { emptyExternalRedis, ExternalRedisFields } from "./ExternalConnection";
+import { versionOptions } from "./versionOptions";
 
 type ExtraKind = "redis" | "memcached" | "mailpit" | "rabbitmq" | "meilisearch" | "typesense" | "opensearch" | "ollama";
 // The order of the cards that add a service.
@@ -253,11 +254,7 @@ function ServiceCard({ project, info, onMessage }: { project: Project; info: Ext
           <div className="flex items-end gap-2">
             <Field label={t("Version")} htmlFor={`${info.kind}-version`}>
               <Select id={`${info.kind}-version`} value={version} onChange={(e) => setVersion(e.target.value)}>
-                {versions.map((v) => (
-                  <option key={v.version} value={v.version}>
-                    {v.label}
-                  </option>
-                ))}
+                {versionOptions(versions, t, { keep: info.version })}
               </Select>
             </Field>
             <Button
@@ -445,11 +442,7 @@ function AddServiceCard({ project, kind, kept, onMessage }: { project: Project; 
         {rt && rt.versions.length > 1 && !external && (
           <Field label={t("Version")} htmlFor={`add-${kind}-version`}>
             <Select id={`add-${kind}-version`} value={version || rt.versions.find((v) => v.default)?.version || ""} onChange={(e) => setVersion(e.target.value)}>
-              {rt.versions.map((v) => (
-                <option key={v.version} value={v.version}>
-                  {v.label}
-                </option>
-              ))}
+              {versionOptions(rt.versions, t)}
             </Select>
           </Field>
         )}

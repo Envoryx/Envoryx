@@ -39,6 +39,7 @@ const ActionsTab = lazy(() => import("./ActionsTab").then((m) => ({ default: m.A
 const TestsTab = lazy(() => import("./TestsTab").then((m) => ({ default: m.TestsTab })));
 import { PhpConfigForm } from "./PhpConfigForm";
 import { webServerHint } from "./webServers";
+import { versionOptions } from "./versionOptions";
 import { AuditLog } from "@/features/audit/AuditLog";
 import { errorText, translateMessage } from "@/lib/errors";
 import { hostPathOf } from "@/lib/hostPath";
@@ -559,12 +560,7 @@ function PhpCard({ project: p }: { project: Project }) {
             <div className="grid gap-4 sm:grid-cols-3">
               <Field label={t("PHP version")} htmlFor="p-version">
                 <Select id="p-version" value={version} onChange={(e) => setVersion(e.target.value)}>
-                  {php?.versions.map((v) => (
-                    <option key={v.version} value={v.version}>
-                      {v.label}
-                      {v.eol ? t(" (end of life)") : v.preview ? t(" (preview)") : ""}
-                    </option>
-                  ))}
+                  {versionOptions(php?.versions ?? [], t, { keep: svc?.version })}
                 </Select>
               </Field>
             </div>
@@ -641,11 +637,7 @@ function WebServerCard({ project: p }: { project: Project }) {
           </Field>
           <Field label={t("Version")} htmlFor="web-version">
             <Select id="web-version" value={version} onChange={(e) => setVersion(e.target.value)}>
-              {selected?.versions.map((v) => (
-                <option key={v.version} value={v.version}>
-                  {v.label}
-                </option>
-              ))}
+              {versionOptions(selected?.versions ?? [], t, { keep: svc?.version })}
             </Select>
           </Field>
         </div>
@@ -749,12 +741,7 @@ function NodeCard({ project: p }: { project: Project }) {
         {enabled && node && (
           <Field label={t("Node.js version")} htmlFor="node-version">
             <Select id="node-version" value={version} onChange={(e) => setVersion(e.target.value)}>
-              {node.versions.map((v) => (
-                <option key={v.version} value={v.version}>
-                  {v.label}
-                  {v.eol ? t(" (end of life)") : v.preview ? t(" (preview)") : ""}
-                </option>
-              ))}
+              {versionOptions(node.versions, t, { keep: svc?.version })}
             </Select>
           </Field>
         )}
@@ -854,12 +841,7 @@ function PythonCard({ project: p }: { project: Project }) {
         {enabled && python && (
           <Field label={t("Python version")} htmlFor="python-version">
             <Select id="python-version" value={version} onChange={(e) => setVersion(e.target.value)}>
-              {python.versions.map((v) => (
-                <option key={v.version} value={v.version}>
-                  {v.label}
-                  {v.eol ? t(" (end of life)") : v.preview ? t(" (preview)") : ""}
-                </option>
-              ))}
+              {versionOptions(python.versions, t, { keep: svc?.version })}
             </Select>
           </Field>
         )}
@@ -959,12 +941,7 @@ function GoCard({ project: p }: { project: Project }) {
         {enabled && golang && (
           <Field label={t("Go version")} htmlFor="go-version">
             <Select id="go-version" value={version} onChange={(e) => setVersion(e.target.value)}>
-              {golang.versions.map((v) => (
-                <option key={v.version} value={v.version}>
-                  {v.label}
-                  {v.eol ? t(" (end of life)") : v.preview ? t(" (preview)") : ""}
-                </option>
-              ))}
+              {versionOptions(golang.versions, t, { keep: svc?.version })}
             </Select>
           </Field>
         )}
@@ -1064,12 +1041,7 @@ function RubyCard({ project: p }: { project: Project }) {
         {enabled && ruby && (
           <Field label={t("Ruby version")} htmlFor="ruby-version">
             <Select id="ruby-version" value={version} onChange={(e) => setVersion(e.target.value)}>
-              {ruby.versions.map((v) => (
-                <option key={v.version} value={v.version}>
-                  {v.label}
-                  {v.eol ? t(" (end of life)") : v.preview ? t(" (preview)") : ""}
-                </option>
-              ))}
+              {versionOptions(ruby.versions, t, { keep: svc?.version })}
             </Select>
           </Field>
         )}
@@ -1170,12 +1142,7 @@ function JavaCard({ project: p }: { project: Project }) {
         {enabled && java && (
           <Field label={t("Java version")} htmlFor="java-version">
             <Select id="java-version" value={version} onChange={(e) => setVersion(e.target.value)}>
-              {java.versions.map((v) => (
-                <option key={v.version} value={v.version}>
-                  {v.label}
-                  {v.eol ? t(" (end of life)") : v.preview ? t(" (preview)") : ""}
-                </option>
-              ))}
+              {versionOptions(java.versions, t, { keep: svc?.version })}
             </Select>
           </Field>
         )}
@@ -1274,12 +1241,7 @@ function DotnetCard({ project: p }: { project: Project }) {
         {enabled && dotnet && (
           <Field label={t(".NET version")} htmlFor="dotnet-version">
             <Select id="dotnet-version" value={version} onChange={(e) => setVersion(e.target.value)}>
-              {dotnet.versions.map((v) => (
-                <option key={v.version} value={v.version}>
-                  {v.label}
-                  {v.eol ? t(" (end of life)") : v.preview ? t(" (preview)") : ""}
-                </option>
-              ))}
+              {versionOptions(dotnet.versions, t, { keep: svc?.version })}
             </Select>
           </Field>
         )}
