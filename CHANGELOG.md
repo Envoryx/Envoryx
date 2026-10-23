@@ -10,6 +10,14 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Changed
+- A public Git repository (HTTPS without a token) is cloned without the file contents
+  of older commits (`--filter=blob:none`): the full history and all branches, older
+  contents load when something needs them. Laravel's repository takes 4.9 MB instead
+  of 12 MB this way, big ones save far more. Private repositories (token or SSH) are
+  still cloned completely, since git in the project's containers has no credentials
+  to fetch the rest later.
+
 ## [0.44.0] - 2026-10-23
 
 ### Added
