@@ -7,7 +7,7 @@ import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { Button, Field, Input, Alert } from "@/components/ui";
 import { LogoFull } from "@/layout/Logo";
 import { useAuth, type PasskeyRequest } from "./AuthContext";
-import { errorText } from "@/lib/errors";
+import { errorText, translateMessage } from "@/lib/errors";
 import { passkeyCancelled, passkeysAvailable } from "@/lib/webauthn";
 
 // The rescue commands (envoryx admin …) live in the container shell; the page can only point there.
@@ -22,7 +22,10 @@ export function LoginPage({ mode }: { mode: "login" | "setup" }) {
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   // A failed single sign-on comes back here with its reason.
-  const [error, setError] = useState<string | null>(() => new URLSearchParams(location.search).get("sso_error"));
+  const [error, setError] = useState<string | null>(() => {
+    const reason = new URLSearchParams(location.search).get("sso_error");
+    return reason ? translateMessage(reason, t) : null;
+  });
   const [busy, setBusy] = useState(false);
   const [sso, setSso] = useState<{ enabled: boolean; name?: string } | null>(null);
   // The second step after the password; an invitation link that reset the password
