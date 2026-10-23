@@ -10,6 +10,8 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.44.2] - 2026-10-23
+
 ### Fixed
 - Container states and health ("running", "healthy"), backup kinds, the hoster's
   offsite target, terminal end lines and a few more texts stayed English in a
@@ -2672,7 +2674,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.44.1...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.44.2...HEAD
+[0.44.2]: https://github.com/envoryx/envoryx/compare/v0.44.1...v0.44.2
 [0.44.1]: https://github.com/envoryx/envoryx/compare/v0.44.0...v0.44.1
 [0.44.0]: https://github.com/envoryx/envoryx/compare/v0.43.1...v0.44.0
 [0.43.1]: https://github.com/envoryx/envoryx/compare/v0.43.0...v0.43.1
