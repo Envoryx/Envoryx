@@ -10,6 +10,8 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.44.3] - 2026-10-24
+
 ### Fixed
 - The new project wizard preselected a template's database (PostgreSQL for Django,
   say) or the one an uploaded website came with even when the hoster's plan leaves it
@@ -2688,7 +2690,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.44.2...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.44.3...HEAD
+[0.44.3]: https://github.com/envoryx/envoryx/compare/v0.44.2...v0.44.3
 [0.44.2]: https://github.com/envoryx/envoryx/compare/v0.44.1...v0.44.2
 [0.44.1]: https://github.com/envoryx/envoryx/compare/v0.44.0...v0.44.1
 [0.44.0]: https://github.com/envoryx/envoryx/compare/v0.43.1...v0.44.0
