@@ -3728,5 +3728,8 @@
   "Public shares": "Публічний доступ",
   "New projects signed-in only": "Нові проєкти лише для тих, хто увійшов",
   "Your hoster's plan leaves out public shares; send a guest link instead": "Тариф вашого хостера не містить публічного доступу; надішліть гостьове посилання",
-  "the server key must be a SHA256 fingerprint (SHA256:…) or a public key as ssh-keyscan prints it (ssh-ed25519 AAAA…)": "Ключ сервера має бути відбитком SHA256 (SHA256:…) або відкритим ключем у тому вигляді, як його виводить ssh-keyscan (ssh-ed25519 AAAA…)"
+  "the server key must be a SHA256 fingerprint (SHA256:…) or a public key as ssh-keyscan prints it (ssh-ed25519 AAAA…)": "Ключ сервера має бути відбитком SHA256 (SHA256:…) або відкритим ключем у тому вигляді, як його виводить ssh-keyscan (ssh-ed25519 AAAA…)",
+  "Create your first development environment with a web server in under a minute. Your plan includes {{runtimes}}.": "Створіть перше середовище розробки з вебсервером менш ніж за хвилину. Ваш тариф містить {{runtimes}}.",
+  "Create a project to get an isolated environment with its own web server and Docker network. Your plan includes {{runtimes}}.": "Створіть проєкт, щоб отримати ізольоване середовище з власним вебсервером і мережею Docker. Ваш тариф містить {{runtimes}}.",
+  "Your plan doesn't include {{name}}, so it isn't preselected.": "{{name}} не входить у ваш тариф, тому не вибраний заздалегідь."
 }

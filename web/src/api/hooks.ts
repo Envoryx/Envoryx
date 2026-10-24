@@ -2,6 +2,7 @@ import { useInfiniteQuery, useIsMutating, useMutation, useQuery, useQueryClient 
 import { api, ApiError } from "./client";
 import { servesOf, type AddonUpdate, type AuditFilter, type CreateProjectRequest, type DuplicateProjectRequest, type RenameProjectRequest, type RestoreNewRequest, type NodeConfig, type Project, type PythonConfig, type GoConfig, type RubyConfig, type JavaConfig, type DotnetConfig, type UpdateProjectRequest, type UpdateSettingsRequest, type PlanFeature } from "./types";
 import { projectUrl } from "@/lib/format";
+import { currentLanguage } from "@/i18n";
 
 export const keys = {
   me: ["me"] as const,
@@ -73,6 +74,18 @@ export function usePlanAllows(feature: PlanFeature): boolean {
 export function usePlanRuntimes(): (runtime: string) => boolean {
   const runtimes = usePlan().data?.plan?.runtimes ?? [];
   return (runtime) => runtimes.length === 0 || runtimes.includes(runtime);
+}
+
+/**
+ * The runtimes the plan includes as a list for a sentence ("PHP, Node.js and Python"), in the
+ * UI language; null without a plan or when the plan allows them all.
+ */
+export function usePlanRuntimeList(): string | null {
+  const keys = usePlan().data?.plan?.runtimes ?? [];
+  const catalogue = useRuntimes().data?.runtimes ?? [];
+  if (keys.length === 0) return null;
+  const names = keys.map((k) => catalogue.find((r) => r.key === k)?.name ?? k);
+  return new Intl.ListFormat(currentLanguage(), { type: "conjunction" }).format(names);
 }
 
 /** Whether the plan lets projects add a service or database engine (its catalogue key); all of them while loading and without a plan. */

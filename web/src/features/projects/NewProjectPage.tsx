@@ -348,8 +348,20 @@ export function NewProjectPage() {
   const databases = rt.runtimes.filter((r) => r.kind === "database" && !r.notInPlan);
   const serviceInPlan = (key: string) => !rt.runtimes.find((r) => r.key === key)?.notInPlan;
   const dbVersions = databases.find((d) => d.key === form.dbType)?.versions ?? [];
+  const defaultDbVersion = (key: string) => databases.find((d) => d.key === key)?.versions.find((v) => v.default)?.version ?? "";
+  // A template or an uploaded site may ask for an engine the plan leaves out: take its MySQL or
+  // MariaDB sibling if the plan has that (same dumps, same drivers), else no database.
+  const dbInPlan = (key: string | undefined) => {
+    const ok = (k: string) => databases.some((d) => d.key === k && d.available);
+    if (!key) return "";
+    if (ok(key)) return key;
+    const sibling = key === "mariadb" ? "mysql" : key === "mysql" ? "mariadb" : "";
+    return sibling && ok(sibling) ? sibling : "";
+  };
   const services = rt.runtimes.filter((r) => r.kind === "service");
   const selectedTemplate = rt.templates?.find((x) => x.id === form.template);
+  const wantedDb = form.importSite ? form.importSite.analysis.database : form.source === "template" ? selectedTemplate?.recommendedDatabase : undefined;
+  const wantedDbNotInPlan = rt.runtimes.find((r) => r.kind === "database" && r.key === wantedDb && r.notInPlan);
   const nameError = form.name.trim().length > 0 && form.name.trim().length < 2 ? t("At least 2 characters.") : slugify(form.name) === "" && form.name.trim() ? t("Name must contain letters or digits.") : undefined;
   const extraDbError = (i: number): string | undefined => {
     const n = form.extraDbs[i]!.name.trim();
@@ -442,8 +454,8 @@ export function NewProjectPage() {
       javaServer: { ...form.javaServer, server: false },
       dotnetEnabled: a.runtime === "dotnet",
       dotnetServer: { ...form.dotnetServer, server: false },
-      dbType: a.database ?? "",
-      dbVersion: a.database ? defaultVersion(a.database) : "",
+      dbType: dbInPlan(a.database),
+      dbVersion: defaultDbVersion(dbInPlan(a.database)),
     };
     if (!form.name.trim()) patch.name = nameFromArchive(imp.siteName);
     if (a.phpVersion && php?.versions.some((v) => v.version === a.phpVersion)) patch.phpVersion = a.phpVersion;
@@ -461,8 +473,8 @@ export function NewProjectPage() {
       source: "template",
       importSite: null,
       template: id,
-      dbType: tpl?.recommendedDatabase && !form.dbType ? tpl.recommendedDatabase : form.dbType,
-      dbVersion: tpl?.recommendedDatabase && !form.dbType ? (rt.runtimes.find((r) => r.key === tpl.recommendedDatabase)?.versions.find((v) => v.default)?.version ?? "") : form.dbVersion,
+      dbType: tpl?.recommendedDatabase && !form.dbType ? dbInPlan(tpl.recommendedDatabase) : form.dbType,
+      dbVersion: tpl?.recommendedDatabase && !form.dbType ? defaultDbVersion(dbInPlan(tpl.recommendedDatabase)) : form.dbVersion,
       gitUrl: tpl ? "" : form.gitUrl,
     };
     if (tpl) {
@@ -1379,6 +1391,7 @@ export function NewProjectPage() {
                 {selectedTemplate?.requiresDatabase && form.source === "template" && !form.dbType && <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">{t("This template needs a database - pick one below.")}</p>}
               </section>
               <section id="wizard-database" className="scroll-mt-6">
+                {wantedDbNotInPlan && <p className="mb-3 text-xs text-amber-600 dark:text-amber-400">{t("Your plan doesn't include {{name}}, so it isn't preselected.", { name: wantedDbNotInPlan.name })}</p>}
                 {servicesFields}
               </section>
               <section className="rounded-lg border border-default">

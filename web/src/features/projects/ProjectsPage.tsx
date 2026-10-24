@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useAuth } from "@/features/auth/AuthContext";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { useDashboard, usePlanAllows, useProjectLinks, useProjects } from "@/api/hooks";
+import { useDashboard, usePlanAllows, usePlanRuntimeList, useProjectLinks, useProjects } from "@/api/hooks";
 import { appKindOf, type Project } from "@/api/types";
 import { Alert, Badge, Button, Card, EmptyState, ErrorState, Input, LinkButton, PageHeader, Spinner, StatusDot } from "@/components/ui";
 import { formatBytes, formatPercent, serviceLabel, stateMeta } from "@/lib/format";
@@ -119,6 +119,7 @@ export function ProjectsPage() {
   const admin = useAuth().admin;
   const q = useProjects();
   const dash = useDashboard();
+  const planRuntimes = usePlanRuntimeList();
   const [filter, setFilter] = useState("");
 
   const projects = useMemo(() => {
@@ -142,7 +143,11 @@ export function ProjectsPage() {
       ) : q.data.length === 0 ? (
         <EmptyState
           title={t("No projects yet")}
-          message={t("Create a project to get an isolated PHP, Python, Go, Ruby, Java, .NET or Node.js environment with its own web server and Docker network.")}
+          message={
+            planRuntimes
+              ? t("Create a project to get an isolated environment with its own web server and Docker network. Your plan includes {{runtimes}}.", { runtimes: planRuntimes })
+              : t("Create a project to get an isolated PHP, Python, Go, Ruby, Java, .NET or Node.js environment with its own web server and Docker network.")
+          }
           action={
             admin ? (
               <LinkButton to="/projects/new" variant="primary" icon={<Plus className="size-4" />}>

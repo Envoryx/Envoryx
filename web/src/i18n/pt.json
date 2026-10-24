@@ -3678,5 +3678,8 @@
   "Public shares": "Compartilhamentos públicos",
   "New projects signed-in only": "Novos projetos só para conectados",
   "Your hoster's plan leaves out public shares; send a guest link instead": "O plano do seu provedor não inclui compartilhamentos públicos; envie um link de convidado",
-  "the server key must be a SHA256 fingerprint (SHA256:…) or a public key as ssh-keyscan prints it (ssh-ed25519 AAAA…)": "A chave do servidor deve ser uma impressão digital SHA256 (SHA256:…) ou uma chave pública como o ssh-keyscan a exibe (ssh-ed25519 AAAA…)"
+  "the server key must be a SHA256 fingerprint (SHA256:…) or a public key as ssh-keyscan prints it (ssh-ed25519 AAAA…)": "A chave do servidor deve ser uma impressão digital SHA256 (SHA256:…) ou uma chave pública como o ssh-keyscan a exibe (ssh-ed25519 AAAA…)",
+  "Create your first development environment with a web server in under a minute. Your plan includes {{runtimes}}.": "Crie o seu primeiro ambiente de desenvolvimento com servidor web em menos de um minuto. Seu plano inclui {{runtimes}}.",
+  "Create a project to get an isolated environment with its own web server and Docker network. Your plan includes {{runtimes}}.": "Crie um projeto para ter um ambiente isolado com servidor web e rede Docker próprios. Seu plano inclui {{runtimes}}.",
+  "Your plan doesn't include {{name}}, so it isn't preselected.": "{{name}} não está incluído no seu plano, por isso não vem pré-selecionado."
 }

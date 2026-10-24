@@ -188,6 +188,32 @@ describe("NewProjectPage wizard", () => {
     expect(create?.body).toMatchObject({ git: { url: "https://github.com/acme/shop.git" }, useManifest: true, createStarter: false });
   });
 
+  it("a template's database outside the plan is not preselected", async () => {
+    const postgresql = { key: "postgresql", name: "PostgreSQL", kind: "database" as const, available: true, description: "", notInPlan: true, versions: [{ version: "18", image: "postgres:18", label: "PostgreSQL 18", default: true }] };
+    mockApi({ ...authedRoutes, "GET /runtimes": () => ({ body: { ...pythonRuntimesFixture, runtimes: [...pythonRuntimesFixture.runtimes, postgresql] } }) });
+    renderWizard();
+    const user = userEvent.setup();
+    await pickTemplate(user, /^Django/);
+    await cont(user);
+    expect(screen.getByRole("radio", { name: "None" })).toBeChecked();
+    expect(screen.queryByRole("radio", { name: "PostgreSQL" })).not.toBeInTheDocument();
+    expect(screen.getByText("Your plan doesn't include PostgreSQL, so it isn't preselected.")).toBeInTheDocument();
+  });
+
+  it("a WordPress template takes MySQL when the plan leaves out MariaDB", async () => {
+    const mysql = { key: "mysql", name: "MySQL", kind: "database" as const, available: true, description: "", versions: [{ version: "8.4", image: "mysql:8.4", label: "MySQL 8.4", default: true }] };
+    mockApi({
+      ...authedRoutes,
+      "GET /runtimes": () => ({ body: { ...runtimesFixture, runtimes: [...runtimesFixture.runtimes.map((r) => (r.key === "mariadb" ? { ...r, notInPlan: true } : r)), mysql] } }),
+    });
+    renderWizard();
+    const user = userEvent.setup();
+    await pickTemplate(user, /^WordPress/);
+    await cont(user);
+    expect(screen.getByRole("radio", { name: "MySQL" })).toBeChecked();
+    expect(screen.getByText("Your plan doesn't include MariaDB, so it isn't preselected.")).toBeInTheDocument();
+  });
+
   it("selecting a template presets docroot and database; switching to a repository drops it", async () => {
     let previewBody: Record<string, unknown> | undefined;
     mockApi({

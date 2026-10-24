@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { useAuth } from "@/features/auth/AuthContext";
 import { ResourceOverviewCard } from "./ResourceOverviewCard";
 import { Plus, ArrowRight } from "lucide-react";
-import { useDashboard, useDiagnostics } from "@/api/hooks";
+import { useDashboard, useDiagnostics, usePlanRuntimeList } from "@/api/hooks";
 import { Button, Card, CardHeader, EmptyState, ErrorState, LinkButton, PageHeader, Spinner, StatusDot } from "@/components/ui";
 import { formatBytes, formatPercent } from "@/lib/format";
 import type { Dashboard } from "@/api/types";
@@ -151,6 +151,7 @@ export function DashboardPage() {
   // Only an admin of the whole instance creates projects.
   const admin = useAuth().admin;
   const q = useDashboard();
+  const planRuntimes = usePlanRuntimeList();
 
   if (q.isPending) return <Spinner />;
   if (q.isError) return <ErrorState message={errorText(q.error, t)} action={<Button onClick={() => void q.refetch()}>{t("Retry")}</Button>} />;
@@ -185,7 +186,11 @@ export function DashboardPage() {
             <div className="p-2">
               <EmptyState
                 title={t("No projects yet")}
-                message={t("Create your first development environment - PHP, Python, Go, Ruby, Java, .NET or Node.js with a web server - in under a minute.")}
+                message={
+                  planRuntimes
+                    ? t("Create your first development environment with a web server in under a minute. Your plan includes {{runtimes}}.", { runtimes: planRuntimes })
+                    : t("Create your first development environment - PHP, Python, Go, Ruby, Java, .NET or Node.js with a web server - in under a minute.")
+                }
                 action={
                   admin ? (
                     <LinkButton to="/projects/new" variant="primary" icon={<Plus className="size-4" />}>

@@ -1,7 +1,7 @@
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ProjectsPage } from "./ProjectsPage";
-import { authedRoutes, makeProject, mockApi, renderApp } from "@/test/utils";
+import { authedRoutes, makeProject, mockApi, renderApp, runtimesFixture } from "@/test/utils";
 
 describe("ProjectsPage", () => {
   afterEach(() => vi.unstubAllGlobals());
@@ -14,6 +14,19 @@ describe("ProjectsPage", () => {
     });
     renderApp(<ProjectsPage />);
     expect(await screen.findByText("No projects yet")).toBeInTheDocument();
+  });
+
+  it("names only the plan's runtimes in the empty state", async () => {
+    mockApi({
+      ...authedRoutes,
+      "GET /projects": () => ({ body: { projects: [] } }),
+      "GET /dashboard": () => ({ status: 500, body: {} }),
+      "GET /runtimes": () => ({ body: runtimesFixture }),
+      "GET /plan": () => ({ body: { plan: { name: "Starter", limits: {}, runtimes: ["php", "node", "python"], disabled: [], lockedSettings: [] }, usage: { projects: 0, users: 1, diskBytes: 0 } } }),
+    });
+    renderApp(<ProjectsPage />);
+    expect(await screen.findByText(/Your plan includes PHP, Node.js, and Python\./)).toBeInTheDocument();
+    expect(screen.queryByText(/Ruby/)).not.toBeInTheDocument();
   });
 
   it("lists projects and stops one", async () => {
