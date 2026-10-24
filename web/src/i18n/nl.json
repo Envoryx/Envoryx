@@ -3678,5 +3678,8 @@
   "Public shares": "Openbare deellinks",
   "New projects signed-in only": "Nieuwe projecten alleen aangemeld",
   "Your hoster's plan leaves out public shares; send a guest link instead": "Het pakket van je hoster bevat geen openbare deellinks; stuur in plaats daarvan een gastlink",
-  "the server key must be a SHA256 fingerprint (SHA256:…) or a public key as ssh-keyscan prints it (ssh-ed25519 AAAA…)": "De serversleutel moet een SHA256-vingerafdruk (SHA256:…) zijn of een publieke sleutel zoals ssh-keyscan die toont (ssh-ed25519 AAAA…)"
+  "the server key must be a SHA256 fingerprint (SHA256:…) or a public key as ssh-keyscan prints it (ssh-ed25519 AAAA…)": "De serversleutel moet een SHA256-vingerafdruk (SHA256:…) zijn of een publieke sleutel zoals ssh-keyscan die toont (ssh-ed25519 AAAA…)",
+  "Create your first development environment with a web server in under a minute. Your plan includes {{runtimes}}.": "Maak in minder dan een minuut je eerste ontwikkelomgeving met een webserver. Je abonnement bevat {{runtimes}}.",
+  "Create a project to get an isolated environment with its own web server and Docker network. Your plan includes {{runtimes}}.": "Maak een project aan voor een geïsoleerde omgeving met een eigen webserver en Docker-netwerk. Je abonnement bevat {{runtimes}}.",
+  "Your plan doesn't include {{name}}, so it isn't preselected.": "{{name}} zit niet in je abonnement en is daarom niet voorgeselecteerd."
 }
