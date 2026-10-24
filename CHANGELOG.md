@@ -10,6 +10,20 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Fixed
+- The new project wizard preselected a template's database (PostgreSQL for Django,
+  say) or the one an uploaded website came with even when the hoster's plan leaves it
+  out, with an empty version list and a refusal only at *Create project*. It now takes
+  MySQL for MariaDB and the other way round when the plan has that, otherwise no
+  database, and says why.
+- With no projects yet, the dashboard and the project list named all seven runtimes
+  even on an instance whose plan allows fewer. They now name the plan's runtimes.
+
+### Documentation
+- `services` in a plan is the list of what projects may add, not what they may not:
+  the 0.44.0 notes and `DEPLOYMENT.md` read like an exclusion list. A plan with only
+  `ollama` and `opensearch` allows those two and no database at all.
+
 ## [0.44.2] - 2026-10-23
 
 ### Fixed
@@ -39,7 +53,7 @@ release). `:main` follows the development branch.
 
 ### Added
 - A hoster's plan can name the services and database engines projects may add
-  (`services`: no Ollama or OpenSearch on a small machine, say), cap how many
+  (`services`, an allowlist: `mariadb`, `redis` and `mailpit` on a small machine, say), cap how many
   projects run at the same time (`limits.runningProjects`) and set CPU and memory
   per container: `limits.container` is the most a project may set,
   `limits.containerDefault` what a container gets where its project sets nothing.
