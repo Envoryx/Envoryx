@@ -2837,13 +2837,15 @@ management).
 - **runtimes**: the runtimes new projects may use (`php`, `node`, `python`,
   `go`, `ruby`, `java`, `dotnet`); empty or missing for all. A static site
   needs no runtime and is always possible.
-- **services**: the services and database engines projects may add:
-  `mariadb`, `mysql`, `postgresql`, `mongodb`, `redis`, `memcached`,
-  `rabbitmq`, `meilisearch`, `typesense`, `opensearch` (with its
-  dashboards), `ollama`, `mailpit` and `storage` (the S3 object storage);
-  empty or missing for all. A project that has one already keeps it; an
-  external database or Redis doesn't count. On a small machine, leaving out
-  `ollama` and `opensearch` keeps one project from taking all the memory.
+- **services**: the services and database engines projects may add, as an
+  allowlist: what's not in it is off. The names are `mariadb`, `mysql`,
+  `postgresql`, `mongodb`, `redis`, `memcached`, `rabbitmq`, `meilisearch`,
+  `typesense`, `opensearch` (with its dashboards), `ollama`, `mailpit` and
+  `storage` (the S3 object storage); empty or missing for all. A project that
+  has one already keeps it; an external database or Redis doesn't count. On a
+  small machine, `["mariadb", "redis", "mailpit"]` keeps Ollama and OpenSearch
+  out, so one project can't take all the memory. Writing `["ollama",
+  "opensearch"]` does the opposite: those two and nothing else, no database.
 - **disabled**: features the plan switches off: `addons`, `customImages`,
   `branchEnvironments`, `externalServices`, `offsite` (no targets, nothing is
   sent or fetched), `ideGateway` (no port forwarding over SSH, also not to the
