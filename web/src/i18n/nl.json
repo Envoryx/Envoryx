@@ -3681,5 +3681,6 @@
   "the server key must be a SHA256 fingerprint (SHA256:…) or a public key as ssh-keyscan prints it (ssh-ed25519 AAAA…)": "De serversleutel moet een SHA256-vingerafdruk (SHA256:…) zijn of een publieke sleutel zoals ssh-keyscan die toont (ssh-ed25519 AAAA…)",
   "Create your first development environment with a web server in under a minute. Your plan includes {{runtimes}}.": "Maak in minder dan een minuut je eerste ontwikkelomgeving met een webserver. Je abonnement bevat {{runtimes}}.",
   "Create a project to get an isolated environment with its own web server and Docker network. Your plan includes {{runtimes}}.": "Maak een project aan voor een geïsoleerde omgeving met een eigen webserver en Docker-netwerk. Je abonnement bevat {{runtimes}}.",
-  "Your plan doesn't include {{name}}, so it isn't preselected.": "{{name}} zit niet in je abonnement en is daarom niet voorgeselecteerd."
+  "Your plan doesn't include {{name}}, so it isn't preselected.": "{{name}} zit niet in je abonnement en is daarom niet voorgeselecteerd.",
+  "Forgot the password? An admin of this instance can send you a reset link; if you are the only admin, ask your hoster.": "Wachtwoord vergeten? Een beheerder van deze instantie kan je een resetlink sturen; ben je de enige beheerder, vraag het dan aan je hostingprovider."
 }
