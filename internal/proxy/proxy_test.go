@@ -130,6 +130,39 @@ func TestRouterCachesAndInvalidates(t *testing.T) {
 	}
 }
 
+func TestRedirectsMoveTheBaseDomainToTheUI(t *testing.T) {
+	force := false
+	source := func(context.Context) (Table, error) {
+		return Table{UIHosts: map[string]bool{"envoryx.example.net": true}, Redirects: map[string]string{"example.net": "envoryx.example.net"}, ForceHTTPS: force, HTTPSPort: 8443}, nil
+	}
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	h := NewHandler(NewRouter(source, 0, log), http.NotFoundHandler(), true, log)
+	for _, c := range []struct {
+		url, want string
+		tls, force bool
+	}{
+		{"https://example.net/projects?x=1", "https://envoryx.example.net/projects?x=1", true, false},
+		{"https://example.net:8443/", "https://envoryx.example.net:8443/", true, false},
+		{"http://example.net:8080/", "http://envoryx.example.net:8080/", false, false},
+		{"http://example.net/", "https://envoryx.example.net:8443/", false, true},
+	} {
+		force = c.force
+		req := httptest.NewRequest(http.MethodGet, c.url, nil)
+		if !c.tls {
+			req.TLS = nil
+		}
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		if rec.Code != http.StatusMovedPermanently || rec.Header().Get("Location") != c.want {
+			t.Errorf("%s: %d %s, want %s", c.url, rec.Code, rec.Header().Get("Location"), c.want)
+		}
+	}
+	s := NewServer(nil, NewRouter(source, 0, log), nil, "", "", nil, log)
+	if !s.allowHost("example.net") {
+		t.Fatal("the redirected host needs a certificate, or the browser never sees the redirect")
+	}
+}
+
 func TestPruneCertificatesKeepsWhatTheProxyServes(t *testing.T) {
 	certs, err := tlsca.Open(t.TempDir())
 	if err != nil {
