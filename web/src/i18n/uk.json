@@ -410,7 +410,7 @@
   "Package manager": "Менеджер пакетів",
   "Partially running": "Частково працює",
   "Password": "Пароль",
-  "Password changed. Other sessions were signed out.": "Пароль змінено. Інші сеанси завершено.",
+  "Password changed. You stay signed in here; your other sessions (other browsers and devices) were signed out.": "Пароль змінено. Тут ви залишаєтеся в системі; інші ваші сеанси (інші браузери й пристрої) завершено.",
   "Passwords do not match.": "Паролі не збігаються.",
   "Path mapping": "Зіставлення шляхів",
   "Pause": "Пауза",

@@ -410,7 +410,7 @@
   "Package manager": "Pakketbeheerder",
   "Partially running": "Gedeeltelijk actief",
   "Password": "Wachtwoord",
-  "Password changed. Other sessions were signed out.": "Wachtwoord gewijzigd. Andere sessies zijn afgemeld.",
+  "Password changed. You stay signed in here; your other sessions (other browsers and devices) were signed out.": "Wachtwoord gewijzigd. Hier blijf je aangemeld; je andere sessies (andere browsers en apparaten) zijn afgemeld.",
   "Passwords do not match.": "De wachtwoorden komen niet overeen.",
   "Path mapping": "Padmapping",
   "Pause": "Pauzeren",

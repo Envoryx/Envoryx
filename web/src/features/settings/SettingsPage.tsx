@@ -60,7 +60,7 @@ function PasswordForm() {
     setBusy(true);
     try {
       await api.auth.changePassword(current, next);
-      setMsg({ tone: "green", text: t("Password changed. Other sessions were signed out.") });
+      setMsg({ tone: "green", text: t("Password changed. You stay signed in here; your other sessions (other browsers and devices) were signed out.") });
       setCurrent("");
       setNext("");
       setConfirm("");
