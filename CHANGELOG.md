@@ -10,6 +10,14 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Fixed
+- The bare base domain (`dev.example.com` rather than `envoryx.dev.example.com`)
+  broke off the TLS handshake with "no certificate", although the certificate covers it.
+  It now redirects to the UI, unless a project has it as one of its domains.
+- After a password change, "Other sessions were signed out" read as if you had been
+  signed out yourself. The message now says that you stay signed in where you changed
+  it and that your other browsers and devices were signed out.
+
 ## [0.44.3] - 2026-10-24
 
 ### Fixed
