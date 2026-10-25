@@ -10,6 +10,8 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.44.4] - 2026-10-25
+
 ### Security
 - Over HTTPS the session cookie is now `__Host-envoryx_session` (`Secure`, `Path=/`, no
   `Domain`), and so are the project gate's pass and the single sign-on state. Browsers
@@ -2709,7 +2711,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.44.3...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.44.4...HEAD
+[0.44.4]: https://github.com/envoryx/envoryx/compare/v0.44.3...v0.44.4
 [0.44.3]: https://github.com/envoryx/envoryx/compare/v0.44.2...v0.44.3
 [0.44.2]: https://github.com/envoryx/envoryx/compare/v0.44.1...v0.44.2
 [0.44.1]: https://github.com/envoryx/envoryx/compare/v0.44.0...v0.44.1
