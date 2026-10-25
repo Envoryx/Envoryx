@@ -14,6 +14,17 @@ import (
 // oidcStateCookie binds a sign-in to the browser that started it.
 const oidcStateCookie = "envoryx_oidc"
 
+// stateCookie builds the OIDC state cookie; an empty state clears it. It lives on Path=/
+// because the __Host- prefix allows no other path.
+func (a *API) stateCookie(r *http.Request, state string) *http.Cookie {
+	secure := a.d.Auth.SecureRequest(r)
+	c := &http.Cookie{Name: auth.HostCookie(oidcStateCookie, secure), Value: state, Path: "/", MaxAge: 600, HttpOnly: true, Secure: secure, SameSite: http.SameSiteLaxMode}
+	if state == "" {
+		c.MaxAge = -1
+	}
+	return c
+}
+
 // oidcStatus tells the login page whether to offer single sign-on: GET /auth/oidc.
 // Public, and nothing in it is secret.
 func (a *API) oidcStatus(w http.ResponseWriter, r *http.Request) {
@@ -63,13 +74,13 @@ func (a *API) oidcStart(w http.ResponseWriter, r *http.Request) {
 		ssoFailed(w, r, err.Error())
 		return
 	}
-	http.SetCookie(w, &http.Cookie{Name: oidcStateCookie, Value: state, Path: "/api/v1/auth/oidc", MaxAge: 600, HttpOnly: true, Secure: a.d.Config.SecureCookies, SameSite: http.SameSiteLaxMode})
+	http.SetCookie(w, a.stateCookie(r, state))
 	http.Redirect(w, r, authURL, http.StatusFound)
 }
 
 // oidcCallback finishes the sign-in the provider returns from: GET /auth/oidc/callback.
 func (a *API) oidcCallback(w http.ResponseWriter, r *http.Request) {
-	http.SetCookie(w, &http.Cookie{Name: oidcStateCookie, Value: "", Path: "/api/v1/auth/oidc", MaxAge: -1, HttpOnly: true, Secure: a.d.Config.SecureCookies, SameSite: http.SameSiteLaxMode})
+	http.SetCookie(w, a.stateCookie(r, ""))
 	if a.d.OIDC == nil {
 		ssoFailed(w, r, oidc.ErrDisabled.Error())
 		return
@@ -80,7 +91,7 @@ func (a *API) oidcCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	state := q.Get("state")
-	c, err := r.Cookie(oidcStateCookie)
+	c, err := r.Cookie(auth.HostCookie(oidcStateCookie, a.d.Auth.SecureRequest(r)))
 	if err != nil || state == "" || c.Value != state {
 		ssoFailed(w, r, "the sign-in did not start in this browser; start it again")
 		return
@@ -99,7 +110,7 @@ func (a *API) oidcCallback(w http.ResponseWriter, r *http.Request) {
 		ssoFailed(w, r, err.Error())
 		return
 	}
-	http.SetCookie(w, a.d.Auth.Cookie(token))
+	http.SetCookie(w, a.d.Auth.Cookie(r, token))
 	a.d.Audit.LogAs(r.Context(), user.Username, audit.ActionLogin, "user", user.ID, map[string]string{"via": "sso"})
 	http.Redirect(w, r, returnTo, http.StatusFound)
 }

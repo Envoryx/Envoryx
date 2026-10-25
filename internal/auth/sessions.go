@@ -17,8 +17,25 @@ import (
 	"github.com/envoryx/envoryx/internal/store"
 )
 
-// CookieName is the session cookie.
+// CookieName is the session cookie over plain HTTP; over HTTPS it is HostCookie(CookieName).
 const CookieName = "envoryx_session"
+
+// HostCookie is the name a cookie gets over HTTPS: browsers take a __Host- cookie only
+// from the very host that sets it, Secure, on Path=/ and without a Domain. Another host
+// under the same domain (a project's app, or another instance of the same hoster) can
+// then neither plant nor overwrite it. Plain HTTP can't carry the prefix.
+func HostCookie(name string, secure bool) string {
+	if secure {
+		return "__Host-" + name
+	}
+	return name
+}
+
+// SecureRequest reports whether cookies for the request are Secure: it came in over
+// TLS, or Envoryx sits behind an HTTPS proxy and was told so (ENVORYX_SECURE_COOKIES).
+func (s *Service) SecureRequest(r *http.Request) bool {
+	return r.TLS != nil || s.opts.SecureCookies
+}
 
 // ErrInvalidCredentials is returned for unknown users or wrong passwords.
 var ErrInvalidCredentials = errors.New("invalid credentials")
@@ -337,13 +354,14 @@ func (s *Service) ChangePassword(ctx context.Context, p Principal, current, next
 }
 
 // Cookie builds the session cookie for a raw token. An empty token clears the cookie.
-func (s *Service) Cookie(token string) *http.Cookie {
+func (s *Service) Cookie(r *http.Request, token string) *http.Cookie {
+	secure := s.SecureRequest(r)
 	c := &http.Cookie{
-		Name:     CookieName,
+		Name:     HostCookie(CookieName, secure),
 		Value:    token,
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   s.opts.SecureCookies,
+		Secure:   secure,
 		SameSite: http.SameSiteLaxMode,
 	}
 	if token == "" {

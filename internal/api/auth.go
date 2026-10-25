@@ -58,7 +58,7 @@ func (a *API) setup(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
-	http.SetCookie(w, a.d.Auth.Cookie(token))
+	http.SetCookie(w, a.d.Auth.Cookie(r, token))
 	writeJSON(w, http.StatusCreated, map[string]any{"user": userDTO{ID: user.ID, Username: user.Username, Role: user.Role}})
 }
 
@@ -100,7 +100,7 @@ func (a *API) login(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) logout(w http.ResponseWriter, r *http.Request) {
-	token := auth.TokenFromRequest(r)
+	token := a.d.Auth.TokenFromRequest(r)
 	if p, err := a.d.Auth.Validate(r.Context(), token); err == nil {
 		ctx := auth.WithPrincipal(r.Context(), p)
 		a.d.Audit.Log(ctx, audit.ActionLogout, "user", p.UserID, nil)
@@ -109,7 +109,7 @@ func (a *API) logout(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
-	http.SetCookie(w, a.d.Auth.Cookie(""))
+	http.SetCookie(w, a.d.Auth.Cookie(r, ""))
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -163,6 +163,6 @@ func (a *API) changePassword(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
-	http.SetCookie(w, a.d.Auth.Cookie(token))
+	http.SetCookie(w, a.d.Auth.Cookie(r, token))
 	w.WriteHeader(http.StatusNoContent)
 }

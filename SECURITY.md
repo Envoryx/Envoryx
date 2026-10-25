@@ -70,9 +70,14 @@ trust with the projects' containers.
   so timing doesn't tell an attacker which accounts exist.
 - Sessions are opaque 256-bit random tokens, and only their SHA-256 hash is stored. By
   default they end after 12 h idle (sliding) and after 7 days at the latest.
-- The cookie is `HttpOnly`, `SameSite=Lax`, and `Secure` when
-  `ENVORYX_SECURE_COOKIES=true`. Switch that on when Envoryx is served through an HTTPS
-  reverse proxy.
+- The cookie is `HttpOnly` and `SameSite=Lax`. Over HTTPS it is `__Host-envoryx_session`,
+  `Secure`, on `Path=/` and without a `Domain`: browsers take such a cookie only from the
+  very host that sets it, so another host under the same domain (a project's app, or
+  another instance of the same hoster) can neither plant nor overwrite the session, even
+  without an entry in the Public Suffix List. Over HTTPS a plain `envoryx_session` is
+  ignored. The project gate's pass and the single sign-on state work the same way. Behind
+  an HTTPS reverse proxy that talks plain HTTP to Envoryx, set
+  `ENVORYX_SECURE_COOKIES=true` so Envoryx knows.
 - Login attempts are rate-limited per IP **and** per username, with exponential back-off
   after 5 failures.
 - Changing the password revokes all other sessions.

@@ -166,7 +166,7 @@ func (h *Handler) redeemGuest(w http.ResponseWriter, r *http.Request, host strin
 // grantPass stores a pass for the entry's host and sets its cookie.
 func (h *Handler) grantPass(w http.ResponseWriter, r *http.Request, e gateEntry) error {
 	g := h.gate
-	cookie := &http.Cookie{Name: gateCookie, Path: "/", HttpOnly: true, Secure: r.TLS != nil, SameSite: http.SameSiteLaxMode}
+	cookie := &http.Cookie{Name: gateCookieName(r), Path: "/", HttpOnly: true, Secure: r.TLS != nil, SameSite: http.SameSiteLaxMode}
 	if e.guestToken != "" {
 		// The guest's link itself (see admitGuest), kept across a browser restart.
 		cookie.Value, cookie.MaxAge = e.guestToken, int(guestPassTTL.Seconds())
@@ -365,7 +365,7 @@ func (h *Handler) redeemGate(w http.ResponseWriter, r *http.Request, host string
 // admitGate reports whether the request carries a valid pass for the target.
 func (h *Handler) admitGate(r *http.Request, host string, t Target) bool {
 	g := h.gate
-	c, err := r.Cookie(gateCookie)
+	c, err := r.Cookie(gateCookieName(r))
 	if err != nil || c.Value == "" {
 		return false
 	}
@@ -433,15 +433,29 @@ func (h *Handler) challengeGate(w http.ResponseWriter, r *http.Request, t Target
 		"<strong>"+html.EscapeString(t.ProjectName)+`</strong> is only open to users signed in to Envoryx. <a href="`+html.EscapeString(signIn)+`">Sign in</a>`, "")
 }
 
+// gateCookieName is the pass cookie's name. Over HTTPS it carries the __Host- prefix, so
+// no other host under the domain can plant a pass for this one.
+func gateCookieName(r *http.Request) string {
+	if r.TLS != nil {
+		return "__Host-" + gateCookie
+	}
+	return gateCookie
+}
+
 // dropGateCookie keeps the pass from the application: it is the proxy's, not the app's.
 func dropGateCookie(r *http.Request) {
-	if _, err := r.Cookie(gateCookie); err != nil {
+	isGate := func(name string) bool { return name == gateCookie || name == "__Host-"+gateCookie }
+	cookies := r.Cookies()
+	found := false
+	for _, c := range cookies {
+		found = found || isGate(c.Name)
+	}
+	if !found {
 		return
 	}
-	cookies := r.Cookies()
 	r.Header.Del("Cookie")
 	for _, c := range cookies {
-		if c.Name != gateCookie {
+		if !isGate(c.Name) {
 			r.AddCookie(c)
 		}
 	}

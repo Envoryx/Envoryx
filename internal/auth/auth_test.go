@@ -167,9 +167,29 @@ func TestMiddleware(t *testing.T) {
 		t.Fatalf("expected 200 with cookie, got %d", rec.Code)
 	}
 
-	c := svc.Cookie(token)
-	if !c.HttpOnly || c.SameSite != http.SameSiteLaxMode {
-		t.Fatalf("cookie must be HttpOnly + SameSite=Lax: %+v", c)
+	c := svc.Cookie(req, token)
+	if !c.HttpOnly || c.SameSite != http.SameSiteLaxMode || c.Name != CookieName || c.Secure {
+		t.Fatalf("cookie must be HttpOnly + SameSite=Lax, plain over HTTP: %+v", c)
+	}
+
+	// Over HTTPS the session is the __Host- cookie alone: a plain one of the same name
+	// may come from another host under the domain and is ignored.
+	tlsReq := httptest.NewRequest(http.MethodGet, "https://envoryx.example.net/", nil)
+	if c := svc.Cookie(tlsReq, token); c.Name != "__Host-"+CookieName || !c.Secure || c.Path != "/" || c.Domain != "" {
+		t.Fatalf("cookie over HTTPS: %+v", c)
+	}
+	tlsReq.AddCookie(&http.Cookie{Name: CookieName, Value: token})
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, tlsReq)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("a plain cookie over HTTPS must not sign in: %d", rec.Code)
+	}
+	tlsReq = httptest.NewRequest(http.MethodGet, "https://envoryx.example.net/", nil)
+	tlsReq.AddCookie(&http.Cookie{Name: "__Host-" + CookieName, Value: token})
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, tlsReq)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("the __Host- cookie over HTTPS must sign in: %d", rec.Code)
 	}
 
 	// A bearer API token authenticates without a cookie and is marked as such.

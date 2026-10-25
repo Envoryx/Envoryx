@@ -10,6 +10,14 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Security
+- Over HTTPS the session cookie is now `__Host-envoryx_session` (`Secure`, `Path=/`, no
+  `Domain`), and so are the project gate's pass and the single sign-on state. Browsers
+  take such cookies only from the host that sets them, so a project's app or another
+  instance under the same domain can't plant or overwrite them. Envoryx's own HTTPS
+  gets this without `ENVORYX_SECURE_COOKIES`. After the update everyone signed in over
+  HTTPS signs in once more.
+
 ### Fixed
 - The bare base domain (`dev.example.com` rather than `envoryx.dev.example.com`)
   broke off the TLS handshake with "no certificate", although the certificate covers it.
