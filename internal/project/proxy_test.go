@@ -41,6 +41,9 @@ func TestRouteTableAndDomains(t *testing.T) {
 	if !table.UIHosts["envoryx.test"] || !table.UIHosts["192.168.1.10"] || table.HTTPSPort != 8443 {
 		t.Fatalf("ui hosts: %+v", table)
 	}
+	if len(table.Redirects) != 0 {
+		t.Fatalf("a single-label base domain never resolves, nothing to redirect: %v", table.Redirects)
+	}
 	r, ok := table.Routes["shop.test"]
 	if !ok || !r.Running || r.Dial != "127.0.0.1:20000" || r.ProjectName != "Shop" {
 		t.Fatalf("shop route (bare metal dial): %+v", r)
@@ -62,6 +65,16 @@ func TestRouteTableAndDomains(t *testing.T) {
 	hosts, _ = e.m.ProjectHostnames(ctx, shop.Project)
 	if hosts[0] != "shop.dev.local" {
 		t.Fatalf("base domain change must apply: %v", hosts)
+	}
+	table, _ = e.m.RouteTable(ctx, ProxyOptions{})
+	if table.Redirects["dev.local"] != "envoryx.dev.local" {
+		t.Fatalf("the bare base domain must lead to the UI: %v", table.Redirects)
+	}
+	if _, err := e.m.AddDomain(ctx, idle.Project.ID, "dev.local"); err != nil {
+		t.Fatal(err)
+	}
+	if table, _ = e.m.RouteTable(ctx, ProxyOptions{}); table.Redirects["dev.local"] != "" || table.Routes["dev.local"].ProjectID != idle.Project.ID {
+		t.Fatalf("a project that took the base domain keeps it: %v", table.Redirects)
 	}
 	if err := e.m.SetBaseDomain(ctx, "bad domain"); !errors.Is(err, validate.ErrInvalid) {
 		t.Fatalf("invalid base domain must be rejected, got %v", err)

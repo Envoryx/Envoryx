@@ -54,6 +54,9 @@ type Table struct {
 	Routes map[string]Target
 	// UIHosts are host names served by Envoryx's own UI (e.g. envoryx.test, the public host).
 	UIHosts map[string]bool
+	// Redirects send a host name for good to another one, such as the bare base domain to
+	// the UI: people type the base domain, and the certificate covers it anyway.
+	Redirects map[string]string
 	// ForceHTTPS redirects plain HTTP requests for known hosts to HTTPS.
 	ForceHTTPS bool
 	// HTTPSPort is the host-side HTTPS port used in redirects; 0 means 443.
@@ -182,6 +185,10 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.ui.ServeHTTP(w, r)
 		return
 	}
+	if to, ok := table.Redirects[host]; ok {
+		redirectHost(w, r, to, h.tls && table.ForceHTTPS, table.HTTPSPort)
+		return
+	}
 	if table.ProbeHost != "" && host == table.ProbeHost {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Cache-Control", "no-store")
@@ -264,6 +271,28 @@ func redirectHTTPS(w http.ResponseWriter, r *http.Request, port int) {
 	}
 	u := url.URL{Scheme: "https", Host: host, Path: r.URL.Path, RawQuery: r.URL.RawQuery}
 	http.Redirect(w, r, u.String(), http.StatusTemporaryRedirect)
+}
+
+// redirectHost moves a request to another host name for good, keeping scheme, port, path
+// and query; plain HTTP goes to HTTPS right away where the instance forces it.
+func redirectHost(w http.ResponseWriter, r *http.Request, to string, forceHTTPS bool, httpsPort int) {
+	scheme, port := "http", ""
+	if _, p, err := net.SplitHostPort(r.Host); err == nil {
+		port = p
+	}
+	if r.TLS != nil {
+		scheme = "https"
+	} else if forceHTTPS {
+		scheme, port = "https", ""
+		if httpsPort != 0 && httpsPort != 443 {
+			port = fmt.Sprint(httpsPort)
+		}
+	}
+	if port != "" {
+		to = net.JoinHostPort(to, port)
+	}
+	u := url.URL{Scheme: scheme, Host: to, Path: r.URL.Path, RawQuery: r.URL.RawQuery}
+	http.Redirect(w, r, u.String(), http.StatusMovedPermanently)
 }
 
 func (h *Handler) proxyFor(dial string) *httputil.ReverseProxy {
@@ -358,6 +387,9 @@ func (s *Server) allowedIn(t Table, host string) bool {
 		return true
 	}
 	if _, ok := t.Routes[host]; ok {
+		return true
+	}
+	if _, ok := t.Redirects[host]; ok {
 		return true
 	}
 	return s.extraAllow != nil && s.extraAllow(host)

@@ -225,7 +225,7 @@ type ProxyOptions struct {
 // application; <slug>-dev.<base> always reaches the Node dev server and
 // <slug>-storage.<base> the object storage.
 func (m *Manager) RouteTable(ctx context.Context, opts ProxyOptions) (proxy.Table, error) {
-	t := proxy.Table{Routes: map[string]proxy.Target{}, UIHosts: map[string]bool{}, ForceHTTPS: m.ForceHTTPS(ctx), HTTPSPort: opts.HTTPSPort, EnvoryxURL: opts.EnvoryxURL}
+	t := proxy.Table{Routes: map[string]proxy.Target{}, UIHosts: map[string]bool{}, Redirects: map[string]string{}, ForceHTTPS: m.ForceHTTPS(ctx), HTTPSPort: opts.HTTPSPort, EnvoryxURL: opts.EnvoryxURL}
 	base := m.BaseDomain(ctx)
 	t.UIHosts[UIHostname(base)] = true
 	t.ProbeHost, t.ProbeToken = ProbeHostname(base), probeToken
@@ -295,6 +295,13 @@ func (m *Manager) RouteTable(ctx context.Context, opts ProxyOptions) (proxy.Tabl
 	for _, d := range domains {
 		if p, ok := byProject[d.ProjectID]; ok {
 			t.Routes[d.Hostname] = m.appRoute(paths.SelfContainerID, p, running, base)
+		}
+	}
+	// The bare base domain leads to the UI, unless a project took it as its domain or the UI
+	// itself answers there. A single label like "test" never resolves, so it's left out.
+	if strings.Contains(base, ".") && !t.UIHosts[base] {
+		if _, taken := t.Routes[base]; !taken {
+			t.Redirects[base] = UIHostname(base)
 		}
 	}
 	return t, nil

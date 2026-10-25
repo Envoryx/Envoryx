@@ -322,7 +322,9 @@ not at the Unraid IP (which is where the direct project ports live).
 ### Names
 
 - Base domain, default `test` (Settings → Domains & HTTPS). Every project is
-  `<slug>.<base>` (`shop.test`), the UI is `envoryx.<base>`.
+  `<slug>.<base>` (`shop.test`), the UI is `envoryx.<base>`. The bare base
+  domain (`dev.example.com` itself) redirects to the UI, unless a project has
+  it as one of its domains.
 - Additional names per project in its **Domains** section (`shop.local`,
   `api.shop.test`, …), or `envoryx domain add|remove|list <project> <name>`.
   Each name must be unique across projects.
