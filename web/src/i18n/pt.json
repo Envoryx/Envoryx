@@ -410,7 +410,7 @@
   "Package manager": "Gerenciador de pacotes",
   "Partially running": "Parcialmente em execução",
   "Password": "Senha",
-  "Password changed. Other sessions were signed out.": "Senha alterada. As outras sessões foram encerradas.",
+  "Password changed. You stay signed in here; your other sessions (other browsers and devices) were signed out.": "Senha alterada. Aqui você continua conectado; suas outras sessões (outros navegadores e dispositivos) foram encerradas.",
   "Passwords do not match.": "As senhas não coincidem.",
   "Path mapping": "Mapeamento de caminhos",
   "Pause": "Pausar",

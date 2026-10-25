@@ -410,7 +410,7 @@
   "Package manager": "Menedżer pakietów",
   "Partially running": "Częściowo uruchomiony",
   "Password": "Hasło",
-  "Password changed. Other sessions were signed out.": "Hasło zmieniono. Pozostałe sesje wylogowano.",
+  "Password changed. You stay signed in here; your other sessions (other browsers and devices) were signed out.": "Hasło zmienione. Tutaj pozostajesz zalogowany; twoje pozostałe sesje (inne przeglądarki i urządzenia) zostały wylogowane.",
   "Passwords do not match.": "Hasła nie są zgodne.",
   "Path mapping": "Mapowanie ścieżek",
   "Pause": "Pauza",
