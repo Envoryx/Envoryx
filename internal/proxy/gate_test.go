@@ -450,3 +450,19 @@ func TestGuestLink(t *testing.T) {
 		t.Fatal("a revoked guest link must close the project")
 	}
 }
+
+func TestGateCookieOverHTTPS(t *testing.T) {
+	if n := gateCookieName(httptest.NewRequest(http.MethodGet, "https://shop.example.net/", nil)); n != "__Host-"+gateCookie {
+		t.Fatalf("over HTTPS: %s", n)
+	}
+	if n := gateCookieName(httptest.NewRequest(http.MethodGet, "http://shop.test/", nil)); n != gateCookie {
+		t.Fatalf("over HTTP: %s", n)
+	}
+	// Neither form of the pass reaches the application.
+	r := httptest.NewRequest(http.MethodGet, "https://shop.example.net/", nil)
+	r.Header.Set("Cookie", "__Host-"+gateCookie+"=a; "+gateCookie+"=b; app=1")
+	dropGateCookie(r)
+	if c := r.Header.Get("Cookie"); c != "app=1" {
+		t.Fatalf("the application sees %q", c)
+	}
+}

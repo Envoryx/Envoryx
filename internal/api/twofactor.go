@@ -39,7 +39,7 @@ var routesWhileTwoFactorSetup = map[string]bool{
 
 // signedIn sets the session cookie and answers with the user, as the sign-in does.
 func (a *API) signedIn(w http.ResponseWriter, r *http.Request, token string, user userDTO, method string) {
-	http.SetCookie(w, a.d.Auth.Cookie(token))
+	http.SetCookie(w, a.d.Auth.Cookie(r, token))
 	ctx := auth.WithPrincipal(r.Context(), auth.Principal{UserID: user.ID, Username: user.Username, Role: user.Role})
 	a.d.Audit.Log(ctx, audit.ActionLogin, "user", user.ID, map[string]string{"method": method})
 	writeJSON(w, http.StatusOK, map[string]any{"user": user})

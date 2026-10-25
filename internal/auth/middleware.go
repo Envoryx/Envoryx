@@ -21,9 +21,10 @@ func WithPrincipal(ctx context.Context, p Principal) context.Context {
 	return context.WithValue(ctx, ctxKey{}, p)
 }
 
-// TokenFromRequest extracts the raw session token from the cookie.
-func TokenFromRequest(r *http.Request) string {
-	c, err := r.Cookie(CookieName)
+// TokenFromRequest extracts the raw session token from the cookie. Over HTTPS only the
+// __Host- cookie counts: a plain one may have come from another host of the domain.
+func (s *Service) TokenFromRequest(r *http.Request) string {
+	c, err := r.Cookie(HostCookie(CookieName, s.SecureRequest(r)))
 	if err != nil {
 		return ""
 	}
@@ -58,7 +59,7 @@ func (s *Service) Middleware(unauthorized http.Handler) func(http.Handler) http.
 					s.log.Error("api token validation failed", "err", err)
 				}
 			} else {
-				p, err = s.Validate(r.Context(), TokenFromRequest(r))
+				p, err = s.Validate(r.Context(), s.TokenFromRequest(r))
 				if err != nil && !errors.Is(err, ErrUnauthenticated) {
 					s.log.Error("session validation failed", "err", err)
 				}

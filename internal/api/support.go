@@ -55,7 +55,7 @@ func (a *API) supportLogin(w http.ResponseWriter, r *http.Request) {
 		ssoFailed(w, r, err.Error())
 		return
 	}
-	http.SetCookie(w, a.d.Auth.Cookie(token))
+	http.SetCookie(w, a.d.Auth.Cookie(r, token))
 	ctx := auth.WithPrincipal(r.Context(), auth.Principal{UserID: user.ID, Username: user.Username, Role: user.Role, Support: true})
 	a.d.Audit.Log(ctx, audit.ActionSupportLogin, "user", user.ID, map[string]any{"hoster": hoster})
 	http.Redirect(w, r, "/", http.StatusFound)

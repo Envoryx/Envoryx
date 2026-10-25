@@ -273,7 +273,7 @@ func (a *API) acceptInvitation(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
-	http.SetCookie(w, a.d.Auth.Cookie(token))
+	http.SetCookie(w, a.d.Auth.Cookie(r, token))
 	writeJSON(w, http.StatusOK, map[string]any{"user": userDTO{ID: u.ID, Username: u.Username, Role: u.Role}})
 }
 

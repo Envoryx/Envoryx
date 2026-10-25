@@ -82,7 +82,7 @@ docker build -t ghcr.io/envoryx/envoryx:dev --build-arg VERSION=dev .
 | `ENVORYX_UPDATE_UNVERIFIED` | `false` | Let updates from the fleet manager take an image without checking its build provenance (own builds, hosts without internet access; logged as a warning); see [Updates from the fleet manager](#updates-from-the-fleet-manager) |
 | `ENVORYX_SESSION_IDLE_TIMEOUT` | `12h` | Sliding session expiry |
 | `ENVORYX_SESSION_ABSOLUTE_TIMEOUT` | `168h` | Hard session expiry |
-| `ENVORYX_SECURE_COOKIES` | `false` | Mark cookies `Secure` (enable behind HTTPS) |
+| `ENVORYX_SECURE_COOKIES` | `false` | Treat every request as HTTPS for cookies (`Secure`, `__Host-` prefix); set it behind an HTTPS reverse proxy. Requests over Envoryx's own HTTPS get them anyway |
 | `ENVORYX_UPDATE_CHECK` | `true` | Ask GitHub once a day for a newer release and show a hint in the UI (one anonymous request; `false` disables it) |
 | `ENVORYX_SHUTDOWN_GRACE` | `8s` | How long running project operations may finish after a stop signal, see [Stopping and restarting](#stopping-and-restarting) |
 | `ENVORYX_LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` |
