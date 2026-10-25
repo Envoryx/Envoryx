@@ -28,6 +28,7 @@ export function LoginPage({ mode }: { mode: "login" | "setup" }) {
   });
   const [busy, setBusy] = useState(false);
   const [sso, setSso] = useState<{ enabled: boolean; name?: string } | null>(null);
+  const [managed, setManaged] = useState(false);
   // The second step after the password; an invitation link that reset the password
   // hands it over in the location state.
   const handed = location.state as { secondFactor?: SecondStep; passwordSet?: boolean } | null;
@@ -39,6 +40,7 @@ export function LoginPage({ mode }: { mode: "login" | "setup" }) {
     if (mode !== "login") return;
     let live = true;
     api.auth.oidcStatus().then((s) => live && setSso(s), () => undefined);
+    api.auth.setupStatus().then((s) => live && setManaged(!!s.managed), () => undefined);
     return () => {
       live = false;
     };
@@ -166,7 +168,8 @@ export function LoginPage({ mode }: { mode: "login" | "setup" }) {
               </a>
             </>
           )}
-          {mode === "login" && (
+          {mode === "login" && managed && <p className="text-center text-xs text-fg-muted">{t("Forgot the password? An admin of this instance can send you a reset link; if you are the only admin, ask your hoster.")}</p>}
+          {mode === "login" && !managed && (
             <p className="text-center text-xs text-fg-muted">
               <a href={LOST_ACCESS_DOCS} target="_blank" rel="noreferrer" className="underline hover:text-fg">
                 {t("Forgot the password?")}

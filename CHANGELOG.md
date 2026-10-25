@@ -17,6 +17,9 @@ release). `:main` follows the development branch.
 - After a password change, "Other sessions were signed out" read as if you had been
   signed out yourself. The message now says that you stay signed in where you changed
   it and that your other browsers and devices were signed out.
+- On a hosted instance, *Forgot the password?* on the sign-in page linked to the rescue
+  command in `DEPLOYMENT.md`, which needs a shell the customer doesn't have. There it now
+  says that an admin can send a reset link and that the only admin asks the hoster.
 
 ## [0.44.3] - 2026-10-24
 

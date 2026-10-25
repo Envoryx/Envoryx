@@ -11,6 +11,16 @@ function Home() {
 describe("LoginPage", () => {
   afterEach(() => vi.unstubAllGlobals());
 
+  it("on a hosted instance points a lost password to the admins and the hoster, not the docs", async () => {
+    mockApi({
+      "GET /setup": () => ({ body: { needsSetup: false, managed: true } }),
+      "GET /auth/me": () => ({ status: 401, body: { error: { code: "unauthenticated", message: "authentication required" } } }),
+    });
+    renderApp(<LoginPage mode="login" />, { route: "/login" });
+    expect(await screen.findByText(/An admin of this instance can send you a reset link/)).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Forgot the password?" })).not.toBeInTheDocument();
+  });
+
   it("signs in and redirects", async () => {
     const api = mockApi({
       "GET /setup": () => ({ body: { needsSetup: false } }),

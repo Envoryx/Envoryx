@@ -22,7 +22,9 @@ func (a *API) setupStatus(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"needsSetup": needs})
+	// managed tells the sign-in page that a hoster runs the instance: its users have no
+	// shell for the rescue command, so a lost password goes to an admin or the hoster.
+	writeJSON(w, http.StatusOK, map[string]any{"needsSetup": needs, "managed": a.d.Projects.Plan() != nil})
 }
 
 type setupRequest struct {

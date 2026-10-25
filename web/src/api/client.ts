@@ -302,7 +302,7 @@ export const api = {
   health: () => request<{ status: string; version: string; docker: boolean; database: boolean }>("/health"),
 
   auth: {
-    setupStatus: () => request<{ needsSetup: boolean }>("/setup"),
+    setupStatus: () => request<{ needsSetup: boolean; managed?: boolean }>("/setup"),
     setup: (username: string, password: string) =>
       request<{ user: User }>("/setup", { method: "POST", body: { username, password } }),
     login: (username: string, password: string) =>

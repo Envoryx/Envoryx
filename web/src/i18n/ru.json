@@ -3731,5 +3731,6 @@
   "the server key must be a SHA256 fingerprint (SHA256:…) or a public key as ssh-keyscan prints it (ssh-ed25519 AAAA…)": "Ключ сервера должен быть отпечатком SHA256 (SHA256:…) или открытым ключом в том виде, в каком его выводит ssh-keyscan (ssh-ed25519 AAAA…)",
   "Create your first development environment with a web server in under a minute. Your plan includes {{runtimes}}.": "Создайте первую среду разработки с веб-сервером меньше чем за минуту. Ваш тариф включает {{runtimes}}.",
   "Create a project to get an isolated environment with its own web server and Docker network. Your plan includes {{runtimes}}.": "Создайте проект, чтобы получить изолированную среду с собственным веб-сервером и сетью Docker. Ваш тариф включает {{runtimes}}.",
-  "Your plan doesn't include {{name}}, so it isn't preselected.": "{{name}} не входит в ваш тариф, поэтому не выбран заранее."
+  "Your plan doesn't include {{name}}, so it isn't preselected.": "{{name}} не входит в ваш тариф, поэтому не выбран заранее.",
+  "Forgot the password? An admin of this instance can send you a reset link; if you are the only admin, ask your hoster.": "Забыли пароль? Администратор этого экземпляра может отправить вам ссылку для сброса; если вы единственный администратор, обратитесь к своему хостеру."
 }

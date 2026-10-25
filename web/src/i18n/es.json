@@ -3681,5 +3681,6 @@
   "the server key must be a SHA256 fingerprint (SHA256:…) or a public key as ssh-keyscan prints it (ssh-ed25519 AAAA…)": "La clave del servidor debe ser una huella SHA256 (SHA256:…) o una clave pública tal como la muestra ssh-keyscan (ssh-ed25519 AAAA…)",
   "Create your first development environment with a web server in under a minute. Your plan includes {{runtimes}}.": "Crea tu primer entorno de desarrollo con servidor web en menos de un minuto. Tu plan incluye {{runtimes}}.",
   "Create a project to get an isolated environment with its own web server and Docker network. Your plan includes {{runtimes}}.": "Crea un proyecto para obtener un entorno aislado con su propio servidor web y su red Docker. Tu plan incluye {{runtimes}}.",
-  "Your plan doesn't include {{name}}, so it isn't preselected.": "{{name}} no está incluido en tu plan, así que no se preselecciona."
+  "Your plan doesn't include {{name}}, so it isn't preselected.": "{{name}} no está incluido en tu plan, así que no se preselecciona.",
+  "Forgot the password? An admin of this instance can send you a reset link; if you are the only admin, ask your hoster.": "¿Olvidaste la contraseña? Un administrador de esta instancia puede enviarte un enlace para restablecerla; si eres el único administrador, pregunta a tu proveedor de hosting."
 }
