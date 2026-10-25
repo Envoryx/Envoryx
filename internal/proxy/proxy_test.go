@@ -138,7 +138,7 @@ func TestRedirectsMoveTheBaseDomainToTheUI(t *testing.T) {
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	h := NewHandler(NewRouter(source, 0, log), http.NotFoundHandler(), true, log)
 	for _, c := range []struct {
-		url, want string
+		url, want  string
 		tls, force bool
 	}{
 		{"https://example.net/projects?x=1", "https://envoryx.example.net/projects?x=1", true, false},
