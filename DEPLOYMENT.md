@@ -807,8 +807,9 @@ and needs none.
   (API only)* (`rails new --api`), both named after the project and set up
   for its database (PostgreSQL, MySQL, MariaDB; SQLite without one), and
   *Sinatra* (`app.rb`, `config.ru`, a `Gemfile` with Puma, `sinatra-contrib`
-  for the reloader and the debug gem). The Rails templates take a few
-  minutes the first time, while the native gems compile. Envoryx creates the
+  for the reloader and the debug gem). The Rails templates take a while the
+  first time, while the native gems compile: a few minutes on a fast machine,
+  ten or more on a small or busy one. Envoryx creates the
   databases and runs *rails db:prepare* once the new project is up: right
   away with *Start* (`--start`), otherwise on its first start. Should that
   fail, run it from Actions.
@@ -837,7 +838,8 @@ and needs none.
   or a terminal (`rdbg -A <host> <port>`) with the host and port from the IDE
   section. RubyMine's *Ruby remote debug* speaks only `ruby-debug-ide`, not the
   debug gem: in RubyMine, add the Ruby container as an SSH remote interpreter
-  (user `<project>.ruby`, see *IDE integration*) and debug with RubyMine's own
+  (user `<project>`, or `<project>.ruby` next to PHP, see *IDE integration*)
+  and debug with RubyMine's own
   debugger; the rdbg switch isn't needed for that. Without the server only the
   port is published, for an `rdbg --open --host=0.0.0.0 --port=12345 -c --
   bin/rails test` started in the Ruby terminal. rdbg has no authentication:
@@ -1033,7 +1035,7 @@ folder and HTTP cache live in the package cache (see
   and *DLL* (`dotnet <file>`). Cron jobs run in the .NET container like in the
   others.
 - **Debugging.** There's no debug port. The IDEs start a debugger inside the
-  container over the SSH user `<project>.dotnet` and attach to the running
+  container over the SSH user `<project>` (`<project>.dotnet` next to PHP) and attach to the running
   application (under `dotnet watch` it's the process named after the project,
   not `dotnet watch` itself). VS Code with the C# extension debugs with
   Microsoft's `vsdbg` through `pipeTransport`. `vsdbg` may only be used with
