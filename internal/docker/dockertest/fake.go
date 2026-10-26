@@ -29,6 +29,8 @@ type FakeContainer struct {
 	Foreign bool
 	// Extra networks the container was attached to via ConnectNetwork.
 	Attached []string
+	// LeftPrimary is set once the container was disconnected from Spec.Network.
+	LeftPrimary bool
 	// Aliases per attached network.
 	Aliases map[string][]string
 	// OOMKilled is what inspect reports for the last exit.
@@ -1167,7 +1169,7 @@ func (f *Fake) RemoveNetwork(_ context.Context, idOrName string) error {
 				return fmt.Errorf("network %s: %w", name, docker.ErrNotManaged)
 			}
 			for _, c := range f.containers {
-				if c.Spec.Network == name {
+				if c.Spec.Network == name && !c.LeftPrimary {
 					return fmt.Errorf("network %s has active endpoints", name)
 				}
 			}
@@ -1234,6 +1236,9 @@ func (f *Fake) DisconnectNetwork(_ context.Context, network, containerID string)
 		}
 	}
 	c.Attached = kept
+	if network == c.Spec.Network {
+		c.LeftPrimary = true
+	}
 	delete(c.Aliases, network)
 	f.record("network-disconnect:" + network + ":" + c.Spec.Name)
 	return nil
@@ -1282,7 +1287,7 @@ func (f *Fake) ContainerNetworks(_ context.Context, containerID string) ([]strin
 		return nil, docker.ErrNotFound
 	}
 	out := append([]string{}, c.Attached...)
-	if c.Spec.Network != "" {
+	if c.Spec.Network != "" && !c.LeftPrimary {
 		out = append(out, c.Spec.Network)
 	}
 	return out, nil

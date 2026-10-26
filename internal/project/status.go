@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"slices"
 	"strings"
 	"time"
 
@@ -324,7 +325,7 @@ func (m *Manager) Reconcile(ctx context.Context) ReconcileReport {
 		m.setReport(report)
 		return report
 	}
-	networks, _ := m.engine.ListNetworks(ctx, true)
+	networks, netErr := m.engine.ListNetworks(ctx, true)
 	volumes, _ := m.engine.ListVolumes(ctx, true)
 	m.ProtectRollbackTargets(ctx)
 	m.retireOutdatedDBTool(ctx, containers)
@@ -368,6 +369,11 @@ func (m *Manager) Reconcile(ctx context.Context) ReconcileReport {
 		if p.DesiredState == store.DesiredRunning && st.State != StateRunning && p.Lifecycle == store.LifecycleReady {
 			report.Issues = append(report.Issues, ReconcileIssue{ProjectID: p.ID, ProjectName: p.Name, Severity: "warning",
 				Message: fmt.Sprintf("expected running but observed %s", st.State)})
+		}
+		if p.DesiredState == store.DesiredRunning && p.Lifecycle == store.LifecycleReady && st.State != StateMissing && netErr == nil &&
+			!slices.ContainsFunc(networks, func(n docker.Network) bool { return n.Name == NetworkName(p.Slug) }) {
+			report.Issues = append(report.Issues, ReconcileIssue{ProjectID: p.ID, ProjectName: p.Name, Severity: "error",
+				Message: "the project network is gone, so the proxy and the services can't reach the containers; restart the project to recreate it"})
 		}
 		if st.State == StateMissing && p.Lifecycle == store.LifecycleReady {
 			report.Issues = append(report.Issues, ReconcileIssue{ProjectID: p.ID, ProjectName: p.Name, Severity: "error",

@@ -657,11 +657,19 @@ func (m *Manager) ensurePlan(ctx context.Context, proj store.Project, plan Plan,
 			specChanged := cur.Labels[docker.LabelSpec] != c.Spec.Labels[docker.LabelSpec]
 			imageChanged := m.containerImageRef(ctx, cur) != c.Spec.Image
 			imageUpdated := cur.ImageID != "" && cur.ImageID != localID
-			if imageChanged || specChanged || (imageUpdated && applyImageUpdates) {
+			// A container that lost the project network (removed by hand) would restart
+			// without it, unreachable for the proxy and the other services.
+			detached := false
+			if c.Spec.Network != "" {
+				if nets, err := m.engine.ContainerNetworks(ctx, cur.ID); err == nil && !slices.Contains(nets, c.Spec.Network) {
+					detached = true
+				}
+			}
+			if imageChanged || specChanged || detached || (imageUpdated && applyImageUpdates) {
 				// Runtime version changed, the container's command/mounts/ports differ from
 				// the plan, or (on a start or restart) the image tag was rebuilt upstream:
 				// recreate.
-				m.log.Info("recreating container", "container", cur.Name, "from", cur.Image, "to", c.Spec.Image, "spec_changed", specChanged, "image_updated", imageUpdated)
+				m.log.Info("recreating container", "container", cur.Name, "from", cur.Image, "to", c.Spec.Image, "spec_changed", specChanged, "image_updated", imageUpdated, "network_lost", detached)
 				step(ctx, "Recreating the container {{name}}", "name", cur.Name)
 				// Record (and tag) the rollback target while the old container still
 				// references its image: the containerd image store garbage-collects an
