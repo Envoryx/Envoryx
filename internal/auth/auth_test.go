@@ -421,3 +421,27 @@ func TestConfirmIdentity(t *testing.T) {
 		t.Fatalf("an older sign-on: %v", err)
 	}
 }
+
+// With the shortest idle timeout an active session stays: it is touched more often than
+// every minute.
+func TestShortIdleTimeoutSlides(t *testing.T) {
+	svc, _ := testService(t)
+	svc.opts.IdleTimeout, svc.opts.AbsoluteTimeout = time.Minute, time.Hour
+	ctx := context.Background()
+	user, err := svc.CreateInitialAdmin(ctx, "admin", "supersecret123")
+	if err != nil {
+		t.Fatal(err)
+	}
+	token, err := svc.StartSession(ctx, user, MethodPassword, "127.0.0.1", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	start := time.Now()
+	for i := 1; i <= 6; i++ {
+		at := start.Add(time.Duration(i) * 25 * time.Second)
+		svc.now = func() time.Time { return at }
+		if _, err := svc.Validate(ctx, token); err != nil {
+			t.Fatalf("request at %ds: %v", i*25, err)
+		}
+	}
+}

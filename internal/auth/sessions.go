@@ -310,8 +310,9 @@ func (s *Service) ValidateSession(ctx context.Context, id string) (Principal, er
 			return Principal{}, ErrUnauthenticated
 		}
 	}
-	// Only touch the row every minute to avoid a write per request.
-	if ts.Sub(sess.LastSeenAt) > time.Minute {
+	// Only touch the row every minute to avoid a write per request, more often with a
+	// short idle timeout, which would otherwise end an active session.
+	if ts.Sub(sess.LastSeenAt) > min(time.Minute, s.opts.IdleTimeout/4) {
 		if err := s.store.Sessions.Touch(ctx, id, ts, ts.Add(s.opts.IdleTimeout)); err != nil {
 			s.log.Warn("touch session failed", "err", err)
 		}
