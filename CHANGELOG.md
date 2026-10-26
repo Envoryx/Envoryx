@@ -10,6 +10,66 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+### Added
+- A single offsite copy can be removed: a bin next to it in the copies list asks first,
+  and `envoryx backup remote <project>` and `envoryx instance remote` take
+  `--remove <backup> --yes`. Copies made by hand were never rotated away before.
+- `--service` of `envoryx project logs` and `project exec` names a worker by its name
+  (`worker:<name>`, the name alone, or `worker` when there is just one) instead of only
+  by an id no command showed.
+
+### Changed
+- Showing the secret key asks for your password first; an account without one (single
+  sign-on) needs a sign-in within the last 10 minutes. The API takes `{"password": …}`.
+- A password reset link of a user with a second factor sets the new password, and signs
+  the user out elsewhere, only once the code or passkey is proven.
+- `envoryx project run` needs `--yes` for an action that deletes data (drush
+  site:install, typo3 setup, migrate:fresh …), as the web UI asks first. The action list
+  shows each action's label instead of a script over several lines.
+- Single sign-on asks for the `groups` scope only when the provider offers one. Keycloak,
+  which has none by default, refused the whole sign-in with `invalid_scope`.
+- Project identifiers spell accented and Cyrillic letters out (`Müller Shop` becomes
+  `mueller-shop`, `Проект` becomes `proekt`) the same way in the wizard and the server; a
+  name in Cyrillic only was refused before. Existing identifiers stay as they are.
+- Counts use the language's plural forms ("1 project", "1 Stunde", "4 часа"), and sizes,
+  percentages and durations its number format ("3,4 KiB" in German).
+- Times in project warnings name their zone; the cron preview says it shows local time.
+- Operations without a project (a failed create, say) are shown to admins and the user
+  who started them, not to every user.
+
+### Fixed
+- MariaDB "11" (the image `mariadb:11`, the newest 11.x) counted as older than "11.4", so
+  11 to 11.4 passed as an upgrade, a real downgrade of the data, and 11.4 to 11 was
+  refused. Versions are now compared by the image they run.
+- A restore cut short by a crash or kill left the project with part of the backup and no
+  notice. The next start puts an error on the project that stays until a restore succeeds,
+  and sends a `backup.failed` notification.
+- A project network removed by hand was neither reported nor repaired; containers kept
+  restarting without it. Reconcile reports it, and a start recreates such containers.
+- Stopping a project left a container in a crash loop restarting forever.
+- A partially running project had no Stop or Restart button.
+- Diagnostics reported an error when `/projects` or `/config` lived below a bind mount,
+  and called an `ENVORYX_PROJECTS_HOST_PATH`/`ENVORYX_CONFIG_HOST_PATH` fine that
+  contradicts the mount, so containers mounted an empty directory. It now resolves like
+  the mounts and flags a contradicting override.
+- After a lost `/config` on a host with another Envoryx, the project said no containers
+  exist; it now names the instance ID the containers carry and how to put it back.
+- A truncated archive answered HTTP 500 "unexpected EOF", and a backup cut at a member
+  boundary was taken without its files. Both are refused as incomplete.
+- A PATCH and the plan check now read the database type `postgres` as PostgreSQL.
+- Addon health checks in the Compose form `["CMD-SHELL", "…"]` (as in the docs and the
+  Elasticsearch example) were always unhealthy. The pgAdmin example listens on 8080, as
+  pgAdmin 9 does under Envoryx; it answered 502.
+- With the shortest idle timeout (1m) an active session was signed out after a minute.
+- A stopped service showed a red "unhealthy" badge.
+- The instance restore dialog showed a wrong key's error behind the dialog.
+- The delete dialog now says that the database volume goes and the backups stay.
+- At 320 px the project page, lists and dialogs scrolled sideways and the ⋯ menu was
+  off-screen, worst in Russian and Ukrainian.
+- The automatic removal of orphans is credited to Envoryx in the audit, also when a manual
+  reconcile was its second pass; `envoryx audit` prints Envoryx for such entries.
+- `envoryx backup download` wrote the archive world-readable; it is 0600 now.
+
 ## [0.45.1] - 2026-10-26
 
 ### Security
