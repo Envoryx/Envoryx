@@ -102,7 +102,7 @@ var actionCatalog = []Action{
 	{ID: "yarn:build", Group: "yarn", Label: "yarn build", Description: "Run the build script with yarn", Service: store.ServiceNode, Cmd: []string{"yarn", "build"}, Requires: []string{"yarn.lock"}},
 
 	{ID: "python:version", Group: "Python", Label: "python --version", Description: "Show the Python version (the project's .venv when it exists)", Service: store.ServicePython, Cmd: []string{"python", "--version"}},
-	{ID: "python:venv", Group: "Python", Label: "python -m venv .venv", Description: "Create the virtual environment in the project directory", Service: store.ServicePython, Cmd: []string{"python", "-m", "venv", pythonVenvPath}},
+	{ID: "python:venv", Group: "Python", Label: "python -m venv .venv", Description: "Create the virtual environment in the project directory", Service: store.ServicePython, Cmd: []string{"sh", "-c", basePython + `; exec "$base" -m venv ` + pythonVenvPath, "envoryx-venv"}},
 	// pip installs into the project's .venv: PATH puts its bin/ first once it exists; the
 	// venv is created on demand so a fresh checkout works with one click.
 	{ID: "pip:install", Group: "pip", Label: "pip install -r requirements.txt", Description: "Create .venv (rebuilt after a Python version change) and install the requirements", Service: store.ServicePython, Cmd: []string{"sh", "-c", pipInstallScript, "envoryx-pip"}, Requires: []string{"requirements.txt"}},
@@ -304,18 +304,28 @@ for n in "$@"; do [ "$n" = primary ] && db=primary; done
 echo "envoryx: the application has several databases ($*); rolling back $db. For another one run bin/rails db:rollback:<name> in the terminal."
 exec bin/rails "db:rollback:$db"`
 
+// basePython sets $base to the image's own interpreter, found on the PATH without the
+// venv's bin/. A venv is built from it, never from the venv's python: on Python 3.10 that
+// one makes the new venv's home its own bin/, and bin/python a link to itself.
+const basePython = `base=$(PATH="${PATH#` + pythonVenvPath + `/bin:}" command -v python)`
+
 // pipInstallScript installs requirements.txt into the venv. It creates the venv when it is
-// missing and rebuilds it (venv --clear) when it was made for another Python minor: after a
-// version change the old one still has a working bin/python link but no pip and none of the
-// packages for the new interpreter. Before the rebuild it lists what the old venv held, so
-// packages installed by hand and never added to requirements.txt can be put back. uv
-// writes "version_info" instead of "version" into pyvenv.cfg. A constant: nothing from
-// the request is interpolated.
-const pipInstallScript = `v=$(python -c 'import sys; print("%d.%d" % sys.version_info[:2])'); ` +
-	`if ! grep -Eq "^version(_info)? *= *$v([.]|$)" ` + pythonVenvPath + `/pyvenv.cfg 2>/dev/null; then ` +
+// missing and rebuilds it (venv --clear) when it doesn't work: made for another Python
+// minor (after a version change the old one still has a working bin/python link but no
+// pip and none of the packages for the new interpreter), a bin/python that doesn't run,
+// or "~"-prefixed leftovers in site-packages, which pip leaves when an install is killed
+// halfway (a restart during a pip install in the terminal) and which break imports.
+// Before the rebuild it lists what the old venv held, so packages installed by hand and
+// never added to requirements.txt can be put back. uv writes "version_info" instead of
+// "version" into pyvenv.cfg. A constant: nothing from the request is interpolated.
+const pipInstallScript = basePython + `; v=$("$base" -c 'import sys; print("%d.%d" % sys.version_info[:2])'); why=; ` +
+	`if ! grep -Eq "^version(_info)? *= *$v([.]|$)" ` + pythonVenvPath + `/pyvenv.cfg 2>/dev/null; then why="for Python $v"; ` +
+	`elif ! ` + pythonVenvPath + `/bin/python -c '' 2>/dev/null; then why="- its python does not run"; ` +
+	`elif ls -d ` + pythonVenvPath + `/lib/python*/site-packages/~* >/dev/null 2>&1; then why="- an install in it was interrupted"; fi; ` +
+	`if [ -n "$why" ]; then ` +
 	`old=$(ls -d ` + pythonVenvPath + `/lib/python*/site-packages/*.dist-info 2>/dev/null | sed -E 's|.*/||; s|-([^-]+)[.]dist-info$|==\1|' | grep -v '^pip==' | sort -f); ` +
-	`if [ -n "$old" ]; then echo "envoryx: rebuilding .venv for Python $v. The old one had these packages - whatever requirements.txt doesn't list has to be installed again:"; echo "$old" | sed 's/^/  /'; echo; fi; ` +
-	`python -m venv --clear ` + pythonVenvPath + `; fi; ` +
+	`if [ -n "$old" ]; then echo "envoryx: rebuilding .venv $why. The old one had these packages - whatever requirements.txt doesn't list has to be installed again:"; echo "$old" | sed 's/^/  /'; echo; fi; ` +
+	`"$base" -m venv --clear ` + pythonVenvPath + `; fi; ` +
 	`exec ` + pythonVenvPath + `/bin/pip install -r requirements.txt`
 
 func findAction(id string) (Action, bool) {

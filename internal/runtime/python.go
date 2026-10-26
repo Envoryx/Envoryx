@@ -219,12 +219,15 @@ func (c PythonConfig) entryGuard() string {
 // VenvGuard waits while .venv was built for another Python minor than the one the
 // container runs - after a version switch. Its packages are invisible to the new
 // interpreter, so the server would die on its first import and crash-loop, and a
-// crash-looping container refuses the very action that rebuilds the venv. "python" is the
-// venv's interpreter (PATH), i.e. what the server would run. pyvenv.cfg says "version"
-// (venv, virtualenv) or "version_info" (uv). A constant: nothing is interpolated.
-const VenvGuard = `v=$(python -c 'import sys; print("%d.%d" % sys.version_info[:2])' 2>/dev/null); ` +
-	`while b=$(sed -nE 's/^version(_info)? *= *([0-9]+[.][0-9]+).*/\2/p' ` + PythonVenv + `/pyvenv.cfg 2>/dev/null | head -n 1); [ -n "$b" ] && [ "$b" != "$v" ]; do ` +
-	noteVenv + `; echo "envoryx: .venv was built for Python $b but this container runs $v - run \"pip install -r requirements.txt\" or \"uv sync\" from Actions to rebuild it"; sleep 5; done`
+// crash-looping container refuses the very action that rebuilds the venv. It waits, too,
+// while the venv's bin/python doesn't run (a venv made from another venv's python links
+// it to itself). The version is the image's interpreter's, found on the PATH without
+// the venv's bin/. pyvenv.cfg says "version" (venv, virtualenv) or "version_info" (uv).
+// A constant: nothing is interpolated.
+const VenvGuard = `v=$(PATH="${PATH#"$VIRTUAL_ENV/bin:"}" python -c 'import sys; print("%d.%d" % sys.version_info[:2])' 2>/dev/null); ` +
+	`while b=$(sed -nE 's/^version(_info)? *= *([0-9]+[.][0-9]+).*/\2/p' ` + PythonVenv + `/pyvenv.cfg 2>/dev/null | head -n 1); [ -n "$b" ] && { [ "$b" != "$v" ] || ! ` + PythonVenv + `/bin/python -c '' 2>/dev/null; }; do ` +
+	noteVenv + `; if [ "$b" != "$v" ]; then echo "envoryx: .venv was built for Python $b but this container runs $v - run \"pip install -r requirements.txt\" or \"uv sync\" from Actions to rebuild it"; ` +
+	`else echo "envoryx: .venv/bin/python does not run - run \"pip install -r requirements.txt\" or \"uv sync\" from Actions to rebuild .venv"; fi; sleep 5; done`
 
 // pythonInstalling matches a pip or uv run that changes the venv: "pip install" through
 // the venv's pip script or "python -m pip", and "uv sync/add/pip". Written so that it

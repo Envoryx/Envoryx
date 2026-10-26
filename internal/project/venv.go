@@ -58,6 +58,27 @@ func rebuildHint(projectDir string) string {
 	return `delete .venv and install the dependencies again from the Python terminal`
 }
 
+// venvBroken says what is wrong with a virtual environment of the right version, "" when
+// nothing shows: its home (pyvenv.cfg) is its own bin/, which a venv made from another
+// venv's python gets on Python 3.10, so bin/python is a link to itself; or site-packages
+// holds pip's "~"-prefixed leftovers of an install that was killed halfway (a restart
+// during a pip install in the terminal). Both are what the pip install action rebuilds
+// the venv for.
+func venvBroken(projectDir string) string {
+	if raw, err := readProjectFile(projectDir, runtime.PythonVenv+"/pyvenv.cfg", maxProjectFile); err == nil {
+		for _, line := range strings.Split(string(raw), "\n") {
+			key, value, ok := strings.Cut(line, "=")
+			if ok && strings.TrimSpace(key) == "home" && strings.HasPrefix(strings.TrimSpace(value)+"/", pythonVenvPath+"/") {
+				return "the virtual environment is broken (its python links to itself), so the application server and the workers wait"
+			}
+		}
+	}
+	if leftovers, _ := filepath.Glob(filepath.Join(projectDir, runtime.PythonVenv, "lib", "python*", "site-packages", "~*")); len(leftovers) > 0 {
+		return "the virtual environment is broken (an install in it was interrupted), so its packages may fail to import"
+	}
+	return ""
+}
+
 func exists(path string) bool {
 	_, err := os.Stat(path)
 	return err == nil
@@ -76,7 +97,13 @@ func (m *Manager) venvWarning(p store.Project) string {
 	}
 	dir := planner.ProjectDir(p)
 	built, ok := venvPythonVersion(dir)
-	if !ok || built == majorMinor(svc.Version) {
+	if !ok {
+		return ""
+	}
+	if built == majorMinor(svc.Version) {
+		if broken := venvBroken(dir); broken != "" {
+			return broken + "; " + rebuildHint(dir)
+		}
 		return ""
 	}
 	return fmt.Sprintf("the virtual environment was built for Python %s but the container runs %s - its packages are invisible to the new interpreter, so the application server and the workers wait; %s", built, majorMinor(svc.Version), rebuildHint(dir))

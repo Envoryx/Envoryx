@@ -36,6 +36,59 @@ func TestVenvPythonVersion(t *testing.T) {
 	}
 }
 
+// A venv of the right version can still be broken: made from another venv's python on
+// Python 3.10 (its home is its own bin/) or left with pip's leftovers of a killed install.
+func TestVenvBroken(t *testing.T) {
+	dir := t.TempDir()
+	venv := filepath.Join(dir, runtime.PythonVenv)
+	site := filepath.Join(venv, "lib", "python3.10", "site-packages")
+	if err := os.MkdirAll(filepath.Join(site, "flask"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	write := func(cfg string) {
+		if err := os.WriteFile(filepath.Join(venv, "pyvenv.cfg"), []byte(cfg), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("home = /usr/local/bin\nversion = 3.10.19\n")
+	if got := venvBroken(dir); got != "" {
+		t.Fatalf("healthy venv: %q", got)
+	}
+	write("home = /var/www/html/.venv/bin\nversion = 3.10.19\n")
+	if got := venvBroken(dir); !strings.Contains(got, "links to itself") {
+		t.Fatalf("self-referencing venv: %q", got)
+	}
+	write("home = /usr/local/bin\nversion = 3.10.19\n")
+	if err := os.MkdirAll(filepath.Join(site, "~arwhals"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if got := venvBroken(dir); !strings.Contains(got, "interrupted") {
+		t.Fatalf("interrupted install: %q", got)
+	}
+}
+
+// The pip install action builds the venv with the image's interpreter, never the venv's
+// own, and rebuilds a venv whose python doesn't run or holds pip's leftovers.
+func TestPipInstallScriptRebuildsBrokenVenvs(t *testing.T) {
+	for _, want := range []string{
+		`base=$(PATH="${PATH#/var/www/html/.venv/bin:}" command -v python)`,
+		`"$base" -m venv --clear /var/www/html/.venv`,
+		`! /var/www/html/.venv/bin/python -c ''`,
+		`site-packages/~*`,
+	} {
+		if !strings.Contains(pipInstallScript, want) {
+			t.Errorf("pip install script lacks %s", want)
+		}
+	}
+	if strings.Contains(pipInstallScript, " python -m venv") {
+		t.Error("the venv's own python must not build the venv")
+	}
+	a, _ := findAction("python:venv")
+	if !strings.Contains(strings.Join(a.Cmd, " "), `"$base" -m venv /var/www/html/.venv`) {
+		t.Errorf("python:venv: %q", a.Cmd)
+	}
+}
+
 func TestRebuildHintFollowsTheProjectFiles(t *testing.T) {
 	dir := t.TempDir()
 	if got := rebuildHint(dir); !strings.Contains(got, "terminal") {

@@ -620,7 +620,10 @@ comes next.
   Actions reproduces the environment after a fresh clone.
 - **Actions and workers.** Actions: `python --version`, `python -m venv
   .venv`, `pip install -r requirements.txt` (creates the venv when
-  missing), `pip freeze`, `uv sync`/`uv lock` (with a `pyproject.toml`),
+  missing, and rebuilds it with the image's Python when it was built for
+  another version, its `bin/python` doesn't run or an install in it was
+  killed halfway, such as by a restart during a `pip install` in the
+  terminal; the project status says when it is broken), `pip freeze`, `uv sync`/`uv lock` (with a `pyproject.toml`),
   Django `migrate`, `makemigrations`, `collectstatic`, `check` and `flush`
   (with a `manage.py`). Worker presets in the Python image: *Python script*
   (`python <file>`), *Python module* (`python -m <module>`), *manage.py

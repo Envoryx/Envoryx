@@ -49,7 +49,7 @@ func serviceProblem(name string, c docker.Container) string {
 	case runtime.WaitNodeDeps:
 		return "the " + name + " dev server waits for node_modules - run npm install (or pnpm / yarn install) from Actions"
 	case runtime.WaitVenv:
-		return "the " + name + " server waits because .venv was built for another Python version - run pip install -r requirements.txt or uv sync from Actions to rebuild it"
+		return "the " + name + " server waits because .venv was built for another Python version or its python does not run - run pip install -r requirements.txt or uv sync from Actions to rebuild it"
 	case runtime.WaitPythonDeps:
 		if module != "" {
 			return "the " + name + " server waits for " + module + " in .venv - run pip install -r requirements.txt or uv sync from Actions"
