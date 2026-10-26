@@ -6,6 +6,8 @@ import { api } from "@/api/client";
 import { usePlanAllows } from "@/api/hooks";
 import { NotInPlan } from "@/features/plan/PlanCard";
 import type { OffsiteTarget, OffsiteTargetInput, OffsiteType } from "@/api/types";
+import { useAuth } from "@/features/auth/AuthContext";
+import { SupportRefusedNote } from "@/features/settings/SupportAccessCard";
 import { Alert, Badge, Button, Card, CardHeader, Checkbox, Code, Dialog, Field, Input, Select, Spinner } from "@/components/ui";
 import { formatBytes, formatDateTime } from "@/lib/format";
 import { errorText, translateMessage } from "@/lib/errors";
@@ -51,6 +53,8 @@ export function OffsiteTargetsCard() {
   const qc = useQueryClient();
   const q = useQuery({ queryKey: offsiteKey, queryFn: api.offsite.list });
   const allowed = usePlanAllows("offsite");
+  // The hoster's support doesn't decide where the backups go (see SupportRefusedNote).
+  const { support } = useAuth();
   const [editing, setEditing] = useState<{ input: OffsiteTargetInput; stored?: OffsiteTarget } | null>(null);
   const [deleting, setDeleting] = useState<OffsiteTarget | null>(null);
   const [msg, setMsg] = useState<{ tone: "green" | "red"; text: string } | null>(null);
@@ -80,7 +84,8 @@ export function OffsiteTargetsCard() {
         }
         description={t("Copies of the backups outside this host: an S3-compatible bucket (AWS, Backblaze B2, Wasabi, Hetzner, Cloudflare R2, MinIO), an SFTP server (Hetzner Storage Box, NAS) or a WebDAV share (Nextcloud). The local backups stay; the target keeps its own copies.")}
         actions={
-          allowed && (
+          allowed &&
+          !support && (
             <Button size="sm" variant="primary" onClick={() => setEditing({ input: blank("s3") })} icon={<Plus className="size-3.5" />}>
               {t("Add target")}
             </Button>
@@ -89,6 +94,7 @@ export function OffsiteTargetsCard() {
       />
       <div className="space-y-4 p-5">
         {!allowed && <NotInPlan feature="offsite" />}
+        {support && <SupportRefusedNote about="backups" />}
         {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
         {q.isPending ? (
           <Spinner />
@@ -119,7 +125,7 @@ export function OffsiteTargetsCard() {
                     </p>
                   )}
                 </div>
-                {!x.managed && (
+                {!x.managed && !support && (
                   <div className="flex items-center gap-1">
                     <Button size="sm" variant="ghost" onClick={() => setEditing({ input: fromTarget(x), stored: x })} icon={<Pencil className="size-3.5" />}>
                       {t("Edit")}
