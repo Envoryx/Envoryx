@@ -130,6 +130,7 @@ export function PythonServerFields({
           checked={value.debug}
           onChange={(e) => set({ debug: e.target.checked })}
         />
+        {value.debug && <p className="text-xs text-amber-700 dark:text-amber-300">{t("debugpy accepts everyone who reaches the port and can run any code in the container. Switch it off when you are not debugging.")}</p>}
         {value.debug && (
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label={t("debugpy port inside the container")} htmlFor={`${idPrefix}-debug-port`} hint={t("debugpy's default is 5678")}>

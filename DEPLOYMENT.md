@@ -2440,7 +2440,10 @@ host*. Developers can add, change and remove them; installing files takes an adm
 one creates the container and, if the addon injects variables, recreates the application
 containers with them. The card shows the web UI's address, the internal host and port, the
 host port, the injected variables, the volumes, the image and the credentials. An addon
-with a web UI always gets a host port too, like Mailpit.
+with a web UI always gets a host port too, the proxy's way in, but it listens on 127.0.0.1
+only: in the LAN it would skip the sign-in and the project's rules (phpMyAdmin there is
+already signed in to the database). A port published with *Publish the port on the host*
+(`publishPort`) listens like the project's ports (`ENVORYX_HOST_PORTS`).
 
 **Who reaches the web UI.** An addon's web UI address only lets in people signed in to
 Envoryx who may work on the project (developers and admins): phpMyAdmin is signed in to

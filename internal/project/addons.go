@@ -35,8 +35,13 @@ const addonsDir = "addons"
 
 // AddonConfig is the configuration of an addon service.
 type AddonConfig struct {
-	// HostPort publishes the addon's port on the host (0: not published).
-	HostPort int `json:"hostPort,omitempty"`
+	// HostPort publishes the addon's port on the host (0: not published). A web UI's
+	// port is the proxy's way in and listens on 127.0.0.1 only: through the proxy the
+	// project's sign-in and rules apply, on a host port in the LAN nothing would.
+	// Exposed, the port an admin chose to publish (publishPort), listens like the
+	// project's ports (ENVORYX_HOST_PORTS).
+	HostPort int  `json:"hostPort,omitempty"`
+	Exposed  bool `json:"exposed,omitempty"`
 	// Secrets are the generated values of the definition's secrets.
 	Secrets map[string]string `json:"secrets,omitempty"`
 	// Definition is the definition the service runs.
@@ -66,6 +71,8 @@ type AddonInfo struct {
 	Port        int      `json:"port,omitempty"`
 	HostPort    int      `json:"hostPort,omitempty"`
 	PublishPort bool     `json:"publishPort,omitempty"`
+	// HostPortLocal tells that the host port listens on 127.0.0.1 only (a web UI's).
+	HostPortLocal bool `json:"hostPortLocal,omitempty"`
 	// URL is the web UI through the proxy ("" without one).
 	URL string `json:"url,omitempty"`
 	// InjectedEnv are the addon's variables the application gets; ShadowedEnv the ones
@@ -207,7 +214,11 @@ func (p *Planner) addonContainer(proj store.Project, svc store.ProjectService, n
 		spec.Healthcheck = &docker.HealthSpec{Test: h.Test, Interval: interval, Timeout: timeout, StartPeriod: start, Retries: h.Retries}
 	}
 	if cfg.HostPort > 0 && d.Port > 0 {
-		spec.Ports = []docker.PortSpec{{HostIP: p.paths.PublishInterface, HostPort: cfg.HostPort, ContainerPort: d.Port, Protocol: "tcp"}}
+		hostIP := "127.0.0.1"
+		if cfg.Exposed {
+			hostIP = p.paths.PublishInterface
+		}
+		spec.Ports = []docker.PortSpec{{HostIP: hostIP, HostPort: cfg.HostPort, ContainerPort: d.Port, Protocol: "tcp"}}
 	}
 	return ContainerPlan{Kind: svc.Kind, Order: 9, Spec: spec}, volumes, nil
 }
@@ -379,7 +390,8 @@ func (m *Manager) applyAddonUpdate(ctx context.Context, p store.Project, name st
 	if cfg.Secrets, err = newAddonSecrets(d, cfg.Secrets); err != nil {
 		return false, err
 	}
-	expose := d.WebUI || (d.PublishPort && upd.ExposePort)
+	cfg.Exposed = d.PublishPort && upd.ExposePort
+	expose := d.WebUI || cfg.Exposed
 	switch {
 	case expose && cfg.HostPort == 0:
 		taken := []int{p.HTTPPort}
@@ -450,6 +462,9 @@ func (m *Manager) InstallAddon(ctx context.Context, raw []byte) (addon.Definitio
 		cfg.Definition = d
 		if cfg.Secrets, err = newAddonSecrets(d, cfg.Secrets); err != nil {
 			return d, err
+		}
+		if !d.PublishPort {
+			cfg.Exposed = false
 		}
 		switch {
 		case !d.WebUI && !d.PublishPort:
@@ -584,7 +599,7 @@ func (m *Manager) ProjectAddons(ctx context.Context, id string) ([]AddonInfo, er
 		info := AddonInfo{
 			Name: d.Name, Title: d.Title, Description: d.Description, Homepage: d.Homepage,
 			Version: svc.Version, Image: svc.Image, Host: d.HostnameOrName(), Port: d.Port,
-			HostPort: cfg.HostPort, PublishPort: d.PublishPort, State: "missing",
+			HostPort: cfg.HostPort, PublishPort: d.PublishPort, HostPortLocal: cfg.HostPort > 0 && !cfg.Exposed, State: "missing",
 			InjectedEnv: []string{}, Credentials: []AddonCredential{}, Volumes: []string{},
 			Installed: installed[d.Name],
 		}

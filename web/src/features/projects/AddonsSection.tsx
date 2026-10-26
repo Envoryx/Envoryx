@@ -66,7 +66,7 @@ function AddonCard({ project, info, onMessage }: { project: Project; info: Proje
               <dt className="text-muted">{t("Host port")}</dt>
               <dd className="font-mono text-xs">
                 {host}:{info.hostPort}
-                {local && <span className="ml-2 font-sans text-subtle">{t("only on the server itself")}</span>}
+                {(local || info.hostPortLocal) && <span className="ml-2 font-sans text-subtle">{t("only on the server itself")}</span>}
               </dd>
             </>
           ) : null}
