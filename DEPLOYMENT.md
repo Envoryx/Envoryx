@@ -1307,8 +1307,13 @@ queue worker or Node process cannot take the whole server:
 
 Changes reach running containers right away through `docker update`; only
 removing a CPU or memory limit recreates the containers concerned (Docker
-cannot lift one in place). Swap is not added on top of the memory limit. The
-card shows each running container's CPU and memory against its limit.
+cannot lift one in place). The Java container and Java workers are recreated
+on any change of the memory limit, too: a JVM sizes its heap from the limit
+when it starts (a quarter of it by default, of the host's memory without
+one), so one started before would run into the new limit and be killed.
+Maven or Gradle and the application each run a JVM in the Java container, so
+give it about 512 MiB at least. Swap is not added on top of the memory limit.
+The card shows each running container's CPU and memory against its limit.
 
 When a container reaches its memory limit, the kernel ends a process in it -
 the main process (the container restarts) or just a child such as a php-fpm

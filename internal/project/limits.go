@@ -177,14 +177,20 @@ func (m *Manager) applyResources(ctx context.Context, p store.Project) error {
 
 // syncResources updates a container whose limits differ from the plan and reports
 // whether it has to be recreated instead (a lifted limit, or one the kernel refuses
-// because the container uses more right now).
-func (m *Manager) syncResources(ctx context.Context, cur docker.Container, want docker.Resources) (bool, error) {
+// because the container uses more right now). A running JVM container is recreated on
+// a new memory limit: its JVMs sized their heap for the old one (or for the host's
+// memory without one) when they started and would run into the new limit and be
+// OOM-killed.
+func (m *Manager) syncResources(ctx context.Context, cur docker.Container, want docker.Resources, jvm bool) (bool, error) {
 	d, err := m.engine.InspectContainer(ctx, cur.ID)
 	if err != nil {
 		return false, err
 	}
 	if d.Resources == want {
 		return false, nil
+	}
+	if jvm && d.Resources.MemoryBytes != want.MemoryBytes && (cur.State == "running" || cur.State == "restarting") {
+		return true, nil
 	}
 	err = m.engine.UpdateResources(ctx, cur.ID, want)
 	switch {

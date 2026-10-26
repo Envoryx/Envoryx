@@ -85,6 +85,52 @@ func TestLimitsApplyPerGroupAndInPlace(t *testing.T) {
 	}
 }
 
+// A JVM sizes its heap from the memory limit when it starts, so a running Java container
+// gets a new one on a new memory limit; a CPU change, like elsewhere, is applied in place.
+func TestMemoryLimitRecreatesRunningJVMContainers(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	v, err := e.m.Create(ctx, javaRequest("Spring", true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := v.Project.ID
+	if _, err := e.m.AddWorker(ctx, id, WorkerRequest{Name: "jobs", Preset: "java:jar", Arg: "target/worker.jar", Enabled: true}); err != nil {
+		t.Fatal(err)
+	}
+	ids := func() (string, string, string) {
+		j, _ := e.engine.Container("envoryx-spring-java")
+		w, _ := e.engine.Container("envoryx-spring-worker-jobs")
+		d, _ := e.engine.Container("envoryx-spring-database")
+		return j.ID, w.ID, d.ID
+	}
+	java, worker, db := ids()
+	if _, err := e.m.SetLimits(ctx, id, store.ResourceLimits{App: store.LimitSet{CPUs: 1}, Services: store.LimitSet{MemoryMB: 512}}); err != nil {
+		t.Fatal(err)
+	}
+	if j, w, d := ids(); j != java || w != worker || d != db {
+		t.Fatal("a CPU limit and the database's memory limit are applied in place")
+	}
+	if _, err := e.m.SetLimits(ctx, id, store.ResourceLimits{App: store.LimitSet{CPUs: 1, MemoryMB: 768}, Services: store.LimitSet{MemoryMB: 512}}); err != nil {
+		t.Fatal(err)
+	}
+	j, w, d := ids()
+	if j == java || w == worker {
+		t.Fatal("the JVM containers must be recreated on a new memory limit")
+	}
+	if d != db {
+		t.Fatal("the database keeps its container")
+	}
+	for _, name := range []string{"envoryx-spring-java", "envoryx-spring-worker-jobs"} {
+		if c, _ := e.engine.Container(name); c.State != "running" {
+			t.Fatalf("%s must run again: %s", name, c.State)
+		}
+		if r := resourcesOf(t, e, name); r.MemoryBytes != 768<<20 {
+			t.Fatalf("%s: %+v", name, r)
+		}
+	}
+}
+
 func TestLimitsValidation(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()

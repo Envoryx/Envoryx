@@ -728,7 +728,7 @@ func (m *Manager) ensurePlan(ctx context.Context, proj store.Project, plan Plan,
 			}
 		}
 		if ok && c.Spec.Resources != nil {
-			recreate, err := m.syncResources(ctx, cur, *c.Spec.Resources)
+			recreate, err := m.syncResources(ctx, cur, *c.Spec.Resources, c.JVM)
 			if err != nil {
 				return err
 			}

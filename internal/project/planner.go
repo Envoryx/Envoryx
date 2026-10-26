@@ -80,6 +80,10 @@ type ContainerPlan struct {
 	Spec docker.ContainerSpec
 	// Order defines start order (lower first). Stop order is the reverse.
 	Order int
+	// JVM marks a container whose processes are JVMs (the Java service, Java workers):
+	// a JVM sizes its heap from the memory limit when it starts, so a new limit needs a
+	// new container rather than an update in place.
+	JVM bool
 }
 
 // Plan is the complete set of Docker resources and files for a project.
@@ -1000,7 +1004,7 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 				// for a JVM started in the terminal with the same -agentlib:jdwp option.
 				spec.Ports = append(spec.Ports, docker.PortSpec{HostIP: p.paths.PublishInterface, HostPort: jcfg.DebugHostPort, ContainerPort: jcfg.DebugPort, Protocol: "tcp"})
 			}
-			plan.Containers = append(plan.Containers, ContainerPlan{Kind: store.ServiceJava, Order: 12, Spec: spec})
+			plan.Containers = append(plan.Containers, ContainerPlan{Kind: store.ServiceJava, Order: 12, Spec: spec, JVM: true})
 			images[svc.Image] = true
 
 		case store.ServiceDotnet:
@@ -1435,7 +1439,7 @@ func (p *Planner) Plan(proj store.Project) (Plan, error) {
 		// every worker log. As a child subreaper it still reaps what the worker orphans.
 		spec.Env = append(spec.Env, "TINI_SUBREAPER=1")
 		p.withPackageCache(proj, &spec)
-		plan.Containers = append(plan.Containers, ContainerPlan{Kind: WorkerKind(w), Order: 30, Spec: spec})
+		plan.Containers = append(plan.Containers, ContainerPlan{Kind: WorkerKind(w), Order: 30, Spec: spec, JVM: preset.Runtime == WorkerRuntimeJava})
 	}
 
 	// Linux only resolves host.docker.internal when the container is told the gateway.
