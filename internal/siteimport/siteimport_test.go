@@ -247,6 +247,18 @@ func TestAnalyzeWordPress(t *testing.T) {
 	}
 }
 
+// A WordPress release gets the newest PHP it supports, not the newest Envoryx offers.
+func TestWordPressPHPLimit(t *testing.T) {
+	for version, want := range map[string]string{
+		"5.5.3": "7.4", "6.0": "8.0", "6.2.2": "8.2", "6.4.0": "8.3", "6.6.2": "8.3",
+		"6.7": "8.4", "6.8.3": "8.4", "6.9": "", "7.0.1": "",
+	} {
+		if got := frameworkPHPLimit(Framework{ID: "wordpress", Version: version}); got != want {
+			t.Errorf("WordPress %s: PHP up to %q, want %q", version, got, want)
+		}
+	}
+}
+
 func TestAnalyzeLaravel(t *testing.T) {
 	site := writeTarGz(t,
 		member{name: "shop/artisan", body: "#!/usr/bin/env php"},

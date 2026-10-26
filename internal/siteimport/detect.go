@@ -647,6 +647,9 @@ func frameworkPHPLimit(f Framework) string {
 	below := func(maj, min int) bool { return v[0] < maj || v[0] == maj && v[1] < min }
 	switch f.ID {
 	case "wordpress":
+		// WordPress's own compatibility table: 6.4 added PHP 8.3, 6.7 PHP 8.4 and 6.9
+		// PHP 8.5. A newer PHP than the core supports breaks the plugins of such a site
+		// first.
 		switch {
 		case below(5, 6):
 			return "7.4"
@@ -654,6 +657,10 @@ func frameworkPHPLimit(f Framework) string {
 			return "8.0"
 		case below(6, 4):
 			return "8.2"
+		case below(6, 7):
+			return "8.3"
+		case below(6, 9):
+			return "8.4"
 		}
 	case "drupal":
 		switch {
