@@ -1,7 +1,7 @@
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Route, Routes } from "react-router-dom";
-import { LoginPage } from "./LoginPage";
+import { LoginPage, lostAccessDocs } from "./LoginPage";
 import { mockApi, renderApp } from "@/test/utils";
 
 function Home() {
@@ -19,6 +19,17 @@ describe("LoginPage", () => {
     renderApp(<LoginPage mode="login" />, { route: "/login" });
     expect(await screen.findByText(/An admin of this instance can send you a reset link/)).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Forgot the password?" })).not.toBeInTheDocument();
+  });
+
+  it("points a lost password to the website's docs in the UI language", async () => {
+    mockApi({
+      "GET /setup": () => ({ body: { needsSetup: false } }),
+      "GET /auth/me": () => ({ status: 401, body: { error: { code: "unauthenticated", message: "authentication required" } } }),
+    });
+    renderApp(<LoginPage mode="login" />, { route: "/login" });
+    expect(await screen.findByRole("link", { name: "Forgot the password?" })).toHaveAttribute("href", "https://envoryx.dev/docs/operations/troubleshooting/#lost-access");
+    expect(lostAccessDocs("de-DE")).toBe("https://envoryx.dev/de/docs/operations/troubleshooting/#zugang-verloren");
+    expect(lostAccessDocs("fr")).toBe("https://envoryx.dev/docs/operations/troubleshooting/#lost-access");
   });
 
   it("signs in and redirects", async () => {

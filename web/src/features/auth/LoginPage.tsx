@@ -10,11 +10,14 @@ import { useAuth, type PasskeyRequest } from "./AuthContext";
 import { errorText, translateMessage } from "@/lib/errors";
 import { passkeyCancelled, passkeysAvailable } from "@/lib/webauthn";
 
-// The rescue commands (envoryx admin …) live in the container shell; the page can only point there.
-const LOST_ACCESS_DOCS = "https://github.com/envoryx/envoryx/blob/main/DEPLOYMENT.md#lost-access";
+// The rescue commands (envoryx admin …) live in the container shell; the page can only point
+// there. The website has the section in German too; other languages get the English one.
+export function lostAccessDocs(language: string): string {
+  return language.startsWith("de") ? "https://envoryx.dev/de/docs/operations/troubleshooting/#zugang-verloren" : "https://envoryx.dev/docs/operations/troubleshooting/#lost-access";
+}
 
 export function LoginPage({ mode }: { mode: "login" | "setup" }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const auth = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -173,7 +176,7 @@ export function LoginPage({ mode }: { mode: "login" | "setup" }) {
           {mode === "login" && managed && <p className="text-center text-xs text-fg-muted">{t("Forgot the password? An admin of this instance can send you a reset link; if you are the only admin, ask your hoster.")}</p>}
           {mode === "login" && !managed && (
             <p className="text-center text-xs text-fg-muted">
-              <a href={LOST_ACCESS_DOCS} target="_blank" rel="noreferrer" className="underline hover:text-fg">
+              <a href={lostAccessDocs(i18n.language)} target="_blank" rel="noreferrer" className="underline hover:text-fg">
                 {t("Forgot the password?")}
               </a>
             </p>
