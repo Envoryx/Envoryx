@@ -1836,9 +1836,19 @@ with `{"branch": "feature/login"}` (admin, like creating a project) and `POST
 Project backups (database dump, files, configuration) are created from the
 project's **Backups** section and stored as plain directories, one per backup,
 under `<backups dir>/<project>/`. Changing a database's version takes a
-database backup automatically first (source *upgrade*); if no dump can be
-taken because the project is stopped, the upgrade is refused, because the server
-rewrites its data directory on the first start and cannot go back.
+database backup automatically first (source *upgrade*), because the server
+rewrites its data directory on the first start and cannot go back. In a stopped
+project the database server is started for that dump and stopped again; if no
+dump can be taken (the server doesn't start, or refuses the login), the upgrade
+is refused.
+
+Before a backup starts, Envoryx checks the free space where it is written: it
+needs the size of the project files it archives (stored compressed, so that is
+an upper bound) plus a fixed reserve of 512 MiB, which also covers the database
+dumps, so a disk never fills up completely half way through. A backups disk
+with less than 512 MiB free therefore refuses even a tiny backup, with a
+message that names both numbers; the same goes for instance backups (about
+twice the database) and for duplicating a project.
 
 By default the backups directory is `/config/backups`, i.e. on the appdata
 share. Backups are large and rarely read, so you may want them on the array
