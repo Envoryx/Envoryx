@@ -41,7 +41,7 @@ func TestGoCommands(t *testing.T) {
 	dev := GoConfig{Server: true, Package: "./cmd/server"}
 	_ = dev.Normalize()
 	cmd := dev.Command()
-	if cmd[0] != "sh" || !strings.Contains(cmd[2], ".air.toml") || !slices.Contains(cmd, "go build -o /tmp/envoryx-go/app ./cmd/server") || slices.Contains(cmd, "--build.full_bin") {
+	if cmd[0] != "sh" || !strings.Contains(cmd[2], ".air.toml") || !slices.Contains(cmd, "go build -o /tmp/envoryx-go/app ./cmd/server") || slices.Contains(cmd, "--build.full_bin") || !slices.Contains(cmd, "--build.entrypoint") || slices.Contains(cmd, "--build.bin") {
 		t.Fatalf("dev command: %q", cmd)
 	}
 	dev.Debug = true

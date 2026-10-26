@@ -163,7 +163,7 @@ func (c GoConfig) Command() []string {
 		}
 		return []string{"sh", "-c", goProductionScript, "envoryx-go-build", mode, c.Package, strconv.Itoa(c.DebugPort)}
 	}
-	air := []string{"air", "--tmp_dir", goBuildDir, "--build.cmd", shellJoin(c.buildArgs()), "--build.bin", goBuildDir + "/app",
+	air := []string{"air", "--tmp_dir", goBuildDir, "--build.cmd", shellJoin(c.buildArgs()), "--build.entrypoint", goBuildDir + "/app",
 		"--build.exclude_dir", "vendor,node_modules,.git,tmp,testdata"}
 	if c.Debug {
 		air = append(air, "--build.full_bin", shellJoin(c.delveAfterRestart()))
