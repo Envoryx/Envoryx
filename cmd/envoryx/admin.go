@@ -14,6 +14,7 @@ import (
 	"log/slog"
 	"math/big"
 	"os"
+	"slices"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -77,9 +78,14 @@ type adminCLI struct {
 }
 
 func adminCommand(args []string) int {
-	if len(args) == 0 || args[0] == "help" || args[0] == "-h" || args[0] == "--help" {
+	if len(args) == 0 {
 		fmt.Fprint(os.Stderr, adminUsage)
 		return 2
+	}
+	// Help anywhere is only help: "logout-all --help" must not end every session.
+	if slices.ContainsFunc(args, isHelpArg) {
+		fmt.Fprint(os.Stdout, adminUsage)
+		return 0
 	}
 	cfg, err := config.Load()
 	if err != nil {
@@ -133,10 +139,15 @@ func adminCommand(args []string) int {
 
 var errAdminUsage = errors.New("usage")
 
+func isHelpArg(a string) bool { return a == "help" || a == "-h" || a == "--help" || a == "-help" }
+
 func (c *adminCLI) run(ctx context.Context, args []string) error {
 	cmd, rest := args[0], args[1:]
 	switch cmd {
 	case "users":
+		if len(rest) > 0 {
+			return errAdminUsage
+		}
 		return c.users(ctx)
 	case "reset-password":
 		fs := flag.NewFlagSet("reset-password", flag.ContinueOnError)
@@ -156,6 +167,9 @@ func (c *adminCLI) run(ctx context.Context, args []string) error {
 		}
 		return c.resetTwoFactor(ctx, *user)
 	case "logout-all":
+		if len(rest) > 0 {
+			return errAdminUsage
+		}
 		return c.logoutAll(ctx)
 	case "tokens":
 		fs := flag.NewFlagSet("tokens", flag.ContinueOnError)
