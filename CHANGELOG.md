@@ -36,6 +36,25 @@ release). `:main` follows the development branch.
 - Times in project warnings name their zone; the cron preview says it shows local time.
 - Operations without a project (a failed create, say) are shown to admins and the user
   who started them, not to every user.
+- Every CLI command has its own `--help` (stdout, exit 0); `healthcheck --help` no longer
+  runs the check, and errors name what wasn't found instead of "the requested resource
+  does not exist". `envoryx settings --json` works, `login --ca-cert` stores the full path,
+  `envoryx admin users` shows how each account signs in, and piped action output has no
+  terminal codes. `db restore` takes a prefix of the snapshot ID.
+- Project backups check the Envoryx version that made them before restoring, and a
+  backup folder packed again by hand (`tar cf`) is recognised as a backup.
+- A guest link lasts as long as the link and covers the project's extra domains.
+- A history the hoster's plan fixes can't be cleared; the support sees the deploy key's
+  Regenerate button disabled; the base domain comes back when the plan lets go of it.
+- Registry logins are checked when they are saved.
+- Audit: retention is 30 days to two years (or forever), the user filter lists accounts
+  only, SSO sign-ins carry their method, SSH key logins name the account, revoked tokens
+  their name.
+- Database addons (phpMyAdmin, pgAdmin) are offered only to projects with a fitting
+  database; addon files may name the engines they're for (`databases:`).
+- A new API token offers only the scopes the user's role allows.
+- Yarn 2+ projects install with `--immutable`; air gets the Go binary as
+  `build.entrypoint`; Quarkus's build analytics question is answered (off).
 
 ### Fixed
 - MariaDB "11" (the image `mariadb:11`, the newest 11.x) counted as older than "11.4", so
@@ -89,6 +108,40 @@ release). `:main` follows the development branch.
   JVM being killed with the heap it sized for the host.
 - Importing WordPress before 6.7 suggests PHP 8.3 at most (8.4 before 6.9).
 - The UI and docs say which containers get the project variables (not the database).
+- Many small fixes from the test round:
+  - shutdown waits no longer than the grace period;
+  - a cleared project-link host falls back to `ENVORYX_PUBLIC_HOST`;
+  - a failed key replacement goes back to the old key instead of a 500;
+  - a database that refuses the dump fails fast instead of after 3 minutes;
+  - an instance backup uploaded twice is kept once;
+  - restored files keep their modification time;
+  - nested project folders and addon files belong to PUID;
+  - a failed manual instance backup notifies;
+  - a pre-migrate backup names the version that wrote the data;
+  - offsite listings name the parts of a backup;
+  - own offsite targets show as paused while the plan leaves offsite out;
+  - an edited addon file applies at the next project start;
+  - git trusts Envoryx's own CA and says why a clone failed;
+  - a "Deprecated" log line no longer counts as an error;
+  - a deleted branch environment isn't copied again for the same commit;
+  - HTTPS on an unknown name shows the Unknown host page;
+  - a fetch from the hoster's target doesn't show as its last upload;
+  - link-local addresses are refused as an external database host.
+- In the UI:
+  - the 2FA policy warns an admin it would cover before saving;
+  - removing the custom certificate or an addon asks first;
+  - a removed passkey, an expired invitation and a user without projects get clear texts;
+  - "Forgot the password?" links to the website docs in the UI's language;
+  - server messages start with a capital in every language;
+  - focus stays visible and in place around menus and dialogs;
+  - the SFTP target takes several server keys, and the test result shows in view.
+- The Go test view shows compile errors and says when a Go server waits for `go.mod`; a
+  test run that ran nothing isn't shown as passed.
+- `project logs --follow` keeps following across a restart.
+- The setup right after `envoryx admin reset` no longer answers 429.
+- The Unraid template matches the docs and offers `ENVORYX_SECRET_KEY_OLD` and
+  `ENVORYX_HOST_PORTS`.
+- `lastContact` with the fleet counts the instance's own reports.
 
 ## [0.45.1] - 2026-10-26
 
