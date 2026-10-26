@@ -1,6 +1,7 @@
 package project
 
 import (
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -373,4 +374,57 @@ func cutDetails(s string) string {
 func atoi(s string) int {
 	n, _ := strconv.Atoi(s)
 	return n
+}
+
+var (
+	// goBuildFailed is the details gotestsum gives the made-up "TestMain" failure of a
+	// package that did not compile: "FAIL	app/calc [build failed]".
+	goBuildFailed = regexp.MustCompile(`FAIL\s+(\S+) \[build failed\]`)
+	// goCompileError is a compiler error line under gotestsum's "=== Errors", the path
+	// relative to the module: "calc/calc.go:4:28: cannot use …".
+	goCompileError = regexp.MustCompile(`^(\S+\.go):(\d+):(?:\d+:)? (.+)$`)
+)
+
+// goBuildFailures turns the "TestMain: Failed" gotestsum reports for a package that did
+// not compile into the compiler's errors, which it prints only in its output: the
+// package as the name, the first error as the message and its file and line.
+func goBuildFailures(res *TestResult, output string) {
+	var errs []string
+	if _, rest, ok := strings.Cut(output, "\n=== Errors\n"); ok {
+		rest, _, _ = strings.Cut(rest, "\nDONE ")
+		for _, l := range strings.Split(rest, "\n") {
+			if goCompileError.MatchString(strings.TrimSpace(l)) {
+				errs = append(errs, strings.TrimSpace(l))
+			}
+		}
+	}
+	builds := 0
+	for _, f := range res.Failed {
+		if f.Name == "TestMain" && goBuildFailed.MatchString(f.Details+f.Message) {
+			builds++
+		}
+	}
+	for i, f := range res.Failed {
+		m := goBuildFailed.FindStringSubmatch(f.Details + f.Message)
+		if f.Name != "TestMain" || m == nil {
+			continue
+		}
+		pkg := m[1]
+		// The errors of this package: their directory ends its import path. With one
+		// broken package all of them are its own.
+		var own []string
+		for _, e := range errs {
+			dir := filepath.Dir(goCompileError.FindStringSubmatch(e)[1])
+			if builds == 1 || pkg == dir || strings.HasSuffix(pkg, "/"+dir) || (dir == "." && !strings.Contains(pkg, "/")) {
+				own = append(own, e)
+			}
+		}
+		tc := TestCase{Name: pkg, Kind: "error", Message: "build failed", Details: f.Details}
+		if len(own) > 0 {
+			first := goCompileError.FindStringSubmatch(own[0])
+			tc.File, tc.Line, tc.Message = first[1], atoi(first[2]), first[3]
+			tc.Details = cutDetails(strings.Join(own, "\n"))
+		}
+		res.Failed[i] = tc
+	}
 }

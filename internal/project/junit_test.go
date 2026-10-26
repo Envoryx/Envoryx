@@ -98,6 +98,28 @@ func TestParseJUnitGotestsum(t *testing.T) {
 	}
 }
 
+// A package that doesn't compile is reported as a "TestMain" that "Failed"; the
+// compiler's errors are only in the output, and they are what the run shows.
+func TestGoBuildFailures(t *testing.T) {
+	report := `<testsuites><testsuite name="app/calc" tests="0"><testcase classname="" name="TestMain"><failure message="Failed" type="">FAIL&#x9;app/calc [build failed]&#xA;</failure></testcase></testsuite><testsuite name="app/web/api" tests="0"><testcase classname="" name="TestMain"><failure message="Failed" type="">FAIL&#x9;app/web/api [build failed]&#xA;</failure></testcase></testsuite></testsuites>`
+	output := "PASS ok.TestOK (0.00s)\n\n=== Failed\n=== FAIL: calc  (0.00s)\nFAIL\tapp/calc [build failed]\n\n=== Errors\n" +
+		"calc/calc.go:3:28: cannot use \"x\" (untyped string constant) as int value in return statement\n\n" +
+		"calc/calc.go:5:27: cannot use \"y\" (untyped string constant) as int value in return statement\n\n" +
+		"web/api/api.go:9:2: undefined: nope\n\n\nDONE 1 tests, 2 failures, 3 errors in 0.063s\n"
+	res, err := parseJUnit(strings.NewReader(report), "/var/www/html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	goBuildFailures(&res, output)
+	calc, api := res.Failed[0], res.Failed[1]
+	if calc.Name != "app/calc" || calc.Kind != "error" || calc.File != "calc/calc.go" || calc.Line != 3 || !strings.HasPrefix(calc.Message, `cannot use "x"`) || strings.Count(calc.Details, "\n") != 1 {
+		t.Fatalf("calc: %+v", calc)
+	}
+	if api.Name != "app/web/api" || api.Message != "undefined: nope" || api.File != "web/api/api.go" {
+		t.Fatalf("api: %+v", api)
+	}
+}
+
 func TestParseJUnitCapsFailures(t *testing.T) {
 	var b strings.Builder
 	b.WriteString("<testsuite>")

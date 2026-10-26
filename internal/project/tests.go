@@ -870,6 +870,9 @@ func (m *Manager) FinishTestRun(ctx context.Context, s *TestSession, exitCode in
 		// rspec_junit_formatter names the file only; the line comes from the output.
 		locateRSpec(&res, text, appMountTarget)
 	}
+	if res.Report && s.Suite.Framework == "go" {
+		goBuildFailures(&res, text)
+	}
 	if !res.Report && s.Suite.parseOutput != nil {
 		if parsed, ok := s.Suite.parseOutput(text, appMountTarget); ok {
 			res = parsed
