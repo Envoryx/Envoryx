@@ -487,6 +487,7 @@ func TestNotFoundNamesWhatIsMissing(t *testing.T) {
 	}
 	srv := newFakeServer(t, map[string]func(http.ResponseWriter, *http.Request){
 		"POST /api/v1/projects/{id}/database/snapshots":             notFound,
+		"GET /api/v1/projects/{id}/database/snapshots":              notFound,
 		"GET /api/v1/projects/{id}/backups/{b}/download":            notFound,
 		"DELETE /api/v1/projects/{id}/backups/{b}":                  notFound,
 		"POST /api/v1/projects/{id}/database/snapshots/{s}/restore": notFound,

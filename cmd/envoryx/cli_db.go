@@ -182,7 +182,7 @@ func (c *cli) resolveSnapshot(ctx context.Context, api *client, p projectSummary
 		Snapshots []backupInfo `json:"snapshots"`
 	}
 	if err := api.get(ctx, projectPath(p.ID, "database", "snapshots"), dbQuery(db), &body); err != nil {
-		return "", err
+		return "", dbNotFound(ctx, api, p, db, id, err)
 	}
 	var found []string
 	for _, s := range body.Snapshots {
