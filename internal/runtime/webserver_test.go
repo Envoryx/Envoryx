@@ -81,7 +81,7 @@ func TestWebServerConfig(t *testing.T) {
 		{
 			variant: "apache", file: "httpd.conf", target: "/usr/local/apache2/conf/httpd.conf",
 			contains: []string{`DocumentRoot "/var/www/html/public"`, "AllowOverride All", "mod_rewrite.so", "mod_access_compat.so", "mod_proxy_fcgi.so", `LogFormat "%h %l %u %t \"%r\" %>s %b" common`},
-			phpOnly:  []string{`SetHandler "proxy:fcgi://php:9000"`, `<LocationMatch "` + uploadPHP + `">`, "index.php", `<Files ".ht*">`, `ProxyFCGISetEnvIf "%{HTTP:X-Forwarded-Proto} == 'https'" HTTPS on`},
+			phpOnly:  []string{`SetHandler "proxy:fcgi://php:9000"`, `<LocationMatch "` + uploadPHP + `">`, "index.php", `<Files ".ht*">`, `<LocationMatch "/\.(?!well-known(/|$))">`, `ProxyFCGISetEnvIf "%{HTTP:X-Forwarded-Proto} == 'https'" HTTPS on`},
 			static:   []string{`<FilesMatch "^\.">`, `<DirectoryMatch "/\.">`, "DirectoryIndex index.html"},
 			spa:      []string{"FallbackResource /index.html"},
 		},

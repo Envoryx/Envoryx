@@ -55,6 +55,9 @@ DocumentRoot "/var/www/html/public"
 <Files ".ht*">
 	Require all denied
 </Files>
+<LocationMatch "/\.(?!well-known(/|$))">
+	Require all denied
+</LocationMatch>
 
 DirectoryIndex index.php index.html
 
