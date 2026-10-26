@@ -2608,8 +2608,9 @@ as text or, through the API with `format=jsonl`, as JSON lines.
 Containers do not report a level, so Envoryx reads it from the text: words
 such as *Fatal error*, `[error]`, `ERROR:`, *Exception* or *Traceback*, a
 `level` field in JSON or logfmt lines, and a 5xx status in access logs count
-as errors; *Warning*, `[warn]` and *Deprecated* as warnings. stderr alone does
-not make a line an error.
+as errors; *Warning*, `[warn]` and *Deprecated* as warnings. When a line has
+both, the first one counts, so a *PHP Deprecated:* line that mentions an
+exception stays a warning. stderr alone does not make a line an error.
 
 The same filters work from scripts: `envoryx project logs shop --since 6h
 --level error`, `--grep`, `--until`, and `-o FILE` to save everything that

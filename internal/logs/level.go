@@ -66,10 +66,14 @@ func Classify(text string) Level {
 	if m := logfmtLevel.FindStringSubmatch(text); m != nil {
 		return wordLevel(m[1])
 	}
+	// The word that comes first says what the line is: "PHP Deprecated: Passing
+	// E_USER_ERROR to trigger_error() ... throw an exception" is a deprecation that
+	// mentions errors, not an error.
+	e, w := errorWords.FindStringIndex(text), warnWords.FindStringIndex(text)
 	switch {
-	case errorWords.MatchString(text) || status5xx.MatchString(text):
+	case status5xx.MatchString(text), e != nil && (w == nil || e[0] < w[0]):
 		return LevelError
-	case warnWords.MatchString(text):
+	case w != nil:
 		return LevelWarn
 	}
 	return LevelInfo
