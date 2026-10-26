@@ -53,6 +53,7 @@ func TestServiceProblemMessages(t *testing.T) {
 		runtime.WaitVenv:                  "built for another Python version",
 		runtime.WaitPythonDeps + ":flask": "waits for flask in .venv",
 		runtime.WaitServerExited:          "exited while an action was running",
+		runtime.WaitGoMod:                 "server waits for go.mod - scaffold with a Go template",
 		runtime.WaitPythonDeps:            "",
 		"":                                "",
 	} {

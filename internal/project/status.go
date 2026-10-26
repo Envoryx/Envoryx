@@ -52,6 +52,8 @@ func serviceProblem(name string, c docker.Container) string {
 		return "the " + name + " server waits because bundle install failed - its logs show the error; it tries again every 30 seconds"
 	case runtime.WaitNodeDeps:
 		return "the " + name + " dev server waits for node_modules - run npm install (or pnpm / yarn install) from Actions"
+	case runtime.WaitGoMod:
+		return "the " + name + " server waits for go.mod - scaffold with a Go template, clone a repository or run go mod init in the Go terminal"
 	case runtime.WaitVenv:
 		return "the " + name + venvWaitProblem
 	case runtime.WaitPythonDeps:

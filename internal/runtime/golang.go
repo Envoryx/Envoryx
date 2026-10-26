@@ -208,7 +208,7 @@ func shellJoin(argv []string) string {
 // entryGuard blocks until the project has a go.mod: a blank project would send the build
 // into a crash-loop.
 func (c GoConfig) entryGuard() string {
-	return `until [ -e go.mod ]; do echo 'envoryx: waiting for go.mod in /var/www/html - scaffold with a Go template, clone a repository or run go mod init in the Go terminal'; sleep 5; done`
+	return `until [ -e go.mod ]; do ` + noteGoMod + `; echo 'envoryx: waiting for go.mod in /var/www/html - scaffold with a Go template, clone a repository or run go mod init in the Go terminal'; sleep 5; done`
 }
 
 // WrappedCommand returns Command() behind the go.mod guard, for containers whose server

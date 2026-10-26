@@ -46,6 +46,7 @@ const (
 	WaitVenv         = "python-venv"
 	WaitPythonDeps   = "python-deps"
 	WaitServerExited = "server-exited"
+	WaitGoMod        = "go-mod"
 )
 
 // The shell commands that record a key in WaitingFile, constants for the constant guards.
@@ -54,6 +55,7 @@ const (
 	noteNodeDeps     = "echo " + WaitNodeDeps + " >" + WaitingFile
 	noteVenv         = "echo " + WaitVenv + " >" + WaitingFile
 	noteServerExited = "echo " + WaitServerExited + " >" + WaitingFile
+	noteGoMod        = "echo " + WaitGoMod + " >" + WaitingFile
 )
 
 // ActionEnv marks the processes of an action: RunAction sets it, and Supervised looks for

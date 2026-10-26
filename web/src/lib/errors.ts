@@ -163,6 +163,7 @@ const templates: (string | [string, string])[] = [
   "{{service}} keeps restarting - its main process exits shortly after each start; its logs say why",
   "the {{service}} server waits because bundle install failed - its logs show the error; it tries again every 30 seconds",
   "the {{service}} dev server waits for node_modules - run npm install (or pnpm / yarn install) from Actions",
+  "the {{service}} server waits for go.mod - scaffold with a Go template, clone a repository or run go mod init in the Go terminal",
   "the {{service}} server waits because .venv was built for another Python version or its python does not run - run pip install -r requirements.txt or uv sync from Actions to rebuild it",
   "the {{service}} server waits for {{module}} in .venv - run pip install -r requirements.txt or uv sync from Actions",
   "the {{service}} server exited while an action was running - it starts again once the action has finished; its logs say why it exited",
