@@ -3801,5 +3801,17 @@
   "You have no access to any project yet. An admin of this instance can give you a role in one.": "У вас пока нет доступа ни к одному проекту. Администратор этого экземпляра может выдать вам роль в одном из них.",
   "Your role allows tokens up to {{scope}}.": "Ваша роль разрешает токены до уровня {{scope}}.",
   "Your role allows no API tokens yet.": "Ваша роль пока не разрешает API-токены.",
-  "invalid credentials": "неверное имя пользователя или пароль"
+  "invalid credentials": "неверное имя пользователя или пароль",
+  "Play animation": "Воспроизвести анимацию",
+  "Pause animation": "Приостановить анимацию",
+  "Chapter {{n}}: {{name}}": "Глава {{n}}: {{name}}",
+  "Fullscreen is not available in this browser.": "Полноэкранный режим в этом браузере недоступен.",
+  "The spatial foundry - animated ASCII short film": "Пространственный завод - анимированный ASCII-фильм",
+  "Perspective ASCII factory with two conveyor belts, spatial Docker containers and synchronised assembly arms.": "ASCII-завод в перспективе с двумя конвейерами, объёмными Docker-контейнерами и синхронными сборочными манипуляторами.",
+  "Toggle fullscreen": "Переключить полноэкранный режим",
+  "Fullscreen (F)": "Полный экран (F)",
+  "Restart animation": "Перезапустить анимацию",
+  "Restart (R)": "Сначала (R)",
+  "Chapters": "Главы",
+  "Reduced motion is on. The scene holds a still frame; start it deliberately or pick a chapter.": "Включено уменьшение движения. Сцена показывает стоп-кадр; запустите её сами или выберите главу."
 }

@@ -53,13 +53,25 @@ function About() {
 
 /** The markup and ids are what film.js expects. */
 function Film() {
+  const { t } = useTranslation();
   const root = useRef<HTMLDivElement>(null);
-  useEffect(() => (root.current ? mountFilm(root.current) : undefined), []);
+  useEffect(
+    () =>
+      root.current
+        ? mountFilm(root.current, {
+            play: t("Play animation"),
+            pause: t("Pause animation"),
+            chapter: (n, name) => t("Chapter {{n}}: {{name}}", { n, name }),
+            noFullscreen: t("Fullscreen is not available in this browser."),
+          })
+        : undefined,
+    [t],
+  );
 
   return (
     <div ref={root} className="foundry">
-      <section className="movie" id="movie" aria-label="The spatial foundry - animated ASCII short film">
-        <canvas id="world" role="img" aria-label="Perspective ASCII factory with two conveyor belts, spatial Docker containers and synchronised assembly arms." />
+      <section className="movie" id="movie" aria-label={t("The spatial foundry - animated ASCII short film")}>
+        <canvas id="world" role="img" aria-label={t("Perspective ASCII factory with two conveyor belts, spatial Docker containers and synchronised assembly arms.")} />
         <div className="scene-header">
           <div>
             <div className="eyebrow" id="chapterTag">01 / INITIALIZE</div>
@@ -79,27 +91,27 @@ function Film() {
           <span id="terminalLine">
             &gt; envoryx init<span className="mint"> _</span>
           </span>
-          <button className="fs" id="fullscreen" aria-label="Toggle fullscreen" title="Fullscreen (F)">
+          <button className="fs" id="fullscreen" aria-label={t("Toggle fullscreen")} title={t("Fullscreen (F)")}>
             [ + ]
           </button>
         </div>
       </section>
       <div className="transport">
         <div className="controls">
-          <button className="play" id="play" aria-label="Pause animation">
+          <button className="play" id="play" aria-label={t("Pause animation")}>
             II PAUSE
           </button>
-          <button className="replay" id="replay" aria-label="Restart animation" title="Restart (R)">
+          <button className="replay" id="replay" aria-label={t("Restart animation")} title={t("Restart (R)")}>
             ↺
           </button>
         </div>
-        <nav className="timeline" aria-label="Chapters" id="chapters" />
+        <nav className="timeline" aria-label={t("Chapters")} id="chapters" />
         <div className="time">
           <span id="clock">00:00</span> <span style={{ color: "#40594c" }}>/</span> 00:38
         </div>
       </div>
       <div className="reduced" id="reduced">
-        Reduced motion is on. The scene holds a still frame; start it deliberately or pick a chapter.
+        {t("Reduced motion is on. The scene holds a still frame; start it deliberately or pick a chapter.")}
       </div>
       <p className="sr-only" id="announcement" aria-live="polite" />
     </div>

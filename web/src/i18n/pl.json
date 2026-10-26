@@ -3801,5 +3801,17 @@
   "You have no access to any project yet. An admin of this instance can give you a role in one.": "Nie masz jeszcze dostępu do żadnego projektu. Administrator tej instancji może nadać ci rolę w jednym z nich.",
   "Your role allows tokens up to {{scope}}.": "Twoja rola pozwala na tokeny do poziomu {{scope}}.",
   "Your role allows no API tokens yet.": "Twoja rola nie pozwala jeszcze na tokeny API.",
-  "invalid credentials": "nieprawidłowa nazwa użytkownika lub hasło"
+  "invalid credentials": "nieprawidłowa nazwa użytkownika lub hasło",
+  "Play animation": "Odtwórz animację",
+  "Pause animation": "Wstrzymaj animację",
+  "Chapter {{n}}: {{name}}": "Rozdział {{n}}: {{name}}",
+  "Fullscreen is not available in this browser.": "Tryb pełnoekranowy nie jest dostępny w tej przeglądarce.",
+  "The spatial foundry - animated ASCII short film": "Przestrzenna odlewnia - animowany krótki film ASCII",
+  "Perspective ASCII factory with two conveyor belts, spatial Docker containers and synchronised assembly arms.": "Fabryka ASCII w perspektywie z dwoma taśmociągami, przestrzennymi kontenerami Dockera i zsynchronizowanymi ramionami montażowymi.",
+  "Toggle fullscreen": "Przełącz pełny ekran",
+  "Fullscreen (F)": "Pełny ekran (F)",
+  "Restart animation": "Uruchom animację od nowa",
+  "Restart (R)": "Od nowa (R)",
+  "Chapters": "Rozdziały",
+  "Reduced motion is on. The scene holds a still frame; start it deliberately or pick a chapter.": "Ograniczony ruch jest włączony. Scena pokazuje nieruchomy kadr; uruchom ją świadomie lub wybierz rozdział."
 }

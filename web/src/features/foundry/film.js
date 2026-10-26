@@ -7,7 +7,9 @@
  */
 
 /** Mounts the film into `root` (the markup from FoundryPage) and returns a function that stops it again. */
-export function mountFilm(root) {
+export function mountFilm(root, labels = {}) {
+    // Texts for screen readers in the UI language; the film's own lettering stays English.
+    const say = { play: 'Play animation', pause: 'Pause animation', chapter: (n, name) => `Chapter ${n}: ${name}`, noFullscreen: 'Fullscreen is not available in this browser.', ...labels };
     const $ = id => root.querySelector('#'+id);
     const canvas = $('world');
     const ctx = canvas.getContext('2d', { alpha: false });
@@ -396,20 +398,20 @@ export function mountFilm(root) {
     function schedule() {if(playing&&!document.hidden&&!raf){previous=null;raf=requestAnimationFrame(tick);}}
     function syncPlayback() {
         ui.play.textContent=playing?'II PAUSE':'> PLAY';
-        ui.play.setAttribute('aria-label',playing?'Pause animation':'Play animation');
+        ui.play.setAttribute('aria-label',playing?say.pause:say.play);
         ui.status.textContent=playing?'SYSTEM ONLINE':reduced?'REDUCED MOTION / STILL FRAME':'EXPLORATION PAUSED';
         ui.reduced.classList.toggle('visible',reduced);
         if(playing)schedule();else{cancelAnimationFrame(raf);raf=0;previous=null;draw(elapsed);}
     }
     function toggle(){playing=!playing;syncPlayback();}
     function restart(){elapsed=reduced?2:0;previous=null;draw(elapsed);if(!reduced)playing=true;syncPlayback();}
-    function seek(index){elapsed=CHAPTERS[index].start+(index===0?2:0.05);previous=null;draw(elapsed);ui.announcement.textContent=`Chapter ${index+1}: ${CHAPTERS[index].short}`;}
+    function seek(index){elapsed=CHAPTERS[index].start+(index===0?2:0.05);previous=null;draw(elapsed);ui.announcement.textContent=say.chapter(index+1,CHAPTERS[index].short);}
     async function fullscreen(){
         try{if(document.fullscreenElement)await document.exitFullscreen();else if(movie.requestFullscreen)await movie.requestFullscreen();}
-        catch{ui.announcement.textContent='Fullscreen is not available in this browser.';}
+        catch{ui.announcement.textContent=say.noFullscreen;}
     }
     CHAPTERS.forEach((scene,i)=>{
-        const button=document.createElement('button');button.className='chapter';button.setAttribute('aria-label',`Chapter ${i+1}: ${scene.short}`);
+        const button=document.createElement('button');button.className='chapter';button.setAttribute('aria-label',say.chapter(i+1,scene.short));
         button.innerHTML=`<span class="track"><span class="fill"></span></span><span class="label">0${i+1} ${scene.short}</span>`;
         button.addEventListener('click',()=>seek(i));ui.chapters.appendChild(button);
     });
@@ -437,5 +439,10 @@ export function mountFilm(root) {
         document.removeEventListener('keydown',onKey);
         document.removeEventListener('visibilitychange',onVisibility);
         motionQuery.removeEventListener('change',onMotion);
+        // The markup stays when the labels change language; the next mount starts afresh.
+        $('play').removeEventListener('click',toggle);
+        $('replay').removeEventListener('click',restart);
+        $('fullscreen').removeEventListener('click',fullscreen);
+        ui.chapters.replaceChildren();
     };
 }

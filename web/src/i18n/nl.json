@@ -3735,5 +3735,17 @@
   "You have no access to any project yet. An admin of this instance can give you a role in one.": "Je hebt nog geen toegang tot een project. Een beheerder van deze instantie kan je een rol in een project geven.",
   "Your role allows tokens up to {{scope}}.": "Je rol staat tokens toe tot en met {{scope}}.",
   "Your role allows no API tokens yet.": "Je rol staat nog geen API-tokens toe.",
-  "invalid credentials": "onjuiste gebruikersnaam of onjuist wachtwoord"
+  "invalid credentials": "onjuiste gebruikersnaam of onjuist wachtwoord",
+  "Play animation": "Animatie afspelen",
+  "Pause animation": "Animatie pauzeren",
+  "Chapter {{n}}: {{name}}": "Hoofdstuk {{n}}: {{name}}",
+  "Fullscreen is not available in this browser.": "Volledig scherm is in deze browser niet beschikbaar.",
+  "The spatial foundry - animated ASCII short film": "De ruimtelijke gieterij - geanimeerde ASCII-korte film",
+  "Perspective ASCII factory with two conveyor belts, spatial Docker containers and synchronised assembly arms.": "ASCII-fabriek in perspectief met twee lopende banden, ruimtelijke Docker-containers en gesynchroniseerde montagearmen.",
+  "Toggle fullscreen": "Volledig scherm aan/uit",
+  "Fullscreen (F)": "Volledig scherm (F)",
+  "Restart animation": "Animatie opnieuw starten",
+  "Restart (R)": "Opnieuw starten (R)",
+  "Chapters": "Hoofdstukken",
+  "Reduced motion is on. The scene holds a still frame; start it deliberately or pick a chapter.": "Verminderde beweging staat aan. De scène toont een stilstaand beeld; start hem bewust of kies een hoofdstuk."
 }
