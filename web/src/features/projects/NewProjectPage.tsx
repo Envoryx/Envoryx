@@ -362,7 +362,7 @@ export function NewProjectPage() {
   const selectedTemplate = rt.templates?.find((x) => x.id === form.template);
   const wantedDb = form.importSite ? form.importSite.analysis.database : form.source === "template" ? selectedTemplate?.recommendedDatabase : undefined;
   const wantedDbNotInPlan = rt.runtimes.find((r) => r.kind === "database" && r.key === wantedDb && r.notInPlan);
-  const nameError = form.name.trim().length > 0 && form.name.trim().length < 2 ? t("At least 2 characters.") : slugify(form.name) === "" && form.name.trim() ? t("Name must contain letters or digits.") : undefined;
+  const nameError = form.name.trim().length > 0 && form.name.trim().length < 2 ? t("At least 2 characters.") : slugify(form.name) === "" && form.name.trim() ? t("The name needs Latin or Cyrillic letters or digits.") : undefined;
   const extraDbError = (i: number): string | undefined => {
     const n = form.extraDbs[i]!.name.trim();
     if (!n) return undefined;

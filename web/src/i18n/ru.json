@@ -344,7 +344,6 @@
   "Monday": "Понедельник",
   "Most recent security-relevant events. Secrets are never recorded.": "Последние события, связанные с безопасностью. Секреты никогда не записываются.",
   "Name": "Имя",
-  "Name must contain letters or digits.": "Имя должно содержать буквы или цифры.",
   "Names": "Имена",
   "Network": "Сеть",
   "Networks": "Сети",
@@ -3755,5 +3754,6 @@
   "the archive is incomplete or damaged (cut off during the upload?): {{error}}": "архив неполный или повреждён (оборвался при загрузке?): {{error}}",
   "the archive is incomplete (cut off during the upload?): {{name}} is missing": "архив неполный (оборвался при загрузке?): нет {{name}}",
   "Project containers would mount an empty directory from the wrong host path. Remove the variable or set it to the path the bind mount uses.": "Контейнеры проекта подключили бы пустой каталог с неверного пути хоста. Удалите переменную или укажите путь bind-монтирования.",
-  "this account has no password to confirm with; sign in again and retry within 10 minutes": "у этой учётной записи нет пароля для подтверждения; войдите заново и повторите в течение 10 минут"
+  "this account has no password to confirm with; sign in again and retry within 10 minutes": "у этой учётной записи нет пароля для подтверждения; войдите заново и повторите в течение 10 минут",
+  "The name needs Latin or Cyrillic letters or digits.": "Имя должно содержать латинские или кириллические буквы либо цифры."
 }

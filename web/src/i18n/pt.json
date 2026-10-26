@@ -344,7 +344,6 @@
   "Monday": "Segunda-feira",
   "Most recent security-relevant events. Secrets are never recorded.": "Eventos recentes relevantes para a segurança. Segredos nunca são registrados.",
   "Name": "Nome",
-  "Name must contain letters or digits.": "O nome deve conter letras ou dígitos.",
   "Names": "Nomes",
   "Network": "Rede",
   "Networks": "Redes",
@@ -3705,5 +3704,6 @@
   "the archive is incomplete or damaged (cut off during the upload?): {{error}}": "o arquivo está incompleto ou danificado (interrompido durante o envio?): {{error}}",
   "the archive is incomplete (cut off during the upload?): {{name}} is missing": "o arquivo está incompleto (interrompido durante o envio?): falta {{name}}",
   "Project containers would mount an empty directory from the wrong host path. Remove the variable or set it to the path the bind mount uses.": "Os contêineres do projeto montariam uma pasta vazia do caminho errado do host. Remova a variável ou ajuste-a para o caminho do bind mount.",
-  "this account has no password to confirm with; sign in again and retry within 10 minutes": "esta conta não tem senha para confirmar; entre de novo e tente em até 10 minutos"
+  "this account has no password to confirm with; sign in again and retry within 10 minutes": "esta conta não tem senha para confirmar; entre de novo e tente em até 10 minutos",
+  "The name needs Latin or Cyrillic letters or digits.": "O nome deve conter letras latinas ou cirílicas, ou dígitos."
 }

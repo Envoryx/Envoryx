@@ -3,17 +3,44 @@ import type { ProjectState, UpdateStatus } from "@/api/types";
 import type { Tone } from "@/components/ui";
 import i18n from "@/i18n";
 
+// Letters with accents and Cyrillic ones spelled in a-z, the same table as the server's
+// validate.Slugify: each group of lower-case letters maps to one spelling.
+const transliterations: Record<string, string> = Object.fromEntries(
+  Object.entries({
+    àáâãåāăą: "a", äæ: "ae", çćĉċč: "c", ďđð: "d", èéêëēĕėęě: "e",
+    ĝğġģ: "g", ĥħ: "h", ìíîïĩīĭįı: "i", ĳ: "ij", ĵ: "j", ķ: "k",
+    ĺļľŀł: "l", ñńņňŋ: "n", òóôõōŏő: "o", öøœ: "oe", ŕŗř: "r",
+    śŝşšș: "s", ß: "ss", ťţțŧ: "t", þ: "th", ùúûũūŭůűų: "u", ü: "ue",
+    ŵ: "w", ýÿŷ: "y", źżž: "z",
+    а: "a", б: "b", в: "v", гґ: "g", д: "d", еёэ: "e", є: "ye", ж: "zh",
+    з: "z", иі: "i", ї: "yi", йы: "y", к: "k", л: "l", м: "m", н: "n",
+    о: "o", п: "p", р: "r", с: "s", т: "t", уў: "u", ф: "f", х: "kh",
+    ц: "ts", ч: "ch", ш: "sh", щ: "shch", ю: "yu", я: "ya",
+  }).flatMap(([letters, spelling]) => [...letters].map((l) => [l, spelling])),
+);
+
 /**
  * The identifier derived from a project name, mirroring the server's Slugify: lower case,
- * everything but letters and digits becomes a hyphen. It is a preview; the server has
- * the last word.
+ * letters with accents and Cyrillic ones spelled in a-z, separators become hyphens and
+ * anything else is dropped. It is a preview; the server has the last word.
  */
 export function slugify(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 40);
+  let out = "";
+  let lastHyphen = true;
+  for (const ch of name.trim().toLowerCase()) {
+    if (/[a-z0-9]/.test(ch)) {
+      out += ch;
+      lastHyphen = false;
+    } else if (" -_./".includes(ch)) {
+      if (!lastHyphen) out += "-";
+      lastHyphen = true;
+    } else if (Object.hasOwn(transliterations, ch)) {
+      out += transliterations[ch];
+      lastHyphen = false;
+    }
+  }
+  out = out.replace(/^-+|-+$/g, "");
+  return out.length > 40 ? out.slice(0, 40).replace(/-+$/, "") : out;
 }
 
 /** Sizes in powers of 1024, named as such (GiB, not GB), as Diagnostics and the server do. */

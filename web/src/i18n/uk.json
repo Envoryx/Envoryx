@@ -344,7 +344,6 @@
   "Monday": "Понеділок",
   "Most recent security-relevant events. Secrets are never recorded.": "Останні події, пов'язані з безпекою. Секрети ніколи не записуються.",
   "Name": "Назва",
-  "Name must contain letters or digits.": "Назва має містити літери або цифри.",
   "Names": "Імена",
   "Network": "Мережа",
   "Networks": "Мережі",
@@ -3755,5 +3754,6 @@
   "the archive is incomplete or damaged (cut off during the upload?): {{error}}": "архів неповний або пошкоджений (обірвався під час завантаження?): {{error}}",
   "the archive is incomplete (cut off during the upload?): {{name}} is missing": "архів неповний (обірвався під час завантаження?): немає {{name}}",
   "Project containers would mount an empty directory from the wrong host path. Remove the variable or set it to the path the bind mount uses.": "Контейнери проєкту підключили б порожній каталог із неправильного шляху хоста. Видаліть змінну або вкажіть шлях bind-монтування.",
-  "this account has no password to confirm with; sign in again and retry within 10 minutes": "цей обліковий запис не має пароля для підтвердження; увійдіть знову й повторіть протягом 10 хвилин"
+  "this account has no password to confirm with; sign in again and retry within 10 minutes": "цей обліковий запис не має пароля для підтвердження; увійдіть знову й повторіть протягом 10 хвилин",
+  "The name needs Latin or Cyrillic letters or digits.": "Назва має містити латинські або кириличні літери чи цифри."
 }

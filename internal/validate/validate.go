@@ -32,7 +32,34 @@ func Slug(s string) error {
 	return nil
 }
 
-// Slugify derives a slug from a display name. It may return an empty string.
+// transliterations spell letters with accents and Cyrillic ones in a-z, so "Müller" becomes
+// "mueller" and "Ромашка" "romashka" instead of losing them. Each group of lower-case letters
+// maps to one spelling; web/src/lib/format.ts keeps the same table for the UI's preview.
+var transliterations = func() map[rune]string {
+	groups := map[string]string{
+		"àáâãåāăą": "a", "äæ": "ae", "çćĉċč": "c", "ďđð": "d", "èéêëēĕėęě": "e",
+		"ĝğġģ": "g", "ĥħ": "h", "ìíîïĩīĭįı": "i", "ĳ": "ij", "ĵ": "j", "ķ": "k",
+		"ĺļľŀł": "l", "ñńņňŋ": "n", "òóôõōŏő": "o", "öøœ": "oe", "ŕŗř": "r",
+		"śŝşšș": "s", "ß": "ss", "ťţțŧ": "t", "þ": "th", "ùúûũūŭůűų": "u", "ü": "ue",
+		"ŵ": "w", "ýÿŷ": "y", "źżž": "z",
+		// Russian and Ukrainian Cyrillic, close to the usual passport spelling.
+		"а": "a", "б": "b", "в": "v", "гґ": "g", "д": "d", "еёэ": "e", "є": "ye", "ж": "zh",
+		"з": "z", "иі": "i", "ї": "yi", "йы": "y", "к": "k", "л": "l", "м": "m", "н": "n",
+		"о": "o", "п": "p", "р": "r", "с": "s", "т": "t", "уў": "u", "ф": "f", "х": "kh",
+		"ц": "ts", "ч": "ch", "ш": "sh", "щ": "shch", "ю": "yu", "я": "ya",
+	}
+	m := map[rune]string{}
+	for letters, spelling := range groups {
+		for _, r := range letters {
+			m[r] = spelling
+		}
+	}
+	return m
+}()
+
+// Slugify derives a slug from a display name: letters with accents and Cyrillic ones are
+// spelled in a-z, separators become hyphens, anything else is dropped. It may return an
+// empty string.
 func Slugify(name string) string {
 	var b strings.Builder
 	lastHyphen := true
@@ -45,6 +72,11 @@ func Slugify(name string) string {
 			if !lastHyphen {
 				b.WriteByte('-')
 				lastHyphen = true
+			}
+		default:
+			if spelling, ok := transliterations[r]; ok {
+				b.WriteString(spelling)
+				lastHyphen = false
 			}
 		}
 	}

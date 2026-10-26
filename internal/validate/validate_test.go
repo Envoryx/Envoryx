@@ -24,9 +24,20 @@ func TestSlugify(t *testing.T) {
 	cases := map[string]string{
 		"Acme Shop":       "acme-shop",
 		"  My_Project.v2": "my-project-v2",
-		"Ünïcode Name":    "ncode-name",
+		"Ünïcode Name":    "uenicode-name",
 		"---":             "",
 		"legacy/shop":     "legacy-shop",
+		"a&b <script>":    "ab-script",
+		// The same cases as slugify in web/src/lib/format.test.ts, so preview and server agree.
+		"Müller Shop":          "mueller-shop",
+		"Straße & Café":        "strasse-cafe",
+		"Łódź Zażółć":          "lodz-zazolc",
+		"Проект Ромашка":       "proekt-romashka",
+		"shop-php Тест":        "shop-php-test",
+		"Щука, ёж и Їжак":      "shchuka-ezh-i-yizhak",
+		"node-api відновлений": "node-api-vidnovleniy",
+		"Подъезд 2":            "podezd-2",
+		"日本語":                  "",
 	}
 	for in, want := range cases {
 		if got := Slugify(in); got != want {
