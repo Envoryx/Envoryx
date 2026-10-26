@@ -50,7 +50,7 @@ export function ProjectActionButtons({
   const pending = (a: ProjectAction) => busy && action.variables?.action === a;
 
   return (
-    <div className="flex items-center gap-1.5">
+    <div className="flex flex-wrap items-center gap-1.5">
       {!canOperate ? null : running ? (
         <Button size={size} onClick={() => run("stop")} loading={pending("stop")} disabled={busy || transitional} icon={<Square className="size-3.5" />} title={t("Stop")}>
           {t("Stop")}

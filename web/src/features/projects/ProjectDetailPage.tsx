@@ -135,9 +135,9 @@ export function ProjectDetailPage() {
     <div>
       <PageHeader
         title={
-          <span className="flex items-center gap-3">
+          <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <StatusDot tone={meta.tone} pulse={meta.pulse ?? false} />
-            {p.name}
+            <span className="min-w-0">{p.name}</span>
             <Badge tone={meta.tone}>{t(meta.label)}</Badge>
           </span>
         }
@@ -389,11 +389,11 @@ function OverviewTab({ project: p }: { project: Project }) {
           <dl className="space-y-2 px-5 py-4 text-sm">
             <div className="flex justify-between gap-4">
               <dt className="text-muted">{t("Identifier")}</dt>
-              <dd className="font-mono text-xs">{p.slug}</dd>
+              <dd className="min-w-0 text-right font-mono text-xs wrap-anywhere">{p.slug}</dd>
             </div>
             <div className="flex justify-between gap-4">
               <dt className="text-muted">{t("Network")}</dt>
-              <dd className="font-mono text-xs">envoryx-{p.slug}</dd>
+              <dd className="min-w-0 text-right font-mono text-xs wrap-anywhere">envoryx-{p.slug}</dd>
             </div>
             <div className="flex justify-between gap-4">
               <dt className="text-muted">{t("Desired state")}</dt>

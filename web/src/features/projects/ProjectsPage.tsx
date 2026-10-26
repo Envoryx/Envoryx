@@ -91,7 +91,7 @@ export function ProjectRow({ project, usage: sampled }: { project: Project; usag
             <span className="block text-subtle">-</span>
           )}
         </div>
-        <div className="col-span-2 row-start-3 pl-[22px] @4xl:col-span-1 @4xl:col-start-5 @4xl:row-start-1 @4xl:justify-self-end @4xl:pl-0">
+        <div className="col-span-2 row-start-3 min-w-0 pl-[22px] @4xl:col-span-1 @4xl:col-start-5 @4xl:row-start-1 @4xl:justify-self-end @4xl:pl-0">
           <ProjectActionButtons project={project} onError={capture} />
         </div>
       </div>

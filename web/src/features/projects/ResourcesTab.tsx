@@ -12,11 +12,11 @@ import { LimitsCard } from "./LimitsCard";
 
 export const metricRanges: MetricRange[] = ["1h", "6h", "24h", "7d", "30d", "90d", "365d"];
 
-export function RangePicker({ value, onChange, ranges = metricRanges, wrap = true }: { value: MetricRange; onChange: (r: MetricRange) => void; ranges?: MetricRange[]; wrap?: boolean }) {
+export function RangePicker({ value, onChange, ranges = metricRanges }: { value: MetricRange; onChange: (r: MetricRange) => void; ranges?: MetricRange[] }) {
   const { t } = useTranslation();
   const labels: Record<MetricRange, string> = { "1h": t("1 hour"), "6h": t("6 hours"), "24h": t("24 hours"), "7d": t("7 days"), "30d": t("30 days"), "90d": t("90 days"), "365d": t("1 year") };
   return (
-    <div className={`inline-flex ${wrap ? "max-w-full flex-wrap" : "shrink-0"} gap-1 rounded-md border border-default bg-elevated p-0.5`} role="radiogroup" aria-label={t("Time range")}>
+    <div className="inline-flex max-w-full flex-wrap gap-1 rounded-md border border-default bg-elevated p-0.5" role="radiogroup" aria-label={t("Time range")}>
       {ranges.map((r) => (
         <button
           key={r}

@@ -162,7 +162,7 @@ export function CardHeader({ title, description, actions }: { title: ReactNode; 
         <h2 className="text-sm font-semibold text-fg">{title}</h2>
         {description && <p className="mt-0.5 text-xs text-muted">{description}</p>}
       </div>
-      {actions && <div className="flex items-center gap-2">{actions}</div>}
+      {actions && <div className="flex max-w-full flex-wrap items-center gap-2">{actions}</div>}
     </div>
   );
 }
@@ -170,11 +170,12 @@ export function CardHeader({ title, description, actions }: { title: ReactNode; 
 export function PageHeader({ title, description, actions }: { title: ReactNode; description?: ReactNode; actions?: ReactNode }) {
   return (
     <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight text-fg">{title}</h1>
-        {description && <p className="mt-1 text-sm text-muted">{description}</p>}
+      {/* min-w-0 and wrap-anywhere: a long name without spaces breaks instead of widening the page. */}
+      <div className="min-w-0 max-w-full">
+        <h1 className="text-xl font-semibold tracking-tight wrap-anywhere text-fg">{title}</h1>
+        {description && <p className="mt-1 text-sm wrap-anywhere text-muted">{description}</p>}
       </div>
-      {actions && <div className="flex items-center gap-2">{actions}</div>}
+      {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
     </div>
   );
 }
@@ -301,13 +302,14 @@ export function Dialog({
       aria-labelledby={titleId}
     >
       <div className="px-6 pt-5">
-        <h2 id={titleId} className="text-base font-semibold">
+        <h2 id={titleId} className="text-base font-semibold wrap-anywhere">
           {title}
         </h2>
         {description && <div className="mt-1 text-sm text-muted">{description}</div>}
       </div>
       {children && <div className="px-6 py-4">{children}</div>}
-      {footer && <div className="flex justify-end gap-2 border-t border-default px-6 py-4">{footer}</div>}
+      {/* Wraps on a narrow screen rather than pushing the first button (Cancel) out on the left. */}
+      {footer && <div className="flex flex-wrap justify-end gap-2 border-t border-default px-6 py-4">{footer}</div>}
     </dialog>
   );
 }

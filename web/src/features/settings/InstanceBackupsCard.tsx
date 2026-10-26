@@ -202,14 +202,14 @@ export function InstanceBackupsCard() {
           <ul className="divide-y divide-[var(--border)] rounded-md border border-default">
             {q.data.backups.map((b) => (
               <li key={b.id} className="flex flex-wrap items-center justify-between gap-3 px-3 py-2 text-sm">
-                <div className="flex items-center gap-3">
-                  <Archive className="size-4 text-accent-500" aria-hidden />
-                  <div>
+                <div className="flex min-w-0 items-center gap-3">
+                  <Archive className="size-4 shrink-0 text-accent-500" aria-hidden />
+                  <div className="min-w-0">
                     <p className="flex flex-wrap items-center gap-2 font-medium">
                       {formatDateTime(b.createdAt)}
                       <Badge tone={kindTone(b.kind)}>{backupKindLabel(b.kind, t)}</Badge>
                     </p>
-                    <p className="font-mono text-[11px] text-subtle">
+                    <p className="font-mono text-[11px] wrap-anywhere text-subtle">
                       {b.id} · {formatBytes(b.sizeBytes)} · Envoryx {b.meta.envoryx} · {t("schema {{n}}", { n: b.meta.schema })}
                       {b.meta.note ? ` · ${b.meta.note}` : ""}
                     </p>
@@ -220,7 +220,7 @@ export function InstanceBackupsCard() {
                     )}
                   </div>
                 </div>
-                <div className="flex items-center gap-1">
+                <div className="flex flex-wrap items-center gap-1">
                   <OffsiteUploadButton targets={targets} copies={q.data.offsite?.[b.id]} busy={offsiteUpload.isPending && offsiteUpload.variables?.id === b.id} onUpload={() => offsiteUpload.mutate(b)} />
                   <a href={api.instanceBackups.downloadUrl(b.id)} download className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-muted hover:bg-muted hover:text-fg">
                     <Download className="size-3.5" aria-hidden />
@@ -249,7 +249,8 @@ export function InstanceBackupsCard() {
             {t("Create backup")}
           </Button>
           <input ref={fileInput} type="file" accept=".tar.gz,application/gzip" className="hidden" onChange={pickFile} aria-label={t("Backup file")} />
-          <Button type="button" className="mb-6" loading={upload.isPending} onClick={() => fileInput.current?.click()} icon={<Upload className="size-4" />}>
+          {/* The label may wrap: in Russian it is wider than a phone. */}
+          <Button type="button" className="mb-6 h-auto min-h-9 max-w-full whitespace-normal py-1.5" loading={upload.isPending} onClick={() => fileInput.current?.click()} icon={<Upload className="size-4" />}>
             {t("Import backup")}
           </Button>
         </form>

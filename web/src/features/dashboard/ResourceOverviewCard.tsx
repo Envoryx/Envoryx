@@ -60,7 +60,7 @@ export function ResourceOverviewCard() {
       <CardHeader
         title={t("Resource usage by project")}
         description={t("Average and peak of each project's containers together over the range, busiest first. The project's Resources section shows the history per container.")}
-        actions={<RangePicker value={range} onChange={setRange} ranges={["24h", "7d", "30d", "90d"]} wrap={false} />}
+        actions={<RangePicker value={range} onChange={setRange} ranges={["24h", "7d", "30d", "90d"]} />}
       />
       {q.isPending ? (
         <Spinner />
