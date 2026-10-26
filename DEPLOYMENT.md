@@ -2774,7 +2774,8 @@ the project roles of its parent.
 Users who aren't admins see a smaller interface: *Settings* has only *My account*
 (profile with appearance and password, two-factor authentication, API tokens & MCP, SSH keys), the Docker page and *New project* are
 gone, viewers can't start or stop projects and don't get the *Terminal* and *Actions* sections,
-and *History* and the *Docker plan* are for admins. The server checks every request on its own,
+and *History* is for admins. The *Docker plan* (containers, mounts, ports and paths, no
+secrets) is open to everyone with access to the project, viewers included. The server checks every request on its own,
 so hiding is a courtesy, not the protection.
 
 A user can be disabled, which ends their sessions and stops their API tokens and SSH keys
