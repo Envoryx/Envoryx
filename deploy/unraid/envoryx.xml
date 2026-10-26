@@ -11,9 +11,9 @@
   <Project>https://github.com/envoryx/envoryx</Project>
   <Overview>Envoryx - Docker-native development environments for Unraid.&#xD;
 &#xD;
-Manage complete development stacks (PHP and/or Node.js, web server, database, cache) per project from a modern web UI. Envoryx creates isolated Docker containers for every project automatically; you never edit compose files.&#xD;
+Manage complete development stacks (PHP, Node.js, Python, Go, Ruby, Java or .NET, web server, database, cache) per project from a modern web UI. Envoryx creates isolated Docker containers for every project automatically; you never edit compose files.&#xD;
 &#xD;
-Projects are stored in the "Projects" share and published on ports 20000-20999 by default. With the proxy ports (80/443) mapped, every project is also reachable as https://&lt;name&gt;.test through Envoryx's embedded reverse proxy and local certificate authority.</Overview>
+Projects are stored in the "development" share and published on ports 20000-20999 by default. With the proxy ports (80/443) mapped, every project is also reachable as https://&lt;name&gt;.test through Envoryx's embedded reverse proxy and local certificate authority.</Overview>
   <Category>Tools:Utilities Productivity:</Category>
   <WebUI>http://[IP]:[PORT:8787]</WebUI>
   <TemplateURL>https://raw.githubusercontent.com/envoryx/envoryx/main/deploy/unraid/envoryx.xml</TemplateURL>
@@ -45,4 +45,6 @@ Projects are stored in the "Projects" share and published on ports 20000-20999 b
   <Config Name="Admin user (optional)" Target="ENVORYX_ADMIN_USER" Default="" Mode="" Description="Create the admin account automatically instead of via the setup page. Must be set together with the password." Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
   <Config Name="Admin password (optional)" Target="ENVORYX_ADMIN_PASSWORD" Default="" Mode="" Description="At least 10 characters." Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
   <Config Name="Secret key (optional)" Target="ENVORYX_SECRET_KEY" Default="" Mode="" Description="Key that encrypts the stored passwords and tokens: base64 of 32 bytes, e.g. from 'openssl rand -base64 32'. Leave empty to let Envoryx keep one in /config/secret.key; set here, it stays out of appdata backups. Keep a copy: without it, secrets can't be read back." Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
+  <Config Name="Previous secret key (optional)" Target="ENVORYX_SECRET_KEY_OLD" Default="" Mode="" Description="Only for replacing the secret key: put the new key above and the current one here for one start. Envoryx re-encrypts everything with the new key; empty this field afterwards." Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
+  <Config Name="Project ports listen on" Target="ENVORYX_HOST_PORTS" Default="" Mode="" Description="Where the project ports (databases, Mailpit, debuggers) listen: 'all' on every interface (the default when empty), 'local' only on the server itself (127.0.0.1), for a server reachable from the internet. The projects stay reachable through the proxy." Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
 </Container>

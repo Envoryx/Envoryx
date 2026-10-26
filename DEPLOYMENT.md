@@ -206,7 +206,13 @@ wget -O /boot/config/plugins/dockerMan/templates-user/my-Envoryx.xml \
 ```
 
 Then *Add Container → Envoryx → Apply*. Ports, paths, socket, PUID/PGID are
-pre-filled; create the `development` share first if it does not exist.
+pre-filled; create the `development` share first if it does not exist. The
+template's `/config` is `/mnt/user/appdata/envoryx`, which exists on every
+server; with a pool, change it to the pool path (`/mnt/cache/appdata/envoryx`
+for a pool named `cache`), see [Where to put /config](#where-to-put-config).
+The advanced view also has the secret key and the previous one for replacing
+it (`ENVORYX_SECRET_KEY`, `ENVORYX_SECRET_KEY_OLD`) and where the project ports
+listen (`ENVORYX_HOST_PORTS`).
 
 The file name matters. Unraid writes your container settings (network type
 such as `br0`, the backups share, ports) to `my-<ContainerName>.xml` on
@@ -247,7 +253,7 @@ No publication in Community Applications is required for either way.
 | Port | `8787` → `8787` |
 | Port | `80` → `80` and `443` → `443` (proxy; optional, other host ports work) |
 | Port | `2222` → `2222` (SSH for IDEs; optional) |
-| Path `/config` | `/mnt/cache/appdata/envoryx` (pool path; `/mnt/user/appdata/envoryx` works with a warning, see [Where to put /config](#where-to-put-config)) |
+| Path `/config` | the pool path, `/mnt/cache/appdata/envoryx` for a pool named `cache`; `/mnt/user/appdata/envoryx` (the template's default) works with a warning, see [Where to put /config](#where-to-put-config) |
 | Path `/projects` | `/mnt/user/development` (create the share first) |
 | Path `/backups` | optional, e.g. `/mnt/user/backups/envoryx` - keeps backups off the cache/appdata share |
 | Path `/var/run/docker.sock` | `/var/run/docker.sock` |
@@ -1722,7 +1728,9 @@ backup can't be restored on another host.
   the job.
 - With `ENVORYX_SECRET_KEY`, set the new key there and the current one as
   `ENVORYX_SECRET_KEY_OLD` for one start; Envoryx re-encrypts everything, and the old
-  variable can go afterwards.
+  variable can go afterwards. On Unraid both are fields of the template (advanced
+  view, *Secret key* and *Previous secret key*); a container set up from an older
+  template needs `ENVORYX_SECRET_KEY_OLD` added as a variable on its edit page.
 
 Either way, instance backups made before keep needing the old key.
 
