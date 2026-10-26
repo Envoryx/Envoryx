@@ -18,6 +18,7 @@ import (
 	jose "github.com/go-jose/go-jose/v4"
 	"github.com/go-jose/go-jose/v4/jwt"
 
+	gooidc "github.com/coreos/go-oidc/v3/oidc"
 	"github.com/envoryx/envoryx/internal/audit"
 	"github.com/envoryx/envoryx/internal/auth"
 	"github.com/envoryx/envoryx/internal/db"
@@ -32,6 +33,8 @@ type provider struct {
 	mu     sync.Mutex
 	codes  map[string]map[string]any
 	pkceOK bool
+	// scopes is the discovery's scopes_supported (left out when empty).
+	scopes []string
 }
 
 func newProvider(t *testing.T) *provider {
@@ -45,10 +48,14 @@ func newProvider(t *testing.T) *provider {
 	p.srv = httptest.NewServer(mux)
 	t.Cleanup(p.srv.Close)
 	mux.HandleFunc("/.well-known/openid-configuration", func(w http.ResponseWriter, r *http.Request) {
-		_ = json.NewEncoder(w).Encode(map[string]any{
+		disc := map[string]any{
 			"issuer": p.srv.URL, "authorization_endpoint": p.srv.URL + "/authorize", "token_endpoint": p.srv.URL + "/token",
 			"jwks_uri": p.srv.URL + "/jwks", "id_token_signing_alg_values_supported": []string{"RS256"},
-		})
+		}
+		if len(p.scopes) > 0 {
+			disc["scopes_supported"] = p.scopes
+		}
+		_ = json.NewEncoder(w).Encode(disc)
 	})
 	mux.HandleFunc("/jwks", func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(jose.JSONWebKeySet{Keys: []jose.JSONWebKey{{Key: &key.PublicKey, KeyID: "k1", Algorithm: "RS256", Use: "sig"}}})
@@ -235,5 +242,31 @@ func TestSingleSignOn(t *testing.T) {
 	}
 	if _, _, err := s.Finish(ctx, state, "forged"); err == nil || !strings.Contains(err.Error(), "already used") {
 		t.Fatalf("replayed state: %v", err)
+	}
+}
+
+// The default scopes ask for groups only where the provider offers that scope; set
+// scopes are asked for as they are.
+func TestDefaultScopesFollowTheProvider(t *testing.T) {
+	p := newProvider(t)
+	ctx := context.Background()
+	for _, tc := range []struct {
+		offered []string
+		cfg     Config
+		want    string
+	}{
+		{nil, Config{}, "openid profile email groups"},
+		{[]string{"openid", "profile", "email"}, Config{}, "openid profile email"},
+		{[]string{"openid", "profile", "email", "groups"}, Config{}, "openid profile email groups"},
+		{[]string{"openid", "profile"}, Config{Scopes: []string{"profile", "groups"}}, "openid profile groups"},
+	} {
+		p.scopes = tc.offered
+		prov, err := gooidc.NewProvider(ctx, p.srv.URL)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := strings.Join(tc.cfg.scopesFor(prov), " "); got != tc.want {
+			t.Errorf("offered %v, config %v: %q, want %q", tc.offered, tc.cfg.Scopes, got, tc.want)
+		}
 	}
 }

@@ -2812,7 +2812,9 @@ leave the field empty to keep it, or tick *Remove the stored client secret when 
 to delete it (switching single sign-on off alone keeps it; the API takes
 `"clearSecret": true` on `PUT /api/v1/settings/oidc`).
 
-Envoryx asks for `openid profile email groups` and uses the authorization code flow with
+Envoryx asks for `openid profile email groups` (`groups` only when the provider's
+discovery lists such a scope or lists no scopes at all: Keycloak has none unless you set one
+up and would refuse the sign-in) and uses the authorization code flow with
 PKCE, state and nonce; the ID token is checked against the provider's keys. The username
 comes from the `preferred_username` claim (or the one you set); providers that don't send
 it (Google, Dex) fall back to the part of the e-mail address before the `@`, then to the

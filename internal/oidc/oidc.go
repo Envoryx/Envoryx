@@ -283,7 +283,25 @@ func (s *Service) Start(ctx context.Context, redirect, returnTo, invite string) 
 }
 
 func (s *Service) oauth(c Config, p *gooidc.Provider, redirect string) *oauth2.Config {
-	return &oauth2.Config{ClientID: c.ClientID, ClientSecret: c.ClientSecret, Endpoint: p.Endpoint(), RedirectURL: redirect, Scopes: c.scopes()}
+	return &oauth2.Config{ClientID: c.ClientID, ClientSecret: c.ClientSecret, Endpoint: p.Endpoint(), RedirectURL: redirect, Scopes: c.scopesFor(p)}
+}
+
+// scopesFor is scopes, but the default asks for "groups" only where the provider offers
+// such a scope: Keycloak has none unless one is set up and refuses the whole sign-in
+// (invalid_scope), while it delivers groups through a mapper anyway. A provider that
+// doesn't list its scopes gets the default as it is.
+func (c Config) scopesFor(p *gooidc.Provider) []string {
+	s := c.scopes()
+	if len(c.Scopes) > 0 || p == nil {
+		return s
+	}
+	var disc struct {
+		ScopesSupported []string `json:"scopes_supported"`
+	}
+	if p.Claims(&disc) != nil || len(disc.ScopesSupported) == 0 || slices.Contains(disc.ScopesSupported, "groups") {
+		return s
+	}
+	return slices.DeleteFunc(s, func(v string) bool { return v == "groups" })
 }
 
 // Finish completes a sign-in with the code the provider returned and resolves the
