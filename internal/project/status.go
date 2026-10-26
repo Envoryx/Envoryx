@@ -440,7 +440,7 @@ func (m *Manager) Reconcile(ctx context.Context) ReconcileReport {
 	report.Orphans = m.cleanOrphans(ctx, report.Orphans)
 	m.AttachProxyToAll(ctx)
 	for _, issue := range report.Issues {
-		m.log.Warn("reconcile issue", "project", issue.ProjectName, "severity", issue.Severity, "msg", issue.Message)
+		m.log.Warn("reconcile issue", "project", issue.ProjectName, "severity", issue.Severity, "issue", issue.Message)
 	}
 	if len(report.Orphans) > 0 {
 		m.log.Warn("reconcile found orphaned Envoryx resources", "count", len(report.Orphans))
