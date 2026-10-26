@@ -54,7 +54,7 @@ export function ShareDialog({ project, open, onClose }: { project: Project; open
   });
   const share = q.data;
   const shared = !!share?.active;
-  const label = (m: number) => (m < 60 ? t("{{n}} minutes", { n: m }) : m === 1440 ? t("24 hours") : t("{{n}} hours", { n: m / 60 }));
+  const label = (m: number) => (m < 60 ? t("{{count}} minutes", { count: m }) : t("{{count}} hours", { count: m / 60 }));
 
   return (
     <Dialog

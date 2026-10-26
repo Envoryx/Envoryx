@@ -69,6 +69,7 @@ describe("TestsTab", () => {
     act(() => FakeSocket.instances[0]!.onmessage?.({ data: JSON.stringify({ type: "result", run: failedRun }) }));
     expect(await screen.findByText("1 of 3 failed")).toBeInTheDocument();
     expect(screen.getByText("Failed asserting that 41 matches expected 42.")).toBeInTheDocument();
+    expect(screen.getByText("3 tests · 1 failure · 0 errors · 0 skipped")).toBeInTheDocument();
     // A single failure is opened right away.
     expect(screen.getByText("diff here")).toBeInTheDocument();
     expect(screen.getByText(/tests\/Unit\/CartTest.php:20/)).toBeInTheDocument();

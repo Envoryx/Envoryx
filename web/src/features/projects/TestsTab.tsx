@@ -73,7 +73,7 @@ function RunDetails({ run, suites }: { run: TestRun; suites: TestSuite[] }) {
       </div>
       {r.report && (
         <p className="text-xs text-muted">
-          {t("{{tests}} tests · {{failures}} failures · {{errors}} errors · {{skipped}} skipped", { tests: r.tests, failures: r.failures, errors: r.errors, skipped: r.skipped })}
+          {[t("{{count}} tests", { count: r.tests }), t("{{count}} failures", { count: r.failures }), t("{{count}} errors", { count: r.errors }), t("{{count}} skipped", { count: r.skipped })].join(" · ")}
         </p>
       )}
       <Failures run={run} />

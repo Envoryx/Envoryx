@@ -53,5 +53,21 @@
   "{{count}} variables_one": "{{count}} variable",
   "{{count}} variables_other": "{{count}} variables",
   "{{count}} left_one": "{{count}} left",
-  "{{count}} left_other": "{{count}} left"
+  "{{count}} left_other": "{{count}} left",
+  "{{count}} minutes_one": "{{count}} minute",
+  "{{count}} minutes_other": "{{count}} minutes",
+  "{{count}} hours_one": "{{count}} hour",
+  "{{count}} hours_other": "{{count}} hours",
+  "{{count}} tests_one": "{{count}} test",
+  "{{count}} tests_other": "{{count}} tests",
+  "{{count}} failures_one": "{{count}} failure",
+  "{{count}} failures_other": "{{count}} failures",
+  "{{count}} skipped_one": "{{count}} skipped",
+  "{{count}} skipped_other": "{{count}} skipped",
+  "Reading {{count}} containers now_one": "Reading {{count}} container now",
+  "Reading {{count}} containers now_other": "Reading {{count}} containers now",
+  "this instance's plan runs at most {{count}} projects at the same time; stop another project first_one": "this instance's plan runs at most {{count}} project at the same time; stop another project first",
+  "this instance's plan runs at most {{count}} projects at the same time; stop another project first_other": "this instance's plan runs at most {{count}} projects at the same time; stop another project first",
+  "{{count}} projects consistent with Docker (checked {{time}})_one": "{{count}} project consistent with Docker (checked {{time}})",
+  "{{count}} projects consistent with Docker (checked {{time}})_other": "{{count}} projects consistent with Docker (checked {{time}})"
 }

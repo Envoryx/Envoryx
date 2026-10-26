@@ -37,7 +37,7 @@ export function ResourceHistoryCard() {
     },
   });
 
-  const label = (d: number) => (d === 365 ? t("1 year") : t("{{n}} days", { n: d }));
+  const label = (d: number) => (d === 365 ? t("1 year") : t("{{count}} days", { count: d }));
   const options = info && !choices.includes(info.retentionDays) ? [...choices, info.retentionDays].sort((a, b) => a - b) : choices;
 
   return (

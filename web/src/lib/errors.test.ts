@@ -61,6 +61,14 @@ describe("translateMessage", () => {
     expect(translateMessage("the health check /up has failed since 09:15: no answer within 5 s", t)).toBe("Der Health Check /up schlägt seit 09:15 fehl: Keine Antwort innerhalb von 5 s");
   });
 
+  it("takes the plural form of a count in a backend message", () => {
+    expect(translateMessage("not included in the plan: this instance's plan runs at most 1 project at the same time; stop another project first", t)).toBe(
+      "Nicht im Tarif enthalten: der Tarif dieser Instanz lässt höchstens 1 Projekt gleichzeitig laufen; stoppe zuerst ein anderes Projekt",
+    );
+    expect(translateMessage("this instance's plan runs at most 3 projects at the same time; stop another project first", t)).toBe("der Tarif dieser Instanz lässt höchstens 3 Projekte gleichzeitig laufen; stoppe zuerst ein anderes Projekt");
+    expect(translateMessage("1 project consistent with Docker (checked 10:00:00)", t)).toBe("1 Projekt stimmt mit Docker überein (geprüft 10:00:00)");
+  });
+
   it("shows a warning's UTC time in the browser's time", () => {
     const clock = (d: Date) => d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     const now = new Date(Date.UTC(2026, 9, 26, 18, 30));

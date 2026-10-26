@@ -148,7 +148,7 @@ func (m *Manager) checkRunningQuota(ctx context.Context, id string) error {
 		return err
 	}
 	if n >= max {
-		return plan.Quota("this instance's plan runs at most %d projects at the same time; stop another project first", max)
+		return plan.Quota("this instance's plan runs at most %d %s at the same time; stop another project first", max, plural(max, "project", "projects"))
 	}
 	return nil
 }

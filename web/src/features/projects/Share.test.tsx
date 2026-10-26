@@ -26,6 +26,9 @@ describe("Share", () => {
     const dialog = await screen.findByRole("dialog");
     expect(screen.queryByRole("button", { name: "Shared" })).not.toBeInTheDocument();
     expect(within(dialog).getByText(/Anyone who has the address/)).toBeInTheDocument();
+    // Durations take the plural form of their number: "1 hour", not "1 hours".
+    expect(within(dialog).getByRole("option", { name: "1 hour" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("option", { name: "4 hours" })).toBeInTheDocument();
     await user.selectOptions(within(dialog).getByLabelText("Share for"), "240");
     await user.click(within(dialog).getByRole("button", { name: "Share publicly" }));
     expect(await within(dialog).findByText("https://brave-little-tunnel.trycloudflare.com")).toBeInTheDocument();

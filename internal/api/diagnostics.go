@@ -503,13 +503,20 @@ func (a *API) checkReconcile(context.Context) []Check {
 	case unclaimed > 0:
 		// Another instance on the same Docker host, or an Envoryx before 0.18 that did not
 		// label its resources yet: nothing this instance has to clean up, so no warning.
-		c.Status, c.Detail = checkInfo, fmt.Sprintf("%d projects consistent with Docker (checked %s) · %s", r.Projects, r.At.Format("15:04:05"), unclaimedDetail(unclaimed))
+		c.Status, c.Detail = checkInfo, fmt.Sprintf("%d %s consistent with Docker (checked %s) · %s", r.Projects, projectsNoun(r.Projects), r.At.Format("15:04:05"), unclaimedDetail(unclaimed))
 		c.Hint = "Resources without an instance label that name none of these projects were created by another Envoryx on this Docker host or by an Envoryx before 0.18. They are never removed automatically; the Docker page lists them in case you want to remove them by hand."
 		c.Action = &CheckAction{Kind: "link", Value: "/docker", Label: "Open Docker page"}
 	default:
-		c.Status, c.Detail = checkOK, fmt.Sprintf("%d projects consistent with Docker (checked %s)", r.Projects, r.At.Format("15:04:05"))
+		c.Status, c.Detail = checkOK, fmt.Sprintf("%d %s consistent with Docker (checked %s)", r.Projects, projectsNoun(r.Projects), r.At.Format("15:04:05"))
 	}
 	return []Check{c}
+}
+
+func projectsNoun(n int) string {
+	if n == 1 {
+		return "project"
+	}
+	return "projects"
 }
 
 func unclaimedDetail(n int) string {

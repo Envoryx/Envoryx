@@ -110,7 +110,7 @@ export function LogHistoryCard() {
                   {info.usage.oldest && <span className="text-muted"> · {t("since {{date}}", { date: new Date(info.usage.oldest).toLocaleDateString() })}</span>}
                 </p>
                 <p className="text-xs text-subtle">
-                  {t("Reading {{n}} containers now", { n: info.following })}
+                  {t("Reading {{count}} containers now", { count: info.following })}
                   {info.dir && (
                     <>
                       {" · "}

@@ -104,6 +104,8 @@ describe("i18n", () => {
     expect(i18n.t("{{count}} lines", { count: 1 })).toBe("1 строка");
     expect(i18n.t("{{count}} lines", { count: 3 })).toBe("3 строки");
     expect(i18n.t("{{count}} lines", { count: 5 })).toBe("5 строк");
+    expect(i18n.t("{{count}} hours", { count: 1 })).toBe("1 час");
+    expect(i18n.t("{{count}} hours", { count: 4 })).toBe("4 часа");
     await i18n.changeLanguage("pl");
     expect(i18n.t("{{count}} files", { count: 2 })).toBe("2 pliki");
     expect(i18n.t("{{count}} files", { count: 12 })).toBe("12 plików");

@@ -87,7 +87,7 @@ func TestPlanLimitsRunningProjects(t *testing.T) {
 	if err != nil {
 		t.Fatalf("a stopped project doesn't count: %v", err)
 	}
-	if _, err := e.m.Start(ctx, two.Project.ID); !errors.Is(err, plan.ErrQuota) || !strings.Contains(err.Error(), "at most 1 projects") {
+	if _, err := e.m.Start(ctx, two.Project.ID); !errors.Is(err, plan.ErrQuota) || !strings.Contains(err.Error(), "at most 1 project at") {
 		t.Fatalf("start beyond the limit: %v", err)
 	}
 	if _, err := e.m.Restart(ctx, one.Project.ID); err != nil {

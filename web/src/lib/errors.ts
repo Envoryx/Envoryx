@@ -5,9 +5,10 @@ import { ApiError } from "@/api/client";
 /**
  * Messages the backend produces with values embedded ("project has no web service").
  * Each template is also the German dictionary key; the placeholders become capture groups
- * so the value is carried over into the translation.
+ * so the value is carried over into the translation. A {{count}} picks the plural form; the
+ * server writes the singular for 1, which a [message, key] pair maps to the same key.
  */
-const templates = [
+const templates: (string | [string, string])[] = [
   "Request failed ({{status}})",
   "Upload failed ({{status}})",
   "unknown project {{name}}",
@@ -88,7 +89,8 @@ const templates = [
   "{{name}} {{version}} has reached its end of life; this instance's plan includes supported versions only",
   "{{name}} {{version}} is a preview version; this instance's plan includes released versions only",
   "{{name}} is not available on this instance",
-  "this instance's plan runs at most {{max}} projects at the same time; stop another project first",
+  "this instance's plan runs at most {{count}} projects at the same time; stop another project first",
+  ["this instance's plan runs at most {{count}} project at the same time; stop another project first", "this instance's plan runs at most {{count}} projects at the same time; stop another project first"],
   "this instance's plan allows at most {{cpus}} CPU cores per container",
   "this instance's plan allows at most {{max}} MiB of memory per container",
   "{{name}} {{version}} has reached its end of life and gets no security fixes; switch to a newer version",
@@ -359,7 +361,8 @@ const templates = [
   "Docker {{version}} (API {{api}}) on {{os}}, {{running}} containers running - host {{host}}",
   "{{latest}} available, running {{current}}",
   "{{number}} orphaned Docker resources of this instance belong to no project",
-  "{{number}} projects consistent with Docker (checked {{time}})",
+  "{{count}} projects consistent with Docker (checked {{time}})",
+  ["{{count}} project consistent with Docker (checked {{time}})", "{{count}} projects consistent with Docker (checked {{time}})"],
   "{{number}} Docker resources are from another instance or from before 0.18",
   "releases endpoint answered {{status}}",
   // Let's Encrypt and the DNS providers (after the provider's name: "cloudflare: token rejected ...");
@@ -406,10 +409,13 @@ const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 // Only an {{error}} or {{reason}} (a wrapped backend message) may span ": ". Any other
 // value stops there, so a template doesn't swallow the context Go put in front of it
 // ("not included in the plan: PHP 8.6 is a preview version; ...").
-const compiled = templates.map((tpl) => ({
-  tpl,
-  re: new RegExp("^" + escape(tpl).replace(/\\\{\\\{(\w+)\\\}\\\}/g, (_, name: string) => (name === "error" || name === "reason" ? `(?<${name}>.+?)` : `(?<${name}>(?:(?!: ).)+?)`)) + "$"),
-}));
+const compiled = templates.map((entry) => {
+  const [pattern, tpl] = typeof entry === "string" ? [entry, entry] : entry;
+  return {
+    tpl,
+    re: new RegExp("^" + escape(pattern).replace(/\\\{\\\{(\w+)\\\}\\\}/g, (_, name: string) => (name === "error" || name === "reason" ? `(?<${name}>.+?)` : `(?<${name}>(?:(?!: ).)+?)`)) + "$"),
+  };
+});
 
 /**
  * A time of day the server wrote in UTC ("16:02 UTC", a warning's "since" or "at") as the
@@ -438,7 +444,7 @@ function translateSegment(s: string, t: TFunction): string | undefined {
         if (groups[name] && i18n.exists(groups[name])) groups[name] = t(groups[name]);
       }
       if (groups.time) groups.time = localClock(groups.time);
-      return t(tpl, groups);
+      return t(tpl, { ...groups, ...(groups.count ? { count: Number(groups.count) } : {}) } as Record<string, unknown>);
     }
   }
   return undefined;
