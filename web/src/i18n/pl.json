@@ -1481,7 +1481,6 @@
   "unsupported backup format {{format}}": "Nieobsługiwany format kopii zapasowej {{format}}",
   "the key comes from {{env}}; set a new key there and the old one as {{oldEnv}} for one start": "Klucz pochodzi z {{env}}; ustaw tam nowy klucz, a stary jako {{oldEnv}} na jedno uruchomienie",
   "no key is loaded": "Nie załadowano żadnego klucza",
-  "resealing with the new key failed, the next start retries": "Ponowne zaszyfrowanie nowym kluczem nie powiodło się, kolejne uruchomienie spróbuje ponownie",
   "the value was encrypted with a key Envoryx does not have": "Wartość została zaszyfrowana kluczem, którego Envoryx nie ma",
   "not a key: expected {{bytes}} bytes as base64 or 64 hex digits (create one with: openssl rand -base64 32)": "To nie jest klucz: oczekiwano {{bytes}} bajtów w base64 lub 64 cyfr szesnastkowych (utwórz go poleceniem: openssl rand -base64 32)",
   "a key has {{got}} bytes, not {{want}}": "Klucz ma {{got}} bajtów, a nie {{want}}",
@@ -3827,5 +3826,6 @@
   "Leave empty to use ENVORYX_PUBLIC_HOST ({{host}}). Host name or IP only, no port.": "Pozostaw puste, aby użyć ENVORYX_PUBLIC_HOST ({{host}}). Tylko nazwa hosta lub IP, bez portu.",
   "Backup imported": "Kopia zapasowa zaimportowana",
   "this backup was made by Envoryx {{version}} in a newer format; update this Envoryx to restore it": "tę kopię zapasową utworzył Envoryx {{version}} w nowszym formacie; zaktualizuj ten Envoryx, aby ją przywrócić",
-  "Envoryx {{version}} made this backup, a newer version than this one. Settings that version added are left out; update this Envoryx first to keep them.": "Envoryx {{version}} utworzył tę kopię zapasową, nowsza wersja niż ta. Ustawienia dodane w tamtej wersji zostaną pominięte; najpierw zaktualizuj ten Envoryx, aby je zachować."
+  "Envoryx {{version}} made this backup, a newer version than this one. Settings that version added are left out; update this Envoryx first to keep them.": "Envoryx {{version}} utworzył tę kopię zapasową, nowsza wersja niż ta. Ustawienia dodane w tamtej wersji zostaną pominięte; najpierw zaktualizuj ten Envoryx, aby je zachować.",
+  "the key could not be replaced and stays as it was": "Nie udało się zastąpić klucza, pozostaje bez zmian"
 }

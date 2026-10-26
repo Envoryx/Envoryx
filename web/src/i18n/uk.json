@@ -1481,7 +1481,6 @@
   "unsupported backup format {{format}}": "Непідтримуваний формат резервної копії: {{format}}",
   "the key comes from {{env}}; set a new key there and the old one as {{oldEnv}} for one start": "Ключ береться з {{env}}; задайте там новий ключ, а старий - у {{oldEnv}} на один запуск",
   "no key is loaded": "Ключ не завантажено",
-  "resealing with the new key failed, the next start retries": "Повторне шифрування новим ключем не вдалося, наступний запуск спробує знову",
   "the value was encrypted with a key Envoryx does not have": "Значення зашифровано ключем, якого немає в Envoryx",
   "not a key: expected {{bytes}} bytes as base64 or 64 hex digits (create one with: openssl rand -base64 32)": "Це не ключ: очікується base64 довжиною {{bytes}} байт або 64 hex-цифри (створіть ключ командою: openssl rand -base64 32)",
   "a key has {{got}} bytes, not {{want}}": "Довжина ключа в байтах: {{got}}, а потрібно: {{want}}",
@@ -3827,5 +3826,6 @@
   "Leave empty to use ENVORYX_PUBLIC_HOST ({{host}}). Host name or IP only, no port.": "Залиште порожнім, щоб використовувати ENVORYX_PUBLIC_HOST ({{host}}). Лише ім'я хоста або IP, без порту.",
   "Backup imported": "Резервну копію імпортовано",
   "this backup was made by Envoryx {{version}} in a newer format; update this Envoryx to restore it": "цю резервну копію створив Envoryx {{version}} у новішому форматі; оновіть цей Envoryx, щоб її відновити",
-  "Envoryx {{version}} made this backup, a newer version than this one. Settings that version added are left out; update this Envoryx first to keep them.": "Цю резервну копію створив Envoryx {{version}}, новіша версія, ніж ця. Налаштування, додані в тій версії, буде пропущено; спочатку оновіть цей Envoryx, щоб їх зберегти."
+  "Envoryx {{version}} made this backup, a newer version than this one. Settings that version added are left out; update this Envoryx first to keep them.": "Цю резервну копію створив Envoryx {{version}}, новіша версія, ніж ця. Налаштування, додані в тій версії, буде пропущено; спочатку оновіть цей Envoryx, щоб їх зберегти.",
+  "the key could not be replaced and stays as it was": "Не вдалося замінити ключ, він залишається попереднім"
 }

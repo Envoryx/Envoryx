@@ -1731,8 +1731,10 @@ backup can't be restored on another host.
 
 - With the key file, *Replace the key* creates a new key and re-encrypts every secret,
   the three files and every project backup. The new key waits in `secret.key.next` until
-  that is done, so an interruption leaves both keys at hand and the next start finishes
-  the job.
+  that is done. If something can't be re-encrypted, the key stays as it was and what
+  already uses the new one goes back to the old key; an interruption leaves both keys
+  at hand, and the next start does the same. Replace the key again afterwards. A
+  backup whose settings don't open any more (damaged) is skipped and keeps its key.
 - With `ENVORYX_SECRET_KEY`, set the new key there and the current one as
   `ENVORYX_SECRET_KEY_OLD` for one start; Envoryx re-encrypts everything, and the old
   variable can go afterwards. On Unraid both are fields of the template (advanced

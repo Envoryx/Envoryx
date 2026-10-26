@@ -1445,7 +1445,6 @@
   "unsupported backup format {{format}}": "Format de sauvegarde non pris en charge {{format}}",
   "the key comes from {{env}}; set a new key there and the old one as {{oldEnv}} for one start": "La clé provient de {{env}} ; définissez-y une nouvelle clé et l'ancienne dans {{oldEnv}} pour un démarrage",
   "no key is loaded": "Aucune clé n'est chargée",
-  "resealing with the new key failed, the next start retries": "Le rescellement avec la nouvelle clé a échoué, le prochain démarrage réessaiera",
   "the value was encrypted with a key Envoryx does not have": "La valeur a été chiffrée avec une clé qu'Envoryx ne possède pas",
   "not a key: expected {{bytes}} bytes as base64 or 64 hex digits (create one with: openssl rand -base64 32)": "Ce n'est pas une clé : {{bytes}} octets en base64 ou 64 chiffres hexadécimaux attendus (créez-en une avec : openssl rand -base64 32)",
   "a key has {{got}} bytes, not {{want}}": "Une clé fait {{got}} octets, pas {{want}}",
@@ -3761,5 +3760,6 @@
   "Leave empty to use ENVORYX_PUBLIC_HOST ({{host}}). Host name or IP only, no port.": "Laisser vide pour utiliser ENVORYX_PUBLIC_HOST ({{host}}). Nom d'hôte ou IP uniquement, sans port.",
   "Backup imported": "Sauvegarde importée",
   "this backup was made by Envoryx {{version}} in a newer format; update this Envoryx to restore it": "cette sauvegarde a été créée par Envoryx {{version}} dans un format plus récent ; mettez à jour cet Envoryx pour la restaurer",
-  "Envoryx {{version}} made this backup, a newer version than this one. Settings that version added are left out; update this Envoryx first to keep them.": "Envoryx {{version}} a créé cette sauvegarde, une version plus récente que celle-ci. Les réglages ajoutés par cette version sont laissés de côté ; mettez d'abord à jour cet Envoryx pour les garder."
+  "Envoryx {{version}} made this backup, a newer version than this one. Settings that version added are left out; update this Envoryx first to keep them.": "Envoryx {{version}} a créé cette sauvegarde, une version plus récente que celle-ci. Les réglages ajoutés par cette version sont laissés de côté ; mettez d'abord à jour cet Envoryx pour les garder.",
+  "the key could not be replaced and stays as it was": "La clé n'a pas pu être remplacée et reste inchangée"
 }

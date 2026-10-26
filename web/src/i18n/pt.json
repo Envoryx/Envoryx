@@ -1445,7 +1445,6 @@
   "unsupported backup format {{format}}": "Formato de backup não suportado {{format}}",
   "the key comes from {{env}}; set a new key there and the old one as {{oldEnv}} for one start": "A chave vem de {{env}}; defina lá uma nova chave e a antiga como {{oldEnv}} por uma inicialização",
   "no key is loaded": "Nenhuma chave carregada",
-  "resealing with the new key failed, the next start retries": "Falha ao cifrar novamente com a nova chave; a próxima inicialização tenta de novo",
   "the value was encrypted with a key Envoryx does not have": "O valor foi cifrado com uma chave que o Envoryx não possui",
   "not a key: expected {{bytes}} bytes as base64 or 64 hex digits (create one with: openssl rand -base64 32)": "Não é uma chave: esperados {{bytes}} bytes em base64 ou 64 dígitos hexadecimais (crie uma com: openssl rand -base64 32)",
   "a key has {{got}} bytes, not {{want}}": "Uma chave tem {{got}} bytes, não {{want}}",
@@ -3761,5 +3760,6 @@
   "Leave empty to use ENVORYX_PUBLIC_HOST ({{host}}). Host name or IP only, no port.": "Deixe vazio para usar ENVORYX_PUBLIC_HOST ({{host}}). Apenas nome de host ou IP, sem porta.",
   "Backup imported": "Backup importado",
   "this backup was made by Envoryx {{version}} in a newer format; update this Envoryx to restore it": "este backup foi criado pelo Envoryx {{version}} num formato mais recente; atualize este Envoryx para o restaurar",
-  "Envoryx {{version}} made this backup, a newer version than this one. Settings that version added are left out; update this Envoryx first to keep them.": "O Envoryx {{version}} criou este backup, uma versão mais recente do que esta. As definições que essa versão acrescentou ficam de fora; atualize primeiro este Envoryx para as manter."
+  "Envoryx {{version}} made this backup, a newer version than this one. Settings that version added are left out; update this Envoryx first to keep them.": "O Envoryx {{version}} criou este backup, uma versão mais recente do que esta. As definições que essa versão acrescentou ficam de fora; atualize primeiro este Envoryx para as manter.",
+  "the key could not be replaced and stays as it was": "Não foi possível substituir a chave, que fica como estava"
 }

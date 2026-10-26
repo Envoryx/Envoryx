@@ -141,9 +141,17 @@ func (m *Manager) RotateSecretKey(ctx context.Context) (SecretKeyInfo, ResealRep
 	r.Rotate(next)
 	rep, err := m.ResealAll(ctx)
 	if err != nil {
-		// The old key opens everything that was not resealed yet, and the next start
-		// finishes the job with both keys.
-		return info, rep, fmt.Errorf("resealing with the new key failed, the next start retries: %w", err)
+		// Back to the old key, which the key file still holds: what was resealed already
+		// goes back to it. Should that fail as well, the new key stays in
+		// secret.key.next, where the next start finds it to open those values and
+		// reseals them with the old key, too.
+		r.Rotate(old)
+		if _, rerr := m.ResealAll(ctx); rerr == nil {
+			_ = os.Remove(filepath.Join(dir, secrets.NextKeyFile))
+		} else {
+			m.log.Warn("going back to the old key after a failed key replacement", "err", rerr)
+		}
+		return m.SecretKeyInfo(), rep, fmt.Errorf("the key could not be replaced and stays as it was: %w", err)
 	}
 	if err := secrets.WriteKeyFile(info.Path, next); err != nil {
 		return info, rep, err
