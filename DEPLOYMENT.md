@@ -887,6 +887,8 @@ is shared, since Gradle's cache locks don't work across containers.
   `SPRING_MAIL_HOST`, `QUARKUS_MAILER_HOST` …). Quarkus Dev Services are
   switched off (`QUARKUS_DEVSERVICES_ENABLED=false`): the project's database
   is the one the application uses, not a container Quarkus would start itself.
+  So is Quarkus's build analytics (`QUARKUS_ANALYTICS_DISABLED=true`), which
+  would otherwise ask for consent on every start of the dev mode.
 - **Routing.** Without PHP and without a Python, Go or Ruby server the Java
   server is the application: the proxy routes `https://<project>.<base>` and
   every extra domain to `envoryx-<project>-java:<port>`, and *Direct access*

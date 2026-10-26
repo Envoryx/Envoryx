@@ -193,8 +193,8 @@ if [ "$mode" = dev ]; then
     exec $gradle --no-daemon bootRun ;;
   quarkus)
     debug=false; [ -n "$jdwp" ] && debug=$dport
-    if [ $tool = maven ]; then exec $mvn -B quarkus:dev -Ddebug=$debug -DdebugHost=0.0.0.0; fi
-    exec $gradle --no-daemon quarkusDev -Ddebug=$debug -DdebugHost=0.0.0.0 ;;
+    if [ $tool = maven ]; then exec $mvn -B quarkus:dev -Ddebug=$debug -DdebugHost=0.0.0.0 -Dquarkus.analytics.disabled=true; fi
+    exec $gradle --no-daemon quarkusDev -Ddebug=$debug -DdebugHost=0.0.0.0 -Dquarkus.analytics.disabled=true ;;
   esac
 fi
 if [ $tool = maven ]; then $mvn -B -DskipTests package; else $gradle --no-daemon -x test build; fi
@@ -238,15 +238,17 @@ func (c JavaConfig) WrappedCommand(guards ...string) []string {
 // Spring Boot (SERVER_*), Quarkus (QUARKUS_HTTP_*) and Micronaut read, plus HOST and PORT
 // for everything else. Quarkus's Dev Services are switched off: they start databases
 // through Docker, which the container has no access to, and the project's own services
-// are injected anyway. devUIHosts are the host names the browser uses for the project:
-// Quarkus's Dev UI answers only localhost unless the Host and Origin are in this list
-// (exact names, or Java regular expressions since Quarkus 3.16).
+// are injected anyway. Its build analytics are off too: nobody in the container answers
+// the question it asks on every start, and nobody agreed to send build data. devUIHosts
+// are the host names the browser uses for the project: Quarkus's Dev UI answers only
+// localhost unless the Host and Origin are in this list (exact names, or Java regular
+// expressions since Quarkus 3.16).
 func (c JavaConfig) Env(devUIHosts []string) []string {
 	port := strconv.Itoa(c.Port)
 	env := []string{
 		"HOST=0.0.0.0", "PORT=" + port,
 		"SERVER_ADDRESS=0.0.0.0", "SERVER_PORT=" + port,
-		"QUARKUS_HTTP_HOST=0.0.0.0", "QUARKUS_HTTP_PORT=" + port, "QUARKUS_DEVSERVICES_ENABLED=false",
+		"QUARKUS_HTTP_HOST=0.0.0.0", "QUARKUS_HTTP_PORT=" + port, "QUARKUS_DEVSERVICES_ENABLED=false", "QUARKUS_ANALYTICS_DISABLED=true",
 		"MICRONAUT_SERVER_HOST=0.0.0.0", "MICRONAUT_SERVER_PORT=" + port,
 	}
 	if len(devUIHosts) > 0 {

@@ -84,7 +84,7 @@ func TestJavaCommandsAndEnv(t *testing.T) {
 		t.Fatalf("no hosts, no Dev UI list: %v", env)
 	}
 	env := dev.Env([]string{"shop.test", ".*[.]test"})
-	for _, want := range []string{"QUARKUS_DEV_UI_HOSTS=shop.test,.*[.]test", "SERVER_PORT=8080", "SERVER_ADDRESS=0.0.0.0", "QUARKUS_HTTP_HOST=0.0.0.0", "QUARKUS_HTTP_PORT=8080", "QUARKUS_DEVSERVICES_ENABLED=false", "MICRONAUT_SERVER_PORT=8080", "PORT=8080"} {
+	for _, want := range []string{"QUARKUS_DEV_UI_HOSTS=shop.test,.*[.]test", "SERVER_PORT=8080", "SERVER_ADDRESS=0.0.0.0", "QUARKUS_HTTP_HOST=0.0.0.0", "QUARKUS_HTTP_PORT=8080", "QUARKUS_DEVSERVICES_ENABLED=false", "QUARKUS_ANALYTICS_DISABLED=true", "MICRONAUT_SERVER_PORT=8080", "PORT=8080"} {
 		if !slices.Contains(env, want) {
 			t.Fatalf("env lacks %s: %v", want, env)
 		}
@@ -140,8 +140,8 @@ func TestJavaServeScript(t *testing.T) {
 		{"spring wrapper", []string{"pom.xml", "mvnw"}, []string{"spring-boot", "dev", "0", ""}, "mvnw -B spring-boot:run"},
 		{"spring gradle", []string{"build.gradle.kts"}, []string{"spring-boot", "dev", "0", ""}, "gradle --no-daemon bootRun"},
 		{"spring gradle debug", []string{"build.gradle", "gradlew"}, []string{"spring-boot", "dev", "5005", ""}, "gradlew --no-daemon -I " + javaGradleInit + " bootRun"},
-		{"quarkus maven", []string{"pom.xml"}, []string{"quarkus", "dev", "0", ""}, "mvn -B quarkus:dev -Ddebug=false -DdebugHost=0.0.0.0"},
-		{"quarkus gradle debug", []string{"build.gradle"}, []string{"quarkus", "dev", "5005", ""}, "gradle --no-daemon quarkusDev -Ddebug=5005 -DdebugHost=0.0.0.0"},
+		{"quarkus maven", []string{"pom.xml"}, []string{"quarkus", "dev", "0", ""}, "mvn -B quarkus:dev -Ddebug=false -DdebugHost=0.0.0.0 -Dquarkus.analytics.disabled=true"},
+		{"quarkus gradle debug", []string{"build.gradle"}, []string{"quarkus", "dev", "5005", ""}, "gradle --no-daemon quarkusDev -Ddebug=5005 -DdebugHost=0.0.0.0 -Dquarkus.analytics.disabled=true"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			out, err := run(project(tc.files...), tc.args...)
