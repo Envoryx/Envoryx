@@ -116,6 +116,7 @@ const templates: (string | [string, string])[] = [
   "{{model}} is already being downloaded",
   "no download of {{model}} is running",
   "{{host}} is the container itself; a server on the Docker host is reached as host.docker.internal",
+  "{{host}} can't be a server's address (link-local, multicast or unspecified)",
   "cannot connect to {{type}} at {{address}} as {{user}}",
   "{{type}} at {{address}} has no database \"{{name}}\" that {{user}} can see",
   "cannot connect to Redis at {{address}}",

@@ -3839,5 +3839,6 @@
   "{{host}} refused the login for {{user}}; check the username and the password or token": "{{host}} отклоняет вход для {{user}}; проверьте имя пользователя и пароль или токен",
   "For people without an Envoryx account, such as a customer reviewing the site: the link opens the project's addresses under the base domain until it ends or you revoke it; for a domain of its own, send the link with that domain in it. Not its addons, terminal or files.": "Для людей без учётной записи Envoryx, например клиента, проверяющего сайт: ссылка открывает адреса проекта в базовом домене, пока не истечёт или вы её не отзовёте; для собственного домена отправьте ссылку с этим доменом. Не его дополнения, терминал или файлы.",
   "the log history is kept as the hoster set it": "история логов хранится так, как задал хостер",
-  "the resource history is kept as the hoster set it": "история ресурсов хранится так, как задал хостер"
+  "the resource history is kept as the hoster set it": "история ресурсов хранится так, как задал хостер",
+  "{{host}} can't be a server's address (link-local, multicast or unspecified)": "{{host}} не может быть адресом сервера (link-local, multicast или неопределённый)"
 }

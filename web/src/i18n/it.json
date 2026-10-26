@@ -3773,5 +3773,6 @@
   "{{host}} refused the login for {{user}}; check the username and the password or token": "{{host}} rifiuta l'accesso per {{user}}; controlla il nome utente e la password o il token",
   "For people without an Envoryx account, such as a customer reviewing the site: the link opens the project's addresses under the base domain until it ends or you revoke it; for a domain of its own, send the link with that domain in it. Not its addons, terminal or files.": "Per persone senza account Envoryx, come un cliente che revisiona il sito: il link apre gli indirizzi del progetto sotto il dominio base finché non scade o lo revochi; per un dominio proprio, invia il link con quel dominio. Non i suoi addon, il terminale o i file.",
   "the log history is kept as the hoster set it": "la cronologia dei log resta come l'ha impostata l'hoster",
-  "the resource history is kept as the hoster set it": "la cronologia delle risorse resta come l'ha impostata l'hoster"
+  "the resource history is kept as the hoster set it": "la cronologia delle risorse resta come l'ha impostata l'hoster",
+  "{{host}} can't be a server's address (link-local, multicast or unspecified)": "{{host}} non può essere l'indirizzo di un server (link-local, multicast o non specificato)"
 }

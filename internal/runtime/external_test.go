@@ -76,6 +76,9 @@ func TestNormalizeExternalDatabase(t *testing.T) {
 	for name, bad := range map[string]DatabaseConfig{
 		"localhost":   {Host: "localhost", Database: "a", Username: "u"},
 		"loopback":    {Host: "127.0.0.1", Database: "a", Username: "u"},
+		"metadata":    {Host: "169.254.169.254", Database: "a", Username: "u"},
+		"link-local6": {Host: "[fe80::1]", Database: "a", Username: "u"},
+		"unspecified": {Host: "0.0.0.0", Database: "a", Username: "u"},
 		"port":        {Host: "db", Port: 70000, Database: "a", Username: "u"},
 		"quote user":  {Host: "db", Database: "a", Username: "u'x"},
 		"quote db":    {Host: "db", Database: "a`b", Username: "u"},
@@ -85,6 +88,13 @@ func TestNormalizeExternalDatabase(t *testing.T) {
 	} {
 		if err := NormalizeExternalDatabase(&bad, "mysql"); !errors.Is(err, validate.ErrInvalid) {
 			t.Errorf("%s must be refused, got %v", name, err)
+		}
+	}
+	// A server in the LAN is what an external database usually is.
+	for _, host := range []string{"192.168.1.20", "10.0.0.5", "172.17.0.1", "fd00::5"} {
+		lan := DatabaseConfig{Host: host, Database: "a", Username: "u"}
+		if err := NormalizeExternalDatabase(&lan, "mysql"); err != nil {
+			t.Errorf("%s: %v", host, err)
 		}
 	}
 	mongo := DatabaseConfig{Host: "db", Database: "a", Username: "u"}

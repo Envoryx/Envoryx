@@ -33,6 +33,11 @@ func validExternalHost(h string) (string, error) {
 		if ip.IsLoopback() {
 			return "", fmt.Errorf("%w: %s is the container itself; a server on the Docker host is reached as %s", validate.ErrInvalid, h, HostGateway)
 		}
+		// Link-local addresses (169.254.0.0/16, fe80::/10) hold no database, but the cloud
+		// metadata service; addresses in the LAN stay allowed, that's where servers are.
+		if ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsUnspecified() || ip.IsMulticast() {
+			return "", fmt.Errorf("%w: %s can't be a server's address (link-local, multicast or unspecified)", validate.ErrInvalid, h)
+		}
 		return ip.String(), nil
 	}
 	h = validate.NormalizeHostname(h)

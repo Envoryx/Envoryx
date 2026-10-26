@@ -2181,7 +2181,9 @@ visible to the user, host unreachable).
   PostgreSQL the client must not be older than the server).
 - **A server on the Docker host itself** is reached as
   `host.docker.internal`; Envoryx adds that name to every container of the
-  project. `localhost` is refused: inside a container it is the container.
+  project. `localhost` is refused: inside a container it is the container. So
+  are link-local addresses (`169.254.x.x`, `fe80::`), where the cloud metadata
+  service lives and no database does; addresses in your LAN are fine.
 - **The application** gets the same variables as with a container (`DB_HOST`,
   `DB_PORT`, `DATABASE_URL` … or `ANALYTICS_DB_*`, `REDIS_HOST`, `REDIS_PORT`,
   `REDIS_URL` and `REDIS_PASSWORD`), pointing at the server; special characters
