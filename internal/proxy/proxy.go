@@ -437,9 +437,11 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 		srv := tlsCfg()
 		servers = append(servers, srv)
+		// Read before Serve starts: it fills in the server's HTTP/2 setup meanwhile.
+		withTLS := srv.TLSConfig != nil
 		go func() {
 			var err error
-			if srv.TLSConfig != nil {
+			if withTLS {
 				err = srv.ServeTLS(ln, "", "")
 			} else {
 				err = srv.Serve(ln)
@@ -448,7 +450,7 @@ func (s *Server) Run(ctx context.Context) error {
 				s.log.Error("proxy listener stopped", "addr", addr, "err", err)
 			}
 		}()
-		s.log.Info("proxy listening", "addr", addr, "tls", srv.TLSConfig != nil)
+		s.log.Info("proxy listening", "addr", addr, "tls", withTLS)
 		return true
 	}
 	base := func() *http.Server {
