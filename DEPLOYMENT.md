@@ -3108,7 +3108,8 @@ the fleet manager can get it instead: it holds the DNS token, obtains
 instance, renews it 30 days before it expires and sends it down the
 connection. The instance writes it to `/config/certificate.json` (owner-only,
 never in instance backups) and serves it at once; the plan the manager sends
-fixes the base domain to that domain as well.
+fixes the base domain to that domain as well. When the hoster removes the
+domain, the base domain goes back to the one the instance had before.
 
 While the hoster provides the certificate, Settings → Domains & HTTPS shows it
 under *Certificate from your hoster*, and Let's Encrypt and an own certificate

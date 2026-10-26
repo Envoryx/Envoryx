@@ -111,6 +111,33 @@ func TestPlanFixesSettings(t *testing.T) {
 	}
 }
 
+// A base domain the plan fixed (the customer's domain) goes back to the one from before
+// when the plan lets go of it; one the admin set since stays.
+func TestBaseDomainComesBackWhenThePlanLetsGo(t *testing.T) {
+	a := newApp(t)
+	a.setupAndLogin()
+	if r := a.do(http.MethodPatch, "/api/v1/settings", map[string]any{"baseDomain": "home.lan"}, true); r.status != http.StatusOK {
+		t.Fatalf("set base domain: %d %s", r.status, r.raw)
+	}
+	base := func() any { return a.do(http.MethodGet, "/api/v1/settings", nil, false).body["baseDomain"] }
+	a.setPlan(`{"settings":{"baseDomain":"kunde.example.net"}}`)
+	if got := base(); got != "kunde.example.net" {
+		t.Fatalf("with the plan: %v", got)
+	}
+	a.setPlan(`{"name":"Starter"}`)
+	if got := base(); got != "home.lan" {
+		t.Fatalf("after the plan let go: %v, want the base domain from before", got)
+	}
+	// Once back, the base domain is the admin's again: a later plan change leaves it.
+	if r := a.do(http.MethodPatch, "/api/v1/settings", map[string]any{"baseDomain": "office.lan"}, true); r.status != http.StatusOK {
+		t.Fatalf("set base domain: %d %s", r.status, r.raw)
+	}
+	a.setPlan(`{"settings":{"forceHttps":true}}`)
+	if got := base(); got != "office.lan" {
+		t.Fatalf("the admin's base domain changed: %v", got)
+	}
+}
+
 // The hoster can fix who needs a second factor, the log history and the image restart.
 func TestPlanFixesSecurityAndHousekeeping(t *testing.T) {
 	a := newApp(t)

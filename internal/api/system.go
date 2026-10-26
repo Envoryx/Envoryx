@@ -457,6 +457,7 @@ func (a *API) updateSettings(w http.ResponseWriter, r *http.Request) {
 // didn't apply, and the manager hears it.
 func (a *API) ApplyPlanSettings(ctx context.Context) error {
 	pl := a.d.Projects.Plan()
+	a.keepBaseDomainBeforePlan(ctx, pl)
 	if pl == nil || len(pl.Settings) == 0 {
 		return nil
 	}
@@ -470,6 +471,52 @@ func (a *API) ApplyPlanSettings(ctx context.Context) error {
 		return fmt.Errorf("plan settings not applied: %s", strings.Join(failed, "; "))
 	}
 	return nil
+}
+
+// settingBaseDomainBeforePlan keeps the base domain an instance had before its plan
+// fixed one (the hoster's domain for the customer), with the plan's value:
+// {"before": "test", "plan": "kunde.example.net"}.
+const settingBaseDomainBeforePlan = "base_domain_before_plan"
+
+// keepBaseDomainBeforePlan remembers the base domain from before the plan fixed one, and
+// brings it back once the plan lets go of it (the hoster removed the customer's domain)
+// while the instance still uses the plan's: project links would otherwise point at a
+// domain the customer no longer has. A base domain the admin chose since stays.
+func (a *API) keepBaseDomainBeforePlan(ctx context.Context, pl *plan.Plan) {
+	type kept struct {
+		Before string `json:"before"`
+		Plan   string `json:"plan"`
+	}
+	var k kept
+	if raw, err := a.d.Store.Settings.Get(ctx, settingBaseDomainBeforePlan); err == nil && raw != "" {
+		_ = json.Unmarshal([]byte(raw), &k)
+	}
+	fixed, locked := pl.Locked("baseDomain")
+	if locked {
+		var v string
+		if json.Unmarshal(fixed, &v) != nil {
+			return
+		}
+		if k.Before == "" {
+			k.Before = a.d.Projects.BaseDomain(ctx)
+		}
+		k.Plan = validate.NormalizeHostname(v)
+		if raw, err := json.Marshal(k); err == nil {
+			_ = a.d.Store.Settings.Set(ctx, settingBaseDomainBeforePlan, string(raw))
+		}
+		return
+	}
+	if k.Before == "" {
+		return
+	}
+	if a.d.Projects.BaseDomain(ctx) == k.Plan && k.Before != k.Plan {
+		if err := a.d.Projects.SetBaseDomain(ctx, k.Before); err != nil {
+			a.d.Log.Warn("plan: the base domain from before the plan not restored", "domain", k.Before, "err", err)
+			return
+		}
+		a.d.Log.Info("plan: base domain back to the one from before the plan", "domain", k.Before)
+	}
+	_ = a.d.Store.Settings.Set(ctx, settingBaseDomainBeforePlan, "")
 }
 
 // applyPlanSetting sets one setting the plan fixes.
