@@ -14,7 +14,7 @@ import { RubyServerFields, defaultRubyServerForm, rubyServerRequest, type RubySe
 import { JavaServerFields, defaultJavaServerForm, javaServerRequest, type JavaServerForm } from "./JavaServerFields";
 import { DotnetServerFields, defaultDotnetServerForm, dotnetServerRequest, type DotnetServerForm } from "./DotnetServerFields";
 import { Alert, Badge, Button, Card, CardHeader, Checkbox, Code, Dialog, ErrorState, Field, Input, Menu, PageHeader, Select, Spinner, StatusDot, type MenuItem } from "@/components/ui";
-import { containerStateLabel, containerStateTone, formatBytes, formatDateTime, formatPercent, healthLabel, serviceLabel, stateMeta } from "@/lib/format";
+import { addonTitle, containerStateLabel, containerStateTone, formatBytes, formatDateTime, formatPercent, healthLabel, serviceLabel, stateMeta } from "@/lib/format";
 import { DeleteProjectDialog, DuplicateProjectDialog, ProjectActionButtons, RenameProjectDialog, useActionError } from "./ProjectActions";
 import { OperationHint } from "@/components/OperationsTray";
 import { DatabaseTab } from "./DatabaseTab";
@@ -328,7 +328,7 @@ function OverviewTab({ project: p }: { project: Project }) {
               <div className="flex min-w-[10rem] items-center gap-2.5">
                 <StatusDot tone={containerStateTone(s.state)} />
                 <div>
-                  <p className="text-sm font-medium text-fg">{serviceLabel(s.kind, s.version, s.variant)}</p>
+                  <p className="text-sm font-medium text-fg">{serviceLabel(s.kind, s.version, s.variant, addonTitle(p, s.kind))}</p>
                   {s.containerName && <p className="font-mono text-[11px] text-subtle">{s.containerName}</p>}
                 </div>
               </div>

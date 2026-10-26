@@ -312,6 +312,20 @@ func (p *Planner) labelAddonDefinitions(proj store.Project, containers []Contain
 	}
 }
 
+// roundTrip is d as the copy in a project's config has it after JSON, so the two compare
+// equal when nothing changed.
+func roundTrip(d addon.Definition) addon.Definition {
+	raw, err := json.Marshal(d)
+	if err != nil {
+		return d
+	}
+	var out addon.Definition
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return d
+	}
+	return out
+}
+
 func hashJSON(v any) string {
 	raw, _ := json.Marshal(v)
 	sum := sha256.Sum256(raw)
@@ -471,44 +485,79 @@ func (m *Manager) InstallAddon(ctx context.Context, raw []byte) (addon.Definitio
 		if svc == nil {
 			continue
 		}
-		cfg, err := addonConfig(svc)
-		if err != nil {
-			return d, err
-		}
-		v, err := d.Resolve(svc.Version)
-		if err != nil {
-			// The version is gone from the file: the project moves to the default.
-			v, _ = d.Resolve("")
-		}
-		cfg.Definition = d
-		if cfg.Secrets, err = newAddonSecrets(d, cfg.Secrets); err != nil {
-			return d, err
-		}
-		if !d.PublishPort {
-			cfg.Exposed = false
-		}
-		switch {
-		case !d.WebUI && !d.PublishPort:
-			cfg.HostPort = 0
-		case d.WebUI && cfg.HostPort == 0:
-			// A web UI the new version adds needs its port (the proxy's way in on bare metal).
-			port, err := m.allocatePort(ctx, p.HTTPPort)
-			if err != nil {
-				return d, err
-			}
-			cfg.HostPort = port
-		}
-		raw, err := json.Marshal(cfg)
-		if err != nil {
-			return d, err
-		}
-		if err := m.store.Projects.UpdateServiceConfig(ctx, p.ID, kind, v.Version, v.Image, raw); err != nil {
+		if err := m.updateAddonCopy(ctx, p, svc, d); err != nil {
 			return d, err
 		}
 		updated = append(updated, p.Slug)
 	}
 	m.audit.Log(ctx, audit.ActionAddonInstalled, "addon", d.Name, map[string]any{"name": d.Name, "title": d.Title, "projects": updated})
 	return d, nil
+}
+
+// updateAddonCopy puts definition d into the copy that project p keeps of it.
+func (m *Manager) updateAddonCopy(ctx context.Context, p store.Project, svc *store.ProjectService, d addon.Definition) error {
+	cfg, err := addonConfig(svc)
+	if err != nil {
+		return err
+	}
+	v, err := d.Resolve(svc.Version)
+	if err != nil {
+		// The version is gone from the file: the project moves to the default.
+		v, _ = d.Resolve("")
+	}
+	cfg.Definition = d
+	if cfg.Secrets, err = newAddonSecrets(d, cfg.Secrets); err != nil {
+		return err
+	}
+	if !d.PublishPort {
+		cfg.Exposed = false
+	}
+	switch {
+	case !d.WebUI && !d.PublishPort:
+		cfg.HostPort = 0
+	case d.WebUI && cfg.HostPort == 0:
+		// A web UI the new version adds needs its port (the proxy's way in on bare metal).
+		port, err := m.allocatePort(ctx, p.HTTPPort)
+		if err != nil {
+			return err
+		}
+		cfg.HostPort = port
+	}
+	raw, err := json.Marshal(cfg)
+	if err != nil {
+		return err
+	}
+	return m.store.Projects.UpdateServiceConfig(ctx, p.ID, svc.Kind, v.Version, v.Image, raw)
+}
+
+// refreshAddonCopies takes an addon file that was edited by hand under /config/addons
+// into the project's copy before a start, as installing it would. A file that is gone
+// or doesn't parse leaves the copy as it is: the project starts with what it has.
+func (m *Manager) refreshAddonCopies(ctx context.Context, p store.Project) store.Project {
+	changed := false
+	for _, svc := range p.Addons() {
+		d, _, err := m.addons.Get(svc.Kind.AddonName())
+		if err != nil {
+			continue
+		}
+		cfg, err := addonConfig(svc)
+		if err != nil || hashJSON(cfg.Definition) == hashJSON(roundTrip(d)) {
+			continue
+		}
+		if err := m.updateAddonCopy(ctx, p, svc, d); err != nil {
+			m.log.Warn("addon file not taken over", "project", p.Slug, "addon", d.Name, "err", err)
+			continue
+		}
+		m.log.Info("addon file changed, taken over", "project", p.Slug, "addon", d.Name)
+		changed = true
+	}
+	if !changed {
+		return p
+	}
+	if fresh, err := m.loadProject(ctx, p.ID); err == nil {
+		return fresh
+	}
+	return p
 }
 
 // InstallAddonFromURL downloads an addon file and installs it.

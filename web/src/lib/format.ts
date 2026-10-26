@@ -1,5 +1,5 @@
 import type { TFunction } from "i18next";
-import type { ProjectState, UpdateStatus } from "@/api/types";
+import type { Project, ProjectState, UpdateStatus } from "@/api/types";
 import type { Tone } from "@/components/ui";
 import i18n, { currentLanguage } from "@/i18n";
 
@@ -209,14 +209,23 @@ export function reachable(t: TFunction, address: string, local: boolean): string
   return local ? t("Only on the server itself, at {{address}}", { address }) : t("Reachable at {{address}}", { address });
 }
 
-export function serviceLabel(kind: string, version?: string, variant?: string): string {
+/** The title of a project's addon service ("Notes" for addon-notes), undefined for other kinds. */
+export function addonTitle(project: Pick<Project, "services">, kind: string): string | undefined {
+  if (!kind.startsWith("addon-")) return undefined;
+  const title = project.services.find((s) => s.kind === kind)?.config?.title;
+  return typeof title === "string" && title ? title : undefined;
+}
+
+/** A service as people read it ("MariaDB 11.4"); an addon by its title when it is given. */
+export function serviceLabel(kind: string, version?: string, variant?: string, addonTitle?: string): string {
   const dbNames: Record<string, string> = { mariadb: "MariaDB", mysql: "MySQL", postgresql: "PostgreSQL", mongodb: "MongoDB" };
   const webNames: Record<string, string> = { caddy: "Caddy", apache: "Apache", nginx: "Nginx" };
   // Product names stay as they are; only the generic fallbacks are translated.
   const name: Record<string, string> = { php: "PHP", web: webNames[variant ?? ""] ?? i18n.t("Web server"), node: "Node.js", python: "Python", go: "Go", ruby: "Ruby", java: "Java", dotnet: ".NET", database: dbNames[variant ?? ""] ?? i18n.t("Database"), redis: "Redis", memcached: "Memcached", mailpit: "Mailpit", rabbitmq: "RabbitMQ", meilisearch: "Meilisearch", typesense: "Typesense", opensearch: "OpenSearch", "opensearch-dashboards": "OpenSearch Dashboards", ollama: "Ollama", storage: i18n.t("Object storage") };
   // An additional database: its name, then the engine ("analytics · PostgreSQL 18").
   const extraDB = kind.startsWith("db-") ? `${kind.slice(3)} · ${dbNames[variant ?? ""] ?? i18n.t("Database")}` : undefined;
-  const base = extraDB ?? name[kind] ?? kind;
+  const addon = kind.startsWith("addon-") && addonTitle ? addonTitle : undefined;
+  const base = extraDB ?? addon ?? name[kind] ?? kind;
   return version ? `${base} ${version}` : base;
 }
 

@@ -2465,6 +2465,10 @@ that isn't a reference, a placeholder the addon can't fill - each is refused wit
 reason. A file under `/config/addons` that doesn't parse is listed with its error. A file
 can be at most 64 KB.
 
+A new version of a file, saved in Settings or edited by hand under `/config/addons`,
+reaches the projects that use the addon at their next start or restart. A file edited by
+hand that doesn't parse leaves the projects with the version they have.
+
 **What an addon can't do.** The format has no field for privileged mode, capabilities,
 host directories, the host network or devices, and unknown keys are errors, so an addon
 always runs with named volumes on its project's network, like the built-in services.

@@ -4,12 +4,15 @@ import (
 	"archive/tar"
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
 
 	"github.com/envoryx/envoryx/internal/docker"
 	"github.com/envoryx/envoryx/internal/manifest"
+	"github.com/envoryx/envoryx/internal/store"
 	"github.com/envoryx/envoryx/internal/validate"
 )
 
@@ -165,6 +168,47 @@ func TestAddonLifecycle(t *testing.T) {
 	}
 	if err := e.m.DeleteAddon(ctx, "widget"); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// An addon file edited by hand under /config/addons reaches the project at its next
+// restart, like one installed through the API; a start with an unchanged file leaves the
+// project's copy alone.
+func TestHandEditedAddonFileReachesTheProjectOnRestart(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	if _, err := e.m.InstallAddon(ctx, []byte(widgetAddon)); err != nil {
+		t.Fatal(err)
+	}
+	view, err := e.m.Create(ctx, phpRequest("Gadget", true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := view.Project.ID
+	if _, err := e.m.Update(ctx, id, UpdateRequest{Addons: map[string]AddonUpdate{"widget": {Enabled: true}}}); err != nil {
+		t.Fatal(err)
+	}
+	before, _ := e.store.Projects.Get(ctx, id)
+	if _, err := e.m.Restart(ctx, id); err != nil {
+		t.Fatal(err)
+	}
+	if after, _ := e.store.Projects.Get(ctx, id); string(after.Service(store.AddonKind("widget")).Config) != string(before.Service(store.AddonKind("widget")).Config) {
+		t.Fatal("an unchanged file rewrote the project's copy")
+	}
+
+	dir, err := e.m.addonsDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	edited := strings.Replace(widgetAddon, `"serve", "--name"`, `"serve", "--title"`, 1)
+	if err := os.WriteFile(filepath.Join(dir, "widget.yml"), []byte(edited), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.m.Restart(ctx, id); err != nil {
+		t.Fatal(err)
+	}
+	if c, _ := e.engine.Container("envoryx-gadget-addon-widget"); strings.Join(c.Spec.Cmd, " ") != "serve --title gadget" {
+		t.Fatalf("command after the edit: %v", c.Spec.Cmd)
 	}
 }
 

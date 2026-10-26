@@ -544,6 +544,9 @@ func (m *Manager) transitionLocked(ctx context.Context, id, action string, op fu
 			_ = m.store.Projects.SetHTTPPort(context.WithoutCancel(ctx), id, movedFrom)
 		}
 	}
+	if desired == store.DesiredRunning {
+		proj = m.refreshAddonCopies(ctx, proj)
+	}
 	planner, err := m.planner()
 	if err != nil {
 		restorePort()
