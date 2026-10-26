@@ -53,6 +53,27 @@ describe("ProjectsPage", () => {
     expect(screen.queryByRole("button", { name: "Restart" })).not.toBeInTheDocument();
   });
 
+  it("stops, restarts and opens a partially running project", async () => {
+    const base = makeProject();
+    const worker = { ...base.status.services[0]!, workerId: "queue", containerName: "envoryx-acme-shop-worker-queue", running: false, state: "restarting" };
+    const partial = makeProject({ status: { ...base.status, state: "partial", services: [...base.status.services, worker] } });
+    const webDown = makeProject({ id: "w1", name: "Web Down", slug: "web-down", status: { ...base.status, state: "partial", services: base.status.services.map((s) => (s.kind === "web" ? { ...s, running: false, state: "exited" } : s)) } });
+    mockApi({
+      ...authedRoutes,
+      "GET /projects": () => ({ body: { projects: [partial, webDown] } }),
+      "GET /dashboard": () => ({ status: 500, body: {} }),
+    });
+    renderApp(<ProjectsPage />);
+    const row = (await screen.findByText("Acme Shop")).closest("li")!;
+    expect(within(row).getByRole("button", { name: "Stop" })).toBeInTheDocument();
+    expect(within(row).getByRole("button", { name: "Restart" })).toBeInTheDocument();
+    expect(within(row).queryByRole("button", { name: "Start" })).not.toBeInTheDocument();
+    expect(within(row).getByRole("link", { name: /Open/ })).toHaveAttribute("aria-disabled", "false");
+    const downRow = screen.getByText("Web Down").closest("li")!;
+    expect(within(downRow).getByRole("button", { name: "Stop" })).toBeInTheDocument();
+    expect(within(downRow).getByRole("link", { name: /Open/ })).toHaveAttribute("aria-disabled", "true");
+  });
+
   it("leads with the application runtime badge", async () => {
     const web = makeProject().services.find((s) => s.kind === "web")!;
     const node = { kind: "node", variant: "node", version: "24", image: "ghcr.io/envoryx/envoryx-node:24", enabled: true, config: { devServer: true } };

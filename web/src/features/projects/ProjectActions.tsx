@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDeleteProject, useDuplicateProject, useProjectAction, useProjectLinks, useRenameProject, type ProjectAction } from "@/api/hooks";
-import type { DuplicateProjectRequest, Project, RenameProjectRequest } from "@/api/types";
+import { servesOf, type DuplicateProjectRequest, type Project, type RenameProjectRequest } from "@/api/types";
 import { Button, Checkbox, Dialog, Field, Input, Alert } from "@/components/ui";
 import { errorText } from "@/lib/errors";
 import { slugify } from "@/lib/format";
@@ -40,7 +40,12 @@ export function ProjectActionButtons({
     action.mutate({ id: project.id, action: a }, { onError: (err) => onError?.(err) });
   // A viewer may look, not start or stop: the buttons need operate.
   const canOperate = projectAccess(project).operate;
-  const running = state === "running";
+  // A partially running project (a worker crash-looping, say) is stopped and restarted like
+  // a running one, and opens as long as the container that serves it runs.
+  const running = state === "running" || state === "partial";
+  const serves = project.serves ?? servesOf(project);
+  const servingKind = serves === "php" || serves === "static" ? "web" : serves;
+  const openable = state === "running" || (state === "partial" && project.status.services.some((s) => !s.workerId && s.kind === servingKind && s.running));
   const { url } = links(project);
   const pending = (a: ProjectAction) => busy && action.variables?.action === a;
 
@@ -66,8 +71,8 @@ export function ProjectActionButtons({
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex h-8 items-center gap-1.5 rounded-md border border-default bg-elevated px-2.5 text-xs font-medium text-fg hover:bg-muted aria-disabled:opacity-50"
-          aria-disabled={!running}
-          title={running ? t("Open {{url}}", { url }) : t("Project is not running")}
+          aria-disabled={!openable}
+          title={openable ? t("Open {{url}}", { url }) : t("Project is not running")}
         >
           <ExternalLink className="size-3.5" aria-hidden />
           {t("Open")}
