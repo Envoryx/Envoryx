@@ -3734,5 +3734,13 @@
   "Your plan doesn't include {{name}}, so it isn't preselected.": "{{name}} nie wchodzi w skład twojego planu, więc nie jest wstępnie wybrany.",
   "Forgot the password? An admin of this instance can send you a reset link; if you are the only admin, ask your hoster.": "Nie pamiętasz hasła? Administrator tej instancji może wysłać ci link do zresetowania; jeśli jesteś jedynym administratorem, zwróć się do swojego dostawcy hostingu.",
   "Another Envoryx made this backup: its project settings are encrypted with key {{id}}, not with this instance's. Enter that key (Settings → Secret key on the Envoryx that made it); afterwards the backup is encrypted with this instance's key, and the key you enter isn't stored.": "Tę kopię utworzył inny Envoryx: jej ustawienia projektu są zaszyfrowane kluczem {{id}}, a nie kluczem tej instancji. Podaj ten klucz (Ustawienia → Klucz tajny w Envoryx, który ją utworzył); potem kopia jest zaszyfrowana kluczem tej instancji, a podany klucz nie jest nigdzie zapisywany.",
-  "Another Envoryx made it, so restoring it asks for that Envoryx's secret key.": "Utworzył ją inny Envoryx, więc przywracanie wymaga klucza tajnego tamtego Envoryx."
+  "Another Envoryx made it, so restoring it asks for that Envoryx's secret key.": "Utworzył ją inny Envoryx, więc przywracanie wymaga klucza tajnego tamtego Envoryx.",
+  "Single sign-on failed.": "Logowanie jednokrotne nie powiodło się.",
+  "Remove the volume {{name}} and the data in it? This can't be undone.": "Usunąć wolumen {{name}} razem z danymi? Tego nie da się cofnąć.",
+  "Remove volume": "Usuń wolumen",
+  "The Node.js inspector accepts everyone who reaches the port and can run any code in the container. Switch it off when you are not debugging.": "Inspektor Node.js przyjmuje każdego, kto dotrze do portu, i może uruchomić dowolny kod w kontenerze. Wyłącz go, gdy nie debugujesz.",
+  "debugpy accepts everyone who reaches the port and can run any code in the container. Switch it off when you are not debugging.": "debugpy przyjmuje każdego, kto dotrze do portu, i może uruchomić dowolny kod w kontenerze. Wyłącz go, gdy nie debugujesz.",
+  "Remove the stored password": "Usuń zapisane hasło",
+  "The hoster's support can't change this: where the backups go stays with the instance's admins.": "Wsparcie hostera nie może tego zmienić: o tym, dokąd trafiają kopie, decydują administratorzy instancji.",
+  "on a hosted instance only its own instance backups can be restored; bring projects from elsewhere over as project backups (New project → Existing website), where the plan is checked": "na hostowanej instancji można przywrócić tylko jej własne kopie instancji; przenieś projekty z innego miejsca jako kopie projektów (Nowy projekt → Istniejąca strona), gdzie plan jest sprawdzany"
 }

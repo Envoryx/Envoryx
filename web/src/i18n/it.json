@@ -3684,5 +3684,13 @@
   "Your plan doesn't include {{name}}, so it isn't preselected.": "{{name}} non è incluso nel tuo piano, quindi non è preselezionato.",
   "Forgot the password? An admin of this instance can send you a reset link; if you are the only admin, ask your hoster.": "Password dimenticata? Un amministratore di questa istanza può inviarti un link per reimpostarla; se sei l'unico amministratore, rivolgiti al tuo hoster.",
   "Another Envoryx made this backup: its project settings are encrypted with key {{id}}, not with this instance's. Enter that key (Settings → Secret key on the Envoryx that made it); afterwards the backup is encrypted with this instance's key, and the key you enter isn't stored.": "Questo backup è stato creato da un altro Envoryx: le sue impostazioni di progetto sono cifrate con la chiave {{id}}, non con quella di questa istanza. Inserisci quella chiave (Impostazioni → Secret key nell'Envoryx che lo ha creato); dopo il backup è cifrato con la chiave di questa istanza e la chiave inserita non viene salvata.",
-  "Another Envoryx made it, so restoring it asks for that Envoryx's secret key.": "L'ha creato un altro Envoryx, quindi il ripristino chiede la secret key di quell'Envoryx."
+  "Another Envoryx made it, so restoring it asks for that Envoryx's secret key.": "L'ha creato un altro Envoryx, quindi il ripristino chiede la secret key di quell'Envoryx.",
+  "Single sign-on failed.": "L'accesso singolo non è riuscito.",
+  "Remove the volume {{name}} and the data in it? This can't be undone.": "Rimuovere il volume {{name}} e i suoi dati? L'operazione non si può annullare.",
+  "Remove volume": "Rimuovi volume",
+  "The Node.js inspector accepts everyone who reaches the port and can run any code in the container. Switch it off when you are not debugging.": "L'inspector di Node.js accetta chiunque raggiunga la porta e può eseguire qualsiasi codice nel container. Disattivalo quando non stai facendo debug.",
+  "debugpy accepts everyone who reaches the port and can run any code in the container. Switch it off when you are not debugging.": "debugpy accetta chiunque raggiunga la porta e può eseguire qualsiasi codice nel container. Disattivalo quando non stai facendo debug.",
+  "Remove the stored password": "Rimuovi la password salvata",
+  "The hoster's support can't change this: where the backups go stays with the instance's admins.": "Il supporto dell'hoster non può modificarlo: dove vanno i backup resta agli amministratori dell'istanza.",
+  "on a hosted instance only its own instance backups can be restored; bring projects from elsewhere over as project backups (New project → Existing website), where the plan is checked": "su un'istanza ospitata si possono ripristinare solo i suoi backup dell'istanza; porta i progetti da altrove come backup di progetto (Nuovo progetto → Sito esistente), dove il piano viene verificato"
 }
