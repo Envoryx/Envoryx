@@ -458,6 +458,45 @@ type branchTracker struct {
 	visits map[string]time.Time
 	polls  map[string]BranchPoll
 	failed map[string]string
+	// deleted are the branches whose environment was deleted while the branch stayed
+	// (key parent id + NUL + branch), by the commit the first poll after the delete saw:
+	// watching creates it again only once the branch moves on from there ("" until
+	// that poll).
+	deleted map[string]string
+}
+
+// forgetBranchEnvironment notes that a branch environment is being deleted, so a parent
+// that watches its branches doesn't copy it again a minute later for the same commit.
+func (m *Manager) forgetBranchEnvironment(p store.Project) {
+	if p.ParentID == "" || p.Git.Branch == "" {
+		return
+	}
+	m.branches.mu.Lock()
+	defer m.branches.mu.Unlock()
+	if m.branches.deleted == nil {
+		m.branches.deleted = map[string]string{}
+	}
+	// The environment's own commit may lag behind the branch (a deploy that failed),
+	// so the head is taken at the next poll.
+	m.branches.deleted[p.ParentID+"\x00"+p.Git.Branch] = ""
+}
+
+// deletedAt reports whether a branch's environment was deleted at this commit; the first
+// poll after the delete takes the one it sees. A branch that moved on is forgotten. The
+// caller holds m.branches.mu.
+func (m *Manager) deletedAt(key, commit string) bool {
+	at, ok := m.branches.deleted[key]
+	switch {
+	case !ok:
+		return false
+	case at == "":
+		m.branches.deleted[key] = commit
+		return true
+	case at == commit:
+		return true
+	}
+	delete(m.branches.deleted, key)
+	return false
 }
 
 // touch records a visit of a project: the idle stop counts from the last one.
@@ -606,6 +645,11 @@ func (m *Manager) pollBranches(ctx context.Context, parent store.Project, projec
 				log.Warn("branch scheduler: delete environment", "project", p.Slug, "err", err)
 				continue
 			}
+			// The branch is gone, not its environment unwanted: one pushed again under
+			// the name gets an environment at once.
+			m.branches.mu.Lock()
+			delete(m.branches.deleted, parent.ID+"\x00"+p.Git.Branch)
+			m.branches.mu.Unlock()
 			count--
 			m.notify(ctx, notify.Event{Kind: "branch.changed", Level: notify.Info, Project: p.Name, Title: fmt.Sprintf("%s deleted", p.Name), Message: fmt.Sprintf("The branch %s is gone from the repository.", p.Git.Branch)})
 		case commit != p.BranchState.Commit && p.DesiredState == store.DesiredRunning && p.Lifecycle == store.LifecycleReady && p.BranchState.DeployStatus != store.DeployRunning:
@@ -644,7 +688,7 @@ func (m *Manager) pollBranches(ctx context.Context, parent store.Project, projec
 	m.branches.mu.Lock()
 	var fresh []string
 	for name, commit := range heads {
-		if !have[name] && name != parent.Git.Branch && branchMatches(parent.Branches.Patterns, name) && m.branches.failed[parent.ID+"\x00"+name] != commit {
+		if !have[name] && name != parent.Git.Branch && branchMatches(parent.Branches.Patterns, name) && m.branches.failed[parent.ID+"\x00"+name] != commit && !m.deletedAt(parent.ID+"\x00"+name, commit) {
 			fresh = append(fresh, name)
 		}
 	}

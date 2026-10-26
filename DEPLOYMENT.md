@@ -1827,7 +1827,10 @@ check:
   same commit isn't retried);
 - one new branch that matches a pattern (`feature/*`; `*` doesn't match `/`) and isn't the
   parent's own branch gets an environment, up to five unless set otherwise. If creating it
-  fails, Envoryx tries again with the branch's next commit, not on every check.
+  fails, Envoryx tries again with the branch's next commit, not on every check. An
+  environment you delete yourself while its branch still matches comes back the same
+  way: with the branch's next commit (or after a restart of Envoryx), not at the next
+  check. To keep a branch without an environment for good, narrow the patterns.
 
 **Stop idle environments after** stops an environment nobody opened for that many days,
 counted from the last request through the proxy or the last start. A stopped environment

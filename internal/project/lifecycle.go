@@ -2149,6 +2149,7 @@ func (m *Manager) delete(ctx context.Context, id string, opts DeleteOptions) err
 	if opts.Confirm != proj.Slug {
 		return fmt.Errorf("%w: confirmation must equal the project identifier %q", validate.ErrInvalid, proj.Slug)
 	}
+	m.forgetBranchEnvironment(proj)
 	// The branch environments are copies with a life of their own (files, database);
 	// they go first, deliberately.
 	if kids, err := m.children(ctx, id); err != nil {

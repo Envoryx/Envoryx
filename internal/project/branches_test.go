@@ -279,6 +279,45 @@ func TestBranchSchedulerDoesNotRetryAFailedPull(t *testing.T) {
 	}
 }
 
+// An environment deleted by hand while its branch still matches the patterns is not
+// copied again at once; the branch's next commit brings it back.
+func TestDeletedBranchEnvironmentWaitsForTheNextCommit(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	git := &gitRemote{}
+	e.engine.OneShotHandler = git.handle
+	parent := branchParent(t, e)
+	env, err := e.m.CreateBranchEnvironment(ctx, parent.ID, "feature/auto")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.m.SetBranchSettings(ctx, parent.ID, store.BranchSettings{Watch: true, Patterns: []string{"feature/*"}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.m.Delete(ctx, env.Project.ID, DeleteOptions{Confirm: env.Project.Slug, DeleteFiles: true}); err != nil {
+		t.Fatal(err)
+	}
+	log := slog.New(slog.DiscardHandler)
+	envs := func(commit string) int {
+		t.Helper()
+		git.heads = map[string]string{"main": "aaa", "feature/auto": commit}
+		parentNow, _ := e.m.loadProject(ctx, parent.ID)
+		projects, _ := e.m.store.Projects.List(ctx)
+		_ = e.m.pollBranches(ctx, parentNow, projects, log)
+		list, _ := e.m.BranchEnvironments(ctx, parent.ID)
+		return len(list)
+	}
+	if n := envs("d00d"); n != 0 {
+		t.Fatalf("recreated right after the delete: %d", n)
+	}
+	if n := envs("d00d"); n != 0 {
+		t.Fatalf("recreated for the same commit: %d", n)
+	}
+	if n := envs("f00d"); n != 1 {
+		t.Fatalf("a new commit must bring it back: %d", n)
+	}
+}
+
 func TestIdleBranchEnvironmentsStop(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
