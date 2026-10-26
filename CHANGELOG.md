@@ -10,6 +10,8 @@ release). `:main` follows the development branch.
 
 ## [Unreleased]
 
+## [0.46.0] - 2026-10-27
+
 ### Added
 - A single offsite copy can be removed: a bin next to it in the copies list asks first,
   and `envoryx backup remote <project>` and `envoryx instance remote` take
@@ -2903,7 +2905,8 @@ First tagged release. Everything below is new.
 - Daily update check against GitHub releases (`ENVORYX_UPDATE_CHECK=false`
   disables it); the dashboard and Settings show when a newer release exists.
 
-[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.45.1...HEAD
+[Unreleased]: https://github.com/envoryx/envoryx/compare/v0.46.0...HEAD
+[0.46.0]: https://github.com/envoryx/envoryx/compare/v0.45.1...v0.46.0
 [0.45.1]: https://github.com/envoryx/envoryx/compare/v0.45.0...v0.45.1
 [0.45.0]: https://github.com/envoryx/envoryx/compare/v0.44.4...v0.45.0
 [0.44.4]: https://github.com/envoryx/envoryx/compare/v0.44.3...v0.44.4
