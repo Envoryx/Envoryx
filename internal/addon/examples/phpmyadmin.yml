@@ -2,6 +2,8 @@
 name: phpmyadmin
 title: phpMyAdmin
 description: Web UI for MySQL and MariaDB, signed in to the project database.
+# Offered only to projects whose database is one of these.
+databases: [mariadb, mysql]
 homepage: https://www.phpmyadmin.net
 versions:
   - version: "5.2"

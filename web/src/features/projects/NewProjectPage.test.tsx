@@ -611,6 +611,9 @@ describe("NewProjectPage wizard", () => {
     await cont(user);
     await nameIt(user, "Acme Shop");
     await user.click(screen.getByRole("radio", { name: "MariaDB" }));
+    // Without PostgreSQL on offer the explanation doesn't name it.
+    expect(screen.getByText(/for example one for reporting/)).toBeInTheDocument();
+    expect(screen.queryByText(/for example PostgreSQL/)).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Add a database" }));
     await user.type(screen.getByLabelText("Name"), "Bad Name");
     expect(screen.getByText("Lowercase letters, digits and dashes, starting with a letter.")).toBeInTheDocument();

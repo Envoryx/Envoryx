@@ -2458,6 +2458,8 @@ inject:                       # handed to the application containers
   WIDGET_URL: "http://{{host}}:{{port}}"
 credentials:                  # shown on the project's card
   - {label: Password, value: "{{secret.password}}", secret: true}
+databases: [mariadb, mysql]   # offered only to projects with one of these databases
+                              # (also postgresql, mongodb); without it to every project
 ```
 
 The placeholders every template can use: `{{host}}` and `{{port}}` (the addon inside the
@@ -2480,7 +2482,10 @@ host port, the injected variables, the volumes, the image and the credentials. A
 with a web UI always gets a host port too, the proxy's way in, but it listens on 127.0.0.1
 only: in the LAN it would skip the sign-in and the project's rules (phpMyAdmin there is
 already signed in to the database). A port published with *Publish the port on the host*
-(`publishPort`) listens like the project's ports (`ENVORYX_HOST_PORTS`).
+(`publishPort`) listens like the project's ports (`ENVORYX_HOST_PORTS`). An addon with
+`databases` is only offered where the project's database is one of them: the shipped
+phpMyAdmin to MariaDB and MySQL projects, pgAdmin to PostgreSQL ones. A copy installed
+from an earlier version is offered everywhere until the example is installed again.
 
 **Who reaches the web UI.** An addon's web UI address only lets in people signed in to
 Envoryx who may work on the project (developers and admins): phpMyAdmin is signed in to

@@ -3813,5 +3813,6 @@
   "Restart animation": "Uruchom animację od nowa",
   "Restart (R)": "Od nowa (R)",
   "Chapters": "Rozdziały",
-  "Reduced motion is on. The scene holds a still frame; start it deliberately or pick a chapter.": "Ograniczony ruch jest włączony. Scena pokazuje nieruchomy kadr; uruchom ją świadomie lub wybierz rozdział."
+  "Reduced motion is on. The scene holds a still frame; start it deliberately or pick a chapter.": "Ograniczony ruch jest włączony. Scena pokazuje nieruchomy kadr; uruchom ją świadomie lub wybierz rozdział.",
+  "Another database server next to the first one - for example one for reporting. Each is reached at its name as host and injects variables starting with its name (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …).": "Kolejny serwer baz danych obok pierwszego - na przykład do raportów. Każdy jest dostępny pod swoją nazwą jako host i wstrzykuje zmienne zaczynające się od jego nazwy (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …)."
 }

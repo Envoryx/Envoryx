@@ -66,6 +66,16 @@ type Definition struct {
 	Inject map[string]string `yaml:"inject,omitempty" json:"inject,omitempty"`
 	// Credentials are shown in the UI (a login, an API key); values are templates.
 	Credentials []Credential `yaml:"credentials,omitempty" json:"credentials,omitempty"`
+	// Databases are the database types the addon works with (mariadb, mysql, postgresql,
+	// mongodb): it is offered only to projects whose database is one of them. Empty: to
+	// every project.
+	Databases []string `yaml:"databases,omitempty" json:"databases,omitempty"`
+}
+
+// Fits reports whether the addon suits a project whose database is dbType ("" for a
+// project without one).
+func (d Definition) Fits(dbType string) bool {
+	return len(d.Databases) == 0 || slices.Contains(d.Databases, dbType)
 }
 
 // Version is one selectable image.
@@ -297,8 +307,16 @@ func (d *Definition) Validate() error {
 			return bad("command: %v", err)
 		}
 	}
+	for _, db := range d.Databases {
+		if !slices.Contains(databaseTypes, db) {
+			return bad("databases: %q is not one of %s", db, strings.Join(databaseTypes, ", "))
+		}
+	}
 	return nil
 }
+
+// databaseTypes are the values of a project database's type ({{database.type}}).
+var databaseTypes = []string{"mariadb", "mysql", "postgresql", "mongodb"}
 
 func uniq(s []string) []string {
 	out := slices.Clone(s)

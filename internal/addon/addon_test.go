@@ -54,6 +54,14 @@ func TestParseAndRender(t *testing.T) {
 	if d.HostnameOrName() != "widget" {
 		t.Fatal(d.HostnameOrName())
 	}
+	// Without databases it suits every project, with them only those projects.
+	if !d.Fits("") || !d.Fits("postgresql") {
+		t.Fatal("an addon without databases fits every project")
+	}
+	pma, err := Parse([]byte(minimal + "databases: [mariadb, mysql]\n"))
+	if err != nil || !pma.Fits("mariadb") || pma.Fits("postgresql") || pma.Fits("") {
+		t.Fatalf("databases: %+v %v", pma.Databases, err)
+	}
 	// Every shipped example is valid (Examples panics otherwise).
 	if ex := Examples(); len(ex) < 5 {
 		t.Fatalf("examples: %d", len(ex))
@@ -74,6 +82,7 @@ func TestParseRejects(t *testing.T) {
 		"web UI without port":             strings.Replace(minimal, "port: 8080", "port: 0", 1),
 		"bad inject name":                 strings.Replace(minimal, "WIDGET_URL", "widget.url", 1),
 		"two defaults":                    strings.Replace(minimal, `image: acme/widget:1`, "image: acme/widget:1\n    default: true", 1),
+		"unknown database":                minimal + "databases: [oracle]\n",
 	} {
 		if _, err := Parse([]byte(src)); !errors.Is(err, validate.ErrInvalid) {
 			t.Errorf("%s: %v", name, err)

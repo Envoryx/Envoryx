@@ -8,6 +8,7 @@ import (
 	"github.com/envoryx/envoryx/internal/addon"
 	"github.com/envoryx/envoryx/internal/auth"
 	"github.com/envoryx/envoryx/internal/project"
+	"github.com/envoryx/envoryx/internal/store"
 	"github.com/envoryx/envoryx/internal/validate"
 )
 
@@ -123,10 +124,18 @@ func (a *API) projectAddons(w http.ResponseWriter, r *http.Request) {
 	for _, in := range list {
 		have[in.Name] = true
 	}
+	// An addon made for particular databases (phpMyAdmin, pgAdmin) is offered only where
+	// the project's database is one of them.
+	dbType := ""
+	if view, err := a.d.Projects.Get(r.Context(), id); err == nil {
+		if db := view.Project.Service(store.ServiceDatabase); db != nil && db.Enabled {
+			dbType = db.Variant
+		}
+	}
 	available := []availableDTO{}
 	if installed, err := a.d.Projects.Addons().List(); err == nil {
 		for _, in := range installed {
-			if in.Error != "" || have[in.Name] {
+			if in.Error != "" || have[in.Name] || !in.Fits(dbType) {
 				continue
 			}
 			av := availableDTO{Name: in.Name, Title: in.Title, Description: in.Description, PublishPort: in.PublishPort, WebUI: in.WebUI, HasVolumes: len(in.Volumes) > 0, Versions: []string{}}

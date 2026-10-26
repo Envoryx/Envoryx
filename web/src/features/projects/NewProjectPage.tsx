@@ -849,7 +849,12 @@ export function NewProjectPage() {
       )}
       <div className="space-y-3">
         <p className="text-sm font-medium text-fg">{t("Additional databases")}</p>
-        <p className="text-sm text-muted">{t("Another database server next to the first one - for example PostgreSQL for reporting next to MariaDB. Each is reached at its name as host and injects variables starting with its name (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …).")}</p>
+        <p className="text-sm text-muted">
+          {/* The example names PostgreSQL only where the plan offers it. */}
+          {databases.some((x) => x.key === "postgresql" && x.available)
+            ? t("Another database server next to the first one - for example PostgreSQL for reporting next to MariaDB. Each is reached at its name as host and injects variables starting with its name (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …).")
+            : t("Another database server next to the first one - for example one for reporting. Each is reached at its name as host and injects variables starting with its name (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …).")}
+        </p>
         {form.extraDbs.map((d, i) => {
           const engine = databases.find((x) => x.key === d.type);
           return (

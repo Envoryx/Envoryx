@@ -3,6 +3,7 @@
 name: pgadmin
 title: pgAdmin
 description: Web UI for PostgreSQL databases.
+databases: [postgresql]
 homepage: https://www.pgadmin.org
 versions:
   - version: "9"

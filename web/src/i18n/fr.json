@@ -3747,5 +3747,6 @@
   "Restart animation": "Relancer l'animation",
   "Restart (R)": "Relancer (R)",
   "Chapters": "Chapitres",
-  "Reduced motion is on. The scene holds a still frame; start it deliberately or pick a chapter.": "Le mouvement réduit est activé. La scène reste sur une image fixe ; lancez-la vous-même ou choisissez un chapitre."
+  "Reduced motion is on. The scene holds a still frame; start it deliberately or pick a chapter.": "Le mouvement réduit est activé. La scène reste sur une image fixe ; lancez-la vous-même ou choisissez un chapitre.",
+  "Another database server next to the first one - for example one for reporting. Each is reached at its name as host and injects variables starting with its name (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …).": "Un autre serveur de base de données à côté du premier - par exemple un pour le reporting. Chacun est joignable sous son nom comme hôte et injecte des variables qui commencent par son nom (ANALYTICS_DB_HOST, ANALYTICS_DATABASE_URL …)."
 }
