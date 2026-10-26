@@ -1914,7 +1914,6 @@
   "Minute": "Minuto",
   "Minutes; the command is stopped after that.": "Minutos; depois disso o comando é interrompido.",
   "Monthly": "Mensal",
-  "Next runs ({{timezone}}):": "Próximas execuções ({{timezone}}):",
   "No cron jobs yet.": "Ainda não há tarefas cron.",
   "No runs yet.": "Ainda não há execuções.",
   "Only the last 64 KB of the output are kept.": "Apenas os últimos 64 KB da saída são mantidos.",
@@ -3707,5 +3706,6 @@
   "this account has no password to confirm with; sign in again and retry within 10 minutes": "esta conta não tem senha para confirmar; entre de novo e tente em até 10 minutos",
   "The name needs Latin or Cyrillic letters or digits.": "O nome deve conter letras latinas ou cirílicas, ou dígitos.",
   "Its volumes, with the database and other service data, are deleted as well, even when the project files are kept.": "Seus volumes, com o banco de dados e os dados dos outros serviços, também são excluídos, mesmo que os arquivos do projeto sejam mantidos.",
-  "Backups are kept and can be restored into a new project later.": "Os backups são mantidos e podem ser restaurados mais tarde em um novo projeto."
+  "Backups are kept and can be restored into a new project later.": "Os backups são mantidos e podem ser restaurados mais tarde em um novo projeto.",
+  "Next runs (local time):": "Próximas execuções (horário local):"
 }

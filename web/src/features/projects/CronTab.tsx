@@ -109,7 +109,8 @@ function SchedulePreview({ expr }: { expr: string }) {
   if (!q.data) return null;
   return (
     <p className="text-xs text-subtle">
-      {t("Next runs ({{timezone}}):", { timezone: q.data.timezone })} {q.data.next.slice(0, 3).map((n) => formatDateTime(n)).join(" · ")}
+      {/* The times are the browser's; the schedule itself is read in the server's zone, which the tab's description names. */}
+      {t("Next runs (local time):")} {q.data.next.slice(0, 3).map((n) => formatDateTime(n)).join(" · ")}
     </p>
   );
 }

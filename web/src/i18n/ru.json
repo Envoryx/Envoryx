@@ -1950,7 +1950,6 @@
   "Minute": "Минута",
   "Minutes; the command is stopped after that.": "Минуты; после этого команда останавливается.",
   "Monthly": "Ежемесячно",
-  "Next runs ({{timezone}}):": "Следующие запуски ({{timezone}}):",
   "No cron jobs yet.": "Cron-заданий пока нет.",
   "No runs yet.": "Запусков пока нет.",
   "Only the last 64 KB of the output are kept.": "Сохраняются только последние 64 КБ вывода.",
@@ -3757,5 +3756,6 @@
   "this account has no password to confirm with; sign in again and retry within 10 minutes": "у этой учётной записи нет пароля для подтверждения; войдите заново и повторите в течение 10 минут",
   "The name needs Latin or Cyrillic letters or digits.": "Имя должно содержать латинские или кириллические буквы либо цифры.",
   "Its volumes, with the database and other service data, are deleted as well, even when the project files are kept.": "Его тома с базой данных и данными других сервисов тоже удаляются, даже если файлы проекта сохраняются.",
-  "Backups are kept and can be restored into a new project later.": "Резервные копии сохраняются, их можно позже восстановить в новый проект."
+  "Backups are kept and can be restored into a new project later.": "Резервные копии сохраняются, их можно позже восстановить в новый проект.",
+  "Next runs (local time):": "Следующие запуски (местное время):"
 }

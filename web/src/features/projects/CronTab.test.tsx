@@ -48,6 +48,8 @@ describe("CronTab", () => {
 
     await user.click(await screen.findByRole("button", { name: "Laravel scheduler" }));
     expect(screen.getByLabelText("Schedule")).toHaveValue("minute");
+    // The preview's times are the browser's, and its label says so rather than naming the server's zone.
+    expect(await screen.findByText(/^Next runs \(local time\):/)).toHaveTextContent(new Date("2026-09-24T10:01:00Z").toLocaleString());
     await user.selectOptions(screen.getByLabelText("Schedule"), "every");
     await user.selectOptions(screen.getByLabelText("Interval"), "15");
     await user.click(screen.getByRole("button", { name: "Add cron job" }));

@@ -1914,7 +1914,6 @@
   "Minute": "Minuut",
   "Minutes; the command is stopped after that.": "Minuten; daarna wordt de opdracht gestopt.",
   "Monthly": "Maandelijks",
-  "Next runs ({{timezone}}):": "Volgende runs ({{timezone}}):",
   "No cron jobs yet.": "Nog geen cronjobs.",
   "No runs yet.": "Nog geen runs.",
   "Only the last 64 KB of the output are kept.": "Alleen de laatste 64 KB van de uitvoer worden bewaard.",
@@ -3707,5 +3706,6 @@
   "this account has no password to confirm with; sign in again and retry within 10 minutes": "dit account heeft geen wachtwoord om mee te bevestigen; log opnieuw in en probeer het binnen 10 minuten nog eens",
   "The name needs Latin or Cyrillic letters or digits.": "De naam moet Latijnse of Cyrillische letters of cijfers bevatten.",
   "Its volumes, with the database and other service data, are deleted as well, even when the project files are kept.": "Ook de volumes, met de database en de gegevens van de andere services, worden verwijderd, zelfs als de projectbestanden blijven.",
-  "Backups are kept and can be restored into a new project later.": "Back-ups blijven bewaard en kunnen later in een nieuw project worden hersteld."
+  "Backups are kept and can be restored into a new project later.": "Back-ups blijven bewaard en kunnen later in een nieuw project worden hersteld.",
+  "Next runs (local time):": "Volgende runs (lokale tijd):"
 }
