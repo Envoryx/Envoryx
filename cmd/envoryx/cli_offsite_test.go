@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 	"testing"
@@ -73,5 +74,28 @@ func TestBackupOffsiteCommands(t *testing.T) {
 	_ = json.Unmarshal(srv.bodies["/api/v1/projects/"+pid+"/offsite/t2/fetch"], &fetched)
 	if fetched["key"] != "projects/acme-shop/20260901-020000-00000000.full.scheduled.tar.age" || !strings.Contains(out.String(), "envoryx backup restore acme-shop b9") {
 		t.Fatalf("fetch: %v %s", fetched, out)
+	}
+}
+
+// An action that deletes data runs only with --yes; the list shows the label, not the
+// script behind it.
+func TestProjectRunAsksForDestructiveActions(t *testing.T) {
+	srv := newFakeServer(t, map[string]func(http.ResponseWriter, *http.Request){
+		"GET /api/v1/projects/11111111-1111-4111-8111-111111111111/actions": func(w http.ResponseWriter, r *http.Request) {
+			writeJSON(w, map[string]any{"actions": []map[string]any{
+				{"id": "typo3:setup", "label": "typo3 setup", "description": "Empty the project database and set TYPO3 up in it", "cmd": []string{"sh", "-c", "line one\nline two"}, "destructive": true, "available": true},
+			}})
+		},
+	})
+	c, out, _ := newTestCLI(t, srv, "")
+	err := c.run(context.Background(), []string{"project", "run", "acme-shop", "typo3:setup"})
+	if !errors.Is(err, errCLIUsage) || !strings.Contains(err.Error(), "--yes") || !strings.Contains(err.Error(), "empty the project database") {
+		t.Fatalf("without --yes: %v", err)
+	}
+	if err := c.run(context.Background(), []string{"project", "run", "acme-shop"}); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(out.String(), "line two") || !strings.Contains(out.String(), "typo3 setup") {
+		t.Fatalf("list: %s", out)
 	}
 }

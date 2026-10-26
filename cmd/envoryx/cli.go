@@ -57,7 +57,8 @@ Projects:
   project exec <project> -- <cmd…>      run a command in the application container
                                         (--service NAME for another, --no-stdin)
   project run <project> [action]        run a catalogue action (composer install …);
-                                        without one, list what the project offers
+                                        without one, list what the project offers;
+                                        one that deletes data needs --yes
   project branches <project>            its branch environments with their deploy state
   project branch <project> <branch>     a branch environment: a copy on that branch
   project deploy <environment>          pull a branch environment and run the deploy

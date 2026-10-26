@@ -164,6 +164,7 @@ type actionInfo struct {
 // ci …) and streams its output. Without an action it lists what this project offers.
 func (c *cli) projectRun(ctx context.Context, args []string) error {
 	fs := c.newFlags("project run")
+	yes := fs.Bool("yes", false, "confirm an action that deletes data")
 	pos, err := parse(fs, args)
 	if err != nil {
 		return err
@@ -179,16 +180,16 @@ func (c *cli) projectRun(ctx context.Context, args []string) error {
 		return err
 	}
 	action := arg(pos, 1)
+	if action == "" && c.json {
+		return c.printRaw(ctx, api, projectPath(p.ID, "actions"), nil, "actions")
+	}
+	var body struct {
+		Actions []actionInfo `json:"actions"`
+	}
+	if err := api.get(ctx, projectPath(p.ID, "actions"), nil, &body); err != nil {
+		return err
+	}
 	if action == "" {
-		if c.json {
-			return c.printRaw(ctx, api, projectPath(p.ID, "actions"), nil, "actions")
-		}
-		var body struct {
-			Actions []actionInfo `json:"actions"`
-		}
-		if err := api.get(ctx, projectPath(p.ID, "actions"), nil, &body); err != nil {
-			return err
-		}
 		rows := make([][]string, 0, len(body.Actions))
 		for _, a := range body.Actions {
 			state := "ready"
@@ -198,10 +199,17 @@ func (c *cli) projectRun(ctx context.Context, args []string) error {
 					state = "unavailable"
 				}
 			}
-			rows = append(rows, []string{a.ID, strings.Join(a.Cmd, " "), state})
+			// The label, not the command: some commands are whole scripts over many lines.
+			rows = append(rows, []string{a.ID, a.Label, state})
 		}
 		c.table([]string{"ACTION", "COMMAND", "STATE"}, rows)
 		return nil
+	}
+	// Actions that delete data ask in the UI; here they take --yes, like project delete.
+	for _, a := range body.Actions {
+		if a.ID == action && a.Destructive && !*yes {
+			return usagef("%s: %s; confirm with --yes", a.ID, strings.ToLower(a.Description[:1])+a.Description[1:])
+		}
 	}
 
 	// Actions run over a WebSocket: the project lock is held for as long as the socket
