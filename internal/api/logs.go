@@ -234,7 +234,7 @@ func (a *API) serviceLogsWS(w http.ResponseWriter, r *http.Request) {
 	lines := make(chan logs.Line, 512)
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- a.d.Projects.StreamLogs(ctx, id, kind, docker.LogOptions{Tail: strconv.Itoa(tailParam(r, 200)), Since: q.Since, Follow: true}, func(l docker.LogLine) {
+		errCh <- a.d.Projects.FollowLogs(ctx, id, kind, docker.LogOptions{Tail: strconv.Itoa(tailParam(r, 200)), Since: q.Since}, func(l docker.LogLine) {
 			lvl, ok := match.Match(l)
 			if !ok {
 				return

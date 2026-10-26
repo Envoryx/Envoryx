@@ -56,6 +56,101 @@ func (m *Manager) StreamLogs(ctx context.Context, id string, kind store.ServiceK
 	return m.engine.StreamLogs(ctx, c.ID, opts, emit)
 }
 
+// followPoll is how often FollowLogs looks for a replaced container, and followWait how
+// long it waits for one after the stream ended while the project should be running.
+var (
+	followPoll = 2 * time.Second
+	followWait = 2 * time.Minute
+)
+
+// FollowLogs streams a service's output like StreamLogs with Follow, and carries on with
+// the successor when a restart or an update replaces the container: a follower attached
+// to the old container would otherwise go quiet for good. It ends when ctx does, or when
+// the service's container is gone and the project isn't meant to run.
+func (m *Manager) FollowLogs(ctx context.Context, id string, kind store.ServiceKind, opts docker.LogOptions, emit func(docker.LogLine)) error {
+	c, err := m.ServiceContainer(ctx, id, kind)
+	if err != nil {
+		return err
+	}
+	opts.Follow = true
+	var last time.Time
+	track := func(l docker.LogLine) {
+		// Docker's since is inclusive: the lines already shown come again on a re-read.
+		if !last.IsZero() && !l.Time.After(last) {
+			return
+		}
+		if !l.Time.IsZero() {
+			last = l.Time
+		}
+		emit(l)
+	}
+	for {
+		sctx, cancel := context.WithCancel(ctx)
+		done := make(chan error, 1)
+		go func(containerID string, o docker.LogOptions) {
+			done <- m.engine.StreamLogs(sctx, containerID, o, track)
+		}(c.ID, opts)
+		next, err := m.awaitSuccessor(ctx, id, kind, c, done, cancel)
+		cancel()
+		if next.ID == "" || err != nil {
+			return err
+		}
+		if next.ID == c.ID {
+			// The same container again (started anew): only what came since.
+			opts = docker.LogOptions{Follow: true, Since: last}
+		} else {
+			// A new container's output is all new.
+			opts = docker.LogOptions{Follow: true}
+		}
+		c = next
+	}
+}
+
+// awaitSuccessor watches a follow of c until it should move on. It returns the
+// container to follow next (c itself when it was started again), or none when the
+// follow is over. The stream has ended by the time it returns; stop ends it early.
+func (m *Manager) awaitSuccessor(ctx context.Context, id string, kind store.ServiceKind, c docker.Container, done <-chan error, stop func()) (docker.Container, error) {
+	tick := time.NewTicker(followPoll)
+	defer tick.Stop()
+	streaming := true
+	var deadline time.Time
+	for {
+		select {
+		case <-ctx.Done():
+			if streaming {
+				<-done
+			}
+			return docker.Container{}, nil
+		case err := <-done:
+			streaming = false
+			if err != nil {
+				return docker.Container{}, err
+			}
+			deadline = time.Now().Add(followWait)
+			continue
+		case <-tick.C:
+		}
+		cur, err := m.ServiceContainer(ctx, id, kind)
+		replaced := err == nil && cur.ID != c.ID
+		if streaming {
+			if !replaced {
+				continue
+			}
+			// The old stream may linger after its container was replaced; end it.
+			stop()
+			<-done
+			return cur, nil
+		}
+		if replaced || (err == nil && cur.State == "running") {
+			return cur, nil
+		}
+		p, perr := m.store.Projects.Get(ctx, id)
+		if perr != nil || p.DesiredState != store.DesiredRunning || time.Now().After(deadline) {
+			return docker.Container{}, nil
+		}
+	}
+}
+
 // LogPage is the result of a log query: the last lines that matched.
 type LogPage struct {
 	Lines []logs.Line `json:"lines"`

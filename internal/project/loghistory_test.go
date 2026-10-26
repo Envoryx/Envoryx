@@ -120,3 +120,57 @@ func TestLogHistorySettings(t *testing.T) {
 		}
 	}
 }
+
+// A follow carries on with the container a restart put in place of the old one, and ends
+// once the project is stopped.
+func TestFollowLogsSurvivesARecreate(t *testing.T) {
+	poll, wait := followPoll, followWait
+	followPoll, followWait = 10*time.Millisecond, time.Minute
+	t.Cleanup(func() { followPoll, followWait = poll, wait })
+	e := newEnv(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	view, err := e.m.Create(ctx, phpRequest("Follow", true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := view.Project.ID
+	base := time.Now().Add(-time.Hour).UTC()
+	e.engine.SetLogs("envoryx-follow-php", docker.LogLine{Time: base, Stream: "stderr", Text: "first container"})
+
+	lines := make(chan string, 10)
+	ended := make(chan error, 1)
+	go func() {
+		ended <- e.m.FollowLogs(ctx, id, store.ServicePHP, docker.LogOptions{}, func(l docker.LogLine) { lines <- l.Text })
+	}()
+	next := func(want string) {
+		t.Helper()
+		select {
+		case got := <-lines:
+			if got != want {
+				t.Fatalf("line %q, want %q", got, want)
+			}
+		case <-time.After(3 * time.Second):
+			t.Fatalf("no line, want %q", want)
+		}
+	}
+	next("first container")
+
+	if err := e.m.recreateContainers(ctx, id, store.ServicePHP); err != nil {
+		t.Fatal(err)
+	}
+	e.engine.SetLogs("envoryx-follow-php", docker.LogLine{Time: base.Add(time.Minute), Stream: "stderr", Text: "second container"})
+	next("second container")
+
+	if _, err := e.m.Stop(ctx, id); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case err := <-ended:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("the follow did not end with the project stopped")
+	}
+}
