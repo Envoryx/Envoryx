@@ -29,7 +29,11 @@ describe("DockerPage", () => {
     expect(screen.getByText(/volume envoryx-ghost-database/)).toBeInTheDocument();
     // Created before instance labels: may be another instance's, so it is marked.
     expect(screen.getByText("older Envoryx")).toBeInTheDocument();
+    // A volume holds data: the first click only asks.
     await user.click(screen.getByRole("button", { name: "Remove" }));
+    expect(screen.getByText(/Remove the volume envoryx-ghost-database and the data in it/)).toBeInTheDocument();
+    expect(api.calls.some((c) => c.method === "POST")).toBe(false);
+    await user.click(screen.getByRole("button", { name: "Remove volume" }));
     await waitFor(() => expect(api.calls.some((c) => c.method === "POST" && c.url.endsWith("/docker/orphans/remove"))).toBe(true));
     expect(api.calls.find((c) => c.method === "POST")!.body).toEqual({ type: "volume", id: "envoryx-ghost-database" });
   });

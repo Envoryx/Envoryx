@@ -1466,7 +1466,7 @@ func (e *MobyEngine) ListImages(ctx context.Context) ([]Image, error) {
 				tags = append(tags, t)
 			}
 		}
-		out = append(out, Image{ID: img.ID, Tags: tags, Size: img.Size, Created: time.Unix(img.Created, 0).UTC()})
+		out = append(out, Image{ID: img.ID, Tags: tags, Size: img.Size, Created: time.Unix(img.Created, 0).UTC(), Labels: img.Labels})
 	}
 	return out, nil
 }

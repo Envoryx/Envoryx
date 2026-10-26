@@ -58,7 +58,8 @@ func TestUnusedImagesOnlyTouchCatalogueImages(t *testing.T) {
 
 // Another Envoryx instance on the same Docker daemon keeps its rollback history in its
 // own database: a rollback tag for one of its projects is never pruned, a stale one of a
-// project of ours is.
+// project of ours is. The same goes for built images, by the instance that built them,
+// and for catalogue repositories only the exact references Envoryx pulls count.
 func TestPruneKeepsOtherInstancesRollbackTargets(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
@@ -82,6 +83,35 @@ func TestPruneKeepsOtherInstancesRollbackTargets(t *testing.T) {
 	}
 	if ok, _ := e.engine.ImageExists(ctx, "envoryx-rollback/theirs:ghcr.io-envoryx-envoryx-php-8.4"); !ok {
 		t.Fatal("another instance's rollback target must survive the prune")
+	}
+}
+
+func TestUnusedImagesLeaveOtherInstancesAndOtherTagsAlone(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	e.engine.Instance = "a"
+	e.engine.AddImage("busybox:latest")
+	e.engine.AddImage("mongo:latest")
+	e.engine.AddImage("busybox:1.37")
+	if err := e.engine.BuildImage(ctx, docker.BuildOptions{Tag: "envoryx-build/php:theirs", Labels: map[string]string{labelBuild: "php", labelBuildInstance: "b"}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.engine.BuildImage(ctx, docker.BuildOptions{Tag: "envoryx-build/php:old", Labels: map[string]string{labelBuild: "php"}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.engine.BuildImage(ctx, docker.BuildOptions{Tag: "envoryx-build/php:mine", Labels: e.m.buildLabels(store.ServicePHP)}); err != nil {
+		t.Fatal(err)
+	}
+	unused, err := e.m.UnusedImages(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for _, u := range unused {
+		got = append(got, u.Tags...)
+	}
+	if strings.Join(got, ",") != "busybox:1.37,envoryx-build/php:mine" {
+		t.Fatalf("unused: %v", got)
 	}
 }
 
@@ -258,21 +288,19 @@ func TestRollbackTagsReconciled(t *testing.T) {
 	if err := e.engine.UntagImage(ctx, "ghcr.io/envoryx/envoryx-php:7.4"); err != nil {
 		t.Fatal(err)
 	}
+	// A rollback tag of a project this instance doesn't have may be another instance's
+	// (Envoryx releases its own when a project is deleted), so it is not offered.
 	unused, err := e.m.UnusedImages(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	found := false
 	for _, u := range unused {
 		if u.ID == "ghcr.io/envoryx/envoryx-php:7.4@v1" {
-			found = true
+			t.Fatal("rollback tag of an unknown project offered for pruning")
 		}
 		if u.ID == img+"@v1" {
 			t.Fatal("live rollback target offered for pruning")
 		}
-	}
-	if !found {
-		t.Fatalf("stale rollback tag not offered for pruning: %+v", unused)
 	}
 }
 
