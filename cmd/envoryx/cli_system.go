@@ -26,6 +26,15 @@ type diagnosticCheck struct {
 	Hint     string `json:"hint"`
 }
 
+// browserHints rewords the sentences of the checks that point at the web interface's
+// own check from the browser, which the CLI doesn't have.
+var browserHints = strings.NewReplacer(
+	" The check from this browser above shows whether project domains work.",
+	" Whether project domains work shows when one opens on your devices (Settings → Diagnostics in the web interface checks it from the browser).",
+	" - the check from this browser above is what counts.",
+	" - what counts is whether a project address opens on your devices (Settings → Diagnostics in the web interface checks it from the browser).",
+)
+
 // diagnostics prints the checks of Settings → Diagnostics. It fails when a check is in
 // error, or with --strict also on a warning, so a monitoring job can run it as it is.
 func (c *cli) diagnostics(ctx context.Context, args []string) error {
@@ -65,17 +74,18 @@ func (c *cli) diagnostics(ctx context.Context, args []string) error {
 			}
 			c.printf("%-7s  %s (%s)\n", strings.ToUpper(ch.Status), ch.Title, ch.Category)
 			if ch.Detail != "" {
-				c.printf("         %s\n", ch.Detail)
+				c.printf("         %s\n", browserHints.Replace(ch.Detail))
 			}
 			if ch.Hint != "" && ch.Status != "ok" {
-				c.printf("         → %s\n", ch.Hint)
+				c.printf("         → %s\n", browserHints.Replace(ch.Hint))
 			}
 			shown++
 		}
 		if shown > 0 {
 			c.printf("\n")
 		}
-		c.printf("%d ok, %d info, %d warnings, %d errors\n", body.Summary["ok"], body.Summary["info"], body.Summary["warning"], body.Summary["error"])
+		warnings, errs := body.Summary["warning"], body.Summary["error"]
+		c.printf("%d ok, %d info, %d warning%s, %d error%s\n", body.Summary["ok"], body.Summary["info"], warnings, plural(warnings), errs, plural(errs))
 	}
 	failed := body.Summary["error"]
 	if *strict {

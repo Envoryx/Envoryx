@@ -14,7 +14,7 @@ func diagnosticsRoute(errors int) map[string]func(http.ResponseWriter, *http.Req
 		"GET /api/v1/system/diagnostics": func(w http.ResponseWriter, r *http.Request) {
 			checks := []map[string]any{
 				{"id": "docker", "category": "runtime", "status": "ok", "title": "Docker engine reachable", "detail": "29.1"},
-				{"id": "dns", "category": "network", "status": "warning", "title": "Wildcard DNS", "detail": "x.shop.test does not resolve", "hint": "Point *.test at this host"},
+				{"id": "dns", "category": "network", "status": "warning", "title": "Wildcard DNS", "detail": "x.shop.test does not resolve", "hint": "Point *.test at this host. The check from this browser above shows whether project domains work."},
 			}
 			if errors > 0 {
 				checks = append(checks, map[string]any{"id": "disk", "category": "runtime", "status": "error", "title": "Disk space", "detail": "2% free"})
@@ -33,7 +33,7 @@ func TestDiagnostics(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := out.String()
-	if strings.Contains(text, "Docker engine reachable") || !strings.Contains(text, "WARNING") || !strings.Contains(text, "→ Point *.test at this host") || !strings.Contains(text, "1 ok, 0 info, 1 warnings, 0 errors") {
+	if strings.Contains(text, "Docker engine reachable") || !strings.Contains(text, "WARNING") || !strings.Contains(text, "→ Point *.test at this host") || !strings.Contains(text, "1 ok, 0 info, 1 warning, 0 errors") || strings.Contains(text, "browser above") {
 		t.Fatalf("output:\n%s", text)
 	}
 	if err := c.run(context.Background(), []string{"diagnostics", "--strict"}); err == nil || err.Error() != "1 check needs attention" {
