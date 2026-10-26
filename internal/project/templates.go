@@ -831,7 +831,7 @@ var dotnetTemplates = []Template{
 		ID: "aspnet-webapi", Name: "ASP.NET Core Web API", Description: "Minimal API with OpenAPI (dotnet new webapi); EF Core with a sample /todos endpoint on the project database when it is PostgreSQL, MySQL or MariaDB.",
 		Runtime: "dotnet", Docroot: "", RecommendedDatabase: "postgresql",
 		Dotnet: &runtime.DotnetConfig{Server: true, Preset: "aspnetcore", Port: 8080},
-		Notes:  "dotnet watch applies code changes with hot reload and restarts the application when it can't. Envoryx injects ConnectionStrings__DefaultConnection for the project database; AppDatabase.cs creates the tables with EnsureCreated. To switch to migrations once the model settles, replace EnsureCreated with Migrate in AppDatabase.cs, run “dotnet ef migrations add Initial” in the terminal and drop the tables EnsureCreated made (or start from an empty database), then run the \"dotnet ef database update\" action: a migration can't create tables that already exist.",
+		Notes:  "dotnet watch applies code changes with hot reload and restarts the application when it can't. Envoryx injects ConnectionStrings__DefaultConnection for the project database. The tables come from the Initial migration in Migrations/, which AppDatabase.cs applies on start (Database.Migrate). After a model change run “dotnet ef migrations add <Name>” in the terminal, then the \"dotnet ef database update\" action or a restart.",
 		steps: []templateStep{
 			{label: "dotnet new webapi", cmdFor: dotnetNew("webapi")},
 			dotnetGitignore,
@@ -915,7 +915,12 @@ func dotnetEFCore(p store.Project) []string {
 // SDK's major version and pins what that resolved to, so every later restore gets the
 // same packages. AppDatabase.cs holds the context, a sample entity and its endpoints;
 // Program.cs gets one line to register the context and one to map the endpoints. The
-// template writes Program.cs with CRLF line ends, which the inserted lines keep.
+// template writes Program.cs with CRLF line ends, which the inserted lines keep. The
+// schema starts as the Initial migration, applied on start, so the documented next step
+// (add a migration, database update) builds on it: tables EnsureCreated had made carry no
+// migration history, and the first migration would collide with them. dotnet ef runs the
+// application up to the host build, where AddAppDatabase wants a connection string; it
+// doesn't connect, so any will do.
 const dotnetEFCoreScript = `set -e
 major=$1 pkg=$2 use=$3
 [ -n "$pkg" ] || { echo 'no PostgreSQL, MySQL or MariaDB database - nothing to add'; exit 0; }
@@ -926,9 +931,9 @@ cat > AppDatabase.cs <<CS
 using Microsoft.EntityFrameworkCore;
 
 // Added by Envoryx: the project database through EF Core. Envoryx injects its connection
-// string as ConnectionStrings__DefaultConnection. EnsureCreated builds the tables on the
-// first start; switch to migrations (dotnet ef migrations add Initial) once the model
-// settles.
+// string as ConnectionStrings__DefaultConnection. Migrate applies the migrations in
+// Migrations/ on every start, beginning with Initial; after a model change add one with
+// "dotnet ef migrations add <Name>".
 public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
 {
     public DbSet<Todo> Todos => Set<Todo>();
@@ -955,7 +960,7 @@ public static class AppDatabase
     {
         using (var scope = app.Services.CreateScope())
         {
-            scope.ServiceProvider.GetRequiredService<AppDbContext>().Database.EnsureCreated();
+            scope.ServiceProvider.GetRequiredService<AppDbContext>().Database.Migrate();
         }
         var todos = app.MapGroup("/todos");
         todos.MapGet("/", async (AppDbContext db) => await db.Todos.ToListAsync());
@@ -970,7 +975,8 @@ public static class AppDatabase
 }
 CS
 sed -i -e 's/^var builder = WebApplication\.CreateBuilder(args);\(\r\?\)$/&\nbuilder.AddAppDatabase();\1/' -e 's/^app\.Run();\(\r\?\)$/app.MapTodos();\1\n\1\n&/' Program.cs
-grep -q '^builder\.AddAppDatabase();' Program.cs && grep -q '^app\.MapTodos();' Program.cs`
+grep -q '^builder\.AddAppDatabase();' Program.cs && grep -q '^app\.MapTodos();' Program.cs
+ConnectionStrings__DefaultConnection='Server=localhost;Database=app' dotnet ef migrations add Initial`
 
 // railsQueueDatabase sets up the development environment of a fresh Rails application
 // for running under Envoryx. Solid Queue and Solid Cable get databases of their own, as

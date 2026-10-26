@@ -178,6 +178,12 @@ func TestDotnetTemplateWorkersTestsAndManifest(t *testing.T) {
 		!slices.Equal(steps[3], dotnetPrebuild) {
 		t.Fatalf("template steps: %q", steps)
 	}
+	// The schema starts as a migration, so the next one (migrations add, database update)
+	// builds on it instead of colliding with tables EnsureCreated made without history.
+	if !strings.Contains(dotnetEFCoreScript, "Database.Migrate();") || strings.Contains(dotnetEFCoreScript, "EnsureCreated") ||
+		!strings.Contains(dotnetEFCoreScript, "dotnet ef migrations add Initial") {
+		t.Error("the Web API template must create the schema with an Initial migration")
+	}
 	// Every .NET template writes the .gitignore that keeps bin/ and obj/ out of Git.
 	for _, tpl := range dotnetTemplates {
 		if !slices.ContainsFunc(tpl.steps, func(s templateStep) bool { return s.label == dotnetGitignore.label }) {

@@ -997,9 +997,15 @@ folder and HTTP cache live in the package cache (see
   no release for EF Core 10) and `Microsoft.EntityFrameworkCore.Design` in the
   SDK's major version, pinned to the versions that resolved, plus
   `AppDatabase.cs` with a context, a sample `Todo` entity and `GET`/`POST
-  /todos`. It creates the tables with `EnsureCreated` on the first start;
-  switch to migrations (`dotnet ef migrations add Initial`, then the `dotnet
-  ef database update` action) once the model settles.
+  /todos`. The tables come from an `Initial` migration in `Migrations/`,
+  which `AppDatabase.cs` applies on every start (`Database.Migrate()`).
+  After a model change add a migration (`dotnet ef migrations add <Name>` in
+  the terminal) and run the `dotnet ef database update` action, or restart.
+  Projects from Envoryx before 0.46 create the tables with `EnsureCreated`
+  instead; to switch them to migrations, replace `EnsureCreated` with
+  `Migrate`, add the `Initial` migration and drop the tables `EnsureCreated`
+  made (a migration can't create tables that already exist) before the
+  update.
 - **Actions, tests and workers.** Actions: `dotnet --info`, `restore`,
   `build`, `clean`, `format` and `list package --outdated` (they need a
   solution or project file at the top), `dotnet ef database update` and
