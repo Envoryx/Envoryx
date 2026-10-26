@@ -78,8 +78,17 @@ trust with the projects' containers.
   ignored. The project gate's pass and the single sign-on state work the same way. Behind
   an HTTPS reverse proxy that talks plain HTTP to Envoryx, set
   `ENVORYX_SECURE_COOKIES=true` so Envoryx knows.
+- That protection needs HTTPS. Over plain HTTP there is no `__Host-` cookie, and a
+  project's application under the same domain (`shop.test` next to `envoryx.test`) can
+  set a cookie for the whole domain that the browser also sends to the UI: it can sign the
+  user out or swap in another session. Open the UI over HTTPS (or turn on *Force HTTPS*)
+  when projects run code you don't trust.
 - Login attempts are rate-limited per IP **and** per username, with exponential back-off
-  after 5 failures.
+  after 5 failures. The per-username limit counts failures from any address, so someone
+  who knows a username can keep that account from signing in with its password for up to
+  15 minutes at a time by failing on purpose; sessions that exist and single sign-on are
+  not affected. That is the price of stopping a password guess spread over many
+  addresses. A passkey sign-in without a username is limited per address only.
 - Changing the password revokes all other sessions.
 - A second factor protects the password sign-in: TOTP (RFC 6238, the secret sealed with the
   secret key, each time step accepted once, one step of clock drift) or a WebAuthn passkey

@@ -349,7 +349,8 @@ func (s *Service) FinishPasskeyLogin(ctx context.Context, id string, response []
 	if cer.register {
 		return "", store.User{}, ErrCeremony
 	}
-	limitKey := "passkey"
+	// A sign-in without a username counts against its address alone (loginLimiter.keys).
+	limitKey := ""
 	if cer.userID != "" {
 		limitKey = "mfa:" + cer.userID
 	}

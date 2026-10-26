@@ -432,9 +432,15 @@ func newLoginLimiter() *loginLimiter {
 	return &loginLimiter{entries: map[string]*limitEntry{}}
 }
 
+// keys are the counters an attempt goes against: its address and its account. An
+// attempt that names no account (a passkey without a username) counts per address only;
+// a shared counter would let anyone block every such sign-in.
 func (l *loginLimiter) keys(ip, user string) []string {
-	if ip == "" {
+	switch {
+	case ip == "":
 		return []string{"user:" + user}
+	case user == "":
+		return []string{"ip:" + ip}
 	}
 	return []string{"ip:" + ip, "user:" + user}
 }

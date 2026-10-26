@@ -445,3 +445,25 @@ func TestShortIdleTimeoutSlides(t *testing.T) {
 		}
 	}
 }
+
+// An attempt that names no account counts per address: failures from one address must
+// not block a sign-in without a username from another.
+func TestLoginLimiterKeepsAttemptsWithoutAnAccountPerAddress(t *testing.T) {
+	l := newLoginLimiter()
+	now := time.Now()
+	for range limiterMaxFailures + 1 {
+		l.fail("10.0.0.1", "", now)
+	}
+	if l.allow("10.0.0.1", "", now) {
+		t.Fatal("the failing address must be blocked")
+	}
+	if !l.allow("10.0.0.2", "", now) {
+		t.Fatal("another address was blocked by failures that named no account")
+	}
+	for range limiterMaxFailures + 1 {
+		l.fail("10.0.0.1", "admin", now)
+	}
+	if l.allow("10.0.0.3", "admin", now) {
+		t.Fatal("an account must stay limited from every address")
+	}
+}
