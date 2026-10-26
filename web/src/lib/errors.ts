@@ -274,7 +274,7 @@ const templates: (string | [string, string])[] = [
   "keep the log history for 1 to {{max}} days",
   "the log history may use {{min}} MB to {{max}} MB",
   "keep the resource history for 1 to {{max}} days",
-  "keep the audit log for 1 to {{max}} days, or 0 for all of it",
+  "keep the audit log for {{min}} to {{max}} days, or 0 for all of it",
   "folder name must be at most {{max}} characters without control characters",
   "{{suite}} takes no filter",
   // Services of a project.

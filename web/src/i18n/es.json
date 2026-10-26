@@ -1359,7 +1359,7 @@
   "the log history may use {{min}} MB to {{max}} MB": "El historial de logs puede ocupar de {{min}} MB a {{max}} MB",
   "the log history is not available": "El historial de logs no está disponible",
   "keep the resource history for 1 to {{max}} days": "Conserva el historial de recursos de 1 a {{max}} días",
-  "keep the audit log for 1 to {{max}} days, or 0 for all of it": "Conserva el registro de auditoría de 1 a {{max}} días, o 0 para conservarlo todo",
+  "keep the audit log for {{min}} to {{max}} days, or 0 for all of it": "Conserva el registro de auditoría de {{min}} a {{max}} días, o 0 para conservarlo todo",
   "folder name must be at most {{max}} characters without control characters": "El nombre de la carpeta debe tener como máximo {{max}} caracteres, sin caracteres de control",
   "the filter is at most 200 characters, without line breaks, and does not start with a dash": "El filtro tiene como máximo 200 caracteres, sin saltos de línea, y no empieza por un guion",
   "{{suite}} takes no filter": "{{suite}} no admite filtro",

@@ -329,9 +329,24 @@ func scanAudit(rows *sql.Rows) (AuditEntry, string, error) {
 	return e, created, nil
 }
 
-// Users lists the account names that appear in the log (tokens under their account),
-// for the user filter.
+// Users lists the accounts that appear in the log (tokens under their account), for the
+// user filter. Only existing accounts count: a failed sign-in logs whatever name was
+// typed, and anyone could fill the filter with made-up names.
 func (r *Audit) Users(ctx context.Context) ([]string, error) {
+	accounts := map[string]bool{}
+	urows, err := r.db.QueryContext(ctx, `SELECT username FROM users`)
+	if err != nil {
+		return nil, fmt.Errorf("select users: %w", err)
+	}
+	for urows.Next() {
+		var u string
+		if err := urows.Scan(&u); err != nil {
+			urows.Close()
+			return nil, err
+		}
+		accounts[u] = true
+	}
+	urows.Close()
 	rows, err := r.db.QueryContext(ctx, `SELECT DISTINCT username FROM audit_log WHERE username != ''`)
 	if err != nil {
 		return nil, fmt.Errorf("select audit users: %w", err)
@@ -346,7 +361,9 @@ func (r *Audit) Users(ctx context.Context) ([]string, error) {
 		if base, _, ok := strings.Cut(u, " (token: "); ok {
 			u = base
 		}
-		seen[u] = true
+		if accounts[u] {
+			seen[u] = true
+		}
 	}
 	out := make([]string, 0, len(seen))
 	for u := range seen {

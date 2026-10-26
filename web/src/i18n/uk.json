@@ -1395,7 +1395,7 @@
   "the log history may use {{min}} MB to {{max}} MB": "Історія логів може займати від {{min}} MB до {{max}} MB",
   "the log history is not available": "Історія логів недоступна",
   "keep the resource history for 1 to {{max}} days": "Зберігайте історію ресурсів від 1 до {{max}} дн.",
-  "keep the audit log for 1 to {{max}} days, or 0 for all of it": "Зберігайте журнал аудиту від 1 до {{max}} дн. або вкажіть 0, щоб зберігати все",
+  "keep the audit log for {{min}} to {{max}} days, or 0 for all of it": "Зберігайте журнал аудиту від {{min}} до {{max}} дн. або вкажіть 0, щоб зберігати все",
   "folder name must be at most {{max}} characters without control characters": "Назва папки має бути не довшою за {{max}} символів і без керівних символів",
   "the filter is at most 200 characters, without line breaks, and does not start with a dash": "Фільтр - не більше 200 символів, без переносів рядків і не починається з дефіса",
   "{{suite}} takes no filter": "{{suite}} не приймає фільтр",

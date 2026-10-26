@@ -58,6 +58,13 @@ func TestAuditQuery(t *testing.T) {
 		}
 	}
 
+	// Only names of existing accounts: a failed sign-in logs any typed name.
+	add(base.Add(25*time.Hour), "nobody", "auth.login_failed", "", `{}`)
+	for _, name := range []string{"admin", "dev"} {
+		if _, err := st.Users.Create(ctx, name, "", "admin"); err != nil {
+			t.Fatal(err)
+		}
+	}
 	users, err := st.Audit.Users(ctx)
 	if err != nil || !slices.Equal(users, []string{"admin", "dev"}) {
 		t.Fatalf("users: %v %v", users, err)
@@ -66,7 +73,7 @@ func TestAuditQuery(t *testing.T) {
 	if err != nil || n != 2 {
 		t.Fatalf("prune: %d %v", n, err)
 	}
-	if got := ids(store.AuditQuery{}); len(got) != 3 {
+	if got := ids(store.AuditQuery{}); len(got) != 4 {
 		t.Fatalf("after prune: %v", got)
 	}
 }

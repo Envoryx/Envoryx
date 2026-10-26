@@ -67,15 +67,19 @@ func TestAuditFiltersExportAndRetention(t *testing.T) {
 	}
 
 	r = a.do(http.MethodGet, "/api/v1/audit/users", nil, false)
-	if users := r.body["users"].([]any); len(users) != 2 {
+	// The failed sign-in's made-up name stays out of the filter.
+	if users := r.body["users"].([]any); len(users) != 1 || users[0] != "admin" {
 		t.Fatalf("users: %s", r.raw)
 	}
 	r = a.do(http.MethodGet, "/api/v1/audit/settings", nil, false)
 	if r.body["settings"].(map[string]any)["retentionDays"] != float64(0) {
 		t.Fatalf("default keeps everything: %s", r.raw)
 	}
-	if r := a.do(http.MethodPut, "/api/v1/audit/settings", map[string]int{"retentionDays": -1}, true); r.status != http.StatusUnprocessableEntity {
-		t.Fatalf("negative retention: %d", r.status)
+	// A month up to two years, or forever: one call must not shrink the log to a day.
+	for _, days := range []int{-1, 1, 29, 731} {
+		if r := a.do(http.MethodPut, "/api/v1/audit/settings", map[string]int{"retentionDays": days}, true); r.status != http.StatusUnprocessableEntity {
+			t.Fatalf("retention of %d days: %d", days, r.status)
+		}
 	}
 	r = a.do(http.MethodPut, "/api/v1/audit/settings", map[string]int{"retentionDays": 90}, true)
 	if r.status != http.StatusOK || r.body["settings"].(map[string]any)["retentionDays"] != float64(90) {

@@ -12,9 +12,12 @@ import (
 )
 
 // SettingAuditDays is how many days the audit log keeps its entries; 0 keeps them all.
+// The choices run from a month to two years: a shorter one would let a single change
+// wipe the trail of what happened just before it.
 const (
 	SettingAuditDays = "audit_retention_days"
-	MaxAuditDays     = 3650
+	MinAuditDays     = 30
+	MaxAuditDays     = 730
 )
 
 // AuditSettings are the audit log's settings.
@@ -31,8 +34,8 @@ func (m *Manager) AuditSettings(ctx context.Context) AuditSettings {
 // SetAuditRetention sets how many days the audit log keeps (0 keeps all) and applies it
 // now.
 func (m *Manager) SetAuditRetention(ctx context.Context, days int) (AuditSettings, error) {
-	if days < 0 || days > MaxAuditDays {
-		return AuditSettings{}, fmt.Errorf("%w: keep the audit log for 1 to %d days, or 0 for all of it", validate.ErrInvalid, MaxAuditDays)
+	if days != 0 && (days < MinAuditDays || days > MaxAuditDays) {
+		return AuditSettings{}, fmt.Errorf("%w: keep the audit log for %d to %d days, or 0 for all of it", validate.ErrInvalid, MinAuditDays, MaxAuditDays)
 	}
 	if err := m.store.Settings.Set(ctx, SettingAuditDays, strconv.Itoa(days)); err != nil {
 		return AuditSettings{}, err
