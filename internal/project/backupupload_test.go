@@ -195,3 +195,50 @@ func TestRestoreBackupSealedWithAnotherKey(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// A backup whose settings don't open with the key that sealed them (damaged on disk)
+// doesn't stop resealing, which runs at every start: it is left as it is.
+func TestResealBackupsSkipsADamagedBackup(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	defer secrets.SetDefault(nil)
+	old, _ := secrets.GenerateKey()
+	secrets.SetDefault(secrets.NewRing(old))
+	v, err := e.m.Create(ctx, phpRequest("Shop", false))
+	if err != nil {
+		t.Fatal(err)
+	}
+	good, err := e.m.CreateBackup(ctx, v.Project.ID, BackupOptions{Files: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	bad, err := e.m.CreateBackup(ctx, v.Project.ID, BackupOptions{Files: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	loc, _ := e.m.BackupLocation(ctx, v.Project.ID)
+	file := filepath.Join(loc, bad.Dir, backupMetaFile)
+	raw, _ := os.ReadFile(file)
+	var bf backupFile
+	_ = json.Unmarshal(raw, &bf)
+	bf.SealedExport = bf.SealedExport[:len(bf.SealedExport)-4] + "AAAA"
+	if err := writeBackupFile(file, bf); err != nil {
+		t.Fatal(err)
+	}
+	damaged, _ := os.ReadFile(file)
+
+	next, _ := secrets.GenerateKey()
+	secrets.SetDefault(secrets.NewRing(next, old))
+	n, err := e.m.ResealBackups(ctx)
+	if err != nil || n != 1 {
+		t.Fatalf("reseal: %d %v", n, err)
+	}
+	if now, _ := os.ReadFile(file); string(now) != string(damaged) {
+		t.Fatal("the damaged backup was changed")
+	}
+	raw, _ = os.ReadFile(filepath.Join(loc, good.Dir, backupMetaFile))
+	_ = json.Unmarshal(raw, &bf)
+	if secrets.KeyIDOf(bf.SealedExport) != next.ID() {
+		t.Fatalf("the good backup is still sealed with %s", secrets.KeyIDOf(bf.SealedExport))
+	}
+}
