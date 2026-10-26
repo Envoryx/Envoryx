@@ -44,3 +44,24 @@ func TestKernelProblemInUse(t *testing.T) {
 		t.Errorf("new choice: %q", got)
 	}
 }
+
+// MariaDB "11" follows mariadb:11, the newest 11.x, so it is newer than "11.4"; MongoDB
+// "8" is mongo:8.0, older than "8.2".
+func TestCompareDatabaseVersionsFollowsTheImage(t *testing.T) {
+	c := Default()
+	for _, tc := range []struct {
+		key, a, b string
+		want      int
+	}{
+		{"mariadb", "11", "11.4", 1},
+		{"mariadb", "11.4", "11", -1},
+		{"mariadb", "10.11", "11.4", -1},
+		{"mariadb", "11.4", "11.4", 0},
+		{"mongodb", "8", "8.2", -1},
+		{"mongodb", "8.2", "7.0", 1},
+	} {
+		if got := c.CompareDatabaseVersions(tc.key, tc.a, tc.b); got != tc.want {
+			t.Errorf("%s %s vs %s: %d, want %d", tc.key, tc.a, tc.b, got, tc.want)
+		}
+	}
+}

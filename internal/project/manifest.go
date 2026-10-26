@@ -906,7 +906,7 @@ func (m *Manager) planManifest(ctx context.Context, id string, mf manifest.Manif
 				update(DatabaseUpdate{Enabled: false, RemoveData: true})
 				later(DatabaseUpdate{Enabled: true, Type: w.Type, Version: w.Version, ExposePort: w.ExposePort})
 			}
-		case runtime.CompareVersions(w.Version, h.Version) < 0:
+		case m.catalog.CompareDatabaseVersions(w.Type, w.Version, h.Version) < 0:
 			c.Skipped = "downgrade"
 			add(c)
 		default:

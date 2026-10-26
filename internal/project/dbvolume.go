@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/envoryx/envoryx/internal/docker"
-	"github.com/envoryx/envoryx/internal/runtime"
 	"github.com/envoryx/envoryx/internal/store"
 	"github.com/envoryx/envoryx/internal/validate"
 )
@@ -41,7 +40,7 @@ func (m *Manager) copyDatabaseVolume(ctx context.Context, p store.Project, svc *
 // to open those files: the version they were copied from, or one that takes that
 // version's data over in place (the 8.0 copy an upgrade to MongoDB 8.2 took).
 func (m *Manager) restoreDatabaseVolume(ctx context.Context, p store.Project, svc *store.ProjectService, copied VolumeCopyMeta, source string) error {
-	if copied.Version != svc.Version && (runtime.CompareVersions(svc.Version, copied.Version) < 0 || !m.catalog.UpgradesInPlace(svc.Variant, copied.Version, svc.Version)) {
+	if copied.Version != svc.Version && (m.catalog.CompareDatabaseVersions(svc.Variant, svc.Version, copied.Version) < 0 || !m.catalog.UpgradesInPlace(svc.Variant, copied.Version, svc.Version)) {
 		return fmt.Errorf("%w: the backup holds a copy of %s %s data, which %s %s cannot open", validate.ErrInvalid, copied.Type, copied.Version, svc.Variant, svc.Version)
 	}
 	if err := m.engine.EnsureImage(ctx, addonVolumeTool, m.pullProgress(ctx, p.Slug, addonVolumeTool)); err != nil {

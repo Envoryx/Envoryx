@@ -252,12 +252,12 @@ func TestAddChangeAndRemoveDatabase(t *testing.T) {
 	if _, err := e.m.Update(ctx, id, UpdateRequest{Database: &DatabaseUpdate{Enabled: true, Version: "10.6"}}); !errors.Is(err, validate.ErrInvalid) {
 		t.Fatalf("downgrade must be refused, got %v", err)
 	}
-	view, err = e.m.Update(ctx, id, UpdateRequest{Database: &DatabaseUpdate{Enabled: true, Version: "11", ExposePort: true}})
+	view, err = e.m.Update(ctx, id, UpdateRequest{Database: &DatabaseUpdate{Enabled: true, Version: "11.4", ExposePort: true}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	db, _ := e.engine.Container("envoryx-grow-database")
-	if db.Spec.Image != "mariadb:11" || len(db.Spec.Ports) != 1 || db.State != "running" {
+	if db.Spec.Image != "mariadb:11.4" || len(db.Spec.Ports) != 1 || db.State != "running" {
 		t.Fatalf("upgrade + expose: %+v", db.Spec)
 	}
 	if got := strings.Join(e.engine.VolumeNames(), ","); got != "envoryx-grow-database" {
@@ -265,7 +265,7 @@ func TestAddChangeAndRemoveDatabase(t *testing.T) {
 	}
 	// The upgrade took a database dump first.
 	backups, err := e.m.ListBackups(ctx, id)
-	if err != nil || len(backups) != 1 || backups[0].Meta.Source != "upgrade" || backups[0].Kind != "database" || !strings.Contains(backups[0].Meta.Note, "10.11 → 11") {
+	if err != nil || len(backups) != 1 || backups[0].Meta.Source != "upgrade" || backups[0].Kind != "database" || !strings.Contains(backups[0].Meta.Note, "10.11 → 11.4") {
 		t.Fatalf("upgrade backup: %+v, %v", backups, err)
 	}
 	// Without a dump no upgrade.
@@ -275,19 +275,19 @@ func TestAddChangeAndRemoveDatabase(t *testing.T) {
 	e.engine.StreamHandler = func(container string, cmd []string, env []string, stdin []byte) (string, int, error) {
 		return "", 1, nil
 	}
-	if _, err := e.m.Update(ctx, id, UpdateRequest{Database: &DatabaseUpdate{Enabled: true, Version: "11.4", ExposePort: true}}); err == nil || !strings.Contains(err.Error(), "upgrade refused") {
+	if _, err := e.m.Update(ctx, id, UpdateRequest{Database: &DatabaseUpdate{Enabled: true, Version: "11", ExposePort: true}}); err == nil || !strings.Contains(err.Error(), "upgrade refused") {
 		t.Fatalf("upgrade without a dump must be refused, got %v", err)
 	}
-	if view, _ := e.m.Get(ctx, id); view.Project.Service(store.ServiceDatabase).Version != "11" {
+	if view, _ := e.m.Get(ctx, id); view.Project.Service(store.ServiceDatabase).Version != "11.4" {
 		t.Fatal("refused upgrade must not change the recorded version")
 	}
 	// A stopped database is started for the dump and stopped again, so the upgrade of a
 	// stopped project goes ahead.
 	e.engine.StreamHandler = nil
-	if _, err := e.m.Update(ctx, id, UpdateRequest{Database: &DatabaseUpdate{Enabled: true, Version: "11.4", ExposePort: true}}); err != nil {
+	if _, err := e.m.Update(ctx, id, UpdateRequest{Database: &DatabaseUpdate{Enabled: true, Version: "11", ExposePort: true}}); err != nil {
 		t.Fatalf("upgrade of a stopped database: %v", err)
 	}
-	if view, _ := e.m.Get(ctx, id); view.Project.Service(store.ServiceDatabase).Version != "11.4" {
+	if view, _ := e.m.Get(ctx, id); view.Project.Service(store.ServiceDatabase).Version != "11" {
 		t.Fatal("the upgrade must record the new version")
 	}
 	if c, ok := e.engine.Container("envoryx-grow-database"); ok && c.State == "running" {

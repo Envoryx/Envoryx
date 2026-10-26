@@ -721,7 +721,7 @@ func (m *Manager) applyDatabaseUpdate(ctx context.Context, p store.Project, kind
 		if err != nil {
 			return false, err
 		}
-		if runtime.CompareVersions(v.Version, svc.Version) < 0 {
+		if m.catalog.CompareDatabaseVersions(svc.Variant, v.Version, svc.Version) < 0 {
 			return false, fmt.Errorf("%w: downgrading %s from %s to %s is not supported by the data format", validate.ErrInvalid, svc.Variant, svc.Version, v.Version)
 		}
 		if !m.catalog.UpgradesInPlace(svc.Variant, svc.Version, v.Version) {
