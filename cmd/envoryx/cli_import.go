@@ -9,6 +9,7 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -246,6 +247,12 @@ func (c *cli) importSite(ctx context.Context, args []string) error {
 	}
 	if err := api.post(ctx, "/api/v1/projects", req, &body); err != nil {
 		discard()
+		// The analysis picked the site's database; the plan may leave that engine out.
+		var ae *apiError
+		if errors.As(err, &ae) && ae.Code == "plan_limit" && *database == "" && req.Database != nil &&
+			strings.Contains(strings.ToLower(ae.Message), strings.ToLower(req.Database.Type)) {
+			return fmt.Errorf("%w; import it with --database TYPE for an engine the plan includes, or --database none", err)
+		}
 		return err
 	}
 	if c.json {

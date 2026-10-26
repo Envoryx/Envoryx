@@ -147,6 +147,29 @@ func TestImportDryRunDiscardsTheUpload(t *testing.T) {
 	}
 }
 
+// A site whose database engine the plan leaves out is refused with the way around it.
+func TestImportSaysHowToGetPastAPlanWithoutTheDatabase(t *testing.T) {
+	archive := filepath.Join(t.TempDir(), "wp.zip")
+	_ = os.WriteFile(archive, []byte("PK\x03\x04"), 0o644)
+	srv := newFakeServer(t, map[string]func(http.ResponseWriter, *http.Request){
+		"POST /api/v1/site-imports": func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusCreated)
+			writeJSON(w, map[string]any{"import": map[string]any{"id": "66666666-6666-4666-8666-666666666666", "siteName": "wp.zip",
+				"analysis": map[string]any{"files": 1, "framework": map[string]any{"id": "wordpress", "name": "WordPress"}, "runtime": "php", "database": "mariadb", "notices": []any{}}}})
+		},
+		"DELETE /api/v1/site-imports/{id}": func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusNoContent) },
+		"POST /api/v1/projects": func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusForbidden)
+			writeJSON(w, map[string]any{"error": map[string]any{"code": "plan_limit", "message": "not included in the plan: MariaDB is not available on this instance"}})
+		},
+	})
+	c, _, _ := newTestCLI(t, srv, "")
+	err := c.run(context.Background(), []string{"import", archive, "Blog"})
+	if err == nil || !strings.Contains(err.Error(), "--database TYPE") || !strings.Contains(err.Error(), "--database none") {
+		t.Fatalf("import: %v", err)
+	}
+}
+
 func TestImportRestoresAnUploadedBackup(t *testing.T) {
 	archive := filepath.Join(t.TempDir(), "shop-20261010-084321-4ed7a89e.tar")
 	_ = os.WriteFile(archive, []byte("tar"), 0o644)
