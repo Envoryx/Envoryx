@@ -1,6 +1,6 @@
 import type { TFunction } from "i18next";
 import type { RuntimeVersion } from "@/api/types";
-import { translateMessage } from "@/lib/errors";
+import { translateSentence } from "@/lib/errors";
 
 /**
  * The options of a version select. A version the Docker host cannot run (the server marks
@@ -44,7 +44,7 @@ export function versionBelow(version: string, min: string | undefined): boolean 
  */
 export function unavailableHint(versions: RuntimeVersion[], t: TFunction, anyHost = false, keep?: string): string {
   if (anyHost) return "";
-  const reasons = [...new Set(versions.filter((v) => v.unavailable && v.unavailableReason && v.version !== keep).map((v) => translateMessage(v.unavailableReason, t)))];
+  const reasons = [...new Set(versions.filter((v) => v.unavailable && v.unavailableReason && v.version !== keep).map((v) => translateSentence(v.unavailableReason, t)))];
   return reasons.length ? reasons.join(". ") + "." : "";
 }
 

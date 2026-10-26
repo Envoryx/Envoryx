@@ -9,7 +9,7 @@ import "@xterm/xterm/css/xterm.css";
 import i18n from "@/i18n";
 import type { Project } from "@/api/types";
 import { Button, Card } from "@/components/ui";
-import { translateMessage } from "@/lib/errors";
+import { translateSentence } from "@/lib/errors";
 import { serviceLabel } from "@/lib/format";
 
 type SessionState = "connecting" | "open" | "closed" | "error";
@@ -152,7 +152,7 @@ export function TerminalTab({ project }: { project: Project }) {
       </div>
       {message && (
         <p className="border-b border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs text-red-600 dark:text-red-400" role="alert">
-          {translateMessage(message, t)}
+          {translateSentence(message, t)}
         </p>
       )}
       {!running ? (

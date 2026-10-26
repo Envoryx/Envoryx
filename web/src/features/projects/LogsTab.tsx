@@ -6,7 +6,7 @@ import { useSearchParams } from "react-router-dom";
 import { api } from "@/api/client";
 import type { LogLevel, Project } from "@/api/types";
 import { Badge, Button, Card, Input, Select } from "@/components/ui";
-import { translateMessage } from "@/lib/errors";
+import { translateSentence } from "@/lib/errors";
 import { serviceLabel } from "@/lib/format";
 import { downloadClass, LogHistory } from "./LogHistory";
 import { type LineFilter, lineMatches, LogLinesTable, type ShownLine } from "./LogLines";
@@ -220,7 +220,7 @@ function LiveLogs({ project, kind }: { project: Project; kind: string }) {
       </div>
       {error && (
         <p className="border-b border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs text-red-600 dark:text-red-400" role="alert">
-          {translateMessage(error, t)}
+          {translateSentence(error, t)}
         </p>
       )}
       <div ref={viewport} onScroll={onScroll} className="relative flex-1 overflow-auto bg-[#0f1115] font-mono text-[12px] leading-5 text-zinc-200" aria-live="off">

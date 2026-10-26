@@ -8,7 +8,7 @@ import type { GitResult, Project } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Code, Field, Input, Spinner } from "@/components/ui";
 import { copyText } from "@/lib/clipboard";
 import { formatDateTime } from "@/lib/format";
-import { errorText, translateMessage } from "@/lib/errors";
+import { errorText, translateSentence } from "@/lib/errors";
 import { gitUrlError } from "@/lib/gitUrl";
 import { ManifestCard } from "./ManifestCard";
 import { useAuth } from "@/features/auth/AuthContext";
@@ -218,7 +218,7 @@ export function GitTab({ project }: { project: Project }) {
             <p className="text-sm text-muted">{st?.configured ? t("The project directory is not a git repository yet. Clone the repository into the empty project directory.") : t("No repository configured.")}</p>
           ) : (
             <div className="space-y-4">
-              {st.error && <Alert tone="red">{translateMessage(st.error, t)}</Alert>}
+              {st.error && <Alert tone="red">{translateSentence(st.error, t)}</Alert>}
               <dl className="grid gap-x-8 gap-y-2 text-sm sm:grid-cols-[10rem_1fr]">
                 <dt className="text-muted">{t("Branch")}</dt>
                 <dd className="flex items-center gap-2">

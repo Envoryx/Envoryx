@@ -9,7 +9,7 @@ import type { ManifestChange, ManifestPlan, Project } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Checkbox, Code, Spinner } from "@/components/ui";
 import { copyText } from "@/lib/clipboard";
 import { projectAccess } from "@/lib/access";
-import { errorText, translateMessage } from "@/lib/errors";
+import { errorText, translateSentence } from "@/lib/errors";
 
 /** Product names stay as they are; the rest of the sections is translated. */
 function sectionLabel(section: string, t: TFunction): string {
@@ -195,7 +195,7 @@ export function ManifestCard({ project }: { project: Project }) {
           </div>
         ) : repo.error ? (
           <Alert tone="red" title={t("The envoryx.yml in the project directory cannot be used")}>
-            {translateMessage(repo.error, t)}
+            {translateSentence(repo.error, t)}
           </Alert>
         ) : plan?.inSync ? (
           <div className="flex flex-wrap items-center gap-3">

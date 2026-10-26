@@ -5,7 +5,7 @@ import type { TFunction } from "i18next";
 import type { FleetInfo, PlanContainerLimits, PlanFeature } from "@/api/types";
 import { usePlan, usePlanAllows } from "@/api/hooks";
 import { Alert, Badge, Card, CardHeader, StatusDot } from "@/components/ui";
-import { translateMessage } from "@/lib/errors";
+import { translateSentence } from "@/lib/errors";
 import { formatBytes, formatDateTime } from "@/lib/format";
 
 /** Display names of the features a plan can switch off (translated where shown). */
@@ -143,7 +143,7 @@ function FleetLine({ fleet }: { fleet: FleetInfo }) {
         <Badge tone={fleet.connected ? "green" : "amber"}>{fleet.connected ? t("connected") : t("not connected")}</Badge>
         {!fleet.connected && fleet.lastContact && <span className="text-xs text-muted">{t("last contact {{time}}", { time: formatDateTime(fleet.lastContact) })}</span>}
       </p>
-      {fleet.error && <Alert tone="amber">{translateMessage(fleet.error, t)}</Alert>}
+      {fleet.error && <Alert tone="amber">{translateSentence(fleet.error, t)}</Alert>}
     </div>
   );
 }

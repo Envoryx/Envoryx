@@ -1,7 +1,7 @@
 import { formatBytes, serviceLabel } from "@/lib/format";
 import type { TFunction } from "i18next";
 import type { AuditEntry } from "@/api/types";
-import { translateMessage } from "@/lib/errors";
+import { translateMessage, translateSentence } from "@/lib/errors";
 
 /** English labels for the backend's audit actions; translated on the client like other keys. */
 export const auditActionLabels: Record<string, string> = {
@@ -205,7 +205,7 @@ export function auditDetails(e: AuditEntry, t: TFunction): string {
     case "project.worker_restarted":
       return [d["name"], d["worker"]].filter((v) => typeof v === "string").join(" · ");
     case "auth.login_failed":
-      return typeof d["reason"] === "string" ? translateMessage(d["reason"], t) : "-";
+      return typeof d["reason"] === "string" ? translateSentence(d["reason"], t) : "-";
     case "backup.failed":
       return [d["name"], d["source"] === "scheduled" ? t("scheduled") : "", typeof d["error"] === "string" ? translateMessage(d["error"], t) : ""].filter((v) => typeof v === "string" && v !== "").join(" · ");
     case "instance.updated":

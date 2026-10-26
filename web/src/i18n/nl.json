@@ -3734,5 +3734,6 @@
   "No projects for you yet": "Nog geen projecten voor jou",
   "You have no access to any project yet. An admin of this instance can give you a role in one.": "Je hebt nog geen toegang tot een project. Een beheerder van deze instantie kan je een rol in een project geven.",
   "Your role allows tokens up to {{scope}}.": "Je rol staat tokens toe tot en met {{scope}}.",
-  "Your role allows no API tokens yet.": "Je rol staat nog geen API-tokens toe."
+  "Your role allows no API tokens yet.": "Je rol staat nog geen API-tokens toe.",
+  "invalid credentials": "onjuiste gebruikersnaam of onjuist wachtwoord"
 }

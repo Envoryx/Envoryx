@@ -39,6 +39,9 @@ describe("audit helpers", () => {
     await i18n.changeLanguage("de");
     try {
       expect(auditDetails(updated({ domainAdded: "shop.example.com" }), t)).toBe("ui-empty · Domain hinzugefügt");
+      // A failed sign-in's reason is the server's English text: translated, as a sentence.
+      expect(auditDetails(entry({ action: "auth.login_failed", details: { reason: "invalid credentials" } }), t)).toBe("Falscher Benutzername oder falsches Passwort");
+      expect(auditDetails(entry({ action: "auth.login_failed", details: { reason: "the current password is wrong" } }), t)).toBe("Das aktuelle Passwort ist falsch");
     } finally {
       await i18n.changeLanguage("en");
     }

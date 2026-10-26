@@ -13,7 +13,7 @@ import type { ReactNode } from "react";
 import { ProjectRow } from "@/features/projects/ProjectsPage";
 import { NewProjectButton } from "@/features/projects/NewProjectButton";
 import { diagnosticsSummary } from "@/features/settings/DiagnosticsTab";
-import { errorText, translateMessage } from "@/lib/errors";
+import { errorText, translateMessage, translateSentence } from "@/lib/errors";
 
 /** Everything that wants attention, in one box: set-up check, update, inconsistencies, what Envoryx did alone. */
 function DashboardNotices({ d, admin }: { d: Dashboard; admin: boolean }) {
@@ -97,7 +97,7 @@ function SystemCard({ d, admin }: { d: Dashboard; admin: boolean }) {
             {d.docker.connected ? d.docker.serverVersion : t("Unreachable")}
           </span>
         </SystemRow>
-        {!d.docker.connected && <p className="text-xs text-red-500">{translateMessage(d.docker.error, t)}</p>}
+        {!d.docker.connected && <p className="text-xs text-red-500">{translateSentence(d.docker.error, t)}</p>}
         {d.docker.connected && (
           <>
             <SystemRow label={t("CPU")}>

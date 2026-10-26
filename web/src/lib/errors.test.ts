@@ -1,6 +1,6 @@
 import i18n from "@/i18n";
 import { ApiError } from "@/api/client";
-import { errorText, localClock, translateMessage } from "./errors";
+import { errorText, localClock, translateMessage, translateSentence } from "./errors";
 
 describe("translateMessage", () => {
   beforeAll(() => i18n.changeLanguage("de"));
@@ -184,7 +184,19 @@ describe("translateMessage", () => {
   it("returns the raw English text when English is active", async () => {
     await i18n.changeLanguage("en");
     expect(translateMessage('invalid input: unknown template "laravel"', t)).toBe('invalid input: unknown template "laravel"');
+    // The prefix stays also in front of a message with no template, as in the other languages.
+    expect(translateMessage("invalid input: worker name must be 1-32 lowercase letters", t)).toBe("invalid input: worker name must be 1-32 lowercase letters");
+    expect(errorText(new ApiError(403, "wrong_password", "the current password is wrong"), t)).toBe("the current password is wrong");
     await i18n.changeLanguage("de");
+  });
+
+  it("starts a translated message shown on its own with a capital letter", () => {
+    expect(errorText(new ApiError(403, "wrong_password", "the current password is wrong"), t)).toBe("Das aktuelle Passwort ist falsch");
+    expect(translateSentence("the current password is wrong", t)).toBe("Das aktuelle Passwort ist falsch");
+    // A value at the start keeps its case.
+    expect(translateSentence("composer.json not found in project", t)).toBe("composer.json wurde im Projekt nicht gefunden");
+    // Inside a sentence it stays as it is.
+    expect(translateMessage("the current password is wrong", t)).toBe("das aktuelle Passwort ist falsch");
   });
 });
 

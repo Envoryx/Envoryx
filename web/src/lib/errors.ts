@@ -485,7 +485,9 @@ export function translateMessage(msg: string | undefined | null, t: TFunction): 
   // The bare kind of error ("conflict: …", "…: not found") adds nothing to the message that
   // explains it. Next to a part that stays English it would only glue a translated word to
   // an English sentence ("Konflikt: a project named …"), so it is left out then.
-  const mixed = parts.some(({ p, tr }) => tr === undefined && !sentinels.has(p));
+  // In English nothing is glued together, so the message stays whole, prefix and all, as it
+  // does in the other languages.
+  const mixed = !english() && parts.some(({ p, tr }) => tr === undefined && !sentinels.has(p));
   return parts
     .filter(({ p }) => !mixed || !sentinels.has(p))
     .map(({ p, tr }) => tr ?? p)
@@ -494,12 +496,33 @@ export function translateMessage(msg: string | undefined | null, t: TFunction): 
 
 const sentinels = new Set(["conflict", "not found", "invalid input"]);
 
+const english = () => (i18n.resolvedLanguage ?? i18n.language ?? "en").startsWith("en");
+
+/**
+ * A translated server message shown on its own, as a sentence: with a capital first letter.
+ * The translations of the server's messages start in lower case like the English originals,
+ * so they also fit after a colon ("failed: {{error}}"); English keeps the server's wording.
+ */
+export function sentence(text: string, original?: string): string {
+  if (english() || !text) return text;
+  // Only a plain word: a value at the start ("composer.json …", "php8.4 …") keeps its case,
+  // and so does a word the translation took over from the server's text unchanged.
+  const first = /^\p{Ll}\p{L}*(?=[\s,;:]|$)/u.exec(text)?.[0];
+  if (!first || (original !== undefined && /^\S+/.exec(original)?.[0] === first)) return text;
+  return first.charAt(0).toLocaleUpperCase(i18n.resolvedLanguage) + text.slice(1);
+}
+
+/** translateMessage for a message shown on its own: as a sentence. */
+export function translateSentence(msg: string | undefined | null, t: TFunction): string {
+  return sentence(translateMessage(msg, t), msg ?? "");
+}
+
 
 /**
  * Text for an error caught from the API client: the server's message, translated, or the
  * fallback when the request never reached the server.
  */
 export function errorText(err: unknown, t: TFunction, fallback?: string): string {
-  if (err instanceof ApiError) return translateMessage(err.message, t);
+  if (err instanceof ApiError) return translateSentence(err.message, t);
   return fallback ?? t("The server could not be reached.");
 }

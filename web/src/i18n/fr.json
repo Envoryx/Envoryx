@@ -3734,5 +3734,6 @@
   "No projects for you yet": "Pas encore de projets pour vous",
   "You have no access to any project yet. An admin of this instance can give you a role in one.": "Vous n'avez encore accès à aucun projet. Un administrateur de cette instance peut vous donner un rôle dans l'un d'eux.",
   "Your role allows tokens up to {{scope}}.": "Votre rôle autorise des jetons jusqu'à {{scope}}.",
-  "Your role allows no API tokens yet.": "Votre rôle n'autorise pas encore de jetons d'API."
+  "Your role allows no API tokens yet.": "Votre rôle n'autorise pas encore de jetons d'API.",
+  "invalid credentials": "nom d'utilisateur ou mot de passe incorrect"
 }

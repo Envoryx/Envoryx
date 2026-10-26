@@ -6,7 +6,7 @@ import { api } from "@/api/client";
 import type { ACMEInfo, ACMEProviderInfo } from "@/api/types";
 import { Alert, Badge, Button, Checkbox, Code, Field, Input, Select, Spinner } from "@/components/ui";
 import { formatDateTime } from "@/lib/format";
-import { errorText, translateMessage } from "@/lib/errors";
+import { errorText, translateSentence } from "@/lib/errors";
 
 const key = ["tls", "acme"] as const;
 
@@ -146,7 +146,7 @@ export function AcmeForm({ baseDomain }: { baseDomain: string }) {
           </dl>
           {status.lastError && (
             <div className="mt-2">
-              <Alert tone="red" title={t("Last attempt failed")}>{translateMessage(status.lastError, t)}</Alert>
+              <Alert tone="red" title={t("Last attempt failed")}>{translateSentence(status.lastError, t)}</Alert>
             </div>
           )}
           {baseDomain !== status.domain && (

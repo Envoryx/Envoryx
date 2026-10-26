@@ -7,7 +7,7 @@ import { api } from "@/api/client";
 import { useProjectActions } from "@/api/hooks";
 import type { Project } from "@/api/types";
 import { Badge, Button } from "@/components/ui";
-import { translateMessage } from "@/lib/errors";
+import { translateSentence } from "@/lib/errors";
 import { projectAccess } from "@/lib/access";
 import { useLiveRun } from "./useLiveRun";
 
@@ -37,7 +37,7 @@ export function VsdbgInstall({ project: p, manualCommand }: { project: Project; 
   }, [state, p.id, qc]);
 
   const installed = version.data ? version.data : "";
-  const unavailable = action && !action.available ? translateMessage(action.reason, t) : "";
+  const unavailable = action && !action.available ? translateSentence(action.reason, t) : "";
 
   return (
     <div className="mt-3">

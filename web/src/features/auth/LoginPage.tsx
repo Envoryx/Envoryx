@@ -7,7 +7,7 @@ import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { Button, Field, Input, Alert } from "@/components/ui";
 import { LogoFull } from "@/layout/Logo";
 import { useAuth, type PasskeyRequest } from "./AuthContext";
-import { errorText, translateMessage } from "@/lib/errors";
+import { errorText, translateSentence } from "@/lib/errors";
 import { passkeyCancelled, passkeysAvailable } from "@/lib/webauthn";
 
 // The rescue commands (envoryx admin …) live in the container shell; the page can only point
@@ -29,7 +29,7 @@ export function LoginPage({ mode }: { mode: "login" | "setup" }) {
   const [error, setError] = useState<string | null>(() => {
     if (!new URLSearchParams(location.search).has("sso_error")) return null;
     const reason = takeSsoError();
-    return reason ? translateMessage(reason, t) : t("Single sign-on failed.");
+    return reason ? translateSentence(reason, t) : t("Single sign-on failed.");
   });
   const [busy, setBusy] = useState(false);
   const [sso, setSso] = useState<{ enabled: boolean; name?: string } | null>(null);

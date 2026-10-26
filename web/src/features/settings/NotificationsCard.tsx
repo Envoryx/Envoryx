@@ -6,7 +6,7 @@ import { api } from "@/api/client";
 import type { NotifyConfig } from "@/api/types";
 import { Alert, Button, Card, CardHeader, Checkbox, Field, Input, Select, Spinner } from "@/components/ui";
 import { formatDateTime } from "@/lib/format";
-import { errorText, translateMessage } from "@/lib/errors";
+import { errorText, translateSentence } from "@/lib/errors";
 
 const key = ["notifications"] as const;
 
@@ -85,7 +85,7 @@ export function NotificationsCard() {
       />
       <form onSubmit={submit} className="space-y-4 p-5">
         {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
-        {st.lastError && <Alert tone="amber" title={t("Last delivery failed")}>{translateMessage(st.lastError, t)}</Alert>}
+        {st.lastError && <Alert tone="amber" title={t("Last delivery failed")}>{translateSentence(st.lastError, t)}</Alert>}
         <Checkbox label={t("Enable notifications")} checked={form.enabled} onChange={(e) => set({ enabled: e.target.checked })} />
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label={t("Channel")} htmlFor="notify-provider" hint={hints[form.provider] ? t(hints[form.provider]!) : undefined}>

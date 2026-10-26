@@ -7,7 +7,7 @@ import { usePlanAllows } from "@/api/hooks";
 import { NotInPlan } from "@/features/plan/PlanCard";
 import type { ExampleAddon, InstalledAddon } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, Dialog, ErrorState, Field, Input, Spinner, type Tone } from "@/components/ui";
-import { errorText, translateMessage } from "@/lib/errors";
+import { errorText, translateSentence } from "@/lib/errors";
 import { useAuth } from "@/features/auth/AuthContext";
 import { SupportRefusedNote } from "./SupportAccessCard";
 
@@ -118,7 +118,7 @@ export function AddonsCard() {
                     <span className="font-mono text-xs text-subtle">{a.name}</span>
                     {a.error ? <Badge tone="red">{t("invalid")}</Badge> : <Badge tone="gray">{a.versions.map((v) => v.version).join(", ")}</Badge>}
                   </div>
-                  {a.error ? <p className="text-xs text-red-600 dark:text-red-400">{translateMessage(a.error, t)}</p> : a.description && <p className="text-xs text-muted">{t(a.description)}</p>}
+                  {a.error ? <p className="text-xs text-red-600 dark:text-red-400">{translateSentence(a.error, t)}</p> : a.description && <p className="text-xs text-muted">{t(a.description)}</p>}
                   {a.projects.length > 0 && <p className="text-xs text-subtle">{t("Used by {{projects}}", { projects: a.projects.join(", ") })}</p>}
                 </div>
                 <div className="flex gap-2">

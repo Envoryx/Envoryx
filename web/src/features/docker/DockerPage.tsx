@@ -8,7 +8,7 @@ import { keys, useDockerOverview } from "@/api/hooks";
 import type { ContainerSummary, Orphan } from "@/api/types";
 import { Alert, Badge, Button, Card, CardHeader, ErrorState, PageHeader, Spinner, StatusDot } from "@/components/ui";
 import { containerStateLabel, containerStateTone, formatBytes, formatRelative } from "@/lib/format";
-import { errorText, translateMessage } from "@/lib/errors";
+import { errorText, translateSentence } from "@/lib/errors";
 import { SectionLayout, type SectionGroup } from "@/components/SectionNav";
 import { settingsHref } from "@/features/settings/links";
 
@@ -283,7 +283,7 @@ export function DockerPage() {
       {!d.info.connected && (
         <div className="mb-6">
           <Alert tone="red" title={t("Docker engine unreachable")}>
-            {translateMessage(d.info.error, t)}
+            {translateSentence(d.info.error, t)}
           </Alert>
         </div>
       )}

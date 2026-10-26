@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useSettingLocked, useSettings, useUpdateSettings } from "@/api/hooks";
 import { LockedHint } from "@/features/plan/PlanCard";
 import { Alert, Badge, Card, CardHeader, Checkbox, ErrorState, Field, Select, Spinner } from "@/components/ui";
-import { errorText, translateMessage } from "@/lib/errors";
+import { errorText, translateSentence } from "@/lib/errors";
 import { formatDateTime } from "@/lib/format";
 
 /** The daily check for newer builds of the projects' images and the optional restart that applies them. */
@@ -63,7 +63,7 @@ export function ImageUpdatesCard() {
                 ? t("Last checked {{time}}, images with a newer build: {{n}}", { time: formatDateTime(info.check.checkedAt), n: info.check.newer.length })
                 : t("Not checked yet: the first check runs a few minutes after Envoryx starts.")}
             </p>
-            {info.check.error && <Alert tone="amber">{translateMessage(info.check.error, t)}</Alert>}
+            {info.check.error && <Alert tone="amber">{translateSentence(info.check.error, t)}</Alert>}
           </>
         ) : null}
       </div>

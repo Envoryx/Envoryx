@@ -3800,5 +3800,6 @@
   "No projects for you yet": "У вас поки немає проєктів",
   "You have no access to any project yet. An admin of this instance can give you a role in one.": "У вас поки немає доступу до жодного проєкту. Адміністратор цього екземпляра може надати вам роль в одному з них.",
   "Your role allows tokens up to {{scope}}.": "Ваша роль дозволяє токени до рівня {{scope}}.",
-  "Your role allows no API tokens yet.": "Ваша роль поки не дозволяє API-токени."
+  "Your role allows no API tokens yet.": "Ваша роль поки не дозволяє API-токени.",
+  "invalid credentials": "неправильне ім'я користувача або пароль"
 }

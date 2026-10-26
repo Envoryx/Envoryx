@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import { keys, useOperations } from "@/api/hooks";
 import type { Operation } from "@/api/types";
 import { elapsedSeconds, operationDone, operationStep, operationTitle, operationVerb } from "@/lib/operations";
-import { translateMessage } from "@/lib/errors";
+import { translateSentence } from "@/lib/errors";
 import { useAuth } from "@/features/auth/AuthContext";
 
 const SUCCESS_VISIBLE_MS = 8000;
@@ -105,7 +105,7 @@ function OperationCard({ op, onDismiss, t }: { op: Operation; onDismiss: () => v
         <div className="min-w-0 flex-1">
           <p className="font-medium text-fg">{failed ? t("{{title}} failed", { title: operationTitle(op, t) }) : finished ? operationDone(op, t) : operationTitle(op, t)}</p>
           {failed ? (
-            <p className="mt-0.5 break-words text-xs text-red-600 dark:text-red-400">{translateMessage(op.error, t)}</p>
+            <p className="mt-0.5 break-words text-xs text-red-600 dark:text-red-400">{translateSentence(op.error, t)}</p>
           ) : finished ? null : (
             <p className="mt-0.5 break-words text-xs text-muted">
               {operationStep(op, t) || t("Working…")}

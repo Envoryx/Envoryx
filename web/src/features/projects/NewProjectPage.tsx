@@ -24,7 +24,7 @@ import { TemplateGallery, runtimeNames, templateRuntime } from "./TemplateGaller
 import { WizardSummary, type SummaryRow } from "./WizardSummary";
 import { webServerHint } from "./webServers";
 import { unavailableHint, versionBelow, versionOptions } from "./versionOptions";
-import { errorText, translateMessage } from "@/lib/errors";
+import { errorText, translateSentence } from "@/lib/errors";
 import { slugify } from "@/lib/format";
 import { gitUrlError } from "@/lib/gitUrl";
 
@@ -1073,7 +1073,7 @@ export function NewProjectPage() {
             <Alert tone="amber">
               <ul className="list-disc pl-4">
                 {preview.warnings.map((w, i) => (
-                  <li key={i}>{translateMessage(w, t)}</li>
+                  <li key={i}>{translateSentence(w, t)}</li>
                 ))}
               </ul>
             </Alert>

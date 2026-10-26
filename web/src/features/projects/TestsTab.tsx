@@ -6,7 +6,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/client";
 import type { Project, TestRun, TestSuite } from "@/api/types";
 import { Badge, Button, Card, CardHeader, Code, ErrorState, Input, Spinner } from "@/components/ui";
-import { errorText, translateMessage } from "@/lib/errors";
+import { errorText, translateMessage, translateSentence } from "@/lib/errors";
 import { projectAccess } from "@/lib/access";
 import { formatDateTime, formatNumber } from "@/lib/format";
 import { useLiveRun } from "./useLiveRun";
@@ -152,12 +152,12 @@ export function TestsTab({ project }: { project: Project }) {
                       <span className="block truncate font-mono text-[11px] text-subtle">{s.cmd.join(" ")}</span>
                     </span>
                     {canRun && (
-                      <Button size="sm" variant="primary" icon={<Play className="size-3.5" />} disabled={!s.available || running} title={s.available ? undefined : translateMessage(s.reason, t)} onClick={() => start(s)}>
+                      <Button size="sm" variant="primary" icon={<Play className="size-3.5" />} disabled={!s.available || running} title={s.available ? undefined : translateSentence(s.reason, t)} onClick={() => start(s)}>
                         {t("Run")}
                       </Button>
                     )}
                   </div>
-                  {!s.available && s.reason && <p className="text-xs text-amber-700 dark:text-amber-400">{translateMessage(s.reason, t)}</p>}
+                  {!s.available && s.reason && <p className="text-xs text-amber-700 dark:text-amber-400">{translateSentence(s.reason, t)}</p>}
                   {canRun && s.filterHint && s.available && (
                     <Input
                       aria-label={t("Filter for {{suite}}", { suite: s.label })}
